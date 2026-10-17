@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -54,7 +54,7 @@ El ícono de calendario de `frontend/src/layout/Layout.tsx` **no** es este módu
 | `GET /movil/cocina/:quotationId/marcas` | `MovilController.marcas` | `MovilService.marcasCocina` | `getMarcas` en `eventia-movil/src/services/datos.ts` | Sesión |
 | `POST /movil/cocina/:quotationId/marcas` | `MovilController.marcar` (`MarcarDto`: `clave`, `marcado`) | `MovilService.marcarCocina` | `marcar` en `eventia-movil/src/services/datos.ts` | Sesión |
 | `POST /storage/upload` (multipart: `file`, `kind` y los ids que pida el tipo) | `StorageController.upload` con `FileInterceptor('file')` | `StorageService.upload` | `subir` en `frontend/src/services/storage.service.ts`, a través de: `uploadPaymentReceipt` y `uploadRefundReceipt` ← `PostVentaPage`; `uploadEventDocument` ← `PostVentaPage`, `NegocioPage` (en `AdjuntosComerciales` de `SeguimientoPanel`); `uploadCompanyLogo` y `uploadCompanyBanner` ← `CompanyConfiguration`; `uploadCampaignBanner` ← `MarketingPage` y `CampanaFichaPage` (en `CampanaMarcaPropia`); `uploadFurniturePhoto` ← `InventarioPage` (en `MobiliarioTab`); `uploadConsultaBrochure` ← `ConsultasPage` (en `PanelDeCorreo`) | Sesión, sin `@Roles` |
-| `GET /storage/signed-url?src=` | `StorageController.signedUrl` (`SignedUrlDto`) | `StorageService.signedUrl` | `resolveStorageUrl` ← `PostVentaPage` (directo y a través del componente `FileViewLink`) y `NegocioPage` (en `AdjuntosComerciales` de `SeguimientoPanel`) | Sesión |
+| `GET /storage/signed-url?src=` | `StorageController.signedUrl` (`SignedUrlDto`) | `StorageService.signedUrl` | `resolveStorageUrl` ← `PostVentaPage` (directo y a través del componente `FileViewLink`), `NegocioPage` (en `AdjuntosComerciales` de `SeguimientoPanel`) y las bases y anexos de Oportunidades (`AdjuntosDeLaOportunidad`, con `FileViewLink` y al descargar; mapa 24) | Sesión |
 | `POST /storage/delete` | `StorageController.remove` (`SignedUrlDto`) | `StorageService.remove` | `deleteStorageFileByUrl` (y su alias `deletePaymentReceipt`), desde `PostVentaPage` | Sesión |
 | `GET /health` | `HealthController.check` | Sin service. Responde `status`, `version` (7 caracteres de `RAILWAY_GIT_COMMIT_SHA` o "desarrollo"), `uptime_seconds` y `timestamp` | Nadie en el repo. Sirve a personas y al monitoreo (mapa 19) | `@Public()`, solo con el techo global |
 
@@ -84,7 +84,7 @@ Ninguna de estas rutas tiene `@Throttle` propio: todas quedan bajo el techo glob
 | `companies` | `high_value_threshold`: el umbral de la estrella de alto valor | Solo lectura, en la app, desde `useAuth().company` | `60_umbral_alto_valor.sql` |
 | `payments` y `payment_transactions` | Cuotas y abonos | Lee `MovilService.avisosDeEmpresa` para la regla de pago vencido | mapa 03 |
 | `clients` | Nombre del cliente | Leída por join desde el calendario y los avisos | mapa 09 |
-| Todas las tablas de `public` | — | Lee `BackupCronService.runBackup`, de a 1000 filas, con la lista que entrega la función SQL `get_backup_tables()` | La función **no** está en `docs/migrations` |
+| Todas las tablas de `public`, salvo `mp_procesos` (`FUERA_DEL_RESPALDO`, 17-10-2026) | — | Lee `BackupCronService.runBackup`, de a 1000 filas, con la lista que entrega la función SQL `get_backup_tables()` | La función **no** está en `docs/migrations` |
 
 Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 
@@ -216,7 +216,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 
 **Infraestructura**
 - **Los relojes corren solo en producción.** Evidencia: `ScheduleModule.forRoot({ cronJobs: process.env.NODE_ENV === 'production' })` en `app.module.ts`, desde el commit `50f31de` (21-10-2025). Lo repiten los documentos 11 y 12.
-- **Respaldo automático diario, "pedido por Felipe" (23-07-2026).** A las 07:00 UTC, más uno al arrancar si falta el del día; 30 días de retención; las tablas nuevas entran solas. Evidencia: cabecera de `backup-cron.service.ts`.
+- **Respaldo automático diario, "pedido por Felipe" (23-07-2026).** A las 07:00 UTC, más uno al arrancar si falta el del día; 30 días de retención; las tablas nuevas entran solas, salvo las de `FUERA_DEL_RESPALDO` (desde el 17-10-2026, `mp_procesos`: datos públicos de Mercado Público que crecen con todo Chile, mapa 24 §8). Evidencia: cabecera de `backup-cron.service.ts`.
 - **Una sola puerta para archivos (misión storage, 28-07).** "el navegador NUNCA elige la ruta final". El balde de comprobantes es privado (antes "cualquiera con el enlace veía un comprobante bancario"). El enlace firmado dura 5 minutos, "corto a propósito". Evidencia: cabeceras de `storage.service.ts` y `upload-file.dto.ts`; `42_storage_candado.sql`.
 - **Sin configuración crítica, el servidor no parte.** La lección: "RESEND_API_KEY faltó 5 días y el servidor partió igual, fallando después en silencio". Evidencia: `validate-env.ts`.
 - **Registros sin datos sensibles (Fase 3, 28-07).** "Ante la duda, un campo se tapa: la verbosidad se recupera fácil; una contraseña filtrada, no". Evidencia: `logging/log-safe.ts` y el `redact` de `app.module.ts`.
@@ -265,6 +265,7 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | Cada minuto (`CronExpression.EVERY_MINUTE`) | — | `api-rest/src/consultas/consultas-cron.service.ts`, `ConsultasCronService.despachar` → `ConsultasService.despacharPendientes` | Manda el brochure de las consultas cuya hora citada ya llegó (10 minutos después de entrar) | 11 |
 | Cada minuto (`CronExpression.EVERY_MINUTE`) | — | `api-rest/src/marketing/marketing-cron.service.ts`, `MarketingCronService.despacharProgramadas` | Despacha las campañas programadas cuya hora llegó, con el candado `tomarProgramada` | 10 |
 | Cada 30 minutos (`'*/30 * * * *'`) | — | `api-rest/src/movil/movil.service.ts`, `MovilService.cicloAvisos` | Calcula y empuja los 4 avisos push; dormido sin llaves VAPID | 16 |
+| Cada 2 horas, a los 7 minutos (`'7 */2 * * *'`), desde el 16-10-2026 en la rama `feature/oportunidades-radar` (sin aplicar) | cada 2 horas, a los :07 | `api-rest/src/oportunidades/oportunidades-cron.service.ts`, `OportunidadesCronService.radarProgramado` → `RadarService.correr('reloj')` | El radar de Mercado Público: trae lo nuevo, anota cierres movidos y reaperturas, y lee con IA lo de las regiones de cada empresa. Candado en la base (`mp_radar_una_corriendo`), no en memoria. En el laboratorio: `POST /oportunidades/radar` o `OPORTUNIDADES_RADAR_AL_ARRANCAR=1` | 24 |
 | 01:00 UTC diario (`CronExpression.EVERY_DAY_AT_1AM`) | 21:00 / 22:00 del día anterior | `api-rest/src/payments/payments.service.ts`, `PaymentsService.updateOverduePayments` | Las cuotas `pendiente` con `due_date` ya cumplida pasan a `vencido` | 03 |
 | 07:00 UTC diario (`'0 7 * * *'`) | 03:00 / 04:00 | `api-rest/src/backup/backup-cron.service.ts`, `BackupCronService.dailyBackup` | Respaldo completo de la base al balde `backups` | 16 |
 | 11:00 UTC diario (`CronExpression.EVERY_DAY_AT_11AM`) | 07:00 / 08:00 | `api-rest/src/payments/payments-cron.service.ts`, `PaymentsCronService.checkUpcomingOverduePayments` | Recordatorio de cuotas pendientes que vencen en 3 días o hoy, al mandante y a los administradores | 03 y 12 |
@@ -282,6 +283,7 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | `ConsultasCronService.despachar` → `ConsultasService.despacharPendientes` | `consultas` | El filtro va **antes** de `tomarEnvio` |
 | `PaymentsCronService` (las dos vueltas de cobranza) | `post_venta` | — |
 | `MarketingCronService.despacharProgramadas` | `marketing` | El filtro va **antes** de `tomarProgramada` |
+| `OportunidadesCronService.radarProgramado` (rama `feature/oportunidades-radar`) | `oportunidades` | Lo filtra `OportunidadesRepository.empresasConModulo` con la misma `derechosDe`. Los datos públicos de Mercado Público se traen igual: lo que se filtra es a qué empresa se le lee |
 
 En los dos relojes que "toman" una fila con un candado (embudo y campañas) el filtro va **antes** de tomarla. Al revés —tomar primero y descartar después— la fila quedaría marcada como despachada sin que hubiera salido nada, y nadie sabría por qué. El detalle de qué trae cada plan está en el mapa 15, §5.8; el de los correos, en el 12.
 

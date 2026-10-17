@@ -43,6 +43,15 @@ const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
 const importMarketing = () => import("./pages/marketing/MarketingPage");
+const OportunidadesPage = lazy(
+  () => import("./pages/oportunidades/OportunidadesPage"),
+);
+const CompetidorPage = lazy(
+  () => import("./pages/oportunidades/CompetidorPage"),
+);
+const OportunidadFichaPage = lazy(
+  () => import("./pages/oportunidades/OportunidadFichaPage"),
+);
 const CampanaFichaPage = lazy(
   () => import("./pages/marketing/CampanaFichaPage"),
 );
@@ -376,6 +385,43 @@ function App() {
                     derecho="marketing"
                   >
                     <MarketingPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* Oportunidades - solo administrador y solo con el
+                  derecho: licitaciones y compras ágiles (doc 17). */}
+              <Route
+                path="oportunidades"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <OportunidadesPage />
+                  </PermissionGuard>
+                }
+              />
+              <Route
+                path="oportunidades/:id"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <OportunidadFichaPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* La ficha de un competidor: lo que ganó en las regiones
+                  de la empresa (doc 17 §5.3, sprint 2). */}
+              <Route
+                path="oportunidades/competidores/:rut"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <CompetidorPage />
                   </PermissionGuard>
                 }
               />

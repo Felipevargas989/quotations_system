@@ -18,6 +18,10 @@ const IMPORTANTES = [
   'PUBLIC_API_URL', // enlaces de baja del ambiente correcto
   'RESEND_WEBHOOK_SECRET', // sin él, producción RECHAZA los webhooks
   'MARKETING_BAJA_SECRET', // firma de la baja independiente de la API key
+  // Oportunidades (doc 17, 16-10): sin ellas el radar corre a medias y lo
+  // anota en su bitácora (mp_radar_corridas).
+  'MP_TICKET', // el ticket de Mercado PÚBLICO (no confundir con Mercado Pago)
+  'ANTHROPIC_API_KEY', // la lectura con IA de cada licitación
 ];
 
 export function validateEnv(): string[] {

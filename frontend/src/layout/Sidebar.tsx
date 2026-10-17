@@ -15,6 +15,7 @@ import {
   Megaphone,
   Inbox,
   Lock,
+  Radar,
 } from "lucide-react";
 import {
   canAccessSection,
@@ -144,6 +145,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       precargar: () => import("../pages/marketing/MarketingPage.tsx"),
     },
     {
+      // Licitaciones y compras ágiles de Mercado Público (doc 17). Solo
+      // administrador y solo con el derecho `oportunidades`.
+      name: "Oportunidades",
+      href: "/oportunidades",
+      icon: Radar,
+      section: "oportunidades",
+      precargar: () => import("../pages/oportunidades/OportunidadesPage.tsx"),
+    },
+    {
       name: "Calendario",
       href: "/calendar",
       icon: Calendar,
@@ -242,11 +252,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onFocus={() => {
                     if (!conCandado) item.precargar().catch(() => {});
                   }}
-                  title={
-                    conCandado
-                      ? "No está incluido en tu plan"
-                      : undefined
-                  }
+                  title={conCandado ? "No está incluido en tu plan" : undefined}
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
                     conCandado
                       ? "text-gray-400 hover:bg-gray-50"
