@@ -26,6 +26,8 @@ import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
 import { QuotationsService } from './quotations.service';
 import { RescateDelFormularioService } from './rescate-del-formulario.service';
+import { SeguimientoRepository } from './seguimiento/seguimiento.repository';
+import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { RescateDelFormularioService } from './rescate-del-formulario.service';
     // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
     GenerarCotizacionService,
     GenerarRepository,
+    SeguimientoConIAService,
+    SeguimientoRepository,
     QuotationsRepository,
     QuotationsCronService,
     EventDocumentsRepository,

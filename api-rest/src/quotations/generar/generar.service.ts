@@ -78,8 +78,9 @@ const sinServicios = (r: FilaDelRequerimiento): boolean =>
   (r.items?.variable_services?.length ?? 0) === 0 &&
   (r.items?.fixed_services?.length ?? 0) === 0;
 
-/** La falla es de la cuenta o del pedido, no de este requerimiento. */
-const esFallaDeLaCuenta = (error: unknown): boolean =>
+/** La falla es de la cuenta o del pedido, no de este requerimiento. La
+ *  usa también el seguimiento con IA (misma cuenta de Anthropic). */
+export const esFallaDeLaCuenta = (error: unknown): boolean =>
   error instanceof Anthropic.AuthenticationError ||
   error instanceof Anthropic.PermissionDeniedError ||
   error instanceof Anthropic.RateLimitError ||

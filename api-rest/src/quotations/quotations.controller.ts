@@ -40,6 +40,7 @@ import { EnvioCotizacionService } from './envio-cotizacion.service';
 import { GenerarCotizacionService } from './generar/generar.service';
 import { QuotationsService } from './quotations.service';
 import { RescateDelFormularioService } from './rescate-del-formulario.service';
+import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
 
 @Controller('quotations')
 export class QuotationsController {
@@ -56,6 +57,7 @@ export class QuotationsController {
     private readonly sesionOpcional: SesionOpcional,
     // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
     private readonly generarCotizacion: GenerarCotizacionService,
+    private readonly seguimientoConIA: SeguimientoConIAService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -214,6 +216,26 @@ export class QuotationsController {
   generar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/generar`);
     return this.generarCotizacion.generar(id, user);
+  }
+
+  // «✉ Generar seguimiento» (doc 18, 17-10-2026): las cotizaciones cuyo
+  // próximo contacto venció y es por correo, y el borrador del seguimiento
+  // en el hilo del cliente (Outlook). Nunca envía. Solo quien vende, y solo
+  // la empresa con el módulo propio seguimiento_con_ia (migración 140).
+  @Roles(...SALES_AND_UP)
+  @Derecho('seguimiento_con_ia')
+  @Get('seguimiento/pendientes')
+  seguimientosPendientes(@CurrentUser() user: User) {
+    this.logger.info('GET /quotations/seguimiento/pendientes');
+    return this.seguimientoConIA.pendientes(user);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Derecho('seguimiento_con_ia')
+  @Post(':id/seguimiento')
+  generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/seguimiento`);
+    return this.seguimientoConIA.generar(id, user);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
