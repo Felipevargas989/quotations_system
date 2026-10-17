@@ -1,6 +1,6 @@
 # Mapa del sistema Eventia
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 16-10-2026 con el mapa 24 (Oportunidades, rama `feature/oportunidades-radar`).
 
 ## Cómo usar este mapa
 
@@ -92,6 +92,7 @@ Corriendo por debajo de todo el tiempo: [13_DASHBOARD_Y_ANALITICA.md](13_DASHBOA
 | [19_DESPLIEGUE_Y_OPERACION.md](19_DESPLIEGUE_Y_OPERACION.md) | Ramas y ambientes, build y pruebas del motor y la app, portero, variables de entorno, relojes de producción | Verificado | bucket `backups`, función `get_backup_tables` | Railway solo reconstruye el motor si el commit toca `api-rest/`; un commit que solo cambia el frontend puede creerse desplegado y no estarlo |
 | [22_AISLAMIENTO_ENTRE_EMPRESAS.md](22_AISLAMIENTO_ENTRE_EMPRESAS.md) | Inventario de las puertas donde hoy una empresa puede leer, cambiar o borrar datos de otra (31 confirmadas), sus dos causas y el plan en 5 sprints | Verificado | (documento transversal, sin tablas propias) | El sprint 1 (catálogo) está **hecho solo en el laboratorio** (rama `pruebas`, commit `8266ba1`); no está en producción, espera el "a producción" de Felipe. Los sprints 2 a 5 (pagos, cotización ajena, fichas de empresa/usuarios, puertas públicas) siguen pendientes |
 | [23_MATRIZ_DE_CARGOS.md](23_MATRIZ_DE_CARGOS.md) | Qué cargo exige cada ruta del motor: recepción, vendedor, operaciones o administrador, y las cuatro decisiones del 14-09 | Verificado | (documento transversal) | Aplicada en la rama `pruebas` el 14-09-2026, paso 2 del roadmap de venta; una prueba lee los decoradores y frena cualquier ruta nueva sin cargo |
+| [24_OPORTUNIDADES.md](24_OPORTUNIDADES.md) | El radar de Mercado Público: licitaciones de todo Chile y compras ágiles de las regiones de cada empresa, lectura con IA (Haiku 5.5), reglas de comuna cercana y alto valor, bitácora de corridas. Solo Valle del Sol (derecho `oportunidades`) | Escrito al construir (rama `feature/oportunidades-radar`, 16-10-2026); **sin aplicar** en el laboratorio ni en producción | `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades`, `oportunidades_config` | `mp_procesos` crece con todo Chile y el respaldo diario de Eventia carga todas las tablas en memoria: sacarla del respaldo antes de producción |
 
 Todos los mapas de este índice están, según su propia cabecera, "verificado una vez contra el código" al commit bd6a0e1 (11-09-2026). Si alguno cambia a "BORRADOR SIN VERIFICAR" en una revisión futura, esa fila debe marcarse como borrador aquí también.
 

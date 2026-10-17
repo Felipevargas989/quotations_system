@@ -1,9 +1,12 @@
 # 17 — Módulo de Oportunidades (licitaciones y compras ágiles)
 
-> **Estado: PLAN, sin construir.** Conversado con Felipe el 16-10-2026 y
-> escrito el mismo día. Nada de esto existe todavía en el código. Si una
-> sesión futura recuerda algo distinto, **manda este documento**; si la
-> conversación cambia una decisión, se corrige aquí en el mismo movimiento.
+> **Estado: sprint 1a construido, sin aplicar.** Conversado con Felipe el
+> 16-10-2026 y escrito el mismo día. El radar (sin pantalla) quedó
+> construido y probado ese día en la rama `feature/oportunidades-radar`; la
+> migración 122 espera el OK de Felipe para el laboratorio. Su mapa es
+> `mapa/24_OPORTUNIDADES.md`. Si una sesión futura recuerda algo distinto,
+> **manda este documento**; si la conversación cambia una decisión, se
+> corrige aquí en el mismo movimiento.
 
 ## 1. Por qué
 
@@ -125,8 +128,11 @@ aclaraciones, redactar desde la experiencia anterior, revisión humana siempre.
    `licitaciones.json?estado=activas` ("todas las licitaciones publicadas al
    día de realizada la consulta", documentación oficial de ChileCompra). Se
    compara con la base:
-   - código que no está → se pide el detalle (`?codigo=`), y si es de la
-     región se guarda;
+   - código que no está → se pide el detalle (`?codigo=`) y se guarda, **de
+     todo Chile**. Cambio al construir (16-10), a confirmar por Felipe: la
+     región solo viene en el detalle, así que hay que abrir cada licitación
+     igual, y guardarla evita volver a abrirla cada 2 horas. La IA lee solo
+     las de las regiones de cada empresa;
    - código que ya está y cambió su fecha de cierre → se actualiza y se anota
      en el historial;
    - código que estaba cerrado y vuelve a aparecer → se reabre y se anota.
@@ -167,13 +173,21 @@ Reglas que mandan sobre la IA:
 
 - organismo de una comuna cercana (lista configurable, §5.7; Valle del Sol
   parte con la del bot: Quillón, Bulnes, Ránquil, Portezuelo, San Ignacio,
-  El Carmen, Pemuco, Coelemu, Ninhue, Treguaco, Florida, Yumbel, Cabrero) →
-  nunca rojo, y aviso inmediato;
+  El Carmen, Pemuco, Coelemu, Ninhue, Treguaco, Florida, Yumbel, Cabrero)
+  **y del rubro** (alguna etiqueta distinta de "otro") → nunca rojo, y aviso
+  inmediato. Afinado al construir (16-10): una compra de hormigón de Quillón
+  sigue roja;
 - monto igual o mayor al de **alto valor** de la empresa
   (`companies.high_value_threshold`, Configuración de empresa; Valle del Sol
   $3.000.000) → aviso inmediato;
 - las rojas no se botan: quedan en la base, y el primer mes se revisa una
   muestra cada semana para medir lo que se le escapa a la IA.
+
+Sumado al construir (16-10): lo que cierra antes se lee primero (si una
+corrida se corta, lo urgente ya quedó leído); si la IA falla por la cuenta
+(llave, cupo por minuto, saldo, modelo), la lectura se detiene y sigue en la
+próxima corrida, y diez fallas seguidas también la detienen. Si el modelo
+se niega o no devuelve nada legible, queda en amarillo para revisar a mano.
 
 ### 5.3 La pantalla "Oportunidades" (solo Valle del Sol)
 
@@ -248,6 +262,12 @@ empresa y no se duplica: el monto de alto valor
 
 ## 6. Piezas (propuesta para el sprint 1, a confirmar al construir)
 
+**Construido en el sprint 1a (16-10, migración 122):** `mp_procesos`,
+`mp_cambios`, `mp_radar_corridas` (la bitácora del radar, que también es su
+candado; no estaba en esta propuesta), `oportunidades` y
+`oportunidades_config`. Quedan para después `mp_archivos` (sprint 1b) y
+`oferente_documentos`, `oferente_ficha` y `postulaciones` (sprint 3).
+
 **Tablas comunes (datos públicos de Mercado Público, sin `company_id`):**
 
 | Tabla | Qué guarda |
@@ -284,6 +304,11 @@ desde el 16-10; en producción al pasar) y el ticket de Mercado Público
 | 2. Pantalla | "Oportunidades", ficha, año anterior, decidir, calendario, competidores, avisos | Felipe la usa una semana en vez del correo del bot; ahí se apaga la parte de Mercado Público del bot de GitHub |
 | 3. Generar documentos | Carpeta y ficha del oferente, botón, checklist, anexos, propuesta técnica | Una postulación real sale lista para firmar y subir |
 | 4. Generar cotización | Botón del doc 16 §6 y "Me interesa" → requerimiento | Se prueba en el laboratorio; la regla de "10 seguidas sin corrección" (skill `armar-cotizacion`) sigue siendo la vara para abrirlo a todos |
+
+**El sprint 1 se partió en dos al construir (16-10).** 1a: migración,
+derecho, radar con solo lo nuevo, cierres movidos y reaperturas, lectura con
+Haiku 5.5 — hecho en la rama `feature/oportunidades-radar`, sin aplicar. 1b:
+bajar los archivos, guardar quién ganó al cerrar y la historia de 2–3 años.
 
 Cada sprint: laboratorio primero, validación de Felipe, y su "a producción".
 Las migraciones van al laboratorio y a producción **antes** del motor.
@@ -333,7 +358,15 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
    jurada y la oferta se revisan siempre antes de subir.
 8. **El bot de GitHub y el motor comparten el ticket de Mercado Público**
    (10.000 consultas al día por ticket): mientras convivan, se reparten el
-   cupo.
+   cupo. La primera corrida pide unos 6.000 detalles; laboratorio y
+   producción usan el mismo ticket, así que no hacen su primera corrida el
+   mismo día.
+9. **El respaldo diario de Eventia arma un solo archivo en memoria con
+   todas las tablas** (mapa 16), y `mp_procesos` crece con todo Chile (unas
+   500 por día). Antes de producción, sacarla de ese respaldo: son datos
+   públicos que se vuelven a pedir, y Supabase guarda su propia copia
+   diaria. Lo de cada empresa (`oportunidades`, `oportunidades_config`) sí
+   queda en el respaldo.
 
 ## 11. Lo que no se hace
 
@@ -348,12 +381,18 @@ evento confirmado.
 
 ## 12. Pendiente (Felipe)
 
-1. Pegar el ticket de Mercado Público en Railway (`MP_TICKET` en
-   `api-rest-pruebas`) y aplicar el cambio con Deploy. Es un secreto: lo pega
-   Felipe. El del bot de GitHub no se puede leer de vuelta (GitHub guarda los
-   secretos sin mostrarlos); está en el correo con que llegó desde ChileCompra,
-   o se pide en chilecompra.cl/api ("Pide tu ticket", con ClaveÚnica).
+1. ~~Pegar el ticket de Mercado Público en Railway~~: hecho por Felipe el
+   16-10 (`MP_TICKET` en `api-rest-pruebas`).
 2. Activar o no los USD 200 al mes de créditos de API del plan Max.
+3. OK para aplicar la migración 122 en el laboratorio y correr ahí el radar
+   (la primera corrida: unas 6.000 consultas a Mercado Público y unos pocos
+   dólares de Anthropic).
+4. ¿Todo Chile o solo las regiones configuradas en la base? (§5.1;
+   recomendación: todo Chile.)
+5. Antes de producción: sacar `mp_procesos` del respaldo diario (§10.9).
+6. Las de pantalla, para el mockup del sprint 2 (preguntas del 16-10): quién
+   ve el módulo (hoy, solo administrador), si las rojas se esconden por
+   omisión, cada cuánto llega el resumen por correo.
 
 Decidido el 16-10 (§3, puntos 9 a 11): "grande" = monto de alto valor de la
 empresa; avisos al correo de la empresa; regiones y comunas cercanas

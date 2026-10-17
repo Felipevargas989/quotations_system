@@ -126,24 +126,39 @@ describe('derechosDe', () => {
     expect(d.derechos).toEqual(['base']);
   });
 
-  it('los módulos propios se suman al plan, y solo los dos que existen', () => {
+  it('los módulos propios se suman al plan, y solo los que existen', () => {
     const d = derechosDe({
       plan: 'cotiza',
       estado_plan: 'activo',
-      modulos_propios: ['personal', 'marketing', 'inventado'],
+      modulos_propios: ['personal', 'marketing', 'oportunidades', 'inventado'],
     });
     expect(d.derechos).toContain('personal');
     expect(d.derechos).toContain('marketing');
+    expect(d.derechos).toContain('oportunidades');
     expect(d.derechos).not.toContain('inventado' as Derecho);
   });
 
+  it('Oportunidades no lo da ningún plan, ni siquiera la prueba de Crece', () => {
+    // Doc 17: solo Valle del Sol mientras no se decida venderlo.
+    for (const estado_plan of ['prueba', 'activo', 'gratis']) {
+      const d = derechosDe({ plan: 'crece', estado_plan });
+      expect(d.derechos).not.toContain('oportunidades');
+    }
+    const bloqueada = derechosDe({
+      plan: 'crece',
+      estado_plan: 'bloqueado',
+      modulos_propios: ['oportunidades'],
+    });
+    expect(bloqueada.derechos).not.toContain('oportunidades');
+  });
+
   // ── LA PRUEBA QUE CUIDA A VALLE DEL SOL ──────────────────────────────
-  it('Valle del Sol no pierde NADA: todo Crece más Personal y Marketing', () => {
-    // Tal como queda la empresa 1 después de la migración 112.
+  it('Valle del Sol no pierde NADA: todo Crece más Personal, Marketing y Oportunidades', () => {
+    // Tal como queda la empresa 1 después de las migraciones 112 y 122.
     const valleDelSol = derechosDe({
       plan: 'crece',
       estado_plan: 'activo',
-      modulos_propios: ['personal', 'marketing'],
+      modulos_propios: ['personal', 'marketing', 'oportunidades'],
     });
 
     const todos: Derecho[] = [
@@ -163,6 +178,7 @@ describe('derechosDe', () => {
       'movil',
       'personal',
       'marketing',
+      'oportunidades',
     ];
     for (const derecho of todos) {
       expect(valleDelSol.derechos).toContain(derecho);

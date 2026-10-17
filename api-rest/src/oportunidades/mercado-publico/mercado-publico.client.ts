@@ -1,0 +1,192 @@
+import { Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import type {
+  CompraAgilDetalle,
+  CompraAgilListada,
+  LicitacionDetalle,
+  LicitacionListada,
+} from './tipos';
+
+// EL CLIENTE DE MERCADO PÚBLICO (doc 17 §5.1).
+//
+// Dos APIs distintas, con el mismo ticket:
+//  - Licitaciones (la clásica): el ticket va en la URL.
+//  - Compra Ágil (v2): el ticket va en la cabecera.
+//
+// El ticket vive en MP_TICKET. Ojo con el nombre: en esta casa "MP" suele
+// ser Mercado PAGO (MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET); este es el ticket
+// de Mercado PÚBLICO. Nunca se escribe en un registro: los errores dicen el
+// código HTTP y qué se pedía, no la URL.
+//
+// La lección del bot de GitHub (agosto de 2026): el servidor de Mercado
+// Público responde 504 a ratos. Ante 5xx o un corte de red se reintenta con
+// pausa creciente; un 429 (cupo del día) no se reintenta.
+
+const LICITACIONES =
+  'https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json';
+const COMPRA_AGIL = 'https://api2.mercadopublico.cl/v2/compra-agil';
+
+/** El servidor falló (5xx, red) o no tiene cupo (429). */
+export class MercadoPublicoError extends Error {
+  constructor(
+    mensaje: string,
+    readonly status: number | null,
+  ) {
+    super(mensaje);
+    this.name = 'MercadoPublicoError';
+  }
+
+  get sinCupo(): boolean {
+    return this.status === 429;
+  }
+}
+
+@Injectable()
+export class MercadoPublicoClient {
+  /** Pausas entre reintentos, en milisegundos (las pruebas las acortan). */
+  esperas: number[] = [15_000, 30_000];
+  /** Tope de cada petición. */
+  topeMs = 60_000;
+
+  constructor(private readonly logger: PinoLogger) {
+    this.logger.setContext(MercadoPublicoClient.name);
+  }
+
+  /** ¿Está el ticket? Sin él, el radar no corre (y lo dice). */
+  get configurado(): boolean {
+    return Boolean(process.env.MP_TICKET?.trim());
+  }
+
+  private get ticket(): string {
+    const t = process.env.MP_TICKET?.trim();
+    if (!t) {
+      throw new MercadoPublicoError(
+        'falta MP_TICKET (el ticket de Mercado Público) en las variables del motor',
+        null,
+      );
+    }
+    return t;
+  }
+
+  /** Todas las licitaciones publicadas en este momento, en una sola
+   *  consulta liviana: código, nombre, estado y cierre. Sin región. */
+  async licitacionesActivas(): Promise<LicitacionListada[]> {
+    const url = `${LICITACIONES}?estado=activas&ticket=${encodeURIComponent(this.ticket)}`;
+    const json = (await this.pedir(url, {}, 'licitaciones activas')) as {
+      Listado?: LicitacionListada[];
+    };
+    return json?.Listado ?? [];
+  }
+
+  async detalleLicitacion(codigo: string): Promise<LicitacionDetalle | null> {
+    const url = `${LICITACIONES}?codigo=${encodeURIComponent(codigo)}&ticket=${encodeURIComponent(this.ticket)}`;
+    const json = (await this.pedir(url, {}, `licitación ${codigo}`)) as {
+      Listado?: LicitacionDetalle[];
+    };
+    return json?.Listado?.[0] ?? null;
+  }
+
+  /** Las compras ágiles publicadas desde una fecha, en las regiones dadas
+   *  (número oficial de cada región). Si el servidor cae a mitad del
+   *  listado, devuelve lo que ya trajo: lo que falte llega en la próxima. */
+  async comprasAgiles(
+    desdeIso: string,
+    regiones: number[],
+    maxPaginas = 40,
+  ): Promise<CompraAgilListada[]> {
+    if (regiones.length === 0) return [];
+    const items: CompraAgilListada[] = [];
+    for (let pagina = 1; pagina <= maxPaginas; pagina++) {
+      const params = new URLSearchParams({
+        region: regiones.join(','),
+        estado: 'publicada',
+        tamano_pagina: '50',
+        numero_pagina: String(pagina),
+        ordenar_por: 'FechaPublicacion',
+        publicado_desde: desdeIso,
+      });
+      let json: {
+        success?: string;
+        payload?: {
+          items?: CompraAgilListada[];
+          paginacion?: { total_paginas?: number };
+        };
+      };
+      try {
+        json = (await this.pedir(
+          `${COMPRA_AGIL}?${params.toString()}`,
+          { ticket: this.ticket },
+          `compras ágiles, página ${pagina}`,
+        )) as typeof json;
+      } catch (error) {
+        if (items.length > 0 && error instanceof MercadoPublicoError) {
+          this.logger.warn(
+            `compras ágiles: el servidor cayó en la página ${pagina}; sigo con las ${items.length} ya traídas`,
+          );
+          break;
+        }
+        throw error;
+      }
+      if (json?.success !== 'OK') break;
+      items.push(...(json.payload?.items ?? []));
+      const total = json.payload?.paginacion?.total_paginas ?? 1;
+      if (pagina >= total) break;
+    }
+    return items;
+  }
+
+  async detalleCompraAgil(codigo: string): Promise<CompraAgilDetalle | null> {
+    const json = (await this.pedir(
+      `${COMPRA_AGIL}/${encodeURIComponent(codigo)}`,
+      { ticket: this.ticket },
+      `compra ágil ${codigo}`,
+    )) as { success?: string; payload?: CompraAgilDetalle };
+    return json?.success === 'OK' ? (json.payload ?? null) : null;
+  }
+
+  /** GET con reintentos ante 5xx o corte de red. `que` es lo que se pide,
+   *  en palabras: es lo único que llega al registro (nunca la URL). */
+  private async pedir(
+    url: string,
+    cabeceras: Record<string, string>,
+    que: string,
+  ): Promise<unknown> {
+    for (let intento = 0; ; intento++) {
+      let status: number | null = null;
+      try {
+        const resp = await fetch(url, {
+          headers: { accept: 'application/json', ...cabeceras },
+          signal: AbortSignal.timeout(this.topeMs),
+        });
+        status = resp.status;
+        if (resp.status === 429) {
+          throw new MercadoPublicoError(
+            `${que}: Mercado Público respondió 429 (sin cupo por hoy)`,
+            429,
+          );
+        }
+        if (resp.ok) return await resp.json();
+        if (resp.status < 500) {
+          throw new MercadoPublicoError(
+            `${que}: Mercado Público respondió ${resp.status}`,
+            resp.status,
+          );
+        }
+      } catch (error) {
+        if (error instanceof MercadoPublicoError) throw error;
+        // Corte de red o tope de tiempo: se reintenta como un 5xx.
+      }
+      if (intento >= this.esperas.length) {
+        throw new MercadoPublicoError(
+          `${que}: Mercado Público no respondió (${status ?? 'sin respuesta'}) tras ${intento + 1} intentos`,
+          status,
+        );
+      }
+      const espera = this.esperas[intento];
+      this.logger.warn(
+        `${que}: Mercado Público respondió ${status ?? 'sin respuesta'}; reintento en ${Math.round(espera / 1000)} s`,
+      );
+      await new Promise((r) => setTimeout(r, espera));
+    }
+  }
+}

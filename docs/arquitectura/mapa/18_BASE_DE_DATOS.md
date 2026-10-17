@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -33,7 +33,7 @@ Fuera de esa carpeta también hay SQL vivo en la base: `db_functions_analytics_2
 
 ## 2. Tablas por área
 
-Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el código sin tener migración. El motor las usa todas; `company_quotation_counters`, solo a través de su función. `job_roles` nació en la 68 y se borró en la 69 (sección 8). Los números de "módulo dueño" son los mapas del atlas.
+Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el código sin tener migración. El motor las usa todas; `company_quotation_counters`, solo a través de su función. `job_roles` nació en la 68 y se borró en la 69 (sección 8). Los números de "módulo dueño" son los mapas del atlas. Con la migración 122 (Oportunidades, sin aplicar todavía) se suman 5.
 
 ### Empresa, usuarios y acceso
 
@@ -127,6 +127,18 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `marketing_campaigns` | Campañas: contenido, audiencias, estado, programación, banner y WhatsApp propios, sellos | 10 | 91; 92, 93, 99, 101, 103 |
 | `marketing_sends` | Un envío por destinatario y campaña, con aperturas, clics, rebotes y reenvío | 10 | 91; 92, 97 |
 | `marketing_audiences` | Audiencias guardadas: un filtro con nombre | 10 | 93 |
+
+### Oportunidades (migración 122, sin aplicar)
+
+Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empresas: **sin `company_id`, a propósito**. Las `oportunidades*` son de cada empresa.
+
+| Tabla | Qué guarda | Módulo dueño | Migración que la crea |
+|---|---|---|---|
+| `mp_procesos` | Una fila por licitación (de todo Chile) o compra ágil (de las regiones configuradas): datos, fechas en UTC, productos, adjudicación y el detalle crudo de la API | 24 | 122 |
+| `mp_cambios` | Historial: cierre movido y reapertura, con el antes y el después | 24 | 122 |
+| `mp_radar_corridas` | Bitácora del radar; su índice único parcial es el candado | 24 | 122 |
+| `oportunidades` | La lectura de la IA para cada empresa y lo que la empresa decide; única por empresa y código | 24 | 122 |
+| `oportunidades_config` | Por empresa: regiones, comunas cercanas y perfil para la IA | 24 | 122 |
 
 ### Consultas y formularios públicos
 
@@ -279,7 +291,7 @@ La 42 borró las 12 políticas de `storage.objects`: el navegador ya no escribe 
 
 ### Candados únicos que sostienen los `upsert` del motor
 
-`event_service_times (quotation_id, service_name)`, `event_day_prints (quotation_id, day)`, `event_supply_provisions (quotation_id, supply_id)`, `staff_sheets (company_id, quotation_id)`, `payroll_people (payroll_id, person_id)`, `kitchen_checklist_marks (quotation_id, clave)`, `push_devices (endpoint)`, `consulta_config (company_id, event_type)` como llave primaria, `marketing_contacts (company_id, audiencia, email)` y `marketing_suppressions (company_id, email)` (94), y `service_categories (company_id, name)` (4). Otros candados de negocio: `tip_pools_uno_por_evento` y `tip_pools_uno_por_dia` (83); `event_staff_evento_persona_dia_uniq` (71) y `event_staff_restaurante_persona_dia_uniq` (74); `management_resources_company_tipo_nombre_uniq` (69); `category_sections_one_default` (25); `marketing_sends_una_vez` (91). La 66 agrega seis índices de rendimiento sobre `quotations`, `payments`, `payment_transactions`, `event_documents` y `clients`.
+`event_service_times (quotation_id, service_name)`, `event_day_prints (quotation_id, day)`, `event_supply_provisions (quotation_id, supply_id)`, `staff_sheets (company_id, quotation_id)`, `payroll_people (payroll_id, person_id)`, `kitchen_checklist_marks (quotation_id, clave)`, `push_devices (endpoint)`, `consulta_config (company_id, event_type)` como llave primaria, `marketing_contacts (company_id, audiencia, email)` y `marketing_suppressions (company_id, email)` (94), y `service_categories (company_id, name)` (4). Otros candados de negocio: `tip_pools_uno_por_evento` y `tip_pools_uno_por_dia` (83); `event_staff_evento_persona_dia_uniq` (71) y `event_staff_restaurante_persona_dia_uniq` (74); `management_resources_company_tipo_nombre_uniq` (69); `category_sections_one_default` (25); `marketing_sends_una_vez` (91). Desde la 122 (sin aplicar): `mp_procesos (codigo)` como llave primaria, `oportunidades (company_id, codigo)` y el índice único parcial `mp_radar_una_corriendo`, que es el candado del radar. La 66 agrega seis índices de rendimiento sobre `quotations`, `payments`, `payment_transactions`, `event_documents` y `clients`.
 
 ## 6. Quién lee y quién escribe cada tabla
 
@@ -326,6 +338,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `kitchen_checklist_marks` | `movil` (`upsert`, delete) | `movil` |
 | `people`, `event_staff`, `staff_sheets`, `tip_pools`, `person_reviews`, `payrolls`, `payroll_people`, `day_notes` | `people` | `people` |
 | `marketing_contacts`, `marketing_suppressions`, `marketing_campaigns`, `marketing_sends`, `marketing_audiences` | `marketing` | `marketing` |
+| `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades`, `oportunidades_config` (122) | `oportunidades` | `oportunidades` |
 | `consultas` | `consultas` | `consultas` (también `event-types.repository.ts`), `clients` (`removeType`) |
 | `consulta_config` | `consultas` (`upsert`) | `consultas` |
 | `event_types` | `consultas` (`event-types.repository.ts`) | el mismo |
@@ -504,3 +517,12 @@ los mismos derechos.
 
 Aplicada en LAB el 15-09-2026. En PRODUCCIÓN: pendiente, junto con la 112
 y **antes** del deploy del motor.
+
+## 15. Migración 122: el radar de Oportunidades (16-10-2026)
+
+**Qué hace.** Crea las cinco tablas del sprint 1a del módulo de Oportunidades (doc 17, mapa 24): `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades` y `oportunidades_config`. Las cinco con RLS encendido sin políticas, `REVOKE ALL` a `anon` y `authenticated`, y los `GRANT` a `service_role` con sus secuencias, en la misma migración. Además agrega `'oportunidades'` a `companies.modulos_propios` de la empresa 1 y siembra su configuración (Ñuble y Biobío, las 13 comunas cercanas del bot y el perfil de Valle del Sol). Trae la reversa comentada al final.
+
+**Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: antes de producción hay que dejar `mp_procesos` fuera de ese respaldo (son datos públicos que se vuelven a pedir; Supabase guarda su propia copia diaria). Pendiente de OK de Felipe.
+
+**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Sin aplicar** en el laboratorio ni en producción: espera el OK de Felipe. Como siempre, en producción va **antes** del deploy del motor.
+

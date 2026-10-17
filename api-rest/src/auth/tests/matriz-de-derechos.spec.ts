@@ -10,6 +10,7 @@ import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_
 import { LogisticsController } from 'src/logistics/logistics.controller';
 import { MarketingController } from 'src/marketing/marketing.controller';
 import { MovilController } from 'src/movil/movil.controller';
+import { OportunidadesController } from 'src/oportunidades/oportunidades.controller';
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
@@ -49,6 +50,7 @@ const REVISADAS_EN_EL_SERVICIO = [
   'correos_automaticos → quotations-cron, el seguimiento de los 7 y 14 días',
   'post_venta        → payments-cron, la cobranza',
   'marketing         → marketing-cron, las campañas programadas',
+  'oportunidades     → el radar lee solo las empresas con el derecho (oportunidades.repository.spec)',
 ];
 
 const metodos: Record<number, string> = {
@@ -162,6 +164,12 @@ const ESPERADO: Array<{
     derecho: 'marketing',
     abiertas: 0,
   },
+  {
+    nombre: 'Oportunidades',
+    cls: OportunidadesController,
+    derecho: 'oportunidades',
+    abiertas: 0,
+  },
 ];
 
 describe('la matriz de derechos', () => {
@@ -211,7 +219,7 @@ describe('la matriz de derechos', () => {
 
   it('las revisiones que viven en los servicios quedan anotadas', () => {
     // No es una comprobación técnica: es el recordatorio de que estas
-    // once no se ven desde acá y tienen su prueba en otra parte.
-    expect(REVISADAS_EN_EL_SERVICIO).toHaveLength(11);
+    // doce no se ven desde acá y tienen su prueba en otra parte.
+    expect(REVISADAS_EN_EL_SERVICIO).toHaveLength(12);
   });
 });

@@ -482,10 +482,11 @@ En la **misma** migración, las tres empresas vivas (1 Valle del Sol, 51 MDS Hot
 | `movil` | Eventia Móvil | Opera y Crece |
 | `personal` | El módulo Personal | `modulos_propios`, ningún plan |
 | `marketing` | El módulo Marketing | `modulos_propios`, ningún plan |
+| `oportunidades` | El módulo de Oportunidades: licitaciones y compras ágiles (doc 17, mapa 24) | `modulos_propios`, ningún plan. Migración 122, rama `feature/oportunidades-radar` (16-10-2026), sin aplicar |
 
 Topes de cantidad, que no son derechos de sí o no y por eso se cuentan en el servicio: **Cotiza**, 1 usuario y 20 cotizaciones al mes; **Gestiona y Cobra**, 3 usuarios y cotizaciones sin tope; **Opera y Crece**, sin topes.
 
-Dos de los 16 están declarados pero **todavía no los pregunta nadie**: `gestion_y_cocina` y `dashboard_3`. Hoy los cubre `logistica`, que es de donde salen sus datos — cerrar Logística cierra también el nivel 3 del Dashboard y el margen del cotizador, y así lo dice el comentario de `logistics.controller.ts`.
+Dos de los 17 están declarados pero **todavía no los pregunta nadie**: `gestion_y_cocina` y `dashboard_3`. Hoy los cubre `logistica`, que es de donde salen sus datos — cerrar Logística cierra también el nivel 3 del Dashboard y el margen del cotizador, y así lo dice el comentario de `logistics.controller.ts`.
 
 **Los cuatro estados.**
 

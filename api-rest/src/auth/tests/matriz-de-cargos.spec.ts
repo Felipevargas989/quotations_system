@@ -8,6 +8,7 @@ import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
 import { MovilController } from 'src/movil/movil.controller';
+import { OportunidadesController } from 'src/oportunidades/oportunidades.controller';
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
@@ -149,6 +150,10 @@ const esperado: [Clase, Record<string, string[]>][] = [
   [
     MovilController,
     { 'GET push/clave-publica': O, 'POST cocina/:quotationId/marcas': O },
+  ],
+  [
+    OportunidadesController,
+    { 'GET ': A, 'POST radar': A, 'GET radar/corridas': A },
   ],
 ];
 
