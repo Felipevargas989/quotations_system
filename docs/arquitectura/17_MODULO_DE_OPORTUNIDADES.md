@@ -484,7 +484,20 @@ evento confirmado.
      licitación; la persona baja los archivos y los arrastra a Eventia;
    - (e) más adelante, una extensión propia de Chrome que, cuando Felipe abre
      los adjuntos en su navegador, ofrece "Guardar en Eventia" (su sesión, a
-     ritmo de persona);
+     ritmo de persona). Mirado el 17-10 en la página de adjuntos
+     (`ViewAttachmentLC.aspx`), a pedido de Felipe:
+     - cada fila tiene **«Ver Anexo»**, que baja ese archivo directo, **sin
+       código**: es lo que hace una persona;
+     - el código de imagen ("Ingrese el texto de la imagen") es para
+       todos y sirve **solo para «Descargar seleccionados»** (el lote,
+       hasta 20 MB). En el chat se dijo antes que salía por ser un
+       navegador automatizado: era una suposición y estaba mal;
+     - la lista igual aparece recién después del reCAPTCHA invisible al
+       cargar, así que un programa sin navegador (el radar) sigue sin
+       verla.
+
+     La extensión haría lo mismo que «Ver Anexo» fila por fila, dentro de la
+     sesión de Felipe.
    - (f) la API de Licify en Apify (acción `list-files`, desde US$0,10 por
      1.000 resultados); falta probar si trae el archivo o solo el nombre.
 
