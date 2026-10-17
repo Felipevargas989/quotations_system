@@ -22,7 +22,7 @@ import {
   MAX_BYTES_ADJUNTO,
 } from './adjuntos/adjuntos.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
-import { GuardarConfigDto } from './dto/guardar-config.dto';
+import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
@@ -62,7 +62,10 @@ export class OportunidadesController {
   }
 
   @Patch('config')
-  guardarConfig(@Body() dto: GuardarConfigDto, @CurrentUser() user: User) {
+  guardarConfig(
+    @Body() dto: GuardarConfigOportunidadesDto,
+    @CurrentUser() user: User,
+  ) {
     return this.servicio.guardarConfig(user.company_id, dto);
   }
 

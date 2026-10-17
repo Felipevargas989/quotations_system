@@ -8,7 +8,7 @@ import {
 
 /** La configuración del módulo (doc 17 §5.7). El monto de alto valor y el
  *  correo de avisos NO van aquí: viven en Configuración de empresa. */
-export class GuardarConfigDto {
+export class GuardarConfigOportunidadesDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(16)
