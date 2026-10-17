@@ -541,6 +541,12 @@ describe("la ficha ordenada", () => {
       fechaDelEvento({
         fechas: [
           { que: "Cierre de ofertas", cuando: "19-10" },
+          // La trampa del Día del Funcionario: dice "evento", pero no es
+          // la fecha del servicio.
+          {
+            que: "Entrega del cronograma del evento por el municipio",
+            cuando: "Con un mínimo de 5 días de antelación",
+          },
           { que: "Fecha del servicio", cuando: "30-10, 18:00 a 02:00" },
         ],
       }),

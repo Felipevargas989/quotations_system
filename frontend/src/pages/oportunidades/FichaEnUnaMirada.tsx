@@ -196,7 +196,7 @@ function Detalle({
   return (
     <span
       title={titulo}
-      className={`block text-xs font-normal line-clamp-2 ${clases}`}
+      className={`text-xs font-normal line-clamp-2 ${clases}`}
     >
       {children}
     </span>
