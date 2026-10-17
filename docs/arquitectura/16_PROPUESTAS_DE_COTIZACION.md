@@ -431,6 +431,21 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   Segunda vuelta del 470: ensalada chilena, pollo al jugo con arroz y
 >   macedonia ($9.900 por persona) y salón cúpula; la nota explica por qué
 >   no usó el menú de prueba; 12 s, US$ 0,09.
+> - **La base son los paquetes (Felipe, 17-10):** *"quiero que se base
+>   mayoritariamente en los paquetes: desayunos, almuerzos, cenas, onces,
+>   cócteles, todos están paquetizados; en caso que un paquete no encaje,
+>   debe adaptarlos según la skill"*. Medido ese día en producción: 32
+>   paquetes de evento y menús guardados por nivel en todas las comidas
+>   (desayuno 7, almuerzo 29, cena 29, once 9, coffee y cóctel 15, más los
+>   de niños). Cada caja parte de un menú guardado; para adaptarlo, la IA
+>   saca platos (`quitar`) y suma sueltos en la misma sección. Una comida
+>   armada de cero con sueltos es un aviso que la IA revisa una vez. La
+>   regla quedó en `REGLAS_DE_ARMADO.md` («Cómo se arma»), la misma de la
+>   skill.
+> - **El laboratorio no sirve para medir la calidad:** su catálogo es de
+>   prueba (5 menús, uno llamado «testaosjf…», y 5 paquetes de ensayo).
+>   Ahí se prueba que el botón funcione; la calidad, en producción, con las
+>   pruebas fijas (quedan en solicitada y nada se envía).
 > - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
 >   laboratorio; la del comentario interno toma el número libre que siga.
 
