@@ -1,10 +1,12 @@
 # 17 — Módulo de Oportunidades (licitaciones y compras ágiles)
 
-> **Estado: sprint 1a en el laboratorio, sprint 2 construido.** Conversado
-> con Felipe el 16-10-2026 y escrito el mismo día. El radar quedó en el
-> laboratorio el 17-10 (migración 122 aplicada en la base del lab, motor en
-> `pruebas`) y la pantalla se construyó el mismo día, todo en la rama
-> `feature/oportunidades-radar`. Nada en producción. Su mapa es
+> **Estado: en producción desde el 17-10-2026 (PR #144).** Conversado
+> con Felipe el 16-10-2026 y escrito el mismo día. Construido en la rama
+> `feature/oportunidades-radar` y probado en el laboratorio el 17-10; ese
+> mismo día Felipe: *"apaga el bot de mercado público, pasemos esto a
+> producción"*. Las migraciones 122 a 127 y 129 se aplicaron en la base de
+> producción antes del motor, y el bot de GitHub quedó sin horario. El
+> sprint 4 (cotización) sigue en otro chat. Su mapa es
 > `mapa/24_OPORTUNIDADES.md`. Si una sesión futura recuerda algo distinto,
 > **manda este documento**; si la conversación cambia una decisión, se
 > corrige aquí en el mismo movimiento.

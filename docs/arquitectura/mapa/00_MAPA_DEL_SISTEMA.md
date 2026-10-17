@@ -1,6 +1,6 @@
 # Mapa del sistema Eventia
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 16-10-2026 con el mapa 24 (Oportunidades, rama `feature/oportunidades-radar`), al día el 17-10-2026.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 16-10-2026 con el mapa 24 (Oportunidades, rama `feature/oportunidades-radar`), al día el 17-10-2026 (ese día Oportunidades pasó a producción, PR #144).
 
 ## Cómo usar este mapa
 

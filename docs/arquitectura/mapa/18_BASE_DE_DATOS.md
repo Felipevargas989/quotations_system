@@ -128,7 +128,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `marketing_sends` | Un envío por destinatario y campaña, con aperturas, clics, rebotes y reenvío | 10 | 91; 92, 97 |
 | `marketing_audiences` | Audiencias guardadas: un filtro con nombre | 10 | 93 |
 
-### Oportunidades (migración 122, sin aplicar)
+### Oportunidades (migraciones 122 a 127 y 129, en las dos bases desde el 17-10-2026)
 
 Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empresas: **sin `company_id`, a propósito**. Las `oportunidades*` son de cada empresa.
 
@@ -530,13 +530,13 @@ y **antes** del deploy del motor.
 
 **Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: desde el 17-10-2026 deja `mp_procesos` fuera (`FUERA_DEL_RESPALDO`, decisión de Felipe; son datos públicos que se vuelven a pedir y Supabase guarda su propia copia diaria).
 
-**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 16. Migración 123: la historia de Oportunidades (17-10-2026)
 
 **Qué hace.** Crea `mp_historia` (un día por fila, 3 años hacia atrás desde ayer en hora de Chile, con `prioridad` = días de distancia a "hace un año", que es el orden en que se revisan) con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, y el índice `idx_mp_procesos_organismo` para buscar "el año anterior" por organismo. Dato público: sin `company_id`. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 17. Migración 124: las bases y anexos de Oportunidades (17-10-2026)
 
@@ -544,19 +544,19 @@ y **antes** del deploy del motor.
 
 **Por qué.** Mercado Público protege su lista de adjuntos con un control antirrobots que esta casa no esquiva. Felipe eligió el 17-10 que los baje una persona y los arrastre a la ficha (doc 17 §12 punto 8, opción d).
 
-**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 18. Migración 125: la IA lee las bases (17-10-2026)
 
 **Qué hace.** Crea `oportunidad_analisis`: una fila por cada vez que se aprieta "Analizar bases con IA" en la ficha de una oportunidad (doc 17, sprint 3, paso 1). Guarda el estado (`procesando`, `listo`, `error`), el `resultado` que devolvió Opus 5.5 en jsonb, qué archivos leyó y cuáles no, el modelo, los tokens, el costo en dólares, el error, quién lo pidió (`user_profiles`) y cuándo. El índice único parcial `oportunidad_analisis_uno_en_curso` impide dos análisis a la vez de la misma oportunidad. Es de cada empresa (`company_id`), con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"ok"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia, y están los dos índices. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"ok"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia, y están los dos índices. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 19. Migración 126: la empresa como oferente (17-10-2026)
 
 **Qué hace.** Crea `oportunidades_oferente` (una fila por empresa: razón social, RUT, giro, dirección, comuna, región, teléfono, correo, representante legal con RUT y cargo, experiencia destacada, instalaciones, y `firma_ruta`, la foto de la firma en el balde privado) y `oportunidades_documentos` (la carpeta: tipo, nombre, ruta única, tipo de archivo, bytes, `vence` y quién lo subió). Las dos con `company_id`, RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role` (y la secuencia de la segunda). Sin datos sembrados: los llena la empresa en "Mi empresa". Lo que ya está en `companies` (nombre, datos bancarios) no se repite. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 20. Migración 127: mi postulación y validar documentos (17-10-2026)
 
@@ -564,7 +564,7 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el código que lista adjuntos ya filtra por `seccion`; con ese motor y sin la 127, la sección de bases se cae. Por eso el paso 3 no sube al laboratorio sin la migración.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 21. Migración 129: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
 
@@ -574,5 +574,5 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
 
-**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
