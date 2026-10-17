@@ -522,7 +522,7 @@ y **antes** del deploy del motor.
 
 **Qué hace.** Crea las cinco tablas del sprint 1a del módulo de Oportunidades (doc 17, mapa 24): `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades` y `oportunidades_config`. Las cinco con RLS encendido sin políticas, `REVOKE ALL` a `anon` y `authenticated`, y los `GRANT` a `service_role` con sus secuencias, en la misma migración. Además agrega `'oportunidades'` a `companies.modulos_propios` de la empresa 1 y siembra su configuración (Ñuble y Biobío, las 13 comunas cercanas del bot y el perfil de Valle del Sol). Trae la reversa comentada al final.
 
-**Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: antes de producción hay que dejar `mp_procesos` fuera de ese respaldo (son datos públicos que se vuelven a pedir; Supabase guarda su propia copia diaria). Pendiente de OK de Felipe.
+**Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: desde el 17-10-2026 deja `mp_procesos` fuera (`FUERA_DEL_RESPALDO`, decisión de Felipe; son datos públicos que se vuelven a pedir y Supabase guarda su propia copia diaria).
 
 **Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Sin aplicar** en el laboratorio ni en producción: espera el OK de Felipe. Como siempre, en producción va **antes** del deploy del motor.
 

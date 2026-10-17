@@ -53,9 +53,9 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 
 1. `tomarCorrida`: marca `abandonada` toda corrida que lleve más de 3 horas `corriendo` (el proceso murió a la mitad) e inserta la nueva. Si el índice único responde `23505`, ya hay una en marcha y esta no parte.
 2. `empresasConModulo` → `configDe` de cada una → la unión de sus regiones.
-3. **Licitaciones** (`RadarService.licitaciones`): `licitacionesActivas` → `procesosConocidos`. Conocidas: si el cierre cambió (se comparan instantes, no textos) o si estaba cerrada y vuelve a estar activa, `actualizarCierre` y una fila en `mp_cambios`. Nuevas: `detalleLicitacion`, de a 4 en paralelo, hasta 6.000 por corrida, guardadas de a 100.
-4. **Compras ágiles** (`RadarService.comprasAgiles`): `comprasAgiles(desde, regiones)` con la región como número oficial (`codigosDeRegiones`: Ñuble 16, Biobío 8); de las nuevas se pide el detalle de a 2, y **sin detalle igual se guardan** (nombre, comprador y monto vienen en la lista).
-5. **Lectura** (`RadarService.leer`): `procesosAbiertos` (cierre futuro o sin cierre) → por empresa, lo de sus regiones que no está en `codigosLeidos`, **ordenado por cierre** (lo urgente primero) → `LecturaService.leer` de a 3 → `aplicarReglas` → `guardarLectura`. Hasta 3.000 lecturas por corrida.
+3. **Licitaciones** (`RadarService.licitaciones`): `licitacionesActivas` → `procesosConocidos`. Conocidas: si el cierre cambió (se comparan instantes, no textos) o si estaba cerrada y vuelve a estar activa, `actualizarCierre` y una fila en `mp_cambios`. Nuevas: `detalleLicitacion` **de a una** (la API rechaza las peticiones simultáneas con el mismo ticket), primero lo que cierra antes (`ordenarPorCierre`), hasta 6.000 por corrida o hasta los 80 minutos (`PRESUPUESTO_DETALLES_MS`), guardadas de a 100. Lo que no alcanzó queda en `resumen.licitaciones.pendientes` y entra en la próxima.
+4. **Compras ágiles** (`RadarService.comprasAgiles`): `comprasAgiles(desde, regiones)` con la región como número oficial (`codigosDeRegiones`: Ñuble 16, Biobío 8); de las nuevas se pide el detalle de a una, y **sin detalle igual se guardan** (nombre, comprador y monto vienen en la lista).
+5. **Lectura** (`RadarService.leer`): `procesosAbiertos` (cierre futuro o sin cierre) → por empresa, lo de sus regiones que no está en `codigosLeidos`, **ordenado por cierre** (lo urgente primero) → `LecturaService.leer` de a 3 → `aplicarReglas` → `guardarLectura`. Hasta 3.000 lecturas por corrida, y hasta los 150 minutos desde que partió (`PRESUPUESTO_CORRIDA_MS`): así una corrida nunca llega a las 3 horas en que la siguiente la da por muerta.
 6. `terminarCorrida(id, 'ok' | 'error', resumen, error)`. `ejecutar` nunca lanza: cualquier falla queda en la bitácora.
 
 ### 5.2 La lectura con IA
@@ -69,7 +69,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 ## 6. Reglas de negocio acordadas
 
 - **Nuevo = no está en la base** (doc 17, decisión 2). Lo que Mercado Público mostró tarde, o se publicó un viernes en la noche, entra en la corrida siguiente.
-- **Las licitaciones se guardan de todo Chile.** La región solo viene en el detalle, así que hay que abrir cada licitación nueva igual; guardarlas evita volver a abrirlas cada 2 horas. **Es una diferencia con el doc 17 §5.1**, que decía "si es de la región se guarda": anotada en los dos, a confirmar por Felipe. La IA lee solo lo de las regiones de cada empresa.
+- **Las licitaciones se guardan de todo Chile.** La región solo viene en el detalle, así que hay que abrir cada licitación nueva igual; guardarlas evita volver a abrirlas cada 2 horas. El doc 17 §5.1 decía "si es de la región se guarda"; **Felipe confirmó todo Chile el 17-10** (decisión 12). La IA lee solo lo de las regiones de cada empresa.
+- **Mercado Público a veces responde 200 con el error adentro** (`{ Codigo, Mensaje }`, lección del código del bot): `errorDeLaApi` lo convierte en error; el 10500 ("peticiones simultáneas") se espera y se reintenta. Una lista de activas sin `Listado` es una falla, nunca "no hay nada".
 - **Comuna cercana y del rubro → nunca rojo, y alerta `comuna_cercana`** (`aplicarReglas`, `lectura/reglas.ts`). "Del rubro" es tener alguna etiqueta distinta de `otro`: una compra de hormigón de Quillón sigue roja. Afinado al construir (16-10): el doc 17 §5.2 decía "nunca rojo" a secas. La comuna se busca como palabra entera, sin tildes, en comuna, organismo y unidad.
 - **Monto igual o mayor al alto valor de la empresa → alerta `alto_valor`**, si no quedó en rojo. El umbral es `companies.high_value_threshold` (Valle del Sol: $3.000.000), el mismo de Configuración de empresa (doc 17, decisión 9).
 - **La lectura de una empresa nunca se reescribe** sola: `ignoreDuplicates`. Lo que la empresa decidió (estado, responsable, notas) no lo toca el radar.
@@ -86,8 +87,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 
 ## 8. Zonas de riesgo: si tocas esto, cuidado con aquello
 
-1. **El respaldo diario de Eventia (mapa 16) arma un solo archivo en memoria con TODAS las tablas.** `mp_procesos` crece con todo Chile (unas 500 licitaciones nuevas por día, con su detalle crudo). En meses puede hacer caer el respaldo de todo Eventia o la memoria del motor a las 07:00 UTC. **Antes de producción** hay que sacarla del respaldo de Eventia (son datos públicos que se vuelven a pedir; Supabase guarda su propia copia diaria). Propuesta anotada en el doc 17 §12, sin aplicar.
-2. **La primera corrida gasta mucho cupo**: unas 6.000 consultas de detalle a Mercado Público, del mismo ticket que usa el bot (10.000 al día). Laboratorio y producción comparten ticket: no hacer la primera corrida de los dos el mismo día.
+1. **El respaldo diario de Eventia (mapa 16) arma un solo archivo en memoria con TODAS las tablas.** `mp_procesos` crece con todo Chile (unas 500 licitaciones nuevas por día, con su detalle crudo) y habría terminado botando el respaldo de todo Eventia. **Desde el 17-10 queda fuera** (`FUERA_DEL_RESPALDO` en `backup-cron.service.ts`, decisión 13 del doc 17; prueba `backup/tests/fuera-del-respaldo.spec.ts`). Una tabla pública nueva que crezca así va a esa misma lista.
+2. **La primera corrida gasta mucho cupo**: unas 6.000 consultas de detalle a Mercado Público, del mismo ticket que usa el bot (10.000 al día). Laboratorio y producción comparten ticket: no hacer la primera corrida de los dos el mismo día. Y nada de pedir en paralelo: la API rechaza las peticiones simultáneas con el mismo ticket.
 3. **El candado vive en la base** (`mp_radar_una_corriendo`), no en memoria: dos réplicas del motor no corren dos radares. Si una corrida muere, la siguiente la marca `abandonada` a las 3 horas.
 4. **Un `upsert` sin `ignoreDuplicates` en `guardarLectura`** pisaría lo que la empresa decidió. La prueba `oportunidades.repository.spec.ts` lo fija.
 5. **Las consultas de empresa sin `company_id`** filtrarían lecturas de otra empresa. Lo fija la misma prueba; `listar` usa `!inner` (un embebido sin `!inner` no filtra, lección del mapa 22).
@@ -99,9 +100,10 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 |---|---|
 | `oportunidades/tests/mapeo.spec.ts` | Hora de Chile a UTC en verano e invierno, regiones escritas de varias formas, traducción de licitación y compra ágil, quién ganó y a qué precio |
 | `oportunidades/tests/reglas.spec.ts` | Comuna cercana y del rubro nunca rojo; hormigón de Quillón sigue rojo; alto valor; palabra entera |
-| `oportunidades/tests/mercado-publico.client.spec.ts` | Reintentos ante 504 y cortes de red, 429 sin reintento, el ticket nunca en errores ni registros, páginas de compra ágil |
+| `oportunidades/tests/mercado-publico.client.spec.ts` | Reintentos ante 504 y cortes de red, 429 sin reintento, el error escrito dentro de un 200, "peticiones simultáneas" se reintenta, el ticket nunca en errores ni registros, páginas de compra ágil |
 | `oportunidades/tests/lectura.service.spec.ts` | Pedido a Haiku 5.5 con esfuerzo bajo y caché; rechazo → amarillo; fallas de la cuenta detienen; las demás dejan el proceso sin leer |
-| `oportunidades/tests/radar.service.spec.ts` | El candado; solo lo nuevo; cierre movido y reapertura; caída de la lista; corte tras 10 fallas; compras ágiles desde la última corrida; lectura por región y en orden de cierre |
+| `oportunidades/tests/radar.service.spec.ts` | El candado; solo lo nuevo, de a uno y en orden de cierre; cierre movido y reapertura; caída de la lista; corte tras 10 fallas; tope de tiempo; compras ágiles desde la última corrida; lectura por región y en orden de cierre |
+| `backup/tests/fuera-del-respaldo.spec.ts` | `mp_procesos` fuera del respaldo diario; lo de cada empresa adentro |
 | `oportunidades/tests/oportunidades.repository.spec.ts` | El candado contra la base; empresa bloqueada fuera; cada consulta de empresa filtra por `company_id`; la lectura no se pisa |
 | `auth/tests/matriz-de-derechos.spec.ts`, `matriz-de-cargos.spec.ts`, `derechos.spec.ts` | Las tres rutas cerradas con `oportunidades` y solo para administrador; ningún plan da el derecho |
 
@@ -112,9 +114,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 
 ## 11. Preguntas abiertas (para Felipe)
 
-- ¿Todo Chile o solo las regiones configuradas en `mp_procesos`? (§6)
-- Sacar `mp_procesos` del respaldo diario de Eventia antes de producción (§8.1).
-- Las de pantalla, para el mockup del sprint 2: quién ve el módulo (hoy, solo administrador), si las rojas se esconden por omisión, cada cuánto el resumen por correo.
+- Respondidas el 17-10: todo Chile; `mp_procesos` fuera del respaldo; solo administradores; sin resumen por correo (doc 17, decisiones 12 a 15).
+- Quedan: ¿se mantiene el aviso inmediato de comuna cercana y alto valor? ¿Las rojas se esconden por omisión?
 
 ## 12. Archivos clave
 

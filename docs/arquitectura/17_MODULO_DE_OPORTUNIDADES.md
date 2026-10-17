@@ -103,6 +103,17 @@ aclaraciones, redactar desde la experiencia anterior, revisión humana siempre.
     ser configurable en el módulo de Eventia"*. Lo mismo las comunas
     cercanas (§5.7).
 
+Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
+
+12. **Todo Chile** en la base, no solo las regiones configuradas (§5.1).
+13. **`mp_procesos` fuera del respaldo diario de Eventia** (riesgo 9).
+14. **Solo administradores**: Felipe y Camila (perfil administrador).
+15. **Sin resumen por correo**: *"ya no se necesita el resumen, se revisa
+    en Eventia"*. El aviso inmediato de comuna cercana y alto valor queda
+    por confirmar.
+16. **Directo al laboratorio, sin otro mockup**: *"terminado esto, anda
+    directo al sprint 2"*. La base de la pantalla es el mockup del 16-10.
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público
@@ -129,16 +140,26 @@ aclaraciones, redactar desde la experiencia anterior, revisión humana siempre.
    día de realizada la consulta", documentación oficial de ChileCompra). Se
    compara con la base:
    - código que no está → se pide el detalle (`?codigo=`) y se guarda, **de
-     todo Chile**. Cambio al construir (16-10), a confirmar por Felipe: la
+     todo Chile**. Cambio al construir (16-10): la
      región solo viene en el detalle, así que hay que abrir cada licitación
      igual, y guardarla evita volver a abrirla cada 2 horas. La IA lee solo
-     las de las regiones de cada empresa;
+     las de las regiones de cada empresa. **Confirmado por Felipe el
+     17-10** (decisión 12);
    - código que ya está y cambió su fecha de cierre → se actualiza y se anota
      en el historial;
    - código que estaba cerrado y vuelve a aparecer → se reabre y se anota.
 2. **Compras ágiles:** API v2 con `publicado_desde` = última corrida exitosa
    menos un margen (48 h) y región 8,16; se compara con la base igual que
    arriba.
+
+   Lo que enseñó el código del bot (17-10): la API de licitaciones a veces
+   responde 200 **con el error adentro** (`Codigo` y `Mensaje`), y rechaza
+   las peticiones simultáneas con el mismo ticket. El radar revisa el
+   cuerpo de cada respuesta, reintenta las "peticiones simultáneas" y pide
+   **de a uno**, primero lo que cierra antes. Cada corrida pide detalles
+   hasta los 80 minutos y lee hasta los 150; lo que falta entra en la
+   próxima (así nunca llega a las 3 horas en que la siguiente la da por
+   muerta).
 3. **Regiones:** las que tenga configuradas cada empresa en el módulo
    (§5.7); el radar trae la unión de todas. Valle del Sol parte con Ñuble y
    Biobío.
@@ -198,10 +219,12 @@ interesa** / **Descartar**, responsable y estado (nueva → en estudio →
 postulada → ganada / perdida / descartada). Ficha con fechas, archivos,
 criterios con su peso e historial de cambios. Calendario de las recurrentes
 ("en noviembre viene el Día de Campo del Dirigente"). Ficha de cada
-competidor. Avisos: correo corto dos veces al día con lo nuevo, y aviso
-inmediato para las comunas cercanas y las de alto valor, al correo de la
-empresa (`companies.notifications.replyTo`; Valle del Sol:
-contacto@valledelsolquillon.cl). Piezas del kit de la casa (`CLAUDE.md`):
+competidor. **Sin resumen por correo** (decisión 15, 17-10): se revisa en
+Eventia, que se pone al día cada 2 horas. El aviso inmediato para las
+comunas cercanas y las de alto valor, al correo de la empresa
+(`companies.notifications.replyTo`; Valle del Sol:
+contacto@valledelsolquillon.cl), queda por confirmar. Solo la ven los
+administradores (decisión 14). Piezas del kit de la casa (`CLAUDE.md`):
 `SelectWithSearch`, `ChipDeEstado`, `Modal`, `Toast`, `ConfirmInline`.
 
 ### 5.4 Botón "Generar documentos" (Opus 5.5)
@@ -363,8 +386,9 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
    mismo día.
 9. **El respaldo diario de Eventia arma un solo archivo en memoria con
    todas las tablas** (mapa 16), y `mp_procesos` crece con todo Chile (unas
-   500 por día). Antes de producción, sacarla de ese respaldo: son datos
-   públicos que se vuelven a pedir, y Supabase guarda su propia copia
+   500 por día). **Resuelto en el código el 17-10** (decisión 13):
+   `FUERA_DEL_RESPALDO` en `backup-cron.service.ts` la deja fuera; son
+   datos públicos que se vuelven a pedir, y Supabase guarda su propia copia
    diaria. Lo de cada empresa (`oportunidades`, `oportunidades_config`) sí
    queda en el respaldo.
 
@@ -384,15 +408,12 @@ evento confirmado.
 1. ~~Pegar el ticket de Mercado Público en Railway~~: hecho por Felipe el
    16-10 (`MP_TICKET` en `api-rest-pruebas`).
 2. Activar o no los USD 200 al mes de créditos de API del plan Max.
-3. OK para aplicar la migración 122 en el laboratorio y correr ahí el radar
-   (la primera corrida: unas 6.000 consultas a Mercado Público y unos pocos
-   dólares de Anthropic).
-4. ¿Todo Chile o solo las regiones configuradas en la base? (§5.1;
-   recomendación: todo Chile.)
-5. Antes de producción: sacar `mp_procesos` del respaldo diario (§10.9).
-6. Las de pantalla, para el mockup del sprint 2 (preguntas del 16-10): quién
-   ve el módulo (hoy, solo administrador), si las rojas se esconden por
-   omisión, cada cuánto llega el resumen por correo.
+3. ~~OK para el laboratorio~~: dado el 17-10.
+4. ~~¿Todo Chile o solo las regiones?~~: todo Chile (decisión 12).
+5. ~~Sacar `mp_procesos` del respaldo~~: hecho en el código (decisión 13).
+6. ~~Quién ve el módulo y el resumen por correo~~: administradores, sin
+   resumen (decisiones 14 y 15). Queda: ¿el aviso inmediato de comuna
+   cercana y alto valor se mantiene? ¿Las rojas se esconden por omisión?
 
 Decidido el 16-10 (§3, puntos 9 a 11): "grande" = monto de alto valor de la
 empresa; avisos al correo de la empresa; regiones y comunas cercanas

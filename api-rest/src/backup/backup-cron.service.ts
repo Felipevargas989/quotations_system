@@ -18,12 +18,22 @@ import { gzipSync } from 'zlib';
  *   y permite verificar el mecanismo sin esperar a la madrugada.
  * - Retención: 30 días (los más antiguos se eliminan solos).
  * - La lista de tablas sale de get_backup_tables() (pg_tables), así que
- *   las tablas nuevas entran solas al respaldo.
+ *   las tablas nuevas entran solas al respaldo, salvo FUERA_DEL_RESPALDO.
  *
  * Restaurar: descargar el .json.gz del bucket (Storage → backups) y
  * reinsertar las tablas necesarias; el formato es
  * { generated_at, tables: { <tabla>: [filas...] } }.
  */
+/**
+ * Tablas que NO entran a este respaldo (Felipe, 17-10-2026, doc 17 riesgo
+ * 9): `mp_procesos` son las licitaciones públicas de todo Chile, crece unas
+ * 500 filas por día y se puede volver a pedir a Mercado Público. Este
+ * respaldo arma el archivo entero en memoria: una tabla así terminaría
+ * botándolo para todo Eventia. Supabase guarda igual su copia diaria. Lo de
+ * cada empresa (`oportunidades`, `oportunidades_config`) sí entra.
+ */
+export const FUERA_DEL_RESPALDO = new Set(['mp_procesos']);
+
 @Injectable()
 export class BackupCronService implements OnModuleInit {
   constructor(
@@ -82,6 +92,7 @@ export class BackupCronService implements OnModuleInit {
       let totalRows = 0;
       for (const t of (tables || []) as { table_name: string }[]) {
         const name = t.table_name;
+        if (FUERA_DEL_RESPALDO.has(name)) continue;
         const rows: unknown[] = [];
         // paginado: supabase-js entrega máximo 1000 filas por consulta
         for (let from = 0; ; from += 1000) {

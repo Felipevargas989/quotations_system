@@ -278,6 +278,48 @@ describe('RadarService — licitaciones: nuevo = "no está en la base"', () => {
     expect(repo.terminarCorrida).toHaveBeenCalledWith(7, 'ok', resumen);
   });
 
+  it('pide primero el detalle de lo que cierra antes, de a uno', async () => {
+    const { radar, mp } = armar();
+    mp.licitacionesActivas.mockResolvedValue([
+      { CodigoExterno: 'NOVIEMBRE', FechaCierre: '2026-11-20T15:00:00' },
+      { CodigoExterno: 'SIN-CIERRE' },
+      { CodigoExterno: 'LUNES', FechaCierre: '2026-10-19T16:00:00' },
+    ]);
+
+    await radar.correr('reloj');
+
+    expect(mp.detalleLicitacion.mock.calls.map(([c]) => c)).toEqual([
+      'LUNES',
+      'NOVIEMBRE',
+      'SIN-CIERRE',
+    ]);
+  });
+
+  it('si se acaba el tiempo de la corrida, deja lo que falta para la próxima', async () => {
+    let ahora = new Date('2026-10-17T12:00:00Z').getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => ahora);
+    const { radar, repo, mp } = armar();
+    mp.licitacionesActivas.mockResolvedValue(
+      Array.from({ length: 6 }, (_, i) => ({ CodigoExterno: `L-${i}` })),
+    );
+    mp.detalleLicitacion.mockImplementation((codigo: string) => {
+      ahora += 30 * 60 * 1000; // cada detalle tarda media hora
+      return Promise.resolve(detalle(codigo));
+    });
+
+    const resumen = await radar.correr('reloj');
+
+    expect(mp.detalleLicitacion).toHaveBeenCalledTimes(3);
+    expect(resumen?.licitaciones).toMatchObject({
+      estado: 'cortada',
+      nuevas: 6,
+      guardadas: 3,
+      pendientes: 3,
+    });
+    expect(resumen?.avisos.join(' ')).toContain('tiempo');
+    expect(repo.terminarCorrida).toHaveBeenCalledWith(7, 'ok', resumen);
+  });
+
   it('sin cupo (429) en un detalle corta en seco', async () => {
     const { radar, mp } = armar();
     mp.licitacionesActivas.mockResolvedValue([
