@@ -29,6 +29,7 @@ Notas:
 
 - Menú: `frontend/src/layout/Sidebar.tsx`, "Oportunidades" después de Marketing, ícono `Radar`, sección `oportunidades` (sale solo si la empresa tiene el derecho).
 - La pantalla recuerda filtros y pestaña en `sessionStorage` (`op.filtros`, `op.pestana`), la regla de Felipe del 26-08.
+- **Prioridad** (Felipe, 17-10: *"hay dos que son directas mías y están en amarillo y deberían ser prioridad"*): lo de una comuna cercana o de alto valor que no quedó en rojo va arriba en la bandeja, en un bloque "Prioridad", y la ficha lo marca (`esPrioridad`, `oportunidades.utils.ts`). El color no se toca: lo decide la lectura.
 - El enlace a Mercado Público: licitaciones a `DetailsAcquisition.aspx?idlicitacion=` (probado el 17-10: responde 200); compras ágiles a `buscador.mercadopublico.cl/ficha?code=` (`urlMercadoPublico`, `oportunidades.utils.ts`).
 
 ## 3. Endpoints del motor
