@@ -95,10 +95,12 @@ export class MercadoPublicoClient {
    *  un freno por pedir seguido, no el cupo del día (17-10, laboratorio). */
   esperas429: number[] = [30_000, 90_000];
   /** Pausa mínima entre el inicio de dos pedidos (las pruebas la apagan).
-   *  Se ajusta sola: cada "peticiones simultáneas" la duplica, desde
-   *  `pausaTrasChoqueMs` hasta `pausaMaximaMs` (medido el 17-10: con 1 s
-   *  entre pedidos, Mercado Público seguía viendo simultáneas). */
-  pausaMinimaMs = 1_000;
+   *  Se ajusta sola: cada "peticiones simultáneas" le suma
+   *  `aumentoPorChoqueMs`, sin bajar de `pausaTrasChoqueMs` ni pasar de
+   *  `pausaMaximaMs`. Medido el 17-10 en el laboratorio: con 1 s y con 2 s
+   *  entre pedidos Mercado Público veía simultáneas; con 4 s, no. */
+  pausaMinimaMs = 3_000;
+  aumentoPorChoqueMs = 1_000;
   pausaTrasChoqueMs = 2_000;
   pausaMaximaMs = 10_000;
   /** Tantos choques seguidos en un mismo pedido = se rinde con ese. */
@@ -317,7 +319,7 @@ export class MercadoPublicoClient {
     }
     const antes = this.pausaMinimaMs;
     this.pausaMinimaMs = Math.min(
-      Math.max(antes * 2, this.pausaTrasChoqueMs),
+      Math.max(antes + this.aumentoPorChoqueMs, this.pausaTrasChoqueMs),
       this.pausaMaximaMs,
     );
     if (this.pausaMinimaMs !== antes) {

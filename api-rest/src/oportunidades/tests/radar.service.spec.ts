@@ -58,6 +58,7 @@ const caida = (status = 504) =>
 /** `base` = lo que ya está en mp_procesos (código → cierre y estado,
  *  como los devuelve Postgres). */
 function armar(base = new Map<string, ProcesoConocido>()) {
+  const leidas = new Set<string>();
   const mp = {
     configurado: true,
     licitacionesActivas: jest.fn().mockResolvedValue([]),
@@ -87,8 +88,12 @@ function armar(base = new Map<string, ProcesoConocido>()) {
       paquetes: ['Evento: matrimonio'],
       fijos: ['Garzón'],
     }),
-    codigosLeidos: jest.fn().mockResolvedValue(new Set<string>()),
-    guardarLectura: jest.fn().mockResolvedValue(undefined),
+    // Como la base: lo que se guarda queda leído para la pasada siguiente.
+    codigosLeidos: jest.fn(() => Promise.resolve(new Set(leidas))),
+    guardarLectura: jest.fn((_empresa: number, codigo: string) => {
+      leidas.add(codigo);
+      return Promise.resolve();
+    }),
   };
   const lectura = {
     configurado: true,
@@ -105,7 +110,7 @@ function armar(base = new Map<string, ProcesoConocido>()) {
     lectura as unknown as LecturaService,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { mp, repo, lectura, radar };
+  return { mp, repo, lectura, radar, leidas };
 }
 
 const guardados = (repo: ReturnType<typeof armar>['repo']) =>
@@ -318,7 +323,7 @@ describe('RadarService — licitaciones: nuevo = "no está en la base"', () => {
       Array.from({ length: 6 }, (_, i) => ({ CodigoExterno: `L-${i}` })),
     );
     mp.detalleLicitacion.mockImplementation((codigo: string) => {
-      ahora += 30 * 60 * 1000; // cada detalle tarda media hora
+      ahora += 20 * 60 * 1000; // cada detalle tarda 20 minutos (tope: 45)
       return Promise.resolve(detalle(codigo));
     });
 
@@ -433,7 +438,7 @@ describe('RadarService — compras ágiles con tope de tiempo', () => {
       Array.from({ length: 5 }, (_, i) => ({ codigo: `CA-${i}`, nombre: 'x' })),
     );
     mp.detalleCompraAgil.mockImplementation(() => {
-      ahora += 40 * 60 * 1000; // cada detalle tarda 40 minutos
+      ahora += 25 * 60 * 1000; // cada detalle tarda 25 minutos (tope: 70)
       return Promise.resolve(null);
     });
 
@@ -452,7 +457,7 @@ describe('RadarService — compras ágiles con tope de tiempo', () => {
 
 describe('RadarService — la lectura', () => {
   it('lee una vez por empresa, solo sus regiones, y aplica las reglas', async () => {
-    const { radar, repo, lectura } = armar();
+    const { radar, repo, lectura, leidas } = armar();
     repo.procesosAbiertos.mockResolvedValue([
       abierto('P1', {
         organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
@@ -461,7 +466,7 @@ describe('RadarService — la lectura', () => {
       abierto('P2', { region: 'Región del Maule' }),
       abierto('P3', { region: 'Región del Biobío' }),
     ]);
-    repo.codigosLeidos.mockResolvedValue(new Set(['P3']));
+    leidas.add('P3');
     lectura.leer.mockResolvedValue({
       semaforo: 'rojo',
       etiquetas: ['alimentacion'],
@@ -567,6 +572,35 @@ describe('RadarService — la lectura', () => {
     expect(lectura.leer).not.toHaveBeenCalled();
     expect(resumen?.lectura.empresas).toBe(0);
     expect(resumen?.compras_agiles.estado).toBe('sin_regiones');
+  });
+});
+
+describe('RadarService — dos pasadas de lectura', () => {
+  it('lo de la primera pasada no se relee, y lo que falló no se reintenta en la misma corrida', async () => {
+    const { radar, repo, lectura, mp } = armar();
+    repo.procesosAbiertos.mockResolvedValue([abierto('P1'), abierto('FALLA')]);
+    lectura.leer.mockImplementation((p: ProcesoParaLeer) =>
+      Promise.resolve(
+        p.codigo === 'FALLA'
+          ? null
+          : {
+              semaforo: 'verde',
+              etiquetas: ['evento'],
+              se_hace_en_el_complejo: 'si',
+              razon: 'ok',
+            },
+      ),
+    );
+    mp.comprasAgiles.mockResolvedValue([]);
+
+    const resumen = await radar.correr('reloj');
+
+    expect(lectura.leer).toHaveBeenCalledTimes(2);
+    expect(resumen?.lectura).toMatchObject({
+      leidas: 1,
+      sin_leer: 1,
+      empresas: 1,
+    });
   });
 });
 

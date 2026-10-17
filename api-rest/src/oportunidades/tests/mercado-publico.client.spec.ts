@@ -51,6 +51,7 @@ describe('MercadoPublicoClient', () => {
     cliente.pausaMinimaMs = 0;
     cliente.pausaTrasChoqueMs = 0;
     cliente.pausaMaximaMs = 0;
+    cliente.aumentoPorChoqueMs = 0;
     fetchFalso = jest.spyOn(global, 'fetch');
   });
 
@@ -157,6 +158,7 @@ describe('MercadoPublicoClient', () => {
     it('"peticiones simultáneas" en un 429: pide más despacio y reintenta', async () => {
       cliente.pausaTrasChoqueMs = 5;
       cliente.pausaMaximaMs = 20;
+      cliente.aumentoPorChoqueMs = 5;
       const simultaneas = {
         Mensaje:
           'Lo sentimos. Hemos detectado que existen peticiones simultáneas.',
@@ -171,7 +173,7 @@ describe('MercadoPublicoClient', () => {
         CodigoExterno: 'A-1-LE26',
       });
       expect(fetchFalso).toHaveBeenCalledTimes(3);
-      // 0 → 5 → 10 ms: la pausa se duplica con cada choque, y se queda.
+      // 0 → 5 → 10 ms: cada choque le suma a la pausa, y se queda.
       expect(cliente.pausaMinimaMs).toBe(10);
       expect(logger.warn.mock.calls.join(' ')).toContain('pido cada');
     });
@@ -189,6 +191,7 @@ describe('MercadoPublicoClient', () => {
     it('"peticiones simultáneas" se espera y se reintenta', async () => {
       cliente.pausaTrasChoqueMs = 5;
       cliente.pausaMaximaMs = 20;
+      cliente.aumentoPorChoqueMs = 5;
       fetchFalso
         .mockResolvedValueOnce(
           respuesta(500, {
