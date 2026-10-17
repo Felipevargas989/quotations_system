@@ -30,6 +30,10 @@ import {
   sePuedeFirmar,
   pasosDelAvance,
   separarMias,
+  alertasDelAnalisis,
+  fechaDelEvento,
+  filtrarRequisitos,
+  requisitosConEstado,
 } from "./oportunidades.utils";
 
 const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
@@ -467,5 +471,80 @@ describe("Mis licitaciones: el avance", () => {
     ]);
     expect(enCurso.map((m) => m.estado)).toEqual(["en_estudio", "postulada"]);
     expect(terminadas.map((m) => m.estado)).toEqual(["ganada", "perdida"]);
+  });
+});
+
+describe("la ficha ordenada", () => {
+  it("arriba solo lo que deja fuera (máximo 5); lo demás, a las condiciones", () => {
+    const siete = ["1", "2", "3", "4", "5", "6", "7"];
+    expect(
+      alertasDelAnalisis({ te_dejan_fuera: siete, condiciones: ["multa"] }),
+    ).toEqual({
+      dejanFuera: ["1", "2", "3", "4", "5"],
+      condiciones: ["6", "7", "multa"],
+      separadas: true,
+    });
+    // Un análisis anterior al 17-10: todo junto y sin separar.
+    expect(alertasDelAnalisis({ alertas: ["a", "b"] })).toEqual({
+      dejanFuera: [],
+      condiciones: ["a", "b"],
+      separadas: false,
+    });
+  });
+
+  it("cada requisito con lo que dijo la validación: por posición, o por texto si se movió", () => {
+    const requisitos = [
+      { que: "Anexo 1", obligatorio: true },
+      { que: "Patente  municipal", obligatorio: true },
+      { que: "Programa de integridad", obligatorio: false },
+    ];
+    const validacion = [
+      {
+        que: "anexo 1",
+        estado: "cumple",
+        donde: "A1.pdf",
+        observacion: "Bien.",
+      },
+      {
+        que: "Programa de integridad",
+        estado: "falta",
+        donde: "",
+        observacion: "No está.",
+      },
+      {
+        que: "Patente municipal",
+        estado: "vencido",
+        donde: "P.pdf",
+        observacion: "Venció.",
+      },
+    ];
+    const lista = requisitosConEstado(requisitos, validacion);
+    expect(lista.map((q) => q.estado)).toEqual(["cumple", "vencido", "falta"]);
+    expect(requisitosConEstado(requisitos, null).map((q) => q.estado)).toEqual([
+      "sin_ver",
+      "sin_ver",
+      "sin_ver",
+    ]);
+    expect(filtrarRequisitos(lista, "faltan").map((q) => q.que)).toEqual([
+      "Patente  municipal",
+      "Programa de integridad",
+    ]);
+    expect(filtrarRequisitos(lista, "obligatorios")).toHaveLength(2);
+    expect(filtrarRequisitos(lista, "listos")).toHaveLength(1);
+  });
+
+  it("cuándo es el evento: el campo del análisis, o la fecha del servicio de un análisis antiguo", () => {
+    expect(
+      fechaDelEvento({ fecha_del_servicio: "vie 30 oct, 18:00", fechas: [] }),
+    ).toBe("vie 30 oct, 18:00");
+    expect(
+      fechaDelEvento({
+        fechas: [
+          { que: "Cierre de ofertas", cuando: "19-10" },
+          { que: "Fecha del servicio", cuando: "30-10, 18:00 a 02:00" },
+        ],
+      }),
+    ).toBe("30-10, 18:00 a 02:00");
+    expect(fechaDelEvento({ fechas: [] })).toBe("");
   });
 });
