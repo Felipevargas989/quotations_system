@@ -331,6 +331,19 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   13). «Cuadrar al peso» es la suma interna de Eventia
 >   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
 >   presupuesto nunca frena el guardado.
+> - **Lo que tiene que saber armar** (Felipe, 17-10):
+>   - *"si pido un menú en particular que no esté paquetizado"*: lo arma
+>     con los platos sueltos del catálogo (49 de almuerzos y cenas, 21 de
+>     coffee y cóctel, 15 de desayunos y onces), cada uno a su precio; lo
+>     que no existe va como «NO TENEMOS …» en la nota, con lo más parecido.
+>   - *"tres días (…) llegan con cena tal día, (…) pensión completa y se
+>     van con desayuno"*: cada comida en su día, alojamiento por noche y el
+>     último día como fecha de término. Si calza exacto con un paquete de
+>     noches (1N, 2N o 3N, media pensión o pensión completa), usa el
+>     paquete. Si el pedido admite dos lecturas, anota cuál eligió.
+>   - Estos dos casos, más económica, mediana o cara y el presupuesto
+>     excedido, son las **pruebas fijas del laboratorio**: el botón no pasa
+>     a producción sin que salgan bien.
 > - **Límite:** no lee correos ni fotos (la skill sí). Lo que importe va en
 >   el comentario interno.
 > - **Costo, medido el 17-10:** el catálogo de Valle del Sol (32 paquetes,
