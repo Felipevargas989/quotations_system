@@ -11,10 +11,19 @@ import {
   type Adjunto,
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
-import { extensionDe } from '../adjuntos/adjuntos.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { AnalisisRepository, type FilaDeAnalisis } from './analisis.repository';
-import { textoDeDocx } from './docx';
+import {
+  armarContenido,
+  costoEnDolares,
+  ENCENDIDO,
+  errorDeIA,
+  MAX_BYTES_DE_PDF,
+  MODELO_OPUS,
+  type NoLeido,
+  pesoDePdf,
+  separar,
+} from './comun';
 
 // LA IA LEE LAS BASES (doc 17, sprint 3, paso 1; migración 125). Felipe,
 // 17-10: "vamos". Con Opus 5.5, lo decidido para documentos (decisión 6).
@@ -24,24 +33,12 @@ import { textoDeDocx } from './docx';
 // el resumen, el checklist de lo que piden con su página, los criterios con
 // su peso, las fechas, las garantías y las alertas. Tarda uno a tres
 // minutos: corre por detrás y la pantalla pregunta cada pocos segundos.
+// Lo común con Validar documentos vive en ./comun.
 
-export const MODELO_BASES = 'claude-opus-5-5';
-
-/** Precio de Opus 5.5 en US$ por token: 4 por millón de entrada, 20 de
- *  salida. */
-const US_POR_TOKEN_ENTRADA = 4 / 1_000_000;
-const US_POR_TOKEN_SALIDA = 20 / 1_000_000;
-
-/** Los PDF van dentro del pedido, en base64, que los agranda un tercio. El
- *  pedido no puede pasar de 32 MB. */
-export const MAX_BYTES_DE_PDF = 22 * 1024 * 1024;
-
-/** Lo que la IA puede leer: PDF directo; Word y texto, como texto. */
-const LEIBLES = new Set(['pdf', 'docx', 'txt', 'csv']);
-
-/** Cuándo encendió este motor: un análisis "procesando" de antes murió con
- *  el proceso anterior (un despliegue a la mitad). */
-const ENCENDIDO = new Date().toISOString();
+export const MODELO_BASES = MODELO_OPUS;
+export { MAX_BYTES_DE_PDF, separar };
+/** La falla, en palabras de la casa. */
+export const errorDeAnalisis = errorDeIA;
 
 export const ESQUEMA_DE_BASES = {
   type: 'object',
@@ -149,48 +146,6 @@ export const instruccionesDeBases = (c: ContextoDeBases): string =>
     '- alertas: lo que podría dejar fuera a la empresa o costarle caro: causales de inadmisibilidad, multas, plazos muy cortos, exigencias raras, contradicciones entre documentos, cambios de una aclaratoria.',
   ].join('\n');
 
-/** La falla, en palabras de la casa: es lo que lee Felipe en la ficha. */
-export const errorDeAnalisis = (error: unknown): string => {
-  const mensaje = mensajeDe(error);
-  if (
-    error instanceof Anthropic.AuthenticationError ||
-    error instanceof Anthropic.PermissionDeniedError
-  ) {
-    return 'La llave de Anthropic del motor no funciona.';
-  }
-  if (error instanceof Anthropic.RateLimitError) {
-    return 'La cuenta de Anthropic está sin cupo en este momento: vuelve a intentar en unos minutos.';
-  }
-  if (/credit balance/i.test(mensaje)) {
-    return 'Se acabó el saldo de la cuenta de Anthropic.';
-  }
-  if (/too long|too many pages|maximum.*pages|too large|413/i.test(mensaje)) {
-    return 'Las bases son demasiado largas para leerlas de una vez: deja solo las bases y los anexos principales y vuelve a analizar.';
-  }
-  if (error instanceof Anthropic.APIConnectionTimeoutError) {
-    return 'La IA tardó demasiado en responder: vuelve a intentar.';
-  }
-  return `No se pudieron leer las bases: ${mensaje}`;
-};
-
-/** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes). */
-export const separar = (archivos: Adjunto[]) => {
-  const leibles: Adjunto[] = [];
-  const noLeidos: Array<{ nombre: string; motivo: string }> = [];
-  for (const a of archivos) {
-    if (LEIBLES.has(extensionDe(a.nombre))) leibles.push(a);
-    else {
-      noLeidos.push({
-        nombre: a.nombre,
-        motivo: 'la IA lee PDF y Word; si es un ZIP, sube lo que trae adentro',
-      });
-    }
-  }
-  // En el orden en que se subieron: así "el documento" es el que uno ve.
-  leibles.sort((a, b) => a.creado_en.localeCompare(b.creado_en));
-  return { leibles, noLeidos };
-};
-
 @Injectable()
 export class AnalisisService {
   private clienteAnthropic: Anthropic | null = null;
@@ -237,7 +192,11 @@ export class AnalisisService {
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
 
-    const archivos = await this.adjuntos.listar(companyId, oportunidadId);
+    const archivos = await this.adjuntos.listar(
+      companyId,
+      oportunidadId,
+      'bases',
+    );
     const { leibles, noLeidos } = separar(archivos);
     if (leibles.length === 0) {
       throw new BadRequestException(
@@ -246,10 +205,7 @@ export class AnalisisService {
           : 'Ninguno de los archivos se puede leer: sube las bases en PDF o Word.',
       );
     }
-    const pesoDePdf = leibles
-      .filter((a) => extensionDe(a.nombre) === 'pdf')
-      .reduce((suma, a) => suma + a.bytes, 0);
-    if (pesoDePdf > MAX_BYTES_DE_PDF) {
+    if (pesoDePdf(leibles) > MAX_BYTES_DE_PDF) {
       throw new BadRequestException(
         'Los PDF pesan más de 22 MB juntos: deja solo las bases y los anexos principales y vuelve a analizar.',
       );
@@ -287,11 +243,13 @@ export class AnalisisService {
     companyId: number,
     analisisId: number,
     leibles: Adjunto[],
-    noLeidos: Array<{ nombre: string; motivo: string }>,
+    noLeidos: NoLeido[],
     contexto: ContextoDeBases,
   ): Promise<void> {
     try {
-      const { bloques, sinAbrir } = await this.armarContenido(leibles);
+      const { bloques, sinAbrir } = await armarContenido(leibles, (ruta) =>
+        this.repo.descargar(ruta),
+      );
       const noLeidosFinal = [...noLeidos, ...sinAbrir];
       if (bloques.length === 0) {
         await this.repo.terminar(companyId, analisisId, {
@@ -323,11 +281,7 @@ export class AnalisisService {
       });
       const entrada = respuesta.usage.input_tokens ?? 0;
       const salida = respuesta.usage.output_tokens ?? 0;
-      const costo =
-        Math.round(
-          (entrada * US_POR_TOKEN_ENTRADA + salida * US_POR_TOKEN_SALIDA) *
-            10_000,
-        ) / 10_000;
+      const costo = costoEnDolares(entrada, salida);
       if (!respuesta.parsed_output) {
         await this.repo.terminar(companyId, analisisId, {
           estado: 'error',
@@ -366,40 +320,5 @@ export class AnalisisService {
           ),
         );
     }
-  }
-
-  /** Los archivos como los lee Claude: el PDF entero (texto e imagen de
-   *  cada página), el Word y el texto como texto. */
-  private async armarContenido(leibles: Adjunto[]) {
-    const bloques: Anthropic.DocumentBlockParam[] = [];
-    const sinAbrir: Array<{ nombre: string; motivo: string }> = [];
-    for (const a of leibles) {
-      const datos = await this.repo.descargar(a.ruta);
-      const ext = extensionDe(a.nombre);
-      if (ext === 'pdf') {
-        bloques.push({
-          type: 'document',
-          title: a.nombre,
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: datos.toString('base64'),
-          },
-        });
-        continue;
-      }
-      const texto =
-        ext === 'docx' ? textoDeDocx(datos) : datos.toString('utf8');
-      if (!texto?.trim()) {
-        sinAbrir.push({ nombre: a.nombre, motivo: 'no se pudo abrir' });
-        continue;
-      }
-      bloques.push({
-        type: 'document',
-        title: a.nombre,
-        source: { type: 'text', media_type: 'text/plain', data: texto },
-      });
-    }
-    return { bloques, sinAbrir };
   }
 }

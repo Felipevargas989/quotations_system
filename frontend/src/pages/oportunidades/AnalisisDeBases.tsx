@@ -30,8 +30,8 @@ export default function AnalisisDeBases({
   const qc = useQueryClient();
   const clave = ["oportunidades", "analisis", oportunidadId];
   const { data: adjuntos = [] } = useQuery({
-    queryKey: ["oportunidades", "adjuntos", oportunidadId],
-    queryFn: () => getAdjuntos(oportunidadId),
+    queryKey: ["oportunidades", "adjuntos", oportunidadId, "bases"],
+    queryFn: () => getAdjuntos(oportunidadId, "bases"),
   });
   const { data: analisis, isPending } = useQuery({
     queryKey: clave,

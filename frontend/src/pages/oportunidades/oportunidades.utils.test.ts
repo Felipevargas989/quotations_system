@@ -9,6 +9,7 @@ import {
   filtrar,
   filtrarSinSemaforo,
   agruparPorMes,
+  contarPorEstadoDeValidacion,
   criteriosPorPeso,
   estadoDeVencimiento,
   etiquetaDeDocumento,
@@ -325,5 +326,19 @@ describe("la carpeta de documentos de la empresa", () => {
       "Certificado F30 (antecedentes laborales)",
     );
     expect(etiquetaDeDocumento("raro")).toBe("raro");
+  });
+});
+
+describe("validar documentos", () => {
+  it("cuenta cuántos cumplen, faltan, están vencidos o por revisar", () => {
+    expect(
+      contarPorEstadoDeValidacion([
+        { estado: "cumple" },
+        { estado: "cumple" },
+        { estado: "falta" },
+        { estado: "revisar" },
+        { estado: "raro" },
+      ]),
+    ).toEqual({ cumple: 2, falta: 1, vencido: 0, revisar: 1 });
   });
 });

@@ -144,6 +144,7 @@ Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empre
 | `oportunidad_analisis` | Cada análisis de bases con IA: estado, resultado, archivos leídos y no leídos, modelo, tokens, costo, error, quién y cuándo; uno a la vez por oportunidad | 24 | 125 (en el laboratorio) |
 | `oportunidades_oferente` | La empresa como oferente: razón social, RUT, giro, domicilio, representante legal, experiencia, instalaciones y la ruta de la foto de la firma; una fila por empresa | 24 | 126 (sin aplicar) |
 | `oportunidades_documentos` | La carpeta de documentos de la empresa con su vencimiento | 24 | 126 (sin aplicar) |
+| `oportunidad_validacion` | Cada validación de documentos con IA (misma forma que `oportunidad_analisis`, más el análisis que revisó); una a la vez por oportunidad | 24 | 127 (sin aplicar) |
 
 ### Consultas y formularios públicos
 
@@ -556,4 +557,12 @@ y **antes** del deploy del motor.
 **Qué hace.** Crea `oportunidades_oferente` (una fila por empresa: razón social, RUT, giro, dirección, comuna, región, teléfono, correo, representante legal con RUT y cargo, experiencia destacada, instalaciones, y `firma_ruta`, la foto de la firma en el balde privado) y `oportunidades_documentos` (la carpeta: tipo, nombre, ruta única, tipo de archivo, bytes, `vence` y quién lo subió). Las dos con `company_id`, RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role` (y la secuencia de la segunda). Sin datos sembrados: los llena la empresa en "Mi empresa". Lo que ya está en `companies` (nombre, datos bancarios) no se repite. Trae la reversa comentada.
 
 **Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
+
+## 20. Migración 127: mi postulación y validar documentos (17-10-2026)
+
+**Qué hace.** Suma a `oportunidad_adjuntos` la columna `seccion` (`bases`, lo de siempre y el valor de lo que ya existe, o `postulacion`, lo que la empresa va a presentar) con su CHECK, y crea `oportunidad_validacion`: la misma forma que `oportunidad_analisis` más `analisis_id` (el análisis cuyo checklist se revisó, `set null` si se borra), con el índice único parcial `oportunidad_validacion_una_en_curso`, RLS, `REVOKE`, `GRANT` y la secuencia. Va **después** de la 125 y la 126. Trae la reversa comentada.
+
+**Ojo con el orden del motor:** el código que lista adjuntos ya filtra por `seccion`; con ese motor y sin la 127, la sección de bases se cae. Por eso el paso 3 no sube al laboratorio sin la migración.
+
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
 

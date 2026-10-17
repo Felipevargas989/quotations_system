@@ -3,8 +3,9 @@ import { PinoLogger } from 'nestjs-pino';
 import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
-// Los análisis de bases (migración 125) y la descarga de los archivos del
-// balde privado. Toda consulta filtra por company_id.
+// Los trabajos de la IA sobre los archivos de una oportunidad: el análisis
+// de bases (migración 125) y la validación de documentos (127). La misma
+// forma de fila en dos tablas. Toda consulta filtra por company_id.
 
 export type EstadoDeAnalisis = 'procesando' | 'listo' | 'error';
 
@@ -26,6 +27,8 @@ export type FilaDeAnalisis = {
 
 export type AnalisisNuevo = {
   company_id: number;
+  /** Solo la validación: el análisis cuyo checklist revisó. */
+  analisis_id?: number | null;
   oportunidad_id: number;
   modelo: string;
   archivos: Array<{ id: number; nombre: string }>;
@@ -46,14 +49,14 @@ export type FinDeAnalisis = {
 const COLUMNAS =
   'id, oportunidad_id, estado, resultado, archivos, no_leidos, modelo, tokens_entrada, tokens_salida, costo_usd, error, creado_en, terminado_en';
 
-@Injectable()
-export class AnalisisRepository {
+/** La base de los dos: cada uno dice su tabla. */
+export abstract class TrabajosDeIARepository {
+  protected abstract readonly tabla: string;
+
   constructor(
-    private readonly supabase: SupabaseService,
-    private readonly logger: PinoLogger,
-  ) {
-    this.logger.setContext(AnalisisRepository.name);
-  }
+    protected readonly supabase: SupabaseService,
+    protected readonly logger: PinoLogger,
+  ) {}
 
   private get db() {
     return this.supabase.client;
@@ -65,7 +68,7 @@ export class AnalisisRepository {
     oportunidadId: number,
   ): Promise<FilaDeAnalisis | null> {
     const { data, error } = await this.db
-      .from('oportunidad_analisis')
+      .from(this.tabla)
       .select(COLUMNAS)
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
@@ -80,7 +83,7 @@ export class AnalisisRepository {
    *  `oportunidad_analisis_uno_en_curso`, no la memoria). */
   async crear(fila: AnalisisNuevo): Promise<FilaDeAnalisis | null> {
     const { data, error } = await this.db
-      .from('oportunidad_analisis')
+      .from(this.tabla)
       .insert(fila)
       .select(COLUMNAS)
       .single();
@@ -97,7 +100,7 @@ export class AnalisisRepository {
     fin: FinDeAnalisis,
   ): Promise<void> {
     const { error } = await this.db
-      .from('oportunidad_analisis')
+      .from(this.tabla)
       .update({ ...fin, terminado_en: new Date().toISOString() })
       .eq('company_id', companyId)
       .eq('id', id);
@@ -112,10 +115,10 @@ export class AnalisisRepository {
     antes: string,
   ): Promise<void> {
     const { error } = await this.db
-      .from('oportunidad_analisis')
+      .from(this.tabla)
       .update({
         estado: 'error',
-        error: 'Se cortó porque el motor se reinició. Vuelve a analizar.',
+        error: 'Se cortó porque el motor se reinició. Vuelve a intentar.',
         terminado_en: new Date().toISOString(),
       })
       .eq('company_id', companyId)
@@ -132,5 +135,25 @@ export class AnalisisRepository {
       .download(ruta);
     if (error || !data) throw error ?? new Error(`sin datos: ${ruta}`);
     return Buffer.from(await data.arrayBuffer());
+  }
+}
+
+@Injectable()
+export class AnalisisRepository extends TrabajosDeIARepository {
+  protected readonly tabla = 'oportunidad_analisis';
+
+  constructor(supabase: SupabaseService, logger: PinoLogger) {
+    super(supabase, logger);
+    this.logger.setContext(AnalisisRepository.name);
+  }
+}
+
+@Injectable()
+export class ValidacionRepository extends TrabajosDeIARepository {
+  protected readonly tabla = 'oportunidad_validacion';
+
+  constructor(supabase: SupabaseService, logger: PinoLogger) {
+    super(supabase, logger);
+    this.logger.setContext(ValidacionRepository.name);
   }
 }

@@ -10,6 +10,7 @@ import {
   getAdjuntos,
   subirAdjunto,
   type AdjuntoDeOportunidad,
+  type SeccionDeArchivos,
   type TipoProceso,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -31,21 +32,27 @@ import {
 // que esta casa no esquiva. Los baja una persona desde su navegador (el
 // botón abre la ficha allá) y los arrastra aquí. PDF e imágenes se ven con
 // el visor de la casa (FileViewLink); Word, Excel y ZIP se descargan.
+//
+// La misma pieza sirve para "Mi postulación" (sprint 3, paso 3; migración
+// 127): lo que la empresa va a presentar, que después se valida contra el
+// checklist de las bases.
 
 export default function AdjuntosDeLaOportunidad({
   oportunidadId,
   codigo,
   tipo,
+  seccion = "bases",
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
   readonly tipo: TipoProceso;
+  readonly seccion?: SeccionDeArchivos;
 }) {
   const qc = useQueryClient();
-  const clave = ["oportunidades", "adjuntos", oportunidadId];
+  const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
   const { data: adjuntos = [], isPending } = useQuery({
     queryKey: clave,
-    queryFn: () => getAdjuntos(oportunidadId),
+    queryFn: () => getAdjuntos(oportunidadId, seccion),
   });
 
   const [subiendo, setSubiendo] = useState<{
@@ -70,7 +77,7 @@ export default function AdjuntosDeLaOportunidad({
         nombre: archivo.name,
       });
       try {
-        await subirAdjunto(oportunidadId, archivo);
+        await subirAdjunto(oportunidadId, archivo, seccion);
         subidos += 1;
       } catch (e) {
         toast.error(humanizeApiError(e, `No se pudo subir "${archivo.name}".`));
@@ -114,23 +121,27 @@ export default function AdjuntosDeLaOportunidad({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <h2 className="text-sm font-semibold text-gray-900">
-            Bases y anexos
+            {seccion === "postulacion" ? "Mi postulación" : "Bases y anexos"}
           </h2>
           <p className="text-xs text-gray-500">
-            {tipo === "licitacion"
-              ? "En Mercado Público, pincha «Ver adjuntos» arriba de la ficha y baja los archivos. Después arrástralos aquí."
-              : "En Mercado Público, los archivos están en la misma ficha de la compra ágil. Bájalos y arrástralos aquí."}
+            {seccion === "postulacion"
+              ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
+              : tipo === "licitacion"
+                ? "En Mercado Público, pincha «Ver adjuntos» arriba de la ficha y baja los archivos. Después arrástralos aquí."
+                : "En Mercado Público, los archivos están en la misma ficha de la compra ágil. Bájalos y arrástralos aquí."}
           </p>
         </div>
-        <a
-          href={urlMercadoPublico(codigo, tipo)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-        >
-          Bajar de Mercado Público
-          <ExternalLink size={14} />
-        </a>
+        {seccion === "bases" && (
+          <a
+            href={urlMercadoPublico(codigo, tipo)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+          >
+            Bajar de Mercado Público
+            <ExternalLink size={14} />
+          </a>
+        )}
       </div>
 
       {isPending ? (

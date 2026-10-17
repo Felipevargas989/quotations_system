@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AdjuntosRepository } from './adjuntos/adjuntos.repository';
 import { AdjuntosService } from './adjuntos/adjuntos.service';
-import { AnalisisRepository } from './analisis/analisis.repository';
+import {
+  AnalisisRepository,
+  ValidacionRepository,
+} from './analisis/analisis.repository';
 import { AnalisisService } from './analisis/analisis.service';
+import { ValidacionService } from './analisis/validacion.service';
 import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
@@ -28,6 +32,8 @@ import { RadarService } from './radar.service';
     AdjuntosService,
     AnalisisRepository,
     AnalisisService,
+    ValidacionRepository,
+    ValidacionService,
     OferenteRepository,
     OferenteService,
     HistoriaService,

@@ -22,10 +22,12 @@ import {
   MAX_BYTES_ADJUNTO,
 } from './adjuntos/adjuntos.service';
 import { AnalisisService } from './analisis/analisis.service';
+import { ValidacionService } from './analisis/validacion.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
+import { SeccionDto } from './dto/seccion.dto';
 import {
   MAX_BYTES_DOCUMENTO,
   MAX_BYTES_FIRMA,
@@ -51,6 +53,7 @@ export class OportunidadesController {
     private readonly servicio: OportunidadesService,
     private readonly adjuntos: AdjuntosService,
     private readonly analisis: AnalisisService,
+    private readonly validacion: ValidacionService,
     private readonly oferente: OferenteService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
@@ -188,9 +191,10 @@ export class OportunidadesController {
   @Get(':id/adjuntos')
   listarAdjuntos(
     @Param('id', ParseIntPipe) id: number,
+    @Query() { seccion }: SeccionDto,
     @CurrentUser() user: User,
   ) {
-    return this.adjuntos.listar(user.company_id, id);
+    return this.adjuntos.listar(user.company_id, id, seccion ?? 'bases');
   }
 
   /** Un archivo por pedido, en el campo `file`. `defParamCharset`: el
@@ -205,12 +209,19 @@ export class OportunidadesController {
   subirAdjunto(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() archivo: Express.Multer.File | undefined,
+    @Body() { seccion }: SeccionDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(
-      `POST /oportunidades/${id}/adjuntos (empresa ${user.company_id})`,
+      `POST /oportunidades/${id}/adjuntos (empresa ${user.company_id}, ${seccion ?? 'bases'})`,
     );
-    return this.adjuntos.subir(user.company_id, user.id, id, archivo);
+    return this.adjuntos.subir(
+      user.company_id,
+      user.id,
+      id,
+      archivo,
+      seccion ?? 'bases',
+    );
   }
 
   /** El último análisis de las bases (migración 125); null si no hay. */
@@ -233,6 +244,28 @@ export class OportunidadesController {
       `POST /oportunidades/${id}/analisis (empresa ${user.company_id})`,
     );
     return this.analisis.pedir(user.company_id, user.id, id);
+  }
+
+  /** La última validación de documentos (migración 127); null si no hay. */
+  @Get(':id/validacion')
+  validacionDeDocumentos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.validacion.ultima(user.company_id, id);
+  }
+
+  /** Pide que Opus revise lo que se va a presentar contra el checklist de
+   *  las bases: responde al tiro; la pantalla pregunta hasta que termine. */
+  @Post(':id/validacion')
+  validarDocumentos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/validacion (empresa ${user.company_id})`,
+    );
+    return this.validacion.pedir(user.company_id, user.id, id);
   }
 
   @Delete(':id/adjuntos/:adjuntoId')
