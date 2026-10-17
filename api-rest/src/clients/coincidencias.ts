@@ -247,7 +247,18 @@ export const buscarCoincidencias = (
     });
   }
 
+  // Si el correo o el teléfono calzan exacto, los parecidos SOLO por
+  // dominio sobran (Felipe, 16-10: con judiaz@ccu.cl salían CCU y además
+  // el Sindicato CCU; "hazlo los dos"). Sin un calce exacto, el dominio
+  // sigue sirviendo (la UBB con otra persona).
+  const hayCalceExacto = resultado.some((r) =>
+    r.coincidencia.motivos.some((m) => m === 'correo' || m === 'telefono'),
+  );
   return resultado
+    .filter(
+      (r) =>
+        !hayCalceExacto || r.coincidencia.motivos.some((m) => m !== 'dominio'),
+    )
     .sort(
       (a, b) =>
         b.peso - a.peso ||
