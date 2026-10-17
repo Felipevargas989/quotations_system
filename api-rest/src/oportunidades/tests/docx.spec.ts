@@ -1,52 +1,5 @@
-import { deflateRawSync } from 'node:zlib';
-import { archivoDelZip, textoDeDocx } from '../analisis/docx';
-
-/** Un ZIP mínimo, armado a mano como lo hace Word: encabezado local de cada
- *  archivo, directorio central y fin del directorio. */
-const zipCon = (
-  archivos: Array<[string, string]>,
-  comprimir = true,
-): Buffer => {
-  const partes: Buffer[] = [];
-  const centrales: Buffer[] = [];
-  let desplazamiento = 0;
-  for (const [nombre, texto] of archivos) {
-    const datos = Buffer.from(texto, 'utf8');
-    const cuerpo = comprimir ? deflateRawSync(datos) : datos;
-    const n = Buffer.from(nombre, 'utf8');
-    const metodo = comprimir ? 8 : 0;
-
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(metodo, 8);
-    local.writeUInt32LE(cuerpo.length, 18);
-    local.writeUInt32LE(datos.length, 22);
-    local.writeUInt16LE(n.length, 26);
-
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(metodo, 10);
-    central.writeUInt32LE(cuerpo.length, 20);
-    central.writeUInt32LE(datos.length, 24);
-    central.writeUInt16LE(n.length, 28);
-    central.writeUInt32LE(desplazamiento, 42);
-
-    partes.push(local, n, cuerpo);
-    centrales.push(central, n);
-    desplazamiento += local.length + n.length + cuerpo.length;
-  }
-  const directorio = Buffer.concat(centrales);
-  const fin = Buffer.alloc(22);
-  fin.writeUInt32LE(0x06054b50, 0);
-  fin.writeUInt16LE(archivos.length, 8);
-  fin.writeUInt16LE(archivos.length, 10);
-  fin.writeUInt32LE(directorio.length, 12);
-  fin.writeUInt32LE(desplazamiento, 16);
-  return Buffer.concat([...partes, directorio, fin]);
-};
+import { archivoDelZip, nombresDelZip, textoDeDocx } from '../analisis/docx';
+import { wordCon, zipCon } from './zip-de-prueba';
 
 const DOCUMENTO = [
   '<w:document><w:body>',
@@ -83,5 +36,17 @@ describe('el texto de un Word', () => {
     expect(textoDeDocx(Buffer.from('esto no es un zip'))).toBeNull();
     expect(textoDeDocx(zipCon([['otra/cosa.xml', '<x/>']]))).toBeNull();
     expect(archivoDelZip(Buffer.alloc(10), 'word/document.xml')).toBeNull();
+  });
+});
+
+describe('lo que trae un Word', () => {
+  it('los nombres de adentro: así se cuentan las imágenes (la firma)', () => {
+    expect(nombresDelZip(wordCon(['Firma: ____'], 2))).toEqual([
+      '[Content_Types].xml',
+      'word/document.xml',
+      'word/media/image1.png',
+      'word/media/image2.png',
+    ]);
+    expect(nombresDelZip(Buffer.from('esto no es un zip'))).toBeNull();
   });
 });

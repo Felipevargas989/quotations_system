@@ -23,6 +23,11 @@ import {
   seVeEnElVisor,
   tamanoLegible,
   urlMercadoPublico,
+  algunaEnCurso,
+  desgloseDeOferta,
+  esWordModerno,
+  ORIGENES,
+  sePuedeFirmar,
 } from "./oportunidades.utils";
 
 const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
@@ -340,5 +345,55 @@ describe("validar documentos", () => {
         { estado: "raro" },
       ]),
     ).toEqual({ cumple: 2, falta: 1, vencido: 0, revisar: 1 });
+  });
+});
+
+describe("documentos con IA", () => {
+  it("el total con IVA lo pone la empresa; neto e IVA se calculan igual que en el motor", () => {
+    expect(desgloseDeOferta(11_900_000)).toEqual({
+      total: 11_900_000,
+      neto: 10_000_000,
+      iva: 1_900_000,
+    });
+    // Sin decimales: el neto se redondea y el IVA es la diferencia exacta.
+    const { neto, iva } = desgloseDeOferta(1_000_000);
+    expect(neto).toBe(840_336);
+    expect(neto + iva).toBe(1_000_000);
+  });
+
+  it("se llena y se firma un Word moderno; lo firmado no se vuelve a firmar", () => {
+    expect(esWordModerno("Formularios_Anexos.DOCX")).toBe(true);
+    expect(esWordModerno("Anexo antiguo.doc")).toBe(false);
+    expect(
+      sePuedeFirmar({ nombre: "Anexos - lleno.docx", origen: "generado" }),
+    ).toBe(true);
+    expect(sePuedeFirmar({ nombre: "Mi anexo.docx", origen: "subido" })).toBe(
+      true,
+    );
+    expect(
+      sePuedeFirmar({ nombre: "Anexos - firmado.docx", origen: "firmado" }),
+    ).toBe(false);
+    expect(sePuedeFirmar({ nombre: "Patente.pdf", origen: "subido" })).toBe(
+      false,
+    );
+  });
+
+  it("el sello dice si lo hizo la IA (sin firma) o si está firmado; lo subido no lleva", () => {
+    expect(ORIGENES.subido).toBeNull();
+    expect(ORIGENES.generado?.label).toBe("Hecho con IA · sin firma");
+    expect(ORIGENES.firmado?.label).toBe("Firmado");
+  });
+
+  it("se pregunta seguido solo mientras algún trabajo está en curso", () => {
+    expect(algunaEnCurso(null)).toBe(false);
+    expect(algunaEnCurso({ anexos: null, firma: null, propuesta: null })).toBe(
+      false,
+    );
+    expect(
+      algunaEnCurso({
+        anexos: { estado: "listo" } as never,
+        propuesta: { estado: "procesando" } as never,
+      }),
+    ).toBe(true);
   });
 });

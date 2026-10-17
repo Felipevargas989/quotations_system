@@ -440,10 +440,77 @@ export interface AdjuntoDeOportunidad {
   ruta: string;
   tipo: string;
   bytes: number;
+  /** De dónde salió (migración 128): lo subió una persona, lo hizo la IA
+   *  (sin firma) o es la versión firmada. */
+  origen: OrigenDeArchivo;
+  /** El archivo del que salió. */
+  viene_de: number | null;
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
 }
+
+export type OrigenDeArchivo = "subido" | "generado" | "firmado";
+
+/** Lo que la IA hizo en el taller (doc 17, sprint 3, paso 4; migración
+ *  128): los anexos llenos SIN firma, la firma y la propuesta técnica. */
+export type TipoDeGeneracion = "anexos" | "firma" | "propuesta";
+
+export interface ResultadoDeGeneracion {
+  resumen: string;
+  documentos: Array<{
+    adjunto_id: number;
+    nombre: string;
+    que_se_hizo: string;
+    pendientes: string[];
+  }>;
+  pendientes: string[];
+  /** Lo que entregó la IA y no pasó la revisión del motor. */
+  descartados: Array<{ nombre: string; motivo: string }>;
+  no_entregados: string[];
+}
+
+export interface Generacion extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: TipoDeGeneracion;
+  parametros: { monto_total?: number | null; adjuntos?: number[] };
+  resultado: ResultadoDeGeneracion | null;
+}
+
+export type GeneracionesDeOportunidad = Record<
+  TipoDeGeneracion,
+  Generacion | null
+>;
+
+export const getGeneraciones = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones`,
+    "GET",
+  )) as GeneracionesDeOportunidad;
+
+/** `monto_total` con IVA, lo pone la empresa; sin él, la oferta económica
+ *  queda en blanco. */
+export const generarAnexos = async (
+  id: number,
+  pedido: { monto_total?: number; adjuntos?: number[] },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/anexos`,
+    "POST",
+    pedido,
+  )) as Generacion;
+
+export const firmarDocumentos = async (id: number, adjuntos: number[]) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/firma`,
+    "POST",
+    { adjuntos },
+  )) as Generacion;
+
+export const crearPropuestaTecnica = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/propuesta`,
+    "POST",
+  )) as Generacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). */

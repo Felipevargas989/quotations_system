@@ -26,6 +26,7 @@ import {
   costoEnDolares,
   ENCENDIDO,
   errorDeIA,
+  hoyEnChile,
   MAX_BYTES_DE_PDF,
   MODELO_OPUS,
   type NoLeido,
@@ -169,11 +170,6 @@ const delAnalisis = (
   };
   return { requisitos: r.requisitos ?? [], criterios: r.criterios ?? [] };
 };
-
-const hoyEnChile = (): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(
-    new Date(),
-  );
 
 @Injectable()
 export class ValidacionService {

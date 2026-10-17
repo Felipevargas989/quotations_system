@@ -29,9 +29,32 @@ export const ENCENDIDO = new Date().toISOString();
 
 export type NoLeido = { nombre: string; motivo: string };
 
+/** AAAA-MM-DD, en Chile. */
+export const hoyEnChile = (ahora = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(
+    ahora,
+  );
+
 export const costoEnDolares = (entrada: number, salida: number): number =>
   Math.round(
     (entrada * US_POR_TOKEN_ENTRADA + salida * US_POR_TOKEN_SALIDA) * 10_000,
+  ) / 10_000;
+
+/** Los tokens de un trabajo largo (paso 4), con la caché aparte: escribirla
+ *  cuesta 1,25 veces la entrada y leerla, una décima. */
+export type UsoDeTokens = {
+  entrada: number;
+  salida: number;
+  cacheEscrita: number;
+  cacheLeida: number;
+};
+
+export const costoDelUso = (u: UsoDeTokens): number =>
+  Math.round(
+    ((u.entrada + u.cacheEscrita * 1.25 + u.cacheLeida * 0.1) *
+      US_POR_TOKEN_ENTRADA +
+      u.salida * US_POR_TOKEN_SALIDA) *
+      10_000,
   ) / 10_000;
 
 /** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes), en el orden
@@ -95,8 +118,12 @@ export const armarContenido = async (
   return { bloques, sinAbrir };
 };
 
-/** La falla, en palabras de la casa: es lo que lee Felipe en la ficha. */
-export const errorDeIA = (error: unknown): string => {
+/** La falla, en palabras de la casa: es lo que lee Felipe en la ficha.
+ *  `queNoSePudo` encabeza lo que no tiene traducción. */
+export const errorDeIA = (
+  error: unknown,
+  queNoSePudo = 'No se pudieron leer los archivos',
+): string => {
   const mensaje = mensajeDe(error);
   if (
     error instanceof Anthropic.AuthenticationError ||
@@ -116,5 +143,5 @@ export const errorDeIA = (error: unknown): string => {
   if (error instanceof Anthropic.APIConnectionTimeoutError) {
     return 'La IA tardó demasiado en responder: vuelve a intentar.';
   }
-  return `No se pudieron leer los archivos: ${mensaje}`;
+  return `${queNoSePudo}: ${mensaje}`;
 };

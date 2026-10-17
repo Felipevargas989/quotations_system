@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, FileText, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
 import { toast } from "../../components/toast/Toast";
@@ -19,6 +19,7 @@ import { descargarDelBalde } from "./descargas";
 import {
   EXTENSIONES_DE_ADJUNTOS,
   MAX_MB_POR_ADJUNTO,
+  ORIGENES,
   problemaDelAdjunto,
   seVeEnElVisor,
   tamanoLegible,
@@ -35,18 +36,24 @@ import {
 //
 // La misma pieza sirve para "Mi postulación" (sprint 3, paso 3; migración
 // 127): lo que la empresa va a presentar, que después se valida contra el
-// checklist de las bases.
+// checklist de las bases. Ahí cada archivo lleva su sello si lo hizo la IA
+// (sin firma) o si ya está firmado (paso 4, migración 128), y quien la usa
+// puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion).
 
 export default function AdjuntosDeLaOportunidad({
   oportunidadId,
   codigo,
   tipo,
   seccion = "bases",
+  accionesDeFila,
+  pie,
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
   readonly tipo: TipoProceso;
   readonly seccion?: SeccionDeArchivos;
+  readonly accionesDeFila?: (a: AdjuntoDeOportunidad) => ReactNode;
+  readonly pie?: ReactNode;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
@@ -149,57 +156,71 @@ export default function AdjuntosDeLaOportunidad({
       ) : (
         adjuntos.length > 0 && (
           <ul className="divide-y divide-gray-100">
-            {adjuntos.map((a) => (
-              <li key={a.id} className="py-2 flex items-center gap-3">
-                <FileText size={16} className="shrink-0 text-gray-400" />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="text-sm text-gray-800 truncate"
-                    title={a.nombre}
-                  >
-                    {a.nombre}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {tamanoLegible(a.bytes)}
-                    {a.quien?.full_name ? ` · ${a.quien.full_name}` : ""} ·{" "}
-                    {formatMomento(a.creado_en, "diaHora")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {seVeEnElVisor(a.ruta) ? (
-                    <FileViewLink url={a.ruta} title={a.nombre} />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void descargar(a)}
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+            {adjuntos.map((a) => {
+              const sello = ORIGENES[a.origen];
+              return (
+                <li key={a.id} className="py-2 flex items-center gap-3">
+                  <FileText size={16} className="shrink-0 text-gray-400" />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="flex items-center gap-2 text-sm text-gray-800"
+                      title={a.nombre}
                     >
-                      Descargar
-                    </button>
-                  )}
-                  {porBorrar === a.id ? (
-                    <ConfirmInline
-                      question="¿Eliminar?"
-                      onYes={() => borrar.mutate(a.id)}
-                      onNo={() => setPorBorrar(null)}
-                      busy={borrar.isPending}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPorBorrar(a.id)}
-                      className="text-gray-300 hover:text-red-500"
-                      title="Eliminar archivo"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                      <span className="truncate">{a.nombre}</span>
+                      {sello && (
+                        <span
+                          className={`shrink-0 px-1.5 py-0.5 text-[11px] font-semibold rounded ${sello.clases}`}
+                        >
+                          {sello.label}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {tamanoLegible(a.bytes)}
+                      {a.quien?.full_name
+                        ? ` · ${a.quien.full_name}`
+                        : ""} · {formatMomento(a.creado_en, "diaHora")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {accionesDeFila?.(a)}
+                    {seVeEnElVisor(a.ruta) ? (
+                      <FileViewLink url={a.ruta} title={a.nombre} />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void descargar(a)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        Descargar
+                      </button>
+                    )}
+                    {porBorrar === a.id ? (
+                      <ConfirmInline
+                        question="¿Eliminar?"
+                        onYes={() => borrar.mutate(a.id)}
+                        onNo={() => setPorBorrar(null)}
+                        busy={borrar.isPending}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPorBorrar(a.id)}
+                        className="text-gray-300 hover:text-red-500"
+                        title="Eliminar archivo"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )
       )}
+
+      {pie}
 
       <div
         className={`rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${

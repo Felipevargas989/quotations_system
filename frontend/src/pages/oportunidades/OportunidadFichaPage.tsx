@@ -18,6 +18,8 @@ import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
+import DocumentosConIA from "./DocumentosConIA";
+import MiPostulacion from "./MiPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import Ganadores from "./Ganadores";
 import {
@@ -276,11 +278,12 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       <AnalisisDeBases oportunidadId={ficha.id} />
 
-      <AdjuntosDeLaOportunidad
+      <DocumentosConIA oportunidadId={ficha.id} />
+
+      <MiPostulacion
         oportunidadId={ficha.id}
         codigo={ficha.codigo}
         tipo={p.tipo}
-        seccion="postulacion"
       />
 
       <ValidacionDeDocumentos oportunidadId={ficha.id} />

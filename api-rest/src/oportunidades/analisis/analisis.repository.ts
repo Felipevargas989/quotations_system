@@ -46,19 +46,21 @@ export type FinDeAnalisis = {
   error?: string;
 };
 
-const COLUMNAS =
+export const COLUMNAS_DE_TRABAJO =
   'id, oportunidad_id, estado, resultado, archivos, no_leidos, modelo, tokens_entrada, tokens_salida, costo_usd, error, creado_en, terminado_en';
 
-/** La base de los dos: cada uno dice su tabla. */
+/** La base de los tres (también `GeneracionRepository`, migración 128):
+ *  cada uno dice su tabla, y sus columnas si trae más. */
 export abstract class TrabajosDeIARepository {
   protected abstract readonly tabla: string;
+  protected readonly columnas: string = COLUMNAS_DE_TRABAJO;
 
   constructor(
     protected readonly supabase: SupabaseService,
     protected readonly logger: PinoLogger,
   ) {}
 
-  private get db() {
+  protected get db() {
     return this.supabase.client;
   }
 
@@ -69,14 +71,14 @@ export abstract class TrabajosDeIARepository {
   ): Promise<FilaDeAnalisis | null> {
     const { data, error } = await this.db
       .from(this.tabla)
-      .select(COLUMNAS)
+      .select(this.columnas)
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
       .order('creado_en', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    return (data as FilaDeAnalisis | null) ?? null;
+    return (data as unknown as FilaDeAnalisis | null) ?? null;
   }
 
   /** null = ya hay uno en curso (lo decide el índice único
@@ -85,13 +87,13 @@ export abstract class TrabajosDeIARepository {
     const { data, error } = await this.db
       .from(this.tabla)
       .insert(fila)
-      .select(COLUMNAS)
+      .select(this.columnas)
       .single();
     if (error) {
       if ((error as { code?: string }).code === '23505') return null;
       throw error;
     }
-    return data as FilaDeAnalisis;
+    return data as unknown as FilaDeAnalisis;
   }
 
   async terminar(

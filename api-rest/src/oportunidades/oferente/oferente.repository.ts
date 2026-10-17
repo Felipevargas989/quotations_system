@@ -51,6 +51,8 @@ export type DocumentoNuevo = {
  *  repite. */
 export type EmpresaDeConfiguracion = {
   name: string | null;
+  /** El logo (balde público de Supabase); lo usa la propuesta técnica. */
+  logo_url?: string | null;
   bank_details: {
     rut?: string | null;
     banco?: string | null;
@@ -107,7 +109,7 @@ export class OferenteRepository {
   async empresa(companyId: number): Promise<EmpresaDeConfiguracion | null> {
     const { data, error } = await this.db
       .from('companies')
-      .select('name, bank_details')
+      .select('name, logo_url, bank_details')
       .eq('id', companyId)
       .maybeSingle();
     if (error) throw error;

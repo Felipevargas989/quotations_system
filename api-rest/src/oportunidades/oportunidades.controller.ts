@@ -24,10 +24,12 @@ import {
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
+import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
 import { SeccionDto } from './dto/seccion.dto';
+import { GeneracionService } from './generacion/generacion.service';
 import {
   MAX_BYTES_DOCUMENTO,
   MAX_BYTES_FIRMA,
@@ -54,6 +56,7 @@ export class OportunidadesController {
     private readonly adjuntos: AdjuntosService,
     private readonly analisis: AnalisisService,
     private readonly validacion: ValidacionService,
+    private readonly generacion: GeneracionService,
     private readonly oferente: OferenteService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
@@ -266,6 +269,55 @@ export class OportunidadesController {
       `POST /oportunidades/${id}/validacion (empresa ${user.company_id})`,
     );
     return this.validacion.pedir(user.company_id, user.id, id);
+  }
+
+  // LA IA HACE DOCUMENTOS (sprint 3, paso 4; migración 128): llena los
+  // anexos del comprador SIN firma, los firma cuando la empresa ya los
+  // revisó, y escribe la propuesta técnica. Cada uno responde al tiro con
+  // el trabajo "procesando"; la pantalla pregunta hasta que termine.
+
+  /** El último trabajo de cada tipo: `{ anexos, firma, propuesta }`. */
+  @Get(':id/generaciones')
+  generaciones(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.generacion.ultimas(user.company_id, id);
+  }
+
+  @Post(':id/generaciones/anexos')
+  generarAnexos(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: GenerarAnexosDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/generaciones/anexos (empresa ${user.company_id})`,
+    );
+    return this.generacion.generarAnexos(user.company_id, user.id, id, dto);
+  }
+
+  @Post(':id/generaciones/firma')
+  firmarDocumentos(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: FirmarDocumentosDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/generaciones/firma (empresa ${user.company_id})`,
+    );
+    return this.generacion.firmar(user.company_id, user.id, id, dto.adjuntos);
+  }
+
+  @Post(':id/generaciones/propuesta')
+  crearPropuesta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/generaciones/propuesta (empresa ${user.company_id})`,
+    );
+    return this.generacion.crearPropuesta(user.company_id, user.id, id);
   }
 
   @Delete(':id/adjuntos/:adjuntoId')
