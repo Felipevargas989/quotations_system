@@ -1,8 +1,10 @@
 # 18 · Seguimiento con IA (el botón «Generar seguimiento»)
 
-> **Estado: PLAN, sin construir (17-10-2026).** Espera el OK de Felipe. Se
-> construye después de pasar a producción la corrección de «✨ Crear con
-> IA» (PR #143). Este documento manda sobre la memoria de cualquier sesión:
+> **Estado: PASO 1 CONSTRUIDO (17-10-2026), rama `feature/seguimiento-con-ia`.**
+> Felipe: *"dale construye el paso 1"*. El motor ya busca el hilo, escribe
+> con IA y deja el borrador (mapa 01 §5.8, regla 33, riesgo 17). Falta: la
+> llave de Outlook en el Railway del laboratorio (la pega Felipe) y la
+> prueba ahí; después, los botones (paso 2). Este documento manda sobre la memoria de cualquier sesión:
 > si una conversación cambia una decisión, se actualiza aquí en el mismo
 > movimiento.
 
@@ -59,10 +61,11 @@ vencidas: esas no entran.
    - **Sin hilo:** correo nuevo en contacto@, con el asunto de la casa.
 4. **Escribe** con las reglas de correo (sección 4) y deja el borrador con
    el aviso ámbar de la casa. **Nunca envía, nunca borra ni mueve.**
-5. **Bitácora:** una línea a nombre de «Asistente», tipo correo, sin
-   cifras: «Borrador de seguimiento listo en el hilo de contacto@:
-   <ángulo>. Pendiente de revisión y envío.» Sin próxima fecha: la pone
-   quien envía, como en la skill.
+5. **Bitácora:** una línea a nombre de quien apretó el botón (como «Crear
+   con IA»), tipo correo, sin cifras: «Borrador de seguimiento con IA listo
+   en el hilo de contacto@: <ángulo>. Revísalo en Outlook y envíalo desde
+   ahí.» Sin próxima fecha: la pone quien envía, como en la skill. Si no
+   quedó borrador, no se escribe nada.
 
 ## 4. Las reglas del correo: un solo archivo
 
@@ -105,17 +108,22 @@ aplican el botón y la skill desde el siguiente despliegue.
   `GET /quotations/seguimiento/pendientes` (las que calzan). Las reglas de
   la sección 2 se revisan en el motor, no en la pantalla.
 - **Outlook:** la llave de la empresa, la misma app de Microsoft que usa
-  `graph_borrador.py`, con `Mail.ReadWrite` (revisado el 18-09). Felipe la
-  copia en Railway, en el laboratorio y en producción: son tres valores
-  (inquilino, aplicación y secreto). El motor toca SOLO los cinco buzones de
+  `graph_borrador.py`, con `Mail.ReadWrite` (revisado de nuevo el 17-10:
+  lee contacto@ y puede crear borradores). El único secreto es
+  `MS_CLIENT_SECRET`: Felipe lo pega en Railway, en el laboratorio y en
+  producción. Los identificadores de la aplicación son públicos y van por
+  defecto en el código, como en la herramienta. El motor toca SOLO los cinco buzones de
   la lista y SOLO crea borradores. El código sigue a `graph_borrador.py`
   (buscar, leer, seguimiento, nuevo), que ya resolvió el hilo, las copias y
   el aviso ámbar.
 - **Claude** (`claude-opus-5-5`, como «Crear con IA»): un viaje por
   cotización, con salida de estructura fija: cuerpo del correo, asunto si
   es nuevo y ángulo, o «saltar» con el motivo.
-- **Laboratorio:** sus clientes son de prueba. Ahí el borrador se crea
-  solo en un buzón de ensayo (felipe@), para no ensuciar contacto@.
+- **Laboratorio:** sus clientes son de prueba. Solo el motor de
+  producción (servicio `api-rest` de Railway, sin `EMAILS_SILENCED`) toca
+  los buzones de verdad; el laboratorio, las pruebas y un motor local usan
+  solo felipe@, para no ensuciar contacto@. Si algo falla, falla del lado
+  seguro.
 - **Costo estimado:** US$ 0,05 a 0,10 por seguimiento. Se mide en la
   primera prueba.
 
@@ -126,8 +134,8 @@ aplican el botón y la skill desde el siguiente despliegue.
 2. Los botones: fila, arriba y ficha.
 3. Prueba en producción con las cotizaciones del día: quedan borradores,
    nada se envía, y Felipe los revisa. Sus correcciones van a «Lecciones».
-4. Producción: la migración del derecho (número a coordinar: de la 131 en
-   adelante son de Oportunidades) y la llave en el Railway de producción.
+4. Producción: la migración 140 del derecho (reservada con la sesión de
+   Oportunidades el 17-10) y la llave en el Railway de producción.
 
 ## 8. Preguntas abiertas
 

@@ -14,7 +14,7 @@
     ],
     "assets": [
       {
-        "include": "quotations/generar/*.md",
+        "include": "quotations/**/*.md",
         "watchAssets": true
       }
     ]
