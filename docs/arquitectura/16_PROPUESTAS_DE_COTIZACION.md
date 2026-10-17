@@ -1,8 +1,8 @@
 # 16 · Propuestas de cotización (hoy a mano, mañana un botón)
 
 > **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
-> `armar-cotizacion`). BOTÓN: Felipe lo retomó el 17-10 (sección 6); el
-> paso 1 (comentario interno) está EN EL LABORATORIO desde el mismo día.**
+> `armar-cotizacion`). BOTÓN «✨ Crear con IA» y comentario interno EN
+> PRODUCCIÓN desde el 17-10 (PR #142, sección 6); faltan las pruebas fijas.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -394,6 +394,14 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   empresa (mapa 01, regla 31). Rama `feature/comentario-interno`. En
 >   producción, la migración va antes que el motor. Va a producción JUNTO
 >   con el botón (Felipe, 17-10: *"esperemos que tengamos todo listo"*).
+> - **Pasos 1 y 2 EN PRODUCCIÓN el 17-10** (Felipe: *"o pasamos a
+>   producción?"* → *"dale, ya la puse"*): PR #142, `main` `f9819824`,
+>   migraciones 128 y 130 (la 129 es de Oportunidades). Felipe usó la MISMA
+>   llave de Anthropic del laboratorio. Prueba del laboratorio: faena de 3
+>   días y 80 personas, $83.900 por persona, 32 s, US$ 0,16 (después de
+>   corregir la cantidad, que es POR PERSONA). Las pruebas fijas se hacen en
+>   producción, con el catálogo real: todo queda en solicitada y nada se
+>   envía.
 > - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
 >   laboratorio; la del comentario interno toma el número libre que siga.
 
