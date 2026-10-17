@@ -11,7 +11,7 @@ import { SupabaseService } from 'src/supabase/supabase.service';
  *  lo que la empresa va a presentar (migración 127). */
 export type Seccion = 'bases' | 'postulacion';
 
-/** De dónde salió (migración 128): 'subido' lo subió una persona;
+/** De dónde salió (migración 129): 'subido' lo subió una persona;
  *  'generado' lo hizo la IA, SIN firma; 'firmado' es la versión con la foto
  *  de la firma. */
 export type Origen = 'subido' | 'generado' | 'firmado';
@@ -45,7 +45,7 @@ export type AdjuntoNuevo = {
   /** Sin decirlo, 'subido' (lo pone la base). */
   origen?: Origen;
   viene_de?: number | null;
-  /** El trabajo de la IA que lo hizo (migración 128). */
+  /** El trabajo de la IA que lo hizo (migración 129). */
   generacion_id?: number | null;
 };
 

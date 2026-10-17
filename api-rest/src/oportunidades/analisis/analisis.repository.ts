@@ -49,7 +49,7 @@ export type FinDeAnalisis = {
 export const COLUMNAS_DE_TRABAJO =
   'id, oportunidad_id, estado, resultado, archivos, no_leidos, modelo, tokens_entrada, tokens_salida, costo_usd, error, creado_en, terminado_en';
 
-/** La base de los tres (también `GeneracionRepository`, migración 128):
+/** La base de los tres (también `GeneracionRepository`, migración 129):
  *  cada uno dice su tabla, y sus columnas si trae más. */
 export abstract class TrabajosDeIARepository {
   protected abstract readonly tabla: string;

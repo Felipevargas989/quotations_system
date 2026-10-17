@@ -440,7 +440,7 @@ export interface AdjuntoDeOportunidad {
   ruta: string;
   tipo: string;
   bytes: number;
-  /** De dónde salió (migración 128): lo subió una persona, lo hizo la IA
+  /** De dónde salió (migración 129): lo subió una persona, lo hizo la IA
    *  (sin firma) o es la versión firmada. */
   origen: OrigenDeArchivo;
   /** El archivo del que salió. */
@@ -453,7 +453,7 @@ export interface AdjuntoDeOportunidad {
 export type OrigenDeArchivo = "subido" | "generado" | "firmado";
 
 /** Lo que la IA hizo en el taller (doc 17, sprint 3, paso 4; migración
- *  128): los anexos llenos SIN firma, la firma y la propuesta técnica. */
+ *  129): los anexos llenos SIN firma, la firma y la propuesta técnica. */
 export type TipoDeGeneracion = "anexos" | "firma" | "propuesta";
 
 export interface ResultadoDeGeneracion {

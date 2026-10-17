@@ -18,7 +18,7 @@ import EstadoDeGeneracion from "./EstadoDeGeneracion";
 import { desgloseDeOferta, esWordModerno } from "./oportunidades.utils";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 
-// CREAR DOCUMENTOS CON IA (doc 17, sprint 3, paso 4; migración 128).
+// CREAR DOCUMENTOS CON IA (doc 17, sprint 3, paso 4; migración 129).
 // Felipe, 17-10: "opción de subir, crear documento, adjuntar anexos (que se
 // generen con IA y la firma con una foto de la firma)". Lo decidido:
 //  1. el Word ORIGINAL del comprador, llenado por la IA;

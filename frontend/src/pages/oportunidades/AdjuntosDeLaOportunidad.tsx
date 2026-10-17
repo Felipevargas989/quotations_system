@@ -37,7 +37,7 @@ import {
 // La misma pieza sirve para "Mi postulación" (sprint 3, paso 3; migración
 // 127): lo que la empresa va a presentar, que después se valida contra el
 // checklist de las bases. Ahí cada archivo lleva su sello si lo hizo la IA
-// (sin firma) o si ya está firmado (paso 4, migración 128), y quien la usa
+// (sin firma) o si ya está firmado (paso 4, migración 129), y quien la usa
 // puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion).
 
 export default function AdjuntosDeLaOportunidad({

@@ -49,7 +49,7 @@ import {
 import { type ArchivoParaElTaller, trabajarEnElTaller } from './taller';
 
 // ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA (doc 17, sprint 3, paso
-// 4; migración 128). Felipe, 17-10: "1.- si 2.- si 3.- si, pero primero
+// 4; migración 129). Felipe, 17-10: "1.- si 2.- si 3.- si, pero primero
 // dejemos todo listo y luego testeamos con estas licitaciones".
 //
 // Tres botones, el mismo camino: el motor arma el pedido, responde al tiro
