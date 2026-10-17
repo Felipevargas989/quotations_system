@@ -130,6 +130,14 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     historia de 3 años; todo en hora de Chile. Antes era cada 2 horas. La API
     de Mercado Público limita por consultas (10.000 al día por ticket, de a
     una), no por volumen: una pasada sin novedades gasta unas pocas.
+19. **Las celebraciones son verdes** (17-10): con el Día del Funcionario de
+    Quillón y el de Lota en amarillo, *"las dos primeras son definitivamente
+    verdes"*. Un comprador público no tiene salón de banquetes: una
+    celebración para un grupo que no dice dónde se hace en el recinto del
+    oferente. Las capacitaciones sin lugar siguen en amarillo. Cuando
+    cambian las reglas, lo abierto que nadie ha tocado se relee solo
+    (`LECTURA_ACTUAL` en `leida_con`). Siguiente paso posible, con una semana
+    de decisiones juntadas: que aprenda de los «Me interesa» y «Descartar».
 
 ## 4. Reglas del módulo (no se negocian)
 

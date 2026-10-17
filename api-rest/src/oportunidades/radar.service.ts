@@ -3,9 +3,9 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { HistoriaService } from './historia/historia.service';
 import {
+  LECTURA_ACTUAL,
   LecturaDetenida,
   LecturaService,
-  MODELO_LECTURA,
   type Uso,
 } from './lectura/lectura.service';
 import { aplicarReglas } from './lectura/reglas';
@@ -101,6 +101,8 @@ export type ResumenCorrida = {
     estado: 'ok' | 'detenida' | 'sin_llave';
     empresas: number;
     leidas: number;
+    /** De las leídas, las que se releyeron por reglas nuevas. */
+    releidas: number;
     verdes: number;
     amarillas: number;
     rojas: number;
@@ -152,6 +154,7 @@ export const resumenVacio = (): ResumenCorrida => ({
     estado: 'ok',
     empresas: 0,
     leidas: 0,
+    releidas: 0,
     verdes: 0,
     amarillas: 0,
     rojas: 0,
@@ -293,7 +296,7 @@ export class RadarService {
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
       this.logger.info(
-        `radar ${id} listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas)`,
+        `radar ${id} listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas, ${resumen.lectura.releidas} releídas)`,
       );
     } catch (error) {
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
@@ -613,13 +616,18 @@ export class RadarService {
           perfil: config.perfil,
           ...catalogo,
         };
-        const leidos = await this.repo.codigosLeidos(empresa.id);
+        // Lo nuevo y lo leído con reglas viejas que nadie ha tocado
+        // (decisión 19).
+        const { hechas, releer } = await this.repo.lecturasDe(
+          empresa.id,
+          LECTURA_ACTUAL,
+        );
         // Lo que cierra antes se lee primero: si la corrida se corta, lo
         // urgente ya quedó leído.
         const pendientes = abiertos
           .filter(
             (p) =>
-              !leidos.has(p.codigo) && regionCalza(p.region, config.regiones),
+              !hechas.has(p.codigo) && regionCalza(p.region, config.regiones),
           )
           .sort((a, b) => cierreParaOrdenar(a) - cierreParaOrdenar(b));
         const yaIntentadas = pendientes.filter((p) =>
@@ -655,13 +663,16 @@ export class RadarService {
             comunasCercanas: config.comunas_cercanas ?? [],
             umbralAltoValor: empresa.high_value_threshold,
           });
+          const relectura = releer.has(proceso.codigo);
           await this.repo.guardarLectura(
             empresa.id,
             proceso.codigo,
             final,
-            MODELO_LECTURA,
+            LECTURA_ACTUAL,
+            relectura,
           );
           r.leidas++;
+          if (relectura) r.releidas++;
           if (final.semaforo === 'verde') r.verdes++;
           else if (final.semaforo === 'amarillo') r.amarillas++;
           else r.rojas++;

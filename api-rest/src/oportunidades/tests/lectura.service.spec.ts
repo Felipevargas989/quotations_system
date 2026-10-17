@@ -4,6 +4,7 @@ import { mockPinoLogger } from 'src/testing/mocks';
 import {
   descripcionDe,
   instruccionesPara,
+  LECTURA_ACTUAL,
   LecturaDetenida,
   LecturaService,
   MODELO_LECTURA,
@@ -263,6 +264,26 @@ describe('lo que lee la IA', () => {
     expect(texto).toContain('Complejo turístico en Quillón');
     expect(texto).toContain('Evento: matrimonio; Salones: día completo');
     expect(texto).toContain('Garzón');
+  });
+
+  it('las celebraciones sin lugar se hacen en el recinto del oferente; las capacitaciones sin lugar, no (Felipe, 17-10)', () => {
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain('un comprador público no tiene salón de banquetes');
+    expect(texto).toContain(
+      'días del funcionario, del profesor o del dirigente',
+    );
+    expect(texto).toContain(
+      'la celebración no dice dónde, es "si". Las capacitaciones, jornadas y talleres que no dicen dónde siguen "dudoso"',
+    );
+    // El verde sale de "se hace en el complejo".
+    expect(texto).toContain(
+      '"verde" si es del rubro de la empresa y se_hace_en_el_complejo es "si"',
+    );
+  });
+
+  it('la lectura queda marcada con el modelo y la versión de las reglas', () => {
+    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 17-10');
+    expect(LECTURA_ACTUAL.startsWith(MODELO_LECTURA)).toBe(true);
   });
 
   it('la descripción lleva comprador, monto en pesos chilenos y productos', () => {

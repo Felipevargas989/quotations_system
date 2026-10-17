@@ -2,9 +2,9 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { HistoriaService } from '../historia/historia.service';
 import {
+  LECTURA_ACTUAL,
   LecturaDetenida,
   type LecturaService,
-  MODELO_LECTURA,
   type ProcesoParaLeer,
 } from '../lectura/lectura.service';
 import {
@@ -60,6 +60,7 @@ const caida = (status = 504) =>
  *  como los devuelve Postgres). */
 function armar(base = new Map<string, ProcesoConocido>()) {
   const leidas = new Set<string>();
+  const releer = new Set<string>();
   const mp = {
     configurado: true,
     licitacionesActivas: jest.fn().mockResolvedValue([]),
@@ -93,8 +94,14 @@ function armar(base = new Map<string, ProcesoConocido>()) {
       paquetes: ['Evento: matrimonio'],
       fijos: ['Garzón'],
     }),
-    // Como la base: lo que se guarda queda leído para la pasada siguiente.
-    codigosLeidos: jest.fn(() => Promise.resolve(new Set(leidas))),
+    // Como la base: lo que se guarda queda leído para la pasada siguiente;
+    // lo de `releer` se leyó con reglas viejas y nadie lo ha tocado.
+    lecturasDe: jest.fn(() =>
+      Promise.resolve({
+        hechas: new Set(leidas),
+        releer: new Set([...releer].filter((c) => !leidas.has(c))),
+      }),
+    ),
     guardarLectura: jest.fn((_empresa: number, codigo: string) => {
       leidas.add(codigo);
       return Promise.resolve();
@@ -123,7 +130,7 @@ function armar(base = new Map<string, ProcesoConocido>()) {
     historia,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { mp, repo, lectura, radar, leidas };
+  return { mp, repo, lectura, radar, leidas, releer };
 }
 
 const guardados = (repo: ReturnType<typeof armar>['repo']) =>
@@ -508,15 +515,48 @@ describe('RadarService — la lectura', () => {
         semaforo: 'amarillo',
         alertas: ['comuna_cercana'],
       }),
-      MODELO_LECTURA,
+      LECTURA_ACTUAL,
+      false,
     );
     expect(resumen?.lectura).toMatchObject({
       estado: 'ok',
       empresas: 1,
       leidas: 1,
+      releidas: 0,
       amarillas: 1,
       rojas: 0,
     });
+  });
+
+  it('relee lo leído con reglas viejas que nadie tocó, junto a lo nuevo y por cierre (decisión 19)', async () => {
+    const { radar, repo, lectura, leidas, releer } = armar();
+    repo.procesosAbiertos.mockResolvedValue([
+      abierto('NUEVA'),
+      abierto('VIEJA'),
+      abierto('AL_DIA'),
+    ]);
+    leidas.add('AL_DIA');
+    releer.add('VIEJA');
+
+    const resumen = await radar.correr('reloj');
+
+    expect(lectura.leer).toHaveBeenCalledTimes(2);
+    expect(repo.lecturasDe).toHaveBeenCalledWith(1, LECTURA_ACTUAL);
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'VIEJA',
+      expect.any(Object),
+      LECTURA_ACTUAL,
+      true,
+    );
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'NUEVA',
+      expect.any(Object),
+      LECTURA_ACTUAL,
+      false,
+    );
+    expect(resumen?.lectura).toMatchObject({ leidas: 2, releidas: 1 });
   });
 
   it('si la lectura se detiene (sin cupo, llave mala), la corrida termina bien y lo avisa', async () => {

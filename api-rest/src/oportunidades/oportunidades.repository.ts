@@ -399,47 +399,88 @@ export class OportunidadesRepository {
     return { paquetes: nombres(paquetes.data), fijos: nombres(fijos.data) };
   }
 
-  /** Los códigos que esta empresa ya tiene leídos. */
-  async codigosLeidos(companyId: number): Promise<Set<string>> {
-    const codigos = new Set<string>();
+  /** Lo que esta empresa ya tiene leído (`hechas`: no se vuelve a leer) y
+   *  lo que hay que releer porque se leyó con otras reglas (`releer`,
+   *  decisión 19 del doc 17). Solo se relee lo que nadie ha tocado: sigue
+   *  'nueva', sin responsable, sin notas y sin cotización. Lo que la
+   *  empresa marcó queda como está. */
+  async lecturasDe(
+    companyId: number,
+    lecturaActual: string,
+  ): Promise<{ hechas: Set<string>; releer: Set<string> }> {
+    const hechas = new Set<string>();
+    const releer = new Set<string>();
     for (let desde = 0; ; desde += PAGINA) {
       const { data, error } = await this.db
         .from('oportunidades')
-        .select('codigo')
+        .select(
+          'codigo, estado, responsable_id, notas, quotation_id, leida_con',
+        )
         .eq('company_id', companyId)
         .order('id', { ascending: true })
         .range(desde, desde + PAGINA - 1);
       if (error) throw error;
-      for (const fila of (data ?? []) as Array<{ codigo: string }>) {
-        codigos.add(fila.codigo);
+      for (const f of (data ?? []) as Array<{
+        codigo: string;
+        estado: string;
+        responsable_id: string | null;
+        notas: string | null;
+        quotation_id: string | null;
+        leida_con: string | null;
+      }>) {
+        const intacta =
+          f.estado === 'nueva' &&
+          f.responsable_id === null &&
+          f.notas === null &&
+          f.quotation_id === null;
+        if (intacta && f.leida_con !== lecturaActual) releer.add(f.codigo);
+        else hechas.add(f.codigo);
       }
       if (!data || data.length < PAGINA) break;
     }
-    return codigos;
+    return { hechas, releer };
   }
 
-  /** Guarda la lectura. Si ya existía no la pisa: la decisión de la
-   *  empresa (estado, responsable, notas) nunca la cambia el radar. */
+  /** Guarda la lectura. Una nueva nunca pisa la que ya existía. Una
+   *  relectura cambia solo lo que leyó la IA (color, etiquetas, razón,
+   *  alertas) y solo si la oportunidad sigue intacta: si la empresa la
+   *  marcó mientras se leía, gana su decisión. Estado, responsable y notas
+   *  no los cambia nunca el radar. */
   async guardarLectura(
     companyId: number,
     codigo: string,
     lectura: LecturaFinal,
-    modelo: string,
+    leidaCon: string,
+    relectura = false,
   ): Promise<void> {
-    const { error } = await this.db.from('oportunidades').upsert(
-      {
-        company_id: companyId,
-        codigo,
-        semaforo: lectura.semaforo,
-        etiquetas: lectura.etiquetas,
-        se_hace_en_el_complejo: lectura.se_hace_en_el_complejo,
-        razon: lectura.razon,
-        alertas: lectura.alertas,
-        leida_con: modelo,
-        leida_en: new Date().toISOString(),
-      },
-      { onConflict: 'company_id,codigo', ignoreDuplicates: true },
-    );
+    const leido = {
+      semaforo: lectura.semaforo,
+      etiquetas: lectura.etiquetas,
+      se_hace_en_el_complejo: lectura.se_hace_en_el_complejo,
+      razon: lectura.razon,
+      alertas: lectura.alertas,
+      leida_con: leidaCon,
+      leida_en: new Date().toISOString(),
+    };
+    if (relectura) {
+      const { error } = await this.db
+        .from('oportunidades')
+        .update(leido)
+        .eq('company_id', companyId)
+        .eq('codigo', codigo)
+        .eq('estado', 'nueva')
+        .is('responsable_id', null)
+        .is('notas', null)
+        .is('quotation_id', null);
+      if (error) throw error;
+      return;
+    }
+    const { error } = await this.db
+      .from('oportunidades')
+      .upsert(
+        { company_id: companyId, codigo, ...leido },
+        { onConflict: 'company_id,codigo', ignoreDuplicates: true },
+      );
     if (error) throw error;
   }
 
