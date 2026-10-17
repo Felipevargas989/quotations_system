@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuthModule } from 'src/auth/auth.module';
 import { ClientsModule } from 'src/clients/clients.module';
 import { CompaniesModule } from 'src/companies/companies.module';
 import { ConsultasModule } from 'src/consultas/consultas.module';
@@ -26,6 +27,8 @@ import { RescateDelFormularioService } from './rescate-del-formulario.service';
 
 @Module({
   imports: [
+    // La sesión opcional de GET /quotations/:id (comentario interno, 17-10).
+    AuthModule,
     RefundsModule,
     ClientsModule,
     CompaniesModule,

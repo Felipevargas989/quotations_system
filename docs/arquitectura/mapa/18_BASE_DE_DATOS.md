@@ -55,7 +55,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64 y 66 |
+| `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
