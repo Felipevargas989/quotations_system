@@ -9,6 +9,7 @@
 
 import type { Catalogo } from './catalogo';
 import { diasEntre, esFechaValida, MAX_DIAS } from './fechas';
+import { avisosDeForma } from './forma-de-comida';
 import type { PlanDeLaIA } from './tipos';
 
 export type EventoParaArmar = {
@@ -65,6 +66,9 @@ export type ResultadoDelArmado =
       ultimoDia: string | null;
       descuentoPorcentaje: number;
       dias: number;
+      /** La forma de las comidas (forma-de-comida.ts): no impiden guardar;
+       *  la IA los recibe una vez y lo que quede va a la nota. */
+      avisos: string[];
     }
   | { ok: false; errores: string[] };
 
@@ -109,6 +113,7 @@ export function armarFoto(
 
   const adultos = Math.max(0, evento.personas - evento.ninos);
   const cajas: CajaDeFoto[] = [];
+  const avisos: string[] = [];
   if (!plan.cajas?.length) errores.push('la cotización no trae ninguna caja.');
 
   (plan.cajas ?? []).forEach((caja, i) => {
@@ -207,6 +212,14 @@ export function armarFoto(
     // La sección fija entra sola, como en el cotizador (mapa 01, regla 10).
     for (const id of cat.seccionFija) agregar(id, 1);
 
+    avisos.push(
+      ...avisosDeForma(
+        cat,
+        items.map((x) => x.codigo),
+        donde,
+      ),
+    );
+
     cajas.push({
       category: cat.nombre,
       category_id: cat.id,
@@ -274,5 +287,6 @@ export function armarFoto(
     ultimoDia,
     descuentoPorcentaje: descuento,
     dias,
+    avisos,
   };
 }
