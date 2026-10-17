@@ -25,6 +25,7 @@ import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
+import PanelDeOportunidad from "./PanelDeOportunidad";
 import {
   ALERTAS,
   contarPorSemaforo,
@@ -219,10 +220,16 @@ function Bandeja() {
     [lista],
   );
 
+  // El panel de detalle (doc 17, sprint 3, paso 1b): se abre al pinchar el
+  // nombre; con Ctrl o Cmd el enlace sigue abriendo la ficha en otra
+  // pestaña.
+  const [abierta, setAbierta] = useState<Oportunidad | null>(null);
+
   const decidir = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: EstadoOportunidad }) =>
       actualizarOportunidad(id, { estado }),
     onSuccess: (_r, { estado }) => {
+      setAbierta(null);
       toast.success(
         estado === "descartada"
           ? "Descartada. Queda en la vista Descartadas: no se borra."
@@ -366,12 +373,22 @@ function Bandeja() {
                       onDecidir={(estado) =>
                         decidir.mutate({ id: o.id, estado })
                       }
+                      onAbrir={() => setAbierta(o)}
                     />
                   ))}
                 </ul>
               </section>
             ))}
         </div>
+      )}
+
+      {abierta && (
+        <PanelDeOportunidad
+          o={abierta}
+          ocupado={decidir.isPending}
+          onDecidir={(estado) => decidir.mutate({ id: abierta.id, estado })}
+          onCerrar={() => setAbierta(null)}
+        />
       )}
     </div>
   );
@@ -381,10 +398,12 @@ function FilaDeOportunidad({
   o,
   ocupado,
   onDecidir,
+  onAbrir,
 }: {
   readonly o: Oportunidad;
   readonly ocupado: boolean;
   readonly onDecidir: (estado: EstadoOportunidad) => void;
+  readonly onAbrir: () => void;
 }) {
   const p = o.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
@@ -404,6 +423,13 @@ function FilaDeOportunidad({
       <div className="min-w-0">
         <Link
           to={`/oportunidades/${o.id}`}
+          onClick={(e) => {
+            // Un clic normal abre el panel; con Ctrl, Cmd o la rueda, la
+            // ficha en otra pestaña, como cualquier enlace.
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            onAbrir();
+          }}
           className="text-sm font-semibold text-gray-900 hover:text-blue-700"
         >
           {p.nombre}
