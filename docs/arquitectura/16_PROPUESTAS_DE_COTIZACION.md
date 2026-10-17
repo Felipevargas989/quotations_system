@@ -73,7 +73,8 @@ y recién entonces la envíe.
     y pide, y pide, y eso es parte de cómo funciona el mercado. Los precios
     están en nuestro catálogo (…) la IA debe colocar los productos"*. Se
     arma lo que se pidió, a precio de catálogo: no se baja de nivel ni se
-    quita nada para calzar con el presupuesto. Si el total se aleja mucho,
+    quita nada para calzar con el presupuesto. Si el pedido no dice el
+    nivel, el presupuesto sirve de guía para elegirlo (sección 6). Si el total se aleja mucho,
     va una nota interna («Se excede el presupuesto: el cliente habla de
     $1.000.000 y la cotización suma $1.450.000») y nada más: se guarda y
     sigue el proceso. La nota va en el comentario interno (sección 6);
@@ -314,12 +315,20 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   sigue siendo el comentario que ve el cliente. Sirve desde el primer día:
 >   la skill lo lee, y el equipo deja de escribir notas internas en
 >   Observaciones (444, 446, 447 y 452).
-> - **La IA no ve precios** (Felipe, 17-10: *"el precio no tiene que ser
->   parte de lo que ve"*): elige productos y el motor pone los precios del
->   catálogo. Si alguien escribió un presupuesto, la IA solo lo extrae
->   (monto, y si es total o por persona) y el motor lo compara con el total:
->   si se aleja mucho, lo anota en el comentario interno y guarda igual
->   (regla 13). «Cuadrar al peso» es la suma interna de Eventia
+> - **El precio es una variable, no un tope** (Felipe, 17-10, corrigiendo
+>   cómo leí su *"el precio no tiene que ser parte de lo que ve"*: *"no
+>   puede no trabajar porque hay un tope de presupuesto, pero sí es una
+>   variable, lo que va a gastar el cliente"*). La IA VE el catálogo con su
+>   precio por persona y su nivel, y con eso elige (medido el 17-10):
+>   cena o almuerzo económico = el nivel más barato (Nivel 1 o Básicos,
+>   $10.900); mediano = el del medio (Nivel 2 o Estándar, $16.900); caro =
+>   el más alto (Nivel 3 o Premium, $25.900); desayuno Estándar $8.700 o
+>   Premium $10.900; coffee y cóctel, por precio dentro de su nivel. Si el
+>   pedido no dice nivel y hay presupuesto, elige el nivel que más se le
+>   acerca. Lo que nunca hace: escribir un precio (elige por id y el motor
+>   pone el del catálogo) ni recortar lo pedido por el presupuesto; si se
+>   aleja mucho, lo anota en el comentario interno y guarda igual (regla
+>   13). «Cuadrar al peso» es la suma interna de Eventia
 >   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
 >   presupuesto nunca frena el guardado.
 > - **Límite:** no lee correos ni fotos (la skill sí). Lo que importe va en
@@ -342,7 +351,8 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   (`quotations.comentario_interno`), la pieza `ComentariosDelEvento` en
 >   Recepción y el cotizador, y la puerta pública que solo lo entrega a la
 >   empresa (mapa 01, regla 31). Rama `feature/comentario-interno`. En
->   producción, la migración va antes que el motor.
+>   producción, la migración va antes que el motor. Va a producción JUNTO
+>   con el botón (Felipe, 17-10: *"esperemos que tengamos todo listo"*).
 > - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
 >   laboratorio; la del comentario interno toma el número libre que siga.
 
@@ -377,7 +387,8 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
     IA» guarda lo escrito y genera en un solo paso.
   - Arriba de la lista, «✨ Generar todas», en el lugar del botón «Enlace
     público», que se muda a Mi empresa (*"me choca que está ahí (…) es
-    algo como de configuración"*). Va de a una, con contador: la cuenta
+    algo como de configuración"*), solo para el administrador (Felipe,
+    17-10: *"solo administrador"*). Va de a una, con contador: la cuenta
     de Anthropic es nueva, con poco cupo por minuto, y la comparte con el
     radar de licitaciones.
 - **Motor:** `POST /quotations/:id/propuesta` arma el contexto
