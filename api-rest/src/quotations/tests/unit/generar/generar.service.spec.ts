@@ -204,6 +204,36 @@ describe('GenerarCotizacionService', () => {
     expect(quotations.update).toHaveBeenCalledTimes(1);
   });
 
+  it('si una comida no tiene la forma de la casa, la IA la revisa una vez y lo que quede va a la nota', async () => {
+    const sinPostre: PlanDeLaIA = {
+      ...planDeFaena,
+      cajas: [
+        {
+          ...planDeFaena.cajas[0],
+          menu_id: 0,
+          servicios: [
+            { id: 3001, cantidad: 1 },
+            { id: 3004, cantidad: 1 },
+          ],
+        },
+        ...planDeFaena.cajas.slice(1),
+      ],
+    };
+    const parse = nuevoParse().mockResolvedValue(respuestaDe(sinPostre));
+    const { servicio, quotations } = armar(parse);
+
+    await servicio.generar('q476', usuario);
+
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse.mock.calls[1][0].messages[2].content).toContain(
+      'Revisa estas cajas con las reglas de la casa',
+    );
+    const cambios = quotations.update.mock.calls[0][1];
+    expect(cambios.comentario_interno).toContain(
+      'Revisar: caja 1 (día 1, Cena): trae 2 principales',
+    );
+  });
+
   it('si tampoco calza la segunda vez, no guarda nada', async () => {
     const malo: PlanDeLaIA = { ...planDeFaena, cajas: [] };
     const parse = nuevoParse().mockResolvedValue(respuestaDe(malo));
