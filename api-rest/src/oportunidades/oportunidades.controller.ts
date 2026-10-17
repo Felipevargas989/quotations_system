@@ -1,18 +1,26 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import {
+  AdjuntosService,
+  MAX_BYTES_ADJUNTO,
+} from './adjuntos/adjuntos.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { GuardarConfigDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -34,6 +42,7 @@ import { RadarService } from './radar.service';
 export class OportunidadesController {
   constructor(
     private readonly servicio: OportunidadesService,
+    private readonly adjuntos: AdjuntosService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
@@ -86,5 +95,43 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.servicio.actualizar(user.company_id, id, dto);
+  }
+
+  /** Las bases y anexos que subió la empresa (migración 124). */
+  @Get(':id/adjuntos')
+  listarAdjuntos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.adjuntos.listar(user.company_id, id);
+  }
+
+  /** Un archivo por pedido, en el campo `file`. `defParamCharset`: el
+   *  nombre llega en UTF-8 ("Día del Profesor.pdf"), no en latin1. */
+  @Post(':id/adjuntos')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_BYTES_ADJUNTO },
+      defParamCharset: 'utf8',
+    }),
+  )
+  subirAdjunto(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() archivo: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/adjuntos (empresa ${user.company_id})`,
+    );
+    return this.adjuntos.subir(user.company_id, user.id, id, archivo);
+  }
+
+  @Delete(':id/adjuntos/:adjuntoId')
+  borrarAdjunto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('adjuntoId', ParseIntPipe) adjuntoId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.adjuntos.borrar(user.company_id, id, adjuntoId);
   }
 }
