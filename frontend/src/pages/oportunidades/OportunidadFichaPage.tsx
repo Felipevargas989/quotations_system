@@ -17,6 +17,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
+import Ganadores from "./Ganadores";
 import {
   ALERTAS,
   cuandoCierra,
@@ -25,7 +26,6 @@ import {
   ETIQUETAS,
   SE_HACE_EN_EL_COMPLEJO,
   SEMAFOROS,
-  textoDelAnterior,
   TIPOS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
@@ -311,7 +311,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         {ficha.anterior ? (
           <div className="space-y-1">
             <p className="text-sm text-gray-800">
-              {textoDelAnterior(ficha.anterior)}
+              {ficha.anterior.anio ?? "Antes"}: ganó{" "}
+              <Ganadores ganadores={ficha.anterior.ganadores} />
+              {ficha.anterior.oferentes != null &&
+                ` · ${ficha.anterior.oferentes} ${ficha.anterior.oferentes === 1 ? "oferta" : "ofertas"}`}
             </p>
             <p className="text-xs text-gray-500">
               {ficha.anterior.nombre} ·{" "}

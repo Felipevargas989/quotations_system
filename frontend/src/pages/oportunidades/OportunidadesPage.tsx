@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox, RefreshCw, Settings, Star } from "lucide-react";
+import {
+  CalendarClock,
+  Inbox,
+  RefreshCw,
+  Settings,
+  Star,
+  Users,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -16,6 +23,7 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
+import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
 import {
   ALERTAS,
@@ -32,6 +40,7 @@ import {
   TIPOS,
   VISTAS,
 } from "./oportunidades.utils";
+import SeVieneOportunidades from "./SeVieneOportunidades";
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
 // ágiles que el radar trae cada 2 horas y la IA lee. Base: el mockup del
@@ -41,7 +50,7 @@ import {
 const CLAVE_FILTROS = "op.filtros";
 const CLAVE_PESTANA = "op.pestana";
 
-type Pestana = "bandeja" | "configuracion";
+type Pestana = "bandeja" | "seviene" | "competidores" | "configuracion";
 
 const leerSesion = <T,>(clave: string, siNo: T): T => {
   try {
@@ -89,6 +98,8 @@ export default function OportunidadesPage() {
           {(
             [
               ["bandeja", "Bandeja", Inbox],
+              ["seviene", "Se viene", CalendarClock],
+              ["competidores", "Competidores", Users],
               ["configuracion", "Configuración", Settings],
             ] as const
           ).map(([id, texto, Icono]) => (
@@ -107,11 +118,10 @@ export default function OportunidadesPage() {
           ))}
         </div>
         <div className="p-4">
-          {pestana === "configuracion" ? (
-            <ConfiguracionOportunidades />
-          ) : (
-            <Bandeja />
-          )}
+          {pestana === "configuracion" && <ConfiguracionOportunidades />}
+          {pestana === "seviene" && <SeVieneOportunidades />}
+          {pestana === "competidores" && <CompetidoresOportunidades />}
+          {pestana === "bandeja" && <Bandeja />}
         </div>
       </div>
     </div>

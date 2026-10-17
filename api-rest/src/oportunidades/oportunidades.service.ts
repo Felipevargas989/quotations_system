@@ -11,6 +11,11 @@ import {
   anteriorDe,
   indexarPorOrganismo,
 } from './historia/anterior';
+import {
+  fichaDeCompetidor,
+  rankingDeCompetidores,
+  seVienen,
+} from './historia/mercado';
 import { normalizar } from './mercado-publico/mapeo';
 import {
   type FilaDeLista,
@@ -145,6 +150,47 @@ export class OportunidadesService {
     const fila = await this.repo.actualizar(companyId, id, cambios);
     if (!fila) throw new NotFoundException('No encontramos esa oportunidad.');
     return fila;
+  }
+
+  /** SE VIENE (doc 17 §5.3): lo que se repite cada año en las regiones de
+   *  la empresa y todavía no sale, en los próximos 90 días. Marca las de
+   *  comuna cercana y las de alto valor, como la bandeja. */
+  async calendario(companyId: number) {
+    const [config, empresa] = await Promise.all([
+      this.repo.configDe(companyId),
+      this.repo.datosDeEmpresa(companyId),
+    ]);
+    const procesos = await this.repo.procesosDeLaZona(config?.regiones ?? []);
+    return seVienen(procesos, new Date(), {
+      comunas: config?.comunas_cercanas ?? [],
+      umbralAltoValor: empresa?.high_value_threshold ?? null,
+    });
+  }
+
+  /** Quién gana en las regiones de la empresa (los últimos 3 años). */
+  async competidores(companyId: number) {
+    const config = await this.repo.configDe(companyId);
+    return rankingDeCompetidores(
+      await this.repo.procesosDeLaZona(config?.regiones ?? []),
+    );
+  }
+
+  /** La ficha de un proveedor: lo que ganó en las regiones de la empresa. */
+  async competidor(companyId: number, rut: string) {
+    if (!/^[\d.]{6,12}-[\dkK]$/.test(rut.trim())) {
+      throw new BadRequestException('Ese RUT no es válido.');
+    }
+    const config = await this.repo.configDe(companyId);
+    const ficha = fichaDeCompetidor(
+      await this.repo.procesosDeLaZona(config?.regiones ?? []),
+      rut.trim(),
+    );
+    if (!ficha) {
+      throw new NotFoundException(
+        'No encontramos triunfos de ese proveedor en tus regiones.',
+      );
+    }
+    return ficha;
   }
 
   /** La configuración del módulo, con lo que se cambia en Configuración

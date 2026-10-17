@@ -366,6 +366,13 @@ ser prioridad"*). Lo que no se pudo: bajar las bases (reCAPTCHA, §5.1
 punto 4). La migración 123 se aplicó en el laboratorio el 17-10 con el OK
 de Felipe.
 
+**Lo que le faltaba al sprint 2, 17-10** (Felipe: *"vamos con el desarrollo, con el módulo listo lo mandamos a producción"*):
+- **Se viene**, construido: el calendario de las que se repiten cada año, como "en noviembre viene el Día de Campo del Dirigente".
+- **Competidores**, construido: quién gana en la zona y una ficha por proveedor; el ganador del año anterior enlaza a su ficha.
+- **Avisos**: espera la respuesta de Felipe (¿correo inmediato o basta con Eventia?).
+
+La historia ahora revisa primero los últimos 60 días. Producción, cuando el módulo esté listo.
+
 **Sprint 2, construido el 17-10** (Felipe: *"terminado esto, anda directo al
 sprint 2"*): la bandeja, la ficha y la configuración, sin resumen por
 correo. Quedan para después de la historia (1b): "el año anterior", el

@@ -46,6 +46,9 @@ const importMarketing = () => import("./pages/marketing/MarketingPage");
 const OportunidadesPage = lazy(
   () => import("./pages/oportunidades/OportunidadesPage"),
 );
+const CompetidorPage = lazy(
+  () => import("./pages/oportunidades/CompetidorPage"),
+);
 const OportunidadFichaPage = lazy(
   () => import("./pages/oportunidades/OportunidadFichaPage"),
 );
@@ -406,6 +409,19 @@ function App() {
                     derecho="oportunidades"
                   >
                     <OportunidadFichaPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* La ficha de un competidor: lo que ganó en las regiones
+                  de la empresa (doc 17 §5.3, sprint 2). */}
+              <Route
+                path="oportunidades/competidores/:rut"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <CompetidorPage />
                   </PermissionGuard>
                 }
               />

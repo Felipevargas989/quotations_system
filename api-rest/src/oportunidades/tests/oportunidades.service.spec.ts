@@ -24,6 +24,7 @@ function armar() {
     datosDeEmpresa: jest.fn().mockResolvedValue(null),
     guardarConfig: jest.fn().mockResolvedValue(undefined),
     historialDeOrganismos: jest.fn().mockResolvedValue([]),
+    procesosDeLaZona: jest.fn().mockResolvedValue([]),
   };
   const servicio = new OportunidadesService(
     repo as unknown as OportunidadesRepository,
@@ -229,6 +230,91 @@ describe('OportunidadesService — la configuración', () => {
     const { servicio } = armar();
     await expect(servicio.guardarConfig(1, {})).rejects.toBeInstanceOf(
       BadRequestException,
+    );
+  });
+});
+
+describe('OportunidadesService — Se viene y competidores', () => {
+  // Hace un año menos 20 días: debería volver a salir en 20 días.
+  const haceCasiUnAnio = () => {
+    const d = new Date();
+    d.setUTCFullYear(d.getUTCFullYear() - 1);
+    d.setUTCDate(d.getUTCDate() + 20);
+    return d.toISOString();
+  };
+  const campo = () => ({
+    codigo: '5040-25-LE25',
+    nombre: 'Día de campo del dirigente social',
+    organismo: 'I MUNICIPALIDAD DE QUILLON',
+    organismo_codigo: '5040',
+    unidad: null,
+    comuna: 'Quillón',
+    region: 'Región del Ñuble',
+    fecha_publicacion: haceCasiUnAnio(),
+    monto: 17_000_000,
+    adjudicacion: {
+      oferentes: 1,
+      ganadores: [
+        {
+          nombre: 'PARQUE AVENTURAS ANTU S.A.',
+          rut: '76154667-8',
+          cantidad: 1,
+          monto_unitario: 17_000_000,
+        },
+      ],
+    },
+  });
+
+  it('Se viene: lo de las regiones de la empresa, marcando comuna cercana y alto valor', async () => {
+    const { repo, servicio } = armar();
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: ['Quillón'],
+      perfil: null,
+    });
+    repo.datosDeEmpresa.mockResolvedValue({
+      high_value_threshold: 3_000_000,
+      notifications: null,
+    });
+    repo.procesosDeLaZona.mockResolvedValue([campo()]);
+
+    const r = await servicio.calendario(1);
+
+    expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({
+      comuna_cercana: true,
+      alto_valor: true,
+      atrasada: false,
+    });
+  });
+
+  it('sin configuración, nada (no rompe)', async () => {
+    const { repo, servicio } = armar();
+    await expect(servicio.calendario(52)).resolves.toEqual([]);
+    expect(repo.procesosDeLaZona).toHaveBeenCalledWith([]);
+  });
+
+  it('competidores y la ficha de uno; un RUT raro es 400 y uno sin triunfos 404', async () => {
+    const { repo, servicio } = armar();
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    repo.procesosDeLaZona.mockResolvedValue([campo()]);
+
+    const ranking = await servicio.competidores(1);
+    expect(ranking.map((c) => c.rut)).toEqual(['76154667-8']);
+
+    const ficha = await servicio.competidor(1, '76.154.667-8');
+    expect(ficha.triunfos).toBe(1);
+
+    await expect(servicio.competidor(1, 'hola')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(servicio.competidor(1, '11.111.111-1')).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });
