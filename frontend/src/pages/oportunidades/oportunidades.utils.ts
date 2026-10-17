@@ -758,3 +758,37 @@ export const TONO_DEL_LUGAR: Record<string, string> = {
   no: "text-red-700",
   dudoso: "text-amber-700",
 };
+
+/** "¿PUEDO CUMPLIR?" (17-10): cómo se ve cada estado. */
+export const ESTILO_DE_CUMPLIMIENTO: Record<
+  "tengo" | "conseguir" | "no_se_puede",
+  { label: string; plural: string; clases: string }
+> = {
+  no_se_puede: {
+    label: "No se puede",
+    plural: "no se pueden",
+    clases: "bg-red-100 text-red-800",
+  },
+  conseguir: {
+    label: "Conseguir",
+    plural: "hay que conseguir",
+    clases: "bg-amber-100 text-amber-800",
+  },
+  tengo: {
+    label: "Lo tienes",
+    plural: "las tienes",
+    clases: "bg-green-100 text-green-800",
+  },
+};
+
+/** Primero lo que impide, después lo que hay que conseguir; lo que ya
+ *  tienes, aparte. */
+export const separarCumplimiento = <T extends { estado: string }>(
+  items: T[],
+) => ({
+  porResolver: [
+    ...items.filter((i) => i.estado === "no_se_puede"),
+    ...items.filter((i) => i.estado === "conseguir"),
+  ],
+  loTienes: items.filter((i) => i.estado === "tengo"),
+});

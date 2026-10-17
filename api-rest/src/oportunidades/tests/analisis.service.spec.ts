@@ -12,6 +12,8 @@ import {
   MAX_BYTES_DE_PDF,
   MODELO_BASES,
 } from '../analisis/analisis.service';
+import type { EventiaRepository } from '../eventia/eventia.repository';
+import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 
 const CUENTA = 'cuenta-1';
@@ -87,11 +89,15 @@ class AnalisisDePrueba extends AnalisisService {
     adjuntos: unknown,
     oportunidades: unknown,
     readonly parse: jest.Mock,
+    eventia: unknown = {},
+    oferente: unknown = {},
   ) {
     super(
       repo as AnalisisRepository,
       adjuntos as AdjuntosRepository,
       oportunidades as OportunidadesRepository,
+      eventia as EventiaRepository,
+      oferente as OferenteRepository,
       mockPinoLogger() as unknown as PinoLogger,
     );
   }
@@ -132,8 +138,45 @@ function armar() {
     usage: { input_tokens: 100_000, output_tokens: 5_000 },
     parsed_output: RESULTADO,
   });
-  const servicio = new AnalisisDePrueba(repo, adjuntos, oportunidades, parse);
-  return { repo, adjuntos, oportunidades, parse, servicio };
+  const eventia = {
+    carta: jest.fn().mockResolvedValue({
+      fijos: [{ nombre: 'Salón principal', seccion: 'Salones' }],
+      menus: [
+        {
+          categoria: 'Cena',
+          nombre: 'Plateada',
+          platos: ['Plateada al jugo', 'Papas rústicas'],
+        },
+      ],
+      paquetes: ['Matrimonio: cóctel, cena y fiesta'],
+    }),
+    agendaDelDia: jest.fn().mockResolvedValue([
+      {
+        numero: 512,
+        tipo: 'Matrimonios',
+        fecha: '2026-10-30',
+        personas: 120,
+        monto: null,
+        cliente: 'Pérez',
+        fijos: ['Salón principal'],
+      },
+    ]),
+  };
+  const oferente = {
+    oferente: jest.fn().mockResolvedValue({
+      instalaciones: 'Salón principal para 300 personas y carpa climatizada',
+      comuna: 'Quillón',
+    }),
+  };
+  const servicio = new AnalisisDePrueba(
+    repo,
+    adjuntos,
+    oportunidades,
+    parse,
+    eventia,
+    oferente,
+  );
+  return { repo, adjuntos, oportunidades, parse, servicio, eventia, oferente };
 }
 
 const conLlave = async (prueba: () => Promise<void>) => {
@@ -420,5 +463,132 @@ describe('lo que lee y dice la IA', () => {
     expect(
       errorDeAnalisis(new Error('prompt is too long: 1200000 tokens')),
     ).toContain('demasiadas páginas');
+  });
+});
+
+describe('AnalisisService — ¿puedo cumplir?', () => {
+  const CONTEXTO = {
+    codigo: '1532886-5-LE26',
+    nombre: 'Ceremonia y Cena Día del Funcionario',
+    organismo: 'I MUNICIPALIDAD DE QUILLON',
+    comuna: 'Quillón',
+    perfil: null,
+  };
+  const CON_TECNICOS = {
+    ...RESULTADO,
+    lugar: 'a menos de 10 km de Quillón',
+    fecha_del_servicio_iso: '2026-10-30',
+    requisitos: [
+      ...RESULTADO.requisitos,
+      {
+        que: 'Cena con plateada o salmón',
+        tipo: 'tecnico',
+        obligatorio: true,
+        documento: 'Bases',
+        pagina: 19,
+      },
+      {
+        que: 'Show de baile de 40 minutos',
+        tipo: 'tecnico',
+        obligatorio: true,
+        documento: 'Bases',
+        pagina: 18,
+      },
+    ],
+  };
+
+  it('cruza las exigencias técnicas con la carta, las instalaciones y la agenda de ese día, con Sonnet', async () => {
+    const { parse, servicio, eventia } = armar();
+    parse.mockResolvedValueOnce({
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10_000, output_tokens: 2_000 },
+      parsed_output: {
+        resumen: 'Tienes la cena; el show hay que conseguirlo.',
+        items: [
+          {
+            requisito: 2,
+            estado: 'conseguir',
+            con_que: '',
+            por_que: 'No hay show de baile en tu carta.',
+          },
+          {
+            requisito: 1,
+            estado: 'tengo',
+            con_que: 'Menú guardado [Cena] Plateada',
+            por_que: '',
+          },
+          { requisito: 9, estado: 'tengo', con_que: 'x', por_que: '' },
+        ],
+      },
+    });
+
+    const r = await servicio.puedoCumplir(1, CONTEXTO, CON_TECNICOS);
+
+    const [[pedido]] = parse.mock.calls as Array<
+      [{ model: string; system: string }]
+    >;
+    expect(pedido.model).toBe('claude-sonnet-5-5');
+    expect(pedido.system).toContain('1. Cena con plateada o salmón');
+    expect(pedido.system).toContain('2. Show de baile de 40 minutos');
+    expect(pedido.system).not.toContain('Anexo N°1 firmado');
+    expect(pedido.system).toContain(
+      '[Cena] Plateada: Plateada al jugo, Papas rústicas',
+    );
+    expect(pedido.system).toContain('Salón principal para 300 personas');
+    expect(pedido.system).toContain(
+      'N° 512: Matrimonios, 120 personas, con Salón principal',
+    );
+    expect(eventia.agendaDelDia).toHaveBeenCalledWith(1, '2026-10-30');
+    expect(r.resultado.cumplimiento).toEqual({
+      resumen: 'Tienes la cena; el show hay que conseguirlo.',
+      items: [
+        {
+          requisito: 1,
+          que: 'Cena con plateada o salmón',
+          estado: 'tengo',
+          con_que: 'Menú guardado [Cena] Plateada',
+          por_que: '',
+        },
+        {
+          requisito: 2,
+          que: 'Show de baile de 40 minutos',
+          estado: 'conseguir',
+          con_que: '',
+          por_que: 'No hay show de baile en tu carta.',
+        },
+      ],
+      agenda_de: '2026-10-30',
+    });
+    // Sonnet 5.5: 10.000 × US$2 + 2.000 × US$10 por millón = US$0,04.
+    expect(r.costo).toBe(0.04);
+  });
+
+  it('sin exigencias técnicas no pregunta; sin fecha clara no mira la agenda', async () => {
+    const { parse, servicio, eventia } = armar();
+    await expect(
+      servicio.puedoCumplir(1, CONTEXTO, RESULTADO),
+    ).resolves.toEqual({ resultado: {}, entrada: 0, salida: 0, costo: 0 });
+    expect(parse).not.toHaveBeenCalled();
+
+    parse.mockResolvedValueOnce({
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 1, output_tokens: 1 },
+      parsed_output: { resumen: 'ok', items: [] },
+    });
+    await servicio.puedoCumplir(1, CONTEXTO, {
+      ...CON_TECNICOS,
+      fecha_del_servicio_iso: '30 de octubre',
+    });
+    expect(eventia.agendaDelDia).not.toHaveBeenCalled();
+  });
+
+  it('si falla, el análisis no se cae: queda anotado al lado', async () => {
+    const { parse, servicio } = armar();
+    parse.mockRejectedValueOnce(new Error('se cortó la red'));
+    const r = await servicio.puedoCumplir(1, CONTEXTO, CON_TECNICOS);
+    expect(r.resultado).toEqual({
+      cumplimiento_error: expect.stringContaining('se cortó la red') as unknown,
+    });
+    expect(r.costo).toBe(0);
   });
 });

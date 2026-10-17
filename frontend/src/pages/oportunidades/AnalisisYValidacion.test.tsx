@@ -197,6 +197,87 @@ describe("Lo que piden las bases", () => {
   });
 });
 
+describe("¿Puedo cumplir?", () => {
+  const CON_TECNICOS = {
+    ...RESULTADO,
+    requisitos: [
+      ...RESULTADO.requisitos,
+      {
+        que: "Cena con plateada o salmón",
+        tipo: "tecnico",
+        obligatorio: true,
+        documento: "Bases.pdf",
+        pagina: 19,
+      },
+      {
+        que: "Show de baile de 40 minutos",
+        tipo: "tecnico",
+        obligatorio: true,
+        documento: "Bases.pdf",
+        pagina: 18,
+      },
+    ],
+  };
+
+  it("arriba lo que hay que conseguir; lo que ya tienes, plegado y con qué", async () => {
+    pintar(<AnalisisDeBases oportunidadId={40} />, {
+      ...ANALISIS,
+      resultado: {
+        ...CON_TECNICOS,
+        cumplimiento: {
+          resumen: "Tienes la cena; el show hay que conseguirlo.",
+          agenda_de: "2026-10-30",
+          items: [
+            {
+              requisito: 1,
+              que: "Cena con plateada o salmón",
+              estado: "tengo",
+              con_que: "Menú guardado [Cena] Plateada",
+              por_que: "",
+            },
+            {
+              requisito: 2,
+              que: "Show de baile de 40 minutos",
+              estado: "conseguir",
+              con_que: "",
+              por_que: "No hay show en tu carta.",
+            },
+          ],
+        },
+      },
+    });
+    expect(
+      await screen.findByText("Tienes la cena; el show hay que conseguirlo."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 hay que conseguir")).toBeInTheDocument();
+    expect(screen.getByText("No hay show en tu carta.")).toBeInTheDocument();
+    expect(screen.queryByText("Con: Menú guardado [Cena] Plateada")).toBeNull();
+    fireEvent.click(screen.getByText("La que ya tienes"));
+    expect(
+      screen.getByText("Con: Menú guardado [Cena] Plateada"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/agenda del viernes 30 de octubre/),
+    ).toBeInTheDocument();
+  });
+
+  it("un análisis anterior pide volver a analizar; sin exigencias técnicas no aparece", async () => {
+    pintar(<AnalisisDeBases oportunidadId={40} />, {
+      ...ANALISIS,
+      resultado: CON_TECNICOS,
+    });
+    expect(
+      await screen.findByText(
+        /Vuelve a analizar para revisar si puedes cumplir/,
+      ),
+    ).toBeInTheDocument();
+    cleanup();
+    pintar(<AnalisisDeBases oportunidadId={40} />);
+    await screen.findByText("Cómo te evalúan");
+    expect(screen.queryByText("¿Puedo cumplir?")).toBeNull();
+  });
+});
+
 describe("Validar documentos", () => {
   it("el veredicto arriba, con los conteos, y solo lo que hay que arreglar", async () => {
     pintar(<ValidacionDeDocumentos oportunidadId={40} />);
