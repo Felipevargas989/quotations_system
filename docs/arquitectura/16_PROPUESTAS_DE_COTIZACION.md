@@ -325,7 +325,15 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   el más alto (Nivel 3 o Premium, $25.900); desayuno Estándar $8.700 o
 >   Premium $10.900; coffee y cóctel, por precio dentro de su nivel. Si el
 >   pedido no dice nivel y hay presupuesto, elige el nivel que más se le
->   acerca. Lo que nunca hace: escribir un precio (elige por id y el motor
+>   acerca. Si no dice nivel ni hay presupuesto, va **lo más vendido en
+>   eventos parecidos** (Felipe, 17-10: *"ante falta de datos (…) revisemos
+>   cuáles son la mayor cantidad de cena que hemos sacado, lo más común"*):
+>   el motor cuenta, por categoría, el nivel del menú guardado más parecido
+>   a cada caja de las cotizaciones aceptadas y realizadas del mismo tipo de
+>   evento en los últimos 18 meses (por cotización, no por caja); con menos
+>   de 3, toma todos los tipos. Lo anota en la nota. Medido el 17-10, todos
+>   los tipos: cena → Nivel 1 (8 de 12 eventos); almuerzo → Básicos (7),
+>   muy cerca de Matrimonio (6) y Estándar (5). Lo que nunca hace: escribir un precio (elige por id y el motor
 >   pone el del catálogo) ni recortar lo pedido por el presupuesto; si se
 >   aleja mucho, lo anota en el comentario interno y guarda igual (regla
 >   13). «Cuadrar al peso» es la suma interna de Eventia
