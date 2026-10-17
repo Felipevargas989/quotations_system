@@ -49,6 +49,8 @@ describe('MercadoPublicoClient', () => {
     cliente.esperas = [0, 0];
     cliente.esperas429 = [0, 0];
     cliente.pausaMinimaMs = 0;
+    cliente.pausaTrasChoqueMs = 0;
+    cliente.pausaMaximaMs = 0;
     fetchFalso = jest.spyOn(global, 'fetch');
   });
 
@@ -152,7 +154,41 @@ describe('MercadoPublicoClient', () => {
       expect(fetchFalso).toHaveBeenCalledTimes(1);
     });
 
+    it('"peticiones simultáneas" en un 429: pide más despacio y reintenta', async () => {
+      cliente.pausaTrasChoqueMs = 5;
+      cliente.pausaMaximaMs = 20;
+      const simultaneas = {
+        Mensaje:
+          'Lo sentimos. Hemos detectado que existen peticiones simultáneas.',
+      };
+      fetchFalso
+        .mockResolvedValueOnce(respuesta(429, simultaneas))
+        .mockResolvedValueOnce(respuesta(429, simultaneas))
+        .mockResolvedValueOnce(
+          respuesta(200, { Listado: [{ CodigoExterno: 'A-1-LE26' }] }),
+        );
+      await expect(cliente.detalleLicitacion('A-1-LE26')).resolves.toEqual({
+        CodigoExterno: 'A-1-LE26',
+      });
+      expect(fetchFalso).toHaveBeenCalledTimes(3);
+      // 0 → 5 → 10 ms: la pausa se duplica con cada choque, y se queda.
+      expect(cliente.pausaMinimaMs).toBe(10);
+      expect(logger.warn.mock.calls.join(' ')).toContain('pido cada');
+    });
+
+    it('si los choques no paran, se rinde con ese pedido (no es "sin cupo" por hoy)', async () => {
+      cliente.maxChoques = 2;
+      fetchFalso.mockImplementation(
+        siempre(429, { Mensaje: 'peticiones simultáneas' }),
+      );
+      const error = await fallaDe(cliente.detalleLicitacion('A-1-LE26'));
+      expect(error.message).toContain('simultáneas');
+      expect(fetchFalso).toHaveBeenCalledTimes(3);
+    });
+
     it('"peticiones simultáneas" se espera y se reintenta', async () => {
+      cliente.pausaTrasChoqueMs = 5;
+      cliente.pausaMaximaMs = 20;
       fetchFalso
         .mockResolvedValueOnce(
           respuesta(500, {
@@ -169,6 +205,7 @@ describe('MercadoPublicoClient', () => {
       });
       expect(fetchFalso).toHaveBeenCalledTimes(2);
       expect(logger.warn.mock.calls.join(' ')).toContain('simultáneas');
+      expect(cliente.pausaMinimaMs).toBe(5);
     });
 
     it('la lista de activas sin "Listado" es una falla (siempre hay miles abiertas)', async () => {

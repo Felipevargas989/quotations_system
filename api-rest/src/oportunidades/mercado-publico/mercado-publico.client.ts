@@ -94,8 +94,15 @@ export class MercadoPublicoClient {
   /** Ante un 429 se espera más antes de darlo por "sin cupo": a veces es
    *  un freno por pedir seguido, no el cupo del día (17-10, laboratorio). */
   esperas429: number[] = [30_000, 90_000];
-  /** Pausa mínima entre el inicio de dos pedidos (las pruebas la apagan). */
+  /** Pausa mínima entre el inicio de dos pedidos (las pruebas la apagan).
+   *  Se ajusta sola: cada "peticiones simultáneas" la duplica, desde
+   *  `pausaTrasChoqueMs` hasta `pausaMaximaMs` (medido el 17-10: con 1 s
+   *  entre pedidos, Mercado Público seguía viendo simultáneas). */
   pausaMinimaMs = 1_000;
+  pausaTrasChoqueMs = 2_000;
+  pausaMaximaMs = 10_000;
+  /** Tantos choques seguidos en un mismo pedido = se rinde con ese. */
+  maxChoques = 6;
   private ultimoPedido = 0;
   /** Tope de cada petición (la lista de activas tiene el suyo, más largo). */
   topeMs = 60_000;
@@ -232,9 +239,9 @@ export class MercadoPublicoClient {
   ): Promise<unknown> {
     let fallas = 0;
     let frenos = 0;
+    let choques = 0;
     for (;;) {
       let status: number | null = null;
-      let motivo: string | null = null;
       await this.esperarTurno();
       try {
         const resp = await fetch(url, {
@@ -244,6 +251,10 @@ export class MercadoPublicoClient {
         status = resp.status;
         if (resp.status === 429) {
           const dijo = resumirCuerpo(await resp.text().catch(() => ''));
+          if (/simult/i.test(dijo)) {
+            await this.chocar(que, ++choques);
+            continue;
+          }
           const detalle = dijo ? ` (${dijo})` : '';
           if (frenos >= this.esperas429.length) {
             throw new MercadoPublicoError(
@@ -261,7 +272,8 @@ export class MercadoPublicoClient {
         const cuerpo: unknown = await resp.json().catch(() => null);
         const error = errorDeLaApi(cuerpo);
         if (error?.simultaneas) {
-          motivo = 'peticiones simultáneas';
+          await this.chocar(que, ++choques);
+          continue;
         } else if (error) {
           throw new MercadoPublicoError(
             `${que}: Mercado Público respondió ${error.codigo}${error.mensaje ? ` (${error.mensaje})` : ''}`,
@@ -279,7 +291,7 @@ export class MercadoPublicoClient {
         if (error instanceof MercadoPublicoError) throw error;
         // Corte de red o tope de tiempo: se reintenta como un 5xx.
       }
-      const razon = motivo ?? String(status ?? 'sin respuesta');
+      const razon = String(status ?? 'sin respuesta');
       if (fallas >= this.esperas.length) {
         throw new MercadoPublicoError(
           `${que}: Mercado Público no respondió (${razon}) tras ${fallas + 1} intentos`,
@@ -292,6 +304,28 @@ export class MercadoPublicoClient {
       );
       await dormir(espera);
     }
+  }
+
+  /** Mercado Público vio "peticiones simultáneas": se pide más despacio de
+   *  aquí en adelante, se espera esa misma pausa y se reintenta. */
+  private async chocar(que: string, choques: number): Promise<void> {
+    if (choques > this.maxChoques) {
+      throw new MercadoPublicoError(
+        `${que}: Mercado Público sigue viendo peticiones simultáneas tras ${choques} intentos`,
+        429,
+      );
+    }
+    const antes = this.pausaMinimaMs;
+    this.pausaMinimaMs = Math.min(
+      Math.max(antes * 2, this.pausaTrasChoqueMs),
+      this.pausaMaximaMs,
+    );
+    if (this.pausaMinimaMs !== antes) {
+      this.logger.warn(
+        `${que}: Mercado Público ve peticiones simultáneas; desde ahora pido cada ${(this.pausaMinimaMs / 1000).toFixed(1)} s`,
+      );
+    }
+    await dormir(this.pausaMinimaMs);
   }
 
   /** Deja pasar al menos `pausaMinimaMs` entre el inicio de dos pedidos. */
