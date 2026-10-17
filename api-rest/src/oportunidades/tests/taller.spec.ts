@@ -173,6 +173,15 @@ describe('el taller de Word de la IA', () => {
     expect(r.uso.salida).toBe(1_000);
   });
 
+  it('el modelo es el de la tarea (Sonnet llena, Haiku firma); sin decirlo, Opus', async () => {
+    const { cliente, pedidos } = clienteDePrueba([respuesta('end_turn', [])]);
+    await trabajarEnElTaller(cliente, {
+      ...PEDIDO,
+      modelo: 'claude-haiku-5-5',
+    });
+    expect(pedidos[0].model).toBe('claude-haiku-5-5');
+  });
+
   it('si la API falla, lanza, pero igual borra lo que había subido', async () => {
     const { cliente, archivos } = clienteDePrueba([new Error('se cortó')]);
     await expect(trabajarEnElTaller(cliente, PEDIDO)).rejects.toThrow(

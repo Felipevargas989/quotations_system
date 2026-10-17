@@ -238,7 +238,7 @@ function Criterios({
           return (
             <li
               key={`${c.nombre}-${i}`}
-              className="grid grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm"
+              className="grid grid-cols-[minmax(0,18rem)_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm"
             >
               <span className="truncate text-gray-900" title={c.nombre}>
                 {c.nombre}

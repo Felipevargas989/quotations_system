@@ -233,6 +233,7 @@ describe('Generar anexos', () => {
           company_id: 1,
           oportunidad_id: 40,
           tipo: 'anexos',
+          modelo: 'claude-sonnet-5-5',
           analisis_id: 5,
           parametros: { monto_total: 11_900_000, adjuntos: [6] },
           archivos: [{ id: 6, nombre: 'Formularios_Anexos.docx' }],
@@ -325,6 +326,7 @@ describe('Firmar', () => {
       expect(repo.crearGeneracion).toHaveBeenCalledWith(
         expect.objectContaining({
           tipo: 'firma',
+          modelo: 'claude-haiku-5-5',
           parametros: { adjuntos: [12] },
         }),
       );
@@ -384,6 +386,7 @@ describe('Crear propuesta técnica', () => {
       expect(repo.crearGeneracion).toHaveBeenCalledWith(
         expect.objectContaining({
           tipo: 'propuesta',
+          modelo: 'claude-opus-5-5',
           analisis_id: 5,
           archivos: [
             { id: 4, nombre: 'D.A. N°4.770 Bases.pdf' },
@@ -464,6 +467,7 @@ describe('lo que entrega la IA', () => {
 describe('Por detrás: el taller y «Mi postulación»', () => {
   const PLAN: Plan = {
     tipo: 'anexos',
+    modelo: 'claude-sonnet-5-5',
     oportunidadId: 40,
     perfil: 'perfil-1',
     sistema: 'Llenas los anexos.',
@@ -526,6 +530,7 @@ describe('Por detrás: el taller y «Mi postulación»', () => {
     expect(taller).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
+        modelo: 'claude-sonnet-5-5',
         archivos: [
           expect.objectContaining({ nombre: 'anexo_6.docx', tipo: WORD }),
         ],
@@ -551,8 +556,9 @@ describe('Por detrás: el taller y «Mi postulación»', () => {
         generacion_id: 9,
       }),
     );
-    // (10.000 + 20.000 × 1,25 + 100.000 × 0,1) × US$4 el millón + 5.000 ×
-    // US$20 el millón = US$0,28.
+    // Con Sonnet 5.5, en US$ por millón: 10.000 × 2 de entrada + 20.000 ×
+    // 2,5 de caché escrita + 100.000 × 0,1 de caché leída + 5.000 × 10 de
+    // salida = US$0,13.
     expect(repo.terminar).toHaveBeenCalledWith(1, 9, {
       estado: 'listo',
       resultado: {
@@ -571,7 +577,7 @@ describe('Por detrás: el taller y «Mi postulación»', () => {
       },
       tokens_entrada: 130_000,
       tokens_salida: 5_000,
-      costo_usd: 0.28,
+      costo_usd: 0.13,
     });
   });
 
