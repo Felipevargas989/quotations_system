@@ -1,6 +1,6 @@
 # Mapa: Oportunidades (licitaciones y compras ágiles de Mercado Público)
 
-> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16 y 17-10-2026).** En el laboratorio desde el 17-10: el sprint 1a del documento 17 (el radar), el sprint 2 (la pantalla), el sprint 1b (quién ganó, la historia y el año anterior) y las bases y anexos que se suben a mano. Las migraciones 122, 123 y 124 están aplicadas en la base del laboratorio y el motor corre en `pruebas`. **Nada en producción.** Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16 y 17-10-2026).** En el laboratorio desde el 17-10: el sprint 1a del documento 17 (el radar), el sprint 2 (la pantalla), el sprint 1b (quién ganó, la historia y el año anterior) y las bases y anexos que se suben a mano. Las migraciones 122 a 125 están aplicadas en la base del laboratorio y el motor corre en `pruebas`. **Nada en producción.** Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
