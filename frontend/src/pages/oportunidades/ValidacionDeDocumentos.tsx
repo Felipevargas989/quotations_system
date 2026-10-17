@@ -22,6 +22,10 @@ import {
 // requisito, lo que vas a presentar ("Mi postulación"), tu carpeta de
 // documentos (con su vencimiento) y tus datos de "Mi empresa". Corre por
 // detrás y la pantalla pregunta cada 5 segundos.
+//
+// Desde el 17-10 aquí solo va lo que hay que arreglar: el estado de cada
+// requisito, también los listos, sale al lado de "Lo que hay que
+// presentar", en «Bases y criterios» (una sola lista, no dos).
 
 export default function ValidacionDeDocumentos({
   oportunidadId,
@@ -123,6 +127,7 @@ export default function ValidacionDeDocumentos({
 function Resultado({ r }: { readonly r: ResultadoDeValidacion }) {
   const listo = LISTO_PARA_POSTULAR[r.listo];
   const conteo = contarPorEstadoDeValidacion(r.requisitos);
+  const porArreglar = r.requisitos.filter((q) => q.estado !== "cumple");
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-lg border ${listo.clases}`}>
@@ -135,29 +140,39 @@ function Resultado({ r }: { readonly r: ResultadoDeValidacion }) {
         </p>
       </div>
 
-      <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-        {r.requisitos.map((q, i) => {
-          const estado =
-            ESTADOS_DE_VALIDACION.find((e) => e.value === q.estado) ??
-            ESTADOS_DE_VALIDACION[3];
-          return (
-            <li key={`${q.que}-${i}`} className="px-3 py-2 flex gap-3">
-              <span
-                className={`shrink-0 mt-0.5 px-2 py-0.5 h-fit text-xs font-semibold rounded ${estado.clases}`}
-              >
-                {estado.label}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm text-gray-900">{q.que}</p>
-                <p className="text-xs text-gray-500">
-                  {q.observacion}
-                  {q.donde && ` · ${q.donde}`}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {porArreglar.length === 0 ? (
+        <p className="text-sm text-green-700">
+          Todo lo del checklist está listo.
+        </p>
+      ) : (
+        <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+          {porArreglar.map((q, i) => {
+            const estado =
+              ESTADOS_DE_VALIDACION.find((e) => e.value === q.estado) ??
+              ESTADOS_DE_VALIDACION[3];
+            return (
+              <li key={`${q.que}-${i}`} className="px-3 py-2 flex gap-3">
+                <span
+                  className={`shrink-0 mt-0.5 px-2 py-0.5 h-fit text-xs font-semibold rounded ${estado.clases}`}
+                >
+                  {estado.label}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-900">{q.que}</p>
+                  <p className="text-xs text-gray-500">
+                    {q.observacion}
+                    {q.donde && ` · ${q.donde}`}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="text-xs text-gray-500">
+        El estado de cada requisito, también los listos, está en «Bases y
+        criterios».
+      </p>
 
       {r.otros_problemas.length > 0 && (
         <div className="space-y-1">

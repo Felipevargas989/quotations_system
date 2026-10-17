@@ -236,7 +236,14 @@ export interface ResultadoDeBases {
     pagina: number;
   }>;
   garantias: string[];
-  alertas: string[];
+  /** Desde el 17-10: lo que deja fuera (máximo 5) y las demás condiciones.
+   *  Un análisis anterior solo trae `alertas`, sin separar. */
+  te_dejan_fuera?: string[];
+  condiciones?: string[];
+  alertas?: string[];
+  /** Para "en una mirada": cuándo es y para cuántos (0 = no lo dicen). */
+  fecha_del_servicio?: string;
+  personas?: number;
 }
 
 export interface AnalisisDeBases {

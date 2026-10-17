@@ -31,8 +31,9 @@ import {
 // El botón "Analizar bases" de la ficha manda las bases y anexos que subió
 // la empresa. Opus los lee completos (también las aclaratorias) y devuelve
 // el resumen, el checklist de lo que piden con su página, los criterios con
-// su peso, las fechas, las garantías y las alertas. Tarda uno a tres
-// minutos: corre por detrás y la pantalla pregunta cada pocos segundos.
+// su peso, las fechas, las garantías, lo que deja fuera y las demás
+// condiciones. Tarda uno a tres minutos: corre por detrás y la pantalla
+// pregunta cada pocos segundos.
 // Lo común con Validar documentos vive en ./comun.
 
 export const MODELO_BASES = MODELO_OPUS;
@@ -98,7 +99,13 @@ export const ESQUEMA_DE_BASES = {
       },
     },
     garantias: { type: 'array', items: { type: 'string' } },
-    alertas: { type: 'array', items: { type: 'string' } },
+    // La ficha ordenada (Felipe, 17-10: "quedó muy desordenado... difícil
+    // de leer"): arriba solo lo que deja fuera; lo demás, plegado.
+    te_dejan_fuera: { type: 'array', items: { type: 'string' } },
+    condiciones: { type: 'array', items: { type: 'string' } },
+    // Para "en una mirada": cuándo es y para cuántos.
+    fecha_del_servicio: { type: 'string' },
+    personas: { type: 'integer' },
   },
   required: [
     'resumen',
@@ -110,7 +117,10 @@ export const ESQUEMA_DE_BASES = {
     'criterios',
     'requisitos',
     'garantias',
-    'alertas',
+    'te_dejan_fuera',
+    'condiciones',
+    'fecha_del_servicio',
+    'personas',
   ],
   additionalProperties: false,
 } as const;
@@ -143,7 +153,10 @@ export const instruccionesDeBases = (c: ContextoDeBases): string =>
     '- criterios: cada criterio de evaluación con su peso tal como lo dicen ("30%"; vacío si no lo dicen) y cómo se evalúa, en una frase.',
     '- requisitos: TODO lo que hay que presentar o cumplir para no quedar fuera: anexos, formularios, certificados, declaraciones juradas, garantías, experiencia, requisitos técnicos y del servicio. Uno por fila, con su tipo, si es obligatorio, el título del documento donde está y la página (0 si no tiene página, como en un Word).',
     '- garantias: las boletas o pólizas que piden (seriedad de la oferta, fiel cumplimiento), con monto y plazo.',
-    '- alertas: lo que podría dejar fuera a la empresa o costarle caro: causales de inadmisibilidad, multas, plazos muy cortos, exigencias raras, contradicciones entre documentos, cambios de una aclaratoria.',
+    '- te_dejan_fuera: lo que deja la oferta fuera de bases o la descalifica, lo más grave primero. MÁXIMO 5, una frase corta cada una (menos de 20 palabras). Puede ser un requisito, si su falta deja fuera (por ejemplo, "Sin los anexos 3, 4 y 5 quedas fuera de bases").',
+    '- condiciones: lo demás que conviene saber antes de postular: multas, forma y plazo de pago, subcontratación, cambios de fecha, exigencias raras, contradicciones entre documentos, cambios de una aclaratoria, plazos muy cortos. Una frase corta cada una, de lo más importante a lo menos.',
+    '- fecha_del_servicio: cuándo es el evento o el servicio, como lo dicen (por ejemplo "viernes 30 de octubre, 18:00 a 02:00"); vacío si no lo dicen.',
+    '- personas: para cuántas personas es; 0 si no lo dicen.',
   ].join('\n');
 
 @Injectable()
