@@ -134,6 +134,7 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 7. **Los adjuntos viven en el balde de los comprobantes** (`BUCKET_PRIVADO`, exportado de `storage.service.ts`). Si cambias cómo `StorageService.verificarDueno` reconoce las rutas `c<empresa>/`, el visor deja de abrir las bases. Y si alguien vuelve público ese balde, quedan públicas también las bases y los comprobantes bancarios (misión storage, migración 42).
 8. **Borrar una oportunidad** (nadie lo hace: las rojas no se botan) borraría sus filas de adjuntos en cascada, pero **no sus archivos**: quedarían en el balde sin que nadie los vea. Lo mismo pasa si falla el balde al eliminar un adjunto: la fila se borra igual y queda anotado en el registro (`AdjuntosService.borrar`).
 9. **Subir pasa por la memoria del motor** (multer en memoria, hasta 30 MB por archivo, uno por pedido). Si algún día se suben muchos a la vez o archivos más grandes, cambiar a subida firmada directa al balde.
+10. **El id de la sesión no es el del perfil.** `user.id` es el de Auth (`user_profiles.user_id`); `subido_por` y `responsable_id` apuntan a `user_profiles.id`. Para "quién lo subió" se busca el perfil con `perfilDe` (incidente 72 del mapa 21: con el id de la sesión, la primera subida del laboratorio dio 500).
 
 ## 9. Pruebas que lo protegen
 
