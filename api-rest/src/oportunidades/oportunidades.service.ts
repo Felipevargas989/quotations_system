@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
-import type { GuardarConfigDto } from './dto/guardar-config.dto';
+import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import {
   type Anterior,
@@ -163,7 +163,7 @@ export class OportunidadesService {
     };
   }
 
-  async guardarConfig(companyId: number, dto: GuardarConfigDto) {
+  async guardarConfig(companyId: number, dto: GuardarConfigOportunidadesDto) {
     const cambios: {
       regiones?: string[];
       comunas_cercanas?: string[];
