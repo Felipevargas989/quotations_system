@@ -114,6 +114,9 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     por confirmar.
 16. **Directo al laboratorio, sin otro mockup**: *"terminado esto, anda
     directo al sprint 2"*. La base de la pantalla es el mockup del 16-10.
+17. **Sin avisos por correo, tampoco el inmediato** (17-10): *"no, sin
+    correo, revisaré la app diario"*. La comuna cercana y el alto valor se
+    ven en el bloque **Prioridad** de la bandeja y en "Se viene".
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -369,7 +372,7 @@ de Felipe.
 **Lo que le faltaba al sprint 2, 17-10** (Felipe: *"vamos con el desarrollo, con el módulo listo lo mandamos a producción"*):
 - **Se viene**, construido: el calendario de las que se repiten cada año, como "en noviembre viene el Día de Campo del Dirigente".
 - **Competidores**, construido: quién gana en la zona y una ficha por proveedor; el ganador del año anterior enlaza a su ficha.
-- **Avisos**: espera la respuesta de Felipe (¿correo inmediato o basta con Eventia?).
+- **Avisos**: sin correo (decisión 17): Felipe revisa la app a diario. Con eso el sprint 2 queda completo en el laboratorio.
 
 La historia ahora revisa primero los últimos 60 días. Producción, cuando el módulo esté listo.
 

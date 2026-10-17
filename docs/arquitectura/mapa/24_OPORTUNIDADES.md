@@ -179,7 +179,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 ## 11. Preguntas abiertas (para Felipe)
 
 - Respondidas el 17-10: todo Chile; `mp_procesos` fuera del respaldo; solo administradores; sin resumen por correo (doc 17, decisiones 12 a 15).
-- Quedan: ¿se mantiene el aviso inmediato de comuna cercana y alto valor? (no está construido). Las rojas quedaron apagadas de partida en la bandeja, con un clic se ven: ¿así está bien?
+- Respondida el 17-10: sin aviso por correo, ni siquiera el inmediato (doc 17, decisión 17); Felipe revisa la app a diario.
+- Queda: las rojas quedaron apagadas de partida en la bandeja, con un clic se ven: ¿así está bien?
 
 ## 12. Archivos clave
 
