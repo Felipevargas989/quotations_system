@@ -172,7 +172,7 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
     const { repo, consultas } = armar();
     await repo.configDe(52);
     await repo.catalogoResumido(52);
-    await repo.codigosLeidos(52);
+    await repo.lecturasDe(52, 'claude-haiku-5-5, reglas del 17-10');
     await repo.listar(52, { vigentes: true, limite: 3000 });
     await repo.ficha(52, 9);
     await repo.actualizar(52, 9, { estado: 'en_estudio' });
@@ -270,6 +270,83 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
       onConflict: 'company_id,codigo',
       ignoreDuplicates: true,
     });
+  });
+});
+
+describe('OportunidadesRepository — releer con reglas nuevas (decisión 19)', () => {
+  const ACTUAL = 'claude-haiku-5-5, reglas del 17-10';
+  const fila = (codigo: string, cambios: Record<string, unknown> = {}) => ({
+    codigo,
+    estado: 'nueva',
+    responsable_id: null,
+    notas: null,
+    quotation_id: null,
+    leida_con: 'claude-haiku-5-5',
+    ...cambios,
+  });
+
+  it('se relee solo lo leído con otras reglas que nadie ha tocado', async () => {
+    const { repo } = armar(() => ({
+      data: [
+        fila('VIEJA'),
+        fila('AL_DIA', { leida_con: ACTUAL }),
+        fila('ME_INTERESA', { estado: 'en_estudio' }),
+        fila('DESCARTADA', { estado: 'descartada' }),
+        fila('ASIGNADA', {
+          responsable_id: 'b3c1e0f2-0000-4000-8000-000000000000',
+        }),
+        fila('CON_NOTAS', { notas: 'llamar' }),
+        fila('COTIZADA', {
+          quotation_id: 'c0ffee00-0000-4000-8000-000000000000',
+        }),
+      ],
+    }));
+    const { hechas, releer } = await repo.lecturasDe(1, ACTUAL);
+    expect([...releer]).toEqual(['VIEJA']);
+    expect([...hechas].sort()).toEqual(
+      [
+        'AL_DIA',
+        'ASIGNADA',
+        'CON_NOTAS',
+        'COTIZADA',
+        'DESCARTADA',
+        'ME_INTERESA',
+      ].sort(),
+    );
+  });
+
+  it('la relectura cambia solo lo que leyó la IA, y solo si sigue intacta', async () => {
+    const { repo, consultas } = armar();
+    await repo.guardarLectura(
+      1,
+      '1532886-5-LE26',
+      {
+        semaforo: 'verde',
+        etiquetas: ['evento', 'alimentacion'],
+        se_hace_en_el_complejo: 'si',
+        razon: 'Ceremonia con cena: el lugar lo pone el oferente.',
+        alertas: ['comuna_cercana', 'alto_valor'],
+      },
+      ACTUAL,
+      true,
+    );
+    const [c] = consultas;
+    expect(tiene(c, 'upsert')).toBe(false);
+    const [, cambios] = paso(c, 'update') as [string, Record<string, unknown>];
+    expect(cambios).toMatchObject({ semaforo: 'verde', leida_con: ACTUAL });
+    for (const campo of ['estado', 'responsable_id', 'notas', 'quotation_id']) {
+      expect(cambios).not.toHaveProperty(campo);
+    }
+    expect(c.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'codigo', '1532886-5-LE26'],
+        ['eq', 'estado', 'nueva'],
+        ['is', 'responsable_id', null],
+        ['is', 'notas', null],
+        ['is', 'quotation_id', null],
+      ]),
+    );
   });
 });
 
