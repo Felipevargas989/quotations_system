@@ -1,0 +1,246 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, FileText, Trash2, Upload } from "lucide-react";
+import { useState } from "react";
+import ConfirmInline from "../../components/ConfirmInline";
+import FileViewLink from "../../components/FileViewLink";
+import { toast } from "../../components/toast/Toast";
+import { useArrastreDeArchivos } from "../../hooks/useArrastreDeArchivos";
+import {
+  borrarAdjunto,
+  getAdjuntos,
+  subirAdjunto,
+  type AdjuntoDeOportunidad,
+  type TipoProceso,
+} from "../../services/oportunidades.service";
+import { resolveStorageUrl } from "../../services/storage.service";
+import { humanizeApiError } from "../../utils/apiErrors";
+import { formatMomento } from "../../utils/dates";
+import {
+  EXTENSIONES_DE_ADJUNTOS,
+  MAX_MB_POR_ADJUNTO,
+  problemaDelAdjunto,
+  seVeEnElVisor,
+  tamanoLegible,
+  urlMercadoPublico,
+} from "./oportunidades.utils";
+
+// LAS BASES Y ANEXOS (doc 17 §12 punto 8, opción d). Felipe, 17-10: "ok
+// dale con el botón y arrastro".
+//
+// Mercado Público protege su lista de adjuntos con un control antirrobots
+// que esta casa no esquiva. Los baja una persona desde su navegador (el
+// botón abre la ficha allá) y los arrastra aquí. PDF e imágenes se ven con
+// el visor de la casa (FileViewLink); Word, Excel y ZIP se descargan.
+
+export default function AdjuntosDeLaOportunidad({
+  oportunidadId,
+  codigo,
+  tipo,
+}: {
+  readonly oportunidadId: number;
+  readonly codigo: string;
+  readonly tipo: TipoProceso;
+}) {
+  const qc = useQueryClient();
+  const clave = ["oportunidades", "adjuntos", oportunidadId];
+  const { data: adjuntos = [], isPending } = useQuery({
+    queryKey: clave,
+    queryFn: () => getAdjuntos(oportunidadId),
+  });
+
+  const [subiendo, setSubiendo] = useState<{
+    actual: number;
+    total: number;
+    nombre: string;
+  } | null>(null);
+  const [porBorrar, setPorBorrar] = useState<number | null>(null);
+
+  // De a uno: así cada archivo dice si subió o por qué no.
+  const recibir = async (archivos: File[]) => {
+    const buenos = archivos.filter((a) => {
+      const problema = problemaDelAdjunto(a);
+      if (problema) toast.error(problema);
+      return !problema;
+    });
+    let subidos = 0;
+    for (const [i, archivo] of buenos.entries()) {
+      setSubiendo({
+        actual: i + 1,
+        total: buenos.length,
+        nombre: archivo.name,
+      });
+      try {
+        await subirAdjunto(oportunidadId, archivo);
+        subidos += 1;
+      } catch (e) {
+        toast.error(humanizeApiError(e, `No se pudo subir "${archivo.name}".`));
+      }
+    }
+    setSubiendo(null);
+    if (subidos > 0) {
+      toast.success(
+        subidos === 1 ? "Archivo subido." : `${subidos} archivos subidos.`,
+      );
+      void qc.invalidateQueries({ queryKey: clave });
+    }
+  };
+
+  const { arrastrando, zona } = useArrastreDeArchivos(
+    (archivos) => void recibir(archivos),
+    { desactivado: subiendo !== null },
+  );
+
+  const borrar = useMutation({
+    mutationFn: (adjuntoId: number) => borrarAdjunto(oportunidadId, adjuntoId),
+    onSuccess: () => {
+      toast.success("Archivo eliminado.");
+      void qc.invalidateQueries({ queryKey: clave });
+    },
+    onError: (e) => toast.error(humanizeApiError(e, "No se pudo eliminar.")),
+    onSettled: () => setPorBorrar(null),
+  });
+
+  // Word, Excel y ZIP: enlace firmado con el nombre original. El navegador
+  // lo descarga sin salir de la página.
+  const descargar = async (a: AdjuntoDeOportunidad) => {
+    try {
+      const url = await resolveStorageUrl(a.ruta);
+      const separador = url.includes("?") ? "&" : "?";
+      window.location.assign(
+        `${url}${separador}download=${encodeURIComponent(a.nombre)}`,
+      );
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo descargar."));
+    }
+  };
+
+  return (
+    <section {...zona} className="bg-white rounded-lg shadow p-5 space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <h2 className="text-sm font-semibold text-gray-900">
+            Bases y anexos
+          </h2>
+          <p className="text-xs text-gray-500">
+            {tipo === "licitacion"
+              ? "En Mercado Público, pincha «Ver adjuntos» arriba de la ficha y baja los archivos. Después arrástralos aquí."
+              : "En Mercado Público, los archivos están en la misma ficha de la compra ágil. Bájalos y arrástralos aquí."}
+          </p>
+        </div>
+        <a
+          href={urlMercadoPublico(codigo, tipo)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+        >
+          Bajar de Mercado Público
+          <ExternalLink size={14} />
+        </a>
+      </div>
+
+      {isPending ? (
+        <p className="text-sm text-gray-500">Cargando…</p>
+      ) : (
+        adjuntos.length > 0 && (
+          <ul className="divide-y divide-gray-100">
+            {adjuntos.map((a) => (
+              <li key={a.id} className="py-2 flex items-center gap-3">
+                <FileText size={16} className="shrink-0 text-gray-400" />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="text-sm text-gray-800 truncate"
+                    title={a.nombre}
+                  >
+                    {a.nombre}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {tamanoLegible(a.bytes)}
+                    {a.quien?.full_name ? ` · ${a.quien.full_name}` : ""} ·{" "}
+                    {formatMomento(a.creado_en, "diaHora")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {seVeEnElVisor(a.ruta) ? (
+                    <FileViewLink url={a.ruta} title={a.nombre} />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void descargar(a)}
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      Descargar
+                    </button>
+                  )}
+                  {porBorrar === a.id ? (
+                    <ConfirmInline
+                      question="¿Eliminar?"
+                      onYes={() => borrar.mutate(a.id)}
+                      onNo={() => setPorBorrar(null)}
+                      busy={borrar.isPending}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPorBorrar(a.id)}
+                      className="text-gray-300 hover:text-red-500"
+                      title="Eliminar archivo"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      <div
+        className={`rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
+          arrastrando ? "border-blue-400 bg-blue-50/60" : "border-gray-200"
+        }`}
+      >
+        {subiendo ? (
+          <p className="text-sm text-gray-600">
+            Subiendo {subiendo.actual} de {subiendo.total}:{" "}
+            <b className="text-gray-800">{subiendo.nombre}</b>…
+          </p>
+        ) : (
+          <>
+            <Upload size={18} className="mx-auto mb-1 text-gray-400" />
+            <p
+              className={
+                arrastrando
+                  ? "text-sm font-bold text-blue-600"
+                  : "text-sm text-gray-600"
+              }
+            >
+              {arrastrando
+                ? "¡Suéltalos aquí! ↓"
+                : "Arrastra aquí los archivos"}
+            </p>
+            <label className="mt-2 inline-block cursor-pointer px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
+              o elígelos
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                accept={EXTENSIONES_DE_ADJUNTOS.map((e) => `.${e}`).join(",")}
+                onChange={(e) => {
+                  const elegidos = Array.from(e.target.files ?? []);
+                  // Valor limpio: volver a elegir el MISMO archivo funciona.
+                  e.currentTarget.value = "";
+                  if (elegidos.length > 0) void recibir(elegidos);
+                }}
+              />
+            </label>
+            <p className="mt-1 text-xs text-gray-400">
+              PDF, Word, Excel, ZIP o imágenes · hasta {MAX_MB_POR_ADJUNTO} MB
+              cada uno
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

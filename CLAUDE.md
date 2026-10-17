@@ -127,7 +127,7 @@ Las tres se habrían evitado leyendo el documento.
 |---|---|
 | Gestión de Personas | `docs/arquitectura/10_MODULO_DE_PERSONAS.md` — incluye el capítulo 10 con lo que enseñó el Excel tras horas de análisis |
 | Homologación de piezas | `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md` |
-| Oportunidades (licitaciones y compras ágiles) | `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md` — plan del 16-10-2026: radar con base propia, lectura con Haiku 5.5, "Generar documentos" y "Generar cotización". Sprint 1a (el radar) y sprint 2 (la pantalla) en el laboratorio desde el 17-10, rama `feature/oportunidades-radar`; nada en producción; su mapa es `mapa/24_OPORTUNIDADES.md` |
+| Oportunidades (licitaciones y compras ágiles) | `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md` — plan del 16-10-2026: radar con base propia, lectura con Haiku 5.5, "Generar documentos" y "Generar cotización". En el laboratorio desde el 17-10 (rama `feature/oportunidades-radar`): el radar (sprint 1a), la pantalla (sprint 2), quién ganó y el año anterior (sprint 1b), y las bases y anexos que se suben a mano; nada en producción; su mapa es `mapa/24_OPORTUNIDADES.md` |
 
 Viven **dentro del repo** desde el 14-08: antes estaban solo en la carpeta
 maestra, sin versionar y fuera de los respaldos — un solo archivo en un solo
@@ -207,6 +207,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/ConfirmInline` | confirmations anchored to the button, no browser popups | 10 |
 | `components/QuantitySelector` | quantity steppers | 3 |
 | `components/grilla/GrillaDeDias` | day-columns grid with per-day counters + 3 value columns; FIXED shared widths so two stacked grids align column-to-column | 2 |
+| `hooks/useArrastreDeArchivos` | **drag-and-drop of files** — lights up only for FILES, depth counter (no flicker over children, Safari included), window-level safety net so a file dropped outside never navigates the tab. Spread `zona` on the receiving element. `SeguimientoPanel` and four other screens still carry hand-rolled copies: move them when you touch them | 1 |
 | `components/Estrellas` | star ratings (display avg or click-to-rate); "sin evaluar" is NOT zero stars | 2 |
 | `components/Modal` | any dialog: anchored top, capped height, header always visible, Escape + backdrop close. A hand-rolled centred modal that scrolls its own overlay loses its header off-screen when tall (Cargos, 17-08) — do not hand-roll. Personal has zero hand-rolled modals since 18-08; **known debt** (older, in production, untouched): `PhotoPopup`, `FileViewLink`, `CelebracionRealizada`, `GestionTab`, `PostVentaPage.EditRegistroModal`, `FixedServicesBySection`, `VariableServicesByCategory` — migrate when you touch them | 8 |
 | `components/Tooltip` | read-only detail on hover (CSS only, opens upward, dark). Also sets `title` so the browser shows it when the panel is clipped. NOT for choosing values — that is `SelectWithSearch` | 1 |

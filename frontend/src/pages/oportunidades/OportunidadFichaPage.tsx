@@ -16,6 +16,7 @@ import { getUsers } from "../../services/users.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
+import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import {
   ALERTAS,
   cuandoCierra,
@@ -30,9 +31,9 @@ import {
 } from "./oportunidades.utils";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
-// qué piden, las fechas, el historial de cambios, y lo que decide la
-// empresa (estado, responsable, notas). "El año anterior" llega con la
-// historia de Mercado Público (sprint 1b).
+// qué piden, las bases y anexos que sube la empresa, las fechas, el
+// historial de cambios, el año anterior (sprint 1b) y lo que decide la
+// empresa (estado, responsable, notas).
 
 /** Las fechas que trae Mercado Público, en el orden en que pasan. */
 const FECHAS: ReadonlyArray<[string, string]> = [
@@ -264,6 +265,12 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           </ul>
         )}
       </Seccion>
+
+      <AdjuntosDeLaOportunidad
+        oportunidadId={ficha.id}
+        codigo={ficha.codigo}
+        tipo={p.tipo}
+      />
 
       {fechas.length > 0 && (
         <Seccion titulo="Fechas">
