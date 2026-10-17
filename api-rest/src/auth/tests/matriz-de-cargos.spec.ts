@@ -8,6 +8,7 @@ import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
 import { MovilController } from 'src/movil/movil.controller';
+import { OportunidadesController } from 'src/oportunidades/oportunidades.controller';
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
@@ -153,6 +154,39 @@ const esperado: [Clase, Record<string, string[]>][] = [
   [
     MovilController,
     { 'GET push/clave-publica': O, 'POST cocina/:quotationId/marcas': O },
+  ],
+  [
+    OportunidadesController,
+    {
+      'GET ': A,
+      'GET config': A,
+      'PATCH config': A,
+      'POST radar': A,
+      'GET radar/corridas': A,
+      'GET mias': A,
+      'GET calendario': A,
+      'GET competidores': A,
+      'GET competidores/:rut': A,
+      'GET oferente': A,
+      'PATCH oferente': A,
+      'POST oferente/firma': A,
+      'DELETE oferente/firma': A,
+      'POST oferente/documentos': A,
+      'DELETE oferente/documentos/:documentoId': A,
+      'GET :id': A,
+      'PATCH :id': A,
+      'GET :id/adjuntos': A,
+      'POST :id/adjuntos': A,
+      'DELETE :id/adjuntos/:adjuntoId': A,
+      'GET :id/analisis': A,
+      'POST :id/analisis': A,
+      'GET :id/validacion': A,
+      'POST :id/validacion': A,
+      'GET :id/generaciones': A,
+      'POST :id/generaciones/anexos': A,
+      'POST :id/generaciones/firma': A,
+      'POST :id/generaciones/propuesta': A,
+    },
   ],
 ];
 
