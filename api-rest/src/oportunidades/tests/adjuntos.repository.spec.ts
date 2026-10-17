@@ -61,6 +61,16 @@ describe('AdjuntosRepository — cada consulta es de UNA empresa', () => {
     ]);
   });
 
+  it('el perfil de la sesión se busca por user_id (la cuenta) y en la empresa', async () => {
+    const { repo, consultas } = armar({ data: { id: 'perfil-7' } });
+    await expect(repo.perfilDe(1, 'cuenta-3')).resolves.toBe('perfil-7');
+    expect(consultas[0].tabla).toBe('user_profiles');
+    expect(filtros(consultas[0])).toEqual([
+      ['company_id', 1],
+      ['user_id', 'cuenta-3'],
+    ]);
+  });
+
   it('listar filtra por empresa y oportunidad', async () => {
     const { repo, consultas } = armar({ data: [] });
     await repo.listar(1, 9);

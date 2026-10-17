@@ -93,9 +93,11 @@ export class AdjuntosService {
     return this.repo.listar(companyId, oportunidadId);
   }
 
+  /** `cuentaId` es el id de la sesión (`user.id`); quién lo subió se guarda
+   *  con el perfil de esa cuenta en la empresa. */
   async subir(
     companyId: number,
-    userId: string,
+    cuentaId: string,
     oportunidadId: number,
     archivo: Express.Multer.File | undefined,
   ): Promise<Adjunto> {
@@ -114,6 +116,7 @@ export class AdjuntosService {
       throw new BadRequestException(`"${nombre}" pesa más de 30 MB.`);
     }
     await this.comprobar(companyId, oportunidadId);
+    const subidoPor = await this.repo.perfilDe(companyId, cuentaId);
 
     const ruta = `c${companyId}/oportunidades/${oportunidadId}/${sello()}_${sanitize(nombre)}`;
     await this.repo.subirArchivo(ruta, archivo.buffer, tipo);
@@ -125,7 +128,7 @@ export class AdjuntosService {
         ruta,
         tipo,
         bytes: archivo.size,
-        subido_por: userId,
+        subido_por: subidoPor,
       });
     } catch (error) {
       // Sin su fila nadie lo vería: que no quede un archivo huérfano.

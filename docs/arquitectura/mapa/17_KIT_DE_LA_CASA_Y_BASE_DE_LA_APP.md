@@ -226,7 +226,7 @@ La app no toca tablas: `lib/supabase.ts` solo lo importan `services/api.ts` y `c
 | `utils/searchMatch.ts` | `normalizeText`, `matchesSearch`, `canonicalServiceName` (22-07) | 21 (incluye `MultiSelect`, `useListaBuscable`, `logistics.service`) | — |
 | `utils/verEnLista.ts` | Desplaza solo la lista, sin `scrollIntoView` (07-08) | `useListaBuscable` | — |
 | `utils/dates.ts` | `formatFechaEvento`, `formatMomento`, `hoyEnChile`, `hoyEnChileMas`, `formatISOUTCDateToString` | 18 | — |
-| `utils/apiErrors.ts` | `humanizeApiError`: campos de validación de NestJS en español | 20 | — |
+| `utils/apiErrors.ts` | `humanizeApiError`: campos de validación de NestJS en español; desde el 17-10, la falla de fábrica "Internal server error" (en inglés) cambia por el mensaje de la pantalla, y un 5xx con mensaje propio (el 503 de la base lenta) se muestra tal cual. Prueba: `apiErrors.test.ts` | 20 | — |
 | `utils/phone.ts`, `utils/validation.ts` | `+56XXXXXXXXX` al guardar, formato al mostrar, `phoneProblem` (30-07), `emailProblem` | 14 y 2 | 09 |
 | `utils/estadoCotizacion.ts` | Nombre, color, emoji y orden de cada estado; "Anulada" en pantalla, `cancelada` en la base | 8 | 02 |
 | `utils/estadoPersona.ts`, `rut.ts`, `bancos.ts` | Diccionarios de Personas | 4, 5 y 5 | 07, 08 |
@@ -295,7 +295,7 @@ Se corren con `npm run test` (vitest) en el trabajo `frontend` del CI. No hay bl
 
 Con estas dos, la app queda en **269 pruebas en 23 archivos** (antes 262), medido el 14-09-2026.
 
-**Lo importante que NO está cubierto:** `services/api.ts` (token, reintento en 401, multipart, y el aviso de los tres códigos de plan); `PermissionGuard`, el reparto de secciones por cargo de `permissions.ts` y la diferencia entre menú y rutas (los derechos por plan sí tienen prueba desde el 14-09); `AuthContext` (caché del perfil, `roleLoading`); `RedDeSeguridad` y el candado de recarga; `lib/queryClient.ts`; `NumberInput` (la regla única de números no tiene ni una prueba, pese a estar en 53 campos); `Modal` (Escape, clic en el fondo, `bloquearEscape`); `Toast`; `ConfirmInline`; `MultiSelect`; `QuantitySelector`; `GrillaDeDias`; `Estrellas`; `ChipDeEstado`; `Tooltip`; `SectionChipSelect`; `SelectorDePaquetes`; `utils/searchMatch.ts` (21 usuarios, sin archivo de prueba); `apiErrors`, `verEnLista`, `currencies` (causó una pantalla blanca el 23-07), `categoriaCaja`, `eventConsolidation`, `quotationPrintDoc`; las rutas de `App.tsx`; y el propio script del portero.
+**Lo importante que NO está cubierto:** `services/api.ts` (token, reintento en 401, multipart, y el aviso de los tres códigos de plan); `PermissionGuard`, el reparto de secciones por cargo de `permissions.ts` y la diferencia entre menú y rutas (los derechos por plan sí tienen prueba desde el 14-09); `AuthContext` (caché del perfil, `roleLoading`); `RedDeSeguridad` y el candado de recarga; `lib/queryClient.ts`; `NumberInput` (la regla única de números no tiene ni una prueba, pese a estar en 53 campos); `Modal` (Escape, clic en el fondo, `bloquearEscape`); `Toast`; `ConfirmInline`; `MultiSelect`; `QuantitySelector`; `GrillaDeDias`; `Estrellas`; `ChipDeEstado`; `Tooltip`; `SectionChipSelect`; `SelectorDePaquetes`; `utils/searchMatch.ts` (21 usuarios, sin archivo de prueba); `verEnLista`, `currencies` (causó una pantalla blanca el 23-07), `categoriaCaja`, `eventConsolidation`, `quotationPrintDoc`; las rutas de `App.tsx`; y el propio script del portero.
 
 ## 10. Deuda y rarezas conocidas
 

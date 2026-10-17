@@ -9,11 +9,14 @@ import {
   nombreLimpio,
 } from '../adjuntos/adjuntos.service';
 
-const USUARIO = 'b3c1e0f2-0000-4000-8000-000000000000';
+/** El id de la sesión (la cuenta) y el del perfil son DISTINTOS. */
+const CUENTA = 'b3c1e0f2-0000-4000-8000-000000000000';
+const PERFIL = '9d0e7a51-0000-4000-8000-000000000000';
 
 function armar() {
   const repo = {
     esDeLaEmpresa: jest.fn().mockResolvedValue(true),
+    perfilDe: jest.fn().mockResolvedValue(PERFIL),
     listar: jest.fn().mockResolvedValue([]),
     subirArchivo: jest.fn().mockResolvedValue(undefined),
     guardar: jest.fn((fila: Record<string, unknown>) =>
@@ -51,7 +54,7 @@ describe('AdjuntosService — subir', () => {
     const { repo, servicio } = armar();
     const r = await servicio.subir(
       1,
-      USUARIO,
+      CUENTA,
       9,
       archivo('Bases Técnicas Día del Profesor.pdf'),
     );
@@ -72,7 +75,7 @@ describe('AdjuntosService — subir', () => {
       ruta,
       tipo: 'application/pdf',
       bytes: 1200,
-      subido_por: USUARIO,
+      subido_por: PERFIL,
     });
     expect(r).toMatchObject({
       id: 7,
@@ -82,7 +85,7 @@ describe('AdjuntosService — subir', () => {
 
   it('el tipo sale de la extensión, no de lo que diga el navegador', async () => {
     const { repo, servicio } = armar();
-    await servicio.subir(1, USUARIO, 9, archivo('Formularios_Anexos.DOCX'));
+    await servicio.subir(1, CUENTA, 9, archivo('Formularios_Anexos.DOCX'));
     expect(subidas(repo)[0][2]).toBe(
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     );
@@ -90,8 +93,8 @@ describe('AdjuntosService — subir', () => {
 
   it('dos archivos del mismo nombre no chocan', async () => {
     const { repo, servicio } = armar();
-    await servicio.subir(1, USUARIO, 9, archivo('bases.pdf'));
-    await servicio.subir(1, USUARIO, 9, archivo('bases.pdf'));
+    await servicio.subir(1, CUENTA, 9, archivo('bases.pdf'));
+    await servicio.subir(1, CUENTA, 9, archivo('bases.pdf'));
     const [[a], [b]] = repo.subirArchivo.mock.calls as Array<[string]>;
     expect(a).not.toBe(b);
   });
@@ -105,7 +108,7 @@ describe('AdjuntosService — subir', () => {
       'bases',
     ]) {
       await expect(
-        servicio.subir(1, USUARIO, 9, archivo(nombre)),
+        servicio.subir(1, CUENTA, 9, archivo(nombre)),
       ).rejects.toBeInstanceOf(BadRequestException);
     }
     expect(repo.subirArchivo).not.toHaveBeenCalled();
@@ -114,13 +117,13 @@ describe('AdjuntosService — subir', () => {
   it('rechaza el vacío, el de más de 30 MB y el pedido sin archivo', async () => {
     const { repo, servicio } = armar();
     await expect(
-      servicio.subir(1, USUARIO, 9, archivo('a.pdf', 0)),
+      servicio.subir(1, CUENTA, 9, archivo('a.pdf', 0)),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      servicio.subir(1, USUARIO, 9, archivo('a.pdf', MAX_BYTES_ADJUNTO + 1)),
+      servicio.subir(1, CUENTA, 9, archivo('a.pdf', MAX_BYTES_ADJUNTO + 1)),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      servicio.subir(1, USUARIO, 9, undefined),
+      servicio.subir(1, CUENTA, 9, undefined),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(repo.subirArchivo).not.toHaveBeenCalled();
   });
@@ -129,7 +132,7 @@ describe('AdjuntosService — subir', () => {
     const { repo, servicio } = armar();
     repo.esDeLaEmpresa.mockResolvedValue(false);
     await expect(
-      servicio.subir(2, USUARIO, 9, archivo('bases.pdf')),
+      servicio.subir(2, CUENTA, 9, archivo('bases.pdf')),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.esDeLaEmpresa).toHaveBeenCalledWith(2, 9);
     expect(repo.subirArchivo).not.toHaveBeenCalled();
@@ -139,9 +142,29 @@ describe('AdjuntosService — subir', () => {
     const { repo, servicio } = armar();
     repo.guardar.mockRejectedValue(new Error('se cayó la base'));
     await expect(
-      servicio.subir(1, USUARIO, 9, archivo('bases.pdf')),
+      servicio.subir(1, CUENTA, 9, archivo('bases.pdf')),
     ).rejects.toThrow('se cayó la base');
     expect(repo.borrarArchivo).toHaveBeenCalledWith(subidas(repo)[0][0]);
+  });
+});
+
+describe('AdjuntosService — quién lo subió', () => {
+  it('se guarda el PERFIL de la empresa, no el id de la sesión (lab, 17-10: con la sesión daba 500)', async () => {
+    const { repo, servicio } = armar();
+    await servicio.subir(1, CUENTA, 9, archivo('bases.pdf'));
+    expect(repo.perfilDe).toHaveBeenCalledWith(1, CUENTA);
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ subido_por: PERFIL }),
+    );
+  });
+
+  it('sin perfil en la empresa, el archivo igual se guarda, sin firma', async () => {
+    const { repo, servicio } = armar();
+    repo.perfilDe.mockResolvedValue(null);
+    await servicio.subir(1, CUENTA, 9, archivo('bases.pdf'));
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ subido_por: null }),
+    );
   });
 });
 

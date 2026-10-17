@@ -25,7 +25,8 @@ export type AdjuntoNuevo = {
   ruta: string;
   tipo: string;
   bytes: number;
-  subido_por: string;
+  /** El PERFIL (user_profiles.id), no el id de la sesión: ver perfilDe. */
+  subido_por: string | null;
 };
 
 const COLUMNAS =
@@ -57,6 +58,23 @@ export class AdjuntosRepository {
       .maybeSingle();
     if (error) throw error;
     return Boolean(data);
+  }
+
+  /** El perfil de quien está en la sesión. OJO: el id de la sesión es el de
+   *  la cuenta (auth), que en user_profiles es `user_id`, NO `id` (lo mismo
+   *  que busca el guardián al entrar, `UsersRepository.findOne`). Probado en
+   *  el laboratorio el 17-10: con el id de la sesión la base rechazaba la
+   *  fila (llave foránea) y la subida daba 500. null = sin perfil en esta
+   *  empresa. */
+  async perfilDe(companyId: number, cuentaId: string): Promise<string | null> {
+    const { data, error } = await this.db
+      .from('user_profiles')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('user_id', cuentaId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { id: string } | null)?.id ?? null;
   }
 
   /** Lo subido a una oportunidad, lo último primero. */
