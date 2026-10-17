@@ -456,6 +456,33 @@ evento confirmado.
    Licify, que entrega documentos públicos con resumen (depende de un
    tercero y de sus condiciones); (c) preguntarle a ChileCompra por un
    canal oficial. Recomendación: (a).
+
+   **Cómo lo hace Licify** (revisado el 17-10 a pedido de Felipe: *"no creo
+   que estén cometiendo una ilegalidad... quizás hay un token especial"*).
+   No hay token especial: lo dicen sus propios términos (terms.licify.cl,
+   §5 y §6). La empresa cliente le agrega a Licify un **"usuario de
+   sistema"** en su cuenta de Mercado Público, con un **mandato** para
+   consultar y ofertar a su nombre. Ese usuario se agrega con su extensión
+   de Chrome o su app. Licify entra como un usuario más de cada empresa:
+   legal, con mandato. Lo oficial no trae los archivos:
+   - la guía de la API de Compra Ágil (mayo 2026) tiene dos endpoints y solo
+     da el `id` y el `nombre` de cada adjunto;
+   - la de licitaciones solo trae el enlace al acta;
+   - en la consulta pública de ChileCompra (marzo 2026), "acceso a documentos
+     adjuntos" fue la sugerencia n.º 3 de la comunidad, porque no existe.
+
+   Copiar el modelo con la cuenta de Valle del Sol sería un robot entrando con
+   la cuenta de proveedor, y eso es lo que ChileCompra bloquea: bloqueo
+   preventivo y proceso sancionatorio por herramientas automatizadas no
+   autorizadas (aviso de diciembre 2025, art. 160 del DS 661/2024). Además
+   pide Clave Única con segundo factor. Opciones nuevas:
+   - (d) un botón en la ficha que abre la página oficial de adjuntos de esa
+     licitación; la persona baja los archivos y los arrastra a Eventia;
+   - (e) más adelante, una extensión propia de Chrome que, cuando Felipe abre
+     los adjuntos en su navegador, ofrece "Guardar en Eventia" (su sesión, a
+     ritmo de persona);
+   - (f) la API de Licify en Apify (acción `list-files`, desde US$0,10 por
+     1.000 resultados); falta probar si trae el archivo o solo el nombre.
 6. ~~Quién ve el módulo y el resumen por correo~~: administradores, sin
    resumen (decisiones 14 y 15). Queda: ¿el aviso inmediato de comuna
    cercana y alto valor se mantiene? ¿Las rojas se esconden por omisión?
