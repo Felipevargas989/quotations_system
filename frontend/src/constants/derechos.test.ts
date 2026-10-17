@@ -91,6 +91,8 @@ describe("a qué plan hay que subirse", () => {
     expect(PLAN_MINIMO.marketing).toBeNull();
     // Cotizar con IA (17-10-2026) tampoco: lo paga Valle del Sol.
     expect(PLAN_MINIMO.cotizar_con_ia).toBeNull();
+    // Ni el seguimiento con IA (17-10-2026): llaves y buzones de la casa.
+    expect(PLAN_MINIMO.seguimiento_con_ia).toBeNull();
   });
 
   it("todo derecho del menú tiene su plan definido", () => {

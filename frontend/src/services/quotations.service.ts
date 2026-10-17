@@ -185,6 +185,51 @@ export const generarConIA = async (quotationId: string) =>
     costo_usd: number | null;
   };
 
+// ---- «✉ Generar seguimiento» (17-10-2026, doc 18) ----
+
+/** Una cotización cuyo próximo contacto venció y es por correo. */
+export type SeguimientoPendiente = {
+  id: string;
+  quotation_number: number;
+  estado: string;
+  cliente: string;
+  tipo_evento: string | null;
+  /** AAAA-MM-DD del compromiso vencido. */
+  proximo: string;
+  dias_vencido: number;
+  nota: string;
+};
+
+/** Lo que dejó el motor: un borrador en Outlook, o por qué se saltó. */
+export type ResultadoDelSeguimiento = {
+  quotation_number: number;
+  accion: "borrador" | "saltada";
+  motivo: string | null;
+  buzon: string | null;
+  modo: "seguimiento" | "responder" | "nuevo" | null;
+  /** Para abrir el borrador en Outlook web. */
+  enlace: string | null;
+  angulo: string | null;
+  segundos: number;
+  costo_usd: number | null;
+};
+
+/** Las que piden seguimiento por correo hoy, las más vencidas primero. */
+export const getSeguimientosPendientes = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/seguimiento/pendientes`,
+    "GET",
+  )) as SeguimientoPendiente[];
+
+/** El motor escribe el seguimiento con IA y lo deja de BORRADOR en el hilo
+ *  del cliente (o en un correo nuevo). Nunca envía. */
+export const generarSeguimiento = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/seguimiento`,
+    "POST",
+    {},
+  )) as ResultadoDelSeguimiento;
+
 /** La hoja pública que imprime el navegador invisible del motor. */
 export const getHojaParaImprimir = async (token: string) =>
   (await apiRequest(`${API_ROUTES.QUOTATIONS}/imprimir/${token}`, "GET")) as {
