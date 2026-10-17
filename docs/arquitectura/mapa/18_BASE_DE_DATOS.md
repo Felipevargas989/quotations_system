@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -33,7 +33,7 @@ Fuera de esa carpeta también hay SQL vivo en la base: `db_functions_analytics_2
 
 ## 2. Tablas por área
 
-Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el código sin tener migración. El motor las usa todas; `company_quotation_counters`, solo a través de su función. `job_roles` nació en la 68 y se borró en la 69 (sección 8). Los números de "módulo dueño" son los mapas del atlas.
+Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el código sin tener migración. El motor las usa todas; `company_quotation_counters`, solo a través de su función. `job_roles` nació en la 68 y se borró en la 69 (sección 8). Los números de "módulo dueño" son los mapas del atlas. Con la migración 122 (Oportunidades, sin aplicar todavía) se suman 5.
 
 ### Empresa, usuarios y acceso
 
@@ -127,6 +127,24 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `marketing_campaigns` | Campañas: contenido, audiencias, estado, programación, banner y WhatsApp propios, sellos | 10 | 91; 92, 93, 99, 101, 103 |
 | `marketing_sends` | Un envío por destinatario y campaña, con aperturas, clics, rebotes y reenvío | 10 | 91; 92, 97 |
 | `marketing_audiences` | Audiencias guardadas: un filtro con nombre | 10 | 93 |
+
+### Oportunidades (migraciones 122 a 127 y 129, en las dos bases desde el 17-10-2026)
+
+Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empresas: **sin `company_id`, a propósito**. Las `oportunidades*` son de cada empresa.
+
+| Tabla | Qué guarda | Módulo dueño | Migración que la crea |
+|---|---|---|---|
+| `mp_procesos` | Una fila por licitación (de todo Chile) o compra ágil (de las regiones configuradas): datos, fechas en UTC, productos, adjudicación y el detalle crudo de la API | 24 | 122 |
+| `mp_cambios` | Historial: cierre movido y reapertura, con el antes y el después | 24 | 122 |
+| `mp_radar_corridas` | Bitácora del radar; su índice único parcial es el candado | 24 | 122 |
+| `oportunidades` | La lectura de la IA para cada empresa y lo que la empresa decide; única por empresa y código | 24 | 122 |
+| `oportunidades_config` | Por empresa: regiones, comunas cercanas y perfil para la IA | 24 | 122 |
+| `mp_historia` | Un día por fila (3 años): qué días de historia ya se revisaron | 24 | 123 (en el laboratorio) |
+| `oportunidad_adjuntos` | Las bases y anexos que sube la empresa: de qué oportunidad, nombre original, ruta en el balde privado, tipo, peso, quién y cuándo | 24 | 124 (en el laboratorio) |
+| `oportunidad_analisis` | Cada análisis de bases con IA: estado, resultado, archivos leídos y no leídos, modelo, tokens, costo, error, quién y cuándo; uno a la vez por oportunidad | 24 | 125 (en el laboratorio) |
+| `oportunidades_oferente` | La empresa como oferente: razón social, RUT, giro, domicilio, representante legal, experiencia, instalaciones y la ruta de la foto de la firma; una fila por empresa | 24 | 126 (sin aplicar) |
+| `oportunidades_documentos` | La carpeta de documentos de la empresa con su vencimiento | 24 | 126 (sin aplicar) |
+| `oportunidad_validacion` | Cada validación de documentos con IA (misma forma que `oportunidad_analisis`, más el análisis que revisó); una a la vez por oportunidad | 24 | 127 (sin aplicar) |
 
 ### Consultas y formularios públicos
 
@@ -279,7 +297,7 @@ La 42 borró las 12 políticas de `storage.objects`: el navegador ya no escribe 
 
 ### Candados únicos que sostienen los `upsert` del motor
 
-`event_service_times (quotation_id, service_name)`, `event_day_prints (quotation_id, day)`, `event_supply_provisions (quotation_id, supply_id)`, `staff_sheets (company_id, quotation_id)`, `payroll_people (payroll_id, person_id)`, `kitchen_checklist_marks (quotation_id, clave)`, `push_devices (endpoint)`, `consulta_config (company_id, event_type)` como llave primaria, `marketing_contacts (company_id, audiencia, email)` y `marketing_suppressions (company_id, email)` (94), y `service_categories (company_id, name)` (4). Otros candados de negocio: `tip_pools_uno_por_evento` y `tip_pools_uno_por_dia` (83); `event_staff_evento_persona_dia_uniq` (71) y `event_staff_restaurante_persona_dia_uniq` (74); `management_resources_company_tipo_nombre_uniq` (69); `category_sections_one_default` (25); `marketing_sends_una_vez` (91). La 66 agrega seis índices de rendimiento sobre `quotations`, `payments`, `payment_transactions`, `event_documents` y `clients`.
+`event_service_times (quotation_id, service_name)`, `event_day_prints (quotation_id, day)`, `event_supply_provisions (quotation_id, supply_id)`, `staff_sheets (company_id, quotation_id)`, `payroll_people (payroll_id, person_id)`, `kitchen_checklist_marks (quotation_id, clave)`, `push_devices (endpoint)`, `consulta_config (company_id, event_type)` como llave primaria, `marketing_contacts (company_id, audiencia, email)` y `marketing_suppressions (company_id, email)` (94), y `service_categories (company_id, name)` (4). Otros candados de negocio: `tip_pools_uno_por_evento` y `tip_pools_uno_por_dia` (83); `event_staff_evento_persona_dia_uniq` (71) y `event_staff_restaurante_persona_dia_uniq` (74); `management_resources_company_tipo_nombre_uniq` (69); `category_sections_one_default` (25); `marketing_sends_una_vez` (91). Desde la 122 (sin aplicar): `mp_procesos (codigo)` como llave primaria, `oportunidades (company_id, codigo)` y el índice único parcial `mp_radar_una_corriendo`, que es el candado del radar. La 66 agrega seis índices de rendimiento sobre `quotations`, `payments`, `payment_transactions`, `event_documents` y `clients`.
 
 ## 6. Quién lee y quién escribe cada tabla
 
@@ -326,6 +344,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `kitchen_checklist_marks` | `movil` (`upsert`, delete) | `movil` |
 | `people`, `event_staff`, `staff_sheets`, `tip_pools`, `person_reviews`, `payrolls`, `payroll_people`, `day_notes` | `people` | `people` |
 | `marketing_contacts`, `marketing_suppressions`, `marketing_campaigns`, `marketing_sends`, `marketing_audiences` | `marketing` | `marketing` |
+| `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades`, `oportunidades_config` (122) | `oportunidades` | `oportunidades` |
 | `consultas` | `consultas` | `consultas` (también `event-types.repository.ts`), `clients` (`removeType`) |
 | `consulta_config` | `consultas` (`upsert`) | `consultas` |
 | `event_types` | `consultas` (`event-types.repository.ts`) | el mismo |
@@ -504,3 +523,56 @@ los mismos derechos.
 
 Aplicada en LAB el 15-09-2026. En PRODUCCIÓN: pendiente, junto con la 112
 y **antes** del deploy del motor.
+
+## 15. Migración 122: el radar de Oportunidades (16-10-2026)
+
+**Qué hace.** Crea las cinco tablas del sprint 1a del módulo de Oportunidades (doc 17, mapa 24): `mp_procesos`, `mp_cambios`, `mp_radar_corridas`, `oportunidades` y `oportunidades_config`. Las cinco con RLS encendido sin políticas, `REVOKE ALL` a `anon` y `authenticated`, y los `GRANT` a `service_role` con sus secuencias, en la misma migración. Además agrega `'oportunidades'` a `companies.modulos_propios` de la empresa 1 y siembra su configuración (Ñuble y Biobío, las 13 comunas cercanas del bot y el perfil de Valle del Sol). Trae la reversa comentada al final.
+
+**Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: desde el 17-10-2026 deja `mp_procesos` fuera (`FUERA_DEL_RESPALDO`, decisión de Felipe; son datos públicos que se vuelven a pedir y Supabase guarda su propia copia diaria).
+
+**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 16. Migración 123: la historia de Oportunidades (17-10-2026)
+
+**Qué hace.** Crea `mp_historia` (un día por fila, 3 años hacia atrás desde ayer en hora de Chile, con `prioridad` = días de distancia a "hace un año", que es el orden en que se revisan) con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, y el índice `idx_mp_procesos_organismo` para buscar "el año anterior" por organismo. Dato público: sin `company_id`. Trae la reversa comentada.
+
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 17. Migración 124: las bases y anexos de Oportunidades (17-10-2026)
+
+**Qué hace.** Crea `oportunidad_adjuntos`: una fila por archivo que la empresa sube a una oportunidad. Guarda la oportunidad, el nombre original para mostrar, la `ruta` única en el balde privado (`payment-receipts`, el de la misión storage, con `c<empresa>/oportunidades/<id>/...`), el tipo, los bytes (mayor que cero), quién lo subió (`user_profiles`, `set null` si se va) y cuándo. Es de cada empresa: lleva `company_id` y el índice `(company_id, oportunidad_id)`. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada. **Ojo:** borrar la tabla no borra los archivos del balde.
+
+**Por qué.** Mercado Público protege su lista de adjuntos con un control antirrobots que esta casa no esquiva. Felipe eligió el 17-10 que los baje una persona y los arrastre a la ficha (doc 17 §12 punto 8, opción d).
+
+**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 18. Migración 125: la IA lee las bases (17-10-2026)
+
+**Qué hace.** Crea `oportunidad_analisis`: una fila por cada vez que se aprieta "Analizar bases con IA" en la ficha de una oportunidad (doc 17, sprint 3, paso 1). Guarda el estado (`procesando`, `listo`, `error`), el `resultado` que devolvió Opus 5.5 en jsonb, qué archivos leyó y cuáles no, el modelo, los tokens, el costo en dólares, el error, quién lo pidió (`user_profiles`) y cuándo. El índice único parcial `oportunidad_analisis_uno_en_curso` impide dos análisis a la vez de la misma oportunidad. Es de cada empresa (`company_id`), con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
+
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"ok"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia, y están los dos índices. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 19. Migración 126: la empresa como oferente (17-10-2026)
+
+**Qué hace.** Crea `oportunidades_oferente` (una fila por empresa: razón social, RUT, giro, dirección, comuna, región, teléfono, correo, representante legal con RUT y cargo, experiencia destacada, instalaciones, y `firma_ruta`, la foto de la firma en el balde privado) y `oportunidades_documentos` (la carpeta: tipo, nombre, ruta única, tipo de archivo, bytes, `vence` y quién lo subió). Las dos con `company_id`, RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role` (y la secuencia de la segunda). Sin datos sembrados: los llena la empresa en "Mi empresa". Lo que ya está en `companies` (nombre, datos bancarios) no se repite. Trae la reversa comentada.
+
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 20. Migración 127: mi postulación y validar documentos (17-10-2026)
+
+**Qué hace.** Suma a `oportunidad_adjuntos` la columna `seccion` (`bases`, lo de siempre y el valor de lo que ya existe, o `postulacion`, lo que la empresa va a presentar) con su CHECK, y crea `oportunidad_validacion`: la misma forma que `oportunidad_analisis` más `analisis_id` (el análisis cuyo checklist se revisó, `set null` si se borra), con el índice único parcial `oportunidad_validacion_una_en_curso`, RLS, `REVOKE`, `GRANT` y la secuencia. Va **después** de la 125 y la 126. Trae la reversa comentada.
+
+**Ojo con el orden del motor:** el código que lista adjuntos ya filtra por `seccion`; con ese motor y sin la 127, la sección de bases se cae. Por eso el paso 3 no sube al laboratorio sin la migración.
+
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 21. Migración 129: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
+
+(Se escribió como 128; ese número ya lo había tomado el comentario interno de las cotizaciones, rama `feature/comentario-interno`, aplicado en el laboratorio el 17-10. Por eso es la 129.)
+
+**Qué hace.** Crea `oportunidad_generacion`: una fila por cada vez que se aprieta "Generar anexos", "Firmar" o "Crear propuesta técnica" (doc 17, sprint 3, paso 4). La misma forma que `oportunidad_analisis` más `tipo` (`anexos`, `firma`, `propuesta`), `analisis_id` (el análisis usado, `set null`) y `parametros` (lo que se pidió: el monto de la oferta y los archivos elegidos). El índice único parcial `oportunidad_generacion_una_en_curso` va por `(oportunidad_id, tipo)`: uno a la vez de cada tipo. Suma a `oportunidad_adjuntos` `origen` (`subido`, lo de siempre y el valor de lo que ya existe; `generado`, lo hizo la IA sin firma; `firmado`), con su CHECK, `viene_de` (el archivo del que salió, `set null`) y `generacion_id` (`set null`). Con `company_id`, RLS, `REVOKE`, `GRANT` y la secuencia. Va **después** de la 125, la 126 y la 127. Trae la reversa comentada.
+
+**Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
+
+**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+

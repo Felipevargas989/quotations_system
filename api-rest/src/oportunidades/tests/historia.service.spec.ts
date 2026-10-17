@@ -1,0 +1,226 @@
+import type { PinoLogger } from 'nestjs-pino';
+import { mockPinoLogger } from 'src/testing/mocks';
+import { HistoriaService } from '../historia/historia.service';
+import type { LecturaService } from '../lectura/lectura.service';
+import {
+  type MercadoPublicoClient,
+  MercadoPublicoError,
+} from '../mercado-publico/mercado-publico.client';
+import type { OportunidadesRepository } from '../oportunidades.repository';
+import { resumenVacio } from '../radar.service';
+
+const detalle = (codigo: string, extra: Record<string, unknown> = {}) => ({
+  CodigoExterno: codigo,
+  Nombre: `Proceso ${codigo}`,
+  Comprador: { RegionUnidad: 'Región del Ñuble' },
+  ...extra,
+});
+
+const NOCHE = new Date('2026-10-17T04:00:00Z').getTime(); // 01:00 en Chile
+const DIA = new Date('2026-10-17T15:00:00Z').getTime(); // 12:00 en Chile
+
+function armar() {
+  const mp = {
+    configurado: true,
+    detalleLicitacion: jest.fn((codigo: string) =>
+      Promise.resolve(detalle(codigo)),
+    ),
+    licitacionesDelDia: jest.fn().mockResolvedValue([]),
+  };
+  const repo = {
+    procesosPorAdjudicar: jest.fn().mockResolvedValue([]),
+    siguienteDiaDeHistoria: jest.fn().mockResolvedValue(null),
+    marcarDiaDeHistoria: jest.fn().mockResolvedValue(undefined),
+    procesosConocidos: jest.fn().mockResolvedValue(new Map()),
+    guardarProcesos: jest.fn().mockResolvedValue(undefined),
+  };
+  const lectura = {
+    configurado: true,
+    candidatasPorNombre: jest.fn().mockResolvedValue(new Set<string>()),
+  };
+  const historia = new HistoriaService(
+    mp as unknown as MercadoPublicoClient,
+    repo as unknown as OportunidadesRepository,
+    lectura as unknown as LecturaService,
+    mockPinoLogger() as unknown as PinoLogger,
+  );
+  const guardados = () =>
+    repo.guardarProcesos.mock.calls.flatMap(([lote]) =>
+      (lote as Array<{ codigo: string }>).map((p) => p.codigo),
+    );
+  return { mp, repo, lectura, historia, guardados };
+}
+
+afterEach(() => jest.restoreAllMocks());
+
+describe('HistoriaService — quién ganó', () => {
+  it('revisa las cerradas de tus regiones y guarda las adjudicadas (y las que no, para revisarlas mañana)', async () => {
+    const { mp, repo, historia, guardados } = armar();
+    repo.procesosPorAdjudicar.mockResolvedValue([
+      { codigo: 'ADJ', region: 'Región del Ñuble' },
+      { codigo: 'SIN', region: 'Región del Biobío' },
+      { codigo: 'LEJOS', region: 'Región de Magallanes' },
+    ]);
+    mp.detalleLicitacion.mockImplementation((codigo: string) =>
+      Promise.resolve(
+        detalle(
+          codigo,
+          codigo === 'ADJ'
+            ? {
+                Adjudicacion: { NumeroOferentes: 2 },
+                Items: {
+                  Listado: [
+                    {
+                      NombreProducto: 'Evento',
+                      Adjudicacion: {
+                        RutProveedor: '1-9',
+                        NombreProveedor: 'GANADOR SPA',
+                        Cantidad: 1,
+                        MontoUnitario: 1000,
+                      },
+                    },
+                  ],
+                },
+              }
+            : {},
+        ),
+      ),
+    );
+    const resumen = resumenVacio();
+
+    await historia.revisarAdjudicaciones(
+      resumen,
+      ['Ñuble', 'Biobío'],
+      Date.now(),
+    );
+
+    expect(mp.detalleLicitacion.mock.calls.map(([c]) => c)).toEqual([
+      'ADJ',
+      'SIN',
+    ]);
+    expect(guardados()).toEqual(['ADJ', 'SIN']);
+    expect(resumen.adjudicaciones).toEqual({
+      estado: 'ok',
+      revisadas: 2,
+      adjudicadas: 1,
+    });
+  });
+
+  it('sin cupo, para y guarda lo que alcanzó', async () => {
+    const { mp, repo, historia, guardados } = armar();
+    repo.procesosPorAdjudicar.mockResolvedValue([
+      { codigo: 'A', region: 'Región del Ñuble' },
+      { codigo: 'B', region: 'Región del Ñuble' },
+    ]);
+    mp.detalleLicitacion
+      .mockResolvedValueOnce(detalle('A'))
+      .mockRejectedValueOnce(new MercadoPublicoError('sin cupo', 429));
+    const resumen = resumenVacio();
+
+    await historia.revisarAdjudicaciones(resumen, ['Ñuble'], Date.now());
+
+    expect(resumen.adjudicaciones.estado).toBe('cortada');
+    expect(guardados()).toEqual(['A']);
+  });
+});
+
+describe('HistoriaService — la historia', () => {
+  it('de día y a mano no toca: es de noche, o en el arranque del laboratorio', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(DIA);
+    const { repo, historia } = armar();
+    const resumen = resumenVacio();
+    await historia.cargarHistoria(resumen, Date.now(), 'manual');
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj');
+    expect(resumen.historia.estado).toBe('no_toca');
+    expect(repo.siguienteDiaDeHistoria).not.toHaveBeenCalled();
+  });
+
+  it('un día: lista, filtro por nombre, detalle solo de las candidatas y el día queda hecho', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, historia, guardados } = armar();
+    repo.siguienteDiaDeHistoria
+      .mockResolvedValueOnce('2025-10-03')
+      .mockResolvedValue(null);
+    repo.procesosConocidos.mockResolvedValue(
+      new Map([['YA', { fecha_cierre: null, estado: 'Adjudicada' }]]),
+    );
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: 'PROFESOR', Nombre: 'Día del profesor' },
+      { CodigoExterno: 'DENTAL', Nombre: 'Insumos dentales' },
+      { CodigoExterno: 'YA', Nombre: 'Ya guardada' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(new Set(['PROFESOR']));
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj');
+
+    expect(mp.licitacionesDelDia).toHaveBeenCalledWith('03102025');
+    expect(lectura.candidatasPorNombre).toHaveBeenCalledWith(
+      [
+        { codigo: 'PROFESOR', nombre: 'Día del profesor' },
+        { codigo: 'DENTAL', nombre: 'Insumos dentales' },
+      ],
+      expect.any(Object),
+    );
+    expect(mp.detalleLicitacion).toHaveBeenCalledTimes(1);
+    expect(guardados()).toEqual(['PROFESOR']);
+    expect(repo.marcarDiaDeHistoria).toHaveBeenCalledWith('2025-10-03', {
+      estado: 'hecha',
+      listadas: 3,
+      candidatas: 1,
+      guardadas: 1,
+      error: null,
+    });
+    expect(resumen.historia).toMatchObject({
+      estado: 'completa',
+      dias: 1,
+      candidatas: 1,
+      guardadas: 1,
+    });
+  });
+
+  it('la corrida de arranque del laboratorio sí carga historia, de día', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(DIA);
+    const { repo, historia } = armar();
+    const resumen = resumenVacio();
+    await historia.cargarHistoria(resumen, Date.now(), 'arranque');
+    expect(repo.siguienteDiaDeHistoria).toHaveBeenCalled();
+    expect(resumen.historia.estado).toBe('completa');
+  });
+
+  it('sin cupo a mitad de un día: se corta y el día queda pendiente', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, historia } = armar();
+    repo.siguienteDiaDeHistoria.mockResolvedValue('2025-10-03');
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: 'A', Nombre: 'Cena aniversario' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(new Set(['A']));
+    mp.detalleLicitacion.mockRejectedValue(
+      new MercadoPublicoError('sin cupo', 429),
+    );
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj');
+
+    expect(resumen.historia.estado).toBe('cortada');
+    expect(repo.marcarDiaDeHistoria).not.toHaveBeenCalled();
+  });
+
+  it('si el filtro no responde, el día queda pendiente', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, historia } = armar();
+    repo.siguienteDiaDeHistoria.mockResolvedValue('2025-10-03');
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: 'A', Nombre: 'Cena aniversario' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(null);
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj');
+
+    expect(resumen.historia.estado).toBe('cortada');
+    expect(repo.marcarDiaDeHistoria).not.toHaveBeenCalled();
+    expect(mp.detalleLicitacion).not.toHaveBeenCalled();
+  });
+});
