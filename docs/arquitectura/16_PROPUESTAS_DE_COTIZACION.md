@@ -2,7 +2,9 @@
 
 > **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
 > `armar-cotizacion`). BOTÓN «✨ Crear con IA» y comentario interno EN
-> PRODUCCIÓN desde el 17-10 (PR #142, sección 6); faltan las pruebas fijas.**
+> PRODUCCIÓN desde el 17-10 (PR #142, sección 6); la corrección «comidas con
+> sentido» y el archivo único de reglas, en el laboratorio; faltan las
+> pruebas fijas.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -297,7 +299,7 @@ de paseo de curso se renombró "Ticket paseo de curso con alimentación"
 ($2.400), para que nadie lo use suelto en una entrada sola; el nombre sale
 impreso en el programa del cliente, por eso no dice "solo en paquete".
 
-## 6. El botón (diseño, sin construir)
+## 6. El botón «✨ Crear con IA» (en producción desde el 17-10)
 
 > **17-10-2026: Felipe lo retoma** (*"quiero colocar el botón de generar con
 > esas típicas estrellitas de la IA (…) cada requerimiento debería tener dos
@@ -402,6 +404,33 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   corregir la cantidad, que es POR PERSONA). Las pruebas fijas se hacen en
 >   producción, con el catálogo real: todo queda en solicitada y nada se
 >   envía.
+> - **Corrección «comidas con sentido», EN EL LABORATORIO (17-10 tarde).**
+>   Felipe probó el 470 del laboratorio: *"no tiene sentido: 2 puntos de
+>   hidratación, dos principales, sin postre y sin guarnición (…) ¿por qué
+>   pasó esto?"*. La IA veía los platos sin su sección y tomó el único menú
+>   guardado de almuerzo del laboratorio, que es de prueba. Lo nuevo (rama
+>   `feature/ia-comidas-con-sentido`, mapa 01 §5.7 y regla 32):
+>   - el catálogo le llega por secciones (Entradas, Principales,
+>     Guarniciones, Postres…);
+>   - **un solo archivo de reglas**,
+>     `api-rest/src/quotations/generar/REGLAS_DE_ARMADO.md`, que leen el
+>     botón y la skill `armar-cotizacion` (Felipe: *"¿no podemos montar la
+>     skill que tenemos en ese agente?"*). Las correcciones de Felipe se
+>     escriben ahí, en «Lecciones», y desde el siguiente despliegue las
+>     aplican los dos;
+>   - la forma de cada comida, sacada de los menús guardados de la casa
+>     (almuerzo y cena: entrada o ensalada, un principal con una guarnición
+>     y un postre; desayuno: jugo, pan, uno o dos salados y un dulce; coffee
+>     y cóctel por bocados según el nivel). El motor la revisa: si una caja
+>     no la cumple, la IA la corrige una vez o explica por qué la deja, y lo
+>     que quede va a la nota como «Revisar:»;
+>   - **los paquetes primero** (Felipe: *"usar dentro de lo posible los
+>     paquetes que tenemos; si no calzan, modificarlos y adaptarlos"*): la
+>     nota dice qué paquete usó y qué le cambió.
+>
+>   Segunda vuelta del 470: ensalada chilena, pollo al jugo con arroz y
+>   macedonia ($9.900 por persona) y salón cúpula; la nota explica por qué
+>   no usó el menú de prueba; 12 s, US$ 0,09.
 > - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
 >   laboratorio; la del comentario interno toma el número libre que siga.
 
@@ -440,11 +469,11 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
     17-10: *"solo administrador"*). Va de a una, con contador: la cuenta
     de Anthropic es nueva, con poco cupo por minuto, y la comparte con el
     radar de licitaciones.
-- **Motor:** `POST /quotations/:id/propuesta` arma el contexto
-  (requerimiento, cliente e historial, catálogo de la empresa: paquetes,
-  menús, sueltos y fijos, las reglas de la sección 2 y la tabla de la
-  sección 5) y llama a Claude (`claude-opus-5-5`, salida con estructura
-  exacta).
+- **Motor:** `POST /quotations/:id/generar` (mapa 01, §5.7) arma el
+  contexto (requerimiento, comentario interno, cliente e historia del
+  momento, catálogo de la empresa por secciones: paquetes, menús, sueltos y
+  fijos, y las reglas de `REGLAS_DE_ARMADO.md`) y llama a Claude
+  (`claude-opus-5-5`, salida con estructura exacta).
 - **El modelo propone y el motor decide los números:** el modelo devuelve
   cajas por día, categoría y audiencia con ids de menús y sueltos, fijos,
   descuento según regla y comentarios. El motor valida cada id contra el
