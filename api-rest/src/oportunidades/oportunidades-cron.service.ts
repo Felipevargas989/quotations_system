@@ -32,16 +32,23 @@ export class OportunidadesCronService implements OnApplicationBootstrap {
   }
 
   onApplicationBootstrap() {
+    // Siempre, en cualquier ambiente: una corrida que quedó a medias con el
+    // reinicio no puede seguir teniendo el candado.
+    const encendido = new Date().toISOString();
+    const limpieza = this.radar.limpiarAlEncender(encendido);
+
     if (process.env.OPORTUNIDADES_RADAR_AL_ARRANCAR !== '1') return;
     this.logger.warn(
       'OPORTUNIDADES_RADAR_AL_ARRANCAR=1: el radar corre en un minuto',
     );
     setTimeout(() => {
-      this.radar.iniciar('arranque').catch((error) => {
-        this.logger.error(
-          `el radar de arranque no partió: ${mensajeDe(error)}`,
-        );
-      });
+      limpieza
+        .then(() => this.radar.iniciar('arranque'))
+        .catch((error) => {
+          this.logger.error(
+            `el radar de arranque no partió: ${mensajeDe(error)}`,
+          );
+        });
     }, 60_000);
   }
 }

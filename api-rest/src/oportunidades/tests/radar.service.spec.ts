@@ -69,6 +69,7 @@ function armar(base = new Map<string, ProcesoConocido>()) {
   };
   const repo = {
     tomarCorrida: jest.fn().mockResolvedValue(7),
+    abandonarCorridasDeAntes: jest.fn().mockResolvedValue(0),
     terminarCorrida: jest.fn().mockResolvedValue(undefined),
     ultimaCorridaOk: jest.fn().mockResolvedValue(null),
     procesosConocidos: jest.fn((codigos: string[]) =>
@@ -140,6 +141,20 @@ describe('RadarService — el candado', () => {
       'ok',
       expect.any(Object),
     );
+  });
+});
+
+describe('RadarService — al encender', () => {
+  it('suelta el candado de una corrida a medias y nunca lanza', async () => {
+    const { radar, repo } = armar();
+    await radar.limpiarAlEncender('2026-10-17T03:27:10.000Z');
+    expect(repo.abandonarCorridasDeAntes).toHaveBeenCalledWith(
+      '2026-10-17T03:27:10.000Z',
+    );
+    repo.abandonarCorridasDeAntes.mockRejectedValue({ message: 'sin base' });
+    await expect(
+      radar.limpiarAlEncender('2026-10-17T03:27:10.000Z'),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -405,6 +420,32 @@ describe('RadarService — compras ágiles', () => {
       listadas: 2,
       nuevas: 1,
       guardadas: 1,
+    });
+  });
+});
+
+describe('RadarService — compras ágiles con tope de tiempo', () => {
+  it('pasado el tope, lo que falta no se guarda: entra en la próxima corrida', async () => {
+    let ahora = new Date('2026-10-17T12:00:00Z').getTime();
+    jest.spyOn(Date, 'now').mockImplementation(() => ahora);
+    const { radar, repo, mp } = armar();
+    mp.comprasAgiles.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => ({ codigo: `CA-${i}`, nombre: 'x' })),
+    );
+    mp.detalleCompraAgil.mockImplementation(() => {
+      ahora += 40 * 60 * 1000; // cada detalle tarda 40 minutos
+      return Promise.resolve(null);
+    });
+
+    const resumen = await radar.correr('reloj');
+
+    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(3);
+    expect(guardados(repo)).toEqual(['CA-0', 'CA-1', 'CA-2']);
+    expect(resumen?.compras_agiles).toMatchObject({
+      estado: 'cortada',
+      nuevas: 5,
+      guardadas: 3,
+      pendientes: 2,
     });
   });
 });

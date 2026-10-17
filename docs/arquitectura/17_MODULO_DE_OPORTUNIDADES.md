@@ -1,9 +1,10 @@
 # 17 — Módulo de Oportunidades (licitaciones y compras ágiles)
 
-> **Estado: sprint 1a construido, sin aplicar.** Conversado con Felipe el
-> 16-10-2026 y escrito el mismo día. El radar (sin pantalla) quedó
-> construido y probado ese día en la rama `feature/oportunidades-radar`; la
-> migración 122 espera el OK de Felipe para el laboratorio. Su mapa es
+> **Estado: sprint 1a en el laboratorio, sprint 2 construido.** Conversado
+> con Felipe el 16-10-2026 y escrito el mismo día. El radar quedó en el
+> laboratorio el 17-10 (migración 122 aplicada en la base del lab, motor en
+> `pruebas`) y la pantalla se construyó el mismo día, todo en la rama
+> `feature/oportunidades-radar`. Nada en producción. Su mapa es
 > `mapa/24_OPORTUNIDADES.md`. Si una sesión futura recuerda algo distinto,
 > **manda este documento**; si la conversación cambia una decisión, se
 > corrige aquí en el mismo movimiento.
@@ -332,6 +333,12 @@ desde el 16-10; en producción al pasar) y el ticket de Mercado Público
 derecho, radar con solo lo nuevo, cierres movidos y reaperturas, lectura con
 Haiku 5.5 — hecho en la rama `feature/oportunidades-radar`, sin aplicar. 1b:
 bajar los archivos, guardar quién ganó al cerrar y la historia de 2–3 años.
+
+**Sprint 2, construido el 17-10** (Felipe: *"terminado esto, anda directo al
+sprint 2"*): la bandeja, la ficha y la configuración, sin resumen por
+correo. Quedan para después de la historia (1b): "el año anterior", el
+calendario de recurrentes y la ficha de competidores. El aviso inmediato
+de comuna cercana y alto valor espera la respuesta de Felipe.
 
 Cada sprint: laboratorio primero, validación de Felipe, y su "a producción".
 Las migraciones van al laboratorio y a producción **antes** del motor.

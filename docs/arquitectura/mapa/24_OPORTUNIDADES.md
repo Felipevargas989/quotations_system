@@ -1,6 +1,6 @@
 # Mapa: Oportunidades (licitaciones y compras ágiles de Mercado Público)
 
-> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16-10-2026).** Es el sprint 1a del documento 17: el radar, sin pantalla. **No está aplicado en el laboratorio ni en producción**: la migración 122 espera el OK de Felipe. Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir, contra el código de la rama `feature/oportunidades-radar` (16 y 17-10-2026).** Sprint 1a del documento 17 (el radar) **en el laboratorio desde el 17-10** (migración 122 aplicada en la base del lab, motor en `pruebas`); sprint 2 (la pantalla) construido el 17-10. **Nada en producción.** Manda `docs/arquitectura/17_MODULO_DE_OPORTUNIDADES.md`; si este mapa lo contradice, se anota en los dos. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -13,11 +13,23 @@ Cada 2 horas el radar:
 3. Para cada empresa con el derecho `oportunidades` (hoy solo Valle del Sol), **lee con Claude Haiku 5.5** lo abierto de sus regiones que todavía no leyó: etiquetas, si se hace en el complejo, semáforo y la razón en una frase. Encima de la IA mandan dos reglas fijas (§6).
 4. Anota la corrida en su bitácora (`mp_radar_corridas`): qué trajo, qué falló y cuántos tokens gastó.
 
-Lo que **todavía no hace** (doc 17 §7): pantalla y avisos por correo (sprint 2); bajar bases y anexos, guardar quién ganó al cerrar y cargar 2–3 años de historia (sprint 1b); generar documentos (sprint 3); generar cotización (sprint 4).
+5. La pantalla **Oportunidades** (sprint 2): la bandeja con semáforo, la ficha de cada una y la configuración del módulo. Solo administradores.
+
+Lo que **todavía no hace** (doc 17 §7): bajar bases y anexos, guardar quién ganó al cerrar y cargar 2–3 años de historia (sprint 1b); generar documentos (sprint 3); generar cotización (sprint 4). **No manda resumen por correo**: Felipe, 17-10, *"se revisa en Eventia"*.
 
 ## 2. Pantallas y rutas de la app
 
-Ninguna todavía: la pantalla "Oportunidades" es el sprint 2 (doc 17 §5.3). El menú no tiene entrada.
+| Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
+|---|---|---|---|---|
+| `/oportunidades` (pestaña Bandeja, la de entrada) | `OportunidadesPage` → `Bandeja` | `frontend/src/pages/oportunidades/OportunidadesPage.tsx` | La lista de lo vigente, de lo que cierra antes a lo que cierra después: semáforo, nombre, organismo, tipo y código, monto, cierre con cuenta regresiva (en rojo si cierra en 3 días o menos), la razón de la IA y sus etiquetas. Chips por color con su conteo (las rojas apagadas de partida), vista (abiertas, nuevas, en estudio, postuladas, descartadas, historial), tipo, región y buscador. "Me interesa" (pasa a en estudio), "Descartar" (no se borra) y "Recuperar". Arriba a la derecha: cuándo se revisó Mercado Público y "Revisar ahora" | administrador: `SECTION_ROLES.oportunidades` = `ROLE_GROUPS.ADMIN_ONLY`, con `PermissionGuard` y `derecho="oportunidades"` en `frontend/src/App.tsx` |
+| `/oportunidades` (pestaña Configuración) | `ConfiguracionOportunidades` | `frontend/src/pages/oportunidades/ConfiguracionOportunidades.tsx` | Regiones (`MultiSelect` con las 16), comunas cercanas (agregar y quitar), qué vende la empresa (lo lee la IA). El monto de alto valor y el correo se muestran sin poder cambiarlos: viven en Configuración de empresa | igual |
+| `/oportunidades/:id` | `OportunidadFichaPage` | `frontend/src/pages/oportunidades/OportunidadFichaPage.tsx` | La ficha: enlace a Mercado Público, monto, cierre, estado (`ChipDeEstado`), responsable (`SelectWithSearch` con los administradores), lo que leyó la IA, qué piden (descripción y productos), fechas, historial de cambios, notas. "El año anterior" queda anunciado para el sprint 1b | igual |
+
+Notas:
+
+- Menú: `frontend/src/layout/Sidebar.tsx`, "Oportunidades" después de Marketing, ícono `Radar`, sección `oportunidades` (sale solo si la empresa tiene el derecho).
+- La pantalla recuerda filtros y pestaña en `sessionStorage` (`op.filtros`, `op.pestana`), la regla de Felipe del 26-08.
+- El enlace a Mercado Público: licitaciones a `DetailsAcquisition.aspx?idlicitacion=` (probado el 17-10: responde 200); compras ágiles a `buscador.mercadopublico.cl/ficha?code=` (`urlMercadoPublico`, `oportunidades.utils.ts`).
 
 ## 3. Endpoints del motor
 
@@ -25,9 +37,15 @@ Todos en `OportunidadesController` (`api-rest/src/oportunidades/oportunidades.co
 
 | Método y ruta | Controller y método | Service | Quién lo llama | Cargo y derecho |
 |---|---|---|---|---|
-| `GET /oportunidades?semaforo=&estado=&limite=` | `listar` | `OportunidadesRepository.listar` (con `mp_procesos!inner`, tope 1000) | nadie todavía (sprint 2) | administrador; `oportunidades` |
-| `POST /oportunidades/radar` | `correrRadar` | `RadarService.iniciar('manual')`: toma el candado, responde al tiro `{ iniciada: true, corrida }` y la corrida sigue sola; si ya hay una, `{ iniciada: false, motivo }` | nadie todavía: es el "correr ahora" del laboratorio, donde los relojes no corren | administrador; `oportunidades` |
-| `GET /oportunidades/radar/corridas` | `corridas` | `OportunidadesRepository.ultimasCorridas(10)` | nadie todavía | administrador; `oportunidades` |
+| `GET /oportunidades?vigentes=&semaforo=&estado=&tipo=&limite=` | `listar` | `OportunidadesService.listar` → `OportunidadesRepository.listar`: con `mp_procesos!inner`, de a 1000 (el tope de Supabase por consulta) hasta 3.000; `vigentes` (por omisión sí) filtra en el proceso con `or(..., { referencedTable: 'proceso' })`; ordenada por cierre en el servicio | `getOportunidades` ← `Bandeja` | administrador; `oportunidades` |
+| `GET /oportunidades/config` | `config` | `OportunidadesService.config`: `configDe` + `datosDeEmpresa` (umbral y correo, solo a la vista) | `getConfigOportunidades` ← `ConfiguracionOportunidades` | administrador; `oportunidades` |
+| `PATCH /oportunidades/config` | `guardarConfig` | `OportunidadesService.guardarConfig`: limpia las listas (sin vacías ni repetidas, sin mirar tildes) → `guardarConfig` (upsert por empresa) | `guardarConfigOportunidades` ← `ConfiguracionOportunidades` | administrador; `oportunidades` |
+| `GET /oportunidades/:id` | `ficha` | `OportunidadesService.ficha`: `ficha` (de ESTA empresa, 404 si no) + `cambiosDe` | `getFichaDeOportunidad` ← `OportunidadFichaPage` | administrador; `oportunidades` |
+| `PATCH /oportunidades/:id` | `actualizar` | `OportunidadesService.actualizar`: estado, responsable (tiene que ser usuario de la empresa: `esUsuarioDeLaEmpresa`) y notas | `actualizarOportunidad` ← `Bandeja` y `OportunidadFichaPage` | administrador; `oportunidades` |
+| `POST /oportunidades/radar` | `correrRadar` | `RadarService.iniciar('manual')`: toma el candado, responde al tiro `{ iniciada: true, corrida }` y la corrida sigue sola; si ya hay una, `{ iniciada: false, motivo }` | `correrRadar` ← el botón "Revisar ahora" (`EstadoDelRadar`) | administrador; `oportunidades` |
+| `GET /oportunidades/radar/corridas` | `corridas` | `OportunidadesRepository.ultimasCorridas(10)` | `getCorridasDelRadar` ← `EstadoDelRadar` (cada minuto) | administrador; `oportunidades` |
+
+Las rutas fijas (`config`, `radar/...`) van declaradas ANTES de las de `:id`: si no, Nest intentaría leer "config" como un número.
 
 ## 4. Tablas de la base de datos
 
@@ -104,6 +122,9 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 | `oportunidades/tests/lectura.service.spec.ts` | Pedido a Haiku 5.5 con esfuerzo bajo y caché; rechazo → amarillo; fallas de la cuenta detienen; las demás dejan el proceso sin leer |
 | `oportunidades/tests/radar.service.spec.ts` | El candado; solo lo nuevo, de a uno y en orden de cierre; cierre movido y reapertura; caída de la lista; corte tras 10 fallas; tope de tiempo; compras ágiles desde la última corrida; lectura por región y en orden de cierre |
 | `backup/tests/fuera-del-respaldo.spec.ts` | `mp_procesos` fuera del respaldo diario; lo de cada empresa adentro |
+| `oportunidades/tests/oportunidades.service.spec.ts` | La bandeja en orden de cierre y solo lo vigente; 404 de otra empresa; el responsable tiene que ser de la empresa; notas limpias; la configuración limpia sus listas |
+| `oportunidades/tests/oportunidades-cron.service.spec.ts` | Al encender suelta el candado de una corrida a medias; la palanca corre el radar un minuto después |
+| `frontend/src/pages/oportunidades/oportunidades.utils.test.ts` | Lo que se ve de partida (sin rojas ni descartadas), contadores por color, buscador sin tildes, cuenta regresiva del cierre, enlaces a Mercado Público |
 | `oportunidades/tests/oportunidades.repository.spec.ts` | El candado contra la base; empresa bloqueada fuera; cada consulta de empresa filtra por `company_id`; la lectura no se pisa |
 | `auth/tests/matriz-de-derechos.spec.ts`, `matriz-de-cargos.spec.ts`, `derechos.spec.ts` | Las tres rutas cerradas con `oportunidades` y solo para administrador; ningún plan da el derecho |
 
@@ -115,7 +136,7 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 ## 11. Preguntas abiertas (para Felipe)
 
 - Respondidas el 17-10: todo Chile; `mp_procesos` fuera del respaldo; solo administradores; sin resumen por correo (doc 17, decisiones 12 a 15).
-- Quedan: ¿se mantiene el aviso inmediato de comuna cercana y alto valor? ¿Las rojas se esconden por omisión?
+- Quedan: ¿se mantiene el aviso inmediato de comuna cercana y alto valor? (no está construido). Las rojas quedaron apagadas de partida en la bandeja, con un clic se ven: ¿así está bien?
 
 ## 12. Archivos clave
 
@@ -123,4 +144,7 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 - `api-rest/src/oportunidades/mercado-publico/mercado-publico.client.ts`, `mapeo.ts`, `tipos.ts`
 - `api-rest/src/oportunidades/lectura/lectura.service.ts`, `reglas.ts`
 - `api-rest/src/auth/derechos.ts` (el derecho `oportunidades`), `api-rest/src/config/validate-env.ts` (las dos variables)
+- `api-rest/src/oportunidades/oportunidades.service.ts`, `dto/actualizar-oportunidad.dto.ts`, `dto/guardar-config.dto.ts`
+- `frontend/src/pages/oportunidades/OportunidadesPage.tsx`, `OportunidadFichaPage.tsx`, `ConfiguracionOportunidades.tsx`, `oportunidades.utils.ts`
+- `frontend/src/services/oportunidades.service.ts`; `frontend/src/constants/permissions.ts` (sección y derecho `oportunidades`)
 - `docs/migrations/122_oportunidades_radar.sql`

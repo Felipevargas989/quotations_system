@@ -31,6 +31,58 @@ export type ConfigOportunidades = {
   perfil: string | null;
 };
 
+const COLUMNAS_DE_LISTA =
+  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, estado, responsable_id, leida_en, ' +
+  'proceso:mp_procesos!inner(tipo, nombre, organismo, unidad, comuna, region, monto, fecha_publicacion, fecha_cierre, estado)';
+
+const COLUMNAS_DE_FICHA =
+  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, leida_con, leida_en, estado, responsable_id, notas, quotation_id, actualizado_en, ' +
+  'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, primera_vez_visto, actualizado_en)';
+
+type ProcesoDeLista = {
+  tipo: string;
+  nombre: string;
+  organismo: string | null;
+  unidad: string | null;
+  comuna: string | null;
+  region: string | null;
+  monto: number | null;
+  fecha_publicacion: string | null;
+  fecha_cierre: string | null;
+  estado: string | null;
+};
+
+export type FilaDeLista = {
+  id: number;
+  codigo: string;
+  semaforo: string | null;
+  etiquetas: string[];
+  se_hace_en_el_complejo: string | null;
+  razon: string | null;
+  alertas: string[];
+  estado: string;
+  responsable_id: string | null;
+  leida_en: string | null;
+  proceso: ProcesoDeLista;
+};
+
+export type FichaDeOportunidad = Omit<FilaDeLista, 'proceso'> & {
+  leida_con: string | null;
+  notas: string | null;
+  quotation_id: string | null;
+  actualizado_en: string;
+  proceso: ProcesoDeLista & {
+    codigo: string;
+    descripcion: string | null;
+    moneda: string | null;
+    fechas: Record<string, unknown>;
+    productos: Array<Record<string, unknown>>;
+    adjudicacion: Record<string, unknown> | null;
+    primera_vez_visto: string;
+    actualizado_en: string;
+  };
+};
+
 export type ProcesoConocido = {
   fecha_cierre: string | null;
   estado: string | null;
@@ -78,6 +130,25 @@ export class OportunidadesRepository {
       throw error;
     }
     return (data as { id: number }).id;
+  }
+
+  /** Al encender el motor: lo que quedó "corriendo" desde ANTES de este
+   *  encendido murió con el proceso anterior (el motor corre en una sola
+   *  réplica). Sin esto, un despliegue a mitad de corrida dejaba el radar
+   *  bloqueado 3 horas. Devuelve cuántas marcó. */
+  async abandonarCorridasDeAntes(encendido: string): Promise<number> {
+    const { data, error } = await this.db
+      .from('mp_radar_corridas')
+      .update({
+        estado: 'abandonada',
+        termino_en: new Date().toISOString(),
+        error: 'el motor se reinició con la corrida a medias',
+      })
+      .eq('estado', 'corriendo')
+      .lt('empezo_en', encendido)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
   }
 
   async terminarCorrida(
@@ -332,24 +403,141 @@ export class OportunidadesRepository {
     if (error) throw error;
   }
 
-  /** La lista de la empresa, con los datos del proceso. */
+  /** La lista de la empresa, con los datos del proceso. `vigentes` deja
+   *  solo lo que sigue abierto (cierre futuro o sin cierre). Pagina de a
+   *  1000 porque Supabase no entrega más por consulta. */
   async listar(
     companyId: number,
-    filtros: { semaforo?: string; estado?: string; limite?: number },
-  ) {
-    let consulta = this.db
+    filtros: {
+      vigentes: boolean;
+      semaforo?: string;
+      estado?: string;
+      tipo?: string;
+      limite: number;
+    },
+  ): Promise<FilaDeLista[]> {
+    const ahora = new Date().toISOString();
+    const filas: FilaDeLista[] = [];
+    for (let desde = 0; desde < filtros.limite; desde += PAGINA) {
+      const hasta = Math.min(desde + PAGINA, filtros.limite) - 1;
+      let consulta = this.db
+        .from('oportunidades')
+        .select(COLUMNAS_DE_LISTA)
+        .eq('company_id', companyId);
+      if (filtros.semaforo)
+        consulta = consulta.eq('semaforo', filtros.semaforo);
+      if (filtros.estado) consulta = consulta.eq('estado', filtros.estado);
+      if (filtros.tipo) consulta = consulta.eq('proceso.tipo', filtros.tipo);
+      if (filtros.vigentes) {
+        consulta = consulta.or(
+          `fecha_cierre.gt."${ahora}",fecha_cierre.is.null`,
+          { referencedTable: 'proceso' },
+        );
+      }
+      const { data, error } = await consulta
+        .order('id', { ascending: true })
+        .range(desde, hasta);
+      if (error) throw error;
+      filas.push(...((data ?? []) as unknown as FilaDeLista[]));
+      if (!data || data.length < hasta - desde + 1) break;
+    }
+    return filas;
+  }
+
+  /** La ficha: la oportunidad de ESTA empresa con todo su proceso. */
+  async ficha(
+    companyId: number,
+    id: number,
+  ): Promise<FichaDeOportunidad | null> {
+    const { data, error } = await this.db
       .from('oportunidades')
-      .select(
-        'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, estado, leida_en, ' +
-          'proceso:mp_procesos!inner(tipo, nombre, organismo, unidad, comuna, region, monto, fecha_cierre, estado)',
-      )
-      .eq('company_id', companyId);
-    if (filtros.semaforo) consulta = consulta.eq('semaforo', filtros.semaforo);
-    if (filtros.estado) consulta = consulta.eq('estado', filtros.estado);
-    const { data, error } = await consulta
-      .order('leida_en', { ascending: false })
-      .limit(Math.min(filtros.limite ?? 200, 1000));
+      .select(COLUMNAS_DE_FICHA)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as FichaDeOportunidad | null) ?? null;
+  }
+
+  /** El historial de un proceso (dato público: sin company_id). */
+  async cambiosDe(codigo: string) {
+    const { data, error } = await this.db
+      .from('mp_cambios')
+      .select('id, tipo, antes, despues, creado_en')
+      .eq('codigo', codigo)
+      .order('creado_en', { ascending: false })
+      .limit(50);
     if (error) throw error;
     return data ?? [];
+  }
+
+  /** Lo que la empresa decide. null = no era de esta empresa. */
+  async actualizar(
+    companyId: number,
+    id: number,
+    cambios: {
+      estado?: string;
+      responsable_id?: string | null;
+      notas?: string | null;
+    },
+  ) {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .update({ ...cambios, actualizado_en: new Date().toISOString() })
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select('id, estado, responsable_id, notas, actualizado_en')
+      .maybeSingle();
+    if (error) throw error;
+    return data ?? null;
+  }
+
+  async esUsuarioDeLaEmpresa(
+    companyId: number,
+    userId: string,
+  ): Promise<boolean> {
+    const { data, error } = await this.db
+      .from('user_profiles')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return Boolean(data);
+  }
+
+  /** Lo que la configuración del módulo muestra sin poder cambiarlo: vive
+   *  en Configuración de empresa. */
+  async datosDeEmpresa(companyId: number): Promise<{
+    high_value_threshold: number | null;
+    notifications: { replyTo?: string | null } | null;
+  } | null> {
+    const { data, error } = await this.db
+      .from('companies')
+      .select('high_value_threshold, notifications')
+      .eq('id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (
+      (data as {
+        high_value_threshold: number | null;
+        notifications: { replyTo?: string | null } | null;
+      } | null) ?? null
+    );
+  }
+
+  async guardarConfig(
+    companyId: number,
+    config: Partial<ConfigOportunidades>,
+  ): Promise<void> {
+    const { error } = await this.db.from('oportunidades_config').upsert(
+      {
+        company_id: companyId,
+        ...config,
+        actualizado_en: new Date().toISOString(),
+      },
+      { onConflict: 'company_id' },
+    );
+    if (error) throw error;
   }
 }
