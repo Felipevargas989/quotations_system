@@ -207,6 +207,22 @@ describe('armar la foto: lo que no calza vuelve como error', () => {
     ]);
   });
 
+  it('la cantidad es por persona: 41 platos por persona vuelve como error (prueba del lab, 17-10)', () => {
+    expect(
+      errores(
+        plan({
+          cajas: [
+            caja({
+              categoria: 'Cena',
+              personas: 41,
+              servicios: [{ id: 3001, cantidad: 41 }],
+            }),
+          ],
+        }),
+      ),
+    ).toEqual([expect.stringContaining('es POR PERSONA')]);
+  });
+
   it('sin cajas no hay cotización', () => {
     expect(errores(plan({}))).toEqual([
       expect.stringContaining('ninguna caja'),

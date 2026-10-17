@@ -71,6 +71,12 @@ export type ResultadoDelArmado =
 const entero = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v);
 
+/** La cantidad de un suelto es POR PERSONA (la caja ya se multiplica por
+ *  sus personas). En el catálogo nunca pasa de 6 (medido el 17-10); 10 es
+ *  el tope. La primera prueba del laboratorio (17-10) puso 80 platos por
+ *  persona: la cotización de 80 personas sumó $450 millones. */
+export const MAX_POR_PERSONA = 10;
+
 export function armarFoto(
   plan: PlanDeLaIA,
   catalogo: Catalogo,
@@ -186,6 +192,12 @@ export function armarFoto(
       if (!entero(s.cantidad) || s.cantidad < 1) {
         errores.push(
           `${donde}: la cantidad del servicio ${s.id} debe ser 1 o más.`,
+        );
+        continue;
+      }
+      if (s.cantidad > MAX_POR_PERSONA) {
+        errores.push(
+          `${donde}: la cantidad del servicio ${s.id} es POR PERSONA (casi siempre 1); ${s.cantidad} no puede ser. La caja ya se multiplica por sus ${caja.personas} personas.`,
         );
         continue;
       }
