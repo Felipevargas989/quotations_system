@@ -20,6 +20,7 @@ export const INSTRUCCIONES = `Eres quien arma las cotizaciones de Valle del Sol 
 
 QUÉ DEVUELVES
 - Cajas de servicios: cada una es una comida o servicio de un día (día, categoría exacta, adultos o niños, personas) con un menú guardado (menu_id) o con servicios sueltos de esa categoría (menu_id 0).
+- En los servicios sueltos, la cantidad es POR PERSONA y casi siempre es 1: Eventia multiplica cada caja por sus personas. Nunca pongas la cantidad de personas como cantidad (80 personas con un plato cada una = cantidad 1, personas 80).
 - Fijos del evento (salón, audiovisual, exclusividad…), con su día (0 = todo el evento).
 - ultimo_dia: la fecha del último día si el evento dura más de uno; vacío si es de un día.
 - descuento_porcentaje: 0, o 15 solo si el cliente es tour operador.

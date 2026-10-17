@@ -50,7 +50,11 @@ export const ESQUEMA_DEL_PLAN = {
           dia: { type: 'integer' },
           categoria: { type: 'string' },
           audiencia: { type: 'string', enum: ['adultos', 'ninos'] },
-          personas: { type: 'integer' },
+          personas: {
+            type: 'integer',
+            description:
+              'Cuántas personas comen o duermen en esta caja. Eventia multiplica la caja por este número.',
+          },
           menu_id: { type: 'integer' },
           servicios: {
             type: 'array',
@@ -58,7 +62,11 @@ export const ESQUEMA_DEL_PLAN = {
               type: 'object',
               properties: {
                 id: { type: 'integer' },
-                cantidad: { type: 'integer' },
+                cantidad: {
+                  type: 'integer',
+                  description:
+                    'Unidades POR PERSONA, casi siempre 1. Nunca la cantidad de personas: la caja ya se multiplica por sus personas.',
+                },
               },
               required: ['id', 'cantidad'],
               additionalProperties: false,
