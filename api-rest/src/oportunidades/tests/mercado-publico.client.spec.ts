@@ -269,6 +269,26 @@ describe('MercadoPublicoClient', () => {
     });
   });
 
+  describe('licitacionesDelDia (la historia)', () => {
+    it('pide por fecha, con el formato de la API', async () => {
+      fetchFalso.mockImplementation(
+        siempre(200, { Listado: [{ CodigoExterno: 'A' }] }),
+      );
+      await expect(cliente.licitacionesDelDia('03102025')).resolves.toEqual([
+        { CodigoExterno: 'A' },
+      ]);
+      const [url] = fetchFalso.mock.calls[0] as [string];
+      expect(url).toContain('fecha=03102025');
+    });
+
+    it('sin lista es una falla', async () => {
+      fetchFalso.mockImplementation(siempre(200, {}));
+      await expect(
+        cliente.licitacionesDelDia('03102025'),
+      ).rejects.toBeInstanceOf(MercadoPublicoError);
+    });
+  });
+
   describe('comprasAgiles', () => {
     it('recorre las páginas hasta la última', async () => {
       fetchFalso

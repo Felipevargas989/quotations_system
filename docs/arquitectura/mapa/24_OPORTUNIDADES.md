@@ -14,8 +14,9 @@ Cada 2 horas el radar:
 4. Anota la corrida en su bitácora (`mp_radar_corridas`): qué trajo, qué falló y cuántos tokens gastó.
 
 5. La pantalla **Oportunidades** (sprint 2): la bandeja con semáforo, la ficha de cada una y la configuración del módulo. Solo administradores.
+6. **Sprint 1b** (`HistoriaService`, al final de cada corrida): revisa las licitaciones cerradas de las regiones configuradas hasta que digan **quién ganó**, y de noche (o en la corrida de arranque del laboratorio) carga **3 años de historia**, un día a la vez. Con eso cada fila y cada ficha muestran **la misma compra del año anterior**: quién ganó, por cuánto y cuántos ofertaron.
 
-Lo que **todavía no hace** (doc 17 §7): bajar bases y anexos, guardar quién ganó al cerrar y cargar 2–3 años de historia (sprint 1b); generar documentos (sprint 3); generar cotización (sprint 4). **No manda resumen por correo**: Felipe, 17-10, *"se revisa en Eventia"*.
+Lo que **todavía no hace** (doc 17 §7): generar documentos (sprint 3); generar cotización (sprint 4). Y **no baja bases ni anexos**: Mercado Público protege la lista de adjuntos con un reCAPTCHA (medido el 17-10) y esta casa no lo esquiva (doc 17 §12). **No manda resumen por correo**: Felipe, 17-10, *"se revisa en Eventia"*.
 
 ## 2. Pantallas y rutas de la app
 
@@ -59,6 +60,7 @@ Migración `docs/migrations/122_oportunidades_radar.sql`. Dos clases de tabla (d
 | `mp_radar_corridas` | La bitácora del radar: origen (`reloj`, `manual`, `arranque`), estado (`corriendo`, `ok`, `error`, `abandonada`), inicio, término, `resumen` jsonb y error. El índice único parcial `mp_radar_una_corriendo` es **el candado**: no puede haber dos filas en `corriendo` | `tomarCorrida`, `terminarCorrida` | `ultimaCorridaOk`, `ultimasCorridas` |
 | `oportunidades` | La lectura de la IA para una empresa (semáforo, etiquetas, `se_hace_en_el_complejo`, razón, alertas, modelo y fecha) y lo que la empresa decide (estado, responsable, notas, cotización). Única por `(company_id, codigo)` | `guardarLectura` (upsert con `ignoreDuplicates`: **nunca pisa** una fila que ya existe) | `codigosLeidos`, `listar` |
 | `oportunidades_config` | Por empresa: regiones de interés, comunas cercanas y el perfil que lee la IA ("qué vende y qué no") | la migración 122 (Valle del Sol); la pantalla de configuración llega en el sprint 2 | `configDe` |
+| `mp_historia` | Migración 123 (sprint 1b). Un día por fila, 3 años hacia atrás: pendiente, hecha o error, con cuántas había, cuántas pasó el filtro y cuántas se guardaron. `prioridad` = días de distancia a "hace un año": se revisa de menor a mayor | `marcarDiaDeHistoria` | `siguienteDiaDeHistoria` |
 
 Las cinco nacen con RLS encendido, sin políticas, con `REVOKE ALL` a `anon` y `authenticated` y los `GRANT` a `service_role` (y sus secuencias) en la misma migración: la lección de la 107 y del error 42501 (mapa 18).
 
@@ -75,7 +77,9 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 3. **Licitaciones** (`RadarService.licitaciones`): `licitacionesActivas` → `procesosConocidos`. Conocidas: si el cierre cambió (se comparan instantes, no textos) o si estaba cerrada y vuelve a estar activa, `actualizarCierre` y una fila en `mp_cambios`. Nuevas: `detalleLicitacion` **de a una** (la API rechaza las peticiones simultáneas con el mismo ticket), primero lo que cierra antes (`ordenarPorCierre`), hasta 6.000 por corrida o hasta los 45 minutos (`PRESUPUESTO_DETALLES_MS`), guardadas de a 100. Lo que no alcanzó queda en `resumen.licitaciones.pendientes` y entra en la próxima. **Después de esta fase viene una primera lectura** (paso 5), y recién después las compras ágiles.
 4. **Compras ágiles** (`RadarService.comprasAgiles`): `comprasAgiles(desde, regiones)` con la región como número oficial (`codigosDeRegiones`: Ñuble 16, Biobío 8); de las nuevas se pide el detalle de a una, hasta los 70 minutos de corrida (`PRESUPUESTO_COMPRAS_MS`), guardadas de a 50, y **sin detalle igual se guardan** (nombre, comprador y monto vienen en la lista). Después, la segunda lectura.
 5. **Lectura** (`RadarService.leer`): `procesosAbiertos` (cierre futuro o sin cierre) → por empresa, lo de sus regiones que no está en `codigosLeidos`, **ordenado por cierre** (lo urgente primero) → `LecturaService.leer` de a 3 → `aplicarReglas` → `guardarLectura`. Hasta 3.000 lecturas por corrida, y hasta los 150 minutos desde que partió (`PRESUPUESTO_CORRIDA_MS`): así una corrida nunca llega a las 3 horas en que la siguiente la da por muerta. Se lee **dos veces por corrida** (tras las licitaciones y tras las compras ágiles); la segunda no relee lo leído ni reintenta lo que falló en la primera (`intentadas`), y si la primera se detuvo, la segunda no insiste.
-6. `terminarCorrida(id, 'ok' | 'error', resumen, error)`. `ejecutar` nunca lanza: cualquier falla queda en la bitácora.
+6. **Quién ganó** (`HistoriaService.revisarAdjudicaciones`, tras las compras ágiles, hasta los 80 minutos): `procesosPorAdjudicar` (licitaciones cerradas hace menos de 120 días, sin adjudicación, revisadas hace más de 20 horas) → las de las regiones configuradas, hasta 60 por corrida → `detalleLicitacion` → se guardan todas (las que siguen sin ganador quedan fechadas y no se piden hasta mañana).
+7. Segunda lectura, y después **la historia** (`HistoriaService.cargarHistoria`, hasta los 130 minutos): solo en las corridas del reloj de noche en Chile (22:00 a 07:00, lo que pide ChileCompra para descargas grandes) o en la de arranque del laboratorio. Por cada día pendiente: `licitacionesDelDia` (`?fecha=`) → lo que no está en la base → `LecturaService.candidatasPorNombre` (Haiku, de a 150 nombres: lo que podría ser del rubro) → detalle solo de las candidatas → `marcarDiaDeHistoria`. Si se corta a la mitad, el día queda pendiente y lo ya guardado no se vuelve a pedir.
+8. `terminarCorrida(id, 'ok' | 'error', resumen, error)`. `ejecutar` nunca lanza: cualquier falla queda en la bitácora.
 
 ### 5.2 La lectura con IA
 
@@ -95,6 +99,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 - **Monto igual o mayor al alto valor de la empresa → alerta `alto_valor`**, si no quedó en rojo. El umbral es `companies.high_value_threshold` (Valle del Sol: $3.000.000), el mismo de Configuración de empresa (doc 17, decisión 9).
 - **La lectura de una empresa nunca se reescribe** sola: `ignoreDuplicates`. Lo que la empresa decidió (estado, responsable, notas) no lo toca el radar.
 - **Las rojas no se botan**: quedan en la base (doc 17 §5.2).
+- **El año anterior** (`historia/anterior.ts`, `anteriorDe`): la misma compra es del **mismo organismo comprador** (no de la misma unidad: el Día del Funcionario de Quillón cambió de unidad entre 2025 y 2026), adjudicada, publicada entre 6 y 30 meses antes, y con el nombre más parecido (palabras en común sobre palabras en total, sin tildes, años ni palabras vacías; mínimo 0,3). La bandeja lo calcula de una vez para toda la lista (`indexarPorOrganismo`); el historial de lo cerrado no lo lleva.
+- **No se bajan bases ni anexos.** La página de adjuntos de Mercado Público solo muestra la lista tras pasar un reCAPTCHA de Google (medido el 17-10 con el Día del Profesor). Esquivarlo sería saltarse a propósito una protección de ChileCompra: no se hace. Alternativas en el doc 17 §12.
 - **Hora de Chile.** La API de licitaciones entrega fechas sin zona, en hora de Chile; `fechaChileAIso` las pasa a UTC con el desfase real de ese día (verano −3, invierno −4).
 
 ## 7. Conexiones con otros módulos
@@ -124,6 +130,8 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 | `oportunidades/tests/lectura.service.spec.ts` | Pedido a Haiku 5.5 con esfuerzo bajo y caché; rechazo → amarillo; fallas de la cuenta detienen; las demás dejan el proceso sin leer |
 | `oportunidades/tests/radar.service.spec.ts` | El candado; solo lo nuevo, de a uno y en orden de cierre; cierre movido y reapertura; caída de la lista; corte tras 10 fallas; tope de tiempo; compras ágiles desde la última corrida; lectura por región y en orden de cierre |
 | `backup/tests/fuera-del-respaldo.spec.ts` | `mp_procesos` fuera del respaldo diario; lo de cada empresa adentro |
+| `oportunidades/tests/anterior.spec.ts` | El año anterior: el Día del Profesor 2025 (ganó Sol de Quillón por $12.000.000, 1 oferta), el del Funcionario aunque cambió de unidad, lo que no cuenta (otro organismo, sin adjudicar, fuera de 6 a 30 meses) y la suma por ganador |
+| `oportunidades/tests/historia.service.spec.ts` | Quién ganó: solo las cerradas de tus regiones, y se corta sin cupo; la historia: solo de noche o en el arranque, un día completo (lista → filtro → detalle de candidatas → día hecho), y el día queda pendiente si se corta |
 | `oportunidades/tests/oportunidades.service.spec.ts` | La bandeja en orden de cierre y solo lo vigente; 404 de otra empresa; el responsable tiene que ser de la empresa; notas limpias; la configuración limpia sus listas |
 | `oportunidades/tests/oportunidades-cron.service.spec.ts` | Al encender suelta el candado de una corrida a medias; la palanca corre el radar un minuto después |
 | `frontend/src/pages/oportunidades/oportunidades.utils.test.ts` | Lo que se ve de partida (sin rojas ni descartadas), contadores por color, buscador sin tildes, cuenta regresiva del cierre, enlaces a Mercado Público |
@@ -144,9 +152,10 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 
 - `api-rest/src/oportunidades/oportunidades.module.ts`, `oportunidades.controller.ts`, `oportunidades-cron.service.ts`, `radar.service.ts`, `oportunidades.repository.ts`, `dto/listar-oportunidades.dto.ts`
 - `api-rest/src/oportunidades/mercado-publico/mercado-publico.client.ts`, `mapeo.ts`, `tipos.ts`
-- `api-rest/src/oportunidades/lectura/lectura.service.ts`, `reglas.ts`
+- `api-rest/src/oportunidades/lectura/lectura.service.ts` (también `candidatasPorNombre`), `reglas.ts`
+- `api-rest/src/oportunidades/historia/historia.service.ts`, `anterior.ts` (sprint 1b)
 - `api-rest/src/auth/derechos.ts` (el derecho `oportunidades`), `api-rest/src/config/validate-env.ts` (las dos variables)
 - `api-rest/src/oportunidades/oportunidades.service.ts`, `dto/actualizar-oportunidad.dto.ts`, `dto/guardar-config.dto.ts`
 - `frontend/src/pages/oportunidades/OportunidadesPage.tsx`, `OportunidadFichaPage.tsx`, `ConfiguracionOportunidades.tsx`, `oportunidades.utils.ts`
 - `frontend/src/services/oportunidades.service.ts`; `frontend/src/constants/permissions.ts` (sección y derecho `oportunidades`)
-- `docs/migrations/122_oportunidades_radar.sql`
+- `docs/migrations/122_oportunidades_radar.sql`, `123_oportunidades_historia.sql`

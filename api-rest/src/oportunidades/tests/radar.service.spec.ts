@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
+import { HistoriaService } from '../historia/historia.service';
 import {
   LecturaDetenida,
   type LecturaService,
@@ -67,10 +68,14 @@ function armar(base = new Map<string, ProcesoConocido>()) {
     ),
     comprasAgiles: jest.fn().mockResolvedValue([]),
     detalleCompraAgil: jest.fn().mockResolvedValue(null),
+    licitacionesDelDia: jest.fn().mockResolvedValue([]),
   };
   const repo = {
     tomarCorrida: jest.fn().mockResolvedValue(7),
     abandonarCorridasDeAntes: jest.fn().mockResolvedValue(0),
+    procesosPorAdjudicar: jest.fn().mockResolvedValue([]),
+    siguienteDiaDeHistoria: jest.fn().mockResolvedValue(null),
+    marcarDiaDeHistoria: jest.fn().mockResolvedValue(undefined),
     terminarCorrida: jest.fn().mockResolvedValue(undefined),
     ultimaCorridaOk: jest.fn().mockResolvedValue(null),
     procesosConocidos: jest.fn((codigos: string[]) =>
@@ -97,6 +102,7 @@ function armar(base = new Map<string, ProcesoConocido>()) {
   };
   const lectura = {
     configurado: true,
+    candidatasPorNombre: jest.fn().mockResolvedValue(new Set<string>()),
     leer: jest.fn().mockResolvedValue({
       semaforo: 'verde',
       etiquetas: ['evento'],
@@ -104,10 +110,17 @@ function armar(base = new Map<string, ProcesoConocido>()) {
       razon: 'Es un evento.',
     }),
   };
+  const historia = new HistoriaService(
+    mp as unknown as MercadoPublicoClient,
+    repo as unknown as OportunidadesRepository,
+    lectura as unknown as LecturaService,
+    mockPinoLogger() as unknown as PinoLogger,
+  );
   const radar = new RadarService(
     mp as unknown as MercadoPublicoClient,
     repo as unknown as OportunidadesRepository,
     lectura as unknown as LecturaService,
+    historia,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return { mp, repo, lectura, radar, leidas };
