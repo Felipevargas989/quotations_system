@@ -184,6 +184,9 @@ export class QuotationsService {
       contact_name: createQuotationDto.contact_name || null,
       client_contact_id: clientContactId,
       observations: createQuotationDto.observations,
+      // Comentario interno (migración 128). Mismo aviso del 19-07: si
+      // falta aquí, el insert lo bota en silencio.
+      comentario_interno: createQuotationDto.comentario_interno || null,
       event_date: eventDateUtc,
       // Último día (evento multi-día); null = un solo día. Si esto falta,
       // la creación bota el rango en silencio — no repetir el bug 19-07.

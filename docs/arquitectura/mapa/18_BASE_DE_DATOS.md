@@ -39,7 +39,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`); de dónde llegó el registro (`origen`, `origen_detalle`, mapa 15 §5.5 punto 6) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111, 112 y 116 (secciones 12 y 13) |
+| `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`); de dónde llegó el registro (`origen`, `origen_detalle`, mapa 15 §5.5 punto 6) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111, 112 y 116 (secciones 12 y 13); la 130 solo suma `cotizar_con_ia` a los módulos propios de la empresa 1 (mapa 01 §5.7) |
 | `user_profiles` | Perfil del usuario: `user_id` → `auth.users`, `email`, `full_name`, `role` (CHECK con los 4 cargos), `company_id` | 15 | `0_initial_models.sql` |
 | `leads` | Prospectos de Eventia desde la landing: nombre, teléfono, correo, empresa, tamaño, ventas; de dónde llegó (`origen`, `origen_detalle`, 116). **No tiene `company_id`** | 15 (super-admin) | `0_initial_models.sql`; la 39 cierra la inserción anónima; la 116 agrega el origen |
 
@@ -55,7 +55,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64 y 66 |
+| `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |

@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Headers,
   HttpException,
   Param,
   Patch,
@@ -13,6 +14,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
+import { Derecho } from 'src/auth/derecho.decorator';
 import { DerechosService } from 'src/auth/derechos.service';
 import {
   ADMIN_ONLY,
@@ -21,10 +23,12 @@ import {
   Roles,
   SALES_AND_UP,
 } from 'src/auth/roles.decorator';
+import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import { filaSinComentario, sinComentarioAjeno } from './comentario-interno';
 import { RequestType } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
@@ -33,6 +37,7 @@ import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
+import { GenerarCotizacionService } from './generar/generar.service';
 import { QuotationsService } from './quotations.service';
 import { RescateDelFormularioService } from './rescate-del-formulario.service';
 
@@ -47,6 +52,10 @@ export class QuotationsController {
     private readonly derechosService: DerechosService,
     // La red bajo el formulario público (seguro 1, 22-09-2026).
     private readonly rescate: RescateDelFormularioService,
+    // Quién pregunta en GET /quotations/:id, que es pública (17-10-2026).
+    private readonly sesionOpcional: SesionOpcional,
+    // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
+    private readonly generarCotizacion: GenerarCotizacionService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -103,10 +112,14 @@ export class QuotationsController {
     // requerimiento normal; el formulario funciona igual en todo plan.
     try {
       const derechos = await this.derechosService.deEmpresa(company_id);
-      return await this.quotationsService.createPublic(
-        createQuotationPublicDto,
-        company_id,
-        derechos,
+      // El visitante recibe la fila recién creada: sin el comentario
+      // interno, aunque nazca vacío (17-10-2026).
+      return filaSinComentario(
+        await this.quotationsService.createPublic(
+          createQuotationPublicDto,
+          company_id,
+          derechos,
+        ),
       );
     } catch (e) {
       // Errores de VALIDACIÓN del propio motor (400/409: tipo de evento
@@ -174,11 +187,33 @@ export class QuotationsController {
 
   // This is public becaue it is used to display the quotation details in the public customer satisfaction survey
   // TODO: maybe create public endpoint for this, instead of using the current one
+  // El comentario interno (17-10-2026, migración 128) solo viaja si quien
+  // pregunta trae una sesión de la misma empresa: la encuesta, que abre
+  // esta puerta sin sesión, recibe la cotización sin él.
   @Public()
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(
+    @Param('id') id: string,
+    @Headers('authorization') authorization?: string,
+  ) {
     this.logger.info(`GET /quotations/${id}`);
-    return this.quotationsService.findOne(id);
+    const [respuesta, empresa] = await Promise.all([
+      this.quotationsService.findOne(id),
+      this.sesionOpcional.empresaDe(authorization),
+    ]);
+    return sinComentarioAjeno(respuesta, empresa);
+  }
+
+  // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026): arma el
+  // requerimiento con Claude y lo deja en solicitada; nunca envía. Solo
+  // quien cotiza (convertir es pega de venta, 12-08) y solo la empresa con
+  // el módulo propio cotizar_con_ia (Valle del Sol, migración 130).
+  @Roles(...SALES_AND_UP)
+  @Derecho('cotizar_con_ia')
+  @Post(':id/generar')
+  generar(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`POST /quotations/${id}/generar`);
+    return this.generarCotizacion.generar(id, user);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.

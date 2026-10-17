@@ -20,14 +20,18 @@ describe("tieneDerecho", () => {
   });
 
   it("pide el derecho exacto que trae la empresa", () => {
-    expect(tieneDerecho({ derechos: ["base", "calendario"] }, "calendario")).toBe(true);
+    expect(
+      tieneDerecho({ derechos: ["base", "calendario"] }, "calendario"),
+    ).toBe(true);
     expect(tieneDerecho({ derechos: ["base"] }, "calendario")).toBe(false);
     expect(tieneDerecho({ derechos: null }, "post_venta")).toBe(false);
     expect(tieneDerecho(null, "post_venta")).toBe(false);
   });
 
   it("Personal y Marketing siguen siendo derechos como los demás", () => {
-    expect(tieneDerecho({ derechos: ["personal", "marketing"] }, "personal")).toBe(true);
+    expect(
+      tieneDerecho({ derechos: ["personal", "marketing"] }, "personal"),
+    ).toBe(true);
     expect(tieneDerecho({ derechos: ["personal"] }, "marketing")).toBe(false);
   });
 
@@ -84,6 +88,8 @@ describe("a qué plan hay que subirse", () => {
   it("los dos módulos propios no se venden: no ofrecen mejora", () => {
     expect(PLAN_MINIMO.personal).toBeNull();
     expect(PLAN_MINIMO.marketing).toBeNull();
+    // Cotizar con IA (17-10-2026) tampoco: lo paga Valle del Sol.
+    expect(PLAN_MINIMO.cotizar_con_ia).toBeNull();
   });
 
   it("todo derecho del menú tiene su plan definido", () => {

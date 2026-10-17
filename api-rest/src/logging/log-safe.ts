@@ -26,6 +26,8 @@ const CAMPOS_SENSIBLES = new Set([
   'contact_name',
   'client_name',
   'observations',
+  // Notas internas del equipo (migración 128, 17-10-2026).
+  'comentario_interno',
   'notes',
   'address',
   'answers',

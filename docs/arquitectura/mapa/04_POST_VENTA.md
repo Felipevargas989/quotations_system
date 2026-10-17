@@ -78,7 +78,7 @@ Formas de llegar a Post-Venta:
 
 | Tabla | Qué guarda | Lee o escribe | Migración que la crea o modifica |
 |---|---|---|---|
-| `quotations` | La cotización-evento: `quotation_status`, `items`, montos, propina, `people_count` y `children_count`, `event_date` y `event_end_date`, `observations`, `has_contract`, `contact_name`, `survey_sent_at`, `loss_reason`, `provisioned_at` y `provisioned_cost` | Lee y escribe | `0_initial_models.sql`; `15_provisioning.sql`; `26_event_done_survey.sql`; `27_multi_day_events.sql`; `32_children_and_tip.sql` (`children_count`, `tip_percentage`); `33_quotation_contact_name.sql`; `37_tip_amount.sql`; `61_motivo_perdida.sql` |
+| `quotations` | La cotización-evento: `quotation_status`, `items`, montos, propina, `people_count` y `children_count`, `event_date` y `event_end_date`, `observations`, `comentario_interno` (17-10-2026, migración 128: solo el equipo; mapa 01, regla 31), `has_contract`, `contact_name`, `survey_sent_at`, `loss_reason`, `provisioned_at` y `provisioned_cost` | Lee y escribe | `0_initial_models.sql`; `15_provisioning.sql`; `26_event_done_survey.sql`; `27_multi_day_events.sql`; `32_children_and_tip.sql` (`children_count`, `tip_percentage`); `33_quotation_contact_name.sql`; `37_tip_amount.sql`; `61_motivo_perdida.sql` |
 | `event_documents` | Documentos por cotización. `category` puede ser `contratos`, `ordenes_compra`, `facturas`, `otros` o `comercial` (lo restringe `AddDocumentDto`; en la base es texto libre); `file_name` guarda el comentario, `file_url` la ruta en el balde, y además `uploaded_at`. **No tiene `company_id`**: la pertenencia se verifica a través de la cotización. Se borra en cascada con `quotations` (`ON DELETE CASCADE`) | Lee y escribe | `8_event_documents.sql`; índice `idx_event_documents_quotation` en `66_indices_de_consultas_calientes.sql`; el acceso directo a todas las tablas se cerró en `40_cerrar_acceso_directo.sql` y `41_barrida_final_anon.sql` |
 | Balde de Storage `payment-receipts` (no es tabla) | Archivos en `c<empresa>/event-documents/<cotización>/<categoría>/<fecha>_<nombre>`, más rutas viejas del tipo `event-documents/<cotización>/...` | Solo el motor escribe, firma enlaces y borra | `9_storage_payment_receipts_bucket.sql` (nace público); `42_storage_candado.sql` (pasa a privado) |
 | `payments`, `payment_transactions` | Cuotas y abonos; de aquí sale la lista | Lee; escriben la cascada de `update` y la pestaña Pagos | `0_initial_models.sql` (mapa 03) |
@@ -157,7 +157,7 @@ Formas de llegar a Post-Venta:
 2. La cuenta se hace en vivo con `computeMoney` de `@dinero` (alias a `api-rest/src/quotations/utils/money.ts`) sobre `buildItemsSnapshot()`.
 3. Reloj de guardado:
    - cambios de estructura → espera 1,5 s;
-   - comentarios → al salir del campo (`onBlur`) o, como respaldo, a los 20 s.
+   - comentarios → al salir de cualquiera de los dos campos (`onBlur`) o, como respaldo, a los 20 s. Desde el 17-10-2026 son dos, con la pieza `ComentariosDelEvento`: Observaciones (las ve el cliente) y el comentario interno (nunca sale; si la cotización llega sin él, queda bloqueado y no se manda).
    Ambos caminos llaman a `autoRef.current` (`autoGuardar`).
 4. `autoGuardar` **no guarda** si:
    - el evento está `congelado`;
@@ -167,7 +167,7 @@ Formas de llegar a Post-Venta:
    - la huella (`huellaActual`) no cambió.
 5. `save()`:
    - Si el evento está provisionado, bajan las personas y el rol no es administrador, muestra el mensaje y no guarda.
-   - Si no, `PATCH /quotations/:id` con personas, descuentos, `value_per_person`, `fixed_value`, `subtotal_amount`, `total_amount`, `tip_percentage`, `tip_amount`, `observations` e `items`.
+   - Si no, `PATCH /quotations/:id` con personas, descuentos, `value_per_person`, `fixed_value`, `subtotal_amount`, `total_amount`, `tip_percentage`, `tip_amount`, `observations`, `comentario_interno` (solo si se cargó) e `items`.
 6. En el motor, `QuotationsService.update` pasa por el candado de realizado, el filtro de recepción y `assertMoneyMatches` (recalcula y exige que cuadre). Si la cotización está `aceptada`, corre la **cascada**:
    - **Si baja el total**: se descuenta de las cuotas `pendiente` o `vencido`, empezando por la última. Lo que no alcanza, o todo si no hay cuotas, se crea como `refunds`.
    - **Si sube el total**: primero se consumen los reembolsos pendientes (tarea #42). El resto agranda la última cuota pendiente o crea una cuota "Pago creado por diferencia de total_amount".

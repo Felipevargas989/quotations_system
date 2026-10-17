@@ -72,6 +72,7 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET ': R,
       'GET check-conflicts': R,
       'POST :id/enviar-correo': S,
+      'POST :id/generar': S,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,
