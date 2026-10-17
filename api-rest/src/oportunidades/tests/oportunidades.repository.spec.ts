@@ -95,6 +95,23 @@ describe('OportunidadesRepository — el candado de la corrida', () => {
     await expect(repo.tomarCorrida('reloj')).resolves.toBeNull();
   });
 
+  it('al encender, suelta el candado de lo que quedó corriendo de antes', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'update') ? { data: [{ id: 3 }] } : {},
+    );
+    await expect(
+      repo.abandonarCorridasDeAntes('2026-10-17T03:27:10.000Z'),
+    ).resolves.toBe(1);
+    const [c] = consultas;
+    expect(paso(c, 'update')?.[1]).toMatchObject({ estado: 'abandonada' });
+    expect(paso(c, 'eq')).toEqual(['eq', 'estado', 'corriendo']);
+    expect(paso(c, 'lt')).toEqual([
+      'lt',
+      'empezo_en',
+      '2026-10-17T03:27:10.000Z',
+    ]);
+  });
+
   it('cualquier otro error de la base se lanza', async () => {
     const { repo } = armar((c) =>
       tiene(c, 'insert')
@@ -147,12 +164,15 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
       ([m, col, v]) => m === 'eq' && col === 'company_id' && v === id,
     );
 
-  it('config, catálogo, leídos y la lista', async () => {
+  it('config, catálogo, leídos, la lista, la ficha, decidir y el responsable', async () => {
     const { repo, consultas } = armar();
     await repo.configDe(52);
     await repo.catalogoResumido(52);
     await repo.codigosLeidos(52);
-    await repo.listar(52, {});
+    await repo.listar(52, { vigentes: true, limite: 3000 });
+    await repo.ficha(52, 9);
+    await repo.actualizar(52, 9, { estado: 'en_estudio' });
+    await repo.esUsuarioDeLaEmpresa(52, 'b3c1e0f2-0000-4000-8000-000000000000');
 
     expect(consultas.map((c) => c.tabla)).toEqual([
       'oportunidades_config',
@@ -160,16 +180,57 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
       'fixed_services',
       'oportunidades',
       'oportunidades',
+      'oportunidades',
+      'oportunidades',
+      'user_profiles',
     ]);
     for (const c of consultas) expect(filtraPorEmpresa(c, 52)).toBe(true);
   });
 
-  it('la lista trae el proceso con !inner (un embebido sin !inner no filtra)', async () => {
+  it('guardar la configuración lleva la empresa en la fila (upsert por empresa)', async () => {
     const { repo, consultas } = armar();
-    await repo.listar(1, { semaforo: 'verde', limite: 5000 });
-    const [, columnas] = paso(consultas[0], 'select') as [string, string];
+    await repo.guardarConfig(52, { regiones: ['Ñuble'] });
+    const [, fila, opciones] = paso(consultas[0], 'upsert') as [
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+    expect(consultas[0].tabla).toBe('oportunidades_config');
+    expect(fila).toMatchObject({ company_id: 52, regiones: ['Ñuble'] });
+    expect(opciones).toEqual({ onConflict: 'company_id' });
+  });
+
+  it('la lista trae el proceso con !inner y filtra lo vigente en el proceso', async () => {
+    const { repo, consultas } = armar();
+    await repo.listar(1, {
+      vigentes: true,
+      semaforo: 'verde',
+      tipo: 'licitacion',
+      limite: 5000,
+    });
+    const c = consultas[0];
+    const [, columnas] = paso(c, 'select') as [string, string];
     expect(columnas).toContain('proceso:mp_procesos!inner(');
-    expect(paso(consultas[0], 'limit')).toEqual(['limit', 1000]);
+    const [, filtro, opciones] = paso(c, 'or') as [
+      string,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(filtro).toMatch(
+      /^fecha_cierre\.gt\."[^"]+",fecha_cierre\.is\.null$/,
+    );
+    expect(opciones).toEqual({ referencedTable: 'proceso' });
+    expect(c.pasos).toContainEqual(['eq', 'proceso.tipo', 'licitacion']);
+    expect(c.pasos).toContainEqual(['eq', 'semaforo', 'verde']);
+    // Supabase entrega hasta 1000 por consulta: se pagina.
+    expect(paso(c, 'range')).toEqual(['range', 0, 999]);
+  });
+
+  it('el historial (vigentes: false) no filtra por cierre', async () => {
+    const { repo, consultas } = armar();
+    await repo.listar(1, { vigentes: false, limite: 500 });
+    expect(tiene(consultas[0], 'or')).toBe(false);
+    expect(paso(consultas[0], 'range')).toEqual(['range', 0, 499]);
   });
 
   it('guardar una lectura nunca pisa la que ya existía (la decisión es de la empresa)', async () => {

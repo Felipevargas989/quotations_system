@@ -64,6 +64,7 @@ const HORA = 60 * MINUTO;
  *  los 150. Así una corrida nunca llega a las 3 horas en que la siguiente
  *  la da por muerta; lo que falta entra en la próxima. */
 const PRESUPUESTO_DETALLES_MS = 80 * MINUTO;
+const PRESUPUESTO_COMPRAS_MS = 100 * MINUTO;
 const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
@@ -80,10 +81,18 @@ export type ResumenCorrida = {
     cambios: number;
   };
   compras_agiles: {
-    estado: 'ok' | 'caida' | 'sin_cupo' | 'sin_regiones' | 'sin_ticket';
+    estado:
+      | 'ok'
+      | 'caida'
+      | 'sin_cupo'
+      | 'sin_regiones'
+      | 'sin_ticket'
+      | 'cortada';
     listadas: number;
     nuevas: number;
     guardadas: number;
+    /** Nuevas que no alcanzaron a pedirse: entran en la próxima. */
+    pendientes: number;
   };
   lectura: {
     estado: 'ok' | 'detenida' | 'sin_llave';
@@ -110,7 +119,13 @@ const resumenVacio = (): ResumenCorrida => ({
     pendientes: 0,
     cambios: 0,
   },
-  compras_agiles: { estado: 'ok', listadas: 0, nuevas: 0, guardadas: 0 },
+  compras_agiles: {
+    estado: 'ok',
+    listadas: 0,
+    nuevas: 0,
+    guardadas: 0,
+    pendientes: 0,
+  },
   lectura: {
     estado: 'ok',
     empresas: 0,
@@ -189,6 +204,23 @@ export class RadarService {
     return id;
   }
 
+  /** Al encender: suelta el candado de una corrida que murió con el
+   *  proceso anterior. Nunca lanza. */
+  async limpiarAlEncender(encendido: string): Promise<void> {
+    try {
+      const n = await this.repo.abandonarCorridasDeAntes(encendido);
+      if (n > 0) {
+        this.logger.warn(
+          `radar: ${n} corrida(s) quedaron a medias con el reinicio; marcadas abandonadas`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `radar: no pude revisar las corridas a medias: ${mensajeDe(error)}`,
+      );
+    }
+  }
+
   /** Corre completo y espera (el reloj). null = ya había una en marcha. */
   async correr(origen: 'reloj'): Promise<ResumenCorrida | null> {
     const id = await this.repo.tomarCorrida(origen);
@@ -215,7 +247,7 @@ export class RadarService {
       ];
 
       await this.licitaciones(resumen, inicio);
-      await this.comprasAgiles(resumen, regiones);
+      await this.comprasAgiles(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio);
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
@@ -319,6 +351,9 @@ export class RadarService {
       filas.filter((f) => !conocidos.has(f.CodigoExterno!.trim())),
     );
     r.nuevas = nuevas.length;
+    this.logger.info(
+      `radar: ${r.activas} licitaciones activas, ${r.cambios} con cambios, ${r.nuevas} nuevas`,
+    );
     let pendientes: ProcesoMp[] = [];
     const vaciar = async () => {
       if (pendientes.length === 0) return;
@@ -350,12 +385,18 @@ export class RadarService {
             if (!(error instanceof MercadoPublicoError)) throw error;
             if (error.sinCupo) throw error;
             r.sin_detalle++;
+            if (r.sin_detalle <= 3) this.logger.warn(`radar: ${error.message}`);
             if (++fallasSeguidas >= FALLAS_SEGUIDAS_PARA_CORTAR) throw error;
             return;
           }
           const proceso = procesoDesdeLicitacion(detalle);
           if (!proceso) {
             r.sin_detalle++;
+            if (r.sin_detalle <= 3) {
+              this.logger.warn(
+                `radar: licitación ${codigo}: Mercado Público no trajo el detalle`,
+              );
+            }
             return;
           }
           pendientes.push(proceso);
@@ -365,6 +406,7 @@ export class RadarService {
     } catch (error) {
       if (!(error instanceof MercadoPublicoError)) throw error;
       r.estado = 'cortada';
+      this.logger.warn(`radar: licitaciones cortadas: ${error.message}`);
       resumen.avisos.push(
         `Licitaciones cortadas a la mitad (${error.message}); lo que falta entra en la próxima corrida.`,
       );
@@ -386,6 +428,7 @@ export class RadarService {
   private async comprasAgiles(
     resumen: ResumenCorrida,
     regiones: string[],
+    inicio: number,
   ): Promise<void> {
     const r = resumen.compras_agiles;
     if (!this.mp.configurado) {
@@ -427,36 +470,65 @@ export class RadarService {
     );
     const nuevas = filas.filter((i) => !conocidos.has(i.codigo!.trim()));
     r.nuevas = nuevas.length;
-
-    const procesos: ProcesoMp[] = [];
-    let sinCupo = false;
-    await enParalelo(
-      nuevas,
-      DETALLES_EN_PARALELO,
-      async (item: CompraAgilListada) => {
-        let detalle: CompraAgilDetalle | null = null;
-        if (!sinCupo) {
-          try {
-            detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
-          } catch (error) {
-            if (!(error instanceof MercadoPublicoError)) throw error;
-            if (error.sinCupo) sinCupo = true;
-          }
-        }
-        // Sin detalle igual se guarda: nombre, comprador y monto vienen en la
-        // lista, y la próxima vez no se vuelve a pedir.
-        const proceso = procesoDesdeCompraAgil(item, detalle);
-        if (proceso) procesos.push(proceso);
-      },
+    this.logger.info(
+      `radar: ${r.listadas} compras ágiles en la lista, ${r.nuevas} nuevas`,
     );
+
+    // Se guardan de a 50: si el motor se reinicia a la mitad, lo ya pedido
+    // no se pierde.
+    let porGuardar: ProcesoMp[] = [];
+    const vaciar = async () => {
+      if (porGuardar.length === 0) return;
+      const lote = porGuardar;
+      porGuardar = [];
+      await this.repo.guardarProcesos(lote);
+      r.guardadas += lote.length;
+    };
+    let sinCupo = false;
+    let sinTiempo = false;
+    let intentadas = 0;
+    try {
+      await enParalelo(
+        nuevas,
+        DETALLES_EN_PARALELO,
+        async (item: CompraAgilListada) => {
+          if (sinTiempo || Date.now() - inicio > PRESUPUESTO_COMPRAS_MS) {
+            sinTiempo = true;
+            return;
+          }
+          intentadas++;
+          let detalle: CompraAgilDetalle | null = null;
+          if (!sinCupo) {
+            try {
+              detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
+            } catch (error) {
+              if (!(error instanceof MercadoPublicoError)) throw error;
+              if (error.sinCupo) sinCupo = true;
+            }
+          }
+          // Sin detalle igual se guarda: nombre, comprador y monto vienen en
+          // la lista, y la próxima vez no se vuelve a pedir.
+          const proceso = procesoDesdeCompraAgil(item, detalle);
+          if (proceso) porGuardar.push(proceso);
+          if (porGuardar.length >= 50) await vaciar();
+        },
+      );
+    } finally {
+      await vaciar();
+      r.pendientes = nuevas.length - intentadas;
+    }
     if (sinCupo) {
       r.estado = 'sin_cupo';
       resumen.avisos.push(
         'Compra Ágil sin cupo para detalles: algunas quedaron solo con lo de la lista.',
       );
     }
-    await this.repo.guardarProcesos(procesos);
-    r.guardadas = procesos.length;
+    if (sinTiempo) {
+      r.estado = 'cortada';
+      resumen.avisos.push(
+        `Se acabó el tiempo de esta corrida para las compras ágiles: quedan ${r.pendientes} para la próxima.`,
+      );
+    }
   }
 
   // ------------------------------------------------------------

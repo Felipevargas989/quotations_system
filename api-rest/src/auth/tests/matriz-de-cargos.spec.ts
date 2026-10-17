@@ -153,7 +153,15 @@ const esperado: [Clase, Record<string, string[]>][] = [
   ],
   [
     OportunidadesController,
-    { 'GET ': A, 'POST radar': A, 'GET radar/corridas': A },
+    {
+      'GET ': A,
+      'GET config': A,
+      'PATCH config': A,
+      'POST radar': A,
+      'GET radar/corridas': A,
+      'GET :id': A,
+      'PATCH :id': A,
+    },
   ],
 ];
 
