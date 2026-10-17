@@ -207,7 +207,7 @@ export class QuotationsController {
   // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026): arma el
   // requerimiento con Claude y lo deja en solicitada; nunca envía. Solo
   // quien cotiza (convertir es pega de venta, 12-08) y solo la empresa con
-  // el módulo propio cotizar_con_ia (Valle del Sol, migración 129).
+  // el módulo propio cotizar_con_ia (Valle del Sol, migración 130).
   @Roles(...SALES_AND_UP)
   @Derecho('cotizar_con_ia')
   @Post(':id/generar')

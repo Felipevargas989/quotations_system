@@ -14,7 +14,7 @@ import { ForbiddenException } from '@nestjs/common';
 // frágil, porque cualquier cambio de precio o de paquete obliga a tocarlo.
 //
 // Los módulos propios (personal y marketing desde la migración 111,
-// cotizar_con_ia desde la 129) son derechos más: no los da ningún plan, los
+// cotizar_con_ia desde la 130) son derechos más: no los da ningún plan, los
 // da la columna `modulos_propios` de la empresa. Valle del Sol los conserva.
 //
 // Hay dos clases de derecho, y se cuidan en lugares distintos:
@@ -56,7 +56,7 @@ export type Derecho =
   // Módulos propios (migración 111): no los da ningún plan.
   | 'personal'
   | 'marketing'
-  // Armar cotizaciones con IA (migración 129, doc 16 §6): la llave de
+  // Armar cotizaciones con IA (migración 130, doc 16 §6): la llave de
   // Anthropic la paga Valle del Sol, y las reglas son las suyas. Solo
   // Valle del Sol mientras no se decida venderlo.
   | 'cotizar_con_ia';

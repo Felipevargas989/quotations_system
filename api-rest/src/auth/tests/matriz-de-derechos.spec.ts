@@ -206,7 +206,7 @@ describe('la matriz de derechos', () => {
     const rutas = rutasDe(QuotationsController);
     const por = (via: string) => rutas.find((r) => r.via === via);
     // El botón «✨ Crear con IA» (17-10-2026): módulo propio de Valle del
-    // Sol (migración 129). El cotizador es de todo plan.
+    // Sol (migración 130). El cotizador es de todo plan.
     expect(por('POST /quotations/:id/generar')?.derecho).toBe('cotizar_con_ia');
     expect(
       rutas.filter((r) => r.derecho === 'cotizar_con_ia').map((r) => r.via),
