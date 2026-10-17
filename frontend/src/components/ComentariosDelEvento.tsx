@@ -4,8 +4,9 @@ import { comentarioNoCargado } from "../utils/comentarioInterno";
 
 // LOS DOS COMENTARIOS DE UN EVENTO (17-10-2026). Felipe: "cada
 // requerimiento debería tener dos campos de comentario, uno que lo ve el
-// cliente y otro interno". La misma pieza en Recepción (RequestForm) y en
-// el cotizador: se arregla acá y las dos pantallas la reciben.
+// cliente y otro interno". La misma pieza en Recepción (RequestForm), el
+// cotizador y la pestaña Servicios (ficha del negocio y Post-Venta): se
+// arregla acá y las tres pantallas la reciben.
 //
 // - Observaciones: las ve el cliente, salen en el PDF.
 // - Comentario interno: solo el equipo; ahí van las instrucciones para
@@ -18,6 +19,9 @@ interface Props {
   comentarioInterno: string | null | undefined;
   onComentarioInterno: (valor: string) => void;
   deshabilitado?: boolean;
+  /** Al salir de cualquiera de los dos campos (la pestaña Servicios
+   *  guarda sola ahí: "salir del campo es señal de ya está"). */
+  onSalir?: () => void;
 }
 
 const caja =
@@ -29,6 +33,7 @@ export default function ComentariosDelEvento({
   comentarioInterno,
   onComentarioInterno,
   deshabilitado = false,
+  onSalir,
 }: Props) {
   const id = useId();
   const noCargado = comentarioNoCargado(comentarioInterno);
@@ -49,6 +54,7 @@ export default function ComentariosDelEvento({
           id={`${id}-obs`}
           value={observaciones ?? ""}
           onChange={(e) => onObservaciones(e.target.value)}
+          onBlur={onSalir}
           rows={4}
           disabled={deshabilitado}
           className={`${caja} border-gray-300 focus:ring-blue-500`}
@@ -72,6 +78,7 @@ export default function ComentariosDelEvento({
           id={`${id}-interno`}
           value={comentarioInterno ?? ""}
           onChange={(e) => onComentarioInterno(e.target.value)}
+          onBlur={onSalir}
           rows={3}
           maxLength={5000}
           disabled={deshabilitado || noCargado}

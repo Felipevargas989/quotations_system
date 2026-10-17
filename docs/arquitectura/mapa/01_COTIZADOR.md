@@ -196,7 +196,7 @@ Es la regla que mantiene cuadradas las cuotas cuando se cambia el total de una c
    - la lista del portal (`findAllByContact`) pide columnas a mano;
    - la puerta pública `GET /quotations/:id` lo quita si quien pregunta no trae una sesión de la misma empresa (`SesionOpcional`, `sinComentarioAjeno`): la encuesta lo abre sin sesión;
    - el formulario público no lo puede escribir (`CreateQuotationPublicDto` lo omite), y la fila que le devuelve al visitante va sin él (`QuotationsController.createPublic`).
-   Lo escriben Recepción (en el requerimiento) y el cotizador, con la pieza `ComentariosDelEvento`. Si una cotización llega sin el campo, la pantalla lo muestra bloqueado y no lo manda al guardar (`utils/comentarioInterno.ts`): mandar un vacío borraría lo escrito. Al duplicar se copia, como todo menos la fecha (regla 28). Evidencia: `api-rest/src/quotations/comentario-interno.ts`, `api-rest/src/auth/sesion-opcional.service.ts`, `frontend/src/components/ComentariosDelEvento.tsx`.
+   Lo escriben Recepción (en el requerimiento), el cotizador y la pestaña Servicios de la ficha del negocio y de Post-Venta (que lo guarda sola al salir del campo, mapa 04 §5.5), con la pieza `ComentariosDelEvento`. Si una cotización llega sin el campo, la pantalla lo muestra bloqueado y no lo manda al guardar (`utils/comentarioInterno.ts`): mandar un vacío borraría lo escrito. Al duplicar se copia, como todo menos la fecha (regla 28). Evidencia: `api-rest/src/quotations/comentario-interno.ts`, `api-rest/src/auth/sesion-opcional.service.ts`, `frontend/src/components/ComentariosDelEvento.tsx`.
 
 ## 7. Conexiones con otros módulos
 
