@@ -289,6 +289,44 @@ Orden acordado:
 | 3 | **Validar documentos** (lo más importante para Felipe): los documentos de la postulación contra el checklist de las bases, uno por uno: cumple, falta o vencido. **Construido el 17-10** ("Mi postulación" y "Validar documentos" en la ficha); la migración 127 espera el OK de Felipe |
 | 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica) |
 
+**Paso 4: diseño propuesto, para decidir con Felipe (escrito el 17-10
+mientras estaba fuera; no se construyó: gasta plata de su cuenta y tiene
+decisiones suyas).**
+
+- **Cómo se llenan los anexos.** El plan de §5.4 sigue siendo el mejor:
+  Claude edita **el Word original del comprador** con ejecución de código y
+  la habilidad de Word de Anthropic (los anexos y la foto de la firma van
+  por la Files API). Así el formato queda el mismo que pide la
+  municipalidad. Las otras dos opciones son peores:
+  - (a) reemplazar los "______" en el XML con el motor: frágil, porque
+    cada municipalidad arma sus formularios distinto;
+  - (b) rehacer cada anexo en un Word nuevo: siempre sale, pero no es el
+    formato entregado.
+
+  Costo estimado: US$1 a 2 por postulación con Opus 5.5.
+- **Qué llena la IA**, con "Mi empresa" y la carpeta:
+  - identificación del oferente y declaraciones juradas;
+  - experiencia (de "Mi empresa" y, más adelante, de los eventos
+    realizados en Eventia);
+  - la oferta económica solo con un monto que ponga Felipe o que venga de
+    una cotización (eso es del sprint 4, que Felipe ve en otro chat);
+    nunca un precio inventado.
+- **La firma**, en dos tiempos:
+  1. "Generar anexos" deja los Word llenos **sin firma** en "Mi
+     postulación", marcados como generados.
+  2. Felipe los revisa y recién ahí aprieta "Firmar", que pone la foto de
+     la firma.
+
+  Así nunca sale un documento firmado que nadie miró.
+- **Crear documento** (propuesta de negocio, presentación, ficha
+  técnica): con logo, catálogo y la ficha de la empresa. Partir por la
+  **propuesta técnica**, que en el Día del Profesor pesaba 30%.
+- **Después**, "Validar documentos" (paso 3) revisa lo generado contra
+  las bases.
+
+Para decidir: (1) ¿Word original con ejecución de código, como dice §5.4?
+(2) ¿Firma en dos tiempos? (3) ¿Por cuál documento partimos?
+
 ### 5.5 La carpeta y la ficha del oferente
 
 - **Carpeta de documentos de la empresa** con fecha de vencimiento y aviso
