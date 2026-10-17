@@ -1,14 +1,15 @@
 # 18 · Seguimiento con IA (el botón «Generar seguimiento»)
 
-> **Estado: PASOS 1 Y 2 CONSTRUIDOS (17-10-2026), rama `feature/seguimiento-con-ia`.**
-> Paso 1 (el motor) probado en el laboratorio: la 475 dejó un correo nuevo
-> en Borradores de felipe@ (14 s, US$ 0,04). Paso 2 (Felipe: *"vamos con el
-> paso 2"*): «✉ Generar seguimiento» en la tarjeta del tablero y en el aviso
-> «Contacto comprometido» de la ficha, y «✉ Generar seguimientos (N)» arriba
-> (mapa 01 §5.8, mapa 02 §2). Falta: probarlo en la pantalla del
-> laboratorio, el paso 3 (prueba en producción) y el 4. Este documento manda sobre la memoria de cualquier sesión:
-> si una conversación cambia una decisión, se actualiza aquí en el mismo
-> movimiento.
+> **Estado: EN PRODUCCIÓN desde el 17-10-2026** (Felipe: *"ok pásalo a
+> producción"*). Paso 1 (el motor) probado en el laboratorio: la 475 dejó
+> un correo nuevo en Borradores de felipe@ (14 s, US$ 0,04). Paso 2 (*"vamos
+> con el paso 2"*): «✉ Generar seguimiento» en la tarjeta del tablero y en
+> el aviso «Contacto comprometido» de la ficha, y «✉ Generar seguimientos
+> (N)» arriba, con la barra de Cotizaciones en dos filas (*"los encuentro
+> desordenados"*). Migración 140 en las dos bases; la llave de Outlook
+> (`MS_CLIENT_SECRET`) la pegó Felipe en Railway. Mapa 01 §5.8, regla 33,
+> riesgo 17; mapa 02 §2. Falta: la primera prueba con cotizaciones reales
+> (paso 3) y las lecciones que deje.
 
 ## 1. Por qué
 
