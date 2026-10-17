@@ -14,6 +14,7 @@ import { OportunidadesController } from 'src/oportunidades/oportunidades.control
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
+import { QuotationsController } from 'src/quotations/quotations.controller';
 import { RefundsController } from 'src/refunds/refunds.controller';
 import { DERECHO_KEY } from '../derecho.decorator';
 import type { Derecho } from '../derechos';
@@ -207,6 +208,18 @@ describe('la matriz de derechos', () => {
     expect(por('POST /clients/types')?.derecho).toBe('clientes_360');
     expect(por('DELETE /clients/types/:id')?.derecho).toBe('clientes_360');
     expect(por('PATCH /clients/types/reorder')?.derecho).toBe('clientes_360');
+  });
+
+  it('Cotizar con IA: solo el botón lleva el candado; el resto del cotizador queda abierto', () => {
+    const rutas = rutasDe(QuotationsController);
+    const por = (via: string) => rutas.find((r) => r.via === via);
+    // El botón «✨ Crear con IA» (17-10-2026): módulo propio de Valle del
+    // Sol (migración 130). El cotizador es de todo plan.
+    expect(por('POST /quotations/:id/generar')?.derecho).toBe('cotizar_con_ia');
+    expect(
+      rutas.filter((r) => r.derecho === 'cotizar_con_ia').map((r) => r.via),
+    ).toEqual(['POST /quotations/:id/generar']);
+    expect(por('PATCH /quotations/:id')?.derecho).toBeUndefined();
   });
 
   it('Análisis es del nivel 2 del Dashboard; el panel del nivel 1 queda abierto', () => {

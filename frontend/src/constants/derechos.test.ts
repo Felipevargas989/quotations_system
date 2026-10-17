@@ -89,6 +89,8 @@ describe("a qué plan hay que subirse", () => {
   it("los dos módulos propios no se venden: no ofrecen mejora", () => {
     expect(PLAN_MINIMO.personal).toBeNull();
     expect(PLAN_MINIMO.marketing).toBeNull();
+    // Cotizar con IA (17-10-2026) tampoco: lo paga Valle del Sol.
+    expect(PLAN_MINIMO.cotizar_con_ia).toBeNull();
   });
 
   it("todo derecho del menú tiene su plan definido", () => {

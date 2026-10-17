@@ -12,10 +12,13 @@ import { CreateClientDto } from 'src/clients/dto/create-client.dto';
 import { CreateQuotationDto } from './create-quotation.dto';
 
 export class CreateQuotationPublicDto extends IntersectionType(
+  // El comentario interno (17-10-2026) es del equipo: un visitante no lo
+  // escribe. Sin esta línea, el formulario público lo heredaría.
   OmitType(CreateQuotationDto, [
     'client_id',
     'quotation_status',
     'request_type',
+    'comentario_interno',
   ] as const),
   // El correo/teléfono del cliente son opcionales EN GENERAL (Clientes
   // 2.0), pero acá se REDEFINEN obligatorios — por eso se omiten del

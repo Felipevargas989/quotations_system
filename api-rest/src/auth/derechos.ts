@@ -14,7 +14,8 @@ import { ForbiddenException } from '@nestjs/common';
 // frágil, porque cualquier cambio de precio o de paquete obliga a tocarlo.
 //
 // Los módulos propios (personal y marketing desde la migración 111,
-// oportunidades desde la 122) son derechos más: no los da ningún plan, los
+// oportunidades desde la 122 y cotizar_con_ia desde la 130) son derechos
+// más: no los da ningún plan, los
 // da la columna `modulos_propios` de la empresa. Valle del Sol los conserva.
 //
 // Hay dos clases de derecho, y se cuidan en lugares distintos:
@@ -58,7 +59,11 @@ export type Derecho =
   | 'marketing'
   // Licitaciones y compras ágiles (migración 122, doc 17): solo Valle del
   // Sol mientras no se decida venderlo.
-  | 'oportunidades';
+  | 'oportunidades'
+  // Armar cotizaciones con IA (migración 130, doc 16 §6): la llave de
+  // Anthropic la paga Valle del Sol, y las reglas son las suyas. Solo
+  // Valle del Sol mientras no se decida venderlo.
+  | 'cotizar_con_ia';
 
 /** Lo que el motor calcula una vez y viaja en la sesión y en el perfil. */
 export type Derechos = {
@@ -143,6 +148,7 @@ export const PLAN_MINIMO: Record<Derecho, Plan | null> = {
   personal: null,
   marketing: null,
   oportunidades: null,
+  cotizar_con_ia: null,
 };
 
 /** Cómo se llama cada derecho cuando hay que explicárselo a una persona. */
@@ -164,6 +170,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   personal: 'El módulo Personal',
   marketing: 'El módulo Marketing',
   oportunidades: 'El módulo de Oportunidades',
+  cotizar_con_ia: 'Cotizar con IA',
 };
 
 /** Lo que el motor trata como empresa para calcular derechos. */
@@ -187,7 +194,10 @@ const esPlan = (v: unknown): v is Plan =>
   v === 'cotiza' || v === 'gestiona' || v === 'crece';
 
 const esModuloPropio = (v: string): v is Derecho =>
-  v === 'personal' || v === 'marketing' || v === 'oportunidades';
+  v === 'personal' ||
+  v === 'marketing' ||
+  v === 'oportunidades' ||
+  v === 'cotizar_con_ia';
 
 /**
  * Los derechos de una empresa. Única fuente de verdad: lo llaman AuthGuard

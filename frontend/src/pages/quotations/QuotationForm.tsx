@@ -79,6 +79,8 @@ import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import CampoUltimoDia from "./CampoUltimoDia";
+import ComentariosDelEvento from "../../components/ComentariosDelEvento";
+import { comentarioParaGuardar } from "../../utils/comentarioInterno";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
@@ -197,6 +199,7 @@ export default function QuotationForm() {
     quotation_status: QuotationStatus.SOLICITADA,
     request_type: QuotationRequestType.COTIZACION,
     observations: "",
+    comentario_interno: "",
     value_per_person: 0,
     fixed_value: 0,
     client_id: "",
@@ -563,6 +566,7 @@ export default function QuotationForm() {
             quotation_status: QuotationStatus.SOLICITADA,
             request_type: QuotationRequestType.COTIZACION,
             observations: data.observations || "",
+            comentario_interno: data.comentario_interno ?? "",
             value_per_person: data.value_per_person,
             fixed_value: data.fixed_value,
             items: data.items,
@@ -1710,6 +1714,8 @@ export default function QuotationForm() {
         // si faltara acá, editar una cotización la dejaría en 0 (migración 37).
         tip_amount: quotationData.tip_amount,
         contact_name: quotationData.contact_name,
+        // Solo si se cargó: si no, no se pisa lo guardado (17-10-2026).
+        ...comentarioParaGuardar(quotationData.comentario_interno),
       };
 
       // if quotation already exists (from requirement or updating a quotation)
@@ -3865,23 +3871,19 @@ export default function QuotationForm() {
             </div>
           )}
 
-          {/* Observaciones — al pie de la columna comercial */}
+          {/* Los dos comentarios, al pie de la columna comercial: el que
+              ve el cliente y el interno, que nunca sale (17-10-2026). */}
           <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
-              Observaciones
-            </h3>
-            <textarea
-              value={formData.observations}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  observations: e.target.value,
-                }))
+            <ComentariosDelEvento
+              observaciones={formData.observations}
+              onObservaciones={(observations) =>
+                setFormData((prev) => ({ ...prev, observations }))
               }
-              rows={4}
-              disabled={isRestrictedEditing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-              placeholder="Detalles adicionales, requerimientos especiales, etc."
+              comentarioInterno={formData.comentario_interno}
+              onComentarioInterno={(comentario_interno) =>
+                setFormData((prev) => ({ ...prev, comentario_interno }))
+              }
+              deshabilitado={isRestrictedEditing}
             />
           </div>
         </div>

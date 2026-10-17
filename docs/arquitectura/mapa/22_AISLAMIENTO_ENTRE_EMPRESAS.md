@@ -116,7 +116,10 @@ con 410. Lo de abajo queda como registro de lo que se pidió.
 - `GET /quotations/:id` es público y devuelve la fila completa, con
   `provisioned_cost` y `provisioned_services`. Opciones: reusar la lista blanca
   de la hoja pública, o un token firmado como el de impresión. La encuesta
-  pública depende de esta ruta.
+  pública depende de esta ruta. Paso chico ya dado (17-10-2026): el
+  comentario interno solo viaja a una sesión de la misma empresa
+  (`SesionOpcional` + `sinComentarioAjeno`, mapa 01 regla 31); los costos
+  siguen saliendo.
 - La respuesta de encuesta pública no exige token: con el UUID se puede
   responder por el cliente.
 - `GET /event-types/public/:companyId` y sus tres puertas hermanas no revisan
