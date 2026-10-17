@@ -3,6 +3,7 @@ import type {
   Anterior,
   EstadoOportunidad,
   Generacion,
+  MiLicitacion,
   OrigenDeArchivo,
   Oportunidad,
   Semaforo,
@@ -552,3 +553,79 @@ export const TEXTOS_DE_GENERACION: Record<
 export const algunaEnCurso = (
   g: Partial<Record<TipoDeGeneracion, Generacion | null>> | null | undefined,
 ): boolean => Object.values(g ?? {}).some((x) => x?.estado === "procesando");
+
+/** "MIS LICITACIONES" (Felipe, 17-10): el avance de cada una, paso a paso.
+ *  Cómo va cada paso: hecho, en curso, con aviso (validación "casi"),
+ *  falta (sin bases, o la validación dice que falta algo obligatorio),
+ *  error, o todavía no. */
+export type EstadoDelPaso =
+  | "hecho"
+  | "en_curso"
+  | "aviso"
+  | "falta"
+  | "error"
+  | "pendiente";
+
+export type PasoDelAvance = { paso: string; estado: EstadoDelPaso };
+
+const trabajo = (e: "procesando" | "listo" | "error" | null): EstadoDelPaso =>
+  e === "listo"
+    ? "hecho"
+    : e === "procesando"
+      ? "en_curso"
+      : e === "error"
+        ? "error"
+        : "pendiente";
+
+export const pasosDelAvance = (
+  m: Pick<MiLicitacion, "avance" | "estado">,
+): PasoDelAvance[] => {
+  const a = m.avance;
+  const v = a.validacion;
+  return [
+    { paso: "Bases", estado: a.bases > 0 ? "hecho" : "falta" },
+    { paso: "Análisis", estado: trabajo(a.analisis) },
+    {
+      paso: "Anexos",
+      estado: a.generados > 0 || a.firmados > 0 ? "hecho" : trabajo(a.anexos),
+    },
+    { paso: "Firma", estado: a.firmados > 0 ? "hecho" : "pendiente" },
+    {
+      paso: "Validación",
+      estado: !v
+        ? "pendiente"
+        : v.estado !== "listo"
+          ? trabajo(v.estado)
+          : v.listo === "si"
+            ? "hecho"
+            : v.listo === "casi"
+              ? "aviso"
+              : "falta",
+    },
+    {
+      paso: "Postulada",
+      estado: ["postulada", "ganada", "perdida"].includes(m.estado)
+        ? "hecho"
+        : "pendiente",
+    },
+  ];
+};
+
+export const ESTILO_DEL_PASO: Record<EstadoDelPaso, string> = {
+  hecho: "bg-green-100 text-green-800",
+  en_curso: "bg-blue-100 text-blue-800",
+  aviso: "bg-amber-100 text-amber-800",
+  falta: "bg-red-100 text-red-800",
+  error: "bg-red-100 text-red-800",
+  pendiente: "bg-gray-100 text-gray-500",
+};
+
+/** En curso: en estudio o postulada. Terminadas: ganadas o perdidas. */
+export const separarMias = <T extends { estado: string }>(lista: T[]) => ({
+  enCurso: lista.filter(
+    (m) => m.estado === "en_estudio" || m.estado === "postulada",
+  ),
+  terminadas: lista.filter(
+    (m) => m.estado === "ganada" || m.estado === "perdida",
+  ),
+});

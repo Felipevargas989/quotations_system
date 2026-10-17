@@ -159,6 +159,7 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'PATCH config': A,
       'POST radar': A,
       'GET radar/corridas': A,
+      'GET mias': A,
       'GET calendario': A,
       'GET competidores': A,
       'GET competidores/:rut': A,

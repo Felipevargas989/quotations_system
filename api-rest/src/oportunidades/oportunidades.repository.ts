@@ -484,6 +484,21 @@ export class OportunidadesRepository {
     return filas;
   }
 
+  /** "Mis licitaciones": las que la empresa marcó (en estudio,
+   *  postuladas, ganadas o perdidas), abiertas o cerradas. Son pocas: una
+   *  página basta. */
+  async mias(companyId: number): Promise<FilaDeLista[]> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select(COLUMNAS_DE_LISTA)
+      .eq('company_id', companyId)
+      .in('estado', ['en_estudio', 'postulada', 'ganada', 'perdida'])
+      .order('id', { ascending: true })
+      .limit(PAGINA);
+    if (error) throw error;
+    return (data ?? []) as unknown as FilaDeLista[];
+  }
+
   // ------------------------------------------------------------
   // Sprint 1b: adjudicaciones e historia (datos públicos)
   // ------------------------------------------------------------

@@ -20,6 +20,12 @@ import { X } from "lucide-react";
 // El fondo es `fixed`, no `absolute`: así el portero no lo cuenta como
 // panel flotante a mano (esa regla vigila los desplegables, y está en
 // su techo justo).
+//
+// AL COSTADO (17-10-2026, Felipe con el pantallazo de Licify: el resumen
+// de una licitación "algo así cuando pincho"): `lado="derecha"` la abre
+// pegada al borde derecho, con todo el alto, y la lista se sigue viendo
+// detrás. Mismas reglas: cabecera y pie fijos, scroll solo en el cuerpo,
+// Escape y clic en el fondo cierran.
 
 export default function Modal({
   titulo,
@@ -30,6 +36,7 @@ export default function Modal({
   bloquearEscape = false,
   sinTope = false,
   altoFijo = false,
+  lado = "centro",
   onCerrar,
   children,
 }: {
@@ -54,6 +61,9 @@ export default function Modal({
    *  Felipe 08-09) — con contenido corto quedaba chica y con largo
    *  crecía, y la ventana saltaba de alto con cada persona. */
   readonly altoFijo?: boolean;
+  /** "derecha": panel de alto completo pegado al borde derecho (el
+   *  resumen de una licitación, como Licify). Por omisión, al centro. */
+  readonly lado?: "centro" | "derecha";
   readonly onCerrar: () => void;
   readonly children: ReactNode;
 }) {
@@ -66,17 +76,28 @@ export default function Modal({
     return () => window.removeEventListener("keydown", alTeclear);
   }, [onCerrar, bloquearEscape]);
 
+  const alCostado = lado === "derecha";
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto"
+      className={
+        alCostado
+          ? "fixed inset-0 z-50 flex justify-end bg-black/30"
+          : "fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto"
+      }
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCerrar();
       }}
     >
       <div
-        className={`bg-white rounded-xl shadow-xl w-full ${ancho} my-4 flex flex-col ${
-          sinTope ? "" : altoFijo ? "h-[88vh]" : "max-h-[88vh]"
-        }`}
+        role="dialog"
+        aria-modal="true"
+        className={
+          alCostado
+            ? `bg-white shadow-xl w-full ${ancho} h-full flex flex-col`
+            : `bg-white rounded-xl shadow-xl w-full ${ancho} my-4 flex flex-col ${
+                sinTope ? "" : altoFijo ? "h-[88vh]" : "max-h-[88vh]"
+              }`
+        }
       >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
           {/* flex-1: sin esto el bloque del título se ajusta al texto y
@@ -103,8 +124,8 @@ export default function Modal({
         </div>
 
         <div
-          className={`px-5 py-4 ${sinTope ? "" : "overflow-y-auto"} ${
-            altoFijo ? "flex-1 min-h-0" : ""
+          className={`px-5 py-4 ${sinTope && !alCostado ? "" : "overflow-y-auto"} ${
+            altoFijo || alCostado ? "flex-1 min-h-0" : ""
           }`}
         >
           {children}

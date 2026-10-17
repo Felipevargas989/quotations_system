@@ -114,6 +114,29 @@ export class AdjuntosRepository {
     return (data ?? []) as unknown as Adjunto[];
   }
 
+  /** La sección y el origen de cada archivo de varias oportunidades de la
+   *  empresa, sin rutas: el avance de "Mis licitaciones". */
+  async origenesDe(
+    companyId: number,
+    oportunidadIds: number[],
+  ): Promise<
+    Array<{ oportunidad_id: number; seccion: Seccion; origen: Origen }>
+  > {
+    if (oportunidadIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from('oportunidad_adjuntos')
+      .select('oportunidad_id, seccion, origen')
+      .eq('company_id', companyId)
+      .in('oportunidad_id', oportunidadIds)
+      .limit(5000);
+    if (error) throw error;
+    return (data ?? []) as Array<{
+      oportunidad_id: number;
+      seccion: Seccion;
+      origen: Origen;
+    }>;
+  }
+
   async subirArchivo(
     ruta: string,
     contenido: Buffer,

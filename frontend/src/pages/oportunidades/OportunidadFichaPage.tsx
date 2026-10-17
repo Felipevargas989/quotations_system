@@ -12,7 +12,6 @@ import {
   type EstadoOportunidad,
   type FichaDeOportunidad,
 } from "../../services/oportunidades.service";
-import { getUsers } from "../../services/users.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
@@ -22,6 +21,7 @@ import DocumentosConIA from "./DocumentosConIA";
 import MiPostulacion from "./MiPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import Ganadores from "./Ganadores";
+import { useResponsables } from "./useResponsables";
 import {
   ALERTAS,
   cuandoCierra,
@@ -54,8 +54,6 @@ const FECHAS: ReadonlyArray<[string, string]> = [
   ["FechaEstimadaAdjudicacion", "Adjudicación estimada"],
   ["FechaAdjudicacion", "Adjudicación"],
 ];
-
-type UsuarioDeLaEmpresa = { id: string; full_name: string; role: string };
 
 export default function OportunidadFichaPage() {
   const { id } = useParams();
@@ -103,16 +101,8 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   const p = ficha.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
 
-  const { data: usuarios = [] } = useQuery({
-    queryKey: ["users"],
-    queryFn: async (): Promise<UsuarioDeLaEmpresa[]> => {
-      const { data, error } = await getUsers();
-      if (error) throw error;
-      return (data as UsuarioDeLaEmpresa[] | null) ?? [];
-    },
-  });
   // Solo los administradores ven el módulo (Felipe, 17-10).
-  const responsables = usuarios.filter((u) => u.role === "administrador");
+  const responsables = useResponsables();
 
   const [notas, setNotas] = useState(ficha.notas ?? "");
   useEffect(() => setNotas(ficha.notas ?? ""), [ficha.notas]);
@@ -208,10 +198,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         <div className="max-w-sm">
           <p className="text-xs text-gray-500 mb-1">Responsable</p>
           <SelectWithSearch
-            options={responsables.map((u) => ({
-              value: u.id,
-              label: u.full_name,
-            }))}
+            options={responsables}
             value={ficha.responsable_id ?? ""}
             onChange={(v) => guardar.mutate({ responsable_id: v || null })}
             placeholder="Sin responsable"

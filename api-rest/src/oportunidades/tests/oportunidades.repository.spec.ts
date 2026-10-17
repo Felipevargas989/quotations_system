@@ -177,6 +177,7 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
     await repo.ficha(52, 9);
     await repo.actualizar(52, 9, { estado: 'en_estudio' });
     await repo.esUsuarioDeLaEmpresa(52, 'b3c1e0f2-0000-4000-8000-000000000000');
+    await repo.mias(52);
 
     expect(consultas.map((c) => c.tabla)).toEqual([
       'oportunidades_config',
@@ -187,8 +188,15 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
       'oportunidades',
       'oportunidades',
       'user_profiles',
+      'oportunidades',
     ]);
     for (const c of consultas) expect(filtraPorEmpresa(c, 52)).toBe(true);
+    // "Mis licitaciones": las marcadas, abiertas o cerradas.
+    expect(consultas[8].pasos).toContainEqual([
+      'in',
+      'estado',
+      ['en_estudio', 'postulada', 'ganada', 'perdida'],
+    ]);
   });
 
   it('guardar la configuración lleva la empresa en la fila (upsert por empresa)', async () => {
