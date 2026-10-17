@@ -283,8 +283,8 @@ Orden acordado:
 
 | Paso | Qué |
 |---|---|
-| 1 | **Analizar bases** (Opus 5.5, migración 125): resumen, **criterios destacados** (arriba, por peso, con el % grande), checklist de requisitos con la página, fechas, garantías y alertas |
-| 1b | El **panel de detalle** al pinchar en la bandeja, con En estudio, Descartar y Ver ficha |
+| 1 | **Analizar bases** (Opus 5.5, migración 125): resumen, **criterios destacados** (arriba, por peso, con el % grande), checklist de requisitos con la página, fechas, garantías y alertas. **Construido el 17-10; la 125, en el laboratorio** |
+| 1b | El **panel de detalle** al pinchar en la bandeja, con En estudio, Descartar y Ver ficha. **Construido el 17-10** |
 | 2 | **Datos de la empresa como oferente y la foto de la firma**; la carpeta con vencimientos (§5.5) |
 | 3 | **Validar documentos** (lo más importante para Felipe): los documentos de la postulación contra el checklist de las bases, uno por uno: cumple, falta o vencido |
 | 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica) |
