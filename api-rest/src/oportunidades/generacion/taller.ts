@@ -40,6 +40,8 @@ export type ArchivoParaElTaller = {
 export type ArchivoDelTaller = { nombre: string; datos: Buffer };
 
 export type PedidoAlTaller = {
+  /** Sin decirlo, Opus 5.5 (el modelo por tarea vive en comun.ts). */
+  modelo?: string;
   sistema: string;
   texto: string;
   archivos: ArchivoParaElTaller[];
@@ -134,7 +136,7 @@ export async function trabajarEnElTaller(
     for (let vuelta = 0; vuelta <= MAX_REANUDACIONES; vuelta++) {
       respuesta = await cliente.messages
         .stream({
-          model: MODELO_OPUS,
+          model: pedido.modelo ?? MODELO_OPUS,
           max_tokens: pedido.maxTokens ?? 32_000,
           output_config: { effort: pedido.esfuerzo ?? 'medium' },
           // La caché que se corre sola: cada vuelta lee lo anterior a un

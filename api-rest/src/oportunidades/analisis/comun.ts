@@ -8,13 +8,46 @@ import { textoDeDocx } from './docx';
 // y validar documentos (paso 3). Qué archivos se pueden leer, cómo se le
 // pasan a Claude, lo que cuesta y las fallas en palabras de la casa.
 
-/** Opus 5.5: lo decidido para documentos (doc 17, decisión 6). */
+/** EL MODELO POR TAREA (Felipe, 17-10: "los más caros donde se necesiten
+ *  y los más baratos donde sea necesario"): Opus 5.5 analiza las bases,
+ *  valida y escribe la propuesta técnica; Sonnet 5.5 llena los anexos;
+ *  Haiku 5.5 lee cada licitación del radar y pone la firma. */
 export const MODELO_OPUS = 'claude-opus-5-5';
+export const MODELO_SONNET = 'claude-sonnet-5-5';
+export const MODELO_HAIKU = 'claude-haiku-5-5';
 
-/** Precio de Opus 5.5 en US$ por token: 4 por millón de entrada, 20 de
- *  salida. */
-const US_POR_TOKEN_ENTRADA = 4 / 1_000_000;
-const US_POR_TOKEN_SALIDA = 20 / 1_000_000;
+/** Precios de la página de Anthropic (17-10-2026), en US$ por millón de
+ *  tokens: entrada, salida, escribir la caché (5 minutos) y leerla. En
+ *  Opus 5.5 y Sonnet 5.5 leer la caché cuesta 0,05 veces la entrada; en
+ *  Haiku 5.5, 0,1 veces. Haiku cobra más si un pedido pasa de 100.000
+ *  tokens: la firma no llega ni cerca. */
+const PRECIOS: Readonly<
+  Record<
+    string,
+    {
+      entrada: number;
+      salida: number;
+      cacheEscrita: number;
+      cacheLeida: number;
+    }
+  >
+> = {
+  [MODELO_OPUS]: { entrada: 4, salida: 20, cacheEscrita: 5, cacheLeida: 0.2 },
+  [MODELO_SONNET]: {
+    entrada: 2,
+    salida: 10,
+    cacheEscrita: 2.5,
+    cacheLeida: 0.1,
+  },
+  [MODELO_HAIKU]: {
+    entrada: 0.1,
+    salida: 0.5,
+    cacheEscrita: 0.125,
+    cacheLeida: 0.01,
+  },
+};
+
+const precioDe = (modelo: string) => PRECIOS[modelo] ?? PRECIOS[MODELO_OPUS];
 
 /** Los PDF van dentro del pedido, en base64, que los agranda un tercio. El
  *  pedido no puede pasar de 32 MB. */
@@ -35,13 +68,20 @@ export const hoyEnChile = (ahora = new Date()): string =>
     ahora,
   );
 
-export const costoEnDolares = (entrada: number, salida: number): number =>
-  Math.round(
-    (entrada * US_POR_TOKEN_ENTRADA + salida * US_POR_TOKEN_SALIDA) * 10_000,
-  ) / 10_000;
+export const costoEnDolares = (
+  entrada: number,
+  salida: number,
+  modelo: string = MODELO_OPUS,
+): number => {
+  const p = precioDe(modelo);
+  return (
+    Math.round(
+      ((entrada * p.entrada + salida * p.salida) / 1_000_000) * 10_000,
+    ) / 10_000
+  );
+};
 
-/** Los tokens de un trabajo largo (paso 4), con la caché aparte: escribirla
- *  cuesta 1,25 veces la entrada y leerla, una décima. */
+/** Los tokens de un trabajo largo (paso 4), con la caché aparte. */
 export type UsoDeTokens = {
   entrada: number;
   salida: number;
@@ -49,13 +89,22 @@ export type UsoDeTokens = {
   cacheLeida: number;
 };
 
-export const costoDelUso = (u: UsoDeTokens): number =>
-  Math.round(
-    ((u.entrada + u.cacheEscrita * 1.25 + u.cacheLeida * 0.1) *
-      US_POR_TOKEN_ENTRADA +
-      u.salida * US_POR_TOKEN_SALIDA) *
-      10_000,
-  ) / 10_000;
+export const costoDelUso = (
+  u: UsoDeTokens,
+  modelo: string = MODELO_OPUS,
+): number => {
+  const p = precioDe(modelo);
+  return (
+    Math.round(
+      ((u.entrada * p.entrada +
+        u.cacheEscrita * p.cacheEscrita +
+        u.cacheLeida * p.cacheLeida +
+        u.salida * p.salida) /
+        1_000_000) *
+        10_000,
+    ) / 10_000
+  );
+};
 
 /** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes), en el orden
  *  en que se subió: así "el documento" es el que uno ve. */

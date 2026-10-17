@@ -106,7 +106,9 @@ export default function FichaEnUnaMirada({
           )}
         </Dato>
         <Dato titulo="Evento">
-          {evento || (bases ? "No lo dicen" : "—")}
+          <span title={evento || undefined} className="line-clamp-3">
+            {evento || (bases ? "No lo dicen" : "—")}
+          </span>
           <Detalle>
             {bases?.personas
               ? `${bases.personas} personas`

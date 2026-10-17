@@ -24,7 +24,9 @@ import {
   ENCENDIDO,
   errorDeIA,
   hoyEnChile,
+  MODELO_HAIKU,
   MODELO_OPUS,
+  MODELO_SONNET,
   type NoLeido,
 } from '../analisis/comun';
 import { nombresDelZip, textoDeDocx } from '../analisis/docx';
@@ -104,6 +106,9 @@ type Salida = {
 
 export type Plan = {
   tipo: TipoDeGeneracion;
+  /** El modelo por tarea (Felipe, 17-10): Sonnet llena los anexos, Haiku
+   *  firma y Opus escribe la propuesta técnica. */
+  modelo: string;
   oportunidadId: number;
   perfil: string | null;
   sistema: string;
@@ -253,6 +258,9 @@ export class GeneracionService {
           oferta,
         ),
         texto: 'Llena los anexos.',
+        // Casi todo es copiar los datos de la empresa al formulario: Sonnet
+        // basta, a la mitad del precio de Opus.
+        modelo: MODELO_SONNET,
         entradas: anexos.map((a) => ({
           enElTaller: a.enElTaller,
           tipo: TIPO_WORD,
@@ -336,6 +344,9 @@ export class GeneracionService {
           enElTallerFirma,
         ),
         texto: 'Firma los documentos.',
+        // Solo pega una imagen, y el motor descarta si cambió una letra:
+        // Haiku, 40 veces más barato que Opus.
+        modelo: MODELO_HAIKU,
         entradas: [
           ...documentos.map((d) => ({
             enElTaller: d.enElTaller,
@@ -426,6 +437,8 @@ export class GeneracionService {
           enElTallerLogo,
         ),
         texto: 'Escribe la propuesta técnica.',
+        // Es nota (30% en el Día del Funcionario): Opus.
+        modelo: MODELO_OPUS,
         entradas: [
           ...(enElTallerLogo && logo
             ? [
@@ -481,6 +494,7 @@ export class GeneracionService {
       }
 
       const taller = await trabajarEnElTaller(this.cliente(), {
+        modelo: plan.modelo,
         sistema: plan.sistema,
         texto: plan.texto,
         archivos,
@@ -538,7 +552,7 @@ export class GeneracionService {
         }
       }
 
-      const costo = costoDelUso(taller.uso);
+      const costo = costoDelUso(taller.uso, plan.modelo);
       const tokens = {
         tokens_entrada:
           taller.uso.entrada + taller.uso.cacheEscrita + taller.uso.cacheLeida,
@@ -679,7 +693,7 @@ export class GeneracionService {
       tipo: e.tipo,
       analisis_id: analisisId,
       parametros: e.parametros,
-      modelo: MODELO_OPUS,
+      modelo: e.plan.modelo,
       archivos: e.archivos.map((a) => ({ id: a.id, nombre: a.nombre })),
       no_leidos: e.noLeidos,
       pedido_por: perfil,
