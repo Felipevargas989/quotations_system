@@ -50,6 +50,28 @@ const errorDeLaApi = (
   };
 };
 
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Lo que Mercado Público escribió en una respuesta de error, corto y sin
+ *  el ticket (por si lo repitiera). */
+const resumirCuerpo = (texto: string): string => {
+  let t = texto;
+  try {
+    const j = JSON.parse(texto) as Record<string, unknown>;
+    const m = j?.Mensaje ?? j?.message ?? j?.error ?? j?.errors;
+    t = typeof m === 'string' ? m : JSON.stringify(m ?? j);
+  } catch {
+    // Texto plano o una página HTML.
+  }
+  t = t
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const ticket = process.env.MP_TICKET?.trim();
+  if (ticket) t = t.split(ticket).join('[ticket]');
+  return t.slice(0, 160);
+};
+
 /** El servidor falló (5xx, red) o no tiene cupo (429). */
 export class MercadoPublicoError extends Error {
   constructor(
@@ -69,6 +91,12 @@ export class MercadoPublicoError extends Error {
 export class MercadoPublicoClient {
   /** Pausas entre reintentos, en milisegundos (las pruebas las acortan). */
   esperas: number[] = [15_000, 30_000];
+  /** Ante un 429 se espera más antes de darlo por "sin cupo": a veces es
+   *  un freno por pedir seguido, no el cupo del día (17-10, laboratorio). */
+  esperas429: number[] = [30_000, 90_000];
+  /** Pausa mínima entre el inicio de dos pedidos (las pruebas la apagan). */
+  pausaMinimaMs = 1_000;
+  private ultimoPedido = 0;
   /** Tope de cada petición (la lista de activas tiene el suyo, más largo). */
   topeMs = 60_000;
   topeListaMs = 120_000;
@@ -193,17 +221,21 @@ export class MercadoPublicoClient {
     return null;
   }
 
-  /** GET con reintentos ante 5xx o corte de red. `que` es lo que se pide,
-   *  en palabras: es lo único que llega al registro (nunca la URL). */
+  /** GET con reintentos ante 5xx, corte de red, peticiones simultáneas y
+   *  429. `que` es lo que se pide, en palabras: es lo único que llega al
+   *  registro (nunca la URL). */
   private async pedir(
     url: string,
     cabeceras: Record<string, string>,
     que: string,
     topeMs = this.topeMs,
   ): Promise<unknown> {
-    for (let intento = 0; ; intento++) {
+    let fallas = 0;
+    let frenos = 0;
+    for (;;) {
       let status: number | null = null;
       let motivo: string | null = null;
+      await this.esperarTurno();
       try {
         const resp = await fetch(url, {
           headers: { accept: 'application/json', ...cabeceras },
@@ -211,10 +243,20 @@ export class MercadoPublicoClient {
         });
         status = resp.status;
         if (resp.status === 429) {
-          throw new MercadoPublicoError(
-            `${que}: Mercado Público respondió 429 (sin cupo por hoy)`,
-            429,
+          const dijo = resumirCuerpo(await resp.text().catch(() => ''));
+          const detalle = dijo ? ` (${dijo})` : '';
+          if (frenos >= this.esperas429.length) {
+            throw new MercadoPublicoError(
+              `${que}: Mercado Público respondió 429${detalle} tras ${frenos + 1} intentos: sin cupo`,
+              429,
+            );
+          }
+          const espera = this.esperas429[frenos++];
+          this.logger.warn(
+            `${que}: Mercado Público respondió 429${detalle}; espero ${Math.round(espera / 1000)} s`,
           );
+          await dormir(espera);
+          continue;
         }
         const cuerpo: unknown = await resp.json().catch(() => null);
         const error = errorDeLaApi(cuerpo);
@@ -238,17 +280,24 @@ export class MercadoPublicoClient {
         // Corte de red o tope de tiempo: se reintenta como un 5xx.
       }
       const razon = motivo ?? String(status ?? 'sin respuesta');
-      if (intento >= this.esperas.length) {
+      if (fallas >= this.esperas.length) {
         throw new MercadoPublicoError(
-          `${que}: Mercado Público no respondió (${razon}) tras ${intento + 1} intentos`,
+          `${que}: Mercado Público no respondió (${razon}) tras ${fallas + 1} intentos`,
           status,
         );
       }
-      const espera = this.esperas[intento];
+      const espera = this.esperas[fallas++];
       this.logger.warn(
         `${que}: Mercado Público respondió ${razon}; reintento en ${Math.round(espera / 1000)} s`,
       );
-      await new Promise((r) => setTimeout(r, espera));
+      await dormir(espera);
     }
+  }
+
+  /** Deja pasar al menos `pausaMinimaMs` entre el inicio de dos pedidos. */
+  private async esperarTurno(): Promise<void> {
+    const falta = this.ultimoPedido + this.pausaMinimaMs - Date.now();
+    if (falta > 0) await dormir(falta);
+    this.ultimoPedido = Date.now();
   }
 }
