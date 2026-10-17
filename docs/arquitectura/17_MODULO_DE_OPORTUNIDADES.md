@@ -498,6 +498,15 @@ evento confirmado.
 
      La extensión haría lo mismo que «Ver Anexo» fila por fila, dentro de la
      sesión de Felipe.
+
+     **Pospuesta el 17-10.** Felipe preguntó si se podía bajar con «Ver
+     Anexo» desde el motor, solo para las que interesan. No se puede: desde
+     el servidor habría que pasar el control invisible haciéndose pasar por
+     persona. La versión buena es el botón en su Chrome. Felipe: *"estoy
+     pensando para Eventia primero el Valle y luego que sea escalable...
+     mientras dejemos como está de arrastrar, no nos desgastemos"*. Queda el
+     arrastre (d). La extensión se retoma cuando el módulo se piense para
+     otras empresas.
    - (f) la API de Licify en Apify (acción `list-files`, desde US$0,10 por
      1.000 resultados); falta probar si trae el archivo o solo el nombre.
 
