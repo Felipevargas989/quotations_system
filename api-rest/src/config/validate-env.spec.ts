@@ -18,6 +18,9 @@ describe('validateEnv', () => {
     process.env.PUBLIC_API_URL = 'https://api.x.cl';
     process.env.RESEND_WEBHOOK_SECRET = 'whsec_x';
     process.env.MARKETING_BAJA_SECRET = 'secreto_x';
+    // Oportunidades (doc 17, 16-10):
+    process.env.MP_TICKET = 'ticket_x';
+    process.env.ANTHROPIC_API_KEY = 'llave_x';
   };
 
   afterEach(() => {

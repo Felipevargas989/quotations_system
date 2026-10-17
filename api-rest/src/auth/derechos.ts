@@ -13,9 +13,9 @@ import { ForbiddenException } from '@nestjs/common';
 // Stigg entre otros: preguntar por el identificador del plan hace el código
 // frágil, porque cualquier cambio de precio o de paquete obliga a tocarlo.
 //
-// Los módulos propios de la migración 111 (personal, marketing) son dos
-// derechos más: no los da ningún plan, los da la columna `modulos_propios`
-// de la empresa. Valle del Sol los conserva.
+// Los módulos propios (personal y marketing desde la migración 111,
+// oportunidades desde la 122) son derechos más: no los da ningún plan, los
+// da la columna `modulos_propios` de la empresa. Valle del Sol los conserva.
 //
 // Hay dos clases de derecho, y se cuidan en lugares distintos:
 //  - De sí o no (`Derecho`): los aplica DerechosGuard en la puerta, o una
@@ -55,7 +55,10 @@ export type Derecho =
   | 'movil'
   // Módulos propios (migración 111): no los da ningún plan.
   | 'personal'
-  | 'marketing';
+  | 'marketing'
+  // Licitaciones y compras ágiles (migración 122, doc 17): solo Valle del
+  // Sol mientras no se decida venderlo.
+  | 'oportunidades';
 
 /** Lo que el motor calcula una vez y viaja en la sesión y en el perfil. */
 export type Derechos = {
@@ -139,6 +142,7 @@ export const PLAN_MINIMO: Record<Derecho, Plan | null> = {
   movil: 'crece',
   personal: null,
   marketing: null,
+  oportunidades: null,
 };
 
 /** Cómo se llama cada derecho cuando hay que explicárselo a una persona. */
@@ -159,6 +163,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   movil: 'Eventia Móvil',
   personal: 'El módulo Personal',
   marketing: 'El módulo Marketing',
+  oportunidades: 'El módulo de Oportunidades',
 };
 
 /** Lo que el motor trata como empresa para calcular derechos. */
@@ -182,7 +187,7 @@ const esPlan = (v: unknown): v is Plan =>
   v === 'cotiza' || v === 'gestiona' || v === 'crece';
 
 const esModuloPropio = (v: string): v is Derecho =>
-  v === 'personal' || v === 'marketing';
+  v === 'personal' || v === 'marketing' || v === 'oportunidades';
 
 /**
  * Los derechos de una empresa. Única fuente de verdad: lo llaman AuthGuard
@@ -197,8 +202,9 @@ const esModuloPropio = (v: string): v is Derecho =>
  *  3. Activa, de cortesía o morosa → los de su plan. La de cortesía nunca
  *     paga y nadie la va a perseguir; la morosa conserva todo durante la
  *     gracia y solo recibe avisos.
- *  4. Siempre se suman los módulos propios (Personal y Marketing), que no
- *     los da ningún plan sino la columna `modulos_propios`.
+ *  4. Siempre se suman los módulos propios (Personal, Marketing y
+ *     Oportunidades), que no los da ningún plan sino la columna
+ *     `modulos_propios`.
  *
  * Si la empresa viene sin plan (migración 112 sin aplicar, o fila vieja),
  * se la trata como Cotiza en prueba: el plan más chico, nunca más. Es la

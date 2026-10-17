@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -265,6 +265,7 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | Cada minuto (`CronExpression.EVERY_MINUTE`) | — | `api-rest/src/consultas/consultas-cron.service.ts`, `ConsultasCronService.despachar` → `ConsultasService.despacharPendientes` | Manda el brochure de las consultas cuya hora citada ya llegó (10 minutos después de entrar) | 11 |
 | Cada minuto (`CronExpression.EVERY_MINUTE`) | — | `api-rest/src/marketing/marketing-cron.service.ts`, `MarketingCronService.despacharProgramadas` | Despacha las campañas programadas cuya hora llegó, con el candado `tomarProgramada` | 10 |
 | Cada 30 minutos (`'*/30 * * * *'`) | — | `api-rest/src/movil/movil.service.ts`, `MovilService.cicloAvisos` | Calcula y empuja los 4 avisos push; dormido sin llaves VAPID | 16 |
+| Cada 2 horas, a los 7 minutos (`'7 */2 * * *'`), desde el 16-10-2026 en la rama `feature/oportunidades-radar` (sin aplicar) | cada 2 horas, a los :07 | `api-rest/src/oportunidades/oportunidades-cron.service.ts`, `OportunidadesCronService.radarProgramado` → `RadarService.correr('reloj')` | El radar de Mercado Público: trae lo nuevo, anota cierres movidos y reaperturas, y lee con IA lo de las regiones de cada empresa. Candado en la base (`mp_radar_una_corriendo`), no en memoria. En el laboratorio: `POST /oportunidades/radar` o `OPORTUNIDADES_RADAR_AL_ARRANCAR=1` | 24 |
 | 01:00 UTC diario (`CronExpression.EVERY_DAY_AT_1AM`) | 21:00 / 22:00 del día anterior | `api-rest/src/payments/payments.service.ts`, `PaymentsService.updateOverduePayments` | Las cuotas `pendiente` con `due_date` ya cumplida pasan a `vencido` | 03 |
 | 07:00 UTC diario (`'0 7 * * *'`) | 03:00 / 04:00 | `api-rest/src/backup/backup-cron.service.ts`, `BackupCronService.dailyBackup` | Respaldo completo de la base al balde `backups` | 16 |
 | 11:00 UTC diario (`CronExpression.EVERY_DAY_AT_11AM`) | 07:00 / 08:00 | `api-rest/src/payments/payments-cron.service.ts`, `PaymentsCronService.checkUpcomingOverduePayments` | Recordatorio de cuotas pendientes que vencen en 3 días o hoy, al mandante y a los administradores | 03 y 12 |
@@ -282,6 +283,7 @@ Ningún `@Cron` declara `timeZone`: los horarios suponen que el servidor corre e
 | `ConsultasCronService.despachar` → `ConsultasService.despacharPendientes` | `consultas` | El filtro va **antes** de `tomarEnvio` |
 | `PaymentsCronService` (las dos vueltas de cobranza) | `post_venta` | — |
 | `MarketingCronService.despacharProgramadas` | `marketing` | El filtro va **antes** de `tomarProgramada` |
+| `OportunidadesCronService.radarProgramado` (rama `feature/oportunidades-radar`) | `oportunidades` | Lo filtra `OportunidadesRepository.empresasConModulo` con la misma `derechosDe`. Los datos públicos de Mercado Público se traen igual: lo que se filtra es a qué empresa se le lee |
 
 En los dos relojes que "toman" una fila con un candado (embudo y campañas) el filtro va **antes** de tomarla. Al revés —tomar primero y descartar después— la fila quedaría marcada como despachada sin que hubiera salido nada, y nadie sabría por qué. El detalle de qué trae cada plan está en el mapa 15, §5.8; el de los correos, en el 12.
 

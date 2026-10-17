@@ -63,6 +63,7 @@ Lo que ya se cobró y se opera.
   la configuración sigue abierto, porque la pantalla de Consultas la carga.
 - Códigos de servicio en uso.
 - Respuestas de la encuesta de satisfacción.
+- Oportunidades (doc 17, mapa 24): la lista, correr el radar y ver sus corridas. Además exige el derecho `oportunidades`. Desde el 16-10-2026 en la rama `feature/oportunidades-radar`, sin aplicar; quién más lo ve se decide con la pantalla (sprint 2).
 
 ## Se quedan como están
 

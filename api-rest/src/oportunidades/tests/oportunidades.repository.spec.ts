@@ -1,0 +1,230 @@
+import type { PinoLogger } from 'nestjs-pino';
+import type { SupabaseService } from 'src/supabase/supabase.service';
+import { mockPinoLogger } from 'src/testing/mocks';
+import { OportunidadesRepository } from '../oportunidades.repository';
+
+/**
+ * El repositorio contra una base falsa que anota cada consulta: tabla y
+ * pasos (select, eq, upsert…). La respuesta la decide `responder` mirando
+ * la consulta completa.
+ */
+type Consulta = { tabla: string; pasos: unknown[][] };
+type Respuesta = { data?: unknown; error?: unknown };
+
+const METODOS = [
+  'select',
+  'insert',
+  'update',
+  'upsert',
+  'eq',
+  'lt',
+  'in',
+  'or',
+  'contains',
+  'order',
+  'limit',
+  'range',
+];
+
+function armar(responder: (c: Consulta) => Respuesta = () => ({})) {
+  const consultas: Consulta[] = [];
+  const from = jest.fn((tabla: string) => {
+    const consulta: Consulta = { tabla, pasos: [] };
+    consultas.push(consulta);
+    const resolver = () =>
+      Promise.resolve({ data: null, error: null, ...responder(consulta) });
+    const cadena: Record<string, unknown> = {};
+    for (const m of METODOS) {
+      cadena[m] = (...args: unknown[]) => {
+        consulta.pasos.push([m, ...args]);
+        return cadena;
+      };
+    }
+    cadena.single = () => {
+      consulta.pasos.push(['single']);
+      return resolver();
+    };
+    cadena.maybeSingle = () => {
+      consulta.pasos.push(['maybeSingle']);
+      return resolver();
+    };
+    cadena.then = (
+      bien: (v: unknown) => unknown,
+      mal?: (e: unknown) => unknown,
+    ) => resolver().then(bien, mal);
+    return cadena;
+  });
+  const repo = new OportunidadesRepository(
+    { client: { from } } as unknown as SupabaseService,
+    mockPinoLogger() as unknown as PinoLogger,
+  );
+  return { repo, consultas };
+}
+
+const tiene = (c: Consulta, metodo: string) =>
+  c.pasos.some(([m]) => m === metodo);
+const paso = (c: Consulta, metodo: string) =>
+  c.pasos.find(([m]) => m === metodo);
+
+describe('OportunidadesRepository — el candado de la corrida', () => {
+  it('primero da por muertas las que llevan más de 3 horas "corriendo"', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'insert') ? { data: { id: 5 } } : {},
+    );
+    await expect(repo.tomarCorrida('manual')).resolves.toBe(5);
+
+    const [limpieza, insercion] = consultas;
+    expect(limpieza.tabla).toBe('mp_radar_corridas');
+    expect(paso(limpieza, 'update')?.[1]).toMatchObject({
+      estado: 'abandonada',
+    });
+    expect(paso(limpieza, 'eq')).toEqual(['eq', 'estado', 'corriendo']);
+    const limite = new Date(paso(limpieza, 'lt')?.[2] as string).getTime();
+    expect(Date.now() - limite).toBeGreaterThanOrEqual(
+      3 * 60 * 60 * 1000 - 1000,
+    );
+    expect(paso(insercion, 'insert')).toEqual(['insert', { origen: 'manual' }]);
+  });
+
+  it('si el índice único dice que ya hay una corriendo (23505), devuelve null', async () => {
+    const { repo } = armar((c) =>
+      tiene(c, 'insert')
+        ? { error: { code: '23505', message: 'duplicate key value' } }
+        : {},
+    );
+    await expect(repo.tomarCorrida('reloj')).resolves.toBeNull();
+  });
+
+  it('cualquier otro error de la base se lanza', async () => {
+    const { repo } = armar((c) =>
+      tiene(c, 'insert')
+        ? { error: { code: '42501', message: 'permission denied' } }
+        : {},
+    );
+    await expect(repo.tomarCorrida('reloj')).rejects.toMatchObject({
+      code: '42501',
+    });
+  });
+});
+
+describe('OportunidadesRepository — las empresas del radar', () => {
+  it('solo las que tienen el módulo, y una bloqueada no entra aunque lo tenga', async () => {
+    const { repo, consultas } = armar(() => ({
+      data: [
+        {
+          id: 1,
+          name: 'Valle del Sol',
+          plan: 'crece',
+          estado_plan: 'gratis',
+          modulos_propios: ['personal', 'marketing', 'oportunidades'],
+          high_value_threshold: 3_000_000,
+        },
+        {
+          id: 52,
+          name: 'Bloqueada',
+          plan: 'crece',
+          estado_plan: 'bloqueado',
+          modulos_propios: ['oportunidades'],
+          high_value_threshold: null,
+        },
+      ],
+    }));
+
+    await expect(repo.empresasConModulo()).resolves.toEqual([
+      { id: 1, name: 'Valle del Sol', high_value_threshold: 3_000_000 },
+    ]);
+    expect(paso(consultas[0], 'contains')).toEqual([
+      'contains',
+      'modulos_propios',
+      ['oportunidades'],
+    ]);
+  });
+});
+
+describe('OportunidadesRepository — lo de cada empresa filtra por company_id', () => {
+  const filtraPorEmpresa = (c: Consulta, id: number) =>
+    c.pasos.some(
+      ([m, col, v]) => m === 'eq' && col === 'company_id' && v === id,
+    );
+
+  it('config, catálogo, leídos y la lista', async () => {
+    const { repo, consultas } = armar();
+    await repo.configDe(52);
+    await repo.catalogoResumido(52);
+    await repo.codigosLeidos(52);
+    await repo.listar(52, {});
+
+    expect(consultas.map((c) => c.tabla)).toEqual([
+      'oportunidades_config',
+      'service_group_collections',
+      'fixed_services',
+      'oportunidades',
+      'oportunidades',
+    ]);
+    for (const c of consultas) expect(filtraPorEmpresa(c, 52)).toBe(true);
+  });
+
+  it('la lista trae el proceso con !inner (un embebido sin !inner no filtra)', async () => {
+    const { repo, consultas } = armar();
+    await repo.listar(1, { semaforo: 'verde', limite: 5000 });
+    const [, columnas] = paso(consultas[0], 'select') as [string, string];
+    expect(columnas).toContain('proceso:mp_procesos!inner(');
+    expect(paso(consultas[0], 'limit')).toEqual(['limit', 1000]);
+  });
+
+  it('guardar una lectura nunca pisa la que ya existía (la decisión es de la empresa)', async () => {
+    const { repo, consultas } = armar();
+    await repo.guardarLectura(
+      1,
+      '4364-13-LE26',
+      {
+        semaforo: 'verde',
+        etiquetas: ['evento'],
+        se_hace_en_el_complejo: 'si',
+        razon: 'Evento',
+        alertas: ['comuna_cercana'],
+      },
+      'claude-haiku-5-5',
+    );
+    const [, fila, opciones] = paso(consultas[0], 'upsert') as [
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+    expect(fila).toMatchObject({ company_id: 1, codigo: '4364-13-LE26' });
+    expect(fila).not.toHaveProperty('estado');
+    expect(opciones).toEqual({
+      onConflict: 'company_id,codigo',
+      ignoreDuplicates: true,
+    });
+  });
+});
+
+describe('OportunidadesRepository — procesos comunes', () => {
+  it('pregunta por los conocidos en tramos de 300 códigos', async () => {
+    const { repo, consultas } = armar((c) => {
+      const codigos = (paso(c, 'in')?.[2] ?? []) as string[];
+      return {
+        data: codigos.slice(0, 1).map((codigo) => ({
+          codigo,
+          fecha_cierre: null,
+          estado: 'Publicada',
+        })),
+      };
+    });
+    const codigos = Array.from({ length: 650 }, (_, i) => `C-${i}`);
+    const conocidos = await repo.procesosConocidos(codigos);
+    expect(consultas).toHaveLength(3);
+    expect([...conocidos.keys()]).toEqual(['C-0', 'C-300', 'C-600']);
+  });
+
+  it('guarda en lotes de 100, por código', async () => {
+    const { repo, consultas } = armar();
+    const procesos = Array.from({ length: 250 }, (_, i) => ({
+      codigo: `C-${i}`,
+    }));
+    await repo.guardarProcesos(procesos as never);
+    expect(consultas).toHaveLength(3);
+    expect(paso(consultas[0], 'upsert')?.[2]).toEqual({ onConflict: 'codigo' });
+  });
+});
