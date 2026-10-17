@@ -31,6 +31,9 @@ import { toast } from "../../components/toast/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
+import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
+import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
+import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import {
   Followup,
   FollowupTipo,
@@ -196,6 +199,8 @@ export type CotizacionDelHilo = {
   id: string;
   quotation_status?: string | null;
   sent_at?: string | null;
+  /** Para los avisos del seguimiento con IA (doc 18). */
+  quotation_number?: number | null;
 };
 
 export function HiloSeguimiento({
@@ -206,7 +211,13 @@ export function HiloSeguimiento({
   // Post-Venta (Quotation a secas) sin inventar datos (07-08).
   readonly quotation: CotizacionDelHilo;
 }) {
-  const { user } = useAuth();
+  const { user, userRole, company } = useAuth();
+  // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
+  // empresa con el módulo propio.
+  const conSeguimientoIA =
+    SECTION_ROLES.quotations_edit.includes(userRole as never) &&
+    tieneDerecho(company, "seguimiento_con_ia");
+  const seguimientoIA = useSeguimientoConIA();
   const queryClient = useQueryClient();
   const hiloQuery = useQuery({
     queryKey: ["seguimientos", quotation.id],
@@ -512,6 +523,28 @@ export function HiloSeguimiento({
             >
               Registrar gestión
             </button>
+            {/* Vencido y por correo, vendiendo: la IA deja el seguimiento
+                de borrador en el hilo del cliente (doc 18). La misma regla
+                que revisa el motor. */}
+            {conSeguimientoIA &&
+              compromisoCara === "vencido" &&
+              notaCompromiso?.tipo === "correo" &&
+              ["enviada", "en_negociacion"].includes(
+                quotation.quotation_status || "",
+              ) && (
+                <BotonSeguimientoIA
+                  trabajando={seguimientoIA.trabajando === quotation.id}
+                  ocupado={seguimientoIA.ocupado}
+                  resultado={seguimientoIA.resultadoDe(quotation.id)}
+                  texto="Generar seguimiento con IA"
+                  onGenerar={() =>
+                    void seguimientoIA.generar({
+                      id: quotation.id,
+                      numero: quotation.quotation_number ?? 0,
+                    })
+                  }
+                />
+              )}
             {/* La puerta "Listo" es SOLO del evento ganado (nació el
                 07-08 para Post-Venta; reafirmado por Felipe el 12-08):
                 ahí agendar es voluntario, así que cumplir sin anotar

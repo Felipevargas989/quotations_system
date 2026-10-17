@@ -19,7 +19,17 @@ import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
-import { ROLE_GROUPS, SECTION_ROLES } from "../../constants/permissions";
+import {
+  ROLE_GROUPS,
+  SECTION_ROLES,
+  tieneDerecho,
+} from "../../constants/permissions";
+import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
+import GenerarSeguimientos, {
+  ConfirmarSeguimientos,
+} from "../../components/GenerarSeguimientos";
+import ResultadosDeSeguimiento from "../../components/ResultadosDeSeguimiento";
+import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
@@ -125,6 +135,13 @@ export default function QuotationsPage() {
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
+  // empresa con el módulo propio. El motor dice cuáles vencieron por correo.
+  const conSeguimientoIA =
+    puedeEditar && tieneDerecho(company, "seguimiento_con_ia");
+  const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
+  const pendientesIA = new Set(seguimientoIA.pendientes.map((p) => p.id));
+  const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
   const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
@@ -316,7 +333,6 @@ export default function QuotationsPage() {
     const s = semaforoDe(q);
     return !!s && s.urgencia >= 103;
   };
-
 
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     // Guardia de estados: volver de post-venta (aceptada/realizada/
@@ -729,14 +745,62 @@ export default function QuotationsPage() {
         />
       )}
 
-      {/* UNA sola línea (pedido de Felipe 03-08): título, buscador
-          elástico, controles y acciones — envuelve con gracia si la
-          pantalla no alcanza. */}
-      <div className="bg-white rounded-lg shadow px-4 py-3">
+      {/* DOS filas (Felipe, 17-10-2026: "los encuentro desordenados";
+          antes era una sola línea, pedido del 03-08): arriba lo que se
+          HACE (título, aviso de requerimientos y acciones), abajo lo que
+          se MIRA (buscar, ordenar y filtrar). Un solo botón de color
+          fuerte: Nueva Cotización. */}
+      <div className="bg-white rounded-lg shadow px-4 py-3 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-bold text-gray-900 shrink-0">
             Cotizaciones
           </h1>
+          {/* Requerimientos pendientes: el aviso en palabras (antes era
+              un «⚠ 1»); la conversión vive en su módulo. */}
+          {requirements.length > 0 && (
+            <button
+              onClick={() => navigate("/requests")}
+              className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 hover:underline"
+              title="Ir al módulo de Requerimientos"
+            >
+              <AlertTriangle size={16} className="text-amber-500" />
+              {requirements.length}{" "}
+              {requirements.length === 1
+                ? "requerimiento pendiente"
+                : "requerimientos pendientes"}
+            </button>
+          )}
+          <div className="flex items-center gap-3 ml-auto">
+            {conSeguimientoIA && (
+              <GenerarSeguimientos
+                seguimiento={seguimientoIA}
+                confirmando={confirmandoSeguimientos}
+                onConfirmando={setConfirmandoSeguimientos}
+              />
+            )}
+            {/* Sin permiso de edición no hay botón: no se ofrecen
+                puertas cerradas (12-08). Recepción mira el tablero pero
+                no cotiza. */}
+            {puedeEditar && (
+              <button
+                onClick={() => navigate("/quotation-form")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
+              >
+                <Plus size={20} />
+                <span>Nueva Cotización</span>
+              </button>
+            )}
+          </div>
+        </div>
+        {/* La pregunta de «Generar seguimientos», en su franja: nada se
+            corre de lugar mientras se decide. */}
+        {conSeguimientoIA && confirmandoSeguimientos && (
+          <ConfirmarSeguimientos
+            seguimiento={seguimientoIA}
+            onCerrar={() => setConfirmandoSeguimientos(false)}
+          />
+        )}
+        <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3">
           <div className="flex-1 min-w-[240px] relative">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -811,34 +875,13 @@ export default function QuotationsPage() {
           >
             Requieren seguimiento ({nRequieren})
           </button>
-          <div className="flex items-center gap-3 ml-auto">
-            {/* Requerimientos pendientes: aviso junto al botón (la
-                conversión vive en su módulo). */}
-            {requirements.length > 0 && (
-              <button
-                onClick={() => navigate("/requests")}
-                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm font-semibold hover:bg-amber-100"
-                title="Ir al módulo de Requerimientos"
-              >
-                <AlertTriangle size={16} className="text-amber-500" />
-                {requirements.length}
-              </button>
-            )}
-            {/* Sin permiso de edición no hay botón: no se ofrecen
-                puertas cerradas (12-08). Recepción mira el tablero pero
-                no cotiza. */}
-            {puedeEditar && (
-              <button
-                onClick={() => navigate("/quotation-form")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
-              >
-                <Plus size={20} />
-                <span>Nueva Cotización</span>
-              </button>
-            )}
-          </div>
         </div>
       </div>
+
+      <ResultadosDeSeguimiento
+        resultados={seguimientoIA.resultados}
+        onCerrar={seguimientoIA.limpiar}
+      />
 
       {/* Tablero (Etapa 2): el embudo vivo en 3 columnas. Sin arrastre
           por ahora — el estado se cambia con la píldora de siempre. */}
@@ -1014,6 +1057,27 @@ export default function QuotationsPage() {
                             </button>
                           </div>
                         </div>
+                        {/* Vencida por correo: la IA deja el seguimiento
+                            de borrador en Outlook (doc 18). */}
+                        {conSeguimientoIA && pendientesIA.has(quotation.id) && (
+                          <div className="mt-2">
+                            <BotonSeguimientoIA
+                              trabajando={
+                                seguimientoIA.trabajando === quotation.id
+                              }
+                              ocupado={seguimientoIA.ocupado}
+                              resultado={seguimientoIA.resultadoDe(
+                                quotation.id,
+                              )}
+                              onGenerar={() =>
+                                void seguimientoIA.generar({
+                                  id: quotation.id,
+                                  numero: quotation.quotation_number,
+                                })
+                              }
+                            />
+                          </div>
+                        )}
                       </div>
                     );
                   })
