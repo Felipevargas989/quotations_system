@@ -556,7 +556,7 @@ y **antes** del deploy del motor.
 
 **Qué hace.** Crea `oportunidades_oferente` (una fila por empresa: razón social, RUT, giro, dirección, comuna, región, teléfono, correo, representante legal con RUT y cargo, experiencia destacada, instalaciones, y `firma_ruta`, la foto de la firma en el balde privado) y `oportunidades_documentos` (la carpeta: tipo, nombre, ruta única, tipo de archivo, bytes, `vence` y quién lo subió). Las dos con `company_id`, RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role` (y la secuencia de la segunda). Sin datos sembrados: los llena la empresa en "Mi empresa". Lo que ya está en `companies` (nombre, datos bancarios) no se repite. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. En producción, sin aplicar: va **antes** del deploy del motor.
 
 ## 20. Migración 127: mi postulación y validar documentos (17-10-2026)
 
@@ -564,7 +564,7 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el código que lista adjuntos ya filtra por `seccion`; con ese motor y sin la 127, la sección de bases se cae. Por eso el paso 3 no sube al laboratorio sin la migración.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. En producción, sin aplicar: va **antes** del deploy del motor.
 
 ## 21. Migración 129: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
 
@@ -574,5 +574,5 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
 
-**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. En producción, sin aplicar: va **antes** del deploy del motor.
 
