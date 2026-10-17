@@ -728,17 +728,29 @@ export const separarMias = <T extends { estado: string }>(lista: T[]) => ({
   ),
 });
 
+/** Cómo se llama la fecha del servicio en las bases, de lo más claro a lo
+ *  menos. "Evento" a secas no sirve: "entrega del cronograma del evento"
+ *  también lo dice (visto en el Día del Funcionario, 17-10). */
+const FECHA_DEL_SERVICIO = [
+  /^fecha del (servicio|evento)/i,
+  /(realizaci|ejecuci)[oó]n del (servicio|evento)/i,
+  /fecha.*(servicio|evento)/i,
+];
+
 /** "En una mirada": cuándo es el evento. Un análisis anterior al 17-10 no
  *  trae `fecha_del_servicio`: se busca en sus fechas la del servicio. */
 export const fechaDelEvento = (r: {
   fecha_del_servicio?: string;
   fechas: Array<{ que: string; cuando: string }>;
-}): string =>
-  r.fecha_del_servicio?.trim() ||
-  r.fechas.find((f) =>
-    /servicio|evento|ejecuci|realizaci|celebraci|ceremonia/i.test(f.que),
-  )?.cuando ||
-  "";
+}): string => {
+  const directa = r.fecha_del_servicio?.trim();
+  if (directa) return directa;
+  for (const patron of FECHA_DEL_SERVICIO) {
+    const f = r.fechas.find((x) => patron.test(x.que));
+    if (f) return f.cuando;
+  }
+  return "";
+};
 
 /** El tono del lugar: se puede en el complejo, no, o no queda claro. */
 export const TONO_DEL_LUGAR: Record<string, string> = {
