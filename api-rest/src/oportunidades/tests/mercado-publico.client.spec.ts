@@ -47,6 +47,8 @@ describe('MercadoPublicoClient', () => {
     logger = mockPinoLogger();
     cliente = new MercadoPublicoClient(logger as unknown as PinoLogger);
     cliente.esperas = [0, 0];
+    cliente.esperas429 = [0, 0];
+    cliente.pausaMinimaMs = 0;
     fetchFalso = jest.spyOn(global, 'fetch');
   });
 
@@ -94,12 +96,39 @@ describe('MercadoPublicoClient', () => {
       expect(fetchFalso).toHaveBeenCalledTimes(3);
     });
 
-    it('429 (sin cupo por hoy) no se reintenta', async () => {
-      fetchFalso.mockImplementation(siempre(429));
+    it('429: se espera y se reintenta; si sigue, es "sin cupo" y dice lo que respondió', async () => {
+      fetchFalso.mockImplementation(
+        siempre(429, { Mensaje: 'Excede el límite de solicitudes' }),
+      );
       const error = await fallaDe(cliente.detalleLicitacion('X-1-LE26'));
       expect(error).toBeInstanceOf(MercadoPublicoError);
       expect(error.sinCupo).toBe(true);
-      expect(fetchFalso).toHaveBeenCalledTimes(1);
+      expect(error.message).toContain('Excede el límite de solicitudes');
+      expect(fetchFalso).toHaveBeenCalledTimes(3);
+    });
+
+    it('un 429 pasajero no corta: al reintentar responde', async () => {
+      fetchFalso
+        .mockResolvedValueOnce(respuesta(429, {}))
+        .mockResolvedValueOnce(
+          respuesta(200, { Listado: [{ CodigoExterno: 'A-1-LE26' }] }),
+        );
+      await expect(cliente.detalleLicitacion('A-1-LE26')).resolves.toEqual({
+        CodigoExterno: 'A-1-LE26',
+      });
+      expect(fetchFalso).toHaveBeenCalledTimes(2);
+    });
+
+    it('deja una pausa mínima entre dos pedidos', async () => {
+      cliente.pausaMinimaMs = 40;
+      const momentos: number[] = [];
+      fetchFalso.mockImplementation(() => {
+        momentos.push(Date.now());
+        return Promise.resolve(respuesta(200, { Listado: [] }));
+      });
+      await cliente.detalleLicitacion('A');
+      await cliente.detalleLicitacion('B');
+      expect(momentos[1] - momentos[0]).toBeGreaterThanOrEqual(35);
     });
 
     it('un 4xx (pedido malo) no se reintenta', async () => {
@@ -151,6 +180,16 @@ describe('MercadoPublicoClient', () => {
   });
 
   describe('el ticket', () => {
+    it('si Mercado Público lo repitiera en un 429, se tacha', async () => {
+      fetchFalso.mockImplementation(
+        siempre(429, { Mensaje: `ticket ${TICKET} sin cupo` }),
+      );
+      const error = await fallaDe(cliente.detalleLicitacion('X-1-LE26'));
+      expect(error.message).not.toContain(TICKET);
+      expect(error.message).toContain('[ticket]');
+      expect(loQueSeRegistro()).not.toContain(TICKET);
+    });
+
     it('nunca aparece en un error ni en el registro', async () => {
       fetchFalso.mockImplementation(siempre(503));
       const error = await fallaDe(cliente.licitacionesActivas());

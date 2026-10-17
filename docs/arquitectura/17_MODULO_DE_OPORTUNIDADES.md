@@ -157,7 +157,9 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
    responde 200 **con el error adentro** (`Codigo` y `Mensaje`), y rechaza
    las peticiones simultáneas con el mismo ticket. El radar revisa el
    cuerpo de cada respuesta, reintenta las "peticiones simultáneas" y pide
-   **de a uno**, primero lo que cierra antes. Cada corrida pide detalles
+   **de a uno**, primero lo que cierra antes. Y frena con 429 si se le pide
+   en ráfaga (medido en el laboratorio el 17-10): el radar deja 1 segundo
+   entre pedidos y espera ante un 429 antes de darlo por "sin cupo". Cada corrida pide detalles
    hasta los 80 minutos y lee hasta los 150; lo que falta entra en la
    próxima (así nunca llega a las 3 horas en que la siguiente la da por
    muerta).
