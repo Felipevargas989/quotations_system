@@ -108,12 +108,17 @@ export class GenerarRepository {
             .order('id')
             .range(d, h),
       ),
-      this.todas<{ id: number; category_id: number }>((d, h) =>
+      this.todas<{
+        id: number;
+        category_id: number;
+        name: string;
+        sort_order: number | null;
+        is_default: boolean | null;
+      }>((d, h) =>
         db
           .from('category_sections')
-          .select('id, category_id')
+          .select('id, category_id, name, sort_order, is_default')
           .eq('company_id', companyId)
-          .eq('is_default', true)
           .order('id')
           .range(d, h),
       ),
@@ -265,7 +270,9 @@ export class GenerarRepository {
     );
 
     const seccionFijaDe = new Map(
-      secciones.map((s) => [Number(s.category_id), Number(s.id)]),
+      secciones
+        .filter((s) => s.is_default)
+        .map((s) => [Number(s.category_id), Number(s.id)]),
     );
     const listaDeCategorias: CategoriaDelCatalogo[] = categorias.map((c) => {
       const id = Number(c.id);
@@ -291,6 +298,22 @@ export class GenerarRepository {
                 .filter((v) => Number(v.section_id) === fija)
                 .map((v) => Number(v.variable_service_id))
                 .filter((sid) => mapaServicios.has(sid)),
+        // Las demás secciones en el orden del cotizador (Entradas,
+        // Principales, Guarniciones, Postres…): la IA ve qué plato es qué.
+        secciones: secciones
+          .filter((s) => Number(s.category_id) === id && !s.is_default)
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
+                (b.sort_order ?? Number.MAX_SAFE_INTEGER) || a.id - b.id,
+          )
+          .map((s) => ({
+            nombre: s.name,
+            servicios: propios
+              .filter((v) => Number(v.section_id) === Number(s.id))
+              .map((v) => Number(v.variable_service_id))
+              .filter((sid) => mapaServicios.has(sid)),
+          })),
       };
     });
 

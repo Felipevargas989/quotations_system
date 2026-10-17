@@ -32,6 +32,11 @@ export type CategoriaDelCatalogo = {
   sueltos: number[];
   /** La sección fija: entra sola en toda caja de la categoría. */
   seccionFija: number[];
+  /** Las demás secciones, en el orden del cotizador (Entradas,
+   *  Principales, Guarniciones, Postres…), con sus servicios. La IA las
+   *  necesita para saber qué plato es qué (Felipe, 17-10: "dos principales
+   *  sin postre y sin guarnición… ¿por qué pasó esto?"). */
+  secciones: Array<{ nombre: string; servicios: number[] }>;
 };
 
 export type Paquete = {
@@ -59,6 +64,34 @@ export const pesos = (n: number): string =>
 
 const categoriaDe = (c: Catalogo, nombre: string) =>
   c.categorias.find((x) => x.nombre === nombre);
+
+/** La sección de un servicio dentro de su categoría ("Principales"), o
+ *  null si el cotizador no lo ordena en ninguna. */
+export const seccionDe = (
+  cat: CategoriaDelCatalogo,
+  servicioId: number,
+): string | null =>
+  cat.secciones.find((s) => s.servicios.includes(servicioId))?.nombre ?? null;
+
+/** Una lista de servicios agrupada por sección, en el orden del cotizador:
+ *  "Entradas: Consomé; Principales: Lomo vetado; Postres: Tiramisú". */
+const porSeccion = <T extends { id: number }>(
+  cat: CategoriaDelCatalogo,
+  cosas: T[],
+  texto: (x: T) => string,
+  separador: string,
+): string[] => {
+  const grupos = new Map<string, string[]>();
+  for (const s of cat.secciones) grupos.set(s.nombre, []);
+  for (const x of cosas) {
+    const seccion = seccionDe(cat, x.id) ?? 'Otros';
+    if (!grupos.has(seccion)) grupos.set(seccion, []);
+    grupos.get(seccion)!.push(texto(x));
+  }
+  return [...grupos.entries()]
+    .filter(([, lista]) => lista.length > 0)
+    .map(([seccion, lista]) => `${seccion}: ${lista.join(separador)}`);
+};
 
 /** Lo que cuesta por persona una caja con este menú: sus ítems más los de
  *  la sección fija que el menú no traiga (igual que el cotizador). */
@@ -109,7 +142,7 @@ export function catalogoComoTexto(
 
   lineas.push(
     '',
-    'MENÚS GUARDADOS, por categoría y nivel (id «nombre» $ por persona: platos):',
+    'MENÚS GUARDADOS, por categoría y nivel (id «nombre» $ por persona: platos por sección):',
   );
   for (const cat of categorias) {
     const menus = c.menus.filter((m) => m.categoria === cat.nombre);
@@ -128,12 +161,12 @@ export function catalogoComoTexto(
           (a, b) =>
             porPersonaDeMenu(c, a) - porPersonaDeMenu(c, b) || a.id - b.id,
         )) {
-        const platos = m.items
-          .filter((i) => !cat.seccionFija.includes(i.id))
-          .map((i) =>
-            i.cantidad > 1 ? `${i.nombre} x${i.cantidad}` : i.nombre,
-          )
-          .join(', ');
+        const platos = porSeccion(
+          cat,
+          m.items.filter((i) => !cat.seccionFija.includes(i.id)),
+          (i) => (i.cantidad > 1 ? `${i.nombre} x${i.cantidad}` : i.nombre),
+          ', ',
+        ).join('; ');
         lineas.push(
           `    ${m.id} «${m.nombre}» ${pesos(porPersonaDeMenu(c, m))}: ${platos}`,
         );
@@ -174,7 +207,7 @@ export function catalogoComoTexto(
 
   lineas.push(
     '',
-    'SERVICIOS SUELTOS, por categoría (id «nombre» $): solo valen en su categoría.',
+    'SERVICIOS SUELTOS, por categoría y sección (id «nombre» $): solo valen en su categoría.',
   );
   for (const cat of categorias) {
     const sueltos = cat.sueltos
@@ -182,11 +215,15 @@ export function catalogoComoTexto(
       .map((id) => c.servicios.get(id))
       .filter((s): s is Servicio => Boolean(s));
     if (sueltos.length === 0) continue;
-    lineas.push(
-      `[${cat.nombre}] ${sueltos
-        .map((s) => `${s.id} «${s.nombre}» ${pesos(s.precio)}`)
-        .join(' · ')}`,
-    );
+    lineas.push(`[${cat.nombre}]`);
+    for (const linea of porSeccion(
+      cat,
+      sueltos,
+      (s) => `${s.id} «${s.nombre}» ${pesos(s.precio)}`,
+      ' · ',
+    )) {
+      lineas.push(`  ${linea}`);
+    }
   }
 
   lineas.push('', 'SERVICIOS FIJOS (id «nombre» $):');
