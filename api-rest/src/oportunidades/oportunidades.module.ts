@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { OportunidadesCronService } from './oportunidades-cron.service';
@@ -16,6 +17,7 @@ import { RadarService } from './radar.service';
     LecturaService,
     OportunidadesRepository,
     OportunidadesService,
+    HistoriaService,
     RadarService,
     OportunidadesCronService,
   ],

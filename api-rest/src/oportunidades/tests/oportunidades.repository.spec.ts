@@ -18,6 +18,9 @@ const METODOS = [
   'upsert',
   'eq',
   'lt',
+  'gt',
+  'is',
+  'not',
   'in',
   'or',
   'contains',
@@ -258,6 +261,48 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
       onConflict: 'company_id,codigo',
       ignoreDuplicates: true,
     });
+  });
+});
+
+describe('OportunidadesRepository — sprint 1b', () => {
+  it('por adjudicar: licitaciones cerradas sin ganador, revisadas hace más de 20 horas', async () => {
+    const { repo, consultas } = armar();
+    await repo.procesosPorAdjudicar(300);
+    const c = consultas[0];
+    expect(c.tabla).toBe('mp_procesos');
+    expect(c.pasos).toContainEqual(['eq', 'tipo', 'licitacion']);
+    expect(c.pasos).toContainEqual(['is', 'adjudicacion', null]);
+    expect(tiene(c, 'lt')).toBe(true);
+    expect(tiene(c, 'gt')).toBe(true);
+    expect(paso(c, 'limit')).toEqual(['limit', 300]);
+  });
+
+  it('el próximo día de historia: pendiente y de menor prioridad (cerca de hace un año)', async () => {
+    const { repo, consultas } = armar(() => ({
+      data: [{ fecha: '2025-10-03' }],
+    }));
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
+    const c = consultas[0];
+    expect(c.tabla).toBe('mp_historia');
+    expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
+    expect(paso(c, 'order')).toEqual([
+      'order',
+      'prioridad',
+      { ascending: true },
+    ]);
+  });
+
+  it('el historial de organismos: de a 100, solo lo adjudicado', async () => {
+    const { repo, consultas } = armar();
+    const codigos = Array.from({ length: 150 }, (_, i) => `O-${i}`);
+    await repo.historialDeOrganismos([...codigos, 'O-1', '']);
+    expect(consultas).toHaveLength(2);
+    expect(consultas[0].pasos).toContainEqual([
+      'not',
+      'adjudicacion',
+      'is',
+      null,
+    ]);
   });
 });
 

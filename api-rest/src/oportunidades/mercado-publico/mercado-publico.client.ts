@@ -151,6 +151,25 @@ export class MercadoPublicoClient {
     return json.Listado;
   }
 
+  /** Las licitaciones publicadas en una fecha (de cualquier estado): así
+   *  entrega la API la historia. `fecha` en el formato de la API, ddmmaaaa. */
+  async licitacionesDelDia(fecha: string): Promise<LicitacionListada[]> {
+    const url = `${LICITACIONES}?fecha=${encodeURIComponent(fecha)}&ticket=${encodeURIComponent(this.ticket)}`;
+    const json = (await this.pedir(
+      url,
+      {},
+      `licitaciones del ${fecha}`,
+      this.topeListaMs,
+    )) as { Listado?: LicitacionListada[] } | null;
+    if (!Array.isArray(json?.Listado)) {
+      throw new MercadoPublicoError(
+        `licitaciones del ${fecha}: Mercado Público respondió sin la lista`,
+        null,
+      );
+    }
+    return json.Listado;
+  }
+
   async detalleLicitacion(codigo: string): Promise<LicitacionDetalle | null> {
     const url = `${LICITACIONES}?codigo=${encodeURIComponent(codigo)}&ticket=${encodeURIComponent(this.ticket)}`;
     const json = (await this.pedir(url, {}, `licitación ${codigo}`)) as {

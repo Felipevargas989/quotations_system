@@ -216,6 +216,47 @@ describe('LecturaService', () => {
   });
 });
 
+describe('LecturaService — el filtro de la historia', () => {
+  const filas = [
+    { codigo: 'A', nombre: 'Día del profesor' },
+    { codigo: 'B', nombre: 'Insumos dentales' },
+    { codigo: 'C', nombre: 'Cena aniversario' },
+  ];
+
+  it('devuelve los códigos de los números que eligió la IA', async () => {
+    const parse = jest
+      .fn()
+      .mockResolvedValue(respuesta({ candidatas: [1, 3, 99] }));
+    const r = await new LecturaDePrueba(parse).candidatasPorNombre(filas);
+    expect(r).toEqual(new Set(['A', 'C']));
+    const [[pedido]] = parse.mock.calls as Array<
+      [{ messages: Array<{ content: string }> }]
+    >;
+    expect(pedido.messages[0].content).toBe(
+      '1. Día del profesor\n2. Insumos dentales\n3. Cena aniversario',
+    );
+  });
+
+  it('sin lista no llama a la IA; si no responde legible, null (el día queda pendiente)', async () => {
+    const parse = jest.fn().mockResolvedValue(respuesta(null, 'max_tokens'));
+    const servicio = new LecturaDePrueba(parse);
+    await expect(servicio.candidatasPorNombre([])).resolves.toEqual(new Set());
+    expect(parse).not.toHaveBeenCalled();
+    await expect(servicio.candidatasPorNombre(filas)).resolves.toBeNull();
+  });
+
+  it('si falla la cuenta, se detiene', async () => {
+    const parse = jest
+      .fn()
+      .mockRejectedValue(
+        new Anthropic.RateLimitError(429, {}, 'rate limited', new Headers()),
+      );
+    await expect(
+      new LecturaDePrueba(parse).candidatasPorNombre(filas),
+    ).rejects.toBeInstanceOf(LecturaDetenida);
+  });
+});
+
 describe('lo que lee la IA', () => {
   it('las instrucciones llevan el perfil y el catálogo de la empresa', () => {
     const texto = instruccionesPara(EMPRESA);

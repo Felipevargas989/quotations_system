@@ -166,17 +166,26 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 3. **Regiones:** las que tenga configuradas cada empresa en el módulo
    (§5.7); el radar trae la unión de todas. Valle del Sol parte con Ñuble y
    Biobío.
-4. **Archivos:** para las que la IA marca del rubro, se bajan bases, anexos y
-   aclaratorias desde la ficha pública de Mercado Público (la API no los
-   entrega) y se pasan a texto, con OCR si vienen escaneados. **A verificar
-   en el sprint 1**: la forma exacta de bajarlos.
+4. **Archivos:** ~~para las que la IA marca del rubro, se bajan bases,
+   anexos y aclaratorias desde la ficha pública de Mercado Público~~.
+   **Verificado el 17-10: no se puede de forma honesta.** La ficha pública
+   enlaza a la lista de adjuntos, pero esa página solo muestra los archivos
+   después de pasar un reCAPTCHA de Google (el control antirrobots);
+   esquivarlo sería saltarse a propósito una protección de ChileCompra.
+   Alternativas en §12.
 5. **Al cerrar:** se guarda quién ganó, el precio, cuántos ofertaron y el
    enlace al acta (vienen en el detalle de la API: `Adjudicacion`,
-   `NumeroOferentes`, `UrlActa`, ganador por ítem).
+   `NumeroOferentes`, `UrlActa`, ganador por ítem). **Construido el 17-10**
+   (`HistoriaService.revisarAdjudicaciones`): las cerradas de las regiones
+   configuradas se revisan una vez al día hasta que digan el ganador.
 6. **Historia:** una vez, al partir, se cargan 2 o 3 años de Ñuble y Biobío
    con `?fecha=` día por día, de noche (ChileCompra pide las descargas grandes
    entre 22:00 y 07:00). Primero se filtra por nombre con Haiku y solo se pide
-   el detalle de las candidatas.
+   el detalle de las candidatas. **Construido el 17-10**
+   (`HistoriaService.cargarHistoria`, migración 123): 3 años de todo Chile,
+   primero los días cercanos a "hace un año"; cada fila y cada ficha muestran
+   la misma compra del año anterior (mismo organismo comprador y nombre
+   parecido).
 
 ### 5.2 La lectura con IA (Haiku 5.5)
 
@@ -347,6 +356,13 @@ Público (`VisibilidadMonto` 0), así que la API no lo trae y la alerta de
 alto valor no se puede encender; Licify lo sacó de las bases, y eso llega
 con los archivos (sprint 1b).
 
+**Sprint 1b, construido el 17-10** (Felipe: *"vamos con el sprint 1b"*):
+quién ganó al cerrar, la historia de 3 años y "el año anterior" en la
+bandeja y en la ficha; además el bloque **Prioridad** arriba de la bandeja
+(Felipe: *"hay dos que son directas mías y están en amarillo y deberían
+ser prioridad"*). Lo que no se pudo: bajar las bases (reCAPTCHA, §5.1
+punto 4). La migración 123 espera el OK de Felipe.
+
 **Sprint 2, construido el 17-10** (Felipe: *"terminado esto, anda directo al
 sprint 2"*): la bandeja, la ficha y la configuración, sin resumen por
 correo. Quedan para después de la historia (1b): "el año anterior", el
@@ -431,6 +447,15 @@ evento confirmado.
 3. ~~OK para el laboratorio~~: dado el 17-10.
 4. ~~¿Todo Chile o solo las regiones?~~: todo Chile (decisión 12).
 5. ~~Sacar `mp_procesos` del respaldo~~: hecho en el código (decisión 13).
+7. OK para aplicar la migración 123 (la historia) en el laboratorio.
+8. **Las bases, sin poder bajarlas solas** (reCAPTCHA, §5.1 punto 4). Opciones:
+   (a) **subirlas a mano** en la ficha (Felipe o Camila las bajan de Mercado
+   Público, que es una persona pasando el control, y la IA las lee: se
+   aclara el lugar, aparece el monto oculto y sale el checklist); es lo que
+   igual pide el sprint 3 para llenar los anexos; (b) usar el MCP de
+   Licify, que entrega documentos públicos con resumen (depende de un
+   tercero y de sus condiciones); (c) preguntarle a ChileCompra por un
+   canal oficial. Recomendación: (a).
 6. ~~Quién ve el módulo y el resumen por correo~~: administradores, sin
    resumen (decisiones 14 y 15). Queda: ¿el aviso inmediato de comuna
    cercana y alto valor se mantiene? ¿Las rojas se esconden por omisión?

@@ -38,6 +38,30 @@ const ESQUEMA = {
   additionalProperties: false,
 } as const;
 
+const ESQUEMA_DE_CANDIDATAS = {
+  type: 'object',
+  properties: {
+    candidatas: { type: 'array', items: { type: 'integer' } },
+  },
+  required: ['candidatas'],
+  additionalProperties: false,
+} as const;
+
+/** El filtro de la historia (doc 17 §5.1, punto 6): de las licitaciones de un
+ *  día, solo por el nombre, las que podrían ser de un negocio de eventos.
+ *  Amplio a propósito: lo que pasa este filtro se pide entero y se lee con
+ *  calma; lo que no pasa, no se mira más. */
+const INSTRUCCIONES_DE_CANDIDATAS = [
+  'Te paso una lista numerada de nombres de licitaciones de Mercado Público (Chile).',
+  'Devuelve los números de las que PODRÍAN ser de servicios para un complejo de eventos, turismo y gastronomía:',
+  'eventos, ceremonias, celebraciones, aniversarios, fiestas, galas, día del profesor, día del funcionario, día de la madre, navidad;',
+  'alimentación preparada (almuerzos, cenas, coffee break, colaciones, cócteles, banquetería, catering);',
+  'alojamiento u hospedaje; arriendo de salones, recintos o centros de eventos;',
+  'capacitaciones, jornadas, seminarios o talleres que necesiten un lugar; paseos, viajes recreativos, giras, campamentos, actividades de esparcimiento.',
+  'NO devuelvas compras de insumos, materiales, equipos, vehículos, obras, mantención, salud, aseo, ni servicios profesionales sin evento.',
+  'Ante la duda, inclúyela.',
+].join('\n');
+
 /** Lo que la IA necesita saber del proceso. */
 export type ProcesoParaLeer = {
   codigo: string;
@@ -150,6 +174,62 @@ export class LecturaService {
       this.clienteAnthropic = new Anthropic({ maxRetries: 6 });
     }
     return this.clienteAnthropic;
+  }
+
+  /**
+   * El filtro de la historia: de `filas`, los códigos cuyo nombre podría ser
+   * del rubro. null si no se pudo (el día queda pendiente). Lanza
+   * LecturaDetenida si falla la cuenta.
+   */
+  async candidatasPorNombre(
+    filas: Array<{ codigo: string; nombre: string }>,
+    uso?: Uso,
+  ): Promise<Set<string> | null> {
+    if (filas.length === 0) return new Set();
+    try {
+      const respuesta = await this.cliente().messages.parse({
+        model: MODELO_LECTURA,
+        max_tokens: 4000,
+        output_config: {
+          effort: 'low',
+          format: jsonSchemaOutputFormat(ESQUEMA_DE_CANDIDATAS),
+        },
+        system: [
+          {
+            type: 'text',
+            text: INSTRUCCIONES_DE_CANDIDATAS,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [
+          {
+            role: 'user',
+            content: filas
+              .map((f, i) => `${i + 1}. ${recortar(f.nombre, 200)}`)
+              .join('\n'),
+          },
+        ],
+      });
+      if (uso) {
+        uso.entrada += respuesta.usage.input_tokens ?? 0;
+        uso.salida += respuesta.usage.output_tokens ?? 0;
+      }
+      if (!respuesta.parsed_output) return null;
+      const codigos = new Set<string>();
+      for (const n of respuesta.parsed_output.candidatas) {
+        const fila = filas[n - 1];
+        if (fila) codigos.add(fila.codigo);
+      }
+      return codigos;
+    } catch (error) {
+      if (esFallaDeLaCuenta(error)) {
+        throw new LecturaDetenida(
+          `el filtro de la historia se detiene en esta corrida: ${mensajeDe(error)}`,
+        );
+      }
+      this.logger.warn(`no pude filtrar la historia: ${mensajeDe(error)}`);
+      return null;
+    }
   }
 
   /**

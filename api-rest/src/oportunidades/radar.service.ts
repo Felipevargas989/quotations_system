@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { HistoriaService } from './historia/historia.service';
 import {
   LecturaDetenida,
   LecturaService,
@@ -107,11 +108,30 @@ export type ResumenCorrida = {
     tokens_entrada: number;
     tokens_salida: number;
   };
+  adjudicaciones: {
+    estado: 'ok' | 'sin_ticket' | 'cortada';
+    revisadas: number;
+    adjudicadas: number;
+  };
+  historia: {
+    estado:
+      | 'ok'
+      | 'no_toca'
+      | 'completa'
+      | 'cortada'
+      | 'detenida'
+      | 'sin_ticket'
+      | 'sin_llave';
+    dias: number;
+    listadas: number;
+    candidatas: number;
+    guardadas: number;
+  };
   avisos: string[];
   segundos?: number;
 };
 
-const resumenVacio = (): ResumenCorrida => ({
+export const resumenVacio = (): ResumenCorrida => ({
   licitaciones: {
     estado: 'ok',
     activas: 0,
@@ -138,6 +158,14 @@ const resumenVacio = (): ResumenCorrida => ({
     sin_leer: 0,
     tokens_entrada: 0,
     tokens_salida: 0,
+  },
+  adjudicaciones: { estado: 'ok', revisadas: 0, adjudicadas: 0 },
+  historia: {
+    estado: 'ok',
+    dias: 0,
+    listadas: 0,
+    candidatas: 0,
+    guardadas: 0,
   },
   avisos: [],
 });
@@ -191,6 +219,7 @@ export class RadarService {
     private readonly mp: MercadoPublicoClient,
     private readonly repo: OportunidadesRepository,
     private readonly lectura: LecturaService,
+    private readonly historia: HistoriaService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(RadarService.name);
@@ -202,7 +231,7 @@ export class RadarService {
   async iniciar(origen: 'manual' | 'arranque'): Promise<number | null> {
     const id = await this.repo.tomarCorrida(origen);
     if (id === null) return null;
-    void this.ejecutar(id);
+    void this.ejecutar(id, origen);
     return id;
   }
 
@@ -230,11 +259,14 @@ export class RadarService {
       this.logger.info('radar: ya hay una corrida en marcha; esta no parte');
       return null;
     }
-    return this.ejecutar(id);
+    return this.ejecutar(id, origen);
   }
 
   /** Nunca lanza: todo error queda en la bitácora de la corrida. */
-  private async ejecutar(id: number): Promise<ResumenCorrida> {
+  private async ejecutar(
+    id: number,
+    origen: 'reloj' | 'manual' | 'arranque',
+  ): Promise<ResumenCorrida> {
     const resumen = resumenVacio();
     const inicio = Date.now();
     try {
@@ -254,7 +286,9 @@ export class RadarService {
       await this.licitaciones(resumen, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
       await this.comprasAgiles(resumen, regiones, inicio);
+      await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
+      await this.historia.cargarHistoria(resumen, inicio, origen);
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);

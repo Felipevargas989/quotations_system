@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { derechosDe, tieneDerecho } from 'src/auth/derechos';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
 import type { LecturaFinal } from './lectura/reglas';
 import type { ProcesoMp } from './mercado-publico/tipos';
@@ -16,6 +17,8 @@ import type { ProcesoMp } from './mercado-publico/tipos';
 
 const LOTE = 100;
 const PAGINA = 1000;
+const HORA = 60 * 60 * 1000;
+const DIA = 24 * HORA;
 /** Una corrida que lleva más que esto "corriendo" murió con el proceso. */
 const CORRIDA_COLGADA_MS = 3 * 60 * 60 * 1000;
 
@@ -33,16 +36,17 @@ export type ConfigOportunidades = {
 
 const COLUMNAS_DE_LISTA =
   'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, estado, responsable_id, leida_en, ' +
-  'proceso:mp_procesos!inner(tipo, nombre, organismo, unidad, comuna, region, monto, fecha_publicacion, fecha_cierre, estado)';
+  'proceso:mp_procesos!inner(tipo, nombre, organismo, organismo_codigo, unidad, comuna, region, monto, fecha_publicacion, fecha_cierre, estado)';
 
 const COLUMNAS_DE_FICHA =
   'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, leida_con, leida_en, estado, responsable_id, notas, quotation_id, actualizado_en, ' +
-  'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, primera_vez_visto, actualizado_en)';
+  'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, organismo_codigo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, primera_vez_visto, actualizado_en)';
 
 type ProcesoDeLista = {
   tipo: string;
   nombre: string;
   organismo: string | null;
+  organismo_codigo: string | null;
   unidad: string | null;
   comuna: string | null;
   region: string | null;
@@ -442,6 +446,82 @@ export class OportunidadesRepository {
       if (!data || data.length < hasta - desde + 1) break;
     }
     return filas;
+  }
+
+  // ------------------------------------------------------------
+  // Sprint 1b: adjudicaciones e historia (datos públicos)
+  // ------------------------------------------------------------
+
+  /** Licitaciones cerradas hace menos de 120 días que todavía no dicen
+   *  quién ganó, revisadas por última vez hace más de 20 horas. */
+  async procesosPorAdjudicar(
+    limite: number,
+  ): Promise<Array<{ codigo: string; region: string | null }>> {
+    const ahora = Date.now();
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('codigo, region')
+      .eq('tipo', 'licitacion')
+      .is('adjudicacion', null)
+      .lt('fecha_cierre', new Date(ahora).toISOString())
+      .gt('fecha_cierre', new Date(ahora - 120 * DIA).toISOString())
+      .lt('actualizado_en', new Date(ahora - 20 * HORA).toISOString())
+      .order('fecha_cierre', { ascending: false })
+      .limit(limite);
+    if (error) throw error;
+    return (data ?? []) as Array<{ codigo: string; region: string | null }>;
+  }
+
+  /** El próximo día de historia por revisar: primero los cercanos a "hace
+   *  un año". null = la historia está completa. */
+  async siguienteDiaDeHistoria(): Promise<string | null> {
+    const { data, error } = await this.db
+      .from('mp_historia')
+      .select('fecha')
+      .eq('estado', 'pendiente')
+      .order('prioridad', { ascending: true })
+      .order('fecha', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return (data?.[0] as { fecha?: string } | undefined)?.fecha ?? null;
+  }
+
+  async marcarDiaDeHistoria(
+    fecha: string,
+    cambios: {
+      estado: 'pendiente' | 'hecha' | 'error';
+      listadas?: number;
+      candidatas?: number;
+      guardadas?: number;
+      error?: string | null;
+    },
+  ): Promise<void> {
+    const { error } = await this.db
+      .from('mp_historia')
+      .update({ ...cambios, revisada_en: new Date().toISOString() })
+      .eq('fecha', fecha);
+    if (error) throw error;
+  }
+
+  /** Lo ya adjudicado de estos organismos compradores, para "el año
+   *  anterior". De a 100 organismos por consulta. */
+  async historialDeOrganismos(codigos: string[]): Promise<ProcesoPasado[]> {
+    const pasados: ProcesoPasado[] = [];
+    const unicos = [...new Set(codigos.filter(Boolean))];
+    for (let i = 0; i < unicos.length; i += 100) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select(
+          'codigo, nombre, organismo_codigo, fecha_publicacion, monto, adjudicacion',
+        )
+        .in('organismo_codigo', unicos.slice(i, i + 100))
+        .not('adjudicacion', 'is', null)
+        .order('fecha_publicacion', { ascending: false })
+        .limit(PAGINA);
+      if (error) throw error;
+      pasados.push(...((data ?? []) as ProcesoPasado[]));
+    }
+    return pasados;
   }
 
   /** La ficha: la oportunidad de ESTA empresa con todo su proceso. */

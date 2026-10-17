@@ -6,6 +6,11 @@ import {
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
+import {
+  type Anterior,
+  anteriorDe,
+  indexarPorOrganismo,
+} from './historia/anterior';
 import { normalizar } from './mercado-publico/mapeo';
 import {
   type FilaDeLista,
@@ -44,29 +49,69 @@ export class OportunidadesService {
   constructor(private readonly repo: OportunidadesRepository) {}
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
-   *  que cierra después (sin cierre informado, al final). */
+   *  que cierra después (sin cierre informado, al final), cada una con su
+   *  compra del año anterior si la historia ya la tiene. */
   async listar(
     companyId: number,
     dto: ListarOportunidadesDto,
-  ): Promise<FilaDeLista[]> {
+  ): Promise<Array<FilaDeLista & { anterior: Anterior | null }>> {
+    const vigentes = dto.vigentes !== false;
     const filas = await this.repo.listar(companyId, {
-      vigentes: dto.vigentes !== false,
+      vigentes,
       semaforo: dto.semaforo,
       estado: dto.estado,
       tipo: dto.tipo,
       limite: dto.limite ?? LIMITE_DE_LA_BANDEJA,
     });
-    return filas.sort(
+    filas.sort(
       (a, b) =>
         instante(a.proceso.fecha_cierre) - instante(b.proceso.fecha_cierre),
     );
+    // El historial (lo ya cerrado) no lleva "año anterior": nadie lo mira
+    // ahí y es la consulta más pesada.
+    if (!vigentes || filas.length === 0) {
+      return filas.map((f) => ({ ...f, anterior: null }));
+    }
+    const indice = indexarPorOrganismo(
+      await this.repo.historialDeOrganismos(
+        filas
+          .map((f) => f.proceso.organismo_codigo)
+          .filter((c): c is string => Boolean(c)),
+      ),
+    );
+    return filas.map((f) => ({
+      ...f,
+      anterior: anteriorDe(
+        {
+          codigo: f.codigo,
+          nombre: f.proceso.nombre,
+          organismo_codigo: f.proceso.organismo_codigo,
+          fecha_publicacion: f.proceso.fecha_publicacion,
+        },
+        indice.get(f.proceso.organismo_codigo ?? '') ?? [],
+      ),
+    }));
   }
 
   async ficha(companyId: number, id: number) {
     const ficha = await this.repo.ficha(companyId, id);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
-    const cambios = await this.repo.cambiosDe(ficha.codigo);
-    return { ...ficha, cambios };
+    const [cambios, pasados] = await Promise.all([
+      this.repo.cambiosDe(ficha.codigo),
+      ficha.proceso.organismo_codigo
+        ? this.repo.historialDeOrganismos([ficha.proceso.organismo_codigo])
+        : Promise.resolve([]),
+    ]);
+    const anterior = anteriorDe(
+      {
+        codigo: ficha.codigo,
+        nombre: ficha.proceso.nombre,
+        organismo_codigo: ficha.proceso.organismo_codigo,
+        fecha_publicacion: ficha.proceso.fecha_publicacion,
+      },
+      pasados,
+    );
+    return { ...ficha, cambios, anterior };
   }
 
   async actualizar(
