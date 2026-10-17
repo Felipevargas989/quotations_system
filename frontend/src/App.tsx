@@ -43,6 +43,12 @@ const importPostVenta = () => import("./pages/postventa/PostVentaPage");
 const importLogistica = () => import("./pages/logistica/LogisticaPage");
 const importPersonas = () => import("./pages/personas/PersonasPage");
 const importMarketing = () => import("./pages/marketing/MarketingPage");
+const OportunidadesPage = lazy(
+  () => import("./pages/oportunidades/OportunidadesPage"),
+);
+const OportunidadFichaPage = lazy(
+  () => import("./pages/oportunidades/OportunidadFichaPage"),
+);
 const CampanaFichaPage = lazy(
   () => import("./pages/marketing/CampanaFichaPage"),
 );
@@ -376,6 +382,30 @@ function App() {
                     derecho="marketing"
                   >
                     <MarketingPage />
+                  </PermissionGuard>
+                }
+              />
+              {/* Oportunidades - solo administrador y solo con el
+                  derecho: licitaciones y compras ágiles (doc 17). */}
+              <Route
+                path="oportunidades"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <OportunidadesPage />
+                  </PermissionGuard>
+                }
+              />
+              <Route
+                path="oportunidades/:id"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.oportunidades}
+                    derecho="oportunidades"
+                  >
+                    <OportunidadFichaPage />
                   </PermissionGuard>
                 }
               />

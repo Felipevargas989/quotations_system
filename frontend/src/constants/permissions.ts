@@ -30,7 +30,10 @@ export type Section =
   | "people"
   // Campañas de correo a toda la cartera: solo administrador (25-08).
   | "marketing"
-  | "customer_satisfaction_survey";
+  | "customer_satisfaction_survey"
+  // Licitaciones y compras ágiles de Mercado Público (doc 17): solo
+  // administrador (Felipe, 17-10: "solo el administrador y Camila").
+  | "oportunidades";
 
 // Define which roles can access which sections
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
@@ -84,6 +87,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "people",
     "marketing",
     "customer_satisfaction_survey",
+    "oportunidades",
   ],
 };
 
@@ -139,7 +143,8 @@ export type Derecho =
   | "encuestas"
   | "movil"
   | "personal"
-  | "marketing";
+  | "marketing"
+  | "oportunidades";
 
 export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   payments: "post_venta",
@@ -148,6 +153,7 @@ export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   customer_satisfaction_survey: "encuestas",
   people: "personal",
   marketing: "marketing",
+  oportunidades: "oportunidades",
 };
 
 export type EmpresaConDerechos =
@@ -190,6 +196,7 @@ export const PLAN_MINIMO: Record<
   movil: "crece",
   personal: null,
   marketing: null,
+  oportunidades: null,
 };
 
 export const NOMBRE_DEL_PLAN = {
@@ -215,6 +222,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   movil: "Eventia Móvil",
   personal: "El módulo Personal",
   marketing: "El módulo Marketing",
+  oportunidades: "El módulo de Oportunidades",
 };
 
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
@@ -242,4 +250,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   people: ROLE_GROUPS.ADMIN_ONLY,
   marketing: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
+  oportunidades: ROLE_GROUPS.ADMIN_ONLY,
 };

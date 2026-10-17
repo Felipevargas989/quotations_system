@@ -120,6 +120,7 @@ export const API_ROUTES = {
   CUSTOMER_SATISFACTION_SURVEY_ANSWER: "/customer-satisfaction-survey/answer",
   CUSTOMER_SATISFACTION_SURVEY: "/customer-satisfaction-survey",
   MARKETING: "/marketing",
+  OPORTUNIDADES: "/oportunidades",
   CONSULTAS: "/consultas",
   EVENT_TYPES: "/event-types",
 };
