@@ -12,9 +12,9 @@ import {
   type AdjuntoDeOportunidad,
   type TipoProceso,
 } from "../../services/oportunidades.service";
-import { resolveStorageUrl } from "../../services/storage.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import { descargarDelBalde } from "./descargas";
 import {
   EXTENSIONES_DE_ADJUNTOS,
   MAX_MB_POR_ADJUNTO,
@@ -100,15 +100,10 @@ export default function AdjuntosDeLaOportunidad({
     onSettled: () => setPorBorrar(null),
   });
 
-  // Word, Excel y ZIP: enlace firmado con el nombre original. El navegador
-  // lo descarga sin salir de la página.
+  // Word, Excel y ZIP: se descargan con su nombre original.
   const descargar = async (a: AdjuntoDeOportunidad) => {
     try {
-      const url = await resolveStorageUrl(a.ruta);
-      const separador = url.includes("?") ? "&" : "?";
-      window.location.assign(
-        `${url}${separador}download=${encodeURIComponent(a.nombre)}`,
-      );
+      await descargarDelBalde(a.ruta, a.nombre);
     } catch (e) {
       toast.error(humanizeApiError(e, "No se pudo descargar."));
     }

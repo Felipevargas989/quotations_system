@@ -70,7 +70,7 @@ export const extensionDe = (nombre: string): string => {
 
 /** Sello único de la subida: la hora y 4 letras al azar, por si llegan dos
  *  archivos del mismo nombre en el mismo instante. */
-const sello = () =>
+export const sello = () =>
   `${new Date().toISOString().replace(/[:.]/g, '-')}_${randomBytes(2).toString('hex')}`;
 
 @Injectable()

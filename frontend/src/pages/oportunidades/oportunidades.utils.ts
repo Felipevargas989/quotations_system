@@ -252,6 +252,57 @@ export const textoDeCosto = (usd: number | null): string =>
         maximumFractionDigits: 2,
       })}`;
 
+/** La carpeta de documentos de la empresa (doc 17 §5.5): lo que suelen
+ *  pedir las bases. Mismos valores que `TIPOS_DE_DOCUMENTO` del motor. */
+export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
+  value: string;
+  label: string;
+}> = [
+  { value: "patente", label: "Patente municipal" },
+  { value: "inicio_actividades", label: "Inicio de actividades (SII)" },
+  { value: "programa_integridad", label: "Programa de integridad" },
+  { value: "f30", label: "Certificado F30 (antecedentes laborales)" },
+  { value: "vigencia", label: "Certificado de vigencia de la sociedad" },
+  { value: "resolucion_sanitaria", label: "Resolución sanitaria" },
+  { value: "dj_trabajadores", label: "Declaración jurada de trabajadores" },
+  { value: "otro", label: "Otro" },
+];
+
+export const etiquetaDeDocumento = (tipo: string): string =>
+  TIPOS_DE_DOCUMENTO.find((t) => t.value === tipo)?.label ?? tipo;
+
+/** Días entre dos fechas AAAA-MM-DD (b − a). */
+const diasEntre = (a: string, b: string): number =>
+  Math.round(
+    (Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000,
+  );
+
+/** Cómo está un documento según su vencimiento: el aviso que reemplaza al
+ *  correo (Felipe, 17-10: "sin correo, revisaré la app diario"). "pronto"
+ *  = 30 días o menos. `hoy`, la fecha de Chile (hoyEnChile). */
+export const estadoDeVencimiento = (
+  vence: string | null,
+  hoy: string,
+): { texto: string; tono: "ok" | "pronto" | "vencido" | "sin" } => {
+  if (!vence) return { texto: "No vence", tono: "sin" };
+  const dias = diasEntre(hoy, vence);
+  if (dias < 0) {
+    return {
+      texto: `Venció hace ${-dias} ${dias === -1 ? "día" : "días"}`,
+      tono: "vencido",
+    };
+  }
+  if (dias === 0) return { texto: "Vence hoy", tono: "pronto" };
+  if (dias <= 30) {
+    return {
+      texto: `Vence en ${dias} ${dias === 1 ? "día" : "días"}`,
+      tono: "pronto",
+    };
+  }
+  const [a, m, d] = vence.split("-");
+  return { texto: `Vigente hasta el ${d}/${m}/${a}`, tono: "ok" };
+};
+
 /** La ficha de un competidor en Eventia. */
 export const urlCompetidor = (rut: string): string =>
   `/oportunidades/competidores/${encodeURIComponent(rut)}`;
