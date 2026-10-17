@@ -1,7 +1,8 @@
 # 16 · Propuestas de cotización (hoy a mano, mañana un botón)
 
 > **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
-> `armar-cotizacion`), BOTÓN EN STAND BY.**
+> `armar-cotizacion`). BOTÓN: Felipe lo retomó el 17-10 (sección 6);
+> evaluado, esperando su OK para el paso 1.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -67,6 +68,16 @@ y recién entonces la envíe.
 12. **Solo se procesan requerimientos con ítems vacíos.** Una cotización
     que alguien ya empezó a armar no se pisa (la #585 tenía desayuno, dos
     coffee y salón, pero no el almuerzo: se avisa y no se toca).
+13. **El presupuesto del cliente no es un límite** (Felipe, 17-10): *"muchas
+    veces la gente pone un presupuesto, tengo un millón de pesos (…) y pide,
+    y pide, y pide, y eso es parte de cómo funciona el mercado. Los precios
+    están en nuestro catálogo (…) la IA debe colocar los productos"*. Se
+    arma lo que se pidió, a precio de catálogo: no se baja de nivel ni se
+    quita nada para calzar con el presupuesto. Si el total se aleja mucho,
+    va una nota interna («Se excede el presupuesto: el cliente habla de
+    $1.000.000 y la cotización suma $1.450.000») y nada más: se guarda y
+    sigue el proceso. La nota va en el comentario interno (sección 6);
+    mientras no exista, en la nota de la bitácora.
 
 ## 3. Cómo se trabaja, paso a paso
 
@@ -287,6 +298,49 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 
 ## 6. El botón (diseño, sin construir)
 
+> **17-10-2026: Felipe lo retoma** (*"quiero colocar el botón de generar con
+> esas típicas estrellitas de la IA (…) cada requerimiento debería tener dos
+> campos de comentario, uno que lo ve el cliente y otro interno. En el
+> interno (…) menú económico, tres días, con desayuno, sin desayuno, como
+> instrucciones para que después una IA tome eso, lo lea y genere una
+> cotización de forma automática, la deje en solicitada"*). Evaluado el
+> mismo día: se puede. Lo nuevo:
+>
+> - **Ícono:** las estrellitas de IA (`Sparkles` de lucide, foto de Felipe),
+>   en vez de la varita del 15-10.
+> - **Comentario interno:** columna nueva en `quotations` (migración en
+>   ambas bases, laboratorio primero), en el requerimiento, el cotizador y
+>   la ficha. Nunca sale en el PDF, el correo ni el portal; Observaciones
+>   sigue siendo el comentario que ve el cliente. Sirve desde el primer día:
+>   la skill lo lee, y el equipo deja de escribir notas internas en
+>   Observaciones (444, 446, 447 y 452).
+> - **La IA no ve precios** (Felipe, 17-10: *"el precio no tiene que ser
+>   parte de lo que ve"*): elige productos y el motor pone los precios del
+>   catálogo. Si alguien escribió un presupuesto, la IA solo lo extrae
+>   (monto, y si es total o por persona) y el motor lo compara con el total:
+>   si se aleja mucho, lo anota en el comentario interno y guarda igual
+>   (regla 13). «Cuadrar al peso» es la suma interna de Eventia
+>   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
+>   presupuesto nunca frena el guardado.
+> - **Límite:** no lee correos ni fotos (la skill sí). Lo que importe va en
+>   el comentario interno.
+> - **Costo, medido el 17-10:** el catálogo de Valle del Sol (32 paquetes,
+>   134 menús, 201 sueltos y 39 fijos) son unos 47.700 caracteres; con las
+>   reglas, USD 0,15 a 0,35 por cotización y menos de USD 20 al mes con las
+>   55 de septiembre. Cerca de un minuto por cotización (por medir).
+> - **Llave:** `ANTHROPIC_API_KEY`, creada por Felipe y guardada en Railway,
+>   en el servicio del laboratorio (17-10). La comparte la lectura de
+>   licitaciones de Oportunidades (doc 17), que ya la usa: una cuenta nueva
+>   tiene poco cupo por minuto, cuidarlo (caché del catálogo y las reglas).
+>   Para producción, una llave aparte que Felipe crea y pega él en el
+>   servicio de producción; el motor parte sin ella.
+> - **Plan propuesto, esperando el OK:** 1) el comentario interno; 2) el
+>   botón en el laboratorio, con requerimientos reales; 3) producción cuando
+>   10 seguidas salgan sin corrección (la regla del 15-10 pasa a ser la
+>   puerta de producción).
+> - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
+>   laboratorio; la del comentario interno toma el número libre que siga.
+
 > **15-10-2026: EN STAND BY por decisión de Felipe.** Lo pidió así: *"un
 > botón que sea generar cotizaciones y con un icono de una varita de IA,
 > que vea la cotización, todo lo que está en los comentarios, y genere una
@@ -304,8 +358,9 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 > necesitan armarlas sin él. Esa skill es el borrador de las instrucciones
 > del agente.
 
-- **Nombre e ícono (Felipe, 15-10):** «Generar cotización», con una varita
-  mágica (`WandSparkles` de lucide). El modelo, el más nuevo de Claude,
+- **Nombre e ícono:** «Generar cotización» (Felipe, 15-10), con las
+  estrellitas de IA (`Sparkles` de lucide, foto de Felipe del 17-10; el
+  15-10 había sido la varita `WandSparkles`). El modelo, el más nuevo de Claude,
   queda en una variable del motor para subir de versión sin tocar código.
 - **Dónde:** «Generar cotización» en la ficha del requerimiento, y
   «Generar todas» en Requerimientos.
