@@ -9,6 +9,10 @@ import {
   filtrar,
   filtrarSinSemaforo,
   agruparPorMes,
+  criteriosPorPeso,
+  pesoComoNumero,
+  requisitosPorTipo,
+  textoDeCosto,
   mesDe,
   problemaDelAdjunto,
   textoDeAnios,
@@ -248,5 +252,41 @@ describe("Se viene y competidores", () => {
     expect(urlCompetidor("76154667-8")).toBe(
       "/oportunidades/competidores/76154667-8",
     );
+  });
+});
+
+describe("lo que piden las bases", () => {
+  it("los criterios de más peso a menos; sin peso, al final", () => {
+    const c = criteriosPorPeso([
+      { nombre: "Experiencia", peso: "20%" },
+      { nombre: "Sin peso", peso: "" },
+      { nombre: "Oferta económica", peso: "45 %" },
+      { nombre: "Integridad", peso: "5,5%" },
+    ]);
+    expect(c.map((x) => x.nombre)).toEqual([
+      "Oferta económica",
+      "Experiencia",
+      "Integridad",
+      "Sin peso",
+    ]);
+    expect(pesoComoNumero("30 puntos")).toBe(30);
+    expect(pesoComoNumero("no dice")).toBe(-1);
+  });
+
+  it("el checklist por tipo, en el orden de la casa y sin grupos vacíos", () => {
+    const g = requisitosPorTipo([
+      { tipo: "garantia", que: "Boleta" },
+      { tipo: "administrativo", que: "Anexo 1" },
+      { tipo: "administrativo", que: "Anexo 2" },
+    ]);
+    expect(g.map(([t, l]) => [t, l.length])).toEqual([
+      ["Administrativos", 2],
+      ["Garantías", 1],
+    ]);
+  });
+
+  it("el costo en dólares, con coma", () => {
+    expect(textoDeCosto(0.4213)).toBe("US$0,42");
+    expect(textoDeCosto(null)).toBe("");
   });
 });

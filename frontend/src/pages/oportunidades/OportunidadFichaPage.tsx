@@ -17,6 +17,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
+import AnalisisDeBases from "./AnalisisDeBases";
 import Ganadores from "./Ganadores";
 import {
   ALERTAS,
@@ -271,6 +272,8 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         codigo={ficha.codigo}
         tipo={p.tipo}
       />
+
+      <AnalisisDeBases oportunidadId={ficha.id} />
 
       {fechas.length > 0 && (
         <Seccion titulo="Fechas">

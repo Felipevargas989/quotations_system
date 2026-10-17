@@ -21,6 +21,7 @@ import {
   AdjuntosService,
   MAX_BYTES_ADJUNTO,
 } from './adjuntos/adjuntos.service';
+import { AnalisisService } from './analisis/analisis.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -43,6 +44,7 @@ export class OportunidadesController {
   constructor(
     private readonly servicio: OportunidadesService,
     private readonly adjuntos: AdjuntosService,
+    private readonly analisis: AnalisisService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
@@ -144,6 +146,28 @@ export class OportunidadesController {
       `POST /oportunidades/${id}/adjuntos (empresa ${user.company_id})`,
     );
     return this.adjuntos.subir(user.company_id, user.id, id, archivo);
+  }
+
+  /** El último análisis de las bases (migración 125); null si no hay. */
+  @Get(':id/analisis')
+  analisisDeBases(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.analisis.ultimo(user.company_id, id);
+  }
+
+  /** Pide que Opus lea las bases: responde al tiro con el análisis
+   *  "procesando"; la pantalla pregunta hasta que termine. */
+  @Post(':id/analisis')
+  analizarBases(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/analisis (empresa ${user.company_id})`,
+    );
+    return this.analisis.pedir(user.company_id, user.id, id);
   }
 
   @Delete(':id/adjuntos/:adjuntoId')
