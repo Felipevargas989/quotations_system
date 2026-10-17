@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import UserManagementPage from "../UserManagementPage";
 import CompanyConfiguration from "./companyConfiguration/CompanyConfiguration";
 import CorreosDeLaEmpresa from "./CorreosDeLaEmpresa";
+import FormularioWeb from "./FormularioWeb";
 import PestanaPlan from "./PestanaPlan";
 
 // MI EMPRESA (18-09-2026, sprint "Mi cuenta / Mi empresa").
@@ -16,6 +17,9 @@ import PestanaPlan from "./PestanaPlan";
 //              pantalla personal, mudadas acá)
 //   Usuarios → la gestión de usuarios (antes suelta en el menú)
 //   Plan     → qué plan tiene la empresa y hasta cuándo corre
+//   Formulario web → el enlace público del formulario (vivía como botón
+//              en Requerimientos; Felipe, 17-10-2026: "es algo como de
+//              configuración")
 //
 // La pestaña viaja en la URL (?tab=) para poder llegar directo, igual
 // que Personas con su ?dia=. Toda la página es de administrador: la
@@ -26,6 +30,7 @@ const PESTANAS = [
   { id: "correos", nombre: "Correos" },
   { id: "usuarios", nombre: "Usuarios" },
   { id: "plan", nombre: "Plan" },
+  { id: "formulario", nombre: "Formulario web" },
 ] as const;
 
 type PestanaId = (typeof PESTANAS)[number]["id"];
@@ -46,7 +51,7 @@ export default function MiEmpresa() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mi empresa</h1>
           <p className="text-gray-600">
-            La marca, los correos, el equipo y el plan
+            La marca, los correos, el equipo, el plan y el formulario web
           </p>
         </div>
       </div>
@@ -73,6 +78,7 @@ export default function MiEmpresa() {
       {activa === "correos" && <CorreosDeLaEmpresa />}
       {activa === "usuarios" && <UserManagementPage />}
       {activa === "plan" && <PestanaPlan />}
+      {activa === "formulario" && <FormularioWeb />}
     </div>
   );
 }
