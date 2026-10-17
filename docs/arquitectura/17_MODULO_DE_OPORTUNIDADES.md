@@ -287,7 +287,7 @@ Orden acordado:
 | 1b | El **panel de detalle** al pinchar en la bandeja, con En estudio, Descartar y Ver ficha. **Construido el 17-10** |
 | 2 | **Datos de la empresa como oferente y la foto de la firma**; la carpeta con vencimientos (§5.5). **Construido el 17-10** (pestaña "Mi empresa"); la migración 126 espera el OK de Felipe |
 | 3 | **Validar documentos** (lo más importante para Felipe): los documentos de la postulación contra el checklist de las bases, uno por uno: cumple, falta o vencido. **Construido el 17-10** ("Mi postulación" y "Validar documentos" en la ficha); la migración 127 espera el OK de Felipe |
-| 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica). **Construido el 17-10** ("Crear documentos con IA" y «Firmar» en la ficha); la migración 128 espera el OK de Felipe |
+| 4 | **Adjuntar anexos** (los Word de las bases, llenos con IA y firmados con la foto) y **Crear documento** (propuesta de negocio, presentación, ficha técnica). **Construido el 17-10** ("Crear documentos con IA" y «Firmar» en la ficha); la migración 129 espera el OK de Felipe |
 
 **Paso 4: diseño propuesto, para decidir con Felipe (escrito el 17-10
 mientras estaba fuera; no se construyó: gasta plata de su cuenta y tiene
@@ -336,7 +336,7 @@ dejemos todo listo y luego testeamos con estas licitaciones"*):
 Se deja todo listo en el laboratorio y después se prueba con el Día del
 Profesor y el del Funcionario de Quillón.
 
-**Construido el 17-10** (rama `feature/oportunidades-radar`, migración 128
+**Construido el 17-10** (rama `feature/oportunidades-radar`, migración 129
 sin aplicar). Cómo quedó:
 
 - **"Crear documentos con IA"**, en la ficha, entre "Lo que piden las

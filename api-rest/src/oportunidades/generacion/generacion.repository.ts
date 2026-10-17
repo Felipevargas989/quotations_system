@@ -8,7 +8,7 @@ import {
   TrabajosDeIARepository,
 } from '../analisis/analisis.repository';
 
-// Los trabajos de la IA que HACEN documentos (migración 128): llenar los
+// Los trabajos de la IA que HACEN documentos (migración 129): llenar los
 // anexos del comprador, firmarlos y crear la propuesta técnica. La misma
 // forma que el análisis y la validación, más el tipo y lo que se pidió.
 // Toda consulta filtra por company_id.

@@ -566,11 +566,13 @@ y **antes** del deploy del motor.
 
 **Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
 
-## 21. Migración 128: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
+## 21. Migración 129: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
+
+(Se escribió como 128; ese número ya lo había tomado el comentario interno de las cotizaciones, rama `feature/comentario-interno`, aplicado en el laboratorio el 17-10. Por eso es la 129.)
 
 **Qué hace.** Crea `oportunidad_generacion`: una fila por cada vez que se aprieta "Generar anexos", "Firmar" o "Crear propuesta técnica" (doc 17, sprint 3, paso 4). La misma forma que `oportunidad_analisis` más `tipo` (`anexos`, `firma`, `propuesta`), `analisis_id` (el análisis usado, `set null`) y `parametros` (lo que se pidió: el monto de la oferta y los archivos elegidos). El índice único parcial `oportunidad_generacion_una_en_curso` va por `(oportunidad_id, tipo)`: uno a la vez de cada tipo. Suma a `oportunidad_adjuntos` `origen` (`subido`, lo de siempre y el valor de lo que ya existe; `generado`, lo hizo la IA sin firma; `firmado`), con su CHECK, `viene_de` (el archivo del que salió, `set null`) y `generacion_id` (`set null`). Con `company_id`, RLS, `REVOKE`, `GRANT` y la secuencia. Va **después** de la 125, la 126 y la 127. Trae la reversa comentada.
 
-**Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 128, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
+**Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
 
 **Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Sin aplicar, ni siquiera en el laboratorio**: espera su OK. En producción va **antes** del deploy del motor.
 

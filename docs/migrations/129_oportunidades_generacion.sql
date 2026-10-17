@@ -1,5 +1,5 @@
 -- ============================================================
--- 128 · OPORTUNIDADES: ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA
+-- 129 · OPORTUNIDADES: ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA
 --       (17-10-2026)
 -- ============================================================
 -- Doc 17, sprint 3, paso 4. Felipe, 17-10: "1.- si 2.- si 3.- si, pero
@@ -26,7 +26,8 @@
 --
 -- De cada empresa: company_id, RLS, REVOKE y GRANT (también la secuencia)
 -- en la misma migración (lección 5). Idempotente. Va DESPUÉS de la 125,
--- la 126 y la 127.
+-- la 126 y la 127. El número 128 lo tomó el comentario interno de las
+-- cotizaciones (otra rama, ya aplicado en el laboratorio): por eso 129.
 -- ============================================================
 
 create table if not exists public.oportunidad_generacion (

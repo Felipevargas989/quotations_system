@@ -271,7 +271,7 @@ export class OportunidadesController {
     return this.validacion.pedir(user.company_id, user.id, id);
   }
 
-  // LA IA HACE DOCUMENTOS (sprint 3, paso 4; migración 128): llena los
+  // LA IA HACE DOCUMENTOS (sprint 3, paso 4; migración 129): llena los
   // anexos del comprador SIN firma, los firma cuando la empresa ya los
   // revisó, y escribe la propuesta técnica. Cada uno responde al tiro con
   // el trabajo "procesando"; la pantalla pregunta hasta que termine.
