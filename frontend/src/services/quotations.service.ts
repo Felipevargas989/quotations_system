@@ -168,12 +168,26 @@ export const enviarCotizacionPorCorreo = async (quotationId: string) =>
     {},
   )) as { enviado_a: string };
 
+/** El botón «✨ Crear con IA» (17-10-2026, doc 16 §6): el motor arma el
+ *  requerimiento con Claude y lo deja en solicitada. Tarda cerca de un
+ *  minuto; nunca envía nada. */
+export const generarConIA = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/generar`,
+    "POST",
+    {},
+  )) as {
+    quotation_number: number;
+    total_amount: number;
+    value_per_person: number;
+    nota: string;
+    segundos: number;
+    costo_usd: number | null;
+  };
+
 /** La hoja pública que imprime el navegador invisible del motor. */
 export const getHojaParaImprimir = async (token: string) =>
-  (await apiRequest(
-    `${API_ROUTES.QUOTATIONS}/imprimir/${token}`,
-    "GET",
-  )) as {
+  (await apiRequest(`${API_ROUTES.QUOTATIONS}/imprimir/${token}`, "GET")) as {
     quotation: import("../utils/quotationPrintDoc").PrintQuotation;
     empresa: import("../utils/quotationPrintDoc").PrintCompany;
     menu?: import("../utils/quotationPrintDoc").PrintMenu | null;

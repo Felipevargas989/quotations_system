@@ -1,6 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "./toast/Toast";
-import { Save, RotateCcw, Plus, CheckCircle } from "lucide-react";
+import {
+  Save,
+  RotateCcw,
+  Plus,
+  CheckCircle,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
+import { SECTION_ROLES, tieneDerecho } from "../constants/permissions";
+import { useCrearConIA } from "../hooks/useCrearConIA";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
 import { normalizePhone, PHONE_PLACEHOLDER } from "../utils/phone";
@@ -35,7 +45,17 @@ interface RequestFormProps {
 }
 
 export default function RequestForm({ request, onSave }: RequestFormProps) {
-  const { user } = useAuth();
+  const { user, userRole, company } = useAuth();
+  const navigate = useNavigate();
+  const formRef = useRef<HTMLFormElement>(null);
+  // «✨ Crear con IA» al editar (Felipe, 17-10-2026): se escribe el
+  // comentario interno y en un solo paso se guarda y se arma. Solo quien
+  // cotiza, en la empresa con el módulo propio cotizar_con_ia.
+  const conIA =
+    Boolean(request?.id) &&
+    SECTION_ROLES.quotations_edit.includes(userRole as never) &&
+    tieneDerecho(company, "cotizar_con_ia");
+  const ia = useCrearConIA();
   // Un requerimiento maneja solo el esqueleto del evento (sin montos):
   // QuotationCreateData refleja eso (Fase 2 Bloque C). El "" inicial de
   // event_type existe hasta que el usuario elige (el select es
@@ -263,6 +283,33 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
     }
   };
 
+  // Guarda lo escrito y pide a la IA que la arme; si sale, se abre en el
+  // cotizador para revisarla (queda en solicitada, nunca se envía).
+  const guardarYCrearConIA = async () => {
+    if (!request?.id || !formRef.current?.reportValidity()) return;
+    setLoading(true);
+    try {
+      const { error } = await updateQuotation(
+        {
+          ...formData,
+          ...comentarioParaGuardar(formData.comentario_interno),
+        },
+        request.id,
+      );
+      if (error) throw error;
+    } catch {
+      toast.error("No se pudo guardar el requerimiento.");
+      setLoading(false);
+      return;
+    }
+    const ok = await ia.crear({
+      id: request.id,
+      numero: request.quotation_number,
+    });
+    setLoading(false);
+    if (ok) navigate(`/quotation-form/${request.id}`);
+  };
+
   const handleClear = () => {
     setFormData({
       event_type: "" as EventType,
@@ -448,7 +495,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
         </Modal>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         {/* Número de Requerimiento */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -676,6 +723,22 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
             <RotateCcw size={16} />
             <span>Limpiar</span>
           </button>
+          {conIA && (
+            <button
+              type="button"
+              onClick={() => void guardarYCrearConIA()}
+              disabled={loading || ia.ocupado}
+              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Guarda y la IA arma la cotización (cerca de un minuto)"
+            >
+              {ia.ocupado ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              <span>{ia.ocupado ? "Generando…" : "Crear con IA"}</span>
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading}
