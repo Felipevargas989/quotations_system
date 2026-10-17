@@ -19,6 +19,7 @@ import { formatMomento } from "../../utils/dates";
 import {
   ALERTAS,
   cuandoCierra,
+  esPrioridad,
   ESTADOS,
   ETIQUETAS,
   SE_HACE_EN_EL_COMPLEJO,
@@ -144,6 +145,11 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
                 }`}
               />
               <h1 className="text-xl font-bold text-gray-900">{p.nombre}</h1>
+              {esPrioridad(ficha) && (
+                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">
+                  Prioridad
+                </span>
+              )}
             </div>
             <p className="text-sm text-gray-500">
               {[p.organismo, p.unidad, p.comuna, p.region]

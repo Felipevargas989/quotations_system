@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox, RefreshCw, Settings } from "lucide-react";
+import { Inbox, RefreshCw, Settings, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -21,6 +21,7 @@ import {
   ALERTAS,
   contarPorSemaforo,
   cuandoCierra,
+  esPrioridad,
   ESTADOS,
   ETIQUETAS,
   FILTROS_DE_PARTIDA,
@@ -313,16 +314,53 @@ function Bandeja() {
             : "Nada con estos filtros."}
         </p>
       ) : (
-        <ul className="divide-y divide-gray-200 border-t border-gray-200">
-          {visibles.map((o) => (
-            <FilaDeOportunidad
-              key={o.id}
-              o={o}
-              ocupado={decidir.isPending}
-              onDecidir={(estado) => decidir.mutate({ id: o.id, estado })}
-            />
-          ))}
-        </ul>
+        <div className="space-y-5">
+          {[
+            {
+              titulo: "Prioridad: comuna cercana o alto valor",
+              filas: visibles.filter(esPrioridad),
+              destacado: true,
+            },
+            {
+              titulo: "El resto",
+              filas: visibles.filter((o) => !esPrioridad(o)),
+              destacado: false,
+            },
+          ]
+            .filter((g) => g.filas.length > 0)
+            .map((g, i, grupos) => (
+              <section key={g.titulo}>
+                {grupos.length > 1 && (
+                  <h3
+                    className={`flex items-center gap-1.5 mb-1 text-xs font-semibold uppercase tracking-wide ${
+                      g.destacado ? "text-amber-700" : "text-gray-500"
+                    }`}
+                  >
+                    {g.destacado && <Star size={14} />}
+                    {g.titulo} ({g.filas.length})
+                  </h3>
+                )}
+                <ul
+                  className={`divide-y divide-gray-200 border-t ${
+                    g.destacado
+                      ? "border-amber-300 bg-amber-50/40"
+                      : "border-gray-200"
+                  }`}
+                >
+                  {g.filas.map((o) => (
+                    <FilaDeOportunidad
+                      key={o.id}
+                      o={o}
+                      ocupado={decidir.isPending}
+                      onDecidir={(estado) =>
+                        decidir.mutate({ id: o.id, estado })
+                      }
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+        </div>
       )}
     </div>
   );

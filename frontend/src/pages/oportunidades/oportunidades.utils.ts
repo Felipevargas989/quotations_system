@@ -209,6 +209,15 @@ export const urlMercadoPublico = (codigo: string, tipo: TipoProceso): string =>
     ? `https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(codigo)}`
     : `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(codigo)}`;
 
+/** PRIORIDAD (Felipe, 17-10: "hay dos que son directas mías y están en
+ *  amarillo y deberían ser prioridad"): lo de una comuna cercana o de alto
+ *  valor que no quedó en rojo va arriba, aunque la IA lo deje en amarillo
+ *  por una duda (casi siempre: no dice dónde se hace). El color no se toca:
+ *  lo decide la lectura. */
+export const esPrioridad = (o: Pick<Oportunidad, "semaforo" | "alertas">) =>
+  o.semaforo !== "rojo" &&
+  o.alertas.some((a) => a === "comuna_cercana" || a === "alto_valor");
+
 export const TIPOS: Record<TipoProceso, string> = {
   licitacion: "Licitación",
   compra_agil: "Compra ágil",

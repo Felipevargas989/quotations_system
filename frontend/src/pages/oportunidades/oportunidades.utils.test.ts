@@ -3,6 +3,7 @@ import type { Oportunidad } from "../../services/oportunidades.service";
 import {
   contarPorSemaforo,
   cuandoCierra,
+  esPrioridad,
   FILTROS_DE_PARTIDA,
   filtrar,
   filtrarSinSemaforo,
@@ -114,6 +115,24 @@ describe("urlMercadoPublico", () => {
     );
     expect(urlMercadoPublico("5040-209-COT26", "compra_agil")).toBe(
       "https://buscador.mercadopublico.cl/ficha?code=5040-209-COT26",
+    );
+  });
+});
+
+describe("esPrioridad", () => {
+  it("comuna cercana o alto valor, en verde o amarillo, va arriba", () => {
+    expect(
+      esPrioridad({ semaforo: "amarillo", alertas: ["comuna_cercana"] }),
+    ).toBe(true);
+    expect(esPrioridad({ semaforo: "verde", alertas: ["alto_valor"] })).toBe(
+      true,
+    );
+  });
+
+  it("sin marcas, o en rojo, no", () => {
+    expect(esPrioridad({ semaforo: "verde", alertas: [] })).toBe(false);
+    expect(esPrioridad({ semaforo: "rojo", alertas: ["alto_valor"] })).toBe(
+      false,
     );
   });
 });
