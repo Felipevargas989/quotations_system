@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Building2,
   CalendarClock,
   Inbox,
   RefreshCw,
@@ -25,6 +26,7 @@ import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
+import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
 import {
   ALERTAS,
@@ -51,7 +53,12 @@ import SeVieneOportunidades from "./SeVieneOportunidades";
 const CLAVE_FILTROS = "op.filtros";
 const CLAVE_PESTANA = "op.pestana";
 
-type Pestana = "bandeja" | "seviene" | "competidores" | "configuracion";
+type Pestana =
+  | "bandeja"
+  | "seviene"
+  | "competidores"
+  | "empresa"
+  | "configuracion";
 
 const leerSesion = <T,>(clave: string, siNo: T): T => {
   try {
@@ -101,6 +108,7 @@ export default function OportunidadesPage() {
               ["bandeja", "Bandeja", Inbox],
               ["seviene", "Se viene", CalendarClock],
               ["competidores", "Competidores", Users],
+              ["empresa", "Mi empresa", Building2],
               ["configuracion", "Configuración", Settings],
             ] as const
           ).map(([id, texto, Icono]) => (
@@ -122,6 +130,7 @@ export default function OportunidadesPage() {
           {pestana === "configuracion" && <ConfiguracionOportunidades />}
           {pestana === "seviene" && <SeVieneOportunidades />}
           {pestana === "competidores" && <CompetidoresOportunidades />}
+          {pestana === "empresa" && <OferenteOportunidades />}
           {pestana === "bandeja" && <Bandeja />}
         </div>
       </div>

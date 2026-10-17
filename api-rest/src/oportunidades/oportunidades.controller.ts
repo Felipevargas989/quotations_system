@@ -25,6 +25,12 @@ import { AnalisisService } from './analisis/analisis.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
+import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
+import {
+  MAX_BYTES_DOCUMENTO,
+  MAX_BYTES_FIRMA,
+  OferenteService,
+} from './oferente/oferente.service';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
 import { RadarService } from './radar.service';
@@ -45,6 +51,7 @@ export class OportunidadesController {
     private readonly servicio: OportunidadesService,
     private readonly adjuntos: AdjuntosService,
     private readonly analisis: AnalisisService,
+    private readonly oferente: OferenteService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
@@ -103,6 +110,64 @@ export class OportunidadesController {
   @Get('competidores/:rut')
   competidor(@Param('rut') rut: string, @CurrentUser() user: User) {
     return this.servicio.competidor(user.company_id, rut);
+  }
+
+  // LA EMPRESA COMO OFERENTE (sprint 3, paso 2; migración 126): sus datos,
+  // la foto de la firma y la carpeta de documentos con vencimiento.
+
+  @Get('oferente')
+  verOferente(@CurrentUser() user: User) {
+    return this.oferente.ver(user.company_id);
+  }
+
+  @Patch('oferente')
+  guardarOferente(@Body() dto: GuardarOferenteDto, @CurrentUser() user: User) {
+    return this.oferente.guardar(user.company_id, dto);
+  }
+
+  @Post('oferente/firma')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_BYTES_FIRMA },
+      defParamCharset: 'utf8',
+    }),
+  )
+  subirFirma(
+    @UploadedFile() archivo: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/oferente/firma (empresa ${user.company_id})`,
+    );
+    return this.oferente.subirFirma(user.company_id, archivo);
+  }
+
+  @Delete('oferente/firma')
+  borrarFirma(@CurrentUser() user: User) {
+    return this.oferente.borrarFirma(user.company_id);
+  }
+
+  @Post('oferente/documentos')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_BYTES_DOCUMENTO },
+      defParamCharset: 'utf8',
+    }),
+  )
+  subirDocumentoDeEmpresa(
+    @UploadedFile() archivo: Express.Multer.File | undefined,
+    @Body() dto: SubirDocumentoDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.oferente.subirDocumento(user.company_id, user.id, archivo, dto);
+  }
+
+  @Delete('oferente/documentos/:documentoId')
+  borrarDocumentoDeEmpresa(
+    @Param('documentoId', ParseIntPipe) documentoId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.oferente.borrarDocumento(user.company_id, documentoId);
   }
 
   @Get(':id')

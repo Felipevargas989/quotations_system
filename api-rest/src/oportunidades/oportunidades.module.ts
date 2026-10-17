@@ -6,6 +6,8 @@ import { AnalisisService } from './analisis/analisis.service';
 import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
+import { OferenteRepository } from './oferente/oferente.repository';
+import { OferenteService } from './oferente/oferente.service';
 import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
@@ -26,6 +28,8 @@ import { RadarService } from './radar.service';
     AdjuntosService,
     AnalisisRepository,
     AnalisisService,
+    OferenteRepository,
+    OferenteService,
     HistoriaService,
     RadarService,
     OportunidadesCronService,

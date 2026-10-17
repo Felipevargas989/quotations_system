@@ -10,6 +10,8 @@ import {
   filtrarSinSemaforo,
   agruparPorMes,
   criteriosPorPeso,
+  estadoDeVencimiento,
+  etiquetaDeDocumento,
   pesoComoNumero,
   requisitosPorTipo,
   textoDeCosto,
@@ -288,5 +290,40 @@ describe("lo que piden las bases", () => {
   it("el costo en dólares, con coma", () => {
     expect(textoDeCosto(0.4213)).toBe("US$0,42");
     expect(textoDeCosto(null)).toBe("");
+  });
+});
+
+describe("la carpeta de documentos de la empresa", () => {
+  const HOY = "2026-10-17";
+
+  it("vigente, por vencer (30 días o menos), vence hoy, vencido y sin vencimiento", () => {
+    expect(estadoDeVencimiento("2027-03-01", HOY)).toEqual({
+      texto: "Vigente hasta el 01/03/2027",
+      tono: "ok",
+    });
+    expect(estadoDeVencimiento("2026-11-16", HOY)).toEqual({
+      texto: "Vence en 30 días",
+      tono: "pronto",
+    });
+    expect(estadoDeVencimiento("2026-10-18", HOY).texto).toBe("Vence en 1 día");
+    expect(estadoDeVencimiento("2026-10-17", HOY)).toEqual({
+      texto: "Vence hoy",
+      tono: "pronto",
+    });
+    expect(estadoDeVencimiento("2026-10-16", HOY)).toEqual({
+      texto: "Venció hace 1 día",
+      tono: "vencido",
+    });
+    expect(estadoDeVencimiento(null, HOY)).toEqual({
+      texto: "No vence",
+      tono: "sin",
+    });
+  });
+
+  it("el nombre de cada tipo; uno desconocido se muestra tal cual", () => {
+    expect(etiquetaDeDocumento("f30")).toBe(
+      "Certificado F30 (antecedentes laborales)",
+    );
+    expect(etiquetaDeDocumento("raro")).toBe("raro");
   });
 });

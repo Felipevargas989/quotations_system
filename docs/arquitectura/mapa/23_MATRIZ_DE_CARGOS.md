@@ -63,7 +63,7 @@ Lo que ya se cobró y se opera.
   la configuración sigue abierto, porque la pantalla de Consultas la carga.
 - Códigos de servicio en uso.
 - Respuestas de la encuesta de satisfacción.
-- Oportunidades (doc 17, mapa 24): la bandeja, la ficha, decidir (estado, responsable, notas), la configuración del módulo, correr el radar y ver sus corridas, subir, listar y eliminar las bases y anexos, ver Se viene y los competidores, y pedir y ver el análisis de las bases con IA (17-10). Además exige el derecho `oportunidades`. Decisión de Felipe del 17-10: *"solo el administrador y Camila (que es perfil administrador)"*. Rama `feature/oportunidades-radar`; nada en producción.
+- Oportunidades (doc 17, mapa 24): la bandeja, la ficha, decidir (estado, responsable, notas), la configuración del módulo, correr el radar y ver sus corridas, subir, listar y eliminar las bases y anexos, ver Se viene y los competidores, pedir y ver el análisis de las bases con IA, y los datos de la empresa como oferente, su firma y su carpeta de documentos (17-10). Además exige el derecho `oportunidades`. Decisión de Felipe del 17-10: *"solo el administrador y Camila (que es perfil administrador)"*. Rama `feature/oportunidades-radar`; nada en producción.
 
 ## Se quedan como están
 

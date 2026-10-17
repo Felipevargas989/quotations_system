@@ -266,6 +266,122 @@ export const pedirAnalisis = async (id: number) =>
     "POST",
   )) as AnalisisDeBases;
 
+/** La empresa como oferente (doc 17, sprint 3, paso 2; migración 126). */
+export interface Oferente {
+  razon_social: string | null;
+  rut: string | null;
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  region: string | null;
+  telefono: string | null;
+  correo: string | null;
+  representante_nombre: string | null;
+  representante_rut: string | null;
+  representante_cargo: string | null;
+  experiencia: string | null;
+  instalaciones: string | null;
+  /** La foto de la firma, en el balde privado. */
+  firma_ruta: string | null;
+  firma_subida_en: string | null;
+}
+
+export interface DocumentoDeEmpresa {
+  id: number;
+  tipo: string;
+  nombre: string;
+  ruta: string;
+  tipo_archivo: string;
+  bytes: number;
+  /** AAAA-MM-DD; null = no vence. */
+  vence: string | null;
+  creado_en: string;
+  quien: { full_name: string | null } | null;
+}
+
+export interface VistaDelOferente {
+  oferente: Oferente;
+  /** De Configuración de empresa: aquí solo se muestran. */
+  empresa: {
+    nombre: string | null;
+    banco: {
+      rut: string | null;
+      banco: string | null;
+      tipo_cuenta: string | null;
+      numero: string | null;
+      titular: string | null;
+    } | null;
+  };
+  documentos: DocumentoDeEmpresa[];
+}
+
+export type CamposDelOferente = Omit<
+  Oferente,
+  "firma_ruta" | "firma_subida_en"
+>;
+
+export const getOferente = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente`,
+    "GET",
+  )) as VistaDelOferente;
+
+/** Vacío = borrar el dato. */
+export const guardarOferente = async (
+  cambios: Partial<Record<keyof CamposDelOferente, string>>,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente`,
+    "PATCH",
+    cambios,
+  )) as VistaDelOferente;
+
+const subirConFormulario = async <T>(
+  url: string,
+  archivo: File,
+  campos: Record<string, string> = {},
+) => {
+  const form = new FormData();
+  form.append("file", archivo);
+  Object.entries(campos).forEach(([k, v]) => form.append(k, v));
+  const { data } = await api.request({
+    url,
+    method: "POST",
+    data: form,
+    headers: { "Content-Type": undefined },
+  });
+  return data as T;
+};
+
+export const subirFirma = (archivo: File) =>
+  subirConFormulario<VistaDelOferente>(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/firma`,
+    archivo,
+  );
+
+export const borrarFirma = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/firma`,
+    "DELETE",
+  )) as VistaDelOferente;
+
+export const subirDocumentoDeEmpresa = (
+  archivo: File,
+  tipo: string,
+  vence: string,
+) =>
+  subirConFormulario<DocumentoDeEmpresa>(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos`,
+    archivo,
+    { tipo, vence },
+  );
+
+export const borrarDocumentoDeEmpresa = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos/${id}`,
+    "DELETE",
+  )) as { borrado: boolean };
+
 export const getCalendario = async () =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/calendario`,
