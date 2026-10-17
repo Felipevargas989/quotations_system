@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Oportunidad } from "../../services/oportunidades.service";
+import * as servicio from "../../services/oportunidades.service";
 import PanelDeOportunidad from "./PanelDeOportunidad";
 
 // EL PANEL DE DETALLE (Felipe, 17-10: "pinchar un modal con el detalle,
@@ -16,6 +23,19 @@ import PanelDeOportunidad from "./PanelDeOportunidad";
 // que pide sus variables al cargarse.
 vi.mock("../../services/oportunidades.service", () => ({
   getFichaDeOportunidad: vi.fn(() => new Promise(() => {})),
+  actualizarOportunidad: vi.fn(() => Promise.resolve({})),
+}));
+vi.mock("../../services/users.service", () => ({
+  getUsers: vi.fn(() =>
+    Promise.resolve({
+      data: [
+        { id: "p-1", full_name: "Felipe Vargas", role: "administrador" },
+        { id: "p-2", full_name: "Camila", role: "administrador" },
+        { id: "p-3", full_name: "Recepción", role: "recepcion" },
+      ],
+      error: null,
+    }),
+  ),
 }));
 
 afterEach(cleanup);
@@ -92,6 +112,26 @@ describe("PanelDeOportunidad", () => {
     expect(
       screen.getByRole("link", { name: "Ver ficha completa" }),
     ).toHaveAttribute("href", "/oportunidades/40");
+  });
+
+  it("se abre al costado, con todo el alto (como Licify)", () => {
+    pintar(funcionario());
+    const ventana = screen.getByRole("dialog");
+    expect(ventana.className).toContain("h-full");
+    expect(ventana.parentElement?.className).toContain("justify-end");
+  });
+
+  it("Asignar: el responsable sale de los administradores y se guarda al elegirlo", async () => {
+    pintar(funcionario());
+    fireEvent.click(screen.getByText("Asignar a…"));
+    expect(await screen.findByText("Camila")).toBeInTheDocument();
+    expect(screen.queryByText("Recepción")).toBeNull();
+    fireEvent.click(screen.getByText("Camila"));
+    await waitFor(() =>
+      expect(servicio.actualizarOportunidad).toHaveBeenCalledWith(40, {
+        responsable_id: "p-2",
+      }),
+    );
   });
 
   it("Escape cierra", () => {

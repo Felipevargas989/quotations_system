@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Briefcase,
   Building2,
   CalendarClock,
+  Eye,
   Inbox,
   RefreshCw,
   Settings,
@@ -26,6 +28,7 @@ import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
+import MisLicitaciones from "./MisLicitaciones";
 import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
 import {
@@ -40,10 +43,12 @@ import {
   type Filtros,
   SEMAFOROS,
   textoDelAnterior,
+  separarMias,
   TIPOS,
   VISTAS,
 } from "./oportunidades.utils";
 import SeVieneOportunidades from "./SeVieneOportunidades";
+import { useMisLicitaciones } from "./useMisLicitaciones";
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
 // ágiles que el radar trae cada 2 horas y la IA lee. Base: el mockup del
@@ -55,6 +60,7 @@ const CLAVE_PESTANA = "op.pestana";
 
 type Pestana =
   | "bandeja"
+  | "mias"
   | "seviene"
   | "competidores"
   | "empresa"
@@ -87,6 +93,9 @@ export default function OportunidadesPage() {
     setPestana(p);
     guardarSesion(CLAVE_PESTANA, { p });
   };
+  // Cuántas hay en curso, a la vista en la pestaña.
+  const { data: mias = [] } = useMisLicitaciones();
+  const enCurso = separarMias(mias).enCurso.length;
 
   return (
     <div className="space-y-6">
@@ -106,6 +115,7 @@ export default function OportunidadesPage() {
           {(
             [
               ["bandeja", "Bandeja", Inbox],
+              ["mias", "Mis licitaciones", Briefcase],
               ["seviene", "Se viene", CalendarClock],
               ["competidores", "Competidores", Users],
               ["empresa", "Mi empresa", Building2],
@@ -123,6 +133,11 @@ export default function OportunidadesPage() {
             >
               <Icono size={16} />
               {texto}
+              {id === "mias" && enCurso > 0 && (
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                  {enCurso}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -132,6 +147,7 @@ export default function OportunidadesPage() {
           {pestana === "competidores" && <CompetidoresOportunidades />}
           {pestana === "empresa" && <OferenteOportunidades />}
           {pestana === "bandeja" && <Bandeja />}
+          {pestana === "mias" && <MisLicitaciones />}
         </div>
       </div>
     </div>
@@ -229,8 +245,9 @@ function Bandeja() {
     [lista],
   );
 
-  // El panel de detalle (doc 17, sprint 3, paso 1b): se abre al pinchar el
-  // nombre; con Ctrl o Cmd el enlace sigue abriendo la ficha en otra
+  // El resumen al costado (doc 17, sprint 3, paso 1b): se abre al pinchar
+  // cualquier parte de la fila (Felipe, 17-10, no encontraba el del
+  // nombre); con Ctrl o Cmd el nombre sigue abriendo la ficha en otra
   // pestaña.
   const [abierta, setAbierta] = useState<Oportunidad | null>(null);
 
@@ -243,10 +260,11 @@ function Bandeja() {
         estado === "descartada"
           ? "Descartada. Queda en la vista Descartadas: no se borra."
           : estado === "en_estudio"
-            ? "Marcada en estudio."
+            ? "Quedó en «Mis licitaciones» para trabajarla."
             : "Lista.",
       );
       void qc.invalidateQueries({ queryKey: ["oportunidades", "lista"] });
+      void qc.invalidateQueries({ queryKey: ["oportunidades", "mias"] });
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
   });
@@ -417,9 +435,19 @@ function FilaDeOportunidad({
   const p = o.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
   const estado = ESTADOS.find((e) => e.value === o.estado);
+  // Los botones de la derecha deciden sin abrir el resumen.
+  const solo = (accion: () => void) => (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    accion();
+  };
   return (
     <li
-      className={`grid grid-cols-[14px_minmax(0,1fr)_auto] gap-3 py-3 ${
+      onClick={() => {
+        // Seleccionar texto para copiarlo no abre el resumen.
+        if (window.getSelection()?.toString()) return;
+        onAbrir();
+      }}
+      className={`grid grid-cols-[14px_minmax(0,1fr)_auto] gap-3 px-2 py-3 -mx-2 rounded-lg cursor-pointer hover:bg-blue-50/50 ${
         o.estado === "descartada" ? "opacity-60" : ""
       }`}
     >
@@ -433,8 +461,9 @@ function FilaDeOportunidad({
         <Link
           to={`/oportunidades/${o.id}`}
           onClick={(e) => {
-            // Un clic normal abre el panel; con Ctrl, Cmd o la rueda, la
+            // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
             // ficha en otra pestaña, como cualquier enlace.
+            e.stopPropagation();
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             onAbrir();
@@ -497,12 +526,19 @@ function FilaDeOportunidad({
         </div>
       </div>
       <div className="flex flex-col gap-1.5 items-stretch">
+        <button
+          type="button"
+          onClick={solo(onAbrir)}
+          className="inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
+        >
+          <Eye size={13} /> Ver resumen
+        </button>
         {o.estado === "nueva" ? (
           <>
             <button
               type="button"
               disabled={ocupado}
-              onClick={() => onDecidir("en_estudio")}
+              onClick={solo(() => onDecidir("en_estudio"))}
               className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               Me interesa
@@ -510,7 +546,7 @@ function FilaDeOportunidad({
             <button
               type="button"
               disabled={ocupado}
-              onClick={() => onDecidir("descartada")}
+              onClick={solo(() => onDecidir("descartada"))}
               className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
             >
               Descartar
@@ -520,7 +556,7 @@ function FilaDeOportunidad({
           <button
             type="button"
             disabled={ocupado}
-            onClick={() => onDecidir("nueva")}
+            onClick={solo(() => onDecidir("nueva"))}
             className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
           >
             Recuperar
@@ -528,6 +564,7 @@ function FilaDeOportunidad({
         ) : (
           <Link
             to={`/oportunidades/${o.id}`}
+            onClick={(e) => e.stopPropagation()}
             className="px-3 py-1.5 text-xs font-semibold text-center text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             Ver ficha

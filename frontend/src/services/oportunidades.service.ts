@@ -413,6 +413,31 @@ export const pedirValidacion = async (id: number) =>
     "POST",
   )) as ValidacionDeDocumentos;
 
+/** "Mis licitaciones" (Felipe, 17-10): las marcadas, con su avance. */
+export interface AvanceDeLicitacion {
+  /** Archivos en «Bases y anexos». */
+  bases: number;
+  analisis: "procesando" | "listo" | "error" | null;
+  anexos: "procesando" | "listo" | "error" | null;
+  propuesta: "procesando" | "listo" | "error" | null;
+  /** En «Mi postulación»: todo, lo hecho por la IA sin firma y lo firmado. */
+  postulacion: number;
+  generados: number;
+  firmados: number;
+  validacion: {
+    estado: "procesando" | "listo" | "error";
+    listo: "si" | "casi" | "no" | null;
+  } | null;
+}
+
+export type MiLicitacion = Oportunidad & { avance: AvanceDeLicitacion };
+
+export const getMisLicitaciones = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/mias`,
+    "GET",
+  )) as MiLicitacion[];
+
 export const getCalendario = async () =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/calendario`,

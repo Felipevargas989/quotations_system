@@ -28,6 +28,8 @@ import {
   esWordModerno,
   ORIGENES,
   sePuedeFirmar,
+  pasosDelAvance,
+  separarMias,
 } from "./oportunidades.utils";
 
 const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
@@ -395,5 +397,75 @@ describe("documentos con IA", () => {
         propuesta: { estado: "procesando" } as never,
       }),
     ).toBe(true);
+  });
+});
+
+describe("Mis licitaciones: el avance", () => {
+  const avance = {
+    bases: 0,
+    analisis: null,
+    anexos: null,
+    propuesta: null,
+    postulacion: 0,
+    generados: 0,
+    firmados: 0,
+    validacion: null,
+  };
+  const estados = (m: Parameters<typeof pasosDelAvance>[0]) =>
+    Object.fromEntries(pasosDelAvance(m).map((p) => [p.paso, p.estado]));
+
+  it("recién marcada: faltan las bases y lo demás está por hacer", () => {
+    expect(estados({ estado: "en_estudio", avance })).toEqual({
+      Bases: "falta",
+      Análisis: "pendiente",
+      Anexos: "pendiente",
+      Firma: "pendiente",
+      Validación: "pendiente",
+      Postulada: "pendiente",
+    });
+  });
+
+  it("a medio camino: bases, análisis y anexos hechos; la IA validando", () => {
+    expect(
+      estados({
+        estado: "en_estudio",
+        avance: {
+          ...avance,
+          bases: 3,
+          analisis: "listo",
+          generados: 1,
+          validacion: { estado: "procesando", listo: null },
+        },
+      }),
+    ).toMatchObject({
+      Bases: "hecho",
+      Análisis: "hecho",
+      Anexos: "hecho",
+      Firma: "pendiente",
+      Validación: "en_curso",
+    });
+  });
+
+  it("la validación: lista, casi o falta algo obligatorio; postulada cuenta como hecha", () => {
+    const con = (listo: "si" | "casi" | "no") =>
+      estados({
+        estado: "postulada",
+        avance: { ...avance, validacion: { estado: "listo", listo } },
+      });
+    expect(con("si").Validación).toBe("hecho");
+    expect(con("casi").Validación).toBe("aviso");
+    expect(con("no").Validación).toBe("falta");
+    expect(con("si").Postulada).toBe("hecho");
+  });
+
+  it("en curso: en estudio y postuladas; terminadas: ganadas y perdidas", () => {
+    const { enCurso, terminadas } = separarMias([
+      { estado: "en_estudio" },
+      { estado: "postulada" },
+      { estado: "ganada" },
+      { estado: "perdida" },
+    ]);
+    expect(enCurso.map((m) => m.estado)).toEqual(["en_estudio", "postulada"]);
+    expect(terminadas.map((m) => m.estado)).toEqual(["ganada", "perdida"]);
   });
 });

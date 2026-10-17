@@ -30,6 +30,7 @@ import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
 import { SeccionDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
+import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import {
   MAX_BYTES_DOCUMENTO,
   MAX_BYTES_FIRMA,
@@ -57,6 +58,7 @@ export class OportunidadesController {
     private readonly analisis: AnalisisService,
     private readonly validacion: ValidacionService,
     private readonly generacion: GeneracionService,
+    private readonly misLicitaciones: MisLicitacionesService,
     private readonly oferente: OferenteService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
@@ -99,6 +101,13 @@ export class OportunidadesController {
   @Get('radar/corridas')
   corridas() {
     return this.repo.ultimasCorridas(10);
+  }
+
+  /** "Mis licitaciones": las que la empresa marcó, con el avance de cada
+   *  una (bases, análisis, anexos, firma, validación). */
+  @Get('mias')
+  mias(@CurrentUser() user: User) {
+    return this.misLicitaciones.mias(user.company_id);
   }
 
   /** "Se viene": lo que se repite cada año y todavía no sale. */

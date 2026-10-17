@@ -11,7 +11,7 @@ import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
  */
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'insert', 'delete', 'eq', 'order'];
+const METODOS = ['select', 'insert', 'delete', 'eq', 'in', 'order', 'limit'];
 
 function armar(respuesta: { data?: unknown; error?: unknown } = {}) {
   const consultas: Consulta[] = [];
@@ -80,6 +80,24 @@ describe('AdjuntosRepository — cada consulta es de UNA empresa', () => {
       ['oportunidad_id', 9],
       ['seccion', 'postulacion'],
     ]);
+  });
+
+  it('los orígenes de varias oportunidades: de la empresa y sin rutas', async () => {
+    const { repo, consultas } = armar({ data: [] });
+    await repo.origenesDe(1, [40, 87]);
+    expect(filtros(consultas[0])).toEqual([['company_id', 1]]);
+    expect(consultas[0].pasos).toContainEqual([
+      'in',
+      'oportunidad_id',
+      [40, 87],
+    ]);
+    expect(consultas[0].pasos[0]).toEqual([
+      'select',
+      'oportunidad_id, seccion, origen',
+    ]);
+    consultas.length = 0;
+    await expect(repo.origenesDe(1, [])).resolves.toEqual([]);
+    expect(consultas).toHaveLength(0);
   });
 
   it('borrar la fila exige empresa, oportunidad e id', async () => {

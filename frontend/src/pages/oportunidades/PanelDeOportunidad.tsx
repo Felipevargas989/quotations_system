@@ -1,16 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import Modal from "../../components/Modal";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import { toast } from "../../components/toast/Toast";
 import {
+  actualizarOportunidad,
   getFichaDeOportunidad,
   type EstadoOportunidad,
   type Oportunidad,
 } from "../../services/oportunidades.service";
+import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import Ganadores from "./Ganadores";
+import { useResponsables } from "./useResponsables";
 import {
   ALERTAS,
   cuandoCierra,
@@ -28,6 +33,10 @@ import {
 // sale al tiro de la fila; la descripción, los productos y el año anterior
 // llegan con la ficha (la misma consulta que usa la ficha completa: al
 // pasar a ella ya está cargada).
+//
+// Al costado, como Licify, y con «Asignar» (el responsable), que antes solo
+// estaba en la ficha (Felipe, 17-10: "de acuerdo con todas tus
+// propuestas").
 
 const LARGO_DE_LA_DESCRIPCION = 600;
 
@@ -52,8 +61,26 @@ export default function PanelDeOportunidad({
   const descripcion = ficha?.proceso.descripcion?.trim() ?? "";
   const productos = ficha?.proceso.productos ?? [];
 
+  const qc = useQueryClient();
+  const responsables = useResponsables();
+  const [responsable, setResponsable] = useState<string | null>(null);
+  const asignado =
+    responsable ?? ficha?.responsable_id ?? o.responsable_id ?? "";
+  const asignar = useMutation({
+    mutationFn: (id: string | null) =>
+      actualizarOportunidad(o.id, { responsable_id: id }),
+    onSuccess: (_r, id) => {
+      setResponsable(id ?? "");
+      toast.success(id ? "Asignada." : "Quedó sin responsable.");
+      void qc.invalidateQueries({ queryKey: ["oportunidades"] });
+    },
+    onError: (e) => toast.error(humanizeApiError(e, "No se pudo asignar.")),
+  });
+
   return (
     <Modal
+      lado="derecha"
+      ancho="max-w-xl"
       titulo={p.nombre}
       subtitulo={
         <span className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -133,6 +160,21 @@ export default function PanelDeOportunidad({
       }
     >
       <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="shrink-0 text-sm text-gray-500">Responsable</span>
+          <div className="min-w-0 flex-1">
+            <SelectWithSearch
+              options={responsables}
+              value={asignado}
+              onChange={(v) => asignar.mutate(v || null)}
+              placeholder="Asignar a…"
+              disabled={asignar.isPending}
+              mostrarConteo={false}
+              tamano="sm"
+            />
+          </div>
+        </div>
+
         {o.razon && (
           <div className="space-y-1.5">
             <p className="text-sm text-gray-800">{o.razon}</p>

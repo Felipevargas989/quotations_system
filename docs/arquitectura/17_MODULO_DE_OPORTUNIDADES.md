@@ -369,6 +369,18 @@ en el laboratorio desde el 17-10 en la tarde). Cómo quedó:
 Mapa 24 §6 tiene las reglas; el detalle técnico está en
 `api-rest/src/oportunidades/generacion/`.
 
+**El pulido del 17-10** (Felipe: *"de acuerdo con todas tus propuestas,
+las mejoras de front, la de las fichas, todo... todo el desarrollo"*).
+Antes de seguir, ordenar lo que ya existe:
+
+| Qué | Estado |
+|---|---|
+| **El resumen al costado**, como Licify, abriéndose con **toda la fila** (o «Ver resumen»), y con **«Asignar»** (el responsable). Felipe no encontraba el que se abría solo con el nombre | Hecho el 17-10 |
+| **"Mis licitaciones"**: pestaña con las marcadas «Me interesa», de la que cierra antes a la que cierra después, con el avance de cada una (bases, análisis, anexos, firma, validación, postulada). Felipe: *"¿dónde van a quedar compiladas las que sí me interesan para luego trabajarlas?"* | Hecho el 17-10 |
+| **La ficha ordenada**: arriba "en una mirada" (cierre, presupuesto, evento, lugar, el año pasado); pestañas Resumen · Bases y criterios · Mi postulación · Historial; de las alertas, arriba solo las que dejan fuera (máximo 5) y el resto plegado; una sola lista de lo que hay que presentar, con el estado de la validación al lado. Felipe: *"la información para abajo quedó muy desordenada... difícil de leer"* | En curso |
+| **El modelo de IA por tarea**: Haiku lee cada licitación; Opus analiza las bases, valida y escribe la propuesta técnica; **Sonnet llena los anexos** (la mitad de Opus) y **Haiku firma** (solo pega una imagen; el motor descarta si cambia una letra). Y el costo con el precio de cada modelo. Felipe: *"los más caros donde se necesiten y los más baratos donde sea necesario"* | Por hacer |
+| **"¿Puedo cumplir?"**: cada exigencia técnica de las bases contra Eventia (catálogo, menús, «Mi empresa» y la agenda de ese día): ✅ lo tienes, 🟡 hay que conseguirlo (nunca se promete en los documentos), ❌ no se puede, solo con un dato duro (fecha ocupada, capacidad, distancia), siempre diciendo por qué. Más tus **menús** y tus **eventos realizados** para la propuesta y la experiencia | Por hacer, después de la prueba con el Día del Funcionario |
+
 ### 5.5 La carpeta y la ficha del oferente
 
 - **Carpeta de documentos de la empresa** con fecha de vencimiento y aviso

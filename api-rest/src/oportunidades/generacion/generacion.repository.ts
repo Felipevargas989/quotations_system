@@ -35,6 +35,8 @@ export type GeneracionNueva = AnalisisNuevo & {
 export class GeneracionRepository extends TrabajosDeIARepository {
   protected readonly tabla = 'oportunidad_generacion';
   protected readonly columnas = `${COLUMNAS_DE_TRABAJO}, tipo, parametros`;
+  protected readonly columnasLivianas =
+    'oportunidad_id, estado, creado_en, tipo';
 
   constructor(supabase: SupabaseService, logger: PinoLogger) {
     super(supabase, logger);

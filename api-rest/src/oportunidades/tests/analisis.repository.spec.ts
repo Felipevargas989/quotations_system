@@ -9,7 +9,16 @@ import { AnalisisRepository } from '../analisis/analisis.repository';
  *  decide "uno a la vez", y los archivos salen del balde privado. */
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'insert', 'update', 'eq', 'lt', 'order', 'limit'];
+const METODOS = [
+  'select',
+  'insert',
+  'update',
+  'eq',
+  'in',
+  'lt',
+  'order',
+  'limit',
+];
 
 function armar(respuesta: { data?: unknown; error?: unknown } = {}) {
   const consultas: Consulta[] = [];
@@ -105,5 +114,34 @@ describe('AnalisisRepository', () => {
     const datos = await repo.descargar('c1/oportunidades/40/x_Bases.pdf');
     expect(storage.from).toHaveBeenCalledWith(BUCKET_PRIVADO);
     expect(datos.toString()).toBe('%PDF');
+  });
+});
+
+describe('El avance de "Mis licitaciones"', () => {
+  it('los trabajos de varias oportunidades: de la empresa, livianos y lo más nuevo primero', async () => {
+    const { repo, consultas } = armar({ data: [] });
+    await repo.ultimosDe(1, [40, 87]);
+    expect(consultas[0].tabla).toBe('oportunidad_analisis');
+    expect(filtros(consultas[0])).toEqual([['company_id', 1]]);
+    expect(consultas[0].pasos).toContainEqual([
+      'in',
+      'oportunidad_id',
+      [40, 87],
+    ]);
+    expect(consultas[0].pasos).toContainEqual([
+      'select',
+      'oportunidad_id, estado, creado_en',
+    ]);
+    expect(consultas[0].pasos).toContainEqual([
+      'order',
+      'creado_en',
+      { ascending: false },
+    ]);
+  });
+
+  it('sin oportunidades no pregunta', async () => {
+    const { repo, consultas } = armar();
+    await expect(repo.ultimosDe(1, [])).resolves.toEqual([]);
+    expect(consultas).toHaveLength(0);
   });
 });

@@ -36,6 +36,17 @@ export type AnalisisNuevo = {
   pedido_por: string | null;
 };
 
+/** Lo último de un trabajo, sin el resultado: el avance de "Mis
+ *  licitaciones". `tipo` solo en la generación; `listo` solo en la
+ *  validación ('si' | 'casi' | 'no'). */
+export type TrabajoLiviano = {
+  oportunidad_id: number;
+  estado: EstadoDeAnalisis;
+  creado_en: string;
+  tipo?: string;
+  listo?: string | null;
+};
+
 export type FinDeAnalisis = {
   estado: 'listo' | 'error';
   resultado?: Record<string, unknown>;
@@ -54,6 +65,8 @@ export const COLUMNAS_DE_TRABAJO =
 export abstract class TrabajosDeIARepository {
   protected abstract readonly tabla: string;
   protected readonly columnas: string = COLUMNAS_DE_TRABAJO;
+  protected readonly columnasLivianas: string =
+    'oportunidad_id, estado, creado_en';
 
   constructor(
     protected readonly supabase: SupabaseService,
@@ -79,6 +92,24 @@ export abstract class TrabajosDeIARepository {
       .maybeSingle();
     if (error) throw error;
     return (data as unknown as FilaDeAnalisis | null) ?? null;
+  }
+
+  /** Los trabajos de varias oportunidades de la empresa, livianos y lo
+   *  más nuevo primero: el avance de "Mis licitaciones". */
+  async ultimosDe(
+    companyId: number,
+    oportunidadIds: number[],
+  ): Promise<TrabajoLiviano[]> {
+    if (oportunidadIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from(this.tabla)
+      .select(this.columnasLivianas)
+      .eq('company_id', companyId)
+      .in('oportunidad_id', oportunidadIds)
+      .order('creado_en', { ascending: false })
+      .limit(1000);
+    if (error) throw error;
+    return (data ?? []) as unknown as TrabajoLiviano[];
   }
 
   /** null = ya hay uno en curso (lo decide el índice único
@@ -153,6 +184,8 @@ export class AnalisisRepository extends TrabajosDeIARepository {
 @Injectable()
 export class ValidacionRepository extends TrabajosDeIARepository {
   protected readonly tabla = 'oportunidad_validacion';
+  protected readonly columnasLivianas =
+    'oportunidad_id, estado, creado_en, listo:resultado->>listo';
 
   constructor(supabase: SupabaseService, logger: PinoLogger) {
     super(supabase, logger);

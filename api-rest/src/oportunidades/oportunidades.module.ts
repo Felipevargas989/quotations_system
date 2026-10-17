@@ -12,6 +12,7 @@ import { GeneracionService } from './generacion/generacion.service';
 import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
+import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { OferenteRepository } from './oferente/oferente.repository';
 import { OferenteService } from './oferente/oferente.service';
 import { OportunidadesCronService } from './oportunidades-cron.service';
@@ -39,6 +40,7 @@ import { RadarService } from './radar.service';
     ValidacionService,
     GeneracionRepository,
     GeneracionService,
+    MisLicitacionesService,
     OferenteRepository,
     OferenteService,
     HistoriaService,
