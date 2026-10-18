@@ -69,6 +69,9 @@ const PRESUPUESTO_DETALLES_MS = 45 * MINUTO;
 const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
 /** Las compras ágiles se guardan de a tantas. */
 const COMPRAS_POR_LOTE = 100;
+/** Cuánto hacia atrás se piden las compras ágiles publicadas (y todavía
+ *  abiertas), en cada corrida. */
+const VENTANA_COMPRAS_AGILES_MS = 10 * 24 * HORA;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
 
@@ -122,6 +125,9 @@ export type ResumenCorrida = {
       | 'completa'
       | 'cortada'
       | 'detenida'
+      /** Un día falló por algo que no es de Mercado Público ni de la IA:
+       *  quedó marcado en error y la corrida sigue bien (18-10). */
+      | 'falla'
       | 'sin_ticket'
       | 'sin_llave';
     dias: number;
@@ -491,13 +497,15 @@ export class RadarService {
       return;
     }
 
-    // Desde la última corrida buena, con 48 horas de margen; nunca más de
-    // 10 días atrás (las compras ágiles cierran en días).
-    const ultima = await this.repo.ultimaCorridaOk();
-    const base = ultima
-      ? new Date(ultima).getTime()
-      : Date.now() - 7 * 24 * HORA;
-    const desde = new Date(Math.max(base - 48 * HORA, Date.now() - 240 * HORA))
+    // SIEMPRE los últimos 10 días (las compras ágiles cierran en días), no
+    // "desde la última corrida buena": el 17-10 la pasada de las 18:00 vio
+    // 750 y guardó 54 (todavía pedía el detalle de a una) y aun así quedó
+    // "ok", así que la siguiente habría pedido solo desde el 15-10 y lo
+    // publicado antes, todavía abierto, no se habría vuelto a pedir nunca
+    // (Felipe, 18-10: "¿cómo sé que está trayendo todas?"). Pedir 10 días
+    // cuesta unas páginas más de la lista y se arregla solo si una corrida
+    // se corta: lo que ya está en la base no se vuelve a guardar.
+    const desde = new Date(Date.now() - VENTANA_COMPRAS_AGILES_MS)
       .toISOString()
       .replace(/\.\d{3}Z$/, 'Z');
 

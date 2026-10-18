@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import {
   LecturaDetenida,
   LecturaService,
@@ -141,12 +142,29 @@ export class HistoriaService {
           r.estado = 'completa';
           return;
         }
-        const listo = await this.unDiaDeHistoria(
-          fecha,
-          resumen,
-          uso,
-          sinTiempo,
-        );
+        let listo: boolean;
+        try {
+          listo = await this.unDiaDeHistoria(fecha, resumen, uso, sinTiempo);
+        } catch (error) {
+          if (error instanceof LecturaDetenida) throw error;
+          // Una falla que no es de Mercado Público ni de la IA (la base, un
+          // dato raro) no tumba la corrida entera: el 18-10 un día con una
+          // licitación repetida dejó en "error" las dos pasadas de la noche,
+          // aunque lo de hoy ya estaba traído y leído. El día queda marcado
+          // con su error —la noche siguiente sigue con otro, en vez de
+          // chocar siempre con el mismo— y la historia para aquí.
+          const mensaje = mensajeDe(error);
+          this.logger.error(`historia: el día ${fecha} falló: ${mensaje}`);
+          await this.repo.marcarDiaDeHistoria(fecha, {
+            estado: 'error',
+            error: mensaje.slice(0, 500),
+          });
+          r.estado = 'falla';
+          resumen.avisos.push(
+            `Historia: el día ${fecha} falló (${mensaje}); quedó marcado y la historia sigue la próxima noche.`,
+          );
+          return;
+        }
         if (!listo) return;
       }
     } catch (error) {
