@@ -222,9 +222,16 @@ export class OportunidadesRepository {
   /** Inserta o actualiza. primera_vez_visto no viaja: la pone la base solo
    *  la primera vez. */
   async guardarProcesos(procesos: ProcesoMp[]): Promise<void> {
+    // SIN REPETIDOS: si el mismo código viene dos veces en un lote, la base
+    // rechaza el lote entero ("ON CONFLICT DO UPDATE command cannot affect
+    // row a second time"). Pasó el 18-10 con un día de la historia de
+    // Mercado Público que traía una licitación repetida: las dos pasadas
+    // de la noche terminaron en error y la historia quedó trabada en ese
+    // día. Queda la última versión de cada código.
+    const unicos = [...new Map(procesos.map((p) => [p.codigo, p])).values()];
     const ahora = new Date().toISOString();
-    for (let i = 0; i < procesos.length; i += LOTE) {
-      const lote = procesos
+    for (let i = 0; i < unicos.length; i += LOTE) {
+      const lote = unicos
         .slice(i, i + LOTE)
         .map((p) => ({ ...p, actualizado_en: ahora }));
       const { error } = await this.db
