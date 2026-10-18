@@ -23,6 +23,17 @@ export const HABILIDAD_DE_WORD = {
   version: 'latest',
 } as const;
 
+/** La habilidad de PDF de Anthropic (18-10): para mirar las páginas de un
+ *  formulario en PDF (también escaneado) y sacarle el logo, cuando hay que
+ *  reescribirlo en Word. */
+export const HABILIDAD_DE_PDF = {
+  type: 'anthropic',
+  skill_id: 'pdf',
+  version: 'latest',
+} as const;
+
+export type Habilidad = typeof HABILIDAD_DE_WORD | typeof HABILIDAD_DE_PDF;
+
 export const EJECUCION_DE_CODIGO = {
   type: 'code_execution_20250825',
   name: 'code_execution',
@@ -36,6 +47,11 @@ export type ArchivoParaElTaller = {
   nombre: string;
   datos: Buffer;
   tipo: string;
+  /** Un PDF que la IA tiene que MIRAR (18-10: los formularios escaneados
+   *  del Día del Profesor no traían ni una letra de texto): además de
+   *  montarlo en el contenedor, va como documento en el mensaje, y así lo
+   *  lee página por página con la vista, como el análisis de las bases. */
+  verComoDocumento?: boolean;
 };
 export type ArchivoDelTaller = { nombre: string; datos: Buffer };
 
@@ -47,6 +63,8 @@ export type PedidoAlTaller = {
   archivos: ArchivoParaElTaller[];
   esfuerzo?: 'low' | 'medium' | 'high';
   maxTokens?: number;
+  /** Sin decirlo, solo la de Word. */
+  habilidades?: readonly Habilidad[];
 };
 
 export type ResultadoDelTaller = {
@@ -121,6 +139,17 @@ export async function trabajarEnElTaller(
               file_id: id,
             }),
           ),
+          ...pedido.archivos.flatMap((a, i): Anthropic.DocumentBlockParam[] =>
+            a.verComoDocumento
+              ? [
+                  {
+                    type: 'document',
+                    source: { type: 'file', file_id: subidos[i] },
+                    title: a.nombre,
+                  },
+                ]
+              : [],
+          ),
           { type: 'text', text: pedido.texto },
         ],
       },
@@ -145,7 +174,7 @@ export async function trabajarEnElTaller(
           system: pedido.sistema,
           container: {
             ...(contenedor ? { id: contenedor } : {}),
-            skills: [HABILIDAD_DE_WORD],
+            skills: [...(pedido.habilidades ?? [HABILIDAD_DE_WORD])],
           },
           tools: [EJECUCION_DE_CODIGO],
           messages: mensajes,

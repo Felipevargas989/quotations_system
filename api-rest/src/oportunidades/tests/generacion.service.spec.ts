@@ -1,19 +1,16 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import type { PinoLogger } from 'nestjs-pino';
-import { mockPinoLogger } from 'src/testing/mocks';
-import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
-import type { AnalisisRepository } from '../analisis/analisis.repository';
-import type { EventiaRepository } from '../eventia/eventia.repository';
-import type { GeneracionRepository } from '../generacion/generacion.repository';
-import {
-  GeneracionService,
-  type Plan,
-  problemaDelDocumento,
-} from '../generacion/generacion.service';
+import type { Plan } from '../generacion/generacion.service';
+import { problemaDelDocumento } from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
-import type { OferenteRepository } from '../oferente/oferente.repository';
-import type { OportunidadesRepository } from '../oportunidades.repository';
+import {
+  adjunto,
+  armar,
+  CUENTA,
+  entorno,
+  OFERENTE,
+  planDe,
+  WORD,
+} from './generacion-de-prueba';
 import { wordCon } from './zip-de-prueba';
 
 // ANEXOS LLENOS, FIRMA Y PROPUESTA TÉCNICA (doc 17, sprint 3, paso 4). Lo
@@ -25,248 +22,10 @@ jest.mock('../generacion/taller', () => ({
   trabajarEnElTaller: jest.fn(),
 }));
 const taller = trabajarEnElTaller as jest.Mock;
-
-const CUENTA = 'cuenta-1';
-const WORD =
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-const adjunto = (
-  id: number,
-  nombre: string,
-  extra: Record<string, unknown> = {},
-) => ({
-  id,
-  nombre,
-  ruta: `c1/oportunidades/40/x_${nombre}`,
-  tipo: nombre.endsWith('.pdf') ? 'application/pdf' : WORD,
-  bytes: 1000,
-  seccion: 'bases',
-  origen: 'subido',
-  viene_de: null,
-  creado_en: `2026-10-17T13:0${id % 10}:00.000Z`,
-  subido_por: 'perfil-1',
-  quien: null,
-  ...extra,
-});
-
-const OFERENTE = {
-  razon_social: 'VALLE DEL SOL QUILLON SPA',
-  rut: '77.701.305-K',
-  giro: 'Centro de eventos',
-  representante_nombre: 'Felipe Vargas',
-  representante_cargo: 'Gerente',
-  experiencia: 'Día del Profesor 2025, Municipalidad de Quillón',
-  instalaciones: 'Salón principal para 300 personas',
-  firma_ruta: 'c1/oferente/firma_2026.png',
-};
-
-const ANALISIS = {
-  id: 5,
-  estado: 'listo',
-  resultado: {
-    resumen: 'Ceremonia y cena para 160 funcionarios.',
-    lugar: 'lo propone el oferente',
-    criterios: [
-      {
-        nombre: 'Calidad de la oferta',
-        peso: '30%',
-        como_se_evalua: 'Anexo 4',
-      },
-    ],
-    requisitos: [
-      {
-        que: 'Formulario Anexo N°1 firmado',
-        tipo: 'administrativo',
-        obligatorio: true,
-        documento: 'Bases',
-        pagina: 7,
-      },
-      {
-        que: 'Mesas y sillas para 160 personas',
-        tipo: 'tecnico',
-        obligatorio: true,
-        documento: 'Bases Técnicas',
-        pagina: 18,
-      },
-    ],
-    cumplimiento: {
-      resumen: 'Tienes las mesas; el show hay que conseguirlo.',
-      items: [
-        {
-          requisito: 1,
-          que: 'Mesas y sillas para 160 personas',
-          estado: 'tengo',
-          con_que: 'Salón principal',
-          por_que: '',
-        },
-        {
-          requisito: 2,
-          que: 'Show de baile de 40 minutos',
-          estado: 'conseguir',
-          con_que: '',
-          por_que: 'No hay show en tu carta.',
-        },
-      ],
-    },
-  },
-};
-
-class GeneracionDePrueba extends GeneracionService {
-  constructor(repos: Record<string, unknown>) {
-    super(
-      repos.repo as GeneracionRepository,
-      repos.analisis as AnalisisRepository,
-      repos.adjuntos as AdjuntosRepository,
-      repos.oferente as OferenteRepository,
-      repos.oportunidades as OportunidadesRepository,
-      repos.eventia as EventiaRepository,
-      mockPinoLogger() as unknown as PinoLogger,
-    );
-  }
-
-  protected cliente(): Anthropic {
-    return {} as Anthropic;
-  }
-}
-
-function armar() {
-  const repo = {
-    abandonarAntesDe: jest.fn().mockResolvedValue(undefined),
-    ultimoDeTipo: jest.fn().mockResolvedValue(null),
-    crearGeneracion: jest.fn((fila: Record<string, unknown>) =>
-      Promise.resolve({ id: 9, estado: 'procesando', ...fila }),
-    ),
-    terminar: jest.fn().mockResolvedValue(undefined),
-    descargar: jest.fn((ruta: string) =>
-      Promise.resolve(Buffer.from(`archivo ${ruta}`)),
-    ),
-  };
-  const analisis = { ultimo: jest.fn().mockResolvedValue(ANALISIS) };
-  const adjuntos = {
-    listar: jest.fn((_: number, __: number, seccion: string) =>
-      Promise.resolve(
-        seccion === 'bases'
-          ? [
-              adjunto(4, 'D.A. N°4.770 Bases.pdf'),
-              adjunto(6, 'Formularios_Anexos.docx'),
-              adjunto(7, 'Anexo antiguo.doc'),
-            ]
-          : [
-              adjunto(12, 'Formularios_Anexos - lleno.docx', {
-                seccion: 'postulacion',
-                origen: 'generado',
-                viene_de: 6,
-              }),
-              adjunto(13, 'Patente.pdf', { seccion: 'postulacion' }),
-              adjunto(14, 'Anexo 1 - firmado.docx', {
-                seccion: 'postulacion',
-                origen: 'firmado',
-              }),
-            ],
-      ),
-    ),
-    perfilDe: jest.fn().mockResolvedValue('perfil-1'),
-    subirArchivo: jest.fn().mockResolvedValue(undefined),
-    guardar: jest.fn((fila: Record<string, unknown>) =>
-      Promise.resolve({ id: 50, ...fila }),
-    ),
-    borrarArchivo: jest.fn().mockResolvedValue(true),
-  };
-  const oferente = {
-    oferente: jest.fn().mockResolvedValue(OFERENTE),
-    empresa: jest.fn().mockResolvedValue({
-      name: 'Valle del Sol Quillón',
-      logo_url:
-        'https://lab.supabase.co/storage/v1/object/public/logos/c1/logo.png',
-      bank_details: null,
-    }),
-  };
-  const oportunidades = {
-    ficha: jest.fn().mockResolvedValue({
-      id: 40,
-      codigo: '1532886-5-LE26',
-      proceso: {
-        nombre: 'Ceremonia y Cena Día del Funcionario',
-        organismo: 'I MUNICIPALIDAD DE QUILLON',
-        fecha_cierre: '2026-10-19T19:00:00.000Z',
-      },
-    }),
-    catalogoResumido: jest.fn().mockResolvedValue({
-      paquetes: ['Matrimonio: cóctel, cena y fiesta'],
-      fijos: ['Salón principal'],
-    }),
-  };
-  const eventia = {
-    carta: jest.fn().mockResolvedValue({
-      fijos: [{ nombre: 'Salón principal', seccion: 'Salones' }],
-      menus: [
-        {
-          categoria: 'Cena',
-          nombre: 'Plateada',
-          platos: ['Plateada al jugo', 'Papas rústicas'],
-        },
-      ],
-      paquetes: ['Matrimonio: cóctel, cena y fiesta'],
-    }),
-    eventosRealizados: jest.fn().mockResolvedValue([
-      {
-        numero: 455,
-        tipo: 'Celebraciones',
-        fecha: '2025-12-12',
-        personas: 150,
-        monto: 9_800_000,
-        cliente: 'Municipalidad de Bulnes',
-        fijos: ['Salón principal'],
-      },
-    ]),
-  };
-  const servicio = new GeneracionDePrueba({
-    repo,
-    analisis,
-    adjuntos,
-    oferente,
-    oportunidades,
-    eventia,
-  });
-  const ejecutar = jest
-    .spyOn(servicio, 'ejecutar')
-    .mockResolvedValue(undefined);
-  return {
-    repo,
-    analisis,
-    adjuntos,
-    oferente,
-    oportunidades,
-    eventia,
-    servicio,
-    ejecutar,
-  };
-}
-
-const planDe = (ejecutar: jest.SpyInstance) =>
-  (ejecutar.mock.calls[0] as [number, number, Plan])[2];
-
-const entorno = async (prueba: () => Promise<void>) => {
-  const antes = {
-    llave: process.env.ANTHROPIC_API_KEY,
-    supabase: process.env.SUPABASE_URL,
-  };
-  process.env.ANTHROPIC_API_KEY = 'llave-de-prueba';
-  process.env.SUPABASE_URL = 'https://lab.supabase.co';
-  try {
-    await prueba();
-  } finally {
-    if (antes.llave === undefined) delete process.env.ANTHROPIC_API_KEY;
-    else process.env.ANTHROPIC_API_KEY = antes.llave;
-    if (antes.supabase === undefined) delete process.env.SUPABASE_URL;
-    else process.env.SUPABASE_URL = antes.supabase;
-  }
-};
-
 beforeEach(() => taller.mockReset());
 
 describe('Generar anexos', () => {
-  it('llena los Word de las bases, SIN firma, con el total que puso la empresa (neto e IVA los calcula el motor)', () =>
+  it('llena los Word de las bases (el .doc antiguo lo convierte el taller), SIN firma, con el total que puso la empresa (neto e IVA los calcula el motor)', () =>
     entorno(async () => {
       const { repo, servicio, ejecutar } = armar();
 
@@ -275,6 +34,8 @@ describe('Generar anexos', () => {
       });
 
       expect(fila).toMatchObject({ id: 9, estado: 'procesando' });
+      // Sin elegir van los Word, también el .doc (18-10: Lota y Yumbel los
+      // traían así); el PDF de las bases, no.
       expect(repo.crearGeneracion).toHaveBeenCalledWith(
         expect.objectContaining({
           company_id: 1,
@@ -282,9 +43,12 @@ describe('Generar anexos', () => {
           tipo: 'anexos',
           modelo: 'claude-sonnet-5-5',
           analisis_id: 5,
-          parametros: { monto_total: 11_900_000, adjuntos: [6] },
-          archivos: [{ id: 6, nombre: 'Formularios_Anexos.docx' }],
-          no_leidos: [expect.objectContaining({ nombre: 'Anexo antiguo.doc' })],
+          parametros: { monto_total: 11_900_000, adjuntos: [6, 7] },
+          archivos: [
+            { id: 6, nombre: 'Formularios_Anexos.docx' },
+            { id: 7, nombre: 'Anexo antiguo.doc' },
+          ],
+          no_leidos: [],
           pedido_por: 'perfil-1',
         }),
       );
@@ -295,6 +59,11 @@ describe('Generar anexos', () => {
           tipo: WORD,
           ruta: 'c1/oportunidades/40/x_Formularios_Anexos.docx',
         },
+        {
+          enElTaller: 'anexo_7.doc',
+          tipo: 'application/msword',
+          ruta: 'c1/oportunidades/40/x_Anexo antiguo.doc',
+        },
       ]);
       expect(plan.salidas).toEqual([
         {
@@ -303,7 +72,18 @@ describe('Generar anexos', () => {
           origen: 'generado',
           viene_de: 6,
         },
+        {
+          enElTaller: 'lleno_7.docx',
+          nombre: 'Anexo antiguo - lleno.docx',
+          origen: 'generado',
+          viene_de: 7,
+        },
       ]);
+      expect(plan.habilidades).toEqual([
+        expect.objectContaining({ skill_id: 'docx' }),
+      ]);
+      expect(plan.sistema).toContain('soffice --headless --convert-to docx');
+      expect(plan.sistema).not.toContain('REESCRIBE');
       expect(plan.sistema).toContain(
         'Total con IVA: $11.900.000. Neto: $10.000.000. IVA (19%): $1.900.000.',
       );
@@ -333,19 +113,31 @@ describe('Generar anexos', () => {
       expect(planDe(ejecutar).sistema).not.toContain('Total con IVA');
     }));
 
-  it('sin Word en las bases, con un archivo que no es Word o sin los datos de la empresa: 400 sin crear nada', () =>
+  it('algo que no es Word ni PDF, sin formularios en Word y sin elegir, o sin los datos de la empresa: 400 sin crear nada', () =>
     entorno(async () => {
       const { adjuntos, oferente, repo, servicio } = armar();
-      await expect(
-        servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [4] }),
-      ).rejects.toThrow('Solo se llenan los Word');
       oferente.oferente.mockResolvedValue({ razon_social: 'VALLE DEL SOL' });
       await expect(servicio.generarAnexos(1, CUENTA, 40, {})).rejects.toThrow(
         'al menos la razón social y el RUT',
       );
-      adjuntos.listar.mockResolvedValue([adjunto(4, 'Bases.pdf')]);
+      adjuntos.listar.mockResolvedValue([
+        adjunto(4, 'Bases.pdf'),
+        adjunto(5, 'Planilla.xlsx'),
+      ]);
       await expect(
-        servicio.generarAnexos(1, CUENTA, 40, {}),
+        servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [5] }),
+      ).rejects.toThrow('Solo se llenan los formularios en Word o PDF');
+      await expect(servicio.generarAnexos(1, CUENTA, 40, {})).rejects.toThrow(
+        'Si vienen en PDF',
+      );
+      await expect(
+        servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [4] }),
+      ).rejects.toThrow('al menos la razón social y el RUT');
+      adjuntos.listar.mockResolvedValue([
+        adjunto(4, 'Bases.pdf', { bytes: 41 * 1024 * 1024 }),
+      ]);
+      await expect(
+        servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [4] }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(repo.crearGeneracion).not.toHaveBeenCalled();
     }));
