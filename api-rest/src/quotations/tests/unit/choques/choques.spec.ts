@@ -14,12 +14,11 @@ import type {
   FilaDelChoque,
 } from '../../../choques/choques.repository';
 import { ChoquesDeFechaService } from '../../../choques/choques.service';
-import { fechaEnChile } from '../../../seguimiento/elegibles';
 
-// Los choques de fecha (Felipe, 18-10-2026; mapa 02 §5.6): cuando una
-// cotización se acepta, las vivas que caen en sus fechas llevan un aviso
-// rojo hasta que alguien decide, una por una. Sin atajo por evento. Datos
-// de prueba con las formas de los casos reales de ese día.
+// Los topes de calendario (Felipe, 18-10-2026; mapa 02 §5.6): cuando una
+// cotización se acepta, las vivas que caen en sus fechas llevan el tope
+// hasta que deja de existir o alguien aprieta «Sí, puede seguir». Sin atajo
+// por evento. Datos de prueba con las formas de los casos reales de ese día.
 
 const HOY = '2026-10-18';
 const cot = (
@@ -49,7 +48,6 @@ describe('qué choca (mapa 02 §5.6)', () => {
       {
         quotation_id: 'v',
         quotation_number: 634,
-        estado: 'pendiente',
         aceptada: {
           id: 'a',
           numero: 500,
@@ -109,30 +107,23 @@ describe('qué choca (mapa 02 §5.6)', () => {
     ).toHaveLength(1);
   });
 
-  it('«Hay que gestionar» no lo hace desaparecer: queda como tope de calendario hasta que se resuelva', () => {
-    const base = {
-      vivas: [cot('v', 459, '2026-11-27')],
-      aceptadas: [cot('a', 384, '2026-11-27', null, { exclusiva: true })],
-      hoy: HOY,
-    };
-    const gestionar = {
-      quotation_id: 'v',
-      aceptada_id: 'a',
-      decision: 'gestionar' as const,
-      fechas_viva: '2026-11-27..2026-11-27',
-      fechas_aceptada: '2026-11-27..2026-11-27',
-    };
-    expect(choquesDe({ ...base, decisiones: [gestionar] })[0].estado).toBe(
-      'gestionar',
-    );
-    // Se movió la fecha y ya no se topan: el tope se va solo.
+  it('una decisión vieja de «gestionar» (del laboratorio) no saca el tope', () => {
     expect(
       choquesDe({
-        ...base,
-        vivas: [cot('v', 459, '2026-11-28')],
-        decisiones: [gestionar],
+        vivas: [cot('v', 459, '2026-11-27')],
+        aceptadas: [cot('a', 384, '2026-11-27', null, { exclusiva: true })],
+        decisiones: [
+          {
+            quotation_id: 'v',
+            aceptada_id: 'a',
+            decision: 'gestionar',
+            fechas_viva: '2026-11-27..2026-11-27',
+            fechas_aceptada: '2026-11-27..2026-11-27',
+          },
+        ],
+        hoy: HOY,
       }),
-    ).toEqual([]);
+    ).toHaveLength(1);
   });
 
   it('un fin anterior al inicio (error de datos, como la 498) cuenta como un día', () => {
@@ -155,7 +146,7 @@ describe('qué choca (mapa 02 §5.6)', () => {
     );
   });
 
-  it('las líneas de la bitácora', () => {
+  it('la línea de la bitácora, sin cifras', () => {
     const a = {
       id: 'a',
       numero: 500,
@@ -164,27 +155,25 @@ describe('qué choca (mapa 02 §5.6)', () => {
       hasta: '2026-11-22',
       exclusiva: false,
     };
-    expect(notaDelChoque(a, 'puede_seguir')).toBe(
+    expect(notaDelChoque(a)).toBe(
       'Revisado el choque de fecha con la N° 500 (Rudel S.A.), aceptada del 09-11 al 22-11: puede seguir con su fecha.',
     );
     expect(
-      notaDelChoque(
-        {
-          ...a,
-          numero: 384,
-          desde: '2026-11-27',
-          hasta: '2026-11-27',
-          exclusiva: true,
-        },
-        'gestionar',
-      ),
+      notaDelChoque({
+        ...a,
+        numero: 384,
+        cliente: 'Jabones Maritano',
+        desde: '2026-11-27',
+        hasta: '2026-11-27',
+        exclusiva: true,
+      }),
     ).toBe(
-      'Choca con la N° 384 (Rudel S.A.), aceptada el 27-11, con exclusividad: hay que gestionar, mover la fecha o descartar.',
+      'Revisado el choque de fecha con la N° 384 (Jabones Maritano), aceptada el 27-11, con exclusividad: puede seguir con su fecha.',
     );
   });
 });
 
-describe('ChoquesDeFechaService.decidir', () => {
+describe('ChoquesDeFechaService.seguir', () => {
   const usuario = {
     id: 'u1',
     company_id: 1,
@@ -230,7 +219,7 @@ describe('ChoquesDeFechaService.decidir', () => {
       fila('a', 500, 'aceptada', '2099-11-09', '2099-11-22'),
     );
 
-    await servicio.decidir(usuario, 'v', 'a', 'puede_seguir');
+    await servicio.seguir(usuario, 'v', 'a');
 
     expect(bitacora.create).toHaveBeenCalledWith(usuario, {
       quotation_id: 'v',
@@ -249,41 +238,23 @@ describe('ChoquesDeFechaService.decidir', () => {
     });
   });
 
-  it('«Hay que gestionar»: una llamada comprometida para hoy, con la exclusividad dicha', async () => {
-    const { servicio, bitacora } = armar(
-      fila('v', 569, 'en_negociacion', '2099-11-27'),
-      fila('a', 384, 'aceptada', '2099-11-27', null, {
-        fixed_services: [{ name: 'Exclusividad Full (Empresas)' }],
-      }),
-    );
-
-    await servicio.decidir(usuario, 'v', 'a', 'gestionar');
-
-    expect(bitacora.create).toHaveBeenCalledWith(usuario, {
-      quotation_id: 'v',
-      tipo: 'llamada',
-      note: 'Choca con la N° 384 (Cliente 384), aceptada el 27-11, con exclusividad: hay que gestionar, mover la fecha o descartar.',
-      next_contact_date: fechaEnChile(),
-    });
-  });
-
   it('si ya no chocan o cambió un estado, 409 sin tocar la bitácora', async () => {
     const corrida = armar(
       fila('v', 634, 'enviada', '2099-12-01'),
       fila('a', 500, 'aceptada', '2099-11-09', '2099-11-22'),
     );
-    await expect(
-      corrida.servicio.decidir(usuario, 'v', 'a', 'puede_seguir'),
-    ).rejects.toThrow('Ya no chocan');
+    await expect(corrida.servicio.seguir(usuario, 'v', 'a')).rejects.toThrow(
+      'Ya no chocan',
+    );
     expect(corrida.bitacora.create).not.toHaveBeenCalled();
 
     const cerrada = armar(
       fila('v', 634, 'rechazada', '2099-11-12'),
       fila('a', 500, 'aceptada', '2099-11-09', '2099-11-22'),
     );
-    await expect(
-      cerrada.servicio.decidir(usuario, 'v', 'a', 'gestionar'),
-    ).rejects.toThrow('cambió de estado');
+    await expect(cerrada.servicio.seguir(usuario, 'v', 'a')).rejects.toThrow(
+      'cambió de estado',
+    );
     expect(cerrada.bitacora.create).not.toHaveBeenCalled();
   });
 });

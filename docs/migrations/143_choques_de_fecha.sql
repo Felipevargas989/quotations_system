@@ -10,7 +10,8 @@
 --
 -- El choque NO se guarda: se calcula (una cotización viva cuyas fechas se
 -- topan con las de una aceptada). Esta tabla guarda solo lo que la persona
--- decidió para cada par: «puede seguir» o «hay que gestionar», con las
+-- decidió para cada par («puede seguir»; el CHECK admite también «hay que
+-- gestionar», que se probó y se quitó de la pantalla el 18-10), con las
 -- fechas de las dos en ese momento. Si cualquiera cambia de fecha, la
 -- decisión deja de valer y el aviso vuelve (la decisión fue sobre "esa
 -- fecha").

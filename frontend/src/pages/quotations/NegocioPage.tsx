@@ -563,13 +563,13 @@ export default function NegocioPage() {
           }}
         />
 
-        {/* Choca con una aceptada: el aviso rojo bajo las fechas, con
-            «Sí, puede seguir» y «Hay que gestionar» (Felipe, 18-10). */}
+        {/* Tope de calendario con una aceptada: bajo las fechas, el
+            detalle y «Sí, puede seguir» (Felipe, 18-10). */}
         <AvisoDeChoque
           choques={choquesDeFecha.choquesDe(fila.id)}
           puedeDecidir={puedeEditar}
-          decidiendo={choquesDeFecha.decidiendo}
-          onDecidir={(c, d) => void choquesDeFecha.decidir(c, d)}
+          guardando={choquesDeFecha.guardandoDe(fila.id)}
+          onSeguir={(lista) => void choquesDeFecha.seguir(lista)}
         />
 
         {/* Pestañas — misma estética que Post-Venta (subrayado azul),

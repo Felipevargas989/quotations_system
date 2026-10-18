@@ -264,9 +264,6 @@ export const generarSeguimiento = async (quotationId: string) =>
 export type ChoqueDeFecha = {
   quotation_id: string;
   quotation_number: number;
-  /** pendiente: espera revisión; gestionar: se apretó «Hay que gestionar»
-   *  y el tope sigue («Tope de calendario», borde rojo). */
-  estado: "pendiente" | "gestionar";
   aceptada: {
     id: string;
     numero: number;
@@ -278,26 +275,23 @@ export type ChoqueDeFecha = {
   };
 };
 
-export type DecisionDelChoque = "puede_seguir" | "gestionar";
-
-/** Los choques que esperan revisión en la empresa. */
+/** Los topes de calendario de la empresa. */
 export const getChoquesDeFecha = async () =>
   (await apiRequest(
     `${API_ROUTES.QUOTATIONS}/choques/pendientes`,
     "GET",
   )) as ChoqueDeFecha[];
 
-/** «Sí, puede seguir» o «Hay que gestionar» para un par. */
-export const decidirChoque = async (
+/** «Sí, puede seguir» para un tope: la cotización sigue con su fecha. */
+export const seguirConLaFecha = async (
   quotationId: string,
   aceptadaId: string,
-  decision: DecisionDelChoque,
 ) =>
   (await apiRequest(
     `${API_ROUTES.QUOTATIONS}/${quotationId}/choques/${aceptadaId}`,
     "POST",
-    { decision },
-  )) as { decision: DecisionDelChoque; nota: string };
+    { decision: "puede_seguir" },
+  )) as { nota: string };
 
 /** La hoja pública que imprime el navegador invisible del motor. */
 export const getHojaParaImprimir = async (token: string) =>

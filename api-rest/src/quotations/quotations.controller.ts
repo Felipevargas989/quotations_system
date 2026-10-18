@@ -254,9 +254,9 @@ export class QuotationsController {
     return this.seguimientoConIA.generar(id, user);
   }
 
-  // Choques de fecha (Felipe, 18-10-2026; mapa 02 §5.6): las cotizaciones
-  // vivas cuyas fechas se topan con una aceptada, para revisarlas una por
-  // una. La lista la ve todo el que ve el tablero; decidir es de quien vende.
+  // Topes de calendario (Felipe, 18-10-2026; mapa 02 §5.6): las cotizaciones
+  // vivas cuyas fechas se topan con una aceptada. La lista la ve todo el que
+  // ve el tablero; «Sí, puede seguir» es de quien vende.
   @Roles(...RECEPTION_AND_UP)
   @Get('choques/pendientes')
   choquesDeFecha(@CurrentUser() user: User) {
@@ -272,8 +272,10 @@ export class QuotationsController {
     @Body() body: DecisionDeChoqueDto,
     @CurrentUser() user: User,
   ) {
-    this.logger.info(`POST /quotations/${id}/choques/${aceptadaId}`);
-    return this.choques.decidir(user, id, aceptadaId, body.decision);
+    this.logger.info(
+      `POST /quotations/${id}/choques/${aceptadaId} (${body.decision})`,
+    );
+    return this.choques.seguir(user, id, aceptadaId);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
