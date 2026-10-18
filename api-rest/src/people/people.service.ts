@@ -853,6 +853,17 @@ export class PeopleService {
       throw new BadRequestException('Esa no es una jornada de evento');
     }
     const day = String(evento.day).slice(0, 10);
+    // Quien descansa del restaurante ese día no entra al reparto del día
+    // (ver sincronizarInvitados).
+    if (
+      (await this.repo.personasQueDescansan(companyId, day)).includes(
+        evento.person_id,
+      )
+    ) {
+      throw new BadRequestException(
+        'Esa persona descansa del restaurante ese día: no entra al reparto del día.',
+      );
+    }
     const cambios: Record<string, unknown> = {};
     if (dto.amount !== undefined) cambios.amount = dto.amount;
     if (dto.no_tip !== undefined) cambios.no_tip = dto.no_tip;
@@ -935,8 +946,18 @@ export class PeopleService {
     const enLaPlanta = new Set(
       delDia.filter((f) => !f.solo_propina).map((f) => f.person_id),
     );
+    // Y QUIEN DESCANSA DEL RESTAURANTE ESE DÍA (cambio de día, migración
+    // 89) TAMPOCO: no vino, así que no entra al reparto del día ni como
+    // invitado del evento. La base además no admite una segunda fila de
+    // restaurante para la misma persona ese día: el 18-09 (Hernán Vargas,
+    // evento 499) repartir daba 500 (17-10-2026).
+    const descansan = new Set(
+      await this.repo.personasQueDescansan(companyId, day),
+    );
     for (const personId of [...traidos.keys()]) {
-      if (enLaPlanta.has(personId)) traidos.delete(personId);
+      if (enLaPlanta.has(personId) || descansan.has(personId)) {
+        traidos.delete(personId);
+      }
     }
 
     const sobran = existentes.filter(

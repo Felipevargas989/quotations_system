@@ -846,6 +846,23 @@ export class PeopleRepository {
     return data as unknown as EventStaffConPersona[];
   }
 
+  /** Quiénes descansan del restaurante ese día por cambio de día
+   *  (migración 89): no vinieron, así que no entran al reparto del día ni
+   *  como invitados del evento (17-10-2026). */
+  async personasQueDescansan(companyId: number, day: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('person_id')
+      .eq('company_id', companyId)
+      .is('quotation_id', null)
+      .eq('day', day)
+      .eq('ajuste', 'descansa');
+    if (error) throw error;
+    return (data ?? [])
+      .map((f: { person_id: number | null }) => f.person_id)
+      .filter((id): id is number => id != null);
+  }
+
   /** Borra el reparto anterior de un pozo, para volver a repartir. */
   async clearTips(poolId: number, companyId: number) {
     const { error } = await this.supabase.client
