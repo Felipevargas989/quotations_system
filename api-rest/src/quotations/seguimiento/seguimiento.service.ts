@@ -555,18 +555,18 @@ export class SeguimientoConIAService {
     );
     if (filas.length === 0) return revision;
     const outlook = this.outlook();
-    const revisadoAntesDe = new Date(
-      Date.now() - (o.frenoMs ?? REVISAR_CADA_MS),
-    ).toISOString();
+    const limite = Date.now() - (o.frenoMs ?? REVISAR_CADA_MS);
     for (const fila of filas.slice(0, TOPE_POR_REVISION)) {
       // Un buzón fuera de la lista de este motor no se toca.
       if (!outlook.buzones.includes(fila.buzon)) continue;
+      // El freno: lo que se miró hace poco espera su turno.
+      if (fila.revisado_at && Date.parse(fila.revisado_at) > limite) continue;
       try {
         if (
           !(await this.repositorio.tomarParaRevisar(
             companyId,
             fila.id,
-            revisadoAntesDe,
+            fila.revisado_at,
           ))
         ) {
           continue;

@@ -704,6 +704,33 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
 
   it('el freno: lo que se miró hace menos de 5 minutos no se le pregunta a Outlook', async () => {
     const outlook = outlookFalso();
+    outlook.estadoDelBorrador.mockResolvedValue({
+      estado: 'borrador',
+      hilo: 'h1',
+    });
+    const hace = (min: number) =>
+      new Date(Date.now() - min * 60_000).toISOString();
+    const haceDiez = hace(10);
+    const { servicio, repositorio } = armar(nuevoParse(), {
+      outlook,
+      enEspera: [
+        fila({ id: 7, revisado_at: hace(1) }),
+        fila({ id: 8, quotation_id: 'q608', revisado_at: haceDiez }),
+      ],
+    });
+
+    expect(await servicio.revisar(usuario)).toEqual({
+      revisados: 1,
+      cambiaron: [],
+    });
+    // La 7 se miró hace un minuto: ni se toma ni se pregunta. La 8 se toma
+    // solo si nadie la tomó desde que se leyó (misma hora de revisión).
+    expect(repositorio.tomarParaRevisar.mock.calls).toEqual([[1, 8, haceDiez]]);
+    expect(outlook.estadoDelBorrador).toHaveBeenCalledTimes(1);
+  });
+
+  it('si otra pantalla lo tomó primero, no se le pregunta a Outlook', async () => {
+    const outlook = outlookFalso();
     const { servicio, repositorio } = armar(nuevoParse(), {
       outlook,
       enEspera: [fila()],
@@ -714,14 +741,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
       revisados: 0,
       cambiaron: [],
     });
-    const [, , antesDe] = repositorio.tomarParaRevisar.mock.calls[0] as [
-      number,
-      number,
-      string,
-    ];
-    expect(Date.now() - Date.parse(antesDe)).toBeGreaterThanOrEqual(
-      5 * 60_000 - 1000,
-    );
+    expect(repositorio.tomarParaRevisar).toHaveBeenCalledWith(1, 7, null);
     expect(outlook.estadoDelBorrador).not.toHaveBeenCalled();
   });
 
