@@ -218,7 +218,7 @@ export function HiloSeguimiento({
     SECTION_ROLES.quotations_edit.includes(userRole as never) &&
     tieneDerecho(company, "seguimiento_con_ia");
   // Con la lista: si el borrador de antes sigue en Outlook, el aviso
-  // muestra «Borrador en Outlook · Abrir» en vez del botón (doc 18 §9).
+  // muestra el aviso «Borrador en Outlook» en vez del botón (doc 18 §9).
   const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
   const queryClient = useQueryClient();
   const hiloQuery = useQuery({

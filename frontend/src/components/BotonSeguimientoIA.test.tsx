@@ -55,7 +55,7 @@ describe("BotonSeguimientoIA", () => {
     ).toBeDisabled();
   });
 
-  it("con el borrador listo, se vuelve el enlace a Outlook", () => {
+  it("con el borrador listo, queda el aviso, sin enlace (Felipe, 18-10)", () => {
     render(
       <BotonSeguimientoIA
         trabajando={false}
@@ -64,12 +64,15 @@ describe("BotonSeguimientoIA", () => {
         onGenerar={vi.fn()}
       />,
     );
-    const enlace = screen.getByRole("link", { name: /Borrador listo · Abrir/ });
-    expect(enlace).toHaveAttribute("href", borrador.enlace);
-    expect(enlace).toHaveAttribute("target", "_blank");
+    expect(screen.getByText("Borrador listo").parentElement).toHaveAttribute(
+      "title",
+      `${borrador.detalle}. Revísalo en Outlook y envíalo desde ahí.`,
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("con un borrador de antes esperando en Outlook, en vez del botón va el enlace para abrirlo", () => {
+  it("con un borrador de antes esperando en Outlook, en vez del botón va el aviso", () => {
     const alAbrirFicha = vi.fn();
     render(
       <div onClick={alAbrirFicha}>
@@ -89,15 +92,10 @@ describe("BotonSeguimientoIA", () => {
     expect(
       screen.queryByRole("button", { name: /Generar seguimiento/ }),
     ).not.toBeInTheDocument();
-    const enlace = screen.getByRole("link", {
-      name: /Borrador en Outlook · Abrir/,
-    });
-    expect(enlace).toHaveAttribute(
-      "href",
-      "https://outlook.office365.com/owa/?ItemID=espera",
-    );
-    expect(enlace.getAttribute("title")).toContain("contacto@");
-    fireEvent.click(enlace);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    const aviso = screen.getByText("Borrador en Outlook").parentElement;
+    expect(aviso?.getAttribute("title")).toContain("contacto@");
+    fireEvent.click(aviso as HTMLElement);
     expect(alAbrirFicha).not.toHaveBeenCalled();
   });
 
@@ -115,9 +113,8 @@ describe("BotonSeguimientoIA", () => {
         onGenerar={vi.fn()}
       />,
     );
-    expect(
-      screen.getByRole("link", { name: /Borrador listo · Abrir/ }),
-    ).toHaveAttribute("href", borrador.enlace);
+    expect(screen.getByText("Borrador listo")).toBeInTheDocument();
+    expect(screen.queryByText("Borrador en Outlook")).not.toBeInTheDocument();
   });
 
   it("si se saltó, dice por qué al pasar el mouse", () => {

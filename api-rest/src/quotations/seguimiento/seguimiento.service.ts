@@ -133,7 +133,7 @@ export type Pendiente = {
   dias_vencido: number;
   nota: string;
   /** El borrador de la IA que espera en Outlook (doc 18 §9): la tarjeta
-   *  muestra «Borrador en Outlook · Abrir» en vez del botón. */
+   *  muestra el aviso «Borrador en Outlook» en vez del botón. */
   borrador: BorradorEnEspera | null;
 };
 

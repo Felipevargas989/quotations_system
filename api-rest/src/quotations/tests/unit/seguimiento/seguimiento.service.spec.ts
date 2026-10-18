@@ -455,7 +455,7 @@ describe('SeguimientoConIAService', () => {
     expect(lista[0].dias_vencido).toBeGreaterThan(lista[1].dias_vencido);
   });
 
-  it('la lista dice qué borrador espera en Outlook, para mostrar «Borrador en Outlook · Abrir»', async () => {
+  it('la lista dice qué borrador espera en Outlook, para mostrar el aviso «Borrador en Outlook»', async () => {
     const { servicio, repositorio } = armar(nuevoParse(), {
       enEspera: [fila()],
     });
