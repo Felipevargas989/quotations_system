@@ -33,6 +33,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
+import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import {
   Followup,
@@ -220,6 +221,9 @@ export function HiloSeguimiento({
   // Con la lista: si el borrador de antes sigue en Outlook, el aviso
   // muestra el aviso «Borrador en Outlook» en vez del botón (doc 18 §9).
   const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
+  // Tope de calendario (18-10-2026, mapa 02 §5.6): el hilo con borde rojo
+  // hasta que se resuelva el choque con la aceptada.
+  const conTope = useChoquesDeFecha().conTope(quotation.id);
   const queryClient = useQueryClient();
   const hiloQuery = useQuery({
     queryKey: ["seguimientos", quotation.id],
@@ -494,9 +498,18 @@ export function HiloSeguimiento({
   );
 
   return (
-    <div className="border border-gray-200 rounded-xl flex flex-col">
+    <div
+      className={`rounded-xl flex flex-col ${
+        conTope ? "border-2 border-red-500" : "border border-gray-200"
+      }`}
+    >
       <h3 className="text-sm font-bold text-gray-700 px-4 pt-3 pb-2 flex items-center gap-1.5">
         <MessageSquare size={15} /> Hilo de seguimiento
+        {conTope && (
+          <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+            Tope de calendario
+          </span>
+        )}
       </h3>
       {/* Franja de empujón: el compromiso es hoy o venció. Aparece
           también en el evento ganado (07-08) — ahí poner fecha es

@@ -12,6 +12,7 @@ afterEach(cleanup);
 const conRudel = {
   quotation_id: "q634",
   quotation_number: 634,
+  estado: "pendiente" as const,
   aceptada: {
     id: "q500",
     numero: 500,
@@ -85,10 +86,72 @@ describe("AvisoDeChoque", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sí, puede seguir" }));
     fireEvent.click(screen.getByRole("button", { name: "Hay que gestionar" }));
     expect(onDecidir.mock.calls).toEqual([
-      [conRudel, "puede_seguir"],
-      [conRudel, "gestionar"],
+      [[conRudel], "puede_seguir"],
+      [[conRudel], "gestionar"],
     ]);
     expect(alAbrirFicha).not.toHaveBeenCalled();
+  });
+
+  it("después de «Hay que gestionar» queda la viñeta «Tope de calendario» con un solo botón: «Sí, puede seguir»", () => {
+    const onDecidir = vi.fn();
+    const tope = { ...conRudel, estado: "gestionar" as const };
+    render(
+      <AvisoDeChoque
+        choques={[tope]}
+        puedeDecidir
+        decidiendo={null}
+        onDecidir={onDecidir}
+      />,
+    );
+    const vineta = screen.getByText("Tope de calendario");
+    expect(vineta).toHaveAttribute(
+      "title",
+      expect.stringContaining(
+        "Con la N° 500 · Rudel S.A. · aceptada, 09-11 al 22-11",
+      ),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Hay que gestionar" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, puede seguir" }));
+    expect(onDecidir).toHaveBeenCalledWith([tope], "puede_seguir");
+  });
+
+  it("dos o tres topes se ven como UNA sola viñeta, y «Sí, puede seguir» los cierra todos", () => {
+    const onDecidir = vi.fn();
+    const con411 = {
+      ...conRudel,
+      quotation_id: "q475",
+      quotation_number: 475,
+      estado: "gestionar" as const,
+      aceptada: {
+        ...conRudel.aceptada,
+        id: "q411",
+        numero: 411,
+        cliente: "Ferrocarril del Pacífico S.A",
+        desde: "2026-12-20",
+        hasta: "2026-12-20",
+      },
+    };
+    const con412 = {
+      ...con411,
+      aceptada: { ...con411.aceptada, id: "q412", numero: 412 },
+    };
+    render(
+      <AvisoDeChoque
+        compacto
+        choques={[con411, con412]}
+        puedeDecidir
+        decidiendo={null}
+        onDecidir={onDecidir}
+      />,
+    );
+    expect(screen.getAllByText("Tope de calendario")).toHaveLength(1);
+    const titulo = screen.getByText("Tope de calendario").getAttribute("title");
+    expect(titulo).toContain("Con la N° 411");
+    expect(titulo).toContain("Con la N° 412");
+    fireEvent.click(screen.getByRole("button", { name: "Sí, puede seguir" }));
+    expect(onDecidir).toHaveBeenCalledWith([con411, con412], "puede_seguir");
   });
 
   it("quien no vende ve el aviso pero no los botones", () => {
@@ -109,7 +172,7 @@ describe("AvisoDeChoque", () => {
       <AvisoDeChoque
         choques={[conRudel]}
         puedeDecidir
-        decidiendo="q634|q500"
+        decidiendo="q634"
         onDecidir={vi.fn()}
       />,
     );

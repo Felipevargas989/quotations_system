@@ -88,7 +88,9 @@ export class ChoquesRepository {
     return this.todas<DecisionGuardada>((d, h) =>
       db
         .from('choques_de_fecha')
-        .select('quotation_id, aceptada_id, fechas_viva, fechas_aceptada')
+        .select(
+          'quotation_id, aceptada_id, decision, fechas_viva, fechas_aceptada',
+        )
         .eq('company_id', companyId)
         .order('id')
         .range(d, h),

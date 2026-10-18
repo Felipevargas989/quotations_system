@@ -15,6 +15,11 @@ import { humanizeApiError } from "../utils/apiErrors";
 // seguir» o «Hay que gestionar». Sin atajo por evento: depende de los
 // espacios y los horarios de cada uno. El motor calcula el choque cada vez:
 // si cambia una fecha, el aviso se va o vuelve solo.
+//
+// «Hay que gestionar» no lo hace desaparecer (Felipe, 18-10: "se puede
+// olvidar"): queda «Tope de calendario», con borde rojo en la tarjeta y en
+// el hilo de seguimiento, hasta que el tope se resuelva o alguien apriete
+// «Sí, puede seguir».
 
 export function useChoquesDeFecha() {
   const queryClient = useQueryClient();
@@ -25,25 +30,39 @@ export function useChoquesDeFecha() {
     staleTime: 60_000,
     queryFn: getChoquesDeFecha,
   });
-  /** "quotationId|aceptadaId" del que se está decidiendo. */
+  /** La cotización cuya decisión se está guardando. */
   const [decidiendo, setDecidiendo] = useState<string | null>(null);
   const choques = choquesQuery.data ?? [];
 
+  /** Una decisión para uno o varios choques de la MISMA cotización: los
+   *  topes de calendario se cierran todos con un solo «Sí, puede seguir». */
   const decidir = async (
-    choque: ChoqueDeFecha,
+    lista: ChoqueDeFecha[],
     decision: DecisionDelChoque,
   ) => {
-    const clave = `${choque.quotation_id}|${choque.aceptada.id}`;
-    setDecidiendo(clave);
+    if (lista.length === 0) return;
+    const { quotation_id: id, quotation_number: numero } = lista[0];
+    setDecidiendo(id);
+    let hechas = 0;
     try {
-      await decidirChoque(choque.quotation_id, choque.aceptada.id, decision);
+      for (const c of lista) {
+        await decidirChoque(c.quotation_id, c.aceptada.id, decision);
+        hechas++;
+      }
       toast.success(
         decision === "puede_seguir"
-          ? `N° ${choque.quotation_number}: sigue con su fecha. Quedó anotado en el seguimiento.`
-          : `N° ${choque.quotation_number}: quedó una llamada para hoy en el seguimiento (mover la fecha o descartar).`,
+          ? `N° ${numero}: sigue con su fecha${lista.length > 1 ? ` (${lista.length} topes revisados)` : ""}. Quedó anotado en el seguimiento.`
+          : `N° ${numero}: quedó una llamada para hoy en el seguimiento (mover la fecha o descartar) y la marca «Tope de calendario».`,
       );
     } catch (e) {
-      toast.error(humanizeApiError(e, "No se pudo guardar la revisión."));
+      toast.error(
+        humanizeApiError(
+          e,
+          hechas > 0
+            ? `Se guardaron ${hechas} de ${lista.length}; vuelve a intentarlo.`
+            : "No se pudo guardar la revisión.",
+        ),
+      );
     } finally {
       setDecidiendo(null);
     }
@@ -52,9 +71,7 @@ export function useChoquesDeFecha() {
       queryClient.invalidateQueries({
         queryKey: ["quotations", "choques-de-fecha"],
       }),
-      queryClient.invalidateQueries({
-        queryKey: ["seguimientos", choque.quotation_id],
-      }),
+      queryClient.invalidateQueries({ queryKey: ["seguimientos", id] }),
       queryClient.invalidateQueries({ queryKey: ["seguimientos", "map"] }),
     ]);
   };
@@ -63,6 +80,11 @@ export function useChoquesDeFecha() {
     choques,
     choquesDe: (quotationId: string) =>
       choques.filter((c) => c.quotation_id === quotationId),
+    /** Se apretó «Hay que gestionar» y el tope sigue: borde rojo. */
+    conTope: (quotationId: string) =>
+      choques.some(
+        (c) => c.quotation_id === quotationId && c.estado === "gestionar",
+      ),
     decidiendo,
     decidir,
   };
