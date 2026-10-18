@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { DerechosService } from 'src/auth/derechos.service';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
+import { ChoquesDeFechaService } from '../choques/choques.service';
 import { EnvioCotizacionService } from '../envio-cotizacion.service';
 import { GenerarCotizacionService } from '../generar/generar.service';
 import { QuotationsController } from '../quotations.controller';
@@ -38,6 +39,7 @@ describe('QuotationsController', () => {
         provideMock(GenerarCotizacionService),
         // «✉ Generar seguimiento» (17-10-2026, doc 18).
         provideMock(SeguimientoConIAService),
+        provideMock(ChoquesDeFechaService),
       ],
     }).compile();
 

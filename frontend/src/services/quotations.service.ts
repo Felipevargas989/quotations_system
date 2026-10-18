@@ -258,6 +258,41 @@ export const generarSeguimiento = async (quotationId: string) =>
     {},
   )) as ResultadoDelSeguimiento;
 
+// ---- Choques de fecha (18-10-2026, mapa 02 §5.6) ----
+
+/** Una cotización viva cuyas fechas se topan con una aceptada. */
+export type ChoqueDeFecha = {
+  quotation_id: string;
+  quotation_number: number;
+  aceptada: {
+    id: string;
+    numero: number;
+    cliente: string | null;
+    /** AAAA-MM-DD. */
+    desde: string;
+    hasta: string;
+    exclusiva: boolean;
+  };
+};
+
+/** Los topes de calendario de la empresa. */
+export const getChoquesDeFecha = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/choques/pendientes`,
+    "GET",
+  )) as ChoqueDeFecha[];
+
+/** «Sí, puede seguir» para un tope: la cotización sigue con su fecha. */
+export const seguirConLaFecha = async (
+  quotationId: string,
+  aceptadaId: string,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/choques/${aceptadaId}`,
+    "POST",
+    { decision: "puede_seguir" },
+  )) as { nota: string };
+
 /** La hoja pública que imprime el navegador invisible del motor. */
 export const getHojaParaImprimir = async (token: string) =>
   (await apiRequest(`${API_ROUTES.QUOTATIONS}/imprimir/${token}`, "GET")) as {

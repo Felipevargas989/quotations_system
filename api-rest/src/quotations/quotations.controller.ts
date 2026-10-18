@@ -28,11 +28,13 @@ import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import { ChoquesDeFechaService } from './choques/choques.service';
 import { filaSinComentario, sinComentarioAjeno } from './comentario-interno';
 import { RequestType } from './constants/constants';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
+import { DecisionDeChoqueDto } from './dto/decision-de-choque.dto';
 import { EstadoCosechaDto } from './dto/estado-cosecha.dto';
 import { GetQuotationsDto } from './dto/get-quotations.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
@@ -58,6 +60,8 @@ export class QuotationsController {
     // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
     private readonly generarCotizacion: GenerarCotizacionService,
     private readonly seguimientoConIA: SeguimientoConIAService,
+    // Los choques de fecha con una aceptada (mapa 02 §5.6, 18-10-2026).
+    private readonly choques: ChoquesDeFechaService,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -248,6 +252,30 @@ export class QuotationsController {
   generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/seguimiento`);
     return this.seguimientoConIA.generar(id, user);
+  }
+
+  // Topes de calendario (Felipe, 18-10-2026; mapa 02 §5.6): las cotizaciones
+  // vivas cuyas fechas se topan con una aceptada. La lista la ve todo el que
+  // ve el tablero; «Sí, puede seguir» es de quien vende.
+  @Roles(...RECEPTION_AND_UP)
+  @Get('choques/pendientes')
+  choquesDeFecha(@CurrentUser() user: User) {
+    this.logger.info('GET /quotations/choques/pendientes');
+    return this.choques.listar(user);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Post(':id/choques/:aceptadaId')
+  decidirChoque(
+    @Param('id') id: string,
+    @Param('aceptadaId') aceptadaId: string,
+    @Body() body: DecisionDeChoqueDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /quotations/${id}/choques/${aceptadaId} (${body.decision})`,
+    );
+    return this.choques.seguir(user, id, aceptadaId);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.

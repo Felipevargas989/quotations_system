@@ -58,6 +58,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
+| `choques_de_fecha` | La revisión de cada tope de calendario entre una cotización viva y una aceptada (`puede_seguir`; `gestionar` quedó solo de la prueba del laboratorio), las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 |
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
@@ -322,6 +323,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `client_types` | `clients` | `clients` |
 | `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
 | `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
+| `choques_de_fecha` | `quotations` (`choques/choques.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |
 | `payments` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `clients`, `movil`, `quotations` (`assertDeletable`); embebida desde `portal-receipts.controller.ts` |
 | `payment_transactions` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `quotations` (`assertDeletable`); embebida desde `movil` |
@@ -593,4 +595,12 @@ y **antes** del deploy del motor.
 **Cómo se encontró.** Al cargar en producción los 6 borradores del 17-10, antes de que pasara: el id de Camila está en `auth.users` y en `user_profiles.user_id`, no en `user_profiles.id`. La prueba del laboratorio no lo vio porque esas filas se cargaron sin `creado_por`. **Ojo para la próxima tabla:** el id de la sesión NO es `user_profiles.id` (Oportunidades lo traduce con `FichaRepository.perfilDe`).
 
 **Estado.** Aplicada en el laboratorio y en producción el 18-10-2026 (00:40 Chile), sin reinicio del motor. Verificado en las dos: la llave ya no está.
+
+## 24. Migración 143: los choques de fecha (18-10-2026)
+
+**Qué hace.** Crea `choques_de_fecha`: una fila por cada decisión sobre un choque de fecha entre una cotización viva y una aceptada (mapa 02 §5.6). Guarda las dos cotizaciones (`quotation_id` y `aceptada_id`, las dos con `on delete cascade`), la `decision` (el CHECK admite `puede_seguir` y `gestionar`; la pantalla solo usa `puede_seguir` desde que el botón «Hay que gestionar» se quitó el 18-10), las fechas de las dos al decidir (`fechas_viva` y `fechas_aceptada`, "AAAA-MM-DD..AAAA-MM-DD": si cambian, la decisión deja de valer), la línea de la bitácora (`followup_id`, `set null`), quién (`decidido_por`, el id de la sesión SIN llave, lección de la 142) y cuándo. Un par se decide una vez (`unique (quotation_id, aceptada_id)`; decidir de nuevo reemplaza). Es de cada empresa: `company_id` con su índice. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la lee; sin la 143, `GET /quotations/choques/pendientes` responde error y el aviso no aparece (el resto del tablero sigue igual).
+
+**Estado.** Escrita el 18-10-2026 (Felipe: *"la 1, la 2, la 3 y la 4"*, sin atajo). Número reservado con la sesión de Oportunidades. **Aplicada en el laboratorio y en producción el 18-10-2026** (producción a las 10:38 Chile, antes del motor de la PR #158). Verificado en las dos: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia.
 

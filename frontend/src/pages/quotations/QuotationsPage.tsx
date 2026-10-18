@@ -24,11 +24,13 @@ import {
   SECTION_ROLES,
   tieneDerecho,
 } from "../../constants/permissions";
+import AvisoDeChoque from "../../components/AvisoDeChoque";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import GenerarSeguimientos, {
   ConfirmarSeguimientos,
 } from "../../components/GenerarSeguimientos";
 import ResultadosDeSeguimiento from "../../components/ResultadosDeSeguimiento";
+import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import MotivoPerdida from "../../components/MotivoPerdida";
@@ -141,6 +143,9 @@ export default function QuotationsPage() {
     puedeEditar && tieneDerecho(company, "seguimiento_con_ia");
   const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
   const pendientesIA = new Set(seguimientoIA.pendientes.map((p) => p.id));
+  // Topes de calendario con una aceptada (18-10-2026, mapa 02 §5.6): el
+  // tope lo ve todo el tablero; «Sí, puede seguir» es de quien vende.
+  const choquesDeFecha = useChoquesDeFecha();
   const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
   const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
@@ -970,6 +975,9 @@ export default function QuotationsPage() {
                     const altoValor =
                       umbralAltoValor > 0 &&
                       quotation.total_amount >= umbralAltoValor;
+                    // Tope de calendario: borde rojo hasta que se resuelva
+                    // (Felipe, 18-10: "no puede pasar tan desapercibido").
+                    const conTope = choquesDeFecha.conTope(quotation.id);
                     return (
                       <div
                         key={quotation.id}
@@ -987,8 +995,16 @@ export default function QuotationsPage() {
                         }}
                         onClick={() => navigate(`/negocio/${quotation.id}`)}
                         className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
-                          altoValor ? "border-l-4 border-l-amber-400" : ""
-                        } ${dragId === quotation.id ? "opacity-40" : ""}`}
+                          // Con tope, el rojo manda: la franja dorada del
+                          // alto valor se esconde (la estrella sigue) y
+                          // vuelve sola cuando el tope se resuelve (Felipe,
+                          // 18-10, "por un tema estético").
+                          altoValor && !conTope
+                            ? "border-l-4 border-l-amber-400"
+                            : ""
+                        } ${dragId === quotation.id ? "opacity-40" : ""} ${
+                          conTope ? "ring-2 ring-red-500" : ""
+                        }`}
                       >
                         {/* Orden de Felipe (03-08): estado arriba
                               (control para mover, compacto — la columna
@@ -1079,6 +1095,15 @@ export default function QuotationsPage() {
                             />
                           </div>
                         )}
+                        <AvisoDeChoque
+                          compacto
+                          choques={choquesDeFecha.choquesDe(quotation.id)}
+                          puedeDecidir={puedeEditar}
+                          guardando={choquesDeFecha.guardandoDe(quotation.id)}
+                          onSeguir={(lista) =>
+                            void choquesDeFecha.seguir(lista)
+                          }
+                        />
                       </div>
                     );
                   })
