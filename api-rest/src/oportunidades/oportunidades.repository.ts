@@ -181,18 +181,6 @@ export class OportunidadesRepository {
     if (e) throw e;
   }
 
-  /** Cuándo empezó la última corrida que terminó bien. */
-  async ultimaCorridaOk(): Promise<string | null> {
-    const { data, error } = await this.db
-      .from('mp_radar_corridas')
-      .select('empezo_en')
-      .eq('estado', 'ok')
-      .order('empezo_en', { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    return (data?.[0] as { empezo_en?: string } | undefined)?.empezo_en ?? null;
-  }
-
   async ultimasCorridas(limite = 10) {
     const { data, error } = await this.db
       .from('mp_radar_corridas')

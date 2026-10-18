@@ -16,7 +16,7 @@ export const MODELO_LECTURA = 'claude-haiku-5-5';
 /** Con qué se leyó: el modelo y la versión de las reglas. Cuando las reglas
  *  cambian, lo abierto que nadie ha tocado se relee solo en la pasada
  *  siguiente (decisión 19 del doc 17). Cambiarlo al cambiar las reglas. */
-export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 17-10`;
+export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 18-10`;
 
 const ESQUEMA = {
   type: 'object',
@@ -123,6 +123,7 @@ export const instruccionesPara = (empresa: PerfilDeEmpresa): string =>
     '- se_hace_en_el_complejo: "si" si el servicio se puede prestar en las instalaciones de la empresa o el lugar lo propone el oferente; "no" si exige hacerlo en dependencias del comprador o en otra ciudad, si es comida a domicilio o si es solo entrega de productos; "dudoso" si no lo dice.',
     '  Las celebraciones son la excepción: ceremonias, cenas y almuerzos de celebración, aniversarios, fiestas (también de fin de año), paseos y días del funcionario, del profesor o del dirigente, para un grupo, se hacen en un centro de eventos, porque un comprador público no tiene salón de banquetes. Si la empresa tiene recinto propio y la celebración no dice dónde, es "si". Las capacitaciones, jornadas y talleres que no dicen dónde siguen "dudoso": suelen hacerse donde el comprador.',
     '- semaforo: "verde" si es del rubro de la empresa y se_hace_en_el_complejo es "si"; "amarillo" si es del rubro pero hay una duda que conviene revisar (lugar "dudoso", mezcla con cosas que no vende); "rojo" si no es del rubro, si exige hacerse fuera de la empresa o si es compra de productos.',
+    '  Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa: lo quiere ver para decidir. En ese caso se_hace_en_el_complejo dice la verdad ("no" si es donde el comprador) y la razón dice que está por evaluar.',
     '- razon: una frase corta en español que diga por qué.',
   ].join('\n');
 

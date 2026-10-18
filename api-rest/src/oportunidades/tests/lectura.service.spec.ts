@@ -281,8 +281,17 @@ describe('lo que lee la IA', () => {
     );
   });
 
+  it('lo que la empresa marca POR EVALUAR va amarillo aunque sea fuera (Felipe, 18-10: el catering)', () => {
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain(
+      'Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa',
+    );
+    // El lugar no se maquilla: dice dónde es de verdad.
+    expect(texto).toContain('("no" si es donde el comprador)');
+  });
+
   it('la lectura queda marcada con el modelo y la versión de las reglas', () => {
-    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 17-10');
+    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 18-10');
     expect(LECTURA_ACTUAL.startsWith(MODELO_LECTURA)).toBe(true);
   });
 
