@@ -18,8 +18,8 @@ import {
   ESTILO_DEL_PASO,
   pasosDelAvance,
   separarMias,
-  TIPOS,
 } from "./oportunidades.utils";
+import SelloDeTipo from "./SelloDeTipo";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 import { useResponsables } from "./useResponsables";
 
@@ -117,17 +117,20 @@ function Tarjeta({ m }: { readonly m: MiLicitacion }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link
-            to={`/oportunidades/${m.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
-          >
-            {p.nombre}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <SelloDeTipo tipo={p.tipo} />
+            <Link
+              to={`/oportunidades/${m.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-sm font-semibold text-gray-900 hover:text-blue-700"
+            >
+              {p.nombre}
+            </Link>
+          </div>
           <p className="text-xs text-gray-500 mt-0.5">
             {[
               p.organismo,
-              `${TIPOS[p.tipo]} ${m.codigo}`,
+              m.codigo,
               p.monto ? formatCurrency(p.monto, "CLP") : null,
             ]
               .filter(Boolean)

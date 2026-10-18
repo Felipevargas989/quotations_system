@@ -19,6 +19,7 @@ import DocumentosConIA from "./DocumentosConIA";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
+import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
 
@@ -59,6 +60,8 @@ export default function OportunidadFichaPage() {
     queryKey: ["oportunidades", "ficha", n],
     queryFn: () => getFichaDeOportunidad(n),
     enabled: Number.isInteger(n) && n > 0,
+    // Una compra ágil sin detalle: el motor lo trae por detrás.
+    refetchInterval: (q) => preguntarDeNuevo(q.state.data?.detalle_mp),
   });
 
   if (isPending) {
@@ -218,7 +221,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
           <Seccion titulo="Qué piden">
             <p className="text-sm text-gray-800 whitespace-pre-line">
-              {p.descripcion || "Mercado Público no trae descripción."}
+              {p.descripcion ||
+                (ficha.detalle_mp
+                  ? TEXTO_DEL_DETALLE_MP[ficha.detalle_mp]
+                  : "Mercado Público no trae descripción.")}
             </p>
             {p.productos.length > 0 && (
               <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">

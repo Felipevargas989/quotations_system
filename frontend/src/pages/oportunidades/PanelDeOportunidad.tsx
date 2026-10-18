@@ -15,6 +15,8 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import Ganadores from "./Ganadores";
+import SelloDeTipo from "./SelloDeTipo";
+import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import { useResponsables } from "./useResponsables";
 import {
   ALERTAS,
@@ -23,7 +25,6 @@ import {
   ESTADOS,
   ETIQUETAS,
   SEMAFOROS,
-  TIPOS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
 
@@ -54,6 +55,8 @@ export default function PanelDeOportunidad({
   const { data: ficha } = useQuery({
     queryKey: ["oportunidades", "ficha", o.id],
     queryFn: () => getFichaDeOportunidad(o.id),
+    // Una compra ágil sin detalle: el motor lo trae por detrás.
+    refetchInterval: (q) => preguntarDeNuevo(q.state.data?.detalle_mp),
   });
   const p = o.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
@@ -84,7 +87,7 @@ export default function PanelDeOportunidad({
       titulo={p.nombre}
       subtitulo={
         <span className="flex flex-wrap items-center gap-1.5 mt-1">
-          <Chip>{TIPOS[p.tipo]}</Chip>
+          <SelloDeTipo tipo={p.tipo} />
           <Chip oscuro>{o.codigo}</Chip>
           {o.semaforo && (
             <Chip>
@@ -222,6 +225,12 @@ export default function PanelDeOportunidad({
             {descripcion.length > LARGO_DE_LA_DESCRIPCION
               ? `${descripcion.slice(0, LARGO_DE_LA_DESCRIPCION)}…`
               : descripcion}
+          </p>
+        )}
+
+        {productos.length === 0 && ficha?.detalle_mp && (
+          <p className="text-sm text-gray-500">
+            {TEXTO_DEL_DETALLE_MP[ficha.detalle_mp]}
           </p>
         )}
 

@@ -36,6 +36,7 @@ import {
   filtrarRequisitos,
   requisitosConEstado,
 } from "./oportunidades.utils";
+import { preguntarDeNuevo, SELLO_DEL_TIPO } from "./tipoDeProceso";
 
 const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
   codigo: `C-${parcial.id}`,
@@ -62,6 +63,20 @@ const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
     estado: "Publicada",
     ...parcial.proceso,
   },
+});
+
+describe("compras ágiles y licitaciones (Felipe, 17-10)", () => {
+  it("cada tipo tiene su sello, de colores distintos", () => {
+    expect(SELLO_DEL_TIPO.licitacion).toContain("indigo");
+    expect(SELLO_DEL_TIPO.compra_agil).toContain("violet");
+  });
+
+  it("la ficha vuelve a preguntar solo mientras el motor trae el detalle", () => {
+    expect(preguntarDeNuevo("trayendo")).toBe(4000);
+    expect(preguntarDeNuevo("no_disponible")).toBe(false);
+    expect(preguntarDeNuevo(null)).toBe(false);
+    expect(preguntarDeNuevo(undefined)).toBe(false);
+  });
 });
 
 describe("la bandeja: qué se ve de partida", () => {
