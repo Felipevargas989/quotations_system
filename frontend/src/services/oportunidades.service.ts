@@ -165,9 +165,26 @@ export interface CorridaDelRadar {
   empezo_en: string;
   termino_en: string | null;
   resumen: {
-    licitaciones?: { activas?: number; nuevas?: number; pendientes?: number };
-    compras_agiles?: { nuevas?: number };
-    lectura?: { leidas?: number };
+    licitaciones?: {
+      estado?: "ok" | "caida" | "sin_ticket" | "cortada";
+      activas?: number;
+      nuevas?: number;
+      pendientes?: number;
+      sin_detalle?: number;
+    };
+    compras_agiles?: {
+      estado?:
+        | "ok"
+        | "caida"
+        | "sin_cupo"
+        | "sin_regiones"
+        | "sin_ticket"
+        | "cortada";
+      listadas?: number;
+      nuevas?: number;
+      pendientes?: number;
+    };
+    lectura?: { leidas?: number; sin_leer?: number };
     avisos?: string[];
   } | null;
   error: string | null;

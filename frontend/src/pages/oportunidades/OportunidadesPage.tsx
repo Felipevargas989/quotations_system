@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlarmClock,
+  AlertTriangle,
   Archive,
   Briefcase,
   Building2,
   CalendarClock,
   CalendarDays,
   CalendarRange,
+  CheckCircle2,
   Eye,
   HelpCircle,
+  Hourglass,
   Inbox,
   RefreshCw,
   Settings,
@@ -39,6 +42,7 @@ import {
   useProximaPasada,
 } from "./bandeja";
 import BandejaVacia from "./BandejaVacia";
+import { type Cobertura, coberturaDe } from "./cobertura";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
 import FiltrosDeLaBandeja from "./FiltrosDeLaBandeja";
@@ -174,6 +178,15 @@ export default function OportunidadesPage() {
   );
 }
 
+const ESTILO_DE_COBERTURA: Record<
+  Cobertura["tono"],
+  { readonly icono: LucideIcon; readonly clases: string }
+> = {
+  al_dia: { icono: CheckCircle2, clases: "text-green-700" },
+  faltan: { icono: Hourglass, clases: "text-amber-700" },
+  atrasado: { icono: AlertTriangle, clases: "text-red-600 font-semibold" },
+};
+
 /** Cuándo se revisó Mercado Público por última vez, y el botón para
  *  revisarlo ahora (útil en el laboratorio, donde el reloj no corre). */
 function EstadoDelRadar() {
@@ -188,6 +201,9 @@ function EstadoDelRadar() {
   const corriendo = ultima?.estado === "corriendo";
   // Al lado de cuándo se revisó, cuándo vuelve a revisar (18-10).
   const proxima = useProximaPasada();
+  // «¿Está todo?»: cuánto falta por traer y por leer (18-10).
+  const cobertura = coberturaDe(ultimaBuena);
+  const estiloCobertura = cobertura && ESTILO_DE_COBERTURA[cobertura.tono];
 
   const revisar = useMutation({
     mutationFn: correrRadar,
@@ -215,6 +231,15 @@ function EstadoDelRadar() {
                 : "Todavía sin revisar"
             } · próxima ${proxima}`}
       </div>
+      {cobertura && estiloCobertura && (
+        <div
+          title="Según la última pasada buena del radar"
+          className={`flex items-center justify-end gap-1 ${estiloCobertura.clases}`}
+        >
+          <estiloCobertura.icono size={13} className="shrink-0" />
+          {cobertura.texto}
+        </div>
+      )}
       {ultima?.estado === "error" && (
         <div className="text-red-600">La última revisión falló.</div>
       )}

@@ -78,7 +78,6 @@ function armar(base = new Map<string, ProcesoConocido>()) {
     siguienteDiaDeHistoria: jest.fn().mockResolvedValue(null),
     marcarDiaDeHistoria: jest.fn().mockResolvedValue(undefined),
     terminarCorrida: jest.fn().mockResolvedValue(undefined),
-    ultimaCorridaOk: jest.fn().mockResolvedValue(null),
     procesosConocidos: jest.fn((codigos: string[]) =>
       Promise.resolve(
         new Map([...base].filter(([codigo]) => codigos.includes(codigo))),
@@ -399,23 +398,12 @@ describe('RadarService — licitaciones: nuevo = "no está en la base"', () => {
 describe('RadarService — compras ágiles', () => {
   const AHORA = new Date('2026-10-16T12:00:00Z').getTime();
 
-  it('pide desde la última corrida buena menos 48 horas, en las regiones configuradas', async () => {
+  it('pide SIEMPRE lo publicado en los últimos 10 días, en las regiones configuradas (18-10)', async () => {
+    // El 17-10 la pasada de las 18:00 vio 750 y guardó 54, y aun así quedó
+    // "ok": pedir "desde la última corrida buena" habría dejado fuera para
+    // siempre lo publicado antes del 15-10 que seguía abierto.
     jest.spyOn(Date, 'now').mockReturnValue(AHORA);
-    const { radar, repo, mp } = armar();
-    repo.ultimaCorridaOk.mockResolvedValue('2026-10-16T10:00:00.000Z');
-
-    await radar.correr('reloj');
-
-    expect(mp.comprasAgiles).toHaveBeenCalledWith(
-      '2026-10-14T10:00:00Z',
-      [8, 16],
-    );
-  });
-
-  it('nunca más de 10 días atrás', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(AHORA);
-    const { radar, repo, mp } = armar();
-    repo.ultimaCorridaOk.mockResolvedValue('2026-09-01T10:00:00.000Z');
+    const { radar, mp } = armar();
 
     await radar.correr('reloj');
 
