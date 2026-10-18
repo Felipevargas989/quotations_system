@@ -1,185 +1,33 @@
 import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
-import type { User } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../../../testing/mocks';
+import type { ChoquesDeFechaService } from '../../../choques/choques.service';
 import type { NotaDeBitacora } from '../../../seguimiento/elegibles';
-import {
-  ErrorDeOutlook,
-  type MensajeDelBuzon,
-} from '../../../seguimiento/outlook';
-import type {
-  FilaDeLaCotizacion,
-  SeguimientoConIA,
-  SeguimientoRepository,
-} from '../../../seguimiento/seguimiento.repository';
+import { ErrorDeOutlook } from '../../../seguimiento/outlook';
+import type { SeguimientoRepository } from '../../../seguimiento/seguimiento.repository';
 import { SeguimientoConIAService } from '../../../seguimiento/seguimiento.service';
-import type { RespuestaDelSeguimiento } from '../../../seguimiento/tipos';
+import {
+  armar,
+  compromiso,
+  CONTACTO,
+  cotizacion,
+  envioDeEventia,
+  escrito,
+  fila,
+  nuevoParse,
+  outlookFalso,
+  respuestaDe,
+  restaurarEnv,
+  usuario,
+} from './seguimiento.fixtures';
 
 // El botón «✉ Generar seguimiento» de punta a punta, con Claude y Outlook
 // simulados: ni llamadas de verdad ni gasto. Lo que se cuida (doc 18): que
 // solo tome las que vencieron por correo, que deje un BORRADOR en el hilo
 // (nunca envía), que salte lo que no corresponde y que anote la bitácora
 // solo cuando el borrador quedó. Datos de prueba, no de clientes reales.
-
-type Pedido = {
-  model: string;
-  system: Array<{ cache_control?: unknown }>;
-  messages: Array<{ role: string; content: string }>;
-};
-type Parse = jest.Mock<Promise<unknown>, [Pedido]>;
-
-const CONTACTO = 'contacto@valledelsolquillon.cl';
-
-const cotizacion = (
-  f: Partial<FilaDeLaCotizacion> = {},
-): FilaDeLaCotizacion => ({
-  id: 'q607',
-  company_id: 1,
-  quotation_number: 607,
-  quotation_status: 'enviada',
-  request_type: 'cotizacion',
-  event_type: 'Estadía y Alimentación',
-  // Lejos en el futuro: la prueba no caduca cuando pase la fecha.
-  event_date: '2099-10-15T00:00:00+00:00',
-  event_end_date: '2099-10-23T00:00:00+00:00',
-  people_count: 120,
-  children_count: 0,
-  total_amount: 53_844_000,
-  sent_at: '2026-10-11T13:34:00+00:00',
-  observations: '[Desde formulario publico] --- Somos 120',
-  comentario_interno: 'Cliente sensible al precio: no ofrecer nada nuevo',
-  contact_name: 'Cliente de Prueba',
-  client_contact_id: null,
-  clients: {
-    name: 'Cliente de Prueba',
-    email: 'cliente@ejemplo.cl',
-    client_type: 'Particular',
-    client_contacts: [],
-  },
-  ...f,
-});
-
-const compromiso: NotaDeBitacora = {
-  created_at: '2026-10-11T13:40:00+00:00',
-  tipo: 'correo',
-  note: 'Seguimiento por correo',
-  author_name: 'Felipe',
-  next_contact_date: '2026-10-15',
-  next_contact_done_at: null,
-};
-
-const envioDeEventia: MensajeDelBuzon = {
-  id: 'm1',
-  hilo: 'h1',
-  de: 'hola@eventi-app.com',
-  para: ['cliente@ejemplo.cl'],
-  cc: [],
-  asunto: 'Cotización N° 607',
-  fecha: '2026-10-11T13:34:00Z',
-  borrador: false,
-  adelanto: 'Le enviamos la cotización',
-};
-
-const escrito: RespuestaDelSeguimiento = {
-  accion: 'borrador',
-  motivo: '',
-  asunto: '',
-  cuerpo_html: '<p>¿Cómo está?</p><p>Le escribimos por la cotización.</p>',
-  angulo: 'pregunta si pudo revisar las fechas de octubre',
-};
-
-const respuestaDe = (r: RespuestaDelSeguimiento) => ({
-  parsed_output: r,
-  stop_reason: 'end_turn',
-  content: [{ type: 'text', text: JSON.stringify(r) }],
-  usage: {
-    input_tokens: 3000,
-    output_tokens: 400,
-    cache_creation_input_tokens: 2500,
-    cache_read_input_tokens: 0,
-  },
-});
-
-const usuario = {
-  id: 'u1',
-  company_id: 1,
-  role: 'administrador',
-  email: 'felipe@valledelsolquillon.cl',
-  full_name: 'Felipe',
-  derechos: ['base', 'seguimiento_con_ia'],
-} as unknown as User;
-
-const outlookFalso = (mensajes: MensajeDelBuzon[] = [envioDeEventia]) => ({
-  buzones: [CONTACTO],
-  esDeLaCasa: (c: string) =>
-    c.startsWith('/o=') || /@(valledelsolquillon\.cl|eventi-app\.com)$/.test(c),
-  esDeEventia: (c: string) => c.endsWith('@eventi-app.com'),
-  idInmutable: jest.fn().mockResolvedValue({ id: 'inm-borr1', hilo: 'h1' }),
-  estadoDelBorrador: jest.fn(),
-  mensajesDelHilo: jest.fn().mockResolvedValue([]),
-  buscar: jest.fn().mockResolvedValue(mensajes),
-  leerTexto: jest.fn().mockResolvedValue('Le enviamos la cotización N° 607.'),
-  borradorDeSeguimiento: jest.fn().mockResolvedValue({
-    id: 'borr1',
-    hilo: 'h1',
-    enlace: 'https://outlook.office.com/borr1',
-    para: ['cliente@ejemplo.cl'],
-    cc: [],
-    asunto: 'RE: Cotización N° 607',
-  }),
-  borradorRespuestaATodos: jest.fn(),
-  borradorNuevo: jest.fn().mockResolvedValue({
-    id: 'n1',
-    enlace: null,
-    para: ['cliente@ejemplo.cl'],
-    cc: [],
-    asunto: 'Cotización',
-  }),
-});
-
-const armar = (
-  parse: Parse,
-  opciones: {
-    fila?: FilaDeLaCotizacion;
-    notas?: NotaDeBitacora[][];
-    outlook?: ReturnType<typeof outlookFalso>;
-    enEspera?: SeguimientoConIA[];
-  } = {},
-) => {
-  const notas = opciones.notas ?? [[compromiso]];
-  const repositorio = {
-    cotizacion: jest.fn().mockResolvedValue(opciones.fila ?? cotizacion()),
-    bitacora: jest.fn(),
-    vivas: jest.fn(),
-    compromisosAbiertos: jest.fn(),
-    borradoresEnEspera: jest.fn().mockResolvedValue(opciones.enEspera ?? []),
-    registrarBorrador: jest.fn().mockResolvedValue(undefined),
-    tomarParaRevisar: jest.fn().mockResolvedValue(true),
-    cerrarBorrador: jest.fn().mockResolvedValue(true),
-  };
-  notas.forEach((n) => repositorio.bitacora.mockResolvedValueOnce(n));
-  repositorio.bitacora.mockResolvedValue(notas[notas.length - 1]);
-  const bitacora = {
-    create: jest.fn().mockResolvedValue({}),
-    crearComoAsistente: jest.fn().mockResolvedValue({}),
-  };
-  const outlook = opciones.outlook ?? outlookFalso();
-  const servicio = new SeguimientoConIAService(
-    repositorio as unknown as SeguimientoRepository,
-    bitacora as unknown as QuotationFollowupsService,
-    mockPinoLogger() as unknown as PinoLogger,
-  );
-  jest
-    .spyOn(servicio as unknown as { cliente: () => unknown }, 'cliente')
-    .mockReturnValue({ messages: { parse } });
-  jest
-    .spyOn(servicio as unknown as { outlook: () => unknown }, 'outlook')
-    .mockReturnValue(outlook);
-  return { servicio, repositorio, bitacora, outlook };
-};
-
-const nuevoParse = (): Parse => jest.fn<Promise<unknown>, [Pedido]>();
+// Cuando el borrador sale (doc 18 §9) está en `seguimiento-envio.spec.ts`.
 
 describe('SeguimientoConIAService', () => {
   const llave = process.env.ANTHROPIC_API_KEY;
@@ -188,8 +36,8 @@ describe('SeguimientoConIAService', () => {
     process.env.ANTHROPIC_API_KEY = 'llave_de_prueba';
   });
   afterAll(() => {
-    process.env.ANTHROPIC_API_KEY = llave;
-    process.env.MS_CLIENT_SECRET = outlookLlave;
+    restaurarEnv('ANTHROPIC_API_KEY', llave);
+    restaurarEnv('MS_CLIENT_SECRET', outlookLlave);
   });
 
   it('deja el borrador en el hilo de contacto@, dirigido al cliente, y lo anota en la bitácora', async () => {
@@ -362,12 +210,28 @@ describe('SeguimientoConIAService', () => {
     expect(bitacora.create).not.toHaveBeenCalled();
   });
 
+  it('con tope de calendario no se insiste: se salta sin gastar en la IA ni buscar el hilo', async () => {
+    const parse = nuevoParse();
+    const { servicio, outlook } = armar(parse, { conTope: ['q607'] });
+
+    const r = await servicio.generar('q607', usuario);
+
+    expect(r).toMatchObject({
+      accion: 'saltada',
+      motivo:
+        'tiene tope de calendario con una aceptada: primero decide si sigue con su fecha («Sí, puede seguir»).',
+    });
+    expect(parse).not.toHaveBeenCalled();
+    expect(outlook.buscar).not.toHaveBeenCalled();
+  });
+
   it('sin la llave de Outlook, 503 claro', async () => {
     delete process.env.MS_CLIENT_SECRET;
     const servicio = new SeguimientoConIAService(
       {} as SeguimientoRepository,
       {} as QuotationFollowupsService,
       mockPinoLogger() as unknown as PinoLogger,
+      {} as ChoquesDeFechaService,
     );
     await expect(servicio.generar('q607', usuario)).rejects.toThrow(
       'Falta la llave de Outlook',
@@ -446,6 +310,18 @@ describe('SeguimientoConIAService', () => {
     const lista = await servicio.pendientes(usuario);
 
     expect(lista.map((p) => p.quotation_number)).toEqual([477, 607]);
+
+    // Con tope de calendario, la lista no la ofrece (Felipe, 18-10).
+    const conTope = armar(parse, { conTope: ['b'] });
+    conTope.repositorio.vivas.mockImplementation(repositorio.vivas);
+    conTope.repositorio.compromisosAbiertos.mockImplementation(
+      repositorio.compromisosAbiertos,
+    );
+    expect(
+      (await conTope.servicio.pendientes(usuario)).map(
+        (p) => p.quotation_number,
+      ),
+    ).toEqual([607]);
     expect(lista[0]).toMatchObject({
       cliente: 'Dos',
       proximo: '2026-10-06',
@@ -478,319 +354,5 @@ describe('SeguimientoConIAService', () => {
       enlace: 'https://outlook.office.com/borr1',
       creado: '2026-10-17T20:52:00Z',
     });
-  });
-});
-
-const fila = (f: Partial<SeguimientoConIA> = {}): SeguimientoConIA => ({
-  id: 7,
-  company_id: 1,
-  quotation_id: 'q607',
-  buzon: CONTACTO,
-  modo: 'seguimiento',
-  borrador_id: 'inm-borr1',
-  hilo_id: 'h1',
-  enlace: 'https://outlook.office.com/borr1',
-  angulo: 'pregunta si pudo revisar las fechas de octubre',
-  estado: 'borrador',
-  enviado_at: null,
-  revisado_at: null,
-  creado_por: 'u1',
-  created_at: '2026-10-17T20:52:00Z',
-  ...f,
-});
-
-const delHilo = (
-  de: string,
-  fecha: string,
-  extra: Partial<MensajeDelBuzon> = {},
-): MensajeDelBuzon => ({
-  ...envioDeEventia,
-  id: `${de}-${fecha}`,
-  de,
-  fecha,
-  ...extra,
-});
-
-describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
-  const outlookLlave = process.env.MS_CLIENT_SECRET;
-  beforeEach(() => {
-    process.env.MS_CLIENT_SECRET = 'llave_de_prueba';
-  });
-  afterAll(() => {
-    process.env.MS_CLIENT_SECRET = outlookLlave;
-  });
-
-  it('salió: lo anota a nombre de Asistente con el próximo correo a 14 días, y la cotización sale de la lista', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'enviado',
-      hilo: 'h1',
-      enviado: '2026-10-17T20:58:00Z',
-    });
-    outlook.mensajesDelHilo.mockResolvedValue([
-      delHilo('hola@eventi-app.com', '2026-10-11T13:34:00Z', {
-        adjuntos: true,
-      }),
-      delHilo(CONTACTO, '2026-10-17T20:58:00Z'),
-    ]);
-    const { servicio, repositorio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-
-    const r = await servicio.revisar(usuario);
-
-    expect(r).toEqual({ revisados: 1, cambiaron: ['q607'] });
-    expect(outlook.estadoDelBorrador).toHaveBeenCalledWith(
-      CONTACTO,
-      'inm-borr1',
-    );
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
-      quotation_id: 'q607',
-      note: 'Seguimiento con IA enviado desde contacto@ el 17-10. Próximo contacto por correo el 31-10, en 14 días.',
-      tipo: 'correo',
-      next_contact_date: '2026-10-31',
-    });
-    expect(repositorio.cerrarBorrador).toHaveBeenCalledWith(1, 7, {
-      estado: 'enviado',
-      enviado_at: '2026-10-17T20:58:00Z',
-    });
-  });
-
-  it('con dos seguimientos sin respuesta, lo que sigue es una llamada a la semana', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'enviado',
-      hilo: 'h1',
-      enviado: '2026-10-17T20:58:00Z',
-    });
-    outlook.mensajesDelHilo.mockResolvedValue([
-      delHilo('hola@eventi-app.com', '2026-10-01T13:34:00Z'),
-      delHilo(CONTACTO, '2026-10-08T15:00:00Z'),
-      delHilo(CONTACTO, '2026-10-17T20:58:00Z'),
-    ]);
-    const { servicio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-
-    await servicio.revisar(usuario);
-
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
-      quotation_id: 'q607',
-      note: 'Seguimiento con IA enviado desde contacto@ el 17-10. Van 2 seguimientos por correo sin respuesta: toca llamar el 24-10.',
-      tipo: 'llamada',
-      next_contact_date: '2026-10-24',
-    });
-  });
-
-  it('se borró sin enviarse: queda descartado, sin línea, y el botón vuelve', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'eliminado',
-      hilo: 'h1',
-    });
-    outlook.mensajesDelHilo.mockResolvedValue([
-      delHilo(CONTACTO, '2026-10-14T20:04:00Z', { adjuntos: true }),
-      delHilo(CONTACTO, '2026-10-17T20:52:00Z', { borrador: true }),
-    ]);
-    const { servicio, repositorio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-
-    const r = await servicio.revisar(usuario);
-
-    expect(r.cambiaron).toEqual(['q607']);
-    expect(repositorio.cerrarBorrador).toHaveBeenCalledWith(1, 7, {
-      estado: 'descartado',
-    });
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
-  });
-
-  it('se borró, pero salió otro correo de la casa en el hilo: ese fue el seguimiento', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({ estado: 'no_esta' });
-    outlook.mensajesDelHilo.mockResolvedValue([
-      delHilo(CONTACTO, '2026-10-14T20:04:00Z', { adjuntos: true }),
-      delHilo(CONTACTO, '2026-10-17T22:10:00Z'),
-    ]);
-    const { servicio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-
-    await servicio.revisar(usuario);
-
-    // Sin el identificador, el hilo sale de la fila.
-    expect(outlook.mensajesDelHilo).toHaveBeenCalledWith(CONTACTO, 'h1');
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
-      quotation_id: 'q607',
-      note: 'Se envió un seguimiento en el hilo de contacto@ el 17-10 (el borrador de la IA no se usó). Próximo contacto por correo el 31-10, en 14 días.',
-      tipo: 'correo',
-      next_contact_date: '2026-10-31',
-    });
-  });
-
-  it('si alguien ya anotó el próximo paso después del borrador, manda lo suyo', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'enviado',
-      hilo: 'h1',
-      enviado: '2026-10-17T20:58:00Z',
-    });
-    const aMano: NotaDeBitacora = {
-      ...compromiso,
-      created_at: '2026-10-17T21:05:00+00:00',
-      note: 'Envié el seguimiento',
-      next_contact_date: '2026-10-28',
-    };
-    const { servicio, repositorio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-      notas: [[compromiso, aMano]],
-    });
-
-    await servicio.revisar(usuario);
-
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
-    expect(repositorio.cerrarBorrador).toHaveBeenCalledWith(1, 7, {
-      estado: 'enviado',
-      enviado_at: '2026-10-17T20:58:00Z',
-    });
-  });
-
-  it('un negocio que ya no está vivo: se anota el envío, sin próximo contacto', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'enviado',
-      hilo: 'h1',
-      enviado: '2026-10-17T20:58:00Z',
-    });
-    const { servicio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-      fila: cotizacion({ quotation_status: 'aceptada' }),
-    });
-
-    await servicio.revisar(usuario);
-
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
-      quotation_id: 'q607',
-      note: 'Seguimiento con IA enviado desde contacto@ el 17-10.',
-      tipo: 'correo',
-      next_contact_date: null,
-    });
-  });
-
-  it('todavía de borrador: no anota nada', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'borrador',
-      hilo: 'h1',
-    });
-    const { servicio, repositorio, bitacora } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-
-    expect(await servicio.revisar(usuario)).toEqual({
-      revisados: 1,
-      cambiaron: [],
-    });
-    expect(repositorio.cerrarBorrador).not.toHaveBeenCalled();
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
-  });
-
-  it('el freno: lo que se miró hace menos de 5 minutos no se le pregunta a Outlook', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'borrador',
-      hilo: 'h1',
-    });
-    const hace = (min: number) =>
-      new Date(Date.now() - min * 60_000).toISOString();
-    const haceDiez = hace(10);
-    const { servicio, repositorio } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [
-        fila({ id: 7, revisado_at: hace(1) }),
-        fila({ id: 8, quotation_id: 'q608', revisado_at: haceDiez }),
-      ],
-    });
-
-    expect(await servicio.revisar(usuario)).toEqual({
-      revisados: 1,
-      cambiaron: [],
-    });
-    // La 7 se miró hace un minuto: ni se toma ni se pregunta. La 8 se toma
-    // solo si nadie la tomó desde que se leyó (misma hora de revisión).
-    expect(repositorio.tomarParaRevisar.mock.calls).toEqual([[1, 8, haceDiez]]);
-    expect(outlook.estadoDelBorrador).toHaveBeenCalledTimes(1);
-  });
-
-  it('si otra pantalla lo tomó primero, no se le pregunta a Outlook', async () => {
-    const outlook = outlookFalso();
-    const { servicio, repositorio } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila()],
-    });
-    repositorio.tomarParaRevisar.mockResolvedValue(false);
-
-    expect(await servicio.revisar(usuario)).toEqual({
-      revisados: 0,
-      cambiaron: [],
-    });
-    expect(repositorio.tomarParaRevisar).toHaveBeenCalledWith(1, 7, null);
-    expect(outlook.estadoDelBorrador).not.toHaveBeenCalled();
-  });
-
-  it('sin la llave de Outlook no hace nada (y no falla)', async () => {
-    delete process.env.MS_CLIENT_SECRET;
-    const { servicio, repositorio } = armar(nuevoParse(), {
-      enEspera: [fila()],
-    });
-    expect(await servicio.revisar(usuario)).toEqual({
-      revisados: 0,
-      cambiaron: [],
-    });
-    expect(repositorio.borradoresEnEspera).not.toHaveBeenCalled();
-  });
-
-  it('si Outlook falla con un borrador, sigue con los demás y no rompe la pantalla', async () => {
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador
-      .mockRejectedValueOnce(new ErrorDeOutlook('Outlook respondió 503', 503))
-      .mockResolvedValueOnce({ estado: 'borrador', hilo: 'h2' });
-    const { servicio } = armar(nuevoParse(), {
-      outlook,
-      enEspera: [fila(), fila({ id: 8, quotation_id: 'q608' })],
-    });
-    expect(await servicio.revisar(usuario)).toEqual({
-      revisados: 2,
-      cambiaron: [],
-    });
-  });
-
-  it('con un borrador esperando, «Generar seguimiento» no escribe otro', async () => {
-    const parse = nuevoParse();
-    const outlook = outlookFalso();
-    outlook.estadoDelBorrador.mockResolvedValue({
-      estado: 'borrador',
-      hilo: 'h1',
-    });
-    const { servicio } = armar(parse, { outlook, enEspera: [fila()] });
-
-    const r = await servicio.generar('q607', usuario);
-
-    expect(r).toMatchObject({
-      accion: 'saltada',
-      motivo:
-        'ya hay un borrador esperando en Outlook (contacto@): ábrelo, revísalo y envíalo desde ahí.',
-    });
-    // Antes de decidir, una mirada fresca a Outlook (freno de 30 s).
-    expect(outlook.estadoDelBorrador).toHaveBeenCalled();
-    expect(parse).not.toHaveBeenCalled();
-    expect(outlook.buscar).not.toHaveBeenCalled();
   });
 });

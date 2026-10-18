@@ -11,6 +11,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { User } from 'src/users/entities/user.entity';
+import { ChoquesDeFechaService } from '../choques/choques.service';
 import { fechaLegible } from '../generar/fechas';
 import {
   costoEnDolares,
@@ -167,6 +168,8 @@ export class SeguimientoConIAService {
     private readonly repositorio: SeguimientoRepository,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    // Con tope de calendario no se insiste (mapa 02 §5.6, 18-10-2026).
+    private readonly choques: ChoquesDeFechaService,
   ) {
     this.logger.setContext(SeguimientoConIAService.name);
   }
@@ -209,10 +212,15 @@ export class SeguimientoConIAService {
   /** Las que piden seguimiento por correo hoy, las más vencidas primero. */
   async pendientes(user: User): Promise<Pendiente[]> {
     const companyId = user.company_id;
-    const [vivas, compromisos, enEspera] = await Promise.all([
+    const [vivas, compromisos, enEspera, conTope] = await Promise.all([
       this.repositorio.vivas(companyId),
       this.repositorio.compromisosAbiertos(companyId),
       this.enEsperaSinRomper(companyId),
+      // Con tope de calendario no se ofrece: no se le insiste al cliente con
+      // una fecha que quizás no se pueda respetar (Felipe, 18-10).
+      this.choques
+        .cotizacionesConTope(companyId)
+        .catch(() => new Set<string>()),
     ]);
     const hoy = fechaEnChile();
     // El más nuevo de cada cotización (vienen del más viejo al más nuevo).
@@ -232,6 +240,7 @@ export class SeguimientoConIAService {
     }
     const pendientes: Pendiente[] = [];
     for (const q of vivas) {
+      if (conTope.has(q.id)) continue;
       const notas = porCotizacion.get(q.id) ?? [];
       if (porQueNoEntra(q.quotation_status, notas, hoy)) continue;
       const compromiso = compromisoVivo(notas);
@@ -305,6 +314,14 @@ export class SeguimientoConIAService {
         costo_usd: costo,
       };
     };
+
+    // Con tope de calendario no se insiste (Felipe, 18-10): primero se decide
+    // si la cotización sigue con su fecha.
+    if ((await this.choques.cotizacionesConTope(companyId)).has(id)) {
+      return saltada(
+        'tiene tope de calendario con una aceptada: primero decide si sigue con su fecha («Sí, puede seguir»).',
+      );
+    }
 
     // Uno que todavía espera en Outlook: no se escribe otro.
     const enEspera = await this.enEsperaSinRomper(companyId, id);
