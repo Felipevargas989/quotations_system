@@ -83,3 +83,55 @@ export const copiasDelHilo = (
   [...new Set([...mensaje.para, ...mensaje.cc])].filter(
     (c) => c && !esDeLaCasa(c) && !destinatarios.includes(c),
   );
+
+const momento = (m: MensajeDelBuzon) => Date.parse(m.fecha);
+
+/** Cuántos seguimientos de la casa van sin respuesta en el hilo, contando
+ *  el que acaba de salir (doc 18 §9). La skill de correos: "tras dos
+ *  seguimientos sin respuesta, el paso siguiente es teléfono".
+ *
+ *  El ancla es lo último que pasó de verdad: el último correo del cliente
+ *  o el último envío de una cotización (el correo de Eventia, o uno de la
+ *  casa con adjuntos: el PDF). Los seguimientos son los correos de la casa
+ *  después del ancla. Medido el 17-10 con hilos reales: a la 477 le
+ *  escribimos el 23-09 y de nuevo hoy sin que contestara (2); la 578 pidió
+ *  el 02-10 y la cotización salió el 11-10 (1). */
+export function seguimientosSinRespuesta(p: {
+  mensajes: MensajeDelBuzon[];
+  esDeLaCasa: (correo: string) => boolean;
+  esDeEventia: (correo: string) => boolean;
+}): number {
+  const reales = p.mensajes.filter((m) => !m.borrador && m.fecha);
+  const ancla = Math.max(
+    -Infinity,
+    ...reales
+      .filter((m) => !p.esDeLaCasa(m.de) || p.esDeEventia(m.de) || m.adjuntos)
+      .map(momento),
+  );
+  return reales.filter(
+    (m) => p.esDeLaCasa(m.de) && !p.esDeEventia(m.de) && momento(m) > ancla,
+  ).length;
+}
+
+/** Si el borrador de la IA se borró: el primer correo de la casa que salió
+ *  en el hilo después de dejarlo. Ese fue el seguimiento, escrito a mano. */
+export function otroEnvioEnElHilo(p: {
+  mensajes: MensajeDelBuzon[];
+  /** Cuándo quedó el borrador (ISO). */
+  desde: string;
+  esDeLaCasa: (correo: string) => boolean;
+  esDeEventia: (correo: string) => boolean;
+}): MensajeDelBuzon | null {
+  const desde = Date.parse(p.desde);
+  return (
+    p.mensajes
+      .filter(
+        (m) =>
+          !m.borrador &&
+          p.esDeLaCasa(m.de) &&
+          !p.esDeEventia(m.de) &&
+          momento(m) > desde,
+      )
+      .sort((a, b) => momento(a) - momento(b))[0] ?? null
+  );
+}

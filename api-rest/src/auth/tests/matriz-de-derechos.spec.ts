@@ -222,10 +222,11 @@ describe('la matriz de derechos', () => {
     expect(por('PATCH /quotations/:id')?.derecho).toBeUndefined();
   });
 
-  it('Seguimiento con IA: solo sus dos rutas llevan el candado', () => {
+  it('Seguimiento con IA: solo sus tres rutas llevan el candado', () => {
     const rutas = rutasDe(QuotationsController);
     // «✉ Generar seguimiento» (doc 18, 17-10-2026): módulo propio de Valle
-    // del Sol (migración 140). Enviar la cotización es de todo plan.
+    // del Sol (migración 140), con la revisión de si el borrador salió
+    // (§9). Enviar la cotización es de todo plan.
     expect(
       rutas
         .filter((r) => r.derecho === 'seguimiento_con_ia')
@@ -234,6 +235,7 @@ describe('la matriz de derechos', () => {
     ).toEqual([
       'GET /quotations/seguimiento/pendientes',
       'POST /quotations/:id/seguimiento',
+      'POST /quotations/seguimiento/revisar',
     ]);
     expect(
       rutas.find((r) => r.via === 'POST /quotations/:id/enviar-correo')

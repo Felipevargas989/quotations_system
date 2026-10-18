@@ -77,6 +77,8 @@ const esperado: [Clase, Record<string, string[]>][] = [
       // «✉ Generar seguimiento» (doc 18, 17-10-2026): quien vende.
       'GET seguimiento/pendientes': S,
       'POST :id/seguimiento': S,
+      // Y la revisión de si el borrador ya salió (doc 18 §9).
+      'POST seguimiento/revisar': S,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,

@@ -198,6 +198,25 @@ export type SeguimientoPendiente = {
   proximo: string;
   dias_vencido: number;
   nota: string;
+  /** El borrador de la IA que espera en Outlook a que alguien lo envíe
+   *  (doc 18 §9). Opcional: un motor anterior no lo manda. */
+  borrador?: BorradorEnEspera | null;
+};
+
+/** Un borrador de la IA que todavía no sale de Outlook. */
+export type BorradorEnEspera = {
+  buzon: string;
+  enlace: string | null;
+  /** ISO: cuándo quedó. */
+  creado: string;
+};
+
+/** Lo que encontró el motor al mirar Outlook. */
+export type RevisionDeSeguimientos = {
+  revisados: number;
+  /** Cotizaciones cuyo borrador salió (con su línea en la bitácora) o se
+   *  descartó. */
+  cambiaron: string[];
 };
 
 /** Lo que dejó el motor: un borrador en Outlook, o por qué se saltó. */
@@ -220,6 +239,15 @@ export const getSeguimientosPendientes = async () =>
     `${API_ROUTES.QUOTATIONS}/seguimiento/pendientes`,
     "GET",
   )) as SeguimientoPendiente[];
+
+/** Al abrir Cotizaciones (doc 18 §9): el motor le pregunta a Outlook si los
+ *  borradores que esperan ya salieron y, si salieron, anota el envío. */
+export const revisarSeguimientos = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/seguimiento/revisar`,
+    "POST",
+    {},
+  )) as RevisionDeSeguimientos;
 
 /** El motor escribe el seguimiento con IA y lo deja de BORRADOR en el hilo
  *  del cliente (o en un correo nuevo). Nunca envía. */
