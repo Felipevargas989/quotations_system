@@ -5,9 +5,9 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
-import type { LecturaFinal } from './lectura/reglas';
+import { LEIDA_SEGUN_LAS_BASES, type LecturaFinal } from './lectura/reglas';
 import { regionCalza } from './mercado-publico/mapeo';
-import type { ProcesoMp } from './mercado-publico/tipos';
+import type { CompraAgilListada, ProcesoMp } from './mercado-publico/tipos';
 
 // LA ÚNICA CAPA QUE TOCA LA BASE en este módulo (regla del motor).
 //
@@ -246,6 +246,20 @@ export class OportunidadesRepository {
     }
   }
 
+  /** Lo que trajo la lista de una compra ágil (dato público, sin
+   *  company_id): con eso y su detalle se completa cuando alguien la abre
+   *  (decisión 20). null si no es una compra ágil guardada. */
+  async itemDeCompraAgil(codigo: string): Promise<CompraAgilListada | null> {
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('item:detalle->item')
+      .eq('codigo', codigo)
+      .eq('tipo', 'compra_agil')
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { item?: CompraAgilListada | null } | null)?.item ?? null;
+  }
+
   async actualizarCierre(
     codigo: string,
     fechaCierre: string | null,
@@ -433,7 +447,13 @@ export class OportunidadesRepository {
           f.responsable_id === null &&
           f.notas === null &&
           f.quotation_id === null;
-        if (intacta && f.leida_con !== lecturaActual) releer.add(f.codigo);
+        // Lo que coloreó el análisis de las bases manda sobre la lectura
+        // corta del radar (decisión 21): no se relee.
+        const releerla =
+          intacta &&
+          f.leida_con !== lecturaActual &&
+          f.leida_con !== LEIDA_SEGUN_LAS_BASES;
+        if (releerla) releer.add(f.codigo);
         else hechas.add(f.codigo);
       }
       if (!data || data.length < PAGINA) break;

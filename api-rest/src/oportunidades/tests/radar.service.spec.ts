@@ -425,53 +425,67 @@ describe('RadarService — compras ágiles', () => {
     );
   });
 
-  it('guarda solo las nuevas, y sin detalle igual se guardan', async () => {
+  it('guarda todas las nuevas de una con lo de la lista, sin pedir el detalle, primero las que cierran antes (decisión 20)', async () => {
     const base = new Map([
       ['CA-2', { fecha_cierre: null, estado: 'Publicada' }],
     ]);
     const { radar, repo, mp } = armar(base);
     mp.comprasAgiles.mockResolvedValue([
-      { codigo: 'CA-1', nombre: 'Coffee break biblioteca' },
+      {
+        codigo: 'CA-1',
+        nombre: 'Coffee break biblioteca',
+        fechas: { fecha_cierre: '2026-10-22 13:00:00' },
+      },
       { codigo: 'CA-2', nombre: 'Almuerzo ya guardado' },
+      {
+        codigo: 'CA-3',
+        nombre: 'Cena de fin de año',
+        fechas: { fecha_cierre: '2026-10-19 10:00:00' },
+      },
     ]);
-    mp.detalleCompraAgil.mockRejectedValue(caida(429));
 
     const resumen = await radar.correr('reloj');
 
-    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(1);
-    expect(guardados(repo)).toEqual(['CA-1']);
+    expect(mp.detalleCompraAgil).not.toHaveBeenCalled();
+    expect(guardados(repo)).toEqual(['CA-3', 'CA-1']);
     expect(resumen?.compras_agiles).toMatchObject({
-      estado: 'sin_cupo',
-      listadas: 2,
-      nuevas: 1,
-      guardadas: 1,
+      estado: 'ok',
+      listadas: 3,
+      nuevas: 2,
+      guardadas: 2,
+      pendientes: 0,
     });
   });
-});
 
-describe('RadarService — compras ágiles con tope de tiempo', () => {
-  it('pasado el tope, lo que falta no se guarda: entra en la próxima corrida', async () => {
-    let ahora = new Date('2026-10-17T12:00:00Z').getTime();
-    jest.spyOn(Date, 'now').mockImplementation(() => ahora);
+  it('aunque sean cientos, entran todas en la misma corrida, de a 100', async () => {
     const { radar, repo, mp } = armar();
     mp.comprasAgiles.mockResolvedValue(
-      Array.from({ length: 5 }, (_, i) => ({ codigo: `CA-${i}`, nombre: 'x' })),
+      Array.from({ length: 250 }, (_, i) => ({
+        codigo: `CA-${i}`,
+        nombre: 'x',
+      })),
     );
-    mp.detalleCompraAgil.mockImplementation(() => {
-      ahora += 25 * 60 * 1000; // cada detalle tarda 25 minutos (tope: 70)
-      return Promise.resolve(null);
-    });
 
     const resumen = await radar.correr('reloj');
 
-    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(3);
-    expect(guardados(repo)).toEqual(['CA-0', 'CA-1', 'CA-2']);
+    // (Quién ganó guarda su lote aunque venga vacío: no cuenta.)
+    expect(
+      repo.guardarProcesos.mock.calls
+        .map(([lote]) => (lote as unknown[]).length)
+        .filter((n) => n > 0),
+    ).toEqual([100, 100, 50]);
     expect(resumen?.compras_agiles).toMatchObject({
-      estado: 'cortada',
-      nuevas: 5,
-      guardadas: 3,
-      pendientes: 2,
+      guardadas: 250,
+      pendientes: 0,
     });
+  });
+
+  it('van antes que las licitaciones, para que la IA las lea al tiro', async () => {
+    const { radar, mp } = armar();
+    await radar.correr('reloj');
+    expect(mp.comprasAgiles.mock.invocationCallOrder[0]).toBeLessThan(
+      mp.licitacionesActivas.mock.invocationCallOrder[0],
+    );
   });
 });
 

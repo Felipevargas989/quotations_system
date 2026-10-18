@@ -203,8 +203,13 @@ describe("Mi postulación: la firma en dos tiempos", () => {
       />,
     );
 
+    // El nombre se muestra sin guiones bajos (17-10); el original queda en
+    // el texto al pasar el mouse.
     expect(
-      await screen.findByText("Formularios_Anexos - lleno.docx"),
+      await screen.findByText("Formularios Anexos - lleno.docx"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle("Formularios_Anexos - lleno.docx"),
     ).toBeInTheDocument();
     expect(screen.getByText("Hecho con IA · sin firma")).toBeInTheDocument();
     expect(screen.getByText("Firmado")).toBeInTheDocument();

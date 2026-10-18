@@ -118,7 +118,15 @@ export interface CambioDeProceso {
   creado_en: string;
 }
 
+/** El detalle de una compra ágil que entró solo con lo de la lista: el
+ *  motor lo pide a Mercado Público al abrirla (decisión 20). */
+export type DetalleMp = "trayendo" | "no_disponible" | null;
+
 export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
+  detalle_mp?: DetalleMp;
+  /** Días de historia que faltan por cargar: con 0, "no hubo el año
+   *  pasado" es cierto; antes, solo "aún cargando". */
+  historia_pendiente?: number;
   leida_con: string | null;
   notas: string | null;
   quotation_id: string | null;

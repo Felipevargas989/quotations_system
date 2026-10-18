@@ -22,6 +22,13 @@ export type Lectura = {
   razon: string;
 };
 
+/** Cómo queda marcada una oportunidad cuyo color lo puso el análisis de
+ *  las bases (Opus 5.5, MODELO_OPUS; decisión 21 del doc 17): manda sobre
+ *  la lectura corta del radar, que ya no la relee. Escrito aquí y no
+ *  importado de analisis/comun para no arrastrar el SDK al repositorio. */
+export const LEIDA_SEGUN_LAS_BASES =
+  'claude-opus-5-5, según el análisis de las bases';
+
 /** La lectura con las reglas aplicadas: lo que se guarda. */
 export type LecturaFinal = Lectura & {
   /** comuna_cercana | alto_valor: piden aviso inmediato (sprint 2). */

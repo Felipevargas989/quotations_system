@@ -1,4 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import type { PinoLogger } from 'nestjs-pino';
+import { mockPinoLogger } from 'src/testing/mocks';
+import type { FichaRepository } from '../ficha/ficha.repository';
+import type { MercadoPublicoClient } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { OportunidadesService } from '../oportunidades.service';
 
@@ -25,12 +29,96 @@ function armar() {
     guardarConfig: jest.fn().mockResolvedValue(undefined),
     historialDeOrganismos: jest.fn().mockResolvedValue([]),
     procesosDeLaZona: jest.fn().mockResolvedValue([]),
+    itemDeCompraAgil: jest.fn().mockResolvedValue(null),
+    guardarProcesos: jest.fn().mockResolvedValue(undefined),
   };
+  const fichas = {
+    diasDeHistoriaPendientes: jest.fn().mockResolvedValue(900),
+    responsableDe: jest.fn().mockResolvedValue(null),
+    perfilDe: jest.fn().mockResolvedValue('perfil-felipe'),
+  };
+  const mp = { detalleCompraAgil: jest.fn().mockResolvedValue(null) };
   const servicio = new OportunidadesService(
     repo as unknown as OportunidadesRepository,
+    mp as unknown as MercadoPublicoClient,
+    mockPinoLogger() as unknown as PinoLogger,
+    fichas as unknown as FichaRepository,
   );
-  return { repo, servicio };
+  return { repo, mp, fichas, servicio };
 }
+
+describe('OportunidadesService — el detalle de una compra ágil se pide al abrirla (decisión 20)', () => {
+  const compra = (cambios: Record<string, unknown> = {}) => ({
+    id: 70,
+    codigo: '1234-56-COT26',
+    proceso: {
+      tipo: 'compra_agil',
+      nombre: 'Almuerzo de camaradería',
+      descripcion: null,
+      productos: [],
+      organismo_codigo: null,
+      fecha_publicacion: null,
+      fecha_cierre: '2026-10-20T15:00:00+00:00',
+      ...cambios,
+    },
+  });
+  const ITEM = {
+    codigo: '1234-56-COT26',
+    nombre: 'Almuerzo de camaradería',
+    institucion: { nombre_region: 'Región del Ñuble' },
+  };
+  const esperar = () => new Promise((listo) => setImmediate(listo));
+
+  it('sin detalle: la ficha sale al tiro con "trayendo" y el detalle se guarda por detrás', async () => {
+    const { repo, mp, servicio } = armar();
+    repo.ficha.mockResolvedValue(compra());
+    repo.itemDeCompraAgil.mockResolvedValue(ITEM);
+    mp.detalleCompraAgil.mockResolvedValue({
+      descripcion: 'Almuerzo para 80 funcionarios',
+      productos_solicitados: [{ nombre: 'Almuerzo', descripcion: '80' }],
+    });
+
+    const ficha = await servicio.ficha(1, 70);
+
+    expect(ficha.detalle_mp).toBe('trayendo');
+    await esperar();
+    expect(mp.detalleCompraAgil).toHaveBeenCalledWith('1234-56-COT26');
+    const [[guardados]] = repo.guardarProcesos.mock.calls as [
+      [Array<Record<string, unknown>>],
+    ];
+    expect(guardados[0]).toMatchObject({
+      codigo: '1234-56-COT26',
+      descripcion: 'Almuerzo para 80 funcionarios',
+    });
+  });
+
+  it('si Mercado Público no lo entrega, queda "no disponible" y no se vuelve a pedir al tiro', async () => {
+    const { repo, mp, servicio } = armar();
+    repo.ficha.mockResolvedValue(compra());
+    repo.itemDeCompraAgil.mockResolvedValue(ITEM);
+    mp.detalleCompraAgil.mockRejectedValue(new Error('504'));
+
+    await servicio.ficha(1, 70);
+    await esperar();
+    const otraVez = await servicio.ficha(1, 70);
+
+    expect(otraVez.detalle_mp).toBe('no_disponible');
+    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(1);
+    expect(repo.guardarProcesos).not.toHaveBeenCalled();
+  });
+
+  it('con detalle, o si es una licitación, no se pide nada', async () => {
+    const { repo, mp, servicio } = armar();
+    repo.ficha.mockResolvedValue(
+      compra({ descripcion: 'Ya tiene descripción' }),
+    );
+    expect((await servicio.ficha(1, 70)).detalle_mp).toBeNull();
+    repo.ficha.mockResolvedValue(compra({ tipo: 'licitacion' }));
+    expect((await servicio.ficha(1, 70)).detalle_mp).toBeNull();
+    await esperar();
+    expect(mp.detalleCompraAgil).not.toHaveBeenCalled();
+  });
+});
 
 describe('OportunidadesService — la bandeja', () => {
   it('por omisión, solo lo vigente; de lo que cierra antes a lo que cierra después', async () => {
@@ -143,8 +231,44 @@ describe('OportunidadesService — la ficha y decidir', () => {
     await expect(servicio.ficha(1, 9)).resolves.toMatchObject({
       id: 9,
       cambios: [{ id: 1, tipo: 'fecha_cierre' }],
+      historia_pendiente: 900,
     });
     expect(repo.cambiosDe).toHaveBeenCalledWith('4364-13-LE26');
+  });
+
+  it('«Me interesa» sin responsable: queda quien la marcó, con su perfil (decisión 21)', async () => {
+    const { repo, fichas, servicio } = armar();
+    await servicio.actualizar(1, 9, { estado: 'en_estudio' }, 'sesion-felipe');
+    expect(fichas.perfilDe).toHaveBeenCalledWith(1, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+      responsable_id: 'perfil-felipe',
+    });
+  });
+
+  it('«Me interesa» con responsable, o eligiéndolo, no lo cambia', async () => {
+    const { repo, fichas, servicio } = armar();
+    fichas.responsableDe.mockResolvedValue('perfil-camila');
+    await servicio.actualizar(1, 9, { estado: 'en_estudio' }, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+    });
+    await servicio.actualizar(
+      1,
+      9,
+      { estado: 'en_estudio', responsable_id: null },
+      'sesion-felipe',
+    );
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+      responsable_id: null,
+    });
+    // Descartar no asigna a nadie.
+    fichas.responsableDe.mockResolvedValue(null);
+    await servicio.actualizar(1, 9, { estado: 'descartada' }, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'descartada',
+    });
   });
 
   it('el responsable tiene que ser de la empresa', async () => {

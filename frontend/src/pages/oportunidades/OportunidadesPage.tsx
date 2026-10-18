@@ -44,9 +44,9 @@ import {
   SEMAFOROS,
   textoDelAnterior,
   separarMias,
-  TIPOS,
   VISTAS,
 } from "./oportunidades.utils";
+import SelloDeTipo from "./SelloDeTipo";
 import SeVieneOportunidades from "./SeVieneOportunidades";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
@@ -110,7 +110,10 @@ export default function OportunidadesPage() {
         <EstadoDelRadar />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Sin overflow-hidden: recortaba lo que se despliega (el filtro
+          "Por revisar" con la bandeja vacía y el estado en «Mis
+          licitaciones»; Felipe, 17-10). */}
+      <div className="bg-white rounded-lg shadow">
         <div className="flex gap-1 px-4 border-b border-gray-200 overflow-x-auto">
           {(
             [
@@ -460,25 +463,31 @@ function FilaDeOportunidad({
         }`}
       />
       <div className="min-w-0">
-        <Link
-          to={`/oportunidades/${o.id}`}
-          onClick={(e) => {
-            // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
-            // ficha en otra pestaña, como cualquier enlace.
-            e.stopPropagation();
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-            e.preventDefault();
-            onAbrir();
-          }}
-          className="text-sm font-semibold text-gray-900 hover:text-blue-700"
-        >
-          {p.nombre}
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <SelloDeTipo tipo={p.tipo} />
+          <Link
+            to={`/oportunidades/${o.id}`}
+            onClick={(e) => {
+              // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
+              // ficha en otra pestaña, como cualquier enlace.
+              e.stopPropagation();
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
+                return;
+              e.preventDefault();
+              onAbrir();
+            }}
+            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
+          >
+            {p.nombre}
+          </Link>
+        </div>
         <p className="text-xs text-gray-500 mt-0.5">
           {[
             p.organismo,
-            `${TIPOS[p.tipo]} ${o.codigo}`,
-            p.monto ? formatCurrency(p.monto, "CLP") : "monto no informado",
+            o.codigo,
+            p.monto
+              ? formatCurrency(p.monto, "CLP")
+              : "presupuesto no publicado",
           ]
             .filter(Boolean)
             .join(" · ")}
