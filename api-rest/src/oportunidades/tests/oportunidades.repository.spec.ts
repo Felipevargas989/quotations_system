@@ -1,6 +1,7 @@
 import type { PinoLogger } from 'nestjs-pino';
 import type { SupabaseService } from 'src/supabase/supabase.service';
 import { mockPinoLogger } from 'src/testing/mocks';
+import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 import { OportunidadesRepository } from '../oportunidades.repository';
 
 /**
@@ -461,5 +462,28 @@ describe('OportunidadesRepository — la zona (Se viene y competidores)', () => 
     const { repo, consultas } = armar();
     await expect(repo.procesosDeLaZona([])).resolves.toEqual([]);
     expect(consultas).toHaveLength(0);
+  });
+});
+
+describe('OportunidadesRepository — lo coloreado por las bases no se relee (decisión 21)', () => {
+  it('lo coloreado por el análisis de las bases no se relee con la lectura corta', async () => {
+    const { repo } = armar(() => ({
+      data: [
+        {
+          codigo: 'BASES',
+          estado: 'nueva',
+          responsable_id: null,
+          notas: null,
+          quotation_id: null,
+          leida_con: LEIDA_SEGUN_LAS_BASES,
+        },
+      ],
+    }));
+    const { hechas, releer } = await repo.lecturasDe(
+      1,
+      'claude-haiku-5-5, reglas del 17-10',
+    );
+    expect([...hechas]).toEqual(['BASES']);
+    expect(releer.size).toBe(0);
   });
 });

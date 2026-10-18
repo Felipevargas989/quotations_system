@@ -8,6 +8,7 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
+import { FichaRepository } from './ficha/ficha.repository';
 import {
   type Anterior,
   anteriorDe,
@@ -71,6 +72,7 @@ export class OportunidadesService {
     private readonly repo: OportunidadesRepository,
     private readonly mp: MercadoPublicoClient,
     private readonly logger: PinoLogger,
+    private readonly fichas: FichaRepository,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -123,11 +125,12 @@ export class OportunidadesService {
   async ficha(companyId: number, id: number) {
     const ficha = await this.repo.ficha(companyId, id);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
-    const [cambios, pasados] = await Promise.all([
+    const [cambios, pasados, historiaPendiente] = await Promise.all([
       this.repo.cambiosDe(ficha.codigo),
       ficha.proceso.organismo_codigo
         ? this.repo.historialDeOrganismos([ficha.proceso.organismo_codigo])
         : Promise.resolve([]),
+      this.fichas.diasDeHistoriaPendientes(),
     ]);
     const anterior = anteriorDe(
       {
@@ -143,6 +146,8 @@ export class OportunidadesService {
       cambios,
       anterior,
       detalle_mp: this.detalleDeCompraAgil(ficha),
+      // "El año pasado": con 0, "no hubo" es cierto; antes, "aún cargando".
+      historia_pendiente: historiaPendiente,
     };
   }
 
@@ -197,6 +202,9 @@ export class OportunidadesService {
     companyId: number,
     id: number,
     dto: ActualizarOportunidadDto,
+    /** Quien tiene la sesión: con «Me interesa» queda de responsable si no
+     *  había nadie (decisión 21). */
+    usuarioId?: string,
   ) {
     const cambios: {
       estado?: string;
@@ -212,6 +220,18 @@ export class OportunidadesService {
     }
     if (Object.keys(cambios).length === 0) {
       throw new BadRequestException('No hay nada que cambiar.');
+    }
+    // «Me interesa» sin responsable: queda quien la marcó (Felipe, 17-10).
+    if (
+      cambios.estado === 'en_estudio' &&
+      dto.responsable_id === undefined &&
+      usuarioId
+    ) {
+      const actual = await this.fichas.responsableDe(companyId, id);
+      if (actual === null) {
+        const perfil = await this.fichas.perfilDe(companyId, usuarioId);
+        if (perfil) cambios.responsable_id = perfil;
+      }
     }
     if (
       cambios.responsable_id &&

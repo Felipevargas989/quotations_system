@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -15,7 +15,9 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
+import CaminoDePostulacion from "./CaminoDePostulacion";
 import DocumentosConIA from "./DocumentosConIA";
+import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
@@ -92,8 +94,6 @@ function Volver() {
   );
 }
 
-type PestanaDeFicha = "resumen" | "bases" | "postulacion" | "historial";
-
 const CLAVE_PESTANA_DE_FICHA = "op.ficha.pestana";
 
 const PESTANAS_DE_FICHA: ReadonlyArray<[PestanaDeFicha, string]> = [
@@ -121,6 +121,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   const p = ficha.proceso;
 
   const [pestana, setPestana] = useState<PestanaDeFicha>(pestanaGuardada);
+  const pestanas = useRef<HTMLDivElement>(null);
   const elegir = (id: PestanaDeFicha) => {
     setPestana(id);
     try {
@@ -170,7 +171,24 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         onGuardar={(cambios) => guardar.mutate(cambios)}
       />
 
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+      {ficha.estado !== "descartada" && (
+        <CaminoDePostulacion
+          oportunidadId={ficha.id}
+          estado={ficha.estado}
+          onIr={(id) => {
+            elegir(id);
+            pestanas.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }}
+        />
+      )}
+
+      <div
+        ref={pestanas}
+        className="flex gap-1 border-b border-gray-200 overflow-x-auto"
+      >
         {PESTANAS_DE_FICHA.map(([id, texto]) => (
           <button
             key={id}
@@ -266,6 +284,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             oportunidadId={ficha.id}
             codigo={ficha.codigo}
             tipo={p.tipo}
+            plegadaDePartida={analisis?.estado === "listo"}
           />
           <AnalisisDeBases oportunidadId={ficha.id} />
         </>

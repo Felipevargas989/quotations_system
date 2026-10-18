@@ -12,6 +12,7 @@ import {
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
 import { EventiaRepository } from '../eventia/eventia.repository';
+import { FichaRepository } from '../ficha/ficha.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { AnalisisRepository, type FilaDeAnalisis } from './analisis.repository';
@@ -147,6 +148,26 @@ export type ContextoDeBases = {
   perfil: string | null;
 };
 
+/** La razón que queda en la bandeja cuando el color lo pone el análisis
+ *  de las bases (decisión 21). null = no cambia la razón. */
+export const razonSegunLasBases = (
+  lugar: unknown,
+  donde: unknown,
+): string | null => {
+  const texto = typeof donde === 'string' ? donde.trim().slice(0, 300) : '';
+  if (lugar === 'si') {
+    return texto
+      ? `Según las bases, se puede hacer en el complejo: ${texto}`
+      : 'Según las bases, se puede hacer en el complejo.';
+  }
+  if (lugar === 'no') {
+    return texto
+      ? `Según las bases, exigen otro lugar: ${texto}`
+      : 'Según las bases, exigen otro lugar.';
+  }
+  return null;
+};
+
 export const instruccionesDeBases = (c: ContextoDeBases): string =>
   [
     'Lees las bases de una licitación pública de Chile (Mercado Público) para una empresa que evalúa postular.',
@@ -183,6 +204,8 @@ export class AnalisisService {
     private readonly eventia: EventiaRepository,
     private readonly oferente: OferenteRepository,
     private readonly logger: PinoLogger,
+    /** El color que pone el análisis (decisión 21). */
+    private readonly ficha: FichaRepository,
   ) {
     this.logger.setContext(AnalisisService.name);
   }
@@ -255,13 +278,20 @@ export class AnalisisService {
     }
 
     const config = await this.oportunidades.configDe(companyId);
-    void this.ejecutar(companyId, fila.id, leibles, noLeidos, {
-      codigo: ficha.codigo,
-      nombre: ficha.proceso.nombre,
-      organismo: ficha.proceso.organismo,
-      comuna: ficha.proceso.comuna,
-      perfil: config?.perfil ?? null,
-    });
+    void this.ejecutar(
+      companyId,
+      fila.id,
+      leibles,
+      noLeidos,
+      {
+        codigo: ficha.codigo,
+        nombre: ficha.proceso.nombre,
+        organismo: ficha.proceso.organismo,
+        comuna: ficha.proceso.comuna,
+        perfil: config?.perfil ?? null,
+      },
+      oportunidadId,
+    );
     return fila;
   }
 
@@ -369,6 +399,8 @@ export class AnalisisService {
     leibles: Adjunto[],
     noLeidos: NoLeido[],
     contexto: ContextoDeBases,
+    /** Para que el color de la oportunidad siga a las bases (decisión 21). */
+    oportunidadId?: number,
   ): Promise<void> {
     try {
       const { bloques, sinAbrir } = await armarContenido(leibles, (ruta) =>
@@ -433,6 +465,24 @@ export class AnalisisService {
       this.logger.info(
         `análisis ${analisisId} listo: ${entrada} tokens de entrada, ${salida} de salida, US$${costo}; ¿puedo cumplir?: US$${cumplir.costo}`,
       );
+      // El color sigue a lo que dicen las bases (Felipe, 17-10: el punto
+      // amarillo y "Se puede hacer en el complejo" se contradecían): verde
+      // si se puede en el complejo, rojo si exigen otro lugar. Si falla, el
+      // análisis igual quedó listo.
+      if (oportunidadId) {
+        await this.ficha
+          .colorSegunLasBases(
+            companyId,
+            oportunidadId,
+            bases.se_puede_en_el_complejo,
+            razonSegunLasBases(bases.se_puede_en_el_complejo, bases.lugar),
+          )
+          .catch((e) =>
+            this.logger.warn(
+              `análisis ${analisisId}: no pude cambiar el color: ${mensajeDe(e)}`,
+            ),
+          );
+      }
     } catch (error) {
       this.logger.warn(`análisis ${analisisId}: ${mensajeDe(error)}`);
       await this.repo
