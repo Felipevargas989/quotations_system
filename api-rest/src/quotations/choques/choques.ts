@@ -11,6 +11,12 @@
 // topan con las de una aceptada. Lo único que se guarda (migración 143) es
 // lo que la persona decidió para ese par, con las fechas de ese momento: si
 // cualquiera de las dos cambia de fecha, el aviso vuelve.
+//
+// «Hay que gestionar» NO hace desaparecer el choque (Felipe, 18-10: "si
+// pincho hay que gestionar y pasa a la normalidad, se puede olvidar"): queda
+// como «Tope de calendario», con borde rojo, hasta que el tope deje de
+// existir (cambia una fecha, se cierra la viva o se cae la aceptada) o
+// alguien apriete «Sí, puede seguir».
 
 import { ddmm } from '../seguimiento/elegibles';
 
@@ -36,6 +42,7 @@ export type CotizacionDelChoque = {
 export type DecisionGuardada = {
   quotation_id: string;
   aceptada_id: string;
+  decision: DecisionDelChoque;
   fechas_viva: string;
   fechas_aceptada: string;
 };
@@ -53,6 +60,9 @@ export type AceptadaQueChoca = {
 export type ChoqueDeFecha = {
   quotation_id: string;
   quotation_number: number;
+  /** pendiente: espera que alguien lo revise; gestionar: se apretó «Hay
+   *  que gestionar» y sigue el tope («Tope de calendario»). */
+  estado: 'pendiente' | 'gestionar';
   aceptada: AceptadaQueChoca;
 };
 
@@ -78,9 +88,10 @@ export const textoDelRango = (r: Rango): string => `${r.desde}..${r.hasta}`;
 export const tieneExclusividad = (items: unknown): boolean =>
   /exclusividad/i.test(JSON.stringify(items ?? ''));
 
-/** Los choques que esperan revisión: cada viva con cada aceptada cuyas
- *  fechas se topan (desde hoy en adelante), menos los que ya se decidieron
- *  con esas mismas fechas. Primero los más próximos. */
+/** Los choques vivos: cada viva con cada aceptada cuyas fechas se topan
+ *  (desde hoy en adelante). Los que se revisaron con «puede seguir» y esas
+ *  mismas fechas no vuelven; los de «hay que gestionar» siguen, como
+ *  «Tope de calendario». Primero los más próximos. */
 export function choquesDe(p: {
   vivas: CotizacionDelChoque[];
   aceptadas: CotizacionDelChoque[];
@@ -101,16 +112,15 @@ export function choquesDe(p: {
       if (!rv || rv.hasta < p.hoy) continue;
       if (!(rv.desde <= ra.hasta && ra.desde <= rv.hasta)) continue;
       const d = decididas.get(`${v.id}|${a.id}`);
-      if (
+      const vigente =
         d &&
         d.fechas_viva === textoDelRango(rv) &&
-        d.fechas_aceptada === textoDelRango(ra)
-      ) {
-        continue;
-      }
+        d.fechas_aceptada === textoDelRango(ra);
+      if (vigente && d.decision === 'puede_seguir') continue;
       choques.push({
         quotation_id: v.id,
         quotation_number: v.quotation_number,
+        estado: vigente ? 'gestionar' : 'pendiente',
         aceptada: {
           id: a.id,
           numero: a.quotation_number,

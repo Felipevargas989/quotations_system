@@ -49,6 +49,7 @@ describe('qué choca (mapa 02 §5.6)', () => {
       {
         quotation_id: 'v',
         quotation_number: 634,
+        estado: 'pendiente',
         aceptada: {
           id: 'a',
           numero: 500,
@@ -92,6 +93,7 @@ describe('qué choca (mapa 02 §5.6)', () => {
     const decidida = {
       quotation_id: 'v',
       aceptada_id: 'a',
+      decision: 'puede_seguir' as const,
       fechas_viva: '2026-11-12..2026-11-12',
       fechas_aceptada: '2026-11-09..2026-11-22',
     };
@@ -105,6 +107,32 @@ describe('qué choca (mapa 02 §5.6)', () => {
         decisiones: [decidida],
       }),
     ).toHaveLength(1);
+  });
+
+  it('«Hay que gestionar» no lo hace desaparecer: queda como tope de calendario hasta que se resuelva', () => {
+    const base = {
+      vivas: [cot('v', 459, '2026-11-27')],
+      aceptadas: [cot('a', 384, '2026-11-27', null, { exclusiva: true })],
+      hoy: HOY,
+    };
+    const gestionar = {
+      quotation_id: 'v',
+      aceptada_id: 'a',
+      decision: 'gestionar' as const,
+      fechas_viva: '2026-11-27..2026-11-27',
+      fechas_aceptada: '2026-11-27..2026-11-27',
+    };
+    expect(choquesDe({ ...base, decisiones: [gestionar] })[0].estado).toBe(
+      'gestionar',
+    );
+    // Se movió la fecha y ya no se topan: el tope se va solo.
+    expect(
+      choquesDe({
+        ...base,
+        vivas: [cot('v', 459, '2026-11-28')],
+        decisiones: [gestionar],
+      }),
+    ).toEqual([]);
   });
 
   it('un fin anterior al inicio (error de datos, como la 498) cuenta como un día', () => {

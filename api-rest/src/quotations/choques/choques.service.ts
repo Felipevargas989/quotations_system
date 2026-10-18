@@ -25,7 +25,8 @@ import { ChoquesRepository, type FilaDelChoque } from './choques.repository';
 // rojo hasta que alguien decide, una por una:
 //   - «Sí, puede seguir»: el aviso se va y queda anotado en la bitácora;
 //   - «Hay que gestionar»: una llamada comprometida para hoy en la bitácora
-//     («mover la fecha o descartar»).
+//     («mover la fecha o descartar») y el choque queda como «Tope de
+//     calendario», con borde rojo, hasta que se resuelva.
 // Si cualquiera de las dos cambia de fecha, o la aceptada se cae, el aviso
 // se va o vuelve solo: el choque se calcula cada vez.
 

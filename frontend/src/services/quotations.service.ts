@@ -264,6 +264,9 @@ export const generarSeguimiento = async (quotationId: string) =>
 export type ChoqueDeFecha = {
   quotation_id: string;
   quotation_number: number;
+  /** pendiente: espera revisión; gestionar: se apretó «Hay que gestionar»
+   *  y el tope sigue («Tope de calendario», borde rojo). */
+  estado: "pendiente" | "gestionar";
   aceptada: {
     id: string;
     numero: number;
