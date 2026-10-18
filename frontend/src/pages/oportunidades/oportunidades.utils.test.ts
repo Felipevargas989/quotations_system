@@ -90,13 +90,21 @@ describe("la bandeja: qué se ve de partida", () => {
 
   it("abre en «Por revisar»: sin las rojas ni lo ya marcado (Felipe, 17-10)", () => {
     expect(FILTROS_DE_PARTIDA.vista).toBe("nueva");
-    expect(VISTAS[0]).toEqual({ value: "nueva", label: "Por revisar" });
+    expect(VISTAS[0]).toMatchObject({ value: "nueva", label: "Por revisar" });
     expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1]);
   });
 
-  it("«Abiertas por decidir o en curso» sigue mostrando también lo que está en estudio", () => {
-    const f = { ...FILTROS_DE_PARTIDA, vista: "abiertas" as const };
-    expect(filtrar(lista, f).map((o) => o.id)).toEqual([1, 2]);
+  it("tres montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10)", () => {
+    expect(VISTAS.map((v) => v.label)).toEqual([
+      "Por revisar",
+      "Descartadas",
+      "Historial",
+    ]);
+    const enEstudio = (vista: (typeof VISTAS)[number]["value"]) =>
+      filtrar(lista, { ...FILTROS_DE_PARTIDA, vista }).some((o) => o.id === 2);
+    expect(enEstudio("nueva")).toBe(false);
+    expect(enEstudio("descartada")).toBe(false);
+    expect(enEstudio("historial")).toBe(true);
   });
 
   it("los contadores de los chips cuentan con los demás filtros, sin el semáforo", () => {
