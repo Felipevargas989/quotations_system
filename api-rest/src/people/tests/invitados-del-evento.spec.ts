@@ -33,10 +33,12 @@ const filaEvento = (id: number, personId: number) => ({
 const armar = (opciones: {
   delDia: unknown[];
   porId?: Record<number, unknown>;
+  descansan?: number[];
 }) => {
   const repo = {
     findPool: jest.fn().mockResolvedValue(POZO),
     findPlantaDelDia: jest.fn().mockResolvedValue(opciones.delDia),
+    personasQueDescansan: jest.fn().mockResolvedValue(opciones.descansan ?? []),
     findStaffPorId: jest
       .fn()
       .mockImplementation((id: number) =>
@@ -59,6 +61,48 @@ const armar = (opciones: {
 const PCTS = { porcentajes: [{ role_id: 2, pct: 100 }] };
 
 describe('repartir un día con invitados del evento', () => {
+  it('quien descansa del restaurante ese día no se invita (el 18-09 daba 500)', async () => {
+    // 17-10-2026: Hernán Vargas descansaba del restaurante el 18-09 (cambio
+    // de día) y trabajó el evento 499. Invitarlo creaba una segunda fila de
+    // restaurante para él ese día y la base la rechazaba.
+    const planta = {
+      id: 50,
+      person_id: 7,
+      role_id: 2,
+      solo_propina: false,
+      no_tip: false,
+      tip_payroll_id: null,
+      starts_at: '10:00',
+      ends_at: '19:00',
+      break_minutes: 60,
+    };
+    const { service, repo } = armar({
+      delDia: [planta],
+      porId: { 101: filaEvento(101, 8) },
+      descansan: [8],
+    });
+    await service.repartir(9, { ...PCTS, invitados: [101] }, 1);
+    expect(repo.addStaffEnLote).toHaveBeenCalledWith([]);
+    // El pozo se reparte igual, entre los que sí vinieron.
+    expect(repo.updateStaff).toHaveBeenCalledWith(
+      50,
+      expect.objectContaining({ tip_amount: 10_000, tip_pool_id: 9 }),
+      1,
+    );
+  });
+
+  it('el chip de un invitado que descansa del restaurante ese día se rechaza claro', async () => {
+    const { service, repo } = armar({
+      delDia: [],
+      porId: { 101: filaEvento(101, 8) },
+      descansan: [8],
+    });
+    await expect(
+      service.soloPropinaDelDia({ evento_staff_id: 101, no_tip: true }, 1),
+    ).rejects.toThrow('descansa del restaurante ese día');
+    expect(repo.addStaffEnLote).not.toHaveBeenCalled();
+  });
+
   it('crea la fila solo-de-propina con el horario del evento y sin pago', async () => {
     const planta = {
       id: 50,
