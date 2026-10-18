@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
+import type { FichaRepository } from '../ficha/ficha.repository';
 import type { MercadoPublicoClient } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { OportunidadesService } from '../oportunidades.service';
@@ -31,13 +32,19 @@ function armar() {
     itemDeCompraAgil: jest.fn().mockResolvedValue(null),
     guardarProcesos: jest.fn().mockResolvedValue(undefined),
   };
+  const fichas = {
+    diasDeHistoriaPendientes: jest.fn().mockResolvedValue(900),
+    responsableDe: jest.fn().mockResolvedValue(null),
+    perfilDe: jest.fn().mockResolvedValue('perfil-felipe'),
+  };
   const mp = { detalleCompraAgil: jest.fn().mockResolvedValue(null) };
   const servicio = new OportunidadesService(
     repo as unknown as OportunidadesRepository,
     mp as unknown as MercadoPublicoClient,
     mockPinoLogger() as unknown as PinoLogger,
+    fichas as unknown as FichaRepository,
   );
-  return { repo, mp, servicio };
+  return { repo, mp, fichas, servicio };
 }
 
 describe('OportunidadesService — el detalle de una compra ágil se pide al abrirla (decisión 20)', () => {
@@ -224,8 +231,44 @@ describe('OportunidadesService — la ficha y decidir', () => {
     await expect(servicio.ficha(1, 9)).resolves.toMatchObject({
       id: 9,
       cambios: [{ id: 1, tipo: 'fecha_cierre' }],
+      historia_pendiente: 900,
     });
     expect(repo.cambiosDe).toHaveBeenCalledWith('4364-13-LE26');
+  });
+
+  it('«Me interesa» sin responsable: queda quien la marcó, con su perfil (decisión 21)', async () => {
+    const { repo, fichas, servicio } = armar();
+    await servicio.actualizar(1, 9, { estado: 'en_estudio' }, 'sesion-felipe');
+    expect(fichas.perfilDe).toHaveBeenCalledWith(1, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+      responsable_id: 'perfil-felipe',
+    });
+  });
+
+  it('«Me interesa» con responsable, o eligiéndolo, no lo cambia', async () => {
+    const { repo, fichas, servicio } = armar();
+    fichas.responsableDe.mockResolvedValue('perfil-camila');
+    await servicio.actualizar(1, 9, { estado: 'en_estudio' }, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+    });
+    await servicio.actualizar(
+      1,
+      9,
+      { estado: 'en_estudio', responsable_id: null },
+      'sesion-felipe',
+    );
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'en_estudio',
+      responsable_id: null,
+    });
+    // Descartar no asigna a nadie.
+    fichas.responsableDe.mockResolvedValue(null);
+    await servicio.actualizar(1, 9, { estado: 'descartada' }, 'sesion-felipe');
+    expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
+      estado: 'descartada',
+    });
   });
 
   it('el responsable tiene que ser de la empresa', async () => {

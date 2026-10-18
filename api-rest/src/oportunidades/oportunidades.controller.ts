@@ -196,7 +196,7 @@ export class OportunidadesController {
     @Body() dto: ActualizarOportunidadDto,
     @CurrentUser() user: User,
   ) {
-    return this.servicio.actualizar(user.company_id, id, dto);
+    return this.servicio.actualizar(user.company_id, id, dto, user.id);
   }
 
   /** Las bases y anexos que subió la empresa (migración 124). */

@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileText, Trash2, Upload } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  File,
+  FileArchive,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -16,6 +27,12 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import { descargarDelBalde } from "./descargas";
+import {
+  type ClaseDeArchivo,
+  claseDeArchivo,
+  COLOR_DEL_ARCHIVO,
+  nombreLegible,
+} from "./fichaEnCorto";
 import {
   EXTENSIONES_DE_ADJUNTOS,
   MAX_MB_POR_ADJUNTO,
@@ -39,6 +56,19 @@ import {
 // checklist de las bases. Ahí cada archivo lleva su sello si lo hizo la IA
 // (sin firma) o si ya está firmado (paso 4, migración 129), y quien la usa
 // puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion).
+//
+// Más clara el 17-10 en la noche (Felipe: "vamos con todas"): un ícono por
+// tipo de archivo, el nombre sin guiones bajos, «Descargar» en todos (y
+// «Ver» en lo que se puede ver), la papelera más separada, y la lista
+// plegada en una línea cuando ya hay análisis de las bases.
+
+const ICONO_DEL_ARCHIVO: Record<ClaseDeArchivo, typeof File> = {
+  pdf: FileText,
+  word: FileText,
+  excel: FileSpreadsheet,
+  imagen: FileImage,
+  otro: File,
+};
 
 export default function AdjuntosDeLaOportunidad({
   oportunidadId,
@@ -47,6 +77,7 @@ export default function AdjuntosDeLaOportunidad({
   seccion = "bases",
   accionesDeFila,
   pie,
+  plegadaDePartida = false,
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
@@ -54,6 +85,9 @@ export default function AdjuntosDeLaOportunidad({
   readonly seccion?: SeccionDeArchivos;
   readonly accionesDeFila?: (a: AdjuntoDeOportunidad) => ReactNode;
   readonly pie?: ReactNode;
+  /** Con el análisis de las bases hecho, la lista parte plegada en una
+   *  línea: lo importante pasa a ser lo que dicen las bases. */
+  readonly plegadaDePartida?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
@@ -68,6 +102,11 @@ export default function AdjuntosDeLaOportunidad({
     nombre: string;
   } | null>(null);
   const [porBorrar, setPorBorrar] = useState<number | null>(null);
+  // Lo que elija la persona manda; si no eligió, sigue a plegadaDePartida
+  // (que llega cuando termina de cargar el análisis).
+  const [eleccion, setEleccion] = useState<boolean | null>(null);
+  const abierta = eleccion ?? !(plegadaDePartida && adjuntos.length > 0);
+  const pesoTotal = adjuntos.reduce((suma, a) => suma + a.bytes, 0);
 
   // De a uno: así cada archivo dice si subió o por qué no.
   const recibir = async (archivos: File[]) => {
@@ -127,10 +166,29 @@ export default function AdjuntosDeLaOportunidad({
     <section {...zona} className="bg-white rounded-lg shadow p-5 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
-          <h2 className="text-sm font-semibold text-gray-900">
+          <h2 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-gray-900">
             {seccion === "postulacion" ? "Mi postulación" : "Bases y anexos"}
+            {adjuntos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setEleccion(!abierta)}
+                aria-expanded={abierta}
+                className="inline-flex items-center gap-0.5 text-xs font-normal text-gray-500 hover:text-gray-800"
+              >
+                {abierta ? (
+                  <ChevronDown size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )}
+                {adjuntos.length === 1
+                  ? "1 archivo"
+                  : `${adjuntos.length} archivos`}{" "}
+                · {tamanoLegible(pesoTotal)}
+                {abierta ? "" : " · ver lista o agregar más"}
+              </button>
+            )}
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className={abierta ? "text-xs text-gray-500" : "hidden"}>
             {seccion === "postulacion"
               ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
               : tipo === "licitacion"
@@ -154,19 +212,31 @@ export default function AdjuntosDeLaOportunidad({
       {isPending ? (
         <p className="text-sm text-gray-500">Cargando…</p>
       ) : (
+        abierta &&
         adjuntos.length > 0 && (
           <ul className="divide-y divide-gray-100">
             {adjuntos.map((a) => {
               const sello = ORIGENES[a.origen];
+              const clase = claseDeArchivo(a.nombre);
+              const Icono =
+                clase === "otro" && /\.(zip|rar|7z)$/i.test(a.nombre)
+                  ? FileArchive
+                  : ICONO_DEL_ARCHIVO[clase];
               return (
                 <li key={a.id} className="py-2 flex items-center gap-3">
-                  <FileText size={16} className="shrink-0 text-gray-400" />
+                  <Icono
+                    size={18}
+                    className={`shrink-0 ${COLOR_DEL_ARCHIVO[clase]}`}
+                    aria-hidden="true"
+                  />
                   <div className="min-w-0 flex-1">
                     <p
                       className="flex items-center gap-2 text-sm text-gray-800"
                       title={a.nombre}
                     >
-                      <span className="truncate">{a.nombre}</span>
+                      <span className="truncate">
+                        {nombreLegible(a.nombre)}
+                      </span>
                       {sello && (
                         <span
                           className={`shrink-0 px-1.5 py-0.5 text-[11px] font-semibold rounded ${sello.clases}`}
@@ -184,17 +254,17 @@ export default function AdjuntosDeLaOportunidad({
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {accionesDeFila?.(a)}
-                    {seVeEnElVisor(a.ruta) ? (
+                    {seVeEnElVisor(a.ruta) && (
                       <FileViewLink url={a.ruta} title={a.nombre} />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void descargar(a)}
-                        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
-                      >
-                        Descargar
-                      </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => void descargar(a)}
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      Descargar
+                    </button>
+                    <span className="h-4 w-px bg-gray-200" aria-hidden="true" />
                     {porBorrar === a.id ? (
                       <ConfirmInline
                         question="¿Eliminar?"
@@ -225,7 +295,7 @@ export default function AdjuntosDeLaOportunidad({
       <div
         className={`rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
           arrastrando ? "border-blue-400 bg-blue-50/60" : "border-gray-200"
-        }`}
+        } ${abierta || arrastrando || subiendo ? "" : "hidden"}`}
       >
         {subiendo ? (
           <p className="text-sm text-gray-600">

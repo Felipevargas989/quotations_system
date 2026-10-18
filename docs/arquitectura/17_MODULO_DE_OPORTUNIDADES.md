@@ -145,6 +145,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     cada corrida y la IA las lee al tiro; la descripción y los productos se
     piden cuando alguien abre una. Y cada fila lleva su sello: «Licitación»
     o «Compra ágil» (*"sello compra ágil / sello licitación"*).
+21. **La ficha, más clara** (17-10, *"vamos con todas"*, tras ver el boceto):
+    el camino de la postulación con el botón al paso que sigue; el color
+    sigue al análisis de las bases (verde si se puede en el complejo, rojo
+    si exigen otro lugar), y el radar ya no lo pisa; el evento en corto y
+    los datos con ícono; el estado y el responsable arriba; «Me interesa»
+    deja de responsable a quien la marcó si no había nadie; los archivos
+    con ícono, nombre legible y la lista plegada cuando ya hay análisis.
 
 ## 4. Reglas del módulo (no se negocian)
 

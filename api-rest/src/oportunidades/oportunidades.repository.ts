@@ -5,7 +5,7 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
-import type { LecturaFinal } from './lectura/reglas';
+import { LEIDA_SEGUN_LAS_BASES, type LecturaFinal } from './lectura/reglas';
 import { regionCalza } from './mercado-publico/mapeo';
 import type { CompraAgilListada, ProcesoMp } from './mercado-publico/tipos';
 
@@ -447,7 +447,13 @@ export class OportunidadesRepository {
           f.responsable_id === null &&
           f.notas === null &&
           f.quotation_id === null;
-        if (intacta && f.leida_con !== lecturaActual) releer.add(f.codigo);
+        // Lo que coloreó el análisis de las bases manda sobre la lectura
+        // corta del radar (decisión 21): no se relee.
+        const releerla =
+          intacta &&
+          f.leida_con !== lecturaActual &&
+          f.leida_con !== LEIDA_SEGUN_LAS_BASES;
+        if (releerla) releer.add(f.codigo);
         else hechas.add(f.codigo);
       }
       if (!data || data.length < PAGINA) break;
