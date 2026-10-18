@@ -152,6 +152,17 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     los datos con ícono; el estado y el responsable arriba; «Me interesa»
     deja de responsable a quien la marcó si no había nadie; los archivos
     con ícono, nombre legible y la lista plegada cuando ya hay análisis.
+22. **La bandeja, ordenada** (18-10, *"vamos con las 5"*, tras el boceto;
+    con la bandeja vacía en pantalla: *"¿se podrá mejorar este front?"*):
+    los montones como botones con su número, debajo de las pestañas del
+    módulo (Por revisar · Descartadas · Historial; lo en estudio y lo
+    postulado vive solo en «Mis licitaciones», para no tenerlo en dos
+    lados); los filtros en una fila, con el tipo en botones; la lista
+    agrupada por cierre (Prioridad, 3 días o menos, esta semana, más
+    adelante y, en el historial, lo ya cerrado); la bandeja vacía dice
+    «Revisaste todo lo nuevo», a qué hora vuelve a mirar el radar y deja a
+    un clic «Mis licitaciones» y las rojas; y arriba, junto a cuándo se
+    revisó, la próxima pasada.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -265,7 +276,8 @@ se niega o no devuelve nada legible, queda en amarillo para revisar a mano.
 ### 5.3 La pantalla "Oportunidades" (solo Valle del Sol)
 
 Tabla con semáforo, nombre, organismo, comuna, monto, cierre, la razón y el
-enlace a Mercado Público, con filtros. Al lado de cada una, **la del año
+enlace a Mercado Público, con filtros (desde el 18-10, en montones y agrupada
+por cierre: decisión 22). Al lado de cada una, **la del año
 anterior**: quién ganó, a qué precio y cuántas ofertas hubo. Botones **Me
 interesa** / **Descartar**, responsable y estado (nueva → en estudio →
 postulada → ganada / perdida / descartada). Ficha con fechas, archivos,

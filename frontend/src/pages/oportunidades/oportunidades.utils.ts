@@ -102,33 +102,35 @@ export const REGIONES_DE_CHILE = [
   "Magallanes",
 ] as const;
 
-/** Las vistas de la bandeja. La bandeja abre en "nueva" = Por revisar: lo
- *  que todavía nadie decidió (Felipe, 17-10: "que las que pincho me
- *  interesa ya no aparezcan acá... solo queda lo nuevo a revisar"); lo
- *  marcado vive en «Mis licitaciones». "abiertas" = lo vigente que no está
- *  descartado ni resuelto; "historial" trae también lo ya cerrado. */
-export type Vista =
-  | "abiertas"
-  | "nueva"
-  | "en_estudio"
-  | "postulada"
-  | "descartada"
-  | "historial";
+/** Los montones de la bandeja, como botones con su número (18-10). Abre en
+ *  "nueva" = Por revisar: lo que todavía nadie decidió (Felipe, 17-10: "que
+ *  las que pincho me interesa ya no aparezcan acá... solo queda lo nuevo a
+ *  revisar"). Lo en estudio y lo postulado vive en «Mis licitaciones», no
+ *  acá: tenerlo en los dos lados confunde. "historial" trae todo, también
+ *  lo ya cerrado. */
+export type Vista = "nueva" | "descartada" | "historial";
 
-export const VISTAS: ReadonlyArray<{ value: Vista; label: string }> = [
-  { value: "nueva", label: "Por revisar" },
-  { value: "abiertas", label: "Abiertas por decidir o en curso" },
-  { value: "en_estudio", label: "En estudio" },
-  { value: "postulada", label: "Postuladas" },
-  { value: "descartada", label: "Descartadas" },
-  { value: "historial", label: "Historial (también las cerradas)" },
+export const VISTAS: ReadonlyArray<{
+  value: Vista;
+  label: string;
+  ayuda: string;
+}> = [
+  {
+    value: "nueva",
+    label: "Por revisar",
+    ayuda: "Lo nuevo que nadie ha decidido",
+  },
+  {
+    value: "descartada",
+    label: "Descartadas",
+    ayuda: "Lo que descartaste: no se borra y se puede recuperar",
+  },
+  {
+    value: "historial",
+    label: "Historial",
+    ayuda: "Todo, también lo que ya cerró",
+  },
 ];
-
-const EN_CURSO: ReadonlySet<EstadoOportunidad> = new Set([
-  "nueva",
-  "en_estudio",
-  "postulada",
-]);
 
 export type Filtros = {
   vista: Vista;
@@ -146,11 +148,8 @@ export const FILTROS_DE_PARTIDA: Filtros = {
   busca: "",
 };
 
-const pasaLaVista = (o: Oportunidad, vista: Vista): boolean => {
-  if (vista === "historial") return true;
-  if (vista === "abiertas") return EN_CURSO.has(o.estado);
-  return o.estado === vista;
-};
+const pasaLaVista = (o: Oportunidad, vista: Vista): boolean =>
+  vista === "historial" || o.estado === vista;
 
 /** Todo menos el semáforo: así los contadores de los chips dicen cuántas
  *  hay de cada color con los demás filtros puestos. */
