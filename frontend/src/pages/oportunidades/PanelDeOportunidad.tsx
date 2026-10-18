@@ -160,6 +160,22 @@ export default function PanelDeOportunidad({
       }
     >
       <div className="space-y-4">
+        {/* El presupuesto, arriba (Felipe, 17-10: "pensé que la licitación
+            traía el monto del presupuesto"). Mercado Público da solo el
+            total, y no siempre: el comprador puede ocultarlo. */}
+        <div className="flex flex-wrap items-baseline gap-x-2 rounded-lg bg-gray-50 px-3 py-2">
+          <span className="text-sm text-gray-500">Presupuesto</span>
+          {p.monto ? (
+            <span className="text-lg font-bold text-gray-900">
+              {formatCurrency(p.monto, "CLP")}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-700">
+              No publicado: búscalo en las bases
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-3">
           <span className="shrink-0 text-sm text-gray-500">Responsable</span>
           <div className="min-w-0 flex-1">
@@ -237,9 +253,6 @@ export default function PanelDeOportunidad({
 
         <dl className="divide-y divide-gray-100 border-t border-gray-100 text-sm">
           <Fila titulo="Organismo">{p.organismo ?? "—"}</Fila>
-          <Fila titulo="Monto">
-            {p.monto ? formatCurrency(p.monto, "CLP") : "No informado"}
-          </Fila>
           <Fila titulo="Ubicación">
             {[p.comuna, p.region].filter(Boolean).join(" · ") || "—"}
           </Fila>

@@ -102,7 +102,10 @@ export const REGIONES_DE_CHILE = [
   "Magallanes",
 ] as const;
 
-/** Las vistas de la bandeja. "abiertas" = lo vigente que no está
+/** Las vistas de la bandeja. La bandeja abre en "nueva" = Por revisar: lo
+ *  que todavía nadie decidió (Felipe, 17-10: "que las que pincho me
+ *  interesa ya no aparezcan acá... solo queda lo nuevo a revisar"); lo
+ *  marcado vive en «Mis licitaciones». "abiertas" = lo vigente que no está
  *  descartado ni resuelto; "historial" trae también lo ya cerrado. */
 export type Vista =
   | "abiertas"
@@ -113,8 +116,8 @@ export type Vista =
   | "historial";
 
 export const VISTAS: ReadonlyArray<{ value: Vista; label: string }> = [
+  { value: "nueva", label: "Por revisar" },
   { value: "abiertas", label: "Abiertas por decidir o en curso" },
-  { value: "nueva", label: "Nuevas" },
   { value: "en_estudio", label: "En estudio" },
   { value: "postulada", label: "Postuladas" },
   { value: "descartada", label: "Descartadas" },
@@ -136,7 +139,7 @@ export type Filtros = {
 };
 
 export const FILTROS_DE_PARTIDA: Filtros = {
-  vista: "abiertas",
+  vista: "nueva",
   semaforos: ["verde", "amarillo"],
   tipo: "",
   region: "",
