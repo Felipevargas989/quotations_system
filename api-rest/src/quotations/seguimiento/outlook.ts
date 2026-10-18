@@ -7,6 +7,11 @@
 // Lo que NO hace, a propósito: enviar, borrar o mover. No existe un método
 // para eso. Y solo toca los buzones de su lista: un buzón que no está en
 // ella se rechaza antes de llamar a Microsoft.
+//
+// Desde el 17-10 también MIRA si un borrador ya salió (doc 18 §9): con el
+// identificador INMUTABLE del mensaje, que es el mismo en Borradores, en
+// Enviados y en Elementos eliminados (medido ese día con la 536, la 559 y
+// la 607). Solo lee.
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 
@@ -31,16 +36,29 @@ export type MensajeDelBuzon = {
   fecha: string;
   borrador: boolean;
   adelanto: string;
+  /** Trae archivos: el envío de una cotización trae el PDF. */
+  adjuntos?: boolean;
 };
 
 export type BorradorCreado = {
   id: string;
+  /** La conversación del borrador. */
+  hilo: string | null;
   /** Para abrirlo en Outlook web. */
   enlace: string | null;
   para: string[];
   cc: string[];
   asunto: string;
 };
+
+/** En qué está un borrador que dejó el seguimiento con IA. */
+export type EstadoDelBorrador =
+  | { estado: 'borrador'; hilo: string | null }
+  | { estado: 'enviado'; hilo: string | null; enviado: string | null }
+  /** Movido a Elementos eliminados sin enviarse. */
+  | { estado: 'eliminado'; hilo: string | null }
+  /** Ya no existe en el buzón (eliminado del todo). */
+  | { estado: 'no_esta' };
 
 type Direccion = { emailAddress?: { address?: string } };
 
@@ -52,8 +70,11 @@ type MensajeDeGraph = {
   toRecipients?: Direccion[];
   ccRecipients?: Direccion[];
   receivedDateTime?: string;
+  sentDateTime?: string;
   bodyPreview?: string;
   isDraft?: boolean;
+  hasAttachments?: boolean;
+  parentFolderId?: string;
   body?: { contentType?: string; content?: string };
   webLink?: string;
 };
@@ -151,10 +172,12 @@ const aMensaje = (m: MensajeDeGraph): MensajeDelBuzon => ({
   fecha: m.receivedDateTime ?? '',
   borrador: Boolean(m.isDraft),
   adelanto: (m.bodyPreview ?? '').slice(0, 200),
+  adjuntos: Boolean(m.hasAttachments),
 });
 
 const aBorrador = (m: MensajeDeGraph): BorradorCreado => ({
   id: m.id,
+  hilo: m.conversationId ?? null,
   enlace: m.webLink ?? null,
   para: (m.toRecipients ?? []).map(correoDe).filter(Boolean),
   cc: (m.ccRecipients ?? []).map(correoDe).filter(Boolean),
@@ -163,6 +186,8 @@ const aBorrador = (m: MensajeDeGraph): BorradorCreado => ({
 
 export class OutlookDeLaCasa {
   private permiso: { valor: string; vence: number } | null = null;
+  /** Elementos eliminados de cada buzón (su identificador no cambia). */
+  private readonly carpetasDeEliminados = new Map<string, string>();
   /** Los buzones permitidos, en el orden en que se buscan. */
   readonly buzones: string[];
   private readonly dominiosDeLaCasa: Set<string>;
@@ -178,8 +203,19 @@ export class OutlookDeLaCasa {
   }
 
   esDeLaCasa(correo: string): boolean {
-    const dominio = correo.trim().toLowerCase().split('@')[1];
+    const limpio = correo.trim().toLowerCase();
+    // Lo que sale de un buzón de la casa a veces llega con la dirección
+    // interna de Exchange (/o=exchangelabs/…), sin @: es de la casa. Un
+    // cliente siempre trae su correo (medido el 17-10 en los hilos de la
+    // 536, la 559 y la 493).
+    if (limpio.startsWith('/o=')) return true;
+    const dominio = limpio.split('@')[1];
     return Boolean(dominio) && this.dominiosDeLaCasa.has(dominio);
+  }
+
+  /** El correo de «Enviar cotización» sale de Eventia (hola@eventi-app.com). */
+  esDeEventia(correo: string): boolean {
+    return correo.trim().toLowerCase().endsWith('@eventi-app.com');
   }
 
   private ahora(): number {
@@ -242,6 +278,7 @@ export class OutlookDeLaCasa {
     metodo: 'GET' | 'POST' | 'PATCH',
     ruta: string,
     cuerpo?: unknown,
+    inmutable = false,
   ): Promise<T> {
     const permiso = await this.token();
     const r = await this.pedir(GRAPH + ruta, {
@@ -250,6 +287,8 @@ export class OutlookDeLaCasa {
         Authorization: `Bearer ${permiso}`,
         Accept: 'application/json',
         ...(cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
+        // El identificador que no cambia cuando el mensaje pasa de carpeta.
+        ...(inmutable ? { Prefer: 'IdType="ImmutableId"' } : {}),
       },
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
     });
@@ -407,5 +446,95 @@ export class OutlookDeLaCasa {
       },
     );
     return aBorrador(listo);
+  }
+
+  /** El identificador inmutable de un mensaje (y su conversación): el que
+   *  se guarda para saber después si el borrador salió. Solo lee. */
+  async idInmutable(
+    buzon: string,
+    id: string,
+  ): Promise<{ id: string; hilo: string | null }> {
+    const b = this.buzon(buzon);
+    const m = await this.llamar<MensajeDeGraph>(
+      'GET',
+      `/users/${b}/messages/${encodeURIComponent(id)}?$select=id,conversationId`,
+      undefined,
+      true,
+    );
+    return { id: m.id, hilo: m.conversationId ?? null };
+  }
+
+  /** La carpeta Elementos eliminados del buzón (no cambia nunca). */
+  private async eliminados(buzon: string): Promise<string> {
+    const guardada = this.carpetasDeEliminados.get(buzon);
+    if (guardada) return guardada;
+    const carpeta = await this.llamar<{ id: string }>(
+      'GET',
+      `/users/${this.buzon(buzon)}/mailFolders/deleteditems?$select=id`,
+    );
+    this.carpetasDeEliminados.set(buzon, carpeta.id);
+    return carpeta.id;
+  }
+
+  /** ¿Salió el borrador? Con su identificador inmutable: sigue de borrador,
+   *  ya está en Enviados, lo movieron a Elementos eliminados o ya no está.
+   *  Solo lee. */
+  async estadoDelBorrador(
+    buzon: string,
+    idInmutable: string,
+  ): Promise<EstadoDelBorrador> {
+    const b = this.buzon(buzon);
+    let m: MensajeDeGraph;
+    try {
+      m = await this.llamar<MensajeDeGraph>(
+        'GET',
+        `/users/${b}/messages/${encodeURIComponent(idInmutable)}` +
+          '?$select=id,conversationId,isDraft,sentDateTime,parentFolderId',
+        undefined,
+        true,
+      );
+    } catch (error) {
+      if (error instanceof ErrorDeOutlook && error.status === 404) {
+        return { estado: 'no_esta' };
+      }
+      throw error;
+    }
+    const hilo = m.conversationId ?? null;
+    if (!m.isDraft) {
+      return { estado: 'enviado', hilo, enviado: m.sentDateTime ?? null };
+    }
+    if (
+      m.parentFolderId &&
+      m.parentFolderId === (await this.eliminados(buzon))
+    ) {
+      return { estado: 'eliminado', hilo };
+    }
+    return { estado: 'borrador', hilo };
+  }
+
+  /** Los mensajes de una conversación en el buzón (cualquier carpeta), del
+   *  más viejo al más nuevo: para contar los seguimientos sin respuesta.
+   *  Solo lee. */
+  async mensajesDelHilo(
+    buzon: string,
+    hilo: string,
+  ): Promise<MensajeDelBuzon[]> {
+    const b = this.buzon(buzon);
+    const filtro = encodeURIComponent(
+      `conversationId eq '${hilo.replace(/'/g, "''")}'`,
+    );
+    const datos = await this.llamar<{ value?: MensajeDeGraph[] }>(
+      'GET',
+      `/users/${b}/messages?$filter=${filtro}&$top=100` +
+        '&$select=id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isDraft,hasAttachments',
+      undefined,
+      true,
+    );
+    return (datos.value ?? [])
+      .map((m) => ({
+        ...aMensaje(m),
+        fecha: m.sentDateTime ?? m.receivedDateTime ?? '',
+      }))
+      .sort((x, y) => Date.parse(x.fecha) - Date.parse(y.fecha));
   }
 }

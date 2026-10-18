@@ -10,6 +10,13 @@
 > (`MS_CLIENT_SECRET`) la pegó Felipe en Railway. Mapa 01 §5.8, regla 33,
 > riesgo 17; mapa 02 §2. Falta: la primera prueba con cotizaciones reales
 > (paso 3) y las lecciones que deje.
+>
+> **17-10 en la noche: cuándo sale el borrador (§9).** Decisión de Felipe
+> con la 559 a la vista. **Probado en el laboratorio** el 18-10 a las 02:45
+> UTC contra Outlook de verdad (migración 141 en la base del lab, motor
+> `5a1727a`, vitrina `6ad4317c`). **EN PRODUCCIÓN desde el 18-10-2026**
+> (Felipe: *"si dale a producción"*; PR #153, migración 141 aplicada en
+> producción antes de fusionar), coordinada con la sesión de Oportunidades.
 
 ## 1. Por qué
 
@@ -146,3 +153,128 @@ aplican el botón y la skill desde el siguiente despliegue.
   puede dejar borradores.
 - Quién aprieta el botón. Propuesta: ventas y administración, los mismos
   de «Crear con IA».
+
+## 9. Cuando el borrador sale (Felipe, 17-10-2026 en la noche)
+
+Felipe, con la 559 a la vista: *"ese creo que ya se mandó el correo y
+todavía aparecía generar seguimiento"*, y *"no creo que esté bien que
+desaparezca cuando se registra la gestión"*. Decidió:
+
+- La cotización sale **sola** de la lista cuando el borrador **se envía**.
+- Eventia lo revisa **al abrir Cotizaciones**, sin reloj de fondo
+  (*"¿no será excesivo que entres cada 15 min?"*): como mucho una consulta
+  a Outlook por borrador cada 5 minutos, y **sin IA** (cero tokens).
+- Al ver que salió, anota el envío en la bitácora con el próximo contacto:
+  *"dejemos en 14 días siguiente contacto por correo, 2 correos sin
+  respuesta pasa a calendarizarse un llamado a la siguiente semana"*.
+- Mientras el borrador espera, la tarjeta muestra el aviso **«Borrador en
+  Outlook»** en vez del botón. Así no se escriben dos. Sin enlace para
+  abrirlo (Felipe, 18-10: *"el aviso acá es más que suficiente"*): se
+  abre en Outlook, donde se revisa y se envía. Lo mismo el «Borrador listo»
+  que aparece al escribirlo.
+- OK final: *"si dale me parece bien"*.
+
+### 9.1 Lo que se midió antes de construir (17-10, solo leyendo)
+
+Los 6 borradores que dejó Camila ese día en contacto@:
+
+| N° | En Outlook |
+|---|---|
+| 536 y 559 | En **Enviados**, ya no son borrador (salieron a las 17:56 y 17:58). Conservan la hora en que se creó el borrador: es el mismo mensaje |
+| 477 y 578 | Siguen en **Borradores** |
+| 607 y 493 | En **Elementos eliminados**, todavía como borrador: se descartaron |
+
+Microsoft da un **identificador inmutable** (`Prefer: IdType="ImmutableId"`)
+que no cambia cuando el mensaje pasa de Borradores a Enviados o a Elementos
+eliminados. Con él, saber si salió es **una sola consulta**.
+
+Dos hallazgos de esa medición:
+
+- Algunos correos que salen de la casa llegan a contacto@ con la dirección
+  interna de Exchange (`/o=exchangelabs/…`, sin @). Ahora cuentan como de
+  la casa; antes se leían como del cliente.
+- La 493 eligió un hilo de **factura** de un evento anterior («Factura
+  N°347…»): era la conversación más reciente con ese contacto. Camila lo
+  borró. Queda como lección por conversar con Felipe: preferir el hilo de la
+  cotización.
+
+### 9.2 Cómo funciona
+
+1. «✉ Generar seguimiento» guarda cada borrador en `seguimientos_con_ia`
+   (migración 141): buzón, modo, identificador inmutable, hilo, enlace y
+   ángulo.
+2. Al abrir Cotizaciones (o la ficha), la pantalla llama a
+   `POST /quotations/seguimiento/revisar`. El motor pregunta por cada
+   borrador que espera (los de los últimos 30 días; cada uno como mucho cada
+   5 minutos, y una sola pantalla a la vez):
+   - **Sigue de borrador:** nada. La tarjeta dice «Borrador en Outlook» y
+     «Generar seguimientos (N)» no lo cuenta.
+   - **Salió:** una línea en la bitácora a nombre de **Asistente**, por
+     ejemplo «Seguimiento con IA enviado desde contacto@ el 17-10. Próximo
+     contacto por correo el 31-10, en 14 días.» El tipo de la nota es el del
+     próximo contacto, así que la cotización deja la lista.
+   - **Se borró:** si después salió otro correo de la casa en el hilo, ese
+     fue el seguimiento (escrito a mano) y se anota igual. Si no, queda
+     descartado, sin línea, y el botón vuelve.
+3. **El próximo contacto:** correo a 14 días. Si ya van **dos seguimientos
+   sin respuesta**, llamada a los 7 días. Se cuentan los correos de la casa
+   después del ancla: el último correo del cliente, o el último envío de una
+   cotización (el de Eventia o uno con el PDF adjunto). Es la regla de la
+   skill: *"tras dos seguimientos sin respuesta, el paso siguiente es
+   teléfono"*. Con los hilos reales: la 477 da 2 (llamada) y la 578 da 1
+   (correo).
+4. **Lo que se respeta:**
+   - Si alguien ya anotó un próximo contacto después del borrador, manda lo
+     suyo y no se escribe otra línea.
+   - Si el negocio se aceptó o se perdió mientras el borrador esperaba, la
+     línea va sin próximo contacto.
+5. Antes de escribir otro, «Generar seguimiento» mira si un borrador
+   anterior ya salió. Si uno todavía espera, se salta con el motivo «ya hay
+   un borrador esperando en Outlook».
+
+### 9.3 Costo
+
+Cero tokens. Una consulta a Outlook por borrador que espera, como mucho cada
+5 minutos y solo cuando alguien mira Cotizaciones. Cuando sale, una consulta
+más para leer el hilo, una sola vez.
+
+### 9.4 Los borradores del 17-10
+
+Se cargan a mano en producción cuando suba (los 6 de Camila):
+
+- 477 y 578 quedan esperando.
+- 536 y 559 se anotan solos en la primera revisión.
+- 607 y 493 quedan descartados.
+
+### 9.5 La prueba del laboratorio (18-10, 02:45 UTC)
+
+Con tres borradores de felipe@ (el único buzón del laboratorio), solo
+leyendo Outlook:
+
+| N° del lab | Caso | Resultado |
+|---|---|---|
+| 475 | El borrador de prueba sigue en Borradores | Queda esperando; la tarjeta muestra «Borrador en Outlook» y «Generar seguimiento» se salta («ya hay un borrador esperando en Outlook (felipe@)»), sin gastar IA |
+| 436 | Un correo que ya salió de felipe@ | Línea «Asistente»: «Seguimiento con IA enviado desde felipe@ el 17-10. Próximo contacto por correo el 31-10, en 14 días.» |
+| 437 | Un identificador que ya no existe | Descartado, sin línea |
+
+Lo que enseñó la prueba: PostgREST vuelve a aplicar un filtro `or` sobre lo
+que devuelve un update, y ahí la columna no venía (error 42703). La toma del
+borrador quedó con filtros simples y el freno de 5 minutos en el servicio.
+
+### 9.6 La subida a producción (18-10, 00:13 a 00:45 Chile)
+
+Migración 141 en producción, PR #153 fusionada (`main` 82cd5a9, motor
+`82cd5a9`), vitrina de producción `6ad43b7f`. Al cargar los 6 borradores del
+17-10 apareció que `creado_por` tenía una llave a `user_profiles(id)` y el
+motor guarda el id de la sesión: se quitó con la migración 142 en las dos
+bases, sin reiniciar el motor (mapa 18 §23). La primera revisión, al abrir
+Cotizaciones:
+
+| N° | Resultado |
+|---|---|
+| 536 y 559 | Salieron: línea «Asistente» con próximo contacto por correo el 31-10, y dejaron la lista |
+| 477 y 578 | Esperan en Borradores: aviso «Borrador en Outlook» |
+| 607 y 493 | Se borraron sin enviarse: descartadas, vuelve el botón |
+
+Respaldo de la carga: `02_RESPALDOS/cambios_de_datos/2026-10-18_seguimientos_con_ia_carga_del_17-10.json`.
+

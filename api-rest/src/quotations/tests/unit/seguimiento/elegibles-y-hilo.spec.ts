@@ -5,7 +5,13 @@ import {
   type NotaDeBitacora,
   porQueNoEntra,
 } from '../../../seguimiento/elegibles';
-import { copiasDelHilo, decidirHilo } from '../../../seguimiento/hilo';
+import { notaDelEnvio, proximoTrasElEnvio } from '../../../seguimiento/envio';
+import {
+  copiasDelHilo,
+  decidirHilo,
+  otroEnvioEnElHilo,
+  seguimientosSinRespuesta,
+} from '../../../seguimiento/hilo';
 import type { MensajeDelBuzon } from '../../../seguimiento/outlook';
 import {
   BUZON_DE_ENSAYO,
@@ -294,5 +300,151 @@ describe('qué buzones toca cada motor', () => {
       }),
     ).toEqual([BUZON_DE_ENSAYO]);
     expect(buzonesDelEntorno({})).toEqual([BUZON_DE_ENSAYO]);
+  });
+});
+
+describe('cuando el borrador sale (doc 18 §9)', () => {
+  // Las formas de hilos reales medidos el 17-10, con datos de prueba.
+  const CASA = 'contacto@valledelsolquillon.cl';
+  const X500 =
+    '/o=exchangelabs/ou=exchange administrative group (fydibohf23spdlt)/cn=recipients/cn=contacto';
+  const m = (
+    de: string,
+    fecha: string,
+    extra: Partial<MensajeDelBuzon> = {},
+  ): MensajeDelBuzon => ({
+    id: `${de}-${fecha}`,
+    hilo: 'h',
+    de,
+    para: [],
+    cc: [],
+    asunto: 'RE: Cotización',
+    fecha,
+    borrador: false,
+    adelanto: '',
+    ...extra,
+  });
+  const casa = {
+    esDeLaCasa: (c: string) =>
+      c.startsWith('/o=') ||
+      /@(valledelsolquillon\.cl|eventi-app\.com)$/.test(c),
+    esDeEventia: (c: string) => c.endsWith('@eventi-app.com'),
+  };
+
+  it('dos seguimientos después de lo último que dijo el cliente: van 2 (la forma de la 477)', () => {
+    const hilo = [
+      m('cliente@ejemplo.cl', '2026-08-13T19:27:00Z'),
+      m(CASA, '2026-09-01T20:25:00Z', { adjuntos: true }),
+      m('cliente@ejemplo.cl', '2026-09-01T21:20:00Z'),
+      m(CASA, '2026-09-23T15:28:00Z'),
+      m(CASA, '2026-10-17T20:51:00Z'),
+    ];
+    expect(seguimientosSinRespuesta({ mensajes: hilo, ...casa })).toBe(2);
+  });
+
+  it('lo que va antes de la cotización no cuenta: el ancla es el envío con el PDF (la forma de la 578)', () => {
+    const hilo = [
+      m('cliente@ejemplo.cl', '2026-10-02T12:30:00Z'),
+      m(CASA, '2026-10-05T16:15:00Z'),
+      m(CASA, '2026-10-11T16:13:00Z', { adjuntos: true }),
+      m(CASA, '2026-10-17T20:51:00Z'),
+    ];
+    expect(seguimientosSinRespuesta({ mensajes: hilo, ...casa })).toBe(1);
+  });
+
+  it('la cotización mandada desde la casa con la dirección interna de Exchange cuenta como envío (la forma de la 559)', () => {
+    const hilo = [
+      m(X500, '2026-09-25T21:27:00Z', { adjuntos: true }),
+      m(CASA, '2026-10-17T20:56:00Z'),
+    ];
+    expect(seguimientosSinRespuesta({ mensajes: hilo, ...casa })).toBe(1);
+  });
+
+  it('el correo de Eventia es el envío; los borradores no cuentan', () => {
+    const hilo = [
+      m('hola@eventi-app.com', '2026-10-01T10:00:00Z'),
+      m(CASA, '2026-10-08T10:00:00Z'),
+      m(CASA, '2026-10-15T10:00:00Z', { borrador: true }),
+      m(CASA, '2026-10-17T10:00:00Z'),
+    ];
+    expect(seguimientosSinRespuesta({ mensajes: hilo, ...casa })).toBe(2);
+  });
+
+  it('un correo nuevo sin hilo anterior: va 1', () => {
+    expect(
+      seguimientosSinRespuesta({
+        mensajes: [m(CASA, '2026-10-17T10:00:00Z')],
+        ...casa,
+      }),
+    ).toBe(1);
+  });
+
+  it('si el borrador se borró, el que salió después en el hilo fue el seguimiento', () => {
+    const hilo = [
+      m(CASA, '2026-10-14T20:04:00Z', { adjuntos: true }),
+      m(CASA, '2026-10-17T20:52:00Z', { borrador: true }),
+      m('cliente@ejemplo.cl', '2026-10-17T21:30:00Z'),
+      m(CASA, '2026-10-17T22:10:00Z'),
+    ];
+    expect(
+      otroEnvioEnElHilo({
+        mensajes: hilo,
+        desde: '2026-10-17T20:52:30Z',
+        ...casa,
+      })?.fecha,
+    ).toBe('2026-10-17T22:10:00Z');
+    expect(
+      otroEnvioEnElHilo({
+        mensajes: hilo.slice(0, 3),
+        desde: '2026-10-17T20:52:30Z',
+        ...casa,
+      }),
+    ).toBeNull();
+  });
+
+  it('el próximo contacto: correo a 14 días; con 2 sin respuesta, llamada a la semana (día de Chile)', () => {
+    // 23:30 del sábado 17-10 en Chile (02:30 del 18 en UTC).
+    expect(proximoTrasElEnvio('2026-10-18T02:30:00Z', 1)).toEqual({
+      tipo: 'correo',
+      fecha: '2026-10-31',
+    });
+    expect(proximoTrasElEnvio('2026-10-18T02:30:00Z', 2)).toEqual({
+      tipo: 'llamada',
+      fecha: '2026-10-24',
+    });
+  });
+
+  it('la línea de la bitácora, sin cifras', () => {
+    expect(
+      notaDelEnvio({
+        buzon: CASA,
+        enviado: '2026-10-17T20:58:00Z',
+        conElBorrador: true,
+        sinRespuesta: 1,
+        proximo: { tipo: 'correo', fecha: '2026-10-31' },
+      }),
+    ).toBe(
+      'Seguimiento con IA enviado desde contacto@ el 17-10. Próximo contacto por correo el 31-10, en 14 días.',
+    );
+    expect(
+      notaDelEnvio({
+        buzon: CASA,
+        enviado: '2026-10-17T20:58:00Z',
+        conElBorrador: false,
+        sinRespuesta: 2,
+        proximo: { tipo: 'llamada', fecha: '2026-10-24' },
+      }),
+    ).toBe(
+      'Se envió un seguimiento en el hilo de contacto@ el 17-10 (el borrador de la IA no se usó). Van 2 seguimientos por correo sin respuesta: toca llamar el 24-10.',
+    );
+    expect(
+      notaDelEnvio({
+        buzon: CASA,
+        enviado: '2026-10-17T20:58:00Z',
+        conElBorrador: true,
+        sinRespuesta: 1,
+        proximo: null,
+      }),
+    ).toBe('Seguimiento con IA enviado desde contacto@ el 17-10.');
   });
 });

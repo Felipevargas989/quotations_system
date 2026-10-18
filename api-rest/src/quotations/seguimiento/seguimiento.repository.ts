@@ -5,8 +5,11 @@ import { ESTADOS_CON_SEGUIMIENTO, type NotaDeBitacora } from './elegibles';
 
 // LO QUE EL BOTÓN «✉ GENERAR SEGUIMIENTO» LEE DE LA BASE (doc 18): la
 // cotización con su cliente y contacto, y la bitácora. Todo filtrado por
-// empresa: la llave de servicio salta el RLS. Solo lee; la línea de la
-// bitácora la escribe QuotationFollowupsService.
+// empresa: la llave de servicio salta el RLS. Las líneas de la bitácora las
+// escribe QuotationFollowupsService.
+//
+// Y desde el 17-10 (doc 18 §9, migración 141) la tabla `seguimientos_con_ia`:
+// cada borrador que dejó el botón, para saber si ya salió.
 
 export type FilaDeLaCotizacion = {
   id: string;
@@ -47,6 +50,31 @@ export type CotizacionViva = {
 };
 
 export type NotaConCotizacion = NotaDeBitacora & { quotation_id: string };
+
+export type EstadoDelSeguimientoConIA = 'borrador' | 'enviado' | 'descartado';
+
+/** Una fila de `seguimientos_con_ia` (migración 141). */
+export type SeguimientoConIA = {
+  id: number;
+  company_id: number;
+  quotation_id: string;
+  buzon: string;
+  modo: 'seguimiento' | 'responder' | 'nuevo';
+  /** Identificador INMUTABLE del mensaje en Outlook. */
+  borrador_id: string;
+  hilo_id: string | null;
+  enlace: string | null;
+  angulo: string | null;
+  estado: EstadoDelSeguimientoConIA;
+  enviado_at: string | null;
+  revisado_at: string | null;
+  creado_por: string | null;
+  created_at: string;
+};
+
+const COLUMNAS_DEL_SEGUIMIENTO =
+  'id, company_id, quotation_id, buzon, modo, borrador_id, hilo_id, enlace, ' +
+  'angulo, estado, enviado_at, revisado_at, creado_por, created_at';
 
 @Injectable()
 export class SeguimientoRepository {
@@ -127,6 +155,94 @@ export class SeguimientoRepository {
         .order('quotation_number')
         .range(d, h),
     );
+  }
+
+  /** Guarda el borrador que acaba de dejar el botón. */
+  async registrarBorrador(
+    fila: Pick<
+      SeguimientoConIA,
+      | 'company_id'
+      | 'quotation_id'
+      | 'buzon'
+      | 'modo'
+      | 'borrador_id'
+      | 'hilo_id'
+      | 'enlace'
+      | 'angulo'
+      | 'creado_por'
+    >,
+  ): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('seguimientos_con_ia')
+      .insert(fila);
+    if (error) throw error;
+  }
+
+  /** Los borradores que esperan en Outlook, de la empresa o de una
+   *  cotización, dejados desde `desde` (ISO). */
+  async borradoresEnEspera(
+    companyId: number,
+    desde: string,
+    quotationId?: string,
+  ): Promise<SeguimientoConIA[]> {
+    let consulta = this.supabase.client
+      .from('seguimientos_con_ia')
+      .select(COLUMNAS_DEL_SEGUIMIENTO)
+      .eq('company_id', companyId)
+      .eq('estado', 'borrador')
+      .gte('created_at', desde);
+    if (quotationId) consulta = consulta.eq('quotation_id', quotationId);
+    const { data, error } = await consulta.order('created_at');
+    if (error) throw error;
+    return (data ?? []) as unknown as SeguimientoConIA[];
+  }
+
+  /** Toma el borrador para preguntarle a Outlook: anota la hora, solo si
+   *  nadie lo tomó desde que se leyó (su última revisión sigue siendo
+   *  `revisadoAt`). Si dos pantallas abren a la vez, solo una lo revisa. El
+   *  freno de 5 minutos lo pone el servicio con esa misma hora.
+   *
+   *  Sin `or` a propósito: PostgREST vuelve a aplicar un `or` sobre lo que
+   *  devuelve el update, y ahí la columna no viene (medido en el
+   *  laboratorio el 18-10: error 42703, «revisado_at does not exist»). */
+  async tomarParaRevisar(
+    companyId: number,
+    id: number,
+    revisadoAt: string | null,
+  ): Promise<boolean> {
+    const consulta = this.supabase.client
+      .from('seguimientos_con_ia')
+      .update({ revisado_at: new Date().toISOString() })
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('estado', 'borrador');
+    const { data, error } = await (
+      revisadoAt
+        ? consulta.eq('revisado_at', revisadoAt)
+        : consulta.is('revisado_at', null)
+    ).select('id');
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  }
+
+  /** Cierra el borrador (enviado o descartado). true solo si seguía de
+   *  borrador: la línea de la bitácora se escribe una sola vez. */
+  async cerrarBorrador(
+    companyId: number,
+    id: number,
+    cambios:
+      | { estado: 'enviado'; enviado_at: string }
+      | { estado: 'descartado' },
+  ): Promise<boolean> {
+    const { data, error } = await this.supabase.client
+      .from('seguimientos_con_ia')
+      .update(cambios)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('estado', 'borrador')
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length > 0;
   }
 
   /** Las notas con próximo contacto sin cumplir de toda la empresa: entre

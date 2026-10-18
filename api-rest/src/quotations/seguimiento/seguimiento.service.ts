@@ -21,10 +21,17 @@ import { mensajeDelSeguimiento } from './contexto';
 import {
   compromisoVivo,
   esCorreoUtil,
+  ESTADOS_CON_SEGUIMIENTO,
   fechaEnChile,
   porQueNoEntra,
 } from './elegibles';
-import { copiasDelHilo, decidirHilo } from './hilo';
+import { notaDelEnvio, proximoTrasElEnvio } from './envio';
+import {
+  copiasDelHilo,
+  decidirHilo,
+  otroEnvioEnElHilo,
+  seguimientosSinRespuesta,
+} from './hilo';
 import {
   APLICACION_POR_DEFECTO,
   type BorradorCreado,
@@ -35,7 +42,10 @@ import {
   OutlookDeLaCasa,
 } from './outlook';
 import { instruccionesDeCorreo } from './reglas-de-correo';
-import { SeguimientoRepository } from './seguimiento.repository';
+import {
+  type SeguimientoConIA,
+  SeguimientoRepository,
+} from './seguimiento.repository';
 import { ESQUEMA_DEL_SEGUIMIENTO, type RespuestaDelSeguimiento } from './tipos';
 
 // EL BOTÓN «✉ GENERAR SEGUIMIENTO» (doc 18; Felipe, 17-10-2026).
@@ -45,6 +55,12 @@ import { ESQUEMA_DEL_SEGUIMIENTO, type RespuestaDelSeguimiento } from './tipos';
 // le pide a Claude el correo con las reglas de la skill de correos y lo deja
 // como BORRADOR en ese hilo (o en un correo nuevo si no hay hilo). Nunca
 // envía: Felipe lo lee, lo ajusta y lo envía desde Outlook.
+//
+// Y cuando el borrador sale (doc 18 §9, Felipe 17-10): al abrir
+// Cotizaciones, Eventia le pregunta a Outlook si los borradores que esperan
+// ya se enviaron; si salieron, anota el envío en la bitácora con el próximo
+// contacto y la cotización sale sola de la lista. Sin reloj de fondo y sin
+// IA: una consulta a Outlook por borrador, como mucho cada 5 minutos.
 
 /** Los buzones de Valle del Sol, en el orden en que se busca el hilo (los
  *  de la skill). Cuando otra empresa tenga el módulo, irán en la empresa. */
@@ -74,6 +90,38 @@ export const buzonesDelEntorno = (
 /** Cuántos correos del hilo lee completos la IA (los más nuevos). */
 const CORREOS_A_LEER = 3;
 
+/** El freno (Felipe, 17-10: "¿no será excesivo?"): un borrador se le
+ *  pregunta a Outlook como mucho una vez cada 5 minutos. */
+const REVISAR_CADA_MS = 5 * 60_000;
+/** Antes de escribir otro, una mirada más fresca. */
+const REVISAR_ANTES_DE_ESCRIBIR_MS = 30_000;
+/** Un borrador que lleva más de un mes esperando ya no se mira. */
+const DIAS_EN_ESPERA = 30;
+/** Tope de borradores por revisión. */
+const TOPE_POR_REVISION = 25;
+
+const desdeEspera = () =>
+  new Date(Date.now() - DIAS_EN_ESPERA * 86_400_000).toISOString();
+
+/** "contacto@" de "contacto@valledelsolquillon.cl". */
+const buzonCorto = (buzon: string) => `${buzon.split('@')[0]}@`;
+
+/** Un borrador de la IA que espera en Outlook a que alguien lo envíe. */
+export type BorradorEnEspera = {
+  buzon: string;
+  enlace: string | null;
+  /** ISO: cuándo quedó. */
+  creado: string;
+};
+
+export type RevisionDeBorradores = {
+  /** A cuántos borradores se les preguntó. */
+  revisados: number;
+  /** Las cotizaciones cuyo borrador salió o se descartó: la pantalla
+   *  refresca su bitácora y la lista. */
+  cambiaron: string[];
+};
+
 export type Pendiente = {
   id: string;
   quotation_number: number;
@@ -84,6 +132,9 @@ export type Pendiente = {
   proximo: string;
   dias_vencido: number;
   nota: string;
+  /** El borrador de la IA que espera en Outlook (doc 18 §9): la tarjeta
+   *  muestra el aviso «Borrador en Outlook» en vez del botón. */
+  borrador: BorradorEnEspera | null;
 };
 
 export type ResultadoDelSeguimiento = {
@@ -158,11 +209,21 @@ export class SeguimientoConIAService {
   /** Las que piden seguimiento por correo hoy, las más vencidas primero. */
   async pendientes(user: User): Promise<Pendiente[]> {
     const companyId = user.company_id;
-    const [vivas, compromisos] = await Promise.all([
+    const [vivas, compromisos, enEspera] = await Promise.all([
       this.repositorio.vivas(companyId),
       this.repositorio.compromisosAbiertos(companyId),
+      this.enEsperaSinRomper(companyId),
     ]);
     const hoy = fechaEnChile();
+    // El más nuevo de cada cotización (vienen del más viejo al más nuevo).
+    const borradorDe = new Map<string, BorradorEnEspera>();
+    for (const b of enEspera) {
+      borradorDe.set(b.quotation_id, {
+        buzon: b.buzon,
+        enlace: b.enlace,
+        creado: b.created_at,
+      });
+    }
     const porCotizacion = new Map<string, typeof compromisos>();
     for (const n of compromisos) {
       const lista = porCotizacion.get(n.quotation_id) ?? [];
@@ -186,6 +247,7 @@ export class SeguimientoConIAService {
           (Date.parse(hoy) - Date.parse(proximo)) / 86_400_000,
         ),
         nota: (compromiso?.note ?? '').trim(),
+        borrador: borradorDe.get(q.id) ?? null,
       });
     }
     return pendientes.sort(
@@ -204,6 +266,17 @@ export class SeguimientoConIAService {
     const outlook = this.outlook();
     const inicio = Date.now();
     const companyId = user.company_id;
+
+    // Si un borrador anterior ya salió, se anota ANTES de decidir: con el
+    // envío anotado, el próximo contacto ya no está vencido.
+    await this.revisarBorradores(companyId, {
+      quotationId: id,
+      frenoMs: REVISAR_ANTES_DE_ESCRIBIR_MS,
+    }).catch((e: unknown) =>
+      this.logger.error(
+        `no pude revisar los borradores de ${id}: ${mensajeDe(e)}`,
+      ),
+    );
 
     const q = await this.repositorio.cotizacion(id, companyId);
     if (!q) throw new NotFoundException('Cotización no encontrada.');
@@ -232,6 +305,14 @@ export class SeguimientoConIAService {
         costo_usd: costo,
       };
     };
+
+    // Uno que todavía espera en Outlook: no se escribe otro.
+    const enEspera = await this.enEsperaSinRomper(companyId, id);
+    if (enEspera.length > 0) {
+      return saltada(
+        `ya hay un borrador esperando en Outlook (${buzonCorto(enEspera[0].buzon)}): ábrelo, revísalo y envíalo desde ahí.`,
+      );
+    }
 
     const fecha = q.event_date ? q.event_date.slice(0, 10) : null;
     const fin = q.event_end_date ? q.event_end_date.slice(0, 10) : fecha;
@@ -384,6 +465,29 @@ export class SeguimientoConIAService {
     }
 
     const angulo = respuesta.angulo.trim();
+
+    // Para saber después si salió (doc 18 §9): su identificador inmutable,
+    // el mismo en Borradores y en Enviados. Si no se pudo guardar, el
+    // borrador queda igual; solo no se anota solo cuando salga.
+    try {
+      const inmutable = await outlook.idInmutable(decision.buzon, borrador.id);
+      await this.repositorio.registrarBorrador({
+        company_id: companyId,
+        quotation_id: id,
+        buzon: decision.buzon,
+        modo: decision.modo,
+        borrador_id: inmutable.id,
+        hilo_id: inmutable.hilo ?? borrador.hilo,
+        enlace: borrador.enlace,
+        angulo: angulo || null,
+        creado_por: user.id ?? null,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `N° ${q.quotation_number}: no pude guardar el borrador para ver cuándo sale: ${mensajeDe(e)}`,
+      );
+    }
+
     const donde =
       decision.modo === 'nuevo'
         ? `en ${decision.buzon} (correo nuevo: no había hilo)`
@@ -413,6 +517,170 @@ export class SeguimientoConIAService {
       segundos,
       costo_usd: costo,
     };
+  }
+
+  /** Los borradores que esperan, sin tumbar la lista ni el botón si la
+   *  tabla falla (por ejemplo, un motor nuevo antes de la migración 141):
+   *  sin ellos, todo sigue como antes. */
+  private enEsperaSinRomper(
+    companyId: number,
+    quotationId?: string,
+  ): Promise<SeguimientoConIA[]> {
+    return this.repositorio
+      .borradoresEnEspera(companyId, desdeEspera(), quotationId)
+      .catch((e: unknown) => {
+        this.logger.error(
+          `no pude leer los borradores que esperan: ${mensajeDe(e)}`,
+        );
+        return [];
+      });
+  }
+
+  /** Al abrir Cotizaciones (Felipe, 17-10): ¿salieron los borradores que
+   *  esperan? Cero tokens; sin la llave de Outlook, no hace nada. */
+  async revisar(user: User): Promise<RevisionDeBorradores> {
+    return this.revisarBorradores(user.company_id, {});
+  }
+
+  private async revisarBorradores(
+    companyId: number,
+    o: { quotationId?: string; frenoMs?: number },
+  ): Promise<RevisionDeBorradores> {
+    const revision: RevisionDeBorradores = { revisados: 0, cambiaron: [] };
+    if (!process.env.MS_CLIENT_SECRET?.trim()) return revision;
+    const filas = await this.repositorio.borradoresEnEspera(
+      companyId,
+      desdeEspera(),
+      o.quotationId,
+    );
+    if (filas.length === 0) return revision;
+    const outlook = this.outlook();
+    const limite = Date.now() - (o.frenoMs ?? REVISAR_CADA_MS);
+    for (const fila of filas.slice(0, TOPE_POR_REVISION)) {
+      // Un buzón fuera de la lista de este motor no se toca.
+      if (!outlook.buzones.includes(fila.buzon)) continue;
+      // El freno: lo que se miró hace poco espera su turno.
+      if (fila.revisado_at && Date.parse(fila.revisado_at) > limite) continue;
+      try {
+        if (
+          !(await this.repositorio.tomarParaRevisar(
+            companyId,
+            fila.id,
+            fila.revisado_at,
+          ))
+        ) {
+          continue;
+        }
+        revision.revisados++;
+        if (await this.revisarUno(companyId, fila, outlook)) {
+          revision.cambiaron.push(fila.quotation_id);
+        }
+      } catch (error) {
+        // Queda de borrador: se vuelve a mirar en la próxima revisión.
+        this.logger.warn(
+          `seguimiento con IA ${fila.id}: no pude revisar el borrador: ${mensajeDe(error)}`,
+        );
+      }
+    }
+    if (revision.revisados > 0) {
+      this.logger.info(
+        `seguimiento con IA: ${revision.revisados} borradores revisados en Outlook, ${revision.cambiaron.length} cambiaron`,
+      );
+    }
+    return revision;
+  }
+
+  /** Un borrador que espera: true si salió o se descartó. Si salió, anota
+   *  el envío en la bitácora con el próximo contacto (doc 18 §9). */
+  private async revisarUno(
+    companyId: number,
+    fila: SeguimientoConIA,
+    outlook: OutlookDeLaCasa,
+  ): Promise<boolean> {
+    const estado = await outlook.estadoDelBorrador(
+      fila.buzon,
+      fila.borrador_id,
+    );
+    if (estado.estado === 'borrador') return false;
+
+    const casa = {
+      esDeLaCasa: (c: string) => outlook.esDeLaCasa(c),
+      esDeEventia: (c: string) => outlook.esDeEventia(c),
+    };
+    const hiloId =
+      (estado.estado === 'no_esta' ? null : estado.hilo) ?? fila.hilo_id;
+    const hilo = hiloId
+      ? await outlook.mensajesDelHilo(fila.buzon, hiloId)
+      : [];
+    let envio: { fecha: string; conElBorrador: boolean } | null = null;
+    if (estado.estado === 'enviado') {
+      envio = {
+        fecha: estado.enviado ?? new Date().toISOString(),
+        conElBorrador: true,
+      };
+    } else {
+      // Se borró sin enviarse: si después salió otro correo de la casa en
+      // el hilo, ese fue el seguimiento, escrito a mano.
+      const otro = otroEnvioEnElHilo({
+        mensajes: hilo,
+        desde: fila.created_at,
+        ...casa,
+      });
+      if (otro) envio = { fecha: otro.fecha, conElBorrador: false };
+    }
+    if (!envio) {
+      await this.repositorio.cerrarBorrador(companyId, fila.id, {
+        estado: 'descartado',
+      });
+      this.logger.info(
+        `seguimiento con IA ${fila.id}: el borrador se borró sin enviarse`,
+      );
+      return true;
+    }
+
+    const [q, notas] = await Promise.all([
+      this.repositorio.cotizacion(fila.quotation_id, companyId),
+      this.repositorio.bitacora(fila.quotation_id, companyId),
+    ]);
+    // Si alguien ya dejó el próximo paso después del borrador (anotó el
+    // envío a mano, o la revisión anterior alcanzó a escribir y no a
+    // cerrar), manda lo suyo: no se escribe otra línea.
+    const yaAnotado = notas.some(
+      (n) =>
+        n.next_contact_date &&
+        Date.parse(n.created_at) > Date.parse(fila.created_at),
+    );
+    if (q && !yaAnotado) {
+      const sinRespuesta = seguimientosSinRespuesta({
+        mensajes: hilo,
+        ...casa,
+      });
+      // Un negocio que se aceptó o se perdió mientras el borrador esperaba
+      // no lleva próximo contacto.
+      const proximo = ESTADOS_CON_SEGUIMIENTO.includes(q.quotation_status)
+        ? proximoTrasElEnvio(envio.fecha, sinRespuesta)
+        : null;
+      await this.bitacora.crearComoAsistente(companyId, {
+        quotation_id: fila.quotation_id,
+        note: notaDelEnvio({
+          buzon: fila.buzon,
+          enviado: envio.fecha,
+          conElBorrador: envio.conElBorrador,
+          sinRespuesta,
+          proximo,
+        }),
+        tipo: proximo?.tipo ?? 'correo',
+        next_contact_date: proximo?.fecha ?? null,
+      });
+      this.logger.info(
+        `N° ${q.quotation_number}: seguimiento enviado (${sinRespuesta} sin respuesta); próximo contacto ${proximo ? `${proximo.tipo} el ${proximo.fecha}` : 'ninguno'}`,
+      );
+    }
+    await this.repositorio.cerrarBorrador(companyId, fila.id, {
+      estado: 'enviado',
+      enviado_at: envio.fecha,
+    });
+    return true;
   }
 
   /** Un error de Outlook se explica sin mostrar la llave. */

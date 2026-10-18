@@ -31,6 +31,48 @@ describe('QuotationFollowupsService', () => {
     company_id: 7,
   } as User;
 
+  describe('crearComoAsistente (el seguimiento con IA anota el envío, doc 18 §9)', () => {
+    it('firma «Asistente», sin autor de sesión, y con el candado de empresa', async () => {
+      const create = jest.fn().mockResolvedValue({ id: 9 });
+      const findOwnedQuotation = jest.fn().mockResolvedValue({ id: 'q-1' });
+      const service = buildService({ create, findOwnedQuotation });
+
+      await service.crearComoAsistente(7, {
+        quotation_id: 'q-1',
+        note: ' Seguimiento con IA enviado desde contacto@ el 17-10. ',
+        tipo: 'correo',
+        next_contact_date: '2026-10-31',
+      });
+
+      expect(findOwnedQuotation).toHaveBeenCalledWith(7, 'q-1');
+      expect(create).toHaveBeenCalledWith({
+        quotation_id: 'q-1',
+        company_id: 7,
+        author_user_id: null,
+        author_name: 'Asistente',
+        note: 'Seguimiento con IA enviado desde contacto@ el 17-10.',
+        tipo: 'correo',
+        next_contact_date: '2026-10-31',
+      });
+    });
+
+    it('una cotización de otra empresa no se toca', async () => {
+      const create = jest.fn();
+      const findOwnedQuotation = jest.fn().mockResolvedValue(null);
+      const service = buildService({ create, findOwnedQuotation });
+
+      await expect(
+        service.crearComoAsistente(7, {
+          quotation_id: 'q-ajena',
+          note: 'x',
+          tipo: 'correo',
+          next_contact_date: null,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create', () => {
     it('inserta con empresa y autor de la SESIÓN (nombre congelado)', async () => {
       const create = jest.fn().mockResolvedValue({ id: 1 });

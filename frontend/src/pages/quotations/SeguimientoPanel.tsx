@@ -217,7 +217,9 @@ export function HiloSeguimiento({
   const conSeguimientoIA =
     SECTION_ROLES.quotations_edit.includes(userRole as never) &&
     tieneDerecho(company, "seguimiento_con_ia");
-  const seguimientoIA = useSeguimientoConIA();
+  // Con la lista: si el borrador de antes sigue en Outlook, el aviso
+  // muestra el aviso «Borrador en Outlook» en vez del botón (doc 18 §9).
+  const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
   const queryClient = useQueryClient();
   const hiloQuery = useQuery({
     queryKey: ["seguimientos", quotation.id],
@@ -536,6 +538,7 @@ export function HiloSeguimiento({
                   trabajando={seguimientoIA.trabajando === quotation.id}
                   ocupado={seguimientoIA.ocupado}
                   resultado={seguimientoIA.resultadoDe(quotation.id)}
+                  enEspera={seguimientoIA.borradorDe(quotation.id)}
                   texto="Generar seguimiento con IA"
                   onGenerar={() =>
                     void seguimientoIA.generar({
