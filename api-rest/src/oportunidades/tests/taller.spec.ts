@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import {
   archivosEntregados,
   EJECUCION_DE_CODIGO,
+  HABILIDAD_DE_PDF,
   HABILIDAD_DE_WORD,
   trabajarEnElTaller,
 } from '../generacion/taller';
@@ -180,6 +181,48 @@ describe('el taller de Word de la IA', () => {
       modelo: 'claude-haiku-5-5',
     });
     expect(pedidos[0].model).toBe('claude-haiku-5-5');
+  });
+
+  it('para reescribir un PDF lleva también la habilidad de PDF (18-10)', async () => {
+    const { cliente, pedidos } = clienteDePrueba([respuesta('end_turn', [])]);
+    await trabajarEnElTaller(cliente, {
+      ...PEDIDO,
+      habilidades: [HABILIDAD_DE_WORD, HABILIDAD_DE_PDF],
+    });
+    expect(pedidos[0].container.skills).toEqual([
+      HABILIDAD_DE_WORD,
+      { type: 'anthropic', skill_id: 'pdf', version: 'latest' },
+    ]);
+  });
+
+  it('un PDF para mirar va también como documento, con el mismo archivo subido (18-10)', async () => {
+    const { cliente, pedidos } = clienteDePrueba([respuesta('end_turn', [])]);
+    await trabajarEnElTaller(cliente, {
+      ...PEDIDO,
+      archivos: [
+        ...PEDIDO.archivos,
+        {
+          nombre: 'anexo_8.pdf',
+          datos: Buffer.from('%PDF-1.4'),
+          tipo: 'application/pdf',
+          verComoDocumento: true,
+        },
+      ],
+    });
+    const contenido = pedidos[0].messages[0].content;
+    const documentos = contenido.filter((b) => b.type === 'document');
+    const montados = contenido.filter((b) => b.type === 'container_upload');
+    expect(montados).toHaveLength(PEDIDO.archivos.length + 1);
+    expect(documentos).toEqual([
+      {
+        type: 'document',
+        source: {
+          type: 'file',
+          file_id: montados[montados.length - 1].file_id,
+        },
+        title: 'anexo_8.pdf',
+      },
+    ]);
   });
 
   it('si la API falla, lanza, pero igual borra lo que había subido', async () => {
