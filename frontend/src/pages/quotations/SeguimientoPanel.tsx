@@ -541,7 +541,10 @@ export function HiloSeguimiento({
             {/* Vencido y por correo, vendiendo: la IA deja el seguimiento
                 de borrador en el hilo del cliente (doc 18). La misma regla
                 que revisa el motor. */}
+            {/* Con tope de calendario no se insiste al cliente (mapa 02
+                §5.6): el botón vuelve con «Sí, puede seguir». */}
             {conSeguimientoIA &&
+              !conTope &&
               compromisoCara === "vencido" &&
               notaCompromiso?.tipo === "correo" &&
               ["enviada", "en_negociacion"].includes(

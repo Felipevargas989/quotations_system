@@ -45,6 +45,9 @@ cualquiera del equipo sin abrir el chat.
 - Y **el botoncito de esa nota es Correo**. Felipe, 17-10, con la 607: el
   tipo de la nota que deja la fecha ES el tipo del próximo contacto. No se
   agrega ningún campo.
+- **Sin tope de calendario** (18-10, mapa 02 §5.6): si la cotización choca
+  con una aceptada, no se le insiste al cliente con una fecha que quizás no
+  se pueda respetar. No se ofrece el botón hasta que se resuelve el tope.
 
 Medido el 17-10: calzan **10**, todas con correo del cliente: 477, 508,
 530, 578, 389, 607, 592, 559, 493 y 536. Con WhatsApp o llamada hay 13 más

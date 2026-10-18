@@ -49,9 +49,22 @@ export class ChoquesDeFechaService {
     this.logger.setContext(ChoquesDeFechaService.name);
   }
 
-  /** Los choques que esperan revisión en la empresa. */
+  /** Los topes de calendario de la empresa. */
   async listar(user: User): Promise<ChoqueDeFecha[]> {
-    const companyId = user.company_id;
+    return this.calcular(user.company_id);
+  }
+
+  /** Las cotizaciones vivas de la empresa con tope de calendario. Mientras
+   *  dure, los seguimientos automáticos se pausan: los correos al cliente
+   *  del día 7 y 14 y el seguimiento con IA (Felipe, 18-10: "no tiene
+   *  sentido generar un seguimiento insistiéndole a la gente con una fecha
+   *  que quizás no le podamos respetar"). */
+  async cotizacionesConTope(companyId: number): Promise<Set<string>> {
+    const choques = await this.calcular(companyId);
+    return new Set(choques.map((c) => c.quotation_id));
+  }
+
+  private async calcular(companyId: number): Promise<ChoqueDeFecha[]> {
     const hoy = fechaEnChile();
     const [vivas, aceptadas, decisiones] = await Promise.all([
       this.repositorio.cotizaciones(companyId, ESTADOS_VIVOS_DEL_CHOQUE, hoy),

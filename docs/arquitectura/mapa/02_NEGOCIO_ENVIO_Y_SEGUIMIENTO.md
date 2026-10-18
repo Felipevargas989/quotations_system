@@ -173,6 +173,8 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
    - con estado `enviada`;
    - cuyo `sent_at` cayó justo ese día;
    - cuyo evento todavía no pasa.
+
+   Desde el 18-10-2026 se salta la que tiene **tope de calendario** (§5.6): *"no tiene sentido generar un seguimiento insistiéndole a la gente con una fecha que quizás no le podamos respetar"*. Los topes se calculan una vez por empresa en la corrida (`ChoquesDeFechaService.cotizacionesConTope`); si no se pueden calcular, esa empresa no recibe toques ese día. El toque es de día exacto: el que se salta no vuelve, y el siguiente sale si el tope ya se resolvió.
 3. Para cada una, `findContactById(client_contact_id)`:
    - sin correo: aviso en el log y se salta;
    - con correo: `EmailService.sendEmail(QUOTATION_FOLLOW_UP)`, toque 1 o 2, con el botón del portal.
@@ -199,8 +201,9 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
    - En los dos, **un solo botón, «Sí, puede seguir»**, que cierra todos los topes de la cotización: lo que se decide es que sigue con su fecha. Lo ve todo el que ve el tablero; el botón es de quien vende (`quotations_edit`).
 4. **Las salidas**: se cambia la fecha o se cierra la cotización (el tope se va solo), o «Sí, puede seguir» (`ChoquesDeFechaService.seguir`): una línea en la bitácora por cada tope («Revisado el choque de fecha con la N° 500 (…): puede seguir con su fecha.», tipo otro, sin fecha) y la decisión en `choques_de_fecha` con las fechas de las dos: **si cualquiera cambia de fecha, la decisión deja de valer** y el tope vuelve si siguen chocando. La gestión con el cliente se anota en el seguimiento como siempre.
    El botón **«Hay que gestionar» se probó y se quitó** el mismo 18-10 (Felipe: *"hay dos caminos: o se edita y se cancela, o se puede seguir; el paso del botón hay que gestionar está perdido"*): el tope mismo es la marca. En la base del laboratorio quedaron filas con `gestionar` de esa prueba; el motor no las cuenta como revisadas.
-5. **Sin atajo por evento** (Felipe, 18-10): no existe un «este evento convive con otros» en la aceptada, porque *"va a depender de qué espacios se utilicen, qué horarios tengan (...) inclusive si fuera cabañas, puede coincidir con otro evento de cabañas"*. Cada cotización se revisa por separado.
-6. **Medido el 18-10 en producción**: 54 cotizaciones vivas chocaban con 15 aceptadas (67 pares), la mayoría por estadías largas (Rudel 14 días, Ecofor 9, FDN Canotaje 6 y 7). Solo la 384 (Jabones Maritano, 27-11) tenía exclusividad.
+5. **Los seguimientos automáticos se pausan mientras haya tope** (Felipe, 18-10: *"no tiene sentido generar un seguimiento insistiéndole a la gente con una fecha que quizás no le podamos respetar"*; *"me parece perfecto, dale"*): los toques al cliente del día 7 y 14 (§5.4) y el seguimiento con IA (mapa 01 §5.8: no se ofrece el botón y `generar` se salta). Vuelven solos cuando el tope se resuelve; mientras, la intervención es manual.
+6. **Sin atajo por evento** (Felipe, 18-10): no existe un «este evento convive con otros» en la aceptada, porque *"va a depender de qué espacios se utilicen, qué horarios tengan (...) inclusive si fuera cabañas, puede coincidir con otro evento de cabañas"*. Cada cotización se revisa por separado.
+7. **Medido el 18-10 en producción**: 54 cotizaciones vivas chocaban con 15 aceptadas (67 pares), la mayoría por estadías largas (Rudel 14 días, Ecofor 9, FDN Canotaje 6 y 7). Solo la 384 (Jabones Maritano, 27-11) tenía exclusividad. De esas, 31 enviadas habrían recibido un toque automático en los 14 días siguientes.
 
 ## 6. Reglas de negocio acordadas
 
@@ -435,6 +438,7 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 
 Motor (Jest, corre en CI con `npx jest --silent`):
 
+- **`api-rest/src/quotations/tests/unit/quotations-cron.spec.ts`** (§5.4 y §5.6): a la cotización con tope de calendario no se le escribe y a la otra sí; los topes se calculan una vez por empresa; si no se pueden calcular, no se le insiste a nadie de esa empresa.
 - **`api-rest/src/quotations/tests/unit/choques/choques.spec.ts`** (§5.6): qué choca (estadía larga, viva de varios días, lo pasado, consigo misma), lo revisado no vuelve y vuelve si cambia una fecha, una fila vieja de `gestionar` no saca el tope, el fin anterior al inicio, la exclusividad, la línea de la bitácora y `seguir` (la línea y la decisión; 409 sin tocar la bitácora). Matriz de cargos: `GET choques/pendientes` recepción y arriba; `POST :id/choques/:aceptadaId` ventas. En la app, `frontend/src/components/AvisoDeChoque.test.tsx` (una viñeta para varios topes, el detalle en la ficha, un solo botón).
 - **`api-rest/src/quotations/tests/unit/envio-cotizacion.service.spec.ts`**: la orquestación del envío, con Chromium y Resend simulados.
   - Circuito feliz: PDF, destinatario, asunto con día de semana, nombre del archivo, `replyTo` del vendedor y nota de tipo correo.
