@@ -17,6 +17,9 @@
 > `5a1727a`, vitrina `6ad4317c`). **EN PRODUCCIÓN desde el 18-10-2026**
 > (Felipe: *"si dale a producción"*; PR #153, migración 141 aplicada en
 > producción antes de fusionar), coordinada con la sesión de Oportunidades.
+>
+> **18-10: siempre el hilo de la cotización (§3 punto 3).** Felipe: *"si
+> dale que prefiera el hilo de la cotización siempre"*. En el laboratorio.
 
 ## 1. Por qué
 
@@ -66,9 +69,18 @@ vencidas: esas no entran.
    cotización: contacto@ primero (ahí llega la copia oculta de cada
    «Enviar cotización» desde el 16-09, porque es el buzón de respuestas de
    la empresa), después felipe@, camila@, reservas@ y recepcion@.
+   - **Siempre el hilo de la cotización** (Felipe, 18-10: *"que prefiera
+     el hilo de la cotización siempre"*; el 17-10 la 493 quedó escrita en un
+     hilo de factura). Es el que nombra su N° en el asunto (gana siempre), o
+     el que habla de cotización o trae el correo de «Enviar cotización» de
+     Eventia, sin nombrar otro número y con movimiento después de creada la
+     cotización. Si un buzón no lo tiene, se sigue con el siguiente.
+     Medido con las 10 del 17-10: 8 quedan igual; la 493 (factura) y la 508
+     (su único hilo era el de la #535, otra cotización) pasan a correo nuevo.
    - **Con hilo:** borrador de seguimiento sobre el último mensaje de la
      casa, dirigido al cliente y con las mismas copias.
-   - **Sin hilo:** correo nuevo en contacto@, con el asunto de la casa.
+   - **Sin el hilo de la cotización en ningún buzón:** correo nuevo en
+     contacto@, con el asunto de la casa. Nunca otro hilo.
 4. **Escribe** con las reglas de correo (sección 4) y deja el borrador con
    el aviso ámbar de la casa. **Nunca envía, nunca borra ni mueve.**
 5. **Bitácora:** una línea a nombre de quien apretó el botón (como «Crear
