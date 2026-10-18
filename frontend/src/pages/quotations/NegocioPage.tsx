@@ -31,11 +31,13 @@ import {
 } from "../../services/payments.service";
 import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
+import AvisoDeChoque from "../../components/AvisoDeChoque";
 import EventoCajitas from "../../components/EventoCajitas";
 import ServiciosTab from "../postventa/ServiciosTab";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
 import { formatPhone } from "../../utils/phone";
+import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import { useCopiarDato } from "../../hooks/useCopiarDato";
 // Los dos bloques del seguimiento se mudaron a su propio archivo el
 // 07-08: ahora los monta también Post-Venta.
@@ -195,6 +197,8 @@ export default function NegocioPage() {
 
   // Recepción entra a la ficha para hacer seguimiento, no para editar.
   const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  // Choques de fecha con una aceptada (18-10-2026, mapa 02 §5.6).
+  const choquesDeFecha = useChoquesDeFecha();
   // ACEPTADA → A POST-VENTA (Felipe, 06-10-2026: "pasé esta aceptada,
   // pero no se abrieron las pestañas de post venta, ¿debo salir y volver
   // a entrar?"). Una vez aceptada, el evento se trabaja en Post-Venta;
@@ -557,6 +561,15 @@ export default function NegocioPage() {
             void queryClient.invalidateQueries({ queryKey: ["quotations"] });
             void queryClient.invalidateQueries({ queryKey: ["quotation", id] });
           }}
+        />
+
+        {/* Tope de calendario con una aceptada: bajo las fechas, el
+            detalle y «Sí, puede seguir» (Felipe, 18-10). */}
+        <AvisoDeChoque
+          choques={choquesDeFecha.choquesDe(fila.id)}
+          puedeDecidir={puedeEditar}
+          guardando={choquesDeFecha.guardandoDe(fila.id)}
+          onSeguir={(lista) => void choquesDeFecha.seguir(lista)}
         />
 
         {/* Pestañas — misma estética que Post-Venta (subrayado azul),

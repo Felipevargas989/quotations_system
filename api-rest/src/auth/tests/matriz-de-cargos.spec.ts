@@ -79,6 +79,10 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/seguimiento': S,
       // Y la revisión de si el borrador ya salió (doc 18 §9).
       'POST seguimiento/revisar': S,
+      // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero; decidir
+      // es de quien vende.
+      'GET choques/pendientes': R,
+      'POST :id/choques/:aceptadaId': S,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,
