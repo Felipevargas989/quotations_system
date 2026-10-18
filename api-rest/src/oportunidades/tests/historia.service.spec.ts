@@ -207,6 +207,37 @@ describe('HistoriaService — la historia', () => {
     expect(repo.marcarDiaDeHistoria).not.toHaveBeenCalled();
   });
 
+  it('una falla de la base en un día no tumba la corrida: el día queda en error y la historia para (18-10)', async () => {
+    // Lo que pasó la noche del 18-10: un día con una licitación repetida
+    // hizo que la base rechazara el lote, y las dos pasadas terminaron en
+    // error aunque lo de hoy ya estaba traído y leído.
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, historia } = armar();
+    repo.siguienteDiaDeHistoria.mockResolvedValue('2026-10-13');
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: 'A', Nombre: 'Cena aniversario' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(new Set(['A']));
+    repo.guardarProcesos.mockRejectedValue({
+      code: '21000',
+      message: 'ON CONFLICT DO UPDATE command cannot affect row a second time',
+    });
+    const resumen = resumenVacio();
+
+    await expect(
+      historia.cargarHistoria(resumen, Date.now(), 'reloj'),
+    ).resolves.toBeUndefined();
+
+    expect(repo.marcarDiaDeHistoria).toHaveBeenCalledWith('2026-10-13', {
+      estado: 'error',
+      error:
+        '21000: ON CONFLICT DO UPDATE command cannot affect row a second time',
+    });
+    expect(repo.siguienteDiaDeHistoria).toHaveBeenCalledTimes(1);
+    expect(resumen.historia.estado).toBe('falla');
+    expect(resumen.avisos.join(' ')).toContain('el día 2026-10-13 falló');
+  });
+
   it('si el filtro no responde, el día queda pendiente', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
     const { mp, repo, lectura, historia } = armar();

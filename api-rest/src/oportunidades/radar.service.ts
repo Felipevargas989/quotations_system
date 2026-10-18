@@ -125,6 +125,9 @@ export type ResumenCorrida = {
       | 'completa'
       | 'cortada'
       | 'detenida'
+      /** Un día falló por algo que no es de Mercado Público ni de la IA:
+       *  quedó marcado en error y la corrida sigue bien (18-10). */
+      | 'falla'
       | 'sin_ticket'
       | 'sin_llave';
     dias: number;
