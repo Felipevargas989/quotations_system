@@ -34,6 +34,7 @@ export const cotizacion = (
   id: 'q607',
   company_id: 1,
   quotation_number: 607,
+  created_at: '2026-10-11T13:00:00+00:00',
   quotation_status: 'enviada',
   request_type: 'cotizacion',
   event_type: 'Estadía y Alimentación',

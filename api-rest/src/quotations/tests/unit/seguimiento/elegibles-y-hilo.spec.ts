@@ -9,6 +9,7 @@ import { notaDelEnvio, proximoTrasElEnvio } from '../../../seguimiento/envio';
 import {
   copiasDelHilo,
   decidirHilo,
+  hiloDeLaCotizacion,
   otroEnvioEnElHilo,
   seguimientosSinRespuesta,
 } from '../../../seguimiento/hilo';
@@ -138,8 +139,11 @@ const mensaje = (m: Partial<MensajeDelBuzon> = {}): MensajeDelBuzon => ({
 describe('dónde queda el borrador (doc 18 §3)', () => {
   const base = {
     esDeLaCasa: casa,
+    esDeEventia: (c: string) => c.endsWith('@eventi-app.com'),
     ultimaGestion: '2026-10-11T13:40:00+00:00',
     buzonParaNuevo: CONTACTO,
+    numero: 607,
+    creada: '2026-10-11T13:00:00+00:00',
   };
 
   it('el último correo es el envío de Eventia (copia oculta en contacto@): seguimiento al cliente', () => {
@@ -166,7 +170,7 @@ describe('dónde queda el borrador (doc 18 §3)', () => {
     ).toEqual({ modo: 'nuevo', buzon: CONTACTO });
   });
 
-  it('gana el primer buzón que tenga algo con el cliente', () => {
+  it('gana el primer buzón que tenga el hilo de la cotización', () => {
     const d = decidirHilo({
       ...base,
       encontrados: [
@@ -269,6 +273,117 @@ describe('dónde queda el borrador (doc 18 §3)', () => {
       ],
     });
     expect(d).toMatchObject({ modo: 'responder', mensaje: { id: 'c1' } });
+  });
+
+  // Felipe, 18-10: "que prefiera el hilo de la cotización siempre".
+  it('un hilo de factura no es el de la cotización: correo nuevo (la 493 del 17-10)', () => {
+    const d = decidirHilo({
+      ...base,
+      encontrados: [
+        {
+          buzon: CONTACTO,
+          mensajes: [
+            mensaje({
+              asunto: 'Factura N°347 evento OC 5040-126-TD26',
+              fecha: '2026-10-16T10:00:00Z',
+            }),
+          ],
+        },
+      ],
+    });
+    expect(d).toEqual({ modo: 'nuevo', buzon: CONTACTO });
+  });
+
+  it('el hilo de OTRA cotización no sirve (la 508: su único hilo era el de la #535)', () => {
+    const d = decidirHilo({
+      ...base,
+      encontrados: [
+        {
+          buzon: CONTACTO,
+          mensajes: [
+            mensaje({
+              asunto: 'RE: Nueva cotización web #535 de Cotiza tu evento',
+              fecha: '2026-10-16T10:00:00Z',
+            }),
+          ],
+        },
+      ],
+    });
+    expect(d).toEqual({ modo: 'nuevo', buzon: CONTACTO });
+  });
+
+  it('si contacto@ no tiene el hilo de la cotización, sirve el de felipe@', () => {
+    const d = decidirHilo({
+      ...base,
+      encontrados: [
+        {
+          buzon: CONTACTO,
+          mensajes: [mensaje({ asunto: 'Factura N°347', hilo: 'h-factura' })],
+        },
+        {
+          buzon: FELIPE,
+          mensajes: [
+            mensaje({ id: 'f1', de: FELIPE, asunto: 'RE: Cotización paseo' }),
+          ],
+        },
+      ],
+    });
+    expect(d).toMatchObject({
+      modo: 'seguimiento',
+      buzon: FELIPE,
+      mensaje: { id: 'f1' },
+    });
+  });
+
+  it('el hilo con el N° de la cotización gana a uno más nuevo que solo dice cotización', () => {
+    const hilo = hiloDeLaCotizacion({
+      mensajes: [
+        mensaje({
+          id: 'con-numero',
+          hilo: 'h1',
+          fecha: '2026-10-11T13:34:00Z',
+        }),
+        mensaje({
+          id: 'generico',
+          hilo: 'h2',
+          asunto: 'RE: Cotización paseo',
+          fecha: '2026-10-15T10:00:00Z',
+        }),
+      ],
+      numero: 607,
+      creada: base.creada,
+      esDeEventia: base.esDeEventia,
+    });
+    expect(hilo?.map((m) => m.id)).toEqual(['con-numero']);
+  });
+
+  it('un hilo de cotización que quedó antes de crear esta es de otra (la del año pasado)', () => {
+    expect(
+      hiloDeLaCotizacion({
+        mensajes: [
+          mensaje({
+            asunto: 'RE: Cotización paseo 2025',
+            de: CONTACTO,
+            fecha: '2025-11-20T10:00:00Z',
+          }),
+        ],
+        numero: 607,
+        creada: base.creada,
+        esDeEventia: base.esDeEventia,
+      }),
+    ).toBeNull();
+  });
+
+  it('el correo de «Enviar cotización» de Eventia marca el hilo aunque el asunto no diga cotización', () => {
+    const hilo = hiloDeLaCotizacion({
+      mensajes: [
+        mensaje({ asunto: 'Paseo fin de año', fecha: '2026-10-12T10:00:00Z' }),
+      ],
+      numero: 607,
+      creada: base.creada,
+      esDeEventia: base.esDeEventia,
+    });
+    expect(hilo).toHaveLength(1);
   });
 
   it('las copias del seguimiento: las del último correo, sin la casa ni el cliente', () => {

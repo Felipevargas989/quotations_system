@@ -30,6 +30,7 @@ import { notaDelEnvio, proximoTrasElEnvio } from './envio';
 import {
   copiasDelHilo,
   decidirHilo,
+  hiloDeLaCotizacion,
   otroEnvioEnElHilo,
   seguimientosSinRespuesta,
 } from './hilo';
@@ -351,8 +352,14 @@ export class SeguimientoConIAService {
       );
     }
 
-    // El hilo: los buzones en orden; se queda el primero que tenga algo con
-    // el cliente (contacto@ recibe la copia oculta de cada envío).
+    // El hilo DE LA COTIZACIÓN (Felipe, 18-10): los buzones en orden, y se
+    // queda el primero que lo tenga (contacto@ recibe la copia oculta de
+    // cada envío). Si ninguno lo tiene, correo nuevo; nunca otro hilo.
+    const deLaCotizacion = {
+      numero: q.quotation_number,
+      creada: q.created_at,
+      esDeEventia: (c: string) => outlook.esDeEventia(c),
+    };
     let decision: ReturnType<typeof decidirHilo>;
     let delHilo: Array<MensajeDelBuzon & { texto: string }> = [];
     try {
@@ -364,13 +371,14 @@ export class SeguimientoConIAService {
         ).flat();
         const unicos = [...new Map(mensajes.map((m) => [m.id, m])).values()];
         encontrados.push({ buzon, mensajes: unicos });
-        if (unicos.length > 0) break;
+        if (hiloDeLaCotizacion({ mensajes: unicos, ...deLaCotizacion })) break;
       }
       decision = decidirHilo({
         encontrados,
         esDeLaCasa: (c) => outlook.esDeLaCasa(c),
         ultimaGestion: notas.length ? notas[notas.length - 1].created_at : null,
         buzonParaNuevo: outlook.buzones[0],
+        ...deLaCotizacion,
       });
       if (decision.modo === 'seguimiento' || decision.modo === 'responder') {
         const { buzon } = decision;

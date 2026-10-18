@@ -4,7 +4,10 @@ import type { QuotationFollowupsService } from 'src/quotation-followups/quotatio
 import { mockPinoLogger } from '../../../../testing/mocks';
 import type { ChoquesDeFechaService } from '../../../choques/choques.service';
 import type { NotaDeBitacora } from '../../../seguimiento/elegibles';
-import { ErrorDeOutlook } from '../../../seguimiento/outlook';
+import {
+  ErrorDeOutlook,
+  type MensajeDelBuzon,
+} from '../../../seguimiento/outlook';
 import type { SeguimientoRepository } from '../../../seguimiento/seguimiento.repository';
 import { SeguimientoConIAService } from '../../../seguimiento/seguimiento.service';
 import {
@@ -208,6 +211,45 @@ describe('SeguimientoConIAService', () => {
     expect(r.accion).toBe('saltada');
     expect(outlook.borradorDeSeguimiento).not.toHaveBeenCalled();
     expect(bitacora.create).not.toHaveBeenCalled();
+  });
+
+  it('sin el hilo de la cotización en contacto@, lo busca en los demás buzones (nunca otro hilo)', async () => {
+    const parse = nuevoParse().mockResolvedValue(respuestaDe(escrito));
+    const outlook = outlookFalso();
+    const FELIPE = 'felipe@valledelsolquillon.cl';
+    outlook.buzones = [CONTACTO, FELIPE];
+    const factura: MensajeDelBuzon = {
+      ...envioDeEventia,
+      id: 'fac1',
+      hilo: 'h-factura',
+      de: CONTACTO,
+      asunto: 'RE: Factura N°347 evento',
+      fecha: '2026-10-16T10:00:00Z',
+    };
+    const deFelipe: MensajeDelBuzon = {
+      ...envioDeEventia,
+      id: 'fel1',
+      hilo: 'h-felipe',
+      de: FELIPE,
+      asunto: 'RE: Cotización paseo',
+      fecha: '2026-10-12T10:00:00Z',
+    };
+    outlook.buscar.mockImplementation((buzon: string) =>
+      Promise.resolve(buzon === CONTACTO ? [factura] : [deFelipe]),
+    );
+    const { servicio } = armar(parse, { outlook });
+
+    const r = await servicio.generar('q607', usuario);
+
+    expect(outlook.buscar).toHaveBeenCalledWith(FELIPE, 'cliente@ejemplo.cl');
+    expect(outlook.borradorDeSeguimiento).toHaveBeenCalledWith(
+      FELIPE,
+      'fel1',
+      escrito.cuerpo_html,
+      'cliente@ejemplo.cl',
+      [],
+    );
+    expect(r).toMatchObject({ buzon: FELIPE, modo: 'seguimiento' });
   });
 
   it('con tope de calendario no se insiste: se salta sin gastar en la IA ni buscar el hilo', async () => {

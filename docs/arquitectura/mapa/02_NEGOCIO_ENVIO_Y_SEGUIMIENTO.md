@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los choques de fecha con una aceptada (§5.6, migración 143; en el laboratorio). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
