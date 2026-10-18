@@ -96,6 +96,21 @@ describe("PanelDeOportunidad", () => {
     expect(screen.getByText(/12\.000\.000/)).toBeInTheDocument();
   });
 
+  it("el presupuesto va arriba; si el comprador no lo publicó, lo dice (Felipe, 17-10)", () => {
+    pintar(funcionario());
+    expect(screen.getByText("Presupuesto")).toBeInTheDocument();
+    expect(screen.getAllByText(/12\.000\.000/)).toHaveLength(1);
+    cleanup();
+    pintar(
+      funcionario({
+        proceso: { ...funcionario().proceso, monto: null },
+      }),
+    );
+    expect(
+      screen.getByText("No publicado: búscalo en las bases"),
+    ).toBeInTheDocument();
+  });
+
   it("una nueva: Me interesa la pasa a en estudio y Descartar la descarta", () => {
     const { onDecidir } = pintar(funcionario());
     fireEvent.click(screen.getByRole("button", { name: "Me interesa" }));

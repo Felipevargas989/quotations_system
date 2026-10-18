@@ -308,7 +308,7 @@ function Bandeja() {
           options={VISTAS.map((v) => ({ value: v.value, label: v.label }))}
           value={filtros.vista}
           onChange={(v) =>
-            setFiltros({ vista: (v || "abiertas") as Filtros["vista"] })
+            setFiltros({ vista: (v || "nueva") as Filtros["vista"] })
           }
           sinLimpiar
           mostrarConteo={false}
@@ -356,7 +356,9 @@ function Bandeja() {
         <p className="py-10 text-center text-sm text-gray-500">
           {lista.length === 0
             ? "Todavía no hay oportunidades leídas. El radar las trae solo, a las 9, 12, 15 y 18 h."
-            : "Nada con estos filtros."}
+            : filtros.vista === "nueva"
+              ? "Nada por revisar con estos filtros. Lo que marcaste «Me interesa» está en «Mis licitaciones»."
+              : "Nada con estos filtros."}
         </p>
       ) : (
         <div className="space-y-5">
