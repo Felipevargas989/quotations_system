@@ -9,6 +9,8 @@ import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-foll
 import { RefundsModule } from 'src/refunds/refunds.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { UsersModule } from 'src/users/users.module';
+import { ChoquesRepository } from './choques/choques.repository';
+import { ChoquesDeFechaService } from './choques/choques.service';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
 import {
   EventDocumentsController,
@@ -58,6 +60,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     GenerarRepository,
     SeguimientoConIAService,
     SeguimientoRepository,
+    ChoquesDeFechaService,
+    ChoquesRepository,
     QuotationsRepository,
     QuotationsCronService,
     EventDocumentsRepository,

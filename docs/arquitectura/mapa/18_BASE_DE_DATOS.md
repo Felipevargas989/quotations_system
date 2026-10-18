@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 17-10-2026 con la 141 (sección 22, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -58,7 +58,8 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
-| `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién y cuándo | 01 | 141 (sin aplicar) |
+| `choques_de_fecha` | La decisión sobre cada choque de fecha entre una cotización viva y una aceptada: `puede_seguir` o `gestionar`, las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 (en el laboratorio) |
+| `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -129,7 +130,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `marketing_sends` | Un envío por destinatario y campaña, con aperturas, clics, rebotes y reenvío | 10 | 91; 92, 97 |
 | `marketing_audiences` | Audiencias guardadas: un filtro con nombre | 10 | 93 |
 
-### Oportunidades (migración 122, sin aplicar)
+### Oportunidades (migraciones 122 a 127 y 129, en las dos bases desde el 17-10-2026)
 
 Las `mp_*` son datos públicos de Mercado Público, iguales para todas las empresas: **sin `company_id`, a propósito**. Las `oportunidades*` son de cada empresa.
 
@@ -202,7 +203,7 @@ companies ──< clients ──< client_contacts            (CASCADE al borrar 
 
 - Por **texto**: `quotations.event_type` ↔ `event_types.name`; `clients.client_type` ↔ `client_types.name`; `consultas.event_type` y `consultas.client_type`; `consulta_config.event_type`; `marketing_campaigns.tipos_cliente` (arreglo de texto).
 - Por **código dentro del jsonb**: `quotations.items` guarda el `codigo` del servicio, no su id ("la foto guarda el CÓDIGO, no el id", migración 54).
-- Por **id sin llave**: `service_recipe_items.service_id` (apunta a `variable_services` o `fixed_services` según `service_type`); `kitchen_checklist_marks.quotation_id`; `consultas.client_id`; `marketing_suppressions.campaign_id`; `quotations.recontacted_by` (la 62 lo dice); `quotation_followups.author_user_id`; `push_devices.user_id`.
+- Por **id sin llave**: `seguimientos_con_ia.creado_por` (142, como `quotation_followups.author_user_id`); `service_recipe_items.service_id` (apunta a `variable_services` o `fixed_services` según `service_type`); `kitchen_checklist_marks.quotation_id`; `consultas.client_id`; `marketing_suppressions.campaign_id`; `quotations.recontacted_by` (la 62 lo dice); `quotation_followups.author_user_id`; `push_devices.user_id`.
 - **`company_id` sin llave** a `companies`: `event_supply_provisions`, `event_resources`, `event_service_times`, `event_kitchen_notes`, `event_day_prints`, `category_sections`, `kitchen_checklist_marks`, `push_devices`, `notifications`, `portal_receipts`, `fixed_service_sections`, `quotation_followups`.
 - **Sin `company_id`**: `payments`, `payment_transactions`, `refunds`, `customer_satisfaction_survey_responses`, `event_documents`, `service_group_items`, `service_group_collection_items`, `service_group_collection_services`, `service_group_collection_fixed_services` y `leads`. Salvo `leads`, que es de Eventia y no de una empresa, la pertenencia se verifica a través del padre (comentarios de `event-documents.controller.ts` y de la migración 67).
 
@@ -322,6 +323,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `client_types` | `clients` | `clients` |
 | `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
 | `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
+| `choques_de_fecha` | `quotations` (`choques/choques.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |
 | `payments` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `clients`, `movil`, `quotations` (`assertDeletable`); embebida desde `portal-receipts.controller.ts` |
 | `payment_transactions` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `quotations` (`assertDeletable`); embebida desde `movil` |
@@ -532,13 +534,13 @@ y **antes** del deploy del motor.
 
 **Ojo con el tamaño.** `mp_procesos` guarda las licitaciones de todo Chile con su detalle crudo: unas 6.000 la primera vez y unas 500 más por día. El respaldo diario (`BackupCronService`, mapa 16) arma un solo archivo **en memoria** con todas las tablas que entrega `get_backup_tables()`: desde el 17-10-2026 deja `mp_procesos` fuera (`FUERA_DEL_RESPALDO`, decisión de Felipe; son datos públicos que se vuelven a pedir y Supabase guarda su propia copia diaria).
 
-**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 16-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 16. Migración 123: la historia de Oportunidades (17-10-2026)
 
 **Qué hace.** Crea `mp_historia` (un día por fila, 3 años hacia atrás desde ayer en hora de Chile, con `prioridad` = días de distancia a "hace un año", que es el orden en que se revisan) con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, y el índice `idx_mp_procesos_organismo` para buscar "el año anterior" por organismo. Dato público: sin `company_id`. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado ese día: 1.096 días (del 17-10-2023 al 16-10-2026), el primero en revisarse es el de hace exactamente un año, y RLS sin acceso para `anon` ni `authenticated`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 17. Migración 124: las bases y anexos de Oportunidades (17-10-2026)
 
@@ -546,19 +548,19 @@ y **antes** del deploy del motor.
 
 **Por qué.** Mercado Público protege su lista de adjuntos con un control antirrobots que esta casa no esquiva. Felipe eligió el 17-10 que los baje una persona y los arrastre a la ficha (doc 17 §12 punto 8, opción d).
 
-**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe. Verificado: RLS encendido, sin acceso para `anon` ni `authenticated`, y el motor escribe y usa la secuencia. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 18. Migración 125: la IA lee las bases (17-10-2026)
 
 **Qué hace.** Crea `oportunidad_analisis`: una fila por cada vez que se aprieta "Analizar bases con IA" en la ficha de una oportunidad (doc 17, sprint 3, paso 1). Guarda el estado (`procesando`, `listo`, `error`), el `resultado` que devolvió Opus 5.5 en jsonb, qué archivos leyó y cuáles no, el modelo, los tokens, el costo en dólares, el error, quién lo pidió (`user_profiles`) y cuándo. El índice único parcial `oportunidad_analisis_uno_en_curso` impide dos análisis a la vez de la misma oportunidad. Es de cada empresa (`company_id`), con RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"ok"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia, y están los dos índices. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 en la rama `feature/oportunidades-radar`. **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"ok"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia, y están los dos índices. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 19. Migración 126: la empresa como oferente (17-10-2026)
 
 **Qué hace.** Crea `oportunidades_oferente` (una fila por empresa: razón social, RUT, giro, dirección, comuna, región, teléfono, correo, representante legal con RUT y cargo, experiencia destacada, instalaciones, y `firma_ruta`, la foto de la firma en el balde privado) y `oportunidades_documentos` (la carpeta: tipo, nombre, ruta única, tipo de archivo, bytes, `vence` y quién lo subió). Las dos con `company_id`, RLS, `REVOKE` a `anon` y `authenticated` y `GRANT` a `service_role` (y la secuencia de la segunda). Sin datos sembrados: los llena la empresa en "Mi empresa". Lo que ya está en `companies` (nombre, datos bancarios) no se repite. Trae la reversa comentada.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera (*"desarrolla todo lo que puedas"*). **Aplicada en el laboratorio el 17-10-2026** con el OK de Felipe (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, y el motor escribe. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 20. Migración 127: mi postulación y validar documentos (17-10-2026)
 
@@ -566,7 +568,7 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el código que lista adjuntos ya filtra por `seccion`; con ese motor y sin la 127, la sección de bases se cae. Por eso el paso 3 no sube al laboratorio sin la migración.
 
-**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 mientras Felipe estaba fuera. **Aplicada en el laboratorio el 17-10-2026** con el mismo OK. Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de una a la vez y lo que ya existía quedó en `bases`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 21. Migración 129: anexos llenos con IA, firma y propuesta técnica (17-10-2026)
 
@@ -576,7 +578,7 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
 
-**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. En producción, sin aplicar: va **antes** del deploy del motor.
+**Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
 
 ## 22. Migración 141: cada borrador del seguimiento con IA y si ya salió (17-10-2026)
 
@@ -584,5 +586,21 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Si el motor sube primero, la lista y el botón siguen como antes (leer la tabla está protegido y solo deja un error en el registro), pero no aparece «Borrador en Outlook», no se anota el envío y los borradores de ese rato no se guardan.
 
-**Estado.** Escrita el 17-10-2026 (Felipe: *"si dale me parece bien"*). Sin aplicar.
+**Estado.** Escrita el 17-10-2026 (Felipe: *"si dale me parece bien"*). **Aplicada en el laboratorio el 18-10-2026** y **en producción el 18-10-2026** (00:13 Chile), antes del motor (PR #153). Verificado en las dos: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia.
+
+## 23. Migración 142: «quién lo pidió» del seguimiento con IA, sin llave (18-10-2026)
+
+**Qué hace.** Quita la llave foránea de `seguimientos_con_ia.creado_por` a `user_profiles(id)`. El motor guarda ahí el id de la **sesión** (`user.id`, el de auth), que en `user_profiles` es `user_id` y no `id`: con la llave, cada borrador nuevo habría fallado al guardarse y su envío no se habría detectado. Queda como `quotation_followups.author_user_id`: un uuid sin llave. Trae la reversa comentada.
+
+**Cómo se encontró.** Al cargar en producción los 6 borradores del 17-10, antes de que pasara: el id de Camila está en `auth.users` y en `user_profiles.user_id`, no en `user_profiles.id`. La prueba del laboratorio no lo vio porque esas filas se cargaron sin `creado_por`. **Ojo para la próxima tabla:** el id de la sesión NO es `user_profiles.id` (Oportunidades lo traduce con `FichaRepository.perfilDe`).
+
+**Estado.** Aplicada en el laboratorio y en producción el 18-10-2026 (00:40 Chile), sin reinicio del motor. Verificado en las dos: la llave ya no está.
+
+## 24. Migración 143: los choques de fecha (18-10-2026)
+
+**Qué hace.** Crea `choques_de_fecha`: una fila por cada decisión sobre un choque de fecha entre una cotización viva y una aceptada (mapa 02 §5.6). Guarda las dos cotizaciones (`quotation_id` y `aceptada_id`, las dos con `on delete cascade`), la `decision` (`puede_seguir` o `gestionar`, con su CHECK), las fechas de las dos al decidir (`fechas_viva` y `fechas_aceptada`, "AAAA-MM-DD..AAAA-MM-DD": si cambian, la decisión deja de valer), la línea de la bitácora (`followup_id`, `set null`), quién (`decidido_por`, el id de la sesión SIN llave, lección de la 142) y cuándo. Un par se decide una vez (`unique (quotation_id, aceptada_id)`; decidir de nuevo reemplaza). Es de cada empresa: `company_id` con su índice. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la lee; sin la 143, `GET /quotations/choques/pendientes` responde error y el aviso no aparece (el resto del tablero sigue igual).
+
+**Estado.** Escrita el 18-10-2026 (Felipe: *"la 1, la 2, la 3 y la 4"*, sin atajo). Número reservado con la sesión de Oportunidades.
 
