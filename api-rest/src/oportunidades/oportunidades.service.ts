@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -16,8 +18,10 @@ import {
   rankingDeCompetidores,
   seVienen,
 } from './historia/mercado';
-import { normalizar } from './mercado-publico/mapeo';
+import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
+import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import {
+  type FichaDeOportunidad,
   type FilaDeLista,
   OportunidadesRepository,
 } from './oportunidades.repository';
@@ -28,6 +32,13 @@ import {
 
 /** Tope de la bandeja: lo vigente de dos regiones son un par de miles. */
 const LIMITE_DE_LA_BANDEJA = 3000;
+
+/** El detalle de una compra ágil (descripción y productos) se pide a
+ *  Mercado Público la primera vez que alguien la abre (decisión 20):
+ *  'trayendo' mientras se pide por detrás; 'no_disponible' si no lo
+ *  entregó, y no se vuelve a pedir hasta pasados unos minutos. */
+export type DetalleMp = 'trayendo' | 'no_disponible' | null;
+const REINTENTAR_DETALLE_MS = 10 * 60 * 1000;
 
 const instante = (fecha: string | null): number => {
   const t = fecha ? new Date(fecha).getTime() : NaN;
@@ -51,7 +62,18 @@ const limpiarLista = (valores: string[]): string[] => {
 
 @Injectable()
 export class OportunidadesService {
-  constructor(private readonly repo: OportunidadesRepository) {}
+  /** Compras ágiles cuyo detalle se está pidiendo, y cuándo falló cada una
+   *  (en memoria: con un reinicio, a lo más se vuelve a pedir). */
+  private readonly trayendo = new Set<string>();
+  private readonly fallidas = new Map<string, number>();
+
+  constructor(
+    private readonly repo: OportunidadesRepository,
+    private readonly mp: MercadoPublicoClient,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(OportunidadesService.name);
+  }
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
    *  que cierra después (sin cierre informado, al final), cada una con su
@@ -116,7 +138,59 @@ export class OportunidadesService {
       },
       pasados,
     );
-    return { ...ficha, cambios, anterior };
+    return {
+      ...ficha,
+      cambios,
+      anterior,
+      detalle_mp: this.detalleDeCompraAgil(ficha),
+    };
+  }
+
+  /** Una compra ágil que entró solo con lo de la lista: se pide su detalle
+   *  por detrás y la pantalla vuelve a preguntar hasta que llegue. */
+  private detalleDeCompraAgil(ficha: FichaDeOportunidad): DetalleMp {
+    const p = ficha.proceso;
+    const sinDetalle =
+      p.tipo === 'compra_agil' &&
+      !p.descripcion?.trim() &&
+      (p.productos ?? []).length === 0;
+    if (!sinDetalle) return null;
+    const fallo = this.fallidas.get(ficha.codigo);
+    if (fallo && Date.now() - fallo < REINTENTAR_DETALLE_MS) {
+      return 'no_disponible';
+    }
+    if (!this.trayendo.has(ficha.codigo)) void this.traerDetalle(ficha.codigo);
+    return 'trayendo';
+  }
+
+  private async traerDetalle(codigo: string): Promise<void> {
+    this.trayendo.add(codigo);
+    try {
+      const [item, detalle] = await Promise.all([
+        this.repo.itemDeCompraAgil(codigo),
+        this.mp.detalleCompraAgil(codigo),
+      ]);
+      const proceso =
+        item && detalle ? procesoDesdeCompraAgil(item, detalle) : null;
+      if (proceso) await this.repo.guardarProcesos([proceso]);
+      // Sin descripción ni productos, la ficha seguiría pidiéndolo: se
+      // anota como no disponible por un rato.
+      if (
+        !proceso ||
+        (!proceso.descripcion && proceso.productos.length === 0)
+      ) {
+        this.fallidas.set(codigo, Date.now());
+      } else {
+        this.fallidas.delete(codigo);
+      }
+    } catch (error) {
+      this.fallidas.set(codigo, Date.now());
+      this.logger.warn(
+        `compra ágil ${codigo}: no se pudo traer el detalle: ${mensajeDe(error)}`,
+      );
+    } finally {
+      this.trayendo.delete(codigo);
+    }
   }
 
   async actualizar(

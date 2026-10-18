@@ -138,6 +138,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     cambian las reglas, lo abierto que nadie ha tocado se relee solo
     (`LECTURA_ACTUAL` en `leida_con`). Siguiente paso posible, con una semana
     de decisiones juntadas: que aprenda de los «Me interesa» y «Descartar».
+20. **Las compras ágiles entran todas de una** (17-10): *"¿las compras ágiles
+    están funcionando? no veo ninguna"*. Pedir el detalle de cada una
+    tardaba ~20 s: entraron 54 de 750, y cierran en días. Ahora entran todas
+    con lo de la lista, primero las que cierran antes, son lo primero de
+    cada corrida y la IA las lee al tiro; la descripción y los productos se
+    piden cuando alguien abre una. Y cada fila lleva su sello: «Licitación»
+    o «Compra ágil» (*"sello compra ágil / sello licitación"*).
 
 ## 4. Reglas del módulo (no se negocian)
 

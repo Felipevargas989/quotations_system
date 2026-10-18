@@ -17,10 +17,10 @@ import {
   fechaDelEvento,
   SE_HACE_EN_EL_COMPLEJO,
   SEMAFOROS,
-  TIPOS,
   TONO_DEL_LUGAR,
   urlMercadoPublico,
 } from "./oportunidades.utils";
+import SelloDeTipo from "./SelloDeTipo";
 import { useResponsables } from "./useResponsables";
 
 // "EN UNA MIRADA" (Felipe, 17-10: la ficha "quedó muy desordenada... difícil
@@ -70,9 +70,13 @@ export default function FichaEnUnaMirada({
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500">
-            {[p.organismo, p.comuna].filter(Boolean).join(" · ")} ·{" "}
-            {TIPOS[p.tipo]} {ficha.codigo}
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-gray-500">
+            <SelloDeTipo tipo={p.tipo} />
+            <span>
+              {[p.organismo, p.comuna, ficha.codigo]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
           </p>
         </div>
         <a

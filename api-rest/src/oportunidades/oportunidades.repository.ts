@@ -7,7 +7,7 @@ import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
 import type { LecturaFinal } from './lectura/reglas';
 import { regionCalza } from './mercado-publico/mapeo';
-import type { ProcesoMp } from './mercado-publico/tipos';
+import type { CompraAgilListada, ProcesoMp } from './mercado-publico/tipos';
 
 // LA ÚNICA CAPA QUE TOCA LA BASE en este módulo (regla del motor).
 //
@@ -244,6 +244,20 @@ export class OportunidadesRepository {
         .upsert(lote, { onConflict: 'codigo' });
       if (error) throw error;
     }
+  }
+
+  /** Lo que trajo la lista de una compra ágil (dato público, sin
+   *  company_id): con eso y su detalle se completa cuando alguien la abre
+   *  (decisión 20). null si no es una compra ágil guardada. */
+  async itemDeCompraAgil(codigo: string): Promise<CompraAgilListada | null> {
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('item:detalle->item')
+      .eq('codigo', codigo)
+      .eq('tipo', 'compra_agil')
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { item?: CompraAgilListada | null } | null)?.item ?? null;
   }
 
   async actualizarCierre(

@@ -22,7 +22,6 @@ import {
   MercadoPublicoError,
 } from './mercado-publico/mercado-publico.client';
 import type {
-  CompraAgilDetalle,
   CompraAgilListada,
   LicitacionListada,
   ProcesoMp,
@@ -62,13 +61,14 @@ const LECTURAS_FALLIDAS_PARA_CORTAR = 10;
 const MINUTO = 60 * 1000;
 const HORA = 60 * MINUTO;
 /** Tiempo de cada corrida, contado desde que parte: detalles de
- *  licitaciones hasta los 45 minutos, compras ágiles hasta los 70 y lectura
- *  hasta los 150. Así una corrida nunca llega a las 3 horas en que la
- *  siguiente la da por muerta, y lo leído llega antes; lo que falta entra en
- *  la próxima. */
+ *  licitaciones hasta los 45 minutos y lectura hasta los 150. Así una
+ *  corrida nunca llega a las 3 horas en que la siguiente la da por muerta,
+ *  y lo leído llega antes; lo que falta entra en la próxima. Las compras
+ *  ágiles no tienen tope: entran de una con lo de la lista (decisión 20). */
 const PRESUPUESTO_DETALLES_MS = 45 * MINUTO;
-const PRESUPUESTO_COMPRAS_MS = 70 * MINUTO;
 const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
+/** Las compras ágiles se guardan de a tantas. */
+const COMPRAS_POR_LOTE = 100;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
 
@@ -283,12 +283,13 @@ export class RadarService {
         ...new Set([...configs.values()].flatMap((c) => c.regiones ?? [])),
       ];
 
-      // Se lee dos veces: tras las licitaciones (lo más grande se lee antes,
-      // sin esperar las compras ágiles, que son lentas) y tras las compras.
+      // Primero las compras ágiles (entran todas de una con lo de la lista y
+      // cierran en días: se leen al tiro, decisión 20), después las
+      // licitaciones, y se lee otra vez.
       const intentadas = new Set<string>();
-      await this.licitaciones(resumen, inicio);
+      await this.comprasAgiles(resumen, regiones);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
-      await this.comprasAgiles(resumen, regiones, inicio);
+      await this.licitaciones(resumen, inicio);
       await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
       await this.historia.cargarHistoria(resumen, inicio, origen);
@@ -466,12 +467,18 @@ export class RadarService {
   }
 
   // ------------------------------------------------------------
-  // Compras ágiles: solo las regiones configuradas
+  // Compras ágiles: solo las regiones configuradas, todas de una
   // ------------------------------------------------------------
+  // Decisión 20 (Felipe, 17-10: "¿las compras ágiles están funcionando? no
+  // veo ninguna"). Pedir el detalle de cada una tardaba unos 20 segundos:
+  // en la pasada de las 18:00 entraron 54 de 750, y cierran en días. Ahora
+  // entran todas con lo que trae la lista (nombre, comprador, monto,
+  // región y cierre), primero las que cierran antes, y la IA las lee al
+  // tiro, como hacía el bot. La descripción y los productos se piden
+  // cuando alguien abre una (OportunidadesService.ficha).
   private async comprasAgiles(
     resumen: ResumenCorrida,
     regiones: string[],
-    inicio: number,
   ): Promise<void> {
     const r = resumen.compras_agiles;
     if (!this.mp.configurado) {
@@ -517,61 +524,18 @@ export class RadarService {
       `radar: ${r.listadas} compras ágiles en la lista, ${r.nuevas} nuevas`,
     );
 
-    // Se guardan de a 50: si el motor se reinicia a la mitad, lo ya pedido
-    // no se pierde.
-    let porGuardar: ProcesoMp[] = [];
-    const vaciar = async () => {
-      if (porGuardar.length === 0) return;
-      const lote = porGuardar;
-      porGuardar = [];
+    // Con lo de la lista, sin pedir el detalle; de a lote, primero las que
+    // cierran antes.
+    const procesos = nuevas
+      .map((item) => procesoDesdeCompraAgil(item, null))
+      .filter((p): p is ProcesoMp => p !== null)
+      .sort((a, b) => cierreParaOrdenar(a) - cierreParaOrdenar(b));
+    for (let i = 0; i < procesos.length; i += COMPRAS_POR_LOTE) {
+      const lote = procesos.slice(i, i + COMPRAS_POR_LOTE);
       await this.repo.guardarProcesos(lote);
       r.guardadas += lote.length;
-    };
-    let sinCupo = false;
-    let sinTiempo = false;
-    let intentadas = 0;
-    try {
-      await enParalelo(
-        nuevas,
-        DETALLES_EN_PARALELO,
-        async (item: CompraAgilListada) => {
-          if (sinTiempo || Date.now() - inicio > PRESUPUESTO_COMPRAS_MS) {
-            sinTiempo = true;
-            return;
-          }
-          intentadas++;
-          let detalle: CompraAgilDetalle | null = null;
-          if (!sinCupo) {
-            try {
-              detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
-            } catch (error) {
-              if (!(error instanceof MercadoPublicoError)) throw error;
-              if (error.sinCupo) sinCupo = true;
-            }
-          }
-          // Sin detalle igual se guarda: nombre, comprador y monto vienen en
-          // la lista, y la próxima vez no se vuelve a pedir.
-          const proceso = procesoDesdeCompraAgil(item, detalle);
-          if (proceso) porGuardar.push(proceso);
-          if (porGuardar.length >= 50) await vaciar();
-        },
-      );
-    } finally {
-      await vaciar();
-      r.pendientes = nuevas.length - intentadas;
     }
-    if (sinCupo) {
-      r.estado = 'sin_cupo';
-      resumen.avisos.push(
-        'Compra Ágil sin cupo para detalles: algunas quedaron solo con lo de la lista.',
-      );
-    }
-    if (sinTiempo) {
-      r.estado = 'cortada';
-      resumen.avisos.push(
-        `Se acabó el tiempo de esta corrida para las compras ágiles: quedan ${r.pendientes} para la próxima.`,
-      );
-    }
+    r.pendientes = 0;
   }
 
   // ------------------------------------------------------------
