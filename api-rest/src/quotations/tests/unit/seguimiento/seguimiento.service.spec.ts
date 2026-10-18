@@ -37,6 +37,7 @@ const cotizacion = (
   id: 'q607',
   company_id: 1,
   quotation_number: 607,
+  created_at: '2026-10-11T13:00:00+00:00',
   quotation_status: 'enviada',
   request_type: 'cotizacion',
   event_type: 'Estadía y Alimentación',
@@ -360,6 +361,45 @@ describe('SeguimientoConIAService', () => {
     expect(r.accion).toBe('saltada');
     expect(outlook.borradorDeSeguimiento).not.toHaveBeenCalled();
     expect(bitacora.create).not.toHaveBeenCalled();
+  });
+
+  it('sin el hilo de la cotización en contacto@, lo busca en los demás buzones (nunca otro hilo)', async () => {
+    const parse = nuevoParse().mockResolvedValue(respuestaDe(escrito));
+    const outlook = outlookFalso();
+    const FELIPE = 'felipe@valledelsolquillon.cl';
+    outlook.buzones = [CONTACTO, FELIPE];
+    const factura: MensajeDelBuzon = {
+      ...envioDeEventia,
+      id: 'fac1',
+      hilo: 'h-factura',
+      de: CONTACTO,
+      asunto: 'RE: Factura N°347 evento',
+      fecha: '2026-10-16T10:00:00Z',
+    };
+    const deFelipe: MensajeDelBuzon = {
+      ...envioDeEventia,
+      id: 'fel1',
+      hilo: 'h-felipe',
+      de: FELIPE,
+      asunto: 'RE: Cotización paseo',
+      fecha: '2026-10-12T10:00:00Z',
+    };
+    outlook.buscar.mockImplementation((buzon: string) =>
+      Promise.resolve(buzon === CONTACTO ? [factura] : [deFelipe]),
+    );
+    const { servicio } = armar(parse, { outlook });
+
+    const r = await servicio.generar('q607', usuario);
+
+    expect(outlook.buscar).toHaveBeenCalledWith(FELIPE, 'cliente@ejemplo.cl');
+    expect(outlook.borradorDeSeguimiento).toHaveBeenCalledWith(
+      FELIPE,
+      'fel1',
+      escrito.cuerpo_html,
+      'cliente@ejemplo.cl',
+      [],
+    );
+    expect(r).toMatchObject({ buzon: FELIPE, modo: 'seguimiento' });
   });
 
   it('sin la llave de Outlook, 503 claro', async () => {

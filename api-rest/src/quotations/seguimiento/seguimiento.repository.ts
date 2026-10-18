@@ -15,6 +15,8 @@ export type FilaDeLaCotizacion = {
   id: string;
   company_id: number;
   quotation_number: number;
+  /** Cuándo se creó: el hilo de la cotización tiene movimiento después. */
+  created_at: string | null;
   quotation_status: string;
   request_type: string;
   event_type: string | null;
@@ -111,7 +113,7 @@ export class SeguimientoRepository {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, company_id, quotation_number, quotation_status, request_type, ' +
+        'id, company_id, quotation_number, created_at, quotation_status, request_type, ' +
           'event_type, event_date, event_end_date, people_count, children_count, ' +
           'total_amount, sent_at, observations, comentario_interno, contact_name, ' +
           'client_contact_id, clients(name, email, client_type, client_contacts(id, name, email))',

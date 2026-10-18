@@ -14,8 +14,12 @@
 > **17-10 en la noche: cuándo sale el borrador (§9).** Decisión de Felipe
 > con la 559 a la vista. **Probado en el laboratorio** el 18-10 a las 02:45
 > UTC contra Outlook de verdad (migración 141 en la base del lab, motor
-> `5a1727a`, vitrina `6ad4317c`); producción, el 18-10, coordinada con la
-> sesión de Oportunidades.
+> `5a1727a`, vitrina `6ad4317c`). **EN PRODUCCIÓN desde el 18-10-2026**
+> (Felipe: *"si dale a producción"*; PR #153, migración 141 aplicada en
+> producción antes de fusionar), coordinada con la sesión de Oportunidades.
+>
+> **18-10: siempre el hilo de la cotización (§3 punto 3).** Felipe: *"si
+> dale que prefiera el hilo de la cotización siempre"*. En el laboratorio.
 
 ## 1. Por qué
 
@@ -65,9 +69,18 @@ vencidas: esas no entran.
    cotización: contacto@ primero (ahí llega la copia oculta de cada
    «Enviar cotización» desde el 16-09, porque es el buzón de respuestas de
    la empresa), después felipe@, camila@, reservas@ y recepcion@.
+   - **Siempre el hilo de la cotización** (Felipe, 18-10: *"que prefiera
+     el hilo de la cotización siempre"*; el 17-10 la 493 quedó escrita en un
+     hilo de factura). Es el que nombra su N° en el asunto (gana siempre), o
+     el que habla de cotización o trae el correo de «Enviar cotización» de
+     Eventia, sin nombrar otro número y con movimiento después de creada la
+     cotización. Si un buzón no lo tiene, se sigue con el siguiente.
+     Medido con las 10 del 17-10: 8 quedan igual; la 493 (factura) y la 508
+     (su único hilo era el de la #535, otra cotización) pasan a correo nuevo.
    - **Con hilo:** borrador de seguimiento sobre el último mensaje de la
      casa, dirigido al cliente y con las mismas copias.
-   - **Sin hilo:** correo nuevo en contacto@, con el asunto de la casa.
+   - **Sin el hilo de la cotización en ningún buzón:** correo nuevo en
+     contacto@, con el asunto de la casa. Nunca otro hilo.
 4. **Escribe** con las reglas de correo (sección 4) y deja el borrador con
    el aviso ámbar de la casa. **Nunca envía, nunca borra ni mueve.**
 5. **Bitácora:** una línea a nombre de quien apretó el botón (como «Crear
@@ -259,4 +272,21 @@ leyendo Outlook:
 Lo que enseñó la prueba: PostgREST vuelve a aplicar un filtro `or` sobre lo
 que devuelve un update, y ahí la columna no venía (error 42703). La toma del
 borrador quedó con filtros simples y el freno de 5 minutos en el servicio.
+
+### 9.6 La subida a producción (18-10, 00:13 a 00:45 Chile)
+
+Migración 141 en producción, PR #153 fusionada (`main` 82cd5a9, motor
+`82cd5a9`), vitrina de producción `6ad43b7f`. Al cargar los 6 borradores del
+17-10 apareció que `creado_por` tenía una llave a `user_profiles(id)` y el
+motor guarda el id de la sesión: se quitó con la migración 142 en las dos
+bases, sin reiniciar el motor (mapa 18 §23). La primera revisión, al abrir
+Cotizaciones:
+
+| N° | Resultado |
+|---|---|
+| 536 y 559 | Salieron: línea «Asistente» con próximo contacto por correo el 31-10, y dejaron la lista |
+| 477 y 578 | Esperan en Borradores: aviso «Borrador en Outlook» |
+| 607 y 493 | Se borraron sin enviarse: descartadas, vuelve el botón |
+
+Respaldo de la carga: `02_RESPALDOS/cambios_de_datos/2026-10-18_seguimientos_con_ia_carga_del_17-10.json`.
 

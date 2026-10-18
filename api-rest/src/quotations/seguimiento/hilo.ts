@@ -5,6 +5,12 @@
 // mismas reglas de la skill `correos-cotizaciones-vds` (función 2): el
 // último mensaje real decide si es seguimiento o respuesta, y un hilo que
 // ya tiene un borrador no se toca.
+//
+// Y SIEMPRE el hilo de la cotización (Felipe, 18-10: "que prefiera el hilo
+// de la cotización siempre"): el 17-10 la 493 quedó escrita en un hilo de
+// FACTURA de un evento anterior, porque era el correo más reciente con ese
+// contacto. Si ningún buzón tiene el hilo de la cotización, va un correo
+// nuevo; nunca otro hilo.
 
 import { ddmm, fechaEnChile } from './elegibles';
 import type { MensajeDelBuzon } from './outlook';
@@ -25,34 +31,103 @@ export type DecisionDelHilo =
       mensaje: MensajeDelBuzon;
       hilo: MensajeDelBuzon[];
     }
-  /** No hay hilo con el cliente en ningún buzón: correo nuevo. */
+  /** No hay hilo de la cotización en ningún buzón: correo nuevo. */
   | { modo: 'nuevo'; buzon: string }
   | { modo: 'saltar'; motivo: string };
+
+const porFecha = (a: MensajeDelBuzon, b: MensajeDelBuzon) =>
+  Date.parse(b.fecha) - Date.parse(a.fecha);
+
+/** Los números de cotización que nombra un asunto: «N° 477», «#535»,
+ *  «nro. 12». */
+const NUMERO_EN_ASUNTO =
+  /(?:n\s*[°º.]|#|nro\.?|n[uú]mero)\s*:?\s*(\d{2,6})(?!\d)/gi;
+const ASUNTO_DE_COTIZACION = /cotiz|presupuesto/i;
+
+/** El hilo de la cotización entre los mensajes de un buzón, del más nuevo
+ *  al más viejo, o null si no hay. Es de la cotización el hilo cuyo asunto
+ *  nombra su N° (gana siempre), o el que habla de cotización (o trae el
+ *  correo de «Enviar cotización» de Eventia) sin nombrar OTRO número y con
+ *  movimiento después de creada la cotización. Medido el 18-10 con las 10
+ *  de ese día: 8 quedan en el mismo hilo; la 493 (hilo de factura) y la 508
+ *  (su único hilo era el de la #535, otra cotización) pasan a correo nuevo. */
+export function hiloDeLaCotizacion(p: {
+  mensajes: MensajeDelBuzon[];
+  numero: number;
+  /** Cuándo se creó la cotización (ISO). */
+  creada: string | null;
+  esDeEventia: (correo: string) => boolean;
+}): MensajeDelBuzon[] | null {
+  const porHilo = new Map<string, MensajeDelBuzon[]>();
+  for (const m of p.mensajes) {
+    porHilo.set(m.hilo, [...(porHilo.get(m.hilo) ?? []), m]);
+  }
+  const creada = p.creada ? Date.parse(p.creada) : null;
+  let mejor: { puntaje: number; ultimo: number; hilo: MensajeDelBuzon[] } = {
+    puntaje: 0,
+    ultimo: 0,
+    hilo: [],
+  };
+  for (const hilo of porHilo.values()) {
+    const asuntos = hilo.map((m) => m.asunto).join(' | ');
+    const numeros = new Set(
+      [...asuntos.matchAll(NUMERO_EN_ASUNTO)].map((x) => Number(x[1])),
+    );
+    const ultimo = Math.max(...hilo.map((m) => Date.parse(m.fecha)));
+    let puntaje = 0;
+    if (numeros.has(p.numero)) puntaje = 2;
+    else if (
+      numeros.size === 0 &&
+      (ASUNTO_DE_COTIZACION.test(asuntos) ||
+        hilo.some((m) => p.esDeEventia(m.de))) &&
+      (creada === null || ultimo >= creada)
+    ) {
+      puntaje = 1;
+    }
+    if (
+      puntaje > mejor.puntaje ||
+      (puntaje > 0 && puntaje === mejor.puntaje && ultimo > mejor.ultimo)
+    ) {
+      mejor = { puntaje, ultimo, hilo };
+    }
+  }
+  return mejor.puntaje > 0 ? [...mejor.hilo].sort(porFecha) : null;
+}
 
 export function decidirHilo(p: {
   /** Lo encontrado en cada buzón, en el orden en que se buscan. */
   encontrados: Array<{ buzon: string; mensajes: MensajeDelBuzon[] }>;
   esDeLaCasa: (correo: string) => boolean;
+  esDeEventia: (correo: string) => boolean;
   /** Cuándo se anotó la última gestión en la bitácora (ISO). */
   ultimaGestion: string | null;
   /** Donde va el correo nuevo si no hay hilo (contacto@). */
   buzonParaNuevo: string;
+  /** La cotización: su N° y cuándo se creó (ISO). */
+  numero: number;
+  creada: string | null;
 }): DecisionDelHilo {
-  const conAlgo = p.encontrados.find((e) => e.mensajes.length > 0);
-  if (!conAlgo) return { modo: 'nuevo', buzon: p.buzonParaNuevo };
-
-  // El hilo es la conversación del mensaje más reciente con el cliente.
-  const porFecha = (a: MensajeDelBuzon, b: MensajeDelBuzon) =>
-    Date.parse(b.fecha) - Date.parse(a.fecha);
-  const masNuevo = [...conAlgo.mensajes].sort(porFecha)[0];
-  const hilo = conAlgo.mensajes
-    .filter((m) => m.hilo === masNuevo.hilo)
-    .sort(porFecha);
+  // El primer buzón (en orden) que tenga el hilo de la cotización.
+  let buzon = '';
+  let hilo: MensajeDelBuzon[] | null = null;
+  for (const e of p.encontrados) {
+    hilo = hiloDeLaCotizacion({
+      mensajes: e.mensajes,
+      numero: p.numero,
+      creada: p.creada,
+      esDeEventia: p.esDeEventia,
+    });
+    if (hilo) {
+      buzon = e.buzon;
+      break;
+    }
+  }
+  if (!hilo) return { modo: 'nuevo', buzon: p.buzonParaNuevo };
 
   if (hilo.some((m) => m.borrador)) {
     return {
       modo: 'saltar',
-      motivo: `ya hay un borrador en el hilo de ${conAlgo.buzon}.`,
+      motivo: `ya hay un borrador en el hilo de ${buzon}.`,
     };
   }
 
@@ -68,9 +143,9 @@ export function decidirHilo(p: {
         motivo: `el cliente escribió el ${dia} («${ultimo.asunto}») después de la última gestión: requiere tu respuesta.`,
       };
     }
-    return { modo: 'responder', buzon: conAlgo.buzon, mensaje: ultimo, hilo };
+    return { modo: 'responder', buzon, mensaje: ultimo, hilo };
   }
-  return { modo: 'seguimiento', buzon: conAlgo.buzon, mensaje: ultimo, hilo };
+  return { modo: 'seguimiento', buzon, mensaje: ultimo, hilo };
 }
 
 /** Las copias de un seguimiento: quienes venían en el último correo de la
