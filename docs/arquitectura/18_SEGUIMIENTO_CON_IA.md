@@ -14,8 +14,9 @@
 > **17-10 en la noche: cuándo sale el borrador (§9).** Decisión de Felipe
 > con la 559 a la vista. **Probado en el laboratorio** el 18-10 a las 02:45
 > UTC contra Outlook de verdad (migración 141 en la base del lab, motor
-> `5a1727a`, vitrina `6ad4317c`); producción, el 18-10, coordinada con la
-> sesión de Oportunidades.
+> `5a1727a`, vitrina `6ad4317c`). **EN PRODUCCIÓN desde el 18-10-2026**
+> (Felipe: *"si dale a producción"*; PR #153, migración 141 aplicada en
+> producción antes de fusionar), coordinada con la sesión de Oportunidades.
 
 ## 1. Por qué
 
