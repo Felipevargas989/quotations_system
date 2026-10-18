@@ -12,9 +12,10 @@
 > (paso 3) y las lecciones que deje.
 >
 > **17-10 en la noche: cuándo sale el borrador (§9).** Decisión de Felipe
-> con la 559 a la vista. Construido en el laboratorio (migración 141 y
-> `POST /quotations/seguimiento/revisar`); producción, el 18-10, coordinada
-> con la sesión de Oportunidades.
+> con la 559 a la vista. **Probado en el laboratorio** el 18-10 a las 02:45
+> UTC contra Outlook de verdad (migración 141 en la base del lab, motor
+> `5a1727a`, vitrina `6ad4317c`); producción, el 18-10, coordinada con la
+> sesión de Oportunidades.
 
 ## 1. Por qué
 
@@ -165,8 +166,11 @@ desaparezca cuando se registra la gestión"*. Decidió:
 - Al ver que salió, anota el envío en la bitácora con el próximo contacto:
   *"dejemos en 14 días siguiente contacto por correo, 2 correos sin
   respuesta pasa a calendarizarse un llamado a la siguiente semana"*.
-- Mientras el borrador espera, la tarjeta muestra **«Borrador en Outlook ·
-  Abrir»** en vez del botón. Así no se escriben dos.
+- Mientras el borrador espera, la tarjeta muestra el aviso **«Borrador en
+  Outlook»** en vez del botón. Así no se escriben dos. Sin enlace para
+  abrirlo (Felipe, 18-10: *"el aviso acá es más que suficiente"*): se
+  abre en Outlook, donde se revisa y se envía. Lo mismo el «Borrador listo»
+  que aparece al escribirlo.
 - OK final: *"si dale me parece bien"*.
 
 ### 9.1 Lo que se midió antes de construir (17-10, solo leyendo)
@@ -202,8 +206,8 @@ Dos hallazgos de esa medición:
    `POST /quotations/seguimiento/revisar`. El motor pregunta por cada
    borrador que espera (los de los últimos 30 días; cada uno como mucho cada
    5 minutos, y una sola pantalla a la vez):
-   - **Sigue de borrador:** nada. La tarjeta dice «Borrador en Outlook ·
-     Abrir» y «Generar seguimientos (N)» no lo cuenta.
+   - **Sigue de borrador:** nada. La tarjeta dice «Borrador en Outlook» y
+     «Generar seguimientos (N)» no lo cuenta.
    - **Salió:** una línea en la bitácora a nombre de **Asistente**, por
      ejemplo «Seguimiento con IA enviado desde contacto@ el 17-10. Próximo
      contacto por correo el 31-10, en 14 días.» El tipo de la nota es el del
@@ -240,4 +244,19 @@ Se cargan a mano en producción cuando suba (los 6 de Camila):
 - 477 y 578 quedan esperando.
 - 536 y 559 se anotan solos en la primera revisión.
 - 607 y 493 quedan descartados.
+
+### 9.5 La prueba del laboratorio (18-10, 02:45 UTC)
+
+Con tres borradores de felipe@ (el único buzón del laboratorio), solo
+leyendo Outlook:
+
+| N° del lab | Caso | Resultado |
+|---|---|---|
+| 475 | El borrador de prueba sigue en Borradores | Queda esperando; la tarjeta muestra «Borrador en Outlook» y «Generar seguimiento» se salta («ya hay un borrador esperando en Outlook (felipe@)»), sin gastar IA |
+| 436 | Un correo que ya salió de felipe@ | Línea «Asistente»: «Seguimiento con IA enviado desde felipe@ el 17-10. Próximo contacto por correo el 31-10, en 14 días.» |
+| 437 | Un identificador que ya no existe | Descartado, sin línea |
+
+Lo que enseñó la prueba: PostgREST vuelve a aplicar un filtro `or` sobre lo
+que devuelve un update, y ahí la columna no venía (error 42703). La toma del
+borrador quedó con filtros simples y el freno de 5 minutos en el servicio.
 

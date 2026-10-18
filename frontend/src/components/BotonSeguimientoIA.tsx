@@ -11,12 +11,15 @@ import type { BorradorEnEspera } from "../services/quotations.service";
 // El botón chico «✉ Generar seguimiento» (17-10-2026, doc 18): en la
 // tarjeta del tablero y en el aviso «Contacto comprometido» de la ficha.
 // Mientras la IA escribe, gira; cuando el borrador quedó, se vuelve el
-// enlace para abrirlo en Outlook (nada se envía: se revisa y se envía
-// desde ahí). Si se saltó, dice por qué al pasar el mouse.
+// aviso «Borrador listo» (nada se envía: se revisa y se envía desde
+// Outlook). Si se saltó, dice por qué al pasar el mouse.
 //
 // Si un borrador de antes todavía espera en Outlook (doc 18 §9), en vez del
-// botón va «Borrador en Outlook · Abrir»: no se escribe otro. Cuando salga,
+// botón va el aviso «Borrador en Outlook»: no se escribe otro. Cuando salga,
 // Eventia lo anota solo y la cotización deja la lista.
+//
+// Los avisos no llevan enlace (Felipe, 18-10: "el aviso acá es más que
+// suficiente"): el borrador se abre en Outlook, donde se revisa y se envía.
 //
 // Los clics no siguen de largo: la tarjeta entera abre la ficha.
 export default function BotonSeguimientoIA({
@@ -38,68 +41,28 @@ export default function BotonSeguimientoIA({
   readonly texto?: string;
 }) {
   if (resultado?.accion === "borrador") {
-    const contenido = (
-      <>
-        <CheckCircle2 size={13} aria-hidden />
-        <span>
-          {resultado.enlace ? "Borrador listo · Abrir" : "Borrador listo"}
-        </span>
-      </>
-    );
-    return resultado.enlace ? (
-      <a
-        href={resultado.enlace}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-        title={`${resultado.detalle}. Ábrelo en Outlook, revísalo y envíalo desde ahí.`}
-      >
-        {contenido}
-      </a>
-    ) : (
+    return (
       <span
+        onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50"
-        title={resultado.detalle}
+        title={`${resultado.detalle}. Revísalo en Outlook y envíalo desde ahí.`}
       >
-        {contenido}
+        <CheckCircle2 size={13} aria-hidden />
+        <span>Borrador listo</span>
       </span>
     );
   }
 
   if (!resultado && enEspera) {
     const buzon = `${enEspera.buzon.split("@")[0]}@`;
-    const titulo = `La IA ya dejó el borrador en ${buzon}. Ábrelo, revísalo y envíalo desde Outlook: cuando salga, Eventia lo anota solo.`;
-    const contenido = (
-      <>
-        <Clock size={13} aria-hidden />
-        <span>
-          {enEspera.enlace
-            ? "Borrador en Outlook · Abrir"
-            : "Borrador en Outlook"}
-        </span>
-      </>
-    );
-    const clase =
-      "inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-violet-800 bg-violet-50";
-    return enEspera.enlace ? (
-      <a
-        href={enEspera.enlace}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className={`${clase} hover:bg-violet-100`}
-        title={titulo}
-      >
-        {contenido}
-      </a>
-    ) : (
+    return (
       <span
         onClick={(e) => e.stopPropagation()}
-        className={clase}
-        title={titulo}
+        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-violet-800 bg-violet-50"
+        title={`La IA ya dejó el borrador en ${buzon}. Revísalo y envíalo desde Outlook: cuando salga, Eventia lo anota solo.`}
       >
-        {contenido}
+        <Clock size={13} aria-hidden />
+        <span>Borrador en Outlook</span>
       </span>
     );
   }

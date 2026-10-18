@@ -18,7 +18,7 @@ import { humanizeApiError } from "../utils/apiErrors";
 // Y al abrir la lista (doc 18 §9, Felipe 17-10): el motor mira en Outlook si
 // los borradores que esperan ya salieron. Si salieron, anota el envío con
 // el próximo contacto y la cotización sale sola de la lista; mientras
-// esperan, la tarjeta muestra «Borrador en Outlook · Abrir». Sin IA, y como
+// esperan, la tarjeta muestra el aviso «Borrador en Outlook». Sin IA, y como
 // mucho una vez cada 5 minutos.
 
 export type Seguimiento = { id: string; numero: number };
