@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los choques de fecha con una aceptada (§5.6, migración 143; en el laboratorio). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -19,8 +19,8 @@ Lo usan vendedores, operaciones y administración. Recepción mira el tablero y 
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| `/quotations` | `QuotationsPage` | `frontend/src/pages/quotations/QuotationsPage.tsx` | Tablero único de 3 columnas con la suma por columna. Ahí se puede:<br>• cambiar el estado con el menú de la tarjeta o arrastrándola<br>• ordenar por monto, urgencia, fecha o N°<br>• filtrar "Requieren seguimiento"<br>• buscar, que también encuentra cerradas y rechazadas plegadas<br>• ver el aviso de requerimientos pendientes<br>• abrir la ficha o el visor PDF<br>• «✉ Generar seguimiento» en la tarjeta vencida por correo y «✉ Generar seguimientos (N)» arriba (17-10-2026, doc 18; mapa 01 §5.8): la IA deja el borrador en Outlook, nunca envía; mientras el borrador espera, la tarjeta muestra el aviso «Borrador en Outlook», y cuando sale Eventia lo anota solo en la bitácora a nombre de «Asistente» con el próximo contacto (doc 18 §9) | `SECTION_ROLES.quotations` (recepción, vendedor, operaciones, administrador). Cambiar estado, arrastrar y "nueva cotización": solo `quotations_edit` |
-| `/negocio/:id` | `NegocioPage` | `frontend/src/pages/quotations/NegocioPage.tsx` | Encabezado con cliente y mandante (copiar teléfono y correo; el nombre del cliente lleva a su ficha `/clients/:id`, 14-10-2026), chip de estado, WhatsApp, **Enviar cotización** y PDF. Abajo `EventoCajitas` (fecha editable si el evento no está congelado). Pestaña Seguimiento: `HiloSeguimiento` + `AdjuntosComerciales` (en el aviso «Contacto comprometido», «✉ Generar seguimiento con IA» si venció por correo; doc 18). Pestaña Servicios: `ServiciosTab`, el editor completo, con Observaciones y el comentario interno (17-10-2026; mapa 01, regla 31) | `SECTION_ROLES.quotations`. Chip que cambia estado, fecha de las cajitas, pestaña Servicios y respaldos: solo `quotations_edit`. El botón Enviar cotización lo ve cualquiera que entre |
+| `/quotations` | `QuotationsPage` | `frontend/src/pages/quotations/QuotationsPage.tsx` | Tablero único de 3 columnas con la suma por columna. Ahí se puede:<br>• cambiar el estado con el menú de la tarjeta o arrastrándola<br>• ordenar por monto, urgencia, fecha o N°<br>• filtrar "Requieren seguimiento"<br>• buscar, que también encuentra cerradas y rechazadas plegadas<br>• ver el aviso de requerimientos pendientes<br>• abrir la ficha o el visor PDF<br>• «✉ Generar seguimiento» en la tarjeta vencida por correo y «✉ Generar seguimientos (N)» arriba (17-10-2026, doc 18; mapa 01 §5.8): la IA deja el borrador en Outlook, nunca envía; mientras el borrador espera, la tarjeta muestra el aviso «Borrador en Outlook», y cuando sale Eventia lo anota solo en la bitácora a nombre de «Asistente» con el próximo contacto (doc 18 §9)<br>• el aviso rojo «Choca con N° X · aceptada» en la tarjeta que cae en las fechas de una aceptada, con «Sí, puede seguir» y «Hay que gestionar» (§5.6) | `SECTION_ROLES.quotations` (recepción, vendedor, operaciones, administrador). Cambiar estado, arrastrar y "nueva cotización": solo `quotations_edit` |
+| `/negocio/:id` | `NegocioPage` | `frontend/src/pages/quotations/NegocioPage.tsx` | Encabezado con cliente y mandante (copiar teléfono y correo; el nombre del cliente lleva a su ficha `/clients/:id`, 14-10-2026), chip de estado, WhatsApp, **Enviar cotización** y PDF. Abajo `EventoCajitas` (fecha editable si el evento no está congelado). Bajo las fechas, el aviso rojo de los choques con una aceptada (`AvisoDeChoque`, §5.6). Pestaña Seguimiento: `HiloSeguimiento` + `AdjuntosComerciales` (en el aviso «Contacto comprometido», «✉ Generar seguimiento con IA» si venció por correo; doc 18). Pestaña Servicios: `ServiciosTab`, el editor completo, con Observaciones y el comentario interno (17-10-2026; mapa 01, regla 31) | `SECTION_ROLES.quotations`. Chip que cambia estado, fecha de las cajitas, pestaña Servicios y respaldos: solo `quotations_edit`. El botón Enviar cotización lo ve cualquiera que entre |
 | `/imprimir/:token` | `ImprimirCotizacion` | `frontend/src/pages/quotations/ImprimirCotizacion.tsx` | Ninguna persona: la abre el navegador invisible del motor para imprimir el PDF. Pinta `buildQuotationPrintDoc` | Pública, fuera de `Layout`; solo con token firmado |
 | `/requests` | `RequestsPage` | `frontend/src/pages/RequestsPage.tsx` y `frontend/src/components/RequestForm.tsx` | Lista y busca requerimientos; los crea o edita con `RequestForm`; los elimina con `ConfirmInline`; comparte el enlace del formulario público. "Cotizar" lleva a `/quotation-form/:id` (mapa 01) | `SECTION_ROLES.requests` (todos). Cotizar solo `quotations_edit` |
 
@@ -46,6 +46,8 @@ Otras puertas a la ficha:
 | `POST /quotations/:id/enviar-correo` | `QuotationsController.enviarPorCorreo` | `EnvioCotizacionService.enviar` | `enviarCotizacionPorCorreo` desde `NegocioPage.enviarPorCorreo` | Autenticado, **sin `@Roles`** (recepción incluida) |
 | `GET /quotations/imprimir/:token` | `QuotationsController.hojaParaImprimir` | `EnvioCotizacionService.hojaParaImprimir` | `getHojaParaImprimir` desde `ImprimirCotizacion` | `@Public`, `@Throttle` de 30 por minuto |
 | `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | `QuotationsService.checkConflictsWithExistingQuotations` | `checkConflictsWithExistingQuotations` ← el componente `EventoCajitas` (con `exclude_id`), montado en `NegocioPage` y `PostVentaPage`; vía el hook `useDateAvailability`, también `QuotationForm` (mapa 01) y `RequestForm` (en `RequestsPage`) | Autenticado |
+| `GET /quotations/choques/pendientes` | `QuotationsController.choquesDeFecha` | `ChoquesDeFechaService.listar` (`api-rest/src/quotations/choques/`, §5.6): calcula los choques de las vivas con las aceptadas y descuenta los ya decididos con esas fechas | `getChoquesDeFecha` ← hook `useChoquesDeFecha` (llave `["quotations", "choques-de-fecha"]`: cambiar un estado o una fecha ya la refresca) en `QuotationsPage` (tarjeta) y `NegocioPage` (bajo las fechas) | `RECEPTION_AND_UP` |
+| `POST /quotations/:id/choques/:aceptadaId` | `QuotationsController.decidirChoque` (`DecisionDeChoqueDto`: `puede_seguir` o `gestionar`) | `ChoquesDeFechaService.decidir`: valida que sigan vivas y chocando (409 si no), escribe la línea en la bitácora con `QuotationFollowupsService.create` y guarda la decisión con las fechas de ese momento | `decidirChoque` ← `AvisoDeChoque` (botones «Sí, puede seguir» y «Hay que gestionar») | `SALES_AND_UP` |
 | `POST /quotations` | `QuotationsController.create` | `QuotationsService.create` | `createQuotation` ← `RequestForm`, el formulario de requerimientos que monta `RequestsPage` (desde el cotizador, `QuotationForm`, es el mapa 01) | Autenticado; recepción solo `request_type = requerimiento` |
 | `DELETE /quotations/:id` | `QuotationsController.remove` | `QuotationsService.remove` (candado del realizado) → `QuotationsRepository.remove`, que corre `assertDeletable` | `deleteQuotation` en `RequestsPage` y `QuotationForm` | Autenticado |
 | `GET /quotation-followups/map` | `QuotationFollowupsController.map` | `QuotationFollowupsService.mapByCompany` | `getFollowupsMap` ← `QuotationsPage` (semáforo del tablero) y `PostVentaPage` (aviso ámbar) | `RECEPTION_AND_UP` (en la clase) |
@@ -67,6 +69,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 |---|---|---|---|
 | `quotations` | La cotización: `quotation_status`, `request_type`, `items`, montos, `contact_name`, `client_contact_id`, `sent_at`, `loss_reason`, `survey_sent_at`, `recontacted_at/by`, `harvest_status` | Lee y escribe | Base en `docs/migrations/0_initial_models.sql` (foto de contexto). Además: `26_event_done_survey.sql`, `33_quotation_contact_name.sql`, `38_numero_cotizacion_unico.sql`, `48_portal_del_mandante.sql` (`client_contact_id`), `51_seguimiento_sent_at.sql` (con relleno de las enviadas), `61_motivo_perdida.sql`, `62_recontacto.sql`, `63_estado_cosecha.sql`, `64_estado_cosecha_check.sql` |
 | `quotation_followups` | La bitácora: `note`, `tipo` (llamada, correo, reunion, whatsapp, otro), `next_contact_date`, `next_contact_done_at`, `author_user_id` y `author_name` congelado. Las líneas «Asistente» (sin autor: nadie las edita) las escribe el seguimiento con IA cuando el borrador sale (`crearComoAsistente`, mapa 01 §5.8 punto 8) | Lee y escribe | `59_bitacora_comercial.sql` (FK `ON DELETE CASCADE` a `quotations`, GRANT a `service_role`) y `65_seguimiento_cumplido.sql`. Cada una con su `_reversa` |
+| `choques_de_fecha` | La decisión de la persona para cada par viva-aceptada que chocan: `puede_seguir` o `gestionar`, las fechas de las dos en ese momento, la línea de la bitácora y quién (id de la sesión, sin llave). El choque mismo no se guarda: se calcula | Lee y escribe (`choques/choques.repository.ts`) | `143_choques_de_fecha.sql` |
 | `client_contacts` | El mandante: nombre, correo, teléfono, `portal_token` | Solo lee: destinatario del envío, toques 7/14, contacto del tablero | `34_client_contacts.sql` y siguientes, `48` (token del portal), `50_correos_a_personas.sql` (catastro). Mapa 09 |
 | `clients` | Nombre, correo general (respaldo del destinatario del botón), `contact_person`, `phone` | Solo lee | Mapa 09 |
 | `companies` | La marca (`name`, `logo_url`, `colors`) y `notifications`: `replyTo` más los interruptores `emails` | Solo lee | `0_initial_models.sql`; mapa 15 |
@@ -183,6 +186,20 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 1. **Origen**: llegan del formulario público (`QuotationsService.createPublic`, mapa 11) como `request_type = requerimiento` y estado `solicitada`, o los registra el equipo en `RequestForm` (`POST /quotations`).
 2. **Pantalla**: `RequestsPage` y el aviso del tablero comparten la llave `["requirements"]` (solo `solicitada`).
 3. **Cotizar**: "Cotizar" abre `/quotation-form/:id` (mapa 01). Al guardar, `estadoAlGuardar` respeta el estado del formulario: nada fuerza `enviada`.
+
+### 5.6 Choques de fecha con una aceptada (18-10-2026)
+
+Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar si la otra cotización se puede hacer o no (...) una alerta en rojo y yo pueda pinchar: no, hay que hacer una gestión; o sí se puede, puede continuar con esa fecha"*.
+
+1. **Qué choca** (`choques/choques.ts`, `choquesDe`): una cotización **viva** (solicitada, enviada o en negociación; solo cotizaciones, no requerimientos) cuyas fechas se topan con las de una **aceptada**, desde hoy en adelante (día de Chile). Las fechas son un rango: sin fin, un día; un fin anterior al inicio (error de datos, como la 498) también cuenta como un día. Se calcula cada vez: no hay reloj ni nada que se guarde al aceptar.
+2. **Exclusividad** (`tieneExclusividad`): la aceptada trae un ítem del catálogo con «Exclusividad» en el nombre (Full, Lun a Jue, Vie a Dom). El aviso lo dice.
+3. **Pantallas**: `AvisoDeChoque`, uno por cada aceptada con la que choca: «Choca con N° 500 · Rudel S.A. · aceptada, 09-11 al 22-11» (y «· con exclusividad»). En la tarjeta del tablero va compacto al pie; en la ficha, bajo las fechas. Lo ve todo el que ve el tablero; los botones son de quien vende (`quotations_edit`).
+4. **Las decisiones** (`ChoquesDeFechaService.decidir`):
+   - **«Sí, puede seguir»**: línea en la bitácora («Revisado el choque de fecha con la N° 500 (…): puede seguir con su fecha.», tipo otro, sin fecha) y el aviso se va;
+   - **«Hay que gestionar»**: línea tipo llamada con **próximo contacto hoy** («Choca con la N° 500 (…): hay que gestionar, mover la fecha o descartar.»). El panel la muestra como «Contacto comprometido: hoy» y, si no se gestiona, pasa a «Requieren seguimiento» al día siguiente (la regla del semáforo no cambió). El aviso se va.
+   La decisión se guarda en `choques_de_fecha` con las fechas de las dos: **si cualquiera cambia de fecha, el aviso vuelve** (se decidió sobre "esa fecha"). Si la viva se cierra o la aceptada se cae, el aviso desaparece solo.
+5. **Sin atajo por evento** (Felipe, 18-10): no existe un «este evento convive con otros» en la aceptada, porque *"va a depender de qué espacios se utilicen, qué horarios tengan (...) inclusive si fuera cabañas, puede coincidir con otro evento de cabañas"*. Cada par se revisa uno por uno.
+6. **Medido el 18-10 en producción**: 54 cotizaciones vivas chocaban con 15 aceptadas (67 pares), la mayoría por estadías largas (Rudel 14 días, Ecofor 9, FDN Canotaje 6 y 7). Solo la 384 (Jabones Maritano, 27-11) tenía exclusividad.
 
 ## 6. Reglas de negocio acordadas
 
@@ -417,6 +434,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 
 Motor (Jest, corre en CI con `npx jest --silent`):
 
+- **`api-rest/src/quotations/tests/unit/choques/choques.spec.ts`** (§5.6): qué choca (estadía larga, viva de varios días, lo pasado, consigo misma), lo decidido no vuelve y vuelve si cambia una fecha, el fin anterior al inicio, la exclusividad, las líneas de la bitácora y `decidir` (puede seguir, gestionar con llamada para hoy, 409 sin tocar la bitácora). Matriz de cargos: `GET choques/pendientes` recepción y arriba; `POST :id/choques/:aceptadaId` ventas. En la app, `frontend/src/components/AvisoDeChoque.test.tsx`.
 - **`api-rest/src/quotations/tests/unit/envio-cotizacion.service.spec.ts`**: la orquestación del envío, con Chromium y Resend simulados.
   - Circuito feliz: PDF, destinatario, asunto con día de semana, nombre del archivo, `replyTo` del vendedor y nota de tipo correo.
   - Respaldo al correo del cliente.
@@ -551,6 +569,7 @@ App (Vitest, corre en CI con `npm run test`):
 - `api-rest/src/quotations/constants/constants.ts`: `QuotationStatus` y `EVENTO_REALIZADO_CONGELADO`.
 - `api-rest/src/quotations/quotations.module.ts`
 - `api-rest/src/quotations/event-documents.controller.ts`
+- `api-rest/src/quotations/choques/`: `choques.ts` (qué choca, la exclusividad y las líneas), `choques.repository.ts`, `choques.service.ts`; `dto/decision-de-choque.dto.ts` (§5.6).
 - `api-rest/src/quotation-followups/`:
   - `quotation-followups.controller.ts`
   - `quotation-followups.service.ts`
@@ -575,6 +594,7 @@ App (Vitest, corre en CI con `npm run test`):
   - `docs/migrations/59_bitacora_comercial.sql`
   - `docs/migrations/61_motivo_perdida.sql`
   - `docs/migrations/65_seguimiento_cumplido.sql`
+  - `docs/migrations/143_choques_de_fecha.sql` (sin reversa aparte: va comentada en el mismo archivo)
 
 ### App
 
@@ -590,6 +610,7 @@ App (Vitest, corre en CI con `npm run test`):
 - `frontend/src/components/QuotationViewer.tsx`
 - `frontend/src/components/MotivoPerdida.tsx`
 - `frontend/src/components/EventoCajitas.tsx`
+- `frontend/src/components/AvisoDeChoque.tsx` y `frontend/src/hooks/useChoquesDeFecha.ts` (§5.6)
 - `frontend/src/services/quotations.service.ts`: `getQuotations`, `getQuotationById`, `updateQuotation`, `enviarCotizacionPorCorreo`, `getHojaParaImprimir`.
 - `frontend/src/services/quotationFollowups.service.ts`
 - `frontend/src/services/documents.service.ts`

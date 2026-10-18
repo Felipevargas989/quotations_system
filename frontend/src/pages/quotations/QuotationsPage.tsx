@@ -24,11 +24,13 @@ import {
   SECTION_ROLES,
   tieneDerecho,
 } from "../../constants/permissions";
+import AvisoDeChoque from "../../components/AvisoDeChoque";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import GenerarSeguimientos, {
   ConfirmarSeguimientos,
 } from "../../components/GenerarSeguimientos";
 import ResultadosDeSeguimiento from "../../components/ResultadosDeSeguimiento";
+import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import MotivoPerdida from "../../components/MotivoPerdida";
@@ -141,6 +143,9 @@ export default function QuotationsPage() {
     puedeEditar && tieneDerecho(company, "seguimiento_con_ia");
   const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
   const pendientesIA = new Set(seguimientoIA.pendientes.map((p) => p.id));
+  // Choques de fecha con una aceptada (18-10-2026, mapa 02 §5.6): el aviso
+  // rojo lo ve todo el tablero; decidir es de quien vende.
+  const choquesDeFecha = useChoquesDeFecha();
   const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
   const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
@@ -1079,6 +1084,15 @@ export default function QuotationsPage() {
                             />
                           </div>
                         )}
+                        <AvisoDeChoque
+                          compacto
+                          choques={choquesDeFecha.choquesDe(quotation.id)}
+                          puedeDecidir={puedeEditar}
+                          decidiendo={choquesDeFecha.decidiendo}
+                          onDecidir={(c, d) =>
+                            void choquesDeFecha.decidir(c, d)
+                          }
+                        />
                       </div>
                     );
                   })
