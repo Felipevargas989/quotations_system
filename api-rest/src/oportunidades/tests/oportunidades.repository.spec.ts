@@ -431,6 +431,25 @@ describe('OportunidadesRepository — procesos comunes', () => {
     expect(consultas).toHaveLength(3);
     expect(paso(consultas[0], 'upsert')?.[2]).toEqual({ onConflict: 'codigo' });
   });
+
+  it('sin repetidos: el mismo código dos veces va una sola vez, con su última versión (18-10)', async () => {
+    // La base rechaza un lote con el mismo código dos veces ("ON CONFLICT
+    // DO UPDATE command cannot affect row a second time").
+    const { repo, consultas } = armar();
+    await repo.guardarProcesos([
+      { codigo: 'A', nombre: 'primera' },
+      { codigo: 'B', nombre: 'otra' },
+      { codigo: 'A', nombre: 'segunda' },
+    ] as never);
+    const lote = paso(consultas[0], 'upsert')?.[1] as Array<{
+      codigo: string;
+      nombre: string;
+    }>;
+    expect(lote.map((p) => [p.codigo, p.nombre])).toEqual([
+      ['A', 'segunda'],
+      ['B', 'otra'],
+    ]);
+  });
 });
 
 describe('OportunidadesRepository — la zona (Se viene y competidores)', () => {
