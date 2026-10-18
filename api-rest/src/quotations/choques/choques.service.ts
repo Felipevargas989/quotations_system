@@ -11,7 +11,6 @@ import {
   type ChoqueDeFecha,
   choquesDe,
   type CotizacionDelChoque,
-  type DecisionDelChoque,
   ESTADOS_VIVOS_DEL_CHOQUE,
   notaDelChoque,
   rangoDe,
@@ -21,14 +20,11 @@ import {
 import { ChoquesRepository, type FilaDelChoque } from './choques.repository';
 
 // LOS CHOQUES DE FECHA (Felipe, 18-10-2026; mapa 02 §5.6): cuando una
-// cotización se acepta, las vivas que caen en sus fechas llevan un aviso
-// rojo hasta que alguien decide, una por una:
-//   - «Sí, puede seguir»: el aviso se va y queda anotado en la bitácora;
-//   - «Hay que gestionar»: una llamada comprometida para hoy en la bitácora
-//     («mover la fecha o descartar») y el choque queda como «Tope de
-//     calendario», con borde rojo, hasta que se resuelva.
-// Si cualquiera de las dos cambia de fecha, o la aceptada se cae, el aviso
-// se va o vuelve solo: el choque se calcula cada vez.
+// cotización se acepta, las vivas que caen en sus fechas llevan el «Tope de
+// calendario» (borde rojo) hasta que deja de existir: se cambia la fecha o
+// se cierra la cotización (se va solo), o alguien aprieta «Sí, puede
+// seguir», que queda anotado en la bitácora. Si cualquiera de las dos cambia
+// de fecha, el tope se va o vuelve solo: se calcula cada vez.
 
 const aCotizacion = (f: FilaDelChoque): CotizacionDelChoque => ({
   id: f.id,
@@ -70,14 +66,13 @@ export class ChoquesDeFechaService {
     });
   }
 
-  /** La decisión de la persona para un par: la línea en la bitácora de la
-   *  viva y la decisión guardada con las fechas de ahora. */
-  async decidir(
+  /** «Sí, puede seguir» para un par: la línea en la bitácora de la viva
+   *  y la decisión guardada con las fechas de ahora. */
+  async seguir(
     user: User,
     quotationId: string,
     aceptadaId: string,
-    decision: DecisionDelChoque,
-  ): Promise<{ decision: DecisionDelChoque; nota: string }> {
+  ): Promise<{ nota: string }> {
     const companyId = user.company_id;
     const hoy = fechaEnChile();
     const [viva, aceptada] = await Promise.all([
@@ -92,7 +87,7 @@ export class ChoquesDeFechaService {
       aceptada.quotation_status !== 'aceptada'
     ) {
       throw new ConflictException(
-        'Ya no hay choque que revisar: una de las dos cambió de estado.',
+        'Ya no hay tope que revisar: una de las dos cambió de estado.',
       );
     }
     const [choque] = choquesDe({
@@ -109,31 +104,25 @@ export class ChoquesDeFechaService {
       );
     }
 
-    const nota = notaDelChoque(choque.aceptada, decision);
-    const linea = (await this.bitacora.create(
-      user,
-      decision === 'puede_seguir'
-        ? { quotation_id: viva.id, tipo: 'otro', note: nota }
-        : {
-            quotation_id: viva.id,
-            tipo: 'llamada',
-            note: nota,
-            next_contact_date: hoy,
-          },
-    )) as { id?: number } | null;
+    const nota = notaDelChoque(choque.aceptada);
+    const linea = (await this.bitacora.create(user, {
+      quotation_id: viva.id,
+      tipo: 'otro',
+      note: nota,
+    })) as { id?: number } | null;
     await this.repositorio.guardar({
       company_id: companyId,
       quotation_id: viva.id,
       aceptada_id: aceptada.id,
-      decision,
+      decision: 'puede_seguir',
       fechas_viva: textoDelRango(rangoViva),
       fechas_aceptada: textoDelRango(rangoAceptada),
       followup_id: linea?.id ?? null,
       decidido_por: user.id ?? null,
     });
     this.logger.info(
-      `choque N° ${viva.quotation_number} con N° ${aceptada.quotation_number}: ${decision}`,
+      `tope N° ${viva.quotation_number} con N° ${aceptada.quotation_number}: puede seguir`,
     );
-    return { decision, nota };
+    return { nota };
   }
 }

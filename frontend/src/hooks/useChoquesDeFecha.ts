@@ -3,56 +3,44 @@ import { useState } from "react";
 import { toast } from "../components/toast/Toast";
 import {
   type ChoqueDeFecha,
-  decidirChoque,
-  type DecisionDelChoque,
   getChoquesDeFecha,
+  seguirConLaFecha,
 } from "../services/quotations.service";
 import { humanizeApiError } from "../utils/apiErrors";
 
-// CHOQUES DE FECHA (Felipe, 18-10-2026; mapa 02 §5.6). Las cotizaciones
-// vivas cuyas fechas se topan con una aceptada llevan un aviso rojo en la
-// tarjeta y en la ficha, hasta que alguien decide, una por una: «Sí, puede
-// seguir» o «Hay que gestionar». Sin atajo por evento: depende de los
-// espacios y los horarios de cada uno. El motor calcula el choque cada vez:
-// si cambia una fecha, el aviso se va o vuelve solo.
-//
-// «Hay que gestionar» no lo hace desaparecer (Felipe, 18-10: "se puede
-// olvidar"): queda «Tope de calendario», con borde rojo en la tarjeta y en
-// el hilo de seguimiento, hasta que el tope se resuelva o alguien apriete
-// «Sí, puede seguir».
+// TOPES DE CALENDARIO (Felipe, 18-10-2026; mapa 02 §5.6). Las cotizaciones
+// vivas cuyas fechas se topan con una aceptada llevan el «Tope de
+// calendario» con borde rojo en la tarjeta y en el hilo de seguimiento,
+// hasta que se cambia la fecha, se cierra la cotización o alguien aprieta
+// «Sí, puede seguir» (el botón «Hay que gestionar» se quitó: el tope mismo
+// es la marca). Sin atajo por evento. El motor calcula el tope cada vez.
 
 export function useChoquesDeFecha() {
   const queryClient = useQueryClient();
   const choquesQuery = useQuery({
     // Bajo "quotations": cambiar un estado o una fecha ya refresca esa
-    // familia, y con ella los choques.
+    // familia, y con ella los topes.
     queryKey: ["quotations", "choques-de-fecha"],
     staleTime: 60_000,
     queryFn: getChoquesDeFecha,
   });
-  /** La cotización cuya decisión se está guardando. */
-  const [decidiendo, setDecidiendo] = useState<string | null>(null);
+  /** La cotización cuyo «Sí, puede seguir» se está guardando. */
+  const [guardando, setGuardando] = useState<string | null>(null);
   const choques = choquesQuery.data ?? [];
 
-  /** Una decisión para uno o varios choques de la MISMA cotización: los
-   *  topes de calendario se cierran todos con un solo «Sí, puede seguir». */
-  const decidir = async (
-    lista: ChoqueDeFecha[],
-    decision: DecisionDelChoque,
-  ) => {
+  /** «Sí, puede seguir» para todos los topes de UNA cotización. */
+  const seguir = async (lista: ChoqueDeFecha[]) => {
     if (lista.length === 0) return;
     const { quotation_id: id, quotation_number: numero } = lista[0];
-    setDecidiendo(id);
+    setGuardando(id);
     let hechas = 0;
     try {
       for (const c of lista) {
-        await decidirChoque(c.quotation_id, c.aceptada.id, decision);
+        await seguirConLaFecha(c.quotation_id, c.aceptada.id);
         hechas++;
       }
       toast.success(
-        decision === "puede_seguir"
-          ? `N° ${numero}: sigue con su fecha${lista.length > 1 ? ` (${lista.length} topes revisados)` : ""}. Quedó anotado en el seguimiento.`
-          : `N° ${numero}: quedó una llamada para hoy en el seguimiento (mover la fecha o descartar) y la marca «Tope de calendario».`,
+        `N° ${numero}: sigue con su fecha${lista.length > 1 ? ` (${lista.length} topes revisados)` : ""}. Quedó anotado en el seguimiento.`,
       );
     } catch (e) {
       toast.error(
@@ -64,9 +52,9 @@ export function useChoquesDeFecha() {
         ),
       );
     } finally {
-      setDecidiendo(null);
+      setGuardando(null);
     }
-    // La línea nueva de la bitácora, el semáforo y la lista de choques.
+    // La línea nueva de la bitácora, el semáforo y la lista de topes.
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: ["quotations", "choques-de-fecha"],
@@ -80,12 +68,10 @@ export function useChoquesDeFecha() {
     choques,
     choquesDe: (quotationId: string) =>
       choques.filter((c) => c.quotation_id === quotationId),
-    /** Se apretó «Hay que gestionar» y el tope sigue: borde rojo. */
+    /** Tiene tope de calendario: borde rojo. */
     conTope: (quotationId: string) =>
-      choques.some(
-        (c) => c.quotation_id === quotationId && c.estado === "gestionar",
-      ),
-    decidiendo,
-    decidir,
+      choques.some((c) => c.quotation_id === quotationId),
+    guardandoDe: (quotationId: string) => guardando === quotationId,
+    seguir,
   };
 }

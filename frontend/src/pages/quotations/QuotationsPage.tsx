@@ -143,8 +143,8 @@ export default function QuotationsPage() {
     puedeEditar && tieneDerecho(company, "seguimiento_con_ia");
   const seguimientoIA = useSeguimientoConIA({ conLista: conSeguimientoIA });
   const pendientesIA = new Set(seguimientoIA.pendientes.map((p) => p.id));
-  // Choques de fecha con una aceptada (18-10-2026, mapa 02 §5.6): el aviso
-  // rojo lo ve todo el tablero; decidir es de quien vende.
+  // Topes de calendario con una aceptada (18-10-2026, mapa 02 §5.6): el
+  // tope lo ve todo el tablero; «Sí, puede seguir» es de quien vende.
   const choquesDeFecha = useChoquesDeFecha();
   const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
@@ -1099,9 +1099,9 @@ export default function QuotationsPage() {
                           compacto
                           choques={choquesDeFecha.choquesDe(quotation.id)}
                           puedeDecidir={puedeEditar}
-                          decidiendo={choquesDeFecha.decidiendo}
-                          onDecidir={(c, d) =>
-                            void choquesDeFecha.decidir(c, d)
+                          guardando={choquesDeFecha.guardandoDe(quotation.id)}
+                          onSeguir={(lista) =>
+                            void choquesDeFecha.seguir(lista)
                           }
                         />
                       </div>
