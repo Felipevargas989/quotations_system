@@ -197,28 +197,30 @@ export class SeguimientoRepository {
     return (data ?? []) as unknown as SeguimientoConIA[];
   }
 
-  /** Toma el borrador para preguntarle a Outlook: anota la hora y devuelve
-   *  true solo si nadie lo revisó después de `revisadoAntesDe` (el freno de
-   *  5 minutos; null = sin freno). Si dos pantallas abren a la vez, solo
-   *  una lo revisa. */
+  /** Toma el borrador para preguntarle a Outlook: anota la hora, solo si
+   *  nadie lo tomó desde que se leyó (su última revisión sigue siendo
+   *  `revisadoAt`). Si dos pantallas abren a la vez, solo una lo revisa. El
+   *  freno de 5 minutos lo pone el servicio con esa misma hora.
+   *
+   *  Sin `or` a propósito: PostgREST vuelve a aplicar un `or` sobre lo que
+   *  devuelve el update, y ahí la columna no viene (medido en el
+   *  laboratorio el 18-10: error 42703, «revisado_at does not exist»). */
   async tomarParaRevisar(
     companyId: number,
     id: number,
-    revisadoAntesDe: string | null,
+    revisadoAt: string | null,
   ): Promise<boolean> {
-    let consulta = this.supabase.client
+    const consulta = this.supabase.client
       .from('seguimientos_con_ia')
       .update({ revisado_at: new Date().toISOString() })
       .eq('company_id', companyId)
       .eq('id', id)
       .eq('estado', 'borrador');
-    if (revisadoAntesDe) {
-      consulta = consulta.or(
-        // Entre comillas: la hora trae «:» y «.», que el filtro reserva.
-        `revisado_at.is.null,revisado_at.lt."${revisadoAntesDe}"`,
-      );
-    }
-    const { data, error } = await consulta.select('id');
+    const { data, error } = await (
+      revisadoAt
+        ? consulta.eq('revisado_at', revisadoAt)
+        : consulta.is('revisado_at', null)
+    ).select('id');
     if (error) throw error;
     return (data ?? []).length > 0;
   }
