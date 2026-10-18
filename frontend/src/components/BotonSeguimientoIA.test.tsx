@@ -69,6 +69,57 @@ describe("BotonSeguimientoIA", () => {
     expect(enlace).toHaveAttribute("target", "_blank");
   });
 
+  it("con un borrador de antes esperando en Outlook, en vez del botón va el enlace para abrirlo", () => {
+    const alAbrirFicha = vi.fn();
+    render(
+      <div onClick={alAbrirFicha}>
+        <BotonSeguimientoIA
+          trabajando={false}
+          ocupado={false}
+          resultado={null}
+          enEspera={{
+            buzon: "contacto@valledelsolquillon.cl",
+            enlace: "https://outlook.office365.com/owa/?ItemID=espera",
+            creado: "2026-10-17T20:52:00Z",
+          }}
+          onGenerar={vi.fn()}
+        />
+      </div>,
+    );
+    expect(
+      screen.queryByRole("button", { name: /Generar seguimiento/ }),
+    ).not.toBeInTheDocument();
+    const enlace = screen.getByRole("link", {
+      name: /Borrador en Outlook · Abrir/,
+    });
+    expect(enlace).toHaveAttribute(
+      "href",
+      "https://outlook.office365.com/owa/?ItemID=espera",
+    );
+    expect(enlace.getAttribute("title")).toContain("contacto@");
+    fireEvent.click(enlace);
+    expect(alAbrirFicha).not.toHaveBeenCalled();
+  });
+
+  it("lo que se escribió en esta visita manda sobre el borrador de antes", () => {
+    render(
+      <BotonSeguimientoIA
+        trabajando={false}
+        ocupado={false}
+        resultado={borrador}
+        enEspera={{
+          buzon: "contacto@valledelsolquillon.cl",
+          enlace: "https://outlook.office365.com/owa/?ItemID=espera",
+          creado: "2026-10-17T20:52:00Z",
+        }}
+        onGenerar={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("link", { name: /Borrador listo · Abrir/ }),
+    ).toHaveAttribute("href", borrador.enlace);
+  });
+
   it("si se saltó, dice por qué al pasar el mouse", () => {
     render(
       <BotonSeguimientoIA

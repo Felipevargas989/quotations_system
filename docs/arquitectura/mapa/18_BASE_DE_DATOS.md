@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 17-10-2026 con la 141 (sección 22, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -58,6 +58,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
+| `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién y cuándo | 01 | 141 (sin aplicar) |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -319,7 +320,8 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `clients` | `clients` | `clients`, `marketing`, funciones SQL de análisis; embebida desde `quotations`, `payments`, `refunds`, `logistics`, `movil`, `people`, `customer_satisfaction_survey` y `portal-receipts.controller.ts` |
 | `client_contacts` | `clients` (`client-contacts.controller.ts`, que contiene `ClientContactsRepository`) | `clients`, `marketing`, `quotations`; embebida desde `clients` y `portal-receipts.controller.ts` |
 | `client_types` | `clients` | `clients` |
-| `quotation_followups` | `quotation-followups` | `quotation-followups` |
+| `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
+| `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |
 | `payments` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `clients`, `movil`, `quotations` (`assertDeletable`); embebida desde `portal-receipts.controller.ts` |
 | `payment_transactions` | `payments` | `payments`, `analytics` (`hoy.controller.ts`), `quotations` (`assertDeletable`); embebida desde `movil` |
@@ -575,4 +577,12 @@ y **antes** del deploy del motor.
 **Ojo con el orden del motor:** el motor del paso 4 lista los adjuntos pidiendo `origen` y `viene_de`; sin la 129, las dos secciones de archivos se caen. Se aplica junto con la 126 y la 127, antes de subir el motor.
 
 **Estado.** Escrita el 17-10-2026 (Felipe: *"1.- si 2.- si 3.- si, pero primero dejemos todo listo y luego testeamos con estas licitaciones"*). **Aplicada en el laboratorio el 17-10-2026** con su OK (*"Sí, por favor, sube todo"*). Verificado: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe, está el candado de uno a la vez por tipo y lo que ya existía quedó `subido`. **Aplicada en producción el 17-10-2026**, antes del deploy del motor (PR #144), y verificada igual.
+
+## 22. Migración 141: cada borrador del seguimiento con IA y si ya salió (17-10-2026)
+
+**Qué hace.** Crea `seguimientos_con_ia`: una fila por cada borrador que deja el botón «✉ Generar seguimiento» (doc 18 §9; mapa 01 §5.8). Guarda la cotización, el buzón, el modo (`seguimiento`, `responder`, `nuevo`, con su CHECK), el **identificador inmutable** del mensaje en Outlook (el mismo en Borradores, Enviados y Elementos eliminados), la conversación, el enlace para abrirlo, el ángulo, el `estado` (`borrador`, `enviado`, `descartado`, con su CHECK), cuándo salió, cuándo se le preguntó a Outlook por última vez (el freno de 5 minutos), quién lo pidió (`user_profiles`, `set null`) y cuándo. Es de cada empresa: lleva `company_id` y el índice `(company_id, estado, quotation_id)`. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada. Número reservado con la sesión de Oportunidades el 17-10.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Si el motor sube primero, la lista y el botón siguen como antes (leer la tabla está protegido y solo deja un error en el registro), pero no aparece «Borrador en Outlook», no se anota el envío y los borradores de ese rato no se guardan.
+
+**Estado.** Escrita el 17-10-2026 (Felipe: *"si dale me parece bien"*). Sin aplicar.
 

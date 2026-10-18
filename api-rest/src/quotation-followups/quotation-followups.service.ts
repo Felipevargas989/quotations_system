@@ -127,6 +127,44 @@ export class QuotationFollowupsService {
     }
   }
 
+  // Una línea del asistente, sin sesión detrás: el seguimiento con IA anota
+  // solo el envío cuando ve en Outlook que el borrador salió (doc 18 §9).
+  // Firmada «Asistente», como las que deja la skill de correos; sin autor,
+  // así que nadie la edita ni la borra (la historia no se reescribe). La
+  // empresa la pone quien llama, nunca un body, y el candado de empresa
+  // sigue: la cotización tiene que ser de ella.
+  async crearComoAsistente(
+    companyId: Company['id'],
+    p: Pick<
+      CreateFollowupPayload,
+      'quotation_id' | 'note' | 'tipo' | 'next_contact_date'
+    >,
+  ) {
+    this.logger.info(
+      `create followup (Asistente) for quotation ${p.quotation_id} company ${companyId}`,
+    );
+    const note = p.note.trim();
+    if (!note) {
+      throw new BadRequestException('La nota no puede estar vacía');
+    }
+    const quotation = await this.followupsRepository.findOwnedQuotation(
+      companyId,
+      p.quotation_id,
+    );
+    if (!quotation) {
+      throw new ForbiddenException('La cotización no pertenece a tu empresa');
+    }
+    return this.followupsRepository.create({
+      quotation_id: p.quotation_id,
+      company_id: companyId,
+      author_user_id: null,
+      author_name: 'Asistente',
+      note,
+      tipo: p.tipo,
+      next_contact_date: p.next_contact_date,
+    });
+  }
+
   async update(user: User, id: number, dto: UpdateQuotationFollowupDto) {
     this.logger.info(`update followup ${id} company ${user.company_id}`);
     try {

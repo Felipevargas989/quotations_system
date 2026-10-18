@@ -247,3 +247,161 @@ describe('el texto que lee la IA y el que escribe', () => {
     );
   });
 });
+
+describe('cuándo salió el borrador (doc 18 §9): solo lee', () => {
+  const ELIMINADOS: Respuesta = [
+    /^GET .*\/mailFolders\/deleteditems\?/,
+    200,
+    { id: 'carpeta-eliminados' },
+  ];
+  const conInmutable = (l: Llamada | undefined) =>
+    (l?.init.headers as Record<string, string> | undefined)?.Prefer;
+
+  it('sigue en Borradores: espera', async () => {
+    const { outlook, llamadas } = armar([
+      PERMISO,
+      ELIMINADOS,
+      [
+        /^GET .*\/messages\/inm1\?/,
+        200,
+        {
+          id: 'inm1',
+          conversationId: 'h1',
+          isDraft: true,
+          parentFolderId: 'carpeta-borradores',
+        },
+      ],
+    ]);
+    expect(await outlook.estadoDelBorrador(CONTACTO, 'inm1')).toEqual({
+      estado: 'borrador',
+      hilo: 'h1',
+    });
+    // Con el identificador que no cambia de carpeta en carpeta.
+    expect(conInmutable(llamadas[1])).toBe('IdType="ImmutableId"');
+  });
+
+  it('ya no es borrador: salió, con la hora del envío (la 536 y la 559 del 17-10)', async () => {
+    const { outlook } = armar([
+      PERMISO,
+      [
+        /^GET .*\/messages\/inm1\?/,
+        200,
+        {
+          id: 'inm1',
+          conversationId: 'h1',
+          isDraft: false,
+          sentDateTime: '2026-10-17T20:58:00Z',
+          parentFolderId: 'carpeta-enviados',
+        },
+      ],
+    ]);
+    expect(await outlook.estadoDelBorrador(CONTACTO, 'inm1')).toEqual({
+      estado: 'enviado',
+      hilo: 'h1',
+      enviado: '2026-10-17T20:58:00Z',
+    });
+  });
+
+  it('borrador en Elementos eliminados: se descartó (la 607 y la 493 del 17-10)', async () => {
+    const { outlook } = armar([
+      PERMISO,
+      ELIMINADOS,
+      [
+        /^GET .*\/messages\/inm1\?/,
+        200,
+        {
+          id: 'inm1',
+          conversationId: 'h1',
+          isDraft: true,
+          parentFolderId: 'carpeta-eliminados',
+        },
+      ],
+    ]);
+    expect(await outlook.estadoDelBorrador(CONTACTO, 'inm1')).toEqual({
+      estado: 'eliminado',
+      hilo: 'h1',
+    });
+  });
+
+  it('ya no existe: no está (sin error)', async () => {
+    const { outlook } = armar([
+      PERMISO,
+      [
+        /^GET .*\/messages\/inm1\?/,
+        404,
+        { error: { code: 'ErrorItemNotFound', message: 'no está' } },
+      ],
+    ]);
+    expect(await outlook.estadoDelBorrador(CONTACTO, 'inm1')).toEqual({
+      estado: 'no_esta',
+    });
+  });
+
+  it('el hilo: filtra por la conversación y ordena del más viejo al más nuevo, con los adjuntos', async () => {
+    const { outlook, llamadas } = armar([
+      PERMISO,
+      [
+        /^GET .*\/messages\?\$filter=/,
+        200,
+        {
+          value: [
+            {
+              id: 'b',
+              conversationId: 'h1',
+              from: { emailAddress: { address: CONTACTO } },
+              sentDateTime: '2026-10-17T20:58:00Z',
+              isDraft: false,
+            },
+            {
+              id: 'a',
+              conversationId: 'h1',
+              from: { emailAddress: { address: 'Cliente@Ejemplo.cl' } },
+              receivedDateTime: '2026-09-26T19:54:00Z',
+              sentDateTime: '2026-09-26T19:54:00Z',
+              hasAttachments: true,
+            },
+          ],
+        },
+      ],
+    ]);
+    const hilo = await outlook.mensajesDelHilo(CONTACTO, "h'1");
+    expect(hilo.map((m) => [m.id, m.de, m.adjuntos])).toEqual([
+      ['a', 'cliente@ejemplo.cl', true],
+      ['b', CONTACTO, false],
+    ]);
+    expect(decodeURIComponent(llamadas[1].url)).toContain(
+      "$filter=conversationId eq 'h''1'",
+    );
+    expect(conInmutable(llamadas[1])).toBe('IdType="ImmutableId"');
+  });
+
+  it('el identificador que se guarda es el inmutable', async () => {
+    const { outlook, llamadas } = armar([
+      PERMISO,
+      [
+        /^GET .*\/messages\/borr1\?\$select=id,conversationId$/,
+        200,
+        { id: 'inm-borr1', conversationId: 'h1' },
+      ],
+    ]);
+    expect(await outlook.idInmutable(CONTACTO, 'borr1')).toEqual({
+      id: 'inm-borr1',
+      hilo: 'h1',
+    });
+    expect(conInmutable(llamadas[1])).toBe('IdType="ImmutableId"');
+  });
+
+  it('la casa: sus dominios, Eventia y la dirección interna de Exchange (sin @)', () => {
+    const { outlook } = armar([]);
+    expect(outlook.esDeLaCasa('Contacto@ValledelSolQuillon.cl')).toBe(true);
+    expect(outlook.esDeLaCasa('hola@eventi-app.com')).toBe(true);
+    expect(
+      outlook.esDeLaCasa(
+        '/O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP (FYDIBOHF23SPDLT)/CN=RECIPIENTS/CN=CONTACTO',
+      ),
+    ).toBe(true);
+    expect(outlook.esDeLaCasa('cliente@ejemplo.cl')).toBe(false);
+    expect(outlook.esDeEventia('Hola@Eventi-App.com')).toBe(true);
+    expect(outlook.esDeEventia(CONTACTO)).toBe(false);
+  });
+});

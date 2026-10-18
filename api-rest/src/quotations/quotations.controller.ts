@@ -230,6 +230,18 @@ export class QuotationsController {
     return this.seguimientoConIA.pendientes(user);
   }
 
+  // Al abrir Cotizaciones (doc 18 §9, Felipe 17-10): le pregunta a Outlook
+  // si los borradores que esperan ya salieron; si salieron, anota el envío
+  // en la bitácora con el próximo contacto. Sin IA, como mucho una consulta
+  // por borrador cada 5 minutos.
+  @Roles(...SALES_AND_UP)
+  @Derecho('seguimiento_con_ia')
+  @Post('seguimiento/revisar')
+  revisarSeguimientos(@CurrentUser() user: User) {
+    this.logger.info('POST /quotations/seguimiento/revisar');
+    return this.seguimientoConIA.revisar(user);
+  }
+
   @Roles(...SALES_AND_UP)
   @Derecho('seguimiento_con_ia')
   @Post(':id/seguimiento')

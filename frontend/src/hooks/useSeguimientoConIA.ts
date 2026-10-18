@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "../components/toast/Toast";
 import {
   generarSeguimiento,
   getSeguimientosPendientes,
+  revisarSeguimientos,
 } from "../services/quotations.service";
 import { humanizeApiError } from "../utils/apiErrors";
 
@@ -13,6 +14,12 @@ import { humanizeApiError } from "../utils/apiErrors";
 // a uno, también en el general: la cuenta de Anthropic es la misma de
 // «Crear con IA» y del radar. Lo que salió queda listado con su enlace a
 // Outlook, y lo que se saltó, con el motivo.
+//
+// Y al abrir la lista (doc 18 §9, Felipe 17-10): el motor mira en Outlook si
+// los borradores que esperan ya salieron. Si salieron, anota el envío con
+// el próximo contacto y la cotización sale sola de la lista; mientras
+// esperan, la tarjeta muestra «Borrador en Outlook · Abrir». Sin IA, y como
+// mucho una vez cada 5 minutos.
 
 export type Seguimiento = { id: string; numero: number };
 
@@ -28,6 +35,9 @@ export type ResultadoDeSeguimiento = {
 /** Tope de «Generar seguimientos» por vez (el de la skill de correos). */
 export const TOPE_POR_VEZ = 20;
 
+/** El mismo freno del motor: Outlook se mira como mucho cada 5 minutos. */
+const REVISAR_CADA_MS = 5 * 60_000;
+
 /** "contacto@" de "contacto@valledelsolquillon.cl". */
 const buzonCorto = (buzon: string | null) =>
   buzon ? `${buzon.split("@")[0]}@` : "Outlook";
@@ -42,6 +52,28 @@ export function useSeguimientoConIA({
     staleTime: 60_000,
     queryFn: getSeguimientosPendientes,
   });
+  const revision = useQuery({
+    queryKey: ["seguimiento-ia", "revision"],
+    enabled: conLista,
+    staleTime: REVISAR_CADA_MS,
+    retry: false,
+    queryFn: revisarSeguimientos,
+  });
+  // Si algún borrador salió o se descartó: su bitácora, el semáforo y la
+  // lista se vuelven a leer.
+  const cambiaron = revision.data?.cambiaron;
+  useEffect(() => {
+    if (!cambiaron?.length) return;
+    void Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["seguimiento-ia", "pendientes"],
+      }),
+      queryClient.invalidateQueries({ queryKey: ["seguimientos", "map"] }),
+      ...cambiaron.map((id) =>
+        queryClient.invalidateQueries({ queryKey: ["seguimientos", id] }),
+      ),
+    ]);
+  }, [cambiaron, queryClient]);
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [lote, setLote] = useState<{ hecho: number; total: number } | null>(
     null,
@@ -129,8 +161,12 @@ export function useSeguimientoConIA({
       toast.warn(`${texto} Los que no salieron quedan listados con su motivo.`);
   };
 
+  const pendientes = pendientesQuery.data ?? [];
   return {
-    pendientes: pendientesQuery.data ?? [],
+    pendientes,
+    /** El borrador de la IA que espera en Outlook, si hay uno. */
+    borradorDe: (id: string) =>
+      pendientes.find((p) => p.id === id)?.borrador ?? null,
     trabajando,
     lote,
     resultados,

@@ -19,9 +19,11 @@ import {
 type Seguimiento = ReturnType<typeof useSeguimientoConIA>;
 
 /** Lo que falta en esta visita: lo que ya salió o se saltó no se vuelve a
- *  pedir (lo que falló, sí). */
+ *  pedir (lo que falló, sí), ni lo que tiene un borrador esperando en
+ *  Outlook (doc 18 §9). */
 const porGenerarDe = (seguimiento: Seguimiento) =>
   seguimiento.pendientes.filter((p) => {
+    if (p.borrador) return false;
     const r = seguimiento.resultadoDe(p.id);
     return !r || r.accion === "error";
   });

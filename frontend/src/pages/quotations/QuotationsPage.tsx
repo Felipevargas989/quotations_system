@@ -1069,6 +1069,7 @@ export default function QuotationsPage() {
                               resultado={seguimientoIA.resultadoDe(
                                 quotation.id,
                               )}
+                              enEspera={seguimientoIA.borradorDe(quotation.id)}
                               onGenerar={() =>
                                 void seguimientoIA.generar({
                                   id: quotation.id,
