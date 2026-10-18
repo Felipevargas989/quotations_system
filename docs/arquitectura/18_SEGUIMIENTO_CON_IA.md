@@ -261,3 +261,20 @@ Lo que enseñó la prueba: PostgREST vuelve a aplicar un filtro `or` sobre lo
 que devuelve un update, y ahí la columna no venía (error 42703). La toma del
 borrador quedó con filtros simples y el freno de 5 minutos en el servicio.
 
+### 9.6 La subida a producción (18-10, 00:13 a 00:45 Chile)
+
+Migración 141 en producción, PR #153 fusionada (`main` 82cd5a9, motor
+`82cd5a9`), vitrina de producción `6ad43b7f`. Al cargar los 6 borradores del
+17-10 apareció que `creado_por` tenía una llave a `user_profiles(id)` y el
+motor guarda el id de la sesión: se quitó con la migración 142 en las dos
+bases, sin reiniciar el motor (mapa 18 §23). La primera revisión, al abrir
+Cotizaciones:
+
+| N° | Resultado |
+|---|---|
+| 536 y 559 | Salieron: línea «Asistente» con próximo contacto por correo el 31-10, y dejaron la lista |
+| 477 y 578 | Esperan en Borradores: aviso «Borrador en Outlook» |
+| 607 y 493 | Se borraron sin enviarse: descartadas, vuelve el botón |
+
+Respaldo de la carga: `02_RESPALDOS/cambios_de_datos/2026-10-18_seguimientos_con_ia_carga_del_17-10.json`.
+

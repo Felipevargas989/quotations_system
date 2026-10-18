@@ -58,7 +58,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
-| `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién y cuándo | 01 | 141 |
+| `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -202,7 +202,7 @@ companies ──< clients ──< client_contacts            (CASCADE al borrar 
 
 - Por **texto**: `quotations.event_type` ↔ `event_types.name`; `clients.client_type` ↔ `client_types.name`; `consultas.event_type` y `consultas.client_type`; `consulta_config.event_type`; `marketing_campaigns.tipos_cliente` (arreglo de texto).
 - Por **código dentro del jsonb**: `quotations.items` guarda el `codigo` del servicio, no su id ("la foto guarda el CÓDIGO, no el id", migración 54).
-- Por **id sin llave**: `service_recipe_items.service_id` (apunta a `variable_services` o `fixed_services` según `service_type`); `kitchen_checklist_marks.quotation_id`; `consultas.client_id`; `marketing_suppressions.campaign_id`; `quotations.recontacted_by` (la 62 lo dice); `quotation_followups.author_user_id`; `push_devices.user_id`.
+- Por **id sin llave**: `seguimientos_con_ia.creado_por` (142, como `quotation_followups.author_user_id`); `service_recipe_items.service_id` (apunta a `variable_services` o `fixed_services` según `service_type`); `kitchen_checklist_marks.quotation_id`; `consultas.client_id`; `marketing_suppressions.campaign_id`; `quotations.recontacted_by` (la 62 lo dice); `quotation_followups.author_user_id`; `push_devices.user_id`.
 - **`company_id` sin llave** a `companies`: `event_supply_provisions`, `event_resources`, `event_service_times`, `event_kitchen_notes`, `event_day_prints`, `category_sections`, `kitchen_checklist_marks`, `push_devices`, `notifications`, `portal_receipts`, `fixed_service_sections`, `quotation_followups`.
 - **Sin `company_id`**: `payments`, `payment_transactions`, `refunds`, `customer_satisfaction_survey_responses`, `event_documents`, `service_group_items`, `service_group_collection_items`, `service_group_collection_services`, `service_group_collection_fixed_services` y `leads`. Salvo `leads`, que es de Eventia y no de una empresa, la pertenencia se verifica a través del padre (comentarios de `event-documents.controller.ts` y de la migración 67).
 
@@ -585,4 +585,12 @@ y **antes** del deploy del motor.
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Si el motor sube primero, la lista y el botón siguen como antes (leer la tabla está protegido y solo deja un error en el registro), pero no aparece «Borrador en Outlook», no se anota el envío y los borradores de ese rato no se guardan.
 
 **Estado.** Escrita el 17-10-2026 (Felipe: *"si dale me parece bien"*). **Aplicada en el laboratorio el 18-10-2026** y **en producción el 18-10-2026** (00:13 Chile), antes del motor (PR #153). Verificado en las dos: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia.
+
+## 23. Migración 142: «quién lo pidió» del seguimiento con IA, sin llave (18-10-2026)
+
+**Qué hace.** Quita la llave foránea de `seguimientos_con_ia.creado_por` a `user_profiles(id)`. El motor guarda ahí el id de la **sesión** (`user.id`, el de auth), que en `user_profiles` es `user_id` y no `id`: con la llave, cada borrador nuevo habría fallado al guardarse y su envío no se habría detectado. Queda como `quotation_followups.author_user_id`: un uuid sin llave. Trae la reversa comentada.
+
+**Cómo se encontró.** Al cargar en producción los 6 borradores del 17-10, antes de que pasara: el id de Camila está en `auth.users` y en `user_profiles.user_id`, no en `user_profiles.id`. La prueba del laboratorio no lo vio porque esas filas se cargaron sin `creado_por`. **Ojo para la próxima tabla:** el id de la sesión NO es `user_profiles.id` (Oportunidades lo traduce con `FichaRepository.perfilDe`).
+
+**Estado.** Aplicada en el laboratorio y en producción el 18-10-2026 (00:40 Chile), sin reinicio del motor. Verificado en las dos: la llave ya no está.
 
