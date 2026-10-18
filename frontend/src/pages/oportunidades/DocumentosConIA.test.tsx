@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
 import DocumentosConIA from "./DocumentosConIA";
@@ -74,6 +75,7 @@ vi.mock("../../services/oportunidades.service", () => ({
   getAnalisis: vi.fn(),
   getGeneraciones: vi.fn(),
   generarAnexos: vi.fn(),
+  getOferente: vi.fn(),
   crearPropuestaTecnica: vi.fn(),
   firmarDocumentos: vi.fn(),
   subirAdjunto: vi.fn(),
@@ -102,6 +104,12 @@ beforeEach(() => {
     ),
   );
   s.getAnalisis.mockResolvedValue({ id: 5, estado: "listo" } as never);
+  s.getOferente.mockResolvedValue({
+    oferente: {
+      razon_social: "VALLE DEL SOL QUILLON SPA",
+      rut: "77.701.305-K",
+    },
+  } as never);
   s.getGeneraciones.mockResolvedValue({
     anexos: TRABAJO,
     firma: null,
@@ -133,7 +141,7 @@ const pintar = (ui: ReactElement) =>
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {ui}
+      <MemoryRouter>{ui}</MemoryRouter>
     </QueryClientProvider>,
   );
 
@@ -144,7 +152,10 @@ describe("Crear documentos con IA", () => {
     expect(
       await screen.findByText("Formularios_Anexos.docx"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Bases.pdf")).not.toBeInTheDocument();
+    // El PDF de las bases sale, pero sin marcar: lo marca la persona.
+    expect(
+      screen.getByRole("checkbox", { name: /Bases\.pdf/ }),
+    ).not.toBeChecked();
     fireEvent.click(screen.getByRole("checkbox", { name: /Anexo 7\.docx/ }));
     fireEvent.change(
       screen.getByLabelText("Monto total de la oferta, con IVA (opcional)"),
@@ -164,6 +175,38 @@ describe("Crear documentos con IA", () => {
     expect(
       await screen.findByText(/La IA está llenando los anexos/),
     ).toBeInTheDocument();
+  });
+
+  it("un PDF con los formularios se marca a mano y se manda: se reescribe en Word (18-10)", async () => {
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: /Bases\.pdf/ }),
+    );
+    expect(
+      screen.getByText("se reescribe en Word, igual al original"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
+    await waitFor(() =>
+      expect(s.generarAnexos).toHaveBeenCalledWith(40, {
+        adjuntos: [4, 6, 7],
+      }),
+    );
+  });
+
+  it("sin razón social o RUT en «Mi empresa», lo dice y no deja generar", async () => {
+    s.getOferente.mockResolvedValue({
+      oferente: { razon_social: null, rut: null },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText(/Primero llena «Mi empresa»/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ir a «Mi empresa»" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
   });
 
   it("sin monto avisa que la oferta queda en blanco; lo que hizo la IA sale con lo que falta completar", async () => {

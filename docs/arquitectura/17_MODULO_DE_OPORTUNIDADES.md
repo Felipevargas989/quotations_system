@@ -163,6 +163,42 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     «Revisaste todo lo nuevo», a qué hora vuelve a mirar el radar y deja a
     un clic «Mis licitaciones» y las rojas; y arriba, junto a cuándo se
     revisó, la próxima pasada.
+23. **Traer todo, y el catering en amarillo** (18-10). Felipe preguntó
+    *"¿cómo sé que está trayendo todas las licitaciones que me interesan?"*
+    y respondió *"dale con el plan... el catering, tráelo para acá,
+    mientras déjalo en amarillo"*.
+    - **Las compras ágiles se piden siempre de los últimos 10 días.** La
+      pasada de las 18:00 del 17-10 vio 750 y guardó 54, y aun así quedó
+      "ok". Pedir "desde la última corrida buena" habría dejado fuera
+      para siempre lo publicado entre el 8 y el 15-10 que seguía abierto.
+    - **Arriba, «¿Está todo?»**: lo que falta por traer y por leer, y un
+      aviso si Mercado Público no respondió o si el radar pasa 6 horas sin
+      una pasada buena.
+    - **Lo que la descripción de la empresa marca POR EVALUAR va
+      amarillo**, aunque se haga fuera. Para Valle del Sol es el catering,
+      el coffee break, el cóctel o la banquetería en las dependencias del
+      comprador. El suministro diario de colaciones, la comida a domicilio
+      y el delivery siguen en rojo.
+    - Lo que nadie ha tocado se relee con las reglas nuevas.
+24. **Los formularios del comprador, dos caminos** (18-10). Felipe:
+    *"si bien en Word se rellena, si bien escaneado en PDF se reconvierte...
+    y dejamos un protocolo más robusto cuando se reconvierta, cosa de que
+    mantenga la originalidad del documento"*.
+    - **Word**: se llena el mismo archivo del comprador. El .doc antiguo lo
+      convierte el taller; antes había que guardarlo a mano como .docx
+      (Lota y Yumbel los traían así).
+    - **PDF**, sea separado, escaneado o al final de las bases: se
+      **reescribe** cada formulario en un Word nuevo. Lleva el texto
+      oficial al pie de la letra, las mismas tablas, títulos y sombreados,
+      tipografía parecida y el logo del organismo recortado en el mismo
+      lugar, sin firmas, timbres ni rúbricas. Va un Word por formulario, y
+      la IA lo compara con el original antes de entregar.
+    - Lo hace Opus, que mira el PDF página por página. Llenar encima del
+      PDF se descartó: en el Día del Profesor los formularios venían
+      escaneados y mezclados con el decreto, bajo las firmas del alcalde.
+    - La pantalla dice qué le pasa a cada formulario. Los PDF se marcan a
+      mano, porque casi siempre son las bases. Si «Mi empresa» no tiene
+      razón social o RUT, se avisa antes de apretar.
 
 ## 4. Reglas del módulo (no se negocian)
 
