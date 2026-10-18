@@ -975,6 +975,9 @@ export default function QuotationsPage() {
                     const altoValor =
                       umbralAltoValor > 0 &&
                       quotation.total_amount >= umbralAltoValor;
+                    // Tope de calendario: borde rojo hasta que se resuelva
+                    // (Felipe, 18-10: "no puede pasar tan desapercibido").
+                    const conTope = choquesDeFecha.conTope(quotation.id);
                     return (
                       <div
                         key={quotation.id}
@@ -992,14 +995,15 @@ export default function QuotationsPage() {
                         }}
                         onClick={() => navigate(`/negocio/${quotation.id}`)}
                         className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow ${
-                          altoValor ? "border-l-4 border-l-amber-400" : ""
-                        } ${dragId === quotation.id ? "opacity-40" : ""} ${
-                          // Tope de calendario: borde rojo hasta que se
-                          // resuelva (Felipe, 18-10: "no puede pasar tan
-                          // desapercibido").
-                          choquesDeFecha.conTope(quotation.id)
-                            ? "ring-2 ring-red-500"
+                          // Con tope, el rojo manda: la franja dorada del
+                          // alto valor se esconde (la estrella sigue) y
+                          // vuelve sola cuando el tope se resuelve (Felipe,
+                          // 18-10, "por un tema estético").
+                          altoValor && !conTope
+                            ? "border-l-4 border-l-amber-400"
                             : ""
+                        } ${dragId === quotation.id ? "opacity-40" : ""} ${
+                          conTope ? "ring-2 ring-red-500" : ""
                         }`}
                       >
                         {/* Orden de Felipe (03-08): estado arriba
