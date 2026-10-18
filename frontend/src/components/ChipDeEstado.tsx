@@ -40,6 +40,10 @@ export default function ChipDeEstado({
   readonly disabled?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  // Hacia dónde se abre: en la mitad izquierda de la pantalla, hacia la
+  // derecha; en la mitad derecha, hacia la izquierda. Así nunca se sale
+  // (Felipe, 17-10: en «Mis licitaciones», pegado al borde, se cortaba).
+  const [haciaLaDerecha, setHaciaLaDerecha] = useState(false);
   const raiz = useRef<HTMLSpanElement>(null);
 
   // Se cierra al pinchar afuera y con Escape, como todo lo que se abre
@@ -68,7 +72,12 @@ export default function ChipDeEstado({
     <span ref={raiz} className="relative inline-block">
       <button
         type="button"
-        onClick={() => !disabled && setAbierto((v) => !v)}
+        onClick={() => {
+          if (disabled) return;
+          const r = raiz.current?.getBoundingClientRect();
+          setHaciaLaDerecha(r ? r.left < window.innerWidth / 2 : false);
+          setAbierto((v) => !v);
+        }}
         disabled={disabled}
         title={titulo}
         className={`flex items-center gap-1.5 font-semibold rounded-full disabled:opacity-60 ${
@@ -82,7 +91,9 @@ export default function ChipDeEstado({
       </button>
 
       {abierto && (
-        <span className="absolute right-0 top-full mt-1 z-20 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block">
+        <span
+          className={`absolute ${haciaLaDerecha ? "left-0" : "right-0"} top-full mt-1 z-20 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 block`}
+        >
           {opciones.map((o) => (
             <button
               key={o.value}

@@ -110,7 +110,10 @@ export default function OportunidadesPage() {
         <EstadoDelRadar />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Sin overflow-hidden: recortaba lo que se despliega (el filtro
+          "Por revisar" con la bandeja vacía y el estado en «Mis
+          licitaciones»; Felipe, 17-10). */}
+      <div className="bg-white rounded-lg shadow">
         <div className="flex gap-1 px-4 border-b border-gray-200 overflow-x-auto">
           {(
             [
