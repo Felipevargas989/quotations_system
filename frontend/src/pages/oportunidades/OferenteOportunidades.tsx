@@ -3,13 +3,14 @@ import { AlertTriangle, Building2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
+  getConfigOportunidades,
   getOferente,
+  guardarConfigOportunidades,
   guardarOferente,
   type CamposDelOferente,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
-import DescripcionDeLaEmpresa from "./DescripcionDeLaEmpresa";
 import DocumentosDeEmpresa from "./DocumentosDeEmpresa";
 import FirmaDelOferente from "./FirmaDelOferente";
 import {
@@ -24,6 +25,12 @@ import {
 // carpeta de documentos. La IA los usa para llenar anexos y validar
 // documentos (pasos 3 y 4). El nombre y los datos bancarios viven en
 // Configuración de empresa: aquí solo se muestran.
+//
+// LO QUE VENDE LA EMPRESA va junto a sus instalaciones (Felipe, 19-10: "lo
+// que vende tu empresa debería estar en instalaciones"): las tres
+// descripciones que lee la IA quedan juntas y se guardan con el mismo botón.
+// «Lo que vende» es la `perfil` de la configuración del módulo (la lee el
+// radar para el semáforo); al guardarla no se tocan regiones ni comunas.
 
 type Campo = keyof CamposDelOferente;
 
@@ -76,20 +83,47 @@ export default function OferenteOportunidades() {
     formularioDe(undefined),
   );
   useEffect(() => setForm(formularioDe(data?.oferente)), [data?.oferente]);
+  const config = useQuery({
+    queryKey: ["oportunidades", "config"],
+    queryFn: getConfigOportunidades,
+  });
+  const [perfil, setPerfil] = useState("");
+  useEffect(() => {
+    if (config.data) setPerfil(config.data.perfil);
+  }, [config.data]);
 
   const original = useMemo(
     () => formularioDe(data?.oferente),
     [data?.oferente],
   );
   const cambios = CAMPOS.filter(({ campo }) => form[campo] !== original[campo]);
+  const cambioLoQueVende =
+    config.data !== undefined && perfil !== config.data.perfil;
 
   const guardar = useMutation({
-    mutationFn: () =>
-      guardarOferente(
-        Object.fromEntries(cambios.map(({ campo }) => [campo, form[campo]])),
-      ),
-    onSuccess: (vista) => {
-      qc.setQueryData(["oportunidades", "oferente"], vista);
+    mutationFn: async () => {
+      const vista =
+        cambios.length > 0
+          ? await guardarOferente(
+              Object.fromEntries(
+                cambios.map(({ campo }) => [campo, form[campo]]),
+              ),
+            )
+          : null;
+      const nuevaConfig =
+        cambioLoQueVende && config.data
+          ? await guardarConfigOportunidades({
+              regiones: config.data.regiones,
+              comunas_cercanas: config.data.comunas_cercanas,
+              perfil,
+            })
+          : null;
+      return { vista, nuevaConfig };
+    },
+    onSuccess: ({ vista, nuevaConfig }) => {
+      if (vista) qc.setQueryData(["oportunidades", "oferente"], vista);
+      if (nuevaConfig)
+        qc.setQueryData(["oportunidades", "config"], nuevaConfig);
       toast.success("Datos guardados.");
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
@@ -175,6 +209,25 @@ export default function OferenteOportunidades() {
             />
           </label>
         ))}
+        <label className="block">
+          <span className="block text-xs text-gray-500 mb-1">
+            Lo que vende tu empresa
+          </span>
+          <textarea
+            aria-label="Lo que vende tu empresa"
+            value={perfil}
+            rows={6}
+            maxLength={3000}
+            disabled={!config.data}
+            placeholder="Qué vendes, qué está por evaluar y qué NO vendes."
+            onChange={(e) => setPerfil(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="block text-xs text-gray-400 mt-0.5">
+            La IA lo lee para el semáforo de cada licitación y para el resumen
+            de negocio de las que sigues.
+          </span>
+        </label>
 
         <div className="p-3 rounded-lg bg-gray-50 text-xs text-gray-600 space-y-0.5">
           <p>
@@ -204,7 +257,9 @@ export default function OferenteOportunidades() {
           <button
             type="button"
             onClick={() => guardar.mutate()}
-            disabled={cambios.length === 0 || guardar.isPending}
+            disabled={
+              (cambios.length === 0 && !cambioLoQueVende) || guardar.isPending
+            }
             className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {guardar.isPending ? "Guardando…" : "Guardar datos"}
@@ -218,7 +273,6 @@ export default function OferenteOportunidades() {
       />
 
       <DocumentosDeEmpresa documentos={data.documentos} />
-      <DescripcionDeLaEmpresa />
     </div>
   );
 }
