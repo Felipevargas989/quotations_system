@@ -21,13 +21,18 @@ export const TIPOS_DE_GENERACION: readonly TipoDeGeneracion[] = [
   'propuesta',
 ];
 
+/** Los trabajos de la tabla: los que hacen documentos y, desde el 19-10, el
+ *  resumen de negocio de una licitación seguida (decisión 30, migración
+ *  145), que no deja archivos. */
+export type TipoDeTrabajo = TipoDeGeneracion | 'resumen';
+
 export type FilaDeGeneracion = FilaDeAnalisis & {
-  tipo: TipoDeGeneracion;
+  tipo: TipoDeTrabajo;
   parametros: Record<string, unknown>;
 };
 
 export type GeneracionNueva = AnalisisNuevo & {
-  tipo: TipoDeGeneracion;
+  tipo: TipoDeTrabajo;
   parametros: Record<string, unknown>;
 };
 
@@ -47,7 +52,7 @@ export class GeneracionRepository extends TrabajosDeIARepository {
   async ultimoDeTipo(
     companyId: number,
     oportunidadId: number,
-    tipo: TipoDeGeneracion,
+    tipo: TipoDeTrabajo,
   ): Promise<FilaDeGeneracion | null> {
     const { data, error } = await this.db
       .from(this.tabla)

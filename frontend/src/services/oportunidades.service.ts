@@ -593,6 +593,40 @@ export interface Generacion extends Omit<AnalisisDeBases, "resultado"> {
   resultado: ResultadoDeGeneracion | null;
 }
 
+/** EL RESUMEN DE NEGOCIO de una licitación seguida (decisión 30, sprint E,
+ *  19-10): Sonnet lee lo publicado, el acta y lo subido, y lo cruza con lo
+ *  que vende la empresa («Mi empresa»). */
+export interface ResumenDeNegocio {
+  resumen: string;
+  quien_gano: string;
+  que_incluye: string[];
+  ofertas: Array<{
+    proveedor: string;
+    precio: string;
+    que_ofrecio: string;
+    gano: boolean;
+  }>;
+  para_tu_empresa: string[];
+  siguientes_pasos: string[];
+}
+
+export interface TrabajoDeResumen extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: "resumen";
+  resultado: ResumenDeNegocio | null;
+}
+
+export const getResumenDeNegocio = async (id: number) =>
+  ((await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "GET",
+  )) as TrabajoDeResumen | "" | null) || null;
+
+export const pedirResumenDeNegocio = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "POST",
+  )) as TrabajoDeResumen;
+
 export type GeneracionesDeOportunidad = Record<
   TipoDeGeneracion,
   Generacion | null

@@ -253,6 +253,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - el radar, que revisa las seguidas con las adjudicaciones y lee el acta (`historia/acta.ts`);
       - en la ficha, «Quién ganó, según el acta».
       Las razones de la prioridad quedaron en violeta también en el resumen y en la ficha (decisión 31).
+    - **Parte 2 construida la noche del 19-10** (sprint E, en el laboratorio, migración 145 solo en su base):
+      - lo que vende la empresa se escribe en «Mi empresa» y Configuración remite allá; es la misma `perfil`, que lee el radar;
+      - en la ficha de una seguida, o con acta, el botón «Hacer resumen de negocio»: Sonnet 5.5 lee lo publicado, el acta y lo subido, y lo cruza con «Mi empresa» (quién ganó, qué incluye, qué ofreció cada uno, para tu empresa, siguientes pasos).
+      Sonnet y no Opus: no decide una postulación y cuesta la mitad.
 31. **La bandeja, un color por significado** (19-10, sin construir; sprint B de la hoja de ruta, §7). Felipe, con la bandeja a la vista: *"el amarillo de los prioritarios se mezcla con el amarillo del semáforo y hace confuso saber cuál es más importante... quizás las verdes con un fondo verde pálido, las amarillas un amarillo pálido, y las prioritarias separadas por tablas"*.
     - Se le mostraron dos bocetos el 19-10:
       - **A, su idea:** la fila entera teñida por el semáforo y la prioridad separada por secciones.

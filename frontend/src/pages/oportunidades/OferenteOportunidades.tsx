@@ -9,6 +9,7 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
+import DescripcionDeLaEmpresa from "./DescripcionDeLaEmpresa";
 import DocumentosDeEmpresa from "./DocumentosDeEmpresa";
 import FirmaDelOferente from "./FirmaDelOferente";
 import {
@@ -217,6 +218,7 @@ export default function OferenteOportunidades() {
       />
 
       <DocumentosDeEmpresa documentos={data.documentos} />
+      <DescripcionDeLaEmpresa />
     </div>
   );
 }
