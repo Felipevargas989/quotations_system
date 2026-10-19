@@ -25,6 +25,7 @@ import {
   type OfertaDeLaPropuesta,
   productosDeLaOferta,
 } from '../generacion/oferta-de-la-propuesta';
+import { noSiEstaCongelada } from './congelada';
 import {
   type CotizacionDeLaPostulacion,
   type OportunidadParaCotizar,
@@ -202,10 +203,11 @@ export class CotizacionDeLaPostulacionService {
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
+    noSiEstaCongelada(o.estado);
     const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
     if (!propuesta) {
       throw new BadRequestException(
-        'Primero crea la propuesta técnica: de ella salen los productos de la cotización. Si la creaste antes del 19-10, vuelve a crearla.',
+        'Primero arma la oferta («La oferta», arriba): de ella salen los productos de la cotización.',
       );
     }
     const destino = numero
@@ -299,6 +301,7 @@ export class CotizacionDeLaPostulacionService {
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
+    noSiEstaCongelada(o.estado);
     const q = o.quotation_id
       ? await this.repo.cotizacion(companyId, { id: o.quotation_id })
       : null;

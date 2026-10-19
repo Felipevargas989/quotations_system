@@ -34,6 +34,7 @@ import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { noSiEstaCongelada } from '../postulacion/congelada';
 import { LoPostuladoService } from '../postulacion/lo-postulado.service';
 import {
   claseDeFormulario,
@@ -650,6 +651,7 @@ export class GeneracionService {
     ficha: NonNullable<Awaited<ReturnType<OportunidadesRepository['ficha']>>>,
     conEventia = false,
   ) {
+    noSiEstaCongelada(ficha.estado); // al postular, se congela (decisión 33)
     const hoy = hoyEnChile();
     const haceCuatroAnios = `${Number(hoy.slice(0, 4)) - 4}${hoy.slice(4)}`;
     const [analisis, oferente, empresa, carta, eventos, respaldos, oferta] =

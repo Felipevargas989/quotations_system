@@ -181,13 +181,36 @@ describe('La cotización de la postulación', () => {
     );
   });
 
-  it('sin la oferta de una propuesta técnica, no hay de dónde sacar los productos', async () => {
+  it('sin una oferta armada, no hay de dónde sacar los productos', async () => {
     const { repo, cotizaciones, servicio } = armar();
     repo.ultimaPropuesta.mockResolvedValue({ id: 30, resultado: {} });
     await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
-      'Primero crea la propuesta técnica',
+      'Primero arma la oferta',
     );
     expect(cotizaciones.create).not.toHaveBeenCalled();
+  });
+
+  it('postulada o ganada, lo postulado queda fijo: ni cotización nueva, ni vincular, ni cambiar la oferta (decisión 33)', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    repo.oportunidad.mockResolvedValue({
+      ...(await repo.oportunidad()),
+      estado: 'postulada',
+    });
+    await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
+      'Ya la postulaste: lo postulado queda fijo',
+    );
+    await expect(servicio.llevar(USUARIO, 87, 481)).rejects.toThrow(
+      'Ya la postulaste',
+    );
+    repo.oportunidad.mockResolvedValue({
+      ...(await repo.oportunidad()),
+      estado: 'ganada',
+    });
+    await expect(servicio.fijarOferta(USUARIO, 87, 10_000_000)).rejects.toThrow(
+      'La ganaste: lo postulado es el contrato',
+    );
+    expect(cotizaciones.create).not.toHaveBeenCalled();
+    expect(cotizaciones.update).not.toHaveBeenCalled();
   });
 
   it('vincular = el número y se reescribe entera, con lo que tenía en su bitácora; una aceptada no se toca', async () => {

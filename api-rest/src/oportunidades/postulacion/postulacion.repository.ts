@@ -11,6 +11,8 @@ import { type FilaDeLaMatriz, leerArmado } from './armar-la-oferta';
 export type OportunidadParaCotizar = {
   id: number;
   codigo: string;
+  /** Desde «Postulada», lo postulado queda fijo (congelada.ts). */
+  estado: string;
   quotation_id: string | null;
   etiquetas: string[] | null;
   proceso: {
@@ -63,7 +65,7 @@ export class PostulacionRepository {
     const { data, error } = await this.db
       .from('oportunidades')
       .select(
-        'id, codigo, quotation_id, etiquetas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre)',
+        'id, codigo, estado, quotation_id, etiquetas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre)',
       )
       .eq('company_id', companyId)
       .eq('id', id)

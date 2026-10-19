@@ -15,6 +15,7 @@ import {
   type GeneracionesDeOportunidad,
   type TipoDeGeneracion,
 } from "../../services/oportunidades.service";
+import { getOfertaDeLaPostulacion } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { claveDeLaCotizacion } from "./precioDeLaPostulacion";
@@ -112,6 +113,25 @@ export default function DocumentosConIA({
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo crear la propuesta.")),
   });
+
+  // Si la oferta se volvió a armar después de un documento, ese documento
+  // ya no dice lo mismo (decisión 33): hay que volver a generarlo.
+  const { data: armada } = useQuery({
+    queryKey: ["oportunidades", "oferta", oportunidadId],
+    queryFn: () => getOfertaDeLaPostulacion(oportunidadId),
+  });
+  const cambioLaOferta = (g?: { estado: string; creado_en: string } | null) =>
+    Boolean(
+      g?.estado === "listo" &&
+        armada?.estado === "listo" &&
+        g.creado_en < (armada.terminado_en ?? armada.creado_en),
+    );
+  const desactualizado = (
+    <p className="text-xs font-semibold text-amber-700">
+      Se hizo antes de la última oferta: vuelve a generarlo para que diga lo
+      mismo.
+    </p>
+  );
 
   const llenando =
     generaciones?.anexos?.estado === "procesando" || anexos.isPending;
@@ -226,6 +246,7 @@ export default function DocumentosConIA({
             </p>
           )}
           <EstadoDeGeneracion tipo="anexos" generacion={generaciones?.anexos} />
+          {cambioLaOferta(generaciones?.anexos) && desactualizado}
         </div>
 
         <div className="rounded-lg border border-gray-200 p-4 space-y-3">
@@ -235,7 +256,8 @@ export default function DocumentosConIA({
           <p className="text-sm text-gray-600">
             Un Word nuevo que responde punto por punto a las especificaciones
             técnicas de las bases, con el logo y los datos de «Mi empresa». Sin
-            precios. Lo que solo tú sabes queda marcado [COMPLETAR].
+            precios. Si armaste «La oferta», se escribe desde ella. Lo que solo
+            tú sabes queda marcado [COMPLETAR].
           </p>
           <button
             type="button"
@@ -262,6 +284,7 @@ export default function DocumentosConIA({
             tipo="propuesta"
             generacion={generaciones?.propuesta}
           />
+          {cambioLaOferta(generaciones?.propuesta) && desactualizado}
         </div>
       </div>
     </section>

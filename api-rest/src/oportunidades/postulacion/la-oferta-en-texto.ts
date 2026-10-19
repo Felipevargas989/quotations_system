@@ -74,5 +74,11 @@ export const laOfertaDecidida = (o: OfertaParaDocumentos): string[] => [
   '',
 ];
 
+/** El formulario de calidad que acepta formato propio remite a la
+ *  propuesta técnica (decisión 33): así no hay dos versiones del detalle
+ *  que puedan contradecirse. */
+export const FORMATO_PROPIO =
+  'Si un formulario de calidad de la oferta o de oferta técnica permite adjuntar un formato propio (por ejemplo, «Puede adjuntar formato propio con la totalidad del detalle»), no repitas el detalle: escribe en él «Se adjunta propuesta técnica en formato propio» y deja su encabezado y su línea de firma. La propuesta técnica, hecha desde lo mismo, lleva el detalle.';
+
 export const ESCRIBIR_LA_OFERTA =
   'La oferta ya está decidida (LO POSTULADO, arriba): escribe exactamente eso. El texto de cada punto va tal cual en el lugar de las bases o del formulario que le corresponde, con sus productos y cantidades. No decidas, no cambies ni agregues nada. Si las bases piden algo que no está en lo postulado, escríbelo como [COMPLETAR: qué falta] y anótalo en pendientes.';
