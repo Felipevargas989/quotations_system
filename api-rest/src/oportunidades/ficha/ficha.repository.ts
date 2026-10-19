@@ -93,35 +93,23 @@ export class FichaRepository {
     return count ?? 0;
   }
 
-  /** Marca (o desmarca, con null) una exigencia de las bases. Devuelve
-   *  todas las marcas, o null si la oportunidad no es de esta empresa. */
+  /** Marca (o desmarca, con null) una exigencia de las bases, en un solo
+   *  paso en la base (`marcar_exigencia`, migración 152): leer y después
+   *  guardar dejaba que dos marcas seguidas se pisaran. Devuelve todas las
+   *  marcas, o null si la oportunidad no es de esta empresa. */
   async marcarExigencia(
     companyId: number,
     id: number,
     clave: string,
     marca: MarcaDeExigencia | null,
   ): Promise<Record<string, MarcaDeExigencia> | null> {
-    const { data, error } = await this.db
-      .from('oportunidades')
-      .select('exigencias_marcadas')
-      .eq('company_id', companyId)
-      .eq('id', id)
-      .maybeSingle();
+    const { data, error } = await this.db.rpc('marcar_exigencia', {
+      p_company_id: companyId,
+      p_id: id,
+      p_clave: clave,
+      p_marca: marca,
+    });
     if (error) throw error;
-    if (!data) return null;
-    const marcas = {
-      ...((
-        data as { exigencias_marcadas: Record<string, MarcaDeExigencia> | null }
-      ).exigencias_marcadas ?? {}),
-    };
-    if (marca) marcas[clave] = marca;
-    else delete marcas[clave];
-    const { error: alGuardar } = await this.db
-      .from('oportunidades')
-      .update({ exigencias_marcadas: marcas })
-      .eq('company_id', companyId)
-      .eq('id', id);
-    if (alGuardar) throw alGuardar;
-    return marcas;
+    return (data as Record<string, MarcaDeExigencia> | null) ?? null;
   }
 }

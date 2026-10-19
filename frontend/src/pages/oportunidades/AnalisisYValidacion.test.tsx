@@ -467,6 +467,46 @@ describe("Exigencias de la licitación", () => {
     );
   });
 
+  it("dos marcas seguidas van de a una, en orden (19-10: se pisaban)", async () => {
+    let soltarLaPrimera: (v: Record<string, string>) => void = () => {};
+    ex.marcarExigencia
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolver) => {
+            soltarLaPrimera = resolver;
+          }) as never,
+      )
+      .mockResolvedValueOnce({
+        "cena con plateada o salmon": "lo_tengo",
+        "exclusividad del recinto": "no_puedo",
+      });
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />, {
+      ...ANALISIS,
+      resultado: CON_TECNICOS,
+    });
+    const cena = (
+      await screen.findByText("Cena con plateada o salmón")
+    ).closest("li") as HTMLElement;
+    const exclusividad = screen
+      .getByText("Exclusividad del recinto")
+      .closest("li") as HTMLElement;
+    fireEvent.click(within(cena).getByRole("button", { name: /Lo tengo/ }));
+    fireEvent.click(
+      within(exclusividad).getByRole("button", { name: /No puedo/ }),
+    );
+    await waitFor(() => expect(ex.marcarExigencia).toHaveBeenCalledTimes(1));
+    // La segunda espera a que el motor guarde la primera.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ex.marcarExigencia).toHaveBeenCalledTimes(1);
+    soltarLaPrimera({ "cena con plateada o salmon": "lo_tengo" });
+    await waitFor(() => expect(ex.marcarExigencia).toHaveBeenCalledTimes(2));
+    expect(ex.marcarExigencia).toHaveBeenLastCalledWith(
+      40,
+      "exclusividad del recinto",
+      "no_puedo",
+    );
+  });
+
   it("ya postulada no se desiste; sin exigencias técnicas no aparece", async () => {
     pintar(
       <AnalisisDeBases

@@ -44,18 +44,35 @@ export default function ExigenciasDeLaLicitacion({
     qc.setQueryData<FichaDeOportunidad>(claveDeLaFicha(oportunidadId), (f) =>
       f ? { ...f, exigencias_marcadas: nuevas } : f,
     );
+  // Las marcas van de a una, en orden (19-10: dos clics seguidos se
+  // pisaban), y cada una se pone al tiro sobre lo último que hay en
+  // pantalla, no sobre lo que había al pintar.
   const marcar = useMutation({
+    mutationKey: ["oportunidades", "exigencias", oportunidadId],
+    scope: { id: `exigencias-${oportunidadId}` },
     mutationFn: (m: { clave: string; marca: MarcaDeExigencia | null }) =>
       marcarExigencia(oportunidadId, m.clave, m.marca),
     onMutate: (m) => {
-      const nuevas = { ...marcas };
+      const ultimas =
+        qc.getQueryData<FichaDeOportunidad>(claveDeLaFicha(oportunidadId))
+          ?.exigencias_marcadas ?? marcas;
+      const nuevas = { ...ultimas };
       if (m.marca) nuevas[m.clave] = m.marca;
       else delete nuevas[m.clave];
       ponerMarcas(nuevas);
     },
-    onSuccess: ponerMarcas,
+    // Lo que guardó el motor, cuando ya no queda otra marca en camino.
+    onSuccess: (todas) => {
+      if (
+        qc.isMutating({
+          mutationKey: ["oportunidades", "exigencias", oportunidadId],
+        }) <= 1
+      ) {
+        ponerMarcas(todas);
+      }
+    },
     onError: (e) => {
-      ponerMarcas(marcas);
+      void qc.invalidateQueries({ queryKey: claveDeLaFicha(oportunidadId) });
       toast.error(humanizeApiError(e, "No se pudo guardar la marca."));
     },
   });
