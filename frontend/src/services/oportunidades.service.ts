@@ -377,6 +377,15 @@ export interface Oferente {
   representante_nombre: string | null;
   representante_rut: string | null;
   representante_cargo: string | null;
+  /** Migración 154 (decisión 43). */
+  representante_correo: string | null;
+  representante_telefono: string | null;
+  representante_direccion: string | null;
+  coordinador_nombre: string | null;
+  coordinador_cargo: string | null;
+  coordinador_correo: string | null;
+  coordinador_telefono: string | null;
+  sitio_web: string | null;
   experiencia: string | null;
   instalaciones: string | null;
   /** La foto de la firma, en el balde privado. */

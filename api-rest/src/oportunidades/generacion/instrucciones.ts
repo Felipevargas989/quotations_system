@@ -182,6 +182,14 @@ const DATOS: ReadonlyArray<[keyof Oferente, string]> = [
   ['representante_nombre', 'Representante legal'],
   ['representante_rut', 'RUT del representante legal'],
   ['representante_cargo', 'Cargo del representante legal'],
+  ['representante_correo', 'Correo del representante legal'],
+  ['representante_telefono', 'Teléfono del representante legal'],
+  ['representante_direccion', 'Dirección del representante legal'],
+  ['coordinador_nombre', 'Coordinador durante la licitación'],
+  ['coordinador_cargo', 'Cargo del coordinador'],
+  ['coordinador_correo', 'Correo del coordinador'],
+  ['coordinador_telefono', 'Teléfono del coordinador'],
+  ['sitio_web', 'Página web'],
 ];
 
 const laEmpresa = (c: ContextoDeGeneracion): string[] => {
@@ -202,6 +210,8 @@ const laEmpresa = (c: ContextoDeGeneracion): string[] => {
       ([campo, etiqueta]) => `- ${etiqueta}: ${o[campo]}`,
     ),
     ...(c.empresa?.name ? [`- Nombre de fantasía: ${c.empresa.name}`] : []),
+    // Decisión 43 (19-10): el Formulario N°1 del Profesor los pedía aparte.
+    '- Si un formulario pide la dirección, el teléfono o el correo del representante legal y no están arriba, usa los de la empresa.',
     ...(banco.length > 0
       ? [
           `- Cuenta para pagos (solo si el formulario la pide): ${banco.join(', ')}`,
@@ -460,7 +470,7 @@ export const instruccionesDeAnexos = (
       FIRMA_JUNTA,
       'Fechas: la de hoy, escrita como la pida el formulario. Lugar: la comuna de la empresa.',
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
-      'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Anota en pendientes, en una línea, los archivos de los respaldos que usaste: «Adjuntar respaldos: ...».',
+      'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: las filas sin respaldo.',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,

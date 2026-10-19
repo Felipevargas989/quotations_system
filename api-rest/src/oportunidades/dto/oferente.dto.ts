@@ -22,6 +22,15 @@ export class GuardarOferenteDto {
   @IsOptional() @IsString() @MaxLength(200) representante_nombre?: string;
   @IsOptional() @IsString() @MaxLength(20) representante_rut?: string;
   @IsOptional() @IsString() @MaxLength(100) representante_cargo?: string;
+  // El contacto del representante y del coordinador (migración 154).
+  @IsOptional() @IsString() @MaxLength(200) representante_correo?: string;
+  @IsOptional() @IsString() @MaxLength(40) representante_telefono?: string;
+  @IsOptional() @IsString() @MaxLength(300) representante_direccion?: string;
+  @IsOptional() @IsString() @MaxLength(200) coordinador_nombre?: string;
+  @IsOptional() @IsString() @MaxLength(100) coordinador_cargo?: string;
+  @IsOptional() @IsString() @MaxLength(200) coordinador_correo?: string;
+  @IsOptional() @IsString() @MaxLength(40) coordinador_telefono?: string;
+  @IsOptional() @IsString() @MaxLength(200) sitio_web?: string;
   @IsOptional() @IsString() @MaxLength(5000) experiencia?: string;
   @IsOptional() @IsString() @MaxLength(5000) instalaciones?: string;
 }

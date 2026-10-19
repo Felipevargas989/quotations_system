@@ -343,6 +343,9 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Si las bases no traen un formulario técnico (calidad de la oferta, oferta o propuesta técnica), «Armar postulación» hace siempre la propuesta técnica, la pidan o no.
     - La propuesta lleva el detalle de lo postulado y, al final, el valor: una tabla con el neto, el IVA y el total, calculados por Eventia con el precio que pusiste. Nunca precios por ítem, por persona ni unitarios.
     - Con formulario técnico, todo va en ese formulario (decisión 40) y no hay propuesta aparte.
+43. **Los contactos para licitar en «Mi empresa», y los respaldos usados no son pendientes** (19-10, pedido por Felipe). En el Día del Profesor, el Formulario N°1 quedó con la dirección, los teléfonos y el correo del representante legal en blanco, y sin el coordinador de la licitación: «Mi empresa» solo tenía su nombre, RUT y cargo. Felipe: *"podríamos incluir los datos del coordinador de la identificación"*. Y el Formulario N°3 pedía «Adjuntar respaldos» con las tres órdenes que sí estaban: *"me está pidiendo órdenes de compra que sí entiendo que están"*.
+    - «Mi empresa» suma el correo, el teléfono y la dirección del representante legal, el coordinador de la licitación (nombre, cargo, correo y teléfono) y la página web (migración 154). Si el contacto del representante queda vacío, la IA usa el de la empresa.
+    - Los respaldos que la IA usó ya no salen como pendientes: el ZIP para Mercado Público los adjunta solo, por su número. Pendiente queda solo lo que de verdad falta (las filas sin respaldo).
 
 ## 4. Reglas del módulo (no se negocian)
 
