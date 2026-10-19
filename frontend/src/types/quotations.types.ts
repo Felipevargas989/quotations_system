@@ -74,6 +74,9 @@ export interface Quotation {
   // Notas internas del equipo (migración 128, 17-10-2026): nunca salen al
   // cliente. Sin sesión de la empresa, el motor la entrega sin este campo.
   comentario_interno?: string | null;
+  // Si es lo postulado en una licitación (decisión 35 del doc 17, 19-10):
+  // de solo lectura en el cotizador. Solo llega a su empresa.
+  de_licitacion?: { id: number; codigo: string } | null;
   created_at: Date;
   client_id: string;
   event_type: EventType;

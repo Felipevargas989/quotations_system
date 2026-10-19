@@ -17,9 +17,9 @@ import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
 import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
+import ArmarPostulacion from "./ArmarPostulacion";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
 import ResumenDeNegocio from "./ResumenDeNegocio";
-import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
@@ -313,17 +313,17 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
                 : "Ya la postulaste: la oferta, su cotización y los documentos quedan fijos, tal como se subieron a Mercado Público."}
             </p>
           )}
-          <OfertaDeLaPostulacion
+          <ArmarPostulacion
             oportunidadId={ficha.id}
             congelada={
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
           />
+          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}
           />
-          <DocumentosConIA oportunidadId={ficha.id} />
           <MiPostulacion
             oportunidadId={ficha.id}
             codigo={ficha.codigo}

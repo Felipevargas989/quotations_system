@@ -207,7 +207,20 @@ export class QuotationsController {
       this.quotationsService.findOne(id),
       this.sesionOpcional.empresaDe(authorization),
     ]);
-    return sinComentarioAjeno(respuesta, empresa);
+    const limpia = sinComentarioAjeno(respuesta, empresa);
+    const fila = limpia?.data as { company_id?: number | string } | null;
+    if (empresa === null || !fila || Number(fila.company_id) !== empresa) {
+      return limpia;
+    }
+    // Solo a su empresa: si es la copia de lo postulado en una licitación,
+    // la pantalla la muestra de solo lectura (decisión 35 del doc 17).
+    return {
+      ...limpia,
+      data: {
+        ...fila,
+        de_licitacion: await this.quotationsService.licitacionDe(id, empresa),
+      },
+    };
   }
 
   // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026): arma el

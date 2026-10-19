@@ -13,9 +13,10 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
+import { ArmarPostulacionService } from './armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { ElSetService } from './el-set.service';
-import { FijarOfertaDto, LlevarACotizacionDto } from './postulacion.dto';
+import { ArmarPostulacionDto, LlevarACotizacionDto } from './postulacion.dto';
 
 // La cotización de la postulación y «¿Calza el precio?» (decisión 29 del
 // doc 17). Mismo candado que el resto de Oportunidades: administrador y el
@@ -27,6 +28,7 @@ export class PostulacionController {
   constructor(
     private readonly cotizacion: CotizacionDeLaPostulacionService,
     private readonly armar: ArmarLaOfertaService,
+    private readonly postulacion: ArmarPostulacionService,
     private readonly elSet: ElSetService,
     private readonly logger: PinoLogger,
   ) {
@@ -40,15 +42,19 @@ export class PostulacionController {
     return this.armar.ultimo(user.company_id, id);
   }
 
-  @Post(':id/oferta')
-  armarLaOferta(
+  /** «Armar postulación» (decisión 35): con el precio, la oferta y, por
+   *  detrás, los anexos, la propuesta técnica si va y la cotización
+   *  vinculada igual a lo postulado. Responde con la oferta en curso. */
+  @Post(':id/postulacion')
+  armarPostulacion(
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ArmarPostulacionDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(
-      `POST /oportunidades/${id}/oferta (empresa ${user.company_id})`,
+      `POST /oportunidades/${id}/postulacion (empresa ${user.company_id})`,
     );
-    return this.armar.pedir(user.company_id, user.id, id);
+    return this.postulacion.armar(user, id, dto.total);
   }
 
   /** «Descargar para Mercado Público» (decisión 34): lo que va en el ZIP,
@@ -92,18 +98,6 @@ export class PostulacionController {
     this.logger.info(
       `POST /oportunidades/${id}/cotizacion ${dto.numero ? `(vincular N° ${dto.numero})` : ''} (empresa ${user.company_id})`,
     );
-    return this.cotizacion.llevar(user, id, dto.numero);
-  }
-
-  @Post(':id/cotizacion/oferta')
-  fijarOferta(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: FijarOfertaDto,
-    @CurrentUser() user: User,
-  ) {
-    this.logger.info(
-      `POST /oportunidades/${id}/cotizacion/oferta (empresa ${user.company_id})`,
-    );
-    return this.cotizacion.fijarOferta(user, id, dto.total);
+    return this.cotizacion.llevar(user, id, dto.numero, dto.total);
   }
 }

@@ -695,23 +695,19 @@ export const getCotizacionDeLaPostulacion = async (id: number) =>
     "GET",
   )) as EstadoDeLaCotizacion;
 
-/** Crea la cotización con la oferta de la propuesta técnica, o reescribe
- *  la vinculada; con `numero`, vincula y reescribe esa. */
-export const llevarACotizacion = async (id: number, numero?: number) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
-    "POST",
-    numero ? { numero } : {},
-  )) as EstadoDeLaCotizacion;
-
-/** La oferta con IVA: la diferencia con el catálogo queda como descuento
- *  en dinero en la cotización. */
-export const fijarOfertaDeLaPostulacion = async (id: number, total: number) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion/oferta`,
-    "POST",
-    { total },
-  )) as EstadoDeLaCotizacion;
+/** «Vincular con cotización» (decisión 35): crea la cotización con lo
+ *  postulado, o con `numero` vincula y reescribe esa; con `total` (el
+ *  precio de «Armar postulación») queda con ese total. Desde ahí es de solo
+ *  lectura en el cotizador. */
+export const llevarACotizacion = async (
+  id: number,
+  numero?: number,
+  total?: number,
+) =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`, "POST", {
+    ...(numero ? { numero } : {}),
+    ...(total ? { total } : {}),
+  })) as EstadoDeLaCotizacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). */

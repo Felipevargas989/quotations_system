@@ -11,6 +11,7 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
+import * as postulacion from "../../services/postulacion.service";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
 import { veredicto } from "./precioDeLaPostulacion";
 
@@ -22,10 +23,13 @@ import { veredicto } from "./precioDeLaPostulacion";
 vi.mock("../../services/oportunidades.service", () => ({
   getCotizacionDeLaPostulacion: vi.fn(),
   llevarACotizacion: vi.fn(),
-  fijarOfertaDeLaPostulacion: vi.fn(),
+}));
+vi.mock("../../services/postulacion.service", () => ({
+  getOfertaDeLaPostulacion: vi.fn(),
 }));
 
 const s = vi.mocked(servicio);
+const p = vi.mocked(postulacion);
 
 const ANTERIOR = {
   codigo: "4364-5-LE25",
@@ -58,8 +62,7 @@ beforeEach(() => {
     presupuesto: 15_960_000,
     propuesta: { id: 31, productos: 3 },
   });
-  s.llevarACotizacion.mockResolvedValue(CON_COTIZACION);
-  s.fijarOfertaDeLaPostulacion.mockResolvedValue({
+  s.llevarACotizacion.mockResolvedValue({
     ...CON_COTIZACION,
     cotizacion: {
       ...CON_COTIZACION.cotizacion!,
@@ -67,6 +70,12 @@ beforeEach(() => {
       total: 5_500_000,
     },
   });
+  // «Armar postulación» con su precio (decisión 35).
+  p.getOfertaDeLaPostulacion.mockResolvedValue({
+    id: 21,
+    estado: "listo",
+    parametros: { postulacion: { total: 5_500_000, propuesta: true } },
+  } as never);
 });
 
 afterEach(() => {
@@ -88,7 +97,7 @@ const pintar = () =>
   );
 
 describe("¿Calza el precio?", () => {
-  it("sin propuesta técnica con su oferta, dice de dónde salen los productos", async () => {
+  it("sin lo postulado, dice de dónde sale la cotización", async () => {
     s.getCotizacionDeLaPostulacion.mockResolvedValue({
       cotizacion: null,
       presupuesto: null,
@@ -96,65 +105,70 @@ describe("¿Calza el precio?", () => {
     });
     pintar();
     expect(
-      await screen.findByText(/Primero crea la propuesta técnica/),
+      await screen.findByText(/Primero arma la postulación/),
     ).toBeInTheDocument();
     expect(screen.getByText("No lo publicaron")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Crear cotización/ }),
+      screen.queryByRole("button", { name: /Vincular con cotización/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("crea la cotización con los productos de la propuesta, y muestra el catálogo y lo que ganó el año pasado", async () => {
+  it("con el precio de la postulación dice si calza; «Vincular con cotización» crea una nueva con ese precio", async () => {
     pintar();
-    expect(
-      await screen.findByText(/La propuesta técnica ofrece 3 productos/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("$12.000.000")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Crear cotización/ }));
-    await waitFor(() =>
-      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, undefined),
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Vincular con cotización/ }),
     );
-    expect(await screen.findByText("Cotización N° 612")).toBeInTheDocument();
-    expect(screen.getAllByText("$6.007.500")).toHaveLength(2);
+    expect(screen.getByText("$12.000.000")).toBeInTheDocument();
+    expect(await screen.findByText("$5.500.000")).toBeInTheDocument();
+    expect(screen.getByText(/Calza: tu oferta queda/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Crear una nueva" }));
+    await waitFor(() =>
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(
+        87,
+        undefined,
+        5_500_000,
+      ),
+    );
     expect(
-      screen.getByText(/Calza: tu oferta queda 62,4 % bajo el presupuesto/),
+      await screen.findByText(/Cotización N° 612 · solicitada/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/De solo lectura: es lo postulado/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Ver la cotización/ }),
     ).toHaveAttribute("href", "/negocio/q-612");
   });
 
-  it("vincular pide el número y pregunta antes de reescribirla", async () => {
+  it("vincular una existente pide el número y avisa que se reescribe y queda de solo lectura", async () => {
     pintar();
-    fireEvent.change(await screen.findByLabelText("o vincular la N°"), {
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Vincular con cotización/ }),
+    );
+    fireEvent.change(screen.getByLabelText("Vincular la N°"), {
       target: { value: "598" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Vincular" }));
     expect(s.llevarACotizacion).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/La N° 598 se reescribe entera/),
+      screen.getByText(
+        /La N° 598 se reescribe entera con lo postulado y queda de solo lectura/,
+      ),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Sí, vincular y reescribir" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, vincular" }));
     await waitFor(() =>
-      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 598),
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 598, 5_500_000),
     );
   });
 
-  it("la oferta se aplica y queda el descuento en dinero a la vista", async () => {
+  it("vinculada: sin botones para cambiarla, porque es lo postulado", async () => {
     s.getCotizacionDeLaPostulacion.mockResolvedValue(CON_COTIZACION);
     pintar();
-    fireEvent.change(await screen.findByLabelText("Tu oferta, con IVA"), {
-      target: { value: "5500000" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Aplicar oferta/ }));
-    await waitFor(() =>
-      expect(s.fijarOfertaDeLaPostulacion).toHaveBeenCalledWith(87, 5_500_000),
-    );
     expect(
-      await screen.findByText("Descuento $507.500 (8,4 %)"),
+      await screen.findByText(/Cotización N° 612 · solicitada/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/De solo lectura/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 

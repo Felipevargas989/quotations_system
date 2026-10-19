@@ -79,11 +79,16 @@ export class ArmarLaOfertaService {
   }
 
   /** La pide: responde al tiro con la fila "procesando" y la oferta sigue
-   *  por detrás. */
+   *  por detrás. «Armar postulación» (decisión 35) le pasa sus parámetros
+   *  y lo que sigue cuando la oferta queda lista (`despues`). */
   async pedir(
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
+    encadenar: {
+      parametros?: Record<string, unknown>;
+      despues?: (ofertaId: number) => Promise<void>;
+    } = {},
   ): Promise<FilaDeGeneracion> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
@@ -132,7 +137,7 @@ export class ArmarLaOfertaService {
       company_id: companyId,
       oportunidad_id: oportunidadId,
       tipo: 'oferta',
-      parametros: {},
+      parametros: encadenar.parametros ?? {},
       modelo: MODELO_DE_LA_OFERTA,
       archivos: caben.map((a) => ({ id: a.id, nombre: a.nombre })),
       no_leidos: fuera,
@@ -157,18 +162,27 @@ export class ArmarLaOfertaService {
         loQueVende: config?.perfil ?? null,
         catalogo,
       }),
-    );
+    )
+      .then((lista) =>
+        lista && encadenar.despues ? encadenar.despues(fila.id) : undefined,
+      )
+      .catch((error) =>
+        this.logger.error(
+          `oferta ${fila.id}: no se pudo seguir con la postulación: ${mensajeDe(error)}`,
+        ),
+      );
     return fila;
   }
 
-  /** Por detrás. Nunca lanza: lo que falle queda escrito en la fila. */
+  /** Por detrás. Nunca lanza: lo que falle queda escrito en la fila.
+   *  true = la oferta quedó lista. */
   async ejecutar(
     companyId: number,
     id: number,
     archivos: Adjunto[],
     noLeidos: NoLeido[],
     sistema: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       const { bloques, sinAbrir } = await armarContenido(archivos, (ruta) =>
         this.repo.descargar(ruta),
@@ -212,6 +226,7 @@ export class ArmarLaOfertaService {
       this.logger.info(
         `oferta ${id}: ${entrada} tokens de entrada, ${salida} de salida, US$${costo}`,
       );
+      return Boolean(armado);
     } catch (error) {
       this.logger.warn(`oferta ${id}: ${mensajeDe(error)}`);
       await this.repo
@@ -224,6 +239,7 @@ export class ArmarLaOfertaService {
             `no pude anotar el error de la oferta ${id}: ${mensajeDe(e)}`,
           ),
         );
+      return false;
     }
   }
 }

@@ -2,6 +2,7 @@ import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import {
   type ArchivoDelSet,
   armarElSet,
+  conLaPropuestaQueNombran,
   conLosRespaldos,
   type DatosDelSet,
   mismoFormulario,
@@ -293,6 +294,22 @@ describe('el set para Mercado Público', () => {
     expect(set.faltan).toContain(
       'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa».',
     );
+  });
+
+  it('si un anexo remite a la propuesta en formato propio y no está, lo dice', () => {
+    const d = datos();
+    const sinPropuesta = armarElSet({
+      ...d,
+      archivos: d.archivos.filter((a) => a.id !== 30),
+    });
+    const texto = {
+      texto: 'Anexo N°4 | Se adjunta propuesta técnica en formato propio.',
+    };
+    expect(conLaPropuestaQueNombran(sinPropuesta, [texto]).faltan).toContain(
+      'Un anexo dice que se adjunta la propuesta técnica en formato propio, y la propuesta no está: vuelve a armar la postulación.',
+    );
+    const conPropuesta = armarElSet(d);
+    expect(conLaPropuestaQueNombran(conPropuesta, [texto])).toBe(conPropuesta);
   });
 
   it('dentro del ZIP: una ruta por carpeta y sin nombres repetidos', () => {

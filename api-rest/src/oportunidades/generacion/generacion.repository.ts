@@ -67,6 +67,21 @@ export class GeneracionRepository extends TrabajosDeIARepository {
     return (data as unknown as FilaDeGeneracion | null) ?? null;
   }
 
+  /** Reemplaza los parámetros de un trabajo de la empresa: «Armar
+   *  postulación» anota ahí lo que no se pudo seguir (decisión 35). */
+  async anotarParametros(
+    companyId: number,
+    id: number,
+    parametros: Record<string, unknown>,
+  ): Promise<void> {
+    const { error } = await this.db
+      .from(this.tabla)
+      .update({ parametros })
+      .eq('company_id', companyId)
+      .eq('id', id);
+    if (error) throw error;
+  }
+
   /** null = ya hay uno de ese tipo en curso (lo decide el índice único
    *  `oportunidad_generacion_una_en_curso`). */
   async crearGeneracion(

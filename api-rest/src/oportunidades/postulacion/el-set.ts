@@ -370,6 +370,31 @@ export function conLosRespaldos(
   return { piezas, faltan };
 }
 
+/** Si un anexo dice que se adjunta la propuesta técnica en formato propio
+ *  (la regla FORMATO_PROPIO, decisión 33), la propuesta tiene que ir: sin
+ *  ella, el anexo de calidad queda remitiendo a nada. */
+export function conLaPropuestaQueNombran(
+  set: ElSet,
+  textos: Array<{ texto: string }>,
+): ElSet {
+  const nombrada = textos.some((t) =>
+    /propuesta tecnica en formato propio/.test(normalizar(t.texto)),
+  );
+  const hay = set.piezas.some(
+    (p) =>
+      p.que_es === 'propuesta' ||
+      (p.que_es === 'subido' && /propuesta/.test(normalizar(p.nombre))),
+  );
+  if (!nombrada || hay) return set;
+  return {
+    ...set,
+    faltan: [
+      ...set.faltan,
+      'Un anexo dice que se adjunta la propuesta técnica en formato propio, y la propuesta no está: vuelve a armar la postulación.',
+    ],
+  };
+}
+
 /** Dónde va cada pieza dentro del ZIP (una ruta por carpeta), sin nombres
  *  repetidos en una misma carpeta. */
 export function rutasEnElZip(piezas: PiezaDelSet[]): string[][] {

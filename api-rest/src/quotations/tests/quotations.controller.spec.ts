@@ -18,12 +18,13 @@ describe('QuotationsController', () => {
   const findOne = jest.fn();
   const createPublic = jest.fn();
   const empresaDe = jest.fn();
+  const licitacionDe = jest.fn();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [QuotationsController],
       providers: [
-        provideMock(QuotationsService, { findOne, createPublic }),
+        provideMock(QuotationsService, { findOne, createPublic, licitacionDe }),
         provideMock(EnvioCotizacionService),
         // El controller pregunta los derechos de la empresa en las
         // puertas públicas, que no tienen sesión (paso 3.2, 14-09-2026).
@@ -57,6 +58,7 @@ describe('QuotationsController', () => {
 
     beforeEach(() => {
       findOne.mockResolvedValue({ data: { ...fila }, error: null });
+      licitacionDe.mockResolvedValue(null);
     });
 
     it('sin sesión, llega sin el comentario', async () => {
@@ -64,6 +66,9 @@ describe('QuotationsController', () => {
       const r = await controller.findOne('q1');
       expect(r.data).not.toHaveProperty('comentario_interno');
       expect(empresaDe).toHaveBeenCalledWith(undefined);
+      // Ni la licitación: eso es de la empresa (decisión 35).
+      expect(r.data).not.toHaveProperty('de_licitacion');
+      expect(licitacionDe).not.toHaveBeenCalled();
     });
 
     it('el formulario público tampoco lo devuelve al visitante', async () => {
@@ -78,6 +83,18 @@ describe('QuotationsController', () => {
       const r = await controller.findOne('q1', 'Bearer pase');
       expect(r.data).toHaveProperty('comentario_interno', 'interno');
       expect(empresaDe).toHaveBeenCalledWith('Bearer pase');
+      expect(r.data).toHaveProperty('de_licitacion', null);
+    });
+
+    it('a su empresa le dice si es lo postulado en una licitación (solo lectura)', async () => {
+      empresaDe.mockResolvedValue(1);
+      licitacionDe.mockResolvedValue({ id: 40, codigo: '1532886-5-LE26' });
+      const r = await controller.findOne('q1', 'Bearer pase');
+      expect(r.data).toHaveProperty('de_licitacion', {
+        id: 40,
+        codigo: '1532886-5-LE26',
+      });
+      expect(licitacionDe).toHaveBeenCalledWith('q1', 1);
     });
   });
 });
