@@ -2,6 +2,7 @@ import type { Adjunto } from '../adjuntos/adjuntos.repository';
 import { extensionDe, TIPOS_POR_EXTENSION } from '../adjuntos/adjuntos.service';
 import { MODELO_OPUS, MODELO_SONNET } from '../analisis/comun';
 import { mismoNombre } from './instrucciones';
+import { paginasParaElTaller } from './recortar-pdf';
 import { HABILIDAD_DE_PDF, HABILIDAD_DE_WORD, type Habilidad } from './taller';
 
 // LOS FORMULARIOS DEL COMPRADOR, DOS CAMINOS (Felipe, 18-10: "si bien en
@@ -57,6 +58,22 @@ export const elegirArchivos = (
     );
   });
 };
+
+/** Las páginas de un PDF del comprador que van al taller: las de sus
+ *  formularios que aplican, según el análisis, y una más. */
+export const paginasDeLosFormularios = (
+  nombre: string,
+  delAnalisis: ReadonlyArray<{
+    archivo: string;
+    aplica: boolean;
+    paginas?: string;
+  }>,
+): number[] =>
+  paginasParaElTaller(
+    delAnalisis
+      .filter((f) => f.aplica && mismoNombre(f.archivo, nombre))
+      .map((f) => f.paginas ?? ''),
+  );
 
 export const sinExtension = (nombre: string) => {
   const punto = nombre.lastIndexOf('.');
