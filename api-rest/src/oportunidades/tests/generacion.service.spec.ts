@@ -127,8 +127,10 @@ describe('Generar anexos', () => {
       await expect(
         servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [5] }),
       ).rejects.toThrow('Solo se llenan los formularios en Word o PDF');
+      // Sin casillas (19-10): un PDF sin formularios encontrados por el
+      // análisis no entra, y el mensaje pide analizar, no marcar.
       await expect(servicio.generarAnexos(1, CUENTA, 40, {})).rejects.toThrow(
-        'Si vienen en PDF',
+        'Analiza las bases (o vuelve a analizarlas)',
       );
       await expect(
         servicio.generarAnexos(1, CUENTA, 40, { adjuntos: [4] }),

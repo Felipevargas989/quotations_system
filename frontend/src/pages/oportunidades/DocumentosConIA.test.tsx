@@ -146,17 +146,18 @@ const pintar = (ui: ReactElement) =>
   );
 
 describe("Crear documentos con IA", () => {
-  it("lista los Word de las bases para llenar y manda solo los marcados, con el total que puso la empresa", async () => {
+  it("sin casillas: con un análisis anterior se llenan los Word y se pide volver a analizar por los PDF; se manda solo el total (19-10)", async () => {
     pintar(<DocumentosConIA oportunidadId={40} />);
 
     expect(
-      await screen.findByText("Formularios_Anexos.docx"),
+      await screen.findByText(
+        "Se llenan los Word de «Bases y anexos». Si hay formularios en PDF, vuelve a analizar las bases para que la IA los encuentre.",
+      ),
     ).toBeInTheDocument();
-    // El PDF de las bases sale, pero sin marcar: lo marca la persona.
-    expect(
-      screen.getByRole("checkbox", { name: /Bases\.pdf/ }),
-    ).not.toBeChecked();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Anexo 7\.docx/ }));
+    // Felipe, 19-10: "que me traiga los PDF y me los marque, creo que eso
+    // es lo innecesario". Los archivos los elige el motor.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByText("Bases.pdf")).not.toBeInTheDocument();
     fireEvent.change(
       screen.getByLabelText("Monto total de la oferta, con IVA (opcional)"),
       { target: { value: "11900000" } },
@@ -168,7 +169,6 @@ describe("Crear documentos con IA", () => {
     fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
     await waitFor(() =>
       expect(s.generarAnexos).toHaveBeenCalledWith(40, {
-        adjuntos: [6],
         monto_total: 11_900_000,
       }),
     );
@@ -177,23 +177,37 @@ describe("Crear documentos con IA", () => {
     ).toBeInTheDocument();
   });
 
-  it("un PDF con los formularios se marca a mano y se manda: se reescribe en Word (18-10)", async () => {
+  it("formularios solo en PDF y sin análisis: pide analizar y no deja generar", async () => {
+    s.getAdjuntos.mockResolvedValue([archivo(4, "Bases.pdf")] as never);
+    s.getAnalisis.mockResolvedValue(null);
     pintar(<DocumentosConIA oportunidadId={40} />);
-    fireEvent.click(
-      await screen.findByRole("checkbox", { name: /Bases\.pdf/ }),
-    );
     expect(
-      screen.getByText("se reescribe en Word, igual al original"),
+      await screen.findByText(
+        "Analiza las bases para que la IA encuentre los formularios.",
+      ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
-    await waitFor(() =>
-      expect(s.generarAnexos).toHaveBeenCalledWith(40, {
-        adjuntos: [4, 6, 7],
-      }),
-    );
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
   });
 
-  it("con el análisis, la IA dice qué formularios hay, en qué archivo y página, y marca sola el PDF que los trae (18-10)", async () => {
+  it("si el análisis no encontró formularios y no hay Word, lo dice y no deja generar", async () => {
+    s.getAdjuntos.mockResolvedValue([archivo(4, "Bases.pdf")] as never);
+    s.getAnalisis.mockResolvedValue({
+      id: 5,
+      estado: "listo",
+      resultado: { formularios: [] },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText("Las bases no traen formularios para llenar."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
+  });
+
+  it("con el análisis, la lista de formularios con su archivo y página, y nada que marcar: el motor elige (18 y 19-10)", async () => {
     s.getAnalisis.mockResolvedValue({
       id: 5,
       estado: "listo",
@@ -235,14 +249,17 @@ describe("Crear documentos con IA", () => {
       screen.getByText(/pág\. 16 · se entrega en la parte administrativa/),
     ).toBeInTheDocument();
     expect(screen.getByText(/No aplica: Postulas sola/)).toBeInTheDocument();
-    expect(screen.getByText(/No viene en lo que subiste/)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Bases\.pdf/ })).toBeChecked();
+    expect(
+      screen.getByText(/No viene en lo que subiste.*y vuelve a analizar\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Los Word se llenan en el mismo archivo; los que vienen en PDF se reescriben en Word, iguales al original.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
-    await waitFor(() =>
-      expect(s.generarAnexos).toHaveBeenCalledWith(40, {
-        adjuntos: [4, 6, 7],
-      }),
-    );
+    await waitFor(() => expect(s.generarAnexos).toHaveBeenCalledWith(40, {}));
   });
 
   it("sin razón social o RUT en «Mi empresa», lo dice y no deja generar", async () => {

@@ -45,8 +45,8 @@ export default function FormulariosDelAnalisis({
               </span>
             ) : (
               <span className="ml-1.5 text-xs text-amber-700">
-                No viene en lo que subiste: búscalo en Mercado Público y súbelo
-                a «Bases y anexos».
+                No viene en lo que subiste: búscalo en Mercado Público, súbelo a
+                «Bases y anexos» y vuelve a analizar.
               </span>
             )}
           </li>

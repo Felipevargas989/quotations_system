@@ -17,12 +17,6 @@ export const caminoDelFormulario = (
   return null;
 };
 
-export const QUE_LE_PASA: Record<CaminoDelFormulario, string> = {
-  llenar: "se llena tal cual",
-  convertir: "Word antiguo: se convierte y se llena",
-  reescribir: "se reescribe en Word, igual al original",
-};
-
 /** Mismo archivo aunque el análisis lo escriba distinto: sin tildes,
  *  mayúsculas, extensión ni signos (la misma vara del motor). */
 export const mismoNombre = (a: string, b: string): boolean => {
@@ -37,11 +31,13 @@ export const mismoNombre = (a: string, b: string): boolean => {
   return n(a) !== "" && n(a) === n(b);
 };
 
-/** De partida van marcados los Word. Un PDF va marcado solo si el análisis
+/** Lo que llena el motor sin que nadie elija: la misma regla de
+ *  `elegirArchivos` en el motor. Van los Word; un PDF, solo si el análisis
  *  de las bases encontró ahí un formulario que aplica (18-10: "que cuando
- *  la IA analice los documentos identifique dónde están los formularios");
- *  si no, lo marca la persona: casi siempre son las bases. */
-export const marcadoDePartida = (
+ *  la IA analice los documentos identifique dónde están los formularios").
+ *  Sin casillas desde el 19-10 (Felipe: "que me traiga los PDF y me los
+ *  marque, creo que eso es lo innecesario"). */
+export const seLlena = (
   nombre: string,
   delAnalisis: ReadonlyArray<{ archivo: string; aplica: boolean }> = [],
 ): boolean =>
@@ -49,6 +45,34 @@ export const marcadoDePartida = (
   delAnalisis.some(
     (f) => f.aplica && f.archivo && mismoNombre(nombre, f.archivo),
   );
+
+/** La línea bajo «Anexos del comprador»: qué se va a llenar, o qué falta
+ *  para que la IA encuentre los formularios. `delAnalisis` sin definir =
+ *  sin análisis, o uno de antes del 18-10, que no buscaba los formularios. */
+export const queSeLlena = ({
+  hayAnalisis,
+  delAnalisis,
+  seLlenan,
+}: {
+  readonly hayAnalisis: boolean;
+  readonly delAnalisis?: ReadonlyArray<{ aplica: boolean }>;
+  readonly seLlenan: number;
+}): string => {
+  const analizar = hayAnalisis ? "vuelve a analizar" : "analiza";
+  if (!delAnalisis) {
+    return seLlenan > 0
+      ? `Se llenan los Word de «Bases y anexos». Si hay formularios en PDF, ${analizar} las bases para que la IA los encuentre.`
+      : `${hayAnalisis ? "Vuelve a analizar" : "Analiza"} las bases para que la IA encuentre los formularios.`;
+  }
+  if (!delAnalisis.some((f) => f.aplica)) {
+    return seLlenan > 0
+      ? "El análisis no encontró formularios para llenar; igual se llenan los Word de «Bases y anexos»."
+      : "Las bases no traen formularios para llenar.";
+  }
+  return seLlenan > 0
+    ? "Los Word se llenan en el mismo archivo; los que vienen en PDF se reescriben en Word, iguales al original."
+    : "Ninguno vino en lo que subiste: súbelos a «Bases y anexos» y vuelve a analizar.";
+};
 
 export const PARTE_DE_LA_OFERTA: Record<string, string> = {
   administrativa: "parte administrativa",
