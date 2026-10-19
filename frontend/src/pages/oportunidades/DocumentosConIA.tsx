@@ -21,8 +21,8 @@ import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
 import {
   caminoDelFormulario,
   faltaEnMiEmpresa,
-  marcadoDePartida,
-  QUE_LE_PASA,
+  queSeLlena,
+  seLlena,
 } from "./formulariosDelComprador";
 import { desgloseDeOferta } from "./oportunidades.utils";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
@@ -37,6 +37,10 @@ import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 //  3. se parte por la propuesta técnica.
 // El monto de la oferta lo pone la empresa (con IVA); sin él, la oferta
 // económica queda en blanco: la IA nunca pone un precio.
+// Sin casillas desde el 19-10 (Felipe: "el detalle de los documentos a
+// generar está bueno... pero que me traiga los PDF y me los marque, creo
+// que eso es lo innecesario"): el motor elige solo con lo que encontró el
+// análisis; aquí se muestra qué se va a llenar.
 
 export default function DocumentosConIA({
   oportunidadId,
@@ -64,16 +68,11 @@ export default function DocumentosConIA({
 
   // Dos caminos (18-10): el Word se llena; el PDF se reescribe en Word.
   const formularios = bases.filter((a) => caminoDelFormulario(a.nombre));
-  const [eleccion, setEleccion] = useState<ReadonlyMap<number, boolean>>(
-    new Map(),
-  );
-  // Lo que encontró el análisis de las bases (18-10): marca solo los PDF
-  // donde vienen los formularios y dice en qué página está cada uno.
-  const delAnalisis =
-    analisis?.estado === "listo" ? (analisis.resultado?.formularios ?? []) : [];
-  const marcado = (a: { id: number; nombre: string }) =>
-    eleccion.get(a.id) ?? marcadoDePartida(a.nombre, delAnalisis);
-  const elegidos = formularios.filter(marcado);
+  const hayAnalisis = analisis?.estado === "listo";
+  // Lo que encontró el análisis de las bases (18-10): qué formularios hay,
+  // en qué archivo y página. Sin definir = sin análisis o uno anterior.
+  const delAnalisis = hayAnalisis ? analisis.resultado?.formularios : undefined;
+  const seLlenan = formularios.filter((a) => seLlena(a.nombre, delAnalisis));
   const [monto, setMonto] = useState<number | undefined>(undefined);
   const oferta = monto && monto > 0 ? desgloseDeOferta(monto) : null;
 
@@ -91,7 +90,6 @@ export default function DocumentosConIA({
   const anexos = useMutation({
     mutationFn: () =>
       generarAnexos(oportunidadId, {
-        adjuntos: elegidos.map((a) => a.id),
         ...(oferta ? { monto_total: oferta.total } : {}),
       }),
     onSuccess: (fila) => anotar("anexos", fila),
@@ -110,10 +108,6 @@ export default function DocumentosConIA({
     generaciones?.anexos?.estado === "procesando" || anexos.isPending;
   const escribiendo =
     generaciones?.propuesta?.estado === "procesando" || propuesta.isPending;
-  const hayAnalisis = analisis?.estado === "listo";
-
-  const alternar = (a: { id: number; nombre: string }) =>
-    setEleccion((antes) => new Map(antes).set(a.id, !marcado(a)));
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-4">
@@ -141,50 +135,16 @@ export default function DocumentosConIA({
             </p>
           ) : (
             <>
-              {delAnalisis.length > 0 ? (
-                <>
-                  <FormulariosDelAnalisis formularios={delAnalisis} />
-                  <p className="text-xs text-gray-500">
-                    Ya marqué los archivos donde vienen. Los Word se llenan en
-                    el mismo archivo; los PDF se reescriben en Word con el texto
-                    oficial al pie de la letra y el logo.
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  Marca los formularios. Los Word se llenan en el mismo archivo.
-                  Los PDF (también escaneados, o los que vienen al final de las
-                  bases) se reescriben en Word con el texto oficial al pie de la
-                  letra y el logo.
-                  {hayAnalisis &&
-                    " Si vuelves a analizar las bases, la IA encuentra los formularios y los marca sola."}
-                </p>
+              {delAnalisis && delAnalisis.length > 0 && (
+                <FormulariosDelAnalisis formularios={delAnalisis} />
               )}
-              <ul className="space-y-1">
-                {formularios.map((a) => {
-                  const camino = caminoDelFormulario(a.nombre);
-                  return (
-                    <li key={a.id}>
-                      <label className="flex items-center gap-2 text-sm text-gray-800">
-                        <input
-                          type="checkbox"
-                          checked={marcado(a)}
-                          onChange={() => alternar(a)}
-                          disabled={llenando}
-                        />
-                        <span className="truncate" title={a.nombre}>
-                          {a.nombre}
-                        </span>
-                        {camino && (
-                          <span className="shrink-0 text-xs text-gray-400">
-                            {QUE_LE_PASA[camino]}
-                          </span>
-                        )}
-                      </label>
-                    </li>
-                  );
+              <p className="text-xs text-gray-500">
+                {queSeLlena({
+                  hayAnalisis,
+                  delAnalisis,
+                  seLlenan: seLlenan.length,
                 })}
-              </ul>
+              </p>
             </>
           )}
 
@@ -235,11 +195,11 @@ export default function DocumentosConIA({
           <button
             type="button"
             onClick={() => anexos.mutate()}
-            disabled={llenando || elegidos.length === 0 || Boolean(falta)}
+            disabled={llenando || seLlenan.length === 0 || Boolean(falta)}
             title={
               falta ??
-              (elegidos.length === 0
-                ? "Marca al menos un formulario"
+              (seLlenan.length === 0
+                ? "Todavía no hay formularios para llenar"
                 : undefined)
             }
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"

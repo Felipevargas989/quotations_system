@@ -183,9 +183,10 @@ export class GeneracionService {
 
   /** "Generar anexos": los formularios del comprador, llenos y SIN firma.
    *  Dos caminos (formularios.ts): un Word se llena en el mismo archivo; un
-   *  PDF se reescribe en Word, con el texto oficial al pie de la letra. Sin
-   *  elegir van los Word: un PDF se elige a mano (casi siempre son las
-   *  bases). `monto_total` (con IVA) lo pone la empresa; sin él, la oferta
+   *  PDF se reescribe en Word, con el texto oficial al pie de la letra. Los
+   *  archivos los elige el motor (`elegirArchivos`, 19-10: sin casillas):
+   *  los Word y los PDF donde el análisis encontró formularios que aplican.
+   *  `monto_total` (con IVA) lo pone la empresa; sin él, la oferta
    *  económica queda en blanco. */
   async generarAnexos(
     companyId: number,
@@ -213,12 +214,12 @@ export class GeneracionService {
     }
     if (elegidos.length === 0) {
       throw new BadRequestException(
-        'En «Bases y anexos» no hay formularios en Word. Si vienen en PDF (también escaneados o al final de las bases), márcalos.',
+        'No hay formularios para llenar en «Bases y anexos». Analiza las bases (o vuelve a analizarlas) para que la IA encuentre dónde vienen.',
       );
     }
     if (elegidos.length > MAX_DOCUMENTOS) {
       throw new BadRequestException(
-        `Elige hasta ${MAX_DOCUMENTOS} anexos por vez.`,
+        `Son más de ${MAX_DOCUMENTOS} archivos para llenar de una vez: deja en «Bases y anexos» solo los que traen formularios.`,
       );
     }
     const pesoDePdf = elegidos
@@ -226,7 +227,7 @@ export class GeneracionService {
       .reduce((suma, a) => suma + a.bytes, 0);
     if (pesoDePdf > MAX_BYTES_DE_PDF_EN_FORMULARIOS) {
       throw new BadRequestException(
-        'Los PDF elegidos pesan más de 40 MB juntos: elige solo los que traen los formularios.',
+        'Los PDF con formularios pesan más de 40 MB juntos: sube a «Bases y anexos» solo las páginas de los formularios y vuelve a analizar.',
       );
     }
     if (!contexto.oferente.razon_social || !contexto.oferente.rut) {

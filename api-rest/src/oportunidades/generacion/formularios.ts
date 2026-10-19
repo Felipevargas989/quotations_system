@@ -33,11 +33,13 @@ export const claseDeFormulario = (nombre: string): ClaseDeFormulario | null => {
 /** Lo que los PDF elegidos pueden pesar juntos: los mira página por página. */
 export const MAX_BYTES_DE_PDF_EN_FORMULARIOS = 40 * 1024 * 1024;
 
-/** Qué archivos van al taller. Si la persona eligió, eso. Si no, los Word
- *  de las bases y los archivos donde el análisis encontró formularios que
- *  aplican, también los PDF (Felipe, 18-10: "que cuando la IA analice los
- *  documentos identifique dónde están los formularios... y deje listo el
- *  proceso de generación"). */
+/** Qué archivos van al taller: los Word de las bases y los archivos donde
+ *  el análisis encontró formularios que aplican, también los PDF (Felipe,
+ *  18-10: "que cuando la IA analice los documentos identifique dónde están
+ *  los formularios... y deje listo el proceso de generación"). Desde el
+ *  19-10 la pantalla ya no elige (sin casillas: "que me traiga los PDF y me
+ *  los marque, creo que eso es lo innecesario"); lo `pedidos` queda solo
+ *  para una pestaña vieja del navegador. */
 export const elegirArchivos = (
   bases: Adjunto[],
   pedidos: ReadonlySet<number>,

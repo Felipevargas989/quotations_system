@@ -208,9 +208,14 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Felipe: *"igual hay que monitorear: algunas están mal ingresadas y vienen a nuestros salones"*. Eso entra en la ronda semanal (parte 2 del plan).
 26. **Los formularios los encuentra el análisis, y la A** (18-10 cerca de la medianoche). Felipe: *"¿no conviene que cuando la IA analice los documentos identifique dónde están los formularios a rellenar... y deje listo el proceso de generación de documentos y anexos?"*, y *"vamos con eso y no se te olvide el cambio chico"*.
     - **El análisis de bases** devuelve `formularios`: el nombre de cada uno, el archivo y las páginas donde viene el formato EN BLANCO, si aplica a la empresa (no el de UTP ni el de persona natural) y en qué parte de la oferta se entrega. Si un formulario no vino en lo subido, queda con archivo vacío y la pantalla dice que hay que buscarlo en Mercado Público.
-    - **«Generar anexos» parte de eso:** sin elegir, van los Word y los PDF donde el análisis encontró formularios que aplican, y la IA sabe en qué página está cada uno. Sin análisis nuevo, se marcan a mano como antes. Los análisis anteriores se renuevan con «Volver a analizar».
+    - **«Generar anexos» parte de eso:** sin elegir, van los Word y los PDF donde el análisis encontró formularios que aplican, y la IA sabe en qué página está cada uno. Sin análisis nuevo, se marcaban a mano (hasta el 19-10: ver la 27). Los análisis anteriores se renuevan con «Volver a analizar».
     - **La A:** a las compras ágiles que quedan en amarillo sin descripción, el radar les pide el detalle y las relee: de a una, hasta 40 por pasada y 20 minutos, primero las que cierran antes. Si Mercado Público no trae el detalle, no se vuelve a pedir en un día.
     - **El cambio chico:** «¿Está todo?» muestra cada parte según su último intento. Ya no queda pegado un aviso viejo por una pasada que se cayó después.
+27. **Sin casillas: los archivos los elige el motor** (19-10, con la ficha del Día del Profesor). Felipe: *"el detalle de los documentos a generar está bueno... pero que me traiga los PDF y me los marque, creo que eso es lo innecesario"*, y *"vamos dale"*.
+    - «Anexos del comprador» muestra la lista de formularios del análisis (con su archivo, página y parte de la oferta) y una línea con lo que se llena. Ya no lista los archivos ni tiene casillas.
+    - El motor elige con la misma regla de antes: los Word de «Bases y anexos» y los PDF donde el análisis encontró formularios que aplican.
+    - Sin análisis, o con uno anterior al 18-10: se llenan los Word y se pide analizar para encontrar los formularios en PDF. Si solo hay PDF, el botón espera el análisis.
+    - Un formulario que no vino en lo subido: se busca en Mercado Público, se sube a «Bases y anexos» y se vuelve a analizar.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -436,8 +441,9 @@ en el laboratorio desde el 17-10 en la tarde). Cómo quedó:
 
 - **"Crear documentos con IA"**, en la ficha, entre "Lo que piden las
   bases" y "Mi postulación":
-  - **Anexos del comprador**: los Word (.docx) de «Bases y anexos» con su
-    casilla y el **monto total de la oferta con IVA** (opcional). El neto
+  - **Anexos del comprador**: los formularios de «Bases y anexos» (sin
+    casillas desde el 19-10: los elige el motor, decisión 27) y el
+    **monto total de la oferta con IVA** (opcional). El neto
     y el IVA los calcula el motor, no la IA; sin monto, la oferta
     económica queda en blanco.
   - **Propuesta técnica**: un Word nuevo que responde punto por punto a
