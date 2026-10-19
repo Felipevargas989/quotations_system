@@ -57,6 +57,12 @@ const POR_EL_NOMBRE: ReadonlyArray<[string, RegExp]> = [
 const ES_DE_UTP = /\butp\b|uniones? temporal(es)? de proveedores/;
 const SOLO_SI_UTP = "Solo si postulas como Unión Temporal de Proveedores (UTP)";
 
+/** Estar inscrito y hábil en el Registro de Proveedores (ChileProveedores)
+ *  se da por hecho y no va en la lista (Felipe, 19-10: "déjalo como que
+ *  siempre estará habilitado... es difícil no tener eso" y "sácalo de los
+ *  documentos a entregar, no es necesario"). */
+const ES_EL_REGISTRO = /registro (oficial )?de proveedores|chile ?proveedores/;
+
 const carpetaPorElNombre = (nombre: string): string =>
   POR_EL_NOMBRE.find(([, patron]) => patron.test(normalizar(nombre)))?.[0] ??
   "otro";
@@ -163,9 +169,13 @@ export function checklistDeDocumentos(d: {
   /** AAAA-MM-DD: el cierre (o hoy), contra el que se vence. */
   corte: string;
 }): FilaDelChecklist[] {
-  const pedidos = d.r.documentos?.length
-    ? d.r.documentos
-    : documentosDeUnAnalisisAnterior(d.r);
+  const pedidos = (
+    d.r.documentos?.length
+      ? d.r.documentos
+      : documentosDeUnAnalisisAnterior(d.r)
+  ).filter(
+    (p) => !ES_EL_REGISTRO.test(normalizar(`${p.nombre} ${p.condicion}`)),
+  );
   const masNuevo = <T extends { creado_en: string }>(xs: T[]) =>
     [...xs].sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];
 

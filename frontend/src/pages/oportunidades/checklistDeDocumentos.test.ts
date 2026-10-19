@@ -303,6 +303,61 @@ describe("Lo de UTP (Felipe, 19-10: «en mi caso no es necesario que lo arme»)"
   });
 });
 
+describe("El Registro de Proveedores (Felipe, 19-10: «sácalo de los documentos a entregar»)", () => {
+  it("no va en la lista, ni del análisis nuevo ni de uno anterior; otro registro sí", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido("Inscripción en el Registro de Proveedores", "otro", {
+            cuando: "al_adjudicar",
+            condicion: "habilitado",
+          }),
+          pedido("Registro de empresa de guardias ante OS10", "otro"),
+        ],
+      },
+      carpeta: [],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => f.nombre)).toEqual([
+      "Registro de empresa de guardias ante OS10",
+    ]);
+    expect(
+      documentosDeUnAnalisisAnterior({
+        requisitos: [
+          {
+            que: "Estar inscrito en el Registro de Proveedores del Estado y no tener inhabilidades",
+            tipo: "administrativo",
+            obligatorio: true,
+            documento: "Bases.pdf",
+            pagina: 5,
+          },
+        ] as ResultadoDeBases["requisitos"],
+      }).length,
+    ).toBe(1);
+    expect(
+      checklistDeDocumentos({
+        r: {
+          requisitos: [
+            {
+              que: "Estar inscrito en el Registro de Proveedores del Estado y no tener inhabilidades",
+              tipo: "administrativo",
+              obligatorio: true,
+              documento: "Bases.pdf",
+              pagina: 5,
+            },
+          ] as ResultadoDeBases["requisitos"],
+        },
+        carpeta: [],
+        postulacion: [],
+        corte: "2026-10-19",
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("Un análisis de antes del checklist", () => {
   const requisito = (que: string, tipo = "administrativo", pagina = 9) => ({
     que,
