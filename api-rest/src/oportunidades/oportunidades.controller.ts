@@ -38,6 +38,7 @@ import {
   MAX_BYTES_FIRMA,
   OferenteService,
 } from './oferente/oferente.service';
+import { RespaldosDeEventiaService } from './oferente/respaldos-de-eventia.service';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
 import { RadarService } from './radar.service';
@@ -63,6 +64,7 @@ export class OportunidadesController {
     private readonly misLicitaciones: MisLicitacionesService,
     private readonly oferente: OferenteService,
     private readonly leerRespaldo: LeerRespaldoService,
+    private readonly respaldosDeEventia: RespaldosDeEventiaService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
@@ -194,6 +196,17 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.leerRespaldo.leer(user.company_id, archivo);
+  }
+
+  /** «Traer de Eventia» (decisión 45): las facturas y órdenes de compra de
+   *  los eventos hechos pasan a «Mi empresa» como respaldos de experiencia,
+   *  leídas con Haiku, sin repetir. Responde cuántos trajo y cuáles no. */
+  @Post('oferente/respaldos/eventia')
+  traerRespaldosDeEventia(@CurrentUser() user: User) {
+    this.logger.info(
+      `POST /oportunidades/oferente/respaldos/eventia (empresa ${user.company_id})`,
+    );
+    return this.respaldosDeEventia.traer(user.company_id, user.id);
   }
 
   @Get('oferente/orden-de-compra/:codigo')

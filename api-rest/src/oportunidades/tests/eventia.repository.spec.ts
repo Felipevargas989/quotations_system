@@ -8,9 +8,22 @@ import { EventiaRepository } from '../eventia/eventia.repository';
  *  la agenda solo cuenta lo confirmado de ese día. */
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'eq', 'gte', 'lte', 'or', 'order', 'limit'];
+const METODOS = [
+  'select',
+  'eq',
+  'in',
+  'gte',
+  'lt',
+  'lte',
+  'or',
+  'order',
+  'limit',
+];
 
-function armar(datos: Record<string, unknown[]> = {}) {
+function armar(
+  datos: Record<string, unknown[]> = {},
+  balde: { download: jest.Mock } = { download: jest.fn() },
+) {
   const consultas: Consulta[] = [];
   const from = jest.fn((tabla: string) => {
     const consulta: Consulta = { tabla, pasos: [] };
@@ -32,11 +45,12 @@ function armar(datos: Record<string, unknown[]> = {}) {
       );
     return cadena;
   });
+  const storage = { from: jest.fn(() => balde) };
   const repo = new EventiaRepository(
-    { client: { from } } as unknown as SupabaseService,
+    { client: { from, storage } } as unknown as SupabaseService,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { repo, consultas };
+  return { repo, consultas, storage };
 }
 
 const deLaEmpresa = (c: Consulta, id: number) =>
@@ -131,5 +145,130 @@ describe('EventiaRepository', () => {
       'or',
       'event_end_date.gte."2026-10-30T00:00:00.000Z",and(event_end_date.is.null,event_date.gte."2026-10-30T00:00:00.000Z")',
     ]);
+  });
+
+  it('las facturas y órdenes de compra de los eventos hechos: de la empresa por su cotización, juntas por evento, el más nuevo primero (decisión 45)', async () => {
+    const cotizacion = (numero: number, fecha: string) => ({
+      quotation_number: numero,
+      event_date: `${fecha}T00:00:00+00:00`,
+      clients: { name: ' Municipalidad de Quillón ' },
+    });
+    const { repo, consultas } = armar({
+      event_documents: [
+        {
+          id: 15,
+          category: 'ordenes_compra',
+          file_name: '1213301-49-AG26.pdf',
+          file_url:
+            'c52/event-documents/q-415/ordenes_compra/x_1213301-49-AG26.pdf',
+          quotations: cotizacion(415, '2026-07-23'),
+        },
+        {
+          id: 17,
+          category: 'facturas',
+          file_name: '345.pdf',
+          file_url: 'c52/event-documents/q-415/facturas/x_345.pdf',
+          quotations: cotizacion(415, '2026-07-23'),
+        },
+        {
+          id: 64,
+          category: 'facturas',
+          file_name: 'Factura 347.pdf',
+          file_url: 'c52/event-documents/q-473/facturas/x_Factura_347.pdf',
+          quotations: cotizacion(473, '2026-08-10'),
+        },
+        // Una ruta vieja (sin la empresa adelante) o de otra empresa: fuera.
+        {
+          id: 3,
+          category: 'facturas',
+          file_name: 'vieja.pdf',
+          file_url: 'event-documents/q-300/facturas/vieja.pdf',
+          quotations: cotizacion(300, '2025-05-01'),
+        },
+        {
+          id: 4,
+          category: 'facturas',
+          file_name: 'ajena.pdf',
+          file_url: 'c7/event-documents/q-301/facturas/ajena.pdf',
+          quotations: cotizacion(301, '2025-05-02'),
+        },
+      ],
+    });
+    await expect(
+      repo.documentosDeExperiencia(52, '2026-10-19'),
+    ).resolves.toEqual([
+      {
+        numero: 473,
+        fecha: '2026-08-10',
+        cliente: 'Municipalidad de Quillón',
+        documentos: [
+          {
+            id: 64,
+            categoria: 'facturas',
+            nombre: 'Factura 347.pdf',
+            ruta: 'c52/event-documents/q-473/facturas/x_Factura_347.pdf',
+          },
+        ],
+      },
+      {
+        numero: 415,
+        fecha: '2026-07-23',
+        cliente: 'Municipalidad de Quillón',
+        documentos: [
+          {
+            id: 15,
+            categoria: 'ordenes_compra',
+            nombre: '1213301-49-AG26.pdf',
+            ruta: 'c52/event-documents/q-415/ordenes_compra/x_1213301-49-AG26.pdf',
+          },
+          {
+            id: 17,
+            categoria: 'facturas',
+            nombre: '345.pdf',
+            ruta: 'c52/event-documents/q-415/facturas/x_345.pdf',
+          },
+        ],
+      },
+    ]);
+    const [c] = consultas;
+    expect(c.tabla).toBe('event_documents');
+    // La tabla no tiene empresa: la da la cotización, con !inner.
+    const [, columnas] = c.pasos.find(([m]) => m === 'select') ?? [];
+    expect(String(columnas)).toContain('quotations!inner(');
+    expect(c.pasos).toContainEqual(['eq', 'quotations.company_id', 52]);
+    expect(c.pasos).toContainEqual([
+      'in',
+      'quotations.quotation_status',
+      ['aceptada', 'realizada'],
+    ]);
+    expect(c.pasos).toContainEqual([
+      'lt',
+      'quotations.event_date',
+      '2026-10-19T00:00:00.000Z',
+    ]);
+    expect(c.pasos).toContainEqual([
+      'in',
+      'category',
+      ['facturas', 'ordenes_compra'],
+    ]);
+  });
+
+  it('baja una factura de un evento solo si la ruta es de la empresa', async () => {
+    const download = jest.fn().mockResolvedValue({
+      data: new Blob(['%PDF-1.7']),
+      error: null,
+    });
+    const { repo, storage } = armar({}, { download });
+    await expect(
+      repo.descargarDocumento(52, 'c52/event-documents/q/facturas/x_345.pdf'),
+    ).resolves.toEqual(Buffer.from('%PDF-1.7'));
+    expect(storage.from).toHaveBeenCalledWith('payment-receipts');
+    await expect(
+      repo.descargarDocumento(52, 'c7/event-documents/q/facturas/x.pdf'),
+    ).rejects.toThrow('no es de la empresa');
+    await expect(
+      repo.descargarDocumento(52, 'c52/oportunidades/40/bases.pdf'),
+    ).rejects.toThrow('no es de la empresa');
+    expect(download).toHaveBeenCalledTimes(1);
   });
 });

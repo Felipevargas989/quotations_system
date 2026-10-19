@@ -121,6 +121,8 @@ describe('Leer solo un respaldo de experiencia', () => {
         fuente: 'mercado_publico',
       },
       aviso: null,
+      // Qué es: con eso se nombra al traerlo de Eventia (decisión 45).
+      tipo: 'orden_de_compra',
     });
     const pedido = (servicio.parse.mock.calls[0] as unknown[])[0] as {
       model: string;
@@ -147,6 +149,7 @@ describe('Leer solo un respaldo de experiencia', () => {
     const r = await servicio.leer(1, archivo('factura.jpg', 'jpg'));
     expect(oferente.ordenDeCompra).not.toHaveBeenCalled();
     expect(r.datos).toMatchObject({ numero: '1532', fuente: 'manual' });
+    expect(r.tipo).toBe('factura');
     const pedido = (servicio.parse.mock.calls[0] as unknown[])[0] as {
       messages: Array<{ content: Array<{ type: string }> }>;
     };

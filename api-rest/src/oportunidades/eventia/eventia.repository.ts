@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
 // LO QUE LA EMPRESA YA TIENE EN EVENTIA, para "¿Puedo cumplir?" y para los
 // documentos (Felipe, 17-10: "saca las cosas desde Eventia... ¿y qué pasa
 // si lo que están pidiendo no está en Eventia?"). Lee tablas de otros
-// módulos —la carta (mapa 05) y las cotizaciones (mapa 01)— sin escribir
+// módulos —la carta (mapa 05) y las cotizaciones (mapa 01), y desde el
+// 19-10 las facturas y órdenes de compra de sus eventos— sin escribir
 // nada, sin precios de la carta y siempre de UNA empresa.
 
 export type CartaDeEventia = {
@@ -25,6 +27,32 @@ export type EventoDeEventia = {
   cliente: string | null;
   /** Lo fijo que llevó: el salón, sobre todo. */
   fijos: string[];
+};
+
+/** Un evento ya hecho con sus facturas y órdenes de compra (decisión 45):
+ *  de ahí salen los respaldos de experiencia que faltan en «Mi empresa». */
+export type DocumentosDeUnEvento = {
+  numero: number;
+  fecha: string | null;
+  cliente: string | null;
+  documentos: Array<{
+    id: number;
+    categoria: 'facturas' | 'ordenes_compra';
+    nombre: string;
+    ruta: string;
+  }>;
+};
+
+type FilaDeDocumento = {
+  id: number;
+  category: string;
+  file_name: string;
+  file_url: string;
+  quotations: {
+    quotation_number: number;
+    event_date: string | null;
+    clients: { name: string | null } | null;
+  } | null;
 };
 
 type FilaDeCotizacion = {
@@ -134,6 +162,66 @@ export class EventiaRepository {
       .limit(limite);
     if (error) throw error;
     return ((data ?? []) as unknown as FilaDeCotizacion[]).map(aEvento);
+  }
+
+  /** Las facturas y órdenes de compra de los eventos ya hechos (decisión
+   *  45, 19-10): aceptados o realizados, del día anterior a `antesDe`
+   *  (AAAA-MM-DD) hacia atrás, el más nuevo primero. La tabla de documentos
+   *  no tiene empresa: la da su cotización (`!inner`). Solo las rutas de la
+   *  empresa (`c<empresa>/event-documents/...`). */
+  async documentosDeExperiencia(
+    companyId: number,
+    antesDe: string,
+  ): Promise<DocumentosDeUnEvento[]> {
+    const { data, error } = await this.db
+      .from('event_documents')
+      .select(
+        'id, category, file_name, file_url, quotations!inner(quotation_number, event_date, quotation_status, company_id, clients(name))',
+      )
+      .in('category', ['facturas', 'ordenes_compra'])
+      .eq('quotations.company_id', companyId)
+      .in('quotations.quotation_status', ['aceptada', 'realizada'])
+      .lt('quotations.event_date', `${antesDe}T00:00:00.000Z`)
+      .order('id', { ascending: true })
+      .limit(1000);
+    if (error) throw error;
+    const porEvento = new Map<number, DocumentosDeUnEvento>();
+    for (const f of (data ?? []) as unknown as FilaDeDocumento[]) {
+      const q = f.quotations;
+      if (!q || !f.file_url.startsWith(`c${companyId}/event-documents/`)) {
+        continue;
+      }
+      const evento = porEvento.get(q.quotation_number) ?? {
+        numero: q.quotation_number,
+        fecha: q.event_date ? q.event_date.slice(0, 10) : null,
+        cliente: q.clients?.name?.trim() || null,
+        documentos: [],
+      };
+      evento.documentos.push({
+        id: f.id,
+        categoria:
+          f.category === 'ordenes_compra' ? 'ordenes_compra' : 'facturas',
+        nombre: f.file_name,
+        ruta: f.file_url,
+      });
+      porEvento.set(q.quotation_number, evento);
+    }
+    return [...porEvento.values()].sort((a, b) =>
+      (b.fecha ?? '').localeCompare(a.fecha ?? ''),
+    );
+  }
+
+  /** Una factura u orden de compra de un evento, del balde privado; solo
+   *  de la empresa. */
+  async descargarDocumento(companyId: number, ruta: string): Promise<Buffer> {
+    if (!ruta.startsWith(`c${companyId}/event-documents/`)) {
+      throw new Error('Ese documento no es de la empresa.');
+    }
+    const { data, error } = await this.db.storage
+      .from(BUCKET_PRIVADO)
+      .download(ruta);
+    if (error || !data) throw error ?? new Error(`sin datos: ${ruta}`);
+    return Buffer.from(await data.arrayBuffer());
   }
 
   /** Lo confirmado (aceptado) que cae ese día (AAAA-MM-DD), también los

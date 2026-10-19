@@ -287,20 +287,29 @@ export const laRevision = (b: LoQuePidenLasBases | null): string[] => {
   ];
 };
 
-/** Los eventos que hizo la empresa, de Eventia: su experiencia real. */
-const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => [
-  ...((c.respaldos ?? []).length > 0
-    ? [
-        'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta, cada una con su PDF; son las que cuentan para el puntaje):',
-        ...(c.respaldos ?? []).map(
-          (r) => `- ${textoDelRespaldo(r)} (archivo «${r.archivo}»)`,
-        ),
-        '',
-      ]
-    : []),
-  'LOS EVENTOS QUE HIZO LA EMPRESA (de Eventia, últimos 4 años, del más nuevo al más viejo):',
-  ...textoDeLaExperiencia(c.eventos),
-];
+/** Los eventos que hizo la empresa, de Eventia: su experiencia real. El
+ *  evento que ya tiene su respaldo arriba (traído de Eventia, decisión 45)
+ *  no se repite abajo: sería contar dos veces la misma experiencia. */
+const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
+  const respaldos = c.respaldos ?? [];
+  const conRespaldo = new Set(respaldos.map((r) => r.evento));
+  const eventos = c.eventos.filter((e) => !conRespaldo.has(e.numero));
+  return [
+    ...(respaldos.length > 0
+      ? [
+          'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta, cada una con su PDF; son las que cuentan para el puntaje):',
+          ...respaldos.map(
+            (r) => `- ${textoDelRespaldo(r)} (archivo «${r.archivo}»)`,
+          ),
+          '',
+        ]
+      : []),
+    'LOS EVENTOS QUE HIZO LA EMPRESA (de Eventia, últimos 4 años, del más nuevo al más viejo; los que ya tienen su respaldo arriba no se repiten):',
+    ...(eventos.length === 0 && c.eventos.length > 0
+      ? ['(todos ya están arriba, con su respaldo)']
+      : textoDeLaExperiencia(eventos)),
+  ];
+};
 
 /** La carta de Eventia, o que no se pudo leer. */
 const laCarta = (c: ContextoDeGeneracion): string[] => [

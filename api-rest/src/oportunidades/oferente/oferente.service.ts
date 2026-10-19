@@ -83,6 +83,13 @@ const EXTENSIONES_DE_DOCUMENTO = new Set([
 ]);
 export const MAX_BYTES_DOCUMENTO = 15 * 1024 * 1024;
 
+/** Lo que se usa de un archivo subido: lo que llega de la pantalla o lo que
+ *  se trae de Eventia (decisión 45). */
+export type ArchivoRecibido = Pick<
+  Express.Multer.File,
+  'originalname' | 'size' | 'buffer'
+>;
+
 const RUT = /^\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]$/;
 
 const CAMPOS: ReadonlyArray<keyof Oferente> = [
@@ -260,7 +267,7 @@ export class OferenteService {
   async subirDocumento(
     companyId: number,
     cuentaId: string,
-    archivo: Express.Multer.File | undefined,
+    archivo: ArchivoRecibido | undefined,
     dto: { tipo: string; vence?: string; datos?: string },
   ): Promise<DocumentoDeEmpresa> {
     if (!archivo) throw new BadRequestException('No llegó ningún archivo.');

@@ -9,6 +9,7 @@ import {
 } from '../generacion/generacion.repository';
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import { RespaldosDeEventiaService } from '../oferente/respaldos-de-eventia.service';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { normalizar } from './el-set';
@@ -81,6 +82,7 @@ export class ArmarPostulacionService {
     private readonly analisis: AnalisisRepository,
     private readonly oferente: OferenteRepository,
     private readonly repo: PostulacionRepository,
+    private readonly respaldosDeEventia: RespaldosDeEventiaService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
@@ -124,6 +126,17 @@ export class ArmarPostulacionService {
     armada: PostulacionArmada,
   ): Promise<void> {
     const companyId = user.company_id;
+    // Antes de los anexos, que los nombran: los respaldos que están en
+    // Eventia y no en «Mi empresa» (decisión 45; Felipe: "buscar en Eventia
+    // y terminar de armar ese archivo"). Si falla, los anexos salen con los
+    // que hay.
+    try {
+      await this.respaldosDeEventia.traer(companyId, user.id);
+    } catch (error) {
+      this.logger.warn(
+        `respaldos de Eventia antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+    }
     const pasos: Array<[string, () => Promise<unknown>]> = [
       [
         'Los anexos',
