@@ -1,6 +1,9 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
-import type { AnalisisDeBases } from "./oportunidades.service";
+import {
+  type AnalisisDeBases,
+  subirConFormulario,
+} from "./oportunidades.service";
 
 // LA POSTULACIÓN (doc 17, decisiones 33 y 34, 19-10): los respaldos de
 // experiencia de la carpeta (con la ficha pública de una orden de compra),
@@ -40,6 +43,15 @@ export const leerOrdenDeCompra = async (codigo: string) =>
     `${API_ROUTES.OPORTUNIDADES}/oferente/orden-de-compra/${encodeURIComponent(codigo.trim())}`,
     "GET",
   )) as { orden: OrdenDeCompra; aviso: string | null };
+
+/** Lee una orden de compra o una factura con IA (decisión 34): sus datos
+ *  para el respaldo, sin guardar nada (si es de Mercado Público, los
+ *  confirma su ficha pública). `aviso`: algo que revisar. */
+export const leerRespaldo = (archivo: File) =>
+  subirConFormulario<{ datos: DatosDeRespaldo; aviso: string | null }>(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/leer`,
+    archivo,
+  );
 
 /** Una fila de la oferta armada con IA (decisión 33): una especificación
  *  técnica de las bases, qué se ofrece y con qué productos del catálogo. */

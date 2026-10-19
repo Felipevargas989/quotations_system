@@ -431,7 +431,7 @@ export const guardarOferente = async (
     cambios,
   )) as VistaDelOferente;
 
-const subirConFormulario = async <T>(
+export const subirConFormulario = async <T>(
   url: string,
   archivo: File,
   campos: Record<string, string> = {},
