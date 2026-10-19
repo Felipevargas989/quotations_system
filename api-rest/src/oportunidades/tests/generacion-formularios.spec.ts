@@ -1,3 +1,4 @@
+import { PDFDocument } from 'pdf-lib';
 import type { Plan } from '../generacion/generacion.service';
 import { mismoNombre } from '../generacion/instrucciones';
 import { trabajarEnElTaller } from '../generacion/taller';
@@ -39,6 +40,79 @@ const PLAN: Plan = {
 beforeEach(() => taller.mockReset());
 
 describe('Un formulario en PDF', () => {
+  it('va solo con las páginas de sus formularios, y una más (19-10: el decreto del Profesor ahogaba al taller)', () =>
+    entorno(async () => {
+      const { analisis, servicio, ejecutar, repo } = armar();
+      analisis.ultimo.mockResolvedValue({
+        ...ANALISIS,
+        resultado: {
+          ...ANALISIS.resultado,
+          formularios: [
+            {
+              nombre: 'Formulario N°1',
+              archivo: 'D.A. N°4.770 Bases.pdf',
+              paginas: '16',
+              aplica: true,
+              por_que_no_aplica: '',
+              se_entrega_en: 'administrativa',
+            },
+            {
+              nombre: 'Formulario N°2',
+              archivo: 'D.A. N°4.770 Bases.pdf',
+              paginas: '16-17',
+              aplica: true,
+              por_que_no_aplica: '',
+              se_entrega_en: 'administrativa',
+            },
+          ],
+        },
+      });
+      await servicio.generarAnexos(1, CUENTA, 40, {});
+      const plan = planDe(ejecutar);
+      expect(plan.entradas).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            enElTaller: 'anexo_4.pdf',
+            paginas: [16, 17, 18],
+          }),
+        ]),
+      );
+      expect(plan.sistema).toContain(
+        'te paso solo las páginas donde el análisis encontró los formularios',
+      );
+
+      // Por detrás, el taller recibe solo esas páginas.
+      ejecutar.mockRestore();
+      const doc = await PDFDocument.create();
+      for (let i = 0; i < 20; i++) doc.addPage();
+      (repo.descargar as jest.Mock).mockResolvedValue(
+        Buffer.from(await doc.save()),
+      );
+      taller.mockResolvedValue({
+        archivos: [],
+        texto: '',
+        uso: USO,
+        motivo: 'end_turn',
+      });
+      await servicio.ejecutar(1, 9, {
+        ...PLAN,
+        entradas: [
+          {
+            enElTaller: 'anexo_4.pdf',
+            tipo: 'application/pdf',
+            ruta: 'c1/bases.pdf',
+            verComoDocumento: true,
+            paginas: [16, 17, 18],
+          },
+        ],
+      });
+      const pedido = (taller.mock.calls[0] as unknown[])[1] as {
+        archivos: Array<{ datos: Buffer }>;
+      };
+      const enviado = pedido.archivos[0].datos;
+      expect((await PDFDocument.load(enviado)).getPageCount()).toBe(3);
+    }));
+
   it('un PDF elegido se REESCRIBE en Word: Opus, la habilidad de PDF y un Word por formulario (18-10)', () =>
     entorno(async () => {
       const { repo, servicio, ejecutar } = armar();
@@ -60,6 +134,8 @@ describe('Un formulario en PDF', () => {
           ruta: 'c1/oportunidades/40/x_D.A. N°4.770 Bases.pdf',
           // Además lo mira: los escaneos no traen ni una letra de texto.
           verComoDocumento: true,
+          // Sin las páginas en el análisis, va entero.
+          paginas: [],
         },
       ]);
       // Cuántos formularios trae no se sabe antes: se reconocen por el

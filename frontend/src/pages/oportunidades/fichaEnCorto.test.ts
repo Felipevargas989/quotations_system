@@ -74,6 +74,21 @@ describe("el camino de la postulación", () => {
       }),
     });
     expect(siguientePaso(todo)).toMatchObject({ paso: null, boton: null });
+    // Postulada con la validación en aviso: ni «Ir a firmar» ni «Validar».
+    const conAviso = pasosDelAvance({
+      estado: "postulada",
+      avance: avanceDeLaFicha({
+        bases: [archivo("subido")],
+        postulacion: [archivo("subido"), archivo("subido")],
+        analisis: { estado: "listo" } as never,
+        validacion: { estado: "listo", resultado: { listo: "casi" } } as never,
+      }),
+    });
+    expect(siguientePaso(conAviso)).toEqual({
+      paso: null,
+      texto: "Postulada. Ahora a esperar.",
+      boton: null,
+    });
   });
 
   it("cuenta lo hecho por la IA y lo firmado en «Mi postulación»", () => {

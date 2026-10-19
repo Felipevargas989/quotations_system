@@ -302,87 +302,6 @@ export const alertasDelAnalisis = (r: {
       }
     : { dejanFuera: [], condiciones: r.alertas ?? [], separadas: false };
 
-export type EstadoDeRequisito =
-  | "cumple"
-  | "falta"
-  | "vencido"
-  | "revisar"
-  | "sin_ver";
-
-const sinEspacios = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
-
-/** UNA SOLA LISTA de lo que hay que presentar: cada requisito del análisis
- *  con lo que dijo la última validación. La validación los devuelve en el
- *  mismo orden y con el mismo texto; si no calza por posición, se busca
- *  por texto. Sin validación, todos "sin ver". */
-export const requisitosConEstado = <
-  R extends { que: string },
-  V extends { que: string; estado: string; donde: string; observacion: string },
->(
-  requisitos: R[],
-  validacion: V[] | null | undefined,
-): Array<
-  R & { estado: EstadoDeRequisito; donde: string; observacion: string }
-> =>
-  requisitos.map((q, i) => {
-    const v =
-      validacion?.[i] && sinEspacios(validacion[i].que) === sinEspacios(q.que)
-        ? validacion[i]
-        : validacion?.find((x) => sinEspacios(x.que) === sinEspacios(q.que));
-    const estado = (
-      v && ["cumple", "falta", "vencido", "revisar"].includes(v.estado)
-        ? v.estado
-        : "sin_ver"
-    ) as EstadoDeRequisito;
-    return {
-      ...q,
-      estado,
-      donde: v?.donde ?? "",
-      observacion: v?.observacion ?? "",
-    };
-  });
-
-export const ESTILO_DE_REQUISITO: Record<
-  EstadoDeRequisito,
-  { label: string; clases: string }
-> = {
-  cumple: { label: "Listo", clases: "bg-green-100 text-green-800" },
-  falta: { label: "Falta", clases: "bg-red-100 text-red-800" },
-  vencido: { label: "Vencido", clases: "bg-red-100 text-red-800" },
-  revisar: { label: "Revisar", clases: "bg-amber-100 text-amber-800" },
-  sin_ver: { label: "Sin ver", clases: "bg-gray-100 text-gray-500" },
-};
-
-/** Los filtros de la lista, con su conteo. */
-export const FILTROS_DE_REQUISITOS = [
-  { value: "todos", label: "Todos" },
-  { value: "obligatorios", label: "Obligatorios" },
-  { value: "faltan", label: "Faltan" },
-  { value: "revisar", label: "Por revisar" },
-  { value: "listos", label: "Listos" },
-] as const;
-
-export type FiltroDeRequisitos =
-  (typeof FILTROS_DE_REQUISITOS)[number]["value"];
-
-export const filtrarRequisitos = <
-  T extends { obligatorio: boolean; estado: EstadoDeRequisito },
->(
-  lista: T[],
-  filtro: FiltroDeRequisitos,
-): T[] =>
-  lista.filter((q) =>
-    filtro === "obligatorios"
-      ? q.obligatorio
-      : filtro === "faltan"
-        ? q.estado === "falta" || q.estado === "vencido"
-        : filtro === "revisar"
-          ? q.estado === "revisar"
-          : filtro === "listos"
-            ? q.estado === "cumple"
-            : true,
-  );
-
 /** El veredicto de arriba: ¿se puede subir así? */
 export const LISTO_PARA_POSTULAR: Record<
   "si" | "casi" | "no",
@@ -667,14 +586,26 @@ export const pasosDelAvance = (
 ): PasoDelAvance[] => {
   const a = m.avance;
   const v = a.validacion;
+  // Postulada (o ya resuelta), lo de antes está hecho; solo la validación
+  // muestra lo que dijo (Felipe, 19-10: "está todo firmado, solo debería
+  // estar con alerta la validación").
+  const postulada = ["postulada", "ganada", "perdida"].includes(m.estado);
+  // Firmado = no queda nada de la IA sin firmar (cada firmado sale de un
+  // documento de la IA). Lo subido a mano cuenta como firmado: muchas
+  // veces se firma por fuera y se sube el PDF.
+  const sinFirmar = Math.max(0, a.generados - a.firmados);
+  const firmado = sinFirmar === 0 && (a.firmados > 0 || a.postulacion > 0);
   return [
-    { paso: "Bases", estado: a.bases > 0 ? "hecho" : "falta" },
-    { paso: "Análisis", estado: trabajo(a.analisis) },
+    { paso: "Bases", estado: postulada || a.bases > 0 ? "hecho" : "falta" },
+    { paso: "Análisis", estado: postulada ? "hecho" : trabajo(a.analisis) },
     {
       paso: "Anexos",
-      estado: a.generados > 0 || a.firmados > 0 ? "hecho" : trabajo(a.anexos),
+      estado:
+        postulada || a.generados > 0 || a.firmados > 0
+          ? "hecho"
+          : trabajo(a.anexos),
     },
-    { paso: "Firma", estado: a.firmados > 0 ? "hecho" : "pendiente" },
+    { paso: "Firma", estado: postulada || firmado ? "hecho" : "pendiente" },
     {
       paso: "Validación",
       estado: !v
@@ -746,7 +677,8 @@ export const TONO_DEL_LUGAR: Record<string, string> = {
   dudoso: "text-amber-700",
 };
 
-/** "¿PUEDO CUMPLIR?" (17-10): cómo se ve cada estado. */
+/** Lo que sugiere la IA de cada exigencia («¿Puedo cumplir?», 17-10; desde
+ *  el 19-10, en «Exigencias de la licitación»): cómo se ve. */
 export const ESTILO_DE_CUMPLIMIENTO: Record<
   "tengo" | "conseguir" | "no_se_puede",
   { label: string; plural: string; clases: string }
@@ -767,15 +699,3 @@ export const ESTILO_DE_CUMPLIMIENTO: Record<
     clases: "bg-green-100 text-green-800",
   },
 };
-
-/** Primero lo que impide, después lo que hay que conseguir; lo que ya
- *  tienes, aparte. */
-export const separarCumplimiento = <T extends { estado: string }>(
-  items: T[],
-) => ({
-  porResolver: [
-    ...items.filter((i) => i.estado === "no_se_puede"),
-    ...items.filter((i) => i.estado === "conseguir"),
-  ],
-  loTienes: items.filter((i) => i.estado === "tengo"),
-});

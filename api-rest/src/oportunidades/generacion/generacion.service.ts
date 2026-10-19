@@ -44,6 +44,7 @@ import {
   habilidadesParaFormularios,
   MAX_BYTES_DE_PDF_EN_FORMULARIOS,
   modeloParaFormularios,
+  paginasDeLosFormularios,
   salidasDeFormularios,
 } from './formularios';
 import {
@@ -62,7 +63,9 @@ import {
   leerInforme,
   loQuePidenLasBases,
 } from './instrucciones';
+import { bajarLogo, urlDelLogo } from './logo';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
+import { recortarPdf } from './recortar-pdf';
 import {
   esPdf,
   porQueNoEntrego,
@@ -97,9 +100,6 @@ export const MAX_DOCUMENTOS = 10;
  *  detalle técnico), hasta este peso. */
 export const MAX_BYTES_DE_BASES_PARA_PROPUESTA = 40 * 1024 * 1024;
 
-/** El logo pesa poco; uno de más de esto no es un logo. */
-const MAX_BYTES_LOGO = 3 * 1024 * 1024;
-
 const TIPOS_DE_IMAGEN: Readonly<Record<string, string>> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -117,6 +117,8 @@ type Entrada = {
   opcional?: boolean;
   /** Un formulario en PDF: además, la IA lo mira (taller.ts). */
   verComoDocumento?: boolean;
+  /** De un PDF, solo esas páginas (recortar-pdf.ts). */
+  paginas?: number[];
 };
 
 /** Lo que se espera que entregue, y cómo se guarda. */
@@ -282,7 +284,15 @@ export class GeneracionService {
           enElTaller: f.enElTaller,
           tipo: f.tipo,
           ruta: f.adjunto.ruta,
-          ...(f.clase === 'pdf' ? { verComoDocumento: true } : {}),
+          ...(f.clase === 'pdf'
+            ? {
+                verComoDocumento: true,
+                paginas: paginasDeLosFormularios(
+                  f.adjunto.nombre,
+                  contexto.datos.bases?.formularios ?? [],
+                ),
+              }
+            : {}),
         })),
         salidas: salidasDeFormularios(formularios),
         esfuerzo: 'medium',
@@ -404,9 +414,11 @@ export class GeneracionService {
     const paraLeer: Adjunto[] = [];
     const noLeidos: NoLeido[] = [];
     let peso = 0;
-    for (const a of [...bases].sort((x, y) =>
-      x.creado_en.localeCompare(y.creado_en),
-    )) {
+    // Con lo postulado, la propuesta no necesita las bases: la oferta ya
+    // trae cada especificación (19-10: las bases escaneadas la ahogaban).
+    for (const a of contexto.datos.oferta
+      ? []
+      : [...bases].sort((x, y) => x.creado_en.localeCompare(y.creado_en))) {
       const ext = extensionDe(a.nombre);
       if (ext !== 'pdf' && ext !== 'docx') continue;
       if (peso + a.bytes > MAX_BYTES_DE_BASES_PARA_PROPUESTA) {
@@ -419,7 +431,7 @@ export class GeneracionService {
       peso += a.bytes;
       paraLeer.push(a);
     }
-    const logo = this.urlDelLogo(contexto.logoUrl);
+    const logo = urlDelLogo(contexto.logoUrl);
     const extLogo = logo ? extensionDe(new URL(logo).pathname) : '';
     const enElTallerLogo =
       logo && TIPOS_DE_IMAGEN[extLogo] ? `logo.${extLogo}` : null;
@@ -495,15 +507,18 @@ export class GeneracionService {
       for (const e of plan.entradas) {
         const datos = e.ruta
           ? await this.repo.descargar(e.ruta)
-          : await this.bajarLogo(e.url);
+          : await bajarLogo(e.url, (m) => this.logger.warn(m));
         if (!datos) {
           if (e.opcional) continue;
           throw new Error(`no se pudo bajar ${e.enElTaller}`);
         }
-        bajados.set(e.enElTaller, datos);
+        const recortado = e.paginas?.length
+          ? await recortarPdf(datos, e.paginas)
+          : null;
+        bajados.set(e.enElTaller, recortado ?? datos);
         archivos.push({
           nombre: e.enElTaller,
-          datos,
+          datos: recortado ?? datos,
           tipo: e.tipo,
           verComoDocumento: e.verComoDocumento,
         });
@@ -764,27 +779,6 @@ export class GeneracionService {
       // Sin su fila nadie lo vería: que no quede un archivo huérfano.
       await this.adjuntos.borrarArchivo(ruta);
       throw error;
-    }
-  }
-
-  /** El logo solo se baja del balde público de la casa: una URL cualquiera
-   *  haría que el motor le pida cosas a quien sea. */
-  private urlDelLogo(url: string | null): string | null {
-    const base = process.env.SUPABASE_URL?.replace(/\/+$/, '');
-    if (!url || !base) return null;
-    return url.startsWith(`${base}/storage/v1/object/public/`) ? url : null;
-  }
-
-  private async bajarLogo(url?: string): Promise<Buffer | null> {
-    if (!url) return null;
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!r.ok) return null;
-      const datos = Buffer.from(await r.arrayBuffer());
-      return datos.length > 0 && datos.length <= MAX_BYTES_LOGO ? datos : null;
-    } catch (error) {
-      this.logger.warn(`no se pudo bajar el logo: ${mensajeDe(error)}`);
-      return null;
     }
   }
 }
