@@ -10,6 +10,7 @@ import type { GeneracionRepository } from '../generacion/generacion.repository';
 import { GeneracionService, type Plan } from '../generacion/generacion.service';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
+import type { LoPostuladoService } from '../postulacion/lo-postulado.service';
 
 // LO COMÚN DE LAS PRUEBAS DE GENERACIÓN (anexos, firma y propuesta): el
 // servicio de prueba, los repositorios de mentira y los datos. Aparte para
@@ -149,6 +150,7 @@ class GeneracionDePrueba extends GeneracionService {
       repos.oportunidades as OportunidadesRepository,
       repos.eventia as EventiaRepository,
       repos.catalogos as GenerarRepository,
+      repos.loPostulado as LoPostuladoService,
       mockPinoLogger() as unknown as PinoLogger,
     );
   }
@@ -253,6 +255,10 @@ export function armar() {
   const catalogos = {
     catalogo: jest.fn().mockResolvedValue(CATALOGO_DE_PRUEBA),
   };
+  // Lo postulado (decisión 33): sin oferta armada, de partida.
+  const loPostulado = {
+    paraDocumentos: jest.fn().mockResolvedValue(null),
+  };
   const servicio = new GeneracionDePrueba({
     repo,
     analisis,
@@ -261,6 +267,7 @@ export function armar() {
     oportunidades,
     eventia,
     catalogos,
+    loPostulado,
   });
   const ejecutar = jest
     .spyOn(servicio, 'ejecutar')
@@ -273,6 +280,7 @@ export function armar() {
     oportunidades,
     eventia,
     catalogos,
+    loPostulado,
     servicio,
     ejecutar,
   };

@@ -27,6 +27,7 @@ import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
 import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
+import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
 import { RadarService } from './radar.service';
@@ -51,6 +52,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
     ArmarLaOfertaService,
+    LoPostuladoService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,

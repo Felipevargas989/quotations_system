@@ -27,12 +27,14 @@ import {
   hoyEnChile,
   MODELO_HAIKU,
   MODELO_OPUS,
+  MODELO_SONNET,
   type NoLeido,
 } from '../analisis/comun';
 import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { LoPostuladoService } from '../postulacion/lo-postulado.service';
 import {
   claseDeFormulario,
   concretarSalidas,
@@ -153,6 +155,7 @@ export class GeneracionService {
     private readonly oportunidades: OportunidadesRepository,
     private readonly eventia: EventiaRepository,
     private readonly catalogos: GenerarRepository,
+    private readonly loPostulado: LoPostuladoService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(GeneracionService.name);
@@ -418,11 +421,12 @@ export class GeneracionService {
     const enElTallerLogo =
       logo && TIPOS_DE_IMAGEN[extLogo] ? `logo.${extLogo}` : null;
     const enElTaller = (a: Adjunto) => `bases_${a.id}.${extensionDe(a.nombre)}`;
-    // Con ids, para que la propuesta deje su oferta (decisión 29).
-    const catalogo = await catalogoParaLaOferta(
-      this.catalogos,
-      companyId,
-    ).catch(() => null);
+    // Con ids, para que la propuesta deje su oferta (decisión 29); con lo
+    // postulado ya decidido (decisión 33), la propuesta solo lo escribe.
+    const decidida = Boolean(contexto.datos.oferta);
+    const catalogo = decidida
+      ? null
+      : await catalogoParaLaOferta(this.catalogos, companyId).catch(() => null);
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
       tipo: 'propuesta',
@@ -441,8 +445,8 @@ export class GeneracionService {
           catalogo,
         ),
         texto: 'Escribe la propuesta técnica.',
-        // Es nota (30% en el Día del Funcionario): Opus.
-        modelo: MODELO_OPUS,
+        // Es nota: Opus decide; con lo postulado ya decidido, Sonnet escribe.
+        modelo: decidida ? MODELO_SONNET : MODELO_OPUS,
         entradas: [
           ...(enElTallerLogo && logo
             ? [
@@ -648,7 +652,7 @@ export class GeneracionService {
   ) {
     const hoy = hoyEnChile();
     const haceCuatroAnios = `${Number(hoy.slice(0, 4)) - 4}${hoy.slice(4)}`;
-    const [analisis, oferente, empresa, carta, eventos, respaldos] =
+    const [analisis, oferente, empresa, carta, eventos, respaldos, oferta] =
       await Promise.all([
         this.analisis.ultimo(companyId, oportunidadId),
         this.oferente.oferente(companyId),
@@ -658,6 +662,9 @@ export class GeneracionService {
           ? this.eventia.eventosRealizados(companyId, haceCuatroAnios)
           : Promise.resolve([]),
         conEventia ? this.oferente.respaldos(companyId) : Promise.resolve([]),
+        conEventia
+          ? this.loPostulado.paraDocumentos(companyId, oportunidadId)
+          : Promise.resolve(null),
       ]);
     const listo =
       analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
@@ -674,6 +681,7 @@ export class GeneracionService {
       carta,
       eventos,
       respaldos,
+      oferta,
     };
     return {
       datos,
