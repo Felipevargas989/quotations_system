@@ -225,6 +225,84 @@ describe("Lo que el análisis dice que no aplica", () => {
   });
 });
 
+describe("Lo de UTP (Felipe, 19-10: «en mi caso no es necesario que lo arme»)", () => {
+  it("el formulario y la escritura de la UTP no aplican, aunque el análisis no lo diga", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido(
+            "Formulario Anexo N°6: Declaración para Uniones Temporales de Proveedores",
+            "formulario",
+            { obligatorio: false },
+          ),
+          pedido("Instrumento de constitución de la UTP", "otro", {
+            obligatorio: false,
+            condicion: "Solo si se postula como UTP",
+          }),
+        ],
+      },
+      carpeta: [],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.estado, f.detalle])).toEqual([
+      [
+        "no_aplica",
+        "Solo si postulas como Unión Temporal de Proveedores (UTP)",
+      ],
+      [
+        "no_aplica",
+        "Solo si postulas como Unión Temporal de Proveedores (UTP)",
+      ],
+    ]);
+    expect(resumenDelChecklist(filas).total).toBe(0);
+  });
+
+  it("si la postula como UTP y lo sube, cuenta como en su postulación", () => {
+    const [fila] = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [pedido("Instrumento de constitución de la UTP", "otro")],
+      },
+      carpeta: [],
+      postulacion: [enLaPostulacion(1, "Constitucion UTP.pdf", "subido")],
+      corte: "2026-10-19",
+    });
+    expect([fila.estado, fila.detalle]).toEqual([
+      "en_tu_postulacion",
+      "Constitucion UTP.pdf",
+    ]);
+  });
+
+  it("lo general para contratar se cruza con su tipo de la carpeta (decisión 38)", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido("e-RUT", "erut"),
+          pedido("Certificado de no quiebra", "no_quiebra"),
+          pedido("Estatutos vigentes", "estatutos"),
+        ],
+      },
+      carpeta: [
+        enLaCarpeta(1, "erut", "E-rut Quillon.pdf", null),
+        enLaCarpeta(2, "estatutos", "Estatutos.pdf", null),
+      ],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.nombre, f.estado])).toEqual([
+      ["e-RUT", "en_tu_carpeta"],
+      ["Certificado de no quiebra", "falta"],
+      ["Estatutos vigentes", "en_tu_carpeta"],
+    ]);
+  });
+});
+
 describe("Un análisis de antes del checklist", () => {
   const requisito = (que: string, tipo = "administrativo", pagina = 9) => ({
     que,

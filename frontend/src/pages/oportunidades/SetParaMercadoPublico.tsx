@@ -16,6 +16,8 @@ import { humanizeApiError } from "../../utils/apiErrors";
 // (administrativa, técnica y económica): los anexos (firmados, si se
 // firmaron), la propuesta técnica, lo que piden las bases de «Mi empresa» y
 // los respaldos de la experiencia declarada. Antes de bajarlo, lo que falta.
+// Desde la decisión 38, una cuarta, «4. Otros», con lo general para
+// contratar (e-RUT, patente, no quiebra, estatutos y vigencia).
 
 const QUE_ES: Record<PiezaDelSet["que_es"], string> = {
   formulario: "Anexo",
@@ -88,7 +90,9 @@ export default function SetParaMercadoPublico({
             Un ZIP con una carpeta por cada parte del portal: administrativa,
             técnica y económica. Lleva los anexos (firmados, si los firmaste),
             la propuesta técnica, lo que piden las bases de «Mi empresa» y los
-            respaldos de la experiencia que declaraste.
+            respaldos de la experiencia que declaraste. En «4. Otros», lo
+            general para contratar: e-RUT, patente, no quiebra, estatutos y
+            vigencia.
           </p>
         </div>
         {abierto ? (
