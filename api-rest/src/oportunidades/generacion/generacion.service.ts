@@ -393,10 +393,13 @@ export class GeneracionService {
   /** "Crear propuesta técnica": un Word nuevo que responde punto por punto
    *  a las especificaciones técnicas, con el logo y lo que vende la
    *  empresa. Sin precios. Necesita el análisis de las bases. */
+  /** `monto_total` (con IVA): el valor al final de la propuesta (decisión
+   *  42); al reintentar sin él, el de la última oferta armada. */
   async crearPropuesta(
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
+    pedido: { monto_total?: number | null } = {},
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
@@ -442,11 +445,16 @@ export class GeneracionService {
     const catalogo = decidida
       ? null
       : await catalogoParaLaOferta(this.catalogos, companyId).catch(() => null);
+    const armada = (
+      await this.repo.ultimoDeTipo(companyId, oportunidadId, 'oferta')
+    )?.parametros?.postulacion as { total?: unknown } | undefined;
+    const total = pedido.monto_total ?? Number(armada?.total);
+    const valor = total > 0 ? desgloseDeOferta(total) : null;
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
       tipo: 'propuesta',
       oportunidadId,
-      parametros: {},
+      parametros: { monto_total: valor?.total ?? null },
       archivos: paraLeer,
       noLeidos,
       plan: {
@@ -458,6 +466,7 @@ export class GeneracionService {
           })),
           enElTallerLogo,
           catalogo,
+          valor,
         ),
         texto: 'Escribe la propuesta técnica.',
         // Es nota: Opus decide; con lo postulado ya decidido, Sonnet escribe.
