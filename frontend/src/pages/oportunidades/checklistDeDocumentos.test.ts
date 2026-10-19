@@ -358,6 +358,76 @@ describe("El Registro de Proveedores (Felipe, 19-10: «sácalo de los documentos
   });
 });
 
+describe("Lo que el análisis dejó en «otro» (19-10)", () => {
+  it("se reconoce por su nombre: el certificado de la Inspección del Trabajo y el e-RUT", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido(
+            "Certificado de la Inspección del Trabajo de no tener reclamos laborales",
+            "otro",
+            { cuando: "al_pagar", condicion: "vigente" },
+          ),
+          pedido("e-RUT de la empresa", "otro"),
+          pedido("Certificado de experiencia del chef", "otro"),
+        ],
+      },
+      carpeta: [
+        enLaCarpeta(1, "f30_1", "Certificado DT.pdf", "2026-12-31"),
+        enLaCarpeta(2, "erut", "E-rut Quillon.pdf", null),
+      ],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(
+      filas.map((f) => [f.nombre.slice(0, 20), f.estado, f.detalle]),
+    ).toEqual([
+      ["e-RUT de la empresa", "en_tu_carpeta", "E-rut Quillon.pdf"],
+      ["Certificado de exper", "falta", null],
+      [
+        "Certificado de la In",
+        "en_tu_carpeta",
+        "Certificado DT.pdf · vence el 31-12-2026",
+      ],
+    ]);
+  });
+});
+
+describe("El F30 y el F30-1 (Felipe, 19-10: «ya, para F30 y F30-1»)", () => {
+  it("cada uno con el suyo; el de la Inspección del Trabajo de no tener reclamos es el F30-1", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido("Certificado F30-1", "otro"),
+          pedido(
+            "Certificado de Antecedentes Laborales y Previsionales (F30)",
+            "f30",
+          ),
+          pedido(
+            "Certificado F30 emitido por la Inspección del Trabajo",
+            "otro",
+          ),
+        ],
+      },
+      carpeta: [
+        enLaCarpeta(1, "f30", "F30 septiembre.pdf", "2026-10-31"),
+        enLaCarpeta(2, "f30_1", "F30-1 septiembre.pdf", "2026-10-31"),
+      ],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => f.detalle)).toEqual([
+      "F30-1 septiembre.pdf · vence el 31-10-2026",
+      "F30 septiembre.pdf · vence el 31-10-2026",
+      "F30 septiembre.pdf · vence el 31-10-2026",
+    ]);
+  });
+});
+
 describe("Un análisis de antes del checklist", () => {
   const requisito = (que: string, tipo = "administrativo", pagina = 9) => ({
     que,
