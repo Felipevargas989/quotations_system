@@ -4,7 +4,7 @@ import { toast } from "../../components/toast/Toast";
 import {
   leerOrdenDeCompra,
   type DatosDeRespaldo,
-} from "../../services/oportunidades.service";
+} from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { esOrdenDeCompra } from "./respaldos";
 

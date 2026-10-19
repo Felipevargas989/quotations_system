@@ -1,4 +1,4 @@
-import type { DatosDeRespaldo } from "../../services/oportunidades.service";
+import type { DatosDeRespaldo } from "../../services/postulacion.service";
 
 // LOS RESPALDOS DE EXPERIENCIA (decisión 34 del doc 17, 19-10): una orden de
 // compra o una factura de la carpeta de la empresa, con lo que pide el

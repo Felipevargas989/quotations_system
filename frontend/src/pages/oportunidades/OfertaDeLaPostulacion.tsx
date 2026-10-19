@@ -5,7 +5,7 @@ import {
   armarLaOferta,
   getOfertaDeLaPostulacion,
   type FilaDeLaOferta,
-} from "../../services/oportunidades.service";
+} from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 
 // LA OFERTA (decisión 33 del doc 17, sprint G, 19-10). Felipe: "busca una

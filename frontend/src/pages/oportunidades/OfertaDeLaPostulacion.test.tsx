@@ -9,13 +9,13 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as servicio from "../../services/oportunidades.service";
+import * as servicio from "../../services/postulacion.service";
 import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
 
 // LA OFERTA (decisión 33, sprint G, 19-10): la matriz «lo que piden → lo
 // que ofreces» y lo que falta en el catálogo.
 
-vi.mock("../../services/oportunidades.service", () => ({
+vi.mock("../../services/postulacion.service", () => ({
   getOfertaDeLaPostulacion: vi.fn(),
   armarLaOferta: vi.fn(),
 }));

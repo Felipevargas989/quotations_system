@@ -9,9 +9,9 @@ import { useArrastreDeArchivos } from "../../hooks/useArrastreDeArchivos";
 import {
   borrarDocumentoDeEmpresa,
   subirDocumentoDeEmpresa,
-  type DatosDeRespaldo,
   type DocumentoDeEmpresa,
 } from "../../services/oportunidades.service";
+import type { DatosDeRespaldo } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { descargarDelBalde } from "./descargas";
