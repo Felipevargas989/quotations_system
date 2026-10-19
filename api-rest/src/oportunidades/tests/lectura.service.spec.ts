@@ -111,6 +111,43 @@ describe('LecturaService', () => {
     expect(lectura?.etiquetas).toEqual(['otro']);
   });
 
+  it('lo que contesta se revisa: «Rojo.» es rojo, «Sí» es si, las etiquetas inventadas se botan; un color que no existe queda en amarillo para revisar a mano (18-10)', async () => {
+    // La pasada de las 23:07 del 18-10 se cayó entera porque la base
+    // rechazó un color fuera de verde, amarillo y rojo.
+    const limpia = await new LecturaDePrueba(
+      jest.fn().mockResolvedValue(
+        respuesta({
+          semaforo: ' Rojo.',
+          etiquetas: ['Evento', 'banqueteria', 'evento'],
+          se_hace_en_el_complejo: 'Sí',
+          razon: '  Show público en la plaza. ',
+        }),
+      ),
+    ).leer(PROCESO, EMPRESA);
+    expect(limpia).toEqual({
+      semaforo: 'rojo',
+      etiquetas: ['evento'],
+      se_hace_en_el_complejo: 'si',
+      razon: 'Show público en la plaza.',
+    });
+
+    const rara = await new LecturaDePrueba(
+      jest.fn().mockResolvedValue(
+        respuesta({
+          semaforo: 'naranjo',
+          etiquetas: ['evento'],
+          se_hace_en_el_complejo: 'no',
+          razon: 'x',
+        }),
+      ),
+    ).leer(PROCESO, EMPRESA);
+    expect(rara).toMatchObject({
+      semaforo: 'amarillo',
+      se_hace_en_el_complejo: 'dudoso',
+      razon: 'La lectura automática no resultó: conviene revisarla a mano.',
+    });
+  });
+
   it('si el modelo se niega o no devuelve nada legible, queda en amarillo para revisar a mano', async () => {
     for (const r of [
       respuesta(null, 'refusal'),

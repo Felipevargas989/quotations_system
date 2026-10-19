@@ -22,6 +22,51 @@ export type Lectura = {
   razon: string;
 };
 
+const SEMAFOROS: readonly Semaforo[] = ['verde', 'amarillo', 'rojo'];
+const LUGARES: ReadonlyArray<Lectura['se_hace_en_el_complejo']> = [
+  'si',
+  'no',
+  'dudoso',
+];
+
+/** «Rojo.», «Sí», « amarillo » → rojo, si, amarillo. */
+const limpio = (v: unknown): string =>
+  typeof v === 'string'
+    ? v
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z_]/g, '')
+    : '';
+
+/** LO QUE CONTESTÓ LA IA, REVISADO ANTES DE GUARDARLO (18-10 en la noche:
+ *  un color fuera de verde, amarillo o rojo hizo que la base rechazara la
+ *  fila —oportunidades_semaforo_check— y se cayó la pasada entera de las
+ *  23:07). Se limpia lo que se puede («Rojo.» es rojo) y las etiquetas que
+ *  no existen se botan. null = no se puede usar: queda en amarillo para
+ *  revisar a mano, como cuando la IA no contesta. */
+export const lecturaValida = (salida: {
+  semaforo?: unknown;
+  etiquetas?: unknown;
+  se_hace_en_el_complejo?: unknown;
+  razon?: unknown;
+}): Lectura | null => {
+  const semaforo = SEMAFOROS.find((s) => s === limpio(salida.semaforo));
+  const lugar = LUGARES.find(
+    (l) => l === limpio(salida.se_hace_en_el_complejo),
+  );
+  if (!semaforo || !lugar) return null;
+  const etiquetas = (Array.isArray(salida.etiquetas) ? salida.etiquetas : [])
+    .map(limpio)
+    .filter((e): e is Etiqueta => (ETIQUETAS as readonly string[]).includes(e));
+  return {
+    semaforo,
+    etiquetas: etiquetas.length > 0 ? [...new Set(etiquetas)] : ['otro'],
+    se_hace_en_el_complejo: lugar,
+    razon: typeof salida.razon === 'string' ? salida.razon.trim() : '',
+  };
+};
+
 /** Cómo queda marcada una oportunidad cuyo color lo puso el análisis de
  *  las bases (Opus 5.5, MODELO_OPUS; decisión 21 del doc 17): manda sobre
  *  la lectura corta del radar, que ya no la relee. Escrito aquí y no
