@@ -71,6 +71,7 @@ const TRABAJO = {
 };
 
 vi.mock("../../services/oportunidades.service", () => ({
+  getCotizacionDeLaPostulacion: vi.fn(),
   getAdjuntos: vi.fn(),
   getAnalisis: vi.fn(),
   getGeneraciones: vi.fn(),
@@ -104,6 +105,11 @@ beforeEach(() => {
     ),
   );
   s.getAnalisis.mockResolvedValue({ id: 5, estado: "listo" } as never);
+  s.getCotizacionDeLaPostulacion.mockResolvedValue({
+    cotizacion: null,
+    presupuesto: null,
+    propuesta: null,
+  });
   s.getOferente.mockResolvedValue({
     oferente: {
       razon_social: "VALLE DEL SOL QUILLON SPA",
@@ -175,6 +181,32 @@ describe("Crear documentos con IA", () => {
     expect(
       await screen.findByText(/La IA está llenando los anexos/),
     ).toBeInTheDocument();
+  });
+
+  it("la oferta parte con el total de la cotización de la postulación (decisión 29)", async () => {
+    s.getCotizacionDeLaPostulacion.mockResolvedValue({
+      cotizacion: {
+        id: "q-612",
+        numero: 612,
+        estado: "solicitada",
+        cliente: null,
+        catalogo: 6_007_500,
+        descuento: 507_500,
+        total: 5_500_000,
+      },
+      presupuesto: null,
+      propuesta: null,
+    });
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText("Neto $4.621.849 + IVA $878.151."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
+    await waitFor(() =>
+      expect(s.generarAnexos).toHaveBeenCalledWith(40, {
+        monto_total: 5_500_000,
+      }),
+    );
   });
 
   it("formularios solo en PDF y sin análisis: pide analizar y no deja generar", async () => {
