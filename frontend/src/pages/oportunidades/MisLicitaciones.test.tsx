@@ -93,6 +93,43 @@ const pintar = () =>
   );
 
 describe("Mis licitaciones", () => {
+  it("por postular arriba, por vencimiento; las postuladas abajo, aparte y en verde (19-10)", async () => {
+    s.getMisLicitaciones.mockResolvedValue([
+      mia(84, "Día del Profesor", "postulada"),
+      mia(91, "Día de Campo del Dirigente", "en_estudio", {
+        proceso: {
+          ...mia(0, "", "").proceso,
+          nombre: "Día de Campo del Dirigente",
+          fecha_cierre: "2099-11-20T18:00:00.000Z",
+        },
+      }),
+      mia(92, "Cena aniversario", "en_estudio", {
+        proceso: {
+          ...mia(0, "", "").proceso,
+          nombre: "Cena aniversario",
+          fecha_cierre: "2099-11-05T18:00:00.000Z",
+        },
+      }),
+    ] as never);
+    pintar();
+
+    expect(await screen.findByText("Por postular (2)")).toBeInTheDocument();
+    expect(screen.getByText("Postuladas (1)")).toBeInTheDocument();
+    const nombres = screen.getAllByRole("link").map((a) => a.textContent);
+    // La que vence antes, primero; la postulada, al final.
+    expect(nombres).toEqual([
+      "Cena aniversario",
+      "Día de Campo del Dirigente",
+      "Día del Profesor",
+    ]);
+    expect(screen.getByText("Día del Profesor").closest("li")).toHaveClass(
+      "bg-green-50",
+    );
+    expect(screen.getByText("Cena aniversario").closest("li")).toHaveClass(
+      "bg-white",
+    );
+  });
+
   it("cada una con su avance, el estado y quién la lleva; las ganadas y perdidas, plegadas", async () => {
     s.getMisLicitaciones.mockResolvedValue([
       mia(40, "Ceremonia y Cena Día del Funcionario", "en_estudio", {

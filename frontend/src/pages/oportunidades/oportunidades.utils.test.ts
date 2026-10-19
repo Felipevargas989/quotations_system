@@ -546,6 +546,32 @@ describe("Mis licitaciones: el avance", () => {
     expect(enCurso.map((m) => m.estado)).toEqual(["en_estudio", "postulada"]);
     expect(terminadas.map((m) => m.estado)).toEqual(["ganada", "perdida"]);
   });
+
+  it("por postular, por vencimiento y las ya cerradas al final; las postuladas aparte (19-10)", () => {
+    const cierra = (id: number, estado: string, fecha: string | null) => ({
+      id,
+      estado,
+      proceso: { fecha_cierre: fecha },
+    });
+    const ahora = Date.parse("2026-10-19T22:00:00.000Z");
+    const { porPostular, postuladas, enCurso } = separarMias(
+      [
+        cierra(1, "en_estudio", "2026-10-30T15:00:00.000Z"),
+        cierra(2, "postulada", "2026-10-19T19:00:00.000Z"),
+        cierra(3, "en_estudio", "2026-10-22T15:00:00.000Z"),
+        cierra(4, "en_estudio", "2026-10-15T15:00:00.000Z"),
+        cierra(5, "en_estudio", null),
+        cierra(6, "en_estudio", "2026-10-18T15:00:00.000Z"),
+        cierra(7, "postulada", "2026-10-19T18:01:00.000Z"),
+      ],
+      ahora,
+    );
+    // Abiertas de la que vence antes a la que vence después (sin fecha, al
+    // final de ellas); las que ya cerraron sin postular, después.
+    expect(porPostular.map((m) => m.id)).toEqual([3, 1, 5, 6, 4]);
+    expect(postuladas.map((m) => m.id)).toEqual([7, 2]);
+    expect(enCurso.map((m) => m.id)).toEqual([3, 1, 5, 6, 4, 7, 2]);
+  });
 });
 
 describe("la ficha ordenada", () => {

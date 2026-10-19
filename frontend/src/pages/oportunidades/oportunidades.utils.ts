@@ -640,15 +640,39 @@ export const ESTILO_DEL_PASO: Record<EstadoDelPaso, string> = {
   pendiente: "bg-gray-100 text-gray-500",
 };
 
-/** En curso: en estudio o postulada. Terminadas: ganadas o perdidas. */
-export const separarMias = <T extends { estado: string }>(lista: T[]) => ({
-  enCurso: lista.filter(
-    (m) => m.estado === "en_estudio" || m.estado === "postulada",
-  ),
-  terminadas: lista.filter(
-    (m) => m.estado === "ganada" || m.estado === "perdida",
-  ),
-});
+/** «Mis licitaciones» en dos listas (Felipe, 19-10: "ordenar por
+ *  pendientes, ya postuladas abajo y de algún color diferente para saber
+ *  que están listas... y por orden de vencimiento"). Por postular: las en
+ *  estudio, de la que vence antes a la que vence después, y al final las
+ *  que ya cerraron sin postular (la más reciente primero). Postuladas,
+ *  aparte. Terminadas: ganadas o perdidas. `enCurso` (las dos primeras) es
+ *  el número de la pestaña. */
+export const separarMias = <
+  T extends { estado: string; proceso?: { fecha_cierre: string | null } },
+>(
+  lista: T[],
+  ahora: number = Date.now(),
+) => {
+  const cierre = (m: T) => {
+    const fecha = m.proceso?.fecha_cierre;
+    return fecha ? Date.parse(fecha) : Number.POSITIVE_INFINITY;
+  };
+  const antes = (a: T, b: T) => cierre(a) - cierre(b) || 0;
+  const enEstudio = lista.filter((m) => m.estado === "en_estudio");
+  const porPostular = [
+    ...enEstudio.filter((m) => cierre(m) >= ahora).sort(antes),
+    ...enEstudio.filter((m) => cierre(m) < ahora).sort((a, b) => antes(b, a)),
+  ];
+  const postuladas = lista.filter((m) => m.estado === "postulada").sort(antes);
+  return {
+    porPostular,
+    postuladas,
+    enCurso: [...porPostular, ...postuladas],
+    terminadas: lista.filter(
+      (m) => m.estado === "ganada" || m.estado === "perdida",
+    ),
+  };
+};
 
 /** Cómo se llama la fecha del servicio en las bases, de lo más claro a lo
  *  menos. "Evento" a secas no sirve: "entrega del cronograma del evento"
