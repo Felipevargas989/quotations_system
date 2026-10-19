@@ -224,6 +224,18 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Pasar a 2 pasadas al día no bajaba los tokens (cada licitación se lee una vez; una pasada normal cuesta cerca de 1 centavo de dólar) y atrasaba lo nuevo: se queda el horario de la decisión 18.
     - Modelos: se revisaron con Felipe. Se queda Opus en el análisis de bases (pocas, críticas, PDF escaneados); Sonnet ahorraría unos US$ 0,19 por análisis.
     - Cuando no quedan días pendientes, la historia no hace nada: el curso normal sigue solo.
+29. **La propuesta técnica y la cotización son lo mismo** (19-10, decidido, sin construir; sprint 5 de la hoja de ruta, §7). Felipe propuso un aviso de *"cumplimiento de presupuesto"*: antes de postular tiene que saber, solo para él, cuánto se aleja el presupuesto de la licitación de lo que vale con su catálogo (*"un 30 % más barato, un 40 % más barato, y así yo puedo jugar con un rango de tolerancia"*). Y la postulación queda unida a una cotización de Eventia para el seguimiento: una nueva, o una que ya existe porque el comprador pidió precio antes (*"a veces me cotizan a mí y luego se crea la licitación, y muchas veces no es así"*).
+    - La cotización **no se arma aparte**. Felipe: *"lo que traigo del catálogo es lo que debe vaciarse en la nueva cotización o en la cotización que se vincula, porque tienen que ser equivalentes... lo que estoy ofreciendo a las municipalidades como licitación es lo que tiene que tener la cotización"*.
+    - Por eso la propuesta técnica deja, además del Word, la **lista de ítems del catálogo con sus cantidades** que ofrece. Esa misma lista llena la cotización: una nueva o la vinculada. Los precios son los del catálogo (regla de la casa del 14-10).
+    - **«¿Calza el precio?»**, arriba de «Mi postulación»: el presupuesto de la licitación, el total de la cotización, lo que cobró el ganador del año anterior y **la oferta**, con un color según el margen. La oferta parte con el total de la cotización; el anexo económico la toma. El descuento se decide en la oferta y queda a la vista: la cotización no cambia sus precios.
+    - **Por decidir:** el margen. Lo recomendado es uno por empresa en Configuración, ajustable en cada licitación.
+30. **Seguir una licitación** (19-10, aprobado, sin construir; sprints 6 y 7 de la hoja de ruta, §7). Felipe quiere seguir licitaciones que no va a postular: quién ganó, cuándo, si quedó desierta, en qué condiciones y qué ofreció cada uno. El ejemplo es la gira de estudio: *"yo no la voy a postular porque no realizo giras de estudio, pero a lo mejor me interesa saber quién se la ganó... para incluirme dentro de los servicios de ese tour operador"*.
+    - **El caso de negocio:** el radar marca en rojo lo que la empresa no vende directo (giras, cursos, producción de eventos públicos), pero quien lo gana necesita alojamiento, comida o un salón. Es un canal para venderle al ganador. Los precios de los ganadores alimentan además «¿Calza el precio?».
+    - **La bandeja:** se va el botón «Ver resumen»; al pinchar la fila se abre el resumen, con «Me interesa», «Seguir» y «Descartar». Se agrega un montón nuevo, «En seguimiento».
+    - **El radar** revisa una vez al día las que se siguen, de cualquier región y color, hasta que se adjudican, quedan desiertas o se revocan.
+    - **El acta pública:** la API trae el enlace (`UrlActa`), y la página se abre sin código. Se revisó el 19-10 con la 3997-60-LE26. Trae todas las ofertas por ítem: proveedor, RUT, qué ofreció, a qué precio y si ganó. Los adjuntos de esa página sí tienen código y se arrastran a mano, como las bases.
+    - **«Resumen de negocio» con IA**, con un botón: quién ganó, qué incluye (destinos, fechas, personas), qué ofreció cada uno y a qué precio, y qué le sirve a la empresa. Esto último se lee de «Mi empresa»: *"los que deberían estar siempre resumidos en Mi empresa, así se mantiene escalable"*.
+    - **Por decidir:** llevar a «Mi empresa» la descripción que hoy está en Configuración y usa el radar, para que sea una sola. Es lo recomendado.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -605,6 +617,23 @@ correo. Quedan para después de la historia (1b): "el año anterior", el
 calendario de recurrentes y la ficha de competidores. El aviso inmediato
 de comuna cercana y alto valor espera la respuesta de Felipe.
 
+**Hoja de ruta desde el 19-10** (Felipe: *"actualiza el roadmap... para que desarrollemos todo esto en el laboratorio"*). Todo se construye y se prueba primero en el laboratorio:
+
+| Sprint | Qué | Se da por bueno cuando |
+|---|---|---|
+| 0. El laboratorio al día | Felipe: *"me da la sensación que el laboratorio está atrasado respecto a producción"*. Medido el 19-10: lo está. Ver la nota de abajo | El laboratorio muestra lo mismo que producción |
+| 5. La cotización de la postulación y «¿Calza el precio?» (decisión 29) | La propuesta técnica deja su lista de ítems del catálogo, que llena la cotización nueva o la vinculada; el panel con presupuesto, cotización, ganador del año anterior y oferta | En una licitación del laboratorio, la propuesta técnica y la cotización traen los mismos ítems y el panel muestra el margen con su color |
+| 6. Seguir una licitación, parte 1 (decisión 30) | La bandeja sin «Ver resumen», «Seguir» en el resumen, el montón «En seguimiento», la revisión diaria y el acta pública | Una licitación seguida muestra ganador, ofertas y precios cuando se adjudica |
+| 7. Seguir una licitación, parte 2 (decisión 30) | El resumen de negocio con IA según «Mi empresa», con los documentos arrastrados | El resumen de una gira de estudio dice a quién ofrecerle qué |
+| 8. Lo que Felipe pase después | — | — |
+
+**Cómo estaba el laboratorio el 19-10.**
+- La rama `pruebas` iba 49 commits detrás de `main`. Faltaban todos los arreglos de Oportunidades desde el 17-10 en la noche (#148 a #165): la bandeja ordenada, traer todo, los formularios por dos caminos, el filtro afinado, los formularios que encuentra el análisis, «Generar anexos» sin casillas y la gran descarga. Son 61 archivos distintos solo en Oportunidades.
+- Lo que `pruebas` tiene y `main` no es casi nada: el plan `15_CARGA_INICIAL_CON_IA.md`. Lo demás son copias (cherry-pick) de lo que ya está en `main`.
+- Una mezcla de prueba de `main` en `pruebas`, hecha solo en el Mac y deshecha, chocó en 48 archivos: los mismos cambios llegaron por dos caminos.
+- La base del laboratorio tiene todas las tablas de Oportunidades (migraciones 122 a 129, 141, 142 y 143). Le falta la descripción de Valle del Sol afinada en producción el 18-10. Su radar está apagado desde el 17-10 y comparte el ticket de Mercado Público con producción.
+- **Propuesta, sin hacer:** mezclar `main` en `pruebas` dándole la razón a `main` en los choques, sin forzar la rama (otras conversaciones la usan). Revisar uno por uno los trozos que solo tiene el laboratorio. Después, el motor del laboratorio se despliega solo, la vitrina del laboratorio se publica desde `pruebas` al día y la descripción de Valle del Sol se copia de producción. El radar del laboratorio sigue apagado, para no gastar el cupo del ticket que usa la gran descarga. Todo con el OK de Felipe y avisando antes a las otras conversaciones.
+
 Cada sprint: laboratorio primero, validación de Felipe, y su "a producción".
 Las migraciones van al laboratorio y a producción **antes** del motor.
 
@@ -670,9 +699,9 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
 Postulación automática por reglas (sirve para vender productos en serie, no
 eventos); subir la oferta a Mercado Público por Felipe con un usuario robot;
 portales privados (wherEX, SeNegocia); convenio marco; app móvil propia.
-Más adelante, si se pide: precio de referencia con el historial, ver la
-oferta técnica del ganador anterior (Mercado Público la publica tras la
-apertura si la licitación lo indica), análisis del acta cuando se pierde,
+Más adelante, si se pide: precio de referencia con el historial (pedido el
+19-10: «¿Calza el precio?», decisión 29), ver la oferta técnica del ganador
+anterior y el análisis del acta (pedido el 19-10: «Seguir», decisión 30),
 indicadores de pago del comprador, foro, firma escaneada, orden de compra →
 evento confirmado.
 
