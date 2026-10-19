@@ -26,7 +26,9 @@ import {
 // idénticas: las 8 pantallas que llaman esto no notan la diferencia.
 // (companyId se mantiene en la firma por compatibilidad; el backend usa
 // SIEMPRE la empresa de la sesión.)
-export const getSuppliers = async (_companyId: number): Promise<Supplier[]> => {
+export const getSuppliers = async (
+  _companyId: number,
+): Promise<Supplier[]> => {
   try {
     const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLIERS, "GET");
     return (data || []) as Supplier[];
@@ -514,10 +516,7 @@ export const getEventSupplyProvisions = async (
   _companyId: number,
 ): Promise<EventSupplyProvision[]> => {
   try {
-    const data = await apiRequest(
-      API_ROUTES.LOGISTICS_SUPPLY_PROVISIONS,
-      "GET",
-    );
+    const data = await apiRequest(API_ROUTES.LOGISTICS_SUPPLY_PROVISIONS, "GET");
     return (data || []) as EventSupplyProvision[];
   } catch {
     return [];
@@ -1065,12 +1064,10 @@ export const deleteFixedServiceCostItem = async (id: number) => {
 // Sin try/catch tragón a propósito: si el paquete falla, React Query
 // reintenta y avisa (las funciones sueltas tragan errores por historia).
 
-const mapNameIds = (
-  data: {
-    variable?: { id: number; name: string; no_cost?: boolean }[];
-    fixed?: { id: number; name: string; no_cost?: boolean }[];
-  } | null,
-): NameIdsConCosto => {
+const mapNameIds = (data: {
+  variable?: { id: number; name: string; no_cost?: boolean }[];
+  fixed?: { id: number; name: string; no_cost?: boolean }[];
+} | null): NameIdsConCosto => {
   const norm = canonicalServiceName;
   const variable: Record<string, number> = {};
   const sinCostoVariable: string[] = [];
@@ -1098,25 +1095,15 @@ export interface NameIdsConCosto {
 
 const mapFixedCosts = (
   data:
-    | {
-        id: number;
-        cost_fixed: number | null;
-        cost_per_person: number | null;
-      }[]
+    | { id: number; cost_fixed: number | null; cost_per_person: number | null }[]
     | null,
-): Record<
-  number,
-  { cost_fixed: number | null; cost_per_person: number | null }
-> => {
+): Record<number, { cost_fixed: number | null; cost_per_person: number | null }> => {
   const map: Record<
     number,
     { cost_fixed: number | null; cost_per_person: number | null }
   > = {};
   (data || []).forEach((r) => {
-    map[r.id] = {
-      cost_fixed: r.cost_fixed,
-      cost_per_person: r.cost_per_person,
-    };
+    map[r.id] = { cost_fixed: r.cost_fixed, cost_per_person: r.cost_per_person };
   });
   return map;
 };

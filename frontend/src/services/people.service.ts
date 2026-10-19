@@ -30,7 +30,11 @@ export const createPerson = async (persona: PersonaFormData) =>
   (await apiRequest(API_ROUTES.PEOPLE, "POST", persona)) as Persona;
 
 export const updatePerson = async (id: number, persona: PersonaFormData) =>
-  (await apiRequest(`${API_ROUTES.PEOPLE}/${id}`, "PATCH", persona)) as Persona;
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/${id}`,
+    "PATCH",
+    persona,
+  )) as Persona;
 
 export const deletePerson = async (id: number) =>
   apiRequest(`${API_ROUTES.PEOPLE}/${id}`, "DELETE");
@@ -220,17 +224,8 @@ export const createPool = async (pozo: {
 
 export const updatePool = async (
   id: number,
-  cambios: {
-    first_amount?: number;
-    second_amount?: number;
-    area?: string | null;
-  },
-) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/pools/${id}`,
-    "PATCH",
-    cambios,
-  )) as Pozo;
+  cambios: { first_amount?: number; second_amount?: number; area?: string | null },
+) => (await apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}`, "PATCH", cambios)) as Pozo;
 
 export const removePool = async (id: number) =>
   apiRequest(`${API_ROUTES.PEOPLE}/pools/${id}`, "DELETE");
@@ -285,11 +280,7 @@ export const createReview = async (evaluacion: {
   stars?: number | null;
   note?: string | null;
 }) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/reviews`,
-    "POST",
-    evaluacion,
-  )) as Evaluacion;
+  (await apiRequest(`${API_ROUTES.PEOPLE}/reviews`, "POST", evaluacion)) as Evaluacion;
 
 // ---- La nómina y el pago ----
 
@@ -309,11 +300,7 @@ export const reabrirLiquidacion = async (origen: {
   quotation_id?: string;
   day?: string;
 }) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/payrolls/reabrir`,
-    "POST",
-    origen,
-  )) as {
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls/reabrir`, "POST", origen)) as {
     reabierto: "evento" | "dia";
   };
 
@@ -364,14 +351,10 @@ export const createPayroll = async (dto: {
   /** Días sueltos de restaurante: manda por sobre las fechas y deja
    *  fuera todo lo que sea de un evento. */
   dias?: string[];
-}) =>
-  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "POST", dto)) as Nomina;
+}) => (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls`, "POST", dto)) as Nomina;
 
 export const getPayroll = async (id: number) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/payrolls/${id}`,
-    "GET",
-  )) as NominaDetalle;
+  (await apiRequest(`${API_ROUTES.PEOPLE}/payrolls/${id}`, "GET")) as NominaDetalle;
 
 export const marcarPago = async (
   id: number,
@@ -404,11 +387,7 @@ export const createDayNote = async (nota: {
   quotation_id?: string | null;
   text: string;
 }) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/day-notes`,
-    "POST",
-    nota,
-  )) as NotaDelDia;
+  (await apiRequest(`${API_ROUTES.PEOPLE}/day-notes`, "POST", nota)) as NotaDelDia;
 
 export const updateDayNote = async (
   id: number,

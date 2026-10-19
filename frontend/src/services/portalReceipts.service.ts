@@ -32,11 +32,7 @@ export const listPortalReceipts = async (): Promise<PortalReceipt[]> => {
 
 export const confirmPortalReceipt = async (id: number) => {
   try {
-    await apiRequest(
-      `${API_ROUTES.PORTAL_RECEIPTS}/${id}/confirmar`,
-      "POST",
-      {},
-    );
+    await apiRequest(`${API_ROUTES.PORTAL_RECEIPTS}/${id}/confirmar`, "POST", {});
     return { error: null as unknown };
   } catch (error) {
     return { error };

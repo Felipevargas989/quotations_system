@@ -88,8 +88,9 @@ export const uploadCompanyBanner = async (
 ): Promise<UploadResult> => subir(file, { kind: "company-banner" });
 
 // Banner PROPIO de una campaña (28-08): nombre único por subida.
-export const uploadCampaignBanner = async (file: File): Promise<UploadResult> =>
-  subir(file, { kind: "campaign-banner" });
+export const uploadCampaignBanner = async (
+  file: File,
+): Promise<UploadResult> => subir(file, { kind: "campaign-banner" });
 
 // Foto de referencia de un ítem de inventario (mobiliario). Bucket público
 // furniture-photos; se muestra en un popup, nunca como descarga.
@@ -121,7 +122,9 @@ export const resolveStorageUrl = async (src: string): Promise<string> => {
 };
 
 // Elimina un archivo del balde privado a partir de lo guardado en la base.
-export const deleteStorageFileByUrl = async (url: string): Promise<boolean> => {
+export const deleteStorageFileByUrl = async (
+  url: string,
+): Promise<boolean> => {
   try {
     const data = (await apiRequest("/storage/delete", "POST", {
       src: url,

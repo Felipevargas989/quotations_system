@@ -321,3 +321,4 @@ export const recomendacionHorario = async (id: number) =>
     fuente: "datos" | "estudios";
     texto: string;
   }[];
+

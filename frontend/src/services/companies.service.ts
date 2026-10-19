@@ -54,9 +54,13 @@ export const updateCompany = async (
       ? { banner_url: extras.banner_url }
       : {}),
     ...(extras?.whatsapp !== undefined ? { whatsapp: extras.whatsapp } : {}),
-    ...(extras?.instagram !== undefined ? { instagram: extras.instagram } : {}),
+    ...(extras?.instagram !== undefined
+      ? { instagram: extras.instagram }
+      : {}),
     ...(extras?.facebook !== undefined ? { facebook: extras.facebook } : {}),
-    ...(extras?.sitio_web !== undefined ? { sitio_web: extras.sitio_web } : {}),
+    ...(extras?.sitio_web !== undefined
+      ? { sitio_web: extras.sitio_web }
+      : {}),
   });
   return { data: response };
 };

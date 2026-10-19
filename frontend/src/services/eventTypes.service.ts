@@ -65,6 +65,7 @@ export const actualizarEventType = async (
   )) as TipoDeEvento;
 
 export const deleteEventType = async (id: number) =>
-  (await apiRequest(`${API_ROUTES.EVENT_TYPES}/${String(id)}`, "DELETE")) as {
-    id: number;
-  };
+  (await apiRequest(
+    `${API_ROUTES.EVENT_TYPES}/${String(id)}`,
+    "DELETE",
+  )) as { id: number };

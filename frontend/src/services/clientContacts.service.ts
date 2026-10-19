@@ -77,13 +77,9 @@ export const setPrimaryContact = async (
   contactId: number,
 ) => {
   try {
-    await apiRequest(
-      `${API_ROUTES.CLIENT_CONTACTS}/${contactId}/primary`,
-      "POST",
-      {
-        client_id: clientId,
-      },
-    );
+    await apiRequest(`${API_ROUTES.CLIENT_CONTACTS}/${contactId}/primary`, "POST", {
+      client_id: clientId,
+    });
     return { error: null };
   } catch (error) {
     return { error };

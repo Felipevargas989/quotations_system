@@ -50,10 +50,7 @@ export const createClientType = async (
 };
 
 export const deleteClientType = async (id: number) => {
-  const response = await apiRequest(
-    `${API_ROUTES.CLIENT_TYPES}/${id}`,
-    "DELETE",
-  );
+  const response = await apiRequest(`${API_ROUTES.CLIENT_TYPES}/${id}`, "DELETE");
   return { data: response };
 };
 
