@@ -67,6 +67,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     EventDocumentsRepository,
     PortalReceiptsRepository,
   ],
-  exports: [QuotationsService, QuotationsRepository],
+  // GenerarRepository: el catálogo con ids que también usa la propuesta
+  // técnica de Oportunidades (decisión 29 del doc 17, 19-10).
+  exports: [QuotationsService, QuotationsRepository, GenerarRepository],
 })
 export class QuotationsModule {}

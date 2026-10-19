@@ -9,6 +9,7 @@ import {
   generarAnexos,
   getAdjuntos,
   getAnalisis,
+  getCotizacionDeLaPostulacion,
   getOferente,
   type Generacion,
   type GeneracionesDeOportunidad,
@@ -16,6 +17,7 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
+import { claveDeLaCotizacion } from "./precioDeLaPostulacion";
 import EstadoDeGeneracion from "./EstadoDeGeneracion";
 import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
 import {
@@ -73,7 +75,14 @@ export default function DocumentosConIA({
   // en qué archivo y página. Sin definir = sin análisis o uno anterior.
   const delAnalisis = hayAnalisis ? analisis.resultado?.formularios : undefined;
   const seLlenan = formularios.filter((a) => seLlena(a.nombre, delAnalisis));
-  const [monto, setMonto] = useState<number | undefined>(undefined);
+  // La oferta parte con el total de la cotización de la postulación
+  // (decisión 29): lo que se escribe aquí manda.
+  const { data: cotizacion } = useQuery({
+    queryKey: claveDeLaCotizacion(oportunidadId),
+    queryFn: () => getCotizacionDeLaPostulacion(oportunidadId),
+  });
+  const [escrito, setMonto] = useState<number | undefined>(undefined);
+  const monto = escrito ?? cotizacion?.cotizacion?.total;
   const oferta = monto && monto > 0 ? desgloseDeOferta(monto) : null;
 
   const anotar = (tipo: TipoDeGeneracion, fila: Generacion) =>

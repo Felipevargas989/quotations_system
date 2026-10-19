@@ -13,7 +13,9 @@ export type EstadoOportunidad =
   | "postulada"
   | "ganada"
   | "perdida"
-  | "descartada";
+  | "descartada"
+  // Seguir una licitación sin postularla (decisión 30, migración 144).
+  | "seguida";
 
 export type TipoProceso = "licitacion" | "compra_agil";
 
@@ -122,6 +124,30 @@ export interface CambioDeProceso {
  *  motor lo pide a Mercado Público al abrirla (decisión 20). */
 export type DetalleMp = "trayendo" | "no_disponible" | null;
 
+/** EL ACTA PÚBLICA DE ADJUDICACIÓN (decisión 30 del doc 17, 19-10): cada
+ *  ítem con todas sus ofertas. */
+export interface OfertaDelActa {
+  rut: string | null;
+  proveedor: string;
+  detalle: string;
+  precio_unitario: number | null;
+  cantidad_adjudicada: number;
+  total_adjudicado: number;
+  adjudicada: boolean;
+}
+
+export interface ActaDeAdjudicacion {
+  informada: string | null;
+  monto_adjudicado: number | null;
+  items: Array<{
+    numero: number;
+    producto: string;
+    especificacion: string;
+    cantidad: number | null;
+    ofertas: OfertaDelActa[];
+  }>;
+}
+
 export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
   detalle_mp?: DetalleMp;
   /** Días de historia que faltan por cargar: con 0, "no hubo el año
@@ -142,6 +168,8 @@ export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
       cantidad?: number | null;
     }>;
     adjudicacion: Record<string, unknown> | null;
+    /** El acta pública de adjudicación leída (decisión 30, 19-10). */
+    acta?: ActaDeAdjudicacion | null;
     primera_vez_visto: string;
     actualizado_en: string;
   };
@@ -565,6 +593,40 @@ export interface Generacion extends Omit<AnalisisDeBases, "resultado"> {
   resultado: ResultadoDeGeneracion | null;
 }
 
+/** EL RESUMEN DE NEGOCIO de una licitación seguida (decisión 30, sprint E,
+ *  19-10): Sonnet lee lo publicado, el acta y lo subido, y lo cruza con lo
+ *  que vende la empresa («Mi empresa»). */
+export interface ResumenDeNegocio {
+  resumen: string;
+  quien_gano: string;
+  que_incluye: string[];
+  ofertas: Array<{
+    proveedor: string;
+    precio: string;
+    que_ofrecio: string;
+    gano: boolean;
+  }>;
+  para_tu_empresa: string[];
+  siguientes_pasos: string[];
+}
+
+export interface TrabajoDeResumen extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: "resumen";
+  resultado: ResumenDeNegocio | null;
+}
+
+export const getResumenDeNegocio = async (id: number) =>
+  ((await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "GET",
+  )) as TrabajoDeResumen | "" | null) || null;
+
+export const pedirResumenDeNegocio = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "POST",
+  )) as TrabajoDeResumen;
+
 export type GeneracionesDeOportunidad = Record<
   TipoDeGeneracion,
   Generacion | null
@@ -600,6 +662,52 @@ export const crearPropuestaTecnica = async (id: number) =>
     `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/propuesta`,
     "POST",
   )) as Generacion;
+
+/** LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del doc 17, 19-10): la
+ *  propuesta técnica y la cotización son la misma oferta. */
+export interface ResumenDeLaCotizacion {
+  id: string;
+  numero: number;
+  estado: string;
+  cliente: string | null;
+  /** Lo que vale con los precios del catálogo. */
+  catalogo: number;
+  descuento: number;
+  /** La oferta: lo que cobra la cotización. */
+  total: number;
+}
+
+export interface EstadoDeLaCotizacion {
+  cotizacion: ResumenDeLaCotizacion | null;
+  presupuesto: number | null;
+  /** La última propuesta técnica que dejó su oferta, y cuántos productos
+   *  trae; null si no hay o si es anterior al 19-10. */
+  propuesta: { id: number; productos: number } | null;
+}
+
+export const getCotizacionDeLaPostulacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
+    "GET",
+  )) as EstadoDeLaCotizacion;
+
+/** Crea la cotización con la oferta de la propuesta técnica, o reescribe
+ *  la vinculada; con `numero`, vincula y reescribe esa. */
+export const llevarACotizacion = async (id: number, numero?: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
+    "POST",
+    numero ? { numero } : {},
+  )) as EstadoDeLaCotizacion;
+
+/** La oferta con IVA: la diferencia con el catálogo queda como descuento
+ *  en dinero en la cotización. */
+export const fijarOfertaDeLaPostulacion = async (id: number, total: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion/oferta`,
+    "POST",
+    { total },
+  )) as EstadoDeLaCotizacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). */

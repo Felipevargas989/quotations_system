@@ -11,9 +11,14 @@ import {
   MercadoPublicoClient,
   MercadoPublicoError,
 } from '../mercado-publico/mercado-publico.client';
-import type { LicitacionListada, ProcesoMp } from '../mercado-publico/tipos';
+import type {
+  LicitacionDetalle,
+  LicitacionListada,
+  ProcesoMp,
+} from '../mercado-publico/tipos';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import type { ResumenCorrida } from '../radar.service';
+import { bajarActa, leerActa } from './acta';
 import { HistoriaRepository, unidadDelCodigo } from './historia.repository';
 
 // SPRINT 1b (doc 17 §5.1, puntos 5 y 6): lo que el radar hace al final de
@@ -42,6 +47,8 @@ const PRESUPUESTO_HISTORIA_MS = 130 * MINUTO;
  *  la corrida: a las 3 horas se da por colgada. */
 const TOPE_DE_LA_HISTORIA_MS = 165 * MINUTO;
 const MAX_ADJUDICACIONES_POR_CORRIDA = 60;
+/** Las seguidas (decisión 30) que se revisan por corrida, como mucho. */
+const MAX_SEGUIDAS_POR_CORRIDA = 40;
 /** El filtro de la historia lee los nombres de a tantos. */
 const NOMBRES_POR_TANDA = 150;
 
@@ -115,6 +122,57 @@ export class HistoriaService {
       }
     } finally {
       await this.repo.guardarProcesos(lote);
+    }
+    try {
+      await this.revisarSeguidas(resumen, inicio);
+    } catch (error) {
+      this.logger.warn(`seguidas: ${mensajeDe(error)}`);
+      resumen.avisos.push(`Licitaciones seguidas: ${mensajeDe(error)}`);
+    }
+  }
+
+  /** SEGUIR UNA LICITACIÓN (decisión 30, 19-10): las que una empresa sigue
+   *  se revisan una vez al día, de cualquier región y color; cuando
+   *  Mercado Público publica el acta, se lee con todas sus ofertas. Cuentan
+   *  con las adjudicaciones de la corrida. */
+  private async revisarSeguidas(
+    resumen: ResumenCorrida,
+    inicio: number,
+  ): Promise<void> {
+    const r = resumen.adjudicaciones;
+    const seguidas = await this.unidades.procesosSeguidos(
+      MAX_SEGUIDAS_POR_CORRIDA,
+    );
+    for (const { codigo } of seguidas) {
+      if (Date.now() - inicio > PRESUPUESTO_ADJUDICACIONES_MS) return;
+      let detalle: LicitacionDetalle | null;
+      try {
+        detalle = await this.mp.detalleLicitacion(codigo);
+      } catch (error) {
+        if (!(error instanceof MercadoPublicoError)) throw error;
+        if (error.sinCupo) {
+          r.estado = 'cortada';
+          resumen.avisos.push(`Seguidas: ${error.message}`);
+          return;
+        }
+        continue;
+      }
+      const proceso = procesoDesdeLicitacion(detalle);
+      if (!proceso) continue;
+      await this.repo.guardarProcesos([proceso]);
+      r.revisadas++;
+      if (proceso.adjudicacion) r.adjudicadas++;
+      const enlace = detalle?.Adjudicacion?.UrlActa;
+      if (!enlace) continue;
+      try {
+        const acta = leerActa(await bajarActa(enlace));
+        if (acta.items.length > 0)
+          await this.unidades.guardarActa(codigo, acta);
+      } catch (error) {
+        this.logger.warn(
+          `seguida ${codigo}: no se pudo leer el acta: ${mensajeDe(error)}`,
+        );
+      }
     }
   }
 

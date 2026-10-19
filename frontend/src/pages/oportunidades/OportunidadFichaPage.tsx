@@ -16,6 +16,9 @@ import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
+import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
+import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
+import ResumenDeNegocio from "./ResumenDeNegocio";
 import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
@@ -23,6 +26,7 @@ import MiPostulacion from "./MiPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
+import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
@@ -208,6 +212,14 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "resumen" && (
         <>
+          <ActaDeLaLicitacion
+            acta={p.acta}
+            seguida={ficha.estado === "seguida"}
+            estadoEnMercadoPublico={p.estado}
+          />
+          {(ficha.estado === "seguida" || p.acta) && (
+            <ResumenDeNegocio oportunidadId={ficha.id} />
+          )}
           <Seccion titulo="Lo que leyó la IA">
             {ficha.razon && (
               <p className="text-sm text-gray-800">{ficha.razon}</p>
@@ -216,7 +228,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
               {ficha.alertas.map((a) => (
                 <span
                   key={a}
-                  className="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700"
+                  className={`px-2 py-0.5 text-xs rounded ${RAZON_DE_PRIORIDAD}`}
                 >
                   {ALERTAS[a] ?? a}
                 </span>
@@ -292,6 +304,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "postulacion" && (
         <>
+          <CotizacionDeLaPostulacion
+            oportunidadId={ficha.id}
+            anterior={ficha.anterior}
+          />
           <DocumentosConIA oportunidadId={ficha.id} />
           <MiPostulacion
             oportunidadId={ficha.id}

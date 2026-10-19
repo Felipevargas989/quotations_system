@@ -9,6 +9,8 @@ import type { Vista } from "./oportunidades.utils";
 
 const VACIO_DE_LA_VISTA: Record<Exclude<Vista, "nueva">, string> = {
   descartada: "No hay descartadas",
+  seguida:
+    "No sigues ninguna: en el resumen de una licitación, «Seguir» la deja aquí",
   historial: "No hay nada a la vista",
 };
 

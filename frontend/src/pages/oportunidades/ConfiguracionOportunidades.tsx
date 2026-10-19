@@ -11,8 +11,8 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { REGIONES_DE_CHILE } from "./oportunidades.utils";
 
-// LA CONFIGURACIÓN DEL MÓDULO (doc 17 §5.7): regiones, comunas cercanas y
-// lo que la IA sabe de la empresa. Editable aquí, por empresa (Felipe,
+// LA CONFIGURACIÓN DEL MÓDULO (doc 17 §5.7): regiones y comunas cercanas
+// (lo que la IA sabe de la empresa pasó a «Mi empresa» el 19-10, decisión 30). Editable aquí, por empresa (Felipe,
 // 16-10: "eso debería ser configurable en el módulo de Eventia"). El monto
 // de alto valor y el correo de avisos viven en Configuración de empresa:
 // aquí solo se muestran, para no tenerlos en dos lados.
@@ -26,14 +26,12 @@ export default function ConfiguracionOportunidades() {
 
   const [regiones, setRegiones] = useState<string[]>([]);
   const [comunas, setComunas] = useState<string[]>([]);
-  const [perfil, setPerfil] = useState("");
   const [nuevaComuna, setNuevaComuna] = useState("");
 
   useEffect(() => {
     if (!data) return;
     setRegiones(data.regiones);
     setComunas(data.comunas_cercanas);
-    setPerfil(data.perfil);
   }, [data]);
 
   const guardar = useMutation({
@@ -41,7 +39,8 @@ export default function ConfiguracionOportunidades() {
       guardarConfigOportunidades({
         regiones,
         comunas_cercanas: comunas,
-        perfil,
+        // Lo que vende la empresa se edita en «Mi empresa»: aquí va como está.
+        perfil: data?.perfil ?? "",
       }),
     onSuccess: (config) => {
       qc.setQueryData(["oportunidades", "config"], config);
@@ -149,22 +148,10 @@ export default function ConfiguracionOportunidades() {
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-gray-900">
-          Qué vende la empresa
-        </h2>
-        <p className="text-xs text-gray-500">
-          Es lo que la IA lee para decidir el semáforo, junto a tus paquetes y
-          servicios. Conviene decir también lo que NO vendes.
-        </p>
-        <textarea
-          value={perfil}
-          onChange={(e) => setPerfil(e.target.value)}
-          rows={7}
-          maxLength={3000}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </section>
+      <p className="p-3 rounded-lg bg-gray-50 text-sm text-gray-600">
+        Lo que vende tu empresa ahora se escribe en «Mi empresa» (19-10): es una
+        sola descripción para el semáforo y el resumen de negocio.
+      </p>
 
       <section className="grid gap-3 sm:grid-cols-2">
         <div className="p-3 rounded-lg bg-gray-50 text-sm">

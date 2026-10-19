@@ -50,7 +50,7 @@ const COLUMNAS_DE_LISTA =
 
 const COLUMNAS_DE_FICHA =
   'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, leida_con, leida_en, estado, responsable_id, notas, quotation_id, actualizado_en, ' +
-  'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, organismo_codigo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, primera_vez_visto, actualizado_en)';
+  'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, organismo_codigo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, acta, primera_vez_visto, actualizado_en)';
 
 type ProcesoDeLista = {
   tipo: string;
@@ -92,6 +92,7 @@ export type FichaDeOportunidad = Omit<FilaDeLista, 'proceso'> & {
     fechas: Record<string, unknown>;
     productos: Array<Record<string, unknown>>;
     adjudicacion: Record<string, unknown> | null;
+    acta: Record<string, unknown> | null;
     primera_vez_visto: string;
     actualizado_en: string;
   };

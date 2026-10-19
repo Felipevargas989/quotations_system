@@ -94,17 +94,25 @@ describe("la bandeja: qué se ve de partida", () => {
     expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1]);
   });
 
-  it("tres montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10)", () => {
+  it("cuatro montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10)", () => {
     expect(VISTAS.map((v) => v.label)).toEqual([
       "Por revisar",
       "Descartadas",
+      "En seguimiento",
       "Historial",
     ]);
     const enEstudio = (vista: (typeof VISTAS)[number]["value"]) =>
       filtrar(lista, { ...FILTROS_DE_PARTIDA, vista }).some((o) => o.id === 2);
     expect(enEstudio("nueva")).toBe(false);
     expect(enEstudio("descartada")).toBe(false);
+    expect(enEstudio("seguida")).toBe(false);
     expect(enEstudio("historial")).toBe(true);
+    const seguida = { ...lista[0], id: 9, estado: "seguida" as const };
+    expect(
+      filtrar([seguida], { ...FILTROS_DE_PARTIDA, vista: "seguida" }).map(
+        (o) => o.id,
+      ),
+    ).toEqual([9]);
   });
 
   it("los contadores de los chips cuentan con los demás filtros, sin el semáforo", () => {

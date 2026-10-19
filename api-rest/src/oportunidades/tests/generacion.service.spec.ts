@@ -268,15 +268,33 @@ describe('Crear propuesta técnica', () => {
       ]);
       expect(plan.esfuerzo).toBe('high');
       expect(plan.sistema).toContain('Nunca escribas precios ni montos');
-      expect(plan.sistema).toContain('- Salones: Salón principal');
+      // El catálogo con ids, el mismo de «✨ Crear con IA», y la oferta que
+      // después llena la cotización (decisión 29, 19-10).
       expect(plan.sistema).toContain(
-        '- [Cena] Plateada: Plateada al jugo, Papas rústicas',
+        'LO QUE VENDE LA EMPRESA (su catálogo en Eventia, con el id de cada producto',
       );
+      expect(plan.sistema).toContain('7 «Almuerzo celebración»');
+      expect(plan.sistema).toContain('45 «Amplificación»');
+      expect(plan.sistema).toContain('son LA MISMA oferta');
+      expect(plan.sistema).toContain('"oferta": {"cajas": [], "fijos": []}');
       expect(plan.sistema).toContain(
         '- [lo tiene] Mesas y sillas para 160 personas → con Salón principal',
       );
       expect(plan.sistema).toContain('[COMPLETAR: qué falta]');
       expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
+    }));
+
+  it('si el catálogo no se puede leer, la propuesta sale igual con la carta de antes y sin oferta', () =>
+    entorno(async () => {
+      const { catalogos, servicio, ejecutar } = armar();
+      catalogos.catalogo.mockRejectedValue(new Error('sin base'));
+      await servicio.crearPropuesta(1, CUENTA, 40);
+      const plan = planDe(ejecutar);
+      expect(plan.sistema).toContain('- Salones: Salón principal');
+      expect(plan.sistema).toContain(
+        '- [Cena] Plateada: Plateada al jugo, Papas rústicas',
+      );
+      expect(plan.sistema).not.toContain('son LA MISMA oferta');
     }));
 
   it('sin análisis listo, 400; un logo de fuera de la casa no se baja', () =>

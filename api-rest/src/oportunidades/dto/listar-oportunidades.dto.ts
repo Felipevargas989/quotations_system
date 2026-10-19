@@ -8,6 +8,8 @@ export const ESTADOS_OPORTUNIDAD = [
   'ganada',
   'perdida',
   'descartada',
+  // Seguir una licitación sin postularla (decisión 30, migración 144).
+  'seguida',
 ] as const;
 export type EstadoOportunidad = (typeof ESTADOS_OPORTUNIDAD)[number];
 

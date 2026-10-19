@@ -1,7 +1,6 @@
 import type {
   AdjuntoDeOportunidad,
   Anterior,
-  EstadoOportunidad,
   Generacion,
   MiLicitacion,
   OrigenDeArchivo,
@@ -16,30 +15,7 @@ import { matchesSearch } from "../../utils/searchMatch";
 // Lo que la pantalla de Oportunidades necesita saber pintar y filtrar
 // (doc 17 §5.3). Funciones puras: las pruebas las cubren enteras.
 
-export const ESTADOS: ReadonlyArray<{
-  readonly value: EstadoOportunidad;
-  readonly label: string;
-  readonly clases: string;
-}> = [
-  { value: "nueva", label: "Nueva", clases: "bg-blue-100 text-blue-800" },
-  {
-    value: "en_estudio",
-    label: "En estudio",
-    clases: "bg-amber-100 text-amber-800",
-  },
-  {
-    value: "postulada",
-    label: "Postulada",
-    clases: "bg-purple-100 text-purple-800",
-  },
-  { value: "ganada", label: "Ganada", clases: "bg-green-100 text-green-800" },
-  { value: "perdida", label: "Perdida", clases: "bg-gray-200 text-gray-700" },
-  {
-    value: "descartada",
-    label: "Descartada",
-    clases: "bg-gray-100 text-gray-500",
-  },
-];
+export { ESTADOS } from "./estadosDeOportunidad";
 
 export const SEMAFOROS: Record<
   Semaforo,
@@ -108,7 +84,7 @@ export const REGIONES_DE_CHILE = [
  *  revisar"). Lo en estudio y lo postulado vive en «Mis licitaciones», no
  *  acá: tenerlo en los dos lados confunde. "historial" trae todo, también
  *  lo ya cerrado. */
-export type Vista = "nueva" | "descartada" | "historial";
+export type Vista = "nueva" | "descartada" | "seguida" | "historial";
 
 export const VISTAS: ReadonlyArray<{
   value: Vista;
@@ -124,6 +100,11 @@ export const VISTAS: ReadonlyArray<{
     value: "descartada",
     label: "Descartadas",
     ayuda: "Lo que descartaste: no se borra y se puede recuperar",
+  },
+  {
+    value: "seguida",
+    label: "En seguimiento",
+    ayuda: "Las que sigues sin postular: el radar revisa cada día quién gana",
   },
   {
     value: "historial",

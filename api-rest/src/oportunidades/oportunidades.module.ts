@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ClientsModule } from 'src/clients/clients.module';
+import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
+import { QuotationsModule } from 'src/quotations/quotations.module';
 import { AdjuntosRepository } from './adjuntos/adjuntos.repository';
 import { AdjuntosService } from './adjuntos/adjuntos.service';
 import {
@@ -22,15 +25,30 @@ import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
+import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
+import { PostulacionController } from './postulacion/postulacion.controller';
+import { PostulacionRepository } from './postulacion/postulacion.repository';
 import { RadarService } from './radar.service';
+import { ResumenDeNegocioService } from './seguimiento/resumen-de-negocio.service';
+import { SeguimientoController } from './seguimiento/seguimiento.controller';
 
 // El módulo de Oportunidades (doc 17). Sprint 1: el radar; sprint 2: la
 // pantalla (bandeja, ficha y configuración); después, las bases y anexos
 // que sube la empresa (adjuntos/), lo que lee de ellas la IA (analisis/) y
 // los documentos que hace la IA (generacion/: anexos, firma, propuesta).
+// Desde el 19-10, la cotización de la postulación (postulacion/, decisión
+// 29): usa el cotizador, los clientes y la bitácora.
 @Module({
-  controllers: [OportunidadesController],
+  imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
+  controllers: [
+    OportunidadesController,
+    PostulacionController,
+    SeguimientoController,
+  ],
   providers: [
+    ResumenDeNegocioService,
+    PostulacionRepository,
+    CotizacionDeLaPostulacionService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,
