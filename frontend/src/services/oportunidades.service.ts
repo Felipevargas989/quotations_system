@@ -279,6 +279,20 @@ export interface ResultadoDeBases {
     agenda_de: string | null;
   };
   cumplimiento_error?: string;
+  /** Desde el 18-10: los formularios que llena el oferente y dónde viene
+   *  su formato en blanco. Un análisis anterior no los trae. */
+  formularios?: FormularioDelAnalisis[];
+}
+
+export interface FormularioDelAnalisis {
+  nombre: string;
+  /** El archivo donde viene el formato en blanco; vacío = no vino en lo
+   *  que se subió. */
+  archivo: string;
+  paginas: string;
+  aplica: boolean;
+  por_que_no_aplica: string;
+  se_entrega_en: "administrativa" | "tecnica" | "economica" | "otra";
 }
 
 export interface ItemDeCumplimiento {

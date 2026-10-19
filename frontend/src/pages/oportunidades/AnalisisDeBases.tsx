@@ -18,6 +18,7 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
 import ListaDeRequisitos from "./ListaDeRequisitos";
 import PuedoCumplir from "./PuedoCumplir";
 import {
@@ -170,6 +171,10 @@ function Resultado({
             ))}
           </ul>
         </div>
+      )}
+
+      {(r.formularios?.length ?? 0) > 0 && (
+        <FormulariosDelAnalisis formularios={r.formularios ?? []} />
       )}
 
       <PuedoCumplir r={r} />

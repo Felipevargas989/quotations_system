@@ -17,6 +17,7 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import EstadoDeGeneracion from "./EstadoDeGeneracion";
+import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
 import {
   caminoDelFormulario,
   faltaEnMiEmpresa,
@@ -66,8 +67,12 @@ export default function DocumentosConIA({
   const [eleccion, setEleccion] = useState<ReadonlyMap<number, boolean>>(
     new Map(),
   );
+  // Lo que encontró el análisis de las bases (18-10): marca solo los PDF
+  // donde vienen los formularios y dice en qué página está cada uno.
+  const delAnalisis =
+    analisis?.estado === "listo" ? (analisis.resultado?.formularios ?? []) : [];
   const marcado = (a: { id: number; nombre: string }) =>
-    eleccion.get(a.id) ?? marcadoDePartida(a.nombre);
+    eleccion.get(a.id) ?? marcadoDePartida(a.nombre, delAnalisis);
   const elegidos = formularios.filter(marcado);
   const [monto, setMonto] = useState<number | undefined>(undefined);
   const oferta = monto && monto > 0 ? desgloseDeOferta(monto) : null;
@@ -136,12 +141,25 @@ export default function DocumentosConIA({
             </p>
           ) : (
             <>
-              <p className="text-xs text-gray-500">
-                Marca los formularios. Los Word se llenan en el mismo archivo.
-                Los PDF (también escaneados, o los que vienen al final de las
-                bases) se reescriben en Word con el texto oficial al pie de la
-                letra y el logo.
-              </p>
+              {delAnalisis.length > 0 ? (
+                <>
+                  <FormulariosDelAnalisis formularios={delAnalisis} />
+                  <p className="text-xs text-gray-500">
+                    Ya marqué los archivos donde vienen. Los Word se llenan en
+                    el mismo archivo; los PDF se reescriben en Word con el texto
+                    oficial al pie de la letra y el logo.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Marca los formularios. Los Word se llenan en el mismo archivo.
+                  Los PDF (también escaneados, o los que vienen al final de las
+                  bases) se reescriben en Word con el texto oficial al pie de la
+                  letra y el logo.
+                  {hayAnalisis &&
+                    " Si vuelves a analizar las bases, la IA encuentra los formularios y los marca sola."}
+                </p>
+              )}
               <ul className="space-y-1">
                 {formularios.map((a) => {
                   const camino = caminoDelFormulario(a.nombre);

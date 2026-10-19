@@ -8,6 +8,7 @@ import type { AnalisisRepository } from '../analisis/analisis.repository';
 import {
   AnalisisService,
   errorDeAnalisis,
+  ESQUEMA_DE_BASES,
   instruccionesDeBases,
   MAX_BYTES_DE_PDF,
   MODELO_BASES,
@@ -517,6 +518,25 @@ describe('lo que lee y dice la IA', () => {
     expect(t).toContain('Complejo turístico en Quillón');
     expect(t).toContain('No inventes');
     expect(t).toContain('aclaratoria');
+  });
+
+  it('pide los formularios con el archivo y las páginas donde viene el formato EN BLANCO (18-10)', () => {
+    const t = instruccionesDeBases({
+      codigo: '4364-13-LE26',
+      nombre: 'Producción de Evento día del Profesor',
+      organismo: null,
+      comuna: null,
+      perfil: null,
+    });
+    expect(t).toContain('- formularios: CADA formulario o anexo con formato');
+    expect(t).toContain(
+      'donde viene el formato EN BLANCO, no donde solo se menciona',
+    );
+    expect(ESQUEMA_DE_BASES.required).toContain('formularios');
+    expect(
+      ESQUEMA_DE_BASES.properties.formularios.items.properties.se_entrega_en
+        .enum,
+    ).toEqual(['administrativa', 'tecnica', 'economica', 'otra']);
   });
 
   it('las fallas, en palabras de la casa', () => {

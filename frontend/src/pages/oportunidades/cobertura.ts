@@ -26,10 +26,26 @@ const NO_PUDO: Record<string, string> = {
   sin_ticket: "falta el ticket de Mercado Público",
 };
 
+type Resumen = NonNullable<CorridaDelRadar["resumen"]>;
+
+/** Cada parte, según su ÚLTIMO INTENTO, aunque esa pasada se haya caído
+ *  después (Felipe, 18-10: a las 23:30 seguía el aviso de las compras
+ *  ágiles de las 18:07, aunque a las 23:07 sí llegaron). Una parte cuenta
+ *  si de verdad corrió: trajo algo o dijo por qué no. */
+const ultimoIntento = <K extends "licitaciones" | "compras_agiles">(
+  corridas: readonly CorridaDelRadar[],
+  parte: K,
+  corrio: (p: NonNullable<Resumen[K]>) => boolean,
+): Resumen[K] | undefined =>
+  corridas
+    .map((c) => c.resumen?.[parte])
+    .find((p): p is NonNullable<Resumen[K]> => Boolean(p) && corrio(p!));
+
 export const coberturaDe = (
-  ultimaBuena: CorridaDelRadar | undefined,
+  corridas: readonly CorridaDelRadar[],
   ahora: number = Date.now(),
 ): Cobertura | null => {
+  const ultimaBuena = corridas.find((c) => c.estado === "ok");
   if (!ultimaBuena) return null;
 
   const termino = new Date(
@@ -44,8 +60,16 @@ export const coberturaDe = (
   }
 
   const r = ultimaBuena.resumen;
-  const lic = r?.licitaciones;
-  const compras = r?.compras_agiles;
+  const lic = ultimoIntento(
+    corridas,
+    "licitaciones",
+    (p) => (p.activas ?? 0) > 0 || (p.estado ?? "ok") !== "ok",
+  );
+  const compras = ultimoIntento(
+    corridas,
+    "compras_agiles",
+    (p) => (p.listadas ?? 0) > 0 || (p.estado ?? "ok") !== "ok",
+  );
   const fallaLic = lic?.estado ? NO_PUDO[lic.estado] : undefined;
   const fallaCompras = compras?.estado ? NO_PUDO[compras.estado] : undefined;
   if (fallaLic || fallaCompras) {

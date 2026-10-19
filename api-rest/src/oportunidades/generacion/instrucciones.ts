@@ -79,6 +79,18 @@ export type LoQuePidenLasBases = {
     con_que: string;
     por_que: string;
   }>;
+  /** Los formularios y dónde viene su formato en blanco (18-10). Un
+   *  análisis anterior no los trae: lista vacía. */
+  formularios: FormularioDelAnalisis[];
+};
+
+export type FormularioDelAnalisis = {
+  nombre: string;
+  archivo: string;
+  paginas: string;
+  aplica: boolean;
+  por_que_no_aplica: string;
+  se_entrega_en: string;
 };
 
 const lista = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -101,6 +113,16 @@ export const loQuePidenLasBases = (
           con_que: string;
           por_que: string;
         }>((resultado.cumplimiento as { items?: unknown } | undefined)?.items),
+        formularios: lista<Record<string, unknown>>(resultado.formularios)
+          .filter((f) => f && typeof f === 'object' && texto(f.nombre).trim())
+          .map((f) => ({
+            nombre: texto(f.nombre).trim(),
+            archivo: texto(f.archivo).trim(),
+            paginas: texto(f.paginas).trim(),
+            aplica: f.aplica !== false,
+            por_que_no_aplica: texto(f.por_que_no_aplica).trim(),
+            se_entrega_en: texto(f.se_entrega_en).trim(),
+          })),
       }
     : null;
 
@@ -275,6 +297,52 @@ const REESCRIBIR_UN_PDF = (pdfs: FormularioNombrado[]): string[] => [
   'Antes de entregar, compara: vuelve a leer el texto de cada Word y revísalo contra el formulario original que viste, línea por línea (títulos, cada fila de cada tabla, cada declaración, el orden). Corrige lo que no calce. Conviértelo a PDF con LibreOffice (soffice --headless --convert-to pdf) para asegurarte de que abre bien y cabe en las hojas que corresponde. Lo que no se pudo copiar igual, dilo en pendientes.',
 ];
 
+const PARTE: Record<string, string> = {
+  administrativa: 'la parte administrativa',
+  tecnica: 'la parte técnica',
+  economica: 'la parte económica',
+};
+
+/** Lo que encontró el análisis de las bases (18-10): cada formulario, en
+ *  qué archivo del taller y en qué páginas, y los que no aplican. */
+const losFormulariosDelAnalisis = (
+  c: ContextoDeGeneracion,
+  anexos: FormularioNombrado[],
+): string[] => {
+  const formularios = c.bases?.formularios ?? [];
+  if (formularios.length === 0) return [];
+  const enElTaller = (archivo: string) =>
+    anexos.find((a) => mismoNombre(a.original, archivo))?.enElTaller;
+  return [
+    'LOS FORMULARIOS QUE ENCONTRÓ EL ANÁLISIS DE LAS BASES (úsalos para ubicarlos; si encuentras otro que haya que llenar, llénalo también):',
+    ...formularios.map((f) => {
+      if (!f.aplica) {
+        return `- ${f.nombre}: NO aplica a esta empresa (${f.por_que_no_aplica || 'según el análisis'}); no lo llenes.`;
+      }
+      const donde = f.archivo ? enElTaller(f.archivo) : undefined;
+      const parte = PARTE[f.se_entrega_en];
+      return donde
+        ? `- ${f.nombre}: en ${donde}${f.paginas ? ` (pág. ${f.paginas})` : ''}${parte ? `; se entrega en ${parte}` : ''}.`
+        : `- ${f.nombre}: su formato no está en los archivos que te paso; no lo inventes y anótalo en pendientes.`;
+    }),
+    '',
+  ];
+};
+
+/** Mismo archivo aunque el análisis lo escriba distinto: sin tildes,
+ *  mayúsculas, extensión ni signos. */
+export const mismoNombre = (a: string, b: string): boolean => {
+  const n = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\.[a-z0-9]{2,4}$/, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  return n(a) !== '' && n(a) === n(b);
+};
+
 export const instruccionesDeAnexos = (
   c: ContextoDeGeneracion,
   anexos: FormularioNombrado[],
@@ -309,6 +377,7 @@ export const instruccionesDeAnexos = (
     ...lasBases(c),
     '',
     ...laRevision(c),
+    ...losFormulariosDelAnalisis(c, anexos),
     'CÓMO TRABAJAR',
     ...numerar([
       `Te paso los formularios ORIGINALES del comprador: ${listar(anexos)}. Ya están en el contenedor; ubícalos con: find / -name 'anexo_*' -not -path '/proc/*' 2>/dev/null`,

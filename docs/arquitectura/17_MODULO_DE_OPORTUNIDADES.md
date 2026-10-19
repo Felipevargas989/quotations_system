@@ -206,6 +206,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Las instrucciones llevan cinco ejemplos reales.
     - **A. Compras ágiles sin descripción:** se les pide el detalle y se releen. Queda para la mañana del 19-10.
     - Felipe: *"igual hay que monitorear: algunas están mal ingresadas y vienen a nuestros salones"*. Eso entra en la ronda semanal (parte 2 del plan).
+26. **Los formularios los encuentra el análisis, y la A** (18-10 cerca de la medianoche). Felipe: *"¿no conviene que cuando la IA analice los documentos identifique dónde están los formularios a rellenar... y deje listo el proceso de generación de documentos y anexos?"*, y *"vamos con eso y no se te olvide el cambio chico"*.
+    - **El análisis de bases** devuelve `formularios`: el nombre de cada uno, el archivo y las páginas donde viene el formato EN BLANCO, si aplica a la empresa (no el de UTP ni el de persona natural) y en qué parte de la oferta se entrega. Si un formulario no vino en lo subido, queda con archivo vacío y la pantalla dice que hay que buscarlo en Mercado Público.
+    - **«Generar anexos» parte de eso:** sin elegir, van los Word y los PDF donde el análisis encontró formularios que aplican, y la IA sabe en qué página está cada uno. Sin análisis nuevo, se marcan a mano como antes. Los análisis anteriores se renuevan con «Volver a analizar».
+    - **La A:** a las compras ágiles que quedan en amarillo sin descripción, el radar les pide el detalle y las relee: de a una, hasta 40 por pasada y 20 minutos, primero las que cierran antes. Si Mercado Público no trae el detalle, no se vuelve a pedir en un día.
+    - **El cambio chico:** «¿Está todo?» muestra cada parte según su último intento. Ya no queda pegado un aviso viejo por una pasada que se cayó después.
 
 ## 4. Reglas del módulo (no se negocian)
 
