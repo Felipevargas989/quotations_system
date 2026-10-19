@@ -46,6 +46,10 @@ export const TIPOS_DE_DOCUMENTO = [
   'inicio_actividades',
   'programa_integridad',
   'f30',
+  // El F30-1 (cumplimiento de obligaciones laborales); Felipe lo usa
+  // también para el certificado de la Inspección del Trabajo de no tener
+  // reclamos laborales que piden para cobrar (19-10).
+  'f30_1',
   'vigencia',
   'resolucion_sanitaria',
   'dj_trabajadores',
