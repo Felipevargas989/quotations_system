@@ -16,7 +16,7 @@ export const MODELO_LECTURA = 'claude-haiku-5-5';
 /** Con qué se leyó: el modelo y la versión de las reglas. Cuando las reglas
  *  cambian, lo abierto que nadie ha tocado se relee solo en la pasada
  *  siguiente (decisión 19 del doc 17). Cambiarlo al cambiar las reglas. */
-export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 18-10`;
+export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 18-10, noche`;
 
 const ESQUEMA = {
   type: 'object',
@@ -121,10 +121,19 @@ export const instruccionesPara = (empresa: PerfilDeEmpresa): string =>
     'RESPONDE',
     '- etiquetas: qué pide el proceso, una o varias de: evento, alimentacion, alojamiento, capacitacion_con_salon, paseo, otro. Usa "otro" solo si no pide nada de las demás.',
     '- se_hace_en_el_complejo: "si" si el servicio se puede prestar en las instalaciones de la empresa o el lugar lo propone el oferente; "no" si exige hacerlo en dependencias del comprador o en otra ciudad, si es comida a domicilio o si es solo entrega de productos; "dudoso" si no lo dice.',
-    '  Las celebraciones son la excepción: ceremonias, cenas y almuerzos de celebración, aniversarios, fiestas (también de fin de año), paseos y días del funcionario, del profesor o del dirigente, para un grupo, se hacen en un centro de eventos, porque un comprador público no tiene salón de banquetes. Si la empresa tiene recinto propio y la celebración no dice dónde, es "si". Las capacitaciones, jornadas y talleres que no dicen dónde siguen "dudoso": suelen hacerse donde el comprador.',
+    '  Las celebraciones son la excepción: ceremonias, cenas y almuerzos de celebración, aniversarios, fiestas (también de fin de año), paseos, jornadas recreativas o de autocuidado y días del funcionario, del profesor o del dirigente, para un grupo, se hacen en un centro de eventos, porque un comprador público no tiene salón de banquetes. Si la empresa tiene recinto propio y la celebración no dice dónde, es "si". Las capacitaciones, jornadas de trabajo y talleres que no dicen dónde siguen "dudoso": suelen hacerse donde el comprador.',
+    '  Un evento público del comprador (feria, festival, show, fonda, malón, teletón o actividad abierta a la comunidad) se hace en un espacio suyo (plaza, gimnasio, estadio): es "no", salvo que pida un recinto que proponga el oferente. Un evento para sus funcionarios o para un grupo cerrado sigue la regla de las celebraciones.',
     '- semaforo: "verde" si es del rubro de la empresa y se_hace_en_el_complejo es "si"; "amarillo" si es del rubro pero hay una duda que conviene revisar (lugar "dudoso", mezcla con cosas que no vende); "rojo" si no es del rubro, si exige hacerse fuera de la empresa o si es compra de productos.',
-    '  Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa: lo quiere ver para decidir. En ese caso se_hace_en_el_complejo dice la verdad ("no" si es donde el comprador) y la razón dice que está por evaluar.',
+    '  Una capacitación, curso, taller o seminario en que se compra el curso, el relator, el monitor o el contenido NO es del rubro de una empresa que pone el lugar: "rojo". Es del rubro cuando piden el lugar (salón), la alimentación o el alojamiento para la actividad.',
+    '  Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa: lo quiere ver para decidir. En ese caso se_hace_en_el_complejo dice la verdad ("no" si es donde el comprador) y la razón dice que está por evaluar. Si lo POR EVALUAR pide un monto mínimo y el proceso informa un monto menor, no está por evaluar: sigue la regla de siempre.',
     '- razon: una frase corta en español que diga por qué.',
+    '',
+    'EJEMPLOS (casos reales de Mercado Público)',
+    '- «Curso de capacitación manejo avanzado de heridas»: compran el curso, no el lugar → rojo.',
+    '- «Salón implementado para capacitación y servicio de alimentación»: piden el salón y la comida → del rubro (si no dice dónde, amarillo).',
+    '- «Servicio de producción para shows de la Teletón», de una municipalidad: evento público en la comuna → rojo.',
+    '- «Jornada de autocuidado, deportiva y recreativa para funcionarios»: jornada de un grupo cerrado, como una celebración → si no dice dónde, "si".',
+    '- «Servicio de coffee break para 30 participantes» por $150.000, con el catering POR EVALUAR desde $1.000.000: no llega al monto → la regla de siempre (rojo si se sirve donde el comprador).',
   ].join('\n');
 
 export const descripcionDe = (p: ProcesoParaLeer): string => {

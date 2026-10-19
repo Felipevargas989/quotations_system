@@ -199,6 +199,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - La pantalla dice qué le pasa a cada formulario. Los PDF se marcan a
       mano, porque casi siempre son las bases. Si «Mi empresa» no tiene
       razón social o RUT, se avisa antes de apretar.
+25. **El filtro, afinado** (18-10 en la noche). Felipe, con 87 amarillas: *"quiero afinar el ojo del filtro... antes de cambiar nada analicemos qué pasó"*; y después: *"corramos a, b, c y d y dejemos mejor entrenado a ese agente"*. El análisis encontró tres causas: 66 compras ágiles leídas sin descripción, 27 caterings «por evaluar» (22 de menos de $1 millón) y unas 35 lecturas que confundían vender el curso o el show con vender el lugar. Lo decidido:
+    - **B. Cursos y talleres:** si se compra el curso, el relator o el monitor, rojo. Siguen si piden salón, alimentación o alojamiento.
+    - **C. Eventos públicos del comprador** (ferias, festivales, shows, fondas, teletón): se hacen en su comuna, rojo, salvo que pidan un recinto del oferente. Los de un grupo cerrado (autocuidado, recreativas) siguen la regla de las celebraciones.
+    - **D. El catering «por evaluar», solo desde $1.000.000.** Felipe: *"las comunas que rodean a Quillón son potencialmente visitantes"*: eso ya lo cubre la regla fija de que una comuna cercana del rubro nunca queda en rojo.
+    - Las instrucciones llevan cinco ejemplos reales.
+    - **A. Compras ágiles sin descripción:** se les pide el detalle y se releen. Queda para la mañana del 19-10.
+    - Felipe: *"igual hay que monitorear: algunas están mal ingresadas y vienen a nuestros salones"*. Eso entra en la ronda semanal (parte 2 del plan).
 
 ## 4. Reglas del módulo (no se negocian)
 
