@@ -402,21 +402,28 @@ describe('La comparación de ofertas', () => {
       criterios: CRITERIOS,
       instrucciones: 'INSTRUCCIONES',
     });
-    const pedido = servicio.parse.mock.calls[0][0];
+    type Pedido = {
+      model: string;
+      system: string;
+      messages: Array<{ content: Array<{ type: string; text?: string }> }>;
+    };
+    const pedido = (servicio.parse.mock.calls[0] as [Pedido])[0];
     expect(pedido.model).toBe('claude-opus-5-5');
     expect(pedido.system).toBe('INSTRUCCIONES');
     const textos = pedido.messages[0].content
-      .filter((b: { type: string }) => b.type === 'text')
-      .map((b: { text: string }) => b.text);
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text ?? '');
     expect(textos[0]).toContain(
       'OFERTA 1: VALLE DEL SOL QUILLON SPA (TU OFERTA',
     );
     expect(textos[1]).toContain('Fotos.zip');
-    const [, , fin] = repo.terminar.mock.calls[0];
+    const [, , fin] = repo.terminar.mock.calls[0] as [
+      number,
+      number,
+      { resultado: { oferentes: Array<{ puntaje: number }> } },
+    ];
     expect(fin).toMatchObject({ estado: 'listo', tokens_entrada: 100_000 });
-    expect(
-      fin.resultado.oferentes.map((o: { puntaje: number }) => o.puntaje),
-    ).toEqual([90, 90]);
+    expect(fin.resultado.oferentes.map((o) => o.puntaje)).toEqual([90, 90]);
 
     const falla = armar();
     falla.servicio.parse.mockRejectedValue(new Error('se cayó'));

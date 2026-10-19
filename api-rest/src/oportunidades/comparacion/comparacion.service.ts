@@ -223,7 +223,7 @@ export class ComparacionService {
       criterios,
       instrucciones: instruccionesDeLaComparacion({
         codigo: ficha.codigo,
-        nombre: String(p.nombre ?? ''),
+        nombre: typeof p.nombre === 'string' ? p.nombre : '',
         organismo: (p.organismo as string | null) ?? null,
         presupuesto:
           resultado.monto_detalle?.trim() ||
