@@ -30,7 +30,11 @@ export default function FiltrosDeLaBandeja({
   readonly onCambiar: (cambios: Partial<Filtros>) => void;
   /** Lo que se va a ver al pinchar cada montón (`contarPorVista`).
    *  «Historial» va sin número: es todo. */
-  readonly porVista: { readonly nueva: number; readonly descartada: number };
+  readonly porVista: {
+    readonly nueva: number;
+    readonly descartada: number;
+    readonly seguida?: number;
+  };
   readonly porSemaforo: Readonly<Record<Semaforo, number>>;
   readonly regiones: readonly string[];
 }) {
@@ -50,7 +54,7 @@ export default function FiltrosDeLaBandeja({
       >
         {VISTAS.map((v) => {
           const activa = filtros.vista === v.value;
-          const n = v.value === "historial" ? null : porVista[v.value];
+          const n = v.value === "historial" ? null : (porVista[v.value] ?? 0);
           return (
             <button
               key={v.value}

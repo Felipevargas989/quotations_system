@@ -130,6 +130,8 @@ export function armar(base = new Map<string, ProcesoConocido>()) {
     lectura as unknown as LecturaService,
     {
       regionesDeLasUnidades: jest.fn().mockResolvedValue(new Map()),
+      procesosSeguidos: jest.fn().mockResolvedValue([]),
+      guardarActa: jest.fn().mockResolvedValue(undefined),
     } as unknown as HistoriaRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );

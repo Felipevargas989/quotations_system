@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Radar } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import Modal from "../../components/Modal";
@@ -27,6 +27,7 @@ import {
   SEMAFOROS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
+import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 
 // EL PANEL DE DETALLE (doc 17, sprint 3, paso 1b). Felipe, 17-10, con el
 // pantallazo de Licify: "pinchar un modal con el detalle, la opción de ver
@@ -132,6 +133,18 @@ export default function PanelDeOportunidad({
                 >
                   Descartar
                 </button>
+                {/* Seguir sin postular (decisión 30, 19-10): Felipe, con la
+                    gira de estudio, "a lo mejor me interesa saber quién se
+                    la ganó". */}
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => onDecidir("seguida")}
+                  title="Sin postularla: el radar revisa cada día quién gana y lee el acta"
+                  className="inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold text-sky-700 bg-sky-50 rounded-lg hover:bg-sky-100 disabled:opacity-50"
+                >
+                  <Radar size={14} /> Seguir
+                </button>
                 <button
                   type="button"
                   disabled={ocupado}
@@ -141,6 +154,16 @@ export default function PanelDeOportunidad({
                   Me interesa
                 </button>
               </>
+            )}
+            {o.estado === "seguida" && (
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => onDecidir("nueva")}
+                className="px-3 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                Dejar de seguir
+              </button>
             )}
             {o.estado === "descartada" && (
               <button
@@ -201,7 +224,7 @@ export default function PanelDeOportunidad({
               {o.alertas.map((a) => (
                 <span
                   key={a}
-                  className="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700"
+                  className={`px-2 py-0.5 text-xs rounded ${RAZON_DE_PRIORIDAD}`}
                 >
                   {ALERTAS[a] ?? a}
                 </span>

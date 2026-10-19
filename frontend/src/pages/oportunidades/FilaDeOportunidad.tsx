@@ -1,4 +1,4 @@
-import { AlarmClock, Eye } from "lucide-react";
+import { AlarmClock } from "lucide-react";
 import { Link } from "react-router-dom";
 import type {
   EstadoOportunidad,
@@ -23,7 +23,8 @@ import SelloDeTipo from "./SelloDeTipo";
 // UNA FILA DE LA BANDEJA. Aparte de OportunidadesPage desde el 19-10, con
 // los colores de la decisión 31 (coloresDeLaBandeja.ts): el semáforo es la
 // franja y la tinta de la fila; las razones de la prioridad van en violeta;
-// la urgencia, con reloj y sin rojo.
+// la urgencia, con reloj y sin rojo. Sin «Ver resumen» (decisión 30, Felipe:
+// "una vez que la pinche me muestra el modal"): la fila entera lo abre.
 
 export default function FilaDeOportunidad({
   o,
@@ -101,6 +102,11 @@ export default function FilaDeOportunidad({
             <span className="text-gray-500">({cierre.texto})</span>
           )}
         </p>
+        {o.estado === "seguida" && (
+          <p className="text-xs font-semibold text-sky-800 mt-1">
+            En seguimiento · Mercado Público: {p.estado ?? "sin estado"}
+          </p>
+        )}
         {o.razon && <p className="text-sm text-gray-700 mt-1">{o.razon}</p>}
         {o.anterior && (
           <p className="text-xs text-gray-600 mt-1">
@@ -134,13 +140,6 @@ export default function FilaDeOportunidad({
         </div>
       </div>
       <div className="flex flex-col gap-1.5 items-stretch">
-        <button
-          type="button"
-          onClick={solo(onAbrir)}
-          className="inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
-        >
-          <Eye size={13} /> Ver resumen
-        </button>
         {o.estado === "nueva" ? (
           <>
             <button
