@@ -21,6 +21,7 @@ import {
   rutasEnElZip,
 } from './el-set';
 import { PostulacionRepository } from './postulacion.repository';
+import { type ParaUnir, unirPdf } from './unir-pdf';
 import { type ArchivoParaElZip, armarZip } from './zip';
 
 // «DESCARGAR PARA MERCADO PÚBLICO» (decisión 34 del doc 17, sprint I,
@@ -46,7 +47,13 @@ export type SetParaMostrar = {
 };
 
 const pesoDe = (piezas: PiezaDelSet[]) =>
-  piezas.reduce((total, p) => total + p.bytes * p.carpetas.length, 0);
+  piezas.reduce(
+    (total, p) =>
+      total +
+      (p.bytes + (p.adjuntos ?? []).reduce((s, a) => s + a.bytes, 0)) *
+        p.carpetas.length,
+    0,
+  );
 
 @Injectable()
 export class ElSetService {
@@ -101,7 +108,18 @@ export class ElSetService {
         sinBajar.push(p.nombre);
         continue;
       }
-      for (const nombre of rutas[i]) archivos.push({ nombre, datos });
+      const { unido, aparte } = await this.conSusAdjuntos(p, datos, sinBajar);
+      for (const nombre of rutas[i]) {
+        archivos.push({ nombre, datos: unido });
+        // Lo que no se pudo pegar va aparte, en la misma carpeta.
+        const carpeta = nombre.slice(0, nombre.lastIndexOf('/'));
+        for (const a of aparte) {
+          archivos.push({
+            nombre: `${carpeta}/Respaldos de experiencia/${a.nombre}`,
+            datos: a.datos,
+          });
+        }
+      }
     }
     if (sinBajar.length > 0) {
       archivos.push({
@@ -126,6 +144,28 @@ export class ElSetService {
   ): Promise<PiezaDelSet[]> {
     const { set } = await this.armar(companyId, oportunidadId);
     return set.piezas;
+  }
+
+  /** El PDF del anexo con sus respaldos detrás (19-10: "un solo PDF"). Si
+   *  no se puede unir, va como estaba y sus respaldos aparte. */
+  private async conSusAdjuntos(
+    p: PiezaDelSet,
+    datos: Buffer,
+    sinBajar: string[],
+  ): Promise<{ unido: Buffer; aparte: ParaUnir[] }> {
+    if (!p.adjuntos?.length) return { unido: datos, aparte: [] };
+    const bajados: ParaUnir[] = [];
+    for (const a of p.adjuntos) {
+      const suyo = await this.bajar(a.ruta);
+      if (suyo) bajados.push({ nombre: a.nombre, datos: suyo });
+      else sinBajar.push(a.nombre);
+    }
+    const unido = await unirPdf(datos, bajados);
+    if (!unido) return { unido: datos, aparte: bajados };
+    return {
+      unido: unido.datos,
+      aparte: bajados.filter((b) => unido.saltados.includes(b.nombre)),
+    };
   }
 
   private async bajar(ruta: string): Promise<Buffer | null> {
@@ -185,7 +225,11 @@ export class ElSetService {
     };
     const sinRespaldos = armarElSet(datos);
     const bajados = new Map<string, Buffer>();
-    const textos: Array<{ texto: string; carpetas: Carpeta[] }> = [];
+    const textos: Array<{
+      texto: string;
+      carpetas: Carpeta[];
+      pieza: PiezaDelSet;
+    }> = [];
     for (const p of sinRespaldos.piezas) {
       // El firmado va en PDF: el texto se lee de su Word, que dice lo mismo.
       const { ruta, nombre } = p.texto ?? p;
@@ -194,7 +238,7 @@ export class ElSetService {
       if (!docx) continue;
       bajados.set(ruta, docx);
       const texto = textoDeDocx(docx);
-      if (texto) textos.push({ texto, carpetas: p.carpetas });
+      if (texto) textos.push({ texto, carpetas: p.carpetas, pieza: p });
     }
     return {
       codigo: ficha.codigo,

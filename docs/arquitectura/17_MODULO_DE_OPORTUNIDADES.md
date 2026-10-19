@@ -346,6 +346,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 43. **Los contactos para licitar en «Mi empresa», y los respaldos usados no son pendientes** (19-10, pedido por Felipe). En el Día del Profesor, el Formulario N°1 quedó con la dirección, los teléfonos y el correo del representante legal en blanco, y sin el coordinador de la licitación: «Mi empresa» solo tenía su nombre, RUT y cargo. Felipe: *"podríamos incluir los datos del coordinador de la identificación"*. Y el Formulario N°3 pedía «Adjuntar respaldos» con las tres órdenes que sí estaban: *"me está pidiendo órdenes de compra que sí entiendo que están"*.
     - «Mi empresa» suma el correo, el teléfono y la dirección del representante legal, el coordinador de la licitación (nombre, cargo, correo y teléfono) y la página web (migración 154). Si el contacto del representante queda vacío, la IA usa el de la empresa.
     - Los respaldos que la IA usó ya no salen como pendientes: el ZIP para Mercado Público los adjunta solo, por su número. Pendiente queda solo lo que de verdad falta (las filas sin respaldo).
+44. **El anexo de experiencia en un solo PDF con sus respaldos** (19-10, pedido por Felipe): *"sería bueno que el anexo de experiencia adjunte los mismos respaldos, sea un solo PDF, un solo documento con los respaldos adjuntos, no tres documentos, para que sea más simple"*.
+    - En el ZIP para Mercado Público, el anexo firmado (PDF) lleva detrás cada respaldo que nombra, con todas sus páginas; una foto va en una página tamaño carta.
+    - Lo que no se puede pegar (un Word, un PDF cifrado o roto) va aparte, en «Respaldos de experiencia». Si el anexo todavía no está firmado (es Word), los respaldos siguen aparte: hay que firmarlo para que queden en un solo PDF.
+    - Lo que sigue (pedido en la misma conversación): si los respaldos son pocos, buscarlos en Eventia, en los eventos parecidos con su factura u orden de compra.
 
 ## 4. Reglas del módulo (no se negocian)
 

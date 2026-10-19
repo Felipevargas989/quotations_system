@@ -394,6 +394,38 @@ describe('el set para Mercado Público', () => {
     expect(set.faltan.join(' ')).not.toContain('experiencia');
   });
 
+  it('si el anexo que los nombra va firmado en PDF, los respaldos van dentro de su PDF (19-10: un solo PDF)', () => {
+    const d = datos();
+    const set = armarElSet(d);
+    const firmado = {
+      nombre: 'Formulario N°3 - Experiencia - firmado.pdf',
+      ruta: 'c1/postulacion/99',
+      bytes: 500,
+      carpetas: ['tecnica' as const],
+      que_es: 'formulario' as const,
+      aviso: null,
+    };
+    const conElFirmado = { ...set, piezas: [...set.piezas, firmado] };
+    const r = conLosRespaldos(
+      conElFirmado,
+      [
+        {
+          texto: 'Formulario N°3 | N° 4352-103-SE23 | 2023',
+          carpetas: ['tecnica'],
+          pieza: firmado,
+        },
+      ],
+      d,
+    );
+    expect(r.piezas.filter((p) => p.que_es === 'respaldo')).toEqual([]);
+    expect(r.piezas.find((p) => p.nombre === firmado.nombre)).toMatchObject({
+      adjuntos: [
+        { nombre: 'OC 4352-103-SE23.pdf', ruta: 'c1/oferente/documentos/5' },
+      ],
+      aviso: 'con su respaldo adentro',
+    });
+  });
+
   it('si piden experiencia y no hay respaldos, lo dice', () => {
     const d = datos();
     const sinRespaldos = {
