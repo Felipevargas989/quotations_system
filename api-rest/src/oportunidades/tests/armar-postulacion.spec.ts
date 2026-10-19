@@ -6,6 +6,7 @@ import type { AnalisisRepository } from '../analisis/analisis.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import type { GeneracionService } from '../generacion/generacion.service';
 import type { OferenteRepository } from '../oferente/oferente.repository';
+import type { RespaldosDeEventiaService } from '../oferente/respaldos-de-eventia.service';
 import type { ArmarLaOfertaService } from '../postulacion/armar-la-oferta.service';
 import {
   ArmarPostulacionService,
@@ -60,6 +61,11 @@ function armar() {
   const repo = {
     oportunidad: jest.fn().mockResolvedValue({ id: 40, quotation_id: null }),
   };
+  const eventia = {
+    traer: jest
+      .fn()
+      .mockResolvedValue({ traidos: 0, ya_estaban: 0, sin_traer: [] }),
+  };
   const servicio = new ArmarPostulacionService(
     oferta as unknown as ArmarLaOfertaService,
     documentos as unknown as GeneracionService,
@@ -68,9 +74,11 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
     repo as unknown as PostulacionRepository,
+    eventia as unknown as RespaldosDeEventiaService,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return {
+    eventia,
     oferta,
     documentos,
     cotizacion,
@@ -167,6 +175,27 @@ describe('Armar postulación', () => {
     });
     // Sin cotización vinculada, no se toca ninguna.
     expect(cotizacion.llevar).not.toHaveBeenCalled();
+    expect(generaciones.anotarParametros).not.toHaveBeenCalled();
+  });
+
+  it('antes de los anexos trae los respaldos de Eventia; si eso falla, los anexos igual salen (decisión 45)', async () => {
+    const { servicio, documentos, eventia, generaciones } = armar();
+    const orden: string[] = [];
+    eventia.traer.mockImplementation(() => {
+      orden.push('eventia');
+      return Promise.reject(new Error('Supabase no respondió'));
+    });
+    documentos.generarAnexos.mockImplementation(() => {
+      orden.push('anexos');
+      return Promise.resolve({ id: 22 });
+    });
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(eventia.traer).toHaveBeenCalledWith(1, 'cuenta-1');
+    expect(orden).toEqual(['eventia', 'anexos']);
+    // No es un problema de la postulación: no se anota en la oferta.
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
   });
 

@@ -157,19 +157,44 @@ export class OferenteRepository {
    *  viejo: lo que lee la IA para el anexo de experiencia. */
   async respaldos(
     companyId: number,
-  ): Promise<Array<DatosDeRespaldo & { archivo: string }>> {
+  ): Promise<Array<DatosDeRespaldo & { archivo: string; id: number }>> {
     const { data, error } = await this.db
       .from('oportunidades_documentos')
-      .select('nombre, datos')
+      .select('id, nombre, datos')
       .eq('company_id', companyId)
       .eq('tipo', TIPO_RESPALDO)
       .order('creado_en', { ascending: false });
     if (error) throw error;
     return (
-      (data ?? []) as Array<{ nombre: string; datos: DatosDeRespaldo | null }>
+      (data ?? []) as Array<{
+        id: number;
+        nombre: string;
+        datos: DatosDeRespaldo | null;
+      }>
     )
       .filter((f) => f.datos?.numero)
-      .map((f) => ({ ...(f.datos as DatosDeRespaldo), archivo: f.nombre }));
+      .map((f) => ({
+        ...(f.datos as DatosDeRespaldo),
+        archivo: f.nombre,
+        id: f.id,
+      }));
+  }
+
+  /** De qué evento de Eventia es un respaldo que ya estaba (decisión 45):
+   *  así no se vuelve a leer la próxima vez. Solo los datos de ese respaldo,
+   *  de esta empresa. */
+  async anotarEvento(
+    companyId: number,
+    id: number,
+    datos: DatosDeRespaldo,
+  ): Promise<void> {
+    const { error } = await this.db
+      .from('oportunidades_documentos')
+      .update({ datos })
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('tipo', TIPO_RESPALDO);
+    if (error) throw error;
   }
 
   /** Borra la fila y devuelve dónde estaba el archivo; null = no era de

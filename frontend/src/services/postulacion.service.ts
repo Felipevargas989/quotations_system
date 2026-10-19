@@ -20,6 +20,8 @@ export interface DatosDeRespaldo {
   /** Pesos, con impuestos. */
   monto: number | null;
   fuente: "mercado_publico" | "manual";
+  /** El N° del evento de Eventia del que se trajo (decisión 45). */
+  evento?: number;
 }
 
 /** La ficha pública de una orden de compra, leída por el motor. */
@@ -52,6 +54,23 @@ export const leerRespaldo = (archivo: File) =>
     `${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/leer`,
     archivo,
   );
+
+/** Lo que pasó al traer de Eventia (decisión 45). */
+export interface ResultadoDeTraer {
+  traidos: number;
+  ya_estaban: number;
+  /** Los que no se pudieron traer, cada uno con su porqué. */
+  sin_traer: string[];
+}
+
+/** «Traer de Eventia» (decisión 45): las facturas y órdenes de compra de
+ *  los eventos hechos pasan a «Mi empresa» como respaldos de experiencia,
+ *  leídas con IA y sin repetir. */
+export const traerRespaldosDeEventia = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/eventia`,
+    "POST",
+  )) as ResultadoDeTraer;
 
 /** Una fila de la oferta armada con IA (decisión 33): una especificación
  *  técnica de las bases, qué se ofrece y con qué productos del catálogo. */
