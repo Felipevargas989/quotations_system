@@ -9,6 +9,12 @@ import type {
 } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
 import {
+  ESCRIBIR_LA_OFERTA,
+  FORMATO_PROPIO,
+  laOfertaDecidida,
+  type OfertaParaDocumentos,
+} from '../postulacion/la-oferta-en-texto';
+import {
   COMO_LISTAR_LA_OFERTA,
   leerOferta,
   type OfertaDeLaPropuesta,
@@ -150,6 +156,9 @@ export type ContextoDeGeneracion = {
   /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
    *  compra y facturas, cada una con su PDF. */
   respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
+  /** Lo postulado (decisión 33): la oferta armada en Oportunidades. Con
+   *  ella, los documentos no deciden: la escriben tal cual. */
+  oferta?: OfertaParaDocumentos | null;
 };
 
 /** Un archivo como lo ve la IA en el contenedor, con el nombre que le dio
@@ -430,6 +439,7 @@ export const instruccionesDeAnexos = (
     ...lasBases(c.bases),
     '',
     ...laRevision(c.bases),
+    ...(c.oferta ? laOfertaDecidida(c.oferta) : []),
     ...losFormulariosDelAnalisis(c, anexos),
     'CÓMO TRABAJAR',
     ...numerar([
@@ -446,6 +456,7 @@ export const instruccionesDeAnexos = (
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
       'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Anota en pendientes, en una línea, los archivos de los respaldos que usaste: «Adjuntar respaldos: ...».',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
+      ...(c.oferta ? [ESCRIBIR_LA_OFERTA, FORMATO_PROPIO] : []),
       SOLO_LO_QUE_PIDEN,
       LO_SUBCONTRATADO,
       NO_PROMETER,
@@ -510,9 +521,13 @@ export const instruccionesDePropuesta = (
     '',
     ...laExperienciaEnEventia(c),
     '',
-    ...(catalogo ? elCatalogo(catalogo) : laCarta(c)),
-    '',
-    ...laRevision(c.bases),
+    ...(c.oferta
+      ? laOfertaDecidida(c.oferta)
+      : [
+          ...(catalogo ? elCatalogo(catalogo) : laCarta(c)),
+          '',
+          ...laRevision(c.bases),
+        ]),
     'CÓMO TRABAJAR',
     ...numerar([
       `Archivos en el contenedor: ${
@@ -524,19 +539,20 @@ export const instruccionesDePropuesta = (
       'Usa la habilidad de Word (docx) que tienes disponible: lee su SKILL.md antes de empezar. Haz un Word nuevo, profesional y sobrio, tamaño carta, en español de Chile.',
       `Arriba${logo ? ' el logo y' : ''} el título "Propuesta técnica", con el código y el nombre de la licitación, el comprador y la empresa (razón social y RUT). Abajo, la línea de firma del representante legal.`,
       'Estructura: la de las bases y nada más. Si las bases traen un formulario de calidad de la oferta o de propuesta técnica (por ejemplo, "Formulario N°4 Calidad de la oferta", con filas como Infraestructura, Logística o Servicio de alimentación), sigue sus filas en su orden y, dentro de cada una, todas las especificaciones técnicas que le tocan. Si no hay formulario, recorre TODAS las especificaciones técnicas en su orden. No agregues secciones propias: ni presentación de la empresa, ni entendimiento del servicio, ni programa u horarios, ni montaje, ni personal, ni seguridad o accesibilidad, ni contingencias, ni compromisos, ni experiencia (va en su propio anexo), ni visita técnica, ni tablas resumen, salvo que las bases o CÓMO SE EVALÚA los pidan expresamente.',
+      ...(c.oferta ? [ESCRIBIR_LA_OFERTA] : []),
       SOLO_LO_QUE_PIDEN,
       'Nunca escribas precios ni montos: la oferta económica va en su propio anexo.',
       'No inventes: ni experiencia, ni certificaciones, ni capacidades, ni nombres de artistas o proveedores. Los menús y salones salen de la carta. Donde las bases pidan un detalle que solo la empresa sabe (por ejemplo, la capacidad del salón), escribe [COMPLETAR: qué falta], resaltado en amarillo, y anótalo en pendientes.',
       LO_SUBCONTRATADO,
-      NO_PROMETER,
+      ...(c.oferta ? [] : [NO_PROMETER]),
       SON_DATOS,
       'Guarda el documento como propuesta.docx. Revisa tu trabajo: vuelve a abrirlo y lee su texto completo.',
-      ...(catalogo ? [COMO_LISTAR_LA_OFERTA] : []),
+      ...(catalogo && !c.oferta ? [COMO_LISTAR_LA_OFERTA] : []),
       ...comoEntregar(
         'propuesta.docx',
         'propuesta.docx',
         false,
-        Boolean(catalogo),
+        Boolean(catalogo) && !c.oferta,
       ),
     ]),
     '',

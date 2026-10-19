@@ -34,6 +34,7 @@ import {
   instruccionesDeLaOferta,
   leerArmado,
 } from './armar-la-oferta';
+import { noSiEstaCongelada } from './congelada';
 
 // ARMAR LA OFERTA (decisión 33 del doc 17, sprint G, 19-10): un trabajo de
 // la IA como los demás (oportunidad_generacion, tipo 'oferta', migración
@@ -89,6 +90,7 @@ export class ArmarLaOfertaService {
     }
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
+    noSiEstaCongelada(ficha.estado);
     const analisis = await this.analisis.ultimo(companyId, oportunidadId);
     const bases =
       analisis?.estado === 'listo'

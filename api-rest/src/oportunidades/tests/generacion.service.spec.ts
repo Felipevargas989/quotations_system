@@ -7,6 +7,10 @@ import {
 import { problemaDelDocumento } from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
 import {
+  ESCRIBIR_LA_OFERTA,
+  FORMATO_PROPIO,
+} from '../postulacion/la-oferta-en-texto';
+import {
   adjunto,
   armar,
   CUENTA,
@@ -322,6 +326,62 @@ describe('Crear propuesta técnica', () => {
       );
       expect(plan.sistema).not.toContain('Entendimiento del servicio;');
       expect(plan.sistema).not.toContain('Compromisos (calidad');
+    }));
+
+  it('con lo postulado ya armado, la propuesta y los anexos lo escriben tal cual; la propuesta, con Sonnet y sin catálogo', () =>
+    entorno(async () => {
+      const { catalogos, loPostulado, servicio, ejecutar } = armar();
+      loPostulado.paraDocumentos.mockResolvedValue({
+        matriz: [
+          {
+            especificacion: 'Plato principal: plateada o salmón',
+            pagina: 19,
+            como: 'Plateada para 160 personas.',
+            origen: 'catalogo',
+            productos: [11],
+          },
+        ],
+        productos: ['- Día 1 · Almuerzo · 160 personas: Plateada'],
+        cotizacion: 481,
+      });
+
+      await servicio.crearPropuesta(1, CUENTA, 40);
+      const plan = planDe(ejecutar);
+      expect(plan.modelo).toBe('claude-sonnet-5-5');
+      expect(plan.sistema).toContain('LO POSTULADO');
+      expect(plan.sistema).toContain(
+        '1. Plato principal: plateada o salmón (pág. 19) → Plateada para 160 personas.',
+      );
+      expect(plan.sistema).toContain(ESCRIBIR_LA_OFERTA);
+      // No decide de nuevo: ni catálogo, ni revisión, ni oferta de vuelta.
+      expect(catalogos.catalogo).not.toHaveBeenCalled();
+      expect(plan.sistema).not.toContain('su catálogo en Eventia, con el id');
+      expect(plan.sistema).not.toContain('son LA MISMA oferta');
+      expect(plan.sistema).not.toContain('[POR CONFIRMAR: qué falta]');
+
+      ejecutar.mockClear();
+      await servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 });
+      const anexos = planDe(ejecutar);
+      expect(anexos.sistema).toContain('LO POSTULADO');
+      expect(anexos.sistema).toContain(ESCRIBIR_LA_OFERTA);
+      // El formulario que acepta formato propio remite a la propuesta.
+      expect(anexos.sistema).toContain(FORMATO_PROPIO);
+    }));
+
+  it('postulada, ya no se generan ni firman documentos: lo postulado queda fijo (decisión 33)', () =>
+    entorno(async () => {
+      const { oportunidades, servicio, ejecutar } = armar();
+      oportunidades.ficha.mockResolvedValue({
+        ...(await oportunidades.ficha()),
+        estado: 'postulada',
+      });
+      await expect(servicio.crearPropuesta(1, CUENTA, 40)).rejects.toThrow(
+        'Ya la postulaste',
+      );
+      await expect(
+        servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 }),
+      ).rejects.toThrow('Ya la postulaste');
+      expect(ejecutar).not.toHaveBeenCalled();
     }));
 
   it('si el catálogo no se puede leer, la propuesta sale igual con la carta de antes y sin oferta', () =>

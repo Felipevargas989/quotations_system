@@ -82,6 +82,11 @@ vi.mock("../../services/oportunidades.service", () => ({
   subirAdjunto: vi.fn(),
   borrarAdjunto: vi.fn(),
 }));
+// La oferta armada (decisión 33): sin ella, ningún documento queda
+// desactualizado.
+vi.mock("../../services/postulacion.service", () => ({
+  getOfertaDeLaPostulacion: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("../../services/storage.service", () => ({
   resolveStorageUrl: vi.fn(),
 }));

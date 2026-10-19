@@ -29,8 +29,11 @@ const ORIGEN: Record<
 
 export default function OfertaDeLaPostulacion({
   oportunidadId,
+  congelada = false,
 }: {
   readonly oportunidadId: number;
+  /** Postulada o ganada: lo postulado queda fijo (decisión 33). */
+  readonly congelada?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "oferta", oportunidadId];
@@ -65,7 +68,10 @@ export default function OfertaDeLaPostulacion({
         <button
           type="button"
           onClick={() => armar.mutate()}
-          disabled={enCurso}
+          disabled={enCurso || congelada}
+          title={
+            congelada ? "Ya postulaste: lo postulado queda fijo" : undefined
+          }
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           {enCurso && <Loader2 size={14} className="animate-spin" />}

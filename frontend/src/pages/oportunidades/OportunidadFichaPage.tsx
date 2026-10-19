@@ -305,7 +305,19 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "postulacion" && (
         <>
-          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
+          {(ficha.estado === "postulada" || ficha.estado === "ganada") && (
+            <p className="p-3 rounded-lg bg-sky-50 border border-sky-200 text-sm text-sky-900">
+              {ficha.estado === "ganada"
+                ? "La ganaste: lo postulado es el contrato y no se modifica. Cúmplelo tal como se postuló."
+                : "Ya la postulaste: la oferta, su cotización y los documentos quedan fijos, tal como se subieron a Mercado Público."}
+            </p>
+          )}
+          <OfertaDeLaPostulacion
+            oportunidadId={ficha.id}
+            congelada={
+              ficha.estado === "postulada" || ficha.estado === "ganada"
+            }
+          />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}

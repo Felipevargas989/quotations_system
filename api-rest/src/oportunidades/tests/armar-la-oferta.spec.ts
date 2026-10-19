@@ -157,6 +157,23 @@ afterAll(() => {
 });
 
 describe('Armar la oferta', () => {
+  it('una licitación postulada no se vuelve a armar: lo postulado queda fijo', async () => {
+    const { servicio, repo } = armar();
+    const { oportunidades } = servicio as unknown as {
+      oportunidades: { ficha: jest.Mock };
+    };
+    oportunidades.ficha.mockResolvedValue({
+      id: 40,
+      codigo: '1532886-5-LE26',
+      estado: 'postulada',
+      proceso: { nombre: 'Día del Funcionario', organismo: null },
+    });
+    await expect(servicio.pedir(1, 'cuenta-1', 40)).rejects.toThrow(
+      'Ya la postulaste',
+    );
+    expect(repo.crearGeneracion).not.toHaveBeenCalled();
+  });
+
   it('sin bases analizadas no se arma', async () => {
     const { servicio, repo } = armar(null);
     await expect(servicio.pedir(1, 'cuenta-1', 40)).rejects.toThrow(
