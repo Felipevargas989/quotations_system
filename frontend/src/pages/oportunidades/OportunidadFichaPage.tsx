@@ -16,6 +16,7 @@ import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
+import ComparacionDeOfertas from "./ComparacionDeOfertas";
 import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
 import ArmarPostulacion from "./ArmarPostulacion";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
@@ -107,7 +108,12 @@ const PESTANAS_DE_FICHA: ReadonlyArray<[PestanaDeFicha, string]> = [
   ["bases", "Bases y criterios"],
   ["postulacion", "Mi postulación"],
   ["historial", "Historial"],
+  // Decisión 41 (19-10): solo cuando ya se postuló.
+  ["comparacion", "Comparación de ofertas"],
 ];
+
+/** Después de postular se comparan las ofertas (decisión 41). */
+const CON_COMPARACION = new Set(["postulada", "ganada", "perdida"]);
 
 /** La pestaña se recuerda en la sesión: al pasar a otra ficha se llega a
  *  la misma (regla de Felipe del 26-08: la pantalla recuerda). */
@@ -126,7 +132,14 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   const qc = useQueryClient();
   const p = ficha.proceso;
 
-  const [pestana, setPestana] = useState<PestanaDeFicha>(pestanaGuardada);
+  const [pestanaElegida, setPestana] =
+    useState<PestanaDeFicha>(pestanaGuardada);
+  const visibles = PESTANAS_DE_FICHA.filter(
+    ([id]) => id !== "comparacion" || CON_COMPARACION.has(ficha.estado),
+  );
+  const pestana = visibles.some(([id]) => id === pestanaElegida)
+    ? pestanaElegida
+    : "resumen";
   const pestanas = useRef<HTMLDivElement>(null);
   const elegir = (id: PestanaDeFicha) => {
     setPestana(id);
@@ -195,7 +208,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         ref={pestanas}
         className="flex gap-1 border-b border-gray-200 overflow-x-auto"
       >
-        {PESTANAS_DE_FICHA.map(([id, texto]) => (
+        {visibles.map(([id, texto]) => (
           <button
             key={id}
             type="button"
@@ -335,6 +348,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           />
           <ValidacionDeDocumentos oportunidadId={ficha.id} />
         </>
+      )}
+
+      {pestana === "comparacion" && (
+        <ComparacionDeOfertas oportunidadId={ficha.id} />
       )}
 
       {pestana === "historial" && (

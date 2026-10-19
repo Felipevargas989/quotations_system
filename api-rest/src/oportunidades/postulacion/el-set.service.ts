@@ -118,6 +118,16 @@ export class ElSetService {
     return { nombre: `Postulación ${codigo}.zip`, datos: armarZip(archivos) };
   }
 
+  /** Lo que la empresa va a presentar, con su ruta: la comparación de
+   *  ofertas (decisión 41) lo compara con la competencia. */
+  async piezas(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<PiezaDelSet[]> {
+    const { set } = await this.armar(companyId, oportunidadId);
+    return set.piezas;
+  }
+
   private async bajar(ruta: string): Promise<Buffer | null> {
     try {
       return await this.analisis.descargar(ruta);
