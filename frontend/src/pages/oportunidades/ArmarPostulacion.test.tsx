@@ -151,7 +151,7 @@ describe("Armar postulación", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Las bases no la piden: va el anexo de calidad de la oferta.",
+        "No va aparte: el detalle va en el anexo de calidad de la oferta.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(

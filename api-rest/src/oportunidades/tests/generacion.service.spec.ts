@@ -288,6 +288,25 @@ describe('Firmar', () => {
 });
 
 describe('Crear propuesta técnica', () => {
+  it('valorizada (decisión 42): al final el neto, el IVA y el total del motor; al reintentar, el precio de la última oferta', () =>
+    entorno(async () => {
+      const { repo, servicio, ejecutar } = armar();
+      await servicio.crearPropuesta(1, CUENTA, 40, { monto_total: 15_900_000 });
+      const valor =
+        'Valor neto $13.361.345; IVA (19%) $2.538.655; Valor total $15.900.000';
+      expect(planDe(ejecutar).sistema).toContain(valor);
+      expect(planDe(ejecutar).sistema).not.toContain('Nunca escribas precios');
+      expect(repo.crearGeneracion).toHaveBeenCalledWith(
+        expect.objectContaining({ parametros: { monto_total: 15_900_000 } }),
+      );
+      ejecutar.mockClear();
+      repo.ultimoDeTipo.mockResolvedValue({
+        parametros: { postulacion: { total: 15_900_000 } },
+      });
+      await servicio.crearPropuesta(1, CUENTA, 40);
+      expect(planDe(ejecutar).sistema).toContain(valor);
+    }));
+
   it('con el análisis de las bases, el logo de la casa, las bases para el detalle y el catálogo; sin precios', () =>
     entorno(async () => {
       const { repo, servicio, ejecutar } = armar();

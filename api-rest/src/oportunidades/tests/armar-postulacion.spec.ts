@@ -9,7 +9,7 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { ArmarLaOfertaService } from '../postulacion/armar-la-oferta.service';
 import {
   ArmarPostulacionService,
-  pidenPropuesta,
+  vaLaPropuesta,
 } from '../postulacion/armar-postulacion.service';
 import type { CotizacionDeLaPostulacionService } from '../postulacion/cotizacion-de-la-postulacion.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
@@ -83,30 +83,37 @@ function armar() {
 }
 
 describe('Armar postulación', () => {
-  it('la propuesta técnica va aparte solo si la piden y no hay formulario para ella (decisión 40)', () => {
+  it('la propuesta técnica valorizada va siempre que no haya formulario técnico (decisiones 40 y 42)', () => {
     // El anexo de calidad (aunque acepte formato propio) lleva el detalle.
-    expect(pidenPropuesta(FUNCIONARIO)).toBe(false);
+    expect(vaLaPropuesta(FUNCIONARIO)).toBe(false);
     expect(
-      pidenPropuesta({
+      vaLaPropuesta({
         requisitos: [{ que: 'Oferta técnica en formato propio' }],
         formularios: [
           { nombre: 'Formulario N°4 - Calidad de la propuesta', aplica: true },
         ],
       }),
     ).toBe(false);
-    // Sin formulario para ella, va aparte.
+    // Sin formulario técnico, va: la pidan o no (una compra ágil no trae
+    // formularios).
     expect(
-      pidenPropuesta({ requisitos: [{ que: 'Propuesta técnica firmada' }] }),
+      vaLaPropuesta({ requisitos: [{ que: 'Propuesta técnica firmada' }] }),
     ).toBe(true);
     expect(
-      pidenPropuesta({
+      vaLaPropuesta({
+        requisitos: [{ que: 'Almuerzo para 50 personas' }],
+        formularios: [],
+      }),
+    ).toBe(true);
+    // Un formulario técnico que no aplica no cuenta.
+    expect(
+      vaLaPropuesta({
         requisitos: [{ que: 'Patente municipal vigente' }],
         formularios: [
           { nombre: 'Anexo N°6 Oferta técnica de la UTP', aplica: false },
         ],
       }),
-    ).toBe(false);
-    expect(pidenPropuesta(null)).toBe(false);
+    ).toBe(true);
   });
 
   it('pide la oferta con el precio y lo que sigue', async () => {
@@ -154,7 +161,10 @@ describe('Armar postulación', () => {
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
     });
-    expect(documentos.crearPropuesta).toHaveBeenCalledWith(1, 'cuenta-1', 40);
+    // Con el precio: el valor va al final de la propuesta (decisión 42).
+    expect(documentos.crearPropuesta).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
+      monto_total: 11_900_000,
+    });
     // Sin cotización vinculada, no se toca ninguna.
     expect(cotizacion.llevar).not.toHaveBeenCalled();
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
