@@ -101,6 +101,36 @@ export const loQueTenia = (items: Record<string, unknown> | null): string => {
   return texto.length > 1400 ? `${texto.slice(0, 1400)}…` : texto;
 };
 
+/** El tipo de evento de la cotización: la base acepta solo los de la casa
+ *  (quotations_event_type_check, el mismo en producción y en el
+ *  laboratorio). Sale del nombre de la licitación y de lo que leyó la IA;
+ *  si no calza nada, «Celebraciones». Lo vio el QA del 19-10: «Licitación»
+ *  no es un tipo. */
+export const tipoDeEvento = (
+  nombre: string,
+  etiquetas: readonly string[] = [],
+): string => {
+  const texto = `${nombre} ${etiquetas.join(' ')}`.toLowerCase();
+  if (/celebraci|ceremonia|aniversario|d[ií]a del|fiesta|gala/.test(texto)) {
+    return 'Celebraciones';
+  }
+  if (/alojamiento|estad[ií]a|hospedaje/.test(texto)) {
+    return 'Estadía y Alimentación';
+  }
+  if (/paseo|gira|salida pedag/.test(texto)) {
+    return /curso|estudi|alumn|escolar|liceo|colegio/.test(texto)
+      ? 'Paseo de Curso'
+      : 'Paseo fin de año';
+  }
+  if (/capacitaci|jornada|seminario|taller|sal[oó]n/.test(texto)) {
+    return 'Uso salones';
+  }
+  if (/almuerzo|cena|alimentaci|coffee|c[oó]ctel|banquete/.test(texto)) {
+    return 'Almuerzo o Cena';
+  }
+  return 'Celebraciones';
+};
+
 /** El nombre del comprador como cliente: sin el "I." ni el "Ilustre". */
 export const nombreDelComprador = (organismo: string): string =>
   organismo.replace(/^\s*(ilustre|i\.?)\s+(?=municipalidad)/i, '').trim();
@@ -238,7 +268,7 @@ export class CotizacionDeLaPostulacionService {
         {
           ...plata,
           client_id: cliente,
-          event_type: 'Licitación',
+          event_type: tipoDeEvento(o.proceso.nombre, o.etiquetas ?? []),
           event_date: evento.fecha,
           people_count: evento.personas,
           children_count: 0,

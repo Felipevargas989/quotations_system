@@ -11,6 +11,7 @@ import {
   CotizacionDeLaPostulacionService,
   loQueTenia,
   nombreDelComprador,
+  tipoDeEvento,
 } from '../postulacion/cotizacion-de-la-postulacion.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 import { CATALOGO_DE_PRUEBA } from './generacion-de-prueba';
@@ -55,6 +56,7 @@ function armar() {
       id: 87,
       codigo: '4364-13-LE26',
       quotation_id: null,
+      etiquetas: ['evento', 'alimentacion'],
       proceso: {
         nombre: 'Producción de Evento día del Profesor',
         organismo: 'I MUNICIPALIDAD DE QUILLON',
@@ -164,6 +166,7 @@ describe('La cotización de la postulación', () => {
     });
     expect(dto).toMatchObject({
       client_id: 'cli-quillon',
+      event_type: 'Celebraciones',
       event_date: '2026-10-28',
       people_count: 235,
       quotation_status: 'solicitada',
@@ -335,6 +338,28 @@ describe('«¿Calza el precio?»', () => {
       descuento: 507_500,
       total: 5_500_000,
     });
+  });
+
+  it('el tipo de evento es uno de los que acepta la base, según la licitación (QA del 19-10)', () => {
+    expect(tipoDeEvento('Ceremonia y Cena Día del Funcionario')).toBe(
+      'Celebraciones',
+    );
+    expect(tipoDeEvento('SERVICIO PARA GIRAS DE ESTUDIO DEL LICEO')).toBe(
+      'Paseo de Curso',
+    );
+    expect(tipoDeEvento('Paseo de fin de año funcionarios')).toBe(
+      'Paseo fin de año',
+    );
+    expect(tipoDeEvento('Capacitación para funcionarios de salud')).toBe(
+      'Uso salones',
+    );
+    expect(tipoDeEvento('Servicio de alojamiento para delegación')).toBe(
+      'Estadía y Alimentación',
+    );
+    expect(tipoDeEvento('Servicio de alimentación', ['alimentacion'])).toBe(
+      'Almuerzo o Cena',
+    );
+    expect(tipoDeEvento('Arriendo de equipos')).toBe('Celebraciones');
   });
 
   it('los textos de apoyo: el nombre del comprador y lo que tenía la cotización', () => {
