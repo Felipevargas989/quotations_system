@@ -83,8 +83,18 @@ function armar() {
 }
 
 describe('Armar postulación', () => {
-  it('la propuesta técnica va si las bases la piden o aceptan formato propio', () => {
-    expect(pidenPropuesta(FUNCIONARIO)).toBe(true);
+  it('la propuesta técnica va aparte solo si la piden y no hay formulario para ella (decisión 40)', () => {
+    // El anexo de calidad (aunque acepte formato propio) lleva el detalle.
+    expect(pidenPropuesta(FUNCIONARIO)).toBe(false);
+    expect(
+      pidenPropuesta({
+        requisitos: [{ que: 'Oferta técnica en formato propio' }],
+        formularios: [
+          { nombre: 'Formulario N°4 - Calidad de la propuesta', aplica: true },
+        ],
+      }),
+    ).toBe(false);
+    // Sin formulario para ella, va aparte.
     expect(
       pidenPropuesta({ requisitos: [{ que: 'Propuesta técnica firmada' }] }),
     ).toBe(true);
@@ -103,8 +113,10 @@ describe('Armar postulación', () => {
     const { servicio, oferta } = armar();
     const fila = await servicio.armar(USUARIO, 40, 11_900_000);
     expect(fila).toEqual({ id: 21, estado: 'procesando' });
+    // El Funcionario trae el anexo de calidad: el detalle va en él y no
+    // hay propuesta aparte (decisión 40).
     expect(oferta.pedir).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
-      parametros: { postulacion: { total: 11_900_000, propuesta: true } },
+      parametros: { postulacion: { total: 11_900_000, propuesta: false } },
       despues: expect.any(Function),
     });
   });
@@ -119,7 +131,16 @@ describe('Armar postulación', () => {
   });
 
   it('con la oferta lista: los anexos con el precio y la propuesta técnica', async () => {
-    const { servicio, oferta, documentos, cotizacion, generaciones } = armar();
+    const { servicio, oferta, documentos, cotizacion, generaciones, analisis } =
+      armar();
+    // Unas bases que piden propuesta técnica sin formulario para ella.
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        requisitos: [{ que: 'Propuesta técnica firmada' }],
+        formularios: [],
+      },
+    });
     await servicio.armar(USUARIO, 40, 11_900_000);
     const [, , , encadenar] = oferta.pedir.mock.calls[0] as [
       number,

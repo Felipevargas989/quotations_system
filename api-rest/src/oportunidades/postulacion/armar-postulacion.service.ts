@@ -20,8 +20,10 @@ import { PostulacionRepository } from './postulacion.repository';
 // precio". Encadena lo que ya existe, sin nada nuevo de IA:
 //  1. la oferta (Opus decide UNA vez qué se ofrece, decisión 33);
 //  2. cuando queda lista, los anexos con ese precio (la oferta económica la
-//     calcula el motor: neto e IVA) y, si las bases la piden o aceptan
-//     formato propio, la propuesta técnica, los dos desde lo postulado;
+//     calcula el motor: neto e IVA) y, si las bases piden una propuesta
+//     técnica y no traen un formulario para ella, la propuesta, los dos
+//     desde lo postulado (decisión 40: si hay formulario de calidad o de
+//     oferta técnica, el detalle va en él);
 //  3. si hay una cotización vinculada, se iguala a lo postulado con el
 //     mismo precio (es de solo lectura: cotizacion-de-licitacion.ts).
 // Todo por detrás. La firma sigue aparte, después de revisar (17-10).
@@ -38,8 +40,14 @@ export type PostulacionArmada = {
 
 const PIDEN_PROPUESTA = /propuesta tecnica|oferta tecnica|formato propio/;
 
-/** ¿Las bases piden una propuesta técnica o aceptan una en formato propio?
- *  Lo dicen sus requisitos o sus formularios (los que aplican). */
+/** El formulario que lleva el detalle técnico (calidad de la oferta,
+ *  oferta o propuesta técnica). */
+const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
+
+/** ¿Va una propuesta técnica aparte? Si las bases la piden (sus requisitos
+ *  o sus formularios que aplican) y NO traen un formulario para ella: si lo
+ *  traen, el detalle va en ese formulario (decisión 40; Felipe, 19-10:
+ *  "no estar creando otra oferta técnica a partir de otro formato"). */
 export const pidenPropuesta = (
   resultado: Record<string, unknown> | null | undefined,
 ): boolean => {
@@ -51,9 +59,19 @@ export const pidenPropuesta = (
         .filter((f) => f.aplica !== false)
         .map((f) => f.nombre)
     : [];
-  return [...requisitos, ...formularios].some(
-    (t) => typeof t === 'string' && PIDEN_PROPUESTA.test(normalizar(t)),
+  const textos = [...requisitos, ...formularios].filter(
+    (t): t is string => typeof t === 'string',
   );
+  // Un análisis anterior no trae los formularios: el requisito que nombra
+  // un formulario o un anexo cuenta como tal.
+  const deUnFormulario = [
+    ...formularios.filter((t): t is string => typeof t === 'string'),
+    ...textos.filter((t) => /\b(formulario|anexo)\b/.test(normalizar(t))),
+  ];
+  if (deUnFormulario.some((t) => FORMULARIO_TECNICO.test(normalizar(t)))) {
+    return false;
+  }
+  return textos.some((t) => PIDEN_PROPUESTA.test(normalizar(t)));
 };
 
 @Injectable()
