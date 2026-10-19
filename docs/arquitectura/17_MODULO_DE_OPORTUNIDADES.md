@@ -327,6 +327,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **El F30-1, aparte del F30** (Felipe: *"ya, para F30 y F30-1"*): tipo propio en «Mi empresa». Sirve para el certificado de la Inspección del Trabajo de no tener reclamos laborales que pide el Día del Profesor para cobrar (pág. 12). Lo que el análisis deja como «otro» se reconoce por su nombre y se cruza con la carpeta.
     - **El Registro de Proveedores se da por hecho** (Felipe: *"déjalo como que siempre estará habilitado... es difícil no tener eso"* y *"sácalo de los documentos a entregar, no es necesario"*): no aparece en «Documentos a presentar» y «Validar documentos» lo da siempre por cumplido.
     - **Lo de UTP no aplica**: en «Documentos a presentar», el formulario y la escritura de una Unión Temporal de Proveedores salen «No aplica · solo si postulas como UTP», salvo que se suban a «Mi postulación». Con un análisis nuevo la IA tampoco los arma (el análisis los marca como que no aplican).
+39. **«Qué ofreces» pasa a «Lo que tienes que conseguir»** (19-10, pedido por Felipe). Felipe, mirando «Mi postulación» del Día del Profesor: *"eso ya está en el análisis anterior... lo que podría estar es como un mini resumen de qué cosas están comprometidas que no tenemos certeza de si las tenemos. Por ejemplo, comidas particulares, servicios de baile, así como tienes que conseguirte esto y esto... no entiendo que esté acá también este análisis de qué piden"*.
+    - Arriba, lo que ofreciste y no está en tu catálogo («Conseguir o subcontratar»: comidas especiales, el show, el escenario…) y lo que queda por definir (la temática de un show), sin los formularios: esos se completan al hacer los anexos.
+    - La oferta punto por punto (lo que piden, lo que ofreces y de dónde sale) queda plegada: de ella siguen saliendo la cotización, la propuesta y los anexos.
+    - Si la oferta es de antes del último análisis de las bases, lo avisa: hay que volver a armar la postulación. Pasó con el Profesor: la oferta de las 18:12 seguía con el decreto de otra licitación.
 
 ## 4. Reglas del módulo (no se negocian)
 
