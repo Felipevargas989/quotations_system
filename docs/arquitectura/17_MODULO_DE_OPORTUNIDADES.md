@@ -331,6 +331,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Arriba, lo que ofreciste y no está en tu catálogo («Conseguir o subcontratar»: comidas especiales, el show, el escenario…) y lo que queda por definir (la temática de un show), sin los formularios: esos se completan al hacer los anexos.
     - La oferta punto por punto (lo que piden, lo que ofreces y de dónde sale) queda plegada: de ella siguen saliendo la cotización, la propuesta y los anexos.
     - Si la oferta es de antes del último análisis de las bases, lo avisa: hay que volver a armar la postulación. Pasó con el Profesor: la oferta de las 18:12 seguía con el decreto de otra licitación.
+40. **El anexo de calidad lleva todo el detalle, sin propuesta técnica aparte** (19-10, pedido por Felipe). En el Día del Profesor, el Formulario N°4 (calidad de la propuesta) salió casi vacío: solo decía «Se adjunta propuesta técnica en formato propio», por la regla de la decisión 33. Felipe: *"la idea es que en ese mismo formulario hubiese puesto todo el detalle de todo lo que piden a nivel de oferta. Y no estar creando otra oferta técnica a partir de otro formato y otro modelo, sino que acá mismo... todo el detalle del coffee, lo que pidan, si es cena, si es desayuno, si es fiesta... exactamente lo que piden las bases técnicas, y si no tienen el detalle completo, poner sencillamente una propuesta en base a lo que tenemos paquetizado o lo que está en el catálogo"*.
+    - El formulario de calidad de la oferta (o de oferta técnica, o de propuesta técnica) se llena ahí mismo con todo lo postulado, punto por punto y con su estructura, aunque diga que acepta formato propio. Ya no remite a otro documento.
+    - La propuesta técnica aparte solo se arma si las bases la piden y no traen formulario para ella.
+    - Al armar la oferta, si las bases no detallan un servicio (dicen solo «almuerzo» o «coffee»), se propone el detalle con el menú o paquete guardado que calce, o con el catálogo.
 
 ## 4. Reglas del módulo (no se negocian)
 

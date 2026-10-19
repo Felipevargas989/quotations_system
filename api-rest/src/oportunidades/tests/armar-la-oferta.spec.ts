@@ -204,6 +204,9 @@ describe('Armar la oferta', () => {
     expect(sistema).toContain('Salón Cúpula para 300 personas.');
     expect(sistema).toContain('Vende eventos, almuerzos y cenas.');
     expect(sistema).toContain(SOLO_LO_QUE_PIDEN);
+    // Bases vagas: se propone con los menús, paquetes o el catálogo
+    // (decisión 40).
+    expect(sistema).toContain('Si las bases no detallan un servicio');
     expect(sistema).toContain('nunca digas que algo se subcontrata');
   });
 
