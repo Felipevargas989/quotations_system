@@ -501,6 +501,43 @@ describe("Mis licitaciones: el avance", () => {
     expect(con("si").Postulada).toBe("hecho");
   });
 
+  it("la firma: hecha cuando no queda nada de la IA sin firmar; lo subido a mano cuenta como firmado", () => {
+    const firma = (generados: number, firmados: number, postulacion: number) =>
+      estados({
+        estado: "en_estudio",
+        avance: { ...avance, generados, firmados, postulacion },
+      }).Firma;
+    // Cinco formularios de la IA, dos firmados: falta.
+    expect(firma(5, 2, 7)).toBe("pendiente");
+    expect(firma(5, 5, 10)).toBe("hecho");
+    // Los anexos firmados por fuera y subidos en PDF (Felipe, 19-10).
+    expect(firma(0, 0, 17)).toBe("hecho");
+    expect(firma(0, 0, 0)).toBe("pendiente");
+  });
+
+  it("postulada: todo hecho, salvo la validación, que muestra lo que dijo (el Funcionario, 19-10)", () => {
+    expect(
+      estados({
+        estado: "postulada",
+        avance: {
+          ...avance,
+          bases: 3,
+          analisis: "listo",
+          anexos: "listo",
+          postulacion: 17,
+          validacion: { estado: "listo", listo: "casi" },
+        },
+      }),
+    ).toEqual({
+      Bases: "hecho",
+      Análisis: "hecho",
+      Anexos: "hecho",
+      Firma: "hecho",
+      Validación: "aviso",
+      Postulada: "hecho",
+    });
+  });
+
   it("en curso: en estudio y postuladas; terminadas: ganadas y perdidas", () => {
     const { enCurso, terminadas } = separarMias([
       { estado: "en_estudio" },

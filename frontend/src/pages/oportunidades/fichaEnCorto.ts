@@ -79,11 +79,14 @@ const QUE_HACER: Record<string, SiguientePaso> = {
   },
 };
 
-/** El primer paso sin hacer, en palabras. */
+/** El primer paso sin hacer, en palabras. Postulada, ya no hay nada que
+ *  apretar (aunque la validación haya quedado con aviso). */
 export const siguientePaso = (
   pasos: readonly PasoDelAvance[],
 ): SiguientePaso & { paso: string | null } => {
-  const paso = pasos.find((p) => p.estado !== "hecho");
+  const postulada =
+    pasos.find((p) => p.paso === "Postulada")?.estado === "hecho";
+  const paso = postulada ? undefined : pasos.find((p) => p.estado !== "hecho");
   if (!paso) {
     return { paso: null, texto: "Postulada. Ahora a esperar.", boton: null };
   }
