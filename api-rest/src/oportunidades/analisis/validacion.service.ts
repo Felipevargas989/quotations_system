@@ -51,6 +51,9 @@ export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
   vigencia: 'Certificado de vigencia de la sociedad',
   resolucion_sanitaria: 'Resolución sanitaria',
   dj_trabajadores: 'Declaración jurada de trabajadores',
+  erut: 'e-RUT (SII)',
+  no_quiebra: 'Certificado de no quiebra',
+  estatutos: 'Escritura de constitución y estatutos',
   otro: 'Otro',
 };
 

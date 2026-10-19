@@ -41,10 +41,21 @@ const POR_EL_NOMBRE: ReadonlyArray<[string, RegExp]> = [
   ["dj_trabajadores", /trabajador/],
   ["programa_integridad", /integridad|probidad/],
   ["f30", /\bf ?30\b|antecedentes laborales|obligaciones laborales/],
+  ["erut", /\be ?rut\b|rut electronico/],
+  ["no_quiebra", /quiebra|procedimiento concursal|boletin concursal/],
+  [
+    "estatutos",
+    /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,
+  ],
   ["vigencia", /certificado de vigencia|vigencia de la (sociedad|empresa)/],
   ["resolucion_sanitaria", /resolucion(es)? sanitaria|autorizacion sanitaria/],
   ["respaldo_experiencia", /orden(es)? de compra|factura|respaldo/],
 ];
+
+/** El de UTP solo va si se postula como Unión Temporal de Proveedores
+ *  (Felipe, 19-10: "en mi caso no es necesario que lo arme"). */
+const ES_DE_UTP = /\butp\b|uniones? temporal(es)? de proveedores/;
+const SOLO_SI_UTP = "Solo si postulas como Unión Temporal de Proveedores (UTP)";
 
 const carpetaPorElNombre = (nombre: string): string =>
   POR_EL_NOMBRE.find(([, patron]) => patron.test(normalizar(nombre)))?.[0] ??
@@ -162,6 +173,7 @@ export function checklistDeDocumentos(d: {
     p: DocumentoPedido,
   ): Omit<FilaDelChecklist, keyof DocumentoPedido> => {
     const subidos = d.postulacion.filter((a) => a.origen === "subido");
+    const deUtp = ES_DE_UTP.test(normalizar(`${p.nombre} ${p.condicion}`));
     if (p.carpeta === "formulario") {
       const numero = numeroDe(p.nombre);
       const suyos = d.postulacion.filter((a) =>
@@ -186,9 +198,11 @@ export function checklistDeDocumentos(d: {
       if (delAnalisis.length > 0 && delAnalisis.every((f) => !f.aplica)) {
         return {
           estado: "no_aplica",
-          detalle: delAnalisis[0].por_que_no_aplica || null,
+          detalle:
+            delAnalisis[0].por_que_no_aplica || (deUtp ? SOLO_SI_UTP : null),
         };
       }
+      if (deUtp) return { estado: "no_aplica", detalle: SOLO_SI_UTP };
       return {
         estado: "lo_arma_la_ia",
         detalle: "Lo arma «Armar postulación»",
@@ -231,6 +245,7 @@ export function checklistDeDocumentos(d: {
         claves.some((c) => normalizar(a.nombre).includes(c)),
     );
     if (subido) return { estado: "en_tu_postulacion", detalle: subido.nombre };
+    if (deUtp) return { estado: "no_aplica", detalle: SOLO_SI_UTP };
     return { estado: "falta", detalle: null };
   };
 

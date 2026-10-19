@@ -49,6 +49,10 @@ export const TIPOS_DE_DOCUMENTO = [
   'vigencia',
   'resolucion_sanitaria',
   'dj_trabajadores',
+  // Lo general para contratar (decisión 38): va en «4. Otros» del set.
+  'erut',
+  'no_quiebra',
+  'estatutos',
   'respaldo_experiencia',
   'otro',
 ] as const;
