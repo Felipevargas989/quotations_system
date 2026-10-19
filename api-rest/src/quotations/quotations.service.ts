@@ -36,6 +36,10 @@ import {
   QuotationStatus,
   RequestType,
 } from './constants/constants';
+import {
+  cotizacionDeLicitacion,
+  tocaLoPostulado,
+} from './cotizacion-de-licitacion';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
@@ -988,6 +992,12 @@ export class QuotationsService {
     return { ok: true, enRevision: true };
   }
 
+  /** La licitación de la que esta cotización es copia de lo postulado
+   *  (decisión 35): la pantalla la muestra de solo lectura. */
+  licitacionDe(id: string, companyId: number) {
+    return this.quotationsRepository.licitacionDe(companyId, id);
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,
@@ -999,6 +1009,9 @@ export class QuotationsService {
     // Los derechos del plan, por la misma razón: los llamados internos
     // van sin ellos y no se revisa nada (paso 3.2, 14-09-2026).
     derechos?: DerechosDeLaSesion,
+    // 'postulacion': la reescribe Oportunidades («Armar postulación»), la
+    // única que puede cambiar lo postulado de una licitación (decisión 35).
+    desde?: 'postulacion',
   ) {
     try {
       // 0. Get quotation
@@ -1022,6 +1035,23 @@ export class QuotationsService {
       // para todos, incluido el administrador.
       if (quotation.quotation_status === QuotationStatus.REALIZADA) {
         throw new BadRequestException(EVENTO_REALIZADO_CONGELADO);
+      }
+
+      // LA COTIZACIÓN DE UNA LICITACIÓN (decisión 35 del doc 17, 19-10):
+      // es la copia de lo postulado y solo la reescribe Oportunidades. Se
+      // cierra lo postulado (servicios, montos, personas y fechas); el
+      // estado, los pagos y el seguimiento no pasan por ahí y siguen
+      // abiertos (cotizacion-de-licitacion.ts).
+      if (desde !== 'postulacion' && tocaLoPostulado(updateQuotationDto)) {
+        const licitacion = await this.quotationsRepository.licitacionDe(
+          companyId,
+          id,
+        );
+        if (licitacion) {
+          throw new BadRequestException(
+            cotizacionDeLicitacion(licitacion.codigo),
+          );
+        }
       }
 
       // Recepción trabaja REQUERIMIENTOS, no cotizaciones (12-08,

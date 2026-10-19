@@ -1,0 +1,137 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as servicio from "../../services/oportunidades.service";
+import { sinFirmarDeLaUltimaVuelta } from "./firmarTodos";
+import MiPostulacion from "./MiPostulacion";
+
+// MI POSTULACIÓN (19-10): «Firmar» en cada Word sin firma y «Firmar todos»
+// para lo último que hizo la IA; cada firmado queda en PDF.
+
+vi.mock("../../services/oportunidades.service", () => ({
+  getAdjuntos: vi.fn(),
+  getGeneraciones: vi.fn(),
+  firmarDocumentos: vi.fn(),
+  subirAdjunto: vi.fn(),
+  borrarAdjunto: vi.fn(),
+}));
+vi.mock("../../components/toast/Toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+vi.mock("../../components/FileViewLink", () => ({ default: () => null }));
+vi.mock("./descargas", () => ({ descargarDelBalde: vi.fn() }));
+const s = vi.mocked(servicio);
+
+const archivo = (
+  id: number,
+  nombre: string,
+  extra: Partial<servicio.AdjuntoDeOportunidad> = {},
+) =>
+  ({
+    id,
+    nombre,
+    ruta: `c1/oportunidades/40/postulacion/x_${id}`,
+    tipo: "",
+    bytes: 1000,
+    seccion: "postulacion",
+    origen: "generado",
+    viene_de: 6,
+    creado_en: "2026-10-19T17:00:00.000Z",
+    subido_por: null,
+    quien: null,
+    ...extra,
+  }) as servicio.AdjuntoDeOportunidad;
+
+const POSTULACION = [
+  archivo(21, "Formulario N°1 - Identificación del oferente - lleno.docx"),
+  archivo(22, "Formulario N°2 - Declaración jurada - lleno.docx"),
+  archivo(23, "Formulario N°3 - Experiencia - lleno.docx"),
+  archivo(24, "Formulario N°1 - Identificación del oferente - firmado.pdf", {
+    origen: "firmado",
+    viene_de: 21,
+  }),
+  // De una vuelta anterior: no entra en «Firmar todos».
+  archivo(9, "Formularios_Anexos - lleno.docx"),
+];
+
+const GENERACIONES = {
+  anexos: {
+    id: 30,
+    tipo: "anexos",
+    estado: "listo",
+    resultado: {
+      documentos: [21, 22, 23].map((adjunto_id) => ({
+        adjunto_id,
+        nombre: "",
+        que_se_hizo: "",
+        pendientes: [],
+      })),
+    },
+  },
+  firma: null,
+  propuesta: null,
+} as unknown as servicio.GeneracionesDeOportunidad;
+
+beforeEach(() => {
+  s.getAdjuntos.mockResolvedValue(POSTULACION);
+  s.getGeneraciones.mockResolvedValue(GENERACIONES);
+  s.firmarDocumentos.mockResolvedValue({
+    id: 31,
+    tipo: "firma",
+    estado: "procesando",
+  } as never);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+const pintar = () =>
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MiPostulacion
+        oportunidadId={40}
+        codigo="1532886-5-LE26"
+        tipo="licitacion"
+      />
+    </QueryClientProvider>,
+  );
+
+describe("Mi postulación", () => {
+  it("«Firmar todos» firma lo último que hizo la IA que no está firmado", async () => {
+    pintar();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Firmar todos \(2\)/ }),
+    );
+    expect(s.firmarDocumentos).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        /A cada uno se le pone la foto de la firma y queda en PDF/,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, firmar todos" }));
+    await waitFor(() =>
+      expect(s.firmarDocumentos).toHaveBeenCalledWith(40, [22, 23]),
+    );
+  });
+
+  it("lo que se firma de la última vuelta: sin los ya firmados ni los de antes", () => {
+    expect(sinFirmarDeLaUltimaVuelta(GENERACIONES, POSTULACION)).toEqual([
+      22, 23,
+    ]);
+    expect(sinFirmarDeLaUltimaVuelta(null, POSTULACION)).toEqual([]);
+  });
+});

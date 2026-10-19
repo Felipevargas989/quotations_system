@@ -4,8 +4,16 @@ import {
   LO_SUBCONTRATADO,
   SOLO_LO_QUE_PIDEN,
 } from '../generacion/instrucciones';
-import { problemaDelDocumento } from '../generacion/revision';
+import {
+  problemaDeLaSalida,
+  problemaDelDocumento,
+  salidasDeLaFirma,
+} from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
+import {
+  ESCRIBIR_LA_OFERTA,
+  FORMATO_PROPIO,
+} from '../postulacion/la-oferta-en-texto';
 import {
   adjunto,
   armar,
@@ -31,7 +39,19 @@ beforeEach(() => taller.mockReset());
 describe('Generar anexos', () => {
   it('llena los Word de las bases (el .doc antiguo lo convierte el taller), SIN firma, con el total que puso la empresa (neto e IVA los calcula el motor)', () =>
     entorno(async () => {
-      const { repo, servicio, ejecutar } = armar();
+      const { repo, oferente, servicio, ejecutar } = armar();
+      // Los respaldos de experiencia de la carpeta (decisión 34).
+      oferente.respaldos.mockResolvedValue([
+        {
+          numero: '4352-103-SE23',
+          mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          contrato: 'Cena del Día del Funcionario 2023',
+          anio: 2023,
+          monto: 11_782_499,
+          fuente: 'mercado_publico',
+          archivo: 'OC 4352-103-SE23.pdf',
+        },
+      ]);
 
       const fila = await servicio.generarAnexos(1, CUENTA, 40, {
         monto_total: 11_900_000,
@@ -69,24 +89,33 @@ describe('Generar anexos', () => {
           ruta: 'c1/oportunidades/40/x_Anexo antiguo.doc',
         },
       ]);
+      // Un Word por formulario, también de un Word del comprador (Felipe,
+      // 19-10: "tienen que quedar por separado cada uno, el 1, el 2, el 3").
       expect(plan.salidas).toEqual([
         {
-          enElTaller: 'lleno_6.docx',
-          nombre: 'Formularios_Anexos - lleno.docx',
+          enElTaller: 'formulario_6_',
+          nombre: 'Formularios_Anexos',
           origen: 'generado',
           viene_de: 6,
+          prefijo: true,
         },
         {
-          enElTaller: 'lleno_7.docx',
-          nombre: 'Anexo antiguo - lleno.docx',
+          enElTaller: 'formulario_7_',
+          nombre: 'Anexo antiguo',
           origen: 'generado',
           viene_de: 7,
+          prefijo: true,
         },
       ]);
       expect(plan.habilidades).toEqual([
         expect.objectContaining({ skill_id: 'docx' }),
       ]);
       expect(plan.sistema).toContain('soffice --headless --convert-to docx');
+      expect(plan.sistema).toContain(
+        'Después SEPARA cada Word lleno en un Word por formulario',
+      );
+      // La firma nunca partida ni sola.
+      expect(plan.sistema).toContain('keep_with_next');
       expect(plan.sistema).not.toContain('REESCRIBE');
       expect(plan.sistema).toContain(
         'Total con IVA: $11.900.000. Neto: $10.000.000. IVA (19%): $1.900.000.',
@@ -112,6 +141,12 @@ describe('Generar anexos', () => {
       expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
       expect(plan.sistema).toContain(LO_SUBCONTRATADO);
       expect(plan.sistema).toContain('si 6 o más dan el máximo, pon 6 a 8');
+      // Primero los respaldos, con su número y su archivo (decisión 34).
+      expect(plan.sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
+      expect(plan.sistema).toContain(
+        '- N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena del Día del Funcionario 2023 · 2023 · $11.782.499 con impuestos (archivo «OC 4352-103-SE23.pdf»)',
+      );
+      expect(plan.sistema).toContain('«Adjuntar respaldos: ...»');
     }));
 
   it('sin monto, la oferta económica queda en blanco: nunca un precio inventado', () =>
@@ -201,6 +236,8 @@ describe('Firmar', () => {
           ruta: 'c1/oferente/firma_2026.png',
         },
       ]);
+      // El Word firmado solo se revisa; se guarda su PDF, que es lo que se
+      // sube a Mercado Público (19-10).
       expect(plan.salidas).toEqual([
         {
           enElTaller: 'firmado_12.docx',
@@ -208,10 +245,22 @@ describe('Firmar', () => {
           origen: 'firmado',
           viene_de: 12,
           comparaCon: 'documento_12.docx',
+          soloRevisar: true,
+        },
+        {
+          enElTaller: 'firmado_12.pdf',
+          nombre: 'Formularios_Anexos - firmado.pdf',
+          origen: 'firmado',
+          viene_de: 12,
+          siPasa: 'firmado_12.docx',
         },
       ]);
       expect(plan.sistema).toContain('Firma: Felipe Vargas (Gerente)');
       expect(plan.sistema).toContain('NO cambies nada más');
+      expect(plan.sistema).toContain(
+        'soffice --headless --convert-to pdf firmado_12.docx',
+      );
+      expect(plan.sistema).toContain('keep_with_next');
     }));
 
   it('la firma no necesita ni la carta ni los eventos', () =>
@@ -306,6 +355,62 @@ describe('Crear propuesta técnica', () => {
       expect(plan.sistema).not.toContain('Compromisos (calidad');
     }));
 
+  it('con lo postulado ya armado, la propuesta y los anexos lo escriben tal cual; la propuesta, con Sonnet y sin catálogo', () =>
+    entorno(async () => {
+      const { catalogos, loPostulado, servicio, ejecutar } = armar();
+      loPostulado.paraDocumentos.mockResolvedValue({
+        matriz: [
+          {
+            especificacion: 'Plato principal: plateada o salmón',
+            pagina: 19,
+            como: 'Plateada para 160 personas.',
+            origen: 'catalogo',
+            productos: [11],
+          },
+        ],
+        productos: ['- Día 1 · Almuerzo · 160 personas: Plateada'],
+        cotizacion: 481,
+      });
+
+      await servicio.crearPropuesta(1, CUENTA, 40);
+      const plan = planDe(ejecutar);
+      expect(plan.modelo).toBe('claude-sonnet-5-5');
+      expect(plan.sistema).toContain('LO POSTULADO');
+      expect(plan.sistema).toContain(
+        '1. Plato principal: plateada o salmón (pág. 19) → Plateada para 160 personas.',
+      );
+      expect(plan.sistema).toContain(ESCRIBIR_LA_OFERTA);
+      // No decide de nuevo: ni catálogo, ni revisión, ni oferta de vuelta.
+      expect(catalogos.catalogo).not.toHaveBeenCalled();
+      expect(plan.sistema).not.toContain('su catálogo en Eventia, con el id');
+      expect(plan.sistema).not.toContain('son LA MISMA oferta');
+      expect(plan.sistema).not.toContain('[POR CONFIRMAR: qué falta]');
+
+      ejecutar.mockClear();
+      await servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 });
+      const anexos = planDe(ejecutar);
+      expect(anexos.sistema).toContain('LO POSTULADO');
+      expect(anexos.sistema).toContain(ESCRIBIR_LA_OFERTA);
+      // El formulario que acepta formato propio remite a la propuesta.
+      expect(anexos.sistema).toContain(FORMATO_PROPIO);
+    }));
+
+  it('postulada, ya no se generan ni firman documentos: lo postulado queda fijo (decisión 33)', () =>
+    entorno(async () => {
+      const { oportunidades, servicio, ejecutar } = armar();
+      oportunidades.ficha.mockResolvedValue({
+        ...(await oportunidades.ficha()),
+        estado: 'postulada',
+      });
+      await expect(servicio.crearPropuesta(1, CUENTA, 40)).rejects.toThrow(
+        'Ya la postulaste',
+      );
+      await expect(
+        servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 }),
+      ).rejects.toThrow('Ya la postulaste');
+      expect(ejecutar).not.toHaveBeenCalled();
+    }));
+
   it('si el catálogo no se puede leer, la propuesta sale igual con la carta de antes y sin oferta', () =>
     entorno(async () => {
       const { catalogos, servicio, ejecutar } = armar();
@@ -365,6 +470,35 @@ describe('lo que entrega la IA', () => {
         ANTES,
       ),
     ).toContain('cambió el texto');
+  });
+
+  it('el PDF de un firmado: solo si su Word pasó, y que sea un PDF', () => {
+    const pdf = Buffer.from('%PDF-1.7');
+    const pasaron = new Set(['firmado_12.docx']);
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_12.docx' },
+        pdf,
+        undefined,
+        pasaron,
+      ),
+    ).toBeNull();
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_13.docx' },
+        pdf,
+        undefined,
+        pasaron,
+      ),
+    ).toContain('no pasó la revisión');
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_12.docx' },
+        Buffer.from('roto'),
+        undefined,
+        pasaron,
+      ),
+    ).toBe('no es un PDF que se pueda abrir');
   });
 });
 
@@ -532,6 +666,85 @@ describe('Por detrás: el taller y «Mi postulación»', () => {
             {
               nombre: 'Formularios_Anexos - firmado.docx',
               motivo: expect.stringContaining('cambió el texto') as unknown,
+            },
+          ],
+        }) as unknown,
+      }),
+    );
+  });
+
+  it('la firma guarda el PDF de cada documento, solo si su Word firmado pasó la revisión (el Word no se guarda)', async () => {
+    const { adjuntos, repo, servicio, ejecutar } = armar();
+    ejecutar.mockRestore();
+    const antes = wordCon(['Firma: ____', 'Felipe Vargas'], 1);
+    (repo.descargar as jest.Mock).mockResolvedValue(antes);
+    const pdf = Buffer.from('%PDF-1.7 firmado');
+    taller.mockResolvedValue({
+      archivos: [
+        {
+          nombre: 'firmado_12.docx',
+          datos: wordCon(['Firma: ____', 'Felipe Vargas'], 2),
+        },
+        { nombre: 'firmado_12.pdf', datos: pdf },
+        // El 13 cambió el texto: ni su Word ni su PDF se guardan.
+        {
+          nombre: 'firmado_13.docx',
+          datos: wordCon(['Firma: ____', 'OTRO'], 2),
+        },
+        { nombre: 'firmado_13.pdf', datos: pdf },
+      ],
+      texto: 'Firmé.',
+      uso: USO,
+      motivo: 'end_turn',
+    });
+
+    await servicio.ejecutar(1, 9, {
+      ...PLAN,
+      tipo: 'firma',
+      entradas: [
+        { enElTaller: 'documento_12.docx', tipo: WORD, ruta: 'c1/a.docx' },
+        { enElTaller: 'documento_13.docx', tipo: WORD, ruta: 'c1/b.docx' },
+      ],
+      salidas: salidasDeLaFirma([
+        {
+          adjunto: { id: 12, nombre: 'Formulario N°1 - lleno.docx' },
+          enElTaller: 'documento_12.docx',
+        },
+        {
+          adjunto: { id: 13, nombre: 'Formulario N°2 - lleno.docx' },
+          enElTaller: 'documento_13.docx',
+        },
+      ]),
+    });
+
+    expect(adjuntos.subirArchivo).toHaveBeenCalledTimes(1);
+    expect(adjuntos.subirArchivo).toHaveBeenCalledWith(
+      expect.stringMatching(/Formulario_N_1_-_firmado\.pdf$/) as unknown,
+      pdf,
+      'application/pdf',
+    );
+    expect(adjuntos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: 'Formulario N°1 - firmado.pdf',
+        tipo: 'application/pdf',
+        origen: 'firmado',
+        viene_de: 12,
+      }),
+    );
+    expect(repo.terminar).toHaveBeenCalledWith(
+      1,
+      9,
+      expect.objectContaining({
+        estado: 'listo',
+        resultado: expect.objectContaining({
+          descartados: [
+            {
+              nombre: 'Formulario N°2 - firmado.docx',
+              motivo: expect.stringContaining('cambió el texto') as unknown,
+            },
+            {
+              nombre: 'Formulario N°2 - firmado.pdf',
+              motivo: 'su Word firmado no pasó la revisión: se descartó',
             },
           ],
         }) as unknown,

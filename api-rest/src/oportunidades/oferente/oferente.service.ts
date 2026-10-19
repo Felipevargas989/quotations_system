@@ -18,6 +18,17 @@ import {
   type Oferente,
   OferenteRepository,
 } from './oferente.repository';
+import {
+  bajarOrdenDeCompra,
+  CODIGO_DE_ORDEN,
+  leerOrdenDeCompra,
+  type OrdenDeCompra,
+} from './orden-de-compra';
+import {
+  datosDeRespaldo,
+  type DatosDeRespaldo,
+  TIPO_RESPALDO,
+} from './respaldo';
 
 // LA EMPRESA COMO OFERENTE (doc 17, sprint 3, paso 2; §5.5; migración 126).
 // Felipe, 17-10: "el rellenado de documentos debe tener primero una forma
@@ -38,6 +49,7 @@ export const TIPOS_DE_DOCUMENTO = [
   'vigencia',
   'resolucion_sanitaria',
   'dj_trabajadores',
+  'respaldo_experiencia',
   'otro',
 ] as const;
 
@@ -81,7 +93,7 @@ const CAMPOS: ReadonlyArray<keyof Oferente> = [
   'instalaciones',
 ];
 
-const OFERENTE_VACIO: Oferente = {
+export const OFERENTE_VACIO: Oferente = {
   razon_social: null,
   rut: null,
   giro: null,
@@ -225,9 +237,17 @@ export class OferenteService {
     companyId: number,
     cuentaId: string,
     archivo: Express.Multer.File | undefined,
-    dto: { tipo: string; vence?: string },
+    dto: { tipo: string; vence?: string; datos?: string },
   ): Promise<DocumentoDeEmpresa> {
     if (!archivo) throw new BadRequestException('No llegó ningún archivo.');
+    // Un respaldo de experiencia lleva sus datos para el anexo (decisión
+    // 34) y no vence.
+    let datos: DatosDeRespaldo | null = null;
+    if (dto.tipo === TIPO_RESPALDO) {
+      const leidos = datosDeRespaldo(dto.datos);
+      if ('problema' in leidos) throw new BadRequestException(leidos.problema);
+      datos = leidos;
+    }
     const nombre = nombreLimpio(archivo.originalname);
     const ext = extensionDe(nombre);
     if (!EXTENSIONES_DE_DOCUMENTO.has(ext)) {
@@ -252,7 +272,8 @@ export class OferenteService {
         ruta,
         tipo_archivo: tipoArchivo,
         bytes: archivo.size,
-        vence: dto.vence?.trim() || null,
+        vence: datos ? null : dto.vence?.trim() || null,
+        ...(datos ? { datos } : {}),
         subido_por: await this.archivos.perfilDe(companyId, cuentaId),
       });
     } catch (error) {
@@ -269,6 +290,49 @@ export class OferenteService {
     if (!fila) throw new NotFoundException('No encontramos ese documento.');
     await this.borrarSinRomper(fila.ruta);
     return { borrado: true };
+  }
+
+  /** La ficha pública de una orden de compra, para completar un respaldo
+   *  de experiencia (decisión 34). Avisa si la orden es de otro proveedor. */
+  async ordenDeCompra(
+    companyId: number,
+    codigo: string,
+  ): Promise<{ orden: OrdenDeCompra; aviso: string | null }> {
+    const numero = codigo.trim().toUpperCase();
+    if (!CODIGO_DE_ORDEN.test(numero)) {
+      throw new BadRequestException(
+        'Ese no es un número de orden de compra (por ejemplo, 4352-103-SE23).',
+      );
+    }
+    let html: string;
+    try {
+      html = await this.bajarLaOrden(numero);
+    } catch (error) {
+      this.logger.warn(`orden de compra ${numero}: ${mensajeDe(error)}`);
+      throw new BadRequestException(
+        'Mercado Público no respondió. Inténtalo de nuevo en un rato.',
+      );
+    }
+    const orden = leerOrdenDeCompra(html);
+    if (!orden) {
+      throw new NotFoundException(
+        'No encontramos esa orden de compra en Mercado Público.',
+      );
+    }
+    const propio = (await this.repo.oferente(companyId))?.rut ?? null;
+    const soloRut = (r: string) => r.replace(/[^\dkK]/g, '').toUpperCase();
+    const aviso =
+      propio &&
+      orden.rut_proveedor &&
+      soloRut(propio) !== soloRut(orden.rut_proveedor)
+        ? `Esta orden de compra es de otro proveedor (RUT ${orden.rut_proveedor}).`
+        : null;
+    return { orden, aviso };
+  }
+
+  /** Las pruebas la reemplazan: nunca salen a Mercado Público. */
+  protected bajarLaOrden(codigo: string): Promise<string> {
+    return bajarOrdenDeCompra(codigo);
   }
 
   /** Si el balde falla, queda un archivo que nadie ve (inofensivo) y se

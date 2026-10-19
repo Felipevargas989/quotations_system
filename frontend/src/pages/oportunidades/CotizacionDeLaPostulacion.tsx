@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calculator, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { Calculator, ExternalLink, Link2, Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -8,10 +8,10 @@ import { toast } from "../../components/toast/Toast";
 import {
   type Anterior,
   type EstadoDeLaCotizacion,
-  fijarOfertaDeLaPostulacion,
   getCotizacionDeLaPostulacion,
   llevarACotizacion,
 } from "../../services/oportunidades.service";
+import { getOfertaDeLaPostulacion } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import {
@@ -19,6 +19,7 @@ import {
   porcentaje,
   veredicto,
 } from "./precioDeLaPostulacion";
+import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 
 // «¿CALZA EL PRECIO?» Y LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del
 // doc 17, 19-10). Felipe: la propuesta técnica y la cotización "tienen que
@@ -26,6 +27,9 @@ import {
 // todo"; y el margen "se ajusta como un descuento en dinero, así cuadramos
 // al peso". La cotización sale con los precios del catálogo: el descuento
 // se decide en la oferta y queda a la vista.
+// Desde la decisión 35 (19-10) es UN botón, «Vincular con cotización»:
+// crear una nueva o vincular una que existe; las dos quedan iguales a lo
+// postulado, con el precio de «Armar postulación», y de solo lectura.
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -63,35 +67,32 @@ export default function CotizacionDeLaPostulacion({
   const guardar = (nuevo: EstadoDeLaCotizacion) =>
     qc.setQueryData(clave, nuevo);
 
+  // El precio de «Armar postulación» (decisión 35).
+  const { data: armada } = useQuery({
+    queryKey: claveDeLaOferta(oportunidadId),
+    queryFn: () => getOfertaDeLaPostulacion(oportunidadId),
+  });
+  const total =
+    armada?.estado === "listo"
+      ? armada.parametros?.postulacion?.total
+      : undefined;
+
+  const [eligiendo, setEligiendo] = useState(false);
   const [numero, setNumero] = useState<number | undefined>(undefined);
-  const [preguntando, setPreguntando] = useState<
-    "vincular" | "actualizar" | null
-  >(null);
+  const [confirmando, setConfirmando] = useState(false);
   const llevar = useMutation({
-    mutationFn: (n?: number) => llevarACotizacion(oportunidadId, n),
+    mutationFn: (n?: number) => llevarACotizacion(oportunidadId, n, total),
     onSuccess: (nuevo) => {
       guardar(nuevo);
-      setPreguntando(null);
+      setEligiendo(false);
+      setConfirmando(false);
       setNumero(undefined);
       toast.success(
-        `Cotización N° ${nuevo.cotizacion?.numero ?? ""} lista con los productos de la propuesta técnica.`,
+        `Cotización N° ${nuevo.cotizacion?.numero ?? ""} vinculada: es lo postulado y queda de solo lectura.`,
       );
     },
     onError: (e) =>
-      toast.error(humanizeApiError(e, "No se pudo armar la cotización.")),
-  });
-
-  const [oferta, setOferta] = useState<number | undefined>(undefined);
-  const ofertar = useMutation({
-    mutationFn: (total: number) =>
-      fijarOfertaDeLaPostulacion(oportunidadId, total),
-    onSuccess: (nuevo) => {
-      guardar(nuevo);
-      setOferta(undefined);
-      toast.success("Oferta aplicada: la cotización cuadra al peso.");
-    },
-    onError: (e) =>
-      toast.error(humanizeApiError(e, "No se pudo aplicar la oferta.")),
+      toast.error(humanizeApiError(e, "No se pudo vincular la cotización.")),
   });
 
   if (isPending || !estado) {
@@ -108,9 +109,8 @@ export default function CotizacionDeLaPostulacion({
     (suma, g) => suma + (g.monto ?? 0),
     0,
   );
-  const ofertaVista = oferta ?? c?.total ?? 0;
-  const dice = c ? veredicto(estado.presupuesto, ofertaVista) : null;
-  const ocupado = llevar.isPending || ofertar.isPending;
+  const precio = c?.total ?? total ?? 0;
+  const dice = veredicto(estado.presupuesto, precio);
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-4">
@@ -119,9 +119,9 @@ export default function CotizacionDeLaPostulacion({
           <Calculator size={15} /> ¿Calza el precio?
         </h2>
         <p className="text-xs text-gray-500">
-          La propuesta técnica y la cotización son la misma oferta: los
-          productos de la propuesta, con los precios de tu catálogo. Si ofreces
-          menos, la diferencia queda como descuento en la cotización.
+          La cotización es lo postulado: los productos de «Qué ofreces», con los
+          precios de tu catálogo. Si tu precio es menor, la diferencia queda
+          como descuento en la cotización.
         </p>
       </div>
 
@@ -139,7 +139,7 @@ export default function CotizacionDeLaPostulacion({
         />
         <Cifra
           titulo="Tu oferta"
-          valor={c ? pesos(c.total) : "—"}
+          valor={precio > 0 ? pesos(precio) : "—"}
           detalle={
             c && c.descuento > 0
               ? `Descuento ${pesos(c.descuento)} (${porcentaje(c.descuento, c.catalogo)})`
@@ -165,72 +165,8 @@ export default function CotizacionDeLaPostulacion({
         </p>
       )}
 
-      {!c ? (
-        !estado.propuesta ? (
-          <p className="text-sm text-gray-600">
-            Primero crea la propuesta técnica (abajo, en «Crear documentos con
-            IA»): de ella salen los productos de la cotización.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700">
-              La propuesta técnica ofrece {estado.propuesta.productos}{" "}
-              {estado.propuesta.productos === 1 ? "producto" : "productos"} de
-              tu catálogo. Llévalos a una cotización para ver el precio real.
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <button
-                type="button"
-                onClick={() => llevar.mutate(undefined)}
-                disabled={ocupado}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {llevar.isPending && (
-                  <Loader2 size={14} className="animate-spin" />
-                )}
-                Crear cotización
-              </button>
-              <div className="flex items-end gap-2">
-                <div className="w-36">
-                  <label
-                    htmlFor="numero-a-vincular"
-                    className="block text-xs text-gray-600"
-                  >
-                    o vincular la N°
-                  </label>
-                  <NumberInput
-                    id="numero-a-vincular"
-                    value={numero}
-                    onChange={setNumero}
-                    min={1}
-                    placeholder="Ej: 598"
-                    disabled={ocupado}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPreguntando("vincular")}
-                  disabled={ocupado || !numero}
-                  className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-                >
-                  Vincular
-                </button>
-              </div>
-            </div>
-            {preguntando === "vincular" && numero && (
-              <ConfirmInline
-                question={`La N° ${numero} se reescribe entera con los productos de la propuesta técnica. Lo que tenía queda anotado en su bitácora.`}
-                yesLabel="Sí, vincular y reescribir"
-                tono="normal"
-                busy={llevar.isPending}
-                onYes={() => llevar.mutate(numero)}
-                onNo={() => setPreguntando(null)}
-              />
-            )}
-          </div>
-        )
-      ) : (
-        <div className="space-y-3">
+      {c ? (
+        <div className="space-y-1">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
             <span>
               Cotización N° {c.numero} · {c.estado}
@@ -242,61 +178,90 @@ export default function CotizacionDeLaPostulacion({
             >
               <ExternalLink size={12} /> Ver la cotización
             </Link>
-            {estado.propuesta && (
-              <button
-                type="button"
-                onClick={() => setPreguntando("actualizar")}
-                disabled={ocupado}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-50"
-              >
-                <RefreshCw size={12} /> Actualizar con la propuesta
-              </button>
-            )}
           </p>
-          {preguntando === "actualizar" && (
-            <ConfirmInline
-              question={`La N° ${c.numero} se reescribe con los productos de la última propuesta técnica. Lo que tenía queda en su bitácora y la oferta vuelve al precio del catálogo.`}
-              yesLabel="Sí, actualizar"
-              tono="normal"
-              busy={llevar.isPending}
-              onYes={() => llevar.mutate(undefined)}
-              onNo={() => setPreguntando(null)}
-            />
-          )}
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-48">
+          <p className="flex items-center gap-1.5 text-xs text-gray-500">
+            <Lock size={12} /> De solo lectura: es lo postulado. Si cambias el
+            precio o la oferta, vuelve a armar la postulación y la cotización se
+            actualiza sola.
+          </p>
+        </div>
+      ) : !estado.propuesta ? (
+        <p className="text-sm text-gray-600">
+          Primero arma la postulación (arriba): de ella sale la cotización.
+        </p>
+      ) : !eligiendo ? (
+        <button
+          type="button"
+          onClick={() => setEligiendo(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+        >
+          <Link2 size={14} /> Vincular con cotización
+        </button>
+      ) : (
+        <div className="rounded-lg border border-gray-200 p-3 space-y-3">
+          <p className="text-sm text-gray-700">
+            ¿Creas una cotización nueva o vinculas una que ya existe? Las dos
+            quedan iguales a lo postulado
+            {total ? `, por ${pesos(total)},` : ""} y de solo lectura.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <button
+              type="button"
+              onClick={() => llevar.mutate(undefined)}
+              disabled={llevar.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {llevar.isPending && !numero && (
+                <Loader2 size={14} className="animate-spin" />
+              )}
+              Crear una nueva
+            </button>
+            <span className="pb-2 text-sm text-gray-500">o</span>
+            <div className="w-36">
               <label
-                htmlFor="oferta-de-la-postulacion"
-                className="block text-xs font-semibold text-gray-700"
+                htmlFor="numero-a-vincular"
+                className="block text-xs text-gray-600"
               >
-                Tu oferta, con IVA
+                Vincular la N°
               </label>
               <NumberInput
-                id="oferta-de-la-postulacion"
-                value={oferta ?? c.total}
-                onChange={setOferta}
+                id="numero-a-vincular"
+                value={numero}
+                onChange={setNumero}
                 min={1}
-                currency
-                disabled={ocupado}
+                placeholder="Ej: 598"
+                disabled={llevar.isPending}
               />
             </div>
             <button
               type="button"
-              onClick={() => oferta && ofertar.mutate(oferta)}
-              disabled={ocupado || !oferta || oferta === c.total}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              onClick={() => setConfirmando(true)}
+              disabled={llevar.isPending || !numero}
+              className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
             >
-              {ofertar.isPending && (
-                <Loader2 size={14} className="animate-spin" />
-              )}
-              Aplicar oferta
+              Vincular
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEligiendo(false);
+                setConfirmando(false);
+              }}
+              className="pb-2 text-sm text-gray-500 hover:text-gray-800"
+            >
+              Cancelar
             </button>
           </div>
-          <p className="text-xs text-gray-500">
-            Si es menor que tu catálogo, la diferencia entra como descuento en
-            dinero y la cotización cuadra al peso. Para subirla, agrega
-            productos en la cotización: nunca un precio a dedo.
-          </p>
+          {confirmando && numero && (
+            <ConfirmInline
+              question={`La N° ${numero} se reescribe entera con lo postulado y queda de solo lectura. Lo que tenía queda anotado en su bitácora.`}
+              yesLabel="Sí, vincular"
+              tono="normal"
+              busy={llevar.isPending}
+              onYes={() => llevar.mutate(numero)}
+              onNo={() => setConfirmando(false)}
+            />
+          )}
         </div>
       )}
     </section>

@@ -17,12 +17,14 @@ import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
 import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
+import ArmarPostulacion from "./ArmarPostulacion";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
 import ResumenDeNegocio from "./ResumenDeNegocio";
-import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
+import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
+import SetParaMercadoPublico from "./SetParaMercadoPublico";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
@@ -304,15 +306,32 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "postulacion" && (
         <>
+          {(ficha.estado === "postulada" || ficha.estado === "ganada") && (
+            <p className="p-3 rounded-lg bg-sky-50 border border-sky-200 text-sm text-sky-900">
+              {ficha.estado === "ganada"
+                ? "La ganaste: lo postulado es el contrato y no se modifica. Cúmplelo tal como se postuló."
+                : "Ya la postulaste: la oferta, su cotización y los documentos quedan fijos, tal como se subieron a Mercado Público."}
+            </p>
+          )}
+          <ArmarPostulacion
+            oportunidadId={ficha.id}
+            congelada={
+              ficha.estado === "postulada" || ficha.estado === "ganada"
+            }
+          />
+          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}
           />
-          <DocumentosConIA oportunidadId={ficha.id} />
           <MiPostulacion
             oportunidadId={ficha.id}
             codigo={ficha.codigo}
             tipo={p.tipo}
+          />
+          <SetParaMercadoPublico
+            oportunidadId={ficha.id}
+            codigo={ficha.codigo}
           />
           <ValidacionDeDocumentos oportunidadId={ficha.id} />
         </>

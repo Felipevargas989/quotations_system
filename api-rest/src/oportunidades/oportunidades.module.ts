@@ -19,13 +19,18 @@ import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
+import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import { OferenteRepository } from './oferente/oferente.repository';
 import { OferenteService } from './oferente/oferente.service';
 import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
+import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
+import { ArmarPostulacionService } from './postulacion/armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
+import { ElSetService } from './postulacion/el-set.service';
+import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
 import { RadarService } from './radar.service';
@@ -49,6 +54,10 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ResumenDeNegocioService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
+    ArmarLaOfertaService,
+    LoPostuladoService,
+    ElSetService,
+    ArmarPostulacionService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,
@@ -66,6 +75,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     EventiaRepository,
     OferenteRepository,
     OferenteService,
+    LeerRespaldoService,
     HistoriaRepository,
     HistoriaService,
     RadarService,

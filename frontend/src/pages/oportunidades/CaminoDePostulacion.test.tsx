@@ -40,10 +40,12 @@ describe("CaminoDePostulacion", () => {
       </QueryClientProvider>,
     );
     const boton = await screen.findByRole("button", {
-      name: /Generar anexos/,
+      name: /Armar postulación/,
     });
     expect(
-      screen.getByText("Que la IA llene los anexos del comprador."),
+      screen.getByText(
+        "Pon el precio y que la IA arme la postulación: la oferta, los anexos y la propuesta.",
+      ),
     ).toBeInTheDocument();
     for (const paso of [
       "Bases",

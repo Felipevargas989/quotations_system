@@ -37,4 +37,11 @@ export class SubirDocumentoDto {
     message: 'La fecha de vencimiento va como AAAA-MM-DD.',
   })
   vence?: string;
+
+  /** Solo para un respaldo de experiencia (decisión 34): sus datos en
+   *  JSON (número, mandante, contrato, año, monto, fuente). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(3000)
+  datos?: string;
 }

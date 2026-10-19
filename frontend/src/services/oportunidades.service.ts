@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
+import type { DatosDeRespaldo } from "./postulacion.service";
 
 // OPORTUNIDADES (doc 17): licitaciones y compras ágiles de Mercado Público
 // que el radar trae y la IA lee. Solo administrador, solo empresas con el
@@ -387,6 +388,8 @@ export interface DocumentoDeEmpresa {
   bytes: number;
   /** AAAA-MM-DD; null = no vence. */
   vence: string | null;
+  /** Solo en un respaldo de experiencia (decisión 34). */
+  datos: DatosDeRespaldo | null;
   creado_en: string;
   quien: { full_name: string | null } | null;
 }
@@ -428,7 +431,7 @@ export const guardarOferente = async (
     cambios,
   )) as VistaDelOferente;
 
-const subirConFormulario = async <T>(
+export const subirConFormulario = async <T>(
   url: string,
   archivo: File,
   campos: Record<string, string> = {},
@@ -461,11 +464,12 @@ export const subirDocumentoDeEmpresa = (
   archivo: File,
   tipo: string,
   vence: string,
+  datos?: DatosDeRespaldo,
 ) =>
   subirConFormulario<DocumentoDeEmpresa>(
     `${API_ROUTES.OPORTUNIDADES}/oferente/documentos`,
     archivo,
-    { tipo, vence },
+    { tipo, vence, ...(datos ? { datos: JSON.stringify(datos) } : {}) },
   );
 
 export const borrarDocumentoDeEmpresa = async (id: number) =>
@@ -691,23 +695,19 @@ export const getCotizacionDeLaPostulacion = async (id: number) =>
     "GET",
   )) as EstadoDeLaCotizacion;
 
-/** Crea la cotización con la oferta de la propuesta técnica, o reescribe
- *  la vinculada; con `numero`, vincula y reescribe esa. */
-export const llevarACotizacion = async (id: number, numero?: number) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
-    "POST",
-    numero ? { numero } : {},
-  )) as EstadoDeLaCotizacion;
-
-/** La oferta con IVA: la diferencia con el catálogo queda como descuento
- *  en dinero en la cotización. */
-export const fijarOfertaDeLaPostulacion = async (id: number, total: number) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion/oferta`,
-    "POST",
-    { total },
-  )) as EstadoDeLaCotizacion;
+/** «Vincular con cotización» (decisión 35): crea la cotización con lo
+ *  postulado, o con `numero` vincula y reescribe esa; con `total` (el
+ *  precio de «Armar postulación») queda con ese total. Desde ahí es de solo
+ *  lectura en el cotizador. */
+export const llevarACotizacion = async (
+  id: number,
+  numero?: number,
+  total?: number,
+) =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`, "POST", {
+    ...(numero ? { numero } : {}),
+    ...(total ? { total } : {}),
+  })) as EstadoDeLaCotizacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). */

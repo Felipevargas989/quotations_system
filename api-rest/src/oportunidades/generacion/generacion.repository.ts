@@ -24,7 +24,7 @@ export const TIPOS_DE_GENERACION: readonly TipoDeGeneracion[] = [
 /** Los trabajos de la tabla: los que hacen documentos y, desde el 19-10, el
  *  resumen de negocio de una licitación seguida (decisión 30, migración
  *  145), que no deja archivos. */
-export type TipoDeTrabajo = TipoDeGeneracion | 'resumen';
+export type TipoDeTrabajo = TipoDeGeneracion | 'resumen' | 'oferta';
 
 export type FilaDeGeneracion = FilaDeAnalisis & {
   tipo: TipoDeTrabajo;
@@ -65,6 +65,21 @@ export class GeneracionRepository extends TrabajosDeIARepository {
       .maybeSingle();
     if (error) throw error;
     return (data as unknown as FilaDeGeneracion | null) ?? null;
+  }
+
+  /** Reemplaza los parámetros de un trabajo de la empresa: «Armar
+   *  postulación» anota ahí lo que no se pudo seguir (decisión 35). */
+  async anotarParametros(
+    companyId: number,
+    id: number,
+    parametros: Record<string, unknown>,
+  ): Promise<void> {
+    const { error } = await this.db
+      .from(this.tabla)
+      .update({ parametros })
+      .eq('company_id', companyId)
+      .eq('id', id);
+    if (error) throw error;
   }
 
   /** null = ya hay uno de ese tipo en curso (lo decide el índice único
