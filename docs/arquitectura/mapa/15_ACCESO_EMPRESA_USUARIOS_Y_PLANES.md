@@ -482,7 +482,7 @@ En la **misma** migración, las tres empresas vivas (1 Valle del Sol, 51 MDS Hot
 | `movil` | Eventia Móvil | Opera y Crece |
 | `personal` | El módulo Personal | `modulos_propios`, ningún plan |
 | `marketing` | El módulo Marketing | `modulos_propios`, ningún plan |
-| `oportunidades` | El módulo de Oportunidades: licitaciones y compras ágiles (doc 17, mapa 24) | `modulos_propios`, ningún plan. Migración 122, rama `feature/oportunidades-radar` (16-10-2026), sin aplicar |
+| `oportunidades` | El módulo de Oportunidades: licitaciones y compras ágiles (doc 17, mapa 24) | `modulos_propios`, ningún plan (migración 122) |
 | `cotizar_con_ia` | El botón «✨ Crear con IA» (17-10-2026, mapa 01 §5.7): la llave de Anthropic la paga Valle del Sol | `modulos_propios`, ningún plan (migración 130) |
 
 Topes de cantidad, que no son derechos de sí o no y por eso se cuentan en el servicio: **Cotiza**, 1 usuario y 20 cotizaciones al mes; **Gestiona y Cobra**, 3 usuarios y cotizaciones sin tope; **Opera y Crece**, sin topes.

@@ -96,6 +96,64 @@ describe("PanelDeOportunidad", () => {
     expect(screen.getByText(/12\.000\.000/)).toBeInTheDocument();
   });
 
+  it("el presupuesto va arriba; si el comprador no lo publicó, lo dice (Felipe, 17-10)", () => {
+    pintar(funcionario());
+    expect(screen.getByText("Presupuesto")).toBeInTheDocument();
+    expect(screen.getAllByText(/12\.000\.000/)).toHaveLength(1);
+    cleanup();
+    pintar(
+      funcionario({
+        proceso: { ...funcionario().proceso, monto: null },
+      }),
+    );
+    expect(
+      screen.getByText("No publicado: búscalo en las bases"),
+    ).toBeInTheDocument();
+  });
+
+  it("lleva el sello de su tipo: Licitación o Compra ágil (Felipe, 17-10)", () => {
+    pintar(funcionario());
+    expect(screen.getByText("Licitación").className).toContain("indigo");
+    cleanup();
+    pintar(
+      funcionario({
+        proceso: { ...funcionario().proceso, tipo: "compra_agil" },
+      }),
+    );
+    expect(screen.getByText("Compra ágil").className).toContain("violet");
+  });
+
+  it("una compra ágil sin detalle avisa que se está trayendo de Mercado Público", async () => {
+    vi.mocked(servicio.getFichaDeOportunidad).mockResolvedValueOnce({
+      ...funcionario({
+        proceso: { ...funcionario().proceso, tipo: "compra_agil" },
+      }),
+      proceso: {
+        ...funcionario().proceso,
+        tipo: "compra_agil",
+        codigo: "1234-56-COT26",
+        descripcion: null,
+        moneda: "CLP",
+        fechas: {},
+        productos: [],
+        adjudicacion: null,
+        primera_vez_visto: "2026-10-17T21:00:00.000Z",
+        actualizado_en: "2026-10-17T21:00:00.000Z",
+      },
+      detalle_mp: "trayendo",
+      leida_con: null,
+      notas: null,
+      quotation_id: null,
+      actualizado_en: "2026-10-17T21:00:00.000Z",
+    } as unknown as Awaited<ReturnType<typeof servicio.getFichaDeOportunidad>>);
+    pintar(funcionario());
+    expect(
+      await screen.findByText(
+        "Trayendo la descripción y los productos desde Mercado Público…",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("una nueva: Me interesa la pasa a en estudio y Descartar la descarta", () => {
     const { onDecidir } = pintar(funcionario());
     fireEvent.click(screen.getByRole("button", { name: "Me interesa" }));

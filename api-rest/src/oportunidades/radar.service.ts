@@ -3,9 +3,9 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { HistoriaService } from './historia/historia.service';
 import {
+  LECTURA_ACTUAL,
   LecturaDetenida,
   LecturaService,
-  MODELO_LECTURA,
   type Uso,
 } from './lectura/lectura.service';
 import { aplicarReglas } from './lectura/reglas';
@@ -22,7 +22,6 @@ import {
   MercadoPublicoError,
 } from './mercado-publico/mercado-publico.client';
 import type {
-  CompraAgilDetalle,
   CompraAgilListada,
   LicitacionListada,
   ProcesoMp,
@@ -62,13 +61,23 @@ const LECTURAS_FALLIDAS_PARA_CORTAR = 10;
 const MINUTO = 60 * 1000;
 const HORA = 60 * MINUTO;
 /** Tiempo de cada corrida, contado desde que parte: detalles de
- *  licitaciones hasta los 45 minutos, compras ágiles hasta los 70 y lectura
- *  hasta los 150. Así una corrida nunca llega a las 3 horas en que la
- *  siguiente la da por muerta, y lo leído llega antes; lo que falta entra en
- *  la próxima. */
+ *  licitaciones hasta los 45 minutos y lectura hasta los 150. Así una
+ *  corrida nunca llega a las 3 horas en que la siguiente la da por muerta,
+ *  y lo leído llega antes; lo que falta entra en la próxima. Las compras
+ *  ágiles no tienen tope: entran de una con lo de la lista (decisión 20). */
 const PRESUPUESTO_DETALLES_MS = 45 * MINUTO;
-const PRESUPUESTO_COMPRAS_MS = 70 * MINUTO;
 const PRESUPUESTO_CORRIDA_MS = 150 * MINUTO;
+/** Las compras ágiles se guardan de a tantas. */
+const COMPRAS_POR_LOTE = 100;
+/** Cuánto hacia atrás se piden las compras ágiles publicadas (y todavía
+ *  abiertas), en cada corrida. */
+const VENTANA_COMPRAS_AGILES_MS = 10 * 24 * HORA;
+/** Las compras ágiles en amarillo que se completan con su detalle y se
+ *  releen, por corrida (cada detalle tarda ~20 s; la A, 18-10). */
+const MAX_COMPRAS_CON_DETALLE_POR_CORRIDA = 40;
+const PRESUPUESTO_CON_DETALLE_MS = 20 * MINUTO;
+/** Si Mercado Público no trae el detalle, no se vuelve a pedir en un día. */
+const REINTENTAR_SIN_DETALLE_MS = 24 * HORA;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
 
@@ -101,6 +110,10 @@ export type ResumenCorrida = {
     estado: 'ok' | 'detenida' | 'sin_llave';
     empresas: number;
     leidas: number;
+    /** De las leídas, las que se releyeron por reglas nuevas. */
+    releidas: number;
+    /** Compras ágiles en amarillo releídas con su detalle (la A, 18-10). */
+    con_detalle: number;
     verdes: number;
     amarillas: number;
     rojas: number;
@@ -120,6 +133,9 @@ export type ResumenCorrida = {
       | 'completa'
       | 'cortada'
       | 'detenida'
+      /** Un día falló por algo que no es de Mercado Público ni de la IA:
+       *  quedó marcado en error y la corrida sigue bien (18-10). */
+      | 'falla'
       | 'sin_ticket'
       | 'sin_llave';
     dias: number;
@@ -152,6 +168,8 @@ export const resumenVacio = (): ResumenCorrida => ({
     estado: 'ok',
     empresas: 0,
     leidas: 0,
+    releidas: 0,
+    con_detalle: 0,
     verdes: 0,
     amarillas: 0,
     rojas: 0,
@@ -215,6 +233,9 @@ export async function enParalelo<T>(
 
 @Injectable()
 export class RadarService {
+  /** Las compras ágiles cuyo detalle Mercado Público no entregó, y cuándo. */
+  private readonly sinDetalle = new Map<string, number>();
+
   constructor(
     private readonly mp: MercadoPublicoClient,
     private readonly repo: OportunidadesRepository,
@@ -253,19 +274,21 @@ export class RadarService {
   }
 
   /** Corre completo y espera (el reloj). null = ya había una en marcha. */
-  async correr(origen: 'reloj'): Promise<ResumenCorrida | null> {
+  async correr(origen: 'reloj', historiaHasta?: number) {
     const id = await this.repo.tomarCorrida(origen);
     if (id === null) {
       this.logger.info('radar: ya hay una corrida en marcha; esta no parte');
       return null;
     }
-    return this.ejecutar(id, origen);
+    return this.ejecutar(id, origen, historiaHasta);
   }
 
-  /** Nunca lanza: todo error queda en la bitácora de la corrida. */
+  /** Nunca lanza: todo error queda en la bitácora de la corrida.
+   *  `historiaHasta`: lo que el reloj le da a la historia (decisión 28). */
   private async ejecutar(
     id: number,
     origen: 'reloj' | 'manual' | 'arranque',
+    historiaHasta?: number,
   ): Promise<ResumenCorrida> {
     const resumen = resumenVacio();
     const inicio = Date.now();
@@ -280,20 +303,25 @@ export class RadarService {
         ...new Set([...configs.values()].flatMap((c) => c.regiones ?? [])),
       ];
 
-      // Se lee dos veces: tras las licitaciones (lo más grande se lee antes,
-      // sin esperar las compras ágiles, que son lentas) y tras las compras.
+      // Primero las compras ágiles (entran todas de una con lo de la lista y
+      // cierran en días: se leen al tiro, decisión 20), después las
+      // licitaciones, y se lee otra vez.
       const intentadas = new Set<string>();
-      await this.licitaciones(resumen, inicio);
+      await this.comprasAgiles(resumen, regiones);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
-      await this.comprasAgiles(resumen, regiones, inicio);
+      await this.releerConDetalle(resumen, empresas, configs);
+      await this.licitaciones(resumen, inicio);
       await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
-      await this.historia.cargarHistoria(resumen, inicio, origen);
+      await this.historia.cargarHistoria(resumen, inicio, origen, {
+        regiones,
+        hasta: historiaHasta,
+      });
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
       this.logger.info(
-        `radar ${id} listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas)`,
+        `radar ${id} listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas, ${resumen.lectura.releidas} releídas)`,
       );
     } catch (error) {
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
@@ -463,12 +491,18 @@ export class RadarService {
   }
 
   // ------------------------------------------------------------
-  // Compras ágiles: solo las regiones configuradas
+  // Compras ágiles: solo las regiones configuradas, todas de una
   // ------------------------------------------------------------
+  // Decisión 20 (Felipe, 17-10: "¿las compras ágiles están funcionando? no
+  // veo ninguna"). Pedir el detalle de cada una tardaba unos 20 segundos:
+  // en la pasada de las 18:00 entraron 54 de 750, y cierran en días. Ahora
+  // entran todas con lo que trae la lista (nombre, comprador, monto,
+  // región y cierre), primero las que cierran antes, y la IA las lee al
+  // tiro, como hacía el bot. La descripción y los productos se piden
+  // cuando alguien abre una (OportunidadesService.ficha).
   private async comprasAgiles(
     resumen: ResumenCorrida,
     regiones: string[],
-    inicio: number,
   ): Promise<void> {
     const r = resumen.compras_agiles;
     if (!this.mp.configurado) {
@@ -481,13 +515,15 @@ export class RadarService {
       return;
     }
 
-    // Desde la última corrida buena, con 48 horas de margen; nunca más de
-    // 10 días atrás (las compras ágiles cierran en días).
-    const ultima = await this.repo.ultimaCorridaOk();
-    const base = ultima
-      ? new Date(ultima).getTime()
-      : Date.now() - 7 * 24 * HORA;
-    const desde = new Date(Math.max(base - 48 * HORA, Date.now() - 240 * HORA))
+    // SIEMPRE los últimos 10 días (las compras ágiles cierran en días), no
+    // "desde la última corrida buena": el 17-10 la pasada de las 18:00 vio
+    // 750 y guardó 54 (todavía pedía el detalle de a una) y aun así quedó
+    // "ok", así que la siguiente habría pedido solo desde el 15-10 y lo
+    // publicado antes, todavía abierto, no se habría vuelto a pedir nunca
+    // (Felipe, 18-10: "¿cómo sé que está trayendo todas?"). Pedir 10 días
+    // cuesta unas páginas más de la lista y se arregla solo si una corrida
+    // se corta: lo que ya está en la base no se vuelve a guardar.
+    const desde = new Date(Date.now() - VENTANA_COMPRAS_AGILES_MS)
       .toISOString()
       .replace(/\.\d{3}Z$/, 'Z');
 
@@ -514,60 +550,113 @@ export class RadarService {
       `radar: ${r.listadas} compras ágiles en la lista, ${r.nuevas} nuevas`,
     );
 
-    // Se guardan de a 50: si el motor se reinicia a la mitad, lo ya pedido
-    // no se pierde.
-    let porGuardar: ProcesoMp[] = [];
-    const vaciar = async () => {
-      if (porGuardar.length === 0) return;
-      const lote = porGuardar;
-      porGuardar = [];
+    // Con lo de la lista, sin pedir el detalle; de a lote, primero las que
+    // cierran antes.
+    const procesos = nuevas
+      .map((item) => procesoDesdeCompraAgil(item, null))
+      .filter((p): p is ProcesoMp => p !== null)
+      .sort((a, b) => cierreParaOrdenar(a) - cierreParaOrdenar(b));
+    for (let i = 0; i < procesos.length; i += COMPRAS_POR_LOTE) {
+      const lote = procesos.slice(i, i + COMPRAS_POR_LOTE);
       await this.repo.guardarProcesos(lote);
       r.guardadas += lote.length;
-    };
-    let sinCupo = false;
-    let sinTiempo = false;
-    let intentadas = 0;
+    }
+    r.pendientes = 0;
+  }
+
+  // ------------------------------------------------------------
+  // Las compras ágiles en amarillo, con su detalle (la A, 18-10)
+  // ------------------------------------------------------------
+  // De las 87 amarillas del 18-10, 66 eran compras ágiles leídas solo con
+  // nombre, comprador y monto (decisión 20): sin descripción, la IA no sabe
+  // dónde es. A esas se les pide el detalle y se releen; de a una (la API no
+  // deja pedir en paralelo), primero las que cierran antes y con tope.
+  private async releerConDetalle(
+    resumen: ResumenCorrida,
+    empresas: EmpresaConModulo[],
+    configs: Map<number, ConfigOportunidades>,
+  ): Promise<void> {
+    const r = resumen.lectura;
+    if (r.estado !== 'ok' || !this.mp.configurado || !this.lectura.configurado)
+      return;
+    const hasta = Date.now() + PRESUPUESTO_CON_DETALLE_MS;
+    let quedan = MAX_COMPRAS_CON_DETALLE_POR_CORRIDA;
+    const uso: Uso = { entrada: 0, salida: 0 };
     try {
-      await enParalelo(
-        nuevas,
-        DETALLES_EN_PARALELO,
-        async (item: CompraAgilListada) => {
-          if (sinTiempo || Date.now() - inicio > PRESUPUESTO_COMPRAS_MS) {
-            sinTiempo = true;
-            return;
+      for (const empresa of empresas) {
+        const config = configs.get(empresa.id);
+        if (!config) continue;
+        const candidatas = (
+          await this.repo.comprasAgilesSinDetalle(empresa.id)
+        ).filter((c) => {
+          const fallo = this.sinDetalle.get(c.codigo);
+          return !fallo || Date.now() - fallo > REINTENTAR_SIN_DETALLE_MS;
+        });
+        if (candidatas.length === 0) continue;
+        const perfil = {
+          nombre: empresa.name,
+          perfil: config.perfil,
+          ...(await this.repo.catalogoResumido(empresa.id)),
+        };
+        for (const { codigo, item } of candidatas) {
+          if (quedan-- <= 0 || Date.now() > hasta) return;
+          const detalle = await this.mp
+            .detalleCompraAgil(codigo)
+            .catch((error: unknown) => {
+              if (error instanceof MercadoPublicoError && error.sinCupo) {
+                throw error;
+              }
+              return null;
+            });
+          const proceso = detalle
+            ? procesoDesdeCompraAgil(item, detalle)
+            : null;
+          if (
+            !proceso ||
+            (!proceso.descripcion && proceso.productos.length === 0)
+          ) {
+            this.sinDetalle.set(codigo, Date.now());
+            continue;
           }
-          intentadas++;
-          let detalle: CompraAgilDetalle | null = null;
-          if (!sinCupo) {
-            try {
-              detalle = await this.mp.detalleCompraAgil(item.codigo!.trim());
-            } catch (error) {
-              if (!(error instanceof MercadoPublicoError)) throw error;
-              if (error.sinCupo) sinCupo = true;
-            }
+          await this.repo.guardarProcesos([proceso]);
+          const lectura = await this.lectura.leer(proceso, perfil, uso);
+          if (!lectura) continue;
+          const final = aplicarReglas(lectura, proceso, {
+            comunasCercanas: config.comunas_cercanas ?? [],
+            umbralAltoValor: empresa.high_value_threshold,
+          });
+          try {
+            await this.repo.guardarLectura(
+              empresa.id,
+              codigo,
+              final,
+              LECTURA_ACTUAL,
+              true,
+            );
+            r.con_detalle++;
+          } catch (error) {
+            this.logger.warn(
+              `radar: no se guardó la relectura de ${codigo}: ${mensajeDe(error)}`,
+            );
           }
-          // Sin detalle igual se guarda: nombre, comprador y monto vienen en
-          // la lista, y la próxima vez no se vuelve a pedir.
-          const proceso = procesoDesdeCompraAgil(item, detalle);
-          if (proceso) porGuardar.push(proceso);
-          if (porGuardar.length >= 50) await vaciar();
-        },
+        }
+      }
+    } catch (error) {
+      if (error instanceof LecturaDetenida) {
+        r.estado = 'detenida';
+        resumen.avisos.push(error.message);
+        return;
+      }
+      // Es una parte secundaria de la corrida: cualquier otra falla (la
+      // base, un dato raro) queda dicha y la corrida sigue (lecciones 74 y
+      // 75 del mapa 21).
+      this.logger.warn(
+        `radar: compras ágiles con detalle: ${mensajeDe(error)}`,
       );
+      resumen.avisos.push(`Compras ágiles con detalle: ${mensajeDe(error)}`);
     } finally {
-      await vaciar();
-      r.pendientes = nuevas.length - intentadas;
-    }
-    if (sinCupo) {
-      r.estado = 'sin_cupo';
-      resumen.avisos.push(
-        'Compra Ágil sin cupo para detalles: algunas quedaron solo con lo de la lista.',
-      );
-    }
-    if (sinTiempo) {
-      r.estado = 'cortada';
-      resumen.avisos.push(
-        `Se acabó el tiempo de esta corrida para las compras ágiles: quedan ${r.pendientes} para la próxima.`,
-      );
+      r.tokens_entrada += uso.entrada;
+      r.tokens_salida += uso.salida;
     }
   }
 
@@ -613,13 +702,18 @@ export class RadarService {
           perfil: config.perfil,
           ...catalogo,
         };
-        const leidos = await this.repo.codigosLeidos(empresa.id);
+        // Lo nuevo y lo leído con reglas viejas que nadie ha tocado
+        // (decisión 19).
+        const { hechas, releer } = await this.repo.lecturasDe(
+          empresa.id,
+          LECTURA_ACTUAL,
+        );
         // Lo que cierra antes se lee primero: si la corrida se corta, lo
         // urgente ya quedó leído.
         const pendientes = abiertos
           .filter(
             (p) =>
-              !leidos.has(p.codigo) && regionCalza(p.region, config.regiones),
+              !hechas.has(p.codigo) && regionCalza(p.region, config.regiones),
           )
           .sort((a, b) => cierreParaOrdenar(a) - cierreParaOrdenar(b));
         const yaIntentadas = pendientes.filter((p) =>
@@ -655,13 +749,33 @@ export class RadarService {
             comunasCercanas: config.comunas_cercanas ?? [],
             umbralAltoValor: empresa.high_value_threshold,
           });
-          await this.repo.guardarLectura(
-            empresa.id,
-            proceso.codigo,
-            final,
-            MODELO_LECTURA,
-          );
+          const relectura = releer.has(proceso.codigo);
+          try {
+            await this.repo.guardarLectura(
+              empresa.id,
+              proceso.codigo,
+              final,
+              LECTURA_ACTUAL,
+              relectura,
+            );
+          } catch (error) {
+            // Una lectura que la base no acepta no tumba la corrida entera
+            // (18-10, 23:07: un color fuera de lista la echó abajo): ese
+            // proceso queda sin leer y se reintenta en la próxima. Diez
+            // seguidas sí la detienen: ahí lo que falla es la base.
+            this.logger.warn(
+              `radar: no se guardó la lectura de ${proceso.codigo}: ${mensajeDe(error)}`,
+            );
+            r.sin_leer++;
+            if (++fallidasSeguidas >= LECTURAS_FALLIDAS_PARA_CORTAR) {
+              throw new LecturaDetenida(
+                `${LECTURAS_FALLIDAS_PARA_CORTAR} lecturas seguidas no se pudieron guardar; la lectura sigue en la próxima corrida`,
+              );
+            }
+            return;
+          }
           r.leidas++;
+          if (relectura) r.releidas++;
           if (final.semaforo === 'verde') r.verdes++;
           else if (final.semaforo === 'amarillo') r.amarillas++;
           else r.rojas++;

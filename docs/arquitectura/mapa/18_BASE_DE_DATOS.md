@@ -58,7 +58,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotations` | Cada requerimiento, cotización y evento: cliente y mandante, fecha y rango, personas y niños, `items` (la foto de los servicios), totales, descuento, propina, estado, sellos de envío, encuesta, provisión, pérdida, cosecha | 01 y 02 | `0_initial_models.sql`; columnas y candados en 6, 15, 17, 26, 27, 32, 33, 37, 38, 47 (borrada en 58), 48, 51, 61, 62, 63, 64, 66 y 128 (`comentario_interno`, las notas del equipo que nunca salen al cliente; mapa 01, regla 31) |
 | `company_quotation_counters` | Último número de cotización entregado, por empresa | 01 | 38 |
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
-| `choques_de_fecha` | La revisión de cada tope de calendario entre una cotización viva y una aceptada (`puede_seguir`; `gestionar` quedó solo de la prueba del laboratorio), las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 (en el laboratorio) |
+| `choques_de_fecha` | La revisión de cada tope de calendario entre una cotización viva y una aceptada (`puede_seguir`; `gestionar` quedó solo de la prueba del laboratorio), las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 |
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
@@ -602,5 +602,5 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la lee; sin la 143, `GET /quotations/choques/pendientes` responde error y el aviso no aparece (el resto del tablero sigue igual).
 
-**Estado.** Escrita el 18-10-2026 (Felipe: *"la 1, la 2, la 3 y la 4"*, sin atajo). Número reservado con la sesión de Oportunidades.
+**Estado.** Escrita el 18-10-2026 (Felipe: *"la 1, la 2, la 3 y la 4"*, sin atajo). Número reservado con la sesión de Oportunidades. **Aplicada en el laboratorio y en producción el 18-10-2026** (producción a las 10:38 Chile, antes del motor de la PR #158). Verificado en las dos: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia.
 

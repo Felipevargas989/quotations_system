@@ -118,7 +118,15 @@ export interface CambioDeProceso {
   creado_en: string;
 }
 
+/** El detalle de una compra ágil que entró solo con lo de la lista: el
+ *  motor lo pide a Mercado Público al abrirla (decisión 20). */
+export type DetalleMp = "trayendo" | "no_disponible" | null;
+
 export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
+  detalle_mp?: DetalleMp;
+  /** Días de historia que faltan por cargar: con 0, "no hubo el año
+   *  pasado" es cierto; antes, solo "aún cargando". */
+  historia_pendiente?: number;
   leida_con: string | null;
   notas: string | null;
   quotation_id: string | null;
@@ -157,9 +165,26 @@ export interface CorridaDelRadar {
   empezo_en: string;
   termino_en: string | null;
   resumen: {
-    licitaciones?: { activas?: number; nuevas?: number; pendientes?: number };
-    compras_agiles?: { nuevas?: number };
-    lectura?: { leidas?: number };
+    licitaciones?: {
+      estado?: "ok" | "caida" | "sin_ticket" | "cortada";
+      activas?: number;
+      nuevas?: number;
+      pendientes?: number;
+      sin_detalle?: number;
+    };
+    compras_agiles?: {
+      estado?:
+        | "ok"
+        | "caida"
+        | "sin_cupo"
+        | "sin_regiones"
+        | "sin_ticket"
+        | "cortada";
+      listadas?: number;
+      nuevas?: number;
+      pendientes?: number;
+    };
+    lectura?: { leidas?: number; sin_leer?: number };
     avisos?: string[];
   } | null;
   error: string | null;
@@ -254,6 +279,20 @@ export interface ResultadoDeBases {
     agenda_de: string | null;
   };
   cumplimiento_error?: string;
+  /** Desde el 18-10: los formularios que llena el oferente y dónde viene
+   *  su formato en blanco. Un análisis anterior no los trae. */
+  formularios?: FormularioDelAnalisis[];
+}
+
+export interface FormularioDelAnalisis {
+  nombre: string;
+  /** El archivo donde viene el formato en blanco; vacío = no vino en lo
+   *  que se subió. */
+  archivo: string;
+  paginas: string;
+  aplica: boolean;
+  por_que_no_aplica: string;
+  se_entrega_en: "administrativa" | "tecnica" | "economica" | "otra";
 }
 
 export interface ItemDeCumplimiento {

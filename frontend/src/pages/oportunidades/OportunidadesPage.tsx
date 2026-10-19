@@ -1,18 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlarmClock,
+  AlertTriangle,
+  Archive,
   Briefcase,
   Building2,
   CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  CheckCircle2,
   Eye,
+  HelpCircle,
+  Hourglass,
   Inbox,
   RefreshCw,
   Settings,
   Star,
   Users,
+  type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import {
   actualizarOportunidad,
@@ -21,13 +29,23 @@ import {
   getOportunidades,
   type EstadoOportunidad,
   type Oportunidad,
-  type Semaforo,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
+import {
+  agruparPorCierre,
+  type ClaveDeGrupo,
+  contarPorVista,
+  conVistaValida,
+  queDiceLaBandejaVacia,
+  useProximaPasada,
+} from "./bandeja";
+import BandejaVacia from "./BandejaVacia";
+import { type Cobertura, coberturaDe } from "./cobertura";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
+import FiltrosDeLaBandeja from "./FiltrosDeLaBandeja";
 import MisLicitaciones from "./MisLicitaciones";
 import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
@@ -35,7 +53,6 @@ import {
   ALERTAS,
   contarPorSemaforo,
   cuandoCierra,
-  esPrioridad,
   ESTADOS,
   ETIQUETAS,
   FILTROS_DE_PARTIDA,
@@ -44,16 +61,15 @@ import {
   SEMAFOROS,
   textoDelAnterior,
   separarMias,
-  TIPOS,
-  VISTAS,
 } from "./oportunidades.utils";
+import SelloDeTipo from "./SelloDeTipo";
 import SeVieneOportunidades from "./SeVieneOportunidades";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
-// ágiles que el radar trae cada 2 horas y la IA lee. Base: el mockup del
-// 16-10. Solo administrador. Sin resumen por correo (Felipe, 17-10: "se
-// revisa en Eventia").
+// ágiles que el radar trae (09, 12, 15 y 18 h, y de noche; decisión 18) y la
+// IA lee. Base: el mockup del 16-10. Solo administrador. Sin resumen por
+// correo (Felipe, 17-10: "se revisa en Eventia").
 
 const CLAVE_FILTROS = "op.filtros";
 const CLAVE_PESTANA = "op.pestana";
@@ -104,13 +120,16 @@ export default function OportunidadesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Oportunidades</h1>
           <p className="text-sm text-gray-500">
             Licitaciones y compras ágiles de Mercado Público, leídas con IA. Se
-            pone al día cada 2 horas.
+            pone al día a las 9, 12, 15 y 18 h, y de noche.
           </p>
         </div>
         <EstadoDelRadar />
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Sin overflow-hidden: recortaba lo que se despliega (el filtro
+          "Por revisar" con la bandeja vacía y el estado en «Mis
+          licitaciones»; Felipe, 17-10). */}
+      <div className="bg-white rounded-lg shadow">
         <div className="flex gap-1 px-4 border-b border-gray-200 overflow-x-auto">
           {(
             [
@@ -146,13 +165,27 @@ export default function OportunidadesPage() {
           {pestana === "seviene" && <SeVieneOportunidades />}
           {pestana === "competidores" && <CompetidoresOportunidades />}
           {pestana === "empresa" && <OferenteOportunidades />}
-          {pestana === "bandeja" && <Bandeja />}
+          {pestana === "bandeja" && (
+            <Bandeja
+              enCurso={enCurso}
+              onIrAMisLicitaciones={() => elegirPestana("mias")}
+            />
+          )}
           {pestana === "mias" && <MisLicitaciones />}
         </div>
       </div>
     </div>
   );
 }
+
+const ESTILO_DE_COBERTURA: Record<
+  Cobertura["tono"],
+  { readonly icono: LucideIcon; readonly clases: string }
+> = {
+  al_dia: { icono: CheckCircle2, clases: "text-green-700" },
+  faltan: { icono: Hourglass, clases: "text-amber-700" },
+  atrasado: { icono: AlertTriangle, clases: "text-red-600 font-semibold" },
+};
 
 /** Cuándo se revisó Mercado Público por última vez, y el botón para
  *  revisarlo ahora (útil en el laboratorio, donde el reloj no corre). */
@@ -166,6 +199,11 @@ function EstadoDelRadar() {
   const ultima = corridas[0];
   const ultimaBuena = corridas.find((c) => c.estado === "ok");
   const corriendo = ultima?.estado === "corriendo";
+  // Al lado de cuándo se revisó, cuándo vuelve a revisar (18-10).
+  const proxima = useProximaPasada();
+  // «¿Está todo?»: cuánto falta por traer y por leer (18-10).
+  const cobertura = coberturaDe(corridas);
+  const estiloCobertura = cobertura && ESTILO_DE_COBERTURA[cobertura.tono];
 
   const revisar = useMutation({
     mutationFn: correrRadar,
@@ -187,10 +225,21 @@ function EstadoDelRadar() {
       <div>
         {corriendo
           ? `Revisando Mercado Público desde las ${formatMomento(ultima.empezo_en, "diaHora")}…`
-          : ultimaBuena
-            ? `Revisado ${formatMomento(ultimaBuena.termino_en ?? ultimaBuena.empezo_en, "diaHora")}`
-            : "Todavía sin revisar"}
+          : `${
+              ultimaBuena
+                ? `Revisado ${formatMomento(ultimaBuena.termino_en ?? ultimaBuena.empezo_en, "diaHora")}`
+                : "Todavía sin revisar"
+            } · próxima ${proxima}`}
       </div>
+      {cobertura && estiloCobertura && (
+        <div
+          title="Según la última pasada buena del radar"
+          className={`flex items-center justify-end gap-1 ${estiloCobertura.clases}`}
+        >
+          <estiloCobertura.icono size={13} className="shrink-0" />
+          {cobertura.texto}
+        </div>
+      )}
       {ultima?.estado === "error" && (
         <div className="text-red-600">La última revisión falló.</div>
       )}
@@ -207,10 +256,38 @@ function EstadoDelRadar() {
   );
 }
 
-function Bandeja() {
+/** Cómo se ve el título de cada grupo de la lista (`agruparPorCierre`). */
+const ESTILO_DEL_GRUPO: Record<
+  ClaveDeGrupo,
+  {
+    readonly icono: LucideIcon;
+    readonly clases: string;
+    readonly ayuda?: string;
+  }
+> = {
+  prioridad: { icono: Star, clases: "text-amber-700" },
+  pronto: { icono: AlarmClock, clases: "text-red-700" },
+  semana: {
+    icono: CalendarDays,
+    clases: "text-gray-600",
+    ayuda: "Cierran en 4 a 7 días",
+  },
+  despues: { icono: CalendarRange, clases: "text-gray-500" },
+  sin_cierre: { icono: HelpCircle, clases: "text-gray-500" },
+  cerradas: { icono: Archive, clases: "text-gray-500" },
+};
+
+function Bandeja({
+  enCurso,
+  onIrAMisLicitaciones,
+}: {
+  readonly enCurso: number;
+  readonly onIrAMisLicitaciones: () => void;
+}) {
   const qc = useQueryClient();
+  const proxima = useProximaPasada();
   const [filtros, setFiltrosEstado] = useState<Filtros>(() =>
-    leerSesion<Filtros>(CLAVE_FILTROS, FILTROS_DE_PARTIDA),
+    conVistaValida(leerSesion<Filtros>(CLAVE_FILTROS, FILTROS_DE_PARTIDA)),
   );
   const setFiltros = (cambios: Partial<Filtros>) =>
     setFiltrosEstado((antes) => {
@@ -237,6 +314,10 @@ function Bandeja() {
   const visibles = base.filter(
     (o) => !o.semaforo || filtros.semaforos.includes(o.semaforo),
   );
+  const porVista = useMemo(
+    () => contarPorVista(lista, filtros),
+    [lista, filtros],
+  );
   const regiones = useMemo(
     () =>
       [...new Set(lista.map((o) => o.proceso.region).filter(Boolean))].sort(
@@ -258,7 +339,7 @@ function Bandeja() {
       setAbierta(null);
       toast.success(
         estado === "descartada"
-          ? "Descartada. Queda en la vista Descartadas: no se borra."
+          ? "Descartada. Queda en «Descartadas»: no se borra."
           : estado === "en_estudio"
             ? "Quedó en «Mis licitaciones» para trabajarla."
             : "Lista.",
@@ -269,82 +350,15 @@ function Bandeja() {
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
   });
 
-  const alternarSemaforo = (s: Semaforo) =>
-    setFiltros({
-      semaforos: filtros.semaforos.includes(s)
-        ? filtros.semaforos.filter((x) => x !== s)
-        : [...filtros.semaforos, s],
-    });
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {(Object.keys(SEMAFOROS) as Semaforo[]).map((s) => {
-          const activo = filtros.semaforos.includes(s);
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => alternarSemaforo(s)}
-              aria-pressed={activo}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border ${
-                activo
-                  ? SEMAFOROS[s].chip
-                  : "border-gray-200 bg-white text-gray-400"
-              }`}
-            >
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${SEMAFOROS[s].punto}`}
-              />
-              {SEMAFOROS[s].label} {cuenta[s]}
-              {!activo && s === "rojo" && " · ocultas"}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <SelectWithSearch
-          options={VISTAS.map((v) => ({ value: v.value, label: v.label }))}
-          value={filtros.vista}
-          onChange={(v) =>
-            setFiltros({ vista: (v || "abiertas") as Filtros["vista"] })
-          }
-          sinLimpiar
-          mostrarConteo={false}
-          tamano="sm"
-        />
-        <SelectWithSearch
-          options={[
-            { value: "", label: "Licitaciones y compras ágiles" },
-            { value: "licitacion", label: "Solo licitaciones" },
-            { value: "compra_agil", label: "Solo compras ágiles" },
-          ]}
-          value={filtros.tipo}
-          onChange={(v) => setFiltros({ tipo: v as Filtros["tipo"] })}
-          sinLimpiar
-          mostrarConteo={false}
-          tamano="sm"
-        />
-        <SelectWithSearch
-          options={[
-            { value: "", label: "Todas tus regiones" },
-            ...regiones.map((r) => ({ value: r, label: r })),
-          ]}
-          value={filtros.region}
-          onChange={(v) => setFiltros({ region: v })}
-          sinLimpiar
-          mostrarConteo={false}
-          tamano="sm"
-        />
-        <input
-          type="text"
-          value={filtros.busca}
-          onChange={(e) => setFiltros({ busca: e.target.value })}
-          placeholder="Buscar por nombre, organismo o código"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+      <FiltrosDeLaBandeja
+        filtros={filtros}
+        onCambiar={setFiltros}
+        porVista={porVista}
+        porSemaforo={cuenta}
+        regiones={regiones}
+      />
 
       {isPending ? (
         <p className="py-10 text-center text-sm text-gray-500">Cargando…</p>
@@ -353,41 +367,42 @@ function Bandeja() {
           No se pudo cargar la bandeja. Intenta de nuevo en un rato.
         </p>
       ) : visibles.length === 0 ? (
-        <p className="py-10 text-center text-sm text-gray-500">
-          {lista.length === 0
-            ? "Todavía no hay oportunidades leídas. El radar las trae solo, cada 2 horas."
-            : "Nada con estos filtros."}
-        </p>
+        <BandejaVacia
+          caso={queDiceLaBandejaVacia(lista.length, filtros)}
+          vista={filtros.vista}
+          proxima={proxima}
+          rojas={filtros.semaforos.includes("rojo") ? 0 : cuenta.rojo}
+          enCurso={enCurso}
+          onVerRojas={() =>
+            setFiltros({ semaforos: [...filtros.semaforos, "rojo"] })
+          }
+          onQuitarFiltros={() =>
+            setFiltros({
+              tipo: FILTROS_DE_PARTIDA.tipo,
+              region: FILTROS_DE_PARTIDA.region,
+              busca: FILTROS_DE_PARTIDA.busca,
+              semaforos: FILTROS_DE_PARTIDA.semaforos,
+            })
+          }
+          onIrAMisLicitaciones={onIrAMisLicitaciones}
+        />
       ) : (
         <div className="space-y-5">
-          {[
-            {
-              titulo: "Prioridad: comuna cercana o alto valor",
-              filas: visibles.filter(esPrioridad),
-              destacado: true,
-            },
-            {
-              titulo: "El resto",
-              filas: visibles.filter((o) => !esPrioridad(o)),
-              destacado: false,
-            },
-          ]
-            .filter((g) => g.filas.length > 0)
-            .map((g, i, grupos) => (
-              <section key={g.titulo}>
-                {grupos.length > 1 && (
-                  <h3
-                    className={`flex items-center gap-1.5 mb-1 text-xs font-semibold uppercase tracking-wide ${
-                      g.destacado ? "text-amber-700" : "text-gray-500"
-                    }`}
-                  >
-                    {g.destacado && <Star size={14} />}
-                    {g.titulo} ({g.filas.length})
-                  </h3>
-                )}
+          {agruparPorCierre(visibles).map((g) => {
+            const estilo = ESTILO_DEL_GRUPO[g.clave];
+            const destacado = g.clave === "prioridad";
+            return (
+              <section key={g.clave}>
+                <h3
+                  title={estilo.ayuda}
+                  className={`flex items-center gap-1.5 mb-1 text-xs font-semibold uppercase tracking-wide ${estilo.clases}`}
+                >
+                  <estilo.icono size={14} />
+                  {g.titulo} ({g.filas.length})
+                </h3>
                 <ul
                   className={`divide-y divide-gray-200 border-t ${
-                    g.destacado
+                    destacado
                       ? "border-amber-300 bg-amber-50/40"
                       : "border-gray-200"
                   }`}
@@ -405,7 +420,8 @@ function Bandeja() {
                   ))}
                 </ul>
               </section>
-            ))}
+            );
+          })}
         </div>
       )}
 
@@ -458,25 +474,31 @@ function FilaDeOportunidad({
         }`}
       />
       <div className="min-w-0">
-        <Link
-          to={`/oportunidades/${o.id}`}
-          onClick={(e) => {
-            // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
-            // ficha en otra pestaña, como cualquier enlace.
-            e.stopPropagation();
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-            e.preventDefault();
-            onAbrir();
-          }}
-          className="text-sm font-semibold text-gray-900 hover:text-blue-700"
-        >
-          {p.nombre}
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <SelloDeTipo tipo={p.tipo} />
+          <Link
+            to={`/oportunidades/${o.id}`}
+            onClick={(e) => {
+              // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
+              // ficha en otra pestaña, como cualquier enlace.
+              e.stopPropagation();
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
+                return;
+              e.preventDefault();
+              onAbrir();
+            }}
+            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
+          >
+            {p.nombre}
+          </Link>
+        </div>
         <p className="text-xs text-gray-500 mt-0.5">
           {[
             p.organismo,
-            `${TIPOS[p.tipo]} ${o.codigo}`,
-            p.monto ? formatCurrency(p.monto, "CLP") : "monto no informado",
+            o.codigo,
+            p.monto
+              ? formatCurrency(p.monto, "CLP")
+              : "presupuesto no publicado",
           ]
             .filter(Boolean)
             .join(" · ")}

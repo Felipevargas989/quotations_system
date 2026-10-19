@@ -26,13 +26,22 @@ import {
   hoyEnChile,
   MODELO_HAIKU,
   MODELO_OPUS,
-  MODELO_SONNET,
   type NoLeido,
 } from '../analisis/comun';
-import { nombresDelZip, textoDeDocx } from '../analisis/docx';
 import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import {
+  claseDeFormulario,
+  concretarSalidas,
+  elegirArchivos,
+  formulariosParaElTaller,
+  habilidadesParaFormularios,
+  MAX_BYTES_DE_PDF_EN_FORMULARIOS,
+  modeloParaFormularios,
+  salidasDeFormularios,
+  sinExtension,
+} from './formularios';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
@@ -49,7 +58,12 @@ import {
   leerInforme,
   loQuePidenLasBases,
 } from './instrucciones';
-import { type ArchivoParaElTaller, trabajarEnElTaller } from './taller';
+import { problemaDelDocumento } from './revision';
+import {
+  type ArchivoParaElTaller,
+  type Habilidad,
+  trabajarEnElTaller,
+} from './taller';
 
 // ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA (doc 17, sprint 3, paso
 // 4; migración 129). Felipe, 17-10: "1.- si 2.- si 3.- si, pero primero
@@ -57,11 +71,9 @@ import { type ArchivoParaElTaller, trabajarEnElTaller } from './taller';
 //
 // Tres botones, el mismo camino: el motor arma el pedido, responde al tiro
 // con el trabajo "procesando" y sigue por detrás. Claude trabaja en el
-// taller (./taller: ejecución de código y la habilidad de Word); lo que
-// entrega se revisa ANTES de guardarse en "Mi postulación":
-//  - que sea un Word que se abre;
-//  - el firmado, además, con el MISMO texto que el que se firmó y una imagen
-//    más (la firma). Si la IA tocó algo más, se descarta.
+// taller (./taller: ejecución de código y la habilidad de Word; la de PDF
+// cuando hay que reescribir un formulario en PDF, ./formularios); lo que
+// entrega se revisa ANTES de guardarse en "Mi postulación" (./revision).
 // Lo generado queda marcado 'generado' (sin firma) o 'firmado', con el
 // archivo del que salió. Nada se sube a Mercado Público: eso lo hace la
 // empresa.
@@ -93,6 +105,8 @@ type Entrada = {
   url?: string;
   /** El logo es opcional: si no se puede bajar, se sigue sin él. */
   opcional?: boolean;
+  /** Un formulario en PDF: además, la IA lo mira (taller.ts). */
+  verComoDocumento?: boolean;
 };
 
 /** Lo que se espera que entregue, y cómo se guarda. */
@@ -103,6 +117,8 @@ type Salida = {
   viene_de: number | null;
   /** El firmado se compara con el documento que se firmó. */
   comparaCon?: string;
+  /** De un PDF, un Word por formulario: `concretarSalidas`. */
+  prefijo?: true;
 };
 
 export type Plan = {
@@ -118,33 +134,8 @@ export type Plan = {
   salidas: Salida[];
   esfuerzo: 'medium' | 'high';
   maxTokens: number;
-};
-
-const sinExtension = (nombre: string) => {
-  const punto = nombre.lastIndexOf('.');
-  return punto > 0 ? nombre.slice(0, punto) : nombre;
-};
-
-/** Sin espacios: lo que importa es que no cambie ni una letra. */
-const letras = (docx: Buffer): string | null =>
-  textoDeDocx(docx)?.replace(/\s+/g, '') ?? null;
-
-const imagenes = (docx: Buffer): number =>
-  (nombresDelZip(docx) ?? []).filter((n) => n.startsWith('word/media/')).length;
-
-/** Por qué no se guarda lo que entregó la IA; null = se guarda. */
-export const problemaDelDocumento = (
-  hecho: Buffer,
-  antes?: Buffer,
-): string | null => {
-  const texto = letras(hecho);
-  if (texto === null) return 'no es un Word que se pueda abrir';
-  if (!antes) return null;
-  if (texto !== letras(antes)) {
-    return 'la IA cambió el texto además de firmar: se descartó';
-  }
-  if (imagenes(hecho) <= imagenes(antes)) return 'no trae la firma';
-  return null;
+  /** Sin decirlo, la de Word; con un PDF, también la de PDF. */
+  habilidades?: readonly Habilidad[];
 };
 
 @Injectable()
@@ -190,7 +181,11 @@ export class GeneracionService {
     return { anexos, firma, propuesta };
   }
 
-  /** "Generar anexos": los Word de «Bases y anexos», llenos y SIN firma.
+  /** "Generar anexos": los formularios del comprador, llenos y SIN firma.
+   *  Dos caminos (formularios.ts): un Word se llena en el mismo archivo; un
+   *  PDF se reescribe en Word, con el texto oficial al pie de la letra. Los
+   *  archivos los elige el motor (`elegirArchivos`, 19-10: sin casillas):
+   *  los Word y los PDF donde el análisis encontró formularios que aplican.
    *  `monto_total` (con IVA) lo pone la empresa; sin él, la oferta
    *  económica queda en blanco. */
   async generarAnexos(
@@ -201,26 +196,40 @@ export class GeneracionService {
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const bases = await this.adjuntos.listar(companyId, oportunidadId, 'bases');
-    const words = bases.filter((a) => extensionDe(a.nombre) === 'docx');
+    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
     const pedidos = new Set(pedido.adjuntos ?? []);
-    const elegidos =
-      pedidos.size > 0 ? words.filter((a) => pedidos.has(a.id)) : words;
-    if (pedidos.size > 0 && elegidos.length !== pedidos.size) {
+    const elegidos = elegirArchivos(
+      bases,
+      pedidos,
+      contexto.datos.bases?.formularios ?? [],
+    );
+    if (
+      pedidos.size > 0 &&
+      (elegidos.length !== pedidos.size ||
+        elegidos.some((a) => !claseDeFormulario(a.nombre)))
+    ) {
       throw new BadRequestException(
-        'Solo se llenan los Word (.docx) de «Bases y anexos».',
+        'Solo se llenan los formularios en Word o PDF de «Bases y anexos».',
       );
     }
     if (elegidos.length === 0) {
       throw new BadRequestException(
-        'En «Bases y anexos» no hay ningún Word (.docx) que llenar. Si un anexo viene como .doc, ábrelo en Word, guárdalo como .docx y súbelo.',
+        'No hay formularios para llenar en «Bases y anexos». Analiza las bases (o vuelve a analizarlas) para que la IA encuentre dónde vienen.',
       );
     }
     if (elegidos.length > MAX_DOCUMENTOS) {
       throw new BadRequestException(
-        `Elige hasta ${MAX_DOCUMENTOS} anexos por vez.`,
+        `Son más de ${MAX_DOCUMENTOS} archivos para llenar de una vez: deja en «Bases y anexos» solo los que traen formularios.`,
       );
     }
-    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
+    const pesoDePdf = elegidos
+      .filter((a) => claseDeFormulario(a.nombre) === 'pdf')
+      .reduce((suma, a) => suma + a.bytes, 0);
+    if (pesoDePdf > MAX_BYTES_DE_PDF_EN_FORMULARIOS) {
+      throw new BadRequestException(
+        'Los PDF con formularios pesan más de 40 MB juntos: sube a «Bases y anexos» solo las páginas de los formularios y vuelve a analizar.',
+      );
+    }
     if (!contexto.oferente.razon_social || !contexto.oferente.rut) {
       throw new BadRequestException(
         'Primero llena los datos de la empresa en «Mi empresa» (al menos la razón social y el RUT).',
@@ -229,17 +238,7 @@ export class GeneracionService {
     const oferta = pedido.monto_total
       ? desgloseDeOferta(pedido.monto_total)
       : null;
-    const anexos = elegidos.map((a) => ({
-      adjunto: a,
-      enElTaller: `anexo_${a.id}.docx`,
-    }));
-    const noLeidos: NoLeido[] = bases
-      .filter((a) => extensionDe(a.nombre) === 'doc')
-      .map((a) => ({
-        nombre: a.nombre,
-        motivo:
-          'Word antiguo (.doc): ábrelo en Word, guárdalo como .docx y súbelo',
-      }));
+    const formularios = formulariosParaElTaller(elegidos);
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
       tipo: 'anexos',
@@ -249,33 +248,30 @@ export class GeneracionService {
         adjuntos: elegidos.map((a) => a.id),
       },
       archivos: elegidos,
-      noLeidos,
+      noLeidos: [],
       plan: {
         sistema: instruccionesDeAnexos(
           contexto.datos,
-          anexos.map((a) => ({
-            enElTaller: a.enElTaller,
-            original: a.adjunto.nombre,
+          formularios.map((f) => ({
+            enElTaller: f.enElTaller,
+            original: f.adjunto.nombre,
+            clase: f.clase,
           })),
           oferta,
         ),
         texto: 'Llena los anexos.',
-        // Casi todo es copiar los datos de la empresa al formulario: Sonnet
-        // basta, a la mitad del precio de Opus.
-        modelo: MODELO_SONNET,
-        entradas: anexos.map((a) => ({
-          enElTaller: a.enElTaller,
-          tipo: TIPO_WORD,
-          ruta: a.adjunto.ruta,
+        modelo: modeloParaFormularios(formularios),
+        habilidades: habilidadesParaFormularios(formularios),
+        entradas: formularios.map((f) => ({
+          enElTaller: f.enElTaller,
+          tipo: f.tipo,
+          ruta: f.adjunto.ruta,
+          ...(f.clase === 'pdf' ? { verComoDocumento: true } : {}),
         })),
-        salidas: anexos.map((a) => ({
-          enElTaller: `lleno_${a.adjunto.id}.docx`,
-          nombre: `${sinExtension(a.adjunto.nombre)} - lleno.docx`,
-          origen: 'generado',
-          viene_de: a.adjunto.id,
-        })),
+        salidas: salidasDeFormularios(formularios),
         esfuerzo: 'medium',
-        maxTokens: 32_000,
+        // Reescribir un PDF son varios Word nuevos: más espacio.
+        maxTokens: pesoDePdf > 0 ? 64_000 : 32_000,
       },
     });
   }
@@ -488,7 +484,12 @@ export class GeneracionService {
           throw new Error(`no se pudo bajar ${e.enElTaller}`);
         }
         bajados.set(e.enElTaller, datos);
-        archivos.push({ nombre: e.enElTaller, datos, tipo: e.tipo });
+        archivos.push({
+          nombre: e.enElTaller,
+          datos,
+          tipo: e.tipo,
+          verComoDocumento: e.verComoDocumento,
+        });
       }
 
       const taller = await trabajarEnElTaller(this.cliente(), {
@@ -498,9 +499,15 @@ export class GeneracionService {
         archivos,
         esfuerzo: plan.esfuerzo,
         maxTokens: plan.maxTokens,
+        habilidades: plan.habilidades,
       });
       const informe = leerInforme(
         taller.archivos.find((a) => a.nombre === 'informe.json')?.datos,
+      );
+      const salidas = concretarSalidas(
+        plan.salidas,
+        taller.archivos.map((a) => a.nombre),
+        new Map(informe?.documentos.map((d) => [d.archivo, d.titulo]) ?? []),
       );
 
       const documentos: Array<{
@@ -511,7 +518,7 @@ export class GeneracionService {
       }> = [];
       const descartados: Array<{ nombre: string; motivo: string }> = [];
       const noEntregados: string[] = [];
-      for (const s of plan.salidas) {
+      for (const s of salidas) {
         const hecho = taller.archivos.find((a) => a.nombre === s.enElTaller);
         if (!hecho) {
           noEntregados.push(s.nombre);

@@ -8,8 +8,10 @@ import {
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
 import { EventiaRepository } from './eventia/eventia.repository';
+import { FichaRepository } from './ficha/ficha.repository';
 import { GeneracionRepository } from './generacion/generacion.repository';
 import { GeneracionService } from './generacion/generacion.service';
+import { HistoriaRepository } from './historia/historia.repository';
 import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
@@ -33,6 +35,7 @@ import { RadarService } from './radar.service';
     LecturaService,
     OportunidadesRepository,
     OportunidadesService,
+    FichaRepository,
     AdjuntosRepository,
     AdjuntosService,
     AnalisisRepository,
@@ -45,6 +48,7 @@ import { RadarService } from './radar.service';
     EventiaRepository,
     OferenteRepository,
     OferenteService,
+    HistoriaRepository,
     HistoriaService,
     RadarService,
     OportunidadesCronService,

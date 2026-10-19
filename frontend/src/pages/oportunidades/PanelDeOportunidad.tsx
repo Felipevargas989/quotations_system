@@ -15,6 +15,8 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import Ganadores from "./Ganadores";
+import SelloDeTipo from "./SelloDeTipo";
+import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import { useResponsables } from "./useResponsables";
 import {
   ALERTAS,
@@ -23,7 +25,6 @@ import {
   ESTADOS,
   ETIQUETAS,
   SEMAFOROS,
-  TIPOS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
 
@@ -54,6 +55,8 @@ export default function PanelDeOportunidad({
   const { data: ficha } = useQuery({
     queryKey: ["oportunidades", "ficha", o.id],
     queryFn: () => getFichaDeOportunidad(o.id),
+    // Una compra ágil sin detalle: el motor lo trae por detrás.
+    refetchInterval: (q) => preguntarDeNuevo(q.state.data?.detalle_mp),
   });
   const p = o.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
@@ -84,7 +87,7 @@ export default function PanelDeOportunidad({
       titulo={p.nombre}
       subtitulo={
         <span className="flex flex-wrap items-center gap-1.5 mt-1">
-          <Chip>{TIPOS[p.tipo]}</Chip>
+          <SelloDeTipo tipo={p.tipo} />
           <Chip oscuro>{o.codigo}</Chip>
           {o.semaforo && (
             <Chip>
@@ -160,6 +163,22 @@ export default function PanelDeOportunidad({
       }
     >
       <div className="space-y-4">
+        {/* El presupuesto, arriba (Felipe, 17-10: "pensé que la licitación
+            traía el monto del presupuesto"). Mercado Público da solo el
+            total, y no siempre: el comprador puede ocultarlo. */}
+        <div className="flex flex-wrap items-baseline gap-x-2 rounded-lg bg-gray-50 px-3 py-2">
+          <span className="text-sm text-gray-500">Presupuesto</span>
+          {p.monto ? (
+            <span className="text-lg font-bold text-gray-900">
+              {formatCurrency(p.monto, "CLP")}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-700">
+              No publicado: búscalo en las bases
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-3">
           <span className="shrink-0 text-sm text-gray-500">Responsable</span>
           <div className="min-w-0 flex-1">
@@ -209,6 +228,12 @@ export default function PanelDeOportunidad({
           </p>
         )}
 
+        {productos.length === 0 && ficha?.detalle_mp && (
+          <p className="text-sm text-gray-500">
+            {TEXTO_DEL_DETALLE_MP[ficha.detalle_mp]}
+          </p>
+        )}
+
         {productos.length > 0 && (
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-gray-900">
@@ -237,9 +262,6 @@ export default function PanelDeOportunidad({
 
         <dl className="divide-y divide-gray-100 border-t border-gray-100 text-sm">
           <Fila titulo="Organismo">{p.organismo ?? "—"}</Fila>
-          <Fila titulo="Monto">
-            {p.monto ? formatCurrency(p.monto, "CLP") : "No informado"}
-          </Fila>
           <Fila titulo="Ubicación">
             {[p.comuna, p.region].filter(Boolean).join(" · ") || "—"}
           </Fila>

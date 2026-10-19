@@ -5,6 +5,7 @@ import {
   cuandoCierra,
   esPrioridad,
   FILTROS_DE_PARTIDA,
+  VISTAS,
   textoDelAnterior,
   filtrar,
   filtrarSinSemaforo,
@@ -35,6 +36,7 @@ import {
   filtrarRequisitos,
   requisitosConEstado,
 } from "./oportunidades.utils";
+import { preguntarDeNuevo, SELLO_DEL_TIPO } from "./tipoDeProceso";
 
 const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
   codigo: `C-${parcial.id}`,
@@ -63,6 +65,20 @@ const op = (parcial: Partial<Oportunidad> & { id: number }): Oportunidad => ({
   },
 });
 
+describe("compras ágiles y licitaciones (Felipe, 17-10)", () => {
+  it("cada tipo tiene su sello, de colores distintos", () => {
+    expect(SELLO_DEL_TIPO.licitacion).toContain("indigo");
+    expect(SELLO_DEL_TIPO.compra_agil).toContain("violet");
+  });
+
+  it("la ficha vuelve a preguntar solo mientras el motor trae el detalle", () => {
+    expect(preguntarDeNuevo("trayendo")).toBe(4000);
+    expect(preguntarDeNuevo("no_disponible")).toBe(false);
+    expect(preguntarDeNuevo(null)).toBe(false);
+    expect(preguntarDeNuevo(undefined)).toBe(false);
+  });
+});
+
 describe("la bandeja: qué se ve de partida", () => {
   const lista = [
     op({ id: 1, semaforo: "verde" }),
@@ -72,15 +88,30 @@ describe("la bandeja: qué se ve de partida", () => {
     op({ id: 5, semaforo: "verde", estado: "ganada" }),
   ];
 
-  it("las rojas y lo descartado o resuelto quedan fuera", () => {
-    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1, 2]);
+  it("abre en «Por revisar»: sin las rojas ni lo ya marcado (Felipe, 17-10)", () => {
+    expect(FILTROS_DE_PARTIDA.vista).toBe("nueva");
+    expect(VISTAS[0]).toMatchObject({ value: "nueva", label: "Por revisar" });
+    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1]);
+  });
+
+  it("tres montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10)", () => {
+    expect(VISTAS.map((v) => v.label)).toEqual([
+      "Por revisar",
+      "Descartadas",
+      "Historial",
+    ]);
+    const enEstudio = (vista: (typeof VISTAS)[number]["value"]) =>
+      filtrar(lista, { ...FILTROS_DE_PARTIDA, vista }).some((o) => o.id === 2);
+    expect(enEstudio("nueva")).toBe(false);
+    expect(enEstudio("descartada")).toBe(false);
+    expect(enEstudio("historial")).toBe(true);
   });
 
   it("los contadores de los chips cuentan con los demás filtros, sin el semáforo", () => {
     const cuenta = contarPorSemaforo(
       filtrarSinSemaforo(lista, FILTROS_DE_PARTIDA),
     );
-    expect(cuenta).toEqual({ verde: 1, amarillo: 1, rojo: 1 });
+    expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 1 });
   });
 
   it("con las rojas encendidas, se ven", () => {
@@ -88,7 +119,7 @@ describe("la bandeja: qué se ve de partida", () => {
       ...FILTROS_DE_PARTIDA,
       semaforos: ["verde", "amarillo", "rojo"] as const,
     };
-    expect(filtrar(lista, f).map((o) => o.id)).toEqual([1, 2, 3]);
+    expect(filtrar(lista, f).map((o) => o.id)).toEqual([1, 3]);
   });
 
   it("la vista Descartadas muestra solo esas", () => {

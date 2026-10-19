@@ -19,7 +19,8 @@
 > producción antes de fusionar), coordinada con la sesión de Oportunidades.
 >
 > **18-10: siempre el hilo de la cotización (§3 punto 3).** Felipe: *"si
-> dale que prefiera el hilo de la cotización siempre"*. En el laboratorio.
+> dale que prefiera el hilo de la cotización siempre"*. En producción desde el
+> 18-10-2026 (PR #156).
 
 ## 1. Por qué
 

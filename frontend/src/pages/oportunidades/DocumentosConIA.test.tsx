@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
 import DocumentosConIA from "./DocumentosConIA";
@@ -74,6 +75,7 @@ vi.mock("../../services/oportunidades.service", () => ({
   getAnalisis: vi.fn(),
   getGeneraciones: vi.fn(),
   generarAnexos: vi.fn(),
+  getOferente: vi.fn(),
   crearPropuestaTecnica: vi.fn(),
   firmarDocumentos: vi.fn(),
   subirAdjunto: vi.fn(),
@@ -102,6 +104,12 @@ beforeEach(() => {
     ),
   );
   s.getAnalisis.mockResolvedValue({ id: 5, estado: "listo" } as never);
+  s.getOferente.mockResolvedValue({
+    oferente: {
+      razon_social: "VALLE DEL SOL QUILLON SPA",
+      rut: "77.701.305-K",
+    },
+  } as never);
   s.getGeneraciones.mockResolvedValue({
     anexos: TRABAJO,
     firma: null,
@@ -133,19 +141,23 @@ const pintar = (ui: ReactElement) =>
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {ui}
+      <MemoryRouter>{ui}</MemoryRouter>
     </QueryClientProvider>,
   );
 
 describe("Crear documentos con IA", () => {
-  it("lista los Word de las bases para llenar y manda solo los marcados, con el total que puso la empresa", async () => {
+  it("sin casillas: con un análisis anterior se llenan los Word y se pide volver a analizar por los PDF; se manda solo el total (19-10)", async () => {
     pintar(<DocumentosConIA oportunidadId={40} />);
 
     expect(
-      await screen.findByText("Formularios_Anexos.docx"),
+      await screen.findByText(
+        "Se llenan los Word de «Bases y anexos». Si hay formularios en PDF, vuelve a analizar las bases para que la IA los encuentre.",
+      ),
     ).toBeInTheDocument();
+    // Felipe, 19-10: "que me traiga los PDF y me los marque, creo que eso
+    // es lo innecesario". Los archivos los elige el motor.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     expect(screen.queryByText("Bases.pdf")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Anexo 7\.docx/ }));
     fireEvent.change(
       screen.getByLabelText("Monto total de la oferta, con IVA (opcional)"),
       { target: { value: "11900000" } },
@@ -157,13 +169,113 @@ describe("Crear documentos con IA", () => {
     fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
     await waitFor(() =>
       expect(s.generarAnexos).toHaveBeenCalledWith(40, {
-        adjuntos: [6],
         monto_total: 11_900_000,
       }),
     );
     expect(
       await screen.findByText(/La IA está llenando los anexos/),
     ).toBeInTheDocument();
+  });
+
+  it("formularios solo en PDF y sin análisis: pide analizar y no deja generar", async () => {
+    s.getAdjuntos.mockResolvedValue([archivo(4, "Bases.pdf")] as never);
+    s.getAnalisis.mockResolvedValue(null);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText(
+        "Analiza las bases para que la IA encuentre los formularios.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
+  });
+
+  it("si el análisis no encontró formularios y no hay Word, lo dice y no deja generar", async () => {
+    s.getAdjuntos.mockResolvedValue([archivo(4, "Bases.pdf")] as never);
+    s.getAnalisis.mockResolvedValue({
+      id: 5,
+      estado: "listo",
+      resultado: { formularios: [] },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText("Las bases no traen formularios para llenar."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
+  });
+
+  it("con el análisis, la lista de formularios con su archivo y página, y nada que marcar: el motor elige (18 y 19-10)", async () => {
+    s.getAnalisis.mockResolvedValue({
+      id: 5,
+      estado: "listo",
+      resultado: {
+        formularios: [
+          {
+            nombre: "Formulario N°1 - Identificación del oferente",
+            archivo: "Bases.pdf",
+            paginas: "16",
+            aplica: true,
+            por_que_no_aplica: "",
+            se_entrega_en: "administrativa",
+          },
+          {
+            nombre: "Formulario UTP",
+            archivo: "Bases.pdf",
+            paginas: "18",
+            aplica: false,
+            por_que_no_aplica: "Postulas sola",
+            se_entrega_en: "administrativa",
+          },
+          {
+            nombre: "Formulario N°5 - Oferta económica",
+            archivo: "",
+            paginas: "",
+            aplica: true,
+            por_que_no_aplica: "",
+            se_entrega_en: "economica",
+          },
+        ],
+      },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+
+    expect(
+      await screen.findByText("Formulario N°1 - Identificación del oferente"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/pág\. 16 · se entrega en la parte administrativa/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/No aplica: Postulas sola/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No viene en lo que subiste.*y vuelve a analizar\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Los Word se llenan en el mismo archivo; los que vienen en PDF se reescriben en Word, iguales al original.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
+    await waitFor(() => expect(s.generarAnexos).toHaveBeenCalledWith(40, {}));
+  });
+
+  it("sin razón social o RUT en «Mi empresa», lo dice y no deja generar", async () => {
+    s.getOferente.mockResolvedValue({
+      oferente: { razon_social: null, rut: null },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+    expect(
+      await screen.findByText(/Primero llena «Mi empresa»/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ir a «Mi empresa»" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Volver a generar/ }),
+    ).toBeDisabled();
   });
 
   it("sin monto avisa que la oferta queda en blanco; lo que hizo la IA sale con lo que falta completar", async () => {
@@ -203,8 +315,13 @@ describe("Mi postulación: la firma en dos tiempos", () => {
       />,
     );
 
+    // El nombre se muestra sin guiones bajos (17-10); el original queda en
+    // el texto al pasar el mouse.
     expect(
-      await screen.findByText("Formularios_Anexos - lleno.docx"),
+      await screen.findByText("Formularios Anexos - lleno.docx"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle("Formularios_Anexos - lleno.docx"),
     ).toBeInTheDocument();
     expect(screen.getByText("Hecho con IA · sin firma")).toBeInTheDocument();
     expect(screen.getByText("Firmado")).toBeInTheDocument();

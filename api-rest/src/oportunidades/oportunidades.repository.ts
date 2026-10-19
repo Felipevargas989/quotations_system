@@ -5,9 +5,9 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
-import type { LecturaFinal } from './lectura/reglas';
+import { LEIDA_SEGUN_LAS_BASES, type LecturaFinal } from './lectura/reglas';
 import { regionCalza } from './mercado-publico/mapeo';
-import type { ProcesoMp } from './mercado-publico/tipos';
+import type { CompraAgilListada, ProcesoMp } from './mercado-publico/tipos';
 
 // LA ÚNICA CAPA QUE TOCA LA BASE en este módulo (regla del motor).
 //
@@ -26,6 +26,8 @@ const CORRIDA_COLGADA_MS = 3 * 60 * 60 * 1000;
 /** La historia revisa primero estos días recientes: sin ellos, "Se viene"
  *  anunciaría algo que este año ya salió antes de que el radar existiera. */
 const DIAS_RECIENTES_DE_HISTORIA = 60;
+/** Y antes que ellos, el mes a cada lado de "hace un año" (decisión 28). */
+const DIAS_ALREDEDOR_DEL_ANIO_ANTERIOR = 31;
 /** "Se viene" y competidores miran 3 años y un poco más (la misma compra
  *  de hace 3 años más sus días de diferencia). */
 const MESES_DE_LA_ZONA = 38;
@@ -181,18 +183,6 @@ export class OportunidadesRepository {
     if (e) throw e;
   }
 
-  /** Cuándo empezó la última corrida que terminó bien. */
-  async ultimaCorridaOk(): Promise<string | null> {
-    const { data, error } = await this.db
-      .from('mp_radar_corridas')
-      .select('empezo_en')
-      .eq('estado', 'ok')
-      .order('empezo_en', { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    return (data?.[0] as { empezo_en?: string } | undefined)?.empezo_en ?? null;
-  }
-
   async ultimasCorridas(limite = 10) {
     const { data, error } = await this.db
       .from('mp_radar_corridas')
@@ -234,9 +224,16 @@ export class OportunidadesRepository {
   /** Inserta o actualiza. primera_vez_visto no viaja: la pone la base solo
    *  la primera vez. */
   async guardarProcesos(procesos: ProcesoMp[]): Promise<void> {
+    // SIN REPETIDOS: si el mismo código viene dos veces en un lote, la base
+    // rechaza el lote entero ("ON CONFLICT DO UPDATE command cannot affect
+    // row a second time"). Pasó el 18-10 con un día de la historia de
+    // Mercado Público que traía una licitación repetida: las dos pasadas
+    // de la noche terminaron en error y la historia quedó trabada en ese
+    // día. Queda la última versión de cada código.
+    const unicos = [...new Map(procesos.map((p) => [p.codigo, p])).values()];
     const ahora = new Date().toISOString();
-    for (let i = 0; i < procesos.length; i += LOTE) {
-      const lote = procesos
+    for (let i = 0; i < unicos.length; i += LOTE) {
+      const lote = unicos
         .slice(i, i + LOTE)
         .map((p) => ({ ...p, actualizado_en: ahora }));
       const { error } = await this.db
@@ -244,6 +241,20 @@ export class OportunidadesRepository {
         .upsert(lote, { onConflict: 'codigo' });
       if (error) throw error;
     }
+  }
+
+  /** Lo que trajo la lista de una compra ágil (dato público, sin
+   *  company_id): con eso y su detalle se completa cuando alguien la abre
+   *  (decisión 20). null si no es una compra ágil guardada. */
+  async itemDeCompraAgil(codigo: string): Promise<CompraAgilListada | null> {
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('item:detalle->item')
+      .eq('codigo', codigo)
+      .eq('tipo', 'compra_agil')
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { item?: CompraAgilListada | null } | null)?.item ?? null;
   }
 
   async actualizarCierre(
@@ -399,47 +410,94 @@ export class OportunidadesRepository {
     return { paquetes: nombres(paquetes.data), fijos: nombres(fijos.data) };
   }
 
-  /** Los códigos que esta empresa ya tiene leídos. */
-  async codigosLeidos(companyId: number): Promise<Set<string>> {
-    const codigos = new Set<string>();
+  /** Lo que esta empresa ya tiene leído (`hechas`: no se vuelve a leer) y
+   *  lo que hay que releer porque se leyó con otras reglas (`releer`,
+   *  decisión 19 del doc 17). Solo se relee lo que nadie ha tocado: sigue
+   *  'nueva', sin responsable, sin notas y sin cotización. Lo que la
+   *  empresa marcó queda como está. */
+  async lecturasDe(
+    companyId: number,
+    lecturaActual: string,
+  ): Promise<{ hechas: Set<string>; releer: Set<string> }> {
+    const hechas = new Set<string>();
+    const releer = new Set<string>();
     for (let desde = 0; ; desde += PAGINA) {
       const { data, error } = await this.db
         .from('oportunidades')
-        .select('codigo')
+        .select(
+          'codigo, estado, responsable_id, notas, quotation_id, leida_con',
+        )
         .eq('company_id', companyId)
         .order('id', { ascending: true })
         .range(desde, desde + PAGINA - 1);
       if (error) throw error;
-      for (const fila of (data ?? []) as Array<{ codigo: string }>) {
-        codigos.add(fila.codigo);
+      for (const f of (data ?? []) as Array<{
+        codigo: string;
+        estado: string;
+        responsable_id: string | null;
+        notas: string | null;
+        quotation_id: string | null;
+        leida_con: string | null;
+      }>) {
+        const intacta =
+          f.estado === 'nueva' &&
+          f.responsable_id === null &&
+          f.notas === null &&
+          f.quotation_id === null;
+        // Lo que coloreó el análisis de las bases manda sobre la lectura
+        // corta del radar (decisión 21): no se relee.
+        const releerla =
+          intacta &&
+          f.leida_con !== lecturaActual &&
+          f.leida_con !== LEIDA_SEGUN_LAS_BASES;
+        if (releerla) releer.add(f.codigo);
+        else hechas.add(f.codigo);
       }
       if (!data || data.length < PAGINA) break;
     }
-    return codigos;
+    return { hechas, releer };
   }
 
-  /** Guarda la lectura. Si ya existía no la pisa: la decisión de la
-   *  empresa (estado, responsable, notas) nunca la cambia el radar. */
+  /** Guarda la lectura. Una nueva nunca pisa la que ya existía. Una
+   *  relectura cambia solo lo que leyó la IA (color, etiquetas, razón,
+   *  alertas) y solo si la oportunidad sigue intacta: si la empresa la
+   *  marcó mientras se leía, gana su decisión. Estado, responsable y notas
+   *  no los cambia nunca el radar. */
   async guardarLectura(
     companyId: number,
     codigo: string,
     lectura: LecturaFinal,
-    modelo: string,
+    leidaCon: string,
+    relectura = false,
   ): Promise<void> {
-    const { error } = await this.db.from('oportunidades').upsert(
-      {
-        company_id: companyId,
-        codigo,
-        semaforo: lectura.semaforo,
-        etiquetas: lectura.etiquetas,
-        se_hace_en_el_complejo: lectura.se_hace_en_el_complejo,
-        razon: lectura.razon,
-        alertas: lectura.alertas,
-        leida_con: modelo,
-        leida_en: new Date().toISOString(),
-      },
-      { onConflict: 'company_id,codigo', ignoreDuplicates: true },
-    );
+    const leido = {
+      semaforo: lectura.semaforo,
+      etiquetas: lectura.etiquetas,
+      se_hace_en_el_complejo: lectura.se_hace_en_el_complejo,
+      razon: lectura.razon,
+      alertas: lectura.alertas,
+      leida_con: leidaCon,
+      leida_en: new Date().toISOString(),
+    };
+    if (relectura) {
+      const { error } = await this.db
+        .from('oportunidades')
+        .update(leido)
+        .eq('company_id', companyId)
+        .eq('codigo', codigo)
+        .eq('estado', 'nueva')
+        .is('responsable_id', null)
+        .is('notas', null)
+        .is('quotation_id', null);
+      if (error) throw error;
+      return;
+    }
+    const { error } = await this.db
+      .from('oportunidades')
+      .upsert(
+        { company_id: companyId, codigo, ...leido },
+        { onConflict: 'company_id,codigo', ignoreDuplicates: true },
+      );
     if (error) throw error;
   }
 
@@ -484,6 +542,42 @@ export class OportunidadesRepository {
     return filas;
   }
 
+  /** Las compras ágiles que quedaron en amarillo leídas SIN descripción
+   *  (entraron solo con lo de la lista, decisión 20), intactas y abiertas,
+   *  de la que cierra antes a la que cierra después, con el ítem de la
+   *  lista para completarlas con su detalle (Felipe, 18-10: la A). */
+  async comprasAgilesSinDetalle(
+    companyId: number,
+  ): Promise<Array<{ codigo: string; item: CompraAgilListada }>> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select(
+        'codigo, proceso:mp_procesos!inner(tipo, descripcion, fecha_cierre, item:detalle->item)',
+      )
+      .eq('company_id', companyId)
+      .eq('estado', 'nueva')
+      .eq('semaforo', 'amarillo')
+      .is('responsable_id', null)
+      .is('notas', null)
+      .is('quotation_id', null)
+      .eq('proceso.tipo', 'compra_agil')
+      .is('proceso.descripcion', null)
+      .gt('proceso.fecha_cierre', new Date().toISOString());
+    if (error) throw error;
+    type Fila = {
+      codigo: string;
+      proceso: { fecha_cierre: string | null; item: CompraAgilListada | null };
+    };
+    return ((data ?? []) as unknown as Fila[])
+      .filter((f) => f.proceso?.item)
+      .sort((a, b) =>
+        String(a.proceso.fecha_cierre).localeCompare(
+          String(b.proceso.fecha_cierre),
+        ),
+      )
+      .map((f) => ({ codigo: f.codigo, item: f.proceso.item! }));
+  }
+
   /** "Mis licitaciones": las que la empresa marcó (en estudio,
    *  postuladas, ganadas o perdidas), abiertas o cerradas. Son pocas: una
    *  página basta. */
@@ -523,35 +617,41 @@ export class OportunidadesRepository {
     return (data ?? []) as Array<{ codigo: string; region: string | null }>;
   }
 
-  /** El próximo día de historia por revisar: primero los cercanos a "hace
-   *  un año". null = la historia está completa. */
-  /** El próximo día por revisar: primero los últimos 60 días (lo que ya
-   *  salió este año, para que "Se viene" no lo anuncie), del más nuevo al
-   *  más viejo; después, por prioridad (cerca de "hace un año"). */
+  /** El próximo día por revisar (null = la historia está completa):
+   *  1. el mes a cada lado de "hace un año" (prioridad hasta 31), que trae
+   *     el año anterior de lo abierto (19-10, decisión 28: Felipe postulaba
+   *     al Día del Profesor y no estaba el del año pasado);
+   *  2. los últimos 60 días, del más nuevo al más viejo (lo que ya salió
+   *     este año, para que "Se viene" no lo anuncie);
+   *  3. el resto, por prioridad (cada vez más lejos de "hace un año"). */
   async siguienteDiaDeHistoria(): Promise<string | null> {
     const reciente = new Date(Date.now() - DIAS_RECIENTES_DE_HISTORIA * DIA)
       .toISOString()
       .slice(0, 10);
-    const { data: recientes, error: errorRecientes } = await this.db
-      .from('mp_historia')
-      .select('fecha')
-      .eq('estado', 'pendiente')
-      .gte('fecha', reciente)
-      .order('fecha', { ascending: false })
-      .limit(1);
-    if (errorRecientes) throw errorRecientes;
-    const primero = (recientes?.[0] as { fecha?: string } | undefined)?.fecha;
-    if (primero) return primero;
-
-    const { data, error } = await this.db
-      .from('mp_historia')
-      .select('fecha')
-      .eq('estado', 'pendiente')
-      .order('prioridad', { ascending: true })
-      .order('fecha', { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    return (data?.[0] as { fecha?: string } | undefined)?.fecha ?? null;
+    const pendientes = () =>
+      this.db.from('mp_historia').select('fecha').eq('estado', 'pendiente');
+    const enOrden = [
+      () =>
+        pendientes()
+          .lte('prioridad', DIAS_ALREDEDOR_DEL_ANIO_ANTERIOR)
+          .order('prioridad', { ascending: true })
+          .order('fecha', { ascending: false }),
+      () =>
+        pendientes()
+          .gte('fecha', reciente)
+          .order('fecha', { ascending: false }),
+      () =>
+        pendientes()
+          .order('prioridad', { ascending: true })
+          .order('fecha', { ascending: false }),
+    ];
+    for (const consulta of enOrden) {
+      const { data, error } = await consulta().limit(1);
+      if (error) throw error;
+      const fecha = (data?.[0] as { fecha?: string } | undefined)?.fecha;
+      if (fecha) return fecha;
+    }
+    return null;
   }
 
   async marcarDiaDeHistoria(

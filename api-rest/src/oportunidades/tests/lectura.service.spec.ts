@@ -4,6 +4,7 @@ import { mockPinoLogger } from 'src/testing/mocks';
 import {
   descripcionDe,
   instruccionesPara,
+  LECTURA_ACTUAL,
   LecturaDetenida,
   LecturaService,
   MODELO_LECTURA,
@@ -108,6 +109,43 @@ describe('LecturaService', () => {
     );
     const lectura = await new LecturaDePrueba(parse).leer(PROCESO, EMPRESA);
     expect(lectura?.etiquetas).toEqual(['otro']);
+  });
+
+  it('lo que contesta se revisa: «Rojo.» es rojo, «Sí» es si, las etiquetas inventadas se botan; un color que no existe queda en amarillo para revisar a mano (18-10)', async () => {
+    // La pasada de las 23:07 del 18-10 se cayó entera porque la base
+    // rechazó un color fuera de verde, amarillo y rojo.
+    const limpia = await new LecturaDePrueba(
+      jest.fn().mockResolvedValue(
+        respuesta({
+          semaforo: ' Rojo.',
+          etiquetas: ['Evento', 'banqueteria', 'evento'],
+          se_hace_en_el_complejo: 'Sí',
+          razon: '  Show público en la plaza. ',
+        }),
+      ),
+    ).leer(PROCESO, EMPRESA);
+    expect(limpia).toEqual({
+      semaforo: 'rojo',
+      etiquetas: ['evento'],
+      se_hace_en_el_complejo: 'si',
+      razon: 'Show público en la plaza.',
+    });
+
+    const rara = await new LecturaDePrueba(
+      jest.fn().mockResolvedValue(
+        respuesta({
+          semaforo: 'naranjo',
+          etiquetas: ['evento'],
+          se_hace_en_el_complejo: 'no',
+          razon: 'x',
+        }),
+      ),
+    ).leer(PROCESO, EMPRESA);
+    expect(rara).toMatchObject({
+      semaforo: 'amarillo',
+      se_hace_en_el_complejo: 'dudoso',
+      razon: 'La lectura automática no resultó: conviene revisarla a mano.',
+    });
   });
 
   it('si el modelo se niega o no devuelve nada legible, queda en amarillo para revisar a mano', async () => {
@@ -263,6 +301,55 @@ describe('lo que lee la IA', () => {
     expect(texto).toContain('Complejo turístico en Quillón');
     expect(texto).toContain('Evento: matrimonio; Salones: día completo');
     expect(texto).toContain('Garzón');
+  });
+
+  it('las celebraciones sin lugar se hacen en el recinto del oferente; las capacitaciones sin lugar, no (Felipe, 17-10)', () => {
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain('un comprador público no tiene salón de banquetes');
+    expect(texto).toContain(
+      'días del funcionario, del profesor o del dirigente',
+    );
+    expect(texto).toContain(
+      'la celebración no dice dónde, es "si". Las capacitaciones, jornadas de trabajo y talleres que no dicen dónde siguen "dudoso"',
+    );
+    // El verde sale de "se hace en el complejo".
+    expect(texto).toContain(
+      '"verde" si es del rubro de la empresa y se_hace_en_el_complejo es "si"',
+    );
+  });
+
+  it('lo que la empresa marca POR EVALUAR va amarillo aunque sea fuera (Felipe, 18-10: el catering)', () => {
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain(
+      'Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa',
+    );
+    // El lugar no se maquilla: dice dónde es de verdad.
+    expect(texto).toContain('("no" si es donde el comprador)');
+  });
+
+  it('el filtro afinado del 18-10 en la noche: el curso no es el lugar, el evento público es en la comuna, lo POR EVALUAR con monto mínimo y ejemplos reales', () => {
+    // Felipe, con 87 amarillas: "quiero afinar el ojo del filtro... corramos
+    // a, b, c y d y dejemos mejor entrenado a ese agente".
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain(
+      'en que se compra el curso, el relator, el monitor o el contenido NO es del rubro',
+    );
+    expect(texto).toContain(
+      'Un evento público del comprador (feria, festival, show',
+    );
+    expect(texto).toContain('jornadas recreativas o de autocuidado');
+    expect(texto).toContain(
+      'Si lo POR EVALUAR pide un monto mínimo y el proceso informa un monto menor, no está por evaluar',
+    );
+    expect(texto).toContain('EJEMPLOS (casos reales de Mercado Público)');
+    expect(texto).toContain(
+      '«Curso de capacitación manejo avanzado de heridas»',
+    );
+  });
+
+  it('la lectura queda marcada con el modelo y la versión de las reglas', () => {
+    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 18-10, noche');
+    expect(LECTURA_ACTUAL.startsWith(MODELO_LECTURA)).toBe(true);
   });
 
   it('la descripción lleva comprador, monto en pesos chilenos y productos', () => {

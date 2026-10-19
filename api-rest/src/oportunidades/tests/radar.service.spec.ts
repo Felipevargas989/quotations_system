@@ -1,135 +1,17 @@
-import type { PinoLogger } from 'nestjs-pino';
-import { mockPinoLogger } from 'src/testing/mocks';
-import { HistoriaService } from '../historia/historia.service';
 import {
+  LECTURA_ACTUAL,
   LecturaDetenida,
-  type LecturaService,
-  MODELO_LECTURA,
   type ProcesoParaLeer,
 } from '../lectura/lectura.service';
+import { enParalelo } from '../radar.service';
 import {
-  type MercadoPublicoClient,
-  MercadoPublicoError,
-} from '../mercado-publico/mercado-publico.client';
-import type {
-  OportunidadesRepository,
-  ProcesoConocido,
-} from '../oportunidades.repository';
-import { enParalelo, RadarService } from '../radar.service';
-
-const VDS = { id: 1, name: 'Valle del Sol', high_value_threshold: 3_000_000 };
-const CONFIG_VDS = {
-  regiones: ['Ñuble', 'Biobío'],
-  comunas_cercanas: ['Quillón', 'Bulnes'],
-  perfil: 'Complejo turístico en Quillón',
-};
-
-// Como la entrega la API: hora de Chile sin zona.
-const detalle = (codigo: string) => ({
-  CodigoExterno: codigo,
-  Nombre: `Proceso ${codigo}`,
-  Comprador: {
-    NombreOrganismo: 'Municipalidad de Chillán',
-    RegionUnidad: 'Región del Ñuble',
-  },
-  Fechas: { FechaCierre: '2026-10-30T15:00:00' },
-});
-
-const abierto = (
-  codigo: string,
-  extra: Partial<ProcesoParaLeer> = {},
-): ProcesoParaLeer => ({
-  codigo,
-  tipo: 'licitacion',
-  nombre: `Proceso ${codigo}`,
-  descripcion: null,
-  organismo: 'Municipalidad de Chillán',
-  unidad: null,
-  comuna: null,
-  region: 'Región del Ñuble',
-  monto: null,
-  fecha_cierre: '2026-10-30T18:00:00.000Z',
-  productos: [],
-  ...extra,
-});
-
-const caida = (status = 504) =>
-  new MercadoPublicoError(`Mercado Público respondió ${status}`, status);
-
-/** `base` = lo que ya está en mp_procesos (código → cierre y estado,
- *  como los devuelve Postgres). */
-function armar(base = new Map<string, ProcesoConocido>()) {
-  const leidas = new Set<string>();
-  const mp = {
-    configurado: true,
-    licitacionesActivas: jest.fn().mockResolvedValue([]),
-    detalleLicitacion: jest.fn((codigo: string) =>
-      Promise.resolve(detalle(codigo)),
-    ),
-    comprasAgiles: jest.fn().mockResolvedValue([]),
-    detalleCompraAgil: jest.fn().mockResolvedValue(null),
-    licitacionesDelDia: jest.fn().mockResolvedValue([]),
-  };
-  const repo = {
-    tomarCorrida: jest.fn().mockResolvedValue(7),
-    abandonarCorridasDeAntes: jest.fn().mockResolvedValue(0),
-    procesosPorAdjudicar: jest.fn().mockResolvedValue([]),
-    siguienteDiaDeHistoria: jest.fn().mockResolvedValue(null),
-    marcarDiaDeHistoria: jest.fn().mockResolvedValue(undefined),
-    terminarCorrida: jest.fn().mockResolvedValue(undefined),
-    ultimaCorridaOk: jest.fn().mockResolvedValue(null),
-    procesosConocidos: jest.fn((codigos: string[]) =>
-      Promise.resolve(
-        new Map([...base].filter(([codigo]) => codigos.includes(codigo))),
-      ),
-    ),
-    guardarProcesos: jest.fn().mockResolvedValue(undefined),
-    actualizarCierre: jest.fn().mockResolvedValue(undefined),
-    registrarCambios: jest.fn().mockResolvedValue(undefined),
-    procesosAbiertos: jest.fn().mockResolvedValue([]),
-    empresasConModulo: jest.fn().mockResolvedValue([VDS]),
-    configDe: jest.fn().mockResolvedValue(CONFIG_VDS),
-    catalogoResumido: jest.fn().mockResolvedValue({
-      paquetes: ['Evento: matrimonio'],
-      fijos: ['Garzón'],
-    }),
-    // Como la base: lo que se guarda queda leído para la pasada siguiente.
-    codigosLeidos: jest.fn(() => Promise.resolve(new Set(leidas))),
-    guardarLectura: jest.fn((_empresa: number, codigo: string) => {
-      leidas.add(codigo);
-      return Promise.resolve();
-    }),
-  };
-  const lectura = {
-    configurado: true,
-    candidatasPorNombre: jest.fn().mockResolvedValue(new Set<string>()),
-    leer: jest.fn().mockResolvedValue({
-      semaforo: 'verde',
-      etiquetas: ['evento'],
-      se_hace_en_el_complejo: 'si',
-      razon: 'Es un evento.',
-    }),
-  };
-  const historia = new HistoriaService(
-    mp as unknown as MercadoPublicoClient,
-    repo as unknown as OportunidadesRepository,
-    lectura as unknown as LecturaService,
-    mockPinoLogger() as unknown as PinoLogger,
-  );
-  const radar = new RadarService(
-    mp as unknown as MercadoPublicoClient,
-    repo as unknown as OportunidadesRepository,
-    lectura as unknown as LecturaService,
-    historia,
-    mockPinoLogger() as unknown as PinoLogger,
-  );
-  return { mp, repo, lectura, radar, leidas };
-}
-
-const guardados = (repo: ReturnType<typeof armar>['repo']) =>
-  repo.guardarProcesos.mock.calls.flatMap(([lote]) =>
-    (lote as Array<{ codigo: string }>).map((p) => p.codigo),
-  );
+  abierto,
+  armar,
+  caida,
+  CONFIG_VDS,
+  detalle,
+  guardados,
+} from './radar-de-prueba';
 
 afterEach(() => jest.restoreAllMocks());
 
@@ -392,23 +274,12 @@ describe('RadarService — licitaciones: nuevo = "no está en la base"', () => {
 describe('RadarService — compras ágiles', () => {
   const AHORA = new Date('2026-10-16T12:00:00Z').getTime();
 
-  it('pide desde la última corrida buena menos 48 horas, en las regiones configuradas', async () => {
+  it('pide SIEMPRE lo publicado en los últimos 10 días, en las regiones configuradas (18-10)', async () => {
+    // El 17-10 la pasada de las 18:00 vio 750 y guardó 54, y aun así quedó
+    // "ok": pedir "desde la última corrida buena" habría dejado fuera para
+    // siempre lo publicado antes del 15-10 que seguía abierto.
     jest.spyOn(Date, 'now').mockReturnValue(AHORA);
-    const { radar, repo, mp } = armar();
-    repo.ultimaCorridaOk.mockResolvedValue('2026-10-16T10:00:00.000Z');
-
-    await radar.correr('reloj');
-
-    expect(mp.comprasAgiles).toHaveBeenCalledWith(
-      '2026-10-14T10:00:00Z',
-      [8, 16],
-    );
-  });
-
-  it('nunca más de 10 días atrás', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(AHORA);
-    const { radar, repo, mp } = armar();
-    repo.ultimaCorridaOk.mockResolvedValue('2026-09-01T10:00:00.000Z');
+    const { radar, mp } = armar();
 
     await radar.correr('reloj');
 
@@ -418,53 +289,67 @@ describe('RadarService — compras ágiles', () => {
     );
   });
 
-  it('guarda solo las nuevas, y sin detalle igual se guardan', async () => {
+  it('guarda todas las nuevas de una con lo de la lista, sin pedir el detalle, primero las que cierran antes (decisión 20)', async () => {
     const base = new Map([
       ['CA-2', { fecha_cierre: null, estado: 'Publicada' }],
     ]);
     const { radar, repo, mp } = armar(base);
     mp.comprasAgiles.mockResolvedValue([
-      { codigo: 'CA-1', nombre: 'Coffee break biblioteca' },
+      {
+        codigo: 'CA-1',
+        nombre: 'Coffee break biblioteca',
+        fechas: { fecha_cierre: '2026-10-22 13:00:00' },
+      },
       { codigo: 'CA-2', nombre: 'Almuerzo ya guardado' },
+      {
+        codigo: 'CA-3',
+        nombre: 'Cena de fin de año',
+        fechas: { fecha_cierre: '2026-10-19 10:00:00' },
+      },
     ]);
-    mp.detalleCompraAgil.mockRejectedValue(caida(429));
 
     const resumen = await radar.correr('reloj');
 
-    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(1);
-    expect(guardados(repo)).toEqual(['CA-1']);
+    expect(mp.detalleCompraAgil).not.toHaveBeenCalled();
+    expect(guardados(repo)).toEqual(['CA-3', 'CA-1']);
     expect(resumen?.compras_agiles).toMatchObject({
-      estado: 'sin_cupo',
-      listadas: 2,
-      nuevas: 1,
-      guardadas: 1,
+      estado: 'ok',
+      listadas: 3,
+      nuevas: 2,
+      guardadas: 2,
+      pendientes: 0,
     });
   });
-});
 
-describe('RadarService — compras ágiles con tope de tiempo', () => {
-  it('pasado el tope, lo que falta no se guarda: entra en la próxima corrida', async () => {
-    let ahora = new Date('2026-10-17T12:00:00Z').getTime();
-    jest.spyOn(Date, 'now').mockImplementation(() => ahora);
+  it('aunque sean cientos, entran todas en la misma corrida, de a 100', async () => {
     const { radar, repo, mp } = armar();
     mp.comprasAgiles.mockResolvedValue(
-      Array.from({ length: 5 }, (_, i) => ({ codigo: `CA-${i}`, nombre: 'x' })),
+      Array.from({ length: 250 }, (_, i) => ({
+        codigo: `CA-${i}`,
+        nombre: 'x',
+      })),
     );
-    mp.detalleCompraAgil.mockImplementation(() => {
-      ahora += 25 * 60 * 1000; // cada detalle tarda 25 minutos (tope: 70)
-      return Promise.resolve(null);
-    });
 
     const resumen = await radar.correr('reloj');
 
-    expect(mp.detalleCompraAgil).toHaveBeenCalledTimes(3);
-    expect(guardados(repo)).toEqual(['CA-0', 'CA-1', 'CA-2']);
+    // (Quién ganó guarda su lote aunque venga vacío: no cuenta.)
+    expect(
+      repo.guardarProcesos.mock.calls
+        .map(([lote]) => (lote as unknown[]).length)
+        .filter((n) => n > 0),
+    ).toEqual([100, 100, 50]);
     expect(resumen?.compras_agiles).toMatchObject({
-      estado: 'cortada',
-      nuevas: 5,
-      guardadas: 3,
-      pendientes: 2,
+      guardadas: 250,
+      pendientes: 0,
     });
+  });
+
+  it('van antes que las licitaciones, para que la IA las lea al tiro', async () => {
+    const { radar, mp } = armar();
+    await radar.correr('reloj');
+    expect(mp.comprasAgiles.mock.invocationCallOrder[0]).toBeLessThan(
+      mp.licitacionesActivas.mock.invocationCallOrder[0],
+    );
   });
 });
 
@@ -508,15 +393,88 @@ describe('RadarService — la lectura', () => {
         semaforo: 'amarillo',
         alertas: ['comuna_cercana'],
       }),
-      MODELO_LECTURA,
+      LECTURA_ACTUAL,
+      false,
     );
     expect(resumen?.lectura).toMatchObject({
       estado: 'ok',
       empresas: 1,
       leidas: 1,
+      releidas: 0,
       amarillas: 1,
       rojas: 0,
     });
+  });
+
+  it('una lectura que la base rechaza no tumba la corrida: ese proceso queda sin leer y las demás se guardan (18-10)', async () => {
+    // La pasada de las 23:07 del 18-10 se cayó entera por UNA fila que la
+    // base rechazó (oportunidades_semaforo_check).
+    const { radar, repo } = armar();
+    repo.procesosAbiertos.mockResolvedValue([
+      abierto('MALA'),
+      abierto('BUENA'),
+    ]);
+    repo.guardarLectura.mockImplementation(
+      (_empresa: number, codigo: string) =>
+        codigo === 'MALA'
+          ? Promise.reject(
+              Object.assign(
+                new Error(
+                  'new row for relation "oportunidades" violates check constraint "oportunidades_semaforo_check"',
+                ),
+                { code: '23514' },
+              ),
+            )
+          : Promise.resolve(),
+    );
+
+    const resumen = await radar.correr('reloj');
+
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'BUENA',
+      expect.anything(),
+      LECTURA_ACTUAL,
+      false,
+    );
+    expect(resumen?.lectura).toMatchObject({ estado: 'ok', leidas: 1 });
+    expect(resumen?.lectura.sin_leer).toBeGreaterThanOrEqual(1);
+    expect(repo.terminarCorrida).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'ok',
+      expect.anything(),
+    );
+  });
+
+  it('relee lo leído con reglas viejas que nadie tocó, junto a lo nuevo y por cierre (decisión 19)', async () => {
+    const { radar, repo, lectura, leidas, releer } = armar();
+    repo.procesosAbiertos.mockResolvedValue([
+      abierto('NUEVA'),
+      abierto('VIEJA'),
+      abierto('AL_DIA'),
+    ]);
+    leidas.add('AL_DIA');
+    releer.add('VIEJA');
+
+    const resumen = await radar.correr('reloj');
+
+    expect(lectura.leer).toHaveBeenCalledTimes(2);
+    expect(repo.lecturasDe).toHaveBeenCalledWith(1, LECTURA_ACTUAL);
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'VIEJA',
+      expect.any(Object),
+      LECTURA_ACTUAL,
+      true,
+    );
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'NUEVA',
+      expect.any(Object),
+      LECTURA_ACTUAL,
+      false,
+    );
+    expect(resumen?.lectura).toMatchObject({ leidas: 2, releidas: 1 });
   });
 
   it('si la lectura se detiene (sin cupo, llave mala), la corrida termina bien y lo avisa', async () => {

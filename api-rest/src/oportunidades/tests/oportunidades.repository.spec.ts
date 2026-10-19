@@ -1,6 +1,7 @@
 import type { PinoLogger } from 'nestjs-pino';
 import type { SupabaseService } from 'src/supabase/supabase.service';
 import { mockPinoLogger } from 'src/testing/mocks';
+import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 import { OportunidadesRepository } from '../oportunidades.repository';
 
 /**
@@ -20,6 +21,7 @@ const METODOS = [
   'lt',
   'gt',
   'gte',
+  'lte',
   'is',
   'not',
   'in',
@@ -172,7 +174,7 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
     const { repo, consultas } = armar();
     await repo.configDe(52);
     await repo.catalogoResumido(52);
-    await repo.codigosLeidos(52);
+    await repo.lecturasDe(52, 'claude-haiku-5-5, reglas del 17-10');
     await repo.listar(52, { vigentes: true, limite: 3000 });
     await repo.ficha(52, 9);
     await repo.actualizar(52, 9, { estado: 'en_estudio' });
@@ -273,6 +275,83 @@ describe('OportunidadesRepository — lo de cada empresa filtra por company_id',
   });
 });
 
+describe('OportunidadesRepository — releer con reglas nuevas (decisión 19)', () => {
+  const ACTUAL = 'claude-haiku-5-5, reglas del 17-10';
+  const fila = (codigo: string, cambios: Record<string, unknown> = {}) => ({
+    codigo,
+    estado: 'nueva',
+    responsable_id: null,
+    notas: null,
+    quotation_id: null,
+    leida_con: 'claude-haiku-5-5',
+    ...cambios,
+  });
+
+  it('se relee solo lo leído con otras reglas que nadie ha tocado', async () => {
+    const { repo } = armar(() => ({
+      data: [
+        fila('VIEJA'),
+        fila('AL_DIA', { leida_con: ACTUAL }),
+        fila('ME_INTERESA', { estado: 'en_estudio' }),
+        fila('DESCARTADA', { estado: 'descartada' }),
+        fila('ASIGNADA', {
+          responsable_id: 'b3c1e0f2-0000-4000-8000-000000000000',
+        }),
+        fila('CON_NOTAS', { notas: 'llamar' }),
+        fila('COTIZADA', {
+          quotation_id: 'c0ffee00-0000-4000-8000-000000000000',
+        }),
+      ],
+    }));
+    const { hechas, releer } = await repo.lecturasDe(1, ACTUAL);
+    expect([...releer]).toEqual(['VIEJA']);
+    expect([...hechas].sort()).toEqual(
+      [
+        'AL_DIA',
+        'ASIGNADA',
+        'CON_NOTAS',
+        'COTIZADA',
+        'DESCARTADA',
+        'ME_INTERESA',
+      ].sort(),
+    );
+  });
+
+  it('la relectura cambia solo lo que leyó la IA, y solo si sigue intacta', async () => {
+    const { repo, consultas } = armar();
+    await repo.guardarLectura(
+      1,
+      '1532886-5-LE26',
+      {
+        semaforo: 'verde',
+        etiquetas: ['evento', 'alimentacion'],
+        se_hace_en_el_complejo: 'si',
+        razon: 'Ceremonia con cena: el lugar lo pone el oferente.',
+        alertas: ['comuna_cercana', 'alto_valor'],
+      },
+      ACTUAL,
+      true,
+    );
+    const [c] = consultas;
+    expect(tiene(c, 'upsert')).toBe(false);
+    const [, cambios] = paso(c, 'update') as [string, Record<string, unknown>];
+    expect(cambios).toMatchObject({ semaforo: 'verde', leida_con: ACTUAL });
+    for (const campo of ['estado', 'responsable_id', 'notas', 'quotation_id']) {
+      expect(cambios).not.toHaveProperty(campo);
+    }
+    expect(c.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'codigo', '1532886-5-LE26'],
+        ['eq', 'estado', 'nueva'],
+        ['is', 'responsable_id', null],
+        ['is', 'notas', null],
+        ['is', 'quotation_id', null],
+      ]),
+    );
+  });
+});
+
 describe('OportunidadesRepository — sprint 1b', () => {
   it('por adjudicar: licitaciones cerradas sin ganador, revisadas hace más de 20 horas', async () => {
     const { repo, consultas } = armar();
@@ -286,30 +365,47 @@ describe('OportunidadesRepository — sprint 1b', () => {
     expect(paso(c, 'limit')).toEqual(['limit', 300]);
   });
 
-  it('el próximo día de historia: primero los últimos 60 días, del más nuevo al más viejo', async () => {
+  it('el próximo día de historia: primero el mes a cada lado de «hace un año» (19-10, decisión 28)', async () => {
     const { repo, consultas } = armar((c) =>
-      tiene(c, 'gte') ? { data: [{ fecha: '2026-10-16' }] } : {},
+      tiene(c, 'lte') ? { data: [{ fecha: '2025-10-03' }] } : {},
     );
-    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2026-10-16');
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
     expect(consultas).toHaveLength(1);
     const c = consultas[0];
     expect(c.tabla).toBe('mp_historia');
     expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
-    expect(paso(c, 'order')).toEqual(['order', 'fecha', { ascending: false }]);
-  });
-
-  it('sin días recientes pendientes: el de menor prioridad (cerca de hace un año)', async () => {
-    const { repo, consultas } = armar((c) =>
-      tiene(c, 'gte') ? { data: [] } : { data: [{ fecha: '2025-10-03' }] },
-    );
-    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
-    const c = consultas[1];
-    expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
+    expect(c.pasos).toContainEqual(['lte', 'prioridad', 31]);
     expect(paso(c, 'order')).toEqual([
       'order',
       'prioridad',
       { ascending: true },
     ]);
+  });
+
+  it('después, los últimos 60 días del más nuevo al más viejo; y al final el resto por prioridad', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'gte') ? { data: [{ fecha: '2026-10-16' }] } : { data: [] },
+    );
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2026-10-16');
+    expect(consultas).toHaveLength(2);
+    expect(paso(consultas[1], 'order')).toEqual([
+      'order',
+      'fecha',
+      { ascending: false },
+    ]);
+
+    const otro = armar((c) =>
+      tiene(c, 'lte') || tiene(c, 'gte')
+        ? { data: [] }
+        : { data: [{ fecha: '2024-03-01' }] },
+    );
+    await expect(otro.repo.siguienteDiaDeHistoria()).resolves.toBe(
+      '2024-03-01',
+    );
+    expect(otro.consultas).toHaveLength(3);
+
+    const completa = armar(() => ({ data: [] }));
+    await expect(completa.repo.siguienteDiaDeHistoria()).resolves.toBeNull();
   });
 
   it('el historial de organismos: de a 100, solo lo adjudicado', async () => {
@@ -323,6 +419,54 @@ describe('OportunidadesRepository — sprint 1b', () => {
       'is',
       null,
     ]);
+  });
+});
+
+describe('OportunidadesRepository — compras ágiles sin detalle (la A, 18-10)', () => {
+  it('solo las amarillas intactas de ESTA empresa, compras ágiles abiertas sin descripción, de la que cierra antes a la que cierra después', async () => {
+    const { repo, consultas } = armar(() => ({
+      data: [
+        {
+          codigo: 'B',
+          proceso: {
+            fecha_cierre: '2026-10-25T15:00:00Z',
+            item: { codigo: 'B' },
+          },
+        },
+        {
+          codigo: 'A',
+          proceso: {
+            fecha_cierre: '2026-10-20T15:00:00Z',
+            item: { codigo: 'A' },
+          },
+        },
+        { codigo: 'SIN_ITEM', proceso: { fecha_cierre: null, item: null } },
+      ],
+    }));
+
+    const filas = await repo.comprasAgilesSinDetalle(1);
+
+    expect(filas.map((f) => f.codigo)).toEqual(['A', 'B']);
+    const c = consultas[0];
+    expect(c.tabla).toBe('oportunidades');
+    const eqs = c.pasos.filter(([m]) => m === 'eq').map((p) => p.slice(1));
+    expect(eqs).toEqual(
+      expect.arrayContaining([
+        ['company_id', 1],
+        ['estado', 'nueva'],
+        ['semaforo', 'amarillo'],
+        ['proceso.tipo', 'compra_agil'],
+      ]),
+    );
+    const iss = c.pasos.filter(([m]) => m === 'is').map((p) => p[1]);
+    expect(iss).toEqual(
+      expect.arrayContaining([
+        'responsable_id',
+        'notas',
+        'quotation_id',
+        'proceso.descripcion',
+      ]),
+    );
   });
 });
 
@@ -352,6 +496,25 @@ describe('OportunidadesRepository — procesos comunes', () => {
     await repo.guardarProcesos(procesos as never);
     expect(consultas).toHaveLength(3);
     expect(paso(consultas[0], 'upsert')?.[2]).toEqual({ onConflict: 'codigo' });
+  });
+
+  it('sin repetidos: el mismo código dos veces va una sola vez, con su última versión (18-10)', async () => {
+    // La base rechaza un lote con el mismo código dos veces ("ON CONFLICT
+    // DO UPDATE command cannot affect row a second time").
+    const { repo, consultas } = armar();
+    await repo.guardarProcesos([
+      { codigo: 'A', nombre: 'primera' },
+      { codigo: 'B', nombre: 'otra' },
+      { codigo: 'A', nombre: 'segunda' },
+    ] as never);
+    const lote = paso(consultas[0], 'upsert')?.[1] as Array<{
+      codigo: string;
+      nombre: string;
+    }>;
+    expect(lote.map((p) => [p.codigo, p.nombre])).toEqual([
+      ['A', 'segunda'],
+      ['B', 'otra'],
+    ]);
   });
 });
 
@@ -384,5 +547,28 @@ describe('OportunidadesRepository — la zona (Se viene y competidores)', () => 
     const { repo, consultas } = armar();
     await expect(repo.procesosDeLaZona([])).resolves.toEqual([]);
     expect(consultas).toHaveLength(0);
+  });
+});
+
+describe('OportunidadesRepository — lo coloreado por las bases no se relee (decisión 21)', () => {
+  it('lo coloreado por el análisis de las bases no se relee con la lectura corta', async () => {
+    const { repo } = armar(() => ({
+      data: [
+        {
+          codigo: 'BASES',
+          estado: 'nueva',
+          responsable_id: null,
+          notas: null,
+          quotation_id: null,
+          leida_con: LEIDA_SEGUN_LAS_BASES,
+        },
+      ],
+    }));
+    const { hechas, releer } = await repo.lecturasDe(
+      1,
+      'claude-haiku-5-5, reglas del 17-10',
+    );
+    expect([...hechas]).toEqual(['BASES']);
+    expect(releer.size).toBe(0);
   });
 });

@@ -1,10 +1,12 @@
 # 17 — Módulo de Oportunidades (licitaciones y compras ágiles)
 
-> **Estado: sprint 1a en el laboratorio, sprint 2 construido.** Conversado
-> con Felipe el 16-10-2026 y escrito el mismo día. El radar quedó en el
-> laboratorio el 17-10 (migración 122 aplicada en la base del lab, motor en
-> `pruebas`) y la pantalla se construyó el mismo día, todo en la rama
-> `feature/oportunidades-radar`. Nada en producción. Su mapa es
+> **Estado: en producción desde el 17-10-2026 (PR #144).** Conversado
+> con Felipe el 16-10-2026 y escrito el mismo día. Construido en la rama
+> `feature/oportunidades-radar` y probado en el laboratorio el 17-10; ese
+> mismo día Felipe: *"apaga el bot de mercado público, pasemos esto a
+> producción"*. Las migraciones 122 a 127 y 129 se aplicaron en la base de
+> producción antes del motor, y el bot de GitHub quedó sin horario. El
+> sprint 4 (cotización) sigue en otro chat. Su mapa es
 > `mapa/24_OPORTUNIDADES.md`. Si una sesión futura recuerda algo distinto,
 > **manda este documento**; si la conversación cambia una decisión, se
 > corrige aquí en el mismo movimiento.
@@ -122,6 +124,106 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 17. **Sin avisos por correo, tampoco el inmediato** (17-10): *"no, sin
     correo, revisaré la app diario"*. La comuna cercana y el alto valor se
     ven en el bloque **Prioridad** de la bandeja y en "Se viene".
+18. **El horario del radar** (17-10): *"nada se mueve después de las 18:00,
+    sistema público"*. Cuatro pasadas de día, en horario de oficina (09, 12,
+    15 y 18 h), y tres de noche (23, 02 y 05 h) que además cargan la
+    historia de 3 años; todo en hora de Chile. Antes era cada 2 horas. La API
+    de Mercado Público limita por consultas (10.000 al día por ticket, de a
+    una), no por volumen: una pasada sin novedades gasta unas pocas.
+19. **Las celebraciones son verdes** (17-10): con el Día del Funcionario de
+    Quillón y el de Lota en amarillo, *"las dos primeras son definitivamente
+    verdes"*. Un comprador público no tiene salón de banquetes: una
+    celebración para un grupo que no dice dónde se hace en el recinto del
+    oferente. Las capacitaciones sin lugar siguen en amarillo. Cuando
+    cambian las reglas, lo abierto que nadie ha tocado se relee solo
+    (`LECTURA_ACTUAL` en `leida_con`). Siguiente paso posible, con una semana
+    de decisiones juntadas: que aprenda de los «Me interesa» y «Descartar».
+20. **Las compras ágiles entran todas de una** (17-10): *"¿las compras ágiles
+    están funcionando? no veo ninguna"*. Pedir el detalle de cada una
+    tardaba ~20 s: entraron 54 de 750, y cierran en días. Ahora entran todas
+    con lo de la lista, primero las que cierran antes, son lo primero de
+    cada corrida y la IA las lee al tiro; la descripción y los productos se
+    piden cuando alguien abre una. Y cada fila lleva su sello: «Licitación»
+    o «Compra ágil» (*"sello compra ágil / sello licitación"*).
+21. **La ficha, más clara** (17-10, *"vamos con todas"*, tras ver el boceto):
+    el camino de la postulación con el botón al paso que sigue; el color
+    sigue al análisis de las bases (verde si se puede en el complejo, rojo
+    si exigen otro lugar), y el radar ya no lo pisa; el evento en corto y
+    los datos con ícono; el estado y el responsable arriba; «Me interesa»
+    deja de responsable a quien la marcó si no había nadie; los archivos
+    con ícono, nombre legible y la lista plegada cuando ya hay análisis.
+22. **La bandeja, ordenada** (18-10, *"vamos con las 5"*, tras el boceto;
+    con la bandeja vacía en pantalla: *"¿se podrá mejorar este front?"*):
+    los montones como botones con su número, debajo de las pestañas del
+    módulo (Por revisar · Descartadas · Historial; lo en estudio y lo
+    postulado vive solo en «Mis licitaciones», para no tenerlo en dos
+    lados); los filtros en una fila, con el tipo en botones; la lista
+    agrupada por cierre (Prioridad, 3 días o menos, esta semana, más
+    adelante y, en el historial, lo ya cerrado); la bandeja vacía dice
+    «Revisaste todo lo nuevo», a qué hora vuelve a mirar el radar y deja a
+    un clic «Mis licitaciones» y las rojas; y arriba, junto a cuándo se
+    revisó, la próxima pasada.
+23. **Traer todo, y el catering en amarillo** (18-10). Felipe preguntó
+    *"¿cómo sé que está trayendo todas las licitaciones que me interesan?"*
+    y respondió *"dale con el plan... el catering, tráelo para acá,
+    mientras déjalo en amarillo"*.
+    - **Las compras ágiles se piden siempre de los últimos 10 días.** La
+      pasada de las 18:00 del 17-10 vio 750 y guardó 54, y aun así quedó
+      "ok". Pedir "desde la última corrida buena" habría dejado fuera
+      para siempre lo publicado entre el 8 y el 15-10 que seguía abierto.
+    - **Arriba, «¿Está todo?»**: lo que falta por traer y por leer, y un
+      aviso si Mercado Público no respondió o si el radar pasa 6 horas sin
+      una pasada buena.
+    - **Lo que la descripción de la empresa marca POR EVALUAR va
+      amarillo**, aunque se haga fuera. Para Valle del Sol es el catering,
+      el coffee break, el cóctel o la banquetería en las dependencias del
+      comprador. El suministro diario de colaciones, la comida a domicilio
+      y el delivery siguen en rojo.
+    - Lo que nadie ha tocado se relee con las reglas nuevas.
+24. **Los formularios del comprador, dos caminos** (18-10). Felipe:
+    *"si bien en Word se rellena, si bien escaneado en PDF se reconvierte...
+    y dejamos un protocolo más robusto cuando se reconvierta, cosa de que
+    mantenga la originalidad del documento"*.
+    - **Word**: se llena el mismo archivo del comprador. El .doc antiguo lo
+      convierte el taller; antes había que guardarlo a mano como .docx
+      (Lota y Yumbel los traían así).
+    - **PDF**, sea separado, escaneado o al final de las bases: se
+      **reescribe** cada formulario en un Word nuevo. Lleva el texto
+      oficial al pie de la letra, las mismas tablas, títulos y sombreados,
+      tipografía parecida y el logo del organismo recortado en el mismo
+      lugar, sin firmas, timbres ni rúbricas. Va un Word por formulario, y
+      la IA lo compara con el original antes de entregar.
+    - Lo hace Opus, que mira el PDF página por página. Llenar encima del
+      PDF se descartó: en el Día del Profesor los formularios venían
+      escaneados y mezclados con el decreto, bajo las firmas del alcalde.
+    - La pantalla dice qué le pasa a cada formulario. Los PDF se marcan a
+      mano, porque casi siempre son las bases. Si «Mi empresa» no tiene
+      razón social o RUT, se avisa antes de apretar.
+25. **El filtro, afinado** (18-10 en la noche). Felipe, con 87 amarillas: *"quiero afinar el ojo del filtro... antes de cambiar nada analicemos qué pasó"*; y después: *"corramos a, b, c y d y dejemos mejor entrenado a ese agente"*. El análisis encontró tres causas: 66 compras ágiles leídas sin descripción, 27 caterings «por evaluar» (22 de menos de $1 millón) y unas 35 lecturas que confundían vender el curso o el show con vender el lugar. Lo decidido:
+    - **B. Cursos y talleres:** si se compra el curso, el relator o el monitor, rojo. Siguen si piden salón, alimentación o alojamiento.
+    - **C. Eventos públicos del comprador** (ferias, festivales, shows, fondas, teletón): se hacen en su comuna, rojo, salvo que pidan un recinto del oferente. Los de un grupo cerrado (autocuidado, recreativas) siguen la regla de las celebraciones.
+    - **D. El catering «por evaluar», solo desde $1.000.000.** Felipe: *"las comunas que rodean a Quillón son potencialmente visitantes"*: eso ya lo cubre la regla fija de que una comuna cercana del rubro nunca queda en rojo.
+    - Las instrucciones llevan cinco ejemplos reales.
+    - **A. Compras ágiles sin descripción:** se les pide el detalle y se releen. Queda para la mañana del 19-10.
+    - Felipe: *"igual hay que monitorear: algunas están mal ingresadas y vienen a nuestros salones"*. Eso entra en la ronda semanal (parte 2 del plan).
+26. **Los formularios los encuentra el análisis, y la A** (18-10 cerca de la medianoche). Felipe: *"¿no conviene que cuando la IA analice los documentos identifique dónde están los formularios a rellenar... y deje listo el proceso de generación de documentos y anexos?"*, y *"vamos con eso y no se te olvide el cambio chico"*.
+    - **El análisis de bases** devuelve `formularios`: el nombre de cada uno, el archivo y las páginas donde viene el formato EN BLANCO, si aplica a la empresa (no el de UTP ni el de persona natural) y en qué parte de la oferta se entrega. Si un formulario no vino en lo subido, queda con archivo vacío y la pantalla dice que hay que buscarlo en Mercado Público.
+    - **«Generar anexos» parte de eso:** sin elegir, van los Word y los PDF donde el análisis encontró formularios que aplican, y la IA sabe en qué página está cada uno. Sin análisis nuevo, se marcaban a mano (hasta el 19-10: ver la 27). Los análisis anteriores se renuevan con «Volver a analizar».
+    - **La A:** a las compras ágiles que quedan en amarillo sin descripción, el radar les pide el detalle y las relee: de a una, hasta 40 por pasada y 20 minutos, primero las que cierran antes. Si Mercado Público no trae el detalle, no se vuelve a pedir en un día.
+    - **El cambio chico:** «¿Está todo?» muestra cada parte según su último intento. Ya no queda pegado un aviso viejo por una pasada que se cayó después.
+27. **Sin casillas: los archivos los elige el motor** (19-10, con la ficha del Día del Profesor). Felipe: *"el detalle de los documentos a generar está bueno... pero que me traiga los PDF y me los marque, creo que eso es lo innecesario"*, y *"vamos dale"*.
+    - «Anexos del comprador» muestra la lista de formularios del análisis (con su archivo, página y parte de la oferta) y una línea con lo que se llena. Ya no lista los archivos ni tiene casillas.
+    - El motor elige con la misma regla de antes: los Word de «Bases y anexos» y los PDF donde el análisis encontró formularios que aplican.
+    - Sin análisis, o con uno anterior al 18-10: se llenan los Word y se pide analizar para encontrar los formularios en PDF. Si solo hay PDF, el botón espera el análisis.
+    - Un formulario que no vino en lo subido: se busca en Mercado Público, se sube a «Bases y anexos» y se vuelve a analizar.
+28. **La gran descarga de la historia** (19-10, de madrugada). Felipe: *"todavía no tenemos la historia, todavía no tenemos quién ganó los años pasados... mañana tengo que postular esta licitación"* y *"hagamos una gran carga esta noche y después sigamos con el flujo regular"*.
+    - Medido: la historia iba en 3 días de 1.096. No por la IA (el filtro de nombres ya era Haiku y todo el radar había costado US$ 0,36), sino por Mercado Público: una consulta a la vez, 10.000 al día, y las descargas grandes de 22:00 a 07:00. Además solo usaba lo que le sobraba de cada pasada de noche (130 minutos desde que partía) y dos noches se cayeron por los errores de los incidentes 74 y 75.
+    - **La noche completa:** cada pasada de noche carga historia hasta 10 minutos antes de la siguiente, y la de las 05 hasta las 06:55 (nunca más de 2 h 45 desde que partió).
+    - **Solo las unidades de compra de las regiones configuradas:** el código empieza con la unidad (4364 = Municipalidad de Quillón) y su región ya se conoce por lo guardado (1.737 unidades, el 97 % en una sola región). Las de otras regiones no se leen ni se pide su detalle; las desconocidas sí. En los días del 14 al 16-10, el 12 % era de Ñuble o Biobío.
+    - **Primero el año anterior:** el mes a cada lado de "hace un año", después los últimos 60 días y al final el resto.
+    - Pasar a 2 pasadas al día no bajaba los tokens (cada licitación se lee una vez; una pasada normal cuesta cerca de 1 centavo de dólar) y atrasaba lo nuevo: se queda el horario de la decisión 18.
+    - Modelos: se revisaron con Felipe. Se queda Opus en el análisis de bases (pocas, críticas, PDF escaneados); Sonnet ahorraría unos US$ 0,19 por análisis.
+    - Cuando no quedan días pendientes, la historia no hace nada: el curso normal sigue solo.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -142,7 +244,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 
 ## 5. Cómo funciona
 
-### 5.1 El radar (cada 2 horas)
+### 5.1 El radar (09, 12, 15 y 18 h, y de noche)
 
 1. **Licitaciones:** una sola consulta liviana a
    `licitaciones.json?estado=activas` ("todas las licitaciones publicadas al
@@ -151,7 +253,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
    - código que no está → se pide el detalle (`?codigo=`) y se guarda, **de
      todo Chile**. Cambio al construir (16-10): la
      región solo viene en el detalle, así que hay que abrir cada licitación
-     igual, y guardarla evita volver a abrirla cada 2 horas. La IA lee solo
+     igual, y guardarla evita volver a abrirla en cada pasada. La IA lee solo
      las de las regiones de cada empresa. **Confirmado por Felipe el
      17-10** (decisión 12);
    - código que ya está y cambió su fecha de cierre → se actualiza y se anota
@@ -235,14 +337,15 @@ se niega o no devuelve nada legible, queda en amarillo para revisar a mano.
 ### 5.3 La pantalla "Oportunidades" (solo Valle del Sol)
 
 Tabla con semáforo, nombre, organismo, comuna, monto, cierre, la razón y el
-enlace a Mercado Público, con filtros. Al lado de cada una, **la del año
+enlace a Mercado Público, con filtros (desde el 18-10, en montones y agrupada
+por cierre: decisión 22). Al lado de cada una, **la del año
 anterior**: quién ganó, a qué precio y cuántas ofertas hubo. Botones **Me
 interesa** / **Descartar**, responsable y estado (nueva → en estudio →
 postulada → ganada / perdida / descartada). Ficha con fechas, archivos,
 criterios con su peso e historial de cambios. Calendario de las recurrentes
 ("en noviembre viene el Día de Campo del Dirigente"). Ficha de cada
 competidor. **Sin resumen por correo** (decisión 15, 17-10): se revisa en
-Eventia, que se pone al día cada 2 horas. El aviso inmediato para las
+Eventia, que se pone al día a las 9, 12, 15 y 18 h (decisión 18). El aviso inmediato para las
 comunas cercanas y las de alto valor, al correo de la empresa
 (`companies.notifications.replyTo`; Valle del Sol:
 contacto@valledelsolquillon.cl), queda por confirmar. Solo la ven los
@@ -346,8 +449,9 @@ en el laboratorio desde el 17-10 en la tarde). Cómo quedó:
 
 - **"Crear documentos con IA"**, en la ficha, entre "Lo que piden las
   bases" y "Mi postulación":
-  - **Anexos del comprador**: los Word (.docx) de «Bases y anexos» con su
-    casilla y el **monto total de la oferta con IVA** (opcional). El neto
+  - **Anexos del comprador**: los formularios de «Bases y anexos» (sin
+    casillas desde el 19-10: los elige el motor, decisión 27) y el
+    **monto total de la oferta con IVA** (opcional). El neto
     y el IVA los calcula el motor, no la IA; sin monto, la oferta
     económica queda en blanco.
   - **Propuesta técnica**: un Word nuevo que responde punto por punto a
@@ -446,7 +550,7 @@ candado; no estaba en esta propuesta), `oportunidades` y
 | `postulaciones` | Cada "Generar documentos": estado del trabajo, checklist, archivos generados, tokens usados |
 
 **Motor:** módulo `oportunidades/` con el patrón de 4 capas; reloj
-`oportunidades-cron.service.ts` cada 2 horas; ruta "correr ahora" para el
+`oportunidades-cron.service.ts` (horario de la decisión 18); ruta "correr ahora" para el
 laboratorio (ahí los relojes no corren); candado en la base para que dos
 corridas no se pisen; derecho `oportunidades` en cada ruta (la prueba
 `matriz-de-derechos.spec.ts` frena una ruta sin decidir).
@@ -547,11 +651,12 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
    42501 (mapa 18): cada migración lo incluye.
 7. **Lo que firma Felipe es responsabilidad de Felipe**: la declaración
    jurada y la oferta se revisan siempre antes de subir.
-8. **El bot de GitHub y el motor comparten el ticket de Mercado Público**
-   (10.000 consultas al día por ticket): mientras convivan, se reparten el
-   cupo. La primera corrida pide unos 6.000 detalles; laboratorio y
-   producción usan el mismo ticket, así que no hacen su primera corrida el
-   mismo día.
+8. **El ticket de Mercado Público es uno solo** (10.000 consultas al día,
+   de a una): el bot de GitHub quedó apagado el 17-10 y el radar del
+   laboratorio ya no corre al encender (`OPORTUNIDADES_RADAR_AL_ARRANCAR=0`
+   desde el 17-10), así que el cupo es de producción. La primera corrida de
+   producción (17-10) vio 4.886 licitaciones activas: la carga inicial se
+   reparte en varias pasadas.
 9. **El respaldo diario de Eventia arma un solo archivo en memoria con
    todas las tablas** (mapa 16), y `mp_procesos` crece con todo Chile (unas
    500 por día). **Resuelto en el código el 17-10** (decisión 13):

@@ -8,11 +8,14 @@ import type { AnalisisRepository } from '../analisis/analisis.repository';
 import {
   AnalisisService,
   errorDeAnalisis,
+  ESQUEMA_DE_BASES,
   instruccionesDeBases,
   MAX_BYTES_DE_PDF,
   MODELO_BASES,
+  razonSegunLasBases,
 } from '../analisis/analisis.service';
 import type { EventiaRepository } from '../eventia/eventia.repository';
+import type { FichaRepository } from '../ficha/ficha.repository';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 
@@ -91,6 +94,7 @@ class AnalisisDePrueba extends AnalisisService {
     readonly parse: jest.Mock,
     eventia: unknown = {},
     oferente: unknown = {},
+    ficha: unknown = {},
   ) {
     super(
       repo as AnalisisRepository,
@@ -99,6 +103,7 @@ class AnalisisDePrueba extends AnalisisService {
       eventia as EventiaRepository,
       oferente as OferenteRepository,
       mockPinoLogger() as unknown as PinoLogger,
+      ficha as FichaRepository,
     );
   }
 
@@ -133,6 +138,7 @@ function armar() {
     }),
     configDe: jest.fn().mockResolvedValue({ perfil: 'Complejo en Quillón' }),
   };
+  const ficha = { colorSegunLasBases: jest.fn().mockResolvedValue(true) };
   const parse = jest.fn().mockResolvedValue({
     stop_reason: 'end_turn',
     usage: { input_tokens: 100_000, output_tokens: 5_000 },
@@ -175,8 +181,18 @@ function armar() {
     parse,
     eventia,
     oferente,
+    ficha,
   );
-  return { repo, adjuntos, oportunidades, parse, servicio, eventia, oferente };
+  return {
+    repo,
+    adjuntos,
+    oportunidades,
+    parse,
+    servicio,
+    eventia,
+    oferente,
+    ficha,
+  };
 }
 
 const conLlave = async (prueba: () => Promise<void>) => {
@@ -267,6 +283,7 @@ describe('AnalisisService — pedir', () => {
           codigo: '1532886-5-LE26',
           perfil: 'Complejo en Quillón',
         }),
+        40,
       );
     }));
 
@@ -350,6 +367,60 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
       tokens_salida: 5_000,
       costo_usd: 0.5,
     });
+  });
+
+  it('el color sigue a lo que dicen las bases: "se puede en el complejo" → verde (decisión 21)', async () => {
+    const { ficha, servicio } = armar();
+    await servicio.ejecutar(
+      1,
+      5,
+      [adjunto(1, 'Bases.pdf')] as never,
+      [],
+      contexto,
+      40,
+    );
+    expect(ficha.colorSegunLasBases).toHaveBeenCalledWith(
+      1,
+      40,
+      'si',
+      'Según las bases, se puede hacer en el complejo: lo propone el oferente',
+    );
+  });
+
+  it('sin el número de la oportunidad (o si falla), el análisis igual queda listo', async () => {
+    const { ficha, repo, servicio } = armar();
+    await servicio.ejecutar(
+      1,
+      5,
+      [adjunto(1, 'Bases.pdf')] as never,
+      [],
+      contexto,
+    );
+    expect(ficha.colorSegunLasBases).not.toHaveBeenCalled();
+    ficha.colorSegunLasBases.mockRejectedValue(new Error('caída'));
+    await servicio.ejecutar(
+      1,
+      6,
+      [adjunto(1, 'Bases.pdf')] as never,
+      [],
+      contexto,
+      40,
+    );
+    expect(repo.terminar).toHaveBeenCalledWith(
+      1,
+      6,
+      expect.objectContaining({ estado: 'listo' }),
+    );
+  });
+
+  it('la razón según las bases: se puede, exigen otro lugar, o no se toca', () => {
+    expect(razonSegunLasBases('no', 'en el gimnasio municipal')).toBe(
+      'Según las bases, exigen otro lugar: en el gimnasio municipal',
+    );
+    expect(razonSegunLasBases('si', '')).toBe(
+      'Según las bases, se puede hacer en el complejo.',
+    );
+    expect(razonSegunLasBases('dudoso', 'no lo dice')).toBeNull();
   });
 
   it('si la IA se niega o no termina, queda en error con el motivo (y lo que costó)', async () => {
@@ -447,6 +518,25 @@ describe('lo que lee y dice la IA', () => {
     expect(t).toContain('Complejo turístico en Quillón');
     expect(t).toContain('No inventes');
     expect(t).toContain('aclaratoria');
+  });
+
+  it('pide los formularios con el archivo y las páginas donde viene el formato EN BLANCO (18-10)', () => {
+    const t = instruccionesDeBases({
+      codigo: '4364-13-LE26',
+      nombre: 'Producción de Evento día del Profesor',
+      organismo: null,
+      comuna: null,
+      perfil: null,
+    });
+    expect(t).toContain('- formularios: CADA formulario o anexo con formato');
+    expect(t).toContain(
+      'donde viene el formato EN BLANCO, no donde solo se menciona',
+    );
+    expect(ESQUEMA_DE_BASES.required).toContain('formularios');
+    expect(
+      ESQUEMA_DE_BASES.properties.formularios.items.properties.se_entrega_en
+        .enum,
+    ).toEqual(['administrativa', 'tecnica', 'economica', 'otra']);
   });
 
   it('las fallas, en palabras de la casa', () => {
