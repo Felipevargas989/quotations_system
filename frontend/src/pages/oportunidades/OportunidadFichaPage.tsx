@@ -23,6 +23,7 @@ import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
+import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
@@ -304,6 +305,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "postulacion" && (
         <>
+          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}

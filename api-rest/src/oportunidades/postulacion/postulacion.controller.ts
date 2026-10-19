@@ -11,6 +11,7 @@ import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { FijarOfertaDto, LlevarACotizacionDto } from './postulacion.dto';
 
@@ -23,9 +24,28 @@ import { FijarOfertaDto, LlevarACotizacionDto } from './postulacion.dto';
 export class PostulacionController {
   constructor(
     private readonly cotizacion: CotizacionDeLaPostulacionService,
+    private readonly armar: ArmarLaOfertaService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(PostulacionController.name);
+  }
+
+  /** La oferta armada con IA (decisión 33): la matriz «especificación →
+   *  qué se ofrece» y lo que falta en el catálogo. */
+  @Get(':id/oferta')
+  oferta(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.armar.ultimo(user.company_id, id);
+  }
+
+  @Post(':id/oferta')
+  armarLaOferta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/oferta (empresa ${user.company_id})`,
+    );
+    return this.armar.pedir(user.company_id, user.id, id);
   }
 
   @Get(':id/cotizacion')

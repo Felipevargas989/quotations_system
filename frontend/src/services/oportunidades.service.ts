@@ -722,6 +722,40 @@ export interface EstadoDeLaCotizacion {
   propuesta: { id: number; productos: number } | null;
 }
 
+/** Una fila de la oferta armada con IA (decisión 33): una especificación
+ *  técnica de las bases, qué se ofrece y con qué productos del catálogo. */
+export interface FilaDeLaOferta {
+  especificacion: string;
+  pagina: number;
+  /** Lo que se ofrece: va tal cual en la propuesta y en los anexos. */
+  como: string;
+  origen: "catalogo" | "subcontratar" | "completar";
+  productos: number[];
+}
+
+export interface ArmadoDeLaOferta {
+  resumen: string;
+  matriz: FilaDeLaOferta[];
+  faltan_en_el_catalogo: Array<{ que: string; por_que: string }>;
+}
+
+export interface TrabajoDeOferta extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: "oferta";
+  resultado: ArmadoDeLaOferta | null;
+}
+
+export const getOfertaDeLaPostulacion = async (id: number) =>
+  ((await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/oferta`, "GET")) as
+    | TrabajoDeOferta
+    | ""
+    | null) || null;
+
+export const armarLaOferta = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/oferta`,
+    "POST",
+  )) as TrabajoDeOferta;
+
 export const getCotizacionDeLaPostulacion = async (id: number) =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
