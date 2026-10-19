@@ -258,7 +258,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - en la ficha, «Quién ganó, según el acta».
       Las razones de la prioridad quedaron en violeta también en el resumen y en la ficha (decisión 31).
     - **Parte 2 construida la noche del 19-10** (sprint E, migración 145; probado en el laboratorio y en producción desde el 19-10):
-      - lo que vende la empresa se escribe en «Mi empresa» y Configuración remite allá; es la misma `perfil`, que lee el radar;
+      - lo que vende la empresa se escribe en «Mi empresa» y Configuración remite allá; es la misma `perfil`, que lee el radar. Desde el 19-10 a mediodía va dentro de «Datos como oferente», justo después de Instalaciones, y se guarda con el mismo «Guardar datos» (Felipe: *"lo que vende tu empresa debería estar en instalaciones"*): las tres descripciones que lee la IA quedan juntas;
       - en la ficha de una seguida, o con acta, el botón «Hacer resumen de negocio»: Sonnet 5.5 lee lo publicado, el acta y lo subido, y lo cruza con «Mi empresa» (quién ganó, qué incluye, qué ofreció cada uno, para tu empresa, siguientes pasos).
       Sonnet y no Opus: no decide una postulación y cuesta la mitad.
 31. **La bandeja, un color por significado** (19-10; construido esa noche y en producción desde el 19-10, PR #166; sprint B de la hoja de ruta, §7). Felipe, con la bandeja a la vista: *"el amarillo de los prioritarios se mezcla con el amarillo del semáforo y hace confuso saber cuál es más importante... quizás las verdes con un fondo verde pálido, las amarillas un amarillo pálido, y las prioritarias separadas por tablas"*.
