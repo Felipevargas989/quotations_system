@@ -148,6 +148,7 @@ export class ElSetService {
     const resultado = (analisis.resultado ?? {}) as {
       formularios?: FormularioDeLasBases[];
       requisitos?: Array<{ que: string }>;
+      documentos?: Array<{ nombre: string }>;
     };
     const oferta = trabajos.find(
       (t) => t.tipo === 'oferta' && t.estado === 'listo',
@@ -159,6 +160,9 @@ export class ElSetService {
         : [],
       requisitos: Array.isArray(resultado.requisitos)
         ? resultado.requisitos
+        : [],
+      documentos: Array.isArray(resultado.documentos)
+        ? resultado.documentos
         : [],
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),

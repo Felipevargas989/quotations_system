@@ -126,8 +126,8 @@ describe('ElSetService', () => {
     ]);
     expect(set.faltan).toEqual([
       '«Formularios_Anexos - lleno.docx» va sin firma: usa «Firmar» si el formulario la pide.',
-      // Lo general para contratar que no está en la carpeta (decisión 38).
-      'Para contratar te pueden pedir «e-RUT (SII)», «Patente municipal», «Certificado de no quiebra», «Escritura de constitución y estatutos», «Certificado de vigencia de la sociedad»: súbelos en «Mi empresa» y van en «4. Otros».',
+      // Lo general que no está en la carpeta no se avisa si las bases no lo
+      // nombran (decisión 38, 19-10).
     ]);
     expect(set.bytes).toBe(ANEXOS.length * 2 + 3000);
   });
