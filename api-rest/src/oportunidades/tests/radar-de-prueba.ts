@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
+import type { HistoriaRepository } from '../historia/historia.repository';
 import { HistoriaService } from '../historia/historia.service';
 import type {
   LecturaService,
@@ -127,6 +128,9 @@ export function armar(base = new Map<string, ProcesoConocido>()) {
     mp as unknown as MercadoPublicoClient,
     repo as unknown as OportunidadesRepository,
     lectura as unknown as LecturaService,
+    {
+      regionesDeLasUnidades: jest.fn().mockResolvedValue(new Map()),
+    } as unknown as HistoriaRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
   const radar = new RadarService(

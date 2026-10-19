@@ -21,6 +21,7 @@ const METODOS = [
   'lt',
   'gt',
   'gte',
+  'lte',
   'is',
   'not',
   'in',
@@ -364,30 +365,47 @@ describe('OportunidadesRepository — sprint 1b', () => {
     expect(paso(c, 'limit')).toEqual(['limit', 300]);
   });
 
-  it('el próximo día de historia: primero los últimos 60 días, del más nuevo al más viejo', async () => {
+  it('el próximo día de historia: primero el mes a cada lado de «hace un año» (19-10, decisión 28)', async () => {
     const { repo, consultas } = armar((c) =>
-      tiene(c, 'gte') ? { data: [{ fecha: '2026-10-16' }] } : {},
+      tiene(c, 'lte') ? { data: [{ fecha: '2025-10-03' }] } : {},
     );
-    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2026-10-16');
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
     expect(consultas).toHaveLength(1);
     const c = consultas[0];
     expect(c.tabla).toBe('mp_historia');
     expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
-    expect(paso(c, 'order')).toEqual(['order', 'fecha', { ascending: false }]);
-  });
-
-  it('sin días recientes pendientes: el de menor prioridad (cerca de hace un año)', async () => {
-    const { repo, consultas } = armar((c) =>
-      tiene(c, 'gte') ? { data: [] } : { data: [{ fecha: '2025-10-03' }] },
-    );
-    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2025-10-03');
-    const c = consultas[1];
-    expect(c.pasos).toContainEqual(['eq', 'estado', 'pendiente']);
+    expect(c.pasos).toContainEqual(['lte', 'prioridad', 31]);
     expect(paso(c, 'order')).toEqual([
       'order',
       'prioridad',
       { ascending: true },
     ]);
+  });
+
+  it('después, los últimos 60 días del más nuevo al más viejo; y al final el resto por prioridad', async () => {
+    const { repo, consultas } = armar((c) =>
+      tiene(c, 'gte') ? { data: [{ fecha: '2026-10-16' }] } : { data: [] },
+    );
+    await expect(repo.siguienteDiaDeHistoria()).resolves.toBe('2026-10-16');
+    expect(consultas).toHaveLength(2);
+    expect(paso(consultas[1], 'order')).toEqual([
+      'order',
+      'fecha',
+      { ascending: false },
+    ]);
+
+    const otro = armar((c) =>
+      tiene(c, 'lte') || tiene(c, 'gte')
+        ? { data: [] }
+        : { data: [{ fecha: '2024-03-01' }] },
+    );
+    await expect(otro.repo.siguienteDiaDeHistoria()).resolves.toBe(
+      '2024-03-01',
+    );
+    expect(otro.consultas).toHaveLength(3);
+
+    const completa = armar(() => ({ data: [] }));
+    await expect(completa.repo.siguienteDiaDeHistoria()).resolves.toBeNull();
   });
 
   it('el historial de organismos: de a 100, solo lo adjudicado', async () => {

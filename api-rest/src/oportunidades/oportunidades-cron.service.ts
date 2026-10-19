@@ -20,6 +20,41 @@ import { RadarService } from './radar.service';
 export const HORARIO_DEL_RADAR = '7 2,5,9,12,15,18,23 * * *';
 export const ZONA_DEL_RADAR = 'America/Santiago';
 
+const MINUTO = 60_000;
+
+const RELOJ_DE_CHILE = new Intl.DateTimeFormat('en-US', {
+  timeZone: ZONA_DEL_RADAR,
+  hour: 'numeric',
+  minute: 'numeric',
+  hourCycle: 'h23',
+});
+
+const enChile = (instante: number) => {
+  const partes = RELOJ_DE_CHILE.formatToParts(new Date(instante));
+  const valor = (tipo: string) =>
+    Number(partes.find((p) => p.type === tipo)?.value);
+  return { hora: valor('hour'), minuto: valor('minute') };
+};
+
+/** LA GRAN DESCARGA (19-10, decisión 28). Felipe: *"hagamos una gran carga
+ *  esta noche y después sigamos con el flujo regular"*. Hasta cuándo puede
+ *  cargar historia una pasada que parte en `instante`: 10 minutos antes de
+ *  la pasada siguiente, y nunca después de las 06:55, porque ChileCompra
+ *  pide las descargas grandes entre las 22:00 y las 07:00. */
+export const historiaHasta = (instante: number): number => {
+  const [minutoDelReloj, horas] = HORARIO_DEL_RADAR.split(' ');
+  const delReloj = horas.split(',').map(Number);
+  const desde = Math.floor(instante / MINUTO) * MINUTO;
+  for (let t = desde + MINUTO; t <= desde + 24 * 60 * MINUTO; t += MINUTO) {
+    const { hora, minuto } = enChile(t);
+    if (hora === 7 && minuto === 0) return t - 5 * MINUTO;
+    if (delReloj.includes(hora) && minuto === Number(minutoDelReloj)) {
+      return t - 10 * MINUTO;
+    }
+  }
+  return desde;
+};
+
 // La palanca del laboratorio, igual que RUN_FOLLOWUPS_ON_BOOT:
 // OPORTUNIDADES_RADAR_AL_ARRANCAR=1 corre el radar una vez, un minuto
 // después de encender, en cualquier ambiente. Correrlo de nuevo no duplica
@@ -37,7 +72,7 @@ export class OportunidadesCronService implements OnApplicationBootstrap {
   @Cron(HORARIO_DEL_RADAR, { timeZone: ZONA_DEL_RADAR })
   async radarProgramado() {
     try {
-      await this.radar.correr('reloj');
+      await this.radar.correr('reloj', historiaHasta(Date.now()));
     } catch (error) {
       this.logger.error(`el reloj del radar falló: ${mensajeDe(error)}`);
     }

@@ -1,7 +1,10 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { esDeNocheEnChile } from '../historia/historia.service';
-import { OportunidadesCronService } from '../oportunidades-cron.service';
+import {
+  historiaHasta,
+  OportunidadesCronService,
+} from '../oportunidades-cron.service';
 import type { RadarService } from '../radar.service';
 
 describe('El horario del radar (Felipe, 17-10: cuatro de día y tres de noche)', () => {
@@ -38,6 +41,28 @@ describe('El horario del radar (Felipe, 17-10: cuatro de día y tres de noche)',
       (h, i) => (horas[(i + 1) % horas.length] - h + 24) % 24,
     );
     expect(Math.min(...separaciones)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('La gran descarga: hasta cuándo carga historia cada pasada de noche (19-10, decisión 28)', () => {
+  // Octubre de 2026: Chile en horario de verano (UTC-3).
+  const chile = (dia: number, hora: number, minuto: number) =>
+    Date.UTC(2026, 9, dia, hora + 3, minuto);
+
+  it('10 minutos antes de la pasada siguiente; la de las 05 hasta las 06:55 (ChileCompra: descargas grandes de 22:00 a 07:00)', () => {
+    expect(historiaHasta(chile(19, 23, 7))).toBe(chile(20, 1, 57));
+    expect(historiaHasta(chile(20, 2, 7) + 30_000)).toBe(chile(20, 4, 57));
+    expect(historiaHasta(chile(20, 5, 7))).toBe(chile(20, 6, 55));
+  });
+
+  it('el reloj le pasa esa hora a la corrida', async () => {
+    const radar = { correr: jest.fn().mockResolvedValue(null) };
+    const cron = new OportunidadesCronService(
+      radar as unknown as RadarService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    await cron.radarProgramado();
+    expect(radar.correr).toHaveBeenCalledWith('reloj', expect.any(Number));
   });
 });
 

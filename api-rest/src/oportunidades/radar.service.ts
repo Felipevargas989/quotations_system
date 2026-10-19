@@ -274,19 +274,21 @@ export class RadarService {
   }
 
   /** Corre completo y espera (el reloj). null = ya había una en marcha. */
-  async correr(origen: 'reloj'): Promise<ResumenCorrida | null> {
+  async correr(origen: 'reloj', historiaHasta?: number) {
     const id = await this.repo.tomarCorrida(origen);
     if (id === null) {
       this.logger.info('radar: ya hay una corrida en marcha; esta no parte');
       return null;
     }
-    return this.ejecutar(id, origen);
+    return this.ejecutar(id, origen, historiaHasta);
   }
 
-  /** Nunca lanza: todo error queda en la bitácora de la corrida. */
+  /** Nunca lanza: todo error queda en la bitácora de la corrida.
+   *  `historiaHasta`: lo que el reloj le da a la historia (decisión 28). */
   private async ejecutar(
     id: number,
     origen: 'reloj' | 'manual' | 'arranque',
+    historiaHasta?: number,
   ): Promise<ResumenCorrida> {
     const resumen = resumenVacio();
     const inicio = Date.now();
@@ -311,7 +313,10 @@ export class RadarService {
       await this.licitaciones(resumen, inicio);
       await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
-      await this.historia.cargarHistoria(resumen, inicio, origen);
+      await this.historia.cargarHistoria(resumen, inicio, origen, {
+        regiones,
+        hasta: historiaHasta,
+      });
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
