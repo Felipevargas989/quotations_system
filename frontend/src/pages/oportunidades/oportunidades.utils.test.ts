@@ -269,7 +269,10 @@ describe("bases y anexos", () => {
   it("PDF e imágenes se ven en el visor; Word, Excel y ZIP se descargan", () => {
     expect(seVeEnElVisor("c1/oportunidades/9/x_Bases.PDF")).toBe(true);
     expect(seVeEnElVisor("c1/oportunidades/9/x_plano.jpg")).toBe(true);
-    expect(seVeEnElVisor("c1/oportunidades/9/x_Anexos.docx")).toBe(false);
+    // El Word se lee en Eventia desde el 19-10 (decisión 46); el .doc
+    // antiguo, no.
+    expect(seVeEnElVisor("c1/oportunidades/9/x_Anexos.docx")).toBe(true);
+    expect(seVeEnElVisor("c1/oportunidades/9/x_Anexo antiguo.doc")).toBe(false);
     expect(seVeEnElVisor("c1/oportunidades/9/x_Todo.zip")).toBe(false);
   });
 });

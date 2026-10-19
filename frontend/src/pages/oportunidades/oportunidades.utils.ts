@@ -471,10 +471,11 @@ export const tamanoLegible = (bytes: number): string => {
   })} MB`;
 };
 
-/** El visor de la casa (FileViewLink) muestra PDF e imágenes; Word, Excel
- *  y ZIP se descargan. Se mira la RUTA guardada, igual que el visor. */
+/** El visor de la casa (FileViewLink) muestra PDF, imágenes y, desde el
+ *  19-10 (decisión 46), Word (.docx); el .doc antiguo, Excel y ZIP se
+ *  descargan. Se mira la RUTA guardada, igual que el visor. */
 export const seVeEnElVisor = (ruta: string): boolean =>
-  /\.(pdf|jpe?g|png|webp)$/i.test(ruta);
+  /\.(pdf|jpe?g|png|webp|docx)$/i.test(ruta);
 
 /** PRIORIDAD (Felipe, 17-10: "hay dos que son directas mías y están en
  *  amarillo y deberían ser prioridad"): lo de una comuna cercana o de alto
