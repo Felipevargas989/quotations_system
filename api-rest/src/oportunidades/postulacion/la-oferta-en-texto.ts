@@ -74,11 +74,13 @@ export const laOfertaDecidida = (o: OfertaParaDocumentos): string[] => [
   '',
 ];
 
-/** El formulario de calidad que acepta formato propio remite a la
- *  propuesta técnica (decisión 33): así no hay dos versiones del detalle
- *  que puedan contradecirse. */
-export const FORMATO_PROPIO =
-  'Si un formulario de calidad de la oferta o de oferta técnica permite adjuntar un formato propio (por ejemplo, «Puede adjuntar formato propio con la totalidad del detalle»), no repitas el detalle: escribe en él «Se adjunta propuesta técnica en formato propio» y deja su encabezado y su línea de firma. La propuesta técnica, hecha desde lo mismo, lleva el detalle.';
+/** El formulario de calidad de la oferta lleva ahí mismo todo el detalle
+ *  de lo postulado, aunque acepte un formato propio (decisión 40; Felipe,
+ *  19-10: "en ese mismo formulario hubiese puesto todo el detalle... y no
+ *  estar creando otra oferta técnica a partir de otro formato"). Antes
+ *  (decisión 33) remitía a una propuesta técnica aparte y quedaba vacío. */
+export const EL_DETALLE_EN_EL_FORMULARIO =
+  'El formulario de calidad de la oferta, de oferta técnica o de propuesta técnica lleva AHÍ MISMO todo el detalle de LO POSTULADO, punto por punto y con la estructura del formulario (si tiene una tabla, una fila por punto; si no, un párrafo por punto): cada servicio (coffee, desayuno, almuerzo, cena, cóctel, fiesta, show) con lo que se sirve o se presta y sus cantidades (la lista de productos de LO POSTULADO), horarios, lugar, equipamiento y personal. Aunque el formulario diga que se puede adjuntar un formato propio, no escribas «se adjunta propuesta técnica» ni remitas a otro documento: el formulario es la propuesta. Mantén su encabezado y su línea de firma.';
 
 export const ESCRIBIR_LA_OFERTA =
   'La oferta ya está decidida (LO POSTULADO, arriba): escribe exactamente eso. El texto de cada punto va tal cual en el lugar de las bases o del formulario que le corresponde, con sus productos y cantidades. No decidas, no cambies ni agregues nada. Si las bases piden algo que no está en lo postulado, escríbelo como [COMPLETAR: qué falta] y anótalo en pendientes.';

@@ -9,8 +9,8 @@ import type {
 } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
 import {
+  EL_DETALLE_EN_EL_FORMULARIO,
   ESCRIBIR_LA_OFERTA,
-  FORMATO_PROPIO,
   laOfertaDecidida,
   type OfertaParaDocumentos,
 } from '../postulacion/la-oferta-en-texto';
@@ -462,7 +462,7 @@ export const instruccionesDeAnexos = (
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
       'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Anota en pendientes, en una línea, los archivos de los respaldos que usaste: «Adjuntar respaldos: ...».',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
-      ...(c.oferta ? [ESCRIBIR_LA_OFERTA, FORMATO_PROPIO] : []),
+      ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,
       LO_SUBCONTRATADO,
       NO_PROMETER,

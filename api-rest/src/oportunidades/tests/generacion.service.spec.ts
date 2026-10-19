@@ -7,8 +7,8 @@ import {
 import { salidasDeLaFirma } from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
 import {
+  EL_DETALLE_EN_EL_FORMULARIO,
   ESCRIBIR_LA_OFERTA,
-  FORMATO_PROPIO,
 } from '../postulacion/la-oferta-en-texto';
 import {
   adjunto,
@@ -392,8 +392,12 @@ describe('Crear propuesta técnica', () => {
       const anexos = planDe(ejecutar);
       expect(anexos.sistema).toContain('LO POSTULADO');
       expect(anexos.sistema).toContain(ESCRIBIR_LA_OFERTA);
-      // El formulario que acepta formato propio remite a la propuesta.
-      expect(anexos.sistema).toContain(FORMATO_PROPIO);
+      // El formulario de calidad lleva todo el detalle ahí mismo, aunque
+      // acepte formato propio (decisión 40).
+      expect(anexos.sistema).toContain(EL_DETALLE_EN_EL_FORMULARIO);
+      expect(anexos.sistema).not.toContain(
+        'escribe en él «Se adjunta propuesta técnica en formato propio»',
+      );
     }));
 
   it('postulada, ya no se generan ni firman documentos: lo postulado queda fijo (decisión 33)', () =>
