@@ -43,7 +43,7 @@ import {
 // la fecha de cierre) y sus datos (que los anexos digan el mismo RUT y la
 // misma razón social). Con Opus 5.5, por detrás, como el análisis.
 
-const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
+export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
   patente: 'Patente municipal',
   inicio_actividades: 'Inicio de actividades (SII)',
   programa_integridad: 'Programa de integridad',
