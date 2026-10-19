@@ -15,7 +15,7 @@ import {
 } from '../oferente/respaldo';
 import {
   archivoDeLaRuta,
-  elegirDocumento,
+  documentosParaLeer,
   mismoNumero,
   nombreDelRespaldo,
   yaEsta,
@@ -64,25 +64,39 @@ const respaldo = (
 });
 
 describe('Las reglas para traer respaldos de Eventia', () => {
-  it('uno por evento: la orden de compra si hay, si no la factura; solo PDF o foto', () => {
-    const conOrden = evento(473, [
-      ['facturas', 'Factura 347.pdf', 'Factura_347.pdf'],
-      ['ordenes_compra', 'Orden de compra', '5040-126-TD26.pdf'],
-    ]);
-    expect(elegirDocumento(conOrden)?.nombre).toBe('Orden de compra');
-    const soloFactura = evento(394, [['facturas', '344.pdf', '344.pdf']]);
-    expect(elegirDocumento(soloFactura)?.nombre).toBe('344.pdf');
-    // Una orden en Word no se lee: va la factura.
-    const ordenEnWord = evento(400, [
-      ['ordenes_compra', 'OC.docx', 'OC.docx'],
-      ['facturas', '368.pdf', '368.pdf'],
-    ]);
-    expect(elegirDocumento(ordenEnWord)?.nombre).toBe('368.pdf');
+  it('en qué orden se prueban: las órdenes de compra primero, después las facturas; solo PDF o foto, y hasta 3', () => {
+    const nombres = (e: DocumentosDeUnEvento) =>
+      documentosParaLeer(e).map((d) => d.nombre);
     expect(
-      elegirDocumento(
-        evento(1, [['facturas', 'Factura.xlsx', 'Factura.xlsx']]),
+      nombres(
+        evento(473, [
+          ['facturas', 'Factura 347.pdf', 'Factura_347.pdf'],
+          ['ordenes_compra', 'Orden de compra', '5040-126-TD26.pdf'],
+        ]),
       ),
-    ).toBeNull();
+    ).toEqual(['Orden de compra', 'Factura 347.pdf']);
+    // Una orden en Word no se lee: queda la factura.
+    expect(
+      nombres(
+        evento(400, [
+          ['ordenes_compra', 'OC.docx', 'OC.docx'],
+          ['facturas', '368.pdf', '368.pdf'],
+        ]),
+      ),
+    ).toEqual(['368.pdf']);
+    expect(
+      nombres(evento(1, [['facturas', 'Factura.xlsx', 'Factura.xlsx']])),
+    ).toEqual([]);
+    expect(
+      nombres(
+        evento(481, [
+          ['ordenes_compra', '1 de 3', 'a.pdf'],
+          ['ordenes_compra', '2 de 3', 'b.pdf'],
+          ['ordenes_compra', '3 de 3', 'c.pdf'],
+          ['facturas', 'Factura', 'd.pdf'],
+        ]),
+      ),
+    ).toEqual(['1 de 3', '2 de 3', '3 de 3']);
   });
 
   it('el nombre del archivo sale de la ruta, sin el sello de hora', () => {
@@ -281,6 +295,35 @@ describe('Traer de Eventia', () => {
       fuente: 'mercado_publico',
       evento: 400,
     });
+  });
+
+  it('si su primer documento no es una orden ni una factura, prueba el siguiente', async () => {
+    const { oferente, lector, servicio } = armar([
+      evento(423, [
+        [
+          'ordenes_compra',
+          'Informe de evaluación Crece 2026.pdf',
+          'Informe.pdf',
+        ],
+        ['ordenes_compra', 'Orden de compra', '1213301-49-AG26.pdf'],
+      ]),
+    ]);
+    lector.leer.mockImplementation((_c: number, a: { originalname: string }) =>
+      Promise.resolve(
+        a.originalname === 'Informe.pdf'
+          ? lectura('', 'otro')
+          : lectura('1213301-49-AG26'),
+      ),
+    );
+    const r = await servicio.traer(1, 'cuenta-1');
+    expect(r).toEqual({ traidos: 1, ya_estaban: 0, sin_traer: [] });
+    expect(lector.leer).toHaveBeenCalledTimes(2);
+    const [, , archivo] = oferente.subirDocumento.mock.calls[0] as [
+      number,
+      string,
+      { originalname: string },
+    ];
+    expect(archivo.originalname).toBe('Orden de compra 1213301-49-AG26.pdf');
   });
 
   it('dos eventos con el mismo número: se trae una vez', async () => {

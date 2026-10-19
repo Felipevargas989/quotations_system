@@ -13,7 +13,7 @@ import { OferenteService } from './oferente.service';
 import { type DatosDeRespaldo, soloLosDatos, TIPO_RESPALDO } from './respaldo';
 import {
   archivoDeLaRuta,
-  elegirDocumento,
+  documentosParaLeer,
   MAX_EVENTOS_POR_VEZ,
   mismoNumero,
   nombreDelRespaldo,
@@ -30,6 +30,7 @@ import {
 const DE_A = 3;
 
 type Conocido = DatosDeRespaldo & { id?: number };
+type Lectura = Awaited<ReturnType<LeerRespaldoService['leer']>>;
 
 @Injectable()
 export class RespaldosDeEventiaService {
@@ -78,6 +79,8 @@ export class RespaldosDeEventiaService {
     return resultado;
   }
 
+  /** Prueba sus documentos en orden hasta dar con una orden de compra o
+   *  una factura de la empresa; si ninguno sirve, dice por qué. */
   private async traerUno(
     companyId: number,
     cuentaId: string,
@@ -86,71 +89,102 @@ export class RespaldosDeEventiaService {
     resultado: ResultadoDeTraer,
   ): Promise<void> {
     const cual = `Evento N° ${e.numero}${e.cliente ? ` (${e.cliente})` : ''}`;
-    const doc = elegirDocumento(e);
-    if (!doc) {
-      resultado.sin_traer.push(`${cual}: su factura no es PDF ni foto.`);
+    const documentos = documentosParaLeer(e);
+    if (documentos.length === 0) {
+      resultado.sin_traer.push(
+        `${cual}: su factura u orden de compra no es PDF ni foto.`,
+      );
       return;
     }
-    try {
-      const buffer = await this.eventia.descargarDocumento(companyId, doc.ruta);
-      const leido = await this.lector.leer(companyId, {
-        originalname: archivoDeLaRuta(doc.ruta),
-        buffer,
-        size: buffer.length,
-      });
-      if (leido.tipo === 'otro') {
-        resultado.sin_traer.push(
-          `${cual}: «${doc.nombre}» no parece orden de compra ni factura.`,
+    let porque = '';
+    for (const doc of documentos) {
+      let buffer: Buffer;
+      let leido: Lectura;
+      try {
+        buffer = await this.eventia.descargarDocumento(companyId, doc.ruta);
+        leido = await this.lector.leer(companyId, {
+          originalname: archivoDeLaRuta(doc.ruta),
+          buffer,
+          size: buffer.length,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `respaldo del evento ${e.numero} (empresa ${companyId}), «${doc.nombre}»: ${mensajeDe(error)}`,
         );
-        return;
+        porque = mensajeDe(error);
+        continue;
+      }
+      if (leido.tipo === 'otro') {
+        porque = `«${doc.nombre}» no parece orden de compra ni factura.`;
+        continue;
       }
       // Con la ficha de Mercado Público, el único aviso es que la orden es
       // de otro proveedor: esa no es experiencia de la empresa.
       if (leido.datos.fuente === 'mercado_publico' && leido.aviso) {
-        resultado.sin_traer.push(`${cual}: ${leido.aviso}`);
-        return;
+        porque = leido.aviso;
+        continue;
       }
-      const igual = conocidos.find((c) =>
-        mismoNumero(c.numero, leido.datos.numero),
-      );
-      if (igual) {
-        resultado.ya_estaban++;
-        if (igual.id && !igual.evento) {
-          igual.evento = e.numero;
-          await this.repo.anotarEvento(
-            companyId,
-            igual.id,
-            soloLosDatos(igual),
-          );
-        }
-        return;
+      try {
+        await this.guardar(companyId, cuentaId, e, doc.ruta, buffer, leido, {
+          conocidos,
+          resultado,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `respaldo del evento ${e.numero} (empresa ${companyId}): ${mensajeDe(error)}`,
+        );
+        resultado.sin_traer.push(`${cual}: ${mensajeDe(error)}`);
       }
-      // Antes de subir (sin esperar nada entre medio): otro evento con el
-      // mismo número ya lo ve.
-      conocidos.push({ ...leido.datos, evento: e.numero });
-      await this.oferente.subirDocumento(
-        companyId,
-        cuentaId,
-        {
-          originalname: nombreDelRespaldo(
-            leido.tipo,
-            leido.datos.numero,
-            extensionDe(doc.ruta),
-          ),
-          buffer,
-          size: buffer.length,
-        },
-        {
-          tipo: TIPO_RESPALDO,
-          datos: JSON.stringify({ ...leido.datos, evento: e.numero }),
-        },
-      );
-      resultado.traidos++;
-    } catch (error) {
-      this.logger.warn(
-        `respaldo del evento ${e.numero} (empresa ${companyId}): ${mensajeDe(error)}`,
-      );
-      resultado.sin_traer.push(`${cual}: ${mensajeDe(error)}`);
+      return;
     }
+    resultado.sin_traer.push(`${cual}: ${porque}`);
+  }
+
+  /** Lo leído pasa a «Mi empresa», salvo que su número ya esté: entonces
+   *  el que estaba queda anotado con su evento. */
+  private async guardar(
+    companyId: number,
+    cuentaId: string,
+    e: DocumentosDeUnEvento,
+    ruta: string,
+    buffer: Buffer,
+    leido: Lectura,
+    {
+      conocidos,
+      resultado,
+    }: { conocidos: Conocido[]; resultado: ResultadoDeTraer },
+  ): Promise<void> {
+    const igual = conocidos.find((c) =>
+      mismoNumero(c.numero, leido.datos.numero),
+    );
+    if (igual) {
+      resultado.ya_estaban++;
+      if (igual.id && !igual.evento) {
+        igual.evento = e.numero;
+        await this.repo.anotarEvento(companyId, igual.id, soloLosDatos(igual));
+      }
+      return;
+    }
+    // Antes de subir (sin esperar nada entre medio): otro evento con el
+    // mismo número ya lo ve.
+    conocidos.push({ ...leido.datos, evento: e.numero });
+    await this.oferente.subirDocumento(
+      companyId,
+      cuentaId,
+      {
+        originalname: nombreDelRespaldo(
+          leido.tipo,
+          leido.datos.numero,
+          extensionDe(ruta),
+        ),
+        buffer,
+        size: buffer.length,
+      },
+      {
+        tipo: TIPO_RESPALDO,
+        datos: JSON.stringify({ ...leido.datos, evento: e.numero }),
+      },
+    );
+    resultado.traidos++;
   }
 }

@@ -18,19 +18,23 @@ export const MAX_EVENTOS_POR_VEZ = 30;
 
 const SE_LEE = /\.(pdf|jpe?g|png|webp)$/i;
 
+/** Documentos que se prueban por evento, como mucho. */
+export const MAX_DOCUMENTOS_POR_EVENTO = 3;
+
 /** Un respaldo por evento (la orden y la factura de un mismo servicio son
- *  una sola experiencia): la orden de compra si hay, que si es de Mercado
- *  Público se confirma con su ficha; si no, la factura. La primera que se
- *  subió de cada una. */
-export function elegirDocumento(
+ *  una sola experiencia). En qué orden se prueban: las órdenes de compra
+ *  primero (la de Mercado Público se confirma con su ficha), después las
+ *  facturas, cada una en el orden en que se subió. Se usa la primera que
+ *  resulte ser una orden o una factura: a veces se sube otra cosa en esa
+ *  categoría (en el laboratorio, un informe entre las órdenes). */
+export function documentosParaLeer(
   e: DocumentosDeUnEvento,
-): DocumentosDeUnEvento['documentos'][number] | null {
+): DocumentosDeUnEvento['documentos'] {
   const legibles = e.documentos.filter((d) => SE_LEE.test(d.ruta));
-  return (
-    legibles.find((d) => d.categoria === 'ordenes_compra') ??
-    legibles.find((d) => d.categoria === 'facturas') ??
-    null
-  );
+  return [
+    ...legibles.filter((d) => d.categoria === 'ordenes_compra'),
+    ...legibles.filter((d) => d.categoria === 'facturas'),
+  ].slice(0, MAX_DOCUMENTOS_POR_EVENTO);
 }
 
 /** El nombre del archivo en el balde, sin la carpeta ni el sello de hora
