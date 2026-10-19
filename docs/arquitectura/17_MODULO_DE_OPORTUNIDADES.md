@@ -272,6 +272,18 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Lo subcontratado, tal cual lo dicen las bases.** Felipe: *"todo lo que tenga que ver con audiovisual, cristalería y esas cosas, que coloque exactamente lo que piden las bases, porque esos son servicios que se subcontratan, siempre que quede ahí establecido"*. Audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla, decoración, flores, fotografía, música, animación, shows, DJ y generador se ofrecen con las cantidades y características de las bases, como un servicio más de la empresa: sin [POR CONFIRMAR], sin nombres de proveedores y **sin decir que se subcontrata** (Felipe: *"tampoco se hace una mención a que va a ser subcontratado, porque no es interés de la municipalidad saberlo"*). Eso es interno: va solo en «Lo que te toca completar», nunca dentro del Word. Lo que las bases dejan para que lo defina el oferente (la temática de un show) queda como [COMPLETAR]. Todo lo subcontratado se anota en pendientes («Subcontratar y cotizar: …»), porque si no está en la cotización, «¿Calza el precio?» muestra un margen que no existe.
     - **La experiencia, la justa:** en el anexo de experiencia van solo las contrataciones necesarias para el puntaje máximo de la pauta más una o dos de reserva (en el Funcionario, 6 o más dan 100 puntos), porque cada una necesita su orden de compra o factura.
     - Construido en `generacion/instrucciones.ts` (`SOLO_LO_QUE_PIDEN`, `LO_SUBCONTRATADO`), para la propuesta técnica y para los anexos de la oferta técnica. Lo que produce la empresa (comida, bebidas, salones) sigue la regla de antes: lo que tiene se ofrece con su nombre real y lo que no, sale [POR CONFIRMAR].
+33. **Una sola oferta: la cotización, y los documentos salen de ella** (19-10, aprobado). Felipe: *"busca una forma que sea escalable... quizás vincular a la cotización y que ambos lean la cotización"*, y después *"ok, hagamos eso"*. El problema: el agente de los anexos y el de la propuesta técnica escribían por separado (el de los anexos no lee la propuesta), así que podían contradecirse (uno ofrece plateada y el otro salmón), y el anexo económico no tenía de dónde sacar el desglose por línea que piden algunos formularios.
+    - **La oferta se arma una vez.** La IA crea la cotización vinculada desde el análisis y el catálogo, y cada línea queda marcada con la especificación de las bases que cubre (la matriz de cumplimiento). Lo subcontratado que no está en el catálogo se pide para agregarlo una vez, con su precio: precios nunca a dedo.
+    - **La empresa la revisa** en el cotizador de siempre y fija el monto con «Aplicar oferta».
+    - **La propuesta técnica y los anexos se generan juntos desde esa cotización**: misma comida, mismos servicios, mismas cantidades y mismo monto. El anexo económico lleva su desglose por línea, calculado por Eventia: el motor suma; la IA solo dice qué línea de la cotización va en qué fila del formulario.
+    - **Formato propio:** si el formulario de calidad lo acepta (lo detecta el análisis), dice «Se adjunta propuesta técnica en formato propio» y lleva encabezado y firma. Si no lo acepta, se llena con las mismas líneas de la propuesta.
+    - **Desactualizado:** si la cotización cambia después de generar, los documentos quedan marcados así hasta volver a generarlos.
+    - Opus decide una sola vez (armar la oferta); los documentos los escribe Sonnet, que cuesta la mitad.
+34. **Los respaldos de experiencia y el set para Mercado Público** (19-10, aprobado). Felipe, mientras bajaba las órdenes de compra de su experiencia: *"quizás debería existir el tipo de documento respaldo de experiencia, que puede ser una factura o la orden de compra... y al momento de generar el set de documentos que tengo que subir al mercado público, debería descargarse y adjuntarse estos mismos documentos"*.
+    - **Tipo nuevo en «Mi empresa → Documentos»: Respaldo de experiencia** (orden de compra o factura), con mandante, nombre del contrato, año, monto y número de la orden o la factura. Con el número de una orden de compra, Eventia completa lo demás desde su ficha pública de Mercado Público, que se abre sin código, como el acta. No vence.
+    - **El anexo de experiencia se llena con esos respaldos**: los más parecidos a lo que se licita, hasta el puntaje máximo de la pauta más uno o dos de reserva, y van sus PDF.
+    - **«Descargar para Mercado Público»** en «Mi postulación»: un ZIP con carpetas como las pide el portal (administrativa, técnica, económica), con los anexos firmados, la propuesta técnica, los documentos de la empresa que piden las bases y los respaldos de la experiencia declarada. Antes de bajarlo, la lista de lo que falta.
+    - El 19-10 se encontraron así las 27 órdenes de compra de Valle del Sol de 2023 y 2024 (`02_RESPALDOS/ordenes_de_compra_vds_2023_2024.json`, fuera del repo). Entre ellas, el Día del Funcionario 2023 de Quillón (4352-103-SE23, que Valle del Sol ganó) y el de Florida 2024 (3567-636-SE24).
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -676,6 +688,15 @@ laboratorio esa noche. En la mañana Felipe los revisó (*"se ve todo bien,
 a producción"*) y pasaron con el PR #166: primero las migraciones 144 y
 145 en la base de producción, después el motor y la vitrina.
 Las migraciones van al laboratorio y a producción **antes** del motor.
+
+**Hoja de ruta desde el 19-10 en la tarde** (decisiones 33 y 34; Felipe: *"ok, hagamos eso... inclúyelo en este sprint"*). Laboratorio primero; producción, con su «a producción». Va primero la F porque no depende de las otras y sirve de inmediato:
+
+| Sprint | Qué | Se da por bueno cuando |
+|---|---|---|
+| F. Respaldos de experiencia (decisión 34) | El tipo «Respaldo de experiencia» con sus datos. Con el número de una orden de compra, Eventia completa el resto desde la ficha pública. El anexo de experiencia sale de ahí, con sus PDF | Las órdenes de compra de Valle del Sol cargadas llenan solas el anexo de experiencia del Funcionario, con sus números |
+| G. Armar la oferta (decisión 33) | La IA crea la cotización vinculada con la matriz «especificación → línea de la cotización»; lo que falta en el catálogo se pide | En una licitación del laboratorio, la cotización cubre cada especificación técnica y dice qué falta en el catálogo |
+| H. Documentos desde la cotización (decisión 33) | Propuesta técnica y anexos juntos desde la cotización; el desglose del anexo económico lo calcula Eventia | La propuesta, el anexo de calidad y el económico dicen lo mismo que la cotización |
+| I. Formato propio, «desactualizado» y el set (decisiones 33 y 34) | El formulario de calidad remite a la propuesta si se permite; aviso si la cotización cambió; «Descargar para Mercado Público» | El ZIP trae todo lo que piden las bases, en sus carpetas, y avisa lo que falta |
 
 ## 8. Costos (estimados, a medir el primer mes)
 
