@@ -103,3 +103,56 @@ describe('FichaRepository — el color según las bases y el responsable (decisi
     expect(consultas[0].pasos).toContainEqual(['eq', 'estado', 'pendiente']);
   });
 });
+
+describe('FichaRepository — las exigencias que marca la empresa (migración 152)', () => {
+  /** La marca va en un solo paso a la base (`marcar_exigencia`): dos
+   *  marcas seguidas no se pisan (visto en el laboratorio el 19-10). */
+  const conRpc = (respuesta: { data: unknown; error: unknown }) => {
+    const rpc = jest.fn(() => Promise.resolve(respuesta));
+    const from = jest.fn();
+    const repo = new FichaRepository(
+      { client: { rpc, from } } as unknown as SupabaseService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    return { repo, rpc, from };
+  };
+
+  it('suma o quita la marca en un solo paso, siempre de UNA empresa', async () => {
+    const todas = {
+      'almuerzo: plateada al horno': 'lo_tengo',
+      'exclusividad del recinto': 'no_puedo',
+    };
+    const { repo, rpc, from } = conRpc({ data: todas, error: null });
+    await expect(
+      repo.marcarExigencia(1, 40, 'exclusividad del recinto', 'no_puedo'),
+    ).resolves.toEqual(todas);
+    expect(rpc).toHaveBeenCalledWith('marcar_exigencia', {
+      p_company_id: 1,
+      p_id: 40,
+      p_clave: 'exclusividad del recinto',
+      p_marca: 'no_puedo',
+    });
+    // Nada de leer y después guardar: así se pisaban.
+    expect(from).not.toHaveBeenCalled();
+
+    const quitar = conRpc({ data: {}, error: null });
+    await expect(
+      quitar.repo.marcarExigencia(1, 40, 'almuerzo: plateada al horno', null),
+    ).resolves.toEqual({});
+    expect(quitar.rpc).toHaveBeenCalledWith(
+      'marcar_exigencia',
+      expect.objectContaining({ p_marca: null }),
+    );
+  });
+
+  it('una oportunidad de otra empresa no se marca; un error de la base sube', async () => {
+    const otra = conRpc({ data: null, error: null });
+    await expect(
+      otra.repo.marcarExigencia(2, 40, 'exclusividad del recinto', 'lo_tengo'),
+    ).resolves.toBeNull();
+    const mala = conRpc({ data: null, error: new Error('se cayó') });
+    await expect(
+      mala.repo.marcarExigencia(1, 40, 'exclusividad del recinto', 'lo_tengo'),
+    ).rejects.toThrow('se cayó');
+  });
+});

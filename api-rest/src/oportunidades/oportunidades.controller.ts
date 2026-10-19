@@ -27,6 +27,7 @@ import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
+import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
 import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
 import { SeccionDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
@@ -220,6 +221,21 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.servicio.actualizar(user.company_id, id, dto, user.id);
+  }
+
+  /** «Exigencias de la licitación»: lo tengo / no puedo (migración 152). */
+  @Patch(':id/exigencias')
+  marcarExigencia(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: MarcarExigenciaDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.servicio.marcarExigencia(
+      user.company_id,
+      id,
+      dto.clave,
+      dto.marca ?? null,
+    );
   }
 
   /** Las bases y anexos que subió la empresa (migración 124). */

@@ -9,18 +9,17 @@ import {
 import { type ReactNode, useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
+  type FichaDeOportunidad,
   getAdjuntos,
   getAnalisis,
-  getValidacion,
   pedirAnalisis,
   type ResultadoDeBases,
-  type ResultadoDeValidacion,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import DocumentosAPresentar from "./DocumentosAPresentar";
+import ExigenciasDeLaLicitacion from "./ExigenciasDeLaLicitacion";
 import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
-import ListaDeRequisitos from "./ListaDeRequisitos";
-import PuedoCumplir from "./PuedoCumplir";
 import {
   alertasDelAnalisis,
   criteriosPorPeso,
@@ -38,11 +37,23 @@ import {
 // de lo que hay que presentar con el estado de la validación al lado, y las
 // fechas clave. Presupuesto, fecha del evento y lugar suben a "en una
 // mirada", arriba de la ficha.
+//
+// Reordenado el 19-10 (Felipe: "lo que pide la licitación con el listado de
+// documentos"): resumen, cómo te evalúan, lo que te deja fuera, los
+// formularios, las EXIGENCIAS (con ✓ lo tengo / ✗ no puedo) y los
+// DOCUMENTOS A PRESENTAR (cruzados con tu carpeta); después las fechas.
+// «¿Puedo cumplir?» y la lista mezclada de lo que hay que presentar se
+// juntaron en esas dos.
 
 export default function AnalisisDeBases({
   oportunidadId,
+  ficha,
 }: {
   readonly oportunidadId: number;
+  readonly ficha: Pick<
+    FichaDeOportunidad,
+    "estado" | "exigencias_marcadas" | "proceso"
+  >;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "analisis", oportunidadId];
@@ -56,12 +67,6 @@ export default function AnalisisDeBases({
     refetchInterval: (q) =>
       q.state.data?.estado === "procesando" ? 5000 : false,
   });
-  // La misma consulta que "Validar documentos": su estado va al lado de
-  // cada requisito.
-  const { data: validacion } = useQuery({
-    queryKey: ["oportunidades", "validacion", oportunidadId],
-    queryFn: () => getValidacion(oportunidadId),
-  });
 
   const pedir = useMutation({
     mutationFn: () => pedirAnalisis(oportunidadId),
@@ -72,15 +77,13 @@ export default function AnalisisDeBases({
 
   const procesando = analisis?.estado === "procesando" || pedir.isPending;
   const r = analisis?.estado === "listo" ? analisis.resultado : null;
-  const validado =
-    validacion?.estado === "listo" ? validacion.resultado?.requisitos : null;
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <h2 className="text-sm font-semibold text-gray-900">
-            Lo que piden las bases
+            Análisis de las bases
           </h2>
           <p className="text-xs text-gray-500">
             La IA lee las bases y anexos que subiste. La IA propone; revisa
@@ -121,7 +124,7 @@ export default function AnalisisDeBases({
             : "Todavía no se analizan."}
         </p>
       ) : (
-        <Resultado r={r} validado={validado ?? null} />
+        <Resultado r={r} oportunidadId={oportunidadId} ficha={ficha} />
       )}
 
       {analisis && analisis.estado !== "procesando" && (
@@ -146,10 +149,15 @@ export default function AnalisisDeBases({
 
 function Resultado({
   r,
-  validado,
+  oportunidadId,
+  ficha,
 }: {
   readonly r: ResultadoDeBases;
-  readonly validado: ResultadoDeValidacion["requisitos"] | null;
+  readonly oportunidadId: number;
+  readonly ficha: Pick<
+    FichaDeOportunidad,
+    "estado" | "exigencias_marcadas" | "proceso"
+  >;
 }) {
   const { dejanFuera, condiciones, separadas } = alertasDelAnalisis(r);
   return (
@@ -177,7 +185,18 @@ function Resultado({
         <FormulariosDelAnalisis formularios={r.formularios ?? []} />
       )}
 
-      <PuedoCumplir r={r} />
+      <ExigenciasDeLaLicitacion
+        oportunidadId={oportunidadId}
+        r={r}
+        marcas={ficha.exigencias_marcadas ?? {}}
+        postulada={["postulada", "ganada"].includes(ficha.estado)}
+      />
+
+      <DocumentosAPresentar
+        oportunidadId={oportunidadId}
+        r={r}
+        cierre={ficha.proceso.fecha_cierre ?? null}
+      />
 
       {condiciones.length > 0 && (
         <Plegable
@@ -193,10 +212,6 @@ function Resultado({
             ))}
           </ul>
         </Plegable>
-      )}
-
-      {r.requisitos.length > 0 && (
-        <ListaDeRequisitos requisitos={r.requisitos} validacion={validado} />
       )}
 
       {r.fechas.length > 0 && (

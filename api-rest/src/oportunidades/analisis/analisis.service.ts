@@ -148,6 +148,55 @@ export const ESQUEMA_DE_BASES = {
         additionalProperties: false,
       },
     },
+    // El checklist de documentos (Felipe, 19-10: "me falta el checklist de
+    // los documentos... un certificado de DICOM sacado con dos semanas: en
+    // ninguna parte sale que tengo que tener ese documento"). Solo
+    // documentos, también los de adjudicar y pagar.
+    documentos: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          nombre: { type: 'string' },
+          parte: {
+            type: 'string',
+            enum: ['administrativa', 'tecnica', 'economica', 'otra'],
+          },
+          cuando: {
+            type: 'string',
+            enum: ['con_la_oferta', 'al_adjudicar', 'al_pagar'],
+          },
+          obligatorio: { type: 'boolean' },
+          condicion: { type: 'string' },
+          carpeta: {
+            type: 'string',
+            enum: [
+              'formulario',
+              'patente',
+              'inicio_actividades',
+              'programa_integridad',
+              'dj_trabajadores',
+              'f30',
+              'vigencia',
+              'resolucion_sanitaria',
+              'respaldo_experiencia',
+              'otro',
+            ],
+          },
+          pagina: { type: 'integer' },
+        },
+        required: [
+          'nombre',
+          'parte',
+          'cuando',
+          'obligatorio',
+          'condicion',
+          'carpeta',
+          'pagina',
+        ],
+        additionalProperties: false,
+      },
+    },
   },
   required: [
     'resumen',
@@ -165,6 +214,7 @@ export const ESQUEMA_DE_BASES = {
     'fecha_del_servicio_iso',
     'personas',
     'formularios',
+    'documentos',
   ],
   additionalProperties: false,
 } as const;
@@ -223,6 +273,7 @@ export const instruccionesDeBases = (c: ContextoDeBases): string =>
     '- fecha_del_servicio_iso: el primer día del servicio como AAAA-MM-DD (por ejemplo "2026-10-30"); vacío si no lo dicen.',
     '- personas: para cuántas personas es; 0 si no lo dicen.',
     '- formularios: CADA formulario o anexo con formato que el oferente tiene que llenar y presentar (Formulario N°1, Anexo N°2, declaración jurada con formato, oferta económica…). nombre: como lo titula el documento (por ejemplo "Formulario N°1 - Identificación del oferente"). archivo: el nombre EXACTO del documento que te pasé donde viene el formato EN BLANCO, no donde solo se menciona; vacío si las bases lo piden pero su formato no viene en lo que te pasé. paginas: dónde está ese formato en blanco ("16" o "16-17"); vacío si es un Word. aplica: false si no corresponde a esta empresa (por ejemplo, el de Unión Temporal de Proveedores o el de persona natural), con por_que_no_aplica en una frase; si aplica, por_que_no_aplica va vacío. se_entrega_en: en qué parte de la oferta se sube según las bases (administrativa, tecnica, economica u otra).',
+    '- documentos: el checklist de TODOS los DOCUMENTOS que hay que entregar, uno por fila: cada formulario o anexo (Formulario N°1, N°2…), certificados, declaraciones juradas, programas (por ejemplo, el de integridad y las declaraciones de los trabajadores), registros, copias que acreditan (órdenes de compra o facturas de la experiencia), garantías, escrituras o estatutos. Incluye también los que piden al adjudicar o para firmar el contrato (por ejemplo, certificado de antecedentes comerciales o DICOM, inscripción en el Registro de Proveedores) y para el pago (F30, certificado de la Inspección del Trabajo). Solo documentos: lo que hay que cumplir u ofrecer (comida, salón, horarios, la vigencia de la oferta, que se firme por el representante legal) NO va aquí. nombre: corto y claro, como lo llaman las bases. parte: dónde se entrega (administrativa, tecnica, economica u otra). cuando: con_la_oferta, al_adjudicar (incluye firmar el contrato) o al_pagar. obligatorio: true si su falta deja fuera de bases o impide adjudicar. condicion: la vigencia o antigüedad que piden («emitido hace menos de 15 días», «vigente»), o vacío. carpeta: formulario (un formulario o anexo de las bases), patente, inicio_actividades, programa_integridad, dj_trabajadores (las declaraciones de los trabajadores), f30, vigencia (de la sociedad), resolucion_sanitaria, respaldo_experiencia (órdenes de compra o facturas) u otro. pagina: dónde lo piden (0 si no tiene).',
   ].join('\n');
 
 @Injectable()

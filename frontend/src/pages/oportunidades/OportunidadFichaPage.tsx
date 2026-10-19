@@ -300,7 +300,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             tipo={p.tipo}
             plegadaDePartida={analisis?.estado === "listo"}
           />
-          <AnalisisDeBases oportunidadId={ficha.id} />
+          <AnalisisDeBases oportunidadId={ficha.id} ficha={ficha} />
         </>
       )}
 

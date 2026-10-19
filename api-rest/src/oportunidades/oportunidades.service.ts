@@ -8,7 +8,10 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
-import { FichaRepository } from './ficha/ficha.repository';
+import {
+  FichaRepository,
+  type MarcaDeExigencia,
+} from './ficha/ficha.repository';
 import {
   type Anterior,
   anteriorDe,
@@ -120,6 +123,24 @@ export class OportunidadesService {
         indice.get(f.proceso.organismo_codigo ?? '') ?? [],
       ),
     }));
+  }
+
+  /** «Exigencias de la licitación» (migración 152): lo que la empresa
+   *  marca en cada una. Devuelve todas las marcas. */
+  async marcarExigencia(
+    companyId: number,
+    id: number,
+    clave: string,
+    marca: MarcaDeExigencia | null,
+  ): Promise<Record<string, MarcaDeExigencia>> {
+    const marcas = await this.fichas.marcarExigencia(
+      companyId,
+      id,
+      clave.trim().slice(0, 400),
+      marca,
+    );
+    if (!marcas) throw new NotFoundException('No encontramos esa oportunidad.');
+    return marcas;
   }
 
   async ficha(companyId: number, id: number) {

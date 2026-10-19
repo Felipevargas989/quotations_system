@@ -10,6 +10,9 @@ import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 // pasa las 800 líneas (portero de la casa). Siempre de UNA empresa, salvo
 // la historia, que es dato público.
 
+/** Lo que la empresa marca en una exigencia de las bases (migración 152). */
+export type MarcaDeExigencia = 'lo_tengo' | 'no_puedo';
+
 @Injectable()
 export class FichaRepository {
   constructor(
@@ -88,5 +91,25 @@ export class FichaRepository {
       .eq('estado', 'pendiente');
     if (error) throw error;
     return count ?? 0;
+  }
+
+  /** Marca (o desmarca, con null) una exigencia de las bases, en un solo
+   *  paso en la base (`marcar_exigencia`, migración 152): leer y después
+   *  guardar dejaba que dos marcas seguidas se pisaran. Devuelve todas las
+   *  marcas, o null si la oportunidad no es de esta empresa. */
+  async marcarExigencia(
+    companyId: number,
+    id: number,
+    clave: string,
+    marca: MarcaDeExigencia | null,
+  ): Promise<Record<string, MarcaDeExigencia> | null> {
+    const { data, error } = await this.db.rpc('marcar_exigencia', {
+      p_company_id: companyId,
+      p_id: id,
+      p_clave: clave,
+      p_marca: marca,
+    });
+    if (error) throw error;
+    return (data as Record<string, MarcaDeExigencia> | null) ?? null;
   }
 }
