@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
+import type { DocumentoPedido, MarcaDeExigencia } from "./exigencias.service";
 import type { DatosDeRespaldo } from "./postulacion.service";
 
 // OPORTUNIDADES (doc 17): licitaciones y compras ágiles de Mercado Público
@@ -157,6 +158,8 @@ export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
   leida_con: string | null;
   notas: string | null;
   quotation_id: string | null;
+  /** Lo que la empresa marcó en cada exigencia (migración 152). */
+  exigencias_marcadas?: Record<string, MarcaDeExigencia>;
   actualizado_en: string;
   proceso: ProcesoDeLista & {
     codigo: string;
@@ -311,6 +314,8 @@ export interface ResultadoDeBases {
   /** Desde el 18-10: los formularios que llena el oferente y dónde viene
    *  su formato en blanco. Un análisis anterior no los trae. */
   formularios?: FormularioDelAnalisis[];
+  /** Desde el 19-10: el checklist de documentos (exigencias.service). */
+  documentos?: DocumentoPedido[];
 }
 
 export interface FormularioDelAnalisis {

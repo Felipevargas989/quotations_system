@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { derechosDe, tieneDerecho } from 'src/auth/derechos';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { MarcaDeExigencia } from './ficha/ficha.repository';
 import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
@@ -49,7 +50,7 @@ const COLUMNAS_DE_LISTA =
   'proceso:mp_procesos!inner(tipo, nombre, organismo, organismo_codigo, unidad, comuna, region, monto, fecha_publicacion, fecha_cierre, estado)';
 
 const COLUMNAS_DE_FICHA =
-  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, leida_con, leida_en, estado, responsable_id, notas, quotation_id, actualizado_en, ' +
+  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, leida_con, leida_en, estado, responsable_id, notas, quotation_id, exigencias_marcadas, actualizado_en, ' +
   'proceso:mp_procesos!inner(codigo, tipo, nombre, descripcion, organismo, organismo_codigo, unidad, comuna, region, monto, moneda, estado, fecha_publicacion, fecha_cierre, fechas, productos, adjudicacion, acta, primera_vez_visto, actualizado_en)';
 
 type ProcesoDeLista = {
@@ -84,6 +85,8 @@ export type FichaDeOportunidad = Omit<FilaDeLista, 'proceso'> & {
   leida_con: string | null;
   notas: string | null;
   quotation_id: string | null;
+  /** Lo que la empresa marcó en cada exigencia (migración 152). */
+  exigencias_marcadas: Record<string, MarcaDeExigencia>;
   actualizado_en: string;
   proceso: ProcesoDeLista & {
     codigo: string;

@@ -10,6 +10,9 @@ import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 // pasa las 800 líneas (portero de la casa). Siempre de UNA empresa, salvo
 // la historia, que es dato público.
 
+/** Lo que la empresa marca en una exigencia de las bases (migración 152). */
+export type MarcaDeExigencia = 'lo_tengo' | 'no_puedo';
+
 @Injectable()
 export class FichaRepository {
   constructor(
@@ -88,5 +91,37 @@ export class FichaRepository {
       .eq('estado', 'pendiente');
     if (error) throw error;
     return count ?? 0;
+  }
+
+  /** Marca (o desmarca, con null) una exigencia de las bases. Devuelve
+   *  todas las marcas, o null si la oportunidad no es de esta empresa. */
+  async marcarExigencia(
+    companyId: number,
+    id: number,
+    clave: string,
+    marca: MarcaDeExigencia | null,
+  ): Promise<Record<string, MarcaDeExigencia> | null> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('exigencias_marcadas')
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const marcas = {
+      ...((
+        data as { exigencias_marcadas: Record<string, MarcaDeExigencia> | null }
+      ).exigencias_marcadas ?? {}),
+    };
+    if (marca) marcas[clave] = marca;
+    else delete marcas[clave];
+    const { error: alGuardar } = await this.db
+      .from('oportunidades')
+      .update({ exigencias_marcadas: marcas })
+      .eq('company_id', companyId)
+      .eq('id', id);
+    if (alGuardar) throw alGuardar;
+    return marcas;
   }
 }

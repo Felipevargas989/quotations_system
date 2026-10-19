@@ -103,3 +103,51 @@ describe('FichaRepository — el color según las bases y el responsable (decisi
     expect(consultas[0].pasos).toContainEqual(['eq', 'estado', 'pendiente']);
   });
 });
+
+describe('FichaRepository — las exigencias que marca la empresa (migración 152)', () => {
+  it('suma o quita la marca de una exigencia, siempre de UNA empresa', async () => {
+    const { repo, consultas } = armar({
+      exigencias_marcadas: { 'almuerzo: plateada al horno': 'lo_tengo' },
+    });
+    await expect(
+      repo.marcarExigencia(1, 40, 'exclusividad del recinto', 'no_puedo'),
+    ).resolves.toEqual({
+      'almuerzo: plateada al horno': 'lo_tengo',
+      'exclusividad del recinto': 'no_puedo',
+    });
+    const [lectura, escritura] = consultas;
+    expect(lectura.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'id', 40],
+      ]),
+    );
+    expect(paso(escritura, 'update')).toEqual([
+      'update',
+      {
+        exigencias_marcadas: {
+          'almuerzo: plateada al horno': 'lo_tengo',
+          'exclusividad del recinto': 'no_puedo',
+        },
+      },
+    ]);
+    expect(escritura.pasos).toEqual(
+      expect.arrayContaining([['eq', 'company_id', 1]]),
+    );
+
+    const otra = armar({
+      exigencias_marcadas: { 'almuerzo: plateada al horno': 'lo_tengo' },
+    });
+    await expect(
+      otra.repo.marcarExigencia(1, 40, 'almuerzo: plateada al horno', null),
+    ).resolves.toEqual({});
+  });
+
+  it('una oportunidad de otra empresa no se marca', async () => {
+    const { repo, consultas } = armar(null);
+    await expect(
+      repo.marcarExigencia(2, 40, 'exclusividad del recinto', 'lo_tengo'),
+    ).resolves.toBeNull();
+    expect(consultas).toHaveLength(1);
+  });
+});

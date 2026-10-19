@@ -33,8 +33,6 @@ import {
   separarMias,
   alertasDelAnalisis,
   fechaDelEvento,
-  filtrarRequisitos,
-  requisitosConEstado,
 } from "./oportunidades.utils";
 import { preguntarDeNuevo, SELLO_DEL_TIPO } from "./tipoDeProceso";
 
@@ -566,47 +564,6 @@ describe("la ficha ordenada", () => {
       condiciones: ["a", "b"],
       separadas: false,
     });
-  });
-
-  it("cada requisito con lo que dijo la validación: por posición, o por texto si se movió", () => {
-    const requisitos = [
-      { que: "Anexo 1", obligatorio: true },
-      { que: "Patente  municipal", obligatorio: true },
-      { que: "Programa de integridad", obligatorio: false },
-    ];
-    const validacion = [
-      {
-        que: "anexo 1",
-        estado: "cumple",
-        donde: "A1.pdf",
-        observacion: "Bien.",
-      },
-      {
-        que: "Programa de integridad",
-        estado: "falta",
-        donde: "",
-        observacion: "No está.",
-      },
-      {
-        que: "Patente municipal",
-        estado: "vencido",
-        donde: "P.pdf",
-        observacion: "Venció.",
-      },
-    ];
-    const lista = requisitosConEstado(requisitos, validacion);
-    expect(lista.map((q) => q.estado)).toEqual(["cumple", "vencido", "falta"]);
-    expect(requisitosConEstado(requisitos, null).map((q) => q.estado)).toEqual([
-      "sin_ver",
-      "sin_ver",
-      "sin_ver",
-    ]);
-    expect(filtrarRequisitos(lista, "faltan").map((q) => q.que)).toEqual([
-      "Patente  municipal",
-      "Programa de integridad",
-    ]);
-    expect(filtrarRequisitos(lista, "obligatorios")).toHaveLength(2);
-    expect(filtrarRequisitos(lista, "listos")).toHaveLength(1);
   });
 
   it("cuándo es el evento: el campo del análisis, o la fecha del servicio de un análisis antiguo", () => {
