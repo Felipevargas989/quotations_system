@@ -111,7 +111,9 @@ export class PostulacionRepository {
       .select('id, resultado')
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
-      .eq('tipo', 'propuesta')
+      // La oferta armada (decisión 33) o, antes de ella, la que dejaba la
+      // propuesta técnica (decisión 29): la más nueva de las dos.
+      .in('tipo', ['oferta', 'propuesta'])
       .eq('estado', 'listo')
       .order('id', { ascending: false })
       .limit(1);

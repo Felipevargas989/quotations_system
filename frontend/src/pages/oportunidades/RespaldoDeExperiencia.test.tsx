@@ -9,8 +9,8 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as servicio from "../../services/oportunidades.service";
-import type { DatosDeRespaldo } from "../../services/oportunidades.service";
+import * as servicio from "../../services/postulacion.service";
+import type { DatosDeRespaldo } from "../../services/postulacion.service";
 import RespaldoDeExperiencia from "./RespaldoDeExperiencia";
 import {
   esOrdenDeCompra,
@@ -21,7 +21,7 @@ import {
 // LOS RESPALDOS DE EXPERIENCIA (decisión 34, 19-10): con el número de una
 // orden de compra, Eventia trae el resto de su ficha pública.
 
-vi.mock("../../services/oportunidades.service", () => ({
+vi.mock("../../services/postulacion.service", () => ({
   leerOrdenDeCompra: vi.fn(),
 }));
 vi.mock("../../components/toast/Toast", () => ({

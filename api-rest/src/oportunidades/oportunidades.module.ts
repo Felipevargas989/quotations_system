@@ -25,6 +25,7 @@ import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
+import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
@@ -49,6 +50,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ResumenDeNegocioService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
+    ArmarLaOfertaService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,
