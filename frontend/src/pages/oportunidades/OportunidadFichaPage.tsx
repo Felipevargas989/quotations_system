@@ -24,6 +24,7 @@ import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
 import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
+import SetParaMercadoPublico from "./SetParaMercadoPublico";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
@@ -327,6 +328,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             oportunidadId={ficha.id}
             codigo={ficha.codigo}
             tipo={p.tipo}
+          />
+          <SetParaMercadoPublico
+            oportunidadId={ficha.id}
+            codigo={ficha.codigo}
           />
           <ValidacionDeDocumentos oportunidadId={ficha.id} />
         </>
