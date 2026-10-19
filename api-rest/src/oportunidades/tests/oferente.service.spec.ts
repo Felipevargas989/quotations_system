@@ -89,6 +89,22 @@ describe('OferenteService — los datos', () => {
     });
   });
 
+  it('guarda el contacto del representante, el coordinador y la página web (migración 154)', async () => {
+    const { repo, servicio } = armar();
+    await servicio.guardar(1, {
+      coordinador_nombre: ' Camila  Carvajal ',
+      coordinador_correo: 'eventos@valledelsol.cl',
+      representante_telefono: '+56 9 1234 5678',
+      sitio_web: 'www.valledelsolquillon.cl',
+    });
+    expect(repo.guardar).toHaveBeenCalledWith(1, {
+      coordinador_nombre: 'Camila Carvajal',
+      coordinador_correo: 'eventos@valledelsol.cl',
+      representante_telefono: '+56 9 1234 5678',
+      sitio_web: 'www.valledelsolquillon.cl',
+    });
+  });
+
   it('un RUT sin forma de RUT es 400, y sin nada que guardar también', async () => {
     const { repo, servicio } = armar();
     await expect(

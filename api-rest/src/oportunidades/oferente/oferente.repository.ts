@@ -19,6 +19,16 @@ export type Oferente = {
   representante_nombre: string | null;
   representante_rut: string | null;
   representante_cargo: string | null;
+  /** El contacto del representante y del coordinador de la licitación, y
+   *  la página web (migración 154, decisión 43). */
+  representante_correo: string | null;
+  representante_telefono: string | null;
+  representante_direccion: string | null;
+  coordinador_nombre: string | null;
+  coordinador_cargo: string | null;
+  coordinador_correo: string | null;
+  coordinador_telefono: string | null;
+  sitio_web: string | null;
   experiencia: string | null;
   instalaciones: string | null;
   firma_ruta: string | null;
@@ -68,7 +78,7 @@ export type EmpresaDeConfiguracion = {
 };
 
 const COLUMNAS_OFERENTE =
-  'razon_social, rut, giro, direccion, comuna, region, telefono, correo, representante_nombre, representante_rut, representante_cargo, experiencia, instalaciones, firma_ruta, firma_subida_en';
+  'razon_social, rut, giro, direccion, comuna, region, telefono, correo, representante_nombre, representante_rut, representante_cargo, representante_correo, representante_telefono, representante_direccion, coordinador_nombre, coordinador_cargo, coordinador_correo, coordinador_telefono, sitio_web, experiencia, instalaciones, firma_ruta, firma_subida_en';
 
 const COLUMNAS_DOCUMENTO =
   'id, tipo, nombre, ruta, tipo_archivo, bytes, vence, datos, creado_en, quien:user_profiles(full_name)';
