@@ -34,6 +34,8 @@ export interface Vuelta {
   oferta: Exclude<EstadoDelPaso, "espera" | "no_va">;
   anexos: Paso;
   propuesta: Paso;
+  /** Lo demás que no se pudo (la cotización vinculada), en palabras. */
+  avisos: string[];
   /** Algo sigue andando: no se vuelve a armar encima. */
   enCurso: boolean;
 }
@@ -87,8 +89,9 @@ export function vueltaDeLaPostulacion(
 ): Vuelta | null {
   const armada = oferta?.parametros?.postulacion;
   if (!oferta || !armada) return null;
+  const problemas = armada.problemas ?? [];
   const problemaDe = (que: string) =>
-    (armada.problemas ?? []).find((p) => p.startsWith(que)) ?? null;
+    problemas.find((p) => p.startsWith(que)) ?? null;
   const anexos = pasoDe(
     oferta,
     generaciones?.anexos,
@@ -114,6 +117,10 @@ export function vueltaDeLaPostulacion(
     oferta: estado,
     anexos,
     propuesta,
+    avisos: problemas.filter(
+      (p) =>
+        !p.startsWith("Los anexos") && !p.startsWith("La propuesta técnica"),
+    ),
     enCurso:
       estado === "trabajando" ||
       (estado === "listo" &&
