@@ -387,8 +387,36 @@ export interface DocumentoDeEmpresa {
   bytes: number;
   /** AAAA-MM-DD; null = no vence. */
   vence: string | null;
+  /** Solo en un respaldo de experiencia (decisión 34). */
+  datos: DatosDeRespaldo | null;
   creado_en: string;
   quien: { full_name: string | null } | null;
+}
+
+/** Un respaldo de experiencia de la carpeta (decisión 34 del doc 17): una
+ *  orden de compra o una factura, con lo que pide el anexo de experiencia. */
+export interface DatosDeRespaldo {
+  numero: string;
+  mandante: string | null;
+  contrato: string | null;
+  anio: number | null;
+  /** Pesos, con impuestos. */
+  monto: number | null;
+  fuente: "mercado_publico" | "manual";
+}
+
+/** La ficha pública de una orden de compra, leída por el motor. */
+export interface OrdenDeCompra {
+  numero: string;
+  contrato: string;
+  mandante: string | null;
+  unidad: string | null;
+  fecha: string | null;
+  anio: number | null;
+  monto: number | null;
+  estado: string | null;
+  licitacion: string | null;
+  rut_proveedor: string | null;
 }
 
 export interface VistaDelOferente {
@@ -461,12 +489,21 @@ export const subirDocumentoDeEmpresa = (
   archivo: File,
   tipo: string,
   vence: string,
+  datos?: DatosDeRespaldo,
 ) =>
   subirConFormulario<DocumentoDeEmpresa>(
     `${API_ROUTES.OPORTUNIDADES}/oferente/documentos`,
     archivo,
-    { tipo, vence },
+    { tipo, vence, ...(datos ? { datos: JSON.stringify(datos) } : {}) },
   );
+
+/** Con el número de una orden de compra, sus datos desde la ficha pública
+ *  de Mercado Público (decisión 34). `aviso`: si es de otro proveedor. */
+export const leerOrdenDeCompra = async (codigo: string) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/orden-de-compra/${encodeURIComponent(codigo.trim())}`,
+    "GET",
+  )) as { orden: OrdenDeCompra; aviso: string | null };
 
 export const borrarDocumentoDeEmpresa = async (id: number) =>
   (await apiRequest(

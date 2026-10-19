@@ -8,6 +8,7 @@ import {
   MAX_BYTES_FIRMA,
   OferenteService,
 } from '../oferente/oferente.service';
+import { FICHA_DE_LA_ORDEN, FICHA_VACIA } from './orden-de-compra-de-prueba';
 
 const CUENTA = 'cuenta-1';
 
@@ -234,6 +235,105 @@ describe('OferenteService — la carpeta de documentos', () => {
     repo.borrarDocumento.mockResolvedValue(null);
     await expect(servicio.borrarDocumento(2, 3)).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+});
+
+// LOS RESPALDOS DE EXPERIENCIA (decisión 34 del doc 17, 19-10): una orden de
+// compra o una factura, con sus datos para el anexo de experiencia.
+class OferenteDePrueba extends OferenteService {
+  bajar = jest.fn<Promise<string>, [string]>();
+  protected bajarLaOrden(codigo: string): Promise<string> {
+    return this.bajar(codigo);
+  }
+}
+
+function armarConLaOrden() {
+  const { repo, archivos, logger } = armar();
+  const servicio = new OferenteDePrueba(
+    repo as unknown as OferenteRepository,
+    archivos as unknown as AdjuntosRepository,
+    logger as unknown as PinoLogger,
+  );
+  return { repo, archivos, servicio };
+}
+
+describe('OferenteService — los respaldos de experiencia', () => {
+  it('se guardan con sus datos y sin vencimiento; sin número no se suben', async () => {
+    const { repo, archivos, servicio } = armar();
+    await expect(
+      servicio.subirDocumento(1, CUENTA, archivo('OC.pdf'), {
+        tipo: 'respaldo_experiencia',
+        datos: JSON.stringify({ mandante: 'CCU' }),
+      }),
+    ).rejects.toThrow('Falta el número de la orden de compra o la factura.');
+    expect(archivos.subirArchivo).not.toHaveBeenCalled();
+
+    await servicio.subirDocumento(1, CUENTA, archivo('OC 4352-103-SE23.pdf'), {
+      tipo: 'respaldo_experiencia',
+      vence: '2027-01-01',
+      datos: JSON.stringify({
+        numero: '4352-103-SE23',
+        mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+        contrato: 'Cena del Día del Funcionario',
+        anio: 2023,
+        monto: 11_782_499,
+        fuente: 'mercado_publico',
+      }),
+    });
+    expect(repo.guardarDocumento).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 'respaldo_experiencia',
+        vence: null,
+        datos: {
+          numero: '4352-103-SE23',
+          mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          contrato: 'Cena del Día del Funcionario',
+          anio: 2023,
+          monto: 11_782_499,
+          fuente: 'mercado_publico',
+        },
+      }),
+    );
+  });
+
+  it('con el número de la orden, trae los datos de la ficha pública; avisa si es de otro proveedor', async () => {
+    const { repo, servicio } = armarConLaOrden();
+    servicio.bajar.mockResolvedValue(FICHA_DE_LA_ORDEN);
+    repo.oferente.mockResolvedValue({ rut: '77701305-K' });
+
+    const propia = await servicio.ordenDeCompra(1, ' 4352-103-se23 ');
+    expect(servicio.bajar).toHaveBeenCalledWith('4352-103-SE23');
+    expect(propia.aviso).toBeNull();
+    expect(propia.orden).toMatchObject({
+      numero: '4352-103-SE23',
+      mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      anio: 2023,
+      monto: 11_782_499,
+    });
+
+    repo.oferente.mockResolvedValue({ rut: '76.123.456-7' });
+    const ajena = await servicio.ordenDeCompra(1, '4352-103-SE23');
+    expect(ajena.aviso).toBe(
+      'Esta orden de compra es de otro proveedor (RUT 77.701.305-K).',
+    );
+  });
+
+  it('un número que no es de orden, una orden que no existe o Mercado Público caído: dicho en palabras', async () => {
+    const { servicio } = armarConLaOrden();
+    await expect(servicio.ordenDeCompra(1, 'factura 120')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(servicio.bajar).not.toHaveBeenCalled();
+
+    servicio.bajar.mockResolvedValue(FICHA_VACIA);
+    await expect(servicio.ordenDeCompra(1, '9999-1-SE23')).rejects.toThrow(
+      NotFoundException,
+    );
+
+    servicio.bajar.mockRejectedValue(new Error('504'));
+    await expect(servicio.ordenDeCompra(1, '9999-1-SE23')).rejects.toThrow(
+      'Mercado Público no respondió. Inténtalo de nuevo en un rato.',
     );
   });
 });

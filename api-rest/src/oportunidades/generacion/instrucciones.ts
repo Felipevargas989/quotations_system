@@ -7,6 +7,7 @@ import type {
   EmpresaDeConfiguracion,
   Oferente,
 } from '../oferente/oferente.repository';
+import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
 import {
   COMO_LISTAR_LA_OFERTA,
   leerOferta,
@@ -146,6 +147,9 @@ export type ContextoDeGeneracion = {
    *  sus eventos realizados de los últimos 4 años. */
   carta: CartaDeEventia | null;
   eventos: EventoDeEventia[];
+  /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
+   *  compra y facturas, cada una con su PDF. */
+  respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
 };
 
 /** Un archivo como lo ve la IA en el contenedor, con el nombre que le dio
@@ -262,6 +266,15 @@ const laRevision = (c: ContextoDeGeneracion): string[] => {
 
 /** Los eventos que hizo la empresa, de Eventia: su experiencia real. */
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => [
+  ...((c.respaldos ?? []).length > 0
+    ? [
+        'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta, cada una con su PDF; son las que cuentan para el puntaje):',
+        ...(c.respaldos ?? []).map(
+          (r) => `- ${textoDelRespaldo(r)} (archivo «${r.archivo}»)`,
+        ),
+        '',
+      ]
+    : []),
   'LOS EVENTOS QUE HIZO LA EMPRESA (de Eventia, últimos 4 años, del más nuevo al más viejo):',
   ...textoDeLaExperiencia(c.eventos),
 ];
@@ -426,7 +439,7 @@ export const instruccionesDeAnexos = (
       'NO firmes ni pongas imágenes de firma: deja el espacio de la firma como está. Si bajo la firma piden el nombre y el RUT de quien firma, escríbelos.',
       'Fechas: la de hoy, escrita como la pida el formulario. Lugar: la comuna de la empresa.',
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
-      'La experiencia sale SOLO de los eventos de Eventia de arriba y de lo que escribió la empresa: elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8), porque cada uno necesita su respaldo. Si el formulario pide el monto, usa el total de la cotización en la unidad que pida (M$ son miles de pesos). Los números de orden de compra o de factura no están: déjalos en blanco y anótalos en pendientes.',
+      'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Anota en pendientes, en una línea, los archivos de los respaldos que usaste: «Adjuntar respaldos: ...».',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       SOLO_LO_QUE_PIDEN,
       LO_SUBCONTRATADO,

@@ -209,6 +209,7 @@ export function armar() {
         'https://lab.supabase.co/storage/v1/object/public/logos/c1/logo.png',
       bank_details: null,
     }),
+    respaldos: jest.fn().mockResolvedValue([]),
   };
   const oportunidades = {
     ficha: jest.fn().mockResolvedValue({

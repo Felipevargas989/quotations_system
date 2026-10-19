@@ -415,6 +415,10 @@ export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
   { value: "vigencia", label: "Certificado de vigencia de la sociedad" },
   { value: "resolucion_sanitaria", label: "Resolución sanitaria" },
   { value: "dj_trabajadores", label: "Declaración jurada de trabajadores" },
+  {
+    value: "respaldo_experiencia",
+    label: "Respaldo de experiencia (orden de compra o factura)",
+  },
   { value: "otro", label: "Otro" },
 ];
 

@@ -60,13 +60,13 @@ const decodificar = (s: string): string =>
     return ENTIDADES[e.toLowerCase()] ?? todo;
   });
 
-const limpio = (html: string): string =>
+export const limpio = (html: string): string =>
   decodificar(html.replace(/<[^>]+>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
 
 /** "7.050.420" o "$ 1176471" → número; null si no hay dígitos. */
-const monto = (s: string): number | null => {
+export const monto = (s: string): number | null => {
   const digitos = s.replace(/[^\d,]/g, '').replace(',', '.');
   if (!digitos) return null;
   const n = Number(digitos);

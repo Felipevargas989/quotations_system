@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { type DatosDeRespaldo, TIPO_RESPALDO } from './respaldo';
 
 // La empresa como oferente y su carpeta de documentos (migración 126). Toda
 // consulta filtra por company_id. Los archivos se suben y borran con
@@ -32,6 +33,8 @@ export type DocumentoDeEmpresa = {
   tipo_archivo: string;
   bytes: number;
   vence: string | null;
+  /** Los datos de un respaldo de experiencia (migración 150). */
+  datos: Record<string, unknown> | null;
   creado_en: string;
   quien: { full_name: string | null } | null;
 };
@@ -44,6 +47,7 @@ export type DocumentoNuevo = {
   tipo_archivo: string;
   bytes: number;
   vence: string | null;
+  datos?: DatosDeRespaldo | null;
   subido_por: string | null;
 };
 
@@ -67,7 +71,7 @@ const COLUMNAS_OFERENTE =
   'razon_social, rut, giro, direccion, comuna, region, telefono, correo, representante_nombre, representante_rut, representante_cargo, experiencia, instalaciones, firma_ruta, firma_subida_en';
 
 const COLUMNAS_DOCUMENTO =
-  'id, tipo, nombre, ruta, tipo_archivo, bytes, vence, creado_en, quien:user_profiles(full_name)';
+  'id, tipo, nombre, ruta, tipo_archivo, bytes, vence, datos, creado_en, quien:user_profiles(full_name)';
 
 @Injectable()
 export class OferenteRepository {
@@ -137,6 +141,25 @@ export class OferenteRepository {
       .single();
     if (error) throw error;
     return data as unknown as DocumentoDeEmpresa;
+  }
+
+  /** Los respaldos de experiencia (decisión 34), del más nuevo al más
+   *  viejo: lo que lee la IA para el anexo de experiencia. */
+  async respaldos(
+    companyId: number,
+  ): Promise<Array<DatosDeRespaldo & { archivo: string }>> {
+    const { data, error } = await this.db
+      .from('oportunidades_documentos')
+      .select('nombre, datos')
+      .eq('company_id', companyId)
+      .eq('tipo', TIPO_RESPALDO)
+      .order('creado_en', { ascending: false });
+    if (error) throw error;
+    return (
+      (data ?? []) as Array<{ nombre: string; datos: DatosDeRespaldo | null }>
+    )
+      .filter((f) => f.datos?.numero)
+      .map((f) => ({ ...(f.datos as DatosDeRespaldo), archivo: f.nombre }));
   }
 
   /** Borra la fila y devuelve dónde estaba el archivo; null = no era de
