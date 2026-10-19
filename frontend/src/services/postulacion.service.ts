@@ -58,8 +58,19 @@ export interface ArmadoDeLaOferta {
   faltan_en_el_catalogo: Array<{ que: string; por_que: string }>;
 }
 
+/** Lo que anota «Armar postulación» en la fila de la oferta (decisión 35). */
+export interface PostulacionArmada {
+  /** El precio, con IVA. */
+  total: number;
+  /** ¿Va propuesta técnica? Si las bases la piden o aceptan formato propio. */
+  propuesta: boolean;
+  /** Lo que no alcanzó a partir después de la oferta. */
+  problemas?: string[];
+}
+
 export interface TrabajoDeOferta extends Omit<AnalisisDeBases, "resultado"> {
   tipo: "oferta";
+  parametros?: { postulacion?: PostulacionArmada };
   resultado: ArmadoDeLaOferta | null;
 }
 
@@ -69,11 +80,13 @@ export const getOfertaDeLaPostulacion = async (id: number) =>
     | ""
     | null) || null;
 
-export const armarLaOferta = async (id: number) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/${id}/oferta`,
-    "POST",
-  )) as TrabajoDeOferta;
+/** «Armar postulación» (decisión 35): con el precio (con IVA), la oferta y,
+ *  por detrás, los anexos, la propuesta técnica si va y la cotización
+ *  vinculada igual a lo postulado. Responde con la oferta en curso. */
+export const armarPostulacion = async (id: number, total: number) =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/postulacion`, "POST", {
+    total,
+  })) as TrabajoDeOferta;
 
 /** «Descargar para Mercado Público» (decisión 34): un archivo del ZIP. */
 export interface PiezaDelSet {

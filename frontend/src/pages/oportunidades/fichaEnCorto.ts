@@ -60,8 +60,9 @@ const QUE_HACER: Record<string, SiguientePaso> = {
     boton: { texto: "Analizar las bases", pestana: "bases" },
   },
   Anexos: {
-    texto: "Que la IA llene los anexos del comprador.",
-    boton: { texto: "Generar anexos", pestana: "postulacion" },
+    texto:
+      "Pon el precio y que la IA arme la postulación: la oferta, los anexos y la propuesta.",
+    boton: { texto: "Armar postulación", pestana: "postulacion" },
   },
   Firma: {
     texto: "Revisa los anexos que hizo la IA y fírmalos.",

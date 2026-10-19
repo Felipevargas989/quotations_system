@@ -48,7 +48,7 @@ describe("el camino de la postulación", () => {
     });
     expect(siguientePaso(pasos)).toMatchObject({
       paso: "Anexos",
-      boton: { texto: "Generar anexos", pestana: "postulacion" },
+      boton: { texto: "Armar postulación", pestana: "postulacion" },
     });
   });
 

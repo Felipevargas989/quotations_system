@@ -166,6 +166,25 @@ export class QuotationsRepository {
       .single();
   }
 
+  /** La licitación de Oportunidades que tiene vinculada esta cotización
+   *  (decisión 35 del doc 17): es su copia de lo postulado. null si no es
+   *  de ninguna. Filtra por empresa. */
+  async licitacionDe(
+    companyId: number,
+    quotationId: string,
+  ): Promise<{ id: number; codigo: string } | null> {
+    const { data, error } = await this.supabase.client
+      .from('oportunidades')
+      .select('id, codigo')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .limit(1);
+    if (error) throw error;
+    return (
+      ((data ?? [])[0] as { id: number; codigo: string } | undefined) ?? null
+    );
+  }
+
   // Fase 1 punto 3 (migración 38): el número lo entrega LA BASE, de a uno
   // por empresa (función next_quotation_number, atómica por fila de
   // contador). Nada de "último + 1" leído aparte: eso dejaba que dos

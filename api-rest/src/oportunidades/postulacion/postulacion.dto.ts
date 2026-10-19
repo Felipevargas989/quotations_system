@@ -9,10 +9,19 @@ export class LlevarACotizacionDto {
   @Min(1)
   @Max(100_000_000)
   numero?: number;
+
+  /** El precio de «Armar postulación», con IVA (decisión 35): la
+   *  cotización queda con ese total. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100_000_000_000)
+  total?: number;
 }
 
-/** La oferta de la postulación, con IVA, en pesos: la pone la empresa. */
-export class FijarOfertaDto {
+/** «Armar postulación» (decisión 35): el precio total, con IVA, en pesos.
+ *  Es lo único que pide. */
+export class ArmarPostulacionDto {
   @IsInt()
   @Min(1)
   @Max(100_000_000_000)

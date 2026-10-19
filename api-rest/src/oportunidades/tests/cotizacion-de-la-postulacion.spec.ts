@@ -185,7 +185,7 @@ describe('La cotización de la postulación', () => {
     const { repo, cotizaciones, servicio } = armar();
     repo.ultimaPropuesta.mockResolvedValue({ id: 30, resultado: {} });
     await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
-      'Primero arma la oferta',
+      'Primero arma la postulación',
     );
     expect(cotizaciones.create).not.toHaveBeenCalled();
   });
@@ -242,14 +242,18 @@ describe('La cotización de la postulación', () => {
 
     expect(repo.cotizacion).toHaveBeenCalledWith(1, { numero: 598 });
     expect(cotizaciones.create).not.toHaveBeenCalled();
-    const [id, cambios, , rol] = cotizaciones.update.mock.calls[0] as [
+    const [id, cambios, , rol, , desde] = cotizaciones.update.mock.calls[0] as [
       string,
       Record<string, unknown>,
       number,
       string,
+      unknown,
+      string,
     ];
     expect(id).toBe('q-vieja');
     expect(rol).toBe('administrador');
+    // Solo Oportunidades pasa el candado de solo lectura (decisión 35).
+    expect(desde).toBe('postulacion');
     expect(cambios).toMatchObject({
       people_count: 235,
       total_amount: CATALOGO_TOTAL,
@@ -316,6 +320,30 @@ describe('«¿Calza el precio?»', () => {
     expect(notas().at(-1)).toBe(
       'Oferta de la licitación 4364-13-LE26: $5.500.000. Descuento de $507.500 (8,4 %) sobre el catálogo ($6.007.500).',
     );
+  });
+
+  it('con el precio de «Armar postulación», crear o vincular la deja con ese total (decisión 35)', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    const base = await repo.oportunidad();
+    repo.vincular.mockImplementation(() => {
+      repo.oportunidad.mockResolvedValue({ ...base, quotation_id: 'q-nueva' });
+      repo.cotizacion.mockResolvedValue(
+        vinculada(creadaDe(cotizaciones.create)),
+      );
+      return Promise.resolve();
+    });
+
+    await servicio.llevar(USUARIO, 87, undefined, 5_500_000);
+
+    const [id, cambios, , , , desde] = cotizaciones.update.mock.calls.at(
+      -1,
+    ) as [string, Record<string, unknown>, number, string, unknown, string];
+    expect(id).toBe('q-nueva');
+    expect(cambios).toMatchObject({
+      total_amount: 5_500_000,
+      discount_amount: 507_500,
+    });
+    expect(desde).toBe('postulacion');
   });
 
   it('una oferta mayor que el catálogo no se acepta: se sube con productos, nunca a dedo; sin cotización, primero crearla', async () => {

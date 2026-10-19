@@ -173,16 +173,21 @@ export class CotizacionDeLaPostulacionService {
     };
   }
 
-  /** Crear o reescribir la cotización con la oferta de la propuesta
-   *  técnica. Con `numero`, se vincula esa; sin él, la ya vinculada; y si
-   *  no hay ninguna, se crea. */
+  /** Crear o reescribir la cotización con lo postulado. Con `numero`, se
+   *  vincula esa; sin él, la ya vinculada; y si no hay ninguna, se crea.
+   *  Con `total` (el precio de «Armar postulación», decisión 35), queda
+   *  además con ese precio. Desde ahí es de solo lectura en el cotizador. */
   async llevar(
     user: User,
     oportunidadId: number,
     numero?: number,
+    total?: number,
   ): Promise<EstadoDeLaCotizacion> {
     try {
-      return await this.llevarSinCapturar(user, oportunidadId, numero);
+      const estado = await this.llevarSinCapturar(user, oportunidadId, numero);
+      return total
+        ? await this.fijarOferta(user, oportunidadId, total)
+        : estado;
     } catch (error) {
       // Lo que no es de la casa (un dato raro, la base) se dice en palabras
       // y queda en el registro, en vez de un 500 mudo.
@@ -207,7 +212,7 @@ export class CotizacionDeLaPostulacionService {
     const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
     if (!propuesta) {
       throw new BadRequestException(
-        'Primero arma la oferta («La oferta», arriba): de ella salen los productos de la cotización.',
+        'Primero arma la postulación («Armar postulación», arriba): de ella salen los productos de la cotización.',
       );
     }
     const destino = numero
@@ -240,7 +245,7 @@ export class CotizacionDeLaPostulacionService {
     );
     if (!armado.ok) {
       throw new BadRequestException(
-        `Los productos de la propuesta técnica no calzan con el catálogo: ${armado.errores.slice(0, 3).join(' · ')}. Vuelve a crear la propuesta técnica.`,
+        `Los productos de lo postulado no calzan con el catálogo: ${armado.errores.slice(0, 3).join(' · ')}. Vuelve a armar la postulación.`,
       );
     }
     const plata = this.plata(armado.items, evento.personas, 0);
@@ -254,6 +259,7 @@ export class CotizacionDeLaPostulacionService {
         companyId,
         user.role,
         { derechos: user.derechos, plan: user.plan },
+        'postulacion',
       );
       await this.anotar(
         user,
@@ -325,7 +331,7 @@ export class CotizacionDeLaPostulacionService {
     }).subtotalAmount;
     if (total > catalogo) {
       throw new BadRequestException(
-        `Tu oferta (${pesos(total)}) es mayor que tu catálogo (${pesos(catalogo)}): para subirla agrega productos en la cotización, nunca un precio a dedo.`,
+        `Tu precio (${pesos(total)}) es mayor que tu catálogo (${pesos(catalogo)}): agrega al catálogo lo que falta y vuelve a armar la postulación. Nunca un precio a dedo.`,
       );
     }
     const descuento = catalogo - total;
@@ -335,6 +341,7 @@ export class CotizacionDeLaPostulacionService {
       companyId,
       user.role,
       { derechos: user.derechos, plan: user.plan },
+      'postulacion',
     );
     const porcentaje =
       catalogo > 0 ? Math.round((descuento / catalogo) * 1000) / 10 : 0;

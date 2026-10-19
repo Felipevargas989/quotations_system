@@ -1,26 +1,17 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/postulacion.service";
 import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
 
-// LA OFERTA (decisión 33, sprint G, 19-10): la matriz «lo que piden → lo
-// que ofreces» y lo que falta en el catálogo.
+// QUÉ OFRECES (decisión 33, sprint G, 19-10): la matriz «lo que piden → lo
+// que ofreces» y lo que falta en el catálogo. Desde la decisión 35 solo se
+// muestra: se arma con «Armar postulación».
 
 vi.mock("../../services/postulacion.service", () => ({
   getOfertaDeLaPostulacion: vi.fn(),
-  armarLaOferta: vi.fn(),
-}));
-vi.mock("../../components/toast/Toast", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
 }));
 const s = vi.mocked(servicio);
 
@@ -37,21 +28,16 @@ const pintar = () =>
   );
 
 describe("La oferta de la postulación", () => {
-  it("sin oferta, se pide con un botón", async () => {
-    s.getOfertaDeLaPostulacion.mockResolvedValue(null);
-    s.armarLaOferta.mockResolvedValue({
+  it("sin oferta lista no muestra nada (se arma arriba, con «Armar postulación»)", async () => {
+    s.getOfertaDeLaPostulacion.mockResolvedValue({
       id: 21,
       estado: "procesando",
     } as never);
-    pintar();
-    const boton = await screen.findByRole("button", {
-      name: "Armar la oferta con IA",
-    });
-    fireEvent.click(boton);
-    await waitFor(() => expect(s.armarLaOferta).toHaveBeenCalledWith(40));
-    expect(
-      await screen.findByRole("button", { name: "Armando la oferta…" }),
-    ).toBeDisabled();
+    const { container } = pintar();
+    await waitFor(() =>
+      expect(s.getOfertaDeLaPostulacion).toHaveBeenCalledWith(40),
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("lista lo que piden, lo que se ofrece y de dónde sale, y lo que falta en el catálogo", async () => {
@@ -91,8 +77,7 @@ describe("La oferta de la postulación", () => {
     expect(screen.getByText("Catálogo")).toBeInTheDocument();
     expect(screen.getByText("Agregar al catálogo")).toBeInTheDocument();
     expect(screen.getByText("Falta en tu catálogo (1)")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Volver a armar" }),
-    ).toBeEnabled();
+    expect(screen.getByText("Qué ofreces")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

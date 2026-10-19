@@ -39,6 +39,8 @@ describe('QuotationsService', () => {
       findAll: jest.fn(),
       // create: jest.fn(),
       update: jest.fn(),
+      // Ninguna es de una licitación, salvo que la prueba diga otra cosa.
+      licitacionDe: jest.fn().mockResolvedValue(null),
       // delete: jest.fn(),
     } as any;
 
@@ -277,6 +279,65 @@ describe('QuotationsService', () => {
         await service.update('1', {}, 1);
 
         expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
+    });
+
+    // La cotización de una licitación es lo postulado (decisión 35 del doc
+    // 17, 19-10): solo la reescribe Oportunidades. El estado sigue abierto.
+    describe('candado de la licitación', () => {
+      const deLicitacion = () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue({
+          data: {
+            quotation_status: QuotationStatus.SOLICITADA,
+            request_type: RequestType.COTIZACION,
+          } as never,
+          error: null,
+        });
+        quotationsRepositoryMock.licitacionDe.mockResolvedValue({
+          id: 40,
+          codigo: '1532886-5-LE26',
+        });
+      };
+
+      it('no se cambian a mano sus servicios, montos, personas ni fechas', async () => {
+        deLicitacion();
+        await expect(
+          service.update('1', { people_count: 170 }, 1, UserRole.ADMINISTRADOR),
+        ).rejects.toThrow(
+          'Esta cotización es lo postulado en la licitación 1532886-5-LE26: se cambia solo desde Oportunidades, con «Armar postulación».',
+        );
+        expect(quotationsRepositoryMock.licitacionDe).toHaveBeenCalledWith(
+          1,
+          '1',
+        );
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+      });
+
+      it('el estado sí se cambia', async () => {
+        deLicitacion();
+        await service.update(
+          '1',
+          { quotation_status: QuotationStatus.EN_NEGOCIACION },
+          1,
+          UserRole.ADMINISTRADOR,
+        );
+        expect(quotationsRepositoryMock.licitacionDe).not.toHaveBeenCalled();
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
+
+      it('Oportunidades sí la reescribe («Armar postulación»)', async () => {
+        deLicitacion();
+        await service
+          .update(
+            '1',
+            { people_count: 170 },
+            1,
+            UserRole.ADMINISTRADOR,
+            undefined,
+            'postulacion',
+          )
+          .catch(() => undefined);
+        expect(quotationsRepositoryMock.licitacionDe).not.toHaveBeenCalled();
       });
     });
 

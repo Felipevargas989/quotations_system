@@ -184,9 +184,7 @@ describe('Armar la oferta', () => {
 
   it('se pide con Opus, las bases, las instalaciones, lo que vende y el catálogo', async () => {
     const { servicio, repo } = armar();
-    const ejecutar = jest
-      .spyOn(servicio, 'ejecutar')
-      .mockResolvedValue(undefined);
+    const ejecutar = jest.spyOn(servicio, 'ejecutar').mockResolvedValue(false);
 
     const fila = await servicio.pedir(1, 'cuenta-1', 40);
 
@@ -207,6 +205,32 @@ describe('Armar la oferta', () => {
     expect(sistema).toContain('Vende eventos, almuerzos y cenas.');
     expect(sistema).toContain(SOLO_LO_QUE_PIDEN);
     expect(sistema).toContain('nunca digas que algo se subcontrata');
+  });
+
+  it('«Armar postulación» (decisión 35): anota sus parámetros y sigue solo si la oferta quedó lista', async () => {
+    const { servicio, repo } = armar();
+    const ejecutar = jest.spyOn(servicio, 'ejecutar').mockResolvedValue(true);
+    const despues = jest.fn().mockResolvedValue(undefined);
+
+    await servicio.pedir(1, 'cuenta-1', 40, {
+      parametros: { postulacion: { total: 11_900_000, propuesta: true } },
+      despues,
+    });
+
+    expect(repo.crearGeneracion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parametros: { postulacion: { total: 11_900_000, propuesta: true } },
+      }),
+    );
+    await new Promise((listo) => setImmediate(listo));
+    expect(despues).toHaveBeenCalledWith(21);
+
+    // Si la oferta no resultó, no se sigue con los documentos.
+    ejecutar.mockResolvedValue(false);
+    despues.mockClear();
+    await servicio.pedir(1, 'cuenta-1', 40, { despues });
+    await new Promise((listo) => setImmediate(listo));
+    expect(despues).not.toHaveBeenCalled();
   });
 
   it('por detrás: guarda la oferta (cajas y fijos), la matriz y lo que falta, con lo que costó', async () => {

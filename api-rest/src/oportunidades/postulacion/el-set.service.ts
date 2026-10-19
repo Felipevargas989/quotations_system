@@ -13,6 +13,7 @@ import { OferenteRepository } from '../oferente/oferente.repository';
 import {
   armarElSet,
   type Carpeta,
+  conLaPropuestaQueNombran,
   conLosRespaldos,
   type DatosDelSet,
   type FormularioDeLasBases,
@@ -182,7 +183,10 @@ export class ElSetService {
     return {
       codigo: ficha.codigo,
       bajados,
-      set: conLosRespaldos(sinRespaldos, textos, datos),
+      set: conLaPropuestaQueNombran(
+        conLosRespaldos(sinRespaldos, textos, datos),
+        textos,
+      ),
     };
   }
 }
