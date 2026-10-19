@@ -224,6 +224,26 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Pasar a 2 pasadas al día no bajaba los tokens (cada licitación se lee una vez; una pasada normal cuesta cerca de 1 centavo de dólar) y atrasaba lo nuevo: se queda el horario de la decisión 18.
     - Modelos: se revisaron con Felipe. Se queda Opus en el análisis de bases (pocas, críticas, PDF escaneados); Sonnet ahorraría unos US$ 0,19 por análisis.
     - Cuando no quedan días pendientes, la historia no hace nada: el curso normal sigue solo.
+29. **La propuesta técnica y la cotización son lo mismo** (19-10, decidido, sin construir; sprint C de la hoja de ruta, §7). Felipe propuso un aviso de *"cumplimiento de presupuesto"*: antes de postular tiene que saber, solo para él, cuánto se aleja el presupuesto de la licitación de lo que vale con su catálogo (*"un 30 % más barato, un 40 % más barato, y así yo puedo jugar con un rango de tolerancia"*). Y la postulación queda unida a una cotización de Eventia para el seguimiento: una nueva, o una que ya existe porque el comprador pidió precio antes (*"a veces me cotizan a mí y luego se crea la licitación, y muchas veces no es así"*).
+    - La cotización **no se arma aparte**. Felipe: *"lo que traigo del catálogo es lo que debe vaciarse en la nueva cotización o en la cotización que se vincula, porque tienen que ser equivalentes... lo que estoy ofreciendo a las municipalidades como licitación es lo que tiene que tener la cotización"*.
+    - Por eso la propuesta técnica deja, además del Word, la **lista de ítems del catálogo con sus cantidades** que ofrece. Esa misma lista llena la cotización: una nueva o la vinculada. Los precios son los del catálogo (regla de la casa del 14-10).
+    - **Vincular = solo el número, y se reescribe todo** (19-10). Felipe: *"quizás se va a tener que vincular solamente el número y reescribir todo, que es lo más simple, con la propuesta técnica que se presente en la postulación... creo que eso es lo correcto"*. Al vincular una cotización que ya existe, sus ítems se reemplazan por los de la propuesta técnica: no se comparan uno a uno. Antes de reemplazar se pregunta (*"tiene N ítems: se reemplazan por los de la propuesta técnica"*) y lo que tenía queda anotado en su bitácora, porque nada se borra.
+    - **Por decidir:** propuesto que una cotización aceptada (ya es un evento) no se pueda vincular, para no reescribir un evento confirmado.
+    - **«¿Calza el precio?»**, arriba de «Mi postulación»: el presupuesto de la licitación, el total de la cotización con los precios del catálogo, lo que cobró el ganador del año anterior y **la oferta**. La oferta parte con el total de la cotización; el anexo económico la toma.
+    - **El margen no se configura: es aritmética** (decidido el 19-10). Felipe: *"el margen será un resultado entre nuestros costos y el valor que pongamos en la licitación... si existe diferencia de precio respecto a lo ofertado se ajusta como un descuento en dinero, así cuadramos al peso"*. La cotización lleva los precios del catálogo. Si la oferta es menor, la diferencia entra como **descuento en dinero** de la cotización, y la cotización cuadra al peso con lo ofertado. El panel muestra ese descuento en pesos y en %.
+30. **Seguir una licitación** (19-10, aprobado, sin construir; sprints D y E de la hoja de ruta, §7). Felipe quiere seguir licitaciones que no va a postular: quién ganó, cuándo, si quedó desierta, en qué condiciones y qué ofreció cada uno. El ejemplo es la gira de estudio: *"yo no la voy a postular porque no realizo giras de estudio, pero a lo mejor me interesa saber quién se la ganó... para incluirme dentro de los servicios de ese tour operador"*.
+    - **El caso de negocio:** el radar marca en rojo lo que la empresa no vende directo (giras, cursos, producción de eventos públicos), pero quien lo gana necesita alojamiento, comida o un salón. Es un canal para venderle al ganador. Los precios de los ganadores alimentan además «¿Calza el precio?».
+    - **La bandeja:** se va el botón «Ver resumen»; al pinchar la fila se abre el resumen, con «Me interesa», «Seguir» y «Descartar». Se agrega un montón nuevo, «En seguimiento».
+    - **El radar** revisa una vez al día las que se siguen, de cualquier región y color, hasta que se adjudican, quedan desiertas o se revocan.
+    - **El acta pública:** la API trae el enlace (`UrlActa`), y la página se abre sin código. Se revisó el 19-10 con la 3997-60-LE26. Trae todas las ofertas por ítem: proveedor, RUT, qué ofreció, a qué precio y si ganó. Los adjuntos de esa página sí tienen código y se arrastran a mano, como las bases.
+    - **«Resumen de negocio» con IA**, con un botón: quién ganó, qué incluye (destinos, fechas, personas), qué ofreció cada uno y a qué precio, y qué le sirve a la empresa. Esto último se lee de «Mi empresa»: *"los que deberían estar siempre resumidos en Mi empresa, así se mantiene escalable"*.
+    - **Decidido el 19-10:** la descripción de lo que vende la empresa pasa de Configuración a «Mi empresa». Felipe: *"sí, correcto, dejemos eso ahí"*. Es una sola: la lee el radar y la lee el resumen de negocio.
+31. **La bandeja, un color por significado** (19-10, sin construir; sprint B de la hoja de ruta, §7). Felipe, con la bandeja a la vista: *"el amarillo de los prioritarios se mezcla con el amarillo del semáforo y hace confuso saber cuál es más importante... quizás las verdes con un fondo verde pálido, las amarillas un amarillo pálido, y las prioritarias separadas por tablas"*.
+    - Se le mostraron dos bocetos el 19-10:
+      - **A, su idea:** la fila entera teñida por el semáforo y la prioridad separada por secciones.
+      - **B, la propuesta:** la misma tinta con una franja del color a la izquierda. La prioridad va en violeta con estrella, en su propio recuadro y con sus razones («Comuna cercana», «Alto valor») en violeta. La urgencia («cierra en 11 h») va con un reloj, sin rojo. Así verde, amarillo y rojo solo significan el semáforo, y violeta solo significa prioridad.
+    - **Decidido el 19-10: B.** Felipe: *"me gusta tu propuesta, vamos con la B"*.
+    - **Construido la noche del 19-10** (sprint B, en el laboratorio): `coloresDeLaBandeja.ts` y la fila aparte, en `FilaDeOportunidad.tsx`. Cada grupo de la lista va en su recuadro. Al probarlo apareció un detalle: la línea gris entre filas (`divide-y`) le ganaba a la franja desde la segunda fila; ahora cada fila lleva su propia línea abajo.
 
 ## 4. Reglas del módulo (no se negocian)
 
@@ -605,6 +625,23 @@ correo. Quedan para después de la historia (1b): "el año anterior", el
 calendario de recurrentes y la ficha de competidores. El aviso inmediato
 de comuna cercana y alto valor espera la respuesta de Felipe.
 
+**Hoja de ruta desde el 19-10** (Felipe: *"actualiza el roadmap... para que desarrollemos todo esto en el laboratorio"*). Todo se construye y se prueba primero en el laboratorio, en este orden. Producción, solo con el «a producción» de Felipe:
+
+| Sprint | Qué | Se da por bueno cuando |
+|---|---|---|
+| A. El laboratorio al día | Felipe: *"me da la sensación que el laboratorio está atrasado respecto a producción"*. Medido el 19-10: lo está. Ver la nota de abajo | El laboratorio muestra lo mismo que producción |
+| B. La bandeja más clara (decisión 31) | Un color por significado: el semáforo en las filas, la prioridad en su recuadro y la urgencia con reloj | Felipe distingue de un vistazo qué es prioridad y de qué color es cada una |
+| C. La cotización de la postulación y «¿Calza el precio?» (decisión 29) | La propuesta técnica deja su lista de ítems del catálogo. Esa lista llena la cotización nueva, o reescribe la vinculada con aviso y bitácora. Si la oferta es menor que el catálogo, la diferencia entra como descuento en dinero. El panel muestra presupuesto, cotización, ganador del año anterior, oferta y descuento | En una licitación del laboratorio, la propuesta técnica y la cotización traen los mismos ítems y el panel muestra el margen con su color |
+| D. Seguir una licitación, parte 1 (decisión 30) | La bandeja sin «Ver resumen», «Seguir» en el resumen, el montón «En seguimiento», la revisión diaria y el acta pública | Una licitación seguida muestra ganador, ofertas y precios cuando se adjudica |
+| E. Seguir una licitación, parte 2 (decisión 30) | La descripción de lo que vende la empresa pasa a «Mi empresa». El resumen de negocio con IA se arma según esa descripción, con los documentos arrastrados | El resumen de una gira de estudio dice a quién ofrecerle qué |
+
+**Cómo estaba el laboratorio el 19-10.**
+- La rama `pruebas` iba 49 commits detrás de `main`. Faltaban todos los arreglos de Oportunidades desde el 17-10 en la noche (#148 a #165): la bandeja ordenada, traer todo, los formularios por dos caminos, el filtro afinado, los formularios que encuentra el análisis, «Generar anexos» sin casillas y la gran descarga. Son 61 archivos distintos solo en Oportunidades.
+- Lo que `pruebas` tiene y `main` no es casi nada: el plan `15_CARGA_INICIAL_CON_IA.md`. Lo demás son copias (cherry-pick) de lo que ya está en `main`.
+- Una mezcla de prueba de `main` en `pruebas`, hecha solo en el Mac y deshecha, chocó en 48 archivos: los mismos cambios llegaron por dos caminos.
+- La base del laboratorio tiene todas las tablas de Oportunidades (migraciones 122 a 129, 141, 142 y 143). Le falta la descripción de Valle del Sol afinada en producción el 18-10. Su radar está apagado desde el 17-10 y comparte el ticket de Mercado Público con producción.
+- **Propuesta, sin hacer:** mezclar `main` en `pruebas` dándole la razón a `main` en los choques, sin forzar la rama (otras conversaciones la usan). Revisar uno por uno los trozos que solo tiene el laboratorio. Después, el motor del laboratorio se despliega solo, la vitrina del laboratorio se publica desde `pruebas` al día y la descripción de Valle del Sol se copia de producción. El radar del laboratorio sigue apagado, para no gastar el cupo del ticket que usa la gran descarga. Todo con el OK de Felipe y avisando antes a las otras conversaciones.
+
 Cada sprint: laboratorio primero, validación de Felipe, y su "a producción".
 Las migraciones van al laboratorio y a producción **antes** del motor.
 
@@ -670,9 +707,9 @@ integridad 5, requisitos formales 5 — los mismos de 2025.
 Postulación automática por reglas (sirve para vender productos en serie, no
 eventos); subir la oferta a Mercado Público por Felipe con un usuario robot;
 portales privados (wherEX, SeNegocia); convenio marco; app móvil propia.
-Más adelante, si se pide: precio de referencia con el historial, ver la
-oferta técnica del ganador anterior (Mercado Público la publica tras la
-apertura si la licitación lo indica), análisis del acta cuando se pierde,
+Más adelante, si se pide: precio de referencia con el historial (pedido el
+19-10: «¿Calza el precio?», decisión 29), ver la oferta técnica del ganador
+anterior y el análisis del acta (pedido el 19-10: «Seguir», decisión 30),
 indicadores de pago del comprador, foro, firma escaneada, orden de compra →
 evento confirmado.
 

@@ -9,7 +9,6 @@ import {
   CalendarDays,
   CalendarRange,
   CheckCircle2,
-  Eye,
   HelpCircle,
   Hourglass,
   Inbox,
@@ -20,7 +19,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "../../components/toast/Toast";
 import {
   actualizarOportunidad,
@@ -31,7 +29,6 @@ import {
   type Oportunidad,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
 import {
   agruparPorCierre,
@@ -42,27 +39,22 @@ import {
   useProximaPasada,
 } from "./bandeja";
 import BandejaVacia from "./BandejaVacia";
+import { RECUADRO_DEL_GRUPO } from "./coloresDeLaBandeja";
 import { type Cobertura, coberturaDe } from "./cobertura";
 import CompetidoresOportunidades from "./CompetidoresOportunidades";
+import FilaDeOportunidad from "./FilaDeOportunidad";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
 import FiltrosDeLaBandeja from "./FiltrosDeLaBandeja";
 import MisLicitaciones from "./MisLicitaciones";
 import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
 import {
-  ALERTAS,
   contarPorSemaforo,
-  cuandoCierra,
-  ESTADOS,
-  ETIQUETAS,
   FILTROS_DE_PARTIDA,
   filtrarSinSemaforo,
   type Filtros,
-  SEMAFOROS,
-  textoDelAnterior,
   separarMias,
 } from "./oportunidades.utils";
-import SelloDeTipo from "./SelloDeTipo";
 import SeVieneOportunidades from "./SeVieneOportunidades";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
@@ -265,16 +257,16 @@ const ESTILO_DEL_GRUPO: Record<
     readonly ayuda?: string;
   }
 > = {
-  prioridad: { icono: Star, clases: "text-amber-700" },
-  pronto: { icono: AlarmClock, clases: "text-red-700" },
+  prioridad: { icono: Star, clases: "" },
+  pronto: { icono: AlarmClock, clases: "" },
   semana: {
     icono: CalendarDays,
-    clases: "text-gray-600",
+    clases: "",
     ayuda: "Cierran en 4 a 7 días",
   },
-  despues: { icono: CalendarRange, clases: "text-gray-500" },
-  sin_cierre: { icono: HelpCircle, clases: "text-gray-500" },
-  cerradas: { icono: Archive, clases: "text-gray-500" },
+  despues: { icono: CalendarRange, clases: "" },
+  sin_cierre: { icono: HelpCircle, clases: "" },
+  cerradas: { icono: Archive, clases: "" },
 };
 
 function Bandeja({
@@ -390,23 +382,25 @@ function Bandeja({
         <div className="space-y-5">
           {agruparPorCierre(visibles).map((g) => {
             const estilo = ESTILO_DEL_GRUPO[g.clave];
-            const destacado = g.clave === "prioridad";
+            // Cada grupo en su recuadro; la prioridad, en violeta (decisión
+            // 31: el amarillo es solo del semáforo).
+            const colores =
+              RECUADRO_DEL_GRUPO[
+                g.clave === "prioridad" ? "prioridad" : "otro"
+              ];
             return (
-              <section key={g.clave}>
+              <section
+                key={g.clave}
+                className={`overflow-hidden rounded-lg border bg-white ${colores.recuadro}`}
+              >
                 <h3
                   title={estilo.ayuda}
-                  className={`flex items-center gap-1.5 mb-1 text-xs font-semibold uppercase tracking-wide ${estilo.clases}`}
+                  className={`flex items-center gap-1.5 px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${colores.titulo} ${estilo.clases}`}
                 >
                   <estilo.icono size={14} />
                   {g.titulo} ({g.filas.length})
                 </h3>
-                <ul
-                  className={`divide-y divide-gray-200 border-t ${
-                    destacado
-                      ? "border-amber-300 bg-amber-50/40"
-                      : "border-gray-200"
-                  }`}
-                >
+                <ul>
                   {g.filas.map((o) => (
                     <FilaDeOportunidad
                       key={o.id}
@@ -434,165 +428,5 @@ function Bandeja({
         />
       )}
     </div>
-  );
-}
-
-function FilaDeOportunidad({
-  o,
-  ocupado,
-  onDecidir,
-  onAbrir,
-}: {
-  readonly o: Oportunidad;
-  readonly ocupado: boolean;
-  readonly onDecidir: (estado: EstadoOportunidad) => void;
-  readonly onAbrir: () => void;
-}) {
-  const p = o.proceso;
-  const cierre = cuandoCierra(p.fecha_cierre);
-  const estado = ESTADOS.find((e) => e.value === o.estado);
-  // Los botones de la derecha deciden sin abrir el resumen.
-  const solo = (accion: () => void) => (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    accion();
-  };
-  return (
-    <li
-      onClick={() => {
-        // Seleccionar texto para copiarlo no abre el resumen.
-        if (window.getSelection()?.toString()) return;
-        onAbrir();
-      }}
-      className={`grid grid-cols-[14px_minmax(0,1fr)_auto] gap-3 px-2 py-3 -mx-2 rounded-lg cursor-pointer hover:bg-blue-50/50 ${
-        o.estado === "descartada" ? "opacity-60" : ""
-      }`}
-    >
-      <span
-        title={o.semaforo ? SEMAFOROS[o.semaforo].label : "Sin leer"}
-        className={`mt-1.5 w-2.5 h-2.5 rounded-full ${
-          o.semaforo ? SEMAFOROS[o.semaforo].punto : "bg-gray-300"
-        }`}
-      />
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <SelloDeTipo tipo={p.tipo} />
-          <Link
-            to={`/oportunidades/${o.id}`}
-            onClick={(e) => {
-              // Un clic normal abre el resumen; con Ctrl, Cmd o la rueda, la
-              // ficha en otra pestaña, como cualquier enlace.
-              e.stopPropagation();
-              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0)
-                return;
-              e.preventDefault();
-              onAbrir();
-            }}
-            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
-          >
-            {p.nombre}
-          </Link>
-        </div>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {[
-            p.organismo,
-            o.codigo,
-            p.monto
-              ? formatCurrency(p.monto, "CLP")
-              : "presupuesto no publicado",
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        <p className="text-xs mt-0.5">
-          <span className="text-gray-500">
-            Cierra {formatMomento(p.fecha_cierre, "diaHora", "sin fecha")}
-          </span>{" "}
-          <span
-            className={
-              cierre.urgente ? "font-semibold text-red-600" : "text-gray-500"
-            }
-          >
-            ({cierre.texto})
-          </span>
-        </p>
-        {o.razon && <p className="text-sm text-gray-700 mt-1">{o.razon}</p>}
-        {o.anterior && (
-          <p className="text-xs text-gray-600 mt-1">
-            {textoDelAnterior(o.anterior)}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {o.alertas.map((a) => (
-            <span
-              key={a}
-              className="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700"
-            >
-              {ALERTAS[a] ?? a}
-            </span>
-          ))}
-          {o.etiquetas
-            .filter((e) => e !== "otro")
-            .map((e) => (
-              <span
-                key={e}
-                className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600"
-              >
-                {ETIQUETAS[e] ?? e}
-              </span>
-            ))}
-          {estado && o.estado !== "nueva" && (
-            <span className={`px-2 py-0.5 text-xs rounded ${estado.clases}`}>
-              {estado.label}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col gap-1.5 items-stretch">
-        <button
-          type="button"
-          onClick={solo(onAbrir)}
-          className="inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
-        >
-          <Eye size={13} /> Ver resumen
-        </button>
-        {o.estado === "nueva" ? (
-          <>
-            <button
-              type="button"
-              disabled={ocupado}
-              onClick={solo(() => onDecidir("en_estudio"))}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              Me interesa
-            </button>
-            <button
-              type="button"
-              disabled={ocupado}
-              onClick={solo(() => onDecidir("descartada"))}
-              className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-            >
-              Descartar
-            </button>
-          </>
-        ) : o.estado === "descartada" ? (
-          <button
-            type="button"
-            disabled={ocupado}
-            onClick={solo(() => onDecidir("nueva"))}
-            className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-          >
-            Recuperar
-          </button>
-        ) : (
-          <Link
-            to={`/oportunidades/${o.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="px-3 py-1.5 text-xs font-semibold text-center text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-          >
-            Ver ficha
-          </Link>
-        )}
-      </div>
-    </li>
   );
 }
