@@ -71,4 +71,20 @@ describe('RadarService — compras ágiles en amarillo, con su detalle (la A, 18
       expect.anything(),
     );
   });
+
+  it('si este paso falla por algo raro (la base), la corrida sigue y queda dicho', async () => {
+    const { radar, repo } = armar();
+    repo.comprasAgilesSinDetalle.mockRejectedValue(
+      Object.assign(new Error('relación no encontrada'), { code: 'PGRST200' }),
+    );
+
+    const resumen = await radar.correr('reloj');
+
+    expect(resumen?.avisos.join(' ')).toContain('Compras ágiles con detalle');
+    expect(repo.terminarCorrida).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'ok',
+      expect.anything(),
+    );
+  });
 });

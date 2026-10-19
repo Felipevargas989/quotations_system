@@ -642,11 +642,13 @@ export class RadarService {
         resumen.avisos.push(error.message);
         return;
       }
-      if (error instanceof MercadoPublicoError) {
-        resumen.avisos.push(`Compras ágiles con detalle: ${error.message}`);
-        return;
-      }
-      throw error;
+      // Es una parte secundaria de la corrida: cualquier otra falla (la
+      // base, un dato raro) queda dicha y la corrida sigue (lecciones 74 y
+      // 75 del mapa 21).
+      this.logger.warn(
+        `radar: compras ágiles con detalle: ${mensajeDe(error)}`,
+      );
+      resumen.avisos.push(`Compras ágiles con detalle: ${mensajeDe(error)}`);
     } finally {
       r.tokens_entrada += uso.entrada;
       r.tokens_salida += uso.salida;
