@@ -11,7 +11,6 @@ import {
   subirDocumentoDeEmpresa,
   type DocumentoDeEmpresa,
 } from "../../services/oportunidades.service";
-import type { DatosDeRespaldo } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { descargarDelBalde } from "./descargas";
@@ -22,8 +21,8 @@ import {
   tamanoLegible,
   TIPOS_DE_DOCUMENTO,
 } from "./oportunidades.utils";
-import RespaldoDeExperiencia from "./RespaldoDeExperiencia";
-import { RESPALDO_VACIO, resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
+import { resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
+import RespaldosEnLote from "./RespaldosEnLote";
 
 // LA CARPETA DE DOCUMENTOS DE LA EMPRESA (doc 17 §5.5, sprint 3, paso 2):
 // lo que piden casi todas las bases (patente, inicio de actividades,
@@ -34,7 +33,8 @@ import { RESPALDO_VACIO, resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
 //
 // Desde el 19-10 también guarda los RESPALDOS DE EXPERIENCIA (decisión 34):
 // la orden de compra o la factura de cada evento que se declara, con sus
-// datos para el anexo de experiencia. No vencen.
+// datos para el anexo de experiencia. No vencen. Se suben varios a la vez y
+// se leen solos (RespaldosEnLote).
 
 const TONOS = {
   ok: "bg-green-50 text-green-700",
@@ -55,7 +55,6 @@ export default function DocumentosDeEmpresa({
   const [archivo, setArchivo] = useState<File | null>(null);
   const [tipo, setTipo] = useState("");
   const [vence, setVence] = useState("");
-  const [respaldo, setRespaldo] = useState<DatosDeRespaldo>(RESPALDO_VACIO);
   const esRespaldo = tipo === TIPO_RESPALDO;
   const [porBorrar, setPorBorrar] = useState<number | null>(null);
 
@@ -63,16 +62,12 @@ export default function DocumentosDeEmpresa({
     qc.invalidateQueries({ queryKey: ["oportunidades", "oferente"] });
 
   const subir = useMutation({
-    mutationFn: () =>
-      esRespaldo
-        ? subirDocumentoDeEmpresa(archivo!, tipo, "", respaldo)
-        : subirDocumentoDeEmpresa(archivo!, tipo, vence),
+    mutationFn: () => subirDocumentoDeEmpresa(archivo!, tipo, vence),
     onSuccess: () => {
       toast.success("Documento guardado.");
       setArchivo(null);
       setTipo("");
       setVence("");
-      setRespaldo(RESPALDO_VACIO);
       void recargar();
     },
     onError: (e) =>
@@ -103,8 +98,9 @@ export default function DocumentosDeEmpresa({
     }
     setArchivo(a);
   };
+  // Con «Respaldo de experiencia», los archivos los recibe RespaldosEnLote.
   const { arrastrando, zona } = useArrastreDeArchivos(recibir, {
-    desactivado: subir.isPending,
+    desactivado: subir.isPending || esRespaldo,
   });
 
   const descargar = async (d: DocumentoDeEmpresa) => {
@@ -199,34 +195,36 @@ export default function DocumentosDeEmpresa({
           arrastrando ? "border-blue-400 bg-blue-50/60" : "border-gray-200"
         }`}
       >
-        <div className="flex flex-wrap items-center gap-2.5">
-          <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
-            Elegir archivo
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-              className="sr-only"
-              onChange={(e) => {
-                const elegidos = Array.from(e.target.files ?? []);
-                e.currentTarget.value = "";
-                recibir(elegidos);
-              }}
-            />
-          </label>
-          <span
-            className={
-              arrastrando
-                ? "text-xs font-bold text-blue-600"
-                : "text-xs text-gray-500"
-            }
-          >
-            {arrastrando
-              ? "¡Suéltalo aquí! ↓"
-              : archivo
-                ? archivo.name
-                : "o arrástralo aquí · PDF, Word o imagen"}
-          </span>
-        </div>
+        {!esRespaldo && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 focus-within:ring-2 focus-within:ring-blue-500">
+              Elegir archivo
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                className="sr-only"
+                onChange={(e) => {
+                  const elegidos = Array.from(e.target.files ?? []);
+                  e.currentTarget.value = "";
+                  recibir(elegidos);
+                }}
+              />
+            </label>
+            <span
+              className={
+                arrastrando
+                  ? "text-xs font-bold text-blue-600"
+                  : "text-xs text-gray-500"
+              }
+            >
+              {arrastrando
+                ? "¡Suéltalo aquí! ↓"
+                : archivo
+                  ? archivo.name
+                  : "o arrástralo aquí · PDF, Word o imagen"}
+            </span>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
           <div>
             <p className="text-xs text-gray-500 mb-1">Qué documento es</p>
@@ -242,38 +240,31 @@ export default function DocumentosDeEmpresa({
               tamano="sm"
             />
           </div>
-          <div>
-            <p className="text-xs text-gray-500 mb-1">
-              Vence (vacío si no vence)
-            </p>
-            {esRespaldo ? (
-              <p className="py-1.5 text-sm text-gray-500">No vence</p>
-            ) : (
-              <input
-                type="date"
-                value={vence}
-                onChange={(e) => setVence(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => subir.mutate()}
-            disabled={
-              !archivo ||
-              !tipo ||
-              (esRespaldo && !respaldo.numero.trim()) ||
-              subir.isPending
-            }
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {subir.isPending ? "Subiendo…" : "Guardar documento"}
-          </button>
+          {!esRespaldo && (
+            <>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">
+                  Vence (vacío si no vence)
+                </p>
+                <input
+                  type="date"
+                  value={vence}
+                  onChange={(e) => setVence(e.target.value)}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => subir.mutate()}
+                disabled={!archivo || !tipo || subir.isPending}
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {subir.isPending ? "Subiendo…" : "Guardar documento"}
+              </button>
+            </>
+          )}
         </div>
-        {esRespaldo && (
-          <RespaldoDeExperiencia datos={respaldo} onChange={setRespaldo} />
-        )}
+        {esRespaldo && <RespaldosEnLote alGuardar={() => void recargar()} />}
       </div>
     </section>
   );

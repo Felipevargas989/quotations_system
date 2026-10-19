@@ -31,6 +31,7 @@ import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
 import { SeccionDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
+import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import {
   MAX_BYTES_DOCUMENTO,
   MAX_BYTES_FIRMA,
@@ -60,6 +61,7 @@ export class OportunidadesController {
     private readonly generacion: GeneracionService,
     private readonly misLicitaciones: MisLicitacionesService,
     private readonly oferente: OferenteService,
+    private readonly leerRespaldo: LeerRespaldoService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
@@ -175,6 +177,22 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.oferente.subirDocumento(user.company_id, user.id, archivo, dto);
+  }
+
+  /** Lee una orden de compra o una factura con Haiku (decisión 34): sus
+   *  datos para el respaldo, sin guardar nada; la empresa revisa y guarda. */
+  @Post('oferente/respaldos/leer')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_BYTES_DOCUMENTO },
+      defParamCharset: 'utf8',
+    }),
+  )
+  leerUnRespaldo(
+    @UploadedFile() archivo: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ) {
+    return this.leerRespaldo.leer(user.company_id, archivo);
   }
 
   @Get('oferente/orden-de-compra/:codigo')

@@ -19,6 +19,7 @@ import { HistoriaService } from './historia/historia.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
+import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import { OferenteRepository } from './oferente/oferente.repository';
 import { OferenteService } from './oferente/oferente.service';
 import { OportunidadesCronService } from './oportunidades-cron.service';
@@ -74,6 +75,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     EventiaRepository,
     OferenteRepository,
     OferenteService,
+    LeerRespaldoService,
     HistoriaRepository,
     HistoriaService,
     RadarService,
