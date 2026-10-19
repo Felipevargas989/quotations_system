@@ -34,6 +34,7 @@ import { OportunidadesRepository } from '../oportunidades.repository';
 import {
   claseDeFormulario,
   concretarSalidas,
+  elegirArchivos,
   formulariosParaElTaller,
   habilidadesParaFormularios,
   MAX_BYTES_DE_PDF_EN_FORMULARIOS,
@@ -194,13 +195,13 @@ export class GeneracionService {
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const bases = await this.adjuntos.listar(companyId, oportunidadId, 'bases');
+    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
     const pedidos = new Set(pedido.adjuntos ?? []);
-    const elegidos =
-      pedidos.size > 0
-        ? bases.filter((a) => pedidos.has(a.id))
-        : bases.filter((a) =>
-            ['word', 'doc'].includes(claseDeFormulario(a.nombre) ?? ''),
-          );
+    const elegidos = elegirArchivos(
+      bases,
+      pedidos,
+      contexto.datos.bases?.formularios ?? [],
+    );
     if (
       pedidos.size > 0 &&
       (elegidos.length !== pedidos.size ||
@@ -228,7 +229,6 @@ export class GeneracionService {
         'Los PDF elegidos pesan más de 40 MB juntos: elige solo los que traen los formularios.',
       );
     }
-    const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
     if (!contexto.oferente.razon_social || !contexto.oferente.rut) {
       throw new BadRequestException(
         'Primero llena los datos de la empresa en «Mi empresa» (al menos la razón social y el RUT).',

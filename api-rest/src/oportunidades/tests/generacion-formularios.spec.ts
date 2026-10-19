@@ -1,6 +1,13 @@
 import type { Plan } from '../generacion/generacion.service';
+import { mismoNombre } from '../generacion/instrucciones';
 import { trabajarEnElTaller } from '../generacion/taller';
-import { armar, CUENTA, entorno, planDe } from './generacion-de-prueba';
+import {
+  ANALISIS,
+  armar,
+  CUENTA,
+  entorno,
+  planDe,
+} from './generacion-de-prueba';
 import { wordCon } from './zip-de-prueba';
 
 // LOS FORMULARIOS EN PDF SE REESCRIBEN EN WORD (Felipe, 18-10: "si bien
@@ -177,5 +184,74 @@ describe('Un formulario en PDF', () => {
         }) as unknown,
       }),
     );
+  });
+
+  it('sin elegir, manda el análisis: entra el PDF donde vienen los formularios y la IA sabe en qué páginas; el que no aplica no se llena; el que no vino, a pendientes (18-10)', () =>
+    entorno(async () => {
+      // Felipe, 18-10: "que cuando la IA analice los documentos identifique
+      // dónde están los formularios a rellenar... y deje listo el proceso".
+      const { analisis, repo, servicio, ejecutar } = armar();
+      analisis.ultimo.mockResolvedValue({
+        ...ANALISIS,
+        resultado: {
+          ...ANALISIS.resultado,
+          formularios: [
+            {
+              nombre: 'Formulario N°1 - Identificación del oferente',
+              archivo: 'D.A. N°4.770 Bases.pdf',
+              paginas: '16',
+              aplica: true,
+              por_que_no_aplica: '',
+              se_entrega_en: 'administrativa',
+            },
+            {
+              nombre: 'Formulario UTP',
+              archivo: 'D.A. N°4.770 Bases',
+              paginas: '18',
+              aplica: false,
+              por_que_no_aplica: 'La empresa postula sola',
+              se_entrega_en: 'administrativa',
+            },
+            {
+              nombre: 'Formulario N°5 - Oferta económica',
+              archivo: '',
+              paginas: '',
+              aplica: true,
+              por_que_no_aplica: '',
+              se_entrega_en: 'economica',
+            },
+          ],
+        },
+      });
+
+      await servicio.generarAnexos(1, CUENTA, 40, {});
+
+      expect(repo.crearGeneracion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parametros: { monto_total: null, adjuntos: [4, 6, 7] },
+        }),
+      );
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('LOS FORMULARIOS QUE ENCONTRÓ EL ANÁLISIS');
+      expect(sistema).toContain(
+        '- Formulario N°1 - Identificación del oferente: en anexo_4.pdf (pág. 16); se entrega en la parte administrativa.',
+      );
+      expect(sistema).toContain(
+        '- Formulario UTP: NO aplica a esta empresa (La empresa postula sola); no lo llenes.',
+      );
+      expect(sistema).toContain(
+        '- Formulario N°5 - Oferta económica: su formato no está en los archivos que te paso',
+      );
+    }));
+
+  it('el nombre del archivo calza aunque el análisis lo escriba distinto', () => {
+    expect(mismoNombre('D.A._N°4.770_Bases.pdf', 'D.A. N°4.770 Bases')).toBe(
+      true,
+    );
+    expect(mismoNombre('Formularios_Anexos.docx', 'formularios anexos')).toBe(
+      true,
+    );
+    expect(mismoNombre('Bases.pdf', 'Bases técnicas.pdf')).toBe(false);
+    expect(mismoNombre('', '')).toBe(false);
   });
 });

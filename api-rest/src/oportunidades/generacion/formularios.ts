@@ -1,6 +1,7 @@
 import type { Adjunto } from '../adjuntos/adjuntos.repository';
 import { extensionDe, TIPOS_POR_EXTENSION } from '../adjuntos/adjuntos.service';
 import { MODELO_OPUS, MODELO_SONNET } from '../analisis/comun';
+import { mismoNombre } from './instrucciones';
 import { HABILIDAD_DE_PDF, HABILIDAD_DE_WORD, type Habilidad } from './taller';
 
 // LOS FORMULARIOS DEL COMPRADOR, DOS CAMINOS (Felipe, 18-10: "si bien en
@@ -31,6 +32,28 @@ export const claseDeFormulario = (nombre: string): ClaseDeFormulario | null => {
 
 /** Lo que los PDF elegidos pueden pesar juntos: los mira página por página. */
 export const MAX_BYTES_DE_PDF_EN_FORMULARIOS = 40 * 1024 * 1024;
+
+/** Qué archivos van al taller. Si la persona eligió, eso. Si no, los Word
+ *  de las bases y los archivos donde el análisis encontró formularios que
+ *  aplican, también los PDF (Felipe, 18-10: "que cuando la IA analice los
+ *  documentos identifique dónde están los formularios... y deje listo el
+ *  proceso de generación"). */
+export const elegirArchivos = (
+  bases: Adjunto[],
+  pedidos: ReadonlySet<number>,
+  delAnalisis: ReadonlyArray<{ archivo: string; aplica: boolean }>,
+): Adjunto[] => {
+  if (pedidos.size > 0) return bases.filter((a) => pedidos.has(a.id));
+  const conFormularios = delAnalisis.filter((f) => f.aplica && f.archivo);
+  return bases.filter((a) => {
+    const clase = claseDeFormulario(a.nombre);
+    if (!clase) return false;
+    return (
+      clase !== 'pdf' ||
+      conFormularios.some((f) => mismoNombre(a.nombre, f.archivo))
+    );
+  });
+};
 
 export const sinExtension = (nombre: string) => {
   const punto = nombre.lastIndexOf('.');

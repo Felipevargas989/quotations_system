@@ -540,6 +540,42 @@ export class OportunidadesRepository {
     return filas;
   }
 
+  /** Las compras ágiles que quedaron en amarillo leídas SIN descripción
+   *  (entraron solo con lo de la lista, decisión 20), intactas y abiertas,
+   *  de la que cierra antes a la que cierra después, con el ítem de la
+   *  lista para completarlas con su detalle (Felipe, 18-10: la A). */
+  async comprasAgilesSinDetalle(
+    companyId: number,
+  ): Promise<Array<{ codigo: string; item: CompraAgilListada }>> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select(
+        'codigo, proceso:mp_procesos!inner(tipo, descripcion, fecha_cierre, item:detalle->item)',
+      )
+      .eq('company_id', companyId)
+      .eq('estado', 'nueva')
+      .eq('semaforo', 'amarillo')
+      .is('responsable_id', null)
+      .is('notas', null)
+      .is('quotation_id', null)
+      .eq('proceso.tipo', 'compra_agil')
+      .is('proceso.descripcion', null)
+      .gt('proceso.fecha_cierre', new Date().toISOString());
+    if (error) throw error;
+    type Fila = {
+      codigo: string;
+      proceso: { fecha_cierre: string | null; item: CompraAgilListada | null };
+    };
+    return ((data ?? []) as unknown as Fila[])
+      .filter((f) => f.proceso?.item)
+      .sort((a, b) =>
+        String(a.proceso.fecha_cierre).localeCompare(
+          String(b.proceso.fecha_cierre),
+        ),
+      )
+      .map((f) => ({ codigo: f.codigo, item: f.proceso.item! }));
+  }
+
   /** "Mis licitaciones": las que la empresa marcó (en estudio,
    *  postuladas, ganadas o perdidas), abiertas o cerradas. Son pocas: una
    *  página basta. */

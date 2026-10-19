@@ -404,6 +404,54 @@ describe('OportunidadesRepository — sprint 1b', () => {
   });
 });
 
+describe('OportunidadesRepository — compras ágiles sin detalle (la A, 18-10)', () => {
+  it('solo las amarillas intactas de ESTA empresa, compras ágiles abiertas sin descripción, de la que cierra antes a la que cierra después', async () => {
+    const { repo, consultas } = armar(() => ({
+      data: [
+        {
+          codigo: 'B',
+          proceso: {
+            fecha_cierre: '2026-10-25T15:00:00Z',
+            item: { codigo: 'B' },
+          },
+        },
+        {
+          codigo: 'A',
+          proceso: {
+            fecha_cierre: '2026-10-20T15:00:00Z',
+            item: { codigo: 'A' },
+          },
+        },
+        { codigo: 'SIN_ITEM', proceso: { fecha_cierre: null, item: null } },
+      ],
+    }));
+
+    const filas = await repo.comprasAgilesSinDetalle(1);
+
+    expect(filas.map((f) => f.codigo)).toEqual(['A', 'B']);
+    const c = consultas[0];
+    expect(c.tabla).toBe('oportunidades');
+    const eqs = c.pasos.filter(([m]) => m === 'eq').map((p) => p.slice(1));
+    expect(eqs).toEqual(
+      expect.arrayContaining([
+        ['company_id', 1],
+        ['estado', 'nueva'],
+        ['semaforo', 'amarillo'],
+        ['proceso.tipo', 'compra_agil'],
+      ]),
+    );
+    const iss = c.pasos.filter(([m]) => m === 'is').map((p) => p[1]);
+    expect(iss).toEqual(
+      expect.arrayContaining([
+        'responsable_id',
+        'notas',
+        'quotation_id',
+        'proceso.descripcion',
+      ]),
+    );
+  });
+});
+
 describe('OportunidadesRepository — procesos comunes', () => {
   it('pregunta por los conocidos en tramos de 300 códigos', async () => {
     const { repo, consultas } = armar((c) => {

@@ -193,6 +193,58 @@ describe("Crear documentos con IA", () => {
     );
   });
 
+  it("con el análisis, la IA dice qué formularios hay, en qué archivo y página, y marca sola el PDF que los trae (18-10)", async () => {
+    s.getAnalisis.mockResolvedValue({
+      id: 5,
+      estado: "listo",
+      resultado: {
+        formularios: [
+          {
+            nombre: "Formulario N°1 - Identificación del oferente",
+            archivo: "Bases.pdf",
+            paginas: "16",
+            aplica: true,
+            por_que_no_aplica: "",
+            se_entrega_en: "administrativa",
+          },
+          {
+            nombre: "Formulario UTP",
+            archivo: "Bases.pdf",
+            paginas: "18",
+            aplica: false,
+            por_que_no_aplica: "Postulas sola",
+            se_entrega_en: "administrativa",
+          },
+          {
+            nombre: "Formulario N°5 - Oferta económica",
+            archivo: "",
+            paginas: "",
+            aplica: true,
+            por_que_no_aplica: "",
+            se_entrega_en: "economica",
+          },
+        ],
+      },
+    } as never);
+    pintar(<DocumentosConIA oportunidadId={40} />);
+
+    expect(
+      await screen.findByText("Formulario N°1 - Identificación del oferente"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/pág\. 16 · se entrega en la parte administrativa/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/No aplica: Postulas sola/)).toBeInTheDocument();
+    expect(screen.getByText(/No viene en lo que subiste/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Bases\.pdf/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /Volver a generar/ }));
+    await waitFor(() =>
+      expect(s.generarAnexos).toHaveBeenCalledWith(40, {
+        adjuntos: [4, 6, 7],
+      }),
+    );
+  });
+
   it("sin razón social o RUT en «Mi empresa», lo dice y no deja generar", async () => {
     s.getOferente.mockResolvedValue({
       oferente: { razon_social: null, rut: null },

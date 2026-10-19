@@ -72,6 +72,12 @@ const COMPRAS_POR_LOTE = 100;
 /** Cuánto hacia atrás se piden las compras ágiles publicadas (y todavía
  *  abiertas), en cada corrida. */
 const VENTANA_COMPRAS_AGILES_MS = 10 * 24 * HORA;
+/** Las compras ágiles en amarillo que se completan con su detalle y se
+ *  releen, por corrida (cada detalle tarda ~20 s; la A, 18-10). */
+const MAX_COMPRAS_CON_DETALLE_POR_CORRIDA = 40;
+const PRESUPUESTO_CON_DETALLE_MS = 20 * MINUTO;
+/** Si Mercado Público no trae el detalle, no se vuelve a pedir en un día. */
+const REINTENTAR_SIN_DETALLE_MS = 24 * HORA;
 
 const ESTADO_CERRADO = /cerrad|desiert|adjudicad|revocad|suspendid/i;
 
@@ -106,6 +112,8 @@ export type ResumenCorrida = {
     leidas: number;
     /** De las leídas, las que se releyeron por reglas nuevas. */
     releidas: number;
+    /** Compras ágiles en amarillo releídas con su detalle (la A, 18-10). */
+    con_detalle: number;
     verdes: number;
     amarillas: number;
     rojas: number;
@@ -161,6 +169,7 @@ export const resumenVacio = (): ResumenCorrida => ({
     empresas: 0,
     leidas: 0,
     releidas: 0,
+    con_detalle: 0,
     verdes: 0,
     amarillas: 0,
     rojas: 0,
@@ -224,6 +233,9 @@ export async function enParalelo<T>(
 
 @Injectable()
 export class RadarService {
+  /** Las compras ágiles cuyo detalle Mercado Público no entregó, y cuándo. */
+  private readonly sinDetalle = new Map<string, number>();
+
   constructor(
     private readonly mp: MercadoPublicoClient,
     private readonly repo: OportunidadesRepository,
@@ -295,6 +307,7 @@ export class RadarService {
       const intentadas = new Set<string>();
       await this.comprasAgiles(resumen, regiones);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
+      await this.releerConDetalle(resumen, empresas, configs);
       await this.licitaciones(resumen, inicio);
       await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
@@ -544,6 +557,102 @@ export class RadarService {
       r.guardadas += lote.length;
     }
     r.pendientes = 0;
+  }
+
+  // ------------------------------------------------------------
+  // Las compras ágiles en amarillo, con su detalle (la A, 18-10)
+  // ------------------------------------------------------------
+  // De las 87 amarillas del 18-10, 66 eran compras ágiles leídas solo con
+  // nombre, comprador y monto (decisión 20): sin descripción, la IA no sabe
+  // dónde es. A esas se les pide el detalle y se releen; de a una (la API no
+  // deja pedir en paralelo), primero las que cierran antes y con tope.
+  private async releerConDetalle(
+    resumen: ResumenCorrida,
+    empresas: EmpresaConModulo[],
+    configs: Map<number, ConfigOportunidades>,
+  ): Promise<void> {
+    const r = resumen.lectura;
+    if (r.estado !== 'ok' || !this.mp.configurado || !this.lectura.configurado)
+      return;
+    const hasta = Date.now() + PRESUPUESTO_CON_DETALLE_MS;
+    let quedan = MAX_COMPRAS_CON_DETALLE_POR_CORRIDA;
+    const uso: Uso = { entrada: 0, salida: 0 };
+    try {
+      for (const empresa of empresas) {
+        const config = configs.get(empresa.id);
+        if (!config) continue;
+        const candidatas = (
+          await this.repo.comprasAgilesSinDetalle(empresa.id)
+        ).filter((c) => {
+          const fallo = this.sinDetalle.get(c.codigo);
+          return !fallo || Date.now() - fallo > REINTENTAR_SIN_DETALLE_MS;
+        });
+        if (candidatas.length === 0) continue;
+        const perfil = {
+          nombre: empresa.name,
+          perfil: config.perfil,
+          ...(await this.repo.catalogoResumido(empresa.id)),
+        };
+        for (const { codigo, item } of candidatas) {
+          if (quedan-- <= 0 || Date.now() > hasta) return;
+          const detalle = await this.mp
+            .detalleCompraAgil(codigo)
+            .catch((error: unknown) => {
+              if (error instanceof MercadoPublicoError && error.sinCupo) {
+                throw error;
+              }
+              return null;
+            });
+          const proceso = detalle
+            ? procesoDesdeCompraAgil(item, detalle)
+            : null;
+          if (
+            !proceso ||
+            (!proceso.descripcion && proceso.productos.length === 0)
+          ) {
+            this.sinDetalle.set(codigo, Date.now());
+            continue;
+          }
+          await this.repo.guardarProcesos([proceso]);
+          const lectura = await this.lectura.leer(proceso, perfil, uso);
+          if (!lectura) continue;
+          const final = aplicarReglas(lectura, proceso, {
+            comunasCercanas: config.comunas_cercanas ?? [],
+            umbralAltoValor: empresa.high_value_threshold,
+          });
+          try {
+            await this.repo.guardarLectura(
+              empresa.id,
+              codigo,
+              final,
+              LECTURA_ACTUAL,
+              true,
+            );
+            r.con_detalle++;
+          } catch (error) {
+            this.logger.warn(
+              `radar: no se guardó la relectura de ${codigo}: ${mensajeDe(error)}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof LecturaDetenida) {
+        r.estado = 'detenida';
+        resumen.avisos.push(error.message);
+        return;
+      }
+      // Es una parte secundaria de la corrida: cualquier otra falla (la
+      // base, un dato raro) queda dicha y la corrida sigue (lecciones 74 y
+      // 75 del mapa 21).
+      this.logger.warn(
+        `radar: compras ágiles con detalle: ${mensajeDe(error)}`,
+      );
+      resumen.avisos.push(`Compras ágiles con detalle: ${mensajeDe(error)}`);
+    } finally {
+      r.tokens_entrada += uso.entrada;
+      r.tokens_salida += uso.salida;
+    }
   }
 
   // ------------------------------------------------------------

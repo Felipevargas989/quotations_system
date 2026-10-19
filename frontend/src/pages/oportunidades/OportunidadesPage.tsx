@@ -202,7 +202,7 @@ function EstadoDelRadar() {
   // Al lado de cuándo se revisó, cuándo vuelve a revisar (18-10).
   const proxima = useProximaPasada();
   // «¿Está todo?»: cuánto falta por traer y por leer (18-10).
-  const cobertura = coberturaDe(ultimaBuena);
+  const cobertura = coberturaDe(corridas);
   const estiloCobertura = cobertura && ESTILO_DE_COBERTURA[cobertura.tono];
 
   const revisar = useMutation({
