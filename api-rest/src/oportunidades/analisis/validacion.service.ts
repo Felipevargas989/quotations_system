@@ -155,6 +155,9 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- "falta": no está en ningún lado;',
     '- "vencido": está, pero vence antes del cierre o ya venció;',
     '- "revisar": está pero incompleto, sin firma, con datos que no calzan con los de la empresa, o no se puede saber.',
+    // Felipe, 19-10: "déjalo como que siempre estará habilitado... es
+    // difícil no tener eso".
+    'Estar inscrito o hábil en el Registro de Proveedores (ChileProveedores) es siempre "cumple": la empresa está hábil, se da por hecho y no hay un documento que mirar.',
     'En "donde", el nombre del documento que lo cumple (vacío si falta). En "observacion", una frase: qué está bien o qué hay que hacer.',
     'En "otros_problemas", lo que no es de un requisito: RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',

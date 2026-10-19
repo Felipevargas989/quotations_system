@@ -318,5 +318,9 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain('Certificado F30: F30 octubre.pdf (no vence)');
     expect(t).toContain('Precio (30%)');
     expect(t).toContain('"vencido"');
+    // El Registro de Proveedores se da por hecho (Felipe, 19-10).
+    expect(t).toContain(
+      'Registro de Proveedores (ChileProveedores) es siempre "cumple"',
+    );
   });
 });
