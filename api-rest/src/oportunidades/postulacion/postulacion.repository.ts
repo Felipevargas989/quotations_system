@@ -176,6 +176,8 @@ export class PostulacionRepository {
       )
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
+      // Las ofertas de la competencia (migración 153) no van en el set.
+      .in('seccion', ['bases', 'postulacion'])
       .order('creado_en', { ascending: false })
       .limit(500);
     if (error) throw error;

@@ -29,7 +29,7 @@ import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
 import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
-import { SeccionDto } from './dto/seccion.dto';
+import { SeccionDto, SubirAdjuntoDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
@@ -260,7 +260,7 @@ export class OportunidadesController {
   subirAdjunto(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() archivo: Express.Multer.File | undefined,
-    @Body() { seccion }: SeccionDto,
+    @Body() { seccion, competidor }: SubirAdjuntoDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(
@@ -272,6 +272,7 @@ export class OportunidadesController {
       id,
       archivo,
       seccion ?? 'bases',
+      competidor,
     );
   }
 

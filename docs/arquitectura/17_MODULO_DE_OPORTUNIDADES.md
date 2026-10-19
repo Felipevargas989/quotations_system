@@ -335,6 +335,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - El formulario de calidad de la oferta (o de oferta técnica, o de propuesta técnica) se llena ahí mismo con todo lo postulado, punto por punto y con su estructura, aunque diga que acepta formato propio. Ya no remite a otro documento.
     - La propuesta técnica aparte solo se arma si las bases la piden y no traen formulario para ella.
     - Al armar la oferta, si las bases no detallan un servicio (dicen solo «almuerzo» o «coffee»), se propone el detalle con el menú o paquete guardado que calce, o con el catálogo.
+41. **La comparación de ofertas** (19-10, pedido por Felipe). Felipe: *"en las postuladas quiero una opción que diga cuadro de oferta para poder descargar toda la información que haya subido otro posible competidor y analizar la probabilidad de quién se va a adjudicar la licitación en base a los criterios de evaluación... Es una nueva pestaña después de historial: comparación de ofertas. Cargamos ambas ofertas, la mía va a salir de acá, la otra la descargo y la sumo, y que la IA analice porcentualmente quién cumple mejor según cada parámetro y cada nota según los criterios de evaluación"*.
+    - Una pestaña después de «Historial», solo en postuladas, ganadas y perdidas.
+    - Tu oferta sale de lo que vas a presentar (lo mismo que va al ZIP, sin los respaldos de experiencia). La de cada competidor se sube ahí, con el nombre del oferente (migración 153: sección `competencia` y `competidor`).
+    - Opus 5.5 pone la nota de cada criterio (0 a 100) con su fundamento, dice si cada oferta cumple las bases, la probabilidad de ganar, lo que le suma y le resta, y qué hacer distinto la próxima vez. El puntaje ponderado lo calcula Eventia con los pesos de las bases, no la IA.
 
 ## 4. Reglas del módulo (no se negocian)
 

@@ -103,16 +103,24 @@ export class AdjuntosService {
 
   /** `cuentaId` es el id de la sesión (`user.id`); quién lo subió se guarda
    *  con el perfil de esa cuenta en la empresa. `seccion`: 'bases' (lo que
-   *  publicó el comprador) o 'postulacion' (lo que la empresa presentará,
-   *  migración 127). */
+   *  publicó el comprador), 'postulacion' (lo que la empresa presentará,
+   *  migración 127) o 'competencia' (la oferta de otro oferente, con su
+   *  nombre en `competidor`; migración 153). */
   async subir(
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
     archivo: Express.Multer.File | undefined,
     seccion: Seccion = 'bases',
+    competidor?: string,
   ): Promise<Adjunto> {
     if (!archivo) throw new BadRequestException('No llegó ningún archivo.');
+    const deQuien = competidor?.trim().replace(/\s+/g, ' ') ?? '';
+    if (seccion === 'competencia' && !deQuien) {
+      throw new BadRequestException(
+        'Escribe de qué oferente es esta oferta (por ejemplo, su razón social).',
+      );
+    }
     const nombre = nombreLimpio(archivo.originalname);
     const tipo = TIPOS_POR_EXTENSION[extensionDe(nombre)];
     if (!tipo) {
@@ -130,9 +138,9 @@ export class AdjuntosService {
     const subidoPor = await this.repo.perfilDe(companyId, cuentaId);
 
     const carpeta =
-      seccion === 'postulacion'
-        ? `c${companyId}/oportunidades/${oportunidadId}/postulacion`
-        : `c${companyId}/oportunidades/${oportunidadId}`;
+      seccion === 'bases'
+        ? `c${companyId}/oportunidades/${oportunidadId}`
+        : `c${companyId}/oportunidades/${oportunidadId}/${seccion}`;
     const ruta = `${carpeta}/${sello()}_${sanitize(nombre)}`;
     await this.repo.subirArchivo(ruta, archivo.buffer, tipo);
     try {
@@ -145,6 +153,7 @@ export class AdjuntosService {
         bytes: archivo.size,
         seccion,
         subido_por: subidoPor,
+        ...(seccion === 'competencia' ? { competidor: deQuien } : {}),
       });
     } catch (error) {
       // Sin su fila nadie lo vería: que no quede un archivo huérfano.

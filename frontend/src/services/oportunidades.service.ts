@@ -571,6 +571,8 @@ export interface AdjuntoDeOportunidad {
   origen: OrigenDeArchivo;
   /** El archivo del que salió. */
   viene_de: number | null;
+  /** Solo en 'competencia': de qué oferente es (migración 153). */
+  competidor?: string | null;
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
@@ -715,8 +717,9 @@ export const llevarACotizacion = async (
   })) as EstadoDeLaCotizacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
- *  lo que la empresa va a presentar (migración 127). */
-export type SeccionDeArchivos = "bases" | "postulacion";
+ *  lo que la empresa va a presentar (migración 127). 'competencia': las
+ *  ofertas de los demás (migración 153; se suben con comparacion.service). */
+export type SeccionDeArchivos = "bases" | "postulacion" | "competencia";
 
 export const getAdjuntos = async (
   id: number,
