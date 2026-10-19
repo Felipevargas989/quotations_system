@@ -177,6 +177,11 @@ export class OportunidadesController {
     return this.oferente.subirDocumento(user.company_id, user.id, archivo, dto);
   }
 
+  @Get('oferente/orden-de-compra/:codigo')
+  ordenDeCompra(@Param('codigo') codigo: string, @CurrentUser() user: User) {
+    return this.oferente.ordenDeCompra(user.company_id, codigo);
+  }
+
   @Delete('oferente/documentos/:documentoId')
   borrarDocumentoDeEmpresa(
     @Param('documentoId', ParseIntPipe) documentoId: number,

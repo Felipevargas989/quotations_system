@@ -1,5 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Plan } from '../generacion/generacion.service';
+import {
+  LO_SUBCONTRATADO,
+  SOLO_LO_QUE_PIDEN,
+} from '../generacion/instrucciones';
 import { problemaDelDocumento } from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
 import {
@@ -27,7 +31,19 @@ beforeEach(() => taller.mockReset());
 describe('Generar anexos', () => {
   it('llena los Word de las bases (el .doc antiguo lo convierte el taller), SIN firma, con el total que puso la empresa (neto e IVA los calcula el motor)', () =>
     entorno(async () => {
-      const { repo, servicio, ejecutar } = armar();
+      const { repo, oferente, servicio, ejecutar } = armar();
+      // Los respaldos de experiencia de la carpeta (decisión 34).
+      oferente.respaldos.mockResolvedValue([
+        {
+          numero: '4352-103-SE23',
+          mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          contrato: 'Cena del Día del Funcionario 2023',
+          anio: 2023,
+          monto: 11_782_499,
+          fuente: 'mercado_publico',
+          archivo: 'OC 4352-103-SE23.pdf',
+        },
+      ]);
 
       const fila = await servicio.generarAnexos(1, CUENTA, 40, {
         monto_total: 11_900_000,
@@ -103,6 +119,17 @@ describe('Generar anexos', () => {
         '- [hay que conseguirlo] Show de baile de 40 minutos (No hay show en tu carta.)',
       );
       expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
+      // Más es menos (decisión 32, 19-10): solo lo que piden las bases; lo
+      // subcontratado, tal cual lo dicen, y la experiencia justa.
+      expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
+      expect(plan.sistema).toContain(LO_SUBCONTRATADO);
+      expect(plan.sistema).toContain('si 6 o más dan el máximo, pon 6 a 8');
+      // Primero los respaldos, con su número y su archivo (decisión 34).
+      expect(plan.sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
+      expect(plan.sistema).toContain(
+        '- N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena del Día del Funcionario 2023 · 2023 · $11.782.499 con impuestos (archivo «OC 4352-103-SE23.pdf»)',
+      );
+      expect(plan.sistema).toContain('«Adjuntar respaldos: ...»');
     }));
 
   it('sin monto, la oferta económica queda en blanco: nunca un precio inventado', () =>
@@ -282,6 +309,19 @@ describe('Crear propuesta técnica', () => {
       );
       expect(plan.sistema).toContain('[COMPLETAR: qué falta]');
       expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
+      // Más es menos (decisión 32, 19-10): la estructura de las bases, sin
+      // secciones propias, y lo subcontratado tal cual lo piden.
+      expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
+      expect(plan.sistema).toContain(LO_SUBCONTRATADO);
+      expect(plan.sistema).toContain('No agregues secciones propias');
+      // Que se subcontrata es interno: nunca en el Word (Felipe: "no es
+      // interés de la municipalidad saberlo").
+      expect(plan.sistema).toContain('sin decir que se subcontrata');
+      expect(plan.sistema).toContain(
+        'va SOLO en pendientes, nunca en el documento',
+      );
+      expect(plan.sistema).not.toContain('Entendimiento del servicio;');
+      expect(plan.sistema).not.toContain('Compromisos (calidad');
     }));
 
   it('si el catálogo no se puede leer, la propuesta sale igual con la carta de antes y sin oferta', () =>

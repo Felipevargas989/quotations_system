@@ -31,6 +31,7 @@ import {
 } from '../analisis/comun';
 import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
   claseDeFormulario,
@@ -647,15 +648,17 @@ export class GeneracionService {
   ) {
     const hoy = hoyEnChile();
     const haceCuatroAnios = `${Number(hoy.slice(0, 4)) - 4}${hoy.slice(4)}`;
-    const [analisis, oferente, empresa, carta, eventos] = await Promise.all([
-      this.analisis.ultimo(companyId, oportunidadId),
-      this.oferente.oferente(companyId),
-      this.oferente.empresa(companyId),
-      conEventia ? this.eventia.carta(companyId) : Promise.resolve(null),
-      conEventia
-        ? this.eventia.eventosRealizados(companyId, haceCuatroAnios)
-        : Promise.resolve([]),
-    ]);
+    const [analisis, oferente, empresa, carta, eventos, respaldos] =
+      await Promise.all([
+        this.analisis.ultimo(companyId, oportunidadId),
+        this.oferente.oferente(companyId),
+        this.oferente.empresa(companyId),
+        conEventia ? this.eventia.carta(companyId) : Promise.resolve(null),
+        conEventia
+          ? this.eventia.eventosRealizados(companyId, haceCuatroAnios)
+          : Promise.resolve([]),
+        conEventia ? this.oferente.respaldos(companyId) : Promise.resolve([]),
+      ]);
     const listo =
       analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
     const datos: ContextoDeGeneracion = {
@@ -665,28 +668,12 @@ export class GeneracionService {
       fecha_cierre: ficha.proceso.fecha_cierre,
       hoy,
       hoyLargo: fechaLarga(),
-      oferente: {
-        razon_social: null,
-        rut: null,
-        giro: null,
-        direccion: null,
-        comuna: null,
-        region: null,
-        telefono: null,
-        correo: null,
-        representante_nombre: null,
-        representante_rut: null,
-        representante_cargo: null,
-        experiencia: null,
-        instalaciones: null,
-        firma_ruta: null,
-        firma_subida_en: null,
-        ...(oferente ?? {}),
-      },
+      oferente: { ...OFERENTE_VACIO, ...(oferente ?? {}) },
       empresa,
       bases: loQuePidenLasBases(listo?.resultado ?? null),
       carta,
       eventos,
+      respaldos,
     };
     return {
       datos,
