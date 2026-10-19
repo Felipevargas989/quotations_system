@@ -71,6 +71,29 @@ describe("La vuelta de «Armar postulación»", () => {
     });
   });
 
+  it("lo que falló con la cotización vinculada se dice aparte", () => {
+    const v = vueltaDeLaPostulacion(
+      {
+        ...OFERTA,
+        parametros: {
+          postulacion: {
+            total: 10_800_000,
+            propuesta: true,
+            problemas: [
+              "La cotización vinculada: Tu precio ($10.800.000) es mayor que tu catálogo ($9.296.000).",
+            ],
+          },
+        },
+      },
+      null,
+      AHORA,
+    );
+    expect(v?.avisos).toEqual([
+      "La cotización vinculada: Tu precio ($10.800.000) es mayor que tu catálogo ($9.296.000).",
+    ]);
+    expect(v?.anexos.estado).toBe("espera");
+  });
+
   it("lo que no alcanzó a partir, o no aparece en 3 minutos, se puede reintentar", () => {
     const conProblema = vueltaDeLaPostulacion(
       {

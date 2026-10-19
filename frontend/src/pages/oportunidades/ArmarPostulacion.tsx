@@ -337,6 +337,14 @@ export default function ArmarPostulacion({
             reintentar={() => reintentarPropuesta.mutate()}
             reintentando={reintentarPropuesta.isPending}
           />
+          {vuelta.avisos.map((aviso) => (
+            <li
+              key={aviso}
+              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              {aviso}
+            </li>
+          ))}
         </ol>
       )}
     </section>
