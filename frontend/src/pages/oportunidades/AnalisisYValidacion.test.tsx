@@ -285,7 +285,12 @@ describe("Lo que piden las bases", () => {
       .getByText("Programa de integridad")
       .closest("li") as HTMLElement;
     expect(within(programa).getByText("En tu postulación")).toBeInTheDocument();
-    // El DICOM va aparte: se pide al adjudicar, con su vigencia.
+    // El DICOM va aparte: se pide al adjudicar, con su vigencia, y todavía
+    // no va en rojo.
+    const dicom = screen
+      .getByText("Certificado DICOM")
+      .closest("li") as HTMLElement;
+    expect(within(dicom).getByText("Pendiente")).toBeInTheDocument();
     expect(
       screen.getByText("Al adjudicar o firmar el contrato"),
     ).toBeInTheDocument();

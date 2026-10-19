@@ -35,7 +35,12 @@ const ESTADOS: Record<EstadoDelDocumento, { texto: string; clases: string }> = {
   },
   vencido: { texto: "Vencido", clases: "bg-red-100 text-red-800" },
   falta: { texto: "Falta", clases: "bg-red-100 text-red-800" },
+  no_aplica: { texto: "No aplica", clases: "bg-gray-100 text-gray-500" },
 };
+
+/** Lo que se pide al adjudicar o para el pago todavía no se necesita: no
+ *  va en rojo. */
+const PENDIENTE = { texto: "Pendiente", clases: "bg-gray-100 text-gray-600" };
 
 const MOMENTOS: Array<[FilaDelChecklist["cuando"], string]> = [
   ["con_la_oferta", "Con la oferta"],
@@ -118,7 +123,10 @@ export default function DocumentosAPresentar({
             </h4>
             <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
               {deEste.map((f, i) => {
-                const estado = ESTADOS[f.estado];
+                const estado =
+                  f.estado === "falta" && cuando !== "con_la_oferta"
+                    ? PENDIENTE
+                    : ESTADOS[f.estado];
                 return (
                   <li
                     key={`${f.nombre}-${i}`}
