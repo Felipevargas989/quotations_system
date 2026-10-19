@@ -1,5 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Plan } from '../generacion/generacion.service';
+import {
+  LO_SUBCONTRATADO,
+  SOLO_LO_QUE_PIDEN,
+} from '../generacion/instrucciones';
 import { problemaDelDocumento } from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
 import {
@@ -103,6 +107,11 @@ describe('Generar anexos', () => {
         '- [hay que conseguirlo] Show de baile de 40 minutos (No hay show en tu carta.)',
       );
       expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
+      // Más es menos (decisión 32, 19-10): solo lo que piden las bases; lo
+      // subcontratado, tal cual lo dicen, y la experiencia justa.
+      expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
+      expect(plan.sistema).toContain(LO_SUBCONTRATADO);
+      expect(plan.sistema).toContain('si 6 o más dan el máximo, pon 6 a 8');
     }));
 
   it('sin monto, la oferta económica queda en blanco: nunca un precio inventado', () =>
@@ -282,6 +291,13 @@ describe('Crear propuesta técnica', () => {
       );
       expect(plan.sistema).toContain('[COMPLETAR: qué falta]');
       expect(plan.sistema).toContain('[POR CONFIRMAR: qué falta]');
+      // Más es menos (decisión 32, 19-10): la estructura de las bases, sin
+      // secciones propias, y lo subcontratado tal cual lo piden.
+      expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
+      expect(plan.sistema).toContain(LO_SUBCONTRATADO);
+      expect(plan.sistema).toContain('No agregues secciones propias');
+      expect(plan.sistema).not.toContain('Entendimiento del servicio;');
+      expect(plan.sistema).not.toContain('Compromisos (calidad');
     }));
 
   it('si el catálogo no se puede leer, la propuesta sale igual con la carta de antes y sin oferta', () =>
