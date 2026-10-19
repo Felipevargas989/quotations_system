@@ -25,12 +25,14 @@ import { useResponsables } from "./useResponsables";
 
 // "MIS LICITACIONES" (Felipe, 17-10: "¿dónde van a quedar compiladas las
 // que sí me interesan para luego trabajarlas?"). Las que marcaste «Me
-// interesa», de la que cierra antes a la que cierra después, con el avance
-// de cada una. Al pinchar una se abre su ficha, donde se trabaja.
+// interesa», con el avance de cada una. Al pinchar una se abre su ficha,
+// donde se trabaja. Desde el 19-10 en dos listas (Felipe: "ya postuladas
+// abajo y de algún color diferente para saber que están listas"): por
+// postular, por vencimiento, y las postuladas aparte, en verde.
 
 export default function MisLicitaciones() {
   const { data: lista = [], isPending, isError } = useMisLicitaciones();
-  const { enCurso, terminadas } = separarMias(lista);
+  const { porPostular, postuladas, terminadas } = separarMias(lista);
   const [verTerminadas, setVerTerminadas] = useState(false);
 
   if (isPending) {
@@ -52,15 +54,34 @@ export default function MisLicitaciones() {
     );
   }
   return (
-    <div className="space-y-5">
-      {enCurso.length > 0 ? (
-        <ul className="space-y-3">
-          {enCurso.map((m) => (
-            <Tarjeta key={m.id} m={m} />
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-gray-500">Ninguna en curso.</p>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <Encabezado
+          titulo={`Por postular (${porPostular.length})`}
+          detalle="De la que vence antes a la que vence después."
+        />
+        {porPostular.length > 0 ? (
+          <ul className="space-y-3">
+            {porPostular.map((m) => (
+              <Tarjeta key={m.id} m={m} />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500">Nada por postular.</p>
+        )}
+      </div>
+      {postuladas.length > 0 && (
+        <div className="space-y-3">
+          <Encabezado
+            titulo={`Postuladas (${postuladas.length})`}
+            detalle="Listas: ahora a esperar el resultado."
+          />
+          <ul className="space-y-3">
+            {postuladas.map((m) => (
+              <Tarjeta key={m.id} m={m} lista />
+            ))}
+          </ul>
+        </div>
       )}
       {terminadas.length > 0 && (
         <div className="space-y-3">
@@ -89,7 +110,29 @@ export default function MisLicitaciones() {
   );
 }
 
-function Tarjeta({ m }: { readonly m: MiLicitacion }) {
+function Encabezado({
+  titulo,
+  detalle,
+}: {
+  readonly titulo: string;
+  readonly detalle: string;
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-900">{titulo}</h3>
+      <p className="text-xs text-gray-500">{detalle}</p>
+    </div>
+  );
+}
+
+function Tarjeta({
+  m,
+  lista = false,
+}: {
+  readonly m: MiLicitacion;
+  /** Postulada: lista, en verde. */
+  readonly lista?: boolean;
+}) {
   const qc = useQueryClient();
   const navegar = useNavigate();
   const responsables = useResponsables();
@@ -113,7 +156,11 @@ function Tarjeta({ m }: { readonly m: MiLicitacion }) {
         if (window.getSelection()?.toString()) return;
         navegar(`/oportunidades/${m.id}`);
       }}
-      className="p-4 space-y-3 rounded-lg border border-gray-200 bg-white cursor-pointer hover:border-blue-300"
+      className={`p-4 space-y-3 rounded-lg border cursor-pointer ${
+        lista
+          ? "border-green-300 bg-green-50 hover:border-green-500"
+          : "border-gray-200 bg-white hover:border-blue-300"
+      }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
