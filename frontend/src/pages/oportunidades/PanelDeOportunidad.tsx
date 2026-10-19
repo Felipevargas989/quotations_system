@@ -27,7 +27,7 @@ import {
   SEMAFOROS,
   urlMercadoPublico,
 } from "./oportunidades.utils";
-import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
+import { NOMBRE_DEL_SEMAFORO, RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 
 // EL PANEL DE DETALLE (doc 17, sprint 3, paso 1b). Felipe, 17-10, con el
 // pantallazo de Licify: "pinchar un modal con el detalle, la opción de ver
@@ -95,7 +95,7 @@ export default function PanelDeOportunidad({
               <span
                 className={`inline-block w-2 h-2 mr-1 rounded-full ${SEMAFOROS[o.semaforo].punto}`}
               />
-              {SEMAFOROS[o.semaforo].label}
+              {NOMBRE_DEL_SEMAFORO[o.semaforo]}
             </Chip>
           )}
           {esPrioridad(o) && <Chip ambar>Prioridad</Chip>}

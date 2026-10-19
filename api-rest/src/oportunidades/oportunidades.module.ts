@@ -29,6 +29,8 @@ import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
 import { RadarService } from './radar.service';
+import { ResumenDeNegocioService } from './seguimiento/resumen-de-negocio.service';
+import { SeguimientoController } from './seguimiento/seguimiento.controller';
 
 // El módulo de Oportunidades (doc 17). Sprint 1: el radar; sprint 2: la
 // pantalla (bandeja, ficha y configuración); después, las bases y anexos
@@ -38,8 +40,13 @@ import { RadarService } from './radar.service';
 // 29): usa el cotizador, los clientes y la bitácora.
 @Module({
   imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
-  controllers: [OportunidadesController, PostulacionController],
+  controllers: [
+    OportunidadesController,
+    PostulacionController,
+    SeguimientoController,
+  ],
   providers: [
+    ResumenDeNegocioService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
     MercadoPublicoClient,

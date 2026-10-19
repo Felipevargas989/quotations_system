@@ -18,6 +18,7 @@ import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
 import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
+import ResumenDeNegocio from "./ResumenDeNegocio";
 import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
@@ -216,6 +217,9 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             seguida={ficha.estado === "seguida"}
             estadoEnMercadoPublico={p.estado}
           />
+          {(ficha.estado === "seguida" || p.acta) && (
+            <ResumenDeNegocio oportunidadId={ficha.id} />
+          )}
           <Seccion titulo="Lo que leyó la IA">
             {ficha.razon && (
               <p className="text-sm text-gray-800">{ficha.razon}</p>
