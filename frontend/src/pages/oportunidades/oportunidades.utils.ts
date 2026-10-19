@@ -334,6 +334,10 @@ export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
   { value: "vigencia", label: "Certificado de vigencia de la sociedad" },
   { value: "resolucion_sanitaria", label: "Resolución sanitaria" },
   { value: "dj_trabajadores", label: "Declaración jurada de trabajadores" },
+  // Lo general para contratar (decisión 38): va en «4. Otros» del ZIP.
+  { value: "erut", label: "e-RUT (SII)" },
+  { value: "no_quiebra", label: "Certificado de no quiebra" },
+  { value: "estatutos", label: "Escritura de constitución y estatutos" },
   {
     value: "respaldo_experiencia",
     label: "Respaldo de experiencia (orden de compra o factura)",

@@ -297,6 +297,56 @@ describe('el set para Mercado Público', () => {
     expect(pieza(set, 'Programa de integridad.pdf')).toBeUndefined();
   });
 
+  it('lo general para contratar va en «4. Otros», salvo lo que las bases ya piden en la administrativa (decisión 38)', () => {
+    const d = datos();
+    const set = armarElSet({
+      ...d,
+      archivos: [
+        ...d.archivos,
+        archivo(41, 'E-rut Quillon.pdf', { origen: 'subido' }),
+      ],
+      carpeta: [
+        ...d.carpeta,
+        documento(7, 'erut', 'e-RUT.pdf'),
+        documento(8, 'estatutos', 'Estatutos 2019.pdf'),
+        documento(9, 'vigencia', 'Certificado de vigencia.pdf', {
+          vence: '2026-10-10',
+        }),
+      ],
+    });
+    // El e-RUT subido a mano va en «4. Otros», y el de la carpeta no se
+    // repite.
+    expect(pieza(set, 'E-rut Quillon.pdf')).toMatchObject({
+      carpetas: ['otros'],
+      que_es: 'subido',
+    });
+    expect(pieza(set, 'e-RUT.pdf')).toBeUndefined();
+    expect(pieza(set, 'Estatutos 2019.pdf')).toMatchObject({
+      carpetas: ['otros'],
+      que_es: 'documento',
+    });
+    expect(pieza(set, 'Certificado de vigencia.pdf')).toMatchObject({
+      carpetas: ['otros'],
+      aviso: 'vencido el 10-10-2026',
+    });
+    // La patente la piden las bases: va en la administrativa (subida a
+    // mano), no en «4. Otros».
+    expect(pieza(set, 'Patente 2026.pdf')).toMatchObject({
+      carpetas: ['administrativa'],
+    });
+    expect(pieza(set, 'Patente vieja.pdf')).toBeUndefined();
+    // Lo que falta para contratar se dice una vez, sin lo que ya está.
+    expect(set.faltan).toEqual(
+      expect.arrayContaining([
+        '«Certificado de vigencia de la sociedad» venció el 10-10-2026: súbelo renovado en «Mi empresa».',
+        'Para contratar te pueden pedir «Certificado de no quiebra»: súbelos en «Mi empresa» y van en «4. Otros».',
+      ]),
+    );
+    expect(
+      rutasEnElZip(set.piezas.filter((p) => p.nombre === 'Estatutos 2019.pdf')),
+    ).toEqual([['4. Otros/Estatutos 2019.pdf']]);
+  });
+
   it('pide la propuesta técnica si las bases la piden y no está', () => {
     const d = datos();
     const set = armarElSet({

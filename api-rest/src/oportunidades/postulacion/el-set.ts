@@ -21,14 +21,21 @@ import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
 //   decisión 32), y no si las bases traen su formato como formulario.
 // - Los respaldos de experiencia cuyo número aparece en los anexos o la
 //   propuesta: los de la experiencia declarada (`conLosRespaldos`).
+// - Los documentos generales para contratar (decisión 38, 19-10): e-RUT,
+//   patente, no quiebra, estatutos y vigencia, en «4. Otros» cuando las
+//   bases no los piden en otra parte.
 
-export type Carpeta = 'administrativa' | 'tecnica' | 'economica';
+export type Carpeta = 'administrativa' | 'tecnica' | 'economica' | 'otros';
 
-/** Las tres partes donde el portal pide los anexos al ingresar la oferta. */
+/** Las tres partes donde el portal pide los anexos al ingresar la oferta,
+ *  y una cuarta con lo general para contratar (Felipe, 19-10: "debería
+ *  haber un cuarto que son otros... los generales de las licitaciones para
+ *  contratar"). */
 export const CARPETAS: Readonly<Record<Carpeta, string>> = {
   administrativa: '1. Administrativa',
   tecnica: '2. Técnica',
   economica: '3. Económica',
+  otros: '4. Otros',
 };
 
 export type ArchivoDelSet = {
@@ -136,22 +143,53 @@ const sinRepetir = <T>(xs: T[]): T[] => [...new Set(xs)];
 const fechaCorta = (iso: string) =>
   iso.slice(0, 10).split('-').reverse().join('-');
 
-/** Lo que las bases piden de la carpeta de la empresa, por tipo. */
-const LO_QUE_PIDEN: ReadonlyArray<[tipo: string, patron: RegExp]> = [
-  ['patente', /patente/],
-  ['inicio_actividades', /inicio de actividades|iniciacion de actividades/],
-  ['programa_integridad', /programa de integridad/],
-  ['f30', /\bf ?-?30\b|antecedentes laborales|obligaciones laborales/],
-  [
-    'vigencia',
+/** Cómo se reconoce cada tipo de la carpeta de la empresa en lo que piden
+ *  las bases (o en el nombre de un archivo). */
+const PATRONES: Readonly<Record<string, RegExp>> = {
+  patente: /patente/,
+  inicio_actividades: /inicio de actividades|iniciacion de actividades/,
+  programa_integridad: /programa de integridad/,
+  f30: /\bf ?-?30\b|antecedentes laborales|obligaciones laborales/,
+  vigencia:
     /certificado de vigencia|vigencia de la (sociedad|empresa|persona juridica)/,
-  ],
-  ['resolucion_sanitaria', /resolucion sanitaria|autorizacion sanitaria/],
-  [
-    'dj_trabajadores',
+  resolucion_sanitaria: /resolucion sanitaria|autorizacion sanitaria/,
+  dj_trabajadores:
     /declaracion jurada (simple )?de (los )?trabajadores|nomina de (los )?trabajadores/,
-  ],
+  erut: /\be ?-?rut\b|rut electronico/,
+  no_quiebra: /quiebra|procedimiento concursal|boletin concursal/,
+  estatutos:
+    /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,
+};
+
+const conSuPatron = (tipo: string): [tipo: string, patron: RegExp] => [
+  tipo,
+  PATRONES[tipo],
 ];
+
+/** Lo que las bases piden de la carpeta de la empresa, por tipo: si lo
+ *  piden, va en la administrativa (o falta). */
+const LO_QUE_PIDEN: ReadonlyArray<[tipo: string, patron: RegExp]> = [
+  'patente',
+  'inicio_actividades',
+  'programa_integridad',
+  'f30',
+  'vigencia',
+  'resolucion_sanitaria',
+  'dj_trabajadores',
+].map(conSuPatron);
+
+/** Lo general para contratar (decisión 38): en «4. Otros», salvo lo que
+ *  las bases ya piden en la administrativa (la patente, la vigencia). El
+ *  e-RUT, la no quiebra y los estatutos van siempre ahí: las bases suelen
+ *  nombrarlos dentro de una declaración jurada, y pedirlos sería una falsa
+ *  alarma. */
+const GENERALES: ReadonlyArray<[tipo: string, patron: RegExp]> = [
+  'erut',
+  'patente',
+  'no_quiebra',
+  'estatutos',
+  'vigencia',
+].map(conSuPatron);
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
 const EXPERIENCIA = /experiencia/;
@@ -243,6 +281,18 @@ export function armarElSet(d: DatosDelSet): ElSet {
     }
   }
 
+  const pedidos = d.requisitos.map((r) => normalizar(r.que));
+  const loPiden = (patron: RegExp) => pedidos.some((p) => patron.test(p));
+  /** Ya va en la administrativa porque las bases lo piden ahí. */
+  const enLaAdministrativa = (tipo: string, patron: RegExp) =>
+    LO_QUE_PIDEN.some(([t]) => t === tipo) && loPiden(patron);
+  /** Un documento general que no va en la administrativa: «4. Otros». */
+  const generalNoPedido = (nombre: string) =>
+    GENERALES.some(
+      ([tipo, patron]) =>
+        patron.test(normalizar(nombre)) && !enLaAdministrativa(tipo, patron),
+    );
+
   // Lo subido a mano: todo (firmado, si se firmó aquí), en la carpeta de su
   // formulario si se reconoce.
   const subidos = postulacion.filter((a) => a.origen === 'subido');
@@ -257,7 +307,12 @@ export function armarElSet(d: DatosDelSet): ElSet {
       nombre: usado.nombre,
       ruta: usado.ruta,
       bytes: usado.bytes,
-      carpetas: carpetas.length > 0 ? carpetas : [carpetaPorNombre(s.nombre)],
+      carpetas:
+        carpetas.length > 0
+          ? carpetas
+          : generalNoPedido(s.nombre)
+            ? ['otros']
+            : [carpetaPorNombre(s.nombre)],
       que_es: 'subido',
       aviso: null,
       texto: { ruta: s.ruta, nombre: s.nombre },
@@ -273,7 +328,6 @@ export function armarElSet(d: DatosDelSet): ElSet {
     );
   }
 
-  const pedidos = d.requisitos.map((r) => normalizar(r.que));
   const enUnFormulario = (patron: RegExp) =>
     formularios.some((f) => patron.test(normalizar(f.nombre)));
   if (
@@ -292,8 +346,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
   for (const [tipo, patron] of LO_QUE_PIDEN) {
-    if (!pedidos.some((p) => patron.test(p)) || enUnFormulario(patron))
-      continue;
+    if (!loPiden(patron) || enUnFormulario(patron)) continue;
     if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
@@ -317,6 +370,39 @@ export function armarElSet(d: DatosDelSet): ElSet {
       que_es: 'documento',
       aviso: vencido ? `vencido el ${fechaCorta(doc.vence as string)}` : null,
     });
+  }
+
+  // Lo general para contratar que las bases no piden en otra parte, en
+  // «4. Otros» (decisión 38). Lo que no está en la carpeta se dice una vez.
+  const sinSubir: string[] = [];
+  for (const [tipo, patron] of GENERALES) {
+    if (enLaAdministrativa(tipo, patron) || enUnFormulario(patron)) continue;
+    if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
+    const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
+    const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
+    if (!doc) {
+      sinSubir.push(`«${nombre}»`);
+      continue;
+    }
+    const vencido = Boolean(doc.vence && doc.vence < d.corte);
+    if (vencido) {
+      faltan.push(
+        `«${nombre}» venció el ${fechaCorta(doc.vence as string)}: súbelo renovado en «Mi empresa».`,
+      );
+    }
+    piezas.push({
+      nombre: doc.nombre,
+      ruta: doc.ruta,
+      bytes: doc.bytes,
+      carpetas: ['otros'],
+      que_es: 'documento',
+      aviso: vencido ? `vencido el ${fechaCorta(doc.vence as string)}` : null,
+    });
+  }
+  if (sinSubir.length > 0) {
+    faltan.push(
+      `Para contratar te pueden pedir ${sinSubir.join(', ')}: súbelos en «Mi empresa» y van en «4. Otros».`,
+    );
   }
 
   return { piezas, faltan };
