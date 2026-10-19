@@ -355,6 +355,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Sin repetir: no se trae un evento del que ya se trajo, ni uno cuyo documento se llama con el número de un respaldo que ya estaba, ni un número que ya está (si se sabe al leerlo, el respaldo que estaba queda anotado con su evento, para no leerlo otra vez). Lo que no es orden de compra ni factura, la orden de otro proveedor o lo que no se pudo leer no se trae, y se dice por qué.
     - Dos caminos: el botón «Traer de Eventia» en «Mi empresa» (al elegir «Respaldo de experiencia»), y «Armar postulación», que lo hace sola antes de los anexos. Desde ahí todo sigue igual: el anexo los nombra por su número y el set los pone dentro del PDF (decisión 44).
     - El respaldo traído dice de qué evento es; la IA del anexo no ve ese evento otra vez en la lista de eventos (sería contar dos veces la misma experiencia).
+46. **El Word se lee en Eventia** (19-10, pedido por Felipe): *"¿tienes algún visor de Word para poder no tener que descargar y abrir un Word, sino que poder verlo ahí mismo, el documento, sin tener que descargar para firmar? Para poder leerlo y firmar"*.
+    - «Ver» abre los Word (`.docx`) igual que los PDF: en «Bases y anexos», en «Mi postulación» y en la carpeta de «Mi empresa». Se ven como en Word (tablas, colores, logos). El `.doc` antiguo se sigue descargando.
+    - En «Mi postulación», el visor trae «Firmar» (con su confirmación): se lee y se firma sin salir.
+    - Un Word de las bases viene de afuera: se dibuja aislado (sus estilos no tocan la página, sin el HTML incrustado y con los enlaces controlados).
+    - El visor pasó a la ventana de la casa: Escape cierra y el título queda siempre a la vista.
 
 ## 4. Reglas del módulo (no se negocian)
 

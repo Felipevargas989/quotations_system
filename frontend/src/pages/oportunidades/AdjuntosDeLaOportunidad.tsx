@@ -48,14 +48,16 @@ import {
 //
 // Mercado Público protege su lista de adjuntos con un control antirrobots
 // que esta casa no esquiva. Los baja una persona desde su navegador (el
-// botón abre la ficha allá) y los arrastra aquí. PDF e imágenes se ven con
-// el visor de la casa (FileViewLink); Word, Excel y ZIP se descargan.
+// botón abre la ficha allá) y los arrastra aquí. PDF, imágenes y Word se
+// ven con el visor de la casa (FileViewLink; el Word desde el 19-10,
+// decisión 46); Excel y ZIP se descargan.
 //
 // La misma pieza sirve para "Mi postulación" (sprint 3, paso 3; migración
 // 127): lo que la empresa va a presentar, que después se valida contra el
 // checklist de las bases. Ahí cada archivo lleva su sello si lo hizo la IA
 // (sin firma) o si ya está firmado (paso 4, migración 129), y quien la usa
-// puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion).
+// puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion). Las
+// acciones de la fila van también dentro del visor: se lee y se firma ahí.
 //
 // Más clara el 17-10 en la noche (Felipe: "vamos con todas"): un ícono por
 // tipo de archivo, el nombre sin guiones bajos, «Descargar» en todos (y
@@ -255,7 +257,11 @@ export default function AdjuntosDeLaOportunidad({
                   <div className="flex items-center gap-3 shrink-0">
                     {accionesDeFila?.(a)}
                     {seVeEnElVisor(a.ruta) && (
-                      <FileViewLink url={a.ruta} title={a.nombre} />
+                      <FileViewLink
+                        url={a.ruta}
+                        title={a.nombre}
+                        acciones={accionesDeFila?.(a)}
+                      />
                     )}
                     <button
                       type="button"

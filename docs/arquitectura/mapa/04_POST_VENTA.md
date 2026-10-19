@@ -315,7 +315,7 @@ Formas de llegar a Post-Venta:
 - `event-documents.controller.ts` rompe las cuatro capas: DTO, repository y controller en un solo archivo y sin service ("Mudanza #7, 28-07"). Como la tabla no tiene `company_id`, cada operación hace una lectura extra: listar y agregar consultan `quotations` (`assertQuotationOfCompany`), y borrar lee antes la fila de `event_documents` con `quotations!inner(company_id)`.
 
 ### Piezas hechas a mano
-- Modales a mano: la bandeja de comprobantes de `PostVentaPage`, `EditRegistroModal`, el modal de insumos de `GestionTab`, `CelebracionRealizada`, `PhotoPopup` y `FileViewLink`. Todos figuran como deuda en CLAUDE.md, salvo la bandeja.
+- Modales a mano: la bandeja de comprobantes de `PostVentaPage`, `EditRegistroModal`, el modal de insumos de `GestionTab`, `CelebracionRealizada` y `PhotoPopup`. Todos figuran como deuda en CLAUDE.md, salvo la bandeja. (`FileViewLink`, el visor de los comprobantes, usa la ventana de la casa desde el 19-10-2026: Escape cierra y la cabecera queda a la vista.)
 - `ServiciosTab` conserva mecánica heredada del cotizador: un listener global de clic afuera con `.dropdown-container` y un contenedor flotante a mano (`absolute left-0 z-20`) para "+ Desde un menú guardado".
 
 ### Borrados que dejan basura
