@@ -9,9 +9,14 @@ import {
   datosDelRespaldoLeido,
   ESQUEMA_DEL_RESPALDO,
   instruccionesDelRespaldo,
+  type RespaldoLeido,
 } from './leer-respaldo';
 import { OferenteRepository } from './oferente.repository';
-import { MAX_BYTES_DOCUMENTO, OferenteService } from './oferente.service';
+import {
+  type ArchivoRecibido,
+  MAX_BYTES_DOCUMENTO,
+  OferenteService,
+} from './oferente.service';
 import { CODIGO_DE_ORDEN } from './orden-de-compra';
 import type { DatosDeRespaldo } from './respaldo';
 
@@ -51,8 +56,12 @@ export class LeerRespaldoService {
 
   async leer(
     companyId: number,
-    archivo: Express.Multer.File | undefined,
-  ): Promise<{ datos: DatosDeRespaldo; aviso: string | null }> {
+    archivo: ArchivoRecibido | undefined,
+  ): Promise<{
+    datos: DatosDeRespaldo;
+    aviso: string | null;
+    tipo: RespaldoLeido['tipo'];
+  }> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
     }
@@ -127,8 +136,9 @@ export class LeerRespaldoService {
       monto: leido.monto,
       fuente: 'manual',
     };
+    const tipo = leido.tipo;
     const numero = datos.numero.toUpperCase();
-    if (!CODIGO_DE_ORDEN.test(numero)) return { datos, aviso: null };
+    if (!CODIGO_DE_ORDEN.test(numero)) return { datos, aviso: null, tipo };
     // Una orden de Mercado Público: manda su ficha pública.
     try {
       const { orden, aviso } = await this.oferente.ordenDeCompra(
@@ -145,12 +155,14 @@ export class LeerRespaldoService {
           fuente: 'mercado_publico',
         },
         aviso,
+        tipo,
       };
     } catch {
       return {
         datos,
         aviso:
           'No se pudo confirmar en Mercado Público: revisa los datos antes de guardar.',
+        tipo,
       };
     }
   }

@@ -24,6 +24,7 @@ import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import { OferenteRepository } from './oferente/oferente.repository';
 import { OferenteService } from './oferente/oferente.service';
+import { RespaldosDeEventiaService } from './oferente/respaldos-de-eventia.service';
 import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
@@ -80,6 +81,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     OferenteRepository,
     OferenteService,
     LeerRespaldoService,
+    RespaldosDeEventiaService,
     HistoriaRepository,
     HistoriaService,
     RadarService,
