@@ -62,6 +62,9 @@ export type DatosDelSet = {
   archivos: ArchivoDelSet[];
   formularios: FormularioDeLasBases[];
   requisitos: Array<{ que: string }>;
+  /** El checklist de documentos del análisis (decisión 37); un análisis
+   *  anterior no lo trae. */
+  documentos?: Array<{ nombre: string }>;
   carpeta: DocumentoDeEmpresa[];
   /** Cuándo empezó cada trabajo de la IA, por su id. */
   inicioDe: ReadonlyMap<number, string>;
@@ -374,6 +377,13 @@ export function armarElSet(d: DatosDelSet): ElSet {
 
   // Lo general para contratar que las bases no piden en otra parte, en
   // «4. Otros» (decisión 38). Lo que no está en la carpeta se dice una vez.
+  // Lo que falta se avisa solo si las bases lo nombran, en sus requisitos
+  // o en su checklist (Felipe, 19-10: "los estatutos parece que no los
+  // piden... la escritura tampoco").
+  const nombrados = [
+    ...pedidos,
+    ...(d.documentos ?? []).map((x) => normalizar(x.nombre)),
+  ];
   const sinSubir: string[] = [];
   for (const [tipo, patron] of GENERALES) {
     if (enLaAdministrativa(tipo, patron) || enUnFormulario(patron)) continue;
@@ -381,7 +391,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
     if (!doc) {
-      sinSubir.push(`«${nombre}»`);
+      if (nombrados.some((t) => patron.test(t))) sinSubir.push(`«${nombre}»`);
       continue;
     }
     const vencido = Boolean(doc.vence && doc.vence < d.corte);

@@ -335,12 +335,24 @@ describe('el set para Mercado Público', () => {
       carpetas: ['administrativa'],
     });
     expect(pieza(set, 'Patente vieja.pdf')).toBeUndefined();
-    // Lo que falta para contratar se dice una vez, sin lo que ya está.
     expect(set.faltan).toEqual(
       expect.arrayContaining([
         '«Certificado de vigencia de la sociedad» venció el 10-10-2026: súbelo renovado en «Mi empresa».',
-        'Para contratar te pueden pedir «Certificado de no quiebra»: súbelos en «Mi empresa» y van en «4. Otros».',
       ]),
+    );
+    // Lo que falta (la no quiebra) no se avisa si las bases no lo nombran.
+    expect(set.faltan.join(' ')).not.toContain('Para contratar');
+    // Si lo nombran (en su checklist de documentos), se dice una vez.
+    const nombrada = armarElSet({
+      ...d,
+      carpeta: [...d.carpeta, documento(7, 'erut', 'e-RUT.pdf')],
+      documentos: [
+        { nombre: 'Certificado de no quiebra' },
+        { nombre: 'Copia del e-RUT' },
+      ],
+    });
+    expect(nombrada.faltan).toContain(
+      'Para contratar te pueden pedir «Certificado de no quiebra»: súbelos en «Mi empresa» y van en «4. Otros».',
     );
     expect(
       rutasEnElZip(set.piezas.filter((p) => p.nombre === 'Estatutos 2019.pdf')),
