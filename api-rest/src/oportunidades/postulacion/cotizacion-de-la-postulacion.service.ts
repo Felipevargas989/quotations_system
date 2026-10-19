@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
@@ -144,6 +146,26 @@ export class CotizacionDeLaPostulacionService {
    *  técnica. Con `numero`, se vincula esa; sin él, la ya vinculada; y si
    *  no hay ninguna, se crea. */
   async llevar(
+    user: User,
+    oportunidadId: number,
+    numero?: number,
+  ): Promise<EstadoDeLaCotizacion> {
+    try {
+      return await this.llevarSinCapturar(user, oportunidadId, numero);
+    } catch (error) {
+      // Lo que no es de la casa (un dato raro, la base) se dice en palabras
+      // y queda en el registro, en vez de un 500 mudo.
+      if (error instanceof HttpException) throw error;
+      this.logger.error(
+        `cotización de la oportunidad ${oportunidadId}: ${mensajeDe(error)} ${error instanceof Error ? error.stack : ''}`,
+      );
+      throw new UnprocessableEntityException(
+        `No se pudo armar la cotización: ${mensajeDe(error)}`,
+      );
+    }
+  }
+
+  private async llevarSinCapturar(
     user: User,
     oportunidadId: number,
     numero?: number,
