@@ -474,7 +474,8 @@ export function conLosRespaldos(
 }
 
 /** Si un anexo dice que se adjunta la propuesta técnica en formato propio
- *  (la regla FORMATO_PROPIO, decisión 33), la propuesta tiene que ir: sin
+ *  (la regla de la decisión 33; desde la 40 el detalle va en el formulario,
+ *  pero quedan anexos de antes), la propuesta tiene que ir: sin
  *  ella, el anexo de calidad queda remitiendo a nada. */
 export function conLaPropuestaQueNombran(
   set: ElSet,
