@@ -73,6 +73,9 @@ export type PiezaDelSet = {
   subcarpeta?: string;
   que_es: 'formulario' | 'propuesta' | 'subido' | 'documento' | 'respaldo';
   aviso: string | null;
+  /** El Word del que se lee el texto (los números de los respaldos): el
+   *  firmado se sube en PDF, pero dice lo mismo que su Word. */
+  texto?: { ruta: string; nombre: string };
 };
 
 export type ElSet = { piezas: PiezaDelSet[]; faltan: string[] };
@@ -214,14 +217,16 @@ export function armarElSet(d: DatosDelSet): ElSet {
               mismoArchivo(f.archivo, delComprador.nombre),
             )
           : [];
-        // Un Word del comprador vuelve lleno con todos sus formularios; de
-        // un PDF sale un Word por formulario: el suyo, por el nombre (si no
-        // se reconoce, se le cree que trae todos).
+        // Desde el 19-10 sale un Word por formulario (de un Word o de un
+        // PDF del comprador): el suyo, por el nombre; si no se reconoce, se
+        // le cree que trae todos. Un Word de antes, lleno entero, los trae
+        // todos.
         const propios = suyos.filter((f) =>
           mismoFormulario(f.nombre, g.nombre),
         );
         const dePdf = /\.pdf$/i.test(delComprador?.nombre ?? '');
-        const cubre = dePdf && propios.length > 0 ? propios : suyos;
+        const separado = dePdf || vigentes.length > 1;
+        const cubre = separado && propios.length > 0 ? propios : suyos;
         cubre.forEach((f) => cubiertos.add(f));
         carpetas = sinRepetir(cubre.map((f) => carpetaDe(f.se_entrega_en)));
         if (carpetas.length === 0) carpetas = [carpetaPorNombre(g.nombre)];
@@ -233,6 +238,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
         carpetas,
         que_es: clave === 'propuesta' ? 'propuesta' : 'formulario',
         aviso: avisos.length > 0 ? avisos.join(' · ') : null,
+        texto: { ruta: g.ruta, nombre: g.nombre },
       });
     }
   }
@@ -254,6 +260,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
       carpetas: carpetas.length > 0 ? carpetas : [carpetaPorNombre(s.nombre)],
       que_es: 'subido',
       aviso: null,
+      texto: { ruta: s.ruta, nombre: s.nombre },
     });
   }
 

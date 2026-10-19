@@ -173,10 +173,12 @@ export class ElSetService {
     const bajados = new Map<string, Buffer>();
     const textos: Array<{ texto: string; carpetas: Carpeta[] }> = [];
     for (const p of sinRespaldos.piezas) {
-      if (extensionDe(p.nombre) !== 'docx') continue;
-      const docx = await this.bajar(p.ruta);
+      // El firmado va en PDF: el texto se lee de su Word, que dice lo mismo.
+      const { ruta, nombre } = p.texto ?? p;
+      if (extensionDe(nombre) !== 'docx') continue;
+      const docx = await this.bajar(ruta);
       if (!docx) continue;
-      bajados.set(p.ruta, docx);
+      bajados.set(ruta, docx);
       const texto = textoDeDocx(docx);
       if (texto) textos.push({ texto, carpetas: p.carpetas });
     }
