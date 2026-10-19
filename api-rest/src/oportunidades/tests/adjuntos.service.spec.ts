@@ -168,6 +168,32 @@ describe('AdjuntosService — mi postulación (migración 127)', () => {
     );
   });
 
+  it('la oferta de un competidor va a su carpeta, con su nombre; sin nombre no se sube (migración 153)', async () => {
+    const { repo, servicio } = armar();
+    await servicio.subir(
+      1,
+      CUENTA,
+      9,
+      archivo('Oferta técnica.pdf'),
+      'competencia',
+      '  Sol de   Quillón SpA ',
+    );
+    const [ruta] = subidas(repo)[0];
+    expect(ruta).toMatch(
+      /^c1\/oportunidades\/9\/competencia\/[\w-]+_Oferta_tecnica\.pdf$/,
+    );
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seccion: 'competencia',
+        competidor: 'Sol de Quillón SpA',
+      }),
+    );
+    await expect(
+      servicio.subir(1, CUENTA, 9, archivo('Oferta.pdf'), 'competencia', ' '),
+    ).rejects.toThrow(BadRequestException);
+    expect(repo.subirArchivo).toHaveBeenCalledTimes(1);
+  });
+
   it('listar sin decir la sección trae las bases', async () => {
     const { repo, servicio } = armar();
     await servicio.listar(1, 9);

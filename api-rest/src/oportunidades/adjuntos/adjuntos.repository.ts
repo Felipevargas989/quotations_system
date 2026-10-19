@@ -8,8 +8,9 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 // Toda consulta filtra por company_id.
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
- *  lo que la empresa va a presentar (migración 127). */
-export type Seccion = 'bases' | 'postulacion';
+ *  lo que la empresa va a presentar (migración 127). 'competencia': las
+ *  ofertas de los demás, bajadas del cuadro de ofertas (migración 153). */
+export type Seccion = 'bases' | 'postulacion' | 'competencia';
 
 /** De dónde salió (migración 129): 'subido' lo subió una persona;
  *  'generado' lo hizo la IA, SIN firma; 'firmado' es la versión con la foto
@@ -27,6 +28,8 @@ export type Adjunto = {
   /** El archivo del que salió: el anexo del comprador (generado) o el
    *  generado (firmado). */
   viene_de: number | null;
+  /** Solo en 'competencia': de qué oferente es (migración 153). */
+  competidor: string | null;
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
@@ -47,10 +50,12 @@ export type AdjuntoNuevo = {
   viene_de?: number | null;
   /** El trabajo de la IA que lo hizo (migración 129). */
   generacion_id?: number | null;
+  /** Solo en 'competencia' (migración 153). */
+  competidor?: string | null;
 };
 
 const COLUMNAS =
-  'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, creado_en, subido_por, quien:user_profiles(full_name)';
+  'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, competidor, creado_en, subido_por, quien:user_profiles(full_name)';
 
 @Injectable()
 export class AdjuntosRepository {

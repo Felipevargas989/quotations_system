@@ -15,7 +15,12 @@ import { fechaDelEvento, type PasoDelAvance } from "./oportunidades.utils";
 // nombre legible. Aparte de oportunidades.utils.ts, que ya pasa las 800
 // líneas (portero de la casa).
 
-export type PestanaDeFicha = "resumen" | "bases" | "postulacion" | "historial";
+export type PestanaDeFicha =
+  | "resumen"
+  | "bases"
+  | "postulacion"
+  | "historial"
+  | "comparacion";
 
 /** El avance de UNA oportunidad con las mismas consultas que usan sus
  *  pestañas (así se mueve solo cuando se sube, analiza, genera o valida),
