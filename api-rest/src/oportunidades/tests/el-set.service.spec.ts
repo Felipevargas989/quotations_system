@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
+import { PDFDocument } from 'pdf-lib';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
 import { archivoDelZip, nombresDelZip } from '../analisis/docx';
@@ -148,6 +149,50 @@ describe('ElSetService', () => {
       )?.toString(),
     ).toBe('pdf c1/oferente/5');
     expect(analisis.descargar).toHaveBeenCalledTimes(2);
+  });
+
+  it('zip: el anexo firmado en PDF lleva su respaldo adentro, en un solo archivo (19-10)', async () => {
+    const pdf = async (paginas: number) => {
+      const doc = await PDFDocument.create();
+      for (let i = 0; i < paginas; i++) doc.addPage();
+      return Buffer.from(await doc.save());
+    };
+    const anexoFirmado = await pdf(2);
+    const respaldo = await pdf(1);
+    const { servicio, repo, analisis } = armar();
+    repo.archivosDelSet.mockResolvedValue([
+      ...((await repo.archivosDelSet()) as unknown[]),
+      {
+        id: 14,
+        nombre: 'Formularios_Anexos - firmado.pdf',
+        ruta: 'c1/postulacion/14',
+        bytes: anexoFirmado.length,
+        seccion: 'postulacion',
+        origen: 'firmado',
+        viene_de: 12,
+        generacion_id: null,
+        creado_en: '2026-10-19T12:30:00.000Z',
+      },
+    ]);
+    analisis.descargar.mockImplementation((ruta: string) =>
+      Promise.resolve(
+        ruta === 'c1/postulacion/12'
+          ? ANEXOS
+          : ruta === 'c1/postulacion/14'
+            ? anexoFirmado
+            : respaldo,
+      ),
+    );
+    const { datos } = await servicio.zip(1, 40);
+    expect(nombresDelZip(datos)).toEqual([
+      '1. Administrativa/Formularios_Anexos - firmado.pdf',
+      '2. Técnica/Formularios_Anexos - firmado.pdf',
+    ]);
+    const unido = archivoDelZip(
+      datos,
+      '2. Técnica/Formularios_Anexos - firmado.pdf',
+    );
+    expect((await PDFDocument.load(unido as Buffer)).getPageCount()).toBe(3);
   });
 
   it('zip: si un archivo no baja, sigue con los demás y lo anota adentro', async () => {

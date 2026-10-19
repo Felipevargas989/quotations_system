@@ -86,6 +86,9 @@ export type PiezaDelSet = {
   /** El Word del que se lee el texto (los números de los respaldos): el
    *  firmado se sube en PDF, pero dice lo mismo que su Word. */
   texto?: { ruta: string; nombre: string };
+  /** Los respaldos que van DENTRO de este PDF, detrás del anexo (19-10;
+   *  Felipe: "un solo PDF, un solo documento con los respaldos"). */
+  adjuntos?: Array<{ nombre: string; ruta: string; bytes: number }>;
 };
 
 export type ElSet = { piezas: PiezaDelSet[]; faltan: string[] };
@@ -432,11 +435,13 @@ const aparece = (numero: string, texto: string): boolean => {
 
 /** Agrega los respaldos de la experiencia declarada: los de la carpeta
  *  cuyo número aparece en el texto de algún Word que va en el set (el
- *  anexo de experiencia los nombra por su número, sprint F). Van en la
- *  carpeta de ese Word (la técnica si va en varias), juntos. */
+ *  anexo de experiencia los nombra por su número, sprint F). Si ese anexo
+ *  va firmado en PDF, los respaldos van DENTRO de su PDF, detrás (19-10:
+ *  "un solo PDF"); si va en Word, aparte, juntos en la carpeta del Word
+ *  (la técnica si va en varias). */
 export function conLosRespaldos(
   set: ElSet,
-  textos: Array<{ texto: string; carpetas: Carpeta[] }>,
+  textos: Array<{ texto: string; carpetas: Carpeta[]; pieza?: PiezaDelSet }>,
   d: DatosDelSet,
 ): ElSet {
   const respaldos = d.carpeta.filter(
@@ -445,12 +450,20 @@ export function conLosRespaldos(
   );
   const piezas = [...set.piezas];
   const faltan = [...set.faltan];
+  const adentro = new Map<PiezaDelSet, NonNullable<PiezaDelSet['adjuntos']>>();
   let encontrados = 0;
   for (const r of respaldos) {
     const numero = (r.datos as DatosDeRespaldo).numero;
     const donde = textos.find((t) => aparece(numero, t.texto));
     if (!donde) continue;
     encontrados++;
+    if (donde.pieza && /\.pdf$/i.test(donde.pieza.nombre)) {
+      adentro.set(donde.pieza, [
+        ...(adentro.get(donde.pieza) ?? []),
+        { nombre: r.nombre, ruta: r.ruta, bytes: r.bytes },
+      ]);
+      continue;
+    }
     piezas.push({
       nombre: r.nombre,
       ruta: r.ruta,
@@ -462,6 +475,16 @@ export function conLosRespaldos(
       que_es: 'respaldo',
       aviso: null,
     });
+  }
+  for (const [i, p] of piezas.entries()) {
+    const suyos = adentro.get(p);
+    if (!suyos) continue;
+    const nota = `con ${suyos.length === 1 ? 'su respaldo' : `sus ${suyos.length} respaldos`} adentro`;
+    piezas[i] = {
+      ...p,
+      adjuntos: suyos,
+      aviso: p.aviso ? `${p.aviso} · ${nota}` : nota,
+    };
   }
   if (pidenExperiencia(d) && encontrados === 0) {
     faltan.push(
