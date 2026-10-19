@@ -20,10 +20,11 @@ import { PostulacionRepository } from './postulacion.repository';
 // precio". Encadena lo que ya existe, sin nada nuevo de IA:
 //  1. la oferta (Opus decide UNA vez qué se ofrece, decisión 33);
 //  2. cuando queda lista, los anexos con ese precio (la oferta económica la
-//     calcula el motor: neto e IVA) y, si las bases piden una propuesta
-//     técnica y no traen un formulario para ella, la propuesta, los dos
-//     desde lo postulado (decisión 40: si hay formulario de calidad o de
-//     oferta técnica, el detalle va en él);
+//     calcula el motor: neto e IVA) y, si las bases no traen un formulario
+//     técnico, la propuesta técnica valorizada (decisiones 40 y 42: con
+//     formulario, el detalle va en él; sin él, la propuesta lleva el
+//     detalle y al final el valor: neto, IVA y total), las dos desde lo
+//     postulado;
 //  3. si hay una cotización vinculada, se iguala a lo postulado con el
 //     mismo precio (es de solo lectura: cotizacion-de-licitacion.ts).
 // Todo por detrás. La firma sigue aparte, después de revisar (17-10).
@@ -32,23 +33,22 @@ import { PostulacionRepository } from './postulacion.repository';
 export type PostulacionArmada = {
   /** El precio, con IVA. */
   total: number;
-  /** ¿Va propuesta técnica? Si las bases la piden o aceptan formato propio. */
+  /** ¿Va propuesta técnica? Si las bases no traen un formulario técnico
+   *  (decisión 42). */
   propuesta: boolean;
   /** Lo que no alcanzó a partir después de la oferta, en palabras. */
   problemas?: string[];
 };
 
-const PIDEN_PROPUESTA = /propuesta tecnica|oferta tecnica|formato propio/;
-
 /** El formulario que lleva el detalle técnico (calidad de la oferta,
  *  oferta o propuesta técnica). */
 const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
 
-/** ¿Va una propuesta técnica aparte? Si las bases la piden (sus requisitos
- *  o sus formularios que aplican) y NO traen un formulario para ella: si lo
- *  traen, el detalle va en ese formulario (decisión 40; Felipe, 19-10:
- *  "no estar creando otra oferta técnica a partir de otro formato"). */
-export const pidenPropuesta = (
+/** ¿Va la propuesta técnica valorizada? Siempre que las bases NO traigan
+ *  un formulario técnico (decisión 42; Felipe, 19-10, por las compras
+ *  ágiles: "¿qué pasa si no viene ningún formulario a prerrellenar?"). Si
+ *  lo traen, el detalle va en ese formulario (decisión 40). */
+export const vaLaPropuesta = (
   resultado: Record<string, unknown> | null | undefined,
 ): boolean => {
   const requisitos = Array.isArray(resultado?.requisitos)
@@ -68,10 +68,7 @@ export const pidenPropuesta = (
     ...formularios.filter((t): t is string => typeof t === 'string'),
     ...textos.filter((t) => /\b(formulario|anexo)\b/.test(normalizar(t))),
   ];
-  if (deUnFormulario.some((t) => FORMULARIO_TECNICO.test(normalizar(t)))) {
-    return false;
-  }
-  return textos.some((t) => PIDEN_PROPUESTA.test(normalizar(t)));
+  return !deUnFormulario.some((t) => FORMULARIO_TECNICO.test(normalizar(t)));
 };
 
 @Injectable()
@@ -109,7 +106,7 @@ export class ArmarPostulacionService {
     const armada: PostulacionArmada = {
       total,
       propuesta:
-        analisis?.estado === 'listo' && pidenPropuesta(analisis.resultado),
+        analisis?.estado === 'listo' && vaLaPropuesta(analisis.resultado),
     };
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
@@ -139,7 +136,10 @@ export class ArmarPostulacionService {
     if (armada.propuesta) {
       pasos.push([
         'La propuesta técnica',
-        () => this.documentos.crearPropuesta(companyId, user.id, oportunidadId),
+        () =>
+          this.documentos.crearPropuesta(companyId, user.id, oportunidadId, {
+            monto_total: armada.total,
+          }),
       ]);
     }
     const problemas: string[] = [];

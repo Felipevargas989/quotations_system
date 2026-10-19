@@ -517,6 +517,9 @@ export const instruccionesDePropuesta = (
   /** El catálogo con ids (decisión 29); sin él, la carta de antes y sin
    *  oferta para la cotización. */
   catalogo: string | null = null,
+  /** El valor de la oferta (decisión 42): solo el total, con el neto y el
+   *  IVA que calcula el motor. Sin precio, la propuesta no lleva montos. */
+  valor: ReturnType<typeof desgloseDeOferta> | null = null,
 ): string =>
   [
     'Escribes la PROPUESTA TÉCNICA de una empresa para una licitación pública de Chile (Mercado Público). Es parte de la nota: quien evalúa tiene que encontrar rápido cómo se cumple cada punto. En estas licitaciones más es menos: se evalúa si cumple estrictamente lo pedido, y todo lo que se ofrece se exige y se multa.',
@@ -550,7 +553,9 @@ export const instruccionesDePropuesta = (
       'Estructura: la de las bases y nada más. Si las bases traen un formulario de calidad de la oferta o de propuesta técnica (por ejemplo, "Formulario N°4 Calidad de la oferta", con filas como Infraestructura, Logística o Servicio de alimentación), sigue sus filas en su orden y, dentro de cada una, todas las especificaciones técnicas que le tocan. Si no hay formulario, recorre TODAS las especificaciones técnicas en su orden. No agregues secciones propias: ni presentación de la empresa, ni entendimiento del servicio, ni programa u horarios, ni montaje, ni personal, ni seguridad o accesibilidad, ni contingencias, ni compromisos, ni experiencia (va en su propio anexo), ni visita técnica, ni tablas resumen, salvo que las bases o CÓMO SE EVALÚA los pidan expresamente.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA] : []),
       SOLO_LO_QUE_PIDEN,
-      'Nunca escribas precios ni montos: la oferta económica va en su propio anexo.',
+      valor
+        ? `Al final, antes de la firma, una sección «Valor de la oferta» con una tabla de tres filas y nada más: Valor neto ${pesos(valor.neto)}; IVA (19%) ${pesos(valor.iva)}; Valor total ${pesos(valor.total)}. Esas cifras van exactas. En ninguna otra parte escribas precios ni montos: nada por ítem, por persona ni precios unitarios.`
+        : 'Nunca escribas precios ni montos: la oferta económica va en su propio anexo.',
       'No inventes: ni experiencia, ni certificaciones, ni capacidades, ni nombres de artistas o proveedores. Los menús y salones salen de la carta. Donde las bases pidan un detalle que solo la empresa sabe (por ejemplo, la capacidad del salón), escribe [COMPLETAR: qué falta], resaltado en amarillo, y anótalo en pendientes.',
       LO_SUBCONTRATADO,
       ...(c.oferta ? [] : [NO_PROMETER]),

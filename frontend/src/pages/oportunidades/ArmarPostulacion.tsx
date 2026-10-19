@@ -71,7 +71,7 @@ function PasoDeLaPostulacion({
       </p>
       {paso.estado === "no_va" && (
         <p className="text-sm text-gray-600">
-          Las bases no la piden: va el anexo de calidad de la oferta.
+          No va aparte: el detalle va en el anexo de calidad de la oferta.
         </p>
       )}
       {paso.estado === "espera" && (
@@ -205,9 +205,11 @@ export default function ArmarPostulacion({
         </h2>
         <p className="text-xs text-gray-500">
           Pones el precio y la IA arma todo con tu catálogo: qué ofreces, los
-          anexos del comprador (la oferta económica con ese precio) y la
-          propuesta técnica si las bases la piden. Todo sale <b>sin firma</b> a
-          «Mi postulación»: revísalo y recién ahí fírmalo.
+          anexos del comprador (la oferta económica con ese precio) y, si las
+          bases no traen un formulario técnico (una compra ágil, por ejemplo),
+          la propuesta técnica valorizada: el detalle y al final el neto, el IVA
+          y el total. Todo sale <b>sin firma</b> a «Mi postulación»: revísalo y
+          recién ahí fírmalo.
         </p>
       </div>
 
@@ -331,7 +333,7 @@ export default function ArmarPostulacion({
           />
           <PasoDeLaPostulacion
             numero={3}
-            titulo="Propuesta técnica"
+            titulo="Propuesta técnica valorizada"
             paso={vuelta.propuesta}
             tipo="propuesta"
             reintentar={() => reintentarPropuesta.mutate()}

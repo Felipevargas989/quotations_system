@@ -339,6 +339,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Una pestaña después de «Historial», solo en postuladas, ganadas y perdidas.
     - Tu oferta sale de lo que vas a presentar (lo mismo que va al ZIP, sin los respaldos de experiencia). La de cada competidor se sube ahí, con el nombre del oferente (migración 153: sección `competencia` y `competidor`).
     - Opus 5.5 pone la nota de cada criterio (0 a 100) con su fundamento, dice si cada oferta cumple las bases, la probabilidad de ganar, lo que le suma y le resta, y qué hacer distinto la próxima vez. El puntaje ponderado lo calcula Eventia con los pesos de las bases, no la IA.
+42. **Sin formulario técnico, la propuesta técnica valorizada** (19-10, decidido por Felipe). Felipe preguntó: *"¿qué pasa si es una compra ágil y no viene ningún formulario a prerrellenar? ¿Qué va a rellenar la IA?... ¿Cómo lo vamos a hacer para presentar la propuesta técnica valorizada?"*. Entre (a) solo el total y (b) el detalle con precios del catálogo y un descuento que cuadra, eligió: *"vamos con la A, así siempre son todas iguales en presentación"*.
+    - Si las bases no traen un formulario técnico (calidad de la oferta, oferta o propuesta técnica), «Armar postulación» hace siempre la propuesta técnica, la pidan o no.
+    - La propuesta lleva el detalle de lo postulado y, al final, el valor: una tabla con el neto, el IVA y el total, calculados por Eventia con el precio que pusiste. Nunca precios por ítem, por persona ni unitarios.
+    - Con formulario técnico, todo va en ese formulario (decisión 40) y no hay propuesta aparte.
 
 ## 4. Reglas del módulo (no se negocian)
 
