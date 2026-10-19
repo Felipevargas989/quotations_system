@@ -48,6 +48,7 @@ export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
   inicio_actividades: 'Inicio de actividades (SII)',
   programa_integridad: 'Programa de integridad',
   f30: 'Certificado F30',
+  f30_1: 'Certificado F30-1 (cumplimiento de obligaciones laborales)',
   vigencia: 'Certificado de vigencia de la sociedad',
   resolucion_sanitaria: 'Resolución sanitaria',
   dj_trabajadores: 'Declaración jurada de trabajadores',

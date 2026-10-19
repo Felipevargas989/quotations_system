@@ -40,7 +40,14 @@ const POR_EL_NOMBRE: ReadonlyArray<[string, RegExp]> = [
   ["inicio_actividades", /inicio( de)? actividades|iniciacion de actividades/],
   ["dj_trabajadores", /trabajador/],
   ["programa_integridad", /integridad|probidad/],
+  // El F30-1 antes que el F30: «F30-1» también dice «F30». Felipe usa el
+  // F30-1 para el de la Inspección del Trabajo de no tener reclamos (19-10).
+  [
+    "f30_1",
+    /\bf ?30 ?1\b|cumplimiento de (las )?obligaciones laborales|reclamos? laborales/,
+  ],
   ["f30", /\bf ?30\b|antecedentes laborales|obligaciones laborales/],
+  ["f30_1", /inspeccion del trabajo/],
   ["erut", /\be ?rut\b|rut electronico/],
   ["no_quiebra", /quiebra|procedimiento concursal|boletin concursal/],
   [
@@ -218,7 +225,11 @@ export function checklistDeDocumentos(d: {
         detalle: "Lo arma «Armar postulación»",
       };
     }
-    if (p.carpeta === "respaldo_experiencia") {
+    // Un documento que el análisis dejó en «otro» se reconoce por su
+    // nombre (el certificado de la Inspección del Trabajo, 19-10).
+    const tipo =
+      p.carpeta === "otro" ? carpetaPorElNombre(p.nombre) : p.carpeta;
+    if (tipo === "respaldo_experiencia") {
       const n = d.carpeta.filter(
         (x) => x.tipo === "respaldo_experiencia",
       ).length;
@@ -231,8 +242,8 @@ export function checklistDeDocumentos(d: {
               : `${n} respaldos en tu carpeta`,
         };
       }
-    } else if (p.carpeta !== "otro") {
-      const doc = masNuevo(d.carpeta.filter((x) => x.tipo === p.carpeta));
+    } else if (tipo !== "otro") {
+      const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
       if (doc) {
         return doc.vence && doc.vence < d.corte
           ? {
@@ -251,7 +262,7 @@ export function checklistDeDocumentos(d: {
     const claves = palabrasClave(p.nombre);
     const subido = subidos.find(
       (a) =>
-        (p.carpeta !== "otro" && carpetaPorElNombre(a.nombre) === p.carpeta) ||
+        (tipo !== "otro" && carpetaPorElNombre(a.nombre) === tipo) ||
         claves.some((c) => normalizar(a.nombre).includes(c)),
     );
     if (subido) return { estado: "en_tu_postulacion", detalle: subido.nombre };

@@ -331,6 +331,10 @@ export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
   { value: "inicio_actividades", label: "Inicio de actividades (SII)" },
   { value: "programa_integridad", label: "Programa de integridad" },
   { value: "f30", label: "Certificado F30 (antecedentes laborales)" },
+  {
+    value: "f30_1",
+    label: "Certificado F30-1 (cumplimiento de obligaciones laborales)",
+  },
   { value: "vigencia", label: "Certificado de vigencia de la sociedad" },
   { value: "resolucion_sanitaria", label: "Resolución sanitaria" },
   { value: "dj_trabajadores", label: "Declaración jurada de trabajadores" },
