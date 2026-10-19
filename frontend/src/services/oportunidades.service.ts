@@ -601,6 +601,52 @@ export const crearPropuestaTecnica = async (id: number) =>
     "POST",
   )) as Generacion;
 
+/** LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del doc 17, 19-10): la
+ *  propuesta técnica y la cotización son la misma oferta. */
+export interface ResumenDeLaCotizacion {
+  id: string;
+  numero: number;
+  estado: string;
+  cliente: string | null;
+  /** Lo que vale con los precios del catálogo. */
+  catalogo: number;
+  descuento: number;
+  /** La oferta: lo que cobra la cotización. */
+  total: number;
+}
+
+export interface EstadoDeLaCotizacion {
+  cotizacion: ResumenDeLaCotizacion | null;
+  presupuesto: number | null;
+  /** La última propuesta técnica que dejó su oferta, y cuántos productos
+   *  trae; null si no hay o si es anterior al 19-10. */
+  propuesta: { id: number; productos: number } | null;
+}
+
+export const getCotizacionDeLaPostulacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
+    "GET",
+  )) as EstadoDeLaCotizacion;
+
+/** Crea la cotización con la oferta de la propuesta técnica, o reescribe
+ *  la vinculada; con `numero`, vincula y reescribe esa. */
+export const llevarACotizacion = async (id: number, numero?: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
+    "POST",
+    numero ? { numero } : {},
+  )) as EstadoDeLaCotizacion;
+
+/** La oferta con IVA: la diferencia con el catálogo queda como descuento
+ *  en dinero en la cotización. */
+export const fijarOfertaDeLaPostulacion = async (id: number, total: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion/oferta`,
+    "POST",
+    { total },
+  )) as EstadoDeLaCotizacion;
+
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). */
 export type SeccionDeArchivos = "bases" | "postulacion";

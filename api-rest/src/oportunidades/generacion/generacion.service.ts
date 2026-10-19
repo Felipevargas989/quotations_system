@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import { sanitize } from 'src/storage/storage.service';
 import {
   type Adjunto,
@@ -58,6 +59,7 @@ import {
   leerInforme,
   loQuePidenLasBases,
 } from './instrucciones';
+import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
 import { problemaDelDocumento } from './revision';
 import {
   type ArchivoParaElTaller,
@@ -149,6 +151,7 @@ export class GeneracionService {
     private readonly oferente: OferenteRepository,
     private readonly oportunidades: OportunidadesRepository,
     private readonly eventia: EventiaRepository,
+    private readonly catalogos: GenerarRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(GeneracionService.name);
@@ -414,6 +417,11 @@ export class GeneracionService {
     const enElTallerLogo =
       logo && TIPOS_DE_IMAGEN[extLogo] ? `logo.${extLogo}` : null;
     const enElTaller = (a: Adjunto) => `bases_${a.id}.${extensionDe(a.nombre)}`;
+    // Con ids, para que la propuesta deje su oferta (decisión 29).
+    const catalogo = await catalogoParaLaOferta(
+      this.catalogos,
+      companyId,
+    ).catch(() => null);
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
       tipo: 'propuesta',
@@ -429,6 +437,7 @@ export class GeneracionService {
             original: a.nombre,
           })),
           enElTallerLogo,
+          catalogo,
         ),
         texto: 'Escribe la propuesta técnica.',
         // Es nota (30% en el Día del Funcionario): Opus.
@@ -570,6 +579,7 @@ export class GeneracionService {
         pendientes: informe?.pendientes ?? [],
         descartados,
         no_entregados: noEntregados,
+        ...(informe?.oferta ? { oferta: informe.oferta } : {}),
       };
       if (documentos.length === 0) {
         await this.repo.terminar(companyId, generacionId, {

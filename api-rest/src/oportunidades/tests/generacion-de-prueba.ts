@@ -1,5 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { PinoLogger } from 'nestjs-pino';
+import type { Catalogo } from 'src/quotations/generar/catalogo';
+import type { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
@@ -98,6 +100,45 @@ export const ANALISIS = {
   },
 };
 
+/** Un catálogo chico con ids (decisión 29): almuerzo con un menú, sus
+ *  sueltos, la sección fija y la amplificación. */
+export const CATALOGO_DE_PRUEBA: Catalogo = {
+  categorias: [
+    {
+      id: 3,
+      nombre: 'Almuerzo',
+      orden: 1,
+      sueltos: [10, 11, 12, 13],
+      seccionFija: [10],
+      secciones: [
+        { nombre: 'Principales', servicios: [11, 13] },
+        { nombre: 'Postres', servicios: [12] },
+      ],
+    },
+  ],
+  menus: [
+    {
+      id: 7,
+      nombre: 'Almuerzo celebración',
+      categoria: 'Almuerzo',
+      nivel: 'Nivel 1',
+      ordenNivel: 1,
+      items: [
+        { id: 11, nombre: 'Plateada', precio: 12_000, cantidad: 1 },
+        { id: 12, nombre: 'Tiramisú', precio: 3_000, cantidad: 1 },
+      ],
+    },
+  ],
+  servicios: new Map([
+    [10, { id: 10, nombre: 'Pan amasado', precio: 500 }],
+    [11, { id: 11, nombre: 'Plateada', precio: 12_000 }],
+    [12, { id: 12, nombre: 'Tiramisú', precio: 3_000 }],
+    [13, { id: 13, nombre: 'Pollo arvejado', precio: 9_000 }],
+  ]),
+  fijos: new Map([[45, { id: 45, nombre: 'Amplificación', precio: 250_000 }]]),
+  paquetes: [],
+};
+
 class GeneracionDePrueba extends GeneracionService {
   constructor(repos: Record<string, unknown>) {
     super(
@@ -107,6 +148,7 @@ class GeneracionDePrueba extends GeneracionService {
       repos.oferente as OferenteRepository,
       repos.oportunidades as OportunidadesRepository,
       repos.eventia as EventiaRepository,
+      repos.catalogos as GenerarRepository,
       mockPinoLogger() as unknown as PinoLogger,
     );
   }
@@ -207,6 +249,9 @@ export function armar() {
       },
     ]),
   };
+  const catalogos = {
+    catalogo: jest.fn().mockResolvedValue(CATALOGO_DE_PRUEBA),
+  };
   const servicio = new GeneracionDePrueba({
     repo,
     analisis,
@@ -214,6 +259,7 @@ export function armar() {
     oferente,
     oportunidades,
     eventia,
+    catalogos,
   });
   const ejecutar = jest
     .spyOn(servicio, 'ejecutar')
@@ -225,6 +271,7 @@ export function armar() {
     oferente,
     oportunidades,
     eventia,
+    catalogos,
     servicio,
     ejecutar,
   };

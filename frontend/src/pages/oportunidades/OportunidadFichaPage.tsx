@@ -16,6 +16,7 @@ import { formatMomento } from "../../utils/dates";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import AnalisisDeBases from "./AnalisisDeBases";
 import CaminoDePostulacion from "./CaminoDePostulacion";
+import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
 import DocumentosConIA from "./DocumentosConIA";
 import { type PestanaDeFicha } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
@@ -292,6 +293,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
 
       {pestana === "postulacion" && (
         <>
+          <CotizacionDeLaPostulacion
+            oportunidadId={ficha.id}
+            anterior={ficha.anterior}
+          />
           <DocumentosConIA oportunidadId={ficha.id} />
           <MiPostulacion
             oportunidadId={ficha.id}
