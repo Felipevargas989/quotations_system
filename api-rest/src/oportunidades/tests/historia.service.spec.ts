@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
+import type { HistoriaRepository } from '../historia/historia.repository';
 import { HistoriaService } from '../historia/historia.service';
 import type { LecturaService } from '../lectura/lectura.service';
 import {
@@ -38,17 +39,21 @@ function armar() {
     configurado: true,
     candidatasPorNombre: jest.fn().mockResolvedValue(new Set<string>()),
   };
+  const unidades = {
+    regionesDeLasUnidades: jest.fn().mockResolvedValue(new Map()),
+  };
   const historia = new HistoriaService(
     mp as unknown as MercadoPublicoClient,
     repo as unknown as OportunidadesRepository,
     lectura as unknown as LecturaService,
+    unidades as unknown as HistoriaRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
   const guardados = () =>
     repo.guardarProcesos.mock.calls.flatMap(([lote]) =>
       (lote as Array<{ codigo: string }>).map((p) => p.codigo),
     );
-  return { mp, repo, lectura, historia, guardados };
+  return { mp, repo, lectura, unidades, historia, guardados };
 }
 
 afterEach(() => jest.restoreAllMocks());
@@ -253,5 +258,109 @@ describe('HistoriaService — la historia', () => {
     expect(resumen.historia.estado).toBe('cortada');
     expect(repo.marcarDiaDeHistoria).not.toHaveBeenCalled();
     expect(mp.detalleLicitacion).not.toHaveBeenCalled();
+  });
+
+  it('la gran descarga: de noche sigue hasta la hora que le da el reloj, más allá de los 130 minutos (19-10)', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, historia } = armar();
+    repo.siguienteDiaDeHistoria
+      .mockResolvedValueOnce('2025-10-03')
+      .mockResolvedValue(null);
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: 'A', Nombre: 'Cena aniversario' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(new Set(['A']));
+    const resumen = resumenVacio();
+    // La corrida partió hace 140 minutos: con el presupuesto de antes ya no
+    // cargaba nada; el reloj le da hasta dentro de una hora.
+    const inicio = NOCHE - 140 * 60_000;
+
+    await historia.cargarHistoria(resumen, inicio, 'reloj', {
+      hasta: NOCHE + 60 * 60_000,
+    });
+
+    expect(resumen.historia).toMatchObject({ estado: 'completa', dias: 1 });
+    expect(repo.marcarDiaDeHistoria).toHaveBeenCalledWith(
+      '2025-10-03',
+      expect.objectContaining({ estado: 'hecha' }),
+    );
+  });
+
+  it('nunca pasa las 2 h 45 desde que partió la corrida, aunque el reloj le dé más: a las 3 horas se da por colgada', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { repo, historia } = armar();
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, NOCHE - 170 * 60_000, 'reloj', {
+      hasta: NOCHE + 60 * 60_000,
+    });
+
+    expect(repo.siguienteDiaDeHistoria).not.toHaveBeenCalled();
+  });
+
+  it('se salta las unidades de compra de otras regiones: ni la IA las lee ni se pide su detalle; las que no conoce, sí (19-10)', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, unidades, historia, guardados } = armar();
+    repo.siguienteDiaDeHistoria
+      .mockResolvedValueOnce('2025-10-03')
+      .mockResolvedValue(null);
+    unidades.regionesDeLasUnidades.mockResolvedValue(
+      new Map([
+        ['4364', ['Región del Ñuble']],
+        ['1111', ['Región Metropolitana de Santiago']],
+        ['2222', ['Región de Valparaíso', 'Región del Biobío']],
+      ]),
+    );
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: '4364-5-LE25', Nombre: 'Día del profesor' },
+      { CodigoExterno: '1111-9-LE25', Nombre: 'Cena aniversario' },
+      { CodigoExterno: '2222-3-LE25', Nombre: 'Almuerzo de camaradería' },
+      { CodigoExterno: '9999-1-LE25', Nombre: 'Coffee break' },
+    ]);
+    lectura.candidatasPorNombre.mockImplementation(
+      (filas: Array<{ codigo: string }>) =>
+        Promise.resolve(new Set(filas.map((f) => f.codigo))),
+    );
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj', {
+      regiones: ['Ñuble', 'Biobío'],
+    });
+
+    expect(lectura.candidatasPorNombre).toHaveBeenCalledWith(
+      [
+        { codigo: '4364-5-LE25', nombre: 'Día del profesor' },
+        { codigo: '2222-3-LE25', nombre: 'Almuerzo de camaradería' },
+        { codigo: '9999-1-LE25', nombre: 'Coffee break' },
+      ],
+      expect.any(Object),
+    );
+    expect(guardados()).toEqual(['4364-5-LE25', '2222-3-LE25', '9999-1-LE25']);
+    // El día cuenta todo lo listado; las candidatas son lo que se pidió.
+    expect(repo.marcarDiaDeHistoria).toHaveBeenCalledWith(
+      '2025-10-03',
+      expect.objectContaining({ listadas: 4, candidatas: 3 }),
+    );
+  });
+
+  it('si el mapa de unidades falla, no filtra por región y la historia sigue', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(NOCHE);
+    const { mp, repo, lectura, unidades, historia } = armar();
+    repo.siguienteDiaDeHistoria
+      .mockResolvedValueOnce('2025-10-03')
+      .mockResolvedValue(null);
+    unidades.regionesDeLasUnidades.mockRejectedValue(new Error('sin base'));
+    mp.licitacionesDelDia.mockResolvedValue([
+      { CodigoExterno: '1111-9-LE25', Nombre: 'Cena aniversario' },
+    ]);
+    lectura.candidatasPorNombre.mockResolvedValue(new Set(['1111-9-LE25']));
+    const resumen = resumenVacio();
+
+    await historia.cargarHistoria(resumen, Date.now(), 'reloj', {
+      regiones: ['Ñuble'],
+    });
+
+    expect(mp.detalleLicitacion).toHaveBeenCalledWith('1111-9-LE25');
+    expect(resumen.historia.estado).toBe('completa');
   });
 });

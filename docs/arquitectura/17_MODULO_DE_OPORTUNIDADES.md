@@ -216,6 +216,14 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - El motor elige con la misma regla de antes: los Word de «Bases y anexos» y los PDF donde el análisis encontró formularios que aplican.
     - Sin análisis, o con uno anterior al 18-10: se llenan los Word y se pide analizar para encontrar los formularios en PDF. Si solo hay PDF, el botón espera el análisis.
     - Un formulario que no vino en lo subido: se busca en Mercado Público, se sube a «Bases y anexos» y se vuelve a analizar.
+28. **La gran descarga de la historia** (19-10, de madrugada). Felipe: *"todavía no tenemos la historia, todavía no tenemos quién ganó los años pasados... mañana tengo que postular esta licitación"* y *"hagamos una gran carga esta noche y después sigamos con el flujo regular"*.
+    - Medido: la historia iba en 3 días de 1.096. No por la IA (el filtro de nombres ya era Haiku y todo el radar había costado US$ 0,36), sino por Mercado Público: una consulta a la vez, 10.000 al día, y las descargas grandes de 22:00 a 07:00. Además solo usaba lo que le sobraba de cada pasada de noche (130 minutos desde que partía) y dos noches se cayeron por los errores de los incidentes 74 y 75.
+    - **La noche completa:** cada pasada de noche carga historia hasta 10 minutos antes de la siguiente, y la de las 05 hasta las 06:55 (nunca más de 2 h 45 desde que partió).
+    - **Solo las unidades de compra de las regiones configuradas:** el código empieza con la unidad (4364 = Municipalidad de Quillón) y su región ya se conoce por lo guardado (1.737 unidades, el 97 % en una sola región). Las de otras regiones no se leen ni se pide su detalle; las desconocidas sí. En los días del 14 al 16-10, el 12 % era de Ñuble o Biobío.
+    - **Primero el año anterior:** el mes a cada lado de "hace un año", después los últimos 60 días y al final el resto.
+    - Pasar a 2 pasadas al día no bajaba los tokens (cada licitación se lee una vez; una pasada normal cuesta cerca de 1 centavo de dólar) y atrasaba lo nuevo: se queda el horario de la decisión 18.
+    - Modelos: se revisaron con Felipe. Se queda Opus en el análisis de bases (pocas, críticas, PDF escaneados); Sonnet ahorraría unos US$ 0,19 por análisis.
+    - Cuando no quedan días pendientes, la historia no hace nada: el curso normal sigue solo.
 
 ## 4. Reglas del módulo (no se negocian)
 

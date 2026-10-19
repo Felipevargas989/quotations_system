@@ -26,6 +26,8 @@ const CORRIDA_COLGADA_MS = 3 * 60 * 60 * 1000;
 /** La historia revisa primero estos días recientes: sin ellos, "Se viene"
  *  anunciaría algo que este año ya salió antes de que el radar existiera. */
 const DIAS_RECIENTES_DE_HISTORIA = 60;
+/** Y antes que ellos, el mes a cada lado de "hace un año" (decisión 28). */
+const DIAS_ALREDEDOR_DEL_ANIO_ANTERIOR = 31;
 /** "Se viene" y competidores miran 3 años y un poco más (la misma compra
  *  de hace 3 años más sus días de diferencia). */
 const MESES_DE_LA_ZONA = 38;
@@ -615,35 +617,41 @@ export class OportunidadesRepository {
     return (data ?? []) as Array<{ codigo: string; region: string | null }>;
   }
 
-  /** El próximo día de historia por revisar: primero los cercanos a "hace
-   *  un año". null = la historia está completa. */
-  /** El próximo día por revisar: primero los últimos 60 días (lo que ya
-   *  salió este año, para que "Se viene" no lo anuncie), del más nuevo al
-   *  más viejo; después, por prioridad (cerca de "hace un año"). */
+  /** El próximo día por revisar (null = la historia está completa):
+   *  1. el mes a cada lado de "hace un año" (prioridad hasta 31), que trae
+   *     el año anterior de lo abierto (19-10, decisión 28: Felipe postulaba
+   *     al Día del Profesor y no estaba el del año pasado);
+   *  2. los últimos 60 días, del más nuevo al más viejo (lo que ya salió
+   *     este año, para que "Se viene" no lo anuncie);
+   *  3. el resto, por prioridad (cada vez más lejos de "hace un año"). */
   async siguienteDiaDeHistoria(): Promise<string | null> {
     const reciente = new Date(Date.now() - DIAS_RECIENTES_DE_HISTORIA * DIA)
       .toISOString()
       .slice(0, 10);
-    const { data: recientes, error: errorRecientes } = await this.db
-      .from('mp_historia')
-      .select('fecha')
-      .eq('estado', 'pendiente')
-      .gte('fecha', reciente)
-      .order('fecha', { ascending: false })
-      .limit(1);
-    if (errorRecientes) throw errorRecientes;
-    const primero = (recientes?.[0] as { fecha?: string } | undefined)?.fecha;
-    if (primero) return primero;
-
-    const { data, error } = await this.db
-      .from('mp_historia')
-      .select('fecha')
-      .eq('estado', 'pendiente')
-      .order('prioridad', { ascending: true })
-      .order('fecha', { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    return (data?.[0] as { fecha?: string } | undefined)?.fecha ?? null;
+    const pendientes = () =>
+      this.db.from('mp_historia').select('fecha').eq('estado', 'pendiente');
+    const enOrden = [
+      () =>
+        pendientes()
+          .lte('prioridad', DIAS_ALREDEDOR_DEL_ANIO_ANTERIOR)
+          .order('prioridad', { ascending: true })
+          .order('fecha', { ascending: false }),
+      () =>
+        pendientes()
+          .gte('fecha', reciente)
+          .order('fecha', { ascending: false }),
+      () =>
+        pendientes()
+          .order('prioridad', { ascending: true })
+          .order('fecha', { ascending: false }),
+    ];
+    for (const consulta of enOrden) {
+      const { data, error } = await consulta().limit(1);
+      if (error) throw error;
+      const fecha = (data?.[0] as { fecha?: string } | undefined)?.fecha;
+      if (fecha) return fecha;
+    }
+    return null;
   }
 
   async marcarDiaDeHistoria(
