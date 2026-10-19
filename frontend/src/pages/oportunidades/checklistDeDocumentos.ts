@@ -20,7 +20,9 @@ export type EstadoDelDocumento =
   | "hecho"
   | "lo_arma_la_ia"
   | "vencido"
-  | "falta";
+  | "falta"
+  /** Un formulario que, según el análisis, no aplica (el de UTP). */
+  | "no_aplica";
 
 export interface FilaDelChecklist extends DocumentoPedido {
   estado: EstadoDelDocumento;
@@ -177,6 +179,16 @@ export function checklistDeDocumentos(d: {
       const hecho = suyos.find((a) => a.origen === "generado");
       if (hecho)
         return { estado: "hecho", detalle: "Hecho por la IA, falta firmarlo" };
+      // Si el análisis dice que ese formulario no aplica, no se arma.
+      const delAnalisis = (d.r.formularios ?? []).filter(
+        (f) => numero !== null && numeroDe(f.nombre) === numero,
+      );
+      if (delAnalisis.length > 0 && delAnalisis.every((f) => !f.aplica)) {
+        return {
+          estado: "no_aplica",
+          detalle: delAnalisis[0].por_que_no_aplica || null,
+        };
+      }
       return {
         estado: "lo_arma_la_ia",
         detalle: "Lo arma «Armar postulación»",
@@ -233,7 +245,9 @@ export function checklistDeDocumentos(d: {
 
 /** Lo que ya está y lo que falta, para el encabezado. */
 export const resumenDelChecklist = (filas: FilaDelChecklist[]) => {
-  const conLaOferta = filas.filter((f) => f.cuando === "con_la_oferta");
+  const conLaOferta = filas.filter(
+    (f) => f.cuando === "con_la_oferta" && f.estado !== "no_aplica",
+  );
   return {
     listos: conLaOferta.filter((f) =>
       ["firmado", "en_tu_carpeta", "en_tu_postulacion"].includes(f.estado),

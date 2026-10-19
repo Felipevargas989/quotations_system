@@ -177,6 +177,54 @@ describe("El checklist de documentos", () => {
   });
 });
 
+describe("Lo que el análisis dice que no aplica", () => {
+  it("el formulario de UTP no se arma ni cuenta; los demás siguen igual", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [
+          {
+            nombre: "Formulario N°5 - Oferta Económica",
+            archivo: "Formularios_Anexos.docx",
+            paginas: "",
+            aplica: true,
+            por_que_no_aplica: "",
+            se_entrega_en: "economica",
+          },
+          {
+            nombre:
+              "Formulario N°6 - Declaración para Uniones Temporales de Proveedores",
+            archivo: "Formularios_Anexos.docx",
+            paginas: "",
+            aplica: false,
+            por_que_no_aplica:
+              "Solo corresponde si se postula como Unión Temporal de Proveedores.",
+            se_entrega_en: "administrativa",
+          },
+        ],
+        documentos: [
+          pedido("Formulario Anexo N°5 Oferta Económica", "formulario"),
+          pedido("Formulario Anexo N°6 Declaración para UTP", "formulario", {
+            obligatorio: false,
+            condicion: "Solo si se postula como UTP",
+          }),
+        ],
+      },
+      carpeta: [],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.estado, f.detalle])).toEqual([
+      ["lo_arma_la_ia", "Lo arma «Armar postulación»"],
+      [
+        "no_aplica",
+        "Solo corresponde si se postula como Unión Temporal de Proveedores.",
+      ],
+    ]);
+    expect(resumenDelChecklist(filas).total).toBe(1);
+  });
+});
+
 describe("Un análisis de antes del checklist", () => {
   const requisito = (que: string, tipo = "administrativo", pagina = 9) => ({
     que,
