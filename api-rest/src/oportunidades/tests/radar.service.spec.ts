@@ -530,6 +530,46 @@ describe('RadarService — la lectura', () => {
     });
   });
 
+  it('una lectura que la base rechaza no tumba la corrida: ese proceso queda sin leer y las demás se guardan (18-10)', async () => {
+    // La pasada de las 23:07 del 18-10 se cayó entera por UNA fila que la
+    // base rechazó (oportunidades_semaforo_check).
+    const { radar, repo } = armar();
+    repo.procesosAbiertos.mockResolvedValue([
+      abierto('MALA'),
+      abierto('BUENA'),
+    ]);
+    repo.guardarLectura.mockImplementation(
+      (_empresa: number, codigo: string) =>
+        codigo === 'MALA'
+          ? Promise.reject(
+              Object.assign(
+                new Error(
+                  'new row for relation "oportunidades" violates check constraint "oportunidades_semaforo_check"',
+                ),
+                { code: '23514' },
+              ),
+            )
+          : Promise.resolve(),
+    );
+
+    const resumen = await radar.correr('reloj');
+
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'BUENA',
+      expect.anything(),
+      LECTURA_ACTUAL,
+      false,
+    );
+    expect(resumen?.lectura).toMatchObject({ estado: 'ok', leidas: 1 });
+    expect(resumen?.lectura.sin_leer).toBeGreaterThanOrEqual(1);
+    expect(repo.terminarCorrida).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'ok',
+      expect.anything(),
+    );
+  });
+
   it('relee lo leído con reglas viejas que nadie tocó, junto a lo nuevo y por cierre (decisión 19)', async () => {
     const { radar, repo, lectura, leidas, releer } = armar();
     repo.procesosAbiertos.mockResolvedValue([

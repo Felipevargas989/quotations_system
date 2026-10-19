@@ -137,6 +137,7 @@ La 122 también agrega `'oportunidades'` a `companies.modulos_propios` de la emp
 **Cuando las reglas cambian, se relee solo.** `leida_con` guarda el modelo y la versión de las reglas (`LECTURA_ACTUAL`, hoy "claude-haiku-5-5, reglas del 18-10, noche"). Lo abierto leído con otra versión que nadie ha tocado se relee en la pasada siguiente; lo que la empresa marcó (estado, responsable, notas o cotización) queda como está. Al cambiar las instrucciones, se cambia `LECTURA_ACTUAL` en el mismo commit.
 
 - Si el modelo se niega o no devuelve nada legible → **amarillo** con "conviene revisarla a mano".
+- **Lo que contesta se revisa antes de guardarlo** (`lecturaValida`, 18-10, incidente 75 del mapa 21): se limpia lo que se puede y, si el color o el lugar no existen, queda en amarillo para revisar a mano. Una lectura que la base no acepta deja ese proceso sin leer y la corrida sigue.
 - Si falla la cuenta (llave mala, sin permiso, sin cupo por minuto, modelo que no existe o saldo agotado) → `LecturaDetenida`: la lectura de esa corrida se detiene y lo que falte se lee en la próxima.
 - Cualquier otra falla → `null`: ese proceso queda sin leer y se reintenta en la próxima. Diez seguidas detienen la lectura de la corrida.
 

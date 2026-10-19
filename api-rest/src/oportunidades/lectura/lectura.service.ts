@@ -3,7 +3,7 @@ import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
-import type { Lectura } from './reglas';
+import { type Lectura, lecturaValida } from './reglas';
 
 // LA LECTURA CON IA (doc 17 §5.2). Cada proceso nuevo se lee UNA vez por
 // empresa con Claude Haiku 5.5 — Felipe, 16-10: "para lectura yo creo que
@@ -283,9 +283,14 @@ export class LecturaService {
         uso.salida += respuesta.usage.output_tokens ?? 0;
       }
 
-      if (respuesta.stop_reason === 'refusal' || !respuesta.parsed_output) {
+      // Lo que contestó se revisa antes de usarlo (18-10: un color que no
+      // era verde, amarillo ni rojo tumbó la pasada de las 23:07).
+      const valida = respuesta.parsed_output
+        ? lecturaValida(respuesta.parsed_output)
+        : null;
+      if (respuesta.stop_reason === 'refusal' || !valida) {
         this.logger.warn(
-          `no se pudo leer ${proceso.codigo} (${respuesta.stop_reason}); queda en amarillo para revisar a mano`,
+          `no se pudo leer ${proceso.codigo} (${respuesta.stop_reason}; contestó ${JSON.stringify(respuesta.parsed_output ?? null).slice(0, 200)}); queda en amarillo para revisar a mano`,
         );
         return {
           semaforo: 'amarillo',
@@ -294,14 +299,7 @@ export class LecturaService {
           razon: 'La lectura automática no resultó: conviene revisarla a mano.',
         };
       }
-
-      const salida = respuesta.parsed_output;
-      return {
-        semaforo: salida.semaforo,
-        etiquetas: salida.etiquetas.length > 0 ? salida.etiquetas : ['otro'],
-        se_hace_en_el_complejo: salida.se_hace_en_el_complejo,
-        razon: salida.razon.trim(),
-      };
+      return valida;
     } catch (error) {
       if (esFallaDeLaCuenta(error)) {
         throw new LecturaDetenida(

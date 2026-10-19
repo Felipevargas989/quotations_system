@@ -636,13 +636,30 @@ export class RadarService {
             umbralAltoValor: empresa.high_value_threshold,
           });
           const relectura = releer.has(proceso.codigo);
-          await this.repo.guardarLectura(
-            empresa.id,
-            proceso.codigo,
-            final,
-            LECTURA_ACTUAL,
-            relectura,
-          );
+          try {
+            await this.repo.guardarLectura(
+              empresa.id,
+              proceso.codigo,
+              final,
+              LECTURA_ACTUAL,
+              relectura,
+            );
+          } catch (error) {
+            // Una lectura que la base no acepta no tumba la corrida entera
+            // (18-10, 23:07: un color fuera de lista la echó abajo): ese
+            // proceso queda sin leer y se reintenta en la próxima. Diez
+            // seguidas sí la detienen: ahí lo que falla es la base.
+            this.logger.warn(
+              `radar: no se guardó la lectura de ${proceso.codigo}: ${mensajeDe(error)}`,
+            );
+            r.sin_leer++;
+            if (++fallidasSeguidas >= LECTURAS_FALLIDAS_PARA_CORTAR) {
+              throw new LecturaDetenida(
+                `${LECTURAS_FALLIDAS_PARA_CORTAR} lecturas seguidas no se pudieron guardar; la lectura sigue en la próxima corrida`,
+              );
+            }
+            return;
+          }
           r.leidas++;
           if (relectura) r.releidas++;
           if (final.semaforo === 'verde') r.verdes++;
