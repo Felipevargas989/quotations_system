@@ -142,7 +142,20 @@ describe('Generar anexos', () => {
       expect(plan.sistema).toContain(
         '- N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena del Día del Funcionario 2023 · 2023 · $11.782.499 con impuestos (archivo «OC 4352-103-SE23.pdf»)',
       );
-      expect(plan.sistema).toContain('«Adjuntar respaldos: ...»');
+      // El coordinador y, sin contacto propio del representante, el de la
+      // empresa (decisión 43, migración 154).
+      expect(plan.sistema).toContain(
+        '- Coordinador durante la licitación: Camila Carvajal',
+      );
+      expect(plan.sistema).toContain(
+        'Si un formulario pide la dirección, el teléfono o el correo del representante legal y no están arriba, usa los de la empresa.',
+      );
+      // Los respaldos usados no van en pendientes: el ZIP los adjunta solo
+      // (19-10, el Profesor los pedía como si faltaran).
+      expect(plan.sistema).toContain(
+        'Los respaldos que usaste NO van en pendientes',
+      );
+      expect(plan.sistema).not.toContain('«Adjuntar respaldos: ...»');
     }));
 
   it('sin monto, la oferta económica queda en blanco: nunca un precio inventado', () =>

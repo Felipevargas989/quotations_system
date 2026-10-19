@@ -51,6 +51,31 @@ const CAMPOS: ReadonlyArray<{
   { campo: "representante_nombre", etiqueta: "Representante legal" },
   { campo: "representante_rut", etiqueta: "RUT del representante" },
   { campo: "representante_cargo", etiqueta: "Cargo del representante" },
+  // Decisión 43 (19-10): el Formulario N°1 del Profesor los pedía aparte.
+  {
+    campo: "representante_correo",
+    etiqueta: "Correo del representante",
+    ayuda: "Vacío: se usa el de la empresa",
+  },
+  {
+    campo: "representante_telefono",
+    etiqueta: "Teléfono del representante",
+    ayuda: "Vacío: se usa el de la empresa",
+  },
+  {
+    campo: "representante_direccion",
+    etiqueta: "Dirección del representante",
+    ayuda: "Vacío: se usa la de la empresa",
+  },
+  {
+    campo: "coordinador_nombre",
+    etiqueta: "Coordinador de la licitación",
+    ayuda: "Quien atiende al comprador mientras dura la licitación",
+  },
+  { campo: "coordinador_cargo", etiqueta: "Cargo del coordinador" },
+  { campo: "coordinador_correo", etiqueta: "Correo del coordinador" },
+  { campo: "coordinador_telefono", etiqueta: "Teléfono del coordinador" },
+  { campo: "sitio_web", etiqueta: "Página web" },
   {
     campo: "experiencia",
     etiqueta: "Experiencia destacada",

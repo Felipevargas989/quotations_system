@@ -45,6 +45,7 @@ export const OFERENTE = {
   giro: 'Centro de eventos',
   representante_nombre: 'Felipe Vargas',
   representante_cargo: 'Gerente',
+  coordinador_nombre: 'Camila Carvajal',
   experiencia: 'Día del Profesor 2025, Municipalidad de Quillón',
   instalaciones: 'Salón principal para 300 personas',
   firma_ruta: 'c1/oferente/firma_2026.png',
