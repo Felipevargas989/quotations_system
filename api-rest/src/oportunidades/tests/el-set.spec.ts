@@ -175,6 +175,54 @@ describe('el set para Mercado Público', () => {
     );
   });
 
+  it('con un archivo por formulario (19-10), cada uno va solo a su carpeta, y el firmado en PDF', () => {
+    const d = datos();
+    const set = armarElSet({
+      ...d,
+      archivos: [
+        ...d.archivos.filter((a) => ![10, 12, 14, 15].includes(a.id)),
+        archivo(
+          31,
+          'Formulario N°1 - Identificación del oferente - lleno.docx',
+          {
+            viene_de: 6,
+            generacion_id: 5,
+            creado_en: '2026-10-19T14:00:00.000Z',
+          },
+        ),
+        archivo(32, 'Formulario N°3 - Experiencia - lleno.docx', {
+          viene_de: 6,
+          generacion_id: 5,
+          creado_en: '2026-10-19T14:00:01.000Z',
+        }),
+        archivo(
+          33,
+          'Formulario N°1 - Identificación del oferente - firmado.pdf',
+          {
+            origen: 'firmado',
+            viene_de: 31,
+            creado_en: '2026-10-19T14:10:00.000Z',
+          },
+        ),
+      ],
+      inicioDe: new Map([...d.inicioDe, [5, '2026-10-19T13:59:00.000Z']]),
+    });
+    expect(
+      pieza(set, 'Formulario N°1 - Identificación del oferente - firmado.pdf'),
+    ).toMatchObject({
+      carpetas: ['administrativa'],
+      aviso: null,
+      // El texto (para los respaldos) se lee de su Word.
+      texto: {
+        ruta: 'c1/oportunidades/40/x_31',
+        nombre: 'Formulario N°1 - Identificación del oferente - lleno.docx',
+      },
+    });
+    expect(
+      pieza(set, 'Formulario N°3 - Experiencia - lleno.docx'),
+    ).toMatchObject({ carpetas: ['tecnica'], aviso: 'sin firma' });
+  });
+
   it('cada Word que salió de un PDF va en la carpeta de su formulario, y avisa si va sin firma', () => {
     const set = armarElSet(datos());
     expect(

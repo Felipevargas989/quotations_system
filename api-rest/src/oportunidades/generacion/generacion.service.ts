@@ -45,7 +45,6 @@ import {
   MAX_BYTES_DE_PDF_EN_FORMULARIOS,
   modeloParaFormularios,
   salidasDeFormularios,
-  sinExtension,
 } from './formularios';
 import {
   type FilaDeGeneracion,
@@ -64,7 +63,12 @@ import {
   loQuePidenLasBases,
 } from './instrucciones';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
-import { problemaDelDocumento } from './revision';
+import {
+  esPdf,
+  porQueNoEntrego,
+  problemaDeLaSalida,
+  salidasDeLaFirma,
+} from './revision';
 import {
   type ArchivoParaElTaller,
   type Habilidad,
@@ -123,6 +127,10 @@ type Salida = {
   viene_de: number | null;
   /** El firmado se compara con el documento que se firmó. */
   comparaCon?: string;
+  /** Solo se revisa, no se guarda (el Word firmado: se guarda su PDF). */
+  soloRevisar?: true;
+  /** El PDF se guarda solo si ese Word pasó la revisión (revision.ts). */
+  siPasa?: string;
   /** De un PDF, un Word por formulario: `concretarSalidas`. */
   prefijo?: true;
 };
@@ -365,13 +373,7 @@ export class GeneracionService {
             ruta: firma,
           },
         ],
-        salidas: documentos.map((d) => ({
-          enElTaller: `firmado_${d.adjunto.id}.docx`,
-          nombre: `${sinExtension(d.adjunto.nombre).replace(/ - lleno$/i, '')} - firmado.docx`,
-          origen: 'firmado',
-          viene_de: d.adjunto.id,
-          comparaCon: d.enElTaller,
-        })),
+        salidas: salidasDeLaFirma(documentos),
         esfuerzo: 'medium',
         maxTokens: 32_000,
       },
@@ -533,20 +535,25 @@ export class GeneracionService {
       }> = [];
       const descartados: Array<{ nombre: string; motivo: string }> = [];
       const noEntregados: string[] = [];
+      const pasaron = new Set<string>();
       for (const s of salidas) {
         const hecho = taller.archivos.find((a) => a.nombre === s.enElTaller);
         if (!hecho) {
           noEntregados.push(s.nombre);
           continue;
         }
-        const problema = problemaDelDocumento(
+        const problema = problemaDeLaSalida(
+          s,
           hecho.datos,
           s.comparaCon ? bajados.get(s.comparaCon) : undefined,
+          pasaron,
         );
         if (problema) {
           descartados.push({ nombre: s.nombre, motivo: problema });
           continue;
         }
+        pasaron.add(s.enElTaller);
+        if (s.soloRevisar) continue;
         try {
           const adjunto = await this.guardarEnLaPostulacion(
             companyId,
@@ -592,7 +599,7 @@ export class GeneracionService {
           estado: 'error',
           resultado,
           ...tokens,
-          error: this.porQueNoEntrego(taller.motivo, descartados.length),
+          error: porQueNoEntrego(taller.motivo, descartados.length),
         });
         return;
       }
@@ -617,17 +624,6 @@ export class GeneracionService {
           ),
         );
     }
-  }
-
-  private porQueNoEntrego(motivo: string | null, descartados: number): string {
-    if (descartados > 0) {
-      return 'Lo que entregó la IA no pasó la revisión: mira el detalle.';
-    }
-    if (motivo === 'max_tokens' || motivo === 'pause_turn') {
-      return 'El trabajo era muy largo y la IA no alcanzó a terminar: vuelve a intentar con menos documentos.';
-    }
-    if (motivo === 'refusal') return 'La IA no quiso hacer este trabajo.';
-    return 'La IA no entregó ningún documento.';
   }
 
   /** Lo de siempre antes de encargar: la llave y que la oportunidad sea de
@@ -748,14 +744,15 @@ export class GeneracionService {
   ) {
     const nombre = nombreLimpio(salida.nombre);
     const ruta = `c${companyId}/oportunidades/${plan.oportunidadId}/postulacion/${sello()}_${sanitize(nombre)}`;
-    await this.adjuntos.subirArchivo(ruta, datos, TIPO_WORD);
+    const tipo = esPdf(datos) ? TIPOS_POR_EXTENSION.pdf : TIPO_WORD;
+    await this.adjuntos.subirArchivo(ruta, datos, tipo);
     try {
       return await this.adjuntos.guardar({
         company_id: companyId,
         oportunidad_id: plan.oportunidadId,
         nombre,
         ruta,
-        tipo: TIPO_WORD,
+        tipo,
         bytes: datos.length,
         seccion: 'postulacion',
         subido_por: plan.perfil,

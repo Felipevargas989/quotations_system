@@ -10,7 +10,8 @@ import { HABILIDAD_DE_PDF, HABILIDAD_DE_WORD, type Habilidad } from './taller';
 // originalidad del documento").
 //
 //  - Word (.docx, o .doc antiguo, que el taller convierte): se llena el
-//    MISMO archivo del comprador.
+//    MISMO archivo del comprador y después se separa, un Word por
+//    formulario (19-10), borrando de cada copia lo que no es suyo.
 //  - PDF (separado, escaneado o al final de las bases): se REESCRIBE cada
 //    formulario en un Word nuevo, con el texto oficial al pie de la letra,
 //    sus tablas, el logo del organismo, colores y tipografía parecida
@@ -109,32 +110,25 @@ export type SalidaDeFormulario = {
   nombre: string;
   origen: 'generado';
   viene_de: number;
-  /** De un PDF salen tantos Word como formularios traiga (no se sabe
+  /** De cada archivo salen tantos Word como formularios traiga (no se sabe
    *  antes): se reconocen porque empiezan con `enElTaller`. */
   prefijo?: true;
 };
 
-/** Lo que se espera de vuelta: un Word lleno por cada Word (el .doc vuelve
- *  como .docx) y, de cada PDF, formulario_<id>_<n>.docx por formulario. */
+/** Lo que se espera de vuelta: un Word por formulario, venga de un Word o
+ *  de un PDF (formulario_<id>_<n>.docx). Felipe, 19-10: "los documentos tipo
+ *  formulario tienen que quedar por separado cada uno, el 1, el 2, el 3, el
+ *  4"; así cada uno va además a su parte del portal. */
 export const salidasDeFormularios = (
   formularios: FormularioEnElTaller[],
 ): SalidaDeFormulario[] =>
-  formularios.map(({ adjunto, clase }) =>
-    clase === 'pdf'
-      ? {
-          enElTaller: `formulario_${adjunto.id}_`,
-          nombre: sinExtension(adjunto.nombre),
-          origen: 'generado',
-          viene_de: adjunto.id,
-          prefijo: true,
-        }
-      : {
-          enElTaller: `lleno_${adjunto.id}.docx`,
-          nombre: `${sinExtension(adjunto.nombre)} - lleno.docx`,
-          origen: 'generado',
-          viene_de: adjunto.id,
-        },
-  );
+  formularios.map(({ adjunto }) => ({
+    enElTaller: `formulario_${adjunto.id}_`,
+    nombre: sinExtension(adjunto.nombre),
+    origen: 'generado',
+    viene_de: adjunto.id,
+    prefijo: true,
+  }));
 
 const numeroDelFormulario = (archivo: string): number => {
   const m = /_(\d+)\.docx$/i.exec(archivo);
@@ -144,8 +138,8 @@ const numeroDelFormulario = (archivo: string): number => {
 /** Las salidas con prefijo se vuelven una por cada Word que llegó con ese
  *  prefijo, en el orden de los formularios, nombradas con el título que la
  *  IA anotó en el informe («Formulario N°1 - Identificación del oferente -
- *  lleno.docx»). Si de un PDF no llegó ninguno, queda tal cual: así cuenta
- *  como no entregado. */
+ *  lleno.docx»). Si de un archivo no llegó ninguno, queda tal cual: así
+ *  cuenta como no entregado. */
 export const concretarSalidas = <
   S extends { enElTaller: string; nombre: string; prefijo?: true },
 >(

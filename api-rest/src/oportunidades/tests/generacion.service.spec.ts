@@ -4,7 +4,11 @@ import {
   LO_SUBCONTRATADO,
   SOLO_LO_QUE_PIDEN,
 } from '../generacion/instrucciones';
-import { problemaDelDocumento } from '../generacion/revision';
+import {
+  problemaDeLaSalida,
+  problemaDelDocumento,
+  salidasDeLaFirma,
+} from '../generacion/revision';
 import { trabajarEnElTaller } from '../generacion/taller';
 import {
   ESCRIBIR_LA_OFERTA,
@@ -85,24 +89,33 @@ describe('Generar anexos', () => {
           ruta: 'c1/oportunidades/40/x_Anexo antiguo.doc',
         },
       ]);
+      // Un Word por formulario, también de un Word del comprador (Felipe,
+      // 19-10: "tienen que quedar por separado cada uno, el 1, el 2, el 3").
       expect(plan.salidas).toEqual([
         {
-          enElTaller: 'lleno_6.docx',
-          nombre: 'Formularios_Anexos - lleno.docx',
+          enElTaller: 'formulario_6_',
+          nombre: 'Formularios_Anexos',
           origen: 'generado',
           viene_de: 6,
+          prefijo: true,
         },
         {
-          enElTaller: 'lleno_7.docx',
-          nombre: 'Anexo antiguo - lleno.docx',
+          enElTaller: 'formulario_7_',
+          nombre: 'Anexo antiguo',
           origen: 'generado',
           viene_de: 7,
+          prefijo: true,
         },
       ]);
       expect(plan.habilidades).toEqual([
         expect.objectContaining({ skill_id: 'docx' }),
       ]);
       expect(plan.sistema).toContain('soffice --headless --convert-to docx');
+      expect(plan.sistema).toContain(
+        'Después SEPARA cada Word lleno en un Word por formulario',
+      );
+      // La firma nunca partida ni sola.
+      expect(plan.sistema).toContain('keep_with_next');
       expect(plan.sistema).not.toContain('REESCRIBE');
       expect(plan.sistema).toContain(
         'Total con IVA: $11.900.000. Neto: $10.000.000. IVA (19%): $1.900.000.',
@@ -223,6 +236,8 @@ describe('Firmar', () => {
           ruta: 'c1/oferente/firma_2026.png',
         },
       ]);
+      // El Word firmado solo se revisa; se guarda su PDF, que es lo que se
+      // sube a Mercado Público (19-10).
       expect(plan.salidas).toEqual([
         {
           enElTaller: 'firmado_12.docx',
@@ -230,10 +245,22 @@ describe('Firmar', () => {
           origen: 'firmado',
           viene_de: 12,
           comparaCon: 'documento_12.docx',
+          soloRevisar: true,
+        },
+        {
+          enElTaller: 'firmado_12.pdf',
+          nombre: 'Formularios_Anexos - firmado.pdf',
+          origen: 'firmado',
+          viene_de: 12,
+          siPasa: 'firmado_12.docx',
         },
       ]);
       expect(plan.sistema).toContain('Firma: Felipe Vargas (Gerente)');
       expect(plan.sistema).toContain('NO cambies nada más');
+      expect(plan.sistema).toContain(
+        'soffice --headless --convert-to pdf firmado_12.docx',
+      );
+      expect(plan.sistema).toContain('keep_with_next');
     }));
 
   it('la firma no necesita ni la carta ni los eventos', () =>
@@ -444,6 +471,35 @@ describe('lo que entrega la IA', () => {
       ),
     ).toContain('cambió el texto');
   });
+
+  it('el PDF de un firmado: solo si su Word pasó, y que sea un PDF', () => {
+    const pdf = Buffer.from('%PDF-1.7');
+    const pasaron = new Set(['firmado_12.docx']);
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_12.docx' },
+        pdf,
+        undefined,
+        pasaron,
+      ),
+    ).toBeNull();
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_13.docx' },
+        pdf,
+        undefined,
+        pasaron,
+      ),
+    ).toContain('no pasó la revisión');
+    expect(
+      problemaDeLaSalida(
+        { siPasa: 'firmado_12.docx' },
+        Buffer.from('roto'),
+        undefined,
+        pasaron,
+      ),
+    ).toBe('no es un PDF que se pueda abrir');
+  });
 });
 
 describe('Por detrás: el taller y «Mi postulación»', () => {
@@ -610,6 +666,85 @@ describe('Por detrás: el taller y «Mi postulación»', () => {
             {
               nombre: 'Formularios_Anexos - firmado.docx',
               motivo: expect.stringContaining('cambió el texto') as unknown,
+            },
+          ],
+        }) as unknown,
+      }),
+    );
+  });
+
+  it('la firma guarda el PDF de cada documento, solo si su Word firmado pasó la revisión (el Word no se guarda)', async () => {
+    const { adjuntos, repo, servicio, ejecutar } = armar();
+    ejecutar.mockRestore();
+    const antes = wordCon(['Firma: ____', 'Felipe Vargas'], 1);
+    (repo.descargar as jest.Mock).mockResolvedValue(antes);
+    const pdf = Buffer.from('%PDF-1.7 firmado');
+    taller.mockResolvedValue({
+      archivos: [
+        {
+          nombre: 'firmado_12.docx',
+          datos: wordCon(['Firma: ____', 'Felipe Vargas'], 2),
+        },
+        { nombre: 'firmado_12.pdf', datos: pdf },
+        // El 13 cambió el texto: ni su Word ni su PDF se guardan.
+        {
+          nombre: 'firmado_13.docx',
+          datos: wordCon(['Firma: ____', 'OTRO'], 2),
+        },
+        { nombre: 'firmado_13.pdf', datos: pdf },
+      ],
+      texto: 'Firmé.',
+      uso: USO,
+      motivo: 'end_turn',
+    });
+
+    await servicio.ejecutar(1, 9, {
+      ...PLAN,
+      tipo: 'firma',
+      entradas: [
+        { enElTaller: 'documento_12.docx', tipo: WORD, ruta: 'c1/a.docx' },
+        { enElTaller: 'documento_13.docx', tipo: WORD, ruta: 'c1/b.docx' },
+      ],
+      salidas: salidasDeLaFirma([
+        {
+          adjunto: { id: 12, nombre: 'Formulario N°1 - lleno.docx' },
+          enElTaller: 'documento_12.docx',
+        },
+        {
+          adjunto: { id: 13, nombre: 'Formulario N°2 - lleno.docx' },
+          enElTaller: 'documento_13.docx',
+        },
+      ]),
+    });
+
+    expect(adjuntos.subirArchivo).toHaveBeenCalledTimes(1);
+    expect(adjuntos.subirArchivo).toHaveBeenCalledWith(
+      expect.stringMatching(/Formulario_N_1_-_firmado\.pdf$/) as unknown,
+      pdf,
+      'application/pdf',
+    );
+    expect(adjuntos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: 'Formulario N°1 - firmado.pdf',
+        tipo: 'application/pdf',
+        origen: 'firmado',
+        viene_de: 12,
+      }),
+    );
+    expect(repo.terminar).toHaveBeenCalledWith(
+      1,
+      9,
+      expect.objectContaining({
+        estado: 'listo',
+        resultado: expect.objectContaining({
+          descartados: [
+            {
+              nombre: 'Formulario N°2 - firmado.docx',
+              motivo: expect.stringContaining('cambió el texto') as unknown,
+            },
+            {
+              nombre: 'Formulario N°2 - firmado.pdf',
+              motivo: 'su Word firmado no pasó la revisión: se descartó',
             },
           ],
         }) as unknown,
