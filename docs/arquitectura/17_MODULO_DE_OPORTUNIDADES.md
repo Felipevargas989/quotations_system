@@ -243,6 +243,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - **A, su idea:** la fila entera teñida por el semáforo y la prioridad separada por secciones.
       - **B, la propuesta:** la misma tinta con una franja del color a la izquierda. La prioridad va en violeta con estrella, en su propio recuadro y con sus razones («Comuna cercana», «Alto valor») en violeta. La urgencia («cierra en 11 h») va con un reloj, sin rojo. Así verde, amarillo y rojo solo significan el semáforo, y violeta solo significa prioridad.
     - **Decidido el 19-10: B.** Felipe: *"me gusta tu propuesta, vamos con la B"*.
+    - **Construido la noche del 19-10** (sprint B, en el laboratorio): `coloresDeLaBandeja.ts` y la fila aparte, en `FilaDeOportunidad.tsx`. Cada grupo de la lista va en su recuadro. Al probarlo apareció un detalle: la línea gris entre filas (`divide-y`) le ganaba a la franja desde la segunda fila; ahora cada fila lleva su propia línea abajo.
 
 ## 4. Reglas del módulo (no se negocian)
 
