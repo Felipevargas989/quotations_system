@@ -245,6 +245,14 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **El acta pública:** la API trae el enlace (`UrlActa`), y la página se abre sin código. Se revisó el 19-10 con la 3997-60-LE26. Trae todas las ofertas por ítem: proveedor, RUT, qué ofreció, a qué precio y si ganó. Los adjuntos de esa página sí tienen código y se arrastran a mano, como las bases.
     - **«Resumen de negocio» con IA**, con un botón: quién ganó, qué incluye (destinos, fechas, personas), qué ofreció cada uno y a qué precio, y qué le sirve a la empresa. Esto último se lee de «Mi empresa»: *"los que deberían estar siempre resumidos en Mi empresa, así se mantiene escalable"*.
     - **Decidido el 19-10:** la descripción de lo que vende la empresa pasa de Configuración a «Mi empresa». Felipe: *"sí, correcto, dejemos eso ahí"*. Es una sola: la lee el radar y la lee el resumen de negocio.
+    - **Parte 1 construida la noche del 19-10** (sprint D, en el laboratorio, migración 144 solo en su base):
+      - el estado 'seguida' y la columna `mp_procesos.acta`;
+      - el montón «En seguimiento», que muestra todo el semáforo;
+      - en el resumen, «Seguir» y «Dejar de seguir»;
+      - la fila sin «Ver resumen»;
+      - el radar, que revisa las seguidas con las adjudicaciones y lee el acta (`historia/acta.ts`);
+      - en la ficha, «Quién ganó, según el acta».
+      Las razones de la prioridad quedaron en violeta también en el resumen y en la ficha (decisión 31).
 31. **La bandeja, un color por significado** (19-10, sin construir; sprint B de la hoja de ruta, §7). Felipe, con la bandeja a la vista: *"el amarillo de los prioritarios se mezcla con el amarillo del semáforo y hace confuso saber cuál es más importante... quizás las verdes con un fondo verde pálido, las amarillas un amarillo pálido, y las prioritarias separadas por tablas"*.
     - Se le mostraron dos bocetos el 19-10:
       - **A, su idea:** la fila entera teñida por el semáforo y la prioridad separada por secciones.

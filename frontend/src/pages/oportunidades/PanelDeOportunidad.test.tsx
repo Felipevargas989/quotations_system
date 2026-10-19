@@ -162,6 +162,19 @@ describe("PanelDeOportunidad", () => {
     expect(onDecidir).toHaveBeenCalledWith("descartada");
   });
 
+  it("Seguir la deja «En seguimiento» sin postularla, y una seguida se puede dejar de seguir (19-10, decisión 30)", () => {
+    const { onDecidir } = pintar(funcionario());
+    fireEvent.click(screen.getByRole("button", { name: /Seguir/ }));
+    expect(onDecidir).toHaveBeenCalledWith("seguida");
+    cleanup();
+    const otra = pintar(funcionario({ estado: "seguida" }));
+    expect(
+      screen.queryByRole("button", { name: /Me interesa/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dejar de seguir" }));
+    expect(otra.onDecidir).toHaveBeenCalledWith("nueva");
+  });
+
   it("una descartada se recupera; siempre está Ver ficha completa", () => {
     const { onDecidir } = pintar(funcionario({ estado: "descartada" }));
     expect(screen.queryByRole("button", { name: "Me interesa" })).toBeNull();

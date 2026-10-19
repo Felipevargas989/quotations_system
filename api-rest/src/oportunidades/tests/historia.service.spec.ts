@@ -9,6 +9,7 @@ import {
 } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { resumenVacio } from '../radar.service';
+import { ACTA_DE_PRUEBA } from './acta-de-prueba';
 
 const detalle = (codigo: string, extra: Record<string, unknown> = {}) => ({
   CodigoExterno: codigo,
@@ -41,6 +42,8 @@ function armar() {
   };
   const unidades = {
     regionesDeLasUnidades: jest.fn().mockResolvedValue(new Map()),
+    procesosSeguidos: jest.fn().mockResolvedValue([]),
+    guardarActa: jest.fn().mockResolvedValue(undefined),
   };
   const historia = new HistoriaService(
     mp as unknown as MercadoPublicoClient,
@@ -126,6 +129,68 @@ describe('HistoriaService — quién ganó', () => {
 
     expect(resumen.adjudicaciones.estado).toBe('cortada');
     expect(guardados()).toEqual(['A']);
+  });
+});
+
+describe('HistoriaService — las seguidas (decisión 30, 19-10)', () => {
+  const ACTA =
+    'http://www.mercadopublico.cl/Procurement/Modules/RFB/StepsProcessAward/PreviewAwardAct.aspx?qs=abc123=';
+
+  it('una licitación seguida se revisa aunque sea de otra región; con el acta publicada, se guarda con todas sus ofertas', async () => {
+    const { mp, unidades, historia, guardados } = armar();
+    unidades.procesosSeguidos.mockResolvedValue([{ codigo: 'GIRA' }]);
+    mp.detalleLicitacion.mockResolvedValue(
+      detalle('GIRA', {
+        Comprador: { RegionUnidad: 'Región Metropolitana de Santiago' },
+        Adjudicacion: { NumeroOferentes: 2, UrlActa: ACTA },
+      }),
+    );
+    const fetch = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(ACTA_DE_PRUEBA));
+    const resumen = resumenVacio();
+
+    await historia.revisarAdjudicaciones(resumen, ['Ñuble'], Date.now());
+
+    expect(guardados()).toEqual(['GIRA']);
+    expect(fetch).toHaveBeenCalledWith(ACTA, expect.any(Object));
+    const [codigo, acta] = unidades.guardarActa.mock.calls[0] as [
+      string,
+      { items: Array<{ ofertas: Array<{ proveedor: string }> }> },
+    ];
+    expect(codigo).toBe('GIRA');
+    expect(acta.items[0].ofertas.map((o) => o.proveedor)).toEqual([
+      'TURISMO DEL SUR LIMITADA',
+      'VIAJES ANDINOS SPA',
+    ]);
+    expect(resumen.adjudicaciones.revisadas).toBe(1);
+  });
+
+  it('sin acta todavía, no se va a buscar nada; si el acta falla, la corrida sigue', async () => {
+    const { mp, unidades, historia } = armar();
+    unidades.procesosSeguidos.mockResolvedValue([
+      { codigo: 'SIN' },
+      { codigo: 'ROTA' },
+    ]);
+    mp.detalleLicitacion.mockImplementation((codigo: string) =>
+      Promise.resolve(
+        detalle(
+          codigo,
+          codigo === 'ROTA' ? { Adjudicacion: { UrlActa: ACTA } } : {},
+        ),
+      ),
+    );
+    const fetch = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response('caída', { status: 503 }));
+    const resumen = resumenVacio();
+
+    await historia.revisarAdjudicaciones(resumen, ['Ñuble'], Date.now());
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(unidades.guardarActa).not.toHaveBeenCalled();
+    expect(resumen.adjudicaciones.revisadas).toBe(2);
+    expect(resumen.avisos).toEqual([]);
   });
 });
 

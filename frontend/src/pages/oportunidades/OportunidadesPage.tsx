@@ -289,26 +289,40 @@ function Bandeja({
     });
 
   const historial = filtros.vista === "historial";
+  const enSeguimiento = filtros.vista === "seguida";
   const {
-    data: lista = [],
+    data: todas = [],
     isPending,
     isError,
   } = useQuery({
     queryKey: ["oportunidades", "lista", historial ? "historial" : "vigentes"],
     queryFn: () => getOportunidades({ vigentes: !historial }),
   });
+  // Las que se siguen (decisión 30): también las ya cerradas, que esperan
+  // quién gana. Pocas, y aparte, para su número en el montón.
+  const { data: seguidas = [] } = useQuery({
+    queryKey: ["oportunidades", "lista", "seguidas"],
+    queryFn: () => getOportunidades({ vigentes: false, estado: "seguida" }),
+  });
+  const lista = enSeguimiento ? seguidas : todas;
 
   const base = useMemo(
     () => filtrarSinSemaforo(lista, filtros),
     [lista, filtros],
   );
   const cuenta = contarPorSemaforo(base);
-  const visibles = base.filter(
-    (o) => !o.semaforo || filtros.semaforos.includes(o.semaforo),
-  );
+  // En «En seguimiento» se ve todo el semáforo: casi siempre son rojas
+  // (una gira de estudio no se postula, se sigue).
+  const visibles = enSeguimiento
+    ? base
+    : base.filter((o) => !o.semaforo || filtros.semaforos.includes(o.semaforo));
   const porVista = useMemo(
-    () => contarPorVista(lista, filtros),
-    [lista, filtros],
+    () => ({
+      ...contarPorVista(todas, filtros),
+      seguida: filtrarSinSemaforo(seguidas, { ...filtros, vista: "seguida" })
+        .length,
+    }),
+    [todas, seguidas, filtros],
   );
   const regiones = useMemo(
     () =>
@@ -334,7 +348,9 @@ function Bandeja({
           ? "Descartada. Queda en «Descartadas»: no se borra."
           : estado === "en_estudio"
             ? "Quedó en «Mis licitaciones» para trabajarla."
-            : "Lista.",
+            : estado === "seguida"
+              ? "Queda en «En seguimiento»: el radar revisa cada día quién gana."
+              : "Lista.",
       );
       void qc.invalidateQueries({ queryKey: ["oportunidades", "lista"] });
       void qc.invalidateQueries({ queryKey: ["oportunidades", "mias"] });

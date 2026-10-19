@@ -13,7 +13,9 @@ export type EstadoOportunidad =
   | "postulada"
   | "ganada"
   | "perdida"
-  | "descartada";
+  | "descartada"
+  // Seguir una licitación sin postularla (decisión 30, migración 144).
+  | "seguida";
 
 export type TipoProceso = "licitacion" | "compra_agil";
 
@@ -122,6 +124,30 @@ export interface CambioDeProceso {
  *  motor lo pide a Mercado Público al abrirla (decisión 20). */
 export type DetalleMp = "trayendo" | "no_disponible" | null;
 
+/** EL ACTA PÚBLICA DE ADJUDICACIÓN (decisión 30 del doc 17, 19-10): cada
+ *  ítem con todas sus ofertas. */
+export interface OfertaDelActa {
+  rut: string | null;
+  proveedor: string;
+  detalle: string;
+  precio_unitario: number | null;
+  cantidad_adjudicada: number;
+  total_adjudicado: number;
+  adjudicada: boolean;
+}
+
+export interface ActaDeAdjudicacion {
+  informada: string | null;
+  monto_adjudicado: number | null;
+  items: Array<{
+    numero: number;
+    producto: string;
+    especificacion: string;
+    cantidad: number | null;
+    ofertas: OfertaDelActa[];
+  }>;
+}
+
 export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
   detalle_mp?: DetalleMp;
   /** Días de historia que faltan por cargar: con 0, "no hubo el año
@@ -142,6 +168,8 @@ export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
       cantidad?: number | null;
     }>;
     adjudicacion: Record<string, unknown> | null;
+    /** El acta pública de adjudicación leída (decisión 30, 19-10). */
+    acta?: ActaDeAdjudicacion | null;
     primera_vez_visto: string;
     actualizado_en: string;
   };

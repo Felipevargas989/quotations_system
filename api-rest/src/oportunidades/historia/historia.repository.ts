@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { ActaDeAdjudicacion } from './acta';
 
 // LA GRAN DESCARGA (19-10, decisión 28 del doc 17): la historia pide el
 // detalle solo de los compradores de las regiones configuradas. El código
@@ -11,6 +12,7 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 // líneas del portero.
 
 const PAGINA = 1000;
+const HORA = 60 * 60 * 1000;
 
 /** La unidad de compra de un código de Mercado Público. */
 export const unidadDelCodigo = (codigo: string): string =>
@@ -53,5 +55,44 @@ export class HistoriaRepository {
       if (!data || data.length < PAGINA) break;
     }
     return new Map([...unidades].map(([u, regiones]) => [u, [...regiones]]));
+  }
+
+  /** Las licitaciones que alguna empresa sigue (decisión 30, 19-10):
+   *  cerradas, todavía sin su acta leída y no revisadas en las últimas 20
+   *  horas. De cualquier región y color. */
+  async procesosSeguidos(limite: number): Promise<Array<{ codigo: string }>> {
+    const { data: seguidas, error: errorSeguidas } = await this.db
+      .from('oportunidades')
+      .select('codigo')
+      .eq('estado', 'seguida')
+      .limit(1000);
+    if (errorSeguidas) throw errorSeguidas;
+    const codigos = [
+      ...new Set(
+        ((seguidas ?? []) as Array<{ codigo: string }>).map((s) => s.codigo),
+      ),
+    ];
+    if (codigos.length === 0) return [];
+    const ahora = Date.now();
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('codigo')
+      .in('codigo', codigos)
+      .eq('tipo', 'licitacion')
+      .is('acta', null)
+      .lt('fecha_cierre', new Date(ahora).toISOString())
+      .lt('actualizado_en', new Date(ahora - 20 * HORA).toISOString())
+      .order('fecha_cierre', { ascending: false })
+      .limit(limite);
+    if (error) throw error;
+    return (data ?? []) as Array<{ codigo: string }>;
+  }
+
+  async guardarActa(codigo: string, acta: ActaDeAdjudicacion): Promise<void> {
+    const { error } = await this.db
+      .from('mp_procesos')
+      .update({ acta, acta_leida_en: new Date().toISOString() })
+      .eq('codigo', codigo);
+    if (error) throw error;
   }
 }

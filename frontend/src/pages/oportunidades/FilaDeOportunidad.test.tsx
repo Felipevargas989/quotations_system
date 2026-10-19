@@ -79,4 +79,22 @@ describe("Una fila de la bandeja", () => {
     expect(urgencia.className).not.toMatch(/red/);
     expect(urgencia.querySelector("svg")).not.toBeNull();
   });
+
+  it("sin «Ver resumen»: la fila entera abre el resumen; una seguida dice en qué va en Mercado Público (19-10)", () => {
+    pintar(
+      oportunidad({
+        estado: "seguida",
+        proceso: {
+          ...oportunidad().proceso,
+          estado: "Cerrada",
+        } as Oportunidad["proceso"],
+      }),
+    );
+    expect(
+      screen.queryByRole("button", { name: /Ver resumen/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("En seguimiento · Mercado Público: Cerrada"),
+    ).toBeInTheDocument();
+  });
 });
