@@ -273,7 +273,7 @@ describe('lo que lee la IA', () => {
       'días del funcionario, del profesor o del dirigente',
     );
     expect(texto).toContain(
-      'la celebración no dice dónde, es "si". Las capacitaciones, jornadas y talleres que no dicen dónde siguen "dudoso"',
+      'la celebración no dice dónde, es "si". Las capacitaciones, jornadas de trabajo y talleres que no dicen dónde siguen "dudoso"',
     );
     // El verde sale de "se hace en el complejo".
     expect(texto).toContain(
@@ -290,8 +290,28 @@ describe('lo que lee la IA', () => {
     expect(texto).toContain('("no" si es donde el comprador)');
   });
 
+  it('el filtro afinado del 18-10 en la noche: el curso no es el lugar, el evento público es en la comuna, lo POR EVALUAR con monto mínimo y ejemplos reales', () => {
+    // Felipe, con 87 amarillas: "quiero afinar el ojo del filtro... corramos
+    // a, b, c y d y dejemos mejor entrenado a ese agente".
+    const texto = instruccionesPara(EMPRESA);
+    expect(texto).toContain(
+      'en que se compra el curso, el relator, el monitor o el contenido NO es del rubro',
+    );
+    expect(texto).toContain(
+      'Un evento público del comprador (feria, festival, show',
+    );
+    expect(texto).toContain('jornadas recreativas o de autocuidado');
+    expect(texto).toContain(
+      'Si lo POR EVALUAR pide un monto mínimo y el proceso informa un monto menor, no está por evaluar',
+    );
+    expect(texto).toContain('EJEMPLOS (casos reales de Mercado Público)');
+    expect(texto).toContain(
+      '«Curso de capacitación manejo avanzado de heridas»',
+    );
+  });
+
   it('la lectura queda marcada con el modelo y la versión de las reglas', () => {
-    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 18-10');
+    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 18-10, noche');
     expect(LECTURA_ACTUAL.startsWith(MODELO_LECTURA)).toBe(true);
   });
 
