@@ -296,6 +296,12 @@ describe('Crear propuesta técnica', () => {
       expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
       expect(plan.sistema).toContain(LO_SUBCONTRATADO);
       expect(plan.sistema).toContain('No agregues secciones propias');
+      // Que se subcontrata es interno: nunca en el Word (Felipe: "no es
+      // interés de la municipalidad saberlo").
+      expect(plan.sistema).toContain('sin decir que se subcontrata');
+      expect(plan.sistema).toContain(
+        'va SOLO en pendientes, nunca en el documento',
+      );
       expect(plan.sistema).not.toContain('Entendimiento del servicio;');
       expect(plan.sistema).not.toContain('Compromisos (calidad');
     }));
