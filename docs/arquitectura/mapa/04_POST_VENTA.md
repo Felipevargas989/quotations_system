@@ -1,6 +1,6 @@
 # Mapa: Post-Venta
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; el 20-10-2026, la pregunta del reembolso al anular (§5.4). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -82,7 +82,7 @@ Formas de llegar a Post-Venta:
 | `event_documents` | Documentos por cotización. `category` puede ser `contratos`, `ordenes_compra`, `facturas`, `otros` o `comercial` (lo restringe `AddDocumentDto`; en la base es texto libre); `file_name` guarda el comentario, `file_url` la ruta en el balde, y además `uploaded_at`. **No tiene `company_id`**: la pertenencia se verifica a través de la cotización. Se borra en cascada con `quotations` (`ON DELETE CASCADE`) | Lee y escribe | `8_event_documents.sql`; índice `idx_event_documents_quotation` en `66_indices_de_consultas_calientes.sql`; el acceso directo a todas las tablas se cerró en `40_cerrar_acceso_directo.sql` y `41_barrida_final_anon.sql` |
 | Balde de Storage `payment-receipts` (no es tabla) | Archivos en `c<empresa>/event-documents/<cotización>/<categoría>/<fecha>_<nombre>`, más rutas viejas del tipo `event-documents/<cotización>/...` | Solo el motor escribe, firma enlaces y borra | `9_storage_payment_receipts_bucket.sql` (nace público); `42_storage_candado.sql` (pasa a privado) |
 | `payments`, `payment_transactions` | Cuotas y abonos; de aquí sale la lista | Lee; escriben la cascada de `update` y la pestaña Pagos | `0_initial_models.sql` (mapa 03) |
-| `refunds` | Reembolsos; se crean solos cuando baja el total | Lee; escribe la cascada | `0_initial_models.sql` (mapa 03) |
+| `refunds` | Reembolsos; se crean solos cuando baja el total, o al anular con «Sí, reembolsar» (20-10-2026) | Lee; escribe la cascada | `0_initial_models.sql` (mapa 03) |
 | `portal_receipts` | Comprobantes del portal por confirmar | Lee y confirma o rechaza | `49_comprobantes_portal.sql` (mapa 03) |
 | `quotation_followups` | Hilo de seguimiento y `next_contact_date` | Lee (mapa de compromisos) | `59_bitacora_comercial.sql` (mapa 02) |
 | `clients`, `client_contacts` | Nombre y tipo del cliente; mandante con teléfono, correo y `portal_token` | Lee | `0_initial_models.sql`; `34_client_contacts.sql`; `48_portal_del_mandante.sql`, que pone `portal_token` en `client_contacts` (mapa 09). La `47_portal_token.sql` lo había puesto en `quotations`, y la 48 deja esa columna sin uso |
@@ -143,13 +143,14 @@ Formas de llegar a Post-Venta:
 
 ### 5.4 Anular un evento
 1. "Anular evento" se ve solo si `userRole === "administrador"` (`canCancel`), el evento no está realizado y no se está confirmando el realizado.
-2. `MotivoPerdida` con `tipo="anulacion"` (`MOTIVOS_ANULACION`) → `doCancelEvent(motivo)` → `updateQuotation({ quotation_status: 'cancelada', loss_reason })` → `PATCH /quotations/:id` → `QuotationsService.update`, que:
+2. `MotivoPerdida` con `tipo="anulacion"` (`MOTIVOS_ANULACION`) y `quotationId`. Si el evento tiene abonos sin reembolsar, `ReembolsoAlAnular` pregunta «¿Se reembolsan?» y no deja confirmar sin respuesta; con «Sí» propone todo lo disponible y deja bajarlo (20-10-2026, Felipe, 20-10-2026: *"al momento de anular un evento con reembolsos el sistema debería preguntar si se reembolsarán los ingresos y si se coloca sí, generar el reembolso"*). → `doCancelEvent(motivo, reembolso)` → `updateQuotation(cambioDeAnulacion(motivo, reembolso))` (`utils/reembolsoAlAnular.ts`) → `PATCH /quotations/:id` → `QuotationsService.update`, que:
    - pasa el candado (el evento no está realizado) y el filtro de recepción;
    - no rehace la cuenta, porque el cambio no toca plata;
    - no aplica la guardia post-venta → pre-venta;
    - no corre la cascada del plan, porque no viaja `total_amount`;
-   - termina en `QuotationsRepository.update`.
-3. Cuotas, abonos y comprobantes quedan como historia. `onDataChanged` y `onClose` devuelven a la lista, donde el evento queda oculto por defecto (visible con "Anulados") y fuera de los totales.
+   - si viene `reembolso_al_anular`, revisa que no pase de lo abonado sin reembolsar (paso 5b del mapa 01);
+   - termina en `QuotationsRepository.update` y, con «Sí», crea el reembolso pendiente.
+3. Cuotas, abonos y comprobantes quedan como historia; el reembolso, si lo hubo, queda pendiente en Pagos → Reembolsos. `onDataChanged` y `onClose` devuelven a la lista, donde el evento queda oculto por defecto (visible con "Anulados") y fuera de los totales.
 4. El comentario que pide `MotivoPerdida` se pierde en esta pantalla (ver sección 10).
 
 ### 5.5 Editar servicios: guardado automático y su freno

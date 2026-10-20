@@ -56,6 +56,11 @@ import {
   hasMoneyToVerify,
   verifyMoney,
 } from './utils/money';
+import {
+  REEMBOLSO_SOLO_AL_ANULAR,
+  disponibleParaReembolsar,
+  reembolsoMayorQueLoAbonado,
+} from './utils/reembolso-al-anular';
 
 /** Lo que la sesión trae del plan: los derechos y los topes. */
 export type DerechosDeLaSesion = {
@@ -1212,6 +1217,32 @@ export class QuotationsService {
         await this.paymentsService.deletePaymentPlan(id, companyId);
       }
 
+      // REEMBOLSO AL ANULAR (20-10-2026, utils/reembolso-al-anular.ts): se
+      // valida ANTES de anular y nace DESPUÉS de guardar, para no dejar un
+      // evento anulado con un reembolso rechazado. No es columna.
+      const reembolsoAlAnular = updateQuotationDto.reembolso_al_anular;
+      delete updateQuotationDto.reembolso_al_anular;
+      if (reembolsoAlAnular !== undefined) {
+        if (
+          targetStatus !== QuotationStatus.CANCELADA ||
+          quotation.quotation_status !== QuotationStatus.ACEPTADA
+        ) {
+          throw new BadRequestException(REEMBOLSO_SOLO_AL_ANULAR);
+        }
+        const { data: cuotas } =
+          await this.paymentsService.findAllPaymentsFromQuotation(
+            [id],
+            companyId,
+          );
+        const disponible = disponibleParaReembolsar(
+          cuotas ?? [],
+          await this.refundsService.findByQuotation(companyId, id),
+        );
+        if (reembolsoAlAnular > disponible) {
+          throw new BadRequestException(reembolsoMayorQueLoAbonado(disponible));
+        }
+      }
+
       // 1. Check quotation status
       // If quotation_states is accepted, handle update payment plan (payments)
       // CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): si cambia el
@@ -1359,11 +1390,18 @@ export class QuotationsService {
       }
 
       // update quotation
-      return this.quotationsRepository.update(
+      const guardada = await this.quotationsRepository.update(
         id,
         updateQuotationDto,
         companyId,
       );
+      if (reembolsoAlAnular) {
+        await this.refundsService.create({
+          amount: reembolsoAlAnular,
+          quotation_id: id,
+        });
+      }
+      return guardada;
       // 3. If quotation_status is not accepted, update quotation
     } catch (error) {
       this.logger.error(error);
