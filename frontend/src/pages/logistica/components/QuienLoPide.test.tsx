@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import QuienLoPide from "./QuienLoPide";
-import { pedidosPorInsumo } from "./pedidosPorInsumo";
+import { numerosDeCotizacion, pedidosPorInsumo } from "./pedidosPorInsumo";
 
 // QUÉ COTIZACIÓN PIDE CADA INSUMO (20-10-2026). Felipe: "al lado de cada
 // item, podría aparecer un detalle de qué cotización necesita ese
@@ -88,5 +88,19 @@ describe("QuienLoPide", () => {
   it("sin cotizaciones no dibuja nada", () => {
     const { container } = render(<QuienLoPide pedidos={[]} unidad="kg" />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("numerosDeCotizacion (el PDF de la orden de compra)", () => {
+  // Felipe: "¿puede pasarse al pdf los números de cotización?". En papel
+  // no hay verde: lo provisionado lleva ✓.
+  it("todos los números en el orden de la tabla, con ✓ lo ya provisionado", () => {
+    expect(numerosDeCotizacion(armar().get(10))).toBe("#554 · #552 ✓ · #460");
+    expect(numerosDeCotizacion(armar().get(20))).toBe("#552");
+  });
+
+  it("sin cotizaciones queda vacío", () => {
+    expect(numerosDeCotizacion(undefined)).toBe("");
+    expect(numerosDeCotizacion([])).toBe("");
   });
 });

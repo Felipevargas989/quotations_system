@@ -43,3 +43,12 @@ export function pedidosPorInsumo(
   }
   return porInsumo;
 }
+
+/** Los números para el PDF, donde no hay colores: «#384 ✓ · #456»; el ✓
+ *  marca lo ya provisionado para esa cotización (lo verde en pantalla). */
+export const numerosDeCotizacion = (
+  pedidos: readonly PedidoDeInsumo[] | undefined,
+): string =>
+  (pedidos ?? [])
+    .map((p) => `#${p.numero}${p.provisionado ? " ✓" : ""}`)
+    .join(" · ");
