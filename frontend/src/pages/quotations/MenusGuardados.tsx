@@ -60,6 +60,9 @@ export default function MenusGuardados({
   // La categoría de la casilla: todos los menús de la lista son de ella.
   const categoria = conCategoria ? (menus[0]?.category ?? null) : null;
   const grupos = categoria ? gruposDeMenus.gruposDe(categoria) : [];
+  // Sin los grupos todavía, la lista no se dibuja: salía por precio sin
+  // títulos y un instante después saltaba a sus grupos (20-10-2026).
+  const esperandoGrupos = Boolean(categoria) && gruposDeMenus.cargando;
 
   // Por grupo y, dentro, de menor a mayor precio por persona (10-10). El
   // buscador mira el nombre del menú Y el de su grupo.
@@ -133,25 +136,31 @@ export default function MenusGuardados({
           </div>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          <ListaConGrupos
-            filas={filas}
-            conTitulos={grupos.length > 0}
-            marcada={lista.marcada}
-            refMarcada={lista.refMarcada}
-            pregunta={pregunta}
-            onNo={onCancelarEliminar}
-            onElegir={(id) => {
-              const m = menuDe(id);
-              if (m) onElegir(m);
-            }}
-            onEditar={(id) => setEditando(menuDe(id) ?? null)}
-            onPedirEliminar={onPedirEliminar}
-            tituloEliminar="Eliminar menú guardado"
-          />
-          {lista.filtradas.length === 0 && (
-            <p className="px-3 py-2 text-sm text-gray-400">
-              Ninguno calza con la búsqueda.
-            </p>
+          {esperandoGrupos ? (
+            <p className="px-3 py-2 text-sm text-gray-400">Cargando…</p>
+          ) : (
+            <>
+              <ListaConGrupos
+                filas={filas}
+                conTitulos={grupos.length > 0}
+                marcada={lista.marcada}
+                refMarcada={lista.refMarcada}
+                pregunta={pregunta}
+                onNo={onCancelarEliminar}
+                onElegir={(id) => {
+                  const m = menuDe(id);
+                  if (m) onElegir(m);
+                }}
+                onEditar={(id) => setEditando(menuDe(id) ?? null)}
+                onPedirEliminar={onPedirEliminar}
+                tituloEliminar="Eliminar menú guardado"
+              />
+              {lista.filtradas.length === 0 && (
+                <p className="px-3 py-2 text-sm text-gray-400">
+                  Ninguno calza con la búsqueda.
+                </p>
+              )}
+            </>
           )}
         </div>
         {categoria && (

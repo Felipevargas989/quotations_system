@@ -40,18 +40,26 @@ vi.mock("../../hooks/useServiceGroups", () => ({
   }),
 }));
 
-vi.mock("../../hooks/useGruposDeMenus", () => ({
-  useGruposDeMenus: () => ({
+const usarGrupos = vi.hoisted(() =>
+  vi.fn(() => ({
     gruposDe: () => [],
+    cargando: false,
     crear: vi.fn(),
     renombrar: vi.fn(),
     ordenar: vi.fn(),
     borrar: vi.fn(),
     asignar: vi.fn(),
-  }),
+  })),
+);
+
+vi.mock("../../hooks/useGruposDeMenus", () => ({
+  useGruposDeMenus: usarGrupos,
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usarGrupos.mockClear();
+});
 
 const abrir = (categoria: string, onElegir = vi.fn()) => {
   render(
@@ -105,6 +113,16 @@ describe("MenuGuardadoDeCaja", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Usar menú guardado/ }));
     expect(onAbrir).toHaveBeenCalledTimes(1);
+  });
+
+  it("pide los niveles al dibujarse la casilla, antes de abrir la lista (20-10-2026)", () => {
+    // Felipe: "se reordenan". Si se piden al abrir, la lista sale por
+    // precio y un instante después salta a sus niveles.
+    render(<MenuGuardadoDeCaja categoria="Almuerzo" onElegir={vi.fn()} />);
+    expect(
+      screen.queryByPlaceholderText(/Buscar menú/),
+    ).not.toBeInTheDocument();
+    expect(usarGrupos).toHaveBeenCalled();
   });
 
   it("sin categoría en la casilla muestra todos los menús", () => {

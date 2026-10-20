@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import MenusGuardados from "../quotations/MenusGuardados";
 import { useServiceGroups } from "../../hooks/useServiceGroups";
+import { useGruposDeMenus } from "../../hooks/useGruposDeMenus";
 import type { ServiceGroup } from "../../types/serviceGroups.types";
 
 /**
@@ -37,6 +38,10 @@ export default function MenuGuardadoDeCaja({
   readonly onAbrir?: () => void;
 }) {
   const { groups, removeGroup, renameGroup } = useServiceGroups();
+  // Los grupos (niveles) se piden al dibujarse la casilla y no al abrir la
+  // lista, para que la lista abra ya ordenada por nivel (Felipe, 20-10:
+  // "se reordenan"). Todas las casillas comparten una sola petición.
+  useGruposDeMenus();
   const [abierto, setAbierto] = useState(false);
   const [confirmando, setConfirmando] = useState<number | null>(null);
   const envoltorio = useRef<HTMLDivElement>(null);
