@@ -53,61 +53,18 @@ export const avanceDeLaFicha = (d: {
   };
 };
 
-export type SiguientePaso = {
-  texto: string;
-  /** El botón que lleva a la pestaña donde se hace; sin botón cuando no
-   *  hay nada que apretar (la IA está trabajando o ya se postuló). */
-  boton: { texto: string; pestana: PestanaDeFicha } | null;
-};
-
-const QUE_HACER: Record<string, SiguientePaso> = {
-  Bases: {
-    texto: "Sube las bases y anexos que bajaste de Mercado Público.",
-    boton: { texto: "Subir las bases", pestana: "bases" },
-  },
-  Análisis: {
-    texto: "Que la IA lea las bases: criterios, requisitos y fechas.",
-    boton: { texto: "Analizar las bases", pestana: "bases" },
-  },
-  Anexos: {
-    texto:
-      "Pon el precio y que la IA arme la postulación: la oferta, los anexos y la propuesta.",
-    boton: { texto: "Armar postulación", pestana: "postulacion" },
-  },
-  Firma: {
-    texto: "Revisa los anexos que hizo la IA y fírmalos.",
-    boton: { texto: "Ir a firmar", pestana: "postulacion" },
-  },
-  Validación: {
-    texto: "Revisa que no falte nada antes de subirla.",
-    boton: { texto: "Validar documentos", pestana: "postulacion" },
-  },
-  Postulada: {
-    texto:
-      "Súbela a Mercado Público y cambia el estado a «Postulada» (arriba).",
-    boton: null,
-  },
-};
-
-/** El primer paso sin hacer, en palabras. Postulada, ya no hay nada que
- *  apretar (aunque la validación haya quedado con aviso). */
-export const siguientePaso = (
+/** El primer paso sin hacer: el que se marca en el camino. Postulada, ya no
+ *  hay nada que hacer (aunque la validación haya quedado con aviso). Desde
+ *  el 20-10 el camino es solo la línea de tiempo, sin botón ni frase
+ *  (Felipe: "creo que ese botón no suma.... saquémoslo"; "deja solamente la
+ *  línea de tiempo, a veces menos es más"). */
+export const pasoQueSigue = (
   pasos: readonly PasoDelAvance[],
-): SiguientePaso & { paso: string | null } => {
+): string | null => {
   const postulada =
     pasos.find((p) => p.paso === "Postulada")?.estado === "hecho";
-  const paso = postulada ? undefined : pasos.find((p) => p.estado !== "hecho");
-  if (!paso) {
-    return { paso: null, texto: "Postulada. Ahora a esperar.", boton: null };
-  }
-  if (paso.estado === "en_curso") {
-    return {
-      paso: paso.paso,
-      texto: `La IA está trabajando en «${paso.paso}»…`,
-      boton: null,
-    };
-  }
-  return { paso: paso.paso, ...QUE_HACER[paso.paso] };
+  if (postulada) return null;
+  return pasos.find((p) => p.estado !== "hecho")?.paso ?? null;
 };
 
 /** El evento en corto: «vie 30 oct» y «18:00 a 02:00 · 160 personas»; el
@@ -182,3 +139,15 @@ export const COLOR_DEL_ARCHIVO: Record<ClaseDeArchivo, string> = {
   imagen: "text-violet-600",
   otro: "text-gray-500",
 };
+
+/** ¿Ya se adjudicó? (decisión 59): la empresa la marcó ganada o perdida, o
+ *  Mercado Público ya la dice adjudicada. Hasta entonces se puede reclamar
+ *  en el Centro de Ayuda; después, solo impugnar ante el Tribunal. */
+export const yaSeAdjudico = (f: {
+  estado: string;
+  proceso: { estado: string | null; adjudicacion: unknown };
+}): boolean =>
+  f.estado === "ganada" ||
+  f.estado === "perdida" ||
+  Boolean(f.proceso.adjudicacion) ||
+  /adjudicad/i.test(f.proceso.estado ?? "");
