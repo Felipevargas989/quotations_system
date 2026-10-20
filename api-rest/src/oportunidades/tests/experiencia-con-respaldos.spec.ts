@@ -38,7 +38,7 @@ describe('La experiencia en los anexos', () => {
           numero: '4352-103-SE23',
           mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
           contrato: 'Cena del Día del Funcionario 2023',
-          anio: 2023,
+          anio: new Date().getFullYear(),
           monto: 11_782_499,
           fuente: 'mercado_publico',
           archivo: 'OC 4352-103-SE23.pdf',
@@ -128,5 +128,37 @@ describe('La experiencia en los anexos', () => {
       expect(sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
       expect(sistema).toContain('N° 5043-27-AG26');
       expect(sistema).not.toContain('MÁS RESPALDOS');
+    }));
+
+  it('solo los respaldos de los últimos 24 meses (decisión 52): uno viejo o sin año no se ofrece, y nunca una fila sin respaldo', () =>
+    entorno(async () => {
+      const { oferente, servicio, ejecutar } = armar();
+      const este = new Date().getFullYear();
+      const respaldo = (numero: string, anio: number | null) => ({
+        numero,
+        mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+        contrato: 'Cena',
+        anio,
+        monto: 1_000_000,
+        fuente: 'mercado_publico',
+        archivo: `OC ${numero}.pdf`,
+      });
+      oferente.respaldos.mockResolvedValue([
+        respaldo('5040-111-AG26', este),
+        respaldo('4352-103-SE23', este - 3),
+        respaldo('9999-1-AG21', null),
+      ]);
+      await servicio.generarAnexos(1, CUENTA, 40, {
+        monto_total: 11_900_000,
+        post_venta: [],
+      });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('N° 5040-111-AG26');
+      expect(sistema).not.toContain('N° 4352-103-SE23');
+      expect(sistema).not.toContain('N° 9999-1-AG21');
+      expect(sistema).toContain(
+        'NUNCA pongas una fila sin su respaldo ni una de fuera del período',
+      );
+      expect(sistema).toContain('Solo los de los últimos 24 meses');
     }));
 });
