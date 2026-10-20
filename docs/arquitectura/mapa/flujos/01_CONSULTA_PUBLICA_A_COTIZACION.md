@@ -178,7 +178,7 @@ El texto de la casa (`TEXTO_DE_LA_CASA`) invita a "respóndenos este mismo corre
 1. Arma un `CreateQuotationDto` con:
    - `client_id`, `event_type`, `people_count`, `children_count` (o 0) y `event_date`;
    - `contact_name` = el nombre de quien llenó el formulario;
-   - `observations` = `[Desde formulario publico] --- ` seguido de las observaciones;
+   - `observations` = vacío (desde el 19-10-2026; antes, `[Desde formulario publico] --- ` seguido del mensaje), y `comentario_interno` = «Mensaje del cliente en el formulario público: …» con el presupuesto y lo que escribió el visitante (`mensajeDelFormulario`; sin texto, nulo);
    - `quotation_status = 'solicitada'` y `request_type = 'requerimiento'`.
 2. `QuotationsService.create(dto, company_id, undefined)` sigue el mismo camino que en A6, pero sin ítems ni montos (`hasMoneyToVerify` da falso) y con `user_id` vacío → INSERT en `quotations`.
 
@@ -286,7 +286,7 @@ sequenceDiagram
 | `client_contacts` | INSERT `client_id`, `name`, `email`, `phone`, `is_primary = true`, `company_id`, `portal_token` | A5 (cliente nuevo) y B1 (sin match) | `ClientContactsRepository.create`, dentro de `ClientsService.create` (garantía de nacimiento) |
 | `client_contacts` | INSERT con `is_primary = false` | A5 (cliente existente sin ese correo) | `ClientContactsRepository.create`, desde `ConsultasService.convertir` |
 | `company_quotation_counters` | upsert de `last_number`: si la empresa no tiene fila, la crea con el máximo real + 1; si la tiene, la actualiza a `GREATEST(last_number, máximo real) + 1`, bloqueando la fila | A6 y B2 | función `next_quotation_number` (migración 38), vía `QuotationsRepository.nextQuotationNumber` |
-| `quotations` | INSERT `client_id`, `event_type`, `people_count`, `children_count`, `contact_name`, `client_contact_id`, `observations` ("[Desde formulario publico] --- …"), `event_date` (UTC), `event_end_date = null`, `company_id`, `quotation_number`, `quotation_status = 'solicitada'`, `request_type = 'requerimiento'`, montos en 0, `tip_percentage = null`, `requires_invoice` y `has_contract` en false, `items` vacío, `payment_plan_type` por defecto, `user_id` vacío | B2 | `QuotationsRepository.create` (puerta pública) |
+| `quotations` | INSERT `client_id`, `event_type`, `people_count`, `children_count`, `contact_name`, `client_contact_id`, `observations` (vacío desde el 19-10-2026), `comentario_interno` (el mensaje del visitante), `event_date` (UTC), `event_end_date = null`, `company_id`, `quotation_number`, `quotation_status = 'solicitada'`, `request_type = 'requerimiento'`, montos en 0, `tip_percentage = null`, `requires_invoice` y `has_contract` en false, `items` vacío, `payment_plan_type` por defecto, `user_id` vacío | B2 | `QuotationsRepository.create` (puerta pública) |
 | `quotations` | INSERT con `items`, montos verificados, `tip_*`, `discount_*`, `contact_name`, `client_contact_id`, `event_end_date`, `request_type = 'cotizacion'`, `quotation_status = 'solicitada'`, `user_id` | A6 | `QuotationsRepository.create`, vía `POST /quotations` |
 | `quotations` | UPDATE `request_type = 'cotizacion'`, ítems, montos, datos del evento y `client_contact_id` (si viene `contact_name`) | B4 | `QuotationsRepository.update`, vía `PATCH /quotations/:id` |
 
@@ -421,7 +421,7 @@ sequenceDiagram
 ### Si el dato viene incompleto o raro
 
 - **Tipo que no está en el catálogo** (histórico o por API directa): entra como cotización.
-- **Llamada directa a la API sin `observations`** en la rama B: queda `[Desde formulario publico] --- undefined`, por la plantilla de texto. El formulario web siempre manda texto.
+- ~~**Llamada directa a la API sin `observations`** en la rama B: quedaba `[Desde formulario publico] --- undefined`~~: resuelto el 19-10-2026, las observaciones parten en blanco.
 - **`event_date` con hora por API directa en la rama B:** `@IsDateString` acepta una fecha con hora, pero `getEventDateUtc` le pega `T00:00:00Z` y la fecha queda inválida; `toISOString` lanza error y la petición falla **después** de haber creado el cliente. En la rama A esa misma fecha entra a la columna `date` de `consultas` sin problema. Leído en el código, no ejecutado.
 - **Presupuesto duplicado en el aviso interno:** sale como fila propia y también dentro de "Comentario del cliente", porque `createPublic` lo antepone a `observations` antes de armar el aviso.
 - **Cliente existente con un contacto que tiene el mismo correo pero otro nombre:** `convertir` no agrega a la persona, el `contact_name` de la consulta no calza por nombre en `resolveContactId` y la cotización queda con `client_contact_id` nulo. Eso afecta al portal y al destinatario del envío por correo (doc 13).
@@ -453,7 +453,7 @@ sequenceDiagram
 
 ### Huecos
 
-- `QuotationsService.createPublic`: no tiene pruebas (grep de `createPublic` en los specs: 0). Queda sin cubrir la bifurcación, el anexo del presupuesto, el nombre del cliente por organización, el prefijo "[Desde formulario publico]" y los dos correos.
+- `QuotationsService.createPublic`: desde el 19-10-2026, `formulario-publico.spec.ts` cubre dónde queda el mensaje y el presupuesto (comentario interno) y que las observaciones partan en blanco. Siguen sin cubrir la bifurcación, el nombre del cliente por organización y los dos correos.
 - `ClientsRepository.findMatch` (correo en la ficha y en las personas): sin pruebas.
 - `EventTypesService` y `EventTypesRepository`: sin pruebas propias (`entradaDe` nulo que va a cotización, eliminar un tipo en uso, `listarPublico` solo con activos).
 - `ConsultasRepository` real: sin pruebas del escape de ILIKE, la ventana de 24 horas, el límite de 20 ni el candado en la base. La spec simula el repositorio.

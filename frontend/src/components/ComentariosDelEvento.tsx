@@ -83,7 +83,6 @@ export default function ComentariosDelEvento({
           maxLength={5000}
           disabled={deshabilitado || noCargado}
           className={`${caja} border-amber-200 bg-amber-50 focus:ring-amber-400`}
-          placeholder="Instrucciones para armar la cotización: menú económico, tres días, con desayuno…"
         />
         {noCargado && (
           <p className="mt-1 text-xs text-amber-700">
