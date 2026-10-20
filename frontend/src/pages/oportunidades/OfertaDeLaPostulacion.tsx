@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ClipboardList } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Square } from "lucide-react";
 import { useState } from "react";
 import { getAnalisis } from "../../services/oportunidades.service";
 import {
@@ -18,6 +18,13 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // que queda por definir. La oferta punto por punto va plegada: de ella
 // salen la cotización, la propuesta técnica y los anexos, y los tres dicen
 // lo mismo. Se arma con «Armar postulación»: esto solo la muestra.
+//
+// Desde el 20-10 (decisión 57), en tres partes: «Subcontratar», un solo
+// pedido al proveedor externo con su checklist (Felipe: "siempre va a ser
+// un requerimiento al proveedor"); los detalles de lo que ya vende, que van
+// al comentario interno de la cotización ("no puedo hacer un producto por
+// cada variación del principal"); y lo que de verdad hay que conseguir, que
+// casi nunca hay. Una oferta de antes se sigue viendo como antes.
 
 const ORIGEN: Record<
   FilaDeLaOferta["origen"],
@@ -36,6 +43,10 @@ const ORIGEN: Record<
  *  anexos. */
 const loQueHayQueConseguir = (r: ArmadoDeLaOferta) => ({
   conseguir: r.faltan_en_el_catalogo,
+  subcontratar: r.subcontratar ?? [],
+  detalles: r.detalles ?? [],
+  /** Una oferta de antes de la decisión 57 mezclaba todo en «conseguir». */
+  deAntes: r.subcontratar === undefined,
   porDefinir: r.matriz
     .filter(
       (f) =>
@@ -63,7 +74,13 @@ export default function OfertaDeLaPostulacion({
   });
   const r = trabajo?.estado === "listo" ? trabajo.resultado : null;
   if (!trabajo || !r) return null;
-  const { conseguir, porDefinir } = loQueHayQueConseguir(r);
+  const { conseguir, subcontratar, detalles, deAntes, porDefinir } =
+    loQueHayQueConseguir(r);
+  const nada =
+    conseguir.length === 0 &&
+    subcontratar.length === 0 &&
+    detalles.length === 0 &&
+    porDefinir.length === 0;
   // El Día del Profesor (19-10): la oferta seguía siendo la de antes de
   // volver a analizar, con el decreto de otra licitación.
   const anteriorAlAnalisis =
@@ -89,16 +106,58 @@ export default function OfertaDeLaPostulacion({
         </p>
       )}
 
-      {conseguir.length === 0 && porDefinir.length === 0 ? (
+      {nada ? (
         <p className="text-sm text-green-800">
           Todo lo que ofreces sale de tu catálogo.
         </p>
       ) : (
         <div className="space-y-3">
+          {subcontratar.length > 0 && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
+              <p className="text-sm font-semibold text-amber-900">
+                Subcontratar: lo que le pides al proveedor (
+                {subcontratar.length})
+              </p>
+              <ul className="text-sm text-amber-900 space-y-0.5">
+                {subcontratar.map((t) => (
+                  <li key={t} className="flex items-start gap-1.5">
+                    <Square
+                      size={13}
+                      className="mt-1 shrink-0 text-amber-700"
+                      aria-hidden="true"
+                    />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-amber-800">
+                Es un solo pedido al proveedor externo (casi siempre, el
+                audiovisual). También queda en el comentario interno de la
+                cotización.
+              </p>
+            </div>
+          )}
+          {detalles.length > 0 && (
+            <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 space-y-1">
+              <p className="text-sm font-semibold text-gray-800">
+                Detalles para el comentario interno ({detalles.length})
+              </p>
+              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
+                {detalles.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500">
+                Salen con tus productos de siempre. Quedan en el comentario
+                interno de la cotización para el seguimiento.
+              </p>
+            </div>
+          )}
           {conseguir.length > 0 && (
             <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
               <p className="text-sm font-semibold text-amber-900">
-                Conseguir o subcontratar ({conseguir.length})
+                {deAntes ? "Conseguir o subcontratar" : "Conseguir"} (
+                {conseguir.length})
               </p>
               <ul className="list-disc pl-5 text-sm text-amber-900 space-y-0.5">
                 {conseguir.map((f) => (

@@ -80,6 +80,7 @@ export default function AdjuntosDeLaOportunidad({
   accionesDeFila,
   pie,
   plegadaDePartida = false,
+  filtrar,
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
@@ -90,13 +91,19 @@ export default function AdjuntosDeLaOportunidad({
   /** Con el análisis de las bases hecho, la lista parte plegada en una
    *  línea: lo importante pasa a ser lo que dicen las bases. */
   readonly plegadaDePartida?: boolean;
+  /** Qué archivos se muestran (en «Mi postulación», sin el Word de lo ya
+   *  firmado). Sin él, todos. */
+  readonly filtrar?: (
+    adjuntos: AdjuntoDeOportunidad[],
+  ) => AdjuntoDeOportunidad[];
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
-  const { data: adjuntos = [], isPending } = useQuery({
+  const { data: todos = [], isPending } = useQuery({
     queryKey: clave,
     queryFn: () => getAdjuntos(oportunidadId, seccion),
   });
+  const adjuntos = filtrar ? filtrar(todos) : todos;
 
   const [subiendo, setSubiendo] = useState<{
     actual: number;
