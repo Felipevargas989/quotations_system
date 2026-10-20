@@ -11,7 +11,16 @@ import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
  */
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'insert', 'delete', 'eq', 'in', 'order', 'limit'];
+const METODOS = [
+  'select',
+  'insert',
+  'update',
+  'delete',
+  'eq',
+  'in',
+  'order',
+  'limit',
+];
 
 /** Con varias respuestas, una por consulta en orden (la última se repite). */
 function armar(
@@ -101,7 +110,7 @@ describe('AdjuntosRepository — cada consulta es de UNA empresa', () => {
     ]);
     expect(consultas[0].pasos[0]).toEqual([
       'select',
-      'oportunidad_id, seccion, origen',
+      'id, oportunidad_id, seccion, origen, viene_de',
     ]);
     consultas.length = 0;
     await expect(repo.origenesDe(1, [])).resolves.toEqual([]);
@@ -185,5 +194,89 @@ describe('AdjuntosRepository — el balde', () => {
     const firmados = armar([{ data: [{ viene_de: 63 }] }]);
     await expect(firmados.repo.borrarBorradores(1, 84, [63])).resolves.toBe(0);
     expect(firmados.consultas).toHaveLength(1);
+  });
+});
+
+describe('Se firma y se borra (decisión 58)', () => {
+  it('los pares: cada firmado con el Word del que salió, si ese Word sigue ahí', async () => {
+    const { repo, consultas } = armar({
+      data: [
+        {
+          id: 64,
+          nombre: 'Formulario N°5 - lleno.docx',
+          ruta: 'r/64.docx',
+          origen: 'generado',
+          viene_de: 54,
+          generacion_id: 9,
+        },
+        {
+          id: 65,
+          nombre: 'Formulario N°5 - firmado.pdf',
+          ruta: 'r/65.pdf',
+          origen: 'firmado',
+          viene_de: 64,
+          generacion_id: 15,
+        },
+        // Ya quedó solo: su Word se borró al firmar.
+        {
+          id: 77,
+          nombre: 'Formulario N°3 - firmado.pdf',
+          ruta: 'r/77.pdf',
+          origen: 'firmado',
+          viene_de: 54,
+          generacion_id: 9,
+        },
+      ],
+    });
+    await expect(repo.paresFirmados(1, 84)).resolves.toEqual([
+      {
+        firmado: { id: 65, ruta: 'r/65.pdf' },
+        word: { id: 64, ruta: 'r/64.docx', viene_de: 54, generacion_id: 9 },
+      },
+    ]);
+    expect(filtros(consultas[0])).toEqual([
+      ['company_id', 1],
+      ['oportunidad_id', 84],
+      ['seccion', 'postulacion'],
+    ]);
+  });
+
+  it('el PDF toma el archivo del comprador y la corrida de su Word; después se borran el Word y su archivo', async () => {
+    const { repo, consultas, balde } = armar([
+      { data: null },
+      { data: [{ ruta: 'r/64.docx' }] },
+    ]);
+    await expect(
+      repo.dejarSoloElPdf(1, 84, [
+        {
+          firmado: { id: 65, ruta: 'r/65.pdf' },
+          word: { id: 64, ruta: 'r/64.docx', viene_de: 54, generacion_id: 9 },
+        },
+      ]),
+    ).resolves.toBe(1);
+    const [tomar, borrar] = consultas;
+    expect(tomar.pasos).toContainEqual([
+      'update',
+      { viene_de: 54, generacion_id: 9 },
+    ]);
+    expect(filtros(tomar)).toEqual([
+      ['company_id', 1],
+      ['oportunidad_id', 84],
+      ['origen', 'firmado'],
+      ['id', 65],
+    ]);
+    expect(borrar.pasos).toContainEqual(['delete']);
+    expect(borrar.pasos).toContainEqual([
+      'in',
+      'origen',
+      ['generado', 'subido'],
+    ]);
+    expect(filtros(borrar)).toEqual([
+      ['company_id', 1],
+      ['oportunidad_id', 84],
+      ['seccion', 'postulacion'],
+      ['id', 64],
+    ]);
+    expect(balde.remove).toHaveBeenCalledWith(['r/64.docx']);
   });
 });

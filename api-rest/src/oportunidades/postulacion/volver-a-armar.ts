@@ -52,11 +52,11 @@ export function laVueltaAnterior(d: {
     firmados.some((x) => {
       if (!mismoFormulario(f.nombre, x.nombre)) return false;
       if (normalizar(f.se_entrega_en ?? '') !== 'economica') return true;
+      // Desde la decisión 58 el Word se borra al firmar: el firmado trae la
+      // corrida de su Word.
       const padre = padreDe(x);
-      const precio =
-        padre?.generacion_id != null
-          ? d.totalDe.get(padre.generacion_id)
-          : null;
+      const corrida = padre ? padre.generacion_id : x.generacion_id;
+      const precio = corrida != null ? d.totalDe.get(corrida) : null;
       return precio == null || precio === d.total;
     });
 
@@ -72,7 +72,10 @@ export function laVueltaAnterior(d: {
       .filter((g) => g.viene_de === null)
       .map((g) => g.id),
     propuestaFirmada:
-      firmados.some((f) => padreDe(f)?.viene_de === null) ||
-      subidos.some((s) => PROPUESTA.test(normalizar(s.nombre))),
+      firmados.some(
+        (f) =>
+          padreDe(f)?.viene_de === null ||
+          (!padreDe(f) && PROPUESTA.test(normalizar(f.nombre))),
+      ) || subidos.some((s) => PROPUESTA.test(normalizar(s.nombre))),
   };
 }

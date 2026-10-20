@@ -76,6 +76,7 @@ import {
   problemaDeLaSalida,
   salidasDeLaFirma,
 } from './revision';
+import { limpiarDespues, textosDeLoFirmado } from './solo-el-pdf';
 import { type ArchivoParaElTaller, trabajarEnElTaller } from './taller';
 
 // ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA (doc 17, sprint 3, paso
@@ -608,22 +609,28 @@ export class GeneracionService {
         });
         return;
       }
+      // Decisión 58: al firmar, el texto del Word queda en el trabajo (el ZIP
+      // lo lee para los respaldos) y después el Word se va.
+      const soloPdf =
+        plan.tipo === 'firma'
+          ? await textosDeLoFirmado(
+              await this.adjuntos.paresFirmados(companyId, plan.oportunidadId),
+              (ruta) => this.repo.descargar(ruta),
+            )
+          : null;
       await this.repo.terminar(companyId, generacionId, {
         estado: 'listo',
-        resultado,
+        resultado: soloPdf
+          ? { ...resultado, textos_de_lo_firmado: soloPdf.textos }
+          : resultado,
         ...tokens,
       });
-      // Lo nuevo quedó guardado: los borradores que reemplaza se van (si
-      // no se pueden borrar, quedan; decisión 49).
-      if (plan.reemplaza?.length) {
-        await this.adjuntos
-          .borrarBorradores(companyId, plan.oportunidadId, plan.reemplaza)
-          .catch((e) =>
-            this.logger.warn(
-              `generación ${generacionId}: no se borraron los borradores de antes: ${mensajeDe(e)}`,
-            ),
-          );
-      }
+      await limpiarDespues(this.adjuntos, this.logger, {
+        companyId,
+        generacionId,
+        plan,
+        pares: soloPdf?.pares ?? [],
+      });
       this.logger.info(
         `generación ${generacionId} (${plan.tipo}) lista: ${documentos.length} documentos, US$${costo}`,
       );

@@ -394,7 +394,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - La oferta separa tres cosas. «Subcontratar»: todo lo que la empresa no tiene y no va a tener, en una sola lista, que es el pedido al proveedor externo, con cantidades y días. «Detalles»: las variaciones de lo que ya vende (el relleno de las empanadas, las galletas del helado, las salsas, lo vegetariano o vegano, las flores), que van con su producto genérico. Y lo que de verdad falta en el catálogo, que casi nunca hay.
     - «Lo que tienes que conseguir» muestra el pedido al proveedor como checklist, los detalles aparte y, si hay, lo que falta. Una oferta de antes se sigue viendo como antes.
     - La cotización de la licitación lleva en su comentario interno los detalles y el pedido al proveedor. Al volver a armar se reemplaza solo ese bloque; lo que la persona escribió se queda.
-    - En «Mi postulación», el Word ya firmado no se ve: queda su PDF firmado (Felipe: *"una vez firmados los documentos se debería eliminar o dejar de ver el Word, y dejar solo el PDF firmado"*). No se borra: si se borra el firmado, el Word vuelve a aparecer para firmarlo.
+    - En «Mi postulación», el Word ya firmado no se ve: queda su PDF firmado (Felipe: *"una vez firmados los documentos se debería eliminar o dejar de ver el Word, y dejar solo el PDF firmado"*). Desde la decisión 58, además, se borra.
+58. **Se firma y se borra el Word** (20-10, pedido por Felipe). Corrige la decisión 57, que lo dejaba guardado y escondido: *"¿puedo poner yo las normas del sistema? Elimina el Word... se firma y se borra; si se necesita de nuevo se toma el PDF y se convierte en Word, no se pierde jamás la información"*; *"no tiene sentido guardar Word editables de algo que no se volverá a editar jamás en la vida una vez postulado; cada postulación se hace, se sube y muere, el documento es solo historia"*; *"la información permanece, solo cambia el formato"*.
+    - Al terminar una firma, el Word de cada firmado (de la IA o subido a mano) se borra, su fila y su archivo. Queda el PDF firmado.
+    - Antes de borrarlo, el PDF toma del Word el archivo del comprador y la corrida que lo hizo, y el texto del Word queda guardado en el trabajo de la firma. Así el ZIP sigue poniendo cada formulario en su carpeta, sigue pegando los respaldos dentro del anexo de experiencia y sigue avisando el formulario económico firmado con otro precio; y «Volver a armar» sigue reconociendo lo firmado.
+    - Un Word que no se pudo leer no se borra.
+    - Los Word firmados antes de este cambio se borran la próxima vez que se firme algo de esa licitación.
+    - El avance de «Mis licitaciones» y de la ficha cuenta como «sin firmar» solo el Word de la IA que no tiene su firmado.
 
 ## 4. Reglas del módulo (no se negocian)
 

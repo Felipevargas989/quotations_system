@@ -289,6 +289,61 @@ describe('el set para Mercado Público', () => {
     ).toMatchObject({ carpetas: ['tecnica'], aviso: 'sin firma' });
   });
 
+  it('se firma y se borra (decisión 58): el PDF firmado solo va a la carpeta de su formulario, y avisa si se firmó con otro precio', () => {
+    const d = datos();
+    const set = armarElSet({
+      ...d,
+      // Los Word se borraron al firmar: quedan sus PDF, con el archivo del
+      // comprador y la corrida de su Word.
+      archivos: [
+        ...d.archivos.filter((a) => a.seccion === 'bases' || a.id === 40),
+        archivo(
+          33,
+          'Formulario N°1 - Identificación del oferente - firmado.pdf',
+          { origen: 'firmado', viene_de: 6, generacion_id: 5 },
+        ),
+        archivo(36, 'Formulario N°3 - Experiencia - firmado.pdf', {
+          origen: 'firmado',
+          viene_de: 6,
+          generacion_id: 5,
+        }),
+        archivo(34, 'Anexo N°5 - Oferta económica - firmado.pdf', {
+          origen: 'firmado',
+          viene_de: 4,
+          generacion_id: 5,
+        }),
+        archivo(35, 'Propuesta técnica 1532886-5-LE26 - firmado.pdf', {
+          origen: 'firmado',
+          viene_de: null,
+          generacion_id: 4,
+        }),
+      ],
+      precio: 15_900_000,
+      precioDe: new Map([[5, 14_000_000]]),
+    });
+    expect(
+      pieza(set, 'Formulario N°1 - Identificación del oferente - firmado.pdf'),
+    ).toMatchObject({
+      carpetas: ['administrativa'],
+      aviso: null,
+      // Su texto se busca por la ruta del PDF (quedó guardado al firmar).
+      texto: { ruta: 'c1/oportunidades/40/x_33' },
+    });
+    expect(
+      pieza(set, 'Formulario N°3 - Experiencia - firmado.pdf'),
+    ).toMatchObject({ carpetas: ['tecnica'], aviso: null });
+    expect(
+      pieza(set, 'Anexo N°5 - Oferta económica - firmado.pdf'),
+    ).toMatchObject({
+      carpetas: ['economica'],
+      aviso: 'firmado con otro precio',
+    });
+    expect(
+      pieza(set, 'Propuesta técnica 1532886-5-LE26 - firmado.pdf'),
+    ).toMatchObject({ carpetas: ['tecnica'], que_es: 'propuesta' });
+    expect(set.faltan.join(' ')).not.toContain('va sin firma');
+  });
+
   it('cada Word que salió de un PDF va en la carpeta de su formulario, y avisa si va sin firma', () => {
     const set = armarElSet(datos());
     expect(

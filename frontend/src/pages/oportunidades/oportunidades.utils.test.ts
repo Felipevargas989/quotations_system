@@ -508,9 +508,10 @@ describe("Mis licitaciones: el avance", () => {
         estado: "en_estudio",
         avance: { ...avance, generados, firmados, postulacion },
       }).Firma;
-    // Cinco formularios de la IA, dos firmados: falta.
-    expect(firma(5, 2, 7)).toBe("pendiente");
-    expect(firma(5, 5, 10)).toBe("hecho");
+    // Cinco formularios de la IA, dos firmados: quedan tres sin firmar.
+    expect(firma(3, 2, 7)).toBe("pendiente");
+    // Todo firmado: los Word se borraron al firmar (decisión 58).
+    expect(firma(0, 5, 5)).toBe("hecho");
     // Los anexos firmados por fuera y subidos en PDF (Felipe, 19-10).
     expect(firma(0, 0, 17)).toBe("hecho");
     expect(firma(0, 0, 0)).toBe("pendiente");

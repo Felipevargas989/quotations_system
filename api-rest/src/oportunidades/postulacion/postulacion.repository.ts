@@ -201,11 +201,15 @@ export class PostulacionRepository {
       creado_en: string;
       terminado_en: string | null;
       parametros: Record<string, unknown> | null;
+      /** Decisión 58: el texto de cada Word firmado, por la ruta de su PDF. */
+      textos?: Record<string, unknown> | null;
     }>
   > {
     const { data, error } = await this.db
       .from('oportunidad_generacion')
-      .select('id, tipo, estado, creado_en, terminado_en, parametros')
+      .select(
+        'id, tipo, estado, creado_en, terminado_en, parametros, textos:resultado->textos_de_lo_firmado',
+      )
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
       .order('id', { ascending: false })
@@ -218,6 +222,7 @@ export class PostulacionRepository {
       creado_en: string;
       terminado_en: string | null;
       parametros: Record<string, unknown> | null;
+      textos?: Record<string, unknown> | null;
     }>;
   }
 

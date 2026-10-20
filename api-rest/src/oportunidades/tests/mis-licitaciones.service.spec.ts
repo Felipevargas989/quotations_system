@@ -32,9 +32,30 @@ function armar() {
     origenesDe: jest.fn().mockResolvedValue([
       { oportunidad_id: 40, seccion: 'bases', origen: 'subido' },
       { oportunidad_id: 40, seccion: 'bases', origen: 'subido' },
-      { oportunidad_id: 40, seccion: 'postulacion', origen: 'generado' },
-      { oportunidad_id: 40, seccion: 'postulacion', origen: 'firmado' },
-      { oportunidad_id: 40, seccion: 'postulacion', origen: 'subido' },
+      // El Word 5 ya tiene su firmado (decisión 58: no cuenta como sin
+      // firmar); el 6, no.
+      {
+        id: 5,
+        oportunidad_id: 40,
+        seccion: 'postulacion',
+        origen: 'generado',
+        viene_de: 1,
+      },
+      {
+        id: 6,
+        oportunidad_id: 40,
+        seccion: 'postulacion',
+        origen: 'generado',
+        viene_de: 1,
+      },
+      {
+        id: 7,
+        oportunidad_id: 40,
+        seccion: 'postulacion',
+        origen: 'firmado',
+        viene_de: 5,
+      },
+      { id: 8, oportunidad_id: 40, seccion: 'postulacion', origen: 'subido' },
     ]),
   };
   // Llegan del más nuevo al más viejo.
@@ -115,7 +136,8 @@ describe('MisLicitacionesService', () => {
       analisis: 'listo',
       anexos: 'listo',
       propuesta: 'error',
-      postulacion: 3,
+      postulacion: 4,
+      // Sin firmar: solo el Word 6 (el 5 ya tiene su firmado).
       generados: 1,
       firmados: 1,
       validacion: { estado: 'listo', listo: 'casi' },

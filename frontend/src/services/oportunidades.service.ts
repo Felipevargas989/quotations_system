@@ -532,7 +532,9 @@ export interface AvanceDeLicitacion {
   analisis: "procesando" | "listo" | "error" | null;
   anexos: "procesando" | "listo" | "error" | null;
   propuesta: "procesando" | "listo" | "error" | null;
-  /** En «Mi postulación»: todo, lo hecho por la IA sin firma y lo firmado. */
+  /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word con
+   *  su firmado no cuenta: desde la decisión 58 se borra al firmar) y lo
+   *  firmado. */
   postulacion: number;
   generados: number;
   firmados: number;

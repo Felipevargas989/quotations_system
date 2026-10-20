@@ -57,6 +57,17 @@ export type AdjuntoNuevo = {
 const COLUMNAS =
   'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, competidor, creado_en, subido_por, quien:user_profiles(full_name)';
 
+/** Un firmado y el Word del que salió (decisión 58). */
+export type ParDeFirmado = {
+  firmado: { id: number; ruta: string };
+  word: {
+    id: number;
+    ruta: string;
+    viene_de: number | null;
+    generacion_id: number | null;
+  };
+};
+
 @Injectable()
 export class AdjuntosRepository {
   constructor(
@@ -125,21 +136,110 @@ export class AdjuntosRepository {
     companyId: number,
     oportunidadIds: number[],
   ): Promise<
-    Array<{ oportunidad_id: number; seccion: Seccion; origen: Origen }>
+    Array<{
+      id: number;
+      oportunidad_id: number;
+      seccion: Seccion;
+      origen: Origen;
+      viene_de: number | null;
+    }>
   > {
     if (oportunidadIds.length === 0) return [];
     const { data, error } = await this.db
       .from('oportunidad_adjuntos')
-      .select('oportunidad_id, seccion, origen')
+      .select('id, oportunidad_id, seccion, origen, viene_de')
       .eq('company_id', companyId)
       .in('oportunidad_id', oportunidadIds)
       .limit(5000);
     if (error) throw error;
     return (data ?? []) as Array<{
+      id: number;
       oportunidad_id: number;
       seccion: Seccion;
       origen: Origen;
+      viene_de: number | null;
     }>;
+  }
+
+  /** Decisión 58: cada firmado de «Mi postulación» con el Word del que
+   *  salió (de la IA o subido a mano), si ese Word sigue ahí. */
+  async paresFirmados(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<ParDeFirmado[]> {
+    const { data, error } = await this.db
+      .from('oportunidad_adjuntos')
+      .select('id, nombre, ruta, origen, viene_de, generacion_id')
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('seccion', 'postulacion');
+    if (error) throw error;
+    const filas = (data ?? []) as Array<{
+      id: number;
+      nombre: string;
+      ruta: string;
+      origen: Origen;
+      viene_de: number | null;
+      generacion_id: number | null;
+    }>;
+    const porId = new Map(filas.map((f) => [f.id, f]));
+    return filas.flatMap((f) => {
+      const word = f.origen === 'firmado' ? porId.get(f.viene_de ?? -1) : null;
+      return word && word.origen !== 'firmado' && /\.docx$/i.test(word.nombre)
+        ? [
+            {
+              firmado: { id: f.id, ruta: f.ruta },
+              word: {
+                id: word.id,
+                ruta: word.ruta,
+                viene_de: word.viene_de,
+                generacion_id: word.generacion_id,
+              },
+            },
+          ]
+        : [];
+    });
+  }
+
+  /** Decisión 58 (Felipe: "se firma y se borra"): el PDF firmado queda
+   *  solo. Primero toma del Word el archivo del comprador y la corrida que
+   *  lo hizo (los usan el ZIP y «Volver a armar»); después se borra el Word,
+   *  su fila y su archivo. */
+  async dejarSoloElPdf(
+    companyId: number,
+    oportunidadId: number,
+    pares: ParDeFirmado[],
+  ): Promise<number> {
+    let borrados = 0;
+    for (const { firmado, word } of pares) {
+      const tomar = await this.db
+        .from('oportunidad_adjuntos')
+        .update({ viene_de: word.viene_de, generacion_id: word.generacion_id })
+        .eq('company_id', companyId)
+        .eq('oportunidad_id', oportunidadId)
+        .eq('origen', 'firmado')
+        .eq('id', firmado.id);
+      if (tomar.error) throw tomar.error;
+      const { data, error } = await this.db
+        .from('oportunidad_adjuntos')
+        .delete()
+        .eq('company_id', companyId)
+        .eq('oportunidad_id', oportunidadId)
+        .eq('seccion', 'postulacion')
+        .in('origen', ['generado', 'subido'])
+        .eq('id', word.id)
+        .select('ruta');
+      if (error) throw error;
+      if ((data ?? []).length === 0) continue;
+      borrados++;
+      const { error: delBalde } = await this.db.storage
+        .from(BUCKET_PRIVADO)
+        .remove([word.ruta]);
+      if (delBalde) {
+        this.logger.warn(`no se pudo borrar del balde: ${word.ruta}`);
+      }
+    }
+    return borrados;
   }
 
   async subirArchivo(
