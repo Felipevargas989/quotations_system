@@ -13,13 +13,21 @@ type Consulta = { tabla: string; pasos: unknown[][] };
 
 const METODOS = ['select', 'insert', 'delete', 'eq', 'in', 'order', 'limit'];
 
-function armar(respuesta: { data?: unknown; error?: unknown } = {}) {
+/** Con varias respuestas, una por consulta en orden (la última se repite). */
+function armar(
+  respuesta:
+    | { data?: unknown; error?: unknown }
+    | Array<{ data?: unknown; error?: unknown }> = {},
+) {
+  const respuestas = Array.isArray(respuesta) ? respuesta : [respuesta];
+  let vez = 0;
   const consultas: Consulta[] = [];
   const from = jest.fn((tabla: string) => {
     const consulta: Consulta = { tabla, pasos: [] };
     consultas.push(consulta);
+    const suya = respuestas[Math.min(vez++, respuestas.length - 1)];
     const resolver = () =>
-      Promise.resolve({ data: null, error: null, ...respuesta });
+      Promise.resolve({ data: null, error: null, ...suya });
     const cadena: Record<string, unknown> = {};
     for (const m of METODOS) {
       cadena[m] = (...args: unknown[]) => {
@@ -141,5 +149,41 @@ describe('AdjuntosRepository — el balde', () => {
     await expect(repo.borrarArchivo('c1/x.pdf')).resolves.toBe(true);
     balde.remove.mockResolvedValue({ error: new Error('no') });
     await expect(repo.borrarArchivo('c1/x.pdf')).resolves.toBe(false);
+  });
+
+  it('«Volver a armar» (decisión 49): borra solo borradores de la IA sin firmar, de la empresa y la oportunidad, con su archivo', async () => {
+    const { repo, consultas, storage, balde } = armar([
+      // El 63 ya tiene su firmado: no se toca.
+      { data: [{ viene_de: 63 }] },
+      { data: [{ ruta: 'c1/oportunidades/84/postulacion/x_64.docx' }] },
+    ]);
+    await expect(repo.borrarBorradores(1, 84, [63, 64])).resolves.toBe(1);
+    const [firmados, borrado] = consultas;
+    expect(filtros(firmados)).toEqual([
+      ['company_id', 1],
+      ['oportunidad_id', 84],
+      ['origen', 'firmado'],
+    ]);
+    expect(borrado.pasos).toContainEqual(['delete']);
+    expect(filtros(borrado)).toEqual([
+      ['company_id', 1],
+      ['oportunidad_id', 84],
+      ['seccion', 'postulacion'],
+      ['origen', 'generado'],
+    ]);
+    expect(borrado.pasos).toContainEqual(['in', 'id', [64]]);
+    expect(storage.from).toHaveBeenCalledWith(BUCKET_PRIVADO);
+    expect(balde.remove).toHaveBeenCalledWith([
+      'c1/oportunidades/84/postulacion/x_64.docx',
+    ]);
+  });
+
+  it('sin nada que borrar no consulta; si todos tienen firmado, no borra', async () => {
+    const vacio = armar();
+    await expect(vacio.repo.borrarBorradores(1, 84, [])).resolves.toBe(0);
+    expect(vacio.consultas).toHaveLength(0);
+    const firmados = armar([{ data: [{ viene_de: 63 }] }]);
+    await expect(firmados.repo.borrarBorradores(1, 84, [63])).resolves.toBe(0);
+    expect(firmados.consultas).toHaveLength(1);
   });
 });

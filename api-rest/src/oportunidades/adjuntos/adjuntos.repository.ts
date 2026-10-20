@@ -185,6 +185,57 @@ export class AdjuntosRepository {
     return (data as { ruta: string } | null) ?? null;
   }
 
+  /** «Volver a armar» (decisión 49, 19-10): borra los borradores de la IA
+   *  que se reemplazaron, la fila y su archivo, solo si siguen sin firmar:
+   *  lo firmado nunca se borra solo, ni el Word del que salió un firmado
+   *  (su `viene_de` quedaría en nada). Devuelve cuántos borró. */
+  async borrarBorradores(
+    companyId: number,
+    oportunidadId: number,
+    ids: number[],
+  ): Promise<number> {
+    if (ids.length === 0) return 0;
+    const firmados = await this.db
+      .from('oportunidad_adjuntos')
+      .select('viene_de')
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('origen', 'firmado')
+      .in('viene_de', ids);
+    if (firmados.error) throw firmados.error;
+    const conFirma = new Set(
+      ((firmados.data ?? []) as Array<{ viene_de: number | null }>).map(
+        (f) => f.viene_de,
+      ),
+    );
+    const borrables = ids.filter((id) => !conFirma.has(id));
+    if (borrables.length === 0) return 0;
+    const { data, error } = await this.db
+      .from('oportunidad_adjuntos')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('seccion', 'postulacion')
+      .eq('origen', 'generado')
+      .in('id', borrables)
+      .select('ruta');
+    if (error) throw error;
+    const rutas = ((data ?? []) as Array<{ ruta: string }>).map((f) => f.ruta);
+    // Primero las filas, después los archivos: si el balde falla, quedan
+    // archivos que nadie ve (inofensivo), nunca filas que apuntan a nada.
+    if (rutas.length > 0) {
+      const { error: delBalde } = await this.db.storage
+        .from(BUCKET_PRIVADO)
+        .remove(rutas);
+      if (delBalde) {
+        this.logger.warn(
+          `no se pudieron borrar del balde: ${rutas.join(', ')}`,
+        );
+      }
+    }
+    return rutas.length;
+  }
+
   /** true = quedó borrado del balde. */
   async borrarArchivo(ruta: string): Promise<boolean> {
     this.logger.info(`borrar ${BUCKET_PRIVADO}/${ruta}`);

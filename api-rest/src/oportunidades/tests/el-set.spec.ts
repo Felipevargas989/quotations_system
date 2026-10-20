@@ -167,11 +167,77 @@ describe('el set para Mercado Público', () => {
       ruta: 'c1/oportunidades/40/x_14',
       carpetas: ['administrativa', 'tecnica'],
       que_es: 'formulario',
-      // Firmado, pero hecho antes de la última oferta.
-      aviso: 'se hizo antes de la última oferta',
+      // Firmado antes de la última oferta: lo firmado no se rehace al
+      // volver a armar (decisión 49), así que no queda «viejo».
+      aviso: null,
     });
-    expect(set.faltan).toContain(
+    expect(set.faltan).not.toContain(
       '«Formularios_Anexos - lleno.docx» se hizo antes de la última oferta: vuelve a generarlo.',
+    );
+    // Lo que no está firmado y se hizo antes, sí se avisa.
+    expect(set.faltan).toContain(
+      '«Anexo N°5 - Oferta económica - lleno.docx» se hizo antes de la última oferta: vuelve a generarlo.',
+    );
+  });
+
+  it('«Volver a armar» (decisión 49): de cada formulario va su versión más nueva, aunque venga de otra corrida; lo firmado de la económica con otro precio se avisa', () => {
+    const d = datos();
+    const comprador = d.archivos.find(
+      (a) => a.seccion === 'bases',
+    ) as (typeof d.archivos)[number];
+    const lleno = (id: number, n: number, generacion: number, creado: string) =>
+      archivo(id, `Formulario N°${n} - lleno.docx`, {
+        viene_de: comprador.id,
+        generacion_id: generacion,
+        creado_en: creado,
+      });
+    const set = armarElSet({
+      ...d,
+      formularios: [
+        {
+          nombre: 'Formulario N°1',
+          archivo: comprador.nombre,
+          aplica: true,
+          se_entrega_en: 'administrativa',
+        },
+        {
+          nombre: 'Formulario N°2',
+          archivo: comprador.nombre,
+          aplica: true,
+          se_entrega_en: 'economica',
+        },
+      ],
+      archivos: [
+        comprador,
+        // La corrida 7: los dos, y los dos firmados.
+        lleno(71, 1, 7, '2026-10-19T17:22:00.000Z'),
+        lleno(72, 2, 7, '2026-10-19T17:22:00.000Z'),
+        archivo(73, 'Formulario N°1 - firmado.pdf', {
+          origen: 'firmado',
+          viene_de: 71,
+          creado_en: '2026-10-19T17:30:00.000Z',
+        }),
+        archivo(74, 'Formulario N°2 - firmado.pdf', {
+          origen: 'firmado',
+          viene_de: 72,
+          creado_en: '2026-10-19T17:31:00.000Z',
+        }),
+      ],
+      inicioDe: new Map([[7, '2026-10-19T17:20:00.000Z']]),
+      ofertaLista: '2026-10-19T21:00:00.000Z',
+      precio: 15_900_000,
+      precioDe: new Map([[7, 14_000_000]]),
+    });
+    expect(
+      set.piezas
+        .filter((p) => p.que_es === 'formulario')
+        .map((p) => [p.nombre, p.aviso]),
+    ).toEqual([
+      ['Formulario N°1 - firmado.pdf', null],
+      ['Formulario N°2 - firmado.pdf', 'firmado con otro precio'],
+    ]);
+    expect(set.faltan).toContain(
+      '«Formulario N°2 - firmado.pdf» está firmado con otro precio: bórralo y vuelve a armar la postulación.',
     );
   });
 

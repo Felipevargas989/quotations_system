@@ -51,4 +51,7 @@ export type Plan = {
   maxTokens: number;
   /** Sin decirlo, la de Word; con un PDF, también la de PDF. */
   habilidades?: readonly Habilidad[];
+  /** «Volver a armar» (decisión 49): los borradores sin firma que este
+   *  trabajo reemplaza; se borran recién cuando lo nuevo quedó guardado. */
+  reemplaza?: number[];
 };
