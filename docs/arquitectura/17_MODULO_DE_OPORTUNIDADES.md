@@ -360,6 +360,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - En «Mi postulación», el visor trae «Firmar» (con su confirmación): se lee y se firma sin salir.
     - Un Word de las bases viene de afuera: se dibuja aislado (sus estilos no tocan la página, sin el HTML incrustado y con los enlaces controlados).
     - El visor pasó a la ventana de la casa: Escape cierra y el título queda siempre a la vista.
+47. **La página web sale de Configuración de empresa** (19-10, pedido por Felipe: *"página web debería traer la de Eventia o no?"*). La decisión 43 la había agregado a «Mi empresa», repetida: Eventia ya la tiene en Configuración (la de los correos y del formulario público). En «Mi empresa» se muestra junto al nombre de fantasía y los datos bancarios, y se cambia en Configuración; la IA la toma de ahí.
 
 ## 4. Reglas del módulo (no se negocian)
 
