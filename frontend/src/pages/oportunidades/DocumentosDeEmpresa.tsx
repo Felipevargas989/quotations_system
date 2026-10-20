@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { EyeOff, FolderOpen, Trash2 } from "lucide-react";
+import { Eye, EyeOff, FolderOpen, Trash2 } from "lucide-react";
 import { useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -139,13 +139,8 @@ export default function DocumentosDeEmpresa({
         {hayRespaldos && (
           <p className="text-xs text-gray-600">
             Los respaldos de experiencia se usan de mayor a menor monto, hasta
-            cumplir lo que piden las bases y 2 de reserva. Marca{" "}
-            <EyeOff
-              size={12}
-              className="inline -mt-0.5 text-gray-500"
-              aria-hidden="true"
-            />{" "}
-            «No usar» en los que no quieres mostrar.
+            cumplir lo que piden las bases y 2 de reserva. Con el ojo apagas los
+            que no quieres mostrar.
           </p>
         )}
       </div>
@@ -159,7 +154,11 @@ export default function DocumentosDeEmpresa({
                 key={d.id}
                 className="px-3 py-2 flex flex-wrap items-center gap-3"
               >
-                <div className="min-w-0 flex-1">
+                {/* Apagado como un servicio inactivo del catálogo: la fila
+                    más clara y el ojo tachado; el «No se usa», en rojo. */}
+                <div
+                  className={`min-w-0 flex-1 ${d.datos?.no_usar ? "opacity-60" : ""}`}
+                >
                   <p className="text-sm font-semibold text-gray-900">
                     {etiquetaDeDocumento(d.tipo)}
                   </p>
@@ -177,7 +176,7 @@ export default function DocumentosDeEmpresa({
                   )}
                 </div>
                 {d.datos?.no_usar ? (
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-500">
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded bg-red-50 text-red-700">
                     No se usa
                   </span>
                 ) : (
@@ -198,24 +197,20 @@ export default function DocumentosDeEmpresa({
                         })
                       }
                       disabled={noUsar.isPending}
-                      title={
-                        d.datos?.no_usar
-                          ? "No se usa en las licitaciones: volver a usarlo"
-                          : "No usar en las licitaciones"
-                      }
+                      title={d.datos?.no_usar ? "Volver a usar" : "No usar"}
                       aria-label={
                         d.datos?.no_usar
                           ? `Volver a usar ${d.nombre}`
                           : `No usar ${d.nombre}`
                       }
                       aria-pressed={Boolean(d.datos?.no_usar)}
-                      className={`disabled:opacity-50 ${
-                        d.datos?.no_usar
-                          ? "text-gray-700"
-                          : "text-gray-300 hover:text-gray-600"
-                      }`}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-50"
                     >
-                      <EyeOff size={16} />
+                      {d.datos?.no_usar ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
                     </button>
                   )}
                   {seVeEnElVisor(d.ruta) ? (
