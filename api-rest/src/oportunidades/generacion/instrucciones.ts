@@ -156,6 +156,10 @@ export type ContextoDeGeneracion = {
   /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
    *  compra y facturas, cada una con su PDF. */
   respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
+  /** Los de Post-venta que leyó «Armar postulación» (decisión 45): aparte,
+   *  porque van después de los de la carpeta (un respaldo de la carpeta
+   *  también puede decir de qué evento es). */
+  respaldosDePostVenta?: Array<DatosDeRespaldo & { archivo: string }>;
   /** Lo postulado (decisión 33): la oferta armada en Oportunidades. Con
    *  ella, los documentos no deciden: la escriben tal cual. */
   oferta?: OfertaParaDocumentos | null;
@@ -301,10 +305,11 @@ const listaDeRespaldos = (
  *  primeros no alcanzan. El evento que ya tiene su respaldo no se repite en
  *  la lista de eventos: sería contar dos veces la misma experiencia. */
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
-  const respaldos = c.respaldos ?? [];
-  const deLaCarpeta = respaldos.filter((r) => !r.evento);
-  const dePostVenta = respaldos.filter((r) => r.evento);
-  const conRespaldo = new Set(dePostVenta.map((r) => r.evento));
+  const deLaCarpeta = c.respaldos ?? [];
+  const dePostVenta = c.respaldosDePostVenta ?? [];
+  const conRespaldo = new Set(
+    [...deLaCarpeta, ...dePostVenta].map((r) => r.evento),
+  );
   const eventos = c.eventos.filter((e) => !conRespaldo.has(e.numero));
   return [
     ...(deLaCarpeta.length > 0

@@ -104,4 +104,29 @@ describe('La experiencia en los anexos', () => {
       ];
       expect(fila.parametros).not.toHaveProperty('post_venta');
     }));
+
+  it('un respaldo de «Mi empresa» que dice de qué evento es sigue arriba, con los de la carpeta', () =>
+    entorno(async () => {
+      const { oferente, servicio, ejecutar } = armar();
+      oferente.respaldos.mockResolvedValue([
+        {
+          numero: '5043-27-AG26',
+          mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          contrato: 'Seminario de flores',
+          anio: 2026,
+          monto: 1_500_000,
+          fuente: 'mercado_publico',
+          evento: 400,
+          archivo: 'Orden de compra - 5043-27-AG26.pdf',
+        },
+      ]);
+      await servicio.generarAnexos(1, CUENTA, 40, {
+        monto_total: 11_900_000,
+        post_venta: [],
+      });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
+      expect(sistema).toContain('N° 5043-27-AG26');
+      expect(sistema).not.toContain('MÁS RESPALDOS');
+    }));
 });

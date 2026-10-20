@@ -184,10 +184,7 @@ export class GeneracionService {
           ?.parametros,
         companyId,
       );
-    contexto.datos.respaldos = [
-      ...(contexto.datos.respaldos ?? []),
-      ...postVenta,
-    ];
+    contexto.datos.respaldosDePostVenta = postVenta;
     const pedidos = new Set(pedido.adjuntos ?? []);
     const elegidos = elegirArchivos(
       bases,

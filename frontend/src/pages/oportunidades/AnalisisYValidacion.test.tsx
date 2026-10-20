@@ -267,7 +267,7 @@ describe("Lo que piden las bases", () => {
     });
     // Espera la carpeta y la postulación, que se piden aparte.
     expect(
-      await screen.findByText("Con la oferta: 3 de 4 listos"),
+      await screen.findByText("Para postular: 3 de 4 listos"),
     ).toBeInTheDocument();
     const anexo = screen
       .getByText("Formulario Anexo N°1 Identificación")
@@ -285,15 +285,16 @@ describe("Lo que piden las bases", () => {
       .getByText("Programa de integridad")
       .closest("li") as HTMLElement;
     expect(within(programa).getByText("En tu postulación")).toBeInTheDocument();
-    // El DICOM va aparte: se pide al adjudicar, con su vigencia, y todavía
-    // no va en rojo.
+    // Una sola lista, la de postular (19-10): el DICOM se pide al adjudicar,
+    // va al final como opcional, con su vigencia, y no en rojo.
     const dicom = screen
       .getByText("Certificado DICOM")
       .closest("li") as HTMLElement;
-    expect(within(dicom).getByText("Pendiente")).toBeInTheDocument();
+    expect(within(dicom).getByText("Opcional")).toBeInTheDocument();
     expect(
-      screen.getByText("Al adjudicar o firmar el contrato"),
+      within(dicom).getByText(/opcional: lo piden al adjudicar/),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Al adjudicar o firmar el contrato")).toBeNull();
     expect(
       screen.getByText(/emitido hace menos de 15 días/),
     ).toBeInTheDocument();
