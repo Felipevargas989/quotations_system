@@ -179,12 +179,12 @@ export class OferenteRepository {
       .map((f) => ({ ...(f.datos as DatosDeRespaldo), archivo: f.nombre }));
   }
 
-  /** Marca o desmarca un respaldo «de las 10 de siempre» (decisión 53):
-   *  junta la marca con sus datos. null = no es un respaldo de la empresa. */
-  async marcarDeSiempre(
+  /** Marca o desmarca un respaldo «No usar» (decisión 56): junta la marca
+   *  con sus datos. null = no es un respaldo de la empresa. */
+  async marcarNoUsar(
     companyId: number,
     id: number,
-    siempre: boolean,
+    noUsar: boolean,
   ): Promise<DocumentoDeEmpresa | null> {
     const { data: fila, error: errorLeer } = await this.db
       .from('oportunidades_documentos')
@@ -195,13 +195,18 @@ export class OferenteRepository {
       .maybeSingle();
     if (errorLeer) throw errorLeer;
     if (!fila) return null;
-    const { siempre: _antes, ...datos } = ((
-      fila as { datos: DatosDeRespaldo | null }
-    ).datos ?? {}) as DatosDeRespaldo;
+    // La marca vieja de «las 10 de siempre» (decisión 53) se va con esta.
+    const {
+      no_usar: _antes,
+      siempre: _deSiempre,
+      ...datos
+    } = ((fila as { datos: DatosDeRespaldo | null }).datos ??
+      {}) as DatosDeRespaldo & { siempre?: boolean };
     void _antes;
+    void _deSiempre;
     const { data, error } = await this.db
       .from('oportunidades_documentos')
-      .update({ datos: siempre ? { ...datos, siempre: true } : datos })
+      .update({ datos: noUsar ? { ...datos, no_usar: true } : datos })
       .eq('company_id', companyId)
       .eq('id', id)
       .eq('tipo', TIPO_RESPALDO)

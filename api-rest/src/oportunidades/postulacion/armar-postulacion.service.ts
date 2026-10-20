@@ -161,13 +161,7 @@ export class ArmarPostulacionService {
     let postVenta: RespaldoDePostVenta[] = [];
     if (pidenExperiencia(resultado)) {
       try {
-        // Con «las 10 de siempre» (decisión 53) no se busca más.
-        const deSiempre = (await this.oferente.respaldos(companyId)).some(
-          (r) => r.siempre,
-        );
-        if (!deSiempre) {
-          postVenta = await this.postVenta.paraLaPostulacion(companyId);
-        }
+        postVenta = await this.postVenta.paraLaPostulacion(companyId);
       } catch (error) {
         this.logger.warn(
           `respaldos de Post-venta antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,

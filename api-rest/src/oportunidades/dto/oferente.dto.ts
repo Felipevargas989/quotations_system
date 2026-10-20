@@ -56,8 +56,8 @@ export class SubirDocumentoDto {
   datos?: string;
 }
 
-/** «De las 10 de siempre» (decisión 53). */
-export class MarcarDeSiempreDto {
+/** «No usar» un respaldo de experiencia (decisión 56). */
+export class MarcarNoUsarDto {
   @IsBoolean()
-  siempre!: boolean;
+  no_usar!: boolean;
 }

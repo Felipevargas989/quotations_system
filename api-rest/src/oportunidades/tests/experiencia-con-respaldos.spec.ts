@@ -162,36 +162,58 @@ describe('La experiencia en los anexos', () => {
       expect(sistema).toContain('Solo los de los últimos 24 meses');
     }));
 
-  it('con «las 10 de siempre» (decisión 53): solo esas, todas, y ni otros respaldos ni eventos', () =>
+  it('de mayor a menor monto, sin los «No usar» ni los de su cliente en Post-venta, y con 2 de reserva (decisión 56)', () =>
     entorno(async () => {
       const { oferente, servicio, ejecutar } = armar();
       const este = new Date().getFullYear();
-      const respaldo = (numero: string, anio: number, siempre?: boolean) => ({
+      const respaldo = (
+        numero: string,
+        monto: number,
+        extra: Record<string, unknown> = {},
+      ) => ({
         numero,
         mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
         contrato: 'Cena',
-        anio,
-        monto: 1_000_000,
-        fuente: 'mercado_publico',
-        archivo: `OC ${numero}.pdf`,
-        ...(siempre ? { siempre: true } : {}),
+        anio: este,
+        monto,
+        fuente: 'manual',
+        archivo: `Factura ${numero}.pdf`,
+        ...extra,
       });
       oferente.respaldos.mockResolvedValue([
-        respaldo('5040-111-AG26', este, true),
-        respaldo('260', este - 1, true),
-        respaldo('7777-1-AG26', este),
+        respaldo('366', 52_001),
+        respaldo('260', 11_292_880, { mandante: 'Comercial CCU S.A.' }),
+        respaldo('312', 5_000_000, {
+          mandante: 'JOKER SERVICIOS SPA',
+          no_usar: true,
+        }),
+        respaldo('372', 2_234_000),
       ]);
       await servicio.generarAnexos(1, CUENTA, 40, {
-        monto_total: 11_900_000,
-        post_venta: [DE_POST_VENTA],
+        monto_total: 15_900_000,
+        post_venta: [
+          {
+            ...DE_POST_VENTA,
+            numero: '367',
+            mandante: 'Joker Servicios SpA',
+            anio: este,
+          },
+          { ...DE_POST_VENTA, anio: este },
+        ],
       });
       const sistema = planDe(ejecutar).sistema;
-      expect(sistema).toContain('SUS RESPALDOS DE EXPERIENCIA, LOS DE SIEMPRE');
-      expect(sistema).toContain('N° 5040-111-AG26');
-      expect(sistema).toContain('N° 260');
-      expect(sistema).not.toContain('N° 7777-1-AG26');
-      expect(sistema).not.toContain('MÁS RESPALDOS');
-      expect(sistema).not.toContain('LOS EVENTOS QUE HIZO LA EMPRESA');
-      expect(sistema).toContain('ponlos TODOS, uno por fila');
+      const donde = (numero: string) => sistema.indexOf(`N° ${numero}`);
+      expect(donde('260')).toBeGreaterThan(-1);
+      expect(donde('260')).toBeLessThan(donde('372'));
+      expect(donde('372')).toBeLessThan(donde('366'));
+      expect(donde('312')).toBe(-1);
+      // De Post-venta tampoco entra otra de un cliente marcado «No usar».
+      expect(donde('367')).toBe(-1);
+      expect(donde('5040-126-TD26')).toBeGreaterThan(-1);
+      expect(sistema).toContain(
+        'Tómalos EN ESE ORDEN, los de más monto primero',
+      );
+      expect(sistema).toContain('más DOS de reserva');
+      expect(sistema).not.toContain('LOS DE SIEMPRE');
     }));
 });

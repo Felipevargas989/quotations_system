@@ -21,8 +21,8 @@ export interface DatosDeRespaldo {
   /** Pesos, con impuestos. */
   monto: number | null;
   fuente: "mercado_publico" | "manual";
-  /** «De las 10 de siempre» (decisión 53). */
-  siempre?: boolean;
+  /** «No usar» (decisión 56): la IA no lo ve. */
+  no_usar?: boolean;
 }
 
 /** La ficha pública de una orden de compra, leída por el motor. */
@@ -56,13 +56,13 @@ export const leerRespaldo = (archivo: File) =>
     archivo,
   );
 
-/** «De las 10 de siempre» (decisión 53): marca o desmarca un respaldo; el
- *  anexo de experiencia usa siempre los marcados (como mucho 10). */
-export const marcarDeSiempre = async (id: number, siempre: boolean) =>
+/** «No usar» (decisión 56): marca o desmarca un respaldo que la empresa no
+ *  quiere mostrar; los demás se usan de mayor a menor monto. */
+export const marcarNoUsar = async (id: number, noUsar: boolean) =>
   (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos/${id}/siempre`,
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos/${id}/no-usar`,
     "PATCH",
-    { siempre },
+    { no_usar: noUsar },
   )) as VistaDelOferente;
 
 /** Una fila de la oferta armada con IA (decisión 33): una especificación

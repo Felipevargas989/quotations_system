@@ -30,7 +30,7 @@ import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
 import {
   GuardarOferenteDto,
-  MarcarDeSiempreDto,
+  MarcarNoUsarDto,
   SubirDocumentoDto,
 } from './dto/oferente.dto';
 import { SeccionDto, SubirAdjuntoDto } from './dto/seccion.dto';
@@ -205,18 +205,18 @@ export class OportunidadesController {
     return this.oferente.ordenDeCompra(user.company_id, codigo);
   }
 
-  /** «De las 10 de siempre» (decisión 53): marca o desmarca un respaldo de
-   *  experiencia; como mucho 10. */
-  @Patch('oferente/documentos/:documentoId/siempre')
-  marcarDeSiempre(
+  /** «No usar» (decisión 56): marca o desmarca un respaldo de experiencia
+   *  que la empresa no quiere mostrar. */
+  @Patch('oferente/documentos/:documentoId/no-usar')
+  marcarNoUsar(
     @Param('documentoId', ParseIntPipe) documentoId: number,
-    @Body() dto: MarcarDeSiempreDto,
+    @Body() dto: MarcarNoUsarDto,
     @CurrentUser() user: User,
   ) {
-    return this.oferente.marcarDeSiempre(
+    return this.oferente.marcarNoUsar(
       user.company_id,
       documentoId,
-      dto.siempre,
+      dto.no_usar,
     );
   }
 

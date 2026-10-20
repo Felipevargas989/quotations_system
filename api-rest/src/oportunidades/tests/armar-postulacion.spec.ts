@@ -349,26 +349,21 @@ describe('Armar postulación', () => {
     expect(documentos.crearPropuesta).not.toHaveBeenCalled();
   });
 
-  it('con «las 10 de siempre» (decisión 53) no se busca en Post-venta', async () => {
-    const { servicio, documentos, postVenta, analisis, oferente } = armar();
+  it('desde la decisión 56 no hay lista cerrada: si piden experiencia, igual busca en Post-venta', async () => {
+    const { servicio, postVenta, analisis, oferente } = armar();
     analisis.ultimo.mockResolvedValue({
       estado: 'listo',
       resultado: { requisitos: [{ que: 'Experiencia del oferente' }] },
     });
     oferente.respaldos.mockResolvedValue([
-      { numero: '1213301-49-AG26', siempre: true },
+      { numero: '1213301-49-AG26' },
+      { numero: '312', no_usar: true },
     ]);
     await servicio.seguir(USUARIO, 40, 21, {
       total: 11_900_000,
       propuesta: false,
     });
-    expect(postVenta.paraLaPostulacion).not.toHaveBeenCalled();
-    expect(documentos.generarAnexos).toHaveBeenCalledWith(
-      1,
-      'cuenta-1',
-      40,
-      expect.objectContaining({ post_venta: [] }),
-    );
+    expect(postVenta.paraLaPostulacion).toHaveBeenCalledWith(1);
   });
 
   it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {
