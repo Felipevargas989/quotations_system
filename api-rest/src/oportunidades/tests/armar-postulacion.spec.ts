@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { User } from 'src/users/entities/user.entity';
+import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import type { GeneracionService } from '../generacion/generacion.service';
@@ -61,7 +62,10 @@ function armar() {
   };
   const repo = {
     oportunidad: jest.fn().mockResolvedValue({ id: 40, quotation_id: null }),
+    archivosDelSet: jest.fn().mockResolvedValue([]),
+    trabajosDeLaIA: jest.fn().mockResolvedValue([]),
   };
+  const adjuntos = { borrarBorradores: jest.fn().mockResolvedValue(0) };
   const postVenta = {
     paraLaPostulacion: jest.fn().mockResolvedValue([]),
   };
@@ -74,9 +78,11 @@ function armar() {
     oferente as unknown as OferenteRepository,
     repo as unknown as PostulacionRepository,
     postVenta as unknown as RespaldosDePostVentaService,
+    adjuntos as unknown as AdjuntosRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return {
+    adjuntos,
     postVenta,
     oferta,
     documentos,
@@ -168,10 +174,13 @@ describe('Armar postulación', () => {
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
       post_venta: [],
+      ya_firmados: [],
+      reemplaza: [],
     });
     // Con el precio: el valor va al final de la propuesta (decisión 42).
     expect(documentos.crearPropuesta).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
+      reemplaza: [],
     });
     // Sin cotización vinculada, no se toca ninguna.
     expect(cotizacion.llevar).not.toHaveBeenCalled();
@@ -200,6 +209,8 @@ describe('Armar postulación', () => {
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
       post_venta: [respaldo],
+      ya_firmados: [],
+      reemplaza: [],
     });
   });
 
@@ -213,6 +224,8 @@ describe('Armar postulación', () => {
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
       post_venta: [],
+      ya_firmados: [],
+      reemplaza: [],
     });
 
     analisis.ultimo.mockResolvedValue({
@@ -230,8 +243,109 @@ describe('Armar postulación', () => {
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
       post_venta: [],
+      ya_firmados: [],
+      reemplaza: [],
     });
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
+  });
+
+  it('«Volver a armar» (decisión 49): lo firmado no se rehace y los borradores sin firma se reemplazan; con todo firmado, solo se limpian', async () => {
+    const { servicio, documentos, analisis, repo, adjuntos } = armar();
+    const formulario = (n: number) => ({
+      nombre: `Formulario N°${n}`,
+      archivo: 'Formularios_Anexos.docx',
+      aplica: true,
+      se_entrega_en: 'administrativa',
+    });
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: { formularios: [formulario(1), formulario(2)] },
+    });
+    const archivo = (id: number, nombre: string, extra = {}) => ({
+      id,
+      nombre,
+      ruta: `c1/x/${id}`,
+      bytes: 10,
+      seccion: 'postulacion',
+      origen: 'generado',
+      viene_de: 54,
+      generacion_id: 9,
+      creado_en: '2026-10-19T22:47:00.000Z',
+      ...extra,
+    });
+    repo.archivosDelSet.mockResolvedValue([
+      archivo(60, 'Formulario N°1 - lleno.docx'),
+      archivo(61, 'Formulario N°2 - lleno.docx'),
+      archivo(62, 'Formulario N°1 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: 60,
+      }),
+    ]);
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
+      monto_total: 11_900_000,
+      post_venta: [],
+      ya_firmados: ['Formulario N°1'],
+      reemplaza: [61],
+    });
+
+    // Con el N°2 también firmado: nada que rehacer.
+    repo.archivosDelSet.mockResolvedValue([
+      archivo(60, 'Formulario N°1 - lleno.docx'),
+      archivo(61, 'Formulario N°2 - lleno.docx'),
+      archivo(62, 'Formulario N°1 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: 60,
+      }),
+      archivo(63, 'Formulario N°2 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: 61,
+      }),
+      archivo(64, 'Formulario N°2 - lleno.docx', { generacion_id: 7 }),
+    ]);
+    documentos.generarAnexos.mockClear();
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(documentos.generarAnexos).not.toHaveBeenCalled();
+    expect(adjuntos.borrarBorradores).toHaveBeenCalledWith(1, 40, [64]);
+  });
+
+  it('con la propuesta técnica firmada, no se rehace', async () => {
+    const { servicio, documentos, repo } = armar();
+    repo.archivosDelSet.mockResolvedValue([
+      {
+        id: 70,
+        nombre: 'Propuesta técnica.docx',
+        ruta: 'c1/x/70',
+        bytes: 10,
+        seccion: 'postulacion',
+        origen: 'generado',
+        viene_de: null,
+        generacion_id: 8,
+        creado_en: '2026-10-19T20:00:00.000Z',
+      },
+      {
+        id: 71,
+        nombre: 'Propuesta técnica - firmado.pdf',
+        ruta: 'c1/x/71',
+        bytes: 10,
+        seccion: 'postulacion',
+        origen: 'firmado',
+        viene_de: 70,
+        generacion_id: 11,
+        creado_en: '2026-10-19T20:10:00.000Z',
+      },
+    ]);
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: true,
+    });
+    expect(documentos.crearPropuesta).not.toHaveBeenCalled();
   });
 
   it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {

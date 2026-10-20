@@ -209,7 +209,8 @@ export default function ArmarPostulacion({
           bases no traen un formulario técnico (una compra ágil, por ejemplo),
           la propuesta técnica valorizada: el detalle y al final el neto, el IVA
           y el total. Todo sale <b>sin firma</b> a «Mi postulación»: revísalo y
-          recién ahí fírmalo.
+          recién ahí fírmalo. Al volver a armar, <b>lo firmado se queda</b> y se
+          rehace solo lo demás, que reemplaza a los borradores de antes.
         </p>
       </div>
 

@@ -362,6 +362,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - El visor pasó a la ventana de la casa: Escape cierra y el título queda siempre a la vista.
 47. **La página web sale de Configuración de empresa** (19-10, pedido por Felipe: *"página web debería traer la de Eventia o no?"*). La decisión 43 la había agregado a «Mi empresa», repetida: Eventia ya la tiene en Configuración (la de los correos y del formulario público). En «Mi empresa» se muestra junto al nombre de fantasía y los datos bancarios, y se cambia en Configuración; la IA la toma de ahí.
 48. **Una sola lista de documentos, la de postular** (19-10, pedido por Felipe, con el pantallazo de «Para el pago»): *"creo que hay que eliminar la facturación y dejar los otros dos como opcionales, así dejamos una sola lista para efectos de la postulación, que es nuestro foco ahora; la factura no es relevante ahora"*. «Documentos a presentar» deja de partirse en «Con la oferta», «Al adjudicar» y «Para el pago»: es una lista, la de postular; lo de adjudicar y pagar (el F30, el F30-1, el DICOM) va al final como «Opcional» y no cuenta, y la factura para cobrar no va.
+49. **Volver a armar sin llenarse de documentos** (19-10, pedido por Felipe): *"no necesitamos llenarnos de documentos; si pongo volver a generar está bien que borre todo lo anterior (que no esté firmado); si tengo el 1, 2 y 3 firmados, en este caso debe volver a crear solo 4 y 5, y si yo borro todo, que cree todo de nuevo"*. En el Profesor había 16 archivos de tres vueltas.
+    - Lo firmado (o subido a mano) se queda y no se rehace. Excepción: un formulario de la parte económica firmado con otro precio se rehace, para que la oferta no salga con el precio de antes.
+    - Los borradores de la IA sin firma se reemplazan: se borran solos, pero recién cuando lo nuevo quedó guardado (si la IA falla, quedan). Nunca se borra un firmado, ni el Word del que salió.
+    - Si se borra lo firmado, la próxima vez se vuelve a crear. Con todo firmado no hay nada que rehacer.
+    - El ZIP toma, de cada formulario, su versión más nueva aunque venga de otra vuelta.
 
 ## 4. Reglas del módulo (no se negocian)
 

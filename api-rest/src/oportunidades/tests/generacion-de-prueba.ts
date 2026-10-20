@@ -175,6 +175,7 @@ export function armar() {
   };
   const analisis = { ultimo: jest.fn().mockResolvedValue(ANALISIS) };
   const adjuntos = {
+    borrarBorradores: jest.fn().mockResolvedValue(0),
     listar: jest.fn((_: number, __: number, seccion: string) =>
       Promise.resolve(
         seccion === 'bases'
