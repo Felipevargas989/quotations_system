@@ -11,7 +11,6 @@ import { sanitize } from 'src/storage/storage.service';
 import {
   type Adjunto,
   AdjuntosRepository,
-  type Origen,
 } from '../adjuntos/adjuntos.repository';
 import {
   extensionDe,
@@ -33,6 +32,10 @@ import {
 import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
+import {
+  type RespaldoDePostVenta,
+  respaldosDePostVenta,
+} from '../oferente/respaldos-de-post-venta';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { noSiEstaCongelada } from '../postulacion/congelada';
 import { LoPostuladoService } from '../postulacion/lo-postulado.service';
@@ -65,6 +68,7 @@ import {
 } from './instrucciones';
 import { bajarLogo, urlDelLogo } from './logo';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
+import { type Plan, type Salida } from './plan';
 import { recortarPdf } from './recortar-pdf';
 import {
   esPdf,
@@ -72,11 +76,7 @@ import {
   problemaDeLaSalida,
   salidasDeLaFirma,
 } from './revision';
-import {
-  type ArchivoParaElTaller,
-  type Habilidad,
-  trabajarEnElTaller,
-} from './taller';
+import { type ArchivoParaElTaller, trabajarEnElTaller } from './taller';
 
 // ANEXOS LLENOS CON IA, FIRMA Y PROPUESTA TÉCNICA (doc 17, sprint 3, paso
 // 4; migración 129). Felipe, 17-10: "1.- si 2.- si 3.- si, pero primero
@@ -90,6 +90,8 @@ import {
 // Lo generado queda marcado 'generado' (sin firma) o 'firmado', con el
 // archivo del que salió. Nada se sube a Mercado Público: eso lo hace la
 // empresa.
+
+export type { Plan } from './plan';
 
 const TIPO_WORD = TIPOS_POR_EXTENSION.docx;
 
@@ -105,53 +107,6 @@ const TIPOS_DE_IMAGEN: Readonly<Record<string, string>> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   webp: 'image/webp',
-};
-
-/** Lo que el taller recibe: un archivo del balde o el logo (URL pública). */
-type Entrada = {
-  enElTaller: string;
-  tipo: string;
-  ruta?: string;
-  url?: string;
-  /** El logo es opcional: si no se puede bajar, se sigue sin él. */
-  opcional?: boolean;
-  /** Un formulario en PDF: además, la IA lo mira (taller.ts). */
-  verComoDocumento?: boolean;
-  /** De un PDF, solo esas páginas (recortar-pdf.ts). */
-  paginas?: number[];
-};
-
-/** Lo que se espera que entregue, y cómo se guarda. */
-type Salida = {
-  enElTaller: string;
-  nombre: string;
-  origen: Exclude<Origen, 'subido'>;
-  viene_de: number | null;
-  /** El firmado se compara con el documento que se firmó. */
-  comparaCon?: string;
-  /** Solo se revisa, no se guarda (el Word firmado: se guarda su PDF). */
-  soloRevisar?: true;
-  /** El PDF se guarda solo si ese Word pasó la revisión (revision.ts). */
-  siPasa?: string;
-  /** De un PDF, un Word por formulario: `concretarSalidas`. */
-  prefijo?: true;
-};
-
-export type Plan = {
-  tipo: TipoDeGeneracion;
-  /** El modelo por tarea (Felipe, 17-10): Sonnet llena los anexos, Haiku
-   *  firma y Opus escribe la propuesta técnica. */
-  modelo: string;
-  oportunidadId: number;
-  perfil: string | null;
-  sistema: string;
-  texto: string;
-  entradas: Entrada[];
-  salidas: Salida[];
-  esfuerzo: 'medium' | 'high';
-  maxTokens: number;
-  /** Sin decirlo, la de Word; con un PDF, también la de PDF. */
-  habilidades?: readonly Habilidad[];
 };
 
 @Injectable()
@@ -210,11 +165,29 @@ export class GeneracionService {
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
-    pedido: { monto_total?: number | null; adjuntos?: number[] },
+    pedido: {
+      monto_total?: number | null;
+      adjuntos?: number[];
+      /** Los lee «Armar postulación» (decisión 45); no llegan de afuera. */
+      post_venta?: RespaldoDePostVenta[];
+    },
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const bases = await this.adjuntos.listar(companyId, oportunidadId, 'bases');
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
+    // Los respaldos de Post-venta van después de los de «Mi empresa»; al
+    // reintentar, los que se leyeron la vez anterior.
+    const postVenta =
+      pedido.post_venta ??
+      respaldosDePostVenta(
+        (await this.repo.ultimoDeTipo(companyId, oportunidadId, 'anexos'))
+          ?.parametros,
+        companyId,
+      );
+    contexto.datos.respaldos = [
+      ...(contexto.datos.respaldos ?? []),
+      ...postVenta,
+    ];
     const pedidos = new Set(pedido.adjuntos ?? []);
     const elegidos = elegirArchivos(
       bases,
@@ -264,6 +237,7 @@ export class GeneracionService {
       parametros: {
         monto_total: oferta?.total ?? null,
         adjuntos: elegidos.map((a) => a.id),
+        ...(postVenta.length > 0 ? { post_venta: postVenta } : {}),
       },
       archivos: elegidos,
       noLeidos: [],

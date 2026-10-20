@@ -10,6 +10,7 @@ import { AnalisisRepository } from '../analisis/analisis.repository';
 import { hoyEnChile } from '../analisis/comun';
 import { textoDeDocx } from '../analisis/docx';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import { respaldosDePostVenta } from '../oferente/respaldos-de-post-venta';
 import {
   armarElSet,
   type Carpeta,
@@ -203,6 +204,9 @@ export class ElSetService {
     const oferta = trabajos.find(
       (t) => t.tipo === 'oferta' && t.estado === 'listo',
     );
+    const anexos = trabajos.find(
+      (t) => t.tipo === 'anexos' && t.estado === 'listo',
+    );
     const datos: DatosDelSet = {
       archivos,
       formularios: Array.isArray(resultado.formularios)
@@ -217,6 +221,14 @@ export class ElSetService {
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),
       ofertaLista: oferta ? (oferta.terminado_en ?? oferta.creado_en) : null,
+      postVenta: respaldosDePostVenta(anexos?.parametros, companyId).map(
+        (r) => ({
+          numero: r.numero,
+          nombre: r.archivo,
+          ruta: r.ruta,
+          bytes: r.bytes,
+        }),
+      ),
       corte: hoyEnChile(
         ficha.proceso.fecha_cierre
           ? new Date(ficha.proceso.fecha_cierre)
