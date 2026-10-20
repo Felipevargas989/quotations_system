@@ -55,6 +55,7 @@ export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
   erut: 'e-RUT (SII)',
   no_quiebra: 'Certificado de no quiebra',
   estatutos: 'Escritura de constitución y estatutos',
+  respaldo_patente: 'Respaldo de la patente (contrato, comodato o dictamen)',
   otro: 'Otro',
 };
 

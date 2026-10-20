@@ -58,6 +58,9 @@ export const TIPOS_DE_DOCUMENTO = [
   'no_quiebra',
   'estatutos',
   'respaldo_experiencia',
+  // El contrato de arriendo o comodato de una patente de otro, y lo que lo
+  // valida: va siempre en el set detrás de la patente (decisión 61).
+  'respaldo_patente',
   'otro',
 ] as const;
 
