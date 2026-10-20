@@ -391,6 +391,14 @@ export const LO_SUBCONTRATADO =
 const NO_PROMETER =
   'Para lo que produce la empresa (comida, bebidas, salones e instalaciones): lo que la revisión dice que "lo tiene", ofrécelo con lo que dice después de "con" (el nombre real del menú, servicio o salón). Lo que dice "hay que conseguirlo" o "no se puede" NO lo prometas: escríbelo como [POR CONFIRMAR: qué falta] y anótalo en pendientes. Lo subcontratado va por la regla de arriba.';
 
+// LAS NORMAS DE LA CASA (decisión 54 del doc 17, 19-10). Felipe: "solamente
+// hay que rellenar el formulario que te dan, de una forma más ordenada, con
+// ciertas normas estéticas". El formulario del comprador es oficial: su
+// diseño no se toca; lo que se escribe en él sigue estas reglas, igual en
+// todas las licitaciones.
+export const NORMAS_DE_LA_CASA =
+  'Normas de la casa para lo que escribes en el formulario (su diseño no se toca: ni bordes, ni colores, ni columnas, ni su letra): usa la misma letra y el mismo tamaño del formulario; lo que escribes va SIN negrita (salvo el título de cada punto en el formulario de calidad), en mayúsculas y minúsculas normales (nombres propios con mayúscula inicial; MAYÚSCULAS solo si el formulario las usa en ese campo); un dato corto respeta la alineación de su celda, y un texto largo (más de una línea) va alineado a la izquierda. Montos en pesos chilenos como $1.234.567 (con el signo, puntos de miles y sin decimales); fechas como 11 de noviembre de 2026, salvo que el formulario muestre otro formato (por ejemplo, dd/mm/aaaa); RUT como 77.701.305-K; teléfonos como +56 9 5095 5947. Ningún campo de datos queda vacío: lo que no corresponde a la empresa (fax, departamento, teléfono de red fija que no tiene) dice «No aplica»; lo que falta y la empresa debe completar va como [COMPLETAR: qué falta]. En el documento no van notas, páginas de las bases ni comentarios: eso va en pendientes.';
+
 /** La firma nunca partida ni sola (Felipe, 19-10: "que la firma no quede
  *  sola... si la firma no alcanza a caer en la hoja, tiene que saltarse a la
  *  siguiente"). */
@@ -535,6 +543,7 @@ export const instruccionesDeAnexos = (
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,
+      NORMAS_DE_LA_CASA,
       LO_SUBCONTRATADO,
       NO_PROMETER,
       'Los formularios que no corresponden a esta empresa (por ejemplo, el de Unión Temporal de Proveedores o el de persona natural) déjalos sin llenar y dilo en el informe.',

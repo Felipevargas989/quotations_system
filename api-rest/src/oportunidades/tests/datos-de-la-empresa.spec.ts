@@ -1,3 +1,4 @@
+import { NORMAS_DE_LA_CASA } from '../generacion/instrucciones';
 import { trabajarEnElTaller } from '../generacion/taller';
 import { armar, CUENTA, entorno, planDe } from './generacion-de-prueba';
 
@@ -52,5 +53,20 @@ describe('Los datos de la empresa en los anexos', () => {
       });
       await servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 });
       expect(planDe(ejecutar).sistema).not.toContain('Página web');
+    }));
+
+  it('las normas de la casa van en los anexos (decisión 54): montos, fechas, RUT, sin negrita y nada vacío', () =>
+    entorno(async () => {
+      const { servicio, ejecutar } = armar();
+      await servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain(NORMAS_DE_LA_CASA);
+      expect(NORMAS_DE_LA_CASA).toContain(
+        'Montos en pesos chilenos como $1.234.567',
+      );
+      expect(NORMAS_DE_LA_CASA).toContain(
+        'fechas como 11 de noviembre de 2026',
+      );
+      expect(NORMAS_DE_LA_CASA).toContain('«No aplica»');
     }));
 });
