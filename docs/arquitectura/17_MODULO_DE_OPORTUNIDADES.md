@@ -367,6 +367,9 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Los borradores de la IA sin firma se reemplazan: se borran solos, pero recién cuando lo nuevo quedó guardado (si la IA falla, quedan). Nunca se borra un firmado, ni el Word del que salió.
     - Si se borra lo firmado, la próxima vez se vuelve a crear. Con todo firmado no hay nada que rehacer.
     - El ZIP toma, de cada formulario, su versión más nueva aunque venga de otra vuelta.
+50. **La firma limpia** (19-10, pedido por Felipe, con el Formulario N°5 firmado a la vista: la foto de la firma traía el papel gris entero): *"hay que mejorar la extracción de la firma: debe quedar solo las líneas, bonitas (capaz hay que suavizarlas) y deben ser azul"*.
+    - Al subir la foto en «Mi empresa», el navegador deja solo el trazo: sin el papel (aunque la luz sea despareja), sin manchitas, con el borde suave, en azul y recortado. Se ve cómo queda antes de guardar.
+    - «Limpiar la firma guardada» arregla la que ya estaba. Lo ya firmado no cambia: hay que borrar el firmado y volver a firmar.
 
 ## 4. Reglas del módulo (no se negocian)
 
