@@ -94,6 +94,19 @@ describe("MenuGuardadoDeCaja", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("al abrir avisa a la casilla (para que cierre su buscador)", () => {
+    const onAbrir = vi.fn();
+    render(
+      <MenuGuardadoDeCaja
+        categoria="Almuerzo"
+        onElegir={vi.fn()}
+        onAbrir={onAbrir}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Usar menú guardado/ }));
+    expect(onAbrir).toHaveBeenCalledTimes(1);
+  });
+
   it("sin categoría en la casilla muestra todos los menús", () => {
     abrir("");
     expect(screen.getByText(/Desayuno americano/)).toBeInTheDocument();

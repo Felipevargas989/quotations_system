@@ -1535,39 +1535,55 @@ export default function ServiciosTab({
               y panel que queda abierto para agregar varios seguidos. */}
                     <div className="py-1.5 border-t border-gray-100">
                       {addingToGroup === gi ? (
-                        <div className="flex items-center gap-2">
-                          {/* Migrado a la pieza de la casa (14-08). Eran 134
+                        <>
+                          <div className="flex items-center gap-2">
+                            {/* Migrado a la pieza de la casa (14-08). Eran 134
                               líneas escritas a mano. Ojo con los DOS niveles:
                               `addingToGroup` decide si existe esta fila con su
                               botón Cancelar, y `openItemPicker` si el panel
                               está desplegado. Cerrar el panel NO debe hacer
                               desaparecer la fila — por eso onAbiertoChange
                               solo toca openItemPicker. */}
-                          <div className="relative dropdown-container flex-1">
-                            <AgregadorDeItems
-                              opciones={opcionesDe(g)}
-                              onAgregar={(codigo) => addToGroup(gi, codigo)}
-                              abierto={openItemPicker === gi}
-                              onAbiertoChange={(v) =>
-                                setOpenItemPicker(v ? gi : null)
-                              }
-                              placeholder={`Seleccionar servicio de ${g.category}…`}
-                              searchPlaceholder="Buscar item por nombre..."
-                              noResultsText="No se encontraron items"
-                              className="w-full"
+                            <div className="relative dropdown-container flex-1">
+                              <AgregadorDeItems
+                                opciones={opcionesDe(g)}
+                                onAgregar={(codigo) => addToGroup(gi, codigo)}
+                                abierto={openItemPicker === gi}
+                                onAbiertoChange={(v) =>
+                                  setOpenItemPicker(v ? gi : null)
+                                }
+                                placeholder={`Seleccionar servicio de ${g.category}…`}
+                                searchPlaceholder="Buscar item por nombre..."
+                                noResultsText="No se encontraron items"
+                                className="w-full"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingToGroup(null);
+                                setOpenItemPicker(null);
+                              }}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          {/* Visible también con el buscador abierto (Felipe,
+                              20-10-2026: "aparece solo si hay otro más abajo"). */}
+                          <div className="ml-2 mt-1.5">
+                            <MenuGuardadoDeCaja
+                              categoria={g.category}
+                              deshabilitado={congelado}
+                              onAbrir={() => setOpenItemPicker(null)}
+                              onElegir={(menu) => {
+                                setAddingToGroup(null);
+                                setOpenItemPicker(null);
+                                cargarMenuEnCaja(gi, menu);
+                              }}
                             />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddingToGroup(null);
-                              setOpenItemPicker(null);
-                            }}
-                            className="text-xs text-gray-500 hover:text-gray-700"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
+                        </>
                       ) : (
                         <div className="ml-2 flex items-center gap-4">
                           <button
@@ -1584,6 +1600,7 @@ export default function ServiciosTab({
                           <MenuGuardadoDeCaja
                             categoria={g.category}
                             deshabilitado={congelado}
+                            onAbrir={() => setOpenItemPicker(null)}
                             onElegir={(menu) => cargarMenuEnCaja(gi, menu)}
                           />
                         </div>
