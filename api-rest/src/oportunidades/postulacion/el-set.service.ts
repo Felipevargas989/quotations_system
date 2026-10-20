@@ -255,10 +255,23 @@ export class ElSetService {
       carpetas: Carpeta[];
       pieza: PiezaDelSet;
     }> = [];
+    // Decisión 58: el Word firmado se borra; su texto quedó en la firma.
+    const guardados = new Map<string, string>();
+    for (const t of trabajos) {
+      for (const [ruta, texto] of Object.entries(t.textos ?? {})) {
+        if (typeof texto === 'string') guardados.set(ruta, texto);
+      }
+    }
     for (const p of sinRespaldos.piezas) {
       // El firmado va en PDF: el texto se lee de su Word, que dice lo mismo.
       const { ruta, nombre } = p.texto ?? p;
-      if (extensionDe(nombre) !== 'docx') continue;
+      if (extensionDe(nombre) !== 'docx') {
+        const guardado = guardados.get(ruta);
+        if (guardado) {
+          textos.push({ texto: guardado, carpetas: p.carpetas, pieza: p });
+        }
+        continue;
+      }
       const docx = await this.bajar(ruta);
       if (!docx) continue;
       bajados.set(ruta, docx);

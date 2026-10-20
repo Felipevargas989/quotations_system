@@ -152,6 +152,44 @@ describe('Qué se rehace y qué se reemplaza', () => {
   });
 });
 
+describe('Se firma y se borra (decisión 58)', () => {
+  it('el PDF firmado solo cuenta como firmado, su precio sale de su corrida, y la propuesta se reconoce por su nombre', () => {
+    const solos = [
+      archivo(65, 'Formulario N°5 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: 54,
+        generacion_id: 9,
+      }),
+      archivo(75, 'Formulario N°1 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: 54,
+        generacion_id: 9,
+      }),
+      archivo(90, 'Propuesta técnica 1532886 - firmado.pdf', {
+        origen: 'firmado',
+        viene_de: null,
+        generacion_id: 4,
+      }),
+    ];
+    const igual = laVueltaAnterior({
+      postulacion: solos,
+      formularios: FORMULARIOS,
+      total: 15_900_000,
+      totalDe: new Map([[9, 15_900_000]]),
+    });
+    expect(igual.yaFirmados).toEqual(['Formulario N°1', 'Formulario N°5']);
+    expect(igual.propuestaFirmada).toBe(true);
+    expect(igual.borradoresDeFormularios).toEqual([]);
+    const otroPrecio = laVueltaAnterior({
+      postulacion: solos,
+      formularios: FORMULARIOS,
+      total: 15_900_000,
+      totalDe: new Map([[9, 14_000_000]]),
+    });
+    expect(otroPrecio.yaFirmados).toEqual(['Formulario N°1']);
+  });
+});
+
 describe('Los anexos al volver a armar', () => {
   it('dicen qué está firmado para no rehacerlo, y el trabajo lleva qué reemplaza', () =>
     entorno(async () => {

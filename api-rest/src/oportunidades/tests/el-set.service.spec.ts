@@ -195,6 +195,53 @@ describe('ElSetService', () => {
     expect((await PDFDocument.load(unido as Buffer)).getPageCount()).toBe(3);
   });
 
+  it('zip: sin el Word (decisión 58), los respaldos se buscan en el texto que quedó guardado al firmar', async () => {
+    const pdf = async (paginas: number) => {
+      const doc = await PDFDocument.create();
+      for (let i = 0; i < paginas; i++) doc.addPage();
+      return Buffer.from(await doc.save());
+    };
+    const anexoFirmado = await pdf(2);
+    const respaldo = await pdf(1);
+    const { servicio, repo, analisis } = armar();
+    repo.archivosDelSet.mockResolvedValue([
+      ((await repo.archivosDelSet()) as unknown[])[0],
+      {
+        id: 14,
+        nombre: 'Formularios_Anexos - firmado.pdf',
+        ruta: 'c1/postulacion/14',
+        bytes: anexoFirmado.length,
+        seccion: 'postulacion',
+        origen: 'firmado',
+        viene_de: 6,
+        generacion_id: 3,
+        creado_en: '2026-10-19T12:30:00.000Z',
+      },
+    ]);
+    repo.trabajosDeLaIA.mockResolvedValue([
+      {
+        id: 15,
+        tipo: 'firma',
+        estado: 'listo',
+        creado_en: '2026-10-19T12:20:00.000Z',
+        terminado_en: '2026-10-19T12:30:00.000Z',
+        parametros: null,
+        textos: {
+          'c1/postulacion/14': 'Formulario N°3 | N° 4352-103-SE23 | 2023',
+        },
+      },
+    ]);
+    analisis.descargar.mockImplementation((ruta: string) =>
+      Promise.resolve(ruta === 'c1/postulacion/14' ? anexoFirmado : respaldo),
+    );
+    const { datos } = await servicio.zip(1, 40);
+    const unido = archivoDelZip(
+      datos,
+      '2. Técnica/Formularios_Anexos - firmado.pdf',
+    );
+    expect((await PDFDocument.load(unido as Buffer)).getPageCount()).toBe(3);
+  });
+
   it('zip: si un archivo no baja, sigue con los demás y lo anota adentro', async () => {
     const { servicio, analisis } = armar();
     analisis.descargar.mockImplementation((ruta: string) =>

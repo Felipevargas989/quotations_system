@@ -255,24 +255,41 @@ export function armarElSet(d: DatosDelSet): ElSet {
   // De cada archivo del comprador, la versión vigente de cada formulario
   // (de un PDF salen varios Word en la misma corrida; desde la decisión 49
   // pueden venir de corridas distintas); la propuesta, la más nueva.
-  const generados = postulacion.filter((a) => a.origen === 'generado');
+  // Desde la decisión 58 el Word firmado se borra: su PDF firmado queda
+  // SOLO, con el archivo del comprador de su Word (o ninguno: la propuesta)
+  // y la corrida que lo hizo, y cuenta como un documento de la IA firmado.
+  const conWord = new Set(
+    postulacion.filter((a) => a.origen !== 'firmado').map((a) => a.id),
+  );
+  const solo = (a: ArchivoDelSet) =>
+    a.origen === 'firmado' && !conWord.has(a.viene_de ?? -1);
+  const generados = postulacion.filter(
+    (a) => a.origen === 'generado' || solo(a),
+  );
   const firmadoDe = (id: number) =>
     masNuevo(
       postulacion.filter((a) => a.origen === 'firmado' && a.viene_de === id),
     );
   const grupos = new Map<string, ArchivoDelSet[]>();
   for (const g of generados) {
-    const clave = g.viene_de === null ? 'propuesta' : String(g.viene_de);
+    const clave =
+      g.viene_de !== null
+        ? String(g.viene_de)
+        : !solo(g) || PROPUESTA.test(normalizar(g.nombre))
+          ? 'propuesta'
+          : `solo-${g.id}`;
     grupos.set(clave, [...(grupos.get(clave) ?? []), g]);
   }
   for (const [clave, grupo] of grupos) {
     const ultimo = masNuevo(grupo) as ArchivoDelSet;
     const vigentes =
-      clave === 'propuesta' || ultimo.generacion_id === null
+      clave === 'propuesta' ||
+      clave.startsWith('solo-') ||
+      ultimo.generacion_id === null
         ? [ultimo]
         : vigentesDelArchivo(grupo);
     for (const g of vigentes) {
-      const firmado = firmadoDe(g.id);
+      const firmado = g.origen === 'firmado' ? g : firmadoDe(g.id);
       const usado = firmado ?? g;
       const inicio = g.generacion_id ? d.inicioDe.get(g.generacion_id) : null;
       // Lo firmado no se rehace al volver a armar (decisión 49): no queda
@@ -304,6 +321,11 @@ export function armarElSet(d: DatosDelSet): ElSet {
               mismoArchivo(f.archivo, delComprador.nombre),
             )
           : [];
+        // Sin su archivo del comprador (un firmado de un Word subido a
+        // mano), el formulario se reconoce solo por su nombre.
+        const porNombre = delComprador
+          ? []
+          : formularios.filter((f) => mismoFormulario(f.nombre, g.nombre));
         // Desde el 19-10 sale un Word por formulario (de un Word o de un
         // PDF del comprador): el suyo, por el nombre; si no se reconoce, se
         // le cree que trae todos. Un Word de antes, lleno entero, los trae
@@ -313,7 +335,11 @@ export function armarElSet(d: DatosDelSet): ElSet {
         );
         const dePdf = /\.pdf$/i.test(delComprador?.nombre ?? '');
         const separado = dePdf || vigentes.length > 1;
-        const cubre = separado && propios.length > 0 ? propios : suyos;
+        const cubre = !delComprador
+          ? porNombre
+          : separado && propios.length > 0
+            ? propios
+            : suyos;
         cubre.forEach((f) => cubiertos.add(f));
         carpetas = sinRepetir(cubre.map((f) => carpetaDe(f.se_entrega_en)));
         if (carpetas.length === 0) carpetas = [carpetaPorNombre(g.nombre)];

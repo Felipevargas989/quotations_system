@@ -15,8 +15,8 @@ export const MAX_PARA_FIRMAR = 10;
 /** Lo que se ve en «Mi postulación» (decisión 57, 20-10; Felipe: "una vez
  *  firmados los documentos se debería eliminar o dejar de ver el Word, y
  *  dejar solo el PDF firmado"): el Word de la IA que ya tiene su firmado no
- *  se muestra. Sigue guardado: si se borra el firmado, vuelve a aparecer
- *  para firmarlo de nuevo. */
+ *  se muestra. Desde la decisión 58 el Word se borra al firmar; esto
+ *  esconde los que se firmaron antes. */
 export function sinLosWordYaFirmados(
   postulacion: AdjuntoDeOportunidad[],
 ): AdjuntoDeOportunidad[] {

@@ -599,10 +599,10 @@ export const pasosDelAvance = (
   // muestra lo que dijo (Felipe, 19-10: "está todo firmado, solo debería
   // estar con alerta la validación").
   const postulada = ["postulada", "ganada", "perdida"].includes(m.estado);
-  // Firmado = no queda nada de la IA sin firmar (cada firmado sale de un
-  // documento de la IA). Lo subido a mano cuenta como firmado: muchas
+  // Firmado = no queda nada de la IA sin firmar (`generados` ya es lo sin
+  // firmar: decisión 58). Lo subido a mano cuenta como firmado: muchas
   // veces se firma por fuera y se sube el PDF.
-  const sinFirmar = Math.max(0, a.generados - a.firmados);
+  const sinFirmar = a.generados;
   const firmado = sinFirmar === 0 && (a.firmados > 0 || a.postulacion > 0);
   return [
     { paso: "Bases", estado: postulada || a.bases > 0 ? "hecho" : "falta" },

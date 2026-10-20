@@ -40,7 +40,12 @@ export const avanceDeLaFicha = (d: {
     anexos: d.generaciones?.anexos?.estado ?? null,
     propuesta: d.generaciones?.propuesta?.estado ?? null,
     postulacion: postulacion.length,
-    generados: postulacion.filter((a) => a.origen === "generado").length,
+    // Lo de la IA sin firmar: un Word con su firmado no cuenta (decisión 58).
+    generados: postulacion.filter(
+      (a) =>
+        a.origen === "generado" &&
+        !postulacion.some((f) => f.origen === "firmado" && f.viene_de === a.id),
+    ).length,
     firmados: postulacion.filter((a) => a.origen === "firmado").length,
     validacion: v
       ? { estado: v.estado, listo: v.resultado?.listo ?? null }
