@@ -39,6 +39,8 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../../utils/eventConsolidation";
+import QuienLoPide from "./QuienLoPide";
+import { pedidosPorInsumo } from "./pedidosPorInsumo";
 
 // Compras multi-evento (Fase 3): selecciona eventos cerrados, consolida los
 // insumos por proveedor y provisiona POR PARTES (hoy carnes, mañana verduras)
@@ -226,6 +228,17 @@ export default function ComprasTab({
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
     [filtered, selected],
+  );
+
+  // Qué cotizaciones marcadas pide cada insumo (20-10-2026, QuienLoPide).
+  const pedidos = useMemo(
+    () =>
+      pedidosPorInsumo(
+        selectedEvents,
+        (id) => perEvent.get(id)?.supplyUse,
+        (id) => provByEvent.get(id),
+      ),
+    [selectedEvents, perEvent, provByEvent],
   );
 
   const toggle = (id: string) => {
@@ -1545,6 +1558,12 @@ export default function ComprasTab({
                                   parcial {st.prov}/{st.used}
                                 </span>
                               )}
+                              <QuienLoPide
+                                pedidos={pedidos.get(c.supply.id) ?? []}
+                                unidad={
+                                  UNIT_FAMILY_INFO[c.supply.unit_family].base
+                                }
+                              />
                             </td>
                             <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}

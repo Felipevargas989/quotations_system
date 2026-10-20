@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, y el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra (F3 paso 2). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -15,7 +15,7 @@ Operaciones y administración lo usan después de que la cotización queda acept
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
 | `/logistica` (menú "Proveedores") | `LogisticaPage` | `frontend/src/pages/logistica/LogisticaPage.tsx` | Contenedor con 4 pestañas; abre en Compras | operaciones, administrador (`SECTION_ROLES.logistics`, `PermissionGuard` en `App.tsx`) |
-| `/logistica` → Compras | `ComprasTab` | `frontend/src/pages/logistica/components/ComprasTab.tsx` | Filtra eventos aceptados (por defecto "desde hoy"). Selecciona varios y ve la lista de compra por proveedor. Provisiona por partes o todo, confirmando lo comprado y lo gastado. Desprovisiona. Descarga el PDF de la orden de compra o un CSV | operaciones, administrador |
+| `/logistica` → Compras | `ComprasTab` | `frontend/src/pages/logistica/components/ComprasTab.tsx` | Filtra eventos aceptados (por defecto "desde hoy"). Selecciona varios y ve la lista de compra por proveedor; al lado de cada insumo, el N° de cada cotización marcada que lo pide (20-10-2026, `QuienLoPide.tsx`: verde si ya está provisionado para ella, gris si falta; al pasar el mouse, cliente, fecha y cantidad neta). Provisiona por partes o todo, confirmando lo comprado y lo gastado. Desprovisiona. Descarga el PDF de la orden de compra o un CSV | operaciones, administrador |
 | `/logistica` → Insumos | `InsumosTab` | `frontend/src/pages/logistica/components/InsumosTab.tsx` | Crea y edita insumos: familia de unidad, precio por unidad base, merma, formato de compra y proveedor. Los desactiva o, si están libres, los elimina. Grupos plegables por proveedor | operaciones, administrador |
 | `/logistica` → Proveedores | `ProveedoresTab` | `frontend/src/pages/logistica/components/ProveedoresTab.tsx` | Crea y edita proveedores (contacto, teléfono, notas). "Dar de baja" a los que tienen historia; eliminar solo si están libres | operaciones, administrador |
 | `/logistica` → Servicios externos | `RecursosTab` | `frontend/src/pages/logistica/components/RecursosTab.tsx` | Catálogo de `management_resources` de tipo arriendo, con precio de lista fijo y/o por persona y proveedor. Los cargos (tipo `personal`) se filtran fuera | operaciones, administrador |
@@ -195,7 +195,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 ### F3. Compras multi-evento y provisión
 
 1. **ComprasTab.** `getBaseCatalogo` (clave base) + `getEstadoCompras` (clave `["logistica","compras","estado",companyId]`), que va a GET `/logistics/estado-compras`. De ahí salen `findAcceptedEvents` (`quotation_status='aceptada'`) y `findSupplyProvisions`, que leen `quotations` + `clients(name)` y `event_supply_provisions`.
-2. El usuario filtra por rango de fechas del evento (por defecto "desde hoy", con `hoyLocal`) o busca por N° exacto o cliente, y selecciona eventos. `perEvent` consolida cada evento. `consolidation` suma los seleccionados y **agrupa por proveedor**; el mobiliario no entra. `eventStatus` muestra Completo, Parcial n/m o Pendiente.
+2. El usuario filtra por rango de fechas del evento (por defecto "desde hoy", con `hoyLocal`) o busca por N° exacto o cliente, y selecciona eventos. `perEvent` consolida cada evento. `consolidation` suma los seleccionados y **agrupa por proveedor**; el mobiliario no entra. `pedidosPorInsumo` (`pedidosPorInsumo.ts`, 20-10-2026) lee el `supplyUse` de cada evento marcado y `provByEvent`: cada fila muestra con `QuienLoPide` un número por cotización que pide el insumo, en el orden de la tabla y aunque sean todas (Felipe: *"cuando sea todas pon igual el nro de cotización"*); las cantidades netas de todas suman la columna Cantidad. La etiqueta «consolidado» es otra cosa: el insumo lo usan varios servicios (platos). `eventStatus` muestra Completo, Parcial n/m o Pendiente.
 3. Marca insumos o proveedores y aprieta "Provisionar" (o "Provisionar todo"). Se abre **"Confirmar la compra"**:
    - "Necesito" (neto) queda bloqueado.
    - "Compro" se sugiere como `compradoSugerido`: la cantidad bruta con merma, redondeada hacia arriba al formato.
@@ -365,7 +365,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 11. **Si tocas** `management_resources` pensando solo en servicios externos, **se afectan** los cargos de Personal, **porque** son la misma tabla (`type='personal'`), con un índice único por empresa, tipo y nombre (69, preparado en producción por la 68b) que convive con la llave `(company_id, name)` de la 10, que no distingue tipo. Además, un `type` que la app no reconoce dejaba filas invisibles ("NADIE SE QUEDA FUERA", 16-08). Evidencia: migración 69 (comentario del paso 2); `people.repository.findRoles`; `RecursosTab`.
 12. **Si tocas** `markProvisioned`, `clearProvisioned` o el orden de `unprovision`, **se afectan** el costo congelado de Gestión y el Dashboard, y el mes de salida de caja, **porque** `provisioned_cost` (solo insumos) y `provisioned_at` alimentan `GestionTab.costoBase` y `DashboardPage.salidas`. `markProvisioned` y `upsertSupplyProvisions` están abiertos incluso en eventos realizados. Evidencia: `LogisticsRepository.markProvisioned` y `upsertSupplyProvisions`; `DashboardPage.marginData`.
 13. **Si agregas** una columna a `quotations` que Compras o el Dashboard necesiten, **no aparecerá**, **porque** `findAcceptedEvents` y `findWonEventsSince` usan un `select` con columnas explícitas. Así se agregaron los campos de propina el 31-08; lo mismo aplica a `COLUMNAS_LISTA` de `quotations.repository.ts` ("columna nueva en la tabla ⇒ agregarla acá").
-14. **Si agregas** código a `ComprasTab.tsx` (1.744 líneas), **lo rechaza el portero**, **porque** es uno de los 7 gigantes congelados en 1.794. Hay que extraer la pieza nueva a su propio archivo. Evidencia: `frontend/scripts/portero-kit-de-la-casa.sh` (`congelar`).
+14. **Si agregas** código a `ComprasTab.tsx` (1.762 líneas desde el 20-10-2026), **lo rechaza el portero**, **porque** es uno de los 7 gigantes congelados en 1.794. Hay que extraer la pieza nueva a su propio archivo. Evidencia: `frontend/scripts/portero-kit-de-la-casa.sh` (`congelar`).
 15. **Si arreglas** solo la línea del "hoy" en el radar de `MobiliarioTab`, **se crea** un bug nuevo, **porque** ese "hoy" en hora universal se compara contra fechas del mismo bloque que también están en hora universal. Evidencia: `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md`, Tanda A1 ("Revisar el bloque completo").
 
 ## 9. Pruebas que lo protegen
@@ -392,7 +392,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 ## 10. Deuda y rarezas conocidas
 
 **Tamaño y portero**
-- `ComprasTab.tsx`: 1.744 líneas, congelado en 1.794.
+- `ComprasTab.tsx`: 1.762 líneas (20-10-2026), congelado en 1.794.
 - Pasan de 800 líneas y cuentan para el techo de 27: `MobiliarioTab.tsx` (806), `FichaCocinaSection.tsx` (1.213), `GestionTab.tsx` (865) y `EventResourcesSection.tsx` (835).
 
 **Modales hechos a mano** (`fixed inset-0`, no el `Modal` de la casa)
@@ -502,6 +502,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 **App**
 - `frontend/src/pages/logistica/LogisticaPage.tsx`
 - `frontend/src/pages/logistica/components/ComprasTab.tsx`
+- `frontend/src/pages/logistica/components/QuienLoPide.tsx`, `pedidosPorInsumo.ts`, `QuienLoPide.test.tsx`
 - `frontend/src/pages/logistica/components/InsumosTab.tsx`
 - `frontend/src/pages/logistica/components/ProveedoresTab.tsx`
 - `frontend/src/pages/logistica/components/RecursosTab.tsx`
