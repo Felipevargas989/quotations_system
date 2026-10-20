@@ -70,6 +70,14 @@ export type DatosDelSet = {
   inicioDe: ReadonlyMap<number, string>;
   /** Cuándo quedó lista la última oferta armada (decisión 33). */
   ofertaLista: string | null;
+  /** Los respaldos de Post-venta que leyó la última corrida de los anexos
+   *  (decisión 45): van igual que los de la carpeta, desde su evento. */
+  postVenta?: Array<{
+    numero: string;
+    nombre: string;
+    ruta: string;
+    bytes: number;
+  }>;
   /** AAAA-MM-DD: el cierre en Chile (o hoy), contra el que se vence. */
   corte: string;
 };
@@ -444,16 +452,34 @@ export function conLosRespaldos(
   textos: Array<{ texto: string; carpetas: Carpeta[]; pieza?: PiezaDelSet }>,
   d: DatosDelSet,
 ): ElSet {
-  const respaldos = d.carpeta.filter(
-    (x) =>
-      x.tipo === TIPO_RESPALDO && (x.datos as DatosDeRespaldo | null)?.numero,
-  );
+  // Los de la carpeta primero; de Post-venta, los que no estén ya.
+  const vistos = new Set<string>();
+  const respaldos = [
+    ...d.carpeta
+      .filter(
+        (x) =>
+          x.tipo === TIPO_RESPALDO &&
+          (x.datos as DatosDeRespaldo | null)?.numero,
+      )
+      .map((x) => ({
+        numero: (x.datos as DatosDeRespaldo).numero,
+        nombre: x.nombre,
+        ruta: x.ruta,
+        bytes: x.bytes,
+      })),
+    ...(d.postVenta ?? []),
+  ].filter((r) => {
+    const clave = r.numero.replace(/\s+/g, '').toUpperCase();
+    if (vistos.has(clave)) return false;
+    vistos.add(clave);
+    return true;
+  });
   const piezas = [...set.piezas];
   const faltan = [...set.faltan];
   const adentro = new Map<PiezaDelSet, NonNullable<PiezaDelSet['adjuntos']>>();
   let encontrados = 0;
   for (const r of respaldos) {
-    const numero = (r.datos as DatosDeRespaldo).numero;
+    const numero = r.numero;
     const donde = textos.find((t) => aparece(numero, t.texto));
     if (!donde) continue;
     encontrados++;
@@ -489,7 +515,7 @@ export function conLosRespaldos(
   if (pidenExperiencia(d) && encontrados === 0) {
     faltan.push(
       respaldos.length === 0
-        ? 'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa».'
+        ? 'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa», o a cada evento en Post-venta, y vuelve a armar la postulación.'
         : 'Ningún anexo nombra tus respaldos de experiencia por su número: revisa el anexo de experiencia.',
     );
   }

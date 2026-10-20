@@ -6,10 +6,11 @@ import type { AnalisisRepository } from '../analisis/analisis.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import type { GeneracionService } from '../generacion/generacion.service';
 import type { OferenteRepository } from '../oferente/oferente.repository';
-import type { RespaldosDeEventiaService } from '../oferente/respaldos-de-eventia.service';
+import type { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta.service';
 import type { ArmarLaOfertaService } from '../postulacion/armar-la-oferta.service';
 import {
   ArmarPostulacionService,
+  pidenExperiencia,
   vaLaPropuesta,
 } from '../postulacion/armar-postulacion.service';
 import type { CotizacionDeLaPostulacionService } from '../postulacion/cotizacion-de-la-postulacion.service';
@@ -61,10 +62,8 @@ function armar() {
   const repo = {
     oportunidad: jest.fn().mockResolvedValue({ id: 40, quotation_id: null }),
   };
-  const eventia = {
-    traer: jest
-      .fn()
-      .mockResolvedValue({ traidos: 0, ya_estaban: 0, sin_traer: [] }),
+  const postVenta = {
+    paraLaPostulacion: jest.fn().mockResolvedValue([]),
   };
   const servicio = new ArmarPostulacionService(
     oferta as unknown as ArmarLaOfertaService,
@@ -74,11 +73,11 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
     repo as unknown as PostulacionRepository,
-    eventia as unknown as RespaldosDeEventiaService,
+    postVenta as unknown as RespaldosDePostVentaService,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return {
-    eventia,
+    postVenta,
     oferta,
     documentos,
     cotizacion,
@@ -168,6 +167,7 @@ describe('Armar postulación', () => {
 
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
+      post_venta: [],
     });
     // Con el precio: el valor va al final de la propuesta (decisión 42).
     expect(documentos.crearPropuesta).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
@@ -178,25 +178,73 @@ describe('Armar postulación', () => {
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
   });
 
-  it('antes de los anexos trae los respaldos de Eventia; si eso falla, los anexos igual salen (decisión 45)', async () => {
-    const { servicio, documentos, eventia, generaciones } = armar();
-    const orden: string[] = [];
-    eventia.traer.mockImplementation(() => {
-      orden.push('eventia');
-      return Promise.reject(new Error('Supabase no respondió'));
+  it('si las bases piden experiencia, lee Post-venta antes de los anexos y se lo pasa (decisión 45)', async () => {
+    const { servicio, documentos, postVenta, analisis } = armar();
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        requisitos: [{ que: 'Formulario N°3 Experiencia del oferente' }],
+      },
     });
-    documentos.generarAnexos.mockImplementation(() => {
-      orden.push('anexos');
-      return Promise.resolve({ id: 22 });
-    });
+    const respaldo = {
+      numero: '5040-126-TD26',
+      evento: 473,
+      archivo: 'Orden de compra 5040-126-TD26.pdf',
+    };
+    postVenta.paraLaPostulacion.mockResolvedValue([respaldo]);
     await servicio.seguir(USUARIO, 40, 21, {
       total: 11_900_000,
       propuesta: false,
     });
-    expect(eventia.traer).toHaveBeenCalledWith(1, 'cuenta-1');
-    expect(orden).toEqual(['eventia', 'anexos']);
-    // No es un problema de la postulación: no se anota en la oferta.
+    expect(postVenta.paraLaPostulacion).toHaveBeenCalledWith(1);
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
+      monto_total: 11_900_000,
+      post_venta: [respaldo],
+    });
+  });
+
+  it('sin experiencia en las bases no busca; si buscar falla, los anexos salen igual (y no es un problema de la postulación)', async () => {
+    const { servicio, documentos, postVenta, analisis, generaciones } = armar();
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(postVenta.paraLaPostulacion).not.toHaveBeenCalled();
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
+      monto_total: 11_900_000,
+      post_venta: [],
+    });
+
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: { formularios: [{ nombre: 'Anexo 3: Experiencia' }] },
+    });
+    postVenta.paraLaPostulacion.mockRejectedValue(
+      new Error('Supabase no respondió'),
+    );
+    documentos.generarAnexos.mockClear();
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
+      monto_total: 11_900_000,
+      post_venta: [],
+    });
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
+  });
+
+  it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {
+    expect(pidenExperiencia(FUNCIONARIO)).toBe(false);
+    expect(
+      pidenExperiencia({ requisitos: [{ que: 'Acreditar experiencia' }] }),
+    ).toBe(true);
+    expect(
+      pidenExperiencia({
+        formularios: [{ nombre: 'Formulario N°3 Experiencia', aplica: false }],
+      }),
+    ).toBe(false);
+    expect(pidenExperiencia(null)).toBe(false);
   });
 
   it('sin propuesta si las bases no la piden; la cotización vinculada queda igual a lo postulado, con el precio', async () => {

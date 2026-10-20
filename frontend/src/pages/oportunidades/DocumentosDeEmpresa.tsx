@@ -23,7 +23,6 @@ import {
 } from "./oportunidades.utils";
 import { resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
 import RespaldosEnLote from "./RespaldosEnLote";
-import TraerDeEventia from "./TraerDeEventia";
 
 // LA CARPETA DE DOCUMENTOS DE LA EMPRESA (doc 17 §5.5, sprint 3, paso 2):
 // lo que piden casi todas las bases (patente, inicio de actividades,
@@ -35,8 +34,8 @@ import TraerDeEventia from "./TraerDeEventia";
 // Desde el 19-10 también guarda los RESPALDOS DE EXPERIENCIA (decisión 34):
 // la orden de compra o la factura de cada evento que se declara, con sus
 // datos para el anexo de experiencia. No vencen. Se suben varios a la vez y
-// se leen solos (RespaldosEnLote), o se traen de los eventos de Eventia
-// (TraerDeEventia, decisión 45).
+// se leen solos (RespaldosEnLote). Los que están en Post-venta no se suben
+// aquí: «Armar postulación» los busca sola (decisión 45).
 
 const TONOS = {
   ok: "bg-green-50 text-green-700",
@@ -266,7 +265,6 @@ export default function DocumentosDeEmpresa({
             </>
           )}
         </div>
-        {esRespaldo && <TraerDeEventia alTraer={() => void recargar()} />}
         {esRespaldo && <RespaldosEnLote alGuardar={() => void recargar()} />}
       </div>
     </section>

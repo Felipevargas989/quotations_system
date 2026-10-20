@@ -9,7 +9,8 @@ import {
 } from '../generacion/generacion.repository';
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
-import { RespaldosDeEventiaService } from '../oferente/respaldos-de-eventia.service';
+import type { RespaldoDePostVenta } from '../oferente/respaldos-de-post-venta';
+import { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta.service';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { normalizar } from './el-set';
@@ -41,17 +42,11 @@ export type PostulacionArmada = {
   problemas?: string[];
 };
 
-/** El formulario que lleva el detalle técnico (calidad de la oferta,
- *  oferta o propuesta técnica). */
-const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
-
-/** ¿Va la propuesta técnica valorizada? Siempre que las bases NO traigan
- *  un formulario técnico (decisión 42; Felipe, 19-10, por las compras
- *  ágiles: "¿qué pasa si no viene ningún formulario a prerrellenar?"). Si
- *  lo traen, el detalle va en ese formulario (decisión 40). */
-export const vaLaPropuesta = (
+/** Los requisitos y los formularios que aplican, del análisis de las bases,
+ *  en texto. */
+const loQueDicenLasBases = (
   resultado: Record<string, unknown> | null | undefined,
-): boolean => {
+) => {
   const requisitos = Array.isArray(resultado?.requisitos)
     ? (resultado.requisitos as Array<{ que?: unknown }>).map((r) => r.que)
     : [];
@@ -63,6 +58,30 @@ export const vaLaPropuesta = (
   const textos = [...requisitos, ...formularios].filter(
     (t): t is string => typeof t === 'string',
   );
+  return { formularios, textos };
+};
+
+/** ¿Las bases piden experiencia? Entonces se buscan respaldos en
+ *  Post-venta (decisión 45). */
+export const pidenExperiencia = (
+  resultado: Record<string, unknown> | null | undefined,
+): boolean =>
+  loQueDicenLasBases(resultado).textos.some((t) =>
+    /experiencia/.test(normalizar(t)),
+  );
+
+/** El formulario que lleva el detalle técnico (calidad de la oferta,
+ *  oferta o propuesta técnica). */
+const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
+
+/** ¿Va la propuesta técnica valorizada? Siempre que las bases NO traigan
+ *  un formulario técnico (decisión 42; Felipe, 19-10, por las compras
+ *  ágiles: "¿qué pasa si no viene ningún formulario a prerrellenar?"). Si
+ *  lo traen, el detalle va en ese formulario (decisión 40). */
+export const vaLaPropuesta = (
+  resultado: Record<string, unknown> | null | undefined,
+): boolean => {
+  const { formularios, textos } = loQueDicenLasBases(resultado);
   // Un análisis anterior no trae los formularios: el requisito que nombra
   // un formulario o un anexo cuenta como tal.
   const deUnFormulario = [
@@ -82,7 +101,7 @@ export class ArmarPostulacionService {
     private readonly analisis: AnalisisRepository,
     private readonly oferente: OferenteRepository,
     private readonly repo: PostulacionRepository,
-    private readonly respaldosDeEventia: RespaldosDeEventiaService,
+    private readonly postVenta: RespaldosDePostVentaService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
@@ -126,15 +145,24 @@ export class ArmarPostulacionService {
     armada: PostulacionArmada,
   ): Promise<void> {
     const companyId = user.company_id;
-    // Antes de los anexos, que los nombran: los respaldos que están en
-    // Eventia y no en «Mi empresa» (decisión 45; Felipe: "buscar en Eventia
-    // y terminar de armar ese archivo"). Si falla, los anexos salen con los
-    // que hay.
+    // Si las bases piden experiencia, antes de los anexos: las facturas y
+    // órdenes de compra de Post-venta que no están en «Mi empresa»
+    // (decisión 45; Felipe: "debería el motor... evaluar si tiene
+    // experiencia suficiente o debe ir a post venta a buscar respaldos").
+    // Los anexos las usan si las de «Mi empresa» no alcanzan. Si falla,
+    // salen con las que hay.
+    let postVenta: RespaldoDePostVenta[] = [];
     try {
-      await this.respaldosDeEventia.traer(companyId, user.id);
+      const analisis = await this.analisis.ultimo(companyId, oportunidadId);
+      if (
+        analisis?.estado === 'listo' &&
+        pidenExperiencia(analisis.resultado)
+      ) {
+        postVenta = await this.postVenta.paraLaPostulacion(companyId);
+      }
     } catch (error) {
       this.logger.warn(
-        `respaldos de Eventia antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
+        `respaldos de Post-venta antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
       );
     }
     const pasos: Array<[string, () => Promise<unknown>]> = [
@@ -143,6 +171,7 @@ export class ArmarPostulacionService {
         () =>
           this.documentos.generarAnexos(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
+            post_venta: postVenta,
           }),
       ],
     ];

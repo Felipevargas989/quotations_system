@@ -15,8 +15,8 @@ export type DatosDeRespaldo = {
   monto: number | null;
   /** De dónde salieron: la ficha pública de Mercado Público o la empresa. */
   fuente: 'mercado_publico' | 'manual';
-  /** El N° del evento de Eventia del que se trajo (decisión 45, 19-10): así
-   *  no se trae dos veces ni se cuenta dos veces en el anexo. */
+  /** Solo en los de Post-venta (decisión 45, 19-10): el N° del evento del
+   *  que sale. Así la IA no cuenta dos veces la misma experiencia. */
   evento?: number;
 };
 
@@ -48,7 +48,6 @@ export function datosDeRespaldo(
   if (!numero) {
     return { problema: 'Falta el número de la orden de compra o la factura.' };
   }
-  const evento = entero(v.evento, 1, 1_000_000_000);
   return {
     numero,
     mandante: texto(v.mandante, 300),
@@ -56,21 +55,8 @@ export function datosDeRespaldo(
     anio: entero(v.anio, 1990, 2100),
     monto: entero(v.monto, 0, 100_000_000_000),
     fuente: v.fuente === 'mercado_publico' ? 'mercado_publico' : 'manual',
-    ...(evento ? { evento } : {}),
   };
 }
-
-/** Solo los datos del respaldo, sin lo que se le sumó al leerlo (el
- *  archivo, el id de la fila): lo que se guarda. */
-export const soloLosDatos = (d: DatosDeRespaldo): DatosDeRespaldo => ({
-  numero: d.numero,
-  mandante: d.mandante,
-  contrato: d.contrato,
-  anio: d.anio,
-  monto: d.monto,
-  fuente: d.fuente,
-  ...(d.evento ? { evento: d.evento } : {}),
-});
 
 /** Un respaldo como lo lee la IA del anexo de experiencia. */
 export const textoDelRespaldo = (d: DatosDeRespaldo): string =>

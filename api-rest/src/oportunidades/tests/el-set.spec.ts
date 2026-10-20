@@ -434,8 +434,51 @@ describe('el set para Mercado Público', () => {
     };
     const set = conLosRespaldos(armarElSet(sinRespaldos), [], sinRespaldos);
     expect(set.faltan).toContain(
-      'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa».',
+      'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa», o a cada evento en Post-venta, y vuelve a armar la postulación.',
     );
+  });
+
+  it('los respaldos de Post-venta que leyeron los anexos van igual, desde su evento, sin repetir un número de la carpeta (decisión 45)', () => {
+    const d = {
+      ...datos(),
+      postVenta: [
+        {
+          numero: '5040-126-TD26',
+          nombre: 'Orden de compra 5040-126-TD26.pdf',
+          ruta: 'c1/event-documents/q-473/ordenes_compra/x_5040-126-TD26.pdf',
+          bytes: 900,
+        },
+        // El mismo número que uno de la carpeta: va el de la carpeta.
+        {
+          numero: '4352-103-se23',
+          nombre: 'Orden de compra 4352-103-SE23.pdf',
+          ruta: 'c1/event-documents/q-300/ordenes_compra/x.pdf',
+          bytes: 800,
+        },
+      ],
+    };
+    const set = conLosRespaldos(
+      armarElSet(d),
+      [
+        {
+          texto:
+            'Formulario N°3 | N° 4352-103-SE23 | 2023 | N° 5040-126-TD26 | 2026',
+          carpetas: ['tecnica'],
+        },
+      ],
+      d,
+    );
+    expect(
+      set.piezas
+        .filter((p) => p.que_es === 'respaldo')
+        .map((p) => [p.nombre, p.ruta]),
+    ).toEqual([
+      ['OC 4352-103-SE23.pdf', 'c1/oferente/documentos/5'],
+      [
+        'Orden de compra 5040-126-TD26.pdf',
+        'c1/event-documents/q-473/ordenes_compra/x_5040-126-TD26.pdf',
+      ],
+    ]);
   });
 
   it('si un anexo remite a la propuesta en formato propio y no está, lo dice', () => {
