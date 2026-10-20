@@ -166,22 +166,26 @@ export default function RequestsPage() {
 
     return filteredRequests.map((request) => (
       <tr key={request.id} className="hover:bg-gray-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {/* Columnas que no se cortan (Felipe, 19-10-2026): el número va
+            angosto, el cliente y el evento bajan de línea, el estado y
+            sus etiquetas van uno sobre otro, y los botones se acomodan
+            si no caben. */}
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
           {request.quotation_number}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4 min-w-[12rem]">
           <div>
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-gray-900 break-words">
               {request.clients.name}
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4">
           <div className="text-sm text-gray-900">
             {request.event_type || "No especificado"}
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <div className="space-y-1">
             {request.event_date && (
               <div className="flex items-center text-sm text-gray-900">
@@ -195,20 +199,22 @@ export default function RequestsPage() {
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span
-            className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.quotation_status)}`}
-          >
-            {getStatusText(request.quotation_status)}
-          </span>
-          {request.user_id === null && (
-            <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-              creada desde link publico
+        <td className="px-4 py-4">
+          <div className="flex flex-col items-start gap-1">
+            <span
+              className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${getStatusColor(request.quotation_status)}`}
+            >
+              {getStatusText(request.quotation_status)}
             </span>
-          )}
+            {request.user_id === null && (
+              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 whitespace-nowrap">
+                creada desde link público
+              </span>
+            )}
+          </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-          <div className="flex items-center space-x-2">
+        <td className="px-4 py-4 text-sm font-medium">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Convertir en cotización: vivía en la tabla de pendientes
                 del panel de cotizaciones (eliminada el 22-07); ahora la
                 conversión vive aquí, en su casa natural. */}
@@ -320,11 +326,11 @@ export default function RequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">
           Requerimientos Pendientes
         </h1>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* «✨ Generar todas» en el lugar del enlace público, que se
               mudó a Mi empresa → Formulario web (Felipe, 17-10-2026). */}
           {conIA &&
@@ -408,22 +414,22 @@ export default function RequestsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Número
+                <th className="px-3 py-3 w-16 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  N°
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Evento
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha/Personas
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
