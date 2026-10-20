@@ -17,12 +17,14 @@ const estado = vi.hoisted(() => ({
     category: string;
     sort_order: number;
   }[],
+  cargando: false,
 }));
 
 vi.mock("../../hooks/useGruposDeMenus", () => ({
   useGruposDeMenus: () => ({
     gruposDe: (categoria: string) =>
       estado.grupos.filter((g) => g.category === categoria),
+    cargando: estado.cargando,
     crear: vi.fn(),
     renombrar: vi.fn(),
     ordenar: vi.fn(),
@@ -31,7 +33,10 @@ vi.mock("../../hooks/useGruposDeMenus", () => ({
   }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  estado.cargando = false;
+});
 
 const menu = (
   id: number,
@@ -96,6 +101,27 @@ describe("MenusGuardados con grupos", () => {
       "Otros",
       "Lomo liso",
     ]);
+  });
+
+  it("mientras llegan los grupos dice «Cargando…» y no dibuja la lista sin títulos (20-10-2026)", () => {
+    // Felipe: "se reordenan". Salía por precio y un instante después
+    // saltaba a sus grupos.
+    estado.grupos = [];
+    estado.cargando = true;
+    const { container } = pintar([
+      menu(1, "Mechada - Puré", 16900, 2),
+      menu(2, "Pollo al jugo - Arroz", 10800, 1),
+    ]);
+    expect(textoDeLaLista(container)).toBe("Cargando…");
+    expect(screen.queryByText(/Mechada/)).not.toBeInTheDocument();
+  });
+
+  it("sin categoría en la casilla no espera los grupos", () => {
+    estado.grupos = [];
+    estado.cargando = true;
+    pintar([menu(1, "Mechada - Puré", 16900, null)], false);
+    expect(screen.getByText(/Mechada - Puré/)).toBeInTheDocument();
+    expect(screen.queryByText("Cargando…")).not.toBeInTheDocument();
   });
 
   it("sin grupos en la categoría, la lista queda como antes", () => {
