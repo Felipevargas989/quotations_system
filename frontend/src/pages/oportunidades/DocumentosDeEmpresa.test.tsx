@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as postulacion from "../../services/postulacion.service";
@@ -81,5 +82,40 @@ describe("No usar", () => {
       }),
     );
     await waitFor(() => expect(p.marcarNoUsar).toHaveBeenCalledWith(19, true));
+  });
+});
+
+// EL RESPALDO DE LA PATENTE (decisión 61, 20-10). Felipe: "acabo de subir
+// el contrato de arriendo de patente, ¿puedes dejar por defecto que siempre
+// me lo pase en el zip?".
+describe("Respaldo de la patente", () => {
+  it("es un tipo de la carpeta y avisa que va siempre junto a la patente", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DocumentosDeEmpresa
+          documentos={[
+            {
+              ...respaldo(42, "x"),
+              tipo: "respaldo_patente",
+              nombre: "Comodato de arriendo Valle del Sol.pdf",
+              datos: null,
+            },
+          ]}
+        />
+      </QueryClientProvider>,
+    );
+    const etiqueta = "Respaldo de la patente (contrato, comodato o dictamen)";
+    expect(screen.getByText(etiqueta)).toBeInTheDocument();
+    expect(screen.queryByText(/junto a la patente/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Elige el tipo/ }));
+    const lista = within(
+      document.querySelector("[data-lista-scroll]") as HTMLElement,
+    );
+    fireEvent.click(lista.getByRole("button", { name: etiqueta }));
+    expect(
+      screen.getByText(
+        "Va siempre en el ZIP para Mercado Público, junto a la patente.",
+      ),
+    ).toBeInTheDocument();
   });
 });

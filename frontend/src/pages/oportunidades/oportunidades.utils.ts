@@ -346,8 +346,17 @@ export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
     value: "respaldo_experiencia",
     label: "Respaldo de experiencia (orden de compra o factura)",
   },
+  // Va siempre en el ZIP detrás de la patente (decisión 61).
+  {
+    value: "respaldo_patente",
+    label: "Respaldo de la patente (contrato, comodato o dictamen)",
+  },
   { value: "otro", label: "Otro" },
 ];
+
+/** El contrato de arriendo o comodato de una patente de otro, y lo que lo
+ *  valida (decisión 61): mismo valor que `TIPO_RESPALDO_PATENTE` del motor. */
+export const TIPO_RESPALDO_PATENTE = "respaldo_patente";
 
 export const etiquetaDeDocumento = (tipo: string): string =>
   TIPOS_DE_DOCUMENTO.find((t) => t.value === tipo)?.label ?? tipo;
