@@ -104,4 +104,24 @@ describe("Mi empresa: lo que vende, junto a las instalaciones", () => {
     // Solo cambió «lo que vende»: los datos del oferente no se mandan.
     expect(s.guardarOferente).not.toHaveBeenCalled();
   });
+
+  it("la página web no se escribe aquí: se ve la de Configuración de empresa (decisión 47)", async () => {
+    s.getOferente.mockResolvedValue({
+      ...VISTA,
+      empresa: { ...VISTA.empresa, sitio_web: "www.valledelsolquillon.cl" },
+    } as never);
+    s.getConfigOportunidades.mockResolvedValue(CONFIG as never);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <OferenteOportunidades />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("www.valledelsolquillon.cl"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Página web")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Se cambian en Configuración de empresa."),
+    ).toBeInTheDocument();
+  });
 });

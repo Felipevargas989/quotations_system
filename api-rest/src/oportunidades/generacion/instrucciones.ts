@@ -189,12 +189,14 @@ const DATOS: ReadonlyArray<[keyof Oferente, string]> = [
   ['coordinador_cargo', 'Cargo del coordinador'],
   ['coordinador_correo', 'Correo del coordinador'],
   ['coordinador_telefono', 'Teléfono del coordinador'],
-  ['sitio_web', 'Página web'],
 ];
 
 const laEmpresa = (c: ContextoDeGeneracion): string[] => {
   const o = c.oferente;
   const b = c.empresa?.bank_details;
+  // La página web vive en Configuración de empresa (decisión 47); la de
+  // «Mi empresa» quedó de antes y solo sirve si Configuración no tiene.
+  const web = c.empresa?.sitio_web?.trim() || o.sitio_web?.trim();
   const banco = b
     ? [
         b.banco && `banco ${b.banco}`,
@@ -210,6 +212,7 @@ const laEmpresa = (c: ContextoDeGeneracion): string[] => {
       ([campo, etiqueta]) => `- ${etiqueta}: ${o[campo]}`,
     ),
     ...(c.empresa?.name ? [`- Nombre de fantasía: ${c.empresa.name}`] : []),
+    ...(web ? [`- Página web: ${web}`] : []),
     // Decisión 43 (19-10): el Formulario N°1 del Profesor los pedía aparte.
     '- Si un formulario pide la dirección, el teléfono o el correo del representante legal y no están arriba, usa los de la empresa.',
     ...(banco.length > 0

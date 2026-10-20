@@ -413,6 +413,8 @@ export interface VistaDelOferente {
   /** De Configuración de empresa: aquí solo se muestran. */
   empresa: {
     nombre: string | null;
+    /** Decisión 47: la página web se cambia en Configuración. */
+    sitio_web?: string | null;
     banco: {
       rut: string | null;
       banco: string | null;

@@ -23,7 +23,8 @@ import {
 // la información de la empresa, la firma (una foto de la firma)". Los
 // datos con que la empresa se presenta a una licitación, la firma y la
 // carpeta de documentos. La IA los usa para llenar anexos y validar
-// documentos (pasos 3 y 4). El nombre y los datos bancarios viven en
+// documentos (pasos 3 y 4). El nombre, la página web (decisión 47, 19-10:
+// "página web debería traer la de Eventia") y los datos bancarios viven en
 // Configuración de empresa: aquí solo se muestran.
 //
 // LO QUE VENDE LA EMPRESA va junto a sus instalaciones (Felipe, 19-10: "lo
@@ -75,7 +76,6 @@ const CAMPOS: ReadonlyArray<{
   { campo: "coordinador_cargo", etiqueta: "Cargo del coordinador" },
   { campo: "coordinador_correo", etiqueta: "Correo del coordinador" },
   { campo: "coordinador_telefono", etiqueta: "Teléfono del coordinador" },
-  { campo: "sitio_web", etiqueta: "Página web" },
   {
     campo: "experiencia",
     etiqueta: "Experiencia destacada",
@@ -258,6 +258,10 @@ export default function OferenteOportunidades() {
           <p>
             <span className="font-semibold">Nombre de fantasía:</span>{" "}
             {data.empresa.nombre ?? "—"}
+          </p>
+          <p>
+            <span className="font-semibold">Página web:</span>{" "}
+            {data.empresa.sitio_web ?? "sin página web"}
           </p>
           <p>
             <span className="font-semibold">Datos bancarios:</span>{" "}

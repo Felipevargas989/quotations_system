@@ -18,6 +18,7 @@ function armar() {
     guardar: jest.fn().mockResolvedValue(undefined),
     empresa: jest.fn().mockResolvedValue({
       name: 'Valle del Sol Quillón',
+      sitio_web: ' www.valledelsolquillon.cl ',
       bank_details: {
         rut: '77.701.305-K',
         banco: 'Banco de Chile',
@@ -65,6 +66,8 @@ describe('OferenteService — los datos', () => {
     expect(v.oferente.firma_ruta).toBeNull();
     expect(v.empresa).toEqual({
       nombre: 'Valle del Sol Quillón',
+      // La página web viene de Configuración (decisión 47).
+      sitio_web: 'www.valledelsolquillon.cl',
       banco: {
         rut: '77.701.305-K',
         banco: 'Banco de Chile',
