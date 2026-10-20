@@ -346,7 +346,17 @@ export class QuotationsService {
       // llenó el formulario queda como contacto de ESTA cotización.
       children_count: createQuotationPublicDto.children_count || 0,
       contact_name: createQuotationPublicDto.name,
-      observations: `[Desde formulario publico] --- ${createQuotationPublicDto.observations}`,
+      // Observaciones las ve el cliente (salen en el PDF): desde el
+      // 19-10-2026 parten en blanco, sin la marca «[Desde formulario
+      // publico]». Lo que escribió el visitante (con su presupuesto) es
+      // información para el equipo y va al comentario interno (Felipe:
+      // "las observaciones que ve el cliente quedan limpias"). La
+      // etiqueta «creada desde link público» no dependía de ese texto:
+      // sale de user_id null (RequestsPage).
+      observations: '',
+      comentario_interno: mensajeDelFormulario(
+        createQuotationPublicDto.observations,
+      ),
       event_date: createQuotationPublicDto.event_date,
       quotation_status: QuotationStatus.SOLICITADA,
       request_type: RequestType.REQUERIMIENTO,
@@ -1440,3 +1450,17 @@ export class QuotationsService {
     }
   }
 }
+
+/**
+ * Lo que el visitante escribió en el formulario público (y el presupuesto
+ * que el servicio le antepone), listo para el comentario interno. Sin nada
+ * escrito queda vacío: un rótulo solo no le dice nada al equipo.
+ */
+export const mensajeDelFormulario = (
+  mensaje: string | null | undefined,
+): string | null => {
+  const limpio = mensaje?.trim();
+  return limpio
+    ? `Mensaje del cliente en el formulario público:\n${limpio}`
+    : null;
+};

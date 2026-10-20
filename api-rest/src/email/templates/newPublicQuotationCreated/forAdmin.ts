@@ -88,7 +88,7 @@ export const newPublicQuotationAdminTemplate = (
     }
     ${observaciones}
     <p style="color:#6b7280;font-size:13px;">
-      En el sistema aparece con "[Desde formulario publico]" en las observaciones.
+      En el sistema aparece con la etiqueta «creada desde link público», y lo que escribió el cliente queda en el comentario interno.
     </p>`;
   // El molde común de los correos internos (02-09): nació aquí y ahora
   // lo comparten todos.
