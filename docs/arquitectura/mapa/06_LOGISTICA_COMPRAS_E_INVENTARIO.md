@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, y el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra (F3 paso 2). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, y el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -218,7 +218,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 6. **Efectos automáticos:**
    - Gestión congela los insumos con `provisioned_cost` y avisa si después cambiaron las personas o los servicios contra la foto (`GestionTab.cambios`).
    - El Dashboard toma `provisioned_at` como el mes en que salió la plata a proveedores (`salidas`).
-7. **Salidas:** `downloadPDF` abre en una ventana un HTML continuo, con una sección por proveedor. `downloadExcel` genera un CSV con `;` y BOM.
+7. **Salidas:** `downloadPDF` abre en una ventana un HTML continuo, con una sección por proveedor; desde el 20-10-2026 cada insumo lleva en gris chico los N° de las cotizaciones que lo piden (`numerosDeCotizacion`: «#384 ✓ · #456», el ✓ es lo ya provisionado para esa cotización, explicado al pie; Felipe: *"¿puede pasarse al pdf los números de cotización?"*). `downloadExcel` genera un CSV con `;` y BOM.
 
 ### F4. Recursos del evento (Gestión → servicios externos)
 
