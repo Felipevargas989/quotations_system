@@ -290,20 +290,34 @@ export const laRevision = (b: LoQuePidenLasBases | null): string[] => {
   ];
 };
 
-/** Los eventos que hizo la empresa, de Eventia: su experiencia real. El
- *  evento que ya tiene su respaldo arriba (traído de Eventia, decisión 45)
- *  no se repite abajo: sería contar dos veces la misma experiencia. */
+const listaDeRespaldos = (
+  respaldos: NonNullable<ContextoDeGeneracion['respaldos']>,
+): string[] =>
+  respaldos.map((r) => `- ${textoDelRespaldo(r)} (archivo «${r.archivo}»)`);
+
+/** Los eventos que hizo la empresa, de Eventia: su experiencia real. Primero
+ *  los respaldos de «Mi empresa»; después, aparte, los de Post-venta
+ *  (decisión 45: los lee «Armar postulación»), que se usan solo si los
+ *  primeros no alcanzan. El evento que ya tiene su respaldo no se repite en
+ *  la lista de eventos: sería contar dos veces la misma experiencia. */
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
   const respaldos = c.respaldos ?? [];
-  const conRespaldo = new Set(respaldos.map((r) => r.evento));
+  const deLaCarpeta = respaldos.filter((r) => !r.evento);
+  const dePostVenta = respaldos.filter((r) => r.evento);
+  const conRespaldo = new Set(dePostVenta.map((r) => r.evento));
   const eventos = c.eventos.filter((e) => !conRespaldo.has(e.numero));
   return [
-    ...(respaldos.length > 0
+    ...(deLaCarpeta.length > 0
       ? [
-          'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta, cada una con su PDF; son las que cuentan para el puntaje):',
-          ...respaldos.map(
-            (r) => `- ${textoDelRespaldo(r)} (archivo «${r.archivo}»)`,
-          ),
+          'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta en «Mi empresa», cada una con su PDF; son las que cuentan para el puntaje):',
+          ...listaDeRespaldos(deLaCarpeta),
+          '',
+        ]
+      : []),
+    ...(dePostVenta.length > 0
+      ? [
+          'MÁS RESPALDOS, DE SUS EVENTOS EN EVENTIA (facturas y órdenes de compra subidas a cada evento hecho, cada una con su PDF): úsalos SOLO si los de «Mi empresa» no alcanzan para el puntaje máximo de CÓMO SE EVALÚA, y solo los del período que cuentan las bases.',
+          ...listaDeRespaldos(dePostVenta),
           '',
         ]
       : []),
@@ -482,7 +496,7 @@ export const instruccionesDeAnexos = (
       FIRMA_JUNTA,
       'Fechas: la de hoy, escrita como la pida el formulario. Lugar: la comuna de la empresa.',
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
-      'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: las filas sin respaldo.',
+      'La experiencia sale SOLO de lo de arriba: PRIMERO sus respaldos de experiencia (los de «Mi empresa» y, si no alcanzan, los de sus eventos en Eventia; órdenes de compra y facturas con su PDF), con su número en la columna de ID de compra o N° de factura, porque son los que cuentan para el puntaje. Elige los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), y solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA más uno o dos de reserva (si 6 o más dan el máximo, pon 6 a 8). Si los respaldos no alcanzan, completa con los eventos de Eventia más parecidos o con lo que escribió la empresa, deja su número en blanco y anota en pendientes que les falta el respaldo. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: las filas sin respaldo.',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,

@@ -185,7 +185,9 @@ export class PostulacionRepository {
   }
 
   /** Los trabajos de la IA de la oportunidad: cuándo empezó cada uno y
-   *  cuándo quedó lista la oferta (lo hecho antes, quedó viejo). */
+   *  cuándo quedó lista la oferta (lo hecho antes, quedó viejo). Con sus
+   *  parámetros: los anexos anotan ahí los respaldos de Post-venta que
+   *  leyeron (decisión 45). */
   async trabajosDeLaIA(
     companyId: number,
     oportunidadId: number,
@@ -196,11 +198,12 @@ export class PostulacionRepository {
       estado: string;
       creado_en: string;
       terminado_en: string | null;
+      parametros: Record<string, unknown> | null;
     }>
   > {
     const { data, error } = await this.db
       .from('oportunidad_generacion')
-      .select('id, tipo, estado, creado_en, terminado_en')
+      .select('id, tipo, estado, creado_en, terminado_en, parametros')
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
       .order('id', { ascending: false })
@@ -212,6 +215,7 @@ export class PostulacionRepository {
       estado: string;
       creado_en: string;
       terminado_en: string | null;
+      parametros: Record<string, unknown> | null;
     }>;
   }
 
