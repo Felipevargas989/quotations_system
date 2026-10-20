@@ -7,7 +7,15 @@ import { OferenteRepository } from '../oferente/oferente.repository';
  *  consulta: toda consulta es de UNA empresa. */
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'insert', 'upsert', 'delete', 'eq', 'order'];
+const METODOS = [
+  'select',
+  'insert',
+  'upsert',
+  'update',
+  'delete',
+  'eq',
+  'order',
+];
 
 function armar(respuesta: { data?: unknown; error?: unknown } = {}) {
   const consultas: Consulta[] = [];
@@ -82,5 +90,33 @@ describe('OferenteRepository', () => {
     await repo.empresa(1);
     expect(consultas[0].tabla).toBe('companies');
     expect(filtros(consultas[0])).toEqual([['id', 1]]);
+  });
+
+  it('«de las 10 de siempre» (decisión 53): junta la marca con los datos, solo en un respaldo de la empresa', async () => {
+    const { repo, consultas } = armar({
+      data: {
+        datos: { numero: '260', mandante: 'Comercial CCU S.A.', siempre: true },
+      },
+    });
+    await repo.marcarDeSiempre(1, 39, false);
+    const [leer, guardar] = consultas;
+    expect(filtros(leer)).toEqual([
+      ['company_id', 1],
+      ['id', 39],
+      ['tipo', 'respaldo_experiencia'],
+    ]);
+    const [, datos] = guardar.pasos.find(([m]) => m === 'update') as [
+      string,
+      { datos: Record<string, unknown> },
+    ];
+    // Desmarcar saca la marca y deja los datos.
+    expect(datos).toEqual({
+      datos: { numero: '260', mandante: 'Comercial CCU S.A.' },
+    });
+    expect(filtros(guardar)).toEqual([
+      ['company_id', 1],
+      ['id', 39],
+      ['tipo', 'respaldo_experiencia'],
+    ]);
   });
 });
