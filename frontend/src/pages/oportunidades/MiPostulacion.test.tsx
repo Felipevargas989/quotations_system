@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
-import { sinFirmarDeLaUltimaVuelta } from "./firmarTodos";
+import { sinFirmarDeLaUltimaVuelta, sinLosWordYaFirmados } from "./firmarTodos";
 import MiPostulacion from "./MiPostulacion";
 
 // MI POSTULACIÓN (19-10): «Firmar» en cada Word sin firma y «Firmar todos»
@@ -133,5 +133,28 @@ describe("Mi postulación", () => {
       22, 23,
     ]);
     expect(sinFirmarDeLaUltimaVuelta(null, POSTULACION)).toEqual([]);
+  });
+
+  it("el Word ya firmado no se ve: queda su PDF firmado (decisión 57)", async () => {
+    expect(sinLosWordYaFirmados(POSTULACION).map((a) => a.id)).toEqual([
+      22, 23, 24, 9,
+    ]);
+    pintar();
+    expect(
+      await screen.findByText(
+        /Formulario N°1 - Identificación del oferente - firmado/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        /Formulario N°1 - Identificación del oferente - lleno/,
+      ),
+    ).toBeNull();
+    // Si se borra el firmado, el Word vuelve a aparecer para firmarlo.
+    expect(
+      sinLosWordYaFirmados(POSTULACION.filter((a) => a.id !== 24)).map(
+        (a) => a.id,
+      ),
+    ).toContain(21);
   });
 });

@@ -72,9 +72,10 @@ const RESPUESTA = {
       productos: [],
     },
   ],
-  faltan_en_el_catalogo: [
-    { que: 'Escenario 4x3 m con escalera y faldón negro', por_que: 'pág. 18' },
-  ],
+  faltan_en_el_catalogo: [],
+  // Decisión 57: lo subcontratado, junto, y los detalles, aparte.
+  subcontratar: ['Escenario de 4x3 m con escalera y faldón negro'],
+  detalles: ['Empanadas de cóctel: 2 de queso y 1 de carne por persona'],
 };
 
 class OfertaDePrueba extends ArmarLaOfertaService {
@@ -208,6 +209,14 @@ describe('Armar la oferta', () => {
     // (decisión 40).
     expect(sistema).toContain('Si las bases no detallan un servicio');
     expect(sistema).toContain('nunca digas que algo se subcontrata');
+    // Decisión 57: un solo pedido al proveedor y las variaciones aparte.
+    expect(sistema).toContain(
+      'subcontratar: TODO lo que la empresa no tiene y no va a tener por una licitación',
+    );
+    expect(sistema).toContain(
+      'detalles: lo que las bases piden de algo que la empresa YA vende',
+    );
+    expect(sistema).toContain('faltan_en_el_catalogo: SOLO lo muy específico');
   });
 
   it('«Armar postulación» (decisión 35): anota sus parámetros y sigue solo si la oferta quedó lista', async () => {
@@ -259,6 +268,8 @@ describe('Armar la oferta', () => {
         oferta: { cajas: RESPUESTA.cajas, fijos: RESPUESTA.fijos },
         matriz: RESPUESTA.matriz,
         faltan_en_el_catalogo: RESPUESTA.faltan_en_el_catalogo,
+        subcontratar: RESPUESTA.subcontratar,
+        detalles: RESPUESTA.detalles,
       },
       no_leidos: [],
       tokens_entrada: 20_000,
@@ -300,5 +311,15 @@ describe('Armar la oferta', () => {
         productos: [5],
       },
     ]);
+  });
+
+  it('el pedido al proveedor y los detalles se leen sin vacíos ni repetidos (decisión 57)', () => {
+    const leido = leerArmado({
+      ...RESPUESTA,
+      subcontratar: ['  Pódium, los dos días ', 'Pódium, los dos días', '', 7],
+      detalles: 'no es una lista',
+    });
+    expect(leido?.subcontratar).toEqual(['Pódium, los dos días']);
+    expect(leido?.detalles).toEqual([]);
   });
 });

@@ -25,6 +25,11 @@ import {
   type OfertaDeLaPropuesta,
   productosDeLaOferta,
 } from '../generacion/oferta-de-la-propuesta';
+import { listaDeTextos } from './armar-la-oferta';
+import {
+  bloqueDeLaLicitacion,
+  comentarioConLaLicitacion,
+} from './comentario-de-la-licitacion';
 import { noSiEstaCongelada } from './congelada';
 import {
   type CotizacionDeLaPostulacion,
@@ -250,12 +255,28 @@ export class CotizacionDeLaPostulacionService {
     }
     const plata = this.plata(armado.items, evento.personas, 0);
     const origen = `la propuesta técnica de la licitación ${o.codigo} (${o.proceso.nombre})`;
+    // Decisión 57: los detalles de lo postulado y el pedido al proveedor,
+    // en el comentario interno (lo demás que tenga, se queda).
+    const bloque = bloqueDeLaLicitacion({
+      codigo: o.codigo,
+      nombre: o.proceso.nombre,
+      detalles: propuesta.detalles,
+      subcontratar: propuesta.subcontratar,
+    });
 
     let quotationId: string;
     if (destino) {
       await this.cotizaciones.update(
         destino.id,
-        { ...plata, people_count: evento.personas } as UpdateQuotationDto,
+        {
+          ...plata,
+          people_count: evento.personas,
+          comentario_interno: comentarioConLaLicitacion(
+            destino.comentario_interno,
+            bloque,
+            o.codigo,
+          ),
+        } as UpdateQuotationDto,
         companyId,
         user.role,
         { derechos: user.derechos, plan: user.plan },
@@ -281,7 +302,7 @@ export class CotizacionDeLaPostulacionService {
           people_count: evento.personas,
           children_count: 0,
           quotation_status: 'solicitada',
-          comentario_interno: `Postulación a la licitación ${o.codigo}: ${o.proceso.nombre}.`,
+          comentario_interno: bloque,
         } as unknown as CreateQuotationDto,
         companyId,
         user.id,
@@ -367,10 +388,22 @@ export class CotizacionDeLaPostulacionService {
   private async ofertaDeLaPropuesta(
     companyId: number,
     oportunidadId: number,
-  ): Promise<{ id: number; oferta: OfertaDeLaPropuesta } | null> {
+  ): Promise<{
+    id: number;
+    oferta: OfertaDeLaPropuesta;
+    detalles: string[];
+    subcontratar: string[];
+  } | null> {
     const p = await this.repo.ultimaPropuesta(companyId, oportunidadId);
     const oferta = leerOferta(p?.resultado?.oferta);
-    return p && oferta ? { id: p.id, oferta } : null;
+    return p && oferta
+      ? {
+          id: p.id,
+          oferta,
+          detalles: listaDeTextos(p.resultado?.detalles),
+          subcontratar: listaDeTextos(p.resultado?.subcontratar),
+        }
+      : null;
   }
 
   /** La fecha y las personas: las de la cotización que se reescribe; si no,

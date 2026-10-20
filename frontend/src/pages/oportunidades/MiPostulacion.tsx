@@ -12,7 +12,7 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import EstadoDeGeneracion from "./EstadoDeGeneracion";
-import { sinFirmarDeLaUltimaVuelta } from "./firmarTodos";
+import { sinFirmarDeLaUltimaVuelta, sinLosWordYaFirmados } from "./firmarTodos";
 import { sePuedeFirmar } from "./oportunidades.utils";
 import {
   claveDeGeneraciones,
@@ -75,6 +75,7 @@ export default function MiPostulacion({
       codigo={codigo}
       tipo={tipo}
       seccion="postulacion"
+      filtrar={sinLosWordYaFirmados}
       accionesDeFila={(a) =>
         !sePuedeFirmar(a) ? null : porFirmar === a.id ? (
           <ConfirmInline

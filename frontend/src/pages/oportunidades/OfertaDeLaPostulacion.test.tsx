@@ -132,6 +132,44 @@ describe("La oferta de la postulación", () => {
     expect(screen.queryByText(/antes del último análisis/)).toBeNull();
   });
 
+  it("subcontratar es un solo pedido al proveedor y los detalles van al comentario interno (decisión 57)", async () => {
+    s.getOfertaDeLaPostulacion.mockResolvedValue({
+      id: 21,
+      estado: "listo",
+      creado_en: "2026-10-20T14:30:00.000Z",
+      resultado: {
+        resumen: "",
+        matriz: [
+          {
+            especificacion: "Aperitivo y cóctel",
+            pagina: 1,
+            como: "Empanadas de cóctel.",
+            origen: "catalogo",
+            productos: [2123],
+          },
+        ],
+        faltan_en_el_catalogo: [],
+        subcontratar: ["Pódium, los dos días", "Amplificación y micrófonos"],
+        detalles: ["Empanadas de cóctel: 2 de queso y 1 de carne por persona"],
+      },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(/Subcontratar: lo que le pides al proveedor/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pódium, los dos días")).toBeInTheDocument();
+    expect(screen.getByText("Amplificación y micrófonos")).toBeInTheDocument();
+    expect(
+      screen.getByText("Detalles para el comentario interno (1)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Empanadas de cóctel: 2 de queso y 1 de carne por persona",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Conseguir/)).toBeNull();
+  });
+
   it("si todo sale del catálogo lo dice; si la oferta es anterior al análisis, avisa (el Profesor, 19-10)", async () => {
     s.getOfertaDeLaPostulacion.mockResolvedValue({
       id: 5,

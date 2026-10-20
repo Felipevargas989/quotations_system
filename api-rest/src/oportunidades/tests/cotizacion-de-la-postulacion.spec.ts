@@ -179,6 +179,29 @@ describe('La cotización de la postulación', () => {
     expect(notas()[0]).toContain(
       'Creada desde la propuesta técnica de la licitación 4364-13-LE26',
     );
+    expect(dto.comentario_interno).toContain(
+      'Postulación a la licitación 4364-13-LE26',
+    );
+  });
+
+  it('el comentario interno lleva los detalles de lo postulado y el pedido al proveedor (decisión 57)', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: {
+        oferta: OFERTA,
+        detalles: ['Copa de helado con galletas'],
+        subcontratar: ['Pódium, los dos días'],
+      },
+    });
+    await servicio.llevar(USUARIO, 87);
+    const [dto] = cotizaciones.create.mock.calls[0] as [Record<string, string>];
+    expect(dto.comentario_interno).toContain(
+      'Detalles de lo postulado:\n- Copa de helado con galletas',
+    );
+    expect(dto.comentario_interno).toContain(
+      'Subcontratar (pedir al proveedor):\n- Pódium, los dos días',
+    );
   });
 
   it('sin una oferta armada, no hay de dónde sacar los productos', async () => {
@@ -235,6 +258,7 @@ describe('La cotización de la postulación', () => {
       subtotal_amount: 4_000_000,
       discount_amount: 0,
       total_amount: 4_000_000,
+      comentario_interno: 'Llamar a la Sra. Pérez.',
       client: { name: 'Municipalidad de Quillón' },
     });
 
@@ -259,6 +283,10 @@ describe('La cotización de la postulación', () => {
       total_amount: CATALOGO_TOTAL,
       discount_amount: 0,
     });
+    // Decisión 57: el bloque de la licitación arriba; la nota, se queda.
+    expect(cambios.comentario_interno).toMatch(
+      /^Postulación a la licitación 4364-13-LE26[\s\S]*Llamar a la Sra\. Pérez\.$/,
+    );
     expect(notas()[0]).toContain(
       'Antes tenía: Almuerzo (200 pers.): Lasaña · Fijos: Decoración x2 ($4.000.000)',
     );

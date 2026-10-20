@@ -20,6 +20,14 @@ import {
 // falta en el catálogo, para que la empresa lo agregue con su precio
 // (precios nunca a dedo). Las cajas y los fijos son la cotización, con la
 // misma forma de «✨ Crear con IA».
+//
+// Desde la decisión 57 (20-10), lo que no está en el catálogo se separa en
+// tres: lo que se SUBCONTRATA va junto, como un solo requerimiento al
+// proveedor (Felipe: "siempre va a ser un requerimiento al proveedor y
+// generalmente va a ser un proveedor audiovisual"); los DETALLES de lo que
+// ya se vende van al comentario interno de la cotización ("no puedo hacer un
+// producto por cada variación del principal"); y solo lo muy específico
+// queda como algo que falta en el catálogo.
 
 export type OrigenDeLaFila = 'catalogo' | 'subcontratar' | 'completar';
 
@@ -38,6 +46,10 @@ export type ArmadoDeLaOferta = {
   oferta: OfertaDeLaPropuesta;
   matriz: FilaDeLaMatriz[];
   faltan_en_el_catalogo: Array<{ que: string; por_que: string }>;
+  /** Lo que se le pide al proveedor externo, una cosa por línea. */
+  subcontratar: string[];
+  /** Variaciones de lo que ya se vende: al comentario interno. */
+  detalles: string[];
 };
 
 export const ESQUEMA_DE_LA_OFERTA = {
@@ -74,12 +86,29 @@ export const ESQUEMA_DE_LA_OFERTA = {
         required: ['que', 'por_que'],
       },
     },
+    subcontratar: { type: 'array', items: { type: 'string' } },
+    detalles: { type: 'array', items: { type: 'string' } },
   },
-  required: ['resumen', 'cajas', 'fijos', 'matriz', 'faltan_en_el_catalogo'],
+  required: [
+    'resumen',
+    'cajas',
+    'fijos',
+    'matriz',
+    'faltan_en_el_catalogo',
+    'subcontratar',
+    'detalles',
+  ],
 } as const;
 
 const texto = (v: unknown, max = 600): string =>
   typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
+
+/** Una lista de textos, sin vacíos ni repetidos (los de la decisión 57). */
+export const listaDeTextos = (v: unknown, max = 300): string[] => [
+  ...new Set(
+    (Array.isArray(v) ? v : []).map((x) => texto(x, max)).filter(Boolean),
+  ),
+];
 
 /** Lo que devolvió la IA, leído con cuidado: lo que no tenga forma se bota. */
 export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
@@ -123,6 +152,8 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
     oferta,
     matriz,
     faltan_en_el_catalogo: faltan,
+    subcontratar: listaDeTextos(o.subcontratar),
+    detalles: listaDeTextos(o.detalles),
   };
 };
 
@@ -156,7 +187,7 @@ export const instruccionesDeLaOferta = (c: {
     ...numerar([
       'Las bases van adjuntas: léelas para el detalle de cada especificación técnica (cantidades, características, opciones).',
       'matriz: una fila por cada especificación técnica de las bases, en su orden. "especificacion": con las palabras de las bases; "pagina": su página (0 si no se sabe); "como": lo que se ofrece, en una o dos líneas y con las mismas cantidades y características que dicen las bases (ese texto va tal cual en la propuesta técnica y en los anexos); "productos": los ids del catálogo que la cubren.',
-      '"origen": "catalogo" si se cubre con productos del catálogo; "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
+      '"origen": "catalogo" si se cubre con productos del catálogo, aunque las bases pidan una variación de lo que ya vende (va en "detalles"); "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
       SOLO_LO_QUE_PIDEN,
       // Felipe, 19-10: "si no tienen el detalle completo, poner una
       // propuesta en base a lo que tenemos paquetizado o lo que está en el
@@ -164,8 +195,17 @@ export const instruccionesDeLaOferta = (c: {
       'Si las bases no detallan un servicio (dicen solo «almuerzo», «coffee», «cena», «cóctel» o «fiesta»), propón el detalle con lo que la empresa ya tiene: el menú o paquete guardado que calce, o productos de su catálogo, en las cantidades por persona que correspondan. En "como" nombra lo que se sirve (entrada, fondo, postre, bebidas…), no solo la palabra de las bases.',
       'En "como" nunca digas que algo se subcontrata ni nombres proveedores, artistas ni marcas: se escribe como un servicio más de la empresa.',
       'cajas y fijos: la cotización, SOLO con ids que estén en el catálogo y en las cantidades que piden las bases. "cajas": una por cada comida o servicio por persona de cada día, con "categoria" (el nombre EXACTO de la categoría), "audiencia", "personas", "menu_id" (el menú guardado que es la base; 0 si va sin menú), "quitar" (platos de ese menú que se sacan) y "servicios" (sueltos de ESA categoría, con su cantidad POR PERSONA). "fijos": servicios fijos, con "dia" 0 para todo el evento y su cantidad. La sección fija de cada categoría entra sola: no la agregues.',
-      'faltan_en_el_catalogo: todo lo que piden las bases y no está en el catálogo (lo de "subcontratar" y los platos que habría que crear), una cosa por línea, para que la empresa lo agregue a su catálogo con su precio. "por_que": qué pide la base y en qué página.',
-      'resumen: 2 o 3 frases: qué se ofrece, cuánto cubre el catálogo y qué falta.',
+      // Decisión 57 (Felipe, 20-10): "toda la licitación será un
+      // requerimiento al proveedor... agrupado en un solo ítem de
+      // subcontratar, con el checklist de todas las cosas que se necesita
+      // pedir al proveedor externo".
+      'subcontratar: TODO lo que la empresa no tiene y no va a tener por una licitación (amplificación y micrófonos, audiovisual, iluminación, pódium, escenario, generador, decoración especial, mobiliario que no tiene, artistas, shows, animación, DJ, fotografía...), en UNA sola lista: es el requerimiento al proveedor externo (casi siempre, el audiovisual). Una línea por cosa a pedir, con su cantidad y sus días si las bases los dicen ("Pódium, los dos días"). Sin nombres de proveedores.',
+      // "si me piden carne con un topping de cilantro, no puedo crearla,
+      // sino que un comentario que tiene que ir en los comentarios
+      // internos para yo poder hacer seguimiento".
+      'detalles: lo que las bases piden de algo que la empresa YA vende, como una variación de su producto genérico (el relleno de las empanadas, las galletas del helado, las salsas, la opción vegetariana o vegana, las flores de la decoración, una carne con un topping de cilantro). NO es algo que falte: en cajas y fijos va el producto genérico del catálogo, y aquí el detalle, una línea por cada uno ("Empanadas de cóctel: 2 de queso y 1 de carne por persona"), para el comentario interno de la cotización.',
+      'faltan_en_el_catalogo: SOLO lo muy específico que no es de subcontratar ni una variación de lo que ya vende (algo que la empresa tendría que comprar o crear de verdad); casi siempre va vacío. Una cosa por línea; "por_que": qué pide la base y en qué página.',
+      'resumen: 2 o 3 frases: qué se ofrece, cuánto cubre el catálogo y qué hay que pedirle al proveedor.',
       SON_DATOS,
     ]),
     '',

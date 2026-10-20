@@ -35,6 +35,8 @@ export type CotizacionDeLaPostulacion = {
   subtotal_amount: number | null;
   discount_amount: number | null;
   total_amount: number | null;
+  /** Decisión 57: el bloque de la licitación se reemplaza, lo demás no. */
+  comentario_interno?: string | null;
   client: { name: string } | null;
 };
 
@@ -44,7 +46,7 @@ export type PropuestaConOferta = {
 };
 
 const COLUMNAS_DE_LA_COTIZACION =
-  'id, quotation_number, quotation_status, people_count, children_count, event_date, items, subtotal_amount, discount_amount, total_amount, client:clients(name)';
+  'id, quotation_number, quotation_status, people_count, children_count, event_date, items, subtotal_amount, discount_amount, total_amount, comentario_interno, client:clients(name)';
 
 @Injectable()
 export class PostulacionRepository {
