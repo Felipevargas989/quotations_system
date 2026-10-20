@@ -16,11 +16,15 @@ import { GrupoDeMenus, ServiceGroup } from "../types/serviceGroups.types";
  * categoría. Cada cambio refresca también los menús ("serviceGroups"),
  * porque borrar un grupo los deja sin grupo y cambiar un menú de grupo
  * cambia su fila.
+ *
+ * `cargando` (20-10-2026): la primera vez, hasta que llegan. La lista de
+ * menús espera con «Cargando…» en vez de salir por precio sin títulos y
+ * saltar un instante después a sus grupos (Felipe: "se reordenan").
  */
 export function useGruposDeMenus() {
   const queryClient = useQueryClient();
 
-  const { data: todos = [] } = useQuery({
+  const { data: todos = [], isLoading: cargando } = useQuery({
     queryKey: ["gruposDeMenus"],
     queryFn: async (): Promise<GrupoDeMenus[]> => {
       const data = await getGruposDeMenus();
@@ -87,5 +91,5 @@ export function useGruposDeMenus() {
     await recargar();
   };
 
-  return { gruposDe, crear, renombrar, ordenar, borrar, asignar };
+  return { gruposDe, cargando, crear, renombrar, ordenar, borrar, asignar };
 }

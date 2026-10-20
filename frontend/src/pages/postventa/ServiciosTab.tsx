@@ -42,7 +42,8 @@ import QuantitySelector from "../../components/QuantitySelector";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
-import { useServiceGroups } from "../../hooks/useServiceGroups";
+import MenuGuardadoDeCaja from "./MenuGuardadoDeCaja";
+import type { ServiceGroup } from "../../types/serviceGroups.types";
 import { getQuotationProvisioning } from "../../services/logistics.service";
 import { recursosQueryOpts } from "./EventResourcesSection";
 // El formateador de pesos vive en la página madre y se comparte con el
@@ -569,19 +570,16 @@ export default function ServiciosTab({
 
   // Nace la caja VACÍA y sin categoría, como en el cotizador (04-08):
   // el panel azul intermedio se jubiló. La categoría se elige ADENTRO.
-  // MENÚS GUARDADOS (14-08). Un menú es una lista de servicios de UNA
-  // categoría, guardada con nombre ("Sernatur - Almuerzo Día 1"). Hasta
-  // hoy solo se podían cargar desde el cotizador; en esta pestaña —que
-  // es la misma pieza en Negocio y en Post-Venta— no había forma.
-  const { groups: menusGuardados } = useServiceGroups();
-  const [menuPickerAbierto, setMenuPickerAbierto] = useState(false);
-
-  // Nace una caja YA LLENA a partir de un menú: trae su categoría y sus
-  // servicios. Se suma al final, igual que "+ Agregar servicio" — no
-  // reemplaza nada de lo que ya esté cargado.
-  const addGroupDesdeMenu = (menuId: string) => {
-    const menu = menusGuardados.find((g) => String(g.id) === menuId);
-    if (!menu) return;
+  // MENÚS GUARDADOS EN CADA CASILLA (20-10-2026, Felipe: "en el cotizador
+  // funciona magistralmente"). Antes había un botón general "+ Desde un menú
+  // guardado" que creaba una caja nueva, sin precio y con un cuadro que no se
+  // cerraba. Ahora cada casilla tiene «Usar menú guardado» con la misma pieza
+  // del cotizador (`MenuGuardadoDeCaja` → `MenusGuardados`). Como
+  // `loadGroupIntoBox` del cotizador: reemplaza los servicios de la casilla,
+  // conserva día, audiencia y personas, y repone los ítems de la sección fija
+  // que falten. Como en el cotizador, el enlace aparece recién cuando la
+  // casilla tiene categoría (Felipe, 20-10: "lo prefiero tal cual").
+  const cargarMenuEnCaja = (gi: number, menu: ServiceGroup) => {
     const items = (menu.items || [])
       .filter((it: any) => it.service)
       .map((it: any) => ({
@@ -596,18 +594,20 @@ export default function ServiciosTab({
     const faltantes = defaultServicesFor(menu.category).filter(
       (d: any) => !items.some((s: any) => s.codigo === d.codigo),
     );
-    setVarGroups((prev) => [
-      ...prev,
-      {
-        category: menu.category,
-        category_id:
-          orderedCategories.find((c) => c.name === menu.category)?.id ?? null,
-        audience: "adultos",
-        day: 1,
-        items: [...items, ...faltantes],
-      },
-    ]);
-    setMenuPickerAbierto(false);
+    setVarGroups((prev) =>
+      prev.map((g: any, i: number) =>
+        i !== gi
+          ? g
+          : {
+              ...g,
+              category: menu.category,
+              category_id:
+                orderedCategories.find((c) => c.name === menu.category)?.id ??
+                null,
+              items: [...items, ...faltantes],
+            },
+      ),
+    );
   };
 
   const addGroup = () =>
@@ -1535,51 +1535,75 @@ export default function ServiciosTab({
               y panel que queda abierto para agregar varios seguidos. */}
                     <div className="py-1.5 border-t border-gray-100">
                       {addingToGroup === gi ? (
-                        <div className="flex items-center gap-2">
-                          {/* Migrado a la pieza de la casa (14-08). Eran 134
+                        <>
+                          <div className="flex items-center gap-2">
+                            {/* Migrado a la pieza de la casa (14-08). Eran 134
                               líneas escritas a mano. Ojo con los DOS niveles:
                               `addingToGroup` decide si existe esta fila con su
                               botón Cancelar, y `openItemPicker` si el panel
                               está desplegado. Cerrar el panel NO debe hacer
                               desaparecer la fila — por eso onAbiertoChange
                               solo toca openItemPicker. */}
-                          <div className="relative dropdown-container flex-1">
-                            <AgregadorDeItems
-                              opciones={opcionesDe(g)}
-                              onAgregar={(codigo) => addToGroup(gi, codigo)}
-                              abierto={openItemPicker === gi}
-                              onAbiertoChange={(v) =>
-                                setOpenItemPicker(v ? gi : null)
-                              }
-                              placeholder={`Seleccionar servicio de ${g.category}…`}
-                              searchPlaceholder="Buscar item por nombre..."
-                              noResultsText="No se encontraron items"
-                              className="w-full"
+                            <div className="relative dropdown-container flex-1">
+                              <AgregadorDeItems
+                                opciones={opcionesDe(g)}
+                                onAgregar={(codigo) => addToGroup(gi, codigo)}
+                                abierto={openItemPicker === gi}
+                                onAbiertoChange={(v) =>
+                                  setOpenItemPicker(v ? gi : null)
+                                }
+                                placeholder={`Seleccionar servicio de ${g.category}…`}
+                                searchPlaceholder="Buscar item por nombre..."
+                                noResultsText="No se encontraron items"
+                                className="w-full"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingToGroup(null);
+                                setOpenItemPicker(null);
+                              }}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          {/* Visible también con el buscador abierto (Felipe,
+                              20-10-2026: "aparece solo si hay otro más abajo"). */}
+                          <div className="ml-2 mt-1.5">
+                            <MenuGuardadoDeCaja
+                              categoria={g.category}
+                              deshabilitado={congelado}
+                              onAbrir={() => setOpenItemPicker(null)}
+                              onElegir={(menu) => {
+                                setAddingToGroup(null);
+                                setOpenItemPicker(null);
+                                cargarMenuEnCaja(gi, menu);
+                              }}
                             />
                           </div>
+                        </>
+                      ) : (
+                        <div className="ml-2 flex items-center gap-4">
                           <button
                             type="button"
                             onClick={() => {
-                              setAddingToGroup(null);
-                              setOpenItemPicker(null);
+                              setAddingToGroup(gi);
+                              setOpenItemPicker(gi);
                             }}
-                            className="text-xs text-gray-500 hover:text-gray-700"
+                            className="text-[11px] font-semibold text-blue-500 hover:text-blue-700"
+                            title="Agregar un servicio a ESTA categoría"
                           >
-                            Cancelar
+                            ↳ Agregar servicio
                           </button>
+                          <MenuGuardadoDeCaja
+                            categoria={g.category}
+                            deshabilitado={congelado}
+                            onAbrir={() => setOpenItemPicker(null)}
+                            onElegir={(menu) => cargarMenuEnCaja(gi, menu)}
+                          />
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAddingToGroup(gi);
-                            setOpenItemPicker(gi);
-                          }}
-                          className="ml-2 text-[11px] font-semibold text-blue-500 hover:text-blue-700"
-                          title="Agregar un servicio a ESTA categoría"
-                        >
-                          ↳ Agregar servicio
-                        </button>
                       )}
                     </div>
                   </>
@@ -1597,49 +1621,6 @@ export default function ServiciosTab({
               >
                 + Agregar servicio
               </button>
-
-              {/* Hermano del de al lado, mismo peso visual: uno crea una
-                  caja VACÍA y el otro una caja YA LLENA desde un menú
-                  guardado. Va acá y no dentro de las cajas —que ya están
-                  apretadas de controles— porque el menú trae su propia
-                  categoría: no necesita una caja previa. (14-08) */}
-              {menusGuardados.length > 0 && (
-                <div className="relative dropdown-container">
-                  <button
-                    type="button"
-                    onClick={() => setMenuPickerAbierto((v) => !v)}
-                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    title="Cargar un menú guardado como una caja nueva"
-                  >
-                    + Desde un menú guardado
-                  </button>
-                  {menuPickerAbierto && (
-                    <div className="absolute left-0 z-20 w-80 mt-1">
-                      <SelectWithSearch
-                        options={[...menusGuardados]
-                          .sort(
-                            (a, b) =>
-                              a.category.localeCompare(b.category) ||
-                              a.name.localeCompare(b.name),
-                          )
-                          .map((g) => ({
-                            value: String(g.id),
-                            label: g.name,
-                            group: g.category,
-                            hint: `${(g.items || []).length} servicios`,
-                          }))}
-                        value=""
-                        onChange={addGroupDesdeMenu}
-                        placeholder="Elegir un menú…"
-                        searchPlaceholder="Buscar menú o categoría…"
-                        noResultsText="No hay menús guardados"
-                        tamano="sm"
-                        mostrarConteo={false}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Servicios fijos del evento — SECCIÓN PLANA, no tarjeta
