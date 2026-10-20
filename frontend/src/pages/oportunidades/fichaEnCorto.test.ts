@@ -91,6 +91,18 @@ describe("el camino de la postulación", () => {
     });
   });
 
+  it("lo de la IA sin firmar no cuenta el Word que ya tiene su firmado (decisión 58)", () => {
+    expect(
+      avanceDeLaFicha({
+        postulacion: [
+          { ...archivo("generado"), id: 5 },
+          { ...archivo("generado"), id: 6 },
+          { ...archivo("firmado"), id: 7, viene_de: 5 },
+        ],
+      }),
+    ).toMatchObject({ postulacion: 3, generados: 1, firmados: 1 });
+  });
+
   it("cuenta lo hecho por la IA y lo firmado en «Mi postulación»", () => {
     expect(
       avanceDeLaFicha({

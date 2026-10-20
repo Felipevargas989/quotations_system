@@ -25,8 +25,9 @@ export type Avance = {
   /** El último "Generar anexos" y la última propuesta técnica. */
   anexos: EstadoDeAnalisis | null;
   propuesta: EstadoDeAnalisis | null;
-  /** En «Mi postulación»: todo, lo hecho por la IA sin firma y lo
-   *  firmado. */
+  /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word que
+   *  ya tiene su firmado no cuenta: desde la decisión 58 se borra al
+   *  firmar) y lo firmado. */
   postulacion: number;
   generados: number;
   firmados: number;
@@ -97,8 +98,13 @@ export class MisLicitacionesService {
             anexos: ultimosAnexos.get(f.id)?.estado ?? null,
             propuesta: ultimaPropuesta.get(f.id)?.estado ?? null,
             postulacion: enLaPostulacion.length,
-            generados: enLaPostulacion.filter((a) => a.origen === 'generado')
-              .length,
+            generados: enLaPostulacion.filter(
+              (a) =>
+                a.origen === 'generado' &&
+                !enLaPostulacion.some(
+                  (f) => f.origen === 'firmado' && f.viene_de === a.id,
+                ),
+            ).length,
             firmados: enLaPostulacion.filter((a) => a.origen === 'firmado')
               .length,
             validacion: v

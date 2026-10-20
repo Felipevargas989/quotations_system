@@ -79,7 +79,7 @@ export default function MiPostulacion({
       accionesDeFila={(a) =>
         !sePuedeFirmar(a) ? null : porFirmar === a.id ? (
           <ConfirmInline
-            question="¿Ya lo revisaste? Se le pone la foto de la firma y queda en PDF."
+            question="¿Ya lo revisaste? Se le pone la foto de la firma, queda en PDF y el Word se borra."
             yesLabel="Sí, firmar"
             onYes={() => firmar.mutate([a.id])}
             onNo={() => setPorFirmar(null)}
@@ -103,7 +103,7 @@ export default function MiPostulacion({
             !firmando &&
             (todos ? (
               <ConfirmInline
-                question={`¿Ya revisaste los ${sinFirma.length}? A cada uno se le pone la foto de la firma y queda en PDF.`}
+                question={`¿Ya revisaste los ${sinFirma.length}? A cada uno se le pone la foto de la firma y queda en PDF; sus Word se borran.`}
                 yesLabel="Sí, firmar todos"
                 onYes={() => firmar.mutate(sinFirma)}
                 onNo={() => setTodos(false)}
