@@ -30,6 +30,8 @@ jest.mock('../generacion/taller', () => ({
   trabajarEnElTaller: jest.fn(),
 }));
 const taller = trabajarEnElTaller as jest.Mock;
+/** Un respaldo de este año cuenta (decisión 52: los últimos 24 meses). */
+const ESTE_ANIO = new Date().getFullYear();
 beforeEach(() => taller.mockReset());
 
 describe('Generar anexos', () => {
@@ -42,7 +44,7 @@ describe('Generar anexos', () => {
           numero: '4352-103-SE23',
           mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
           contrato: 'Cena del Día del Funcionario 2023',
-          anio: 2023,
+          anio: ESTE_ANIO,
           monto: 11_782_499,
           fuente: 'mercado_publico',
           archivo: 'OC 4352-103-SE23.pdf',
@@ -136,11 +138,13 @@ describe('Generar anexos', () => {
       // subcontratado, tal cual lo dicen, y la experiencia justa.
       expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
       expect(plan.sistema).toContain(LO_SUBCONTRATADO);
-      expect(plan.sistema).toContain('si 6 o más dan el máximo, pon 6 a 8');
+      expect(plan.sistema).toContain(
+        'solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA, más uno o dos de reserva si hay',
+      );
       // Primero los respaldos, con su número y su archivo (decisión 34).
       expect(plan.sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
       expect(plan.sistema).toContain(
-        '- N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena del Día del Funcionario 2023 · 2023 · $11.782.499 con impuestos (archivo «OC 4352-103-SE23.pdf»)',
+        `- N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena del Día del Funcionario 2023 · ${ESTE_ANIO} · $11.782.499 con impuestos (archivo «OC 4352-103-SE23.pdf»)`,
       );
       // El coordinador y, sin contacto propio del representante, el de la
       // empresa (decisión 43, migración 154).
@@ -427,6 +431,14 @@ describe('Crear propuesta técnica', () => {
       // El formulario de calidad lleva todo el detalle ahí mismo, aunque
       // acepte formato propio (decisión 40).
       expect(anexos.sistema).toContain(EL_DETALLE_EN_EL_FORMULARIO);
+      // El título de cada punto en negrita y lo ofrecido sin ella (decisión
+      // 51: salía todo en negrita).
+      expect(EL_DETALLE_EN_EL_FORMULARIO).toContain(
+        'primero su título EN NEGRITA',
+      );
+      expect(EL_DETALLE_EN_EL_FORMULARIO).toContain(
+        'en un párrafo aparte y SIN negrita, lo que se ofrece',
+      );
       expect(anexos.sistema).not.toContain(
         'escribe en él «Se adjunta propuesta técnica en formato propio»',
       );

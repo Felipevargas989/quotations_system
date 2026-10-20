@@ -19,9 +19,19 @@ export const MAX_EVENTOS_POR_VEZ = 30;
 /** Documentos que se prueban por evento, como mucho. */
 export const MAX_DOCUMENTOS_POR_EVENTO = 3;
 
-/** Los años hacia atrás que se miran (los mismos de la experiencia que lee
- *  la IA en Eventia). */
-export const ANIOS_DE_EXPERIENCIA = 4;
+/** La experiencia que cuenta: la de los últimos 24 meses (decisión 52;
+ *  Felipe, 19-10: "dejemos las mejores de los últimos 24 meses y eliminemos
+ *  el resto para que no sea ninguna rechazada"). */
+export const MESES_DE_EXPERIENCIA = 24;
+
+/** AAAA-MM-DD de hace `meses` meses. */
+export const haceMeses = (hoy: string, meses: number): string => {
+  const [a, m, d] = hoy.split('-').map(Number);
+  const total = a * 12 + (m - 1) - meses;
+  const anio = Math.floor(total / 12);
+  const mes = (total % 12) + 1;
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+};
 
 const SE_LEE = /\.(pdf|jpe?g|png|webp)$/i;
 
