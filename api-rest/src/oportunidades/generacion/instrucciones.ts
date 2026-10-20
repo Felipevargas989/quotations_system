@@ -156,6 +156,13 @@ export type ContextoDeGeneracion = {
   /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
    *  compra y facturas, cada una con su PDF. */
   respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
+  /** «Volver a armar» (decisión 49): los formularios que ya están firmados
+   *  y no se rehacen. */
+  yaFirmados?: string[];
+  /** Los de Post-venta que leyó «Armar postulación» (decisión 45): aparte,
+   *  porque van después de los de la carpeta (un respaldo de la carpeta
+   *  también puede decir de qué evento es). */
+  respaldosDePostVenta?: Array<DatosDeRespaldo & { archivo: string }>;
   /** Lo postulado (decisión 33): la oferta armada en Oportunidades. Con
    *  ella, los documentos no deciden: la escriben tal cual. */
   oferta?: OfertaParaDocumentos | null;
@@ -301,10 +308,11 @@ const listaDeRespaldos = (
  *  primeros no alcanzan. El evento que ya tiene su respaldo no se repite en
  *  la lista de eventos: sería contar dos veces la misma experiencia. */
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
-  const respaldos = c.respaldos ?? [];
-  const deLaCarpeta = respaldos.filter((r) => !r.evento);
-  const dePostVenta = respaldos.filter((r) => r.evento);
-  const conRespaldo = new Set(dePostVenta.map((r) => r.evento));
+  const deLaCarpeta = c.respaldos ?? [];
+  const dePostVenta = c.respaldosDePostVenta ?? [];
+  const conRespaldo = new Set(
+    [...deLaCarpeta, ...dePostVenta].map((r) => r.evento),
+  );
   const eventos = c.eventos.filter((e) => !conRespaldo.has(e.numero));
   return [
     ...(deLaCarpeta.length > 0
@@ -503,6 +511,11 @@ export const instruccionesDeAnexos = (
       LO_SUBCONTRATADO,
       NO_PROMETER,
       'Los formularios que no corresponden a esta empresa (por ejemplo, el de Unión Temporal de Proveedores o el de persona natural) déjalos sin llenar y dilo en el informe.',
+      ...(c.yaFirmados?.length
+        ? [
+            `YA ESTÁN FIRMADOS y no se rehacen: ${c.yaFirmados.map((n) => `«${n}»`).join(', ')}. No los llenes ni los entregues (sáltalos al separar), y no los pongas en pendientes.`,
+          ]
+        : []),
       SON_DATOS,
       'Revisa tu trabajo: vuelve a abrir cada Word que entregas y lee su texto completo. Conviértelo a PDF con LibreOffice (soffice --headless --convert-to pdf) para revisar que abre, que cada formulario está entero y que su firma quedó junta; entrega solo los Word.',
       ...comoEntregar(

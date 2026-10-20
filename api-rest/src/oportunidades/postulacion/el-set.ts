@@ -70,6 +70,11 @@ export type DatosDelSet = {
   inicioDe: ReadonlyMap<number, string>;
   /** Cuándo quedó lista la última oferta armada (decisión 33). */
   ofertaLista: string | null;
+  /** El precio de la última oferta armada y el de cada trabajo de anexos,
+   *  por su id: lo firmado de la parte económica con otro precio se avisa
+   *  (decisión 49). */
+  precio?: number | null;
+  precioDe?: ReadonlyMap<number, number | null>;
   /** Los respaldos de Post-venta que leyó la última corrida de los anexos
    *  (decisión 45): van igual que los de la carpeta, desde su evento. */
   postVenta?: Array<{
@@ -211,6 +216,32 @@ const EXPERIENCIA = /experiencia/;
 const masNuevo = <T extends { creado_en: string }>(xs: T[]): T | undefined =>
   [...xs].sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];
 
+/** De un archivo del comprador, la versión vigente de cada formulario: la
+ *  más nueva de cada número, aunque vengan de corridas distintas («Volver a
+ *  armar», decisión 49: lo firmado no se rehace). Un Word lleno entero (de
+ *  antes, sin número) vale solo si es más nuevo que todos los separados. */
+const vigentesDelArchivo = (grupo: ArchivoDelSet[]): ArchivoDelSet[] => {
+  const porNumero = new Map<string, ArchivoDelSet>();
+  const enteros: ArchivoDelSet[] = [];
+  for (const g of grupo) {
+    const n = numeroDe(g.nombre);
+    if (!n) {
+      enteros.push(g);
+      continue;
+    }
+    const antes = porNumero.get(n);
+    if (!antes || g.creado_en > antes.creado_en) porNumero.set(n, g);
+  }
+  const separados = [...porNumero.values()].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { numeric: true }),
+  );
+  const entero = masNuevo(enteros);
+  if (entero && separados.every((s) => s.creado_en < entero.creado_en)) {
+    return [entero];
+  }
+  return separados.length > 0 ? separados : entero ? [entero] : [];
+};
+
 /** Qué va y qué falta, sin los respaldos (esos necesitan leer los Word:
  *  `conLosRespaldos`). */
 export function armarElSet(d: DatosDelSet): ElSet {
@@ -221,8 +252,9 @@ export function armarElSet(d: DatosDelSet): ElSet {
   const bases = d.archivos.filter((a) => a.seccion === 'bases');
   const postulacion = d.archivos.filter((a) => a.seccion === 'postulacion');
 
-  // De cada archivo del comprador, solo la última corrida (de un PDF salen
-  // varios Word en la misma); la propuesta, la más nueva.
+  // De cada archivo del comprador, la versión vigente de cada formulario
+  // (de un PDF salen varios Word en la misma corrida; desde la decisión 49
+  // pueden venir de corridas distintas); la propuesta, la más nueva.
   const generados = postulacion.filter((a) => a.origen === 'generado');
   const firmadoDe = (id: number) =>
     masNuevo(
@@ -238,12 +270,15 @@ export function armarElSet(d: DatosDelSet): ElSet {
     const vigentes =
       clave === 'propuesta' || ultimo.generacion_id === null
         ? [ultimo]
-        : grupo.filter((g) => g.generacion_id === ultimo.generacion_id);
+        : vigentesDelArchivo(grupo);
     for (const g of vigentes) {
       const firmado = firmadoDe(g.id);
       const usado = firmado ?? g;
       const inicio = g.generacion_id ? d.inicioDe.get(g.generacion_id) : null;
-      const viejo = Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista);
+      // Lo firmado no se rehace al volver a armar (decisión 49): no queda
+      // viejo, salvo por el precio (abajo, con su carpeta).
+      const viejo =
+        !firmado && Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista);
       const avisos = [
         firmado ? null : 'sin firma',
         viejo ? 'se hizo antes de la última oferta' : null,
@@ -282,6 +317,20 @@ export function armarElSet(d: DatosDelSet): ElSet {
         cubre.forEach((f) => cubiertos.add(f));
         carpetas = sinRepetir(cubre.map((f) => carpetaDe(f.se_entrega_en)));
         if (carpetas.length === 0) carpetas = [carpetaPorNombre(g.nombre)];
+      }
+      const suPrecio =
+        g.generacion_id !== null ? d.precioDe?.get(g.generacion_id) : null;
+      if (
+        firmado &&
+        carpetas.includes('economica') &&
+        suPrecio &&
+        d.precio &&
+        suPrecio !== d.precio
+      ) {
+        avisos.push('firmado con otro precio');
+        faltan.push(
+          `«${firmado.nombre}» está firmado con otro precio: bórralo y vuelve a armar la postulación.`,
+        );
       }
       piezas.push({
         nombre: usado.nombre,

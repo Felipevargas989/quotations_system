@@ -56,6 +56,10 @@ const pesoDe = (piezas: PiezaDelSet[]) =>
     0,
   );
 
+/** Un precio anotado en un trabajo, o null. */
+const precioDe = (v: unknown): number | null =>
+  typeof v === 'number' && v > 0 ? v : null;
+
 @Injectable()
 export class ElSetService {
   constructor(
@@ -221,6 +225,15 @@ export class ElSetService {
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),
       ofertaLista: oferta ? (oferta.terminado_en ?? oferta.creado_en) : null,
+      precio: precioDe(
+        (oferta?.parametros?.postulacion as { total?: unknown } | undefined)
+          ?.total,
+      ),
+      precioDe: new Map(
+        trabajos
+          .filter((t) => t.tipo === 'anexos')
+          .map((t) => [t.id, precioDe(t.parametros?.monto_total)]),
+      ),
       postVenta: respaldosDePostVenta(anexos?.parametros, companyId).map(
         (r) => ({
           numero: r.numero,

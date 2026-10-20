@@ -170,6 +170,10 @@ export class GeneracionService {
       adjuntos?: number[];
       /** Los lee «Armar postulación» (decisión 45); no llegan de afuera. */
       post_venta?: RespaldoDePostVenta[];
+      /** «Volver a armar» (decisión 49): lo firmado no se rehace y lo que
+       *  se reemplaza se borra al terminar. Tampoco llegan de afuera. */
+      ya_firmados?: string[];
+      reemplaza?: number[];
     },
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
@@ -184,10 +188,8 @@ export class GeneracionService {
           ?.parametros,
         companyId,
       );
-    contexto.datos.respaldos = [
-      ...(contexto.datos.respaldos ?? []),
-      ...postVenta,
-    ];
+    contexto.datos.respaldosDePostVenta = postVenta;
+    contexto.datos.yaFirmados = pedido.ya_firmados;
     const pedidos = new Set(pedido.adjuntos ?? []);
     const elegidos = elegirArchivos(
       bases,
@@ -238,6 +240,9 @@ export class GeneracionService {
         monto_total: oferta?.total ?? null,
         adjuntos: elegidos.map((a) => a.id),
         ...(postVenta.length > 0 ? { post_venta: postVenta } : {}),
+        ...(pedido.ya_firmados?.length
+          ? { ya_firmados: pedido.ya_firmados }
+          : {}),
       },
       archivos: elegidos,
       noLeidos: [],
@@ -252,6 +257,7 @@ export class GeneracionService {
           oferta,
         ),
         texto: 'Llena los anexos.',
+        reemplaza: pedido.reemplaza,
         modelo: modeloParaFormularios(formularios),
         habilidades: habilidadesParaFormularios(formularios),
         entradas: formularios.map((f) => ({
@@ -373,7 +379,7 @@ export class GeneracionService {
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
-    pedido: { monto_total?: number | null } = {},
+    pedido: { monto_total?: number | null; reemplaza?: number[] } = {},
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
@@ -443,6 +449,7 @@ export class GeneracionService {
           valor,
         ),
         texto: 'Escribe la propuesta técnica.',
+        reemplaza: pedido.reemplaza,
         // Es nota: Opus decide; con lo postulado ya decidido, Sonnet escribe.
         modelo: decidida ? MODELO_SONNET : MODELO_OPUS,
         entradas: [
@@ -606,6 +613,17 @@ export class GeneracionService {
         resultado,
         ...tokens,
       });
+      // Lo nuevo quedó guardado: los borradores que reemplaza se van (si
+      // no se pueden borrar, quedan; decisión 49).
+      if (plan.reemplaza?.length) {
+        await this.adjuntos
+          .borrarBorradores(companyId, plan.oportunidadId, plan.reemplaza)
+          .catch((e) =>
+            this.logger.warn(
+              `generación ${generacionId}: no se borraron los borradores de antes: ${mensajeDe(e)}`,
+            ),
+          );
+      }
       this.logger.info(
         `generación ${generacionId} (${plan.tipo}) lista: ${documentos.length} documentos, US$${costo}`,
       );
