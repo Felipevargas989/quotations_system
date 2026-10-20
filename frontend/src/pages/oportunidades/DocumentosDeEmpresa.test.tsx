@@ -12,11 +12,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as postulacion from "../../services/postulacion.service";
 import DocumentosDeEmpresa from "./DocumentosDeEmpresa";
 
-// «LAS 10 DE SIEMPRE» (decisión 53, 19-10). Felipe: "dejemos las mejores 10
-// entre Eventia y Mercado Público y las usamos siempre".
+// «NO USAR» (decisión 56, 20-10, en vez de «las 10 de siempre»). Felipe: "es
+// más fácil la mantención... si solo marco lo que no quiero mostrar".
 
 vi.mock("../../services/postulacion.service", () => ({
-  marcarDeSiempre: vi.fn(),
+  marcarNoUsar: vi.fn(),
   leerRespaldo: vi.fn(),
   leerOrdenDeCompra: vi.fn(),
 }));
@@ -37,7 +37,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const respaldo = (id: number, numero: string, siempre = false) => ({
+const respaldo = (id: number, numero: string, noUsar = false) => ({
   id,
   tipo: "respaldo_experiencia",
   nombre: `Orden de compra ${numero}.pdf`,
@@ -52,37 +52,34 @@ const respaldo = (id: number, numero: string, siempre = false) => ({
     anio: 2026,
     monto: 1_500_000,
     fuente: "mercado_publico" as const,
-    ...(siempre ? { siempre: true } : {}),
+    ...(noUsar ? { no_usar: true } : {}),
   },
   creado_en: "2026-10-19T22:00:00.000Z",
   quien: null,
 });
 
-describe("Las 10 de siempre", () => {
-  it("cuenta las marcadas y marca otra con la estrella", async () => {
-    p.marcarDeSiempre.mockResolvedValue({} as never);
+describe("No usar", () => {
+  it("marca un respaldo «No usar» y el marcado dice que no se usa", async () => {
+    p.marcarNoUsar.mockResolvedValue({} as never);
     render(
       <QueryClientProvider client={new QueryClient()}>
         <DocumentosDeEmpresa
-          documentos={[
-            respaldo(21, "1213301-49-AG26", true),
-            respaldo(19, "5043-27-AG26"),
-          ]}
+          documentos={[respaldo(38, "312", true), respaldo(19, "5043-27-AG26")]}
         />
       </QueryClientProvider>,
     );
-    expect(screen.getByText("1 de 10")).toBeInTheDocument();
-    const marcada = screen.getByRole("button", {
-      name: /Sacar Orden de compra 1213301-49-AG26.pdf de las 10/,
-    });
-    expect(marcada).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/de mayor a menor monto/)).toBeInTheDocument();
+    expect(screen.getByText("No se usa")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /Volver a usar Orden de compra 312.pdf/,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Marcar Orden de compra 5043-27-AG26.pdf entre las 10/,
+        name: /No usar Orden de compra 5043-27-AG26.pdf/,
       }),
     );
-    await waitFor(() =>
-      expect(p.marcarDeSiempre).toHaveBeenCalledWith(19, true),
-    );
+    await waitFor(() => expect(p.marcarNoUsar).toHaveBeenCalledWith(19, true));
   });
 });

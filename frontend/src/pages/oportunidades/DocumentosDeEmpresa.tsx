@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Star, Trash2 } from "lucide-react";
+import { Eye, EyeOff, FolderOpen, Trash2 } from "lucide-react";
 import { useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -11,7 +11,7 @@ import {
   subirDocumentoDeEmpresa,
   type DocumentoDeEmpresa,
 } from "../../services/oportunidades.service";
-import { marcarDeSiempre } from "../../services/postulacion.service";
+import { marcarNoUsar } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { descargarDelBalde } from "./descargas";
@@ -36,9 +36,11 @@ import RespaldosEnLote from "./RespaldosEnLote";
 // la orden de compra o la factura de cada evento que se declara, con sus
 // datos para el anexo de experiencia. No vencen. Se suben varios a la vez y
 // se leen solos (RespaldosEnLote). Los que están en Post-venta no se suben
-// aquí: «Armar postulación» los busca sola (decisión 45). Desde el 19-10
-// (decisión 53), «las 10 de siempre»: con la estrella se eligen hasta 10 y
-// el anexo de experiencia usa siempre esas (se ajustan una vez al año).
+// aquí: «Armar postulación» los busca sola (decisión 45). Desde el 20-10
+// (decisión 56, en vez de «las 10 de siempre»), la IA los usa de mayor a
+// menor monto hasta cumplir lo que piden las bases, con 2 de reserva, y la
+// empresa marca «No usar» los que no quiere mostrar. Felipe: "es más fácil
+// la mantención... si solo marco lo que no quiero mostrar".
 
 const TONOS = {
   ok: "bg-green-50 text-green-700",
@@ -77,16 +79,13 @@ export default function DocumentosDeEmpresa({
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo subir el documento.")),
   });
-  const estrella = useMutation({
-    mutationFn: ({ id, siempre }: { id: number; siempre: boolean }) =>
-      marcarDeSiempre(id, siempre),
+  const noUsar = useMutation({
+    mutationFn: ({ id, marcar }: { id: number; marcar: boolean }) =>
+      marcarNoUsar(id, marcar),
     onSuccess: () => void recargar(),
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo marcar el respaldo.")),
   });
-  const deSiempre = documentos.filter(
-    (d) => d.tipo === TIPO_RESPALDO && d.datos?.siempre,
-  ).length;
   const hayRespaldos = documentos.some((d) => d.tipo === TIPO_RESPALDO);
 
   const borrar = useMutation({
@@ -139,13 +138,9 @@ export default function DocumentosDeEmpresa({
         </p>
         {hayRespaldos && (
           <p className="text-xs text-gray-600">
-            <Star
-              size={12}
-              className="inline -mt-0.5 fill-amber-400 text-amber-500"
-              aria-hidden="true"
-            />{" "}
-            Las 10 de siempre: <b>{deSiempre} de 10</b>. El anexo de experiencia
-            usa siempre las marcadas; ajústalas una vez al año.
+            Los respaldos de experiencia se usan de mayor a menor monto, hasta
+            cumplir lo que piden las bases y 2 de reserva. Con el ojo apagas los
+            que no quieres mostrar.
           </p>
         )}
       </div>
@@ -159,7 +154,11 @@ export default function DocumentosDeEmpresa({
                 key={d.id}
                 className="px-3 py-2 flex flex-wrap items-center gap-3"
               >
-                <div className="min-w-0 flex-1">
+                {/* Apagado como un servicio inactivo del catálogo: la fila
+                    más clara y el ojo tachado; el «No se usa», en rojo. */}
+                <div
+                  className={`min-w-0 flex-1 ${d.datos?.no_usar ? "opacity-60" : ""}`}
+                >
                   <p className="text-sm font-semibold text-gray-900">
                     {etiquetaDeDocumento(d.tipo)}
                   </p>
@@ -176,43 +175,42 @@ export default function DocumentosDeEmpresa({
                     </p>
                   )}
                 </div>
-                <span
-                  className={`px-2 py-0.5 text-xs font-semibold rounded ${TONOS[estado.tono]}`}
-                >
-                  {estado.texto}
-                </span>
+                {d.datos?.no_usar ? (
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded bg-red-50 text-red-700">
+                    No se usa
+                  </span>
+                ) : (
+                  <span
+                    className={`px-2 py-0.5 text-xs font-semibold rounded ${TONOS[estado.tono]}`}
+                  >
+                    {estado.texto}
+                  </span>
+                )}
                 <div className="flex items-center gap-3 shrink-0">
                   {d.tipo === TIPO_RESPALDO && (
                     <button
                       type="button"
                       onClick={() =>
-                        estrella.mutate({
+                        noUsar.mutate({
                           id: d.id,
-                          siempre: !d.datos?.siempre,
+                          marcar: !d.datos?.no_usar,
                         })
                       }
-                      disabled={estrella.isPending}
-                      title={
-                        d.datos?.siempre
-                          ? "Es de las 10 de siempre: sacarla"
-                          : "Marcarla entre las 10 de siempre"
-                      }
+                      disabled={noUsar.isPending}
+                      title={d.datos?.no_usar ? "Volver a usar" : "No usar"}
                       aria-label={
-                        d.datos?.siempre
-                          ? `Sacar ${d.nombre} de las 10 de siempre`
-                          : `Marcar ${d.nombre} entre las 10 de siempre`
+                        d.datos?.no_usar
+                          ? `Volver a usar ${d.nombre}`
+                          : `No usar ${d.nombre}`
                       }
-                      aria-pressed={Boolean(d.datos?.siempre)}
-                      className="text-gray-300 hover:text-amber-500 disabled:opacity-50"
+                      aria-pressed={Boolean(d.datos?.no_usar)}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-50"
                     >
-                      <Star
-                        size={16}
-                        className={
-                          d.datos?.siempre
-                            ? "fill-amber-400 text-amber-500"
-                            : ""
-                        }
-                      />
+                      {d.datos?.no_usar ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
                     </button>
                   )}
                   {seVeEnElVisor(d.ruta) ? (
