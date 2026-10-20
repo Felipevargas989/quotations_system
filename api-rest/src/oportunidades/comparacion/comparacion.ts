@@ -1,4 +1,5 @@
 import { extensionDe } from '../adjuntos/adjuntos.service';
+import { apartadoParaLaComparacion } from '../aprendizajes/aprendizajes';
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10). Felipe: "en
 // las postuladas quiero una opción... para poder descargar toda la
@@ -273,6 +274,9 @@ export const instruccionesDeLaComparacion = (c: {
   criterios: CriterioDeLasBases[];
   teDejanFuera: string[];
   obligatorios: string[];
+  /** Lo aprendido de las comisiones (decisión 60), ya en líneas: solo para
+   *  predecir. */
+  comisiones?: string[];
 }): string =>
   [
     'Eres un evaluador experto de licitaciones públicas de Chile (Mercado Público). Te paso las ofertas de una licitación: la de LA EMPRESA (marcada como TU OFERTA) y las de otros oferentes, que la empresa bajó del cuadro de ofertas. Evalúa cada una como lo haría la comisión evaluadora, con los criterios de las bases, para estimar quién se la adjudica.',
@@ -295,6 +299,7 @@ export const instruccionesDeLaComparacion = (c: {
     ...(c.obligatorios.length > 0
       ? c.obligatorios.map((t) => `- ${t}`)
       : ['(no hay una lista)']),
+    ...apartadoParaLaComparacion(c.comisiones ?? []),
     '',
     'QUÉ DEVOLVER',
     '- oferentes: uno por cada oferta, en el orden en que vienen (la primera es la tuya). "nombre": el del oferente como aparece en su oferta, o el que te paso. "es_tuya": true solo para la de la empresa. "precio": el total que ofertó, como lo dice su oferta («$15.900.000 IVA incluido»); si no se ve, «no se ve».',

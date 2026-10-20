@@ -4,6 +4,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
+import type { AprendizajesRepository } from '../aprendizajes/aprendizajes.repository';
 import {
   conPuntajes,
   elegirQueLeer,
@@ -436,6 +437,35 @@ function armar() {
       .mockResolvedValue({ razon_social: 'VALLE DEL SOL QUILLON SPA' }),
   };
   const set = { piezas: jest.fn().mockResolvedValue(MIAS) };
+  // Decisión 60: lo aprendido de las comisiones.
+  const aprendizajes = {
+    deLaEmpresa: jest.fn().mockResolvedValue([
+      {
+        id: 1,
+        codigo: '4074-35-LE25',
+        unidad: '4074',
+        organismo: 'I. Municipalidad de Yumbel (DEM)',
+        situacion: 'Un certificado no decía el monto.',
+        decision: 'Lo contó igual.',
+        tipo: 'flexible',
+        fuente: 'caso',
+        oportunidad_id: null,
+        creado_en: '2026-10-20T19:00:00Z',
+      },
+      {
+        id: 2,
+        codigo: '4364-5-LE25',
+        unidad: '4364',
+        organismo: 'I. Municipalidad de Quillón (DAEM)',
+        situacion: 'Faltó la declaración del programa de integridad.',
+        decision: 'Puso 0 en integridad y siguió en carrera.',
+        tipo: 'flexible',
+        fuente: 'caso',
+        oportunidad_id: null,
+        creado_en: '2026-10-20T18:00:00Z',
+      },
+    ]),
+  };
   const servicio = new ComparacionDePrueba(
     repo as unknown as GeneracionRepository,
     adjuntos as unknown as AdjuntosRepository,
@@ -443,9 +473,10 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
     set as unknown as ElSetService,
+    aprendizajes as unknown as AprendizajesRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { repo, adjuntos, analisis, set, servicio };
+  return { repo, adjuntos, analisis, set, aprendizajes, servicio };
 }
 
 const antes = process.env.ANTHROPIC_API_KEY;
@@ -489,6 +520,25 @@ describe('La comparación de ofertas', () => {
     ]);
     expect(contexto.instrucciones).toContain('$15.900.000 con IVA');
     expect(MODELO_DE_LA_COMPARACION).toBe('claude-opus-5-5');
+  });
+
+  it('lee lo aprendido de las comisiones, la misma unidad de compra primero y solo para predecir (decisión 60)', async () => {
+    const { servicio } = armar();
+    const ejecutar = jest
+      .spyOn(servicio, 'ejecutar')
+      .mockResolvedValue(undefined);
+    await servicio.pedir(1, 'cuenta-1', 84);
+    const [, , , contexto] = ejecutar.mock.calls[0];
+    const t = contexto.instrucciones;
+    expect(t).toContain('CÓMO HAN DECIDIDO LAS COMISIONES');
+    expect(t).toContain('Úsalo SOLO para predecir');
+    expect(t).toContain('Nunca para "cumple_bases" ni "graves"');
+    // El Profesor es del DAEM (4364): su caso va antes que el de Yumbel.
+    expect(
+      t.indexOf('[esta misma unidad de compra] 4364-5-LE25'),
+    ).toBeGreaterThan(-1);
+    expect(t.indexOf('4364-5-LE25')).toBeLessThan(t.indexOf('4074-35-LE25'));
+    expect(t).toContain('→ Lo contó igual. (flexible)');
   });
 
   it('sin análisis, sin criterios, sin competencia o con la postulación vacía: 400 sin crear nada', async () => {
