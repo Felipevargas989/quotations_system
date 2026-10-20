@@ -39,6 +39,8 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../../utils/eventConsolidation";
+import QuienLoPide from "./QuienLoPide";
+import { numerosDeCotizacion, pedidosPorInsumo } from "./pedidosPorInsumo";
 
 // Compras multi-evento (Fase 3): selecciona eventos cerrados, consolida los
 // insumos por proveedor y provisiona POR PARTES (hoy carnes, mañana verduras)
@@ -226,6 +228,17 @@ export default function ComprasTab({
   const selectedEvents = useMemo(
     () => filtered.filter((e) => selected.has(e.id)),
     [filtered, selected],
+  );
+
+  // Qué cotizaciones marcadas pide cada insumo (20-10-2026, QuienLoPide).
+  const pedidos = useMemo(
+    () =>
+      pedidosPorInsumo(
+        selectedEvents,
+        (id) => perEvent.get(id)?.supplyUse,
+        (id) => provByEvent.get(id),
+      ),
+    [selectedEvents, perEvent, provByEvent],
   );
 
   const toggle = (id: string) => {
@@ -811,7 +824,8 @@ export default function ComprasTab({
                     c.supply.package_name || "formato"
                   } de ${Number(c.supply.package_qty).toLocaleString("es-CL")} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
                 : "";
-            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
+            const quien = numerosDeCotizacion(pedidos.get(c.supply.id));
+            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}${quien ? ` <span class="nota">${esc(quien)}</span>` : ""}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
               formato ? `· ${esc(formato)}` : ""
             }</td><td class="der">${
               c.supply.price ? fmtMoney(c.costTotal) : "—"
@@ -900,7 +914,7 @@ export default function ComprasTab({
   </div>
   ${secciones || '<p style="text-align:center;color:#6b7280;margin-top:30px">No hay insumos que coincidan con el filtro actual.</p>'}
   ${secciones ? `<div class="total-final"><span>Total estimado</span><span>${fmtMoney(totalShown)}</span></div>` : ""}
-  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades netas de receta · la merma va incluida solo en el costo</span></div>
+  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades netas de receta · la merma va incluida solo en el costo · #N ✓ = ya provisionado para esa cotización</span></div>
 </div>
 </body></html>`;
     const win = window.open("", "_blank");
@@ -1545,6 +1559,12 @@ export default function ComprasTab({
                                   parcial {st.prov}/{st.used}
                                 </span>
                               )}
+                              <QuienLoPide
+                                pedidos={pedidos.get(c.supply.id) ?? []}
+                                unidad={
+                                  UNIT_FAMILY_INFO[c.supply.unit_family].base
+                                }
+                              />
                             </td>
                             <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
                               {fmtQty(c.totalBase)}{" "}
