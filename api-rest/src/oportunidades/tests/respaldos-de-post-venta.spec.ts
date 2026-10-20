@@ -10,6 +10,7 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import {
   archivoDeLaRuta,
   documentosParaLeer,
+  haceMeses,
   mismoNumero,
   nombreDelRespaldo,
   respaldosDePostVenta,
@@ -75,6 +76,12 @@ describe('Las reglas de los respaldos de Post-venta', () => {
         ]),
       ),
     ).toEqual(['1 de 3', '2 de 3', '3 de 3']);
+  });
+
+  it('hace 24 meses, contando por meses (decisión 52)', () => {
+    expect(haceMeses('2026-10-19', 24)).toBe('2024-10-19');
+    expect(haceMeses('2026-01-31', 1)).toBe('2025-12-31');
+    expect(haceMeses('2026-03-05', 14)).toBe('2025-01-05');
   });
 
   it('el nombre del archivo sale de la ruta, sin el sello de hora', () => {
@@ -299,7 +306,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     expect(lector.leer).toHaveBeenCalledTimes(4);
   });
 
-  it('dos eventos con el mismo número: va uno; de más de 4 años, no se mira', async () => {
+  it('dos eventos con el mismo número: va uno; de más de 24 meses, no se mira', async () => {
     const { lector, servicio } = armar([
       evento(486, [['facturas', 'Factura delegación', '366.pdf']]),
       evento(487, [['facturas', 'Factura expositor', '366-b.pdf']]),

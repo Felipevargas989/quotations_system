@@ -11,10 +11,11 @@ import { LeerRespaldoService } from './leer-respaldo.service';
 import { OferenteRepository } from './oferente.repository';
 import type { DatosDeRespaldo } from './respaldo';
 import {
-  ANIOS_DE_EXPERIENCIA,
   archivoDeLaRuta,
   documentosParaLeer,
+  haceMeses,
   MAX_EVENTOS_POR_VEZ,
+  MESES_DE_EXPERIENCIA,
   mismoNumero,
   nombreDelRespaldo,
   type RespaldoDePostVenta,
@@ -41,12 +42,12 @@ export class RespaldosDePostVentaService {
     this.logger.setContext(RespaldosDePostVentaService.name);
   }
 
-  /** Los de los últimos años, del evento más nuevo al más viejo, sin
+  /** Los de los últimos 24 meses, del evento más nuevo al más viejo, sin
    *  repetir ni un evento ni un número que ya esté en «Mi empresa». Nunca
    *  falla por un evento: el que no se puede leer, no va. */
   async paraLaPostulacion(companyId: number): Promise<RespaldoDePostVenta[]> {
     const hoy = hoyEnChile();
-    const desde = `${Number(hoy.slice(0, 4)) - ANIOS_DE_EXPERIENCIA}${hoy.slice(4)}`;
+    const desde = haceMeses(hoy, MESES_DE_EXPERIENCIA);
     const [eventos, carpeta] = await Promise.all([
       this.eventia.documentosDeExperiencia(companyId, hoy),
       this.repo.respaldos(companyId),

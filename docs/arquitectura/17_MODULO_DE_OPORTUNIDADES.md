@@ -370,6 +370,8 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
 50. **La firma limpia** (19-10, pedido por Felipe, con el Formulario N°5 firmado a la vista: la foto de la firma traía el papel gris entero): *"hay que mejorar la extracción de la firma: debe quedar solo las líneas, bonitas (capaz hay que suavizarlas) y deben ser azul"*.
     - Al subir la foto en «Mi empresa», el navegador deja solo el trazo: sin el papel (aunque la luz sea despareja), sin manchitas, con el borde suave, en azul y recortado. Se ve cómo queda antes de guardar.
     - «Limpiar la firma guardada» arregla la que ya estaba. Lo ya firmado no cambia: hay que borrar el firmado y volver a firmar.
+51. **El formulario de calidad, ordenado** (19-10, pedido por Felipe con el Formulario N°4 del Profesor a la vista: salía todo en negrita): *"en negrita los títulos y sin negrita el escrito... se ve muy mal como está"*. Cada punto lleva su título en negrita (el número y la especificación de las bases, sin la página) y debajo, sin negrita, lo que se ofrece. Felipe: *"no importa que ocupemos este formulario, pero dejemos un orden mínimo"*.
+52. **La experiencia que no se rechaza** (19-10, pedido por Felipe): *"dejemos las mejores de los últimos 24 meses y eliminemos el resto para que no sea ninguna rechazada"*. El anexo de experiencia solo usa respaldos de los últimos 24 meses (o del período de las bases, si es más corto), nunca una fila sin su orden de compra o factura, y solo las necesarias para el puntaje máximo más una o dos de reserva. La IA ni siquiera ve los respaldos más viejos; lo de Post-venta se busca en los últimos 24 meses.
 
 ## 4. Reglas del módulo (no se negocian)
 
