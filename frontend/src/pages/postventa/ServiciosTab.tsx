@@ -577,7 +577,8 @@ export default function ServiciosTab({
   // del cotizador (`MenuGuardadoDeCaja` → `MenusGuardados`). Como
   // `loadGroupIntoBox` del cotizador: reemplaza los servicios de la casilla,
   // conserva día, audiencia y personas, y repone los ítems de la sección fija
-  // que falten. Una casilla sin categoría toma la del menú.
+  // que falten. Como en el cotizador, el enlace aparece recién cuando la
+  // casilla tiene categoría (Felipe, 20-10: "lo prefiero tal cual").
   const cargarMenuEnCaja = (gi: number, menu: ServiceGroup) => {
     const items = (menu.items || [])
       .filter((it: any) => it.service)
@@ -1472,15 +1473,6 @@ export default function ServiciosTab({
                     )}
                   </div>
                 </div>
-                {!g.category && (
-                  <div className="pb-2">
-                    <MenuGuardadoDeCaja
-                      categoria=""
-                      deshabilitado={congelado}
-                      onElegir={(menu) => cargarMenuEnCaja(gi, menu)}
-                    />
-                  </div>
-                )}
                 {g.category && (
                   <>
                     {/* Lista armada por secciones, como la carta del cotizador:
