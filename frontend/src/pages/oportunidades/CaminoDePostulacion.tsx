@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   ChevronRight,
   Circle,
@@ -14,18 +13,17 @@ import {
   getAnalisis,
   getValidacion,
 } from "../../services/oportunidades.service";
-import {
-  avanceDeLaFicha,
-  type PestanaDeFicha,
-  siguientePaso,
-} from "./fichaEnCorto";
+import { avanceDeLaFicha, pasoQueSigue } from "./fichaEnCorto";
 import { type EstadoDelPaso, pasosDelAvance } from "./oportunidades.utils";
 import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 
 // EL CAMINO DE LA POSTULACIÓN (Felipe, 17-10: "vamos con todas"). Arriba de
 // las pestañas: Bases → Análisis → Anexos → Firma → Validación → Postulada,
-// lo hecho marcado y un botón al paso que sigue. Usa las mismas consultas
-// que las pestañas, así que se mueve solo cuando algo cambia.
+// lo hecho marcado y el paso que sigue destacado. Solo la línea de tiempo
+// desde el 20-10: sin el botón al paso que sigue ni la frase (Felipe: "creo
+// que ese botón no suma.... saquémoslo"; "deja solamente la línea de
+// tiempo, a veces menos es más"). Usa las mismas consultas que las
+// pestañas, así que se mueve solo cuando algo cambia.
 
 const PREGUNTAR_MIENTRAS_CORRE = 5000;
 
@@ -50,11 +48,9 @@ const TONO: Record<EstadoDelPaso, string> = {
 export default function CaminoDePostulacion({
   oportunidadId,
   estado,
-  onIr,
 }: {
   readonly oportunidadId: number;
   readonly estado: EstadoOportunidad;
-  readonly onIr: (pestana: PestanaDeFicha) => void;
 }) {
   const { data: bases } = useQuery({
     queryKey: ["oportunidades", "adjuntos", oportunidadId, "bases"],
@@ -88,7 +84,7 @@ export default function CaminoDePostulacion({
       validacion,
     }),
   });
-  const sigue = siguientePaso(pasos);
+  const sigue = pasoQueSigue(pasos);
 
   return (
     <div className="bg-white rounded-lg shadow px-5 py-4 space-y-3">
@@ -98,7 +94,7 @@ export default function CaminoDePostulacion({
       >
         {pasos.map((p, i) => {
           const Icono = ICONO[p.estado];
-          const actual = p.paso === sigue.paso && p.estado !== "en_curso";
+          const actual = p.paso === sigue && p.estado !== "en_curso";
           return (
             <li key={p.paso} className="flex items-center gap-1.5">
               {i > 0 && (
@@ -126,19 +122,6 @@ export default function CaminoDePostulacion({
           );
         })}
       </ol>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-600">{sigue.texto}</p>
-        {sigue.boton && (
-          <button
-            type="button"
-            onClick={() => onIr(sigue.boton!.pestana)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-          >
-            {sigue.boton.texto}
-            <ArrowRight size={15} aria-hidden="true" />
-          </button>
-        )}
-      </div>
     </div>
   );
 }

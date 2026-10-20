@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -140,7 +140,6 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   const pestana = visibles.some(([id]) => id === pestanaElegida)
     ? pestanaElegida
     : "resumen";
-  const pestanas = useRef<HTMLDivElement>(null);
   const elegir = (id: PestanaDeFicha) => {
     setPestana(id);
     try {
@@ -191,23 +190,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
       />
 
       {ficha.estado !== "descartada" && (
-        <CaminoDePostulacion
-          oportunidadId={ficha.id}
-          estado={ficha.estado}
-          onIr={(id) => {
-            elegir(id);
-            pestanas.current?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            });
-          }}
-        />
+        <CaminoDePostulacion oportunidadId={ficha.id} estado={ficha.estado} />
       )}
 
-      <div
-        ref={pestanas}
-        className="flex gap-1 border-b border-gray-200 overflow-x-auto"
-      >
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {visibles.map(([id, texto]) => (
           <button
             key={id}
