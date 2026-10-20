@@ -27,7 +27,7 @@ Mientras el evento está aceptado, editar sus servicios mueve el plan de pagos s
 | pestaña Seguimiento | `HiloSeguimiento` + `AdjuntosComerciales` | `frontend/src/pages/quotations/SeguimientoPanel.tsx` | Hilo de notas y respaldos comerciales (ver mapa 02). La pestaña se pinta ámbar (roja si venció) y vibra cuando hay un compromiso para hoy o atrasado | idem |
 | pestaña Pagos | `RegistrarPagoPanel`, `EditRegistroModal`, `ReembolsosManager`, `DocViewerPanel` | `PostVentaPage.tsx` | Calendario de cuotas; registrar, rectificar y eliminar abonos; editar fecha y nota de una cuota sin plata; reembolsos (ver mapa 03) | idem |
 | pestaña Documentos | `DocumentosTab` + `DocViewerPanel` | `PostVentaPage.tsx` | Sube un documento: categoría, archivo (imagen o PDF, máximo 5 MB) y un comentario de hasta 80 caracteres que sirve de etiqueta. Lo ve embebido, lo descarga o lo elimina | idem |
-| pestaña Servicios | `ServiciosTab` | `frontend/src/pages/postventa/ServiciosTab.tsx` | Edita adultos y niños, cajas de servicios por categoría y día, fijos, descuento (% o $), propina y comentarios. Ve el resumen y el margen. Guarda solo o con "Guardar cambios" | idem; margen solo `operaciones` y `administrador`; tope de descuento por rol |
+| pestaña Servicios | `ServiciosTab` | `frontend/src/pages/postventa/ServiciosTab.tsx` | Edita adultos y niños, cajas de servicios por categoría y día, fijos, descuento (% o $), propina y comentarios. Ve el resumen y el margen. Guarda solo o con "Guardar cambios". Cada casilla trae «📖 Usar menú guardado» (20-10-2026, `MenuGuardadoDeCaja.tsx`): la pieza `MenusGuardados` del cotizador tal cual —nombre · precio por persona, por nivel y de menor a mayor precio—, que se cierra al elegir, al pinchar fuera o con Escape; reemplaza los servicios de la casilla como `loadGroupIntoBox` (una casilla sin categoría toma la del menú) y queda bloqueada en un evento congelado | idem; margen solo `operaciones` y `administrador`; tope de descuento por rol |
 | pestaña Gestión | `GestionTab` → `GrillaPersonal`, `EventResourcesSection` | `GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx` | Rentabilidad (venta sin propina, costo y margen), personal preliminar (sillas), arriendos, insumos (modal y CSV) y mobiliario contra stock (ver mapas 06 y 07) | idem, **y solo con el derecho `gestion_y_cocina`** (plan Opera y Crece, 14-09-2026): sin él la pestaña ni se nombra |
 | pestaña Cocina | `CocinaTab` → `FichaCocinaSection` | `CocinaTab.tsx`, `FichaCocinaSection.tsx` | Horarios por servicio, notas, platos e impresión (ver mapa 06) | idem, mismo derecho `gestion_y_cocina` |
 | `/negocio/:id`, pestaña "cotizacion" | `ServiciosTab` (la misma pieza, con `paidAmount={0}`) | `frontend/src/pages/quotations/NegocioPage.tsx` | Editar la cotización en pre-venta (ver mapa 02) | `SECTION_ROLES.quotations_edit` |
@@ -309,14 +309,14 @@ Formas de llegar a Post-Venta:
 
 ### Archivos gigantes y estructura
 - `PostVentaPage.tsx` tiene 3168 líneas (techo 3180) y reúne 8 componentes: `PostVentaPage`, `EventModal`, `RegistrarPagoPanel`, `EditRegistroModal`, `ReembolsosManager`, `RefundRow`, `DocumentosTab` y `DocViewerPanel`.
-- `ServiciosTab.tsx` tiene 2265 líneas (techo 2285), con 31 `any` (en 29 líneas) y 3 `eslint-disable`.
+- `ServiciosTab.tsx` tiene 2246 líneas (techo 2266 desde el 20-10-2026, cuando salió el selector general de menús), con 31 `any` (en 29 líneas) y 3 `eslint-disable`.
 - Sobre 800 líneas pero sin congelar por nombre: `FichaCocinaSection.tsx` (1213), `GestionTab.tsx` (865) y `EventResourcesSection.tsx` (835). Cuentan para el techo global de 27 archivos.
 - `EventModal` se llama modal, pero es página desde el 03-08.
 - `event-documents.controller.ts` rompe las cuatro capas: DTO, repository y controller en un solo archivo y sin service ("Mudanza #7, 28-07"). Como la tabla no tiene `company_id`, cada operación hace una lectura extra: listar y agregar consultan `quotations` (`assertQuotationOfCompany`), y borrar lee antes la fila de `event_documents` con `quotations!inner(company_id)`.
 
 ### Piezas hechas a mano
 - Modales a mano: la bandeja de comprobantes de `PostVentaPage`, `EditRegistroModal`, el modal de insumos de `GestionTab`, `CelebracionRealizada` y `PhotoPopup`. Todos figuran como deuda en CLAUDE.md, salvo la bandeja. (`FileViewLink`, el visor de los comprobantes, usa la ventana de la casa desde el 19-10-2026: Escape cierra y la cabecera queda a la vista.)
-- `ServiciosTab` conserva mecánica heredada del cotizador: un listener global de clic afuera con `.dropdown-container` y un contenedor flotante a mano (`absolute left-0 z-20`) para "+ Desde un menú guardado".
+- `ServiciosTab` conserva mecánica heredada del cotizador: un listener global de clic afuera con `.dropdown-container`. El contenedor flotante a mano de "+ Desde un menú guardado" salió el 20-10-2026: cada casilla tiene «Usar menú guardado» con la pieza del cotizador (ver la fila de la pestaña Servicios).
 
 ### Borrados que dejan basura
 - `DocumentosTab.onDelete` borra el archivo y después la fila, sin revisar si alguno de los dos falló.
