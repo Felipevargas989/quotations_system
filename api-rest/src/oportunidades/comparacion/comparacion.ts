@@ -1,4 +1,5 @@
 import { extensionDe } from '../adjuntos/adjuntos.service';
+import { apartadoParaLaComparacion } from '../aprendizajes/aprendizajes';
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10). Felipe: "en
 // las postuladas quiero una opción... para poder descargar toda la
@@ -21,6 +22,22 @@ export type NotaDeCriterio = {
   fundamento: string;
 };
 
+/** Lo que, según las bases o la ley, deja fuera una oferta (decisión 59):
+ *  con su prueba, para que la empresa pueda reclamar antes de que
+ *  adjudiquen. */
+export type IncumplimientoGrave = {
+  /** Qué incumple, en una frase con el dato concreto. */
+  que: string;
+  /** Dónde se ve: el archivo y la página, o «no está entre lo que
+   *  presentó». */
+  prueba: string;
+  /** El punto de las bases o la norma que la deja fuera. */
+  regla: string;
+  /** true si es porque algo no está entre lo que se subió: puede que la
+   *  empresa no haya subido todo lo de ese oferente. */
+  por_ausencia: boolean;
+};
+
 export type OferenteComparado = {
   nombre: string;
   es_tuya: boolean;
@@ -29,6 +46,7 @@ export type OferenteComparado = {
   cumple_bases: 'si' | 'no' | 'dudoso';
   /** Qué le falta o la duda; vacío si cumple. */
   por_que: string;
+  graves: IncumplimientoGrave[];
   notas: NotaDeCriterio[];
   /** De 0 a 100: la probabilidad de que se la adjudique. */
   probabilidad: number;
@@ -45,10 +63,14 @@ export type ComparacionDeLaIA = {
 };
 
 /** Lo que se guarda: lo de la IA, los criterios con su peso y el puntaje
- *  ponderado de cada oferente, que calcula el motor. */
+ *  ponderado de cada oferente, que calcula el motor. Y, desde la decisión
+ *  59, el texto del reclamo de cada competidor con incumplimientos graves
+ *  (`conReclamos`, en reclamo.ts); null en la tuya y en las que cumplen. */
 export type ComparacionDeOfertas = Omit<ComparacionDeLaIA, 'oferentes'> & {
   criterios: Array<{ nombre: string; peso: number }>;
-  oferentes: Array<OferenteComparado & { puntaje: number }>;
+  oferentes: Array<
+    OferenteComparado & { puntaje: number; reclamo?: string | null }
+  >;
 };
 
 export type CriterioDeLasBases = {
@@ -76,6 +98,20 @@ export const ESQUEMA_DE_LA_COMPARACION = {
           precio: { type: 'string' },
           cumple_bases: { type: 'string', enum: ['si', 'no', 'dudoso'] },
           por_que: { type: 'string' },
+          graves: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                que: { type: 'string' },
+                prueba: { type: 'string' },
+                regla: { type: 'string' },
+                por_ausencia: { type: 'boolean' },
+              },
+              required: ['que', 'prueba', 'regla', 'por_ausencia'],
+            },
+          },
           notas: {
             type: 'array',
             items: {
@@ -99,6 +135,7 @@ export const ESQUEMA_DE_LA_COMPARACION = {
           'precio',
           'cumple_bases',
           'por_que',
+          'graves',
           'notas',
           'probabilidad',
           'fortalezas',
@@ -143,6 +180,7 @@ export function conPuntajes(
       return {
         ...o,
         notas,
+        graves: (o.graves ?? []).filter((g) => g?.que?.trim()),
         probabilidad: entre0y100(o.probabilidad),
         puntaje:
           totalDePesos > 0 ? Math.round((suma / totalDePesos) * 10) / 10 : 0,
@@ -236,6 +274,9 @@ export const instruccionesDeLaComparacion = (c: {
   criterios: CriterioDeLasBases[];
   teDejanFuera: string[];
   obligatorios: string[];
+  /** Lo aprendido de las comisiones (decisión 60), ya en líneas: solo para
+   *  predecir. */
+  comisiones?: string[];
 }): string =>
   [
     'Eres un evaluador experto de licitaciones públicas de Chile (Mercado Público). Te paso las ofertas de una licitación: la de LA EMPRESA (marcada como TU OFERTA) y las de otros oferentes, que la empresa bajó del cuadro de ofertas. Evalúa cada una como lo haría la comisión evaluadora, con los criterios de las bases, para estimar quién se la adjudica.',
@@ -258,10 +299,14 @@ export const instruccionesDeLaComparacion = (c: {
     ...(c.obligatorios.length > 0
       ? c.obligatorios.map((t) => `- ${t}`)
       : ['(no hay una lista)']),
+    ...apartadoParaLaComparacion(c.comisiones ?? []),
     '',
     'QUÉ DEVOLVER',
     '- oferentes: uno por cada oferta, en el orden en que vienen (la primera es la tuya). "nombre": el del oferente como aparece en su oferta, o el que te paso. "es_tuya": true solo para la de la empresa. "precio": el total que ofertó, como lo dice su oferta («$15.900.000 IVA incluido»); si no se ve, «no se ve».',
     '- "cumple_bases": "si" si presentó lo obligatorio y no cae en lo que deja fuera de bases; "no" si le falta algo obligatorio o cae en una causal; "dudoso" si no se puede saber con lo que hay. En "por_que", qué le falta o la duda (vacío si cumple).',
+    '- "graves": lo que, según LO QUE DEJA FUERA DE BASES, LO OBLIGATORIO o la ley, deja esa oferta fuera (inadmisible o fuera de bases); no lo que solo le baja puntaje. Uno por cada incumplimiento: "que" (una frase con el dato concreto), "prueba" (el archivo y la página donde se ve; si es algo que falta, «no está entre lo que presentó»), "regla" (el punto de las bases o la norma que la deja fuera, con sus palabras) y "por_ausencia" (true si es porque algo no está entre lo que se subió de esa oferta). Si no hay, lista vacía. Si hay alguno, "cumple_bases" es "no", o "dudoso" si todos son por ausencia.',
+    '- La misma vara para todas, la tuya incluida: revisa cada exigencia oferta por oferta. Que una oferta sea de la competencia no la hace ni mejor ni peor.',
+    '- Ofertas relacionadas: busca datos de una misma persona o empresa en dos ofertas distintas (RUT, cédula, teléfono, correo, dirección, o la misma persona como representante, dueña, socia, encargada del servicio o firmante). No cuentan los datos del comprador ni el contacto de un cliente en la experiencia: un mismo funcionario de un cliente puede salir en dos ofertas sin que sean relacionadas. Si las hay, va en "graves" de cada oferta involucrada, con la prueba de las dos (archivo y página de cada una) y la regla «Ley de Compras, art. 9, y su reglamento, art. 60: de las ofertas de empresas relacionadas se evalúa solo la más conveniente y las demás son inadmisibles».',
     '- "notas": una por cada criterio, en su orden: "nota" de 0 a 100 como la pondría la comisión según cómo se evalúa (si el criterio trae una fórmula, aplícala con los datos de todas las ofertas: por ejemplo, el precio más bajo por 100 dividido por el precio de cada una); "fundamento": una frase con los datos de esa oferta (años o cantidad de experiencia, lo que ofrece, lo que le falta). Si no hay con qué evaluar un criterio, nota 0 y dilo.',
     '- "probabilidad": de 0 a 100, la de que se la adjudique; la suma de todos da 100. Quien no cumple las bases tiene 0 o casi 0.',
     '- "fortalezas" y "debilidades": lo concreto que le suma o le resta puntos (2 a 4 de cada una).',

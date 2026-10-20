@@ -18,6 +18,8 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import AprenderDelActa from "./AprenderDelActa";
+import IncumplimientosGraves from "./IncumplimientosGraves";
 import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10). Felipe: "para
@@ -27,7 +29,9 @@ import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 // ofertas, la mía va a salir de acá, la otra la descargo y la sumo". Tu
 // oferta sale de «Mi postulación»; las de los demás se suben aquí, cada
 // una con el nombre de su oferente. La IA pone la nota de cada criterio y
-// el motor calcula los puntajes con los pesos de las bases.
+// el motor calcula los puntajes con los pesos de las bases. Desde la
+// decisión 59, cada oferta muestra sus incumplimientos graves y, en la de un
+// competidor, el reclamo para el Centro de Ayuda (`IncumplimientosGraves`).
 
 const CUMPLE: Record<
   OferenteComparado["cumple_bases"],
@@ -52,8 +56,11 @@ const claveDeLaCompetencia = (id: number) => [
 
 export default function ComparacionDeOfertas({
   oportunidadId,
+  adjudicada,
 }: {
   readonly oportunidadId: number;
+  /** Ya adjudicada: no se ofrece el reclamo, sino el camino del Tribunal. */
+  readonly adjudicada: boolean;
 }) {
   const qc = useQueryClient();
   const { data: competencia = [] } = useQuery({
@@ -146,7 +153,7 @@ export default function ComparacionDeOfertas({
       {trabajo?.estado === "error" && (
         <p className="text-sm text-red-600">{trabajo.error}</p>
       )}
-      {r && <Resultado r={r} />}
+      {r && <Resultado r={r} adjudicada={adjudicada} />}
       {trabajo && trabajo.estado !== "procesando" && (
         <p className="text-xs text-gray-400">
           {trabajo.estado === "listo" ? "Comparado" : "Intentado"} el{" "}
@@ -158,6 +165,7 @@ export default function ComparacionDeOfertas({
             ` · no leyó: ${trabajo.no_leidos.map((n) => `${n.nombre} (${n.motivo})`).join("; ")}`}
         </p>
       )}
+      <AprenderDelActa oportunidadId={oportunidadId} />
     </section>
   );
 }
@@ -310,7 +318,13 @@ function Competencia({
   );
 }
 
-function Resultado({ r }: { readonly r: Comparacion }) {
+function Resultado({
+  r,
+  adjudicada,
+}: {
+  readonly r: Comparacion;
+  readonly adjudicada: boolean;
+}) {
   const ganador = r.oferentes.find((o) => o.nombre === r.ganador_probable);
   return (
     <div className="space-y-4">
@@ -413,6 +427,7 @@ function Resultado({ r }: { readonly r: Comparacion }) {
               {o.es_tuya ? " (tú)" : ""}
             </p>
             {o.por_que && <p className="text-xs text-red-700">{o.por_que}</p>}
+            <IncumplimientosGraves oferente={o} adjudicada={adjudicada} />
             <Lista titulo="Le suma" cosas={o.fortalezas} />
             <Lista titulo="Le resta" cosas={o.debilidades} />
             <details className="text-xs text-gray-600">

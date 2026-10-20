@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CaminoDePostulacion from "./CaminoDePostulacion";
 
 // EL CAMINO DE LA POSTULACIÓN (Felipe, 17-10: "vamos con todas"): los pasos
-// con lo hecho marcado y el botón al que sigue, que lleva a su pestaña.
+// con lo hecho marcado. Solo la línea de tiempo desde el 20-10 (Felipe:
+// "creo que ese botón no suma"; "deja solamente la línea de tiempo").
 
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn((_id: number, seccion: string) =>
@@ -28,25 +29,13 @@ vi.mock("../../services/oportunidades.service", () => ({
 afterEach(cleanup);
 
 describe("CaminoDePostulacion", () => {
-  it("con bases y análisis listos, el que sigue es generar anexos y lleva a «Mi postulación»", async () => {
-    const onIr = vi.fn();
+  it("solo la línea de tiempo: los pasos, sin botón ni frase", async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <CaminoDePostulacion
-          oportunidadId={40}
-          estado="en_estudio"
-          onIr={onIr}
-        />
+        <CaminoDePostulacion oportunidadId={40} estado="en_estudio" />
       </QueryClientProvider>,
     );
-    const boton = await screen.findByRole("button", {
-      name: /Armar postulación/,
-    });
-    expect(
-      screen.getByText(
-        "Pon el precio y que la IA arme la postulación: la oferta, los anexos y la propuesta.",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Anexos")).toBeInTheDocument();
     for (const paso of [
       "Bases",
       "Análisis",
@@ -57,7 +46,9 @@ describe("CaminoDePostulacion", () => {
     ]) {
       expect(screen.getByText(paso)).toBeInTheDocument();
     }
-    fireEvent.click(boton);
-    expect(onIr).toHaveBeenCalledWith("postulacion");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Pon el precio y que la IA arme la postulación/),
+    ).not.toBeInTheDocument();
   });
 });

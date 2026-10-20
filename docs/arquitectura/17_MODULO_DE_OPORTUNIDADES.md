@@ -150,7 +150,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     piden cuando alguien abre una. Y cada fila lleva su sello: «Licitación»
     o «Compra ágil» (*"sello compra ágil / sello licitación"*).
 21. **La ficha, más clara** (17-10, *"vamos con todas"*, tras ver el boceto):
-    el camino de la postulación con el botón al paso que sigue; el color
+    el camino de la postulación (desde el 20-10, solo la línea de tiempo
+    con el paso que sigue destacado, sin botón ni frase: *"creo que ese
+    botón no suma.... saquémoslo"*; *"deja solamente la línea de tiempo,
+    a veces menos es más"*); el color
     sigue al análisis de las bases (verde si se puede en el complejo, rojo
     si exigen otro lugar), y el radar ya no lo pisa; el evento en corto y
     los datos con ícono; el estado y el responsable arriba; «Me interesa»
@@ -401,6 +404,19 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Un Word que no se pudo leer no se borra.
     - Los Word firmados antes de este cambio se borran la próxima vez que se firme algo de esa licitación.
     - El avance de «Mis licitaciones» y de la ficha cuenta como «sin firmar» solo el Word de la IA que no tiene su firmado.
+59. **El reclamo desde la comparación de ofertas** (20-10, pedido por Felipe). Nació del caso Integra (1072229-25-L125): la ganadora y la más barata eran de la misma gente, y la comisión contó una experiencia mal respaldada sin darse cuenta. Felipe: *"dejemos en el comparativo una función de que en caso de incumplimiento grave, genere un texto para hacer un reclamos en el centro de ayuda"*.
+    - La IA marca en cada oferta los **incumplimientos graves**: lo que según las bases o la ley la deja fuera (no lo que solo baja puntaje), con su prueba (archivo y página, o «no está entre lo que presentó») y su regla. Revisa todas con la misma vara, la tuya incluida.
+    - Busca **ofertas relacionadas**: la misma persona o empresa en dos ofertas (RUT, cédula, teléfono, correo, dirección, o la misma persona como representante, dueña, socia, encargada o firmante). Va como incumplimiento grave, con la regla de la Ley de Compras (art. 9; reglamento, art. 60). El contacto de un cliente en la experiencia no cuenta.
+    - En la oferta de un competidor con algo grave, **«Redactar reclamo»** muestra el texto que arma el motor, sin IA: a quién va, la licitación, cada incumplimiento con su prueba y su regla, y la petición de revisar la oferta y, si corresponde, declararla inadmisible, firmado con los datos de «Mi empresa». Se copia y se pega en el Centro de Ayuda de Mercado Público: Eventia no envía nada.
+    - Si algo es porque «no está», antes pregunta si se subió todo lo de ese oferente (el 20-10, con Sol de Quillón, faltaban archivos por subir).
+    - Ya adjudicada (ganada, perdida o adjudicada en Mercado Público), no hay reclamo: avisa que queda impugnar ante el Tribunal de Contratación Pública, dentro de 10 días hábiles.
+    - Sin migración ni costo aparte: va en la misma comparación. Las comparaciones de antes hay que hacerlas de nuevo.
+60. **La base de lo que aprendemos de las comisiones** (20-10, pedido por Felipe). Cuando se le propuso llevar lo visto en las actas al análisis de las bases: *"las bases son las que determinan qué cosas se aceptan o no se aceptan como respaldo... no porque en una licitación particular una comisión, que pudo haberlo hecho bien o mal, tome una determinación, va a marcar un precedente... Lo que necesitamos es entender los criterios, las flexibilidades que tienen estos comités evaluadores... para intentar predecir quién va a ganar, nada más"*. Y: *"las que vayamos licitando, vamos a ver si ganamos o perdemos, ir revisando las actas de adjudicación e ir entrenando la IA para que vaya afinando el ojo"*.
+    - **Al postular mandan las bases.** Lo aprendido no toca «Armar postulación» ni el análisis: solo lo lee la «Comparación de ofertas», para las notas y la probabilidad. Lo que cumple las bases y lo grave (el reclamo, decisión 59) siguen yendo por las bases. Una comisión que se salta las bases no es precedente: queda anotada para predecir y para reclamar.
+    - **La base** (migración 155, `oportunidades_aprendizajes`): cada fila es una decisión de una comisión ante una falta, una omisión o una duda (qué pasó y qué decidió), de qué licitación y unidad de compra salió y cómo se portó: estricta, flexible o contra las bases. Parte con los 43 casos estudiados el 20-10 (el DAEM y la Oficina de Jóvenes de Quillón, Integra Ñuble, el DEM de Yumbel, la UBB, Concepción y tres actas públicas).
+    - **La comparación** lee primero lo de la misma unidad de compra (la comisión de esa licitación), después lo del mismo organismo y al final lo demás; nunca lo de la misma licitación.
+    - **«Aprender del acta»**, en la pestaña «Comparación de ofertas»: cuando adjudican, se sube el acta de evaluación (sección `acta`) y Opus 5.5 anota cómo decidió la comisión, si la comparación acertó y, si falló, por qué. Lo aprendido entra a la base; aprender otra vez reemplaza lo de esa licitación. Sin nombres de personas ni de oferentes, sin consejos ni pesos de las bases.
+    - La pestaña muestra también «Cómo ha decidido esta comisión»: lo que la base sabe de su unidad de compra.
 
 ## 4. Reglas del módulo (no se negocian)
 

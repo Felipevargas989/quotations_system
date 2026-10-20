@@ -4,10 +4,12 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
+import type { AprendizajesRepository } from '../aprendizajes/aprendizajes.repository';
 import {
   conPuntajes,
   elegirQueLeer,
   encabezadoDeLaOferta,
+  ESQUEMA_DE_LA_COMPARACION,
   instruccionesDeLaComparacion,
   pesoComoNumero,
 } from '../comparacion/comparacion';
@@ -15,8 +17,12 @@ import {
   ComparacionService,
   MODELO_DE_LA_COMPARACION,
 } from '../comparacion/comparacion.service';
+import { conReclamos, textoDelReclamo } from '../comparacion/reclamo';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
-import type { OferenteRepository } from '../oferente/oferente.repository';
+import type {
+  Oferente,
+  OferenteRepository,
+} from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import type { ElSetService } from '../postulacion/el-set.service';
 
@@ -54,6 +60,7 @@ const IA = {
       precio: '$15.900.000 IVA incluido',
       cumple_bases: 'si' as const,
       por_que: '',
+      graves: [],
       notas: [
         { criterio: 1, nota: 75, fundamento: 'Más caro.' },
         { criterio: 2, nota: 100, fundamento: 'Cumple todo.' },
@@ -71,6 +78,7 @@ const IA = {
       precio: '$12.000.000 neto',
       cumple_bases: 'si' as const,
       por_que: '',
+      graves: [],
       notas: [
         { criterio: 1, nota: 100, fundamento: 'El más barato.' },
         { criterio: 2, nota: 140, fundamento: 'Cumple.' },
@@ -107,6 +115,27 @@ describe('Los puntajes los calcula el motor', () => {
     // 100·40 + 100·30 (140 → 100) + 50·20 + 100·10 = 9.000 → 90.
     expect(r.oferentes[1].puntaje).toBe(90);
     expect(r.oferentes[1].probabilidad).toBe(100);
+  });
+
+  it('conserva los incumplimientos graves y bota los vacíos (decisión 59)', () => {
+    const grave = {
+      que: 'No presentó el Anexo N°5',
+      prueba: 'no está entre lo que presentó',
+      regla: 'Punto 11.3 de las bases',
+      por_ausencia: true,
+    };
+    const r = conPuntajes(
+      {
+        ...IA,
+        oferentes: [
+          IA.oferentes[0],
+          { ...IA.oferentes[1], graves: [grave, { ...grave, que: '  ' }] },
+        ],
+      },
+      CRITERIOS,
+    );
+    expect(r.oferentes[0].graves).toEqual([]);
+    expect(r.oferentes[1].graves).toEqual([grave]);
   });
 });
 
@@ -190,6 +219,121 @@ describe('Qué se lee de cada oferta', () => {
     // Los puntajes los suma Eventia (en el laboratorio el resumen traía
     // otros, 19-10).
     expect(t).toContain('No calcules puntajes totales');
+    // Decisión 59: lo que deja fuera, con su prueba; la misma vara para
+    // todas; y las ofertas relacionadas (el caso Integra, 20-10).
+    expect(t).toContain('"graves"');
+    expect(t).toContain('La misma vara para todas, la tuya incluida');
+    expect(t).toContain('Ley de Compras, art. 9');
+    expect(t).toContain('No cuentan los datos del comprador');
+  });
+
+  it('el esquema pide los incumplimientos graves de cada oferta, con su prueba y su regla', () => {
+    const oferente = ESQUEMA_DE_LA_COMPARACION.properties.oferentes.items;
+    expect(oferente.required).toContain('graves');
+    expect(oferente.properties.graves.items.required).toEqual([
+      'que',
+      'prueba',
+      'regla',
+      'por_ausencia',
+    ]);
+  });
+});
+
+describe('El reclamo de una oferta (decisión 59)', () => {
+  const EMPRESA = {
+    razon_social: 'VALLE DEL SOL QUILLON SPA',
+    rut: '76.123.456-7',
+    representante_nombre: 'Felipe Vargas',
+    representante_cargo: 'Representante legal',
+    representante_correo: 'felipe@valledelsol.cl',
+    representante_telefono: null,
+    correo: 'contacto@valledelsol.cl',
+    telefono: '+56 9 1111 2222',
+  } as unknown as Oferente;
+  const DATOS = {
+    codigo: '1072229-25-L125',
+    nombre: 'Arriendo de salón y catering',
+    organismo: 'FUNDACION INTEGRA',
+    empresa: EMPRESA,
+  };
+  const GRAVES = [
+    {
+      que: 'Su encargada del servicio es la dueña de otra oferente',
+      prueba: 'Anexo 4-A, página 1; Anexo 4-B de DeliBreak, página 1',
+      regla:
+        'Ley de Compras, art. 9: de las ofertas de empresas relacionadas se evalúa solo la más conveniente',
+      por_ausencia: false,
+    },
+    {
+      que: 'La quinta experiencia viene con una resolución de adjudicación.',
+      prueba: '2023_RESOLUCION_HHM_2024.pdf',
+      regla: 'Bases, experiencia: solo contrato, OC o factura',
+      por_ausencia: false,
+    },
+  ];
+
+  it('dice a quién, qué licitación, cada incumplimiento con su prueba y su regla, y lo firma la empresa', () => {
+    const t = textoDelReclamo('MYRNA DEL PINO', GRAVES, DATOS);
+    expect(t).toContain('Señores\nFUNDACION INTEGRA\nPresente');
+    expect(t).toContain(
+      'Licitación 1072229-25-L125: «Arriendo de salón y catering».',
+    );
+    expect(t).toContain(
+      'VALLE DEL SOL QUILLON SPA, RUT 76.123.456-7, oferente en esta licitación, presenta el siguiente reclamo sobre la oferta de MYRNA DEL PINO',
+    );
+    expect(t).toContain(
+      '1. Su encargada del servicio es la dueña de otra oferente.\n   Dónde se ve: Anexo 4-A, página 1; Anexo 4-B de DeliBreak, página 1.\n   Regla: Ley de Compras, art. 9',
+    );
+    // Lo que ya termina en punto no lleva otro.
+    expect(t).toContain(
+      '2. La quinta experiencia viene con una resolución de adjudicación.\n',
+    );
+    expect(t).toContain(
+      'si corresponde, declararla inadmisible antes de adjudicar.',
+    );
+    // El correo del representante manda; sin su teléfono, el de la empresa.
+    expect(
+      t.endsWith(
+        'Atentamente,\nFelipe Vargas\nRepresentante legal, VALLE DEL SOL QUILLON SPA\nfelipe@valledelsol.cl · +56 9 1111 2222',
+      ),
+    ).toBe(true);
+  });
+
+  it('sin datos de «Mi empresa» ni organismo, el texto sale igual, sin huecos', () => {
+    const t = textoDelReclamo('BPM', [GRAVES[1]], {
+      ...DATOS,
+      organismo: null,
+      empresa: null,
+    });
+    expect(t).toContain('Señores\nOrganismo comprador\nPresente');
+    expect(t).toContain(
+      'Nuestra empresa, oferente en esta licitación, presenta',
+    );
+    expect(t).not.toContain('RUT');
+    expect(t.endsWith('Atentamente,\nNuestra empresa')).toBe(true);
+  });
+
+  it('solo las ofertas de la competencia con incumplimientos graves llevan reclamo', () => {
+    const c = conPuntajes(IA, CRITERIOS);
+    const r = conReclamos(
+      {
+        ...c,
+        oferentes: [
+          { ...c.oferentes[0], graves: GRAVES },
+          c.oferentes[1],
+          { ...c.oferentes[1], nombre: 'MYRNA DEL PINO', graves: GRAVES },
+        ],
+      },
+      DATOS,
+    );
+    expect(r.oferentes.map((o) => o.reclamo === null)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(r.oferentes[2].reclamo).toContain(
+      'sobre la oferta de MYRNA DEL PINO',
+    );
   });
 });
 
@@ -293,6 +437,35 @@ function armar() {
       .mockResolvedValue({ razon_social: 'VALLE DEL SOL QUILLON SPA' }),
   };
   const set = { piezas: jest.fn().mockResolvedValue(MIAS) };
+  // Decisión 60: lo aprendido de las comisiones.
+  const aprendizajes = {
+    deLaEmpresa: jest.fn().mockResolvedValue([
+      {
+        id: 1,
+        codigo: '4074-35-LE25',
+        unidad: '4074',
+        organismo: 'I. Municipalidad de Yumbel (DEM)',
+        situacion: 'Un certificado no decía el monto.',
+        decision: 'Lo contó igual.',
+        tipo: 'flexible',
+        fuente: 'caso',
+        oportunidad_id: null,
+        creado_en: '2026-10-20T19:00:00Z',
+      },
+      {
+        id: 2,
+        codigo: '4364-5-LE25',
+        unidad: '4364',
+        organismo: 'I. Municipalidad de Quillón (DAEM)',
+        situacion: 'Faltó la declaración del programa de integridad.',
+        decision: 'Puso 0 en integridad y siguió en carrera.',
+        tipo: 'flexible',
+        fuente: 'caso',
+        oportunidad_id: null,
+        creado_en: '2026-10-20T18:00:00Z',
+      },
+    ]),
+  };
   const servicio = new ComparacionDePrueba(
     repo as unknown as GeneracionRepository,
     adjuntos as unknown as AdjuntosRepository,
@@ -300,9 +473,10 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
     set as unknown as ElSetService,
+    aprendizajes as unknown as AprendizajesRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { repo, adjuntos, analisis, set, servicio };
+  return { repo, adjuntos, analisis, set, aprendizajes, servicio };
 }
 
 const antes = process.env.ANTHROPIC_API_KEY;
@@ -348,6 +522,25 @@ describe('La comparación de ofertas', () => {
     expect(MODELO_DE_LA_COMPARACION).toBe('claude-opus-5-5');
   });
 
+  it('lee lo aprendido de las comisiones, la misma unidad de compra primero y solo para predecir (decisión 60)', async () => {
+    const { servicio } = armar();
+    const ejecutar = jest
+      .spyOn(servicio, 'ejecutar')
+      .mockResolvedValue(undefined);
+    await servicio.pedir(1, 'cuenta-1', 84);
+    const [, , , contexto] = ejecutar.mock.calls[0];
+    const t = contexto.instrucciones;
+    expect(t).toContain('CÓMO HAN DECIDIDO LAS COMISIONES');
+    expect(t).toContain('Úsalo SOLO para predecir');
+    expect(t).toContain('Nunca para "cumple_bases" ni "graves"');
+    // El Profesor es del DAEM (4364): su caso va antes que el de Yumbel.
+    expect(
+      t.indexOf('[esta misma unidad de compra] 4364-5-LE25'),
+    ).toBeGreaterThan(-1);
+    expect(t.indexOf('4364-5-LE25')).toBeLessThan(t.indexOf('4074-35-LE25'));
+    expect(t).toContain('→ Lo contó igual. (flexible)');
+  });
+
   it('sin análisis, sin criterios, sin competencia o con la postulación vacía: 400 sin crear nada', async () => {
     const sinAnalisis = armar();
     sinAnalisis.analisis.ultimo.mockResolvedValue(null);
@@ -382,8 +575,20 @@ describe('La comparación de ofertas', () => {
 
   it('al terminar guarda lo de la IA con los puntajes del motor y su costo; si falla, lo deja escrito', async () => {
     const { repo, servicio } = armar();
+    const sinAnexo = {
+      que: 'No presentó el Formulario N°4',
+      prueba: 'no está entre lo que presentó',
+      regla: 'Punto 12.2 de las bases',
+      por_ausencia: true,
+    };
     servicio.parse.mockResolvedValue({
-      parsed_output: IA,
+      parsed_output: {
+        ...IA,
+        oferentes: [
+          IA.oferentes[0],
+          { ...IA.oferentes[1], graves: [sinAnexo] },
+        ],
+      },
       usage: { input_tokens: 100_000, output_tokens: 4_000 },
       stop_reason: 'end_turn',
     });
@@ -404,6 +609,12 @@ describe('La comparación de ofertas', () => {
       ],
       criterios: CRITERIOS,
       instrucciones: 'INSTRUCCIONES',
+      reclamo: {
+        codigo: '4364-13-LE26',
+        nombre: 'Día del Profesor',
+        organismo: 'I MUNICIPALIDAD DE QUILLON',
+        empresa: null,
+      },
     });
     type Pedido = {
       model: string;
@@ -423,10 +634,22 @@ describe('La comparación de ofertas', () => {
     const [, , fin] = repo.terminar.mock.calls[0] as [
       number,
       number,
-      { resultado: { oferentes: Array<{ puntaje: number }> } },
+      {
+        resultado: {
+          oferentes: Array<{ puntaje: number; reclamo: string | null }>;
+        };
+      },
     ];
     expect(fin).toMatchObject({ estado: 'listo', tokens_entrada: 100_000 });
     expect(fin.resultado.oferentes.map((o) => o.puntaje)).toEqual([90, 90]);
+    // Decisión 59: el reclamo, solo para el competidor con algo grave.
+    expect(fin.resultado.oferentes[0].reclamo).toBeNull();
+    expect(fin.resultado.oferentes[1].reclamo).toContain(
+      'Señores\nI MUNICIPALIDAD DE QUILLON',
+    );
+    expect(fin.resultado.oferentes[1].reclamo).toContain(
+      '1. No presentó el Formulario N°4.',
+    );
 
     const falla = armar();
     falla.servicio.parse.mockRejectedValue(new Error('se cayó'));
@@ -434,6 +657,7 @@ describe('La comparación de ofertas', () => {
       ofertas: [],
       criterios: CRITERIOS,
       instrucciones: 'X',
+      reclamo: { codigo: 'X', nombre: '', organismo: null, empresa: null },
     });
     expect(falla.repo.terminar).toHaveBeenCalledWith(
       1,

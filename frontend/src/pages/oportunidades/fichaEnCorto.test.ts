@@ -5,7 +5,8 @@ import {
   claseDeArchivo,
   eventoEnCorto,
   nombreLegible,
-  siguientePaso,
+  pasoQueSigue,
+  yaSeAdjudico,
 } from "./fichaEnCorto";
 import { pasosDelAvance } from "./oportunidades.utils";
 
@@ -27,18 +28,15 @@ const archivo = (
 });
 
 describe("el camino de la postulación", () => {
-  it("sin nada: el primer paso es subir las bases, en la pestaña de bases", () => {
+  it("sin nada: el primer paso es subir las bases", () => {
     const pasos = pasosDelAvance({
       estado: "en_estudio",
       avance: avanceDeLaFicha({}),
     });
-    expect(siguientePaso(pasos)).toMatchObject({
-      paso: "Bases",
-      boton: { texto: "Subir las bases", pestana: "bases" },
-    });
+    expect(pasoQueSigue(pasos)).toBe("Bases");
   });
 
-  it("con bases y análisis listo: sigue generar anexos, en «Mi postulación»", () => {
+  it("con bases y análisis listo: sigue armar la postulación", () => {
     const pasos = pasosDelAvance({
       estado: "en_estudio",
       avance: avanceDeLaFicha({
@@ -46,13 +44,10 @@ describe("el camino de la postulación", () => {
         analisis: { estado: "listo" } as never,
       }),
     });
-    expect(siguientePaso(pasos)).toMatchObject({
-      paso: "Anexos",
-      boton: { texto: "Armar postulación", pestana: "postulacion" },
-    });
+    expect(pasoQueSigue(pasos)).toBe("Anexos");
   });
 
-  it("mientras la IA trabaja no hay botón; postulada, tampoco", () => {
+  it("mientras la IA trabaja, sigue ese paso; postulada, ninguno", () => {
     const enCurso = pasosDelAvance({
       estado: "en_estudio",
       avance: avanceDeLaFicha({
@@ -60,10 +55,7 @@ describe("el camino de la postulación", () => {
         analisis: { estado: "procesando" } as never,
       }),
     });
-    expect(siguientePaso(enCurso)).toMatchObject({
-      paso: "Análisis",
-      boton: null,
-    });
+    expect(pasoQueSigue(enCurso)).toBe("Análisis");
     const todo = pasosDelAvance({
       estado: "postulada",
       avance: avanceDeLaFicha({
@@ -73,7 +65,7 @@ describe("el camino de la postulación", () => {
         validacion: { estado: "listo", resultado: { listo: "si" } } as never,
       }),
     });
-    expect(siguientePaso(todo)).toMatchObject({ paso: null, boton: null });
+    expect(pasoQueSigue(todo)).toBeNull();
     // Postulada con la validación en aviso: ni «Ir a firmar» ni «Validar».
     const conAviso = pasosDelAvance({
       estado: "postulada",
@@ -84,11 +76,7 @@ describe("el camino de la postulación", () => {
         validacion: { estado: "listo", resultado: { listo: "casi" } } as never,
       }),
     });
-    expect(siguientePaso(conAviso)).toEqual({
-      paso: null,
-      texto: "Postulada. Ahora a esperar.",
-      boton: null,
-    });
+    expect(pasoQueSigue(conAviso)).toBeNull();
   });
 
   it("lo de la IA sin firmar no cuenta el Word que ya tiene su firmado (decisión 58)", () => {
@@ -156,5 +144,23 @@ describe("los archivos", () => {
     expect(claseDeArchivo("Oferta.xlsx")).toBe("excel");
     expect(claseDeArchivo("firma.png")).toBe("imagen");
     expect(claseDeArchivo("Planos.zip")).toBe("otro");
+  });
+});
+
+describe("¿ya se adjudicó? (decisión 59)", () => {
+  const ficha = (
+    estado: string,
+    enMercadoPublico: string | null,
+    adjudicacion: unknown = null,
+  ) => ({ estado, proceso: { estado: enMercadoPublico, adjudicacion } });
+
+  it("ganada o perdida, o Mercado Público ya la dice adjudicada; postulada y cerrada, todavía no", () => {
+    expect(yaSeAdjudico(ficha("postulada", "Cerrada"))).toBe(false);
+    expect(yaSeAdjudico(ficha("ganada", "Cerrada"))).toBe(true);
+    expect(yaSeAdjudico(ficha("perdida", null))).toBe(true);
+    expect(yaSeAdjudico(ficha("postulada", "Adjudicada"))).toBe(true);
+    expect(yaSeAdjudico(ficha("postulada", "Cerrada", { oferentes: 2 }))).toBe(
+      true,
+    );
   });
 });
