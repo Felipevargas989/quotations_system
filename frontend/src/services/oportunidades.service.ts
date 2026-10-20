@@ -732,7 +732,11 @@ export const llevarACotizacion = async (
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). 'competencia': las
  *  ofertas de los demás (migración 153; se suben con comparacion.service). */
-export type SeccionDeArchivos = "bases" | "postulacion" | "competencia";
+export type SeccionDeArchivos =
+  | "bases"
+  | "postulacion"
+  | "competencia"
+  | "acta";
 
 export const getAdjuntos = async (
   id: number,

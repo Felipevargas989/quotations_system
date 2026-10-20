@@ -9,8 +9,10 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
  *  lo que la empresa va a presentar (migración 127). 'competencia': las
- *  ofertas de los demás, bajadas del cuadro de ofertas (migración 153). */
-export type Seccion = 'bases' | 'postulacion' | 'competencia';
+ *  ofertas de los demás, bajadas del cuadro de ofertas (migración 153).
+ *  'acta': el acta de evaluación, para «Aprender del acta» (migración 155,
+ *  decisión 60). */
+export type Seccion = 'bases' | 'postulacion' | 'competencia' | 'acta';
 
 /** De dónde salió (migración 129): 'subido' lo subió una persona;
  *  'generado' lo hizo la IA, SIN firma; 'firmado' es la versión con la foto

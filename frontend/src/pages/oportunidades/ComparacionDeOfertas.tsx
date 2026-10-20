@@ -18,6 +18,7 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import AprenderDelActa from "./AprenderDelActa";
 import IncumplimientosGraves from "./IncumplimientosGraves";
 import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 
@@ -164,6 +165,7 @@ export default function ComparacionDeOfertas({
             ` · no leyó: ${trabajo.no_leidos.map((n) => `${n.nombre} (${n.motivo})`).join("; ")}`}
         </p>
       )}
+      <AprenderDelActa oportunidadId={oportunidadId} />
     </section>
   );
 }
