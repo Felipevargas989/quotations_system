@@ -55,6 +55,7 @@ function armar() {
       .mockResolvedValue({ estado: 'listo', resultado: FUNCIONARIO }),
   };
   const oferente = {
+    respaldos: jest.fn().mockResolvedValue([]),
     oferente: jest.fn().mockResolvedValue({
       razon_social: 'VALLE DEL SOL QUILLON SPA',
       rut: '77.701.305-K',
@@ -346,6 +347,28 @@ describe('Armar postulación', () => {
       propuesta: true,
     });
     expect(documentos.crearPropuesta).not.toHaveBeenCalled();
+  });
+
+  it('con «las 10 de siempre» (decisión 53) no se busca en Post-venta', async () => {
+    const { servicio, documentos, postVenta, analisis, oferente } = armar();
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: { requisitos: [{ que: 'Experiencia del oferente' }] },
+    });
+    oferente.respaldos.mockResolvedValue([
+      { numero: '1213301-49-AG26', siempre: true },
+    ]);
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 11_900_000,
+      propuesta: false,
+    });
+    expect(postVenta.paraLaPostulacion).not.toHaveBeenCalled();
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(
+      1,
+      'cuenta-1',
+      40,
+      expect.objectContaining({ post_venta: [] }),
+    );
   });
 
   it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {

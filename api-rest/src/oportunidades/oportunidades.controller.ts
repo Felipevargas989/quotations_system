@@ -28,7 +28,11 @@ import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
-import { GuardarOferenteDto, SubirDocumentoDto } from './dto/oferente.dto';
+import {
+  GuardarOferenteDto,
+  MarcarDeSiempreDto,
+  SubirDocumentoDto,
+} from './dto/oferente.dto';
 import { SeccionDto, SubirAdjuntoDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
@@ -199,6 +203,21 @@ export class OportunidadesController {
   @Get('oferente/orden-de-compra/:codigo')
   ordenDeCompra(@Param('codigo') codigo: string, @CurrentUser() user: User) {
     return this.oferente.ordenDeCompra(user.company_id, codigo);
+  }
+
+  /** «De las 10 de siempre» (decisión 53): marca o desmarca un respaldo de
+   *  experiencia; como mucho 10. */
+  @Patch('oferente/documentos/:documentoId/siempre')
+  marcarDeSiempre(
+    @Param('documentoId', ParseIntPipe) documentoId: number,
+    @Body() dto: MarcarDeSiempreDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.oferente.marcarDeSiempre(
+      user.company_id,
+      documentoId,
+      dto.siempre,
+    );
   }
 
   @Delete('oferente/documentos/:documentoId')

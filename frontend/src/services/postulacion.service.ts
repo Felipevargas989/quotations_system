@@ -3,6 +3,7 @@ import { api, apiRequest } from "./api";
 import {
   type AnalisisDeBases,
   subirConFormulario,
+  type VistaDelOferente,
 } from "./oportunidades.service";
 
 // LA POSTULACIÓN (doc 17, decisiones 33 y 34, 19-10): los respaldos de
@@ -20,6 +21,8 @@ export interface DatosDeRespaldo {
   /** Pesos, con impuestos. */
   monto: number | null;
   fuente: "mercado_publico" | "manual";
+  /** «De las 10 de siempre» (decisión 53). */
+  siempre?: boolean;
 }
 
 /** La ficha pública de una orden de compra, leída por el motor. */
@@ -52,6 +55,15 @@ export const leerRespaldo = (archivo: File) =>
     `${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/leer`,
     archivo,
   );
+
+/** «De las 10 de siempre» (decisión 53): marca o desmarca un respaldo; el
+ *  anexo de experiencia usa siempre los marcados (como mucho 10). */
+export const marcarDeSiempre = async (id: number, siempre: boolean) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos/${id}/siempre`,
+    "PATCH",
+    { siempre },
+  )) as VistaDelOferente;
 
 /** Una fila de la oferta armada con IA (decisión 33): una especificación
  *  técnica de las bases, qué se ofrece y con qué productos del catálogo. */

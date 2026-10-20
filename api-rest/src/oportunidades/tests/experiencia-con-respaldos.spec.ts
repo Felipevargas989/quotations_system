@@ -161,4 +161,37 @@ describe('La experiencia en los anexos', () => {
       );
       expect(sistema).toContain('Solo los de los últimos 24 meses');
     }));
+
+  it('con «las 10 de siempre» (decisión 53): solo esas, todas, y ni otros respaldos ni eventos', () =>
+    entorno(async () => {
+      const { oferente, servicio, ejecutar } = armar();
+      const este = new Date().getFullYear();
+      const respaldo = (numero: string, anio: number, siempre?: boolean) => ({
+        numero,
+        mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+        contrato: 'Cena',
+        anio,
+        monto: 1_000_000,
+        fuente: 'mercado_publico',
+        archivo: `OC ${numero}.pdf`,
+        ...(siempre ? { siempre: true } : {}),
+      });
+      oferente.respaldos.mockResolvedValue([
+        respaldo('5040-111-AG26', este, true),
+        respaldo('260', este - 1, true),
+        respaldo('7777-1-AG26', este),
+      ]);
+      await servicio.generarAnexos(1, CUENTA, 40, {
+        monto_total: 11_900_000,
+        post_venta: [DE_POST_VENTA],
+      });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('SUS RESPALDOS DE EXPERIENCIA, LOS DE SIEMPRE');
+      expect(sistema).toContain('N° 5040-111-AG26');
+      expect(sistema).toContain('N° 260');
+      expect(sistema).not.toContain('N° 7777-1-AG26');
+      expect(sistema).not.toContain('MÁS RESPALDOS');
+      expect(sistema).not.toContain('LOS EVENTOS QUE HIZO LA EMPRESA');
+      expect(sistema).toContain('ponlos TODOS, uno por fila');
+    }));
 });

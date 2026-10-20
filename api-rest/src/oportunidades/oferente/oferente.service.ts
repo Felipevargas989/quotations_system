@@ -27,6 +27,7 @@ import {
 import {
   datosDeRespaldo,
   type DatosDeRespaldo,
+  MAX_DE_SIEMPRE,
   TIPO_RESPALDO,
 } from './respaldo';
 
@@ -314,6 +315,29 @@ export class OferenteService {
       await this.archivos.borrarArchivo(ruta);
       throw error;
     }
+  }
+
+  /** «De las 10 de siempre» (decisión 53; Felipe, 19-10: "dejemos las
+   *  mejores 10 entre Eventia y Mercado Público y las usamos siempre"): como
+   *  mucho 10; para marcar otra, primero se saca una. */
+  async marcarDeSiempre(
+    companyId: number,
+    id: number,
+    siempre: boolean,
+  ): Promise<VistaDelOferente> {
+    if (siempre) {
+      const marcadas = (await this.repo.respaldos(companyId)).filter(
+        (r) => r.siempre,
+      );
+      if (marcadas.length >= MAX_DE_SIEMPRE) {
+        throw new BadRequestException(
+          `Ya hay ${MAX_DE_SIEMPRE} de siempre: saca una antes de marcar otra.`,
+        );
+      }
+    }
+    const fila = await this.repo.marcarDeSiempre(companyId, id, siempre);
+    if (!fila) throw new NotFoundException('No encontramos ese respaldo.');
+    return this.ver(companyId);
   }
 
   async borrarDocumento(

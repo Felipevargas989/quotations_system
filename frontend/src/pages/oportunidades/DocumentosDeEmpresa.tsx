@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Trash2 } from "lucide-react";
+import { FolderOpen, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -11,6 +11,7 @@ import {
   subirDocumentoDeEmpresa,
   type DocumentoDeEmpresa,
 } from "../../services/oportunidades.service";
+import { marcarDeSiempre } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { descargarDelBalde } from "./descargas";
@@ -35,7 +36,9 @@ import RespaldosEnLote from "./RespaldosEnLote";
 // la orden de compra o la factura de cada evento que se declara, con sus
 // datos para el anexo de experiencia. No vencen. Se suben varios a la vez y
 // se leen solos (RespaldosEnLote). Los que están en Post-venta no se suben
-// aquí: «Armar postulación» los busca sola (decisión 45).
+// aquí: «Armar postulación» los busca sola (decisión 45). Desde el 19-10
+// (decisión 53), «las 10 de siempre»: con la estrella se eligen hasta 10 y
+// el anexo de experiencia usa siempre esas (se ajustan una vez al año).
 
 const TONOS = {
   ok: "bg-green-50 text-green-700",
@@ -74,6 +77,18 @@ export default function DocumentosDeEmpresa({
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo subir el documento.")),
   });
+  const estrella = useMutation({
+    mutationFn: ({ id, siempre }: { id: number; siempre: boolean }) =>
+      marcarDeSiempre(id, siempre),
+    onSuccess: () => void recargar(),
+    onError: (e) =>
+      toast.error(humanizeApiError(e, "No se pudo marcar el respaldo.")),
+  });
+  const deSiempre = documentos.filter(
+    (d) => d.tipo === TIPO_RESPALDO && d.datos?.siempre,
+  ).length;
+  const hayRespaldos = documentos.some((d) => d.tipo === TIPO_RESPALDO);
+
   const borrar = useMutation({
     mutationFn: (id: number) => borrarDocumentoDeEmpresa(id),
     onSuccess: () => {
@@ -122,6 +137,17 @@ export default function DocumentosDeEmpresa({
           Lo que piden casi todas las bases, con su vencimiento. Lo que vence en
           30 días o ya venció queda marcado.
         </p>
+        {hayRespaldos && (
+          <p className="text-xs text-gray-600">
+            <Star
+              size={12}
+              className="inline -mt-0.5 fill-amber-400 text-amber-500"
+              aria-hidden="true"
+            />{" "}
+            Las 10 de siempre: <b>{deSiempre} de 10</b>. El anexo de experiencia
+            usa siempre las marcadas; ajústalas una vez al año.
+          </p>
+        )}
       </div>
 
       {documentos.length > 0 && (
@@ -156,6 +182,39 @@ export default function DocumentosDeEmpresa({
                   {estado.texto}
                 </span>
                 <div className="flex items-center gap-3 shrink-0">
+                  {d.tipo === TIPO_RESPALDO && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        estrella.mutate({
+                          id: d.id,
+                          siempre: !d.datos?.siempre,
+                        })
+                      }
+                      disabled={estrella.isPending}
+                      title={
+                        d.datos?.siempre
+                          ? "Es de las 10 de siempre: sacarla"
+                          : "Marcarla entre las 10 de siempre"
+                      }
+                      aria-label={
+                        d.datos?.siempre
+                          ? `Sacar ${d.nombre} de las 10 de siempre`
+                          : `Marcar ${d.nombre} entre las 10 de siempre`
+                      }
+                      aria-pressed={Boolean(d.datos?.siempre)}
+                      className="text-gray-300 hover:text-amber-500 disabled:opacity-50"
+                    >
+                      <Star
+                        size={16}
+                        className={
+                          d.datos?.siempre
+                            ? "fill-amber-400 text-amber-500"
+                            : ""
+                        }
+                      />
+                    </button>
+                  )}
                   {seVeEnElVisor(d.ruta) ? (
                     <FileViewLink url={d.ruta} title={d.nombre} />
                   ) : (
