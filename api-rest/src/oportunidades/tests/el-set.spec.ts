@@ -559,6 +559,86 @@ describe('el set para Mercado Público', () => {
     );
   });
 
+  it('el respaldo de la patente va siempre donde va la patente, justo detrás (decisión 61)', () => {
+    const d = datos();
+    const contrato = documento(
+      42,
+      'respaldo_patente',
+      'Comodato de arriendo.pdf',
+    );
+    // Las bases la piden y se subió a mano: detrás de ella, en la
+    // administrativa.
+    const pedida = armarElSet({ ...d, carpeta: [...d.carpeta, contrato] });
+    expect(pieza(pedida, 'Comodato de arriendo.pdf')).toMatchObject({
+      carpetas: ['administrativa'],
+      que_es: 'documento',
+      aviso: null,
+    });
+    const nombres = pedida.piezas.map((p) => p.nombre);
+    expect(nombres.indexOf('Comodato de arriendo.pdf')).toBe(
+      nombres.indexOf('Patente 2026.pdf') + 1,
+    );
+    // No la piden: la patente de la carpeta va en «4. Otros», y el contrato
+    // con ella.
+    const sinSubir = d.archivos.filter((a) => a.nombre !== 'Patente 2026.pdf');
+    const noPedida = armarElSet({
+      ...d,
+      archivos: sinSubir,
+      requisitos: d.requisitos.filter((r) => !/patente/i.test(r.que)),
+      carpeta: [...d.carpeta, contrato],
+    });
+    expect(pieza(noPedida, 'Patente vieja.pdf')).toMatchObject({
+      carpetas: ['otros'],
+    });
+    expect(pieza(noPedida, 'Comodato de arriendo.pdf')).toMatchObject({
+      carpetas: ['otros'],
+    });
+    // Sin patente en el set, el contrato no va solo.
+    const sinPatente = armarElSet({
+      ...d,
+      archivos: sinSubir,
+      carpeta: [...d.carpeta.filter((x) => x.tipo !== 'patente'), contrato],
+    });
+    expect(pieza(sinPatente, 'Comodato de arriendo.pdf')).toBeUndefined();
+    // Otro tipo («otro») nunca va solo.
+    const comoOtro = armarElSet({
+      ...d,
+      carpeta: [...d.carpeta, { ...contrato, tipo: 'otro' }],
+    });
+    expect(pieza(comoOtro, 'Comodato de arriendo.pdf')).toBeUndefined();
+  });
+
+  it('el respaldo de la patente ya subido a mano no se repite, y el vencido avisa (decisión 61)', () => {
+    const d = datos();
+    const set = armarElSet({
+      ...d,
+      archivos: [
+        ...d.archivos,
+        archivo(43, 'd2_Declaracion_de_uso_de_patente.pdf', {
+          origen: 'subido',
+        }),
+      ],
+      carpeta: [
+        ...d.carpeta,
+        documento(44, 'respaldo_patente', 'Declaración de uso de patente.pdf'),
+        documento(45, 'respaldo_patente', 'Dictamen de Contraloría.pdf', {
+          vence: '2026-10-01',
+        }),
+      ],
+    });
+    expect(pieza(set, 'Declaración de uso de patente.pdf')).toBeUndefined();
+    expect(pieza(set, 'd2_Declaracion_de_uso_de_patente.pdf')).toMatchObject({
+      carpetas: ['administrativa'],
+    });
+    expect(pieza(set, 'Dictamen de Contraloría.pdf')).toMatchObject({
+      carpetas: ['administrativa'],
+      aviso: 'vencido el 01-10-2026',
+    });
+    expect(set.faltan).toContain(
+      '«Dictamen de Contraloría.pdf» venció el 01-10-2026: súbelo renovado en «Mi empresa».',
+    );
+  });
+
   it('los respaldos de Post-venta que leyeron los anexos van igual, desde su evento, sin repetir un número de la carpeta (decisión 45)', () => {
     const d = {
       ...datos(),

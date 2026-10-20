@@ -20,6 +20,7 @@ import {
   etiquetaDeDocumento,
   seVeEnElVisor,
   tamanoLegible,
+  TIPO_RESPALDO_PATENTE,
   TIPOS_DE_DOCUMENTO,
 } from "./oportunidades.utils";
 import { resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
@@ -322,6 +323,11 @@ export default function DocumentosDeEmpresa({
             </>
           )}
         </div>
+        {tipo === TIPO_RESPALDO_PATENTE && (
+          <p className="text-xs text-gray-500">
+            Va siempre en el ZIP para Mercado Público, junto a la patente.
+          </p>
+        )}
         {esRespaldo && <RespaldosEnLote alGuardar={() => void recargar()} />}
       </div>
     </section>

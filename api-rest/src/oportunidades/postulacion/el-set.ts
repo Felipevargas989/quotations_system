@@ -24,6 +24,9 @@ import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
 // - Los documentos generales para contratar (decisión 38, 19-10): e-RUT,
 //   patente, no quiebra, estatutos y vigencia, en «4. Otros» cuando las
 //   bases no los piden en otra parte.
+// - Los respaldos de la patente (decisión 61, 20-10): el contrato de
+//   arriendo o comodato de una patente de otro, y lo que lo valida, donde
+//   va la patente y justo detrás.
 
 export type Carpeta = 'administrativa' | 'tecnica' | 'economica' | 'otros';
 
@@ -144,6 +147,14 @@ export const mismoFormulario = (formulario: string, archivo: string) => {
 const mismoArchivo = (a: string, b: string) =>
   a.trim() !== '' && nucleo(a) === nucleo(b);
 
+/** El mismo documento con otro nombre: «d2_Declaracion_de_uso_de_patente»
+ *  y «Declaración de uso de patente». */
+const parecidos = (a: string, b: string) => {
+  const x = nucleo(a);
+  const y = nucleo(b);
+  return x.length >= 6 && y.length >= 6 && (x.includes(y) || y.includes(x));
+};
+
 const carpetaDe = (seEntregaEn: string): Carpeta =>
   seEntregaEn === 'tecnica' || seEntregaEn === 'economica'
     ? seEntregaEn
@@ -179,6 +190,10 @@ const PATRONES: Readonly<Record<string, RegExp>> = {
   estatutos:
     /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,
 };
+
+/** El tipo de «Mi empresa» de lo que respalda una patente que no es
+ *  propia (decisión 61): el contrato de arriendo o comodato, el dictamen. */
+export const TIPO_RESPALDO_PATENTE = 'respaldo_patente';
 
 const conSuPatron = (tipo: string): [tipo: string, patron: RegExp] => [
   tipo,
@@ -499,6 +514,48 @@ export function armarElSet(d: DatosDelSet): ElSet {
     faltan.push(
       `Para contratar te pueden pedir ${sinSubir.join(', ')}: súbelos en «Mi empresa» y van en «4. Otros».`,
     );
+  }
+
+  // Los respaldos de la patente (decisión 61, 20-10; Felipe: "acabo de
+  // subir el contrato de arriendo de patente, ¿puedes dejar por defecto que
+  // siempre me lo pase en el zip?"). Donde va la patente (de la carpeta o
+  // subida a mano), van ellos, justo detrás: una patente a nombre de otro,
+  // sola, es la que Quillón dejó fuera en 2025. Sin patente en el set, no
+  // van; lo ya subido a mano con el mismo nombre no se repite.
+  const respaldosDeLaPatente = d.carpeta.filter(
+    (x) => x.tipo === TIPO_RESPALDO_PATENTE,
+  );
+  const patentes = new Set(
+    d.carpeta.filter((x) => x.tipo === 'patente').map((x) => x.ruta),
+  );
+  const esLaPatente = (p: PiezaDelSet) =>
+    (p.que_es === 'documento' && patentes.has(p.ruta)) ||
+    (p.que_es === 'subido' && PATRONES.patente.test(normalizar(p.nombre)));
+  const ultima = piezas.findLastIndex(esLaPatente);
+  if (respaldosDeLaPatente.length > 0 && ultima >= 0) {
+    const carpetas = sinRepetir(
+      piezas.filter(esLaPatente).flatMap((p) => p.carpetas),
+    );
+    const subidosEnElSet = piezas.filter((p) => p.que_es === 'subido');
+    const detras: PiezaDelSet[] = [];
+    for (const r of respaldosDeLaPatente) {
+      if (subidosEnElSet.some((s) => parecidos(s.nombre, r.nombre))) continue;
+      const vencido = Boolean(r.vence && r.vence < d.corte);
+      if (vencido) {
+        faltan.push(
+          `«${r.nombre}» venció el ${fechaCorta(r.vence as string)}: súbelo renovado en «Mi empresa».`,
+        );
+      }
+      detras.push({
+        nombre: r.nombre,
+        ruta: r.ruta,
+        bytes: r.bytes,
+        carpetas,
+        que_es: 'documento',
+        aviso: vencido ? `vencido el ${fechaCorta(r.vence as string)}` : null,
+      });
+    }
+    piezas.splice(ultima + 1, 0, ...detras);
   }
 
   return { piezas, faltan };
