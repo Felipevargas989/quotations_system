@@ -56,11 +56,8 @@ import {
   unmarkEventDone,
   updateQuotation,
 } from "../../services/quotations.service";
-import {
-  Quotation,
-  QuotationStatus,
-  QuotationWithClient,
-} from "../../types/quotations.types";
+import { Quotation, QuotationWithClient } from "../../types/quotations.types";
+import { cambioDeAnulacion } from "../../utils/reembolsoAlAnular";
 import { Refund } from "../../types/refunds.types";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
@@ -1170,7 +1167,7 @@ function EventModal({
   // Anular pide su motivo (migración 61): un evento que se cae enseña
   // tanto como uno que se gana, si queda registrado por qué.
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
-  const doCancelEvent = async (motivo?: string) => {
+  const doCancelEvent = async (motivo?: string, reembolso?: number) => {
     if (!motivo) {
       setPidiendoMotivo(true);
       return;
@@ -1179,10 +1176,7 @@ function EventModal({
     setCancelError(null);
     try {
       await updateQuotation(
-        {
-          quotation_status: QuotationStatus.CANCELADA,
-          loss_reason: motivo,
-        } as never,
+        cambioDeAnulacion(motivo, reembolso) as never,
         event.quotationId,
       );
       onDataChanged();
@@ -1510,9 +1504,12 @@ function EventModal({
         {pidiendoMotivo && (
           <MotivoPerdida
             tipo="anulacion"
+            quotationId={event.quotationId}
             guardando={cancelling}
             onCancelar={() => setPidiendoMotivo(false)}
-            onConfirmar={(motivo) => void doCancelEvent(motivo)}
+            onConfirmar={(motivo, _c, reembolso) =>
+              void doCancelEvent(motivo, reembolso)
+            }
           />
         )}
         {celebrar && (

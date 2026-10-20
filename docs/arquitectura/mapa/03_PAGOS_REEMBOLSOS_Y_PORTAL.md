@@ -1,6 +1,6 @@
 # Mapa: Pagos, reembolsos y portal del cliente
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); reglas 2, 5, 6, 14 y 16, flujos B, C, D y E y relojes reescritos el 07/08-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); reglas 2, 5, 6, 14 y 16, flujos B, C, D y E y relojes reescritos el 07/08-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026; el 20-10-2026, los reembolsos que nacen al anular (regla 20b). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -164,6 +164,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 18. **Candado del evento realizado (Felipe, 13-08)**: la cotización se congela, pero "Puede faltar cobrar": los pagos y reembolsos siguen vivos. Rehacer el plan de un realizado está permitido, pero ya no lo devuelve a "aceptada" (puerta de atrás tapada el 13-08). Evidencia: `quotations/constants/constants.ts`, `createPaymentPlan`, `candado-evento-realizado.spec.ts`.
 19. **Con plan vivo, la pestaña Servicios no guarda sola (Felipe, 06-09)**, y el aviso ámbar anuncia la cascada ("un aviso ámbar como el de evento provisionado"). Evidencia: `ServiciosTab` (`planVivo`), `AvisoPlanDePagos`.
 20. **Reembolsos: terreno de operaciones y administración (Mudanza #7, 28-07)**; anular un evento es solo del administrador. Evidencia: `RefundsController`, `EventModal` (`canCancel`).
+20b. **Un reembolso nace por dos caminos**: cuando baja el total de un evento aceptado (la cascada) y, desde el 20-10-2026, al **anular** un evento con abonos si en la ventana del motivo se responde «Sí, reembolsar» (Felipe, 20-10-2026: *"al momento de anular un evento con reembolsos el sistema debería preguntar si se reembolsarán los ingresos y si se coloca sí, generar el reembolso"*). Antes anular dejaba los abonos como historia sin reembolso: la #465 se anuló con $1.394.000 abonados y su reembolso se creó a mano ese día (respaldo en `02_RESPALDOS/cambios_de_datos/2026-10-20_465_reembolso_antes.json`). Evidencia: `ReembolsoAlAnular.tsx`, `QuotationsService.update` (paso 5b del mapa 01), `utils/reembolso-al-anular.ts`.
 21. **Medios de pago**: cinco opciones (Transferencia, Efectivo, Cheque, Tarjeta, Otro). Las etiquetas viejas se unificaron el 28-08 por decisión de Felipe (Depósito pasó a Otro). Evidencia: `PAYMENT_METHODS` en `PostVentaPage.tsx`; `102_unificar-medios-de-pago.sql`.
 22. **Saldo neto**: Post-Venta y portal calculan saldo = total − (pagado − reembolsos pagados). Evidencia: `PostVentaPage.fetchEvents`, `getPortalData`.
 23. **Plan sin plantillas**: parte con una cuota por el total y el % es solo informativo ("rara vez le achuntaban a la realidad"). Evidencia: comentario de cabecera de `PaymentPlanEditor`.
@@ -183,7 +184,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 **Quién usa este módulo**
 - `QuotationsService.update` (mapa 01): cascada del plan, compensación y guardia de estados. `QuotationsRepository` frena el borrado si hay pagos, reembolsos o plan.
 - `EnvioCotizacionService` (mapa 02): mueve el estado por el REPOSITORIO precisamente para **no** disparar la cascada (doc 13). `QuotationsCronService` (seguimiento) usa el token del mandante.
-- Post-Venta (mapa 04): la ficha del evento aloja todas las pantallas de plata; "Anular evento" deja pagos y comprobantes como historia.
+- Post-Venta (mapa 04): la ficha del evento aloja todas las pantallas de plata; "Anular evento" deja pagos y comprobantes como historia y, si se responde «Sí, reembolsar», un reembolso pendiente (regla 20b).
 - Dashboard y analítica (mapa 13): `AnalyticsService` usa `findAllPaymentsFromQuotation` y `fechaDelUltimoAbono`; `HoyRepository.alerts` (servido por `HoyController`) calcula "por cobrar" restando abonos y dejando fuera los reembolsos (07-08); `DashboardPage` muestra el contador de comprobantes.
 - Clientes (mapa 09): `ClientsRepository.findSummary` trae las cuotas `pendiente` / `vencido` **con sus abonos y entrega el saldo** en `amount` (07-10-2026, doc 14: ya no hay regla que garantice que una cuota pendiente venga sin abonos); `ClientDetailPage` lo suma como saldo vivo de la ficha 360°.
 - App móvil (mapa 16): `MovilService` genera avisos "Pago vencido" con destino `/evento/:id`.

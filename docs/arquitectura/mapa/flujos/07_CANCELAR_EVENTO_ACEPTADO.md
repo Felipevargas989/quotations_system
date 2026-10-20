@@ -1,5 +1,5 @@
 # Flujo: Cancelar (anular) un evento aceptado
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026); el 20-10-2026, el reembolso al anular (pasos 5b, 6, 10, 11, 16b y 17). Falta la etapa de completar lo que no quedó escrito.
 
 > Verificado contra el código en el commit 0de0ddb (rama `pruebas`) el 11-09-2026, con una segunda pasada escéptica el mismo día. Parte del atlas: el índice de flujos va en `00_INDICE_DE_FLUJOS.md` (esta misma carpeta) y el mapa del sistema en `../00_MAPA_DEL_SISTEMA.md`. Al verificar, ninguno de los dos existía todavía.
 
@@ -9,7 +9,7 @@ Cuando un evento ya ganado se cae, el administrador lo **anula** desde su ficha 
 
 El evento "se apaga" porque cada módulo deja de leerlo: sale de Compras, del radar de mobiliario, de la semana de Personas, de la caja del Dashboard, del portal del cliente y del calendario por defecto, y su fecha queda libre. **Todo lo que ya existía se queda**: cuotas, abonos, comprobantes, reembolsos, gente asignada y compras provisionadas.
 
-Ojo con dos cosas: anular **no genera reembolso** (y no hay botón para crear uno), y los **relojes de cobranza no miran si el evento está anulado**: sus cuotas pendientes se vencen y al mandante le siguen llegando recordatorios.
+Desde el 20-10-2026, si el evento tiene abonos, la ventana del motivo pregunta si se reembolsan; con «Sí» nace un **reembolso pendiente** por el monto elegido (por defecto, todo lo abonado sin reembolsar). Antes anular no generaba reembolso y la #465 quedó con $1.394.000 abonados sin devolver. Ojo: los **relojes de cobranza no miran si el evento está anulado**: sus cuotas pendientes se vencen y al mandante le siguen llegando recordatorios.
 
 ## 2. El recorrido paso a paso
 
@@ -33,9 +33,10 @@ Ojo con dos cosas: anular **no genera reembolso** (y no hay botón para crear un
 5. **"Sí, anular"** → `doCancelEvent()` sin motivo → `setPidiendoMotivo(true)` → abre `MotivoPerdida` (`frontend/src/components/MotivoPerdida.tsx`) con `tipo="anulacion"`:
    - lista `MOTIVOS_ANULACION`: `cliente_cancelo`, `cambio_fecha`, `problema_pago`, `no_pudimos`, `otro`;
    - el motivo es obligatorio; con `otro` el comentario también.
-6. **"Confirmar"** → `onConfirmar={(motivo) => void doCancelEvent(motivo)}`.
+5b. **¿Se reembolsan los abonos?** (20-10-2026) `MotivoPerdida` recibe `quotationId` y monta `ReembolsoAlAnular` (`frontend/src/components/ReembolsoAlAnular.tsx`): pide `getPaymentsByQuotationId` y `getRefundsByQuotation` (llave `["reembolsoAlAnular", id]`, `staleTime` 0) y calcula `disponibleParaReembolsar` (abonado menos lo ya reembolsado). Sin abonos no pregunta. Con abonos, «Confirmar» queda apagado hasta responder «Sí, reembolsar» (monto con `NumberInput`, de 1 al disponible) o «No».
+6. **"Confirmar"** → `onConfirmar={(motivo, _c, reembolso) => void doCancelEvent(motivo, reembolso)}`.
    - **El comentario se descarta**, aunque el modal diga que "queda en el hilo de seguimiento".
-   - `doCancelEvent(motivo)` activa `cancelling` y llama `updateQuotation({ quotation_status: QuotationStatus.CANCELADA, loss_reason: motivo }, event.quotationId)` (`frontend/src/services/quotations.service.ts`).
+   - `doCancelEvent(motivo, reembolso)` activa `cancelling` y llama `updateQuotation(cambioDeAnulacion(motivo, reembolso), event.quotationId)`: estado `cancelada`, `loss_reason` y, con «Sí», `reembolso_al_anular` (`frontend/src/utils/reembolsoAlAnular.ts`).
    - `apiRequest` (`frontend/src/services/api.ts`) manda `PATCH /quotations/:id` con el JWT y un reintento en 401; cualquier otro error lanza. Sigue en el paso 11.
 
 **Entrada B: el tablero de Cotizaciones**
@@ -43,7 +44,7 @@ Ojo con dos cosas: anular **no genera reembolso** (y no hay botón para crear un
 7. **El administrador busca en `/quotations`** (`frontend/src/pages/quotations/QuotationsPage.tsx`). Las aceptadas no están en el embudo (`quotationsQuery`, llave `["quotations","embudo-y-rechazadas"]`, solo solicitada, enviada, en_negociacion y rechazada). Aparecen en "Cerradas que coinciden" solo mientras hay texto en el buscador (`cerradasQuery`, llave `["quotations","cerradas-busqueda"]`, `enabled` con `busquedaActiva`, estados aceptada, cancelada y realizada), cada una con su píldora `estadoPill`.
 8. **El menú de la píldora** solo se abre si el rol puede editar cotizaciones (`puedeEditar`, `SECTION_ROLES.quotations_edit`); si no, la píldora es solo una etiqueta. Las opciones salen de `statusOptionsFor(q)`. Agrega "cancelada" (etiqueta "Anulada") solo si la cotización está `aceptada` y el rol está en `ROLE_GROUPS.ADMIN_ONLY`, o si ya está anulada. Elegir el mismo estado no hace nada (`st !== quotation.quotation_status`).
 9. **Elige "Anulada"** → `handleStatusChange`. No es vuelta a pre-venta; como el destino es `cancelada`, abre `MotivoPerdida tipo="anulacion"` (`setPidiendoMotivo`).
-10. **"Confirmar"** → `confirmarMotivo(motivo, comentario)` → `applyStatusChange(id, "cancelada", motivo)` → `updateQuotation({ quotation_status, loss_reason })` → `PATCH /quotations/:id`.
+10. **"Confirmar"** → `confirmarMotivo(motivo, comentario, reembolso)` → `applyStatusChange(id, "cancelada", motivo, reembolso)` → `updateQuotation({ quotation_status, loss_reason, reembolso_al_anular? })` → `PATCH /quotations/:id`. La misma pregunta del paso 5b sale acá (`quotationId` solo cuando el destino es `cancelada`).
     - Aquí el comentario sí se guarda, pero solo si el `PATCH` salió bien (`applyStatusChange` devuelve `true`). Si viene, `createFollowup({ quotation_id, note })` (`frontend/src/services/quotationFollowups.service.ts`) → `POST /quotation-followups` → `QuotationFollowupsService.create`, que primero revisa que la cotización sea de la empresa (`findOwnedQuotation`) → `INSERT` en `quotation_followups`. Un error se traga con `.catch(() => {})`.
     - La ficha del negocio (`frontend/src/pages/quotations/NegocioPage.tsx`) **no ofrece anular**: su menú solo abre en `ESTADOS_VIVOS_FICHA` y la lista de opciones no trae cancelada (comentario "Cancelada NO va", commit `55b2888`).
 
@@ -54,7 +55,7 @@ Ojo con dos cosas: anular **no genera reembolso** (y no hay botón para crear un
     - `ThrottlerGuard`;
     - `RolesGuard` (`api-rest/src/auth/roles.guard.ts`) **deja pasar a cualquier rol**, porque `QuotationsController.update` no tiene `@Roles` y sin metadatos devuelve `true`.
 
-    El `ValidationPipe` global valida contra `UpdateQuotationDto` (`PartialType(CreateQuotationDto)`): `quotation_status` con `@IsEnum(QuotationStatus)` y `loss_reason` con `@IsString() @IsOptional()`. Es texto libre: el motor no valida la lista de motivos.
+    El `ValidationPipe` global valida contra `UpdateQuotationDto` (`PartialType(CreateQuotationDto)`): `quotation_status` con `@IsEnum(QuotationStatus)` y `loss_reason` con `@IsString() @IsOptional()`. Es texto libre: el motor no valida la lista de motivos. `reembolso_al_anular` (20-10-2026) vive solo en `UpdateQuotationDto`: `@IsOptional() @IsInt() @Min(1)`.
 12. **Lee la cotización.** `QuotationsController.update` pasa `id`, el cuerpo, `user.company_id` y el rol a `QuotationsService.update` (`api-rest/src/quotations/quotations.service.ts`). `QuotationsRepository.findOne(id)` hace `SELECT` en `quotations` con `clients` y `companies`, filtrando solo por id.
 13. **Candados.**
     - Si la guardada es `realizada` → 400 con `EVENTO_REALIZADO_CONGELADO` (`api-rest/src/quotations/constants/constants.ts`).
@@ -64,7 +65,8 @@ Ojo con dos cosas: anular **no genera reembolso** (y no hay botón para crear un
     - Si esa lectura trae error, lanza y la anulación falla sin escribir nada.
     - Como no viaja `total_amount`, ninguna rama mueve cuotas ni reembolsos.
 16. **Sin correo.** El único correo de `update` es `QUOTATION_IS_SENT` al pasar a enviada, y `EmailStructure` (`api-rest/src/email/types/index.ts`) no tiene plantilla de anulación. Tampoco viaja `contact_name` ni se sella `sent_at`.
-17. **La única escritura.** `QuotationsRepository.update(id, dto, companyId)` → `UPDATE quotations SET quotation_status = 'cancelada', loss_reason = <motivo> WHERE id = … AND company_id = …` con `.select().single()`.
+16b. **El reembolso se valida antes de escribir** (20-10-2026). Si viene `reembolso_al_anular`, se saca del parche; si la guardada no es `aceptada` o el destino no es `cancelada` → 400 `REEMBOLSO_SOLO_AL_ANULAR`; si pasa de `disponibleParaReembolsar(cuotas, reembolsos)` (`api-rest/src/quotations/utils/reembolso-al-anular.ts`, con `findAllPaymentsFromQuotation` y `RefundsService.findByQuotation`) → 400 sin escribir nada.
+17. **Las escrituras.** `QuotationsRepository.update(id, dto, companyId)` → `UPDATE quotations SET quotation_status = 'cancelada', loss_reason = <motivo> WHERE id = … AND company_id = …` con `.select().single()`. Con «Sí», **después** `RefundsService.create({ amount, quotation_id })` → `INSERT` en `refunds` con `is_paid = false`: queda en Pagos → Reembolsos para registrarlo al pagar.
 18. **Se borra la memoria del panel.** Si la respuesta sale bien, el interceptor global `PanelInvalidationInterceptor` (`api-rest/src/cache/panel-invalidation.interceptor.ts`) llama `invalidarPanelEmpresa(companyId)` (`api-rest/src/cache/memoria.ts`). Eso borra de `cachePanel` todas las llaves que empiezan con `<companyId>:`: el panel de `AnalyticsService.getDashboardStats` (`<companyId>:dash:…`) y las estadísticas de `AnalyticsService.getCompleteStats` (`<companyId>:stats:…`). El interceptor no hace nada en los `GET`.
 
 **De vuelta en la pantalla**
