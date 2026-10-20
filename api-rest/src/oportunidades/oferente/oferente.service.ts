@@ -147,6 +147,8 @@ export type VistaDelOferente = {
   /** De Configuración de empresa, solo a la vista. */
   empresa: {
     nombre: string | null;
+    /** Decisión 47: la página web se cambia en Configuración. */
+    sitio_web: string | null;
     banco: {
       rut: string | null;
       banco: string | null;
@@ -179,6 +181,7 @@ export class OferenteService {
       oferente: { ...OFERENTE_VACIO, ...(oferente ?? {}) },
       empresa: {
         nombre: empresa?.name ?? null,
+        sitio_web: empresa?.sitio_web?.trim() || null,
         banco: b
           ? {
               rut: b.rut ?? null,

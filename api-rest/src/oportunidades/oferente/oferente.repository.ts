@@ -28,6 +28,10 @@ export type Oferente = {
   coordinador_cargo: string | null;
   coordinador_correo: string | null;
   coordinador_telefono: string | null;
+  /** En desuso desde el 19-10 (decisión 47): la página web vive en
+   *  Configuración de empresa (`companies.sitio_web`). Queda para no
+   *  romper una pantalla abierta de antes; la IA la usa solo si
+   *  Configuración no tiene. */
   sitio_web: string | null;
   experiencia: string | null;
   instalaciones: string | null;
@@ -67,6 +71,9 @@ export type EmpresaDeConfiguracion = {
   name: string | null;
   /** El logo (balde público de Supabase); lo usa la propuesta técnica. */
   logo_url?: string | null;
+  /** La página web (decisión 47): la misma de los correos y del formulario
+   *  público. */
+  sitio_web?: string | null;
   bank_details: {
     rut?: string | null;
     banco?: string | null;
@@ -123,7 +130,7 @@ export class OferenteRepository {
   async empresa(companyId: number): Promise<EmpresaDeConfiguracion | null> {
     const { data, error } = await this.db
       .from('companies')
-      .select('name, logo_url, bank_details')
+      .select('name, logo_url, bank_details, sitio_web')
       .eq('id', companyId)
       .maybeSingle();
     if (error) throw error;
