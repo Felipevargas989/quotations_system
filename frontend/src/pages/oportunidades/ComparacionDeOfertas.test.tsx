@@ -64,7 +64,7 @@ const pintar = ({
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <ComparacionDeOfertas oportunidadId={84} />
+      <ComparacionDeOfertas oportunidadId={84} adjudicada={false} />
     </QueryClientProvider>,
   );
 };
@@ -164,6 +164,15 @@ describe("Comparación de ofertas", () => {
               precio: "$12.000.000 neto",
               cumple_bases: "dudoso",
               por_que: "No se ve su patente.",
+              graves: [
+                {
+                  que: "Su oferta pasa del presupuesto",
+                  prueba: "Formulario N°5, página 1",
+                  regla: "Punto 11 de las bases",
+                  por_ausencia: false,
+                },
+              ],
+              reclamo: "Señores\nI MUNICIPALIDAD DE QUILLON",
               notas: [
                 { criterio: 1, nota: 100, fundamento: "El más barato." },
                 { criterio: 2, nota: 90, fundamento: "9 servicios." },
@@ -193,6 +202,13 @@ describe("Comparación de ofertas", () => {
       screen.getByRole("button", { name: /Volver a comparar/ }),
     ).toBeEnabled();
     expect(screen.getByText(/costó US\$1,20/)).toBeInTheDocument();
+    // Decisión 59: lo grave de un competidor, con su reclamo; la tuya, no.
+    expect(
+      screen.getByText("Su oferta pasa del presupuesto"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: /Redactar reclamo/ }),
+    ).toHaveLength(1);
   });
 
   it("pide la comparación y espera mientras la IA trabaja", async () => {

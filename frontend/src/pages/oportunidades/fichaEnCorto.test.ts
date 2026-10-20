@@ -6,6 +6,7 @@ import {
   eventoEnCorto,
   nombreLegible,
   siguientePaso,
+  yaSeAdjudico,
 } from "./fichaEnCorto";
 import { pasosDelAvance } from "./oportunidades.utils";
 
@@ -156,5 +157,23 @@ describe("los archivos", () => {
     expect(claseDeArchivo("Oferta.xlsx")).toBe("excel");
     expect(claseDeArchivo("firma.png")).toBe("imagen");
     expect(claseDeArchivo("Planos.zip")).toBe("otro");
+  });
+});
+
+describe("¿ya se adjudicó? (decisión 59)", () => {
+  const ficha = (
+    estado: string,
+    enMercadoPublico: string | null,
+    adjudicacion: unknown = null,
+  ) => ({ estado, proceso: { estado: enMercadoPublico, adjudicacion } });
+
+  it("ganada o perdida, o Mercado Público ya la dice adjudicada; postulada y cerrada, todavía no", () => {
+    expect(yaSeAdjudico(ficha("postulada", "Cerrada"))).toBe(false);
+    expect(yaSeAdjudico(ficha("ganada", "Cerrada"))).toBe(true);
+    expect(yaSeAdjudico(ficha("perdida", null))).toBe(true);
+    expect(yaSeAdjudico(ficha("postulada", "Adjudicada"))).toBe(true);
+    expect(yaSeAdjudico(ficha("postulada", "Cerrada", { oferentes: 2 }))).toBe(
+      true,
+    );
   });
 });
