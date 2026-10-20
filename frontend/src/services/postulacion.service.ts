@@ -80,6 +80,11 @@ export interface ArmadoDeLaOferta {
   resumen: string;
   matriz: FilaDeLaOferta[];
   faltan_en_el_catalogo: Array<{ que: string; por_que: string }>;
+  /** Decisión 57: lo que se le pide al proveedor externo, junto. No viene
+   *  en las ofertas de antes del 20-10. */
+  subcontratar?: string[];
+  /** Decisión 57: variaciones de lo que ya vende, al comentario interno. */
+  detalles?: string[];
 }
 
 /** Lo que anota «Armar postulación» en la fila de la oferta (decisión 35). */

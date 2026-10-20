@@ -12,6 +12,22 @@ import { sePuedeFirmar } from "./oportunidades.utils";
 
 export const MAX_PARA_FIRMAR = 10;
 
+/** Lo que se ve en «Mi postulación» (decisión 57, 20-10; Felipe: "una vez
+ *  firmados los documentos se debería eliminar o dejar de ver el Word, y
+ *  dejar solo el PDF firmado"): el Word de la IA que ya tiene su firmado no
+ *  se muestra. Sigue guardado: si se borra el firmado, vuelve a aparecer
+ *  para firmarlo de nuevo. */
+export function sinLosWordYaFirmados(
+  postulacion: AdjuntoDeOportunidad[],
+): AdjuntoDeOportunidad[] {
+  const firmados = new Set(
+    postulacion.filter((a) => a.origen === "firmado").map((a) => a.viene_de),
+  );
+  return postulacion.filter(
+    (a) => !(a.origen === "generado" && firmados.has(a.id)),
+  );
+}
+
 export function sinFirmarDeLaUltimaVuelta(
   generaciones: GeneracionesDeOportunidad | null | undefined,
   postulacion: AdjuntoDeOportunidad[],
