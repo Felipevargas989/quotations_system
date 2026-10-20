@@ -10,6 +10,9 @@ import {
 } from './analisis/analisis.repository';
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
+import { AprendizajesController } from './aprendizajes/aprendizajes.controller';
+import { AprendizajesRepository } from './aprendizajes/aprendizajes.repository';
+import { AprendizajesService } from './aprendizajes/aprendizajes.service';
 import { ComparacionController } from './comparacion/comparacion.controller';
 import { ComparacionService } from './comparacion/comparacion.service';
 import { EventiaRepository } from './eventia/eventia.repository';
@@ -53,10 +56,13 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     PostulacionController,
     SeguimientoController,
     ComparacionController,
+    AprendizajesController,
   ],
   providers: [
     ResumenDeNegocioService,
     ComparacionService,
+    AprendizajesRepository,
+    AprendizajesService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
     ArmarLaOfertaService,

@@ -21,6 +21,8 @@ import {
   MODELO_OPUS,
   type NoLeido,
 } from '../analisis/comun';
+import { paraLaComparacion } from '../aprendizajes/aprendizajes';
+import { AprendizajesRepository } from '../aprendizajes/aprendizajes.repository';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
@@ -47,7 +49,9 @@ import { conReclamos, type DatosDelReclamo } from './reclamo';
 // Opus 5.5 pone la nota de cada criterio; el motor calcula los puntajes con
 // los pesos de las bases (`conPuntajes`). Desde la decisión 59, la IA marca
 // también los incumplimientos graves de cada oferta y el motor arma el
-// texto del reclamo de cada competidor (`conReclamos`).
+// texto del reclamo de cada competidor (`conReclamos`). Desde la decisión
+// 60, lee lo aprendido de las comisiones, solo para predecir (las notas y
+// la probabilidad); lo que cumple las bases y lo grave van por las bases.
 
 export const MODELO_DE_LA_COMPARACION = MODELO_OPUS;
 
@@ -84,6 +88,7 @@ export class ComparacionService {
     private readonly analisis: AnalisisRepository,
     private readonly oferente: OferenteRepository,
     private readonly set: ElSetService,
+    private readonly aprendizajes: AprendizajesRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ComparacionService.name);
@@ -119,12 +124,14 @@ export class ComparacionService {
     }
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
-    const [analisis, competencia, empresa, oferta] = await Promise.all([
-      this.analisis.ultimo(companyId, oportunidadId),
-      this.adjuntos.listar(companyId, oportunidadId, 'competencia'),
-      this.oferente.oferente(companyId),
-      this.repo.ultimoDeTipo(companyId, oportunidadId, 'oferta'),
-    ]);
+    const [analisis, competencia, empresa, oferta, aprendido] =
+      await Promise.all([
+        this.analisis.ultimo(companyId, oportunidadId),
+        this.adjuntos.listar(companyId, oportunidadId, 'competencia'),
+        this.oferente.oferente(companyId),
+        this.repo.ultimoDeTipo(companyId, oportunidadId, 'oferta'),
+        this.aprendizajes.deLaEmpresa(companyId),
+      ]);
     const resultado = (
       analisis?.estado === 'listo' ? analisis.resultado : null
     ) as {
@@ -243,6 +250,11 @@ export class ComparacionService {
         obligatorios: (resultado.requisitos ?? [])
           .filter((r) => r.obligatorio)
           .map((r) => r.que),
+        comisiones: paraLaComparacion(
+          aprendido,
+          ficha.codigo,
+          (p.organismo as string | null) ?? null,
+        ),
       }),
       reclamo: {
         codigo: ficha.codigo,

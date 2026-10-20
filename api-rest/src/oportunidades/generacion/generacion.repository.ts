@@ -23,13 +23,15 @@ export const TIPOS_DE_GENERACION: readonly TipoDeGeneracion[] = [
 
 /** Los trabajos de la tabla: los que hacen documentos y, desde el 19-10, el
  *  resumen de negocio de una licitación seguida (decisión 30, migración
- *  145), la oferta (151) y la comparación de ofertas (decisión 41,
- *  migración 153), que no dejan archivos. */
+ *  145), la oferta (151), la comparación de ofertas (decisión 41,
+ *  migración 153) y, desde el 20-10, «Aprender del acta» (decisión 60,
+ *  migración 155), que no dejan archivos. */
 export type TipoDeTrabajo =
   | TipoDeGeneracion
   | 'resumen'
   | 'oferta'
-  | 'comparacion';
+  | 'comparacion'
+  | 'aprendizaje';
 
 export type FilaDeGeneracion = FilaDeAnalisis & {
   tipo: TipoDeTrabajo;

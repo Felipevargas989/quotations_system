@@ -26,6 +26,14 @@ vi.mock("../../services/comparacion.service", () => ({
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
   borrarAdjunto: vi.fn(),
+  subirAdjunto: vi.fn(),
+}));
+// Lo que aprendemos de la comisión (decisión 60) tiene su propia prueba.
+vi.mock("../../services/aprendizajes.service", () => ({
+  getAprendizajes: vi.fn(() =>
+    Promise.resolve({ comision: [], total: 0, trabajo: null }),
+  ),
+  pedirAprendizaje: vi.fn(),
 }));
 const c = vi.mocked(comparacion);
 const o = vi.mocked(oportunidades);
@@ -55,7 +63,13 @@ const pintar = ({
   trabajo = null as unknown,
 } = {}) => {
   o.getAdjuntos.mockImplementation((_id, seccion) =>
-    Promise.resolve((seccion === "competencia" ? competencia : mias) as never),
+    Promise.resolve(
+      (seccion === "competencia"
+        ? competencia
+        : seccion === "acta"
+          ? []
+          : mias) as never,
+    ),
   );
   c.getComparacion.mockResolvedValue(trabajo as never);
   return render(
