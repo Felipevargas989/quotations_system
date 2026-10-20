@@ -357,42 +357,21 @@ describe('OferenteService — los respaldos de experiencia', () => {
   });
 });
 
-describe('OferenteService — «las 10 de siempre» (decisión 53)', () => {
-  it('marca hasta 10; para marcar otra, primero se saca una', async () => {
+describe('OferenteService — «No usar» (decisión 56)', () => {
+  it('marca y desmarca sin tope: la IA deja de ver ese respaldo', async () => {
     const { repo, servicio } = armar();
-    const respaldos = jest.fn();
-    const marcarDeSiempre = jest.fn().mockResolvedValue({ id: 39 });
-    Object.assign(repo, { respaldos, marcarDeSiempre });
-    respaldos.mockResolvedValue(
-      Array.from({ length: 9 }, (_, i) => ({
-        numero: String(i),
-        siempre: true,
-      })),
-    );
-    await servicio.marcarDeSiempre(1, 39, true);
-    expect(marcarDeSiempre).toHaveBeenCalledWith(1, 39, true);
-
-    respaldos.mockResolvedValue(
-      Array.from({ length: 10 }, (_, i) => ({
-        numero: String(i),
-        siempre: true,
-      })),
-    );
-    await expect(servicio.marcarDeSiempre(1, 40, true)).rejects.toThrow(
-      'Ya hay 10 de siempre: saca una antes de marcar otra.',
-    );
-    // Desmarcar no mira el tope.
-    await servicio.marcarDeSiempre(1, 39, false);
-    expect(marcarDeSiempre).toHaveBeenLastCalledWith(1, 39, false);
+    const marcarNoUsar = jest.fn().mockResolvedValue({ id: 38 });
+    Object.assign(repo, { marcarNoUsar });
+    await servicio.marcarNoUsar(1, 38, true);
+    expect(marcarNoUsar).toHaveBeenCalledWith(1, 38, true);
+    await servicio.marcarNoUsar(1, 38, false);
+    expect(marcarNoUsar).toHaveBeenLastCalledWith(1, 38, false);
   });
 
   it('si no es un respaldo de la empresa, 404', async () => {
     const { repo, servicio } = armar();
-    Object.assign(repo, {
-      respaldos: jest.fn().mockResolvedValue([]),
-      marcarDeSiempre: jest.fn().mockResolvedValue(null),
-    });
-    await expect(servicio.marcarDeSiempre(1, 999, true)).rejects.toThrow(
+    Object.assign(repo, { marcarNoUsar: jest.fn().mockResolvedValue(null) });
+    await expect(servicio.marcarNoUsar(1, 999, true)).rejects.toThrow(
       'No encontramos ese respaldo.',
     );
   });

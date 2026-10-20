@@ -139,7 +139,7 @@ describe('Generar anexos', () => {
       expect(plan.sistema).toContain(SOLO_LO_QUE_PIDEN);
       expect(plan.sistema).toContain(LO_SUBCONTRATADO);
       expect(plan.sistema).toContain(
-        'solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA, más uno o dos de reserva si hay',
+        'hasta cumplir lo que pide CÓMO SE EVALÚA para el puntaje máximo, más DOS de reserva si hay y caben en el formulario',
       );
       // Primero los respaldos, con su número y su archivo (decisión 34).
       expect(plan.sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');

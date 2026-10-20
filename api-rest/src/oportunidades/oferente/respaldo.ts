@@ -18,13 +18,11 @@ export type DatosDeRespaldo = {
   /** Solo en los de Post-venta (decisión 45, 19-10): el N° del evento del
    *  que sale. Así la IA no cuenta dos veces la misma experiencia. */
   evento?: number;
-  /** «De las 10 de siempre» (decisión 53): la empresa la eligió y el anexo
-   *  de experiencia la usa siempre. */
-  siempre?: boolean;
+  /** «No usar» (decisión 56, 20-10): la empresa no quiere mostrarlo; la IA
+   *  no lo ve, y en Post-venta tampoco se usan los de ese mismo cliente.
+   *  Reemplaza a «las 10 de siempre» (decisión 53). */
+  no_usar?: boolean;
 };
-
-/** Cuántas «de siempre» puede haber (decisión 53). */
-export const MAX_DE_SIEMPRE = 10;
 
 const texto = (v: unknown, max: number): string | null => {
   if (typeof v !== 'string') return null;

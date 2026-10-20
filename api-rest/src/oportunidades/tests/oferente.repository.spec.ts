@@ -92,13 +92,18 @@ describe('OferenteRepository', () => {
     expect(filtros(consultas[0])).toEqual([['id', 1]]);
   });
 
-  it('«de las 10 de siempre» (decisión 53): junta la marca con los datos, solo en un respaldo de la empresa', async () => {
+  it('«No usar» (decisión 56): junta la marca con los datos, solo en un respaldo de la empresa, y se lleva la estrella vieja', async () => {
     const { repo, consultas } = armar({
       data: {
-        datos: { numero: '260', mandante: 'Comercial CCU S.A.', siempre: true },
+        datos: {
+          numero: '260',
+          mandante: 'Comercial CCU S.A.',
+          siempre: true,
+          no_usar: true,
+        },
       },
     });
-    await repo.marcarDeSiempre(1, 39, false);
+    await repo.marcarNoUsar(1, 39, false);
     const [leer, guardar] = consultas;
     expect(filtros(leer)).toEqual([
       ['company_id', 1],
