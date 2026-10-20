@@ -26,11 +26,15 @@ export default function MenuGuardadoDeCaja({
   categoria,
   deshabilitado,
   onElegir,
+  onAbrir,
 }: {
   /** La categoría de la casilla; vacía si todavía no tiene. */
   readonly categoria: string;
   readonly deshabilitado?: boolean;
   readonly onElegir: (menu: ServiceGroup) => void;
+  /** Al abrir la lista: la casilla cierra lo suyo (el buscador de
+   *  servicios) para que no queden dos listas encimadas. */
+  readonly onAbrir?: () => void;
 }) {
   const { groups, removeGroup, renameGroup } = useServiceGroups();
   const [abierto, setAbierto] = useState(false);
@@ -69,7 +73,14 @@ export default function MenuGuardadoDeCaja({
     <div ref={envoltorio} className="relative dropdown-container inline-block">
       <button
         type="button"
-        onClick={() => (abierto ? cerrar() : setAbierto(true))}
+        onClick={() => {
+          if (abierto) {
+            cerrar();
+            return;
+          }
+          onAbrir?.();
+          setAbierto(true);
+        }}
         disabled={deshabilitado || menus.length === 0}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-500 hover:text-blue-700 disabled:text-gray-300"
         title={
