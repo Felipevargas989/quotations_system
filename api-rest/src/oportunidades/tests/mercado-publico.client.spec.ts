@@ -3,9 +3,12 @@ import { mockPinoLogger } from 'src/testing/mocks';
 import {
   MercadoPublicoClient,
   MercadoPublicoError,
+  ticketsDelMotor,
 } from '../mercado-publico/mercado-publico.client';
 
 const TICKET = 'TICKET-DE-PRUEBA-0000';
+const TICKET_2 = 'TICKET-DE-RESPALDO-2222';
+const TICKET_3 = 'TICKET-DE-RESPALDO-3333';
 
 const respuesta = (status: number, cuerpo: unknown = {}) =>
   new Response(JSON.stringify(cuerpo), {
@@ -38,12 +41,15 @@ const paginaCompraAgil = (items: unknown[], totalPaginas = 1) =>
 
 describe('MercadoPublicoClient', () => {
   const ticketAntes = process.env.MP_TICKET;
+  const respaldosAntes = [process.env.MP_TICKET_2, process.env.MP_TICKET_3];
   let logger: ReturnType<typeof mockPinoLogger>;
   let cliente: MercadoPublicoClient;
   let fetchFalso: jest.SpyInstance;
 
   beforeEach(() => {
     process.env.MP_TICKET = TICKET;
+    delete process.env.MP_TICKET_2;
+    delete process.env.MP_TICKET_3;
     logger = mockPinoLogger();
     cliente = new MercadoPublicoClient(logger as unknown as PinoLogger);
     cliente.esperas = [0, 0];
@@ -59,6 +65,10 @@ describe('MercadoPublicoClient', () => {
     fetchFalso.mockRestore();
     if (ticketAntes === undefined) delete process.env.MP_TICKET;
     else process.env.MP_TICKET = ticketAntes;
+    ['MP_TICKET_2', 'MP_TICKET_3'].forEach((variable, i) => {
+      if (respaldosAntes[i] === undefined) delete process.env[variable];
+      else process.env[variable] = respaldosAntes[i];
+    });
   });
 
   const loQueSeRegistro = () =>
@@ -266,6 +276,114 @@ describe('MercadoPublicoClient', () => {
         MercadoPublicoError,
       );
       expect(fetchFalso).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('los tickets de respaldo (decisión 55, como el bot)', () => {
+    /** El ticket con que salió cada pedido, por su número (1, 2 o 3). */
+    const ticketsUsados = () =>
+      fetchFalso.mock.calls.map(([url, opciones]) => {
+        const enLaCabecera = (opciones as { headers: Record<string, string> })
+          .headers.ticket;
+        const t =
+          enLaCabecera ?? new URL(String(url)).searchParams.get('ticket');
+        return [TICKET, TICKET_2, TICKET_3].indexOf(t ?? '') + 1;
+      });
+
+    it('el mismo ticket en dos variables cuenta una vez', () => {
+      process.env.MP_TICKET_2 = TICKET.toLowerCase();
+      process.env.MP_TICKET_3 = ` ${TICKET_3} `;
+      expect(ticketsDelMotor()).toEqual([TICKET, TICKET_3]);
+    });
+
+    it('sin cupo con el primero, sigue al tiro con el segundo y ahí se queda', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso
+        .mockResolvedValueOnce(
+          respuesta(429, { Mensaje: 'Excede el límite de solicitudes' }),
+        )
+        .mockImplementation(
+          siempre(200, { Listado: [{ CodigoExterno: 'A-1-LE26' }] }),
+        );
+      await expect(cliente.detalleLicitacion('A-1-LE26')).resolves.toEqual({
+        CodigoExterno: 'A-1-LE26',
+      });
+      await cliente.detalleLicitacion('B-2-LE26');
+      expect(ticketsUsados()).toEqual([1, 2, 2]);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'el ticket 1 de 2 se quedó sin cupo; sigo con el 2',
+        ),
+      );
+      expect(loQueSeRegistro()).not.toContain(TICKET);
+      expect(loQueSeRegistro()).not.toContain(TICKET_2);
+    });
+
+    it('en la compra ágil el ticket nuevo también va en la cabecera', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso
+        .mockResolvedValueOnce(respuesta(429, {}))
+        .mockImplementation(() => Promise.resolve(paginaCompraAgil([])));
+      await cliente.comprasAgiles('2026-10-14T10:00:00Z', [8, 16]);
+      expect(ticketsUsados()).toEqual([1, 2]);
+      const [url] = fetchFalso.mock.calls[1];
+      expect(String(url)).not.toContain(TICKET_2);
+    });
+
+    it('con todos sin cupo, espera como antes y recién ahí es "sin cupo"', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso.mockImplementation(siempre(429, {}));
+      const error = await fallaDe(cliente.detalleLicitacion('X-1-LE26'));
+      expect(error.sinCupo).toBe(true);
+      expect(ticketsUsados()).toEqual([1, 2, 2, 2]);
+    });
+
+    it('"peticiones simultáneas" no cambia de ticket: es el ritmo, no el cupo', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso
+        .mockResolvedValueOnce(
+          respuesta(429, {
+            Mensaje:
+              'Lo sentimos. Hemos detectado que existen peticiones simultáneas',
+          }),
+        )
+        .mockImplementation(siempre(200, { Listado: [] }));
+      await cliente.licitacionesActivas();
+      expect(ticketsUsados()).toEqual([1, 1]);
+    });
+
+    it('un ticket que Mercado Público no reconoce se salta', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso
+        .mockResolvedValueOnce(
+          respuesta(200, { Codigo: 203, Mensaje: 'Ticket no válido.' }),
+        )
+        .mockImplementation(
+          siempre(200, { Listado: [{ CodigoExterno: 'A-1-LE26' }] }),
+        );
+      await expect(cliente.detalleLicitacion('A-1-LE26')).resolves.toEqual({
+        CodigoExterno: 'A-1-LE26',
+      });
+      expect(ticketsUsados()).toEqual([1, 2]);
+    });
+
+    it('con un solo ticket, un ticket malo es un error como siempre', async () => {
+      fetchFalso.mockImplementation(
+        siempre(200, { Codigo: 203, Mensaje: 'Ticket no válido.' }),
+      );
+      const error = await fallaDe(cliente.detalleLicitacion('A-1-LE26'));
+      expect(error.message).toContain('Ticket no válido');
+      expect(fetchFalso).toHaveBeenCalledTimes(1);
+    });
+
+    it('si Mercado Público repitiera un ticket de respaldo, también se tacha', async () => {
+      process.env.MP_TICKET_2 = TICKET_2;
+      fetchFalso.mockImplementation(
+        siempre(429, { Mensaje: `ticket ${TICKET_2.toLowerCase()} sin cupo` }),
+      );
+      const error = await fallaDe(cliente.detalleLicitacion('X-1-LE26'));
+      expect(error.message.toUpperCase()).not.toContain(TICKET_2);
+      expect(error.message).toContain('[ticket]');
     });
   });
 
