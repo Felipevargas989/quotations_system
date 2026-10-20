@@ -617,7 +617,7 @@ export default function ServiciosTab({
     ]);
   // Elegir la categoría dispara lo que antes hacía "Crear": entran solos
   // los ítems de la sección fija (solo en cajas nuevas; lo guardado no se
-  // toca al cargar) y se abre el agregador del grupo. La categoría de una
+  // toca al cargar) y aparece, cerrado, el agregador del grupo. La categoría de una
   // caja NO se cambia después (regla del cotizador): se borra la caja y
   // se hace otra.
   const setGroupCategory = (gi: number, name: string) => {
@@ -634,9 +634,10 @@ export default function ServiciosTab({
           : g,
       ),
     );
+    // El buscador del grupo nuevo queda a la vista pero CERRADO, como en el
+    // cotizador, para que se vea «Usar menú guardado» (Felipe, 20-10-2026:
+    // "cuando recién selecciono una categoria aparece esa lista ya plegada").
     setAddingToGroup(gi);
-    // El desplegable del grupo nuevo se abre de una, con el buscador listo.
-    setOpenItemPicker(gi);
   };
   // Día y audiencia de una caja recién nacida (antes vivían en el panel
   // azul); tras elegir categoría quedan fijos en la banda, como hoy.
