@@ -158,6 +158,15 @@ export function documentosDeUnAnalisisAnterior(
   return documentos;
 }
 
+const ES_UNA_FACTURA = /\bfactura\b/;
+
+/** Lo que piden al adjudicar o para el pago no hace falta para postular:
+ *  va al final de la lista, como opcional (Felipe, 19-10: "dejar los otros
+ *  dos como opcionales, así dejamos una sola lista para efectos de la
+ *  postulación"). */
+export const esOpcional = (f: Pick<DocumentoPedido, "cuando">): boolean =>
+  f.cuando !== "con_la_oferta";
+
 const fechaCorta = (iso: string) =>
   iso.slice(0, 10).split("-").reverse().join("-");
 
@@ -181,7 +190,15 @@ export function checklistDeDocumentos(d: {
       ? d.r.documentos
       : documentosDeUnAnalisisAnterior(d.r)
   ).filter(
-    (p) => !ES_EL_REGISTRO.test(normalizar(`${p.nombre} ${p.condicion}`)),
+    (p) =>
+      !ES_EL_REGISTRO.test(normalizar(`${p.nombre} ${p.condicion}`)) &&
+      // La factura para cobrar no es de la postulación (Felipe, 19-10: "la
+      // factura no es relevante ahora"); la que acredita experiencia se
+      // pide con la oferta y se queda.
+      !(
+        p.cuando !== "con_la_oferta" &&
+        ES_UNA_FACTURA.test(normalizar(p.nombre))
+      ),
   );
   const masNuevo = <T extends { creado_en: string }>(xs: T[]) =>
     [...xs].sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];

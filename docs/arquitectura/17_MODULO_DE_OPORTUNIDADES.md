@@ -361,6 +361,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Un Word de las bases viene de afuera: se dibuja aislado (sus estilos no tocan la página, sin el HTML incrustado y con los enlaces controlados).
     - El visor pasó a la ventana de la casa: Escape cierra y el título queda siempre a la vista.
 47. **La página web sale de Configuración de empresa** (19-10, pedido por Felipe: *"página web debería traer la de Eventia o no?"*). La decisión 43 la había agregado a «Mi empresa», repetida: Eventia ya la tiene en Configuración (la de los correos y del formulario público). En «Mi empresa» se muestra junto al nombre de fantasía y los datos bancarios, y se cambia en Configuración; la IA la toma de ahí.
+48. **Una sola lista de documentos, la de postular** (19-10, pedido por Felipe, con el pantallazo de «Para el pago»): *"creo que hay que eliminar la facturación y dejar los otros dos como opcionales, así dejamos una sola lista para efectos de la postulación, que es nuestro foco ahora; la factura no es relevante ahora"*. «Documentos a presentar» deja de partirse en «Con la oferta», «Al adjudicar» y «Para el pago»: es una lista, la de postular; lo de adjudicar y pagar (el F30, el F30-1, el DICOM) va al final como «Opcional» y no cuenta, y la factura para cobrar no va.
 
 ## 4. Reglas del módulo (no se negocian)
 

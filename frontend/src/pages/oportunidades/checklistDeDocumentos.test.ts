@@ -7,6 +7,7 @@ import type {
 } from "../../services/oportunidades.service";
 import {
   checklistDeDocumentos,
+  esOpcional,
   documentosDeUnAnalisisAnterior,
   resumenDelChecklist,
 } from "./checklistDeDocumentos";
@@ -503,6 +504,33 @@ describe("Un análisis de antes del checklist", () => {
       ["Anexo N°1 firmado", "formulario", "administrativa"],
       ["Boleta de garantía", "otro", "otra"],
       ["Programa de integridad", "programa_integridad", "administrativa"],
+    ]);
+  });
+});
+
+describe("Una sola lista, la de postular (19-10)", () => {
+  it("la factura para cobrar no va; la que se pide con la oferta, sí; lo de adjudicar y pagar es opcional", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido(
+            "Factura electrónica a nombre de I. Municipalidad de Quillón, Depto. de Educación",
+            "otro",
+            { cuando: "al_pagar" },
+          ),
+          pedido("Copia de facturas de servicios similares", "otro"),
+          pedido("Certificado F30", "f30", { cuando: "al_pagar" }),
+        ],
+      },
+      carpeta: [],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.nombre.slice(0, 20), esOpcional(f)])).toEqual([
+      ["Copia de facturas de", false],
+      ["Certificado F30", true],
     ]);
   });
 });
