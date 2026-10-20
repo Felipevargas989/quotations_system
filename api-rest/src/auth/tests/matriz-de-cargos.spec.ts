@@ -178,6 +178,7 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST oferente/firma': A,
       'DELETE oferente/firma': A,
       'POST oferente/documentos': A,
+      'PATCH oferente/documentos/:documentoId/siempre': A,
       'DELETE oferente/documentos/:documentoId': A,
       'GET :id': A,
       'PATCH :id': A,

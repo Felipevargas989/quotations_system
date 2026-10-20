@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -53,4 +54,10 @@ export class SubirDocumentoDto {
   @IsString()
   @MaxLength(3000)
   datos?: string;
+}
+
+/** «De las 10 de siempre» (decisión 53). */
+export class MarcarDeSiempreDto {
+  @IsBoolean()
+  siempre!: boolean;
 }

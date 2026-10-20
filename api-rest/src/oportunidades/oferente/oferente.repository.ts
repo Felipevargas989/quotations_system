@@ -179,6 +179,38 @@ export class OferenteRepository {
       .map((f) => ({ ...(f.datos as DatosDeRespaldo), archivo: f.nombre }));
   }
 
+  /** Marca o desmarca un respaldo «de las 10 de siempre» (decisión 53):
+   *  junta la marca con sus datos. null = no es un respaldo de la empresa. */
+  async marcarDeSiempre(
+    companyId: number,
+    id: number,
+    siempre: boolean,
+  ): Promise<DocumentoDeEmpresa | null> {
+    const { data: fila, error: errorLeer } = await this.db
+      .from('oportunidades_documentos')
+      .select('datos')
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('tipo', TIPO_RESPALDO)
+      .maybeSingle();
+    if (errorLeer) throw errorLeer;
+    if (!fila) return null;
+    const { siempre: _antes, ...datos } = ((
+      fila as { datos: DatosDeRespaldo | null }
+    ).datos ?? {}) as DatosDeRespaldo;
+    void _antes;
+    const { data, error } = await this.db
+      .from('oportunidades_documentos')
+      .update({ datos: siempre ? { ...datos, siempre: true } : datos })
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('tipo', TIPO_RESPALDO)
+      .select(COLUMNAS_DOCUMENTO)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as DocumentoDeEmpresa | null) ?? null;
+  }
+
   /** Borra la fila y devuelve dónde estaba el archivo; null = no era de
    *  esta empresa. */
   async borrarDocumento(

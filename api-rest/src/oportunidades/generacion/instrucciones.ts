@@ -308,7 +308,22 @@ const listaDeRespaldos = (
  *  (decisión 45: los lee «Armar postulación»), que se usan solo si los
  *  primeros no alcanzan. El evento que ya tiene su respaldo no se repite en
  *  la lista de eventos: sería contar dos veces la misma experiencia. */
+/** «Las 10 de siempre» (decisión 53): las que marcó la empresa. */
+const lasDeSiempre = (c: ContextoDeGeneracion) =>
+  (c.respaldos ?? []).filter((r) => r.siempre);
+
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
+  // Con «las 10 de siempre» (decisión 53; Felipe, 19-10: "dejemos las
+  // mejores 10 entre Eventia y Mercado Público y las usamos siempre"),
+  // solo esas: ni otros respaldos ni eventos sin respaldo.
+  const deSiempre = lasDeSiempre(c);
+  if (deSiempre.length > 0) {
+    return [
+      'SUS RESPALDOS DE EXPERIENCIA, LOS DE SIEMPRE (la empresa eligió estos; cada uno con su PDF):',
+      ...listaDeRespaldos(deSiempre),
+      '',
+    ];
+  }
   // Solo lo que puede contar (decisión 52): los respaldos de los últimos 24
   // meses; el de un año que ya no alcanza, o sin año, no se ofrece.
   const desde = Number(c.hoy.slice(0, 4)) - MESES_DE_EXPERIENCIA / 12;
@@ -510,7 +525,13 @@ export const instruccionesDeAnexos = (
       FIRMA_JUNTA,
       'Fechas: la de hoy, escrita como la pida el formulario. Lugar: la comuna de la empresa.',
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
-      'La experiencia sale SOLO de sus respaldos de arriba (órdenes de compra y facturas con su PDF): PRIMERO los de «Mi empresa» y, si no alcanzan, los de sus eventos en Eventia, con su número en la columna de ID de compra o N° de factura. Solo los de los últimos 24 meses y, si CÓMO SE EVALÚA fija un período más corto, solo los de ese período; si de un respaldo solo se sabe el año y ese año cae en parte fuera del período, no lo uses. Elige los mejores: los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA, más uno o dos de reserva si hay. NUNCA pongas una fila sin su respaldo ni una de fuera del período: el comprador la rechazaría (Felipe, 19-10: "dejemos las mejores de los últimos 24 meses y eliminemos el resto para que no sea ninguna rechazada"). Si no alcanzan para el puntaje máximo, pon las que hay y anota en pendientes cuántas faltan. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: cuántas faltan para el puntaje máximo, si faltan.',
+      ...(lasDeSiempre(c).length > 0
+        ? [
+            'La experiencia son SUS RESPALDOS DE SIEMPRE de arriba: ponlos TODOS, uno por fila, con su número en la columna de ID de compra o N° de factura, y ningún otro (ni eventos sin respaldo). La única excepción: si CÓMO SE EVALÚA fija un período y alguno queda fuera, ese no va (lo rechazarían), y anótalo en pendientes. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número.',
+          ]
+        : [
+            'La experiencia sale SOLO de sus respaldos de arriba (órdenes de compra y facturas con su PDF): PRIMERO los de «Mi empresa» y, si no alcanzan, los de sus eventos en Eventia, con su número en la columna de ID de compra o N° de factura. Solo los de los últimos 24 meses y, si CÓMO SE EVALÚA fija un período más corto, solo los de ese período; si de un respaldo solo se sabe el año y ese año cae en parte fuera del período, no lo uses. Elige los mejores: los más parecidos a lo que se licita (comprador público, ceremonias, cenas, mismo número de personas), solo los necesarios para el puntaje máximo de CÓMO SE EVALÚA, más uno o dos de reserva si hay. NUNCA pongas una fila sin su respaldo ni una de fuera del período: el comprador la rechazaría (Felipe, 19-10: "dejemos las mejores de los últimos 24 meses y eliminemos el resto para que no sea ninguna rechazada"). Si no alcanzan para el puntaje máximo, pon las que hay y anota en pendientes cuántas faltan. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: cuántas faltan para el puntaje máximo, si faltan.',
+          ]),
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,
