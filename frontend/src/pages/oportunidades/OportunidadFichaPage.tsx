@@ -21,7 +21,7 @@ import ActaDeLaLicitacion from "./ActaDeLaLicitacion";
 import ArmarPostulacion from "./ArmarPostulacion";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
 import ResumenDeNegocio from "./ResumenDeNegocio";
-import { type PestanaDeFicha } from "./fichaEnCorto";
+import { type PestanaDeFicha, yaSeAdjudico } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
 import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
@@ -351,7 +351,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
       )}
 
       {pestana === "comparacion" && (
-        <ComparacionDeOfertas oportunidadId={ficha.id} />
+        <ComparacionDeOfertas
+          oportunidadId={ficha.id}
+          adjudicada={yaSeAdjudico(ficha)}
+        />
       )}
 
       {pestana === "historial" && (

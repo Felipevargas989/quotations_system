@@ -182,3 +182,15 @@ export const COLOR_DEL_ARCHIVO: Record<ClaseDeArchivo, string> = {
   imagen: "text-violet-600",
   otro: "text-gray-500",
 };
+
+/** ¿Ya se adjudicó? (decisión 59): la empresa la marcó ganada o perdida, o
+ *  Mercado Público ya la dice adjudicada. Hasta entonces se puede reclamar
+ *  en el Centro de Ayuda; después, solo impugnar ante el Tribunal. */
+export const yaSeAdjudico = (f: {
+  estado: string;
+  proceso: { estado: string | null; adjudicacion: unknown };
+}): boolean =>
+  f.estado === "ganada" ||
+  f.estado === "perdida" ||
+  Boolean(f.proceso.adjudicacion) ||
+  /adjudicad/i.test(f.proceso.estado ?? "");

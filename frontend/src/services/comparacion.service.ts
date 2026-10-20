@@ -19,12 +19,28 @@ export interface NotaDeCriterio {
   fundamento: string;
 }
 
+/** Lo que, según las bases o la ley, deja fuera una oferta (decisión 59). */
+export interface IncumplimientoGrave {
+  que: string;
+  /** El archivo y la página, o «no está entre lo que presentó». */
+  prueba: string;
+  /** El punto de las bases o la norma que la deja fuera. */
+  regla: string;
+  /** Es porque algo no está entre lo que se subió de esa oferta. */
+  por_ausencia: boolean;
+}
+
 export interface OferenteComparado {
   nombre: string;
   es_tuya: boolean;
   precio: string;
   cumple_bases: "si" | "no" | "dudoso";
   por_que: string;
+  /** Desde la decisión 59 (20-10); las comparaciones de antes no lo traen. */
+  graves?: IncumplimientoGrave[];
+  /** El texto para el Centro de Ayuda, que arma el motor: solo en la de un
+   *  competidor con incumplimientos graves (decisión 59). */
+  reclamo?: string | null;
   notas: NotaDeCriterio[];
   /** De 0 a 100. */
   probabilidad: number;

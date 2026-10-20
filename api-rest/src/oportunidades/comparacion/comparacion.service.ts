@@ -38,13 +38,16 @@ import {
   ESQUEMA_DE_LA_COMPARACION,
   instruccionesDeLaComparacion,
 } from './comparacion';
+import { conReclamos, type DatosDelReclamo } from './reclamo';
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10): la oferta de
 // la empresa (lo que va a presentar, las piezas del set para Mercado
 // Público) contra las de la competencia que bajó del cuadro de ofertas y
 // subió a la pestaña «Comparación» (sección 'competencia', migración 153).
 // Opus 5.5 pone la nota de cada criterio; el motor calcula los puntajes con
-// los pesos de las bases (`conPuntajes`).
+// los pesos de las bases (`conPuntajes`). Desde la decisión 59, la IA marca
+// también los incumplimientos graves de cada oferta y el motor arma el
+// texto del reclamo de cada competidor (`conReclamos`).
 
 export const MODELO_DE_LA_COMPARACION = MODELO_OPUS;
 
@@ -66,6 +69,8 @@ type Contexto = {
   }>;
   criterios: CriterioDeLasBases[];
   instrucciones: string;
+  /** Para el texto del reclamo (decisión 59). */
+  reclamo: DatosDelReclamo;
 };
 
 @Injectable()
@@ -239,6 +244,12 @@ export class ComparacionService {
           .filter((r) => r.obligatorio)
           .map((r) => r.que),
       }),
+      reclamo: {
+        codigo: ficha.codigo,
+        nombre: typeof p.nombre === 'string' ? p.nombre : '',
+        organismo: (p.organismo as string | null) ?? null,
+        empresa,
+      },
     });
     return fila;
   }
@@ -300,10 +311,10 @@ export class ComparacionService {
         estado: ia ? 'listo' : 'error',
         ...(ia
           ? {
-              resultado: conPuntajes(ia, c.criterios) as unknown as Record<
-                string,
-                unknown
-              >,
+              resultado: conReclamos(
+                conPuntajes(ia, c.criterios),
+                c.reclamo,
+              ) as unknown as Record<string, unknown>,
             }
           : {}),
         no_leidos: [...noLeidos, ...sinAbrir],

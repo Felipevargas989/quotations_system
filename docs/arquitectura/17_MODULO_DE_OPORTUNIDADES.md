@@ -401,6 +401,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Un Word que no se pudo leer no se borra.
     - Los Word firmados antes de este cambio se borran la próxima vez que se firme algo de esa licitación.
     - El avance de «Mis licitaciones» y de la ficha cuenta como «sin firmar» solo el Word de la IA que no tiene su firmado.
+59. **El reclamo desde la comparación de ofertas** (20-10, pedido por Felipe). Nació del caso Integra (1072229-25-L125): la ganadora y la más barata eran de la misma gente, y la comisión contó una experiencia mal respaldada sin darse cuenta. Felipe: *"dejemos en el comparativo una función de que en caso de incumplimiento grave, genere un texto para hacer un reclamos en el centro de ayuda"*.
+    - La IA marca en cada oferta los **incumplimientos graves**: lo que según las bases o la ley la deja fuera (no lo que solo baja puntaje), con su prueba (archivo y página, o «no está entre lo que presentó») y su regla. Revisa todas con la misma vara, la tuya incluida.
+    - Busca **ofertas relacionadas**: la misma persona o empresa en dos ofertas (RUT, cédula, teléfono, correo, dirección, o la misma persona como representante, dueña, socia, encargada o firmante). Va como incumplimiento grave, con la regla de la Ley de Compras (art. 9; reglamento, art. 60). El contacto de un cliente en la experiencia no cuenta.
+    - En la oferta de un competidor con algo grave, **«Redactar reclamo»** muestra el texto que arma el motor, sin IA: a quién va, la licitación, cada incumplimiento con su prueba y su regla, y la petición de revisar la oferta y, si corresponde, declararla inadmisible, firmado con los datos de «Mi empresa». Se copia y se pega en el Centro de Ayuda de Mercado Público: Eventia no envía nada.
+    - Si algo es porque «no está», antes pregunta si se subió todo lo de ese oferente (el 20-10, con Sol de Quillón, faltaban archivos por subir).
+    - Ya adjudicada (ganada, perdida o adjudicada en Mercado Público), no hay reclamo: avisa que queda impugnar ante el Tribunal de Contratación Pública, dentro de 10 días hábiles.
+    - Sin migración ni costo aparte: va en la misma comparación. Las comparaciones de antes hay que hacerlas de nuevo.
 
 ## 4. Reglas del módulo (no se negocian)
 
