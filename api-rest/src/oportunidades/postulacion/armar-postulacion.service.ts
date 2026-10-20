@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
+import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import { AnalisisRepository } from '../analisis/analisis.repository';
 import {
   type FilaDeGeneracion,
@@ -13,8 +14,9 @@ import type { RespaldoDePostVenta } from '../oferente/respaldos-de-post-venta';
 import { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta.service';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
-import { normalizar } from './el-set';
+import { type FormularioDeLasBases, normalizar } from './el-set';
 import { PostulacionRepository } from './postulacion.repository';
+import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
 // «ARMAR POSTULACIÓN» (decisión 35 del doc 17, 19-10). Felipe: "un solo
 // botón que diga armar postulación y que haga todos los anexos, arme la
@@ -102,6 +104,7 @@ export class ArmarPostulacionService {
     private readonly oferente: OferenteRepository,
     private readonly repo: PostulacionRepository,
     private readonly postVenta: RespaldosDePostVentaService,
+    private readonly adjuntos: AdjuntosRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
@@ -151,36 +154,63 @@ export class ArmarPostulacionService {
     // experiencia suficiente o debe ir a post venta a buscar respaldos").
     // Los anexos las usan si las de «Mi empresa» no alcanzan. Si falla,
     // salen con las que hay.
+    const analisis = await this.analisis
+      .ultimo(companyId, oportunidadId)
+      .catch(() => null);
+    const resultado = analisis?.estado === 'listo' ? analisis.resultado : null;
     let postVenta: RespaldoDePostVenta[] = [];
-    try {
-      const analisis = await this.analisis.ultimo(companyId, oportunidadId);
-      if (
-        analisis?.estado === 'listo' &&
-        pidenExperiencia(analisis.resultado)
-      ) {
+    if (pidenExperiencia(resultado)) {
+      try {
         postVenta = await this.postVenta.paraLaPostulacion(companyId);
+      } catch (error) {
+        this.logger.warn(
+          `respaldos de Post-venta antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
+        );
       }
-    } catch (error) {
-      this.logger.warn(
-        `respaldos de Post-venta antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
-      );
     }
-    const pasos: Array<[string, () => Promise<unknown>]> = [
-      [
+    // «Volver a armar» (decisión 49): lo firmado se queda y no se rehace;
+    // los borradores sin firma los reemplaza lo nuevo (se borran cuando
+    // quedó guardado).
+    const vuelta = await this.laVueltaAnterior(
+      companyId,
+      oportunidadId,
+      armada.total,
+      resultado,
+    );
+    const conPropuesta = armada.propuesta && !vuelta.propuestaFirmada;
+    const propuestasViejas = conPropuesta ? [] : vuelta.borradoresDePropuesta;
+    const pasos: Array<[string, () => Promise<unknown>]> = [];
+    if (vuelta.todoFirmado) {
+      // Nada que rehacer: los borradores de lo ya firmado sobran.
+      await this.adjuntos
+        .borrarBorradores(companyId, oportunidadId, [
+          ...vuelta.borradoresDeFormularios,
+          ...propuestasViejas,
+        ])
+        .catch((error) =>
+          this.logger.warn(
+            `borradores de la oportunidad ${oportunidadId}: ${mensajeDe(error)}`,
+          ),
+        );
+    } else {
+      pasos.push([
         'Los anexos',
         () =>
           this.documentos.generarAnexos(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
             post_venta: postVenta,
+            ya_firmados: vuelta.yaFirmados,
+            reemplaza: [...vuelta.borradoresDeFormularios, ...propuestasViejas],
           }),
-      ],
-    ];
-    if (armada.propuesta) {
+      ]);
+    }
+    if (conPropuesta) {
       pasos.push([
         'La propuesta técnica',
         () =>
           this.documentos.crearPropuesta(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
+            reemplaza: vuelta.borradoresDePropuesta,
           }),
       ]);
     }
@@ -220,5 +250,48 @@ export class ArmarPostulacionService {
           `no pude anotar lo que faltó de la postulación ${ofertaId}: ${mensajeDe(error)}`,
         ),
       );
+  }
+
+  /** Lo que ya hay en «Mi postulación»: qué está firmado y qué borradores
+   *  se reemplazan (volver-a-armar.ts). Si no se puede leer, se rehace todo
+   *  y no se borra nada. */
+  private async laVueltaAnterior(
+    companyId: number,
+    oportunidadId: number,
+    total: number,
+    resultado: Record<string, unknown> | null,
+  ): Promise<LaVueltaAnterior> {
+    try {
+      const [archivos, trabajos] = await Promise.all([
+        this.repo.archivosDelSet(companyId, oportunidadId),
+        this.repo.trabajosDeLaIA(companyId, oportunidadId),
+      ]);
+      return laVueltaAnterior({
+        postulacion: archivos.filter((a) => a.seccion === 'postulacion'),
+        formularios: Array.isArray(resultado?.formularios)
+          ? (resultado.formularios as FormularioDeLasBases[])
+          : [],
+        total,
+        totalDe: new Map(
+          trabajos
+            .filter((t) => t.tipo === 'anexos')
+            .map((t) => {
+              const monto = Number(t.parametros?.monto_total);
+              return [t.id, monto > 0 ? monto : null];
+            }),
+        ),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `lo que ya había en la postulación ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+      return {
+        yaFirmados: [],
+        todoFirmado: false,
+        borradoresDeFormularios: [],
+        borradoresDePropuesta: [],
+        propuestaFirmada: false,
+      };
+    }
   }
 }
