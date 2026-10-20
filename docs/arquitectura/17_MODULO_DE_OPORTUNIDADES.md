@@ -379,6 +379,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Formatos fijos: montos como $1.234.567, fechas como 11 de noviembre de 2026 (salvo que el formulario muestre otro), RUT como 77.701.305-K y teléfonos como +56 9 5095 5947.
     - Ningún campo de datos queda vacío: lo que no corresponde dice «No aplica» y lo que falta va como [COMPLETAR]. Notas y páginas de las bases, a pendientes, nunca al documento.
     - Parte 2, por aprobar: la «Propuesta Valle del Sol», un formato propio con el aspecto del PDF de la cotización para cuando no hay formulario (compras ágiles, formato libre). Primero un borrador visual; se programa cuando Felipe lo apruebe.
+55. **Los tickets de respaldo de Mercado Público** (20-10, pedido por Felipe: *"creo que está bloqueada la API; yo recuerdo que tenía dos en el bot para esto"*, y *"¿se podría ocupar dos veces al día cada una?"*).
+    - Lo que pasaba: desde el 19-10 a las 09:00, Mercado Público no responde las compras ágiles (504 a los 30 segundos, en cada pasada). El 20-10 se probó una consulta con cada uno de los dos tickets de Felipe, aun pidiendo un solo día: los dos fallan igual, y uno contestó «Servicio no disponible, intente nuevamente más tarde». Es su servicio, no un bloqueo por consultas: las licitaciones siguen llegando y, cuando vuelva, el radar trae los últimos 10 días.
+    - El cupo de Mercado Público es por ticket y por día (10.000 consultas), no por veces al día. Lo que más gasta es la descarga de la historia, de noche.
+    - Desde ahora el motor usa hasta tres tickets, como el bot: `MP_TICKET` y los de respaldo `MP_TICKET_2` y `MP_TICKET_3`, en las variables del motor (los pone Felipe). Un 429 que no es de «peticiones simultáneas», o un ticket que Mercado Público no reconoce, pasa al siguiente al tiro y ahí se queda. Con todos sin cupo, espera como antes y recién ahí es «sin cupo».
+    - Un ticket repetido en dos variables cuenta una vez. En el registro cada ticket es su número, nunca su valor.
 
 ## 4. Reglas del módulo (no se negocian)
 

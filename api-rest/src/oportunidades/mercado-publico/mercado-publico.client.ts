@@ -26,10 +26,42 @@ import type {
 // el error ADENTRO ({ Codigo, Mensaje }), y rechaza las peticiones
 // simultáneas con el mismo ticket. Por eso se revisa el cuerpo de cada
 // respuesta y el radar pide de a una.
+//
+// LOS TICKETS DE RESPALDO (decisión 55 del doc 17, 20-10). Felipe: "yo
+// recuerdo que tenía dos en el bot para esto". Cada ticket tiene su cupo
+// del día; el bot usaba tres (MP_TICKET, MP_TICKET_2 y MP_TICKET_3) y
+// pasaba al siguiente cuando uno se quedaba sin cupo. Aquí igual: un 429
+// que no es de "peticiones simultáneas", o un ticket que Mercado Público
+// no reconoce, pasa al siguiente al tiro y ahí se queda. Un ticket repetido
+// en dos variables cuenta una vez. En el registro, cada ticket es su número
+// (1, 2 o 3), nunca su valor.
 
 const LICITACIONES =
   'https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json';
 const COMPRA_AGIL = 'https://api2.mercadopublico.cl/v2/compra-agil';
+
+/** Las variables de los tickets, en el orden en que se usan. */
+const VARIABLES_DE_TICKET = ['MP_TICKET', 'MP_TICKET_2', 'MP_TICKET_3'];
+
+/** Los tickets puestos en el motor, sin repetidos (sin mirar mayúsculas). */
+export const ticketsDelMotor = (): string[] => {
+  const tickets: string[] = [];
+  for (const variable of VARIABLES_DE_TICKET) {
+    const t = process.env[variable]?.trim();
+    if (t && !tickets.some((x) => x.toUpperCase() === t.toUpperCase())) {
+      tickets.push(t);
+    }
+  }
+  return tickets;
+};
+
+const escaparRegex = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Lo que dice algo de un ticket que Mercado Público no reconoce. */
+const TICKET_MALO = /ticket/i;
+
+/** Un pedido a Mercado Público, armado con el ticket del turno. */
+type Pedido = { url: string; cabeceras?: Record<string, string> };
 
 /** El error que la API escribe dentro del cuerpo, aunque responda 200. */
 const errorDeLaApi = (
@@ -67,8 +99,9 @@ const resumirCuerpo = (texto: string): string => {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const ticket = process.env.MP_TICKET?.trim();
-  if (ticket) t = t.split(ticket).join('[ticket]');
+  for (const ticket of ticketsDelMotor()) {
+    t = t.replace(new RegExp(escaparRegex(ticket), 'gi'), '[ticket]');
+  }
   return t.slice(0, 160);
 };
 
@@ -114,29 +147,46 @@ export class MercadoPublicoClient {
     this.logger.setContext(MercadoPublicoClient.name);
   }
 
+  /** El ticket con que se pide ahora (decisión 55): uno sin cupo pasa al
+   *  siguiente y ahí se queda; después del último vuelve al primero. */
+  private turno = 0;
+
   /** ¿Está el ticket? Sin él, el radar no corre (y lo dice). */
   get configurado(): boolean {
-    return Boolean(process.env.MP_TICKET?.trim());
+    return ticketsDelMotor().length > 0;
   }
 
   private get ticket(): string {
-    const t = process.env.MP_TICKET?.trim();
-    if (!t) {
+    const tickets = ticketsDelMotor();
+    if (tickets.length === 0) {
       throw new MercadoPublicoError(
         'falta MP_TICKET (el ticket de Mercado Público) en las variables del motor',
         null,
       );
     }
-    return t;
+    return tickets[this.turno % tickets.length];
+  }
+
+  /** Pasa al ticket siguiente si queda alguno sin probar en este pedido
+   *  (`rotaciones`: cuántas veces ya cambió en él). */
+  private rotar(que: string, rotaciones: number, por: string): boolean {
+    const tickets = ticketsDelMotor();
+    if (rotaciones + 1 >= tickets.length) return false;
+    const antes = (this.turno % tickets.length) + 1;
+    this.turno = antes % tickets.length;
+    this.logger.warn(
+      `${que}: el ticket ${antes} de ${tickets.length} ${por}; sigo con el ${this.turno + 1}`,
+    );
+    return true;
   }
 
   /** Todas las licitaciones publicadas en este momento, en una sola
    *  consulta liviana: código, nombre, estado y cierre. Sin región. */
   async licitacionesActivas(): Promise<LicitacionListada[]> {
-    const url = `${LICITACIONES}?estado=activas&ticket=${encodeURIComponent(this.ticket)}`;
     const json = (await this.pedir(
-      url,
-      {},
+      (ticket) => ({
+        url: `${LICITACIONES}?estado=activas&ticket=${encodeURIComponent(ticket)}`,
+      }),
       'licitaciones activas',
       this.topeListaMs,
     )) as { Listado?: LicitacionListada[] } | null;
@@ -154,10 +204,10 @@ export class MercadoPublicoClient {
   /** Las licitaciones publicadas en una fecha (de cualquier estado): así
    *  entrega la API la historia. `fecha` en el formato de la API, ddmmaaaa. */
   async licitacionesDelDia(fecha: string): Promise<LicitacionListada[]> {
-    const url = `${LICITACIONES}?fecha=${encodeURIComponent(fecha)}&ticket=${encodeURIComponent(this.ticket)}`;
     const json = (await this.pedir(
-      url,
-      {},
+      (ticket) => ({
+        url: `${LICITACIONES}?fecha=${encodeURIComponent(fecha)}&ticket=${encodeURIComponent(ticket)}`,
+      }),
       `licitaciones del ${fecha}`,
       this.topeListaMs,
     )) as { Listado?: LicitacionListada[] } | null;
@@ -171,8 +221,12 @@ export class MercadoPublicoClient {
   }
 
   async detalleLicitacion(codigo: string): Promise<LicitacionDetalle | null> {
-    const url = `${LICITACIONES}?codigo=${encodeURIComponent(codigo)}&ticket=${encodeURIComponent(this.ticket)}`;
-    const json = (await this.pedir(url, {}, `licitación ${codigo}`)) as {
+    const json = (await this.pedir(
+      (ticket) => ({
+        url: `${LICITACIONES}?codigo=${encodeURIComponent(codigo)}&ticket=${encodeURIComponent(ticket)}`,
+      }),
+      `licitación ${codigo}`,
+    )) as {
       Listado?: LicitacionDetalle[];
     };
     return json?.Listado?.[0] ?? null;
@@ -206,8 +260,10 @@ export class MercadoPublicoClient {
       };
       try {
         json = (await this.pedir(
-          `${COMPRA_AGIL}?${params.toString()}`,
-          { ticket: this.ticket },
+          (ticket) => ({
+            url: `${COMPRA_AGIL}?${params.toString()}`,
+            cabeceras: { ticket },
+          }),
           `compras ágiles, página ${pagina}`,
         )) as typeof json;
       } catch (error) {
@@ -240,8 +296,10 @@ export class MercadoPublicoClient {
 
   async detalleCompraAgil(codigo: string): Promise<CompraAgilDetalle | null> {
     const json = (await this.pedir(
-      `${COMPRA_AGIL}/${encodeURIComponent(codigo)}`,
-      { ticket: this.ticket },
+      (ticket) => ({
+        url: `${COMPRA_AGIL}/${encodeURIComponent(codigo)}`,
+        cabeceras: { ticket },
+      }),
       `compra ágil ${codigo}`,
     )) as { success?: string; payload?: CompraAgilDetalle } | null;
     if (json?.success === 'OK') return json.payload ?? null;
@@ -253,16 +311,18 @@ export class MercadoPublicoClient {
    *  429. `que` es lo que se pide, en palabras: es lo único que llega al
    *  registro (nunca la URL). */
   private async pedir(
-    url: string,
-    cabeceras: Record<string, string>,
+    armar: (ticket: string) => Pedido,
     que: string,
     topeMs = this.topeMs,
   ): Promise<unknown> {
     let fallas = 0;
     let frenos = 0;
     let choques = 0;
+    let rotaciones = 0;
     for (;;) {
       let status: number | null = null;
+      // Se arma en cada intento: si el ticket cambió, va el nuevo.
+      const { url, cabeceras = {} } = armar(this.ticket);
       await this.esperarTurno();
       try {
         const resp = await fetch(url, {
@@ -274,6 +334,11 @@ export class MercadoPublicoClient {
           const dijo = resumirCuerpo(await resp.text().catch(() => ''));
           if (/simult/i.test(dijo)) {
             await this.chocar(que, ++choques);
+            continue;
+          }
+          // Sin cupo con este ticket: si hay otro, se sigue con ese al tiro.
+          if (this.rotar(que, rotaciones, 'se quedó sin cupo')) {
+            rotaciones++;
             continue;
           }
           const detalle = dijo ? ` (${dijo})` : '';
@@ -294,6 +359,14 @@ export class MercadoPublicoClient {
         const error = errorDeLaApi(cuerpo);
         if (error?.simultaneas) {
           await this.chocar(que, ++choques);
+          continue;
+        } else if (
+          ((error && TICKET_MALO.test(error.mensaje)) ||
+            resp.status === 401 ||
+            resp.status === 403) &&
+          this.rotar(que, rotaciones, 'no lo reconoce Mercado Público')
+        ) {
+          rotaciones++;
           continue;
         } else if (error) {
           throw new MercadoPublicoError(
