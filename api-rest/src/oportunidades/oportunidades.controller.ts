@@ -21,6 +21,7 @@ import {
   AdjuntosService,
   MAX_BYTES_ADJUNTO,
 } from './adjuntos/adjuntos.service';
+import { LicifyService } from './adjuntos/licify.service';
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
@@ -72,6 +73,7 @@ export class OportunidadesController {
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
     private readonly seViene: SeVieneService,
+    private readonly licify: LicifyService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(OportunidadesController.name);
@@ -286,6 +288,19 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.adjuntos.listar(user.company_id, id, seccion ?? 'bases');
+  }
+
+  /** «Traer los documentos» (decisión 65): lo que Licify tiene del
+   *  proceso, a «Bases y anexos». */
+  @Post(':id/adjuntos/traer')
+  traerAdjuntos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/adjuntos/traer (empresa ${user.company_id})`,
+    );
+    return this.licify.traer(user.company_id, user.id, id);
   }
 
   /** Un archivo por pedido, en el campo `file`. `defParamCharset`: el

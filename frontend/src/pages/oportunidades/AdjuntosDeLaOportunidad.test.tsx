@@ -1,0 +1,126 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "../../components/toast/Toast";
+import * as servicio from "../../services/oportunidades.service";
+import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
+
+// «TRAER LOS DOCUMENTOS» (decisión 65, 21-10). Felipe: "un botón de bajar
+// documentos y que lo lleve directamente". El motor va de mentira.
+
+vi.mock("../../services/oportunidades.service", () => ({
+  getAdjuntos: vi.fn(),
+  subirAdjunto: vi.fn(),
+  borrarAdjunto: vi.fn(),
+  traerAdjuntos: vi.fn(),
+}));
+vi.mock("../../components/FileViewLink", () => ({ default: () => null }));
+vi.mock("./descargas", () => ({ descargarDelBalde: vi.fn() }));
+vi.mock("../../components/toast/Toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warn: vi.fn() },
+}));
+const s = vi.mocked(servicio);
+const t = vi.mocked(toast);
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+const adjunto = (id: number, nombre: string) => ({
+  id,
+  nombre,
+  ruta: `c1/oportunidades/9/${nombre}`,
+  tipo: "application/pdf",
+  bytes: 1000,
+  seccion: "bases" as const,
+  origen: "subido" as const,
+  viene_de: null,
+  competidor: null,
+  creado_en: "2026-10-21T12:00:00.000Z",
+  subido_por: null,
+  quien: null,
+});
+
+const pintar = () =>
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <AdjuntosDeLaOportunidad
+        oportunidadId={9}
+        codigo="4364-13-LE26"
+        tipo="licitacion"
+      />
+    </QueryClientProvider>,
+  );
+
+describe("Traer los documentos", () => {
+  it("pide los documentos al motor, dice cuántos llegaron y refresca la lista", async () => {
+    s.getAdjuntos
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([adjunto(1, "Bases.pdf"), adjunto(2, "Anexos.docx")]);
+    s.traerAdjuntos.mockResolvedValue({
+      disponibles: 3,
+      bajados: [adjunto(1, "Bases.pdf"), adjunto(2, "Anexos.docx")],
+      omitidos: [{ nombre: "Ficha.pdf", motivo: "ya estaba" }],
+    });
+    pintar();
+    const boton = await screen.findByRole("button", {
+      name: /Traer los documentos/,
+    });
+    // El camino a mano sigue ahí, al lado.
+    expect(
+      screen.getByRole("link", { name: /Bajar de Mercado Público/ }),
+    ).toHaveAttribute("target", "_blank");
+
+    fireEvent.click(boton);
+    await waitFor(() => expect(s.traerAdjuntos).toHaveBeenCalledWith(9));
+    await waitFor(() =>
+      expect(t.success).toHaveBeenCalledWith(
+        "Llegaron 2 archivos (1 ya estaba).",
+      ),
+    );
+    expect(await screen.findByText("Bases.pdf")).toBeInTheDocument();
+  });
+
+  it("si Licify no conoce el proceso, lo dice y manda al camino a mano", async () => {
+    s.getAdjuntos.mockResolvedValue([]);
+    s.traerAdjuntos.mockResolvedValue({
+      disponibles: 0,
+      bajados: [],
+      omitidos: [],
+    });
+    pintar();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Traer los documentos/ }),
+    );
+    await waitFor(() =>
+      expect(t.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/Licify todavía no tiene/),
+      ),
+    );
+  });
+
+  it("si el motor falla, avisa con su mensaje", async () => {
+    s.getAdjuntos.mockResolvedValue([]);
+    s.traerAdjuntos.mockRejectedValue({
+      response: { data: { message: "Licify respondió 500." } },
+    });
+    pintar();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Traer los documentos/ }),
+    );
+    await waitFor(() => expect(t.error).toHaveBeenCalled());
+  });
+});

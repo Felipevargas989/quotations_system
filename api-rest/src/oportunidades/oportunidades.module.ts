@@ -4,6 +4,7 @@ import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-foll
 import { QuotationsModule } from 'src/quotations/quotations.module';
 import { AdjuntosRepository } from './adjuntos/adjuntos.repository';
 import { AdjuntosService } from './adjuntos/adjuntos.service';
+import { LicifyService } from './adjuntos/licify.service';
 import {
   AnalisisRepository,
   ValidacionRepository,
@@ -78,6 +79,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     FichaRepository,
     AdjuntosRepository,
     AdjuntosService,
+    LicifyService,
     AnalisisRepository,
     AnalisisService,
     ValidacionRepository,
