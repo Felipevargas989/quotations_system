@@ -487,13 +487,15 @@ export const seVeEnElVisor = (ruta: string): boolean =>
   /\.(pdf|jpe?g|png|webp|docx)$/i.test(ruta);
 
 /** PRIORIDAD (Felipe, 17-10: "hay dos que son directas mías y están en
- *  amarillo y deberían ser prioridad"): lo de una comuna cercana o de alto
- *  valor que no quedó en rojo va arriba, aunque la IA lo deje en amarillo
- *  por una duda (casi siempre: no dice dónde se hace). El color no se toca:
- *  lo decide la lectura. */
+ *  amarillo y deberían ser prioridad"): lo de tu rubro (verde o amarillo) en
+ *  una comuna cercana va arriba, aunque la IA lo deje en amarillo por una
+ *  duda (casi siempre: no dice dónde se hace). El color no se toca: lo
+ *  decide la lectura. Desde la decisión 64 (20-10) el monto no cuenta
+ *  (Felipe: "algo puede tener 60 millones, pero si es de Concepción
+ *  difícilmente lo logre traer para acá... para mí prioridad son las
+ *  licitaciones de mi rubro que estén en Quillón o en todas sus comunas"). */
 export const esPrioridad = (o: Pick<Oportunidad, "semaforo" | "alertas">) =>
-  o.semaforo !== "rojo" &&
-  o.alertas.some((a) => a === "comuna_cercana" || a === "alto_valor");
+  o.semaforo !== "rojo" && o.alertas.includes("comuna_cercana");
 
 export const TIPOS: Record<TipoProceso, string> = {
   licitacion: "Licitación",

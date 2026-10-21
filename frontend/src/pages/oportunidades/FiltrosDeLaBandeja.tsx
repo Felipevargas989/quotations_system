@@ -3,7 +3,8 @@ import type {
   Semaforo,
   TipoProceso,
 } from "../../services/oportunidades.service";
-import { type Filtros, SEMAFOROS, VISTAS } from "./oportunidades.utils";
+import FiltroDelSemaforo from "./FiltroDelSemaforo";
+import { type Filtros, VISTAS } from "./oportunidades.utils";
 import { SELLO_DEL_TIPO } from "./tipoDeProceso";
 
 // LOS FILTROS DE LA BANDEJA (Felipe, 18-10: "vamos con las 5"; sobre el
@@ -11,7 +12,8 @@ import { SELLO_DEL_TIPO } from "./tipoDeProceso";
 // redondeados con su número: reemplazan al desplegable «Por revisar», y
 // no se confunden con las pestañas del módulo, que van subrayadas. Abajo,
 // en una sola fila: el tipo con botones (cada uno con el color de su
-// sello), la región, el semáforo y el buscador.
+// sello), la región, el semáforo y el buscador (`FiltroDelSemaforo`, el
+// mismo de «Se viene» desde el 20-10).
 
 const TIPOS: ReadonlyArray<{ value: TipoProceso | ""; label: string }> = [
   { value: "", label: "Todas" },
@@ -38,13 +40,6 @@ export default function FiltrosDeLaBandeja({
   readonly porSemaforo: Readonly<Record<Semaforo, number>>;
   readonly regiones: readonly string[];
 }) {
-  const alternarSemaforo = (s: Semaforo) =>
-    onCambiar({
-      semaforos: filtros.semaforos.includes(s)
-        ? filtros.semaforos.filter((x) => x !== s)
-        : [...filtros.semaforos, s],
-    });
-
   return (
     <div className="space-y-3">
       <div
@@ -127,35 +122,12 @@ export default function FiltrosDeLaBandeja({
           />
         </div>
 
-        {(Object.keys(SEMAFOROS) as Semaforo[]).map((s) => {
-          const activo = filtros.semaforos.includes(s);
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => alternarSemaforo(s)}
-              aria-pressed={activo}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border ${
-                activo
-                  ? SEMAFOROS[s].chip
-                  : "border-gray-200 bg-white text-gray-400"
-              }`}
-            >
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${SEMAFOROS[s].punto}`}
-              />
-              {SEMAFOROS[s].label} {porSemaforo[s]}
-              {!activo && s === "rojo" && " · ocultas"}
-            </button>
-          );
-        })}
-
-        <input
-          type="text"
-          value={filtros.busca}
-          onChange={(e) => onCambiar({ busca: e.target.value })}
-          placeholder="Buscar nombre, organismo o código"
-          className="flex-1 min-w-[12rem] px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <FiltroDelSemaforo
+          seleccion={filtros.semaforos}
+          onCambiar={(semaforos) => onCambiar({ semaforos })}
+          porSemaforo={porSemaforo}
+          busca={filtros.busca}
+          onBuscar={(busca) => onCambiar({ busca })}
         />
       </div>
     </div>

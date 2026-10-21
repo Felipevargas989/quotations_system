@@ -12,6 +12,8 @@ export interface SeViene {
   nombre: string;
   organismo: string | null;
   comuna: string | null;
+  /** La región de la última vez (para filtrar como la bandeja). */
+  region: string | null;
   /** Cuándo debería publicarse: la última vez, un año después. */
   esperada: string;
   /** Ya debió salir y todavía no aparece. */
@@ -30,6 +32,12 @@ export interface SeViene {
    *  null: la IA todavía no la lee. */
   semaforo: Semaforo | null;
   razon: string | null;
+  /** Según la IA (decisión 63): true si tiene ediciones anteriores, false
+   *  si salió una sola vez, null si todavía no lo revisa. */
+  repite: boolean | null;
+  repeticion: string | null;
+  /** La empresa la descartó: «no creo que se repita». */
+  descartada: boolean;
 }
 
 /** Cómo va la lectura de «Se viene» (decisión 62). */
@@ -50,3 +58,12 @@ export const getLecturaDelCalendario = async () =>
     `${API_ROUTES.OPORTUNIDADES}/calendario/lectura`,
     "GET",
   )) as LecturaDelCalendario;
+
+/** «Descartar» una serie, o recuperarla (decisión 63). El código es el de
+ *  la última vez que salió. */
+export const descartarSerie = async (codigo: string, descartada: boolean) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/calendario/${encodeURIComponent(codigo)}`,
+    "PATCH",
+    { descartada },
+  )) as { codigo: string; descartada: boolean };

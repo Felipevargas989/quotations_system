@@ -184,18 +184,27 @@ describe("urlMercadoPublico", () => {
 });
 
 describe("esPrioridad", () => {
-  it("comuna cercana o alto valor, en verde o amarillo, va arriba", () => {
+  it("de tu rubro (verde o amarillo) y de una comuna cercana, va arriba", () => {
     expect(
       esPrioridad({ semaforo: "amarillo", alertas: ["comuna_cercana"] }),
     ).toBe(true);
+    expect(
+      esPrioridad({
+        semaforo: "verde",
+        alertas: ["comuna_cercana", "alto_valor"],
+      }),
+    ).toBe(true);
+  });
+
+  it("el monto solo no es prioridad (decisión 64: «algo puede tener 60 millones, pero si es de Concepción...»)", () => {
     expect(esPrioridad({ semaforo: "verde", alertas: ["alto_valor"] })).toBe(
-      true,
+      false,
     );
   });
 
   it("sin marcas, o en rojo, no", () => {
     expect(esPrioridad({ semaforo: "verde", alertas: [] })).toBe(false);
-    expect(esPrioridad({ semaforo: "rojo", alertas: ["alto_valor"] })).toBe(
+    expect(esPrioridad({ semaforo: "rojo", alertas: ["comuna_cercana"] })).toBe(
       false,
     );
   });

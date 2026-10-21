@@ -37,6 +37,9 @@ export type SeViene = {
   nombre: string;
   organismo: string | null;
   comuna: string | null;
+  /** La región de la última vez: «Se viene» se filtra por región, como la
+   *  bandeja (20-10). */
+  region: string | null;
   /** Cuándo debería publicarse: la última vez, un año después (ISO). */
   esperada: string;
   /** Ya debió salir y todavía no aparece. */
@@ -149,6 +152,7 @@ export const seVienen = (
         nombre: ultima.nombre,
         organismo: ultima.organismo,
         comuna: ultima.comuna,
+        region: ultima.region,
         esperada: esperada.toISOString(),
         atrasada: e < ahora,
         anios: [

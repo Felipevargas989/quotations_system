@@ -3,6 +3,13 @@ import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import {
+  type Candidata,
+  ESQUEMA_DE_REPETICION,
+  INSTRUCCIONES_DE_REPETICION,
+  type Repeticion,
+  repeticionValida,
+} from '../historia/repeticion';
 import { type Lectura, lecturaValida } from './reglas';
 
 // LA LECTURA CON IA (doc 17 §5.2). Cada proceso nuevo se lee UNA vez por
@@ -309,6 +316,51 @@ export class LecturaService {
       this.logger.warn(
         `no pude leer ${proceso.codigo}: ${mensajeDe(error)}; se reintenta en la próxima corrida`,
       );
+      return null;
+    }
+  }
+
+  /**
+   * ¿Cuáles de `candidatas` son ediciones anteriores del mismo evento que
+   * `pregunta` (decisión 63)? null si no se pudo (se reintenta); lanza
+   * LecturaDetenida si falla la cuenta.
+   */
+  async edicionesAnteriores(
+    pregunta: string,
+    candidatas: readonly Candidata[],
+    uso?: Uso,
+  ): Promise<Repeticion | null> {
+    try {
+      const respuesta = await this.cliente().messages.parse({
+        model: MODELO_LECTURA,
+        max_tokens: 4000,
+        output_config: {
+          effort: 'low',
+          format: jsonSchemaOutputFormat(ESQUEMA_DE_REPETICION),
+        },
+        system: [
+          {
+            type: 'text',
+            text: INSTRUCCIONES_DE_REPETICION,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content: pregunta }],
+      });
+      if (uso) {
+        uso.entrada += respuesta.usage.input_tokens ?? 0;
+        uso.salida += respuesta.usage.output_tokens ?? 0;
+      }
+      return respuesta.parsed_output
+        ? repeticionValida(respuesta.parsed_output, candidatas)
+        : null;
+    } catch (error) {
+      if (esFallaDeLaCuenta(error)) {
+        throw new LecturaDetenida(
+          `la revisión de lo que se repite se detiene: ${mensajeDe(error)}`,
+        );
+      }
+      this.logger.warn(`no pude revisar si se repite: ${mensajeDe(error)}`);
       return null;
     }
   }
