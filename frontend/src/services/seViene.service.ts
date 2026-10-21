@@ -12,6 +12,8 @@ export interface SeViene {
   nombre: string;
   organismo: string | null;
   comuna: string | null;
+  /** La región de la última vez (para filtrar como la bandeja). */
+  region: string | null;
   /** Cuándo debería publicarse: la última vez, un año después. */
   esperada: string;
   /** Ya debió salir y todavía no aparece. */
