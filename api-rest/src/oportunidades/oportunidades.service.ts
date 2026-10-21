@@ -22,6 +22,10 @@ import {
   rankingDeCompetidores,
   seVienen,
 } from './historia/mercado';
+import {
+  type SeVieneConSemaforo,
+  SeVieneService,
+} from './historia/se-viene.service';
 import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import {
@@ -76,6 +80,7 @@ export class OportunidadesService {
     private readonly mp: MercadoPublicoClient,
     private readonly logger: PinoLogger,
     private readonly fichas: FichaRepository,
+    private readonly seViene: SeVieneService,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -269,16 +274,25 @@ export class OportunidadesService {
 
   /** SE VIENE (doc 17 §5.3): lo que se repite cada año en las regiones de
    *  la empresa y todavía no sale, en los próximos 90 días. Marca las de
-   *  comuna cercana y las de alto valor, como la bandeja. */
-  async calendario(companyId: number) {
+   *  comuna cercana y las de alto valor, como la bandeja, y desde la
+   *  decisión 62 trae el semáforo de cada serie (lo que falta se lee por
+   *  detrás: `SeVieneService`). */
+  async calendario(companyId: number): Promise<SeVieneConSemaforo[]> {
     const [config, empresa] = await Promise.all([
       this.repo.configDe(companyId),
       this.repo.datosDeEmpresa(companyId),
     ]);
     const procesos = await this.repo.procesosDeLaZona(config?.regiones ?? []);
-    return seVienen(procesos, new Date(), {
-      comunas: config?.comunas_cercanas ?? [],
-      umbralAltoValor: empresa?.high_value_threshold ?? null,
+    const comunasCercanas = config?.comunas_cercanas ?? [];
+    const umbralAltoValor = empresa?.high_value_threshold ?? null;
+    const series = seVienen(procesos, new Date(), {
+      comunas: comunasCercanas,
+      umbralAltoValor,
+    });
+    return this.seViene.conSemaforo(companyId, series, {
+      comunasCercanas,
+      umbralAltoValor,
+      perfil: config?.perfil ?? null,
     });
   }
 

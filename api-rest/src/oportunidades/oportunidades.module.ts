@@ -21,6 +21,8 @@ import { GeneracionRepository } from './generacion/generacion.repository';
 import { GeneracionService } from './generacion/generacion.service';
 import { HistoriaRepository } from './historia/historia.repository';
 import { HistoriaService } from './historia/historia.service';
+import { SeVieneRepository } from './historia/se-viene.repository';
+import { SeVieneService } from './historia/se-viene.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
@@ -90,6 +92,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     RespaldosDePostVentaService,
     HistoriaRepository,
     HistoriaService,
+    SeVieneRepository,
+    SeVieneService,
     RadarService,
     OportunidadesCronService,
   ],

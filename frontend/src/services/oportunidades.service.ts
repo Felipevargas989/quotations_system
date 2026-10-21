@@ -54,27 +54,6 @@ export interface Anterior {
   ganadores: GanadorDeProceso[];
 }
 
-/** SE VIENE (doc 17 §5.3): lo que se repite cada año y todavía no sale. */
-export interface SeViene {
-  nombre: string;
-  organismo: string | null;
-  comuna: string | null;
-  /** Cuándo debería publicarse: la última vez, un año después. */
-  esperada: string;
-  /** Ya debió salir y todavía no aparece. */
-  atrasada: boolean;
-  anios: number[];
-  comuna_cercana: boolean;
-  alto_valor: boolean;
-  ultima: {
-    codigo: string;
-    fecha_publicacion: string;
-    monto: number | null;
-    oferentes: number | null;
-    ganadores: GanadorDeProceso[];
-  };
-}
-
 /** Quién gana en las regiones de la empresa (los últimos 3 años). */
 export interface Competidor {
   rut: string;
@@ -551,12 +530,6 @@ export const getMisLicitaciones = async () =>
     `${API_ROUTES.OPORTUNIDADES}/mias`,
     "GET",
   )) as MiLicitacion[];
-
-export const getCalendario = async () =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/calendario`,
-    "GET",
-  )) as SeViene[];
 
 export const getCompetidores = async () =>
   (await apiRequest(
