@@ -746,6 +746,21 @@ export const borrarAdjunto = async (id: number, adjuntoId: number) =>
     "DELETE",
   )) as { borrado: boolean };
 
+/** «Traer los documentos» (decisión 65): lo que Licify tiene del proceso
+ *  (bases, decretos, formularios), a «Bases y anexos». `disponibles` 0:
+ *  Licify no conoce el proceso. */
+export interface TraidoDeLicify {
+  disponibles: number;
+  bajados: AdjuntoDeOportunidad[];
+  omitidos: Array<{ nombre: string; motivo: string }>;
+}
+
+export const traerAdjuntos = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/traer`,
+    "POST",
+  )) as TraidoDeLicify;
+
 export const getCorridasDelRadar = async () =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/radar/corridas`,

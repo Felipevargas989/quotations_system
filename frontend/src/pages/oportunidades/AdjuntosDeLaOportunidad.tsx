@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronRight,
+  CloudDownload,
   ExternalLink,
   File,
   FileArchive,
   FileImage,
   FileSpreadsheet,
   FileText,
+  Loader2,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import {
   borrarAdjunto,
   getAdjuntos,
   subirAdjunto,
+  traerAdjuntos,
   type AdjuntoDeOportunidad,
   type SeccionDeArchivos,
   type TipoProceso,
@@ -152,6 +155,31 @@ export default function AdjuntosDeLaOportunidad({
     { desactivado: subiendo !== null },
   );
 
+  // «Traer los documentos» (decisión 65, 21-10): lo que Licify tiene del
+  // proceso llega solo a «Bases y anexos». Felipe: "un botón de bajar
+  // documentos y que lo lleve directamente".
+  const traer = useMutation({
+    mutationFn: () => traerAdjuntos(oportunidadId),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: clave });
+      if (r.disponibles === 0) {
+        toast.warn(
+          "Licify todavía no tiene los archivos de este proceso. Bájalos de Mercado Público y arrástralos aquí.",
+        );
+      } else if (r.bajados.length === 0) {
+        toast.success("Ya estaban todos los archivos que tiene Licify.");
+      } else {
+        const n = r.bajados.length;
+        const ya = r.omitidos.filter((o) => o.motivo === "ya estaba").length;
+        toast.success(
+          `${n === 1 ? "Llegó 1 archivo" : `Llegaron ${n} archivos`}${ya > 0 ? ` (${ya} ya ${ya === 1 ? "estaba" : "estaban"})` : ""}.`,
+        );
+      }
+    },
+    onError: (e) =>
+      toast.error(humanizeApiError(e, "No se pudieron traer los documentos.")),
+  });
+
   const borrar = useMutation({
     mutationFn: (adjuntoId: number) => borrarAdjunto(oportunidadId, adjuntoId),
     onSuccess: () => {
@@ -200,21 +228,34 @@ export default function AdjuntosDeLaOportunidad({
           <p className={abierta ? "text-xs text-gray-500" : "hidden"}>
             {seccion === "postulacion"
               ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
-              : tipo === "licitacion"
-                ? "En Mercado Público, pincha «Ver adjuntos» arriba de la ficha y baja los archivos. Después arrástralos aquí."
-                : "En Mercado Público, los archivos están en la misma ficha de la compra ágil. Bájalos y arrástralos aquí."}
+              : "«Traer los documentos» baja solos los que publicó el comprador (bases, decretos, formularios). Si no están, bájalos de Mercado Público y arrástralos aquí."}
           </p>
         </div>
         {seccion === "bases" && (
-          <a
-            href={urlMercadoPublico(codigo, tipo)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-          >
-            Bajar de Mercado Público
-            <ExternalLink size={14} />
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => traer.mutate()}
+              disabled={traer.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {traer.isPending ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden />
+              ) : (
+                <CloudDownload size={14} aria-hidden />
+              )}
+              {traer.isPending ? "Trayendo…" : "Traer los documentos"}
+            </button>
+            <a
+              href={urlMercadoPublico(codigo, tipo)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+            >
+              Bajar de Mercado Público
+              <ExternalLink size={14} />
+            </a>
+          </div>
         )}
       </div>
 
