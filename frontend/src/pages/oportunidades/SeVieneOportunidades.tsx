@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Star } from "lucide-react";
+import { CalendarDays, Loader2, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
@@ -12,6 +12,7 @@ import {
 } from "../../services/seViene.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { matchesSearch } from "../../utils/searchMatch";
+import { RECUADRO_DEL_GRUPO } from "./coloresDeLaBandeja";
 import FilaDeSeViene from "./FilaDeSeViene";
 import FiltroDelSemaforo from "./FiltroDelSemaforo";
 import { agruparPorMes } from "./oportunidades.utils";
@@ -50,7 +51,6 @@ export default function SeVieneOportunidades() {
     queryFn: getCalendario,
     staleTime: 5 * 60 * 1000,
   });
-  const [soloPrioridad, setSoloPrioridad] = useState(false);
   const [semaforos, setSemaforos] = useState<Semaforo[]>(["verde", "amarillo"]);
   const [busca, setBusca] = useState("");
   const [region, setRegion] = useState("");
@@ -119,27 +119,41 @@ export default function SeVieneOportunidades() {
   ) as string[];
   // Todo menos el semáforo, como en la bandeja: así cada color dice cuántas
   // hay con los demás filtros puestos.
-  const sinPrioridad = data.filter(
+  const base = data.filter(
     (s) =>
       // Boolean: un motor de antes de la decisión 63 no trae el campo.
       Boolean(s.descartada) === verDescartadas &&
       (!region || s.region === region) &&
       matchesSearch(busca, s.nombre, s.organismo, s.comuna, s.ultima.codigo),
   );
-  const base = soloPrioridad ? sinPrioridad.filter(esPrioridad) : sinPrioridad;
   const porSemaforo: Record<Semaforo, number> = {
     verde: 0,
     amarillo: 0,
     rojo: 0,
   };
   for (const s of base) if (s.semaforo) porSemaforo[s.semaforo]++;
-  const seVe = (s: SeViene) =>
-    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo;
-  const lista = base.filter(seVe);
-  // La prioridad dice cuántas se verían al prenderla.
-  const conPrioridad = sinPrioridad.filter(
-    (s) => esPrioridad(s) && seVe(s),
-  ).length;
+  const lista = base.filter((s) =>
+    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo,
+  );
+  // Como la bandeja (Felipe, 20-10: "prioridad está en una lista arriba y
+  // las que no son prioridad en otra lista abajo"): la prioridad en su
+  // recuadro violeta y el resto por mes, cada uno en el suyo.
+  const grupos: Array<{
+    clave: string;
+    titulo: string;
+    prioridad: boolean;
+    filas: SeViene[];
+  }> = [
+    {
+      clave: "prioridad",
+      titulo: "Prioridad",
+      prioridad: true,
+      filas: lista.filter(esPrioridad),
+    },
+    ...agruparPorMes(lista.filter((s) => !esPrioridad(s))).map(
+      ([mes, filas]) => ({ clave: mes, titulo: mes, prioridad: false, filas }),
+    ),
+  ].filter((g) => g.filas.length > 0);
 
   return (
     <div className="space-y-4">
@@ -170,33 +184,6 @@ export default function SeVieneOportunidades() {
             porSemaforo={porSemaforo}
             busca={busca}
             onBuscar={setBusca}
-            antesDelBuscador={
-              // La prioridad en violeta, como en la bandeja (decisión 31):
-              // comuna cercana o alto valor. Reemplaza a la casilla (Felipe,
-              // 20-10: "ese check box no pega ni junta").
-              <button
-                type="button"
-                aria-pressed={soloPrioridad}
-                title="Comuna cercana o alto valor"
-                onClick={() => setSoloPrioridad((v) => !v)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border ${
-                  soloPrioridad
-                    ? "border-violet-300 bg-violet-50 text-violet-700 font-semibold"
-                    : "border-gray-200 bg-white text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                <Star
-                  size={14}
-                  aria-hidden
-                  className={
-                    soloPrioridad
-                      ? "fill-violet-400 text-violet-500"
-                      : "text-violet-400"
-                  }
-                />
-                Prioridad {conPrioridad}
-              </button>
-            }
           />
           {(descartadas > 0 || verDescartadas) && (
             <button
@@ -237,26 +224,47 @@ export default function SeVieneOportunidades() {
           </p>
         )
       ) : (
-        agruparPorMes(lista).map(([mes, items]) => (
-          <section key={mes} className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-900">{mes}</h3>
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
-              {items.map((s) => (
-                <FilaDeSeViene
-                  key={`${s.ultima.codigo}-${s.esperada}`}
-                  s={s}
-                  ocupado={
-                    descartar.isPending &&
-                    descartar.variables?.codigo === s.ultima.codigo
+        <div className="space-y-5">
+          {grupos.map((g) => {
+            const colores =
+              RECUADRO_DEL_GRUPO[g.prioridad ? "prioridad" : "otro"];
+            const Icono = g.prioridad ? Star : CalendarDays;
+            return (
+              <section
+                key={g.clave}
+                className={`overflow-hidden rounded-lg border bg-white ${colores.recuadro}`}
+              >
+                <h3
+                  title={
+                    g.prioridad ? "Comuna cercana o alto valor" : undefined
                   }
-                  onDescartar={(descartada) =>
-                    descartar.mutate({ codigo: s.ultima.codigo, descartada })
-                  }
-                />
-              ))}
-            </ul>
-          </section>
-        ))
+                  className={`flex items-center gap-1.5 px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${colores.titulo}`}
+                >
+                  <Icono size={14} />
+                  {g.titulo} ({g.filas.length})
+                </h3>
+                <ul className="divide-y divide-gray-200">
+                  {g.filas.map((s) => (
+                    <FilaDeSeViene
+                      key={`${s.ultima.codigo}-${s.esperada}`}
+                      s={s}
+                      ocupado={
+                        descartar.isPending &&
+                        descartar.variables?.codigo === s.ultima.codigo
+                      }
+                      onDescartar={(descartada) =>
+                        descartar.mutate({
+                          codigo: s.ultima.codigo,
+                          descartada,
+                        })
+                      }
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
     </div>
   );

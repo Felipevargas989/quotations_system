@@ -217,7 +217,7 @@ describe("Se viene con el semáforo", () => {
     );
   });
 
-  it("la fila de la bandeja: la región y la prioridad en violeta, sin casilla", async () => {
+  it("como la bandeja: la prioridad en su recuadro arriba, el resto por mes, y la región", async () => {
     s.getCalendario.mockResolvedValue([
       serie("5040-25-LE25", "Día de campo del dirigente", "verde", {
         comuna_cercana: true,
@@ -231,16 +231,25 @@ describe("Se viene con el semáforo", () => {
     pintar();
     await screen.findByText("Día de campo del dirigente");
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-
-    // La prioridad: cuántas se verían, y al prenderla, solo esas.
-    const prioridad = screen.getByRole("button", { name: /Prioridad 1/ });
-    expect(prioridad).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(prioridad);
-    expect(prioridad).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.queryByText("Encuentro de dirigentes sociales"),
+      screen.queryByRole("button", { name: /Prioridad/ }),
     ).not.toBeInTheDocument();
-    fireEvent.click(prioridad);
+
+    // Dos recuadros: «Prioridad (1)» primero, con la de Quillón; el mes,
+    // después, con la otra.
+    const titulos = screen.getAllByRole("heading", { level: 3 });
+    expect(titulos[0]).toHaveTextContent("Prioridad (1)");
+    expect(titulos[1]).toHaveTextContent(/noviembre de 2026 \(1\)/i);
+    expect(
+      within(titulos[0].closest("section") as HTMLElement).getByText(
+        "Día de campo del dirigente",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(titulos[1].closest("section") as HTMLElement).getByText(
+        "Encuentro de dirigentes sociales",
+      ),
+    ).toBeInTheDocument();
 
     // La región, como en la bandeja.
     fireEvent.click(screen.getByRole("button", { name: /Todas tus regiones/ }));
