@@ -72,21 +72,30 @@ export type ResultadoDeTraer = {
 export const claveDelNombre = (nombre: string): string =>
   normalizar(nombre).replace(/[^a-z0-9]+/g, '');
 
-/** Lo que vale de cada fila que devuelve Licify. */
+/** Lo que vale de cada fila que devuelve Licify. En las licitaciones,
+ *  `file_original_url` ya es su copia; en las compras ágiles ese campo es
+ *  el enlace de Mercado Público (pide sesión: 401) y la copia de Licify
+ *  viene en `file_r2_url`, con el nombre en `file_name` (medido el 21-10).
+ *  Lo que solo esté en Mercado Público no se intenta. */
 export const archivosDeLaRespuesta = (
   respuesta: unknown,
 ): ArchivoDeLicify[] => {
   if (!Array.isArray(respuesta)) return [];
   const archivos: ArchivoDeLicify[] = [];
+  const texto = (v: unknown): string => (typeof v === 'string' ? v : '');
   for (const fila of respuesta as Array<Record<string, unknown>>) {
-    const url =
-      typeof fila?.file_original_url === 'string' ? fila.file_original_url : '';
-    if (!/^https:\/\//.test(url)) continue;
-    let nombre = url.slice(url.lastIndexOf('/') + 1);
-    try {
-      nombre = decodeURIComponent(nombre);
-    } catch {
-      // Un nombre mal codificado se usa tal cual.
+    const url = [texto(fila?.file_r2_url), texto(fila?.file_original_url)].find(
+      (u) => /^https:\/\//.test(u) && !/\.mercadopublico\.cl\//.test(u),
+    );
+    if (!url) continue;
+    let nombre = texto(fila.file_name).trim();
+    if (!nombre) {
+      nombre = url.slice(url.lastIndexOf('/') + 1);
+      try {
+        nombre = decodeURIComponent(nombre);
+      } catch {
+        // Un nombre mal codificado se usa tal cual.
+      }
     }
     if (!nombre) continue;
     archivos.push({
