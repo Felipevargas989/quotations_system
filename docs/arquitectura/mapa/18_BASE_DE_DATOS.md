@@ -68,7 +68,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 |---|---|---|---|
 | `payments` | Cuotas del plan de pagos: número, monto, vencimiento, `status` (CHECK: pendiente, pagado, vencido). Sin `company_id` | 03 | `0_initial_models.sql` |
 | `payment_transactions` | Abonos reales: monto, medio, fecha, comprobante (`receipt_photo_url`), `created_by` → `auth.users`, `pago_grupo` (uuid: las piezas de un mismo pago repartido en varias cuotas lo comparten; default `gen_random_uuid()`). Sin `company_id` | 03, doc 14 | `0_initial_models.sql`; medios unificados en 102; `pago_grupo` en `118_un_pago_repartido_en_cuotas_es_uno_solo.sql` (lab 07-10-2026; producción 08-10-2026) |
-| `refunds` | Reembolsos: monto, pagado, fecha, medio, comprobante. Sin `company_id` | 03 | `0_initial_models.sql`; 7 |
+| `refunds` | Reembolsos: monto, pagado, fecha, medio, comprobante y notas (158). Sin `company_id` | 03 | `0_initial_models.sql`; 7; 158 |
 | `portal_receipts` | Comprobantes que sube el cliente desde el portal, pendientes hasta que el equipo los confirma | 03 | 49 |
 
 ### Catálogo de servicios

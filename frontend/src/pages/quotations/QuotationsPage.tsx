@@ -372,7 +372,11 @@ export default function QuotationsPage() {
     newStatus: string;
   } | null>(null);
   const [guardandoMotivo, setGuardandoMotivo] = useState(false);
-  const confirmarMotivo = async (motivo: string, comentario: string) => {
+  const confirmarMotivo = async (
+    motivo: string,
+    comentario: string,
+    reembolso?: number,
+  ) => {
     if (!pidiendoMotivo) return;
     setGuardandoMotivo(true);
     try {
@@ -380,6 +384,7 @@ export default function QuotationsPage() {
         pidiendoMotivo.quotationId,
         pidiendoMotivo.newStatus,
         motivo,
+        reembolso,
       );
       if (!cambio) return;
       if (comentario)
@@ -397,6 +402,8 @@ export default function QuotationsPage() {
     quotationId: string,
     newStatus: string,
     motivo?: string,
+    // Al anular con «Sí, reembolsar» (20-10-2026): nace un reembolso pendiente.
+    reembolso?: number,
   ) => {
     try {
       if (newStatus === QuotationStatus.ACEPTADA) {
@@ -440,6 +447,7 @@ export default function QuotationsPage() {
         {
           quotation_status: newStatus as QuotationStatus,
           ...(motivo ? { loss_reason: motivo } : {}),
+          ...(reembolso ? { reembolso_al_anular: reembolso } : {}),
         } as never,
         quotationId,
       );
@@ -714,10 +722,15 @@ export default function QuotationsPage() {
           tipo={
             pidiendoMotivo.newStatus === "cancelada" ? "anulacion" : "rechazo"
           }
+          quotationId={
+            pidiendoMotivo.newStatus === "cancelada"
+              ? pidiendoMotivo.quotationId
+              : undefined
+          }
           guardando={guardandoMotivo}
           onCancelar={() => setPidiendoMotivo(null)}
-          onConfirmar={(motivo, comentario) =>
-            void confirmarMotivo(motivo, comentario)
+          onConfirmar={(motivo, comentario, reembolso) =>
+            void confirmarMotivo(motivo, comentario, reembolso)
           }
         />
       )}

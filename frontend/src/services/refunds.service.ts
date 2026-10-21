@@ -45,10 +45,41 @@ export const registerRefund = async (
     refund_date: string;
     payment_method: string;
     receipt_url?: string | null;
+    notes?: string | null;
   },
 ): Promise<{ error: unknown }> => {
   try {
     await apiRequest(`${API_ROUTES.REFUNDS}/${id}/register`, "PATCH", fields);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
+};
+
+// REEMBOLSOS POR PARTES (20-10-2026): registrar contra lo que falta por
+// devolver de la cotización (nace pagado y descuenta de lo pendiente).
+export const registrarReembolso = async (fields: {
+  quotation_id: string;
+  amount: number;
+  refund_date: string;
+  payment_method: string;
+  receipt_url?: string | null;
+  notes?: string | null;
+}): Promise<{ error: unknown }> => {
+  try {
+    await apiRequest(API_ROUTES.REFUNDS_REGISTRAR, "POST", fields);
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
+};
+
+// Elimina un reembolso registrado: su monto vuelve a lo que falta.
+export const eliminarReembolso = async (
+  id: string | number,
+): Promise<{ error: unknown }> => {
+  try {
+    await apiRequest(`${API_ROUTES.REFUNDS}/${id}`, "DELETE");
     return { error: null };
   } catch (error) {
     return { error };
