@@ -23,6 +23,7 @@ type CamposDeRegistro = {
   refund_date: string;
   payment_method: string;
   receipt_url?: string | null;
+  notes?: string | null;
 };
 
 @Injectable()
@@ -95,6 +96,7 @@ export class RefundsService {
       refund_date: campos.refund_date,
       payment_method: campos.payment_method,
       receipt_url: campos.receipt_url ?? null,
+      notes: campos.notes?.trim() || null,
     });
     if (error) {
       // Lo descontado vuelve: no se pierde plata si falla el registro.

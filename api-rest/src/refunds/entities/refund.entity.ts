@@ -9,4 +9,6 @@ export class Refund {
   refund_date?: string | null;
   payment_method?: string | null;
   receipt_url?: string | null;
+  // Migración 158 (20-10-2026): notas, como las de los abonos.
+  notes?: string | null;
 }

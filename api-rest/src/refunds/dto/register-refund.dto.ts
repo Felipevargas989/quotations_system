@@ -16,4 +16,9 @@ export class RegisterRefundDto {
   @IsString()
   @IsOptional()
   receipt_url?: string | null;
+
+  // Migración 158 (20-10-2026): notas, como las de los abonos.
+  @IsString()
+  @IsOptional()
+  notes?: string | null;
 }

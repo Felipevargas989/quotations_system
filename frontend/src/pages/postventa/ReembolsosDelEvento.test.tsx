@@ -118,17 +118,35 @@ describe("Registrar reembolso", () => {
     );
     fireEvent.click(screen.getByText("+ Registrar reembolso"));
     expect(
-      screen.getByText("Falta por reembolsar $6.000.000"),
+      screen.getByText("Falta por reembolsar: $6.000.000"),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Guardar reembolso"));
+    fireEvent.change(screen.getByPlaceholderText("Información adicional…"), {
+      target: { value: "devuelto a la cuenta del cliente" },
+    });
+    fireEvent.click(screen.getByText("Reembolsar $6.000.000"));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(r.registrarReembolso).toHaveBeenCalledWith(
       expect.objectContaining({
         quotation_id: "q1",
         amount: 6000000,
         payment_method: "Transferencia",
+        notes: "devuelto a la cuenta del cliente",
       }),
     );
+  });
+
+  it("es el mismo formulario de «Registrar pago»: arrastrar y soltar y notas, en rojo", () => {
+    const { container } = render(
+      <RegistrarReembolsoPanel
+        quotationId="q1"
+        pendiente={6000000}
+        onChanged={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText("+ Registrar reembolso"));
+    expect(screen.getByText("o arrastra aquí")).toBeInTheDocument();
+    expect(screen.getByText("Notas (opcional)")).toBeInTheDocument();
+    expect(container.querySelector(".border-red-200")).not.toBeNull();
   });
 
   it("sin nada por devolver no hay botón", () => {

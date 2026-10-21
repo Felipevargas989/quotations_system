@@ -91,6 +91,7 @@ export class RefundsRepository {
       refund_date: string;
       payment_method: string;
       receipt_url?: string | null;
+      notes?: string | null;
     },
   ) {
     this.logger.info(`registerPaid refund ${id} company ${companyId}`);

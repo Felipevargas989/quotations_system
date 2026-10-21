@@ -45,6 +45,7 @@ export const registerRefund = async (
     refund_date: string;
     payment_method: string;
     receipt_url?: string | null;
+    notes?: string | null;
   },
 ): Promise<{ error: unknown }> => {
   try {
@@ -63,6 +64,7 @@ export const registrarReembolso = async (fields: {
   refund_date: string;
   payment_method: string;
   receipt_url?: string | null;
+  notes?: string | null;
 }): Promise<{ error: unknown }> => {
   try {
     await apiRequest(API_ROUTES.REFUNDS_REGISTRAR, "POST", fields);
