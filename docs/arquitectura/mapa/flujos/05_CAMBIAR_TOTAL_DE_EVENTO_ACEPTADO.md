@@ -204,7 +204,7 @@ sequenceDiagram
 
 **Avisos de pantalla que no calzan con el motor**
 - El aviso `up` de `ServiciosTab.save` y el texto de `AvisoPlanDePagos` no mencionan que, al subir, **primero se consumen reembolsos pendientes** (tarea #42). Si había uno, la pantalla dice que se agrandó la última cuota cuando en realidad se achicó el reembolso.
-- El aviso `refund` pide registrarlo "en la pestaña Comprobantes", pero `ReembolsosManager` vive dentro de la pestaña `pagos` de `PostVentaPage.tsx`. "Comprobantes" es la bandeja de comprobantes subidos desde el portal.
+- El aviso `refund` pide registrarlo "en la pestaña Comprobantes", pero los reembolsos viven en la pestaña `pagos` de `PostVentaPage.tsx` (`ReembolsosDelEvento` desde el 20-10-2026: «Por reembolsar $X» con su «+ Registrar reembolso»). "Comprobantes" es la bandeja de comprobantes subidos desde el portal.
 - En la ficha del negocio (`paidAmount={0}`) el aviso de reembolso **nunca aparece**, aunque el motor lo cree.
 - La pantalla calcula el reembolso como `paidAmount − total nuevo`. El motor lo calcula como lo que no alcanzó a descontarse de cuotas pendientes. Dan lo mismo solo si las cuotas suman exactamente el total y las pagadas están completas.
 - En una `cancelada`, `ServiciosTab.save` igual pinta "Se ajustó el plan de pagos automáticamente…", porque su lista de pre-venta no incluye `cancelada`. El motor, en cambio, no toca cuotas ni reembolsos (regla 1 de la sección 6).
@@ -326,7 +326,7 @@ sequenceDiagram
 3. **¿Una cotización `cancelada` debe cascadear?** Hoy no tiene candado ni cascada, y no encontré regla escrita que diga cuál es la intención.
 4. **¿Las cuotas que la baja deja en $0 deberían borrarse?** Hoy quedan vivas, pueden vencer y entrar a la cobranza. No encontré una decisión escrita.
 5. **¿Qué debe pasar si el total baja a $0 en un evento aceptado?** Hoy la cascada se salta por la condición `total_amount &&`. No se sabe si es intención o descuido.
-6. **¿Dónde se debe registrar un reembolso?** El aviso de `ServiciosTab` dice "pestaña Comprobantes", pero `ReembolsosManager` está en la pestaña `pagos`. Falta confirmar el texto correcto con Felipe.
+6. **¿Dónde se debe registrar un reembolso?** El aviso de `ServiciosTab` dice "pestaña Comprobantes", pero los reembolsos están en la pestaña `pagos` (`ReembolsosDelEvento`). Falta confirmar el texto correcto con Felipe.
 7. **En la ficha del negocio, `ServiciosTab` recibe `paidAmount={0}` también para aceptadas.** El comentario de `NegocioPage.tsx` supone pre-venta ("En pre-venta no hay pagos aún"). ¿Se debe pasar lo pagado real o esconder la pestaña en post-venta?
 8. **¿Un vendedor debe poder cambiar el total de una aceptada desde la ficha del negocio?** Ya verificado: Post-Venta entero pide `SECTION_ROLES.payments` (operaciones y administrador) en `App.tsx`, y `ServiciosTab` no bloquea por rol. Pero la ficha (`NegocioPage.tsx`) muestra la pestaña con `SECTION_ROLES.quotations_edit`, que incluye al vendedor, sin mirar el estado. El cotizador se lo impide (`isRestrictedEditing`) y el motor solo frena a recepción. Falta que Felipe diga cuál de las dos reglas es la buena.
 9. **El comentario de `QuotationsService.update` dice que la llaman "el cron de seguimiento" y "el portal de pagos" sin rol**, pero en el código solo encontré a `QuotationsController.update` como llamador. ¿El comentario quedó viejo?
