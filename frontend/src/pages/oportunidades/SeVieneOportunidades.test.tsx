@@ -87,8 +87,27 @@ describe("Se viene con el semáforo", () => {
     // Nada que leer: no pregunta cómo va.
     expect(s.getLecturaDelCalendario).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByLabelText("Ver también las rojas (1)"));
+    // El filtro de la bandeja: cada color con cuántas hay; las rojas,
+    // apagadas.
+    expect(screen.getByRole("button", { name: /Verdes 1/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Rojas 1 · ocultas/ }));
     expect(screen.getByText("Insumos para procedimientos")).toBeInTheDocument();
+
+    // El buscador: nombre, organismo o código.
+    fireEvent.change(
+      screen.getByPlaceholderText("Buscar nombre, organismo o código"),
+      { target: { value: "coffee" } },
+    );
+    expect(screen.getByText("Servicio de coffee break")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Día de campo del dirigente"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Verdes 0/ }),
+    ).toBeInTheDocument();
   });
 
   it("mientras la IA lee, lo sin leer no se ve y dice cómo va", async () => {

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlarmClock, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { Semaforo } from "../../services/oportunidades.service";
 import {
   getCalendario,
   getLecturaDelCalendario,
@@ -8,11 +9,13 @@ import {
 } from "../../services/seViene.service";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
+import { matchesSearch } from "../../utils/searchMatch";
 import {
   filaDelSemaforo,
   NOMBRE_DEL_SEMAFORO,
   RAZON_DE_PRIORIDAD,
 } from "./coloresDeLaBandeja";
+import FiltroDelSemaforo from "./FiltroDelSemaforo";
 import Ganadores from "./Ganadores";
 import {
   agruparPorMes,
@@ -33,7 +36,9 @@ import {
 // las rojas, solo si se piden. Lo que la IA todavía no lee no se muestra
 // mientras lee (el motor dice cómo va); si quedó sin leer, se ve sin color.
 // La prioridad, en violeta como en la bandeja (decisión 31): el amarillo es
-// del semáforo.
+// del semáforo. El filtro es el de la bandeja (`FiltroDelSemaforo`; Felipe:
+// "sería bueno que este filtro sea el mismo, con verdes, amarillas, rojas y
+// buscador"): las rojas parten apagadas.
 
 const CLAVE = ["oportunidades", "calendario"];
 
@@ -53,7 +58,8 @@ export default function SeVieneOportunidades() {
     staleTime: 5 * 60 * 1000,
   });
   const [soloPrioridad, setSoloPrioridad] = useState(false);
-  const [conRojas, setConRojas] = useState(false);
+  const [semaforos, setSemaforos] = useState<Semaforo[]>(["verde", "amarillo"]);
+  const [busca, setBusca] = useState("");
 
   // Mientras falten por leer, se pregunta cómo va la lectura que mandó el
   // calendario (una consulta nueva por cada calendario que llega).
@@ -89,20 +95,38 @@ export default function SeVieneOportunidades() {
   // Recién terminada, sigue «leyendo» hasta que llega el calendario nuevo:
   // si no, lo sin leer se asoma un instante antes de tener su color.
   const leyendo = sinLeer > 0 && (lectura?.leyendo !== false || isFetching);
-  const conPrioridad = soloPrioridad ? data.filter(esPrioridad) : data;
-  const rojas = conPrioridad.filter((s) => s.semaforo === "rojo").length;
-  const lista = conPrioridad.filter((s) =>
-    s.semaforo ? s.semaforo !== "rojo" || conRojas : !leyendo,
+  // Todo menos el semáforo, como en la bandeja: así cada color dice cuántas
+  // hay con los demás filtros puestos.
+  const base = data.filter(
+    (s) =>
+      (!soloPrioridad || esPrioridad(s)) &&
+      matchesSearch(busca, s.nombre, s.organismo, s.comuna, s.ultima.codigo),
+  );
+  const porSemaforo: Record<Semaforo, number> = {
+    verde: 0,
+    amarillo: 0,
+    rojo: 0,
+  };
+  for (const s of base) if (s.semaforo) porSemaforo[s.semaforo]++;
+  const lista = base.filter((s) =>
+    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo,
   );
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-3">
         <p className="text-sm text-gray-500">
           Lo que el mismo comprador publicó en años anteriores y debería volver
           a salir en los próximos 90 días.
         </p>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltroDelSemaforo
+            seleccion={semaforos}
+            onCambiar={setSemaforos}
+            porSemaforo={porSemaforo}
+            busca={busca}
+            onBuscar={setBusca}
+          />
           <label className="inline-flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
@@ -112,17 +136,6 @@ export default function SeVieneOportunidades() {
             />
             Solo comuna cercana o alto valor
           </label>
-          {rojas > 0 && (
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={conRojas}
-                onChange={(e) => setConRojas(e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              Ver también las rojas ({rojas})
-            </label>
-          )}
         </div>
       </div>
 
@@ -140,7 +153,7 @@ export default function SeVieneOportunidades() {
           <p className="py-6 text-center text-sm text-gray-500">
             {data.length === 0
               ? "Todavía no hay nada que anunciar. El calendario se arma con la historia de 3 años, que se va cargando de noche."
-              : "Nada verde ni amarillo en los próximos 90 días."}
+              : "Nada con esos filtros."}
           </p>
         )
       ) : (
