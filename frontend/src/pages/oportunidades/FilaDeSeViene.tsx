@@ -33,9 +33,12 @@ export default function FilaDeSeViene({
   readonly onDescartar: (descartada: boolean) => void;
 }) {
   const [confirmando, setConfirmando] = useState(false);
-  const prioridad = (["comuna_cercana", "alto_valor"] as const).filter(
-    (a) => s[a],
-  );
+  // La razón de la prioridad (decisión 64): la comuna cercana, si es del
+  // rubro; el monto ya no cuenta.
+  const prioridad =
+    s.comuna_cercana && (s.semaforo === "verde" || s.semaforo === "amarillo")
+      ? (["comuna_cercana"] as const)
+      : [];
   return (
     <li
       data-semaforo={s.semaforo ?? "sin_leer"}

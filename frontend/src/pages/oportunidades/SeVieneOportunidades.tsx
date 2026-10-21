@@ -36,7 +36,10 @@ import { agruparPorMes } from "./oportunidades.utils";
 
 const CLAVE = ["oportunidades", "calendario"];
 
-const esPrioridad = (s: SeViene) => s.comuna_cercana || s.alto_valor;
+/** La prioridad de la bandeja (decisión 64): de tu rubro (verde o amarillo)
+ *  y de una comuna cercana; el monto no cuenta. */
+const esPrioridad = (s: SeViene) =>
+  s.comuna_cercana && (s.semaforo === "verde" || s.semaforo === "amarillo");
 
 export default function SeVieneOportunidades() {
   const qc = useQueryClient();
