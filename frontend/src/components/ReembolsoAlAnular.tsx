@@ -27,15 +27,21 @@ const pesos = (n: number) => "$" + n.toLocaleString("es-CL");
 
 export default function ReembolsoAlAnular({
   quotationId,
+  disponibleInicial,
   onCambio,
 }: {
   readonly quotationId: string;
+  /** Lo que la pantalla ya sabe (Post-Venta: pagado menos devuelto). La caja
+   *  sale al instante y el motor lo confirma en segundo plano (Felipe,
+   *  20-10-2026: "se demoró un poco en aparecer la caja ámbar"). */
+  readonly disponibleInicial?: number;
   /** Debe ser estable (un setState): se llama cada vez que cambia la respuesta. */
   readonly onCambio: (decision: DecisionDeReembolso) => void;
 }) {
   const {
     data: disponible = 0,
     isLoading,
+    isFetching,
     isError,
   } = useQuery({
     queryKey: ["reembolsoAlAnular", quotationId],
@@ -50,13 +56,18 @@ export default function ReembolsoAlAnular({
       );
     },
     staleTime: 0,
+    // Con lo que ya se sabe, sin espera; vencido de entrada para que el
+    // motor lo confirme igual (y descuente los reembolsos pendientes).
+    initialData: disponibleInicial,
+    initialDataUpdatedAt: 0,
   });
   const [respuesta, setRespuesta] = useState<"si" | "no" | null>(null);
   const [monto, setMonto] = useState<number | undefined>(undefined);
   const aDevolver = monto ?? disponible;
 
   useEffect(() => {
-    if (isLoading) onCambio({ listo: false });
+    // Mientras el motor confirma, se ve la caja pero no se puede anular.
+    if (isLoading || isFetching) onCambio({ listo: false });
     else if (isError || disponible <= 0 || respuesta === "no")
       onCambio({ listo: true });
     else if (respuesta === "si")
@@ -65,7 +76,15 @@ export default function ReembolsoAlAnular({
         monto: aDevolver,
       });
     else onCambio({ listo: false });
-  }, [isLoading, isError, disponible, respuesta, aDevolver, onCambio]);
+  }, [
+    isLoading,
+    isFetching,
+    isError,
+    disponible,
+    respuesta,
+    aDevolver,
+    onCambio,
+  ]);
 
   if (isLoading)
     return <p className="text-xs text-gray-500">Revisando los abonos…</p>;

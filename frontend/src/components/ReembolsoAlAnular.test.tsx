@@ -134,3 +134,36 @@ describe("utilidades del reembolso al anular", () => {
     });
   });
 });
+
+describe("La caja sale al instante (20-10-2026)", () => {
+  // Felipe: "se demoró un poco en aparecer la caja ámbar (…) ¿puede ser
+  // inmediato?". Post-Venta ya sabe lo pagado y lo devuelto.
+  it("con lo que ya sabe la pantalla se ve de inmediato y espera al motor para confirmar", async () => {
+    let soltar: (v: unknown) => void = () => {};
+    p.getPaymentsByQuotationId.mockReturnValue(
+      new Promise((res) => {
+        soltar = res;
+      }) as never,
+    );
+    r.getRefundsByQuotation.mockResolvedValue([] as never);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MotivoPerdida
+          tipo="anulacion"
+          quotationId="q1"
+          reembolsoInicial={1394000}
+          onConfirmar={vi.fn()}
+          onCancelar={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByText("No pudimos atenderlo"));
+    expect(
+      screen.getByText(/Este evento tiene \$1\.394\.000 abonados/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("No"));
+    expect(confirmar()).toBeDisabled();
+    soltar({ data: [{ payment_transactions: [{ amount: 1394000 }] }] });
+    await waitFor(() => expect(confirmar()).toBeEnabled());
+  });
+});
