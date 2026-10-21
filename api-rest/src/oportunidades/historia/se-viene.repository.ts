@@ -17,6 +17,11 @@ export type LecturaDeSerie = {
   codigo: string;
   semaforo: Semaforo;
   razon: string;
+  /** Migración 157 (decisión 63): las ediciones anteriores según la IA
+   *  (null: todavía no lo revisa), por qué, y si la empresa la descartó. */
+  ediciones: string[] | null;
+  repeticion: string | null;
+  descartada_en: string | null;
 };
 
 @Injectable()
@@ -41,7 +46,7 @@ export class SeVieneRepository {
     for (let i = 0; i < codigos.length; i += LOTE) {
       const { data, error } = await this.db
         .from('oportunidades_se_viene')
-        .select('codigo, semaforo, razon')
+        .select('codigo, semaforo, razon, ediciones, repeticion, descartada_en')
         .eq('company_id', companyId)
         .in('codigo', codigos.slice(i, i + LOTE));
       if (error) throw error;
@@ -75,6 +80,41 @@ export class SeVieneRepository {
       .maybeSingle();
     if (error) throw error;
     return (data as { name: string | null } | null)?.name ?? '';
+  }
+
+  /** Lo que dijo la IA de si se repite (decisión 63), en la fila que dejó
+   *  la lectura del semáforo. */
+  async guardarRepeticion(
+    companyId: number,
+    codigo: string,
+    ediciones: string[],
+    repeticion: string,
+  ): Promise<void> {
+    const { error } = await this.db
+      .from('oportunidades_se_viene')
+      .update({ ediciones, repeticion })
+      .eq('company_id', companyId)
+      .eq('codigo', codigo);
+    if (error) throw error;
+  }
+
+  /** «Descartar» (o recuperar) una serie (decisión 63). false si esa
+   *  serie no está leída para la empresa. */
+  async descartar(
+    companyId: number,
+    codigo: string,
+    descartada: boolean,
+  ): Promise<boolean> {
+    const { data, error } = await this.db
+      .from('oportunidades_se_viene')
+      .update({
+        descartada_en: descartada ? new Date().toISOString() : null,
+      })
+      .eq('company_id', companyId)
+      .eq('codigo', codigo)
+      .select('codigo');
+    if (error) throw error;
+    return ((data ?? []) as unknown[]).length > 0;
   }
 
   async guardar(

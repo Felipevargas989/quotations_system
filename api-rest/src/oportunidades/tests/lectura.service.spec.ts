@@ -366,3 +366,63 @@ describe('lo que lee la IA', () => {
     expect(texto).toContain('(sin detalle)');
   });
 });
+
+describe('LecturaService — si se repite (decisión 63)', () => {
+  const CANDIDATAS = [
+    {
+      codigo: '5040-30-LE24',
+      nombre: 'PRODUCCION DIA DE CAMPO DIRIGENTES 2024',
+      fecha_publicacion: '2024-11-05T12:00:00.000Z',
+      monto: 16_000_000,
+    },
+  ];
+
+  it('pregunta a Haiku 5.5 con las instrucciones en caché y devuelve solo códigos de la lista', async () => {
+    const parse = jest.fn().mockResolvedValue(
+      respuesta({
+        anteriores: ['5040-30-LE24', 'inventado'],
+        razon: 'Mismo evento.',
+      }),
+    );
+    const uso: Uso = { entrada: 0, salida: 0 };
+    await expect(
+      new LecturaDePrueba(parse).edicionesAnteriores(
+        'la pregunta',
+        CANDIDATAS,
+        uso,
+      ),
+    ).resolves.toEqual({
+      anteriores: ['5040-30-LE24'],
+      razon: 'Mismo evento.',
+    });
+    const [[pedido]] = parse.mock.calls as Array<
+      [
+        {
+          model: string;
+          system: Array<{ text: string; cache_control: unknown }>;
+          messages: Array<{ content: unknown }>;
+        },
+      ]
+    >;
+    expect(pedido.model).toBe(MODELO_LECTURA);
+    expect(pedido.system[0].cache_control).toEqual({ type: 'ephemeral' });
+    expect(pedido.system[0].text).toContain('MISMO evento');
+    expect(pedido.messages[0].content).toBe('la pregunta');
+    expect(uso).toEqual({ entrada: 900, salida: 60 });
+  });
+
+  it('si la cuenta falla, se detiene; si falla una, null', async () => {
+    const cuenta = jest
+      .fn()
+      .mockRejectedValue(
+        new Anthropic.RateLimitError(429, {}, 'rate limited', new Headers()),
+      );
+    await expect(
+      new LecturaDePrueba(cuenta).edicionesAnteriores('x', CANDIDATAS),
+    ).rejects.toBeInstanceOf(LecturaDetenida);
+    const una = jest.fn().mockRejectedValue(new Error('se cortó'));
+    await expect(
+      new LecturaDePrueba(una).edicionesAnteriores('x', CANDIDATAS),
+    ).resolves.toBeNull();
+  });
+});

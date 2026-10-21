@@ -414,11 +414,16 @@ describe('OportunidadesService — Se viene y competidores', () => {
     const r = await servicio.calendario(1);
 
     expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
-    expect(seViene.conSemaforo).toHaveBeenCalledWith(1, expect.any(Array), {
-      comunasCercanas: ['Quillón'],
-      umbralAltoValor: 3_000_000,
-      perfil: null,
-    });
+    expect(seViene.conSemaforo).toHaveBeenCalledWith(
+      1,
+      expect.any(Array),
+      [expect.objectContaining({ codigo: '5040-25-LE25' })],
+      {
+        comunasCercanas: ['Quillón'],
+        umbralAltoValor: 3_000_000,
+        perfil: null,
+      },
+    );
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({
       comuna_cercana: true,

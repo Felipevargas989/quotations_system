@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/seViene.service";
 import type { SeViene } from "../../services/seViene.service";
@@ -14,6 +20,10 @@ import SeVieneOportunidades from "./SeVieneOportunidades";
 vi.mock("../../services/seViene.service", () => ({
   getCalendario: vi.fn(),
   getLecturaDelCalendario: vi.fn(),
+  descartarSerie: vi.fn(),
+}));
+vi.mock("../../components/toast/Toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 vi.mock("./Ganadores", () => ({ default: () => null }));
 const s = vi.mocked(servicio);
@@ -46,6 +56,9 @@ const serie = (
   },
   semaforo,
   razon: semaforo ? `Razón de ${nombre}.` : null,
+  repite: semaforo ? false : null,
+  repeticion: null,
+  descartada: false,
   ...extra,
 });
 
@@ -154,4 +167,51 @@ describe("Se viene con el semáforo", () => {
     expect(sinLeer.closest("li")).toHaveAttribute("data-semaforo", "sin_leer");
     expect(screen.getByText(/no pudo leerla todavía/)).toBeInTheDocument();
   }, 10000);
+
+  it("la IA dice si se repite: «Se repite» o «Solo una vez», con su razón al pasar el mouse", async () => {
+    s.getCalendario.mockResolvedValue([
+      serie("5040-25-LE25", "Día de campo del dirigente", "verde", {
+        repite: true,
+        anios: [2024, 2025],
+        repeticion: "Es el mismo día de campo, con un monto parecido.",
+      }),
+      serie("3784-114-L125", "Servicio de coffee", "amarillo"),
+    ]);
+    pintar();
+    expect(await screen.findByText("Se repite")).toHaveAttribute(
+      "title",
+      "Es el mismo día de campo, con un monto parecido.",
+    );
+    expect(screen.getByText("Solo una vez")).toBeInTheDocument();
+  });
+
+  it("descartar pide confirmar, la saca de la lista y se recupera desde «Descartadas»", async () => {
+    s.getCalendario.mockResolvedValue([
+      serie("5040-25-LE25", "Día de campo del dirigente", "verde"),
+      serie("3784-114-L125", "Servicio de coffee", "amarillo"),
+    ]);
+    s.descartarSerie.mockImplementation(async (codigo, descartada) => ({
+      codigo,
+      descartada,
+    }));
+    pintar();
+    await screen.findByText("Servicio de coffee");
+    fireEvent.click(screen.getAllByRole("button", { name: "Descartar" })[1]);
+    expect(s.descartarSerie).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, descartar" }));
+    await waitFor(() =>
+      expect(screen.queryByText("Servicio de coffee")).not.toBeInTheDocument(),
+    );
+    expect(s.descartarSerie).toHaveBeenCalledWith("3784-114-L125", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Descartadas (1)" }));
+    expect(screen.getByText("Servicio de coffee")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Día de campo del dirigente"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Recuperar" }));
+    await waitFor(() =>
+      expect(s.descartarSerie).toHaveBeenCalledWith("3784-114-L125", false),
+    );
+  });
 });

@@ -24,6 +24,7 @@ import {
 import { AnalisisService } from './analisis/analisis.service';
 import { ValidacionService } from './analisis/validacion.service';
 import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
+import { DescartarSerieDto } from './dto/descartar-serie.dto';
 import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -130,6 +131,17 @@ export class OportunidadesController {
   @Get('calendario/lectura')
   lecturaDelCalendario(@CurrentUser() user: User) {
     return this.seViene.estado(user.company_id);
+  }
+
+  /** «Descartar» una serie de «Se viene» (decisión 63), o recuperarla: el
+   *  código es el de la última vez que salió. */
+  @Patch('calendario/:codigo')
+  descartarSerie(
+    @Param('codigo') codigo: string,
+    @Body() dto: DescartarSerieDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.seViene.descartar(user.company_id, codigo, dto.descartada);
   }
 
   /** Quién gana en las regiones de la empresa. */

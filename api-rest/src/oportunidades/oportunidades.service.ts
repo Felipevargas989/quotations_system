@@ -289,7 +289,7 @@ export class OportunidadesService {
       comunas: comunasCercanas,
       umbralAltoValor,
     });
-    return this.seViene.conSemaforo(companyId, series, {
+    return this.seViene.conSemaforo(companyId, series, procesos, {
       comunasCercanas,
       umbralAltoValor,
       perfil: config?.perfil ?? null,
