@@ -239,7 +239,9 @@ export default function SeVieneOportunidades() {
               >
                 <h3
                   title={
-                    g.prioridad ? "Comuna cercana o alto valor" : undefined
+                    g.prioridad
+                      ? "De tu rubro y de una comuna cercana"
+                      : undefined
                   }
                   className={`flex items-center gap-1.5 px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${colores.titulo}`}
                 >

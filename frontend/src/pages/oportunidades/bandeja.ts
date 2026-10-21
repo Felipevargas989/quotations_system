@@ -84,7 +84,8 @@ export type ClaveDeGrupo =
   | "cerradas";
 
 export const TITULO_DEL_GRUPO: Record<ClaveDeGrupo, string> = {
-  prioridad: "Prioridad: comuna cercana o alto valor",
+  // Decisión 64: de tu rubro y de tu zona; el monto no cuenta.
+  prioridad: "Prioridad: de tu rubro y de una comuna cercana",
   pronto: "Cierran en 3 días o menos",
   semana: "Esta semana",
   despues: "Más adelante",
