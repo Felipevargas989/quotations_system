@@ -9,7 +9,12 @@
 // OBLIGATORIO —de un clic— porque si es opcional nadie lo llena y en tres
 // meses el dato no existe. El comentario es opcional y viaja como nota al
 // hilo de seguimiento, salvo en "Otro", donde se exige.
+//
+// Al ANULAR con `quotationId` (20-10-2026) pregunta además si se
+// reembolsan los abonos (ReembolsoAlAnular) y entrega el monto como
+// tercer dato de onConfirmar.
 import { useState } from "react";
+import ReembolsoAlAnular, { DecisionDeReembolso } from "./ReembolsoAlAnular";
 
 export type MotivoTipo = "rechazo" | "anulacion";
 
@@ -40,23 +45,38 @@ export const etiquetaMotivo = (v?: string | null): string => {
 export default function MotivoPerdida({
   tipo,
   titulo,
+  quotationId,
+  reembolsoInicial,
   onConfirmar,
   onCancelar,
   guardando = false,
 }: {
   readonly tipo: MotivoTipo;
   readonly titulo?: string;
+  /** Al anular: la cotización cuyos abonos se ofrecen reembolsar. */
+  readonly quotationId?: string;
+  /** Lo abonado sin devolver que la pantalla ya conoce: la pregunta sale al instante. */
+  readonly reembolsoInicial?: number;
   // El comentario viaja aparte: quien llama decide si lo anota en el hilo.
-  readonly onConfirmar: (motivo: string, comentario: string) => void;
+  // `reembolso`: cuánto se devuelve al anular; sin él, no se reembolsa.
+  readonly onConfirmar: (
+    motivo: string,
+    comentario: string,
+    reembolso?: number,
+  ) => void;
   readonly onCancelar: () => void;
   readonly guardando?: boolean;
 }) {
   const opciones = tipo === "rechazo" ? MOTIVOS_RECHAZO : MOTIVOS_ANULACION;
+  const preguntaReembolso = tipo === "anulacion" && !!quotationId;
   const [motivo, setMotivo] = useState("");
   const [comentario, setComentario] = useState("");
+  const [reembolso, setReembolso] = useState<DecisionDeReembolso>({
+    listo: !preguntaReembolso,
+  });
   // "Otro" sin explicación no enseña nada: ahí el comentario es obligatorio.
   const faltaDetalle = motivo === "otro" && !comentario.trim();
-  const puede = !!motivo && !faltaDetalle && !guardando;
+  const puede = !!motivo && !faltaDetalle && !guardando && reembolso.listo;
 
   return (
     <div
@@ -107,6 +127,13 @@ export default function MotivoPerdida({
         </div>
 
         <div className="px-5 pb-4 pt-1 space-y-2.5">
+          {preguntaReembolso && quotationId && (
+            <ReembolsoAlAnular
+              quotationId={quotationId}
+              disponibleInicial={reembolsoInicial}
+              onCambio={setReembolso}
+            />
+          )}
           <textarea
             value={comentario}
             onChange={(e) => setComentario(e.target.value)}
@@ -129,14 +156,18 @@ export default function MotivoPerdida({
             </button>
             <button
               type="button"
-              onClick={() => onConfirmar(motivo, comentario.trim())}
+              onClick={() =>
+                onConfirmar(motivo, comentario.trim(), reembolso.monto)
+              }
               disabled={!puede}
               title={
                 !motivo
                   ? "Elige un motivo"
                   : faltaDetalle
                     ? "Cuéntanos qué pasó"
-                    : undefined
+                    : !reembolso.listo
+                      ? "Responde si se reembolsan los abonos"
+                      : undefined
               }
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
             >

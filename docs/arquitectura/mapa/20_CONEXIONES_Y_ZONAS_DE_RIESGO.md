@@ -123,7 +123,7 @@ Las 9 funciones de `db_functions_analytics_23_07.sql` (archivo suelto en la raí
 - `api-rest/src/quotations/portal-receipts.controller.ts` — `confirm()`: `payment_method: dto.payment_method || 'Transferencia bancaria'`
 - `frontend/src/services/portalReceipts.service.ts` — `confirmPortalReceipt` (POST con `{}`)
 - `docs/migrations/102_unificar-medios-de-pago.sql` — 198 filas migradas
-- `frontend/src/pages/postventa/PostVentaPage.tsx` — `PAYMENT_METHODS` (sin "Transferencia bancaria")
+- `frontend/src/constants/mediosDePago.ts` — `MEDIOS_DE_PAGO` (sin "Transferencia bancaria"; `PostVentaPage.tsx` lo importa como `PAYMENT_METHODS`)
 
 #### x1-11 · Compras escribe 4 columnas de `quotations` que leen Dashboard y Post-Venta
 

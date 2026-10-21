@@ -19,7 +19,7 @@ Al cliente le llega "Pago recibido", y a los administradores un aviso cuando el 
 1. **Persona de operaciones o administración, en pantalla.** Entra a `/post-venta/:id`, pestaña Pagos. La ruta está protegida por `PermissionGuard` con `SECTION_ROLES.payments` (`OPERATIONS_AND_UP`) en `frontend/src/App.tsx`. El formulario es `RegistrarPagoPanel`, en `frontend/src/pages/postventa/PostVentaPage.tsx`, y hace esto:
    - arma `pending` (cuotas con `amount - paid_amount > 0`, en orden de número);
    - calcula el tope `maxAmount` (la suma de los saldos) y muestra una vista previa del derrame;
-   - `recibirComprobante` rechaza archivos que no sean imagen o PDF, o que pesen más de 5 MB;
+   - el formulario es `FormularioDeRegistro` (`frontend/src/pages/postventa/FormularioDeRegistro.tsx`, desde el 20-10-2026 el mismo de «Registrar reembolso», en azul; Felipe, 20-10-2026: *"¿por qué el registrar reembolso no tiene la misma estructura que el registrar pagos (incluyendo el arrastrar y soltar)? (…) mantener todo homogéneo"*): rechaza al llegar los archivos que no sean imagen o PDF, o que pesen más de 5 MB, y el arrastrar y soltar es el de la casa (`useArrastreDeArchivos`), ya no una copia a mano;
    - si `maxAmount <= 0`, el panel no se dibuja. El corte va después de todos los hooks: el comentario advierte que un `return` temprano dio pantalla blanca justo al registrar el pago que deja el saldo en cero.
 
 2. **Pantalla → almacenamiento (solo si hay archivo).**
@@ -31,7 +31,7 @@ Al cliente le llega "Pago recibido", y a los administradores un aviso cuando el 
 
 3. **Pantalla → motor.** `createOverflowPayment`, en `frontend/src/services/paymentTransactions.service.ts`, llama a `POST /payments/transactions/overflow`.
    - Envía `quotation_id`, `amount` (redondeado), `payment_method`, `transaction_date`, `notes` y `receipt_photo_url`.
-   - El medio de pago es uno de los `PAYMENT_METHODS` de la pantalla: Transferencia, Efectivo, Cheque, Tarjeta u Otro.
+   - El medio de pago es uno de `MEDIOS_DE_PAGO` (`frontend/src/constants/mediosDePago.ts`, importado como `PAYMENT_METHODS`): Transferencia, Efectivo, Cheque, Tarjeta u Otro.
    - El cuerpo se valida con `CreateOverflowTransactionDto` (monto mínimo 1).
    - Lo recibe `PaymentsController.createOverflowPaymentTransaction`, con `@Roles(...OPERATIONS_AND_UP)`.
 
