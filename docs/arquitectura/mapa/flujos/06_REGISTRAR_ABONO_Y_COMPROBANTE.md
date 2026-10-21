@@ -31,7 +31,7 @@ Al cliente le llega "Pago recibido", y a los administradores un aviso cuando el 
 
 3. **Pantalla → motor.** `createOverflowPayment`, en `frontend/src/services/paymentTransactions.service.ts`, llama a `POST /payments/transactions/overflow`.
    - Envía `quotation_id`, `amount` (redondeado), `payment_method`, `transaction_date`, `notes` y `receipt_photo_url`.
-   - El medio de pago es uno de los `PAYMENT_METHODS` de la pantalla: Transferencia, Efectivo, Cheque, Tarjeta u Otro.
+   - El medio de pago es uno de `MEDIOS_DE_PAGO` (`frontend/src/constants/mediosDePago.ts`, importado como `PAYMENT_METHODS`): Transferencia, Efectivo, Cheque, Tarjeta u Otro.
    - El cuerpo se valida con `CreateOverflowTransactionDto` (monto mínimo 1).
    - Lo recibe `PaymentsController.createOverflowPaymentTransaction`, con `@Roles(...OPERATIONS_AND_UP)`.
 

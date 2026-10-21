@@ -21,7 +21,6 @@ import {
   Pencil,
   Trash2,
   FileText,
-  Undo2,
   Phone,
   Mail,
 } from "lucide-react";
@@ -58,7 +57,11 @@ import {
 } from "../../services/quotations.service";
 import { Quotation, QuotationWithClient } from "../../types/quotations.types";
 import { cambioDeAnulacion } from "../../utils/reembolsoAlAnular";
-import { Refund } from "../../types/refunds.types";
+import { MEDIOS_DE_PAGO as PAYMENT_METHODS } from "../../constants/mediosDePago";
+import { useReembolsosDelEvento } from "../../hooks/useReembolsosDelEvento";
+import BarraDelEvento from "./BarraDelEvento";
+import RegistrarReembolsoPanel from "./RegistrarReembolsoPanel";
+import ReembolsosDelEvento from "./ReembolsosDelEvento";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
@@ -75,11 +78,7 @@ import {
   HiloSeguimiento,
   AdjuntosComerciales,
 } from "../quotations/SeguimientoPanel";
-import {
-  getRefundsByQuotation,
-  getPaidRefundsByQuotation,
-  registerRefund,
-} from "../../services/refunds.service";
+import { getPaidRefundsByQuotation } from "../../services/refunds.service";
 import {
   EventDocument,
   DOCUMENT_CATEGORIES,
@@ -88,19 +87,11 @@ import {
   deleteDocument,
 } from "../../services/documents.service";
 import {
-  uploadRefundReceipt,
   uploadPaymentReceipt,
   uploadEventDocument,
   deleteStorageFileByUrl,
 } from "../../services/storage.service";
 
-const PAYMENT_METHODS = [
-  "Transferencia",
-  "Efectivo",
-  "Cheque",
-  "Tarjeta",
-  "Otro",
-];
 const todayISO = () => format(new Date(), "yyyy-MM-dd");
 
 // One row per closed event (quotation), aggregated from its payment plan.
@@ -1027,6 +1018,10 @@ function EventModal({
   const netPaid = event.paid - event.refunded;
   const saldo = event.total - netPaid;
   const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
+  // Anulado con reembolso (20-10-2026): la barra se vuelve roja y se vacía,
+  // y arriba manda «Registrar reembolso» en vez de «Registrar pago».
+  const reembolsos = useReembolsosDelEvento(event.quotationId);
+  const modoReembolso = event.cancelled && reembolsos.total > 0;
 
   // Load the full quotation (items, personas, discount, comments) for the
   // Servicios tab. Vía React Query con frescura inmediata (plata): la
@@ -1655,21 +1650,11 @@ function EventModal({
             <div className="space-y-6">
               {/* Los montos viven arriba en las cajitas del evento
                   (04-08); aquí queda el progreso de cuotas. */}
-              {/* Progress */}
-              <div className="pt-1">
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-600"
-                    style={{ width: `${Math.min(p, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1.5">
-                  <span>{p}% pagado</span>
-                  <span>
-                    {event.cuotas} cuota{event.cuotas === 1 ? "" : "s"}
-                  </span>
-                </div>
-              </div>
+              <BarraDelEvento
+                pct={p}
+                cuotas={event.cuotas}
+                reembolso={modoReembolso ? reembolsos : null}
+              />
 
               {pendingReceipts > 0 && (
                 <button
@@ -1687,7 +1672,15 @@ function EventModal({
               {/* Dos columnas en pantallas anchas (03-08): calendario
                   protagonista a la izquierda; registrar y reembolsos en
                   la lateral. En pantalla chica se apilan igual que antes. */}
-              <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
+              {modoReembolso ? (
+                <RegistrarReembolsoPanel
+                  quotationId={event.quotationId}
+                  pendiente={reembolsos.pendiente}
+                  onChanged={onDataChanged}
+                />
+              ) : (
+                <RegistrarPagoPanel event={event} onChanged={onDataChanged} />
+              )}
               <div className="grid gap-6 lg:grid-cols-[1fr_420px] items-start">
                 {/* Columna izquierda: calendario + reembolsos al final */}
                 <div className="space-y-6">
@@ -1898,9 +1891,11 @@ function EventModal({
                       );
                     })}
                   </div>
-                  <ReembolsosManager
+                  <ReembolsosDelEvento
                     quotationId={event.quotationId}
+                    conBoton={!modoReembolso}
                     onChanged={onDataChanged}
+                    onVer={setCompView}
                   />
                 </div>
                 {/* mt-8 en ancho: alinea el visor con la PRIMERA cuota
@@ -2484,238 +2479,6 @@ function EditRegistroModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ReembolsosManager({
-  quotationId,
-  onChanged,
-}: {
-  readonly quotationId: string;
-  readonly onChanged: () => void;
-}) {
-  // Reembolsos (plata): frescura inmediata; el prefijo ["postventa"]
-  // hace que refreshAfterSave también los refresque.
-  const queryClient = useQueryClient();
-  const refundsQuery = useQuery({
-    queryKey: ["postventa", "refunds", quotationId],
-    staleTime: 0,
-    queryFn: () => getRefundsByQuotation(quotationId),
-  });
-  const refunds = refundsQuery.data ?? [];
-  const loading = refundsQuery.isPending;
-
-  const load = () => {
-    queryClient.invalidateQueries({
-      queryKey: ["postventa", "refunds", quotationId],
-    });
-  };
-
-  // Tras registrar: recarga la lista y refresca el evento (saldo / KPIs).
-  const afterRefund = () => {
-    load();
-    onChanged();
-  };
-
-  return (
-    <div className="space-y-3 border-t border-gray-200 pt-5">
-      <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-        <Undo2 size={15} className="text-red-500" /> Reembolsos
-      </h4>
-      {loading ? (
-        <div className="py-4 flex justify-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500" />
-        </div>
-      ) : refunds.length === 0 ? (
-        <p className="text-sm text-gray-500">
-          Sin reembolsos. Se generan automáticamente si el total baja por debajo
-          de lo ya pagado; aquí los registras con fecha, medio de pago y
-          comprobante.
-        </p>
-      ) : (
-        refunds.map((r) => (
-          <RefundRow
-            key={r.id}
-            refund={r}
-            quotationId={quotationId}
-            onDone={afterRefund}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
-// ---- Fila de reembolso con formulario de registro ----
-function RefundRow({
-  refund,
-  quotationId,
-  onDone,
-}: {
-  readonly refund: Refund;
-  readonly quotationId: string;
-  readonly onDone: () => void;
-}) {
-  const registered = refund.is_paid;
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(refund.refund_date || todayISO());
-  const [method, setMethod] = useState(
-    refund.payment_method || PAYMENT_METHODS[0],
-  );
-  const [amount, setAmount] = useState<number>(refund.amount || 0);
-  const [file, setFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const submit = async () => {
-    setSaving(true);
-    setErr(null);
-    try {
-      let receipt_url = refund.receipt_url || null;
-      if (file) {
-        const up = await uploadRefundReceipt(file, quotationId, refund.id);
-        if (!up.success)
-          throw new Error(up.error || "No se pudo subir el comprobante");
-        receipt_url = up.url || null;
-      }
-      const { error } = await registerRefund(refund.id, {
-        amount: Math.round(amount || 0),
-        refund_date: date,
-        payment_method: method,
-        receipt_url,
-      });
-      if (error) throw error;
-      setOpen(false);
-      onDone();
-    } catch (e) {
-      setErr(
-        e instanceof Error ? e.message : "No se pudo registrar el reembolso",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="border border-red-200 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-4 p-3 bg-red-50">
-        <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700">
-          Reembolso
-        </span>
-        <div className="flex-1">
-          <div className="font-semibold text-sm text-gray-900">
-            {clp(refund.amount)}
-            {registered && refund.refund_date
-              ? ` · ${fmtDate(refund.refund_date)}`
-              : ""}
-          </div>
-          <div className="text-xs text-gray-500">
-            {registered
-              ? refund.payment_method || "—"
-              : "Pendiente de registrar"}
-          </div>
-        </div>
-        {registered && refund.receipt_url && (
-          <FileViewLink
-            url={refund.receipt_url}
-            title={`Comprobante de reembolso · ${clp(refund.amount)}`}
-          />
-        )}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-            registered
-              ? "text-red-600 hover:bg-red-100"
-              : "bg-red-600 text-white hover:bg-red-700"
-          }`}
-        >
-          {registered ? "Editar" : "Registrar"}
-        </button>
-      </div>
-      {open && (
-        <div className="p-3 border-t border-red-200 bg-white space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-600">
-                Fecha
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600">
-                Medio de pago
-              </label>
-              <SelectWithSearch
-                options={PAYMENT_METHODS.map((m) => ({ value: m, label: m }))}
-                value={method}
-                onChange={setMethod}
-                placeholder="Medio de pago"
-                searchPlaceholder="Buscar medio…"
-                noResultsText="Sin resultados"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 items-end">
-            <div>
-              <label className="text-xs font-semibold text-gray-600">
-                Monto
-              </label>
-              <NumberInput
-                value={amount || undefined}
-                onChange={(v) => setAmount(v || 0)}
-                min={0}
-                formatThousands
-                placeholder="0"
-                className="text-right"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600">
-                Comprobante{" "}
-                <span className="font-normal text-gray-400">
-                  (imagen o PDF · máx. 5 MB)
-                </span>
-              </label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-              />
-              {file && (
-                <p className="text-xs text-gray-600 truncate mt-1">
-                  Listo para subir: <b className="text-gray-800">{file.name}</b>
-                </p>
-              )}
-            </div>
-          </div>
-          {err && <p className="text-xs text-red-600">{err}</p>}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="px-3 py-1.5 text-sm text-gray-600"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={saving}
-              className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
-            >
-              {saving ? "Guardando…" : "Guardar reembolso"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

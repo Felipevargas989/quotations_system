@@ -112,6 +112,25 @@ export class RefundsRepository {
     return { registered: true };
   }
 
+  // Un reembolso de la EMPRESA con su cotización, monto y si ya está pagado
+  // (20-10-2026, reembolsos por partes); null si no es de la empresa.
+  async findOwned(companyId: Company['id'], id: string) {
+    this.logger.info(`findOwned refund ${id} company ${companyId}`);
+    const { data, error } = await this.supabase.client
+      .from('refunds')
+      .select('id, quotation_id, amount, is_paid, quotations!inner(company_id)')
+      .eq('id', id)
+      .eq('quotations.company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as {
+      id: string;
+      quotation_id: string;
+      amount: number;
+      is_paid: boolean;
+    } | null;
+  }
+
   findAll(companyId: Company['id']) {
     this.logger.info(`findAll refunds with companyId ${companyId}`);
     return this.supabase.client

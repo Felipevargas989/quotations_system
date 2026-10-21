@@ -1,5 +1,5 @@
 # Flujo: Cancelar (anular) un evento aceptado
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026); el 20-10-2026, el reembolso al anular (pasos 5b, 6, 10, 11, 16b y 17). Falta la etapa de completar lo que no quedó escrito.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026); el 20-10-2026, el reembolso al anular (pasos 5b, 6, 10, 11, 16b y 17) y la barra roja con los reembolsos por partes (paso 21 y regla 16). Falta la etapa de completar lo que no quedó escrito.
 
 > Verificado contra el código en el commit 0de0ddb (rama `pruebas`) el 11-09-2026, con una segunda pasada escéptica el mismo día. Parte del atlas: el índice de flujos va en `00_INDICE_DE_FLUJOS.md` (esta misma carpeta) y el mapa del sistema en `../00_MAPA_DEL_SISTEMA.md`. Al verificar, ninguno de los dos existía todavía.
 
@@ -80,7 +80,7 @@ Desde el 20-10-2026, si el evento tiene abonos, la ventana del motivo pregunta s
 21. **Así queda la ficha de un anulado.**
     - Encabezado con píldora "CANCELADO".
     - Se esconden "Marcar realizado", "Anular evento" y la sugerencia "Este evento ya pasó".
-    - **Lo demás sigue abierto**: la pestaña Pagos con `RegistrarPagoPanel` y `ReembolsosManager`; Servicios con guardado automático (`esEventoCongelado` solo congela `realizada` y `planVivo` exige `aceptada`); la fecha en `EventoCajitas`; Gestión y Cocina.
+    - **Lo demás sigue abierto**: la pestaña Pagos. Si quedó un reembolso (paso 5b), la misma barra de arriba se vuelve **roja** y se vacía con cada reembolso registrado (`BarraDelEvento`: «Por reembolsar $X de $Y» hasta «Reembolsado completo»), «+ Registrar reembolso» (`RegistrarReembolsoPanel` → `POST /refunds/registrar`) reemplaza a «+ Registrar pago», y cada reembolso registrado es una fila de `ReembolsosDelEvento` con Ver, lápiz y basurero (20-10-2026, Felipe, 20-10-2026: *"la misma barra que hoy día es verde, que se va rellenando cuando ingreso pagos, se transforma en una barra roja que se va vaciando"*). Sin reembolso, `RegistrarPagoPanel` como siempre; Servicios con guardado automático (`esEventoCongelado` solo congela `realizada` y `planVivo` exige `aceptada`); la fecha en `EventoCajitas`; Gestión y Cocina.
 
 **Qué se apaga en cada módulo (nadie escribe: cada uno deja de leerlo)**
 
@@ -266,7 +266,7 @@ No existe una columna con la fecha de anulación.
 13. **Para marketing, la anulada es "no nos compró" (commit `6773cff`).** `SegmentoBuilder` define `NO_ACEPTO = ["rechazada", "cancelada"]`, y `segmento.ts` traduce el alias viejo `anulada` a `cancelada`.
 14. **Desde el Calendario, los anulados abren Post-Venta (12-08-2026).** `Calendar.handleNavigateToQuotation`: *"Aceptada, realizada y anulada viven en Post-Venta"*.
 15. **Una anulada libera su fecha.** `checkConflictsWithExistingQuotations` no la cuenta como choque.
-16. **Los reembolsos nacen solos: no se crean a mano.** `RefundsController` tiene el `@Post()` comentado. `ReembolsosManager`: *"Se generan automáticamente si el total baja por debajo de lo ya pagado; aquí los registras"*. Y la baja solo cascadea en `aceptada` (flujo 05). Resultado: **anular no crea reembolso**.
+16. **Los reembolsos no se crean a mano: nacen al anular con «Sí, reembolsar» (desde el 20-10-2026) o cuando baja el total de un aceptado (flujo 05).** `RefundsController` sigue con el `@Post()` comentado; `POST /refunds/registrar` no crea deuda nueva, solo registra lo que falta por devolver (reembolsos por partes, mapa 03 regla 20c). Antes de esa fecha anular no creaba reembolso (la #465).
 
 ## 7. Si cambias algo en este flujo
 
