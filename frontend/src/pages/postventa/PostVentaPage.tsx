@@ -1505,6 +1505,7 @@ function EventModal({
           <MotivoPerdida
             tipo="anulacion"
             quotationId={event.quotationId}
+            reembolsoInicial={event.paid - event.refunded}
             guardando={cancelling}
             onCancelar={() => setPidiendoMotivo(false)}
             onConfirmar={(motivo, _c, reembolso) =>

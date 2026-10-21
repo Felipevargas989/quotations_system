@@ -46,6 +46,7 @@ export default function MotivoPerdida({
   tipo,
   titulo,
   quotationId,
+  reembolsoInicial,
   onConfirmar,
   onCancelar,
   guardando = false,
@@ -54,6 +55,8 @@ export default function MotivoPerdida({
   readonly titulo?: string;
   /** Al anular: la cotización cuyos abonos se ofrecen reembolsar. */
   readonly quotationId?: string;
+  /** Lo abonado sin devolver que la pantalla ya conoce: la pregunta sale al instante. */
+  readonly reembolsoInicial?: number;
   // El comentario viaja aparte: quien llama decide si lo anota en el hilo.
   // `reembolso`: cuánto se devuelve al anular; sin él, no se reembolsa.
   readonly onConfirmar: (
@@ -127,6 +130,7 @@ export default function MotivoPerdida({
           {preguntaReembolso && quotationId && (
             <ReembolsoAlAnular
               quotationId={quotationId}
+              disponibleInicial={reembolsoInicial}
               onCambio={setReembolso}
             />
           )}
