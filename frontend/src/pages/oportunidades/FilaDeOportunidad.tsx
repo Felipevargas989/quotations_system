@@ -114,14 +114,18 @@ export default function FilaDeOportunidad({
           </p>
         )}
         <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {o.alertas.map((a) => (
-            <span
-              key={a}
-              className={`px-2 py-0.5 text-xs rounded ${RAZON_DE_PRIORIDAD}`}
-            >
-              {ALERTAS[a] ?? a}
-            </span>
-          ))}
+          {/* El alto valor ya no es prioridad (decisión 64): solo la comuna
+              cercana va en violeta. */}
+          {o.alertas
+            .filter((a) => a === "comuna_cercana")
+            .map((a) => (
+              <span
+                key={a}
+                className={`px-2 py-0.5 text-xs rounded ${RAZON_DE_PRIORIDAD}`}
+              >
+                {ALERTAS[a] ?? a}
+              </span>
+            ))}
           {o.etiquetas
             .filter((e) => e !== "otro")
             .map((e) => (

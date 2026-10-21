@@ -64,12 +64,12 @@ describe("Una fila de la bandeja", () => {
     );
   });
 
-  it("las razones de la prioridad van en violeta, nunca en amarillo", () => {
+  it("la razón de la prioridad va en violeta, nunca en amarillo; el alto valor ya no es prioridad (decisión 64)", () => {
     pintar(oportunidad({ alertas: ["comuna_cercana", "alto_valor"] }));
-    for (const razon of ["Comuna cercana", "Alto valor"]) {
-      expect(screen.getByText(razon).className).toContain("bg-violet-50");
-      expect(screen.getByText(razon).className).not.toMatch(/amber/);
-    }
+    const razon = screen.getByText("Comuna cercana");
+    expect(razon.className).toContain("bg-violet-50");
+    expect(razon.className).not.toMatch(/amber/);
+    expect(screen.queryByText("Alto valor")).not.toBeInTheDocument();
   });
 
   it("lo que cierra pronto va con reloj y sin rojo: el rojo es de las rojas", () => {

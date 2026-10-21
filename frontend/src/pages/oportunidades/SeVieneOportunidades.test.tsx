@@ -264,4 +264,36 @@ describe("Se viene con el semáforo", () => {
       screen.queryByText("Día de campo del dirigente"),
     ).not.toBeInTheDocument();
   });
+
+  it("prioridad es de tu rubro y de tu zona: el monto solo no cuenta, ni una roja de Quillón (decisión 64)", async () => {
+    s.getCalendario.mockResolvedValue([
+      serie("5040-25-LE25", "Día de campo del dirigente", "verde", {
+        comuna_cercana: true,
+      }),
+      serie("2410-1-LE25", "Gala grande en Concepción", "verde", {
+        alto_valor: true,
+        comuna: "Concepción",
+      }),
+      serie("5040-9-LE25", "Insumos para Quillón", "rojo", {
+        comuna_cercana: true,
+      }),
+    ]);
+    pintar();
+    await screen.findByText("Día de campo del dirigente");
+    const titulos = screen.getAllByRole("heading", { level: 3 });
+    expect(titulos[0]).toHaveTextContent("Prioridad (1)");
+    expect(
+      within(titulos[0].closest("section") as HTMLElement).queryByText(
+        "Gala grande en Concepción",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Alto valor")).not.toBeInTheDocument();
+    // La roja de Quillón, al prender las rojas, va por mes y sin violeta.
+    fireEvent.click(screen.getByRole("button", { name: /Rojas 1 · ocultas/ }));
+    const roja = screen.getByText("Insumos para Quillón").closest("li");
+    expect(roja?.closest("section")).not.toBe(titulos[0].closest("section"));
+    expect(
+      within(roja as HTMLElement).queryByText("Comuna cercana"),
+    ).not.toBeInTheDocument();
+  });
 });

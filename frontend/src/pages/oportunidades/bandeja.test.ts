@@ -158,7 +158,7 @@ describe("la lista agrupada por cierre", () => {
     expect(
       grupos([
         op(1, { cierre: cierraEn(-10) }),
-        op(2, { cierre: cierraEn(-1), alertas: ["alto_valor"] }),
+        op(2, { cierre: cierraEn(-1), alertas: ["comuna_cercana"] }),
         op(3, { cierre: cierraEn(2) }),
       ]),
     ).toEqual([
