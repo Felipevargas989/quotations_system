@@ -1016,7 +1016,9 @@ function EventModal({
     file_name: string;
   } | null>(null);
   const netPaid = event.paid - event.refunded;
-  const saldo = event.total - netPaid;
+  // Un anulado no tiene nada por cobrar (20-10-2026): sin esto, cada
+  // reembolso registrado aparecía como «Saldo» que debía el cliente.
+  const saldo = event.cancelled ? 0 : event.total - netPaid;
   const p = event.total ? Math.round((netPaid / event.total) * 100) : 0;
   // Anulado con reembolso (20-10-2026): la barra se vuelve roja y se vacía,
   // y arriba manda «Registrar reembolso» en vez de «Registrar pago».
@@ -1626,10 +1628,12 @@ function EventModal({
             );
           })}
           <span
-            className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${saldo > 0 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700"}`}
+            className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${modoReembolso && reembolsos.pendiente > 0 ? "bg-red-100 text-red-700" : saldo > 0 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700"}`}
             title="Saldo pendiente del evento"
           >
-            Saldo {clp(saldo)}
+            {modoReembolso && reembolsos.pendiente > 0
+              ? `Por reembolsar ${clp(reembolsos.pendiente)}`
+              : `Saldo ${clp(saldo)}`}
           </span>
         </div>
 
