@@ -1,15 +1,18 @@
 import { useState } from "react";
-import NumberInput from "../../components/inputs/NumberInput";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { MEDIOS_DE_PAGO } from "../../constants/mediosDePago";
 import { registrarReembolso } from "../../services/refunds.service";
 import { uploadRefundReceipt } from "../../services/storage.service";
 import { hoyEnChile } from "../../utils/dates";
 import { pesos } from "../../utils/reembolsosDelEvento";
+import FormularioDeRegistro, {
+  type CamposDelRegistro,
+} from "./FormularioDeRegistro";
 
 /**
  * «+ REGISTRAR REEMBOLSO» (20-10-2026). Felipe: "un botón que diga registrar
- * reembolso (…) bajo la misma lógica que está el calendario de pagos". Va
+ * reembolso (…) bajo la misma lógica que está el calendario de pagos". Usa
+ * el MISMO formulario que «Registrar pago» (FormularioDeRegistro), en rojo:
+ * monto, fecha, medio, comprobante con arrastrar y soltar, y notas. Va
  * contra lo que falta por devolver: propone todo y no deja pasarse. Cada
  * registro nace pagado y la barra roja se vacía en ese monto.
  */
@@ -23,25 +26,26 @@ export default function RegistrarReembolsoPanel({
   readonly pendiente: number;
   readonly onChanged: () => void;
 }) {
+  const vacio = (): CamposDelRegistro => ({
+    monto: pendiente,
+    fecha: hoyEnChile(),
+    medio: MEDIOS_DE_PAGO[0],
+    notas: "",
+    archivo: null,
+  });
   const [abierto, setAbierto] = useState(false);
-  const [monto, setMonto] = useState<number | undefined>(undefined);
-  const [fecha, setFecha] = useState(hoyEnChile());
-  const [medio, setMedio] = useState(MEDIOS_DE_PAGO[0]);
-  const [archivo, setArchivo] = useState<File | null>(null);
+  const [campos, setCampos] = useState<CamposDelRegistro>(vacio);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (pendiente <= 0) return null;
-  const aDevolver = monto ?? pendiente;
-  const valido = aDevolver >= 1 && aDevolver <= pendiente && !!fecha;
+  const valido =
+    campos.monto >= 1 && campos.monto <= pendiente && !!campos.fecha;
 
-  const cerrar = () => {
-    setAbierto(false);
-    setMonto(undefined);
-    setFecha(hoyEnChile());
-    setMedio(MEDIOS_DE_PAGO[0]);
-    setArchivo(null);
+  const abrir = () => {
+    setCampos(vacio());
     setError(null);
+    setAbierto(true);
   };
 
   const guardar = async () => {
@@ -49,21 +53,26 @@ export default function RegistrarReembolsoPanel({
     setError(null);
     try {
       let receipt_url: string | null = null;
-      if (archivo) {
-        const subido = await uploadRefundReceipt(archivo, quotationId, "nuevo");
+      if (campos.archivo) {
+        const subido = await uploadRefundReceipt(
+          campos.archivo,
+          quotationId,
+          "nuevo",
+        );
         if (!subido.success)
           throw new Error(subido.error || "No se pudo subir el comprobante");
         receipt_url = subido.url || null;
       }
       const { error: falla } = await registrarReembolso({
         quotation_id: quotationId,
-        amount: Math.round(aDevolver),
-        refund_date: fecha,
-        payment_method: medio,
+        amount: Math.round(campos.monto),
+        refund_date: campos.fecha,
+        payment_method: campos.medio,
         receipt_url,
+        notes: campos.notas.trim() || null,
       });
       if (falla) throw falla;
-      cerrar();
+      setAbierto(false);
       onChanged();
     } catch (e) {
       const delMotor = (e as { response?: { data?: { message?: string } } })
@@ -83,7 +92,7 @@ export default function RegistrarReembolsoPanel({
     return (
       <button
         type="button"
-        onClick={() => setAbierto(true)}
+        onClick={abrir}
         className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700"
       >
         + Registrar reembolso
@@ -91,83 +100,21 @@ export default function RegistrarReembolsoPanel({
     );
 
   return (
-    <div className="border border-red-200 bg-red-50/40 rounded-xl p-4 space-y-3 max-w-2xl">
-      <div className="flex items-baseline justify-between gap-3">
-        <h4 className="text-sm font-bold text-gray-800">Registrar reembolso</h4>
-        <span className="text-xs font-semibold text-red-700">
-          Falta por reembolsar {pesos(pendiente)}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-semibold text-gray-600">Monto</label>
-          <NumberInput
-            value={aDevolver}
-            onChange={(v) => setMonto(v ?? 0)}
-            min={1}
-            max={pendiente}
-            formatThousands
-            currency
-            className="text-right"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-600">Fecha</label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 items-end">
-        <div>
-          <label className="text-xs font-semibold text-gray-600">
-            Medio de pago
-          </label>
-          <SelectWithSearch
-            options={MEDIOS_DE_PAGO.map((m) => ({ value: m, label: m }))}
-            value={medio}
-            onChange={setMedio}
-            placeholder="Medio de pago"
-            searchPlaceholder="Buscar medio…"
-            noResultsText="Sin resultados"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-gray-600">
-            Comprobante{" "}
-            <span className="font-normal text-gray-400">
-              (imagen o PDF · máx. 5 MB)
-            </span>
-          </label>
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-            className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-semibold hover:file:bg-gray-200"
-          />
-        </div>
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={cerrar}
-          className="px-3 py-1.5 text-sm text-gray-600"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={() => void guardar()}
-          disabled={!valido || guardando}
-          className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
-        >
-          {guardando ? "Guardando…" : "Guardar reembolso"}
-        </button>
-      </div>
-    </div>
+    <FormularioDeRegistro
+      tono="reembolso"
+      titulo="Registrar reembolso"
+      campos={campos}
+      onCampos={setCampos}
+      maximo={pendiente}
+      ayudaMonto={`Falta por reembolsar: ${pesos(pendiente)}`}
+      textoBoton={
+        valido ? `Reembolsar ${pesos(campos.monto)}` : "Registrar reembolso"
+      }
+      valido={valido}
+      guardando={guardando}
+      error={error}
+      onGuardar={() => void guardar()}
+      onCerrar={() => setAbierto(false)}
+    />
   );
 }

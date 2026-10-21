@@ -89,6 +89,16 @@ describe('RefundsService: registrar, editar y eliminar por partes', () => {
     );
   });
 
+  it('el registro guarda sus notas, como los abonos (migración 158)', async () => {
+    await service.registrar(1, 'q1', {
+      ...campos(1000000),
+      notes: '  devuelto a la cuenta del colegio ',
+    });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ notes: 'devuelto a la cuenta del colegio' }),
+    );
+  });
+
   it('registrar todo lo que falta borra lo pendiente', async () => {
     await service.registrar(1, 'q1', campos(10000000));
     expect(repo.remove).toHaveBeenCalledWith('1');
