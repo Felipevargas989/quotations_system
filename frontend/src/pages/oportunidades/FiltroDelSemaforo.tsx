@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Semaforo } from "../../services/oportunidades.service";
 import { SEMAFOROS } from "./oportunidades.utils";
 
@@ -6,7 +7,9 @@ import { SEMAFOROS } from "./oportunidades.utils";
 // viene» (decisión 62): "sería bueno que este filtro sea el mismo que este,
 // con verdes, amarillas, rojas y buscador". Cada color es un botón que se
 // prende y se apaga, con cuántas hay; las rojas apagadas dicen «ocultas».
-// Va sin envoltorio: cada pantalla lo pone en su fila.
+// Va sin envoltorio: cada pantalla lo pone en su fila. `antesDelBuscador`
+// deja meter un botón propio entre los colores y el buscador (en «Se
+// viene», la prioridad).
 
 export default function FiltroDelSemaforo({
   seleccion,
@@ -14,12 +17,14 @@ export default function FiltroDelSemaforo({
   porSemaforo,
   busca,
   onBuscar,
+  antesDelBuscador,
 }: {
   readonly seleccion: ReadonlyArray<Semaforo>;
   readonly onCambiar: (semaforos: Semaforo[]) => void;
   readonly porSemaforo: Readonly<Record<Semaforo, number>>;
   readonly busca: string;
   readonly onBuscar: (busca: string) => void;
+  readonly antesDelBuscador?: ReactNode;
 }) {
   const alternar = (s: Semaforo) =>
     onCambiar(
@@ -51,6 +56,8 @@ export default function FiltroDelSemaforo({
           </button>
         );
       })}
+
+      {antesDelBuscador}
 
       <input
         type="text"

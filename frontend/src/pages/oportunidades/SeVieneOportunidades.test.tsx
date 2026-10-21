@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/seViene.service";
@@ -42,6 +43,7 @@ const serie = (
   nombre,
   organismo: "ILUSTRE MUNICIPALIDAD DE QUILLON",
   comuna: "Quillón",
+  region: "Región del Ñuble",
   esperada: "2026-11-10T12:00:00.000Z",
   atrasada: false,
   anios: [2025],
@@ -213,5 +215,44 @@ describe("Se viene con el semáforo", () => {
     await waitFor(() =>
       expect(s.descartarSerie).toHaveBeenCalledWith("3784-114-L125", false),
     );
+  });
+
+  it("la fila de la bandeja: la región y la prioridad en violeta, sin casilla", async () => {
+    s.getCalendario.mockResolvedValue([
+      serie("5040-25-LE25", "Día de campo del dirigente", "verde", {
+        comuna_cercana: true,
+      }),
+      serie("2785-86-LE26", "Encuentro de dirigentes sociales", "verde", {
+        organismo: "I MUNICIPALIDAD DE SAN PEDRO DE LA PAZ",
+        comuna: "San Pedro de La Paz",
+        region: "Región del Biobío",
+      }),
+    ]);
+    pintar();
+    await screen.findByText("Día de campo del dirigente");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    // La prioridad: cuántas se verían, y al prenderla, solo esas.
+    const prioridad = screen.getByRole("button", { name: /Prioridad 1/ });
+    expect(prioridad).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(prioridad);
+    expect(prioridad).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByText("Encuentro de dirigentes sociales"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(prioridad);
+
+    // La región, como en la bandeja.
+    fireEvent.click(screen.getByRole("button", { name: /Todas tus regiones/ }));
+    const lista = within(
+      document.querySelector("[data-lista-scroll]") as HTMLElement,
+    );
+    fireEvent.click(lista.getByRole("button", { name: "Región del Biobío" }));
+    expect(
+      screen.getByText("Encuentro de dirigentes sociales"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Día de campo del dirigente"),
+    ).not.toBeInTheDocument();
   });
 });

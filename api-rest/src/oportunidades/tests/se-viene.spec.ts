@@ -72,6 +72,7 @@ const serie = (p: ProcesoDeLaZona): SeViene => ({
   nombre: p.nombre,
   organismo: p.organismo,
   comuna: p.comuna,
+  region: p.region,
   esperada: '2026-11-10T00:00:00.000Z',
   atrasada: false,
   anios: [new Date(p.fecha_publicacion as string).getUTCFullYear()],

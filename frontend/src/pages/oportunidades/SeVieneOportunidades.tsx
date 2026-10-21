@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import type { Semaforo } from "../../services/oportunidades.service";
 import {
@@ -52,6 +53,7 @@ export default function SeVieneOportunidades() {
   const [soloPrioridad, setSoloPrioridad] = useState(false);
   const [semaforos, setSemaforos] = useState<Semaforo[]>(["verde", "amarillo"]);
   const [busca, setBusca] = useState("");
+  const [region, setRegion] = useState("");
   const [verDescartadas, setVerDescartadas] = useState(false);
 
   // Mientras falte algo por leer (el semáforo o si se repite), se pregunta
@@ -112,24 +114,32 @@ export default function SeVieneOportunidades() {
   // si no, lo sin leer se asoma un instante antes de tener su color.
   const leyendo = sinLeer > 0 && (lectura?.leyendo !== false || isFetching);
   const descartadas = data.filter((s) => s.descartada).length;
+  const regiones = [...new Set(data.map((s) => s.region).filter(Boolean))].sort(
+    (a, b) => String(a).localeCompare(String(b), "es"),
+  ) as string[];
   // Todo menos el semáforo, como en la bandeja: así cada color dice cuántas
   // hay con los demás filtros puestos.
-  const base = data.filter(
+  const sinPrioridad = data.filter(
     (s) =>
       // Boolean: un motor de antes de la decisión 63 no trae el campo.
       Boolean(s.descartada) === verDescartadas &&
-      (!soloPrioridad || esPrioridad(s)) &&
+      (!region || s.region === region) &&
       matchesSearch(busca, s.nombre, s.organismo, s.comuna, s.ultima.codigo),
   );
+  const base = soloPrioridad ? sinPrioridad.filter(esPrioridad) : sinPrioridad;
   const porSemaforo: Record<Semaforo, number> = {
     verde: 0,
     amarillo: 0,
     rojo: 0,
   };
   for (const s of base) if (s.semaforo) porSemaforo[s.semaforo]++;
-  const lista = base.filter((s) =>
-    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo,
-  );
+  const seVe = (s: SeViene) =>
+    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo;
+  const lista = base.filter(seVe);
+  // La prioridad dice cuántas se verían al prenderla.
+  const conPrioridad = sinPrioridad.filter(
+    (s) => esPrioridad(s) && seVe(s),
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -139,22 +149,55 @@ export default function SeVieneOportunidades() {
           a salir en los próximos 90 días.
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          {regiones.length > 1 && (
+            <div className="w-full sm:w-52">
+              <SelectWithSearch
+                options={[
+                  { value: "", label: "Todas tus regiones" },
+                  ...regiones.map((r) => ({ value: r, label: r })),
+                ]}
+                value={region}
+                onChange={(v) => setRegion(v)}
+                sinLimpiar
+                mostrarConteo={false}
+                tamano="sm"
+              />
+            </div>
+          )}
           <FiltroDelSemaforo
             seleccion={semaforos}
             onCambiar={setSemaforos}
             porSemaforo={porSemaforo}
             busca={busca}
             onBuscar={setBusca}
+            antesDelBuscador={
+              // La prioridad en violeta, como en la bandeja (decisión 31):
+              // comuna cercana o alto valor. Reemplaza a la casilla (Felipe,
+              // 20-10: "ese check box no pega ni junta").
+              <button
+                type="button"
+                aria-pressed={soloPrioridad}
+                title="Comuna cercana o alto valor"
+                onClick={() => setSoloPrioridad((v) => !v)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border ${
+                  soloPrioridad
+                    ? "border-violet-300 bg-violet-50 text-violet-700 font-semibold"
+                    : "border-gray-200 bg-white text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                <Star
+                  size={14}
+                  aria-hidden
+                  className={
+                    soloPrioridad
+                      ? "fill-violet-400 text-violet-500"
+                      : "text-violet-400"
+                  }
+                />
+                Prioridad {conPrioridad}
+              </button>
+            }
           />
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={soloPrioridad}
-              onChange={(e) => setSoloPrioridad(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            Solo comuna cercana o alto valor
-          </label>
           {(descartadas > 0 || verDescartadas) && (
             <button
               type="button"
