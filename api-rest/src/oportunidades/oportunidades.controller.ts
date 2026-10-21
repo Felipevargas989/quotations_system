@@ -35,6 +35,7 @@ import {
 } from './dto/oferente.dto';
 import { SeccionDto, SubirAdjuntoDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
+import { SeVieneService } from './historia/se-viene.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import {
@@ -69,6 +70,7 @@ export class OportunidadesController {
     private readonly leerRespaldo: LeerRespaldoService,
     private readonly repo: OportunidadesRepository,
     private readonly radar: RadarService,
+    private readonly seViene: SeVieneService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(OportunidadesController.name);
@@ -121,6 +123,13 @@ export class OportunidadesController {
   @Get('calendario')
   calendario(@CurrentUser() user: User) {
     return this.servicio.calendario(user.company_id);
+  }
+
+  /** Cómo va la lectura de «Se viene» (decisión 62): la pantalla pregunta
+   *  mientras la IA lee y vuelve a pedir el calendario al terminar. */
+  @Get('calendario/lectura')
+  lecturaDelCalendario(@CurrentUser() user: User) {
+    return this.seViene.estado(user.company_id);
   }
 
   /** Quién gana en las regiones de la empresa. */

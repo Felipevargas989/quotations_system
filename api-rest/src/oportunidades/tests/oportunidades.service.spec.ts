@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { FichaRepository } from '../ficha/ficha.repository';
+import type { SeVieneService } from '../historia/se-viene.service';
 import type { MercadoPublicoClient } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { OportunidadesService } from '../oportunidades.service';
@@ -38,13 +39,21 @@ function armar() {
     perfilDe: jest.fn().mockResolvedValue('perfil-felipe'),
   };
   const mp = { detalleCompraAgil: jest.fn().mockResolvedValue(null) };
+  // El semáforo de «Se viene» (decisión 62) tiene sus propias pruebas
+  // (se-viene.spec.ts): aquí deja pasar las series tal cual.
+  const seViene = {
+    conSemaforo: jest.fn((_empresa: number, series: unknown[]) =>
+      Promise.resolve(series),
+    ),
+  };
   const servicio = new OportunidadesService(
     repo as unknown as OportunidadesRepository,
     mp as unknown as MercadoPublicoClient,
     mockPinoLogger() as unknown as PinoLogger,
     fichas as unknown as FichaRepository,
+    seViene as unknown as SeVieneService,
   );
-  return { repo, mp, fichas, servicio };
+  return { repo, mp, fichas, seViene, servicio };
 }
 
 describe('OportunidadesService — el detalle de una compra ágil se pide al abrirla (decisión 20)', () => {
@@ -390,7 +399,7 @@ describe('OportunidadesService — Se viene y competidores', () => {
   });
 
   it('Se viene: lo de las regiones de la empresa, marcando comuna cercana y alto valor', async () => {
-    const { repo, servicio } = armar();
+    const { repo, seViene, servicio } = armar();
     repo.configDe.mockResolvedValue({
       regiones: ['Ñuble'],
       comunas_cercanas: ['Quillón'],
@@ -405,6 +414,11 @@ describe('OportunidadesService — Se viene y competidores', () => {
     const r = await servicio.calendario(1);
 
     expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(seViene.conSemaforo).toHaveBeenCalledWith(1, expect.any(Array), {
+      comunasCercanas: ['Quillón'],
+      umbralAltoValor: 3_000_000,
+      perfil: null,
+    });
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({
       comuna_cercana: true,
