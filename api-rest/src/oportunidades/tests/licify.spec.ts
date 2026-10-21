@@ -259,6 +259,33 @@ describe('Lo que contesta Licify', () => {
     expect(archivosDeLaRespuesta({ error: 'x' })).toEqual([]);
   });
 
+  it('en una compra ágil toma la copia de Licify (file_r2_url) con su nombre, y lo que solo está en Mercado Público no se intenta', () => {
+    expect(
+      archivosDeLaRespuesta([
+        {
+          file_name: 'Celebración día del funcionario.pdf',
+          file_original_url:
+            'https://servicios-compra-agil.mercadopublico.cl/v1/compra-agil/comprador/descargar?id=E7C6',
+          file_r2_url:
+            'https://pub-b779bb030f2e41d89e4a22bf5aaa8025.r2.dev/4121-27-COT26/E7C6.pdf',
+          file_size: 500,
+        },
+        {
+          file_name: 'Solo en Mercado Público.pdf',
+          file_original_url:
+            'https://servicios-compra-agil.mercadopublico.cl/v1/compra-agil/comprador/descargar?id=9C52',
+        },
+      ]),
+    ).toEqual([
+      {
+        nombre: 'Celebración día del funcionario.pdf',
+        url: 'https://pub-b779bb030f2e41d89e4a22bf5aaa8025.r2.dev/4121-27-COT26/E7C6.pdf',
+        categoria: null,
+        bytes: 500,
+      },
+    ]);
+  });
+
   it('la clave del nombre iguala lo que el comprador escribió con lo que Licify guardó', () => {
     expect(claveDelNombre('D.A. 3127 Aprueba llamado a licitación.pdf')).toBe(
       claveDelNombre('D_A__3127_Aprueba_llamado_a_licitacion.pdf'),
