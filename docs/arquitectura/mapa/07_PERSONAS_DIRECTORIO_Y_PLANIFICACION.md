@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -20,9 +20,9 @@ La liquidación, las propinas, la nómina y el histórico están en el mapa 08.
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
 | `/personas` (menú "Personal") | `PersonasPage` | `frontend/src/pages/personas/PersonasPage.tsx` | Contenedor con 5 pestañas: Planificación · Liquidación · Nómina · Histórico de pagos · Staff. Abre en Planificación y recuerda la pestaña y la búsqueda en `localStorage` (`eventia_personal_pestana`, `eventia_personal_busqueda`). Los botones Cargos y Nueva persona salen solo en Staff (Felipe, 17-08) | administrador (`SECTION_ROLES.people` = `ADMIN_ONLY` en `frontend/src/constants/permissions.ts`; `PermissionGuard` en `App.tsx`; entrada del `Sidebar` con `section: "people"`) |
-| `/personas` → Planificación | `SemanaTab` | `frontend/src/pages/personas/SemanaTab.tsx` | La sábana: 28 días desde el domingo, con flechas por mes y "hoy". Tiene filas "evento · cargo" que cuentan sillas por día: tiene/necesita, ámbar donde falta y verde con todos confirmados. Muestra el aviso "+N sin día" y, abajo, las bandas **Personal de planta** y **Personal Staff** (con "+ cargo"). Al abrirse proyecta la planta una vez por sesión | administrador |
+| `/personas` → Planificación | `SemanaTab` | `frontend/src/pages/personas/SemanaTab.tsx` | La sábana: 28 días desde el domingo, con flechas por mes y "hoy". Tiene filas "evento · cargo" que cuentan sillas por día: tiene/necesita, ámbar donde falta y verde con todos confirmados. Muestra el aviso "+N sin día" y, abajo, las bandas **Personal de planta** y **Personal Staff** (con "+ cargo"). Cada jornada sin evento va a la banda de su tipo: planta arriba y freelance abajo. Un cargo con gente de los dos tipos sale en las dos (21-10-2026, `bandasDelStaff.ts`). Al abrirse proyecta la planta una vez por sesión | administrador |
 | Planificación → pinchar una celda | `CasillaAbierta` (función interna de `SemanaTab.tsx`) | `frontend/src/pages/personas/SemanaTab.tsx` | Modal de un día + cargo + evento. Se pone gente con `AgregadorDeItems` (solo disponibles), se escribe el monto del día (`NumberInput`), se confirma, se ajusta el horario (`HorarioDelDia`), se abre el mini calendario de la persona y se saca con el basurero. Ahí viven la pregunta del día extra y el freno del monto | administrador |
-| Planificación → pinchar una fecha | `ResumenDelDia` | `frontend/src/pages/personas/ResumenDelDia.tsx` | Hoja de ruta del día. Muestra los eventos con sus servicios y hora (editable; es la misma hora de la Ficha de Cocina), la tabla de Personal Staff por evento y la de planta. También los huérfanos de eventos anulados y los recados del día | administrador |
+| Planificación → pinchar una fecha | `ResumenDelDia` | `frontend/src/pages/personas/ResumenDelDia.tsx` | Hoja de ruta del día. Muestra los eventos con sus servicios y hora (editable; es la misma hora de la Ficha de Cocina), la tabla de Personal de eventos (por evento), la de planta y la de Personal staff (el freelance sin evento). También los huérfanos de eventos anulados y los recados del día | administrador |
 | `/personas` → Staff | rama "directorio" de `PersonasPage` | `frontend/src/pages/personas/PersonasPage.tsx` | Directorio agrupado en "Personal de planta" y "Freelance", con cargo, teléfono y promedio de estrellas. La búsqueda usa `matchesSearch` por nombre, RUT, teléfono, cargo y banco, y hay un aviso ámbar "faltan datos" para transferir. Pinchar una fila lleva a `/personas/:id`; "Nueva persona" abre `PersonaForm` dentro de `Modal` | administrador |
 | Staff → Cargos | `CargosModal` | `frontend/src/pages/personas/CargosModal.tsx` | Crear, renombrar, apagar y volver a prender cargos. Pide también los apagados con `getRoles(true)` | administrador |
 | `/personas/:id` | `PersonaFichaPage` | `frontend/src/pages/personas/PersonaFichaPage.tsx` | Ficha propia desde el 15-08. La cabecera trae tipo, RUT, teléfono, `ChipDeEstado` para la situación, WhatsApp, eliminar con `ConfirmInline`, motivo de bloqueo y 4 cajas (cargo, cómo trabaja, evaluación, días este mes). Pestañas: **Datos** (`PersonaForm`), **Su calendario** (`CalendarioDePersona` + `MiniCalendario`), **Pagos** (`PagosDePersona`, mapa 08) y **Evaluaciones** (`EvaluacionesDePersona`) | administrador |
@@ -161,7 +161,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 ### 5.4 El día de staff: poner, preguntar, cobrar y quitar
 
 1. **Puertas**: hay dos, y se comportan igual.
-   - La casilla de las bandas de `SemanaTab`. La banda "Personal de planta" solo ofrece gente de planta de ese cargo; para traer a alguien de fuera está "Personal Staff".
+   - La casilla de las bandas de `SemanaTab`. La banda "Personal de planta" solo ofrece gente de planta de ese cargo; para traer a alguien de fuera está "Personal Staff". La banda la decide el tipo de la jornada (21-10-2026): lo que se pone como freelance se queda en Personal Staff, y si en la pregunta del día extra se elige planta, la jornada sube a Personal de planta.
    - La pestaña "Su calendario" de `/personas/:id` (`CalendarioDePersona` → `MiniCalendario`).
 2. **La pregunta**: si la persona es de planta y el día no le corresponde (`esDiaExtra`: su día libre o un cargo que no es el suyo), se abre `PreguntaDiaExtra`: "¿Este día va como planta o como freelance?".
    - **Planta**: viaja `kind='planta'` con `ajuste='trabaja'`; nace confirmada y sin monto.
@@ -185,7 +185,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
    - Por cada evento se piden `getQuotationById` (los `items`) y `getEventServiceTimes` (de `logistics.service`).
    - `serviciosDelDia` arma las categorías con la **misma clave** de la Ficha de Cocina.
    - `setEventServiceTime` guarda la hora, y queda igual en las dos pantallas.
-3. **Gente**: una tabla de Personal Staff por evento y otra de planta, con la cobertura "n de m" que calcula `coberturaDelDia` en `SemanaTab`. La gente puesta en un evento que ya no está aceptado ni realizado sale como huérfana, para desconvocarla.
+3. **Gente**: una tabla de Personal de eventos (por evento, planta o freelance), otra de planta y otra de Personal staff (el freelance sin evento; 21-10-2026), con la cobertura "n de m" que calcula `coberturaDelDia` en `SemanaTab`. La gente puesta en un evento que ya no está aceptado ni realizado sale como huérfana, para desconvocarla.
 4. **Recados**: `getDayNotes(dia, dia)` → `GET /people/day-notes` → `findDayNotes` → `day_notes`. Se agregan, marcan como hechos y borran con `createDayNote`, `updateDayNote` y `removeDayNote`.
 
 ### 5.6 Evaluar a una persona
@@ -447,6 +447,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 **App**
 - `frontend/src/pages/personas/PersonasPage.tsx`: el contenedor, las pestañas y el directorio Staff.
 - `frontend/src/pages/personas/SemanaTab.tsx`: la sábana, `CasillaAbierta`, `HorarioDelDia` y la proyección por sesión.
+- `frontend/src/pages/personas/bandasDelStaff.ts`: las filas sin evento en dos bandas por el tipo de cada jornada (`filasSinEvento`) y qué jornada va en qué fila (`vaEnLaFila`), con su prueba.
 - `frontend/src/pages/personas/MiniCalendario.tsx`: el calendario de la persona y `horarioHabitual`.
 - `frontend/src/pages/personas/PersonaFichaPage.tsx`: la ficha `/personas/:id` y `CalendarioDePersona`.
 - `frontend/src/pages/personas/PersonaForm.tsx`: datos, banco y jornada semanal.
