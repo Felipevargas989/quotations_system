@@ -1,6 +1,6 @@
 # Mapa: Pagos, reembolsos y portal del cliente
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); reglas 2, 5, 6, 14 y 16, flujos B, C, D y E y relojes reescritos el 07/08-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026; el 20-10-2026, los reembolsos que nacen al anular (regla 20b) y los reembolsos por partes con sus dos rutas nuevas (regla 20c). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026); el 22-10-2026, los relojes de cobranza se saltan los eventos anulados (§F); reglas 2, 5, 6, 14 y 16, flujos B, C, D y E y relojes reescritos el 07/08-10-2026 con las cuotas que se llenan (doc 14), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026; el 20-10-2026, los reembolsos que nacen al anular (regla 20b) y los reembolsos por partes con sus dos rutas nuevas (regla 20c). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -52,8 +52,8 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 | Horario | Dónde | Qué hace |
 |---|---|---|
 | `5 0 * * *` **hora de Chile** (desde el 08-10-2026; antes `EVERY_DAY_AT_1AM` UTC = 22:00 en Chile) | `PaymentsService.updateOverduePayments` → `PaymentsRepository.updateOverduePayments` | cuotas `pendiente` con `due_date` **antes de hoy en Chile** pasan a `vencido` (antes `<= ahora UTC`: marcaba vencidas la noche ANTES de su día; doc 14) |
-| `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkUpcomingOverduePayments` | cuotas `pendiente` que vencen en 3 días o hoy: `PAYMENT_REMINDER` al mandante + `PAYMENT_REMINDER_ADMIN` a administradores |
-| `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkOverduePayments` | cuotas `vencido` con 7 días de vencidas: `PAYMENT_OVERDUE` al mandante + `PAYMENT_OVERDUE_ADMIN` |
+| `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkUpcomingOverduePayments` | cuotas `pendiente` que vencen en 3 días o hoy: `PAYMENT_REMINDER` al mandante + `PAYMENT_REMINDER_ADMIN` a administradores. Se salta las cotizaciones `cancelada` (22-10-2026) |
+| `EVERY_DAY_AT_11AM` | `PaymentsCronService.checkOverduePayments` | cuotas `vencido` con 7 días de vencidas: `PAYMENT_OVERDUE` al mandante + `PAYMENT_OVERDUE_ADMIN`. Se salta las cotizaciones `cancelada` (22-10-2026) |
 
 ## 4. Tablas de la base de datos
 
@@ -141,7 +141,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 ### F. Relojes de cobranza
 
 1. 00:05 de Chile (desde el 08-10-2026): `updateOverduePayments` pasa a `vencido` las cuotas `pendiente` con `due_date` antes de hoy en Chile.
-2. 11 AM: `PaymentsCronService.checkUpcomingOrOverduePayments` calcula las fechas objetivo (`normalizeDateToUtc`) y usa `findAllPaymentsWithTransactions` sin empresa. Por cada cuota manda correo al mandante (con portal) y un correo aparte a los administradores (`PAYMENT_REMINDER_ADMIN` o `PAYMENT_OVERDUE_ADMIN`). Mandante sin correo: aviso en el log y el correo al cliente no sale.
+2. 11 AM: `PaymentsCronService.checkUpcomingOrOverduePayments` calcula las fechas objetivo (`normalizeDateToUtc`) y usa `findAllPaymentsWithTransactions` sin empresa. Por cada cuota manda correo al mandante (con portal) y un correo aparte a los administradores (`PAYMENT_REMINDER_ADMIN` o `PAYMENT_OVERDUE_ADMIN`). Mandante sin correo: aviso en el log y el correo al cliente no sale. **Un evento anulado no se cobra** (Felipe, 22-10-2026): si la cotización está `cancelada`, la cuota se salta entera, sin correo al mandante ni a los administradores. Pasó con la #465: quedó anulada con su cuota 3 viva y el 04-11 el colegio iba a recibir un cobro de $1.394.000, cuando lo que corresponde es devolverle lo abonado. La cuota sigue en la base como `pendiente` o `vencido`; solo se calla el cobro.
 3. Cualquier empresa puede apagar un tipo de correo al cliente (los de `EMAILS_SEND_TO_CLIENT`: plan creado, pago recibido, recordatorio y vencido) en su configuración de notificaciones (`EmailService.shouldSendEmail`, mapa 12). Los avisos a administradores no pasan por ese filtro.
 
 ## 6. Reglas de negocio acordadas
@@ -240,6 +240,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 | `api-rest/src/payments/tests/payments.controller.spec.ts` | Solo que el controller se construya |
 | `api-rest/src/refunds/tests/refunds.controller.spec.ts`, `refunds.service.spec.ts` | Solo que se construyan ("should be defined") |
 | `api-rest/src/quotations/tests/unit/quotations.service.spec.ts` | Cascada con cotización aceptada: error al leer cuotas; total igual; baja sin cuotas pendientes → reembolso; sube sin cuotas → cuota nueva; sube con cuotas → va al reparto proporcional. Los reembolsos pendientes están simulados como lista vacía |
+| `api-rest/src/payments/tests/cobranza-sin-anulados.spec.ts` | Los relojes de las 11 (recordatorio y vencida) no le escriben a una cotización `cancelada`, ni al mandante ni a los administradores; a la aceptada, sí |
 | `api-rest/src/payments/tests/cuotas-que-se-llenan.spec.ts` | Doc 14, los casos borde con su número: Linde ($950.250 parejo, la 1 pagada y la 2 con $49.750), forma completa, vencidas que bajan, rebaja bajo lo pagado, opción B, cuota nueva, pagada que no vuelve a deber, pago que derrama, pago repartido que se junta, borrar abre la última, fecha atrasada, pagadas por fuera, sobrante de datos viejos, sin cuotas, registro de $0, vence hoy, hoy en Chile, redondeo a la primera, montos como texto |
 | `api-rest/src/payments/tests/cuotas-que-se-llenan.servicio.spec.ts` | El servicio de punta a punta contra una base simulada: registrar, cambiar el total (Linde), borrar y corregir un pago repartido, topes, opción B, reembolso, pagadas por fuera |
 | `frontend/src/pages/postventa/pagoRepartido.test.ts` | Un pago repartido en varias cuotas se junta para rectificar y la pregunta de borrar avisa que se elimina entero |
