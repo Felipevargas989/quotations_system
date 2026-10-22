@@ -20,6 +20,7 @@ import { formatMomento } from "../../utils/dates";
 import DocumentosAPresentar from "./DocumentosAPresentar";
 import ExigenciasDeLaLicitacion from "./ExigenciasDeLaLicitacion";
 import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
+import PreguntasALaIA from "./PreguntasALaIA";
 import {
   alertasDelAnalisis,
   criteriosPorPeso,
@@ -143,6 +144,8 @@ export default function AnalisisDeBases({
             ` · no leyó: ${analisis.no_leidos.map((n) => `${n.nombre} (${n.motivo})`).join("; ")}`}
         </p>
       )}
+
+      {adjuntos.length > 0 && <PreguntasALaIA oportunidadId={oportunidadId} />}
     </section>
   );
 }
