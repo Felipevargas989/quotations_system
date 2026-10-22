@@ -7,7 +7,6 @@ import {
   firmarDocumentos,
   getAdjuntos,
   type GeneracionesDeOportunidad,
-  type TipoProceso,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
@@ -30,12 +29,8 @@ import {
 
 export default function MiPostulacion({
   oportunidadId,
-  codigo,
-  tipo,
 }: {
   readonly oportunidadId: number;
-  readonly codigo: string;
-  readonly tipo: TipoProceso;
 }) {
   const qc = useQueryClient();
   const { data: generaciones } = useGeneraciones(oportunidadId);
@@ -72,8 +67,6 @@ export default function MiPostulacion({
   return (
     <AdjuntosDeLaOportunidad
       oportunidadId={oportunidadId}
-      codigo={codigo}
-      tipo={tipo}
       seccion="postulacion"
       filtrar={sinLosWordYaFirmados}
       accionesDeFila={(a) =>

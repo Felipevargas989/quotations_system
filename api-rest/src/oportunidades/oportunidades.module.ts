@@ -42,6 +42,9 @@ import { ElSetService } from './postulacion/el-set.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
+import { PreguntasController } from './preguntas/preguntas.controller';
+import { PreguntasRepository } from './preguntas/preguntas.repository';
+import { PreguntasService } from './preguntas/preguntas.service';
 import { RadarService } from './radar.service';
 import { ResumenDeNegocioService } from './seguimiento/resumen-de-negocio.service';
 import { SeguimientoController } from './seguimiento/seguimiento.controller';
@@ -55,6 +58,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
 @Module({
   imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
   controllers: [
+    PreguntasController,
     OportunidadesController,
     PostulacionController,
     SeguimientoController,
@@ -62,6 +66,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     AprendizajesController,
   ],
   providers: [
+    PreguntasRepository,
+    PreguntasService,
     ResumenDeNegocioService,
     ComparacionService,
     AprendizajesRepository,

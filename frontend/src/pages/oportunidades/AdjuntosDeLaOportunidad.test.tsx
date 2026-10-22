@@ -59,8 +59,6 @@ const pintar = () =>
     >
       <AdjuntosDeLaOportunidad
         oportunidadId={9}
-        codigo="4364-13-LE26"
-        tipo="licitacion"
       />
     </QueryClientProvider>,
   );
@@ -79,10 +77,11 @@ describe("Traer los documentos", () => {
     const boton = await screen.findByRole("button", {
       name: /Traer los documentos/,
     });
-    // El camino a mano sigue ahí, al lado.
+    // El enlace a Mercado Público vive en la cabecera de la ficha
+    // (decisión 66): aquí no se repite.
     expect(
-      screen.getByRole("link", { name: /Bajar de Mercado Público/ }),
-    ).toHaveAttribute("target", "_blank");
+      screen.queryByRole("link", { name: /Mercado Público/ }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(boton);
     await waitFor(() => expect(s.traerAdjuntos).toHaveBeenCalledWith(9));
