@@ -2,9 +2,16 @@ import { useState, useEffect } from "react";
 import { Coins, Landmark } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { NumberInput } from "../../../components/inputs";
+import { pctDeAbono } from "../../../utils/abonoParaReservar";
 import { updateCompany } from "../../../services/companies.service";
 import { uploadCompanyBanner, uploadCompanyLogo } from "../../../services/storage.service";
 import { BankDetails } from "../../../types/companies.types";
+
+/** El % guardado (llega como texto, "30.00") como texto de la caja. */
+const abonoComoTexto = (v: unknown) => {
+  const pct = pctDeAbono(v);
+  return pct === null ? "" : String(pct);
+};
 
 export default function CompanyConfiguration() {
   const { company, loadUserProfile } = useAuth();
@@ -21,6 +28,8 @@ export default function CompanyConfiguration() {
   // Canales de la marca (migración 95): los correos de marketing los
   // llevan por defecto — botón de WhatsApp y redes en el pie. Vacío =
   // ese botón/enlace simplemente no aparece.
+  // El abono para reservar la fecha (migración 160): vacío = no sale.
+  const [abono, setAbono] = useState(abonoComoTexto(company?.abono_reserva_pct));
   const [whatsapp, setWhatsapp] = useState(company?.whatsapp || "");
   const [instagram, setInstagram] = useState(company?.instagram || "");
   const [facebook, setFacebook] = useState(company?.facebook || "");
@@ -54,6 +63,7 @@ export default function CompanyConfiguration() {
     setUmbral(
       company?.high_value_threshold ? String(company.high_value_threshold) : "",
     );
+    setAbono(abonoComoTexto(company?.abono_reserva_pct));
     setWhatsapp(company?.whatsapp || "");
     setInstagram(company?.instagram || "");
     setFacebook(company?.facebook || "");
@@ -158,6 +168,7 @@ export default function CompanyConfiguration() {
         tagline: tagline.trim() || null,
         bank_details: bank,
         high_value_threshold: umbral.trim() ? Number(umbral) : null,
+        abono_reserva_pct: abono.trim() ? Number(abono) : null,
         whatsapp: whatsapp.trim() || null,
         instagram: instagram.trim() || null,
         facebook: facebook.trim() || null,
@@ -511,6 +522,26 @@ export default function CompanyConfiguration() {
             <p className="text-xs text-gray-500">
               Las cotizaciones del tablero con monto igual o superior se
               destacan con borde dorado y estrella.
+            </p>
+          </div>
+
+          {/* EL ABONO PARA RESERVAR LA FECHA (Felipe, 22-10-2026). */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Abono para reservar la fecha (%)
+            </label>
+            <NumberInput
+              name="abono_reserva_pct"
+              value={abono ? Number(abono) : undefined}
+              onChange={(value) => setAbono(value ? String(value) : "")}
+              min={0}
+              max={100}
+              placeholder="Ej: 30 — vacío = no sale en la cotización"
+            />
+            <p className="text-xs text-gray-500">
+              Bajo el total de cada cotización sale «La fecha queda reservada
+              solo al recibir el abono del X%: $Y», calculado sobre el total
+              con IVA, sin la propina sugerida.
             </p>
           </div>
 

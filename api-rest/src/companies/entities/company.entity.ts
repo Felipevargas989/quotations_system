@@ -14,6 +14,11 @@ export class Company {
   // Migración 60: umbral de cotización de alto valor (💎 en el
   // tablero). NULL o 0 = sin marca.
   high_value_threshold?: number | null;
+  // Migración 160 (22-10-2026): % del total (con IVA, sin propina) que se
+  // pide de abono para reservar la fecha. Sale bajo el TOTAL de la hoja de
+  // la cotización. NULL o 0 = la línea no sale. Supabase lo entrega como
+  // texto: se lee con `pctDeAbono` (companies/abono-para-reservar.ts).
+  abono_reserva_pct?: number | string | null;
   // Migraciones 95 y 96: marca para los correos de marketing. Vacío =
   // esa pieza no aparece. El banner (96) reemplaza el encabezado.
   banner_url?: string | null;

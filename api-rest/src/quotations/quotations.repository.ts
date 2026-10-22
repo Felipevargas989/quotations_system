@@ -252,7 +252,12 @@ export class QuotationsRepository {
         companies:
           | (Pick<
               Company,
-              'name' | 'tagline' | 'logo_url' | 'colors' | 'bank_details'
+              | 'name'
+              | 'tagline'
+              | 'logo_url'
+              | 'colors'
+              | 'bank_details'
+              | 'abono_reserva_pct'
             > & {
               // Para el candado del portal, que es de Gestiona y Cobra
               // (paso 3.2, 14-09-2026). Acá no hay sesión: el plan se
@@ -274,7 +279,7 @@ export class QuotationsRepository {
         clients!inner (
           name, company_id,
           companies!inner (
-            name, tagline, logo_url, colors, bank_details,
+            name, tagline, logo_url, colors, bank_details, abono_reserva_pct,
             plan, estado_plan, modulos_propios
           )
         )`,

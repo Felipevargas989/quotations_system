@@ -29,6 +29,8 @@ export const updateCompany = async (
   extras?: {
     tagline?: Company["tagline"];
     high_value_threshold?: Company["high_value_threshold"];
+    // Migración 160: el % de abono para reservar la fecha.
+    abono_reserva_pct?: number | null;
     bank_details?: Company["bank_details"];
     // Marca de los correos de marketing (migraciones 95-96).
     banner_url?: Company["banner_url"];
@@ -60,6 +62,9 @@ export const updateCompany = async (
     ...(extras?.facebook !== undefined ? { facebook: extras.facebook } : {}),
     ...(extras?.sitio_web !== undefined
       ? { sitio_web: extras.sitio_web }
+      : {}),
+    ...(extras?.abono_reserva_pct !== undefined
+      ? { abono_reserva_pct: extras.abono_reserva_pct }
       : {}),
   });
   return { data: response };
