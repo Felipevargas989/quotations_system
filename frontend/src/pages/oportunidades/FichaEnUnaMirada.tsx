@@ -41,9 +41,9 @@ import { useResponsables } from "./useResponsables";
 // el evento en corto («vie 30 oct · 18:00 a 02:00 · 160 personas»), el
 // texto largo completo al pasar el mouse, y el estado y el responsable
 // arriba a la derecha, junto a Mercado Público. Desde el 22-10 (decisión
-// 66) ese grupo queda pegado a la derecha también cuando el título es largo
-// y lo manda a una segunda línea (Felipe: "prefiero que esté pegado a la
-// derecha el de arriba").
+// 66) solo el enlace a Mercado Público va pegado al borde derecho; el
+// estado y el responsable se quedan donde estaban (Felipe: "el en estudio
+// y el responsable estaban bien donde estaban").
 
 export default function FichaEnUnaMirada({
   ficha,
@@ -97,7 +97,7 @@ export default function FichaEnUnaMirada({
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <ChipDeEstado
             value={ficha.estado}
             opciones={ESTADOS}
@@ -114,16 +114,16 @@ export default function FichaEnUnaMirada({
               tamano="sm"
             />
           </div>
-          <a
-            href={urlMercadoPublico(ficha.codigo, p.tipo)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-          >
-            Mercado Público
-            <ExternalLink size={14} />
-          </a>
         </div>
+        <a
+          href={urlMercadoPublico(ficha.codigo, p.tipo)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+        >
+          Mercado Público
+          <ExternalLink size={14} />
+        </a>
       </div>
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">

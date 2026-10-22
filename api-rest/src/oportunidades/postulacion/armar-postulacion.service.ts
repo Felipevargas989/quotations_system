@@ -29,8 +29,9 @@ import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 //     formulario, el detalle va en él; sin él, la propuesta lleva el
 //     detalle y al final el valor: neto, IVA y total), las dos desde lo
 //     postulado;
-//  3. si hay una cotización vinculada, se iguala a lo postulado con el
-//     mismo precio (es de solo lectura: cotizacion-de-licitacion.ts).
+//  3. la cotización vinculada NO se toca: desde la decisión 69 (22-10) se
+//     edita a mano para cuadrar lo que se subcontrata, y se reescribe con
+//     lo postulado solo con el botón de «¿Calza el precio?».
 // Todo por detrás. La firma sigue aparte, después de revisar (17-10).
 
 /** Lo que anota «Armar postulación» en la fila de la oferta. */
@@ -224,19 +225,6 @@ export class ArmarPostulacionService {
         }
       }),
     );
-    try {
-      const o = await this.repo.oportunidad(companyId, oportunidadId);
-      if (o?.quotation_id) {
-        await this.cotizacion.llevar(
-          user,
-          oportunidadId,
-          undefined,
-          armada.total,
-        );
-      }
-    } catch (error) {
-      problemas.push(`La cotización vinculada: ${mensajeDe(error)}`);
-    }
     if (problemas.length === 0) return;
     this.logger.warn(
       `postulación de la oportunidad ${oportunidadId}: ${problemas.join(' · ')}`,

@@ -1790,13 +1790,13 @@ export default function QuotationForm() {
   // uno en curso: cualquiera con permiso de edición le movía ítems,
   // fecha, personas, descuento y propina.
   const eventoCongelado = esEventoCongelado(quotation?.quotation_status);
-  // Lo postulado en una licitación (decisión 35 del doc 17): se cambia solo
-  // desde Oportunidades; el motor también lo cierra. El estado, en el tablero.
+  // Lo postulado en una licitación (decisiones 35 y 69 del doc 17): desde el
+  // 22-10 se edita como cualquiera, para agregarle a mano lo que se
+  // subcontrata; la pantalla solo dice de qué licitación viene.
   const deLicitacion: { codigo: string } | null =
     quotation?.de_licitacion ?? null;
   const isRestrictedEditing =
     eventoCongelado ||
-    Boolean(deLicitacion) ||
     (quotation?.quotation_status === QuotationStatus.ACEPTADA &&
       !(
         userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES
@@ -2292,16 +2292,19 @@ export default function QuotationForm() {
           {isRestrictedEditing && (
             <div
               className={
-                eventoCongelado || deLicitacion
+                eventoCongelado
                   ? "bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium"
                   : "bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium"
               }
             >
               {eventoCongelado
                 ? "🔒 Evento realizado: la cotización quedó congelada"
-                : deLicitacion
-                  ? `🔒 Es lo postulado en la licitación ${deLicitacion.codigo}: se cambia desde Oportunidades`
-                  : "🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas"}
+                : "🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas"}
+            </div>
+          )}
+          {deLicitacion && !isRestrictedEditing && (
+            <div className="bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+              {`Viene de la licitación ${deLicitacion.codigo}: agrégale lo que falta para cuadrar`}
             </div>
           )}
         </div>
@@ -2387,9 +2390,9 @@ export default function QuotationForm() {
           />
           <button
             onClick={handleSubmit}
-            disabled={loading || !isQuotationFormValid() || !!deLicitacion}
+            disabled={loading || !isQuotationFormValid()}
             className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-              loading || !isQuotationFormValid() || deLicitacion
+              loading || !isQuotationFormValid()
                 ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
@@ -2417,7 +2420,7 @@ export default function QuotationForm() {
           "usuario actual"}
       </p>
 
-      {isRestrictedEditing && !deLicitacion && (
+      {isRestrictedEditing && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">

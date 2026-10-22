@@ -49,6 +49,17 @@ import {
 //  - "si existe diferencia de precio respecto a lo ofertado, se ajusta como
 //    un descuento en dinero, así cuadramos al peso": la oferta es el total
 //    de la cotización, y la diferencia con el catálogo, su descuento.
+//
+// DESDE LA DECISIÓN 69 (22-10, el catamarán). Felipe: "por un tema de una
+// diferencia de plata no estamos creando la cotización con lo básico...
+// yo después me voy y a mano pongo servicio de catamarán, lo agrego, y
+// cuadro los precios". La cotización se crea SIEMPRE con lo que la empresa
+// tiene en su catálogo: si la oferta es mayor (lleva lo que se subcontrata),
+// queda al precio del catálogo, la diferencia se anota y «¿Calza el
+// precio?» la muestra en rojo con la lista de lo que falta. Al crearla se
+// eligen las fechas (desde–hasta), con las de las bases propuestas. Y deja
+// de ser de solo lectura: se le agrega a mano lo que falta; «Armar
+// postulación» ya no la reescribe sola, se reescribe con un botón.
 
 const NO_SE_REESCRIBE = ['aceptada', 'realizada'];
 
@@ -71,7 +82,15 @@ export type EstadoDeLaCotizacion = {
   /** La última propuesta técnica lista y cuántos productos ofrece; null si
    *  no hay, o si es de antes de que dejara su oferta. */
   propuesta: { id: number; productos: number } | null;
+  /** Lo que la oferta subcontrata o no tiene en el catálogo: lo que falta
+   *  en la cotización (decisión 69). */
+  faltan: string[];
+  /** Las fechas que se proponen al crear la cotización; null sin oferta. */
+  fechas: FechasDeLaCotizacion | null;
 };
+
+/** Desde y hasta, AAAA-MM-DD; `hasta` null = un solo día. */
+export type FechasDeLaCotizacion = { desde: string; hasta: string | null };
 
 const entero = (v: unknown): number => {
   const x = Number(v);
@@ -80,6 +99,22 @@ const entero = (v: unknown): number => {
 
 const fechaIso = (v: unknown): string | null =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+
+/** AAAA-MM-DD más n días (al mediodía UTC: sin saltos de zona horaria). */
+export const sumarDias = (iso: string, n: number): string => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Cuántos días dura lo que se ofrece: el día más alto de las cajas y los
+ *  fijos (0 en un fijo = todo el evento). */
+export const diasDeLaOferta = (oferta: OfertaDeLaPropuesta): number =>
+  Math.max(
+    1,
+    ...oferta.cajas.map((c) => c.dia),
+    ...oferta.fijos.map((f) => f.dia),
+  );
 
 /** Lo que tenía una cotización antes de reescribirla, para su bitácora. */
 export const loQueTenia = (items: Record<string, unknown> | null): string => {
@@ -169,12 +204,17 @@ export class CotizacionDeLaPostulacionService {
     ]);
     const deLasBases =
       analisis?.estado === 'listo' ? entero(analisis.resultado?.monto) : 0;
+    const sugerido = propuesta
+      ? await this.evento(companyId, o, propuesta.oferta, null)
+      : null;
     return {
       cotizacion: cotizacion ? this.resumen(cotizacion) : null,
       presupuesto: entero(o.proceso.monto) || deLasBases || null,
       propuesta: propuesta
         ? { id: propuesta.id, productos: productosDeLaOferta(propuesta.oferta) }
         : null,
+      faltan: propuesta?.subcontratar ?? [],
+      fechas: sugerido ? { desde: sugerido.fecha, hasta: sugerido.fin } : null,
     };
   }
 
@@ -187,9 +227,15 @@ export class CotizacionDeLaPostulacionService {
     oportunidadId: number,
     numero?: number,
     total?: number,
+    fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
     try {
-      const estado = await this.llevarSinCapturar(user, oportunidadId, numero);
+      const estado = await this.llevarSinCapturar(
+        user,
+        oportunidadId,
+        numero,
+        fechas,
+      );
       return total
         ? await this.fijarOferta(user, oportunidadId, total)
         : estado;
@@ -210,6 +256,7 @@ export class CotizacionDeLaPostulacionService {
     user: User,
     oportunidadId: number,
     numero?: number,
+    fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
@@ -234,12 +281,21 @@ export class CotizacionDeLaPostulacionService {
       );
     }
 
-    const evento = await this.evento(companyId, o, propuesta.oferta, destino);
+    const evento = await this.evento(
+      companyId,
+      o,
+      propuesta.oferta,
+      destino,
+      fechas,
+    );
     const catalogo = await this.catalogos.catalogo(companyId);
     const armado = armarFoto(
       {
         ...propuesta.oferta,
-        ultimo_dia: '',
+        // El último día, para que lo ofrecido de varios días calce (con ''
+        // armarFoto contaba un solo día y rechazaba el día 2 en adelante:
+        // el catamarán y el Profesor, 22-10, decisión 69).
+        ultimo_dia: evento.fin ?? '',
         descuento_porcentaje: 0,
         presupuesto_cliente: { monto: 0, por: 'total' },
         nota: '',
@@ -271,6 +327,10 @@ export class CotizacionDeLaPostulacionService {
         {
           ...plata,
           people_count: evento.personas,
+          // Las fechas, solo si se eligieron al reescribir (decisión 69).
+          ...(fechas?.desde
+            ? { event_date: evento.fecha, event_end_date: evento.fin }
+            : {}),
           comentario_interno: comentarioConLaLicitacion(
             destino.comentario_interno,
             bloque,
@@ -280,7 +340,6 @@ export class CotizacionDeLaPostulacionService {
         companyId,
         user.role,
         { derechos: user.derechos, plan: user.plan },
-        'postulacion',
       );
       await this.anotar(
         user,
@@ -299,6 +358,7 @@ export class CotizacionDeLaPostulacionService {
           client_id: cliente,
           event_type: tipoDeEvento(o.proceso.nombre, o.etiquetas ?? []),
           event_date: evento.fecha,
+          event_end_date: evento.fin,
           people_count: evento.personas,
           children_count: 0,
           quotation_status: 'solicitada',
@@ -351,9 +411,16 @@ export class CotizacionDeLaPostulacionService {
       tip_percentage: null,
     }).subtotalAmount;
     if (total > catalogo) {
-      throw new BadRequestException(
-        `Tu precio (${pesos(total)}) es mayor que tu catálogo (${pesos(catalogo)}): agrega al catálogo lo que falta y vuelve a armar la postulación. Nunca un precio a dedo.`,
+      // La oferta lleva lo que se subcontrata o no está en el catálogo
+      // (decisión 69): la cotización queda con lo que hay, a precio de
+      // catálogo, y la diferencia se anota. Nunca un precio a dedo: lo que
+      // falta se agrega a mano, como servicio, para cuadrar.
+      await this.anotar(
+        user,
+        q.id,
+        `Oferta de la licitación ${o.codigo}: ${pesos(total)}. Tu catálogo suma ${pesos(catalogo)}: faltan ${pesos(total - catalogo)} en la cotización (lo que se subcontrata o no está en tu catálogo; la lista está en el comentario interno). Agrégalo para cuadrar.`,
       );
+      return this.estado(companyId, oportunidadId);
     }
     const descuento = catalogo - total;
     await this.cotizaciones.update(
@@ -362,7 +429,6 @@ export class CotizacionDeLaPostulacionService {
       companyId,
       user.role,
       { derechos: user.derechos, plan: user.plan },
-      'postulacion',
     );
     const porcentaje =
       catalogo > 0 ? Math.round((descuento / catalogo) * 1000) / 10 : 0;
@@ -406,25 +472,43 @@ export class CotizacionDeLaPostulacionService {
       : null;
   }
 
-  /** La fecha y las personas: las de la cotización que se reescribe; si no,
-   *  las de las bases; si no, el cierre y la caja más grande. */
+  /** La fecha, el término y las personas. La fecha: la elegida al crear
+   *  (decisión 69); si no, la de la cotización que se reescribe; si no, la
+   *  de las bases; si no, el cierre. El término: el elegido (si es después
+   *  de la fecha); si no, el de la cotización que se reescribe; si no, los
+   *  días que dura lo que se ofrece. */
   private async evento(
     companyId: number,
     o: OportunidadParaCotizar,
     oferta: OfertaDeLaPropuesta,
     destino: CotizacionDeLaPostulacion | null,
-  ): Promise<{ fecha: string; personas: number }> {
+    elegidas?: Partial<FechasDeLaCotizacion>,
+  ): Promise<{ fecha: string; fin: string | null; personas: number }> {
     const analisis = await this.analisis.ultimo(companyId, o.id);
     const bases = analisis?.estado === 'listo' ? analisis.resultado : null;
+    const desde = fechaIso(elegidas?.desde);
     const fecha =
+      desde ??
       fechaIso(destino?.event_date?.slice(0, 10)) ??
       fechaIso(bases?.fecha_del_servicio_iso) ??
       fechaIso(o.proceso.fecha_cierre?.slice(0, 10)) ??
       new Date().toISOString().slice(0, 10);
+    const despues = (v: string | null) => (v && v > fecha ? v : null);
+    // Lo ofrecido de varios días necesita al menos esos días: el término
+    // nunca queda antes (si se eligió uno más corto, se alarga).
+    const dias = diasDeLaOferta(oferta);
+    const necesario = dias > 1 ? sumarDias(fecha, dias - 1) : null;
+    const pedido = desde
+      ? despues(fechaIso(elegidas?.hasta))
+      : destino
+        ? despues(fechaIso(destino.event_end_date?.slice(0, 10)))
+        : null;
+    const fin =
+      necesario && (!pedido || pedido < necesario) ? necesario : pedido;
     const personas =
       entero(bases?.personas) ||
       Math.max(1, ...oferta.cajas.map((c) => c.personas));
-    return { fecha, personas };
+    return { fecha, fin, personas };
   }
 
   /** Los campos de plata de la cotización, con `computeMoney` (el mismo

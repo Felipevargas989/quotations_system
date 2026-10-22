@@ -379,7 +379,7 @@ describe('Armar postulación', () => {
     expect(pidenExperiencia(null)).toBe(false);
   });
 
-  it('sin propuesta si las bases no la piden; la cotización vinculada queda igual a lo postulado, con el precio', async () => {
+  it('sin propuesta si las bases no la piden; la cotización vinculada no se toca: se edita a mano y se reescribe con un botón (decisión 69)', async () => {
     const { servicio, documentos, cotizacion, repo } = armar();
     repo.oportunidad.mockResolvedValue({ id: 40, quotation_id: 'q-1' });
     await servicio.seguir(USUARIO, 40, 21, {
@@ -387,12 +387,7 @@ describe('Armar postulación', () => {
       propuesta: false,
     });
     expect(documentos.crearPropuesta).not.toHaveBeenCalled();
-    expect(cotizacion.llevar).toHaveBeenCalledWith(
-      USUARIO,
-      40,
-      undefined,
-      11_900_000,
-    );
+    expect(cotizacion.llevar).not.toHaveBeenCalled();
   });
 
   it('lo que no alcanzó a partir queda anotado en la oferta, en palabras', async () => {

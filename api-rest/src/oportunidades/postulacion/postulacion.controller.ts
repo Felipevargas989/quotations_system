@@ -98,6 +98,9 @@ export class PostulacionController {
     this.logger.info(
       `POST /oportunidades/${id}/cotizacion ${dto.numero ? `(vincular N° ${dto.numero})` : ''} (empresa ${user.company_id})`,
     );
-    return this.cotizacion.llevar(user, id, dto.numero, dto.total);
+    return this.cotizacion.llevar(user, id, dto.numero, dto.total, {
+      desde: dto.desde,
+      hasta: dto.hasta,
+    });
   }
 }
