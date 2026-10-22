@@ -31,6 +31,7 @@ export type CotizacionDeLaPostulacion = {
   people_count: number;
   children_count: number | null;
   event_date: string | null;
+  event_end_date?: string | null;
   items: Record<string, unknown> | null;
   subtotal_amount: number | null;
   discount_amount: number | null;
@@ -46,7 +47,7 @@ export type PropuestaConOferta = {
 };
 
 const COLUMNAS_DE_LA_COTIZACION =
-  'id, quotation_number, quotation_status, people_count, children_count, event_date, items, subtotal_amount, discount_amount, total_amount, comentario_interno, client:clients(name)';
+  'id, quotation_number, quotation_status, people_count, children_count, event_date, event_end_date, items, subtotal_amount, discount_amount, total_amount, comentario_interno, client:clients(name)';
 
 @Injectable()
 export class PostulacionRepository {
@@ -119,9 +120,13 @@ export class PostulacionRepository {
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
       // La oferta armada (decisión 33) o, antes de ella, la que dejaba la
-      // propuesta técnica (decisión 29): la más nueva de las dos.
+      // propuesta técnica (decisión 29): la más nueva de las dos QUE TRAIGA
+      // oferta. Desde la decisión 33 la propuesta se arma después de la
+      // oferta y no la trae: sin este filtro, la cotización no encontraba
+      // los productos y escondía el botón (catamarán, 22-10, decisión 69).
       .in('tipo', ['oferta', 'propuesta'])
       .eq('estado', 'listo')
+      .not('resultado->oferta', 'is', null)
       .order('id', { ascending: false })
       .limit(1);
     if (error) throw error;

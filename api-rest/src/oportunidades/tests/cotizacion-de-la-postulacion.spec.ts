@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import type { ClientsService } from 'src/clients/clients.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
@@ -7,10 +7,13 @@ import type { QuotationsService } from 'src/quotations/quotations.service';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { User } from 'src/users/entities/user.entity';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
+import type { OfertaDeLaPropuesta } from '../generacion/oferta-de-la-propuesta';
 import {
   CotizacionDeLaPostulacionService,
+  diasDeLaOferta,
   loQueTenia,
   nombreDelComprador,
+  sumarDias,
   tipoDeEvento,
 } from '../postulacion/cotizacion-de-la-postulacion.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
@@ -266,18 +269,16 @@ describe('La cotización de la postulación', () => {
 
     expect(repo.cotizacion).toHaveBeenCalledWith(1, { numero: 598 });
     expect(cotizaciones.create).not.toHaveBeenCalled();
-    const [id, cambios, , rol, , desde] = cotizaciones.update.mock.calls[0] as [
+    const [id, cambios, , rol] = cotizaciones.update.mock.calls[0] as [
       string,
       Record<string, unknown>,
       number,
       string,
-      unknown,
-      string,
     ];
     expect(id).toBe('q-vieja');
     expect(rol).toBe('administrador');
-    // Solo Oportunidades pasa el candado de solo lectura (decisión 35).
-    expect(desde).toBe('postulacion');
+    // Sin fechas elegidas, la reescrita guarda las suyas (decisión 69).
+    expect(cambios).not.toHaveProperty('event_date');
     expect(cambios).toMatchObject({
       people_count: 235,
       total_amount: CATALOGO_TOTAL,
@@ -363,19 +364,19 @@ describe('«¿Calza el precio?»', () => {
 
     await servicio.llevar(USUARIO, 87, undefined, 5_500_000);
 
-    const [id, cambios, , , , desde] = cotizaciones.update.mock.calls.at(
-      -1,
-    ) as [string, Record<string, unknown>, number, string, unknown, string];
+    const [id, cambios] = cotizaciones.update.mock.calls.at(-1) as [
+      string,
+      Record<string, unknown>,
+    ];
     expect(id).toBe('q-nueva');
     expect(cambios).toMatchObject({
       total_amount: 5_500_000,
       discount_amount: 507_500,
     });
-    expect(desde).toBe('postulacion');
   });
 
-  it('una oferta mayor que el catálogo no se acepta: se sube con productos, nunca a dedo; sin cotización, primero crearla', async () => {
-    const { repo, cotizaciones, servicio } = armar();
+  it('una oferta mayor que el catálogo NO frena (decisión 69): la cotización queda con lo que hay, a precio de catálogo, y la diferencia se anota; sin cotización, primero crearla', async () => {
+    const { repo, cotizaciones, servicio, notas } = armar();
     await expect(servicio.fijarOferta(USUARIO, 87, 5_000_000)).rejects.toThrow(
       'Primero crea o vincula la cotización',
     );
@@ -388,8 +389,89 @@ describe('«¿Calza el precio?»', () => {
     repo.cotizacion.mockResolvedValue(vinculada(creada));
     await expect(
       servicio.fijarOferta(USUARIO, 87, 7_000_000),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toMatchObject({ cotizacion: { total: CATALOGO_TOTAL } });
+    // Nunca un precio a dedo: no se toca el precio, se anota lo que falta.
     expect(cotizaciones.update).not.toHaveBeenCalled();
+    expect(notas().at(-1)).toBe(
+      'Oferta de la licitación 4364-13-LE26: $7.000.000. Tu catálogo suma $6.007.500: faltan $992.500 en la cotización (lo que se subcontrata o no está en tu catálogo; la lista está en el comentario interno). Agrégalo para cuadrar.',
+    );
+  });
+
+  it('crear siempre (decisión 69): con una oferta mayor que el catálogo, «Vincular» crea la cotización igual, sin error', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    const base = await repo.oportunidad();
+    repo.vincular.mockImplementation(() => {
+      repo.oportunidad.mockResolvedValue({ ...base, quotation_id: 'q-nueva' });
+      repo.cotizacion.mockResolvedValue(
+        vinculada(creadaDe(cotizaciones.create)),
+      );
+      return Promise.resolve();
+    });
+    await expect(
+      servicio.llevar(USUARIO, 87, undefined, 7_090_000),
+    ).resolves.toMatchObject({ cotizacion: { numero: 612 } });
+    expect(repo.vincular).toHaveBeenCalledWith(1, 87, 'q-nueva');
+    expect(cotizaciones.update).not.toHaveBeenCalled();
+  });
+
+  it('las fechas (decisión 69): las elegidas al crear van a la cotización; un término que no es después del inicio no cuenta', async () => {
+    const { cotizaciones, servicio } = armar();
+    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+      desde: '2026-11-06',
+      hasta: '2026-11-08',
+    });
+    expect(creadaDe(cotizaciones.create)).toMatchObject({
+      event_date: '2026-11-06',
+      event_end_date: '2026-11-08',
+    });
+    cotizaciones.create.mockClear();
+    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+      desde: '2026-11-06',
+      hasta: '2026-11-01',
+    });
+    expect(creadaDe(cotizaciones.create)).toMatchObject({
+      event_date: '2026-11-06',
+      event_end_date: null,
+    });
+  });
+
+  it('lo ofrecido de varios días calza: el término nunca queda antes de lo que dura (un «hasta» más corto se alarga)', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: {
+        oferta: {
+          ...OFERTA,
+          cajas: [...OFERTA.cajas, { ...OFERTA.cajas[0], dia: 3 }],
+        },
+      },
+    });
+    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+      desde: '2026-11-06',
+      hasta: '2026-11-07',
+    });
+    expect(creadaDe(cotizaciones.create)).toMatchObject({
+      event_date: '2026-11-06',
+      event_end_date: '2026-11-08',
+    });
+  });
+
+  it('sin fechas elegidas: la de las bases y, si lo ofrecido dura varios días, el término que corresponde', async () => {
+    const { repo, cotizaciones, servicio } = armar();
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: {
+        oferta: {
+          ...OFERTA,
+          cajas: [...OFERTA.cajas, { ...OFERTA.cajas[0], dia: 3 }],
+        },
+      },
+    });
+    await servicio.llevar(USUARIO, 87);
+    expect(creadaDe(cotizaciones.create)).toMatchObject({
+      event_date: '2026-10-28',
+      event_end_date: '2026-10-30',
+    });
   });
 
   it('el estado: el presupuesto (el publicado o el de las bases), la cotización y cuántos productos trae la propuesta', async () => {
@@ -398,6 +480,8 @@ describe('«¿Calza el precio?»', () => {
       cotizacion: null,
       presupuesto: 15_960_000,
       propuesta: { id: 31, productos: 3 },
+      faltan: [],
+      fechas: { desde: '2026-10-28', hasta: null },
     });
     await servicio.llevar(USUARIO, 87);
     const creada = creadaDe(cotizaciones.create);
@@ -417,6 +501,36 @@ describe('«¿Calza el precio?»', () => {
       descuento: 507_500,
       total: 5_500_000,
     });
+  });
+
+  it('el estado trae lo que falta en la cotización: lo que la oferta subcontrata (decisión 69)', async () => {
+    const { repo, servicio } = armar();
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: {
+        oferta: OFERTA,
+        subcontratar: [
+          'Catamarán para 30 personas con capitán y ayudante, del 2 al 8 de noviembre',
+          '50 chalecos salvavidas y 4 aros salvavidas',
+        ],
+      },
+    });
+    expect((await servicio.estado(1, 87)).faltan).toEqual([
+      'Catamarán para 30 personas con capitán y ayudante, del 2 al 8 de noviembre',
+      '50 chalecos salvavidas y 4 aros salvavidas',
+    ]);
+  });
+
+  it('las piezas de las fechas: sumar días sin saltos de zona y los días que dura lo ofrecido', () => {
+    expect(sumarDias('2026-11-06', 2)).toBe('2026-11-08');
+    expect(sumarDias('2026-12-31', 1)).toBe('2027-01-01');
+    expect(diasDeLaOferta(OFERTA as unknown as OfertaDeLaPropuesta)).toBe(1);
+    expect(
+      diasDeLaOferta({
+        ...OFERTA,
+        fijos: [{ dia: 4, id: 45, cantidad: 1 }],
+      } as unknown as OfertaDeLaPropuesta),
+    ).toBe(4);
   });
 
   it('el tipo de evento es uno de los que acepta la base, según la licitación (QA del 19-10)', () => {

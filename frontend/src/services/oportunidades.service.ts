@@ -680,6 +680,16 @@ export interface EstadoDeLaCotizacion {
   /** La última propuesta técnica que dejó su oferta, y cuántos productos
    *  trae; null si no hay o si es anterior al 19-10. */
   propuesta: { id: number; productos: number } | null;
+  /** Lo que la oferta subcontrata o no tiene en el catálogo (decisión 69). */
+  faltan: string[];
+  /** Las fechas que se proponen al crearla; null sin oferta. */
+  fechas: FechasDeLaCotizacion | null;
+}
+
+/** Desde y hasta, AAAA-MM-DD; `hasta` null = un solo día. */
+export interface FechasDeLaCotizacion {
+  desde: string;
+  hasta: string | null;
 }
 
 export const getCotizacionDeLaPostulacion = async (id: number) =>
@@ -688,18 +698,22 @@ export const getCotizacionDeLaPostulacion = async (id: number) =>
     "GET",
   )) as EstadoDeLaCotizacion;
 
-/** «Vincular con cotización» (decisión 35): crea la cotización con lo
- *  postulado, o con `numero` vincula y reescribe esa; con `total` (el
- *  precio de «Armar postulación») queda con ese total. Desde ahí es de solo
- *  lectura en el cotizador. */
+/** «Crear o vincular cotización» (decisiones 35 y 69): crea la cotización
+ *  con lo postulado (en las `fechas` elegidas), o con `numero` vincula y
+ *  reescribe esa; sin ninguno, reescribe la ya vinculada. Con `total` (el
+ *  precio de «Armar postulación») queda con ese total si el catálogo
+ *  alcanza; si no, a precio de catálogo y la diferencia se anota. */
 export const llevarACotizacion = async (
   id: number,
   numero?: number,
   total?: number,
+  fechas?: FechasDeLaCotizacion,
 ) =>
   (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`, "POST", {
     ...(numero ? { numero } : {}),
     ...(total ? { total } : {}),
+    ...(fechas?.desde ? { desde: fechas.desde } : {}),
+    ...(fechas?.hasta ? { hasta: fechas.hasta } : {}),
   })) as EstadoDeLaCotizacion;
 
 /** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
