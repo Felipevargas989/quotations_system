@@ -22,20 +22,26 @@ import {
   numeroDeDia,
   serviciosDelDia,
 } from "./serviciosDelDia";
+import { esDePlanta } from "./bandasDelStaff";
 
 // EL RESUMEN DEL DÍA — LA HOJA DE RUTA DE UNA JORNADA
 //
 // Se abre DEBAJO de la grilla al pinchar la fecha. (El modal es otra
 // cosa: es la edición de una casilla puntual.)
 //
-// Tres bloques, en este orden (Felipe, 15-08):
+// Cuatro bloques, en este orden (Felipe, 15-08; el cuarto, 21-10-2026):
 //   1. LOS EVENTOS, en corto: número, cliente, tipo, cuánta gente, el
 //      contacto — y las CATEGORÍAS de servicio con su hora, editable
 //      acá mismo. El detalle largo del menú NO va: es excesivo, y para
 //      eso está la Ficha de Cocina.
-//   2. PERSONAL STAFF — la gente de los eventos, agrupada por evento
-//      cuando hay más de uno ("para saber quién va en cuál").
-//   3. PERSONAL DE PLANTA — la misma tabla, exactamente igual.
+//   2. PERSONAL DE EVENTOS — la gente de los eventos, planta o freelance,
+//      agrupada por evento cuando hay más de uno ("para saber quién va
+//      en cuál").
+//   3. PERSONAL DE PLANTA — la misma tabla: las jornadas de planta sin
+//      evento.
+//   4. PERSONAL STAFF — la misma tabla: el freelance sin evento. "Si es
+//      staff (o freelance) queda siempre abajo; si es planta, queda en
+//      planta" (Felipe, 21-10-2026), igual que las bandas de la sábana.
 //
 // Las dos tablas comparten plantilla a propósito: cargo · persona ·
 // horario · horas · tipo · estado. Un cargo que se necesita y no tiene
@@ -98,7 +104,9 @@ export default function ResumenDelDia({
 }) {
   const r = rotulo(dia);
   const delDia = staff.filter((a) => iso(a.day) === dia);
-  const planta = delDia.filter((a) => a.quotation_id === null);
+  const sinEvento = delDia.filter((a) => a.quotation_id === null);
+  const planta = sinEvento.filter(esDePlanta);
+  const staffSinEvento = sinEvento.filter((a) => !esDePlanta(a));
 
   // Los eventos que TOCAN este día: por fecha, o porque hay gente puesta
   // (los días de preparativo y de desarme caen fuera del rango de la
@@ -183,8 +191,7 @@ export default function ResumenDelDia({
         {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. */}
         {eventosDelDia.length === 0 ? (
           <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-            <strong className="text-gray-700">Sin eventos este día.</strong> Lo
-            que sigue es el personal de planta.
+            <strong className="text-gray-700">Sin eventos este día.</strong>
           </p>
         ) : (
           <div className="space-y-2">
@@ -199,11 +206,11 @@ export default function ResumenDelDia({
           </div>
         )}
 
-        {/* 2. PERSONAL STAFF — agrupado por evento si hay más de uno. */}
+        {/* 2. PERSONAL DE EVENTOS — agrupado por evento si hay más de uno. */}
         {eventosDelDia.length > 0 && (
           <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              Personal staff
+              Personal de eventos
             </h3>
             {eventosDelDia.length === 1 ? (
               <TablaDeGente
@@ -257,7 +264,17 @@ export default function ResumenDelDia({
           </section>
         )}
 
-        {eventosDelDia.length === 0 && planta.length === 0 && (
+        {/* 4. PERSONAL STAFF — el freelance sin evento, siempre abajo. */}
+        {staffSinEvento.length > 0 && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
+              Personal staff
+            </h3>
+            <TablaDeGente gente={staffSinEvento} />
+          </section>
+        )}
+
+        {eventosDelDia.length === 0 && sinEvento.length === 0 && (
           <p className="text-sm text-gray-500">
             Día libre: sin eventos ni gente asignada.
           </p>

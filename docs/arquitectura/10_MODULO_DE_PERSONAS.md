@@ -82,6 +82,17 @@ es parte de **"Personal de planta"**, el evento permanente de la sábana (quotat
 sin fecha de inicio ni término, y solo se le liquidan los pagos. La
 etapa 7 quedó absorbida por la 3.
 
+**Dos bandas, por el tipo de cada jornada (21-10-2026).** En la sábana,
+lo que no es de un evento se muestra en dos bandas: **«Personal de
+planta»** arriba, con las jornadas de planta, y **«Personal Staff»**
+abajo, con las freelance. Antes (15-08) la banda la decidía el cargo:
+un cargo con alguien de planta iba entero arriba, y así Cecilia,
+freelance de Personal aseo, quedó en planta. Felipe: *"si es staff (o
+freelance) queda siempre abajo; si es planta, queda en planta, y arriba
+en eventos ambos dependiendo a quién citemos"*. Un cargo con gente de
+los dos tipos sale en las dos bandas. El resumen del día sigue la misma
+regla: personal de eventos, de planta y staff, en ese orden.
+
 | | Ficha de **evento** | **Restaurante** (evento permanente) |
 |---|---|---|
 | De dónde salen los días | De la cotización | No tiene: está siempre |
