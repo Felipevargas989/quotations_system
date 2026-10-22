@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -29,6 +30,8 @@ import { loQuePidenLasBases } from '../generacion/instrucciones';
 import { catalogoParaLaOferta } from '../generacion/oferta-de-la-propuesta';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { memoriaDeLaLicitacion } from '../preguntas/lo-aclarado';
+import { PreguntasRepository } from '../preguntas/preguntas.repository';
 import {
   ESQUEMA_DE_LA_OFERTA,
   instruccionesDeLaOferta,
@@ -56,6 +59,9 @@ export class ArmarLaOfertaService {
     private readonly oportunidades: OportunidadesRepository,
     private readonly catalogos: GenerarRepository,
     private readonly logger: PinoLogger,
+    /** La memoria de la licitación (decisión 68). Opcional: las pruebas de
+     *  antes no la traen y sin ella no hay nada aclarado. */
+    @Optional() private readonly preguntas?: PreguntasRepository,
   ) {
     this.logger.setContext(ArmarLaOfertaService.name);
   }
@@ -126,10 +132,13 @@ export class ArmarLaOfertaService {
       }
       caben.push(a);
     }
-    const [catalogo, oferente, config] = await Promise.all([
+    const [catalogo, oferente, config, aclarado] = await Promise.all([
       catalogoParaLaOferta(this.catalogos, companyId),
       this.oferente.oferente(companyId),
       this.oportunidades.configDe(companyId),
+      memoriaDeLaLicitacion(this.preguntas, companyId, oportunidadId, (m) =>
+        this.logger.warn(m),
+      ),
     ]);
 
     await this.repo.abandonarAntesDe(companyId, oportunidadId, ENCENDIDO);
@@ -157,7 +166,8 @@ export class ArmarLaOfertaService {
         codigo: ficha.codigo,
         nombre: ficha.proceso.nombre,
         organismo: ficha.proceso.organismo,
-        bases,
+        // La memoria de la licitación (decisión 68): lo aclarado manda.
+        bases: { ...bases, aclarado },
         instalaciones: oferente?.instalaciones ?? null,
         loQueVende: config?.perfil ?? null,
         catalogo,

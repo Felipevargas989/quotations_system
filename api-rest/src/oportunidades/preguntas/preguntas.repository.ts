@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { type Aclaracion, loAclarado } from './lo-aclarado';
 
 // PREGÚNTALE A LA IA SOBRE ESTAS BASES (decisión 67 del doc 17, 22-10;
 // migración 159). Cada fila es una pregunta de una persona sobre las bases
@@ -29,6 +30,9 @@ export type FilaDePregunta = {
   costo_usd: number | null;
   preguntado_por: string | null;
   quien: { full_name: string | null } | null;
+  /** Lo que confirmó el comprador (decisión 68, migración 161). */
+  confirmado: string | null;
+  confirmado_en: string | null;
   creado_en: string;
   terminado_en: string | null;
 };
@@ -55,7 +59,7 @@ export type FinDePregunta = {
 };
 
 export const COLUMNAS_DE_PREGUNTA =
-  'id, oportunidad_id, pregunta, estado, respuesta, citas, seguridad, error, modelo, tokens_entrada, tokens_salida, tokens_cache_escrita, tokens_cache_leida, costo_usd, preguntado_por, quien:user_profiles(full_name), creado_en, terminado_en';
+  'id, oportunidad_id, pregunta, estado, respuesta, citas, seguridad, error, modelo, tokens_entrada, tokens_salida, tokens_cache_escrita, tokens_cache_leida, costo_usd, preguntado_por, quien:user_profiles(full_name), confirmado, confirmado_en, creado_en, terminado_en';
 
 /** Lo más que se trae de un hilo: de la más vieja a la más nueva. */
 export const MAX_HILO = 100;
@@ -118,6 +122,41 @@ export class PreguntasRepository {
       .eq('company_id', companyId)
       .eq('id', id);
     if (error) throw error;
+  }
+
+  /** Lo que confirmó el comprador sobre una respuesta lista (decisión
+   *  68); `texto` null lo borra. null = no hay esa pregunta lista. */
+  async confirmar(
+    companyId: number,
+    oportunidadId: number,
+    id: number,
+    texto: string | null,
+    perfil: string | null,
+  ): Promise<FilaDePregunta | null> {
+    const { data, error } = await this.db
+      .from(this.tabla)
+      .update({
+        confirmado: texto,
+        confirmado_por: texto ? perfil : null,
+        confirmado_en: texto ? new Date().toISOString() : null,
+      })
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('id', id)
+      .eq('estado', 'listo')
+      .select(COLUMNAS_DE_PREGUNTA)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as FilaDePregunta | null) ?? null;
+  }
+
+  /** La memoria de la licitación (decisión 68): lo aclarado que entra a la
+   *  oferta, los documentos y la validación. */
+  async aclarado(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<Aclaracion[]> {
+    return loAclarado(await this.listar(companyId, oportunidadId));
   }
 
   /** Las que quedaron "procesando" desde antes de que encendiera este
