@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -23,7 +24,6 @@ import {
   costoDelUso,
   ENCENDIDO,
   errorDeIA,
-  hoyEnChile,
   MODELO_HAIKU,
   MODELO_OPUS,
   MODELO_SONNET,
@@ -31,14 +31,17 @@ import {
 } from '../analisis/comun';
 import { EventiaRepository } from '../eventia/eventia.repository';
 import { OferenteRepository } from '../oferente/oferente.repository';
-import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import {
   type RespaldoDePostVenta,
   respaldosDePostVenta,
 } from '../oferente/respaldos-de-post-venta';
 import { OportunidadesRepository } from '../oportunidades.repository';
-import { noSiEstaCongelada } from '../postulacion/congelada';
 import { LoPostuladoService } from '../postulacion/lo-postulado.service';
+import { PreguntasRepository } from '../preguntas/preguntas.repository';
+import {
+  contextoDeGeneracion,
+  type FichaParaGenerar,
+} from './contexto-de-generacion';
 import {
   claseDeFormulario,
   concretarSalidas,
@@ -57,14 +60,11 @@ import {
   TIPOS_DE_GENERACION,
 } from './generacion.repository';
 import {
-  type ContextoDeGeneracion,
   desgloseDeOferta,
-  fechaLarga,
   instruccionesDeAnexos,
   instruccionesDeFirma,
   instruccionesDePropuesta,
   leerInforme,
-  loQuePidenLasBases,
 } from './instrucciones';
 import { bajarLogo, urlDelLogo } from './logo';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
@@ -124,6 +124,9 @@ export class GeneracionService {
     private readonly catalogos: GenerarRepository,
     private readonly loPostulado: LoPostuladoService,
     private readonly logger: PinoLogger,
+    /** La memoria de la licitación (decisión 68). Opcional: las pruebas de
+     *  antes no la traen y sin ella no hay nada aclarado. */
+    @Optional() private readonly preguntas?: PreguntasRepository,
   ) {
     this.logger.setContext(GeneracionService.name);
   }
@@ -660,56 +663,28 @@ export class GeneracionService {
     return ficha;
   }
 
-  /** Lo que lee la IA de la licitación, la empresa y el último análisis
-   *  listo de las bases. `conEventia`: también la carta y los eventos
-   *  realizados de los últimos 4 años (anexos y propuesta; la firma no los
-   *  necesita). */
-  private async contexto(
+  /** Lo que lee la IA de la licitación, la empresa, el último análisis
+   *  listo de las bases y lo aclarado (contexto-de-generacion.ts). */
+  private contexto(
     companyId: number,
     oportunidadId: number,
-    ficha: NonNullable<Awaited<ReturnType<OportunidadesRepository['ficha']>>>,
+    ficha: FichaParaGenerar,
     conEventia = false,
   ) {
-    noSiEstaCongelada(ficha.estado); // al postular, se congela (decisión 33)
-    const hoy = hoyEnChile();
-    const haceCuatroAnios = `${Number(hoy.slice(0, 4)) - 4}${hoy.slice(4)}`;
-    const [analisis, oferente, empresa, carta, eventos, respaldos, oferta] =
-      await Promise.all([
-        this.analisis.ultimo(companyId, oportunidadId),
-        this.oferente.oferente(companyId),
-        this.oferente.empresa(companyId),
-        conEventia ? this.eventia.carta(companyId) : Promise.resolve(null),
-        conEventia
-          ? this.eventia.eventosRealizados(companyId, haceCuatroAnios)
-          : Promise.resolve([]),
-        conEventia ? this.oferente.respaldos(companyId) : Promise.resolve([]),
-        conEventia
-          ? this.loPostulado.paraDocumentos(companyId, oportunidadId)
-          : Promise.resolve(null),
-      ]);
-    const listo =
-      analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
-    const datos: ContextoDeGeneracion = {
-      codigo: ficha.codigo,
-      nombre: ficha.proceso.nombre,
-      organismo: ficha.proceso.organismo,
-      fecha_cierre: ficha.proceso.fecha_cierre,
-      hoy,
-      hoyLargo: fechaLarga(),
-      oferente: { ...OFERENTE_VACIO, ...(oferente ?? {}) },
-      empresa,
-      bases: loQuePidenLasBases(listo?.resultado ?? null),
-      carta,
-      eventos,
-      respaldos,
-      oferta,
-    };
-    return {
-      datos,
-      oferente: datos.oferente,
-      analisisId: listo?.id ?? null,
-      logoUrl: empresa?.logo_url ?? null,
-    };
+    return contextoDeGeneracion(
+      {
+        analisis: this.analisis,
+        oferente: this.oferente,
+        eventia: this.eventia,
+        loPostulado: this.loPostulado,
+        preguntas: this.preguntas,
+        avisar: (m) => this.logger.warn(m),
+      },
+      companyId,
+      oportunidadId,
+      ficha,
+      conEventia,
+    );
   }
 
   /** Crea la fila "procesando" y deja el trabajo andando por detrás. Si ya

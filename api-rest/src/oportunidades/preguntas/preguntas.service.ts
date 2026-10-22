@@ -205,7 +205,11 @@ export const citasValidas = (citas: unknown): CitaDeLaIA[] => {
 export const armarMensajes = (
   bloques: Anthropic.DocumentBlockParam[],
   analisisPrevio: string | null,
-  anteriores: Array<{ pregunta: string; respuesta: string | null }>,
+  anteriores: Array<{
+    pregunta: string;
+    respuesta: string | null;
+    confirmado?: string | null;
+  }>,
   pregunta: string,
 ): Anthropic.MessageParam[] => {
   const reglas = analisisPrevio
@@ -219,9 +223,16 @@ export const armarMensajes = (
   ];
   for (const a of anteriores) {
     if (!a.respuesta?.trim()) continue;
+    // Lo que confirmó el comprador (decisión 68) va con la respuesta: manda.
+    const confirmado = a.confirmado?.trim();
     mensajes.push(
       { role: 'user', content: a.pregunta },
-      { role: 'assistant', content: a.respuesta },
+      {
+        role: 'assistant',
+        content: confirmado
+          ? `${a.respuesta}\n\nLo confirmó el comprador: ${confirmado}`
+          : a.respuesta,
+      },
     );
   }
   mensajes.push({ role: 'user', content: pregunta });
@@ -262,6 +273,37 @@ export class PreguntasService {
   ): Promise<FilaDePregunta[]> {
     await this.repo.abandonarAntesDe(companyId, oportunidadId, ENCENDIDO);
     return this.repo.listar(companyId, oportunidadId);
+  }
+
+  /** Lo que confirmó el comprador sobre una respuesta (decisión 68): con
+   *  eso, una deducción o algo que no está en los documentos entra a la
+   *  memoria de la licitación. Vacío lo borra. */
+  async confirmar(
+    companyId: number,
+    cuentaId: string,
+    oportunidadId: number,
+    preguntaId: number,
+    texto: string,
+  ): Promise<FilaDePregunta> {
+    const limpio = texto.trim().replace(/\s+/g, ' ');
+    if (limpio.length > MAX_LARGO_DE_PREGUNTA) {
+      throw new BadRequestException(
+        `Lo confirmado no puede pasar de ${MAX_LARGO_DE_PREGUNTA} letras.`,
+      );
+    }
+    const fila = await this.repo.confirmar(
+      companyId,
+      oportunidadId,
+      preguntaId,
+      limpio || null,
+      limpio ? await this.adjuntos.perfilDe(companyId, cuentaId) : null,
+    );
+    if (!fila) {
+      throw new NotFoundException(
+        'No encontramos esa respuesta (o todavía no está lista).',
+      );
+    }
+    return fila;
   }
 
   /** Una pregunta nueva: responde al tiro con la fila "procesando" y la

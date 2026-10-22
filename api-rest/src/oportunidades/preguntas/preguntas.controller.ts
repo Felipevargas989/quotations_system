@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -11,6 +12,7 @@ import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { ConfirmarPreguntaDto } from '../dto/confirmar-pregunta.dto';
 import { PreguntarDto } from '../dto/preguntar.dto';
 import { PreguntasService } from './preguntas.service';
 
@@ -46,5 +48,26 @@ export class PreguntasController {
       `POST /oportunidades/${id}/preguntas (empresa ${user.company_id})`,
     );
     return this.preguntas.preguntar(user.company_id, user.id, id, dto.pregunta);
+  }
+
+  /** Lo que confirmó el comprador sobre una respuesta (decisión 68): con
+   *  eso entra a la memoria de la licitación. Vacío lo borra. */
+  @Patch(':id/preguntas/:preguntaId')
+  confirmar(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('preguntaId', ParseIntPipe) preguntaId: number,
+    @Body() dto: ConfirmarPreguntaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `PATCH /oportunidades/${id}/preguntas/${preguntaId} (empresa ${user.company_id})`,
+    );
+    return this.preguntas.confirmar(
+      user.company_id,
+      user.id,
+      id,
+      preguntaId,
+      dto.confirmado,
+    );
   }
 }

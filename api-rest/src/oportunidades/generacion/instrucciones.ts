@@ -15,6 +15,7 @@ import {
   laOfertaDecidida,
   type OfertaParaDocumentos,
 } from '../postulacion/la-oferta-en-texto';
+import { type Aclaracion, textoDeLoAclarado } from '../preguntas/lo-aclarado';
 import {
   COMO_LISTAR_LA_OFERTA,
   leerOferta,
@@ -79,6 +80,9 @@ type Criterio = { nombre: string; peso: string; como_se_evalua: string };
 /** Lo que dejó el análisis de las bases (paso 1), leído con cuidado: es
  *  jsonb y pudo cambiar de forma. */
 export type LoQuePidenLasBases = {
+  /** La memoria de la licitación (decisión 68): lo aclarado en «Pregúntale
+   *  a la IA» que manda sobre la lectura propia de las bases. */
+  aclarado?: Aclaracion[];
   resumen: string;
   lugar: string;
   criterios: Criterio[];
@@ -274,6 +278,8 @@ export const lasBases = (
             `${i + 1}. [${r.tipo}${r.obligatorio ? ', obligatorio' : ', opcional'}] ${r.que}${r.pagina > 0 ? ` (pág. ${r.pagina})` : ''}`,
         )
       : ['(ninguno)']),
+    // La memoria de la licitación (decisión 68): lo aclarado manda.
+    ...(b.aclarado?.length ? ['', ...textoDeLoAclarado(b.aclarado)] : []),
   ];
 };
 

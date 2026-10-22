@@ -19,6 +19,7 @@ import PreguntasALaIA from "./PreguntasALaIA";
 vi.mock("../../services/preguntas.service", () => ({
   getPreguntas: vi.fn(),
   preguntar: vi.fn(),
+  confirmarPregunta: vi.fn(),
 }));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warn: vi.fn() },
@@ -111,5 +112,57 @@ describe("Pregúntale a la IA sobre estas bases", () => {
     expect(screen.getByText(/Leyendo las bases/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Respondiendo/ })).toBeDisabled();
     expect(caja).toHaveValue("");
+  });
+
+  it("una deducción no entra a la postulación hasta anotar lo que confirmó el comprador; al guardarlo, entra", async () => {
+    s.confirmarPregunta.mockResolvedValue({
+      ...RESPONDIDA,
+      confirmado: "Son 100 AM y 100 PM por día (Rodrigo Pérez).",
+    });
+    pintar([RESPONDIDA]);
+    expect(
+      await screen.findByText(/No entra a la postulación hasta que anotes/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/La postulación usa/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Lo que confirmó el comprador"), {
+      target: { value: "Son 100 AM y 100 PM por día (Rodrigo Pérez)." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(s.confirmarPregunta).toHaveBeenCalledWith(
+        84,
+        3,
+        "Son 100 AM y 100 PM por día (Rodrigo Pérez).",
+      ),
+    );
+    expect(
+      await screen.findByText(/Lo confirmó el comprador:/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/La postulación usa 1 aclaración/),
+    ).toBeInTheDocument();
+  });
+
+  it("lo que dicen los documentos entra solo, y se puede corregir con lo que dijo el comprador", async () => {
+    pintar([{ ...RESPONDIDA, seguridad: "alta" }]);
+    expect(
+      await screen.findByText(
+        /Lo dicen los documentos: entra a la postulación/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/La postulación usa 1 aclaración/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Corregir con lo que dijo el comprador",
+      }),
+    );
+    expect(
+      screen.getByLabelText("Lo que confirmó el comprador"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Cancelar" }),
+    ).toBeInTheDocument();
   });
 });
