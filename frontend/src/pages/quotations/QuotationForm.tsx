@@ -47,10 +47,8 @@ import {
   getQuotationById,
   updateQuotation,
 } from "../../services/quotations.service";
-import {
-  createClient,
-  clientsQueryOptions,
-} from "../../services/clients.service";
+import { clientsQueryOptions } from "../../services/clients.service";
+import { useCrearCliente } from "../../hooks/useCrearCliente";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUser } from "../../services/users.service";
 import { ClientFormData } from "../../types/clients.types";
@@ -81,6 +79,8 @@ import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import CampoUltimoDia from "./CampoUltimoDia";
+import ComentariosDelEvento from "../../components/ComentariosDelEvento";
+import { comentarioParaGuardar } from "../../utils/comentarioInterno";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
@@ -199,6 +199,7 @@ export default function QuotationForm() {
     quotation_status: QuotationStatus.SOLICITADA,
     request_type: QuotationRequestType.COTIZACION,
     observations: "",
+    comentario_interno: "",
     value_per_person: 0,
     fixed_value: 0,
     client_id: "",
@@ -270,7 +271,6 @@ export default function QuotationForm() {
   const clientTypesList: string[] = clientTypesData?.map((t) => t.name) ?? [
     ...CLIENT_TYPES,
   ];
-  const [clientLoading, setClientLoading] = useState(false);
   const [clientErrors, setClientErrors] = useState({
     name: "",
     email: "",
@@ -566,6 +566,7 @@ export default function QuotationForm() {
             quotation_status: QuotationStatus.SOLICITADA,
             request_type: QuotationRequestType.COTIZACION,
             observations: data.observations || "",
+            comentario_interno: data.comentario_interno ?? "",
             value_per_person: data.value_per_person,
             fixed_value: data.fixed_value,
             items: data.items,
@@ -1408,36 +1409,19 @@ export default function QuotationForm() {
     return validation.isValid;
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    // Validate client form before submission
-    if (!validateClientFormData()) {
-      // Los campos con problema ya quedan marcados en rojo (aviso 8 de
-      // la lista del destierro: la ventana repetía lo visible — fuera).
-      return;
-    }
-
-    setClientLoading(true);
-
-    try {
-      const { data: newClient } = await createClient(clientFormData);
-
-      if (newClient) {
-        // El cliente nuevo entra al caché al instante (visible en el
-        // selector) y se confirma con el servidor por detrás.
-        queryClientRQ.setQueryData<any[]>(["clients"], (prev) => [
-          ...(prev ?? []),
-          newClient,
-        ]);
-        queryClientRQ.invalidateQueries({ queryKey: ["clients"] });
-
-        // Auto-select the newly created client with its data
-        handleClientSelect(newClient.id, newClient);
-      }
-
-      // Reset client form and close modal
+  // "Crear nuevo cliente" con el aviso de cliente parecido (16-10-2026):
+  // crear, avisar y sus tres salidas viven en useCrearCliente.
+  const nuevoCliente = useCrearCliente({
+    abierto: showClientModal,
+    datos: clientFormData,
+    // Los campos con problema quedan marcados en rojo (aviso 8 de la
+    // lista del destierro: la ventana repetía lo visible — fuera).
+    armar: () => (user && validateClientFormData() ? clientFormData : null),
+    alElegir: (c, persona) => {
+      handleClientSelect(c.id, c);
+      if (persona) setFormData((prev) => ({ ...prev, contact_name: persona }));
+    },
+    alTerminar: () => {
       setClientFormData({
         name: "",
         email: "",
@@ -1445,15 +1429,29 @@ export default function QuotationForm() {
         contact_person: "",
         client_type: DEFAULT_CLIENT_TYPE,
       });
-
       setShowClientModal(false);
-      toast.success("Cliente creado.");
-    } catch (error) {
-      console.error("Error creating client:", error);
-      toast.error("No se pudo crear el cliente.");
-    } finally {
-      setClientLoading(false);
-    }
+    },
+  });
+
+  const handleCreateClient = nuevoCliente.enviar;
+
+  // Cerrar "Crear nuevo cliente" (el ✕, Cancelar, Escape o el fondo):
+  // limpia los errores marcados para la próxima vez.
+  const cerrarVentanaCliente = () => {
+    setShowClientModal(false);
+    setClientErrors({
+      name: "",
+      email: "",
+      phone: "",
+      contact_person: "",
+    });
+    setIsFormValid(false);
+    setTouchedFields({
+      name: false,
+      email: false,
+      phone: false,
+      contact_person: false,
+    });
   };
 
   const getFilteredProducts = (categoria: string) => {
@@ -1716,6 +1714,8 @@ export default function QuotationForm() {
         // si faltara acá, editar una cotización la dejaría en 0 (migración 37).
         tip_amount: quotationData.tip_amount,
         contact_name: quotationData.contact_name,
+        // Solo si se cargó: si no, no se pisa lo guardado (17-10-2026).
+        ...comentarioParaGuardar(quotationData.comentario_interno),
       };
 
       // if quotation already exists (from requirement or updating a quotation)
@@ -1790,8 +1790,13 @@ export default function QuotationForm() {
   // uno en curso: cualquiera con permiso de edición le movía ítems,
   // fecha, personas, descuento y propina.
   const eventoCongelado = esEventoCongelado(quotation?.quotation_status);
+  // Lo postulado en una licitación (decisión 35 del doc 17): se cambia solo
+  // desde Oportunidades; el motor también lo cierra. El estado, en el tablero.
+  const deLicitacion: { codigo: string } | null =
+    quotation?.de_licitacion ?? null;
   const isRestrictedEditing =
     eventoCongelado ||
+    Boolean(deLicitacion) ||
     (quotation?.quotation_status === QuotationStatus.ACEPTADA &&
       !(
         userRole === UserRole.ADMINISTRADOR || userRole === UserRole.OPERACIONES
@@ -1812,204 +1817,170 @@ export default function QuotationForm() {
         estado={quotation?.quotation_status}
       />
       {/* Client Creation Modal */}
+      {/* La ventana de la casa (16-10-2026): con el aviso de cliente
+          parecido, la hecha a mano y centrada se salía de la pantalla
+          sin dejar bajar. Anclada arriba y sin tope: crece y se
+          desplaza la página (el tipo de cliente es un buscador). */}
       {showClientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Crear Nuevo Cliente
-              </h3>
-              <button
-                onClick={() => {
-                  setShowClientModal(false);
-                  setClientErrors({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    contact_person: "",
-                  });
-                  setIsFormValid(false);
-                  setTouchedFields({
-                    name: false,
-                    email: false,
-                    phone: false,
-                    contact_person: false,
-                  });
+        <Modal
+          titulo="Crear Nuevo Cliente"
+          ancho="max-w-md"
+          sinTope
+          onCerrar={cerrarVentanaCliente}
+        >
+          <form onSubmit={handleCreateClient} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre del Cliente
+              </label>
+              <input
+                type="text"
+                required
+                value={clientFormData.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, name }));
                 }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, name: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
+                placeholder="Nombre completo o empresa"
+              />
+              {shouldShowError("name") && (
+                <p className="text-red-500 text-sm mt-1">{clientErrors.name}</p>
+              )}
             </div>
 
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre del Cliente
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={clientFormData.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, name }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, name: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("name") ? "border-red-500" : ""}`}
-                  placeholder="Nombre completo o empresa"
-                />
-                {shouldShowError("name") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.name}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={clientFormData.email}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, email }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({ ...prev, email: true }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
+                placeholder="correo@ejemplo.com"
+              />
+              {shouldShowError("email") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.email}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={clientFormData.email}
-                  onChange={(e) => {
-                    const email = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, email }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({ ...prev, email: true }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("email") ? "border-red-500" : ""}`}
-                  placeholder="correo@ejemplo.com"
-                />
-                {shouldShowError("email") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.email}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                value={clientFormData.phone}
+                onChange={(e) => {
+                  const phone = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, phone }));
+                }}
+                onBlur={() => {
+                  // Al salir del recuadro el número queda ordenado y a la
+                  // vista, para que se note que quedó bien guardado.
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    phone: normalizePhone(prev.phone || ""),
+                  }));
+                  setTouchedFields((prev) => ({ ...prev, phone: true }));
+                }}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
+                placeholder={PHONE_PLACEHOLDER}
+              />
+              {shouldShowError("phone") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.phone}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={clientFormData.phone}
-                  onChange={(e) => {
-                    const phone = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, phone }));
-                  }}
-                  onBlur={() => {
-                    // Al salir del recuadro el número queda ordenado y a la
-                    // vista, para que se note que quedó bien guardado.
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      phone: normalizePhone(prev.phone || ""),
-                    }));
-                    setTouchedFields((prev) => ({ ...prev, phone: true }));
-                  }}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("phone") ? "border-red-500" : ""}`}
-                  placeholder={PHONE_PLACEHOLDER}
-                />
-                {shouldShowError("phone") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.phone}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Persona de Contacto
+              </label>
+              <input
+                type="text"
+                value={clientFormData.contact_person}
+                onChange={(e) => {
+                  const contact_person = e.target.value;
+                  setClientFormData((prev) => ({ ...prev, contact_person }));
+                }}
+                onBlur={() =>
+                  setTouchedFields((prev) => ({
+                    ...prev,
+                    contact_person: true,
+                  }))
+                }
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
+                placeholder="Nombre del contacto principal"
+              />
+              {shouldShowError("contact_person") && (
+                <p className="text-red-500 text-sm mt-1">
+                  {clientErrors.contact_person}
+                </p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Persona de Contacto
-                </label>
-                <input
-                  type="text"
-                  value={clientFormData.contact_person}
-                  onChange={(e) => {
-                    const contact_person = e.target.value;
-                    setClientFormData((prev) => ({ ...prev, contact_person }));
-                  }}
-                  onBlur={() =>
-                    setTouchedFields((prev) => ({
-                      ...prev,
-                      contact_person: true,
-                    }))
-                  }
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${shouldShowError("contact_person") ? "border-red-500" : ""}`}
-                  placeholder="Nombre del contacto principal"
-                />
-                {shouldShowError("contact_person") && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {clientErrors.contact_person}
-                  </p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Cliente
+              </label>
+              <SelectWithSearch
+                options={clientTypesList.map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                value={clientFormData.client_type}
+                onChange={(v) =>
+                  setClientFormData((prev) => ({
+                    ...prev,
+                    client_type: v,
+                  }))
+                }
+                placeholder="Tipo de cliente"
+                searchPlaceholder="Buscar tipo…"
+                noResultsText="Sin resultados"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Cliente
-                </label>
-                <SelectWithSearch
-                  options={clientTypesList.map((type) => ({
-                    value: type,
-                    label: type,
-                  }))}
-                  value={clientFormData.client_type}
-                  onChange={(v) =>
-                    setClientFormData((prev) => ({
-                      ...prev,
-                      client_type: v,
-                    }))
-                  }
-                  placeholder="Tipo de cliente"
-                  searchPlaceholder="Buscar tipo…"
-                  noResultsText="Sin resultados"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowClientModal(false);
-                    setClientErrors({
-                      name: "",
-                      email: "",
-                      phone: "",
-                      contact_person: "",
-                    });
-                    setIsFormValid(false);
-                    setTouchedFields({
-                      name: false,
-                      email: false,
-                      phone: false,
-                      contact_person: false,
-                    });
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={clientLoading || !isFormValid}
-                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                    clientLoading || !isFormValid
-                      ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <Plus size={16} />
-                  <span>{clientLoading ? "Creando..." : "Crear Cliente"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            {nuevoCliente.aviso}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={cerrarVentanaCliente}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={nuevoCliente.cargando || !isFormValid}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  nuevoCliente.cargando || !isFormValid
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                <Plus size={16} />
+                <span>
+                  {nuevoCliente.cargando ? "Creando..." : "Crear Cliente"}
+                </span>
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Save Group Modal */}
@@ -2321,14 +2292,16 @@ export default function QuotationForm() {
           {isRestrictedEditing && (
             <div
               className={
-                eventoCongelado
+                eventoCongelado || deLicitacion
                   ? "bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium"
                   : "bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium"
               }
             >
               {eventoCongelado
                 ? "🔒 Evento realizado: la cotización quedó congelada"
-                : "🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas"}
+                : deLicitacion
+                  ? `🔒 Es lo postulado en la licitación ${deLicitacion.codigo}: se cambia desde Oportunidades`
+                  : "🔒 Solo Admin/Operaciones pueden editar cotizaciones aceptadas"}
             </div>
           )}
         </div>
@@ -2414,9 +2387,9 @@ export default function QuotationForm() {
           />
           <button
             onClick={handleSubmit}
-            disabled={loading || !isQuotationFormValid()}
+            disabled={loading || !isQuotationFormValid() || !!deLicitacion}
             className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-              loading || !isQuotationFormValid()
+              loading || !isQuotationFormValid() || deLicitacion
                 ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
@@ -2444,7 +2417,7 @@ export default function QuotationForm() {
           "usuario actual"}
       </p>
 
-      {isRestrictedEditing && (
+      {isRestrictedEditing && !deLicitacion && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -3905,23 +3878,19 @@ export default function QuotationForm() {
             </div>
           )}
 
-          {/* Observaciones — al pie de la columna comercial */}
+          {/* Los dos comentarios, al pie de la columna comercial: el que
+              ve el cliente y el interno, que nunca sale (17-10-2026). */}
           <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
-              Observaciones
-            </h3>
-            <textarea
-              value={formData.observations}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  observations: e.target.value,
-                }))
+            <ComentariosDelEvento
+              observaciones={formData.observations}
+              onObservaciones={(observations) =>
+                setFormData((prev) => ({ ...prev, observations }))
               }
-              rows={4}
-              disabled={isRestrictedEditing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-              placeholder="Detalles adicionales, requerimientos especiales, etc."
+              comentarioInterno={formData.comentario_interno}
+              onComentarioInterno={(comentario_interno) =>
+                setFormData((prev) => ({ ...prev, comentario_interno }))
+              }
+              deshabilitado={isRestrictedEditing}
             />
           </div>
         </div>

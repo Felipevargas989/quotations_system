@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuthModule } from 'src/auth/auth.module';
 import { ClientsModule } from 'src/clients/clients.module';
 import { CompaniesModule } from 'src/companies/companies.module';
 import { ConsultasModule } from 'src/consultas/consultas.module';
@@ -8,11 +9,15 @@ import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-foll
 import { RefundsModule } from 'src/refunds/refunds.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { UsersModule } from 'src/users/users.module';
+import { ChoquesRepository } from './choques/choques.repository';
+import { ChoquesDeFechaService } from './choques/choques.service';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
 import {
   EventDocumentsController,
   EventDocumentsRepository,
 } from './event-documents.controller';
+import { GenerarRepository } from './generar/generar.repository';
+import { GenerarCotizacionService } from './generar/generar.service';
 import {
   PortalReceiptsController,
   PortalReceiptsRepository,
@@ -23,9 +28,13 @@ import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './quotations.repository';
 import { QuotationsService } from './quotations.service';
 import { RescateDelFormularioService } from './rescate-del-formulario.service';
+import { SeguimientoRepository } from './seguimiento/seguimiento.repository';
+import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
 
 @Module({
   imports: [
+    // La sesión opcional de GET /quotations/:id (comentario interno, 17-10).
+    AuthModule,
     RefundsModule,
     ClientsModule,
     CompaniesModule,
@@ -46,11 +55,20 @@ import { RescateDelFormularioService } from './rescate-del-formulario.service';
     RescateDelFormularioService,
     QuotationsService,
     EnvioCotizacionService,
+    // El botón «✨ Crear con IA» (doc 16 §6, 17-10-2026).
+    GenerarCotizacionService,
+    GenerarRepository,
+    SeguimientoConIAService,
+    SeguimientoRepository,
+    ChoquesDeFechaService,
+    ChoquesRepository,
     QuotationsRepository,
     QuotationsCronService,
     EventDocumentsRepository,
     PortalReceiptsRepository,
   ],
-  exports: [QuotationsService, QuotationsRepository],
+  // GenerarRepository: el catálogo con ids que también usa la propuesta
+  // técnica de Oportunidades (decisión 29 del doc 17, 19-10).
+  exports: [QuotationsService, QuotationsRepository, GenerarRepository],
 })
 export class QuotationsModule {}

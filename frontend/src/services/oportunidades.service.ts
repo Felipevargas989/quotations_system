@@ -1,0 +1,775 @@
+import { API_ROUTES } from "../constants/api.routes";
+import { api, apiRequest } from "./api";
+import type { DocumentoPedido, MarcaDeExigencia } from "./exigencias.service";
+import type { DatosDeRespaldo } from "./postulacion.service";
+
+// OPORTUNIDADES (doc 17): licitaciones y compras ágiles de Mercado Público
+// que el radar trae y la IA lee. Solo administrador, solo empresas con el
+// derecho `oportunidades`.
+
+export type Semaforo = "verde" | "amarillo" | "rojo";
+
+export type EstadoOportunidad =
+  | "nueva"
+  | "en_estudio"
+  | "postulada"
+  | "ganada"
+  | "perdida"
+  | "descartada"
+  // Seguir una licitación sin postularla (decisión 30, migración 144).
+  | "seguida";
+
+export type TipoProceso = "licitacion" | "compra_agil";
+
+export interface ProcesoDeLista {
+  tipo: TipoProceso;
+  nombre: string;
+  organismo: string | null;
+  organismo_codigo: string | null;
+  unidad: string | null;
+  comuna: string | null;
+  region: string | null;
+  monto: number | null;
+  fecha_publicacion: string | null;
+  fecha_cierre: string | null;
+  estado: string | null;
+}
+
+/** Quién ganó un proceso y por cuánto. Con RUT, enlaza a su ficha de
+ *  competidor. */
+export interface GanadorDeProceso {
+  rut?: string | null;
+  nombre: string;
+  monto: number | null;
+}
+
+/** La misma compra del año anterior: quién ganó, por cuánto y cuántos
+ *  ofertaron (sprint 1b). */
+export interface Anterior {
+  codigo: string;
+  nombre: string;
+  anio: number | null;
+  oferentes: number | null;
+  url_acta: string | null;
+  ganadores: GanadorDeProceso[];
+}
+
+/** Quién gana en las regiones de la empresa (los últimos 3 años). */
+export interface Competidor {
+  rut: string;
+  nombre: string;
+  triunfos: number;
+  monto_total: number;
+  ultimo: string | null;
+  organismos: Array<{ nombre: string; veces: number }>;
+}
+
+export interface FichaDeCompetidor extends Competidor {
+  triunfos_detalle: Array<{
+    codigo: string;
+    nombre: string;
+    organismo: string | null;
+    comuna: string | null;
+    fecha_publicacion: string | null;
+    monto: number | null;
+    oferentes: number | null;
+  }>;
+}
+
+export interface Oportunidad {
+  id: number;
+  codigo: string;
+  semaforo: Semaforo | null;
+  etiquetas: string[];
+  se_hace_en_el_complejo: "si" | "no" | "dudoso" | null;
+  razon: string | null;
+  /** comuna_cercana | alto_valor */
+  alertas: string[];
+  estado: EstadoOportunidad;
+  responsable_id: string | null;
+  leida_en: string | null;
+  proceso: ProcesoDeLista;
+  anterior?: Anterior | null;
+}
+
+export interface CambioDeProceso {
+  id: number;
+  /** fecha_cierre | reapertura */
+  tipo: string;
+  antes: Record<string, unknown> | null;
+  despues: Record<string, unknown> | null;
+  creado_en: string;
+}
+
+/** El detalle de una compra ágil que entró solo con lo de la lista: el
+ *  motor lo pide a Mercado Público al abrirla (decisión 20). */
+export type DetalleMp = "trayendo" | "no_disponible" | null;
+
+/** EL ACTA PÚBLICA DE ADJUDICACIÓN (decisión 30 del doc 17, 19-10): cada
+ *  ítem con todas sus ofertas. */
+export interface OfertaDelActa {
+  rut: string | null;
+  proveedor: string;
+  detalle: string;
+  precio_unitario: number | null;
+  cantidad_adjudicada: number;
+  total_adjudicado: number;
+  adjudicada: boolean;
+}
+
+export interface ActaDeAdjudicacion {
+  informada: string | null;
+  monto_adjudicado: number | null;
+  items: Array<{
+    numero: number;
+    producto: string;
+    especificacion: string;
+    cantidad: number | null;
+    ofertas: OfertaDelActa[];
+  }>;
+}
+
+export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
+  detalle_mp?: DetalleMp;
+  /** Días de historia que faltan por cargar: con 0, "no hubo el año
+   *  pasado" es cierto; antes, solo "aún cargando". */
+  historia_pendiente?: number;
+  leida_con: string | null;
+  notas: string | null;
+  quotation_id: string | null;
+  /** Lo que la empresa marcó en cada exigencia (migración 152). */
+  exigencias_marcadas?: Record<string, MarcaDeExigencia>;
+  actualizado_en: string;
+  proceso: ProcesoDeLista & {
+    codigo: string;
+    descripcion: string | null;
+    moneda: string | null;
+    fechas: Record<string, unknown>;
+    productos: Array<{
+      nombre?: string | null;
+      descripcion?: string | null;
+      cantidad?: number | null;
+    }>;
+    adjudicacion: Record<string, unknown> | null;
+    /** El acta pública de adjudicación leída (decisión 30, 19-10). */
+    acta?: ActaDeAdjudicacion | null;
+    primera_vez_visto: string;
+    actualizado_en: string;
+  };
+  cambios: CambioDeProceso[];
+  anterior: Anterior | null;
+}
+
+export interface ConfigOportunidades {
+  regiones: string[];
+  comunas_cercanas: string[];
+  perfil: string;
+  /** De Configuración de empresa: aquí solo se muestran. */
+  umbral_alto_valor: number | null;
+  correo_avisos: string | null;
+}
+
+export interface CorridaDelRadar {
+  id: number;
+  origen: string;
+  estado: "corriendo" | "ok" | "error" | "abandonada";
+  empezo_en: string;
+  termino_en: string | null;
+  resumen: {
+    licitaciones?: {
+      estado?: "ok" | "caida" | "sin_ticket" | "cortada";
+      activas?: number;
+      nuevas?: number;
+      pendientes?: number;
+      sin_detalle?: number;
+    };
+    compras_agiles?: {
+      estado?:
+        | "ok"
+        | "caida"
+        | "sin_cupo"
+        | "sin_regiones"
+        | "sin_ticket"
+        | "cortada";
+      listadas?: number;
+      nuevas?: number;
+      pendientes?: number;
+    };
+    lectura?: { leidas?: number; sin_leer?: number };
+    avisos?: string[];
+  } | null;
+  error: string | null;
+}
+
+export const getOportunidades = async (params: {
+  vigentes?: boolean;
+  estado?: EstadoOportunidad;
+}) =>
+  (await apiRequest(
+    API_ROUTES.OPORTUNIDADES,
+    "GET",
+    undefined,
+    params,
+  )) as Oportunidad[];
+
+export const getFichaDeOportunidad = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}`,
+    "GET",
+  )) as FichaDeOportunidad;
+
+export const actualizarOportunidad = async (
+  id: number,
+  cambios: {
+    estado?: EstadoOportunidad;
+    responsable_id?: string | null;
+    notas?: string | null;
+  },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}`,
+    "PATCH",
+    cambios,
+  )) as Pick<
+    FichaDeOportunidad,
+    "id" | "estado" | "responsable_id" | "notas" | "actualizado_en"
+  >;
+
+export const getConfigOportunidades = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/config`,
+    "GET",
+  )) as ConfigOportunidades;
+
+export const guardarConfigOportunidades = async (config: {
+  regiones?: string[];
+  comunas_cercanas?: string[];
+  perfil?: string;
+}) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/config`,
+    "PATCH",
+    config,
+  )) as ConfigOportunidades;
+
+/** Lo que Opus leyó de las bases (doc 17, sprint 3, paso 1; migración
+ *  125). */
+export interface ResultadoDeBases {
+  resumen: string;
+  lugar: string;
+  se_puede_en_el_complejo: "si" | "no" | "dudoso";
+  /** 0 = las bases no lo dicen. */
+  monto: number;
+  monto_detalle: string;
+  fechas: Array<{ que: string; cuando: string }>;
+  criterios: Array<{ nombre: string; peso: string; como_se_evalua: string }>;
+  requisitos: Array<{
+    que: string;
+    tipo: "administrativo" | "tecnico" | "economico" | "garantia" | "otro";
+    obligatorio: boolean;
+    documento: string;
+    /** 0 = sin página (un Word). */
+    pagina: number;
+  }>;
+  garantias: string[];
+  /** Desde el 17-10: lo que deja fuera (máximo 5) y las demás condiciones.
+   *  Un análisis anterior solo trae `alertas`, sin separar. */
+  te_dejan_fuera?: string[];
+  condiciones?: string[];
+  alertas?: string[];
+  /** Para "en una mirada": cuándo es y para cuántos (0 = no lo dicen). */
+  fecha_del_servicio?: string;
+  fecha_del_servicio_iso?: string;
+  personas?: number;
+  /** "¿Puedo cumplir?" (17-10): cada exigencia técnica contra lo que la
+   *  empresa tiene en Eventia (carta, instalaciones y agenda de ese día). */
+  cumplimiento?: {
+    resumen: string;
+    items: ItemDeCumplimiento[];
+    /** La fecha cuya agenda se miró (AAAA-MM-DD). */
+    agenda_de: string | null;
+  };
+  cumplimiento_error?: string;
+  /** Desde el 18-10: los formularios que llena el oferente y dónde viene
+   *  su formato en blanco. Un análisis anterior no los trae. */
+  formularios?: FormularioDelAnalisis[];
+  /** Desde el 19-10: el checklist de documentos (exigencias.service). */
+  documentos?: DocumentoPedido[];
+}
+
+export interface FormularioDelAnalisis {
+  nombre: string;
+  /** El archivo donde viene el formato en blanco; vacío = no vino en lo
+   *  que se subió. */
+  archivo: string;
+  paginas: string;
+  aplica: boolean;
+  por_que_no_aplica: string;
+  se_entrega_en: "administrativa" | "tecnica" | "economica" | "otra";
+}
+
+export interface ItemDeCumplimiento {
+  requisito: number;
+  que: string;
+  estado: "tengo" | "conseguir" | "no_se_puede";
+  con_que: string;
+  por_que: string;
+}
+
+export interface AnalisisDeBases {
+  id: number;
+  estado: "procesando" | "listo" | "error";
+  resultado: ResultadoDeBases | null;
+  archivos: Array<{ id: number; nombre: string }>;
+  no_leidos: Array<{ nombre: string; motivo: string }>;
+  modelo: string | null;
+  tokens_entrada: number | null;
+  tokens_salida: number | null;
+  costo_usd: number | null;
+  error: string | null;
+  creado_en: string;
+  terminado_en: string | null;
+}
+
+export const getAnalisis = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/analisis`,
+    "GET",
+  )) as AnalisisDeBases | null;
+
+export const pedirAnalisis = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/analisis`,
+    "POST",
+  )) as AnalisisDeBases;
+
+/** La empresa como oferente (doc 17, sprint 3, paso 2; migración 126). */
+export interface Oferente {
+  razon_social: string | null;
+  rut: string | null;
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  region: string | null;
+  telefono: string | null;
+  correo: string | null;
+  representante_nombre: string | null;
+  representante_rut: string | null;
+  representante_cargo: string | null;
+  /** Migración 154 (decisión 43). */
+  representante_correo: string | null;
+  representante_telefono: string | null;
+  representante_direccion: string | null;
+  coordinador_nombre: string | null;
+  coordinador_cargo: string | null;
+  coordinador_correo: string | null;
+  coordinador_telefono: string | null;
+  sitio_web: string | null;
+  experiencia: string | null;
+  instalaciones: string | null;
+  /** La foto de la firma, en el balde privado. */
+  firma_ruta: string | null;
+  firma_subida_en: string | null;
+}
+
+export interface DocumentoDeEmpresa {
+  id: number;
+  tipo: string;
+  nombre: string;
+  ruta: string;
+  tipo_archivo: string;
+  bytes: number;
+  /** AAAA-MM-DD; null = no vence. */
+  vence: string | null;
+  /** Solo en un respaldo de experiencia (decisión 34). */
+  datos: DatosDeRespaldo | null;
+  creado_en: string;
+  quien: { full_name: string | null } | null;
+}
+
+export interface VistaDelOferente {
+  oferente: Oferente;
+  /** De Configuración de empresa: aquí solo se muestran. */
+  empresa: {
+    nombre: string | null;
+    /** Decisión 47: la página web se cambia en Configuración. */
+    sitio_web?: string | null;
+    banco: {
+      rut: string | null;
+      banco: string | null;
+      tipo_cuenta: string | null;
+      numero: string | null;
+      titular: string | null;
+    } | null;
+  };
+  documentos: DocumentoDeEmpresa[];
+}
+
+export type CamposDelOferente = Omit<
+  Oferente,
+  "firma_ruta" | "firma_subida_en"
+>;
+
+export const getOferente = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente`,
+    "GET",
+  )) as VistaDelOferente;
+
+/** Vacío = borrar el dato. */
+export const guardarOferente = async (
+  cambios: Partial<Record<keyof CamposDelOferente, string>>,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente`,
+    "PATCH",
+    cambios,
+  )) as VistaDelOferente;
+
+export const subirConFormulario = async <T>(
+  url: string,
+  archivo: File,
+  campos: Record<string, string> = {},
+) => {
+  const form = new FormData();
+  form.append("file", archivo);
+  Object.entries(campos).forEach(([k, v]) => form.append(k, v));
+  const { data } = await api.request({
+    url,
+    method: "POST",
+    data: form,
+    headers: { "Content-Type": undefined },
+  });
+  return data as T;
+};
+
+export const subirFirma = (archivo: File) =>
+  subirConFormulario<VistaDelOferente>(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/firma`,
+    archivo,
+  );
+
+export const borrarFirma = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/firma`,
+    "DELETE",
+  )) as VistaDelOferente;
+
+export const subirDocumentoDeEmpresa = (
+  archivo: File,
+  tipo: string,
+  vence: string,
+  datos?: DatosDeRespaldo,
+) =>
+  subirConFormulario<DocumentoDeEmpresa>(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos`,
+    archivo,
+    { tipo, vence, ...(datos ? { datos: JSON.stringify(datos) } : {}) },
+  );
+
+export const borrarDocumentoDeEmpresa = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/oferente/documentos/${id}`,
+    "DELETE",
+  )) as { borrado: boolean };
+
+/** Lo que dijo Opus al validar la postulación (doc 17, sprint 3, paso 3;
+ *  migración 127). */
+export interface ResultadoDeValidacion {
+  resumen: string;
+  listo: "si" | "casi" | "no";
+  requisitos: Array<{
+    que: string;
+    estado: "cumple" | "falta" | "vencido" | "revisar";
+    donde: string;
+    observacion: string;
+  }>;
+  otros_problemas: string[];
+}
+
+export interface ValidacionDeDocumentos
+  extends Omit<AnalisisDeBases, "resultado"> {
+  resultado: ResultadoDeValidacion | null;
+}
+
+export const getValidacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/validacion`,
+    "GET",
+  )) as ValidacionDeDocumentos | null;
+
+export const pedirValidacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/validacion`,
+    "POST",
+  )) as ValidacionDeDocumentos;
+
+/** "Mis licitaciones" (Felipe, 17-10): las marcadas, con su avance. */
+export interface AvanceDeLicitacion {
+  /** Archivos en «Bases y anexos». */
+  bases: number;
+  analisis: "procesando" | "listo" | "error" | null;
+  anexos: "procesando" | "listo" | "error" | null;
+  propuesta: "procesando" | "listo" | "error" | null;
+  /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word con
+   *  su firmado no cuenta: desde la decisión 58 se borra al firmar) y lo
+   *  firmado. */
+  postulacion: number;
+  generados: number;
+  firmados: number;
+  validacion: {
+    estado: "procesando" | "listo" | "error";
+    listo: "si" | "casi" | "no" | null;
+  } | null;
+}
+
+export type MiLicitacion = Oportunidad & { avance: AvanceDeLicitacion };
+
+export const getMisLicitaciones = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/mias`,
+    "GET",
+  )) as MiLicitacion[];
+
+export const getCompetidores = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/competidores`,
+    "GET",
+  )) as Competidor[];
+
+export const getCompetidor = async (rut: string) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/competidores/${encodeURIComponent(rut)}`,
+    "GET",
+  )) as FichaDeCompetidor;
+
+/** Una base o anexo que subió la empresa (migración 124). `ruta` vive en
+ *  el balde privado: se ve con el visor de la casa (FileViewLink), que
+ *  pide un enlace firmado de pocos minutos. */
+export interface AdjuntoDeOportunidad {
+  id: number;
+  nombre: string;
+  ruta: string;
+  tipo: string;
+  bytes: number;
+  /** De dónde salió (migración 129): lo subió una persona, lo hizo la IA
+   *  (sin firma) o es la versión firmada. */
+  origen: OrigenDeArchivo;
+  /** El archivo del que salió. */
+  viene_de: number | null;
+  /** Solo en 'competencia': de qué oferente es (migración 153). */
+  competidor?: string | null;
+  creado_en: string;
+  subido_por: string | null;
+  quien: { full_name: string | null } | null;
+}
+
+export type OrigenDeArchivo = "subido" | "generado" | "firmado";
+
+/** Lo que la IA hizo en el taller (doc 17, sprint 3, paso 4; migración
+ *  129): los anexos llenos SIN firma, la firma y la propuesta técnica. */
+export type TipoDeGeneracion = "anexos" | "firma" | "propuesta";
+
+export interface ResultadoDeGeneracion {
+  resumen: string;
+  documentos: Array<{
+    adjunto_id: number;
+    nombre: string;
+    que_se_hizo: string;
+    pendientes: string[];
+  }>;
+  pendientes: string[];
+  /** Lo que entregó la IA y no pasó la revisión del motor. */
+  descartados: Array<{ nombre: string; motivo: string }>;
+  no_entregados: string[];
+}
+
+export interface Generacion extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: TipoDeGeneracion;
+  parametros: { monto_total?: number | null; adjuntos?: number[] };
+  resultado: ResultadoDeGeneracion | null;
+}
+
+/** EL RESUMEN DE NEGOCIO de una licitación seguida (decisión 30, sprint E,
+ *  19-10): Sonnet lee lo publicado, el acta y lo subido, y lo cruza con lo
+ *  que vende la empresa («Mi empresa»). */
+export interface ResumenDeNegocio {
+  resumen: string;
+  quien_gano: string;
+  que_incluye: string[];
+  ofertas: Array<{
+    proveedor: string;
+    precio: string;
+    que_ofrecio: string;
+    gano: boolean;
+  }>;
+  para_tu_empresa: string[];
+  siguientes_pasos: string[];
+}
+
+export interface TrabajoDeResumen extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: "resumen";
+  resultado: ResumenDeNegocio | null;
+}
+
+export const getResumenDeNegocio = async (id: number) =>
+  ((await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "GET",
+  )) as TrabajoDeResumen | "" | null) || null;
+
+export const pedirResumenDeNegocio = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/resumen-de-negocio`,
+    "POST",
+  )) as TrabajoDeResumen;
+
+export type GeneracionesDeOportunidad = Record<
+  TipoDeGeneracion,
+  Generacion | null
+>;
+
+export const getGeneraciones = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones`,
+    "GET",
+  )) as GeneracionesDeOportunidad;
+
+/** `monto_total` con IVA, lo pone la empresa; sin él, la oferta económica
+ *  queda en blanco. */
+export const generarAnexos = async (
+  id: number,
+  pedido: { monto_total?: number; adjuntos?: number[] },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/anexos`,
+    "POST",
+    pedido,
+  )) as Generacion;
+
+export const firmarDocumentos = async (id: number, adjuntos: number[]) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/firma`,
+    "POST",
+    { adjuntos },
+  )) as Generacion;
+
+export const crearPropuestaTecnica = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/generaciones/propuesta`,
+    "POST",
+  )) as Generacion;
+
+/** LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del doc 17, 19-10): la
+ *  propuesta técnica y la cotización son la misma oferta. */
+export interface ResumenDeLaCotizacion {
+  id: string;
+  numero: number;
+  estado: string;
+  cliente: string | null;
+  /** Lo que vale con los precios del catálogo. */
+  catalogo: number;
+  descuento: number;
+  /** La oferta: lo que cobra la cotización. */
+  total: number;
+}
+
+export interface EstadoDeLaCotizacion {
+  cotizacion: ResumenDeLaCotizacion | null;
+  presupuesto: number | null;
+  /** La última propuesta técnica que dejó su oferta, y cuántos productos
+   *  trae; null si no hay o si es anterior al 19-10. */
+  propuesta: { id: number; productos: number } | null;
+}
+
+export const getCotizacionDeLaPostulacion = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`,
+    "GET",
+  )) as EstadoDeLaCotizacion;
+
+/** «Vincular con cotización» (decisión 35): crea la cotización con lo
+ *  postulado, o con `numero` vincula y reescribe esa; con `total` (el
+ *  precio de «Armar postulación») queda con ese total. Desde ahí es de solo
+ *  lectura en el cotizador. */
+export const llevarACotizacion = async (
+  id: number,
+  numero?: number,
+  total?: number,
+) =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`, "POST", {
+    ...(numero ? { numero } : {}),
+    ...(total ? { total } : {}),
+  })) as EstadoDeLaCotizacion;
+
+/** 'bases': lo que publicó el comprador en Mercado Público. 'postulacion':
+ *  lo que la empresa va a presentar (migración 127). 'competencia': las
+ *  ofertas de los demás (migración 153; se suben con comparacion.service). */
+export type SeccionDeArchivos =
+  | "bases"
+  | "postulacion"
+  | "competencia"
+  | "acta";
+
+export const getAdjuntos = async (
+  id: number,
+  seccion: SeccionDeArchivos = "bases",
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
+    "GET",
+    undefined,
+    { seccion },
+  )) as AdjuntoDeOportunidad[];
+
+/** Un archivo por pedido (el motor valida tipo y tamaño). */
+export const subirAdjunto = async (
+  id: number,
+  archivo: File,
+  seccion: SeccionDeArchivos = "bases",
+) => {
+  const form = new FormData();
+  form.append("file", archivo);
+  form.append("seccion", seccion);
+  const { data } = await api.request({
+    url: `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos`,
+    method: "POST",
+    data: form,
+    headers: { "Content-Type": undefined },
+  });
+  return data as AdjuntoDeOportunidad;
+};
+
+export const borrarAdjunto = async (id: number, adjuntoId: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/${adjuntoId}`,
+    "DELETE",
+  )) as { borrado: boolean };
+
+/** «Traer los documentos» (decisión 65): lo que Licify tiene del proceso
+ *  (bases, decretos, formularios), a «Bases y anexos». `disponibles` 0:
+ *  Licify no conoce el proceso. */
+export interface TraidoDeLicify {
+  disponibles: number;
+  bajados: AdjuntoDeOportunidad[];
+  omitidos: Array<{ nombre: string; motivo: string }>;
+}
+
+export const traerAdjuntos = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/traer`,
+    "POST",
+  )) as TraidoDeLicify;
+
+export const getCorridasDelRadar = async () =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/radar/corridas`,
+    "GET",
+  )) as CorridaDelRadar[];
+
+export const correrRadar = async () =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/radar`, "POST")) as {
+    iniciada: boolean;
+    corrida?: number;
+    motivo?: string;
+  };

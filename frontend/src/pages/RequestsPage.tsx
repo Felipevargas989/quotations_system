@@ -13,16 +13,15 @@ import {
   Eye,
   Calendar,
   Users,
-  Share2,
-  Copy,
-  Check,
-  X,
-  ExternalLink,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { DateTime } from "luxon";
 import { useAuth } from "../contexts/AuthContext";
 import RequestForm from "../components/RequestForm.tsx";
-import { ROLE_GROUPS } from "../constants/permissions";
+import ResultadosDeIA from "../components/ResultadosDeIA";
+import { ROLE_GROUPS, tieneDerecho } from "../constants/permissions";
+import { useCrearConIA } from "../hooks/useCrearConIA";
 import {
   QuotationWithClient,
   QuotationRequestType,
@@ -42,6 +41,11 @@ export default function RequestsPage() {
   const puedeCotizar = SECTION_ROLES.quotations_edit.includes(
     userRole as never,
   );
+  // «✨ Crear con IA» (Felipe, 17-10-2026): quien cotiza, en la empresa
+  // con el módulo propio cotizar_con_ia. El motor niega igual.
+  const conIA = puedeCotizar && tieneDerecho(company, "cotizar_con_ia");
+  const ia = useCrearConIA();
+  const [confirmarTodas, setConfirmarTodas] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Confirmación de eliminar anclada al basurero (Tanda 3a).
@@ -50,8 +54,6 @@ export default function RequestsPage() {
   const [editingRequest, setEditingRequest] =
     useState<QuotationWithClient | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showPublicLinkModal, setShowPublicLinkModal] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Requerimientos vía React Query (Etapa 2): MISMA queryKey que la
   // sección de requerimientos del panel de cotizaciones — un solo
@@ -95,26 +97,6 @@ export default function RequestsPage() {
       toast.success("Requerimiento eliminado.");
     } catch (error) {
       toast.error("No se pudo eliminar el requerimiento.");
-    }
-  };
-
-  const getPublicQuotationLink = () => {
-    if (!company?.id) return "";
-    // SIEMPRE el dominio productivo (Felipe, 23-07): aunque el equipo
-    // entre por el alias de Netlify o localhost, el enlace que se
-    // comparte con clientes lleva la marca eventi-app.com.
-    return `https://www.eventi-app.com/public-quotation/${company.id}`;
-  };
-
-  const handleCopyLink = async () => {
-    const link = getPublicQuotationLink();
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Error copying to clipboard:", error);
-      toast.error("No se pudo copiar el enlace.");
     }
   };
 
@@ -184,22 +166,26 @@ export default function RequestsPage() {
 
     return filteredRequests.map((request) => (
       <tr key={request.id} className="hover:bg-gray-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {/* Columnas que no se cortan (Felipe, 19-10-2026): el número va
+            angosto, el cliente y el evento bajan de línea, el estado y
+            sus etiquetas van uno sobre otro, y los botones se acomodan
+            si no caben. */}
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
           {request.quotation_number}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4 min-w-[12rem]">
           <div>
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-gray-900 break-words">
               {request.clients.name}
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4">
           <div className="text-sm text-gray-900">
             {request.event_type || "No especificado"}
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <div className="space-y-1">
             {request.event_date && (
               <div className="flex items-center text-sm text-gray-900">
@@ -213,34 +199,61 @@ export default function RequestsPage() {
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span
-            className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.quotation_status)}`}
-          >
-            {getStatusText(request.quotation_status)}
-          </span>
-          {request.user_id === null && (
-            <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-              creada desde link publico
+        <td className="px-4 py-4">
+          <div className="flex flex-col items-start gap-1">
+            <span
+              className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${getStatusColor(request.quotation_status)}`}
+            >
+              {getStatusText(request.quotation_status)}
             </span>
-          )}
+            {request.user_id === null && (
+              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 whitespace-nowrap">
+                creada desde link público
+              </span>
+            )}
+          </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-          <div className="flex items-center space-x-2">
+        <td className="px-4 py-4 text-sm font-medium">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Convertir en cotización: vivía en la tabla de pendientes
                 del panel de cotizaciones (eliminada el 22-07); ahora la
                 conversión vive aquí, en su casa natural. */}
             {/* Recepción registra el requerimiento; convertirlo en
                 cotización es pega de venta (12-08). Sin el permiso, el
                 botón no aparece: la ruta la rebotaría igual. */}
+            {/* Dos botones chicos lado a lado (Felipe, 17-10-2026): armarla
+                a mano en el cotizador, o que la arme la IA y quede en
+                solicitada para revisarla. */}
             {puedeCotizar && (
               <button
                 onClick={() => navigate(`/quotation-form/${request.id}`)}
-                className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
-                title="Crear la cotización a partir de este requerimiento"
+                className="border border-green-600 text-green-700 px-2 py-1 rounded text-xs hover:bg-green-50 flex items-center gap-1"
+                title="Armar la cotización a mano en el cotizador"
               >
-                <PlusCircle size={14} />
-                <span>Crear Cotización</span>
+                <PlusCircle size={13} />
+                <span>Crear manual</span>
+              </button>
+            )}
+            {conIA && (
+              <button
+                onClick={() =>
+                  void ia.crear({
+                    id: request.id,
+                    numero: request.quotation_number,
+                  })
+                }
+                disabled={ia.ocupado}
+                className="bg-violet-600 text-white px-2 py-1 rounded text-xs hover:bg-violet-700 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="La IA arma la cotización con el catálogo y la deja en solicitada (cerca de un minuto)"
+              >
+                {ia.trabajando === request.id ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                <span>
+                  {ia.trabajando === request.id ? "Generando…" : "Crear con IA"}
+                </span>
               </button>
             )}
             <button
@@ -313,161 +326,49 @@ export default function RequestsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Public Link Modal */}
-      {showPublicLinkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <Share2 className="h-6 w-6 text-blue-600" />
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Enlace Público de Cotización
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowPublicLinkModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Explanation */}
-              <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                <p className="text-sm text-blue-900 mb-2">
-                  <strong>📢 Comparte este enlace con tus clientes</strong>
-                </p>
-                <ul className="text-sm text-blue-800 space-y-1 ml-4 list-disc">
-                  <li>
-                    Los clientes pueden enviar solicitudes de cotización
-                    directamente
-                  </li>
-                  <li>
-                    Puedes compartirlo por WhatsApp, redes sociales o tu sitio
-                    web
-                  </li>
-                  <li>
-                    Cada solicitud se creará automáticamente como un nuevo
-                    requerimiento aquí
-                  </li>
-                  <li>Recibirás notificación de cada nueva solicitud</li>
-                </ul>
-              </div>
-
-              {/* Link Display */}
-              <div className="mb-4">
-                <label
-                  htmlFor="public-link"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Tu enlace público:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1 bg-gray-100 px-4 py-3 rounded-lg border border-gray-300">
-                    <code
-                      id="public-link"
-                      className="text-sm text-gray-800 break-all"
-                    >
-                      {getPublicQuotationLink()}
-                    </code>
-                  </div>
-                  <button
-                    onClick={handleCopyLink}
-                    className={`px-4 py-3 rounded-lg flex items-center space-x-2 transition-all ${
-                      copied
-                        ? "bg-green-600 text-white"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={20} />
-                        <span>Copiado</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={20} />
-                        <span>Copiar</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Preview Button */}
-              <div className="mb-6">
-                <a
-                  href={getPublicQuotationLink()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  <ExternalLink size={16} />
-                  <span>Abrir enlace en nueva pestaña (Vista previa)</span>
-                </a>
-              </div>
-
-              {/* Examples */}
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">
-                  💡 Formas de compartir:
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <p className="text-xs font-semibold text-green-800 mb-1">
-                      WhatsApp
-                    </p>
-                    <p className="text-xs text-green-700">
-                      Comparte el enlace en chats o estados
-                    </p>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-xs font-semibold text-blue-800 mb-1">
-                      Redes Sociales
-                    </p>
-                    <p className="text-xs text-blue-700">
-                      Publica en Facebook, Instagram, etc.
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="text-xs font-semibold text-purple-800 mb-1">
-                      Sitio Web
-                    </p>
-                    <p className="text-xs text-purple-700">
-                      Agrégalo como botón en tu página
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => setShowPublicLinkModal(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">
           Requerimientos Pendientes
         </h1>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setShowPublicLinkModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-          >
-            <Share2 size={20} />
-            <span>Enlace Público</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* «✨ Generar todas» en el lugar del enlace público, que se
+              mudó a Mi empresa → Formulario web (Felipe, 17-10-2026). */}
+          {conIA &&
+            (confirmarTodas ? (
+              // La pregunta en la misma línea, sin panel flotante (kit de
+              // la casa: ConfirmInline).
+              <ConfirmInline
+                question={`¿Armar con IA los ${filteredRequests.length}? Cerca de un minuto cada uno.`}
+                onYes={() => {
+                  setConfirmarTodas(false);
+                  void ia.generarTodas(
+                    filteredRequests.map((r) => ({
+                      id: r.id,
+                      numero: r.quotation_number,
+                    })),
+                  );
+                }}
+                onNo={() => setConfirmarTodas(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setConfirmarTodas(true)}
+                disabled={ia.ocupado || filteredRequests.length === 0}
+                className="bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="La IA arma todos los requerimientos de la lista, de a uno"
+              >
+                {ia.lote ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Sparkles size={20} />
+                )}
+                <span>
+                  {ia.lote
+                    ? `Generando ${Math.min(ia.lote.hecho + 1, ia.lote.total)} de ${ia.lote.total}…`
+                    : "Generar todas"}
+                </span>
+              </button>
+            ))}
           <button
             onClick={() => setShowForm(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -477,6 +378,12 @@ export default function RequestsPage() {
           </button>
         </div>
       </div>
+
+      <ResultadosDeIA
+        armadas={ia.armadas}
+        fallidas={ia.fallidas}
+        onCerrar={ia.limpiar}
+      />
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200">
@@ -507,22 +414,22 @@ export default function RequestsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Número
+                <th className="px-3 py-3 w-16 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  N°
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Evento
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha/Personas
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>

@@ -9,6 +9,7 @@ import { EmailStructure } from 'src/email/types';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { normalizeDateToUtc } from 'src/utils/dates';
+import { ChoquesDeFechaService } from './choques/choques.service';
 import { QuotationStatus, RequestType } from './constants/constants';
 import { QuotationsRepository } from './quotations.repository';
 
@@ -42,6 +43,8 @@ export class QuotationsCronService {
     private readonly logger: PinoLogger,
     // Para preguntar el plan de cada empresa: acá no hay sesión.
     private readonly derechosService: DerechosService,
+    // Los topes de calendario (mapa 02 §5.6, 18-10-2026).
+    private readonly choques: ChoquesDeFechaService,
   ) {
     this.logger.setContext(QuotationsCronService.name);
   }
@@ -57,6 +60,29 @@ export class QuotationsCronService {
     this.logger.info('CRON job: seguimiento de cotizaciones (7/14)');
     try {
       const hoyUtc = normalizeDateToUtc(new Date());
+      // TOPES DE CALENDARIO (Felipe, 18-10-2026; mapa 02 §5.6): mientras
+      // una cotización choca con una aceptada, no se le insiste al cliente
+      // con una fecha que quizás no se pueda respetar; la intervención es
+      // manual hasta que alguien apriete «Sí, puede seguir», cambie la
+      // fecha o la cierre. Se calcula una vez por empresa en la corrida, y
+      // si no se puede saber, no se insiste.
+      const topesPorEmpresa = new Map<number, Set<string> | null>();
+      const topesDe = async (companyId: number) => {
+        if (!topesPorEmpresa.has(companyId)) {
+          topesPorEmpresa.set(
+            companyId,
+            await this.choques
+              .cotizacionesConTope(companyId)
+              .catch((e: unknown) => {
+                this.logger.error(
+                  `No pude revisar los topes de la empresa ${companyId}: ${String(e)}`,
+                );
+                return null;
+              }),
+          );
+        }
+        return topesPorEmpresa.get(companyId) ?? null;
+      };
       for (const { dias, toque } of [
         { dias: 7, toque: 1 as const },
         { dias: 14, toque: 2 as const },
@@ -76,6 +102,13 @@ export class QuotationsCronService {
           // empresas, así que el filtro va acá, cotización por cotización.
           const derechos = await this.derechosService.deEmpresa(q.company_id);
           if (!tieneDerecho(derechos.derechos, 'correos_automaticos')) {
+            continue;
+          }
+          const topes = await topesDe(q.company_id);
+          if (!topes || topes.has(q.id)) {
+            this.logger.info(
+              `Seguimiento pausado: cotización ${q.quotation_number} ${topes ? 'con tope de calendario' : 'sin poder revisar los topes'}`,
+            );
             continue;
           }
           const mandante = await this.quotationsRepository.findContactById(

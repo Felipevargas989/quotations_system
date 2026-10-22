@@ -168,12 +168,134 @@ export const enviarCotizacionPorCorreo = async (quotationId: string) =>
     {},
   )) as { enviado_a: string };
 
+/** El botón «✨ Crear con IA» (17-10-2026, doc 16 §6): el motor arma el
+ *  requerimiento con Claude y lo deja en solicitada. Tarda cerca de un
+ *  minuto; nunca envía nada. */
+export const generarConIA = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/generar`,
+    "POST",
+    {},
+  )) as {
+    quotation_number: number;
+    total_amount: number;
+    value_per_person: number;
+    nota: string;
+    segundos: number;
+    costo_usd: number | null;
+  };
+
+// ---- «✉ Generar seguimiento» (17-10-2026, doc 18) ----
+
+/** Una cotización cuyo próximo contacto venció y es por correo. */
+export type SeguimientoPendiente = {
+  id: string;
+  quotation_number: number;
+  estado: string;
+  cliente: string;
+  tipo_evento: string | null;
+  /** AAAA-MM-DD del compromiso vencido. */
+  proximo: string;
+  dias_vencido: number;
+  nota: string;
+  /** El borrador de la IA que espera en Outlook a que alguien lo envíe
+   *  (doc 18 §9). Opcional: un motor anterior no lo manda. */
+  borrador?: BorradorEnEspera | null;
+};
+
+/** Un borrador de la IA que todavía no sale de Outlook. */
+export type BorradorEnEspera = {
+  buzon: string;
+  enlace: string | null;
+  /** ISO: cuándo quedó. */
+  creado: string;
+};
+
+/** Lo que encontró el motor al mirar Outlook. */
+export type RevisionDeSeguimientos = {
+  revisados: number;
+  /** Cotizaciones cuyo borrador salió (con su línea en la bitácora) o se
+   *  descartó. */
+  cambiaron: string[];
+};
+
+/** Lo que dejó el motor: un borrador en Outlook, o por qué se saltó. */
+export type ResultadoDelSeguimiento = {
+  quotation_number: number;
+  accion: "borrador" | "saltada";
+  motivo: string | null;
+  buzon: string | null;
+  modo: "seguimiento" | "responder" | "nuevo" | null;
+  /** Para abrir el borrador en Outlook web. */
+  enlace: string | null;
+  angulo: string | null;
+  segundos: number;
+  costo_usd: number | null;
+};
+
+/** Las que piden seguimiento por correo hoy, las más vencidas primero. */
+export const getSeguimientosPendientes = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/seguimiento/pendientes`,
+    "GET",
+  )) as SeguimientoPendiente[];
+
+/** Al abrir Cotizaciones (doc 18 §9): el motor le pregunta a Outlook si los
+ *  borradores que esperan ya salieron y, si salieron, anota el envío. */
+export const revisarSeguimientos = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/seguimiento/revisar`,
+    "POST",
+    {},
+  )) as RevisionDeSeguimientos;
+
+/** El motor escribe el seguimiento con IA y lo deja de BORRADOR en el hilo
+ *  del cliente (o en un correo nuevo). Nunca envía. */
+export const generarSeguimiento = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/seguimiento`,
+    "POST",
+    {},
+  )) as ResultadoDelSeguimiento;
+
+// ---- Choques de fecha (18-10-2026, mapa 02 §5.6) ----
+
+/** Una cotización viva cuyas fechas se topan con una aceptada. */
+export type ChoqueDeFecha = {
+  quotation_id: string;
+  quotation_number: number;
+  aceptada: {
+    id: string;
+    numero: number;
+    cliente: string | null;
+    /** AAAA-MM-DD. */
+    desde: string;
+    hasta: string;
+    exclusiva: boolean;
+  };
+};
+
+/** Los topes de calendario de la empresa. */
+export const getChoquesDeFecha = async () =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/choques/pendientes`,
+    "GET",
+  )) as ChoqueDeFecha[];
+
+/** «Sí, puede seguir» para un tope: la cotización sigue con su fecha. */
+export const seguirConLaFecha = async (
+  quotationId: string,
+  aceptadaId: string,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/choques/${aceptadaId}`,
+    "POST",
+    { decision: "puede_seguir" },
+  )) as { nota: string };
+
 /** La hoja pública que imprime el navegador invisible del motor. */
 export const getHojaParaImprimir = async (token: string) =>
-  (await apiRequest(
-    `${API_ROUTES.QUOTATIONS}/imprimir/${token}`,
-    "GET",
-  )) as {
+  (await apiRequest(`${API_ROUTES.QUOTATIONS}/imprimir/${token}`, "GET")) as {
     quotation: import("../utils/quotationPrintDoc").PrintQuotation;
     empresa: import("../utils/quotationPrintDoc").PrintCompany;
     menu?: import("../utils/quotationPrintDoc").PrintMenu | null;

@@ -36,6 +36,10 @@ import {
   QuotationStatus,
   RequestType,
 } from './constants/constants';
+import {
+  cotizacionDeLicitacion,
+  tocaLoPostulado,
+} from './cotizacion-de-licitacion';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
@@ -52,6 +56,11 @@ import {
   hasMoneyToVerify,
   verifyMoney,
 } from './utils/money';
+import {
+  REEMBOLSO_SOLO_AL_ANULAR,
+  disponibleParaReembolsar,
+  reembolsoMayorQueLoAbonado,
+} from './utils/reembolso-al-anular';
 
 /** Lo que la sesión trae del plan: los derechos y los topes. */
 export type DerechosDeLaSesion = {
@@ -184,6 +193,9 @@ export class QuotationsService {
       contact_name: createQuotationDto.contact_name || null,
       client_contact_id: clientContactId,
       observations: createQuotationDto.observations,
+      // Comentario interno (migración 128). Mismo aviso del 19-07: si
+      // falta aquí, el insert lo bota en silencio.
+      comentario_interno: createQuotationDto.comentario_interno || null,
       event_date: eventDateUtc,
       // Último día (evento multi-día); null = un solo día. Si esto falta,
       // la creación bota el rango en silencio — no repetir el bug 19-07.
@@ -339,7 +351,17 @@ export class QuotationsService {
       // llenó el formulario queda como contacto de ESTA cotización.
       children_count: createQuotationPublicDto.children_count || 0,
       contact_name: createQuotationPublicDto.name,
-      observations: `[Desde formulario publico] --- ${createQuotationPublicDto.observations}`,
+      // Observaciones las ve el cliente (salen en el PDF): desde el
+      // 19-10-2026 parten en blanco, sin la marca «[Desde formulario
+      // publico]». Lo que escribió el visitante (con su presupuesto) es
+      // información para el equipo y va al comentario interno (Felipe:
+      // "las observaciones que ve el cliente quedan limpias"). La
+      // etiqueta «creada desde link público» no dependía de ese texto:
+      // sale de user_id null (RequestsPage).
+      observations: '',
+      comentario_interno: mensajeDelFormulario(
+        createQuotationPublicDto.observations,
+      ),
       event_date: createQuotationPublicDto.event_date,
       quotation_status: QuotationStatus.SOLICITADA,
       request_type: RequestType.REQUERIMIENTO,
@@ -985,6 +1007,12 @@ export class QuotationsService {
     return { ok: true, enRevision: true };
   }
 
+  /** La licitación de la que esta cotización es copia de lo postulado
+   *  (decisión 35): la pantalla la muestra de solo lectura. */
+  licitacionDe(id: string, companyId: number) {
+    return this.quotationsRepository.licitacionDe(companyId, id);
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,
@@ -996,6 +1024,9 @@ export class QuotationsService {
     // Los derechos del plan, por la misma razón: los llamados internos
     // van sin ellos y no se revisa nada (paso 3.2, 14-09-2026).
     derechos?: DerechosDeLaSesion,
+    // 'postulacion': la reescribe Oportunidades («Armar postulación»), la
+    // única que puede cambiar lo postulado de una licitación (decisión 35).
+    desde?: 'postulacion',
   ) {
     try {
       // 0. Get quotation
@@ -1019,6 +1050,23 @@ export class QuotationsService {
       // para todos, incluido el administrador.
       if (quotation.quotation_status === QuotationStatus.REALIZADA) {
         throw new BadRequestException(EVENTO_REALIZADO_CONGELADO);
+      }
+
+      // LA COTIZACIÓN DE UNA LICITACIÓN (decisión 35 del doc 17, 19-10):
+      // es la copia de lo postulado y solo la reescribe Oportunidades. Se
+      // cierra lo postulado (servicios, montos, personas y fechas); el
+      // estado, los pagos y el seguimiento no pasan por ahí y siguen
+      // abiertos (cotizacion-de-licitacion.ts).
+      if (desde !== 'postulacion' && tocaLoPostulado(updateQuotationDto)) {
+        const licitacion = await this.quotationsRepository.licitacionDe(
+          companyId,
+          id,
+        );
+        if (licitacion) {
+          throw new BadRequestException(
+            cotizacionDeLicitacion(licitacion.codigo),
+          );
+        }
       }
 
       // Recepción trabaja REQUERIMIENTOS, no cotizaciones (12-08,
@@ -1169,6 +1217,32 @@ export class QuotationsService {
         await this.paymentsService.deletePaymentPlan(id, companyId);
       }
 
+      // REEMBOLSO AL ANULAR (20-10-2026, utils/reembolso-al-anular.ts): se
+      // valida ANTES de anular y nace DESPUÉS de guardar, para no dejar un
+      // evento anulado con un reembolso rechazado. No es columna.
+      const reembolsoAlAnular = updateQuotationDto.reembolso_al_anular;
+      delete updateQuotationDto.reembolso_al_anular;
+      if (reembolsoAlAnular !== undefined) {
+        if (
+          targetStatus !== QuotationStatus.CANCELADA ||
+          quotation.quotation_status !== QuotationStatus.ACEPTADA
+        ) {
+          throw new BadRequestException(REEMBOLSO_SOLO_AL_ANULAR);
+        }
+        const { data: cuotas } =
+          await this.paymentsService.findAllPaymentsFromQuotation(
+            [id],
+            companyId,
+          );
+        const disponible = disponibleParaReembolsar(
+          cuotas ?? [],
+          await this.refundsService.findByQuotation(companyId, id),
+        );
+        if (reembolsoAlAnular > disponible) {
+          throw new BadRequestException(reembolsoMayorQueLoAbonado(disponible));
+        }
+      }
+
       // 1. Check quotation status
       // If quotation_states is accepted, handle update payment plan (payments)
       // CUOTAS QUE SE LLENAN (doc 14, Felipe 07-10-2026): si cambia el
@@ -1316,11 +1390,18 @@ export class QuotationsService {
       }
 
       // update quotation
-      return this.quotationsRepository.update(
+      const guardada = await this.quotationsRepository.update(
         id,
         updateQuotationDto,
         companyId,
       );
+      if (reembolsoAlAnular) {
+        await this.refundsService.create({
+          amount: reembolsoAlAnular,
+          quotation_id: id,
+        });
+      }
+      return guardada;
       // 3. If quotation_status is not accepted, update quotation
     } catch (error) {
       this.logger.error(error);
@@ -1407,3 +1488,17 @@ export class QuotationsService {
     }
   }
 }
+
+/**
+ * Lo que el visitante escribió en el formulario público (y el presupuesto
+ * que el servicio le antepone), listo para el comentario interno. Sin nada
+ * escrito queda vacío: un rótulo solo no le dice nada al equipo.
+ */
+export const mensajeDelFormulario = (
+  mensaje: string | null | undefined,
+): string | null => {
+  const limpio = mensaje?.trim();
+  return limpio
+    ? `Mensaje del cliente en el formulario público:\n${limpio}`
+    : null;
+};

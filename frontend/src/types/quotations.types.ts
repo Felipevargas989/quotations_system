@@ -71,6 +71,12 @@ export interface Quotation {
   people_count: number;
   quotation_status: QuotationStatus;
   observations?: string;
+  // Notas internas del equipo (migración 128, 17-10-2026): nunca salen al
+  // cliente. Sin sesión de la empresa, el motor la entrega sin este campo.
+  comentario_interno?: string | null;
+  // Si es lo postulado en una licitación (decisión 35 del doc 17, 19-10):
+  // de solo lectura en el cotizador. Solo llega a su empresa.
+  de_licitacion?: { id: number; codigo: string } | null;
   created_at: Date;
   client_id: string;
   event_type: EventType;
@@ -146,6 +152,9 @@ export interface QuotationFormData
   // dentro de total_amount, y se guarda tal cual (migración 37).
   tip_amount?: number | null;
   contact_name?: string | null;
+  // undefined = la cotización llegó sin el campo: no se edita ni se envía
+  // (utils/comentarioInterno.ts), para no pisar lo guardado.
+  comentario_interno?: string | null;
 }
 
 export type QuotationPublicFormData = Pick<
@@ -153,9 +162,9 @@ export type QuotationPublicFormData = Pick<
   "name" | "email" | "phone" | "client_type"
 > &
   Pick<Quotation, "event_type" | "people_count" | "observations"> & {
-  /** Empresa o institución (05-09): nombra al CLIENTE; "tus datos"
-   *  quedan como persona de contacto. Solo tipos no-particulares. */
-  company_name?: string;
+    /** Empresa o institución (05-09): nombra al CLIENTE; "tus datos"
+     *  quedan como persona de contacto. Solo tipos no-particulares. */
+    company_name?: string;
     // string yyyy-mm-dd, igual que en el formulario interno.
     event_date: string;
     children_count?: number;

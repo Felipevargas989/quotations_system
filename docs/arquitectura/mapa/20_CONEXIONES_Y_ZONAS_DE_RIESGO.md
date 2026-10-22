@@ -123,7 +123,7 @@ Las 9 funciones de `db_functions_analytics_23_07.sql` (archivo suelto en la raí
 - `api-rest/src/quotations/portal-receipts.controller.ts` — `confirm()`: `payment_method: dto.payment_method || 'Transferencia bancaria'`
 - `frontend/src/services/portalReceipts.service.ts` — `confirmPortalReceipt` (POST con `{}`)
 - `docs/migrations/102_unificar-medios-de-pago.sql` — 198 filas migradas
-- `frontend/src/pages/postventa/PostVentaPage.tsx` — `PAYMENT_METHODS` (sin "Transferencia bancaria")
+- `frontend/src/constants/mediosDePago.ts` — `MEDIOS_DE_PAGO` (sin "Transferencia bancaria"; `PostVentaPage.tsx` lo importa como `PAYMENT_METHODS`)
 
 #### x1-11 · Compras escribe 4 columnas de `quotations` que leen Dashboard y Post-Venta
 
@@ -576,7 +576,7 @@ La columna JSON `quotations.items` es un contrato sin tipos compartidos entre fr
 
 #### x4-08 · La ruta pública de una cotización alimenta 4 flujos con reglas de empresa distintas
 
-La ruta pública "GET /quotations/:id" (`QuotationsController.findOne`, marcada `@Public()` con el comentario "This is public becaue it is used to display the quotation details in the public customer satisfaction survey") llama a `QuotationsService.findOne(id)`, que no recibe `companyId`, y `QuotationsRepository.findOne` trae la fila entera con `select('*, clients(name,email), companies(name)')`. La usan `PublicSurvey.tsx`, `ResumenDelDia.tsx` (Personas), `CustomerSatisfactionSurveyService.createAnswer` (sin sesión) y `PaymentsService.createPaymentPlan`, que recién después compara `quotation.company_id !== companyId` a mano. Si se le exige sesión a la ruta se rompe la encuesta pública; si se le agrega `companyId` a la firma de `findOne` se rompen `createAnswer` y el plan de pagos. Mientras siga así, cualquier columna nueva de `quotations` sale por esa puerta pública gracias al `*`.
+La ruta pública "GET /quotations/:id" (`QuotationsController.findOne`, marcada `@Public()` con el comentario "This is public becaue it is used to display the quotation details in the public customer satisfaction survey") llama a `QuotationsService.findOne(id)`, que no recibe `companyId`, y `QuotationsRepository.findOne` trae la fila entera con `select('*, clients(name,email), companies(name)')`. La usan `PublicSurvey.tsx`, `ResumenDelDia.tsx` (Personas), `CustomerSatisfactionSurveyService.createAnswer` (sin sesión) y `PaymentsService.createPaymentPlan`, que recién después compara `quotation.company_id !== companyId` a mano. Si se le exige sesión a la ruta se rompe la encuesta pública; si se le agrega `companyId` a la firma de `findOne` se rompen `createAnswer` y el plan de pagos. Mientras siga así, cualquier columna nueva de `quotations` sale por esa puerta pública gracias al `*`. La primera columna interna, `comentario_interno` (17-10-2026, migración 128), se tapa en el controller: `SesionOpcional.empresaDe` lee el pase si viene y `sinComentarioAjeno` la quita a quien no es de la empresa (mapa 01, regla 31). Otra columna interna tendría que sumarse ahí.
 
 **Evidencia:**
 - `api-rest/src/quotations/quotations.controller.ts` — `findOne` con `@Public()` y el comentario citado, más el TODO

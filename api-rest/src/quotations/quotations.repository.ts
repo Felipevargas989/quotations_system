@@ -57,7 +57,7 @@ export class QuotationsRepository {
       'provisioned_at, provisioned_cost, provisioned_people, ' +
       'survey_sent_at, event_end_date, children_count, tip_percentage, ' +
       'contact_name, tip_amount, sent_at, loss_reason, ' +
-      'recontacted_at, recontacted_by, harvest_status';
+      'recontacted_at, recontacted_by, harvest_status, comentario_interno';
     const query = this.supabase.client.from('quotations').select(
       `${COLUMNAS_LISTA},
         mandante:client_contacts!quotations_client_contact_id_fkey (
@@ -164,6 +164,25 @@ export class QuotationsRepository {
       )
       .eq('id', id)
       .single();
+  }
+
+  /** La licitación de Oportunidades que tiene vinculada esta cotización
+   *  (decisión 35 del doc 17): es su copia de lo postulado. null si no es
+   *  de ninguna. Filtra por empresa. */
+  async licitacionDe(
+    companyId: number,
+    quotationId: string,
+  ): Promise<{ id: number; codigo: string } | null> {
+    const { data, error } = await this.supabase.client
+      .from('oportunidades')
+      .select('id, codigo')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .limit(1);
+    if (error) throw error;
+    return (
+      ((data ?? [])[0] as { id: number; codigo: string } | undefined) ?? null
+    );
   }
 
   // Fase 1 punto 3 (migración 38): el número lo entrega LA BASE, de a uno

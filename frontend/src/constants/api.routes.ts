@@ -66,6 +66,7 @@ export const API_ROUTES = {
   // mudanza #7: los 6 servicios chicos
   REFUNDS_BY_QUOTATION: "/refunds/by-quotation",
   REFUNDS_PAID_MAP: "/refunds/paid-map",
+  REFUNDS_REGISTRAR: "/refunds/registrar",
   EVENT_DOCUMENTS: "/event-documents",
   ANALYTICS_HOY: "/analytics/hoy",
   CLIENT_CONTACTS: "/client-contacts",
@@ -120,6 +121,7 @@ export const API_ROUTES = {
   CUSTOMER_SATISFACTION_SURVEY_ANSWER: "/customer-satisfaction-survey/answer",
   CUSTOMER_SATISFACTION_SURVEY: "/customer-satisfaction-survey",
   MARKETING: "/marketing",
+  OPORTUNIDADES: "/oportunidades",
   CONSULTAS: "/consultas",
   EVENT_TYPES: "/event-types",
 };

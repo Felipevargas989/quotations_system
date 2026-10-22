@@ -292,9 +292,9 @@ congelar() {
 }
 
 congelar "src/pages/quotations/QuotationForm.tsx"            3936
-congelar "src/pages/postventa/PostVentaPage.tsx"             3160
+congelar "src/pages/postventa/PostVentaPage.tsx"             2795
 congelar "src/pages/dashboard/DashboardPage.tsx"             2798
-congelar "src/pages/postventa/ServiciosTab.tsx"              2285
+congelar "src/pages/postventa/ServiciosTab.tsx"              2275
 congelar "../api-rest/src/people/people.service.ts"          2040
 congelar "src/pages/logistica/components/ComprasTab.tsx"     1794
 congelar "src/pages/personas/FichasTab.tsx"                  1599

@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { ClientFormData } from "../types/clients.types";
+import { CoincidenciaCliente } from "../utils/avisoCliente";
 import { apiRequest } from "./api";
 
 export const getClients = async () => {
@@ -18,9 +19,50 @@ export const clientsQueryOptions = {
   },
 };
 
-export const createClient = async (client: ClientFormData) => {
-  const response = await apiRequest(`${API_ROUTES.CLIENTS}`, "POST", client);
+// Con portero (16-10-2026): si ya existe un cliente parecido, el motor
+// responde 409 CLIENTE_PARECIDO (ver utils/avisoCliente). `confirmado`
+// es la respuesta "es otro cliente, crear igual".
+export const createClient = async (
+  client: ClientFormData,
+  confirmado = false,
+) => {
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENTS}`,
+    "POST",
+    confirmado ? { ...client, confirmado: true } : client,
+  );
   return { data: response };
+};
+
+// El aviso mientras se escribe (16-10-2026, Felipe: "mejor cuando apenas
+// termine de escribir"): las mismas coincidencias que revisa el portero,
+// sin crear nada. Viajan SOLO los cinco datos que se comparan (el motor
+// rechaza campos de más) y por POST, para que no queden en la dirección.
+export const revisarCliente = async (
+  datos: Partial<
+    Record<
+      "name" | "email" | "phone" | "contact_email" | "contact_phone",
+      string | null
+    >
+  >,
+): Promise<CoincidenciaCliente[]> => {
+  const cuerpo: Record<string, string> = {};
+  for (const campo of [
+    "name",
+    "email",
+    "phone",
+    "contact_email",
+    "contact_phone",
+  ] as const) {
+    const valor = (datos[campo] || "").trim();
+    if (valor) cuerpo[campo] = valor;
+  }
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENTS}/coincidencias`,
+    "POST",
+    cuerpo,
+  );
+  return (response || []) as CoincidenciaCliente[];
 };
 
 export const updateClient = async (client: ClientFormData, id: string) => {

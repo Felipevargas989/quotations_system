@@ -8,6 +8,7 @@ import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
 import { MovilController } from 'src/movil/movil.controller';
+import { OportunidadesController } from 'src/oportunidades/oportunidades.controller';
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
@@ -72,6 +73,16 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET ': R,
       'GET check-conflicts': R,
       'POST :id/enviar-correo': S,
+      'POST :id/generar': S,
+      // «✉ Generar seguimiento» (doc 18, 17-10-2026): quien vende.
+      'GET seguimiento/pendientes': S,
+      'POST :id/seguimiento': S,
+      // Y la revisión de si el borrador ya salió (doc 18 §9).
+      'POST seguimiento/revisar': S,
+      // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero; decidir
+      // es de quien vende.
+      'GET choques/pendientes': R,
+      'POST :id/choques/:aceptadaId': S,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,
@@ -98,6 +109,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST types': S,
       'DELETE types/:id': S,
       'PATCH types/reorder': S,
+      // El aviso de cliente parecido mientras se escribe (16-10-2026):
+      // el mismo cargo que crear un cliente.
+      'POST coincidencias': R,
       'POST ': R,
       'GET ': R,
       'GET :id/summary': R,
@@ -146,6 +160,40 @@ const esperado: [Clase, Record<string, string[]>][] = [
   [
     MovilController,
     { 'GET push/clave-publica': O, 'POST cocina/:quotationId/marcas': O },
+  ],
+  [
+    OportunidadesController,
+    {
+      'GET ': A,
+      'GET config': A,
+      'PATCH config': A,
+      'POST radar': A,
+      'GET radar/corridas': A,
+      'GET mias': A,
+      'GET calendario': A,
+      'GET competidores': A,
+      'GET competidores/:rut': A,
+      'GET oferente': A,
+      'PATCH oferente': A,
+      'POST oferente/firma': A,
+      'DELETE oferente/firma': A,
+      'POST oferente/documentos': A,
+      'PATCH oferente/documentos/:documentoId/no-usar': A,
+      'DELETE oferente/documentos/:documentoId': A,
+      'GET :id': A,
+      'PATCH :id': A,
+      'GET :id/adjuntos': A,
+      'POST :id/adjuntos': A,
+      'DELETE :id/adjuntos/:adjuntoId': A,
+      'GET :id/analisis': A,
+      'POST :id/analisis': A,
+      'GET :id/validacion': A,
+      'POST :id/validacion': A,
+      'GET :id/generaciones': A,
+      'POST :id/generaciones/anexos': A,
+      'POST :id/generaciones/firma': A,
+      'POST :id/generaciones/propuesta': A,
+    },
   ],
 ];
 

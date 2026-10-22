@@ -7,6 +7,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
@@ -73,6 +74,15 @@ export class CreateQuotationDto {
   @IsString()
   @IsOptional()
   observations: string;
+
+  // El comentario interno (17-10-2026, migración 128): lo que el equipo
+  // anota para sí, como las instrucciones para armar la cotización.
+  // NUNCA sale al cliente; Observaciones es el que sí sale en el PDF.
+  // El formulario público no lo lleva (CreateQuotationPublicDto lo omite).
+  @IsString()
+  @IsOptional()
+  @MaxLength(5000)
+  comentario_interno?: string | null;
 
   @IsNumber()
   @IsOptional()

@@ -1103,9 +1103,27 @@ function DiaRestaurante({
     // de restaurante ese día. Y una persona, una sola fila de invitado,
     // aunque tenga más de una jornada de evento.
     const enLaPlanta = new Set(delDia.map((a) => a.person_id));
+    // Y quien descansa del restaurante ese día (cambio de día) tampoco: no
+    // vino, no entra al reparto del día (17-10-2026; el motor dice lo mismo
+    // en sincronizarInvitados).
+    const descansan = new Set(
+      staff
+        .filter(
+          (a) =>
+            a.quotation_id === null &&
+            String(a.day).slice(0, 10) === dia &&
+            a.ajuste === "descansa",
+        )
+        .map((a) => a.person_id),
+    );
     const unoPorPersona = new Map<number, (typeof delEvento)[number]>();
     for (const ev of delEvento) {
-      if (ev.person_id == null || enLaPlanta.has(ev.person_id)) continue;
+      if (
+        ev.person_id == null ||
+        enLaPlanta.has(ev.person_id) ||
+        descansan.has(ev.person_id)
+      )
+        continue;
       if (!unoPorPersona.has(ev.person_id)) unoPorPersona.set(ev.person_id, ev);
     }
     return [...unoPorPersona.values()]

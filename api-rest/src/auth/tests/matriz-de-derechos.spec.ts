@@ -10,9 +10,11 @@ import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_
 import { LogisticsController } from 'src/logistics/logistics.controller';
 import { MarketingController } from 'src/marketing/marketing.controller';
 import { MovilController } from 'src/movil/movil.controller';
+import { OportunidadesController } from 'src/oportunidades/oportunidades.controller';
 import { PaymentsController } from 'src/payments/payments.controller';
 import { PeopleController } from 'src/people/people.controller';
 import { PortalReceiptsController } from 'src/quotations/portal-receipts.controller';
+import { QuotationsController } from 'src/quotations/quotations.controller';
 import { RefundsController } from 'src/refunds/refunds.controller';
 import { DERECHO_KEY } from '../derecho.decorator';
 import type { Derecho } from '../derechos';
@@ -49,6 +51,7 @@ const REVISADAS_EN_EL_SERVICIO = [
   'correos_automaticos → quotations-cron, el seguimiento de los 7 y 14 días',
   'post_venta        → payments-cron, la cobranza',
   'marketing         → marketing-cron, las campañas programadas',
+  'oportunidades     → el radar lee solo las empresas con el derecho (oportunidades.repository.spec)',
 ];
 
 const metodos: Record<number, string> = {
@@ -162,6 +165,12 @@ const ESPERADO: Array<{
     derecho: 'marketing',
     abiertas: 0,
   },
+  {
+    nombre: 'Oportunidades',
+    cls: OportunidadesController,
+    derecho: 'oportunidades',
+    abiertas: 0,
+  },
 ];
 
 describe('la matriz de derechos', () => {
@@ -201,6 +210,39 @@ describe('la matriz de derechos', () => {
     expect(por('PATCH /clients/types/reorder')?.derecho).toBe('clientes_360');
   });
 
+  it('Cotizar con IA: solo el botón lleva el candado; el resto del cotizador queda abierto', () => {
+    const rutas = rutasDe(QuotationsController);
+    const por = (via: string) => rutas.find((r) => r.via === via);
+    // El botón «✨ Crear con IA» (17-10-2026): módulo propio de Valle del
+    // Sol (migración 130). El cotizador es de todo plan.
+    expect(por('POST /quotations/:id/generar')?.derecho).toBe('cotizar_con_ia');
+    expect(
+      rutas.filter((r) => r.derecho === 'cotizar_con_ia').map((r) => r.via),
+    ).toEqual(['POST /quotations/:id/generar']);
+    expect(por('PATCH /quotations/:id')?.derecho).toBeUndefined();
+  });
+
+  it('Seguimiento con IA: solo sus tres rutas llevan el candado', () => {
+    const rutas = rutasDe(QuotationsController);
+    // «✉ Generar seguimiento» (doc 18, 17-10-2026): módulo propio de Valle
+    // del Sol (migración 140), con la revisión de si el borrador salió
+    // (§9). Enviar la cotización es de todo plan.
+    expect(
+      rutas
+        .filter((r) => r.derecho === 'seguimiento_con_ia')
+        .map((r) => r.via)
+        .sort(),
+    ).toEqual([
+      'GET /quotations/seguimiento/pendientes',
+      'POST /quotations/:id/seguimiento',
+      'POST /quotations/seguimiento/revisar',
+    ]);
+    expect(
+      rutas.find((r) => r.via === 'POST /quotations/:id/enviar-correo')
+        ?.derecho,
+    ).toBeUndefined();
+  });
+
   it('Análisis es del nivel 2 del Dashboard; el panel del nivel 1 queda abierto', () => {
     const rutas = rutasDe(AnalyticsController);
     const por = (via: string) => rutas.find((r) => r.via === via);
@@ -211,7 +253,7 @@ describe('la matriz de derechos', () => {
 
   it('las revisiones que viven en los servicios quedan anotadas', () => {
     // No es una comprobación técnica: es el recordatorio de que estas
-    // once no se ven desde acá y tienen su prueba en otra parte.
-    expect(REVISADAS_EN_EL_SERVICIO).toHaveLength(11);
+    // doce no se ven desde acá y tienen su prueba en otra parte.
+    expect(REVISADAS_EN_EL_SERVICIO).toHaveLength(12);
   });
 });

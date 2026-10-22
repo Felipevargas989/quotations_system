@@ -37,6 +37,10 @@ export interface Quotation {
   people_count: number;
   quotation_status: QuotationStatus;
   observations?: string;
+  // Notas internas del equipo (migración 128, 17-10-2026): nunca salen al
+  // cliente. La puerta pública GET /quotations/:id las quita
+  // (comentario-interno.ts).
+  comentario_interno?: string | null;
   created_at: Date;
   client_id: string;
   event_type: string;

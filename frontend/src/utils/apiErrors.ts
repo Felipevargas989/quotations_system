@@ -26,6 +26,13 @@ export const humanizeApiError = (
     .filter((x): x is string => Boolean(x));
 
   if (human.length) return [...new Set(human)].join(" · ");
+  // La falla sin manejar del motor llega con el texto de fábrica de Nest,
+  // en inglés y sin decir nada útil (Felipe la vio el 17-10 al subir bases):
+  // mejor el mensaje en español de la pantalla. Un 5xx con mensaje propio
+  // (el 503 honesto de la base lenta) se sigue mostrando tal cual.
+  if (list.length === 1 && String(list[0]) === "Internal server error") {
+    return fallback;
+  }
   if (list.length) return String(list[0]);
 
   const msg = (error as Error)?.message || "";

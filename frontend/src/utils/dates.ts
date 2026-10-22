@@ -44,7 +44,9 @@ export type FormatoFecha =
   /** 13 de agosto de 2026 (sin el día de la semana) */
   | "largoSinDia"
   /** 13 ago */
-  | "diaMes";
+  | "diaMes"
+  /** lun 19 oct, 16:00 (un momento con hora: cierres de licitaciones) */
+  | "diaHora";
 
 const MOLDES: Record<FormatoFecha, string> = {
   corto: "dd/MM/yyyy",
@@ -53,6 +55,7 @@ const MOLDES: Record<FormatoFecha, string> = {
   diaYMes: "cccc d 'de' LLLL",
   largoSinDia: "d 'de' LLLL 'de' yyyy",
   diaMes: "d LLL",
+  diaHora: "ccc d LLL, HH:mm",
 };
 
 const pintar = (
