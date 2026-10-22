@@ -40,7 +40,10 @@ import { useResponsables } from "./useResponsables";
 // Más clara el 17-10 en la noche ("vamos con todas"): un ícono por dato,
 // el evento en corto («vie 30 oct · 18:00 a 02:00 · 160 personas»), el
 // texto largo completo al pasar el mouse, y el estado y el responsable
-// arriba a la derecha, junto a Mercado Público.
+// arriba a la derecha, junto a Mercado Público. Desde el 22-10 (decisión
+// 66) ese grupo queda pegado a la derecha también cuando el título es largo
+// y lo manda a una segunda línea (Felipe: "prefiero que esté pegado a la
+// derecha el de arriba").
 
 export default function FichaEnUnaMirada({
   ficha,
@@ -94,7 +97,7 @@ export default function FichaEnUnaMirada({
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
           <ChipDeEstado
             value={ficha.estado}
             opciones={ESTADOS}
