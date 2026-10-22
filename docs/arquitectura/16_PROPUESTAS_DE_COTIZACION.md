@@ -1,6 +1,10 @@
 # 16 · Propuestas de cotización (hoy a mano, mañana un botón)
 
-> **Estado: MÉTODO EN USO desde el 12-10-2026, BOTÓN SIN CONSTRUIR.**
+> **Estado: MÉTODO EN USO desde el 12-10-2026 (desde el 15-10, con la skill
+> `armar-cotizacion`). BOTÓN «✨ Crear con IA» y comentario interno EN
+> PRODUCCIÓN desde el 17-10 (PR #142, sección 6); la corrección «comidas con
+> sentido» y el archivo único de reglas, en el laboratorio; faltan las
+> pruebas fijas.**
 > Primera corrida: el asistente procesó a mano los 11 requerimientos en
 > solicitada de Valle del Sol (sección 7). Este documento es la receta que
 > sigue cualquier sesión que lo repita y la especificación del botón.
@@ -26,13 +30,20 @@ y recién entonces la envíe.
 1. **Nunca se envía.** La propuesta queda en `solicitada` y pasa de
    requerimiento a cotización (`request_type = 'cotizacion'`), igual que
    cuando alguien la arma en el cotizador. La envía una persona.
-2. **Los comentarios van en las mismas observaciones**, debajo de una línea
-   separadora (Felipe, 12-10: *"los comentarios déjalos en las mismas
-   observaciones separados por una línea, yo mismo las borro post
-   revisar"*). Separador en uso:
-   `──────── PROPUESTA DEL ASISTENTE · revisar y borrar antes de enviar ────────`.
-   **Ojo: las observaciones salen impresas en el PDF.** Nunca enviar sin
-   borrarlas.
+2. **Los comentarios van a la bitácora (pestaña Seguimiento), NUNCA a las
+   Observaciones.** Las Observaciones salen impresas en el PDF que recibe
+   el cliente. Una línea en `quotation_followups`, autor «Asistente», tipo
+   `otro`, que parte con «Cotización armada por el asistente. Ojo con lo
+   siguiente:». Las Observaciones quedan solo con lo que escribió el
+   cliente o Recepción.
+
+   Historia: el 12-10 Felipe pidió dejarlos en las mismas observaciones,
+   bajo una línea separadora, para borrarlos él antes de enviar. El 14-10
+   lo cambió: *"no me gustó que dejaras en comentarios tus observaciones
+   de las cotizaciones, salieron varias a los clientes (…) quizás debió
+   quedar en seguimiento un hilo que dijera cotización creada por
+   asistente, ojo con lo siguiente"*. Nueve PDF salieron con las notas
+   internas, y ese día se movieron a la bitácora las once que quedaban.
 3. **Se ofrece lo que hay en el catálogo.** Lo que el cliente pide y no
    tenemos se escribe explícito y en mayúsculas: "NO TENEMOS risotto: va
    pastelera de choclo".
@@ -59,6 +70,17 @@ y recién entonces la envíe.
 12. **Solo se procesan requerimientos con ítems vacíos.** Una cotización
     que alguien ya empezó a armar no se pisa (la #585 tenía desayuno, dos
     coffee y salón, pero no el almuerzo: se avisa y no se toca).
+13. **El presupuesto del cliente no es un límite** (Felipe, 17-10): *"muchas
+    veces la gente pone un presupuesto, tengo un millón de pesos (…) y pide,
+    y pide, y pide, y eso es parte de cómo funciona el mercado. Los precios
+    están en nuestro catálogo (…) la IA debe colocar los productos"*. Se
+    arma lo que se pidió, a precio de catálogo: no se baja de nivel ni se
+    quita nada para calzar con el presupuesto. Si el pedido no dice el
+    nivel, el presupuesto sirve de guía para elegirlo (sección 6). Si el total se aleja mucho,
+    va una nota interna («Se excede el presupuesto: el cliente habla de
+    $1.000.000 y la cotización suma $1.450.000») y nada más: se guarda y
+    sigue el proceso. La nota va en el comentario interno (sección 6);
+    mientras no exista, en la nota de la bitácora.
 
 ## 3. Cómo se trabaja, paso a paso
 
@@ -86,13 +108,15 @@ y recién entonces la envíe.
    - propina: `tip_percentage` en null.
 6. **Respaldar y guardar con candados**, todas en un solo bloque: estado
    `solicitada`, `request_type = 'requerimiento'`, ítems vacíos, monto 0,
-   personas iguales a lo medido, sin un separador previo, y total igual al
-   calculado a mano. Si una falla, no se guarda ninguna.
-7. **Comentar:** qué se armó y cuánto queda por persona, sustituciones, lo
-   que NO tenemos, supuestos (fecha, niños, interpretación del pedido),
-   alternativas de precio, historial del cliente y qué conviene preguntar.
+   personas iguales a lo medido y total igual al calculado a mano. Si una
+   falla, no se guarda ninguna.
+7. **Comentar en la bitácora, no en las Observaciones** (regla 2): qué se
+   armó y cuánto queda por persona, sustituciones, lo que NO tenemos,
+   supuestos (fecha, niños, interpretación del pedido), alternativas de
+   precio, historial del cliente y qué conviene preguntar.
 8. **Verificar** recalculando desde lo guardado y comparando con las
-   columnas. Revisar también que haya un solo separador.
+   columnas. Revisar también que las Observaciones no tengan nada escrito
+   por el asistente.
 9. **Reportar a Felipe** en una tabla: número, cliente, total, valor por
    persona y lo que tiene que decidir.
 
@@ -275,15 +299,196 @@ de paseo de curso se renombró "Ticket paseo de curso con alimentación"
 ($2.400), para que nadie lo use suelto en una entrada sola; el nombre sale
 impreso en el programa del cliente, por eso no dice "solo en paquete".
 
-## 6. El botón (diseño, sin construir)
+## 6. El botón «✨ Crear con IA» (en producción desde el 17-10)
 
-- **Dónde:** "Proponer cotización" en la ficha del requerimiento, y
-  "Proponer todas" en Requerimientos.
-- **Motor:** `POST /quotations/:id/propuesta` arma el contexto
-  (requerimiento, cliente e historial, catálogo de la empresa: paquetes,
-  menús, sueltos y fijos, las reglas de la sección 2 y la tabla de la
-  sección 5) y llama a Claude (`claude-opus-5-5`, salida con estructura
-  exacta).
+> **17-10-2026: Felipe lo retoma** (*"quiero colocar el botón de generar con
+> esas típicas estrellitas de la IA (…) cada requerimiento debería tener dos
+> campos de comentario, uno que lo ve el cliente y otro interno. En el
+> interno (…) menú económico, tres días, con desayuno, sin desayuno, como
+> instrucciones para que después una IA tome eso, lo lea y genere una
+> cotización de forma automática, la deje en solicitada"*). Evaluado el
+> mismo día: se puede. Lo nuevo:
+>
+> - **Ícono:** las estrellitas de IA (`Sparkles` de lucide, foto de Felipe),
+>   en vez de la varita del 15-10.
+> - **Comentario interno:** columna nueva en `quotations` (migración en
+>   ambas bases, laboratorio primero), en el requerimiento, el cotizador y
+>   la ficha. Nunca sale en el PDF, el correo ni el portal; Observaciones
+>   sigue siendo el comentario que ve el cliente. Sirve desde el primer día:
+>   la skill lo lee, y el equipo deja de escribir notas internas en
+>   Observaciones (444, 446, 447 y 452).
+> - **El precio es una variable, no un tope** (Felipe, 17-10, corrigiendo
+>   cómo leí su *"el precio no tiene que ser parte de lo que ve"*: *"no
+>   puede no trabajar porque hay un tope de presupuesto, pero sí es una
+>   variable, lo que va a gastar el cliente"*). La IA VE el catálogo con su
+>   precio por persona y su nivel, y con eso elige (medido el 17-10):
+>   cena o almuerzo económico = el nivel más barato (Nivel 1 o Básicos,
+>   $10.900); mediano = el del medio (Nivel 2 o Estándar, $16.900); caro =
+>   el más alto (Nivel 3 o Premium, $25.900); desayuno Estándar $8.700 o
+>   Premium $10.900; coffee y cóctel, por precio dentro de su nivel. Si el
+>   pedido no dice nivel y hay presupuesto, elige el nivel que más se le
+>   acerca. Si no dice nivel ni hay presupuesto, va **lo más vendido en
+>   eventos parecidos** (Felipe, 17-10: *"ante falta de datos (…) revisemos
+>   cuáles son la mayor cantidad de cena que hemos sacado, lo más común"*):
+>   el motor cuenta, por categoría, el nivel del menú guardado más parecido
+>   a cada caja de las cotizaciones aceptadas y realizadas del mismo tipo de
+>   evento en los últimos 18 meses (por cotización, no por caja); con menos
+>   de 3, toma todos los tipos. Lo anota en la nota. **Se calcula al
+>   apretar el botón, nunca queda fijo** (Felipe, 17-10: *"la historia se
+>   va moviendo"*). Foto del 17-10, solo de ejemplo: cena → Nivel 1 (8 de
+>   12 eventos); almuerzo → Básicos (7), cerca de Matrimonio (6) y
+>   Estándar (5). Lo que nunca hace: escribir un precio (elige por id y el motor
+>   pone el del catálogo) ni recortar lo pedido por el presupuesto; si se
+>   aleja mucho, lo anota en el comentario interno y guarda igual (regla
+>   13). «Cuadrar al peso» es la suma interna de Eventia
+>   (`verifyMoney`): si falla es un error del sistema y no se guarda; el
+>   presupuesto nunca frena el guardado.
+> - **La historia manda cuando faltan datos** (Felipe, 17-10: *"ocupemos
+>   la historia"*), siempre la del momento de apretar el botón. Medido el 17-10 sobre las 204 cotizaciones de los
+>   últimos 6 meses: 37 (1 de cada 5) eran de clientes que ya habían
+>   comprado, y las 204 tenían 3 o más eventos vendidos del mismo tipo.
+>   - **Cliente que ya compró:** parte de su última cotización vendida
+>     (mismas comidas, niveles y salón), a precios de hoy, salvo que el
+>     pedido diga otra cosa.
+>   - **Eventos parecidos:** la IA recibe 3 a 5 cotizaciones vendidas del
+>     mismo tipo y de tamaño parecido, resumidas (día, comida, nivel,
+>     personas, fijos), como ejemplo de cómo se arman.
+>   - **Lo más vendido:** elige el nivel cuando falta dato (arriba).
+>   - Siempre anota qué historia usó («basada en la N° 500», «parecida a
+>     la 615 y la 590»).
+> - **Lo que tiene que saber armar** (Felipe, 17-10):
+>   - *"si pido un menú en particular que no esté paquetizado"*: lo arma
+>     con los platos sueltos del catálogo (49 de almuerzos y cenas, 21 de
+>     coffee y cóctel, 15 de desayunos y onces), cada uno a su precio; lo
+>     que no existe va como «NO TENEMOS …» en la nota, con lo más parecido.
+>   - *"tres días (…) llegan con cena tal día, (…) pensión completa y se
+>     van con desayuno"*: cada comida en su día, alojamiento por noche y el
+>     último día como fecha de término. Si calza exacto con un paquete de
+>     noches (1N, 2N o 3N, media pensión o pensión completa), usa el
+>     paquete. Si el pedido admite dos lecturas, anota cuál eligió.
+>   - Estos dos casos, más económica, mediana o cara y el presupuesto
+>     excedido, son las **pruebas fijas del laboratorio**: el botón no pasa
+>     a producción sin que salgan bien.
+> - **Límite:** no lee correos ni fotos (la skill sí). Lo que importe va en
+>   el comentario interno.
+> - **Costo, medido el 17-10:** el catálogo de Valle del Sol (32 paquetes,
+>   134 menús, 201 sueltos y 39 fijos) son unos 47.700 caracteres; con las
+>   reglas, USD 0,15 a 0,35 por cotización y menos de USD 20 al mes con las
+>   55 de septiembre. Cerca de un minuto por cotización (por medir).
+> - **Llave:** `ANTHROPIC_API_KEY`, creada por Felipe y guardada en Railway,
+>   en el servicio del laboratorio (17-10). La comparte la lectura de
+>   licitaciones de Oportunidades (doc 17), que ya la usa: una cuenta nueva
+>   tiene poco cupo por minuto, cuidarlo (caché del catálogo y las reglas).
+>   Para producción, una llave aparte que Felipe crea y pega él en el
+>   servicio de producción; el motor parte sin ella.
+> - **Roadmap (Felipe, 17-10: *"vamos con los botones (…) dame el roadmap"*):**
+>   2a el motor con la IA; 2b los botones y el enlace a Mi empresa; 2c las
+>   pruebas fijas con costo y tiempo medidos; 3 producción (llave propia,
+>   migración 128, motor y vitrina); 4 medir las 10 seguidas y decidir el
+>   plan para otras empresas. Todo lo 2 en el laboratorio.
+> - **Plan en tres pasos** (Felipe, 17-10: *"vamos por el paso 1"*): 1) el
+>   comentario interno; 2) el botón en el laboratorio, con requerimientos
+>   reales; 3) producción cuando 10 seguidas salgan sin corrección (la regla
+>   del 15-10 pasa a ser la puerta de producción).
+> - **Paso 1 EN EL LABORATORIO (17-10):** migración 128
+>   (`quotations.comentario_interno`), la pieza `ComentariosDelEvento` en
+>   Recepción y el cotizador, y la puerta pública que solo lo entrega a la
+>   empresa (mapa 01, regla 31). Rama `feature/comentario-interno`. En
+>   producción, la migración va antes que el motor. Va a producción JUNTO
+>   con el botón (Felipe, 17-10: *"esperemos que tengamos todo listo"*).
+> - **Pasos 1 y 2 EN PRODUCCIÓN el 17-10** (Felipe: *"o pasamos a
+>   producción?"* → *"dale, ya la puse"*): PR #142, `main` `f9819824`,
+>   migraciones 128 y 130 (la 129 es de Oportunidades). Felipe usó la MISMA
+>   llave de Anthropic del laboratorio. Prueba del laboratorio: faena de 3
+>   días y 80 personas, $83.900 por persona, 32 s, US$ 0,16 (después de
+>   corregir la cantidad, que es POR PERSONA). Las pruebas fijas se hacen en
+>   producción, con el catálogo real: todo queda en solicitada y nada se
+>   envía.
+> - **Corrección «comidas con sentido», EN EL LABORATORIO (17-10 tarde).**
+>   Felipe probó el 470 del laboratorio: *"no tiene sentido: 2 puntos de
+>   hidratación, dos principales, sin postre y sin guarnición (…) ¿por qué
+>   pasó esto?"*. La IA veía los platos sin su sección y tomó el único menú
+>   guardado de almuerzo del laboratorio, que es de prueba. Lo nuevo (rama
+>   `feature/ia-comidas-con-sentido`, mapa 01 §5.7 y regla 32):
+>   - el catálogo le llega por secciones (Entradas, Principales,
+>     Guarniciones, Postres…);
+>   - **un solo archivo de reglas**,
+>     `api-rest/src/quotations/generar/REGLAS_DE_ARMADO.md`, que leen el
+>     botón y la skill `armar-cotizacion` (Felipe: *"¿no podemos montar la
+>     skill que tenemos en ese agente?"*). Las correcciones de Felipe se
+>     escriben ahí, en «Lecciones», y desde el siguiente despliegue las
+>     aplican los dos;
+>   - la forma de cada comida, sacada de los menús guardados de la casa
+>     (almuerzo y cena: entrada o ensalada, un principal con una guarnición
+>     y un postre; desayuno: jugo, pan, uno o dos salados y un dulce; coffee
+>     y cóctel por bocados según el nivel). El motor la revisa: si una caja
+>     no la cumple, la IA la corrige una vez o explica por qué la deja, y lo
+>     que quede va a la nota como «Revisar:»;
+>   - **los paquetes primero** (Felipe: *"usar dentro de lo posible los
+>     paquetes que tenemos; si no calzan, modificarlos y adaptarlos"*): la
+>     nota dice qué paquete usó y qué le cambió.
+>
+>   Segunda vuelta del 470: ensalada chilena, pollo al jugo con arroz y
+>   macedonia ($9.900 por persona) y salón cúpula; la nota explica por qué
+>   no usó el menú de prueba; 12 s, US$ 0,09.
+> - **La base son los paquetes (Felipe, 17-10):** *"quiero que se base
+>   mayoritariamente en los paquetes: desayunos, almuerzos, cenas, onces,
+>   cócteles, todos están paquetizados; en caso que un paquete no encaje,
+>   debe adaptarlos según la skill"*. Medido ese día en producción: 32
+>   paquetes de evento y menús guardados por nivel en todas las comidas
+>   (desayuno 7, almuerzo 29, cena 29, once 9, coffee y cóctel 15, más los
+>   de niños). Cada caja parte de un menú guardado; para adaptarlo, la IA
+>   saca platos (`quitar`) y suma sueltos en la misma sección. Una comida
+>   armada de cero con sueltos es un aviso que la IA revisa una vez. La
+>   regla quedó en `REGLAS_DE_ARMADO.md` («Cómo se arma»), la misma de la
+>   skill.
+> - **El laboratorio no sirve para medir la calidad:** su catálogo es de
+>   prueba (5 menús, uno llamado «testaosjf…», y 5 paquetes de ensayo).
+>   Ahí se prueba que el botón funcione; la calidad, en producción, con las
+>   pruebas fijas (quedan en solicitada y nada se envía).
+> - **Migraciones:** la 122 a la 124 ya las usa Oportunidades en el
+>   laboratorio; la del comentario interno toma el número libre que siga.
+
+> **15-10-2026: EN STAND BY por decisión de Felipe.** Lo pidió así: *"un
+> botón que sea generar cotizaciones y con un icono de una varita de IA,
+> que vea la cotización, todo lo que está en los comentarios, y genere una
+> cotización que después pueda editar, la deje como solicitada, con la
+> versión más actualizada de Claude"*. Para retomarlo hace falta una llave
+> de Anthropic en el motor (la crea y la guarda Felipe en Railway) y
+> probarlo primero en el laboratorio.
+>
+> **Decidido el mismo 15-10:** mientras tanto se arman por el chat (Felipe:
+> *"¿no me conviene mientras pedírtelos por acá?"*), con la skill
+> `armar-cotizacion` (`~/.claude/skills/armar-cotizacion/SKILL.md`), que
+> lleva las lecciones y el registro de correcciones (*"la vamos
+> mejorando"*). El botón se construye cuando unas 10 cotizaciones seguidas
+> salgan sin correcciones de Felipe, o antes si Camila o Recepción
+> necesitan armarlas sin él. Esa skill es el borrador de las instrucciones
+> del agente.
+
+- **Nombre e ícono:** «Generar cotización» (Felipe, 15-10), con las
+  estrellitas de IA (`Sparkles` de lucide, foto de Felipe del 17-10; el
+  15-10 había sido la varita `WandSparkles`). El modelo, el más nuevo de Claude,
+  queda en una variable del motor para subir de versión sin tocar código.
+- **Dónde (Felipe, 17-10):** *"al lado un botón más chiquitito que sea
+  crear manual y una que sea crear con IA (…) y una arriba que diga generar
+  todas"*.
+  - En cada fila de Requerimientos, dos botones chicos lado a lado:
+    «Crear manual» (el «Crear Cotización» de hoy, que abre el cotizador) y
+    «✨ Crear con IA». El de IA solo en requerimientos sin servicios.
+  - Dentro de «Editar requerimiento», junto a «Actualizar»: «✨ Crear con
+    IA» guarda lo escrito y genera en un solo paso.
+  - Arriba de la lista, «✨ Generar todas», en el lugar del botón «Enlace
+    público», que se muda a Mi empresa (*"me choca que está ahí (…) es
+    algo como de configuración"*), solo para el administrador (Felipe,
+    17-10: *"solo administrador"*). Va de a una, con contador: la cuenta
+    de Anthropic es nueva, con poco cupo por minuto, y la comparte con el
+    radar de licitaciones.
+- **Motor:** `POST /quotations/:id/generar` (mapa 01, §5.7) arma el
+  contexto (requerimiento, comentario interno, cliente e historia del
+  momento, catálogo de la empresa por secciones: paquetes, menús, sueltos y
+  fijos, y las reglas de `REGLAS_DE_ARMADO.md`) y llama a Claude
+  (`claude-opus-5-5`, salida con estructura exacta).
 - **El modelo propone y el motor decide los números:** el modelo devuelve
   cajas por día, categoría y audiencia con ids de menús y sueltos, fijos,
   descuento según regla y comentarios. El motor valida cada id contra el
@@ -304,6 +509,13 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 Las 11 quedaron en solicitada, cuadradas al peso, con los comentarios en
 las observaciones. Respaldo del estado anterior en el scratchpad de la
 sesión; las observaciones originales quedan intactas arriba del separador.
+
+**14-10-2026:** nueve de esas cotizaciones se enviaron con los comentarios
+impresos en el PDF (562, 574, 585, 588, 591, 599, 601, 602 y 605). Las
+once que todavía los tenían quedaron con sus Observaciones originales, y
+los comentarios pasaron a la bitácora (regla 2). Respaldo en
+`02_RESPALDOS/cambios_de_datos/respaldo_observaciones_asistente_2026-10-14.json`
+de la carpeta maestra.
 
 | N° | Cliente | Propuesta | Total | Por persona |
 |---|---|---|---|---|
