@@ -39,6 +39,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { chipTipoPersona, etiquetaTipoPersona } from "../../utils/estadoPersona";
 import { esPlanificacion } from "./estadoDelPago";
+import { filasSinEvento, vaEnLaFila, type FilaSemana } from "./bandasDelStaff";
 
 // LA SÁBANA — DONDE LA PLANIFICACIÓN RECIBE NOMBRE Y APELLIDO
 //
@@ -75,25 +76,6 @@ const rotulo = (isoDia: string) => {
 };
 
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : null);
-
-interface FilaSemana {
-  /** null = el restaurante: el evento permanente. */
-  quotationId: string | null;
-  evento: string;
-  cargoId: number;
-  cargo: string;
-  necesita: Map<string, number>;
-  sinRepartir: number;
-  /** Los días que dura el evento, dentro del rango visible. Sirven para
-   *  MARCARLOS en la grilla —"no sale ninguna marca de cuándo es"
-   *  (Felipe, 15-08)— y para poder poner gente ahí aunque el cupo haya
-   *  quedado sin día. */
-  diasDelEvento: ReadonlySet<string>;
-  /** Solo en el Staff: el cargo NO tiene gente de planta, es refuerzo
-   *  que se llama por día (un salvavidas en verano). Va abajo y con
-   *  otro color. */
-  ocasional?: boolean;
-}
 
 /** El rótulo de un evento CON SU FECHA: "#400 · Municipalidad de
  *  Quillón · sáb 22 ago". Sin la fecha no se sabe cuándo es, que era
@@ -550,79 +532,12 @@ export default function SemanaTab({
         a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
     );
 
-    // EL PERSONAL DE PLANTA: el "evento" permanente (15-08). No es solo
-    // el restaurante — esa es UNA de sus áreas: también patio, recepción,
-    // lo que sea sin evento. Siempre presente (por eso la sábana existe
-    // aunque no haya eventos) y AL FINAL, separado con su línea. Una fila
-    // por cargo activo: la gente sale con su cargo.
-    const conGente = new Set(
-      staff
-        .filter((a) => a.quotation_id === null)
-        .map((a) => a.role_id ?? 0),
-    );
-    const restaurante: FilaSemana[] = catalogo
-      .filter(
-        (r) =>
-          r.type === "personal" &&
-          r.is_active !== false &&
-          (conGente.has(r.id) || cargosPlanta.includes(r.id)),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((r) => ({
-        quotationId: null,
-        evento: "Staff",
-        cargoId: r.id,
-        cargo: r.name,
-        necesita: new Map(),
-        sinRepartir: 0,
-        diasDelEvento: new Set<string>(),
-      }));
-    // La gente puesta con un cargo que ya no está activo no desaparece.
-    const cargosActivos = new Set(restaurante.map((f) => f.cargoId));
-    const huerfanos = staff.some(
-      (a) => a.quotation_id === null && !cargosActivos.has(a.role_id ?? 0),
-    );
-    if (huerfanos)
-      restaurante.push({
-        quotationId: null,
-        evento: "Staff",
-        cargoId: 0,
-        cargo: "Sin cargo",
-        necesita: new Map(),
-        sinRepartir: 0,
-        diasDelEvento: new Set<string>(),
-      });
-
-    // EL STAFF EN DOS GRUPOS (Felipe, 15-08): arriba los cargos con
-    // gente de PLANTA, abajo los ocasionales —el salvavidas que se
-    // llama por día—. Un cargo es de planta si alguien de planta tiene
-    // jornada ahí; si no, es ocasional.
-    const conPlanta = new Set(
-      staff
-        .filter((a) => a.quotation_id === null && a.kind === "planta")
-        .map((a) => a.role_id ?? 0),
-    );
-    const staffOrdenado = restaurante
-      .map((f) => ({ ...f, ocasional: !conPlanta.has(f.cargoId) }))
-      .sort((a, b) => {
-        if (a.ocasional !== b.ocasional) return a.ocasional ? 1 : -1;
-        return a.cargo.localeCompare(b.cargo);
-      });
-    // La banda de Personal Staff existe SIEMPRE: es donde vive el
-    // "+ cargo" (Felipe, 15-08). Sin esta fila vacía, cuando no hay
-    // ningún cargo ocasional no habría dónde agregar el primero.
-    if (!staffOrdenado.some((f) => f.ocasional))
-      staffOrdenado.push({
-        quotationId: null,
-        evento: "Staff",
-        cargoId: -1,
-        cargo: "",
-        necesita: new Map(),
-        sinRepartir: 0,
-        diasDelEvento: new Set<string>(),
-        ocasional: true,
-      });
-    return [...deEventos, ...staffOrdenado];
+    // EL PERSONAL SIN EVENTO va AL FINAL y separado con su línea
+    // (15-08): no es solo el restaurante, también patio, recepción, lo
+    // que sea. Dos bandas, que decide el TIPO de cada jornada (Felipe,
+    // 21-10-2026): planta arriba, staff abajo. Ver bandasDelStaff.ts.
+    const sinEvento = staff.filter((a) => a.quotation_id === null);
+    return [...deEventos, ...filasSinEvento(catalogo, sinEvento, cargosPlanta)];
   }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
 
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
@@ -672,19 +587,7 @@ export default function SemanaTab({
   const enCasilla = (f: FilaSemana, d: string) => {
     const xs =
       f.quotationId === null
-        ? staff.filter(
-            (a) =>
-              a.quotation_id === null &&
-              iso(a.day) === d &&
-              (f.cargoId === 0
-                ? !catalogo.some(
-                    (r) =>
-                      r.id === (a.role_id ?? 0) &&
-                      r.type === "personal" &&
-                      r.is_active !== false,
-                  )
-                : (a.role_id ?? 0) === f.cargoId),
-          )
+        ? staff.filter((a) => iso(a.day) === d && vaEnLaFila(a, f, catalogo))
         : (puestos.get(`${f.quotationId}|${f.cargoId}|${d}`) ?? []);
     // LISTA DE AGREGADO (Felipe, 25-08, tercera y definitiva): "que el
     // personal que voy agregando vaya quedando en el último lugar". Se
@@ -769,7 +672,7 @@ export default function SemanaTab({
             setDiaAbierto(diaAbierto === d ? null : d);
           }}
           filas={filas.map((f, fi): FilaGrillaDias => ({
-            id: `${f.quotationId ?? "rest"}|${f.cargoId}`,
+            id: `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${f.cargoId}`,
             grupo:
               f.quotationId === null
                 ? f.ocasional
@@ -788,7 +691,7 @@ export default function SemanaTab({
                   <SelectWithSearchCargos
                     catalogo={catalogo}
                     yaVisibles={filas
-                      .filter((x) => x.quotationId === null)
+                      .filter((x) => x.quotationId === null && x.ocasional)
                       .map((x) => x.cargoId)}
                     onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
                   />
@@ -802,10 +705,7 @@ export default function SemanaTab({
                     ✕ no aparece: primero se saca a la gente. */}
                 {f.ocasional &&
                   cargosPlanta.includes(f.cargoId) &&
-                  !staff.some(
-                    (a) =>
-                      a.quotation_id === null && (a.role_id ?? 0) === f.cargoId,
-                  ) && (
+                  !staff.some((a) => vaEnLaFila(a, f, catalogo)) && (
                     <button
                       type="button"
                       onClick={() =>
@@ -1008,12 +908,9 @@ export default function SemanaTab({
                   // Los de ESTA casilla no cuentan: ya salen abajo. La
                   // casilla es evento + cargo, no solo el evento — si no,
                   // en la planta (null contra null) no se excluía a
-                  // nadie y salían todos.
-                  const mismaCasilla =
-                    String(a.quotation_id) ===
-                      String(casilla.fila.quotationId) &&
-                    (a.role_id ?? 0) === casilla.fila.cargoId;
-                  return !mismaCasilla;
+                  // nadie y salían todos. Sin evento es cargo + banda
+                  // (21-10-2026): el de planta del mismo cargo SÍ ocupa.
+                  return !vaEnLaFila(a, casilla.fila, catalogo);
                 })
                 .map((a) => a.person_id)
                 // Una silla vacía no ocupa a nadie.
