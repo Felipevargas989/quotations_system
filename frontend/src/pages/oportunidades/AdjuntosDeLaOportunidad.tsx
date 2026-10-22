@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ChevronRight,
   CloudDownload,
-  ExternalLink,
   File,
   FileArchive,
   FileImage,
@@ -25,7 +24,6 @@ import {
   traerAdjuntos,
   type AdjuntoDeOportunidad,
   type SeccionDeArchivos,
-  type TipoProceso,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
@@ -43,7 +41,6 @@ import {
   problemaDelAdjunto,
   seVeEnElVisor,
   tamanoLegible,
-  urlMercadoPublico,
 } from "./oportunidades.utils";
 
 // LAS BASES Y ANEXOS (doc 17 §12 punto 8, opción d). Felipe, 17-10: "ok
@@ -51,7 +48,8 @@ import {
 //
 // Mercado Público protege su lista de adjuntos con un control antirrobots
 // que esta casa no esquiva. Los baja una persona desde su navegador (el
-// botón abre la ficha allá) y los arrastra aquí. PDF, imágenes y Word se
+// enlace «Mercado Público» de la cabecera abre la ficha allá; el segundo
+// botón de aquí se quitó el 22-10, decisión 66) y los arrastra aquí. PDF, imágenes y Word se
 // ven con el visor de la casa (FileViewLink; el Word desde el 19-10,
 // decisión 46); Excel y ZIP se descargan.
 //
@@ -77,8 +75,6 @@ const ICONO_DEL_ARCHIVO: Record<ClaseDeArchivo, typeof File> = {
 
 export default function AdjuntosDeLaOportunidad({
   oportunidadId,
-  codigo,
-  tipo,
   seccion = "bases",
   accionesDeFila,
   pie,
@@ -86,8 +82,6 @@ export default function AdjuntosDeLaOportunidad({
   filtrar,
 }: {
   readonly oportunidadId: number;
-  readonly codigo: string;
-  readonly tipo: TipoProceso;
   readonly seccion?: SeccionDeArchivos;
   readonly accionesDeFila?: (a: AdjuntoDeOportunidad) => ReactNode;
   readonly pie?: ReactNode;
@@ -164,7 +158,7 @@ export default function AdjuntosDeLaOportunidad({
       void qc.invalidateQueries({ queryKey: clave });
       if (r.disponibles === 0) {
         toast.warn(
-          "Licify todavía no tiene los archivos de este proceso. Bájalos de Mercado Público y arrástralos aquí.",
+          "Licify todavía no tiene los archivos de este proceso. Ábrelo con el enlace «Mercado Público» de arriba, bájalos y arrástralos aquí.",
         );
       } else if (r.bajados.length === 0) {
         toast.success("Ya estaban todos los archivos que tiene Licify.");
@@ -228,7 +222,7 @@ export default function AdjuntosDeLaOportunidad({
           <p className={abierta ? "text-xs text-gray-500" : "hidden"}>
             {seccion === "postulacion"
               ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
-              : "«Traer los documentos» baja solos los que publicó el comprador (bases, decretos, formularios). Si no están, bájalos de Mercado Público y arrástralos aquí."}
+              : "«Traer los documentos» baja solos los que publicó el comprador (bases, decretos, formularios). Si no están, ábrelo con el enlace «Mercado Público» de arriba, bájalos y arrástralos aquí."}
           </p>
         </div>
         {seccion === "bases" && (
@@ -246,15 +240,6 @@ export default function AdjuntosDeLaOportunidad({
               )}
               {traer.isPending ? "Trayendo…" : "Traer los documentos"}
             </button>
-            <a
-              href={urlMercadoPublico(codigo, tipo)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-            >
-              Bajar de Mercado Público
-              <ExternalLink size={14} />
-            </a>
           </div>
         )}
       </div>

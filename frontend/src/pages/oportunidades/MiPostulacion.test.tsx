@@ -104,8 +104,6 @@ const pintar = () =>
     >
       <MiPostulacion
         oportunidadId={40}
-        codigo="1532886-5-LE26"
-        tipo="licitacion"
       />
     </QueryClientProvider>,
   );
