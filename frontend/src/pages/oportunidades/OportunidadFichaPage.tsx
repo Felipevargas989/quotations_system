@@ -295,8 +295,6 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         <>
           <AdjuntosDeLaOportunidad
             oportunidadId={ficha.id}
-            codigo={ficha.codigo}
-            tipo={p.tipo}
             plegadaDePartida={analisis?.estado === "listo"}
           />
           <AnalisisDeBases oportunidadId={ficha.id} ficha={ficha} />
@@ -325,8 +323,6 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           />
           <MiPostulacion
             oportunidadId={ficha.id}
-            codigo={ficha.codigo}
-            tipo={p.tipo}
           />
           <SetParaMercadoPublico
             oportunidadId={ficha.id}
