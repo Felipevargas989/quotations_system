@@ -271,24 +271,33 @@ describe('Pregúntale a la IA: responder', () => {
     const [[pedido]] = parse.mock.calls as Array<[Pedido]>;
     expect(pedido.model).toBe(MODELO_PREGUNTAS);
     expect(pedido.system[0].text).toContain(CONTEXTO.codigo);
-    expect(pedido.system[0].cache_control).toEqual({ type: 'ephemeral' });
+    expect(pedido.system[0].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
     const primero = pedido.messages[0].content as Array<
       Record<string, unknown>
     >;
     expect(primero[0]).toMatchObject({ type: 'document', title: 'Bases.pdf' });
-    expect(String(primero[1].text)).toContain('ANÁLISIS PREVIO');
-    expect(String(primero[1].text)).toContain('Catamarán (Ficha.pdf, pág. 2)');
-    expect(primero[2].cache_control).toEqual({ type: 'ephemeral' });
+    expect(primero).toHaveLength(2);
+    expect(primero[1].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
     expect(pedido.messages.map((m) => m.role)).toEqual([
       'user',
       'assistant',
       'user',
       'assistant',
       'user',
+      'assistant',
+      'user',
     ]);
-    expect(pedido.messages[2].content).toBe('¿Cuántas personas?');
-    expect(pedido.messages[3].content).toBe('40 por día.');
-    expect(pedido.messages[4].content).toBe('¿Son por día?');
+    // Después de la marca: las reglas con el análisis previo, el hilo
+    // (la que está procesando y la que falló no entran) y la pregunta.
+    const reglas = pedido.messages[2].content as string;
+    expect(reglas).toContain('ANÁLISIS PREVIO');
+    expect(reglas).toContain('Catamarán (Ficha.pdf, pág. 2)');
+    expect(pedido.messages[4].content).toBe('¿Cuántas personas?');
+    expect(pedido.messages[5].content).toBe('40 por día.');
+    expect(pedido.messages[6].content).toBe('¿Son por día?');
 
     expect(repo.terminar).toHaveBeenCalledWith(1, 7, {
       estado: 'listo',
@@ -308,6 +317,7 @@ describe('Pregúntale a la IA: responder', () => {
       costo_usd: costoDelUso(
         { entrada: 50, salida: 20, cacheEscrita: 0, cacheLeida: 90_000 },
         MODELO_PREGUNTAS,
+        '1h',
       ),
     });
   });
@@ -379,13 +389,15 @@ describe('Pregúntale a la IA: las piezas', () => {
       'user',
       'assistant',
       'user',
+      'assistant',
+      'user',
     ]);
     const primero = mensajes[0].content as unknown as Array<
       Record<string, unknown>
     >;
     expect(primero).toHaveLength(2);
-    expect(primero[1].cache_control).toEqual({ type: 'ephemeral' });
-    expect(mensajes[4].content).toBe('c');
+    expect(primero[1].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
+    expect(mensajes[6].content).toBe('c');
   });
 
   it('citasValidas limpia, pone página 0 cuando no se sabe y para en el tope', () => {

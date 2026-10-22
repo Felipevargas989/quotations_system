@@ -27,6 +27,18 @@ describe('el costo de la IA', () => {
     expect(costoDelUso(uso, 'claude-haiku-5-5')).toBe(0.135);
   });
 
+  it('la caché de 1 hora (las bases, decisión 67): escribirla cuesta 2 veces la entrada', () => {
+    const uso = {
+      entrada: 0,
+      salida: 0,
+      cacheEscrita: 1_000_000,
+      cacheLeida: 0,
+    };
+    expect(costoDelUso(uso, 'claude-opus-5-5', '1h')).toBe(8);
+    expect(costoDelUso(uso, 'claude-sonnet-5-5', '1h')).toBe(4);
+    expect(costoDelUso(uso, 'claude-haiku-5-5', '1h')).toBe(0.2);
+  });
+
   it('un modelo que no está en la tabla se cobra como Opus (lo más caro, para no quedarse corto)', () => {
     expect(costoEnDolares(100_000, 5_000, 'claude-raro')).toBe(0.5);
   });

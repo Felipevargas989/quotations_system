@@ -331,11 +331,13 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
         {
           model: string;
           output_config: { effort: string };
-          system: string;
+          system: Array<{ text: string; cache_control?: unknown }>;
           messages: Array<{
             content: Array<{
               type: string;
               title?: string;
+              text?: string;
+              cache_control?: unknown;
               source?: { type: string; media_type: string; data: string };
             }>;
           }>;
@@ -344,8 +346,15 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
     >;
     expect(pedido.model).toBe('claude-opus-5-5');
     expect(pedido.output_config.effort).toBe('medium');
-    expect(pedido.system).toContain('1532886-5-LE26');
-    const [pdf, word, texto] = pedido.messages[0].content;
+    // El prefijo compartido con «Pregúntale a la IA» (decisión 67): las
+    // instrucciones comunes en el sistema y los documentos, con la marca
+    // de caché de 1 hora; el pedido del análisis, después de la marca.
+    expect(pedido.system[0].text).toContain('1532886-5-LE26');
+    expect(pedido.system[0].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+    const [pdf, word, marca, pedidoDelAnalisis] = pedido.messages[0].content;
     expect(pdf).toMatchObject({
       type: 'document',
       title: 'Bases.pdf',
@@ -356,7 +365,12 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
       title: 'Formularios_Anexos.docx',
       source: { type: 'text', media_type: 'text/plain', data: 'ANEXO N°1' },
     });
-    expect(texto.type).toBe('text');
+    expect(marca).toMatchObject({
+      type: 'text',
+      cache_control: { type: 'ephemeral', ttl: '1h' },
+    });
+    expect(pedidoDelAnalisis.type).toBe('text');
+    expect(pedidoDelAnalisis.text).toContain('Analiza estas bases.');
 
     // 100.000 de entrada a US$4 el millón + 5.000 de salida a US$20.
     expect(repo.terminar).toHaveBeenCalledWith(1, 5, {
