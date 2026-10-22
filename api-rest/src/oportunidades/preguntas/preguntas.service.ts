@@ -12,17 +12,21 @@ import {
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
 import { AnalisisRepository } from '../analisis/analisis.repository';
-import type { ContextoDeBases } from '../analisis/analisis.service';
 import {
   armarContenido,
+  type ContextoDeBases,
   costoDelUso,
+  DURACION_DE_LA_CACHE,
   ENCENDIDO,
   errorDeIA,
+  instruccionesComunes,
   MAX_BYTES_DE_PDF,
   MODELO_OPUS,
   pesoDePdf,
+  prefijoDeDocumentos,
   separar,
-  type UsoDeTokens,
+  sistemaConCache,
+  usoDeLaRespuesta,
 } from '../analisis/comun';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
@@ -37,11 +41,13 @@ import {
 // precisar cosas y que no vuelva a releer todo... propón algo eficiente o
 // como lo hace la industria".
 //
-// Cómo no releer todo: caché de contexto de la API. Los documentos (y lo
-// que la IA ya dijo de ellos) van primero, con la marca de caché al final
-// de ese bloque; la API los guarda 5 minutos y la pregunta siguiente paga
-// solo lo nuevo (leer la caché cuesta el 5 % de la entrada en Opus 5.5).
-// Después va el hilo (las preguntas y respuestas anteriores de esta
+// Cómo no releer todo: caché de contexto de la API, con el MISMO prefijo
+// que el análisis de las bases (`sistemaConCache` y `prefijoDeDocumentos`,
+// en comun.ts): las instrucciones comunes y los documentos primero, con la
+// marca de caché de 1 hora. El análisis deja las bases guardadas y cada
+// pregunta de esa hora las lee de la caché (el 5 % del precio de entrada).
+// Después de la marca van las reglas de las preguntas, lo que la IA ya dijo
+// en el análisis, el hilo (las preguntas y respuestas anteriores de esta
 // oportunidad) y la pregunta nueva. Responde Opus 5.5, el mismo modelo que
 // hizo el análisis: en bases legales, precisar es lo que importa.
 // Igual que el análisis: la pregunta queda "procesando" y corre por
@@ -77,22 +83,24 @@ export const ESQUEMA_DE_RESPUESTA = {
   additionalProperties: false,
 } as const;
 
+/** Las reglas de las preguntas, DESPUÉS de la marca de caché (así el
+ *  prefijo es el mismo del análisis). */
+export const REGLAS_DE_PREGUNTAS: string = [
+  'Ahora te voy a hacer preguntas sobre estos documentos.',
+  'Responde SOLO con lo que dicen los documentos. Si no lo dicen, dilo así y sugiere cómo salir de la duda (una consulta en el foro del proceso, o llamar a la unidad compradora). Si los documentos se contradicen, dilo y manda la aclaratoria más nueva.',
+  'Puedes razonar con los números de los documentos (presupuesto, cantidades, días) para proponer la lectura más consistente, diciendo que es una deducción.',
+  'Máximo 120 palabras. Sin rodeos y sin repetir la pregunta.',
+  '',
+  'RESPONDE',
+  '- respuesta: la respuesta, directa.',
+  `- citas: hasta ${MAX_CITAS}, cada una con el documento (el título tal como te lo pasé), la página (0 si no se sabe o es un Word) y el texto citado, corto.`,
+  '- seguridad: "alta" si los documentos lo dicen directo; "media" si es una deducción; "baja" si no está en los documentos.',
+].join('\n');
+
+/** Las instrucciones completas, como se leen de corrido (pruebas y
+ *  documentos): lo común y después las reglas. */
 export const instruccionesDePreguntas = (c: ContextoDeBases): string =>
-  [
-    'Respondes preguntas de una empresa sobre las bases de una licitación pública de Chile (Mercado Público) que está evaluando o preparando.',
-    `La licitación es ${c.codigo}, "${c.nombre}"${c.organismo ? `, de ${c.organismo}` : ''}${c.comuna ? ` (${c.comuna})` : ''}.`,
-    `La empresa: ${c.perfil?.trim() || '(sin descripción)'}`,
-    '',
-    'Tienes los documentos completos (bases, anexos, fichas técnicas, aclaratorias, decretos) y, si existe, el análisis previo que la IA hizo de ellos.',
-    'Responde SOLO con lo que dicen los documentos. Si no lo dicen, dilo así y sugiere cómo salir de la duda (una consulta en el foro del proceso, o llamar a la unidad compradora). Si los documentos se contradicen, dilo y manda la aclaratoria más nueva.',
-    'Puedes razonar con los números de los documentos (presupuesto, cantidades, días) para proponer la lectura más consistente, diciendo que es una deducción.',
-    'Español de Chile, claro y sin jerga. Máximo 120 palabras. Sin rodeos y sin repetir la pregunta.',
-    '',
-    'RESPONDE',
-    '- respuesta: la respuesta, directa.',
-    `- citas: hasta ${MAX_CITAS}, cada una con el documento (el título tal como te lo pasé), la página (0 si no se sabe o es un Word) y el texto citado, corto.`,
-    '- seguridad: "alta" si los documentos lo dicen directo; "media" si es una deducción; "baja" si no está en los documentos.',
-  ].join('\n');
+  `${instruccionesComunes(c)}\n\n${REGLAS_DE_PREGUNTAS}`;
 
 /** La falla, en palabras de la casa. */
 export const errorDePregunta = (error: unknown): string =>
@@ -190,30 +198,24 @@ export const citasValidas = (citas: unknown): CitaDeLaIA[] => {
   return validas;
 };
 
-/** Los mensajes del pedido: los documentos (y lo que la IA ya dijo)
- *  primero, con la marca de caché al final de ese bloque; después el hilo
- *  y la pregunta nueva. Lo de antes de la marca es lo que la API guarda. */
+/** Los mensajes del pedido: el prefijo compartido con el análisis
+ *  (documentos + marca de caché), después las reglas con lo que la IA ya
+ *  dijo, el hilo y la pregunta nueva. Lo de antes de la marca es lo que la
+ *  API guarda una hora. */
 export const armarMensajes = (
   bloques: Anthropic.DocumentBlockParam[],
   analisisPrevio: string | null,
   anteriores: Array<{ pregunta: string; respuesta: string | null }>,
   pregunta: string,
 ): Anthropic.MessageParam[] => {
-  const contenido: Anthropic.ContentBlockParam[] = [...bloques];
-  if (analisisPrevio) {
-    contenido.push({
-      type: 'text',
-      text: `ANÁLISIS PREVIO DE LA IA sobre estos documentos (puede tener errores; mandan los documentos):\n${analisisPrevio}`,
-    });
-  }
-  contenido.push({
-    type: 'text',
-    text: 'Estos son los documentos de la licitación. Te voy a hacer preguntas sobre ellos.',
-    cache_control: { type: 'ephemeral' },
-  });
+  const reglas = analisisPrevio
+    ? `${REGLAS_DE_PREGUNTAS}\n\nANÁLISIS PREVIO DE LA IA sobre estos documentos (puede tener errores; mandan los documentos):\n${analisisPrevio}`
+    : REGLAS_DE_PREGUNTAS;
   const mensajes: Anthropic.MessageParam[] = [
-    { role: 'user', content: contenido },
-    { role: 'assistant', content: 'Leídos. Pregunta cuando quieras.' },
+    { role: 'user', content: prefijoDeDocumentos(bloques) },
+    { role: 'assistant', content: 'Leídos.' },
+    { role: 'user', content: reglas },
+    { role: 'assistant', content: 'Entendido. Pregunta cuando quieras.' },
   ];
   for (const a of anteriores) {
     if (!a.respuesta?.trim()) continue;
@@ -376,22 +378,11 @@ export class PreguntasService {
           effort: 'medium',
           format: jsonSchemaOutputFormat(ESQUEMA_DE_RESPUESTA),
         },
-        system: [
-          {
-            type: 'text',
-            text: instruccionesDePreguntas(contexto),
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
+        system: sistemaConCache(contexto),
         messages: armarMensajes(bloques, previo, anteriores, pregunta),
       });
-      const uso: UsoDeTokens = {
-        entrada: respuesta.usage.input_tokens ?? 0,
-        salida: respuesta.usage.output_tokens ?? 0,
-        cacheEscrita: respuesta.usage.cache_creation_input_tokens ?? 0,
-        cacheLeida: respuesta.usage.cache_read_input_tokens ?? 0,
-      };
-      const costo = costoDelUso(uso, MODELO_PREGUNTAS);
+      const uso = usoDeLaRespuesta(respuesta.usage);
+      const costo = costoDelUso(uso, MODELO_PREGUNTAS, DURACION_DE_LA_CACHE);
       const tokens = {
         tokens_entrada: uso.entrada,
         tokens_salida: uso.salida,
