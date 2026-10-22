@@ -15,6 +15,7 @@ import {
   type Derechos,
 } from 'src/auth/derechos';
 import { ClientsService } from 'src/clients/clients.service';
+import { pctDeAbono } from 'src/companies/abono-para-reservar';
 import { Company } from 'src/companies/entities/company.entity';
 import { ConsultasService } from 'src/consultas/consultas.service';
 import { EmailService } from 'src/email/email.service';
@@ -883,6 +884,9 @@ export class QuotationsService {
         name: cliente.companies.name,
         logo_url: cliente.companies.logo_url || null,
         colors: cliente.companies.colors || null,
+        // El abono para reservar la fecha (migración 160): la hoja lo
+        // muestra bajo el TOTAL.
+        abono_reserva_pct: pctDeAbono(cliente.companies.abono_reserva_pct),
       },
       // La carta del catálogo: sin ella el portal mostraba la lista
       // plana mientras el documento interno iba por secciones

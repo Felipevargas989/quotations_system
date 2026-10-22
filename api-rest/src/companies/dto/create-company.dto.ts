@@ -4,6 +4,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Max,
+  Min,
 } from 'class-validator';
 import { Company } from '../entities/company.entity';
 
@@ -35,6 +37,14 @@ export class CreateCompanyDto {
   @IsNumber()
   @IsOptional()
   high_value_threshold?: Company['high_value_threshold'];
+
+  // Migración 160: el % de abono para reservar la fecha (0 a 100; null o 0
+  // = la hoja de la cotización no muestra la línea).
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  abono_reserva_pct?: number | null;
 
   // Migraciones 95 y 96: marca para los correos de marketing.
   @IsString()

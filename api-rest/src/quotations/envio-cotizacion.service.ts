@@ -9,6 +9,7 @@ import { PinoLogger } from 'nestjs-pino';
 import puppeteer from 'puppeteer-core';
 import { Resend } from 'resend';
 import { ClientContactsRepository } from 'src/clients/client-contacts.controller';
+import { pctDeAbono } from 'src/companies/abono-para-reservar';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import { marcaDesdeFila } from 'src/marketing/marca';
 import { plantillaCampana } from 'src/marketing/plantilla';
@@ -86,6 +87,8 @@ export class EnvioCotizacionService {
         name: empresa?.name || '',
         logo_url: empresa?.logo_url || null,
         colors: empresa?.colors || null,
+        // El abono para reservar la fecha (migración 160).
+        abono_reserva_pct: pctDeAbono(empresa?.abono_reserva_pct),
       },
       menu: await this.quotationsRepository.cartaDelCatalogo(q.company_id),
     };

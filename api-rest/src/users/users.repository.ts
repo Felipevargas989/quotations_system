@@ -38,6 +38,7 @@ export class UsersRepository {
           tagline,
           bank_details,
           high_value_threshold,
+          abono_reserva_pct,
           banner_url,
           whatsapp,
           instagram,
