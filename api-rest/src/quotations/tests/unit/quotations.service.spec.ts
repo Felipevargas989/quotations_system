@@ -282,10 +282,11 @@ describe('QuotationsService', () => {
       });
     });
 
-    // La cotización de una licitación es lo postulado (decisión 35 del doc
-    // 17, 19-10): solo la reescribe Oportunidades. El estado sigue abierto.
-    describe('candado de la licitación', () => {
-      const deLicitacion = () => {
+    // La cotización de una licitación se edita como cualquiera desde la
+    // decisión 69 del doc 17 (22-10): se le agrega a mano lo que se
+    // subcontrata. Antes (decisión 35) era de solo lectura.
+    describe('la cotización de una licitación', () => {
+      it('se edita a mano: servicios, montos, personas y fechas', async () => {
         quotationsRepositoryMock.findOne.mockResolvedValue({
           data: {
             quotation_status: QuotationStatus.SOLICITADA,
@@ -297,47 +298,14 @@ describe('QuotationsService', () => {
           id: 40,
           codigo: '1532886-5-LE26',
         });
-      };
-
-      it('no se cambian a mano sus servicios, montos, personas ni fechas', async () => {
-        deLicitacion();
-        await expect(
-          service.update('1', { people_count: 170 }, 1, UserRole.ADMINISTRADOR),
-        ).rejects.toThrow(
-          'Esta cotización es lo postulado en la licitación 1532886-5-LE26: se cambia solo desde Oportunidades, con «Armar postulación».',
-        );
-        expect(quotationsRepositoryMock.licitacionDe).toHaveBeenCalledWith(
-          1,
-          '1',
-        );
-        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
-      });
-
-      it('el estado sí se cambia', async () => {
-        deLicitacion();
         await service.update(
           '1',
-          { quotation_status: QuotationStatus.EN_NEGOCIACION },
+          { people_count: 170 },
           1,
           UserRole.ADMINISTRADOR,
         );
         expect(quotationsRepositoryMock.licitacionDe).not.toHaveBeenCalled();
         expect(quotationsRepositoryMock.update).toHaveBeenCalled();
-      });
-
-      it('Oportunidades sí la reescribe («Armar postulación»)', async () => {
-        deLicitacion();
-        await service
-          .update(
-            '1',
-            { people_count: 170 },
-            1,
-            UserRole.ADMINISTRADOR,
-            undefined,
-            'postulacion',
-          )
-          .catch(() => undefined);
-        expect(quotationsRepositoryMock.licitacionDe).not.toHaveBeenCalled();
       });
     });
 

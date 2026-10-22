@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -16,6 +17,12 @@ import {
   OferenteRepository,
 } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import {
+  type Aclaracion,
+  memoriaDeLaLicitacion,
+  textoDeLoAclarado,
+} from '../preguntas/lo-aclarado';
+import { PreguntasRepository } from '../preguntas/preguntas.repository';
 import {
   AnalisisRepository,
   type FilaDeAnalisis,
@@ -107,6 +114,8 @@ export type ContextoDeValidacion = {
   carpeta: Array<{ tipo: string; nombre: string; vence: string | null }>;
   requisitos: Requisito[];
   criterios: Criterio[];
+  /** La memoria de la licitación (decisión 68): lo aclarado manda. */
+  aclarado?: Aclaracion[];
 };
 
 const DATOS_DEL_OFERENTE: ReadonlyArray<[keyof Oferente, string]> = [
@@ -141,6 +150,16 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         )
       : ['(no informado)']),
     '',
+    // La memoria de la licitación (decisión 68): lo aclarado manda, y la
+    // validación no vuelve a dudar de algo ya resuelto (las colaciones del
+    // catamarán, 22-10).
+    ...textoDeLoAclarado(c.aclarado ?? []),
+    ...(c.aclarado?.length
+      ? [
+          'Lo aclarado manda: si un documento coincide con algo aclarado (cantidades, días, lugares), cuenta como correcto aunque las bases se puedan leer de otra forma; avisa solo cuando lo contradiga.',
+          '',
+        ]
+      : []),
     'LOS DATOS DE LA EMPRESA (los anexos tienen que decir lo mismo):',
     ...(datos.length > 0 ? datos : ['(la empresa no los ha llenado)']),
     '',
@@ -190,6 +209,9 @@ export class ValidacionService {
     private readonly oferente: OferenteRepository,
     private readonly oportunidades: OportunidadesRepository,
     private readonly logger: PinoLogger,
+    /** La memoria de la licitación (decisión 68). Opcional: las pruebas de
+     *  antes no la traen y sin ella no hay nada aclarado. */
+    @Optional() private readonly preguntas?: PreguntasRepository,
   ) {
     this.logger.setContext(ValidacionService.name);
   }
@@ -232,10 +254,13 @@ export class ValidacionService {
       );
     }
 
-    const [archivos, oferente, carpeta] = await Promise.all([
+    const [archivos, oferente, carpeta, aclarado] = await Promise.all([
       this.adjuntos.listar(companyId, oportunidadId, 'postulacion'),
       this.oferente.oferente(companyId),
       this.oferente.documentos(companyId),
+      memoriaDeLaLicitacion(this.preguntas, companyId, oportunidadId, (m) =>
+        this.logger.warn(m),
+      ),
     ]);
     const { leibles, noLeidos } = separar(archivos);
     if (leibles.length === 0 && carpeta.length === 0) {
@@ -279,6 +304,7 @@ export class ValidacionService {
       })),
       requisitos,
       criterios,
+      aclarado,
     });
     return fila;
   }

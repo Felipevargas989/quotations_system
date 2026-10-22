@@ -113,6 +113,10 @@ function armar() {
     ),
     terminar: jest.fn().mockResolvedValue(undefined),
     abandonarAntesDe: jest.fn().mockResolvedValue(undefined),
+    confirmar: jest.fn(
+      (_c: number, _o: number, id: number, texto: string | null) =>
+        Promise.resolve({ id, confirmado: texto }),
+    ),
   };
   const analisis = {
     descargar: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.7 bases')),
@@ -434,5 +438,61 @@ describe('Pregúntale a la IA: las piezas', () => {
     expect(texto).toContain('1346350-37-COT26');
     expect(texto).toContain('complejo turístico con salones');
     expect(texto).toContain(`hasta ${MAX_CITAS}`);
+  });
+});
+
+describe('Pregúntale a la IA: lo que confirmó el comprador (decisión 68)', () => {
+  it('confirmar limpia el texto y lo anota con quién; vacío lo borra; sin respuesta lista, 404; demasiado largo, 400', async () => {
+    const { servicio, repo, adjuntos } = armar();
+    await expect(
+      servicio.confirmar(1, 'cuenta', 40, 7, '  Son 100 y 100   por día. '),
+    ).resolves.toEqual({ id: 7, confirmado: 'Son 100 y 100 por día.' });
+    expect(repo.confirmar).toHaveBeenCalledWith(
+      1,
+      40,
+      7,
+      'Son 100 y 100 por día.',
+      'perfil-1',
+    );
+    expect(adjuntos.perfilDe).toHaveBeenCalledWith(1, 'cuenta');
+
+    repo.confirmar.mockClear();
+    await servicio.confirmar(1, 'cuenta', 40, 7, '   ');
+    expect(repo.confirmar).toHaveBeenCalledWith(1, 40, 7, null, null);
+
+    repo.confirmar.mockResolvedValueOnce(null as never);
+    await expect(
+      servicio.confirmar(1, 'cuenta', 40, 99, 'Algo.'),
+    ).rejects.toThrow('No encontramos esa respuesta');
+    await expect(
+      servicio.confirmar(1, 'cuenta', 40, 7, 'x'.repeat(601)),
+    ).rejects.toThrow('no puede pasar de 600 letras');
+  });
+
+  it('en el hilo, lo confirmado va con su respuesta y manda', () => {
+    const bloque = {
+      type: 'document' as const,
+      title: 'Bases.pdf',
+      source: {
+        type: 'text' as const,
+        media_type: 'text/plain' as const,
+        data: 'x',
+      },
+    };
+    const mensajes = armarMensajes(
+      [bloque],
+      null,
+      [
+        {
+          pregunta: '¿Por día?',
+          respuesta: 'Parece que por día.',
+          confirmado: 'Sí, por día (Rodrigo Pérez).',
+        },
+      ],
+      'Otra',
+    );
+    expect(mensajes[5].content).toBe(
+      'Parece que por día.\n\nLo confirmó el comprador: Sí, por día (Rodrigo Pérez).',
+    );
   });
 });

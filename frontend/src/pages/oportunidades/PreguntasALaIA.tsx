@@ -3,12 +3,14 @@ import { CircleHelp, Loader2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
+  confirmarPregunta,
   getPreguntas,
   type PreguntaALaIA,
   preguntar,
 } from "../../services/preguntas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import { entraALaPostulacion } from "./loAclarado";
 import { textoDeCosto } from "./oportunidades.utils";
 
 // PREGÚNTALE A LA IA SOBRE ESTAS BASES (doc 17, decisión 67, 22-10).
@@ -19,6 +21,12 @@ import { textoDeCosto } from "./oportunidades.utils";
 // página) y lo que costó. El hilo es de la oportunidad: lo ve todo el
 // equipo. Las bases van en caché de contexto en el motor; aquí solo se ve
 // «con las bases en caché» cuando la respuesta las leyó de ahí.
+//
+// LO ACLARADO MANDA (decisión 68, 22-10). Felipe: "una sola memoria por
+// licitación". Lo que dicen los documentos entra solo a la postulación (la
+// oferta, los documentos y la validación lo leen); una deducción o lo que
+// no está entra solo cuando se anota lo que confirmó el comprador, en la
+// línea bajo la respuesta.
 
 export const MIN_LARGO = 3;
 export const MAX_LARGO = 600;
@@ -78,6 +86,7 @@ export default function PreguntasALaIA({
     enviar.mutate(limpia);
   };
 
+  const aclaradas = hilo.filter(entraALaPostulacion).length;
   const recientes = [...hilo].reverse();
   const visibles = todas ? recientes : recientes.slice(0, DE_PARTIDA);
   const ocultas = recientes.length - visibles.length;
@@ -92,6 +101,13 @@ export default function PreguntasALaIA({
           Responde con las bases y el análisis a la vista, citando documento y
           página. Lo que preguntes queda aquí, para todo el equipo.
         </p>
+        {aclaradas > 0 && (
+          <p className="text-xs text-green-700">
+            La postulación usa {aclaradas}{" "}
+            {aclaradas === 1 ? "aclaración" : "aclaraciones"}: lo que dicen los
+            documentos y lo que confirmó el comprador.
+          </p>
+        )}
       </div>
       <form onSubmit={onSubmit} className="flex flex-wrap gap-2">
         <input
@@ -122,7 +138,15 @@ export default function PreguntasALaIA({
       {visibles.length > 0 && (
         <ul className="space-y-3">
           {visibles.map((p) => (
-            <Pregunta key={p.id} p={p} />
+            <Pregunta
+              key={p.id}
+              p={p}
+              onConfirmado={(nueva) =>
+                qc.setQueryData<PreguntaALaIA[]>(clave, (viejo = []) =>
+                  viejo.map((x) => (x.id === nueva.id ? nueva : x)),
+                )
+              }
+            />
           ))}
         </ul>
       )}
@@ -139,7 +163,13 @@ export default function PreguntasALaIA({
   );
 }
 
-function Pregunta({ p }: { readonly p: PreguntaALaIA }) {
+function Pregunta({
+  p,
+  onConfirmado,
+}: {
+  readonly p: PreguntaALaIA;
+  readonly onConfirmado: (nueva: PreguntaALaIA) => void;
+}) {
   return (
     <li className="space-y-1.5">
       <div className="pl-3 border-l-2 border-gray-300">
@@ -180,8 +210,104 @@ function Pregunta({ p }: { readonly p: PreguntaALaIA }) {
             {p.costo_usd != null ? ` · costó ${textoDeCosto(p.costo_usd)}` : ""}
             {(p.tokens_cache_leida ?? 0) > 0 ? " · con las bases en caché" : ""}
           </p>
+          <LoQueConfirmo p={p} onConfirmado={onConfirmado} />
         </div>
       )}
     </li>
+  );
+}
+
+/** Lo que confirmó el comprador (decisión 68): con eso, la respuesta entra
+ *  a la postulación. Lo que dicen los documentos entra solo, y se puede
+ *  corregir con lo que dijo el comprador. */
+function LoQueConfirmo({
+  p,
+  onConfirmado,
+}: {
+  readonly p: PreguntaALaIA;
+  readonly onConfirmado: (nueva: PreguntaALaIA) => void;
+}) {
+  const confirmado = p.confirmado?.trim() ?? "";
+  const [editando, setEditando] = useState(
+    !confirmado && p.seguridad !== "alta",
+  );
+  const [texto, setTexto] = useState(confirmado);
+  const guardar = useMutation({
+    mutationFn: (valor: string) =>
+      confirmarPregunta(p.oportunidad_id, p.id, valor),
+    onSuccess: (nueva) => {
+      onConfirmado(nueva);
+      setEditando(!nueva.confirmado?.trim() && nueva.seguridad !== "alta");
+    },
+    onError: (e) =>
+      toast.error(humanizeApiError(e, "No se pudo guardar lo confirmado.")),
+  });
+
+  if (!editando) {
+    return confirmado ? (
+      <p className="text-xs text-green-800">
+        <span className="font-semibold">Lo confirmó el comprador:</span>{" "}
+        {confirmado} · entra a la postulación ·{" "}
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          className="font-semibold text-blue-700 hover:underline"
+        >
+          Cambiar
+        </button>
+      </p>
+    ) : (
+      <p className="text-xs text-green-800">
+        Lo dicen los documentos: entra a la postulación ·{" "}
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          className="font-semibold text-blue-700 hover:underline"
+        >
+          Corregir con lo que dijo el comprador
+        </button>
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      {!confirmado && p.seguridad !== "alta" && (
+        <p className="text-xs text-amber-800">
+          No entra a la postulación hasta que anotes lo que confirmó el
+          comprador (en el foro o por teléfono).
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="text"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Lo que confirmó el comprador"
+          aria-label="Lo que confirmó el comprador"
+          maxLength={MAX_LARGO}
+          className="flex-1 min-w-[14rem] px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          type="button"
+          onClick={() => guardar.mutate(texto.trim())}
+          disabled={guardar.isPending}
+          className="px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          Guardar
+        </button>
+        {(confirmado || p.seguridad === "alta") && (
+          <button
+            type="button"
+            onClick={() => {
+              setTexto(confirmado);
+              setEditando(false);
+            }}
+            className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

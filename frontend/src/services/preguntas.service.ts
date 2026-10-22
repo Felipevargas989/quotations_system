@@ -26,6 +26,10 @@ export interface PreguntaALaIA {
   tokens_cache_leida: number | null;
   costo_usd: number | null;
   quien: { full_name: string | null } | null;
+  /** Lo que confirmó el comprador (decisión 68): con eso entra a la
+   *  memoria de la licitación. */
+  confirmado?: string | null;
+  confirmado_en?: string | null;
   creado_en: string;
   terminado_en: string | null;
 }
@@ -40,3 +44,16 @@ export const preguntar = async (id: number, pregunta: string) =>
   (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/preguntas`, "POST", {
     pregunta,
   })) as PreguntaALaIA;
+
+/** Lo que confirmó el comprador sobre una respuesta (decisión 68). Vacío
+ *  lo borra. */
+export const confirmarPregunta = async (
+  id: number,
+  preguntaId: number,
+  confirmado: string,
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/preguntas/${preguntaId}`,
+    "PATCH",
+    { confirmado },
+  )) as PreguntaALaIA;
