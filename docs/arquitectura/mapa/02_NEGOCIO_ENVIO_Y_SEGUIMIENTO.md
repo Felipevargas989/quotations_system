@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -251,6 +251,9 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 - **Arreglos de la revisión del 06-09**:
   - Qué: candado contra doble envío (`enviosEnCurso`), tope de 10 s a la espera de fuentes, solo colores `#rrggbb` dentro del HTML y escape canónico con `escaparHtml`.
   - Evidencia: comentarios en `envio-cotizacion.service.ts` y `correo-cotizacion.ts`.
+- **El abono para reservar la fecha** (Felipe, 22-10-2026; migración 160):
+  - Qué: si la empresa configuró su % en Configuración de empresa (`companies.abono_reserva_pct`), la hoja dice bajo el TOTAL «La fecha queda reservada solo al recibir el abono del X%: $Y.», calculado sobre el total con IVA SIN la propina sugerida. Vacío o 0: no sale. Sale igual en el visor, la impresión, el PDF del correo y el portal, porque las tres puertas mandan el % en `empresa`.
+  - Evidencia: `lineaDelAbono` (`utils/abonoParaReservar.ts`, con su prueba) en `buildQuotationPrintDoc`; `pctDeAbono` (`companies/abono-para-reservar.ts`) en `hojaParaImprimir` y `getPortalQuotation`; el visor lo lee de `useAuth().company`.
 - **La letra viaja con la hoja** (05-09):
   - Qué: Inter declarada dentro de la hoja (`@font-face` que baja los archivos de Google Fonts), y la fecha de emisión en hora de Chile.
   - Evidencia: `INTER_FONT_FACES` y `emittedLabel` en `quotationPrintDoc.ts`.

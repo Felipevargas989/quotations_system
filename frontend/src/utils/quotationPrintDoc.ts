@@ -6,6 +6,7 @@
 // público. Cualquier cambio de diseño de la hoja se hace AQUÍ y aplica
 // a ambos mundos.
 
+import { lineaDelAbono } from "./abonoParaReservar";
 import { cssDelCirculoDeMarca } from "./circuloDeMarca";
 
 export interface PrintQuotationItems {
@@ -34,6 +35,8 @@ export interface PrintCompany {
   name?: string | null;
   logo_url?: string | null;
   colors?: { primary?: string; secondary?: string } | null;
+  /** % de abono para reservar la fecha (migración 160). */
+  abono_reserva_pct?: number | string | null;
 }
 
 export interface PrintMenu {
@@ -150,6 +153,9 @@ export function buildQuotationPrintDoc(
     Number(quotation.total_amount || 0) - tipAmount,
   );
   const neto = Math.round(totalConIva / 1.19);
+  // El abono para reservar (Felipe, 22-10-2026): sobre el total con IVA
+  // SIN la propina sugerida. Sin % en la empresa, no sale.
+  const lineaAbono = lineaDelAbono(totalConIva, company?.abono_reserva_pct);
   const iva = totalConIva - neto;
   const subtotal = Math.round(Number(quotation.subtotal_amount || 0));
   const discount = Math.max(0, subtotal - totalConIva);
@@ -280,6 +286,7 @@ export function buildQuotationPrintDoc(
     .qv-resumen .totcon { display:flex; justify-content:space-between; background:#fef3c7; font-size:13px; font-weight:800; padding:7px 12px; border-radius:6px; margin-top:6px; }
     .qv-resumen .prop { display:flex; justify-content:space-between; font-size:12px; color:#6b7280; padding:5px 12px; border-bottom:1px dashed #e5e7eb; }
     .qv-resumen .final { display:flex; justify-content:space-between; background:${brandP}; color:${onBrandP}; font-size:14.5px; font-weight:800; padding:9px 12px; border-radius:6px; margin-top:6px; }
+    .qv-abono { margin:8px 0 0 auto; max-width:420px; padding:0 12px; font-size:11px; color:#6b7280; text-align:right; }
     .qv-obs { margin-top:24px; background:${brandS || "#f9fafb"}; border-radius:8px; padding:12px 14px; font-size:12px; color:#4b5563; }
     .qv-obs b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#9ca3af; margin-bottom:4px; }
     .qv-pie { margin-top:28px; border-top:1px solid #e5e7eb; padding-top:12px; font-size:10.5px; color:#9ca3af; display:flex; justify-content:space-between; }
@@ -559,6 +566,8 @@ export function buildQuotationPrintDoc(
             : `<div class="final"><span>TOTAL</span><span>${clp(totalConIva)}</span></div>`
         }
       </div>
+
+      ${lineaAbono ? `<div class="qv-abono">${esc(lineaAbono)}</div>` : ""}
 
       ${
         quotation.observations

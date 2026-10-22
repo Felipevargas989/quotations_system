@@ -25,6 +25,10 @@ export interface Company {
   bank_details?: BankDetails | null;
   // Migración 60: umbral de cotización de alto valor (💎 en el tablero).
   high_value_threshold?: number | null;
+  // Migración 160 (22-10-2026): % de abono para reservar la fecha. Sale
+  // bajo el TOTAL de la hoja de la cotización; vacío o 0 = no sale. Llega
+  // como texto desde la base: se lee con pctDeAbono (utils/abonoParaReservar).
+  abono_reserva_pct?: number | string | null;
   // Migraciones 95-96: marca de los correos de marketing (WhatsApp,
   // redes y banner). Vacío = no aparece; el banner reemplaza el
   // encabezado del correo cuando existe.
