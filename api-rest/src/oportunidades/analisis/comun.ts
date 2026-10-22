@@ -17,10 +17,11 @@ export const MODELO_SONNET = 'claude-sonnet-5-5';
 export const MODELO_HAIKU = 'claude-haiku-5-5';
 
 /** Precios de la página de Anthropic (17-10-2026), en US$ por millón de
- *  tokens: entrada, salida, escribir la caché (5 minutos) y leerla. En
- *  Opus 5.5 y Sonnet 5.5 leer la caché cuesta 0,05 veces la entrada; en
- *  Haiku 5.5, 0,1 veces. Haiku cobra más si un pedido pasa de 100.000
- *  tokens: la firma no llega ni cerca. */
+ *  tokens: entrada, salida, escribir la caché (5 minutos: 1,25 veces la
+ *  entrada; 1 hora: 2 veces) y leerla. En Opus 5.5 y Sonnet 5.5 leer la
+ *  caché cuesta 0,05 veces la entrada; en Haiku 5.5, 0,1 veces. Haiku
+ *  cobra más si un pedido pasa de 100.000 tokens: la firma no llega ni
+ *  cerca. */
 const PRECIOS: Readonly<
   Record<
     string,
@@ -28,24 +29,35 @@ const PRECIOS: Readonly<
       entrada: number;
       salida: number;
       cacheEscrita: number;
+      cacheEscrita1h: number;
       cacheLeida: number;
     }
   >
 > = {
-  [MODELO_OPUS]: { entrada: 4, salida: 20, cacheEscrita: 5, cacheLeida: 0.2 },
+  [MODELO_OPUS]: {
+    entrada: 4,
+    salida: 20,
+    cacheEscrita: 5,
+    cacheEscrita1h: 8,
+    cacheLeida: 0.2,
+  },
   [MODELO_SONNET]: {
     entrada: 2,
     salida: 10,
     cacheEscrita: 2.5,
+    cacheEscrita1h: 4,
     cacheLeida: 0.1,
   },
   [MODELO_HAIKU]: {
     entrada: 0.1,
     salida: 0.5,
     cacheEscrita: 0.125,
+    cacheEscrita1h: 0.2,
     cacheLeida: 0.01,
   },
 };
+
+export type DuracionDeCache = '5m' | '1h';
 
 const precioDe = (modelo: string) => PRECIOS[modelo] ?? PRECIOS[MODELO_OPUS];
 
@@ -92,12 +104,14 @@ export type UsoDeTokens = {
 export const costoDelUso = (
   u: UsoDeTokens,
   modelo: string = MODELO_OPUS,
+  cache: DuracionDeCache = '5m',
 ): number => {
   const p = precioDe(modelo);
+  const escrita = cache === '1h' ? p.cacheEscrita1h : p.cacheEscrita;
   return (
     Math.round(
       ((u.entrada * p.entrada +
-        u.cacheEscrita * p.cacheEscrita +
+        u.cacheEscrita * escrita +
         u.cacheLeida * p.cacheLeida +
         u.salida * p.salida) /
         1_000_000) *
@@ -105,6 +119,82 @@ export const costoDelUso = (
     ) / 10_000
   );
 };
+
+/** Los tokens que reporta la API, con la caché aparte. */
+export const usoDeLaRespuesta = (usage: {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+}): UsoDeTokens => ({
+  entrada: usage.input_tokens ?? 0,
+  salida: usage.output_tokens ?? 0,
+  cacheEscrita: usage.cache_creation_input_tokens ?? 0,
+  cacheLeida: usage.cache_read_input_tokens ?? 0,
+});
+
+/** De qué licitación son los documentos y para quién se leen. */
+export type ContextoDeBases = {
+  codigo: string;
+  nombre: string;
+  organismo: string | null;
+  comuna: string | null;
+  perfil: string | null;
+};
+
+// EL PREFIJO COMPARTIDO (decisión 67, 22-10). Felipe: "¿pero la primera
+// lectura no es cuando aprieto analizar las bases?". La caché de la API
+// solo sirve cuando el comienzo del pedido es idéntico, así que el análisis
+// y «Pregúntale a la IA» empiezan igual: las mismas instrucciones comunes
+// en el sistema y los mismos documentos primero, con la marca de caché de
+// 1 hora al final de ese bloque. Lo que cambia (qué analizar, qué
+// preguntar) va después de la marca. Así el análisis deja las bases
+// guardadas y cada pregunta de esa hora las lee de la caché (el 5 % del
+// precio de entrada), en vez de volver a leerlas.
+
+/** Una hora: lo que dura leer el análisis, pensar y preguntar de a poco.
+ *  Escribirla cuesta 2 veces la entrada (5 minutos costaría 1,25). */
+export const CACHE_DE_BASES: Anthropic.CacheControlEphemeral = {
+  type: 'ephemeral',
+  ttl: '1h',
+};
+export const DURACION_DE_LA_CACHE: DuracionDeCache = '1h';
+
+/** Lo que leen igual el análisis y las preguntas: quién lee, qué
+ *  licitación y para qué empresa. IDÉNTICO en los dos pedidos. */
+export const instruccionesComunes = (c: ContextoDeBases): string =>
+  [
+    'Lees las bases de una licitación pública de Chile (Mercado Público) para una empresa que evalúa postular o está preparando su oferta.',
+    `La licitación es ${c.codigo}, "${c.nombre}"${c.organismo ? `, de ${c.organismo}` : ''}${c.comuna ? ` (${c.comuna})` : ''}.`,
+    `La empresa: ${c.perfil?.trim() || '(sin descripción)'}`,
+    '',
+    'Lee COMPLETOS todos los documentos que te paso (bases, anexos, aclaratorias, decretos). Si una aclaratoria cambia algo, manda la aclaratoria.',
+    'Responde en español de Chile, claro y sin jerga. No inventes: si algo no está en los documentos, no lo des por dicho.',
+  ].join('\n');
+
+/** El sistema del pedido, con la marca de caché. */
+export const sistemaConCache = (
+  c: ContextoDeBases,
+): Anthropic.TextBlockParam[] => [
+  {
+    type: 'text',
+    text: instruccionesComunes(c),
+    cache_control: CACHE_DE_BASES,
+  },
+];
+
+/** Los documentos y, al final, la marca de caché: todo lo anterior es lo
+ *  que la API guarda una hora. */
+export const prefijoDeDocumentos = (
+  bloques: Anthropic.DocumentBlockParam[],
+): Anthropic.ContentBlockParam[] => [
+  ...bloques,
+  {
+    type: 'text',
+    text: 'Estos son los documentos de la licitación.',
+    cache_control: CACHE_DE_BASES,
+  },
+];
 
 /** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes), en el orden
  *  en que se subió: así "el documento" es el que uno ve. */

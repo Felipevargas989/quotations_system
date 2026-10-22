@@ -108,6 +108,10 @@ const VALIDACION = {
   },
 };
 
+vi.mock("../../services/preguntas.service", () => ({
+  getPreguntas: vi.fn().mockResolvedValue([]),
+  preguntar: vi.fn(),
+}));
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
   getAnalisis: vi.fn(),
