@@ -6,6 +6,7 @@ import { DerechosService } from 'src/auth/derechos.service';
 import { EmailService } from 'src/email/email.service';
 import { PaymentReminderParams } from 'src/email/templates/paymentReminder/types';
 import { EmailStructure } from 'src/email/types';
+import { QuotationStatus } from 'src/quotations/constants/constants';
 import { UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { normalizeDateToUtc } from 'src/utils/dates';
@@ -60,6 +61,14 @@ export class PaymentsCronService {
       }
 
       for (const payment of payments) {
+        // UN EVENTO ANULADO NO SE COBRA (Felipe, 22-10-2026: "ok hazlo").
+        // La #465 quedó anulada con su cuota 3 viva, y el 04-11 el colegio
+        // iba a recibir un cobro de $1.394.000 cuando lo que corresponde es
+        // devolverle lo abonado. No sale nada: ni al mandante ni a los
+        // administradores.
+        if (payment.quotations.quotation_status === QuotationStatus.CANCELADA)
+          continue;
+
         // EL CICLO DE COBRO es de Gestiona y Cobra (paso 3.2, 14-09-2026):
         // una empresa del plan Cotiza no tiene plan de pagos, así que
         // tampoco le salen los correos de cobranza ni el aviso al
