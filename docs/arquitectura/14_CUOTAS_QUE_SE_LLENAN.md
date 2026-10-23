@@ -92,6 +92,32 @@ reciben pagos y su monto no entra en lo que se reparte. Para Valle del
 Sol no se activa nunca (Felipe, 08-10: en el laboratorio "puede no tener
 mucho sentido").
 
+## Al anular, lo pagado es el 100% (Felipe, 22-10-2026)
+
+*"Cuando un evento se anule, debemos generar una regla de dejar todo como
+está (asumir que eso es el 100%, ya sea que tenga cuotas semi pagadas) y
+generar el reembolso o no"*; *"lo pagado es el 100%"*.
+
+Al pasar un evento de **aceptada** a **cancelada**, el plan se cierra en lo
+que ya se pagó:
+
+- una cuota pagada queda igual;
+- una cuota a medio pagar queda en lo abonado, pagada;
+- una cuota sin abonos se borra, y las que quedan se renumeran;
+- las «pagadas por fuera» no se tocan, como en el resto de este documento.
+
+Así no queda nada por cobrar: no sale cobranza, no aparece «Vencido» y la
+ficha del cliente no muestra deuda. La cotización no cambia: total, ítems y
+PDF quedan como estaban, así que en un anulado las cuotas suman lo pagado y
+no el total. El reembolso sigue siendo la pregunta de siempre al anular
+(«¿Se reembolsan?»): sí → nace el reembolso; no → la plata se queda.
+
+Construido en `api-rest/src/payments/plan-al-anular.ts` (`planAlAnular`, con
+su prueba), `PaymentsService.cerrarPlanAlAnular` y el paso final de
+`QuotationsService.update`. Si cerrar el plan falla, la anulación queda igual
+y el error va al registro. Los anulados de antes de la regla (465, 412, 545 y
+479) se ordenan a mano, uno a uno y con respaldo.
+
 ## El reloj de la noche (error encontrado el 07-10-2026)
 
 `updateOverduePayments` corría a la 1 AM del servidor (UTC = **22:00 en

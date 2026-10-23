@@ -1386,6 +1386,22 @@ export class QuotationsService {
           quotation_id: id,
         });
       }
+      // AL ANULAR, LO PAGADO ES EL 100% (Felipe, 22-10-2026; doc 14): el
+      // plan se cierra en lo pagado y no queda nada por cobrar. Si falla,
+      // la anulación ya quedó: se registra y se puede cerrar a mano.
+      if (
+        targetStatus === QuotationStatus.CANCELADA &&
+        quotation.quotation_status === QuotationStatus.ACEPTADA
+      ) {
+        try {
+          await this.paymentsService.cerrarPlanAlAnular(id, companyId);
+        } catch (e) {
+          this.logger.error(
+            { err: e, quotationId: id },
+            'No se pudo cerrar el plan de pagos al anular',
+          );
+        }
+      }
       return guardada;
       // 3. If quotation_status is not accepted, update quotation
     } catch (error) {
