@@ -208,6 +208,10 @@ function FilaDeParticipacion({
   readonly rut: string;
 }) {
   const otros = l.ganadores.filter((g) => g.rut !== rut);
+  // Ganada: lo que se le adjudicó (lo mismo que suma «Monto ganado» arriba);
+  // perdida: lo que ofertó.
+  const suyo = l.ganadores.find((g) => g.rut === rut);
+  const monto = l.gano && suyo && suyo.monto > 0 ? suyo.monto : l.su_oferta;
   return (
     <li className="py-2 flex flex-wrap items-baseline justify-between gap-2">
       <div className="min-w-0">
@@ -237,11 +241,11 @@ function FilaDeParticipacion({
       </div>
       <div className="text-right text-sm">
         <p className="text-gray-900">
-          {l.gano ? "Ganó" : "Perdió"}
-          {l.su_oferta != null && (
+          {l.gano ? "Ganó" : "Perdió, ofertó"}
+          {monto != null && (
             <>
               {" · "}
-              <b>{plata(l.su_oferta)}</b>
+              <b>{plata(monto)}</b>
             </>
           )}
         </p>
