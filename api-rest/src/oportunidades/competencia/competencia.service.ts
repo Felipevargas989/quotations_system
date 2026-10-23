@@ -77,8 +77,13 @@ export class CompetenciaService {
     );
     for (const m of marcas) if (m.seguido) ruts.add(normalizarRut(m.rut));
     const historial = await this.repo.ofertasDeRuts([...ruts]);
-    const estadoDeLasActas = await this.actas.estado(companyId);
-    this.actas.leerSiHaceFalta(companyId, estadoDeLasActas);
+    const antes = await this.actas.estado(companyId);
+    this.actas.leerSiHaceFalta(companyId, antes);
+    // Si recién empezó a leer, que la pantalla lo sepa (y pregunte otra vez).
+    const estadoDeLasActas = {
+      ...antes,
+      leyendo: this.actas.estaLeyendo(companyId),
+    };
     return {
       competidores: competidoresReales({
         rutEmpresa,
@@ -145,7 +150,10 @@ export class CompetenciaService {
       this.rubro.estado(companyId),
     ]);
     this.rubro.clasificarSiHaceFalta(companyId, rubro);
-    return { ranking: rankingDelRubro(filas), rubro };
+    return {
+      ranking: rankingDelRubro(filas),
+      rubro: { ...rubro, revisando: this.rubro.estaRevisando(companyId) },
+    };
   }
 
   /** «Seguir» o «No es mi competidor» (o deshacerlo). */

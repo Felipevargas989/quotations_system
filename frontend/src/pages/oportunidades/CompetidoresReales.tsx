@@ -89,8 +89,8 @@ export default function CompetidoresReales() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-2xl text-sm text-gray-500">
           Con quién compites de verdad, según las actas de adjudicación: los que
-          ofertaron donde ofertaste tú, los parecidos a ti que postulan a tus
-          compradores y los que sigues.
+          ofertaron donde ofertaste tú, ganaras o perdieras, con lo que hacen en
+          tu zona, y los que sigues.
         </p>
         <p
           role="status"
