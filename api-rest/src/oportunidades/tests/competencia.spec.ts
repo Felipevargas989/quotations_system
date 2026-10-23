@@ -199,24 +199,24 @@ describe('Tus competidores reales', () => {
           nombre: null,
           seguido: false,
           descartado: false,
-          similar: 'si',
-          similar_razon: 'centro de eventos',
+          parecido: 'si',
+          parecido_razon: 'centro de eventos',
         },
         {
           rut: '79000222-3',
           nombre: null,
           seguido: false,
           descartado: false,
-          similar: 'no',
-          similar_razon: 'ferretería',
+          parecido: 'no',
+          parecido_razon: 'ferretería',
         },
         {
           rut: '96555444-1',
           nombre: 'HOTEL SEGUIDO',
           seguido: true,
           descartado: false,
-          similar: null,
-          similar_razon: null,
+          parecido: null,
+          parecido_razon: null,
         },
       ],
     });
@@ -241,7 +241,7 @@ describe('Tus competidores reales', () => {
       encuentros: 0,
       triunfos_en_tus_compradores: 1,
       monto_ganado: 3_000_000,
-      similar_razon: 'centro de eventos',
+      parecido_razon: 'centro de eventos',
     });
     expect(lista[0]).toMatchObject({
       etiquetas: ['seguido'],
@@ -261,8 +261,8 @@ describe('Tus competidores reales', () => {
           nombre: null,
           seguido: false,
           descartado: true,
-          similar: null,
-          similar_razon: null,
+          parecido: null,
+          parecido_razon: null,
         },
       ],
     });
@@ -301,16 +301,16 @@ describe('La clasificación de la IA', () => {
       clasificacionValida(
         {
           proveedores: [
-            { rut: '78.000.111-2', similar: 'si', razon: 'centro de eventos' },
-            { rut: '78000111-2', similar: 'no', razon: 'repetido' },
-            { rut: '11111111-1', similar: 'si', razon: 'no lo pedí' },
-            { rut: '79000222-3', similar: 'quizás', razon: 'raro' },
+            { rut: '78.000.111-2', parecido: 'si', razon: 'centro de eventos' },
+            { rut: '78000111-2', parecido: 'no', razon: 'repetido' },
+            { rut: '11111111-1', parecido: 'si', razon: 'no lo pedí' },
+            { rut: '79000222-3', parecido: 'quizás', razon: 'raro' },
           ],
         },
         new Set(['78000111-2', '79000222-3']),
       ),
     ).toEqual([
-      { rut: '78000111-2', similar: 'si', razon: 'centro de eventos' },
+      { rut: '78000111-2', parecido: 'si', razon: 'centro de eventos' },
     ]);
     expect(clasificacionValida(null, new Set())).toEqual([]);
   });
@@ -482,14 +482,14 @@ describe('Buscar en las actas', () => {
         nombre: null,
         seguido: false,
         descartado: false,
-        similar: 'no',
-        similar_razon: 'ferretería',
+        parecido: 'no',
+        parecido_razon: 'ferretería',
       },
     ]);
     parse.mockResolvedValue({
       parsed_output: {
         proveedores: [
-          { rut: '78000111-2', similar: 'si', razon: 'centro de eventos' },
+          { rut: '78000111-2', parecido: 'si', razon: 'centro de eventos' },
         ],
       },
       usage: { input_tokens: 100, output_tokens: 20 },
@@ -507,7 +507,7 @@ describe('Buscar en las actas', () => {
       [
         {
           rut: '78000111-2',
-          similar: 'si',
+          parecido: 'si',
           razon: 'centro de eventos',
           nombre: 'CENTRO DE EVENTOS LAS ROSAS',
         },
@@ -682,7 +682,7 @@ describe('El repositorio de la competencia', () => {
       nombre: 'SOL',
       seguido: true,
     });
-    expect(fila).not.toHaveProperty('similar');
+    expect(fila).not.toHaveProperty('parecido');
     expect(opciones).toEqual({ onConflict: 'company_id,rut' });
     const r2 = armarRepo([]);
     await r2.repo.marcas(1);

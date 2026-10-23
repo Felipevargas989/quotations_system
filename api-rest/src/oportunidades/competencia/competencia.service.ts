@@ -62,10 +62,10 @@ export const ESQUEMA_DE_CLASIFICACION = {
         type: 'object',
         properties: {
           rut: { type: 'string' },
-          similar: { type: 'string', enum: ['si', 'no'] },
+          parecido: { type: 'string', enum: ['si', 'no'] },
           razon: { type: 'string' },
         },
-        required: ['rut', 'similar', 'razon'],
+        required: ['rut', 'parecido', 'razon'],
         additionalProperties: false,
       },
     },
@@ -82,27 +82,27 @@ export const instruccionesDeClasificacion = (perfil: string | null): string =>
     '',
     'Un proveedor es "si" (parecido) si su negocio es como el de la empresa: complejos turísticos, centros de eventos, hoteles o cabañas con salones, restaurantes, banqueterías o caterings que dan alimentación y eventos.',
     'Es "no" si es otra cosa (productoras solo de audio e iluminación, aseo, construcción, transporte, librerías, ferreterías, tecnología, artículos de oficina) o si no se puede saber por el nombre y lo que ofreció.',
-    'Por cada proveedor de la lista: su "rut" tal cual, "similar" ("si" o "no") y una "razon" de menos de 12 palabras.',
+    'Por cada proveedor de la lista: su "rut" tal cual, "parecido" ("si" o "no") y una "razon" de menos de 12 palabras.',
   ].join('\n');
 
 /** Solo los RUT de la lista, una vez cada uno. */
 export const clasificacionValida = (
   salida: unknown,
   pedidos: ReadonlySet<string>,
-): Array<{ rut: string; similar: 'si' | 'no'; razon: string }> => {
+): Array<{ rut: string; parecido: 'si' | 'no'; razon: string }> => {
   const lista = (salida as { proveedores?: unknown })?.proveedores;
   if (!Array.isArray(lista)) return [];
   const vistos = new Set<string>();
-  const r: Array<{ rut: string; similar: 'si' | 'no'; razon: string }> = [];
+  const r: Array<{ rut: string; parecido: 'si' | 'no'; razon: string }> = [];
   for (const x of lista) {
-    const f = x as { rut?: unknown; similar?: unknown; razon?: unknown };
+    const f = x as { rut?: unknown; parecido?: unknown; razon?: unknown };
     const rut = normalizarRut(typeof f.rut === 'string' ? f.rut : '');
     if (!pedidos.has(rut) || vistos.has(rut)) continue;
-    if (f.similar !== 'si' && f.similar !== 'no') continue;
+    if (f.parecido !== 'si' && f.parecido !== 'no') continue;
     vistos.add(rut);
     r.push({
       rut,
-      similar: f.similar,
+      parecido: f.parecido,
       razon: typeof f.razon === 'string' ? f.razon.trim().slice(0, 200) : '',
     });
   }
@@ -356,7 +356,7 @@ export class CompetenciaService {
       this.oportunidades.configDe(companyId),
     ]);
     const yaClasificados = new Set(
-      marcas.filter((m) => m.similar).map((m) => normalizarRut(m.rut)),
+      marcas.filter((m) => m.parecido).map((m) => normalizarRut(m.rut)),
     );
     const candidatos = new Map<string, { nombre: string; detalle: string }>();
     for (const o of ofertas) {

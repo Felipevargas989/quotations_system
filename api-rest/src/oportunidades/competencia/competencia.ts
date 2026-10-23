@@ -101,8 +101,8 @@ export type MarcaDeCompetidor = {
   nombre: string | null;
   seguido: boolean;
   descartado: boolean;
-  similar: 'si' | 'no' | null;
-  similar_razon: string | null;
+  parecido: 'si' | 'no' | null;
+  parecido_razon: string | null;
 };
 
 export type CompetidorReal = {
@@ -123,7 +123,7 @@ export type CompetidorReal = {
   monto_ganado: number;
   /** La fecha más nueva en que se le vio ofertar. */
   ultima: string | null;
-  similar_razon: string | null;
+  parecido_razon: string | null;
   seguido: boolean;
   descartado: boolean;
 };
@@ -181,7 +181,7 @@ export function competidoresReales(d: {
     );
     const etiquetas: EtiquetaDeCompetidor[] = [];
     if (encuentros.length > 0) etiquetas.push('compitio');
-    if (marca?.similar === 'si' && enCompradores.length > 0) {
+    if (marca?.parecido === 'si' && enCompradores.length > 0) {
       etiquetas.push('similar');
     }
     if (marca?.seguido) etiquetas.push('seguido');
@@ -220,7 +220,7 @@ export function competidoresReales(d: {
         (u, o) => masNueva(u, o.fecha),
         null,
       ),
-      similar_razon: marca?.similar_razon ?? null,
+      parecido_razon: marca?.parecido_razon ?? null,
       seguido: Boolean(marca?.seguido),
       descartado: Boolean(marca?.descartado),
     });

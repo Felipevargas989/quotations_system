@@ -27,7 +27,7 @@ const COLUMNAS_DE_LA_OFERTA =
   'codigo, rut, proveedor, total_ofertado, total_adjudicado, adjudicada, lineas, detalle, proceso, organismo_codigo, organismo, region, comuna, fecha';
 
 const COLUMNAS_DE_LA_MARCA =
-  'rut, nombre, seguido, descartado, similar, similar_razon';
+  'rut, nombre, seguido, descartado, parecido, parecido_razon';
 
 /** De a cuántos códigos se pregunta (la URL tiene tope). */
 const LOTE = 100;
@@ -301,7 +301,7 @@ export class CompetenciaRepository {
     filas: ReadonlyArray<{
       rut: string;
       nombre: string;
-      similar: 'si' | 'no';
+      parecido: 'si' | 'no';
       razon: string;
     }>,
     modelo: string,
@@ -313,8 +313,8 @@ export class CompetenciaRepository {
         company_id: companyId,
         rut: f.rut,
         nombre: f.nombre,
-        similar: f.similar,
-        similar_razon: f.razon,
+        parecido: f.parecido,
+        parecido_razon: f.razon,
         clasificado_con: modelo,
         clasificado_en: ahora,
       })),

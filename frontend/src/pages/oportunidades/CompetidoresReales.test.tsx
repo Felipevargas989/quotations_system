@@ -55,7 +55,7 @@ const competidor = (
   triunfos_en_tus_compradores: 0,
   monto_ganado: 0,
   ultima: "2026-03-01",
-  similar_razon: null,
+  parecido_razon: null,
   seguido: false,
   descartado: false,
   ...extra,
@@ -92,7 +92,7 @@ const ROSAS = competidor("78000111-2", "CENTRO DE EVENTOS LAS ROSAS", {
   en_tus_compradores: 5,
   triunfos_en_tus_compradores: 2,
   monto_ganado: 3_000_000,
-  similar_razon: "centro de eventos con banquetería",
+  parecido_razon: "centro de eventos con banquetería",
 });
 
 describe("Tus competidores", () => {

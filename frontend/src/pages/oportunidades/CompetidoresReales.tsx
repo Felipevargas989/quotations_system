@@ -254,7 +254,7 @@ function FilaDeCompetidor({
   const [confirmando, setConfirmando] = useState(false);
   const precio = textoDelPrecio(c.diferencia_de_precio);
   const pie = [
-    c.similar_razon && `Según la IA: ${c.similar_razon}`,
+    c.parecido_razon && `Según la IA: ${c.parecido_razon}`,
     c.ultima && `Última oferta: ${formatFechaEvento(c.ultima, "medio")}`,
   ].filter(Boolean);
   return (

@@ -26,7 +26,7 @@ const competidor = (
   triunfos_en_tus_compradores: 0,
   monto_ganado: 0,
   ultima: null,
-  similar_razon: null,
+  parecido_razon: null,
   seguido: false,
   descartado: false,
   ...extra,

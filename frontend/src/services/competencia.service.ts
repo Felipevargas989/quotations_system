@@ -29,7 +29,7 @@ export interface CompetidorReal {
   monto_ganado: number;
   ultima: string | null;
   /** Por qué la IA lo ve parecido (o no). */
-  similar_razon: string | null;
+  parecido_razon: string | null;
   seguido: boolean;
   descartado: boolean;
 }

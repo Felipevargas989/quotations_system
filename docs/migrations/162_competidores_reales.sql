@@ -56,8 +56,8 @@ create table if not exists public.oportunidades_competidores (
   -- «No es mi competidor»: sale de la lista y no vuelve (se puede recuperar).
   descartado boolean not null default false,
   -- La IA: ¿es un negocio parecido al de la empresa?
-  similar text check (similar in ('si', 'no')),
-  similar_razon text,
+  parecido text check (parecido in ('si', 'no')),
+  parecido_razon text,
   clasificado_con text,
   clasificado_en timestamptz,
   actualizado_en timestamptz not null default now(),
