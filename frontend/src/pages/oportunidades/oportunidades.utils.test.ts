@@ -499,6 +499,32 @@ describe("Mis licitaciones: el avance", () => {
     });
   });
 
+  it("la IA armando otra vez (anexos o la propuesta) se ve girando aunque ya hubiera anexos (23-10)", () => {
+    const base = { ...avance, bases: 2, analisis: "listo" as const };
+    expect(
+      estados({
+        estado: "en_estudio",
+        avance: { ...base, generados: 2, anexos: "procesando" },
+      }).Anexos,
+    ).toBe("en_curso");
+    expect(
+      estados({
+        estado: "en_estudio",
+        avance: { ...base, propuesta: "procesando" },
+      }).Anexos,
+    ).toBe("en_curso");
+    expect(
+      estados({ estado: "en_estudio", avance: { ...base, generados: 2 } })
+        .Anexos,
+    ).toBe("hecho");
+    expect(
+      estados({
+        estado: "postulada",
+        avance: { ...base, anexos: "procesando" },
+      }).Anexos,
+    ).toBe("hecho");
+  });
+
   it("la validación: lista, casi o falta algo obligatorio; postulada cuenta como hecha", () => {
     const con = (listo: "si" | "casi" | "no") =>
       estados({
