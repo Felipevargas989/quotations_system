@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
@@ -145,6 +146,46 @@ describe('LicifyService — traer los documentos', () => {
     expect(r.disponibles).toBe(2);
     expect(r.bajados).toHaveLength(2);
     expect(r.omitidos).toEqual([]);
+  });
+
+  it('una vuelta a la vez por licitación: el segundo clic mientras trae es 409 y no baja nada; al terminar, deja de decir que trae (23-10)', async () => {
+    // Felipe salió de la ficha mientras bajaba un PDF de 12 MB, volvió,
+    // vio el botón libre, apretó otra vez y el PDF quedó repetido.
+    const { repo, servicio } = armar();
+    let soltarLaLista: (r: unknown) => void = () => undefined;
+    fetchFalso
+      .mockReturnValueOnce(
+        new Promise((resolver) => {
+          soltarLaLista = resolver;
+        }),
+      )
+      .mockResolvedValueOnce(respuesta('%PDF bases'));
+
+    expect(servicio.estaTrayendo(1, 9)).toBe(false);
+    const primera = servicio.traer(1, CUENTA, 9);
+    expect(servicio.estaTrayendo(1, 9)).toBe(true);
+    // Otra licitación, u otra empresa, no espera a esta.
+    expect(servicio.estaTrayendo(1, 10)).toBe(false);
+    expect(servicio.estaTrayendo(2, 9)).toBe(false);
+
+    await expect(servicio.traer(1, CUENTA, 9)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    soltarLaLista(respuesta([fila('Bases técnicas.pdf', { file_size: 12 })]));
+    const r = await primera;
+    expect(r.bajados).toHaveLength(1);
+    expect(repo.guardar).toHaveBeenCalledTimes(1);
+    expect(servicio.estaTrayendo(1, 9)).toBe(false);
+  });
+
+  it('si la vuelta falla, igual deja de decir que trae: se puede volver a apretar', async () => {
+    const { servicio } = armar();
+    fetchFalso.mockResolvedValueOnce(respuesta(null, 502));
+    await expect(servicio.traer(1, CUENTA, 9)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(servicio.estaTrayendo(1, 9)).toBe(false);
   });
 
   it('no repite lo que ya está: por el nombre aunque Licify lo escriba distinto, o por el mismo peso', async () => {

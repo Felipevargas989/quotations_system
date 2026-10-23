@@ -1,4 +1,5 @@
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
+import type { LicifyService } from '../adjuntos/licify.service';
 import type {
   AnalisisRepository,
   ValidacionRepository,
@@ -102,12 +103,19 @@ function armar() {
       },
     ]),
   };
+  // «Traer los documentos» corriendo solo en la 87 (23-10).
+  const licify = {
+    estaTrayendo: jest.fn(
+      (empresa: number, id: number) => empresa === 1 && id === 87,
+    ),
+  };
   const servicio = new MisLicitacionesService(
     oportunidades as unknown as OportunidadesRepository,
     adjuntos as unknown as AdjuntosRepository,
     analisis as unknown as AnalisisRepository,
     validacion as unknown as ValidacionRepository,
     generacion as unknown as GeneracionRepository,
+    licify as unknown as LicifyService,
   );
   return {
     oportunidades,
@@ -115,6 +123,7 @@ function armar() {
     analisis,
     validacion,
     generacion,
+    licify,
     servicio,
   };
 }
@@ -133,6 +142,7 @@ describe('MisLicitacionesService', () => {
     const lista = await servicio.mias(1);
     expect(lista.find((l) => l.id === 40)?.avance).toEqual({
       bases: 2,
+      trayendo: false,
       analisis: 'listo',
       anexos: 'listo',
       propuesta: 'error',
@@ -142,8 +152,10 @@ describe('MisLicitacionesService', () => {
       firmados: 1,
       validacion: { estado: 'listo', listo: 'casi' },
     });
+    // La 87: el motor está trayendo sus documentos (la etapa Bases gira).
     expect(lista.find((l) => l.id === 87)?.avance).toEqual({
       bases: 0,
+      trayendo: true,
       analisis: 'procesando',
       anexos: null,
       propuesta: null,

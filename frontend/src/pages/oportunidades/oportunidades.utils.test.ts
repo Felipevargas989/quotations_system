@@ -480,6 +480,24 @@ describe("Mis licitaciones: el avance", () => {
   const estados = (m: Parameters<typeof pasosDelAvance>[0]) =>
     Object.fromEntries(pasosDelAvance(m).map((p) => [p.paso, p.estado]));
 
+  it("mientras el motor trae los documentos, Bases gira aunque ya haya llegado alguno, y queda lista recién al terminar (23-10)", () => {
+    // Felipe: "mientras está trayendo, las etapas de bases aparecen
+    // pensando".
+    const trayendo = { ...avance, bases: 2, trayendo: true };
+    expect(estados({ estado: "en_estudio", avance: trayendo }).Bases).toBe(
+      "en_curso",
+    );
+    expect(
+      estados({
+        estado: "en_estudio",
+        avance: { ...trayendo, trayendo: false },
+      }).Bases,
+    ).toBe("hecho");
+    expect(estados({ estado: "postulada", avance: trayendo }).Bases).toBe(
+      "hecho",
+    );
+  });
+
   it("recién marcada: faltan las bases y lo demás está por hacer", () => {
     expect(estados({ estado: "en_estudio", avance })).toEqual({
       Bases: "falta",

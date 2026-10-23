@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
+import { LicifyService } from '../adjuntos/licify.service';
 import {
   AnalisisRepository,
   type EstadoDeAnalisis,
@@ -21,6 +22,9 @@ import {
 export type Avance = {
   /** Archivos en «Bases y anexos». */
   bases: number;
+  /** «Traer los documentos» corriendo en el motor (23-10): la etapa Bases
+   *  gira hasta que termine. */
+  trayendo: boolean;
   analisis: EstadoDeAnalisis | null;
   /** El último "Generar anexos" y la última propuesta técnica. */
   anexos: EstadoDeAnalisis | null;
@@ -65,6 +69,7 @@ export class MisLicitacionesService {
     private readonly analisis: AnalisisRepository,
     private readonly validacion: ValidacionRepository,
     private readonly generacion: GeneracionRepository,
+    private readonly licify: LicifyService,
   ) {}
 
   /** De la que cierra antes a la que cierra después. */
@@ -94,6 +99,7 @@ export class MisLicitacionesService {
           ...f,
           avance: {
             bases: suyos.filter((a) => a.seccion === 'bases').length,
+            trayendo: this.licify.estaTrayendo(companyId, f.id),
             analisis: ultimoAnalisis.get(f.id)?.estado ?? null,
             anexos: ultimosAnexos.get(f.id)?.estado ?? null,
             propuesta: ultimaPropuesta.get(f.id)?.estado ?? null,

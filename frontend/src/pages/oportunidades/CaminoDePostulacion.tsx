@@ -15,6 +15,7 @@ import {
 } from "../../services/oportunidades.service";
 import { avanceDeLaFicha, pasoQueSigue } from "./fichaEnCorto";
 import { type EstadoDelPaso, pasosDelAvance } from "./oportunidades.utils";
+import { useEstadoDeTraer } from "./useEstadoDeTraer";
 import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 
 // EL CAMINO DE LA POSTULACIÓN (Felipe, 17-10: "vamos con todas"). Arriba de
@@ -73,11 +74,13 @@ export default function CaminoDePostulacion({
       q.state.data?.estado === "procesando" ? PREGUNTAR_MIENTRAS_CORRE : false,
   });
   const { data: generaciones } = useGeneraciones(oportunidadId);
+  const trayendo = useEstadoDeTraer(oportunidadId);
 
   const pasos = pasosDelAvance({
     estado,
     avance: avanceDeLaFicha({
       bases,
+      trayendo,
       postulacion,
       analisis,
       generaciones,

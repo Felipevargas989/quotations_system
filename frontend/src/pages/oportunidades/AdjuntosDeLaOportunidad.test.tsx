@@ -8,10 +8,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "../../components/toast/Toast";
 import * as servicio from "../../services/oportunidades.service";
 import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
+import { claveDeTraer } from "./useEstadoDeTraer";
 
 // «TRAER LOS DOCUMENTOS» (decisión 65, 21-10). Felipe: "un botón de bajar
 // documentos y que lo lleve directamente". El motor va de mentira.
@@ -21,6 +22,7 @@ vi.mock("../../services/oportunidades.service", () => ({
   subirAdjunto: vi.fn(),
   borrarAdjunto: vi.fn(),
   traerAdjuntos: vi.fn(),
+  getEstadoDeTraer: vi.fn(),
 }));
 vi.mock("../../components/FileViewLink", () => ({ default: () => null }));
 vi.mock("./descargas", () => ({ descargarDelBalde: vi.fn() }));
@@ -57,13 +59,51 @@ const pintar = () =>
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <AdjuntosDeLaOportunidad
-        oportunidadId={9}
-      />
+      <AdjuntosDeLaOportunidad oportunidadId={9} />
     </QueryClientProvider>,
   );
 
 describe("Traer los documentos", () => {
+  beforeEach(() => {
+    s.getEstadoDeTraer.mockResolvedValue({ trayendo: false });
+  });
+
+  it("al volver a la ficha mientras el motor trae: «Trayendo…» sigue a la vista, no deja apretar de nuevo y, al terminar, la lista se pide otra vez (23-10)", async () => {
+    // Felipe salió mientras bajaba un PDF de 12 MB, volvió, vio el botón
+    // libre, apretó otra vez y el PDF quedó repetido.
+    s.getAdjuntos
+      .mockResolvedValueOnce([adjunto(2, "Formularios Anexos.docx")])
+      .mockResolvedValue([
+        adjunto(2, "Formularios Anexos.docx"),
+        adjunto(1, "Bases.pdf"),
+      ]);
+    s.getEstadoDeTraer
+      .mockResolvedValueOnce({ trayendo: true })
+      .mockResolvedValue({ trayendo: false });
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={cliente}>
+        <AdjuntosDeLaOportunidad oportunidadId={9} />
+      </QueryClientProvider>,
+    );
+    const boton = await screen.findByRole("button", { name: /Trayendo…/ });
+    expect(boton).toBeDisabled();
+    expect(
+      screen.getByText("Puedes salir de la ficha: aparecen solos al terminar."),
+    ).toBeInTheDocument();
+    expect(s.traerAdjuntos).not.toHaveBeenCalled();
+
+    // El motor termina: la próxima pregunta dice que ya no trae.
+    await cliente.invalidateQueries({ queryKey: claveDeTraer(9) });
+    expect(
+      await screen.findByRole("button", { name: /Traer los documentos/ }),
+    ).toBeEnabled();
+    expect(await screen.findByText("Bases.pdf")).toBeInTheDocument();
+    expect(s.getAdjuntos).toHaveBeenCalledTimes(2);
+  });
+
   it("pide los documentos al motor, dice cuántos llegaron y refresca la lista", async () => {
     s.getAdjuntos
       .mockResolvedValueOnce([])

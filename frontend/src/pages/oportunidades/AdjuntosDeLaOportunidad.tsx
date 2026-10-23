@@ -42,6 +42,7 @@ import {
   seVeEnElVisor,
   tamanoLegible,
 } from "./oportunidades.utils";
+import { claveDeTraer, useEstadoDeTraer } from "./useEstadoDeTraer";
 
 // LAS BASES Y ANEXOS (doc 17 §12 punto 8, opción d). Felipe, 17-10: "ok
 // dale con el botón y arrastro".
@@ -151,9 +152,19 @@ export default function AdjuntosDeLaOportunidad({
 
   // «Traer los documentos» (decisión 65, 21-10): lo que Licify tiene del
   // proceso llega solo a «Bases y anexos». Felipe: "un botón de bajar
-  // documentos y que lo lleve directamente".
+  // documentos y que lo lleve directamente". Desde el 23-10 el «Trayendo…»
+  // sale también del motor (`useEstadoDeTraer`): sigue a la vista al salir
+  // y volver a la ficha, y la etapa Bases del camino gira mientras tanto.
+  const trayendoEnElMotor = useEstadoDeTraer(
+    oportunidadId,
+    seccion === "bases",
+  );
   const traer = useMutation({
     mutationFn: () => traerAdjuntos(oportunidadId),
+    onMutate: () =>
+      qc.setQueryData(claveDeTraer(oportunidadId), { trayendo: true }),
+    onSettled: () =>
+      void qc.invalidateQueries({ queryKey: claveDeTraer(oportunidadId) }),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: clave });
       if (r.disponibles === 0) {
@@ -173,6 +184,8 @@ export default function AdjuntosDeLaOportunidad({
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudieron traer los documentos.")),
   });
+
+  const trayendo = traer.isPending || trayendoEnElMotor;
 
   const borrar = useMutation({
     mutationFn: (adjuntoId: number) => borrarAdjunto(oportunidadId, adjuntoId),
@@ -227,18 +240,23 @@ export default function AdjuntosDeLaOportunidad({
         </div>
         {seccion === "bases" && (
           <div className="flex flex-wrap items-center gap-2">
+            {trayendo && (
+              <span className="text-xs text-gray-500">
+                Puedes salir de la ficha: aparecen solos al terminar.
+              </span>
+            )}
             <button
               type="button"
               onClick={() => traer.mutate()}
-              disabled={traer.isPending}
+              disabled={trayendo}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {traer.isPending ? (
+              {trayendo ? (
                 <Loader2 size={14} className="animate-spin" aria-hidden />
               ) : (
                 <CloudDownload size={14} aria-hidden />
               )}
-              {traer.isPending ? "Trayendo…" : "Traer los documentos"}
+              {trayendo ? "Trayendo…" : "Traer los documentos"}
             </button>
           </div>
         )}
