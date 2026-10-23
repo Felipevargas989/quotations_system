@@ -10,6 +10,7 @@ import { desdeTresAnios } from './actas.service';
 import { CompetenciaRepository } from './competencia.repository';
 import {
   ESQUEMA_DEL_RUBRO,
+  etiquetaDelRubro,
   ganadoresDeLasLineas,
   instruccionesDelRubro,
   lineasDelProceso,
@@ -60,7 +61,7 @@ export class RubroService {
   private async deLaZona(companyId: number) {
     const [config, clasificadas] = await Promise.all([
       this.oportunidades.configDe(companyId),
-      this.repo.clasificadas(companyId),
+      this.repo.clasificadas(companyId, etiquetaDelRubro(MODELO_HAIKU)),
     ]);
     const regiones = config?.regiones ?? [];
     const adjudicadas = (await this.repo.zonaLigera(desdeTresAnios())).filter(
@@ -165,7 +166,7 @@ export class RubroService {
               fecha: p.fecha_publicacion?.slice(0, 10) ?? null,
             };
           }),
-          MODELO_HAIKU,
+          etiquetaDelRubro(MODELO_HAIKU),
         );
         hechas += validos.length;
         this.logger.info(
