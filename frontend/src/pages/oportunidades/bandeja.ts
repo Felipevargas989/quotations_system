@@ -151,7 +151,7 @@ export const agruparPorCierre = (
  *  - `con_filtros`: algún filtro esconde lo que hay (tipo, región,
  *    buscador, o verdes o amarillas apagadas); se ofrece quitarlos;
  *  - `nada`: «Descartadas» o «Historial» vacíos.
- *  Encender las rojas no achica: no cuenta como filtro. */
+ *  Encender el reciclaje o la basura no achica: no cuenta como filtro. */
 export type BandejaVacia = "sin_datos" | "al_dia" | "con_filtros" | "nada";
 
 export const hayFiltrosQueAchican = (f: Filtros): boolean =>

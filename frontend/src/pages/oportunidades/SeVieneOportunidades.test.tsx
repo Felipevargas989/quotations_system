@@ -102,13 +102,16 @@ describe("Se viene con el semáforo", () => {
     // Nada que leer: no pregunta cómo va.
     expect(s.getLecturaDelCalendario).not.toHaveBeenCalled();
 
-    // El filtro de la bandeja: cada color con cuántas hay; las rojas,
-    // apagadas.
+    // El filtro de la bandeja: cada color con cuántas hay; el reciclaje y
+    // la basura, apagados (decisión 72: los insumos son basura).
     expect(screen.getByRole("button", { name: /Verdes 1/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: /Rojas 1 · ocultas/ }));
+    expect(
+      screen.getByRole("button", { name: /Reciclaje 0 · ocultas/ }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Basura 1 · ocultas/ }));
     expect(screen.getByText("Insumos para procedimientos")).toBeInTheDocument();
 
     // El buscador: nombre, organismo o código.
@@ -276,6 +279,7 @@ describe("Se viene con el semáforo", () => {
       }),
       serie("5040-9-LE25", "Insumos para Quillón", "rojo", {
         comuna_cercana: true,
+        reciclaje: true,
       }),
     ]);
     pintar();
@@ -288,8 +292,11 @@ describe("Se viene con el semáforo", () => {
       ),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Alto valor")).not.toBeInTheDocument();
-    // La roja de Quillón, al prender las rojas, va por mes y sin violeta.
-    fireEvent.click(screen.getByRole("button", { name: /Rojas 1 · ocultas/ }));
+    // La roja de Quillón (reciclaje, decisión 72), al prenderlo, va por mes
+    // y sin violeta: lo que la IA rechaza nunca es prioridad.
+    fireEvent.click(
+      screen.getByRole("button", { name: /Reciclaje 1 · ocultas/ }),
+    );
     const roja = screen.getByText("Insumos para Quillón").closest("li");
     expect(roja?.closest("section")).not.toBe(titulos[0].closest("section"));
     expect(

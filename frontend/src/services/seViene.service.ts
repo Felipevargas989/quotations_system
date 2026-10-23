@@ -38,6 +38,9 @@ export interface SeViene {
   repeticion: string | null;
   /** La empresa la descartó: «no creo que se repita». */
   descartada: boolean;
+  /** Roja, de una comuna cercana y del rubro: el reciclaje (decisión 72).
+   *  Una roja sin esto es la basura. Un motor de antes no lo trae. */
+  reciclaje?: boolean;
 }
 
 /** Cómo va la lectura de «Se viene» (decisión 62). */

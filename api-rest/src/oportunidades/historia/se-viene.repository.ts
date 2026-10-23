@@ -17,6 +17,10 @@ export type LecturaDeSerie = {
   codigo: string;
   semaforo: Semaforo;
   razon: string;
+  /** Para el reciclaje (decisión 72): roja, cercana y del rubro. */
+  etiquetas: string[] | null;
+  /** Con qué se leyó (`LECTURA_ACTUAL`): si cambió, se relee el color. */
+  modelo: string | null;
   /** Migración 157 (decisión 63): las ediciones anteriores según la IA
    *  (null: todavía no lo revisa), por qué, y si la empresa la descartó. */
   ediciones: string[] | null;
@@ -46,7 +50,9 @@ export class SeVieneRepository {
     for (let i = 0; i < codigos.length; i += LOTE) {
       const { data, error } = await this.db
         .from('oportunidades_se_viene')
-        .select('codigo, semaforo, razon, ediciones, repeticion, descartada_en')
+        .select(
+          'codigo, semaforo, razon, etiquetas, modelo, ediciones, repeticion, descartada_en',
+        )
         .eq('company_id', companyId)
         .in('codigo', codigos.slice(i, i + LOTE));
       if (error) throw error;

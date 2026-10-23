@@ -28,7 +28,8 @@ export default function BandejaVacia({
   readonly vista: Vista;
   /** «02:07» (`proximaPasada`). */
   readonly proxima: string;
-  /** Las rojas escondidas por el semáforo; 0 si ya están a la vista. */
+  /** Las rojas del reciclaje escondidas por el semáforo (decisión 72: la
+   *  basura no se ofrece); 0 si ya están a la vista. */
   readonly rojas: number;
   /** Cuántas hay en curso en «Mis licitaciones». */
   readonly enCurso: number;
@@ -89,8 +90,8 @@ export default function BandejaVacia({
           className="mt-2 text-gray-600 underline decoration-dotted hover:text-gray-900"
         >
           {rojas === 1
-            ? "Ver la roja (no calza con lo que haces)"
-            : `Ver las ${rojas} rojas (no calzan con lo que haces)`}
+            ? "Ver la del reciclaje (la IA dice que no, pero es de tu zona)"
+            : `Ver las ${rojas} del reciclaje (la IA dice que no, pero son de tu zona)`}
         </button>
       )}
     </div>

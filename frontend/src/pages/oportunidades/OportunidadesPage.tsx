@@ -53,6 +53,7 @@ import {
   FILTROS_DE_PARTIDA,
   filtrarSinSemaforo,
   type Filtros,
+  pasaElSemaforo,
   separarMias,
 } from "./oportunidades.utils";
 import SeVieneOportunidades from "./SeVieneOportunidades";
@@ -315,7 +316,7 @@ function Bandeja({
   // (una gira de estudio no se postula, se sigue).
   const visibles = enSeguimiento
     ? base
-    : base.filter((o) => !o.semaforo || filtros.semaforos.includes(o.semaforo));
+    : base.filter((o) => pasaElSemaforo(o, filtros.semaforos));
   const porVista = useMemo(
     () => ({
       ...contarPorVista(todas, filtros),

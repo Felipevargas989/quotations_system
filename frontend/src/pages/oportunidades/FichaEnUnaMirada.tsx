@@ -20,6 +20,7 @@ import { formatMomento } from "../../utils/dates";
 import { eventoEnCorto, LUGAR_EN_CORTO } from "./fichaEnCorto";
 import Ganadores from "./Ganadores";
 import {
+  colorDeLaOportunidad,
   cuandoCierra,
   esPrioridad,
   ESTADOS,
@@ -60,6 +61,7 @@ export default function FichaEnUnaMirada({
   }) => void;
 }) {
   const p = ficha.proceso;
+  const color = colorDeLaOportunidad(ficha);
   const cierre = cuandoCierra(p.fecha_cierre);
   const responsables = useResponsables();
   const monto = bases && bases.monto > 0 ? bases.monto : p.monto;
@@ -86,9 +88,9 @@ export default function FichaEnUnaMirada({
             style={{ contain: "inline-size" }}
           >
             <span
-              title={ficha.semaforo ? SEMAFOROS[ficha.semaforo].label : ""}
+              title={color ? SEMAFOROS[color].label : ""}
               className={`w-3 h-3 shrink-0 rounded-full ${
-                ficha.semaforo ? SEMAFOROS[ficha.semaforo].punto : "bg-gray-300"
+                color ? SEMAFOROS[color].punto : "bg-gray-300"
               }`}
             />
             <h1

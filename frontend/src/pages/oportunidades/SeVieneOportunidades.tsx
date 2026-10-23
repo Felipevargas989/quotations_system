@@ -3,7 +3,6 @@ import { CalendarDays, Loader2, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
-import type { Semaforo } from "../../services/oportunidades.service";
 import {
   descartarSerie,
   getCalendario,
@@ -15,7 +14,11 @@ import { matchesSearch } from "../../utils/searchMatch";
 import { RECUADRO_DEL_GRUPO } from "./coloresDeLaBandeja";
 import FilaDeSeViene from "./FilaDeSeViene";
 import FiltroDelSemaforo from "./FiltroDelSemaforo";
-import { agruparPorMes } from "./oportunidades.utils";
+import {
+  agruparPorMes,
+  type ColorDeLaLista,
+  colorDe,
+} from "./oportunidades.utils";
 
 // SE VIENE (doc 17 §5.3, sprint 2): lo que el mismo comprador publicó en
 // años anteriores, con un nombre parecido, y que debería volver a salir en
@@ -54,7 +57,10 @@ export default function SeVieneOportunidades() {
     queryFn: getCalendario,
     staleTime: 5 * 60 * 1000,
   });
-  const [semaforos, setSemaforos] = useState<Semaforo[]>(["verde", "amarillo"]);
+  const [semaforos, setSemaforos] = useState<ColorDeLaLista[]>([
+    "verde",
+    "amarillo",
+  ]);
   const [busca, setBusca] = useState("");
   const [region, setRegion] = useState("");
   const [verDescartadas, setVerDescartadas] = useState(false);
@@ -129,15 +135,24 @@ export default function SeVieneOportunidades() {
       (!region || s.region === region) &&
       matchesSearch(busca, s.nombre, s.organismo, s.comuna, s.ultima.codigo),
   );
-  const porSemaforo: Record<Semaforo, number> = {
+  // El rojo de tu zona y tu rubro es el reciclaje; el resto, la basura
+  // (decisión 72).
+  const colorDeLaSerie = (s: SeViene) =>
+    colorDe(s.semaforo, Boolean(s.reciclaje));
+  const porSemaforo: Record<ColorDeLaLista, number> = {
     verde: 0,
     amarillo: 0,
     rojo: 0,
+    basura: 0,
   };
-  for (const s of base) if (s.semaforo) porSemaforo[s.semaforo]++;
-  const lista = base.filter((s) =>
-    s.semaforo ? semaforos.includes(s.semaforo) : !leyendo,
-  );
+  for (const s of base) {
+    const color = colorDeLaSerie(s);
+    if (color) porSemaforo[color]++;
+  }
+  const lista = base.filter((s) => {
+    const color = colorDeLaSerie(s);
+    return color ? semaforos.includes(color) : !leyendo;
+  });
   // Como la bandeja (Felipe, 20-10: "prioridad está en una lista arriba y
   // las que no son prioridad en otra lista abajo"): la prioridad en su
   // recuadro violeta y el resto por mes, cada uno en el suyo.

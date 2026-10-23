@@ -17,24 +17,59 @@ import { matchesSearch } from "../../utils/searchMatch";
 
 export { ESTADOS } from "./estadosDeOportunidad";
 
+/** EL ROJO ES RECICLAJE (decisión 72, 23-10). Felipe: "el rojo puede ser
+ *  reciclaje, cosas que la IA rechazó pero que vale la pena ver... y otras
+ *  que estén sencillamente descartadas porque no son". La base guarda el
+ *  color de la IA; la lista parte el rojo en dos: el de tu zona y de tu
+ *  rubro (con el aviso de comuna cercana) es el reciclaje, y el resto, la
+ *  basura (unas 550 al día). */
+export type ColorDeLaLista = Semaforo | "basura";
+
+export const colorDe = (
+  semaforo: Semaforo | null,
+  reciclaje: boolean,
+): ColorDeLaLista | null =>
+  semaforo === "rojo" && !reciclaje ? "basura" : semaforo;
+
+export const colorDeLaOportunidad = (
+  o: Pick<Oportunidad, "semaforo" | "alertas">,
+): ColorDeLaLista | null =>
+  colorDe(o.semaforo, o.alertas.includes("comuna_cercana"));
+
 export const SEMAFOROS: Record<
-  Semaforo,
-  { readonly label: string; readonly punto: string; readonly chip: string }
+  ColorDeLaLista,
+  {
+    readonly label: string;
+    readonly punto: string;
+    readonly chip: string;
+    readonly ayuda: string;
+  }
 > = {
   verde: {
     label: "Verdes",
     punto: "bg-green-500",
     chip: "border-green-300 bg-green-50 text-green-800",
+    ayuda: "La IA dice que calzan con lo que vendes",
   },
   amarillo: {
     label: "Amarillas",
     punto: "bg-amber-400",
     chip: "border-amber-300 bg-amber-50 text-amber-800",
+    ayuda: "La IA dice que hay que evaluarlas",
   },
   rojo: {
-    label: "Rojas",
+    label: "Reciclaje",
     punto: "bg-red-500",
     chip: "border-red-300 bg-red-50 text-red-800",
+    ayuda:
+      "La IA dice que no, pero son de tu zona y de tu rubro: vale la pena mirarlas",
+  },
+  basura: {
+    label: "Basura",
+    punto: "bg-gray-400",
+    chip: "border-gray-300 bg-gray-100 text-gray-700",
+    ayuda:
+      "Todo lo demás que la IA rechazó. Queda guardado, por si un día buscas algo",
   },
 };
 
@@ -115,7 +150,7 @@ export const VISTAS: ReadonlyArray<{
 
 export type Filtros = {
   vista: Vista;
-  semaforos: ReadonlyArray<Semaforo>;
+  semaforos: ReadonlyArray<ColorDeLaLista>;
   tipo: TipoProceso | "";
   region: string;
   busca: string;
@@ -153,19 +188,34 @@ export const filtrarSinSemaforo = (
       ),
   );
 
+/** Lo sin leer pasa siempre: se ve sin color. */
+export const pasaElSemaforo = (
+  o: Pick<Oportunidad, "semaforo" | "alertas">,
+  semaforos: ReadonlyArray<ColorDeLaLista>,
+): boolean => {
+  const color = colorDeLaOportunidad(o);
+  return !color || semaforos.includes(color);
+};
+
 export const filtrar = (
   lista: readonly Oportunidad[],
   f: Filtros,
 ): Oportunidad[] =>
-  filtrarSinSemaforo(lista, f).filter(
-    (o) => !o.semaforo || f.semaforos.includes(o.semaforo),
-  );
+  filtrarSinSemaforo(lista, f).filter((o) => pasaElSemaforo(o, f.semaforos));
 
 export const contarPorSemaforo = (
   lista: readonly Oportunidad[],
-): Record<Semaforo, number> => {
-  const cuenta: Record<Semaforo, number> = { verde: 0, amarillo: 0, rojo: 0 };
-  for (const o of lista) if (o.semaforo) cuenta[o.semaforo]++;
+): Record<ColorDeLaLista, number> => {
+  const cuenta: Record<ColorDeLaLista, number> = {
+    verde: 0,
+    amarillo: 0,
+    rojo: 0,
+    basura: 0,
+  };
+  for (const o of lista) {
+    const color = colorDeLaOportunidad(o);
+    if (color) cuenta[color]++;
+  }
   return cuenta;
 };
 

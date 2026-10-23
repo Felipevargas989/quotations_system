@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Oportunidad } from "../../services/oportunidades.service";
 import {
+  colorDeLaOportunidad,
   contarPorSemaforo,
   cuandoCierra,
   esPrioridad,
@@ -84,6 +85,8 @@ describe("la bandeja: qué se ve de partida", () => {
     op({ id: 3, semaforo: "rojo" }),
     op({ id: 4, semaforo: "verde", estado: "descartada" }),
     op({ id: 5, semaforo: "verde", estado: "ganada" }),
+    // Roja de tu zona y tu rubro: el reciclaje (decisión 72).
+    op({ id: 6, semaforo: "rojo", alertas: ["comuna_cercana"] }),
   ];
 
   it("abre en «Por revisar»: sin las rojas ni lo ya marcado (Felipe, 17-10)", () => {
@@ -117,15 +120,25 @@ describe("la bandeja: qué se ve de partida", () => {
     const cuenta = contarPorSemaforo(
       filtrarSinSemaforo(lista, FILTROS_DE_PARTIDA),
     );
-    expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 1 });
+    expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 1, basura: 1 });
   });
 
-  it("con las rojas encendidas, se ven", () => {
-    const f = {
+  it("el rojo se parte en dos: el reciclaje y la basura, cada uno con su botón (decisión 72)", () => {
+    expect(colorDeLaOportunidad(lista[2])).toBe("basura");
+    expect(colorDeLaOportunidad(lista[5])).toBe("rojo");
+    expect(colorDeLaOportunidad(lista[0])).toBe("verde");
+    // Lo que la IA no aprueba nunca es prioridad, aunque sea de tu zona.
+    expect(esPrioridad(lista[5])).toBe(false);
+    const conReciclaje = {
       ...FILTROS_DE_PARTIDA,
       semaforos: ["verde", "amarillo", "rojo"] as const,
     };
-    expect(filtrar(lista, f).map((o) => o.id)).toEqual([1, 3]);
+    expect(filtrar(lista, conReciclaje).map((o) => o.id)).toEqual([1, 6]);
+    const conBasura = {
+      ...FILTROS_DE_PARTIDA,
+      semaforos: ["verde", "amarillo", "basura"] as const,
+    };
+    expect(filtrar(lista, conBasura).map((o) => o.id)).toEqual([1, 3]);
   });
 
   it("la vista Descartadas muestra solo esas", () => {
