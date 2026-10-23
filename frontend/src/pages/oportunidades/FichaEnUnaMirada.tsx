@@ -73,17 +73,32 @@ export default function FichaEnUnaMirada({
   return (
     <div className="bg-white rounded-lg shadow p-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 w-full space-y-1">
+          {/* Una sola línea (23-10, Felipe eligió la opción B): un título
+              largo se corta con «…» y se lee completo al pasar el mouse.
+              Antes la fila se partía y dejaba el punto solo arriba y
+              «Prioridad» solo abajo. El `contain` es obligatorio: sin él,
+              el título sin saltos de línea ensancha toda la columna de la
+              página (el 23-10 se salió 500 px por la derecha y escondió
+              «Prioridad» y Mercado Público). */}
+          <div
+            className="flex min-w-0 items-center gap-2"
+            style={{ contain: "inline-size" }}
+          >
             <span
               title={ficha.semaforo ? SEMAFOROS[ficha.semaforo].label : ""}
-              className={`w-3 h-3 rounded-full ${
+              className={`w-3 h-3 shrink-0 rounded-full ${
                 ficha.semaforo ? SEMAFOROS[ficha.semaforo].punto : "bg-gray-300"
               }`}
             />
-            <h1 className="text-xl font-bold text-gray-900">{p.nombre}</h1>
+            <h1
+              title={p.nombre}
+              className="min-w-0 truncate text-xl font-bold text-gray-900"
+            >
+              {p.nombre}
+            </h1>
             {esPrioridad(ficha) && (
-              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">
+              <span className="shrink-0 px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">
                 Prioridad
               </span>
             )}

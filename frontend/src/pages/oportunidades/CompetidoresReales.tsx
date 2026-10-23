@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
-  buscarEnLasActas,
   type CompetidorReal,
   type EstadoDeLaCompetencia,
   getCompetencia,
@@ -20,32 +19,25 @@ import {
   deLaVista,
   NOMBRE_DE_LA_ETIQUETA,
   NOMBRE_DE_LA_VISTA,
-  textoDeCompradores,
   textoDeEncuentros,
+  textoDeLasActas,
   textoDelPrecio,
+  textoDeMercado,
   type VistaDeCompetidores,
 } from "./listaDeCompetidores";
 import { urlCompetidor } from "./oportunidades.utils";
 
-// «TUS COMPETIDORES» (decisión 70 del doc 17, 22-10). Felipe: "podemos
-// hacerle seguimiento a las empresas con las que he competido... también
-// busca empresas similares, complejos turísticos o restaurantes que hayan
-// postulado a servicios públicos a los que yo postulo... debería haber un
-// botón de «no es mi competidor» (con un confirmar)".
-//
-// Sale de las actas públicas de adjudicación, que traen todas las ofertas:
-// quién ofertó donde ofertaste tú (y quién ganó), quién se parece a ti y
-// postula a tus compradores (lo dice la IA) y a quién sigues. «Buscar en
-// las actas» las lee por detrás; mientras lee, la lista se pide cada 5 s.
+// «TUS COMPETIDORES» (decisiones 70 y 71 del doc 17). Felipe, 23-10: "mis
+// competidores son esos": los que ofertaron donde ofertaste tú, ganaras o
+// perdieras, con todo lo que hacen en tu zona ("es como un estudio de
+// mercado"). Sale de las actas públicas de adjudicación, que se leen solas:
+// sin botón ("la lectura de actas debería ser automática y debería ser un
+// dato que me lo entregara"). Mientras se leen, la lista se pide cada 15 s.
+// «Parecido a ti» se sacó el 23-10.
 
 const CLAVE = ["oportunidades", "competencia"];
 
-const VISTAS: VistaDeCompetidores[] = [
-  "todos",
-  "compitio",
-  "similar",
-  "seguido",
-];
+const VISTAS: VistaDeCompetidores[] = ["todos", "seguido"];
 
 export default function CompetidoresReales() {
   const qc = useQueryClient();
@@ -53,18 +45,11 @@ export default function CompetidoresReales() {
     queryKey: CLAVE,
     queryFn: getCompetencia,
     staleTime: 60 * 1000,
-    refetchInterval: (q) => (q.state.data?.busqueda.buscando ? 5000 : false),
+    refetchInterval: (q) => (q.state.data?.actas.leyendo ? 15_000 : false),
   });
   const [vista, setVista] = useState<VistaDeCompetidores>("todos");
   const [verDescartados, setVerDescartados] = useState(false);
   const [busca, setBusca] = useState("");
-
-  const buscar = useMutation({
-    mutationFn: buscarEnLasActas,
-    onSuccess: (estado) => qc.setQueryData(CLAVE, estado),
-    onError: (e) =>
-      toast.error(humanizeApiError(e, "No se pudo empezar la búsqueda.")),
-  });
 
   // Seguir, sacar o recuperar: se anota en la lista que ya está.
   const marcar = useMutation({
@@ -95,7 +80,7 @@ export default function CompetidoresReales() {
     );
   }
 
-  const { competidores, busqueda } = data;
+  const { competidores, actas } = data;
   const cuantos = conteos(competidores);
   const lista = deLaVista(competidores, vista, verDescartados, busca);
 
@@ -107,11 +92,15 @@ export default function CompetidoresReales() {
           ofertaron donde ofertaste tú, los parecidos a ti que postulan a tus
           compradores y los que sigues.
         </p>
-        <Busqueda
-          busqueda={busqueda}
-          empezando={buscar.isPending}
-          onBuscar={() => buscar.mutate()}
-        />
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 text-sm text-gray-500"
+        >
+          {actas.leyendo && (
+            <Loader2 size={14} className="animate-spin" aria-hidden />
+          )}
+          {textoDeLasActas(actas)}
+        </p>
       </div>
 
       {!data.rut_empresa && (
@@ -123,9 +112,9 @@ export default function CompetidoresReales() {
 
       {competidores.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-500">
-          {busqueda.buscando
-            ? "Todavía no aparece nadie: las actas se están leyendo."
-            : "Todavía no hay actas leídas. Aprieta «Buscar en las actas»: lee las de tus licitaciones, las de tus compradores y las de tus comunas cercanas (3 años). Tarda unos minutos y sigue aunque cierres la pantalla; de noche sigue sola con lo que falte."}
+          {actas.leidas < actas.total
+            ? "Todavía no aparece nadie: las actas de tu zona se están leyendo solas, primero las de tus licitaciones y tus compradores."
+            : "En las actas de tu zona no aparece nadie que haya ofertado donde ofertaste tú."}
         </p>
       ) : (
         <>
@@ -201,44 +190,6 @@ export default function CompetidoresReales() {
   );
 }
 
-/** «Buscar en las actas», o cómo va la búsqueda. */
-function Busqueda({
-  busqueda,
-  empezando,
-  onBuscar,
-}: {
-  readonly busqueda: EstadoDeLaCompetencia["busqueda"];
-  readonly empezando: boolean;
-  readonly onBuscar: () => void;
-}) {
-  if (busqueda.buscando) {
-    return (
-      <p
-        role="status"
-        className="inline-flex items-center gap-2 text-sm text-gray-600"
-      >
-        <Loader2 size={16} className="animate-spin" aria-hidden />
-        {busqueda.total === 0
-          ? "Buscando actas…"
-          : busqueda.leidas < busqueda.total
-            ? `Leyendo actas: ${busqueda.leidas} de ${busqueda.total}`
-            : "La IA está viendo quién se parece a ti…"}
-      </p>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onBuscar}
-      disabled={empezando}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-    >
-      <Search size={14} aria-hidden />
-      Buscar en las actas
-    </button>
-  );
-}
-
 function FilaDeCompetidor({
   c,
   ocupado,
@@ -252,11 +203,7 @@ function FilaDeCompetidor({
   }) => void;
 }) {
   const [confirmando, setConfirmando] = useState(false);
-  const precio = textoDelPrecio(c.diferencia_de_precio);
-  const pie = [
-    c.parecido_razon && `Según la IA: ${c.parecido_razon}`,
-    c.ultima && `Última oferta: ${formatFechaEvento(c.ultima, "medio")}`,
-  ].filter(Boolean);
+  const precio = textoDelPrecio(c.diferencia_de_precio, c.lineas_comparadas);
   return (
     <li className="p-3 space-y-1">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -340,11 +287,13 @@ function FilaDeCompetidor({
           {precio && ` · ${precio}`}
         </p>
       )}
-      {c.en_tus_compradores > 0 && (
-        <p className="text-sm text-gray-700">{textoDeCompradores(c)}</p>
+      {c.participaciones > 0 && (
+        <p className="text-sm text-gray-700">{textoDeMercado(c)}</p>
       )}
-      {pie.length > 0 && (
-        <p className="text-xs text-gray-500">{pie.join(" · ")}</p>
+      {c.ultima && (
+        <p className="text-xs text-gray-500">
+          Última oferta: {formatFechaEvento(c.ultima, "medio")}
+        </p>
       )}
     </li>
   );
