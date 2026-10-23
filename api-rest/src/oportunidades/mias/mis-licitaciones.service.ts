@@ -29,6 +29,9 @@ export type Avance = {
   /** El último "Generar anexos" y la última propuesta técnica. */
   anexos: EstadoDeAnalisis | null;
   propuesta: EstadoDeAnalisis | null;
+  /** «1. Qué ofreces» de «Armar postulación» (23-10): la etapa Anexos gira
+   *  también mientras la IA arma la oferta, que va antes que los anexos. */
+  oferta: EstadoDeAnalisis | null;
   /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word que
    *  ya tiene su firmado no cuenta: desde la decisión 58 se borra al
    *  firmar) y lo firmado. */
@@ -87,6 +90,7 @@ export class MisLicitacionesService {
     const ultimaValidacion = elUltimo(validaciones);
     const ultimosAnexos = elUltimo(generaciones, 'anexos');
     const ultimaPropuesta = elUltimo(generaciones, 'propuesta');
+    const ultimaOferta = elUltimo(generaciones, 'oferta');
 
     return filas
       .map((f) => {
@@ -103,6 +107,7 @@ export class MisLicitacionesService {
             analisis: ultimoAnalisis.get(f.id)?.estado ?? null,
             anexos: ultimosAnexos.get(f.id)?.estado ?? null,
             propuesta: ultimaPropuesta.get(f.id)?.estado ?? null,
+            oferta: ultimaOferta.get(f.id)?.estado ?? null,
             postulacion: enLaPostulacion.length,
             generados: enLaPostulacion.filter(
               (a) =>

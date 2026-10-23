@@ -18,6 +18,7 @@ import {
   agruparPorMes,
   type ColorDeLaLista,
   colorDe,
+  pasaElColor,
 } from "./oportunidades.utils";
 
 // SE VIENE (doc 17 §5.3, sprint 2): lo que el mismo comprador publicó en
@@ -28,8 +29,9 @@ import {
 //
 // Desde la decisión 62 (20-10), con el semáforo de la bandeja. Felipe:
 // "deberíamos filtrar con el mismo semáforo, no tiene sentido analizar 400
-// opciones". El filtro es el de la bandeja (`FiltroDelSemaforo`): las rojas
-// parten apagadas. Lo que la IA todavía no lee no se muestra mientras lee
+// opciones". El filtro es el de la bandeja (`FiltroDelSemaforo`): verdes,
+// amarillas y reciclaje prendidos de partida; la basura, solo al buscar
+// (23-10). Lo que la IA todavía no lee no se muestra mientras lee
 // (el motor dice cómo va); si quedó sin leer, se ve sin color. La
 // prioridad, en violeta como en la bandeja (decisión 31).
 //
@@ -60,6 +62,7 @@ export default function SeVieneOportunidades() {
   const [semaforos, setSemaforos] = useState<ColorDeLaLista[]>([
     "verde",
     "amarillo",
+    "rojo",
   ]);
   const [busca, setBusca] = useState("");
   const [region, setRegion] = useState("");
@@ -149,9 +152,10 @@ export default function SeVieneOportunidades() {
     const color = colorDeLaSerie(s);
     if (color) porSemaforo[color]++;
   }
+  // La basura, solo al buscar (23-10); lo sin leer, si no está leyendo.
   const lista = base.filter((s) => {
     const color = colorDeLaSerie(s);
-    return color ? semaforos.includes(color) : !leyendo;
+    return color ? pasaElColor(color, semaforos, busca) : !leyendo;
   });
   // Como la bandeja (Felipe, 20-10: "prioridad está en una lista arriba y
   // las que no son prioridad en otra lista abajo"): la prioridad en su

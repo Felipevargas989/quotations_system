@@ -13,9 +13,11 @@ import {
   getAnalisis,
   getValidacion,
 } from "../../services/oportunidades.service";
+import { getOfertaDeLaPostulacion } from "../../services/postulacion.service";
 import { avanceDeLaFicha, pasoQueSigue } from "./fichaEnCorto";
 import { type EstadoDelPaso, pasosDelAvance } from "./oportunidades.utils";
 import { useEstadoDeTraer } from "./useEstadoDeTraer";
+import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 
 // EL CAMINO DE LA POSTULACIÓN (Felipe, 17-10: "vamos con todas"). Arriba de
@@ -75,12 +77,21 @@ export default function CaminoDePostulacion({
   });
   const { data: generaciones } = useGeneraciones(oportunidadId);
   const trayendo = useEstadoDeTraer(oportunidadId);
+  // «1. Qué ofreces» va antes que los anexos: la misma consulta de «Armar
+  // postulación», así Anexos gira apenas se aprieta el botón (23-10).
+  const { data: oferta } = useQuery({
+    queryKey: claveDeLaOferta(oportunidadId),
+    queryFn: () => getOfertaDeLaPostulacion(oportunidadId),
+    refetchInterval: (q) =>
+      q.state.data?.estado === "procesando" ? PREGUNTAR_MIENTRAS_CORRE : false,
+  });
 
   const pasos = pasosDelAvance({
     estado,
     avance: avanceDeLaFicha({
       bases,
       trayendo,
+      oferta,
       postulacion,
       analisis,
       generaciones,

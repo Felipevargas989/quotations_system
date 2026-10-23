@@ -163,7 +163,8 @@ export type Filtros = {
 
 export const FILTROS_DE_PARTIDA: Filtros = {
   vista: "nueva",
-  semaforos: ["verde", "amarillo"],
+  // El reciclaje se ve de partida, como el verde y el amarillo (23-10).
+  semaforos: ["verde", "amarillo", "rojo"],
   tipo: "",
   region: "",
   busca: "",
@@ -197,16 +198,26 @@ export const filtrarSinSemaforo = (
 export const pasaElSemaforo = (
   o: Pick<Oportunidad, "semaforo" | "alertas">,
   semaforos: ReadonlyArray<ColorDeLaLista>,
-): boolean => {
-  const color = colorDeLaOportunidad(o);
-  return !color || semaforos.includes(color);
-};
+  busca = "",
+): boolean => pasaElColor(colorDeLaOportunidad(o), semaforos, busca);
+
+/** La basura no tiene botón: se ve solo al buscar, para que lo guardado se
+ *  pueda encontrar (decisión 72; Felipe, 23-10: "gris lo eliminaría"). */
+export const pasaElColor = (
+  color: ColorDeLaLista | null,
+  semaforos: ReadonlyArray<ColorDeLaLista>,
+  busca: string,
+): boolean =>
+  !color ||
+  (color === "basura" ? busca.trim() !== "" : semaforos.includes(color));
 
 export const filtrar = (
   lista: readonly Oportunidad[],
   f: Filtros,
 ): Oportunidad[] =>
-  filtrarSinSemaforo(lista, f).filter((o) => pasaElSemaforo(o, f.semaforos));
+  filtrarSinSemaforo(lista, f).filter((o) =>
+    pasaElSemaforo(o, f.semaforos, f.busca),
+  );
 
 export const contarPorSemaforo = (
   lista: readonly Oportunidad[],
