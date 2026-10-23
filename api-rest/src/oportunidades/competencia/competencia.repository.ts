@@ -358,17 +358,27 @@ export class CompetenciaRepository {
     return data as unknown as MarcaDeCompetidor;
   }
 
-  /** Los códigos que la IA ya clasificó para la empresa. */
-  async clasificadas(companyId: number): Promise<Set<string>> {
-    const filas = await todasLasFilas<{ codigo: string }>((desde, hasta) =>
+  /** Los códigos que la IA ya clasificó para la empresa con esta versión
+   *  de las instrucciones (`etiqueta`); los de otra versión se revisan de
+   *  nuevo. */
+  async clasificadas(
+    companyId: number,
+    etiqueta: string,
+  ): Promise<Set<string>> {
+    const filas = await todasLasFilas<{
+      codigo: string;
+      modelo: string | null;
+    }>((desde, hasta) =>
       this.db
         .from('oportunidades_rubro')
-        .select('codigo')
+        .select('codigo, modelo')
         .eq('company_id', companyId)
         .order('codigo', { ascending: true })
         .range(desde, hasta),
     );
-    return new Set(filas.map((f) => f.codigo));
+    return new Set(
+      filas.filter((f) => f.modelo === etiqueta).map((f) => f.codigo),
+    );
   }
 
   /** El nombre y las líneas (con quién ganó cada una) de esos procesos. */
@@ -424,8 +434,12 @@ export class CompetenciaRepository {
   }
 
   /** Las licitaciones del rubro de la empresa (sí o en parte) desde una
-   *  fecha: «Quién gana en tu zona». */
-  filasDelRubro(companyId: number, desde: string): Promise<FilaDelRubro[]> {
+   *  fecha, revisadas con la versión actual: «Quién gana en tu zona». */
+  filasDelRubro(
+    companyId: number,
+    desde: string,
+    etiqueta: string,
+  ): Promise<FilaDelRubro[]> {
     return todasLasFilas<FilaDelRubro>((inicio, fin) =>
       this.db
         .from('oportunidades_rubro')
@@ -433,6 +447,9 @@ export class CompetenciaRepository {
           'codigo, del_rubro, ganadores, nombre, organismo, comuna, fecha',
         )
         .eq('company_id', companyId)
+        // Solo lo revisado con las instrucciones de hoy: al endurecerlas,
+        // lo de antes deja de contar al tiro (23-10, v1 → v2).
+        .eq('modelo', etiqueta)
         .in('del_rubro', ['si', 'parcial'])
         .gte('fecha', desde.slice(0, 10))
         .order('codigo', { ascending: true })

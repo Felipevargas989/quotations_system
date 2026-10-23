@@ -1,12 +1,13 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { PinoLogger } from 'nestjs-pino';
+import type { SupabaseService } from 'src/supabase/supabase.service';
 import { mockPinoLogger } from 'src/testing/mocks';
-import type {
-  CompetenciaRepository,
-  ProcesoLigero,
-} from '../competencia/competencia.repository';
+import type { ProcesoLigero } from '../competencia/competencia.repository';
+import { CompetenciaRepository } from '../competencia/competencia.repository';
 import {
+  etiquetaDelRubro,
   ganadoresDeLasLineas,
+  instruccionesDelRubro,
   lineasDelProceso,
   MAX_LINEAS_A_LA_IA,
   rankingDelRubro,
@@ -105,6 +106,43 @@ describe('Las líneas de una licitación', () => {
     );
     expect(t).not.toContain('16. Producto 16');
     expect(t).toContain('(y 5 líneas más)');
+  });
+});
+
+describe('Las instrucciones del rubro (v2, 23-10)', () => {
+  it('solo cuenta comida, salón o alojamiento; las celebraciones de funcionarios sí; las producciones técnicas, ferias y fiestas comunales no; ante la duda, no', () => {
+    const t = instruccionesDelRubro('Complejo turístico en Quillón');
+    expect(t).toContain('Complejo turístico en Quillón');
+    expect(t).toContain(
+      'solo si el proveedor da COMIDA, un SALÓN o recinto, o ALOJAMIENTO',
+    );
+    expect(t).toContain('día del funcionario, del profesor');
+    expect(t).toContain('producción técnica o artística');
+    expect(t).toContain(
+      'festivales, ferias, exposiciones, conciertos, fiestas costumbristas y aniversarios comunales',
+    );
+    expect(t).toContain('concesiones de casino o cafetería permanentes');
+    expect(t).toContain('Ante la duda, "no".');
+    expect(etiquetaDelRubro('claude-haiku-5-5')).toBe('claude-haiku-5-5#v2');
+  });
+
+  it('lo revisado con otra versión de las instrucciones se vuelve a revisar', async () => {
+    const data = [
+      { codigo: 'A', modelo: 'claude-haiku-5-5#v2' },
+      { codigo: 'B', modelo: 'claude-haiku-5-5' },
+    ];
+    const cadena: Record<string, unknown> = {};
+    for (const m of ['select', 'eq', 'order', 'range'])
+      cadena[m] = () => cadena;
+    cadena.then = (bien: (v: unknown) => unknown) =>
+      Promise.resolve({ data, error: null }).then(bien);
+    const repo = new CompetenciaRepository(
+      { client: { from: () => cadena } } as unknown as SupabaseService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    expect([...(await repo.clasificadas(1, 'claude-haiku-5-5#v2'))]).toEqual([
+      'A',
+    ]);
   });
 });
 
@@ -311,8 +349,9 @@ describe('La IA del rubro, de punta a punta', () => {
           fecha: '2025-10-01',
         }),
       ],
-      'claude-haiku-5-5',
+      'claude-haiku-5-5#v2',
     );
+    expect(repo.clasificadas).toHaveBeenCalledWith(1, 'claude-haiku-5-5#v2');
   });
 
   it('cuánto va revisado de la zona; sin la llave de la IA no revisa nada', async () => {

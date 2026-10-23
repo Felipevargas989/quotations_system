@@ -589,6 +589,12 @@ describe('La competencia, de punta a punta', () => {
     ]);
     const r = await servicio.zona(1);
     expect(r.ranking.map((c) => c.rut)).toEqual([SOL]);
+    // Solo lo revisado con las instrucciones de hoy (v2).
+    expect(repo.filasDelRubro).toHaveBeenCalledWith(
+      1,
+      expect.any(String),
+      'claude-haiku-5-5#v2',
+    );
     expect(rubro.clasificarSiHaceFalta).toHaveBeenCalledWith(1, {
       revisadas: 0,
       total: 5900,
