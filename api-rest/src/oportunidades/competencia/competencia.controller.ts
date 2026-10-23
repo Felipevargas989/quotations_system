@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
@@ -7,9 +7,10 @@ import type { User } from 'src/users/entities/user.entity';
 import { MarcarCompetidorDto } from '../dto/marcar-competidor.dto';
 import { CompetenciaService } from './competencia.service';
 
-// Competidores reales (decisión 70 del doc 17). Bajo «competencia», no
-// «competidores»: «competidores/:rut» ya es la ficha de quién gana en la
-// zona y se tragaría las rutas nuevas. Mismo candado que el módulo.
+// Competidores reales (decisiones 70 y 71 del doc 17). Bajo «competencia», no
+// «competidores»: «competidores/:rut» es la ficha de siempre y se tragaría
+// las rutas nuevas. «zona» va antes que «:rut» (Nest las prueba en orden).
+// Sin botón de leer: las actas y el rubro se leen solos (decisión 71).
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
 @Controller('oportunidades')
@@ -21,25 +22,22 @@ export class CompetenciaController {
     this.logger.setContext(CompetenciaController.name);
   }
 
-  /** «Tus competidores reales» y cómo va la búsqueda en las actas. */
+  /** «Tus competidores» y cuántas actas de la zona van leídas. */
   @Get('competencia')
   estado(@CurrentUser() user: User) {
     return this.competencia.estado(user.company_id);
   }
 
-  /** «Buscar en las actas»: responde al tiro; sigue por detrás. */
-  @Post('competencia/buscar')
-  buscar(@CurrentUser() user: User) {
-    this.logger.info(
-      `POST /oportunidades/competencia/buscar (empresa ${user.company_id})`,
-    );
-    return this.competencia.buscar(user.company_id);
+  /** «Quién gana en tu zona», solo lo del rubro, y cuánto va revisado. */
+  @Get('competencia/zona')
+  zona(@CurrentUser() user: User) {
+    return this.competencia.zona(user.company_id);
   }
 
-  /** Las licitaciones donde la empresa se cruzó con ese proveedor. */
-  @Get('competencia/:rut/encuentros')
-  encuentros(@Param('rut') rut: string, @CurrentUser() user: User) {
-    return this.competencia.encuentros(user.company_id, rut);
+  /** El estudio de mercado de un competidor. */
+  @Get('competencia/:rut')
+  ficha(@Param('rut') rut: string, @CurrentUser() user: User) {
+    return this.competencia.ficha(user.company_id, rut);
   }
 
   /** «Seguir» o «No es mi competidor» (o deshacerlo). */

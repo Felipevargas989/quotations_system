@@ -8,16 +8,51 @@ import type {
   OfertaLeida,
   ProcesoDelActa,
 } from './competencia';
+import type { ClasificacionDelRubro, FilaDelRubro } from './rubro';
 
-// COMPETIDORES REALES (decisión 70 del doc 17, migración 162): las ofertas
-// leídas de las actas públicas (mp_ofertas, de todos, como mp_procesos) y lo
-// que cada empresa marca de un proveedor (oportunidades_competidores, que
-// filtra siempre por company_id).
+// COMPETIDORES REALES (decisiones 70 y 71 del doc 17; migraciones 162 y 163):
+// las ofertas leídas de las actas públicas (mp_ofertas, de todos, como
+// mp_procesos), lo que cada empresa marca de un proveedor
+// (oportunidades_competidores) y lo que la IA dijo del rubro de cada
+// licitación (oportunidades_rubro); las dos últimas filtran siempre por
+// company_id.
 
 export type ProcesoConActa = ProcesoDelActa & {
   url_acta: string;
   /** «Seguir» (decisión 30) ya guardó su acta: no se vuelve a bajar. */
   acta_guardada: boolean;
+};
+
+/** Una licitación de los últimos 3 años, liviana: para saber qué actas
+ *  faltan y qué falta clasificar (la región se compara después, en
+ *  memoria, con `regionCalza`). */
+export type ProcesoLigero = {
+  codigo: string;
+  region: string | null;
+  comuna: string | null;
+  organismo_codigo: string | null;
+  fecha_publicacion: string | null;
+  url_acta: string | null;
+  acta_leida_en: string | null;
+  ofertas_leidas_en: string | null;
+  con_ganadores: boolean;
+};
+
+/** Una licitación para la IA del rubro: su nombre y sus líneas. */
+export type ProcesoParaElRubro = {
+  codigo: string;
+  nombre: string | null;
+  organismo: string | null;
+  comuna: string | null;
+  region: string | null;
+  fecha_publicacion: string | null;
+  items: unknown;
+};
+
+/** Una compra ágil de la empresa, ya cerrada, para ver quién cotizó. */
+export type CompraAgilPorRevisar = ProcesoDelActa & {
+  fecha_cierre: string | null;
+  cotizantes_leidos_en: string | null;
 };
 
 const COLUMNAS_DEL_PROCESO =
@@ -26,17 +61,20 @@ const COLUMNAS_DEL_PROCESO =
 const COLUMNAS_DE_LA_OFERTA =
   'codigo, rut, proveedor, total_ofertado, total_adjudicado, adjudicada, lineas, detalle, proceso, organismo_codigo, organismo, region, comuna, fecha';
 
-const COLUMNAS_DE_LA_MARCA =
-  'rut, nombre, seguido, descartado, parecido, parecido_razon';
+const COLUMNAS_DE_LA_MARCA = 'rut, nombre, seguido, descartado';
 
 /** De a cuántos códigos se pregunta (la URL tiene tope). */
 const LOTE = 100;
 /** PostgREST no entrega más de mil filas por pedido. */
 const PAGINA = 1000;
+/** La lista liviana de la zona se vuelve a pedir cada 10 minutos. */
+const VIGENCIA_DE_LA_ZONA_MS = 10 * 60_000;
 
-const lotes = <T>(lista: readonly T[]): T[][] => {
+const lotes = <T>(lista: readonly T[], tamano = LOTE): T[][] => {
   const r: T[][] = [];
-  for (let i = 0; i < lista.length; i += LOTE) r.push(lista.slice(i, i + LOTE));
+  for (let i = 0; i < lista.length; i += tamano) {
+    r.push(lista.slice(i, i + tamano));
+  }
   return r;
 };
 
@@ -59,6 +97,9 @@ const todasLasFilas = async <T>(
 
 @Injectable()
 export class CompetenciaRepository {
+  private zona: { desde: string; filas: ProcesoLigero[]; en: number } | null =
+    null;
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly logger: PinoLogger,
@@ -93,69 +134,75 @@ export class CompetenciaRepository {
     }));
   }
 
-  /** Las actas por pasar (adjudicadas, con enlace al acta y sin sus
-   *  ofertas en mp_ofertas), de los códigos, los compradores o las comunas
-   *  dados, desde una fecha; lo más nuevo primero. */
-  async actasPorLeer(
-    filtro:
-      | { codigos: readonly string[] }
-      | { organismos: readonly string[]; desde: string }
-      | { comunas: readonly string[]; desde: string },
-    limite: number,
-  ): Promise<ProcesoConActa[]> {
-    const pedir = async (
-      armar: (
-        c: ReturnType<CompetenciaRepository['consultaDeActas']>,
-      ) => ReturnType<CompetenciaRepository['consultaDeActas']>,
-    ) => {
-      const { data, error } = await armar(this.consultaDeActas())
-        .order('fecha_publicacion', { ascending: false })
-        .limit(limite);
-      if (error) throw error;
-      return (
-        (data ?? []) as unknown as Array<
-          ProcesoDelActa & {
-            adjudicacion: { url_acta?: string | null } | null;
-            acta_leida_en: string | null;
-          }
-        >
-      )
-        .filter((p) => p.adjudicacion?.url_acta)
-        .map(({ adjudicacion, acta_leida_en, ...p }) => ({
-          ...p,
-          url_acta: adjudicacion!.url_acta!,
-          acta_guardada: acta_leida_en != null,
-        }));
-    };
-    if ('codigos' in filtro) {
-      const r: ProcesoConActa[] = [];
-      for (const lote of lotes([...new Set(filtro.codigos)])) {
-        r.push(...(await pedir((c) => c.in('codigo', lote))));
-      }
-      return r.slice(0, limite);
+  /** Las licitaciones publicadas desde `desde`, livianas. Se guarda diez
+   *  minutos: la usan la lista, la lectura y la IA del rubro. */
+  async zonaLigera(desde: string): Promise<ProcesoLigero[]> {
+    if (
+      this.zona &&
+      this.zona.desde.slice(0, 10) === desde.slice(0, 10) &&
+      Date.now() - this.zona.en < VIGENCIA_DE_LA_ZONA_MS
+    ) {
+      return this.zona.filas;
     }
-    if ('organismos' in filtro) {
-      if (filtro.organismos.length === 0) return [];
-      return pedir((c) =>
-        c
-          .in('organismo_codigo', filtro.organismos.slice(0, 200))
-          .gte('fecha_publicacion', filtro.desde),
-      );
-    }
-    if (filtro.comunas.length === 0) return [];
-    return pedir((c) =>
-      c
-        .in('comuna', filtro.comunas.slice(0, 200))
-        .gte('fecha_publicacion', filtro.desde),
+    const filas = await todasLasFilas<
+      Omit<ProcesoLigero, 'con_ganadores'> & { ganador: unknown }
+    >((inicio, fin) =>
+      this.db
+        .from('mp_procesos')
+        .select(
+          'codigo, region, comuna, organismo_codigo, fecha_publicacion, acta_leida_en, ofertas_leidas_en, url_acta:adjudicacion->>url_acta, ganador:adjudicacion->ganadores->0',
+        )
+        .eq('tipo', 'licitacion')
+        .gte('fecha_publicacion', desde)
+        .order('codigo', { ascending: true })
+        .range(inicio, fin),
     );
+    const ligeras = filas.map(({ ganador, ...f }) => ({
+      ...f,
+      con_ganadores: ganador != null,
+    }));
+    this.zona = { desde, filas: ligeras, en: Date.now() };
+    return ligeras;
   }
 
-  private consultaDeActas() {
-    return this.db
-      .from('mp_procesos')
-      .select(COLUMNAS_DEL_PROCESO)
-      .not('adjudicacion->>url_acta', 'is', null)
-      .is('ofertas_leidas_en', null);
+  /** Después de leer o clasificar: la próxima vez se pide de nuevo. */
+  olvidarLaZona(): void {
+    this.zona = null;
+  }
+
+  /** Lo de cada proceso que va con sus ofertas, por código. */
+  async procesosParaActa(
+    codigos: readonly string[],
+  ): Promise<ProcesoConActa[]> {
+    const r: ProcesoConActa[] = [];
+    for (const lote of lotes([...new Set(codigos)])) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select(COLUMNAS_DEL_PROCESO)
+        .in('codigo', lote);
+      if (error) throw error;
+      for (const p of (data ?? []) as unknown as Array<
+        ProcesoDelActa & {
+          adjudicacion: { url_acta?: string | null } | null;
+          acta_leida_en: string | null;
+        }
+      >) {
+        const url = p.adjudicacion?.url_acta;
+        if (!url) continue;
+        r.push({
+          codigo: p.codigo,
+          nombre: p.nombre,
+          organismo_codigo: p.organismo_codigo,
+          organismo: p.organismo,
+          region: p.region,
+          comuna: p.comuna,
+          fecha_publicacion: p.fecha_publicacion,
+          url_acta: url,
+          acta_guardada: p.acta_leida_en != null,
+        });
+      }
+    }
+    return r;
   }
 
   /** El acta que ya guardó «Seguir» (decisión 30). */
@@ -168,6 +215,27 @@ export class CompetenciaRepository {
     if (error) throw error;
     const fila = data as { acta?: ActaDeAdjudicacion | null } | null;
     return fila?.acta ?? null;
+  }
+
+  /** Las actas guardadas de esos procesos (para comparar línea a línea). */
+  async actasDe(
+    codigos: readonly string[],
+  ): Promise<Map<string, ActaDeAdjudicacion | null>> {
+    const r = new Map<string, ActaDeAdjudicacion | null>();
+    for (const lote of lotes([...new Set(codigos)], 40)) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select('codigo, acta')
+        .in('codigo', lote);
+      if (error) throw error;
+      for (const f of (data ?? []) as Array<{
+        codigo: string;
+        acta: ActaDeAdjudicacion | null;
+      }>) {
+        r.set(f.codigo, f.acta ?? null);
+      }
+    }
+    return r;
   }
 
   /** Las ofertas de un acta (reemplazan las de antes) y la marca de que
@@ -213,6 +281,25 @@ export class CompetenciaRepository {
     );
   }
 
+  /** Las ofertas de varios RUT: la historia de cada competidor. */
+  async ofertasDeRuts(ruts: readonly string[]): Promise<OfertaLeida[]> {
+    const todas: OfertaLeida[] = [];
+    for (const lote of lotes([...new Set(ruts)])) {
+      todas.push(
+        ...(await todasLasFilas<OfertaLeida>((desde, hasta) =>
+          this.db
+            .from('mp_ofertas')
+            .select(COLUMNAS_DE_LA_OFERTA)
+            .in('rut', lote)
+            .order('codigo', { ascending: true })
+            .order('rut', { ascending: true })
+            .range(desde, hasta),
+        )),
+      );
+    }
+    return todas;
+  }
+
   /** Todas las ofertas de esas licitaciones. */
   async ofertasDeLicitaciones(
     codigos: readonly string[],
@@ -228,29 +315,6 @@ export class CompetenciaRepository {
             .order('codigo', { ascending: true })
             .order('rut', { ascending: true })
             .range(desde, hasta),
-        )),
-      );
-    }
-    return todas;
-  }
-
-  /** Las ofertas en esos compradores desde una fecha. */
-  async ofertasEnCompradores(
-    organismos: readonly string[],
-    desde: string,
-  ): Promise<OfertaLeida[]> {
-    const todas: OfertaLeida[] = [];
-    for (const lote of lotes([...new Set(organismos)])) {
-      todas.push(
-        ...(await todasLasFilas<OfertaLeida>((inicio, fin) =>
-          this.db
-            .from('mp_ofertas')
-            .select(COLUMNAS_DE_LA_OFERTA)
-            .in('organismo_codigo', lote)
-            .gte('fecha', desde)
-            .order('codigo', { ascending: true })
-            .order('rut', { ascending: true })
-            .range(inicio, fin),
         )),
       );
     }
@@ -294,32 +358,130 @@ export class CompetenciaRepository {
     return data as unknown as MarcaDeCompetidor;
   }
 
-  /** Lo que dijo la IA de cada proveedor (sin tocar lo que marcó la
-   *  empresa). */
-  async guardarClasificaciones(
+  /** Los códigos que la IA ya clasificó para la empresa. */
+  async clasificadas(companyId: number): Promise<Set<string>> {
+    const filas = await todasLasFilas<{ codigo: string }>((desde, hasta) =>
+      this.db
+        .from('oportunidades_rubro')
+        .select('codigo')
+        .eq('company_id', companyId)
+        .order('codigo', { ascending: true })
+        .range(desde, hasta),
+    );
+    return new Set(filas.map((f) => f.codigo));
+  }
+
+  /** El nombre y las líneas (con quién ganó cada una) de esos procesos. */
+  async procesosParaElRubro(
+    codigos: readonly string[],
+  ): Promise<ProcesoParaElRubro[]> {
+    const r: ProcesoParaElRubro[] = [];
+    for (const lote of lotes([...new Set(codigos)], 25)) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select(
+          'codigo, nombre, organismo, comuna, region, fecha_publicacion, items:detalle->Items->Listado',
+        )
+        .in('codigo', lote);
+      if (error) throw error;
+      r.push(...((data ?? []) as unknown as ProcesoParaElRubro[]));
+    }
+    return r;
+  }
+
+  /** Lo que dijo la IA de cada licitación, con quién ganó lo del rubro. */
+  async guardarRubro(
     companyId: number,
-    filas: ReadonlyArray<{
-      rut: string;
-      nombre: string;
-      parecido: 'si' | 'no';
-      razon: string;
-    }>,
+    filas: ReadonlyArray<
+      ClasificacionDelRubro &
+        Omit<FilaDelRubro, 'del_rubro'> & {
+          region: string | null;
+        }
+    >,
     modelo: string,
   ): Promise<void> {
     if (filas.length === 0) return;
     const ahora = new Date().toISOString();
-    const { error } = await this.db.from('oportunidades_competidores').upsert(
+    const { error } = await this.db.from('oportunidades_rubro').upsert(
       filas.map((f) => ({
         company_id: companyId,
-        rut: f.rut,
+        codigo: f.codigo,
+        del_rubro: f.del_rubro,
+        lineas: f.lineas,
+        ganadores: f.ganadores,
+        razon: f.razon,
         nombre: f.nombre,
-        parecido: f.parecido,
-        parecido_razon: f.razon,
-        clasificado_con: modelo,
+        organismo: f.organismo,
+        comuna: f.comuna,
+        region: f.region,
+        fecha: f.fecha,
+        modelo,
         clasificado_en: ahora,
       })),
-      { onConflict: 'company_id,rut' },
+      { onConflict: 'company_id,codigo' },
     );
+    if (error) throw error;
+  }
+
+  /** Las licitaciones del rubro de la empresa (sí o en parte) desde una
+   *  fecha: «Quién gana en tu zona». */
+  filasDelRubro(companyId: number, desde: string): Promise<FilaDelRubro[]> {
+    return todasLasFilas<FilaDelRubro>((inicio, fin) =>
+      this.db
+        .from('oportunidades_rubro')
+        .select(
+          'codigo, del_rubro, ganadores, nombre, organismo, comuna, fecha',
+        )
+        .eq('company_id', companyId)
+        .in('del_rubro', ['si', 'parcial'])
+        .gte('fecha', desde.slice(0, 10))
+        .order('codigo', { ascending: true })
+        .range(inicio, fin),
+    );
+  }
+
+  /** Las compras ágiles de la empresa ya cerradas (hasta 45 días) que no
+   *  se revisaron en las últimas 20 horas. */
+  async comprasAgilesPorRevisar(
+    companyId: number,
+    ahora = Date.now(),
+  ): Promise<CompraAgilPorRevisar[]> {
+    const mias = await this.misLicitaciones(companyId);
+    const hace45 = new Date(ahora - 45 * 24 * 3600_000).toISOString();
+    const hace20h = ahora - 20 * 3600_000;
+    const r: CompraAgilPorRevisar[] = [];
+    for (const lote of lotes(mias.map((m) => m.codigo))) {
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select(
+          'codigo, nombre, organismo_codigo, organismo, region, comuna, fecha_publicacion, fecha_cierre, cotizantes_leidos_en',
+        )
+        .in('codigo', lote)
+        .eq('tipo', 'compra_agil')
+        .lt('fecha_cierre', new Date(ahora).toISOString())
+        .gte('fecha_cierre', hace45);
+      if (error) throw error;
+      r.push(
+        ...((data ?? []) as CompraAgilPorRevisar[]).filter(
+          (p) =>
+            !p.cotizantes_leidos_en ||
+            new Date(p.cotizantes_leidos_en).getTime() < hace20h,
+        ),
+      );
+    }
+    return r;
+  }
+
+  /** Lo que dijo Mercado Público de una compra ágil cerrada: quién cotizó
+   *  (crudo, aparte de `detalle`, que el radar reescribe) y cuándo. */
+  async guardarCotizantes(codigo: string, cotizantes: unknown): Promise<void> {
+    const { error } = await this.db
+      .from('mp_procesos')
+      .update({
+        cotizantes,
+        cotizantes_leidos_en: new Date().toISOString(),
+      })
+      .eq('codigo', codigo);
     if (error) throw error;
   }
 }

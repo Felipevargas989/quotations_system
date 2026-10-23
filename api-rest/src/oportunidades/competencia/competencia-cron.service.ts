@@ -3,30 +3,65 @@ import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
-import { CompetenciaService } from './competencia.service';
+import { OportunidadesRepository } from '../oportunidades.repository';
+import { ActasDeLaZonaService } from './actas.service';
+import { CotizantesService } from './cotizantes.service';
+import { RubroService } from './rubro.service';
 
-// LAS ACTAS DE LA COMPETENCIA, DE NOCHE (decisión 70 del doc 17). Las actas
-// públicas se leen entre dos pasadas del radar (02:07 y 05:07), 25 minutos
-// como mucho: son páginas de Mercado Público, no su API, y no gastan cupo.
-// Como todos los relojes, solo corre con NODE_ENV=production.
-export const HORARIO_DE_LAS_ACTAS = '40 3 * * *';
-const PRESUPUESTO_MS = 25 * 60_000;
+// LA COMPETENCIA, DE NOCHE (decisiones 70 y 71 del doc 17). Dos vueltas entre
+// las pasadas del radar (23:07, 02:07 y 05:07, de unos 15 minutos): de 23:30
+// a 01:55 y de 02:30 a 04:55. En cada una, por empresa con el módulo: las
+// compras ágiles cerradas (pocas consultas), la IA del rubro y las actas de
+// la zona. La primera noche alcanza para las ~6.000 actas de 3 años; las
+// siguientes, solo lo nuevo. Como todos los relojes, solo con
+// NODE_ENV=production.
+export const PRIMERA_VUELTA = '30 23 * * *';
+export const SEGUNDA_VUELTA = '30 2 * * *';
+export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
 
 @Injectable()
 export class CompetenciaCronService {
   constructor(
-    private readonly competencia: CompetenciaService,
+    private readonly oportunidades: OportunidadesRepository,
+    private readonly actas: ActasDeLaZonaService,
+    private readonly rubro: RubroService,
+    private readonly cotizantes: CotizantesService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
 
-  @Cron(HORARIO_DE_LAS_ACTAS, { timeZone: ZONA_DEL_RADAR })
-  async actasDeNoche() {
+  @Cron(PRIMERA_VUELTA, { timeZone: ZONA_DEL_RADAR })
+  primeraVuelta() {
+    return this.deNoche(Date.now() + DURACION_DE_UNA_VUELTA_MS);
+  }
+
+  @Cron(SEGUNDA_VUELTA, { timeZone: ZONA_DEL_RADAR })
+  segundaVuelta() {
+    return this.deNoche(Date.now() + DURACION_DE_UNA_VUELTA_MS);
+  }
+
+  async deNoche(hasta: number): Promise<void> {
     try {
-      await this.competencia.leerDeNoche(Date.now() + PRESUPUESTO_MS);
+      for (const { id } of await this.oportunidades.empresasConModulo()) {
+        if (Date.now() > hasta) return;
+        await this.paso('compras ágiles', () =>
+          this.cotizantes.revisar(id, hasta),
+        );
+        await this.paso('rubro', () => this.rubro.clasificar(id, hasta));
+        await this.paso('actas', () => this.actas.leer(id, hasta));
+      }
     } catch (error) {
-      this.logger.error(`las actas de noche fallaron: ${mensajeDe(error)}`);
+      this.logger.error(`la competencia de noche falló: ${mensajeDe(error)}`);
+    }
+  }
+
+  /** Un paso que falla no frena los demás. */
+  private async paso(que: string, hacer: () => Promise<number>) {
+    try {
+      await hacer();
+    } catch (error) {
+      this.logger.warn(`competencia de noche, ${que}: ${mensajeDe(error)}`);
     }
   }
 }
