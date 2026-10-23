@@ -620,10 +620,15 @@ export const pasosDelAvance = (
     { paso: "Análisis", estado: postulada ? "hecho" : trabajo(a.analisis) },
     {
       paso: "Anexos",
-      estado:
-        postulada || a.generados > 0 || a.firmados > 0
-          ? "hecho"
-          : trabajo(a.anexos),
+      // La IA armando anexos o la propuesta («Armar postulación», «Volver a
+      // armar») se ve girando aunque ya hubiera anexos (23-10).
+      estado: postulada
+        ? "hecho"
+        : a.anexos === "procesando" || a.propuesta === "procesando"
+          ? "en_curso"
+          : a.generados > 0 || a.firmados > 0
+            ? "hecho"
+            : trabajo(a.anexos),
     },
     { paso: "Firma", estado: postulada || firmado ? "hecho" : "pendiente" },
     {

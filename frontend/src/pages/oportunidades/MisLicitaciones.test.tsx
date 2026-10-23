@@ -92,6 +92,43 @@ const pintar = () =>
     </QueryClientProvider>,
   );
 
+describe("Mis licitaciones, siempre al día (23-10)", () => {
+  it("al volver a la lista la pide de nuevo, aunque la acabe de traer: lo que se lanzó en una ficha se ve girando", async () => {
+    // Felipe: "dentro de la ficha análisis sí estaba pensando, pero cuando
+    // salgo, análisis no estaba pensando".
+    s.getMisLicitaciones
+      .mockResolvedValueOnce([mia(91, "Día de Campo", "en_estudio")] as never)
+      .mockResolvedValue([
+        mia(91, "Día de Campo", "en_estudio", {
+          avance: avance({ bases: 1, analisis: "procesando" }),
+        }),
+      ] as never);
+    const cliente = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
+    const lista = () => (
+      <QueryClientProvider client={cliente}>
+        <MemoryRouter initialEntries={["/oportunidades"]}>
+          <Routes>
+            <Route path="/oportunidades" element={<MisLicitaciones />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const primera = render(lista());
+    expect(await screen.findByText("Faltan las bases")).toBeInTheDocument();
+    primera.unmount();
+    render(lista());
+    expect(await screen.findByText("Análisis")).toBeInTheDocument();
+    await screen.findByText((_, el) =>
+      Boolean(
+        el?.textContent === "Análisis" && el.querySelector(".animate-spin"),
+      ),
+    );
+    expect(s.getMisLicitaciones).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("Mis licitaciones", () => {
   it("por postular arriba, por vencimiento; las postuladas abajo, aparte y en verde (19-10)", async () => {
     s.getMisLicitaciones.mockResolvedValue([
