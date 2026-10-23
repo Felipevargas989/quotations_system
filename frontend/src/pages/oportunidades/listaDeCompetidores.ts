@@ -6,31 +6,28 @@ import type {
 import { formatCurrency } from "../../utils/currencies";
 import { matchesSearch } from "../../utils/searchMatch";
 
-// «TUS COMPETIDORES» (decisión 70 del doc 17, 22-10): los textos y filtros
-// de la lista, sin pantalla, para probarlos solos.
+// «TUS COMPETIDORES» (decisiones 70 y 71 del doc 17): los textos y filtros de
+// la lista, sin pantalla, para probarlos solos. Desde el 23-10 sin «Parecido
+// a ti»: solo los que compitieron contigo y los que sigues.
 
-export type VistaDeCompetidores = "todos" | EtiquetaDeCompetidor;
+export type VistaDeCompetidores = "todos" | "seguido";
 
 export const NOMBRE_DE_LA_ETIQUETA: Record<EtiquetaDeCompetidor, string> = {
   compitio: "Compitió contigo",
-  similar: "Parecido a ti",
   seguido: "Lo sigues",
 };
 
 export const COLOR_DE_LA_ETIQUETA: Record<EtiquetaDeCompetidor, string> = {
   compitio: "bg-orange-50 text-orange-800",
-  similar: "bg-sky-50 text-sky-800",
   seguido: "bg-indigo-50 text-indigo-800",
 };
 
 export const NOMBRE_DE_LA_VISTA: Record<VistaDeCompetidores, string> = {
   todos: "Todos",
-  compitio: "Compitieron contigo",
-  similar: "Parecidos a ti",
   seguido: "Los sigues",
 };
 
-/** Lo que se ve con la vista, el buscador y «Descartados». */
+/** Lo que se ve con la vista, el buscador y «No son competidores». */
 export const deLaVista = (
   lista: readonly CompetidorReal[],
   vista: VistaDeCompetidores,
@@ -51,35 +48,49 @@ export const conteos = (
   const vivos = lista.filter((c) => !c.descartado);
   return {
     todos: vivos.length,
-    compitio: vivos.filter((c) => c.etiquetas.includes("compitio")).length,
-    similar: vivos.filter((c) => c.etiquetas.includes("similar")).length,
     seguido: vivos.filter((c) => c.etiquetas.includes("seguido")).length,
     descartados: lista.length - vivos.length,
   };
 };
 
-/** «Se cruzaron 3 veces · ganó él 1 · ganaste tú 2». */
-export const textoDeEncuentros = (c: CompetidorReal): string =>
-  `Se cruzaron ${c.encuentros} ${c.encuentros === 1 ? "vez" : "veces"} · ganó él ${c.te_gano} · ganaste tú ${c.ganaste}`;
+const veces = (n: number) => `${n} ${n === 1 ? "vez" : "veces"}`;
 
-/** «Su precio: 8 % más barato que el tuyo» (en promedio). */
-export const textoDelPrecio = (diferencia: number | null): string | null => {
-  if (diferencia === null) return null;
+/** «Se cruzaron 3 veces · ganó él 1 · ganaste tú 2». */
+export const textoDeEncuentros = (
+  c: Pick<CompetidorReal, "encuentros" | "te_gano" | "ganaste">,
+): string =>
+  `Se cruzaron ${veces(c.encuentros)} · ganó él ${c.te_gano} · ganaste tú ${c.ganaste}`;
+
+/** «Su precio: 8 % más barato que el tuyo en 3 líneas», o por qué no se
+ *  compara (ofertaron líneas distintas). null si no se cruzaron. */
+export const textoDelPrecio = (
+  diferencia: number | null,
+  lineas: number,
+): string | null => {
+  if (diferencia === null) {
+    return lineas === 0
+      ? "Ofertaron líneas distintas: no se compara el precio"
+      : null;
+  }
   const n = Math.round(Math.abs(diferencia) * 10) / 10;
-  if (n === 0) return "Su precio: igual al tuyo";
+  const en = lineas > 1 ? ` en ${lineas} líneas` : "";
+  if (n === 0) return `Su precio: igual al tuyo${en}`;
   const cifra = n.toLocaleString("es-CL", { maximumFractionDigits: 1 });
-  return `Su precio: ${cifra} % ${diferencia < 0 ? "más barato" : "más caro"} que el tuyo`;
+  return `Su precio: ${cifra} % ${diferencia < 0 ? "más barato" : "más caro"} que el tuyo${en}`;
 };
 
-/** «En tus compradores: 5 ofertas, ganó 2 ($12.300.000)». */
-export const textoDeCompradores = (c: CompetidorReal): string =>
-  `En tus compradores: ${c.en_tus_compradores} ${
-    c.en_tus_compradores === 1 ? "oferta" : "ofertas"
-  }, ganó ${c.triunfos_en_tus_compradores}${
-    c.triunfos_en_tus_compradores > 0 && c.monto_ganado > 0
+/** «En tu zona: participó 12 veces, ganó 5 ($31.115.077) · más con DAEM
+ *  Quillón». */
+export const textoDeMercado = (c: CompetidorReal): string => {
+  const ganado =
+    c.ganadas > 0 && c.monto_ganado > 0
       ? ` (${formatCurrency(c.monto_ganado, "CLP")})`
-      : ""
-  }`;
+      : "";
+  const donde = c.comprador_principal
+    ? ` · más con ${c.comprador_principal.nombre}`
+    : "";
+  return `En tu zona: participó ${veces(c.participaciones)}, ganó ${c.ganadas}${ganado}${donde}`;
+};
 
 /** La lista con lo que se acaba de marcar: «Lo sigues» entra o sale, y
  *  quien se queda sin razón para estar, sale. */
@@ -103,3 +114,19 @@ export const conMarca = (
       },
     ];
   });
+
+/** «Actas leídas: 1.475 de 5.977» (o «todas al día»). */
+export const textoDeLasActas = (a: {
+  leidas: number;
+  total: number;
+  leyendo: boolean;
+}): string => {
+  const n = (x: number) => x.toLocaleString("es-CL");
+  if (a.total === 0) return "Todavía no hay actas de tu zona.";
+  if (a.leidas >= a.total) {
+    return `Actas leídas: las ${n(a.total)} de tu zona, al día.`;
+  }
+  return `Actas leídas: ${n(a.leidas)} de ${n(a.total)} de tu zona${
+    a.leyendo ? " · leyendo ahora" : " · se siguen leyendo solas cada noche"
+  }.`;
+};

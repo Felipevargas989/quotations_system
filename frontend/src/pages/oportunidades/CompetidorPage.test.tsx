@@ -1,25 +1,27 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as competencia from "../../services/competencia.service";
-import * as oportunidades from "../../services/oportunidades.service";
+import type { FichaDeMercado } from "../../services/competencia.service";
 import CompetidorPage from "./CompetidorPage";
 
-// LA FICHA DE UN COMPETIDOR con «Cuando compitió contigo» (decisión 70,
-// 22-10): las licitaciones donde ofertaron los dos, aunque nunca haya
-// ganado en la zona (el motor dice 404 a la ficha de la zona).
+// LA FICHA DE UN COMPETIDOR COMO ESTUDIO DE MERCADO (decisión 71, 23-10).
+// Felipe: "me gustaría ver en cuáles más él participó y perdió, él
+// participó y ganó... qué tipo de cosas hacen y a quién les venden".
 
 vi.mock("../../services/competencia.service", () => ({
-  getEncuentros: vi.fn(),
-}));
-vi.mock("../../services/oportunidades.service", () => ({
-  getCompetidor: vi.fn(),
+  getFichaDeMercado: vi.fn(),
 }));
 const c = vi.mocked(competencia);
-const o = vi.mocked(oportunidades);
 
 afterEach(() => {
   cleanup();
@@ -44,44 +46,111 @@ const pintar = (rut: string) =>
     </QueryClientProvider>,
   );
 
-describe("La ficha de un competidor", () => {
-  it("sin triunfos en la zona, igual muestra cuándo compitió contigo: su oferta, la tuya y quién ganó", async () => {
-    o.getCompetidor.mockRejectedValue(new Error("404"));
-    c.getEncuentros.mockResolvedValue({
-      nombre: "SOL DE QUILLON SPA",
-      encuentros: [
+const FICHA: FichaDeMercado = {
+  rut: "77067895-1",
+  nombre: "CENTRO TURISTICO SOL DE QUILLON SPA",
+  seguido: true,
+  descartado: false,
+  resumen: {
+    participaciones: 2,
+    ganadas: 1,
+    perdidas: 1,
+    monto_ganado: 12_000_000,
+    ultima: "2025-10-03",
+    compradores: [
+      { nombre: "ILUSTRE MUNICIPALIDAD DE QUILLON", veces: 2, ganadas: 1 },
+    ],
+  },
+  encuentros: [
+    {
+      codigo: "4364-5-LE25",
+      proceso: "Día del Profesor 2025",
+      organismo: "ILUSTRE MUNICIPALIDAD DE QUILLON",
+      fecha: "2025-09-20",
+      su_oferta: 12_000_000,
+      tu_oferta: 10_000_000,
+      gano_el: true,
+      ganaste: false,
+      diferencia_de_precio: 20,
+      lineas_comparadas: 1,
+    },
+  ],
+  licitaciones: [
+    {
+      codigo: "4364-5-LE25",
+      proceso: "Día del Profesor 2025",
+      organismo: "ILUSTRE MUNICIPALIDAD DE QUILLON",
+      comuna: "Quillón",
+      fecha: "2025-10-03",
+      su_oferta: 12_000_000,
+      lineas: 1,
+      detalle: "Almuerzo y salón",
+      gano: true,
+      ganadores: [
         {
-          codigo: "4364-5-LE25",
-          proceso: "Día del Profesor 2025",
-          organismo: "I. Municipalidad de Quillón",
-          fecha: "2025-09-20",
-          su_oferta: 9_000_000,
-          tu_oferta: 10_000_000,
-          gano_el: false,
-          ganaste: true,
+          rut: "77067895-1",
+          nombre: "CENTRO TURISTICO SOL DE QUILLON SPA",
+          monto: 12_000_000,
         },
       ],
-    });
-    pintar("76111222-3");
+      ofertas: 2,
+      contigo: true,
+    },
+    {
+      codigo: "4364-9-LE24",
+      proceso: "Fiesta de fin de año 2024",
+      organismo: "ILUSTRE MUNICIPALIDAD DE QUILLON",
+      comuna: "Quillón",
+      fecha: "2024-12-01",
+      su_oferta: 8_000_000,
+      lineas: 1,
+      detalle: null,
+      gano: false,
+      ganadores: [{ rut: "78000111-2", nombre: "LAS ROSAS", monto: 7_500_000 }],
+      ofertas: 3,
+      contigo: false,
+    },
+  ],
+};
+
+describe("La ficha de un competidor", () => {
+  it("cuánto participa y gana, a quién le vende, cuándo compitió contigo y todas sus licitaciones (con quién le ganó)", async () => {
+    c.getFichaDeMercado.mockResolvedValue(FICHA);
+    pintar("77067895-1");
     expect(
-      await screen.findByRole("heading", { name: "SOL DE QUILLON SPA" }),
+      await screen.findByRole("heading", {
+        name: "CENTRO TURISTICO SOL DE QUILLON SPA",
+      }),
     ).toBeInTheDocument();
-    const fila = screen.getByText("Día del Profesor 2025").closest("li")!;
+    expect(screen.getByText("Lo sigues")).toBeInTheDocument();
     expect(
-      within(fila).getByText(
-        "Ganaste tú · Su precio: 10 % más barato que el tuyo",
+      screen.getByText(
+        "ILUSTRE MUNICIPALIDAD DE QUILLON · participó 2, ganó 1",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Lo que ganó")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Ganó él · Su precio: 20 % más caro que el tuyo"),
+    ).toBeInTheDocument();
+    const perdida = screen
+      .getByText("Fiesta de fin de año 2024")
+      .closest("li")!;
+    expect(within(perdida).getByText(/Ganó LAS ROSAS/)).toBeInTheDocument();
+    expect(within(perdida).getByText(/Perdió, ofertó/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ganó (1)" }));
+    expect(
+      screen.queryByText("Fiesta de fin de año 2024"),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("Día del Profesor 2025").length).toBeGreaterThan(
+      0,
+    );
   });
 
-  it("sin triunfos ni encuentros, lo dice", async () => {
-    o.getCompetidor.mockRejectedValue(new Error("404"));
-    c.getEncuentros.mockResolvedValue({ nombre: null, encuentros: [] });
+  it("sin nada en las actas ni en lo adjudicado, lo dice", async () => {
+    c.getFichaDeMercado.mockRejectedValue(new Error("404"));
     pintar("76111222-3");
     expect(
       await screen.findByText(
-        "No encontramos a ese proveedor en tus regiones ni en tus licitaciones.",
+        "No encontramos a ese proveedor en las actas ni en lo adjudicado en tu zona.",
       ),
     ).toBeInTheDocument();
   });
