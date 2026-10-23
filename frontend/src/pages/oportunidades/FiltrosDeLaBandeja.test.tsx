@@ -54,26 +54,21 @@ describe("FiltrosDeLaBandeja", () => {
     expect(onCambiar).toHaveBeenCalledWith({ tipo: "compra_agil" });
   });
 
-  it("el rojo es el reciclaje y la basura va aparte: los dos parten ocultos, y un clic los enciende (decisión 72)", () => {
-    // Felipe, 23-10: "el rojo puede ser reciclaje... y otras que estén
-    // sencillamente descartadas porque no son".
+  it("el rojo es el reciclaje y se porta como el verde y el amarillo; la basura no tiene botón (decisión 72, 23-10)", () => {
+    // Felipe: "gris lo eliminaría; rojo que sea igual en comportamiento al
+    // verde y amarillo".
     const onCambiar = pintar();
-    const reciclaje = screen.getByRole("button", {
-      name: /Reciclaje 12 · ocultas/,
-    });
+    const reciclaje = screen.getByRole("button", { name: "Reciclaje 12" });
+    expect(reciclaje).toHaveAttribute("aria-pressed", "true");
     expect(reciclaje).toHaveAttribute(
       "title",
       expect.stringContaining("de tu zona y de tu rubro"),
     );
+    expect(screen.queryByText(/ocultas/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Basura/ })).toBeNull();
     fireEvent.click(reciclaje);
     expect(onCambiar).toHaveBeenCalledWith({
-      semaforos: ["verde", "amarillo", "rojo"],
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: /Basura 553 · ocultas/ }),
-    );
-    expect(onCambiar).toHaveBeenLastCalledWith({
-      semaforos: ["verde", "amarillo", "basura"],
+      semaforos: ["verde", "amarillo"],
     });
   });
 });

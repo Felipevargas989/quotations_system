@@ -5,11 +5,16 @@ import { type ColorDeLaLista, SEMAFOROS } from "./oportunidades.utils";
 // viene» (decisión 62): "sería bueno que este filtro sea el mismo que este,
 // con verdes, amarillas, rojas y buscador". Cada color es un botón que se
 // prende y se apaga, con cuántas hay. Desde la decisión 72 (23-10) el rojo
-// es el «Reciclaje» y la basura tiene su botón gris; los dos parten
-// apagados y dicen «ocultas». Va sin envoltorio: cada pantalla lo pone en
-// su fila.
+// es el «Reciclaje» y se porta igual que el verde y el amarillo (prendido de
+// partida); la basura no tiene botón: solo aparece al buscar (Felipe, 23-10:
+// "gris lo eliminaría; rojo que sea igual en comportamiento al verde y
+// amarillo"). Va sin envoltorio: cada pantalla lo pone en su fila.
 
-const PARTEN_OCULTAS: ReadonlyArray<ColorDeLaLista> = ["rojo", "basura"];
+const COLORES_DEL_FILTRO: ReadonlyArray<ColorDeLaLista> = [
+  "verde",
+  "amarillo",
+  "rojo",
+];
 
 export default function FiltroDelSemaforo({
   seleccion,
@@ -32,7 +37,7 @@ export default function FiltroDelSemaforo({
     );
   return (
     <>
-      {(Object.keys(SEMAFOROS) as ColorDeLaLista[]).map((s) => {
+      {COLORES_DEL_FILTRO.map((s) => {
         const activo = seleccion.includes(s);
         return (
           <button
@@ -51,7 +56,6 @@ export default function FiltroDelSemaforo({
               className={`w-2.5 h-2.5 rounded-full ${SEMAFOROS[s].punto}`}
             />
             {SEMAFOROS[s].label} {porSemaforo[s]}
-            {!activo && PARTEN_OCULTAS.includes(s) && " · ocultas"}
           </button>
         );
       })}

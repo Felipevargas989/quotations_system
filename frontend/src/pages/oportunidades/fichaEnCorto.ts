@@ -29,6 +29,8 @@ export const avanceDeLaFicha = (d: {
   bases?: readonly AdjuntoDeOportunidad[];
   /** El motor trayendo los documentos (23-10). */
   trayendo?: boolean;
+  /** «1. Qué ofreces» de «Armar postulación» (23-10). */
+  oferta?: { estado: "procesando" | "listo" | "error" } | null;
   postulacion?: readonly AdjuntoDeOportunidad[];
   analisis?: AnalisisDeBases | null;
   generaciones?: GeneracionesDeOportunidad;
@@ -42,6 +44,7 @@ export const avanceDeLaFicha = (d: {
     analisis: d.analisis?.estado ?? null,
     anexos: d.generaciones?.anexos?.estado ?? null,
     propuesta: d.generaciones?.propuesta?.estado ?? null,
+    oferta: d.oferta?.estado ?? null,
     postulacion: postulacion.length,
     // Lo de la IA sin firmar: un Word con su firmado no cuenta (decisión 58).
     generados: postulacion.filter(

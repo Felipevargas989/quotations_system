@@ -102,9 +102,7 @@ const pintar = () =>
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MiPostulacion
-        oportunidadId={40}
-      />
+      <MiPostulacion oportunidadId={40} />
     </QueryClientProvider>,
   );
 
