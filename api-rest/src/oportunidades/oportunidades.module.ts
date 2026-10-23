@@ -16,6 +16,13 @@ import { AprendizajesRepository } from './aprendizajes/aprendizajes.repository';
 import { AprendizajesService } from './aprendizajes/aprendizajes.service';
 import { ComparacionController } from './comparacion/comparacion.controller';
 import { ComparacionService } from './comparacion/comparacion.service';
+import { ActasDeLaZonaService } from './competencia/actas.service';
+import { CompetenciaCronService } from './competencia/competencia-cron.service';
+import { CompetenciaController } from './competencia/competencia.controller';
+import { CompetenciaRepository } from './competencia/competencia.repository';
+import { CompetenciaService } from './competencia/competencia.service';
+import { CotizantesService } from './competencia/cotizantes.service';
+import { RubroService } from './competencia/rubro.service';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
 import { GeneracionRepository } from './generacion/generacion.repository';
@@ -58,6 +65,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
 @Module({
   imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
   controllers: [
+    CompetenciaController,
     PreguntasController,
     OportunidadesController,
     PostulacionController,
@@ -66,6 +74,12 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     AprendizajesController,
   ],
   providers: [
+    CompetenciaRepository,
+    CompetenciaService,
+    ActasDeLaZonaService,
+    RubroService,
+    CotizantesService,
+    CompetenciaCronService,
     PreguntasRepository,
     PreguntasService,
     ResumenDeNegocioService,
