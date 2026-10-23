@@ -1,15 +1,56 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getCompetidores } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
+import CompetidoresReales from "./CompetidoresReales";
 import { urlCompetidor } from "./oportunidades.utils";
 
-// COMPETIDORES (doc 17 §5.3, sprint 2): quién gana en las regiones de la
+// COMPETIDORES, en dos vistas. La de entrada desde la decisión 70 (22-10),
+// «Tus competidores»: con quién compite la empresa de verdad, según las
+// actas de adjudicación (`CompetidoresReales`). La de siempre (doc 17 §5.3,
+// sprint 2), «Quién gana en tu zona»: quién gana en las regiones de la
 // empresa, sacado de las adjudicaciones de la historia (3 años). Cada
 // nombre lleva a su ficha.
 
+const VISTAS = [
+  ["tuyos", "Tus competidores"],
+  ["zona", "Quién gana en tu zona"],
+] as const;
+
 export default function CompetidoresOportunidades() {
+  const [vista, setVista] = useState<(typeof VISTAS)[number][0]>("tuyos");
+  return (
+    <div className="space-y-4">
+      <div
+        role="tablist"
+        aria-label="Competidores"
+        className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+      >
+        {VISTAS.map(([clave, nombre]) => (
+          <button
+            key={clave}
+            type="button"
+            role="tab"
+            aria-selected={vista === clave}
+            onClick={() => setVista(clave)}
+            className={`px-3 py-1.5 text-sm rounded-md ${
+              vista === clave
+                ? "bg-white font-semibold text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            {nombre}
+          </button>
+        ))}
+      </div>
+      {vista === "tuyos" ? <CompetidoresReales /> : <QuienGanaEnTuZona />}
+    </div>
+  );
+}
+
+function QuienGanaEnTuZona() {
   const {
     data = [],
     isPending,
