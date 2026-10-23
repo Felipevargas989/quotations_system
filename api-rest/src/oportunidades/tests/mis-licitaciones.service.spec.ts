@@ -101,6 +101,19 @@ function armar() {
         creado_en: '2026-10-17T15:30Z',
         tipo: 'propuesta',
       },
+      {
+        oportunidad_id: 40,
+        estado: 'listo',
+        creado_en: '2026-10-17T15:00Z',
+        tipo: 'oferta',
+      },
+      // La 87: la IA armando «1. Qué ofreces» (23-10).
+      {
+        oportunidad_id: 87,
+        estado: 'procesando',
+        creado_en: '2026-10-23T22:50Z',
+        tipo: 'oferta',
+      },
     ]),
   };
   // «Traer los documentos» corriendo solo en la 87 (23-10).
@@ -146,6 +159,7 @@ describe('MisLicitacionesService', () => {
       analisis: 'listo',
       anexos: 'listo',
       propuesta: 'error',
+      oferta: 'listo',
       postulacion: 4,
       // Sin firmar: solo el Word 6 (el 5 ya tiene su firmado).
       generados: 1,
@@ -159,6 +173,7 @@ describe('MisLicitacionesService', () => {
       analisis: 'procesando',
       anexos: null,
       propuesta: null,
+      oferta: 'procesando',
       postulacion: 0,
       generados: 0,
       firmados: 0,

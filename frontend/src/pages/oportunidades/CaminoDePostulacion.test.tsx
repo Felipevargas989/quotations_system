@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as postulacion from "../../services/postulacion.service";
 import CaminoDePostulacion from "./CaminoDePostulacion";
 
 // EL CAMINO DE LA POSTULACIÓN (Felipe, 17-10: "vamos con todas"): los pasos
@@ -24,6 +25,10 @@ vi.mock("../../services/oportunidades.service", () => ({
   getGeneraciones: vi.fn(() =>
     Promise.resolve({ anexos: null, firma: null, propuesta: null }),
   ),
+  getEstadoDeTraer: vi.fn(() => Promise.resolve({ trayendo: false })),
+}));
+vi.mock("../../services/postulacion.service", () => ({
+  getOfertaDeLaPostulacion: vi.fn(() => Promise.resolve(null)),
 }));
 
 afterEach(cleanup);
@@ -50,5 +55,24 @@ describe("CaminoDePostulacion", () => {
     expect(
       screen.queryByText(/Pon el precio y que la IA arme la postulación/),
     ).not.toBeInTheDocument();
+  });
+
+  it("mientras la IA arma «1. Qué ofreces», Anexos gira (23-10)", async () => {
+    // Felipe: "por qué anexos ahí no se queda pensando?".
+    vi.mocked(postulacion.getOfertaDeLaPostulacion).mockResolvedValueOnce({
+      estado: "procesando",
+    } as never);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CaminoDePostulacion oportunidadId={40} estado="en_estudio" />
+      </QueryClientProvider>,
+    );
+    await screen.findByText((_, el) =>
+      Boolean(
+        el?.tagName === "SPAN" &&
+          el.textContent === "Anexos" &&
+          el.querySelector(".animate-spin"),
+      ),
+    );
   });
 });

@@ -95,7 +95,15 @@ describe("los montones", () => {
     } as unknown as Filtros;
     expect(conVistaValida(vieja).vista).toBe("nueva");
     const buena: Filtros = { ...FILTROS_DE_PARTIDA, vista: "descartada" };
-    expect(conVistaValida(buena)).toBe(buena);
+    expect(conVistaValida(buena)).toEqual(buena);
+  });
+
+  it("la basura guardada en la sesión se apaga: ya no tiene botón para apagarla (23-10)", () => {
+    const conBasura: Filtros = {
+      ...FILTROS_DE_PARTIDA,
+      semaforos: ["verde", "basura", "rojo"],
+    };
+    expect(conVistaValida(conBasura).semaforos).toEqual(["verde", "rojo"]);
   });
 
   it("cada número es lo que se va a ver: con el semáforo y sin lo ya cerrado", () => {
@@ -113,21 +121,20 @@ describe("los montones", () => {
       op(7, { cierre: cierraEn(4), estado: "en_estudio" }),
       op(8, { cierre: cierraEn(6), semaforo: "rojo" }),
     ];
+    // De partida cuentan verdes, amarillas y reciclaje; la basura no
+    // (decisión 72, 23-10: el rojo se porta como el verde y el amarillo).
     expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
-      nueva: 2,
+      nueva: 3,
       descartada: 1,
     });
-    // El reciclaje suma solo si se enciende; la basura, aparte (decisión 72).
-    const conReciclaje: Filtros = {
+    const sinReciclaje: Filtros = {
       ...FILTROS_DE_PARTIDA,
-      semaforos: ["verde", "amarillo", "rojo"],
+      semaforos: ["verde", "amarillo"],
     };
-    expect(contarPorVista(lista, conReciclaje, AHORA).nueva).toBe(3);
-    const conTodo: Filtros = {
-      ...FILTROS_DE_PARTIDA,
-      semaforos: ["verde", "amarillo", "rojo", "basura"],
-    };
-    expect(contarPorVista(lista, conTodo, AHORA).nueva).toBe(4);
+    expect(contarPorVista(lista, sinReciclaje, AHORA).nueva).toBe(2);
+    // Al buscar, aparece también la basura.
+    const buscando: Filtros = { ...FILTROS_DE_PARTIDA, busca: "Proceso 8" };
+    expect(contarPorVista(lista, buscando, AHORA).nueva).toBe(1);
   });
 });
 

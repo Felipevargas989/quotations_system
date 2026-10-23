@@ -14,6 +14,7 @@ const algoCorriendo = (lista: MiLicitacion[]) =>
   lista.some(
     ({ avance: a }) =>
       a.trayendo ||
+      a.oferta === "procesando" ||
       a.analisis === "procesando" ||
       a.anexos === "procesando" ||
       a.propuesta === "procesando" ||

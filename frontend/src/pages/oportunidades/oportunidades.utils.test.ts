@@ -89,10 +89,10 @@ describe("la bandeja: qué se ve de partida", () => {
     op({ id: 6, semaforo: "rojo", alertas: ["comuna_cercana"] }),
   ];
 
-  it("abre en «Por revisar»: sin las rojas ni lo ya marcado (Felipe, 17-10)", () => {
+  it("abre en «Por revisar»: verdes, amarillas y reciclaje, sin la basura ni lo ya marcado (Felipe, 17-10 y 23-10)", () => {
     expect(FILTROS_DE_PARTIDA.vista).toBe("nueva");
     expect(VISTAS[0]).toMatchObject({ value: "nueva", label: "Por revisar" });
-    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1]);
+    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1, 6]);
   });
 
   it("cuatro montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10)", () => {
@@ -123,22 +123,21 @@ describe("la bandeja: qué se ve de partida", () => {
     expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 1, basura: 1 });
   });
 
-  it("el rojo se parte en dos: el reciclaje y la basura, cada uno con su botón (decisión 72)", () => {
+  it("el rojo se parte en dos: el reciclaje se ve como el verde y el amarillo, y la basura solo al buscar (decisión 72)", () => {
     expect(colorDeLaOportunidad(lista[2])).toBe("basura");
     expect(colorDeLaOportunidad(lista[5])).toBe("rojo");
     expect(colorDeLaOportunidad(lista[0])).toBe("verde");
     // Lo que la IA no aprueba nunca es prioridad, aunque sea de tu zona.
     expect(esPrioridad(lista[5])).toBe(false);
-    const conReciclaje = {
+    const sinReciclaje = {
       ...FILTROS_DE_PARTIDA,
-      semaforos: ["verde", "amarillo", "rojo"] as const,
+      semaforos: ["verde", "amarillo"] as const,
     };
-    expect(filtrar(lista, conReciclaje).map((o) => o.id)).toEqual([1, 6]);
-    const conBasura = {
-      ...FILTROS_DE_PARTIDA,
-      semaforos: ["verde", "amarillo", "basura"] as const,
-    };
-    expect(filtrar(lista, conBasura).map((o) => o.id)).toEqual([1, 3]);
+    expect(filtrar(lista, sinReciclaje).map((o) => o.id)).toEqual([1]);
+    // Felipe, 23-10: "gris lo eliminaría". Lo guardado se encuentra
+    // buscando: la basura aparece solo con algo escrito en el buscador.
+    const buscando = { ...FILTROS_DE_PARTIDA, busca: "Proceso 3" };
+    expect(filtrar(lista, buscando).map((o) => o.id)).toEqual([3]);
   });
 
   it("la vista Descartadas muestra solo esas", () => {
@@ -479,6 +478,21 @@ describe("Mis licitaciones: el avance", () => {
   };
   const estados = (m: Parameters<typeof pasosDelAvance>[0]) =>
     Object.fromEntries(pasosDelAvance(m).map((p) => [p.paso, p.estado]));
+
+  it("mientras la IA arma «1. Qué ofreces», Anexos gira: es lo primero de «Armar postulación» (23-10)", () => {
+    // Felipe: "por qué anexos ahí no se queda pensando? ahí tampoco".
+    expect(
+      estados({
+        estado: "en_estudio",
+        avance: {
+          ...avance,
+          bases: 3,
+          analisis: "listo",
+          oferta: "procesando",
+        },
+      }).Anexos,
+    ).toBe("en_curso");
+  });
 
   it("mientras el motor trae los documentos, Bases gira aunque ya haya llegado alguno, y queda lista recién al terminar (23-10)", () => {
     // Felipe: "mientras está trayendo, las etapas de bases aparecen

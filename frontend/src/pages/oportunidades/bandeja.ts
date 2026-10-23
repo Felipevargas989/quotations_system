@@ -54,8 +54,12 @@ export const useProximaPasada = (): string => {
 /** Lo guardado en la sesión puede traer una vista que ya no existe
  *  («Abiertas», «En estudio» o «Postuladas», hasta el 18-10): vuelve a
  *  «Por revisar». */
-export const conVistaValida = (f: Filtros): Filtros =>
-  VISTAS.some((v) => v.value === f.vista) ? f : { ...f, vista: "nueva" };
+export const conVistaValida = (f: Filtros): Filtros => ({
+  ...(VISTAS.some((v) => v.value === f.vista) ? f : { ...f, vista: "nueva" }),
+  // La basura ya no tiene botón (23-10): que no quede prendida sin poder
+  // apagarla.
+  semaforos: f.semaforos.filter((c) => c !== "basura"),
+});
 
 /** El número al lado de «Por revisar» y «Descartadas»: lo que se va a ver
  *  al pincharlo, con los demás filtros puestos (el semáforo incluido).
@@ -149,15 +153,17 @@ export const agruparPorCierre = (
  *  - `al_dia`: en «Por revisar», sin filtros que achiquen, ya no queda
  *    nada nuevo (lo que vio Felipe el 17-10: «Verdes 0, Amarillas 0»);
  *  - `con_filtros`: algún filtro esconde lo que hay (tipo, región,
- *    buscador, o verdes o amarillas apagadas); se ofrece quitarlos;
+ *    buscador, o verdes, amarillas o reciclaje apagados); se ofrece
+ *    quitarlos;
  *  - `nada`: «Descartadas» o «Historial» vacíos.
- *  Encender el reciclaje o la basura no achica: no cuenta como filtro. */
+ *  La basura no tiene botón: no cuenta como filtro (23-10). */
 export type BandejaVacia = "sin_datos" | "al_dia" | "con_filtros" | "nada";
 
 export const hayFiltrosQueAchican = (f: Filtros): boolean =>
   Boolean(f.tipo || f.region || f.busca.trim()) ||
   !f.semaforos.includes("verde") ||
-  !f.semaforos.includes("amarillo");
+  !f.semaforos.includes("amarillo") ||
+  !f.semaforos.includes("rojo");
 
 export const queDiceLaBandejaVacia = (
   total: number,

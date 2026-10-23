@@ -64,7 +64,9 @@ import { useMisLicitaciones } from "./useMisLicitaciones";
 // IA lee. Base: el mockup del 16-10. Solo administrador. Sin resumen por
 // correo (Felipe, 17-10: "se revisa en Eventia").
 
-const CLAVE_FILTROS = "op.filtros";
+// v2 desde el 23-10: el reciclaje pasó a verse de partida y la basura
+// perdió su botón; los filtros guardados antes no lo sabían.
+const CLAVE_FILTROS = "op.filtros.v2";
 const CLAVE_PESTANA = "op.pestana";
 
 type Pestana =
@@ -316,7 +318,7 @@ function Bandeja({
   // (una gira de estudio no se postula, se sigue).
   const visibles = enSeguimiento
     ? base
-    : base.filter((o) => pasaElSemaforo(o, filtros.semaforos));
+    : base.filter((o) => pasaElSemaforo(o, filtros.semaforos, filtros.busca));
   const porVista = useMemo(
     () => ({
       ...contarPorVista(todas, filtros),
