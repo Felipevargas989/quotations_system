@@ -508,6 +508,8 @@ export const pedirValidacion = async (id: number) =>
 export interface AvanceDeLicitacion {
   /** Archivos en «Bases y anexos». */
   bases: number;
+  /** «Traer los documentos» corriendo (23-10); un motor de antes no lo trae. */
+  trayendo?: boolean;
   analisis: "procesando" | "listo" | "error" | null;
   anexos: "procesando" | "listo" | "error" | null;
   propuesta: "procesando" | "listo" | "error" | null;
@@ -774,6 +776,13 @@ export const traerAdjuntos = async (id: number) =>
     `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/traer`,
     "POST",
   )) as TraidoDeLicify;
+
+/** ¿El motor está trayendo los documentos? (23-10) */
+export const getEstadoDeTraer = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/adjuntos/traer`,
+    "GET",
+  )) as { trayendo: boolean };
 
 export const getCorridasDelRadar = async () =>
   (await apiRequest(

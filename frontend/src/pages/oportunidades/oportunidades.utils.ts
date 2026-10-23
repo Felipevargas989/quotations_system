@@ -2,7 +2,6 @@ import type {
   AdjuntoDeOportunidad,
   Anterior,
   Generacion,
-  MiLicitacion,
   OrigenDeArchivo,
   Oportunidad,
   Semaforo,
@@ -16,6 +15,31 @@ import { matchesSearch } from "../../utils/searchMatch";
 // (doc 17 §5.3). Funciones puras: las pruebas las cubren enteras.
 
 export { ESTADOS } from "./estadosDeOportunidad";
+export {
+  ESTILO_DEL_PASO,
+  type EstadoDelPaso,
+  type PasoDelAvance,
+  pasosDelAvance,
+} from "./pasosDelAvance";
+
+/** EL ROJO ES RECICLAJE (decisión 72, 23-10). Felipe: "el rojo puede ser
+ *  reciclaje, cosas que la IA rechazó pero que vale la pena ver... y otras
+ *  que estén sencillamente descartadas porque no son". La base guarda el
+ *  color de la IA; la lista parte el rojo en dos: el de tu zona y de tu
+ *  rubro (con el aviso de comuna cercana) es el reciclaje, y el resto, la
+ *  basura (unas 550 al día). */
+export type ColorDeLaLista = Semaforo | "basura";
+
+export const colorDe = (
+  semaforo: Semaforo | null,
+  reciclaje: boolean,
+): ColorDeLaLista | null =>
+  semaforo === "rojo" && !reciclaje ? "basura" : semaforo;
+
+export const colorDeLaOportunidad = (
+  o: Pick<Oportunidad, "semaforo" | "alertas">,
+): ColorDeLaLista | null =>
+  colorDe(o.semaforo, o.alertas.includes("comuna_cercana"));
 
 /** EL ROJO ES RECICLAJE (decisión 72, 23-10). Felipe: "el rojo puede ser
  *  reciclaje, cosas que la IA rechazó pero que vale la pena ver... y otras
@@ -627,89 +651,6 @@ export const TEXTOS_DE_GENERACION: Record<
 export const algunaEnCurso = (
   g: Partial<Record<TipoDeGeneracion, Generacion | null>> | null | undefined,
 ): boolean => Object.values(g ?? {}).some((x) => x?.estado === "procesando");
-
-/** "MIS LICITACIONES" (Felipe, 17-10): el avance de cada una, paso a paso.
- *  Cómo va cada paso: hecho, en curso, con aviso (validación "casi"),
- *  falta (sin bases, o la validación dice que falta algo obligatorio),
- *  error, o todavía no. */
-export type EstadoDelPaso =
-  | "hecho"
-  | "en_curso"
-  | "aviso"
-  | "falta"
-  | "error"
-  | "pendiente";
-
-export type PasoDelAvance = { paso: string; estado: EstadoDelPaso };
-
-const trabajo = (e: "procesando" | "listo" | "error" | null): EstadoDelPaso =>
-  e === "listo"
-    ? "hecho"
-    : e === "procesando"
-      ? "en_curso"
-      : e === "error"
-        ? "error"
-        : "pendiente";
-
-export const pasosDelAvance = (
-  m: Pick<MiLicitacion, "avance" | "estado">,
-): PasoDelAvance[] => {
-  const a = m.avance;
-  const v = a.validacion;
-  // Postulada (o ya resuelta), lo de antes está hecho; solo la validación
-  // muestra lo que dijo (Felipe, 19-10: "está todo firmado, solo debería
-  // estar con alerta la validación").
-  const postulada = ["postulada", "ganada", "perdida"].includes(m.estado);
-  // Firmado = no queda nada de la IA sin firmar (`generados` ya es lo sin
-  // firmar: decisión 58). Lo subido a mano cuenta como firmado: muchas
-  // veces se firma por fuera y se sube el PDF.
-  const sinFirmar = a.generados;
-  const firmado = sinFirmar === 0 && (a.firmados > 0 || a.postulacion > 0);
-  return [
-    { paso: "Bases", estado: postulada || a.bases > 0 ? "hecho" : "falta" },
-    { paso: "Análisis", estado: postulada ? "hecho" : trabajo(a.analisis) },
-    {
-      paso: "Anexos",
-      // La IA armando anexos o la propuesta («Armar postulación», «Volver a
-      // armar») se ve girando aunque ya hubiera anexos (23-10).
-      estado: postulada
-        ? "hecho"
-        : a.anexos === "procesando" || a.propuesta === "procesando"
-          ? "en_curso"
-          : a.generados > 0 || a.firmados > 0
-            ? "hecho"
-            : trabajo(a.anexos),
-    },
-    { paso: "Firma", estado: postulada || firmado ? "hecho" : "pendiente" },
-    {
-      paso: "Validación",
-      estado: !v
-        ? "pendiente"
-        : v.estado !== "listo"
-          ? trabajo(v.estado)
-          : v.listo === "si"
-            ? "hecho"
-            : v.listo === "casi"
-              ? "aviso"
-              : "falta",
-    },
-    {
-      paso: "Postulada",
-      estado: ["postulada", "ganada", "perdida"].includes(m.estado)
-        ? "hecho"
-        : "pendiente",
-    },
-  ];
-};
-
-export const ESTILO_DEL_PASO: Record<EstadoDelPaso, string> = {
-  hecho: "bg-green-100 text-green-800",
-  en_curso: "bg-blue-100 text-blue-800",
-  aviso: "bg-amber-100 text-amber-800",
-  falta: "bg-red-100 text-red-800",
-  error: "bg-red-100 text-red-800",
-  pendiente: "bg-gray-100 text-gray-500",
-};
 
 /** «Mis licitaciones» en dos listas (Felipe, 19-10: "ordenar por
  *  pendientes, ya postuladas abajo y de algún color diferente para saber
