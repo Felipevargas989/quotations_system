@@ -41,6 +41,7 @@ import {
   UpdatePayment,
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
+import { planAlAnular } from './plan-al-anular';
 
 /**
  * Service responsible for managing payment operations including
@@ -363,6 +364,33 @@ export class PaymentsService {
   async rellenarCuotas(quotationId: Quotation['id'], companyId: Company['id']) {
     const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
     return this.aplicarLlenado(quotationId, cuotas, piezas);
+  }
+
+  /**
+   * AL ANULAR, LO PAGADO ES EL 100% (Felipe, 22-10-2026; doc 14 §Anular):
+   * el plan se cierra en lo ya pagado. La cuota a medio pagar queda en lo
+   * abonado (pagada), la que no tiene abonos se borra y se renumera. Ver
+   * `plan-al-anular.ts`.
+   */
+  async cerrarPlanAlAnular(
+    quotationId: Quotation['id'],
+    companyId: Company['id'],
+  ) {
+    const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
+    const { cerrar, borrar } = planAlAnular(cuotas, piezas);
+    for (const c of cerrar) {
+      const { error } = await this.paymentsRepository.updatePayment(c.id, {
+        amount: c.amount,
+        status: PaymentStatus.PAGADO,
+      });
+      if (error) throw error;
+    }
+    for (const id of borrar) {
+      const { error } = await this.paymentsRepository.removePayment(id);
+      if (error) throw error;
+    }
+    if (borrar.length > 0) await this.renumerarCuotas(quotationId, companyId);
+    return { cerradas: cerrar.length, borradas: borrar.length };
   }
 
   /**

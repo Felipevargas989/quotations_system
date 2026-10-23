@@ -49,6 +49,7 @@ describe('Anular con reembolso', () => {
     create: jest.Mock;
   };
   const orden: string[] = [];
+  let cerrarPlan: jest.Mock;
 
   const cotizacion = (estado: QuotationStatus) => ({
     data: { id: 'q1', company_id: 1, quotation_status: estado },
@@ -83,6 +84,10 @@ describe('Anular con reembolso', () => {
         error: null,
       }),
       deletePaymentPlan: jest.fn(),
+      cerrarPlanAlAnular: (cerrarPlan = jest.fn().mockImplementation(() => {
+        orden.push('cerrar plan');
+        return Promise.resolve({ cerradas: 0, borradas: 1 });
+      })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -137,7 +142,7 @@ describe('Anular con reembolso', () => {
       amount: 1394000,
       quotation_id: 'q1',
     });
-    expect(orden).toEqual(['guardar', 'reembolso']);
+    expect(orden).toEqual(['guardar', 'reembolso', 'cerrar plan']);
   });
 
   it('el monto no viaja como columna de la cotización', async () => {
@@ -181,5 +186,28 @@ describe('Anular con reembolso', () => {
     );
     expect(repo.update).not.toHaveBeenCalled();
     expect(refunds.create).not.toHaveBeenCalled();
+  });
+
+  // AL ANULAR, LO PAGADO ES EL 100% (Felipe, 22-10-2026; doc 14 §Anular).
+  it('al anular una aceptada, el plan se cierra en lo pagado', async () => {
+    await anular();
+    expect(cerrarPlan).toHaveBeenCalledWith('q1', 1);
+    expect(orden).toEqual(['guardar', 'cerrar plan']);
+  });
+
+  it('si cerrar el plan falla, la anulación igual queda', async () => {
+    cerrarPlan.mockRejectedValueOnce(new Error('caída'));
+    await expect(anular()).resolves.toEqual({ id: 'q1' });
+    expect(repo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('anular algo que no estaba aceptado no toca el plan', async () => {
+    repo.findOne.mockResolvedValue(
+      cotizacion(QuotationStatus.ENVIADA) as unknown as Awaited<
+        ReturnType<QuotationsRepository['findOne']>
+      >,
+    );
+    await anular();
+    expect(cerrarPlan).not.toHaveBeenCalled();
   });
 });
