@@ -8,10 +8,12 @@ import {
 
 export const CLAVE_MIAS = ["oportunidades", "mias"];
 
-/** Algo de la IA corriendo: se pregunta seguido hasta que termine. */
+/** Algo de la IA corriendo, o el motor trayendo documentos: se pregunta
+ *  seguido hasta que termine. */
 const algoCorriendo = (lista: MiLicitacion[]) =>
   lista.some(
     ({ avance: a }) =>
+      a.trayendo ||
       a.analisis === "procesando" ||
       a.anexos === "procesando" ||
       a.propuesta === "procesando" ||

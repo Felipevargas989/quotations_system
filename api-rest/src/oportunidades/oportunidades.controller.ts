@@ -290,8 +290,18 @@ export class OportunidadesController {
     return this.adjuntos.listar(user.company_id, id, seccion ?? 'bases');
   }
 
+  /** ¿Está trayendo los documentos? (23-10): la pantalla lo pregunta al
+   *  volver a la ficha, para seguir mostrando «Trayendo…». */
+  @Get(':id/adjuntos/traer')
+  estadoDeTraer(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ): { trayendo: boolean } {
+    return { trayendo: this.licify.estaTrayendo(user.company_id, id) };
+  }
+
   /** «Traer los documentos» (decisión 65): lo que Licify tiene del
-   *  proceso, a «Bases y anexos». */
+   *  proceso, a «Bases y anexos». Una vuelta a la vez (409). */
   @Post(':id/adjuntos/traer')
   traerAdjuntos(
     @Param('id', ParseIntPipe) id: number,

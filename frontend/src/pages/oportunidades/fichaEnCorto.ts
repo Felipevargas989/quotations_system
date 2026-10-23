@@ -27,6 +27,8 @@ export type PestanaDeFicha =
  *  con la forma que ya usa «Mis licitaciones». */
 export const avanceDeLaFicha = (d: {
   bases?: readonly AdjuntoDeOportunidad[];
+  /** El motor trayendo los documentos (23-10). */
+  trayendo?: boolean;
   postulacion?: readonly AdjuntoDeOportunidad[];
   analisis?: AnalisisDeBases | null;
   generaciones?: GeneracionesDeOportunidad;
@@ -36,6 +38,7 @@ export const avanceDeLaFicha = (d: {
   const v = d.validacion;
   return {
     bases: (d.bases ?? []).length,
+    trayendo: d.trayendo ?? false,
     analisis: d.analisis?.estado ?? null,
     anexos: d.generaciones?.anexos?.estado ?? null,
     propuesta: d.generaciones?.propuesta?.estado ?? null,

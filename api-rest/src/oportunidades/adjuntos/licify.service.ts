@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -111,6 +112,14 @@ export const archivosDeLaRespuesta = (
 
 @Injectable()
 export class LicifyService {
+  /** Lo que se está trayendo ahora, por empresa y oportunidad (23-10). Una
+   *  vuelta a la vez: Felipe salió de la ficha mientras bajaba un PDF de
+   *  12 MB, volvió, vio el botón libre y apretó otra vez; la segunda vuelta
+   *  no lo encontró (la primera aún no lo guardaba) y lo trajo repetido.
+   *  Vive en la memoria del motor: si el motor se reinicia, la vuelta se
+   *  corta y deja de decir que trae, que es la verdad. */
+  private readonly enCurso = new Set<string>();
+
   constructor(
     private readonly repo: AdjuntosRepository,
     private readonly oportunidades: OportunidadesRepository,
@@ -121,6 +130,13 @@ export class LicifyService {
 
   get configurado(): boolean {
     return Boolean(process.env.APIFY_TOKEN?.trim());
+  }
+
+  /** ¿Está trayendo los documentos de esa oportunidad? Lo pregunta la
+   *  pantalla al volver a la ficha y «Mis licitaciones» (la etapa Bases
+   *  gira mientras tanto). */
+  estaTrayendo(companyId: number, oportunidadId: number): boolean {
+    return this.enCurso.has(`${companyId}:${oportunidadId}`);
   }
 
   /** La lista de archivos que Licify tiene de un proceso. El token va en
@@ -172,7 +188,8 @@ export class LicifyService {
 
   /** Trae a «Bases y anexos» lo que Licify tiene del proceso y todavía no
    *  está (por nombre, o por el mismo peso). `cuentaId` es el id de la
-   *  sesión: quién apretó el botón. */
+   *  sesión: quién apretó el botón. Si ya lo está trayendo, 409: no se
+   *  larga otra vuelta. */
   async traer(
     companyId: number,
     cuentaId: string,
@@ -183,6 +200,27 @@ export class LicifyService {
         'Falta el token de Apify en el motor (APIFY_TOKEN).',
       );
     }
+    const clave = `${companyId}:${oportunidadId}`;
+    // Mirar y anotar antes de cualquier espera: así dos clics seguidos no
+    // pasan los dos.
+    if (this.enCurso.has(clave)) {
+      throw new ConflictException(
+        'Ya estoy trayendo los documentos de esta licitación: aparecen solos al terminar.',
+      );
+    }
+    this.enCurso.add(clave);
+    try {
+      return await this.traerAhora(companyId, cuentaId, oportunidadId);
+    } finally {
+      this.enCurso.delete(clave);
+    }
+  }
+
+  private async traerAhora(
+    companyId: number,
+    cuentaId: string,
+    oportunidadId: number,
+  ): Promise<ResultadoDeTraer> {
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
     const tipo =
