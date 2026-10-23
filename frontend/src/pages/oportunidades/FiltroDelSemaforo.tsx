@@ -1,12 +1,15 @@
-import type { Semaforo } from "../../services/oportunidades.service";
-import { SEMAFOROS } from "./oportunidades.utils";
+import { type ColorDeLaLista, SEMAFOROS } from "./oportunidades.utils";
 
 // EL SEMÁFORO Y EL BUSCADOR, UNA SOLA PIEZA (20-10). Nació en los filtros de
 // la bandeja (18-10) y se sacó aparte cuando Felipe pidió lo mismo en «Se
 // viene» (decisión 62): "sería bueno que este filtro sea el mismo que este,
 // con verdes, amarillas, rojas y buscador". Cada color es un botón que se
-// prende y se apaga, con cuántas hay; las rojas apagadas dicen «ocultas».
-// Va sin envoltorio: cada pantalla lo pone en su fila.
+// prende y se apaga, con cuántas hay. Desde la decisión 72 (23-10) el rojo
+// es el «Reciclaje» y la basura tiene su botón gris; los dos parten
+// apagados y dicen «ocultas». Va sin envoltorio: cada pantalla lo pone en
+// su fila.
+
+const PARTEN_OCULTAS: ReadonlyArray<ColorDeLaLista> = ["rojo", "basura"];
 
 export default function FiltroDelSemaforo({
   seleccion,
@@ -15,13 +18,13 @@ export default function FiltroDelSemaforo({
   busca,
   onBuscar,
 }: {
-  readonly seleccion: ReadonlyArray<Semaforo>;
-  readonly onCambiar: (semaforos: Semaforo[]) => void;
-  readonly porSemaforo: Readonly<Record<Semaforo, number>>;
+  readonly seleccion: ReadonlyArray<ColorDeLaLista>;
+  readonly onCambiar: (semaforos: ColorDeLaLista[]) => void;
+  readonly porSemaforo: Readonly<Record<ColorDeLaLista, number>>;
   readonly busca: string;
   readonly onBuscar: (busca: string) => void;
 }) {
-  const alternar = (s: Semaforo) =>
+  const alternar = (s: ColorDeLaLista) =>
     onCambiar(
       seleccion.includes(s)
         ? seleccion.filter((x) => x !== s)
@@ -29,7 +32,7 @@ export default function FiltroDelSemaforo({
     );
   return (
     <>
-      {(Object.keys(SEMAFOROS) as Semaforo[]).map((s) => {
+      {(Object.keys(SEMAFOROS) as ColorDeLaLista[]).map((s) => {
         const activo = seleccion.includes(s);
         return (
           <button
@@ -37,6 +40,7 @@ export default function FiltroDelSemaforo({
             type="button"
             onClick={() => alternar(s)}
             aria-pressed={activo}
+            title={SEMAFOROS[s].ayuda}
             className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border ${
               activo
                 ? SEMAFOROS[s].chip
@@ -47,7 +51,7 @@ export default function FiltroDelSemaforo({
               className={`w-2.5 h-2.5 rounded-full ${SEMAFOROS[s].punto}`}
             />
             {SEMAFOROS[s].label} {porSemaforo[s]}
-            {!activo && s === "rojo" && " · ocultas"}
+            {!activo && PARTEN_OCULTAS.includes(s) && " · ocultas"}
           </button>
         );
       })}

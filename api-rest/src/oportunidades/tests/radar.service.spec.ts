@@ -385,12 +385,13 @@ describe('RadarService — la lectura', () => {
       },
       expect.any(Object),
     );
-    // Quillón y del rubro: nunca rojo.
+    // Quillón y del rubro, y la IA dice que no: queda roja con el aviso,
+    // es el reciclaje (decisión 72; hasta el 23-10 subía a amarillo).
     expect(repo.guardarLectura).toHaveBeenCalledWith(
       1,
       'P1',
       expect.objectContaining({
-        semaforo: 'amarillo',
+        semaforo: 'rojo',
         alertas: ['comuna_cercana'],
       }),
       LECTURA_ACTUAL,
@@ -401,8 +402,8 @@ describe('RadarService — la lectura', () => {
       empresas: 1,
       leidas: 1,
       releidas: 0,
-      amarillas: 1,
-      rojas: 0,
+      amarillas: 0,
+      rojas: 1,
     });
   });
 

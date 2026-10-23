@@ -12,6 +12,7 @@ import {
 import Ganadores from "./Ganadores";
 import {
   ALERTAS,
+  colorDe,
   textoDeAnios,
   urlMercadoPublico,
 } from "./oportunidades.utils";
@@ -39,13 +40,14 @@ export default function FilaDeSeViene({
     s.comuna_cercana && (s.semaforo === "verde" || s.semaforo === "amarillo")
       ? (["comuna_cercana"] as const)
       : [];
+  const color = colorDe(s.semaforo, Boolean(s.reciclaje));
   return (
     <li
-      data-semaforo={s.semaforo ?? "sin_leer"}
-      className={`p-3 space-y-1 border-l-4 ${filaDelSemaforo(s.semaforo)}`}
+      data-semaforo={color ?? "sin_leer"}
+      className={`p-3 space-y-1 border-l-4 ${filaDelSemaforo(color)}`}
     >
       <span className="sr-only">
-        {s.semaforo ? NOMBRE_DEL_SEMAFORO[s.semaforo] : "Sin leer"}.{" "}
+        {color ? NOMBRE_DEL_SEMAFORO[color] : "Sin leer"}.{" "}
       </span>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold text-gray-900">{s.nombre}</p>

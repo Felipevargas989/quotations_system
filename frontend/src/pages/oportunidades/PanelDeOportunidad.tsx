@@ -20,6 +20,7 @@ import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import { useResponsables } from "./useResponsables";
 import {
   ALERTAS,
+  colorDeLaOportunidad,
   cuandoCierra,
   esPrioridad,
   ESTADOS,
@@ -60,6 +61,7 @@ export default function PanelDeOportunidad({
     refetchInterval: (q) => preguntarDeNuevo(q.state.data?.detalle_mp),
   });
   const p = o.proceso;
+  const color = colorDeLaOportunidad(o);
   const cierre = cuandoCierra(p.fecha_cierre);
   const estado = ESTADOS.find((e) => e.value === o.estado);
   const descripcion = ficha?.proceso.descripcion?.trim() ?? "";
@@ -90,12 +92,12 @@ export default function PanelDeOportunidad({
         <span className="flex flex-wrap items-center gap-1.5 mt-1">
           <SelloDeTipo tipo={p.tipo} />
           <Chip oscuro>{o.codigo}</Chip>
-          {o.semaforo && (
+          {color && (
             <Chip>
               <span
-                className={`inline-block w-2 h-2 mr-1 rounded-full ${SEMAFOROS[o.semaforo].punto}`}
+                className={`inline-block w-2 h-2 mr-1 rounded-full ${SEMAFOROS[color].punto}`}
               />
-              {NOMBRE_DEL_SEMAFORO[o.semaforo]}
+              {NOMBRE_DEL_SEMAFORO[color]}
             </Chip>
           )}
           {esPrioridad(o) && <Chip ambar>Prioridad</Chip>}

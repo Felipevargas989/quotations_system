@@ -10,7 +10,7 @@ import {
   type ProcesoParaLeer,
   type Uso,
 } from '../lectura/lectura.service';
-import { aplicarReglas, type Semaforo } from '../lectura/reglas';
+import { aplicarReglas, esDelRubro, type Semaforo } from '../lectura/reglas';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import type { ProcesoDeLaZona, SeViene } from './mercado';
 import {
@@ -26,9 +26,12 @@ import { type LecturaDeSerie, SeVieneRepository } from './se-viene.repository';
 // Felipe: "deberíamos filtrar con el mismo semáforo, no tiene sentido
 // analizar 400 opciones". Cada serie se lee una vez, por su última vez, con
 // la misma lectura del radar (Haiku 5.5, las instrucciones de la empresa y
-// las reglas fijas: comuna cercana y del rubro nunca es roja), y queda
-// guardada (`oportunidades_se_viene`, migración 156). Lo que falta se lee
-// por detrás al abrir «Se viene»: la pantalla pregunta cómo va.
+// las reglas fijas de `aplicarReglas`), y queda guardada
+// (`oportunidades_se_viene`, migración 156). Lo que falta se lee por detrás
+// al abrir «Se viene»: la pantalla pregunta cómo va. Como en el radar
+// (decisión 19), lo leído con otras reglas se vuelve a leer, solo el color.
+// Desde la decisión 72 (23-10) el rojo de tu zona y de tu rubro es el
+// reciclaje, y el resto del rojo, la basura (`reciclaje`).
 //
 // Desde la decisión 63 (esa misma noche), la IA también dice si se repite:
 // cuáles licitaciones de años anteriores del mismo comprador son ediciones
@@ -51,6 +54,9 @@ export type SeVieneConSemaforo = SeViene & {
   repite: boolean | null;
   repeticion: string | null;
   descartada: boolean;
+  /** Roja, de una comuna cercana y del rubro: lo que la IA rechazó pero
+   *  vale una mirada (decisión 72). Una roja sin esto es la basura. */
+  reciclaje: boolean;
 };
 
 /** Cómo va la lectura de una empresa: lo que ve la pantalla mientras tanto. */
@@ -70,6 +76,7 @@ export type OpcionesDeLectura = {
 type Tarea = {
   codigo: string;
   semaforo: boolean;
+  repeticion: boolean;
   ultima: Candidata;
   candidatas: Candidata[];
 };
@@ -112,14 +119,19 @@ export class SeVieneService {
     const tareas: Tarea[] = [];
     for (const codigo of codigos) {
       const l = leidas.get(codigo);
-      if (l && l.ediciones !== null) continue;
+      // Leída con otras reglas: se relee el color, no si se repite. Las
+      // descartadas no, ya no se miran.
+      const releer =
+        l !== undefined && l.modelo !== LECTURA_ACTUAL && !l.descartada_en;
+      if (l && l.ediciones !== null && !releer) continue;
       const fallo = this.fallidas.get(`${companyId}:${codigo}`);
       if (fallo && ahora - fallo <= REINTENTAR_MS) continue;
       const ultima = porCodigo.get(codigo);
       if (!ultima) continue;
       tareas.push({
         codigo,
-        semaforo: !l,
+        semaforo: !l || releer,
+        repeticion: !l || l.ediciones === null,
         ultima: {
           codigo,
           nombre: ultima.nombre,
@@ -154,6 +166,10 @@ export class SeVieneService {
       repite: ediciones ? ediciones.length > 0 : null,
       repeticion: l?.repeticion ?? null,
       descartada: Boolean(l?.descartada_en),
+      reciclaje:
+        l?.semaforo === 'rojo' &&
+        s.comuna_cercana &&
+        esDelRubro(l.etiquetas ?? []),
     };
   }
 
@@ -269,7 +285,7 @@ export class SeVieneService {
         try {
           const listo =
             (!t.semaforo || (await leerSemaforo(t))) &&
-            (await leerRepeticion(t));
+            (!t.repeticion || (await leerRepeticion(t)));
           if (listo) completas++;
           else fallar(t.codigo);
         } catch (error) {

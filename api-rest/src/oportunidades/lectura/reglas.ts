@@ -104,12 +104,25 @@ export const esDeComunaCercana = (
   });
 };
 
+/** Del rubro: alguna etiqueta distinta de "otro". */
+export const esDelRubro = (etiquetas: readonly string[]): boolean =>
+  etiquetas.some((e) => e !== 'otro');
+
 /**
- * Comuna cercana y del rubro → nunca rojo, y alerta. Que sea "del rubro"
- * importa: la Municipalidad de Quillón también compra hormigón e insumos
- * dentales, y eso no es ruido que haya que mostrar (afinado del doc 17
- * §5.2, 16-10). Monto igual o mayor al de alto valor de la empresa, si no
- * quedó en rojo → alerta.
+ * Comuna cercana y del rubro → alerta. Que sea "del rubro" importa: la
+ * Municipalidad de Quillón también compra hormigón e insumos dentales, y
+ * eso no es ruido que haya que mostrar (afinado del doc 17 §5.2, 16-10).
+ * Monto igual o mayor al de alto valor de la empresa, si no quedó en rojo
+ * → alerta.
+ *
+ * EL COLOR ES EL DE LA IA (decisión 72, 23-10). Hasta ese día lo de una
+ * comuna cercana y del rubro nunca quedaba en rojo: subía a amarillo y
+ * llenaba la prioridad de lo que la IA ya había rechazado (12 de 15 ese
+ * día: verduras, colaciones sueltas, entradas a un parque). Felipe: "el
+ * rojo puede ser reciclaje, cosas que la IA rechazó pero que vale la pena
+ * ver". Ahora queda en rojo con la alerta: ese es el reciclaje (ahí habría
+ * quedado el catamarán, al que postuló). El rojo sin la alerta es la
+ * basura.
  */
 export const aplicarReglas = (
   lectura: Lectura,
@@ -117,12 +130,13 @@ export const aplicarReglas = (
   opciones: { comunasCercanas: string[]; umbralAltoValor: number | null },
 ): LecturaFinal => {
   const alertas: string[] = [];
-  let semaforo = lectura.semaforo;
+  const { semaforo } = lectura;
 
-  const delRubro = lectura.etiquetas.some((e) => e !== 'otro');
-  if (delRubro && esDeComunaCercana(proceso, opciones.comunasCercanas)) {
+  if (
+    esDelRubro(lectura.etiquetas) &&
+    esDeComunaCercana(proceso, opciones.comunasCercanas)
+  ) {
     alertas.push('comuna_cercana');
-    if (semaforo === 'rojo') semaforo = 'amarillo';
   }
 
   const umbral = opciones.umbralAltoValor;
@@ -136,5 +150,5 @@ export const aplicarReglas = (
     alertas.push('alto_valor');
   }
 
-  return { ...lectura, semaforo, alertas };
+  return { ...lectura, alertas };
 };

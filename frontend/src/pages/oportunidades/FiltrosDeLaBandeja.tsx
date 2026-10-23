@@ -1,10 +1,11 @@
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import type {
-  Semaforo,
-  TipoProceso,
-} from "../../services/oportunidades.service";
+import type { TipoProceso } from "../../services/oportunidades.service";
 import FiltroDelSemaforo from "./FiltroDelSemaforo";
-import { type Filtros, VISTAS } from "./oportunidades.utils";
+import {
+  type ColorDeLaLista,
+  type Filtros,
+  VISTAS,
+} from "./oportunidades.utils";
 import { SELLO_DEL_TIPO } from "./tipoDeProceso";
 
 // LOS FILTROS DE LA BANDEJA (Felipe, 18-10: "vamos con las 5"; sobre el
@@ -37,7 +38,7 @@ export default function FiltrosDeLaBandeja({
     readonly descartada: number;
     readonly seguida?: number;
   };
-  readonly porSemaforo: Readonly<Record<Semaforo, number>>;
+  readonly porSemaforo: Readonly<Record<ColorDeLaLista, number>>;
   readonly regiones: readonly string[];
 }) {
   return (

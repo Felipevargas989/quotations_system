@@ -116,6 +116,8 @@ const leida = (
   codigo,
   semaforo: 'verde',
   razon: 'Celebración.',
+  etiquetas: ['evento'],
+  modelo: LECTURA_ACTUAL,
   ediciones: null,
   repeticion: null,
   descartada_en: null,
@@ -353,7 +355,7 @@ describe('Se viene con el semáforo (decisión 62) y si se repite (decisión 63)
     );
   });
 
-  it('la lectura del radar y sus reglas: comuna cercana y del rubro nunca queda roja', async () => {
+  it('la lectura del radar y sus reglas: el rojo de la IA queda rojo, con el aviso de comuna cercana (decisión 72)', async () => {
     const { repo, lector, servicio } = armar();
     lector.leer.mockResolvedValue(lectura({ semaforo: 'rojo' }));
     await servicio.conSemaforo(1, [serie(CAMPO_2025)], ZONA, OPCIONES);
@@ -361,9 +363,87 @@ describe('Se viene con el semáforo (decisión 62) y si se repite (decisión 63)
     expect(repo.guardar).toHaveBeenCalledWith(
       1,
       '5040-25-LE25',
-      expect.objectContaining({ semaforo: 'amarillo' }),
+      // Roja: el alto valor no avisa.
+      expect.objectContaining({
+        semaforo: 'rojo',
+        alertas: ['comuna_cercana'],
+      }),
       LECTURA_ACTUAL,
     );
+  });
+
+  it('el reciclaje: roja, de una comuna cercana y del rubro; la roja sin eso es la basura (decisión 72)', async () => {
+    const { repo, servicio } = armar();
+    repo.lecturas.mockResolvedValue(
+      new Map([
+        [
+          '5040-25-LE25',
+          leida('5040-25-LE25', {
+            semaforo: 'rojo',
+            etiquetas: ['alimentacion'],
+            ediciones: [],
+          }),
+        ],
+        [
+          '2410-147-L125',
+          leida('2410-147-L125', {
+            semaforo: 'rojo',
+            etiquetas: ['otro'],
+            ediciones: [],
+          }),
+        ],
+      ]),
+    );
+    const lejos = { ...serie(CAMPO_2024), comuna_cercana: false };
+    const r = await servicio.conSemaforo(
+      1,
+      [serie(CAMPO_2025), serie(INSUMOS), lejos],
+      ZONA,
+      OPCIONES,
+    );
+    expect(r.map((s) => s.reciclaje)).toEqual([true, false, false]);
+  });
+
+  it('leída con otras reglas: se relee solo el color, sin volver a preguntar si se repite; la descartada no', async () => {
+    const { repo, lector, servicio } = armar();
+    repo.lecturas.mockResolvedValue(
+      new Map([
+        [
+          '5040-25-LE25',
+          leida('5040-25-LE25', {
+            semaforo: 'amarillo',
+            modelo: `${LECTURA_ACTUAL} · antes del reciclaje`,
+            ediciones: ['5040-30-LE24'],
+          }),
+        ],
+        [
+          '2410-147-L125',
+          leida('2410-147-L125', {
+            semaforo: 'amarillo',
+            modelo: `${LECTURA_ACTUAL} · antes del reciclaje`,
+            ediciones: [],
+            descartada_en: '2026-10-20T23:00:00.000Z',
+          }),
+        ],
+      ]),
+    );
+    lector.leer.mockResolvedValue(lectura({ semaforo: 'rojo' }));
+    await servicio.conSemaforo(
+      1,
+      [serie(CAMPO_2025), serie(INSUMOS)],
+      ZONA,
+      OPCIONES,
+    );
+    await esperar();
+    expect(lector.leer).toHaveBeenCalledTimes(1);
+    expect(repo.guardar).toHaveBeenCalledWith(
+      1,
+      '5040-25-LE25',
+      expect.objectContaining({ semaforo: 'rojo' }),
+      LECTURA_ACTUAL,
+    );
+    expect(lector.edicionesAnteriores).not.toHaveBeenCalled();
+    expect(repo.guardarRepeticion).not.toHaveBeenCalled();
   });
 
   it('una lectura a la vez por empresa', async () => {

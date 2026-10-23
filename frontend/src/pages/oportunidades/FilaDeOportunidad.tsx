@@ -13,6 +13,7 @@ import {
 } from "./coloresDeLaBandeja";
 import {
   ALERTAS,
+  colorDeLaOportunidad,
   cuandoCierra,
   ESTADOS,
   ETIQUETAS,
@@ -45,7 +46,8 @@ export default function FilaDeOportunidad({
     e.stopPropagation();
     accion();
   };
-  const semaforo = o.semaforo ? NOMBRE_DEL_SEMAFORO[o.semaforo] : "Sin leer";
+  const color = colorDeLaOportunidad(o);
+  const semaforo = color ? NOMBRE_DEL_SEMAFORO[color] : "Sin leer";
   return (
     <li
       onClick={() => {
@@ -53,9 +55,9 @@ export default function FilaDeOportunidad({
         if (window.getSelection()?.toString()) return;
         onAbrir();
       }}
-      data-semaforo={o.semaforo ?? "sin_leer"}
+      data-semaforo={color ?? "sin_leer"}
       className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 pl-3 pr-3 py-3 border-l-4 border-b border-b-gray-200 last:border-b-0 cursor-pointer ${filaDelSemaforo(
-        o.semaforo,
+        color,
       )} ${o.estado === "descartada" ? "opacity-60" : ""}`}
     >
       <div className="min-w-0">
