@@ -60,5 +60,9 @@ describe("La cabecera de la ficha con un título largo", () => {
     expect(fila).not.toHaveClass("flex-wrap");
     expect(fila).toContainElement(screen.getByText("Prioridad"));
     expect(fila.firstElementChild).toHaveClass("shrink-0");
+    // Sin esto, el título sin saltos ensancha toda la página (23-10: se
+    // salió por la derecha y escondió «Prioridad» y Mercado Público).
+    expect(fila.style.contain).toBe("inline-size");
+    expect(fila.parentElement).toHaveClass("w-full");
   });
 });
