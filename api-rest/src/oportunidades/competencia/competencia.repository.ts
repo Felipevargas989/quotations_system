@@ -434,8 +434,12 @@ export class CompetenciaRepository {
   }
 
   /** Las licitaciones del rubro de la empresa (sí o en parte) desde una
-   *  fecha: «Quién gana en tu zona». */
-  filasDelRubro(companyId: number, desde: string): Promise<FilaDelRubro[]> {
+   *  fecha, revisadas con la versión actual: «Quién gana en tu zona». */
+  filasDelRubro(
+    companyId: number,
+    desde: string,
+    etiqueta: string,
+  ): Promise<FilaDelRubro[]> {
     return todasLasFilas<FilaDelRubro>((inicio, fin) =>
       this.db
         .from('oportunidades_rubro')
@@ -443,6 +447,9 @@ export class CompetenciaRepository {
           'codigo, del_rubro, ganadores, nombre, organismo, comuna, fecha',
         )
         .eq('company_id', companyId)
+        // Solo lo revisado con las instrucciones de hoy: al endurecerlas,
+        // lo de antes deja de contar al tiro (23-10, v1 → v2).
+        .eq('modelo', etiqueta)
         .in('del_rubro', ['si', 'parcial'])
         .gte('fecha', desde.slice(0, 10))
         .order('codigo', { ascending: true })
