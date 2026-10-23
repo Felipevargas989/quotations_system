@@ -135,6 +135,7 @@ describe("La ficha de un competidor", () => {
       .getByText("Fiesta de fin de año 2024")
       .closest("li")!;
     expect(within(perdida).getByText(/Ganó LAS ROSAS/)).toBeInTheDocument();
+    expect(within(perdida).getByText(/Perdió, ofertó/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ganó (1)" }));
     expect(
       screen.queryByText("Fiesta de fin de año 2024"),
