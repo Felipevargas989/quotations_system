@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { MODELO_HAIKU } from '../analisis/comun';
 import { normalizarRut } from '../historia/ganadores';
 import { fichaDeCompetidor } from '../historia/mercado';
 import { OferenteRepository } from '../oferente/oferente.repository';
@@ -20,7 +21,7 @@ import {
   fichaDeMercado,
 } from './competencia';
 import { CompetenciaRepository } from './competencia.repository';
-import { rankingDelRubro } from './rubro';
+import { etiquetaDelRubro, rankingDelRubro } from './rubro';
 import { type EstadoDelRubro, RubroService } from './rubro.service';
 
 // COMPETIDORES REALES (decisiones 70 y 71 del doc 17). La lista de «Tus
@@ -146,7 +147,11 @@ export class CompetenciaService {
    *  por detrás). */
   async zona(companyId: number): Promise<QuienGanaEnTuZona> {
     const [filas, rubro] = await Promise.all([
-      this.repo.filasDelRubro(companyId, desdeTresAnios()),
+      this.repo.filasDelRubro(
+        companyId,
+        desdeTresAnios(),
+        etiquetaDelRubro(MODELO_HAIKU),
+      ),
       this.rubro.estado(companyId),
     ]);
     this.rubro.clasificarSiHaceFalta(companyId, rubro);
