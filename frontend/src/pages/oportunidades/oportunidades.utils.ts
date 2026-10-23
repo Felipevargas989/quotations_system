@@ -41,25 +41,6 @@ export const colorDeLaOportunidad = (
 ): ColorDeLaLista | null =>
   colorDe(o.semaforo, o.alertas.includes("comuna_cercana"));
 
-/** EL ROJO ES RECICLAJE (decisión 72, 23-10). Felipe: "el rojo puede ser
- *  reciclaje, cosas que la IA rechazó pero que vale la pena ver... y otras
- *  que estén sencillamente descartadas porque no son". La base guarda el
- *  color de la IA; la lista parte el rojo en dos: el de tu zona y de tu
- *  rubro (con el aviso de comuna cercana) es el reciclaje, y el resto, la
- *  basura (unas 550 al día). */
-export type ColorDeLaLista = Semaforo | "basura";
-
-export const colorDe = (
-  semaforo: Semaforo | null,
-  reciclaje: boolean,
-): ColorDeLaLista | null =>
-  semaforo === "rojo" && !reciclaje ? "basura" : semaforo;
-
-export const colorDeLaOportunidad = (
-  o: Pick<Oportunidad, "semaforo" | "alertas">,
-): ColorDeLaLista | null =>
-  colorDe(o.semaforo, o.alertas.includes("comuna_cercana"));
-
 export const SEMAFOROS: Record<
   ColorDeLaLista,
   {
