@@ -121,6 +121,11 @@ export default function ReembolsoAlAnular({
         {opcion("si", "Sí, reembolsar")}
         {opcion("no", "No")}
       </div>
+      {/* AL ANULAR, LO PAGADO ES EL 100% (Felipe, 22-10-2026; doc 14). */}
+      <p className="text-[11px] text-amber-800">
+        Al anular, lo pagado queda como el total: las cuotas por cobrar se
+        cierran y no se le cobra nada más.
+      </p>
       {respuesta === "si" && (
         <div className="space-y-1">
           <label className="flex items-center gap-2 text-xs text-gray-700">
