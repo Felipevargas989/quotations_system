@@ -29,7 +29,7 @@ const item = (
 ) => ({
   NombreProducto: producto,
   Descripcion: descripcion,
-  Cantidad: 1,
+  Cantidad: ganador?.cantidad ?? 1,
   Adjudicacion: ganador
     ? {
         RutProveedor: ganador.rut,
@@ -75,6 +75,23 @@ describe('Las líneas de una licitación', () => {
       },
     ]);
     expect(lineasDelProceso(null)).toEqual([]);
+  });
+
+  it('la cantidad pedida es el tope: el comprador que escribió el total como cantidad no infla el monto', () => {
+    const [linea] = lineasDelProceso([
+      {
+        NombreProducto: 'Producción de eventos',
+        Descripcion: 'Cena de 200 personas',
+        Cantidad: 200,
+        Adjudicacion: {
+          RutProveedor: '15.237.123-3',
+          NombreProveedor: 'JOSE MIGUEL',
+          MontoUnitario: 62_213.2,
+          Cantidad: 12_442_640,
+        },
+      },
+    ]);
+    expect(linea.ganador?.monto).toBeCloseTo(12_442_640);
   });
 
   it('la IA ve hasta 15 líneas, numeradas, y cuántas más hay', () => {

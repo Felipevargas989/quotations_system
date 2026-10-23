@@ -27,12 +27,24 @@ const texto = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const numero = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : Number(v) || 0;
 
-/** Las líneas de `detalle.Items.Listado`. */
+/** Las líneas de `detalle.Items.Listado`. El monto de quien ganó es su
+ *  precio unitario por la cantidad adjudicada, con la cantidad pedida de
+ *  tope: hay compradores que escriben el total en la cantidad (la cena del
+ *  Día del Funcionario de Florida, 3784-128-LE25: 12.442.640 «cenas» en vez
+ *  de 200, y $774 mil millones en el ranking). */
 export const lineasDelProceso = (items: unknown): LineaDelProceso[] =>
   (Array.isArray(items) ? items : []).map((x, i) => {
     const it = (x ?? {}) as Record<string, unknown>;
     const adj = (it.Adjudicacion ?? null) as Record<string, unknown> | null;
     const rut = normalizarRut(texto(adj?.RutProveedor));
+    const pedida = numero(it.Cantidad);
+    const adjudicada = numero(adj?.Cantidad);
+    const cantidad =
+      adjudicada > 0 && (pedida <= 0 || adjudicada <= pedida)
+        ? adjudicada
+        : pedida > 0
+          ? pedida
+          : 1;
     return {
       n: i + 1,
       producto: texto(it.NombreProducto),
@@ -41,7 +53,7 @@ export const lineasDelProceso = (items: unknown): LineaDelProceso[] =>
         ? {
             rut,
             nombre: texto(adj?.NombreProveedor) || rut,
-            monto: numero(adj?.MontoUnitario) * (numero(adj?.Cantidad) || 1),
+            monto: numero(adj?.MontoUnitario) * cantidad,
           }
         : null,
     };
