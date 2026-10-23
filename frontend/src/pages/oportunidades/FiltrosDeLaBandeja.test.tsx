@@ -16,7 +16,7 @@ const pintar = (filtros: Filtros = FILTROS_DE_PARTIDA) => {
       filtros={filtros}
       onCambiar={onCambiar}
       porVista={{ nueva: 4, descartada: 5 }}
-      porSemaforo={{ verde: 1, amarillo: 3, rojo: 265 }}
+      porSemaforo={{ verde: 1, amarillo: 3, rojo: 12, basura: 553 }}
       regiones={["Región del Biobío", "Región del Ñuble"]}
     />,
   );
@@ -54,13 +54,26 @@ describe("FiltrosDeLaBandeja", () => {
     expect(onCambiar).toHaveBeenCalledWith({ tipo: "compra_agil" });
   });
 
-  it("el semáforo sigue igual: las rojas apagadas dicen que están ocultas, y un clic las enciende", () => {
+  it("el rojo es el reciclaje y la basura va aparte: los dos parten ocultos, y un clic los enciende (decisión 72)", () => {
+    // Felipe, 23-10: "el rojo puede ser reciclaje... y otras que estén
+    // sencillamente descartadas porque no son".
     const onCambiar = pintar();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Rojas 265 · ocultas/ }),
+    const reciclaje = screen.getByRole("button", {
+      name: /Reciclaje 12 · ocultas/,
+    });
+    expect(reciclaje).toHaveAttribute(
+      "title",
+      expect.stringContaining("de tu zona y de tu rubro"),
     );
+    fireEvent.click(reciclaje);
     expect(onCambiar).toHaveBeenCalledWith({
       semaforos: ["verde", "amarillo", "rojo"],
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Basura 553 · ocultas/ }),
+    );
+    expect(onCambiar).toHaveBeenLastCalledWith({
+      semaforos: ["verde", "amarillo", "basura"],
     });
   });
 });

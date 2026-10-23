@@ -1,6 +1,7 @@
 import {
   aplicarReglas,
   esDeComunaCercana,
+  esDelRubro,
   type Lectura,
 } from '../lectura/reglas';
 
@@ -41,9 +42,26 @@ describe('esDeComunaCercana', () => {
 describe('aplicarReglas', () => {
   const opciones = { comunasCercanas: COMUNAS, umbralAltoValor: 3_000_000 };
 
-  it('comuna cercana y del rubro: nunca rojo, y avisa', () => {
+  it('comuna cercana y del rubro que la IA rechaza: queda en rojo con el aviso, es el reciclaje (decisión 72)', () => {
+    // Felipe, 23-10, con las verduras de Portezuelo en la prioridad: "por
+    // qué deja esto como amarillo si la IA reconoce que no es de mi
+    // interés". Hasta ese día subía a amarillo.
     const r = aplicarReglas(
-      lectura({ semaforo: 'rojo', etiquetas: ['alimentacion'] }),
+      lectura({
+        semaforo: 'rojo',
+        etiquetas: ['alimentacion'],
+        se_hace_en_el_complejo: 'no',
+      }),
+      { organismo: 'I MUNICIPALIDAD DE PORTEZUELO', monto: 100_000 },
+      { ...opciones, comunasCercanas: [...COMUNAS, 'Portezuelo'] },
+    );
+    expect(r.semaforo).toBe('rojo');
+    expect(r.alertas).toEqual(['comuna_cercana']);
+  });
+
+  it('comuna cercana y del rubro que la IA aprueba: su color, y avisa', () => {
+    const r = aplicarReglas(
+      lectura({ semaforo: 'amarillo', etiquetas: ['alimentacion'] }),
       { organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON', monto: 400_000 },
       opciones,
     );
@@ -51,7 +69,9 @@ describe('aplicarReglas', () => {
     expect(r.alertas).toEqual(['comuna_cercana']);
   });
 
-  it('comuna cercana pero NO del rubro (hormigón): sigue roja, sin aviso', () => {
+  it('comuna cercana pero NO del rubro (hormigón): sigue roja, sin aviso, es basura', () => {
+    expect(esDelRubro(['otro'])).toBe(false);
+    expect(esDelRubro(['paseo', 'otro'])).toBe(true);
     const r = aplicarReglas(
       lectura({ semaforo: 'rojo', etiquetas: ['otro'] }),
       { organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON', monto: 20_000_000 },

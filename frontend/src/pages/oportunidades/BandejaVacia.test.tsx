@@ -46,9 +46,13 @@ describe("BandejaVacia", () => {
     expect(onIrAMisLicitaciones).toHaveBeenCalled();
   });
 
-  it("las rojas escondidas quedan a un clic", () => {
-    const { onVerRojas } = pintar("al_dia", { rojas: 265 });
-    fireEvent.click(screen.getByRole("button", { name: /Ver las 265 rojas/ }));
+  it("el reciclaje escondido queda a un clic (decisión 72: la basura no se ofrece)", () => {
+    const { onVerRojas } = pintar("al_dia", { rojas: 12 });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Ver las 12 del reciclaje \(la IA dice que no, pero son de tu zona\)/,
+      }),
+    );
     expect(onVerRojas).toHaveBeenCalled();
   });
 

@@ -1,4 +1,4 @@
-import type { Semaforo } from "../../services/oportunidades.service";
+import type { ColorDeLaLista } from "./oportunidades.utils";
 
 // LA BANDEJA, UN COLOR POR SIGNIFICADO (19-10, decisión 31 del doc 17).
 // Felipe: "el amarillo de los prioritarios se mezcla con el amarillo del
@@ -9,26 +9,30 @@ import type { Semaforo } from "../../services/oportunidades.service";
 //  - violeta es SOLO la prioridad: su recuadro, la estrella y sus razones
 //    («Comuna cercana», «Alto valor»);
 //  - la urgencia va con un reloj, sin rojo: el rojo es de las rojas.
+// Desde la decisión 72 (23-10) el rojo es el reciclaje y la basura va en
+// gris (`colorDe`, oportunidades.utils.ts).
 // Las clases van escritas enteras para que Tailwind las encuentre.
 
-export const FILA_DEL_SEMAFORO: Record<Semaforo, string> = {
+export const FILA_DEL_SEMAFORO: Record<ColorDeLaLista, string> = {
   verde: "border-l-green-500 bg-green-50/70 hover:bg-green-100/70",
   amarillo: "border-l-amber-400 bg-amber-50/70 hover:bg-amber-100/70",
   rojo: "border-l-red-400 bg-red-50/60 hover:bg-red-100/60",
+  basura: "border-l-gray-400 bg-gray-50 hover:bg-gray-100",
 };
 
 export const FILA_SIN_LEER = "border-l-gray-300 bg-white hover:bg-gray-50";
 
 /** El color de UNA fila, para quien lee con lector de pantalla (la franja
  *  no se ve con los oídos). */
-export const NOMBRE_DEL_SEMAFORO: Record<Semaforo, string> = {
+export const NOMBRE_DEL_SEMAFORO: Record<ColorDeLaLista, string> = {
   verde: "Verde",
   amarillo: "Amarilla",
-  rojo: "Roja",
+  rojo: "Reciclaje",
+  basura: "Basura",
 };
 
-export const filaDelSemaforo = (semaforo?: Semaforo | null): string =>
-  semaforo ? FILA_DEL_SEMAFORO[semaforo] : FILA_SIN_LEER;
+export const filaDelSemaforo = (color?: ColorDeLaLista | null): string =>
+  color ? FILA_DEL_SEMAFORO[color] : FILA_SIN_LEER;
 
 /** Las razones de la prioridad: las alertas de comuna cercana y alto valor. */
 export const RAZON_DE_PRIORIDAD = "bg-violet-50 text-violet-700";

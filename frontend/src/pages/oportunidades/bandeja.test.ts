@@ -102,21 +102,32 @@ describe("los montones", () => {
     const lista = [
       op(1, { cierre: cierraEn(2) }),
       op(2, { cierre: cierraEn(5), semaforo: "amarillo" }),
-      op(3, { cierre: cierraEn(5), semaforo: "rojo" }),
+      op(3, {
+        cierre: cierraEn(5),
+        semaforo: "rojo",
+        alertas: ["comuna_cercana"],
+      }),
       op(4, { cierre: cierraEn(-1) }),
       op(5, { cierre: cierraEn(3), estado: "descartada" }),
       op(6, { cierre: cierraEn(-3), estado: "descartada" }),
       op(7, { cierre: cierraEn(4), estado: "en_estudio" }),
+      op(8, { cierre: cierraEn(6), semaforo: "rojo" }),
     ];
     expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
       nueva: 2,
       descartada: 1,
     });
-    const conRojas: Filtros = {
+    // El reciclaje suma solo si se enciende; la basura, aparte (decisión 72).
+    const conReciclaje: Filtros = {
       ...FILTROS_DE_PARTIDA,
       semaforos: ["verde", "amarillo", "rojo"],
     };
-    expect(contarPorVista(lista, conRojas, AHORA).nueva).toBe(3);
+    expect(contarPorVista(lista, conReciclaje, AHORA).nueva).toBe(3);
+    const conTodo: Filtros = {
+      ...FILTROS_DE_PARTIDA,
+      semaforos: ["verde", "amarillo", "rojo", "basura"],
+    };
+    expect(contarPorVista(lista, conTodo, AHORA).nueva).toBe(4);
   });
 });
 
