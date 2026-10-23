@@ -126,6 +126,10 @@ export class ActasDeLaZonaService {
     };
   }
 
+  estaLeyendo(companyId: number): boolean {
+    return this.enCurso.has(companyId);
+  }
+
   /** Al abrir la pestaña: si falta leer y nadie lee, 20 minutos por detrás. */
   leerSiHaceFalta(companyId: number, estado: EstadoDeLasActas): void {
     if (estado.leidas >= estado.total || this.enCurso.has(companyId)) return;

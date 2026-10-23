@@ -84,6 +84,10 @@ export class RubroService {
     };
   }
 
+  estaRevisando(companyId: number): boolean {
+    return this.enCurso.has(companyId);
+  }
+
   /** Al abrir la pestaña: si falta revisar y nadie revisa, 15 minutos. */
   clasificarSiHaceFalta(companyId: number, estado: EstadoDelRubro): void {
     if (estado.revisadas >= estado.total || this.enCurso.has(companyId)) {

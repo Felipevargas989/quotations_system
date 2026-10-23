@@ -521,12 +521,14 @@ function armarCompetencia() {
       .fn()
       .mockResolvedValue({ leidas: 10, total: 6000, leyendo: false }),
     leerSiHaceFalta: jest.fn(),
+    estaLeyendo: jest.fn().mockReturnValue(true),
   };
   const rubro = {
     estado: jest
       .fn()
       .mockResolvedValue({ revisadas: 0, total: 5900, revisando: false }),
     clasificarSiHaceFalta: jest.fn(),
+    estaRevisando: jest.fn().mockReturnValue(false),
   };
   const servicio = new CompetenciaService(
     repo as unknown as CompetenciaRepository,
@@ -548,8 +550,13 @@ describe('La competencia, de punta a punta', () => {
       expect.arrayContaining([SOL, PAN]),
     );
     expect(r.competidores.map((c) => c.rut)).toEqual([SOL, PAN]);
-    expect(r.actas).toEqual({ leidas: 10, total: 6000, leyendo: false });
-    expect(actas.leerSiHaceFalta).toHaveBeenCalledWith(1, r.actas);
+    expect(actas.leerSiHaceFalta).toHaveBeenCalledWith(1, {
+      leidas: 10,
+      total: 6000,
+      leyendo: false,
+    });
+    // Recién empezó a leer: la pantalla lo sabe y vuelve a preguntar.
+    expect(r.actas).toEqual({ leidas: 10, total: 6000, leyendo: true });
   });
 
   it('la ficha de mercado con el RUT escrito como sea; un RUT raro es 400 y sin nada, 404', async () => {
@@ -582,7 +589,11 @@ describe('La competencia, de punta a punta', () => {
     ]);
     const r = await servicio.zona(1);
     expect(r.ranking.map((c) => c.rut)).toEqual([SOL]);
-    expect(rubro.clasificarSiHaceFalta).toHaveBeenCalledWith(1, r.rubro);
+    expect(rubro.clasificarSiHaceFalta).toHaveBeenCalledWith(1, {
+      revisadas: 0,
+      total: 5900,
+      revisando: false,
+    });
   });
 
   it('«Seguir» y «No es mi competidor» con el RUT normalizado; un RUT raro o sin cambios no', async () => {
