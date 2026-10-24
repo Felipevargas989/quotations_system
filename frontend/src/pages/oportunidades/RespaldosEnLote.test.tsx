@@ -105,4 +105,61 @@ describe("Respaldos en lote", () => {
     expect(p.leerRespaldo).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /Guardar/ })).toBeNull();
   });
+
+  it("sin duplicados (decisión 77): lo que ya está no se guarda y lo repetido en la tanda va una vez", async () => {
+    const datos = (numero: string) => ({
+      numero,
+      mandante: "ILUSTRE MUNICIPALIDAD DE QUILLON",
+      contrato: "Evento",
+      anio: 2023,
+      monto: 1_000_000,
+      fuente: "mercado_publico" as const,
+    });
+    p.leerRespaldo
+      .mockResolvedValueOnce({
+        datos: datos("5040-536-SE23"),
+        aviso: null,
+        ya_esta:
+          "Ya está en «Mi empresa»: Orden de compra - 5040-536-SE23.pdf, subida el 19-10-2026.",
+      })
+      .mockResolvedValueOnce({
+        datos: datos("1715-123-SE24"),
+        aviso: null,
+        ya_esta: null,
+      })
+      .mockResolvedValueOnce({
+        datos: datos("1715-123-se24"),
+        aviso: null,
+        ya_esta: null,
+      });
+    o.subirDocumentoDeEmpresa.mockResolvedValue({} as never);
+    render(<RespaldosEnLote alGuardar={vi.fn()} />);
+    fireEvent.change(
+      screen.getByLabelText("Elegir órdenes de compra o facturas"),
+      {
+        target: {
+          files: [
+            pdf("5040-536-SE23.pdf"),
+            pdf("CAJ.pdf"),
+            pdf("CAJ copia.pdf"),
+          ],
+        },
+      },
+    );
+    expect(
+      await screen.findByText(
+        "Ya está en «Mi empresa»: Orden de compra - 5040-536-SE23.pdf, subida el 19-10-2026. No se guarda.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Repetida en esta tanda: se guarda una sola."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar 1 respaldo" }));
+    await waitFor(() =>
+      expect(o.subirDocumentoDeEmpresa).toHaveBeenCalledTimes(1),
+    );
+    expect(o.subirDocumentoDeEmpresa.mock.calls[0][3]).toMatchObject({
+      numero: "1715-123-SE24",
+    });
+  });
 });

@@ -32,6 +32,7 @@ const respuesta = (parsed: Record<string, unknown>) => ({
 
 function armar() {
   const oferente = {
+    dondeYaEsta: jest.fn().mockResolvedValue(null),
     ordenDeCompra: jest.fn().mockResolvedValue({
       orden: {
         numero: '4352-103-SE23',
@@ -123,7 +124,10 @@ describe('Leer solo un respaldo de experiencia', () => {
       aviso: null,
       // Qué es: con eso se nombra al traerlo de Eventia (decisión 45).
       tipo: 'orden_de_compra',
+      // No está en el sistema (decisión 77).
+      ya_esta: null,
     });
+    expect(oferente.dondeYaEsta).toHaveBeenCalledWith(1, '4352-103-SE23');
     const pedido = (servicio.parse.mock.calls[0] as unknown[])[0] as {
       model: string;
       system: string;
@@ -172,6 +176,31 @@ describe('Leer solo un respaldo de experiencia', () => {
     const r = await servicio.leer(1, archivo('oc.pdf'));
     expect(r.datos.fuente).toBe('manual');
     expect(r.aviso).toContain('No se pudo confirmar en Mercado Público');
+  });
+
+  it('si ya está en el sistema, lo dice al leerlo (decisión 77); si no se puede revisar, lee igual', async () => {
+    const { servicio, oferente } = armar();
+    servicio.parse.mockResolvedValue(
+      respuesta({
+        tipo: 'factura',
+        numero: '1532',
+        mandante: 'Hospital de Chillán',
+        contrato: 'Cena de fin de año',
+        fecha: '2024-12-12',
+        monto: 4_200_000,
+      }),
+    );
+    oferente.dondeYaEsta.mockResolvedValue(
+      'Ya está en Post-venta, en el evento N° 52 (Ferrocarril del Pacífico S.A).',
+    );
+    const r = await servicio.leer(1, archivo('factura.pdf'));
+    expect(r.ya_esta).toBe(
+      'Ya está en Post-venta, en el evento N° 52 (Ferrocarril del Pacífico S.A).',
+    );
+    oferente.dondeYaEsta.mockRejectedValue(new Error('se cayó la base'));
+    const otra = await servicio.leer(1, archivo('factura.pdf'));
+    expect(otra.ya_esta).toBeNull();
+    expect(otra.datos.numero).toBe('1532');
   });
 
   it('un Word, un archivo vacío o uno sin número: lo dice y no inventa', async () => {

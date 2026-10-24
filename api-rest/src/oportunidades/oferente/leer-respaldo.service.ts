@@ -54,7 +54,32 @@ export class LeerRespaldoService {
     return this.clienteAnthropic;
   }
 
+  /** Lo leído y, desde la decisión 77, si ya está en el sistema
+   *  (`ya_esta`): así no se sube dos veces lo mismo. */
   async leer(
+    companyId: number,
+    archivo: ArchivoRecibido | undefined,
+  ): Promise<{
+    datos: DatosDeRespaldo;
+    aviso: string | null;
+    tipo: RespaldoLeido['tipo'];
+    ya_esta: string | null;
+  }> {
+    const leido = await this.leerElDocumento(companyId, archivo);
+    const yaEsta = await this.oferente
+      .dondeYaEsta(companyId, leido.datos.numero)
+      .catch((error) => {
+        this.logger.warn(
+          `¿ya está ${leido.datos.numero}?: ${mensajeDe(error)}`,
+        );
+        return null;
+      });
+    return { ...leido, ya_esta: yaEsta };
+  }
+
+  /** Solo leer, sin buscar si ya está: lo usa Post-venta, que lee los
+   *  documentos de los eventos (decisión 45). */
+  async leerElDocumento(
     companyId: number,
     archivo: ArchivoRecibido | undefined,
   ): Promise<{

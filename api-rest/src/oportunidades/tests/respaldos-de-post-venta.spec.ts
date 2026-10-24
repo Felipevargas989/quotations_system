@@ -162,7 +162,7 @@ describe('Las reglas de los respaldos de Post-venta', () => {
   });
 });
 
-type Lectura = Awaited<ReturnType<LeerRespaldoService['leer']>>;
+type Lectura = Awaited<ReturnType<LeerRespaldoService['leerElDocumento']>>;
 
 const lectura = (
   numero: string,
@@ -207,7 +207,7 @@ function armar(
       })),
     ),
   };
-  const lector = { leer: jest.fn() };
+  const lector = { leerElDocumento: jest.fn() };
   const servicio = new RespaldosDePostVentaService(
     eventia as unknown as EventiaRepository,
     repo as unknown as OferenteRepository,
@@ -237,12 +237,13 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
       ],
       [{ numero: '1213301-49-AG26' }, { numero: '5043-27-AG26' }],
     );
-    lector.leer.mockImplementation((_c: number, a: { originalname: string }) =>
-      Promise.resolve(
-        a.originalname === 'OC.pdf'
-          ? lectura('5043-27-AG26')
-          : lectura('5040-126-TD26'),
-      ),
+    lector.leerElDocumento.mockImplementation(
+      (_c: number, a: { originalname: string }) =>
+        Promise.resolve(
+          a.originalname === 'OC.pdf'
+            ? lectura('5043-27-AG26')
+            : lectura('5040-126-TD26'),
+        ),
     );
 
     const r = await servicio.paraLaPostulacion(1);
@@ -267,7 +268,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     );
     // El 415 ni se baja ni se lee.
     expect(eventia.descargarDocumento).toHaveBeenCalledTimes(2);
-    expect(lector.leer).toHaveBeenCalledWith(1, {
+    expect(lector.leerElDocumento).toHaveBeenCalledWith(1, {
       originalname: '5040-126-TD26.pdf',
       buffer: expect.any(Buffer),
       size: expect.any(Number),
@@ -284,7 +285,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
       evento(483, [['facturas', 'FA-373 .pdf', 'FA-373_.pdf']]),
       evento(476, [['facturas', 'Factura 348.pdf', 'Factura_348.pdf']]),
     ]);
-    lector.leer.mockImplementation(
+    lector.leerElDocumento.mockImplementation(
       (_c: number, a: { originalname: string }) => {
         if (a.originalname === 'Informe.pdf') {
           return Promise.resolve(lectura('', 'otro'));
@@ -314,7 +315,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     expect(r.map((x) => [x.evento, x.numero])).toEqual([
       [423, '1213301-49-AG26'],
     ]);
-    expect(lector.leer).toHaveBeenCalledTimes(4);
+    expect(lector.leerElDocumento).toHaveBeenCalledTimes(4);
   });
 
   it('dos eventos con el mismo número: va uno; uno viejo también se mira, porque el período lo dicen las bases (decisión 75)', async () => {
@@ -323,17 +324,18 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
       evento(487, [['facturas', 'Factura expositor', '366-b.pdf']]),
       evento(12, [['facturas', 'Vieja', 'vieja.pdf']], 'Antiguo', '2023-11-20'),
     ]);
-    lector.leer.mockImplementation((_c: number, a: { originalname: string }) =>
-      Promise.resolve(
-        lectura(a.originalname === 'vieja.pdf' ? '120' : '366', 'factura'),
-      ),
+    lector.leerElDocumento.mockImplementation(
+      (_c: number, a: { originalname: string }) =>
+        Promise.resolve(
+          lectura(a.originalname === 'vieja.pdf' ? '120' : '366', 'factura'),
+        ),
     );
     const r = await servicio.paraLaPostulacion(1);
     expect(r.map((x) => [x.evento, x.numero])).toEqual([
       [486, '366'],
       [12, '120'],
     ]);
-    expect(lector.leer).toHaveBeenCalledTimes(3);
+    expect(lector.leerElDocumento).toHaveBeenCalledTimes(3);
   });
 
   it('la propuesta de experiencia pide solo los eventos que se pueden mostrar y su propia carpeta (decisión 76)', async () => {
@@ -344,7 +346,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
       ],
       [{ numero: '260' }],
     );
-    lector.leer.mockResolvedValue(lectura('260', 'factura'));
+    lector.leerElDocumento.mockResolvedValue(lectura('260', 'factura'));
     // Con la carpeta de solo Mercado Público, la 260 de «Mi empresa» no
     // tapa la del evento 118; el 52 no se puede mostrar y ni se lee.
     const r = await servicio.paraLaPostulacion(1, {
@@ -352,7 +354,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
       carpeta: [{ numero: '4366-146-SE23' }],
     });
     expect(r.map((x) => [x.evento, x.numero])).toEqual([[118, '260']]);
-    expect(lector.leer).toHaveBeenCalledTimes(1);
+    expect(lector.leerElDocumento).toHaveBeenCalledTimes(1);
     expect(repo.respaldos).not.toHaveBeenCalled();
   });
 
@@ -368,7 +370,7 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     );
     const { lector, servicio } = armar(eventos);
     let n = 0;
-    lector.leer.mockImplementation(() =>
+    lector.leerElDocumento.mockImplementation(() =>
       Promise.resolve(lectura(String(1000 + n++), 'factura')),
     );
     const r = await servicio.paraLaPostulacion(1);
