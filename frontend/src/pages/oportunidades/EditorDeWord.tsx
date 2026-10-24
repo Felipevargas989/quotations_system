@@ -28,7 +28,6 @@ import {
   htmlDelParrafo,
   paraGuardar,
   parrafosPorId,
-  PENDIENTE,
   tramosDelElemento,
 } from "./reglasDelEditor";
 
@@ -254,19 +253,27 @@ export default function EditorDeWord({
     else onCerrar();
   };
 
-  // Al escribir: cuántos [COMPLETAR] quedan, y el amarillo se apaga en el
-  // que ya se llenó.
+  // Al escribir: cuántos [COMPLETAR] quedan, y el amarillo se apaga en lo
+  // que ya se llenó. Al escribir encima de un marcador entero, el navegador
+  // lo borra y le copia su fondo a lo nuevo: ese fondo también se quita
+  // (al Word no va: solo cuenta el texto y su negrita, cursiva y subrayado).
   const alEscribir = () => {
     setSucio(true);
     const raiz = hoja.current;
     if (!raiz) return;
     setPendientes(cuantosPendientes(raiz.textContent ?? ""));
-    raiz.querySelectorAll<HTMLElement>("mark[data-completar]").forEach((m) => {
-      PENDIENTE.lastIndex = 0;
-      m.style.background = PENDIENTE.test(m.textContent ?? "")
-        ? ""
-        : "transparent";
-    });
+    raiz
+      .querySelectorAll<HTMLElement>(
+        "[data-p] mark, [data-p] [style*='background']",
+      )
+      .forEach((el) => {
+        if (/\[COMPLETAR/i.test(el.textContent ?? "")) {
+          el.style.removeProperty("background");
+          return;
+        }
+        el.style.removeProperty("background-color");
+        if (el.tagName === "MARK") el.style.background = "transparent";
+      });
   };
 
   // «Siguiente»: lleva al próximo [COMPLETAR] y lo deja marcado, para
