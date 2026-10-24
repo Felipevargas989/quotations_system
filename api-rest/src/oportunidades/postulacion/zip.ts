@@ -5,6 +5,11 @@
 // Word ya vienen comprimidos, y comprimirlos de nuevo solo ocuparía el
 // motor. Los nombres van en UTF-8 (bit 11) para que «Técnica» y
 // «Económica» se lean bien en Windows y en Mac. Sin ZIP64: hasta 4 GB.
+// Desde el 24-10 (decisión 78) un archivo puede ir comprimido
+// (`comprimir`): el Word editado en Eventia rearma su ZIP, y su XML sin
+// comprimir pesaba cinco veces más.
+
+import { deflateRawSync } from 'node:zlib';
 
 const TABLA_CRC = (() => {
   const tabla = new Uint32Array(256);
@@ -52,7 +57,12 @@ const fechaDelZip = (cuando: Date): { hora: number; dia: number } => {
 
 const NOMBRE_EN_UTF8 = 0x0800;
 
-export type ArchivoParaElZip = { nombre: string; datos: Buffer };
+export type ArchivoParaElZip = {
+  nombre: string;
+  datos: Buffer;
+  /** Comprimido (deflate). Sin decirlo, tal cual. */
+  comprimir?: boolean;
+};
 
 export const armarZip = (
   archivos: ArchivoParaElZip[],
@@ -62,19 +72,21 @@ export const armarZip = (
   const partes: Buffer[] = [];
   const centrales: Buffer[] = [];
   let desplazamiento = 0;
-  for (const { nombre, datos } of archivos) {
+  for (const { nombre, datos, comprimir } of archivos) {
     const n = Buffer.from(nombre, 'utf8');
     const crc = crc32(datos);
+    const cuerpo = comprimir ? deflateRawSync(datos) : datos;
+    const metodo = comprimir ? 8 : 0;
 
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(NOMBRE_EN_UTF8, 6);
-    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(metodo, 8);
     local.writeUInt16LE(hora, 10);
     local.writeUInt16LE(dia, 12);
     local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(datos.length, 18);
+    local.writeUInt32LE(cuerpo.length, 18);
     local.writeUInt32LE(datos.length, 22);
     local.writeUInt16LE(n.length, 26);
 
@@ -83,18 +95,18 @@ export const armarZip = (
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(NOMBRE_EN_UTF8, 8);
-    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(metodo, 10);
     central.writeUInt16LE(hora, 12);
     central.writeUInt16LE(dia, 14);
     central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(datos.length, 20);
+    central.writeUInt32LE(cuerpo.length, 20);
     central.writeUInt32LE(datos.length, 24);
     central.writeUInt16LE(n.length, 28);
     central.writeUInt32LE(desplazamiento, 42);
 
-    partes.push(local, n, datos);
+    partes.push(local, n, cuerpo);
     centrales.push(central, n);
-    desplazamiento += local.length + n.length + datos.length;
+    desplazamiento += local.length + n.length + cuerpo.length;
   }
   const directorio = Buffer.concat(centrales);
   const fin = Buffer.alloc(22);

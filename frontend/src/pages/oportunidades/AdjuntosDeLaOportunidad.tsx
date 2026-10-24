@@ -81,6 +81,7 @@ export default function AdjuntosDeLaOportunidad({
   pie,
   plegadaDePartida = false,
   filtrar,
+  abrirAqui,
 }: {
   readonly oportunidadId: number;
   readonly seccion?: SeccionDeArchivos;
@@ -94,6 +95,10 @@ export default function AdjuntosDeLaOportunidad({
   readonly filtrar?: (
     adjuntos: AdjuntoDeOportunidad[],
   ) => AdjuntoDeOportunidad[];
+  /** Los que se abren en una pantalla propia en vez del visor («Abrir»: en
+   *  «Mi postulación», el documento para verlo y editarlo, decisión 78).
+   *  Devuelve cómo abrirlo, o nada para usar el visor. */
+  readonly abrirAqui?: (a: AdjuntoDeOportunidad) => (() => void) | undefined;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
@@ -270,6 +275,7 @@ export default function AdjuntosDeLaOportunidad({
           <ul className="divide-y divide-gray-100">
             {adjuntos.map((a) => {
               const sello = ORIGENES[a.origen];
+              const abrir = abrirAqui?.(a);
               const clase = claseDeArchivo(a.nombre);
               const Icono =
                 clase === "otro" && /\.(zip|rar|7z)$/i.test(a.nombre)
@@ -303,16 +309,28 @@ export default function AdjuntosDeLaOportunidad({
                       {a.quien?.full_name
                         ? ` · ${a.quien.full_name}`
                         : ""} · {formatMomento(a.creado_en, "diaHora")}
+                      {a.editado_en &&
+                        ` · editado en Eventia el ${formatMomento(a.editado_en, "diaHora")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {accionesDeFila?.(a)}
-                    {seVeEnElVisor(a.ruta) && (
-                      <FileViewLink
-                        url={a.ruta}
-                        title={a.nombre}
-                        acciones={accionesDeFila?.(a)}
-                      />
+                    {abrir ? (
+                      <button
+                        type="button"
+                        onClick={abrir}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        Abrir
+                      </button>
+                    ) : (
+                      seVeEnElVisor(a.ruta) && (
+                        <FileViewLink
+                          url={a.ruta}
+                          title={a.nombre}
+                          acciones={accionesDeFila?.(a)}
+                        />
+                      )
                     )}
                     <button
                       type="button"
