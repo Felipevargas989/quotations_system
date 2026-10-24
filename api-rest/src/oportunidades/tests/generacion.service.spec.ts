@@ -30,7 +30,7 @@ jest.mock('../generacion/taller', () => ({
   trabajarEnElTaller: jest.fn(),
 }));
 const taller = trabajarEnElTaller as jest.Mock;
-/** Un respaldo de este año cuenta (decisión 52: los últimos 24 meses). */
+/** Un respaldo con su año (decisión 75: sin año no se ofrece). */
 const ESTE_ANIO = new Date().getFullYear();
 beforeEach(() => taller.mockReset());
 

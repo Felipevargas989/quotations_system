@@ -7,11 +7,13 @@ import type { DatosDeRespaldo } from './respaldo';
 // experiencia suficiente o debe ir a post venta a buscar respaldos... traer
 // desde Eventia es raro, si estamos en Eventia". Al armar la postulación, el
 // motor lee las facturas y órdenes de compra que se subieron a los eventos
-// ya hechos (Post-venta) y se las ofrece a la IA del anexo de experiencia
-// DESPUÉS de los respaldos de «Mi empresa»: las usa solo si esos no
-// alcanzan. No se copian: el set pega el PDF directo desde el evento. Lo
-// leído queda anotado en el trabajo de los anexos (`post_venta`), para el
-// set y para reintentar sin volver a leer. Aquí, las reglas sin IA.
+// ya hechos (Post-venta) y se las ofrece a la IA del anexo de experiencia,
+// en una sola lista con los respaldos de «Mi empresa», de mayor a menor
+// monto (decisión 75, 23-10; antes iban aparte, para usarlas solo si las de
+// «Mi empresa» no alcanzaban). No se copian: el set pega el PDF directo
+// desde el evento. Lo leído queda anotado en el trabajo de los anexos
+// (`post_venta`), para el set y para reintentar sin volver a leer. Aquí, las
+// reglas sin IA.
 
 /** Eventos por vez: una carpeta grande no se lleva la tarde. */
 export const MAX_EVENTOS_POR_VEZ = 30;
@@ -19,19 +21,19 @@ export const MAX_EVENTOS_POR_VEZ = 30;
 /** Documentos que se prueban por evento, como mucho. */
 export const MAX_DOCUMENTOS_POR_EVENTO = 3;
 
-/** La experiencia que cuenta: la de los últimos 24 meses (decisión 52;
- *  Felipe, 19-10: "dejemos las mejores de los últimos 24 meses y eliminemos
- *  el resto para que no sea ninguna rechazada"). */
-export const MESES_DE_EXPERIENCIA = 24;
-
-/** AAAA-MM-DD de hace `meses` meses. */
-export const haceMeses = (hoy: string, meses: number): string => {
-  const [a, m, d] = hoy.split('-').map(Number);
-  const total = a * 12 + (m - 1) - meses;
-  const anio = Math.floor(total / 12);
-  const mes = (total % 12) + 1;
-  return `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-};
+/** En qué orden se leen los eventos: los que más se cobraron primero, y a
+ *  igual monto, los más nuevos (decisión 75; Felipe, 23-10: "ojalá ticket
+ *  de 7M para arriba"). Sin fecha de corte: el período lo dicen las bases y
+ *  lo aplica la IA. Así, si hay más de `MAX_EVENTOS_POR_VEZ`, quedan fuera
+ *  los más chicos. */
+export const losMasGrandesPrimero = (
+  eventos: readonly DocumentosDeUnEvento[],
+): DocumentosDeUnEvento[] =>
+  [...eventos].sort(
+    (a, b) =>
+      (b.total ?? -1) - (a.total ?? -1) ||
+      (b.fecha ?? '').localeCompare(a.fecha ?? ''),
+  );
 
 const SE_LEE = /\.(pdf|jpe?g|png|webp)$/i;
 

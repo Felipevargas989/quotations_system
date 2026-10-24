@@ -13,9 +13,8 @@ import type { DatosDeRespaldo } from './respaldo';
 import {
   archivoDeLaRuta,
   documentosParaLeer,
-  haceMeses,
+  losMasGrandesPrimero,
   MAX_EVENTOS_POR_VEZ,
-  MESES_DE_EXPERIENCIA,
   mismoNumero,
   nombreDelRespaldo,
   type RespaldoDePostVenta,
@@ -42,20 +41,20 @@ export class RespaldosDePostVentaService {
     this.logger.setContext(RespaldosDePostVentaService.name);
   }
 
-  /** Los de los últimos 24 meses, del evento más nuevo al más viejo, sin
-   *  repetir ni un evento ni un número que ya esté en «Mi empresa». Nunca
-   *  falla por un evento: el que no se puede leer, no va. */
+  /** Los de cualquier fecha (el período lo dicen las bases, decisión 75),
+   *  del evento que más se cobró al más chico, sin repetir ni un evento ni
+   *  un número que ya esté en «Mi empresa». Nunca falla por un evento: el
+   *  que no se puede leer, no va. */
   async paraLaPostulacion(companyId: number): Promise<RespaldoDePostVenta[]> {
     const hoy = hoyEnChile();
-    const desde = haceMeses(hoy, MESES_DE_EXPERIENCIA);
     const [eventos, carpeta] = await Promise.all([
       this.eventia.documentosDeExperiencia(companyId, hoy),
       this.repo.respaldos(companyId),
     ]);
     const conocidos: Array<Pick<DatosDeRespaldo, 'numero'>> = [...carpeta];
-    const pendientes = eventos
-      .filter((e) => (e.fecha ?? '') >= desde && !yaEsta(e, carpeta))
-      .slice(0, MAX_EVENTOS_POR_VEZ);
+    const pendientes = losMasGrandesPrimero(
+      eventos.filter((e) => !yaEsta(e, carpeta)),
+    ).slice(0, MAX_EVENTOS_POR_VEZ);
     const leidos: RespaldoDePostVenta[] = [];
     for (let i = 0; i < pendientes.length; i += DE_A) {
       await Promise.all(
@@ -67,8 +66,8 @@ export class RespaldosDePostVentaService {
     this.logger.info(
       `respaldos de Post-venta (empresa ${companyId}): ${leidos.length} de ${pendientes.length} eventos por revisar`,
     );
-    // En el orden de los eventos: los más nuevos primero.
-    const orden = new Map(eventos.map((e, i) => [e.numero, i]));
+    // En el orden en que se leyeron: los más grandes primero.
+    const orden = new Map(pendientes.map((e, i) => [e.numero, i]));
     return leidos.sort(
       (a, b) => (orden.get(a.evento) ?? 0) - (orden.get(b.evento) ?? 0),
     );
