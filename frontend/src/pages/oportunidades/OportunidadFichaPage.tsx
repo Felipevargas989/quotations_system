@@ -323,6 +323,9 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           />
           <MiPostulacion
             oportunidadId={ficha.id}
+            congelada={
+              ficha.estado === "postulada" || ficha.estado === "ganada"
+            }
           />
           <SetParaMercadoPublico
             oportunidadId={ficha.id}

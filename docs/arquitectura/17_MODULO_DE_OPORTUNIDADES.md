@@ -514,6 +514,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Al guardar, el motor vuelve a revisar: lo que ya está es 409 y el archivo ni se sube.
     - La 5040-536-SE23 que quedó repetida antes de esto la cuenta una sola vez la propuesta de experiencia (decisión 76); la copia la puede borrar la empresa.
 
+78. **El Word se edita en Eventia** (24-10, EN EL LABORATORIO; Felipe, con el Formulario N°4 de la 5040-14-LE26 lleno de [COMPLETAR] en el visor: *"¿qué tan difícil será poner un editor? para completar cosas que la IA no sepa... hoy para completar eso debo bajarlo, editarlo y subirlo"*, y después: *"¿y si necesito editar algo que ya haya escrito la IA, para precisar la postulación?... un documento editable que pueda escribir y/o modificar en línea (lo básico: escribir, borrar, negrita, cursiva)... en caso que quiera descargarlo se descarga en Word"*; *"probemos eso en laboratorio, no me queda claro cómo se verá y es un cambio grande"*).
+    - **Se edita el mismo Word del comprador**, no un documento propio en otro formato: las bases piden sus formularios con su diseño, y un viaje de ida y vuelta por otro formato pierde logos, tablas y márgenes. Para la persona se ve como lo pidió: hace clic en el texto y escribe.
+    - «Editar», junto a «Firmar» en cada Word de «Mi postulación» sin firmar, abre el texto del formulario párrafo por párrafo, con sus tablas. Enter es un salto de línea, se pega solo el texto, negrita, cursiva y subrayado van con la barra o el teclado, y el navegador corrige la ortografía en español. Los [COMPLETAR] van en amarillo y «Siguiente» lleva a cada uno con su texto marcado, para escribir encima.
+    - El motor guarda solo los párrafos que cambiaron (`postulacion/guardar-el-word.ts`): cada pedazo conserva la letra, el tamaño y el color de su corrida, la negrita, la cursiva y el subrayado se escriben solo si cambiaron, y lo demás del Word queda igual, letra por letra. Lo que tiene una imagen, un campo automático o un vínculo se ve en gris y no se edita aquí; el encabezado y el pie tampoco.
+    - Lo editado queda en el mismo archivo de «Mi postulación» (con «editado en Eventia» y la hora): «Descargar» baja el Word editado y «Firmar» lo firma como siempre, en PDF. No se edita con la licitación postulada ni mientras la IA trabaja en sus documentos.
+    - Siguiente paso, cuando Felipe lo vea en el laboratorio: «Volver a validar» que revise también la ortografía, que no quede ningún [COMPLETAR] y que los montos cuadren con la oferta. Pregunta abierta: al «Volver a armar», lo editado se pierde (decisión 49); ¿se protege como lo firmado?
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público

@@ -35,6 +35,8 @@ export type Adjunto = {
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
+  /** Cuándo se editó en Eventia (decisión 78, migración 165); null = nunca. */
+  editado_en?: string | null;
 };
 
 export type AdjuntoNuevo = {
@@ -57,7 +59,7 @@ export type AdjuntoNuevo = {
 };
 
 const COLUMNAS =
-  'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, competidor, creado_en, subido_por, quien:user_profiles(full_name)';
+  'id, nombre, ruta, tipo, bytes, seccion, origen, viene_de, competidor, creado_en, subido_por, quien:user_profiles(full_name), editado_en';
 
 /** Un firmado y el Word del que salió (decisión 58). */
 export type ParDeFirmado = {
@@ -130,6 +132,47 @@ export class AdjuntosRepository {
       .order('creado_en', { ascending: false });
     if (error) throw error;
     return (data ?? []) as unknown as Adjunto[];
+  }
+
+  /** Un archivo de la oportunidad; null = no es de esta empresa o de esta
+   *  oportunidad. */
+  async uno(
+    companyId: number,
+    oportunidadId: number,
+    adjuntoId: number,
+  ): Promise<Adjunto | null> {
+    const { data, error } = await this.db
+      .from('oportunidad_adjuntos')
+      .select(COLUMNAS)
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('id', adjuntoId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as Adjunto | null) ?? null;
+  }
+
+  /** El Word editado en Eventia (decisión 78): la fila pasa al archivo
+   *  nuevo, solo si sigue en el de antes (`rutaAntes`). null = alguien lo
+   *  cambió entremedio (otra edición, «Volver a armar», la firma). */
+  async cambiarArchivo(
+    companyId: number,
+    oportunidadId: number,
+    adjuntoId: number,
+    rutaAntes: string,
+    nuevo: { ruta: string; bytes: number },
+  ): Promise<Adjunto | null> {
+    const { data, error } = await this.db
+      .from('oportunidad_adjuntos')
+      .update({ ...nuevo, editado_en: new Date().toISOString() })
+      .eq('company_id', companyId)
+      .eq('oportunidad_id', oportunidadId)
+      .eq('id', adjuntoId)
+      .eq('ruta', rutaAntes)
+      .select(COLUMNAS)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as Adjunto | null) ?? null;
   }
 
   /** La sección y el origen de cada archivo de varias oportunidades de la
@@ -242,6 +285,15 @@ export class AdjuntosRepository {
       }
     }
     return borrados;
+  }
+
+  /** Un archivo del balde privado. */
+  async bajarArchivo(ruta: string): Promise<Buffer> {
+    const { data, error } = await this.db.storage
+      .from(BUCKET_PRIVADO)
+      .download(ruta);
+    if (error || !data) throw error ?? new Error(`sin datos: ${ruta}`);
+    return Buffer.from(await data.arrayBuffer());
   }
 
   async subirArchivo(

@@ -45,6 +45,8 @@ import { OportunidadesService } from './oportunidades.service';
 import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
 import { ArmarPostulacionService } from './postulacion/armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
+import { EditorDelWordController } from './postulacion/editor-del-word.controller';
+import { EditorDelWordService } from './postulacion/editor-del-word.service';
 import { ElSetService } from './postulacion/el-set.service';
 import { LaExperienciaService } from './postulacion/la-experiencia.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
@@ -70,6 +72,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     PreguntasController,
     OportunidadesController,
     PostulacionController,
+    EditorDelWordController,
     SeguimientoController,
     ComparacionController,
     AprendizajesController,
@@ -94,6 +97,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ElSetService,
     ArmarPostulacionService,
     LaExperienciaService,
+    EditorDelWordService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,
