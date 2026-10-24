@@ -260,6 +260,19 @@ describe('guardarCambios — solo lo que cambió', () => {
     );
   });
 
+  it('el Word guardado pesa como el original: su texto va comprimido', () => {
+    const grande = elWord(
+      DOCUMENTO.replace(
+        '</w:body>',
+        `${'<w:p><w:r><w:t>relleno</w:t></w:r></w:p>'.repeat(400)}</w:body>`,
+      ),
+    );
+    const nuevo = guardarCambios(grande, leido(grande).version, [
+      { id: 3, tramos: [{ r: 0, t: 'Valle del Sol SpA' }] },
+    ]);
+    expect(nuevo.length).toBeLessThan(grande.length * 1.2);
+  });
+
   it('el Word guardado se vuelve a abrir, con otra versión', () => {
     const nuevo = guardarCambios(docx, version, [
       { id: 3, tramos: [{ r: 0, t: 'Valle del Sol SpA' }] },

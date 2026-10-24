@@ -233,19 +233,21 @@ const parrafoNuevo = (
   return `${apertura}${de(['w:pPr'])}${de(['w:bookmarkStart', 'w:permStart'])}${corridas}${de(['w:bookmarkEnd', 'w:permEnd'])}</w:p>`;
 };
 
-/** El mismo Word con otro word/document.xml. Se arma sin comprimir, como
- *  el set (`zip.ts`): Word lo abre igual. */
+/** El mismo Word con otro word/document.xml. El texto (XML) va
+ *  comprimido, como lo guarda Word; las imágenes ya vienen comprimidas y
+ *  van tal cual. */
 const conElDocumento = (docx: Buffer, xml: string): Buffer => {
   const nombres = nombresDelZip(docx);
   if (!nombres) throw new NoSeGuarda('Este Word no se puede abrir.');
   return armarZip(
     nombres.map((nombre) => {
+      const comprimir = /\.(xml|rels)$/i.test(nombre);
       if (nombre === 'word/document.xml') {
-        return { nombre, datos: Buffer.from(xml, 'utf8') };
+        return { nombre, datos: Buffer.from(xml, 'utf8'), comprimir };
       }
       const datos = archivoDelZip(docx, nombre);
       if (!datos) throw new NoSeGuarda('Este Word no se puede abrir entero.');
-      return { nombre, datos };
+      return { nombre, datos, comprimir };
     }),
   );
 };
