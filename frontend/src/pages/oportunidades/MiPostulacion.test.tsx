@@ -28,6 +28,11 @@ vi.mock("../../components/toast/Toast", () => ({
 }));
 vi.mock("../../components/FileViewLink", () => ({ default: () => null }));
 vi.mock("./descargas", () => ({ descargarDelBalde: vi.fn() }));
+vi.mock("./EditorDeWord", () => ({
+  default: ({ adjunto }: { adjunto: servicio.AdjuntoDeOportunidad }) => (
+    <p>Editando {adjunto.nombre}</p>
+  ),
+}));
 const s = vi.mocked(servicio);
 
 const archivo = (
@@ -95,18 +100,37 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const pintar = () =>
+const pintar = (congelada = false) =>
   render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MiPostulacion oportunidadId={40} />
+      <MiPostulacion oportunidadId={40} congelada={congelada} />
     </QueryClientProvider>,
   );
 
 describe("Mi postulación", () => {
+  it("«Editar» abre el Word sin firmar aquí mismo (decisión 78)", async () => {
+    pintar();
+    const botones = await screen.findAllByRole("button", { name: /Editar/ });
+    // Los Word sin firmar (22, 23 y el de antes); el PDF firmado no.
+    expect(botones).toHaveLength(3);
+    fireEvent.click(botones[0]);
+    expect(
+      await screen.findByText(
+        "Editando Formulario N°2 - Declaración jurada - lleno.docx",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("postulada, ya no se edita", async () => {
+    pintar(true);
+    await screen.findAllByRole("button", { name: /^Firmar$/ });
+    expect(screen.queryByRole("button", { name: /Editar/ })).toBeNull();
+  });
+
   it("«Firmar todos» firma lo último que hizo la IA que no está firmado", async () => {
     pintar();
     fireEvent.click(

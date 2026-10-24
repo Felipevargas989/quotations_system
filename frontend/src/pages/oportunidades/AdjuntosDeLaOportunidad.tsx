@@ -303,6 +303,8 @@ export default function AdjuntosDeLaOportunidad({
                       {a.quien?.full_name
                         ? ` · ${a.quien.full_name}`
                         : ""} · {formatMomento(a.creado_en, "diaHora")}
+                      {a.editado_en &&
+                        ` · editado en Eventia el ${formatMomento(a.editado_en, "diaHora")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

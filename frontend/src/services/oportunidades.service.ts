@@ -566,6 +566,7 @@ export interface AdjuntoDeOportunidad {
   creado_en: string;
   subido_por: string | null;
   quien: { full_name: string | null } | null;
+  editado_en?: string | null; // se editó en Eventia (decisión 78)
 }
 
 export type OrigenDeArchivo = "subido" | "generado" | "firmado";
