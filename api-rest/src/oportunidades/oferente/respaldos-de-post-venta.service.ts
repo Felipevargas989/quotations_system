@@ -100,7 +100,7 @@ export class RespaldosDePostVentaService {
           companyId,
           doc.ruta,
         );
-        const leido = await this.lector.leer(companyId, {
+        const leido = await this.lector.leerElDocumento(companyId, {
           originalname: archivoDeLaRuta(doc.ruta),
           buffer,
           size: buffer.length,

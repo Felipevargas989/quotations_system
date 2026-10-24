@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
+import type { EventiaRepository } from '../eventia/eventia.repository';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import {
   MAX_BYTES_DOCUMENTO,
@@ -44,13 +45,17 @@ function armar() {
     borrarArchivo: jest.fn().mockResolvedValue(true),
     perfilDe: jest.fn().mockResolvedValue('perfil-1'),
   };
+  const eventia = {
+    documentosDeExperiencia: jest.fn().mockResolvedValue([]),
+  };
   const logger = mockPinoLogger();
   const servicio = new OferenteService(
     repo as unknown as OferenteRepository,
     archivos as unknown as AdjuntosRepository,
+    eventia as unknown as EventiaRepository,
     logger as unknown as PinoLogger,
   );
-  return { repo, archivos, servicio, logger };
+  return { repo, archivos, eventia, servicio, logger };
 }
 
 const archivo = (originalname: string, size = 1000) =>
@@ -291,10 +296,11 @@ class OferenteDePrueba extends OferenteService {
 }
 
 function armarConLaOrden() {
-  const { repo, archivos, logger } = armar();
+  const { repo, archivos, eventia, logger } = armar();
   const servicio = new OferenteDePrueba(
     repo as unknown as OferenteRepository,
     archivos as unknown as AdjuntosRepository,
+    eventia as unknown as EventiaRepository,
     logger as unknown as PinoLogger,
   );
   return { repo, archivos, servicio };
@@ -377,6 +383,83 @@ describe('OferenteService — los respaldos de experiencia', () => {
     await expect(servicio.ordenDeCompra(1, '9999-1-SE23')).rejects.toThrow(
       'Mercado Público no respondió. Inténtalo de nuevo en un rato.',
     );
+  });
+});
+
+describe('OferenteService — sin duplicados (decisión 77)', () => {
+  const enLaCarpeta = {
+    id: 18,
+    tipo: 'respaldo_experiencia',
+    nombre: 'Orden de compra - 5040-536-SE23.pdf',
+    ruta: 'c1/oferente/documentos/x.pdf',
+    tipo_archivo: 'application/pdf',
+    bytes: 900,
+    vence: null,
+    datos: { numero: '5040-536-SE23', fuente: 'mercado_publico' },
+    creado_en: '2026-10-19T15:00:00.000Z',
+    quien: null,
+  };
+
+  it('ya está en «Mi empresa» por el número, aunque cambien las mayúsculas o los ceros adelante', async () => {
+    const { repo, servicio } = armar();
+    repo.documentos.mockResolvedValue([enLaCarpeta]);
+    await expect(servicio.dondeYaEsta(1, '5040-536-se23')).resolves.toBe(
+      'Ya está en «Mi empresa»: Orden de compra - 5040-536-SE23.pdf, subida el 19-10-2026.',
+    );
+    await expect(servicio.dondeYaEsta(1, '0260')).resolves.toBeNull();
+  });
+
+  it('ya está en Post-venta si el archivo de un evento trae el número; si no, no está', async () => {
+    const { eventia, servicio } = armar();
+    eventia.documentosDeExperiencia.mockResolvedValue([
+      {
+        numero: 52,
+        fecha: '2025-12-13',
+        cliente: 'Ferrocarril del Pacífico S.A',
+        total: 12_614_800,
+        documentos: [
+          {
+            id: 1,
+            categoria: 'facturas',
+            nombre: 'factura firmada',
+            ruta: 'c1/event-documents/q-52/facturas/2026-10-24T02-20-18-960Z_F249.pdf',
+          },
+          {
+            id: 2,
+            categoria: 'facturas',
+            nombre: 'Factura 250.pdf',
+            ruta: 'c1/event-documents/q-52/facturas/x_250.pdf',
+          },
+        ],
+      },
+    ]);
+    await expect(servicio.dondeYaEsta(1, '250')).resolves.toBe(
+      'Ya está en Post-venta, en el evento N° 52 (Ferrocarril del Pacífico S.A).',
+    );
+    // «F249» no nombra el 249 solo: no se adivina.
+    await expect(servicio.dondeYaEsta(1, '249')).resolves.toBeNull();
+    expect(eventia.documentosDeExperiencia).toHaveBeenCalledWith(
+      1,
+      '9999-12-31',
+    );
+  });
+
+  it('al guardar, lo que ya está no se sube otra vez (409) y el archivo ni se sube', async () => {
+    const { repo, archivos, servicio } = armar();
+    repo.documentos.mockResolvedValue([enLaCarpeta]);
+    await expect(
+      servicio.subirDocumento(1, CUENTA, archivo('5040-536-SE23.pdf'), {
+        tipo: 'respaldo_experiencia',
+        datos: JSON.stringify({
+          numero: '5040-536-SE23',
+          fuente: 'mercado_publico',
+        }),
+      }),
+    ).rejects.toThrow(
+      'Ya está en «Mi empresa»: Orden de compra - 5040-536-SE23.pdf, subida el 19-10-2026. No se guarda otra vez.',
+    );
+    expect(archivos.subirArchivo).not.toHaveBeenCalled();
+    expect(repo.guardarDocumento).not.toHaveBeenCalled();
   });
 });
 

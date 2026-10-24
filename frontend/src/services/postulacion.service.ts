@@ -52,10 +52,12 @@ export const leerOrdenDeCompra = async (codigo: string) =>
  *  para el respaldo, sin guardar nada (si es de Mercado Público, los
  *  confirma su ficha pública). `aviso`: algo que revisar. */
 export const leerRespaldo = (archivo: File) =>
-  subirConFormulario<{ datos: DatosDeRespaldo; aviso: string | null }>(
-    `${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/leer`,
-    archivo,
-  );
+  subirConFormulario<{
+    datos: DatosDeRespaldo;
+    aviso: string | null;
+    /** Si ya está en el sistema, dónde (decisión 77): no se guarda. */
+    ya_esta?: string | null;
+  }>(`${API_ROUTES.OPORTUNIDADES}/oferente/respaldos/leer`, archivo);
 
 /** «No usar» (decisión 56): marca o desmarca un respaldo que la empresa no
  *  quiere mostrar; los demás se usan de mayor a menor monto. */
