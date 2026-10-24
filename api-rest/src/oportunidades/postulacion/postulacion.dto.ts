@@ -2,9 +2,18 @@ import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Vincular una cotización que ya existe, sin reescribirla (decisión 73). */
+export class VincularCotizacionDto {
+  @IsInt()
+  @Min(1)
+  @Max(100_000_000)
+  numero!: number;
+}
+
 /** Llevar la propuesta técnica a la cotización (decisión 29). Con
  *  `numero` se vincula y se reescribe esa cotización; sin él, la ya
- *  vinculada, o se crea una. */
+ *  vinculada, o se crea una. Desde la decisión 73 la pantalla vincula con
+ *  `VincularCotizacionDto`, que no reescribe. */
 export class LlevarACotizacionDto {
   @IsOptional()
   @IsInt()

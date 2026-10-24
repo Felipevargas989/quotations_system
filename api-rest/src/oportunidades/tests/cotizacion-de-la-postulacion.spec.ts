@@ -307,6 +307,61 @@ describe('La cotización de la postulación', () => {
     );
   });
 
+  it('vincular sin reescribir (decisión 73): quedan sus productos y precios, pasa a la fecha de las bases y se anota; una aceptada conserva su fecha', async () => {
+    // Felipe, 23-10, con la N° 493 del Día de Campo: "no se reescribe,
+    // finalmente postulo con lo que puedo... el precio de catálogo es lo
+    // que es".
+    const { repo, cotizaciones, servicio, notas } = armar();
+    repo.cotizacion.mockResolvedValue({
+      id: 'q-493',
+      quotation_number: 493,
+      quotation_status: 'en_negociacion',
+      people_count: 550,
+      children_count: 0,
+      event_date: '2026-10-30T00:00:00+00:00',
+      event_end_date: null,
+      items: { variable_services: [], fixed_services: [] },
+      subtotal_amount: 16_720_000,
+      discount_amount: 0,
+      total_amount: 16_720_000,
+      comentario_interno: null,
+      client: { name: 'Municipalidad de Quillón' },
+    });
+
+    await servicio.vincular(USUARIO, 87, 493);
+
+    expect(repo.cotizacion).toHaveBeenCalledWith(1, { numero: 493 });
+    expect(cotizaciones.create).not.toHaveBeenCalled();
+    // Solo la fecha: ni productos, ni plata, ni personas.
+    const [id, cambios] = cotizaciones.update.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(id).toBe('q-493');
+    expect(cambios).toEqual({ event_date: '2026-10-28', event_end_date: null });
+    expect(notas()[0]).toBe(
+      'Se vinculó a la licitación 4364-13-LE26 (Producción de Evento día del Profesor) sin cambiar sus productos ni precios. Su fecha pasó del 2026-10-30 al 2026-10-28, la de las bases.',
+    );
+    expect(repo.vincular).toHaveBeenCalledWith(1, 87, 'q-493');
+
+    // Un evento aceptado se vincula igual, pero conserva su fecha.
+    cotizaciones.update.mockClear();
+    repo.cotizacion.mockResolvedValue({
+      id: 'q-evento',
+      quotation_number: 590,
+      quotation_status: 'aceptada',
+      event_date: '2026-10-30',
+    });
+    await servicio.vincular(USUARIO, 87, 590);
+    expect(cotizaciones.update).not.toHaveBeenCalled();
+    expect(repo.vincular).toHaveBeenLastCalledWith(1, 87, 'q-evento');
+
+    repo.cotizacion.mockResolvedValue(null);
+    await expect(servicio.vincular(USUARIO, 87, 999)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
   it('un comprador nuevo entra como cliente con el tipo de los públicos', async () => {
     const { clientes, cotizaciones, servicio } = armar();
     clientes.coincidencias.mockResolvedValue([]);
