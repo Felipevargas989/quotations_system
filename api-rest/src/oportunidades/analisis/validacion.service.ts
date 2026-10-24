@@ -13,6 +13,7 @@ import {
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
 import {
+  type CampoDelOferente,
   type Oferente,
   OferenteRepository,
 } from '../oferente/oferente.repository';
@@ -118,7 +119,7 @@ export type ContextoDeValidacion = {
   aclarado?: Aclaracion[];
 };
 
-const DATOS_DEL_OFERENTE: ReadonlyArray<[keyof Oferente, string]> = [
+const DATOS_DEL_OFERENTE: ReadonlyArray<[CampoDelOferente, string]> = [
   ['razon_social', 'Razón social'],
   ['rut', 'RUT'],
   ['giro', 'Giro'],

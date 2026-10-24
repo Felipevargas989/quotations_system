@@ -5,6 +5,7 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { noSiEstaCongelada } from '../postulacion/congelada';
+import { sePuedeMostrar } from '../postulacion/la-experiencia';
 import type { LoPostuladoService } from '../postulacion/lo-postulado.service';
 import {
   type Aclaracion,
@@ -89,7 +90,14 @@ export async function contextoDeGeneracion(
     // La memoria de la licitación (decisión 68): lo aclarado manda.
     bases: bases ? { ...bases, aclarado } : null,
     carta,
-    eventos,
+    // Solo los clientes que se pueden mostrar (decisión 76): la IA no
+    // nombra a un privado que la empresa no quiere mostrar.
+    eventos: eventos.filter((e) =>
+      sePuedeMostrar(
+        { id: e.cliente_id, tipo: e.tipo_de_cliente },
+        oferente?.clientes_que_se_muestran ?? [],
+      ),
+    ),
     respaldos,
     oferta,
   };

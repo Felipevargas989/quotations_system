@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as experiencia from "../../services/experiencia.service";
 import * as servicio from "../../services/oportunidades.service";
 import * as postulacion from "../../services/postulacion.service";
 import ArmarPostulacion from "./ArmarPostulacion";
@@ -29,11 +30,18 @@ vi.mock("../../services/postulacion.service", () => ({
   armarPostulacion: vi.fn(),
   getOfertaDeLaPostulacion: vi.fn(),
 }));
+vi.mock("../../services/experiencia.service", () => ({
+  getExperiencia: vi.fn(),
+  proponerExperiencia: vi.fn(),
+  confirmarExperiencia: vi.fn(),
+  guardarClientesQueSeMuestran: vi.fn(),
+}));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 const s = vi.mocked(servicio);
 const p = vi.mocked(postulacion);
+const x = vi.mocked(experiencia);
 
 beforeEach(() => {
   s.getAdjuntos.mockResolvedValue([]);
@@ -54,6 +62,8 @@ beforeEach(() => {
     propuesta: null,
   });
   p.getOfertaDeLaPostulacion.mockResolvedValue(null);
+  // De partida, bases que no piden experiencia (decisión 76).
+  x.getExperiencia.mockResolvedValue({ piden: false, trabajo: null });
 });
 
 afterEach(() => {
@@ -177,5 +187,22 @@ describe("Armar postulación", () => {
     expect(
       screen.getByRole("button", { name: "Armar postulación" }),
     ).toBeDisabled();
+  });
+
+  it("si las bases piden experiencia, no se arma hasta confirmarla (decisión 76)", async () => {
+    x.getExperiencia.mockResolvedValue({ piden: true, trabajo: null });
+    pintar();
+    expect(
+      await screen.findByRole("button", { name: "Proponer experiencia" }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Precio total, con IVA"), {
+      target: { value: "17150000" },
+    });
+    const boton = screen.getByRole("button", { name: "Armar postulación" });
+    expect(boton).toBeDisabled();
+    expect(boton).toHaveAttribute(
+      "title",
+      "Primero confirma la experiencia (arriba)",
+    );
   });
 });

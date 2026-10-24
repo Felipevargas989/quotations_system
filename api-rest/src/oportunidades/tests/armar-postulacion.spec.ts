@@ -7,7 +7,6 @@ import type { AnalisisRepository } from '../analisis/analisis.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import type { GeneracionService } from '../generacion/generacion.service';
 import type { OferenteRepository } from '../oferente/oferente.repository';
-import type { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta.service';
 import type { ArmarLaOfertaService } from '../postulacion/armar-la-oferta.service';
 import {
   ArmarPostulacionService,
@@ -15,11 +14,18 @@ import {
   vaLaPropuesta,
 } from '../postulacion/armar-postulacion.service';
 import type { CotizacionDeLaPostulacionService } from '../postulacion/cotizacion-de-la-postulacion.service';
+import type {
+  Candidata,
+  ExperienciaConfirmada,
+} from '../postulacion/la-experiencia';
+import type { LaExperienciaService } from '../postulacion/la-experiencia.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 
 // «ARMAR POSTULACIÓN» (decisión 35, 19-10): un solo botón con el precio.
 // La oferta primero; cuando queda lista, los anexos con ese precio, la
 // propuesta técnica si va y la cotización vinculada igual a lo postulado.
+// Desde la decisión 76, si las bases piden experiencia, solo con la
+// experiencia que confirmó la empresa.
 
 const USUARIO = {
   id: 'cuenta-1',
@@ -67,8 +73,8 @@ function armar() {
     trabajosDeLaIA: jest.fn().mockResolvedValue([]),
   };
   const adjuntos = { borrarBorradores: jest.fn().mockResolvedValue(0) };
-  const postVenta = {
-    paraLaPostulacion: jest.fn().mockResolvedValue([]),
+  const experiencia = {
+    confirmada: jest.fn().mockResolvedValue(null),
   };
   const servicio = new ArmarPostulacionService(
     oferta as unknown as ArmarLaOfertaService,
@@ -78,13 +84,13 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
     repo as unknown as PostulacionRepository,
-    postVenta as unknown as RespaldosDePostVentaService,
+    experiencia as unknown as LaExperienciaService,
     adjuntos as unknown as AdjuntosRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return {
     adjuntos,
-    postVenta,
+    experiencia,
     oferta,
     documentos,
     cotizacion,
@@ -188,55 +194,70 @@ describe('Armar postulación', () => {
     expect(generaciones.anotarParametros).not.toHaveBeenCalled();
   });
 
-  it('si las bases piden experiencia, lee Post-venta antes de los anexos y se lo pasa (decisión 45)', async () => {
-    const { servicio, documentos, postVenta, analisis } = armar();
-    analisis.ultimo.mockResolvedValue({
-      estado: 'listo',
-      resultado: {
-        requisitos: [{ que: 'Formulario N°3 Experiencia del oferente' }],
-      },
-    });
-    const respaldo = {
-      numero: '5040-126-TD26',
-      evento: 473,
-      archivo: 'Orden de compra 5040-126-TD26.pdf',
+  it('con la experiencia confirmada, los anexos llevan esas filas y el ZIP los PDF de las de Post-venta (decisión 76)', async () => {
+    const { servicio, documentos } = armar();
+    const deMercadoPublico: Candidata = {
+      clave: 'mp:4366-146-SE23',
+      de: 'mi_empresa',
+      con_respaldo: true,
+      numero: '4366-146-SE23',
+      mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      contrato: 'SERV. ARRIENDO ESPACIOS Y ALIMENTACIÓN',
+      anio: 2023,
+      monto: 16_500_000,
+      fuente: 'mercado_publico',
+      archivo: 'Orden de compra - 4366-146-SE23.pdf',
     };
-    postVenta.paraLaPostulacion.mockResolvedValue([respaldo]);
-    await servicio.seguir(USUARIO, 40, 21, {
-      total: 11_900_000,
-      propuesta: false,
-    });
-    expect(postVenta.paraLaPostulacion).toHaveBeenCalledWith(1);
+    const deEventia: Candidata = {
+      clave: 'ev:118',
+      de: 'eventia',
+      con_respaldo: true,
+      numero: '260',
+      mandante: 'Comercial CCU S.A.',
+      contrato: 'Segundo pago Navidad 2025',
+      anio: 2025,
+      monto: 11_292_880,
+      fuente: 'manual',
+      evento: 118,
+      archivo: 'Factura 260.pdf',
+      ruta: 'c1/event-documents/q-118/facturas/x_F260_CCU.pdf',
+      bytes: 900,
+    };
+    const experiencia: ExperienciaConfirmada = {
+      confirmada: true,
+      filas: [deMercadoPublico, deEventia],
+    };
+    await servicio.seguir(
+      USUARIO,
+      40,
+      21,
+      { total: 11_900_000, propuesta: false },
+      experiencia,
+    );
     expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
       monto_total: 11_900_000,
-      post_venta: [respaldo],
+      post_venta: [
+        {
+          numero: '260',
+          mandante: 'Comercial CCU S.A.',
+          contrato: 'Segundo pago Navidad 2025',
+          anio: 2025,
+          monto: 11_292_880,
+          fuente: 'manual',
+          evento: 118,
+          archivo: 'Factura 260.pdf',
+          ruta: 'c1/event-documents/q-118/facturas/x_F260_CCU.pdf',
+          bytes: 900,
+        },
+      ],
+      experiencia,
       ya_firmados: [],
       reemplaza: [],
     });
   });
 
-  it('sin experiencia en las bases no busca; si buscar falla, los anexos salen igual (y no es un problema de la postulación)', async () => {
-    const { servicio, documentos, postVenta, analisis, generaciones } = armar();
-    await servicio.seguir(USUARIO, 40, 21, {
-      total: 11_900_000,
-      propuesta: false,
-    });
-    expect(postVenta.paraLaPostulacion).not.toHaveBeenCalled();
-    expect(documentos.generarAnexos).toHaveBeenCalledWith(1, 'cuenta-1', 40, {
-      monto_total: 11_900_000,
-      post_venta: [],
-      ya_firmados: [],
-      reemplaza: [],
-    });
-
-    analisis.ultimo.mockResolvedValue({
-      estado: 'listo',
-      resultado: { formularios: [{ nombre: 'Anexo 3: Experiencia' }] },
-    });
-    postVenta.paraLaPostulacion.mockRejectedValue(
-      new Error('Supabase no respondió'),
-    );
-    documentos.generarAnexos.mockClear();
+  it('sin experiencia confirmada, los anexos no llevan respaldos de Post-venta ni leen nada', async () => {
+    const { servicio, documentos, generaciones } = armar();
     await servicio.seguir(USUARIO, 40, 21, {
       total: 11_900_000,
       propuesta: false,
@@ -349,21 +370,36 @@ describe('Armar postulación', () => {
     expect(documentos.crearPropuesta).not.toHaveBeenCalled();
   });
 
-  it('desde la decisión 56 no hay lista cerrada: si piden experiencia, igual busca en Post-venta', async () => {
-    const { servicio, postVenta, analisis, oferente } = armar();
+  it('si las bases piden experiencia, no se arma sin confirmarla; confirmada, va a los anexos (decisión 76)', async () => {
+    const { servicio, oferta, documentos, analisis, experiencia } = armar();
     analisis.ultimo.mockResolvedValue({
       estado: 'listo',
-      resultado: { requisitos: [{ que: 'Experiencia del oferente' }] },
+      resultado: {
+        requisitos: [{ que: 'Formulario N°3 Experiencia del oferente' }],
+      },
     });
-    oferente.respaldos.mockResolvedValue([
-      { numero: '1213301-49-AG26' },
-      { numero: '312', no_usar: true },
-    ]);
-    await servicio.seguir(USUARIO, 40, 21, {
-      total: 11_900_000,
-      propuesta: false,
-    });
-    expect(postVenta.paraLaPostulacion).toHaveBeenCalledWith(1);
+    await expect(servicio.armar(USUARIO, 40, 11_900_000)).rejects.toThrow(
+      'Primero confirma la experiencia que vas a presentar',
+    );
+    expect(oferta.pedir).not.toHaveBeenCalled();
+    expect(experiencia.confirmada).toHaveBeenCalledWith(1, 40);
+
+    const confirmada: ExperienciaConfirmada = { confirmada: true, filas: [] };
+    experiencia.confirmada.mockResolvedValue(confirmada);
+    await servicio.armar(USUARIO, 40, 11_900_000);
+    const [, , , pedido] = oferta.pedir.mock.calls[0] as [
+      number,
+      string,
+      number,
+      { despues: (ofertaId: number) => Promise<void> },
+    ];
+    await pedido.despues(21);
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(
+      1,
+      'cuenta-1',
+      40,
+      expect.objectContaining({ experiencia: confirmada, post_venta: [] }),
+    );
   });
 
   it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {

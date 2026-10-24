@@ -253,6 +253,9 @@ export function armar() {
         monto: 9_800_000,
         cliente: 'Municipalidad de Bulnes',
         fijos: ['Salón principal'],
+        // Un cliente público: se muestra solo (decisión 76).
+        cliente_id: 'cliente-bulnes',
+        tipo_de_cliente: 'Empresas Publicas',
       },
     ]),
   };

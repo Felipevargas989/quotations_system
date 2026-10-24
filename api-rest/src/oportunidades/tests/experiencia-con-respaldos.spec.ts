@@ -183,7 +183,7 @@ describe('La experiencia en los anexos', () => {
       expect(sistema).not.toContain('24 meses y, si');
     }));
 
-  it('de mayor a menor monto, todos juntos, sin los «No usar» ni los de su cliente en Post-venta, y con 2 de reserva (decisiones 56 y 75)', () =>
+  it('de mayor a menor monto, todos juntos, sin los «No usar» ni los de su cliente en Post-venta, y con 2 de reserva; de «Mi empresa» solo las órdenes de Mercado Público (decisiones 56, 75 y 76)', () =>
     entorno(async () => {
       const { oferente, servicio, ejecutar } = armar();
       const este = new Date().getFullYear();
@@ -203,12 +203,14 @@ describe('La experiencia en los anexos', () => {
       });
       oferente.respaldos.mockResolvedValue([
         respaldo('366', 52_001),
+        // Una factura en «Mi empresa» ya no cuenta: vive en Post-venta.
         respaldo('260', 11_292_880, { mandante: 'Comercial CCU S.A.' }),
         respaldo('312', 5_000_000, {
           mandante: 'JOKER SERVICIOS SPA',
           no_usar: true,
         }),
-        respaldo('372', 2_234_000),
+        respaldo('4352-103-SE23', 11_782_499, { fuente: 'mercado_publico' }),
+        respaldo('5040-536-SE23', 4_760_000, { fuente: 'mercado_publico' }),
       ]);
       await servicio.generarAnexos(1, CUENTA, 40, {
         monto_total: 15_900_000,
@@ -223,20 +225,158 @@ describe('La experiencia en los anexos', () => {
         ],
       });
       const sistema = planDe(ejecutar).sistema;
-      const donde = (numero: string) => sistema.indexOf(`N° ${numero}`);
-      expect(donde('260')).toBeGreaterThan(-1);
-      expect(donde('260')).toBeLessThan(donde('372'));
-      expect(donde('372')).toBeLessThan(donde('366'));
+      const donde = (numero: string) => sistema.indexOf(`N° ${numero} ·`);
+      expect(donde('4352-103-SE23')).toBeGreaterThan(-1);
+      expect(donde('4352-103-SE23')).toBeLessThan(donde('5040-536-SE23'));
+      // La de Post-venta va en su lugar por monto, entre las de la carpeta.
+      expect(donde('5040-536-SE23')).toBeLessThan(donde('5040-126-TD26'));
+      expect(donde('260')).toBe(-1);
+      expect(donde('366')).toBe(-1);
       expect(donde('312')).toBe(-1);
       // De Post-venta tampoco entra otra de un cliente marcado «No usar».
       expect(donde('367')).toBe(-1);
-      // La de Post-venta va en su lugar por monto, entre las de la carpeta.
-      expect(donde('372')).toBeLessThan(donde('5040-126-TD26'));
-      expect(donde('5040-126-TD26')).toBeLessThan(donde('366'));
       expect(sistema).toContain(
         'Tómalos EN ESE ORDEN, los de más monto primero',
       );
       expect(sistema).toContain('más DOS de reserva');
       expect(sistema).not.toContain('LOS DE SIEMPRE');
+    }));
+
+  it('con la experiencia confirmada (decisión 76) van esas filas, tal cual y en orden, y queda anotada para reintentar', () =>
+    entorno(async () => {
+      const { oferente, repo, servicio, ejecutar } = armar();
+      oferente.respaldos.mockResolvedValue([
+        {
+          numero: '1715-123-SE24',
+          mandante: 'CORPORACION DE ASISTENCIA JUDICIAL',
+          contrato: 'Actividad recreativa',
+          anio: 2024,
+          monto: 3_999_999,
+          fuente: 'mercado_publico',
+          archivo: '1715-123-SE24.pdf',
+        },
+      ]);
+      const experiencia = {
+        confirmada: true as const,
+        filas: [
+          {
+            clave: 'mp:4366-146-SE23',
+            de: 'mi_empresa' as const,
+            con_respaldo: true,
+            numero: '4366-146-SE23',
+            mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+            contrato: 'SERV. ARRIENDO ESPACIOS Y ALIMENTACIÓN',
+            anio: 2023,
+            monto: 16_500_000,
+            fuente: 'mercado_publico' as const,
+            archivo: 'Orden de compra - 4366-146-SE23.pdf',
+          },
+          {
+            clave: 'ev:455',
+            de: 'eventia' as const,
+            con_respaldo: true,
+            numero: '5040-126-TD26',
+            mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+            contrato: 'Almuerzo delegación',
+            anio: 2025,
+            monto: 1_245_000,
+            fuente: 'mercado_publico' as const,
+            evento: 455,
+            archivo: 'Orden de compra 5040-126-TD26.pdf',
+            ruta: DE_POST_VENTA.ruta,
+            bytes: 900,
+          },
+        ],
+      };
+      await servicio.generarAnexos(1, CUENTA, 40, {
+        monto_total: 11_900_000,
+        post_venta: [DE_POST_VENTA],
+        experiencia,
+      });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('LA EXPERIENCIA QUE CONFIRMÓ LA EMPRESA');
+      expect(sistema).toContain(
+        '1. N° 4366-146-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · SERV. ARRIENDO ESPACIOS Y ALIMENTACIÓN · 2023 · $16.500.000 con impuestos (archivo «Orden de compra - 4366-146-SE23.pdf»)',
+      );
+      expect(sistema).toContain(
+        '2. N° 5040-126-TD26 · ILUSTRE MUNICIPALIDAD DE QUILLON · Almuerzo delegación · 2025 · $1.245.000 con impuestos · es el evento N° 455 de Eventia',
+      );
+      expect(sistema).toContain('van EXACTAMENTE las filas');
+      // Lo demás de la carpeta no se ofrece: ya eligió la empresa.
+      expect(sistema).not.toContain('SUS RESPALDOS DE EXPERIENCIA');
+      expect(sistema).not.toContain('N° 1715-123-SE24');
+      expect(sistema).toContain('(todos ya están arriba, con su respaldo)');
+      expect(repo.crearGeneracion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parametros: expect.objectContaining({ experiencia }),
+        }),
+      );
+
+      // Al reintentar, la misma, sin volver a pedirla.
+      ejecutar.mockClear();
+      repo.ultimoDeTipo.mockResolvedValue({
+        id: 8,
+        tipo: 'anexos',
+        estado: 'error',
+        parametros: {
+          monto_total: 11_900_000,
+          post_venta: [DE_POST_VENTA],
+          experiencia,
+        },
+      });
+      await servicio.generarAnexos(1, CUENTA, 40, { monto_total: 11_900_000 });
+      expect(planDe(ejecutar).sistema).toContain(
+        '1. N° 4366-146-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON',
+      );
+    }));
+
+  it('a la IA no le llegan los eventos de un cliente privado que no está en la lista (decisión 76)', () =>
+    entorno(async () => {
+      const { eventia, oferente, servicio, ejecutar } = armar();
+      oferente.oferente.mockResolvedValue({
+        ...(await oferente.oferente()),
+        clientes_que_se_muestran: ['cliente-ccu'],
+      });
+      const evento = (
+        numero: number,
+        cliente: string,
+        extra: Record<string, unknown>,
+      ) => ({
+        numero,
+        tipo: 'Paseo fin de año',
+        fecha: '2025-12-07',
+        personas: 200,
+        monto: 10_000_000,
+        cliente,
+        fijos: [],
+        ...extra,
+      });
+      eventia.eventosRealizados.mockResolvedValue([
+        evento(118, 'CCU', {
+          cliente_id: 'cliente-ccu',
+          tipo_de_cliente: 'Empresas',
+        }),
+        evento(52, 'Ferrocarril del Pacífico S.A', {
+          cliente_id: 'cliente-fepasa',
+          tipo_de_cliente: 'Empresas',
+        }),
+        evento(273, 'Bárbara López', {
+          cliente_id: 'cliente-barbara',
+          tipo_de_cliente: 'Particulares',
+        }),
+        evento(140, 'Armada de Chile', {
+          cliente_id: 'cliente-armada',
+          tipo_de_cliente: 'Empresas Publicas',
+        }),
+      ]);
+      await servicio.generarAnexos(1, CUENTA, 40, {
+        monto_total: 11_900_000,
+        post_venta: [],
+      });
+      const sistema = planDe(ejecutar).sistema;
+      expect(sistema).toContain('CCU · 200 personas');
+      expect(sistema).toContain('Armada de Chile · 200 personas');
+      expect(sistema).not.toContain('Ferrocarril');
+      expect(sistema).not.toContain('Bárbara López');
     }));
 });
