@@ -146,12 +146,10 @@ describe("¿Calza el precio?", () => {
       screen.getByRole("button", { name: "Crear la cotización" }),
     );
     await waitFor(() =>
-      expect(s.llevarACotizacion).toHaveBeenCalledWith(
-        87,
-        undefined,
-        5_500_000,
-        { desde: "2026-10-28", hasta: null },
-      ),
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 5_500_000, {
+        desde: "2026-10-28",
+        hasta: null,
+      }),
     );
     expect(
       await screen.findByText(/Cotización N° 612 · solicitada/),
@@ -178,12 +176,10 @@ describe("¿Calza el precio?", () => {
       screen.getByRole("button", { name: "Crear la cotización" }),
     );
     await waitFor(() =>
-      expect(s.llevarACotizacion).toHaveBeenCalledWith(
-        87,
-        undefined,
-        5_500_000,
-        { desde: "2026-10-28", hasta: "2026-10-29" },
-      ),
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 5_500_000, {
+        desde: "2026-10-28",
+        hasta: "2026-10-29",
+      }),
     );
   });
 
@@ -258,7 +254,6 @@ describe("¿Calza el precio?", () => {
     await waitFor(() =>
       expect(s.llevarACotizacion).toHaveBeenCalledWith(
         87,
-        undefined,
         5_500_000,
         undefined,
       ),

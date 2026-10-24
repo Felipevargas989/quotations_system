@@ -146,8 +146,8 @@ export default function CotizacionDeLaPostulacion({
   const [cambiandoFechas, setCambiandoFechas] = useState(false);
 
   const llevar = useMutation({
-    mutationFn: (p: { numero?: number; fechas?: FechasDeLaCotizacion }) =>
-      llevarACotizacion(oportunidadId, p.numero, total, p.fechas),
+    mutationFn: (p: { fechas?: FechasDeLaCotizacion }) =>
+      llevarACotizacion(oportunidadId, total, p.fechas),
     onSuccess: (nuevo, p) => {
       guardar(nuevo);
       setEligiendo(false);
@@ -158,9 +158,7 @@ export default function CotizacionDeLaPostulacion({
       toast.success(
         p.fechas
           ? `Cotización N° ${n} creada con lo que tienes en tu catálogo.${nuevo.faltan.length > 0 ? " Lo que falta quedó en su comentario interno." : ""}`
-          : p.numero
-            ? `Cotización N° ${n} vinculada y reescrita con lo postulado.`
-            : `Cotización N° ${n} reescrita con lo postulado.`,
+          : `Cotización N° ${n} reescrita con lo postulado.`,
       );
     },
     onError: (e) =>
@@ -244,7 +242,7 @@ export default function CotizacionDeLaPostulacion({
 
       <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Cifra
-          titulo="Presupuesto de la licitación"
+          titulo="Presupuesto de lo que postulas"
           valor={
             estado.presupuesto ? pesos(estado.presupuesto) : "No lo publicaron"
           }
