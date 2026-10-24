@@ -336,6 +336,26 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     expect(lector.leer).toHaveBeenCalledTimes(3);
   });
 
+  it('la propuesta de experiencia pide solo los eventos que se pueden mostrar y su propia carpeta (decisión 76)', async () => {
+    const { lector, repo, servicio } = armar(
+      [
+        evento(118, [['facturas', 'Segunda factura CCU', 'F260_CCU.pdf']]),
+        evento(52, [['facturas', 'factura firmada', 'F249.pdf']]),
+      ],
+      [{ numero: '260' }],
+    );
+    lector.leer.mockResolvedValue(lectura('260', 'factura'));
+    // Con la carpeta de solo Mercado Público, la 260 de «Mi empresa» no
+    // tapa la del evento 118; el 52 no se puede mostrar y ni se lee.
+    const r = await servicio.paraLaPostulacion(1, {
+      soloEventos: new Set([118]),
+      carpeta: [{ numero: '4366-146-SE23' }],
+    });
+    expect(r.map((x) => [x.evento, x.numero])).toEqual([[118, '260']]);
+    expect(lector.leer).toHaveBeenCalledTimes(1);
+    expect(repo.respaldos).not.toHaveBeenCalled();
+  });
+
   it('de a 30 eventos por vez, los más grandes primero: los más chicos quedan fuera (decisión 75)', async () => {
     const eventos = Array.from({ length: 32 }, (_, i) =>
       evento(

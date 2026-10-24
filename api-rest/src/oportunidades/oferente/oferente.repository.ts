@@ -37,7 +37,17 @@ export type Oferente = {
   instalaciones: string | null;
   firma_ruta: string | null;
   firma_subida_en: string | null;
+  /** Los clientes privados (sus id de Eventia) que se pueden mostrar como
+   *  experiencia (decisión 76, migración 164). Los públicos se muestran
+   *  solos y los particulares nunca. */
+  clientes_que_se_muestran: string[];
 };
+
+/** Los datos de texto del oferente (todos menos la lista de clientes). */
+export type CampoDelOferente = Exclude<
+  keyof Oferente,
+  'clientes_que_se_muestran'
+>;
 
 export type DocumentoDeEmpresa = {
   id: number;
@@ -85,7 +95,7 @@ export type EmpresaDeConfiguracion = {
 };
 
 const COLUMNAS_OFERENTE =
-  'razon_social, rut, giro, direccion, comuna, region, telefono, correo, representante_nombre, representante_rut, representante_cargo, representante_correo, representante_telefono, representante_direccion, coordinador_nombre, coordinador_cargo, coordinador_correo, coordinador_telefono, sitio_web, experiencia, instalaciones, firma_ruta, firma_subida_en';
+  'razon_social, rut, giro, direccion, comuna, region, telefono, correo, representante_nombre, representante_rut, representante_cargo, representante_correo, representante_telefono, representante_direccion, coordinador_nombre, coordinador_cargo, coordinador_correo, coordinador_telefono, sitio_web, experiencia, instalaciones, firma_ruta, firma_subida_en, clientes_que_se_muestran';
 
 const COLUMNAS_DOCUMENTO =
   'id, tipo, nombre, ruta, tipo_archivo, bytes, vence, datos, creado_en, quien:user_profiles(full_name)';
@@ -125,6 +135,21 @@ export class OferenteRepository {
       { onConflict: 'company_id' },
     );
     if (error) throw error;
+  }
+
+  /** De esos id, los que son clientes de la empresa (decisión 76). */
+  async clientesDeLaEmpresa(
+    companyId: number,
+    ids: readonly string[],
+  ): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.db
+      .from('clients')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('id', [...ids]);
+    if (error) throw error;
+    return ((data ?? []) as Array<{ id: string }>).map((c) => c.id);
   }
 
   async empresa(companyId: number): Promise<EmpresaDeConfiguracion | null> {

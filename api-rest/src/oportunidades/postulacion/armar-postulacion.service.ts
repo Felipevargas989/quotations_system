@@ -10,11 +10,16 @@ import {
 } from '../generacion/generacion.repository';
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
-import type { RespaldoDePostVenta } from '../oferente/respaldos-de-post-venta';
-import { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta.service';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { type FormularioDeLasBases, normalizar } from './el-set';
+import {
+  type ExperienciaConfirmada,
+  loQueDicenLasBases,
+  pidenExperiencia,
+  respaldosDeLaExperiencia,
+} from './la-experiencia';
+import { LaExperienciaService } from './la-experiencia.service';
 import { PostulacionRepository } from './postulacion.repository';
 import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
@@ -45,33 +50,7 @@ export type PostulacionArmada = {
   problemas?: string[];
 };
 
-/** Los requisitos y los formularios que aplican, del análisis de las bases,
- *  en texto. */
-const loQueDicenLasBases = (
-  resultado: Record<string, unknown> | null | undefined,
-) => {
-  const requisitos = Array.isArray(resultado?.requisitos)
-    ? (resultado.requisitos as Array<{ que?: unknown }>).map((r) => r.que)
-    : [];
-  const formularios = Array.isArray(resultado?.formularios)
-    ? (resultado.formularios as Array<{ nombre?: unknown; aplica?: unknown }>)
-        .filter((f) => f.aplica !== false)
-        .map((f) => f.nombre)
-    : [];
-  const textos = [...requisitos, ...formularios].filter(
-    (t): t is string => typeof t === 'string',
-  );
-  return { formularios, textos };
-};
-
-/** ¿Las bases piden experiencia? Entonces se buscan respaldos en
- *  Post-venta (decisión 45). */
-export const pidenExperiencia = (
-  resultado: Record<string, unknown> | null | undefined,
-): boolean =>
-  loQueDicenLasBases(resultado).textos.some((t) =>
-    /experiencia/.test(normalizar(t)),
-  );
+export { pidenExperiencia };
 
 /** El formulario que lleva el detalle técnico (calidad de la oferta,
  *  oferta o propuesta técnica). */
@@ -104,7 +83,7 @@ export class ArmarPostulacionService {
     private readonly analisis: AnalisisRepository,
     private readonly oferente: OferenteRepository,
     private readonly repo: PostulacionRepository,
-    private readonly postVenta: RespaldosDePostVentaService,
+    private readonly experiencia: LaExperienciaService,
     private readonly adjuntos: AdjuntosRepository,
     private readonly logger: PinoLogger,
   ) {
@@ -128,6 +107,18 @@ export class ArmarPostulacionService {
         'Primero llena los datos de la empresa en «Mi empresa» (al menos la razón social y el RUT).',
       );
     }
+    // El proceso estricto (decisión 76): si las bases piden experiencia, la
+    // empresa confirma antes cuál presenta, y van esas y ninguna otra.
+    const piden =
+      analisis?.estado === 'listo' && pidenExperiencia(analisis.resultado);
+    const experiencia = piden
+      ? await this.experiencia.confirmada(companyId, oportunidadId)
+      : null;
+    if (piden && !experiencia) {
+      throw new BadRequestException(
+        'Primero confirma la experiencia que vas a presentar («La experiencia», arriba): la IA la propone según las bases y tú dices cuáles van.',
+      );
+    }
     const armada: PostulacionArmada = {
       total,
       propuesta:
@@ -135,7 +126,8 @@ export class ArmarPostulacionService {
     };
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
-      despues: (ofertaId) => this.seguir(user, oportunidadId, ofertaId, armada),
+      despues: (ofertaId) =>
+        this.seguir(user, oportunidadId, ofertaId, armada, experiencia),
     });
   }
 
@@ -147,28 +139,17 @@ export class ArmarPostulacionService {
     oportunidadId: number,
     ofertaId: number,
     armada: PostulacionArmada,
+    experiencia: ExperienciaConfirmada | null = null,
   ): Promise<void> {
     const companyId = user.company_id;
-    // Si las bases piden experiencia, antes de los anexos: las facturas y
-    // órdenes de compra de Post-venta que no están en «Mi empresa»
-    // (decisión 45; Felipe: "debería el motor... evaluar si tiene
-    // experiencia suficiente o debe ir a post venta a buscar respaldos").
-    // Los anexos las usan si las de «Mi empresa» no alcanzan. Si falla,
-    // salen con las que hay.
     const analisis = await this.analisis
       .ultimo(companyId, oportunidadId)
       .catch(() => null);
     const resultado = analisis?.estado === 'listo' ? analisis.resultado : null;
-    let postVenta: RespaldoDePostVenta[] = [];
-    if (pidenExperiencia(resultado)) {
-      try {
-        postVenta = await this.postVenta.paraLaPostulacion(companyId);
-      } catch (error) {
-        this.logger.warn(
-          `respaldos de Post-venta antes de la postulación ${oportunidadId}: ${mensajeDe(error)}`,
-        );
-      }
-    }
+    // La experiencia que confirmó la empresa (decisión 76): los anexos
+    // llevan esas filas y el ZIP pega los PDF de las de Post-venta. Ya no se
+    // lee Post-venta aquí: lo leyó la propuesta de experiencia.
+    const postVenta = experiencia ? respaldosDeLaExperiencia(experiencia) : [];
     // «Volver a armar» (decisión 49): lo firmado se queda y no se rehace;
     // los borradores sin firma los reemplaza lo nuevo (se borran cuando
     // quedó guardado).
@@ -200,6 +181,7 @@ export class ArmarPostulacionService {
           this.documentos.generarAnexos(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
             post_venta: postVenta,
+            ...(experiencia ? { experiencia } : {}),
             ya_firmados: vuelta.yaFirmados,
             reemplaza: [...vuelta.borradoresDeFormularios, ...propuestasViejas],
           }),

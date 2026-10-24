@@ -44,16 +44,29 @@ export class RespaldosDePostVentaService {
   /** Los de cualquier fecha (el período lo dicen las bases, decisión 75),
    *  del evento que más se cobró al más chico, sin repetir ni un evento ni
    *  un número que ya esté en «Mi empresa». Nunca falla por un evento: el
-   *  que no se puede leer, no va. */
-  async paraLaPostulacion(companyId: number): Promise<RespaldoDePostVenta[]> {
+   *  que no se puede leer, no va. Desde la decisión 76, la propuesta de
+   *  experiencia pide solo los eventos que se pueden mostrar
+   *  (`soloEventos`) y cuenta como «Mi empresa» solo sus órdenes de compra
+   *  de Mercado Público (`carpeta`). */
+  async paraLaPostulacion(
+    companyId: number,
+    opciones: {
+      soloEventos?: ReadonlySet<number>;
+      carpeta?: ReadonlyArray<Pick<DatosDeRespaldo, 'numero'>>;
+    } = {},
+  ): Promise<RespaldoDePostVenta[]> {
     const hoy = hoyEnChile();
     const [eventos, carpeta] = await Promise.all([
       this.eventia.documentosDeExperiencia(companyId, hoy),
-      this.repo.respaldos(companyId),
+      opciones.carpeta ?? this.repo.respaldos(companyId),
     ]);
     const conocidos: Array<Pick<DatosDeRespaldo, 'numero'>> = [...carpeta];
     const pendientes = losMasGrandesPrimero(
-      eventos.filter((e) => !yaEsta(e, carpeta)),
+      eventos.filter(
+        (e) =>
+          (!opciones.soloEventos || opciones.soloEventos.has(e.numero)) &&
+          !yaEsta(e, carpeta),
+      ),
     ).slice(0, MAX_EVENTOS_POR_VEZ);
     const leidos: RespaldoDePostVenta[] = [];
     for (let i = 0; i < pendientes.length; i += DE_A) {

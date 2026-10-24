@@ -27,6 +27,12 @@ export type EventoDeEventia = {
   cliente: string | null;
   /** Lo fijo que llevó: el salón, sobre todo. */
   fijos: string[];
+  /** Desde la decisión 76 (24-10): quién es el cliente, para saber si se
+   *  puede mostrar como experiencia, y lo que se sirvió, para saber si se
+   *  parece a lo que se licita. Solo cuando se sabe. */
+  cliente_id?: string;
+  tipo_de_cliente?: string;
+  que_se_sirvio?: string[];
 };
 
 /** Un evento ya hecho con sus facturas y órdenes de compra (decisión 45):
@@ -65,24 +71,49 @@ type FilaDeCotizacion = {
   event_date: string | null;
   people_count: number | null;
   total_amount: number | null;
-  items: { fixed_services?: Array<{ nombre?: string }> } | null;
-  cliente: { name: string | null } | null;
+  items: {
+    fixed_services?: Array<{ nombre?: string }>;
+    variable_services?: Array<{ items?: Array<{ nombre?: string }> }>;
+  } | null;
+  client_id?: string | null;
+  cliente: { name: string | null; client_type?: string | null } | null;
 };
 
 const COLUMNAS_DE_EVENTO =
-  'quotation_number, event_type, event_date, people_count, total_amount, items, cliente:clients(name)';
+  'quotation_number, event_type, event_date, people_count, total_amount, items, client_id, cliente:clients(name, client_type)';
 
-const aEvento = (q: FilaDeCotizacion): EventoDeEventia => ({
-  numero: q.quotation_number,
-  tipo: q.event_type,
-  fecha: q.event_date ? q.event_date.slice(0, 10) : null,
-  personas: q.people_count,
-  monto: q.total_amount,
-  cliente: q.cliente?.name ?? null,
-  fijos: (q.items?.fixed_services ?? [])
-    .map((f) => f.nombre?.trim())
-    .filter((n): n is string => Boolean(n)),
-});
+/** Lo que se sirvió, sin repetir: alcanza para saber qué fue el evento
+ *  («Hospedaje + Cena + Desayuno» no es un día de campo). */
+const MAX_PRODUCTOS = 12;
+
+const loQueSeSirvio = (q: FilaDeCotizacion): string[] => [
+  ...new Set(
+    (q.items?.variable_services ?? [])
+      .flatMap((caja) => caja.items ?? [])
+      .map((i) => i.nombre?.trim())
+      .filter((n): n is string => Boolean(n)),
+  ),
+];
+
+const aEvento = (q: FilaDeCotizacion): EventoDeEventia => {
+  const sirvio = loQueSeSirvio(q).slice(0, MAX_PRODUCTOS);
+  return {
+    numero: q.quotation_number,
+    tipo: q.event_type,
+    fecha: q.event_date ? q.event_date.slice(0, 10) : null,
+    personas: q.people_count,
+    monto: q.total_amount == null ? null : Number(q.total_amount),
+    cliente: q.cliente?.name ?? null,
+    fijos: (q.items?.fixed_services ?? [])
+      .map((f) => f.nombre?.trim())
+      .filter((n): n is string => Boolean(n)),
+    ...(q.client_id ? { cliente_id: q.client_id } : {}),
+    ...(q.cliente?.client_type
+      ? { tipo_de_cliente: q.cliente.client_type }
+      : {}),
+    ...(sirvio.length > 0 ? { que_se_sirvio: sirvio } : {}),
+  };
+};
 
 @Injectable()
 export class EventiaRepository {
@@ -163,6 +194,28 @@ export class EventiaRepository {
       .eq('quotation_status', 'realizada')
       .gte('event_date', desde)
       .order('event_date', { ascending: false })
+      .limit(limite);
+    if (error) throw error;
+    return ((data ?? []) as unknown as FilaDeCotizacion[]).map(aEvento);
+  }
+
+  /** De dónde sale la experiencia de Eventia (decisión 76): los eventos ya
+   *  hechos (aceptados o realizados) antes de `antesDe` (AAAA-MM-DD), de
+   *  cualquier fecha, del que más se cobró al que menos. El período lo
+   *  dicen las bases y lo aplica la IA; quién se puede mostrar, la regla de
+   *  los clientes (`sePuedeMostrar`). */
+  async eventosParaLaExperiencia(
+    companyId: number,
+    antesDe: string,
+    limite = 1000,
+  ): Promise<EventoDeEventia[]> {
+    const { data, error } = await this.db
+      .from('quotations')
+      .select(COLUMNAS_DE_EVENTO)
+      .eq('company_id', companyId)
+      .in('quotation_status', ['aceptada', 'realizada'])
+      .lt('event_date', `${antesDe}T00:00:00.000Z`)
+      .order('total_amount', { ascending: false })
       .limit(limite);
     if (error) throw error;
     return ((data ?? []) as unknown as FilaDeCotizacion[]).map(aEvento);

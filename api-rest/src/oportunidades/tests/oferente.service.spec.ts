@@ -35,6 +35,9 @@ function armar() {
     borrarDocumento: jest
       .fn()
       .mockResolvedValue({ ruta: 'c1/oferente/documentos/x.pdf' }),
+    clientesDeLaEmpresa: jest.fn((_c: number, ids: string[]) =>
+      Promise.resolve(ids.filter((id) => id !== 'de-otra-empresa')),
+    ),
   };
   const archivos = {
     subirArchivo: jest.fn().mockResolvedValue(undefined),
@@ -120,6 +123,26 @@ describe('OferenteService — los datos', () => {
     // Con o sin puntos sirve.
     await servicio.guardar(1, { rut: '77701305-k' });
     expect(repo.guardar).toHaveBeenCalled();
+  });
+
+  it('los clientes privados que se pueden mostrar (decisión 76): solo los de la empresa, sin repetir', async () => {
+    const { repo, servicio } = armar();
+    const vista = await servicio.guardarClientesQueSeMuestran(1, [
+      'cliente-ccu',
+      'cliente-ccu',
+      'de-otra-empresa',
+      'cliente-rudel',
+    ]);
+    expect(repo.clientesDeLaEmpresa).toHaveBeenCalledWith(1, [
+      'cliente-ccu',
+      'de-otra-empresa',
+      'cliente-rudel',
+    ]);
+    expect(repo.guardar).toHaveBeenCalledWith(1, {
+      clientes_que_se_muestran: ['cliente-ccu', 'cliente-rudel'],
+    });
+    // Sin datos guardados, la lista parte vacía.
+    expect(vista.oferente.clientes_que_se_muestran).toEqual([]);
   });
 });
 

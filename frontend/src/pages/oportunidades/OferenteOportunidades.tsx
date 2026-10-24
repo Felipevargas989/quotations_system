@@ -11,6 +11,7 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
+import ClientesQueSeMuestran from "./ClientesQueSeMuestran";
 import DocumentosDeEmpresa from "./DocumentosDeEmpresa";
 import FirmaDelOferente from "./FirmaDelOferente";
 import {
@@ -302,6 +303,8 @@ export default function OferenteOportunidades() {
       />
 
       <DocumentosDeEmpresa documentos={data.documentos} />
+
+      <ClientesQueSeMuestran vista={data} />
     </div>
   );
 }

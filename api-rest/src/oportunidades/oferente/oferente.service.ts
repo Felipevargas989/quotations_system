@@ -143,6 +143,7 @@ export const OFERENTE_VACIO: Oferente = {
   instalaciones: null,
   firma_ruta: null,
   firma_subida_en: null,
+  clientes_que_se_muestran: [],
 };
 
 export type VistaDelOferente = {
@@ -201,6 +202,25 @@ export class OferenteService {
 
   /** Guarda lo que viene: sin espacios de más, y vacío = sin dato. Los RUT
    *  tienen que tener forma de RUT. */
+  /** Los clientes privados que se pueden mostrar como experiencia
+   *  (decisión 76; Felipe: "CCU es buena opción porque es un cliente
+   *  fidelizado... Fepasa no tanto, prefiero esconderlo"). Solo clientes de
+   *  la empresa; los públicos se muestran solos y los particulares nunca
+   *  (`sePuedeMostrar`). */
+  async guardarClientesQueSeMuestran(
+    companyId: number,
+    ids: readonly string[],
+  ): Promise<VistaDelOferente> {
+    const pedidos = [...new Set(ids)];
+    const propios = new Set(
+      await this.repo.clientesDeLaEmpresa(companyId, pedidos),
+    );
+    await this.repo.guardar(companyId, {
+      clientes_que_se_muestran: pedidos.filter((id) => propios.has(id)),
+    });
+    return this.ver(companyId);
+  }
+
   async guardar(
     companyId: number,
     dto: Partial<Record<keyof Oferente, string>>,

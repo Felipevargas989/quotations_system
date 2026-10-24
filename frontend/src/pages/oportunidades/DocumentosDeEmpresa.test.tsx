@@ -69,7 +69,9 @@ describe("No usar", () => {
         />
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/de mayor a menor monto/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/las órdenes de compra de Mercado Público/),
+    ).toBeInTheDocument();
     expect(screen.getByText("No se usa")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {

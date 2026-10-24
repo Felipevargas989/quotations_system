@@ -42,6 +42,12 @@ import RespaldosEnLote from "./RespaldosEnLote";
 // menor monto hasta cumplir lo que piden las bases, con 2 de reserva, y la
 // empresa marca «No usar» los que no quiere mostrar. Felipe: "es más fácil
 // la mantención... si solo marco lo que no quiero mostrar".
+//
+// Desde el 24-10 (decisión 76) aquí van solo las órdenes de compra de
+// Mercado Público, la primera fuente de la experiencia; las facturas de los
+// eventos se usan desde Post-venta. Felipe: "en mi empresa debería solo
+// estar la experiencia en mercado público, el resto todo de la base de
+// Eventia".
 
 const TONOS = {
   ok: "bg-green-50 text-green-700",
@@ -139,9 +145,10 @@ export default function DocumentosDeEmpresa({
         </p>
         {hayRespaldos && (
           <p className="text-xs text-gray-600">
-            Los respaldos de experiencia se usan de mayor a menor monto, hasta
-            cumplir lo que piden las bases y 2 de reserva. Con el ojo apagas los
-            que no quieres mostrar.
+            Aquí van las órdenes de compra de Mercado Público: son lo primero
+            que usa la IA para la experiencia. Las facturas de tus eventos van
+            en Post-venta, en cada evento. Con el ojo apagas las que no quieres
+            mostrar.
           </p>
         )}
       </div>
@@ -175,6 +182,16 @@ export default function DocumentosDeEmpresa({
                       {resumenDelRespaldo(d.datos)}
                     </p>
                   )}
+                  {/* Desde la decisión 76, «Mi empresa» es solo Mercado
+                      Público: una factura se usa desde su evento. */}
+                  {d.tipo === TIPO_RESPALDO &&
+                    d.datos &&
+                    d.datos.fuente !== "mercado_publico" && (
+                      <p className="text-xs text-amber-700">
+                        Factura: para la experiencia se usa la de su evento en
+                        Post-venta.
+                      </p>
+                    )}
                 </div>
                 {d.datos?.no_usar ? (
                   <span className="px-2 py-0.5 text-xs font-semibold rounded bg-red-50 text-red-700">

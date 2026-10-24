@@ -1,8 +1,11 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -54,6 +57,15 @@ export class SubirDocumentoDto {
   @IsString()
   @MaxLength(3000)
   datos?: string;
+}
+
+/** Los clientes privados que se pueden mostrar como experiencia
+ *  (decisión 76): sus id de Eventia. */
+export class ClientesQueSeMuestranDto {
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsUUID('all', { each: true })
+  ids!: string[];
 }
 
 /** «No usar» un respaldo de experiencia (decisión 56). */
