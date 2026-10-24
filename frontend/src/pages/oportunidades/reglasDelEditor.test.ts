@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { ParrafoDelWord } from "../../services/editorDelWord.service";
 import {
   cambio,
+  colorDe,
   cuantosPendientes,
+  familiaDe,
   htmlDelParrafo,
   paraGuardar,
   parrafosPorId,
@@ -117,6 +119,59 @@ describe("htmlDelParrafo y tramosDelElemento", () => {
     const ahora = [{ r: 0, t: "a\u00a0b", b: false, i: false, u: false }];
     expect(cambio(p, ahora)).toBe(false);
     expect(paraGuardar(ahora)[0].t).toBe("a b");
+  });
+});
+
+describe("lo que se ve: saltos de página, [ILEGIBLE], letra y color", () => {
+  it("el salto de página se ve como una línea y se lee de vuelta como salto", () => {
+    const p: ParrafoDelWord = {
+      ...PARRAFO,
+      tramos: [{ r: 0, t: "Antes\fDespués", b: false, i: false, u: false }],
+    };
+    const el = dibujar(p);
+    expect(el.querySelector("[data-salto]")?.textContent).toBe(
+      "salto de página",
+    );
+    expect(cambio(p, tramosDelElemento(el))).toBe(false);
+    expect(tramosDelElemento(el)[0].t).toBe("Antes\fDespués");
+  });
+
+  it("el [ILEGIBLE] va en amarillo y cuenta como pendiente", () => {
+    const el = dibujar({
+      ...PARRAFO,
+      tramos: [
+        { r: 0, t: "Ilustre [ILEGIBLE] de", b: false, i: false, u: false },
+      ],
+    });
+    expect(el.querySelector("mark[data-completar]")?.textContent).toBe(
+      "[ILEGIBLE]",
+    );
+    expect(cuantosPendientes("[ILEGIBLE] y [COMPLETAR: algo]")).toBe(2);
+  });
+
+  it("la letra y el color del Word, sin dejar pasar nada raro", () => {
+    expect(familiaDe("Calibri")).toBe("'Calibri', sans-serif");
+    expect(familiaDe("Times New Roman")).toBe("'Times New Roman', serif");
+    expect(familiaDe("x;}body{color:red")).toBe("'xbodycolorred', sans-serif");
+    expect(colorDe("E36C0A")).toBe("#E36C0A");
+    expect(colorDe("red;x")).toBeUndefined();
+    const el = dibujar({
+      ...PARRAFO,
+      tramos: [
+        {
+          r: 0,
+          t: "Hola",
+          b: false,
+          i: false,
+          u: false,
+          f: "Arial",
+          c: "E36C0A",
+        },
+      ],
+    });
+    const span = el.querySelector("span");
+    expect(span?.style.fontFamily).toContain("Arial");
+    expect(span?.style.color).toBe("rgb(227, 108, 10)");
   });
 });
 

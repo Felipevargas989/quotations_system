@@ -1,16 +1,44 @@
 import { createHash } from 'node:crypto';
 import { archivoDelZip } from '../analisis/docx';
+import {
+  type Alineacion,
+  alineacionDe,
+  cadena,
+  celdasDe,
+  encima,
+  type Estilos,
+  estilosDelWord,
+  filasDe,
+  fondoDe,
+  fondoDeLaTabla,
+  type Formato,
+  formatoDe,
+  formatoDeLaTabla,
+  formatoDelEstilo,
+} from './estilos-del-word';
+import {
+  arbolDelXml,
+  atributo,
+  buscar,
+  decodificar,
+  hijo,
+  hijos,
+  type Nodo,
+  numero,
+} from './xml-del-word';
 
 // EL WORD SE EDITA EN EVENTIA (decisión 78 del doc 17, 24-10). Felipe: "¿y
 // si necesito editar algo que ya haya escrito la IA, para precisar la
 // postulación?... un documento editable que pueda escribir y/o modificar en
-// línea (lo básico: escribir, borrar, negrita, cursiva)". Se edita el MISMO
-// Word del comprador, no una copia en otro formato: las bases piden sus
-// formularios con su diseño, y un viaje de ida y vuelta por otro formato
-// pierde logos, tablas y márgenes. Aquí se lee el texto, párrafo por
-// párrafo y tabla por tabla, para la pantalla; `guardar-el-word.ts` escribe
-// de vuelta solo los párrafos que cambiaron. Sin librerías, como el lector
-// de `analisis/docx.ts`.
+// línea (lo básico: escribir, borrar, negrita, cursiva)", y después: "el
+// ver y editar debería ser el mismo". Se edita el MISMO Word del comprador
+// (o el que la IA reescribió de su PDF, decisión 24), no una copia en otro
+// formato: las bases piden sus formularios con su diseño, y un viaje de ida
+// y vuelta por otro formato pierde logos, tablas y márgenes. Aquí se lee
+// para la pantalla, que es a la vez la de ver y la de editar: el texto
+// párrafo por párrafo y tabla por tabla, con su letra, tamaño y color, las
+// imágenes, y el encabezado y el pie (que se ven pero no se editan).
+// `guardar-el-word.ts` escribe de vuelta solo los párrafos que cambiaron.
 
 /** Un pedazo de un párrafo con su formato a la vista. `r`: de qué corrida
  *  del Word salió (su lugar en el párrafo), para conservar su letra, su
@@ -23,21 +51,34 @@ export type Tramo = {
   u: boolean;
   /** Tamaño de la letra, en puntos. */
   pt?: number;
+  /** La letra («Calibri»). */
+  f?: string;
+  /** El color, RRGGBB. */
+  c?: string;
 };
 
-export type Alineacion = 'centro' | 'derecha' | 'justificado';
+export type { Alineacion };
+
+/** Una imagen del documento, para verla: el logo, una insignia. */
+export type Imagen = {
+  src: string;
+  /** En puntos. */
+  ancho?: number;
+  alto?: number;
+};
 
 export type Parrafo = {
   tipo: 'parrafo';
-  /** Su lugar entre todos los párrafos del Word, en orden. */
+  /** Su lugar entre todos los párrafos de su parte del Word, en orden. */
   id: number;
   editable: boolean;
   /** Cómo se ve lo que se escribe fuera de sus pedazos (en un párrafo
    *  vacío, con el formato de su marca, como en Word). */
   formato: Omit<Tramo, 'r' | 't'>;
-  /** Por qué no se edita aquí («tiene una imagen»). */
+  /** Por qué no se edita aquí («tiene un vínculo»). */
   motivo?: string;
   tramos: Tramo[];
+  imagenes?: Imagen[];
   alineacion?: Alineacion;
   /** Sangría izquierda, en puntos. */
   sangria?: number;
@@ -63,356 +104,121 @@ export type WordParaEditar = {
    *  guarda encima. */
   version: string;
   bloques: Bloque[];
+  /** Se ven, no se editan aquí. */
+  encabezado?: Bloque[];
+  pie?: Bloque[];
 };
 
-/** Un elemento del XML con su lugar en el texto, para leerlo y reemplazarlo
- *  sin tocar lo demás. */
-export type Nodo = {
-  nombre: string;
-  inicio: number;
-  finApertura: number;
-  inicioCierre: number;
-  fin: number;
-  hijos: Nodo[];
+// ——— Las imágenes ———
+
+const TIPOS_DE_IMAGEN: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  bmp: 'image/bmp',
+  webp: 'image/webp',
 };
 
-// Una etiqueta: comentario, CDATA, declaración, o apertura y cierre (con
-// los atributos entre comillas, que pueden traer «>»).
-const ETIQUETA =
-  /<(?:!--[\s\S]*?--|!\[CDATA\[[\s\S]*?\]\]|[?!][^>]*|(\/?)([A-Za-z_][\w.:-]*)((?:"[^"]*"|'[^']*'|[^'">])*?)(\/?))>/g;
+/** Lo más que pesa una imagen que se muestra, y todas juntas: un logo pesa
+ *  decenas de KB; lo demás (una foto enorme) no se muestra. */
+const MAX_BYTES_POR_IMAGEN = 1_500_000;
+const MAX_BYTES_DE_IMAGENES = 4_000_000;
 
-/** El árbol del XML; null si está mal formado. */
-export const arbolDelXml = (xml: string): Nodo | null => {
-  const raiz: Nodo = {
-    nombre: '',
-    inicio: 0,
-    finApertura: 0,
-    inicioCierre: xml.length,
-    fin: xml.length,
-    hijos: [],
-  };
-  const pila: Nodo[] = [raiz];
-  const etiqueta = new RegExp(ETIQUETA.source, 'g');
-  for (let m = etiqueta.exec(xml); m; m = etiqueta.exec(xml)) {
-    const [todo, cierra, nombre, , sola] = m;
-    if (!nombre) continue;
-    const arriba = pila[pila.length - 1];
-    if (cierra) {
-      if (arriba === raiz || arriba.nombre !== nombre) return null;
-      arriba.inicioCierre = m.index;
-      arriba.fin = m.index + todo.length;
-      pila.pop();
-      continue;
-    }
-    const fin = m.index + todo.length;
-    const nodo: Nodo = {
-      nombre,
-      inicio: m.index,
-      finApertura: fin,
-      inicioCierre: fin,
-      fin,
-      hijos: [],
-    };
-    arriba.hijos.push(nodo);
-    if (!sola) pila.push(nodo);
+const EMU_POR_PUNTO = 12700;
+
+/** «media/image1.jpg» desde «word/» es «word/media/image1.jpg». */
+const normalizar = (ruta: string): string => {
+  const partes: string[] = [];
+  for (const p of ruta.split('/')) {
+    if (p === '..') partes.pop();
+    else if (p && p !== '.') partes.push(p);
   }
-  return pila.length === 1 ? raiz : null;
+  return partes.join('/');
 };
 
-const ENTIDADES: Record<string, string> = {
-  lt: '<',
-  gt: '>',
-  amp: '&',
-  quot: '"',
-  apos: "'",
-};
-
-export const decodificar = (s: string): string =>
-  s.replace(/&(#x[0-9a-fA-F]+|#\d+|lt|gt|amp|quot|apos);/g, (e, c: string) => {
-    if (c[0] !== '#') return ENTIDADES[c] ?? e;
-    const n = c[1] === 'x' ? parseInt(c.slice(2), 16) : parseInt(c.slice(1));
-    return Number.isFinite(n) && n <= 0x10ffff ? String.fromCodePoint(n) : e;
-  });
-
-export const hijo = (n: Nodo | undefined, nombre: string): Nodo | undefined =>
-  n?.hijos.find((h) => h.nombre === nombre);
-
-const hijos = (n: Nodo | undefined, nombre: string): Nodo[] =>
-  n?.hijos.filter((h) => h.nombre === nombre) ?? [];
-
-export const enXml = (xml: string, n: Nodo): string =>
-  xml.slice(n.inicio, n.fin);
-
-export const atributo = (
-  xml: string,
-  n: Nodo | undefined,
-  nombre: string,
-): string | null => {
-  if (!n) return null;
-  const m = new RegExp(`\\s${nombre}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(
-    xml.slice(n.inicio, n.finApertura),
+/** A qué archivo del Word apunta cada `r:id` de una parte
+ *  (`word/_rels/document.xml.rels`). */
+const relacionesDe = (docx: Buffer, parte: string): Map<string, string> => {
+  const corte = parte.lastIndexOf('/') + 1;
+  const carpeta = parte.slice(0, corte);
+  const rels = new Map<string, string>();
+  const datos = archivoDelZip(
+    docx,
+    `${carpeta}_rels/${parte.slice(corte)}.rels`,
   );
-  return m ? decodificar(m[1] ?? m[2] ?? '') : null;
-};
-
-const numero = (xml: string, n: Nodo | undefined, nombre = 'w:val') => {
-  const v = Number(atributo(xml, n, nombre));
-  return Number.isFinite(v) ? v : 0;
-};
-
-/** Lo que se ve de una corrida: negrita, cursiva, subrayado y tamaño.
- *  undefined = ese nivel no lo dice. */
-export type Formato = { b?: boolean; i?: boolean; u?: boolean; pt?: number };
-
-const NO = ['0', 'false', 'off'];
-
-/** Una propiedad de sí o no: `<w:b/>` es sí, `<w:b w:val="0"/>` es no. */
-const siONo = (xml: string, rPr: Nodo | undefined, nombre: string) => {
-  const p = hijo(rPr, nombre);
-  if (!p) return undefined;
-  const v = atributo(xml, p, 'w:val');
-  return v === null || !NO.includes(v.toLowerCase());
-};
-
-export const formatoDe = (xml: string, rPr: Nodo | undefined): Formato => {
-  const u = hijo(rPr, 'w:u');
-  const sz = numero(xml, hijo(rPr, 'w:sz'));
-  return {
-    b: siONo(xml, rPr, 'w:b'),
-    i: siONo(xml, rPr, 'w:i'),
-    u: u ? atributo(xml, u, 'w:val') !== 'none' : undefined,
-    pt: sz > 0 ? sz / 2 : undefined,
-  };
-};
-
-/** `arriba` manda sobre `abajo` en lo que dice. */
-export const encima = (abajo: Formato, arriba: Formato): Formato => ({
-  b: arriba.b ?? abajo.b,
-  i: arriba.i ?? abajo.i,
-  u: arriba.u ?? abajo.u,
-  pt: arriba.pt ?? abajo.pt,
-});
-
-const alineacionDe = (
-  xml: string,
-  pPr: Nodo | undefined,
-): Alineacion | undefined => {
-  const jc = atributo(xml, hijo(pPr, 'w:jc'), 'w:val');
-  if (jc === 'center') return 'centro';
-  if (jc === 'right' || jc === 'end') return 'derecha';
-  if (jc === 'both' || jc === 'distribute') return 'justificado';
-  return undefined;
-};
-
-/** Las partes de una tabla que su estilo puede pintar distinto. */
-type Condicion = 'firstCol' | 'lastCol' | 'firstRow' | 'lastRow';
-const CONDICIONES: readonly Condicion[] = [
-  'firstCol',
-  'lastCol',
-  'firstRow',
-  'lastRow',
-];
-
-type Estilo = {
-  basadoEn?: string;
-  formato: Formato;
-  alineacion?: Alineacion;
-  condicional: Partial<Record<Condicion, Formato>>;
-  fondoCondicional: Partial<Record<Condicion, string>>;
-};
-
-export type Estilos = {
-  base: Formato;
-  porId: Map<string, Estilo>;
-  parrafoPorDefecto?: string;
-  tablaPorDefecto?: string;
-};
-
-/** Un color de fondo RRGGBB; null si es «auto» o no es un color. */
-const fondoDe = (xml: string, shd: Nodo | undefined): string | null => {
-  const fill = atributo(xml, shd, 'w:fill');
-  return fill && /^[0-9A-Fa-f]{6}$/.test(fill) ? fill.toUpperCase() : null;
-};
-
-/** Los estilos del Word (word/styles.xml): con ellos se sabe qué se ve en
- *  negrita aunque la corrida no lo diga (un título, la primera columna de
- *  una tabla con estilo). */
-export const estilosDelWord = (docx: Buffer): Estilos => {
-  const estilos: Estilos = { base: {}, porId: new Map() };
-  const datos = archivoDelZip(docx, 'word/styles.xml');
-  if (!datos) return estilos;
+  if (!datos) return rels;
   const xml = datos.toString('utf8');
-  const raiz = hijo(arbolDelXml(xml) ?? undefined, 'w:styles');
-  if (!raiz) return estilos;
-  estilos.base = formatoDe(
-    xml,
-    hijo(hijo(hijo(raiz, 'w:docDefaults'), 'w:rPrDefault'), 'w:rPr'),
-  );
-  for (const s of hijos(raiz, 'w:style')) {
-    const id = atributo(xml, s, 'w:styleId');
-    if (!id) continue;
-    const tipo = atributo(xml, s, 'w:type');
-    const porDefecto = ['1', 'true', 'on'].includes(
-      atributo(xml, s, 'w:default') ?? '',
+  for (const r of buscar(arbolDelXml(xml) ?? undefined, 'Relationship')) {
+    if (atributo(xml, r, 'TargetMode') === 'External') continue;
+    const id = atributo(xml, r, 'Id');
+    const destino = atributo(xml, r, 'Target');
+    if (!id || !destino) continue;
+    rels.set(
+      id,
+      normalizar(destino.startsWith('/') ? destino : carpeta + destino),
     );
-    if (porDefecto && tipo === 'paragraph') estilos.parrafoPorDefecto = id;
-    if (porDefecto && tipo === 'table') estilos.tablaPorDefecto = id;
-    const estilo: Estilo = {
-      basadoEn: atributo(xml, hijo(s, 'w:basedOn'), 'w:val') ?? undefined,
-      formato: formatoDe(xml, hijo(s, 'w:rPr')),
-      alineacion: alineacionDe(xml, hijo(s, 'w:pPr')),
-      condicional: {},
-      fondoCondicional: {},
-    };
-    for (const c of hijos(s, 'w:tblStylePr')) {
-      const cual = atributo(xml, c, 'w:type') as Condicion | null;
-      if (!cual || !CONDICIONES.includes(cual)) continue;
-      estilo.condicional[cual] = formatoDe(xml, hijo(c, 'w:rPr'));
-      const fondo = fondoDe(xml, hijo(hijo(c, 'w:tcPr'), 'w:shd'));
-      if (fondo) estilo.fondoCondicional[cual] = fondo;
-    }
-    estilos.porId.set(id, estilo);
   }
-  return estilos;
-};
-
-/** Un estilo y los que hereda, la base primero. */
-const cadena = (estilos: Estilos, id: string | undefined): Estilo[] => {
-  const lista: Estilo[] = [];
-  const vistos = new Set<string>();
-  for (let actual = id; actual && !vistos.has(actual); ) {
-    vistos.add(actual);
-    const e = estilos.porId.get(actual);
-    if (!e) break;
-    lista.unshift(e);
-    actual = e.basadoEn;
-  }
-  return lista;
-};
-
-const formatoDelEstilo = (estilos: Estilos, id: string | undefined) =>
-  cadena(estilos, id).reduce<Formato>((f, e) => encima(f, e.formato), {});
-
-// ——— Las tablas ———
-
-/** Las filas de una tabla y las celdas de una fila, también las que vienen
- *  dentro de un control de contenido. */
-const dentroDe = (n: Nodo, nombre: string): Nodo[] =>
-  n.hijos.flatMap((h) => {
-    if (h.nombre === nombre) return [h];
-    if (h.nombre === 'w:sdt') {
-      const c = hijo(h, 'w:sdtContent');
-      return c ? dentroDe(c, nombre) : [];
-    }
-    return h.nombre === 'w:customXml' ? dentroDe(h, nombre) : [];
-  });
-
-const filasDe = (tbl: Nodo) => dentroDe(tbl, 'w:tr');
-const celdasDe = (tr: Nodo) => dentroDe(tr, 'w:tc');
-
-// El orden de las condiciones en `w:cnfStyle w:val` («100000000000»).
-const EN_EL_VALOR: Partial<Record<Condicion, number>> = {
-  firstRow: 0,
-  lastRow: 1,
-  firstCol: 2,
-  lastCol: 3,
-};
-const COMO_ATRIBUTO: Record<Condicion, string> = {
-  firstRow: 'w:firstRow',
-  lastRow: 'w:lastRow',
-  firstCol: 'w:firstColumn',
-  lastCol: 'w:lastColumn',
-};
-// Los bits de `w:tblLook w:val` (Word antiguo).
-const EN_EL_LOOK: Record<Condicion, number> = {
-  firstRow: 0x20,
-  lastRow: 0x40,
-  firstCol: 0x80,
-  lastCol: 0x100,
-};
-
-const marcada = (xml: string, n: Nodo | undefined, c: Condicion): boolean => {
-  const a = atributo(xml, n, COMO_ATRIBUTO[c]);
-  if (a !== null) return ['1', 'true', 'on'].includes(a);
-  const val = atributo(xml, n, 'w:val') ?? '';
-  const i = EN_EL_VALOR[c];
-  return i !== undefined && val[i] === '1';
-};
-
-/** En qué partes de su tabla está una celda: lo dice Word en `cnfStyle`
- *  al guardar; si no, se calcula con su lugar y lo que la tabla muestra
- *  (`tblLook`). */
-const condicionesDe = (
-  xml: string,
-  tbl: Nodo,
-  tr: Nodo,
-  tc: Nodo,
-): Condicion[] => {
-  const cnfs = [
-    hijo(hijo(tr, 'w:trPr'), 'w:cnfStyle'),
-    hijo(hijo(tc, 'w:tcPr'), 'w:cnfStyle'),
-  ].filter((n): n is Nodo => n !== undefined);
-  if (cnfs.length > 0) {
-    return CONDICIONES.filter((c) => cnfs.some((n) => marcada(xml, n, c)));
-  }
-  const look = hijo(hijo(tbl, 'w:tblPr'), 'w:tblLook');
-  const bits = parseInt(atributo(xml, look, 'w:val') ?? '0', 16) || 0;
-  const muestra = (c: Condicion) => {
-    const a = atributo(xml, look, COMO_ATRIBUTO[c]);
-    return a !== null
-      ? ['1', 'true', 'on'].includes(a)
-      : (bits & EN_EL_LOOK[c]) > 0;
-  };
-  const filas = filasDe(tbl);
-  const celdas = celdasDe(tr);
-  const lugar: Record<Condicion, boolean> = {
-    firstRow: filas[0] === tr,
-    lastRow: filas[filas.length - 1] === tr,
-    firstCol: celdas[0] === tc,
-    lastCol: celdas[celdas.length - 1] === tc,
-  };
-  return CONDICIONES.filter((c) => lugar[c] && muestra(c));
-};
-
-/** La tabla, la fila y la celda más cercanas de un párrafo. */
-const enLaTabla = (ancestros: readonly Nodo[]) => {
-  const ultimo = (nombre: string) =>
-    [...ancestros].reverse().find((n) => n.nombre === nombre);
-  const tc = ultimo('w:tc');
-  const tr = ultimo('w:tr');
-  const tbl = ultimo('w:tbl');
-  return tc && tr && tbl ? { tbl, tr, tc } : null;
+  return rels;
 };
 
 type Contexto = {
   xml: string;
+  docx: Buffer;
   estilos: Estilos;
+  rels: Map<string, string>;
+  /** Lo que queda para mostrar imágenes, en bytes. */
+  presupuesto: { bytes: number };
   ids: Map<Nodo, number>;
   editables: Map<number, ParrafoEditable>;
+  /** En el encabezado y el pie: nada se edita, por esta razón. */
+  soloVer?: string;
 };
 
-const estiloDeLaTabla = (ctx: Contexto, tbl: Nodo) =>
-  cadena(
-    ctx.estilos,
-    atributo(ctx.xml, hijo(hijo(tbl, 'w:tblPr'), 'w:tblStyle'), 'w:val') ??
-      ctx.estilos.tablaPorDefecto,
-  );
+const laImagen = (ctx: Contexto, id: string | null): Imagen | null => {
+  const ruta = id ? ctx.rels.get(id) : undefined;
+  const tipo = ruta
+    ? TIPOS_DE_IMAGEN[ruta.split('.').pop()?.toLowerCase() ?? '']
+    : undefined;
+  if (!ruta || !tipo) return null;
+  const datos = archivoDelZip(ctx.docx, ruta);
+  if (
+    !datos ||
+    datos.length > MAX_BYTES_POR_IMAGEN ||
+    datos.length > ctx.presupuesto.bytes
+  ) {
+    return null;
+  }
+  ctx.presupuesto.bytes -= datos.length;
+  return { src: `data:${tipo};base64,${datos.toString('base64')}` };
+};
 
-const formatoDeLaTabla = (
-  ctx: Contexto,
-  ancestros: readonly Nodo[],
-): Formato => {
-  const t = enLaTabla(ancestros);
-  if (!t) return {};
-  const condiciones = condicionesDe(ctx.xml, t.tbl, t.tr, t.tc);
-  return estiloDeLaTabla(ctx, t.tbl).reduce<Formato>(
-    (f, e) =>
-      condiciones.reduce(
-        (g, c) => encima(g, e.condicional[c] ?? {}),
-        encima(f, e.formato),
-      ),
-    {},
-  );
+/** Las imágenes de un párrafo, con su tamaño. Las de Word nuevo
+ *  (`w:drawing`) y, si no hay, las antiguas (`v:imagedata`): un Word trae
+ *  las dos versiones de la misma imagen para los programas viejos. */
+const imagenesDe = (ctx: Contexto, p: Nodo): Imagen[] => {
+  const nuevas = buscar(p, 'w:drawing').flatMap((d) => {
+    const img = laImagen(
+      ctx,
+      atributo(ctx.xml, buscar(d, 'a:blip')[0], 'r:embed'),
+    );
+    if (!img) return [];
+    const extent = buscar(d, 'wp:extent')[0];
+    const cx = numero(ctx.xml, extent, 'cx');
+    const cy = numero(ctx.xml, extent, 'cy');
+    return [
+      {
+        ...img,
+        ...(cx > 0 ? { ancho: Math.round(cx / EMU_POR_PUNTO) } : {}),
+        ...(cy > 0 ? { alto: Math.round(cy / EMU_POR_PUNTO) } : {}),
+      },
+    ];
+  });
+  if (nuevas.length > 0) return nuevas;
+  return buscar(p, 'v:imagedata').flatMap((v) => {
+    const img = laImagen(ctx, atributo(ctx.xml, v, 'r:id'));
+    return img ? [img] : [];
+  });
 };
 
 // ——— Los párrafos ———
@@ -465,24 +271,25 @@ const MOTIVOS: Record<string, string> = {
 const motivoDe = (n: Nodo) => MOTIVOS[n.nombre] ?? 'tiene un elemento especial';
 
 /** Por qué un párrafo no se edita aquí; null = se edita. Se edita lo que es
- *  solo texto: si trae una imagen, un campo automático o un vínculo, se
- *  deja como está (reescribirlo los perdería). */
+ *  texto (con sus saltos de línea y de página): si trae una imagen, un
+ *  campo automático o un vínculo, se deja como está (reescribirlo los
+ *  perdería). */
 export const porQueNoSeEdita = (xml: string, p: Nodo): string | null => {
   for (const h of p.hijos) {
     if (!EN_EL_PARRAFO.has(h.nombre)) return motivoDe(h);
     if (h.nombre !== 'w:r') continue;
     for (const c of h.hijos) {
       if (!EN_LA_CORRIDA.has(c.nombre)) return motivoDe(c);
-      const tipo = c.nombre === 'w:br' ? atributo(xml, c, 'w:type') : null;
-      if (tipo === 'page' || tipo === 'column')
-        return 'tiene un salto de página';
+      if (c.nombre === 'w:br' && atributo(xml, c, 'w:type') === 'column') {
+        return 'tiene un salto de columna';
+      }
     }
   }
   return null;
 };
 
-/** El texto de una corrida: el salto de línea es «\n», el tabulador «\t» y
- *  el guion que no se corta, U+2011. */
+/** El texto de una corrida: el salto de línea es «\n», el de página «\f»,
+ *  el tabulador «\t» y el guion que no se corta, U+2011. */
 export const textoDeLaCorrida = (xml: string, r: Nodo): string =>
   r.hijos
     .map((h) => {
@@ -490,18 +297,27 @@ export const textoDeLaCorrida = (xml: string, r: Nodo): string =>
         return decodificar(xml.slice(h.finApertura, h.inicioCierre));
       }
       if (h.nombre === 'w:tab') return '\t';
-      if (h.nombre === 'w:br' || h.nombre === 'w:cr') return '\n';
-      return h.nombre === 'w:noBreakHyphen' ? '\u2011' : '';
+      if (h.nombre === 'w:br') {
+        return atributo(xml, h, 'w:type') === 'page' ? '\f' : '\n';
+      }
+      if (h.nombre === 'w:cr') return '\n';
+      return h.nombre === 'w:noBreakHyphen' ? '‑' : '';
     })
     .join('');
 
-/** El texto de lo que no se edita, solo para mostrarlo: sin lo borrado con
- *  control de cambios ni el código de los campos. */
-const textoParaVer = (xml: string, n: Nodo): string => {
-  if (n.nombre === 'w:del' || n.nombre === 'w:instrText') return '';
-  if (n.nombre === 'w:r') return textoDeLaCorrida(xml, n);
-  return n.hijos.map((h) => textoParaVer(xml, h)).join('');
-};
+/** Las corridas de lo que no se edita, solo para mostrarlas: también las
+ *  de un vínculo o un control de contenido; sin lo borrado con control de
+ *  cambios ni lo de adentro de una imagen. */
+const corridasParaVer = (n: Nodo): Nodo[] =>
+  n.hijos.flatMap((h) => {
+    if (h.nombre === 'w:r') return [h];
+    if (
+      ['w:del', 'w:moveFrom', 'w:drawing', 'w:pict', 'w:pPr'].includes(h.nombre)
+    ) {
+      return [];
+    }
+    return corridasParaVer(h);
+  });
 
 /** Un párrafo que se puede editar, con lo necesario para guardarlo. */
 export type ParrafoEditable = {
@@ -513,18 +329,39 @@ export type ParrafoEditable = {
   corridas: Array<{ nodo: Nodo; formato: Formato; texto: string }>;
 };
 
-const aLaVista = (f: Formato): Omit<Tramo, 'r' | 't'> => ({
-  b: Boolean(f.b),
-  i: Boolean(f.i),
-  u: Boolean(f.u),
-  ...(f.pt ? { pt: f.pt } : {}),
-});
+/** El formato como se ve: la letra del tema, con su nombre. */
+const aLaVista = (ctx: Contexto, f: Formato): Omit<Tramo, 'r' | 't'> => {
+  const letra =
+    f.letra === '@menor'
+      ? ctx.estilos.temas.menor
+      : f.letra === '@mayor'
+        ? ctx.estilos.temas.mayor
+        : f.letra;
+  return {
+    b: Boolean(f.b),
+    i: Boolean(f.i),
+    u: Boolean(f.u),
+    ...(f.pt ? { pt: f.pt } : {}),
+    ...(letra ? { f: letra } : {}),
+    ...(f.color ? { c: f.color } : {}),
+  };
+};
 
-const tramo = (t: string, f: Formato, r?: number): Tramo => ({
+const tramo = (ctx: Contexto, t: string, f: Formato, r?: number): Tramo => ({
   ...(r === undefined ? {} : { r }),
   t,
-  ...aLaVista(f),
+  ...aLaVista(ctx, f),
 });
+
+/** El formato de una corrida: el del párrafo, el de su estilo y el suyo. */
+const formatoDeLaCorrida = (ctx: Contexto, base: Formato, r: Nodo) => {
+  const rPr = hijo(r, 'w:rPr');
+  const rStyle = atributo(ctx.xml, hijo(rPr, 'w:rStyle'), 'w:val');
+  return [
+    formatoDelEstilo(ctx.estilos, rStyle ?? undefined),
+    formatoDe(ctx.xml, rPr),
+  ].reduce(encima, base);
+};
 
 const parrafo = (ctx: Contexto, p: Nodo, ancestros: Nodo[]): Parrafo => {
   const { xml, estilos } = ctx;
@@ -533,7 +370,7 @@ const parrafo = (ctx: Contexto, p: Nodo, ancestros: Nodo[]): Parrafo => {
   const estilo =
     atributo(xml, hijo(pPr, 'w:pStyle'), 'w:val') ?? estilos.parrafoPorDefecto;
   const base = [
-    formatoDeLaTabla(ctx, ancestros),
+    formatoDeLaTabla(xml, estilos, ancestros),
     formatoDelEstilo(estilos, estilo),
   ].reduce(encima, estilos.base);
   const alineacion =
@@ -552,40 +389,38 @@ const parrafo = (ctx: Contexto, p: Nodo, ancestros: Nodo[]): Parrafo => {
     ...(numId && numId !== '0' ? { vineta: true } : {}),
   };
   const deLaMarca = encima(base, formatoDe(xml, hijo(pPr, 'w:rPr')));
-  const motivo = porQueNoSeEdita(xml, p);
+  const motivo = ctx.soloVer ?? porQueNoSeEdita(xml, p);
   if (motivo) {
-    const t = textoParaVer(xml, p);
+    const imagenes = imagenesDe(ctx, p);
+    const tramos = corridasParaVer(p).flatMap((r) => {
+      const t = textoDeLaCorrida(xml, r);
+      return t ? [tramo(ctx, t, formatoDeLaCorrida(ctx, base, r))] : [];
+    });
     return {
       tipo: 'parrafo',
       id,
       editable: false,
-      formato: aLaVista(base),
+      formato: aLaVista(ctx, tramos.length > 0 ? base : deLaMarca),
       motivo,
-      tramos: t ? [tramo(t, base)] : [],
+      tramos,
+      ...(imagenes.length > 0 ? { imagenes } : {}),
       ...forma,
     };
   }
-  const corridas = hijos(p, 'w:r').map((r) => {
-    const rPr = hijo(r, 'w:rPr');
-    const rStyle = atributo(xml, hijo(rPr, 'w:rStyle'), 'w:val') ?? undefined;
-    return {
-      nodo: r,
-      formato: [formatoDelEstilo(estilos, rStyle), formatoDe(xml, rPr)].reduce(
-        encima,
-        base,
-      ),
-      texto: textoDeLaCorrida(xml, r),
-    };
-  });
+  const corridas = hijos(p, 'w:r').map((r) => ({
+    nodo: r,
+    formato: formatoDeLaCorrida(ctx, base, r),
+    texto: textoDeLaCorrida(xml, r),
+  }));
   ctx.editables.set(id, { nodo: p, base, deLaMarca, corridas });
   const tramos = corridas.flatMap((c, r) =>
-    c.texto ? [tramo(c.texto, c.formato, r)] : [],
+    c.texto ? [tramo(ctx, c.texto, c.formato, r)] : [],
   );
   return {
     tipo: 'parrafo',
     id,
     editable: true,
-    formato: aLaVista(tramos.length > 0 ? base : deLaMarca),
+    formato: aLaVista(ctx, tramos.length > 0 ? base : deLaMarca),
     tramos,
     ...forma,
   };
@@ -619,17 +454,9 @@ const tabla = (ctx: Contexto, tbl: Nodo, ancestros: Nodo[]): Tabla => {
               .slice(columna, columna + columnas)
               .reduce((a, b) => a + b, 0) / total
           : 0;
-      const condiciones = condicionesDe(xml, tbl, tr, tc);
       const fondo =
         fondoDe(xml, hijo(tcPr, 'w:shd')) ??
-        estiloDeLaTabla(ctx, tbl).reduce<string | null>(
-          (f, e) =>
-            condiciones.reduce<string | null>(
-              (g, c) => e.fondoCondicional[c] ?? g,
-              f,
-            ),
-          null,
-        );
+        fondoDeLaTabla(xml, ctx.estilos, tbl, tr, tc);
       const celda: Celda = {
         bloques: bloquesDe(ctx, tc, [...dentro, tr]),
         ...(columnas > 1 ? { columnas } : {}),
@@ -663,8 +490,8 @@ const bloquesDe = (
   });
 };
 
-/** Todos los párrafos del Word en orden (también los de los cuadros de
- *  texto): el lugar de cada uno es su número. */
+/** Todos los párrafos de una parte del Word en orden (también los de los
+ *  cuadros de texto): el lugar de cada uno es su número. */
 const numerar = (raiz: Nodo): Map<Nodo, number> => {
   const ids = new Map<Nodo, number>();
   const visitar = (n: Nodo) => {
@@ -673,6 +500,45 @@ const numerar = (raiz: Nodo): Map<Nodo, number> => {
   };
   visitar(raiz);
   return ids;
+};
+
+/** El encabezado o el pie, solo para verlo: el de todas las páginas o, si
+ *  no hay, el de la primera (el de la última sección del documento). */
+const encabezadoOPie = (
+  documento: Contexto,
+  cuerpo: Nodo,
+  cual: 'header' | 'footer',
+): Bloque[] => {
+  const sectPr = [...cuerpo.hijos]
+    .reverse()
+    .find((h) => h.nombre === 'w:sectPr');
+  const refs = hijos(sectPr, `w:${cual}Reference`);
+  const tipo = (r: Nodo) => atributo(documento.xml, r, 'w:type');
+  const ref =
+    refs.find((r) => tipo(r) === 'default') ??
+    refs.find((r) => tipo(r) === 'first');
+  const parte = documento.rels.get(atributo(documento.xml, ref, 'r:id') ?? '');
+  const datos = parte ? archivoDelZip(documento.docx, parte) : null;
+  if (!parte || !datos) return [];
+  const xml = datos.toString('utf8');
+  const arbol = arbolDelXml(xml);
+  const raiz = hijo(arbol ?? undefined, cual === 'header' ? 'w:hdr' : 'w:ftr');
+  if (!arbol || !raiz) return [];
+  return bloquesDe(
+    {
+      ...documento,
+      xml,
+      rels: relacionesDe(documento.docx, parte),
+      ids: numerar(arbol),
+      editables: new Map(),
+      soloVer:
+        cual === 'header'
+          ? 'está en el encabezado'
+          : 'está en el pie de página',
+    },
+    raiz,
+    [arbol],
+  );
 };
 
 export const versionDe = (xml: string): string =>
@@ -684,7 +550,8 @@ export type LecturaDelWord = WordParaEditar & {
   editables: Map<number, ParrafoEditable>;
 };
 
-/** El Word para editarlo; null si no es un Word que se pueda leer. */
+/** El Word para verlo y editarlo; null si no es un Word que se pueda
+ *  leer. */
 export const leerElWord = (docx: Buffer): LecturaDelWord | null => {
   const datos = archivoDelZip(docx, 'word/document.xml');
   if (!datos) return null;
@@ -695,13 +562,21 @@ export const leerElWord = (docx: Buffer): LecturaDelWord | null => {
   if (!arbol || !documento || !cuerpo) return null;
   const ctx: Contexto = {
     xml,
+    docx,
     estilos: estilosDelWord(docx),
+    rels: relacionesDe(docx, 'word/document.xml'),
+    presupuesto: { bytes: MAX_BYTES_DE_IMAGENES },
     ids: numerar(arbol),
     editables: new Map(),
   };
+  const encabezado = encabezadoOPie(ctx, cuerpo, 'header');
+  const bloques = bloquesDe(ctx, cuerpo, [arbol, documento]);
+  const pie = encabezadoOPie(ctx, cuerpo, 'footer');
   return {
     version: versionDe(xml),
-    bloques: bloquesDe(ctx, cuerpo, [arbol, documento]),
+    bloques,
+    ...(encabezado.length > 0 ? { encabezado } : {}),
+    ...(pie.length > 0 ? { pie } : {}),
     xml,
     editables: ctx.editables,
   };
@@ -711,4 +586,11 @@ export const leerElWord = (docx: Buffer): LecturaDelWord | null => {
 export const paraLaPantalla = ({
   version,
   bloques,
-}: LecturaDelWord): WordParaEditar => ({ version, bloques });
+  encabezado,
+  pie,
+}: LecturaDelWord): WordParaEditar => ({
+  version,
+  bloques,
+  ...(encabezado ? { encabezado } : {}),
+  ...(pie ? { pie } : {}),
+});

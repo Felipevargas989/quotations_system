@@ -1,13 +1,7 @@
 import { archivoDelZip, nombresDelZip, textoDeDocx } from '../analisis/docx';
-import {
-  arbolDelXml,
-  enXml,
-  type Formato,
-  hijo,
-  leerElWord,
-  type Nodo,
-  type ParrafoEditable,
-} from './el-word-editable';
+import { leerElWord, type ParrafoEditable } from './el-word-editable';
+import type { Formato } from './estilos-del-word';
+import { arbolDelXml, enXml, hijo, type Nodo } from './xml-del-word';
 import { armarZip } from './zip';
 
 // GUARDAR LO EDITADO EN EL MISMO WORD (decisión 78 del doc 17, 24-10): se
@@ -111,7 +105,8 @@ export const conPropiedad = (
 const sinPropiedades = (rPr: string, nombres: readonly string[]): string =>
   nombres.reduce((x, n) => conPropiedad(x, n, null), rPr);
 
-const PENDIENTE = /\[COMPLETAR/i;
+// Lo que la IA dejó por completar o no pudo leer de un PDF.
+const PENDIENTE = /\[(COMPLETAR|ILEGIBLE)/i;
 
 const COMO_SE_ESCRIBE: Record<'b' | 'i' | 'u', [string, string, string]> = {
   b: ['w:b', '<w:b/>', '<w:b w:val="0"/>'],
@@ -163,15 +158,16 @@ const escapar = (t: string): string =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-/** Una corrida con su texto: «\n» es un salto de línea, «\t» un tabulador
- *  y U+2011 el guion que no se corta. */
+/** Una corrida con su texto: «\n» es un salto de línea, «\f» uno de
+ *  página, «\t» un tabulador y U+2011 el guion que no se corta. */
 const corrida = (rPr: string, texto: string): string => {
   const piezas = texto
     .replace(/\r\n?/g, '\n')
-    .split(/(\n|\t|\u2011)/)
+    .split(/(\n|\f|\t|\u2011)/)
     .filter((x) => x !== '')
     .map((x) => {
       if (x === '\n') return '<w:br/>';
+      if (x === '\f') return '<w:br w:type="page"/>';
       if (x === '\t') return '<w:tab/>';
       if (x === '\u2011') return '<w:noBreakHyphen/>';
       return `<w:t xml:space="preserve">${escapar(x)}</w:t>`;

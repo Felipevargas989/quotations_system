@@ -1,6 +1,5 @@
 import { archivoDelZip, nombresDelZip } from '../analisis/docx';
 import {
-  arbolDelXml,
   leerElWord,
   paraLaPantalla,
   type Parrafo,
@@ -12,6 +11,7 @@ import {
   NoSeGuarda,
   OtraVersion,
 } from '../postulacion/guardar-el-word';
+import { arbolDelXml } from '../postulacion/xml-del-word';
 import { zipCon } from './zip-de-prueba';
 
 // EL WORD SE EDITA EN EVENTIA (decisión 78): se lee el texto párrafo por
@@ -333,5 +333,106 @@ describe('conPropiedad — cada propiedad en su lugar', () => {
     ).toBe('<w:rPr><w:b w:val="0"/></w:rPr>');
     expect(conPropiedad('<w:rPr><w:b/></w:rPr>', 'w:b', null)).toBe('');
     expect(conPropiedad('', 'w:i', '<w:i/>')).toBe('<w:rPr><w:i/></w:rPr>');
+  });
+});
+
+describe('leerElWord — lo que se ve: encabezado, imágenes, letra, color y saltos de página', () => {
+  const R =
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const DOC = `<w:document ${W} ${R}><w:body>
+<w:p><w:r><w:rPr><w:color w:val="E36C0A"/></w:rPr><w:t>Debe contener la totalidad</w:t></w:r></w:p>
+<w:p><w:r><w:t>Antes</w:t><w:br w:type="page"/><w:t>Después</w:t></w:r></w:p>
+<w:p><w:hyperlink r:id="rId9"><w:r><w:rPr><w:b/></w:rPr><w:t>Correo: </w:t></w:r><w:r><w:t>contacto@valledelsol.cl</w:t></w:r></w:hyperlink></w:p>
+<w:p><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t>[ILEGIBLE]</w:t></w:r></w:p>
+<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/></w:sectPr>
+</w:body></w:document>`;
+  const ENCABEZADO = `<w:hdr ${W} ${R}><w:p><w:r><w:drawing><wp:inline><wp:extent cx="762000" cy="381000"/><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="rId1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>MUNICIPALIDAD DE QUILLÓN</w:t></w:r></w:p></w:hdr>`;
+  const PIE = `<w:ftr ${W}><w:p><w:r><w:t>Página 1</w:t></w:r></w:p></w:ftr>`;
+  const RELS = `<Relationships><Relationship Id="rIdH" Type="header" Target="header1.xml"/><Relationship Id="rIdF" Type="footer" Target="footer1.xml"/><Relationship Id="rId9" Type="hyperlink" Target="mailto:x" TargetMode="External"/></Relationships>`;
+  const RELS_ENCABEZADO = `<Relationships><Relationship Id="rId1" Type="image" Target="media/image1.png"/></Relationships>`;
+  const TEMA = `<a:theme><a:themeElements><a:fontScheme><a:majorFont><a:latin typeface="Calibri Light"/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/></a:minorFont></a:fontScheme></a:themeElements></a:theme>`;
+  const ESTILOS_CON_TEMA = `<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:asciiTheme="minorHAnsi" w:hAnsiTheme="minorHAnsi"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>`;
+  const docx = zipCon([
+    ['[Content_Types].xml', '<Types/>'],
+    ['word/document.xml', DOC],
+    ['word/_rels/document.xml.rels', RELS],
+    ['word/header1.xml', ENCABEZADO],
+    ['word/_rels/header1.xml.rels', RELS_ENCABEZADO],
+    ['word/footer1.xml', PIE],
+    ['word/media/image1.png', LOGO],
+    ['word/styles.xml', ESTILOS_CON_TEMA],
+    ['word/theme/theme1.xml', TEMA],
+  ]);
+  const lectura = leido(docx);
+  const [color, salto, vinculo] = lectura.bloques as Parrafo[];
+
+  it('el encabezado se ve con su logo y su texto, sin editarse; el pie también', () => {
+    const [encabezado] = (lectura.encabezado ?? []) as Parrafo[];
+    expect(encabezado).toMatchObject({
+      editable: false,
+      motivo: 'está en el encabezado',
+      tramos: [{ t: 'MUNICIPALIDAD DE QUILLÓN', b: true, f: 'Calibri' }],
+      imagenes: [
+        {
+          src: `data:image/png;base64,${LOGO.toString('base64')}`,
+          ancho: 60,
+          alto: 30,
+        },
+      ],
+    });
+    expect(lectura.pie?.[0]).toMatchObject({
+      editable: false,
+      motivo: 'está en el pie de página',
+      tramos: [{ t: 'Página 1' }],
+    });
+    expect(Object.keys(paraLaPantalla(lectura)).sort()).toEqual([
+      'bloques',
+      'encabezado',
+      'pie',
+      'version',
+    ]);
+  });
+
+  it('la letra del tema y el color de cada pedazo', () => {
+    expect(color.tramos[0]).toMatchObject({
+      t: 'Debe contener la totalidad',
+      f: 'Calibri',
+      c: 'E36C0A',
+      pt: 11,
+    });
+  });
+
+  it('un salto de página no deja el párrafo sin editar, y se guarda en su lugar', () => {
+    expect(salto).toMatchObject({
+      editable: true,
+      tramos: [{ r: 0, t: 'Antes\fDespués' }],
+    });
+    const nuevo = guardarCambios(docx, lectura.version, [
+      { id: salto.id, tramos: [{ r: 0, t: 'Antes\fDespués, corregido' }] },
+    ]);
+    expect(documentoDe(nuevo)).toContain(
+      '<w:r><w:t xml:space="preserve">Antes</w:t><w:br w:type="page"/><w:t xml:space="preserve">Después, corregido</w:t></w:r>',
+    );
+  });
+
+  it('lo que no se edita se ve con el formato de cada pedazo', () => {
+    expect(vinculo).toMatchObject({
+      editable: false,
+      motivo: 'tiene un vínculo',
+      tramos: [
+        { t: 'Correo: ', b: true },
+        { t: 'contacto@valledelsol.cl', b: false },
+      ],
+    });
+  });
+
+  it('el [ILEGIBLE] corregido pierde el resaltado, como el [COMPLETAR]', () => {
+    const ilegible = lectura.bloques[3] as Parrafo;
+    const nuevo = guardarCambios(docx, lectura.version, [
+      { id: ilegible.id, tramos: [{ r: 0, t: 'Ilustre Municipalidad' }] },
+    ]);
+    expect(documentoDe(nuevo)).toContain(
+      '<w:p><w:r><w:t xml:space="preserve">Ilustre Municipalidad</w:t></w:r></w:p>',
+    );
   });
 });

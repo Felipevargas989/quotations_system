@@ -11,8 +11,9 @@ import type {
 // pedazo recuerda de qué corrida del Word salió (`data-r`), para que el
 // motor conserve su letra y su color.
 
-/** Lo que la IA dejó por completar: [COMPLETAR: qué falta]. */
-export const PENDIENTE = /\[COMPLETAR[^\]]*\]/gi;
+/** Lo que la IA dejó por completar ([COMPLETAR: qué falta]) o no pudo
+ *  leer de un PDF ([ILEGIBLE]). */
+export const PENDIENTE = /\[(?:COMPLETAR|ILEGIBLE)[^\]]*\]/gi;
 
 const escaparHtml = (t: string): string =>
   t
@@ -21,19 +22,42 @@ const escaparHtml = (t: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-type ComoSeVe = Pick<TramoDelWord, "b" | "i" | "u" | "pt">;
+type ComoSeVe = Pick<TramoDelWord, "b" | "i" | "u" | "pt" | "f" | "c">;
+
+/** La letra del Word para la página: su nombre (sin nada que no sea de un
+ *  nombre de letra) y, si no está en el computador, una parecida. */
+export const familiaDe = (letra: string | undefined): string | undefined => {
+  const nombre = letra?.replace(/[^\p{L}\p{N} ._-]/gu, "").trim();
+  if (!nombre) return undefined;
+  const generica = /times|georgia|garamond|cambria|book|serif/i.test(nombre)
+    ? "serif"
+    : "sans-serif";
+  return `'${nombre}', ${generica}`;
+};
+
+/** El color de un pedazo, si es un color. */
+export const colorDe = (c: string | undefined): string | undefined =>
+  c && /^[0-9A-F]{6}$/i.test(c) ? `#${c}` : undefined;
 
 /** El formato como estilo de la página (también los «no», para que mande
  *  el más cercano al leer de vuelta). */
-export const estiloDe = (f: ComoSeVe): string =>
-  `font-weight:${f.b ? 700 : 400};font-style:${f.i ? "italic" : "normal"};text-decoration:${f.u ? "underline" : "none"}${f.pt ? `;font-size:${f.pt}pt` : ""}`;
+export const estiloDe = (f: ComoSeVe): string => {
+  const familia = familiaDe(f.f);
+  const color = colorDe(f.c);
+  return `font-weight:${f.b ? 700 : 400};font-style:${f.i ? "italic" : "normal"};text-decoration:${f.u ? "underline" : "none"}${f.pt ? `;font-size:${f.pt}pt` : ""}${familia ? `;font-family:${familia}` : ""}${color ? `;color:${color}` : ""}`;
+};
 
-const conSaltos = (t: string) => escaparHtml(t).replace(/\n/g, "<br>");
+/** El salto de página: se ve como una línea y no se escribe adentro. */
+export const SALTO_DE_PAGINA =
+  '<span data-salto="" contenteditable="false" class="my-1 block select-none border-t border-dashed border-gray-300 text-center text-[10px] font-normal not-italic text-gray-400">salto de página</span>';
+
+const conSaltos = (t: string) =>
+  escaparHtml(t).replace(/\n/g, "<br>").replace(/\f/g, SALTO_DE_PAGINA);
 
 /** Lo pendiente, en amarillo. */
 const conPendientes = (t: string) =>
   t
-    .split(/(\[COMPLETAR[^\]]*\])/gi)
+    .split(/(\[(?:COMPLETAR|ILEGIBLE)[^\]]*\])/gi)
     .map((x, i) =>
       i % 2 === 1
         ? `<mark data-completar="" class="bg-yellow-200 rounded-sm">${conSaltos(x)}</mark>`
@@ -135,6 +159,10 @@ export const tramosDelElemento = (raiz: HTMLElement): TramoEditado[] => {
           agregar("\n", h);
           continue;
         }
+        if (h.dataset.salto !== undefined) {
+          agregar("\f", h);
+          continue;
+        }
         // Un Enter que se coló como bloque es un salto de línea.
         if ((h.tagName === "DIV" || h.tagName === "P") && tramos.length > 0) {
           agregar("\n", h);
@@ -154,7 +182,13 @@ export const tramosDelElemento = (raiz: HTMLElement): TramoEditado[] => {
 /** Para comparar: el espacio duro que pone el navegador es un espacio. */
 const comparable = (tramos: ReadonlyArray<TramoEditado | TramoDelWord>) =>
   JSON.stringify(
-    tramos.map((t) => [t.r ?? null, t.t.replace(/\u00a0/g, " "), t.b, t.i, t.u]),
+    tramos.map((t) => [
+      t.r ?? null,
+      t.t.replace(/\u00a0/g, " "),
+      t.b,
+      t.i,
+      t.u,
+    ]),
   );
 
 /** ¿Cambió el párrafo? */
