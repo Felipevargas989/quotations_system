@@ -1,6 +1,38 @@
-import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Pedir la propuesta de experiencia (decisión 76). `excluir`: las claves
+ *  que la empresa ya sacó («Buscar otras»). */
+export class ProponerExperienciaDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  excluir?: string[];
+}
+
+/** Confirmar la experiencia (decisión 76): van las elegidas, sin las que
+ *  se sacan. */
+export class ConfirmarExperienciaDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  quitar?: string[];
+}
 
 /** Vincular una cotización que ya existe, sin reescribirla (decisión 73). */
 export class VincularCotizacionDto {

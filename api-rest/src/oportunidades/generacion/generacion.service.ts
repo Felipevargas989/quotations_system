@@ -36,6 +36,10 @@ import {
   respaldosDePostVenta,
 } from '../oferente/respaldos-de-post-venta';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import {
+  type ExperienciaConfirmada,
+  experienciaDeLosAnexos,
+} from '../postulacion/la-experiencia';
 import { LoPostuladoService } from '../postulacion/lo-postulado.service';
 import { PreguntasRepository } from '../preguntas/preguntas.repository';
 import {
@@ -174,6 +178,8 @@ export class GeneracionService {
       adjuntos?: number[];
       /** Los lee «Armar postulación» (decisión 45); no llegan de afuera. */
       post_venta?: RespaldoDePostVenta[];
+      /** La experiencia que confirmó la empresa (decisión 76); tampoco. */
+      experiencia?: ExperienciaConfirmada;
       /** «Volver a armar» (decisión 49): lo firmado no se rehace y lo que
        *  se reemplaza se borra al terminar. Tampoco llegan de afuera. */
       ya_firmados?: string[];
@@ -183,16 +189,21 @@ export class GeneracionService {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const bases = await this.adjuntos.listar(companyId, oportunidadId, 'bases');
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
-    // Los respaldos de Post-venta van después de los de «Mi empresa»; al
-    // reintentar, los que se leyeron la vez anterior.
+    // Los respaldos de Post-venta y la experiencia confirmada (decisión
+    // 76); al reintentar, los de la vez anterior.
+    const anterior =
+      pedido.post_venta === undefined
+        ? (await this.repo.ultimoDeTipo(companyId, oportunidadId, 'anexos'))
+            ?.parametros
+        : undefined;
     const postVenta =
-      pedido.post_venta ??
-      respaldosDePostVenta(
-        (await this.repo.ultimoDeTipo(companyId, oportunidadId, 'anexos'))
-          ?.parametros,
-        companyId,
-      );
+      pedido.post_venta ?? respaldosDePostVenta(anterior, companyId);
+    const experiencia =
+      pedido.post_venta === undefined
+        ? experienciaDeLosAnexos(anterior, companyId)
+        : (pedido.experiencia ?? null);
     contexto.datos.respaldosDePostVenta = postVenta;
+    if (experiencia) contexto.datos.experienciaConfirmada = experiencia;
     contexto.datos.yaFirmados = pedido.ya_firmados;
     const pedidos = new Set(pedido.adjuntos ?? []);
     const elegidos = elegirArchivos(
@@ -244,6 +255,7 @@ export class GeneracionService {
         monto_total: oferta?.total ?? null,
         adjuntos: elegidos.map((a) => a.id),
         ...(postVenta.length > 0 ? { post_venta: postVenta } : {}),
+        ...(experiencia ? { experiencia } : {}),
         ...(pedido.ya_firmados?.length
           ? { ya_firmados: pedido.ya_firmados }
           : {}),

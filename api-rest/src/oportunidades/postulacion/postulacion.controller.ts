@@ -16,9 +16,12 @@ import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { ArmarPostulacionService } from './armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { ElSetService } from './el-set.service';
+import { LaExperienciaService } from './la-experiencia.service';
 import {
   ArmarPostulacionDto,
+  ConfirmarExperienciaDto,
   LlevarACotizacionDto,
+  ProponerExperienciaDto,
   VincularCotizacionDto,
 } from './postulacion.dto';
 
@@ -34,6 +37,7 @@ export class PostulacionController {
     private readonly armar: ArmarLaOfertaService,
     private readonly postulacion: ArmarPostulacionService,
     private readonly elSet: ElSetService,
+    private readonly experiencia: LaExperienciaService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(PostulacionController.name);
@@ -44,6 +48,40 @@ export class PostulacionController {
   @Get(':id/oferta')
   oferta(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.armar.ultimo(user.company_id, id);
+  }
+
+  /** La experiencia que se presenta (decisión 76): si las bases la piden
+   *  y el último trabajo (la propuesta y lo que confirmó la empresa). */
+  @Get(':id/experiencia')
+  verExperiencia(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.experiencia.estado(user.company_id, id);
+  }
+
+  /** La IA propone la experiencia según las bases; responde al tiro con el
+   *  trabajo en curso. */
+  @Post(':id/experiencia')
+  proponerExperiencia(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ProponerExperienciaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/experiencia (empresa ${user.company_id})`,
+    );
+    return this.experiencia.proponer(user, id, dto.excluir ?? []);
+  }
+
+  /** La empresa confirma cuáles van: desde ahí se puede armar. */
+  @Post(':id/experiencia/confirmar')
+  confirmarExperiencia(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ConfirmarExperienciaDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.experiencia.confirmar(user, id, dto.quitar ?? []);
   }
 
   /** «Armar postulación» (decisión 35): con el precio, la oferta y, por

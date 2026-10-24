@@ -130,6 +130,66 @@ describe('EventiaRepository', () => {
     ]);
   });
 
+  it('de dónde sale la experiencia (decisión 76): lo hecho de la empresa, de cualquier fecha, del más caro al más barato, con su cliente y lo que se sirvió', async () => {
+    const { repo, consultas } = armar({
+      quotations: [
+        {
+          quotation_number: 199,
+          event_type: 'Almuerzo o Cena',
+          event_date: '2025-09-29T00:00:00+00:00',
+          people_count: 1,
+          total_amount: '34547366',
+          items: {
+            variable_services: [
+              {
+                items: [
+                  { nombre: 'Almuerzo - PDG' },
+                  { nombre: 'PGP - Hospedaje + Cena + Desayuno' },
+                  { nombre: 'Almuerzo - PDG' },
+                ],
+              },
+            ],
+          },
+          client_id: 'cliente-rudel',
+          cliente: { name: 'Rudel S.A.', client_type: 'Empresas' },
+        },
+      ],
+    });
+    await expect(
+      repo.eventosParaLaExperiencia(52, '2026-10-24'),
+    ).resolves.toEqual([
+      {
+        numero: 199,
+        tipo: 'Almuerzo o Cena',
+        fecha: '2025-09-29',
+        personas: 1,
+        monto: 34_547_366,
+        cliente: 'Rudel S.A.',
+        fijos: [],
+        cliente_id: 'cliente-rudel',
+        tipo_de_cliente: 'Empresas',
+        que_se_sirvio: ['Almuerzo - PDG', 'PGP - Hospedaje + Cena + Desayuno'],
+      },
+    ]);
+    const [c] = consultas;
+    expect(deLaEmpresa(c, 52)).toBe(true);
+    expect(c.pasos).toContainEqual([
+      'in',
+      'quotation_status',
+      ['aceptada', 'realizada'],
+    ]);
+    expect(c.pasos).toContainEqual([
+      'lt',
+      'event_date',
+      '2026-10-24T00:00:00.000Z',
+    ]);
+    expect(c.pasos).toContainEqual([
+      'order',
+      'total_amount',
+      { ascending: false },
+    ]);
+  });
+
   it('la agenda del día: solo lo aceptado de la empresa que cae ese día (también lo de varios días)', async () => {
     const { repo, consultas } = armar();
     await repo.agendaDelDia(52, '2026-10-30');

@@ -31,6 +31,7 @@ import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
 import {
+  ClientesQueSeMuestranDto,
   GuardarOferenteDto,
   MarcarNoUsarDto,
   SubirDocumentoDto,
@@ -168,6 +169,14 @@ export class OportunidadesController {
   @Patch('oferente')
   guardarOferente(@Body() dto: GuardarOferenteDto, @CurrentUser() user: User) {
     return this.oferente.guardar(user.company_id, dto);
+  }
+
+  @Patch('oferente/clientes-que-se-muestran')
+  guardarClientesQueSeMuestran(
+    @Body() dto: ClientesQueSeMuestranDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.oferente.guardarClientesQueSeMuestran(user.company_id, dto.ids);
   }
 
   @Post('oferente/firma')

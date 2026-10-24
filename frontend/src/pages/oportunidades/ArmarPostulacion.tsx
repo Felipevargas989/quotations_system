@@ -14,6 +14,7 @@ import {
   type GeneracionesDeOportunidad,
   type TipoDeGeneracion,
 } from "../../services/oportunidades.service";
+import { getExperiencia } from "../../services/experiencia.service";
 import {
   armarPostulacion,
   getOfertaDeLaPostulacion,
@@ -22,6 +23,11 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import EstadoDeGeneracion from "./EstadoDeGeneracion";
 import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
+import LaExperiencia from "./LaExperiencia";
+import {
+  claveDeLaExperiencia,
+  faltaConfirmarExperiencia,
+} from "./reglasDeLaExperiencia";
 import {
   caminoDelFormulario,
   faltaEnMiEmpresa,
@@ -126,6 +132,12 @@ export default function ArmarPostulacion({
     queryFn: getOferente,
   });
   const falta = faltaEnMiEmpresa(miEmpresa?.oferente);
+  // Si las bases piden experiencia, primero se confirma (decisión 76).
+  const { data: experiencia } = useQuery({
+    queryKey: claveDeLaExperiencia(oportunidadId),
+    queryFn: () => getExperiencia(oportunidadId),
+  });
+  const faltaExperiencia = faltaConfirmarExperiencia(experiencia);
   const hayAnalisis = analisis?.estado === "listo";
   const delAnalisis = hayAnalisis ? analisis.resultado?.formularios : undefined;
   const seLlenan = bases.filter(
@@ -195,7 +207,12 @@ export default function ArmarPostulacion({
     ? "Ya postulaste: lo postulado queda fijo"
     : !hayAnalisis
       ? "Primero analiza las bases"
-      : (falta ?? (!precio ? "Escribe el precio" : undefined));
+      : (falta ??
+        (faltaExperiencia
+          ? "Primero confirma la experiencia (arriba)"
+          : !precio
+            ? "Escribe el precio"
+            : undefined));
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-4">
@@ -251,6 +268,10 @@ export default function ArmarPostulacion({
             <FormulariosDelAnalisis formularios={delAnalisis} />
           </div>
         </details>
+      )}
+
+      {hayAnalisis && (
+        <LaExperiencia oportunidadId={oportunidadId} congelada={congelada} />
       )}
 
       <div className="flex flex-wrap items-end gap-3">

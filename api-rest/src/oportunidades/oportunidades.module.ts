@@ -46,6 +46,7 @@ import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
 import { ArmarPostulacionService } from './postulacion/armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
 import { ElSetService } from './postulacion/el-set.service';
+import { LaExperienciaService } from './postulacion/la-experiencia.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
@@ -92,6 +93,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     LoPostuladoService,
     ElSetService,
     ArmarPostulacionService,
+    LaExperienciaService,
     MercadoPublicoClient,
     LecturaService,
     OportunidadesRepository,
