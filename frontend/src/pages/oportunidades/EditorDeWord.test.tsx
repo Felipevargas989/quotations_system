@@ -121,9 +121,9 @@ describe("Editor de Word", () => {
   it("muestra el Word para escribir encima, con lo pendiente y lo que no se edita", async () => {
     pintar();
     expect(await screen.findByText("FORMULARIO N°4")).toBeInTheDocument();
-    expect(
-      screen.getByText("[COMPLETAR: tamaño de la piscina]").tagName,
-    ).toBe("MARK");
+    expect(screen.getByText("[COMPLETAR: tamaño de la piscina]").tagName).toBe(
+      "MARK",
+    );
     expect(screen.getByText(/Queda 1 por completar/)).toBeInTheDocument();
     expect(screen.getByText("[tiene una imagen]")).toHaveAttribute(
       "title",
@@ -151,6 +151,21 @@ describe("Editor de Word", () => {
       ]),
     );
     await waitFor(() => expect(onCerrar).toHaveBeenCalled());
+  });
+
+  it("al escribir encima del [COMPLETAR], el amarillo que copia el navegador se apaga", async () => {
+    pintar();
+    await screen.findByText("FORMULARIO N°4");
+    const marca = document.querySelector("mark[data-completar]");
+    if (!marca) throw new Error("sin pendiente");
+    // Lo que hace Chrome: borra el marcador y le copia el fondo a lo nuevo.
+    const nuevo = document.createElement("span");
+    nuevo.style.backgroundColor = "rgb(254, 240, 138)";
+    nuevo.textContent = "12 x 6 metros";
+    marca.replaceWith(nuevo);
+    fireEvent.input(document.querySelector('[data-p="1"]') as HTMLElement);
+    expect(nuevo.style.backgroundColor).toBe("");
+    expect(screen.queryByText(/por completar/)).not.toBeInTheDocument();
   });
 
   it("sin cambios, «Guardar» solo cierra", async () => {
