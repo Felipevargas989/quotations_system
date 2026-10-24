@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calculator, ExternalLink, Link2, Loader2 } from "lucide-react";
+import {
+  CalendarDays,
+  Calculator,
+  ExternalLink,
+  Link2,
+  Loader2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -12,12 +18,16 @@ import {
   getCotizacionDeLaPostulacion,
   llevarACotizacion,
 } from "../../services/oportunidades.service";
-import { getOfertaDeLaPostulacion } from "../../services/postulacion.service";
+import {
+  getOfertaDeLaPostulacion,
+  vincularCotizacion,
+} from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import {
   claveDeLaCotizacion,
   cuadre,
+  fechasEnPalabras,
   porcentaje,
   veredicto,
 } from "./precioDeLaPostulacion";
@@ -38,6 +48,13 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // cotización, en rojo cuando no cuadran, y abajo lista lo que falta. La
 // cotización se edita a mano para cuadrar; se reescribe con lo postulado
 // solo con el botón.
+//
+// Desde la decisión 73 (23-10, el Día de Campo con la N° 493). Felipe:
+// "podemos ordenarlo"; "no se reescribe"; "el crear cotización pregunta los
+// días, pero no debería leer las bases". Dos bloques: «Crear una nueva»
+// con las fechas de las bases ya puestas («Cambiar» las abre) y «Vincular
+// una que ya tienes», que la une sin reescribirla, con su confirmación ahí
+// mismo.
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -126,6 +143,7 @@ export default function CotizacionDeLaPostulacion({
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [faltaFecha, setFaltaFecha] = useState<string | null>(null);
+  const [cambiandoFechas, setCambiandoFechas] = useState(false);
 
   const llevar = useMutation({
     mutationFn: (p: { numero?: number; fechas?: FechasDeLaCotizacion }) =>
@@ -149,6 +167,23 @@ export default function CotizacionDeLaPostulacion({
       toast.error(humanizeApiError(e, "No se pudo armar la cotización.")),
   });
 
+  // Vincular sin reescribir (decisión 73): quedan sus productos y precios.
+  const vincular = useMutation({
+    mutationFn: (n: number) => vincularCotizacion(oportunidadId, n),
+    onSuccess: (nuevo, n) => {
+      guardar(nuevo);
+      setEligiendo(false);
+      setConfirmando(false);
+      setNumero(undefined);
+      toast.success(
+        `Cotización N° ${n} vinculada: sus productos y precios no cambian.`,
+      );
+    },
+    onError: (e) =>
+      toast.error(humanizeApiError(e, "No se pudo vincular la cotización.")),
+  });
+  const ocupado = llevar.isPending || vincular.isPending;
+
   if (isPending || !estado) {
     return (
       <section className="bg-white rounded-lg shadow p-5">
@@ -168,10 +203,15 @@ export default function CotizacionDeLaPostulacion({
   const dice = veredicto(estado.presupuesto, oferta);
   const cuadra = cuadre(oferta, c ? c.total : null);
 
+  const deLasBases = fechasEnPalabras(estado.fechas);
   const abrir = () => {
     setDesde(estado.fechas?.desde ?? "");
-    setHasta(estado.fechas?.hasta ?? "");
+    // Un solo día: el «hasta» es el mismo, así no parece que falte.
+    setHasta(estado.fechas?.hasta ?? estado.fechas?.desde ?? "");
+    setCambiandoFechas(!estado.fechas?.desde);
     setFaltaFecha(null);
+    setNumero(undefined);
+    setConfirmando(false);
     setEligiendo(true);
   };
   const crear = () => {
@@ -184,7 +224,9 @@ export default function CotizacionDeLaPostulacion({
       return;
     }
     setFaltaFecha(null);
-    llevar.mutate({ fechas: { desde, hasta: hasta || null } });
+    llevar.mutate({
+      fechas: { desde, hasta: hasta && hasta !== desde ? hasta : null },
+    });
   };
 
   return (
@@ -311,115 +353,159 @@ export default function CotizacionDeLaPostulacion({
           <Link2 size={14} /> Crear o vincular cotización
         </button>
       ) : (
-        <div className="rounded-lg border border-gray-200 p-3 space-y-3">
-          <p className="text-sm text-gray-700">
-            Se crea con lo que tienes en tu catálogo
-            {total ? ` y tu oferta de ${pesos(total)}` : ""}; lo que falta queda
-            en su comentario interno. ¿Qué días ocupa en tu calendario?
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label
-                htmlFor="cotizacion-desde"
-                className="block text-xs text-gray-600"
-              >
-                Desde
-              </label>
-              <input
-                id="cotizacion-desde"
-                type="date"
-                value={desde}
-                onChange={(e) => {
-                  setDesde(e.target.value);
-                  setFaltaFecha(null);
-                }}
-                className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="cotizacion-hasta"
-                className="block text-xs text-gray-600"
-              >
-                Hasta
-              </label>
-              <input
-                id="cotizacion-hasta"
-                type="date"
-                value={hasta}
-                min={desde || undefined}
-                onChange={(e) => {
-                  setHasta(e.target.value);
-                  setFaltaFecha(null);
-                }}
-                className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-              />
-            </div>
+        <div className="space-y-3">
+          <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">
+              Crear una nueva
+            </p>
+            <p className="text-xs text-gray-600">
+              Con lo que tienes en tu catálogo
+              {total ? ` y tu oferta de ${pesos(total)}` : ""}. Lo que falta
+              queda en su comentario interno.
+            </p>
+            {deLasBases && !cambiandoFechas ? (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-green-800">
+                <CalendarDays size={14} aria-hidden />
+                {deLasBases.unDia
+                  ? `Para el ${deLasBases.texto}, según las bases.`
+                  : `Para los días ${deLasBases.texto}, según las bases.`}
+                <button
+                  type="button"
+                  onClick={() => setCambiandoFechas(true)}
+                  className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                >
+                  Cambiar
+                </button>
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-gray-600">
+                  {deLasBases
+                    ? "Vienen de las bases. Cámbialas si tus servicios son otros días."
+                    : "¿Qué días ocupa en tu calendario?"}
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label
+                      htmlFor="cotizacion-desde"
+                      className="block text-xs text-gray-600"
+                    >
+                      Desde
+                    </label>
+                    <input
+                      id="cotizacion-desde"
+                      type="date"
+                      value={desde}
+                      onChange={(e) => {
+                        setDesde(e.target.value);
+                        setFaltaFecha(null);
+                      }}
+                      className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="cotizacion-hasta"
+                      className="block text-xs text-gray-600"
+                    >
+                      Hasta
+                    </label>
+                    <input
+                      id="cotizacion-hasta"
+                      type="date"
+                      value={hasta}
+                      min={desde || undefined}
+                      onChange={(e) => {
+                        setHasta(e.target.value);
+                        setFaltaFecha(null);
+                      }}
+                      className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {faltaFecha && <p className="text-xs text-red-600">{faltaFecha}</p>}
             <button
               type="button"
               onClick={crear}
-              disabled={llevar.isPending}
+              disabled={ocupado}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {llevar.isPending && !numero && (
+              {llevar.isPending && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              Crear una nueva
+              Crear la cotización
             </button>
           </div>
-          <p className="text-xs text-gray-500">
-            Propuestas desde las bases: corrígelas si tus servicios son otros
-            días (en el catamarán, la comida es del 6 al 8 aunque el catamarán
-            parta antes).
-          </p>
-          {faltaFecha && <p className="text-xs text-red-600">{faltaFecha}</p>}
-          <div className="flex flex-wrap items-end gap-3">
-            <span className="pb-2 text-sm text-gray-500">o</span>
-            <div className="w-36">
-              <label
-                htmlFor="numero-a-vincular"
-                className="block text-xs text-gray-600"
+
+          <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">
+              Vincular una que ya tienes
+            </p>
+            <p className="text-xs text-gray-600">
+              Se une a esta licitación sin cambiar sus productos ni precios
+              {deLasBases ? ", y pasa a la fecha de las bases" : ""}.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-36">
+                <label
+                  htmlFor="numero-a-vincular"
+                  className="block text-xs text-gray-600"
+                >
+                  N°
+                </label>
+                <NumberInput
+                  id="numero-a-vincular"
+                  value={numero}
+                  onChange={(n) => {
+                    setNumero(n);
+                    setConfirmando(false);
+                  }}
+                  min={1}
+                  placeholder="Ej: 598"
+                  disabled={ocupado}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmando(true)}
+                disabled={ocupado || !numero}
+                className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
-                Vincular la N°
-              </label>
-              <NumberInput
-                id="numero-a-vincular"
-                value={numero}
-                onChange={setNumero}
-                min={1}
-                placeholder="Ej: 598"
-                disabled={llevar.isPending}
-              />
+                Vincular
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setConfirmando(true)}
-              disabled={llevar.isPending || !numero}
-              className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-            >
-              Vincular
-            </button>
+            {confirmando && numero && (
+              <ConfirmInline
+                question={`La N° ${numero} se une a esta licitación sin cambiar sus productos ni precios${
+                  deLasBases
+                    ? deLasBases.unDia
+                      ? `, y pasa al ${deLasBases.texto}, la fecha de las bases`
+                      : `, y pasa a los días de las bases, ${deLasBases.texto}`
+                    : ""
+                }.`}
+                yesLabel="Sí, vincular"
+                tono="normal"
+                busy={vincular.isPending}
+                onYes={() => vincular.mutate(numero)}
+                onNo={() => setConfirmando(false)}
+              />
+            )}
+          </div>
+
+          <div className="text-right">
             <button
               type="button"
               onClick={() => {
                 setEligiendo(false);
                 setConfirmando(false);
               }}
-              className="pb-2 text-sm text-gray-500 hover:text-gray-800"
+              className="text-sm text-gray-500 hover:text-gray-800"
             >
               Cancelar
             </button>
           </div>
-          {confirmando && numero && (
-            <ConfirmInline
-              question={`La N° ${numero} se reescribe entera con lo postulado. Lo que tenía queda anotado en su bitácora.`}
-              yesLabel="Sí, vincular"
-              tono="normal"
-              busy={llevar.isPending}
-              onYes={() => llevar.mutate({ numero })}
-              onNo={() => setConfirmando(false)}
-            />
-          )}
         </div>
       )}
     </section>

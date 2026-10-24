@@ -2,6 +2,7 @@ import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
 import {
   type AnalisisDeBases,
+  type EstadoDeLaCotizacion,
   subirConFormulario,
   type VistaDelOferente,
 } from "./oportunidades.service";
@@ -116,6 +117,15 @@ export const armarPostulacion = async (id: number, total: number) =>
   (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/postulacion`, "POST", {
     total,
   })) as TrabajoDeOferta;
+
+/** Vincular una cotización que ya existe SIN reescribirla (decisión 73,
+ *  23-10): quedan sus productos y precios; pasa a la fecha de las bases. */
+export const vincularCotizacion = async (id: number, numero: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion/vincular`,
+    "POST",
+    { numero },
+  )) as EstadoDeLaCotizacion;
 
 /** «Descargar para Mercado Público» (decisión 34): un archivo del ZIP. */
 export interface PiezaDelSet {

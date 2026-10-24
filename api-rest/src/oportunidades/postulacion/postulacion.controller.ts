@@ -16,7 +16,11 @@ import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { ArmarPostulacionService } from './armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { ElSetService } from './el-set.service';
-import { ArmarPostulacionDto, LlevarACotizacionDto } from './postulacion.dto';
+import {
+  ArmarPostulacionDto,
+  LlevarACotizacionDto,
+  VincularCotizacionDto,
+} from './postulacion.dto';
 
 // La cotización de la postulación y «¿Calza el precio?» (decisión 29 del
 // doc 17). Mismo candado que el resto de Oportunidades: administrador y el
@@ -102,5 +106,18 @@ export class PostulacionController {
       desde: dto.desde,
       hasta: dto.hasta,
     });
+  }
+
+  /** Vincular una cotización que ya existe, sin reescribirla (decisión 73). */
+  @Post(':id/cotizacion/vincular')
+  vincular(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VincularCotizacionDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/cotizacion/vincular (N° ${dto.numero}, empresa ${user.company_id})`,
+    );
+    return this.cotizacion.vincular(user, id, dto.numero);
   }
 }

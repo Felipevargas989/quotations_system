@@ -60,6 +60,13 @@ import {
 // eligen las fechas (desde–hasta), con las de las bases propuestas. Y deja
 // de ser de solo lectura: se le agrega a mano lo que falta; «Armar
 // postulación» ya no la reescribe sola, se reescribe con un botón.
+//
+// DESDE LA DECISIÓN 73 (23-10, el Día de Campo del Dirigente con la N° 493).
+// Felipe: "no se reescribe, finalmente postulo con lo que puedo... el precio
+// de catálogo es lo que es". Vincular une una cotización que ya existe SIN
+// reescribirla (`vincular`): sus productos y precios quedan y solo pasa a
+// la fecha de las bases. Reescribirla con lo postulado sigue siendo un
+// botón aparte («Reescribir con lo postulado», `llevar`).
 
 const NO_SE_REESCRIBE = ['aceptada', 'realizada'];
 
@@ -376,6 +383,59 @@ export class CotizacionDeLaPostulacionService {
       quotationId = nueva.id;
     }
     await this.repo.vincular(companyId, oportunidadId, quotationId);
+    return this.estado(companyId, oportunidadId);
+  }
+
+  /** Vincular una cotización que ya existe, sin reescribirla (decisión 73).
+   *  Quedan sus productos, precios y personas; pasa a la fecha de las bases
+   *  (la misma que propone «Crear una nueva»), salvo que ya sea un evento
+   *  aceptado o realizado, que conserva la suya. Se anota en su bitácora. */
+  async vincular(
+    user: User,
+    oportunidadId: number,
+    numero: number,
+  ): Promise<EstadoDeLaCotizacion> {
+    const companyId = user.company_id;
+    const o = await this.oportunidad(companyId, oportunidadId);
+    noSiEstaCongelada(o.estado);
+    const destino = await this.repo.cotizacion(companyId, { numero });
+    if (!destino) {
+      throw new NotFoundException(`No hay una cotización N° ${numero}.`);
+    }
+    const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
+    const analisis = propuesta
+      ? null
+      : await this.analisis.ultimo(companyId, oportunidadId);
+    const sugerido = propuesta
+      ? await this.evento(companyId, o, propuesta.oferta, null)
+      : null;
+    const fecha =
+      sugerido?.fecha ??
+      (analisis?.estado === 'listo'
+        ? fechaIso(analisis.resultado?.fecha_del_servicio_iso)
+        : null);
+    const fin = sugerido?.fin ?? null;
+    const antes = destino.event_date?.slice(0, 10) ?? null;
+    const antesFin = destino.event_end_date?.slice(0, 10) ?? null;
+    const mover =
+      Boolean(fecha) &&
+      !NO_SE_REESCRIBE.includes(destino.quotation_status) &&
+      (fecha !== antes || fin !== antesFin);
+    if (mover) {
+      await this.cotizaciones.update(
+        destino.id,
+        { event_date: fecha, event_end_date: fin } as UpdateQuotationDto,
+        companyId,
+        user.role,
+        { derechos: user.derechos, plan: user.plan },
+      );
+    }
+    await this.anotar(
+      user,
+      destino.id,
+      `Se vinculó a la licitación ${o.codigo} (${o.proceso.nombre}) sin cambiar sus productos ni precios.${mover ? ` Su fecha pasó ${antes ? `del ${antes} ` : ''}al ${fecha}${fin ? ` hasta el ${fin}` : ''}, la de las bases.` : ''}`,
+    );
+    await this.repo.vincular(companyId, oportunidadId, destino.id);
     return this.estado(companyId, oportunidadId);
   }
 
