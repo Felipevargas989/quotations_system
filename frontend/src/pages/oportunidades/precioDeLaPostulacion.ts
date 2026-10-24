@@ -1,4 +1,6 @@
+import type { FechasDeLaCotizacion } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
+import { formatFechaEvento } from "../../utils/dates";
 
 // Lo que calcula «¿Calza el precio?» (decisión 29 del doc 17, 19-10), aparte
 // del componente para que la pantalla se recargue sola al editarla.
@@ -56,4 +58,18 @@ export function veredicto(
     tono: "se_pasa",
     texto: `Se pasa del presupuesto por ${pesos(oferta - presupuesto)}: una oferta sobre el presupuesto suele quedar fuera.`,
   };
+}
+
+/** Las fechas de las bases en palabras (decisión 73, 23-10; Felipe: "el
+ *  crear cotización pregunta los días, pero no debería leer las bases para
+ *  saber si es por día?"): un día, «jueves 26 de noviembre»; varios, «del
+ *  viernes 6 de noviembre al domingo 8 de noviembre». null sin fecha. */
+export function fechasEnPalabras(
+  f: FechasDeLaCotizacion | null | undefined,
+): { unDia: boolean; texto: string } | null {
+  if (!f?.desde) return null;
+  const dia = (iso: string) => formatFechaEvento(iso, "diaYMes");
+  return !f.hasta || f.hasta === f.desde
+    ? { unDia: true, texto: dia(f.desde) }
+    : { unDia: false, texto: `del ${dia(f.desde)} al ${dia(f.hasta)}` };
 }

@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
 import * as postulacion from "../../services/postulacion.service";
 import CotizacionDeLaPostulacion from "./CotizacionDeLaPostulacion";
-import { cuadre, veredicto } from "./precioDeLaPostulacion";
+import { cuadre, fechasEnPalabras, veredicto } from "./precioDeLaPostulacion";
 
 // «¿CALZA EL PRECIO?» (decisión 29 del doc 17, 19-10). Felipe: la propuesta
 // y la cotización "tienen que ser equivalentes", se vincula "solamente el
@@ -29,6 +29,7 @@ vi.mock("../../services/oportunidades.service", () => ({
 }));
 vi.mock("../../services/postulacion.service", () => ({
   getOfertaDeLaPostulacion: vi.fn(),
+  vincularCotizacion: vi.fn(),
 }));
 
 const s = vi.mocked(servicio);
@@ -127,23 +128,29 @@ describe("¿Calza el precio?", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("«Crear una nueva» la crea con tu oferta y las fechas elegidas (las de las bases, propuestas)", async () => {
+  it("«Crear una nueva» con las fechas de las bases ya puestas: un día dice cuál, y se crea sin escribir nada (decisión 73)", async () => {
+    // Felipe, 23-10: "el crear cotización pregunta los días, pero no
+    // debería leer las bases para saber si es por día?".
     pintar();
     await abrir();
     expect(screen.getByText("$12.000.000")).toBeInTheDocument();
     expect(await screen.findByText("$5.500.000")).toBeInTheDocument();
     expect(screen.getByText(/Calza: tu oferta queda/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Desde")).toHaveValue("2026-10-28");
-    fireEvent.change(screen.getByLabelText("Hasta"), {
-      target: { value: "2026-10-29" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Crear una nueva" }));
+    expect(
+      screen.getByText("Para el miércoles 28 de octubre, según las bases."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Desde")).not.toBeInTheDocument();
+    // Sin el ejemplo del catamarán, que salía en todas.
+    expect(screen.queryByText(/catamarán/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
     await waitFor(() =>
       expect(s.llevarACotizacion).toHaveBeenCalledWith(
         87,
         undefined,
         5_500_000,
-        { desde: "2026-10-28", hasta: "2026-10-29" },
+        { desde: "2026-10-28", hasta: null },
       ),
     );
     expect(
@@ -158,11 +165,36 @@ describe("¿Calza el precio?", () => {
     ).toHaveAttribute("href", "/negocio/q-612");
   });
 
+  it("«Cambiar» abre las fechas: el «hasta» de un día viene igual al «desde», y se puede alargar", async () => {
+    pintar();
+    await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
+    expect(screen.getByLabelText("Desde")).toHaveValue("2026-10-28");
+    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-10-28");
+    fireEvent.change(screen.getByLabelText("Hasta"), {
+      target: { value: "2026-10-29" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
+    await waitFor(() =>
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(
+        87,
+        undefined,
+        5_500_000,
+        { desde: "2026-10-28", hasta: "2026-10-29" },
+      ),
+    );
+  });
+
   it("las fechas: sin «desde» o con un «hasta» antes, avisa en línea y no crea", async () => {
     pintar();
     await abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Crear una nueva" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
     expect(screen.getByText("Elige desde qué día.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Desde"), {
       target: { value: "2026-11-06" },
@@ -170,33 +202,43 @@ describe("¿Calza el precio?", () => {
     fireEvent.change(screen.getByLabelText("Hasta"), {
       target: { value: "2026-11-01" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Crear una nueva" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
     expect(
       screen.getByText("El «hasta» tiene que ser después del «desde»."),
     ).toBeInTheDocument();
     expect(s.llevarACotizacion).not.toHaveBeenCalled();
   });
 
-  it("vincular una existente pide el número y avisa que se reescribe", async () => {
+  it("vincular una que ya tienes la une sin reescribirla: confirma ahí mismo y cierra (decisión 73)", async () => {
+    // Felipe, 23-10: "ya las vinculé, pero sigue igual abierto"; "no se
+    // reescribe".
+    p.vincularCotizacion.mockResolvedValue({
+      ...CON_COTIZACION,
+      cotizacion: { ...CON_COTIZACION.cotizacion!, id: "q-493", numero: 493 },
+    });
     pintar();
     await abrir();
-    fireEvent.change(screen.getByLabelText("Vincular la N°"), {
-      target: { value: "598" },
+    fireEvent.change(screen.getByLabelText("N°"), {
+      target: { value: "493" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Vincular" }));
-    expect(s.llevarACotizacion).not.toHaveBeenCalled();
+    expect(p.vincularCotizacion).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/La N° 598 se reescribe entera con lo postulado/),
+      screen.getByText(
+        "La N° 493 se une a esta licitación sin cambiar sus productos ni precios, y pasa al miércoles 28 de octubre, la fecha de las bases.",
+      ),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sí, vincular" }));
     await waitFor(() =>
-      expect(s.llevarACotizacion).toHaveBeenCalledWith(
-        87,
-        598,
-        5_500_000,
-        undefined,
-      ),
+      expect(p.vincularCotizacion).toHaveBeenCalledWith(87, 493),
     );
+    expect(s.llevarACotizacion).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Cotización N° 493 · solicitada/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("N°")).not.toBeInTheDocument();
   });
 
   it("vinculada y con más que tu oferta: en rojo; se reescribe con lo postulado solo con el botón y su confirmación", async () => {
@@ -263,6 +305,23 @@ describe("El veredicto y el cuadre", () => {
     });
     expect(veredicto(10_000_000, 11_000_000)?.tono).toBe("se_pasa");
     expect(veredicto(null, 11_000_000)).toBeNull();
+  });
+
+  it("las fechas de las bases en palabras: un día, varios días o ninguna (decisión 73)", () => {
+    expect(fechasEnPalabras({ desde: "2026-11-26", hasta: null })).toEqual({
+      unDia: true,
+      texto: "jueves 26 de noviembre",
+    });
+    expect(
+      fechasEnPalabras({ desde: "2026-11-26", hasta: "2026-11-26" })?.unDia,
+    ).toBe(true);
+    expect(
+      fechasEnPalabras({ desde: "2026-11-06", hasta: "2026-11-08" }),
+    ).toEqual({
+      unDia: false,
+      texto: "del viernes 6 de noviembre al domingo 8 de noviembre",
+    });
+    expect(fechasEnPalabras(null)).toBeNull();
   });
 
   it("la cotización frente a la oferta: cuadra, le falta o le sobra; sin cotización, nada", () => {
