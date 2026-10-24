@@ -35,6 +35,9 @@ export type DocumentosDeUnEvento = {
   numero: number;
   fecha: string | null;
   cliente: string | null;
+  /** Lo que se cobró, con impuestos: se leen primero los más grandes
+   *  (decisión 75). */
+  total: number | null;
   documentos: Array<{
     id: number;
     categoria: 'facturas' | 'ordenes_compra';
@@ -51,6 +54,7 @@ type FilaDeDocumento = {
   quotations: {
     quotation_number: number;
     event_date: string | null;
+    total_amount: number | string | null;
     clients: { name: string | null } | null;
   } | null;
 };
@@ -176,7 +180,7 @@ export class EventiaRepository {
     const { data, error } = await this.db
       .from('event_documents')
       .select(
-        'id, category, file_name, file_url, quotations!inner(quotation_number, event_date, quotation_status, company_id, clients(name))',
+        'id, category, file_name, file_url, quotations!inner(quotation_number, event_date, total_amount, quotation_status, company_id, clients(name))',
       )
       .in('category', ['facturas', 'ordenes_compra'])
       .eq('quotations.company_id', companyId)
@@ -191,10 +195,12 @@ export class EventiaRepository {
       if (!q || !f.file_url.startsWith(`c${companyId}/event-documents/`)) {
         continue;
       }
+      const total = Number(q.total_amount);
       const evento = porEvento.get(q.quotation_number) ?? {
         numero: q.quotation_number,
         fecha: q.event_date ? q.event_date.slice(0, 10) : null,
         cliente: q.clients?.name?.trim() || null,
+        total: q.total_amount !== null && Number.isFinite(total) ? total : null,
         documentos: [],
       };
       evento.documentos.push({

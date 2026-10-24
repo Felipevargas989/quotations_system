@@ -10,7 +10,7 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import {
   archivoDeLaRuta,
   documentosParaLeer,
-  haceMeses,
+  losMasGrandesPrimero,
   mismoNumero,
   nombreDelRespaldo,
   respaldosDePostVenta,
@@ -23,7 +23,8 @@ import { RespaldosDePostVentaService } from '../oferente/respaldos-de-post-venta
 // suficiente o debe ir a post venta a buscar respaldos... traer desde
 // Eventia es raro, si estamos en Eventia". Al armar la postulación, el motor
 // lee las facturas y órdenes de compra de los eventos hechos que no están en
-// «Mi empresa»; no copia nada.
+// «Mi empresa»; no copia nada. Desde la decisión 75 (23-10), de cualquier
+// fecha y los eventos más grandes primero: el período lo dicen las bases.
 
 const RUTA = 'c1/event-documents/q-1';
 
@@ -34,10 +35,12 @@ const evento = (
   >,
   cliente: string | null = 'Municipalidad de Quillón',
   fecha = '2026-08-10',
+  total: number | null = null,
 ): DocumentosDeUnEvento => ({
   numero,
   fecha,
   cliente,
+  total,
   documentos: documentos.map(([categoria, nombre, archivo], i) => ({
     id: numero * 10 + i,
     categoria,
@@ -78,10 +81,18 @@ describe('Las reglas de los respaldos de Post-venta', () => {
     ).toEqual(['1 de 3', '2 de 3', '3 de 3']);
   });
 
-  it('hace 24 meses, contando por meses (decisión 52)', () => {
-    expect(haceMeses('2026-10-19', 24)).toBe('2024-10-19');
-    expect(haceMeses('2026-01-31', 1)).toBe('2025-12-31');
-    expect(haceMeses('2026-03-05', 14)).toBe('2025-01-05');
+  it('se leen primero los eventos que más se cobraron; a igual monto, los más nuevos; sin monto, al final (decisión 75)', () => {
+    const numeros = (eventos: DocumentosDeUnEvento[]) =>
+      losMasGrandesPrimero(eventos).map((e) => e.numero);
+    expect(
+      numeros([
+        evento(486, [], null, '2026-08-20', 592_800),
+        evento(52, [], null, '2025-12-13', 12_614_800),
+        evento(12, [], null, '2023-11-20', null),
+        evento(118, [], null, '2025-12-07', 15_299_408),
+        evento(236, [], null, '2025-11-30', 592_800),
+      ]),
+    ).toEqual([118, 52, 486, 236, 12]);
   });
 
   it('el nombre del archivo sale de la ruta, sin el sello de hora', () => {
@@ -306,21 +317,34 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     expect(lector.leer).toHaveBeenCalledTimes(4);
   });
 
-  it('dos eventos con el mismo número: va uno; de más de 24 meses, no se mira', async () => {
+  it('dos eventos con el mismo número: va uno; uno viejo también se mira, porque el período lo dicen las bases (decisión 75)', async () => {
     const { lector, servicio } = armar([
       evento(486, [['facturas', 'Factura delegación', '366.pdf']]),
       evento(487, [['facturas', 'Factura expositor', '366-b.pdf']]),
-      evento(12, [['facturas', 'Vieja', 'vieja.pdf']], 'Antiguo', '2019-05-01'),
+      evento(12, [['facturas', 'Vieja', 'vieja.pdf']], 'Antiguo', '2023-11-20'),
     ]);
-    lector.leer.mockResolvedValue(lectura('366', 'factura'));
+    lector.leer.mockImplementation((_c: number, a: { originalname: string }) =>
+      Promise.resolve(
+        lectura(a.originalname === 'vieja.pdf' ? '120' : '366', 'factura'),
+      ),
+    );
     const r = await servicio.paraLaPostulacion(1);
-    expect(r).toHaveLength(1);
-    expect(lector.leer).toHaveBeenCalledTimes(2);
+    expect(r.map((x) => [x.evento, x.numero])).toEqual([
+      [486, '366'],
+      [12, '120'],
+    ]);
+    expect(lector.leer).toHaveBeenCalledTimes(3);
   });
 
-  it('de a 30 eventos por vez, los más nuevos', async () => {
+  it('de a 30 eventos por vez, los más grandes primero: los más chicos quedan fuera (decisión 75)', async () => {
     const eventos = Array.from({ length: 32 }, (_, i) =>
-      evento(500 + i, [['facturas', `${i}.pdf`, `${i}.pdf`]]),
+      evento(
+        500 + i,
+        [['facturas', `${i}.pdf`, `${i}.pdf`]],
+        'Cliente',
+        '2026-08-10',
+        (i + 1) * 1_000_000,
+      ),
     );
     const { lector, servicio } = armar(eventos);
     let n = 0;
@@ -329,6 +353,8 @@ describe('Los respaldos de Post-venta al armar la postulación', () => {
     );
     const r = await servicio.paraLaPostulacion(1);
     expect(r).toHaveLength(30);
-    expect(r[0].evento).toBe(500);
+    expect(r[0].evento).toBe(531);
+    expect(r.map((x) => x.evento)).not.toContain(500);
+    expect(r.map((x) => x.evento)).not.toContain(501);
   });
 });

@@ -8,7 +8,6 @@ import type {
   Oferente,
 } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
-import { MESES_DE_EXPERIENCIA } from '../oferente/respaldos-de-post-venta';
 import {
   EL_DETALLE_EN_EL_FORMULARIO,
   ESCRIBIR_LA_OFERTA,
@@ -322,22 +321,20 @@ const clienteDe = (mandante: string | null): string =>
     .trim()
     .toUpperCase();
 
-/** Los eventos que hizo la empresa, de Eventia: su experiencia real. Primero
- *  los respaldos de «Mi empresa»; después, aparte, los de Post-venta
- *  (decisión 45: los lee «Armar postulación»), que se usan solo si los
- *  primeros no alcanzan. El evento que ya tiene su respaldo no se repite en
- *  la lista de eventos: sería contar dos veces la misma experiencia. */
+/** Los eventos que hizo la empresa, de Eventia: su experiencia real. Los
+ *  respaldos de «Mi empresa» y los de Post-venta (decisión 45: los lee
+ *  «Armar postulación») van en una sola lista (decisión 75). El evento que
+ *  ya tiene su respaldo no se repite en la lista de eventos: sería contar
+ *  dos veces la misma experiencia. */
 const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
-  // Solo lo que puede contar (decisión 52): los respaldos de los últimos 24
-  // meses; el de un año que ya no alcanza, o sin año, no se ofrece.
-  const desde = Number(c.hoy.slice(0, 4)) - MESES_DE_EXPERIENCIA / 12;
-  const vigente = (r: { anio: number | null }) =>
-    r.anio !== null && r.anio >= desde;
+  // Lo que vale lo dicen las bases, no una regla fija (decisión 75, que
+  // reemplaza a los 24 meses de la 52; Felipe, 23-10: "la IA debe buscar
+  // considerando lo que dicen las bases, no con una regla fija"): se ofrecen
+  // de cualquier fecha y la IA usa los del período de las bases. Sin año no
+  // se sabe si cuenta: no se ofrece.
+  const conAnio = (r: { anio: number | null }) => r.anio !== null;
   // «No usar» (decisión 56; Felipe, 19-10: "saca a Joker de la ecuación"):
-  // ni ese respaldo ni, de Post-venta, otro de ese mismo cliente. Y cada
-  // lista de mayor a menor monto (Felipe, 20-10: "siempre coloque lo mejor
-  // que tengamos en $$$ de mayor a menor hasta cumplir con lo que piden las
-  // bases").
+  // ni ese respaldo ni, de Post-venta, otro de ese mismo cliente.
   const todos = c.respaldos ?? [];
   const clientesNoUsar = new Set(
     todos
@@ -345,30 +342,23 @@ const laExperienciaEnEventia = (c: ContextoDeGeneracion): string[] => {
       .map((r) => clienteDe(r.mandante))
       .filter(Boolean),
   );
-  const deLaCarpeta = deMayorAMenor(
-    todos.filter((r) => !r.no_usar && vigente(r)),
-  );
-  const dePostVenta = deMayorAMenor(
-    (c.respaldosDePostVenta ?? []).filter(
-      (r) => vigente(r) && !clientesNoUsar.has(clienteDe(r.mandante)),
+  // Todos juntos de mayor a menor monto: los de Post-venta ya no esperan a
+  // que falten los de «Mi empresa» (Felipe, 20-10: "siempre coloque lo
+  // mejor que tengamos en $$$ de mayor a menor hasta cumplir con lo que
+  // piden las bases"; 23-10: "ojalá ticket de 7M para arriba").
+  const respaldos = deMayorAMenor([
+    ...todos.filter((r) => !r.no_usar && conAnio(r)),
+    ...(c.respaldosDePostVenta ?? []).filter(
+      (r) => conAnio(r) && !clientesNoUsar.has(clienteDe(r.mandante)),
     ),
-  );
-  const conRespaldo = new Set(
-    [...deLaCarpeta, ...dePostVenta].map((r) => r.evento),
-  );
+  ]);
+  const conRespaldo = new Set(respaldos.map((r) => r.evento));
   const eventos = c.eventos.filter((e) => !conRespaldo.has(e.numero));
   return [
-    ...(deLaCarpeta.length > 0
+    ...(respaldos.length > 0
       ? [
-          'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta en «Mi empresa», cada una con su PDF, de mayor a menor monto; son las que cuentan para el puntaje):',
-          ...listaDeRespaldos(deLaCarpeta),
-          '',
-        ]
-      : []),
-    ...(dePostVenta.length > 0
-      ? [
-          'MÁS RESPALDOS, DE SUS EVENTOS EN EVENTIA (facturas y órdenes de compra subidas a cada evento hecho, cada una con su PDF, de mayor a menor monto): úsalos SOLO si los de «Mi empresa» no alcanzan para el puntaje máximo de CÓMO SE EVALÚA, y solo los del período que cuentan las bases.',
-          ...listaDeRespaldos(dePostVenta),
+          'SUS RESPALDOS DE EXPERIENCIA (órdenes de compra y facturas de su carpeta en «Mi empresa» y de sus eventos en Eventia, cada una con su PDF, todas juntas de mayor a menor monto y de cualquier fecha; son las que cuentan para el puntaje):',
+          ...listaDeRespaldos(respaldos),
           '',
         ]
       : []),
@@ -555,7 +545,7 @@ export const instruccionesDeAnexos = (
       FIRMA_JUNTA,
       'Fechas: la de hoy, escrita como la pida el formulario. Lugar: la comuna de la empresa.',
       'No inventes NADA. Si un dato no está arriba, deja el espacio en blanco y anótalo en pendientes. Vale para números de certificados, nombres de personas y precios.',
-      'La experiencia sale SOLO de sus respaldos de arriba (órdenes de compra y facturas con su PDF), que ya vienen de mayor a menor monto: PRIMERO los de «Mi empresa» y, si no alcanzan, los de sus eventos en Eventia, con su número en la columna de ID de compra o N° de factura. Tómalos EN ESE ORDEN, los de más monto primero (Felipe, 20-10: "siempre coloque lo mejor que tengamos en $$$ de mayor a menor hasta cumplir con lo que piden las bases"), hasta cumplir lo que pide CÓMO SE EVALÚA para el puntaje máximo, más DOS de reserva si hay y caben en el formulario (si el comprador rechaza una, no se pierde el puntaje). Si las bases ponen condiciones a la experiencia (solo compradores públicos, un monto mínimo, servicios parecidos a lo que se licita), esas mandan: sáltate los que no las cumplan. Solo los de los últimos 24 meses y, si CÓMO SE EVALÚA fija un período más corto, solo los de ese período; si de un respaldo solo se sabe el año y ese año cae en parte fuera del período, no lo uses. NUNCA pongas una fila sin su respaldo ni una de fuera del período: el comprador la rechazaría (Felipe, 19-10: "dejemos las mejores de los últimos 24 meses y eliminemos el resto para que no sea ninguna rechazada"). Si no alcanzan para el puntaje máximo, pon las que hay y anota en pendientes cuántas faltan. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: cuántas faltan para el puntaje máximo, si faltan.',
+      'La experiencia sale SOLO de sus respaldos de arriba (órdenes de compra y facturas con su PDF, de «Mi empresa» y de sus eventos en Eventia), que ya vienen todos juntos de mayor a menor monto, con su número en la columna de ID de compra o N° de factura. Tómalos EN ESE ORDEN, los de más monto primero (Felipe, 20-10: "siempre coloque lo mejor que tengamos en $$$ de mayor a menor hasta cumplir con lo que piden las bases"), hasta cumplir lo que pide CÓMO SE EVALÚA para el puntaje máximo, más DOS de reserva si hay y caben en el formulario (si el comprador rechaza una, no se pierde el puntaje). Lo que vale como experiencia lo dicen las bases, no una regla fija (Felipe, 23-10: "la IA debe buscar considerando lo que dicen las bases, no con una regla fija"): su período (los últimos 4 años, los últimos 24 meses, desde tal fecha) y sus condiciones (solo compradores públicos, un monto mínimo, servicios parecidos a lo que se licita) mandan: sáltate los que no las cumplan. Si las bases no fijan un período, sirven todos. Si de un respaldo solo se sabe el año y ese año cae en parte fuera del período, no lo uses. NUNCA pongas una fila sin su respaldo ni una de fuera del período: el comprador la rechazaría (Felipe, 19-10: "para que no sea ninguna rechazada"). Si no alcanzan para el puntaje máximo, pon las que hay y anota en pendientes cuántas faltan. Si el formulario pide el monto, usa el de cada uno en la unidad que pida (M$ son miles de pesos). Los respaldos que usaste NO van en pendientes: el ZIP para Mercado Público los adjunta solo, por su número (Felipe, 19-10: los pedía como si faltaran). En pendientes va solo lo que de verdad falta: cuántas faltan para el puntaje máximo, si faltan.',
       'En los formularios de la oferta técnica (calidad de la oferta, propuesta técnica, especificaciones), responde punto por punto SOLO lo que piden las bases técnicas, comprometiendo su cumplimiento, con los datos reales de la empresa (salones, capacidades, instalaciones). Lo que las bases le piden definir a la empresa (por ejemplo, la temática de un show o el menú) y no está arriba, déjalo como [COMPLETAR: qué falta] y anótalo en pendientes.',
       ...(c.oferta ? [ESCRIBIR_LA_OFERTA, EL_DETALLE_EN_EL_FORMULARIO] : []),
       SOLO_LO_QUE_PIDEN,

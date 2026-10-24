@@ -147,10 +147,16 @@ describe('EventiaRepository', () => {
     ]);
   });
 
-  it('las facturas y órdenes de compra de los eventos hechos: de la empresa por su cotización, juntas por evento, el más nuevo primero (decisión 45)', async () => {
+  it('las facturas y órdenes de compra de los eventos hechos: de la empresa por su cotización, juntas por evento, el más nuevo primero y con lo que se cobró (decisiones 45 y 75)', async () => {
+    // El total llega como número o como texto (numeric): se lee igual.
+    const totales: Record<number, number | string> = {
+      415: 1_240_000,
+      473: '1245000',
+    };
     const cotizacion = (numero: number, fecha: string) => ({
       quotation_number: numero,
       event_date: `${fecha}T00:00:00+00:00`,
+      total_amount: totales[numero] ?? null,
       clients: { name: ' Municipalidad de Quillón ' },
     });
     const { repo, consultas } = armar({
@@ -201,6 +207,7 @@ describe('EventiaRepository', () => {
         numero: 473,
         fecha: '2026-08-10',
         cliente: 'Municipalidad de Quillón',
+        total: 1_245_000,
         documentos: [
           {
             id: 64,
@@ -214,6 +221,7 @@ describe('EventiaRepository', () => {
         numero: 415,
         fecha: '2026-07-23',
         cliente: 'Municipalidad de Quillón',
+        total: 1_240_000,
         documentos: [
           {
             id: 15,
@@ -235,6 +243,7 @@ describe('EventiaRepository', () => {
     // La tabla no tiene empresa: la da la cotización, con !inner.
     const [, columnas] = c.pasos.find(([m]) => m === 'select') ?? [];
     expect(String(columnas)).toContain('quotations!inner(');
+    expect(String(columnas)).toContain('total_amount');
     expect(c.pasos).toContainEqual(['eq', 'quotations.company_id', 52]);
     expect(c.pasos).toContainEqual([
       'in',
