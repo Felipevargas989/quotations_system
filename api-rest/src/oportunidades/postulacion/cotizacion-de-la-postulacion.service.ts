@@ -67,6 +67,13 @@ import {
 // reescribirla (`vincular`): sus productos y precios quedan y solo pasa a
 // la fecha de las bases. Reescribirla con lo postulado sigue siendo un
 // botón aparte («Reescribir con lo postulado», `llevar`).
+//
+// DESDE LA DECISIÓN 74 (23-10, esa misma noche). Felipe: "correcto sacar del
+// motor la vinculación antigua"; "y debe excluir si no postulo todas las
+// líneas". `llevar` ya no recibe un número: crea una nueva o reescribe la ya
+// vinculada, nunca otra. Y «¿Calza el precio?» compara con lo disponible
+// para lo que se postula (`presupuesto` de la oferta: las líneas que cubre),
+// no con el total de la licitación.
 
 const NO_SE_REESCRIBE = ['aceptada', 'realizada'];
 
@@ -84,7 +91,9 @@ export type ResumenDeLaCotizacion = {
 
 export type EstadoDeLaCotizacion = {
   cotizacion: ResumenDeLaCotizacion | null;
-  /** El presupuesto de la licitación: el publicado o el de las bases. */
+  /** Lo disponible para lo que se postula (decisión 74): el de las líneas
+   *  que cubre la oferta; si la oferta no lo trae, el publicado o el de las
+   *  bases (toda la licitación). */
   presupuesto: number | null;
   /** La última propuesta técnica lista y cuántos productos ofrece; null si
    *  no hay, o si es de antes de que dejara su oferta. */
@@ -216,7 +225,8 @@ export class CotizacionDeLaPostulacionService {
       : null;
     return {
       cotizacion: cotizacion ? this.resumen(cotizacion) : null,
-      presupuesto: entero(o.proceso.monto) || deLasBases || null,
+      presupuesto:
+        propuesta?.presupuesto || entero(o.proceso.monto) || deLasBases || null,
       propuesta: propuesta
         ? { id: propuesta.id, productos: productosDeLaOferta(propuesta.oferta) }
         : null,
@@ -225,24 +235,19 @@ export class CotizacionDeLaPostulacionService {
     };
   }
 
-  /** Crear o reescribir la cotización con lo postulado. Con `numero`, se
-   *  vincula esa; sin él, la ya vinculada; y si no hay ninguna, se crea.
-   *  Con `total` (el precio de «Armar postulación», decisión 35), queda
-   *  además con ese precio. Desde ahí es de solo lectura en el cotizador. */
+  /** Crear o reescribir la cotización con lo postulado: la ya vinculada se
+   *  reescribe; si no hay ninguna, se crea (vincular una que existe es
+   *  `vincular`, que no reescribe; decisiones 73 y 74). Con `total` (el
+   *  precio de «Armar postulación», decisión 35), queda además con ese
+   *  precio: lo que baja del catálogo, como descuento. */
   async llevar(
     user: User,
     oportunidadId: number,
-    numero?: number,
     total?: number,
     fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
     try {
-      const estado = await this.llevarSinCapturar(
-        user,
-        oportunidadId,
-        numero,
-        fechas,
-      );
+      const estado = await this.llevarSinCapturar(user, oportunidadId, fechas);
       return total
         ? await this.fijarOferta(user, oportunidadId, total)
         : estado;
@@ -262,7 +267,6 @@ export class CotizacionDeLaPostulacionService {
   private async llevarSinCapturar(
     user: User,
     oportunidadId: number,
-    numero?: number,
     fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
@@ -274,14 +278,9 @@ export class CotizacionDeLaPostulacionService {
         'Primero arma la postulación («Armar postulación», arriba): de ella salen los productos de la cotización.',
       );
     }
-    const destino = numero
-      ? await this.repo.cotizacion(companyId, { numero })
-      : o.quotation_id
-        ? await this.repo.cotizacion(companyId, { id: o.quotation_id })
-        : null;
-    if (numero && !destino) {
-      throw new NotFoundException(`No hay una cotización N° ${numero}.`);
-    }
+    const destino = o.quotation_id
+      ? await this.repo.cotizacion(companyId, { id: o.quotation_id })
+      : null;
     if (destino && NO_SE_REESCRIBE.includes(destino.quotation_status)) {
       throw new BadRequestException(
         `La N° ${destino.quotation_number} está ${destino.quotation_status}: no se reescribe un evento confirmado.`,
@@ -519,6 +518,8 @@ export class CotizacionDeLaPostulacionService {
     oferta: OfertaDeLaPropuesta;
     detalles: string[];
     subcontratar: string[];
+    /** Lo disponible para las líneas que cubre (decisión 74); 0 si no. */
+    presupuesto: number;
   } | null> {
     const p = await this.repo.ultimaPropuesta(companyId, oportunidadId);
     const oferta = leerOferta(p?.resultado?.oferta);
@@ -528,6 +529,7 @@ export class CotizacionDeLaPostulacionService {
           oferta,
           detalles: listaDeTextos(p.resultado?.detalles),
           subcontratar: listaDeTextos(p.resultado?.subcontratar),
+          presupuesto: entero(p.resultado?.presupuesto),
         }
       : null;
   }

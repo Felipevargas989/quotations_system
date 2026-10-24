@@ -8,7 +8,10 @@ import type { GeneracionRepository } from '../generacion/generacion.repository';
 import { SOLO_LO_QUE_PIDEN } from '../generacion/instrucciones';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
-import { leerArmado } from '../postulacion/armar-la-oferta';
+import {
+  instruccionesDeLaOferta,
+  leerArmado,
+} from '../postulacion/armar-la-oferta';
 import {
   ArmarLaOfertaService,
   MODELO_DE_LA_OFERTA,
@@ -76,6 +79,8 @@ const RESPUESTA = {
   // Decisión 57: lo subcontratado, junto, y los detalles, aparte.
   subcontratar: ['Escenario de 4x3 m con escalera y faldón negro'],
   detalles: ['Empanadas de cóctel: 2 de queso y 1 de carne por persona'],
+  // Lo disponible para lo que postula (decisión 74): la línea que cubre.
+  presupuesto: 17_200_000,
 };
 
 class OfertaDePrueba extends ArmarLaOfertaService {
@@ -270,6 +275,7 @@ describe('Armar la oferta', () => {
         faltan_en_el_catalogo: RESPUESTA.faltan_en_el_catalogo,
         subcontratar: RESPUESTA.subcontratar,
         detalles: RESPUESTA.detalles,
+        presupuesto: 17_200_000,
       },
       no_leidos: [],
       tokens_entrada: 20_000,
@@ -321,5 +327,34 @@ describe('Armar la oferta', () => {
     });
     expect(leido?.subcontratar).toEqual(['Pódium, los dos días']);
     expect(leido?.detalles).toEqual([]);
+  });
+
+  it('el presupuesto de lo que postula: un entero positivo; si no, 0 (decisión 74)', () => {
+    expect(leerArmado(RESPUESTA)?.presupuesto).toBe(17_200_000);
+    expect(leerArmado({ ...RESPUESTA, presupuesto: -5 })?.presupuesto).toBe(0);
+    expect(
+      leerArmado({ ...RESPUESTA, presupuesto: '17.200.000' })?.presupuesto,
+    ).toBe(0);
+  });
+
+  it('las instrucciones: el catálogo tiene IVA y los precios no cambian productos (decisión 74)', () => {
+    // Felipe, 23-10: "no hay que cambiar los productos por precio, arma lo
+    // que piden". La IA había bajado el ticket para caber en el tope neto.
+    const t = instruccionesDeLaOferta({
+      codigo: '5040-14-LE26',
+      nombre: 'Día de Campo del Dirigente Social 2026',
+      organismo: 'I MUNICIPALIDAD DE QUILLON',
+      bases: null,
+      instalaciones: null,
+      loQueVende: null,
+      catalogo: '(catálogo)',
+    });
+    expect(t).toContain('los precios tienen IVA incluido');
+    expect(t).toContain(
+      'nunca cambias, quitas ni agregas productos por precio ni para caber en el presupuesto',
+    );
+    expect(t).toContain(
+      'la suma de los montos de las líneas que cubre esta oferta, sin las otras',
+    );
   });
 });
