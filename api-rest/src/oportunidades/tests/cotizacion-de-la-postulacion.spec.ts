@@ -225,7 +225,7 @@ describe('La cotización de la postulación', () => {
     await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
       'Ya la postulaste: lo postulado queda fijo',
     );
-    await expect(servicio.llevar(USUARIO, 87, 481)).rejects.toThrow(
+    await expect(servicio.vincular(USUARIO, 87, 481)).rejects.toThrow(
       'Ya la postulaste',
     );
     repo.oportunidad.mockResolvedValue({
@@ -239,8 +239,12 @@ describe('La cotización de la postulación', () => {
     expect(cotizaciones.update).not.toHaveBeenCalled();
   });
 
-  it('vincular = el número y se reescribe entera, con lo que tenía en su bitácora; una aceptada no se toca', async () => {
+  it('«Reescribir con lo postulado» reescribe entera la YA vinculada, con lo que tenía en su bitácora; una aceptada no se toca; `llevar` ya no recibe un número (decisión 74)', async () => {
     const { repo, cotizaciones, servicio, notas } = armar();
+    repo.oportunidad.mockResolvedValue({
+      ...(await repo.oportunidad()),
+      quotation_id: 'q-vieja',
+    });
     repo.cotizacion.mockResolvedValue({
       id: 'q-vieja',
       quotation_number: 598,
@@ -265,9 +269,9 @@ describe('La cotización de la postulación', () => {
       client: { name: 'Municipalidad de Quillón' },
     });
 
-    await servicio.llevar(USUARIO, 87, 598);
+    await servicio.llevar(USUARIO, 87);
 
-    expect(repo.cotizacion).toHaveBeenCalledWith(1, { numero: 598 });
+    expect(repo.cotizacion).toHaveBeenCalledWith(1, { id: 'q-vieja' });
     expect(cotizaciones.create).not.toHaveBeenCalled();
     const [id, cambios, , rol] = cotizaciones.update.mock.calls[0] as [
       string,
@@ -298,12 +302,8 @@ describe('La cotización de la postulación', () => {
       quotation_number: 590,
       quotation_status: 'aceptada',
     });
-    await expect(servicio.llevar(USUARIO, 87, 590)).rejects.toThrow(
+    await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
       'no se reescribe un evento confirmado',
-    );
-    repo.cotizacion.mockResolvedValue(null);
-    await expect(servicio.llevar(USUARIO, 87, 999)).rejects.toBeInstanceOf(
-      NotFoundException,
     );
   });
 
@@ -417,7 +417,7 @@ describe('«¿Calza el precio?»', () => {
       return Promise.resolve();
     });
 
-    await servicio.llevar(USUARIO, 87, undefined, 5_500_000);
+    await servicio.llevar(USUARIO, 87, 5_500_000);
 
     const [id, cambios] = cotizaciones.update.mock.calls.at(-1) as [
       string,
@@ -463,7 +463,7 @@ describe('«¿Calza el precio?»', () => {
       return Promise.resolve();
     });
     await expect(
-      servicio.llevar(USUARIO, 87, undefined, 7_090_000),
+      servicio.llevar(USUARIO, 87, 7_090_000),
     ).resolves.toMatchObject({ cotizacion: { numero: 612 } });
     expect(repo.vincular).toHaveBeenCalledWith(1, 87, 'q-nueva');
     expect(cotizaciones.update).not.toHaveBeenCalled();
@@ -471,7 +471,7 @@ describe('«¿Calza el precio?»', () => {
 
   it('las fechas (decisión 69): las elegidas al crear van a la cotización; un término que no es después del inicio no cuenta', async () => {
     const { cotizaciones, servicio } = armar();
-    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+    await servicio.llevar(USUARIO, 87, undefined, {
       desde: '2026-11-06',
       hasta: '2026-11-08',
     });
@@ -480,7 +480,7 @@ describe('«¿Calza el precio?»', () => {
       event_end_date: '2026-11-08',
     });
     cotizaciones.create.mockClear();
-    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+    await servicio.llevar(USUARIO, 87, undefined, {
       desde: '2026-11-06',
       hasta: '2026-11-01',
     });
@@ -501,7 +501,7 @@ describe('«¿Calza el precio?»', () => {
         },
       },
     });
-    await servicio.llevar(USUARIO, 87, undefined, undefined, {
+    await servicio.llevar(USUARIO, 87, undefined, {
       desde: '2026-11-06',
       hasta: '2026-11-07',
     });
@@ -556,6 +556,22 @@ describe('«¿Calza el precio?»', () => {
       descuento: 507_500,
       total: 5_500_000,
     });
+  });
+
+  it('el presupuesto es el de las líneas que postulas, si la oferta lo trae; si no, el de toda la licitación (decisión 74)', async () => {
+    // Felipe, 23-10: "debe excluir si no postulo todas las líneas" (el Día
+    // de Campo: $20.471.755 en dos líneas, y la suya es la 1, $17.200.000).
+    const { repo, servicio } = armar();
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: { oferta: OFERTA, presupuesto: 17_200_000 },
+    });
+    expect((await servicio.estado(1, 87)).presupuesto).toBe(17_200_000);
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: { oferta: OFERTA, presupuesto: 0 },
+    });
+    expect((await servicio.estado(1, 87)).presupuesto).toBe(15_960_000);
   });
 
   it('el estado trae lo que falta en la cotización: lo que la oferta subcontrata (decisión 69)', async () => {

@@ -50,6 +50,10 @@ export type ArmadoDeLaOferta = {
   subcontratar: string[];
   /** Variaciones de lo que ya se vende: al comentario interno. */
   detalles: string[];
+  /** Lo disponible, con IVA, para lo que se postula (decisión 74): la suma
+   *  de las líneas que cubre la oferta, sin las otras; 0 si no se sabe. Es
+   *  lo que compara «¿Calza el precio?». */
+  presupuesto: number;
 };
 
 export const ESQUEMA_DE_LA_OFERTA = {
@@ -88,6 +92,7 @@ export const ESQUEMA_DE_LA_OFERTA = {
     },
     subcontratar: { type: 'array', items: { type: 'string' } },
     detalles: { type: 'array', items: { type: 'string' } },
+    presupuesto: { type: 'integer' },
   },
   required: [
     'resumen',
@@ -97,6 +102,7 @@ export const ESQUEMA_DE_LA_OFERTA = {
     'faltan_en_el_catalogo',
     'subcontratar',
     'detalles',
+    'presupuesto',
   ],
 } as const;
 
@@ -154,6 +160,10 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
     faltan_en_el_catalogo: faltan,
     subcontratar: listaDeTextos(o.subcontratar),
     detalles: listaDeTextos(o.detalles),
+    presupuesto:
+      Number.isInteger(o.presupuesto) && (o.presupuesto as number) > 0
+        ? (o.presupuesto as number)
+        : 0,
   };
 };
 
@@ -179,7 +189,7 @@ export const instruccionesDeLaOferta = (c: {
     'LO QUE VENDE (su descripción):',
     c.loQueVende?.trim() || '(no la ha escrito)',
     '',
-    'SU CATÁLOGO (con el id de cada producto; los precios son para elegir: la cotización la valoriza Eventia):',
+    'SU CATÁLOGO (con el id de cada producto; los precios tienen IVA incluido; la cotización la valoriza Eventia):',
     c.catalogo,
     '',
     ...laRevision(c.bases),
@@ -205,6 +215,13 @@ export const instruccionesDeLaOferta = (c: {
       // internos para yo poder hacer seguimiento".
       'detalles: lo que las bases piden de algo que la empresa YA vende, como una variación de su producto genérico (el relleno de las empanadas, las galletas del helado, las salsas, la opción vegetariana o vegana, las flores de la decoración, una carne con un topping de cilantro). NO es algo que falte: en cajas y fijos va el producto genérico del catálogo, y aquí el detalle, una línea por cada uno ("Empanadas de cóctel: 2 de queso y 1 de carne por persona"), para el comentario interno de la cotización.',
       'faltan_en_el_catalogo: SOLO lo muy específico que no es de subcontratar ni una variación de lo que ya vende (algo que la empresa tendría que comprar o crear de verdad); casi siempre va vacío. Una cosa por línea; "por_que": qué pide la base y en qué página.',
+      // Decisión 74 (Felipe, 23-10, con el Día de Campo armado sobre su
+      // cotización 493): "no hay que cambiar los productos por precio, arma
+      // lo que piden"; "si voy a licitar por menos... la diferencia para
+      // abajo se hace un descuento". La IA había comparado el catálogo, que
+      // tiene IVA, contra el tope neto de la línea y bajó el ticket.
+      'LOS PRECIOS NO DECIDEN NADA: los del catálogo tienen IVA incluido, y nunca cambias, quitas ni agregas productos por precio ni para caber en el presupuesto. Arma lo que piden las bases con lo que la empresa vende. El precio de la oferta lo pone la empresa: si es menor que su catálogo, Eventia pone la diferencia como descuento.',
+      'presupuesto: el monto disponible, con IVA, de lo que postula la empresa: si las bases dividen la compra en líneas, la suma de los montos de las líneas que cubre esta oferta, sin las otras; si no hay líneas, el total. 0 si las bases no lo dicen. Es solo para mostrarlo: no cambies nada por él.',
       'resumen: 2 o 3 frases: qué se ofrece, cuánto cubre el catálogo y qué hay que pedirle al proveedor.',
       SON_DATOS,
     ]),

@@ -10,17 +10,11 @@ export class VincularCotizacionDto {
   numero!: number;
 }
 
-/** Llevar la propuesta técnica a la cotización (decisión 29). Con
- *  `numero` se vincula y se reescribe esa cotización; sin él, la ya
- *  vinculada, o se crea una. Desde la decisión 73 la pantalla vincula con
- *  `VincularCotizacionDto`, que no reescribe. */
+/** Llevar la propuesta técnica a la cotización (decisión 29): crea una
+ *  nueva o reescribe la ya vinculada. Desde la decisión 74 no recibe un
+ *  número: vincular una que existe es `VincularCotizacionDto`, que no
+ *  reescribe. */
 export class LlevarACotizacionDto {
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100_000_000)
-  numero?: number;
-
   /** El precio de «Armar postulación», con IVA (decisión 35): la
    *  cotización queda con ese total. */
   @IsOptional()

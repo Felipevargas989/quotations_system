@@ -702,19 +702,17 @@ export const getCotizacionDeLaPostulacion = async (id: number) =>
     "GET",
   )) as EstadoDeLaCotizacion;
 
-/** «Crear o vincular cotización» (decisiones 35 y 69): crea la cotización
- *  con lo postulado (en las `fechas` elegidas), o con `numero` vincula y
- *  reescribe esa; sin ninguno, reescribe la ya vinculada. Con `total` (el
- *  precio de «Armar postulación») queda con ese total si el catálogo
- *  alcanza; si no, a precio de catálogo y la diferencia se anota. */
+/** «Crear la cotización» o «Reescribir con lo postulado» (decisiones 35,
+ *  69 y 74): crea una con lo postulado (en las `fechas` elegidas) o
+ *  reescribe la ya vinculada; vincular otra es `vincularCotizacion`. Con
+ *  `total` queda con ese total si el catálogo alcanza (lo que baja, como
+ *  descuento); si no, a precio de catálogo y la diferencia se anota. */
 export const llevarACotizacion = async (
   id: number,
-  numero?: number,
   total?: number,
   fechas?: FechasDeLaCotizacion,
 ) =>
   (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/cotizacion`, "POST", {
-    ...(numero ? { numero } : {}),
     ...(total ? { total } : {}),
     ...(fechas?.desde ? { desde: fechas.desde } : {}),
     ...(fechas?.hasta ? { hasta: fechas.hasta } : {}),
