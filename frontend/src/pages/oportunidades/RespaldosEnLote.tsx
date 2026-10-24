@@ -17,6 +17,11 @@ import { RESPALDO_VACIO, resumenDelRespaldo, TIPO_RESPALDO } from "./respaldos";
 // órdenes de compra". Se arrastran las órdenes de compra o facturas; la IA
 // lee cada una (si es de Mercado Público, la confirma su ficha pública);
 // se revisa la lista y se guarda todo. Nada se guarda sin revisar.
+//
+// Sin duplicados (decisión 77, 24-10; Felipe: "valide si ya existe en el
+// sistema, para no generar duplicidades"): lo que ya está en «Mi empresa» o
+// en Post-venta queda en ámbar y no se guarda, y lo repetido en la misma
+// tanda va una sola vez. El motor vuelve a revisar al guardar.
 
 const MAX_MB = 15;
 
@@ -26,8 +31,18 @@ type Fila = {
   estado: "leyendo" | "leido" | "sin_leer";
   datos: DatosDeRespaldo;
   aviso: string | null;
+  /** Dónde está ya, si está (decisión 77): no se guarda. */
+  ya_esta: string | null;
   editando: boolean;
 };
+
+/** El número para comparar: sin espacios, en mayúsculas y sin ceros
+ *  adelante (como el motor). */
+const comparable = (numero: string) =>
+  numero
+    .replace(/\s+/g, "")
+    .toUpperCase()
+    .replace(/^0+(?=\d)/, "");
 
 export default function RespaldosEnLote({
   alGuardar,
@@ -61,6 +76,7 @@ export default function RespaldosEnLote({
         estado: "leyendo",
         datos: RESPALDO_VACIO,
         aviso: null,
+        ya_esta: null,
         editando: false,
       });
     }
@@ -70,8 +86,13 @@ export default function RespaldosEnLote({
     void (async () => {
       for (const f of nuevas) {
         try {
-          const { datos, aviso } = await leerRespaldo(f.archivo);
-          cambiar(f.clave, { estado: "leido", datos, aviso });
+          const { datos, aviso, ya_esta } = await leerRespaldo(f.archivo);
+          cambiar(f.clave, {
+            estado: "leido",
+            datos,
+            aviso,
+            ya_esta: ya_esta ?? null,
+          });
         } catch (e) {
           cambiar(f.clave, {
             estado: "sin_leer",
@@ -86,8 +107,21 @@ export default function RespaldosEnLote({
     desactivado: guardando,
   });
 
+  // Repetida en la misma tanda: va la primera.
+  const repetida = (f: Fila) => {
+    const n = comparable(f.datos.numero);
+    if (!n) return false;
+    const primera = filas.find(
+      (o) => o.estado !== "leyendo" && comparable(o.datos.numero) === n,
+    );
+    return primera !== undefined && primera.clave !== f.clave;
+  };
   const listos = filas.filter(
-    (f) => f.estado !== "leyendo" && f.datos.numero.trim(),
+    (f) =>
+      f.estado !== "leyendo" &&
+      f.datos.numero.trim() &&
+      !f.ya_esta &&
+      !repetida(f),
   );
   const leyendo = filas.some((f) => f.estado === "leyendo");
 
@@ -206,11 +240,29 @@ export default function RespaldosEnLote({
                   <X size={14} />
                 </button>
               </div>
+              {f.ya_esta && (
+                <p className="text-xs font-semibold text-amber-800">
+                  {f.ya_esta} No se guarda.
+                </p>
+              )}
+              {!f.ya_esta && f.estado !== "leyendo" && repetida(f) && (
+                <p className="text-xs font-semibold text-amber-800">
+                  Repetida en esta tanda: se guarda una sola.
+                </p>
+              )}
               {f.aviso && <p className="text-xs text-amber-800">{f.aviso}</p>}
               {f.editando && (
                 <RespaldoDeExperiencia
                   datos={f.datos}
-                  onChange={(datos) => cambiar(f.clave, { datos })}
+                  onChange={(datos) =>
+                    cambiar(f.clave, {
+                      datos,
+                      // Otro número: lo revisa el motor al guardar.
+                      ...(datos.numero !== f.datos.numero
+                        ? { ya_esta: null }
+                        : {}),
+                    })
+                  }
                 />
               )}
             </li>

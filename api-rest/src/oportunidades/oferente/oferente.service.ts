@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
   sello,
   TIPOS_POR_EXTENSION,
 } from '../adjuntos/adjuntos.service';
+import { EventiaRepository } from '../eventia/eventia.repository';
 import {
   type DocumentoDeEmpresa,
   type Oferente,
@@ -29,6 +31,7 @@ import {
   type DatosDeRespaldo,
   TIPO_RESPALDO,
 } from './respaldo';
+import { eventoConElNumero, mismoNumero } from './respaldos-de-post-venta';
 
 // LA EMPRESA COMO OFERENTE (doc 17, sprint 3, paso 2; §5.5; migración 126).
 // Felipe, 17-10: "el rellenado de documentos debe tener primero una forma
@@ -169,9 +172,43 @@ export class OferenteService {
   constructor(
     private readonly repo: OferenteRepository,
     private readonly archivos: AdjuntosRepository,
+    private readonly eventia: EventiaRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(OferenteService.name);
+  }
+
+  /** ¿Ese respaldo ya está en el sistema? (decisión 77; Felipe: "al momento
+   *  de subir una experiencia, valide si ya existe en el sistema, para no
+   *  generar duplicidades"). Primero en «Mi empresa», por el número leído
+   *  (sin espacios, mayúsculas ni ceros adelante); después en los
+   *  documentos de los eventos de Post-venta, por el nombre del archivo,
+   *  porque esos no están leídos. null = no está. */
+  async dondeYaEsta(companyId: number, numero: string): Promise<string | null> {
+    if (!numero.trim()) return null;
+    const [documentos, eventos] = await Promise.all([
+      this.repo.documentos(companyId),
+      this.eventia.documentosDeExperiencia(companyId, '9999-12-31'),
+    ]);
+    const enLaCarpeta = documentos.find(
+      (d) =>
+        d.tipo === TIPO_RESPALDO &&
+        typeof d.datos?.numero === 'string' &&
+        mismoNumero(d.datos.numero, numero),
+    );
+    if (enLaCarpeta) {
+      const dia = new Date(enLaCarpeta.creado_en).toLocaleDateString('es-CL', {
+        timeZone: 'America/Santiago',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      return `Ya está en «Mi empresa»: ${enLaCarpeta.nombre}, subida el ${dia}.`;
+    }
+    const evento = eventoConElNumero(eventos, numero);
+    return evento
+      ? `Ya está en Post-venta, en el evento N° ${evento.numero}${evento.cliente ? ` (${evento.cliente})` : ''}.`
+      : null;
   }
 
   async ver(companyId: number): Promise<VistaDelOferente> {
@@ -304,6 +341,11 @@ export class OferenteService {
       const leidos = datosDeRespaldo(dto.datos);
       if ('problema' in leidos) throw new BadRequestException(leidos.problema);
       datos = leidos;
+      // Sin duplicados (decisión 77): lo mismo no se guarda dos veces.
+      const yaEsta = await this.dondeYaEsta(companyId, datos.numero);
+      if (yaEsta) {
+        throw new ConflictException(`${yaEsta} No se guarda otra vez.`);
+      }
     }
     const nombre = nombreLimpio(archivo.originalname);
     const ext = extensionDe(nombre);

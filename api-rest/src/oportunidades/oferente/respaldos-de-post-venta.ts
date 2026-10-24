@@ -77,6 +77,20 @@ const nombra = (texto: string, numero: string): boolean => {
   );
 };
 
+/** El evento de Post-venta que ya tiene ese número en uno de sus
+ *  documentos, por el nombre (no están leídos): para no subir dos veces lo
+ *  mismo (decisión 77). */
+export const eventoConElNumero = (
+  eventos: readonly DocumentosDeUnEvento[],
+  numero: string,
+): DocumentosDeUnEvento | null =>
+  eventos.find((e) =>
+    e.documentos.some(
+      (d) =>
+        nombra(d.nombre, numero) || nombra(archivoDeLaRuta(d.ruta), numero),
+    ),
+  ) ?? null;
+
 /** ¿Ese evento ya tiene su respaldo en «Mi empresa»? Si un documento suyo
  *  se llama con el número de un respaldo (la orden 1213301-49-AG26 del
  *  evento 415 ya estaba subida a mano). Sin leer nada: lo que no se sabe así

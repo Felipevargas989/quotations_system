@@ -508,6 +508,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **La empresa confirma**: «La experiencia», dentro de «Armar postulación», muestra la propuesta; cada fila con su casilla, «Confirmar» (sin las que se sacan) o «Buscar otras» (sin las que se sacaron). Si las bases piden experiencia, «Armar postulación» no parte sin una confirmada (400), y los anexos llevan exactamente esas filas, en ese orden (`LA_EXPERIENCIA_CONFIRMADA`); el ZIP pega sus PDF como antes. Al volver a armar se usa la última confirmada; «Cambiar» la vuelve a pedir.
     - Primer uso: 5040-14-LE26. La propuesta a mano de ese día dio Quillón 2023 por $16,5 y $11,8 millones, CCU 2025 por $11,3, la Armada por $8,6, la Corporación de Asistencia Judicial 2024 por $4 y Quillón 2023 por $4,8, con dos más de Quillón de reserva: todas públicas o de CCU.
 
+77. **Sin duplicados al subir la experiencia** (24-10, pedido por Felipe tras subir dos veces la misma orden 5040-536-SE23: *"necesito igual que al momento de subir una experiencia esto valide si ya existe en el sistema, para no generar duplicidades"*; *"si hazlo en lab y producción"*).
+    - Al leer cada orden o factura que se sube a «Mi empresa», el motor dice si ya está (`ya_esta`, `OferenteService.dondeYaEsta`): primero en «Mi empresa», por el número leído (sin espacios, mayúsculas ni ceros adelante, `mismoNumero`), sin importar el nombre del archivo; después en los documentos de los eventos de Post-venta, por el nombre del archivo, porque esos no están leídos (`eventoConElNumero`: «F249.pdf» no nombra el 249 solo; «Factura 250.pdf» sí).
+    - En «Respaldos en lote» la fila queda en ámbar («Ya está en ... No se guarda.») y no se guarda; lo repetido en la misma tanda va una sola vez.
+    - Al guardar, el motor vuelve a revisar: lo que ya está es 409 y el archivo ni se sube.
+    - La 5040-536-SE23 que quedó repetida antes de esto la cuenta una sola vez la propuesta de experiencia (decisión 76); la copia la puede borrar la empresa.
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público
