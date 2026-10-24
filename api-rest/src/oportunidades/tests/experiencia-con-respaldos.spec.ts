@@ -2,13 +2,15 @@ import { trabajarEnElTaller } from '../generacion/taller';
 import type { RespaldoDePostVenta } from '../oferente/respaldos-de-post-venta';
 import { armar, CUENTA, entorno, planDe } from './generacion-de-prueba';
 
-// LA EXPERIENCIA QUE LEE LA IA DEL ANEXO (decisión 45, 19-10): primero los
-// respaldos de «Mi empresa»; después, aparte, los de Post-venta que leyó
-// «Armar postulación», para usarlos solo si los primeros no alcanzan. El
-// evento que ya tiene su respaldo no se repite en la lista de eventos. Lo de
-// Post-venta queda anotado en el trabajo (para el ZIP y para reintentar sin
-// volver a leer). Aparte de generacion.service.spec, que llegó al tope de
-// 800 líneas del portero.
+// LA EXPERIENCIA QUE LEE LA IA DEL ANEXO (decisiones 45 y 75): los
+// respaldos de «Mi empresa» y los de Post-venta que leyó «Armar postulación»
+// van en una sola lista, de mayor a menor monto y de cualquier fecha; el
+// período lo dicen las bases (antes, 24 meses fijos y los de Post-venta
+// aparte, solo si los primeros no alcanzaban). El evento que ya tiene su
+// respaldo no se repite en la lista de eventos. Lo de Post-venta queda
+// anotado en el trabajo (para el ZIP y para reintentar sin volver a leer).
+// Aparte de generacion.service.spec, que llegó al tope de 800 líneas del
+// portero.
 
 jest.mock('../generacion/taller', () => ({
   ...jest.requireActual<object>('../generacion/taller'),
@@ -30,7 +32,7 @@ const DE_POST_VENTA: RespaldoDePostVenta = {
 };
 
 describe('La experiencia en los anexos', () => {
-  it('los de Post-venta van aparte, después de los de «Mi empresa», y su evento no se repite (decisión 45)', () =>
+  it('los de Post-venta van en la misma lista que los de «Mi empresa», por monto, y su evento no se repite (decisión 75)', () =>
     entorno(async () => {
       const { oferente, repo, servicio, ejecutar } = armar();
       oferente.respaldos.mockResolvedValue([
@@ -44,20 +46,31 @@ describe('La experiencia en los anexos', () => {
           archivo: 'OC 4352-103-SE23.pdf',
         },
       ]);
+      // Una factura de Post-venta más grande que la de la carpeta va antes:
+      // ya no espera a que falten las de «Mi empresa».
+      const grande: RespaldoDePostVenta = {
+        ...DE_POST_VENTA,
+        numero: '501',
+        mandante: 'Ferrocarril del Pacífico S.A.',
+        contrato: 'Paseo de fin de año',
+        monto: 12_614_800,
+        evento: 52,
+        archivo: 'Factura 501.pdf',
+      };
       await servicio.generarAnexos(1, CUENTA, 40, {
         monto_total: 11_900_000,
-        post_venta: [DE_POST_VENTA],
+        post_venta: [DE_POST_VENTA, grande],
       });
       const sistema = planDe(ejecutar).sistema;
-      const mia = sistema.indexOf('SUS RESPALDOS DE EXPERIENCIA');
-      const deEventia = sistema.indexOf(
-        'MÁS RESPALDOS, DE SUS EVENTOS EN EVENTIA',
+      const donde = (numero: string) => sistema.indexOf(`N° ${numero} ·`);
+      expect(sistema.indexOf('SUS RESPALDOS DE EXPERIENCIA')).toBeGreaterThan(
+        -1,
       );
-      expect(mia).toBeGreaterThan(-1);
-      expect(deEventia).toBeGreaterThan(mia);
-      expect(sistema).toContain(
-        'úsalos SOLO si los de «Mi empresa» no alcanzan para el puntaje máximo',
-      );
+      expect(donde('501')).toBeGreaterThan(-1);
+      expect(donde('501')).toBeLessThan(donde('4352-103-SE23'));
+      expect(donde('4352-103-SE23')).toBeLessThan(donde('5040-126-TD26'));
+      expect(sistema).not.toContain('MÁS RESPALDOS');
+      expect(sistema).not.toContain('úsalos SOLO si');
       expect(sistema).toContain(
         '- N° 5040-126-TD26 · ILUSTRE MUNICIPALIDAD DE QUILLON · Almuerzo delegación · 2025 · $1.245.000 con impuestos · es el evento N° 455 de Eventia (archivo «Orden de compra 5040-126-TD26.pdf»)',
       );
@@ -68,7 +81,7 @@ describe('La experiencia en los anexos', () => {
       expect(repo.crearGeneracion).toHaveBeenCalledWith(
         expect.objectContaining({
           parametros: expect.objectContaining({
-            post_venta: [DE_POST_VENTA],
+            post_venta: [DE_POST_VENTA, grande],
           }),
         }),
       );
@@ -90,14 +103,14 @@ describe('La experiencia en los anexos', () => {
       );
     }));
 
-  it('sin respaldos de Post-venta no aparece esa parte ni se anota nada', () =>
+  it('sin respaldos de Post-venta no se anota nada', () =>
     entorno(async () => {
       const { repo, servicio, ejecutar } = armar();
       await servicio.generarAnexos(1, CUENTA, 40, {
         monto_total: 11_900_000,
         post_venta: [],
       });
-      expect(planDe(ejecutar).sistema).not.toContain('MÁS RESPALDOS');
+      expect(planDe(ejecutar).sistema).not.toContain('de Eventia (archivo');
       expect(repo.ultimoDeTipo).not.toHaveBeenCalledWith(1, 40, 'anexos');
       const [fila] = repo.crearGeneracion.mock.calls[0] as [
         { parametros: Record<string, unknown> },
@@ -127,10 +140,9 @@ describe('La experiencia en los anexos', () => {
       const sistema = planDe(ejecutar).sistema;
       expect(sistema).toContain('SUS RESPALDOS DE EXPERIENCIA');
       expect(sistema).toContain('N° 5043-27-AG26');
-      expect(sistema).not.toContain('MÁS RESPALDOS');
     }));
 
-  it('solo los respaldos de los últimos 24 meses (decisión 52): uno viejo o sin año no se ofrece, y nunca una fila sin respaldo', () =>
+  it('lo que vale lo dicen las bases (decisión 75): uno de hace 3 años se ofrece, uno sin año no, y nunca una fila sin respaldo ni fuera del período', () =>
     entorno(async () => {
       const { oferente, servicio, ejecutar } = armar();
       const este = new Date().getFullYear();
@@ -154,15 +166,24 @@ describe('La experiencia en los anexos', () => {
       });
       const sistema = planDe(ejecutar).sistema;
       expect(sistema).toContain('N° 5040-111-AG26');
-      expect(sistema).not.toContain('N° 4352-103-SE23');
+      // El Día de Campo 2026 cuenta 4 años: la de 2023 tiene que llegar.
+      expect(sistema).toContain(
+        `N° 4352-103-SE23 · ILUSTRE MUNICIPALIDAD DE QUILLON · Cena · ${este - 3}`,
+      );
       expect(sistema).not.toContain('N° 9999-1-AG21');
       expect(sistema).toContain(
         'NUNCA pongas una fila sin su respaldo ni una de fuera del período',
       );
-      expect(sistema).toContain('Solo los de los últimos 24 meses');
+      expect(sistema).toContain(
+        'Lo que vale como experiencia lo dicen las bases, no una regla fija',
+      );
+      expect(sistema).toContain(
+        'Si las bases no fijan un período, sirven todos.',
+      );
+      expect(sistema).not.toContain('24 meses y, si');
     }));
 
-  it('de mayor a menor monto, sin los «No usar» ni los de su cliente en Post-venta, y con 2 de reserva (decisión 56)', () =>
+  it('de mayor a menor monto, todos juntos, sin los «No usar» ni los de su cliente en Post-venta, y con 2 de reserva (decisiones 56 y 75)', () =>
     entorno(async () => {
       const { oferente, servicio, ejecutar } = armar();
       const este = new Date().getFullYear();
@@ -209,7 +230,9 @@ describe('La experiencia en los anexos', () => {
       expect(donde('312')).toBe(-1);
       // De Post-venta tampoco entra otra de un cliente marcado «No usar».
       expect(donde('367')).toBe(-1);
-      expect(donde('5040-126-TD26')).toBeGreaterThan(-1);
+      // La de Post-venta va en su lugar por monto, entre las de la carpeta.
+      expect(donde('372')).toBeLessThan(donde('5040-126-TD26'));
+      expect(donde('5040-126-TD26')).toBeLessThan(donde('366'));
       expect(sistema).toContain(
         'Tómalos EN ESE ORDEN, los de más monto primero',
       );
