@@ -166,7 +166,7 @@ describe('Las candidatas', () => {
       archivo: 'Factura 260.pdf',
       ruta: 'c1/event-documents/q-118/facturas/x_260.pdf',
       que_fue:
-        'Paseo fin de año · 320 personas · se sirvió: Lomo liso, Papas rústicas · fijos: Salón Cúpula',
+        '2025-12-07 · Paseo fin de año · 320 personas · se sirvió: Lomo liso, Papas rústicas · fijos: Salón Cúpula',
     });
     expect(c[1]).toMatchObject({
       numero: null,
@@ -175,7 +175,7 @@ describe('Las candidatas', () => {
       archivo: null,
     });
     expect(textoDeLaCandidata(c[1])).toBe(
-      '- [ev:236] · Eventia, evento N° 236 · CCU · Paseo fin de año · 2025 · $10.952.736 con impuestos · SIN FACTURA SUBIDA · fue: Paseo fin de año · 271 personas',
+      '- [ev:236] · Eventia, evento N° 236 · CCU · Paseo fin de año · 2025 · $10.952.736 con impuestos · SIN FACTURA SUBIDA · fue: 2025-12-07 · Paseo fin de año · 271 personas',
     );
   });
 
