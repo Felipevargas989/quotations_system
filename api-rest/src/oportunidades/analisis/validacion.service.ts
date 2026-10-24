@@ -182,6 +182,10 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     'Estar inscrito o hábil en el Registro de Proveedores (ChileProveedores) es siempre "cumple": la empresa está hábil, se da por hecho y no hay un documento que mirar.',
     'En "donde", el nombre del documento que lo cumple (vacío si falta). En "observacion", una frase: qué está bien o qué hay que hacer.',
     'En "otros_problemas", lo que no es de un requisito: RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación.',
+    // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
+    // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
+    // para revisar coherencia con las bases y ortografía".
+    'Revisa también lo que escribió la empresa en sus documentos: las faltas de ortografía o de redacción (cita la frase y cómo queda bien) y lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]), diciendo en qué documento. También va en "otros_problemas".',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');

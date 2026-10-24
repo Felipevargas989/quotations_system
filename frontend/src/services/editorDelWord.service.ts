@@ -19,6 +19,18 @@ export interface TramoDelWord {
   u: boolean;
   /** Tamaño de la letra, en puntos. */
   pt?: number;
+  /** La letra («Calibri»). */
+  f?: string;
+  /** El color, RRGGBB. */
+  c?: string;
+}
+
+/** Una imagen del documento (el logo), para verla. */
+export interface ImagenDelWord {
+  src: string;
+  /** En puntos. */
+  ancho?: number;
+  alto?: number;
 }
 
 export interface ParrafoDelWord {
@@ -27,9 +39,10 @@ export interface ParrafoDelWord {
   editable: boolean;
   /** Cómo se ve lo que se escribe fuera de sus pedazos. */
   formato: Omit<TramoDelWord, "r" | "t">;
-  /** Por qué no se edita aquí («tiene una imagen»). */
+  /** Por qué no se edita aquí («tiene un vínculo»). */
   motivo?: string;
   tramos: TramoDelWord[];
+  imagenes?: ImagenDelWord[];
   alineacion?: "centro" | "derecha" | "justificado";
   /** Sangría izquierda, en puntos. */
   sangria?: number;
@@ -58,10 +71,16 @@ export interface WordParaEditar {
    *  guarda encima. */
   version: string;
   bloques: BloqueDelWord[];
+  /** Se ven, no se editan aquí. */
+  encabezado?: BloqueDelWord[];
+  pie?: BloqueDelWord[];
 }
 
-/** Lo que se manda de un pedazo: sin el tamaño (no se edita). */
-export type TramoEditado = Omit<TramoDelWord, "pt" | "r"> & { r?: number };
+/** Lo que se manda de un pedazo: sin tamaño, letra ni color (no se
+ *  editan aquí). */
+export type TramoEditado = Omit<TramoDelWord, "pt" | "r" | "f" | "c"> & {
+  r?: number;
+};
 
 export interface ParrafoEditado {
   id: number;

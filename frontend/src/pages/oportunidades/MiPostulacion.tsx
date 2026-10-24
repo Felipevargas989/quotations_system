@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PenLine, Pencil } from "lucide-react";
+import { PenLine } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
@@ -27,10 +27,11 @@ import {
 // documento firmado que nadie miró. Desde el 19-10 la firma deja cada
 // documento en PDF (lo que se sube a Mercado Público), y «Firmar todos»
 // firma de una vez lo último que hizo la IA (firmarTodos.ts). Desde el
-// 24-10 (decisión 78), «Editar» abre el Word aquí mismo para escribir
-// encima, antes de firmar (EditorDeWord).
+// 24-10 (decisión 78), «Abrir» muestra cada Word sin firmar en una sola
+// pantalla para verlo y editarlo, con «Volver a validar» y «Firmar» ahí
+// mismo (EditorDeWord). Felipe: "el ver y editar debería ser el mismo".
 
-// El editor se baja recién al abrir el primer Word.
+// La pantalla se baja recién al abrir el primer documento.
 const EditorDeWord = lazy(() => import("./EditorDeWord"));
 
 export default function MiPostulacion({
@@ -82,6 +83,8 @@ export default function MiPostulacion({
             oportunidadId={oportunidadId}
             adjunto={editando}
             onCerrar={() => setEditando(null)}
+            onFirmar={(id) => firmar.mutate([id])}
+            firmando={firmando}
           />
         </Suspense>
       )}
@@ -89,6 +92,9 @@ export default function MiPostulacion({
         oportunidadId={oportunidadId}
         seccion="postulacion"
         filtrar={sinLosWordYaFirmados}
+        abrirAqui={(a) =>
+          !congelada && sePuedeFirmar(a) ? () => setEditando(a) : undefined
+        }
         accionesDeFila={(a) =>
           !sePuedeFirmar(a) ? null : porFirmar === a.id ? (
             <ConfirmInline
@@ -99,32 +105,15 @@ export default function MiPostulacion({
               busy={firmar.isPending}
             />
           ) : (
-            <>
-              {!congelada && (
-                <button
-                  type="button"
-                  onClick={() => setEditando(a)}
-                  disabled={firmando}
-                  title={
-                    firmando
-                      ? "Hay una firma en curso"
-                      : "Escribir encima de este Word, aquí mismo"
-                  }
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                >
-                  <Pencil size={14} /> Editar
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setPorFirmar(a.id)}
-                disabled={firmando}
-                title={firmando ? "Ya hay una firma en curso" : undefined}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-900 disabled:opacity-50"
-              >
-                <PenLine size={14} /> Firmar
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setPorFirmar(a.id)}
+              disabled={firmando}
+              title={firmando ? "Ya hay una firma en curso" : undefined}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-900 disabled:opacity-50"
+            >
+              <PenLine size={14} /> Firmar
+            </button>
           )
         }
         pie={

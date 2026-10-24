@@ -112,9 +112,9 @@ const pintar = (congelada = false) =>
   );
 
 describe("Mi postulación", () => {
-  it("«Editar» abre el Word sin firmar aquí mismo (decisión 78)", async () => {
+  it("«Abrir» muestra el Word sin firmar para verlo y editarlo (decisión 78)", async () => {
     pintar();
-    const botones = await screen.findAllByRole("button", { name: /Editar/ });
+    const botones = await screen.findAllByRole("button", { name: "Abrir" });
     // Los Word sin firmar (22, 23 y el de antes); el PDF firmado no.
     expect(botones).toHaveLength(3);
     fireEvent.click(botones[0]);
@@ -125,10 +125,10 @@ describe("Mi postulación", () => {
     ).toBeInTheDocument();
   });
 
-  it("postulada, ya no se edita", async () => {
+  it("postulada, ya no se abre para editar", async () => {
     pintar(true);
     await screen.findAllByRole("button", { name: /^Firmar$/ });
-    expect(screen.queryByRole("button", { name: /Editar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Abrir" })).toBeNull();
   });
 
   it("«Firmar todos» firma lo último que hizo la IA que no está firmado", async () => {
