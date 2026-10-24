@@ -131,6 +131,7 @@ const anioDe = (fecha: string | null): number | null => {
  *  licita. */
 export const loQueFue = (e: EventoDeEventia): string =>
   [
+    e.fecha,
     e.tipo ?? 'evento',
     e.personas ? `${e.personas} personas` : null,
     e.que_se_sirvio?.length ? `se sirvió: ${e.que_se_sirvio.join(', ')}` : null,
@@ -317,6 +318,7 @@ export const instruccionesDeLaExperiencia = (): string =>
     '4. Entre las que se parecen y caen en el período, de mayor a menor monto ("siempre coloque lo mejor que tengamos en $$$ de mayor a menor hasta cumplir con lo que piden las bases").',
     '5. Elige las que dan el puntaje máximo, más DOS de reserva si hay (si el comprador rechaza una, no se pierde el puntaje). Si las bases no dicen cuántas, elige las mejores, hasta 8.',
     '6. Solo puedes elegir experiencias CON respaldo. Las que dicen SIN FACTURA SUBIDA no van al formulario: si alguna sería mejor que las elegidas (más parecida o más grande), ponla en faltan, para que la empresa suba su factura y vuelva a pedir la propuesta.',
+    '7. Nunca cuentes dos veces el mismo contrato: una orden de compra de «Mi empresa» y un evento de Eventia del mismo mandante, por el mismo servicio y en fechas parecidas, son uno solo. Usa la orden de compra y no pidas la factura de ese evento.',
     '',
     'QUÉ DEVOLVER',
     '- pide: cuántos contratos dan el puntaje máximo según las bases (0 si no lo dicen).',
