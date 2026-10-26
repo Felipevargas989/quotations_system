@@ -1,4 +1,5 @@
 import type {
+  AlineacionDelWord,
   BloqueDelWord,
   ParrafoDelWord,
   TramoDelWord,
@@ -198,6 +199,26 @@ export const cambio = (p: ParrafoDelWord, ahora: TramoEditado[]): boolean =>
 /** Lo que se manda: el espacio duro del navegador va como espacio. */
 export const paraGuardar = (tramos: TramoEditado[]): TramoEditado[] =>
   tramos.map((t) => ({ ...t, t: t.t.replace(/\u00a0/g, " ") }));
+
+/** La alineación como estilo de la página. */
+export const CSS_DE_ALINEACION: Record<AlineacionDelWord, string> = {
+  izquierda: "left",
+  centro: "center",
+  derecha: "right",
+  justificado: "justify",
+};
+
+/** La alineación nueva de un párrafo, si se cambió con los botones (queda
+ *  anotada en el párrafo de la página); undefined si sigue como venía. */
+export const alineacionNueva = (
+  el: HTMLElement,
+  p: ParrafoDelWord,
+): AlineacionDelWord | undefined => {
+  const a = el.dataset.alineacion as AlineacionDelWord | undefined;
+  return a && a in CSS_DE_ALINEACION && a !== (p.alineacion ?? "izquierda")
+    ? a
+    : undefined;
+};
 
 /** Los párrafos editables de la hoja, por su número. */
 export const parrafosPorId = (

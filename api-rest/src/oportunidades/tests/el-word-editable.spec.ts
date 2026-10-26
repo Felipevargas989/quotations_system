@@ -302,6 +302,51 @@ describe('guardarCambios — solo lo que cambió', () => {
   });
 });
 
+describe('guardarCambios — la alineación del párrafo', () => {
+  const docx = elWord();
+  const version = leido(docx).version;
+  const tramosDe = (id: number) =>
+    (parrafos(docx).get(id)?.tramos ?? []).map(({ r, t, b, i, u }) => ({
+      r,
+      t,
+      b,
+      i,
+      u,
+    }));
+
+  it('cambia la del título en su lugar y se lee de vuelta', () => {
+    const nuevo = guardarCambios(docx, version, [
+      { id: 0, tramos: tramosDe(0), alineacion: 'derecha' },
+    ]);
+    expect(documentoDe(nuevo)).toContain(
+      '<w:pPr><w:jc w:val="right"/><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:pPr>',
+    );
+    expect(parrafos(nuevo).get(0)?.alineacion).toBe('derecha');
+  });
+
+  it('a un párrafo sin diseño le crea uno, y va antes de la marca del párrafo', () => {
+    const nuevo = guardarCambios(docx, version, [
+      { id: 3, tramos: tramosDe(3), alineacion: 'centro' },
+      { id: 6, tramos: [], alineacion: 'derecha' },
+    ]);
+    expect(documentoDe(nuevo)).toContain(
+      '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:bookmarkStart',
+    );
+    expect(documentoDe(nuevo)).toContain(
+      '<w:p><w:pPr><w:jc w:val="right"/><w:rPr><w:ins',
+    );
+  });
+
+  it('la misma alineación que ya tenía no toca el diseño', () => {
+    const nuevo = guardarCambios(docx, version, [
+      { id: 0, tramos: tramosDe(0), alineacion: 'centro' },
+    ]);
+    expect(documentoDe(nuevo)).toContain(
+      '<w:pPr><w:jc w:val="center"/><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:pPr>',
+    );
+  });
+});
+
 describe('conPropiedad — cada propiedad en su lugar', () => {
   it('la negrita va después de la letra y antes del tamaño; lo desconocido queda al final', () => {
     expect(

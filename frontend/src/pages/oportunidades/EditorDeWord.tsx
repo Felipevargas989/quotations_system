@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Download,
   Italic,
@@ -23,6 +26,7 @@ import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import {
   abrirElWord,
+  type AlineacionDelWord,
   type BloqueDelWord,
   guardarElWord,
   type ParrafoDelWord,
@@ -42,8 +46,10 @@ import {
   LISTO_PARA_POSTULAR,
 } from "./oportunidades.utils";
 import {
+  alineacionNueva,
   cambio,
   colorDe,
+  CSS_DE_ALINEACION,
   cuantosPendientes,
   familiaDe,
   htmlDelParrafo,
@@ -330,9 +336,17 @@ export default function EditorDeWord({
       hoja.current.querySelectorAll<HTMLElement>("[data-p]"),
     ).flatMap((el) => {
       const p = porId.get(Number(el.dataset.p));
+      if (!p) return [];
       const ahora = tramosDelElemento(el);
-      return p && cambio(p, ahora)
-        ? [{ id: p.id, tramos: paraGuardar(ahora) }]
+      const alineacion = alineacionNueva(el, p);
+      return cambio(p, ahora) || alineacion
+        ? [
+            {
+              id: p.id,
+              tramos: paraGuardar(ahora),
+              ...(alineacion ? { alineacion } : {}),
+            },
+          ]
         : [];
     });
   };
@@ -440,6 +454,25 @@ export default function EditorDeWord({
       });
   };
 
+  // Alinear (25-10; Felipe, con los precios del N°5 centrados en una fila y
+  // a la derecha en otra): el párrafo donde está el cursor, o los que toca
+  // lo marcado. Se ve al tiro y se guarda en el mismo Word.
+  const alinear = (a: AlineacionDelWord) => {
+    const raiz = hoja.current;
+    const sel = window.getSelection();
+    if (!raiz || !sel || sel.rangeCount === 0) return;
+    const rango = sel.getRangeAt(0);
+    const tocados = Array.from(
+      raiz.querySelectorAll<HTMLElement>("[data-p]"),
+    ).filter((el) => rango.intersectsNode(el));
+    if (tocados.length === 0) return;
+    for (const el of tocados) {
+      el.dataset.alineacion = a;
+      el.style.textAlign = CSS_DE_ALINEACION[a];
+    }
+    setSucio(true);
+  };
+
   // «Siguiente»: lleva al próximo pendiente y lo deja marcado, para
   // escribir encima.
   const irAlSiguiente = () => {
@@ -491,6 +524,36 @@ export default function EditorDeWord({
                   e.preventDefault();
                   ejecutar(orden);
                   alEscribir();
+                }}
+                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              >
+                <Icono size={16} />
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-gray-200" aria-hidden="true" />
+            {(
+              [
+                {
+                  alineacion: "izquierda",
+                  Icono: AlignLeft,
+                  titulo: "Alinear a la izquierda",
+                },
+                { alineacion: "centro", Icono: AlignCenter, titulo: "Centrar" },
+                {
+                  alineacion: "derecha",
+                  Icono: AlignRight,
+                  titulo: "Alinear a la derecha",
+                },
+              ] as const
+            ).map(({ alineacion, Icono, titulo }) => (
+              <button
+                key={alineacion}
+                type="button"
+                title={titulo}
+                aria-label={titulo}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  alinear(alineacion);
                 }}
                 className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               >

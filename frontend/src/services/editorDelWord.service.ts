@@ -82,9 +82,19 @@ export type TramoEditado = Omit<TramoDelWord, "pt" | "r" | "f" | "c"> & {
   r?: number;
 };
 
+/** Cómo va alineado un párrafo; sin decirlo en un párrafo, a la
+ *  izquierda. */
+export type AlineacionDelWord =
+  | "izquierda"
+  | "centro"
+  | "derecha"
+  | "justificado";
+
 export interface ParrafoEditado {
   id: number;
   tramos: TramoEditado[];
+  /** Solo si se cambió con los botones de alinear. */
+  alineacion?: AlineacionDelWord;
 }
 
 const ruta = (oportunidadId: number, adjuntoId: number) =>
