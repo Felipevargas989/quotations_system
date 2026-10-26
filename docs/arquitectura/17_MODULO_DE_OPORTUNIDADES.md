@@ -523,6 +523,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Si el formulario vino en PDF** (pregunta de Felipe): la IA lo reescribe como Word al pie de la letra y con su forma (decisión 24), y ese Word se ve y se edita igual. Lo que no pudo leer queda como [ILEGIBLE], que sale en amarillo como los [COMPLETAR]; los saltos de página se mantienen al editar.
     - «Volver a validar» guarda y pide la validación de siempre, que ahora también revisa la ortografía y lo que quedó por completar o sin leer; el resultado sale arriba del documento y avisa si es de antes del último cambio.
     - **Alinear** (25-10; Felipe, con los precios del Formulario N°5 de la 5040-14-LE26 centrados en una fila y a la derecha en otra, porque así venía cada celda del formulario: *"¿será necesario incluir una herramienta para manejar los centrados?"*, y *"hagamos ese cambio chico"*): tres botones junto a la negrita, izquierda, centro y derecha, para el párrafo del cursor o los que toca lo marcado. Se guarda en el mismo Word, en el diseño del párrafo.
+    - La barra de abajo tiene siempre el mismo alto (25-10; Felipe: *"cuando pincho firmar, cambia el tamaño del recuadro de abajo"*): la pregunta de «Firmar» o de salir sin guardar sale en el mismo lugar, a la derecha, en una línea, y el documento no salta.
     - Pregunta abierta: al «Volver a armar», lo editado se pierde (decisión 49); ¿se protege como lo firmado?
 
 ## 4. Reglas del módulo (no se negocian)

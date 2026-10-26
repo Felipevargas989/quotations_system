@@ -577,70 +577,79 @@ export default function EditorDeWord({
           </div>
         )
       }
+      // La barra de abajo tiene siempre el mismo alto (25-10; Felipe: "cuando
+      // pincho firmar, cambia el tamaño del recuadro de abajo... ¿alguna
+      // forma de que no se mueva tanto?"): la pregunta de confirmación, con
+      // botones más chicos, sale en el mismo lugar, a la derecha, en una
+      // línea, y el documento no salta.
       pie={
-        confirmar === "salir" ? (
-          <ConfirmInline
-            question="Tienes cambios sin guardar. ¿Salir sin guardarlos?"
-            yesLabel="Salir sin guardar"
-            onYes={onCerrar}
-            onNo={() => setConfirmar(null)}
-          />
-        ) : confirmar === "firmar" ? (
-          <ConfirmInline
-            question={`${quedan > 0 ? `Quedan ${quedan} por completar. ` : ""}¿Ya lo revisaste? Se le pone la foto de la firma, queda en PDF y el Word se borra.`}
-            yesLabel="Sí, firmar"
-            onYes={() => void alFirmar()}
-            onNo={() => setConfirmar(null)}
-          />
-        ) : (
-          <>
-            <span className="mr-auto text-xs text-gray-500">
-              {guardar.isPending
-                ? "Guardando…"
-                : sucio
-                  ? "Cambios sin guardar"
-                  : ""}
-            </span>
-            <button
-              type="button"
-              onClick={() => void alDescargar()}
-              disabled={!data || ocupado}
-              className={`${botonSecundario} text-blue-600`}
-            >
-              <Download size={14} aria-hidden /> Descargar
-            </button>
-            <button
-              type="button"
-              onClick={() => void alValidar()}
-              disabled={!data || ocupado || validacion?.estado === "procesando"}
-              className={`${botonSecundario} text-blue-600`}
-            >
-              <ShieldCheck size={14} aria-hidden /> Volver a validar
-            </button>
-            {onFirmar && (
+        <div className="flex h-10 w-full items-center justify-end gap-2">
+          {confirmar === "salir" ? (
+            <ConfirmInline
+              question="Tienes cambios sin guardar. ¿Salir sin guardarlos?"
+              yesLabel="Salir sin guardar"
+              onYes={onCerrar}
+              onNo={() => setConfirmar(null)}
+            />
+          ) : confirmar === "firmar" ? (
+            <ConfirmInline
+              question={`${quedan > 0 ? `Quedan ${quedan} por completar. ` : ""}¿Ya lo revisaste? Se firma, queda en PDF y el Word se borra.`}
+              yesLabel="Sí, firmar"
+              onYes={() => void alFirmar()}
+              onNo={() => setConfirmar(null)}
+            />
+          ) : (
+            <>
+              <span className="mr-auto text-xs text-gray-500">
+                {guardar.isPending
+                  ? "Guardando…"
+                  : sucio
+                    ? "Cambios sin guardar"
+                    : ""}
+              </span>
               <button
                 type="button"
-                onClick={() => setConfirmar("firmar")}
-                disabled={!data || ocupado || firmando}
-                title={firmando ? "Ya hay una firma en curso" : undefined}
-                className={`${botonSecundario} text-green-700`}
+                onClick={() => void alDescargar()}
+                disabled={!data || ocupado}
+                className={`${botonSecundario} text-blue-600`}
               >
-                <PenLine size={14} aria-hidden /> Firmar
+                <Download size={14} aria-hidden /> Descargar
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => void alGuardar()}
-              disabled={!data || ocupado || !sucio}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {guardar.isPending && (
-                <Loader2 size={14} className="animate-spin" aria-hidden />
+              <button
+                type="button"
+                onClick={() => void alValidar()}
+                disabled={
+                  !data || ocupado || validacion?.estado === "procesando"
+                }
+                className={`${botonSecundario} text-blue-600`}
+              >
+                <ShieldCheck size={14} aria-hidden /> Volver a validar
+              </button>
+              {onFirmar && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmar("firmar")}
+                  disabled={!data || ocupado || firmando}
+                  title={firmando ? "Ya hay una firma en curso" : undefined}
+                  className={`${botonSecundario} text-green-700`}
+                >
+                  <PenLine size={14} aria-hidden /> Firmar
+                </button>
               )}
-              Guardar
-            </button>
-          </>
-        )
+              <button
+                type="button"
+                onClick={() => void alGuardar()}
+                disabled={!data || ocupado || !sucio}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {guardar.isPending && (
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                )}
+                Guardar
+              </button>
+            </>
+          )}
+        </div>
       }
     >
       {isPending ? (
