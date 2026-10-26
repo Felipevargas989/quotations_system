@@ -24,7 +24,6 @@ import ResumenDeNegocio from "./ResumenDeNegocio";
 import { type PestanaDeFicha, yaSeAdjudico } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
-import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
 import SubirAMercadoPublico from "./SubirAMercadoPublico";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
@@ -296,10 +295,10 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             oportunidadId={ficha.id}
             plegadaDePartida={analisis?.estado === "listo"}
           />
+          {/* En cuatro bloques relacionados (decisión 80): cómo te evalúan,
+              lo que te deja fuera, lo que tienes que ofrecer (con lo que
+              hay que conseguir) y lo que tienes que presentar. */}
           <AnalisisDeBases oportunidadId={ficha.id} ficha={ficha} />
-          {/* Lo que te comprometes y no está en tu catálogo: va con lo que
-              piden las bases, no en «Mi postulación» (decisión 79). */}
-          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
         </>
       )}
 

@@ -417,7 +417,8 @@ export default function ArmarPostulacion({
             )}
             {vuelta.oferta === "listo" && (
               <p className="text-sm text-gray-600">
-                Lista: la oferta punto por punto está en «Bases y criterios».
+                Lista: cada exigencia con cómo la ofreces está en «Bases y
+                criterios».
               </p>
             )}
             {vuelta.oferta === "error" && (

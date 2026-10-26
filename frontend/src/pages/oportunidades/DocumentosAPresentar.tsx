@@ -1,17 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { FileCheck2 } from "lucide-react";
 import {
-  getAdjuntos,
-  getOferente,
-  type ResultadoDeBases,
-} from "../../services/oportunidades.service";
-import {
-  checklistDeDocumentos,
   esOpcional,
   type EstadoDelDocumento,
   type FilaDelChecklist,
   resumenDelChecklist,
 } from "./checklistDeDocumentos";
+import TituloDeBloque from "./TituloDeBloque";
 
 // LOS DOCUMENTOS A PRESENTAR (19-10). Felipe: "un checklist documental para
 // saber si tengo toda la documentación... un cruce de documentación que ya
@@ -21,6 +14,12 @@ import {
 // la postulación, que es nuestro foco ahora"): lo que piden al adjudicar o
 // para el pago (el DICOM, el F30) va al final como opcional, y la factura
 // del pago no va (`checklistDeDocumentos`).
+//
+// Desde la decisión 80 (26-10) es el bloque 4 de «Bases y criterios», «Lo
+// que tienes que presentar», agrupado por parte del portal. Los formularios
+// están aquí con su estado: la lista aparte de «Formularios para llenar»
+// se quitó porque los repetía. El cruce lo hace `useChecklistDeDocumentos`,
+// que también usan «Cómo te evalúan» y «Lo que te deja fuera».
 
 const ESTADOS: Record<EstadoDelDocumento, { texto: string; clases: string }> = {
   firmado: { texto: "Firmado", clases: "bg-green-100 text-green-800" },
@@ -52,54 +51,73 @@ const CUANDO_LO_PIDEN: Record<FilaDelChecklist["cuando"], string | null> = {
   al_pagar: "lo piden para el pago",
 };
 
-const PARTES: Record<FilaDelChecklist["parte"], string> = {
-  administrativa: "Administrativa",
-  tecnica: "Técnica",
-  economica: "Económica",
-  otra: "Otra",
-};
+/** En el orden del portal de Mercado Público. */
+const PARTES: ReadonlyArray<[FilaDelChecklist["parte"], string]> = [
+  ["administrativa", "Administrativa"],
+  ["tecnica", "Técnica"],
+  ["economica", "Económica"],
+  ["otra", "Otra"],
+];
 
-/** El cierre, en el día de Chile (AAAA-MM-DD); sin cierre, hoy. */
-const diaEnChile = (iso: string | null) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(
-    iso ? new Date(iso) : new Date(),
+function Fila({ f }: { readonly f: FilaDelChecklist }) {
+  const opcional = esOpcional(f);
+  const estado =
+    f.estado === "falta" && opcional ? OPCIONAL : ESTADOS[f.estado];
+  const detalle = [
+    opcional ? `opcional: ${CUANDO_LO_PIDEN[f.cuando]}` : null,
+    f.condicion || null,
+  ].filter(Boolean);
+  return (
+    <li className="px-3 py-2 flex flex-wrap items-start gap-3">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="text-sm text-gray-800">
+          {f.nombre}
+          {f.pagina > 0 && (
+            <span className="text-xs text-gray-400"> (pág. {f.pagina})</span>
+          )}
+        </p>
+        {(detalle.length > 0 || (f.obligatorio && !opcional)) && (
+          <p className="text-xs text-gray-500">
+            {detalle.join(" · ")}
+            {f.obligatorio && !opcional && (
+              <span className="text-red-700">
+                {detalle.length > 0 ? " · " : ""}si falta, quedas fuera
+              </span>
+            )}
+          </p>
+        )}
+        {f.detalle && (
+          <p className="text-xs text-gray-400 break-all">{f.detalle}</p>
+        )}
+      </div>
+      <span
+        className={`shrink-0 px-2 py-0.5 text-xs font-semibold rounded ${estado.clases}`}
+      >
+        {estado.texto}
+      </span>
+    </li>
   );
+}
 
 export default function DocumentosAPresentar({
-  oportunidadId,
-  r,
-  cierre,
+  filas,
+  sinChecklist,
 }: {
-  readonly oportunidadId: number;
-  readonly r: Pick<
-    ResultadoDeBases,
-    "requisitos" | "formularios" | "documentos"
-  >;
-  readonly cierre: string | null;
+  readonly filas: FilaDelChecklist[];
+  /** El análisis es de antes del checklist (19-10): falta la vigencia. */
+  readonly sinChecklist: boolean;
 }) {
-  const { data: vista } = useQuery({
-    queryKey: ["oportunidades", "oferente"],
-    queryFn: getOferente,
-  });
-  const { data: postulacion = [] } = useQuery({
-    queryKey: ["oportunidades", "adjuntos", oportunidadId, "postulacion"],
-    queryFn: () => getAdjuntos(oportunidadId, "postulacion"),
-  });
-  const filas = checklistDeDocumentos({
-    r,
-    carpeta: vista?.documentos ?? [],
-    postulacion,
-    corte: diaEnChile(cierre),
-  });
   if (filas.length === 0) return null;
   const { listos, faltan, total } = resumenDelChecklist(filas);
 
   return (
-    <div className="p-3 rounded-lg border border-gray-200 space-y-3">
+    <section className="bg-white rounded-lg shadow p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <FileCheck2 size={15} /> Documentos a presentar
-        </h3>
+        <h2 className="text-sm font-semibold text-gray-900">
+          <TituloDeBloque numero={4}>
+            Lo que tienes que presentar
+          </TituloDeBloque>
+        </h2>
         <p className="text-xs text-gray-500">
           Para postular: {listos} de {total} listos
           {faltan > 0 && (
@@ -110,61 +128,31 @@ export default function DocumentosAPresentar({
           )}
         </p>
       </div>
-      {!r.documentos?.length && (
+      {sinChecklist && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
           Vuelve a analizar las bases para el checklist completo: incluye la
           vigencia de cada documento.
         </p>
       )}
 
-      <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
-        {filas.map((f, i) => {
-          const opcional = esOpcional(f);
-          const estado =
-            f.estado === "falta" && opcional ? OPCIONAL : ESTADOS[f.estado];
-          return (
-            <li
-              key={`${f.nombre}-${i}`}
-              className="px-3 py-2 flex flex-wrap items-start gap-3"
-            >
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <p className="text-sm text-gray-800">
-                  {f.nombre}
-                  {f.pagina > 0 && (
-                    <span className="text-xs text-gray-400">
-                      {" "}
-                      (pág. {f.pagina})
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {PARTES[f.parte]}
-                  {opcional && ` · opcional: ${CUANDO_LO_PIDEN[f.cuando]}`}
-                  {f.condicion && ` · ${f.condicion}`}
-                  {f.obligatorio && !opcional && (
-                    <span className="text-red-700">
-                      {" "}
-                      · si falta, quedas fuera
-                    </span>
-                  )}
-                </p>
-                {f.detalle && (
-                  <p className="text-xs text-gray-400 break-all">{f.detalle}</p>
-                )}
-              </div>
-              <span
-                className={`shrink-0 px-2 py-0.5 text-xs font-semibold rounded ${estado.clases}`}
-              >
-                {estado.texto}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {PARTES.map(([parte, nombre]) => {
+        const suyas = filas.filter((f) => f.parte === parte);
+        if (suyas.length === 0) return null;
+        return (
+          <div key={parte} className="space-y-1">
+            <h3 className="text-xs font-semibold text-gray-600">{nombre}</h3>
+            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {suyas.map((f, i) => (
+                <Fila key={`${f.nombre}-${i}`} f={f} />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
       <p className="text-xs text-gray-400">
         Cruzado con tu carpeta de «Mi empresa» (con su vencimiento contra el
         cierre) y con «Mi postulación».
       </p>
-    </div>
+    </section>
   );
 }
