@@ -16,6 +16,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   memo,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,14 +38,10 @@ import {
   type AdjuntoDeOportunidad,
   getValidacion,
   pedirValidacion,
-  type ValidacionDeDocumentos,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import AvisosDelFormulario from "./AvisosDelFormulario";
 import { descargarDelBalde } from "./descargas";
-import {
-  contarPorEstadoDeValidacion,
-  LISTO_PARA_POSTULAR,
-} from "./oportunidades.utils";
 import {
   alineacionNueva,
   cambio,
@@ -55,6 +52,7 @@ import {
   htmlDelParrafo,
   paraGuardar,
   parrafosPorId,
+  textoDeLosBloques,
   tramosDelElemento,
 } from "./reglasDelEditor";
 
@@ -76,6 +74,10 @@ import {
 // un salto de línea dentro del párrafo. El encabezado, el pie y lo que
 // tiene una imagen, un campo automático o un vínculo se ve, pero no se
 // edita aquí.
+//
+// Arriba van los avisos de ESTE formulario, no la validación de toda la
+// postulación (26-10; Felipe: "¿esta validación que llegó acá al formulario
+// 5?"), y se van apenas se corrige lo que citaban (AvisosDelFormulario).
 
 // El navegador hace la negrita, la cursiva, el salto de línea y el pegado
 // sin formato (no hay otra forma de hacerlo en un texto editable).
@@ -212,66 +214,6 @@ const Bloques = memo(function Bloques({
   );
 });
 
-/** Lo último que dijo la validación, en corto, arriba del documento. */
-function LaValidacion({
-  validacion,
-  pidiendo,
-  editadoEn,
-}: {
-  readonly validacion: ValidacionDeDocumentos | null | undefined;
-  readonly pidiendo: boolean;
-  readonly editadoEn: string | null | undefined;
-}) {
-  if (pidiendo || validacion?.estado === "procesando") {
-    return (
-      <p className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-        <Loader2 size={14} className="animate-spin" aria-hidden />
-        Validando tus documentos contra las bases. Tarda un par de minutos.
-      </p>
-    );
-  }
-  if (validacion?.estado === "error") {
-    return (
-      <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-        La última validación no terminó. Vuelve a validar.
-      </p>
-    );
-  }
-  const r = validacion?.estado === "listo" ? validacion.resultado : null;
-  if (!r || !validacion) return null;
-  const listo = LISTO_PARA_POSTULAR[r.listo];
-  const conteo = contarPorEstadoDeValidacion(r.requisitos);
-  const vieja = Boolean(
-    editadoEn &&
-      new Date(validacion.creado_en).getTime() < new Date(editadoEn).getTime(),
-  );
-  return (
-    <div className={`space-y-1 rounded-lg border px-3 py-2 ${listo.clases}`}>
-      <p className="text-sm font-semibold">
-        Validación: {listo.titulo}
-        {vieja && (
-          <span className="ml-2 font-normal">
-            · es de antes de tus últimos cambios: vuelve a validar.
-          </span>
-        )}
-      </p>
-      <p className="text-sm">{r.resumen}</p>
-      <p className="text-xs">
-        {conteo.cumple} cumplen · {conteo.falta} faltan · {conteo.revisar} por
-        revisar · {conteo.vencido} vencidos. El detalle está en «Validar
-        documentos», en la ficha.
-      </p>
-      {r.otros_problemas.length > 0 && (
-        <ul className="list-disc space-y-0.5 pl-5 text-xs">
-          {r.otros_problemas.map((p, i) => (
-            <li key={i}>{p}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export default function EditorDeWord({
   oportunidadId,
   adjunto,
@@ -328,6 +270,21 @@ export default function EditorDeWord({
       (n, p) => n + cuantosPendientes(p.tramos.map((t) => t.t).join("")),
       0,
     );
+  // El texto para comprobar los avisos: como se abrió y como va quedando
+  // (se toma medio segundo después de dejar de escribir).
+  const textoBase = useMemo(
+    () =>
+      data
+        ? [data.encabezado ?? [], data.bloques, data.pie ?? []]
+            .map(textoDeLosBloques)
+            .join("\n")
+        : "",
+    [data],
+  );
+  const [textoAhora, setTextoAhora] = useState<string | null>(null);
+  const reloj = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => setTextoAhora(null), [data?.version]);
+  useEffect(() => () => clearTimeout(reloj.current), []);
 
   /** Los párrafos que cambiaron, como quedaron. */
   const cambios = (): ParrafoEditado[] => {
@@ -440,6 +397,11 @@ export default function EditorDeWord({
     const raiz = hoja.current;
     if (!raiz) return;
     setPendientes(cuantosPendientes(raiz.textContent ?? ""));
+    clearTimeout(reloj.current);
+    reloj.current = setTimeout(
+      () => setTextoAhora(hoja.current?.textContent ?? null),
+      500,
+    );
     raiz
       .querySelectorAll<HTMLElement>(
         "[data-p] mark, [data-p] [style*='background']",
@@ -663,10 +625,13 @@ export default function EditorDeWord({
       ) : (
         <div className="space-y-3 bg-gray-100 py-4">
           <div className="mx-auto max-w-[800px]">
-            <LaValidacion
+            <AvisosDelFormulario
+              oportunidadId={oportunidadId}
+              adjunto={actual}
               validacion={validacion}
               pidiendo={validar.isPending}
-              editadoEn={actual.editado_en}
+              texto={{ base: textoBase, ahora: textoAhora ?? textoBase }}
+              quedan={quedan}
             />
           </div>
           <div

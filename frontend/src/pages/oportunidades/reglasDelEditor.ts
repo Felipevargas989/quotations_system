@@ -235,6 +235,21 @@ export const parrafosPorId = (
   return todos;
 };
 
+/** Todo el texto del documento, también lo que no se edita (el
+ *  encabezado, un párrafo con vínculo): con él se comprueban los avisos de
+ *  la validación (reglasDeLosAvisos.ts). */
+export const textoDeLosBloques = (
+  bloques: readonly BloqueDelWord[],
+): string => {
+  const partes: string[] = [];
+  const recorrer = (b: BloqueDelWord) => {
+    if (b.tipo === "parrafo") partes.push(b.tramos.map((x) => x.t).join(""));
+    else b.filas.forEach((f) => f.forEach((c) => c.bloques.forEach(recorrer)));
+  };
+  bloques.forEach(recorrer);
+  return partes.join("\n");
+};
+
 /** Cuántos [COMPLETAR] quedan en un texto. */
 export const cuantosPendientes = (texto: string): number =>
   texto.match(PENDIENTE)?.length ?? 0;

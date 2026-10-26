@@ -541,6 +541,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **5 Pregúntale a la IA**, abierto, con el cuadro para preguntar y las últimas respuestas a la vista (Felipe: *"debe ser el bloque 5 y más protagonista"*). Felipe preguntó si ponerle un nombre a la IA; se propuso «Eva», que sale de Eventia y no de Valle del Sol porque Eventia se vende a otras empresas, o dejar «Asistente», como en la bitácora. Queda por decidir.
     - Al final, plegados (*"me gusta que existan estos plegables"*): para el proveedor, lo demás de la oferta, «Otros detalles a considerar» (los detalles que van al comentario interno de la cotización; Felipe le puso ese título), las fechas clave y garantías y las otras condiciones, cada uno con cuántos tiene.
     - Cómo se juntan: la oferta y el análisis leen las mismas bases punto por punto, así que cada exigencia toma la línea de la oferta con más palabras en común (y la misma página); una línea va a una sola exigencia. Lo que no calza con ninguna queda en «Lo demás de la oferta».
+81. **Los avisos de cada formulario, al día** (26-10, en el laboratorio; Felipe, con la validación de toda la postulación arriba del N°5, que hablaba del N°3, del N°4 y del F30: *"¿esta validación que llegó acá al formulario 5?"*; *"que se actualicen los avisos: si son cosas que se corrigieron se deben eliminar, si no solo generan bulla"*).
+    - Arriba del documento, en el editor, ya no va el resumen de la validación general: van solo los avisos de ese formulario, los mismos que salen bajo él en «Tus documentos» (lo que dejó la IA al llenarlo, lo que anotó al firmar y lo de la última validación).
+    - **Lo corregido se va solo**: un aviso que cita un texto ('Adwards', «prespuesto») desaparece apenas ese texto ya no está en el documento, mientras escribes; uno de [COMPLETAR] o [ILEGIBLE], cuando ya no queda ninguno. Si la cita no estaba en el documento (es de las bases), el aviso no se toca.
+    - Lo de una validación anterior a tus cambios vuelve solo si lo que cita sigue ahí; lo que no se puede comprobar con el texto se cuenta («1 aviso no se puede comprobar aquí») y «Volver a validar» lo revisa.
+    - Queda para después: que «Volver a validar» dentro del documento revise solo ese formulario (paso 2, con el motor).
 
 ## 4. Reglas del módulo (no se negocian)
 
