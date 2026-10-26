@@ -12,8 +12,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/postulacion.service";
 import SetParaMercadoPublico from "./SetParaMercadoPublico";
 
-// «Descargar para Mercado Público» (decisión 34, sprint I, 19-10): primero
-// se revisa qué va y qué falta; después se baja el ZIP.
+// «Descargar para Mercado Público» (decisión 34, sprint I, 19-10). Desde la
+// decisión 79 (26-10), al final del paso 3: «Descargar el ZIP» baja de una y
+// «Ver qué lleva» muestra lo que falta y cada archivo en su carpeta.
 
 vi.mock("../../services/postulacion.service", () => ({
   getSetParaMercadoPublico: vi.fn(),
@@ -65,18 +66,18 @@ const SET = {
 };
 
 describe("El set para Mercado Público", () => {
-  it("no revisa nada hasta que se pide", () => {
+  it("no revisa nada hasta que se pide, y el ZIP se puede bajar de una", () => {
     pintar();
     expect(s.getSetParaMercadoPublico).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: "Descargar ZIP" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Descargar el ZIP" }),
+    ).toBeEnabled();
   });
 
   it("muestra lo que falta y cada archivo en su carpeta, como queda en el ZIP", async () => {
     s.getSetParaMercadoPublico.mockResolvedValue(SET);
     pintar();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar qué va" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver qué lleva" }));
     expect(await screen.findByText("Antes de subir (1)")).toBeInTheDocument();
     expect(s.getSetParaMercadoPublico).toHaveBeenCalledWith(40);
     expect(
@@ -109,11 +110,10 @@ describe("El set para Mercado Público", () => {
         expect(this.download).toBe("Postulación 1532886-5-LE26.zip");
       });
     pintar();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar qué va" }));
-    const bajar = await screen.findByRole("button", { name: "Descargar ZIP" });
-    await waitFor(() => expect(bajar).toBeEnabled());
-    fireEvent.click(bajar);
+    fireEvent.click(screen.getByRole("button", { name: "Descargar el ZIP" }));
     await waitFor(() => expect(clic).toHaveBeenCalled());
+    // Sin revisar antes: el motor arma el ZIP con lo que hay.
+    expect(s.getSetParaMercadoPublico).not.toHaveBeenCalled();
     expect(s.descargarSetParaMercadoPublico).toHaveBeenCalledWith(40);
     expect(soltar).toHaveBeenCalledWith("blob:zip");
   });

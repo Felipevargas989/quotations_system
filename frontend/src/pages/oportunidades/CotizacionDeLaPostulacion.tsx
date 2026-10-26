@@ -1,11 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  Calculator,
-  ExternalLink,
-  Link2,
-  Loader2,
-} from "lucide-react";
+import { CalendarDays, ExternalLink, Link2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmInline from "../../components/ConfirmInline";
@@ -24,6 +18,7 @@ import {
 } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
+import { desgloseDeOferta } from "./oportunidades.utils";
 import {
   claveDeLaCotizacion,
   cuadre,
@@ -31,6 +26,7 @@ import {
   porcentaje,
   veredicto,
 } from "./precioDeLaPostulacion";
+import TituloDeBloque from "./TituloDeBloque";
 import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 
 // «¿CALZA EL PRECIO?» Y LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del
@@ -55,6 +51,15 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // con las fechas de las bases ya puestas («Cambiar» las abre) y «Vincular
 // una que ya tienes», que la une sin reescribirla, con su confirmación ahí
 // mismo.
+//
+// Desde la decisión 79 (26-10) es el paso 1 de «Mi postulación», «El
+// precio». Felipe: "lo que falta conseguir no debería ser un análisis que ya
+// está en exigencias de la licitación... debería estar mi postulación
+// finalmente, con centrado en los anexos, lo que tengo que presentar, el
+// precio". Tres cifras (presupuesto, tu oferta con su neto y quién ganó el
+// año pasado) y una línea: si calza y si la cotización cuadra. Lo que le
+// falta a la cotización ya no se lista aquí: queda en su comentario
+// interno, y lo que hay que conseguir, en «Bases y criterios».
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -90,21 +95,10 @@ function Cifra({
   );
 }
 
-function Aviso({
-  tono,
-  texto,
-}: {
-  readonly tono: "calza" | "rojo";
-  readonly texto: string;
-}) {
+/** Lo que no calza, con qué hacer. Lo que calza lo dice la línea. */
+function Aviso({ texto }: { readonly texto: string }) {
   return (
-    <p
-      className={`rounded px-3 py-2 text-sm ${
-        tono === "calza"
-          ? "bg-green-50 text-green-800 border border-green-200"
-          : "bg-red-50 text-red-800 border border-red-200"
-      }`}
-    >
+    <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
       {texto}
     </p>
   );
@@ -191,7 +185,6 @@ export default function CotizacionDeLaPostulacion({
   }
 
   const c = estado.cotizacion;
-  const faltan = estado.faltan ?? [];
   const ganador = anterior?.ganadores?.[0] ?? null;
   const montoDelAnterior = (anterior?.ganadores ?? []).reduce(
     (suma, g) => suma + (g.monto ?? 0),
@@ -227,41 +220,26 @@ export default function CotizacionDeLaPostulacion({
     });
   };
 
-  return (
-    <section className="bg-white rounded-lg shadow p-5 space-y-4">
-      <div className="space-y-0.5">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <Calculator size={15} /> ¿Calza el precio?
-        </h2>
-        <p className="text-xs text-gray-500">
-          Cruza el presupuesto de la licitación, tu oferta y tu cotización. La
-          cotización lleva lo que tienes en tu catálogo; lo que se subcontrata o
-          no tienes queda abajo y en su comentario interno.
-        </p>
-      </div>
+  const desglose = oferta > 0 ? desgloseDeOferta(oferta) : null;
 
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  return (
+    <section className="bg-white rounded-lg shadow p-5 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-900">
+        <TituloDeBloque numero={1}>El precio</TituloDeBloque>
+      </h2>
+
+      <dl className="grid gap-3 sm:grid-cols-3">
         <Cifra
-          titulo="Presupuesto de lo que postulas"
+          titulo="Presupuesto"
           valor={
             estado.presupuesto ? pesos(estado.presupuesto) : "No lo publicaron"
           }
         />
         <Cifra
           titulo="Tu oferta"
-          valor={oferta > 0 ? pesos(oferta) : "—"}
-          detalle={oferta > 0 ? "Lo que postulas, con IVA" : undefined}
+          valor={desglose ? pesos(oferta) : "—"}
+          detalle={desglose ? `neto ${pesos(desglose.neto)} + IVA` : undefined}
           rojo={dice?.tono === "se_pasa"}
-        />
-        <Cifra
-          titulo="Tu cotización"
-          valor={c ? pesos(c.total) : "—"}
-          detalle={
-            c
-              ? `N° ${c.numero} · catálogo ${pesos(c.catalogo)}${c.descuento > 0 ? ` · descuento ${pesos(c.descuento)} (${porcentaje(c.descuento, c.catalogo)})` : ""}`
-              : "Sin cotización todavía"
-          }
-          rojo={Boolean(cuadra && cuadra.tono !== "calza")}
         />
         <Cifra
           titulo="Ganó el año pasado"
@@ -270,75 +248,75 @@ export default function CotizacionDeLaPostulacion({
         />
       </dl>
 
-      {dice && (
-        <Aviso
-          tono={dice.tono === "calza" ? "calza" : "rojo"}
-          texto={dice.texto}
-        />
-      )}
-      {cuadra && (
-        <Aviso
-          tono={cuadra.tono === "calza" ? "calza" : "rojo"}
-          texto={cuadra.texto}
-        />
-      )}
-
-      {faltan.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-1">
-          <p className="text-sm font-semibold text-amber-900">
-            Lo que falta en la cotización ({faltan.length})
-          </p>
-          <ul className="list-disc pl-5 text-sm text-amber-900 space-y-0.5">
-            {faltan.map((f, i) => (
-              <li key={i}>{f}</li>
-            ))}
-          </ul>
-          <p className="text-xs text-amber-800">
-            Va también en el comentario interno de la cotización, para compras y
-            seguimiento.
-          </p>
-        </div>
-      )}
-
-      {c ? (
-        <div className="space-y-2">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
-            <span>
-              Cotización N° {c.numero} · {c.estado}
-              {c.cliente ? ` · ${c.cliente}` : ""}
+      {(dice || c) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
+          {dice && (
+            <span
+              title={dice.texto}
+              className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                dice.tono === "calza"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {dice.corto}
             </span>
-            <Link
-              to={`/negocio/${c.id}`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
-            >
-              <ExternalLink size={12} /> Ver la cotización
-            </Link>
-          </p>
-          <p className="text-xs text-gray-500">
-            Puedes editarla: agrégale lo que falta (por ejemplo, el servicio que
-            subcontratas) para cuadrar con tu oferta.
-          </p>
-          {!reescribiendo ? (
-            <button
-              type="button"
-              onClick={() => setReescribiendo(true)}
-              disabled={llevar.isPending}
-              className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-            >
-              Reescribir con lo postulado
-            </button>
-          ) : (
-            <ConfirmInline
-              question={`¿Reescribir la N° ${c.numero} con lo postulado? Lo que le agregaste a mano se reemplaza; queda anotado en su bitácora.`}
-              yesLabel="Sí, reescribir"
-              tono="normal"
-              busy={llevar.isPending}
-              onYes={() => llevar.mutate({})}
-              onNo={() => setReescribiendo(false)}
-            />
+          )}
+          {c && (
+            <>
+              <span
+                title={
+                  c.descuento > 0
+                    ? `Catálogo ${pesos(c.catalogo)} · descuento ${pesos(c.descuento)} (${porcentaje(c.descuento, c.catalogo)})`
+                    : undefined
+                }
+                className={
+                  cuadra && cuadra.tono !== "calza"
+                    ? "font-semibold text-red-700"
+                    : undefined
+                }
+              >
+                Cotización N° {c.numero}
+                {cuadra
+                  ? cuadra.tono === "calza"
+                    ? ` ${cuadra.corto}`
+                    : `: ${cuadra.corto}`
+                  : ""}
+              </span>
+              <Link
+                to={`/negocio/${c.id}`}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900"
+              >
+                <ExternalLink size={12} /> Ver la cotización
+              </Link>
+              {!reescribiendo && (
+                <button
+                  type="button"
+                  onClick={() => setReescribiendo(true)}
+                  disabled={llevar.isPending}
+                  className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-50"
+                >
+                  Reescribir con lo postulado
+                </button>
+              )}
+            </>
           )}
         </div>
-      ) : !estado.propuesta ? (
+      )}
+      {dice?.tono === "se_pasa" && <Aviso texto={dice.texto} />}
+      {cuadra && cuadra.tono !== "calza" && <Aviso texto={cuadra.texto} />}
+      {c && reescribiendo && (
+        <ConfirmInline
+          question={`¿Reescribir la N° ${c.numero} con lo postulado? Lo que le agregaste a mano se reemplaza; queda anotado en su bitácora.`}
+          yesLabel="Sí, reescribir"
+          tono="normal"
+          busy={llevar.isPending}
+          onYes={() => llevar.mutate({})}
+          onNo={() => setReescribiendo(false)}
+        />
+      )}
+
+      {c ? null : !estado.propuesta ? (
         <p className="text-sm text-gray-600">
           Primero arma la postulación (arriba): de ella sale la cotización.
         </p>

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ListChecks, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
@@ -10,35 +10,66 @@ import {
 import {
   actualizarOportunidad,
   type FichaDeOportunidad,
-  type ResultadoDeBases,
 } from "../../services/oportunidades.service";
+import type {
+  ArmadoDeLaOferta,
+  FilaDeLaOferta,
+} from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { cuentaDeMarcas, exigenciasDe } from "./exigencias";
-import { ESTILO_DE_CUMPLIMIENTO } from "./oportunidades.utils";
+import type { Exigencia } from "./exigencias";
+import {
+  CLASES_DEL_TONO,
+  ESTADOS_DE_EXIGENCIA,
+  type EstadoDeExigencia,
+  pedidoAlProveedor,
+  resumenDeLasExigencias,
+  textoDeLaOferta,
+} from "./relacionDeLasBases";
+import TituloDeBloque from "./TituloDeBloque";
 
 // LAS EXIGENCIAS DE LA LICITACIÓN (19-10, migración 152). Felipe: "un
 // listado de exigencias... y marcar algunos que sean como lo tengo y otro
 // hay que conseguir o revisar... y si marco uno que no puedo, bueno,
 // desisto". La IA sugiere (con tu carta, tus instalaciones y tu agenda); tú
 // marcas ✓ lo tengo o ✗ no puedo, y queda guardado.
+//
+// Desde la decisión 80 (26-10) es el bloque 3 de «Bases y criterios», «Lo
+// que tienes que ofrecer», y se juntó con «Lo que tienes que conseguir»
+// (decisión 39). Cada exigencia tiene UN solo estado (relacionDeLasBases):
+// lo que marcaste, si no cómo la ofreciste al armar la postulación, y si no
+// la primera lectura de la IA; debajo, cómo la ofreces. El pedido al
+// proveedor (una sola lista: todo lo que no tienes) y los detalles para el
+// comentario interno van plegados al final de la pestaña
+// (AlFinalDeLasBases); aquí, una línea que dice cuántas cosas pedir.
 
 const claveDeLaFicha = (id: number) => ["oportunidades", "ficha", id];
 
 export default function ExigenciasDeLaLicitacion({
   oportunidadId,
-  r,
+  exigencias,
+  estados,
+  cubre,
+  oferta,
+  ofertaVieja,
   marcas,
   postulada,
 }: {
   readonly oportunidadId: number;
-  readonly r: Pick<ResultadoDeBases, "requisitos" | "cumplimiento">;
+  readonly exigencias: Exigencia[];
+  /** Un estado por exigencia, por su clave. */
+  readonly estados: Map<string, EstadoDeExigencia>;
+  /** La línea de la oferta que cubre cada exigencia, por su clave. */
+  readonly cubre: Map<string, FilaDeLaOferta>;
+  /** La oferta de «Armar postulación», si está lista. */
+  readonly oferta: ArmadoDeLaOferta | null;
+  /** La oferta es de antes del último análisis de las bases. */
+  readonly ofertaVieja: boolean;
   readonly marcas: Record<string, MarcaDeExigencia>;
   /** Postulada o ganada: ya no se desiste. */
   readonly postulada: boolean;
 }) {
   const qc = useQueryClient();
   const [desistiendo, setDesistiendo] = useState(false);
-  const exigencias = exigenciasDe(r);
 
   const ponerMarcas = (nuevas: Record<string, MarcaDeExigencia>) =>
     qc.setQueryData<FichaDeOportunidad>(claveDeLaFicha(oportunidadId), (f) =>
@@ -88,23 +119,32 @@ export default function ExigenciasDeLaLicitacion({
   });
 
   if (exigencias.length === 0) return null;
-  const { loTengo, noPuedo, sinMarcar } = cuentaDeMarcas(exigencias, marcas);
+  const noPuedo = exigencias.filter((e) => marcas[e.clave] === "no_puedo");
+  const estadoDe = (e: Exigencia) => estados.get(e.clave) ?? "por_revisar";
+  // Lo que quedó plegado al final de la pestaña: el pedido al proveedor.
+  const paraElProveedor = pedidoAlProveedor(oferta).length;
 
   return (
-    <div className="p-3 rounded-lg border border-gray-200 space-y-2">
+    <section className="bg-white rounded-lg shadow p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <ListChecks size={15} /> Exigencias de la licitación
-        </h3>
+        <h2 className="text-sm font-semibold text-gray-900">
+          <TituloDeBloque numero={3}>Lo que tienes que ofrecer</TituloDeBloque>
+        </h2>
         <p className="text-xs text-gray-500">
-          {loTengo} lo tienes · {noPuedo.length} no puedes · {sinMarcar} por
-          revisar
+          {resumenDeLasExigencias(exigencias.map(estadoDe))}
         </p>
       </div>
       <p className="text-xs text-gray-500">
-        Lo que tienes que cumplir u ofrecer. La IA sugiere con tu carta, tus
-        instalaciones y tu agenda; tú marcas.
+        Un solo estado por exigencia: manda lo que marcas tú; si no, cómo la
+        ofreciste al armar la postulación; si no, lo que leyó la IA con tu
+        carta, tus instalaciones y tu agenda.
       </p>
+      {ofertaVieja && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+          La oferta es de antes del último análisis de las bases: vuelve a armar
+          la postulación para que salga de las bases nuevas.
+        </p>
+      )}
 
       {noPuedo.length > 0 && (
         <div className="p-3 rounded-lg border border-red-200 bg-red-50 space-y-2">
@@ -137,12 +177,21 @@ export default function ExigenciasDeLaLicitacion({
       <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
         {exigencias.map((e) => {
           const marca = marcas[e.clave];
-          const estilo = e.ia ? ESTILO_DE_CUMPLIMIENTO[e.ia] : null;
+          const sello = ESTADOS_DE_EXIGENCIA[estadoDe(e)];
+          const fila = cubre.get(e.clave);
+          const detalle = fila
+            ? `Ofreces: ${textoDeLaOferta(fila.como)}`
+            : e.detalle;
           return (
             <li
               key={e.clave}
               className="px-3 py-2 flex flex-wrap items-start gap-3"
             >
+              <span
+                className={`mt-0.5 w-28 shrink-0 px-1.5 py-0.5 text-center text-[11px] font-semibold rounded ${CLASES_DEL_TONO[sello.tono]}`}
+              >
+                {sello.texto}
+              </span>
               <div className="min-w-0 flex-1 space-y-0.5">
                 <p className="text-sm text-gray-800">
                   {e.que}
@@ -153,16 +202,7 @@ export default function ExigenciasDeLaLicitacion({
                     </span>
                   ) : null}
                 </p>
-                {estilo && (
-                  <p className="text-xs text-gray-500">
-                    <span
-                      className={`mr-1.5 px-1.5 py-0.5 font-semibold rounded ${estilo.clases}`}
-                    >
-                      IA: {estilo.label}
-                    </span>
-                    {e.detalle}
-                  </p>
-                )}
+                {detalle && <p className="text-xs text-gray-500">{detalle}</p>}
               </div>
               <div className="flex gap-1.5">
                 <button
@@ -204,6 +244,13 @@ export default function ExigenciasDeLaLicitacion({
           );
         })}
       </ul>
-    </div>
+
+      {paraElProveedor > 0 && (
+        <p className="text-xs text-gray-500">
+          El pedido al proveedor ({paraElProveedor}) está plegado al final de la
+          pestaña.
+        </p>
+      )}
+    </section>
   );
 }
