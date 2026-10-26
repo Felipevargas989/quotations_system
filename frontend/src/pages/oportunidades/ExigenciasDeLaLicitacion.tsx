@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronRight, Square, X } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { Check, X } from "lucide-react";
+import { useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -16,7 +16,6 @@ import type {
   FilaDeLaOferta,
 } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { normalizeText } from "../../utils/searchMatch";
 import type { Exigencia } from "./exigencias";
 import {
   CLASES_DEL_TONO,
@@ -37,124 +36,12 @@ import TituloDeBloque from "./TituloDeBloque";
 // que tienes que ofrecer», y se juntó con «Lo que tienes que conseguir»
 // (decisión 39). Cada exigencia tiene UN solo estado (relacionDeLasBases):
 // lo que marcaste, si no cómo la ofreciste al armar la postulación, y si no
-// la primera lectura de la IA; debajo, cómo la ofreces. Al final, lo que se
-// le pide al proveedor, lo que hay que agregar al catálogo y los detalles
-// para el comentario interno de la cotización.
+// la primera lectura de la IA; debajo, cómo la ofreces. Lo que se le pide
+// al proveedor, lo que hay que agregar al catálogo y los detalles para el
+// comentario interno van plegados al final de la pestaña
+// (AlFinalDeLasBases); aquí, una línea que dice cuántos son.
 
 const claveDeLaFicha = (id: number) => ["oportunidades", "ficha", id];
-
-function Plegado({
-  titulo,
-  children,
-}: {
-  readonly titulo: string;
-  readonly children: ReactNode;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        aria-expanded={abierto}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-      >
-        {abierto ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {titulo}
-      </button>
-      {abierto && children}
-    </div>
-  );
-}
-
-/** Lo que va después de la lista: el pedido al proveedor, lo que falta en
- *  el catálogo, lo de la oferta sin exigencia y los detalles. */
-function LoQueSaleDeLaOferta({
-  oferta,
-  sinExigencia,
-}: {
-  readonly oferta: ArmadoDeLaOferta;
-  readonly sinExigencia: FilaDeLaOferta[];
-}) {
-  const subcontratar = oferta.subcontratar ?? [];
-  const detalles = oferta.detalles ?? [];
-  const conseguir = oferta.faltan_en_el_catalogo;
-  // Una oferta de antes de la decisión 57 mezclaba todo en «conseguir».
-  const deAntes = oferta.subcontratar === undefined;
-  return (
-    <div className="space-y-3">
-      {subcontratar.length > 0 && (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
-          <p className="text-sm font-semibold text-amber-900">
-            Para el proveedor ({subcontratar.length})
-          </p>
-          <ul className="text-sm text-amber-900 space-y-0.5">
-            {subcontratar.map((t) => (
-              <li key={t} className="flex items-start gap-1.5">
-                <Square
-                  size={13}
-                  className="mt-1 shrink-0 text-amber-700"
-                  aria-hidden="true"
-                />
-                {t}
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-amber-800">
-            Es un solo pedido al proveedor externo. También queda en el
-            comentario interno de la cotización.
-          </p>
-        </div>
-      )}
-      {conseguir.length > 0 && (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
-          <p className="text-sm font-semibold text-amber-900">
-            {deAntes ? "Conseguir o subcontratar" : "Al catálogo"} (
-            {conseguir.length})
-          </p>
-          <ul className="list-disc pl-5 text-sm text-amber-900 space-y-0.5">
-            {conseguir.map((f) => (
-              <li key={f.que}>
-                {f.que}
-                {f.por_que && (
-                  <span className="text-amber-700"> · {f.por_que}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-amber-800">
-            Agrégalo al catálogo con su precio y vuelve a armar la postulación:
-            así la cotización cobra lo que de verdad cuesta.
-          </p>
-        </div>
-      )}
-      {sinExigencia.length > 0 && (
-        <Plegado
-          titulo={`Lo demás de la oferta (${sinExigencia.length}): sin exigencia en la lista`}
-        >
-          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-            {sinExigencia.map((f, i) => (
-              <li key={`${i}-${f.especificacion}`}>
-                {f.especificacion}: {textoDeLaOferta(f.como)}
-              </li>
-            ))}
-          </ul>
-        </Plegado>
-      )}
-      {detalles.length > 0 && (
-        <Plegado
-          titulo={`Detalles para el comentario interno (${detalles.length})`}
-        >
-          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-            {detalles.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
-        </Plegado>
-      )}
-    </div>
-  );
-}
 
 export default function ExigenciasDeLaLicitacion({
   oportunidadId,
@@ -233,14 +120,17 @@ export default function ExigenciasDeLaLicitacion({
   if (exigencias.length === 0) return null;
   const noPuedo = exigencias.filter((e) => marcas[e.clave] === "no_puedo");
   const estadoDe = (e: Exigencia) => estados.get(e.clave) ?? "por_revisar";
-  // Lo de la oferta que no cubre ninguna exigencia (sin los formularios,
-  // que van en «Lo que tienes que presentar»).
-  const usadas = new Set(cubre.values());
-  const sinExigencia = (oferta?.matriz ?? []).filter(
-    (f) =>
-      !usadas.has(f) &&
-      !/^(formulario|anexo)\b/.test(normalizeText(f.especificacion)),
-  );
+  // Lo que quedó plegado al final de la pestaña.
+  const paraElProveedor = oferta?.subcontratar?.length ?? 0;
+  const alCatalogo = oferta?.faltan_en_el_catalogo.length ?? 0;
+  const plegados = [
+    paraElProveedor > 0 ? `${paraElProveedor} para el proveedor` : null,
+    alCatalogo > 0
+      ? oferta?.subcontratar === undefined
+        ? `${alCatalogo} por conseguir o subcontratar`
+        : `${alCatalogo} al catálogo`
+      : null,
+  ].filter((x): x is string => Boolean(x));
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-3">
@@ -363,8 +253,10 @@ export default function ExigenciasDeLaLicitacion({
         })}
       </ul>
 
-      {oferta && (
-        <LoQueSaleDeLaOferta oferta={oferta} sinExigencia={sinExigencia} />
+      {plegados.length > 0 && (
+        <p className="text-xs text-gray-500">
+          Al final de la pestaña, plegados: {plegados.join(" y ")}.
+        </p>
       )}
     </section>
   );

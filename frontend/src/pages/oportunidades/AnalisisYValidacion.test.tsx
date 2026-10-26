@@ -353,6 +353,21 @@ describe("Lo que piden las bases", () => {
     expect(within(programa).getByText("En tu postulación")).toBeInTheDocument();
   });
 
+  it("«Pregúntale a la IA» es el bloque 5, abierto, con el cuadro para preguntar (decisión 80)", async () => {
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
+    const titulo = await screen.findByText(
+      "Pregúntale a la IA sobre estas bases",
+    );
+    const bloque = titulo.closest("section") as HTMLElement;
+    expect(within(bloque).getByText("5")).toBeInTheDocument();
+    expect(
+      within(bloque).getByRole("textbox", { name: "Pregunta" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bloque).getByRole("button", { name: "Preguntar" }),
+    ).toBeInTheDocument();
+  });
+
   it("un análisis anterior al 17-10 muestra sus avisos plegados y pide volver a analizar", async () => {
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />, {
       ...ANALISIS,
@@ -453,7 +468,7 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     ).toBeNull();
   });
 
-  it("con la oferta armada: cada exigencia dice cómo la ofreces y abajo va el pedido al proveedor (decisión 80)", async () => {
+  it("con la oferta armada: cada exigencia dice cómo la ofreces y el pedido al proveedor queda plegado al final (decisión 80)", async () => {
     pintar(
       <AnalisisDeBases oportunidadId={40} ficha={FICHA} />,
       { ...ANALISIS, resultado: CON_TECNICOS },
@@ -500,9 +515,23 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     expect(
       screen.getByText("2 exigencias: 1 por subcontratar · 1 de tu catálogo"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Para el proveedor (1)")).toBeInTheDocument();
+    // El bloque 3 avisa; el pedido está plegado al final.
+    expect(
+      screen.getByText(
+        "Al final de la pestaña, plegados: 1 para el proveedor.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Generador eléctrico de 10 kVA")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Para el proveedor (1)" }),
+    );
     expect(
       screen.getByText("Generador eléctrico de 10 kVA"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Detalles para el comentario interno (1)",
+      }),
     ).toBeInTheDocument();
     // La oferta es de después del análisis: no se avisa que está vieja.
     expect(screen.queryByText(/antes del último análisis/)).toBeNull();
