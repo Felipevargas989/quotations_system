@@ -215,6 +215,40 @@ describe("El documento, para verlo y editarlo", () => {
     expect(onCerrar).not.toHaveBeenCalled();
   });
 
+  it("alinear a la derecha el párrafo del cursor se ve al tiro y se guarda", async () => {
+    pintar();
+    await screen.findByText("FORMULARIO N°4");
+    const p = document.querySelector<HTMLElement>('[data-p="1"]');
+    if (!p) throw new Error("sin párrafo");
+    const rango = document.createRange();
+    rango.selectNodeContents(p);
+    rango.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(rango);
+    fireEvent.mouseDown(
+      screen.getByRole("button", { name: "Alinear a la derecha" }),
+    );
+    expect(p.style.textAlign).toBe("right");
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(e.guardarElWord).toHaveBeenCalledWith(40, 13, "a".repeat(40), [
+        {
+          id: 1,
+          tramos: [
+            {
+              r: 0,
+              t: "[COMPLETAR: tamaño de la piscina]",
+              b: false,
+              i: false,
+              u: false,
+            },
+          ],
+          alineacion: "derecha",
+        },
+      ]),
+    );
+  });
+
   it("«Volver a validar» guarda primero y pide la validación", async () => {
     pintar();
     await screen.findByText("FORMULARIO N°4");

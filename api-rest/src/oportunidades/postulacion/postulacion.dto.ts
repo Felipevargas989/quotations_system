@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -109,6 +110,11 @@ export class ParrafoEditadoDto {
   @Min(0)
   @Max(1_000_000)
   id!: number;
+
+  /** Cómo queda alineado; sin él, como estaba. */
+  @IsOptional()
+  @IsIn(['izquierda', 'centro', 'derecha', 'justificado'])
+  alineacion?: 'izquierda' | 'centro' | 'derecha' | 'justificado';
 
   @IsArray()
   @ArrayMaxSize(2_000)
