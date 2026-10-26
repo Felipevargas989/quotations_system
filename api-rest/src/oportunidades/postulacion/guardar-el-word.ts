@@ -321,7 +321,7 @@ const parrafoNuevo = (
 /** El mismo Word con otro word/document.xml. El texto (XML) va
  *  comprimido, como lo guarda Word; las imágenes ya vienen comprimidas y
  *  van tal cual. */
-const conElDocumento = (docx: Buffer, xml: string): Buffer => {
+export const conElDocumento = (docx: Buffer, xml: string): Buffer => {
   const nombres = nombresDelZip(docx);
   if (!nombres) throw new NoSeGuarda('Este Word no se puede abrir.');
   return armarZip(
