@@ -1,5 +1,8 @@
 import type { MarcaDeExigencia } from "../../services/exigencias.service";
-import type { FilaDeLaOferta } from "../../services/postulacion.service";
+import type {
+  ArmadoDeLaOferta,
+  FilaDeLaOferta,
+} from "../../services/postulacion.service";
 import { normalizeText } from "../../utils/searchMatch";
 import {
   esOpcional,
@@ -108,6 +111,26 @@ export function ofertaDeCadaExigencia(
   }
   return cubre;
 }
+
+/** El pedido al proveedor: todo lo que la empresa no tiene, en una sola
+ *  lista (Felipe, 26-10: "deja uno solo y mete todo ahí"). Una oferta
+ *  armada antes de ese día puede traer aparte lo que faltaba en el
+ *  catálogo: se suma aquí, sin repetir. */
+export const pedidoAlProveedor = (
+  oferta: Pick<
+    ArmadoDeLaOferta,
+    "subcontratar" | "faltan_en_el_catalogo"
+  > | null,
+): string[] => [
+  ...new Set(
+    [
+      ...(oferta?.subcontratar ?? []),
+      ...(oferta?.faltan_en_el_catalogo ?? []).map((f) => f.que),
+    ]
+      .map((x) => x.trim())
+      .filter(Boolean),
+  ),
+];
 
 /** Lo que dice el «cómo» de una línea de la oferta: si es solo un dato
  *  por completar, ese dato; si lo trae entre medio, marcado. */

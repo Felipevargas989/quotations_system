@@ -481,7 +481,10 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
         parametros: { postulacion: { total: 10_000_000, propuesta: false } },
         resultado: {
           resumen: "",
-          faltan_en_el_catalogo: [],
+          // Una oferta de antes de la decisión 80: lo del catálogo, aparte.
+          faltan_en_el_catalogo: [
+            { que: "Leche envasada de postre", por_que: "pág. 18" },
+          ],
           detalles: ["Postre: leche asada"],
           subcontratar: ["Generador eléctrico de 10 kVA"],
           matriz: [
@@ -516,18 +519,21 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
       screen.getByText("2 exigencias: 1 por subcontratar · 1 de tu catálogo"),
     ).toBeInTheDocument();
     // El bloque 3 avisa; el pedido está plegado al final.
+    // Una sola lista (Felipe: "deja uno solo y mete todo ahí").
     expect(
       screen.getByText(
-        "Al final de la pestaña, plegados: 1 para el proveedor.",
+        "El pedido al proveedor (2) está plegado al final de la pestaña.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Generador eléctrico de 10 kVA")).toBeNull();
     fireEvent.click(
-      screen.getByRole("button", { name: "Para el proveedor (1)" }),
+      screen.getByRole("button", { name: "Para el proveedor (2)" }),
     );
     expect(
       screen.getByText("Generador eléctrico de 10 kVA"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Leche envasada de postre")).toBeInTheDocument();
+    expect(screen.queryByText(/Al catálogo/)).toBeNull();
     expect(
       screen.getByRole("button", {
         name: "Detalles para el comentario interno (1)",

@@ -12,6 +12,7 @@ import {
   selloDeLaExperiencia,
   selloDeLaIntegridad,
   selloDeLasExigencias,
+  pedidoAlProveedor,
   selloDeLosDocumentos,
   textoDeLaOferta,
 } from "./relacionDeLasBases";
@@ -350,5 +351,25 @@ describe("lo que dice cada línea de la oferta", () => {
     expect(textoDeLaOferta("Salón climatizado para 160.")).toBe(
       "Salón climatizado para 160.",
     );
+  });
+});
+
+describe("un solo pedido al proveedor", () => {
+  it("lo que una oferta de antes dejó «Al catálogo» se suma, sin repetir", () => {
+    // Felipe, 26-10: "deja uno solo y mete todo ahí".
+    expect(
+      pedidoAlProveedor({
+        subcontratar: ["Proyector y telón", "Mobiliario para el coffee"],
+        faltan_en_el_catalogo: [
+          { que: "Diplomas para los alumnos", por_que: "pág. 15" },
+          { que: "Proyector y telón", por_que: "" },
+        ],
+      }),
+    ).toEqual([
+      "Proyector y telón",
+      "Mobiliario para el coffee",
+      "Diplomas para los alumnos",
+    ]);
+    expect(pedidoAlProveedor(null)).toEqual([]);
   });
 });

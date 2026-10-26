@@ -7,7 +7,7 @@ import type {
 import { normalizeText } from "../../utils/searchMatch";
 import { alertasDelAnalisis } from "./oportunidades.utils";
 import Plegable from "./Plegable";
-import { textoDeLaOferta } from "./relacionDeLasBases";
+import { pedidoAlProveedor, textoDeLaOferta } from "./relacionDeLasBases";
 
 // LO DE CONSULTA, PLEGADO AL FINAL DE «BASES Y CRITERIOS» (decisión 80 del
 // doc 17, 26-10). Felipe: "me gusta que existan estos plegables... creo que
@@ -17,6 +17,11 @@ import { textoDeLaOferta } from "./relacionDeLasBases";
 // la oferta y los detalles para el comentario interno) y después lo de las
 // bases (las fechas y garantías y las otras condiciones). Cada título dice
 // cuántos hay; el bloque 3 avisa que están aquí.
+//
+// Un solo pedido al proveedor (Felipe, 26-10: "todo lo que pusiste en
+// catálogo para mí es proveedor... deja uno solo y mete todo ahí"): lo que
+// una oferta de antes dejó «Al catálogo» se suma aquí (`pedidoAlProveedor`);
+// desde ese día el motor ya lo junta al armar.
 
 export default function AlFinalDeLasBases({
   r,
@@ -29,11 +34,8 @@ export default function AlFinalDeLasBases({
   /** La línea de la oferta que cubre cada exigencia. */
   readonly cubre: Map<string, FilaDeLaOferta>;
 }) {
-  const subcontratar = oferta?.subcontratar ?? [];
-  const conseguir = oferta?.faltan_en_el_catalogo ?? [];
+  const subcontratar = pedidoAlProveedor(oferta);
   const detalles = oferta?.detalles ?? [];
-  // Una oferta de antes de la decisión 57 mezclaba todo en «conseguir».
-  const deAntes = Boolean(oferta) && oferta?.subcontratar === undefined;
   // Lo de la oferta que no cubre ninguna exigencia (sin los formularios,
   // que van en «Lo que tienes que presentar»).
   const usadas = new Set(cubre.values());
@@ -45,7 +47,6 @@ export default function AlFinalDeLasBases({
   const { condiciones, separadas } = alertasDelAnalisis(r);
   const hayAlgo =
     subcontratar.length +
-      conseguir.length +
       sinExigencia.length +
       detalles.length +
       r.fechas.length +
@@ -71,28 +72,9 @@ export default function AlFinalDeLasBases({
             ))}
           </ul>
           <p className="text-xs text-gray-500">
-            Es un solo pedido al proveedor externo. También queda en el
-            comentario interno de la cotización.
-          </p>
-        </Plegable>
-      )}
-      {conseguir.length > 0 && (
-        <Plegable
-          titulo={`${deAntes ? "Conseguir o subcontratar" : "Al catálogo"} (${conseguir.length})`}
-        >
-          <ul className="list-disc pl-5 text-sm text-gray-800 space-y-0.5">
-            {conseguir.map((f) => (
-              <li key={f.que}>
-                {f.que}
-                {f.por_que && (
-                  <span className="text-gray-500"> · {f.por_que}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-gray-500">
-            Agrégalo al catálogo con su precio y vuelve a armar la postulación:
-            así la cotización cobra lo que de verdad cuesta.
+            Es un solo pedido al proveedor externo: todo lo que no tienes. Al
+            armar la postulación queda también en el comentario interno de la
+            cotización.
           </p>
         </Plegable>
       )}
