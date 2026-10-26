@@ -61,6 +61,17 @@ evento aceptado tiene marcada desde julio.
 - El paso a producción lo pide el técnico con el botón «Solicitar» de la
   plataforma.
 
+**Lo que Felipe hace en facturacion.cl antes de partir**
+- Cargar el **certificado digital** (la firma electrónica) en la
+  plataforma. Lo carga él. Eventia nunca lo ve ni lo guarda, porque
+  facturacion.cl firma cada documento con ese certificado.
+- Dejar listos en facturacion.cl los **folios de boleta**: tipo 39, y 41
+  si hubiera boletas exentas. Hasta hoy las boletas salían por Facto, con
+  folios cargados en Facto. Hay que preguntarle a soporte cómo se piden y
+  se cargan.
+- Contratar el Servicio de Integración con su correo como técnico (D2).
+- Cuando las boletas de Eventia funcionen, Facto deja de emitir boletas.
+
 ## 3. Limitaciones (revisadas el 26-10-2026)
 
 Se revisaron tres fuentes:
@@ -105,7 +116,11 @@ Se revisaron tres fuentes:
 ## 4. Decisiones
 
 **Tomadas por Felipe (26-10-2026):**
-- El proveedor es facturacion.cl.
+- **Las boletas y las facturas salen por Eventia a través de
+  facturacion.cl.** Hasta hoy, las facturas iban por facturacion.cl, las
+  boletas por Facto y las del restaurante por Fudo. Felipe: *"quiero
+  empezar a sacar boletas y facturas por Eventia a través de
+  facturación.cl"*.
 - La ficha del cliente tiene «Datos de facturación»: RUT, razón social,
   giro, dirección, comuna, ciudad y correo.
 - La factura referencia la OC *"como se debe"*: código **801** = orden de
@@ -117,7 +132,7 @@ Se revisaron tres fuentes:
 
 | # | Pregunta | Recomendación |
 |---|---|---|
-| D1 | ¿Hoy todo se emite en facturacion.cl? La factura N° 258 (dic-2025) salió por Facto.cl. | Confirmarlo antes de pagar. |
+| D1 | ¿Las boletas del restaurante siguen saliendo por Fudo? | Sí. Fudo es la caja del restaurante, y los dos sistemas pueden convivir si cada uno tiene sus propios folios. |
 | D2 | ¿Se compra el Servicio de Integración, y quién queda como técnico registrado? | Sí, con felipe@ como técnico: las claves le llegan a Felipe y él las carga en Railway. |
 | D3 | ¿De dónde sale el valor de la boleta de cabaña? Hoy el catálogo no tiene las tarifas de las cabañas: solo «Alojamiento temporada…» por persona y una «Cabaña 3H 2B». | Agregar un tarifario de cabañas: 2, 4 y 6 personas por temporada, persona adicional y tinaja. Que solo el administrador pueda escribir el monto a mano. |
 | D4 | En una factura sin OC, ¿el % se calcula sobre el total del evento? | Sí. |
@@ -260,8 +275,12 @@ giro no viene en la OC.
   - los tiempos;
   - el PDF (L10).
 - Qué entrega: una tabla con lo medido.
-- Qué necesita: el Servicio de Integración pagado y las credenciales de
-  prueba cargadas en Railway, en el motor del laboratorio.
+- Qué necesita:
+  - el Servicio de Integración pagado;
+  - el certificado digital y los folios de boleta cargados en
+    facturacion.cl (§2);
+  - las credenciales de prueba cargadas en Railway, en el motor del
+    laboratorio.
 
 **Paso 1. Boletas desde recepción, en el laboratorio.**
 - Incluye el tarifario si D3 dice que sí, y una prueba de punta a punta en
