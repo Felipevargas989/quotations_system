@@ -14,7 +14,8 @@ import { pedidoAlProveedor, textoDeLaOferta } from "./relacionDeLasBases";
 // [lo que se le pide al proveedor y lo que va al catálogo] también deberían
 // estar en los plegables de abajo". Primero lo que sale de la oferta armada
 // (el pedido al proveedor, lo que hay que agregar al catálogo, lo demás de
-// la oferta y los detalles para el comentario interno) y después lo de las
+// la oferta y los detalles, que van al comentario interno de la cotización:
+// «Otros detalles a considerar», como lo llamó Felipe el 26-10) y después lo de las
 // bases (las fechas y garantías y las otras condiciones). Cada título dice
 // cuántos hay; el bloque 3 avisa que están aquí.
 //
@@ -92,9 +93,7 @@ export default function AlFinalDeLasBases({
         </Plegable>
       )}
       {detalles.length > 0 && (
-        <Plegable
-          titulo={`Detalles para el comentario interno (${detalles.length})`}
-        >
+        <Plegable titulo={`Otros detalles a considerar (${detalles.length})`}>
           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
             {detalles.map((t) => (
               <li key={t}>{t}</li>
