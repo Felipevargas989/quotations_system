@@ -60,6 +60,9 @@ import { claveDeTraer, useEstadoDeTraer } from "./useEstadoDeTraer";
 // (sin firma) o si ya está firmado (paso 4, migración 129), y quien la usa
 // puede sumar acciones por fila (Firmar) y algo al pie (MiPostulacion). Las
 // acciones de la fila van también dentro del visor: se lee y se firma ahí.
+// Desde el 26-10 (decisión 79) quien la usa puede poner su título, el estado
+// de cada archivo a la izquierda y, bajo el nombre, lo que falta o hay que
+// revisar («Tus documentos»).
 //
 // Más clara el 17-10 en la noche (Felipe: "vamos con todas"): un ícono por
 // tipo de archivo, el nombre sin guiones bajos, «Descargar» en todos (y
@@ -82,6 +85,10 @@ export default function AdjuntosDeLaOportunidad({
   plegadaDePartida = false,
   filtrar,
   abrirAqui,
+  titulo,
+  descripcion,
+  estadoDeFila,
+  detalleDeFila,
 }: {
   readonly oportunidadId: number;
   readonly seccion?: SeccionDeArchivos;
@@ -99,6 +106,18 @@ export default function AdjuntosDeLaOportunidad({
    *  «Mi postulación», el documento para verlo y editarlo, decisión 78).
    *  Devuelve cómo abrirlo, o nada para usar el visor. */
   readonly abrirAqui?: (a: AdjuntoDeOportunidad) => (() => void) | undefined;
+  /** El título; sin él, «Mi postulación» o «Bases y anexos». */
+  readonly titulo?: ReactNode;
+  /** El texto bajo el título; sin él, el de cada sección. */
+  readonly descripcion?: ReactNode;
+  /** El estado de cada archivo, a la izquierda en vez de su ícono y de su
+   *  sello («Tus documentos», decisión 79: firmado, por completar...). */
+  readonly estadoDeFila?: (a: AdjuntoDeOportunidad) => {
+    readonly label: string;
+    readonly clases: string;
+  };
+  /** Lo que va bajo el nombre (lo que falta o hay que revisar). */
+  readonly detalleDeFila?: (a: AdjuntoDeOportunidad) => ReactNode;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "adjuntos", oportunidadId, seccion];
@@ -216,7 +235,8 @@ export default function AdjuntosDeLaOportunidad({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <h2 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-gray-900">
-            {seccion === "postulacion" ? "Mi postulación" : "Bases y anexos"}
+            {titulo ??
+              (seccion === "postulacion" ? "Mi postulación" : "Bases y anexos")}
             {adjuntos.length > 0 && (
               <button
                 type="button"
@@ -238,9 +258,10 @@ export default function AdjuntosDeLaOportunidad({
             )}
           </h2>
           <p className={abierta ? "text-xs text-gray-500" : "hidden"}>
-            {seccion === "postulacion"
-              ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
-              : "«Traer los documentos» baja solos los que publicó el comprador (bases, decretos, formularios). Si no están, ábrelo con el enlace «Mercado Público» de arriba, bájalos y arrástralos aquí."}
+            {descripcion ??
+              (seccion === "postulacion"
+                ? "Lo que vas a presentar: anexos llenos y firmados, propuesta, oferta, certificados. Después valídalo contra lo que piden las bases."
+                : "«Traer los documentos» baja solos los que publicó el comprador (bases, decretos, formularios). Si no están, ábrelo con el enlace «Mercado Público» de arriba, bájalos y arrástralos aquí.")}
           </p>
         </div>
         {seccion === "bases" && (
@@ -274,7 +295,8 @@ export default function AdjuntosDeLaOportunidad({
         adjuntos.length > 0 && (
           <ul className="divide-y divide-gray-100">
             {adjuntos.map((a) => {
-              const sello = ORIGENES[a.origen];
+              const estado = estadoDeFila?.(a);
+              const sello = estado ? null : ORIGENES[a.origen];
               const abrir = abrirAqui?.(a);
               const clase = claseDeArchivo(a.nombre);
               const Icono =
@@ -282,12 +304,23 @@ export default function AdjuntosDeLaOportunidad({
                   ? FileArchive
                   : ICONO_DEL_ARCHIVO[clase];
               return (
-                <li key={a.id} className="py-2 flex items-center gap-3">
-                  <Icono
-                    size={18}
-                    className={`shrink-0 ${COLOR_DEL_ARCHIVO[clase]}`}
-                    aria-hidden="true"
-                  />
+                <li
+                  key={a.id}
+                  className={`py-2 flex gap-3 ${estado ? "items-start" : "items-center"}`}
+                >
+                  {estado ? (
+                    <span
+                      className={`mt-0.5 w-24 shrink-0 px-1.5 py-0.5 text-center text-[11px] font-semibold rounded ${estado.clases}`}
+                    >
+                      {estado.label}
+                    </span>
+                  ) : (
+                    <Icono
+                      size={18}
+                      className={`shrink-0 ${COLOR_DEL_ARCHIVO[clase]}`}
+                      aria-hidden="true"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p
                       className="flex items-center gap-2 text-sm text-gray-800"
@@ -304,6 +337,7 @@ export default function AdjuntosDeLaOportunidad({
                         </span>
                       )}
                     </p>
+                    {detalleDeFila?.(a)}
                     <p className="text-xs text-gray-400">
                       {tamanoLegible(a.bytes)}
                       {a.quien?.full_name

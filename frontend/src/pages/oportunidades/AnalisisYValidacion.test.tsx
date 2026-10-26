@@ -118,6 +118,7 @@ vi.mock("../../services/oportunidades.service", () => ({
   pedirAnalisis: vi.fn(),
   getValidacion: vi.fn(),
   pedirValidacion: vi.fn(),
+  getGeneraciones: vi.fn(),
   getOferente: vi.fn(),
   actualizarOportunidad: vi.fn(),
 }));
@@ -164,12 +165,21 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const pintar = (ui: ReactElement, analisis: unknown = ANALISIS) => {
+const pintar = (
+  ui: ReactElement,
+  analisis: unknown = ANALISIS,
+  postulacion: unknown[] = POSTULACION,
+) => {
   s.getAnalisis.mockResolvedValue(analisis as never);
   s.getValidacion.mockResolvedValue(VALIDACION as never);
+  s.getGeneraciones.mockResolvedValue({
+    anexos: null,
+    firma: null,
+    propuesta: null,
+  });
   s.getAdjuntos.mockImplementation((_id, seccion) =>
     Promise.resolve(
-      (seccion === "postulacion" ? POSTULACION : [{ id: 1 }]) as never,
+      (seccion === "postulacion" ? postulacion : [{ id: 1 }]) as never,
     ),
   );
   s.getOferente.mockResolvedValue({ documentos: CARPETA } as never);
@@ -537,20 +547,40 @@ describe("Exigencias de la licitación", () => {
   });
 });
 
-describe("Validar documentos", () => {
-  it("el veredicto arriba, con los conteos, y solo lo que hay que arreglar", async () => {
+describe("Validar todo (decisión 79)", () => {
+  it("el veredicto y la última validación en una línea, y solo lo que hay que arreglar", async () => {
     pintar(<ValidacionDeDocumentos oportunidadId={40} />);
     expect(
       await screen.findByText("Todavía no: falta algo obligatorio"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("1 cumplen · 1 faltan · 1 por revisar"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/1 de 3 requisitos cumplen/)).toBeInTheDocument();
     expect(screen.getByText("Falta")).toBeInTheDocument();
-    expect(screen.getByText("Revisar")).toBeInTheDocument();
+    expect(screen.getAllByText("Revisar")).toHaveLength(2);
     expect(screen.queryByText("Programa de integridad")).toBeNull();
     expect(
       screen.getByText("El RUT del Anexo 3 no es el de la empresa."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Validar todo" })).toBeEnabled();
+  });
+
+  it("lo de un formulario que está en «Tus documentos» no se repite: va bajo él", async () => {
+    pintar(<ValidacionDeDocumentos oportunidadId={40} />, ANALISIS, [
+      ...POSTULACION,
+      {
+        id: 12,
+        nombre: "Anexo 3 - Experiencia - firmado.pdf",
+        origen: "firmado",
+        creado_en: "2026-10-17T12:00:00.000Z",
+      },
+    ]);
+    expect(
+      await screen.findByText("Todavía no: falta algo obligatorio"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText("El RUT del Anexo 3 no es el de la empresa."),
+      ).toBeNull(),
+    );
+    expect(screen.getByText("Boleta de garantía")).toBeInTheDocument();
   });
 });

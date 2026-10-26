@@ -16,7 +16,8 @@ import * as postulacion from "../../services/postulacion.service";
 import ArmarPostulacion from "./ArmarPostulacion";
 
 // «ARMAR POSTULACIÓN» (decisión 35, 19-10): un solo botón que pide el
-// precio; después, cómo va cada paso y «Reintentar» lo que falló.
+// precio; después, cómo va cada paso y «Reintentar» lo que falló. Desde la
+// decisión 79 (26-10), ya armada queda en una barra con «Volver a armar».
 
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
@@ -173,6 +174,104 @@ describe("Armar postulación", () => {
         monto_total: 11_900_000,
       }),
     );
+  });
+
+  it("ya armada, queda en una barra; «Volver a armar» abre todo y «Cerrar» la vuelve a la barra (decisión 79)", async () => {
+    p.getOfertaDeLaPostulacion.mockResolvedValue({
+      id: 21,
+      estado: "listo",
+      creado_en: "2026-10-26T02:58:00.000Z",
+      terminado_en: "2026-10-26T03:00:00.000Z",
+      parametros: { postulacion: { total: 17_150_000, propuesta: false } },
+      resultado: null,
+    } as never);
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 49,
+        tipo: "anexos",
+        estado: "listo",
+        creado_en: "2026-10-26T03:03:42.000Z",
+        terminado_en: "2026-10-26T03:05:27.000Z",
+        costo_usd: null,
+        no_leidos: [],
+        resultado: {
+          resumen: "",
+          documentos: [],
+          pendientes: [],
+          descartados: [],
+          no_entregados: [],
+        },
+      },
+      firma: null,
+      propuesta: null,
+    } as never);
+    x.getExperiencia.mockResolvedValue({
+      piden: true,
+      trabajo: {
+        estado: "listo",
+        resultado: {
+          pide: 6,
+          periodo: "los últimos 4 años",
+          condiciones: "",
+          nota: "",
+          faltan: [],
+          confirmada: true,
+          elegidas: ["a", "b", "c"].map((clave) => ({
+            clave,
+            de: "mi_empresa",
+            con_respaldo: clave !== "c",
+            numero: `OC-${clave}`,
+            mandante: "Municipalidad de Quillón",
+            contrato: "Evento",
+            anio: 2025,
+            monto: 1_000_000,
+            fuente: "mercado_publico",
+            archivo: null,
+          })),
+        },
+      },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(
+        /Armada el .+ · \$17\.150\.000 con IVA · experiencia: 2 contratos/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Volver a armar" }));
+    expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(
+      "17.150.000",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
+  });
+
+  it("postulada, la barra no ofrece volver a armar", async () => {
+    p.getOfertaDeLaPostulacion.mockResolvedValue({
+      id: 21,
+      estado: "listo",
+      creado_en: "2026-10-26T02:58:00.000Z",
+      terminado_en: "2026-10-26T03:00:00.000Z",
+      parametros: { postulacion: { total: 17_150_000, propuesta: false } },
+      resultado: null,
+    } as never);
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 49,
+        tipo: "anexos",
+        estado: "listo",
+        creado_en: "2026-10-26T03:03:42.000Z",
+        terminado_en: "2026-10-26T03:05:27.000Z",
+        costo_usd: null,
+        no_leidos: [],
+        resultado: null,
+      },
+      firma: null,
+      propuesta: null,
+    } as never);
+    pintar(true);
+    expect(await screen.findByText(/Armada el/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Volver a armar" })).toBeNull();
   });
 
   it("sin la razón social o el RUT, lo dice y no deja partir", async () => {

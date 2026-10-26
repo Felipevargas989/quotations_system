@@ -25,8 +25,7 @@ import { type PestanaDeFicha, yaSeAdjudico } from "./fichaEnCorto";
 import FichaEnUnaMirada from "./FichaEnUnaMirada";
 import MiPostulacion from "./MiPostulacion";
 import OfertaDeLaPostulacion from "./OfertaDeLaPostulacion";
-import SetParaMercadoPublico from "./SetParaMercadoPublico";
-import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
+import SubirAMercadoPublico from "./SubirAMercadoPublico";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
 import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
@@ -298,6 +297,9 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             plegadaDePartida={analisis?.estado === "listo"}
           />
           <AnalisisDeBases oportunidadId={ficha.id} ficha={ficha} />
+          {/* Lo que te comprometes y no está en tu catálogo: va con lo que
+              piden las bases, no en «Mi postulación» (decisión 79). */}
+          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
         </>
       )}
 
@@ -310,13 +312,14 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
                 : "Ya la postulaste: la oferta, su cotización y los documentos quedan fijos, tal como se subieron a Mercado Público."}
             </p>
           )}
+          {/* En tres pasos (decisión 79): arriba lo armado en una línea,
+              después 1 El precio, 2 Tus documentos y 3 Subir. */}
           <ArmarPostulacion
             oportunidadId={ficha.id}
             congelada={
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
           />
-          <OfertaDeLaPostulacion oportunidadId={ficha.id} />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}
@@ -327,11 +330,11 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
           />
-          <SetParaMercadoPublico
+          <SubirAMercadoPublico
             oportunidadId={ficha.id}
             codigo={ficha.codigo}
+            cierre={ficha.proceso.fecha_cierre}
           />
-          <ValidacionDeDocumentos oportunidadId={ficha.id} />
         </>
       )}
 

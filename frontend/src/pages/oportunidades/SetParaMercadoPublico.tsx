@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Download, FolderArchive, Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -18,6 +18,11 @@ import { humanizeApiError } from "../../utils/apiErrors";
 // los respaldos de la experiencia declarada. Antes de bajarlo, lo que falta.
 // Desde la decisión 38, una cuarta, «4. Otros», con lo general para
 // contratar (e-RUT, patente, no quiebra, estatutos y vigencia).
+//
+// Desde la decisión 79 (26-10) va al final del paso 3, «Subir a Mercado
+// Público», después de «Validar todo»: «Descargar el ZIP» baja de una, y
+// «Ver qué lleva» muestra cada archivo en su carpeta y los avisos de antes
+// de subir.
 
 const QUE_ES: Record<PiezaDelSet["que_es"], string> = {
   formulario: "Anexo",
@@ -80,44 +85,33 @@ export default function SetParaMercadoPublico({
   const carpetas = [...porCarpeta.keys()].sort((a, b) => a.localeCompare(b));
 
   return (
-    <section className="bg-white rounded-lg shadow p-5 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-0.5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-            <FolderArchive size={15} /> Para subir a Mercado Público
-          </h2>
-          <p className="text-xs text-gray-500">
-            Un ZIP con una carpeta por cada parte del portal: administrativa,
-            técnica y económica. Lleva los anexos (firmados, si los firmaste),
-            la propuesta técnica, lo que piden las bases de «Mi empresa» y los
-            respaldos de la experiencia que declaraste. En «4. Otros», lo
-            general para contratar: e-RUT, patente, no quiebra, estatutos y
-            vigencia.
-          </p>
-        </div>
-        {abierto ? (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          type="button"
+          onClick={() => descargar.mutate()}
+          disabled={descargar.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+        >
+          {descargar.isPending ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Download size={14} />
+          )}
+          {descargar.isPending ? "Armando el ZIP…" : "Descargar el ZIP"}
+        </button>
+        <span className="text-xs text-gray-500">
+          Una carpeta por cada parte del portal (administrativa, técnica,
+          económica y «4. Otros»), lista para subir.{" "}
           <button
             type="button"
-            onClick={() => descargar.mutate()}
-            disabled={!set || set.piezas.length === 0 || descargar.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+            onClick={() => setAbierto((v) => !v)}
+            aria-expanded={abierto}
+            className="font-semibold text-blue-700 hover:text-blue-900"
           >
-            {descargar.isPending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Download size={14} />
-            )}
-            {descargar.isPending ? "Armando el ZIP…" : "Descargar ZIP"}
+            {abierto ? "Ocultar qué lleva" : "Ver qué lleva"}
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAbierto(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-          >
-            Revisar qué va
-          </button>
-        )}
+        </span>
       </div>
 
       {abierto && isFetching && !set && (
@@ -199,6 +193,6 @@ export default function SetParaMercadoPublico({
           )}
         </div>
       )}
-    </section>
+    </div>
   );
 }

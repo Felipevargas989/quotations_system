@@ -21,6 +21,7 @@ import {
 } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
+import { formatMomento } from "../../utils/dates";
 import EstadoDeGeneracion from "./EstadoDeGeneracion";
 import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
 import LaExperiencia from "./LaExperiencia";
@@ -49,6 +50,12 @@ import {
 // anexos con ese precio (la oferta económica la calcula Eventia) y la
 // propuesta si las bases la piden o aceptan formato propio. Todo sale SIN
 // firma a «Mi postulación»: la firma sigue aparte, después de revisar.
+//
+// Desde el 26-10 (decisión 79), ya armada queda en una barra arriba de los
+// tres pasos: cuándo se armó, el precio, la experiencia y «Volver a armar»,
+// que abre todo esto. Felipe: "no sé si tiene sentido mostrar la experiencia
+// de lo primero". Abierto se ve antes de la primera vez, mientras la IA
+// arma y si algo no resultó (para reintentarlo).
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -145,6 +152,7 @@ export default function ArmarPostulacion({
   );
 
   const vuelta = vueltaDeLaPostulacion(oferta, generaciones);
+  const [abierta, setAbierta] = useState(false);
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
   const precio = escrito ?? vuelta?.total;
   const desglose = precio && precio > 0 ? desgloseDeOferta(precio) : null;
@@ -170,6 +178,8 @@ export default function ArmarPostulacion({
     onSuccess: (fila) => {
       qc.setQueryData(claveDeLaOferta(oportunidadId), fila);
       setPrecio(undefined);
+      // Al terminar vuelve a la barra.
+      setAbierta(false);
       toast.success("La IA está armando la postulación: tarda unos minutos.");
     },
     onError: (e) =>
@@ -214,21 +224,92 @@ export default function ArmarPostulacion({
             ? "Escribe el precio"
             : undefined));
 
+  const conError =
+    vuelta !== null &&
+    (vuelta.oferta === "error" ||
+      vuelta.anexos.estado === "error" ||
+      vuelta.propuesta.estado === "error");
+  if (vuelta && !ocupado && !conError && !abierta) {
+    const armadaEl = Math.max(
+      ...[
+        oferta?.terminado_en,
+        vuelta.anexos.generacion?.terminado_en,
+        vuelta.propuesta.generacion?.terminado_en,
+      ].map((t) => (t ? Date.parse(t) : 0)),
+    );
+    const elegida = experiencia?.trabajo?.resultado;
+    const contratos =
+      experiencia?.piden && elegida?.confirmada
+        ? elegida.elegidas.filter((e) => e.con_respaldo).length
+        : null;
+    return (
+      <section className="bg-white rounded-lg shadow px-5 py-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="flex items-center gap-1.5 text-sm text-gray-600">
+            <CheckCircle2
+              size={14}
+              className="shrink-0 text-green-600"
+              aria-hidden="true"
+            />
+            <span>
+              Armada
+              {armadaEl > 0
+                ? ` el ${formatMomento(new Date(armadaEl), "diaHora")}`
+                : ""}{" "}
+              · {pesos(vuelta.total)} con IVA
+              {contratos !== null &&
+                ` · experiencia: ${contratos} ${contratos === 1 ? "contrato" : "contratos"}`}
+            </span>
+          </p>
+          {!congelada && (
+            <button
+              type="button"
+              onClick={() => setAbierta(true)}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              Volver a armar
+            </button>
+          )}
+        </div>
+        {vuelta.avisos.map((aviso) => (
+          <p
+            key={aviso}
+            className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900"
+          >
+            {aviso}
+          </p>
+        ))}
+      </section>
+    );
+  }
+
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-4">
-      <div className="space-y-0.5">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <Sparkles size={15} /> Armar postulación
-        </h2>
-        <p className="text-xs text-gray-500">
-          Pones el precio y la IA arma todo con tu catálogo: qué ofreces, los
-          anexos del comprador (la oferta económica con ese precio) y, si las
-          bases no traen un formulario técnico (una compra ágil, por ejemplo),
-          la propuesta técnica valorizada: el detalle y al final el neto, el IVA
-          y el total. Todo sale <b>sin firma</b> a «Mi postulación»: revísalo y
-          recién ahí fírmalo. Al volver a armar, <b>lo firmado se queda</b> y se
-          rehace solo lo demás, que reemplaza a los borradores de antes.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+            <Sparkles size={15} /> Armar postulación
+          </h2>
+          <p className="text-xs text-gray-500">
+            Pones el precio y la IA arma todo con tu catálogo: qué ofreces, los
+            anexos del comprador (la oferta económica con ese precio) y, si las
+            bases no traen un formulario técnico (una compra ágil, por ejemplo),
+            la propuesta técnica valorizada: el detalle y al final el neto, el
+            IVA y el total. Todo sale <b>sin firma</b> a «Tus documentos»:
+            revísalo y recién ahí fírmalo. Al volver a armar,{" "}
+            <b>lo firmado se queda</b> y se rehace solo lo demás, que reemplaza
+            a los borradores de antes.
+          </p>
+        </div>
+        {abierta && !ocupado && (
+          <button
+            type="button"
+            onClick={() => setAbierta(false)}
+            className="shrink-0 text-sm text-gray-500 hover:text-gray-800"
+          >
+            Cerrar
+          </button>
+        )}
       </div>
 
       {falta && (
@@ -336,7 +417,7 @@ export default function ArmarPostulacion({
             )}
             {vuelta.oferta === "listo" && (
               <p className="text-sm text-gray-600">
-                Lista: el detalle está abajo, en «Qué ofreces».
+                Lista: la oferta punto por punto está en «Bases y criterios».
               </p>
             )}
             {vuelta.oferta === "error" && (
