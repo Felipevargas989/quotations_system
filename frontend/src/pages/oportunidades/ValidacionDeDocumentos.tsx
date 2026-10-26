@@ -80,8 +80,10 @@ export default function ValidacionDeDocumentos({
   );
   const cumplen = r ? contarPorEstadoDeValidacion(r.requisitos).cumple : 0;
   // Decisión 83: desde el 26-10 lee todo lo que va en el ZIP y anota la
-  // carpeta de cada archivo; las de antes leían solo «Mi postulación».
-  const leyoElZip = validacion?.archivos.some((a) => a.carpeta) ?? false;
+  // carpeta de cada archivo; las de antes leían solo «Mi postulación». Sin
+  // validación el motor responde vacío (""), sin `archivos`.
+  const leyoElZip =
+    validacion?.archivos?.some((a) => Boolean(a.carpeta)) ?? false;
 
   return (
     <div className="space-y-3">
