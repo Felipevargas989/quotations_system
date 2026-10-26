@@ -183,14 +183,11 @@ const pintar = (
   analisis: unknown = ANALISIS,
   postulacion: unknown[] = POSTULACION,
   oferta: unknown = null,
+  generaciones: unknown = { anexos: null, firma: null, propuesta: null },
 ) => {
   s.getAnalisis.mockResolvedValue(analisis as never);
   s.getValidacion.mockResolvedValue(VALIDACION as never);
-  s.getGeneraciones.mockResolvedValue({
-    anexos: null,
-    firma: null,
-    propuesta: null,
-  });
+  s.getGeneraciones.mockResolvedValue(generaciones as never);
   s.getCotizacionDeLaPostulacion.mockResolvedValue(null as never);
   po.getOfertaDeLaPostulacion.mockResolvedValue(oferta as never);
   xp.getExperiencia.mockResolvedValue({ piden: false, trabajo: null });
@@ -541,6 +538,47 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     ).toBeInTheDocument();
     // La oferta es de después del análisis: no se avisa que está vieja.
     expect(screen.queryByText(/antes del último análisis/)).toBeNull();
+  });
+
+  it("postulada antes de «Armar postulación»: el pedido al proveedor sale de los anexos (26-10)", async () => {
+    // Felipe: "en esa misma no está el desplegable del proveedor".
+    pintar(
+      <AnalisisDeBases oportunidadId={40} ficha={FICHA} />,
+      { ...ANALISIS, resultado: CON_TECNICOS },
+      POSTULACION,
+      null,
+      {
+        anexos: {
+          id: 1,
+          tipo: "anexos",
+          estado: "listo",
+          parametros: { monto_total: 11_930_000 },
+          resultado: {
+            resumen: "",
+            documentos: [],
+            descartados: [],
+            no_entregados: [],
+            pendientes: [
+              "Subcontratar y cotizar: audiovisual (amplificación, micrófonos), fotógrafo, generador eléctrico.",
+            ],
+          },
+        },
+        firma: null,
+        propuesta: null,
+      },
+    );
+    expect(
+      await screen.findByText(
+        "El pedido al proveedor (3) está plegado al final de la pestaña.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Para el proveedor (3)" }),
+    );
+    expect(
+      screen.getByText("Audiovisual (amplificación, micrófonos)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Generador eléctrico")).toBeInTheDocument();
   });
 
   it("marcar ✓ lo tengo se guarda; ✗ no puedo ofrece desistir", async () => {

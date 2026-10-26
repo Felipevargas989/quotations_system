@@ -35,6 +35,7 @@ import {
   seLlena,
 } from "./formulariosDelComprador";
 import { desgloseDeOferta } from "./oportunidades.utils";
+import { precioDeLosAnexos } from "./postuladasDeAntes";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 import {
   claveDeLaOferta,
@@ -229,6 +230,24 @@ export default function ArmarPostulacion({
     (vuelta.oferta === "error" ||
       vuelta.anexos.estado === "error" ||
       vuelta.propuesta.estado === "error");
+  // Postulada antes de «Armar postulación» (19-10): no hay nada que armar;
+  // una línea con el precio con que se llenaron los anexos.
+  if (congelada && !vuelta) {
+    const precio = precioDeLosAnexos(generaciones);
+    return (
+      <section className="bg-white rounded-lg shadow px-5 py-3">
+        <p className="flex items-center gap-1.5 text-sm text-gray-600">
+          <CheckCircle2
+            size={14}
+            className="shrink-0 text-green-600"
+            aria-hidden="true"
+          />
+          {precio ? `Postulada con ${pesos(precio)} con IVA.` : "Postulada."}
+        </p>
+      </section>
+    );
+  }
+
   if (vuelta && !ocupado && !conError && !abierta) {
     const armadaEl = Math.max(
       ...[

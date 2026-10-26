@@ -19,6 +19,7 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { desgloseDeOferta } from "./oportunidades.utils";
+import { precioDeLosAnexos } from "./postuladasDeAntes";
 import {
   claveDeLaCotizacion,
   cuadre,
@@ -27,6 +28,7 @@ import {
   veredicto,
 } from "./precioDeLaPostulacion";
 import TituloDeBloque from "./TituloDeBloque";
+import { useGeneraciones } from "./useGeneraciones";
 import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 
 // «¿CALZA EL PRECIO?» Y LA COTIZACIÓN DE LA POSTULACIÓN (decisión 29 del
@@ -107,9 +109,13 @@ function Aviso({ texto }: { readonly texto: string }) {
 export default function CotizacionDeLaPostulacion({
   oportunidadId,
   anterior,
+  congelada = false,
 }: {
   readonly oportunidadId: number;
   readonly anterior: Anterior | null;
+  /** Postulada o ganada: la cotización ya no se crea, vincula ni reescribe
+   *  (el motor lo corta, decisión 33). */
+  readonly congelada?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = claveDeLaCotizacion(oportunidadId);
@@ -129,6 +135,9 @@ export default function CotizacionDeLaPostulacion({
     armada?.estado === "listo"
       ? armada.parametros?.postulacion?.total
       : undefined;
+  // Una postulada antes de «Armar postulación» (19-10): su precio quedó en
+  // los anexos (postuladasDeAntes.ts).
+  const { data: generaciones } = useGeneraciones(oportunidadId);
 
   const [eligiendo, setEligiendo] = useState(false);
   const [numero, setNumero] = useState<number | undefined>(undefined);
@@ -190,7 +199,7 @@ export default function CotizacionDeLaPostulacion({
     (suma, g) => suma + (g.monto ?? 0),
     0,
   );
-  const oferta = total ?? c?.total ?? 0;
+  const oferta = total ?? c?.total ?? precioDeLosAnexos(generaciones) ?? 0;
   const dice = veredicto(estado.presupuesto, oferta);
   const cuadra = cuadre(oferta, c ? c.total : null);
 
@@ -289,7 +298,7 @@ export default function CotizacionDeLaPostulacion({
               >
                 <ExternalLink size={12} /> Ver la cotización
               </Link>
-              {!reescribiendo && (
+              {!reescribiendo && !congelada && (
                 <button
                   type="button"
                   onClick={() => setReescribiendo(true)}
@@ -316,7 +325,11 @@ export default function CotizacionDeLaPostulacion({
         />
       )}
 
-      {c ? null : !estado.propuesta ? (
+      {c ? null : congelada ? (
+        <p className="text-sm text-gray-600">
+          Se postuló sin cotización vinculada.
+        </p>
+      ) : !estado.propuesta ? (
         <p className="text-sm text-gray-600">
           Primero arma la postulación (arriba): de ella sale la cotización.
         </p>
