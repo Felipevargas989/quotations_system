@@ -280,8 +280,13 @@ export function comoVasEn(criterio: string, c: ComoVas): Sello | null {
   if (/integridad|etica|probidad/.test(n)) return c.integridad;
   if (/econom|precio/.test(n)) return c.precio;
   if (/experiencia/.test(n)) return c.experiencia;
-  if (/formal|administrativ|documento/.test(n)) return c.documentos;
+  // Lo técnico antes: «requisitos técnicos» es lo que se ofrece; los
+  // demás requisitos («Cumplimiento de requisitos», «formales») son los
+  // documentos.
   if (/calidad|tecnic|propuesta/.test(n)) return c.exigencias;
+  if (/formal|administrativ|documento|requisito/.test(n)) {
+    return c.documentos;
+  }
   return null;
 }
 
