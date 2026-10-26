@@ -34,6 +34,7 @@ import {
   estadoDeExigencia,
   estadoDeLoQueTeDejaFuera,
   ofertaDeCadaExigencia,
+  pedidoAlProveedor,
   type Sello,
   selloDeLaExperiencia,
   selloDeLaIntegridad,
@@ -41,7 +42,9 @@ import {
   selloDeLosDocumentos,
 } from "./relacionDeLasBases";
 import TituloDeBloque from "./TituloDeBloque";
+import { pedidoDeLosAnexos, precioDeLosAnexos } from "./postuladasDeAntes";
 import { useChecklistDeDocumentos } from "./useChecklistDeDocumentos";
+import { useGeneraciones } from "./useGeneraciones";
 import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 
 // LA IA LEE LAS BASES (doc 17, sprint 3, paso 1). El botón manda las bases y
@@ -263,12 +266,19 @@ function Relacionado({
     ]),
   );
   // El precio, como en «El precio» de «Mi postulación».
+  // Una postulada antes de «Armar postulación» (19-10) no tiene oferta
+  // armada: su precio y su pedido al proveedor quedaron en los anexos.
+  const { data: generaciones } = useGeneraciones(oportunidadId);
   const total =
     (trabajo?.estado === "listo"
       ? trabajo.parametros?.postulacion?.total
       : undefined) ??
     cotizacion?.cotizacion?.total ??
+    precioDeLosAnexos(generaciones) ??
     0;
+  const pedido = trabajo
+    ? pedidoAlProveedor(oferta)
+    : pedidoDeLosAnexos(generaciones);
   const dice = veredicto(cotizacion?.presupuesto ?? null, total);
   const precio: Sello | null = dice
     ? { tono: dice.tono === "calza" ? "bien" : "mal", texto: dice.corto }
@@ -333,7 +343,7 @@ function Relacionado({
         exigencias={exigencias}
         estados={estados}
         cubre={cubre}
-        oferta={oferta}
+        pedido={pedido.length}
         ofertaVieja={Boolean(
           oferta &&
             trabajo &&
@@ -352,7 +362,7 @@ function Relacionado({
         <BloqueDePreguntas oportunidadId={oportunidadId} numero={5} />
       )}
 
-      <AlFinalDeLasBases r={r} oferta={oferta} cubre={cubre} />
+      <AlFinalDeLasBases r={r} oferta={oferta} cubre={cubre} pedido={pedido} />
     </>
   );
 }
