@@ -40,6 +40,7 @@ import {
   type ExperienciaConfirmada,
   experienciaDeLosAnexos,
 } from '../postulacion/la-experiencia';
+import { conLaLetraDelFormulario } from '../postulacion/la-letra-del-formulario';
 import { LoPostuladoService } from '../postulacion/lo-postulado.service';
 import { PreguntasRepository } from '../preguntas/preguntas.repository';
 import {
@@ -750,11 +751,14 @@ export class GeneracionService {
     generacionId: number,
     plan: Plan,
     salida: Salida,
-    datos: Buffer,
+    entregado: Buffer,
   ) {
     const nombre = nombreLimpio(salida.nombre);
     const ruta = `c${companyId}/oportunidades/${plan.oportunidadId}/postulacion/${sello()}_${sanitize(nombre)}`;
-    const tipo = esPdf(datos) ? TIPOS_POR_EXTENSION.pdf : TIPO_WORD;
+    const tipo = esPdf(entregado) ? TIPOS_POR_EXTENSION.pdf : TIPO_WORD;
+    // Decisión 82: lo que la IA escribió sin letra toma la del formulario.
+    const datos =
+      tipo === TIPO_WORD ? conLaLetraDelFormulario(entregado).docx : entregado;
     await this.adjuntos.subirArchivo(ruta, datos, tipo);
     try {
       return await this.adjuntos.guardar({
