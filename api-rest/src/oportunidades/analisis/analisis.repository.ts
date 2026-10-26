@@ -14,7 +14,9 @@ export type FilaDeAnalisis = {
   oportunidad_id: number;
   estado: EstadoDeAnalisis;
   resultado: Record<string, unknown> | null;
-  archivos: Array<{ id: number; nombre: string }>;
+  /** Lo que leyó. La validación anota la carpeta del ZIP en vez del id
+   *  (decisión 83): lee también lo de «Mi empresa». */
+  archivos: Array<{ id?: number; nombre: string; carpeta?: string }>;
   no_leidos: Array<{ nombre: string; motivo: string }>;
   modelo: string | null;
   tokens_entrada: number | null;
@@ -31,7 +33,9 @@ export type AnalisisNuevo = {
   analisis_id?: number | null;
   oportunidad_id: number;
   modelo: string;
-  archivos: Array<{ id: number; nombre: string }>;
+  /** Lo que leyó. La validación anota la carpeta del ZIP en vez del id
+   *  (decisión 83): lee también lo de «Mi empresa». */
+  archivos: Array<{ id?: number; nombre: string; carpeta?: string }>;
   no_leidos: Array<{ nombre: string; motivo: string }>;
   pedido_por: string | null;
 };

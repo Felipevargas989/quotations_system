@@ -1,6 +1,6 @@
 import type { Origen } from '../adjuntos/adjuntos.repository';
-import { NOMBRES_DE_DOCUMENTO } from '../analisis/validacion.service';
 import { sinExtension } from '../generacion/formularios';
+import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
 

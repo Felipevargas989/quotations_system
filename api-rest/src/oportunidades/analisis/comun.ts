@@ -68,6 +68,9 @@ export const MAX_BYTES_DE_PDF = 22 * 1024 * 1024;
 /** Lo que la IA puede leer: PDF directo; Word y texto, como texto. */
 const LEIBLES = new Set(['pdf', 'docx', 'txt', 'csv']);
 
+export const esLeible = (nombre: string): boolean =>
+  LEIBLES.has(extensionDe(nombre));
+
 /** Cuándo encendió este motor: un trabajo "procesando" de antes murió con
  *  el proceso anterior (un despliegue a la mitad). */
 export const ENCENDIDO = new Date().toISOString();
@@ -202,7 +205,7 @@ export const separar = (archivos: Adjunto[]) => {
   const leibles: Adjunto[] = [];
   const noLeidos: NoLeido[] = [];
   for (const a of archivos) {
-    if (LEIBLES.has(extensionDe(a.nombre))) leibles.push(a);
+    if (esLeible(a.nombre)) leibles.push(a);
     else {
       noLeidos.push({
         nombre: a.nombre,
@@ -221,9 +224,10 @@ export const pesoDePdf = (archivos: Adjunto[]): number =>
 
 /** Los archivos como los lee Claude: el PDF entero (texto e imagen de cada
  *  página), el Word y el texto como texto. Lo que no se pudo abrir queda en
- *  `sinAbrir`. */
+ *  `sinAbrir`. El título es el nombre, o el que se le dé (la validación
+ *  pone la carpeta del ZIP, decisión 83). */
 export const armarContenido = async (
-  leibles: Adjunto[],
+  leibles: ReadonlyArray<{ nombre: string; ruta: string; titulo?: string }>,
   descargar: (ruta: string) => Promise<Buffer>,
 ) => {
   const bloques: Anthropic.DocumentBlockParam[] = [];
@@ -234,7 +238,7 @@ export const armarContenido = async (
     if (ext === 'pdf') {
       bloques.push({
         type: 'document',
-        title: a.nombre,
+        title: a.titulo ?? a.nombre,
         source: {
           type: 'base64',
           media_type: 'application/pdf',
@@ -250,7 +254,7 @@ export const armarContenido = async (
     }
     bloques.push({
       type: 'document',
-      title: a.nombre,
+      title: a.titulo ?? a.nombre,
       source: { type: 'text', media_type: 'text/plain', data: texto },
     });
   }
