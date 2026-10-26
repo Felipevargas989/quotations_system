@@ -6,11 +6,18 @@ import {
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
-import { textoDeDocx } from '../analisis/docx';
+import { archivoDelZip, textoDeDocx } from '../analisis/docx';
 import type { GeneracionService } from '../generacion/generacion.service';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { EditorDelWordService } from '../postulacion/editor-del-word.service';
 import { leerElWord } from '../postulacion/el-word-editable';
+import {
+  CALIBRI,
+  enCalibri,
+  fila,
+  formularioCon,
+  tabla,
+} from './formulario-en-calibri';
 import { wordCon } from './zip-de-prueba';
 
 // EL WORD SE EDITA EN EVENTIA (decisión 78): qué se puede editar, los
@@ -37,10 +44,11 @@ function armar({
   estado = 'en_estudio',
   trabajando = false,
   cambia = true,
+  word = WORD,
 } = {}) {
   const adjuntos = {
     uno: jest.fn().mockResolvedValue(fila),
-    bajarArchivo: jest.fn().mockResolvedValue(WORD),
+    bajarArchivo: jest.fn().mockResolvedValue(word),
     subirArchivo: jest.fn().mockResolvedValue(undefined),
     cambiarArchivo: jest.fn(
       (_c: number, _o: number, _a: number, _antes: string, nuevo: object) =>
@@ -113,6 +121,24 @@ describe('EditorDelWordService — guardar', () => {
       bytes: datos.length,
     });
     expect(adjuntos.borrarArchivo).toHaveBeenCalledWith(RUTA);
+  });
+
+  it('lo escrito en una celda sin letra se guarda con la de su fila (decisión 82)', async () => {
+    const word = formularioCon(
+      tabla(fila(enCalibri('Almuerzo'), enCalibri('550'), '')),
+    );
+    const { adjuntos, servicio } = armar({ word });
+    await servicio.guardar(1, 40, 13, {
+      version: leerElWord(word)?.version ?? '',
+      parrafos: [{ id: 2, tramos: [{ t: '$12.101' }] }],
+    });
+
+    const [, datos] = adjuntos.subirArchivo.mock.calls[0] as [string, Buffer];
+    expect(
+      archivoDelZip(datos, 'word/document.xml')?.toString('utf8'),
+    ).toContain(
+      `<w:r><w:rPr>${CALIBRI}<w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">$12.101</w:t></w:r>`,
+    );
   });
 
   it('sin párrafos cambiados no sube nada', async () => {

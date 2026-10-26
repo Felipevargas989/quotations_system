@@ -25,6 +25,7 @@ import {
   OtraVersion,
   type ParrafoEditado,
 } from './guardar-el-word';
+import { conLaLetraDelFormulario } from './la-letra-del-formulario';
 
 // EL WORD SE EDITA EN EVENTIA (decisión 78 del doc 17, 24-10): abrir un Word
 // de «Mi postulación» para editarlo y guardar lo editado en el mismo Word.
@@ -115,6 +116,9 @@ export class EditorDelWordService {
       if (e instanceof NoSeGuarda) throw new BadRequestException(e.message);
       throw e;
     }
+    // Decisión 82: lo que quedó sin letra (lo escrito por la IA antes de
+    // ella) toma la del formulario.
+    nuevo = conLaLetraDelFormulario(nuevo).docx;
 
     const ruta = `c${companyId}/oportunidades/${oportunidadId}/postulacion/${sello()}_${sanitize(a.nombre)}`;
     await this.adjuntos.subirArchivo(ruta, nuevo, a.tipo);
