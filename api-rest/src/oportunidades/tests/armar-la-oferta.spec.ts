@@ -221,7 +221,11 @@ describe('Armar la oferta', () => {
     expect(sistema).toContain(
       'detalles: lo que las bases piden de algo que la empresa YA vende',
     );
-    expect(sistema).toContain('faltan_en_el_catalogo: SOLO lo muy específico');
+    // Decisión 80: una sola lista, el pedido al proveedor.
+    expect(sistema).toContain('faltan_en_el_catalogo: va SIEMPRE vacío');
+    expect(sistema).toContain(
+      'lo que haya que comprar o contratar a un tercero aunque no sea audiovisual',
+    );
   });
 
   it('«Armar postulación» (decisión 35): anota sus parámetros y sigue solo si la oferta quedó lista', async () => {
@@ -327,6 +331,25 @@ describe('Armar la oferta', () => {
     });
     expect(leido?.subcontratar).toEqual(['Pódium, los dos días']);
     expect(leido?.detalles).toEqual([]);
+  });
+
+  it('lo que la IA deje como faltante del catálogo entra al pedido al proveedor (decisión 80)', () => {
+    // Felipe, 26-10: "todo lo que pusiste en catálogo para mí es
+    // proveedor... deja uno solo y mete todo ahí".
+    const leido = leerArmado({
+      ...RESPUESTA,
+      subcontratar: ['Proyector y telón para cada jornada de taller'],
+      faltan_en_el_catalogo: [
+        { que: 'Diplomas para los alumnos que aprueban', por_que: 'pág. 15' },
+        { que: 'Proyector y telón para cada jornada de taller', por_que: '' },
+        { que: '', por_que: 'sin qué' },
+      ],
+    });
+    expect(leido?.subcontratar).toEqual([
+      'Proyector y telón para cada jornada de taller',
+      'Diplomas para los alumnos que aprueban',
+    ]);
+    expect(leido?.faltan_en_el_catalogo).toEqual([]);
   });
 
   it('el presupuesto de lo que postula: un entero positivo; si no, 0 (decisión 74)', () => {

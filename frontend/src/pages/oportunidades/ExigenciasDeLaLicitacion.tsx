@@ -21,6 +21,7 @@ import {
   CLASES_DEL_TONO,
   ESTADOS_DE_EXIGENCIA,
   type EstadoDeExigencia,
+  pedidoAlProveedor,
   resumenDeLasExigencias,
   textoDeLaOferta,
 } from "./relacionDeLasBases";
@@ -36,10 +37,10 @@ import TituloDeBloque from "./TituloDeBloque";
 // que tienes que ofrecer», y se juntó con «Lo que tienes que conseguir»
 // (decisión 39). Cada exigencia tiene UN solo estado (relacionDeLasBases):
 // lo que marcaste, si no cómo la ofreciste al armar la postulación, y si no
-// la primera lectura de la IA; debajo, cómo la ofreces. Lo que se le pide
-// al proveedor, lo que hay que agregar al catálogo y los detalles para el
+// la primera lectura de la IA; debajo, cómo la ofreces. El pedido al
+// proveedor (una sola lista: todo lo que no tienes) y los detalles para el
 // comentario interno van plegados al final de la pestaña
-// (AlFinalDeLasBases); aquí, una línea que dice cuántos son.
+// (AlFinalDeLasBases); aquí, una línea que dice cuántas cosas pedir.
 
 const claveDeLaFicha = (id: number) => ["oportunidades", "ficha", id];
 
@@ -120,17 +121,8 @@ export default function ExigenciasDeLaLicitacion({
   if (exigencias.length === 0) return null;
   const noPuedo = exigencias.filter((e) => marcas[e.clave] === "no_puedo");
   const estadoDe = (e: Exigencia) => estados.get(e.clave) ?? "por_revisar";
-  // Lo que quedó plegado al final de la pestaña.
-  const paraElProveedor = oferta?.subcontratar?.length ?? 0;
-  const alCatalogo = oferta?.faltan_en_el_catalogo.length ?? 0;
-  const plegados = [
-    paraElProveedor > 0 ? `${paraElProveedor} para el proveedor` : null,
-    alCatalogo > 0
-      ? oferta?.subcontratar === undefined
-        ? `${alCatalogo} por conseguir o subcontratar`
-        : `${alCatalogo} al catálogo`
-      : null,
-  ].filter((x): x is string => Boolean(x));
+  // Lo que quedó plegado al final de la pestaña: el pedido al proveedor.
+  const paraElProveedor = pedidoAlProveedor(oferta).length;
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-3">
@@ -253,9 +245,10 @@ export default function ExigenciasDeLaLicitacion({
         })}
       </ul>
 
-      {plegados.length > 0 && (
+      {paraElProveedor > 0 && (
         <p className="text-xs text-gray-500">
-          Al final de la pestaña, plegados: {plegados.join(" y ")}.
+          El pedido al proveedor ({paraElProveedor}) está plegado al final de la
+          pestaña.
         </p>
       )}
     </section>

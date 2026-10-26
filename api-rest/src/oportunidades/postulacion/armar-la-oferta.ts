@@ -45,8 +45,11 @@ export type ArmadoDeLaOferta = {
   resumen: string;
   oferta: OfertaDeLaPropuesta;
   matriz: FilaDeLaMatriz[];
+  /** Desde la decisión 80 va siempre vacío: lo que la IA ponga aquí entra
+   *  al pedido al proveedor. Queda por las ofertas de antes. */
   faltan_en_el_catalogo: Array<{ que: string; por_que: string }>;
-  /** Lo que se le pide al proveedor externo, una cosa por línea. */
+  /** Lo que se le pide al proveedor externo, una cosa por línea. Desde la
+   *  decisión 80, todo lo que la empresa no tiene. */
   subcontratar: string[];
   /** Variaciones de lo que ya se vende: al comentario interno. */
   detalles: string[];
@@ -153,12 +156,20 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
     const que = texto(f?.que, 300);
     return que ? [{ que, por_que: texto(f.por_que, 300) }] : [];
   });
+  // Una sola lista (decisión 80, 26-10; Felipe, con «Al catálogo» de una
+  // capacitación a la vista: "todo lo que pusiste en catálogo para mí es
+  // proveedor... deja uno solo y mete todo ahí"): lo que la IA deje como
+  // faltante del catálogo entra al pedido al proveedor, que es lo que va al
+  // comentario interno de la cotización.
   return {
     resumen: texto(o.resumen, 1000),
     oferta,
     matriz,
-    faltan_en_el_catalogo: faltan,
-    subcontratar: listaDeTextos(o.subcontratar),
+    faltan_en_el_catalogo: [],
+    subcontratar: listaDeTextos([
+      ...(Array.isArray(o.subcontratar) ? o.subcontratar : []),
+      ...faltan.map((f) => f.que),
+    ]),
     detalles: listaDeTextos(o.detalles),
     presupuesto:
       Number.isInteger(o.presupuesto) && (o.presupuesto as number) > 0
@@ -209,12 +220,13 @@ export const instruccionesDeLaOferta = (c: {
       // requerimiento al proveedor... agrupado en un solo ítem de
       // subcontratar, con el checklist de todas las cosas que se necesita
       // pedir al proveedor externo".
-      'subcontratar: TODO lo que la empresa no tiene y no va a tener por una licitación (amplificación y micrófonos, audiovisual, iluminación, pódium, escenario, generador, decoración especial, mobiliario que no tiene, artistas, shows, animación, DJ, fotografía...), en UNA sola lista: es el requerimiento al proveedor externo (casi siempre, el audiovisual). Una línea por cosa a pedir, con su cantidad y sus días si las bases los dicen ("Pódium, los dos días"). Sin nombres de proveedores.',
+      'subcontratar: TODO lo que la empresa no tiene y no va a tener por una licitación (amplificación y micrófonos, audiovisual, iluminación, pódium, escenario, generador, decoración especial, mobiliario que no tiene, artistas, shows, animación, DJ, fotografía...), y también lo que haya que comprar o contratar a un tercero aunque no sea audiovisual (materiales, impresiones, diplomas, credenciales, relatores, un local ajeno, un producto que no está en el catálogo), en UNA sola lista: es el requerimiento al proveedor externo. Una línea por cosa a pedir, con su cantidad y sus días si las bases los dicen ("Pódium, los dos días"). Sin nombres de proveedores.',
       // "si me piden carne con un topping de cilantro, no puedo crearla,
       // sino que un comentario que tiene que ir en los comentarios
       // internos para yo poder hacer seguimiento".
       'detalles: lo que las bases piden de algo que la empresa YA vende, como una variación de su producto genérico (el relleno de las empanadas, las galletas del helado, las salsas, la opción vegetariana o vegana, las flores de la decoración, una carne con un topping de cilantro). NO es algo que falte: en cajas y fijos va el producto genérico del catálogo, y aquí el detalle, una línea por cada uno ("Empanadas de cóctel: 2 de queso y 1 de carne por persona"), para el comentario interno de la cotización.',
-      'faltan_en_el_catalogo: SOLO lo muy específico que no es de subcontratar ni una variación de lo que ya vende (algo que la empresa tendría que comprar o crear de verdad); casi siempre va vacío. Una cosa por línea; "por_que": qué pide la base y en qué página.',
+      // Decisión 80 (Felipe, 26-10): "deja uno solo y mete todo ahí".
+      'faltan_en_el_catalogo: va SIEMPRE vacío ([]). Todo lo que la empresa no tiene, aunque haya que comprarlo o crearlo, va en "subcontratar".',
       // Decisión 74 (Felipe, 23-10, con el Día de Campo armado sobre su
       // cotización 493): "no hay que cambiar los productos por precio, arma
       // lo que piden"; "si voy a licitar por menos... la diferencia para
