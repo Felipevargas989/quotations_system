@@ -228,6 +228,10 @@ describe("cómo vas en cada criterio", () => {
         "Cumplimiento de requisitos formales",
         "Programa de integridad y ética empresarial",
         "Plazo de entrega",
+        // La capacitación municipal del laboratorio (4454-31-LE26).
+        "Cumplimiento de requisitos",
+        "Pacto de integridad o ética",
+        "Cumplimiento de requisitos técnicos",
       ].map((c) => comoVasEn(c, vas)?.texto ?? null),
     ).toEqual([
       "1 por subcontratar",
@@ -236,6 +240,9 @@ describe("cómo vas en cada criterio", () => {
       "5 de 7 listos",
       "falta 1 de 2",
       null,
+      "5 de 7 listos",
+      "falta 1 de 2",
+      "1 por subcontratar",
     ]);
   });
 
