@@ -20,43 +20,54 @@ export const porcentaje = (parte: number, todo: number) =>
 
 /** Lo que dice el panel de la cotización frente a la oferta (decisión 69):
  *  si cuadra, si le falta (lo que se subcontrata o no está en el catálogo)
- *  o si sobra. null sin cotización o sin oferta. */
+ *  o si sobra. `corto` va en la línea de «El precio» (decisión 79). null
+ *  sin cotización o sin oferta. */
 export function cuadre(
   oferta: number,
   cotizacion: number | null,
-): { tono: "calza" | "falta" | "sobra"; texto: string } | null {
+): { tono: "calza" | "falta" | "sobra"; texto: string; corto: string } | null {
   if (cotizacion === null || oferta <= 0) return null;
   const diferencia = oferta - cotizacion;
   if (diferencia === 0) {
-    return { tono: "calza", texto: "Tu cotización cuadra con tu oferta." };
+    return {
+      tono: "calza",
+      texto: "Tu cotización cuadra con tu oferta.",
+      corto: "cuadrada",
+    };
   }
   if (diferencia > 0) {
     return {
       tono: "falta",
-      texto: `A tu cotización le faltan ${pesos(diferencia)} para llegar a tu oferta: es lo que se subcontrata o no está en tu catálogo (abajo). Agrégalo a la cotización como servicio para cuadrar, o déjalo como diferencia.`,
+      texto: `A tu cotización le faltan ${pesos(diferencia)} para llegar a tu oferta: es lo que se subcontrata o no está en tu catálogo, y quedó en su comentario interno. Agrégalo a la cotización como servicio para cuadrar, o déjalo como diferencia.`,
+      corto: `le faltan ${pesos(diferencia)}`,
     };
   }
   return {
     tono: "sobra",
     texto: `Tu cotización suma ${pesos(-diferencia)} más que tu oferta: ajusta su descuento o reescríbela con lo postulado.`,
+    corto: `suma ${pesos(-diferencia)} de más`,
   };
 }
 
-/** Lo que dice el panel sobre la oferta frente al presupuesto. */
+/** Lo que dice el panel sobre la oferta frente al presupuesto. `corto` va
+ *  en la línea de «El precio» (decisión 79). */
 export function veredicto(
   presupuesto: number | null,
   oferta: number,
-): { tono: "calza" | "se_pasa"; texto: string } | null {
+): { tono: "calza" | "se_pasa"; texto: string; corto: string } | null {
   if (!presupuesto || oferta <= 0) return null;
   if (oferta <= presupuesto) {
+    const bajo = porcentaje(presupuesto - oferta, presupuesto);
     return {
       tono: "calza",
-      texto: `Calza: tu oferta queda ${porcentaje(presupuesto - oferta, presupuesto)} bajo el presupuesto (${pesos(presupuesto - oferta)}).`,
+      texto: `Calza: tu oferta queda ${bajo} bajo el presupuesto (${pesos(presupuesto - oferta)}).`,
+      corto: `Calza: ${bajo} bajo el presupuesto`,
     };
   }
   return {
     tono: "se_pasa",
     texto: `Se pasa del presupuesto por ${pesos(oferta - presupuesto)}: una oferta sobre el presupuesto suele quedar fuera.`,
+    corto: `Se pasa por ${pesos(oferta - presupuesto)}`,
   };
 }
 

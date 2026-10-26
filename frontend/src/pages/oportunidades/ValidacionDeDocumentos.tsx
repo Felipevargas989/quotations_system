@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import {
+  getAdjuntos,
   getAnalisis,
   getValidacion,
   pedirValidacion,
@@ -9,12 +10,15 @@ import {
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import { sinLosWordYaFirmados } from "./firmarTodos";
+import { notasDeLaPostulacion, type Requisito } from "./notasDeLaPostulacion";
 import {
   contarPorEstadoDeValidacion,
   ESTADOS_DE_VALIDACION,
   LISTO_PARA_POSTULAR,
   textoDeCosto,
 } from "./oportunidades.utils";
+import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 
 // VALIDAR DOCUMENTOS (doc 17, sprint 3, paso 3; migración 127). Felipe,
 // 17-10: "y lo más importante validar documentos". Opus 5.5 toma el
@@ -26,6 +30,15 @@ import {
 // Desde el 17-10 aquí solo va lo que hay que arreglar: el estado de cada
 // requisito, también los listos, sale al lado de "Lo que hay que
 // presentar", en «Bases y criterios» (una sola lista, no dos).
+//
+// Desde el 26-10 (decisión 79) es «Validar todo», en el paso 3 («Subir a
+// Mercado Público»): una línea con la última validación y, debajo, solo lo
+// que no es de ningún documento (el plazo de ejecución, un certificado de
+// la carpeta). Lo de cada formulario va bajo él, en «Tus documentos»
+// (notasDeLaPostulacion.ts). Felipe: "hay demasiadas partes en donde tengo
+// comentarios de cosas que faltan".
+
+const ESTADO_REVISAR = ESTADOS_DE_VALIDACION[3];
 
 export default function ValidacionDeDocumentos({
   oportunidadId,
@@ -44,6 +57,11 @@ export default function ValidacionDeDocumentos({
     refetchInterval: (q) =>
       q.state.data?.estado === "procesando" ? 5000 : false,
   });
+  const { data: generaciones } = useGeneraciones(oportunidadId);
+  const { data: postulacion = [] } = useQuery({
+    queryKey: claveDeLaPostulacion(oportunidadId),
+    queryFn: () => getAdjuntos(oportunidadId, "postulacion"),
+  });
 
   const pedir = useMutation({
     mutationFn: () => pedirValidacion(oportunidadId),
@@ -55,20 +73,16 @@ export default function ValidacionDeDocumentos({
   const hayAnalisis = analisis?.estado === "listo";
   const procesando = validacion?.estado === "procesando" || pedir.isPending;
   const r = validacion?.estado === "listo" ? validacion.resultado : null;
+  const { requisitos, otros } = notasDeLaPostulacion(
+    sinLosWordYaFirmados(postulacion),
+    generaciones,
+    validacion,
+  );
+  const cumplen = r ? contarPorEstadoDeValidacion(r.requisitos).cumple : 0;
 
   return (
-    <section className="bg-white rounded-lg shadow p-5 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-            <ShieldCheck size={15} /> Validar documentos
-          </h2>
-          <p className="text-xs text-gray-500">
-            La IA revisa lo que vas a presentar contra lo que piden las bases:
-            qué cumple, qué falta, qué está vencido y qué hay que revisar. La IA
-            propone; la decisión de subir es tuya.
-          </p>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           type="button"
           onClick={() => pedir.mutate()}
@@ -81,79 +95,65 @@ export default function ValidacionDeDocumentos({
           ) : (
             <ShieldCheck size={14} />
           )}
-          {r || validacion?.estado === "error"
-            ? "Volver a validar"
-            : "Validar documentos"}
+          Validar todo
         </button>
+        <span className="text-xs text-gray-500">
+          {isPending
+            ? "Cargando…"
+            : procesando
+              ? "Revisando todo contra las bases… suele tardar entre 1 y 3 minutos."
+              : r && validacion
+                ? `Última: ${formatMomento(validacion.terminado_en ?? validacion.creado_en, "diaHora")} · ${cumplen} de ${r.requisitos.length} requisitos cumplen${validacion.costo_usd != null ? ` · costó ${textoDeCosto(validacion.costo_usd)}` : ""}`
+                : validacion?.estado === "error"
+                  ? `Intentado el ${formatMomento(validacion.terminado_en ?? validacion.creado_en, "diaHora")}`
+                  : hayAnalisis
+                    ? "La IA revisa todo lo que vas a presentar contra lo que piden las bases. La decisión de subir es tuya."
+                    : "Primero analiza las bases: la validación revisa su checklist."}
+        </span>
       </div>
 
-      {isPending ? (
-        <p className="text-sm text-gray-500">Cargando…</p>
-      ) : procesando ? (
-        <p className="text-sm text-gray-600">
-          Revisando los documentos… suele tardar entre 1 y 3 minutos.
-        </p>
-      ) : validacion?.estado === "error" ? (
+      {!procesando && validacion?.estado === "error" && (
         <p className="text-sm text-red-600">{validacion.error}</p>
-      ) : !r ? (
-        <p className="text-sm text-gray-500">
-          {hayAnalisis
-            ? "Sube lo que vas a presentar en «Mi postulación» y valídalo."
-            : "Primero analiza las bases: la validación revisa su checklist."}
-        </p>
-      ) : (
-        <Resultado r={r} />
       )}
-
-      {validacion && validacion.estado !== "procesando" && (
-        <p className="text-xs text-gray-400">
-          {validacion.estado === "listo" ? "Validado" : "Intentado"} el{" "}
-          {formatMomento(
-            validacion.terminado_en ?? validacion.creado_en,
-            "diaHora",
-          )}
-          {validacion.modelo ? ` con ${validacion.modelo}` : ""}
-          {` · revisó ${validacion.archivos.length} ${validacion.archivos.length === 1 ? "archivo" : "archivos"} de la postulación`}
-          {validacion.costo_usd != null &&
-            ` · costó ${textoDeCosto(validacion.costo_usd)}`}
-          {validacion.no_leidos.length > 0 &&
-            ` · no leyó: ${validacion.no_leidos.map((n) => n.nombre).join(", ")}`}
+      {!procesando && r && (
+        <Resultado r={r} requisitos={requisitos} otros={otros} />
+      )}
+      {!procesando && validacion && validacion.no_leidos.length > 0 && (
+        <p className="text-xs text-amber-700">
+          No leyó: {validacion.no_leidos.map((n) => n.nombre).join(", ")}
         </p>
       )}
-    </section>
+    </div>
   );
 }
 
-function Resultado({ r }: { readonly r: ResultadoDeValidacion }) {
+function Resultado({
+  r,
+  requisitos,
+  otros,
+}: {
+  readonly r: ResultadoDeValidacion;
+  readonly requisitos: Requisito[];
+  readonly otros: string[];
+}) {
   const listo = LISTO_PARA_POSTULAR[r.listo];
-  const conteo = contarPorEstadoDeValidacion(r.requisitos);
-  const porArreglar = r.requisitos.filter((q) => q.estado !== "cumple");
   return (
-    <div className="space-y-4">
-      <div className={`p-3 rounded-lg border ${listo.clases}`}>
-        <p className="text-sm font-semibold">{listo.titulo}</p>
-        <p className="text-sm">{r.resumen}</p>
-        <p className="mt-1 text-xs">
-          {ESTADOS_DE_VALIDACION.filter((e) => conteo[e.value] > 0)
-            .map((e) => `${conteo[e.value]} ${e.plural}`)
-            .join(" · ")}
-        </p>
-      </div>
-
-      {porArreglar.length === 0 ? (
-        <p className="text-sm text-green-700">
-          Todo lo del checklist está listo.
-        </p>
-      ) : (
+    <div className="space-y-2">
+      <p
+        className={`inline-block rounded border px-2 py-1 text-sm font-semibold ${listo.clases}`}
+      >
+        {listo.titulo}
+      </p>
+      {requisitos.length + otros.length > 0 && (
         <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-          {porArreglar.map((q, i) => {
+          {requisitos.map((q, i) => {
             const estado =
               ESTADOS_DE_VALIDACION.find((e) => e.value === q.estado) ??
-              ESTADOS_DE_VALIDACION[3];
+              ESTADO_REVISAR;
             return (
-              <li key={`${q.que}-${i}`} className="px-3 py-2 flex gap-3">
+              <li key={`${q.que}-${i}`} className="flex gap-3 px-3 py-2">
                 <span
-                  className={`shrink-0 mt-0.5 px-2 py-0.5 h-fit text-xs font-semibold rounded ${estado.clases}`}
+                  className={`mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${estado.clases}`}
                 >
                   {estado.label}
                 </span>
@@ -167,25 +167,22 @@ function Resultado({ r }: { readonly r: ResultadoDeValidacion }) {
               </li>
             );
           })}
+          {otros.map((o) => (
+            <li key={o} className="flex gap-3 px-3 py-2">
+              <span
+                className={`mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${ESTADO_REVISAR.clases}`}
+              >
+                {ESTADO_REVISAR.label}
+              </span>
+              <p className="min-w-0 text-sm text-gray-700">{o}</p>
+            </li>
+          ))}
         </ul>
       )}
       <p className="text-xs text-gray-500">
-        El estado de cada requisito, también los listos, está en «Bases y
-        criterios».
+        Lo de cada documento está arriba, bajo cada uno. El estado de cada
+        requisito, también los que cumplen, está en «Bases y criterios».
       </p>
-
-      {r.otros_problemas.length > 0 && (
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-gray-900">
-            Otros problemas
-          </h3>
-          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-            {r.otros_problemas.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

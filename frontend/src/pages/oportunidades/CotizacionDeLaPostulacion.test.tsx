@@ -20,8 +20,10 @@ import { cuadre, fechasEnPalabras, veredicto } from "./precioDeLaPostulacion";
 // número" y el margen "se ajusta como un descuento en dinero". Desde la
 // decisión 69 (22-10, el catamarán): la cotización se crea siempre, en las
 // fechas elegidas; lo que no cuadra va en rojo, con la lista de lo que
-// falta, y se reescribe con lo postulado solo con el botón. Los servicios
-// van de mentira.
+// falta, y se reescribe con lo postulado solo con el botón. Desde la
+// decisión 79 (26-10) es «1 El precio»: tres cifras y una línea (si calza y
+// si la cotización cuadra); lo que le falta a la cotización ya no se lista
+// aquí. Los servicios van de mentira.
 
 vi.mock("../../services/oportunidades.service", () => ({
   getCotizacionDeLaPostulacion: vi.fn(),
@@ -135,7 +137,10 @@ describe("¿Calza el precio?", () => {
     await abrir();
     expect(screen.getByText("$12.000.000")).toBeInTheDocument();
     expect(await screen.findByText("$5.500.000")).toBeInTheDocument();
-    expect(screen.getByText(/Calza: tu oferta queda/)).toBeInTheDocument();
+    expect(screen.getByText("neto $4.621.849 + IVA")).toBeInTheDocument();
+    expect(
+      screen.getByText("Calza: 65,5 % bajo el presupuesto"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Para el miércoles 28 de octubre, según las bases."),
     ).toBeInTheDocument();
@@ -152,11 +157,7 @@ describe("¿Calza el precio?", () => {
       }),
     );
     expect(
-      await screen.findByText(/Cotización N° 612 · solicitada/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Puedes editarla/)).toBeInTheDocument();
-    expect(
-      screen.getByText("Tu cotización cuadra con tu oferta."),
+      await screen.findByText("Cotización N° 612 cuadrada"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Ver la cotización/ }),
@@ -231,9 +232,7 @@ describe("¿Calza el precio?", () => {
       expect(p.vincularCotizacion).toHaveBeenCalledWith(87, 493),
     );
     expect(s.llevarACotizacion).not.toHaveBeenCalled();
-    expect(
-      await screen.findByText(/Cotización N° 493 · solicitada/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Cotización N° 493/)).toBeInTheDocument();
     expect(screen.queryByLabelText("N°")).not.toBeInTheDocument();
   });
 
@@ -241,7 +240,7 @@ describe("¿Calza el precio?", () => {
     s.getCotizacionDeLaPostulacion.mockResolvedValue(CON_COTIZACION);
     pintar();
     expect(
-      await screen.findByText(/Cotización N° 612 · solicitada/),
+      await screen.findByText("Cotización N° 612: suma $507.500 de más"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Tu cotización suma \$507\.500 más que tu oferta/),
@@ -260,7 +259,7 @@ describe("¿Calza el precio?", () => {
     );
   });
 
-  it("le falta para tu oferta (lo subcontratado): en rojo y con la lista de lo que falta", async () => {
+  it("le falta para tu oferta (lo subcontratado): en rojo, sin repetir la lista (queda en su comentario interno)", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue({
       id: 21,
       estado: "listo",
@@ -282,13 +281,16 @@ describe("¿Calza el precio?", () => {
       await screen.findByText(/A tu cotización le faltan \$3\.090\.000/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Lo que falta en la cotización (1)"),
+      screen.getByText("Cotización N° 612: le faltan $3.090.000"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.getByText(/quedó en su comentario interno/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
         "Catamarán para 30 personas con capitán, del 2 al 8 de noviembre",
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -297,8 +299,12 @@ describe("El veredicto y el cuadre", () => {
     expect(veredicto(15_960_000, 12_000_000)).toEqual({
       tono: "calza",
       texto: "Calza: tu oferta queda 24,8 % bajo el presupuesto ($3.960.000).",
+      corto: "Calza: 24,8 % bajo el presupuesto",
     });
-    expect(veredicto(10_000_000, 11_000_000)?.tono).toBe("se_pasa");
+    expect(veredicto(10_000_000, 11_000_000)).toMatchObject({
+      tono: "se_pasa",
+      corto: "Se pasa por $1.000.000",
+    });
     expect(veredicto(null, 11_000_000)).toBeNull();
   });
 
@@ -320,9 +326,18 @@ describe("El veredicto y el cuadre", () => {
   });
 
   it("la cotización frente a la oferta: cuadra, le falta o le sobra; sin cotización, nada", () => {
-    expect(cuadre(5_500_000, 5_500_000)?.tono).toBe("calza");
-    expect(cuadre(7_090_000, 4_000_000)?.tono).toBe("falta");
-    expect(cuadre(5_500_000, 6_007_500)?.tono).toBe("sobra");
+    expect(cuadre(5_500_000, 5_500_000)).toMatchObject({
+      tono: "calza",
+      corto: "cuadrada",
+    });
+    expect(cuadre(7_090_000, 4_000_000)).toMatchObject({
+      tono: "falta",
+      corto: "le faltan $3.090.000",
+    });
+    expect(cuadre(5_500_000, 6_007_500)).toMatchObject({
+      tono: "sobra",
+      corto: "suma $507.500 de más",
+    });
     expect(cuadre(5_500_000, null)).toBeNull();
     expect(cuadre(0, 4_000_000)).toBeNull();
   });

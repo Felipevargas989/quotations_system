@@ -25,6 +25,10 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // al comentario interno de la cotización ("no puedo hacer un producto por
 // cada variación del principal"); y lo que de verdad hay que conseguir, que
 // casi nunca hay. Una oferta de antes se sigue viendo como antes.
+//
+// Desde la decisión 79 (26-10) vive en «Bases y criterios», después del
+// análisis, y ya no en «Mi postulación». Felipe: "lo que falta conseguir no
+// debería ser un análisis que ya está en exigencias de la licitación".
 
 const ORIGEN: Record<
   FilaDeLaOferta["origen"],

@@ -14,14 +14,20 @@ import { sinFirmarDeLaUltimaVuelta, sinLosWordYaFirmados } from "./firmarTodos";
 import MiPostulacion from "./MiPostulacion";
 
 // MI POSTULACIÓN (19-10): «Firmar» en cada Word sin firma y «Firmar todos»
-// para lo último que hizo la IA; cada firmado queda en PDF.
+// para lo último que hizo la IA; cada firmado queda en PDF. Desde la
+// decisión 79 (26-10) es «2 Tus documentos»: cada uno con su estado y,
+// debajo, lo que falta o hay que revisar.
 
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
   getGeneraciones: vi.fn(),
+  getValidacion: vi.fn().mockResolvedValue(null),
   firmarDocumentos: vi.fn(),
   subirAdjunto: vi.fn(),
   borrarAdjunto: vi.fn(),
+}));
+vi.mock("../../services/postulacion.service", () => ({
+  getOfertaDeLaPostulacion: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -77,7 +83,13 @@ const GENERACIONES = {
         adjunto_id,
         nombre: "",
         que_se_hizo: "",
-        pendientes: [],
+        pendientes:
+          adjunto_id === 22
+            ? [
+                "RUT del representante legal: quedó en blanco.",
+                "Firma del representante legal.",
+              ]
+            : [],
       })),
     },
   },
@@ -112,6 +124,21 @@ const pintar = (congelada = false) =>
   );
 
 describe("Mi postulación", () => {
+  it("«Tus documentos»: cada uno con su estado y, debajo, lo que falta (decisión 79)", async () => {
+    pintar();
+    expect(await screen.findByText("1 de 4 firmados.")).toBeInTheDocument();
+    expect(screen.getByText("firmado")).toBeInTheDocument();
+    expect(screen.getByText("por completar")).toBeInTheDocument();
+    // El 23 y el de antes, sin nada pendiente.
+    expect(screen.getAllByText("por firmar")).toHaveLength(2);
+    expect(
+      screen.getByText("RUT del representante legal: quedó en blanco."),
+    ).toBeInTheDocument();
+    // La línea de firma de la IA no se repite: va una sola, al final.
+    expect(screen.queryByText("Firma del representante legal.")).toBeNull();
+    expect(screen.getByText("Falta la firma.")).toBeInTheDocument();
+  });
+
   it("«Abrir» muestra el Word sin firmar para verlo y editarlo (decisión 78)", async () => {
     pintar();
     const botones = await screen.findAllByRole("button", { name: "Abrir" });
