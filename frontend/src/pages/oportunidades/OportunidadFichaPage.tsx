@@ -322,6 +322,9 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
             anterior={ficha.anterior}
+            congelada={
+              ficha.estado === "postulada" || ficha.estado === "ganada"
+            }
           />
           <MiPostulacion
             oportunidadId={ficha.id}

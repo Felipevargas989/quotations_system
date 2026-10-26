@@ -7,7 +7,7 @@ import type {
 import { normalizeText } from "../../utils/searchMatch";
 import { alertasDelAnalisis } from "./oportunidades.utils";
 import Plegable from "./Plegable";
-import { pedidoAlProveedor, textoDeLaOferta } from "./relacionDeLasBases";
+import { textoDeLaOferta } from "./relacionDeLasBases";
 
 // LO DE CONSULTA, PLEGADO AL FINAL DE «BASES Y CRITERIOS» (decisión 80 del
 // doc 17, 26-10). Felipe: "me gusta que existan estos plegables... creo que
@@ -28,14 +28,18 @@ export default function AlFinalDeLasBases({
   r,
   oferta,
   cubre,
+  pedido,
 }: {
   readonly r: ResultadoDeBases;
   /** La oferta de «Armar postulación», si está lista. */
   readonly oferta: ArmadoDeLaOferta | null;
   /** La línea de la oferta que cubre cada exigencia. */
   readonly cubre: Map<string, FilaDeLaOferta>;
+  /** El pedido al proveedor: de la oferta armada o, en una postulada antes
+   *  de «Armar postulación», de los anexos (postuladasDeAntes.ts). */
+  readonly pedido: string[];
 }) {
-  const subcontratar = pedidoAlProveedor(oferta);
+  const subcontratar = pedido;
   const detalles = oferta?.detalles ?? [];
   // Lo de la oferta que no cubre ninguna exigencia (sin los formularios,
   // que van en «Lo que tienes que presentar»).

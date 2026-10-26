@@ -28,6 +28,7 @@ import { cuadre, fechasEnPalabras, veredicto } from "./precioDeLaPostulacion";
 vi.mock("../../services/oportunidades.service", () => ({
   getCotizacionDeLaPostulacion: vi.fn(),
   llevarACotizacion: vi.fn(),
+  getGeneraciones: vi.fn(),
 }));
 vi.mock("../../services/postulacion.service", () => ({
   getOfertaDeLaPostulacion: vi.fn(),
@@ -65,6 +66,11 @@ const CON_COTIZACION: servicio.EstadoDeLaCotizacion = {
 };
 
 beforeEach(() => {
+  s.getGeneraciones.mockResolvedValue({
+    anexos: null,
+    firma: null,
+    propuesta: null,
+  });
   s.getCotizacionDeLaPostulacion.mockResolvedValue({
     cotizacion: null,
     presupuesto: 15_960_000,
@@ -93,7 +99,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const pintar = () =>
+const pintar = (congelada = false) =>
   render(
     <QueryClientProvider
       client={
@@ -101,7 +107,11 @@ const pintar = () =>
       }
     >
       <MemoryRouter>
-        <CotizacionDeLaPostulacion oportunidadId={87} anterior={ANTERIOR} />
+        <CotizacionDeLaPostulacion
+          oportunidadId={87}
+          anterior={ANTERIOR}
+          congelada={congelada}
+        />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -291,6 +301,43 @@ describe("¿Calza el precio?", () => {
         "Catamarán para 30 personas con capitán, del 2 al 8 de noviembre",
       ),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("Una postulada antes de «Armar postulación» (26-10)", () => {
+  it("«Tu oferta» toma el precio con que se llenaron los anexos, y no ofrece crear ni vincular", async () => {
+    // Felipe, con la 1532886-5-LE26: "no me está reconociendo mi oferta".
+    p.getOfertaDeLaPostulacion.mockResolvedValue(null);
+    s.getCotizacionDeLaPostulacion.mockResolvedValue({
+      cotizacion: null,
+      presupuesto: 12_000_000,
+      propuesta: null,
+      faltan: [],
+      fechas: null,
+    });
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 1,
+        tipo: "anexos",
+        estado: "listo",
+        parametros: { adjuntos: [3], monto_total: 11_930_000 },
+        resultado: null,
+      },
+      firma: null,
+      propuesta: null,
+    } as never);
+    pintar(true);
+    expect(await screen.findByText("$11.930.000")).toBeInTheDocument();
+    expect(
+      screen.getByText("Calza: 0,6 % bajo el presupuesto"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Se postuló sin cotización vinculada."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Primero arma la postulación/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Crear o vincular cotización/ }),
+    ).toBeNull();
   });
 });
 
