@@ -62,6 +62,11 @@ evento aceptado tiene marcada desde julio.
   plataforma.
 
 **Lo que Felipe hace en facturacion.cl antes de partir**
+
+La plataforma ya funciona. Felipe, 26-10: *"Facturación.cl ya está
+funcionando, eso está ok"*. Falta lo de la integración y lo de las
+boletas:
+
 - Cargar el **certificado digital** (la firma electrónica) en la
   plataforma. Lo carga él. Eventia nunca lo ve ni lo guarda, porque
   facturacion.cl firma cada documento con ese certificado.
