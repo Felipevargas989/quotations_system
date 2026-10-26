@@ -36,7 +36,13 @@ export interface DetalleDelDocumento {
   /** Por qué lo de antes ya no vale (lo editaste, o cambió después de la
    *  última validación). */
   aviso: string | null;
+  /** Lo que se dejó de mostrar porque el documento cambió después: el
+   *  editor lo comprueba contra su texto (reglasDeLosAvisos.ts). */
+  ocultas: NotaDelDocumento[];
 }
+
+/** La última línea de lo que falta en un Word sin firmar. */
+export const FALTA_LA_FIRMA = "Falta la firma.";
 
 export interface NotasDeLaPostulacion {
   porDocumento: Map<number, DetalleDelDocumento>;
@@ -113,8 +119,28 @@ export function notasDeLaPostulacion(
       : conElNumero(numeroDelFormulario(texto));
   };
 
+  const ocultas = new Map<number, NotaDelDocumento[]>(
+    documentos.map((a) => [a.id, []]),
+  );
+  const ocultar = (
+    id: number,
+    texto: string,
+    tono: NotaDelDocumento["tono"],
+  ) => {
+    const lista = ocultas.get(id);
+    const limpio = texto.trim();
+    if (lista && limpio && !lista.some((n) => n.texto === limpio)) {
+      lista.push({ texto: limpio, tono });
+    }
+  };
+  const r = validacion?.estado === "listo" ? validacion.resultado : null;
+  const validadaEl = momento(validacion?.creado_en);
+  const alDia = (a: AdjuntoDeOportunidad) =>
+    !(momento(a.editado_en ?? a.creado_en) > validadaEl);
+
   // 1. Lo que la IA dejó por completar al llenarlo. Si después se editó,
-  //    ya no se sabe qué quedó: lo dice la próxima validación.
+  //    ya no se sabe qué quedó: lo dice la próxima validación (y si ya se
+  //    validó después de editar, manda esa validación).
   const editadosConPendientes = new Set<number>();
   for (const g of [generaciones?.anexos, generaciones?.propuesta]) {
     if (g?.estado !== "listo") continue;
@@ -125,7 +151,10 @@ export function notasDeLaPostulacion(
         (p) => !ES_LA_FIRMA.test(p.trim()),
       );
       if (a.editado_en) {
-        if (pendientes.length > 0) editadosConPendientes.add(a.id);
+        if (pendientes.length > 0 && !(r && alDia(a))) {
+          editadosConPendientes.add(a.id);
+          for (const p of pendientes) ocultar(a.id, p, "completar");
+        }
         continue;
       }
       for (const p of pendientes) anotar(a.id, p, "completar");
@@ -150,10 +179,6 @@ export function notasDeLaPostulacion(
   const requisitos: Requisito[] = [];
   const otros: string[] = [];
   const viejas = new Set<number>();
-  const r = validacion?.estado === "listo" ? validacion.resultado : null;
-  const validadaEl = momento(validacion?.creado_en);
-  const alDia = (a: AdjuntoDeOportunidad) =>
-    !(momento(a.editado_en ?? a.creado_en) > validadaEl);
   if (r) {
     for (const q of r.requisitos) {
       if (q.estado === "cumple") continue;
@@ -166,14 +191,13 @@ export function notasDeLaPostulacion(
         requisitos.push(q);
         continue;
       }
+      const tono = q.estado === "revisar" ? "revisar" : "completar";
       for (const a of de) {
-        if (!alDia(a)) viejas.add(a.id);
-        else
-          anotar(
-            a.id,
-            q.observacion || q.que,
-            q.estado === "revisar" ? "revisar" : "completar",
-          );
+        if (alDia(a)) anotar(a.id, q.observacion || q.que, tono);
+        else {
+          viejas.add(a.id);
+          ocultar(a.id, q.observacion || q.que, tono);
+        }
       }
     }
     for (const o of r.otros_problemas) {
@@ -183,8 +207,11 @@ export function notasDeLaPostulacion(
         continue;
       }
       for (const a of de) {
-        if (!alDia(a)) viejas.add(a.id);
-        else anotar(a.id, o, "revisar");
+        if (alDia(a)) anotar(a.id, o, "revisar");
+        else {
+          viejas.add(a.id);
+          ocultar(a.id, o, "revisar");
+        }
       }
     }
   }
@@ -208,14 +235,19 @@ export function notasDeLaPostulacion(
     // Con algo pendiente, la firma va al final de la lista (en «por
     // firmar» ya lo dice su estado).
     if (estado === "por_completar" || estado === "por_revisar") {
-      lista.push({ texto: "Falta la firma.", tono: "completar" });
+      lista.push({ texto: FALTA_LA_FIRMA, tono: "completar" });
     }
     const aviso = viejas.has(a.id)
       ? "Cambió después de la última validación: vuelve a validar."
       : editadosConPendientes.has(a.id) && !(r && alDia(a))
         ? "Lo editaste: valida para ver si quedó completo."
         : null;
-    porDocumento.set(a.id, { estado, notas: lista, aviso });
+    porDocumento.set(a.id, {
+      estado,
+      notas: lista,
+      aviso,
+      ocultas: ocultas.get(a.id) ?? [],
+    });
   }
   return { porDocumento, requisitos, otros };
 }

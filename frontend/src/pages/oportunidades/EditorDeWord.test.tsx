@@ -27,6 +27,7 @@ vi.mock("../../services/editorDelWord.service", () => ({
 vi.mock("../../services/oportunidades.service", () => ({
   getValidacion: vi.fn(),
   pedirValidacion: vi.fn(),
+  getGeneraciones: vi.fn(),
 }));
 vi.mock("./descargas", () => ({ descargarDelBalde: vi.fn() }));
 vi.mock("../../components/toast/Toast", () => ({
@@ -131,6 +132,11 @@ beforeEach(() => {
   e.abrirElWord.mockResolvedValue(WORD);
   e.guardarElWord.mockResolvedValue(GUARDADO);
   s.getValidacion.mockResolvedValue(null);
+  s.getGeneraciones.mockResolvedValue({
+    anexos: null,
+    firma: null,
+    propuesta: null,
+  });
   s.pedirValidacion.mockResolvedValue({
     id: 5,
     estado: "procesando",
@@ -266,7 +272,88 @@ describe("El documento, para verlo y editarlo", () => {
     ).toBeInTheDocument();
   });
 
-  it("una validación de antes de editar avisa que hay que volver a validar", async () => {
+  it("arriba van los avisos de este formulario, no la validación de toda la postulación, y lo corregido se va (26-10)", async () => {
+    // Felipe: "¿esta validación que llegó acá al formulario 5?"; "si son
+    // cosas que se corrigieron se deben eliminar, si no solo generan bulla".
+    e.abrirElWord.mockResolvedValue({
+      ...WORD,
+      bloques: [
+        {
+          tipo: "parrafo",
+          id: 0,
+          editable: true,
+          formato: { b: false, i: false, u: false },
+          tramos: [
+            {
+              r: 0,
+              t: "FORMULARIO N°4 prespuesto",
+              b: true,
+              i: false,
+              u: false,
+            },
+          ],
+        },
+      ],
+    });
+    s.getValidacion.mockResolvedValue({
+      id: 4,
+      estado: "listo",
+      creado_en: "2026-10-24T20:00:00.000Z",
+      terminado_en: "2026-10-24T20:02:00.000Z",
+      resultado: {
+        resumen: "Resumen de toda la postulación.",
+        listo: "casi",
+        requisitos: [
+          {
+            que: "Formulario N°4 Calidad de la oferta",
+            estado: "revisar",
+            donde: "Formulario N°4 - Calidad de la oferta - lleno.docx",
+            observacion: "Falta el jugo en la colación.",
+          },
+          {
+            que: "Formulario N°3 Experiencia",
+            estado: "revisar",
+            donde: "Formulario N°3 - Experiencia - firmado.pdf",
+            observacion: "Faltan las facturas.",
+          },
+        ],
+        otros_problemas: [
+          "Formulario N°4: 'prespuesto' debe ser presupuesto.",
+          "El certificado F30 vence antes del cierre.",
+        ],
+      },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText("Avisos de este formulario (2)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Falta el jugo en la colación."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Formulario N°4: 'prespuesto' debe ser presupuesto."),
+    ).toBeInTheDocument();
+    // Lo de otros formularios y lo general no va aquí.
+    expect(screen.queryByText("Faltan las facturas.")).toBeNull();
+    expect(
+      screen.queryByText("El certificado F30 vence antes del cierre."),
+    ).toBeNull();
+    expect(screen.queryByText("Resumen de toda la postulación.")).toBeNull();
+    // Se corrige en pantalla: el aviso se va solo.
+    escribir(0, "FORMULARIO N°4 presupuesto");
+    expect(
+      await screen.findByText(
+        "Avisos de este formulario (1)",
+        {},
+        { timeout: 2000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Formulario N°4: 'prespuesto' debe ser presupuesto."),
+    ).toBeNull();
+  });
+
+  it("una validación de antes de editar: lo que no se puede comprobar se cuenta para volver a validar", async () => {
     s.getValidacion.mockResolvedValue({
       id: 4,
       estado: "listo",
@@ -287,14 +374,11 @@ describe("El documento, para verlo y editarlo", () => {
     } as never);
     pintar(GUARDADO, false);
     expect(
-      await screen.findByText("Falta firmar el Formulario N°4."),
+      await screen.findByText(/1 aviso no se puede comprobar aquí/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/es de antes de tus últimos cambios/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Formulario N°4: «prespuesto» debe ser presupuesto."),
-    ).toBeInTheDocument();
+    // «prespuesto» ya no está en el documento: corregido, no se muestra.
+    expect(screen.queryByText(/prespuesto/)).toBeNull();
+    expect(screen.queryByText("Falta firmar el Formulario N°4.")).toBeNull();
     // Sin onFirmar no se firma desde aquí.
     expect(screen.queryByRole("button", { name: /Firmar/ })).toBeNull();
   });

@@ -215,6 +215,7 @@ describe("las notas de cada documento", () => {
         { texto: "Falta la firma.", tono: "completar" },
       ],
       aviso: null,
+      ocultas: [],
     });
   });
 
@@ -223,6 +224,7 @@ describe("las notas de cada documento", () => {
       estado: "firmado",
       notas: [],
       aviso: null,
+      ocultas: [],
     });
   });
 
@@ -244,6 +246,8 @@ describe("las notas de cada documento", () => {
         },
       ],
       aviso: "Cambió después de la última validación: vuelve a validar.",
+      // Lo de la validación queda guardado: el editor lo comprueba contra el texto.
+      ocultas: [{ texto: "Falta el jugo como alternativa.", tono: "revisar" }],
     });
   });
 
@@ -271,6 +275,13 @@ describe("un documento editado en Eventia", () => {
       estado: "por_firmar",
       notas: [],
       aviso: "Lo editaste: valida para ver si quedó completo.",
+      ocultas: [
+        {
+          texto:
+            "Precios unitarios netos de «Uso Centro», «Almuerzo» y «Colación»: quedan en blanco.",
+          tono: "completar",
+        },
+      ],
     });
   });
 
@@ -306,6 +317,8 @@ describe("un documento editado en Eventia", () => {
         { texto: "Falta la firma.", tono: "completar" },
       ],
       aviso: null,
+      // Validado después de editar: lo de la IA al llenarlo ya no cuenta.
+      ocultas: [],
     });
   });
 
