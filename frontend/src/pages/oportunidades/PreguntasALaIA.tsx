@@ -41,12 +41,12 @@ const SEGURIDAD: Record<NonNullable<PreguntaALaIA["seguridad"]>, string> = {
 
 export default function PreguntasALaIA({
   oportunidadId,
-  plegada = false,
+  sinTitulo = false,
 }: {
   readonly oportunidadId: number;
-  /** Dentro de un plegable con su título (decisión 80): sin título ni
-   *  raya arriba. */
-  readonly plegada?: boolean;
+  /** En su propio bloque, que ya lleva el título (el bloque 5 de «Bases y
+   *  criterios», decisión 80): sin título ni raya arriba. */
+  readonly sinTitulo?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "preguntas", oportunidadId];
@@ -98,11 +98,11 @@ export default function PreguntasALaIA({
   return (
     <div
       className={
-        plegada ? "space-y-3" : "pt-4 border-t border-gray-100 space-y-3"
+        sinTitulo ? "space-y-3" : "pt-4 border-t border-gray-100 space-y-3"
       }
     >
       <div className="space-y-0.5">
-        {!plegada && (
+        {!sinTitulo && (
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
             <CircleHelp size={15} /> Pregúntale a la IA sobre estas bases
           </h3>

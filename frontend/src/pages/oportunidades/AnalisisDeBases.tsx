@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Loader2, Sparkles } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import { getExperiencia } from "../../services/experiencia.service";
 import {
@@ -12,12 +11,13 @@ import {
   type ResultadoDeBases,
 } from "../../services/oportunidades.service";
 import { getOfertaDeLaPostulacion } from "../../services/postulacion.service";
-import { getPreguntas } from "../../services/preguntas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
+import AlFinalDeLasBases from "./AlFinalDeLasBases";
 import DocumentosAPresentar from "./DocumentosAPresentar";
 import ExigenciasDeLaLicitacion from "./ExigenciasDeLaLicitacion";
 import { exigenciasDe } from "./exigencias";
+import Plegable from "./Plegable";
 import PreguntasALaIA from "./PreguntasALaIA";
 import {
   alertasDelAnalisis,
@@ -67,8 +67,10 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // evalúan, con cómo vas en cada criterio; 2 Lo que te deja fuera, cada causa
 // con su estado; 3 Lo que tienes que ofrecer, cada exigencia con un solo
 // estado y cómo la ofreces; 4 Lo que tienes que presentar, por parte del
-// portal. Las fechas, las otras condiciones y las preguntas van plegadas al
-// final. Los cruces están en relacionDeLasBases.ts.
+// portal; y 5 Pregúntale a la IA, abierto (Felipe: "debe ser el bloque 5 y
+// más protagonista"). Al final, plegado, lo de consulta (AlFinalDeLasBases):
+// el pedido al proveedor, lo que va al catálogo, los detalles, las fechas y
+// las otras condiciones. Los cruces están en relacionDeLasBases.ts.
 
 export default function AnalisisDeBases({
   oportunidadId,
@@ -171,32 +173,56 @@ export default function AnalisisDeBases({
         )}
       </section>
 
-      {r && analisis && (
+      {r && analisis ? (
         <Relacionado
           r={r}
           oportunidadId={oportunidadId}
           ficha={ficha}
           analizadoEl={analisis.creado_en}
-        />
-      )}
-
-      {(r || adjuntos.length > 0) && (
-        <AlFinal
-          r={r}
-          oportunidadId={oportunidadId}
           conBases={adjuntos.length > 0}
         />
+      ) : (
+        adjuntos.length > 0 && (
+          <BloqueDePreguntas oportunidadId={oportunidadId} />
+        )
       )}
     </>
   );
 }
 
-/** Los cuatro bloques, cada uno con lo que le dicen los otros. */
+/** «Pregúntale a la IA» con protagonismo (Felipe, 26-10: "debe ser el
+ *  bloque 5 y más protagonista"): abierto, con el cuadro para preguntar y
+ *  las últimas respuestas a la vista. Sin análisis va sin número. */
+function BloqueDePreguntas({
+  oportunidadId,
+  numero,
+}: {
+  readonly oportunidadId: number;
+  readonly numero?: number;
+}) {
+  const titulo = "Pregúntale a la IA sobre estas bases";
+  return (
+    <section className="bg-white rounded-lg shadow p-5 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-900">
+        {numero ? (
+          <TituloDeBloque numero={numero}>{titulo}</TituloDeBloque>
+        ) : (
+          titulo
+        )}
+      </h2>
+      <PreguntasALaIA oportunidadId={oportunidadId} sinTitulo />
+    </section>
+  );
+}
+
+/** Los cuatro bloques, cada uno con lo que le dicen los otros; después,
+ *  las preguntas a la IA (el 5) y lo plegado al final. */
 function Relacionado({
   r,
   oportunidadId,
   ficha,
   analizadoEl,
+  conBases,
 }: {
   readonly r: ResultadoDeBases;
   readonly oportunidadId: number;
@@ -205,6 +231,8 @@ function Relacionado({
     "estado" | "exigencias_marcadas" | "proceso"
   >;
   readonly analizadoEl: string;
+  /** Hay bases subidas: se le puede preguntar a la IA. */
+  readonly conBases: boolean;
 }) {
   const filas = useChecklistDeDocumentos(
     oportunidadId,
@@ -319,6 +347,12 @@ function Relacionado({
         filas={filas}
         sinChecklist={!r.documentos?.length}
       />
+
+      {conBases && (
+        <BloqueDePreguntas oportunidadId={oportunidadId} numero={5} />
+      )}
+
+      <AlFinalDeLasBases r={r} oferta={oferta} cubre={cubre} />
     </>
   );
 }
@@ -391,103 +425,5 @@ function Criterios({
         </dl>
       </Plegable>
     </section>
-  );
-}
-
-/** Lo de consulta, plegado: las fechas y garantías, las otras condiciones
- *  y las preguntas a la IA. */
-function AlFinal({
-  r,
-  oportunidadId,
-  conBases,
-}: {
-  readonly r: ResultadoDeBases | null;
-  readonly oportunidadId: number;
-  readonly conBases: boolean;
-}) {
-  const { data: hilo = [] } = useQuery({
-    queryKey: ["oportunidades", "preguntas", oportunidadId],
-    queryFn: () => getPreguntas(oportunidadId),
-    enabled: conBases,
-  });
-  const { condiciones, separadas } = r
-    ? alertasDelAnalisis(r)
-    : { condiciones: [], separadas: true };
-  return (
-    <section className="bg-white rounded-lg shadow p-5 space-y-3">
-      {r && (r.fechas.length > 0 || r.garantias.length > 0) && (
-        <Plegable titulo="Fechas clave y garantías">
-          {r.fechas.length > 0 && (
-            <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {r.fechas.map((f, i) => (
-                <div key={i} className="p-2 rounded-lg bg-gray-50">
-                  <dt className="text-xs text-gray-500">{f.que}</dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {f.cuando}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {r.garantias.length > 0 && (
-            <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-              {r.garantias.map((g, i) => (
-                <li key={i}>{g}</li>
-              ))}
-            </ul>
-          )}
-        </Plegable>
-      )}
-      {condiciones.length > 0 && (
-        <Plegable
-          titulo={
-            separadas
-              ? `Otras condiciones (${condiciones.length}): multas, pago, subcontratación…`
-              : `Avisos (${condiciones.length}). Vuelve a analizar para separar lo que te deja fuera.`
-          }
-        >
-          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
-            {condiciones.map((a, i) => (
-              <li key={i}>{a}</li>
-            ))}
-          </ul>
-        </Plegable>
-      )}
-      {conBases && (
-        <Plegable
-          titulo={`Pregúntale a la IA sobre estas bases${hilo.length > 0 ? ` (${hilo.length})` : ""}`}
-          abierto={hilo.some((p) => p.estado === "procesando")}
-        >
-          <PreguntasALaIA oportunidadId={oportunidadId} plegada />
-        </Plegable>
-      )}
-    </section>
-  );
-}
-
-function Plegable({
-  titulo,
-  abierto: deEntrada = false,
-  children,
-}: {
-  readonly titulo: string;
-  /** Abierto de partida (una pregunta que la IA está respondiendo). */
-  readonly abierto?: boolean;
-  readonly children: ReactNode;
-}) {
-  const [abierto, setAbierto] = useState(deEntrada);
-  return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        aria-expanded={abierto}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-      >
-        {abierto ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {titulo}
-      </button>
-      {abierto && children}
-    </div>
   );
 }
