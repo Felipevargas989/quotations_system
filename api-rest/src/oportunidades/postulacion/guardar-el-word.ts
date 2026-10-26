@@ -1,6 +1,6 @@
 import { archivoDelZip, nombresDelZip, textoDeDocx } from '../analisis/docx';
 import { leerElWord, type ParrafoEditable } from './el-word-editable';
-import type { Formato } from './estilos-del-word';
+import type { Alineacion, Formato } from './estilos-del-word';
 import { arbolDelXml, enXml, hijo, type Nodo } from './xml-del-word';
 import { armarZip } from './zip';
 
@@ -22,7 +22,17 @@ export type TramoEditado = {
   u?: boolean;
 };
 
-export type ParrafoEditado = { id: number; tramos: TramoEditado[] };
+/** Cómo queda alineado el párrafo (decisión 78, 25-10: Felipe, con los
+ *  precios del Formulario N°5 centrados en una fila y a la derecha en otra:
+ *  "¿será necesario incluir una herramienta para manejar los centrados?").
+ *  Sin decirlo, como estaba. */
+export type AlineacionEditada = 'izquierda' | Alineacion;
+
+export type ParrafoEditado = {
+  id: number;
+  tramos: TramoEditado[];
+  alineacion?: AlineacionEditada;
+};
 
 /** No se guarda, por lo que dice el mensaje. */
 export class NoSeGuarda extends Error {}
@@ -74,22 +84,64 @@ const ORDEN_DEL_RPR = [
   'w:oMath',
 ];
 
-// Lo desconocido (las extensiones de Word nuevo, `w14:...`) va al final.
-const lugar = (nombre: string) => {
-  const i = ORDEN_DEL_RPR.indexOf(nombre);
-  return i < 0 ? ORDEN_DEL_RPR.length : i;
-};
+// Y el de las propiedades de un párrafo: la alineación (`w:jc`) va después
+// del espaciado y la sangría, y antes de la marca del párrafo (`w:rPr`).
+const ORDEN_DEL_PPR = [
+  'w:pStyle',
+  'w:keepNext',
+  'w:keepLines',
+  'w:pageBreakBefore',
+  'w:framePr',
+  'w:widowControl',
+  'w:numPr',
+  'w:suppressLineNumbers',
+  'w:pBdr',
+  'w:shd',
+  'w:tabs',
+  'w:suppressAutoHyphens',
+  'w:kinsoku',
+  'w:wordWrap',
+  'w:overflowPunct',
+  'w:topLinePunct',
+  'w:autoSpaceDE',
+  'w:autoSpaceDN',
+  'w:bidi',
+  'w:adjustRightInd',
+  'w:snapToGrid',
+  'w:spacing',
+  'w:ind',
+  'w:contextualSpacing',
+  'w:mirrorIndents',
+  'w:suppressOverlap',
+  'w:jc',
+  'w:textDirection',
+  'w:textAlignment',
+  'w:textboxTightWrap',
+  'w:outlineLvl',
+  'w:divId',
+  'w:cnfStyle',
+  'w:rPr',
+  'w:sectPr',
+  'w:pPrChange',
+];
 
-/** Las propiedades de una corrida con `nombre` cambiado por `nuevo` (o sin
- *  él, si `nuevo` es null), en su lugar. */
-export const conPropiedad = (
-  rPr: string,
+/** Las propiedades (`raiz`: `w:rPr` o `w:pPr`) con `nombre` cambiado por
+ *  `nuevo` (o sin él, si `nuevo` es null), en su lugar. Lo desconocido (las
+ *  extensiones de Word nuevo, `w14:...`) va al final. */
+const conHijo = (
+  propiedades: string,
+  raiz: string,
+  orden: readonly string[],
   nombre: string,
   nuevo: string | null,
 ): string => {
-  const fuente = rPr || '<w:rPr/>';
-  const nodo = hijo(arbolDelXml(fuente) ?? undefined, 'w:rPr');
-  if (!nodo) return rPr;
+  const fuente = propiedades || `<${raiz}/>`;
+  const nodo = hijo(arbolDelXml(fuente) ?? undefined, raiz);
+  if (!nodo) return propiedades;
+  const lugar = (n: string) => {
+    const i = orden.indexOf(n);
+    return i < 0 ? orden.length : i;
+  };
   const partes = nodo.hijos
     .filter((h) => h.nombre !== nombre)
     .map((h) => ({ nombre: h.nombre, xml: enXml(fuente, h) }));
@@ -98,9 +150,41 @@ export const conPropiedad = (
     partes.splice(i < 0 ? partes.length : i, 0, { nombre, xml: nuevo });
   }
   return partes.length > 0
-    ? `<w:rPr>${partes.map((p) => p.xml).join('')}</w:rPr>`
+    ? `<${raiz}>${partes.map((p) => p.xml).join('')}</${raiz}>`
     : '';
 };
+
+/** Las propiedades de una corrida con `nombre` cambiado por `nuevo` (o sin
+ *  él, si `nuevo` es null), en su lugar. */
+export const conPropiedad = (
+  rPr: string,
+  nombre: string,
+  nuevo: string | null,
+): string => conHijo(rPr, 'w:rPr', ORDEN_DEL_RPR, nombre, nuevo);
+
+const EN_WORD: Record<AlineacionEditada, string> = {
+  izquierda: 'left',
+  centro: 'center',
+  derecha: 'right',
+  justificado: 'both',
+};
+
+/** El diseño del párrafo con otra alineación, solo si cambió: escrita
+ *  explícita, para que mande sobre la del estilo. */
+export const conAlineacion = (
+  pPr: string,
+  antes: AlineacionEditada,
+  ahora: AlineacionEditada | undefined,
+): string =>
+  !ahora || ahora === antes
+    ? pPr
+    : conHijo(
+        pPr,
+        'w:pPr',
+        ORDEN_DEL_PPR,
+        'w:jc',
+        `<w:jc w:val="${EN_WORD[ahora]}"/>`,
+      );
 
 const sinPropiedades = (rPr: string, nombres: readonly string[]): string =>
   nombres.reduce((x, n) => conPropiedad(x, n, null), rPr);
@@ -188,7 +272,7 @@ type Fuente = { rPr: string; formato: Formato; texto: string };
 const parrafoNuevo = (
   xml: string,
   e: ParrafoEditable,
-  tramos: readonly TramoEditado[],
+  { tramos, alineacion }: ParrafoEditado,
 ): string => {
   const p = e.nodo;
   const apertura = xml.slice(p.inicio, p.finApertura).replace(/\s*\/>$/, '>');
@@ -226,7 +310,12 @@ const parrafoNuevo = (
       );
     })
     .join('');
-  return `${apertura}${de(['w:pPr'])}${de(['w:bookmarkStart', 'w:permStart'])}${corridas}${de(['w:bookmarkEnd', 'w:permEnd'])}</w:p>`;
+  const diseno = conAlineacion(
+    de(['w:pPr']),
+    e.alineacion ?? 'izquierda',
+    alineacion,
+  );
+  return `${apertura}${diseno}${de(['w:bookmarkStart', 'w:permStart'])}${corridas}${de(['w:bookmarkEnd', 'w:permEnd'])}</w:p>`;
 };
 
 /** El mismo Word con otro word/document.xml. El texto (XML) va
@@ -268,7 +357,7 @@ export const guardarCambios = (
         throw new NoSeGuarda(`El párrafo ${p.id + 1} no se puede editar aquí.`);
       }
       vistos.add(p.id);
-      return { e, nuevo: parrafoNuevo(lectura.xml, e, p.tramos) };
+      return { e, nuevo: parrafoNuevo(lectura.xml, e, p) };
     })
     .sort((a, b) => b.e.nodo.inicio - a.e.nodo.inicio);
   // De atrás hacia adelante: así no se corren los lugares de los demás.

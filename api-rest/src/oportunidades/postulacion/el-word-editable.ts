@@ -326,6 +326,9 @@ export type ParrafoEditable = {
   base: Formato;
   /** El de lo que se escribe en el párrafo vacío: el de su marca. */
   deLaMarca: Formato;
+  /** Cómo se ve alineado (la suya o la de su estilo); sin ella, a la
+   *  izquierda. */
+  alineacion?: Alineacion;
   corridas: Array<{ nodo: Nodo; formato: Formato; texto: string }>;
 };
 
@@ -412,7 +415,7 @@ const parrafo = (ctx: Contexto, p: Nodo, ancestros: Nodo[]): Parrafo => {
     formato: formatoDeLaCorrida(ctx, base, r),
     texto: textoDeLaCorrida(xml, r),
   }));
-  ctx.editables.set(id, { nodo: p, base, deLaMarca, corridas });
+  ctx.editables.set(id, { nodo: p, base, deLaMarca, corridas, alineacion });
   const tramos = corridas.flatMap((c, r) =>
     c.texto ? [tramo(ctx, c.texto, c.formato, r)] : [],
   );
