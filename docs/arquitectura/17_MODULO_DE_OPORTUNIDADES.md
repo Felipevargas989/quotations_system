@@ -532,6 +532,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **3 Subir a Mercado Público**, con el cierre a la vista: «Validar todo», con la última validación en una línea (cuántos requisitos cumplen) y debajo solo lo que no es de ningún documento (el plazo de ejecución, un certificado de la carpeta); después «Descargar el ZIP», que baja de una, y «Ver qué lleva».
     - «Lo que tienes que conseguir» (decisión 39) pasa a «Bases y criterios», después del análisis. Queda por juntarlo con las exigencias de la licitación (parte 2).
     - Queda para después: que «Volver a validar» dentro del documento valide solo ese documento y ponga al día sus notas.
+80. **«Bases y criterios» relacionado** (26-10, en el laboratorio; Felipe: *"ahora en bases y criterios, ¿cómo podemos ordenar esto? para que estén relacionados y sirva al propósito"*; con el boceto: *"sí, ármalo en el laboratorio"*). Cuatro bloques que se responden entre sí, después del resumen:
+    - **1 Cómo te evalúan**: las barras por peso y, al lado de cada criterio, cómo vas: el precio frente al presupuesto, la experiencia confirmada frente a lo que da el puntaje máximo, los documentos listos, el programa de integridad y, para la calidad de la oferta, lo que falta de las exigencias.
+    - **2 Lo que te deja fuera**: cada causa con su estado real: los formularios que nombra, el precio, el 100 % de lo pedido o el documento del que habla.
+    - **3 Lo que tienes que ofrecer**: las exigencias se juntan con «Lo que tienes que conseguir» (decisión 39). Cada exigencia tiene **un solo estado**: manda lo que marcaste (✓ Lo tengo / ✗ No puedo), después cómo se ofreció al armar la postulación (de tu catálogo, subcontratar, por definir o no va) y al final la primera lectura de la IA. Antes se contradecían: el análisis decía «conseguir» los baños y la oferta, «catálogo». Debajo de cada una, «Ofreces: …»; al final, el pedido al proveedor, lo que hay que agregar al catálogo y los detalles para el comentario interno.
+    - **4 Lo que tienes que presentar**: los documentos por parte del portal (administrativa, técnica, económica). Los formularios van aquí con su estado: la lista aparte «Formularios para llenar» se quitó porque los repetía.
+    - Al final, plegados: las fechas clave y garantías, las otras condiciones y «Pregúntale a la IA» con cuántas preguntas tiene.
+    - Cómo se juntan: la oferta y el análisis leen las mismas bases punto por punto, así que cada exigencia toma la línea de la oferta con más palabras en común (y la misma página); una línea va a una sola exigencia. Lo que no calza con ninguna queda en «Lo demás de la oferta».
 
 ## 4. Reglas del módulo (no se negocian)
 

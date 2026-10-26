@@ -12,6 +12,8 @@ import {
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as exigenciasServicio from "../../services/exigencias.service";
+import * as experienciaServicio from "../../services/experiencia.service";
+import * as postulacionServicio from "../../services/postulacion.service";
 import * as servicio from "../../services/oportunidades.service";
 import AnalisisDeBases from "./AnalisisDeBases";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
@@ -119,15 +121,26 @@ vi.mock("../../services/oportunidades.service", () => ({
   getValidacion: vi.fn(),
   pedirValidacion: vi.fn(),
   getGeneraciones: vi.fn(),
+  getCotizacionDeLaPostulacion: vi.fn(),
   getOferente: vi.fn(),
   actualizarOportunidad: vi.fn(),
 }));
 vi.mock("../../services/exigencias.service", () => ({
   marcarExigencia: vi.fn(),
 }));
+// Lo que cruzan los bloques de «Bases y criterios» (decisión 80): la oferta
+// armada y la experiencia; de partida, nada armado.
+vi.mock("../../services/postulacion.service", () => ({
+  getOfertaDeLaPostulacion: vi.fn(),
+}));
+vi.mock("../../services/experiencia.service", () => ({
+  getExperiencia: vi.fn(),
+}));
 
 const s = vi.mocked(servicio);
 const ex = vi.mocked(exigenciasServicio);
+const po = vi.mocked(postulacionServicio);
+const xp = vi.mocked(experienciaServicio);
 
 /** La carpeta de «Mi empresa»: la patente vigente y el inicio de
  *  actividades vencido antes del cierre. */
@@ -169,6 +182,7 @@ const pintar = (
   ui: ReactElement,
   analisis: unknown = ANALISIS,
   postulacion: unknown[] = POSTULACION,
+  oferta: unknown = null,
 ) => {
   s.getAnalisis.mockResolvedValue(analisis as never);
   s.getValidacion.mockResolvedValue(VALIDACION as never);
@@ -177,6 +191,9 @@ const pintar = (
     firma: null,
     propuesta: null,
   });
+  s.getCotizacionDeLaPostulacion.mockResolvedValue(null as never);
+  po.getOfertaDeLaPostulacion.mockResolvedValue(oferta as never);
+  xp.getExperiencia.mockResolvedValue({ piden: false, trabajo: null });
   s.getAdjuntos.mockImplementation((_id, seccion) =>
     Promise.resolve(
       (seccion === "postulacion" ? postulacion : [{ id: 1 }]) as never,
@@ -198,26 +215,32 @@ describe("Lo que piden las bases", () => {
   it("cómo te evalúan: de más peso a menos, con el % a la vista y el detalle plegado", async () => {
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
     const titulo = await screen.findByText("Cómo te evalúan");
-    const lista = within(titulo.parentElement as HTMLElement).getAllByRole(
-      "listitem",
+    const bloque = titulo.closest("section") as HTMLElement;
+    // Con cómo vas (decisión 80): el programa de integridad está en tu
+    // postulación; el precio y la experiencia, sin armar, no dicen nada.
+    await waitFor(() =>
+      expect(
+        within(bloque)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent),
+      ).toEqual([
+        "Oferta económica45%",
+        "Experiencia20%",
+        "Integridad5%lo tienes",
+      ]),
     );
-    expect(lista.map((li) => li.textContent)).toEqual([
-      "Oferta económica45%",
-      "Experiencia20%",
-      "Integridad5%",
-    ]);
     expect(screen.queryByText("precio")).toBeNull();
     fireEvent.click(screen.getByText("Ver cómo se calcula cada uno"));
     expect(screen.getByText("precio")).toBeInTheDocument();
   });
 
-  it("arriba lo que te deja fuera; las demás condiciones, plegadas", async () => {
+  it("arriba lo que te deja fuera, con su estado; las demás condiciones, plegadas", async () => {
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
-    expect(
-      await screen.findByText(
-        "Sin la boleta de garantía quedas fuera de bases",
-      ),
-    ).toBeInTheDocument();
+    const boleta = (
+      await screen.findByText("Sin la boleta de garantía quedas fuera de bases")
+    ).closest("li") as HTMLElement;
+    // La boleta está en «Lo que tienes que presentar» y falta.
+    expect(await within(boleta).findByText("falta")).toBeInTheDocument();
     expect(screen.queryByText("Multa de 1% por día de atraso")).toBeNull();
     fireEvent.click(screen.getByText(/Otras condiciones \(1\)/));
     expect(
@@ -347,7 +370,7 @@ describe("Lo que piden las bases", () => {
   });
 });
 
-describe("Exigencias de la licitación", () => {
+describe("Lo que tienes que ofrecer (las exigencias)", () => {
   const CON_TECNICOS = {
     ...RESULTADO,
     requisitos: [
@@ -411,7 +434,7 @@ describe("Exigencias de la licitación", () => {
     const cena = (
       await screen.findByText("Cena con plateada o salmón")
     ).closest("li") as HTMLElement;
-    expect(within(cena).getByText("IA: Lo tienes")).toBeInTheDocument();
+    expect(within(cena).getByText("IA: lo tienes")).toBeInTheDocument();
     expect(
       within(cena).getByText(/Con: Menú guardado \[Cena\] Plateada/),
     ).toBeInTheDocument();
@@ -419,15 +442,70 @@ describe("Exigencias de la licitación", () => {
       screen.getByText(/Ese día tienes otro evento\./),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("0 lo tienes · 0 no puedes · 2 por revisar"),
+      screen.getByText("2 exigencias: 1 por conseguir · 1 la tienes"),
     ).toBeInTheDocument();
     // El certificado es un documento: no se marca como exigencia.
     const exigencias = screen
-      .getByText("Exigencias de la licitación")
-      .closest("div.p-3") as HTMLElement;
+      .getByText("Lo que tienes que ofrecer")
+      .closest("section") as HTMLElement;
     expect(
       within(exigencias).queryByText("Certificado de la SEREMI de Salud"),
     ).toBeNull();
+  });
+
+  it("con la oferta armada: cada exigencia dice cómo la ofreces y abajo va el pedido al proveedor (decisión 80)", async () => {
+    pintar(
+      <AnalisisDeBases oportunidadId={40} ficha={FICHA} />,
+      { ...ANALISIS, resultado: CON_TECNICOS },
+      POSTULACION,
+      {
+        id: 3,
+        estado: "listo",
+        creado_en: "2026-10-17T14:00:00.000Z",
+        terminado_en: "2026-10-17T14:03:00.000Z",
+        parametros: { postulacion: { total: 10_000_000, propuesta: false } },
+        resultado: {
+          resumen: "",
+          faltan_en_el_catalogo: [],
+          detalles: ["Postre: leche asada"],
+          subcontratar: ["Generador eléctrico de 10 kVA"],
+          matriz: [
+            {
+              especificacion: "Cena con plateada o salmón y guarnición",
+              pagina: 19,
+              como: "Plateada con papas rústicas para 160.",
+              origen: "catalogo",
+              productos: [],
+            },
+            {
+              especificacion: "Exclusividad del recinto el día del evento",
+              pagina: 18,
+              como: "Recinto exclusivo ese día.",
+              origen: "subcontratar",
+              productos: [],
+            },
+          ],
+        },
+      },
+    );
+    const cena = (
+      await screen.findByText("Cena con plateada o salmón")
+    ).closest("li") as HTMLElement;
+    // Un solo estado: el de la oferta, no la lectura de la IA.
+    expect(await within(cena).findByText("de tu catálogo")).toBeInTheDocument();
+    expect(
+      within(cena).getByText("Ofreces: Plateada con papas rústicas para 160."),
+    ).toBeInTheDocument();
+    expect(within(cena).queryByText(/Con: Menú guardado/)).toBeNull();
+    expect(
+      screen.getByText("2 exigencias: 1 por subcontratar · 1 de tu catálogo"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Para el proveedor (1)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Generador eléctrico de 10 kVA"),
+    ).toBeInTheDocument();
+    // La oferta es de después del análisis: no se avisa que está vieja.
+    expect(screen.queryByText(/antes del último análisis/)).toBeNull();
   });
 
   it("marcar ✓ lo tengo se guarda; ✗ no puedo ofrece desistir", async () => {
@@ -543,7 +621,7 @@ describe("Exigencias de la licitación", () => {
     cleanup();
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
     await screen.findByText("Cómo te evalúan");
-    expect(screen.queryByText("Exigencias de la licitación")).toBeNull();
+    expect(screen.queryByText("Lo que tienes que ofrecer")).toBeNull();
   });
 });
 

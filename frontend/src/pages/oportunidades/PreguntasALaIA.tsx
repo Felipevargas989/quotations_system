@@ -41,8 +41,12 @@ const SEGURIDAD: Record<NonNullable<PreguntaALaIA["seguridad"]>, string> = {
 
 export default function PreguntasALaIA({
   oportunidadId,
+  plegada = false,
 }: {
   readonly oportunidadId: number;
+  /** Dentro de un plegable con su título (decisión 80): sin título ni
+   *  raya arriba. */
+  readonly plegada?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = ["oportunidades", "preguntas", oportunidadId];
@@ -92,11 +96,17 @@ export default function PreguntasALaIA({
   const ocultas = recientes.length - visibles.length;
 
   return (
-    <div className="pt-4 border-t border-gray-100 space-y-3">
+    <div
+      className={
+        plegada ? "space-y-3" : "pt-4 border-t border-gray-100 space-y-3"
+      }
+    >
       <div className="space-y-0.5">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <CircleHelp size={15} /> Pregúntale a la IA sobre estas bases
-        </h3>
+        {!plegada && (
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+            <CircleHelp size={15} /> Pregúntale a la IA sobre estas bases
+          </h3>
+        )}
         <p className="text-xs text-gray-500">
           Responde con las bases y el análisis a la vista, citando documento y
           página. Lo que preguntes queda aquí, para todo el equipo.
