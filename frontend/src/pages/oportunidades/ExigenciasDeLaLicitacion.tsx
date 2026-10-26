@@ -11,17 +11,13 @@ import {
   actualizarOportunidad,
   type FichaDeOportunidad,
 } from "../../services/oportunidades.service";
-import type {
-  ArmadoDeLaOferta,
-  FilaDeLaOferta,
-} from "../../services/postulacion.service";
+import type { FilaDeLaOferta } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import type { Exigencia } from "./exigencias";
 import {
   CLASES_DEL_TONO,
   ESTADOS_DE_EXIGENCIA,
   type EstadoDeExigencia,
-  pedidoAlProveedor,
   resumenDeLasExigencias,
   textoDeLaOferta,
 } from "./relacionDeLasBases";
@@ -49,7 +45,7 @@ export default function ExigenciasDeLaLicitacion({
   exigencias,
   estados,
   cubre,
-  oferta,
+  pedido,
   ofertaVieja,
   marcas,
   postulada,
@@ -60,8 +56,8 @@ export default function ExigenciasDeLaLicitacion({
   readonly estados: Map<string, EstadoDeExigencia>;
   /** La línea de la oferta que cubre cada exigencia, por su clave. */
   readonly cubre: Map<string, FilaDeLaOferta>;
-  /** La oferta de «Armar postulación», si está lista. */
-  readonly oferta: ArmadoDeLaOferta | null;
+  /** Cuántas cosas hay que pedirle al proveedor (plegado al final). */
+  readonly pedido: number;
   /** La oferta es de antes del último análisis de las bases. */
   readonly ofertaVieja: boolean;
   readonly marcas: Record<string, MarcaDeExigencia>;
@@ -122,7 +118,7 @@ export default function ExigenciasDeLaLicitacion({
   const noPuedo = exigencias.filter((e) => marcas[e.clave] === "no_puedo");
   const estadoDe = (e: Exigencia) => estados.get(e.clave) ?? "por_revisar";
   // Lo que quedó plegado al final de la pestaña: el pedido al proveedor.
-  const paraElProveedor = pedidoAlProveedor(oferta).length;
+  const paraElProveedor = pedido;
 
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-3">

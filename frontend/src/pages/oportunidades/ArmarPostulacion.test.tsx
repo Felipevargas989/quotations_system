@@ -118,12 +118,27 @@ describe("Armar postulación", () => {
     ).toBeDisabled();
   });
 
-  it("postulada, no se vuelve a armar", async () => {
+  it("postulada antes de «Armar postulación»: una línea con el precio de los anexos, sin nada que armar (26-10)", async () => {
+    // Felipe, con la 1532886-5-LE26: "no me está reconociendo mi oferta".
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 1,
+        tipo: "anexos",
+        estado: "listo",
+        parametros: { adjuntos: [3], monto_total: 11_930_000 },
+        resultado: null,
+      },
+      firma: null,
+      propuesta: null,
+    } as never);
     pintar(true);
     expect(
-      await screen.findByRole("button", { name: "Armar postulación" }),
-    ).toBeDisabled();
-    expect(screen.getByLabelText("Precio total, con IVA")).toBeDisabled();
+      await screen.findByText("Postulada con $11.930.000 con IVA."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Armar postulación" }),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
   });
 
   it("muestra cada paso y reintenta lo que falló con el mismo precio", async () => {
