@@ -536,7 +536,7 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     expect(screen.queryByText(/Al catálogo/)).toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "Detalles para el comentario interno (1)",
+        name: "Otros detalles a considerar (1)",
       }),
     ).toBeInTheDocument();
     // La oferta es de después del análisis: no se avisa que está vieja.
