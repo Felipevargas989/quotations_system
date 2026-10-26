@@ -23,6 +23,7 @@ import {
   ESTADOS_DE_EXIGENCIA,
   type EstadoDeExigencia,
   resumenDeLasExigencias,
+  textoDeLaOferta,
 } from "./relacionDeLasBases";
 import TituloDeBloque from "./TituloDeBloque";
 
@@ -41,10 +42,6 @@ import TituloDeBloque from "./TituloDeBloque";
 // para el comentario interno de la cotización.
 
 const claveDeLaFicha = (id: number) => ["oportunidades", "ficha", id];
-
-/** Lo que dice el «cómo» de la oferta, sin la marca de completar. */
-const textoDeLaOferta = (como: string) =>
-  /\[COMPLETAR:\s*([^\]]+)\]/i.exec(como)?.[1] ?? como;
 
 function Plegado({
   titulo,

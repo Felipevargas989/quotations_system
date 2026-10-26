@@ -109,6 +109,15 @@ export function ofertaDeCadaExigencia(
   return cubre;
 }
 
+/** Lo que dice el «cómo» de una línea de la oferta: si es solo un dato
+ *  por completar, ese dato; si lo trae entre medio, marcado. */
+export const textoDeLaOferta = (como: string): string => {
+  const solo = /^\s*\[COMPLETAR:\s*([^\]]+)\]\s*$/i.exec(como);
+  return solo
+    ? solo[1].trim()
+    : como.replace(/\[COMPLETAR:\s*([^\]]+)\]/gi, "[por definir: $1]");
+};
+
 export type EstadoDeExigencia =
   | "lo_tienes"
   | "no_puedes"
@@ -360,7 +369,13 @@ export function estadoDeLoQueTeDejaFuera(
     if (suyas.length > 0) return selloDeLasFilas(suyas);
   }
   const n = normalizar(texto);
-  if (/presupuesto|monto disponible|monto maximo|precio/.test(n)) {
+  // «Ofertar más de $12.000.000 con IVA», «el monto disponible de la
+  // línea», «las ofertas que superen el presupuesto».
+  if (
+    /presupuesto|monto disponible|monto maximo|precio|ofertar mas|ofrecer mas|superen?\b|sobrepas/.test(
+      n,
+    )
+  ) {
     return c.precio
       ? {
           tono: c.precio.tono,

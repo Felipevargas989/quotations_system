@@ -13,6 +13,7 @@ import {
   selloDeLaIntegridad,
   selloDeLasExigencias,
   selloDeLosDocumentos,
+  textoDeLaOferta,
 } from "./relacionDeLasBases";
 
 // «BASES Y CRITERIOS» RELACIONADO (decisión 80 del doc 17, 26-10). Los
@@ -295,6 +296,7 @@ describe("lo que te deja fuera, con su estado", () => {
         "Ofertar más que el monto disponible de la línea ($17.200.000 en la Línea 1).",
         "No ofrecer el 100% de los servicios de la línea postulada.",
         "Sin patente municipal la oferta se descarta.",
+        "Ofertar más de $12.000.000 con IVA queda fuera de bases.",
         "No completar en 48 horas los documentos que te pidan por foro inverso.",
       ].map((t) => estadoDeLoQueTeDejaFuera(t, c)),
     ).toEqual([
@@ -302,6 +304,7 @@ describe("lo que te deja fuera, con su estado", () => {
       { tono: "bien", texto: "calza" },
       { tono: "ojo", texto: "1 por subcontratar" },
       { tono: "bien", texto: "en tu carpeta" },
+      { tono: "bien", texto: "calza" },
       null,
     ]);
   });
@@ -318,5 +321,27 @@ describe("lo que te deja fuera, con su estado", () => {
         filas,
       }),
     ).toEqual({ tono: "mal", texto: "N°3 y N°5 faltan" });
+  });
+});
+
+describe("lo que dice cada línea de la oferta", () => {
+  it("solo un dato por completar, ese dato; entre medio, marcado", () => {
+    expect(
+      textoDeLaOferta(
+        "[COMPLETAR: Valle del Sol postula solo a la Línea N°1; esta especificación no forma parte de la oferta]",
+      ),
+    ).toBe(
+      "Valle del Sol postula solo a la Línea N°1; esta especificación no forma parte de la oferta",
+    );
+    expect(
+      textoDeLaOferta(
+        "Show de baile inspirado en [COMPLETAR: película o temática del show], de 40 minutos.",
+      ),
+    ).toBe(
+      "Show de baile inspirado en [por definir: película o temática del show], de 40 minutos.",
+    );
+    expect(textoDeLaOferta("Salón climatizado para 160.")).toBe(
+      "Salón climatizado para 160.",
+    );
   });
 });
