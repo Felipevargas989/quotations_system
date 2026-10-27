@@ -12,6 +12,10 @@ import type { ResultadoPublico } from './resultado-compra-agil';
  *  comprador elija, en una compra ágil. */
 const DIAS_DE_ESPERA = 45;
 
+/** Hasta cuántos días después de ganar o perder se intenta traer las
+ *  ofertas de la competencia. */
+const DIAS_PARA_TRAER_OFERTAS = 7;
+
 export type PorResolver = {
   id: number;
   codigo: string;
@@ -90,6 +94,52 @@ export class ResultadosRepository {
         }),
       )
       .filter((f) => f.estado === 'postulada' || !f.anotada);
+  }
+
+  /** Las licitaciones de la empresa ganadas o perdidas en los últimos 7
+   *  días (por su última actualización) que no tienen ninguna oferta de la
+   *  competencia subida (decisión 96): a esas se les traen. Pocas. */
+  async licitacionesSinCompetencia(
+    companyId: number,
+    ahora = Date.now(),
+  ): Promise<Array<{ id: number; codigo: string }>> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('id, codigo, proceso:mp_procesos!inner(tipo)')
+      .eq('company_id', companyId)
+      .in('estado', ['ganada', 'perdida'])
+      .gte(
+        'actualizado_en',
+        new Date(ahora - DIAS_PARA_TRAER_OFERTAS * 24 * 3600_000).toISOString(),
+      )
+      .limit(100);
+    if (error) throw error;
+    const licitaciones = (
+      (data ?? []) as unknown as Array<{
+        id: number;
+        codigo: string;
+        proceso: { tipo: string } | null;
+      }>
+    ).filter((f) => f.proceso?.tipo === 'licitacion');
+    if (licitaciones.length === 0) return [];
+    const { data: subidas, error: errorSubidas } = await this.db
+      .from('oportunidad_adjuntos')
+      .select('oportunidad_id')
+      .eq('company_id', companyId)
+      .eq('seccion', 'competencia')
+      .in(
+        'oportunidad_id',
+        licitaciones.map((f) => f.id),
+      );
+    if (errorSubidas) throw errorSubidas;
+    const conCompetencia = new Set(
+      ((subidas ?? []) as Array<{ oportunidad_id: number }>).map(
+        (a) => a.oportunidad_id,
+      ),
+    );
+    return licitaciones
+      .filter((f) => !conCompetencia.has(f.id))
+      .map((f) => ({ id: f.id, codigo: f.codigo }));
   }
 
   /** Ganada o perdida, solo si sigue en «postulada»: lo que la empresa

@@ -6,6 +6,7 @@ import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ActasDeLaZonaService } from './actas.service';
 import { CotizantesService } from './cotizantes.service';
+import { OfertasDeLaCompetenciaService } from './ofertas-de-la-competencia.service';
 import { ResultadosDePostuladasService } from './resultados.service';
 import { RubroService } from './rubro.service';
 
@@ -19,8 +20,9 @@ import { RubroService } from './rubro.service';
 export const PRIMERA_VUELTA = '30 23 * * *';
 export const SEGUNDA_VUELTA = '30 2 * * *';
 export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
-// El resultado de las compras ágiles postuladas (decisión 92): media hora
-// después de cada pasada del radar, unos minutos.
+// El resultado de lo postulado (decisión 92) y, en las licitaciones ganadas
+// o perdidas sin la competencia subida, sus ofertas públicas (decisión 96):
+// media hora después de cada pasada del radar, unos minutos.
 export const RESULTADOS = '37 2,5,9,12,15,18,23 * * *';
 export const DURACION_DE_LOS_RESULTADOS_MS = 10 * 60_000;
 
@@ -32,9 +34,11 @@ export class CompetenciaCronService {
     private readonly rubro: RubroService,
     private readonly cotizantes: CotizantesService,
     private readonly logger: PinoLogger,
-    /** El resultado de las compras ágiles postuladas (decisión 92).
-     *  Opcional: las pruebas de antes no lo traen. */
+    /** El resultado de lo postulado (decisión 92) y las ofertas de la
+     *  competencia (decisión 96). Opcionales: las pruebas de antes no los
+     *  traen. */
     @Optional() private readonly resultados?: ResultadosDePostuladasService,
+    @Optional() private readonly ofertas?: OfertasDeLaCompetenciaService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
@@ -58,10 +62,16 @@ export class CompetenciaCronService {
       for (const { id } of await this.oportunidades.empresasConModulo()) {
         if (Date.now() > hasta) return;
         await this.paso('resultados', () => resultados.revisar(id, hasta));
+        const ofertas = this.ofertas;
+        if (ofertas) {
+          await this.paso('ofertas de la competencia', () =>
+            ofertas.traer(id, hasta),
+          );
+        }
       }
     } catch (error) {
       this.logger.error(
-        `el resultado de las compras ágiles falló: ${mensajeDe(error)}`,
+        `el resultado de lo postulado falló: ${mensajeDe(error)}`,
       );
     }
   }
