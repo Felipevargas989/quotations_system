@@ -190,12 +190,27 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // Decisión 85 (26-10): Felipe, con todo en amarillo: "no distingue una
     // falta menor en amarillo de una grave en rojo; que falte un
     // formulario es grave".
-    'En "gravedad", para cada requisito que no cumple: "grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje (un formulario o documento que falta, una firma que falta, un dato obligatorio en blanco, algo que no cubre lo que piden las bases, un documento vencido o que no acredita lo pedido); "menor" si es de forma y no cambia el resultado (redacción, ortografía, nombres de archivo, sugerencias). A los que cumplen, "menor".',
-    'Lo que no es de un requisito va en "otros_graves" si es grave, con la misma regla (RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases), y en "otros_problemas" si es menor.',
+    'En "gravedad", para cada requisito que no cumple: "grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje (un formulario o documento que falta, una firma que falta, un dato obligatorio en blanco, algo que no cubre lo que piden las bases, un documento vencido o que no acredita lo pedido); "menor" si es de forma y no cambia el resultado (redacción, ortografía, sugerencias). A los que cumplen, "menor".',
+    'Lo que no es de un requisito va en "otros_graves" si es grave, con la misma regla (un RUT o una razón social de otra empresa, no otra forma de escribir la misma; montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases), y en "otros_problemas" si es menor.',
+    // Decisión 87 (27-10): Felipe quedó fuera del Día del Funcionario de
+    // Quillón (1532886-5-LE26) porque el Anexo N°5 iba con la columna de
+    // precio neto por ítem vacía, y la validación de ese día dijo «cumple».
+    'LOS PRECIOS, SIEMPRE: en la oferta económica revisa uno por uno los precios que pide el formulario: cada ítem o línea con su precio (neto, unitario o total, según sus columnas), el neto, el IVA y el total. Una celda de precio en blanco, un precio que no está en neto cuando el formulario o las bases lo piden en neto, sumas que no cuadran, decimales cuando los piden sin decimales o un total sobre el presupuesto son "grave": la oferta económica no se corrige después del cierre. Dilo en el requisito de la oferta económica, nombrando la línea o la columna; si el checklist no lo trae, va en "otros_graves". Las líneas a las que la empresa no postula no llevan precio.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
-    'Revisa también lo que escribió la empresa en sus documentos: las faltas de ortografía o de redacción (cita la frase y cómo queda bien), que van en "otros_problemas", y lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]), que va en "otros_graves", diciendo en qué documento.',
+    'Revisa también lo que escribió la empresa en los Word (.docx), que todavía edita en Eventia: las faltas de ortografía y las frases que no se entienden (cita la frase y cómo queda bien), no sugerencias de estilo, van en "otros_problemas". En cualquier documento, lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]) va en "otros_graves", diciendo en qué documento.',
+    // Decisión 87 (27-10), para postular a muchas. Felipe: "hay
+    // validaciones que son de escritura... cuáles de esas en realidad está
+    // de más que estén". En la 5040-14-LE26, de 12 avisos quedaban 4.
+    'NO AVISES lo que no se puede o no vale la pena corregir:',
+    '- Cómo se escribe un nombre o una razón social (con o sin tilde, en mayúsculas, SpA o SPA): va como en el documento de donde sale.',
+    '- La ortografía, las tildes, las mayúsculas o el género de una palabra en los PDF y en los documentos de terceros: ya están firmados o no son de la empresa. Sí avisa, en cualquier documento, lo que cambia el sentido o un dato: una frase cortada, un RUT, un monto, una fecha o un lugar distintos.',
+    '- La redacción o el formato de los documentos de terceros (certificados, comodatos, dictámenes, órdenes de compra, facturas, patentes): de ellos solo importa si sirven para lo que piden las bases, si están vigentes, a nombre de quién están y qué acreditan.',
+    '- Lo que viene escrito en el formulario del comprador: solo cuenta lo que escribió la empresa.',
+    '- Los nombres de los archivos.',
+    '- Los documentos que las bases no piden con la oferta (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
+    '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');

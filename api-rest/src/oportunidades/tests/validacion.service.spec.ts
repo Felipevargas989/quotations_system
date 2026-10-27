@@ -538,4 +538,47 @@ describe('lo que lee la IA para validar', () => {
       'Registro de Proveedores (ChileProveedores) es siempre "cumple"',
     );
   });
+
+  it('decisión 87: los precios siempre, uno por uno, y no se avisa lo que no vale la pena corregir', () => {
+    const t = instruccionesDeValidacion({
+      codigo: '1532886-5-LE26',
+      nombre: 'Ceremonia y Cena Día del Funcionario',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      fecha_cierre: null,
+      hoy: '2026-10-27',
+      oferente: null,
+      carpeta: [],
+      requisitos: REQUISITOS,
+      criterios: [],
+    });
+    // El Anexo N°5 del Día del Funcionario iba con la columna de precio
+    // neto por ítem vacía.
+    expect(t).toContain('LOS PRECIOS, SIEMPRE');
+    expect(t).toContain(
+      'Una celda de precio en blanco, un precio que no está en neto',
+    );
+    expect(t).toContain('la oferta económica no se corrige después del cierre');
+    expect(t).toContain(
+      'Las líneas a las que la empresa no postula no llevan precio.',
+    );
+    // La ortografía, solo en lo que la empresa todavía edita.
+    expect(t).toContain('lo que escribió la empresa en los Word (.docx)');
+    expect(t).toContain('NO AVISES');
+    expect(t).toContain('en los PDF y en los documentos de terceros');
+    // En la del Día del Funcionario del laboratorio salían «Producción» en
+    // el nombre de un cliente, una errata del formulario del comprador y
+    // «queda mejor como...».
+    expect(t).toContain('Cómo se escribe un nombre o una razón social');
+    expect(t).toContain('Lo que viene escrito en el formulario del comprador');
+    expect(t).toContain('no sugerencias de estilo');
+    expect(t).toContain(
+      'lo que cambia el sentido o un dato: una frase cortada',
+    );
+    expect(t).toContain('- Los nombres de los archivos.');
+    expect(t).toContain('el F30, que se pide al contratar');
+    expect(t).toContain(
+      'Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
+    );
+    expect(t).not.toContain('nombres de archivo, sugerencias');
+  });
 });
