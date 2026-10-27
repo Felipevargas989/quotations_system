@@ -46,11 +46,18 @@ import {
 // armar, la IA propone la experiencia según las bases, de las dos fuentes
 // (primero las órdenes de compra de Mercado Público de «Mi empresa»,
 // después los eventos de Eventia que se pueden mostrar), y la empresa
-// confirma cuáles van o pide otras. «Armar postulación» no parte sin eso
-// cuando las bases piden experiencia. Las reglas, en la-experiencia.ts.
-// Sonnet 5.5: elige entre lo que hay, no decide la postulación.
+// confirma cuáles van o pide otras. Desde la decisión 86 (27-10) ya no se
+// confirma a mano: «Armar postulación» la pide y la confirma sola
+// (`paraArmar`) cuando las bases piden experiencia. Las reglas, en
+// la-experiencia.ts. Sonnet 5.5: elige entre lo que hay, no decide la
+// postulación.
 
 export const MODELO_DE_LA_EXPERIENCIA = MODELO_SONNET;
+
+/** Cuánto se espera una propuesta en curso al armar: cada 5 segundos,
+ *  hasta 5 minutos. */
+const ESPERA_MS = 5_000;
+const ESPERAS = 60;
 
 /** Lo que ve la ficha: si las bases piden experiencia y el último trabajo
  *  (la propuesta y, si la hay, la confirmación). */
@@ -118,6 +125,50 @@ export class LaExperienciaService {
       await this.repo.ultimoDeTipo(companyId, oportunidadId, 'experiencia'),
       companyId,
     );
+  }
+
+  /** «Armar postulación» ya no espera que la empresa confirme (decisión
+   *  86, 27-10). Felipe: "no todas las licitaciones piden experiencia y si
+   *  las piden solo mostraría abajo un aviso en caso de que la IA no
+   *  encuentre en mi empresa o Eventia experiencia suficiente". La
+   *  confirmada, si hay; si no, la última propuesta, confirmada tal cual y
+   *  marcada automática; si no hay ninguna, la pide ahora y la espera.
+   *  Nunca lanza: sin experiencia se arma igual y la pantalla avisa. */
+  async paraArmar(
+    user: User,
+    oportunidadId: number,
+  ): Promise<ExperienciaConfirmada | null> {
+    const companyId = user.company_id;
+    try {
+      const ya = await this.confirmada(companyId, oportunidadId);
+      if (ya) return ya;
+      const ultima = await this.ultimo(companyId, oportunidadId);
+      if (ultima?.estado !== 'listo' && ultima?.estado !== 'procesando') {
+        await this.proponer(user, oportunidadId, []);
+      }
+      const fila = await this.esperar(companyId, oportunidadId);
+      if (fila?.estado !== 'listo') return null;
+      await this.confirmar(user, oportunidadId, [], true);
+      return await this.confirmada(companyId, oportunidadId);
+    } catch (error) {
+      this.logger.warn(
+        `la experiencia para armar la ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /** La última propuesta cuando deja de estar «procesando». */
+  private async esperar(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<FilaDeGeneracion | null> {
+    for (let vez = 0; vez < ESPERAS; vez++) {
+      const fila = await this.ultimo(companyId, oportunidadId);
+      if (fila?.estado !== 'procesando') return fila;
+      await new Promise((sigue) => setTimeout(sigue, ESPERA_MS));
+    }
+    return null;
   }
 
   private async noSiEstaPostulada(
@@ -297,6 +348,7 @@ export class LaExperienciaService {
     user: User,
     oportunidadId: number,
     quitar: readonly string[],
+    automatica = false,
   ): Promise<FilaDeGeneracion> {
     const companyId = user.company_id;
     await this.noSiEstaPostulada(companyId, oportunidadId);
@@ -317,6 +369,7 @@ export class LaExperienciaService {
       quitadas: [...fuera],
       confirmada: true,
       confirmada_en: new Date().toISOString(),
+      ...(automatica ? { automatica: true } : {}),
     };
     await this.repo.terminar(companyId, fila.id, {
       estado: 'listo',

@@ -75,6 +75,7 @@ function armar() {
   const adjuntos = { borrarBorradores: jest.fn().mockResolvedValue(0) };
   const experiencia = {
     confirmada: jest.fn().mockResolvedValue(null),
+    paraArmar: jest.fn().mockResolvedValue(null),
   };
   const servicio = new ArmarPostulacionService(
     oferta as unknown as ArmarLaOfertaService,
@@ -370,7 +371,7 @@ describe('Armar postulación', () => {
     expect(documentos.crearPropuesta).not.toHaveBeenCalled();
   });
 
-  it('si las bases piden experiencia, no se arma sin confirmarla; confirmada, va a los anexos (decisión 76)', async () => {
+  it('si las bases piden experiencia, se arma sin confirmarla a mano: la elige la IA al armar y va a los anexos (decisión 86)', async () => {
     const { servicio, oferta, documentos, analisis, experiencia } = armar();
     analisis.ultimo.mockResolvedValue({
       estado: 'listo',
@@ -378,14 +379,29 @@ describe('Armar postulación', () => {
         requisitos: [{ que: 'Formulario N°3 Experiencia del oferente' }],
       },
     });
-    await expect(servicio.armar(USUARIO, 40, 11_900_000)).rejects.toThrow(
-      'Primero confirma la experiencia que vas a presentar',
-    );
-    expect(oferta.pedir).not.toHaveBeenCalled();
-    expect(experiencia.confirmada).toHaveBeenCalledWith(1, 40);
-
     const confirmada: ExperienciaConfirmada = { confirmada: true, filas: [] };
-    experiencia.confirmada.mockResolvedValue(confirmada);
+    experiencia.paraArmar.mockResolvedValue(confirmada);
+    await servicio.armar(USUARIO, 40, 11_900_000);
+    // Antes de la oferta no se pregunta nada: se elige por detrás.
+    expect(experiencia.paraArmar).not.toHaveBeenCalled();
+    const [, , , pedido] = oferta.pedir.mock.calls[0] as [
+      number,
+      string,
+      number,
+      { despues: (ofertaId: number) => Promise<void> },
+    ];
+    await pedido.despues(21);
+    expect(experiencia.paraArmar).toHaveBeenCalledWith(USUARIO, 40);
+    expect(documentos.generarAnexos).toHaveBeenCalledWith(
+      1,
+      'cuenta-1',
+      40,
+      expect.objectContaining({ experiencia: confirmada, post_venta: [] }),
+    );
+  });
+
+  it('si las bases no piden experiencia, no se elige ninguna (decisión 86)', async () => {
+    const { servicio, oferta, experiencia } = armar();
     await servicio.armar(USUARIO, 40, 11_900_000);
     const [, , , pedido] = oferta.pedir.mock.calls[0] as [
       number,
@@ -394,12 +410,7 @@ describe('Armar postulación', () => {
       { despues: (ofertaId: number) => Promise<void> },
     ];
     await pedido.despues(21);
-    expect(documentos.generarAnexos).toHaveBeenCalledWith(
-      1,
-      'cuenta-1',
-      40,
-      expect.objectContaining({ experiencia: confirmada, post_venta: [] }),
-    );
+    expect(experiencia.paraArmar).not.toHaveBeenCalled();
   });
 
   it('¿piden experiencia? Por los requisitos o los formularios que aplican', () => {

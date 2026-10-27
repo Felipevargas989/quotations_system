@@ -107,18 +107,11 @@ export class ArmarPostulacionService {
         'Primero llena los datos de la empresa en «Mi empresa» (al menos la razón social y el RUT).',
       );
     }
-    // El proceso estricto (decisión 76): si las bases piden experiencia, la
-    // empresa confirma antes cuál presenta, y van esas y ninguna otra.
+    // Si las bases piden experiencia, va la que eligió la IA (decisión 76)
+    // y, desde la decisión 86 (27-10), ya no se confirma a mano antes: se
+    // elige y se confirma sola, por detrás, cuando la oferta quedó lista.
     const piden =
       analisis?.estado === 'listo' && pidenExperiencia(analisis.resultado);
-    const experiencia = piden
-      ? await this.experiencia.confirmada(companyId, oportunidadId)
-      : null;
-    if (piden && !experiencia) {
-      throw new BadRequestException(
-        'Primero confirma la experiencia que vas a presentar («La experiencia», arriba): la IA la propone según las bases y tú dices cuáles van.',
-      );
-    }
     const armada: PostulacionArmada = {
       total,
       propuesta:
@@ -126,8 +119,14 @@ export class ArmarPostulacionService {
     };
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
-      despues: (ofertaId) =>
-        this.seguir(user, oportunidadId, ofertaId, armada, experiencia),
+      despues: async (ofertaId) =>
+        this.seguir(
+          user,
+          oportunidadId,
+          ofertaId,
+          armada,
+          piden ? await this.experiencia.paraArmar(user, oportunidadId) : null,
+        ),
     });
   }
 
