@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import { LicifyService } from '../adjuntos/licify.service';
 import {
@@ -7,7 +7,14 @@ import {
   type TrabajoLiviano,
   ValidacionRepository,
 } from '../analisis/analisis.repository';
+import {
+  type ResultadoDeLaEmpresa,
+  type ResultadoPublico,
+  resultadoParaLaEmpresa,
+} from '../competencia/resultado-compra-agil';
+import { ResultadosRepository } from '../competencia/resultados.repository';
 import { GeneracionRepository } from '../generacion/generacion.repository';
+import { OferenteRepository } from '../oferente/oferente.repository';
 import {
   type FilaDeLista,
   OportunidadesRepository,
@@ -44,7 +51,12 @@ export type Avance = {
   } | null;
 };
 
-export type MiLicitacion = FilaDeLista & { avance: Avance };
+export type MiLicitacion = FilaDeLista & {
+  avance: Avance;
+  /** Ganada o perdida (decisión 92): a quién eligieron, por cuánto y cómo
+   *  quedó la empresa por precio. */
+  resultado: ResultadoDeLaEmpresa | null;
+};
 
 const instante = (iso: string | null) =>
   iso ? new Date(iso).getTime() : Number.MAX_SAFE_INTEGER;
@@ -73,6 +85,10 @@ export class MisLicitacionesService {
     private readonly validacion: ValidacionRepository,
     private readonly generacion: GeneracionRepository,
     private readonly licify: LicifyService,
+    /** El resultado de las compras ágiles (decisión 92), con el RUT de la
+     *  empresa. Opcionales: las pruebas de antes no los traen. */
+    @Optional() private readonly resultados?: ResultadosRepository,
+    @Optional() private readonly oferente?: OferenteRepository,
   ) {}
 
   /** De la que cierra antes a la que cierra después. */
@@ -80,12 +96,21 @@ export class MisLicitacionesService {
     const filas = await this.oportunidades.mias(companyId);
     if (filas.length === 0) return [];
     const ids = filas.map((f) => f.id);
-    const [archivos, analisis, validaciones, generaciones] = await Promise.all([
-      this.adjuntos.origenesDe(companyId, ids),
-      this.analisis.ultimosDe(companyId, ids),
-      this.validacion.ultimosDe(companyId, ids),
-      this.generacion.ultimosDe(companyId, ids),
-    ]);
+    const terminadas = filas
+      .filter((f) => f.estado === 'ganada' || f.estado === 'perdida')
+      .map((f) => f.codigo);
+    const [archivos, analisis, validaciones, generaciones, resultados, rut] =
+      await Promise.all([
+        this.adjuntos.origenesDe(companyId, ids),
+        this.analisis.ultimosDe(companyId, ids),
+        this.validacion.ultimosDe(companyId, ids),
+        this.generacion.ultimosDe(companyId, ids),
+        this.resultados?.resultadosDe(terminadas) ??
+          new Map<string, ResultadoPublico>(),
+        terminadas.length > 0
+          ? this.oferente?.oferente(companyId).then((o) => o?.rut ?? null)
+          : null,
+      ]);
     const ultimoAnalisis = elUltimo(analisis);
     const ultimaValidacion = elUltimo(validaciones);
     const ultimosAnexos = elUltimo(generaciones, 'anexos');
@@ -101,6 +126,7 @@ export class MisLicitacionesService {
         const v = ultimaValidacion.get(f.id);
         return {
           ...f,
+          resultado: resultadoParaLaEmpresa(resultados.get(f.codigo), rut),
           avance: {
             bases: suyos.filter((a) => a.seccion === 'bases').length,
             trayendo: this.licify.estaTrayendo(companyId, f.id),

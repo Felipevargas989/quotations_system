@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -6,6 +6,8 @@ import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ActasDeLaZonaService } from './actas.service';
 import { CotizantesService } from './cotizantes.service';
+import { OfertasDeLaCompetenciaService } from './ofertas-de-la-competencia.service';
+import { ResultadosDePostuladasService } from './resultados.service';
 import { RubroService } from './rubro.service';
 
 // LA COMPETENCIA, DE NOCHE (decisiones 70 y 71 del doc 17). Dos vueltas entre
@@ -18,6 +20,11 @@ import { RubroService } from './rubro.service';
 export const PRIMERA_VUELTA = '30 23 * * *';
 export const SEGUNDA_VUELTA = '30 2 * * *';
 export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
+// El resultado de lo postulado (decisión 92) y, en las licitaciones ganadas
+// o perdidas sin la competencia subida, sus ofertas públicas (decisión 96):
+// media hora después de cada pasada del radar, unos minutos.
+export const RESULTADOS = '37 2,5,9,12,15,18,23 * * *';
+export const DURACION_DE_LOS_RESULTADOS_MS = 10 * 60_000;
 
 @Injectable()
 export class CompetenciaCronService {
@@ -27,6 +34,11 @@ export class CompetenciaCronService {
     private readonly rubro: RubroService,
     private readonly cotizantes: CotizantesService,
     private readonly logger: PinoLogger,
+    /** El resultado de lo postulado (decisión 92) y las ofertas de la
+     *  competencia (decisión 96). Opcionales: las pruebas de antes no los
+     *  traen. */
+    @Optional() private readonly resultados?: ResultadosDePostuladasService,
+    @Optional() private readonly ofertas?: OfertasDeLaCompetenciaService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
@@ -39,6 +51,29 @@ export class CompetenciaCronService {
   @Cron(SEGUNDA_VUELTA, { timeZone: ZONA_DEL_RADAR })
   segundaVuelta() {
     return this.deNoche(Date.now() + DURACION_DE_UNA_VUELTA_MS);
+  }
+
+  @Cron(RESULTADOS, { timeZone: ZONA_DEL_RADAR })
+  async resultadosDeLasPostuladas(): Promise<void> {
+    const resultados = this.resultados;
+    if (!resultados) return;
+    const hasta = Date.now() + DURACION_DE_LOS_RESULTADOS_MS;
+    try {
+      for (const { id } of await this.oportunidades.empresasConModulo()) {
+        if (Date.now() > hasta) return;
+        await this.paso('resultados', () => resultados.revisar(id, hasta));
+        const ofertas = this.ofertas;
+        if (ofertas) {
+          await this.paso('ofertas de la competencia', () =>
+            ofertas.traer(id, hasta),
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `el resultado de lo postulado falló: ${mensajeDe(error)}`,
+      );
+    }
   }
 
   async deNoche(hasta: number): Promise<void> {

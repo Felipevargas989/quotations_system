@@ -4,8 +4,10 @@ import type {
   AnalisisRepository,
   ValidacionRepository,
 } from '../analisis/analisis.repository';
+import type { ResultadosRepository } from '../competencia/resultados.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import { MisLicitacionesService } from '../mias/mis-licitaciones.service';
+import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 
 // "MIS LICITACIONES" (Felipe, 17-10: "¿dónde van a quedar compiladas las
@@ -186,5 +188,78 @@ describe('MisLicitacionesService', () => {
     oportunidades.mias.mockResolvedValue([]);
     await expect(servicio.mias(1)).resolves.toEqual([]);
     expect(adjuntos.origenesDe).not.toHaveBeenCalled();
+  });
+  it('decisión 92: las ganadas y perdidas traen su resultado, a quién eligieron y por cuánto', async () => {
+    const {
+      oportunidades,
+      adjuntos,
+      analisis,
+      validacion,
+      generacion,
+      licify,
+    } = armar();
+    oportunidades.mias.mockResolvedValue([
+      fila(3219, '2026-10-23T16:00:00.000Z', 'perdida'),
+      fila(40, '2026-10-19T18:01:00.000Z', 'postulada'),
+    ]);
+    const resultados = {
+      resultadosDe: jest.fn().mockResolvedValue(
+        new Map([
+          [
+            'C-3219',
+            {
+              tipo: 'compra_agil',
+              elegidos: [
+                {
+                  rut: '76.430.926-k',
+                  proveedor: 'BPM EVENTOS SPA',
+                  monto: 6_800_000,
+                },
+              ],
+              ofertas: [
+                {
+                  rut: '76.430.926-k',
+                  proveedor: 'BPM EVENTOS SPA',
+                  monto: 6_800_000,
+                  inadmisible: null,
+                },
+                {
+                  rut: '77.701.305-K',
+                  proveedor: 'VALLE DEL SOL QUILLON SPA',
+                  monto: 7_090_000,
+                  inadmisible: null,
+                },
+              ],
+            },
+          ],
+        ]),
+      ),
+    };
+    const oferente = {
+      oferente: jest.fn().mockResolvedValue({ rut: '77.701.305-K' }),
+    };
+    const servicio = new MisLicitacionesService(
+      oportunidades as unknown as OportunidadesRepository,
+      adjuntos as unknown as AdjuntosRepository,
+      analisis as unknown as AnalisisRepository,
+      validacion as unknown as ValidacionRepository,
+      generacion as unknown as GeneracionRepository,
+      licify as unknown as LicifyService,
+      resultados as unknown as ResultadosRepository,
+      oferente as unknown as OferenteRepository,
+    );
+    const lista = await servicio.mias(1);
+    // Solo se pregunta por las que ya terminaron.
+    expect(resultados.resultadosDe).toHaveBeenCalledWith(['C-3219']);
+    // Lo de esta empresa, con su RUT: perdida, 2° de 2 por precio.
+    expect(oferente.oferente).toHaveBeenCalledWith(1);
+    expect(lista.find((m) => m.id === 3219)?.resultado).toMatchObject({
+      estado: 'perdida',
+      proveedor: 'BPM EVENTOS SPA',
+      monto: 6_800_000,
+      mi_monto: 7_090_000,
+      lugar: 2,
+    });
+    expect(lista.find((m) => m.id === 40)?.resultado).toBeNull();
   });
 });

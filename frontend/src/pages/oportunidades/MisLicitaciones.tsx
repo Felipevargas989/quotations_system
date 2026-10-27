@@ -19,6 +19,11 @@ import {
   pasosDelAvance,
   separarMias,
 } from "./oportunidades.utils";
+import {
+  type ConResultado,
+  colorDelResultado,
+  textoDelResultado,
+} from "./resultadoDeCompraAgil";
 import SelloDeTipo from "./SelloDeTipo";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 import { useResponsables } from "./useResponsables";
@@ -139,6 +144,8 @@ function Tarjeta({
   const p = m.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
   const responsable = responsables.find((r) => r.value === m.responsable_id);
+  // Decisión 92: ganada o perdida por la orden de compra.
+  const resultado = (m as ConResultado).resultado;
 
   const cambiar = useMutation({
     mutationFn: (estado: EstadoOportunidad) =>
@@ -197,6 +204,12 @@ function Tarjeta({
           </p>
         </div>
       </div>
+
+      {resultado && (
+        <p className={`text-sm font-semibold ${colorDelResultado(resultado)}`}>
+          {textoDelResultado(resultado)}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {pasosDelAvance(m).map((x) => (
