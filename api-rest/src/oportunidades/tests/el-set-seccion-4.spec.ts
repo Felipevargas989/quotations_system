@@ -1,10 +1,9 @@
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
+import { armarElSet, type DatosDelSet } from '../postulacion/el-set';
 import {
-  armarElSet,
-  type DatosDelSet,
   type DocumentoDeLaSeccion4,
   fijaUnPlazo,
-} from '../postulacion/el-set';
+} from '../postulacion/la-seccion-4';
 
 // EL ZIP LO ARMA LA SECCIÓN 4 Y LA VIGENCIA LA FIJAN LAS BASES (decisión 90
 // del doc 17, 27-10). Felipe: "el zip se debe armar en función de lo que
@@ -112,6 +111,31 @@ describe('el ZIP lo arma la sección 4 (decisión 90)', () => {
     expect(set.faltan).toEqual([
       '«Certificado F30» venció el 31-10-2026: súbelo renovado en «Mi empresa».',
     ]);
+  });
+
+  it('lo de UTP no va y el Registro de Proveedores tampoco; lo que no es obligatorio y falta no se avisa', () => {
+    const set = armarElSet(
+      datos({
+        documentos: [
+          // Así venía en la 5040-14-LE26.
+          pedido('Instrumento de constitución de la UTP', 'estatutos', {
+            obligatorio: false,
+            condicion: 'Solo si postulas como UTP',
+          }),
+          pedido('Inscripción en el Registro de Proveedores', 'otro'),
+          pedido(
+            'Certificación de que el personal conoce el programa de integridad',
+            'dj_trabajadores',
+            { obligatorio: false },
+          ),
+        ],
+        carpeta: [documento(8, 'estatutos', 'Estatutos 2019.pdf')],
+      }),
+    );
+    // Los estatutos van como siempre a «4. Otros» (decisión 38), no a la
+    // administrativa por lo de UTP.
+    expect(deLaCarpeta(set)).toEqual([['Estatutos 2019.pdf', ['otros'], null]]);
+    expect(set.faltan).toEqual([]);
   });
 
   it('lo que pide la sección 4 y no está en la carpeta se avisa', () => {

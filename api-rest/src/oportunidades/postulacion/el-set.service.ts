@@ -17,11 +17,11 @@ import {
   conLaPropuestaQueNombran,
   conLosRespaldos,
   type DatosDelSet,
-  type DocumentoDeLaSeccion4,
   type FormularioDeLasBases,
   type PiezaDelSet,
   rutasEnElZip,
 } from './el-set';
+import type { DocumentoDeLaSeccion4 } from './la-seccion-4';
 import { PostulacionRepository } from './postulacion.repository';
 import { type ParaUnir, unirPdf } from './unir-pdf';
 import { type ArchivoParaElZip, armarZip } from './zip';
