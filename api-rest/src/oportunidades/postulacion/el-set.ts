@@ -3,6 +3,12 @@ import { sinExtension } from '../generacion/formularios';
 import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
+import {
+  type DocumentoDeLaSeccion4,
+  fijaUnPlazo,
+  type PedidoDeLaCarpeta,
+  pedidosDeLaSeccion4,
+} from './la-seccion-4';
 
 // EL SET PARA MERCADO PÚBLICO (decisión 34 del doc 17, sprint I, 19-10).
 // Felipe: "al momento de generar el set de documentos que tengo que subir
@@ -108,16 +114,6 @@ export type PiezaDelSet = {
 };
 
 export type ElSet = { piezas: PiezaDelSet[]; faltan: string[] };
-
-/** Un documento de la sección 4 del análisis, «Lo que tienes que
- *  presentar» (decisión 37). */
-export type DocumentoDeLaSeccion4 = {
-  nombre: string;
-  parte?: string;
-  cuando?: string;
-  condicion?: string;
-  carpeta?: string;
-};
 
 export const normalizar = (t: string): string =>
   t
@@ -238,68 +234,29 @@ const GENERALES: ReadonlyArray<[tipo: string, patron: RegExp]> = [
   'vigencia',
 ].map(conSuPatron);
 
-/** Lo que las bases piden de «Mi empresa» y dónde va en el ZIP. */
-type PedidoDeLaCarpeta = { tipo: string; carpeta: Carpeta; condicion: string };
+/** Un tipo de «Mi empresa» por el nombre de lo que piden las bases. */
+const tipoPorElNombre = (nombre: string): string | null =>
+  Object.entries(PATRONES).find(([, p]) => p.test(normalizar(nombre)))?.[0] ??
+  null;
 
-const CARPETA_DE_LA_PARTE: Readonly<Record<string, Carpeta>> = {
-  administrativa: 'administrativa',
-  tecnica: 'tecnica',
-  economica: 'economica',
-  otra: 'otros',
-};
-
-/** ¿Las bases fijan un plazo desde la emisión («no mayor a 30 días»,
- *  «emitido hace menos de quince (15) días»)? Entonces la vigencia la fijan
- *  ellas y no la fecha de vencimiento que anotó la empresa (decisión 90). */
-export const fijaUnPlazo = (condicion: string | undefined): boolean =>
-  /\b(\d+|quince|treinta|sesenta|noventa)\)?\s*(\(\d+\)\s*)?(dias?|mes(es)?)\b/.test(
-    normalizar(condicion ?? ''),
-  );
-
-/** El tipo de «Mi empresa» de un documento de la sección 4; lo que el
- *  análisis dejó en «otro», por su nombre. Los formularios y los respaldos
- *  de experiencia van por su lado. */
-const tipoDe = (x: DocumentoDeLaSeccion4): string | null => {
-  const carpeta = x.carpeta ?? 'otro';
-  if (carpeta === 'formulario' || carpeta === 'respaldo_experiencia') {
-    return null;
-  }
-  if (carpeta !== 'otro') return carpeta;
-  const n = normalizar(x.nombre);
-  return Object.entries(PATRONES).find(([, p]) => p.test(n))?.[0] ?? null;
-};
-
-/** Lo que las bases piden de «Mi empresa» con la oferta. Desde la decisión
- *  90 (27-10) sale de la sección 4 del análisis, en la parte que dice y con
- *  la vigencia que exigen. Felipe: "el zip se debe armar en función de lo
- *  que piden las bases... con el análisis de las bases en la sección 4, lo
- *  que tienes que presentar". Un análisis de antes, sin la sección 4, sigue
- *  con los nombres de los requisitos, en la administrativa. */
+/** Lo que las bases piden de «Mi empresa» con la oferta: desde la decisión
+ *  90, la sección 4 del análisis (`la-seccion-4.ts`). Un análisis de antes,
+ *  sin ella, sigue con los nombres de los requisitos, en la administrativa. */
 const loQuePidenDeLaCarpeta = (
   d: DatosDelSet,
   loPiden: (patron: RegExp) => boolean,
-): PedidoDeLaCarpeta[] => {
-  const seccion4 = (d.documentos ?? []).filter((x) => x.cuando);
-  if (seccion4.length === 0) {
-    return LO_QUE_PIDEN.filter(([, patron]) => loPiden(patron)).map(
-      ([tipo]) => ({ tipo, carpeta: 'administrativa', condicion: '' }),
-    );
-  }
-  const pedidos: PedidoDeLaCarpeta[] = [];
-  for (const x of seccion4) {
-    if (x.cuando !== 'con_la_oferta') continue;
-    const tipo = tipoDe(x);
-    // Los respaldos de la patente van con ella (decisión 61).
-    if (!tipo || tipo === TIPO_RESPALDO_PATENTE) continue;
-    if (pedidos.some((p) => p.tipo === tipo)) continue;
-    pedidos.push({
-      tipo,
-      carpeta: CARPETA_DE_LA_PARTE[x.parte ?? ''] ?? 'administrativa',
-      condicion: x.condicion ?? '',
-    });
-  }
-  return pedidos;
-};
+): PedidoDeLaCarpeta[] =>
+  pedidosDeLaSeccion4(
+    d.documentos ?? [],
+    tipoPorElNombre,
+    TIPO_RESPALDO_PATENTE,
+  ) ??
+  LO_QUE_PIDEN.filter(([, patron]) => loPiden(patron)).map(([tipo]) => ({
+    tipo,
+    carpeta: 'administrativa',
+    condicion: '',
+    obligatorio: true,
+  }));
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
 const EXPERIENCIA = /experiencia/;
@@ -524,7 +481,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
   }
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
-  for (const { tipo, carpeta, condicion } of deLaCarpeta) {
+  for (const { tipo, carpeta, condicion, obligatorio } of deLaCarpeta) {
     const patron = PATRONES[tipo];
     if (patron && enUnFormulario(patron)) continue;
     if (patron && subidos.some((s) => patron.test(normalizar(s.nombre)))) {
@@ -533,9 +490,11 @@ export function armarElSet(d: DatosDelSet): ElSet {
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
     if (!doc) {
-      faltan.push(
-        `Las bases piden «${nombre}» y no está en tu carpeta: súbelo en «Mi empresa».`,
-      );
+      if (obligatorio) {
+        faltan.push(
+          `Las bases piden «${nombre}» y no está en tu carpeta: súbelo en «Mi empresa».`,
+        );
+      }
       continue;
     }
     // Si las bases fijan un plazo desde la emisión, manda ese plazo y no la
