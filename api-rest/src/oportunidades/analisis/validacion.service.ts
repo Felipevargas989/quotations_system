@@ -127,6 +127,9 @@ export type ContextoDeValidacion = {
   criterios: Criterio[];
   /** La memoria de la licitación (decisión 68): lo aclarado manda. */
   aclarado?: Aclaracion[];
+  /** Una compra ágil (decisión 91): el precio y el plazo de entrega se
+   *  declaran en el formulario de Mercado Público. */
+  compra_agil?: boolean;
 };
 
 const DATOS_DEL_OFERENTE: ReadonlyArray<[CampoDelOferente, string]> = [
@@ -221,6 +224,13 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // Quillón (1532886-5-LE26) porque el Anexo N°5 iba con la columna de
     // precio neto por ítem vacía, y la validación de ese día dijo «cumple».
     'LOS PRECIOS, SIEMPRE: en la oferta económica revisa uno por uno los precios que pide el formulario: cada ítem o línea con su precio (neto, unitario o total, según sus columnas), el neto, el IVA y el total. Una celda de precio en blanco, un precio que no está en neto cuando el formulario o las bases lo piden en neto, sumas que no cuadran, decimales cuando los piden sin decimales o un total sobre el presupuesto son "grave": la oferta económica no se corrige después del cierre. Dilo en el requisito de la oferta económica, nombrando la línea o la columna; si el checklist no lo trae, va en "otros_graves". Las líneas a las que la empresa no postula no llevan precio.',
+    // Decisión 91 (27-10). Felipe, con la 1030177-85-COT26 en rojo por el
+    // plazo: "el plazo de entrega es de compra ágil".
+    ...(c.compra_agil
+      ? [
+          'ES UNA COMPRA ÁGIL: el precio y el plazo de entrega se declaran en el formulario de Mercado Público al ofertar, no en los documentos. Que un documento no los traiga no es una falta: si las bases los evalúan, recuérdalo como "menor" («decláralo en el formulario de Mercado Público»). Si un documento trae el precio, revísalo como siempre.',
+        ]
+      : []),
     // Decisión 88 (27-10). Felipe: "tiene que ser nuestro contralorito
     // interno... mis resoluciones sanitarias no me permiten tener un
     // restaurante". Y va con lo demás, pero nunca hacia el comprador: "no
@@ -378,6 +388,7 @@ export class ValidacionService {
       organismo: ficha.proceso.organismo,
       fecha_cierre: ficha.proceso.fecha_cierre,
       hoy: hoyEnChile(),
+      compra_agil: ficha.proceso.tipo === 'compra_agil',
       oferente,
       carpeta: carpeta.map((d) => ({
         tipo: d.tipo,

@@ -379,6 +379,47 @@ describe("La vigencia la fijan las bases (decisión 90)", () => {
   });
 });
 
+describe("Lo que hizo la IA, en un documento que el análisis dejó en «otro» (decisión 91)", () => {
+  it("la propuesta técnica firmada cuenta como firmada, la que falta firmar como hecha y la subida como subida", () => {
+    const fila = (origen: AdjuntoDeOportunidad["origen"]) =>
+      checklistDeDocumentos({
+        r: {
+          ...SIN_REQUISITOS,
+          documentos: [
+            pedido(
+              "Propuesta técnica con el detalle del servicio (menú, salón y equipos)",
+              "otro",
+              { parte: "tecnica" },
+            ),
+          ],
+        },
+        carpeta: [],
+        postulacion: [
+          enLaPostulacion(
+            250,
+            "Formulario Identificación del Proveedor - firmado.pdf",
+            "firmado",
+          ),
+          enLaPostulacion(
+            251,
+            origen === "firmado"
+              ? "Propuesta técnica 1030177-85-COT26 - firmado.pdf"
+              : "Propuesta técnica 1030177-85-COT26.docx",
+            origen,
+          ),
+        ],
+        corte: "2026-10-27",
+      })[0];
+    // En la 1030177-85-COT26 la firmada salía como «falta», en rojo.
+    expect([fila("firmado").estado, fila("firmado").detalle]).toEqual([
+      "firmado",
+      "Propuesta técnica 1030177-85-COT26 - firmado.pdf",
+    ]);
+    expect(fila("generado").estado).toBe("hecho");
+    expect(fila("subido").estado).toBe("en_tu_postulacion");
+  });
+});
+
 describe("El Registro de Proveedores (Felipe, 19-10: «sácalo de los documentos a entregar»)", () => {
   it("no va en la lista, ni del análisis nuevo ni de uno anterior; otro registro sí", () => {
     const filas = checklistDeDocumentos({
