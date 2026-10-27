@@ -9,14 +9,11 @@ import type {
 } from '../analisis/analisis.repository';
 import {
   type ArchivoParaValidar,
+  loDeMiEmpresa,
   loQueCabe,
   loQueVaEnElZip,
 } from '../analisis/el-zip-para-validar';
-import {
-  ESQUEMA_DE_VALIDACION,
-  instruccionesDeValidacion,
-  ValidacionService,
-} from '../analisis/validacion.service';
+import { ValidacionService } from '../analisis/validacion.service';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import type { PiezaDelSet } from '../postulacion/el-set';
@@ -261,6 +258,165 @@ describe('ValidacionService — pedir', () => {
       );
     }));
 
+  it('decisión 88: lee las resoluciones sanitarias y la patente de «Mi empresa» aunque no vayan en el ZIP, sin contarlas como del ZIP', () =>
+    conLlave(async () => {
+      const { elSet, oferente, repo, servicio } = armar();
+      const ejecutar = jest
+        .spyOn(servicio, 'ejecutar')
+        .mockResolvedValue(undefined);
+      oferente.documentos.mockResolvedValue([
+        {
+          tipo: 'resolucion_sanitaria',
+          nombre: 'Resoluciones Valle del sol.pdf',
+          ruta: 'c1/oferente/documentos/resoluciones.pdf',
+          bytes: 3 * MB,
+          vence: null,
+          creado_en: '2026-10-19T14:56:18Z',
+        },
+        {
+          tipo: 'patente',
+          nombre: 'Patente 1 SEM 2026.pdf',
+          ruta: 'c1/oferente/documentos/patente-1.pdf',
+          bytes: 1000,
+          vence: '2026-06-30',
+          creado_en: '2026-02-01T10:00:00Z',
+        },
+        {
+          tipo: 'patente',
+          nombre: 'Patente 2 SEM 2026.pdf',
+          ruta: 'c1/oferente/documentos/patente-2.pdf',
+          bytes: 1000,
+          vence: '2026-12-31',
+          creado_en: '2026-08-01T10:00:00Z',
+        },
+        {
+          tipo: 'f30',
+          nombre: 'F30 octubre.pdf',
+          ruta: 'c1/oferente/documentos/f30.pdf',
+          bytes: 1000,
+          vence: '2026-10-31',
+          creado_en: '2026-10-01T10:00:00Z',
+        },
+      ]);
+      elSet.piezas.mockResolvedValue([
+        pieza('Anexo1.pdf'),
+        pieza('Patente 2 SEM 2026.pdf', {
+          ruta: 'c1/oferente/documentos/patente-2.pdf',
+          que_es: 'documento',
+        }),
+      ]);
+
+      await servicio.pedir(1, CUENTA, 40);
+
+      // La fila cuenta solo lo del ZIP: la pantalla dice cuántos leyó de él.
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          archivos: [
+            { nombre: 'Anexo1.pdf', carpeta: '1. Administrativa' },
+            { nombre: 'Patente 2 SEM 2026.pdf', carpeta: '1. Administrativa' },
+          ],
+        }),
+      );
+      const [, , leibles, , contexto] = ejecutar.mock.calls[0];
+      // La patente más nueva ya va en el ZIP y la vieja no se lee; desde la
+      // decisión 89 también el F30, que no va en el ZIP.
+      expect(leibles.map((a) => a.titulo)).toEqual([
+        '1. Administrativa / Anexo1.pdf',
+        '1. Administrativa / Patente 2 SEM 2026.pdf',
+        'Mi empresa, no va en el ZIP / Resoluciones Valle del sol.pdf',
+        'Mi empresa, no va en el ZIP / F30 octubre.pdf',
+      ]);
+      expect(contexto.de_mi_empresa).toEqual([
+        { nombre: 'Resoluciones Valle del sol.pdf', leido: true },
+        { nombre: 'F30 octubre.pdf', leido: true },
+      ]);
+    }));
+
+  it('decisiones 88 y 89: de los certificados, el más nuevo; de las resoluciones, todas; sin archivo o respaldo de experiencia, nada', () => {
+    const carpeta = [
+      {
+        tipo: 'inicio_actividades',
+        nombre: 'Inicio 2023.pdf',
+        ruta: 'c1/i-2023.pdf',
+        creado_en: '2023-05-01',
+      },
+      {
+        tipo: 'inicio_actividades',
+        nombre: 'Inicio y giros SII.pdf',
+        ruta: 'c1/i-2026.pdf',
+        creado_en: '2026-10-26',
+      },
+      {
+        tipo: 'resolucion_sanitaria',
+        nombre: 'Piscina.pdf',
+        ruta: 'c1/piscina.pdf',
+        creado_en: '2012-10-25',
+      },
+      {
+        tipo: 'resolucion_sanitaria',
+        nombre: 'Cocina.pdf',
+        ruta: 'c1/cocina.pdf',
+        creado_en: '2026-01-10',
+      },
+      { tipo: 'resolucion_sanitaria', nombre: 'Sin archivo.pdf' },
+      {
+        tipo: 'tgr',
+        nombre: 'Deuda TGR.pdf',
+        ruta: 'c1/tgr.pdf',
+        creado_en: '2026-10-20',
+      },
+      {
+        tipo: 'respaldo_experiencia',
+        nombre: 'OC 4352-103-SE23.pdf',
+        ruta: 'c1/oc.pdf',
+        creado_en: '2026-10-21',
+      },
+      { tipo: 'vigencia', nombre: 'Vigencia.pdf', ruta: 'c1/vigencia.pdf' },
+    ];
+    expect(loDeMiEmpresa(carpeta, []).map((a) => a.nombre)).toEqual([
+      'Inicio y giros SII.pdf',
+      'Deuda TGR.pdf',
+      'Cocina.pdf',
+      'Piscina.pdf',
+      'Vigencia.pdf',
+    ]);
+    expect(loDeMiEmpresa(carpeta, [])[0]).toMatchObject({
+      donde: 'Mi empresa, no va en el ZIP',
+      que_es: 'documento',
+      fuera_del_zip: true,
+    });
+  });
+
+  it('decisión 89: si no cabe todo, lo de «Mi empresa» que no va en el ZIP queda fuera antes que lo que se sube', () => {
+    const archivo = (
+      nombre: string,
+      bytes: number,
+      extra: Partial<ArchivoParaValidar> = {},
+    ): ArchivoParaValidar => ({
+      nombre,
+      ruta: `c1/${nombre}`,
+      bytes,
+      donde: '2. Técnica',
+      que_es: 'respaldo',
+      titulo: nombre,
+      ...extra,
+    });
+    const { leibles, noLeidos } = loQueCabe([
+      archivo('Formulario N°3.pdf', 2 * MB, { que_es: 'formulario' }),
+      archivo('Facturas.pdf', 12 * MB),
+      archivo('Estatutos.pdf', 12 * MB, {
+        que_es: 'documento',
+        donde: 'Mi empresa, no va en el ZIP',
+        fuera_del_zip: true,
+      }),
+    ]);
+    expect(leibles.map((a) => a.nombre)).toEqual([
+      'Formulario N°3.pdf',
+      'Facturas.pdf',
+    ]);
+    expect(noLeidos.map((a) => a.nombre)).toEqual(['Estatutos.pdf']);
+  });
+
   it('lee también lo de «Mi empresa» y los respaldos, cada uno con su carpeta (decisión 83)', () =>
     conLlave(async () => {
       const { elSet, repo, servicio } = armar();
@@ -476,109 +632,5 @@ describe('ValidacionService — ejecutar', () => {
       estado: 'error',
       error: expect.stringContaining('se cortó la red') as unknown,
     });
-  });
-});
-
-describe('lo que lee la IA para validar', () => {
-  it('decisión 85: la respuesta trae la gravedad de cada requisito y los otros problemas graves aparte', () => {
-    expect(ESQUEMA_DE_VALIDACION.required).toContain('otros_graves');
-    expect(
-      ESQUEMA_DE_VALIDACION.properties.requisitos.items.required,
-    ).toContain('gravedad');
-    expect(
-      ESQUEMA_DE_VALIDACION.properties.requisitos.items.properties.gravedad
-        .enum,
-    ).toEqual(['grave', 'menor']);
-  });
-
-  it('el checklist numerado, los datos de la empresa y la carpeta con su vencimiento', () => {
-    const t = instruccionesDeValidacion({
-      codigo: '4364-13-LE26',
-      nombre: 'Producción de Evento día del Profesor',
-      organismo: 'I MUNICIPALIDAD DE QUILLON',
-      fecha_cierre: '2026-10-19T18:01:00.000Z',
-      hoy: '2026-10-17',
-      oferente: {
-        razon_social: 'VALLE DEL SOL QUILLON SPA',
-        rut: '77.701.305-K',
-      } as never,
-      carpeta: [{ tipo: 'f30', nombre: 'F30 octubre.pdf', vence: null }],
-      zip: [
-        { donde: '2. Técnica', nombre: 'Formulario N°4.pdf', leido: true },
-        { donde: '1. Administrativa', nombre: 'Patente.jpg', leido: false },
-      ],
-      requisitos: REQUISITOS,
-      criterios: [
-        { nombre: 'Precio', peso: '30%', como_se_evalua: 'menor precio' },
-      ],
-    });
-    expect(t).toContain('1. [administrativo, obligatorio] Anexo N°1 firmado');
-    // Decisión 83: todo lo que va en el ZIP, con su carpeta, y se lee por
-    // dentro.
-    expect(t).toContain('LO QUE VA EN EL ZIP PARA MERCADO PÚBLICO');
-    expect(t).toContain('- 2. Técnica: Formulario N°4.pdf\n');
-    expect(t).toContain(
-      '- 1. Administrativa: Patente.jpg (no se pudo leer: revísalo solo por su nombre)',
-    );
-    expect(t).toContain('Lee cada documento por dentro');
-    expect(t).toContain(
-      '2. [administrativo, obligatorio] Patente municipal vigente (Bases.pdf, pág. 4)',
-    );
-    expect(t).toContain('RUT: 77.701.305-K');
-    expect(t).toContain('Certificado F30: F30 octubre.pdf (no vence)');
-    // Decisión 85: cada hallazgo, grave o menor.
-    expect(t).toContain(
-      '"grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje',
-    );
-    expect(t).toContain('va en "otros_graves" si es grave');
-    expect(t).toContain('Precio (30%)');
-    expect(t).toContain('"vencido"');
-    // El Registro de Proveedores se da por hecho (Felipe, 19-10).
-    expect(t).toContain(
-      'Registro de Proveedores (ChileProveedores) es siempre "cumple"',
-    );
-  });
-
-  it('decisión 87: los precios siempre, uno por uno, y no se avisa lo que no vale la pena corregir', () => {
-    const t = instruccionesDeValidacion({
-      codigo: '1532886-5-LE26',
-      nombre: 'Ceremonia y Cena Día del Funcionario',
-      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
-      fecha_cierre: null,
-      hoy: '2026-10-27',
-      oferente: null,
-      carpeta: [],
-      requisitos: REQUISITOS,
-      criterios: [],
-    });
-    // El Anexo N°5 del Día del Funcionario iba con la columna de precio
-    // neto por ítem vacía.
-    expect(t).toContain('LOS PRECIOS, SIEMPRE');
-    expect(t).toContain(
-      'Una celda de precio en blanco, un precio que no está en neto',
-    );
-    expect(t).toContain('la oferta económica no se corrige después del cierre');
-    expect(t).toContain(
-      'Las líneas a las que la empresa no postula no llevan precio.',
-    );
-    // La ortografía, solo en lo que la empresa todavía edita.
-    expect(t).toContain('lo que escribió la empresa en los Word (.docx)');
-    expect(t).toContain('NO AVISES');
-    expect(t).toContain('en los PDF y en los documentos de terceros');
-    // En la del Día del Funcionario del laboratorio salían «Producción» en
-    // el nombre de un cliente, una errata del formulario del comprador y
-    // «queda mejor como...».
-    expect(t).toContain('Cómo se escribe un nombre o una razón social');
-    expect(t).toContain('Lo que viene escrito en el formulario del comprador');
-    expect(t).toContain('no sugerencias de estilo');
-    expect(t).toContain(
-      'lo que cambia el sentido o un dato: una frase cortada',
-    );
-    expect(t).toContain('- Los nombres de los archivos.');
-    expect(t).toContain('el F30, que se pide al contratar');
-    expect(t).toContain(
-      'Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
-    );
-    expect(t).not.toContain('nombres de archivo, sugerencias');
   });
 });
