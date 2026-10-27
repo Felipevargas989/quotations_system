@@ -39,7 +39,6 @@ import {
 } from './comun';
 import {
   type ArchivoParaValidar,
-  loDeMiEmpresa,
   loQueCabe,
   loQueVaEnElZip,
 } from './el-zip-para-validar';
@@ -100,18 +99,13 @@ type Requisito = {
 };
 type Criterio = { nombre: string; peso: string; como_se_evalua: string };
 
-/** Un documento que piden las bases (decisión 89: cuándo y su vigencia). */
+/** Un documento de la sección 4 del análisis, «Lo que tienes que
+ *  presentar» (decisión 89): cuándo y la vigencia que exigen las bases. */
 type DocumentoPedido = {
   nombre: string;
   cuando: string;
   obligatorio: boolean;
   condicion: string;
-};
-
-const CUANDO: Readonly<Record<string, string>> = {
-  con_la_oferta: 'con la oferta',
-  al_adjudicar: 'al adjudicar o contratar',
-  al_pagar: 'para el pago',
 };
 
 export type ContextoDeValidacion = {
@@ -126,10 +120,8 @@ export type ContextoDeValidacion = {
   /** Lo que va en el ZIP, con su carpeta y si la IA lo puede leer
    *  (decisión 83). */
   zip?: Array<{ donde: string; nombre: string; leido: boolean }>;
-  /** Lo de «Mi empresa» que no va en el ZIP (decisiones 88 y 89). */
-  de_mi_empresa?: Array<{ nombre: string; leido: boolean }>;
-  /** Los documentos que piden las bases, con cuándo y la vigencia que
-   *  exigen (decisión 89). */
+  /** La sección 4 del análisis: lo que piden las bases, con cuándo y la
+   *  vigencia que exigen (decisiones 89 y 90). */
   documentos?: DocumentoPedido[];
   requisitos: Requisito[];
   criterios: Criterio[];
@@ -148,6 +140,9 @@ const DATOS_DEL_OFERENTE: ReadonlyArray<[CampoDelOferente, string]> = [
 ];
 
 export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
+  const conLaOferta = (c.documentos ?? []).filter(
+    (d) => d.cuando === 'con_la_oferta',
+  );
   const datos = DATOS_DEL_OFERENTE.map(([campo, etiqueta]) =>
     c.oferente?.[campo] ? `- ${etiqueta}: ${c.oferente[campo]}` : null,
   ).filter(Boolean);
@@ -161,12 +156,12 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         `${i + 1}. [${r.tipo}${r.obligatorio ? ', obligatorio' : ', opcional'}] ${r.que} (${r.documento}${r.pagina > 0 ? `, pág. ${r.pagina}` : ''})`,
     ),
     '',
-    ...((c.documentos ?? []).length > 0
+    ...(conLaOferta.length > 0
       ? [
-          'LOS DOCUMENTOS QUE PIDEN LAS BASES, con cuándo y la vigencia o antigüedad que exigen:',
-          ...(c.documentos ?? []).map(
+          'LO QUE PIDEN LAS BASES CON LA OFERTA, con la vigencia o antigüedad que exigen (la sección 4 del análisis):',
+          ...conLaOferta.map(
             (d) =>
-              `- [${CUANDO[d.cuando] ?? d.cuando}${d.obligatorio ? ', obligatorio' : ''}] ${d.nombre}${d.condicion ? `: ${d.condicion}` : ''}`,
+              `- ${d.nombre}${d.obligatorio ? ' (obligatorio)' : ''}${d.condicion ? `: ${d.condicion}` : ''}`,
           ),
           '',
         ]
@@ -200,15 +195,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         )
       : ['(todavía nada)']),
     '',
-    'LO DE «MI EMPRESA» QUE NO VA EN EL ZIP (te lo paso entero para revisar toda la documentación de la empresa; no se sube):',
-    ...((c.de_mi_empresa ?? []).length > 0
-      ? (c.de_mi_empresa ?? []).map(
-          (a) =>
-            `- ${a.nombre}${a.leido ? '' : ' (no se pudo leer: revísalo solo por su nombre)'}`,
-        )
-      : ['(nada aparte de lo que va en el ZIP)']),
-    '',
-    'LA CARPETA DE DOCUMENTOS DE LA EMPRESA, con su vencimiento (lo que va en el ZIP también te lo paso entero):',
+    'LA CARPETA DE DOCUMENTOS DE LA EMPRESA, con la fecha de vencimiento que anotó la empresa (es solo una referencia: la vigencia la fijan las bases; lo que va en el ZIP te lo paso entero):',
     ...(c.carpeta.length > 0
       ? c.carpeta.map(
           (d) =>
@@ -219,7 +206,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     'Te paso todo lo que va en el ZIP. Lee cada documento por dentro, no basta con que exista: que diga lo que piden las bases, que esté vigente, firmado y con los datos de la empresa. Para CADA requisito del checklist, en el mismo orden y con el mismo texto en "que", decide:',
     '- "cumple": está en el ZIP y al leerlo se ve correcto (o en la carpeta, si es un certificado que las bases no piden con la oferta);',
     '- "falta": no está en ningún lado;',
-    '- "vencido": está, pero vence antes del cierre o ya venció;',
+    '- "vencido": está, pero no cumple al cierre la vigencia que piden las bases (si fijan un plazo desde la emisión, por la fecha de emisión que dice el documento; si no, porque vence antes del cierre);',
     '- "revisar": está pero incompleto, sin firma, con datos que no calzan con los de la empresa, o no se puede saber (también si no se pudo leer).',
     // Felipe, 19-10: "déjalo como que siempre estará habilitado... es
     // difícil no tener eso".
@@ -239,14 +226,15 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // restaurante". Y va con lo demás, pero nunca hacia el comprador: "no
     // nos vamos a autodelatar... no quería que se informara al cliente".
     // Decisión 89: "que revise toda la documentación... y advierta
-    // cualquier inconsistencia técnica más que de forma".
-    'TODA LA DOCUMENTACIÓN DE LA EMPRESA, SIEMPRE, vaya o no en el ZIP y aunque las bases no la pidan; el fondo, no la forma:',
-    '- Vigente: cada certificado, vigente al cierre. Si las bases fijan una antigüedad (por ejemplo, emitido hace no más de 30 o 60 días), compara la fecha de emisión que dice el documento con la fecha que corresponda.',
+    // cualquier inconsistencia técnica más que de forma". Y la 90: "debe
+    // leer solo el zip... los documentos vencen en función de lo que dicen
+    // las bases y no necesariamente lo que tenemos nosotros definido".
+    'TODO LO QUE VA EN EL ZIP, el fondo y no la forma:',
+    '- Vigente según las bases: la vigencia la fijan las bases y no la fecha de vencimiento que anotó la empresa. Si piden, por ejemplo, el certificado emitido hace no más de 30 días, compara la fecha de emisión que dice el documento con el cierre; si solo piden que esté vigente, que lo esté al cierre.',
     '- Sin problemas por dentro: deudas en el certificado de la TGR, morosidades o protestos en el DICOM, deudas o multas laborales y previsionales en el F30 o el F30-1, una quiebra o un procedimiento concursal, una sociedad que no aparece vigente.',
     '- Los mismos datos: el RUT, la razón social y el representante calzan entre los documentos y con los datos de la empresa.',
-    '- Habilitada para lo que ofrece: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, que la empresa pueda hacer por ley cada servicio que ofrece. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes).',
-    '- Lo que se pide al adjudicar, al contratar o para el pago: si no va a estar vigente cuando lo pidan, dilo con la fecha en que hay que renovarlo.',
-    'Lo que falla es "grave" si puede dejar fuera la oferta, impedir contratar o costar puntaje, y "menor" si solo hay que renovarlo antes de que lo pidan. Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
+    '- Habilitada para lo que ofrece: si van resoluciones sanitarias, la patente y sus respaldos o el giro del SII, que autoricen cada servicio que se ofrece. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes).',
+    'Lo que falla es "grave" si puede dejar fuera la oferta, anularla o costarle puntaje; si no, "menor". Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
@@ -356,13 +344,12 @@ export class ValidacionService {
         this.logger.warn(m),
       ),
     ]);
+    // Solo lo que va en el ZIP (decisión 90; Felipe: "debe leer solo el
+    // zip y el zip se debe armar en función de lo que piden las bases").
     const enElZip = loQueVaEnElZip(piezas);
-    // Toda la carpeta de «Mi empresa» se lee aunque no vaya en el ZIP
-    // (decisiones 88 y 89).
-    const deMiEmpresa = loDeMiEmpresa(carpeta, enElZip);
     // Lo que no cabe en un pedido ya no corta la validación: se avisa y se
     // revisa por su nombre.
-    const { leibles, noLeidos } = loQueCabe([...enElZip, ...deMiEmpresa]);
+    const { leibles, noLeidos } = loQueCabe(enElZip);
     if (leibles.length === 0 && carpeta.length === 0) {
       throw new BadRequestException(
         'Sube primero lo que vas a presentar (en "Mi postulación") o los documentos de la empresa (en "Mi empresa").',
@@ -375,9 +362,7 @@ export class ValidacionService {
       oportunidad_id: oportunidadId,
       analisis_id: analisis.id,
       modelo: MODELO_OPUS,
-      archivos: leibles
-        .filter((a) => !a.fuera_del_zip)
-        .map((a) => ({ nombre: a.nombre, carpeta: a.donde })),
+      archivos: leibles.map((a) => ({ nombre: a.nombre, carpeta: a.donde })),
       no_leidos: noLeidos,
       pedido_por: await this.adjuntos.perfilDe(companyId, cuentaId),
     });
@@ -401,10 +386,6 @@ export class ValidacionService {
       })),
       zip: enElZip.map((a) => ({
         donde: a.donde,
-        nombre: a.nombre,
-        leido: leibles.includes(a),
-      })),
-      de_mi_empresa: deMiEmpresa.map((a) => ({
         nombre: a.nombre,
         leido: leibles.includes(a),
       })),
@@ -447,7 +428,7 @@ export class ValidacionService {
                 type: 'text',
                 text:
                   bloques.length > 0
-                    ? 'Valida todo lo que va en el ZIP contra las bases, y toda la documentación de la empresa.'
+                    ? 'Valida todo lo que va en el ZIP contra las bases.'
                     : 'La empresa todavía no subió documentos de la postulación: valida con la carpeta y marca lo demás como falta.',
               },
             ],

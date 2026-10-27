@@ -9,7 +9,6 @@ import type {
 } from '../analisis/analisis.repository';
 import {
   type ArchivoParaValidar,
-  loDeMiEmpresa,
   loQueCabe,
   loQueVaEnElZip,
 } from '../analisis/el-zip-para-validar';
@@ -258,7 +257,7 @@ describe('ValidacionService — pedir', () => {
       );
     }));
 
-  it('decisión 88: lee las resoluciones sanitarias y la patente de «Mi empresa» aunque no vayan en el ZIP, sin contarlas como del ZIP', () =>
+  it('decisión 90: lee solo el ZIP; lo de «Mi empresa» que no va, no se lee', () =>
     conLlave(async () => {
       const { elSet, oferente, repo, servicio } = armar();
       const ejecutar = jest
@@ -318,104 +317,14 @@ describe('ValidacionService — pedir', () => {
         }),
       );
       const [, , leibles, , contexto] = ejecutar.mock.calls[0];
-      // La patente más nueva ya va en el ZIP y la vieja no se lee; desde la
-      // decisión 89 también el F30, que no va en el ZIP.
+      // Felipe: "debe leer solo el zip y el zip se debe armar en función de
+      // lo que piden las bases". Las resoluciones y el F30 no van.
       expect(leibles.map((a) => a.titulo)).toEqual([
         '1. Administrativa / Anexo1.pdf',
         '1. Administrativa / Patente 2 SEM 2026.pdf',
-        'Mi empresa, no va en el ZIP / Resoluciones Valle del sol.pdf',
-        'Mi empresa, no va en el ZIP / F30 octubre.pdf',
       ]);
-      expect(contexto.de_mi_empresa).toEqual([
-        { nombre: 'Resoluciones Valle del sol.pdf', leido: true },
-        { nombre: 'F30 octubre.pdf', leido: true },
-      ]);
+      expect(contexto).not.toHaveProperty('de_mi_empresa');
     }));
-
-  it('decisiones 88 y 89: de los certificados, el más nuevo; de las resoluciones, todas; sin archivo o respaldo de experiencia, nada', () => {
-    const carpeta = [
-      {
-        tipo: 'inicio_actividades',
-        nombre: 'Inicio 2023.pdf',
-        ruta: 'c1/i-2023.pdf',
-        creado_en: '2023-05-01',
-      },
-      {
-        tipo: 'inicio_actividades',
-        nombre: 'Inicio y giros SII.pdf',
-        ruta: 'c1/i-2026.pdf',
-        creado_en: '2026-10-26',
-      },
-      {
-        tipo: 'resolucion_sanitaria',
-        nombre: 'Piscina.pdf',
-        ruta: 'c1/piscina.pdf',
-        creado_en: '2012-10-25',
-      },
-      {
-        tipo: 'resolucion_sanitaria',
-        nombre: 'Cocina.pdf',
-        ruta: 'c1/cocina.pdf',
-        creado_en: '2026-01-10',
-      },
-      { tipo: 'resolucion_sanitaria', nombre: 'Sin archivo.pdf' },
-      {
-        tipo: 'tgr',
-        nombre: 'Deuda TGR.pdf',
-        ruta: 'c1/tgr.pdf',
-        creado_en: '2026-10-20',
-      },
-      {
-        tipo: 'respaldo_experiencia',
-        nombre: 'OC 4352-103-SE23.pdf',
-        ruta: 'c1/oc.pdf',
-        creado_en: '2026-10-21',
-      },
-      { tipo: 'vigencia', nombre: 'Vigencia.pdf', ruta: 'c1/vigencia.pdf' },
-    ];
-    expect(loDeMiEmpresa(carpeta, []).map((a) => a.nombre)).toEqual([
-      'Inicio y giros SII.pdf',
-      'Deuda TGR.pdf',
-      'Cocina.pdf',
-      'Piscina.pdf',
-      'Vigencia.pdf',
-    ]);
-    expect(loDeMiEmpresa(carpeta, [])[0]).toMatchObject({
-      donde: 'Mi empresa, no va en el ZIP',
-      que_es: 'documento',
-      fuera_del_zip: true,
-    });
-  });
-
-  it('decisión 89: si no cabe todo, lo de «Mi empresa» que no va en el ZIP queda fuera antes que lo que se sube', () => {
-    const archivo = (
-      nombre: string,
-      bytes: number,
-      extra: Partial<ArchivoParaValidar> = {},
-    ): ArchivoParaValidar => ({
-      nombre,
-      ruta: `c1/${nombre}`,
-      bytes,
-      donde: '2. Técnica',
-      que_es: 'respaldo',
-      titulo: nombre,
-      ...extra,
-    });
-    const { leibles, noLeidos } = loQueCabe([
-      archivo('Formulario N°3.pdf', 2 * MB, { que_es: 'formulario' }),
-      archivo('Facturas.pdf', 12 * MB),
-      archivo('Estatutos.pdf', 12 * MB, {
-        que_es: 'documento',
-        donde: 'Mi empresa, no va en el ZIP',
-        fuera_del_zip: true,
-      }),
-    ]);
-    expect(leibles.map((a) => a.nombre)).toEqual([
-      'Formulario N°3.pdf',
-      'Facturas.pdf',
-    ]);
-    expect(noLeidos.map((a) => a.nombre)).toEqual(['Estatutos.pdf']);
-  });
 
   it('lee también lo de «Mi empresa» y los respaldos, cada uno con su carpeta (decisión 83)', () =>
     conLlave(async () => {

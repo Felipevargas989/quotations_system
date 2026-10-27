@@ -17,6 +17,7 @@ import {
   conLaPropuestaQueNombran,
   conLosRespaldos,
   type DatosDelSet,
+  type DocumentoDeLaSeccion4,
   type FormularioDeLasBases,
   type PiezaDelSet,
   rutasEnElZip,
@@ -203,7 +204,7 @@ export class ElSetService {
     const resultado = (analisis.resultado ?? {}) as {
       formularios?: FormularioDeLasBases[];
       requisitos?: Array<{ que: string }>;
-      documentos?: Array<{ nombre: string }>;
+      documentos?: DocumentoDeLaSeccion4[];
     };
     const oferta = trabajos.find(
       (t) => t.tipo === 'oferta' && t.estado === 'listo',
