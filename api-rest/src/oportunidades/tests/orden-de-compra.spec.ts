@@ -24,7 +24,6 @@ describe('La ficha pública de una orden de compra', () => {
       estado: 'Aceptada',
       licitacion: '4352-18-LE23',
       rut_proveedor: '77.701.305-K',
-      proveedor: 'VALLE DEL SOL QUILLON SPA',
     });
   });
 

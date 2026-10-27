@@ -6,20 +6,17 @@ import {
   MercadoPublicoError,
 } from '../mercado-publico/mercado-publico.client';
 import { OferenteRepository } from '../oferente/oferente.repository';
-import {
-  bajarOrdenDeCompra,
-  leerOrdenDeCompra,
-} from '../oferente/orden-de-compra';
 import { CompetenciaRepository } from './competencia.repository';
-import { ordenDelDetalle, resultadoDeLaOrden } from './resultado-compra-agil';
+import { resultadoDeCompraAgil } from './resultado-compra-agil';
 import { ResultadosRepository } from './resultados.repository';
 
 // EL RESULTADO DE LAS COMPRAS ÁGILES POSTULADAS (decisión 92 del doc 17,
 // 27-10). En cada pasada del radar, media hora después, se vuelve a pedir
 // el detalle de cada compra ágil que la empresa postuló y ya cerró. Cuando
-// trae la orden de compra, se lee su ficha pública: si es para la empresa
-// queda «ganada»; si es para otro, «perdida», con quién ganó y por cuánto.
-// Felipe: "la perdí y no me avisó el sistema".
+// el comprador elige, el detalle trae todas las ofertas: si eligió a la
+// empresa queda «ganada»; si eligió a otro, «perdida», con quién ganó, por
+// cuánto y en qué lugar quedó la empresa por precio, que es como la ley
+// manda comparar (decisión 93). Felipe: "la perdí y no me avisó el sistema".
 
 @Injectable()
 export class ResultadosDeComprasAgilesService {
@@ -52,17 +49,7 @@ export class ResultadosDeComprasAgilesService {
           id_orden_compra: detalle.id_orden_compra ?? null,
           estado: detalle.estado ?? null,
         });
-        const numero = ordenDelDetalle(detalle);
-        if (!numero) {
-          if (detalle.id_orden_compra) {
-            this.logger.warn(
-              `compra ágil ${p.codigo}: id_orden_compra no es un número de orden (${JSON.stringify(detalle.id_orden_compra)})`,
-            );
-          }
-          continue;
-        }
-        const orden = leerOrdenDeCompra(await bajarOrdenDeCompra(numero));
-        const resultado = orden ? resultadoDeLaOrden(orden, rut) : null;
+        const resultado = resultadoDeCompraAgil(detalle, rut);
         if (!resultado) continue;
         if (
           await this.resultados.marcarResultado(
@@ -73,9 +60,7 @@ export class ResultadosDeComprasAgilesService {
         ) {
           await this.resultados.registrarResultado(p.codigo, resultado);
           resueltas += 1;
-          this.logger.info(
-            `compra ágil ${p.codigo}: ${resultado.estado} (orden ${numero})`,
-          );
+          this.logger.info(`compra ágil ${p.codigo}: ${resultado.estado}`);
         }
       } catch (error) {
         this.logger.warn(`compra ágil ${p.codigo}: ${mensajeDe(error)}`);
