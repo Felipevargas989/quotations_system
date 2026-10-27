@@ -19,9 +19,6 @@ export type ArchivoParaValidar = {
   que_es: PiezaDelSet['que_es'];
   /** Cómo lo ve la IA: la carpeta y el nombre. */
   titulo: string;
-  /** Lo de «Mi empresa» que no va en el ZIP pero se lee para revisar toda
-   *  la documentación de la empresa (decisiones 88 y 89). */
-  fuera_del_zip?: true;
 };
 
 /** Primero lo que la empresa escribe y firma, después su carpeta y al
@@ -74,75 +71,6 @@ export const loQueVaEnElZip = (piezas: PiezaDelSet[]): ArchivoParaValidar[] => {
   return archivos;
 };
 
-// LO DE «MI EMPRESA» QUE NO VA EN EL ZIP (decisiones 88 y 89 del doc 17,
-// 27-10). Felipe: "el validador tiene que revisar todo... tiene que ser
-// nuestro contralorito interno"; sus resoluciones sanitarias no le permiten
-// un restaurante y la validación no lo vio, porque las bases no las piden y
-// no iban en el ZIP (88). Y después: "que revise toda la documentación, la
-// que genera el sistema y la que se obtiene de otras fuentes... resoluciones,
-// F30 vigentes, vigencia de la empresa, TGR, DICOM, certificado de quiebra"
-// (89). La IA lee toda la carpeta, vaya o no en el ZIP; no se sube.
-
-/** De cada tipo de «Mi empresa», cuáles se leen: de los certificados que se
- *  renuevan, el más nuevo; de las resoluciones, los respaldos de la patente,
- *  los estatutos y lo demás, todos. Los respaldos de experiencia que no van
- *  en el ZIP no se leen: son del anexo de experiencia. */
-const CUALES_SE_LEEN: Readonly<Record<string, 'todos' | 'el_mas_nuevo'>> = {
-  patente: 'el_mas_nuevo',
-  inicio_actividades: 'el_mas_nuevo',
-  programa_integridad: 'el_mas_nuevo',
-  f30: 'el_mas_nuevo',
-  f30_1: 'el_mas_nuevo',
-  vigencia: 'el_mas_nuevo',
-  dj_trabajadores: 'el_mas_nuevo',
-  erut: 'el_mas_nuevo',
-  no_quiebra: 'el_mas_nuevo',
-  tgr: 'el_mas_nuevo',
-  dicom: 'el_mas_nuevo',
-  resolucion_sanitaria: 'todos',
-  respaldo_patente: 'todos',
-  estatutos: 'todos',
-  otro: 'todos',
-};
-
-type DocumentoDeLaCarpeta = {
-  tipo: string;
-  nombre: string;
-  ruta?: string;
-  bytes?: number;
-  creado_en?: string;
-};
-
-/** Lo de «Mi empresa» que no va en el ZIP. */
-export const loDeMiEmpresa = (
-  carpeta: DocumentoDeLaCarpeta[],
-  enElZip: ArchivoParaValidar[],
-): ArchivoParaValidar[] => {
-  const enElSet = new Set(enElZip.map((a) => a.ruta));
-  const vistos = new Set<string>();
-  return [...carpeta]
-    .sort((a, b) => (b.creado_en ?? '').localeCompare(a.creado_en ?? ''))
-    .filter((d) => {
-      const cuales = CUALES_SE_LEEN[d.tipo];
-      // Sin archivo no hay nada que leer.
-      if (!cuales || !d.ruta) return false;
-      if (cuales === 'el_mas_nuevo') {
-        if (vistos.has(d.tipo)) return false;
-        vistos.add(d.tipo);
-      }
-      return !enElSet.has(d.ruta);
-    })
-    .map((d) => ({
-      nombre: d.nombre,
-      ruta: d.ruta ?? '',
-      bytes: d.bytes ?? 0,
-      donde: 'Mi empresa, no va en el ZIP',
-      que_es: 'documento' as const,
-      titulo: `Mi empresa, no va en el ZIP / ${d.nombre}`,
-      fuera_del_zip: true as const,
-    }));
-};
-
 /** Lo que la IA lee de una vez: lo legible y, en PDF, hasta el tope del
  *  pedido. Lo demás se avisa con su motivo y se revisa por su nombre. */
 export const loQueCabe = (
@@ -150,12 +78,8 @@ export const loQueCabe = (
 ): { leibles: ArchivoParaValidar[]; noLeidos: NoLeido[] } => {
   const fuera = new Map<ArchivoParaValidar, string>();
   let peso = 0;
-  // Lo de «Mi empresa» que no va en el ZIP, al final: primero lo que se
-  // sube (decisión 89).
-  const prioridad = (a: ArchivoParaValidar) =>
-    a.fuera_del_zip ? 3 : PRIORIDAD[a.que_es];
   const porPrioridad = [...archivos].sort(
-    (a, b) => prioridad(a) - prioridad(b),
+    (a, b) => PRIORIDAD[a.que_es] - PRIORIDAD[b.que_es],
   );
   for (const a of porPrioridad) {
     if (!esLeible(a.nombre)) {

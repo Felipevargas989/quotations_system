@@ -9,6 +9,7 @@ import {
   checklistDeDocumentos,
   esOpcional,
   documentosDeUnAnalisisAnterior,
+  fijaUnPlazo,
   resumenDelChecklist,
 } from "./checklistDeDocumentos";
 
@@ -328,6 +329,53 @@ describe("La deuda fiscal y el informe comercial (decisión 89)", () => {
       ["Certificado de deuda de la Tesorería", "en_tu_carpeta"],
       ["Informe DICOM", "en_tu_carpeta"],
     ]);
+  });
+});
+
+describe("La vigencia la fijan las bases (decisión 90)", () => {
+  it("con un plazo desde la emisión, manda el plazo y no la fecha que anotó la empresa; con «vigente», la fecha", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido("Certificado de vigencia", "vigencia", {
+            condicion: "emitido hace no más de 30 días",
+          }),
+          pedido("Certificado F30", "f30", { condicion: "vigente" }),
+        ],
+      },
+      carpeta: [
+        enLaCarpeta(1, "vigencia", "Vigencia agosto.pdf", "2026-10-01"),
+        enLaCarpeta(2, "f30", "F30 septiembre.pdf", "2026-10-01"),
+      ],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.nombre, f.estado, f.detalle])).toEqual([
+      [
+        "Certificado de vigencia",
+        "en_tu_carpeta",
+        "Vigencia agosto.pdf · las bases piden: emitido hace no más de 30 días",
+      ],
+      [
+        "Certificado F30",
+        "vencido",
+        "F30 septiembre.pdf: venció el 01-10-2026",
+      ],
+    ]);
+  });
+
+  it("un plazo es en días o meses, con número o con palabras; «vigente» no lo es", () => {
+    expect(fijaUnPlazo("emitido hace no más de 30 días")).toBe(true);
+    expect(
+      fijaUnPlazo(
+        "con una antigüedad no superior a sesenta (60) días corridos",
+      ),
+    ).toBe(true);
+    expect(fijaUnPlazo("emitido dentro de los últimos 3 meses")).toBe(true);
+    expect(fijaUnPlazo("vigente")).toBe(false);
+    expect(fijaUnPlazo(undefined)).toBe(false);
   });
 });
 

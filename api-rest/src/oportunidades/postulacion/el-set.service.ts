@@ -21,6 +21,7 @@ import {
   type PiezaDelSet,
   rutasEnElZip,
 } from './el-set';
+import type { DocumentoDeLaSeccion4 } from './la-seccion-4';
 import { PostulacionRepository } from './postulacion.repository';
 import { type ParaUnir, unirPdf } from './unir-pdf';
 import { type ArchivoParaElZip, armarZip } from './zip';
@@ -203,7 +204,7 @@ export class ElSetService {
     const resultado = (analisis.resultado ?? {}) as {
       formularios?: FormularioDeLasBases[];
       requisitos?: Array<{ que: string }>;
-      documentos?: Array<{ nombre: string }>;
+      documentos?: DocumentoDeLaSeccion4[];
     };
     const oferta = trabajos.find(
       (t) => t.tipo === 'oferta' && t.estado === 'listo',

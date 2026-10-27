@@ -4,7 +4,7 @@ import {
 } from '../analisis/validacion.service';
 
 // LO QUE LEE LA IA PARA VALIDAR: el esquema de la respuesta y las
-// instrucciones (decisiones 83, 85, 87, 88 y 89 del doc 17). Salió de
+// instrucciones (decisiones 83, 85 y 87 a 90 del doc 17). Salió de
 // validacion.service.spec.ts el 27-10, cuando ese archivo pasó las 800
 // líneas.
 
@@ -85,7 +85,7 @@ describe('lo que lee la IA para validar', () => {
     );
   });
 
-  it('decisiones 88 y 89: toda la documentación de la empresa, con lo de «Mi empresa» que no va en el ZIP y lo que piden las bases', () => {
+  it('decisiones 88 a 90: solo lo del ZIP, el fondo y no la forma, con la vigencia que fijan las bases', () => {
     const t = instruccionesDeValidacion({
       codigo: '5040-14-LE26',
       nombre: 'Servicio de producción Día de Campo del Dirigente Social',
@@ -94,16 +94,12 @@ describe('lo que lee la IA para validar', () => {
       hoy: '2026-10-27',
       oferente: null,
       carpeta: [],
-      de_mi_empresa: [
-        { nombre: 'Resoluciones Valle del sol.pdf', leido: true },
-        { nombre: 'Resolución cocina.jpg', leido: false },
-      ],
       documentos: [
         {
           nombre: 'Certificado de vigencia de la sociedad',
           cuando: 'con_la_oferta',
           obligatorio: true,
-          condicion: 'emitido hace no más de 60 días',
+          condicion: 'emitido hace no más de 30 días',
         },
         {
           nombre: 'Certificado F30-1',
@@ -115,54 +111,43 @@ describe('lo que lee la IA para validar', () => {
       requisitos: REQUISITOS,
       criterios: [],
     });
-    expect(t).toContain('LO DE «MI EMPRESA» QUE NO VA EN EL ZIP');
+    // La sección 4 con la oferta y su plazo; lo del pago, no (decisión 90).
+    expect(t).toContain('LO QUE PIDEN LAS BASES CON LA OFERTA');
     expect(t).toContain(
-      '- [con la oferta, obligatorio] Certificado de vigencia de la sociedad: emitido hace no más de 60 días',
+      '- Certificado de vigencia de la sociedad (obligatorio): emitido hace no más de 30 días',
     );
-    expect(t).toContain('- [para el pago] Certificado F30-1\n');
-    expect(t).toContain('- Resoluciones Valle del sol.pdf\n');
+    expect(t).not.toContain('Certificado F30-1');
+    // Felipe: "los documentos vencen en función de lo que dicen las bases y
+    // no necesariamente lo que tenemos nosotros definido".
+    expect(t).toContain('TODO LO QUE VA EN EL ZIP, el fondo y no la forma');
     expect(t).toContain(
-      '- Resolución cocina.jpg (no se pudo leer: revísalo solo por su nombre)',
+      'la vigencia la fijan las bases y no la fecha de vencimiento que anotó la empresa',
     );
     expect(t).toContain(
-      'TODA LA DOCUMENTACIÓN DE LA EMPRESA, SIEMPRE, vaya o no en el ZIP',
+      'es solo una referencia: la vigencia la fijan las bases',
     );
-    // Felipe: "F30 vigentes, vigencia de la empresa (a veces piden no mayor
-    // a 60 días, otras 30), TGR, DICOM, certificado de quiebra".
-    expect(t).toContain('emitido hace no más de 30 o 60 días');
+    expect(t).toContain('por la fecha de emisión que dice el documento');
+    // Ya no lee «Mi empresa» por fuera ni revisa lo de contratar.
+    expect(t).not.toContain('NO VA EN EL ZIP');
+    expect(t).not.toContain('renovarlo');
     expect(t).toContain('deudas en el certificado de la TGR');
     expect(t).toContain('morosidades o protestos en el DICOM');
     expect(t).toContain('una quiebra o un procedimiento concursal');
-    expect(t).toContain('dilo con la fecha en que hay que renovarlo');
     expect(t).toContain(
       '- Lo que está en orden: avisa solo lo que hay que hacer o revisar.',
     );
+    expect(t).toContain('si van resoluciones sanitarias');
     expect(t).toContain('Reglamento Sanitario de los Alimentos');
+    expect(t).toContain(
+      'si la capacidad autorizada alcanza para lo que se ofrece',
+    );
     // Va con lo demás, pero nunca hacia el comprador (Felipe: "no nos vamos
     // a autodelatar").
     expect(t).toContain('Es un aviso para la empresa, no para el comprador');
     expect(t).toContain(
       'sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta',
     );
-    expect(t).toContain(
-      'si la capacidad autorizada alcanza para lo que se ofrece',
-    );
-    // El F30 que no va con la oferta ya no se deja de lado (decisión 89).
     expect(t).not.toContain('el F30, que se pide al contratar');
-    // Sin nada aparte, lo dice.
-    expect(
-      instruccionesDeValidacion({
-        codigo: 'x',
-        nombre: 'x',
-        organismo: null,
-        fecha_cierre: null,
-        hoy: '2026-10-27',
-        oferente: null,
-        carpeta: [],
-        requisitos: REQUISITOS,
-        criterios: [],
-      }),
-    ).toContain('(nada aparte de lo que va en el ZIP)');
   });
 
   it('decisión 87: los precios siempre, uno por uno, y no se avisa lo que no vale la pena corregir', () => {

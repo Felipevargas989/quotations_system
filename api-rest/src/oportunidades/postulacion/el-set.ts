@@ -3,6 +3,12 @@ import { sinExtension } from '../generacion/formularios';
 import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
+import {
+  type DocumentoDeLaSeccion4,
+  fijaUnPlazo,
+  type PedidoDeLaCarpeta,
+  pedidosDeLaSeccion4,
+} from './la-seccion-4';
 
 // EL SET PARA MERCADO PÚBLICO (decisión 34 del doc 17, sprint I, 19-10).
 // Felipe: "al momento de generar el set de documentos que tengo que subir
@@ -65,9 +71,9 @@ export type DatosDelSet = {
   archivos: ArchivoDelSet[];
   formularios: FormularioDeLasBases[];
   requisitos: Array<{ que: string }>;
-  /** El checklist de documentos del análisis (decisión 37); un análisis
-   *  anterior no lo trae. */
-  documentos?: Array<{ nombre: string }>;
+  /** El checklist de documentos del análisis (decisión 37), la sección 4
+   *  «Lo que tienes que presentar»; un análisis anterior no lo trae. */
+  documentos?: DocumentoDeLaSeccion4[];
   carpeta: DocumentoDeEmpresa[];
   /** Cuándo empezó cada trabajo de la IA, por su id. */
   inicioDe: ReadonlyMap<number, string>;
@@ -189,6 +195,9 @@ const PATRONES: Readonly<Record<string, RegExp>> = {
   no_quiebra: /quiebra|procedimiento concursal|boletin concursal/,
   estatutos:
     /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,
+  tgr: /tesoreria|\btgr\b|deuda fiscal|certificado de deuda/,
+  dicom:
+    /dicom|equifax|informe comercial|antecedentes comerciales|boletin comercial/,
 };
 
 /** El tipo de «Mi empresa» de lo que respalda una patente que no es
@@ -224,6 +233,30 @@ const GENERALES: ReadonlyArray<[tipo: string, patron: RegExp]> = [
   'estatutos',
   'vigencia',
 ].map(conSuPatron);
+
+/** Un tipo de «Mi empresa» por el nombre de lo que piden las bases. */
+const tipoPorElNombre = (nombre: string): string | null =>
+  Object.entries(PATRONES).find(([, p]) => p.test(normalizar(nombre)))?.[0] ??
+  null;
+
+/** Lo que las bases piden de «Mi empresa» con la oferta: desde la decisión
+ *  90, la sección 4 del análisis (`la-seccion-4.ts`). Un análisis de antes,
+ *  sin ella, sigue con los nombres de los requisitos, en la administrativa. */
+const loQuePidenDeLaCarpeta = (
+  d: DatosDelSet,
+  loPiden: (patron: RegExp) => boolean,
+): PedidoDeLaCarpeta[] =>
+  pedidosDeLaSeccion4(
+    d.documentos ?? [],
+    tipoPorElNombre,
+    TIPO_RESPALDO_PATENTE,
+  ) ??
+  LO_QUE_PIDEN.filter(([, patron]) => loPiden(patron)).map(([tipo]) => ({
+    tipo,
+    carpeta: 'administrativa',
+    condicion: '',
+    obligatorio: true,
+  }));
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
 const EXPERIENCIA = /experiencia/;
@@ -387,14 +420,13 @@ export function armarElSet(d: DatosDelSet): ElSet {
 
   const pedidos = d.requisitos.map((r) => normalizar(r.que));
   const loPiden = (patron: RegExp) => pedidos.some((p) => patron.test(p));
-  /** Ya va en la administrativa porque las bases lo piden ahí. */
-  const enLaAdministrativa = (tipo: string, patron: RegExp) =>
-    LO_QUE_PIDEN.some(([t]) => t === tipo) && loPiden(patron);
-  /** Un documento general que no va en la administrativa: «4. Otros». */
+  const deLaCarpeta = loQuePidenDeLaCarpeta(d, loPiden);
+  /** Ya va en otra parte del ZIP porque las bases lo piden. */
+  const yaLoPiden = (tipo: string) => deLaCarpeta.some((x) => x.tipo === tipo);
+  /** Un documento general que no va en otra parte: «4. Otros». */
   const generalNoPedido = (nombre: string) =>
     GENERALES.some(
-      ([tipo, patron]) =>
-        patron.test(normalizar(nombre)) && !enLaAdministrativa(tipo, patron),
+      ([tipo, patron]) => patron.test(normalizar(nombre)) && !yaLoPiden(tipo),
     );
 
   // Lo subido a mano: todo (firmado, si se firmó aquí), en la carpeta de su
@@ -449,18 +481,27 @@ export function armarElSet(d: DatosDelSet): ElSet {
   }
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
-  for (const [tipo, patron] of LO_QUE_PIDEN) {
-    if (!loPiden(patron) || enUnFormulario(patron)) continue;
-    if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
+  for (const { tipo, carpeta, condicion, obligatorio } of deLaCarpeta) {
+    const patron = PATRONES[tipo];
+    if (patron && enUnFormulario(patron)) continue;
+    if (patron && subidos.some((s) => patron.test(normalizar(s.nombre)))) {
+      continue;
+    }
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
     if (!doc) {
-      faltan.push(
-        `Las bases piden «${nombre}» y no está en tu carpeta: súbelo en «Mi empresa».`,
-      );
+      if (obligatorio) {
+        faltan.push(
+          `Las bases piden «${nombre}» y no está en tu carpeta: súbelo en «Mi empresa».`,
+        );
+      }
       continue;
     }
-    const vencido = Boolean(doc.vence && doc.vence < d.corte);
+    // Si las bases fijan un plazo desde la emisión, manda ese plazo y no la
+    // fecha que anotó la empresa: lo revisa «Validar todo» con la fecha del
+    // documento (decisión 90).
+    const vencido =
+      !fijaUnPlazo(condicion) && Boolean(doc.vence && doc.vence < d.corte);
     if (vencido) {
       faltan.push(
         `«${nombre}» venció el ${fechaCorta(doc.vence as string)}: súbelo renovado en «Mi empresa».`,
@@ -470,7 +511,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
       nombre: doc.nombre,
       ruta: doc.ruta,
       bytes: doc.bytes,
-      carpetas: ['administrativa'],
+      carpetas: [carpeta],
       que_es: 'documento',
       aviso: vencido ? `vencido el ${fechaCorta(doc.vence as string)}` : null,
     });
@@ -487,7 +528,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
   ];
   const sinSubir: string[] = [];
   for (const [tipo, patron] of GENERALES) {
-    if (enLaAdministrativa(tipo, patron) || enUnFormulario(patron)) continue;
+    if (yaLoPiden(tipo) || enUnFormulario(patron)) continue;
     if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
