@@ -57,14 +57,15 @@ export class HistoriaRepository {
     return new Map([...unidades].map(([u, regiones]) => [u, [...regiones]]));
   }
 
-  /** Las licitaciones que alguna empresa sigue (decisión 30, 19-10):
+  /** Las licitaciones que alguna empresa sigue (decisión 30, 19-10) o
+   *  postuló (decisión 92, 27-10: así se sabe sola si ganó o perdió):
    *  cerradas, todavía sin su acta leída y no revisadas en las últimas 20
    *  horas. De cualquier región y color. */
   async procesosSeguidos(limite: number): Promise<Array<{ codigo: string }>> {
     const { data: seguidas, error: errorSeguidas } = await this.db
       .from('oportunidades')
       .select('codigo')
-      .eq('estado', 'seguida')
+      .in('estado', ['seguida', 'postulada'])
       .limit(1000);
     if (errorSeguidas) throw errorSeguidas;
     const codigos = [

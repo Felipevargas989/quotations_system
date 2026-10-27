@@ -6,9 +6,13 @@ import {
   resultadoDeCompraAgil,
   resultadoParaLaEmpresa,
   resultadoPublicoDeCompraAgil,
+  resultadoPublicoDeLicitacion,
 } from '../competencia/resultado-compra-agil';
-import type { ResultadosRepository } from '../competencia/resultados.repository';
-import { ResultadosDeComprasAgilesService } from '../competencia/resultados.service';
+import type {
+  PorResolver,
+  ResultadosRepository,
+} from '../competencia/resultados.repository';
+import { ResultadosDePostuladasService } from '../competencia/resultados.service';
 import {
   type MercadoPublicoClient,
   MercadoPublicoError,
@@ -65,10 +69,12 @@ const CATAMARAN = detalleCon(BPM, VDS);
 describe('el resultado de una compra ágil (decisión 92)', () => {
   it('perdida: quién ganó, por cuánto y en qué lugar quedó la empresa por precio', () => {
     expect(resultadoDeCompraAgil(CATAMARAN, '77.701.305-K')).toEqual({
+      tipo: 'compra_agil',
       estado: 'perdida',
       proveedor: 'BPM EVENTOS SPA',
       rut_proveedor: '76.430.926-k',
       monto: 6800000,
+      mas_elegidos: 0,
       mi_monto: 7090000,
       lugar: 2,
       ofertas: 2,
@@ -189,15 +195,120 @@ describe('el resultado de una compra ágil (decisión 92)', () => {
   });
 });
 
+/** Una fila por resolver de compra ágil. */
+const compraAgil = (
+  x: Pick<PorResolver, 'id' | 'codigo' | 'estado' | 'anotada'>,
+): PorResolver => ({
+  ...x,
+  tipo: 'compra_agil',
+  proceso: { estado: null, adjudicacion: null },
+});
+
+/** La adjudicación del Día del Profesor, como la guarda el radar
+ *  (`mapeo.ts`): una línea, a Sol de Quillón (ficticia: aún sin adjudicar
+ *  el 27-10). */
+const ADJUDICADA = {
+  estado: 'Adjudicada',
+  adjudicacion: {
+    tipo: 1,
+    numero: 'D.A. 3.500',
+    oferentes: 2,
+    url_acta: null,
+    ganadores: [
+      {
+        producto: 'Producción de eventos',
+        rut: '77.067.895-1',
+        nombre: 'Sol de Quillón',
+        cantidad: 1,
+        monto_unitario: 13352941,
+      },
+    ],
+  },
+};
+
+const licitacion = (
+  x: Pick<PorResolver, 'id' | 'codigo' | 'estado' | 'anotada'>,
+  proceso: PorResolver['proceso'] = ADJUDICADA,
+): PorResolver => ({ ...x, tipo: 'licitacion', proceso });
+
+describe('el resultado de una licitación (decisión 92)', () => {
+  it('adjudicada a otro: perdida, con a quién y por cuánto, sin lugar por precio', () => {
+    const publico = resultadoPublicoDeLicitacion(ADJUDICADA);
+    expect(publico).toEqual({
+      tipo: 'licitacion',
+      elegidos: [
+        { rut: '77067895-1', proveedor: 'Sol de Quillón', monto: 13352941 },
+      ],
+      ofertas: [],
+    });
+    expect(resultadoParaLaEmpresa(publico, '77.701.305-K')).toMatchObject({
+      tipo: 'licitacion',
+      estado: 'perdida',
+      proveedor: 'Sol de Quillón',
+      monto: 13352941,
+      mas_elegidos: 0,
+      lugar: null,
+      era_la_mas_barata: false,
+    });
+  });
+
+  it('adjudicada a la empresa, aunque sea por líneas con otro: ganada, con lo suyo', () => {
+    const publico = resultadoPublicoDeLicitacion({
+      estado: 'Adjudicada',
+      adjudicacion: {
+        ganadores: [
+          {
+            rut: '77.067.895-1',
+            nombre: 'Sol de Quillón',
+            cantidad: 1,
+            monto_unitario: 9_000_000,
+          },
+          {
+            rut: '77.701.305-K',
+            nombre: 'Centro de Eventos Valle del Sol',
+            cantidad: 2,
+            monto_unitario: 2_000_000,
+          },
+        ],
+      },
+    });
+    expect(resultadoParaLaEmpresa(publico, '77701305-k')).toMatchObject({
+      estado: 'ganada',
+      proveedor: 'Centro de Eventos Valle del Sol',
+      monto: 4_000_000,
+      mi_monto: 4_000_000,
+      mas_elegidos: 1,
+    });
+  });
+
+  it('desierta, revocada o sin ganadores: no hay resultado', () => {
+    expect(
+      resultadoPublicoDeLicitacion({
+        ...ADJUDICADA,
+        estado: 'Desierta (o art. 3 ó 9 Ley 19.886)',
+      }),
+    ).toBeNull();
+    expect(
+      resultadoPublicoDeLicitacion({
+        estado: 'Adjudicada',
+        adjudicacion: { ganadores: [] },
+      }),
+    ).toBeNull();
+    expect(
+      resultadoPublicoDeLicitacion({ estado: 'Cerrada', adjudicacion: null }),
+    ).toBeNull();
+  });
+});
+
 function armar() {
   const resultados = {
-    comprasAgilesPorResolver: jest.fn().mockResolvedValue([
-      {
+    porResolver: jest.fn().mockResolvedValue([
+      compraAgil({
         id: 3219,
         codigo: '1346350-37-COT26',
         estado: 'postulada',
         anotada: false,
-      },
+      }),
     ]),
     marcarResultado: jest.fn().mockResolvedValue(true),
     registrarResultado: jest.fn().mockResolvedValue(undefined),
@@ -211,7 +322,7 @@ function armar() {
   const mp = {
     detalleCompraAgil: jest.fn().mockResolvedValue(CATAMARAN),
   };
-  const servicio = new ResultadosDeComprasAgilesService(
+  const servicio = new ResultadosDePostuladasService(
     resultados as unknown as ResultadosRepository,
     competencia as unknown as CompetenciaRepository,
     oferente as unknown as OferenteRepository,
@@ -223,7 +334,7 @@ function armar() {
 
 const enUnRato = () => Date.now() + 60_000;
 
-describe('ResultadosDeComprasAgilesService — revisar', () => {
+describe('ResultadosDePostuladasService — revisar', () => {
   it('eligieron a otro: perdida, con quién ganó, por cuánto y tu lugar, una sola vez', async () => {
     const { resultados, competencia, servicio } = armar();
 
@@ -268,13 +379,13 @@ describe('ResultadosDeComprasAgilesService — revisar', () => {
 
   it('la que la empresa marcó a mano no cambia, pero se anota a quién eligieron', async () => {
     const { resultados, servicio } = armar();
-    resultados.comprasAgilesPorResolver.mockResolvedValue([
-      {
+    resultados.porResolver.mockResolvedValue([
+      compraAgil({
         id: 3219,
         codigo: '1346350-37-COT26',
         estado: 'perdida',
         anotada: false,
-      },
+      }),
     ]);
     await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
     expect(resultados.marcarResultado).not.toHaveBeenCalled();
@@ -283,29 +394,79 @@ describe('ResultadosDeComprasAgilesService — revisar', () => {
 
   it('ya anotada por otra empresa: no se anota otra vez, pero se marca la de esta', async () => {
     const { resultados, servicio } = armar();
-    resultados.comprasAgilesPorResolver.mockResolvedValue([
-      {
+    resultados.porResolver.mockResolvedValue([
+      compraAgil({
         id: 3219,
         codigo: '1346350-37-COT26',
         estado: 'postulada',
         anotada: true,
-      },
+      }),
     ]);
     await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
     expect(resultados.registrarResultado).not.toHaveBeenCalled();
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'perdida');
   });
 
+  it('una licitación postulada ya adjudicada se marca sola, sin preguntarle a Mercado Público', async () => {
+    const { resultados, mp, servicio } = armar();
+    resultados.porResolver.mockResolvedValue([
+      licitacion({
+        id: 84,
+        codigo: '4364-13-LE26',
+        estado: 'postulada',
+        anotada: false,
+      }),
+    ]);
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
+    expect(mp.detalleCompraAgil).not.toHaveBeenCalled();
+    expect(resultados.registrarResultado).toHaveBeenCalledWith(
+      '4364-13-LE26',
+      resultadoPublicoDeLicitacion(ADJUDICADA),
+    );
+    expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 84, 'perdida');
+  });
+
+  it('una licitación desierta no se marca ni se anota', async () => {
+    const { resultados, servicio } = armar();
+    resultados.porResolver.mockResolvedValue([
+      licitacion(
+        {
+          id: 40,
+          codigo: '1532886-5-LE26',
+          estado: 'postulada',
+          anotada: false,
+        },
+        {
+          estado: 'Desierta (o art. 3 ó 9 Ley 19.886)',
+          adjudicacion: { ganadores: [] },
+        },
+      ),
+    ]);
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(0);
+    expect(resultados.registrarResultado).not.toHaveBeenCalled();
+    expect(resultados.marcarResultado).not.toHaveBeenCalled();
+  });
+
   it('sin postuladas no pregunta nada; sin cupo de Mercado Público, para', async () => {
     const vacio = armar();
-    vacio.resultados.comprasAgilesPorResolver.mockResolvedValue([]);
+    vacio.resultados.porResolver.mockResolvedValue([]);
     await expect(vacio.servicio.revisar(1, enUnRato())).resolves.toBe(0);
     expect(vacio.mp.detalleCompraAgil).not.toHaveBeenCalled();
 
     const { resultados, mp, servicio } = armar();
-    resultados.comprasAgilesPorResolver.mockResolvedValue([
-      { id: 1, codigo: 'A-1-COT26', estado: 'postulada', anotada: false },
-      { id: 2, codigo: 'A-2-COT26', estado: 'postulada', anotada: false },
+    resultados.porResolver.mockResolvedValue([
+      compraAgil({
+        id: 1,
+        codigo: 'A-1-COT26',
+        estado: 'postulada',
+        anotada: false,
+      }),
+      compraAgil({
+        id: 2,
+        codigo: 'A-2-COT26',
+        estado: 'postulada',
+        anotada: false,
+      }),
     ]);
     mp.detalleCompraAgil.mockRejectedValue(
       new MercadoPublicoError('sin cupo', 429),
@@ -331,7 +492,7 @@ describe('el reloj de los resultados (decisión 92)', () => {
       {} as never,
       {} as never,
       mockPinoLogger() as unknown as PinoLogger,
-      resultados as unknown as ResultadosDeComprasAgilesService,
+      resultados as unknown as ResultadosDePostuladasService,
     );
     await reloj.resultadosDeLasPostuladas();
     expect(resultados.revisar.mock.calls.map((c) => c[0])).toEqual([1, 7]);

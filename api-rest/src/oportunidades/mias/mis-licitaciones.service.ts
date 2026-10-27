@@ -8,7 +8,7 @@ import {
   ValidacionRepository,
 } from '../analisis/analisis.repository';
 import {
-  type ResultadoDeCompraAgil,
+  type ResultadoDeLaEmpresa,
   type ResultadoPublico,
   resultadoParaLaEmpresa,
 } from '../competencia/resultado-compra-agil';
@@ -55,7 +55,7 @@ export type MiLicitacion = FilaDeLista & {
   avance: Avance;
   /** Ganada o perdida (decisión 92): a quién eligieron, por cuánto y cómo
    *  quedó la empresa por precio. */
-  resultado: ResultadoDeCompraAgil | null;
+  resultado: ResultadoDeLaEmpresa | null;
 };
 
 const instante = (iso: string | null) =>

@@ -129,6 +129,34 @@ describe("el resultado de una compra ágil (decisión 92)", () => {
     expect(textoDelResultadoPublico(null)).toBe("salió el resultado");
   });
 
+  it("una licitación dice a quién adjudicaron, sin lugar por precio", () => {
+    const perdida = {
+      ...PERDIDA,
+      tipo: "licitacion" as const,
+      proveedor: "Sol de Quillón",
+      monto: 13_352_941,
+      mi_monto: null,
+      lugar: null,
+      ofertas: 0,
+      mas_elegidos: 0,
+    };
+    expect(textoDelResultado(perdida)).toMatch(
+      new RegExp(`^Adjudicaron a Sol de Quillón por ${PESO}13\\.352\\.941\\.$`),
+    );
+    expect(
+      textoDelResultado({
+        ...perdida,
+        estado: "ganada",
+        monto: 4_000_000,
+        mas_elegidos: 1,
+      }),
+    ).toMatch(
+      new RegExp(
+        `^Te adjudicaron por ${PESO}4\\.000\\.000\\. También adjudicaron a 1 más\\.$`,
+      ),
+    );
+  });
+
   it("solo es nuevo lo que trae resultado y no se avisó", () => {
     const lista = [mia(3219, PERDIDA), mia(40, null)];
     expect(resultadosNuevos(lista, []).map((m) => m.id)).toEqual([3219]);
