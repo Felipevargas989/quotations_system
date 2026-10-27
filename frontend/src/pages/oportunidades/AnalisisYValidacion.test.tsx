@@ -231,6 +231,33 @@ describe("Lo que piden las bases", () => {
     expect(screen.getByText("precio")).toBeInTheDocument();
   });
 
+  it("decisión 93: en una compra ágil, por ley gana el menor precio, y lo que agrega el comprador va debajo", async () => {
+    const compraAgil = {
+      ...FICHA,
+      proceso: { ...FICHA.proceso, tipo: "compra_agil" },
+    } as typeof FICHA;
+    const vista = pintar(
+      <AnalisisDeBases oportunidadId={40} ficha={compraAgil} />,
+      { ...ANALISIS, resultado: { ...ANALISIS.resultado, criterios: [] } },
+    );
+    expect(
+      await screen.findByText("Por ley, gana el menor precio"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/tienen que justificarlo en la orden de compra/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Lo que agrega el comprador")).toBeNull();
+    vista.unmount();
+    // Con los criterios del comprador, van debajo de la ley.
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={compraAgil} />);
+    expect(
+      await screen.findByText("Lo que agrega el comprador"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Por ley, gana el menor precio"),
+    ).toBeInTheDocument();
+  });
+
   it("arriba lo que te deja fuera, con su estado; las demás condiciones, plegadas", async () => {
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
     const boleta = (
