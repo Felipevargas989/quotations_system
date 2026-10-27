@@ -67,8 +67,12 @@ const QUE_LE_PASA: Partial<Record<FilaDelChecklist["estado"], string>> = {
 };
 
 /** Lo que piden las bases con la oferta y todavía no va en el ZIP. */
+// Solo lo obligatorio: lo demás lo ve la validación al leer el ZIP. En la
+// 5040-14-LE26 «la certificación de que el personal conoce el programa»
+// salía en rojo, y va dentro del mismo programa (su registro de difusión).
 const faltaEnElZip = (f: FilaDelChecklist) =>
   f.cuando === "con_la_oferta" &&
+  f.obligatorio &&
   (f.estado === "falta" ||
     f.estado === "vencido" ||
     f.estado === "lo_arma_la_ia");
