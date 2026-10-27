@@ -96,6 +96,8 @@ export interface PostulacionArmada {
   total: number;
   /** ¿Va propuesta técnica? Si las bases la piden o aceptan formato propio. */
   propuesta: boolean;
+  /** false: una compra ágil sin formularios, sin anexos (decisión 94). */
+  anexos?: boolean;
   /** Lo que no alcanzó a partir después de la oferta. */
   problemas?: string[];
 }

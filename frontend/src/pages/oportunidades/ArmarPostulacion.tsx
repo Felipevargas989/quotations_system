@@ -362,9 +362,12 @@ export default function ArmarPostulacion({
             <div key={tipo} className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-red-600">
                 {nombre}:{" "}
-                {vuelta[tipo].problema ??
-                  vuelta[tipo].generacion?.error ??
-                  "no resultó."}
+                {sinSuNombre(
+                  vuelta[tipo].problema ??
+                    vuelta[tipo].generacion?.error ??
+                    "no resultó.",
+                  nombre,
+                )}
               </p>
               <button
                 type="button"
@@ -394,3 +397,8 @@ export default function ArmarPostulacion({
     </section>
   );
 }
+
+/** El problema ya viene con el nombre del paso («Los anexos: …»): no se
+ *  repite (27-10, salía «Los anexos: Los anexos: …»). */
+const sinSuNombre = (texto: string, nombre: string): string =>
+  texto.startsWith(`${nombre}: `) ? texto.slice(nombre.length + 2) : texto;

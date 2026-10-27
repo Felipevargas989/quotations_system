@@ -92,12 +92,11 @@ export function vueltaDeLaPostulacion(
   const problemas = armada.problemas ?? [];
   const problemaDe = (que: string) =>
     problemas.find((p) => p.startsWith(que)) ?? null;
-  const anexos = pasoDe(
-    oferta,
-    generaciones?.anexos,
-    problemaDe("Los anexos"),
-    ahora,
-  );
+  // Una compra ágil sin formularios no tiene anexos (decisión 94).
+  const anexos =
+    armada.anexos === false
+      ? NO_VA
+      : pasoDe(oferta, generaciones?.anexos, problemaDe("Los anexos"), ahora);
   const propuesta = armada.propuesta
     ? pasoDe(
         oferta,
