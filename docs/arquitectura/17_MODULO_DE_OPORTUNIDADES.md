@@ -578,6 +578,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Se borraron `LaExperiencia.tsx` (con su prueba), `FormulariosDelAnalisis.tsx` y `EstadoDeGeneracion.tsx`, que solo usaba este panel. Las rutas del motor para proponer y confirmar quedan, sin pantalla.
     - Lo pedido justo antes, la noche del 26-10, mostró por qué: una propuesta nueva sin confirmar frenó «Volver a armar» del N°4 de la 5040-14-LE26, y confirmarla por la API era una decisión de la empresa.
     - Queda por decidir (Felipe, *"esto de tener recelos de algunas experiencias es algo mío, no del sistema para escalar"*): dar vuelta «Los clientes que se muestran». Hoy solo se muestran las empresas privadas de la lista; la propuesta es que se muestren todas y se marque «No mostrar» en las que se quieran esconder. Los organismos públicos se muestran siempre y las personas naturales, nunca.
+    - De paso, el 27-10, «Traer los documentos» queda quieto al apretarlo (Felipe: *"cuando pincho el botón traer documentos, este baja para cargar... ¿puedes dejarlo quieto?"*): el aviso «Puedes salir de la ficha» iba antes del botón y lo empujaba a la línea de abajo; ahora va debajo, y el botón guarda el ancho de su texto largo mientras dice «Trayendo…».
 
 ## 4. Reglas del módulo (no se negocian)
 

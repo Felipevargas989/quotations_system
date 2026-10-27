@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,11 +89,20 @@ describe("Traer los documentos", () => {
         <AdjuntosDeLaOportunidad oportunidadId={9} />
       </QueryClientProvider>,
     );
-    const boton = await screen.findByRole("button", { name: /Trayendo…/ });
+    const boton = await screen.findByRole("button", { name: "Trayendo…" });
     expect(boton).toBeDisabled();
+    const aviso = screen.getByText(
+      "Puedes salir de la ficha: aparecen solos al terminar.",
+    );
+    // Quieto (27-10): el aviso va debajo del botón, no antes, y el botón
+    // guarda el texto largo (oculto) para no cambiar de ancho.
     expect(
-      screen.getByText("Puedes salir de la ficha: aparecen solos al terminar."),
-    ).toBeInTheDocument();
+      boton.compareDocumentPosition(aviso) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(boton).getByText("Traer los documentos")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
     expect(s.traerAdjuntos).not.toHaveBeenCalled();
 
     // El motor termina: la próxima pregunta dice que ya no trae.
