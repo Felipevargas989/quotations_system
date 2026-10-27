@@ -624,6 +624,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **`ArmarPostulacionService.armar`**: si es una compra ágil (`proceso.tipo` en `PostulacionRepository.oportunidad`) y el análisis no trae formularios que apliquen, anota `anexos: false` en la oferta y la propuesta va siempre. `seguir` no pide los anexos y solo limpia los borradores que sobran. Una licitación sin formularios sigue con el aviso, que ahí sirve, porque el análisis puede no haberlos encontrado.
     - **En la pantalla**, `vueltaDeLaPostulacion` deja los anexos en «no va». Y la línea roja de un paso que falla ya no repite su nombre (`sinSuNombre` en `ArmarPostulacion.tsx`).
 
+96. **Las ofertas de la competencia llegan solas** (27-10, en el laboratorio; Felipe: *"si yo no las cargué, que tú lo trajeras una vez que la gané o perdí y obtener un feedback del porqué"*). Solo motor, sin migración.
+    - **Cuándo**: en la misma vuelta de la 92 (`RESULTADOS`, media hora después de cada pasada del radar), después del resultado: las licitaciones de la empresa ganadas o perdidas en los últimos 7 días, por su última actualización, que no tienen ninguna oferta de la competencia subida (`ResultadosRepository.licitacionesSinCompetencia`). Si la empresa ya subió alguna, no se trae nada.
+    - **De dónde** (`competencia/ofertas-publicas.ts`, medido el 27-10 con la 4364-13-LE26): de la ficha pública al cuadro de ofertas (`imgCuadroOferta`), de ahí a su cabecera y al «Resumen de ofertas» (`SupplySummary.aspx`). Ahí está cada oferente con su RUT, nombre, total, estado y sus anexos administrativos, técnicos y económicos (`ViewBidAttachment.aspx`). Cada archivo se baja uno por uno con su botón «Ver anexo» (un POST con los campos ocultos de la página), página por página, de a 6; sin clave ni cookie. Bajar todos juntos pide un código de imagen, y ese camino no se usa. Solo se siguen enlaces de Mercado Público con esa forma.
+    - **Qué se guarda** (`OfertasDeLaCompetenciaService`): los anexos de cada oferente que no es la empresa (por RUT), en la sección «competencia» de la comparación (decisión 41), con el nombre del oferente como `competidor` y sin `subido_por`. No se traen los comprimidos (ZIP, RAR, 7z: suelen repetir los PDF y la comparación no los lee) ni lo que pese más de 30 MB; hasta 80 archivos y 200 MB por licitación.
+    - En la del Día del Profesor, Sol de Quillón trae 15 archivos en 3 páginas: los mismos 15 que Felipe subió a mano.
+    - **Sigue**: que la IA explique, debajo de la predicción de «Comparación de ofertas», por qué se perdió y si era razonable, con el criterio de «Cómo te evalúan» (`criteriosDeEvaluacion`, de la 95).
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público
