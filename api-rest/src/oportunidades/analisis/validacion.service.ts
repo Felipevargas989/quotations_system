@@ -37,6 +37,7 @@ import {
   MODELO_OPUS,
   type NoLeido,
 } from './comun';
+import { criteriosDeEvaluacion } from './criterios-de-evaluacion';
 import {
   type ArchivoParaValidar,
   loQueCabe,
@@ -402,7 +403,8 @@ export class ValidacionService {
       })),
       documentos,
       requisitos,
-      criterios,
+      // Decisión 95: en una compra ágil sin criterios, el de la ley.
+      criterios: criteriosDeEvaluacion(criterios, ficha.proceso.tipo),
       aclarado,
     });
     return fila;

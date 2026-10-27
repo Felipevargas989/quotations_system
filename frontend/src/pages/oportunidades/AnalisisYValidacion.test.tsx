@@ -231,7 +231,7 @@ describe("Lo que piden las bases", () => {
     expect(screen.getByText("precio")).toBeInTheDocument();
   });
 
-  it("decisión 93: en una compra ágil, por ley gana el menor precio, y lo que agrega el comprador va debajo", async () => {
+  it("decisión 95: una compra ágil sin criterios se evalúa con el de la ley; con los de la solicitud, con esos", async () => {
     const compraAgil = {
       ...FICHA,
       proceso: { ...FICHA.proceso, tipo: "compra_agil" },
@@ -240,22 +240,29 @@ describe("Lo que piden las bases", () => {
       <AnalisisDeBases oportunidadId={40} ficha={compraAgil} />,
       { ...ANALISIS, resultado: { ...ANALISIS.resultado, criterios: [] } },
     );
+    const titulo = await screen.findByText("Cómo te evalúan");
+    const bloque = titulo.closest("section") as HTMLElement;
     expect(
-      await screen.findByText("Por ley, gana el menor precio"),
-    ).toBeInTheDocument();
+      within(bloque)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Menor precio100%"]);
     expect(
-      screen.getByText(/tienen que justificarlo en la orden de compra/),
+      within(bloque).getByText(/La solicitud no trae criterios: por ley gana/),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Lo que agrega el comprador")).toBeNull();
     vista.unmount();
-    // Con los criterios del comprador, van debajo de la ley.
+    // Con los criterios de la solicitud, se evalúa con esos.
     pintar(<AnalisisDeBases oportunidadId={40} ficha={compraAgil} />);
     expect(
-      await screen.findByText("Lo que agrega el comprador"),
+      await screen.findByText(/Son los criterios de la solicitud/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Por ley, gana el menor precio"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Menor precio")).toBeNull();
+  });
+
+  it("decisión 95: en una licitación, solo los criterios de las bases, sin la línea de la ley", async () => {
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
+    await screen.findByText("Cómo te evalúan");
+    expect(screen.queryByText(/por ley/)).toBeNull();
   });
 
   it("arriba lo que te deja fuera, con su estado; las demás condiciones, plegadas", async () => {
