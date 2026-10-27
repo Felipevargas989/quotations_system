@@ -50,6 +50,12 @@ const POR_EL_NOMBRE: ReadonlyArray<[string, RegExp]> = [
   ["f30_1", /inspeccion del trabajo/],
   ["erut", /\be ?rut\b|rut electronico/],
   ["no_quiebra", /quiebra|procedimiento concursal|boletin concursal/],
+  // Decisión 89: la deuda fiscal y el informe comercial.
+  ["tgr", /tesoreria|\btgr\b|deuda fiscal|certificado de deuda/],
+  [
+    "dicom",
+    /dicom|equifax|informe comercial|antecedentes comerciales|boletin comercial/,
+  ],
   [
     "estatutos",
     /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,

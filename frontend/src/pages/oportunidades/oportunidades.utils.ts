@@ -407,6 +407,9 @@ export const TIPOS_DE_DOCUMENTO: ReadonlyArray<{
   // Lo general para contratar (decisión 38): va en «4. Otros» del ZIP.
   { value: "erut", label: "e-RUT (SII)" },
   { value: "no_quiebra", label: "Certificado de no quiebra" },
+  // Para contratar o pagar; «Validar todo» los revisa (decisión 89).
+  { value: "tgr", label: "Certificado de deuda fiscal (TGR)" },
+  { value: "dicom", label: "Informe comercial (DICOM)" },
   { value: "estatutos", label: "Escritura de constitución y estatutos" },
   {
     value: "respaldo_experiencia",
