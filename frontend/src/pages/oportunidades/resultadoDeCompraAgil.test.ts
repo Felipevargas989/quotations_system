@@ -6,6 +6,7 @@ import {
   type ConResultado,
   colorDelResultado,
   resultadosNuevos,
+  textoDelResultadoPublico,
   textoDelResultado,
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
@@ -106,6 +107,53 @@ describe("el resultado de una compra ágil (decisión 92)", () => {
       textoDelResultado({ ...PERDIDA, mi_monto: null, lugar: null }),
     ).toMatch(
       new RegExp(`^Eligieron a BPM EVENTOS SPA por ${PESO}6\\.800\\.000\\.$`),
+    );
+  });
+
+  it("en el historial de la ficha dice a quién eligieron, igual para cualquier empresa", () => {
+    expect(
+      textoDelResultadoPublico({
+        tipo: "compra_agil",
+        elegidos: [
+          {
+            rut: "76.430.926-k",
+            proveedor: "BPM EVENTOS SPA",
+            monto: 6_800_000,
+          },
+        ],
+        ofertas: [],
+      }),
+    ).toMatch(
+      new RegExp(`^eligieron a BPM EVENTOS SPA por ${PESO}6\\.800\\.000$`),
+    );
+    expect(textoDelResultadoPublico(null)).toBe("salió el resultado");
+  });
+
+  it("una licitación dice a quién adjudicaron, sin lugar por precio", () => {
+    const perdida = {
+      ...PERDIDA,
+      tipo: "licitacion" as const,
+      proveedor: "Sol de Quillón",
+      monto: 13_352_941,
+      mi_monto: null,
+      lugar: null,
+      ofertas: 0,
+      mas_elegidos: 0,
+    };
+    expect(textoDelResultado(perdida)).toMatch(
+      new RegExp(`^Adjudicaron a Sol de Quillón por ${PESO}13\\.352\\.941\\.$`),
+    );
+    expect(
+      textoDelResultado({
+        ...perdida,
+        estado: "ganada",
+        monto: 4_000_000,
+        mas_elegidos: 1,
+      }),
+    ).toMatch(
+      new RegExp(
+        `^Te adjudicaron por ${PESO}4\\.000\\.000\\. También adjudicaron a 1 más\\.$`,
+      ),
     );
   });
 

@@ -6,7 +6,7 @@ import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ActasDeLaZonaService } from './actas.service';
 import { CotizantesService } from './cotizantes.service';
-import { ResultadosDeComprasAgilesService } from './resultados.service';
+import { ResultadosDePostuladasService } from './resultados.service';
 import { RubroService } from './rubro.service';
 
 // LA COMPETENCIA, DE NOCHE (decisiones 70 y 71 del doc 17). Dos vueltas entre
@@ -34,7 +34,7 @@ export class CompetenciaCronService {
     private readonly logger: PinoLogger,
     /** El resultado de las compras ágiles postuladas (decisión 92).
      *  Opcional: las pruebas de antes no lo traen. */
-    @Optional() private readonly resultados?: ResultadosDeComprasAgilesService,
+    @Optional() private readonly resultados?: ResultadosDePostuladasService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }

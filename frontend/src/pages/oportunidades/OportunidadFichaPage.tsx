@@ -28,6 +28,7 @@ import SubirAMercadoPublico from "./SubirAMercadoPublico";
 import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
 import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
+import { textoDelResultadoPublico } from "./resultadoDeCompraAgil";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
@@ -456,5 +457,7 @@ const describirCambio = (c: CambioDeProceso): string => {
     return `movieron el cierre de ${formatMomento(antes, "diaHora", "sin fecha")} a ${formatMomento(despues, "diaHora", "sin fecha")}`;
   }
   if (c.tipo === "reapertura") return "estaba cerrada y volvió a abrirse";
+  // Decisión 92: a quién eligieron, igual para cualquier empresa.
+  if (c.tipo === "resultado") return textoDelResultadoPublico(c.despues);
   return c.tipo;
 };

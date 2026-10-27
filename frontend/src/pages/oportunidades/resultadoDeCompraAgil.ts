@@ -3,20 +3,23 @@ import { toast } from "../../components/toast/Toast";
 import type { MiLicitacion } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
 
-// EL RESULTADO DE UNA COMPRA ÁGIL POSTULADA (decisión 92 del doc 17, 27-10).
-// Felipe perdió la del catamarán (1346350-37-COT26) y Eventia no le avisó.
-// Ahora el motor mira la compra ágil en cada pasada del radar: cuando el
-// comprador elige, compara las ofertas con el criterio de «Cómo te
-// evalúan», que en una compra ágil es la ley (decisión 93): gana el menor
-// precio. «Mis licitaciones» dice a quién eligieron, por cuánto y en qué
-// lugar quedaste, y al abrir Oportunidades sale un aviso que queda hasta
-// cerrarlo, una sola vez por resultado en este navegador.
+// EL RESULTADO DE LO POSTULADO (decisión 92 del doc 17, 27-10). Felipe
+// perdió la del catamarán (1346350-37-COT26) y Eventia no le avisó. Ahora el
+// motor lo mira en cada pasada del radar y deja la postulada ganada o
+// perdida. En una compra ágil compara las ofertas con el criterio de «Cómo
+// te evalúan», que ahí es la ley (decisión 93): gana el menor precio; en una
+// licitación dice a quién adjudicaron. «Mis licitaciones» dice a quién y por
+// cuánto, y al abrir Oportunidades sale un aviso que queda hasta cerrarlo,
+// una sola vez por resultado en este navegador.
 
-export type ResultadoDeCompraAgil = {
+export type ResultadoDeLaEmpresa = {
+  tipo?: "compra_agil" | "licitacion";
   estado: "ganada" | "perdida";
   proveedor: string | null;
   rut_proveedor: string | null;
   monto: number | null;
+  /** A cuántos más adjudicaron (una licitación puede ir por línea). */
+  mas_elegidos?: number;
   mi_monto: number | null;
   lugar: number | null;
   ofertas: number;
@@ -26,13 +29,24 @@ export type ResultadoDeCompraAgil = {
 
 /** Lo que trae «Mis licitaciones» desde la decisión 92. */
 export type ConResultado = MiLicitacion & {
-  resultado?: ResultadoDeCompraAgil | null;
+  resultado?: ResultadoDeLaEmpresa | null;
 };
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
+/** Licitación: a quién adjudicaron y por cuánto. Se decide con los
+ *  criterios de las bases, no por precio. */
+const textoDeLicitacion = (r: ResultadoDeLaEmpresa): string => {
+  const otros = r.mas_elegidos ?? 0;
+  if (r.estado === "ganada") {
+    return `Te adjudicaron${r.monto ? ` por ${pesos(r.monto)}` : ""}.${otros > 0 ? ` También adjudicaron a ${otros} más.` : ""}`;
+  }
+  return `Adjudicaron a ${r.proveedor ?? r.rut_proveedor ?? "otro proveedor"}${r.monto ? ` por ${pesos(r.monto)}` : ""}${otros > 0 ? ` y a ${otros} más` : ""}.`;
+};
+
 /** A quién eligieron, por cuánto y cómo quedaste tú por precio. */
-export const textoDelResultado = (r: ResultadoDeCompraAgil): string => {
+export const textoDelResultado = (r: ResultadoDeLaEmpresa): string => {
+  if (r.tipo === "licitacion") return textoDeLicitacion(r);
   const lugar =
     r.lugar !== null && r.ofertas > 1
       ? `${r.lugar}° de ${r.ofertas} por precio`
@@ -55,8 +69,27 @@ export const textoDelResultado = (r: ResultadoDeCompraAgil): string => {
   return `${eligieron}. Tú cotizaste ${pesos(r.mi_monto)}${mas}${lugar ? `, y quedaste ${lugar}` : ""}.`;
 };
 
+/** En el «Historial de cambios» de la ficha: lo público, igual para
+ *  cualquier empresa. */
+export const textoDelResultadoPublico = (
+  despues: Record<string, unknown> | null,
+): string => {
+  const elegidos = Array.isArray(despues?.elegidos)
+    ? (despues.elegidos as Array<{
+        proveedor?: string | null;
+        rut?: string | null;
+        monto?: number | null;
+      }>)
+    : [];
+  const e = elegidos[0];
+  if (!e) return "salió el resultado";
+  const verbo =
+    despues?.tipo === "licitacion" ? "adjudicaron a" : "eligieron a";
+  return `${verbo} ${e.proveedor ?? e.rut ?? "otro proveedor"}${e.monto ? ` por ${pesos(e.monto)}` : ""}`;
+};
+
 /** Verde si ganaste; rojo si tenías el menor precio y eligieron a otro. */
-export const colorDelResultado = (r: ResultadoDeCompraAgil): string => {
+export const colorDelResultado = (r: ResultadoDeLaEmpresa): string => {
   if (r.estado === "ganada") return "text-green-700";
   return r.era_la_mas_barata ? "text-red-700" : "text-gray-700";
 };
@@ -104,7 +137,7 @@ export function useAvisoDeResultados(lista: readonly ConResultado[]) {
     if (nuevos.length === 0) return;
     nuevos.forEach((m) => avisadosEnEstaSesion.add(claveDelAviso(m)));
     for (const m of nuevos) {
-      const r = m.resultado as ResultadoDeCompraAgil;
+      const r = m.resultado as ResultadoDeLaEmpresa;
       const texto = `${r.estado === "ganada" ? "¡Ganaste" : "Perdiste"} «${m.proceso.nombre}»${r.estado === "ganada" ? "!" : "."} ${textoDelResultado(r)}`;
       if (r.estado === "ganada") toast.success(texto, { sticky: true });
       else if (r.era_la_mas_barata) toast.error(texto, { sticky: true });
