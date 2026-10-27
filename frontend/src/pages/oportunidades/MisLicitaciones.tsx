@@ -19,7 +19,11 @@ import {
   pasosDelAvance,
   separarMias,
 } from "./oportunidades.utils";
-import { type ConResultado, textoDelResultado } from "./resultadoDeCompraAgil";
+import {
+  type ConResultado,
+  colorDelResultado,
+  textoDelResultado,
+} from "./resultadoDeCompraAgil";
 import SelloDeTipo from "./SelloDeTipo";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 import { useResponsables } from "./useResponsables";
@@ -202,11 +206,7 @@ function Tarjeta({
       </div>
 
       {resultado && (
-        <p
-          className={`text-sm font-semibold ${
-            resultado.estado === "ganada" ? "text-green-700" : "text-gray-700"
-          }`}
-        >
+        <p className={`text-sm font-semibold ${colorDelResultado(resultado)}`}>
           {textoDelResultado(resultado)}
         </p>
       )}

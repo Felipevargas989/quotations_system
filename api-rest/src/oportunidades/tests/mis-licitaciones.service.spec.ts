@@ -188,7 +188,7 @@ describe('MisLicitacionesService', () => {
     await expect(servicio.mias(1)).resolves.toEqual([]);
     expect(adjuntos.origenesDe).not.toHaveBeenCalled();
   });
-  it('decisión 92: las ganadas y perdidas traen su resultado, a quién se le compró y por cuánto', async () => {
+  it('decisión 92: las ganadas y perdidas traen su resultado, a quién eligieron y por cuánto', async () => {
     const {
       oportunidades,
       adjuntos,
@@ -208,11 +208,14 @@ describe('MisLicitacionesService', () => {
             'C-3219',
             {
               estado: 'perdida',
-              orden_de_compra: '1346350-45-AG26',
-              proveedor: 'EVENTOS DEL LAGO SPA',
-              rut_proveedor: '76.123.456-7',
-              monto: 7_000_000,
-              fecha: '2026-10-27',
+              proveedor: 'BPM EVENTOS SPA',
+              rut_proveedor: '76.430.926-k',
+              monto: 6_800_000,
+              mi_monto: 7_090_000,
+              lugar: 2,
+              ofertas: 2,
+              era_la_mas_barata: false,
+              inadmisible: null,
             },
           ],
         ]),
@@ -231,8 +234,9 @@ describe('MisLicitacionesService', () => {
     // Solo se pregunta por las que ya terminaron.
     expect(resultados.resultadosDe).toHaveBeenCalledWith(['C-3219']);
     expect(lista.find((m) => m.id === 3219)?.resultado).toMatchObject({
-      proveedor: 'EVENTOS DEL LAGO SPA',
-      monto: 7_000_000,
+      proveedor: 'BPM EVENTOS SPA',
+      monto: 6_800_000,
+      mi_monto: 7_090_000,
     });
     expect(lista.find((m) => m.id === 40)?.resultado).toBeNull();
   });

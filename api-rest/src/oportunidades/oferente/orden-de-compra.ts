@@ -27,8 +27,6 @@ export type OrdenDeCompra = {
   /** La licitación de donde viene, si viene de una. */
   licitacion: string | null;
   rut_proveedor: string | null;
-  /** La razón social del proveedor (decisión 92: quién ganó). */
-  proveedor: string | null;
 };
 
 const campo = (html: string, id: string): string => {
@@ -57,7 +55,6 @@ export function leerOrdenDeCompra(html: string): OrdenDeCompra | null {
     estado: campo(html, 'lblStatusPOValue') || null,
     licitacion: campo(html, 'lblProvenienceValue') || null,
     rut_proveedor: campo(html, 'lblRutValueP') || null,
-    proveedor: campo(html, 'lblSocialReasonValueP') || null,
   };
 }
 

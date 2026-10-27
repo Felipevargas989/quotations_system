@@ -2,10 +2,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { CompetenciaCronService } from '../competencia/competencia-cron.service';
 import type { CompetenciaRepository } from '../competencia/competencia.repository';
-import {
-  ordenDelDetalle,
-  resultadoDeLaOrden,
-} from '../competencia/resultado-compra-agil';
+import { resultadoDeCompraAgil } from '../competencia/resultado-compra-agil';
 import type { ResultadosRepository } from '../competencia/resultados.repository';
 import { ResultadosDeComprasAgilesService } from '../competencia/resultados.service';
 import {
@@ -13,72 +10,135 @@ import {
   MercadoPublicoError,
 } from '../mercado-publico/mercado-publico.client';
 import type { OferenteRepository } from '../oferente/oferente.repository';
-import {
-  bajarOrdenDeCompra,
-  leerOrdenDeCompra,
-} from '../oferente/orden-de-compra';
 import type { OportunidadesRepository } from '../oportunidades.repository';
-import { FICHA_DE_LA_ORDEN } from './orden-de-compra-de-prueba';
 
 // EL RESULTADO DE LAS COMPRAS ÁGILES POSTULADAS (decisión 92 del doc 17,
 // 27-10). Felipe perdió la del catamarán (1346350-37-COT26) y Eventia no le
-// avisó: ahora, cuando la compra ágil trae su orden de compra, se lee su
-// ficha pública y la oportunidad queda ganada o perdida.
+// avisó. Cuando el comprador elige, el detalle oficial trae todas las
+// ofertas; se comparan como manda la ley en una compra ágil (decisión 93):
+// por precio.
 
-jest.mock('../oferente/orden-de-compra', () => {
-  const real = jest.requireActual<typeof import('../oferente/orden-de-compra')>(
-    '../oferente/orden-de-compra',
-  );
-  return { ...real, bajarOrdenDeCompra: jest.fn() };
+type Cotizacion = Record<string, unknown>;
+
+const BPM: Cotizacion = {
+  id_oc: 55732521,
+  estado: 2,
+  valor_neto: 5714286,
+  monto_total: 6800000,
+  razon_social: 'BPM EVENTOS SPA',
+  rut_proveedor: '76.430.926-k',
+  nombre_impuesto: 'IVA',
+  proveedor_seleccionado: 1,
+  justificacion_inadmisibilidad: null,
+};
+
+const VDS: Cotizacion = {
+  id_oc: null,
+  estado: 2,
+  valor_neto: 5957983,
+  monto_total: 7090000,
+  razon_social: 'VALLE DEL SOL QUILLON SPA',
+  rut_proveedor: '77.701.305-K',
+  nombre_impuesto: 'IVA',
+  proveedor_seleccionado: 0,
+  justificacion_inadmisibilidad: null,
+};
+
+/** El detalle del catamarán con «Proveedor seleccionado», como llegó el
+ *  27-10 (recortado): `id_orden_compra` es un número interno. */
+const detalleCon = (...cotizaciones: Cotizacion[]) => ({
+  estado: {
+    glosa: 'Proveedor seleccionado',
+    codigo: 'proveedor_seleccionado',
+    id_estado: 4,
+  },
+  id_orden_compra: 55732521,
+  proveedores_cotizando: cotizaciones,
 });
 
-const bajar = jest.mocked(bajarOrdenDeCompra);
-
-/** La ficha de una orden para otro proveedor. */
-const DE_OTRO = FICHA_DE_LA_ORDEN.replace(
-  '77.701.305-K',
-  '76.123.456-7',
-).replace('VALLE DEL SOL QUILLON SPA', 'EVENTOS DEL LAGO SPA');
-
-const ORDEN = leerOrdenDeCompra(FICHA_DE_LA_ORDEN)!;
+const CATAMARAN = detalleCon(BPM, VDS);
 
 describe('el resultado de una compra ágil (decisión 92)', () => {
-  it('el número de la orden sale del detalle solo si tiene forma de orden', () => {
-    expect(ordenDelDetalle({ id_orden_compra: '1346350-45-AG26' })).toBe(
-      '1346350-45-AG26',
-    );
-    expect(ordenDelDetalle({ id_orden_compra: ' 4352-103-SE23 ' })).toBe(
-      '4352-103-SE23',
-    );
-    expect(ordenDelDetalle({ id_orden_compra: null })).toBeNull();
-    expect(ordenDelDetalle({ id_orden_compra: 98765 })).toBeNull();
-    expect(ordenDelDetalle({})).toBeNull();
-    expect(ordenDelDetalle(null)).toBeNull();
+  it('perdida: quién ganó, por cuánto y en qué lugar quedó la empresa por precio', () => {
+    expect(resultadoDeCompraAgil(CATAMARAN, '77.701.305-K')).toEqual({
+      estado: 'perdida',
+      proveedor: 'BPM EVENTOS SPA',
+      rut_proveedor: '76.430.926-k',
+      monto: 6800000,
+      mi_monto: 7090000,
+      lugar: 2,
+      ofertas: 2,
+      era_la_mas_barata: false,
+      inadmisible: null,
+    });
   });
 
-  it('ganada si la orden es para la empresa, aunque el RUT venga escrito distinto; perdida si es para otro', () => {
-    expect(resultadoDeLaOrden(ORDEN, '77701305-k')).toEqual({
-      estado: 'ganada',
-      orden_de_compra: '4352-103-SE23',
-      proveedor: 'VALLE DEL SOL QUILLON SPA',
-      rut_proveedor: '77.701.305-K',
-      monto: 11_782_499,
-      fecha: '2023-10-20',
-    });
+  it('ganada si eligieron a la empresa, aunque el RUT venga escrito distinto', () => {
     expect(
-      resultadoDeLaOrden(leerOrdenDeCompra(DE_OTRO)!, '77.701.305-K'),
+      resultadoDeCompraAgil(
+        detalleCon(
+          { ...BPM, proveedor_seleccionado: 0 },
+          { ...VDS, proveedor_seleccionado: 1 },
+        ),
+        '77701305-k',
+      ),
+    ).toMatchObject({
+      estado: 'ganada',
+      proveedor: 'VALLE DEL SOL QUILLON SPA',
+      monto: 7090000,
+      lugar: 2,
+      era_la_mas_barata: false,
+    });
+  });
+
+  it('si la empresa tenía el menor precio y eligieron a otro, queda marcado', () => {
+    expect(
+      resultadoDeCompraAgil(
+        detalleCon(BPM, { ...VDS, monto_total: 6500000 }),
+        '77.701.305-K',
+      ),
+    ).toMatchObject({ estado: 'perdida', lugar: 1, era_la_mas_barata: true });
+  });
+
+  it('una oferta inadmisible no se compara: la de la empresa dice por qué', () => {
+    expect(
+      resultadoDeCompraAgil(
+        detalleCon(BPM, {
+          ...VDS,
+          monto_total: 6500000,
+          justificacion_inadmisibilidad: 'No adjunta la cotización formal',
+        }),
+        '77.701.305-K',
+      ),
     ).toMatchObject({
       estado: 'perdida',
-      proveedor: 'EVENTOS DEL LAGO SPA',
-      rut_proveedor: '76.123.456-7',
+      mi_monto: 6500000,
+      lugar: null,
+      ofertas: 1,
+      era_la_mas_barata: false,
+      inadmisible: 'No adjunta la cotización formal',
     });
   });
 
-  it('sin el RUT de la orden o el de la empresa no se sabe', () => {
+  it('mientras no eligen, o sin el RUT de la empresa, no hay resultado', () => {
     expect(
-      resultadoDeLaOrden({ ...ORDEN, rut_proveedor: null }, '77.701.305-K'),
+      resultadoDeCompraAgil(
+        {
+          estado: { glosa: 'Cerrada', id_estado: 3 },
+          id_orden_compra: null,
+          proveedores_cotizando: [],
+        },
+        '77.701.305-K',
+      ),
     ).toBeNull();
-    expect(resultadoDeLaOrden(ORDEN, null)).toBeNull();
+    expect(
+      resultadoDeCompraAgil(
+        detalleCon({ ...BPM, proveedor_seleccionado: 0 }, VDS),
+        '77.701.305-K',
+      ),
+    ).toBeNull();
+    expect(resultadoDeCompraAgil(CATAMARAN, null)).toBeNull();
+    expect(resultadoDeCompraAgil(null, '77.701.305-K')).toBeNull();
   });
 });
 
@@ -97,11 +157,7 @@ function armar() {
     oferente: jest.fn().mockResolvedValue({ rut: '77.701.305-K' }),
   };
   const mp = {
-    detalleCompraAgil: jest.fn().mockResolvedValue({
-      estado: { glosa: 'OC emitida' },
-      id_orden_compra: '1346350-45-AG26',
-      proveedores_cotizando: [],
-    }),
+    detalleCompraAgil: jest.fn().mockResolvedValue(CATAMARAN),
   };
   const servicio = new ResultadosDeComprasAgilesService(
     resultados as unknown as ResultadosRepository,
@@ -116,38 +172,41 @@ function armar() {
 const enUnRato = () => Date.now() + 60_000;
 
 describe('ResultadosDeComprasAgilesService — revisar', () => {
-  beforeEach(() => bajar.mockReset());
-
-  it('la orden es de otro: perdida, con quién ganó y por cuánto, una sola vez', async () => {
+  it('eligieron a otro: perdida, con quién ganó, por cuánto y tu lugar, una sola vez', async () => {
     const { resultados, competencia, servicio } = armar();
-    bajar.mockResolvedValue(DE_OTRO);
 
     await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
 
-    expect(bajar).toHaveBeenCalledWith('1346350-45-AG26');
     expect(competencia.guardarCotizantes).toHaveBeenCalledWith(
       '1346350-37-COT26',
-      expect.objectContaining({ id_orden_compra: '1346350-45-AG26' }),
+      expect.objectContaining({ id_orden_compra: 55732521 }),
     );
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'perdida');
     expect(resultados.registrarResultado).toHaveBeenCalledWith(
       '1346350-37-COT26',
       expect.objectContaining({
         estado: 'perdida',
-        proveedor: 'EVENTOS DEL LAGO SPA',
-        monto: 11_782_499,
+        proveedor: 'BPM EVENTOS SPA',
+        monto: 6800000,
+        mi_monto: 7090000,
+        lugar: 2,
       }),
     );
   });
 
-  it('la orden es de la empresa: ganada', async () => {
-    const { resultados, servicio } = armar();
-    bajar.mockResolvedValue(FICHA_DE_LA_ORDEN);
+  it('eligieron a la empresa: ganada', async () => {
+    const { resultados, mp, servicio } = armar();
+    mp.detalleCompraAgil.mockResolvedValue(
+      detalleCon(
+        { ...BPM, proveedor_seleccionado: 0 },
+        { ...VDS, proveedor_seleccionado: 1 },
+      ),
+    );
     await servicio.revisar(1, enUnRato());
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'ganada');
   });
 
-  it('sin orden de compra todavía: se guarda lo leído y se espera a la próxima pasada', async () => {
+  it('cerrada y sin elegir todavía: se guarda lo leído y se espera a la próxima pasada', async () => {
     const { resultados, competencia, mp, servicio } = armar();
     mp.detalleCompraAgil.mockResolvedValue({
       estado: { glosa: 'Cerrada' },
@@ -156,13 +215,11 @@ describe('ResultadosDeComprasAgilesService — revisar', () => {
     });
     await expect(servicio.revisar(1, enUnRato())).resolves.toBe(0);
     expect(competencia.guardarCotizantes).toHaveBeenCalled();
-    expect(bajar).not.toHaveBeenCalled();
     expect(resultados.marcarResultado).not.toHaveBeenCalled();
   });
 
   it('si la empresa ya la marcó a mano, no se anota otra vez', async () => {
     const { resultados, servicio } = armar();
-    bajar.mockResolvedValue(DE_OTRO);
     resultados.marcarResultado.mockResolvedValue(false);
     await expect(servicio.revisar(1, enUnRato())).resolves.toBe(0);
     expect(resultados.registrarResultado).not.toHaveBeenCalled();
