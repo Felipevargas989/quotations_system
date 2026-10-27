@@ -222,7 +222,6 @@ export function checklistDeDocumentos(d: {
   const estadoDe = (
     p: DocumentoPedido,
   ): Omit<FilaDelChecklist, keyof DocumentoPedido> => {
-    const subidos = d.postulacion.filter((a) => a.origen === "subido");
     const deUtp = ES_DE_UTP.test(normalizar(`${p.nombre} ${p.condicion}`));
     if (p.carpeta === "formulario") {
       const numero = numeroDe(p.nombre);
@@ -299,14 +298,23 @@ export function checklistDeDocumentos(d: {
             };
       }
     }
-    // Lo subido a mano a «Mi postulación», reconocido por el nombre.
+    // Lo de «Mi postulación», reconocido por el nombre: lo subido a mano y,
+    // desde la decisión 91, también lo que hizo la IA, como en un
+    // formulario. La propuesta técnica firmada de la 1030177-85-COT26 salía
+    // como «falta».
     const claves = palabrasClave(p.nombre);
-    const subido = subidos.find(
+    const suyos = d.postulacion.filter(
       (a) =>
         (tipo !== "otro" && carpetaPorElNombre(a.nombre) === tipo) ||
         claves.some((c) => normalizar(a.nombre).includes(c)),
     );
+    const firmado = suyos.find((a) => a.origen === "firmado");
+    if (firmado) return { estado: "firmado", detalle: firmado.nombre };
+    const subido = suyos.find((a) => a.origen === "subido");
     if (subido) return { estado: "en_tu_postulacion", detalle: subido.nombre };
+    const hecho = suyos.find((a) => a.origen === "generado");
+    if (hecho)
+      return { estado: "hecho", detalle: "Hecho por la IA, falta firmarlo" };
     if (deUtp) return { estado: "no_aplica", detalle: SOLO_SI_UTP };
     return { estado: "falta", detalle: null };
   };

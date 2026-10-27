@@ -192,4 +192,27 @@ describe('lo que lee la IA para validar', () => {
     );
     expect(t).not.toContain('nombres de archivo, sugerencias');
   });
+  it('decisión 91: en una compra ágil, el precio y el plazo de entrega van en el formulario de Mercado Público', () => {
+    const base = {
+      codigo: '1030177-85-COT26',
+      nombre: 'Servicio de Alimentación Autoridades',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      fecha_cierre: null,
+      hoy: '2026-10-27',
+      oferente: null,
+      carpeta: [],
+      requisitos: REQUISITOS,
+      criterios: [],
+    };
+    const t = instruccionesDeValidacion({ ...base, compra_agil: true });
+    // Felipe: "el plazo de entrega es de compra ágil".
+    expect(t).toContain('ES UNA COMPRA ÁGIL');
+    expect(t).toContain(
+      'el precio y el plazo de entrega se declaran en el formulario de Mercado Público',
+    );
+    expect(t).toContain(
+      'recuérdalo como "menor" («decláralo en el formulario de Mercado Público»)',
+    );
+    expect(instruccionesDeValidacion(base)).not.toContain('ES UNA COMPRA ÁGIL');
+  });
 });
