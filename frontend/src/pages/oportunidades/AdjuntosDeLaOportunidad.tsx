@@ -265,12 +265,11 @@ export default function AdjuntosDeLaOportunidad({
           </p>
         </div>
         {seccion === "bases" && (
-          <div className="flex flex-wrap items-center gap-2">
-            {trayendo && (
-              <span className="text-xs text-gray-500">
-                Puedes salir de la ficha: aparecen solos al terminar.
-              </span>
-            )}
+          // Quieto mientras trae (27-10). Felipe: "cuando pincho el botón
+          // traer documentos, este baja para cargar... ¿puedes dejarlo
+          // quieto?". El aviso iba antes y lo empujaba a la línea de abajo:
+          // ahora va debajo, y el botón guarda el ancho del texto más largo.
+          <div className="flex flex-col items-end gap-1">
             <button
               type="button"
               onClick={() => traer.mutate()}
@@ -282,8 +281,26 @@ export default function AdjuntosDeLaOportunidad({
               ) : (
                 <CloudDownload size={14} aria-hidden />
               )}
-              {trayendo ? "Trayendo…" : "Traer los documentos"}
+              <span className="grid">
+                <span
+                  aria-hidden={trayendo}
+                  className={`col-start-1 row-start-1 ${trayendo ? "invisible" : ""}`}
+                >
+                  Traer los documentos
+                </span>
+                <span
+                  aria-hidden={!trayendo}
+                  className={`col-start-1 row-start-1 ${trayendo ? "" : "invisible"}`}
+                >
+                  Trayendo…
+                </span>
+              </span>
             </button>
+            {trayendo && (
+              <span className="text-xs text-gray-500">
+                Puedes salir de la ficha: aparecen solos al terminar.
+              </span>
+            )}
           </div>
         )}
       </div>
