@@ -349,4 +349,95 @@ describe('La experiencia que se presenta', () => {
     const confirmada = await servicio.confirmada(1, 4633);
     expect(confirmada?.filas.map((f) => f.clave)).toEqual(['mp:1']);
   });
+
+  describe('al armar, sin confirmar a mano (decisión 86)', () => {
+    const elegida = {
+      clave: 'mp:1',
+      de: 'mi_empresa',
+      con_respaldo: true,
+      numero: '1',
+      mandante: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      contrato: 'Evento',
+      anio: 2023,
+      monto: 1_000_000,
+      fuente: 'mercado_publico',
+      archivo: 'OC 1.pdf',
+    };
+    const propuesta = (extra: Record<string, unknown> = {}) => ({
+      id: 30,
+      estado: 'listo',
+      resultado: {
+        pide: 6,
+        periodo: '',
+        condiciones: '',
+        elegidas: [elegida],
+        faltan: [],
+        nota: '',
+        ...extra,
+      },
+    });
+    /** El trabajo vive en el repo: confirmar lo reescribe. */
+    const conTrabajo = (
+      repo: ReturnType<typeof armar>['repo'],
+      inicial: Record<string, unknown> | null,
+    ) => {
+      let trabajo = inicial;
+      repo.ultimoDeTipo.mockImplementation(() => Promise.resolve(trabajo));
+      repo.terminar.mockImplementation(
+        (_empresa: number, _id: number, fin: Record<string, unknown>) => {
+          trabajo = { ...trabajo, ...fin };
+          return Promise.resolve(undefined);
+        },
+      );
+      return (nuevo: Record<string, unknown>) => {
+        trabajo = nuevo;
+      };
+    };
+
+    it('la ya confirmada va tal cual, sin pedir ni confirmar nada', async () => {
+      const { servicio, repo } = armar();
+      conTrabajo(repo, propuesta({ confirmada: true }));
+      const r = await servicio.paraArmar(USUARIO, 4633);
+      expect(r?.filas.map((f) => f.clave)).toEqual(['mp:1']);
+      expect(repo.crearGeneracion).not.toHaveBeenCalled();
+      expect(repo.terminar).not.toHaveBeenCalled();
+    });
+
+    it('la propuesta lista sin confirmar se confirma sola, marcada automática', async () => {
+      const { servicio, repo } = armar();
+      conTrabajo(repo, propuesta());
+      const r = await servicio.paraArmar(USUARIO, 4633);
+      expect(r?.filas.map((f) => f.clave)).toEqual(['mp:1']);
+      const [, , fin] = repo.terminar.mock.calls[0] as [
+        number,
+        number,
+        { resultado: { confirmada: boolean; automatica: boolean } },
+      ];
+      expect(fin.resultado).toMatchObject({
+        confirmada: true,
+        automatica: true,
+      });
+      expect(repo.crearGeneracion).not.toHaveBeenCalled();
+    });
+
+    it('sin propuesta, la pide y la confirma; si la IA falla, se arma sin experiencia', async () => {
+      const { servicio, repo } = armar();
+      const poner = conTrabajo(repo, null);
+      const pedir = jest.spyOn(servicio, 'proponer').mockImplementation(() => {
+        poner(propuesta());
+        return Promise.resolve(propuesta() as never);
+      });
+      const r = await servicio.paraArmar(USUARIO, 4633);
+      expect(pedir).toHaveBeenCalledWith(USUARIO, 4633, []);
+      expect(r?.filas.map((f) => f.clave)).toEqual(['mp:1']);
+
+      const otro = armar();
+      const ponerOtro = conTrabajo(otro.repo, null);
+      jest.spyOn(otro.servicio, 'proponer').mockImplementation(() => {
+        ponerOtro({ id: 31, estado: 'error', resultado: null });
+        return Promise.resolve({ id: 31 } as never);
+      });
+      await expect(otro.servicio.paraArmar(USUARIO, 4633)).resolves.toBeNull();
+    });
+  });
 });

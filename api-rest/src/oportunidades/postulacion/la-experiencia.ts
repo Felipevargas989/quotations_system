@@ -109,6 +109,8 @@ export type EleccionDeExperiencia = {
   confirmada_en?: string;
   /** Las que la empresa sacó al confirmar. */
   quitadas?: string[];
+  /** Confirmada sola al armar la postulación (decisión 86). */
+  automatica?: boolean;
 };
 
 /** Lo que llevan los anexos: las elegidas que confirmó la empresa, en el

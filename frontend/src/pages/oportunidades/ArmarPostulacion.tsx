@@ -7,7 +7,6 @@ import { toast } from "../../components/toast/Toast";
 import {
   crearPropuestaTecnica,
   generarAnexos,
-  getAdjuntos,
   getAnalisis,
   getOferente,
   type Generacion,
@@ -22,24 +21,16 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
-import EstadoDeGeneracion from "./EstadoDeGeneracion";
-import FormulariosDelAnalisis from "./FormulariosDelAnalisis";
-import LaExperiencia from "./LaExperiencia";
 import {
+  avisoDeExperiencia,
   claveDeLaExperiencia,
-  faltaConfirmarExperiencia,
 } from "./reglasDeLaExperiencia";
-import {
-  caminoDelFormulario,
-  faltaEnMiEmpresa,
-  seLlena,
-} from "./formulariosDelComprador";
+import { faltaEnMiEmpresa } from "./formulariosDelComprador";
 import { desgloseDeOferta } from "./oportunidades.utils";
 import { precioDeLosAnexos } from "./postuladasDeAntes";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 import {
   claveDeLaOferta,
-  type Paso,
   vueltaDeLaPostulacion,
 } from "./vueltaDeLaPostulacion";
 
@@ -57,58 +48,17 @@ import {
 // que abre todo esto. Felipe: "no sé si tiene sentido mostrar la experiencia
 // de lo primero". Abierto se ve antes de la primera vez, mientras la IA
 // arma y si algo no resultó (para reintentarlo).
+//
+// Desde el 27-10 (decisión 86) es solo el precio y el botón. Felipe: "en
+// armar postulación primero muestra la experiencia (yo no la mostraría...)
+// luego hay una lista de los formularios, también fuera... el punto 1 qué
+// ofreces ya no tiene sentido". Se fueron la lista de formularios (está en
+// «Bases y criterios»), la experiencia (la elige la IA al armar; un aviso
+// solo si no alcanza) y los tres pasos: mientras arma, una línea; si algo
+// falla, una línea roja con «Reintentar». Lo armado sale en «Tus
+// documentos» y lo pendiente, en «Validar todo».
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
-
-function PasoDeLaPostulacion({
-  numero,
-  titulo,
-  paso,
-  tipo,
-  reintentar,
-  reintentando,
-}: {
-  readonly numero: number;
-  readonly titulo: string;
-  readonly paso: Paso;
-  readonly tipo: TipoDeGeneracion;
-  readonly reintentar: () => void;
-  readonly reintentando: boolean;
-}) {
-  return (
-    <li className="rounded-lg border border-gray-200 p-3 space-y-2">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-        {paso.estado === "listo" && (
-          <CheckCircle2 size={14} className="text-green-600" />
-        )}
-        {numero}. {titulo}
-      </p>
-      {paso.estado === "no_va" && (
-        <p className="text-sm text-gray-600">
-          No va aparte: el detalle va en el anexo de calidad de la oferta.
-        </p>
-      )}
-      {paso.estado === "espera" && (
-        <p className="flex items-center gap-2 text-sm text-gray-600">
-          <Loader2 size={14} className="animate-spin" /> Por partir…
-        </p>
-      )}
-      <EstadoDeGeneracion tipo={tipo} generacion={paso.generacion} />
-      {paso.problema && <p className="text-sm text-red-600">{paso.problema}</p>}
-      {paso.estado === "error" && (
-        <button
-          type="button"
-          onClick={reintentar}
-          disabled={reintentando}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-        >
-          {reintentando && <Loader2 size={14} className="animate-spin" />}
-          Reintentar
-        </button>
-      )}
-    </li>
-  );
-}
 
 export default function ArmarPostulacion({
   oportunidadId,
@@ -130,27 +80,20 @@ export default function ArmarPostulacion({
     queryKey: ["oportunidades", "analisis", oportunidadId],
     queryFn: () => getAnalisis(oportunidadId),
   });
-  const { data: bases = [] } = useQuery({
-    queryKey: ["oportunidades", "adjuntos", oportunidadId, "bases"],
-    queryFn: () => getAdjuntos(oportunidadId, "bases"),
-  });
   // Si falta la razón social o el RUT, se dice antes de apretar.
   const { data: miEmpresa } = useQuery({
     queryKey: ["oportunidades", "oferente"],
     queryFn: getOferente,
   });
   const falta = faltaEnMiEmpresa(miEmpresa?.oferente);
-  // Si las bases piden experiencia, primero se confirma (decisión 76).
+  // La experiencia la elige la IA al armar (decisión 86): solo se avisa si
+  // no alcanza o no se pudo elegir.
   const { data: experiencia } = useQuery({
     queryKey: claveDeLaExperiencia(oportunidadId),
     queryFn: () => getExperiencia(oportunidadId),
   });
-  const faltaExperiencia = faltaConfirmarExperiencia(experiencia);
+  const avisoExperiencia = avisoDeExperiencia(experiencia);
   const hayAnalisis = analisis?.estado === "listo";
-  const delAnalisis = hayAnalisis ? analisis.resultado?.formularios : undefined;
-  const seLlenan = bases.filter(
-    (a) => caminoDelFormulario(a.nombre) && seLlena(a.nombre, delAnalisis),
-  );
 
   const vuelta = vueltaDeLaPostulacion(oferta, generaciones);
   const [abierta, setAbierta] = useState(false);
@@ -218,12 +161,7 @@ export default function ArmarPostulacion({
     ? "Ya postulaste: lo postulado queda fijo"
     : !hayAnalisis
       ? "Primero analiza las bases"
-      : (falta ??
-        (faltaExperiencia
-          ? "Primero confirma la experiencia (arriba)"
-          : !precio
-            ? "Escribe el precio"
-            : undefined));
+      : (falta ?? (!precio ? "Escribe el precio" : undefined));
 
   const conError =
     vuelta !== null &&
@@ -290,7 +228,10 @@ export default function ArmarPostulacion({
             </button>
           )}
         </div>
-        {vuelta.avisos.map((aviso) => (
+        {[
+          ...vuelta.avisos,
+          ...(avisoExperiencia ? [avisoExperiencia] : []),
+        ].map((aviso) => (
           <p
             key={aviso}
             className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900"
@@ -310,14 +251,9 @@ export default function ArmarPostulacion({
             <Sparkles size={15} /> Armar postulación
           </h2>
           <p className="text-xs text-gray-500">
-            Pones el precio y la IA arma todo con tu catálogo: qué ofreces, los
-            anexos del comprador (la oferta económica con ese precio) y, si las
-            bases no traen un formulario técnico (una compra ágil, por ejemplo),
-            la propuesta técnica valorizada: el detalle y al final el neto, el
-            IVA y el total. Todo sale <b>sin firma</b> a «Tus documentos»:
-            revísalo y recién ahí fírmalo. Al volver a armar,{" "}
-            <b>lo firmado se queda</b> y se rehace solo lo demás, que reemplaza
-            a los borradores de antes.
+            Pones el precio y la IA arma todo con tu catálogo. Sale{" "}
+            <b>sin firma</b> a «Tus documentos»: revísalo y recién ahí fírmalo.
+            Al volver a armar, <b>lo firmado se queda</b>.
           </p>
         </div>
         {abierta && !ocupado && (
@@ -358,22 +294,6 @@ export default function ArmarPostulacion({
           de lo que piden.
         </p>
       )}
-      {delAnalisis && delAnalisis.length > 0 && (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-xs font-semibold text-gray-600">
-            Los formularios que se llenan ({seLlenan.length}{" "}
-            {seLlenan.length === 1 ? "archivo" : "archivos"})
-          </summary>
-          <div className="mt-2">
-            <FormulariosDelAnalisis formularios={delAnalisis} />
-          </div>
-        </details>
-      )}
-
-      {hayAnalisis && (
-        <LaExperiencia oportunidadId={oportunidadId} congelada={congelada} />
-      )}
-
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-56">
           <label
@@ -418,60 +338,59 @@ export default function ArmarPostulacion({
         </p>
       )}
 
-      {vuelta && (
-        <ol className="space-y-3">
-          <li className="rounded-lg border border-gray-200 p-3 space-y-1">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-              {vuelta.oferta === "listo" && (
-                <CheckCircle2 size={14} className="text-green-600" />
-              )}
-              1. Qué ofreces
-            </p>
-            {vuelta.oferta === "trabajando" && (
-              <p className="flex items-center gap-2 text-sm text-gray-600">
-                <Loader2 size={14} className="animate-spin" /> La IA está
-                armando la oferta con tu catálogo… suele tardar entre 2 y 5
-                minutos.
-              </p>
-            )}
-            {vuelta.oferta === "listo" && (
-              <p className="text-sm text-gray-600">
-                Lista: cada exigencia con cómo la ofreces está en «Bases y
-                criterios».
-              </p>
-            )}
-            {vuelta.oferta === "error" && (
-              <p className="text-sm text-red-600">
-                {oferta?.error ?? "No se pudo armar la oferta."} Vuelve a armar.
-              </p>
-            )}
-          </li>
-          <PasoDeLaPostulacion
-            numero={2}
-            titulo="Anexos del comprador"
-            paso={vuelta.anexos}
-            tipo="anexos"
-            reintentar={() => reintentarAnexos.mutate()}
-            reintentando={reintentarAnexos.isPending}
-          />
-          <PasoDeLaPostulacion
-            numero={3}
-            titulo="Propuesta técnica valorizada"
-            paso={vuelta.propuesta}
-            tipo="propuesta"
-            reintentar={() => reintentarPropuesta.mutate()}
-            reintentando={reintentarPropuesta.isPending}
-          />
-          {vuelta.avisos.map((aviso) => (
-            <li
-              key={aviso}
-              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-            >
-              {aviso}
-            </li>
-          ))}
-        </ol>
+      {ocupado && vuelta && (
+        <p className="flex items-center gap-2 text-sm text-gray-600">
+          <Loader2 size={14} className="animate-spin" /> Armando tu postulación…
+          suele tardar entre 3 y 8 minutos. Lo que va saliendo aparece en «Tus
+          documentos».
+        </p>
       )}
+      {!ocupado && vuelta?.oferta === "error" && (
+        <p className="text-sm text-red-600">
+          {oferta?.error ?? "No se pudo armar la oferta."} Vuelve a armar.
+        </p>
+      )}
+      {!ocupado &&
+        vuelta &&
+        (
+          [
+            ["anexos", "Los anexos", reintentarAnexos],
+            ["propuesta", "La propuesta técnica", reintentarPropuesta],
+          ] as const
+        ).map(([tipo, nombre, reintentar]) =>
+          vuelta[tipo].estado === "error" ? (
+            <div key={tipo} className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-red-600">
+                {nombre}:{" "}
+                {vuelta[tipo].problema ??
+                  vuelta[tipo].generacion?.error ??
+                  "no resultó."}
+              </p>
+              <button
+                type="button"
+                onClick={() => reintentar.mutate()}
+                disabled={reintentar.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+              >
+                {reintentar.isPending && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                Reintentar
+              </button>
+            </div>
+          ) : null,
+        )}
+      {[
+        ...(vuelta?.avisos ?? []),
+        ...(avisoExperiencia ? [avisoExperiencia] : []),
+      ].map((aviso) => (
+        <p
+          key={aviso}
+          className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-900"
+        >
+          {aviso}
+        </p>
+      ))}
     </section>
   );
 }
