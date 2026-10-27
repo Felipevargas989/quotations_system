@@ -149,6 +149,72 @@ describe('Armar postulación', () => {
     });
   });
 
+  it('decisión 94: una compra ágil sin formularios no tiene anexos; va la propuesta técnica valorizada y no queda ningún problema', async () => {
+    const { servicio, oferta, documentos, repo, analisis, generaciones } =
+      armar();
+    // Así viene la 3497-466-COT26: la sección 4 pide una propuesta y no
+    // hay formularios.
+    repo.oportunidad.mockResolvedValue({
+      id: 5261,
+      quotation_id: null,
+      proceso: { tipo: 'compra_agil' },
+    });
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        requisitos: [{ que: 'Propuesta que cubra todas las actividades' }],
+        formularios: [],
+      },
+    });
+    await servicio.armar(USUARIO, 5261, 5_900_000);
+    const [, , , encadenar] = oferta.pedir.mock.calls[0] as [
+      number,
+      string,
+      number,
+      {
+        parametros: unknown;
+        despues: (id: number) => Promise<void>;
+      },
+    ];
+    expect(encadenar.parametros).toEqual({
+      postulacion: { total: 5_900_000, propuesta: true, anexos: false },
+    });
+    await encadenar.despues(21);
+    expect(documentos.generarAnexos).not.toHaveBeenCalled();
+    expect(documentos.crearPropuesta).toHaveBeenCalledWith(
+      1,
+      'cuenta-1',
+      5261,
+      { monto_total: 5_900_000, reemplaza: [] },
+    );
+    expect(generaciones.anotarParametros).not.toHaveBeenCalled();
+  });
+
+  it('decisión 94: una compra ágil con formularios, o una licitación sin ellos, siguen con los anexos', async () => {
+    const { servicio, oferta, repo, analisis } = armar();
+    repo.oportunidad.mockResolvedValue({
+      id: 5171,
+      quotation_id: null,
+      proceso: { tipo: 'compra_agil' },
+    });
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        requisitos: [],
+        formularios: [{ nombre: 'Formulario Identificación', aplica: true }],
+      },
+    });
+    await servicio.armar(USUARIO, 5171, 1_136_500);
+    const [, , , pedido] = oferta.pedir.mock.calls[0] as [
+      number,
+      string,
+      number,
+      { parametros: { postulacion: Record<string, unknown> } },
+    ];
+    expect(pedido.parametros.postulacion).toMatchObject({ total: 1_136_500 });
+    expect(pedido.parametros.postulacion).not.toHaveProperty('anexos');
+  });
+
   it('sin la razón social y el RUT de «Mi empresa» no parte: los anexos los necesitan', async () => {
     const { servicio, oferente, oferta } = armar();
     oferente.oferente.mockResolvedValue({ razon_social: 'VALLE DEL SOL' });

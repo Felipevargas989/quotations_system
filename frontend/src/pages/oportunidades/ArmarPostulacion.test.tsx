@@ -180,6 +180,8 @@ describe("Armar postulación", () => {
         "Los anexos: La IA tardó demasiado en responder: vuelve a intentar.",
       ),
     ).toBeInTheDocument();
+    // El problema ya trae el nombre del paso: no se repite (27-10).
+    expect(screen.queryByText(/Los anexos: Los anexos/)).toBeNull();
     expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(
       "11.900.000",
     );

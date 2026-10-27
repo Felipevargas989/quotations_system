@@ -94,6 +94,20 @@ describe("La vuelta de «Armar postulación»", () => {
     expect(v?.anexos.estado).toBe("espera");
   });
 
+  it("decisión 94: una compra ágil sin formularios no tiene anexos: no esperan ni fallan", () => {
+    const vuelta = vueltaDeLaPostulacion(
+      {
+        ...OFERTA,
+        parametros: {
+          postulacion: { total: 5_900_000, propuesta: true, anexos: false },
+        },
+      },
+      null,
+      Date.parse("2026-10-19T17:08:00.000Z"),
+    );
+    expect(vuelta?.anexos.estado).toBe("no_va");
+  });
+
   it("lo que no alcanzó a partir, o no aparece en 3 minutos, se puede reintentar", () => {
     const conProblema = vueltaDeLaPostulacion(
       {
