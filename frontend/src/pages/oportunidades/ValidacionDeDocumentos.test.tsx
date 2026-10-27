@@ -291,6 +291,41 @@ describe("Validar todo (decisión 79)", () => {
     ).toBeInTheDocument();
   });
 
+  it("decisión 85: lo que no es obligatorio no sale como falta del ZIP (lo ve la validación)", async () => {
+    pintar(
+      <ValidacionDeDocumentos oportunidadId={40} />,
+      {
+        ...ANALISIS,
+        resultado: {
+          ...RESULTADO,
+          documentos: [
+            {
+              nombre:
+                "Certificación de que el personal conoce el programa de integridad",
+              parte: "administrativa",
+              cuando: "con_la_oferta",
+              obligatorio: false,
+              condicion: "",
+              carpeta: "dj_trabajadores",
+              pagina: 11,
+            },
+          ],
+        },
+      },
+      POSTULACION,
+      undefined,
+      { ...VALIDACION, resultado: { ...VALIDACION.resultado, listo: "casi" } },
+    );
+    expect(
+      await screen.findByText("Casi lista: faltan detalles"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Certificación de que el personal conoce el programa de integridad",
+      ),
+    ).toBeNull();
+  });
+
   it("decisión 85: un formulario que falta en el ZIP es grave y la oferta no está lista", async () => {
     pintar(
       <ValidacionDeDocumentos oportunidadId={40} />,
