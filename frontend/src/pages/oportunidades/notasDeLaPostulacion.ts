@@ -17,11 +17,32 @@ import { sePuedeFirmar } from "./oportunidades.utils";
 
 export type Requisito = ResultadoDeValidacion["requisitos"][number];
 
+/** Un requisito que no cumple, con su gravedad ya decidida (decisión 85). */
+export type RequisitoPendiente = Requisito & { grave: boolean };
+
 export interface NotaDelDocumento {
   texto: string;
   /** Completar: falta algo. Revisar: está, pero conviene mirarlo. */
   tono: "completar" | "revisar";
+  /** Decisión 85: lo que se revisa pero puede dejar la oferta fuera o
+   *  costarle puntaje. Lo que falta («completar») es grave siempre. */
+  grave?: true;
 }
+
+/** ¿Va en rojo? Lo que falta, y lo que la validación marcó grave. */
+export const notaGrave = (n: NotaDelDocumento): boolean =>
+  n.tono === "completar" || n.grave === true;
+
+/** La gravedad de un requisito que no cumple (decisión 85, 26-10). Felipe:
+ *  "no distingue una falta menor en amarillo de una grave en rojo; que
+ *  falte un formulario es grave". Desde ese día la dice la IA; en una
+ *  validación de antes, es grave lo que falta o venció, y lo que se revisa
+ *  si las bases lo piden como obligatorio. */
+export const esGrave = (
+  q: Pick<Requisito, "estado" | "gravedad">,
+  obligatorio = false,
+): boolean =>
+  q.gravedad ? q.gravedad === "grave" : q.estado !== "revisar" || obligatorio;
 
 export type EstadoDelDocumento =
   | "firmado"
@@ -48,7 +69,9 @@ export interface NotasDeLaPostulacion {
   porDocumento: Map<number, DetalleDelDocumento>;
   /** De la última validación, lo que no es de ningún documento a la vista
    *  (el plazo de ejecución, un certificado de la carpeta...). */
-  requisitos: Requisito[];
+  requisitos: RequisitoPendiente[];
+  /** Decisión 85: lo grave que no es de un requisito ni de un documento. */
+  otrosGraves: string[];
   otros: string[];
 }
 
@@ -93,6 +116,10 @@ export function notasDeLaPostulacion(
   documentos: AdjuntoDeOportunidad[],
   generaciones: GeneracionesDeOportunidad | null | undefined,
   validacion: ValidacionDeDocumentos | null | undefined,
+  /** Si cada requisito del análisis es obligatorio, en el mismo orden que
+   *  los de la validación: decide la gravedad de una validación de antes
+   *  de la decisión 85. */
+  obligatorios: ReadonlyArray<boolean> = [],
 ): NotasDeLaPostulacion {
   const notas = new Map<number, NotaDelDocumento[]>(
     documentos.map((a) => [a.id, []]),
@@ -101,11 +128,12 @@ export function notasDeLaPostulacion(
     id: number,
     texto: string,
     tono: NotaDelDocumento["tono"],
+    grave = false,
   ) => {
     const lista = notas.get(id);
     const limpio = texto.trim();
     if (lista && limpio && !lista.some((n) => n.texto === limpio)) {
-      lista.push({ texto: limpio, tono });
+      lista.push({ texto: limpio, tono, ...(grave ? { grave: true } : {}) });
     }
   };
   const conElNumero = (n: number | null) =>
@@ -126,11 +154,12 @@ export function notasDeLaPostulacion(
     id: number,
     texto: string,
     tono: NotaDelDocumento["tono"],
+    grave = false,
   ) => {
     const lista = ocultas.get(id);
     const limpio = texto.trim();
     if (lista && limpio && !lista.some((n) => n.texto === limpio)) {
-      lista.push({ texto: limpio, tono });
+      lista.push({ texto: limpio, tono, ...(grave ? { grave: true } : {}) });
     }
   };
   const r = validacion?.estado === "listo" ? validacion.resultado : null;
@@ -176,41 +205,51 @@ export function notasDeLaPostulacion(
 
   // 3. La última validación: lo que no cumple, bajo el documento del que
   //    habla, si ese documento no cambió después.
-  const requisitos: Requisito[] = [];
+  const requisitos: RequisitoPendiente[] = [];
+  const otrosGraves: string[] = [];
   const otros: string[] = [];
   const viejas = new Set<number>();
   if (r) {
-    for (const q of r.requisitos) {
-      if (q.estado === "cumple") continue;
+    // El orden del análisis, solo si calza con el de la validación.
+    const alineados = obligatorios.length === r.requisitos.length;
+    r.requisitos.forEach((q, i) => {
+      if (q.estado === "cumple") return;
+      const grave = esGrave(q, alineados && obligatorios[i]);
       const porDonde = q.donde ? deQuienHabla(q.donde) : [];
       const de =
         porDonde.length > 0
           ? porDonde
           : conElNumero(numeroDelFormulario(q.que));
       if (de.length === 0) {
-        requisitos.push(q);
-        continue;
+        requisitos.push({ ...q, grave });
+        return;
       }
       const tono = q.estado === "revisar" ? "revisar" : "completar";
+      // Lo que falta ya es grave por su tono: la marca va en lo que se revisa.
+      const marca = grave && tono === "revisar";
       for (const a of de) {
-        if (alDia(a)) anotar(a.id, q.observacion || q.que, tono);
+        if (alDia(a)) anotar(a.id, q.observacion || q.que, tono, marca);
         else {
           viejas.add(a.id);
-          ocultar(a.id, q.observacion || q.que, tono);
+          ocultar(a.id, q.observacion || q.que, tono, marca);
         }
       }
-    }
-    for (const o of r.otros_problemas) {
+    });
+    const problemas: Array<[string, boolean]> = [
+      ...(r.otros_graves ?? []).map((o): [string, boolean] => [o, true]),
+      ...r.otros_problemas.map((o): [string, boolean] => [o, false]),
+    ];
+    for (const [o, grave] of problemas) {
       const de = deQuienHabla(o);
       if (de.length === 0) {
-        otros.push(o);
+        (grave ? otrosGraves : otros).push(o);
         continue;
       }
       for (const a of de) {
-        if (alDia(a)) anotar(a.id, o, "revisar");
+        if (alDia(a)) anotar(a.id, o, "revisar", grave);
         else {
           viejas.add(a.id);
-          ocultar(a.id, o, "revisar");
+          ocultar(a.id, o, "revisar", grave);
         }
       }
     }
@@ -218,10 +257,10 @@ export function notasDeLaPostulacion(
 
   const porDocumento = new Map<number, DetalleDelDocumento>();
   for (const a of documentos) {
-    const lista = (notas.get(a.id) ?? []).sort(
-      (x, y) =>
-        (x.tono === "completar" ? 0 : 1) - (y.tono === "completar" ? 0 : 1),
-    );
+    // Lo que falta primero, después lo grave y al final lo menor.
+    const rango = (n: NotaDelDocumento) =>
+      n.tono === "completar" ? 0 : n.grave ? 1 : 2;
+    const lista = (notas.get(a.id) ?? []).sort((x, y) => rango(x) - rango(y));
     const estado: EstadoDelDocumento =
       a.origen === "firmado"
         ? "firmado"
@@ -249,7 +288,7 @@ export function notasDeLaPostulacion(
       ocultas: ocultas.get(a.id) ?? [],
     });
   }
-  return { porDocumento, requisitos, otros };
+  return { porDocumento, requisitos, otrosGraves, otros };
 }
 
 /** Un documento con algo por hacer, para la lista de «Validar todo». */

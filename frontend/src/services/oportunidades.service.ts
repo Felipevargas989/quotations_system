@@ -252,8 +252,7 @@ export const guardarConfigOportunidades = async (config: {
     config,
   )) as ConfigOportunidades;
 
-/** Lo que Opus leyó de las bases (doc 17, sprint 3, paso 1; migración
- *  125). */
+/** Lo que Opus leyó de las bases (doc 17, sprint 3, paso 1; migración 125). */
 export interface ResultadoDeBases {
   resumen: string;
   lugar: string;
@@ -474,8 +473,7 @@ export const borrarDocumentoDeEmpresa = async (id: number) =>
     "DELETE",
   )) as { borrado: boolean };
 
-/** Lo que dijo Opus al validar la postulación (doc 17, sprint 3, paso 3;
- *  migración 127). */
+/** Lo que dijo Opus al validar (doc 17, sprint 3, paso 3; migración 127). */
 export interface ResultadoDeValidacion {
   resumen: string;
   listo: "si" | "casi" | "no";
@@ -484,7 +482,9 @@ export interface ResultadoDeValidacion {
     estado: "cumple" | "falta" | "vencido" | "revisar";
     donde: string;
     observacion: string;
+    gravedad?: "grave" | "menor"; // decisión 85; las de antes no la traen
   }>;
+  otros_graves?: string[]; // decisión 85: lo grave que no es de un requisito
   otros_problemas: string[];
 }
 

@@ -8,6 +8,8 @@ import {
   cuantosFirmados,
   enOrden,
   notasDeLaPostulacion,
+  esGrave,
+  notaGrave,
   numeroDelFormulario,
   pendientesPorDocumento,
 } from "./notasDeLaPostulacion";
@@ -361,5 +363,33 @@ describe("un documento editado en Eventia", () => {
     );
     expect(porDocumento.get(217)?.notas).toHaveLength(2);
     expect(requisitos).toEqual([]);
+  });
+});
+
+describe("decisión 85: grave o menor", () => {
+  it("manda lo que dijo la IA; en una validación de antes, lo que falta y lo obligatorio", () => {
+    expect(esGrave({ estado: "revisar", gravedad: "grave" })).toBe(true);
+    expect(esGrave({ estado: "falta", gravedad: "menor" })).toBe(false);
+    expect(esGrave({ estado: "vencido" })).toBe(true);
+    expect(esGrave({ estado: "revisar" })).toBe(false);
+    expect(esGrave({ estado: "revisar" }, true)).toBe(true);
+  });
+
+  it("lo grave de la validación va bajo su documento, marcado; lo que falta ya es grave", () => {
+    const grave: ValidacionDeDocumentos = {
+      ...VALIDACION,
+      resultado: {
+        ...VALIDACION.resultado!,
+        requisitos: [],
+        otros_graves: ["Formulario N°3: falta el N° de factura de la fila 2."],
+        otros_problemas: ["Formulario N°3: 'Adwards' → 'Edwards'."],
+      },
+    };
+    const { porDocumento } = notasDeLaPostulacion([N3], null, grave);
+    const notas = porDocumento.get(201)?.notas ?? [];
+    expect(notas.map(notaGrave)).toEqual([true, false]);
+    expect(notaGrave({ texto: "Falta la firma.", tono: "completar" })).toBe(
+      true,
+    );
   });
 });

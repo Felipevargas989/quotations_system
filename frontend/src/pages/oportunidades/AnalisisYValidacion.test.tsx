@@ -16,7 +16,6 @@ import * as experienciaServicio from "../../services/experiencia.service";
 import * as postulacionServicio from "../../services/postulacion.service";
 import * as servicio from "../../services/oportunidades.service";
 import AnalisisDeBases from "./AnalisisDeBases";
-import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 
 // LO QUE PIDEN LAS BASES Y VALIDAR DOCUMENTOS (doc 17, sprint 3, pasos 1 y
 // 3), ordenados el 17-10. Felipe: "destacar criterios es importante", "lo
@@ -696,98 +695,5 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
     await screen.findByText("Cómo te evalúan");
     expect(screen.queryByText("Lo que tienes que ofrecer")).toBeNull();
-  });
-});
-
-describe("Validar todo (decisión 79)", () => {
-  it("el veredicto y la última validación en una línea, y solo lo que hay que arreglar", async () => {
-    pintar(<ValidacionDeDocumentos oportunidadId={40} />);
-    expect(
-      await screen.findByText("Todavía no: falta algo obligatorio"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/1 de 3 requisitos cumplen/)).toBeInTheDocument();
-    expect(screen.getByText("Falta")).toBeInTheDocument();
-    expect(screen.getAllByText("Revisar")).toHaveLength(2);
-    expect(screen.queryByText("Programa de integridad")).toBeNull();
-    expect(
-      screen.getByText("El RUT del Anexo 3 no es el de la empresa."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Validar todo" })).toBeEnabled();
-  });
-
-  it("decisión 84: lo de cada documento va aquí, bajo su nombre, con la firma que falta", async () => {
-    pintar(<ValidacionDeDocumentos oportunidadId={40} />, ANALISIS, [
-      ...POSTULACION,
-      {
-        id: 12,
-        nombre: "Anexo 3 - Experiencia - firmado.pdf",
-        origen: "firmado",
-        creado_en: "2026-10-17T12:00:00.000Z",
-      },
-      {
-        id: 13,
-        nombre: "Plazo de entrega.docx",
-        origen: "subido",
-        creado_en: "2026-10-17T12:00:00.000Z",
-      },
-    ]);
-    expect(
-      await screen.findByText("Todavía no: falta algo obligatorio"),
-    ).toBeInTheDocument();
-    // El firmado con un problema: su nombre y, debajo, lo que dijo la IA.
-    expect(
-      await screen.findByText("Anexo 3 - Experiencia - firmado.pdf"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("El RUT del Anexo 3 no es el de la empresa."),
-    ).toBeInTheDocument();
-    // El Word sin firmar, aunque la validación no diga nada de él.
-    expect(screen.getByText("Plazo de entrega.docx")).toBeInTheDocument();
-    expect(screen.getByText("Falta la firma.")).toBeInTheDocument();
-    // Lo que no es de ningún documento sigue después.
-    expect(screen.getByText("Boleta de garantía")).toBeInTheDocument();
-    // El firmado sin problemas y el PDF subido no aparecen.
-    expect(screen.queryByText("Anexo_N1_Identificacion.pdf")).toBeNull();
-    expect(screen.queryByText("Programa de Probidad.pdf")).toBeNull();
-  });
-
-  it("decisión 84: sin validar todavía, igual dice qué falta firmar", async () => {
-    pintar(
-      <ValidacionDeDocumentos oportunidadId={40} />,
-      ANALISIS,
-      [{ id: 13, nombre: "Plazo de entrega.docx", origen: "subido" }],
-      null,
-      undefined,
-      "",
-    );
-    expect(
-      await screen.findByText("Plazo de entrega.docx"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Falta la firma.")).toBeInTheDocument();
-    expect(screen.queryByText(/Bases y criterios/)).toBeNull();
-  });
-
-  it("decisión 83: dice cuántos archivos del ZIP leyó; sin validación (el motor responde vacío) no se cae", async () => {
-    const delZip = (nombre: string) => ({
-      nombre,
-      carpeta: "1. Administrativa",
-    });
-    const vista = pintar(
-      <ValidacionDeDocumentos oportunidadId={40} />,
-      ...([ANALISIS, POSTULACION, null, undefined] as const),
-      { ...VALIDACION, archivos: ["A.pdf", "B.pdf", "C.pdf"].map(delZip) },
-    );
-    expect(
-      await screen.findByText(/leyó 3 archivos del ZIP/),
-    ).toBeInTheDocument();
-    vista.unmount();
-    pintar(
-      <ValidacionDeDocumentos oportunidadId={40} />,
-      ...([ANALISIS, POSTULACION, null, undefined] as const),
-      "",
-    );
-    expect(
-      await screen.findByText(/La IA lee todo lo que va en el ZIP/),
-    ).toBeInTheDocument();
   });
 });

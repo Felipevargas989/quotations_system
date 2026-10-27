@@ -35,7 +35,7 @@ export default function SubirAMercadoPublico({
           </p>
         )}
       </div>
-      <ValidacionDeDocumentos oportunidadId={oportunidadId} />
+      <ValidacionDeDocumentos oportunidadId={oportunidadId} cierre={cierre} />
       <SetParaMercadoPublico oportunidadId={oportunidadId} codigo={codigo} />
     </section>
   );
