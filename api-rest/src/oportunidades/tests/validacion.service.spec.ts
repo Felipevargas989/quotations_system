@@ -10,6 +10,7 @@ import type {
 import {
   type ArchivoParaValidar,
   loQueCabe,
+  loQueLaHabilita,
   loQueVaEnElZip,
 } from '../analisis/el-zip-para-validar';
 import {
@@ -260,6 +261,118 @@ describe('ValidacionService — pedir', () => {
         }),
       );
     }));
+
+  it('decisión 88: lee las resoluciones sanitarias y la patente de «Mi empresa» aunque no vayan en el ZIP, sin contarlas como del ZIP', () =>
+    conLlave(async () => {
+      const { elSet, oferente, repo, servicio } = armar();
+      const ejecutar = jest
+        .spyOn(servicio, 'ejecutar')
+        .mockResolvedValue(undefined);
+      oferente.documentos.mockResolvedValue([
+        {
+          tipo: 'resolucion_sanitaria',
+          nombre: 'Resoluciones Valle del sol.pdf',
+          ruta: 'c1/oferente/documentos/resoluciones.pdf',
+          bytes: 3 * MB,
+          vence: null,
+          creado_en: '2026-10-19T14:56:18Z',
+        },
+        {
+          tipo: 'patente',
+          nombre: 'Patente 1 SEM 2026.pdf',
+          ruta: 'c1/oferente/documentos/patente-1.pdf',
+          bytes: 1000,
+          vence: '2026-06-30',
+          creado_en: '2026-02-01T10:00:00Z',
+        },
+        {
+          tipo: 'patente',
+          nombre: 'Patente 2 SEM 2026.pdf',
+          ruta: 'c1/oferente/documentos/patente-2.pdf',
+          bytes: 1000,
+          vence: '2026-12-31',
+          creado_en: '2026-08-01T10:00:00Z',
+        },
+        {
+          tipo: 'f30',
+          nombre: 'F30 octubre.pdf',
+          ruta: 'c1/oferente/documentos/f30.pdf',
+          bytes: 1000,
+          vence: '2026-10-31',
+          creado_en: '2026-10-01T10:00:00Z',
+        },
+      ]);
+      elSet.piezas.mockResolvedValue([
+        pieza('Anexo1.pdf'),
+        pieza('Patente 2 SEM 2026.pdf', {
+          ruta: 'c1/oferente/documentos/patente-2.pdf',
+          que_es: 'documento',
+        }),
+      ]);
+
+      await servicio.pedir(1, CUENTA, 40);
+
+      // La fila cuenta solo lo del ZIP: la pantalla dice cuántos leyó de él.
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          archivos: [
+            { nombre: 'Anexo1.pdf', carpeta: '1. Administrativa' },
+            { nombre: 'Patente 2 SEM 2026.pdf', carpeta: '1. Administrativa' },
+          ],
+        }),
+      );
+      const [, , leibles, , contexto] = ejecutar.mock.calls[0];
+      // La patente más nueva ya va en el ZIP; la vieja y el F30 no habilitan.
+      expect(leibles.map((a) => a.titulo)).toEqual([
+        '1. Administrativa / Anexo1.pdf',
+        '1. Administrativa / Patente 2 SEM 2026.pdf',
+        'Mi empresa, no va en el ZIP / Resoluciones Valle del sol.pdf',
+      ]);
+      expect(contexto.habilitan).toEqual([
+        { nombre: 'Resoluciones Valle del sol.pdf', leido: true },
+      ]);
+    }));
+
+  it('decisión 88: de la patente y el inicio, el más nuevo; de las resoluciones, todas; sin archivo, nada', () => {
+    const carpeta = [
+      {
+        tipo: 'inicio_actividades',
+        nombre: 'Inicio 2023.pdf',
+        ruta: 'c1/i-2023.pdf',
+        creado_en: '2023-05-01',
+      },
+      {
+        tipo: 'inicio_actividades',
+        nombre: 'Inicio y giros SII.pdf',
+        ruta: 'c1/i-2026.pdf',
+        creado_en: '2026-10-26',
+      },
+      {
+        tipo: 'resolucion_sanitaria',
+        nombre: 'Piscina.pdf',
+        ruta: 'c1/piscina.pdf',
+        creado_en: '2012-10-25',
+      },
+      {
+        tipo: 'resolucion_sanitaria',
+        nombre: 'Cocina.pdf',
+        ruta: 'c1/cocina.pdf',
+        creado_en: '2026-01-10',
+      },
+      { tipo: 'resolucion_sanitaria', nombre: 'Sin archivo.pdf' },
+      { tipo: 'vigencia', nombre: 'Vigencia.pdf', ruta: 'c1/vigencia.pdf' },
+    ];
+    expect(loQueLaHabilita(carpeta, []).map((a) => a.nombre)).toEqual([
+      'Inicio y giros SII.pdf',
+      'Cocina.pdf',
+      'Piscina.pdf',
+    ]);
+    expect(loQueLaHabilita(carpeta, [])[0]).toMatchObject({
+      donde: 'Mi empresa, no va en el ZIP',
+      que_es: 'documento',
+      fuera_del_zip: true,
+    });
+  });
 
   it('lee también lo de «Mi empresa» y los respaldos, cada uno con su carpeta (decisión 83)', () =>
     conLlave(async () => {
@@ -537,6 +650,51 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain(
       'Registro de Proveedores (ChileProveedores) es siempre "cumple"',
     );
+  });
+
+  it('decisión 88: la empresa habilitada para lo que ofrece, siempre, con lo de «Mi empresa» que no va en el ZIP', () => {
+    const t = instruccionesDeValidacion({
+      codigo: '5040-14-LE26',
+      nombre: 'Servicio de producción Día de Campo del Dirigente Social',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      fecha_cierre: null,
+      hoy: '2026-10-27',
+      oferente: null,
+      carpeta: [],
+      habilitan: [
+        { nombre: 'Resoluciones Valle del sol.pdf', leido: true },
+        { nombre: 'Resolución cocina.jpg', leido: false },
+      ],
+      requisitos: REQUISITOS,
+      criterios: [],
+    });
+    expect(t).toContain('LO QUE HABILITA A LA EMPRESA, de «Mi empresa»');
+    expect(t).toContain('- Resoluciones Valle del sol.pdf\n');
+    expect(t).toContain(
+      '- Resolución cocina.jpg (no se pudo leer: revísalo solo por su nombre)',
+    );
+    expect(t).toContain(
+      'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan',
+    );
+    expect(t).toContain('Reglamento Sanitario de los Alimentos');
+    expect(t).toContain(
+      'si la capacidad autorizada alcanza para lo que se ofrece',
+    );
+    expect(t).toContain('y no habilitan a la empresa para lo que ofrece');
+    // Sin nada aparte, lo dice.
+    expect(
+      instruccionesDeValidacion({
+        codigo: 'x',
+        nombre: 'x',
+        organismo: null,
+        fecha_cierre: null,
+        hoy: '2026-10-27',
+        oferente: null,
+        carpeta: [],
+        requisitos: REQUISITOS,
+        criterios: [],
+      }),
+    ).toContain('(nada aparte de lo que va en el ZIP)');
   });
 
   it('decisión 87: los precios siempre, uno por uno, y no se avisa lo que no vale la pena corregir', () => {

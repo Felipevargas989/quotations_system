@@ -19,6 +19,9 @@ export type ArchivoParaValidar = {
   que_es: PiezaDelSet['que_es'];
   /** Cómo lo ve la IA: la carpeta y el nombre. */
   titulo: string;
+  /** Lo de «Mi empresa» que no va en el ZIP pero se lee para ver si la
+   *  empresa está habilitada (decisión 88). */
+  fuera_del_zip?: true;
 };
 
 /** Primero lo que la empresa escribe y firma, después su carpeta y al
@@ -69,6 +72,61 @@ export const loQueVaEnElZip = (piezas: PiezaDelSet[]): ArchivoParaValidar[] => {
     }
   }
   return archivos;
+};
+
+// LO QUE HABILITA A LA EMPRESA (decisión 88 del doc 17, 27-10). Felipe:
+// "el validador tiene que revisar todo... tiene que ser nuestro contralorito
+// interno"; sus resoluciones sanitarias no le permiten un restaurante y la
+// validación no lo vio, porque las bases no las piden y no iban en el ZIP.
+// Ahora la IA las lee igual, para ver si la empresa puede hacer por ley lo
+// que ofrece.
+
+/** Los tipos de «Mi empresa» que dicen qué puede hacer la empresa por ley:
+ *  de la patente y del inicio de actividades vale el más nuevo; de las
+ *  resoluciones y de los respaldos de la patente, todos. */
+const QUE_HABILITAN: Readonly<Record<string, 'todos' | 'el_mas_nuevo'>> = {
+  resolucion_sanitaria: 'todos',
+  patente: 'el_mas_nuevo',
+  respaldo_patente: 'todos',
+  inicio_actividades: 'el_mas_nuevo',
+};
+
+type DocumentoDeLaCarpeta = {
+  tipo: string;
+  nombre: string;
+  ruta?: string;
+  bytes?: number;
+  creado_en?: string;
+};
+
+/** Lo de «Mi empresa» que habilita a la empresa y no va en el ZIP. */
+export const loQueLaHabilita = (
+  carpeta: DocumentoDeLaCarpeta[],
+  enElZip: ArchivoParaValidar[],
+): ArchivoParaValidar[] => {
+  const enElSet = new Set(enElZip.map((a) => a.ruta));
+  const vistos = new Set<string>();
+  return [...carpeta]
+    .sort((a, b) => (b.creado_en ?? '').localeCompare(a.creado_en ?? ''))
+    .filter((d) => {
+      const cuales = QUE_HABILITAN[d.tipo];
+      // Sin archivo no hay nada que leer.
+      if (!cuales || !d.ruta) return false;
+      if (cuales === 'el_mas_nuevo') {
+        if (vistos.has(d.tipo)) return false;
+        vistos.add(d.tipo);
+      }
+      return !enElSet.has(d.ruta);
+    })
+    .map((d) => ({
+      nombre: d.nombre,
+      ruta: d.ruta ?? '',
+      bytes: d.bytes ?? 0,
+      donde: 'Mi empresa, no va en el ZIP',
+      que_es: 'documento' as const,
+      titulo: `Mi empresa, no va en el ZIP / ${d.nombre}`,
+      fuera_del_zip: true as const,
+    }));
 };
 
 /** Lo que la IA lee de una vez: lo legible y, en PDF, hasta el tope del

@@ -40,6 +40,7 @@ import {
 import {
   type ArchivoParaValidar,
   loQueCabe,
+  loQueLaHabilita,
   loQueVaEnElZip,
 } from './el-zip-para-validar';
 
@@ -111,6 +112,9 @@ export type ContextoDeValidacion = {
   /** Lo que va en el ZIP, con su carpeta y si la IA lo puede leer
    *  (decisión 83). */
   zip?: Array<{ donde: string; nombre: string; leido: boolean }>;
+  /** Lo de «Mi empresa» que habilita a la empresa y no va en el ZIP
+   *  (decisión 88). */
+  habilitan?: Array<{ nombre: string; leido: boolean }>;
   requisitos: Requisito[];
   criterios: Criterio[];
   /** La memoria de la licitación (decisión 68): lo aclarado manda. */
@@ -170,6 +174,14 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         )
       : ['(todavía nada)']),
     '',
+    'LO QUE HABILITA A LA EMPRESA, de «Mi empresa» (no va en el ZIP; te lo paso entero para que revises si puede hacer lo que ofrece):',
+    ...((c.habilitan ?? []).length > 0
+      ? (c.habilitan ?? []).map(
+          (a) =>
+            `- ${a.nombre}${a.leido ? '' : ' (no se pudo leer: revísalo solo por su nombre)'}`,
+        )
+      : ['(nada aparte de lo que va en el ZIP)']),
+    '',
     'LA CARPETA DE DOCUMENTOS DE LA EMPRESA, con su vencimiento (lo que va en el ZIP también te lo paso entero):',
     ...(c.carpeta.length > 0
       ? c.carpeta.map(
@@ -196,6 +208,10 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // Quillón (1532886-5-LE26) porque el Anexo N°5 iba con la columna de
     // precio neto por ítem vacía, y la validación de ese día dijo «cumple».
     'LOS PRECIOS, SIEMPRE: en la oferta económica revisa uno por uno los precios que pide el formulario: cada ítem o línea con su precio (neto, unitario o total, según sus columnas), el neto, el IVA y el total. Una celda de precio en blanco, un precio que no está en neto cuando el formulario o las bases lo piden en neto, sumas que no cuadran, decimales cuando los piden sin decimales o un total sobre el presupuesto son "grave": la oferta económica no se corrige después del cierre. Dilo en el requisito de la oferta económica, nombrando la línea o la columna; si el checklist no lo trae, va en "otros_graves". Las líneas a las que la empresa no postula no llevan precio.',
+    // Decisión 88 (27-10). Felipe: "tiene que ser nuestro contralorito
+    // interno... algo que no me ha detectado el validador es que mis
+    // resoluciones sanitarias no me permiten tener un restaurante".
+    'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, revisa que la empresa pueda hacer por ley cada servicio que ofrece en sus documentos. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira también a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes). Lo que falta o no alcanza es "grave", en el requisito que corresponda o en "otros_graves", diciendo qué servicio queda sin respaldo y qué haría falta: aunque la comisión no lo pida, puede dejar fuera la oferta o terminar el contrato, y la SEREMI puede multar o clausurar.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
@@ -209,7 +225,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- La redacción o el formato de los documentos de terceros (certificados, comodatos, dictámenes, órdenes de compra, facturas, patentes): de ellos solo importa si sirven para lo que piden las bases, si están vigentes, a nombre de quién están y qué acreditan.',
     '- Lo que viene escrito en el formulario del comprador: solo cuenta lo que escribió la empresa.',
     '- Los nombres de los archivos.',
-    '- Los documentos que las bases no piden con la oferta (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
+    '- Los documentos que las bases no piden con la oferta y no habilitan a la empresa para lo que ofrece (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
     '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
@@ -295,9 +311,12 @@ export class ValidacionService {
       ),
     ]);
     const enElZip = loQueVaEnElZip(piezas);
+    // Lo que habilita a la empresa por ley se lee aunque no vaya en el ZIP
+    // (decisión 88).
+    const habilitan = loQueLaHabilita(carpeta, enElZip);
     // Lo que no cabe en un pedido ya no corta la validación: se avisa y se
     // revisa por su nombre.
-    const { leibles, noLeidos } = loQueCabe(enElZip);
+    const { leibles, noLeidos } = loQueCabe([...enElZip, ...habilitan]);
     if (leibles.length === 0 && carpeta.length === 0) {
       throw new BadRequestException(
         'Sube primero lo que vas a presentar (en "Mi postulación") o los documentos de la empresa (en "Mi empresa").',
@@ -310,7 +329,9 @@ export class ValidacionService {
       oportunidad_id: oportunidadId,
       analisis_id: analisis.id,
       modelo: MODELO_OPUS,
-      archivos: leibles.map((a) => ({ nombre: a.nombre, carpeta: a.donde })),
+      archivos: leibles
+        .filter((a) => !a.fuera_del_zip)
+        .map((a) => ({ nombre: a.nombre, carpeta: a.donde })),
       no_leidos: noLeidos,
       pedido_por: await this.adjuntos.perfilDe(companyId, cuentaId),
     });
@@ -334,6 +355,10 @@ export class ValidacionService {
       })),
       zip: enElZip.map((a) => ({
         donde: a.donde,
+        nombre: a.nombre,
+        leido: leibles.includes(a),
+      })),
+      habilitan: habilitan.map((a) => ({
         nombre: a.nombre,
         leido: leibles.includes(a),
       })),
@@ -375,7 +400,7 @@ export class ValidacionService {
                 type: 'text',
                 text:
                   bloques.length > 0
-                    ? 'Valida todo lo que va en el ZIP contra las bases.'
+                    ? 'Valida todo lo que va en el ZIP contra las bases, y si la empresa está habilitada para lo que ofrece.'
                     : 'La empresa todavía no subió documentos de la postulación: valida con la carpeta y marca lo demás como falta.',
               },
             ],
