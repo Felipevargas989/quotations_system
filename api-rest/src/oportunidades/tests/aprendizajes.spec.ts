@@ -267,7 +267,7 @@ function armar() {
     analisis as unknown as AnalisisRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { repo, generacion, adjuntos, servicio };
+  return { repo, generacion, adjuntos, oportunidades, analisis, servicio };
 }
 
 const antes = process.env.ANTHROPIC_API_KEY;
@@ -318,6 +318,25 @@ describe('«Aprender del acta»', () => {
     );
     expect(contexto.instrucciones).toContain('- Precio (30%)');
     expect(MODELO_DEL_APRENDIZAJE).toBe('claude-opus-5-5');
+  });
+
+  it('decisión 95: en una compra ágil sin criterios, el acta se lee con el de la ley', async () => {
+    const { servicio, oportunidades, analisis } = armar();
+    oportunidades.ficha.mockResolvedValue({
+      id: 84,
+      codigo: '1346350-37-COT26',
+      proceso: { nombre: 'Catamarán', organismo: null, tipo: 'compra_agil' },
+    });
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: { criterios: [], te_dejan_fuera: [] },
+    });
+    const ejecutar = jest
+      .spyOn(servicio, 'ejecutar')
+      .mockResolvedValue(undefined);
+    await servicio.pedir(1, 'cuenta-1', 84);
+    const [, , , , contexto] = ejecutar.mock.calls[0];
+    expect(contexto.instrucciones).toContain('- Menor precio (100%)');
   });
 
   it('al terminar guarda lo aprendido de esa licitación (sin lo vacío) y deja escrito si acertó', async () => {
