@@ -71,14 +71,22 @@ export const ESQUEMA_DE_VALIDACION = {
           },
           donde: { type: 'string' },
           observacion: { type: 'string' },
+          gravedad: { type: 'string', enum: ['grave', 'menor'] },
         },
-        required: ['que', 'estado', 'donde', 'observacion'],
+        required: ['que', 'estado', 'donde', 'observacion', 'gravedad'],
         additionalProperties: false,
       },
     },
+    otros_graves: { type: 'array', items: { type: 'string' } },
     otros_problemas: { type: 'array', items: { type: 'string' } },
   },
-  required: ['resumen', 'listo', 'requisitos', 'otros_problemas'],
+  required: [
+    'resumen',
+    'listo',
+    'requisitos',
+    'otros_graves',
+    'otros_problemas',
+  ],
   additionalProperties: false,
 } as const;
 
@@ -179,11 +187,15 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // difícil no tener eso".
     'Estar inscrito o hábil en el Registro de Proveedores (ChileProveedores) es siempre "cumple": la empresa está hábil, se da por hecho y no hay un documento que mirar.',
     'En "donde", el nombre del documento que lo cumple (vacío si falta). En "observacion", una frase: qué está bien o qué hay que hacer.',
-    'En "otros_problemas", lo que no es de un requisito: RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases.',
+    // Decisión 85 (26-10): Felipe, con todo en amarillo: "no distingue una
+    // falta menor en amarillo de una grave en rojo; que falte un
+    // formulario es grave".
+    'En "gravedad", para cada requisito que no cumple: "grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje (un formulario o documento que falta, una firma que falta, un dato obligatorio en blanco, algo que no cubre lo que piden las bases, un documento vencido o que no acredita lo pedido); "menor" si es de forma y no cambia el resultado (redacción, ortografía, nombres de archivo, sugerencias). A los que cumplen, "menor".',
+    'Lo que no es de un requisito va en "otros_graves" si es grave, con la misma regla (RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases), y en "otros_problemas" si es menor.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
-    'Revisa también lo que escribió la empresa en sus documentos: las faltas de ortografía o de redacción (cita la frase y cómo queda bien) y lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]), diciendo en qué documento. También va en "otros_problemas".',
+    'Revisa también lo que escribió la empresa en sus documentos: las faltas de ortografía o de redacción (cita la frase y cómo queda bien), que van en "otros_problemas", y lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]), que va en "otros_graves", diciendo en qué documento.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');
