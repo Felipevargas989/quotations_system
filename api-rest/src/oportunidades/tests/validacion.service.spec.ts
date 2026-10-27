@@ -595,8 +595,6 @@ describe('ValidacionService — ejecutar', () => {
 describe('lo que lee la IA para validar', () => {
   it('decisión 85: la respuesta trae la gravedad de cada requisito y los otros problemas graves aparte', () => {
     expect(ESQUEMA_DE_VALIDACION.required).toContain('otros_graves');
-    // Decisión 88: el aviso interno, aparte.
-    expect(ESQUEMA_DE_VALIDACION.required).toContain('para_tu_empresa');
     expect(
       ESQUEMA_DE_VALIDACION.properties.requisitos.items.required,
     ).toContain('gravedad');
@@ -675,15 +673,16 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain(
       '- Resolución cocina.jpg (no se pudo leer: revísalo solo por su nombre)',
     );
-    expect(t).toContain('LA EMPRESA HABILITADA, SIEMPRE, COMO AVISO INTERNO');
-    // Felipe: "no nos vamos a autodelatar"; avisa y la postulación sigue.
-    expect(t).toContain('va en "para_tu_empresa"');
     expect(t).toContain(
-      'no cambia "listo", los requisitos, los otros problemas ni el resumen',
+      'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan',
     );
-    expect(t).toContain('no sugieras explicarlo en la postulación');
-    expect(t).toContain('Lo de "para_tu_empresa" no cuenta.');
     expect(t).toContain('Reglamento Sanitario de los Alimentos');
+    // Va con lo demás, pero nunca hacia el comprador (Felipe: "no nos vamos
+    // a autodelatar").
+    expect(t).toContain('Es un aviso para la empresa, no para el comprador');
+    expect(t).toContain(
+      'sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta',
+    );
     expect(t).toContain(
       'si la capacidad autorizada alcanza para lo que se ofrece',
     );
