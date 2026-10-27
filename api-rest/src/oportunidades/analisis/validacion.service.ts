@@ -80,6 +80,9 @@ export const ESQUEMA_DE_VALIDACION = {
     },
     otros_graves: { type: 'array', items: { type: 'string' } },
     otros_problemas: { type: 'array', items: { type: 'string' } },
+    // Decisión 88: lo que la empresa tiene que hacer para quedar habilitada;
+    // aviso interno, no frena la postulación.
+    para_tu_empresa: { type: 'array', items: { type: 'string' } },
   },
   required: [
     'resumen',
@@ -87,6 +90,7 @@ export const ESQUEMA_DE_VALIDACION = {
     'requisitos',
     'otros_graves',
     'otros_problemas',
+    'para_tu_empresa',
   ],
   additionalProperties: false,
 } as const;
@@ -210,8 +214,11 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     'LOS PRECIOS, SIEMPRE: en la oferta económica revisa uno por uno los precios que pide el formulario: cada ítem o línea con su precio (neto, unitario o total, según sus columnas), el neto, el IVA y el total. Una celda de precio en blanco, un precio que no está en neto cuando el formulario o las bases lo piden en neto, sumas que no cuadran, decimales cuando los piden sin decimales o un total sobre el presupuesto son "grave": la oferta económica no se corrige después del cierre. Dilo en el requisito de la oferta económica, nombrando la línea o la columna; si el checklist no lo trae, va en "otros_graves". Las líneas a las que la empresa no postula no llevan precio.',
     // Decisión 88 (27-10). Felipe: "tiene que ser nuestro contralorito
     // interno... algo que no me ha detectado el validador es que mis
-    // resoluciones sanitarias no me permiten tener un restaurante".
-    'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, revisa que la empresa pueda hacer por ley cada servicio que ofrece en sus documentos. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira también a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes). Lo que falta o no alcanza es "grave", en el requisito que corresponda o en "otros_graves", diciendo qué servicio queda sin respaldo y qué haría falta: aunque la comisión no lo pida, puede dejar fuera la oferta o terminar el contrato, y la SEREMI puede multar o clausurar.',
+    // resoluciones sanitarias no me permiten tener un restaurante". Y es un
+    // aviso interno: "no nos vamos a autodelatar... la interna me tiene que
+    // avisar, oye, tienes que hacer esto, y mientras tengo que seguir
+    // mandando los documentos".
+    'LA EMPRESA HABILITADA, SIEMPRE, COMO AVISO INTERNO: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, revisa que la empresa pueda hacer por ley cada servicio que ofrece en sus documentos. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira también a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes). Lo que falta o no alcanza va en "para_tu_empresa", una frase por tema: qué servicio queda sin respaldo y qué tiene que hacer la empresa para quedar habilitada. Es un aviso para la empresa, que sigue postulando mientras lo resuelve: no cambia "listo", los requisitos, los otros problemas ni el resumen, y no sugieras explicarlo en la postulación ni subir documentos que muestren lo que falta. Solo si las bases piden ese documento o esa autorización va además en su requisito, como cualquier otro.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
@@ -227,7 +234,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- Los nombres de los archivos.',
     '- Los documentos que las bases no piden con la oferta y no habilitan a la empresa para lo que ofrece (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
     '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
-    'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
+    'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio. Lo de "para_tu_empresa" no cuenta.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');
 };

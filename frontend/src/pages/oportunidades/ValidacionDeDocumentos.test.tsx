@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as servicio from "../../services/oportunidades.service";
 import ValidacionDeDocumentos from "./ValidacionDeDocumentos";
 
-// «VALIDAR TODO», EL PASO 3 DE «MI POSTULACIÓN» (decisiones 79, 83, 84 y
-// 85 del doc 17). Salió de AnalisisYValidacion.test.tsx el 26-10, cuando
+// «VALIDAR TODO», EL PASO 3 DE «MI POSTULACIÓN» (decisiones 79, 83, 84,
+// 85 y 88 del doc 17). Salió de AnalisisYValidacion.test.tsx el 26-10, cuando
 // ese archivo pasó las 800 líneas. Los servicios van de mentira.
 
 const RESULTADO = {
@@ -362,6 +362,43 @@ describe("Validar todo (decisión 79)", () => {
     expect(
       screen.getByText("Todavía no: falta algo obligatorio"),
     ).toBeInTheDocument();
+  });
+
+  it("decisión 88: «Para tu empresa» va aparte, como aviso interno, y no cambia el veredicto", async () => {
+    pintar(
+      <ValidacionDeDocumentos oportunidadId={40} />,
+      // Sin nada obligatorio que falte en el ZIP: el veredicto es el de la IA.
+      { ...ANALISIS, resultado: { ...RESULTADO, requisitos: [] } },
+      POSTULACION,
+      undefined,
+      {
+        ...VALIDACION,
+        resultado: {
+          ...VALIDACION.resultado,
+          listo: "si",
+          requisitos: [],
+          otros_problemas: [],
+          para_tu_empresa: [
+            "Ninguna resolución sanitaria autoriza preparar alimentos: sácala a nombre de la empresa.",
+          ],
+        },
+      },
+    );
+    expect(await screen.findByText("Para tu empresa")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Ninguna resolución sanitaria autoriza preparar alimentos: sácala a nombre de la empresa.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /no van en la postulación ni cambian si puedes postular/,
+      ),
+    ).toBeInTheDocument();
+    // La empresa sigue postulando mientras lo resuelve.
+    expect(screen.getByText("Lista para postular")).toBeInTheDocument();
+    expect(screen.queryByText("Grave")).toBeNull();
+    expect(screen.queryByText("Menor")).toBeNull();
   });
 
   it("decisión 83: dice cuántos archivos del ZIP leyó; sin validación (el motor responde vacío) no se cae", async () => {
