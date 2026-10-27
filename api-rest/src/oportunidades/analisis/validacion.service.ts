@@ -199,13 +199,15 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
-    'Revisa también lo que escribió la empresa en los Word (.docx), que todavía edita en Eventia: las faltas de ortografía o de redacción (cita la frase y cómo queda bien) van en "otros_problemas". En cualquier documento, lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]) va en "otros_graves", diciendo en qué documento.',
+    'Revisa también lo que escribió la empresa en los Word (.docx), que todavía edita en Eventia: las faltas de ortografía y las frases que no se entienden (cita la frase y cómo queda bien), no sugerencias de estilo, van en "otros_problemas". En cualquier documento, lo que quedó por completar o sin leer ([COMPLETAR: ...] o [ILEGIBLE]) va en "otros_graves", diciendo en qué documento.',
     // Decisión 87 (27-10), para postular a muchas. Felipe: "hay
     // validaciones que son de escritura... cuáles de esas en realidad está
     // de más que estén". En la 5040-14-LE26, de 12 avisos quedaban 4.
     'NO AVISES lo que no se puede o no vale la pena corregir:',
-    '- La ortografía, las tildes, las mayúsculas, el género de una palabra o cómo se escribe la razón social (SpA o SPA) en los PDF y en los documentos de terceros: ya están firmados o no son de la empresa. Sí avisa, en cualquier documento, lo que cambia el sentido o un dato: una frase cortada, un RUT, un monto, una fecha o un lugar distintos.',
+    '- Cómo se escribe un nombre o una razón social (con o sin tilde, en mayúsculas, SpA o SPA): va como en el documento de donde sale.',
+    '- La ortografía, las tildes, las mayúsculas o el género de una palabra en los PDF y en los documentos de terceros: ya están firmados o no son de la empresa. Sí avisa, en cualquier documento, lo que cambia el sentido o un dato: una frase cortada, un RUT, un monto, una fecha o un lugar distintos.',
     '- La redacción o el formato de los documentos de terceros (certificados, comodatos, dictámenes, órdenes de compra, facturas, patentes): de ellos solo importa si sirven para lo que piden las bases, si están vigentes, a nombre de quién están y qué acreditan.',
+    '- Lo que viene escrito en el formulario del comprador: solo cuenta lo que escribió la empresa.',
     '- Los nombres de los archivos.',
     '- Los documentos que las bases no piden con la oferta (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
     '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',

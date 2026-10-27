@@ -565,6 +565,12 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain('lo que escribió la empresa en los Word (.docx)');
     expect(t).toContain('NO AVISES');
     expect(t).toContain('en los PDF y en los documentos de terceros');
+    // En la del Día del Funcionario del laboratorio salían «Producción» en
+    // el nombre de un cliente, una errata del formulario del comprador y
+    // «queda mejor como...».
+    expect(t).toContain('Cómo se escribe un nombre o una razón social');
+    expect(t).toContain('Lo que viene escrito en el formulario del comprador');
+    expect(t).toContain('no sugerencias de estilo');
     expect(t).toContain(
       'lo que cambia el sentido o un dato: una frase cortada',
     );
