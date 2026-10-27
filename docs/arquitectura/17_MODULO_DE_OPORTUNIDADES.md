@@ -565,6 +565,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - La lista sale aunque todavía no se haya validado (las firmas que faltan y lo que dejó la IA); el veredicto y la línea de «Bases y criterios» salen solo con una validación.
     - El editor no cambia (decisión 81): arriba del documento siguen solo los avisos de ese formulario.
     - Las notas se calculan igual (`notasDeLaPostulacion`); lo nuevo es `pendientesPorDocumento`, que las ordena para la lista.
+85. **Grave en rojo, menor en amarillo** (26-10 en la noche, probado en el laboratorio, donde la IA marcó 12 graves y 1 menor en la oportunidad 40 por US$0,16, y en producción el 27-10 pasada la medianoche; Felipe, con todo en amarillo en «Validar todo»: *"me llama la atención que no distinga una falta menor en amarillo a una grave en rojo, que falte un formulario es grave"*; y *"sí ármalo en laboratorio y producción"*).
+    - **Grave** (rojo): lo que puede dejar la oferta fuera de bases, anularla o costarle puntaje: un formulario o documento que falta, una firma que falta, un dato obligatorio en blanco, algo que no cubre lo pedido, un documento vencido o que no acredita lo que piden. **Menor** (amarillo): lo de forma (redacción, ortografía, nombres de archivo, sugerencias). En la lista va primero lo grave.
+    - **Lo dice la IA al validar**: cada requisito trae `gravedad` (`grave` o `menor`) y lo que no es de un requisito se reparte entre `otros_graves` y `otros_problemas` (lo que quedó [COMPLETAR] o [ILEGIBLE] es grave; la ortografía, menor). En una validación de antes, que no lo trae, es grave lo que falta o venció, y lo que se revisa si las bases lo piden como obligatorio (el orden del análisis, si calza con el de la validación).
+    - En lo de cada documento, lo que falta (lo que dejó la IA por completar y la firma) es siempre grave; lo que se revisa, según la validación.
+    - **Lo que falta en el ZIP, arriba y sin validar**: cada documento que las bases piden con la oferta y no está (un formulario que no se armó o se borró, un certificado que falta o vence antes del cierre), del mismo cruce de «Lo que tienes que presentar» (`useChecklistDeDocumentos`). Con algo así, el veredicto es *«Todavía no: falta algo obligatorio»*, diga lo que diga la última validación. Si la validación ya lo nombra igual, no se repite.
+    - Las pruebas de «Validar todo» pasaron a `ValidacionDeDocumentos.test.tsx` (`AnalisisYValidacion.test.tsx` había pasado las 800 líneas).
 
 ## 4. Reglas del módulo (no se negocian)
 

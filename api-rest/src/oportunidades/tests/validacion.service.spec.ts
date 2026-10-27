@@ -13,6 +13,7 @@ import {
   loQueVaEnElZip,
 } from '../analisis/el-zip-para-validar';
 import {
+  ESQUEMA_DE_VALIDACION,
   instruccionesDeValidacion,
   ValidacionService,
 } from '../analisis/validacion.service';
@@ -49,8 +50,10 @@ const VALIDACION = {
       estado: 'revisar',
       donde: 'Anexo1.pdf',
       observacion: 'Sin firma.',
+      gravedad: 'grave',
     },
   ],
+  otros_graves: [],
   otros_problemas: [],
 };
 
@@ -477,6 +480,17 @@ describe('ValidacionService — ejecutar', () => {
 });
 
 describe('lo que lee la IA para validar', () => {
+  it('decisión 85: la respuesta trae la gravedad de cada requisito y los otros problemas graves aparte', () => {
+    expect(ESQUEMA_DE_VALIDACION.required).toContain('otros_graves');
+    expect(
+      ESQUEMA_DE_VALIDACION.properties.requisitos.items.required,
+    ).toContain('gravedad');
+    expect(
+      ESQUEMA_DE_VALIDACION.properties.requisitos.items.properties.gravedad
+        .enum,
+    ).toEqual(['grave', 'menor']);
+  });
+
   it('el checklist numerado, los datos de la empresa y la carpeta con su vencimiento', () => {
     const t = instruccionesDeValidacion({
       codigo: '4364-13-LE26',
@@ -512,6 +526,11 @@ describe('lo que lee la IA para validar', () => {
     );
     expect(t).toContain('RUT: 77.701.305-K');
     expect(t).toContain('Certificado F30: F30 octubre.pdf (no vence)');
+    // Decisión 85: cada hallazgo, grave o menor.
+    expect(t).toContain(
+      '"grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje',
+    );
+    expect(t).toContain('va en "otros_graves" si es grave');
     expect(t).toContain('Precio (30%)');
     expect(t).toContain('"vencido"');
     // El Registro de Proveedores se da por hecho (Felipe, 19-10).
