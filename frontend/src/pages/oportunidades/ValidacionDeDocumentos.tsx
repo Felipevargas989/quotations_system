@@ -11,7 +11,12 @@ import {
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import { sinLosWordYaFirmados } from "./firmarTodos";
-import { notasDeLaPostulacion, type Requisito } from "./notasDeLaPostulacion";
+import {
+  notasDeLaPostulacion,
+  type PendienteDelDocumento,
+  pendientesPorDocumento,
+  type Requisito,
+} from "./notasDeLaPostulacion";
 import {
   contarPorEstadoDeValidacion,
   ESTADOS_DE_VALIDACION,
@@ -37,7 +42,14 @@ import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 // la carpeta). Lo de cada formulario va bajo él, en «Tus documentos»
 // (notasDeLaPostulacion.ts). Felipe: "hay demasiadas partes en donde tengo
 // comentarios de cosas que faltan".
+//
+// Desde el 26-10 en la noche (decisión 84) aquí va TODO lo pendiente: lo de
+// cada documento (lo que dejó la IA al llenarlo, lo que anotó al firmar, lo
+// de la última validación y la firma que falta), agrupado bajo su nombre, y
+// después lo que no es de ningún documento. Felipe: "estas salvedades y
+// todas saquémoslas de acá y coloquémoslas siempre en el punto 3".
 
+const ESTADO_FALTA = ESTADOS_DE_VALIDACION[1];
 const ESTADO_REVISAR = ESTADOS_DE_VALIDACION[3];
 
 export default function ValidacionDeDocumentos({
@@ -73,11 +85,13 @@ export default function ValidacionDeDocumentos({
   const hayAnalisis = analisis?.estado === "listo";
   const procesando = validacion?.estado === "procesando" || pedir.isPending;
   const r = validacion?.estado === "listo" ? validacion.resultado : null;
-  const { requisitos, otros } = notasDeLaPostulacion(
-    sinLosWordYaFirmados(postulacion),
+  const documentos = sinLosWordYaFirmados(postulacion);
+  const { porDocumento, requisitos, otros } = notasDeLaPostulacion(
+    documentos,
     generaciones,
     validacion,
   );
+  const pendientes = pendientesPorDocumento(documentos, porDocumento);
   const cumplen = r ? contarPorEstadoDeValidacion(r.requisitos).cumple : 0;
   // Decisión 83: desde el 26-10 lee todo lo que va en el ZIP y anota la
   // carpeta de cada archivo; las de antes leían solo «Mi postulación». Sin
@@ -120,8 +134,13 @@ export default function ValidacionDeDocumentos({
       {!procesando && validacion?.estado === "error" && (
         <p className="text-sm text-red-600">{validacion.error}</p>
       )}
-      {!procesando && r && (
-        <Resultado r={r} requisitos={requisitos} otros={otros} />
+      {!procesando && (
+        <Resultado
+          r={r}
+          pendientes={pendientes}
+          requisitos={requisitos}
+          otros={otros}
+        />
       )}
       {!procesando && validacion && validacion.no_leidos.length > 0 && (
         <p className="text-xs text-amber-700">
@@ -134,23 +153,63 @@ export default function ValidacionDeDocumentos({
 
 function Resultado({
   r,
+  pendientes,
   requisitos,
   otros,
 }: {
-  readonly r: ResultadoDeValidacion;
+  readonly r: ResultadoDeValidacion | null;
+  readonly pendientes: PendienteDelDocumento[];
   readonly requisitos: Requisito[];
   readonly otros: string[];
 }) {
-  const listo = LISTO_PARA_POSTULAR[r.listo];
+  const listo = r ? LISTO_PARA_POSTULAR[r.listo] : null;
   return (
     <div className="space-y-2">
-      <p
-        className={`inline-block rounded border px-2 py-1 text-sm font-semibold ${listo.clases}`}
-      >
-        {listo.titulo}
-      </p>
-      {requisitos.length + otros.length > 0 && (
+      {listo && (
+        <p
+          className={`inline-block rounded border px-2 py-1 text-sm font-semibold ${listo.clases}`}
+        >
+          {listo.titulo}
+        </p>
+      )}
+      {pendientes.length + requisitos.length + otros.length > 0 && (
         <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+          {pendientes.map((p) => {
+            const estado = p.notas.some((n) => n.tono === "completar")
+              ? ESTADO_FALTA
+              : ESTADO_REVISAR;
+            return (
+              <li key={`doc-${p.adjunto.id}`} className="flex gap-3 px-3 py-2">
+                <span
+                  className={`mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-xs font-semibold ${estado.clases}`}
+                >
+                  {estado.label}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-900">{p.adjunto.nombre}</p>
+                  {p.notas.length > 0 && (
+                    <ul className="list-disc pl-4 text-xs space-y-0.5">
+                      {p.notas.map((n) => (
+                        <li
+                          key={n.texto}
+                          className={
+                            n.tono === "completar"
+                              ? "text-amber-800"
+                              : "text-gray-600"
+                          }
+                        >
+                          {n.texto}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {p.aviso && (
+                    <p className="text-xs italic text-gray-500">{p.aviso}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
           {requisitos.map((q, i) => {
             const estado =
               ESTADOS_DE_VALIDACION.find((e) => e.value === q.estado) ??
@@ -184,10 +243,12 @@ function Resultado({
           ))}
         </ul>
       )}
-      <p className="text-xs text-gray-500">
-        Lo de cada documento está arriba, bajo cada uno. El estado de cada
-        requisito, también los que cumplen, está en «Bases y criterios».
-      </p>
+      {r && (
+        <p className="text-xs text-gray-500">
+          El estado de cada requisito, también los que cumplen, está en «Bases y
+          criterios».
+        </p>
+      )}
     </div>
   );
 }
