@@ -57,6 +57,10 @@ import {
   separarMias,
 } from "./oportunidades.utils";
 import SeVieneOportunidades from "./SeVieneOportunidades";
+import {
+  type ConResultado,
+  useAvisoDeResultados,
+} from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
@@ -107,6 +111,8 @@ export default function OportunidadesPage() {
   // Cuántas hay en curso, a la vista en la pestaña.
   const { data: mias = [] } = useMisLicitaciones();
   const enCurso = separarMias(mias).enCurso.length;
+  // El resultado de una compra ágil postulada, avisado al entrar (92).
+  useAvisoDeResultados(mias as ConResultado[]);
 
   return (
     <div className="space-y-6">

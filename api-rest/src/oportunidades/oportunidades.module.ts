@@ -22,6 +22,8 @@ import { CompetenciaController } from './competencia/competencia.controller';
 import { CompetenciaRepository } from './competencia/competencia.repository';
 import { CompetenciaService } from './competencia/competencia.service';
 import { CotizantesService } from './competencia/cotizantes.service';
+import { ResultadosRepository } from './competencia/resultados.repository';
+import { ResultadosDeComprasAgilesService } from './competencia/resultados.service';
 import { RubroService } from './competencia/rubro.service';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
@@ -83,6 +85,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ActasDeLaZonaService,
     RubroService,
     CotizantesService,
+    ResultadosRepository,
+    ResultadosDeComprasAgilesService,
     CompetenciaCronService,
     PreguntasRepository,
     PreguntasService,

@@ -4,6 +4,7 @@ import type {
   AnalisisRepository,
   ValidacionRepository,
 } from '../analisis/analisis.repository';
+import type { ResultadosRepository } from '../competencia/resultados.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import { MisLicitacionesService } from '../mias/mis-licitaciones.service';
 import type { OportunidadesRepository } from '../oportunidades.repository';
@@ -186,5 +187,53 @@ describe('MisLicitacionesService', () => {
     oportunidades.mias.mockResolvedValue([]);
     await expect(servicio.mias(1)).resolves.toEqual([]);
     expect(adjuntos.origenesDe).not.toHaveBeenCalled();
+  });
+  it('decisión 92: las ganadas y perdidas traen su resultado, a quién se le compró y por cuánto', async () => {
+    const {
+      oportunidades,
+      adjuntos,
+      analisis,
+      validacion,
+      generacion,
+      licify,
+    } = armar();
+    oportunidades.mias.mockResolvedValue([
+      fila(3219, '2026-10-23T16:00:00.000Z', 'perdida'),
+      fila(40, '2026-10-19T18:01:00.000Z', 'postulada'),
+    ]);
+    const resultados = {
+      resultadosDe: jest.fn().mockResolvedValue(
+        new Map([
+          [
+            'C-3219',
+            {
+              estado: 'perdida',
+              orden_de_compra: '1346350-45-AG26',
+              proveedor: 'EVENTOS DEL LAGO SPA',
+              rut_proveedor: '76.123.456-7',
+              monto: 7_000_000,
+              fecha: '2026-10-27',
+            },
+          ],
+        ]),
+      ),
+    };
+    const servicio = new MisLicitacionesService(
+      oportunidades as unknown as OportunidadesRepository,
+      adjuntos as unknown as AdjuntosRepository,
+      analisis as unknown as AnalisisRepository,
+      validacion as unknown as ValidacionRepository,
+      generacion as unknown as GeneracionRepository,
+      licify as unknown as LicifyService,
+      resultados as unknown as ResultadosRepository,
+    );
+    const lista = await servicio.mias(1);
+    // Solo se pregunta por las que ya terminaron.
+    expect(resultados.resultadosDe).toHaveBeenCalledWith(['C-3219']);
+    expect(lista.find((m) => m.id === 3219)?.resultado).toMatchObject({
+      proveedor: 'EVENTOS DEL LAGO SPA',
+      monto: 7_000_000,
+    });
+    expect(lista.find((m) => m.id === 40)?.resultado).toBeNull();
   });
 });
