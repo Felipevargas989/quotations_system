@@ -21,6 +21,8 @@ export type OportunidadParaCotizar = {
     organismo: string | null;
     monto: number | null;
     fecha_cierre: string | null;
+    /** «licitacion» o «compra_agil» (decisión 94). */
+    tipo?: string;
   };
 };
 
@@ -69,7 +71,7 @@ export class PostulacionRepository {
     const { data, error } = await this.db
       .from('oportunidades')
       .select(
-        'id, codigo, estado, quotation_id, etiquetas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre)',
+        'id, codigo, estado, quotation_id, etiquetas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre, tipo)',
       )
       .eq('company_id', companyId)
       .eq('id', id)

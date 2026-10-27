@@ -46,6 +46,10 @@ export type PostulacionArmada = {
   /** ¿Va propuesta técnica? Si las bases no traen un formulario técnico
    *  (decisión 42). */
   propuesta: boolean;
+  /** ¿Van los anexos del comprador? Una compra ágil sin formularios no los
+   *  tiene: va solo la propuesta técnica valorizada (decisión 94). Sin el
+   *  dato, como antes, sí van. */
+  anexos?: boolean;
   /** Lo que no alcanzó a partir después de la oferta, en palabras. */
   problemas?: string[];
 };
@@ -97,9 +101,10 @@ export class ArmarPostulacionService {
     total: number,
   ): Promise<FilaDeGeneracion> {
     const companyId = user.company_id;
-    const [analisis, oferente] = await Promise.all([
+    const [analisis, oferente, ficha] = await Promise.all([
       this.analisis.ultimo(companyId, oportunidadId),
       this.oferente.oferente(companyId),
+      this.repo.oportunidad(companyId, oportunidadId),
     ]);
     // Los anexos lo necesitan: se dice antes de gastar en la oferta.
     if (!oferente?.razon_social || !oferente.rut) {
@@ -112,10 +117,20 @@ export class ArmarPostulacionService {
     // elige y se confirma sola, por detrás, cuando la oferta quedó lista.
     const piden =
       analisis?.estado === 'listo' && pidenExperiencia(analisis.resultado);
+    // Decisión 94 (27-10): una compra ágil sin formularios no tiene anexos
+    // que llenar; va la propuesta técnica valorizada con el formato de la
+    // casa. Felipe, con la 3497-466-COT26: "como no hay formularios no arma
+    // nada... es compra ágil, ahí usemos el formato de la casa para sacar
+    // la propuesta técnica valorizada".
+    const listo = analisis?.estado === 'listo';
+    const sinAnexos =
+      ficha?.proceso?.tipo === 'compra_agil' &&
+      listo &&
+      loQueDicenLasBases(analisis.resultado).formularios.length === 0;
     const armada: PostulacionArmada = {
       total,
-      propuesta:
-        analisis?.estado === 'listo' && vaLaPropuesta(analisis.resultado),
+      propuesta: (listo && vaLaPropuesta(analisis.resultado)) || sinAnexos,
+      ...(sinAnexos ? { anexos: false } : {}),
     };
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
@@ -161,8 +176,9 @@ export class ArmarPostulacionService {
     const conPropuesta = armada.propuesta && !vuelta.propuestaFirmada;
     const propuestasViejas = conPropuesta ? [] : vuelta.borradoresDePropuesta;
     const pasos: Array<[string, () => Promise<unknown>]> = [];
-    if (vuelta.todoFirmado) {
-      // Nada que rehacer: los borradores de lo ya firmado sobran.
+    if (vuelta.todoFirmado || armada.anexos === false) {
+      // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
+      // los borradores de lo ya firmado sobran.
       await this.adjuntos
         .borrarBorradores(companyId, oportunidadId, [
           ...vuelta.borradoresDeFormularios,

@@ -618,6 +618,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Lo está: la Ley 19.886, modificada por la Ley 21.634, y el artículo 97 de su reglamento (Decreto 661) dicen que la compra ágil es hasta 100 UTM, con al menos tres cotizaciones y, por regla general, con empresas de menor tamaño y proveedores locales. Si no eligen la cotización de menor precio, tienen que justificarlo en la orden de compra. El Observatorio de ChileCompra ya objetó una justificación que solo decía «cumple lo requerido» (Til Til, 2025), y la Directiva 35/2025 la reglamenta.
     - **En «Cómo te evalúan» de toda compra ágil** (`Criterios` en `AnalisisDeBases.tsx`, con `ficha.proceso.tipo === 'compra_agil'`): arriba, *«Por ley, gana el menor precio»*, con cómo va tu precio y lo que dice la ley. Los criterios que agregue el comprador, como el plazo de entrega, van debajo, con el título *«Lo que agrega el comprador»*. Una compra ágil sin criterios ahora sí muestra el bloque.
 
+94. **Una compra ágil sin formularios no tiene anexos: va la propuesta técnica valorizada** (27-10, en el laboratorio; Felipe, con la 3497-466-COT26: *"como no hay formularios no arma nada... es compra ágil, ahí usemos el formato de la casa para sacar la propuesta técnica valorizada"*, y *"ok hazlo"*). Motor y pantalla, sin migración.
+    - La propuesta valorizada, con el formato de la casa y el valor neto, el IVA y el total, ya se armaba: en la 3497-466-COT26 salió el 26-10. Lo que fallaba era el paso de los anexos, que en una compra ágil sin formularios no tiene qué llenar. Dejaba en rojo *«Los anexos: Los anexos: No hay formularios para llenar…»*, con el nombre repetido.
+    - **`ArmarPostulacionService.armar`**: si es una compra ágil (`proceso.tipo` en `PostulacionRepository.oportunidad`) y el análisis no trae formularios que apliquen, anota `anexos: false` en la oferta y la propuesta va siempre. `seguir` no pide los anexos y solo limpia los borradores que sobran. Una licitación sin formularios sigue con el aviso, que ahí sirve, porque el análisis puede no haberlos encontrado.
+    - **En la pantalla**, `vueltaDeLaPostulacion` deja los anexos en «no va». Y la línea roja de un paso que falla ya no repite su nombre (`sinSuNombre` en `ArmarPostulacion.tsx`).
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público
