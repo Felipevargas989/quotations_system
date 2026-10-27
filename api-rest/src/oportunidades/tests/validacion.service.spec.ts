@@ -677,6 +677,12 @@ describe('lo que lee la IA para validar', () => {
       'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan',
     );
     expect(t).toContain('Reglamento Sanitario de los Alimentos');
+    // Va con lo demás, pero nunca hacia el comprador (Felipe: "no nos vamos
+    // a autodelatar").
+    expect(t).toContain('Es un aviso para la empresa, no para el comprador');
+    expect(t).toContain(
+      'sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta',
+    );
     expect(t).toContain(
       'si la capacidad autorizada alcanza para lo que se ofrece',
     );
