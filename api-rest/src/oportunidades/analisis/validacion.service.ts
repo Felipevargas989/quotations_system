@@ -261,6 +261,9 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- Lo que viene escrito en el formulario del comprador: solo cuenta lo que escribió la empresa.',
     '- Los nombres de los archivos.',
     '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
+    // En la prueba de la 89 avisó que la vigencia y la quiebra «están en
+    // orden»: eso no es algo que hacer.
+    '- Lo que está en orden: avisa solo lo que hay que hacer o revisar.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');
