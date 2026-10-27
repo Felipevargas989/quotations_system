@@ -56,6 +56,14 @@ import { claveDeLaPostulacion, useGeneraciones } from "./useGeneraciones";
 // falta en el ZIP según las bases (un formulario que no está, un documento
 // que falta o venció): sale sin validar, y con eso la oferta todavía no
 // está lista.
+//
+// Desde la decisión 88 (27-10), abajo y aparte, «Para tu empresa»: lo que
+// la empresa tiene que hacer para quedar habilitada por ley (una
+// autorización sanitaria para los alimentos, la capacidad de lo
+// autorizado). Es un aviso interno: no cuenta para el veredicto ni va en la
+// postulación. Felipe: "no nos vamos a autodelatar... la interna me tiene
+// que avisar, oye, tienes que hacer esto, y mientras tengo que seguir
+// mandando los documentos".
 
 const GRAVE = { label: "Grave", clases: "bg-red-50 text-red-700" };
 const MENOR = { label: "Menor", clases: "bg-amber-100 text-amber-800" };
@@ -191,6 +199,7 @@ export default function ValidacionDeDocumentos({
     ...filas.filter((f) => !f.grave),
   ];
   const listo = veredicto ? LISTO_PARA_POSTULAR[veredicto] : null;
+  const paraTuEmpresa = r?.para_tu_empresa ?? [];
 
   return (
     <div className="space-y-3">
@@ -242,6 +251,22 @@ export default function ValidacionDeDocumentos({
                 <FilaPendiente key={f.clave} fila={f} />
               ))}
             </ul>
+          )}
+          {paraTuEmpresa.length > 0 && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+              <p className="text-sm font-semibold text-sky-900">
+                Para tu empresa
+              </p>
+              <p className="text-xs text-sky-800">
+                Avisos internos: no van en la postulación ni cambian si puedes
+                postular.
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-sky-900">
+                {paraTuEmpresa.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
           )}
           {r && (
             <p className="text-xs text-gray-500">

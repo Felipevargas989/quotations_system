@@ -486,6 +486,7 @@ export interface ResultadoDeValidacion {
   }>;
   otros_graves?: string[]; // decisión 85: lo grave que no es de un requisito
   otros_problemas: string[];
+  para_tu_empresa?: string[]; // decisión 88: aviso interno, no frena
 }
 
 export interface ValidacionDeDocumentos
@@ -516,9 +517,8 @@ export interface AvanceDeLicitacion {
   propuesta: "procesando" | "listo" | "error" | null;
   /** «1. Qué ofreces» (23-10); un motor de antes no lo trae. */
   oferta?: "procesando" | "listo" | "error" | null;
-  /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word con
-   *  su firmado no cuenta: desde la decisión 58 se borra al firmar) y lo
-   *  firmado. */
+  /** En «Mi postulación»: todo, lo hecho por la IA sin firma (un Word con su
+   *  firmado no cuenta: se borra al firmar, decisión 58) y lo firmado. */
   postulacion: number;
   generados: number;
   firmados: number;
