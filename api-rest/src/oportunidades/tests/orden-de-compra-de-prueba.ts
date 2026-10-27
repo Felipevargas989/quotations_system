@@ -12,6 +12,7 @@ export const FICHA_DE_LA_ORDEN = `
 <span id="lblProvenienceValue" class="texto13Azul">4352-18-LE23</span>
 <span id="lblBuyerOrganizationValue" class="texto13Azul">ADQUISICIONES Y FINANZAS</span>
 <a id="lnkBuyerSocialReasonValue" class="link-style" href="https://comprador.mercadopublico.cl/ficha/69.141.400-0" target="_blank">ILUSTRE MUNICIPALIDAD DE QUILLON</a>
+<span id="lblSocialReasonValueP" class="texto13Azul">VALLE DEL SOL QUILLON SPA</span>
 <span id="lblRutValueP" class="texto13Azul">77.701.305-K</span>
 <span id="lblAmountShow" class="cssLabelsItemData">$ 9.901.260</span>
 <span id="lblTotalAmountShow" class="cssTotalText">$ 11.782.499</span>
