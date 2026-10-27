@@ -65,9 +65,9 @@ export type DatosDelSet = {
   archivos: ArchivoDelSet[];
   formularios: FormularioDeLasBases[];
   requisitos: Array<{ que: string }>;
-  /** El checklist de documentos del análisis (decisión 37); un análisis
-   *  anterior no lo trae. */
-  documentos?: Array<{ nombre: string }>;
+  /** El checklist de documentos del análisis (decisión 37), la sección 4
+   *  «Lo que tienes que presentar»; un análisis anterior no lo trae. */
+  documentos?: DocumentoDeLaSeccion4[];
   carpeta: DocumentoDeEmpresa[];
   /** Cuándo empezó cada trabajo de la IA, por su id. */
   inicioDe: ReadonlyMap<number, string>;
@@ -108,6 +108,16 @@ export type PiezaDelSet = {
 };
 
 export type ElSet = { piezas: PiezaDelSet[]; faltan: string[] };
+
+/** Un documento de la sección 4 del análisis, «Lo que tienes que
+ *  presentar» (decisión 37). */
+export type DocumentoDeLaSeccion4 = {
+  nombre: string;
+  parte?: string;
+  cuando?: string;
+  condicion?: string;
+  carpeta?: string;
+};
 
 export const normalizar = (t: string): string =>
   t
@@ -189,6 +199,9 @@ const PATRONES: Readonly<Record<string, RegExp>> = {
   no_quiebra: /quiebra|procedimiento concursal|boletin concursal/,
   estatutos:
     /estatutos?\b|escritura de constitucion|constitucion de (la )?sociedad/,
+  tgr: /tesoreria|\btgr\b|deuda fiscal|certificado de deuda/,
+  dicom:
+    /dicom|equifax|informe comercial|antecedentes comerciales|boletin comercial/,
 };
 
 /** El tipo de «Mi empresa» de lo que respalda una patente que no es
@@ -224,6 +237,69 @@ const GENERALES: ReadonlyArray<[tipo: string, patron: RegExp]> = [
   'estatutos',
   'vigencia',
 ].map(conSuPatron);
+
+/** Lo que las bases piden de «Mi empresa» y dónde va en el ZIP. */
+type PedidoDeLaCarpeta = { tipo: string; carpeta: Carpeta; condicion: string };
+
+const CARPETA_DE_LA_PARTE: Readonly<Record<string, Carpeta>> = {
+  administrativa: 'administrativa',
+  tecnica: 'tecnica',
+  economica: 'economica',
+  otra: 'otros',
+};
+
+/** ¿Las bases fijan un plazo desde la emisión («no mayor a 30 días»,
+ *  «emitido hace menos de quince (15) días»)? Entonces la vigencia la fijan
+ *  ellas y no la fecha de vencimiento que anotó la empresa (decisión 90). */
+export const fijaUnPlazo = (condicion: string | undefined): boolean =>
+  /\b(\d+|quince|treinta|sesenta|noventa)\)?\s*(\(\d+\)\s*)?(dias?|mes(es)?)\b/.test(
+    normalizar(condicion ?? ''),
+  );
+
+/** El tipo de «Mi empresa» de un documento de la sección 4; lo que el
+ *  análisis dejó en «otro», por su nombre. Los formularios y los respaldos
+ *  de experiencia van por su lado. */
+const tipoDe = (x: DocumentoDeLaSeccion4): string | null => {
+  const carpeta = x.carpeta ?? 'otro';
+  if (carpeta === 'formulario' || carpeta === 'respaldo_experiencia') {
+    return null;
+  }
+  if (carpeta !== 'otro') return carpeta;
+  const n = normalizar(x.nombre);
+  return Object.entries(PATRONES).find(([, p]) => p.test(n))?.[0] ?? null;
+};
+
+/** Lo que las bases piden de «Mi empresa» con la oferta. Desde la decisión
+ *  90 (27-10) sale de la sección 4 del análisis, en la parte que dice y con
+ *  la vigencia que exigen. Felipe: "el zip se debe armar en función de lo
+ *  que piden las bases... con el análisis de las bases en la sección 4, lo
+ *  que tienes que presentar". Un análisis de antes, sin la sección 4, sigue
+ *  con los nombres de los requisitos, en la administrativa. */
+const loQuePidenDeLaCarpeta = (
+  d: DatosDelSet,
+  loPiden: (patron: RegExp) => boolean,
+): PedidoDeLaCarpeta[] => {
+  const seccion4 = (d.documentos ?? []).filter((x) => x.cuando);
+  if (seccion4.length === 0) {
+    return LO_QUE_PIDEN.filter(([, patron]) => loPiden(patron)).map(
+      ([tipo]) => ({ tipo, carpeta: 'administrativa', condicion: '' }),
+    );
+  }
+  const pedidos: PedidoDeLaCarpeta[] = [];
+  for (const x of seccion4) {
+    if (x.cuando !== 'con_la_oferta') continue;
+    const tipo = tipoDe(x);
+    // Los respaldos de la patente van con ella (decisión 61).
+    if (!tipo || tipo === TIPO_RESPALDO_PATENTE) continue;
+    if (pedidos.some((p) => p.tipo === tipo)) continue;
+    pedidos.push({
+      tipo,
+      carpeta: CARPETA_DE_LA_PARTE[x.parte ?? ''] ?? 'administrativa',
+      condicion: x.condicion ?? '',
+    });
+  }
+  return pedidos;
+};
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
 const EXPERIENCIA = /experiencia/;
@@ -387,14 +463,13 @@ export function armarElSet(d: DatosDelSet): ElSet {
 
   const pedidos = d.requisitos.map((r) => normalizar(r.que));
   const loPiden = (patron: RegExp) => pedidos.some((p) => patron.test(p));
-  /** Ya va en la administrativa porque las bases lo piden ahí. */
-  const enLaAdministrativa = (tipo: string, patron: RegExp) =>
-    LO_QUE_PIDEN.some(([t]) => t === tipo) && loPiden(patron);
-  /** Un documento general que no va en la administrativa: «4. Otros». */
+  const deLaCarpeta = loQuePidenDeLaCarpeta(d, loPiden);
+  /** Ya va en otra parte del ZIP porque las bases lo piden. */
+  const yaLoPiden = (tipo: string) => deLaCarpeta.some((x) => x.tipo === tipo);
+  /** Un documento general que no va en otra parte: «4. Otros». */
   const generalNoPedido = (nombre: string) =>
     GENERALES.some(
-      ([tipo, patron]) =>
-        patron.test(normalizar(nombre)) && !enLaAdministrativa(tipo, patron),
+      ([tipo, patron]) => patron.test(normalizar(nombre)) && !yaLoPiden(tipo),
     );
 
   // Lo subido a mano: todo (firmado, si se firmó aquí), en la carpeta de su
@@ -449,9 +524,12 @@ export function armarElSet(d: DatosDelSet): ElSet {
   }
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
-  for (const [tipo, patron] of LO_QUE_PIDEN) {
-    if (!loPiden(patron) || enUnFormulario(patron)) continue;
-    if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
+  for (const { tipo, carpeta, condicion } of deLaCarpeta) {
+    const patron = PATRONES[tipo];
+    if (patron && enUnFormulario(patron)) continue;
+    if (patron && subidos.some((s) => patron.test(normalizar(s.nombre)))) {
+      continue;
+    }
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
     if (!doc) {
@@ -460,7 +538,11 @@ export function armarElSet(d: DatosDelSet): ElSet {
       );
       continue;
     }
-    const vencido = Boolean(doc.vence && doc.vence < d.corte);
+    // Si las bases fijan un plazo desde la emisión, manda ese plazo y no la
+    // fecha que anotó la empresa: lo revisa «Validar todo» con la fecha del
+    // documento (decisión 90).
+    const vencido =
+      !fijaUnPlazo(condicion) && Boolean(doc.vence && doc.vence < d.corte);
     if (vencido) {
       faltan.push(
         `«${nombre}» venció el ${fechaCorta(doc.vence as string)}: súbelo renovado en «Mi empresa».`,
@@ -470,7 +552,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
       nombre: doc.nombre,
       ruta: doc.ruta,
       bytes: doc.bytes,
-      carpetas: ['administrativa'],
+      carpetas: [carpeta],
       que_es: 'documento',
       aviso: vencido ? `vencido el ${fechaCorta(doc.vence as string)}` : null,
     });
@@ -487,7 +569,7 @@ export function armarElSet(d: DatosDelSet): ElSet {
   ];
   const sinSubir: string[] = [];
   for (const [tipo, patron] of GENERALES) {
-    if (enLaAdministrativa(tipo, patron) || enUnFormulario(patron)) continue;
+    if (yaLoPiden(tipo) || enUnFormulario(patron)) continue;
     if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
     const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));

@@ -76,6 +76,16 @@ const SOLO_SI_UTP = "Solo si postulas como Unión Temporal de Proveedores (UTP)"
  *  documentos a entregar, no es necesario"). */
 const ES_EL_REGISTRO = /registro (oficial )?de proveedores|chile ?proveedores/;
 
+/** ¿Las bases fijan un plazo desde la emisión («no mayor a 30 días»,
+ *  «emitido hace menos de quince (15) días»)? Entonces la vigencia la fijan
+ *  ellas y no la fecha de vencimiento que anotó la empresa (decisión 90;
+ *  Felipe: "los documentos vencen en función de lo que dicen las bases").
+ *  Lo mismo que `fijaUnPlazo` del motor. */
+export const fijaUnPlazo = (condicion: string | undefined): boolean =>
+  /\b(\d+|quince|treinta|sesenta|noventa)\)?\s*(\(\d+\)\s*)?(dias?|mes(es)?)\b/.test(
+    normalizar(condicion ?? ""),
+  );
+
 const carpetaPorElNombre = (nombre: string): string =>
   POR_EL_NOMBRE.find(([, patron]) => patron.test(normalizar(nombre)))?.[0] ??
   "otro";
@@ -267,6 +277,14 @@ export function checklistDeDocumentos(d: {
       }
     } else if (tipo !== "otro") {
       const doc = masNuevo(d.carpeta.filter((x) => x.tipo === tipo));
+      // Si las bases fijan un plazo, manda ese plazo: lo revisa «Validar
+      // todo» con la fecha de emisión del documento (decisión 90).
+      if (doc && fijaUnPlazo(p.condicion)) {
+        return {
+          estado: "en_tu_carpeta",
+          detalle: `${doc.nombre} · las bases piden: ${p.condicion}`,
+        };
+      }
       if (doc) {
         return doc.vence && doc.vence < d.corte
           ? {
