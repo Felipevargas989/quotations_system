@@ -9,6 +9,7 @@ import {
   enOrden,
   notasDeLaPostulacion,
   numeroDelFormulario,
+  pendientesPorDocumento,
 } from "./notasDeLaPostulacion";
 
 // «TUS DOCUMENTOS» (decisión 79 del doc 17, 26-10): lo que falta o hay que
@@ -258,6 +259,36 @@ describe("las notas de cada documento", () => {
     expect(otros).toEqual([
       "El certificado F30 vence el 31-10-2026, antes del cierre.",
       "Línea N°2 dice «No aplica».",
+    ]);
+  });
+
+  it("decisión 84: «Validar todo» lista cada documento con algo pendiente, en orden", () => {
+    const lista = pendientesPorDocumento([N5, N4, N1, N3], porDocumento);
+    // El N°1 firmado y sin observaciones no aparece.
+    expect(lista.map((p) => p.adjunto.id)).toEqual([201, 216, 217]);
+    expect(lista[1].aviso).toBe(
+      "Cambió después de la última validación: vuelve a validar.",
+    );
+    expect(lista[2].notas[lista[2].notas.length - 1]).toEqual({
+      texto: "Falta la firma.",
+      tono: "completar",
+    });
+  });
+
+  it("decisión 84: un Word sin nada que decir igual dice que falta la firma", () => {
+    const plazo = archivo(
+      229,
+      "Plazo de entrega y ejecución - anexo técnico.docx",
+      "subido",
+      "2026-10-26T22:45:38Z",
+    );
+    const { porDocumento: notas } = notasDeLaPostulacion([plazo], null, null);
+    expect(pendientesPorDocumento([plazo], notas)).toEqual([
+      {
+        adjunto: plazo,
+        notas: [{ texto: "Falta la firma.", tono: "completar" }],
+        aviso: null,
+      },
     ]);
   });
 });

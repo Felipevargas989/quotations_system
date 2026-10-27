@@ -18,10 +18,10 @@ import AdjuntosDeLaOportunidad from "./AdjuntosDeLaOportunidad";
 import { sinFirmarDeLaUltimaVuelta, sinLosWordYaFirmados } from "./firmarTodos";
 import {
   cuantosFirmados,
-  type DetalleDelDocumento,
   enOrden,
   type EstadoDelDocumento,
   notasDeLaPostulacion,
+  pendientesPorDocumento,
 } from "./notasDeLaPostulacion";
 import { sePuedeFirmar, TEXTOS_DE_GENERACION } from "./oportunidades.utils";
 import TituloDeBloque from "./TituloDeBloque";
@@ -51,6 +51,9 @@ import {
 // completar... si es que hubiese algo que revisar". Cada formulario con su
 // estado (firmado, por completar, por firmar) y, debajo, lo que dijeron la
 // IA al llenarlo, la firma y la última validación (notasDeLaPostulacion.ts).
+// Desde la decisión 84 (26-10, noche) eso ya no va debajo: va todo en el
+// paso 3, con «Validar todo». Felipe, con el jugo del N°4 bajo el
+// formulario: "a mí se me pasó completamente". Aquí queda el estado.
 
 // La pantalla se baja recién al abrir el primer documento.
 const EditorDeWord = lazy(() => import("./EditorDeWord"));
@@ -71,35 +74,6 @@ const ESTADOS: Record<
   por_firmar: { label: "por firmar", clases: "bg-sky-100 text-sky-800" },
   subido: { label: "subido", clases: "bg-gray-100 text-gray-600" },
 };
-
-function DetalleDelArchivo({
-  detalle,
-}: {
-  readonly detalle: DetalleDelDocumento | undefined;
-}) {
-  if (!detalle || (detalle.notas.length === 0 && !detalle.aviso)) return null;
-  return (
-    <div className="mt-0.5 space-y-0.5">
-      {detalle.notas.length > 0 && (
-        <ul className="list-disc pl-4 text-xs space-y-0.5">
-          {detalle.notas.map((n) => (
-            <li
-              key={n.texto}
-              className={
-                n.tono === "completar" ? "text-amber-800" : "text-gray-600"
-              }
-            >
-              {n.texto}
-            </li>
-          ))}
-        </ul>
-      )}
-      {detalle.aviso && (
-        <p className="text-xs italic text-gray-500">{detalle.aviso}</p>
-      )}
-    </div>
-  );
-}
 
 /** Solo lo que no se ve en las filas: firmando, o por qué no resultó. */
 function EstadoDeLaFirma({
@@ -173,6 +147,8 @@ export default function MiPostulacion({
     validacion,
   );
   const { firmados, total } = cuantosFirmados(aLaVista);
+  const hayPendientes =
+    pendientesPorDocumento(aLaVista, porDocumento).length > 0;
   const sinPropuesta =
     vueltaDeLaPostulacion(oferta, generaciones)?.propuesta.estado === "no_va";
 
@@ -216,14 +192,14 @@ export default function MiPostulacion({
         titulo={<TituloDeBloque numero={2}>Tus documentos</TituloDeBloque>}
         descripcion={
           total === 0
-            ? "Lo que vas a presentar: los anexos que llena la IA al armar la postulación y lo que subas tú. Bajo cada uno, lo que falta o hay que revisar."
+            ? "Lo que vas a presentar: los anexos que llena la IA al armar la postulación y lo que subas tú. Lo que falta o hay que revisar de cada uno va en el paso 3."
             : `${
                 firmados === total
                   ? total === 1
                     ? "Firmado."
                     : `Los ${total} firmados.`
                   : `${firmados} de ${total} firmados.`
-              }${sinPropuesta ? " La propuesta técnica no va aparte: el detalle va en el anexo de calidad de la oferta." : ""}`
+              }${hayPendientes ? " Lo que falta o hay que revisar de cada uno está en el paso 3, «Validar todo»." : ""}${sinPropuesta ? " La propuesta técnica no va aparte: el detalle va en el anexo de calidad de la oferta." : ""}`
         }
         filtrar={(todosLosArchivos) =>
           enOrden(sinLosWordYaFirmados(todosLosArchivos))
@@ -231,9 +207,6 @@ export default function MiPostulacion({
         estadoDeFila={(a) =>
           ESTADOS[porDocumento.get(a.id)?.estado ?? "subido"]
         }
-        detalleDeFila={(a) => (
-          <DetalleDelArchivo detalle={porDocumento.get(a.id)} />
-        )}
         abrirAqui={(a) =>
           !congelada && sePuedeFirmar(a) ? () => setEditando(a) : undefined
         }
