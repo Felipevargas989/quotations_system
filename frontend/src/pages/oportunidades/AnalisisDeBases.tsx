@@ -43,6 +43,7 @@ import {
 } from "./relacionDeLasBases";
 import TituloDeBloque from "./TituloDeBloque";
 import { pedidoDeLosAnexos, precioDeLosAnexos } from "./postuladasDeAntes";
+import { criteriosDeEvaluacion, esDeLaLey } from "./criteriosDeEvaluacion";
 import { useChecklistDeDocumentos } from "./useChecklistDeDocumentos";
 import { useGeneraciones } from "./useGeneraciones";
 import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
@@ -305,13 +306,15 @@ function Relacionado({
     integridad: selloDeLaIntegridad(filas),
   };
   const { dejanFuera } = alertasDelAnalisis(r);
-  // Decisión 93: en una compra ágil, por ley gana el menor precio.
+  // Decisión 95: los mismos criterios que la validación y la comparación;
+  // en una compra ágil sin criterios, el de la ley.
   const compraAgil = ficha.proceso.tipo === "compra_agil";
+  const criterios = criteriosDeEvaluacion(r.criterios, ficha.proceso.tipo);
 
   return (
     <>
-      {(r.criterios.length > 0 || compraAgil) && (
-        <Criterios criterios={r.criterios} vas={vas} compraAgil={compraAgil} />
+      {criterios.length > 0 && (
+        <Criterios criterios={criterios} vas={vas} compraAgil={compraAgil} />
       )}
 
       {dejanFuera.length > 0 && (
@@ -380,17 +383,18 @@ function Sellito({ sello }: { readonly sello: Sello }) {
   );
 }
 
-/** En una compra ágil, por ley gana el menor precio (decisión 93, 27-10).
- *  Felipe: "me da la sensación de que quizás eso está normado por ley, que
- *  el precio más bajo". Lo está: Ley 19.886 modificada por la Ley 21.634 y
- *  artículo 97 del reglamento (Decreto 661). */
-const LO_QUE_DICE_LA_LEY =
-  "Si eligen otra cotización, tienen que justificarlo en la orden de compra. Por regla general compran a empresas de menor tamaño y proveedores locales. Lo fijan la Ley 19.886, modificada por la Ley 21.634, y el artículo 97 de su reglamento.";
+/** De dónde salen los criterios de una compra ágil (decisión 93, ajustada
+ *  por la 95): Felipe, "me da la sensación de que quizás eso está normado
+ *  por ley, que el precio más bajo". Lo está, y el comprador puede poner
+ *  otros en la solicitud (Directiva 35 de ChileCompra). */
+const DE_LA_LEY =
+  "La solicitud no trae criterios: por ley gana la cotización más económica que cumpla lo técnico.";
+const DEL_COMPRADOR =
+  "Son los criterios de la solicitud. Sin ellos, por ley ganaría la más económica que cumpla lo técnico.";
 
 /** Cómo te evalúan: una barra por criterio, del más pesado al más liviano,
  *  con cómo vas en cada uno, y el detalle de cada uno plegado. En una
- *  compra ágil, arriba, la regla de la ley; los criterios que agregue el
- *  comprador van debajo. */
+ *  compra ágil, una línea dice si son los de la ley o los del comprador. */
 function Criterios({
   criterios,
   vas,
@@ -401,26 +405,14 @@ function Criterios({
   readonly compraAgil?: boolean;
 }) {
   const ordenados = criteriosPorPeso(criterios);
-  const delPrecio = compraAgil ? comoVasEn("Menor precio", vas) : null;
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-2">
       <h2 className="text-sm font-semibold text-gray-900">
         <TituloDeBloque numero={1}>Cómo te evalúan</TituloDeBloque>
       </h2>
       {compraAgil && (
-        <div className="space-y-0.5">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="font-semibold text-gray-900">
-              Por ley, gana el menor precio
-            </span>
-            {delPrecio && <Sellito sello={delPrecio} />}
-          </p>
-          <p className="text-xs text-gray-600">{LO_QUE_DICE_LA_LEY}</p>
-        </div>
-      )}
-      {compraAgil && ordenados.length > 0 && (
-        <p className="pt-1 text-xs font-semibold text-gray-500">
-          Lo que agrega el comprador
+        <p className="text-xs text-gray-600">
+          {criterios.some(esDeLaLey) ? DE_LA_LEY : DEL_COMPRADOR}
         </p>
       )}
       <ul className="space-y-1.5">

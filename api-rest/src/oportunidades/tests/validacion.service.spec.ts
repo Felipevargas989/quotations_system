@@ -346,6 +346,34 @@ describe('ValidacionService — pedir', () => {
       expect(contexto).not.toHaveProperty('de_mi_empresa');
     }));
 
+  it('decisión 95: en una compra ágil sin criterios, la validación evalúa con el de la ley', () =>
+    conLlave(async () => {
+      const { analisis, oportunidades, servicio } = armar();
+      const ejecutar = jest
+        .spyOn(servicio, 'ejecutar')
+        .mockResolvedValue(undefined);
+      analisis.ultimo.mockResolvedValue({
+        id: 5,
+        estado: 'listo',
+        resultado: { requisitos: REQUISITOS, criterios: [] },
+      });
+      oportunidades.ficha.mockResolvedValue({
+        id: 3219,
+        codigo: '1346350-37-COT26',
+        proceso: {
+          nombre: 'Arriendo de catamarán',
+          organismo: 'I MUNICIPALIDAD DE QUILLON',
+          fecha_cierre: '2026-10-23T16:00:00.000Z',
+          tipo: 'compra_agil',
+        },
+      });
+      await servicio.pedir(1, CUENTA, 3219);
+      const [, , , , contexto] = ejecutar.mock.calls[0];
+      expect(contexto.criterios).toEqual([
+        expect.objectContaining({ nombre: 'Menor precio', peso: '100%' }),
+      ]);
+    }));
+
   it('lee también lo de «Mi empresa» y los respaldos, cada uno con su carpeta (decisión 83)', () =>
     conLlave(async () => {
       const { elSet, repo, servicio } = armar();

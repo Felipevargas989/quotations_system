@@ -476,7 +476,15 @@ function armar() {
     aprendizajes as unknown as AprendizajesRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
-  return { repo, adjuntos, analisis, set, aprendizajes, servicio };
+  return {
+    repo,
+    adjuntos,
+    analisis,
+    set,
+    aprendizajes,
+    oportunidades,
+    servicio,
+  };
 }
 
 const antes = process.env.ANTHROPIC_API_KEY;
@@ -571,6 +579,37 @@ describe('La comparación de ofertas', () => {
     for (const c of [sinAnalisis, sinCriterios, sinCompetencia, vacia]) {
       expect(c.repo.crearGeneracion).not.toHaveBeenCalled();
     }
+  });
+
+  it('decisión 95: una compra ágil sin criterios se compara con el de la ley, el menor precio', async () => {
+    const { analisis, oportunidades, repo, servicio } = armar();
+    const ejecutar = jest
+      .spyOn(servicio, 'ejecutar')
+      .mockResolvedValue(undefined);
+    // Así venía el catamarán, 1346350-37-COT26: sin criterios.
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: { criterios: [] },
+    });
+    oportunidades.ficha.mockResolvedValue({
+      id: 3219,
+      codigo: '1346350-37-COT26',
+      proceso: {
+        nombre: 'Arriendo de catamarán',
+        organismo: 'I MUNICIPALIDAD DE QUILLON',
+        monto: 7_150_000,
+        tipo: 'compra_agil',
+      },
+    });
+
+    await servicio.pedir(1, 'cuenta-1', 3219);
+
+    expect(repo.crearGeneracion).toHaveBeenCalled();
+    const [, , , contexto] = ejecutar.mock.calls[0];
+    expect(contexto.instrucciones).toContain('Menor precio');
+    expect(contexto.instrucciones).toContain(
+      'gana la cotización más económica que cumpla los requisitos técnicos mínimos',
+    );
   });
 
   it('al terminar guarda lo de la IA con los puntajes del motor y su costo; si falla, lo deja escrito', async () => {

@@ -143,6 +143,9 @@ export type ContextoDeBases = {
   organismo: string | null;
   comuna: string | null;
   perfil: string | null;
+  /** «licitacion» o «compra_agil» (decisión 95). No entra a las
+   *  instrucciones: la caché compartida sigue igual. */
+  tipo?: string;
 };
 
 // EL PREFIJO COMPARTIDO (decisión 67, 22-10). Felipe: "¿pero la primera

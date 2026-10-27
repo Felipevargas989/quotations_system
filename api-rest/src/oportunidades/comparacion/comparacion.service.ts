@@ -21,6 +21,7 @@ import {
   MODELO_OPUS,
   type NoLeido,
 } from '../analisis/comun';
+import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
 import { paraLaComparacion } from '../aprendizajes/aprendizajes';
 import { AprendizajesRepository } from '../aprendizajes/aprendizajes.repository';
 import {
@@ -145,9 +146,12 @@ export class ComparacionService {
         'Primero analiza las bases: la comparación usa sus criterios de evaluación.',
       );
     }
-    const criterios = Array.isArray(resultado.criterios)
-      ? resultado.criterios
-      : [];
+    // Los mismos criterios del análisis; en una compra ágil sin criterios,
+    // el de la ley (decisión 95).
+    const criterios = criteriosDeEvaluacion(
+      resultado.criterios,
+      ficha.proceso.tipo,
+    );
     if (criterios.length === 0) {
       throw new BadRequestException(
         'El análisis de las bases no trae criterios de evaluación: vuelve a analizar las bases.',
