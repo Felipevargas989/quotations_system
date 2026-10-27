@@ -304,6 +304,33 @@ describe("Lo de UTP (Felipe, 19-10: «en mi caso no es necesario que lo arme»)"
   });
 });
 
+describe("La deuda fiscal y el informe comercial (decisión 89)", () => {
+  it("se cruzan con su tipo de la carpeta, y por el nombre en un análisis que los dejó en «otro»", () => {
+    const filas = checklistDeDocumentos({
+      r: {
+        requisitos: [],
+        formularios: [],
+        documentos: [
+          pedido("Certificado de deuda de la Tesorería", "tgr", {
+            cuando: "al_adjudicar",
+          }),
+          pedido("Informe DICOM", "otro", { cuando: "al_adjudicar" }),
+        ],
+      },
+      carpeta: [
+        enLaCarpeta(1, "tgr", "Deuda TGR octubre.pdf", null),
+        enLaCarpeta(2, "dicom", "Equifax octubre.pdf", null),
+      ],
+      postulacion: [],
+      corte: "2026-10-19",
+    });
+    expect(filas.map((f) => [f.nombre, f.estado])).toEqual([
+      ["Certificado de deuda de la Tesorería", "en_tu_carpeta"],
+      ["Informe DICOM", "en_tu_carpeta"],
+    ]);
+  });
+});
+
 describe("El Registro de Proveedores (Felipe, 19-10: «sácalo de los documentos a entregar»)", () => {
   it("no va en la lista, ni del análisis nuevo ni de uno anterior; otro registro sí", () => {
     const filas = checklistDeDocumentos({

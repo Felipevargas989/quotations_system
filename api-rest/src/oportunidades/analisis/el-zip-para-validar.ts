@@ -19,8 +19,8 @@ export type ArchivoParaValidar = {
   que_es: PiezaDelSet['que_es'];
   /** Cómo lo ve la IA: la carpeta y el nombre. */
   titulo: string;
-  /** Lo de «Mi empresa» que no va en el ZIP pero se lee para ver si la
-   *  empresa está habilitada (decisión 88). */
+  /** Lo de «Mi empresa» que no va en el ZIP pero se lee para revisar toda
+   *  la documentación de la empresa (decisiones 88 y 89). */
   fuera_del_zip?: true;
 };
 
@@ -74,21 +74,35 @@ export const loQueVaEnElZip = (piezas: PiezaDelSet[]): ArchivoParaValidar[] => {
   return archivos;
 };
 
-// LO QUE HABILITA A LA EMPRESA (decisión 88 del doc 17, 27-10). Felipe:
-// "el validador tiene que revisar todo... tiene que ser nuestro contralorito
-// interno"; sus resoluciones sanitarias no le permiten un restaurante y la
-// validación no lo vio, porque las bases no las piden y no iban en el ZIP.
-// Ahora la IA las lee igual, para ver si la empresa puede hacer por ley lo
-// que ofrece.
+// LO DE «MI EMPRESA» QUE NO VA EN EL ZIP (decisiones 88 y 89 del doc 17,
+// 27-10). Felipe: "el validador tiene que revisar todo... tiene que ser
+// nuestro contralorito interno"; sus resoluciones sanitarias no le permiten
+// un restaurante y la validación no lo vio, porque las bases no las piden y
+// no iban en el ZIP (88). Y después: "que revise toda la documentación, la
+// que genera el sistema y la que se obtiene de otras fuentes... resoluciones,
+// F30 vigentes, vigencia de la empresa, TGR, DICOM, certificado de quiebra"
+// (89). La IA lee toda la carpeta, vaya o no en el ZIP; no se sube.
 
-/** Los tipos de «Mi empresa» que dicen qué puede hacer la empresa por ley:
- *  de la patente y del inicio de actividades vale el más nuevo; de las
- *  resoluciones y de los respaldos de la patente, todos. */
-const QUE_HABILITAN: Readonly<Record<string, 'todos' | 'el_mas_nuevo'>> = {
-  resolucion_sanitaria: 'todos',
+/** De cada tipo de «Mi empresa», cuáles se leen: de los certificados que se
+ *  renuevan, el más nuevo; de las resoluciones, los respaldos de la patente,
+ *  los estatutos y lo demás, todos. Los respaldos de experiencia que no van
+ *  en el ZIP no se leen: son del anexo de experiencia. */
+const CUALES_SE_LEEN: Readonly<Record<string, 'todos' | 'el_mas_nuevo'>> = {
   patente: 'el_mas_nuevo',
-  respaldo_patente: 'todos',
   inicio_actividades: 'el_mas_nuevo',
+  programa_integridad: 'el_mas_nuevo',
+  f30: 'el_mas_nuevo',
+  f30_1: 'el_mas_nuevo',
+  vigencia: 'el_mas_nuevo',
+  dj_trabajadores: 'el_mas_nuevo',
+  erut: 'el_mas_nuevo',
+  no_quiebra: 'el_mas_nuevo',
+  tgr: 'el_mas_nuevo',
+  dicom: 'el_mas_nuevo',
+  resolucion_sanitaria: 'todos',
+  respaldo_patente: 'todos',
+  estatutos: 'todos',
+  otro: 'todos',
 };
 
 type DocumentoDeLaCarpeta = {
@@ -99,8 +113,8 @@ type DocumentoDeLaCarpeta = {
   creado_en?: string;
 };
 
-/** Lo de «Mi empresa» que habilita a la empresa y no va en el ZIP. */
-export const loQueLaHabilita = (
+/** Lo de «Mi empresa» que no va en el ZIP. */
+export const loDeMiEmpresa = (
   carpeta: DocumentoDeLaCarpeta[],
   enElZip: ArchivoParaValidar[],
 ): ArchivoParaValidar[] => {
@@ -109,7 +123,7 @@ export const loQueLaHabilita = (
   return [...carpeta]
     .sort((a, b) => (b.creado_en ?? '').localeCompare(a.creado_en ?? ''))
     .filter((d) => {
-      const cuales = QUE_HABILITAN[d.tipo];
+      const cuales = CUALES_SE_LEEN[d.tipo];
       // Sin archivo no hay nada que leer.
       if (!cuales || !d.ruta) return false;
       if (cuales === 'el_mas_nuevo') {
@@ -136,8 +150,12 @@ export const loQueCabe = (
 ): { leibles: ArchivoParaValidar[]; noLeidos: NoLeido[] } => {
   const fuera = new Map<ArchivoParaValidar, string>();
   let peso = 0;
+  // Lo de «Mi empresa» que no va en el ZIP, al final: primero lo que se
+  // sube (decisión 89).
+  const prioridad = (a: ArchivoParaValidar) =>
+    a.fuera_del_zip ? 3 : PRIORIDAD[a.que_es];
   const porPrioridad = [...archivos].sort(
-    (a, b) => PRIORIDAD[a.que_es] - PRIORIDAD[b.que_es],
+    (a, b) => prioridad(a) - prioridad(b),
   );
   for (const a of porPrioridad) {
     if (!esLeible(a.nombre)) {

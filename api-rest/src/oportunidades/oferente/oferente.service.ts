@@ -59,6 +59,10 @@ export const TIPOS_DE_DOCUMENTO = [
   // Lo general para contratar (decisión 38): va en «4. Otros» del set.
   'erut',
   'no_quiebra',
+  // Lo que se pide para contratar o pagar y revisa «Validar todo»
+  // (decisión 89): la deuda fiscal y el informe comercial.
+  'tgr',
+  'dicom',
   'estatutos',
   'respaldo_experiencia',
   // El contrato de arriendo o comodato de una patente de otro, y lo que lo

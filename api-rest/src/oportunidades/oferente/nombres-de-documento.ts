@@ -14,6 +14,8 @@ export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
   dj_trabajadores: 'Declaración jurada de trabajadores',
   erut: 'e-RUT (SII)',
   no_quiebra: 'Certificado de no quiebra',
+  tgr: 'Certificado de deuda fiscal (TGR)',
+  dicom: 'Informe comercial (DICOM)',
   estatutos: 'Escritura de constitución y estatutos',
   respaldo_patente: 'Respaldo de la patente (contrato, comodato o dictamen)',
   otro: 'Otro',

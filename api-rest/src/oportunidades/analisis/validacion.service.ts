@@ -39,8 +39,8 @@ import {
 } from './comun';
 import {
   type ArchivoParaValidar,
+  loDeMiEmpresa,
   loQueCabe,
-  loQueLaHabilita,
   loQueVaEnElZip,
 } from './el-zip-para-validar';
 
@@ -100,6 +100,20 @@ type Requisito = {
 };
 type Criterio = { nombre: string; peso: string; como_se_evalua: string };
 
+/** Un documento que piden las bases (decisión 89: cuándo y su vigencia). */
+type DocumentoPedido = {
+  nombre: string;
+  cuando: string;
+  obligatorio: boolean;
+  condicion: string;
+};
+
+const CUANDO: Readonly<Record<string, string>> = {
+  con_la_oferta: 'con la oferta',
+  al_adjudicar: 'al adjudicar o contratar',
+  al_pagar: 'para el pago',
+};
+
 export type ContextoDeValidacion = {
   codigo: string;
   nombre: string;
@@ -112,9 +126,11 @@ export type ContextoDeValidacion = {
   /** Lo que va en el ZIP, con su carpeta y si la IA lo puede leer
    *  (decisión 83). */
   zip?: Array<{ donde: string; nombre: string; leido: boolean }>;
-  /** Lo de «Mi empresa» que habilita a la empresa y no va en el ZIP
-   *  (decisión 88). */
-  habilitan?: Array<{ nombre: string; leido: boolean }>;
+  /** Lo de «Mi empresa» que no va en el ZIP (decisiones 88 y 89). */
+  de_mi_empresa?: Array<{ nombre: string; leido: boolean }>;
+  /** Los documentos que piden las bases, con cuándo y la vigencia que
+   *  exigen (decisión 89). */
+  documentos?: DocumentoPedido[];
   requisitos: Requisito[];
   criterios: Criterio[];
   /** La memoria de la licitación (decisión 68): lo aclarado manda. */
@@ -145,6 +161,16 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         `${i + 1}. [${r.tipo}${r.obligatorio ? ', obligatorio' : ', opcional'}] ${r.que} (${r.documento}${r.pagina > 0 ? `, pág. ${r.pagina}` : ''})`,
     ),
     '',
+    ...((c.documentos ?? []).length > 0
+      ? [
+          'LOS DOCUMENTOS QUE PIDEN LAS BASES, con cuándo y la vigencia o antigüedad que exigen:',
+          ...(c.documentos ?? []).map(
+            (d) =>
+              `- [${CUANDO[d.cuando] ?? d.cuando}${d.obligatorio ? ', obligatorio' : ''}] ${d.nombre}${d.condicion ? `: ${d.condicion}` : ''}`,
+          ),
+          '',
+        ]
+      : []),
     'CÓMO SE EVALÚA:',
     ...(c.criterios.length > 0
       ? c.criterios.map(
@@ -174,9 +200,9 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         )
       : ['(todavía nada)']),
     '',
-    'LO QUE HABILITA A LA EMPRESA, de «Mi empresa» (no va en el ZIP; te lo paso entero para que revises si puede hacer lo que ofrece):',
-    ...((c.habilitan ?? []).length > 0
-      ? (c.habilitan ?? []).map(
+    'LO DE «MI EMPRESA» QUE NO VA EN EL ZIP (te lo paso entero para revisar toda la documentación de la empresa; no se sube):',
+    ...((c.de_mi_empresa ?? []).length > 0
+      ? (c.de_mi_empresa ?? []).map(
           (a) =>
             `- ${a.nombre}${a.leido ? '' : ' (no se pudo leer: revísalo solo por su nombre)'}`,
         )
@@ -209,11 +235,18 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // precio neto por ítem vacía, y la validación de ese día dijo «cumple».
     'LOS PRECIOS, SIEMPRE: en la oferta económica revisa uno por uno los precios que pide el formulario: cada ítem o línea con su precio (neto, unitario o total, según sus columnas), el neto, el IVA y el total. Una celda de precio en blanco, un precio que no está en neto cuando el formulario o las bases lo piden en neto, sumas que no cuadran, decimales cuando los piden sin decimales o un total sobre el presupuesto son "grave": la oferta económica no se corrige después del cierre. Dilo en el requisito de la oferta económica, nombrando la línea o la columna; si el checklist no lo trae, va en "otros_graves". Las líneas a las que la empresa no postula no llevan precio.',
     // Decisión 88 (27-10). Felipe: "tiene que ser nuestro contralorito
-    // interno... algo que no me ha detectado el validador es que mis
-    // resoluciones sanitarias no me permiten tener un restaurante". Y va
-    // con lo demás, pero nunca hacia el comprador: "no nos vamos a
-    // autodelatar... no quería que se informara al cliente".
-    'LA EMPRESA HABILITADA, SIEMPRE, aunque las bases no lo pidan: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, revisa que la empresa pueda hacer por ley cada servicio que ofrece en sus documentos. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira también a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes). Lo que falta o no alcanza es "grave", en el requisito que corresponda o en "otros_graves", diciendo qué servicio queda sin respaldo y qué haría falta: aunque la comisión no lo pida, puede dejar fuera la oferta o terminar el contrato, y la SEREMI puede multar o clausurar. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer para quedar habilitada, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
+    // interno... mis resoluciones sanitarias no me permiten tener un
+    // restaurante". Y va con lo demás, pero nunca hacia el comprador: "no
+    // nos vamos a autodelatar... no quería que se informara al cliente".
+    // Decisión 89: "que revise toda la documentación... y advierta
+    // cualquier inconsistencia técnica más que de forma".
+    'TODA LA DOCUMENTACIÓN DE LA EMPRESA, SIEMPRE, vaya o no en el ZIP y aunque las bases no la pidan; el fondo, no la forma:',
+    '- Vigente: cada certificado, vigente al cierre. Si las bases fijan una antigüedad (por ejemplo, emitido hace no más de 30 o 60 días), compara la fecha de emisión que dice el documento con la fecha que corresponda.',
+    '- Sin problemas por dentro: deudas en el certificado de la TGR, morosidades o protestos en el DICOM, deudas o multas laborales y previsionales en el F30 o el F30-1, una quiebra o un procedimiento concursal, una sociedad que no aparece vigente.',
+    '- Los mismos datos: el RUT, la razón social y el representante calzan entre los documentos y con los datos de la empresa.',
+    '- Habilitada para lo que ofrece: con las resoluciones sanitarias, la patente y sus respaldos y el giro del SII, que la empresa pueda hacer por ley cada servicio que ofrece. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes).',
+    '- Lo que se pide al adjudicar, al contratar o para el pago: si no va a estar vigente cuando lo pidan, dilo con la fecha en que hay que renovarlo.',
+    'Lo que falla es "grave" si puede dejar fuera la oferta, impedir contratar o costar puntaje, y "menor" si solo hay que renovarlo antes de que lo pidan. Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
@@ -227,23 +260,31 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- La redacción o el formato de los documentos de terceros (certificados, comodatos, dictámenes, órdenes de compra, facturas, patentes): de ellos solo importa si sirven para lo que piden las bases, si están vigentes, a nombre de quién están y qué acreditan.',
     '- Lo que viene escrito en el formulario del comprador: solo cuenta lo que escribió la empresa.',
     '- Los nombres de los archivos.',
-    '- Los documentos que las bases no piden con la oferta y no habilitan a la empresa para lo que ofrece (por ejemplo, el F30, que se pide al contratar): ni su vencimiento ni lo que dicen.',
     '- Consejos que no son de los documentos, como la operación del día del evento. Una pregunta al foro, solo si puede cambiar la admisión o el puntaje.',
     'En "listo": "si" si se puede subir así; "casi" si faltan detalles menores; "no" si falta algo obligatorio.',
     'En "resumen", 1 a 3 frases. Responde en español de Chile, claro y sin jerga. No inventes.',
   ].join('\n');
 };
 
-/** El checklist y los criterios del análisis (con la forma que dejó el
- *  esquema de las bases). */
+/** El checklist, los criterios y los documentos que piden las bases (con
+ *  la forma que dejó el esquema del análisis). */
 const delAnalisis = (
   a: FilaDeAnalisis,
-): { requisitos: Requisito[]; criterios: Criterio[] } => {
+): {
+  requisitos: Requisito[];
+  criterios: Criterio[];
+  documentos: DocumentoPedido[];
+} => {
   const r = (a.resultado ?? {}) as {
     requisitos?: Requisito[];
     criterios?: Criterio[];
+    documentos?: DocumentoPedido[];
   };
-  return { requisitos: r.requisitos ?? [], criterios: r.criterios ?? [] };
+  return {
+    requisitos: r.requisitos ?? [],
+    criterios: r.criterios ?? [],
+    documentos: r.documentos ?? [],
+  };
 };
 
 @Injectable()
@@ -297,7 +338,7 @@ export class ValidacionService {
         'Primero analiza las bases: la validación revisa su checklist.',
       );
     }
-    const { requisitos, criterios } = delAnalisis(analisis);
+    const { requisitos, criterios, documentos } = delAnalisis(analisis);
     if (requisitos.length === 0) {
       throw new BadRequestException(
         'El análisis de las bases no trae requisitos que revisar.',
@@ -313,12 +354,12 @@ export class ValidacionService {
       ),
     ]);
     const enElZip = loQueVaEnElZip(piezas);
-    // Lo que habilita a la empresa por ley se lee aunque no vaya en el ZIP
-    // (decisión 88).
-    const habilitan = loQueLaHabilita(carpeta, enElZip);
+    // Toda la carpeta de «Mi empresa» se lee aunque no vaya en el ZIP
+    // (decisiones 88 y 89).
+    const deMiEmpresa = loDeMiEmpresa(carpeta, enElZip);
     // Lo que no cabe en un pedido ya no corta la validación: se avisa y se
     // revisa por su nombre.
-    const { leibles, noLeidos } = loQueCabe([...enElZip, ...habilitan]);
+    const { leibles, noLeidos } = loQueCabe([...enElZip, ...deMiEmpresa]);
     if (leibles.length === 0 && carpeta.length === 0) {
       throw new BadRequestException(
         'Sube primero lo que vas a presentar (en "Mi postulación") o los documentos de la empresa (en "Mi empresa").',
@@ -360,10 +401,11 @@ export class ValidacionService {
         nombre: a.nombre,
         leido: leibles.includes(a),
       })),
-      habilitan: habilitan.map((a) => ({
+      de_mi_empresa: deMiEmpresa.map((a) => ({
         nombre: a.nombre,
         leido: leibles.includes(a),
       })),
+      documentos,
       requisitos,
       criterios,
       aclarado,
@@ -402,7 +444,7 @@ export class ValidacionService {
                 type: 'text',
                 text:
                   bloques.length > 0
-                    ? 'Valida todo lo que va en el ZIP contra las bases, y si la empresa está habilitada para lo que ofrece.'
+                    ? 'Valida todo lo que va en el ZIP contra las bases, y toda la documentación de la empresa.'
                     : 'La empresa todavía no subió documentos de la postulación: valida con la carpeta y marca lo demás como falta.',
               },
             ],
