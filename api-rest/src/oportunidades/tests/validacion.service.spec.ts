@@ -209,6 +209,26 @@ describe('ValidacionService — pedir', () => {
       );
     }));
 
+  it('decisión 91: le dice a la IA si es una compra ágil', () =>
+    conLlave(async () => {
+      const { oportunidades, servicio } = armar();
+      const ejecutar = jest
+        .spyOn(servicio, 'ejecutar')
+        .mockResolvedValue(undefined);
+      oportunidades.ficha.mockResolvedValue({
+        id: 5171,
+        codigo: '1030177-85-COT26',
+        proceso: {
+          tipo: 'compra_agil',
+          nombre: 'Servicio de Alimentación Autoridades',
+          organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          fecha_cierre: '2026-10-27T19:15:00.000Z',
+        },
+      });
+      await servicio.pedir(1, CUENTA, 5171);
+      expect(ejecutar.mock.calls[0][4]).toMatchObject({ compra_agil: true });
+    }));
+
   it('crea la fila con el análisis que revisa, lee lo que va en el ZIP y sigue por detrás', () =>
     conLlave(async () => {
       const { elSet, repo, servicio } = armar();
