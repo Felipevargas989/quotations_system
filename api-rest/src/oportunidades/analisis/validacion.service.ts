@@ -8,16 +8,15 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
-import {
-  type Adjunto,
-  AdjuntosRepository,
-} from '../adjuntos/adjuntos.repository';
+import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
+import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import {
   type CampoDelOferente,
   type Oferente,
   OferenteRepository,
 } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { ElSetService } from '../postulacion/el-set.service';
 import {
   type Aclaracion,
   memoriaDeLaLicitacion,
@@ -35,37 +34,25 @@ import {
   ENCENDIDO,
   errorDeIA,
   hoyEnChile,
-  MAX_BYTES_DE_PDF,
   MODELO_OPUS,
   type NoLeido,
-  pesoDePdf,
-  separar,
 } from './comun';
+import {
+  type ArchivoParaValidar,
+  loQueCabe,
+  loQueVaEnElZip,
+} from './el-zip-para-validar';
 
 // VALIDAR DOCUMENTOS (doc 17, sprint 3, paso 3; migración 127). Felipe,
 // 17-10: "y lo más importante validar documentos".
 //
 // Toma el checklist del último análisis de las bases (paso 1) y revisa,
-// requisito por requisito, si lo cumple lo que la empresa va a presentar
-// ("Mi postulación"), su carpeta de documentos (con el vencimiento contra
-// la fecha de cierre) y sus datos (que los anexos digan el mismo RUT y la
-// misma razón social). Con Opus 5.5, por detrás, como el análisis.
-
-export const NOMBRES_DE_DOCUMENTO: Readonly<Record<string, string>> = {
-  patente: 'Patente municipal',
-  inicio_actividades: 'Inicio de actividades (SII)',
-  programa_integridad: 'Programa de integridad',
-  f30: 'Certificado F30',
-  f30_1: 'Certificado F30-1 (cumplimiento de obligaciones laborales)',
-  vigencia: 'Certificado de vigencia de la sociedad',
-  resolucion_sanitaria: 'Resolución sanitaria',
-  dj_trabajadores: 'Declaración jurada de trabajadores',
-  erut: 'e-RUT (SII)',
-  no_quiebra: 'Certificado de no quiebra',
-  estatutos: 'Escritura de constitución y estatutos',
-  respaldo_patente: 'Respaldo de la patente (contrato, comodato o dictamen)',
-  otro: 'Otro',
-};
+// requisito por requisito, si lo cumple lo que la empresa va a presentar,
+// su carpeta de documentos (con el vencimiento contra la fecha de cierre)
+// y sus datos (que los anexos digan el mismo RUT y la misma razón social).
+// Con Opus 5.5, por detrás, como el análisis. Desde la decisión 83 (26-10)
+// lee TODO lo que va en el ZIP para Mercado Público, cada archivo con su
+// carpeta: también lo de «Mi empresa» y los respaldos de la experiencia.
 
 export const ESQUEMA_DE_VALIDACION = {
   type: 'object',
@@ -113,6 +100,9 @@ export type ContextoDeValidacion = {
   hoy: string;
   oferente: Oferente | null;
   carpeta: Array<{ tipo: string; nombre: string; vence: string | null }>;
+  /** Lo que va en el ZIP, con su carpeta y si la IA lo puede leer
+   *  (decisión 83). */
+  zip?: Array<{ donde: string; nombre: string; leido: boolean }>;
   requisitos: Requisito[];
   criterios: Criterio[];
   /** La memoria de la licitación (decisión 68): lo aclarado manda. */
@@ -164,7 +154,15 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     'LOS DATOS DE LA EMPRESA (los anexos tienen que decir lo mismo):',
     ...(datos.length > 0 ? datos : ['(la empresa no los ha llenado)']),
     '',
-    'LA CARPETA DE DOCUMENTOS DE LA EMPRESA (solo el nombre y el vencimiento, no los archivos):',
+    'LO QUE VA EN EL ZIP PARA MERCADO PÚBLICO (cada archivo te lo paso con su carpeta en el título):',
+    ...((c.zip ?? []).length > 0
+      ? (c.zip ?? []).map(
+          (a) =>
+            `- ${a.donde}: ${a.nombre}${a.leido ? '' : ' (no se pudo leer: revísalo solo por su nombre)'}`,
+        )
+      : ['(todavía nada)']),
+    '',
+    'LA CARPETA DE DOCUMENTOS DE LA EMPRESA, con su vencimiento (lo que va en el ZIP también te lo paso entero):',
     ...(c.carpeta.length > 0
       ? c.carpeta.map(
           (d) =>
@@ -172,16 +170,16 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
         )
       : ['(vacía)']),
     '',
-    'Te paso los documentos que la empresa va a presentar. Para CADA requisito del checklist, en el mismo orden y con el mismo texto en "que", decide:',
-    '- "cumple": está en los documentos de la postulación (o en la carpeta, si es un certificado) y se ve correcto;',
+    'Te paso todo lo que va en el ZIP. Lee cada documento por dentro, no basta con que exista: que diga lo que piden las bases, que esté vigente, firmado y con los datos de la empresa. Para CADA requisito del checklist, en el mismo orden y con el mismo texto en "que", decide:',
+    '- "cumple": está en el ZIP y al leerlo se ve correcto (o en la carpeta, si es un certificado que las bases no piden con la oferta);',
     '- "falta": no está en ningún lado;',
     '- "vencido": está, pero vence antes del cierre o ya venció;',
-    '- "revisar": está pero incompleto, sin firma, con datos que no calzan con los de la empresa, o no se puede saber.',
+    '- "revisar": está pero incompleto, sin firma, con datos que no calzan con los de la empresa, o no se puede saber (también si no se pudo leer).',
     // Felipe, 19-10: "déjalo como que siempre estará habilitado... es
     // difícil no tener eso".
     'Estar inscrito o hábil en el Registro de Proveedores (ChileProveedores) es siempre "cumple": la empresa está hábil, se da por hecho y no hay un documento que mirar.',
     'En "donde", el nombre del documento que lo cumple (vacío si falta). En "observacion", una frase: qué está bien o qué hay que hacer.',
-    'En "otros_problemas", lo que no es de un requisito: RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación.',
+    'En "otros_problemas", lo que no es de un requisito: RUT o razón social distintos entre documentos, montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases.',
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
@@ -213,6 +211,8 @@ export class ValidacionService {
     private readonly adjuntos: AdjuntosRepository,
     private readonly oferente: OferenteRepository,
     private readonly oportunidades: OportunidadesRepository,
+    /** Lo que va en el ZIP (decisión 83): es lo que se valida. */
+    private readonly elSet: ElSetService,
     private readonly logger: PinoLogger,
     /** La memoria de la licitación (decisión 68). Opcional: las pruebas de
      *  antes no la traen y sin ella no hay nada aclarado. */
@@ -259,23 +259,21 @@ export class ValidacionService {
       );
     }
 
-    const [archivos, oferente, carpeta, aclarado] = await Promise.all([
-      this.adjuntos.listar(companyId, oportunidadId, 'postulacion'),
+    const [piezas, oferente, carpeta, aclarado] = await Promise.all([
+      this.elSet.piezas(companyId, oportunidadId),
       this.oferente.oferente(companyId),
       this.oferente.documentos(companyId),
       memoriaDeLaLicitacion(this.preguntas, companyId, oportunidadId, (m) =>
         this.logger.warn(m),
       ),
     ]);
-    const { leibles, noLeidos } = separar(archivos);
+    const enElZip = loQueVaEnElZip(piezas);
+    // Lo que no cabe en un pedido ya no corta la validación: se avisa y se
+    // revisa por su nombre.
+    const { leibles, noLeidos } = loQueCabe(enElZip);
     if (leibles.length === 0 && carpeta.length === 0) {
       throw new BadRequestException(
         'Sube primero lo que vas a presentar (en "Mi postulación") o los documentos de la empresa (en "Mi empresa").',
-      );
-    }
-    if (pesoDePdf(leibles) > MAX_BYTES_DE_PDF) {
-      throw new BadRequestException(
-        'Los PDF de la postulación pesan más de 22 MB juntos: deja solo lo principal y vuelve a validar.',
       );
     }
 
@@ -285,7 +283,7 @@ export class ValidacionService {
       oportunidad_id: oportunidadId,
       analisis_id: analisis.id,
       modelo: MODELO_OPUS,
-      archivos: leibles.map((a) => ({ id: a.id, nombre: a.nombre })),
+      archivos: leibles.map((a) => ({ nombre: a.nombre, carpeta: a.donde })),
       no_leidos: noLeidos,
       pedido_por: await this.adjuntos.perfilDe(companyId, cuentaId),
     });
@@ -307,6 +305,11 @@ export class ValidacionService {
         nombre: d.nombre,
         vence: d.vence,
       })),
+      zip: enElZip.map((a) => ({
+        donde: a.donde,
+        nombre: a.nombre,
+        leido: leibles.includes(a),
+      })),
       requisitos,
       criterios,
       aclarado,
@@ -314,12 +317,12 @@ export class ValidacionService {
     return fila;
   }
 
-  /** Por detrás: baja lo de la postulación, llama a Opus y guarda. Nunca
+  /** Por detrás: baja lo que va en el ZIP, llama a Opus y guarda. Nunca
    *  lanza: lo que falle queda escrito en la fila. */
   async ejecutar(
     companyId: number,
     validacionId: number,
-    leibles: Adjunto[],
+    leibles: ArchivoParaValidar[],
     noLeidos: NoLeido[],
     contexto: ContextoDeValidacion,
   ): Promise<void> {
@@ -345,7 +348,7 @@ export class ValidacionService {
                 type: 'text',
                 text:
                   bloques.length > 0
-                    ? 'Valida la postulación.'
+                    ? 'Valida todo lo que va en el ZIP contra las bases.'
                     : 'La empresa todavía no subió documentos de la postulación: valida con la carpeta y marca lo demás como falta.',
               },
             ],

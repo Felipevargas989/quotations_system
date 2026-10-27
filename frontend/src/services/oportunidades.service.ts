@@ -320,7 +320,8 @@ export interface AnalisisDeBases {
   id: number;
   estado: "procesando" | "listo" | "error";
   resultado: ResultadoDeBases | null;
-  archivos: Array<{ id: number; nombre: string }>;
+  /** Lo que leyó. La validación anota la carpeta del ZIP (decisión 83). */
+  archivos: Array<{ id?: number; nombre: string; carpeta?: string }>;
   no_leidos: Array<{ nombre: string; motivo: string }>;
   modelo: string | null;
   tokens_entrada: number | null;

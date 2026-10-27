@@ -184,9 +184,10 @@ const pintar = (
   postulacion: unknown[] = POSTULACION,
   oferta: unknown = null,
   generaciones: unknown = { anexos: null, firma: null, propuesta: null },
+  validacion: unknown = VALIDACION,
 ) => {
   s.getAnalisis.mockResolvedValue(analisis as never);
-  s.getValidacion.mockResolvedValue(VALIDACION as never);
+  s.getValidacion.mockResolvedValue(validacion as never);
   s.getGeneraciones.mockResolvedValue(generaciones as never);
   s.getCotizacionDeLaPostulacion.mockResolvedValue(null as never);
   po.getOfertaDeLaPostulacion.mockResolvedValue(oferta as never);
@@ -733,5 +734,29 @@ describe("Validar todo (decisión 79)", () => {
       ).toBeNull(),
     );
     expect(screen.getByText("Boleta de garantía")).toBeInTheDocument();
+  });
+
+  it("decisión 83: dice cuántos archivos del ZIP leyó; sin validación (el motor responde vacío) no se cae", async () => {
+    const delZip = (nombre: string) => ({
+      nombre,
+      carpeta: "1. Administrativa",
+    });
+    const vista = pintar(
+      <ValidacionDeDocumentos oportunidadId={40} />,
+      ...([ANALISIS, POSTULACION, null, undefined] as const),
+      { ...VALIDACION, archivos: ["A.pdf", "B.pdf", "C.pdf"].map(delZip) },
+    );
+    expect(
+      await screen.findByText(/leyó 3 archivos del ZIP/),
+    ).toBeInTheDocument();
+    vista.unmount();
+    pintar(
+      <ValidacionDeDocumentos oportunidadId={40} />,
+      ...([ANALISIS, POSTULACION, null, undefined] as const),
+      "",
+    );
+    expect(
+      await screen.findByText(/La IA lee todo lo que va en el ZIP/),
+    ).toBeInTheDocument();
   });
 });

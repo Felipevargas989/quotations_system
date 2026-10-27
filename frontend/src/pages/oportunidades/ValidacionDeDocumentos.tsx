@@ -79,6 +79,11 @@ export default function ValidacionDeDocumentos({
     validacion,
   );
   const cumplen = r ? contarPorEstadoDeValidacion(r.requisitos).cumple : 0;
+  // Decisión 83: desde el 26-10 lee todo lo que va en el ZIP y anota la
+  // carpeta de cada archivo; las de antes leían solo «Mi postulación». Sin
+  // validación el motor responde vacío (""), sin `archivos`.
+  const leyoElZip =
+    validacion?.archivos?.some((a) => Boolean(a.carpeta)) ?? false;
 
   return (
     <div className="space-y-3">
@@ -103,11 +108,11 @@ export default function ValidacionDeDocumentos({
             : procesando
               ? "Revisando todo contra las bases… suele tardar entre 1 y 3 minutos."
               : r && validacion
-                ? `Última: ${formatMomento(validacion.terminado_en ?? validacion.creado_en, "diaHora")} · ${cumplen} de ${r.requisitos.length} requisitos cumplen${validacion.costo_usd != null ? ` · costó ${textoDeCosto(validacion.costo_usd)}` : ""}`
+                ? `Última: ${formatMomento(validacion.terminado_en ?? validacion.creado_en, "diaHora")} · ${cumplen} de ${r.requisitos.length} requisitos cumplen${leyoElZip ? ` · leyó ${validacion.archivos.length} archivos del ZIP` : ""}${validacion.costo_usd != null ? ` · costó ${textoDeCosto(validacion.costo_usd)}` : ""}`
                 : validacion?.estado === "error"
                   ? `Intentado el ${formatMomento(validacion.terminado_en ?? validacion.creado_en, "diaHora")}`
                   : hayAnalisis
-                    ? "La IA revisa todo lo que vas a presentar contra lo que piden las bases. La decisión de subir es tuya."
+                    ? "La IA lee todo lo que va en el ZIP y lo revisa contra lo que piden las bases. La decisión de subir es tuya."
                     : "Primero analiza las bases: la validación revisa su checklist."}
         </span>
       </div>
