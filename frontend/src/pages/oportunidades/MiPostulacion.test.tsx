@@ -124,19 +124,22 @@ const pintar = (congelada = false) =>
   );
 
 describe("Mi postulación", () => {
-  it("«Tus documentos»: cada uno con su estado y, debajo, lo que falta (decisión 79)", async () => {
+  it("«Tus documentos»: cada uno con su estado; lo que falta va al paso 3 (decisión 84)", async () => {
     pintar();
-    expect(await screen.findByText("1 de 4 firmados.")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "1 de 4 firmados. Lo que falta o hay que revisar de cada uno está en el paso 3, «Validar todo».",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("firmado")).toBeInTheDocument();
     expect(screen.getByText("por completar")).toBeInTheDocument();
     // El 23 y el de antes, sin nada pendiente.
     expect(screen.getAllByText("por firmar")).toHaveLength(2);
+    // Lo que dejó la IA ya no va bajo el documento: lo lista «Validar todo».
     expect(
-      screen.getByText("RUT del representante legal: quedó en blanco."),
-    ).toBeInTheDocument();
-    // La línea de firma de la IA no se repite: va una sola, al final.
-    expect(screen.queryByText("Firma del representante legal.")).toBeNull();
-    expect(screen.getByText("Falta la firma.")).toBeInTheDocument();
+      screen.queryByText("RUT del representante legal: quedó en blanco."),
+    ).toBeNull();
+    expect(screen.queryByText("Falta la firma.")).toBeNull();
   });
 
   it("«Abrir» muestra el Word sin firmar para verlo y editarlo (decisión 78)", async () => {

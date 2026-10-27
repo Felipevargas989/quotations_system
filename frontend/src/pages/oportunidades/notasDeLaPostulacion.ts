@@ -251,3 +251,31 @@ export function notasDeLaPostulacion(
   }
   return { porDocumento, requisitos, otros };
 }
+
+/** Un documento con algo por hacer, para la lista de «Validar todo». */
+export interface PendienteDelDocumento {
+  adjunto: AdjuntoDeOportunidad;
+  notas: NotaDelDocumento[];
+  aviso: string | null;
+}
+
+/** «Validar todo» (decisión 84, 26-10). Felipe, con el jugo del N°4 bajo el
+ *  formulario: "estas salvedades y todas saquémoslas de acá y coloquémoslas
+ *  siempre en el punto 3 de validación... a mí se me pasó completamente".
+ *  Lo de cada documento ya no va bajo él en «Tus documentos»: va aquí, en
+ *  orden, con la firma que falta aunque no haya nada más que decir. */
+export const pendientesPorDocumento = (
+  documentos: AdjuntoDeOportunidad[],
+  porDocumento: Map<number, DetalleDelDocumento>,
+): PendienteDelDocumento[] =>
+  enOrden(documentos).flatMap((adjunto) => {
+    const detalle = porDocumento.get(adjunto.id);
+    if (!detalle) return [];
+    const notas: NotaDelDocumento[] =
+      detalle.estado === "por_firmar"
+        ? [{ texto: FALTA_LA_FIRMA, tono: "completar" }]
+        : detalle.notas;
+    return notas.length > 0 || detalle.aviso
+      ? [{ adjunto, notas, aviso: detalle.aviso }]
+      : [];
+  });
