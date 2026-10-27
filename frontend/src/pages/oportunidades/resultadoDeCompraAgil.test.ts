@@ -6,6 +6,7 @@ import {
   type ConResultado,
   colorDelResultado,
   resultadosNuevos,
+  textoDelResultadoPublico,
   textoDelResultado,
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
@@ -107,6 +108,25 @@ describe("el resultado de una compra ágil (decisión 92)", () => {
     ).toMatch(
       new RegExp(`^Eligieron a BPM EVENTOS SPA por ${PESO}6\\.800\\.000\\.$`),
     );
+  });
+
+  it("en el historial de la ficha dice a quién eligieron, igual para cualquier empresa", () => {
+    expect(
+      textoDelResultadoPublico({
+        tipo: "compra_agil",
+        elegidos: [
+          {
+            rut: "76.430.926-k",
+            proveedor: "BPM EVENTOS SPA",
+            monto: 6_800_000,
+          },
+        ],
+        ofertas: [],
+      }),
+    ).toMatch(
+      new RegExp(`^eligieron a BPM EVENTOS SPA por ${PESO}6\\.800\\.000$`),
+    );
+    expect(textoDelResultadoPublico(null)).toBe("salió el resultado");
   });
 
   it("solo es nuevo lo que trae resultado y no se avisó", () => {

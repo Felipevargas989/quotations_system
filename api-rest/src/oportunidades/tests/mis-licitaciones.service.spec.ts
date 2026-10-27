@@ -7,6 +7,7 @@ import type {
 import type { ResultadosRepository } from '../competencia/resultados.repository';
 import type { GeneracionRepository } from '../generacion/generacion.repository';
 import { MisLicitacionesService } from '../mias/mis-licitaciones.service';
+import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 
 // "MIS LICITACIONES" (Felipe, 17-10: "¿dónde van a quedar compiladas las
@@ -207,19 +208,35 @@ describe('MisLicitacionesService', () => {
           [
             'C-3219',
             {
-              estado: 'perdida',
-              proveedor: 'BPM EVENTOS SPA',
-              rut_proveedor: '76.430.926-k',
-              monto: 6_800_000,
-              mi_monto: 7_090_000,
-              lugar: 2,
-              ofertas: 2,
-              era_la_mas_barata: false,
-              inadmisible: null,
+              tipo: 'compra_agil',
+              elegidos: [
+                {
+                  rut: '76.430.926-k',
+                  proveedor: 'BPM EVENTOS SPA',
+                  monto: 6_800_000,
+                },
+              ],
+              ofertas: [
+                {
+                  rut: '76.430.926-k',
+                  proveedor: 'BPM EVENTOS SPA',
+                  monto: 6_800_000,
+                  inadmisible: null,
+                },
+                {
+                  rut: '77.701.305-K',
+                  proveedor: 'VALLE DEL SOL QUILLON SPA',
+                  monto: 7_090_000,
+                  inadmisible: null,
+                },
+              ],
             },
           ],
         ]),
       ),
+    };
+    const oferente = {
+      oferente: jest.fn().mockResolvedValue({ rut: '77.701.305-K' }),
     };
     const servicio = new MisLicitacionesService(
       oportunidades as unknown as OportunidadesRepository,
@@ -229,14 +246,19 @@ describe('MisLicitacionesService', () => {
       generacion as unknown as GeneracionRepository,
       licify as unknown as LicifyService,
       resultados as unknown as ResultadosRepository,
+      oferente as unknown as OferenteRepository,
     );
     const lista = await servicio.mias(1);
     // Solo se pregunta por las que ya terminaron.
     expect(resultados.resultadosDe).toHaveBeenCalledWith(['C-3219']);
+    // Lo de esta empresa, con su RUT: perdida, 2° de 2 por precio.
+    expect(oferente.oferente).toHaveBeenCalledWith(1);
     expect(lista.find((m) => m.id === 3219)?.resultado).toMatchObject({
+      estado: 'perdida',
       proveedor: 'BPM EVENTOS SPA',
       monto: 6_800_000,
       mi_monto: 7_090_000,
+      lugar: 2,
     });
     expect(lista.find((m) => m.id === 40)?.resultado).toBeNull();
   });

@@ -1,16 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import type { ResultadoDeCompraAgil } from './resultado-compra-agil';
+import type { ResultadoPublico } from './resultado-compra-agil';
 
 // EL RESULTADO DE LAS COMPRAS ÁGILES POSTULADAS (decisión 92 del doc 17).
-// Va en mp_cambios, con tipo «resultado», y no en mp_procesos: ahí el radar
+// Lo público (a quién eligieron y todas las ofertas) va en mp_cambios, con
+// tipo «resultado», una vez por código, y no en mp_procesos: ahí el radar
 // reescribe `adjudicacion` de las compras ágiles y la de noche reescribe
-// `cotizantes`.
+// `cotizantes`. Lo de cada empresa (ganada o perdida) va en su oportunidad.
 
 /** Hasta cuántos días después del cierre se sigue esperando la orden. */
 const DIAS_DE_ESPERA = 45;
 
-export type CompraAgilPostulada = { id: number; codigo: string };
+export type CompraAgilPorResolver = {
+  id: number;
+  codigo: string;
+  estado: 'postulada' | 'ganada' | 'perdida';
+  /** Ya tiene su resultado público en mp_cambios. */
+  anotada: boolean;
+};
 
 @Injectable()
 export class ResultadosRepository {
@@ -20,36 +27,48 @@ export class ResultadosRepository {
     return this.supabase.client;
   }
 
-  /** Las compras ágiles que la empresa postuló, ya cerradas y sin resultado
-   *  (siguen en «postulada»): pocas, se piden de una. */
-  async comprasAgilesPostuladas(
+  /** Las compras ágiles que la empresa postuló y ya cerraron: las que
+   *  siguen en «postulada», y las que marcó a mano como ganada o perdida
+   *  mientras no tengan su resultado público. Pocas, se piden de una. */
+  async comprasAgilesPorResolver(
     companyId: number,
     ahora = Date.now(),
-  ): Promise<CompraAgilPostulada[]> {
+  ): Promise<CompraAgilPorResolver[]> {
     const { data, error } = await this.db
       .from('oportunidades')
-      .select('id, codigo, proceso:mp_procesos!inner(tipo, fecha_cierre)')
+      .select(
+        'id, codigo, estado, proceso:mp_procesos!inner(tipo, fecha_cierre)',
+      )
       .eq('company_id', companyId)
-      .eq('estado', 'postulada')
+      .in('estado', ['postulada', 'ganada', 'perdida'])
       .limit(500);
     if (error) throw error;
     const desde = ahora - DIAS_DE_ESPERA * 24 * 3600_000;
-    return (
+    const cerradas = (
       (data ?? []) as unknown as Array<{
         id: number;
         codigo: string;
+        estado: CompraAgilPorResolver['estado'];
         proceso: { tipo: string; fecha_cierre: string | null } | null;
       }>
-    )
-      .filter((f) => {
-        const cierre = f.proceso?.fecha_cierre
-          ? new Date(f.proceso.fecha_cierre).getTime()
-          : NaN;
-        return (
-          f.proceso?.tipo === 'compra_agil' && cierre < ahora && cierre >= desde
-        );
-      })
-      .map((f) => ({ id: f.id, codigo: f.codigo }));
+    ).filter((f) => {
+      const cierre = f.proceso?.fecha_cierre
+        ? new Date(f.proceso.fecha_cierre).getTime()
+        : NaN;
+      return (
+        f.proceso?.tipo === 'compra_agil' && cierre < ahora && cierre >= desde
+      );
+    });
+    if (cerradas.length === 0) return [];
+    const anotadas = await this.resultadosDe(cerradas.map((f) => f.codigo));
+    return cerradas
+      .map((f) => ({
+        id: f.id,
+        codigo: f.codigo,
+        estado: f.estado,
+        anotada: anotadas.has(f.codigo),
+      }))
+      .filter((f) => f.estado === 'postulada' || !f.anotada);
   }
 
   /** Ganada o perdida, solo si sigue en «postulada»: lo que la empresa
@@ -57,7 +76,7 @@ export class ResultadosRepository {
   async marcarResultado(
     companyId: number,
     id: number,
-    estado: ResultadoDeCompraAgil['estado'],
+    estado: 'ganada' | 'perdida',
   ): Promise<boolean> {
     const { data, error } = await this.db
       .from('oportunidades')
@@ -70,24 +89,25 @@ export class ResultadosRepository {
     return (data ?? []).length > 0;
   }
 
+  /** Lo público, una vez por código: es igual para cualquier empresa. */
   async registrarResultado(
     codigo: string,
-    resultado: ResultadoDeCompraAgil,
+    resultado: ResultadoPublico,
   ): Promise<void> {
     const { error } = await this.db.from('mp_cambios').insert({
       codigo,
       tipo: 'resultado',
-      antes: { estado: 'postulada' },
+      antes: null,
       despues: resultado,
     });
     if (error) throw error;
   }
 
-  /** El último resultado de cada código, para «Mis licitaciones». */
+  /** El último resultado público de cada código. */
   async resultadosDe(
     codigos: readonly string[],
-  ): Promise<Map<string, ResultadoDeCompraAgil>> {
-    const r = new Map<string, ResultadoDeCompraAgil>();
+  ): Promise<Map<string, ResultadoPublico>> {
+    const r = new Map<string, ResultadoPublico>();
     if (codigos.length === 0) return r;
     const { data, error } = await this.db
       .from('mp_cambios')
@@ -98,7 +118,7 @@ export class ResultadosRepository {
     if (error) throw error;
     for (const f of (data ?? []) as Array<{
       codigo: string;
-      despues: ResultadoDeCompraAgil;
+      despues: ResultadoPublico;
     }>) {
       if (!r.has(f.codigo)) r.set(f.codigo, f.despues);
     }

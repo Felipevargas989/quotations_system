@@ -10,7 +10,20 @@ import { normalizarRut } from '../historia/ganadores';
 // Felipe: "para comparar siempre ocupa el criterio (1) de cómo te evalúan".
 // En una compra ágil ese criterio es la ley (decisión 93): gana el menor
 // precio, y si eligen otra cotización tienen que justificarlo.
+// Lo público (a quién eligieron y todas las ofertas) es igual para cualquier
+// empresa y va en mp_cambios, por código; ganada o perdida, el lugar y lo
+// que cotizó cada empresa se calcula con su RUT al leerlo.
 
+type Oferente = { rut: string; proveedor: string | null; monto: number | null };
+
+/** A quién eligió el comprador y todas las ofertas, con su total. */
+export type ResultadoPublico = {
+  tipo: 'compra_agil';
+  elegidos: Oferente[];
+  ofertas: Array<Oferente & { inadmisible: string | null }>;
+};
+
+/** Lo de una empresa: lo que ve en «Mis licitaciones». */
 export type ResultadoDeCompraAgil = {
   estado: 'ganada' | 'perdida';
   /** A quién eligió el comprador. */
@@ -30,68 +43,67 @@ export type ResultadoDeCompraAgil = {
   inadmisible: string | null;
 };
 
-type Oferta = {
-  rut: string;
-  rut_escrito: string;
-  nombre: string | null;
-  monto: number | null;
-  elegida: boolean;
-  inadmisible: string | null;
-};
-
 const texto = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
 
-const ofertasDelDetalle = (detalle: unknown): Oferta[] => {
+/** Lo público, cuando el comprador ya eligió; null mientras no. */
+export const resultadoPublicoDeCompraAgil = (
+  detalle: unknown,
+): ResultadoPublico | null => {
   const lista = (detalle as { proveedores_cotizando?: unknown } | null)
     ?.proveedores_cotizando;
-  if (!Array.isArray(lista)) return [];
-  return lista.flatMap((x): Oferta[] => {
-    if (!x || typeof x !== 'object') return [];
+  if (!Array.isArray(lista)) return null;
+  const ofertas: ResultadoPublico['ofertas'] = [];
+  const elegidos: Oferente[] = [];
+  for (const x of lista) {
+    if (!x || typeof x !== 'object') continue;
     const f = x as Record<string, unknown>;
-    const rutEscrito = texto(f.rut_proveedor);
-    if (!rutEscrito) return [];
-    const monto =
-      typeof f.monto_total === 'number' && Number.isFinite(f.monto_total)
-        ? f.monto_total
-        : null;
-    return [
-      {
-        rut: normalizarRut(rutEscrito),
-        rut_escrito: rutEscrito,
-        nombre: texto(f.razon_social),
-        monto,
-        elegida:
-          f.proveedor_seleccionado === 1 || f.proveedor_seleccionado === true,
-        inadmisible: texto(f.justificacion_inadmisibilidad),
-      },
-    ];
-  });
+    const rut = texto(f.rut_proveedor);
+    if (!rut) continue;
+    const oferente = {
+      rut,
+      proveedor: texto(f.razon_social),
+      monto:
+        typeof f.monto_total === 'number' && Number.isFinite(f.monto_total)
+          ? f.monto_total
+          : null,
+    };
+    ofertas.push({
+      ...oferente,
+      inadmisible: texto(f.justificacion_inadmisibilidad),
+    });
+    if (f.proveedor_seleccionado === 1 || f.proveedor_seleccionado === true) {
+      elegidos.push(oferente);
+    }
+  }
+  return elegidos.length > 0
+    ? { tipo: 'compra_agil', elegidos, ofertas }
+    : null;
 };
 
-/** Con quién quedó elegido, la oferta de la empresa ordenada por precio
- *  entre las admisibles. null mientras no hay elegido, o sin el RUT de la
- *  empresa. */
-export const resultadoDeCompraAgil = (
-  detalle: unknown,
+/** Ganada si eligieron a la empresa; si no, perdida. Además, su oferta
+ *  ordenada por precio entre las admisibles. null sin el RUT de la empresa
+ *  o si lo guardado no tiene a quién eligieron. */
+export const resultadoParaLaEmpresa = (
+  publico: ResultadoPublico | null | undefined,
   rutDeLaEmpresa: string | null | undefined,
 ): ResultadoDeCompraAgil | null => {
-  if (!rutDeLaEmpresa) return null;
-  const ofertas = ofertasDelDetalle(detalle);
-  const elegida = ofertas.find((o) => o.elegida);
-  if (!elegida) return null;
+  const elegido = publico?.elegidos?.[0];
+  if (!publico || !elegido || !rutDeLaEmpresa) return null;
   const rut = normalizarRut(rutDeLaEmpresa);
-  const mia = ofertas.find((o) => o.rut === rut) ?? null;
-  const comparables = ofertas.filter(
-    (o): o is Oferta & { monto: number } => o.monto !== null && !o.inadmisible,
+  const esDeLaEmpresa = (o: Oferente) => normalizarRut(o.rut) === rut;
+  const mia = (publico.ofertas ?? []).find(esDeLaEmpresa) ?? null;
+  const comparables = (publico.ofertas ?? []).filter(
+    (o): o is Oferente & { monto: number; inadmisible: null } =>
+      o.monto !== null && !o.inadmisible,
   );
   const miMonto = mia && !mia.inadmisible ? mia.monto : null;
-  const ganada = elegida.rut === rut;
+  const ganada = publico.elegidos.some(esDeLaEmpresa);
   return {
     estado: ganada ? 'ganada' : 'perdida',
-    proveedor: elegida.nombre,
-    rut_proveedor: elegida.rut_escrito,
-    monto: elegida.monto,
+    proveedor: elegido.proveedor,
+    rut_proveedor: elegido.rut,
+    monto: elegido.monto,
     mi_monto: mia?.monto ?? null,
     lugar:
       miMonto === null
@@ -101,7 +113,14 @@ export const resultadoDeCompraAgil = (
     era_la_mas_barata:
       !ganada &&
       miMonto !== null &&
-      comparables.every((o) => o.rut === rut || o.monto > miMonto),
+      comparables.every((o) => esDeLaEmpresa(o) || o.monto > miMonto),
     inadmisible: mia?.inadmisible ?? null,
   };
 };
+
+/** Las dos cosas de una vez, desde el detalle de Mercado Público. */
+export const resultadoDeCompraAgil = (
+  detalle: unknown,
+  rutDeLaEmpresa: string | null | undefined,
+): ResultadoDeCompraAgil | null =>
+  resultadoParaLaEmpresa(resultadoPublicoDeCompraAgil(detalle), rutDeLaEmpresa);

@@ -55,6 +55,25 @@ export const textoDelResultado = (r: ResultadoDeCompraAgil): string => {
   return `${eligieron}. Tú cotizaste ${pesos(r.mi_monto)}${mas}${lugar ? `, y quedaste ${lugar}` : ""}.`;
 };
 
+/** En el «Historial de cambios» de la ficha: lo público, igual para
+ *  cualquier empresa. */
+export const textoDelResultadoPublico = (
+  despues: Record<string, unknown> | null,
+): string => {
+  const elegidos = Array.isArray(despues?.elegidos)
+    ? (despues.elegidos as Array<{
+        proveedor?: string | null;
+        rut?: string | null;
+        monto?: number | null;
+      }>)
+    : [];
+  const e = elegidos[0];
+  if (!e) return "salió el resultado";
+  const verbo =
+    despues?.tipo === "licitacion" ? "adjudicaron a" : "eligieron a";
+  return `${verbo} ${e.proveedor ?? e.rut ?? "otro proveedor"}${e.monto ? ` por ${pesos(e.monto)}` : ""}`;
+};
+
 /** Verde si ganaste; rojo si tenías el menor precio y eligieron a otro. */
 export const colorDelResultado = (r: ResultadoDeCompraAgil): string => {
   if (r.estado === "ganada") return "text-green-700";

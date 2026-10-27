@@ -2,7 +2,11 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { CompetenciaCronService } from '../competencia/competencia-cron.service';
 import type { CompetenciaRepository } from '../competencia/competencia.repository';
-import { resultadoDeCompraAgil } from '../competencia/resultado-compra-agil';
+import {
+  resultadoDeCompraAgil,
+  resultadoParaLaEmpresa,
+  resultadoPublicoDeCompraAgil,
+} from '../competencia/resultado-compra-agil';
 import type { ResultadosRepository } from '../competencia/resultados.repository';
 import { ResultadosDeComprasAgilesService } from '../competencia/resultados.service';
 import {
@@ -140,13 +144,61 @@ describe('el resultado de una compra ágil (decisión 92)', () => {
     expect(resultadoDeCompraAgil(CATAMARAN, null)).toBeNull();
     expect(resultadoDeCompraAgil(null, '77.701.305-K')).toBeNull();
   });
+
+  it('lo público es igual para todos; cada empresa ve el suyo con su RUT', () => {
+    const publico = resultadoPublicoDeCompraAgil(CATAMARAN);
+    expect(publico).toEqual({
+      tipo: 'compra_agil',
+      elegidos: [
+        { rut: '76.430.926-k', proveedor: 'BPM EVENTOS SPA', monto: 6800000 },
+      ],
+      ofertas: [
+        {
+          rut: '76.430.926-k',
+          proveedor: 'BPM EVENTOS SPA',
+          monto: 6800000,
+          inadmisible: null,
+        },
+        {
+          rut: '77.701.305-K',
+          proveedor: 'VALLE DEL SOL QUILLON SPA',
+          monto: 7090000,
+          inadmisible: null,
+        },
+      ],
+    });
+    // BPM, si usara Eventia, la vería ganada; una empresa que no cotizó,
+    // perdida y sin su monto.
+    expect(resultadoParaLaEmpresa(publico, '76430926-K')).toMatchObject({
+      estado: 'ganada',
+      mi_monto: 6800000,
+      lugar: 1,
+    });
+    expect(resultadoParaLaEmpresa(publico, '11.111.111-1')).toMatchObject({
+      estado: 'perdida',
+      mi_monto: null,
+      lugar: null,
+    });
+    // Lo guardado sin a quién eligieron no da resultado.
+    expect(
+      resultadoParaLaEmpresa(
+        { tipo: 'compra_agil', elegidos: [], ofertas: [] },
+        '77.701.305-K',
+      ),
+    ).toBeNull();
+  });
 });
 
 function armar() {
   const resultados = {
-    comprasAgilesPostuladas: jest
-      .fn()
-      .mockResolvedValue([{ id: 3219, codigo: '1346350-37-COT26' }]),
+    comprasAgilesPorResolver: jest.fn().mockResolvedValue([
+      {
+        id: 3219,
+        codigo: '1346350-37-COT26',
+        estado: 'postulada',
+        anotada: false,
+      },
+    ]),
     marcarResultado: jest.fn().mockResolvedValue(true),
     registrarResultado: jest.fn().mockResolvedValue(undefined),
   };
@@ -182,15 +234,11 @@ describe('ResultadosDeComprasAgilesService — revisar', () => {
       expect.objectContaining({ id_orden_compra: 55732521 }),
     );
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'perdida');
+    // Lo que se anota es lo público, igual para cualquier empresa.
+    expect(resultados.registrarResultado).toHaveBeenCalledTimes(1);
     expect(resultados.registrarResultado).toHaveBeenCalledWith(
       '1346350-37-COT26',
-      expect.objectContaining({
-        estado: 'perdida',
-        proveedor: 'BPM EVENTOS SPA',
-        monto: 6800000,
-        mi_monto: 7090000,
-        lugar: 2,
-      }),
+      resultadoPublicoDeCompraAgil(CATAMARAN),
     );
   });
 
@@ -218,23 +266,46 @@ describe('ResultadosDeComprasAgilesService — revisar', () => {
     expect(resultados.marcarResultado).not.toHaveBeenCalled();
   });
 
-  it('si la empresa ya la marcó a mano, no se anota otra vez', async () => {
+  it('la que la empresa marcó a mano no cambia, pero se anota a quién eligieron', async () => {
     const { resultados, servicio } = armar();
-    resultados.marcarResultado.mockResolvedValue(false);
-    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(0);
+    resultados.comprasAgilesPorResolver.mockResolvedValue([
+      {
+        id: 3219,
+        codigo: '1346350-37-COT26',
+        estado: 'perdida',
+        anotada: false,
+      },
+    ]);
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
+    expect(resultados.marcarResultado).not.toHaveBeenCalled();
+    expect(resultados.registrarResultado).toHaveBeenCalledTimes(1);
+  });
+
+  it('ya anotada por otra empresa: no se anota otra vez, pero se marca la de esta', async () => {
+    const { resultados, servicio } = armar();
+    resultados.comprasAgilesPorResolver.mockResolvedValue([
+      {
+        id: 3219,
+        codigo: '1346350-37-COT26',
+        estado: 'postulada',
+        anotada: true,
+      },
+    ]);
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
     expect(resultados.registrarResultado).not.toHaveBeenCalled();
+    expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'perdida');
   });
 
   it('sin postuladas no pregunta nada; sin cupo de Mercado Público, para', async () => {
     const vacio = armar();
-    vacio.resultados.comprasAgilesPostuladas.mockResolvedValue([]);
+    vacio.resultados.comprasAgilesPorResolver.mockResolvedValue([]);
     await expect(vacio.servicio.revisar(1, enUnRato())).resolves.toBe(0);
     expect(vacio.mp.detalleCompraAgil).not.toHaveBeenCalled();
 
     const { resultados, mp, servicio } = armar();
-    resultados.comprasAgilesPostuladas.mockResolvedValue([
-      { id: 1, codigo: 'A-1-COT26' },
-      { id: 2, codigo: 'A-2-COT26' },
+    resultados.comprasAgilesPorResolver.mockResolvedValue([
+      { id: 1, codigo: 'A-1-COT26', estado: 'postulada', anotada: false },
+      { id: 2, codigo: 'A-2-COT26', estado: 'postulada', anotada: false },
     ]);
     mp.detalleCompraAgil.mockRejectedValue(
       new MercadoPublicoError('sin cupo', 429),
