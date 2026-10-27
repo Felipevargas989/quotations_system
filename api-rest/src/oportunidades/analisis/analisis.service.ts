@@ -36,6 +36,10 @@ import {
   usoDeLaRespuesta,
 } from './comun';
 import {
+  type CriterioDeEvaluacion,
+  criteriosDeEvaluacion,
+} from './criterios-de-evaluacion';
+import {
   armarCumplimiento,
   type Cumplimiento,
   ESQUEMA_DE_CUMPLIMIENTO,
@@ -378,6 +382,7 @@ export class AnalisisService {
         organismo: ficha.proceso.organismo,
         comuna: ficha.proceso.comuna,
         perfil: config?.perfil ?? null,
+        tipo: ficha.proceso.tipo,
       },
       oportunidadId,
     );
@@ -553,7 +558,15 @@ export class AnalisisService {
       const cumplir = await this.puedoCumplir(companyId, contexto, bases);
       await this.repo.terminar(companyId, analisisId, {
         estado: 'listo',
-        resultado: { ...bases, ...cumplir.resultado },
+        // Decisión 95: en una compra ágil sin criterios, el de la ley.
+        resultado: {
+          ...bases,
+          criterios: criteriosDeEvaluacion(
+            bases.criterios as CriterioDeEvaluacion[] | undefined,
+            contexto.tipo,
+          ),
+          ...cumplir.resultado,
+        },
         no_leidos: noLeidosFinal,
         tokens_entrada: entrada + cumplir.entrada,
         tokens_salida: salida + cumplir.salida,

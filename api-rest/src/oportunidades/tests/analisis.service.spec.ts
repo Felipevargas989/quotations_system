@@ -14,6 +14,7 @@ import {
   MODELO_BASES,
   razonSegunLasBases,
 } from '../analisis/analisis.service';
+import { CRITERIO_DE_LA_LEY } from '../analisis/criterios-de-evaluacion';
 import type { EventiaRepository } from '../eventia/eventia.repository';
 import type { FichaRepository } from '../ficha/ficha.repository';
 import type { OferenteRepository } from '../oferente/oferente.repository';
@@ -381,6 +382,33 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
       tokens_salida: 5_000,
       costo_usd: 0.5,
     });
+  });
+
+  it('decisión 95: una compra ágil sin criterios guarda el de la ley; con criterios, los suyos', async () => {
+    const { repo, parse, servicio } = armar();
+    repo.descargar.mockResolvedValue(Buffer.from('%PDF-1.7 ficha'));
+    parse.mockResolvedValue({
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 100_000, output_tokens: 5_000 },
+      parsed_output: { ...RESULTADO, criterios: [] },
+    });
+    await servicio.ejecutar(
+      1,
+      5,
+      [adjunto(1, 'Ficha técnica.pdf')] as never,
+      [],
+      { ...contexto, tipo: 'compra_agil' },
+    );
+    expect(repo.terminar).toHaveBeenCalledWith(
+      1,
+      5,
+      expect.objectContaining({
+        estado: 'listo',
+        resultado: expect.objectContaining({
+          criterios: [CRITERIO_DE_LA_LEY],
+        }) as unknown,
+      }),
+    );
   });
 
   it('el color sigue a lo que dicen las bases: "se puede en el complejo" → verde (decisión 21)', async () => {

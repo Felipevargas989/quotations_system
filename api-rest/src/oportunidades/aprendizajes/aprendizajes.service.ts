@@ -22,6 +22,7 @@ import {
   MODELO_OPUS,
   type NoLeido,
 } from '../analisis/comun';
+import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
@@ -185,9 +186,12 @@ export class AprendizajesService {
         codigo: ficha.codigo,
         nombre: typeof p.nombre === 'string' ? p.nombre : '',
         organismo,
-        criterios: Array.isArray(resultado?.criterios)
-          ? resultado.criterios
-          : [],
+        // Decisión 95: los mismos criterios del análisis; en una compra
+        // ágil sin criterios, el de la ley.
+        criterios: criteriosDeEvaluacion(
+          resultado?.criterios,
+          p.tipo as string | null | undefined,
+        ),
         teDejanFuera: resultado?.te_dejan_fuera ?? [],
         prediccion: prediccionEnPalabras(
           comparacion?.estado === 'listo'
