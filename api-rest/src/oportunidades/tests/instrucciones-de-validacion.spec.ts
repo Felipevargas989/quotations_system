@@ -134,6 +134,9 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain('morosidades o protestos en el DICOM');
     expect(t).toContain('una quiebra o un procedimiento concursal');
     expect(t).toContain('dilo con la fecha en que hay que renovarlo');
+    expect(t).toContain(
+      '- Lo que está en orden: avisa solo lo que hay que hacer o revisar.',
+    );
     expect(t).toContain('Reglamento Sanitario de los Alimentos');
     // Va con lo demás, pero nunca hacia el comprador (Felipe: "no nos vamos
     // a autodelatar").
