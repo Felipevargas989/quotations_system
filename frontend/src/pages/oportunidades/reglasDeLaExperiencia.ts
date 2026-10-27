@@ -11,13 +11,30 @@ export const TIPO_PARTICULAR = "Particulares";
 export const claveDeLaExperiencia = (id: number) =>
   ["oportunidades", "experiencia", id] as const;
 
-/** ¿Falta confirmar? Si las bases piden experiencia y todavía no hay una
- *  confirmada, no se arma (el motor también lo corta). */
-export const faltaConfirmarExperiencia = (
+/** El aviso de «Armar postulación» (decisión 86, 27-10): la IA elige la
+ *  experiencia al armar y solo se avisa si no alcanza para el puntaje
+ *  máximo o si no se pudo elegir. Sin nada que decir, null. */
+export const avisoDeExperiencia = (
   e: EstadoDeLaExperiencia | undefined,
-): boolean =>
-  Boolean(e?.piden) &&
-  !(e?.trabajo?.estado === "listo" && e.trabajo.resultado?.confirmada);
+): string | null => {
+  if (!e?.piden || !e.trabajo) return null;
+  if (e.trabajo.estado === "error") {
+    const motivo = e.trabajo.error
+      ? `: ${e.trabajo.error.replace(/\.?\s*$/, ".")}`
+      : ".";
+    return `No se pudo elegir la experiencia${motivo} Vuelve a armar.`;
+  }
+  const r = e.trabajo.estado === "listo" ? e.trabajo.resultado : null;
+  if (!r) return null;
+  const con = r.elegidas.filter((c) => c.con_respaldo).length;
+  const subir =
+    "Sube órdenes de compra a «Mi empresa» o las facturas de tus eventos en Post-venta, y vuelve a armar.";
+  if (r.pide > 0 && con < r.pide) {
+    return `La IA encontró ${con} ${con === 1 ? "contrato" : "contratos"} con respaldo y las bases dan el puntaje máximo con ${r.pide}. ${subir}`;
+  }
+  if (con === 0) return `La IA no encontró experiencia con respaldo. ${subir}`;
+  return null;
+};
 
 /** Los clientes privados que se pueden mostrar, de «Mi empresa». */
 export const clientesQueSeMuestran = (

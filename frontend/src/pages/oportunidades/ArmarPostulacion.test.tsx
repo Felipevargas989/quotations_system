@@ -16,8 +16,10 @@ import * as postulacion from "../../services/postulacion.service";
 import ArmarPostulacion from "./ArmarPostulacion";
 
 // «ARMAR POSTULACIÓN» (decisión 35, 19-10): un solo botón que pide el
-// precio; después, cómo va cada paso y «Reintentar» lo que falló. Desde la
-// decisión 79 (26-10), ya armada queda en una barra con «Volver a armar».
+// precio. Desde la decisión 79 (26-10), ya armada queda en una barra con
+// «Volver a armar»; desde la 86 (27-10), solo el precio y el botón: una
+// línea mientras arma, una línea roja con «Reintentar» si algo falla y un
+// aviso si la experiencia no alcanza.
 
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
@@ -111,8 +113,11 @@ describe("Armar postulación", () => {
       expect(p.armarPostulacion).toHaveBeenCalledWith(40, 11_900_000),
     );
     expect(
-      await screen.findByText(/La IA está armando la oferta con tu catálogo/),
+      await screen.findByText(/Armando tu postulación… suele tardar/),
     ).toBeInTheDocument();
+    // Sin lista de formularios ni experiencia ni pasos (decisión 86).
+    expect(screen.queryByText(/Los formularios que se llenan/)).toBeNull();
+    expect(screen.queryByText("1. Qué ofreces")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Armando la postulación…" }),
     ).toBeDisabled();
@@ -141,7 +146,7 @@ describe("Armar postulación", () => {
     expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
   });
 
-  it("muestra cada paso y reintenta lo que falló con el mismo precio", async () => {
+  it("si algo falla, una línea roja y «Reintentar» con el mismo precio (decisión 86)", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue({
       id: 21,
       estado: "listo",
@@ -172,12 +177,7 @@ describe("Armar postulación", () => {
     pintar();
     expect(
       await screen.findByText(
-        "La IA tardó demasiado en responder: vuelve a intentar.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "No va aparte: el detalle va en el anexo de calidad de la oferta.",
+        "Los anexos: La IA tardó demasiado en responder: vuelve a intentar.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(
@@ -252,6 +252,12 @@ describe("Armar postulación", () => {
         /Armada el .+ · \$17\.150\.000 con IVA · experiencia: 2 contratos/,
       ),
     ).toBeInTheDocument();
+    // 2 con respaldo y las bases piden 6: se avisa (decisión 86).
+    expect(
+      screen.getByText(
+        /La IA encontró 2 contratos con respaldo y las bases dan el puntaje máximo con 6/,
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Volver a armar" }));
     expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(
@@ -303,20 +309,19 @@ describe("Armar postulación", () => {
     ).toBeDisabled();
   });
 
-  it("si las bases piden experiencia, no se arma hasta confirmarla (decisión 76)", async () => {
+  it("si las bases piden experiencia, se arma igual: la elige la IA y no se confirma a mano (decisión 86)", async () => {
     x.getExperiencia.mockResolvedValue({ piden: true, trabajo: null });
     pintar();
-    expect(
-      await screen.findByRole("button", { name: "Proponer experiencia" }),
-    ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Precio total, con IVA"), {
+    fireEvent.change(await screen.findByLabelText("Precio total, con IVA"), {
       target: { value: "17150000" },
     });
-    const boton = screen.getByRole("button", { name: "Armar postulación" });
-    expect(boton).toBeDisabled();
-    expect(boton).toHaveAttribute(
-      "title",
-      "Primero confirma la experiencia (arriba)",
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Armar postulación" }),
+      ).toBeEnabled(),
     );
+    expect(
+      screen.queryByRole("button", { name: "Proponer experiencia" }),
+    ).toBeNull();
   });
 });
