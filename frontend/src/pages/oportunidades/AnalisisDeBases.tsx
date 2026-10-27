@@ -305,11 +305,13 @@ function Relacionado({
     integridad: selloDeLaIntegridad(filas),
   };
   const { dejanFuera } = alertasDelAnalisis(r);
+  // Decisión 93: en una compra ágil, por ley gana el menor precio.
+  const compraAgil = ficha.proceso.tipo === "compra_agil";
 
   return (
     <>
-      {r.criterios.length > 0 && (
-        <Criterios criterios={r.criterios} vas={vas} />
+      {(r.criterios.length > 0 || compraAgil) && (
+        <Criterios criterios={r.criterios} vas={vas} compraAgil={compraAgil} />
       )}
 
       {dejanFuera.length > 0 && (
@@ -378,21 +380,49 @@ function Sellito({ sello }: { readonly sello: Sello }) {
   );
 }
 
+/** En una compra ágil, por ley gana el menor precio (decisión 93, 27-10).
+ *  Felipe: "me da la sensación de que quizás eso está normado por ley, que
+ *  el precio más bajo". Lo está: Ley 19.886 modificada por la Ley 21.634 y
+ *  artículo 97 del reglamento (Decreto 661). */
+const LO_QUE_DICE_LA_LEY =
+  "Si eligen otra cotización, tienen que justificarlo en la orden de compra. Por regla general compran a empresas de menor tamaño y proveedores locales. Lo fijan la Ley 19.886, modificada por la Ley 21.634, y el artículo 97 de su reglamento.";
+
 /** Cómo te evalúan: una barra por criterio, del más pesado al más liviano,
- *  con cómo vas en cada uno, y el detalle de cada uno plegado. */
+ *  con cómo vas en cada uno, y el detalle de cada uno plegado. En una
+ *  compra ágil, arriba, la regla de la ley; los criterios que agregue el
+ *  comprador van debajo. */
 function Criterios({
   criterios,
   vas,
+  compraAgil = false,
 }: {
   readonly criterios: ResultadoDeBases["criterios"];
   readonly vas: ComoVas;
+  readonly compraAgil?: boolean;
 }) {
   const ordenados = criteriosPorPeso(criterios);
+  const delPrecio = compraAgil ? comoVasEn("Menor precio", vas) : null;
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-2">
       <h2 className="text-sm font-semibold text-gray-900">
         <TituloDeBloque numero={1}>Cómo te evalúan</TituloDeBloque>
       </h2>
+      {compraAgil && (
+        <div className="space-y-0.5">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="font-semibold text-gray-900">
+              Por ley, gana el menor precio
+            </span>
+            {delPrecio && <Sellito sello={delPrecio} />}
+          </p>
+          <p className="text-xs text-gray-600">{LO_QUE_DICE_LA_LEY}</p>
+        </div>
+      )}
+      {compraAgil && ordenados.length > 0 && (
+        <p className="pt-1 text-xs font-semibold text-gray-500">
+          Lo que agrega el comprador
+        </p>
+      )}
       <ul className="space-y-1.5">
         {ordenados.map((c, i) => {
           const peso = pesoComoNumero(c.peso);
@@ -421,19 +451,21 @@ function Criterios({
           );
         })}
       </ul>
-      <Plegable titulo="Ver cómo se calcula cada uno">
-        <dl className="space-y-1.5 text-sm">
-          {ordenados.map((c, i) => (
-            <div key={`${c.nombre}-${i}`}>
-              <dt className="font-medium text-gray-900">
-                {c.nombre}
-                {c.peso && ` (${c.peso})`}
-              </dt>
-              <dd className="text-gray-600">{c.como_se_evalua || "—"}</dd>
-            </div>
-          ))}
-        </dl>
-      </Plegable>
+      {ordenados.length > 0 && (
+        <Plegable titulo="Ver cómo se calcula cada uno">
+          <dl className="space-y-1.5 text-sm">
+            {ordenados.map((c, i) => (
+              <div key={`${c.nombre}-${i}`}>
+                <dt className="font-medium text-gray-900">
+                  {c.nombre}
+                  {c.peso && ` (${c.peso})`}
+                </dt>
+                <dd className="text-gray-600">{c.como_se_evalua || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        </Plegable>
+      )}
     </section>
   );
 }
