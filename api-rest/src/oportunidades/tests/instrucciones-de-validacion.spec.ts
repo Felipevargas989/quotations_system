@@ -215,4 +215,29 @@ describe('lo que lee la IA para validar', () => {
     );
     expect(instruccionesDeValidacion(base)).not.toContain('ES UNA COMPRA ÁGIL');
   });
+
+  it('decisión 102: la certificación del programa de integridad vale con la firma del representante legal y del coordinador', () => {
+    const t = instruccionesDeValidacion({
+      codigo: '5040-14-LE26',
+      nombre: 'Día de Campo del Dirigente Social 2026',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      fecha_cierre: null,
+      hoy: '2026-10-28',
+      oferente: {
+        representante_nombre: 'Hernán Felipe Vargas Droguett',
+        coordinador_nombre: 'Camila Carvajal',
+      } as never,
+      carpeta: [],
+      requisitos: REQUISITOS,
+      criterios: [],
+    });
+    // Felipe: "mientras el representante legal y el coordinador del evento
+    // estén, el papel es válido".
+    expect(t).toContain(
+      'vale si la firman el representante legal (Hernán Felipe Vargas Droguett) y el coordinador del servicio (Camila Carvajal)',
+    );
+    expect(t).toContain(
+      'No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "grave".',
+    );
+  });
 });
