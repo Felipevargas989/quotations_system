@@ -645,7 +645,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Y el aviso de la 92 sigue el mismo criterio**: en una compra ágil, el lugar por precio y el aviso rojo de «por ley gana el menor precio» salen solo si el criterio es el de la ley; si la solicitud trae sus propios criterios, la tarjeta dice solo a quién eligieron y por cuánto (`resultadoParaLaEmpresa` con los criterios del último análisis, `AnalisisRepository.criteriosDe`).
     - **Y las licitaciones postuladas se consultan en cada pasada del radar** (ver la 92), para que el resultado, y con él este por qué, no llegue con un día de atraso.
 
-98. **Con el criterio de la ley, sin «Ver cómo se calcula cada uno»** (27-10, en el laboratorio; Felipe, con «Cómo te evalúan» de una compra ágil sin criterios: *"creo que el ver cómo se calcula está de más"*). Solo pantalla, sin migración.
+98. **Con el criterio de la ley, sin «Ver cómo se calcula cada uno»** (27-10, probado en el laboratorio y en producción ese mismo día; Felipe, con «Cómo te evalúan» de una compra ágil sin criterios: *"creo que el ver cómo se calcula está de más"*). Solo pantalla, sin migración.
     - En `Criterios` de `AnalisisDeBases.tsx`, el detalle plegado no sale cuando el criterio es el de la ley (`esDeLaLey`, de la 95): la línea de arriba ya dice que gana la cotización más económica que cumpla lo técnico. Con los criterios de la solicitud o de las bases, el detalle sigue, porque explica cómo se calcula cada puntaje.
     - Lo que se deja de ver: el texto largo del criterio de la ley, el de justificar con parámetros objetivos, con la Ley 19.886 y la Directiva 35. Felipe lo sabe.
 
