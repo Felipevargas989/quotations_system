@@ -738,7 +738,9 @@ export class OportunidadesRepository {
       .update({ ...cambios, actualizado_en: new Date().toISOString() })
       .eq('company_id', companyId)
       .eq('id', id)
-      .select('id, estado, responsable_id, notas, actualizado_en')
+      .select(
+        'id, codigo, estado, responsable_id, notas, quotation_id, actualizado_en',
+      )
       .maybeSingle();
     if (error) throw error;
     return data ?? null;

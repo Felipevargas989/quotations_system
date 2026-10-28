@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
+import { PaymentsModule } from 'src/payments/payments.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
 import { QuotationsModule } from 'src/quotations/quotations.module';
 import { AdjuntosRepository } from './adjuntos/adjuntos.repository';
@@ -46,6 +47,7 @@ import { OportunidadesCronService } from './oportunidades-cron.service';
 import { OportunidadesController } from './oportunidades.controller';
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
+import { AceptarLaGanadaService } from './postulacion/aceptar-la-ganada.service';
 import { ArmarLaOfertaService } from './postulacion/armar-la-oferta.service';
 import { ArmarPostulacionService } from './postulacion/armar-postulacion.service';
 import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la-postulacion.service';
@@ -70,7 +72,13 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
 // Desde el 19-10, la cotización de la postulación (postulacion/, decisión
 // 29): usa el cotizador, los clientes y la bitácora.
 @Module({
-  imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
+  imports: [
+    QuotationsModule,
+    ClientsModule,
+    QuotationFollowupsModule,
+    // Decisión 104: la cotización de una ganada queda aceptada con su plan.
+    PaymentsModule,
+  ],
   controllers: [
     CompetenciaController,
     PreguntasController,
@@ -100,6 +108,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     AprendizajesService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
+    AceptarLaGanadaService,
     ArmarLaOfertaService,
     LoPostuladoService,
     ElSetService,

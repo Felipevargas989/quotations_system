@@ -78,6 +78,71 @@ describe('PaymentsService', () => {
     });
   });
 
+  // Decisión 104 del doc 17 (28-10): la cotización de una licitación
+  // ganada se acepta sola, sin el correo del plan al comprador.
+  describe('createPaymentPlan sin correo', () => {
+    it('deja la cotización aceptada sin mandarle el plan al cliente', async () => {
+      const repo = {
+        findAllPaymentsFromQuotation: jest
+          .fn()
+          .mockResolvedValue({ data: [], error: null }),
+        removePayment: jest.fn(),
+        createPaymentPlan: jest.fn().mockResolvedValue({ error: null }),
+      };
+      const quotationsRepository = { update: jest.fn().mockResolvedValue({}) };
+      const quotations = {
+        findOne: jest.fn().mockResolvedValue({
+          data: {
+            id: 'q-679',
+            company_id: 1,
+            quotation_number: 679,
+            total_amount: 1_136_500,
+            quotation_status: 'enviada',
+            client_contact_id: 'c-1',
+            companies: { name: 'Valle del Sol' },
+          },
+        }),
+        mandanteOf: jest.fn(),
+      };
+      const email = { sendEmail: jest.fn() };
+      const service = new PaymentsService(
+        repo as unknown as PaymentsRepository,
+        quotationsRepository as unknown as QuotationsRepository,
+        quotations as unknown as QuotationsService,
+        email as unknown as EmailService,
+        mockPinoLogger() as unknown as PinoLogger,
+      );
+      jest
+        .spyOn(service as never, 'renumerarCuotas' as never)
+        .mockResolvedValue(undefined as never);
+      jest
+        .spyOn(service, 'rellenarCuotas')
+        .mockResolvedValue(undefined as never);
+      await service.createPaymentPlan(
+        {
+          quotation_id: 'q-679',
+          payments: [
+            {
+              payment_type: 'Cuota 1',
+              amount: 1_136_500,
+              due_date: '2026-11-27',
+            },
+          ],
+        } as never,
+        1,
+        { sinCorreo: true },
+      );
+      expect(repo.createPaymentPlan).toHaveBeenCalled();
+      expect(quotations.mandanteOf).not.toHaveBeenCalled();
+      expect(email.sendEmail).not.toHaveBeenCalled();
+      expect(quotationsRepository.update).toHaveBeenCalledWith(
+        'q-679',
+        { quotation_status: 'aceptada' },
+        1,
+      );
+    });
+  });
+
   // Calendario de pagos Nivel A: solo fecha/nota, solo cuotas sin plata.
   describe('updatePaymentSchedule', () => {
     const buildService = (repo: Partial<PaymentsRepository>) =>

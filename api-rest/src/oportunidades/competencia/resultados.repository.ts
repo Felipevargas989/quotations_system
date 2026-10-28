@@ -22,6 +22,9 @@ export type PorResolver = {
   codigo: string;
   tipo: 'compra_agil' | 'licitacion';
   estado: 'postulada' | 'ganada' | 'perdida';
+  /** La cotización vinculada: al salir ganada queda aceptada (decisión
+   *  104). */
+  quotation_id?: string | null;
   /** Ya tiene su resultado público en mp_cambios. */
   anotada: boolean;
   /** Lo que el radar ya leyó de Mercado Público: en una licitación, la
@@ -49,7 +52,7 @@ export class ResultadosRepository {
     const { data, error } = await this.db
       .from('oportunidades')
       .select(
-        'id, codigo, estado, proceso:mp_procesos!inner(tipo, estado, fecha_cierre, adjudicacion)',
+        'id, codigo, estado, quotation_id, proceso:mp_procesos!inner(tipo, estado, fecha_cierre, adjudicacion)',
       )
       .eq('company_id', companyId)
       .in('estado', ['postulada', 'ganada', 'perdida'])
@@ -61,6 +64,7 @@ export class ResultadosRepository {
         id: number;
         codigo: string;
         estado: PorResolver['estado'];
+        quotation_id?: string | null;
         proceso: {
           tipo: string;
           estado: string | null;
@@ -87,6 +91,7 @@ export class ResultadosRepository {
           codigo: f.codigo,
           tipo: f.proceso?.tipo === 'licitacion' ? 'licitacion' : 'compra_agil',
           estado: f.estado,
+          quotation_id: f.quotation_id ?? null,
           anotada: anotadas.has(f.codigo),
           proceso: {
             estado: f.proceso?.estado ?? null,
