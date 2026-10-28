@@ -332,7 +332,7 @@ describe('SeguimientoConIAService', () => {
         clients: { name: 'Cuatro' },
       },
     ]);
-    repositorio.compromisosAbiertos.mockResolvedValue([
+    repositorio.notasConProximoContacto.mockResolvedValue([
       { ...compromiso, quotation_id: 'a', next_contact_date: '2026-10-15' },
       {
         ...compromiso,
@@ -356,8 +356,8 @@ describe('SeguimientoConIAService', () => {
     // Con tope de calendario, la lista no la ofrece (Felipe, 18-10).
     const conTope = armar(parse, { conTope: ['b'] });
     conTope.repositorio.vivas.mockImplementation(repositorio.vivas);
-    conTope.repositorio.compromisosAbiertos.mockImplementation(
-      repositorio.compromisosAbiertos,
+    conTope.repositorio.notasConProximoContacto.mockImplementation(
+      repositorio.notasConProximoContacto,
     );
     expect(
       (await conTope.servicio.pendientes(usuario)).map(
@@ -387,7 +387,7 @@ describe('SeguimientoConIAService', () => {
         clients: { name: 'Uno' },
       },
     ]);
-    repositorio.compromisosAbiertos.mockResolvedValue([
+    repositorio.notasConProximoContacto.mockResolvedValue([
       { ...compromiso, quotation_id: 'q607' },
     ]);
     const [p] = await servicio.pendientes(usuario);

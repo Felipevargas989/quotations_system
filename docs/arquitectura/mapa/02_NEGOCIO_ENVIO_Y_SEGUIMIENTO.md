@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -161,7 +161,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 4. **Editar o borrar**: `assertAuthor` compara `author_user_id`; en notas antiguas con autor nulo, compara `author_name` con el correo. **"Listo"** es un PATCH con solo `next_contact_done_at` y basta con que la nota sea de la empresa.
 5. **Efectos**: el hilo invalida `["seguimientos", id]` y `["seguimientos", "map"]`. `mapByCompany` recalcula dos datos:
    - `last_at`: la nota más nueva;
-   - el compromiso vigente: la nota más reciente con fecha y sin cumplir.
+   - el compromiso vigente: el compromiso de la nota más reciente que tiene fecha, y ninguno si esa ya se dio por cumplida («Listo»; desde el 28-10-2026: antes se tomaba la más reciente sin cumplir y cada «Listo» hacía aparecer la anterior). Las notas sin fecha no lo mueven (07-08). La misma regla, en `compromisoVigente` (pantalla) y `compromisoVivo` (seguimiento con IA).
 
    Con eso se pintan el semáforo del tablero (`semaforoDe`) y el aviso ámbar de Post-Venta.
 6. La línea gris "Cotización enviada al cliente" del hilo no es una fila: sale de `quotations.sent_at`. Desde el 10-10-2026 no se muestra si el hilo ya tiene la nota del botón ("Cotización enviada por correo a …"), que dice lo mismo y más.
@@ -297,6 +297,10 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 - **Solo el autor edita o borra su nota**:
   - Qué: la empresa sale de la sesión, nunca del body, y el nombre del autor queda congelado.
   - Evidencia: `QuotationFollowupsService.assertAuthor`; `59_bitacora_comercial.sql`.
+- **Al aceptar, los compromisos de la venta se cierran** (Felipe, 28-10-2026: en Post-Venta el seguimiento *"es optativo, es solamente cuando ya un evento necesita alguna revisión o algún seguimiento. Pero no ponerle listo todo el historial"*):
+  - Qué: al pasar a «aceptada» (`PaymentsService.createPaymentPlan` y `QuotationsService.update`), los próximos contactos abiertos de esa cotización quedan cumplidos (`QuotationsRepository.cerrarCompromisosDeLaVenta`; la fecha no se borra). En Post-Venta solo avisa lo que se anote después. Si falla, la aceptación queda igual y el error va al registro.
+  - Evidencia: `aceptar-sin-plan.spec.ts`, `editar-plan.servicio.spec.ts`, `payments.service.spec.ts` (la ganada de una licitación).
+- **Un «Listo» no hace aparecer el compromiso anterior** (28-10-2026): vale solo el de la nota más reciente con fecha. Antes, cada «Listo» destapaba el compromiso de la nota anterior, nota por nota (Felipe: *"pincho listo y se corre hacia abajo"*). Evidencia: `compromisoVigente.test.ts`, `quotation-followups.service.spec.ts`, `elegibles-y-hilo.spec.ts`.
 - **"Listo" cierra un pendiente aunque la nota sea de otro** (07-08):
   - Por qué: las notas eran de Camila y Felipe recibía 403.
   - Qué: no borra la fecha ("la casa no reescribe la historia"). En pantalla, "Listo" aparece solo en evento ganado (reafirmado por Felipe el 12-08).

@@ -2,8 +2,8 @@
 
 Este archivo es UNO solo y lo leen los dos que escriben seguimientos: el
 botón «✉ Generar seguimiento» de Eventia y la skill `correos-cotizaciones-vds`
-del chat (Felipe, 17-10-2026: *"sigue los principios de la skill de
-correo"*). Cada corrección de Felipe se escribe acá, en «Lecciones», y desde
+del chat (Felipe, 17-10-2026: _"sigue los principios de la skill de
+correo"_). Cada corrección de Felipe se escribe acá, en «Lecciones», y desde
 el siguiente despliegue la aplican los dos. El diseño está en
 `docs/arquitectura/18_SEGUIMIENTO_CON_IA.md`; el tono completo de la casa,
 en la skill `correos-valle-del-sol`. Aquí está lo que un seguimiento

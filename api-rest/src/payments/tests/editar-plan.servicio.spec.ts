@@ -79,7 +79,10 @@ class Base {
     findEventosSinPlan: jest.fn(),
   };
 
-  aceptarRepo = { update: jest.fn().mockResolvedValue({}) };
+  aceptarRepo = {
+    update: jest.fn().mockResolvedValue({}),
+    cerrarCompromisosDeLaVenta: jest.fn().mockResolvedValue(0),
+  };
   correo = { sendEmail: jest.fn<void, unknown[]>() };
 
   servicio(estado: string, total = 2821000) {
@@ -145,6 +148,8 @@ describe('Editar el plan de pagos', () => {
     ]);
     expect(base.correo.sendEmail).not.toHaveBeenCalled();
     expect(base.aceptarRepo.update).not.toHaveBeenCalled();
+    // Editar el plan no es aceptar: la bitácora no se toca.
+    expect(base.aceptarRepo.cerrarCompromisosDeLaVenta).not.toHaveBeenCalled();
   });
 
   it('con un pago registrado, el plan ya no se edita y no se toca nada', async () => {
@@ -297,6 +302,11 @@ describe('Armar el plan al aceptar, con abonos encima', () => {
     expect(base.aceptarRepo.update).toHaveBeenCalledWith(
       'q703',
       { quotation_status: 'aceptada' },
+      1,
+    );
+    // Recién aceptada: los compromisos de la venta se cierran (28-10-2026).
+    expect(base.aceptarRepo.cerrarCompromisosDeLaVenta).toHaveBeenCalledWith(
+      'q703',
       1,
     );
     // El correo lleva el plan como quedó, con la fecha que sabe leer.
