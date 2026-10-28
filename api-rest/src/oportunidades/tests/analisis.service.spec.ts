@@ -10,6 +10,7 @@ import {
   errorDeAnalisis,
   ESQUEMA_DE_BASES,
   instruccionesDeBases,
+  MAX_BYTES_DE_BASES,
   MAX_BYTES_DE_PDF,
   MODELO_BASES,
   razonSegunLasBases,
@@ -108,8 +109,14 @@ class AnalisisDePrueba extends AnalisisService {
     );
   }
 
+  /** La Files API, para los PDF que pasan de 22 MB (decisión 103). */
+  readonly upload = jest.fn().mockResolvedValue({ id: 'file_bases' });
+
   protected cliente(): Anthropic {
-    return { messages: { parse: this.parse } } as unknown as Anthropic;
+    return {
+      messages: { parse: this.parse },
+      files: { upload: this.upload },
+    } as unknown as Anthropic;
   }
 }
 
@@ -208,7 +215,7 @@ const conLlave = async (prueba: () => Promise<void>) => {
 };
 
 describe('AnalisisService — pedir', () => {
-  it('sin archivos, con solo un ZIP o con PDF de más de 22 MB: 400 y no crea nada', () =>
+  it('sin archivos, con solo un ZIP o con PDF de más de 40 MB: 400 y no crea nada', () =>
     conLlave(async () => {
       const { adjuntos, repo, servicio } = armar();
       await expect(servicio.pedir(1, CUENTA, 40)).rejects.toThrow(
@@ -219,12 +226,25 @@ describe('AnalisisService — pedir', () => {
         'Ninguno de los archivos se puede leer',
       );
       adjuntos.listar.mockResolvedValue([
-        adjunto(1, 'bases.pdf', MAX_BYTES_DE_PDF + 1),
+        adjunto(1, 'bases.pdf', MAX_BYTES_DE_BASES + 1),
       ]);
       await expect(servicio.pedir(1, CUENTA, 40)).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(repo.crear).not.toHaveBeenCalled();
+    }));
+
+  it('decisión 103: más de 22 MB y hasta 40 MB de PDF se analiza', () =>
+    conLlave(async () => {
+      const { adjuntos, repo, servicio } = armar();
+      adjuntos.listar.mockResolvedValue([
+        adjunto(1, 'bases.pdf', MAX_BYTES_DE_PDF + 1),
+        adjunto(2, 'anexos.pdf', MAX_BYTES_DE_BASES - MAX_BYTES_DE_PDF - 1),
+      ]);
+      await expect(servicio.pedir(1, CUENTA, 40)).resolves.toMatchObject({
+        id: 5,
+      });
+      expect(repo.crear).toHaveBeenCalledTimes(1);
     }));
 
   it('una oportunidad de otra empresa es 404; sin llave de Anthropic, 400', async () => {
@@ -382,6 +402,34 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
       tokens_salida: 5_000,
       costo_usd: 0.5,
     });
+  });
+
+  it('decisión 103: si los PDF pasan de 22 MB, van por la Files API con su file_id', async () => {
+    const { repo, parse, servicio } = armar();
+    repo.descargar.mockResolvedValue(Buffer.alloc(MAX_BYTES_DE_PDF + 1, 'p'));
+
+    await servicio.ejecutar(
+      1,
+      5,
+      [adjunto(1, 'Bases.pdf', MAX_BYTES_DE_PDF + 1)] as never,
+      [],
+      contexto,
+    );
+
+    expect(servicio.upload).toHaveBeenCalledTimes(1);
+    const [[pedido]] = parse.mock.calls as Array<
+      [{ messages: Array<{ content: Array<Record<string, unknown>> }> }]
+    >;
+    expect(pedido.messages[0].content[0]).toEqual({
+      type: 'document',
+      title: 'Bases.pdf',
+      source: { type: 'file', file_id: 'file_bases' },
+    });
+    expect(repo.terminar).toHaveBeenCalledWith(
+      1,
+      5,
+      expect.objectContaining({ estado: 'listo' }),
+    );
   });
 
   it('decisión 95: una compra ágil sin criterios guarda el de la ley; con criterios, los suyos', async () => {

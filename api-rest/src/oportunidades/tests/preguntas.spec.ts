@@ -4,7 +4,11 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
-import { costoDelUso } from '../analisis/comun';
+import {
+  costoDelUso,
+  MAX_BYTES_DE_BASES,
+  MAX_BYTES_DE_PDF,
+} from '../analisis/comun';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import type { PreguntasRepository } from '../preguntas/preguntas.repository';
 import {
@@ -100,8 +104,14 @@ class PreguntasDePrueba extends PreguntasService {
     );
   }
 
+  /** La Files API, para los PDF que pasan de 22 MB (decisión 103). */
+  readonly upload = jest.fn().mockResolvedValue({ id: 'file_bases' });
+
   protected cliente(): Anthropic {
-    return { messages: { parse: this.parse } } as unknown as Anthropic;
+    return {
+      messages: { parse: this.parse },
+      files: { upload: this.upload },
+    } as unknown as Anthropic;
   }
 }
 
@@ -197,6 +207,24 @@ describe('Pregúntale a la IA: pedir', () => {
     expect(leibles.map((a) => a.nombre)).toEqual(['Bases.pdf']);
     expect(contexto).toEqual(CONTEXTO);
     expect(pregunta).toBe('¿Las colaciones son por día?');
+  });
+
+  it('decisión 103: con más de 22 MB de PDF se pregunta igual; con más de 40 MB, no', async () => {
+    const { servicio, adjuntos, repo } = armar();
+    jest.spyOn(servicio, 'ejecutar').mockResolvedValue(undefined);
+    adjuntos.listar.mockResolvedValue([
+      adjunto(1, 'Bases.pdf', MAX_BYTES_DE_PDF + 1),
+    ]);
+    await expect(
+      servicio.preguntar(1, 'cuenta', 40, '¿Son por día?'),
+    ).resolves.toMatchObject({ estado: 'procesando' });
+    adjuntos.listar.mockResolvedValue([
+      adjunto(1, 'Bases.pdf', MAX_BYTES_DE_BASES + 1),
+    ]);
+    await expect(
+      servicio.preguntar(1, 'cuenta', 40, '¿Son por día?'),
+    ).rejects.toThrow('más de 40 MB');
+    expect(repo.crear).toHaveBeenCalledTimes(1);
   });
 
   it('una a la vez: si hay otra en curso, avisa', async () => {
@@ -363,6 +391,32 @@ describe('Pregúntale a la IA: responder', () => {
     expect(repo.terminar).toHaveBeenCalledWith(1, 7, {
       estado: 'error',
       error: 'No se pudo responder: boom',
+    });
+  });
+
+  it('decisión 103: con más de 22 MB de PDF, las bases van por la Files API', async () => {
+    const { servicio, analisis, parse } = armar();
+    analisis.descargar.mockResolvedValue(
+      Buffer.alloc(MAX_BYTES_DE_PDF + 1, 'q'),
+    );
+    parse.mockResolvedValue(respuestaDeOpus(null, 'max_tokens'));
+    await servicio.ejecutar(
+      1,
+      7,
+      40,
+      [adjunto(1, 'Bases.pdf', MAX_BYTES_DE_PDF + 1)],
+      CONTEXTO,
+      '¿Son por día?',
+    );
+    expect(servicio.upload).toHaveBeenCalledTimes(1);
+    const [[pedido]] = parse.mock.calls as Array<[Pedido]>;
+    const contenido = pedido.messages[0].content as Array<
+      Record<string, unknown>
+    >;
+    expect(contenido[0]).toEqual({
+      type: 'document',
+      title: 'Bases.pdf',
+      source: { type: 'file', file_id: 'file_bases' },
     });
   });
 });
