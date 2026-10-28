@@ -2,7 +2,10 @@ import type { PinoLogger } from 'nestjs-pino';
 import type { PaymentsService } from 'src/payments/payments.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { mockPinoLogger } from 'src/testing/mocks';
-import { AceptarLaGanadaService } from '../postulacion/aceptar-la-ganada.service';
+import {
+  AceptarLaGanadaService,
+  validarServicios,
+} from '../postulacion/aceptar-la-ganada.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 
 // LA COTIZACIÓN DE UNA LICITACIÓN GANADA QUEDA ACEPTADA (decisión 104,
@@ -63,6 +66,50 @@ describe('La cotización de una ganada queda aceptada', () => {
         'Aceptada sola: la licitación 1030177-85-COT26 salió ganada. Una cuota por el total',
       ) as string,
     });
+  });
+
+  it('deja la tarea «Validar servicios contra licitación» vencida desde que se acepta: la franja roja del hilo', async () => {
+    // Felipe, 28-10: "dejale un seguimiento de esos rojo diciendo validar
+    // servicios contra licitación".
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-28T15:00:00Z'));
+    try {
+      const { bitacora, servicio } = armar();
+      await servicio.aceptar(1, 'q-679', '1030177-85-COT26');
+      // Después de «Aceptada sola»: el compromiso vivo es la nota más
+      // reciente con fecha.
+      expect(bitacora.crearComoAsistente).toHaveBeenCalledTimes(2);
+      expect(bitacora.crearComoAsistente.mock.calls[1]).toEqual([
+        1,
+        {
+          quotation_id: 'q-679',
+          tipo: 'otro',
+          next_contact_date: '2026-10-27',
+          note: 'Validar servicios contra licitación 1030177-85-COT26.',
+        },
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('la tarea lleva la fecha de ayer en Chile, no en UTC', () => {
+    // 23:30 del 27-10 en Chile (02:30 UTC del 28): ayer es el 26.
+    expect(
+      validarServicios('X', new Date('2026-10-28T02:30:00Z')).next_contact_date,
+    ).toBe('2026-10-26');
+    // 00:30 del 28-10 en Chile: ayer es el 27.
+    expect(
+      validarServicios('X', new Date('2026-10-28T03:30:00Z')).next_contact_date,
+    ).toBe('2026-10-27');
+  });
+
+  it('si la bitácora falla, la cotización queda aceptada igual', async () => {
+    const { bitacora, servicio } = armar();
+    bitacora.crearComoAsistente.mockRejectedValue(new Error('sin red'));
+    await expect(
+      servicio.aceptar(1, 'q-679', '1030177-85-COT26'),
+    ).resolves.toEqual({ numero: 679, vence: '2026-11-27', total: 1_136_500 });
+    expect(bitacora.crearComoAsistente).toHaveBeenCalledTimes(2);
   });
 
   it('de varios días, la cuota vence 30 días después del último', async () => {
