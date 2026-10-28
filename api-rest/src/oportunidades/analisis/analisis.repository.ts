@@ -51,6 +51,16 @@ export type TrabajoLiviano = {
   listo?: string | null;
 };
 
+/** Lo que dice de la fecha del servicio un análisis listo (decisión 100:
+ *  la pestaña «Ganadas»). Sin tipo fijo: viene tal cual del resultado. */
+export type ServicioEnElAnalisis = {
+  fecha_del_servicio?: unknown;
+  fecha_del_servicio_iso?: unknown;
+  /** Las fechas de las bases; en un análisis de antes del 17-10, la del
+   *  servicio está entre ellas. */
+  fechas?: unknown;
+};
+
 export type FinDeAnalisis = {
   estado: 'listo' | 'error';
   resultado?: Record<string, unknown>;
@@ -208,6 +218,36 @@ export class AnalisisRepository extends TrabajosDeIARepository {
     }>) {
       if (!r.has(f.oportunidad_id) && Array.isArray(f.criterios)) {
         r.set(f.oportunidad_id, f.criterios as Array<{ nombre: string }>);
+      }
+    }
+    return r;
+  }
+
+  /** Cuándo es el servicio, según el último análisis listo de cada
+   *  oportunidad de la empresa (decisión 100: la pestaña «Ganadas»). */
+  async serviciosDe(
+    companyId: number,
+    oportunidadIds: number[],
+  ): Promise<Map<number, ServicioEnElAnalisis>> {
+    const r = new Map<number, ServicioEnElAnalisis>();
+    if (oportunidadIds.length === 0) return r;
+    const { data, error } = await this.db
+      .from(this.tabla)
+      .select(
+        'oportunidad_id, fecha_del_servicio:resultado->fecha_del_servicio, fecha_del_servicio_iso:resultado->fecha_del_servicio_iso, fechas:resultado->fechas',
+      )
+      .eq('company_id', companyId)
+      .eq('estado', 'listo')
+      .in('oportunidad_id', oportunidadIds)
+      .order('creado_en', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    for (const f of (data ?? []) as Array<
+      ServicioEnElAnalisis & { oportunidad_id: number }
+    >) {
+      if (!r.has(f.oportunidad_id)) {
+        const { oportunidad_id, ...servicio } = f;
+        r.set(oportunidad_id, servicio);
       }
     }
     return r;

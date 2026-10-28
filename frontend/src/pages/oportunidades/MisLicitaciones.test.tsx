@@ -167,7 +167,7 @@ describe("Mis licitaciones", () => {
     );
   });
 
-  it("cada una con su avance, el estado y quién la lleva; las ganadas y perdidas, plegadas", async () => {
+  it("cada una con su avance, el estado y quién la lleva; las perdidas, plegadas al final, y las ganadas en su pestaña (decisión 100)", async () => {
     s.getMisLicitaciones.mockResolvedValue([
       mia(40, "Ceremonia y Cena Día del Funcionario", "en_estudio", {
         avance: avance({
@@ -179,6 +179,21 @@ describe("Mis licitaciones", () => {
       }),
       mia(87, "Producción de evento Día del Profesor", "en_estudio"),
       mia(5, "Cena de fin de año 2025", "ganada"),
+      mia(3219, "Arriendo de catamarán", "perdida", {
+        // Decisión 92: el resultado sigue en la tarjeta.
+        resultado: {
+          tipo: "compra_agil",
+          estado: "perdida",
+          proveedor: "BPM EVENTOS SPA",
+          rut_proveedor: "76.430.926-k",
+          monto: 6_800_000,
+          mi_monto: 7_090_000,
+          lugar: 2,
+          ofertas: 2,
+          era_la_mas_barata: false,
+          inadmisible: null,
+        },
+      }),
     ] as never);
     pintar();
 
@@ -187,9 +202,14 @@ describe("Mis licitaciones", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Faltan las bases")).toBeInTheDocument();
     expect(await screen.findAllByText("Camila")).toHaveLength(2);
+    expect(screen.queryByText("Arriendo de catamarán")).toBeNull();
+    fireEvent.click(screen.getByText("Perdidas (1)"));
+    expect(screen.getByText("Arriendo de catamarán")).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Eligieron a BPM EVENTOS SPA por \$6\.800\.000\./),
+    ).toBeInTheDocument();
+    // Felipe: "no me gusta que las perdidas queden con las ganadas".
     expect(screen.queryByText("Cena de fin de año 2025")).toBeNull();
-    fireEvent.click(screen.getByText("Ganadas y perdidas (1)"));
-    expect(screen.getByText("Cena de fin de año 2025")).toBeInTheDocument();
   });
 
   it("pinchar la tarjeta abre la ficha, donde se trabaja", async () => {

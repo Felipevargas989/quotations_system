@@ -19,6 +19,7 @@ import {
   type FilaDeLista,
   OportunidadesRepository,
 } from '../oportunidades.repository';
+import { type ServicioDeLaGanada, servicioDe } from './servicio-de-la-ganada';
 
 // "MIS LICITACIONES" (Felipe, 17-10: "¿dónde van a quedar compiladas las
 // que sí me interesan para luego trabajarlas?"). Las que la empresa marcó
@@ -56,6 +57,9 @@ export type MiLicitacion = FilaDeLista & {
   /** Ganada o perdida (decisión 92): a quién eligieron, por cuánto y cómo
    *  quedó la empresa por precio. */
   resultado: ResultadoDeLaEmpresa | null;
+  /** Ganada (decisión 100): cuándo es el servicio, para la pestaña
+   *  «Ganadas». null en las demás. */
+  servicio: ServicioDeLaGanada | null;
 };
 
 const instante = (iso: string | null) =>
@@ -100,6 +104,7 @@ export class MisLicitacionesService {
       (f) => f.estado === 'ganada' || f.estado === 'perdida',
     );
     const terminadas = conResultado.map((f) => f.codigo);
+    const ganadas = filas.filter((f) => f.estado === 'ganada');
     const [
       archivos,
       analisis,
@@ -108,6 +113,7 @@ export class MisLicitacionesService {
       resultados,
       rut,
       criterios,
+      servicios,
     ] = await Promise.all([
       this.adjuntos.origenesDe(companyId, ids),
       this.analisis.ultimosDe(companyId, ids),
@@ -123,6 +129,11 @@ export class MisLicitacionesService {
       this.analisis.criteriosDe(
         companyId,
         conResultado.map((f) => f.id),
+      ),
+      // Decisión 100: cuándo es el servicio de cada ganada.
+      this.analisis.serviciosDe(
+        companyId,
+        ganadas.map((f) => f.id),
       ),
     ]);
     const ultimoAnalisis = elUltimo(analisis);
@@ -145,6 +156,10 @@ export class MisLicitacionesService {
             rut,
             criterios.get(f.id),
           ),
+          servicio:
+            f.estado === 'ganada'
+              ? servicioDe(servicios.get(f.id), f.proceso.fecha_cierre)
+              : null,
           avance: {
             bases: suyos.filter((a) => a.seccion === 'bases').length,
             trayendo: this.licify.estaTrayendo(companyId, f.id),
