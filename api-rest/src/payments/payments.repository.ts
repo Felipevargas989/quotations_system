@@ -14,6 +14,7 @@ import {
   PaymentWithTransactionsAndQuotation,
   UpdatePayment,
 } from './interfaces/payments.types';
+import { CuotaPorCrear } from './plan-editado';
 
 @Injectable()
 export class PaymentsRepository {
@@ -168,11 +169,61 @@ export class PaymentsRepository {
     };
   }
 
-  async createPaymentPlan(payments: Payment[]) {
+  // Las cuotas nuevas del plan (doc 14 §Editar el plan): las arma
+  // `planEditado`, con su número, fecha AAAA-MM-DD y estado.
+  async createPaymentPlan(
+    payments: (CuotaPorCrear & { quotation_id: Quotation['id'] })[],
+  ) {
     this.logger.info(
       `createPaymentPlan with payments ${JSON.stringify(payments)}`,
     );
     return this.supabase.client.from('payments').insert(payments);
+  }
+
+  /**
+   * LOS EVENTOS SIN PLAN DE PAGOS (Felipe, 28-10-2026: "los eventos no
+   * deberían desaparecer"). Post-Venta arma su lista desde las cuotas, así
+   * que una cotización aceptada, realizada o anulada sin ninguna cuota no
+   * aparecía (caso 703). Trae esas cotizaciones con la MISMA forma que el
+   * embebido `quotations` de `findAllPaymentsWithTransactions`, para que la
+   * pantalla arme la fila igual. El filtro de las que no tienen cuotas lo
+   * hace el servicio: VDS tiene 155 cotizaciones de post-venta (28-10-2026).
+   */
+  async findEventosSinPlan(companyId: Company['id']) {
+    this.logger.info(`findEventosSinPlan with companyId ${companyId}`);
+    return this.supabase.client
+      .from('quotations')
+      .select(
+        `
+      id,
+      company_id,
+      quotation_number,
+      quotation_status,
+      event_date,
+      event_end_date,
+      total_amount,
+      requires_invoice,
+      has_contract,
+      contact_name,
+      mandante:client_contacts!quotations_client_contact_id_fkey (
+        name,
+        email,
+        portal_token
+      ),
+      clients!inner (
+        name,
+        email,
+        client_contacts (
+          name,
+          phone,
+          email
+        )
+      ),
+      payments ( id )
+    `,
+      )
+      .eq('company_id', companyId)
+      .in('quotation_status', ['aceptada', 'realizada', 'cancelada']);
   }
 
   async createPayment(payment: CreatePayment) {
