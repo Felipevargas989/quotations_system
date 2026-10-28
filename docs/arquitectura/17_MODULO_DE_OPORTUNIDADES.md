@@ -659,6 +659,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - En «Mis licitaciones», al final y plegadas, quedan solo las perdidas: «Perdidas (N)».
     - Los días del servicio los lee el motor del último análisis listo, solo para las ganadas (`AnalisisRepository.serviciosDe`, `mias/servicio-de-la-ganada.ts`): el primer día que da la IA (`fecha_del_servicio_iso`) y los que nombra el texto de las bases (un día, varios, un rango «del 2 al 8 de noviembre», «30/10/2026», «2-nov.-2026»). Un día sin año toma el que viene después en el texto; si no hay, el del primer día o el del cierre, y si así queda más de un mes antes, el del año siguiente.
     - Si las bases no dan una fecha (un contrato con servicios a pedido), la ganada queda por cumplir y dice «Sin fecha en las bases».
+    - El servicio, y el cierre en «Mis licitaciones», quedan siempre a la derecha, también con un nombre largo; en el teléfono bajan bajo el nombre (Felipe, al ver la de Laja Diguillín con la fecha debajo: *"si siempre a la derecha"*).
     - La cotización vinculada no cambia de estado al ganar: Felipe lo pensó y lo retiró (*"No, mejor eso último no"*).
 
 ## 4. Reglas del módulo (no se negocian)

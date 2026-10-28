@@ -78,8 +78,11 @@ export default function TarjetaDeLicitacion({
             : "border-gray-200 bg-white hover:border-blue-300"
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+      {/* El cierre o el servicio, siempre a la derecha aunque el nombre
+          sea largo (Felipe, 28-10: "si siempre a la derecha"); en el
+          teléfono baja bajo el nombre, que si no queda muy apretado. */}
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
+        <div className="min-w-0 sm:flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <SelloDeTipo tipo={p.tipo} />
             <Link
@@ -103,7 +106,7 @@ export default function TarjetaDeLicitacion({
         {ganada ? (
           <ElServicio m={m} />
         ) : (
-          <div className="text-right text-xs">
+          <div className="text-right text-xs sm:shrink-0">
             <p className="text-gray-500">
               Cierra {formatMomento(p.fecha_cierre, "diaHora", "sin fecha")}
             </p>
@@ -162,7 +165,7 @@ function ElServicio({ m }: { readonly m: MiLicitacion }) {
   const servicio = (m as ConServicio).servicio;
   const cuando = cuandoEsElServicio(servicio, hoyEnChile());
   return (
-    <div className="max-w-[15rem] text-right text-xs">
+    <div className="max-w-[15rem] text-right text-xs sm:shrink-0">
       <p className="text-gray-500">Servicio</p>
       {cuando && (
         <p
