@@ -27,6 +27,10 @@ import { OfertasDeLaCompetenciaService } from './competencia/ofertas-de-la-compe
 import { ResultadosRepository } from './competencia/resultados.repository';
 import { ResultadosDePostuladasService } from './competencia/resultados.service';
 import { RubroService } from './competencia/rubro.service';
+import { DatosAbiertosCronService } from './datos-abiertos/datos-abiertos-cron.service';
+import { DatosAbiertosController } from './datos-abiertos/datos-abiertos.controller';
+import { DatosAbiertosRepository } from './datos-abiertos/datos-abiertos.repository';
+import { DatosAbiertosService } from './datos-abiertos/datos-abiertos.service';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
 import { GeneracionRepository } from './generacion/generacion.repository';
@@ -73,6 +77,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
   imports: [QuotationsModule, ClientsModule, QuotationFollowupsModule],
   controllers: [
     CompetenciaController,
+    DatosAbiertosController,
     PreguntasController,
     OportunidadesController,
     PostulacionController,
@@ -92,6 +97,9 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     OfertasDeLaCompetenciaService,
     PorQuePerdimosService,
     CompetenciaCronService,
+    DatosAbiertosRepository,
+    DatosAbiertosService,
+    DatosAbiertosCronService,
     PreguntasRepository,
     PreguntasService,
     ResumenDeNegocioService,
