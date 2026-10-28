@@ -247,9 +247,12 @@ export class SeguimientoRepository {
     return (data ?? []).length > 0;
   }
 
-  /** Las notas con próximo contacto sin cumplir de toda la empresa: entre
-   *  ellas está el compromiso vivo de cada cotización. */
-  async compromisosAbiertos(companyId: number): Promise<NotaConCotizacion[]> {
+  /** Las notas con próximo contacto de toda la empresa, cumplidas o no:
+   *  el compromiso vivo de cada cotización es el de la más nueva, y si esa
+   *  se dio por cumplida no hay ninguno (28-10-2026; `compromisoVivo`). */
+  async notasConProximoContacto(
+    companyId: number,
+  ): Promise<NotaConCotizacion[]> {
     const db = this.supabase.client;
     return this.todas<NotaConCotizacion>((d, h) =>
       db
@@ -259,7 +262,6 @@ export class SeguimientoRepository {
         )
         .eq('company_id', companyId)
         .not('next_contact_date', 'is', null)
-        .is('next_contact_done_at', null)
         .order('id')
         .range(d, h),
     );

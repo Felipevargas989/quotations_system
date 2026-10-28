@@ -34,6 +34,7 @@ import ConfirmInline from "../../components/ConfirmInline";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import Personaje from "../../components/Personaje";
 import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
+import { compromisoVigente } from "./compromisoVigente";
 import { useApariencias } from "../../hooks/useApariencias";
 import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import {
@@ -381,16 +382,9 @@ export function HiloSeguimiento({
     }
   };
 
-  const notaCompromiso = useMemo(() => {
-    let top: Followup | null = null;
-    for (const n of notas) {
-      if (!n.next_contact_date) continue;
-      // Un pendiente marcado "Listo" deja de ser tarea (migración 65).
-      if (n.next_contact_done_at) continue;
-      if (!top || n.created_at > top.created_at) top = n;
-    }
-    return top;
-  }, [notas]);
+  // La nota más nueva con fecha manda; con «Listo» no queda nada vivo y
+  // no aparece la anterior (28-10-2026, `compromisoVigente`).
+  const notaCompromiso = useMemo(() => compromisoVigente(notas), [notas]);
   const compromisoFecha = notaCompromiso?.next_contact_date?.slice(0, 10) || "";
   // Cara del compromiso vivo por fecha LOCAL (patrón hoyLocal), nunca
   // por timestamps: futuro azul, hoy ámbar, pasado rojo.

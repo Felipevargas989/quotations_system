@@ -36,8 +36,13 @@ export class QuotationFollowupsService {
       //
       // El COMPROMISO va aparte (07-08): no siempre vive en la última
       // nota. En Post-Venta se anota sin fecha la mayoría de las veces,
-      // así que el pendiente puede estar tres notas más atrás. Se busca
-      // la más reciente que tenga fecha y NO esté dada por cumplida.
+      // así que el pendiente puede estar tres notas más atrás: manda la
+      // nota más nueva QUE TENGA FECHA, y si esa ya se dio por cumplida
+      // («Listo»), no queda nada vivo. Las anteriores quedaron resueltas
+      // por ella. Hasta el 28-10-2026 se buscaba la más nueva SIN cumplir,
+      // y cada «Listo» hacía aparecer la anterior, nota por nota (Felipe:
+      // "pincho listo y se corre hacia abajo").
+      const conFecha = new Set<string>();
       const map: Record<
         string,
         {
@@ -54,13 +59,10 @@ export class QuotationFollowupsService {
             next_contact_done_at: null,
           };
         }
-        const actual = map[row.quotation_id];
-        if (
-          !actual.next_contact_date &&
-          row.next_contact_date &&
-          !row.next_contact_done_at
-        ) {
-          actual.next_contact_date = row.next_contact_date;
+        if (!row.next_contact_date || conFecha.has(row.quotation_id)) continue;
+        conFecha.add(row.quotation_id);
+        if (!row.next_contact_done_at) {
+          map[row.quotation_id].next_contact_date = row.next_contact_date;
         }
       }
       return map;

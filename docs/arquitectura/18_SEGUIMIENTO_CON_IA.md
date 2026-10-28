@@ -40,9 +40,11 @@ cualquiera del equipo sin abrir el chat.
 
 - Estado **enviada** o **en negociación**. Una solicitada nunca salió: no
   es seguimiento.
-- Con el **compromiso vivo vencido**: la nota más reciente de la bitácora
-  que tiene fecha y no está cumplida, con la fecha antes de hoy (hora de
-  Chile). Es el mismo «Contacto comprometido» que muestra el panel.
+- Con el **compromiso vivo vencido**: el de la nota más reciente de la
+  bitácora que tiene fecha, si no está cumplida, con la fecha antes de hoy
+  (hora de Chile). Si esa nota ya se dio por cumplida, no hay compromiso:
+  las anteriores no reaparecen (28-10-2026). Es el mismo «Contacto
+  comprometido» que muestra el panel.
 - Y **el botoncito de esa nota es Correo**. Felipe, 17-10, con la 607: el
   tipo de la nota que deja la fecha ES el tipo del próximo contacto. No se
   agrega ningún campo.

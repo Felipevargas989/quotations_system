@@ -215,7 +215,7 @@ export class SeguimientoConIAService {
     const companyId = user.company_id;
     const [vivas, compromisos, enEspera, conTope] = await Promise.all([
       this.repositorio.vivas(companyId),
-      this.repositorio.compromisosAbiertos(companyId),
+      this.repositorio.notasConProximoContacto(companyId),
       this.enEsperaSinRomper(companyId),
       // Con tope de calendario no se ofrece: no se le insiste al cliente con
       // una fecha que quizás no se pueda respetar (Felipe, 18-10).
