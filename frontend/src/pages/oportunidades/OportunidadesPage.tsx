@@ -47,7 +47,7 @@ import FilaDeOportunidad from "./FilaDeOportunidad";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
 import FiltrosDeLaBandeja from "./FiltrosDeLaBandeja";
 import Ganadas from "./Ganadas";
-import { separarGanadas } from "./servicioDeLaGanada";
+import { ganadasPorRealizar } from "./servicioDeLaGanada";
 import MisLicitaciones from "./MisLicitaciones";
 import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
@@ -112,13 +112,17 @@ export default function OportunidadesPage() {
     setPestana(p);
     guardarSesion(CLAVE_PESTANA, { p });
   };
-  // Cuántas hay en curso, a la vista en la pestaña.
+  // Cuántas quedan por postular, a la vista en la pestaña (decisión 107);
+  // las en curso, para la bandeja vacía.
   const { data: mias = [] } = useMisLicitaciones();
   const separadas = separarMias(mias);
   const enCurso = separadas.enCurso.length;
-  // Y las ganadas por cumplir, en la suya (decisión 100).
-  const porCumplir = separarGanadas(separadas.ganadas, hoyEnChile()).porCumplir
-    .length;
+  const pendientes = separadas.pendientes.length;
+  // Y las ganadas que aún no se realizan, en la suya (decisiones 100 y 107).
+  const porRealizar = ganadasPorRealizar(
+    separadas.ganadas,
+    hoyEnChile(),
+  ).length;
   // El resultado de una compra ágil postulada, avisado al entrar (92).
   useAvisoDeResultados(mias as ConResultado[]);
 
@@ -162,14 +166,14 @@ export default function OportunidadesPage() {
             >
               <Icono size={16} />
               {texto}
-              {id === "mias" && enCurso > 0 && (
+              {id === "mias" && pendientes > 0 && (
                 <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
-                  {enCurso}
+                  {pendientes}
                 </span>
               )}
-              {id === "ganadas" && porCumplir > 0 && (
+              {id === "ganadas" && porRealizar > 0 && (
                 <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
-                  {porCumplir}
+                  {porRealizar}
                 </span>
               )}
             </button>

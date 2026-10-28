@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   avisoAlGuardar,
   cuandoEsElServicio,
+  ganadasPorRealizar,
   separarGanadas,
 } from "./servicioDeLaGanada";
 
@@ -29,6 +30,22 @@ describe("Las ganadas", () => {
     );
     expect(porCumplir.map((m) => m.id)).toEqual([4, 3, 1, 5]);
     expect(cumplidas.map((m) => m.id)).toEqual([2, 6]);
+  });
+
+  it("decisión 107: el número de la pestaña, solo las que aún no se realizan; el día del servicio ya no cuenta", () => {
+    const porRealizar = ganadasPorRealizar(
+      [
+        ganada(1, ["2026-11-26"]),
+        ganada(2, ["2026-10-27"]),
+        ganada(3, ["2026-10-25", "2026-10-30"]),
+        // El almuerzo de Laja Diguillín, la tarde del mismo día.
+        ganada(4, ["2026-10-28"]),
+        { id: 5, servicio: null },
+        ganada(6, ["2026-10-20"]),
+      ],
+      "2026-10-28",
+    );
+    expect(porRealizar.map((m) => m.id)).toEqual([1, 3, 5]);
   });
 
   it("cuándo es: hoy o mañana, urgente; si no, en cuántos días", () => {

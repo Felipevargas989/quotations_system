@@ -639,7 +639,7 @@ describe("Mis licitaciones: el avance", () => {
       proceso: { fecha_cierre: fecha },
     });
     const ahora = Date.parse("2026-10-19T22:00:00.000Z");
-    const { porPostular, postuladas, enCurso } = separarMias(
+    const { porPostular, pendientes, postuladas, enCurso } = separarMias(
       [
         cierra(1, "en_estudio", "2026-10-30T15:00:00.000Z"),
         cierra(2, "postulada", "2026-10-19T19:00:00.000Z"),
@@ -656,6 +656,9 @@ describe("Mis licitaciones: el avance", () => {
     expect(porPostular.map((m) => m.id)).toEqual([3, 1, 5, 6, 4]);
     expect(postuladas.map((m) => m.id)).toEqual([7, 2]);
     expect(enCurso.map((m) => m.id)).toEqual([3, 1, 5, 6, 4, 7, 2]);
+    // Decisión 107: el número de la pestaña, solo las que se pueden
+    // postular todavía; ni las ya cerradas ni las postuladas.
+    expect(pendientes.map((m) => m.id)).toEqual([3, 1, 5]);
   });
 });
 
