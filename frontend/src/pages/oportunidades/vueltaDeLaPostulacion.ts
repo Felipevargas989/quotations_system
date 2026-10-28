@@ -21,7 +21,8 @@ export type EstadoDelPaso =
   | "trabajando"
   | "listo"
   | "error"
-  | "no_va";
+  | "no_va"
+  | "firmados";
 
 export interface Paso {
   estado: EstadoDelPaso;
@@ -31,7 +32,7 @@ export interface Paso {
 
 export interface Vuelta {
   total: number;
-  oferta: Exclude<EstadoDelPaso, "espera" | "no_va">;
+  oferta: Exclude<EstadoDelPaso, "espera" | "no_va" | "firmados">;
   anexos: Paso;
   propuesta: Paso;
   /** Lo demás que no se pudo (la cotización vinculada), en palabras. */
@@ -45,6 +46,7 @@ export interface Vuelta {
 const PLAZO_PARA_PARTIR_MS = 3 * 60 * 1000;
 
 const NO_VA: Paso = { estado: "no_va", generacion: null, problema: null };
+const FIRMADOS: Paso = { estado: "firmados", generacion: null, problema: null };
 
 function pasoDe(
   oferta: TrabajoDeOferta,
@@ -92,11 +94,14 @@ export function vueltaDeLaPostulacion(
   const problemas = armada.problemas ?? [];
   const problemaDe = (que: string) =>
     problemas.find((p) => p.startsWith(que)) ?? null;
-  // Una compra ágil sin formularios no tiene anexos (decisión 94).
+  // Una compra ágil sin formularios no tiene anexos (decisión 94), y con
+  // todo firmado no se rehacen: no es que no alcanzaran a partir (99).
   const anexos =
     armada.anexos === false
       ? NO_VA
-      : pasoDe(oferta, generaciones?.anexos, problemaDe("Los anexos"), ahora);
+      : armada.firmados
+        ? FIRMADOS
+        : pasoDe(oferta, generaciones?.anexos, problemaDe("Los anexos"), ahora);
   const propuesta = armada.propuesta
     ? pasoDe(
         oferta,

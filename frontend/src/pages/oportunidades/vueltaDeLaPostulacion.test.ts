@@ -108,6 +108,29 @@ describe("La vuelta de «Armar postulación»", () => {
     expect(vuelta?.anexos.estado).toBe("no_va");
   });
 
+  it("decisión 99: con todo firmado los anexos no se rehacen: «firmados», nunca «No alcanzó a partir»", () => {
+    const vuelta = vueltaDeLaPostulacion(
+      {
+        ...OFERTA,
+        parametros: {
+          postulacion: { total: 1_136_500, propuesta: true, firmados: true },
+        },
+      },
+      {
+        // Los anexos son de la vuelta de antes, la que se firmó.
+        anexos: trabajo("listo", "2026-10-18T12:00:00.000Z"),
+        propuesta: trabajo("listo", "2026-10-19T17:04:05.000Z"),
+      } as never,
+      Date.parse("2026-10-19T17:30:00.000Z"),
+    );
+    expect(vuelta?.anexos).toEqual({
+      estado: "firmados",
+      generacion: null,
+      problema: null,
+    });
+    expect(vuelta?.enCurso).toBe(false);
+  });
+
   it("lo que no alcanzó a partir, o no aparece en 3 minutos, se puede reintentar", () => {
     const conProblema = vueltaDeLaPostulacion(
       {

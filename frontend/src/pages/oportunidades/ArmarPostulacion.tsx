@@ -214,6 +214,7 @@ export default function ArmarPostulacion({
                 ? ` el ${formatMomento(new Date(armadaEl), "diaHora")}`
                 : ""}{" "}
               · {pesos(vuelta.total)} con IVA
+              {vuelta.anexos.estado === "firmados" && " · anexos: ya firmados"}
               {contratos !== null &&
                 ` · experiencia: ${contratos} ${contratos === 1 ? "contrato" : "contratos"}`}
             </span>
