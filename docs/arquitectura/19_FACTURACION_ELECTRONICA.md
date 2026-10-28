@@ -184,8 +184,10 @@ Se revisaron tres fuentes:
 
 ### 5.2 La base de datos
 
-Va en la migración 166, en las dos bases. El número se confirma al
-construir, porque Oportunidades también numera.
+Va en una migración, en las dos bases. El número se toma al construir:
+el siguiente libre ese día, avisando a las sesiones de Oportunidades.
+La 166 estaba reservada, pero el 27-10 Oportunidades la usó para la
+decisión 97 (`por_que` en `oportunidad_generacion`), y se la dejamos.
 
 **`clients`** suma estas columnas:
 - `rut`;
