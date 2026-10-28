@@ -52,3 +52,38 @@ export const createPaymentPlan = async (
   });
   return response;
 };
+
+// «Editar plan de pagos» de Post-Venta (doc 14 §Editar el plan, 28-10-2026):
+// van SOLO las cuotas sin plata, en su orden; las que tienen pagos quedan.
+// No cambia el estado ni manda correo.
+export const editarPlanDePagos = async (
+  quotationId: Quotation["id"],
+  cuotas: {
+    payment_type: string;
+    amount: number;
+    due_date: string;
+    notes?: string;
+  }[],
+) =>
+  apiRequest(`${API_ROUTES.PAYMENTS_PLAN}`, "PUT", {
+    quotation_id: quotationId,
+    cuotas: cuotas.map((c) => ({
+      payment_type: c.payment_type,
+      amount: Math.round(c.amount),
+      due_date: c.due_date,
+      ...(c.notes ? { notes: c.notes } : {}),
+    })),
+  });
+
+// Las aceptadas, realizadas y anuladas sin ninguna cuota (28-10-2026, caso
+// 703): Post-Venta las suma a su lista con el aviso «Sin plan de pagos».
+// Vienen con la misma forma que el embebido `quotations` de las cuotas.
+export const getEventosSinPlan = async (): Promise<unknown[]> => {
+  const response = await apiRequest(
+    `${API_ROUTES.PAYMENTS_EVENTOS_SIN_PLAN}`,
+    "GET",
+  );
+  return Array.isArray(response)
+    ? response
+    : ((response as { data?: unknown[] } | null)?.data ?? []);
+};

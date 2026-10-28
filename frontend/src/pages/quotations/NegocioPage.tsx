@@ -29,6 +29,7 @@ import {
   createPaymentPlan,
   getPaymentsByQuotationId,
 } from "../../services/payments.service";
+import { planCubreElTotal } from "../../utils/planDePagos";
 import { CreatePayment } from "../../types/payments.types";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import AvisoDeChoque from "../../components/AvisoDeChoque";
@@ -110,6 +111,7 @@ export default function NegocioPage() {
   // y, si no, abre el editor antes de coronar.
   const [estadoMenu, setEstadoMenu] = useState(false);
   const [planAbierto, setPlanAbierto] = useState(false);
+  const [guardandoPlan, setGuardandoPlan] = useState(false);
 
   // La lista liviana trae cliente + mandante con teléfono/correo (la
   // misma fuente probada del tablero); el detalle por id trae el resto.
@@ -227,10 +229,18 @@ export default function NegocioPage() {
     }
     try {
       if (nuevo === QuotationStatus.ACEPTADA) {
+        // Con un plan que no cubre el total (un anulado que se vuelve a
+        // aceptar guarda solo lo pagado) se abre el editor para completarlo
+        // (28-10-2026, caso 703); con el plan completo, solo cambia el estado.
         const { data: pagosExistentes } = await getPaymentsByQuotationId(
           fila.id,
         );
-        if (pagosExistentes && pagosExistentes.length > 0) {
+        if (
+          planCubreElTotal(
+            pagosExistentes as { amount: number }[],
+            fila.total_amount,
+          )
+        ) {
           const { error } = await updateQuotation(
             { quotation_status: QuotationStatus.ACEPTADA },
             fila.id,
@@ -269,7 +279,10 @@ export default function NegocioPage() {
   };
 
   const guardarPlan = async (customPlan: any[]) => {
-    if (!fila) return;
+    if (!fila || guardandoPlan) return;
+    // Un solo guardado a la vez: el doble clic armaba dos planes (doc 09,
+    // Tanda A3).
+    setGuardandoPlan(true);
     try {
       const pagos = customPlan.map((payment, index) => {
         if (!payment.due_date) {
@@ -296,9 +309,10 @@ export default function NegocioPage() {
       await refrescarEstado();
       irAPostVenta(fila.id);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "No se pudo crear el plan",
-      );
+      // El motor explica qué no calzó (el portero del plan): se muestra.
+      toast.error(humanizeApiError(error, "No se pudo crear el plan"));
+    } finally {
+      setGuardandoPlan(false);
     }
   };
 
@@ -683,6 +697,7 @@ export default function NegocioPage() {
             total_amount: fila.total_amount,
             event_date: fila.event_date,
           }}
+          guardando={guardandoPlan}
           onSave={guardarPlan}
           onCancel={() => setPlanAbierto(false)}
         />

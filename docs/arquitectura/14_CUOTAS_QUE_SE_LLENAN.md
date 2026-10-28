@@ -6,6 +6,13 @@
 > revisar una a una las cotizaciones viejas con cuotas partidas,
 > partiendo por la 506.
 >
+> **28-10-2026 · Editar el plan** (sección propia más abajo; Felipe: «ok
+> hazlo los 4»): «Editar plan de pagos» en Post-Venta, el plan parte con
+> el abono de Mi empresa, no se acepta sin plan y Post-Venta muestra los
+> eventos sin cuotas; al aprobar el laboratorio agregó que después del
+> primer pago el plan ya no se edita. **EN PRODUCCIÓN desde el 28-10-2026**
+> (Felipe: «a producción»), sin migración.
+>
 > Reemplaza la regla 2 ("cuadratura de la cuota", 20-07), las reglas 5 y
 > 6 (rectificar no derrama; borrar no toca otras cuotas) y la regla 16
 > ("si baja el total, desde la última") del mapa
@@ -117,6 +124,84 @@ su prueba), `PaymentsService.cerrarPlanAlAnular` y el paso final de
 `QuotationsService.update`. Si cerrar el plan falla, la anulación queda igual
 y el error va al registro. Los anulados de antes de la regla (465, 412, 545 y
 479) se ordenan a mano, uno a uno y con respaldo.
+
+## Editar el plan (Felipe, 28-10-2026)
+
+**Por qué. Cotización 703, 27-10-2026.** Camila la aceptó y el editor le
+propuso, como siempre, una sola cuota del 100% para ese mismo día. Quería
+repartirla, pero Post-Venta solo movía la fecha y la nota de una cuota. Para
+rehacer el plan la anuló, y la regla de arriba borró la cuota sin abonos. La
+volvió a aceptar desde la búsqueda de Cotizaciones, que no abría el plan, y
+quedó aceptada sin ninguna cuota: Post-Venta arma su lista desde las cuotas,
+así que el evento desapareció. Felipe: *"ella quería editar las cuotas, igual
+los eventos no deberían desaparecer"*. Medido ese día: además de la 703, había
+6 eventos de post-venta sin cuotas, todos invisibles (412, 545 y 479 anulados;
+386, 139 y 207 realizados).
+
+Cuatro reglas, aprobadas por Felipe el 28-10-2026 (*"ok hazlo los 4"*):
+
+1. **«Editar plan de pagos» en Post-Venta, solo antes del primer pago.** En la
+   pestaña Pagos de un evento aceptado o realizado se cambian los montos, las
+   fechas y la cantidad de cuotas, y entre todas suman al peso el total (el
+   portero del caso 501). **Con un solo pago registrado, el plan ya no se
+   edita** (Felipe, 28-10-2026, al aprobar el laboratorio: *"no creo que se
+   deba poder editar después de cargar la primera cuota"*): el botón no
+   aparece, la pestaña lo dice en gris y el motor responde 400
+   (`PLAN_CON_PAGOS_NO_SE_EDITA`). Quedan el lápiz de fecha y nota de cada
+   cuota sin plata (Nivel A) y, si el total cambia, la cascada de siempre. No
+   cambia el estado ni manda correo: el cliente ve el plan nuevo en su portal.
+   Un anulado no se edita: su plan quedó cerrado en lo pagado.
+2. **El plan parte con el abono de Mi empresa.** La primera cuota es el
+   abono para reservar (el % de `companies.abono_reserva_pct`, migración 160,
+   sobre el total sin propina: el mismo monto que dice la hoja de la
+   cotización bajo el TOTAL), para hoy, y la segunda el saldo, **7 días antes
+   del evento** (nunca antes de hoy). Siete es la mediana de los planes de dos
+   cuotas de Valle del Sol desde junio (14 planes, medido el 28-10-2026; el
+   abono promedio fue 34%). Agregar una cuota mantiene el abono y reparte el
+   saldo parejo en las demás. Sin % en la empresa, una cuota por el total,
+   como antes. Reemplaza la regla 23 del mapa 03 («plan sin plantillas»).
+3. **No se acepta sin plan de pagos.** Aceptar desde cualquier pantalla abre
+   el editor si el plan no cubre el total, también desde la búsqueda de
+   Cotizaciones (el hueco del paso 3 del flujo 04) y al volver a aceptar un
+   anulado que guardó solo lo pagado. El motor lo asegura: `PATCH
+   /quotations/:id` hacia «aceptada» sin ninguna cuota responde 400
+   (`ACEPTAR_SIN_PLAN_DE_PAGOS`). El plan se crea con `POST /payments/plan`,
+   que acepta por el repositorio.
+4. **Post-Venta muestra todos los eventos aceptados, realizados y anulados,
+   con o sin cuotas.** Los que no tienen cuotas salen con la píldora «Sin
+   plan de pagos» y, en la pestaña Pagos, el aviso ámbar con «Armar plan de
+   pagos». Cuentan en los totales como pendiente (el total entero), salvo los
+   anulados, que nunca cuentan.
+
+**Armar el plan ya no borra todo.** `POST /payments/plan` (al aceptar) y `PUT
+/payments/plan` (al editar, sin pagos) comparten la misma pieza: las cuotas con
+plata quedan y solo se reemplazan las demás. Eso sirve al volver a aceptar un
+anulado que guardó lo pagado: el editor muestra esas cuotas fijas y se completa
+lo que falta. Antes, armar el plan borraba todas las
+cuotas y las creaba de nuevo; con abonos encima el borrado fallaba en silencio
+(la base no deja borrar una cuota con pagos) y el plan quedaba duplicado.
+
+**De paso:** el correo «Plan de pagos» al cliente recibía la fecha de cada
+cuota con hora (`2026-12-02T00:00:00.000Z`) y la plantilla espera
+`AAAA-MM-DD`: lo más probable es que mostrara «Invalid Date». Ahora va el plan
+como quedó, con su numeración final y la fecha que la plantilla sabe leer.
+
+| Pieza | Archivo |
+|---|---|
+| La regla, pura | `api-rest/src/payments/plan-editado.ts` (`planEditado`, `tienePlata`) |
+| El servicio | `PaymentsService.reemplazarCuotasSinPlata` (la usan `createPaymentPlan` y `editarPlan`), `PaymentsService.findEventosSinPlan` |
+| Rutas | `PUT /payments/plan` (`EditarPlanDto`, cuota por cuota con `@ValidateNested`) y `GET /payments/eventos-sin-plan`, las dos `OPERATIONS_AND_UP` |
+| El freno al aceptar | `QuotationsService.update` (`ACEPTAR_SIN_PLAN_DE_PAGOS` en `quotations/constants/constants.ts`) |
+| El editor | `frontend/src/components/PaymentPlanEditor.tsx` (modos «aceptar» y «editar», con la ventana de la casa), reglas en `frontend/src/utils/planDePagos.ts`, abono con `montoDelAbono` de `utils/abonoParaReservar.ts` |
+| Post-Venta | `pages/postventa/filasDePostVenta.ts` (`armarFilas`, sacado de `PostVentaPage`), `pages/postventa/PlanDePagosDelEvento.tsx` (la cabecera del calendario) |
+| Aceptar | `QuotationsPage.applyStatusChange` y `NegocioPage.cambiarEstado` (`planCubreElTotal`) |
+| Pruebas | `payments/tests/plan-editado.spec.ts`, `editar-plan.servicio.spec.ts`, `quotations/tests/unit/aceptar-sin-plan.spec.ts`, `frontend/src/utils/planDePagos.test.ts`, `pages/postventa/filasDePostVenta.test.ts` |
+
+Queda para Felipe: la 386 (Municipalidad de Quillón, $330.000), la 139
+(Sindicato de Supervisores Masisa, $2.380.000) y la 207 («Cliente test 1»,
+$935.000) son realizadas sin plan ni pagos registrados; desde ahora se ven en
+Post-Venta y suman al pendiente hasta que se arme su plan o se registren sus
+pagos.
 
 ## El reloj de la noche (error encontrado el 07-10-2026)
 
