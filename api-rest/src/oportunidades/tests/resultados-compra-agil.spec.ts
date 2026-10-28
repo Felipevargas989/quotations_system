@@ -300,7 +300,7 @@ describe('el resultado de una licitación (decisión 92)', () => {
   });
 });
 
-function armar() {
+function armar(ganada?: { aceptar: jest.Mock }) {
   const resultados = {
     porResolver: jest.fn().mockResolvedValue([
       compraAgil({
@@ -328,6 +328,7 @@ function armar() {
     oferente as unknown as OferenteRepository,
     mp as unknown as MercadoPublicoClient,
     mockPinoLogger() as unknown as PinoLogger,
+    ganada as never,
   );
   return { resultados, competencia, oferente, mp, servicio };
 }
@@ -363,6 +364,33 @@ describe('ResultadosDePostuladasService — revisar', () => {
     );
     await servicio.revisar(1, enUnRato());
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'ganada');
+  });
+
+  it('decisión 104: al salir ganada, su cotización vinculada queda aceptada; una perdida, no', async () => {
+    const ganada = { aceptar: jest.fn().mockResolvedValue({ numero: 679 }) };
+    const { resultados, mp, servicio } = armar(ganada);
+    resultados.porResolver.mockResolvedValue([
+      {
+        ...compraAgil({
+          id: 3219,
+          codigo: '1346350-37-COT26',
+          estado: 'postulada',
+          anotada: false,
+        }),
+        quotation_id: 'q-679',
+      },
+    ]);
+    // Perdida: la cotización no se toca.
+    await servicio.revisar(1, enUnRato());
+    expect(ganada.aceptar).not.toHaveBeenCalled();
+    mp.detalleCompraAgil.mockResolvedValue(
+      detalleCon(
+        { ...BPM, proveedor_seleccionado: 0 },
+        { ...VDS, proveedor_seleccionado: 1 },
+      ),
+    );
+    await servicio.revisar(1, enUnRato());
+    expect(ganada.aceptar).toHaveBeenCalledWith(1, 'q-679', '1346350-37-COT26');
   });
 
   it('cerrada y sin elegir todavía: se guarda lo leído y se espera a la próxima pasada', async () => {

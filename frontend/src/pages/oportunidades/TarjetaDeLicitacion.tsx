@@ -15,7 +15,11 @@ import {
   formatMomento,
   hoyEnChile,
 } from "../../utils/dates";
-import { type ConServicio, cuandoEsElServicio } from "./servicioDeLaGanada";
+import {
+  avisoAlGuardar,
+  type ConServicio,
+  cuandoEsElServicio,
+} from "./servicioDeLaGanada";
 import {
   cuandoCierra,
   ESTADOS,
@@ -57,8 +61,9 @@ export default function TarjetaDeLicitacion({
   const cambiar = useMutation({
     mutationFn: (estado: EstadoOportunidad) =>
       actualizarOportunidad(m.id, { estado }),
-    onSuccess: () => {
-      toast.success("Guardado.");
+    onSuccess: (respuesta) => {
+      // Decisión 104: ganada, su cotización vinculada queda aceptada.
+      toast.success(avisoAlGuardar(respuesta));
       void qc.invalidateQueries({ queryKey: ["oportunidades"] });
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),

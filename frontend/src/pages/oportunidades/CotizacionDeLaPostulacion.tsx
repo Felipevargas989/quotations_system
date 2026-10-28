@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ExternalLink, Link2, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ConfirmInline from "../../components/ConfirmInline";
 import { NumberInput } from "../../components/inputs";
@@ -27,6 +27,7 @@ import {
   porcentaje,
   veredicto,
 } from "./precioDeLaPostulacion";
+import { type ConArmando } from "./servicioDeLaGanada";
 import TituloDeBloque from "./TituloDeBloque";
 import { useGeneraciones } from "./useGeneraciones";
 import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
@@ -62,6 +63,13 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // año pasado) y una línea: si calza y si la cotización cuadra. Lo que le
 // falta a la cotización ya no se lista aquí: queda en su comentario
 // interno, y lo que hay que conseguir, en «Bases y criterios».
+//
+// Desde la decisión 104 (28-10), en una ganada sin cotización se crea o se
+// vincula la suya, que queda aceptada con una cuota a 30 días del servicio.
+// Felipe: "cuando una licitación está ganada, y no tengo nada vinculado,
+// debería poder crear la cotización desde ahi trayendo la mayor cantidad de
+// cosas posibles y si faltan, avisar en los comentarios internos". Si se
+// postuló sin «Armar postulación», la IA arma primero «Qué ofreces».
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -110,27 +118,42 @@ export default function CotizacionDeLaPostulacion({
   oportunidadId,
   anterior,
   congelada = false,
+  ganada = false,
 }: {
   readonly oportunidadId: number;
   readonly anterior: Anterior | null;
   /** Postulada o ganada: la cotización ya no se crea, vincula ni reescribe
    *  (el motor lo corta, decisión 33). */
   readonly congelada?: boolean;
+  /** Ganada (decisión 104): sin cotización, se crea o se vincula la suya,
+   *  que queda aceptada con una cuota a 30 días del servicio. */
+  readonly ganada?: boolean;
 }) {
   const qc = useQueryClient();
   const clave = claveDeLaCotizacion(oportunidadId);
-  const { data: estado, isPending } = useQuery({
-    queryKey: clave,
-    queryFn: () => getCotizacionDeLaPostulacion(oportunidadId),
-  });
-  const guardar = (nuevo: EstadoDeLaCotizacion) =>
-    qc.setQueryData(clave, nuevo);
+  // Decisión 104: se pidió crear la de una ganada sin oferta; la IA arma
+  // «Qué ofreces» y la cotización se crea sola al terminar.
+  const [pidioArmar, setPidioArmar] = useState(false);
 
-  // El precio de «Armar postulación» (decisión 35).
+  // El precio de «Armar postulación» (decisión 35). Mientras la IA arma
+  // «Qué ofreces» de una ganada, se pregunta seguido.
   const { data: armada } = useQuery({
     queryKey: claveDeLaOferta(oportunidadId),
     queryFn: () => getOfertaDeLaPostulacion(oportunidadId),
+    refetchInterval: (q) =>
+      ganada && q.state.data?.estado === "procesando" ? 10_000 : false,
   });
+  const procesando = armada?.estado === "procesando";
+  const { data: estado, isPending } = useQuery({
+    queryKey: clave,
+    queryFn: () => getCotizacionDeLaPostulacion(oportunidadId),
+    refetchInterval: (q) =>
+      ganada && !q.state.data?.cotizacion && (pidioArmar || procesando)
+        ? 10_000
+        : false,
+  });
+  const guardar = (nuevo: EstadoDeLaCotizacion) =>
+    qc.setQueryData(clave, nuevo);
   const total =
     armada?.estado === "listo"
       ? armada.parametros?.postulacion?.total
@@ -138,6 +161,11 @@ export default function CotizacionDeLaPostulacion({
   // Una postulada antes de «Armar postulación» (19-10): su precio quedó en
   // los anexos (postuladasDeAntes.ts).
   const { data: generaciones } = useGeneraciones(oportunidadId);
+  // La ganada que se postuló sin «Armar postulación» (decisión 104) se
+  // crea con el precio de sus anexos.
+  const totalParaCrear =
+    total ??
+    (ganada ? (precioDeLosAnexos(generaciones) ?? undefined) : undefined);
 
   const [eligiendo, setEligiendo] = useState(false);
   const [numero, setNumero] = useState<number | undefined>(undefined);
@@ -150,17 +178,26 @@ export default function CotizacionDeLaPostulacion({
 
   const llevar = useMutation({
     mutationFn: (p: { fechas?: FechasDeLaCotizacion }) =>
-      llevarACotizacion(oportunidadId, total, p.fechas),
+      llevarACotizacion(oportunidadId, totalParaCrear, p.fechas),
     onSuccess: (nuevo, p) => {
       guardar(nuevo);
       setEligiendo(false);
       setConfirmando(false);
       setReescribiendo(false);
       setNumero(undefined);
+      // Decisión 104: sin oferta, la IA arma «Qué ofreces» primero.
+      if ((nuevo as EstadoDeLaCotizacion & ConArmando).armando) {
+        setPidioArmar(true);
+        void qc.invalidateQueries({ queryKey: claveDeLaOferta(oportunidadId) });
+        toast.success(
+          "La IA está armando «Qué ofreces» con las bases. La cotización se crea sola en unos minutos.",
+        );
+        return;
+      }
       const n = nuevo.cotizacion?.numero ?? "";
       toast.success(
         p.fechas
-          ? `Cotización N° ${n} creada con lo que tienes en tu catálogo.${nuevo.faltan.length > 0 ? " Lo que falta quedó en su comentario interno." : ""}`
+          ? `Cotización N° ${n} creada con lo que tienes en tu catálogo${ganada && nuevo.cotizacion?.estado === "aceptada" ? " y aceptada, con una cuota a 30 días del servicio" : ""}.${nuevo.faltan.length > 0 ? " Lo que falta quedó en su comentario interno." : ""}`
           : `Cotización N° ${n} reescrita con lo postulado.`,
       );
     },
@@ -177,13 +214,25 @@ export default function CotizacionDeLaPostulacion({
       setConfirmando(false);
       setNumero(undefined);
       toast.success(
-        `Cotización N° ${n} vinculada: sus productos y precios no cambian.`,
+        ganada && nuevo.cotizacion?.estado === "aceptada"
+          ? `Cotización N° ${n} vinculada y aceptada, con una cuota a 30 días del servicio.`
+          : `Cotización N° ${n} vinculada: sus productos y precios no cambian.`,
       );
     },
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo vincular la cotización.")),
   });
   const ocupado = llevar.isPending || vincular.isPending;
+
+  // La de la ganada quedó creada mientras la IA trabajaba (decisión 104).
+  const creadaSola = pidioArmar ? estado?.cotizacion : null;
+  useEffect(() => {
+    if (!creadaSola) return;
+    setPidioArmar(false);
+    toast.success(
+      `Cotización N° ${creadaSola.numero} creada${creadaSola.estado === "aceptada" ? " y aceptada, con una cuota a 30 días del servicio" : ""}. Lo que falta quedó en su comentario interno.`,
+    );
+  }, [creadaSola]);
 
   if (isPending || !estado) {
     return (
@@ -325,11 +374,18 @@ export default function CotizacionDeLaPostulacion({
         />
       )}
 
-      {c ? null : congelada ? (
+      {c ? null : congelada && !ganada ? (
         <p className="text-sm text-gray-600">
           Se postuló sin cotización vinculada.
         </p>
-      ) : !estado.propuesta ? (
+      ) : ganada && (pidioArmar || procesando) ? (
+        <p className="flex items-center gap-2 text-sm text-blue-800">
+          <Loader2 size={14} className="shrink-0 animate-spin" />
+          La IA está armando «Qué ofreces» con las bases. La cotización se crea
+          sola al terminar y queda aceptada, con una cuota a 30 días del
+          servicio.
+        </p>
+      ) : !estado.propuesta && !ganada ? (
         <p className="text-sm text-gray-600">
           Primero arma la postulación (arriba): de ella sale la cotización.
         </p>
@@ -348,9 +404,14 @@ export default function CotizacionDeLaPostulacion({
               Crear una nueva
             </p>
             <p className="text-xs text-gray-600">
-              Con lo que tienes en tu catálogo
-              {total ? ` y tu oferta de ${pesos(total)}` : ""}. Lo que falta
-              queda en su comentario interno.
+              {ganada && !estado.propuesta
+                ? "La IA arma primero «Qué ofreces» con las bases (tarda unos minutos) y la crea con lo que tienes en tu catálogo"
+                : "Con lo que tienes en tu catálogo"}
+              {totalParaCrear ? ` y tu oferta de ${pesos(totalParaCrear)}` : ""}
+              . Lo que falta queda en su comentario interno.
+              {ganada
+                ? " Queda aceptada, con una cuota por el total 30 días después del servicio."
+                : ""}
             </p>
             {deLasBases && !cambiandoFechas ? (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-green-800">
@@ -435,6 +496,9 @@ export default function CotizacionDeLaPostulacion({
             <p className="text-xs text-gray-600">
               Se une a esta licitación sin cambiar sus productos ni precios
               {deLasBases ? ", y pasa a la fecha de las bases" : ""}.
+              {ganada
+                ? " Queda aceptada, con una cuota a 30 días del servicio."
+                : ""}
             </p>
             <div className="flex flex-wrap items-end gap-3">
               <div className="w-36">

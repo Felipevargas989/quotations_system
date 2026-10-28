@@ -29,6 +29,7 @@ import { preguntarDeNuevo, TEXTO_DEL_DETALLE_MP } from "./tipoDeProceso";
 import Ganadores from "./Ganadores";
 import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 import { textoDelResultadoPublico } from "./resultadoDeCompraAgil";
+import { avisoAlGuardar } from "./servicioDeLaGanada";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
@@ -165,8 +166,9 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
       responsable_id?: string | null;
       notas?: string | null;
     }) => actualizarOportunidad(ficha.id, cambios),
-    onSuccess: () => {
-      toast.success("Guardado.");
+    onSuccess: (respuesta) => {
+      // Decisión 104: ganada, su cotización vinculada queda aceptada.
+      toast.success(avisoAlGuardar(respuesta));
       void qc.invalidateQueries({ queryKey: ["oportunidades"] });
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
@@ -326,6 +328,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             congelada={
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
+            ganada={ficha.estado === "ganada"}
           />
           <MiPostulacion
             oportunidadId={ficha.id}

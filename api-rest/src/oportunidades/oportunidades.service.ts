@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -33,6 +34,10 @@ import {
   type FilaDeLista,
   OportunidadesRepository,
 } from './oportunidades.repository';
+import {
+  AceptarLaGanadaService,
+  type CotizacionAceptada,
+} from './postulacion/aceptar-la-ganada.service';
 
 // LA PANTALLA DE OPORTUNIDADES (doc 17 §5.3 y §5.7, sprint 2). Lo que la
 // empresa ve y decide. La lectura de la IA no se edita aquí: es la foto
@@ -81,6 +86,9 @@ export class OportunidadesService {
     private readonly logger: PinoLogger,
     private readonly fichas: FichaRepository,
     private readonly seViene: SeVieneService,
+    /** Decisión 104: al marcarla ganada, su cotización vinculada queda
+     *  aceptada. Opcional: las pruebas de antes no la traen. */
+    @Optional() private readonly ganada?: AceptarLaGanadaService,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -269,7 +277,17 @@ export class OportunidadesService {
     }
     const fila = await this.repo.actualizar(companyId, id, cambios);
     if (!fila) throw new NotFoundException('No encontramos esa oportunidad.');
-    return fila;
+    // Decisión 104 (28-10): ganada a mano, su cotización vinculada queda
+    // aceptada con su cuota a 30 días, como cuando el resultado llega solo.
+    let cotizacion_aceptada: CotizacionAceptada | null = null;
+    if (cambios.estado === 'ganada' && fila.quotation_id && this.ganada) {
+      cotizacion_aceptada = await this.ganada.aceptar(
+        companyId,
+        fila.quotation_id,
+        fila.codigo,
+      );
+    }
+    return { ...fila, cotizacion_aceptada };
   }
 
   /** SE VIENE (doc 17 §5.3): lo que se repite cada año en las regiones de

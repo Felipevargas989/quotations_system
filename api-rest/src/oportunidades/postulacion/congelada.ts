@@ -16,6 +16,14 @@ export const porQueEstaCongelada = (estado: string | null | undefined) =>
     ? 'La ganaste: lo postulado es el contrato y no se modifica.'
     : 'Ya la postulaste: lo postulado queda fijo, tal como se subió a Mercado Público.';
 
+/** Decisión 104 (28-10): de una ganada que no tiene cotización se crea (o
+ *  se vincula) la suya, que queda aceptada. Lo postulado no se toca: solo
+ *  nace la cotización del contrato. */
+export const esGanadaSinCotizacion = (
+  estado: string | null | undefined,
+  quotationId: string | null | undefined,
+): boolean => estado === 'ganada' && !quotationId;
+
 /** Corta cualquier cambio a lo postulado de una licitación ya postulada. */
 export const noSiEstaCongelada = (estado: string | null | undefined): void => {
   if (estaCongelada(estado)) {
