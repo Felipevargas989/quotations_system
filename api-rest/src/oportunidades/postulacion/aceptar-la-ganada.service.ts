@@ -5,6 +5,7 @@ import type { CreatePaymentPlanDto } from 'src/payments/dto/create-payment-plan.
 import { PaymentsService } from 'src/payments/payments.service';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { pesos } from 'src/quotations/generar/catalogo';
+import { hoyEnChile } from '../analisis/comun';
 import { PostulacionRepository } from './postulacion.repository';
 
 // LA COTIZACIÓN DE UNA LICITACIÓN GANADA QUEDA ACEPTADA (decisión 104 del
@@ -41,6 +42,17 @@ const masDias = (iso: string, n: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
+/** La tarea que deja al aceptarla (Felipe, 28-10: "dejale un seguimiento
+ *  de esos rojo diciendo validar servicios contra licitación"). Con fecha
+ *  de ayer el compromiso nace vencido: el hilo de seguimiento muestra la
+ *  franja roja «Contacto comprometido» con «Registrar gestión» y «Listo»
+ *  desde que se acepta. */
+export const validarServicios = (codigo: string, ahora = new Date()) => ({
+  tipo: 'otro' as const,
+  next_contact_date: masDias(hoyEnChile(ahora), -1),
+  note: `Validar servicios contra licitación ${codigo}.`,
+});
+
 @Injectable()
 export class AceptarLaGanadaService {
   constructor(
@@ -54,9 +66,10 @@ export class AceptarLaGanadaService {
 
   /** Deja aceptada la cotización de una licitación ganada, con una cuota
    *  por el total a 30 días del último día del servicio, y lo anota en su
-   *  bitácora a nombre del Asistente. Lo que ya es un evento, lo anulado y
-   *  lo que no tiene fecha ni total quedan como están. Nunca lanza: null si
-   *  no la aceptó. */
+   *  bitácora a nombre del Asistente, con la tarea de validar los servicios
+   *  contra la licitación. Lo que ya es un evento, lo anulado y lo que no
+   *  tiene fecha ni total quedan como están. Nunca lanza: null si no la
+   *  aceptó. */
   async aceptar(
     companyId: number,
     quotationId: string,
@@ -89,18 +102,17 @@ export class AceptarLaGanadaService {
         companyId,
         { sinCorreo: true },
       );
-      await this.bitacora
-        .crearComoAsistente(companyId, {
-          quotation_id: q.id,
-          tipo: 'otro',
-          next_contact_date: null,
-          note: `Aceptada sola: la licitación ${codigo} salió ganada. Una cuota por el total (${pesos(total)}) que vence el ${vence}, ${DIAS_PARA_PAGAR} días después del servicio. No se le mandó el correo del plan al comprador.`,
-        })
-        .catch((error: unknown) =>
-          this.logger.warn(
-            `ganada ${codigo}: no pude anotar en la bitácora: ${mensajeDe(error)}`,
-          ),
-        );
+      await this.anotar(companyId, codigo, {
+        quotation_id: q.id,
+        tipo: 'otro',
+        next_contact_date: null,
+        note: `Aceptada sola: la licitación ${codigo} salió ganada. Una cuota por el total (${pesos(total)}) que vence el ${vence}, ${DIAS_PARA_PAGAR} días después del servicio. No se le mandó el correo del plan al comprador.`,
+      });
+      // Después: el compromiso vivo es la nota más reciente con fecha.
+      await this.anotar(companyId, codigo, {
+        quotation_id: q.id,
+        ...validarServicios(codigo),
+      });
       this.logger.info(
         `ganada ${codigo}: la N° ${q.quotation_number} quedó aceptada, cuota al ${vence}`,
       );
@@ -111,5 +123,21 @@ export class AceptarLaGanadaService {
       );
       return null;
     }
+  }
+
+  /** Una línea en la bitácora a nombre del Asistente. Si falla, solo lo
+   *  avisa: la cotización ya quedó aceptada. */
+  private anotar(
+    companyId: number,
+    codigo: string,
+    nota: Parameters<QuotationFollowupsService['crearComoAsistente']>[1],
+  ) {
+    return this.bitacora
+      .crearComoAsistente(companyId, nota)
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `ganada ${codigo}: no pude anotar en la bitácora: ${mensajeDe(error)}`,
+        ),
+      );
   }
 }
