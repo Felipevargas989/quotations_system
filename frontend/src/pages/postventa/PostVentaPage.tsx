@@ -238,8 +238,9 @@ export default function PostVentaPage() {
         getPaymentsWithTransactions(),
         getClients(),
         getPaidRefundsByQuotation(),
-        // Las aceptadas, realizadas y anuladas sin cuotas (28-10-2026).
-        getEventosSinPlan(),
+        // Las aceptadas, realizadas y anuladas sin cuotas (28-10-2026). Si
+        // falla, la lista sale igual, solo sin esas filas.
+        getEventosSinPlan().catch(() => []),
       ]);
     return armarFilas({
       payments: payments || [],
