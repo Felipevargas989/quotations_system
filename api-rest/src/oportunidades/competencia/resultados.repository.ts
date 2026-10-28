@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { ActaDeAdjudicacion } from '../historia/acta';
 import type { ResultadoPublico } from './resultado-compra-agil';
 
 // EL RESULTADO DE LO POSTULADO (decisión 92 del doc 17). Lo público (a
@@ -140,6 +141,44 @@ export class ResultadosRepository {
     return licitaciones
       .filter((f) => !conCompetencia.has(f.id))
       .map((f) => ({ id: f.id, codigo: f.codigo }));
+  }
+
+  /** Las perdidas de la empresa en los últimos 7 días, por su última
+   *  actualización (decisión 97: a esas la IA les explica por qué). */
+  async perdidasRecientes(
+    companyId: number,
+    ahora = Date.now(),
+  ): Promise<Array<{ id: number; codigo: string }>> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('id, codigo')
+      .eq('company_id', companyId)
+      .eq('estado', 'perdida')
+      .gte(
+        'actualizado_en',
+        new Date(ahora - DIAS_PARA_TRAER_OFERTAS * 24 * 3600_000).toISOString(),
+      )
+      .limit(50);
+    if (error) throw error;
+    return (data ?? []) as Array<{ id: number; codigo: string }>;
+  }
+
+  /** Lo que Mercado Público ya dijo de un proceso (dato público): las
+   *  cotizaciones de una compra ágil y el acta de una licitación. */
+  async delProceso(
+    codigo: string,
+  ): Promise<{ cotizantes: unknown; acta: ActaDeAdjudicacion | null }> {
+    const { data, error } = await this.db
+      .from('mp_procesos')
+      .select('cotizantes, acta')
+      .eq('codigo', codigo)
+      .maybeSingle();
+    if (error) throw error;
+    const fila = data as { cotizantes?: unknown; acta?: unknown } | null;
+    return {
+      cotizantes: fila?.cotizantes ?? null,
+      acta: (fila?.acta as ActaDeAdjudicacion | null) ?? null,
+    };
   }
 
   /** Ganada o perdida, solo si sigue en «postulada»: lo que la empresa

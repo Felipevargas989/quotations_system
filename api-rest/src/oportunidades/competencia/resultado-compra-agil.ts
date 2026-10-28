@@ -1,3 +1,4 @@
+import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
 import type { Adjudicacion } from '../historia/ganadores';
 import { ganadoresDe, normalizarRut } from '../historia/ganadores';
 
@@ -106,12 +107,15 @@ export const resultadoPublicoDeLicitacion = (proceso: {
 };
 
 /** Ganada si eligieron (o adjudicaron) a la empresa; si no, perdida. En
- *  una compra ágil, además, su oferta ordenada por precio entre las
- *  admisibles. null sin el RUT de la empresa o si lo guardado no tiene a
- *  quién eligieron. */
+ *  una compra ágil con el criterio de la ley, además, su oferta ordenada
+ *  por precio entre las admisibles: desde la decisión 95 la solicitud
+ *  puede traer sus propios criterios (los del análisis, `criterios`), y
+ *  entonces no se compara solo por precio (decisión 97). null sin el RUT
+ *  de la empresa o si lo guardado no tiene a quién eligieron. */
 export const resultadoParaLaEmpresa = (
   publico: ResultadoPublico | null | undefined,
   rutDeLaEmpresa: string | null | undefined,
+  criterios?: Array<{ nombre: string }> | null,
 ): ResultadoDeLaEmpresa | null => {
   if (!publico || !rutDeLaEmpresa || !publico.elegidos?.length) return null;
   const rut = normalizarRut(rutDeLaEmpresa);
@@ -127,7 +131,11 @@ export const resultadoParaLaEmpresa = (
     (o): o is Oferente & { monto: number; inadmisible: null } =>
       o.monto !== null && !o.inadmisible,
   );
-  const porPrecio = publico.tipo === 'compra_agil';
+  const porPrecio =
+    publico.tipo === 'compra_agil' &&
+    criteriosDeEvaluacion(criterios, 'compra_agil').every(
+      (c) => (c as { de_la_ley?: boolean }).de_la_ley === true,
+    );
   const miMonto = mia && !mia.inadmisible ? mia.monto : null;
   return {
     tipo: publico.tipo,

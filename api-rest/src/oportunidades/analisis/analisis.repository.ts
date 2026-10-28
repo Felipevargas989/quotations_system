@@ -183,6 +183,35 @@ export class AnalisisRepository extends TrabajosDeIARepository {
     super(supabase, logger);
     this.logger.setContext(AnalisisRepository.name);
   }
+
+  /** Los criterios del último análisis listo de cada oportunidad de la
+   *  empresa (decisión 97: en una compra ágil, el lugar por precio solo si
+   *  el criterio es el de la ley). */
+  async criteriosDe(
+    companyId: number,
+    oportunidadIds: number[],
+  ): Promise<Map<number, Array<{ nombre: string }>>> {
+    const r = new Map<number, Array<{ nombre: string }>>();
+    if (oportunidadIds.length === 0) return r;
+    const { data, error } = await this.db
+      .from(this.tabla)
+      .select('oportunidad_id, criterios:resultado->criterios')
+      .eq('company_id', companyId)
+      .eq('estado', 'listo')
+      .in('oportunidad_id', oportunidadIds)
+      .order('creado_en', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    for (const f of (data ?? []) as Array<{
+      oportunidad_id: number;
+      criterios: unknown;
+    }>) {
+      if (!r.has(f.oportunidad_id) && Array.isArray(f.criterios)) {
+        r.set(f.oportunidad_id, f.criterios as Array<{ nombre: string }>);
+      }
+    }
+    return r;
+  }
 }
 
 @Injectable()

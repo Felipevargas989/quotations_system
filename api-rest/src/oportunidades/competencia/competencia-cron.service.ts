@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { PorQuePerdimosService } from '../comparacion/por-que-perdimos.service';
 import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ActasDeLaZonaService } from './actas.service';
@@ -39,6 +40,8 @@ export class CompetenciaCronService {
      *  traen. */
     @Optional() private readonly resultados?: ResultadosDePostuladasService,
     @Optional() private readonly ofertas?: OfertasDeLaCompetenciaService,
+    /** Por qué perdimos (decisión 97): dos por pasada. */
+    @Optional() private readonly porQue?: PorQuePerdimosService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
@@ -67,6 +70,10 @@ export class CompetenciaCronService {
           await this.paso('ofertas de la competencia', () =>
             ofertas.traer(id, hasta),
           );
+        }
+        const porQue = this.porQue;
+        if (porQue) {
+          await this.paso('por qué perdimos', () => porQue.revisar(id, hasta));
         }
       }
     } catch (error) {

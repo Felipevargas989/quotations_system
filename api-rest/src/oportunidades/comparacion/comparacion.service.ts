@@ -58,7 +58,7 @@ export const MODELO_DE_LA_COMPARACION = MODELO_OPUS;
 
 /** Lo de la empresa que se compara: lo que va a presentar, sin sus
  *  respaldos de experiencia (el anexo de experiencia ya los nombra). */
-const QUE_SE_COMPARA = new Set([
+export const QUE_SE_COMPARA = new Set([
   'formulario',
   'propuesta',
   'subido',

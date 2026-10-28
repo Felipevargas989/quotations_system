@@ -76,6 +76,34 @@ export const pedirComparacion = async (id: number) =>
     "POST",
   )) as TrabajoDeComparacion;
 
+/** Por qué perdimos (decisión 97, 27-10): cuando una postulada queda
+ *  perdida, la IA explica por qué y si era razonable, con los criterios de
+ *  «Cómo te evalúan». */
+export interface PorQuePerdimos {
+  resumen: string;
+  razonable: "si" | "no" | "dudoso";
+  fundamento: string;
+  en_que_se_perdio: Array<{ criterio: string; que_paso: string }>;
+  para_la_proxima: string[];
+}
+
+export interface TrabajoDePorQue extends Omit<AnalisisDeBases, "resultado"> {
+  tipo: "por_que";
+  resultado: PorQuePerdimos | null;
+}
+
+export const getPorQue = async (id: number) =>
+  ((await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/por-que`, "GET")) as
+    | TrabajoDePorQue
+    | ""
+    | null) || null;
+
+export const pedirPorQue = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/por-que`,
+    "POST",
+  )) as TrabajoDePorQue;
+
 /** La oferta de un competidor, un archivo por pedido, con su nombre. */
 export const subirOfertaDeCompetidor = async (
   id: number,

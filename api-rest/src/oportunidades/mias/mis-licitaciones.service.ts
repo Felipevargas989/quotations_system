@@ -96,21 +96,35 @@ export class MisLicitacionesService {
     const filas = await this.oportunidades.mias(companyId);
     if (filas.length === 0) return [];
     const ids = filas.map((f) => f.id);
-    const terminadas = filas
-      .filter((f) => f.estado === 'ganada' || f.estado === 'perdida')
-      .map((f) => f.codigo);
-    const [archivos, analisis, validaciones, generaciones, resultados, rut] =
-      await Promise.all([
-        this.adjuntos.origenesDe(companyId, ids),
-        this.analisis.ultimosDe(companyId, ids),
-        this.validacion.ultimosDe(companyId, ids),
-        this.generacion.ultimosDe(companyId, ids),
-        this.resultados?.resultadosDe(terminadas) ??
-          new Map<string, ResultadoPublico>(),
-        terminadas.length > 0
-          ? this.oferente?.oferente(companyId).then((o) => o?.rut ?? null)
-          : null,
-      ]);
+    const conResultado = filas.filter(
+      (f) => f.estado === 'ganada' || f.estado === 'perdida',
+    );
+    const terminadas = conResultado.map((f) => f.codigo);
+    const [
+      archivos,
+      analisis,
+      validaciones,
+      generaciones,
+      resultados,
+      rut,
+      criterios,
+    ] = await Promise.all([
+      this.adjuntos.origenesDe(companyId, ids),
+      this.analisis.ultimosDe(companyId, ids),
+      this.validacion.ultimosDe(companyId, ids),
+      this.generacion.ultimosDe(companyId, ids),
+      this.resultados?.resultadosDe(terminadas) ??
+        new Map<string, ResultadoPublico>(),
+      terminadas.length > 0
+        ? this.oferente?.oferente(companyId).then((o) => o?.rut ?? null)
+        : null,
+      // Decisión 97: en una compra ágil, el lugar por precio solo con el
+      // criterio de la ley.
+      this.analisis.criteriosDe(
+        companyId,
+        conResultado.map((f) => f.id),
+      ),
+    ]);
     const ultimoAnalisis = elUltimo(analisis);
     const ultimaValidacion = elUltimo(validaciones);
     const ultimosAnexos = elUltimo(generaciones, 'anexos');
@@ -126,7 +140,11 @@ export class MisLicitacionesService {
         const v = ultimaValidacion.get(f.id);
         return {
           ...f,
-          resultado: resultadoParaLaEmpresa(resultados.get(f.codigo), rut),
+          resultado: resultadoParaLaEmpresa(
+            resultados.get(f.codigo),
+            rut,
+            criterios.get(f.id),
+          ),
           avance: {
             bases: suyos.filter((a) => a.seccion === 'bases').length,
             trayendo: this.licify.estaTrayendo(companyId, f.id),
