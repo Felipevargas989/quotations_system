@@ -11,7 +11,7 @@ import {
   COLORES_PERSONALES,
   PERSONAJES,
   colorAutomatico,
-  colorValido,
+  colorDePersona,
   imagenDePersonaje,
   nombreDeAutor,
 } from "../../utils/personajes";
@@ -41,7 +41,8 @@ export default function TuPersonaje() {
   const guardadoPersonaje = imagenDePersonaje(mia?.personaje)
     ? (mia?.personaje ?? null)
     : null;
-  const guardadoColor = colorValido(mia?.color);
+  // El gris grafito es del Asistente: si alguien lo tuviera, se ve el automático.
+  const guardadoColor = colorDePersona(mia?.color);
 
   const [personaje, setPersonaje] = useState<string | null>(null);
   const [color, setColor] = useState<string | null>(null);

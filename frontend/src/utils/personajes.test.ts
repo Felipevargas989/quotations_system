@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   COLORES_PERSONALES,
+  COLOR_ASISTENTE,
   PERSONAJES,
   aparienciaDeAutor,
   colorAutomatico,
@@ -36,6 +37,11 @@ describe("la lista de personajes", () => {
     const hex = COLORES_PERSONALES.map((c) => c.hex);
     for (const h of hex) expect(h).toMatch(/^#[0-9a-f]{6}$/);
     expect(new Set(hex).size).toBe(hex.length);
+  });
+
+  it("el gris grafito del Asistente no se puede elegir", () => {
+    expect(COLOR_ASISTENTE).toMatch(/^#[0-9a-f]{6}$/);
+    expect(COLORES_PERSONALES.map((c) => c.hex)).not.toContain(COLOR_ASISTENTE);
   });
 });
 
@@ -97,6 +103,7 @@ describe("aparienciaDeAutor", () => {
     ["a-1", { user_id: "a-1", personaje: "zorro", color: "#059669" }],
     ["a-2", { user_id: "a-2", personaje: null, color: null }],
     ["a-3", { user_id: "a-3", personaje: "osito", color: "rojo" }],
+    ["a-4", { user_id: "a-4", personaje: "gato", color: "#475569" }],
   ]);
 
   it("la nota de alguien muestra lo que eligió en Mi cuenta", () => {
@@ -120,9 +127,16 @@ describe("aparienciaDeAutor", () => {
     });
   });
 
-  it("el Asistente lleva su robot", () => {
+  it("el Asistente lleva su robot y su gris grafito", () => {
     expect(aparienciaDeAutor(null, "Asistente", apariencias)).toEqual({
       personaje: "robot",
+      color: COLOR_ASISTENTE,
+    });
+  });
+
+  it("nadie más se ve con el gris del Asistente", () => {
+    expect(aparienciaDeAutor("a-4", "Pedro", apariencias)).toEqual({
+      personaje: "gato",
       color: null,
     });
   });
