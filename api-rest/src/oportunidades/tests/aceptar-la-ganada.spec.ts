@@ -73,11 +73,17 @@ describe('La cotización de una ganada queda aceptada', () => {
     // servicios contra licitación".
     jest.useFakeTimers().setSystemTime(new Date('2026-10-28T15:00:00Z'));
     try {
-      const { bitacora, servicio } = armar();
+      const { pagos, bitacora, servicio } = armar();
       await servicio.aceptar(1, 'q-679', '1030177-85-COT26');
       // Después de «Aceptada sola»: el compromiso vivo es la nota más
       // reciente con fecha.
       expect(bitacora.crearComoAsistente).toHaveBeenCalledTimes(2);
+      // Y después del plan: al aceptar se cierran los compromisos de la
+      // venta que quedan abiertos (Felipe, 28-10); escrita antes, la tarea
+      // nacería cerrada.
+      expect(pagos.createPaymentPlan.mock.invocationCallOrder[0]).toBeLessThan(
+        bitacora.crearComoAsistente.mock.invocationCallOrder[1],
+      );
       expect(bitacora.crearComoAsistente.mock.calls[1]).toEqual([
         1,
         {
