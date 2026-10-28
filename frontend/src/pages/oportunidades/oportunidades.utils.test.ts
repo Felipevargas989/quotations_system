@@ -620,15 +620,16 @@ describe("Mis licitaciones: el avance", () => {
     });
   });
 
-  it("en curso: en estudio y postuladas; terminadas: ganadas y perdidas", () => {
-    const { enCurso, terminadas } = separarMias([
+  it("en curso: en estudio y postuladas; las ganadas y las perdidas, cada una aparte (decisión 100)", () => {
+    const { enCurso, ganadas, perdidas } = separarMias([
       { estado: "en_estudio" },
       { estado: "postulada" },
       { estado: "ganada" },
       { estado: "perdida" },
     ]);
     expect(enCurso.map((m) => m.estado)).toEqual(["en_estudio", "postulada"]);
-    expect(terminadas.map((m) => m.estado)).toEqual(["ganada", "perdida"]);
+    expect(ganadas.map((m) => m.estado)).toEqual(["ganada"]);
+    expect(perdidas.map((m) => m.estado)).toEqual(["perdida"]);
   });
 
   it("por postular, por vencimiento y las ya cerradas al final; las postuladas aparte (19-10)", () => {

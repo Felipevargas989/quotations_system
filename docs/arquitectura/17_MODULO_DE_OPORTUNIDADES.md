@@ -654,6 +654,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - `ArmarPostulacionService.seguir` anota en la fila de la oferta `firmados: true` antes de seguir con la propuesta. Si después algo falla, el problema se suma a la marca sin borrarla.
     - La pantalla lo lee como el paso «firmados»: no espera, no sale en rojo y no ofrece «Reintentar». La barra dice «Armada el … · $… con IVA · anexos: ya firmados». Una compra ágil sin formularios sigue sin anexos (decisión 94).
     - Lo armado antes de la 99 no tiene la marca. En producción, la única que hoy sale con ese rojo es la 1030177-85-COT26 (la oferta 69).
+100. **Las ganadas, en su pestaña** (28-10, en el laboratorio; Felipe: *"No me gusta que las cotizaciones perdidas queden con las ganadas. Las perdidas creo que está bien que queden ahí atrás, las ganadas... deberían estar en alguna parte más visible, para que no se me..."*. Vio dos dibujos, arriba de todo en «Mis licitaciones» o una pestaña propia, y eligió: *"me gusta la opción 2"*). Motor y pantalla, sin migración.
+    - Una pestaña «Ganadas» al lado de «Mis licitaciones», con cuántas hay por cumplir. Arriba, «Por cumplir», en dorado y del próximo servicio al más lejano: a la derecha, en vez del cierre, el servicio («hoy» y «mañana» en rojo, o «en N días», con el día) y lo que dicen las bases. Abajo, «Cumplidas», desde el día siguiente del último día del servicio.
+    - En «Mis licitaciones», al final y plegadas, quedan solo las perdidas: «Perdidas (N)».
+    - Los días del servicio los lee el motor del último análisis listo, solo para las ganadas (`AnalisisRepository.serviciosDe`, `mias/servicio-de-la-ganada.ts`): el primer día que da la IA (`fecha_del_servicio_iso`) y los que nombra el texto de las bases (un día, varios, un rango «del 2 al 8 de noviembre», «30/10/2026», «2-nov.-2026»). Un día sin año toma el que viene después en el texto; si no hay, el del primer día o el del cierre, y si así queda más de un mes antes, el del año siguiente.
+    - Si las bases no dan una fecha (un contrato con servicios a pedido), la ganada queda por cumplir y dice «Sin fecha en las bases».
+    - La cotización vinculada no cambia de estado al ganar: Felipe lo pensó y lo retiró (*"No, mejor eso último no"*).
 
 ## 4. Reglas del módulo (no se negocian)
 

@@ -2,6 +2,7 @@ import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { LicifyService } from '../adjuntos/licify.service';
 import type {
   AnalisisRepository,
+  ServicioEnElAnalisis,
   ValidacionRepository,
 } from '../analisis/analisis.repository';
 import type { ResultadosRepository } from '../competencia/resultados.repository';
@@ -75,6 +76,10 @@ function armar() {
     // Decisión 97: sin análisis, una compra ágil se compara por la ley.
     criteriosDe: jest
       .fn<Promise<Map<number, Array<{ nombre: string }>>>, [number, number[]]>()
+      .mockResolvedValue(new Map()),
+    // Decisión 100: cuándo es el servicio de cada ganada.
+    serviciosDe: jest
+      .fn<Promise<Map<number, ServicioEnElAnalisis>>, [number, number[]]>()
       .mockResolvedValue(new Map()),
   };
   const validacion = {
@@ -278,5 +283,34 @@ describe('MisLicitacionesService', () => {
       lugar: null,
       era_la_mas_barata: false,
     });
+  });
+
+  it('decisión 100: las ganadas traen cuándo es el servicio; las demás, no', async () => {
+    const { oportunidades, analisis, servicio } = armar();
+    oportunidades.mias.mockResolvedValue([
+      fila(5171, '2026-10-27T19:15:00.000Z', 'ganada'),
+      fila(3219, '2026-10-23T16:00:00.000Z', 'perdida'),
+      fila(40, '2026-10-19T18:01:00.000Z', 'postulada'),
+    ]);
+    analisis.serviciosDe.mockResolvedValue(
+      new Map([
+        [
+          5171,
+          {
+            fecha_del_servicio: '28 de octubre 2026, hora por confirmar',
+            fecha_del_servicio_iso: '2026-10-28',
+          },
+        ],
+      ]),
+    );
+    const lista = await servicio.mias(1);
+    // Solo se pregunta por las ganadas.
+    expect(analisis.serviciosDe).toHaveBeenCalledWith(1, [5171]);
+    expect(lista.find((m) => m.id === 5171)?.servicio).toEqual({
+      texto: '28 de octubre 2026, hora por confirmar',
+      dias: ['2026-10-28'],
+    });
+    expect(lista.find((m) => m.id === 3219)?.servicio).toBeNull();
+    expect(lista.find((m) => m.id === 40)?.servicio).toBeNull();
   });
 });

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Settings,
   Star,
+  Trophy,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -29,7 +30,7 @@ import {
   type Oportunidad,
 } from "../../services/oportunidades.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { formatMomento } from "../../utils/dates";
+import { formatMomento, hoyEnChile } from "../../utils/dates";
 import {
   agruparPorCierre,
   type ClaveDeGrupo,
@@ -45,6 +46,8 @@ import CompetidoresOportunidades from "./CompetidoresOportunidades";
 import FilaDeOportunidad from "./FilaDeOportunidad";
 import ConfiguracionOportunidades from "./ConfiguracionOportunidades";
 import FiltrosDeLaBandeja from "./FiltrosDeLaBandeja";
+import Ganadas from "./Ganadas";
+import { separarGanadas } from "./servicioDeLaGanada";
 import MisLicitaciones from "./MisLicitaciones";
 import OferenteOportunidades from "./OferenteOportunidades";
 import PanelDeOportunidad from "./PanelDeOportunidad";
@@ -76,6 +79,7 @@ const CLAVE_PESTANA = "op.pestana";
 type Pestana =
   | "bandeja"
   | "mias"
+  | "ganadas"
   | "seviene"
   | "competidores"
   | "empresa"
@@ -110,7 +114,11 @@ export default function OportunidadesPage() {
   };
   // Cuántas hay en curso, a la vista en la pestaña.
   const { data: mias = [] } = useMisLicitaciones();
-  const enCurso = separarMias(mias).enCurso.length;
+  const separadas = separarMias(mias);
+  const enCurso = separadas.enCurso.length;
+  // Y las ganadas por cumplir, en la suya (decisión 100).
+  const porCumplir = separarGanadas(separadas.ganadas, hoyEnChile()).porCumplir
+    .length;
   // El resultado de una compra ágil postulada, avisado al entrar (92).
   useAvisoDeResultados(mias as ConResultado[]);
 
@@ -136,6 +144,7 @@ export default function OportunidadesPage() {
             [
               ["bandeja", "Bandeja", Inbox],
               ["mias", "Mis licitaciones", Briefcase],
+              ["ganadas", "Ganadas", Trophy],
               ["seviene", "Se viene", CalendarClock],
               ["competidores", "Competidores", Users],
               ["empresa", "Mi empresa", Building2],
@@ -158,6 +167,11 @@ export default function OportunidadesPage() {
                   {enCurso}
                 </span>
               )}
+              {id === "ganadas" && porCumplir > 0 && (
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                  {porCumplir}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -173,6 +187,7 @@ export default function OportunidadesPage() {
             />
           )}
           {pestana === "mias" && <MisLicitaciones />}
+          {pestana === "ganadas" && <Ganadas />}
         </div>
       </div>
     </div>
