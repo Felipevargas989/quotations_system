@@ -32,8 +32,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
+import Personaje from "../../components/Personaje";
 import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
+import { useApariencias } from "../../hooks/useApariencias";
 import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
+import {
+  aparienciaDeAutor,
+  colorAutomatico,
+  nombreDeAutor,
+} from "../../utils/personajes";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import {
   Followup,
@@ -134,34 +141,6 @@ const COLOR_TIPO: Record<string, string> = {
   otro: "bg-gray-100 text-gray-600 border-gray-300",
 };
 
-// Autor legible: si author_name es un correo, la parte antes del @ con
-// la primera letra en mayúscula.
-const nombreAutor = (raw?: string | null) => {
-  const s = (raw || "").trim();
-  if (!s) return "—";
-  const base = s.includes("@") ? s.split("@")[0] : s;
-  return base.charAt(0).toUpperCase() + base.slice(1);
-};
-
-// Color ESTABLE por autor para el circulito de la línea de tiempo (el
-// mismo nombre pinta siempre igual).
-const PALETA_AVATAR = [
-  "#2563eb",
-  "#7c3aed",
-  "#059669",
-  "#d97706",
-  "#dc2626",
-  "#0891b2",
-  "#db2777",
-  "#4f46e5",
-];
-const colorAutor = (nombre: string) => {
-  let h = 0;
-  for (let i = 0; i < nombre.length; i++)
-    h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
-  return PALETA_AVATAR[h % PALETA_AVATAR.length];
-};
-
 // Fecha local YYYY-MM-DD de un Date (mismo patrón de hoyLocal).
 const fechaLocalDe = (f: Date) =>
   `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
@@ -224,6 +203,9 @@ export function HiloSeguimiento({
   // Tope de calendario (18-10-2026, mapa 02 §5.6): el hilo con borde rojo
   // hasta que se resuelva el choque con la aceptada.
   const conTope = useChoquesDeFecha().conTope(quotation.id);
+  // El personaje y el color de cada autor (27-10-2026, migración 167):
+  // la letra en su color y el personaje al lado del nombre.
+  const { porUsuario: apariencias } = useApariencias();
   const queryClient = useQueryClient();
   const hiloQuery = useQuery({
     queryKey: ["seguimientos", quotation.id],
@@ -611,19 +593,39 @@ export function HiloSeguimiento({
                       </span>
                     </div>
                   );
-                const autor = nombreAutor(e.nota.author_name);
+                const autor = nombreDeAutor(e.nota.author_name);
+                // Lo que eligió el autor en Mi cuenta; sin elección, como antes.
+                const ap = aparienciaDeAutor(
+                  e.nota.author_user_id,
+                  e.nota.author_name,
+                  apariencias,
+                );
                 return (
                   <div key={e.nota.id} className="relative pl-9 pb-3">
                     <span
                       className="absolute left-0 top-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-white"
-                      style={{ backgroundColor: colorAutor(autor) }}
+                      style={{
+                        backgroundColor: ap.color ?? colorAutomatico(autor),
+                      }}
                       title={autor}
                     >
                       {autor === "—" ? "?" : autor.charAt(0).toUpperCase()}
                     </span>
-                    <div className="border border-gray-200 rounded-lg p-3">
+                    <div
+                      className="border border-gray-200 rounded-lg p-3"
+                      style={
+                        ap.color
+                          ? { borderLeftColor: ap.color, borderLeftWidth: 3 }
+                          : undefined
+                      }
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-xs text-gray-500">
+                          <Personaje
+                            clave={ap.personaje}
+                            tamano={18}
+                            className="mr-1 -mt-0.5 align-middle"
+                          />
                           <span className="font-semibold text-gray-700">
                             {autor}
                           </span>{" "}

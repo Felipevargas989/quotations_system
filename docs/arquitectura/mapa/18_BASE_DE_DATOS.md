@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -40,7 +40,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
 | `companies` | La empresa: `name`, `logo_url`, `colors`, `notifications`, `currency`, `is_active`, `is_premium`; subtítulo y datos de cobro (`tagline`, `bank_details`); umbral de alto valor (`high_value_threshold`); % de abono para reservar la fecha (`abono_reserva_pct`, migración 160); canales de marca para los correos (`whatsapp`, `instagram`, `facebook`, `sitio_web`, `banner_url`); módulos propios (`modulos_propios`); plan y estado (`plan`, `estado_plan`, `prueba_vence`, `plan_cambiado_en`); de dónde llegó el registro (`origen`, `origen_detalle`, mapa 15 §5.5 punto 6) | 15 | `0_initial_models.sql` (foto); columnas en 46, 60, 95, 96, 111, 112 y 116 (secciones 12 y 13); la 130 solo suma `cotizar_con_ia` a los módulos propios de la empresa 1 (mapa 01 §5.7) |
-| `user_profiles` | Perfil del usuario: `user_id` → `auth.users`, `email`, `full_name`, `role` (CHECK con los 4 cargos), `company_id` | 15 | `0_initial_models.sql` |
+| `user_profiles` | Perfil del usuario: `user_id` → `auth.users`, `email`, `full_name`, `role` (CHECK con los 4 cargos), `company_id`; `personaje` y `color` (el que cada uno elige en Mi cuenta, NULL = sin elegir; CHECK de forma en los dos) | 15 | `0_initial_models.sql`; `167_personaje_y_color.sql` |
 | `leads` | Prospectos de Eventia desde la landing: nombre, teléfono, correo, empresa, tamaño, ventas; de dónde llegó (`origen`, `origen_detalle`, 116). **No tiene `company_id`** | 15 (super-admin) | `0_initial_models.sql`; la 39 cierra la inserción anónima; la 116 agrega el origen |
 
 ### Clientes
