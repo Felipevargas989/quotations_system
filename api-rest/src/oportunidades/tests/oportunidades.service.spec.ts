@@ -18,7 +18,10 @@ const fila = (id: number, fecha_cierre: string | null) => ({
   },
 });
 
-function armar(ganada?: { aceptar: jest.Mock }) {
+function armar(
+  ganada?: { aceptar: jest.Mock },
+  mercado?: { procesosDeLaZona: jest.Mock },
+) {
   const repo = {
     listar: jest.fn().mockResolvedValue([]),
     ficha: jest.fn().mockResolvedValue(null),
@@ -53,6 +56,7 @@ function armar(ganada?: { aceptar: jest.Mock }) {
     fichas as unknown as FichaRepository,
     seViene as unknown as SeVieneService,
     ganada as never,
+    mercado as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -466,6 +470,65 @@ describe('OportunidadesService — Se viene y competidores', () => {
     const { repo, servicio } = armar();
     await expect(servicio.calendario(52)).resolves.toEqual([]);
     expect(repo.procesosDeLaZona).toHaveBeenCalledWith([]);
+  });
+
+  // Decisión 106: «Se viene» y los competidores leen del mercado de
+  // ChileCompra, y «Se viene» muestra solo las grandes.
+  const chica = () => ({
+    ...campo(),
+    codigo: '5040-26-LE25',
+    nombre: 'Coffee break para capacitación de funcionarios',
+    monto: 900_000,
+    adjudicacion: null,
+  });
+
+  it('«Se viene» lee del mercado y muestra solo las que superan el umbral de cotización grande de Mi empresa', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([campo(), chica()]),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    repo.datosDeEmpresa.mockResolvedValue({
+      high_value_threshold: 3_000_000,
+      notifications: null,
+    });
+    const r = await servicio.calendario(1);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(repo.procesosDeLaZona).not.toHaveBeenCalled();
+    expect(r.map((s) => s.ultima.codigo)).toEqual(['5040-25-LE25']);
+  });
+
+  it('sin umbral en Mi empresa, «Se viene» muestra todas', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([campo(), chica()]),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    const r = await servicio.calendario(1);
+    expect(r).toHaveLength(2);
+  });
+
+  it('si el mercado todavía no tiene nada de la zona, se usa la historia del radar', async () => {
+    const mercado = { procesosDeLaZona: jest.fn().mockResolvedValue([]) };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    repo.procesosDeLaZona.mockResolvedValue([campo()]);
+    const ranking = await servicio.competidores(1);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(ranking.map((c) => c.rut)).toEqual(['76154667-8']);
   });
 
   it('competidores y la ficha de uno; un RUT raro es 400 y uno sin triunfos 404', async () => {

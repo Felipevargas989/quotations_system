@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -89,8 +90,23 @@ export class OportunidadesService {
     /** Decisión 104: al marcarla ganada, su cotización vinculada queda
      *  aceptada. Opcional: las pruebas de antes no la traen. */
     @Optional() private readonly ganada?: AceptarLaGanadaService,
+    /** Decisión 106: «Se viene» y los competidores leen del mercado de
+     *  ChileCompra. Opcional: las pruebas de antes no lo traen. */
+    @Optional() private readonly mercado?: MercadoDeLaZonaRepository,
   ) {
     this.logger.setContext(OportunidadesService.name);
+  }
+
+  /** Lo de la zona (decisión 106): el mercado de ChileCompra, todo Chile con
+   *  todas las ofertas; si todavía no tiene nada cargado, la historia que
+   *  bajó el radar. */
+  private async procesosDeLaZona(regiones: string[]) {
+    const delMercado = this.mercado
+      ? await this.mercado.procesosDeLaZona(regiones)
+      : [];
+    return delMercado.length > 0
+      ? delMercado
+      : this.repo.procesosDeLaZona(regiones);
   }
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
@@ -292,21 +308,23 @@ export class OportunidadesService {
 
   /** SE VIENE (doc 17 §5.3): lo que se repite cada año en las regiones de
    *  la empresa y todavía no sale, en los próximos 90 días. Marca las de
-   *  comuna cercana y las de alto valor, como la bandeja, y desde la
-   *  decisión 62 trae el semáforo de cada serie (lo que falta se lee por
-   *  detrás: `SeVieneService`). */
+   *  comuna cercana, y desde la decisión 62 trae el semáforo de cada serie
+   *  (lo que falta se lee por detrás: `SeVieneService`). Desde la 106, solo
+   *  las grandes, con el umbral de «cotización grande» de Mi empresa
+   *  (Felipe: "una licitación chica la sacamos en el minuto. Es saber con
+   *  anticipación que se viene"); sin umbral, todas. */
   async calendario(companyId: number): Promise<SeVieneConSemaforo[]> {
     const [config, empresa] = await Promise.all([
       this.repo.configDe(companyId),
       this.repo.datosDeEmpresa(companyId),
     ]);
-    const procesos = await this.repo.procesosDeLaZona(config?.regiones ?? []);
+    const procesos = await this.procesosDeLaZona(config?.regiones ?? []);
     const comunasCercanas = config?.comunas_cercanas ?? [];
     const umbralAltoValor = empresa?.high_value_threshold ?? null;
     const series = seVienen(procesos, new Date(), {
       comunas: comunasCercanas,
       umbralAltoValor,
-    });
+    }).filter((s) => umbralAltoValor === null || s.alto_valor);
     return this.seViene.conSemaforo(companyId, series, procesos, {
       comunasCercanas,
       umbralAltoValor,
@@ -318,7 +336,7 @@ export class OportunidadesService {
   async competidores(companyId: number) {
     const config = await this.repo.configDe(companyId);
     return rankingDeCompetidores(
-      await this.repo.procesosDeLaZona(config?.regiones ?? []),
+      await this.procesosDeLaZona(config?.regiones ?? []),
     );
   }
 
@@ -329,7 +347,7 @@ export class OportunidadesService {
     }
     const config = await this.repo.configDe(companyId);
     const ficha = fichaDeCompetidor(
-      await this.repo.procesosDeLaZona(config?.regiones ?? []),
+      await this.procesosDeLaZona(config?.regiones ?? []),
       rut.trim(),
     );
     if (!ficha) {

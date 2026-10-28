@@ -132,7 +132,7 @@ const OPCIONES = {
 
 const ZONA = [CAMPO_2025, CAMPO_2024, INSUMOS];
 
-function armar() {
+function armar(mercado?: { paraLeer: jest.Mock }) {
   const repo = {
     lecturas: jest.fn().mockResolvedValue(new Map()),
     procesosParaLeer: jest.fn((codigos: string[]) =>
@@ -164,6 +164,7 @@ function armar() {
     oportunidades as unknown as OportunidadesRepository,
     lector as unknown as LecturaService,
     mockPinoLogger() as unknown as PinoLogger,
+    mercado as never,
   );
   return { repo, oportunidades, lector, servicio };
 }
@@ -352,6 +353,33 @@ describe('Se viene con el semáforo (decisión 62) y si se repite (decisión 63)
       '2410-147-L125',
       [],
       'No hay otra licitación de este comprador en los años anteriores.',
+    );
+  });
+
+  it('una serie cuya última vez el radar no guardó se lee con lo del mercado (decisión 106)', async () => {
+    const delMercado = { ...CAMPO_2025, codigo: '5040-99-LE25' };
+    const mercado = {
+      paraLeer: jest.fn().mockResolvedValue([paraLeer(delMercado)]),
+    };
+    const { repo, lector, servicio } = armar(mercado);
+    await servicio.conSemaforo(
+      1,
+      [serie(delMercado)],
+      [delMercado, CAMPO_2024],
+      OPCIONES,
+    );
+    await esperar();
+    expect(mercado.paraLeer).toHaveBeenCalledWith(['5040-99-LE25']);
+    expect(lector.leer).toHaveBeenCalledWith(
+      expect.objectContaining({ codigo: '5040-99-LE25' }),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(repo.guardar).toHaveBeenCalledWith(
+      1,
+      '5040-99-LE25',
+      expect.anything(),
+      LECTURA_ACTUAL,
     );
   });
 

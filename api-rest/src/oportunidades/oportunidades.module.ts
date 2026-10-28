@@ -32,6 +32,7 @@ import { DatosAbiertosCronService } from './datos-abiertos/datos-abiertos-cron.s
 import { DatosAbiertosController } from './datos-abiertos/datos-abiertos.controller';
 import { DatosAbiertosRepository } from './datos-abiertos/datos-abiertos.repository';
 import { DatosAbiertosService } from './datos-abiertos/datos-abiertos.service';
+import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
 import { GeneracionRepository } from './generacion/generacion.repository';
@@ -108,6 +109,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     DatosAbiertosRepository,
     DatosAbiertosService,
     DatosAbiertosCronService,
+    MercadoDeLaZonaRepository,
     PreguntasRepository,
     PreguntasService,
     ResumenDeNegocioService,
