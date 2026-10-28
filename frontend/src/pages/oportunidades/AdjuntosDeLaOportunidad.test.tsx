@@ -114,6 +114,20 @@ describe("Traer los documentos", () => {
     expect(s.getAdjuntos).toHaveBeenCalledTimes(2);
   });
 
+  it("el aviso guarda su lugar aunque no se vea: al apretar, el botón no se mueve (28-10)", async () => {
+    // Felipe: "cuando pincho traer documentos, y se pone a pensar este
+    // botón se baja". Sin documentos la lista parte abierta, con el texto
+    // explicativo al lado del botón.
+    s.getAdjuntos.mockResolvedValue([]);
+    pintar();
+    await screen.findByRole("button", { name: /Traer los documentos/ });
+    const aviso = screen.getByText(
+      "Puedes salir de la ficha: aparecen solos al terminar.",
+    );
+    expect(aviso).toHaveAttribute("aria-hidden", "true");
+    expect(aviso).toHaveClass("invisible");
+  });
+
   it("pide los documentos al motor, dice cuántos llegaron y refresca la lista", async () => {
     s.getAdjuntos
       .mockResolvedValueOnce([])
