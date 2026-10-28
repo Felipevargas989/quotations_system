@@ -1694,8 +1694,11 @@ function EventModal({
                                   {pay.status === "pagado"
                                     ? fmtDate(pay.last_payment_date)
                                     : `Vence ${fmtDate(pay.due_date)}`}
+                                  {/* Lo que falta, no lo abonado (Felipe,
+                                      28-10-2026: "debería decir pendiente
+                                      $496.300 de $846.300"). */}
                                   {cp > 0 && cp < 100
-                                    ? ` · abonado ${clp(pay.paid_amount)} de ${clp(pay.amount)}`
+                                    ? ` · pendiente ${clp(Math.max(0, Number(pay.amount) - Number(pay.paid_amount || 0)))} de ${clp(pay.amount)}`
                                     : ""}
                                   {txs.length === 1 && txs[0].notes
                                     ? ` · ${txs[0].notes}`
