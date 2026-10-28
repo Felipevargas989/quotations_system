@@ -20,7 +20,7 @@ import {
   ENCENDIDO,
   errorDeIA,
   instruccionesComunes,
-  MAX_BYTES_DE_PDF,
+  MAX_BYTES_DE_BASES,
   MODELO_OPUS,
   pesoDePdf,
   prefijoDeDocumentos,
@@ -28,6 +28,7 @@ import {
   sistemaConCache,
   usoDeLaRespuesta,
 } from '../analisis/comun';
+import { idDelPdf } from '../analisis/pdf-subidos';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
   type CitaDeLaIA,
@@ -342,9 +343,9 @@ export class PreguntasService {
           : 'Ninguno de los archivos se puede leer: sube las bases en PDF o Word.',
       );
     }
-    if (pesoDePdf(leibles) > MAX_BYTES_DE_PDF) {
+    if (pesoDePdf(leibles) > MAX_BYTES_DE_BASES) {
       throw new BadRequestException(
-        'Los PDF pesan más de 22 MB juntos: deja solo las bases y los anexos principales.',
+        'Los PDF pesan más de 40 MB juntos: deja solo las bases y los anexos principales.',
       );
     }
 
@@ -392,8 +393,12 @@ export class PreguntasService {
     pregunta: string,
   ): Promise<void> {
     try {
-      const { bloques } = await armarContenido(leibles, (ruta) =>
-        this.analisis.descargar(ruta),
+      // El mismo `file_id` que el análisis, si pasó de 22 MB (decisión 103):
+      // así el comienzo del pedido es idéntico y lee su caché.
+      const { bloques } = await armarContenido(
+        leibles,
+        (ruta) => this.analisis.descargar(ruta),
+        (datos, nombre) => idDelPdf(this.cliente(), datos, nombre),
       );
       if (bloques.length === 0) {
         await this.repo.terminar(companyId, preguntaId, {

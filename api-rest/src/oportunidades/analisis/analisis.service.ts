@@ -25,6 +25,7 @@ import {
   ENCENDIDO,
   errorDeIA,
   instruccionesComunes,
+  MAX_BYTES_DE_BASES,
   MAX_BYTES_DE_PDF,
   MODELO_OPUS,
   MODELO_SONNET,
@@ -45,6 +46,7 @@ import {
   ESQUEMA_DE_CUMPLIMIENTO,
   instruccionesDeCumplimiento,
 } from './cumplimiento';
+import { idDelPdf } from './pdf-subidos';
 
 // LA IA LEE LAS BASES (doc 17, sprint 3, paso 1; migración 125). Felipe,
 // 17-10: "vamos". Con Opus 5.5, lo decidido para documentos (decisión 6).
@@ -58,7 +60,7 @@ import {
 // Lo común con Validar documentos vive en ./comun.
 
 export const MODELO_BASES = MODELO_OPUS;
-export { MAX_BYTES_DE_PDF, separar };
+export { MAX_BYTES_DE_BASES, MAX_BYTES_DE_PDF, separar };
 /** La falla, en palabras de la casa. */
 export const errorDeAnalisis = errorDeIA;
 
@@ -349,9 +351,9 @@ export class AnalisisService {
           : 'Ninguno de los archivos se puede leer: sube las bases en PDF o Word.',
       );
     }
-    if (pesoDePdf(leibles) > MAX_BYTES_DE_PDF) {
+    if (pesoDePdf(leibles) > MAX_BYTES_DE_BASES) {
       throw new BadRequestException(
-        'Los PDF pesan más de 22 MB juntos: deja solo las bases y los anexos principales y vuelve a analizar.',
+        'Los PDF pesan más de 40 MB juntos: deja solo las bases y los anexos principales y vuelve a analizar.',
       );
     }
 
@@ -497,8 +499,11 @@ export class AnalisisService {
     oportunidadId?: number,
   ): Promise<void> {
     try {
-      const { bloques, sinAbrir } = await armarContenido(leibles, (ruta) =>
-        this.repo.descargar(ruta),
+      // Lo que pasa de 22 MB va por la Files API (decisión 103).
+      const { bloques, sinAbrir } = await armarContenido(
+        leibles,
+        (ruta) => this.repo.descargar(ruta),
+        (datos, nombre) => idDelPdf(this.cliente(), datos, nombre),
       );
       const noLeidosFinal = [...noLeidos, ...sinAbrir];
       if (bloques.length === 0) {

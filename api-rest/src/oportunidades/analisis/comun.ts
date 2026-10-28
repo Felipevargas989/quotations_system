@@ -65,6 +65,12 @@ const precioDe = (modelo: string) => PRECIOS[modelo] ?? PRECIOS[MODELO_OPUS];
  *  pedido no puede pasar de 32 MB. */
 export const MAX_BYTES_DE_PDF = 22 * 1024 * 1024;
 
+/** Las bases del análisis y de «Pregúntale a la IA» (decisión 103): lo que
+ *  pasa de 22 MB se sube antes a la Files API (`pdf-subidos.ts`). El mismo
+ *  tope de «Generar documentos». Lo que sigue limitando son las 600 páginas
+ *  por pedido, con el aviso de `errorDeIA`. */
+export const MAX_BYTES_DE_BASES = 40 * 1024 * 1024;
+
 /** Lo que la IA puede leer: PDF directo; Word y texto, como texto. */
 const LEIBLES = new Set(['pdf', 'docx', 'txt', 'csv']);
 
@@ -228,25 +234,40 @@ export const pesoDePdf = (archivos: Adjunto[]): number =>
 /** Los archivos como los lee Claude: el PDF entero (texto e imagen de cada
  *  página), el Word y el texto como texto. Lo que no se pudo abrir queda en
  *  `sinAbrir`. El título es el nombre, o el que se le dé (la validación
- *  pone la carpeta del ZIP, decisión 83). */
+ *  pone la carpeta del ZIP, decisión 83). Con `subir`, si los PDF pasan de
+ *  22 MB juntos van todos por la Files API, con su `file_id` (decisión 103);
+ *  sin `subir`, siempre dentro del pedido. */
 export const armarContenido = async (
   leibles: ReadonlyArray<{ nombre: string; ruta: string; titulo?: string }>,
   descargar: (ruta: string) => Promise<Buffer>,
+  subir?: (datos: Buffer, nombre: string) => Promise<string>,
 ) => {
   const bloques: Anthropic.DocumentBlockParam[] = [];
   const sinAbrir: NoLeido[] = [];
+  const bajados: Buffer[] = [];
   for (const a of leibles) {
-    const datos = await descargar(a.ruta);
+    bajados.push(await descargar(a.ruta));
+  }
+  const pesoDeLosPdf = leibles.reduce(
+    (suma, a, i) =>
+      extensionDe(a.nombre) === 'pdf' ? suma + bajados[i].length : suma,
+    0,
+  );
+  const aparte = subir && pesoDeLosPdf > MAX_BYTES_DE_PDF ? subir : null;
+  for (const [i, a] of leibles.entries()) {
+    const datos = bajados[i];
     const ext = extensionDe(a.nombre);
     if (ext === 'pdf') {
       bloques.push({
         type: 'document',
         title: a.titulo ?? a.nombre,
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: datos.toString('base64'),
-        },
+        source: aparte
+          ? { type: 'file', file_id: await aparte(datos, a.nombre) }
+          : {
+              type: 'base64',
+              media_type: 'application/pdf',
+              data: datos.toString('base64'),
+            },
       });
       continue;
     }
