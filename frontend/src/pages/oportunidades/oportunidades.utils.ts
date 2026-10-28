@@ -654,7 +654,10 @@ export const algunaEnCurso = (
  *  que ya cerraron sin postular (la más reciente primero). Postuladas,
  *  aparte. Las ganadas, para su pestaña (decisión 100, 28-10: "no me
  *  gusta que las perdidas queden con las ganadas"); las perdidas, al
- *  final. `enCurso` (las dos primeras) es el número de la pestaña. */
+ *  final. Desde la decisión 107 (28-10) el número de la pestaña es
+ *  `pendientes`, las por postular que siguen abiertas (Felipe: "ese número
+ *  7 podría ser solo lo pendiente de postular"); `enCurso` (las dos
+ *  primeras) lo dice la bandeja vacía. */
 export const separarMias = <
   T extends { estado: string; proceso?: { fecha_cierre: string | null } },
 >(
@@ -667,13 +670,15 @@ export const separarMias = <
   };
   const antes = (a: T, b: T) => cierre(a) - cierre(b) || 0;
   const enEstudio = lista.filter((m) => m.estado === "en_estudio");
+  const abiertas = enEstudio.filter((m) => cierre(m) >= ahora).sort(antes);
   const porPostular = [
-    ...enEstudio.filter((m) => cierre(m) >= ahora).sort(antes),
+    ...abiertas,
     ...enEstudio.filter((m) => cierre(m) < ahora).sort((a, b) => antes(b, a)),
   ];
   const postuladas = lista.filter((m) => m.estado === "postulada").sort(antes);
   return {
     porPostular,
+    pendientes: abiertas,
     postuladas,
     enCurso: [...porPostular, ...postuladas],
     ganadas: lista.filter((m) => m.estado === "ganada"),

@@ -698,6 +698,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - «Se viene» muestra solo las series cuya última vez supera el umbral de «cotización grande» de Mi empresa (`high_value_threshold`; Valle del Sol tiene $3.000.000). Vale el monto estimado o, si no lo hay, lo adjudicado. Sin umbral, se ven todas.
     - El semáforo de una serie cuya última vez el radar no guardó se lee con lo que trae el mercado: el nombre y los rubros de lo que se compró, sin descripción (`paraLeer`).
     - «Quién ganó el año anterior» en la bandeja y la ficha sigue con la historia del radar, y por eso esa descarga nocturna por la API sigue encendida. Pasarlo al mercado y apagarla es el paso siguiente, con el OK de Felipe.
+107. **Los números de las pestañas: lo que queda por hacer** (28-10, en el laboratorio y en producción el mismo día: *"hazlo en ambas"*). Felipe, con «Mis licitaciones 7» y «Ganadas 1»: *"en licitaciones ese numero 7 podria ser solo lo pendiente de posturar....y las ganas solo las que aún no se realizan (por fecha de realización)"*. Solo pantalla, sin migración.
+    - «Mis licitaciones» cuenta solo las por postular que siguen abiertas (`separarMias(...).pendientes`). Ese día pasó de 7 a 4: las 3 postuladas que esperan resultado y las que cerraron sin postular ya no suman. La bandeja vacía sigue diciendo cuántas hay en curso (`enCurso`).
+    - «Ganadas» cuenta solo las que aún no se realizan por la fecha del servicio (`ganadasPorRealizar`): el día del servicio ya no cuenta, y las que las bases no fechan, sí. El 1 de ese día era el almuerzo de Laja Diguillín, ya servido esa tarde.
+    - Las listas no cambian: «Por cumplir» sigue mostrando la del día con «hoy» en rojo.
 
 ## 4. Reglas del módulo (no se negocian)
 
