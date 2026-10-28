@@ -53,7 +53,7 @@ const OFERTA = {
 // amplificación (250.000) = 6.007.500.
 const CATALOGO_TOTAL = 6_007_500;
 
-function armar() {
+function armar(extra: { ganada?: unknown; laOferta?: unknown } = {}) {
   const repo = {
     oportunidad: jest.fn().mockResolvedValue({
       id: 87,
@@ -111,6 +111,8 @@ function armar() {
     clientes as unknown as ClientsService,
     bitacora as unknown as QuotationFollowupsService,
     mockPinoLogger() as unknown as PinoLogger,
+    extra.ganada as never,
+    extra.laOferta as never,
   );
   const notas = () =>
     bitacora.create.mock.calls.map(([, dto]) => (dto as { note: string }).note);
@@ -373,6 +375,140 @@ describe('La cotización de la postulación', () => {
     expect(creadaDe(cotizaciones.create)).toMatchObject({
       client_id: 'cli-nuevo',
     });
+  });
+});
+
+// LA COTIZACIÓN DE UNA GANADA (decisión 104, 28-10). Felipe: "cuando una
+// licitación está ganada, y no tengo nada vinculado, debería poder crear la
+// cotización desde ahi trayendo la mayor cantidad de cosas posibles y si
+// faltan, avisar en los comentarios internos"; y "si esta ganada la
+// licitación la cotización debe quedar como aceptada con un plan de pagos a
+// 30 dias post realización del evento".
+describe('La cotización de una ganada (decisión 104)', () => {
+  /** Una ganada sin cotización: al vincularla, la ficha la trae. */
+  const ganadaSinCotizacion = (
+    repo: ReturnType<typeof armar>['repo'],
+    cotizaciones: ReturnType<typeof armar>['cotizaciones'],
+  ) => {
+    const ficha = {
+      id: 87,
+      codigo: '4364-13-LE26',
+      estado: 'ganada',
+      quotation_id: null as string | null,
+      etiquetas: ['evento', 'alimentacion'],
+      proceso: {
+        nombre: 'Producción de Evento día del Profesor',
+        organismo: 'I MUNICIPALIDAD DE QUILLON',
+        monto: null,
+        fecha_cierre: '2026-10-19T19:00:00Z',
+      },
+    };
+    repo.oportunidad.mockImplementation(() => Promise.resolve({ ...ficha }));
+    repo.vincular.mockImplementation((_c: number, _o: number, id: string) => {
+      ficha.quotation_id = id;
+      return Promise.resolve(undefined);
+    });
+    repo.cotizacion.mockImplementation((_c: number, cual: { id?: string }) =>
+      Promise.resolve(
+        cual.id === 'q-nueva'
+          ? vinculada(creadaDe(cotizaciones.create))
+          : cual.id === 'q-481'
+            ? {
+                id: 'q-481',
+                quotation_number: 481,
+                quotation_status: 'enviada',
+                event_date: '2026-11-11',
+                items: null,
+                client: null,
+              }
+            : null,
+      ),
+    );
+    return ficha;
+  };
+
+  it('sin cotización, la crea con lo postulado y la deja aceptada con su cuota a 30 días', async () => {
+    const ganada = { aceptar: jest.fn().mockResolvedValue({ numero: 612 }) };
+    const { repo, cotizaciones, servicio } = armar({ ganada });
+    ganadaSinCotizacion(repo, cotizaciones);
+    const estado = await servicio.llevar(USUARIO, 87);
+    expect(cotizaciones.create).toHaveBeenCalledTimes(1);
+    expect(repo.vincular).toHaveBeenCalledWith(1, 87, 'q-nueva');
+    expect(ganada.aceptar).toHaveBeenCalledWith(1, 'q-nueva', '4364-13-LE26');
+    expect(estado.cotizacion?.numero).toBe(612);
+  });
+
+  it('a una ganada sin cotización se le vincula la que ya existe, y queda aceptada', async () => {
+    const ganada = { aceptar: jest.fn().mockResolvedValue({ numero: 481 }) };
+    const { repo, cotizaciones, servicio } = armar({ ganada });
+    ganadaSinCotizacion(repo, cotizaciones);
+    repo.cotizacion.mockImplementation(
+      (_c: number, cual: { id?: string; numero?: number }) =>
+        Promise.resolve(
+          cual.numero === 481 || cual.id === 'q-481'
+            ? {
+                id: 'q-481',
+                quotation_number: 481,
+                quotation_status: 'enviada',
+                event_date: '2026-10-28',
+                items: null,
+                client: null,
+              }
+            : null,
+        ),
+    );
+    await servicio.vincular(USUARIO, 87, 481);
+    expect(repo.vincular).toHaveBeenCalledWith(1, 87, 'q-481');
+    expect(ganada.aceptar).toHaveBeenCalledWith(1, 'q-481', '4364-13-LE26');
+  });
+
+  it('una ganada que ya tiene cotización sigue fija: no se reescribe ni se vincula otra', async () => {
+    const ganada = { aceptar: jest.fn() };
+    const { repo, cotizaciones, servicio } = armar({ ganada });
+    const ficha = ganadaSinCotizacion(repo, cotizaciones);
+    ficha.quotation_id = 'q-679';
+    await expect(servicio.llevar(USUARIO, 87)).rejects.toThrow(
+      'La ganaste: lo postulado es el contrato',
+    );
+    await expect(servicio.vincular(USUARIO, 87, 481)).rejects.toThrow(
+      'La ganaste',
+    );
+    expect(cotizaciones.create).not.toHaveBeenCalled();
+    expect(ganada.aceptar).not.toHaveBeenCalled();
+  });
+
+  it('postulada sin «Armar postulación», la IA arma primero «Qué ofreces» y la cotización se crea sola al terminar', async () => {
+    const ganada = { aceptar: jest.fn().mockResolvedValue({ numero: 612 }) };
+    const laOferta = { pedir: jest.fn().mockResolvedValue({ id: 99 }) };
+    const { repo, cotizaciones, servicio } = armar({ ganada, laOferta });
+    ganadaSinCotizacion(repo, cotizaciones);
+    repo.ultimaPropuesta.mockResolvedValue(null);
+    const estado = await servicio.llevar(USUARIO, 87, 1_136_500);
+    expect(estado.armando).toBe(true);
+    // Sin oferta, las fechas que se proponen son los días del servicio.
+    expect(estado.fechas).toEqual({ desde: '2026-10-28', hasta: null });
+    expect(cotizaciones.create).not.toHaveBeenCalled();
+    const [empresa, cuenta, oportunidad, encadenar] = laOferta.pedir.mock
+      .calls[0] as [
+      number,
+      string,
+      number,
+      { paraLaGanada: boolean; despues: () => Promise<void> },
+    ];
+    expect([empresa, cuenta, oportunidad, encadenar.paraLaGanada]).toEqual([
+      1,
+      'cuenta-1',
+      87,
+      true,
+    ]);
+    // La IA terminó: ya hay oferta, y la cotización se crea y se acepta.
+    repo.ultimaPropuesta.mockResolvedValue({
+      id: 31,
+      resultado: { oferta: OFERTA },
+    });
+    await encadenar.despues();
+    expect(cotizaciones.create).toHaveBeenCalledTimes(1);
+    expect(ganada.aceptar).toHaveBeenCalledWith(1, 'q-nueva', '4364-13-LE26');
   });
 });
 

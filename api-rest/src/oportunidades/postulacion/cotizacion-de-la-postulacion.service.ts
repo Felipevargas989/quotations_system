@@ -3,6 +3,7 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -25,12 +26,15 @@ import {
   type OfertaDeLaPropuesta,
   productosDeLaOferta,
 } from '../generacion/oferta-de-la-propuesta';
+import { servicioDe } from '../mias/servicio-de-la-ganada';
+import { AceptarLaGanadaService } from './aceptar-la-ganada.service';
 import { listaDeTextos } from './armar-la-oferta';
+import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import {
   bloqueDeLaLicitacion,
   comentarioConLaLicitacion,
 } from './comentario-de-la-licitacion';
-import { noSiEstaCongelada } from './congelada';
+import { esGanadaSinCotizacion, noSiEstaCongelada } from './congelada';
 import {
   type CotizacionDeLaPostulacion,
   type OportunidadParaCotizar,
@@ -103,6 +107,9 @@ export type EstadoDeLaCotizacion = {
   faltan: string[];
   /** Las fechas que se proponen al crear la cotización; null sin oferta. */
   fechas: FechasDeLaCotizacion | null;
+  /** Decisión 104: la IA arma «Qué ofreces» de una ganada que se postuló
+   *  sin «Armar postulación»; la cotización se crea sola al terminar. */
+  armando?: boolean;
 };
 
 /** Desde y hasta, AAAA-MM-DD; `hasta` null = un solo día. */
@@ -202,6 +209,11 @@ export class CotizacionDeLaPostulacionService {
     private readonly clientes: ClientsService,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    /** Decisión 104: la cotización de una ganada queda aceptada, y sin
+     *  oferta la IA arma primero «Qué ofreces». Opcionales: las pruebas de
+     *  antes no los traen. */
+    @Optional() private readonly ganada?: AceptarLaGanadaService,
+    @Optional() private readonly laOferta?: ArmarLaOfertaService,
   ) {
     this.logger.setContext(CotizacionDeLaPostulacionService.name);
   }
@@ -223,6 +235,13 @@ export class CotizacionDeLaPostulacionService {
     const sugerido = propuesta
       ? await this.evento(companyId, o, propuesta.oferta, null)
       : null;
+    // Sin oferta (una ganada que se postuló sin «Armar postulación»,
+    // decisión 104): los días del servicio que dicen las bases.
+    const dias =
+      !sugerido && analisis?.estado === 'listo'
+        ? (servicioDe(analisis.resultado ?? undefined, o.proceso.fecha_cierre)
+            ?.dias ?? [])
+        : [];
     return {
       cotizacion: cotizacion ? this.resumen(cotizacion) : null,
       presupuesto:
@@ -231,7 +250,14 @@ export class CotizacionDeLaPostulacionService {
         ? { id: propuesta.id, productos: productosDeLaOferta(propuesta.oferta) }
         : null,
       faltan: propuesta?.subcontratar ?? [],
-      fechas: sugerido ? { desde: sugerido.fecha, hasta: sugerido.fin } : null,
+      fechas: sugerido
+        ? { desde: sugerido.fecha, hasta: sugerido.fin }
+        : dias.length > 0
+          ? {
+              desde: dias[0],
+              hasta: dias.length > 1 ? dias[dias.length - 1] : null,
+            }
+          : null,
     };
   }
 
@@ -247,10 +273,40 @@ export class CotizacionDeLaPostulacionService {
     fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
     try {
-      const estado = await this.llevarSinCapturar(user, oportunidadId, fechas);
-      return total
-        ? await this.fijarOferta(user, oportunidadId, total)
+      const companyId = user.company_id;
+      const o = await this.oportunidad(companyId, oportunidadId);
+      // Decisión 104 (28-10): de una ganada sin cotización se crea la suya,
+      // que queda aceptada con su cuota a 30 días. Felipe: "cuando una
+      // licitación está ganada, y no tengo nada vinculado, debería poder
+      // crear la cotización desde ahi trayendo la mayor cantidad de cosas
+      // posibles y si faltan, avisar en los comentarios internos".
+      const deLaGanada = esGanadaSinCotizacion(o.estado, o.quotation_id);
+      if (
+        deLaGanada &&
+        this.laOferta &&
+        !(await this.ofertaDeLaPropuesta(companyId, oportunidadId))
+      ) {
+        return await this.armarLaOfertaDeLaGanada(
+          user,
+          oportunidadId,
+          total,
+          fechas,
+        );
+      }
+      const estado = await this.llevarSinCapturar(
+        user,
+        oportunidadId,
+        fechas,
+        deLaGanada,
+      );
+      const conPrecio = total
+        ? await this.fijarOferta(user, oportunidadId, total, deLaGanada)
         : estado;
+      if (!deLaGanada || !conPrecio.cotizacion || !this.ganada) {
+        return conPrecio;
+      }
+      await this.ganada.aceptar(companyId, conPrecio.cotizacion.id, o.codigo);
+      return await this.estado(companyId, oportunidadId);
     } catch (error) {
       // Lo que no es de la casa (un dato raro, la base) se dice en palabras
       // y queda en el registro, en vez de un 500 mudo.
@@ -268,10 +324,12 @@ export class CotizacionDeLaPostulacionService {
     user: User,
     oportunidadId: number,
     fechas?: Partial<FechasDeLaCotizacion>,
+    /** Una ganada sin cotización: se crea la suya (decisión 104). */
+    deLaGanada = false,
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
-    noSiEstaCongelada(o.estado);
+    if (!deLaGanada) noSiEstaCongelada(o.estado);
     const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
     if (!propuesta) {
       throw new BadRequestException(
@@ -396,7 +454,10 @@ export class CotizacionDeLaPostulacionService {
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
-    noSiEstaCongelada(o.estado);
+    // Decisión 104: a una ganada sin cotización se le vincula la suya, que
+    // queda aceptada.
+    const deLaGanada = esGanadaSinCotizacion(o.estado, o.quotation_id);
+    if (!deLaGanada) noSiEstaCongelada(o.estado);
     const destino = await this.repo.cotizacion(companyId, { numero });
     if (!destino) {
       throw new NotFoundException(`No hay una cotización N° ${numero}.`);
@@ -435,7 +496,35 @@ export class CotizacionDeLaPostulacionService {
       `Se vinculó a la licitación ${o.codigo} (${o.proceso.nombre}) sin cambiar sus productos ni precios.${mover ? ` Su fecha pasó ${antes ? `del ${antes} ` : ''}al ${fecha}${fin ? ` hasta el ${fin}` : ''}, la de las bases.` : ''}`,
     );
     await this.repo.vincular(companyId, oportunidadId, destino.id);
+    if (deLaGanada) {
+      await this.ganada?.aceptar(companyId, destino.id, o.codigo);
+    }
     return this.estado(companyId, oportunidadId);
+  }
+
+  /** Decisión 104: una ganada que se postuló sin «Armar postulación» no
+   *  tiene «Qué ofreces». La IA lo arma con las bases y, al terminar, crea
+   *  la cotización (que queda aceptada); lo postulado no se toca. */
+  private async armarLaOfertaDeLaGanada(
+    user: User,
+    oportunidadId: number,
+    total: number | undefined,
+    fechas: Partial<FechasDeLaCotizacion> | undefined,
+  ): Promise<EstadoDeLaCotizacion> {
+    const companyId = user.company_id;
+    await this.laOferta?.pedir(companyId, user.id, oportunidadId, {
+      paraLaGanada: true,
+      parametros: { cotizacion_de_la_ganada: { total: total ?? null } },
+      despues: async () => {
+        await this.llevar(user, oportunidadId, total, fechas).catch(
+          (error: unknown) =>
+            this.logger.error(
+              `cotización de la ganada ${oportunidadId}: ${mensajeDe(error)}`,
+            ),
+        );
+      },
+    });
+    return { ...(await this.estado(companyId, oportunidadId)), armando: true };
   }
 
   /** La oferta de la postulación: el total de la cotización. La diferencia
@@ -444,10 +533,12 @@ export class CotizacionDeLaPostulacionService {
     user: User,
     oportunidadId: number,
     total: number,
+    /** La cotización recién creada de una ganada (decisión 104). */
+    deLaGanada = false,
   ): Promise<EstadoDeLaCotizacion> {
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
-    noSiEstaCongelada(o.estado);
+    if (!deLaGanada) noSiEstaCongelada(o.estado);
     const q = o.quotation_id
       ? await this.repo.cotizacion(companyId, { id: o.quotation_id })
       : null;

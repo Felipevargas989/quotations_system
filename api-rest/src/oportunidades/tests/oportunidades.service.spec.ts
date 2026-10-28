@@ -18,7 +18,7 @@ const fila = (id: number, fecha_cierre: string | null) => ({
   },
 });
 
-function armar() {
+function armar(ganada?: { aceptar: jest.Mock }) {
   const repo = {
     listar: jest.fn().mockResolvedValue([]),
     ficha: jest.fn().mockResolvedValue(null),
@@ -52,6 +52,7 @@ function armar() {
     mockPinoLogger() as unknown as PinoLogger,
     fichas as unknown as FichaRepository,
     seViene as unknown as SeVieneService,
+    ganada as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -278,6 +279,35 @@ describe('OportunidadesService — la ficha y decidir', () => {
     expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
       estado: 'descartada',
     });
+  });
+
+  it('decisión 104: marcada ganada a mano, su cotización vinculada queda aceptada y la respuesta lo dice', async () => {
+    const aceptada = { numero: 679, vence: '2026-11-27', total: 1_136_500 };
+    const ganada = { aceptar: jest.fn().mockResolvedValue(aceptada) };
+    const { repo, servicio } = armar(ganada);
+    repo.actualizar.mockResolvedValue({
+      id: 5171,
+      codigo: '1030177-85-COT26',
+      estado: 'ganada',
+      quotation_id: 'q-679',
+    });
+    await expect(
+      servicio.actualizar(1, 5171, { estado: 'ganada' }),
+    ).resolves.toMatchObject({ cotizacion_aceptada: aceptada });
+    expect(ganada.aceptar).toHaveBeenCalledWith(1, 'q-679', '1030177-85-COT26');
+    // Sin cotización vinculada, o con otro estado, no hay nada que aceptar.
+    ganada.aceptar.mockClear();
+    repo.actualizar.mockResolvedValue({
+      id: 5171,
+      codigo: '1030177-85-COT26',
+      estado: 'ganada',
+      quotation_id: null,
+    });
+    await expect(
+      servicio.actualizar(1, 5171, { estado: 'ganada' }),
+    ).resolves.toMatchObject({ cotizacion_aceptada: null });
+    await servicio.actualizar(1, 5171, { estado: 'perdida' });
+    expect(ganada.aceptar).not.toHaveBeenCalled();
   });
 
   it('el responsable tiene que ser de la empresa', async () => {

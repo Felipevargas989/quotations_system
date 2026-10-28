@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { cuandoEsElServicio, separarGanadas } from "./servicioDeLaGanada";
+import {
+  avisoAlGuardar,
+  cuandoEsElServicio,
+  separarGanadas,
+} from "./servicioDeLaGanada";
 
 // LA PESTAÑA «GANADAS» (decisión 100, 28-10): por cumplir hasta el último
 // día del servicio; cumplidas desde el día siguiente.
@@ -61,5 +65,20 @@ describe("Las ganadas", () => {
       cuandoEsElServicio({ texto: "", dias: ["2026-10-27"] }, "2026-10-28"),
     ).toBeNull();
     expect(cuandoEsElServicio(null, "2026-10-28")).toBeNull();
+  });
+
+  it("decisión 104: al marcarla ganada, el aviso dice si su cotización quedó aceptada", () => {
+    expect(
+      avisoAlGuardar({
+        id: 5171,
+        cotizacion_aceptada: { numero: 679, vence: "2026-11-27" },
+      }),
+    ).toBe(
+      "Guardado. La cotización N° 679 quedó aceptada, con una cuota que vence el viernes 27 de noviembre.",
+    );
+    expect(avisoAlGuardar({ id: 5171, cotizacion_aceptada: null })).toBe(
+      "Guardado.",
+    );
+    expect(avisoAlGuardar(undefined)).toBe("Guardado.");
   });
 });

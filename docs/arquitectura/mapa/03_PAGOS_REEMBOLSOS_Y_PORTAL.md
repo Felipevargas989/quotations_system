@@ -84,7 +84,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
    - trae la cotización con `QuotationsService.findOne`; si es de otra empresa, 404;
    - **portero**: si la suma redondeada de las cuotas no es igual al `total_amount` redondeado, 400 con "recarga la página y arma el plan de nuevo";
    - desde el 28-10-2026, `reemplazarCuotasSinPlata` (`plan-editado.ts`): las cuotas con plata quedan, las demás se borran una por una, se insertan las nuevas numeradas después, se renumera 1..n y `rellenarCuotas` reparte lo pagado (regla 3 del doc 14). Antes: `deletePaymentsByQuotationId` y luego el insert, que con abonos dejaba el plan duplicado;
-   - si el estado previo no era `aceptada`, envía `PAYMENT_PLAN_CREATED` al mandante (`QuotationsService.mandanteOf`) con su token de portal. Sin correo, solo deja un aviso en el log;
+   - si el estado previo no era `aceptada`, envía `PAYMENT_PLAN_CREATED` al mandante (`QuotationsService.mandanteOf`) con su token de portal. Sin correo, solo deja un aviso en el log. Con `sinCorreo` no lo envía: es la cotización de una licitación ganada que se acepta sola (`AceptarLaGanadaService`, decisión 104 del doc 17, 28-10-2026), y el comprador es un organismo público;
    - si el estado no es `realizada`, `QuotationsRepository.update` lo deja `aceptada`. Va directo al repositorio: sin cascada ni candado.
 5. Efecto: el evento aparece en Post-Venta, porque `fetchEvents` arma las filas **desde las cuotas**, y en el portal bajo "Tus eventos confirmados". Desde el 06-10-2026, si se aceptó desde la ficha del negocio (`NegocioPage`), quien ve Post-Venta (operaciones y administrador) **queda directo en `/post-venta/:id`** al guardar el plan (o al aceptar con plan ya existente); un vendedor se queda en la ficha. Felipe: *"pasé esta aceptada, pero no se abrieron las pestañas de post venta"*.
 
@@ -248,7 +248,7 @@ Relojes (sin HTTP; `ScheduleModule` corre solo con `NODE_ENV === 'production'`, 
 
 | Archivo | Qué cubre |
 |---|---|
-| `api-rest/src/payments/tests/payments.service.spec.ts` | Portero del plan: rechaza el descuadre sin borrar nada y da 404 si es de otra empresa. `updatePaymentSchedule`: seis casos (pagada, con abonos, fecha futura → pendiente, fecha pasada → vencido, solo nota, 404). `fechaDelUltimoAbono`: cuatro casos |
+| `api-rest/src/payments/tests/payments.service.spec.ts` | Portero del plan: rechaza el descuadre sin borrar nada y da 404 si es de otra empresa. `updatePaymentSchedule`: seis casos (pagada, con abonos, fecha futura → pendiente, fecha pasada → vencido, solo nota, 404). `fechaDelUltimoAbono`: cuatro casos; con `sinCorreo` (la cotización de una licitación ganada, decisión 104 del doc 17) deja la cotización aceptada sin mandarle el plan al cliente |
 | `api-rest/src/payments/tests/payments.controller.spec.ts` | Solo que el controller se construya |
 | `api-rest/src/refunds/tests/refunds.controller.spec.ts`, `refunds.service.spec.ts` | Solo que se construyan ("should be defined") |
 | `api-rest/src/quotations/tests/unit/quotations.service.spec.ts` | Cascada con cotización aceptada: error al leer cuotas; total igual; baja sin cuotas pendientes → reembolso; sube sin cuotas → cuota nueva; sube con cuotas → va al reparto proporcional. Los reembolsos pendientes están simulados como lista vacía |
