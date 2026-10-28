@@ -665,6 +665,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Las bases (pág. 11) piden el programa y «la certificación que es conocido por todo su personal», y en una nota cuentan como personal al representante legal y a «todos los trabajadores atingentes a la presente licitación». Felipe lee atingentes como los que deciden en las compras públicas.
     - «Validar todo» da por buena la certificación (un registro de difusión o una declaración, que suele ir dentro del programa) si la firman el representante legal y el coordinador del servicio, con sus nombres de «Mi empresa». No pide fecha ni las firmas del resto del personal. Si falta uno de los dos, es grave.
     - En «Bases y criterios», la certificación (que el análisis deja en `dj_trabajadores`) la cubre el programa de integridad de «Mi empresa» cuando no hay una declaración aparte (`checklistDeDocumentos`). Salía «Falta», y «Cómo te evalúan» decía «falta 1 de 2». El ZIP ya la tomaba del programa (`el-set.ts`).
+103. **Las bases pueden pesar hasta 40 MB** (28-10, en el laboratorio y en producción el mismo día: *"ármalo en producción y lab"*). Felipe: *"el analizar bases solo lee hasta 22 mb es muy poco quedo topado en algunas...puedes poner ese tope un poco más arriba"*. Ese día la topada era la 918023-5-LE26, con 23,2 MB en dos PDF. Solo motor, sin migración.
+    - El 22 no era al azar: los PDF iban dentro del pedido, en base64, que los agranda un tercio, y el pedido no pasa de 32 MB. Por ahí no caben más de unos 23 MB.
+    - Si los PDF pasan de 22 MB juntos, se suben todos antes a la Files API, como en el taller, y el pedido lleva solo su `file_id` (`analisis/pdf-subidos.ts`; `armarContenido` con `subir`). Bajo 22 MB todo sigue dentro del pedido, como antes.
+    - No se borran al terminar: vencen solos a las 2 horas (`expires_in_seconds`). Mientras tanto, el mismo PDF (por su huella) da el mismo `file_id` por una hora y media, para que «Pregúntale a la IA» empiece igual que el análisis y lea su caché de 1 hora (decisión 67).
+    - El tope nuevo, 40 MB, es el de «Generar documentos», y vale para «Analizar bases» y «Pregúntale a la IA» (`MAX_BYTES_DE_BASES`). Lo que sigue limitando son las 600 páginas por pedido: si pasan, sale el aviso de siempre, «Son demasiadas páginas» (`errorDeIA`).
+    - «Validar todo», la comparación de ofertas, por qué perdimos, lo que aprendemos de las comisiones, el resumen de negocio y armar la oferta siguen con 22 MB (`MAX_BYTES_DE_PDF`).
 
 ## 4. Reglas del módulo (no se negocian)
 
