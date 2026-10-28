@@ -275,4 +275,14 @@ describe('Las compras ágiles de un mes (decisión 101)', () => {
     });
     expect(r.totales[0]).toMatchObject({ con_elegido: 1, monto_elegido: 0 });
   });
+
+  it('en los archivos hasta septiembre de 2025, sin NombreOOPP, el organismo es la razón social de la unidad', async () => {
+    const antigua = filaDeCompraAgil({
+      RazonSocialUnidaddeCompra: 'I MUNICIPALIDAD DE COBQUECURA',
+    });
+    delete antigua['NombreOOPP'];
+    const r = await comprasAgilesDelMes(() => deLista([antigua]), '2024-10-01');
+    expect(r.solicitudes[0].organismo).toBe('I MUNICIPALIDAD DE COBQUECURA');
+    expect(r.totales[0].organismo).toBe('I MUNICIPALIDAD DE COBQUECURA');
+  });
 });
