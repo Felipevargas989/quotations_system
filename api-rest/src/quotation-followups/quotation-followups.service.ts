@@ -6,11 +6,26 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
+import { QuotationStatus } from 'src/quotations/constants/constants';
 import { User } from 'src/users/entities/user.entity';
 import { CreateQuotationFollowupDto } from './dto/create-quotation-followup.dto';
 import { UpdateQuotationFollowupDto } from './dto/update-quotation-followup.dto';
 import { QuotationFollowupsRepository } from './quotation-followups.repository';
 import { CreateFollowupPayload, UpdateFollowupPayload } from './types';
+
+// El semáforo solo lee la bitácora de lo vivo (Felipe, 28-10-2026): las
+// cotizaciones en curso y los eventos vigentes. Lo de las rechazadas,
+// realizadas y anuladas se ve al abrir su Seguimiento (findByQuotation);
+// en el tablero de Post-Venta, una fecha anotada en un realizado o en un
+// anulado ya no lo marca (las cuotas vencidas siguen en «Vencidos»). Todo
+// evento vendido termina realizado con todas sus notas: leerlas también
+// haría crecer esta lista para siempre.
+const ESTADOS_DEL_SEMAFORO = [
+  QuotationStatus.SOLICITADA,
+  QuotationStatus.ENVIADA,
+  QuotationStatus.EN_NEGOCIACION,
+  QuotationStatus.ACEPTADA,
+];
 
 // Bitácora comercial (03-08): reglas de negocio del hilo de seguimiento.
 // Dos candados fijos: la empresa sale de la sesión (nunca del body) y
@@ -24,13 +39,16 @@ export class QuotationFollowupsService {
     this.logger.setContext(QuotationFollowupsService.name);
   }
 
-  // Semáforo de la lista: por cada cotización, cuándo fue la última
-  // nota y el próximo contacto DE ESA nota (no el más próximo de todas:
-  // la última palabra escrita es la que manda).
+  // Semáforo de la lista: por cada cotización viva (ESTADOS_DEL_SEMAFORO),
+  // cuándo fue la última nota y el próximo contacto DE ESA nota (no el
+  // más próximo de todas: la última palabra escrita es la que manda).
   async mapByCompany(companyId: Company['id']) {
     this.logger.info(`mapByCompany followups company ${companyId}`);
     try {
-      const rows = await this.followupsRepository.findMapRows(companyId);
+      const rows = await this.followupsRepository.findMapRows(
+        companyId,
+        ESTADOS_DEL_SEMAFORO,
+      );
       // Las filas llegan de la más nueva a la más vieja: la primera
       // aparición de cada cotización ES su última nota.
       //
