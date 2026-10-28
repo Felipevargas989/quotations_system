@@ -637,6 +637,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - En la del Día del Profesor, Sol de Quillón trae 15 archivos en 3 páginas: los mismos 15 que Felipe subió a mano.
     - **Sigue**: que la IA explique, debajo de la predicción de «Comparación de ofertas», por qué se perdió y si era razonable, con el criterio de «Cómo te evalúan» (`criteriosDeEvaluacion`, de la 95).
 
+98. **Con el criterio de la ley, sin «Ver cómo se calcula cada uno»** (27-10, en el laboratorio; Felipe, con «Cómo te evalúan» de una compra ágil sin criterios: *"creo que el ver cómo se calcula está de más"*). Solo pantalla, sin migración.
+    - En `Criterios` de `AnalisisDeBases.tsx`, el detalle plegado no sale cuando el criterio es el de la ley (`esDeLaLey`, de la 95): la línea de arriba ya dice que gana la cotización más económica que cumpla lo técnico. Con los criterios de la solicitud o de las bases, el detalle sigue, porque explica cómo se calcula cada puntaje.
+    - Lo que se deja de ver: el texto largo del criterio de la ley, el de justificar con parámetros objetivos, con la Ley 19.886 y la Directiva 35. Felipe lo sabe.
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público
