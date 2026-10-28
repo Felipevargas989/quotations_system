@@ -250,6 +250,10 @@ describe("Lo que piden las bases", () => {
     expect(
       within(bloque).getByText(/La solicitud no trae criterios: por ley gana/),
     ).toBeInTheDocument();
+    // Decisión 98: con el de la ley, el detalle repetiría la línea de arriba.
+    expect(
+      within(bloque).queryByText("Ver cómo se calcula cada uno"),
+    ).toBeNull();
     vista.unmount();
     // Con los criterios de la solicitud, se evalúa con esos.
     pintar(<AnalisisDeBases oportunidadId={40} ficha={compraAgil} />);
@@ -257,6 +261,9 @@ describe("Lo que piden las bases", () => {
       await screen.findByText(/Son los criterios de la solicitud/),
     ).toBeInTheDocument();
     expect(screen.queryByText("Menor precio")).toBeNull();
+    expect(
+      screen.getByText("Ver cómo se calcula cada uno"),
+    ).toBeInTheDocument();
   });
 
   it("decisión 95: en una licitación, solo los criterios de las bases, sin la línea de la ley", async () => {
