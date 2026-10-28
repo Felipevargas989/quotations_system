@@ -85,10 +85,25 @@ const pintar = () =>
 describe("Ganadas", () => {
   it("por cumplir arriba, en dorado y con el servicio (hoy, en rojo); las cumplidas abajo; ni perdidas ni en estudio", async () => {
     s.getMisLicitaciones.mockResolvedValue([
-      mia(5171, "Alimentación Autoridades Laja Diguillín", "ganada", {
-        texto: "28 de octubre 2026, hora por confirmar",
-        dias: [hoyEnChile()],
-      }),
+      {
+        ...mia(5171, "Alimentación Autoridades Laja Diguillín", "ganada", {
+          texto: "28 de octubre 2026, hora por confirmar",
+          dias: [hoyEnChile()],
+        }),
+        // Decisión 92: el resultado sigue en la tarjeta.
+        resultado: {
+          tipo: "compra_agil",
+          estado: "ganada",
+          proveedor: "VALLE DEL SOL QUILLON SPA",
+          rut_proveedor: "77.701.305-K",
+          monto: 1_136_500,
+          mi_monto: 1_136_500,
+          lugar: 1,
+          ofertas: 3,
+          era_la_mas_barata: true,
+          inadmisible: null,
+        },
+      },
       mia(7, "Cena de fin de año", "ganada", {
         texto: "Viernes 18 de diciembre de 2025",
         dias: [hoyEnChileMas(-3)],
@@ -104,6 +119,11 @@ describe("Ganadas", () => {
       screen.getByText("Alimentación Autoridades Laja Diguillín").closest("li"),
     ).toHaveClass("bg-amber-50");
     expect(screen.getByText(/^hoy, /)).toHaveClass("text-red-600");
+    expect(
+      screen.getByText(
+        /^Te eligieron por \$1\.136\.500, 1° de 3 por precio\.$/,
+      ),
+    ).toHaveClass("text-green-700");
     expect(
       screen.getByText("28 de octubre 2026, hora por confirmar"),
     ).toBeInTheDocument();
