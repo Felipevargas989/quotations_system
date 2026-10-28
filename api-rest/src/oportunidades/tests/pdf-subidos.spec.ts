@@ -11,7 +11,7 @@ type Subida = { file: { name: string }; expires_in_seconds: number };
 
 const clienteFalso = () => {
   let n = 0;
-  const upload = jest.fn((_pedido: Subida) =>
+  const upload = jest.fn<Promise<{ id: string }>, [Subida]>(() =>
     Promise.resolve({ id: `file_${++n}` }),
   );
   return { cliente: { files: { upload } } as unknown as Anthropic, upload };

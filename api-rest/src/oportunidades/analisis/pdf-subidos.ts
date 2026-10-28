@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import Anthropic, { toFile } from '@anthropic-ai/sdk';
+import { createHash } from 'node:crypto';
 
 // LOS PDF QUE NO CABEN EN EL PEDIDO (decisión 103 del doc 17, 28-10).
 // Felipe: "el analizar bases solo lee hasta 22 mb es muy poco... puedes
