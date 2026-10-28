@@ -405,6 +405,9 @@ function Criterios({
   readonly compraAgil?: boolean;
 }) {
   const ordenados = criteriosPorPeso(criterios);
+  // Con el criterio de la ley, el detalle repite la línea de arriba
+  // (decisión 98; Felipe: "creo que el ver cómo se calcula está de más").
+  const deLaLey = criterios.some(esDeLaLey);
   return (
     <section className="bg-white rounded-lg shadow p-5 space-y-2">
       <h2 className="text-sm font-semibold text-gray-900">
@@ -412,7 +415,7 @@ function Criterios({
       </h2>
       {compraAgil && (
         <p className="text-xs text-gray-600">
-          {criterios.some(esDeLaLey) ? DE_LA_LEY : DEL_COMPRADOR}
+          {deLaLey ? DE_LA_LEY : DEL_COMPRADOR}
         </p>
       )}
       <ul className="space-y-1.5">
@@ -443,7 +446,7 @@ function Criterios({
           );
         })}
       </ul>
-      {ordenados.length > 0 && (
+      {ordenados.length > 0 && !deLaLey && (
         <Plegable titulo="Ver cómo se calcula cada uno">
           <dl className="space-y-1.5 text-sm">
             {ordenados.map((c, i) => (
