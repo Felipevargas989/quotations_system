@@ -65,6 +65,10 @@ const POR_EL_NOMBRE: ReadonlyArray<[string, RegExp]> = [
   ["respaldo_experiencia", /orden(es)? de compra|factura|respaldo/],
 ];
 
+/** La certificación de que el personal conoce el programa de integridad
+ *  (decisión 102): la cubre el programa, que la trae dentro. */
+const ES_DEL_PROGRAMA_DE_INTEGRIDAD = /integridad|probidad/;
+
 /** El de UTP solo va si se postula como Unión Temporal de Proveedores
  *  (Felipe, 19-10: "en mi caso no es necesario que lo arme"). */
 const ES_DE_UTP = /\butp\b|uniones? temporal(es)? de proveedores/;
@@ -259,8 +263,18 @@ export function checklistDeDocumentos(d: {
     }
     // Un documento que el análisis dejó en «otro» se reconoce por su
     // nombre (el certificado de la Inspección del Trabajo, 19-10).
-    const tipo =
+    const porSuCarpeta =
       p.carpeta === "otro" ? carpetaPorElNombre(p.nombre) : p.carpeta;
+    // Decisión 102 (28-10): la certificación de que el personal conoce el
+    // programa de integridad va dentro del mismo programa, en su registro
+    // de difusión (Felipe: "mientras el representante legal y el
+    // coordinador del evento estén, el papel es válido"). Salía «Falta».
+    const tipo =
+      porSuCarpeta === "dj_trabajadores" &&
+      ES_DEL_PROGRAMA_DE_INTEGRIDAD.test(normalizar(p.nombre)) &&
+      !d.carpeta.some((x) => x.tipo === "dj_trabajadores")
+        ? "programa_integridad"
+        : porSuCarpeta;
     if (tipo === "respaldo_experiencia") {
       const n = d.carpeta.filter(
         (x) => x.tipo === "respaldo_experiencia",
