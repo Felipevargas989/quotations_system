@@ -9,7 +9,9 @@
 > **28-10-2026 · Editar el plan** (sección propia más abajo; Felipe: «ok
 > hazlo los 4»): «Editar plan de pagos» en Post-Venta, el plan parte con
 > el abono de Mi empresa, no se acepta sin plan y Post-Venta muestra los
-> eventos sin cuotas. En el laboratorio primero; producción con su OK.
+> eventos sin cuotas; al aprobar el laboratorio agregó que después del
+> primer pago el plan ya no se edita. **EN PRODUCCIÓN desde el 28-10-2026**
+> (Felipe: «a producción»), sin migración.
 >
 > Reemplaza la regla 2 ("cuadratura de la cuota", 20-07), las reglas 5 y
 > 6 (rectificar no derrama; borrar no toca otras cuotas) y la regla 16
