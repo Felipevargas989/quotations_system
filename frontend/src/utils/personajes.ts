@@ -42,7 +42,9 @@ export const PERSONAJES: readonly Personaje[] = [
 ];
 
 // Los ocho primeros son los del color automático de siempre (el mismo
-// nombre pinta siempre igual); el naranjo se sumó para elegir.
+// nombre pinta siempre igual); el naranjo y la mostaza se sumaron para
+// elegir. La mostaza es el amarillo que pidió Felipe (28-10-2026): uno
+// claro no deja leer la letra blanca, y este se lee como el ámbar.
 export const COLORES_PERSONALES: readonly {
   readonly hex: string;
   readonly nombre: string;
@@ -56,6 +58,7 @@ export const COLORES_PERSONALES: readonly {
   { hex: "#db2777", nombre: "Rosado" },
   { hex: "#4f46e5", nombre: "Índigo" },
   { hex: "#ea580c", nombre: "Naranjo" },
+  { hex: "#b8860b", nombre: "Mostaza" },
 ];
 
 // El gris grafito es SOLO del Asistente (Felipe, 27-10-2026): con el
