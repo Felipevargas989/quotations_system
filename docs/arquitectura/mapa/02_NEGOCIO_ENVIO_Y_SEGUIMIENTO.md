@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar, y esa misma tarde con el semáforo que solo lee la bitácora de lo vivo, por páginas (§6, Seguimiento). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -159,7 +159,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
    - el autor es `user.id`, con el nombre congelado `full_name || email`;
    - `QuotationFollowupsRepository.create` inserta en `quotation_followups`.
 4. **Editar o borrar**: `assertAuthor` compara `author_user_id`; en notas antiguas con autor nulo, compara `author_name` con el correo. **"Listo"** es un PATCH con solo `next_contact_done_at` y basta con que la nota sea de la empresa.
-5. **Efectos**: el hilo invalida `["seguimientos", id]` y `["seguimientos", "map"]`. `mapByCompany` recalcula dos datos:
+5. **Efectos**: el hilo invalida `["seguimientos", id]` y `["seguimientos", "map"]`. `mapByCompany` recalcula dos datos, solo con las notas de lo vivo (solicitadas, enviadas, en negociación y aceptadas, leídas por páginas de 1.000; desde el 28-10-2026):
    - `last_at`: la nota más nueva;
    - el compromiso vigente: el compromiso de la nota más reciente que tiene fecha, y ninguno si esa ya se dio por cumplida («Listo»; desde el 28-10-2026: antes se tomaba la más reciente sin cumplir y cada «Listo» hacía aparecer la anterior). Las notas sin fecha no lo mueven (07-08). La misma regla, en `compromisoVigente` (pantalla) y `compromisoVivo` (seguimiento con IA).
 
@@ -301,6 +301,10 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
   - Qué: al pasar a «aceptada» (`PaymentsService.createPaymentPlan` y `QuotationsService.update`), los próximos contactos abiertos de esa cotización quedan cumplidos (`QuotationsRepository.cerrarCompromisosDeLaVenta`; la fecha no se borra). En Post-Venta solo avisa lo que se anote después. Si falla, la aceptación queda igual y el error va al registro.
   - Evidencia: `aceptar-sin-plan.spec.ts`, `editar-plan.servicio.spec.ts`, `payments.service.spec.ts` (la ganada de una licitación).
 - **Un «Listo» no hace aparecer el compromiso anterior** (28-10-2026): vale solo el de la nota más reciente con fecha. Antes, cada «Listo» destapaba el compromiso de la nota anterior, nota por nota (Felipe: *"pincho listo y se corre hacia abajo"*). Evidencia: `compromisoVigente.test.ts`, `quotation-followups.service.spec.ts`, `elegibles-y-hilo.spec.ts`.
+- **El semáforo solo lee lo vivo** (Felipe, 28-10-2026: *"de las anuladas o las ya realizadas, traerlas solamente si entramos particularmente a ese seguimiento"*):
+  - Qué: `mapByCompany` lee solo las notas de cotizaciones solicitadas, enviadas, en negociación y aceptadas (`ESTADOS_DEL_SEMAFORO`), por páginas de 1.000 (`findMapRows`). Lo de rechazadas, realizadas y anuladas se ve al abrir su Seguimiento. En el tablero de Post-Venta, una fecha anotada en un realizado o en un anulado ya no marca la fila (mapa 04, §6).
+  - Por qué: hasta ese día se leía la bitácora entera de una vez, y la base corta en 1.000 filas sin avisar (había 742, 466 del último mes): pasado el tope, las notas más viejas se habrían perdido con sus compromisos. Todo evento vendido termina realizado con sus notas, así que leer lo cerrado haría crecer la lista para siempre.
+  - Evidencia: `quotation-followups.repository.spec.ts`, `quotation-followups.service.spec.ts`.
 - **"Listo" cierra un pendiente aunque la nota sea de otro** (07-08):
   - Por qué: las notas eran de Camila y Felipe recibía 403.
   - Qué: no borra la fecha ("la casa no reescribe la historia"). En pantalla, "Listo" aparece solo en evento ganado (reafirmado por Felipe el 12-08).
@@ -441,6 +445,9 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
   - si apunta a `quotations` sin CASCADE, hay que sumarla a `assertDeletable`;
   - si nace sin GRANT, la API recibe "permission denied" (quemadura del 04-08 con `quotation_followups`).
   - Evidencia: `QuotationsRepository.assertDeletable`; `59_bitacora_comercial.sql`.
+- **Si agregas** un estado a `ESTADOS_DEL_SEMAFORO` (`quotation-followups.service.ts`), por ejemplo «realizada», **se afecta** lo que lee cada carga del tablero y de Post-Venta, **porque** todo evento vendido termina realizado con sus notas y la lista volvería a crecer para siempre.
+  - Si quitas las páginas de `findMapRows`, pasado el tope de 1.000 filas las notas más viejas se pierden en silencio; si quitas el `id` del orden, una página puede repetir o saltar notas.
+  - Evidencia: `quotation-followups.repository.spec.ts`; lecciones #41 y #66 de `21_INCIDENTES_Y_LECCIONES.md`.
 
 ## 9. Pruebas que lo protegen
 
@@ -471,8 +478,9 @@ Motor (Jest, corre en CI con `npx jest --silent`):
   - Nota vacía: 400. Cotización ajena: 403.
   - Solo el autor edita o borra.
   - `updated_at` lo sella el servidor.
-  - `mapByCompany` toma la última nota y el compromiso vigente.
+  - `mapByCompany` toma la última nota y el compromiso vigente, y no pide las notas de rechazadas, realizadas ni anuladas.
   - "Listo" funciona sobre la nota de otro; el texto sigue exigiendo autoría.
+- **`api-rest/src/quotation-followups/tests/quotation-followups.repository.spec.ts`** (28-10-2026): `findMapRows` recorre las páginas hasta la corta, filtra por empresa y por estados vivos, y ordena de la nota más nueva a la más vieja con el `id` de desempate.
 - **`api-rest/src/quotations/tests/unit/candado-evento-realizado.spec.ts`**: un realizado no se edita, no sale a otros estados y no se borra; volver a aceptada y la cosecha siguen funcionando.
 - **`api-rest/src/quotations/tests/unit/quotations.service.spec.ts`**: `update` (errores, candado de recepción, cascada en aceptada), `checkConflictsWithExistingQuotations` con `exclude_id` y `setHarvestStatus`.
 - **`quotations.controller.spec.ts` y `quotation-followups.controller.spec.ts`**: solo "should be defined".
@@ -516,7 +524,7 @@ App (Vitest, corre en CI con `npm run test`):
 - **Toast técnico**: el tablero dice "Estado actualizado a en_negociacion" con el valor de la base, no con la etiqueta del diccionario.
 - **Notas antiguas sin lápiz**: en el hilo, editar y borrar solo aparecen si `author_user_id === user.id`. Las notas con autor nulo, que el motor sí deja editar comparando el correo, no muestran los botones.
 - **Consultas sin límite**:
-  - `mapByCompany` lee todas las notas de la empresa en cada carga del tablero ("volúmenes chicos, sin RPC");
+  - ~~`mapByCompany` lee todas las notas de la empresa en cada carga del tablero~~: desde el 28-10-2026 lee solo las de lo vivo, por páginas (§6, Seguimiento);
   - `findFollowUps` y el resumen semanal consultan sin `company_id`: es un cron global, a propósito, pero fuera de la regla de `CLAUDE.md`.
 - **WhatsApp a mano**: `wspHref` agrega el 56 si el número tiene 9 dígitos, en vez de usar `utils/phone`.
 
