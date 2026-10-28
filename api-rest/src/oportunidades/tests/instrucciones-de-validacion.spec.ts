@@ -72,9 +72,10 @@ describe('lo que lee la IA para validar', () => {
     );
     expect(t).toContain('RUT: 77.701.305-K');
     expect(t).toContain('Certificado F30: F30 octubre.pdf (no vence)');
-    // Decisión 85: cada hallazgo, grave o menor.
+    // Decisión 85: cada hallazgo, grave o menor; desde la 105, grave solo
+    // lo que puede dejar fuera la oferta.
     expect(t).toContain(
-      '"grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje',
+      '"grave" solo si puede dejar la oferta fuera de bases o anularla',
     );
     expect(t).toContain('va en "otros_graves" si es grave');
     expect(t).toContain('Precio (30%)');
@@ -236,8 +237,31 @@ describe('lo que lee la IA para validar', () => {
     expect(t).toContain(
       'vale si la firman el representante legal (Hernán Felipe Vargas Droguett) y el coordinador del servicio (Camila Carvajal)',
     );
+    // Decisión 105: la firma que falta cuesta puntaje, no deja fuera.
     expect(t).toContain(
-      'No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "grave".',
+      'No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "menor"',
     );
+  });
+
+  it('decisión 105: rojo solo lo que puede dejar fuera la oferta; lo que cuesta puntaje, amarillo', () => {
+    const t = instruccionesDeValidacion({
+      codigo: '5040-14-LE26',
+      nombre: 'Día de Campo del Dirigente Social 2026',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+      fecha_cierre: null,
+      hoy: '2026-10-28',
+      oferente: null,
+      carpeta: [],
+      requisitos: REQUISITOS,
+      criterios: [],
+    });
+    // Felipe: "rojo es algo que puedan dejarme fuera de la postulación".
+    expect(t).toContain(
+      '"menor" si solo le cuesta puntaje, aunque después no se pueda corregir',
+    );
+    expect(t).toContain(
+      'Lo que falla es "grave" solo si puede dejar fuera la oferta o anularla; si solo le cuesta puntaje o es de forma, "menor".',
+    );
+    expect(t).not.toContain('costarle puntaje');
   });
 });
