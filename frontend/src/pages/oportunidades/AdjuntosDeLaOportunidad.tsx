@@ -232,8 +232,8 @@ export default function AdjuntosDeLaOportunidad({
 
   return (
     <section {...zona} className="bg-white rounded-lg shadow p-5 space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
+        <div className="min-w-0 space-y-0.5 sm:flex-1">
           <h2 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-gray-900">
             {titulo ??
               (seccion === "postulacion" ? "Mi postulación" : "Bases y anexos")}
@@ -269,7 +269,12 @@ export default function AdjuntosDeLaOportunidad({
           // traer documentos, este baja para cargar... ¿puedes dejarlo
           // quieto?". El aviso iba antes y lo empujaba a la línea de abajo:
           // ahora va debajo, y el botón guarda el ancho del texto más largo.
-          <div className="flex flex-col items-end gap-1">
+          // Y siempre arriba a la derecha (28-10, "se pone a pensar este
+          // botón se baja"): con la lista abierta, como parte una licitación
+          // sin documentos, el texto explicativo lo echaba abajo a la
+          // izquierda, y el aviso al aparecer lo corría. Ahora el texto se
+          // acomoda a su lado y el aviso guarda su lugar aunque no se vea.
+          <div className="flex flex-col items-end gap-1 sm:shrink-0">
             <button
               type="button"
               onClick={() => traer.mutate()}
@@ -296,11 +301,12 @@ export default function AdjuntosDeLaOportunidad({
                 </span>
               </span>
             </button>
-            {trayendo && (
-              <span className="text-xs text-gray-500">
-                Puedes salir de la ficha: aparecen solos al terminar.
-              </span>
-            )}
+            <span
+              aria-hidden={!trayendo}
+              className={`text-xs text-gray-500 ${trayendo ? "" : "invisible"}`}
+            >
+              Puedes salir de la ficha: aparecen solos al terminar.
+            </span>
           </div>
         )}
       </div>
