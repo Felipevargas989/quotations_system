@@ -218,8 +218,10 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     'En "donde", el nombre del documento que lo cumple (vacío si falta). En "observacion", una frase: qué está bien o qué hay que hacer.',
     // Decisión 85 (26-10): Felipe, con todo en amarillo: "no distingue una
     // falta menor en amarillo de una grave en rojo; que falte un
-    // formulario es grave".
-    'En "gravedad", para cada requisito que no cumple: "grave" si puede dejar la oferta fuera de bases, anularla o costarle puntaje (un formulario o documento que falta, una firma que falta, un dato obligatorio en blanco, algo que no cubre lo que piden las bases, un documento vencido o que no acredita lo pedido); "menor" si es de forma y no cambia el resultado (redacción, ortografía, sugerencias). A los que cumplen, "menor".',
+    // formulario es grave". Decisión 105 (28-10), con la firma de la
+    // coordinadora en rojo: "rojo es algo que puedan dejarme fuera de la
+    // postulación". Lo que solo cuesta puntaje pasa a amarillo.
+    'En "gravedad", para cada requisito que no cumple: "grave" solo si puede dejar la oferta fuera de bases o anularla (un formulario o un documento obligatorio que falta, un formulario sin firma, un dato obligatorio en blanco, algo que no cubre lo que piden las bases, un documento vencido o que no acredita lo pedido); "menor" si solo le cuesta puntaje, aunque después no se pueda corregir, o si es de forma (redacción, ortografía, sugerencias). A los que cumplen, "menor".',
     'Lo que no es de un requisito va en "otros_graves" si es grave, con la misma regla (un RUT o una razón social de otra empresa, no otra forma de escribir la misma; montos que no calzan con la oferta, fechas que no son las de las bases, anexos de otra licitación, un documento en una carpeta del ZIP que no es la que piden las bases), y en "otros_problemas" si es menor.',
     // Decisión 87 (27-10): Felipe quedó fuera del Día del Funcionario de
     // Quillón (1532886-5-LE26) porque el Anexo N°5 iba con la columna de
@@ -245,7 +247,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- Sin problemas por dentro: deudas en el certificado de la TGR, morosidades o protestos en el DICOM, deudas o multas laborales y previsionales en el F30 o el F30-1, una quiebra o un procedimiento concursal, una sociedad que no aparece vigente.',
     '- Los mismos datos: el RUT, la razón social y el representante calzan entre los documentos y con los datos de la empresa.',
     '- Habilitada para lo que ofrece: si van resoluciones sanitarias, la patente y sus respaldos o el giro del SII, que autoricen cada servicio que se ofrece. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes).',
-    'Lo que falla es "grave" si puede dejar fuera la oferta, anularla o costarle puntaje; si no, "menor". Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
+    'Lo que falla es "grave" solo si puede dejar fuera la oferta o anularla; si solo le cuesta puntaje o es de forma, "menor". Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
     // Decisión 102 (28-10). Felipe, con el registro de difusión del
     // programa de integridad de la 5040-14-LE26 en rojo por no tener fecha
     // ni las firmas de todo el personal: "el personal del servicio no es
@@ -253,7 +255,7 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     // públicas a quienes está orientado ese papel... mientras el
     // representante legal y el coordinador del evento estén, el papel es
     // válido".
-    `EL PROGRAMA DE INTEGRIDAD: la certificación de que el personal lo conoce (un registro de difusión o una declaración, que suele ir dentro del mismo programa) vale si la firman el representante legal${c.oferente?.representante_nombre ? ` (${c.oferente.representante_nombre})` : ''} y el coordinador del servicio${c.oferente?.coordinador_nombre ? ` (${c.oferente.coordinador_nombre})` : ''}: el programa apunta a quienes deciden en las compras públicas, no a todo el personal del servicio. No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "grave".`,
+    `EL PROGRAMA DE INTEGRIDAD: la certificación de que el personal lo conoce (un registro de difusión o una declaración, que suele ir dentro del mismo programa) vale si la firman el representante legal${c.oferente?.representante_nombre ? ` (${c.oferente.representante_nombre})` : ''} y el coordinador del servicio${c.oferente?.coordinador_nombre ? ` (${c.oferente.coordinador_nombre})` : ''}: el programa apunta a quienes deciden en las compras públicas, no a todo el personal del servicio. No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "menor": cuesta puntaje, no deja fuera la oferta, salvo que las bases exijan esa firma para admitirla.`,
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
