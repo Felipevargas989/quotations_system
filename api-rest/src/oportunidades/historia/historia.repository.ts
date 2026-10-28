@@ -58,35 +58,52 @@ export class HistoriaRepository {
   }
 
   /** Las licitaciones que alguna empresa sigue (decisión 30, 19-10) o
-   *  postuló (decisión 92, 27-10: así se sabe sola si ganó o perdió):
-   *  cerradas, todavía sin su acta leída y no revisadas en las últimas 20
-   *  horas. De cualquier región y color. */
+   *  postuló (decisión 92, 27-10: así se sabe sola si ganó o perdió),
+   *  cerradas y todavía sin su acta leída, de cualquier región y color. Las
+   *  postuladas, primero y en cada pasada del radar (Felipe: "al menos que
+   *  sea en cada revisión del radar"): no revisadas en las últimas 2 horas,
+   *  y las pasadas van de a 3 o más. Las seguidas, una vez cada 20 horas. */
   async procesosSeguidos(limite: number): Promise<Array<{ codigo: string }>> {
-    const { data: seguidas, error: errorSeguidas } = await this.db
+    const { data: marcadas, error: errorMarcadas } = await this.db
       .from('oportunidades')
-      .select('codigo')
+      .select('codigo, estado')
       .in('estado', ['seguida', 'postulada'])
       .limit(1000);
-    if (errorSeguidas) throw errorSeguidas;
-    const codigos = [
-      ...new Set(
-        ((seguidas ?? []) as Array<{ codigo: string }>).map((s) => s.codigo),
-      ),
-    ];
-    if (codigos.length === 0) return [];
+    if (errorMarcadas) throw errorMarcadas;
+    const filas = (marcadas ?? []) as Array<{ codigo: string; estado: string }>;
+    const postuladas = new Set(
+      filas.filter((f) => f.estado === 'postulada').map((f) => f.codigo),
+    );
+    const seguidas = new Set(
+      filas
+        .filter((f) => f.estado === 'seguida' && !postuladas.has(f.codigo))
+        .map((f) => f.codigo),
+    );
     const ahora = Date.now();
-    const { data, error } = await this.db
-      .from('mp_procesos')
-      .select('codigo')
-      .in('codigo', codigos)
-      .eq('tipo', 'licitacion')
-      .is('acta', null)
-      .lt('fecha_cierre', new Date(ahora).toISOString())
-      .lt('actualizado_en', new Date(ahora - 20 * HORA).toISOString())
-      .order('fecha_cierre', { ascending: false })
-      .limit(limite);
-    if (error) throw error;
-    return (data ?? []) as Array<{ codigo: string }>;
+    const cerradas = async (
+      codigos: Set<string>,
+      cada: number,
+      cuantas: number,
+    ): Promise<Array<{ codigo: string }>> => {
+      if (codigos.size === 0 || cuantas <= 0) return [];
+      const { data, error } = await this.db
+        .from('mp_procesos')
+        .select('codigo')
+        .in('codigo', [...codigos])
+        .eq('tipo', 'licitacion')
+        .is('acta', null)
+        .lt('fecha_cierre', new Date(ahora).toISOString())
+        .lt('actualizado_en', new Date(ahora - cada).toISOString())
+        .order('fecha_cierre', { ascending: false })
+        .limit(cuantas);
+      if (error) throw error;
+      return (data ?? []) as Array<{ codigo: string }>;
+    };
+    const dePostuladas = await cerradas(postuladas, 2 * HORA, limite);
+    return [
+      ...dePostuladas,
+      ...(await cerradas(seguidas, 20 * HORA, limite - dePostuladas.length)),
+    ];
   }
 
   async guardarActa(codigo: string, acta: ActaDeAdjudicacion): Promise<void> {
