@@ -269,6 +269,52 @@ describe("Armar postulación", () => {
     expect(screen.queryByLabelText("Precio total, con IVA")).toBeNull();
   });
 
+  it("decisión 99: con todo firmado, la barra dice «anexos: ya firmados» y no sale el rojo «No alcanzó a partir»", async () => {
+    // Así quedó la 1030177-85-COT26 (27-10): armada con los anexos ya
+    // firmados, no hubo trabajo de anexos en esa vuelta.
+    p.getOfertaDeLaPostulacion.mockResolvedValue({
+      id: 69,
+      estado: "listo",
+      creado_en: "2026-10-27T18:02:00.000Z",
+      terminado_en: "2026-10-27T18:04:45.000Z",
+      parametros: {
+        postulacion: { total: 1_136_500, propuesta: true, firmados: true },
+      },
+      resultado: null,
+    } as never);
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 66,
+        tipo: "anexos",
+        estado: "listo",
+        creado_en: "2026-10-27T16:32:15.000Z",
+        terminado_en: "2026-10-27T16:36:00.000Z",
+        costo_usd: null,
+        no_leidos: [],
+        resultado: null,
+      },
+      firma: null,
+      propuesta: {
+        id: 70,
+        tipo: "propuesta",
+        estado: "listo",
+        creado_en: "2026-10-27T18:04:46.000Z",
+        terminado_en: "2026-10-27T18:08:00.000Z",
+        costo_usd: null,
+        no_leidos: [],
+        resultado: null,
+      },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(
+        /Armada el .+ · \$1\.136\.500 con IVA · anexos: ya firmados/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No alcanzó a partir/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reintentar" })).toBeNull();
+  });
+
   it("postulada, la barra no ofrece volver a armar", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue({
       id: 21,
