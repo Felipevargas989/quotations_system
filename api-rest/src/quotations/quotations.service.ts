@@ -32,6 +32,7 @@ import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
 import { getEventDateUtc, inicioDelMesEnChile } from '../utils/dates';
 import {
+  ACEPTAR_SIN_PLAN_DE_PAGOS,
   EVENTO_REALIZADO_CONGELADO,
   PaymentPlanType,
   QuotationStatus,
@@ -1200,6 +1201,24 @@ export class QuotationsService {
           );
         }
         await this.paymentsService.deletePaymentPlan(id, companyId);
+      }
+
+      // NO SE ACEPTA SIN PLAN DE PAGOS (Felipe, 28-10-2026; caso 703): ver
+      // la regla en constants.ts. Pasar a "aceptada" desde otro estado exige
+      // que el plan ya tenga cuotas; si no, la pantalla tiene que abrir el
+      // editor del plan (POST /payments/plan acepta por el repositorio).
+      if (
+        targetStatus === QuotationStatus.ACEPTADA &&
+        quotation.quotation_status !== QuotationStatus.ACEPTADA
+      ) {
+        const { data: cuotasDelPlan } =
+          await this.paymentsService.findAllPaymentsFromQuotation(
+            [id],
+            companyId,
+          );
+        if ((cuotasDelPlan || []).length === 0) {
+          throw new BadRequestException(ACEPTAR_SIN_PLAN_DE_PAGOS);
+        }
       }
 
       // REEMBOLSO AL ANULAR (20-10-2026, utils/reembolso-al-anular.ts): se

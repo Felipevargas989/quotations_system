@@ -26,6 +26,12 @@ describe('PaymentsService', () => {
   describe('createPaymentPlan: el portero de cuadratura', () => {
     const armar = (totalActual: number) => {
       const repo = {
+        // Desde el 28-10-2026 (doc 14 §Editar el plan) el plan se lee antes
+        // de cuadrar: las cuotas con plata cuentan en la suma.
+        findAllPaymentsFromQuotation: jest
+          .fn()
+          .mockResolvedValue({ data: [], error: null }),
+        removePayment: jest.fn(),
         deletePaymentsByQuotationId: jest.fn(),
         createPaymentPlan: jest.fn(),
       };
@@ -60,6 +66,7 @@ describe('PaymentsService', () => {
         'recarga la página',
       );
       expect(repo.deletePaymentsByQuotationId).not.toHaveBeenCalled();
+      expect(repo.removePayment).not.toHaveBeenCalled();
       expect(repo.createPaymentPlan).not.toHaveBeenCalled();
     });
 

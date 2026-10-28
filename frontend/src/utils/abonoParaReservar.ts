@@ -13,6 +13,18 @@ export const pctDeAbono = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
 };
 
+/** El abono en pesos, o null si la empresa no lo usa o el total no da.
+ *  Lo usan la línea de la hoja y la primera cuota del plan de pagos
+ *  (28-10-2026), así el plan parte con el mismo monto que vio el cliente. */
+export const montoDelAbono = (
+  totalSinPropina: number,
+  pctCrudo: unknown,
+): number | null => {
+  const pct = pctDeAbono(pctCrudo);
+  if (pct === null || !(totalSinPropina > 0)) return null;
+  return Math.round((totalSinPropina * pct) / 100);
+};
+
 /** La línea que va bajo el TOTAL de la hoja, o null si la empresa no la
  *  usa o el total no da para calcularla. */
 export const lineaDelAbono = (
@@ -20,8 +32,8 @@ export const lineaDelAbono = (
   pctCrudo: unknown,
 ): string | null => {
   const pct = pctDeAbono(pctCrudo);
-  if (pct === null || !(totalSinPropina > 0)) return null;
-  const monto = Math.round((totalSinPropina * pct) / 100);
+  const monto = montoDelAbono(totalSinPropina, pctCrudo);
+  if (pct === null || monto === null) return null;
   const pctTxt = pct.toLocaleString("es-CL", { maximumFractionDigits: 2 });
   return `La fecha queda reservada solo al recibir el abono del ${pctTxt}%: $${monto.toLocaleString("es-CL")}.`;
 };

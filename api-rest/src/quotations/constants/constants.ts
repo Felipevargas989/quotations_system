@@ -65,3 +65,13 @@ export const EVENTO_REALIZADO_CONGELADO =
   'Este evento ya está realizado: quedó congelado como historia del ' +
   'negocio. Si se marcó por equivocación, pide que lo devuelvan a ' +
   '"Aceptada" y después corrígelo.';
+
+// NO SE ACEPTA SIN PLAN DE PAGOS (Felipe, 28-10-2026; caso 703): un evento
+// aceptado vive en Post-Venta y su plata se arma con el plan. El plan se
+// crea con POST /payments/plan, que deja la cotización aceptada; por
+// PATCH /quotations/:id solo se acepta si las cuotas ya existen. La 703
+// quedó aceptada sin cuotas dos veces el 27-10 al volver a aceptarla desde
+// la búsqueda de Cotizaciones, que no abría el plan.
+export const ACEPTAR_SIN_PLAN_DE_PAGOS =
+  'Para aceptar una cotización hay que armar su plan de pagos: vuelve a ' +
+  'elegir «Aceptada» y se abrirá el plan.';

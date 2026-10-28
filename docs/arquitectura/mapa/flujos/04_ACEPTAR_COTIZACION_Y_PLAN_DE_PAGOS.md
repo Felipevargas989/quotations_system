@@ -1,5 +1,5 @@
 # Flujo: Aceptar una cotización y crear su plan de pagos
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. **28-10-2026 (doc 14 §Editar el plan, caso 703):** el hueco del paso 3 quedó cerrado —aceptar abre siempre el plan y el motor no acepta sin cuotas—, el editor parte con el abono de Mi empresa (paso 6) y armar el plan ya no borra las cuotas con plata (pasos 10 y 11).
 
 > Verificado contra el código en el commit 0de0ddb (rama `pruebas`) el 11-09-2026, con una segunda pasada escéptica el mismo día. Parte del atlas: el índice de flujos (`00_INDICE_DE_FLUJOS.md`, en esta misma carpeta) y el mapa del sistema (`../00_MAPA_DEL_SISTEMA.md`) están previstos, pero **aún no existían** al verificar. El flujo siguiente, cambiar el total de un evento aceptado, está en `05_CAMBIAR_TOTAL_DE_EVENTO_ACEPTADO.md`.
 
@@ -11,7 +11,7 @@ El motor no deja guardar un plan que no sume, al peso, el total que tiene la cot
 Al guardar, el motor borra las cuotas anteriores, crea las nuevas, le escribe al mandante con su plan y deja la cotización Aceptada.
 Desde ahí el evento aparece en Post-Venta (que se arma con las cuotas, no con el estado), en Calendario, Compras y Mobiliario, Personas, el Dashboard y el portal del cliente, y entra al ciclo automático de cobranza.
 Si la cotización ya tenía cuotas (por ejemplo, un guardado anterior alcanzó a crearlas pero no a cambiar el estado, paso 13), no se abre el editor: solo cambia el estado y no sale correo.
-En el tablero hay además una puerta sin editor: una rechazada o una anulada que se acepta desde su franja o desde la búsqueda cambia de estado directo, sin mirar cuotas (paso 3).
+Hasta el 28-10-2026 el tablero tenía además una puerta sin editor: una rechazada o una anulada que se aceptaba desde su franja o desde la búsqueda cambiaba de estado directo, sin mirar cuotas (paso 3). Así quedó la 703 aceptada sin plan el 27-10-2026 y desapareció de Post-Venta. Desde el 28-10 esa puerta abre el editor como las demás y el motor rechaza aceptar sin cuotas.
 
 ## 2. El recorrido paso a paso
 
@@ -32,7 +32,7 @@ En el tablero hay además una puerta sin editor: una rechazada o una anulada que
      - la lista "Cerradas que coinciden" que aparece al buscar (clave `["quotations","cerradas-busqueda"]`: aceptada, cancelada, realizada).
    - No hay columna Aceptada: arrastrar una tarjeta (`onDrop`) no sirve para aceptar.
    - Elegir Aceptada llama `handleStatusChange` → `applyStatusChange(quotationId, 'aceptada')`.
-   - **Hueco de esta puerta.** La rama de aceptación de `applyStatusChange` solo corre si la cotización está en `quotations`. Esa variable es solo la lista de las tres columnas vivas: las rechazadas se filtran y las cerradas nunca están. Una tarjeta de la franja de Rechazadas o de "Cerradas que coinciden" salta directo al parche genérico del paso 5, sin revisar cuotas ni abrir el editor (sección 8).
+   - ~~**Hueco de esta puerta.** La rama de aceptación de `applyStatusChange` solo corría si la cotización estaba en `quotations` (las tres columnas vivas). Una tarjeta de la franja de Rechazadas o de "Cerradas que coinciden" saltaba directo al parche genérico del paso 5, sin revisar cuotas ni abrir el editor.~~ **Cerrado el 28-10-2026** (caso 703): `cotizacionEnPantalla` la busca también entre las rechazadas y las cerradas de la búsqueda, o la pide con `getQuotationById`, y la rama de aceptación corre siempre. El motor además rechaza aceptar sin cuotas (`ACEPTAR_SIN_PLAN_DE_PAGOS`, paso 5).
 
 4. **Detección de plan existente** (la hace el navegador, no el motor).
    - `cambiarEstado` (ficha) y `applyStatusChange` (tablero) llaman `getPaymentsByQuotationId(id)` de `frontend/src/services/payments.service.ts`.
@@ -40,7 +40,7 @@ En el tablero hay además una puerta sin editor: una rechazada o una anulada que
    - Lee `payments` con `quotations(company_id, quotation_number, clients(name))` y `payment_transactions`, pone `.eq('quotations.company_id', companyId)` y ordena por `payment_number`. No escribe nada.
    - Ojo con ese filtro: la relación `quotations` va sin `!inner` (a diferencia de `findAllPaymentsWithTransactions`, que sí usa `quotations!inner`). Por cómo trabaja PostgREST, un filtro sobre una relación sin `!inner` vacía la relación pero no descarta las filas de `payments`. Deducido, no probado (sección 10).
    - El servicio del frontend desenvuelve la respuesta `{ data, error }` y devuelve la lista. Hasta el 06-09 devolvía la caja y "el plan ya existía" nunca se detectaba (commit `7819da0`).
-   - Con cuotas → paso 5. Sin cuotas → paso 6.
+   - Desde el 28-10-2026: si las cuotas cubren el total al peso (`planCubreElTotal`, `utils/planDePagos.ts`) → paso 5. Si no hay cuotas, o no cubren el total (un anulado que se vuelve a aceptar guarda solo lo pagado) → paso 6. Antes bastaba con que hubiera alguna cuota.
 
 5. **Rama "ya tenía cuotas" (y puerta genérica del tablero).**
    - Pantalla: `updateQuotation({ quotation_status: 'aceptada' }, id)` de `frontend/src/services/quotations.service.ts`.
@@ -49,7 +49,7 @@ En el tablero hay además una puerta sin editor: una rechazada o una anulada que
      2. Candado: si el estado actual es `realizada`, 400 con `EVENTO_REALIZADO_CONGELADO` (`api-rest/src/quotations/constants/constants.ts`).
      3. Recepción sobre una cotización (no requerimiento): 403.
      4. Revisión de plata (`assertMoneyMatches`): no corre, el parche no trae montos.
-     5. "GUARDIA DE ESTADOS": solo aplica si el destino es de pre-venta. Aceptada no lo es.
+     5. "GUARDIA DE ESTADOS": solo aplica si el destino es de pre-venta. Aceptada no lo es. Desde el 28-10-2026, pasar a aceptada desde otro estado exige alguna cuota: sin ninguna, 400 `ACEPTAR_SIN_PLAN_DE_PAGOS` ("vuelve a elegir «Aceptada» y se abrirá el plan").
      6. Cascada del plan: solo corre si el estado ACTUAL ya es `aceptada`. No es el caso.
      7. Correo `QUOTATION_IS_SENT`: solo para destino enviada. No aplica.
      8. `QuotationsRepository.update(id, dto, companyId)`: `UPDATE quotations SET quotation_status = 'aceptada' WHERE id = … AND company_id = …`. La lectura del punto 1 no filtra empresa; este `UPDATE` sí.
@@ -64,7 +64,8 @@ En el tablero hay además una puerta sin editor: una rechazada o una anulada que
    - Archivo: `frontend/src/components/PaymentPlanEditor.tsx`.
    - Recibe de la fila de la lista: id, número, cliente, `total_amount` y `event_date`. Ese total sale de la caché de la lista, que React Query da por fresca 30 segundos (`staleTime: 30_000` por defecto en `frontend/src/lib/queryClient.ts`). El comentario del editor habla de "hasta 30 segundos de atraso", pero `staleTime` no es un tope: pasado ese plazo la lista solo se vuelve a pedir al montar la pantalla, al volver a la pestaña o al invalidarse, así que con la pantalla quieta puede estar más vieja.
    - Pide el total fresco con `useQuery(["quotation","fresca", id])`, `getQuotationById` y `staleTime 0`. Viaja por `GET /quotations/{id}` (`@Public`) → `QuotationsService.findOne` → `QuotationsRepository.findOne`. Si llega distinto y la fila inicial sigue intacta, la re-sincroniza.
-   - Arranca con una fila:
+   - Desde el 28-10-2026 (doc 14 §Editar el plan) espera el total fresco y las cuotas frescas antes de armar las filas. Las cuotas con plata se ven fijas arriba con candado y se reparte lo que falta. Arranca con el **abono de Mi empresa** (`montoDelAbono` sobre el total sin propina) para hoy y el saldo 7 días antes del evento; sin % en la empresa, con una fila por el total. Antes:
+   - Arrancaba con una fila:
      - "Cuota 1", vencimiento hoy (fecha local del navegador) y monto igual al total que tenga en ese momento (el de la lista, o el fresco si ya estaba en caché);
      - "Agregar cuota" crea otra fila con lo que falta asignar (vacía si no falta nada);
      - el % es informativo;
@@ -89,10 +90,10 @@ En el tablero hay además una puerta sin editor: una rechazada o una anulada que
    - Suma `Math.round(amount)` de las cuotas y la compara con `Math.round(total_amount)`. Si no calzan: 400 "Las cuotas suman $X pero la cotización vale $Y. El total pudo cambiar hace poco: recarga la página y arma el plan de nuevo."
    - Hasta aquí no se borró ni escribió nada.
 
-10. **Se borra el plan anterior.** `PaymentsRepository.deletePaymentsByQuotationId(quotation_id, companyId)` hace `DELETE FROM payments WHERE quotation_id = …`. La consulta no filtra por empresa (el `companyId` solo va al log); protege el portero del paso 9. **El `error` que devuelve no se revisa.**
+10. **Se borran las cuotas sin plata.** Desde el 28-10-2026 (`reemplazarCuotasSinPlata` y `planEditado`): las cuotas con algún pago, pagadas o «pagadas por fuera» quedan; las demás se borran una por una con `PaymentsRepository.removePayment`, revisando el `error`. Antes, `deletePaymentsByQuotationId` borraba todas sin revisar el resultado: con abonos el borrado fallaba en silencio (la llave de `payment_transactions`) y el insert dejaba el plan duplicado.
 
 11. **Se insertan las cuotas nuevas.**
-    - `PaymentsRepository.createPaymentPlan(payments)` hace `INSERT INTO payments` del arreglo recibido.
+    - `PaymentsRepository.createPaymentPlan(cuotas)` hace `INSERT INTO payments` de las cuotas que arma `planEditado` (28-10-2026): numeradas después de las que tienen plata, con fecha `AAAA-MM-DD`, estado `pendiente` o `vencido` según su día y el `quotation_id` de la cotización, no el que viene en cada cuota. Después se renumera 1..n y `rellenarCuotas` reparte lo pagado. Antes insertaba el arreglo recibido tal cual:
     - Columnas que llegan: `quotation_id`, `payment_number`, `amount`, `due_date`, `status` (`pendiente`), `payment_type` y `notes`.
     - La base pone `id`, `created_at` y `updated_at`. `paid_date` y `payment_method` quedan vacíos. En esa foto del esquema `due_date` es columna `date`, así que la medianoche UTC del paso 7 queda como el día a secas (`docs/migrations/0_initial_models.sql`, solo de contexto).
     - **El `error` que devuelve no se revisa.**
@@ -312,7 +313,7 @@ Los plazos son `staleTime`: cuánto tiempo React Query da un dato por fresco, no
    Evidencia: `PaymentsService.createPaymentPlan`, `CreatePaymentPlanDto`, `PostVentaPage.fetchEvents`.
 6. **Si cambias** los permisos de un lado sin el otro, **pasa** lo que ya pasa hoy: un vendedor abre el editor, arma las cuotas y recién al final recibe 403, **porque** la pantalla deja cambiar el estado a `SALES_AND_UP` y el motor crea el plan solo para `OPERATIONS_AND_UP`. Evidencia: `SECTION_ROLES.quotations_edit` en `frontend/src/constants/permissions.ts`; `@Roles(...OPERATIONS_AND_UP)` en `PaymentsController.createPaymentPlan`.
 7. **Si cambias** el mensaje del portero pensando que la persona lo lee, **pasa** que nada cambia en pantalla, **porque** `handlePaymentPlanSave` y `guardarPlan` muestran `error.message` de axios ("Request failed with status code 400") y no `error.response.data.message`. El interceptor de `frontend/src/services/api.ts` no reescribe el mensaje. En cambio, `applyStatusChange` y `cambiarEstado` sí leen el mensaje del motor. Evidencia: esas cuatro funciones; existe `utils/apiErrors` (`humanizeApiError`) justamente para esto.
-8. **Si agregas** una puerta nueva para aceptar (columna Aceptada en el tablero, estado desde el cotizador, app móvil), **pasa** que la cotización puede quedar Aceptada sin plan, **porque** el ritual "revisar cuotas → editor → `POST /payments/plan`" vive copiado en cada pantalla y el motor no lo exige. Ya pasa en la franja de Rechazadas y en "Cerradas que coinciden" (paso 3). Evidencia: `QuotationsPage.applyStatusChange` (`quotations.find`).
+8. **Si agregas** una puerta nueva para aceptar (columna Aceptada en el tablero, estado desde el cotizador, app móvil), **pasa** que el motor la rechaza con 400 si la cotización no tiene cuotas (`ACEPTAR_SIN_PLAN_DE_PAGOS`, 28-10-2026), **porque** el ritual "revisar cuotas → editor → `POST /payments/plan`" vive en cada pantalla y desde ese día el motor lo exige. La puerta nueva tiene que abrir el editor (`planCubreElTotal`). Antes pasaba en la franja de Rechazadas y en "Cerradas que coinciden" (la 703, 27-10-2026). Evidencia: `QuotationsPage.applyStatusChange`, `QuotationsService.update`.
 9. **Si cambias** el texto `'paymentPlanCreated'` de `EmailStructure` en una sola de las dos apps, **pasa** que el interruptor "Plan de Pagos" de Configuración deja de apagar el correo, **porque** `shouldSendEmail` busca la llave por ese texto y la pantalla la guarda con `frontend/src/types/notifications.ts`. Evidencia: `api-rest/src/email/types/index.ts`, `frontend/src/pages/configuration/constants.ts`.
 10. **Si cambias** la fecha por defecto de la primera cuota (hoy) o el estado inicial `pendiente`, **pasa** que cambia cuándo la cuota se marca vencida y si recibe el recordatorio del día, **porque** el cron de vencidos usa "menor o igual a ahora" y el recordatorio del día solo busca cuotas `pendiente`. Evidencia: `PaymentsRepository.updateOverduePayments`, `PaymentsCronService.checkUpcomingOrOverduePayments` (ver sección 10).
 11. **Si cambias** el orden de `PaymentsRepository.findAllPaymentsFromQuotation`, **pasa** que la cascada toma como "última cuota" otra distinta, **porque** `QuotationsService.update` usa `payments[payments.length - 1]` y recorre al revés. Evidencia: comentario "be careful when changing this, it will affect the payment number in update payment plan".
@@ -348,8 +349,8 @@ Los plazos son `staleTime`: cuánto tiempo React Query da un dato por fresco, no
   - Cerrar y volver a elegir Aceptada entra por "ya tenía cuotas" y solo cambia el estado.
 - **Falla el correo.** Solo queda en el log (`EmailService.sendEmail`); el flujo sigue.
 - **Mandante sin correo o cotización sin `client_contact_id`.** No sale correo; el toast igual dice que se envió.
-- **Rechazada desde la franja, o Anulada desde "Cerradas que coinciden" (tablero).**
-  - Pasan por `PATCH /quotations/{id}` sin revisar cuotas ni abrir el editor (paso 3).
+- **Rechazada desde la franja, o Anulada desde "Cerradas que coinciden" (tablero).** Hasta el 28-10-2026:
+  - Pasaban por `PATCH /quotations/{id}` sin revisar cuotas ni abrir el editor (paso 3). Desde ese día abren el editor como cualquier aceptación.
   - La anulada conserva sus cuotas y vuelve a la lista por defecto de Post-Venta, sin correo. En rigor nunca salió de Post-Venta: los anulados quedan fuera de la lista por defecto, pero se ven con el filtro (`cancelled` en `PostVentaPage.tsx`).
   - **La rechazada queda Aceptada sin plan y sin correo**, fuera de Post-Venta.
   - Desde la ficha, la misma rechazada sí pasa por el editor.
@@ -389,7 +390,7 @@ Los plazos son `staleTime`: cuánto tiempo React Query da un dato por fresco, no
 
 ## 10. Preguntas abiertas
 
-1. ¿Debe el motor impedir que una cotización quede Aceptada sin cuotas? Hoy `QuotationsService.update` lo permite, y el tablero lo usa en la franja de Rechazadas y en "Cerradas que coinciden".
+1. ~~¿Debe el motor impedir que una cotización quede Aceptada sin cuotas?~~ **Sí**, desde el 28-10-2026 (Felipe, caso 703): `QuotationsService.update` responde 400 `ACEPTAR_SIN_PLAN_DE_PAGOS`.
 2. ¿Un vendedor debe poder crear el plan? La pantalla lo deja llegar al editor (`SALES_AND_UP`) y el motor lo rechaza (`OPERATIONS_AND_UP`).
 3. ¿Una cuota que vence hoy está pendiente o vencida? El código tiene reglas distintas:
    - `PaymentsRepository.updateOverduePayments` usa `due_date` menor o igual a ahora;
@@ -399,7 +400,7 @@ Los plazos son `staleTime`: cuánto tiempo React Query da un dato por fresco, no
 
    Si el cron de la 1 AM la marca vencida antes del de las 11 AM, el recordatorio del mismo día (que busca `pendiente`) no saldría. No se verificó en la base. Tampoco está confirmada la zona horaria del servidor en Railway para `EVERY_DAY_AT_1AM` y `EVERY_DAY_AT_11AM`.
 4. ¿En producción `payment_transactions_payment_id_fkey` impide borrar cuotas con abonos? Lo dice la foto `docs/migrations/0_initial_models.sql`, que es solo de contexto; no se verificó en la base.
-5. ¿Cómo se acepta una cotización de $0 (por ejemplo, una cortesía)? El editor lo impide.
+5. ¿Cómo se acepta una cotización de $0 (por ejemplo, una cortesía)? Desde el 28-10-2026 el editor deja guardar un plan sin cuotas cuando no queda nada que repartir, y el evento entra a Post-Venta sin el aviso «Sin plan de pagos» (no hay nada que cobrar). No se probó en vivo.
 6. ¿Es intencional que `createPaymentPlan` sobre un realizado le mande al cliente el correo "quedó aceptada"?
 7. ¿Se tapa el hueco de las cuotas con otro `quotation_id` dentro del arreglo? Está deducido del código, no probado.
 8. `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md` sigue listando `PaymentPlanEditor` en las Tandas A3 (doble clic) y A4 ($1 de redondeo). A3 sigue vigente en el código. A4 cambió de forma con el portero del 06-09: hoy rechaza en vez de guardar. ¿Se actualiza el documento?

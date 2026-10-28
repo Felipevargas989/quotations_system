@@ -39,11 +39,13 @@ import {
   createOverflowPayment,
   updatePaymentTransaction,
   deletePaymentTransaction,
-  PaymentWithTransactions,
   PaymentTransaction,
 } from "../../services/paymentTransactions.service";
 import { getClients } from "../../services/clients.service";
-import { updatePaymentSchedule } from "../../services/payments.service";
+import {
+  getEventosSinPlan,
+  updatePaymentSchedule,
+} from "../../services/payments.service";
 import {
   confirmPortalReceipt,
   listPortalReceipts,
@@ -60,6 +62,8 @@ import { cambioDeAnulacion } from "../../utils/reembolsoAlAnular";
 import { MEDIOS_DE_PAGO as PAYMENT_METHODS } from "../../constants/mediosDePago";
 import { useReembolsosDelEvento } from "../../hooks/useReembolsosDelEvento";
 import BarraDelEvento from "./BarraDelEvento";
+import CabeceraDelPlan from "./PlanDePagosDelEvento";
+import { armarFilas, type EventRow } from "./filasDePostVenta";
 import RegistrarReembolsoPanel from "./RegistrarReembolsoPanel";
 import ReembolsosDelEvento from "./ReembolsosDelEvento";
 import FormularioDeRegistro, {
@@ -67,7 +71,7 @@ import FormularioDeRegistro, {
 } from "./FormularioDeRegistro";
 import { NumberInput } from "../../components/inputs";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import { matchesSearch, normalizeText } from "../../utils/searchMatch";
+import { matchesSearch } from "../../utils/searchMatch";
 import { formatPhone } from "../../utils/phone";
 import GestionTab, { gestionQueryOpts } from "./GestionTab";
 import { recursosQueryOpts } from "./EventResourcesSection";
@@ -96,33 +100,6 @@ import {
 } from "../../services/storage.service";
 
 const todayISO = () => format(new Date(), "yyyy-MM-dd");
-
-// One row per closed event (quotation), aggregated from its payment plan.
-interface EventRow {
-  quotationId: string;
-  quotationNumber: number;
-  clientName: string;
-  clientType?: string;
-  contactPerson?: string;
-  phone?: string;
-  contactEmail?: string;
-  hasContract?: boolean;
-  total: number;
-  paid: number; // bruto: suma de abonos del cliente
-  refunded: number; // reembolsos ya devueltos (is_paid = true)
-  cuotas: number;
-  status: "pagado" | "vencido" | "pendiente";
-  // Evento anulado: fuera de la lista por defecto, visible con el filtro.
-  cancelled: boolean;
-  // Evento realizado: sigue en la lista (cobranza) con su etiqueta verde.
-  done: boolean;
-  // Fecha del evento (y último día si es multi-día), para la columna.
-  eventDate: string | null;
-  eventEndDate: string | null;
-  // Enlace secreto del portal del cliente (migración 47).
-  portalToken: string | null;
-  payments: PaymentWithTransactions[];
-}
 
 // Persistir el filtro de estado por usuario (igual que en Cotizaciones):
 // la selección sobrevive recargas/navegación en vez de volver a "todos".
@@ -256,109 +233,20 @@ export default function PostVentaPage() {
   }, [user, filterRestored, eventFilter, moneyFilter]);
 
   const fetchEvents = async (): Promise<EventRow[]> => {
-    const [{ data: payments }, { data: clients }, refundsPaid] =
+    const [{ data: payments }, { data: clients }, refundsPaid, sinPlan] =
       await Promise.all([
         getPaymentsWithTransactions(),
         getClients(),
         getPaidRefundsByQuotation(),
+        // Las aceptadas, realizadas y anuladas sin cuotas (28-10-2026).
+        getEventosSinPlan(),
       ]);
-
-    const clientByName = new Map<string, any>(
-      (clients || []).map((c: any) => [c.name, c]),
-    );
-
-    const byQuotation = new Map<string, PaymentWithTransactions[]>();
-    (payments || []).forEach((p) => {
-      if (!p.quotation_id) return;
-      const arr = byQuotation.get(p.quotation_id) || [];
-      arr.push(p);
-      byQuotation.set(p.quotation_id, arr);
+    return armarFilas({
+      payments: payments || [],
+      sinPlan,
+      clients: clients || [],
+      refundsPaid,
     });
-
-    const events: EventRow[] = [];
-    byQuotation.forEach((ps, quotationId) => {
-      const q = ps[0].quotations;
-      const total =
-        q?.total_amount || ps.reduce((s, p) => s + (p.amount || 0), 0);
-      const paid = ps.reduce((s, p) => s + (p.paid_amount || 0), 0);
-      const refunded = refundsPaid[quotationId] || 0;
-      const client = q?.clients?.name
-        ? clientByName.get(q.clients.name)
-        : undefined;
-
-      // Saldo neto: lo pagado menos lo ya devuelto al cliente.
-      const saldo = total - (paid - refunded);
-      let status: EventRow["status"] = "pendiente";
-      if (saldo <= 0) status = "pagado";
-      else if (ps.some((p) => cuotaStatus(p) === "vencido")) status = "vencido";
-
-      const qStatus = (q as unknown as { quotation_status?: string })
-        ?.quotation_status;
-      const qDates = q as unknown as {
-        event_date?: string | null;
-        event_end_date?: string | null;
-      };
-
-      // Contacto mostrado: el MANDANTE de la cotización (quien encargó
-      // ESTE evento), con su propio teléfono buscado entre los contactos
-      // del cliente. Sin mandante guardado (cotizaciones antiguas) → el
-      // contacto principal del cliente, como antes. Si el mandante no
-      // tiene fono registrado, no se muestra el de otra persona.
-      const qExtra = q as unknown as {
-        contact_name?: string | null;
-        clients?: {
-          email?: string;
-          client_contacts?: {
-            name: string;
-            phone?: string;
-            email?: string;
-          }[];
-        };
-      };
-      const mandante = qExtra?.contact_name?.trim();
-      let contactPerson = client?.contact_person;
-      let phone = client?.phone;
-      // Correo en la columna (pedido de Felipe 30-07), igual que en
-      // Cotizaciones: el del mandante; sin mandante, el de la ficha.
-      let contactEmail = qExtra?.clients?.email;
-      if (mandante) {
-        contactPerson = mandante;
-        const match = (qExtra?.clients?.client_contacts || []).find(
-          (c) => normalizeText(c.name) === normalizeText(mandante),
-        );
-        phone = match?.phone || undefined;
-        contactEmail = match?.email || undefined;
-      }
-
-      events.push({
-        quotationId,
-        cancelled: qStatus === "cancelada",
-        done: qStatus === "realizada",
-        eventDate: qDates?.event_date ?? null,
-        eventEndDate: qDates?.event_end_date ?? null,
-        quotationNumber: q?.quotation_number ?? 0,
-        clientName: q?.clients?.name || "—",
-        clientType: client?.client_type,
-        contactPerson,
-        phone,
-        contactEmail,
-        hasContract: q?.has_contract,
-        portalToken:
-          (q as unknown as { mandante?: { portal_token?: string | null } })
-            ?.mandante?.portal_token ?? null,
-        total,
-        paid,
-        refunded,
-        cuotas: ps.length,
-        status,
-        payments: ps
-          .slice()
-          .sort((a, b) => a.payment_number - b.payment_number),
-      });
-    });
-
-    events.sort((a, b) => b.quotationNumber - a.quotationNumber);
-    return events;
   };
 
   // ---- Post-Venta vía React Query (Etapa 4) — PANTALLA DE PLATA ----
@@ -846,6 +734,11 @@ export default function PostVentaPage() {
                             {r.done && (
                               <span className="inline-block mb-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-700">
                                 ✓ Realizado
+                              </span>
+                            )}
+                            {r.cuotas === 0 && r.total > 0 && (
+                              <span className="inline-block mb-1 ml-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800">
+                                Sin plan de pagos
                               </span>
                             )}
                             <div className="w-36 bg-gray-200 rounded-full h-2">
@@ -1692,9 +1585,7 @@ function EventModal({
                 {/* Columna izquierda: calendario + reembolsos al final */}
                 <div className="space-y-6">
                   <div className="space-y-3">
-                    <h4 className="text-sm font-bold text-gray-800">
-                      Calendario de pagos
-                    </h4>
+                    <CabeceraDelPlan event={event} onGuardado={onDataChanged} />
                     {event.payments.map((pay) => {
                       const cp = pay.amount
                         ? Math.round(

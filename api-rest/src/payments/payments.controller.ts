@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -21,6 +22,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
+import { EditarPlanDto } from './dto/editar-plan.dto';
 import { UpdatePaymentScheduleDto } from './dto/update-payment-schedule.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { Payment, PaymentTransaction } from './entities/payment.entity';
@@ -49,6 +51,24 @@ export class PaymentsController {
       createPaymentPlanDto,
       user.company_id,
     );
+  }
+
+  // «Editar plan de pagos» de Post-Venta (doc 14 §Editar el plan,
+  // 28-10-2026): llegan las cuotas sin plata; las que tienen pagos quedan.
+  @Roles(...OPERATIONS_AND_UP)
+  @Put('plan')
+  editarPlan(@Body() dto: EditarPlanDto, @CurrentUser() user: User) {
+    this.logger.info(`PUT /payments/plan with user ${user.id}`);
+    return this.paymentsService.editarPlan(dto, user.company_id);
+  }
+
+  // Las aceptadas, realizadas y anuladas sin ninguna cuota: Post-Venta las
+  // muestra con el aviso «Sin plan de pagos» (28-10-2026, caso 703).
+  @Roles(...OPERATIONS_AND_UP)
+  @Get('eventos-sin-plan')
+  findEventosSinPlan(@CurrentUser() user: User) {
+    this.logger.info(`GET /payments/eventos-sin-plan with user ${user.id}`);
+    return this.paymentsService.findEventosSinPlan(user.company_id);
   }
 
   @Roles(...RECEPTION_AND_UP)

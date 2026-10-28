@@ -51,6 +51,8 @@ import {
   getPaymentsByQuotationId,
 } from "../../services/payments.service";
 import { CreatePayment } from "../../types/payments.types";
+import { planCubreElTotal } from "../../utils/planDePagos";
+import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { matchesSearch, normalizeText } from "../../utils/searchMatch";
 import {
@@ -198,6 +200,7 @@ export default function QuotationsPage() {
   const [showPaymentPlanEditor, setShowPaymentPlanEditor] = useState(false);
   const [quotationForPaymentPlan, setQuotationForPaymentPlan] =
     useState<Quotation | null>(null);
+  const [guardandoPlan, setGuardandoPlan] = useState(false);
 
   // Orden dentro de las columnas: MONTO por defecto (06-08, decisión
   // de Felipe: la plata grande primero). Una preferencia elegida a
@@ -339,6 +342,12 @@ export default function QuotationsPage() {
     return !!s && s.urgencia >= 103;
   };
 
+  // La cotización donde esté en pantalla: el embudo vivo, las rechazadas o
+  // las cerradas que trajo la búsqueda. Antes solo se miraba el embudo vivo.
+  const cotizacionEnPantalla = (id: string) =>
+    (quotationsQuery.data ?? []).find((q) => q.id === id) ??
+    (cerradasQuery.data ?? []).find((q) => q.id === id);
+
   const handleStatusChange = async (quotationId: string, newStatus: string) => {
     // Guardia de estados: volver de post-venta (aceptada/realizada/
     // cancelada) a pre-venta elimina el plan de pagos — se pregunta
@@ -346,7 +355,9 @@ export default function QuotationsPage() {
     // del navegador). Si hay pagos registrados, el backend rechaza.
     const POST_SALE = ["aceptada", "realizada", "cancelada"];
     const PRE_SALE = ["solicitada", "enviada", "en_negociacion", "rechazada"];
-    const current = quotations.find((q) => q.id === quotationId);
+    // También las cerradas que trajo la búsqueda (28-10-2026, caso 703: la
+    // anulada encontrada por nombre pasó a rechazada sin esta pregunta).
+    const current = cotizacionEnPantalla(quotationId);
     if (
       current &&
       POST_SALE.includes(current.quotation_status) &&
@@ -407,39 +418,46 @@ export default function QuotationsPage() {
   ) => {
     try {
       if (newStatus === QuotationStatus.ACEPTADA) {
-        const quotation = quotations.find((q) => q.id === quotationId);
-        if (quotation) {
-          // Check if payment plan already exists
-          const { data: existingPayments } =
-            await getPaymentsByQuotationId(quotationId);
+        // ACEPTAR SIEMPRE PASA POR EL PLAN (Felipe, 28-10-2026; caso 703):
+        // antes la cotización se buscaba solo en el embudo vivo, así que una
+        // anulada, rechazada o cerrada que llegaba por la búsqueda se
+        // aceptaba sin plan de pagos y desaparecía de Post-Venta. Sin un plan
+        // que cubra el total se abre el editor; con el plan completo, solo
+        // cambia el estado.
+        const quotation =
+          cotizacionEnPantalla(quotationId) ??
+          ((await getQuotationById(quotationId)).data as Quotation | null);
+        if (!quotation) throw new Error("No se encontró la cotización.");
+        const { data: existingPayments } =
+          await getPaymentsByQuotationId(quotationId);
 
-          if (existingPayments && existingPayments.length > 0) {
-            //
-            // Payment plan already exists, just update the status
-            const { error } = await updateQuotation(
-              { quotation_status: newStatus as QuotationStatus },
-              quotationId,
-            );
+        if (
+          planCubreElTotal(
+            existingPayments as { amount: number }[],
+            quotation.total_amount,
+          )
+        ) {
+          const { error } = await updateQuotation(
+            { quotation_status: newStatus as QuotationStatus },
+            quotationId,
+          );
 
-            if (error) {
-              throw new Error(
-                `Error actualizando cotización: ${error.message}`,
-              );
-            }
-
-            toast.success("Cotización aceptada (el plan de pagos ya existía).");
-            await fetchQuotations();
-            await fetchRequirements();
-            return true;
+          if (error) {
+            throw new Error(`Error actualizando cotización: ${error.message}`);
           }
 
-          // Show payment plan editor first
-          setQuotationForPaymentPlan(quotation);
-          setShowPaymentPlanEditor(true);
-          // Todavía no cambió nada: el estado se graba cuando se guarde
-          // el plan de pagos.
-          return false; // Don't update status yet
+          toast.success("Cotización aceptada (el plan de pagos ya existía).");
+          await fetchQuotations();
+          await fetchRequirements();
+          return true;
         }
+
+        // Show payment plan editor first
+        setQuotationForPaymentPlan(quotation);
+        setShowPaymentPlanEditor(true);
+        // Todavía no cambió nada: el estado se graba cuando se guarde
+        // el plan de pagos.
+        return false; // Don't update status yet
       }
 
       // For other statuses or after payment plan is accepted, update the status
@@ -480,8 +498,11 @@ export default function QuotationsPage() {
   };
 
   const handlePaymentPlanSave = async (customPlan: any[]) => {
-    if (!quotationForPaymentPlan) return;
+    if (!quotationForPaymentPlan || guardandoPlan) return;
 
+    // Un solo guardado a la vez: el doble clic armaba dos planes (doc 09,
+    // Tanda A3).
+    setGuardandoPlan(true);
     try {
       // Create payments array (el editor entrega montos en pesos directos)
       const paymentsToCreate = customPlan.map((payment, index) => {
@@ -514,9 +535,12 @@ export default function QuotationsPage() {
       await fetchQuotations();
       await fetchRequirements();
     } catch (error) {
+      // El motor explica qué no calzó (el portero del plan): se muestra.
       toast.error(
-        `No se pudo crear el plan de pagos: ${error instanceof Error ? error.message : "error desconocido"}`,
+        `No se pudo crear el plan de pagos: ${humanizeApiError(error, "error desconocido")}`,
       );
+    } finally {
+      setGuardandoPlan(false);
     }
   };
 
@@ -758,6 +782,7 @@ export default function QuotationsPage() {
             total_amount: quotationForPaymentPlan.total_amount,
             event_date: quotationForPaymentPlan.event_date,
           }}
+          guardando={guardandoPlan}
           onSave={handlePaymentPlanSave}
           onCancel={handlePaymentPlanCancel}
         />

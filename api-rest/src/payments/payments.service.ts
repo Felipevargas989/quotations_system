@@ -21,7 +21,9 @@ import {
   CuotaDelPlan,
   PiezaDePago,
   cobertura,
+  diaDe,
   hoyEnChile,
+  pesos,
   planDeLlenado,
   repartirAlza,
   repartirRebaja,
@@ -30,6 +32,7 @@ import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { EditarPlanDto } from './dto/editar-plan.dto';
 import { UpdatePaymentScheduleDto } from './dto/update-payment-schedule.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
@@ -42,6 +45,7 @@ import {
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
 import { planAlAnular } from './plan-al-anular';
+import { CuotaPedida, planEditado } from './plan-editado';
 
 /**
  * Service responsible for managing payment operations including
@@ -79,8 +83,11 @@ export class PaymentsService {
     private readonly logger: PinoLogger,
   ) {}
   /**
-   * Creates a payment plan for a quotation.
-   * Deletes existing payments, creates new ones, and updates quotation status to 'aceptada'.
+   * Arma el plan de pagos al ACEPTAR (POST /payments/plan) y deja la
+   * cotización aceptada. Desde el 28-10-2026 (doc 14 §Editar el plan) ya no
+   * borra todo: las cuotas con plata quedan y las demás se reemplazan por las
+   * del editor (`reemplazarCuotasSinPlata`). Antes, con abonos encima, el
+   * borrado fallaba en silencio y el plan quedaba duplicado.
    *
    * @param createPaymentPlanDto - The payment plan details
    * @param companyId - The company ID
@@ -93,40 +100,20 @@ export class PaymentsService {
     this.logger.info(
       `createPaymentPlan with createPaymentPlanDto ${JSON.stringify(createPaymentPlanDto)}`,
     );
-    // 0. EL PORTERO DEL PLAN (caso 501, 06-09): la suma de las cuotas
-    // debe calzar AL PESO con el total ACTUAL de la cotización. La
-    // pantalla cuadra contra el total que VE — y ese puede ser viejo
-    // (la cuota de la 501 nació doblada porque la lista aún mostraba
-    // el total de antes de corregir un tipeo). La cuenta la hace la
-    // casa: acá, contra la base, no contra la memoria del navegador.
     const { data: quotation } = await this.quotationsService.findOne(
       createPaymentPlanDto.quotation_id,
     );
     if (!quotation || quotation.company_id !== companyId) {
       throw new NotFoundException('Cotización no encontrada');
     }
-    const sumaCuotas = createPaymentPlanDto.payments.reduce(
-      (s, p) => s + Math.round(p.amount || 0),
-      0,
-    );
-    const totalActual = Math.round(Number(quotation.total_amount || 0));
-    if (sumaCuotas !== totalActual) {
-      throw new BadRequestException(
-        `Las cuotas suman $${sumaCuotas.toLocaleString('es-CL')} pero la cotización vale $${totalActual.toLocaleString(
-          'es-CL',
-        )}. El total pudo cambiar hace poco: recarga la página y arma el plan de nuevo.`,
-      );
-    }
 
-    // 1. Delete existing payments
-    await this.paymentsRepository.deletePaymentsByQuotationId(
+    // 1-2. Las cuotas sin plata se reemplazan por las nuevas, con el
+    // portero de cuadratura adentro.
+    const plan = await this.reemplazarCuotasSinPlata(
       createPaymentPlanDto.quotation_id,
-      companyId,
-    );
-
-    // 2. Create new payments
-    await this.paymentsRepository.createPaymentPlan(
       createPaymentPlanDto.payments,
+      quotation.total_amount,
+      companyId,
     );
 
     // 4. Send email to client with payment plan details
@@ -152,11 +139,21 @@ export class PaymentsService {
               clientName: mandante.name,
               companyName: quotation.companies.name,
               quotationNumber: quotation.quotation_number,
-              payments: createPaymentPlanDto.payments.map((payment) => ({
-                payment_number: payment.payment_number,
-                amount: payment.amount,
-                due_date: payment.due_date,
-              })),
+              // El plan como quedó, con su numeración final: primero las
+              // cuotas con plata y después las nuevas. La fecha va como
+              // AAAA-MM-DD, que es lo que lee fmtFechaLarga.
+              payments: [
+                ...plan.fijas.map((c, i) => ({
+                  payment_number: i + 1,
+                  amount: pesos(c.amount),
+                  due_date: diaDe(c.due_date),
+                })),
+                ...plan.crear.map((c, i) => ({
+                  payment_number: plan.fijas.length + i + 1,
+                  amount: c.amount,
+                  due_date: c.due_date,
+                })),
+              ],
             },
             companyId,
             mandante.portalToken || null,
@@ -181,6 +178,96 @@ export class PaymentsService {
         companyId,
       );
     }
+  }
+
+  /**
+   * «EDITAR PLAN DE PAGOS» (Felipe, 28-10-2026; doc 14 §Editar el plan): en
+   * Post-Venta se cambian los montos, las fechas y la cantidad de cuotas.
+   * Las cuotas con plata no se mueven y entre todas suman el total. Sirve
+   * también para armar el plan de un evento aceptado que quedó sin cuotas.
+   * No cambia el estado ni manda correos: el cliente ve el plan nuevo en su
+   * portal. Un anulado no se edita: su plan quedó cerrado en lo pagado.
+   */
+  async editarPlan(dto: EditarPlanDto, companyId: Company['id']) {
+    this.logger.info(`editarPlan with dto ${JSON.stringify(dto)}`);
+    const { data: quotation } = await this.quotationsService.findOne(
+      dto.quotation_id,
+    );
+    if (!quotation || quotation.company_id !== companyId) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    const estado = quotation.quotation_status;
+    if (
+      estado !== QuotationStatus.ACEPTADA &&
+      estado !== QuotationStatus.REALIZADA
+    ) {
+      throw new BadRequestException(
+        estado === QuotationStatus.CANCELADA
+          ? 'Este evento está anulado: su plan de pagos quedó cerrado en lo pagado y ya no se edita.'
+          : 'El plan de pagos se edita en un evento aceptado o realizado.',
+      );
+    }
+    const plan = await this.reemplazarCuotasSinPlata(
+      dto.quotation_id,
+      dto.cuotas,
+      quotation.total_amount,
+      companyId,
+    );
+    return {
+      conPlata: plan.fijas.length,
+      cuotas: plan.fijas.length + plan.crear.length,
+    };
+  }
+
+  /**
+   * Las cotizaciones de post-venta (aceptada, realizada o anulada) que no
+   * tienen ninguna cuota: Post-Venta las suma a su lista con el aviso «Sin
+   * plan de pagos» (Felipe, 28-10-2026: "los eventos no deberían
+   * desaparecer").
+   */
+  async findEventosSinPlan(companyId: Company['id']) {
+    const { data, error } =
+      await this.paymentsRepository.findEventosSinPlan(companyId);
+    if (error) throw error;
+    return {
+      data: (data || [])
+        .filter((q) => (q.payments || []).length === 0)
+        // Sin cuotas no hay nada que mandar: la lista vacía no viaja.
+        .map((q) => ({ ...q, payments: undefined })),
+      error: null,
+    };
+  }
+
+  /**
+   * La pieza que comparten armar y editar el plan (doc 14 §Editar el plan):
+   * `planEditado` decide —las cuotas con plata quedan, las demás se
+   * reemplazan y todo suma el total— y acá se ejecuta. Primero se borran las
+   * cuotas sin plata, después se crean las nuevas, se numera 1..n sin huecos
+   * y lo pagado se vuelve a repartir desde la primera (regla 3).
+   */
+  private async reemplazarCuotasSinPlata(
+    quotationId: Quotation['id'],
+    pedidas: readonly CuotaPedida[],
+    total: Quotation['total_amount'],
+    companyId: Company['id'],
+  ) {
+    const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
+    const plan = planEditado(cuotas, piezas, pedidas, total, hoyEnChile());
+    if (!plan.ok) throw new BadRequestException(plan.motivo);
+
+    for (const id of plan.borrar) {
+      const { error } = await this.paymentsRepository.removePayment(id);
+      if (error) throw error;
+    }
+    if (plan.crear.length > 0) {
+      const { error } = await this.paymentsRepository.createPaymentPlan(
+        plan.crear.map((c) => ({ ...c, quotation_id: quotationId })),
+      );
+      if (error) throw error;
+    }
+    await this.renumerarCuotas(quotationId, companyId);
+    await this.rellenarCuotas(quotationId, companyId);
+    return plan;
   }
 
   async createPayment(
