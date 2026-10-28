@@ -20,6 +20,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import AprenderDelActa from "./AprenderDelActa";
 import IncumplimientosGraves from "./IncumplimientosGraves";
+import PorQuePerdimos from "./PorQuePerdimos";
 import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10). Felipe: "para
@@ -57,10 +58,13 @@ const claveDeLaCompetencia = (id: number) => [
 export default function ComparacionDeOfertas({
   oportunidadId,
   adjudicada,
+  perdida = false,
 }: {
   readonly oportunidadId: number;
   /** Ya adjudicada: no se ofrece el reclamo, sino el camino del Tribunal. */
   readonly adjudicada: boolean;
+  /** Perdida: debajo de la predicción, por qué perdimos (decisión 97). */
+  readonly perdida?: boolean;
 }) {
   const qc = useQueryClient();
   const { data: competencia = [] } = useQuery({
@@ -165,6 +169,7 @@ export default function ComparacionDeOfertas({
             ` · no leyó: ${trabajo.no_leidos.map((n) => `${n.nombre} (${n.motivo})`).join("; ")}`}
         </p>
       )}
+      {perdida && <PorQuePerdimos oportunidadId={oportunidadId} />}
       <AprenderDelActa oportunidadId={oportunidadId} />
     </section>
   );
