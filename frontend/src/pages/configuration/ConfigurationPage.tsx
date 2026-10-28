@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Lock, Save, User } from "lucide-react";
 import { updatePassword } from "../../services/users.service";
 import { useAuth } from "../../contexts/AuthContext";
+import TuPersonaje from "./TuPersonaje";
 
 // MI CUENTA (18-09-2026, sprint "Mi cuenta / Mi empresa").
 //
@@ -99,7 +100,6 @@ export default function ConfigurationPage() {
     }
   };
 
-
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-3">
@@ -109,10 +109,13 @@ export default function ConfigurationPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mi cuenta</h1>
           <p className="text-gray-600">
-            Tu contraseña y tu información personal
+            Tu personaje, tu contraseña y tu información personal
           </p>
         </div>
       </div>
+
+      {/* El personaje y el color de cada uno (27-10-2026, migración 167). */}
+      <TuPersonaje />
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
@@ -265,7 +268,6 @@ export default function ConfigurationPage() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
