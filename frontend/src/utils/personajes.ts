@@ -42,7 +42,7 @@ export const PERSONAJES: readonly Personaje[] = [
 ];
 
 // Los ocho primeros son los del color automático de siempre (el mismo
-// nombre pinta siempre igual); los dos últimos se sumaron para elegir.
+// nombre pinta siempre igual); el naranjo se sumó para elegir.
 export const COLORES_PERSONALES: readonly {
   readonly hex: string;
   readonly nombre: string;
@@ -56,8 +56,13 @@ export const COLORES_PERSONALES: readonly {
   { hex: "#db2777", nombre: "Rosado" },
   { hex: "#4f46e5", nombre: "Índigo" },
   { hex: "#ea580c", nombre: "Naranjo" },
-  { hex: "#475569", nombre: "Grafito" },
 ];
+
+// El gris grafito es SOLO del Asistente (Felipe, 27-10-2026): con el
+// verde automático de su nombre, una persona podía quedar igual que él.
+// Por eso no está en la lista de arriba, y si alguien lo tuviera guardado
+// igual se le muestra el color automático.
+export const COLOR_ASISTENTE = "#475569";
 
 /**
  * El color automático de siempre (vivía en SeguimientoPanel): el mismo
@@ -99,6 +104,12 @@ export const nombreDePersonaje = (clave?: string | null): string =>
 export const colorValido = (color?: string | null): string | null =>
   color && /^#[0-9a-f]{6}$/.test(color) ? color : null;
 
+/** El color de una persona: el que eligió, salvo el del Asistente. */
+export const colorDePersona = (color?: string | null): string | null => {
+  const c = colorValido(color);
+  return c === COLOR_ASISTENTE ? null : c;
+};
+
 /** Lo que trae GET /users/apariencias por cada persona de la empresa. */
 export type Apariencia = {
   user_id: string;
@@ -110,7 +121,8 @@ export type Apariencia = {
 /**
  * Lo que pinta una nota del Seguimiento según su autor:
  * - la persona de la nota: lo que eligió en Mi cuenta;
- * - el Asistente (nota sin persona, a nombre de «Asistente»): su robot;
+ * - el Asistente (nota sin persona, a nombre de «Asistente»): su robot y
+ *   su gris grafito;
  * - el resto: nada, y la nota se ve como antes.
  */
 export const aparienciaDeAutor = (
@@ -122,9 +134,9 @@ export const aparienciaDeAutor = (
   if (a)
     return {
       personaje: imagenDePersonaje(a.personaje) ? (a.personaje ?? null) : null,
-      color: colorValido(a.color),
+      color: colorDePersona(a.color),
     };
   if (!autorUserId && (autorNombre ?? "").trim() === "Asistente")
-    return { personaje: PERSONAJE_ASISTENTE, color: null };
+    return { personaje: PERSONAJE_ASISTENTE, color: COLOR_ASISTENTE };
   return { personaje: null, color: null };
 };
