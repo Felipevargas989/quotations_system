@@ -1399,6 +1399,22 @@ export class QuotationsService {
         updateQuotationDto,
         companyId,
       );
+      // AL ACEPTAR, LOS COMPROMISOS DE LA VENTA SE CIERRAN (28-10-2026; ver
+      // `QuotationsRepository.cerrarCompromisosDeLaVenta`). Si falla, la
+      // aceptación ya quedó: se registra y el «Listo» sigue a mano.
+      if (
+        targetStatus === QuotationStatus.ACEPTADA &&
+        quotation.quotation_status !== QuotationStatus.ACEPTADA
+      ) {
+        await this.quotationsRepository
+          .cerrarCompromisosDeLaVenta(id, companyId)
+          .catch((e: unknown) =>
+            this.logger.error(
+              { err: e, quotationId: id },
+              'No se pudieron cerrar los compromisos de la venta',
+            ),
+          );
+      }
       if (reembolsoAlAnular) {
         await this.refundsService.create({
           amount: reembolsoAlAnular,

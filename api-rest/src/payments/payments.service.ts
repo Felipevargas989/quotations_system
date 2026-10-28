@@ -187,6 +187,21 @@ export class PaymentsService {
         { quotation_status: QuotationStatus.ACEPTADA },
         companyId,
       );
+      // Recién aceptada: los compromisos de la venta se cierran
+      // (28-10-2026; `QuotationsRepository.cerrarCompromisosDeLaVenta`).
+      if (quotation.quotation_status !== QuotationStatus.ACEPTADA) {
+        await this.quotationsRepository
+          .cerrarCompromisosDeLaVenta(
+            createPaymentPlanDto.quotation_id,
+            companyId,
+          )
+          .catch((e: unknown) =>
+            this.logger.error(
+              { err: e, quotationId: createPaymentPlanDto.quotation_id },
+              'No se pudieron cerrar los compromisos de la venta',
+            ),
+          );
+      }
     }
   }
 

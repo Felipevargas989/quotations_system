@@ -23,7 +23,11 @@ import { QuotationsService } from '../../quotations.service';
 
 describe('Aceptar sin plan de pagos', () => {
   let service: QuotationsService;
-  let repo: { findOne: jest.Mock; update: jest.Mock };
+  let repo: {
+    findOne: jest.Mock;
+    update: jest.Mock;
+    cerrarCompromisosDeLaVenta: jest.Mock;
+  };
   let cuotas: jest.Mock;
 
   const armar = async (estado: QuotationStatus, hayCuotas: boolean) => {
@@ -33,6 +37,7 @@ describe('Aceptar sin plan de pagos', () => {
         error: null,
       }),
       update: jest.fn().mockResolvedValue({ id: 'q703' }),
+      cerrarCompromisosDeLaVenta: jest.fn().mockResolvedValue(2),
     };
     cuotas = jest.fn().mockResolvedValue({
       data: hayCuotas ? [{ id: 'c1', payment_transactions: [] }] : [],
@@ -104,6 +109,14 @@ describe('Aceptar sin plan de pagos', () => {
     await armar(QuotationStatus.EN_NEGOCIACION, true);
     await aceptar();
     expect(repo.update).toHaveBeenCalledTimes(1);
+    // Al aceptar, los compromisos de la venta se cierran (28-10-2026).
+    expect(repo.cerrarCompromisosDeLaVenta).toHaveBeenCalledWith('q703', 1);
+  });
+
+  it('si cerrar los compromisos falla, la aceptación queda igual', async () => {
+    await armar(QuotationStatus.EN_NEGOCIACION, true);
+    repo.cerrarCompromisosDeLaVenta.mockRejectedValue(new Error('caída'));
+    await expect(aceptar()).resolves.toEqual({ id: 'q703' });
   });
 
   it('una aceptada que se guarda como aceptada no pregunta por el plan', async () => {
@@ -111,5 +124,7 @@ describe('Aceptar sin plan de pagos', () => {
     await aceptar();
     expect(cuotas).not.toHaveBeenCalled();
     expect(repo.update).toHaveBeenCalledTimes(1);
+    // Ya estaba aceptada: lo anotado en Post-Venta no se toca.
+    expect(repo.cerrarCompromisosDeLaVenta).not.toHaveBeenCalled();
   });
 });

@@ -85,7 +85,7 @@ describe('qué cotizaciones entran (doc 18 §2)', () => {
     ).toBe('su próximo contacto es por whatsapp, no por correo.');
   });
 
-  it('el compromiso es la nota más reciente con fecha y sin cumplir', () => {
+  it('el compromiso es el de la nota más reciente con fecha', () => {
     const vieja = nota({
       created_at: '2026-10-01T10:00:00+00:00',
       tipo: 'whatsapp',
@@ -101,7 +101,11 @@ describe('qué cotizaciones entran (doc 18 §2)', () => {
       next_contact_done_at: '2026-10-14T12:00:00+00:00',
     });
     const sinFecha = nota({ created_at: '2026-10-13T10:00:00+00:00' });
-    expect(compromisoVivo([vieja, vigente, cumplida, sinFecha])).toBe(vigente);
+    // Una nota sin fecha no lo mueve.
+    expect(compromisoVivo([vieja, vigente, sinFecha])).toBe(vigente);
+    // Si la más reciente con fecha se dio por cumplida, no queda ninguno: la
+    // anterior no reaparece (28-10-2026; antes salía `vigente`).
+    expect(compromisoVivo([vieja, vigente, cumplida, sinFecha])).toBeNull();
   });
 
   it('los correos de relleno no sirven para escribirle al cliente', () => {

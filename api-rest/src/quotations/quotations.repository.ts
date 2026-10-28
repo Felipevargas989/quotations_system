@@ -347,6 +347,32 @@ export class QuotationsRepository {
     return match ? match.id : null;
   }
 
+  /**
+   * AL ACEPTAR, LOS COMPROMISOS DE LA VENTA SE CIERRAN (Felipe, 28-10-2026):
+   * en Post-Venta el seguimiento es opcional, "es solamente cuando ya un
+   * evento necesita alguna revisión o algún seguimiento". Los próximos
+   * contactos que quedaron abiertos de cuando se vendía se dan por
+   * cumplidos (no se borra la fecha: la historia no se reescribe), y solo
+   * avisa lo que se anote después. Lo llaman los dos caminos que aceptan:
+   * `PaymentsService.createPaymentPlan` y `QuotationsService.update`.
+   */
+  async cerrarCompromisosDeLaVenta(
+    quotationId: string,
+    companyId: number,
+  ): Promise<number> {
+    this.logger.info(`cerrarCompromisosDeLaVenta ${quotationId}`);
+    const { data, error } = await this.supabase.client
+      .from('quotation_followups')
+      .update({ next_contact_done_at: new Date().toISOString() })
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .not('next_contact_date', 'is', null)
+      .is('next_contact_done_at', null)
+      .select('id');
+    if (error) throw error;
+    return (data || []).length;
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,

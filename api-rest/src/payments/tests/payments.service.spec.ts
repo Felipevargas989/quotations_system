@@ -89,7 +89,10 @@ describe('PaymentsService', () => {
         removePayment: jest.fn(),
         createPaymentPlan: jest.fn().mockResolvedValue({ error: null }),
       };
-      const quotationsRepository = { update: jest.fn().mockResolvedValue({}) };
+      const quotationsRepository = {
+        update: jest.fn().mockResolvedValue({}),
+        cerrarCompromisosDeLaVenta: jest.fn().mockResolvedValue(0),
+      };
       const quotations = {
         findOne: jest.fn().mockResolvedValue({
           data: {
@@ -140,6 +143,10 @@ describe('PaymentsService', () => {
         { quotation_status: 'aceptada' },
         1,
       );
+      // Se aceptó: los compromisos de la venta se cierran (28-10-2026).
+      expect(
+        quotationsRepository.cerrarCompromisosDeLaVenta,
+      ).toHaveBeenCalledWith('q-679', 1);
     });
   });
 

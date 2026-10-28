@@ -231,7 +231,7 @@ Formas de llegar a Post-Venta:
 - **Dos filtros que se cruzan** (Felipe, 29-07): estado del evento y estado de la plata. Antes, un realizado con deuda desaparecía al filtrar "Vencido". Lo que viene en la dirección manda (07-08), y el orden por defecto es "próximos primero" (28-07) (`PostVentaPage`).
 - **Fechas de evento y de cuota en UTC** (12-08: la #423 decía 13-17 en la lista y 14-18 en la ficha) (`PostVentaPage.fmtDate`).
 - **La ficha es página propia, no modal** (03-08): volver conserva los filtros, el botón atrás funciona y el enlace se puede compartir.
-- **Seguimiento va primero** (07-08: *"si algo se olvida uno va a seguimiento y está todo"*). Solo alarma un compromiso de hoy o atrasado; uno futuro no.
+- **Seguimiento va primero** (07-08: *"si algo se olvida uno va a seguimiento y está todo"*). Solo alarma un compromiso de hoy o atrasado; uno futuro no. Desde el 28-10-2026 es opcional de verdad (Felipe: *"es solamente cuando ya un evento necesita alguna revisión o algún seguimiento"*): al aceptar se cierran los compromisos de la venta, y vale solo el de la nota más reciente con fecha, así que un «Listo» no destapa el anterior (mapa 02, §6).
 - **Cambiar la fecha avisa choques pero no bloquea** ("los dobles eventos deliberados existen en el rubro"), no choca consigo misma (21-08) y no mueve cuotas ni servicios de temporada (`EventoCajitas`).
 
 ### Gestión
