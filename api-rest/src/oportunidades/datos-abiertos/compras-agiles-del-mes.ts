@@ -82,6 +82,11 @@ const menor = (a: number | null, b: number | null) =>
 const montoEnPesos = (f: FilaDelCsv) =>
   esPeso(f['moneda']) ? numero(f['MontoTotal']) : null;
 
+/** El organismo que compra. Los archivos hasta septiembre de 2025 no traen
+ *  `NombreOOPP`: ahí el organismo es la razón social de la unidad. */
+const organismoDe = (f: FilaDelCsv) =>
+  limpio(f['NombreOOPP']) ?? limpio(f['RazonSocialUnidaddeCompra']);
+
 export async function comprasAgilesDelMes(
   leer: () => AsyncIterable<FilaDelCsv>,
   mes: string,
@@ -108,7 +113,7 @@ export async function comprasAgilesDelMes(
           unidad_codigo: unidad,
           rut_unidad: limpio(f['RUTUnidaddeCompra'], 20),
           unidad: limpio(f['NombreUnidaddeCompra']),
-          organismo: limpio(f['NombreOOPP']),
+          organismo: organismoDe(f),
           region: limpio(f['Region'], 80),
           solicitudes: 0,
           con_elegido: 0,
@@ -153,7 +158,7 @@ export async function comprasAgilesDelMes(
         codigo,
         mes,
         nombre: limpio(f['NombreCotizacion']),
-        organismo: limpio(f['NombreOOPP']),
+        organismo: organismoDe(f),
         unidad_codigo: limpio(f['CodigoUnidaddeCompra'], 20),
         unidad: limpio(f['NombreUnidaddeCompra']),
         rut_unidad: limpio(f['RUTUnidaddeCompra'], 20),
