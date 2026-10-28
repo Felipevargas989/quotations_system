@@ -70,6 +70,38 @@ export class UsersRepository {
   }
 
   /**
+   * El personaje y el color de cada uno de la empresa (migración 167,
+   * 27-10-2026). Solo lo que se muestra en el Seguimiento: ni correos ni
+   * cargos, porque esta lista la pide cualquier cargo.
+   */
+  async aparienciasDeEmpresa(companyId: Company['id']) {
+    const { data, error } = await this.supabase.client
+      .from('user_profiles')
+      .select('user_id, full_name, personaje, color')
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return (data ?? []) as Pick<
+      User,
+      'user_id' | 'full_name' | 'personaje' | 'color'
+    >[];
+  }
+
+  /** Cambia el personaje o el color de UNA persona: la de la sesión. */
+  async updateApariencia(
+    userId: User['user_id'],
+    companyId: Company['id'],
+    cambios: Pick<User, 'personaje' | 'color'>,
+  ) {
+    return await this.supabase.client
+      .from('user_profiles')
+      .update(cambios)
+      .eq('user_id', userId)
+      .eq('company_id', companyId)
+      .select('user_id, full_name, personaje, color')
+      .maybeSingle();
+  }
+
+  /**
    * Cuántos usuarios tiene una empresa. Lo usa el tope de usuarios por
    * plan (paso 3.2, 14-09-2026): cuenta sin traer ni una fila, porque
    * solo importa el número.

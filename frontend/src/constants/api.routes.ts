@@ -92,6 +92,9 @@ export const API_ROUTES = {
   USERS: "/users",
   USERS_PASSWORD: "/users/password",
   USERS_SIGNUP: "/users/signup",
+  // El personaje y el color de cada uno (migración 167).
+  USERS_APARIENCIAS: "/users/apariencias",
+  USERS_APARIENCIA: "/users/apariencia",
 
   // calendar
   CALENDAR_EVENTS: "/calendar/events",

@@ -6,6 +6,21 @@ import {
   UpdateUser,
   UserWithCompany,
 } from "../types/users.types";
+import type { Apariencia } from "../utils/personajes";
+
+// El personaje y el color de cada uno (migración 167, 27-10-2026). La
+// lista la ve cualquier cargo; el cambio toca solo a quien está
+// conectado. Los errores suben a quien llama (React Query y el toast).
+export const getApariencias = async (): Promise<Apariencia[]> => {
+  const data = await apiRequest(API_ROUTES.USERS_APARIENCIAS, "GET");
+  return Array.isArray(data) ? (data as Apariencia[]) : [];
+};
+
+export const updateApariencia = async (cambios: {
+  personaje: string | null;
+  color: string | null;
+}): Promise<Apariencia> =>
+  apiRequest(API_ROUTES.USERS_APARIENCIA, "PATCH", cambios);
 
 // TODO: mange the error better
 export const getUser = async (

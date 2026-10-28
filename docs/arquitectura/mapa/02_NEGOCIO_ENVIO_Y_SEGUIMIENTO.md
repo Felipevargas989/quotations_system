@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -165,6 +165,7 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
 
    Con eso se pintan el semáforo del tablero (`semaforoDe`) y el aviso ámbar de Post-Venta.
 6. La línea gris "Cotización enviada al cliente" del hilo no es una fila: sale de `quotations.sent_at`. Desde el 10-10-2026 no se muestra si el hilo ya tiene la nota del botón ("Cotización enviada por correo a …"), que dice lo mismo y más.
+7. **Quién escribió cada nota** (27-10-2026, migración 167; Felipe eligió la opción B y los personajes «tipo Netflix»): el circulito lleva la letra del autor en el color que eligió en Mi cuenta (sin elegir, el color automático de siempre, `colorAutomatico`, que conserva el de cada nombre), al lado del nombre va su personaje y la nota lleva una franja de su color a la izquierda. Sale de `useApariencias` (`GET /users/apariencias`, una vez por empresa, 10 minutos) cruzado por `author_user_id` (el id de Auth) con `aparienciaDeAutor` (`utils/personajes.ts`). Las notas del Asistente (sin persona y a nombre de «Asistente») llevan su robot y su **gris grafito** con franja (`COLOR_ASISTENTE`, Felipe 27-10-2026). Ese gris no está entre los colores que se pueden elegir, y si una persona lo tuviera guardado se le muestra el automático (`colorDePersona`): nadie se ve igual que el Asistente. Las antiguas sin `author_user_id`, y las de quien no eligió, se ven como antes. Si la lista falla, el hilo se ve como antes.
 
 ### 5.4 Los relojes (`api-rest/src/quotations/quotations-cron.service.ts`)
 
@@ -609,6 +610,7 @@ App (Vitest, corre en CI con `npm run test`):
 - `frontend/src/pages/quotations/NegocioPage.tsx`
 - `frontend/src/pages/quotations/QuotationsPage.tsx`
 - `frontend/src/pages/quotations/SeguimientoPanel.tsx`
+- `frontend/src/utils/personajes.ts`, `frontend/src/hooks/useApariencias.ts` y `frontend/src/components/Personaje.tsx` (el personaje y el color de cada autor, §5.3 punto 7)
 - `frontend/src/pages/quotations/ImprimirCotizacion.tsx`
 - `frontend/src/pages/quotations/filtrosTablero.ts`
 - `frontend/src/pages/RequestsPage.tsx`

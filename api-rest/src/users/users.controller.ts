@@ -11,11 +11,12 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { SinPlan } from 'src/auth/derecho.decorator';
-import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { logSafe } from '../logging/log-safe';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SignupDto } from './dto/signup.dto';
+import { UpdateAparienciaDto } from './dto/update-apariencia.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User } from './entities/user.entity';
@@ -58,6 +59,31 @@ export class UsersController {
   ) {
     this.logger.info(`PATCH /users/password with user ${user.id}`);
     return this.usersService.updatePassword(user.id, updatePasswordDto);
+  }
+
+  // El personaje y el color de cada uno (migración 167, 27-10-2026). Los
+  // ve y los cambia cualquier cargo: la lista trae solo nombre, personaje
+  // y color de SU empresa, y el cambio toca solo el perfil de la sesión.
+  // Van antes de `:id`, que si no se los come.
+  @Roles(...RECEPTION_AND_UP)
+  @Get('apariencias')
+  apariencias(@CurrentUser() user: User) {
+    this.logger.info(`GET /users/apariencias with user ${user.id}`);
+    return this.usersService.apariencias(user.company_id);
+  }
+
+  @Roles(...RECEPTION_AND_UP)
+  @Patch('apariencia')
+  updateApariencia(
+    @Body() updateAparienciaDto: UpdateAparienciaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`PATCH /users/apariencia with user ${user.id}`);
+    return this.usersService.updateApariencia(
+      user.id,
+      user.company_id,
+      updateAparienciaDto,
+    );
   }
 
   // Aislamiento entre empresas (14-09-2026): ver y editar solo perfiles de

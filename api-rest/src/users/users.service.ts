@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
@@ -12,6 +13,7 @@ import { SuperAdminService } from 'src/super-admin/super-admin.service';
 import { logSafe } from '../logging/log-safe';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SignupDto } from './dto/signup.dto';
+import { UpdateAparienciaDto } from './dto/update-apariencia.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './entities/user.entity';
@@ -128,6 +130,41 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
     return { data, error: null };
+  }
+
+  /**
+   * El personaje y el color de cada uno (migración 167, 27-10-2026): el
+   * Seguimiento los muestra junto a cada nota, así que los ve cualquier
+   * cargo, siempre solo los de su empresa.
+   */
+  apariencias(companyId: Company['id']) {
+    return this.usersRepository.aparienciasDeEmpresa(companyId);
+  }
+
+  /**
+   * Cada uno cambia SOLO lo suyo: la persona y la empresa salen de la
+   * sesión, nunca del body. Lo que no viene se deja como está; null lo
+   * quita.
+   */
+  async updateApariencia(
+    userId: User['user_id'],
+    companyId: Company['id'],
+    dto: UpdateAparienciaDto,
+  ) {
+    const cambios: Pick<User, 'personaje' | 'color'> = {};
+    if (dto.personaje !== undefined) cambios.personaje = dto.personaje;
+    if (dto.color !== undefined) cambios.color = dto.color;
+    if (Object.keys(cambios).length === 0) {
+      throw new BadRequestException('No hay nada que cambiar');
+    }
+    const { data, error } = await this.usersRepository.updateApariencia(
+      userId,
+      companyId,
+      cambios,
+    );
+    if (error) throw error;
+    if (!data) throw new NotFoundException('Usuario no encontrado');
+    return data;
   }
 
   async remove(id: User['id'], companyId: Company['id']) {

@@ -155,7 +155,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
     StorageController,
     { 'POST upload': R, 'GET signed-url': R, 'POST delete': O },
   ],
-  [UsersController, { 'GET ': A }],
+  // El personaje y el color (migración 167): cualquier cargo ve los de su
+  // empresa y cambia solo los suyos.
+  [UsersController, { 'GET ': A, 'GET apariencias': R, 'PATCH apariencia': R }],
   [CustomerSatisfactionSurveyController, { 'GET answers': A }],
   [
     MovilController,

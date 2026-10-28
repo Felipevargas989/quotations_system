@@ -23,6 +23,10 @@ export type User = {
   created_at: Date;
   updated_at: Date;
   company_id: Company['id'];
+  // El personaje y el color que cada uno elige en Mi cuenta (migración
+  // 167, 27-10-2026). null = no eligió.
+  personaje?: string | null;
+  color?: string | null;
   // Lo que AuthGuard cuelga de la sesión con los derechos de la empresa
   // (paso 3.2, 14-09-2026). Van opcionales porque los tests y algunos
   // caminos internos arman un User a mano; quien los use tiene que

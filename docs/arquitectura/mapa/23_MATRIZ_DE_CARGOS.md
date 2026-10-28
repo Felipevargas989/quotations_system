@@ -1,6 +1,6 @@
 # Mapa: La matriz de cargos, aplicada al motor
 
-> **Estado: verificado una vez contra el código** (rama `pruebas`, 14-09-2026). Aplicada en el motor el 14-09-2026, paso 2 del roadmap de venta, con las cuatro decisiones de Felipe de ese día. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (rama `pruebas`, 14-09-2026). Aplicada en el motor el 14-09-2026, paso 2 del roadmap de venta, con las cuatro decisiones de Felipe de ese día. El 27-10-2026 se sumaron las dos rutas del personaje y el color (migración 167), las dos de recepción y arriba. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 El 14-09-2026, para el paso 2 del roadmap de venta, El motor tiene
 113 puertas que hoy solo piden estar logueado. La regla para cada una: se
@@ -30,6 +30,10 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
 - Calendario.
 - Subir y ver archivos del seguimiento y de la ficha.
 - Ver la propia empresa y el propio perfil, y cambiar la propia clave.
+- El personaje y el color (27-10-2026, migración 167): ver los de su
+  empresa (`GET /users/apariencias`) y cambiar los propios
+  (`PATCH /users/apariencia`). Las dos con `RECEPTION_AND_UP`, no "solo
+  sesión": así la prueba de la matriz las tiene anotadas por nombre.
 
 ## Vendedor y arriba
 
