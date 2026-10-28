@@ -48,3 +48,13 @@ from public.mercado_licitaciones l;
 
 revoke all on public.mercado_licitaciones_con_ganadores from anon, authenticated;
 grant select on public.mercado_licitaciones_con_ganadores to service_role;
+
+-- Los índices de la consulta: las del rubro de unas regiones, por código, y
+-- los ganadores de cada una sin leer la tabla. Medido en el laboratorio el
+-- 28-10: una página de mil pasó de 4,5 s (y el tope de tiempo de la base)
+-- a 0,2 s.
+create index if not exists idx_mercado_licitaciones_rubro_region
+  on public.mercado_licitaciones (region, codigo) where del_rubro;
+create index if not exists idx_mercado_ofertas_ganadoras
+  on public.mercado_ofertas (codigo) include (rut, proveedor, monto_adjudicado)
+  where gano;

@@ -1,5 +1,6 @@
 import type { ProcesoDeLaZona } from '../historia/mercado';
 import type { ProcesoParaLeer } from '../lectura/lectura.service';
+import { regionCalza } from '../mercado-publico/mapeo';
 
 // EL MERCADO DE LA ZONA (decisión 106 del doc 17). Felipe: «se viene y el
 // competidor es en quién ganó. Deberían actualizarse». Las licitaciones del
@@ -27,6 +28,34 @@ export type FilaDeLaZona = {
     monto_unitario: number | string | null;
   }> | null;
 };
+
+/** Las regiones tal como las escribe ChileCompra (medido el 28-10 en los
+ *  datos de la 101). La consulta las pide por nombre exacto, que usa el
+ *  índice: con la región filtrada en memoria, recorrer todo Chile pasaba el
+ *  tope de tiempo de la base. */
+const REGIONES_DEL_MERCADO = [
+  'Región de Arica y Parinacota',
+  'Región de Tarapacá',
+  'Región de Antofagasta',
+  'Región de Atacama',
+  'Región de Coquimbo',
+  'Región de Valparaíso',
+  'Región Metropolitana de Santiago',
+  'Región del Libertador General Bernardo O´Higgins',
+  'Región del Maule',
+  'Región del Ñuble',
+  'Región del Biobío',
+  'Región de la Araucanía',
+  'Región de Los Ríos',
+  'Región de los Lagos',
+  'Región Aysén del General Carlos Ibáñez del Campo',
+  'Región de Magallanes y de la Antártica',
+];
+
+/** Los nombres del mercado que calzan con las regiones de la empresa
+ *  ("Ñuble" → "Región del Ñuble"), con la misma regla del radar. */
+export const regionesDelMercado = (regiones: string[]): string[] =>
+  REGIONES_DEL_MERCADO.filter((r) => regionCalza(r, regiones));
 
 const numeroONulo = (n: number | string | null | undefined): number | null => {
   if (n === null || n === undefined || n === '') return null;

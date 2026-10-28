@@ -2,6 +2,7 @@ import {
   type FilaDeLaZona,
   procesoDeLaZona,
   procesoParaLeer,
+  regionesDelMercado,
 } from '../datos-abiertos/mercado-de-la-zona';
 import { ganadoresDe } from '../historia/ganadores';
 import { rankingDeCompetidores } from '../historia/mercado';
@@ -34,6 +35,15 @@ const fila = (cambios: Partial<FilaDeLaZona> = {}): FilaDeLaZona => ({
 });
 
 describe('El mercado de la zona (decisión 106)', () => {
+  it('las regiones de la empresa se piden con el nombre exacto que usa ChileCompra', () => {
+    expect(regionesDelMercado(['Ñuble', 'Biobío'])).toEqual([
+      'Región del Ñuble',
+      'Región del Biobío',
+    ]);
+    expect(regionesDelMercado(['Los Lagos'])).toEqual(['Región de los Lagos']);
+    expect(regionesDelMercado([])).toEqual([]);
+  });
+
   it('una licitación del mercado queda como las de la historia del radar, con quién ganó y por cuánto', () => {
     const p = procesoDeLaZona(fila());
     expect(p).toMatchObject({
