@@ -31,8 +31,20 @@ import { gzipSync } from 'zlib';
  * respaldo arma el archivo entero en memoria: una tabla así terminaría
  * botándolo para todo Eventia. Supabase guarda igual su copia diaria. Lo de
  * cada empresa (`oportunidades`, `oportunidades_config`) sí entra.
+ * Igual las `mercado_*` (decisión 101, 28-10): el mercado de todo Chile
+ * desde los datos abiertos de ChileCompra, cerca de 1 GB, que se vuelve a
+ * bajar. También `mercado_cargas`: si se restaurara sin las otras, diría
+ * «lista» con las tablas vacías.
  */
-export const FUERA_DEL_RESPALDO = new Set(['mp_procesos']);
+export const FUERA_DEL_RESPALDO = new Set([
+  'mp_procesos',
+  'mercado_cargas',
+  'mercado_licitaciones',
+  'mercado_ofertas',
+  'mercado_compras_agiles',
+  'mercado_cotizaciones',
+  'mercado_compras_agiles_totales',
+]);
 
 @Injectable()
 export class BackupCronService implements OnModuleInit {
