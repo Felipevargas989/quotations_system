@@ -50,6 +50,9 @@ export type PostulacionArmada = {
    *  tiene: va solo la propuesta técnica valorizada (decisión 94). Sin el
    *  dato, como antes, sí van. */
   anexos?: boolean;
+  /** ¿Estaban firmados todos los anexos? No se rehacen (decisión 49) y la
+   *  pantalla dice «ya firmados», no «No alcanzó a partir» (decisión 99). */
+  firmados?: boolean;
   /** Lo que no alcanzó a partir después de la oferta, en palabras. */
   problemas?: string[];
 };
@@ -175,6 +178,14 @@ export class ArmarPostulacionService {
     );
     const conPropuesta = armada.propuesta && !vuelta.propuestaFirmada;
     const propuestasViejas = conPropuesta ? [] : vuelta.borradoresDePropuesta;
+    // Decisión 99 (27-10): con todo firmado no hay trabajo de anexos, y sin
+    // esta marca la pantalla lo daba por no partido. Felipe, sobre el rojo
+    // «No alcanzó a partir» de una postulación ya firmada: "si armalo".
+    const anotada: PostulacionArmada =
+      vuelta.todoFirmado && armada.anexos !== false
+        ? { ...armada, firmados: true }
+        : armada;
+    if (anotada !== armada) await this.anotar(companyId, ofertaId, anotada);
     const pasos: Array<[string, () => Promise<unknown>]> = [];
     if (vuelta.todoFirmado || armada.anexos === false) {
       // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
@@ -226,13 +237,20 @@ export class ArmarPostulacionService {
     this.logger.warn(
       `postulación de la oportunidad ${oportunidadId}: ${problemas.join(' · ')}`,
     );
+    await this.anotar(companyId, ofertaId, { ...anotada, problemas });
+  }
+
+  /** Lo que pasó al armar, en la fila de la oferta. Nunca lanza. */
+  private async anotar(
+    companyId: number,
+    ofertaId: number,
+    postulacion: PostulacionArmada,
+  ): Promise<void> {
     await this.generaciones
-      .anotarParametros(companyId, ofertaId, {
-        postulacion: { ...armada, problemas },
-      })
+      .anotarParametros(companyId, ofertaId, { postulacion })
       .catch((error) =>
         this.logger.error(
-          `no pude anotar lo que faltó de la postulación ${ofertaId}: ${mensajeDe(error)}`,
+          `no pude anotar lo que pasó con la postulación ${ofertaId}: ${mensajeDe(error)}`,
         ),
       );
   }
