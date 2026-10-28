@@ -246,6 +246,14 @@ export const instruccionesDeValidacion = (c: ContextoDeValidacion): string => {
     '- Los mismos datos: el RUT, la razón social y el representante calzan entre los documentos y con los datos de la empresa.',
     '- Habilitada para lo que ofrece: si van resoluciones sanitarias, la patente y sus respaldos o el giro del SII, que autoricen cada servicio que se ofrece. Preparar o servir alimentos exige una autorización sanitaria de la SEREMI de Salud para eso (Reglamento Sanitario de los Alimentos); una piscina de uso público, su autorización; el alojamiento, la suya; los guardias, el OS10. Mira a nombre de quién están y si la capacidad autorizada alcanza para lo que se ofrece (personas, usuarios, bañistas, huéspedes).',
     'Lo que falla es "grave" si puede dejar fuera la oferta, anularla o costarle puntaje; si no, "menor". Va en el requisito que corresponda, o en "otros_graves" u "otros_problemas", diciendo qué documento es y qué hacer. Es un aviso para la empresa, no para el comprador: di qué tiene que hacer, sin sugerir explicarlo en la postulación ni subir documentos que muestren lo que falta.',
+    // Decisión 102 (28-10). Felipe, con el registro de difusión del
+    // programa de integridad de la 5040-14-LE26 en rojo por no tener fecha
+    // ni las firmas de todo el personal: "el personal del servicio no es
+    // quienes están involucrados en procesos de decisión de compras
+    // públicas a quienes está orientado ese papel... mientras el
+    // representante legal y el coordinador del evento estén, el papel es
+    // válido".
+    `EL PROGRAMA DE INTEGRIDAD: la certificación de que el personal lo conoce (un registro de difusión o una declaración, que suele ir dentro del mismo programa) vale si la firman el representante legal${c.oferente?.representante_nombre ? ` (${c.oferente.representante_nombre})` : ''} y el coordinador del servicio${c.oferente?.coordinador_nombre ? ` (${c.oferente.coordinador_nombre})` : ''}: el programa apunta a quienes deciden en las compras públicas, no a todo el personal del servicio. No pidas fecha ni las firmas del resto del personal. Si falta la firma de uno de los dos, es "grave".`,
     // Decisión 78 (24-10): la empresa edita los documentos en Eventia y
     // vuelve a validar. Felipe: "un botón de volver a validar si lo edito
     // para revisar coherencia con las bases y ortografía".
