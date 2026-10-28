@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { costoEnDolares } from '../analisis/comun';
+import { MercadoDeLaZonaRepository } from '../datos-abiertos/mercado-de-la-zona.repository';
 import {
   LECTURA_ACTUAL,
   LecturaDetenida,
@@ -96,6 +97,10 @@ export class SeVieneService {
     private readonly oportunidades: OportunidadesRepository,
     private readonly lectura: LecturaService,
     private readonly logger: PinoLogger,
+    /** Decisión 106: la serie puede venir del mercado de ChileCompra, y su
+     *  última vez no estar guardada por el radar. Opcional: las pruebas de
+     *  antes no lo traen. */
+    @Optional() private readonly mercado?: MercadoDeLaZonaRepository,
   ) {
     this.logger.setContext(SeVieneService.name);
   }
@@ -229,6 +234,14 @@ export class SeVieneService {
       this.repo.nombreDeLaEmpresa(companyId),
       this.oportunidades.catalogoResumido(companyId),
     ]);
+    // Las que el radar no guardó se leen con lo que trae el mercado: el
+    // nombre y los rubros de lo que se compró (decisión 106).
+    const faltan = sinSemaforo.filter(
+      (c) => !procesos.some((p) => p.codigo === c),
+    );
+    if (faltan.length > 0 && this.mercado) {
+      procesos.push(...(await this.mercado.paraLeer(faltan)));
+    }
     const paraLeer = new Map(procesos.map((p) => [p.codigo, p]));
     const perfil = { nombre, perfil: opciones.perfil, ...catalogo };
     const uso: Uso = { entrada: 0, salida: 0 };
