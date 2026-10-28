@@ -404,6 +404,70 @@ describe('Armar postulación', () => {
     expect(adjuntos.borrarBorradores).toHaveBeenCalledWith(1, 40, [64]);
   });
 
+  it('decisión 99: con todo firmado, la oferta queda anotada «firmados», también si después falla la propuesta', async () => {
+    const { servicio, documentos, analisis, repo, generaciones } = armar();
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        formularios: [
+          {
+            nombre: 'Formulario N°1',
+            archivo: 'Formularios_Anexos.docx',
+            aplica: true,
+            se_entrega_en: 'administrativa',
+          },
+        ],
+      },
+    });
+    const archivo = (id: number, extra = {}) => ({
+      id,
+      nombre: 'Formulario N°1 - lleno.docx',
+      ruta: `c1/x/${id}`,
+      bytes: 10,
+      seccion: 'postulacion',
+      origen: 'generado',
+      viene_de: 54,
+      generacion_id: 9,
+      creado_en: '2026-10-27T18:00:00.000Z',
+      ...extra,
+    });
+    repo.archivosDelSet.mockResolvedValue([
+      archivo(60),
+      archivo(62, {
+        nombre: 'Formulario N°1 - firmado.pdf',
+        origen: 'firmado',
+        viene_de: 60,
+      }),
+    ]);
+    documentos.crearPropuesta.mockRejectedValue(
+      new BadRequestException('La IA tardó demasiado.'),
+    );
+    await servicio.seguir(USUARIO, 40, 21, {
+      total: 1_136_500,
+      propuesta: true,
+    });
+    expect(documentos.generarAnexos).not.toHaveBeenCalled();
+    expect(generaciones.anotarParametros.mock.calls).toEqual([
+      [
+        1,
+        21,
+        { postulacion: { total: 1_136_500, propuesta: true, firmados: true } },
+      ],
+      [
+        1,
+        21,
+        {
+          postulacion: {
+            total: 1_136_500,
+            propuesta: true,
+            firmados: true,
+            problemas: ['La propuesta técnica: La IA tardó demasiado.'],
+          },
+        },
+      ],
+    ]);
+  });
+
   it('con la propuesta técnica firmada, no se rehace', async () => {
     const { servicio, documentos, repo } = armar();
     repo.archivosDelSet.mockResolvedValue([

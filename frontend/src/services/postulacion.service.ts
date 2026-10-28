@@ -98,6 +98,9 @@ export interface PostulacionArmada {
   propuesta: boolean;
   /** false: una compra ágil sin formularios, sin anexos (decisión 94). */
   anexos?: boolean;
+  /** true: los anexos ya estaban todos firmados y no se rehicieron
+   *  (decisión 99). */
+  firmados?: boolean;
   /** Lo que no alcanzó a partir después de la oferta. */
   problemas?: string[];
 }
