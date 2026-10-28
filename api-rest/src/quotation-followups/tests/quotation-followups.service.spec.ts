@@ -239,6 +239,15 @@ describe('QuotationFollowupsService', () => {
           next_contact_date: '2026-08-04',
           next_contact_done_at: '2026-08-04T18:00:00Z',
         },
+        // q-3 también tenía un compromiso más viejo sin marcar: quedó
+        // resuelto por la nota que lo siguió y NO reaparece al marcar
+        // «Listo» la más nueva (28-10-2026, "se corre hacia abajo").
+        {
+          quotation_id: 'q-3',
+          created_at: '2026-07-20T10:00:00Z',
+          next_contact_date: '2026-07-25',
+          next_contact_done_at: null,
+        },
       ]);
       const service = buildService({ findMapRows });
 

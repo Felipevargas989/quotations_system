@@ -154,7 +154,7 @@ export const armar = (
     cotizacion: jest.fn().mockResolvedValue(opciones.fila ?? cotizacion()),
     bitacora: jest.fn(),
     vivas: jest.fn(),
-    compromisosAbiertos: jest.fn(),
+    notasConProximoContacto: jest.fn(),
     borradoresEnEspera: jest.fn().mockResolvedValue(opciones.enEspera ?? []),
     registrarBorrador: jest.fn().mockResolvedValue(undefined),
     tomarParaRevisar: jest.fn().mockResolvedValue(true),

@@ -17,15 +17,16 @@ export type NotaDeBitacora = {
 /** Una solicitada nunca salió: no es seguimiento. */
 export const ESTADOS_CON_SEGUIMIENTO = ['enviada', 'en_negociacion'];
 
-/** El compromiso vivo: la nota más reciente con fecha y sin cumplir. Es la
- *  misma regla del semáforo de la lista (QuotationFollowupsService
- *  .mapByCompany) y del «Contacto comprometido» del panel. */
+/** El compromiso vivo: el de la nota más reciente con fecha, salvo que ya
+ *  se haya dado por cumplido (entonces no hay ninguno: las anteriores
+ *  quedaron resueltas por ella; 28-10-2026). Es la misma regla del semáforo
+ *  de la lista (QuotationFollowupsService.mapByCompany) y del «Contacto
+ *  comprometido» del panel. */
 export function compromisoVivo(notas: NotaDeBitacora[]): NotaDeBitacora | null {
-  return (
-    [...notas]
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .find((n) => n.next_contact_date && !n.next_contact_done_at) ?? null
-  );
+  const ultima = [...notas]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .find((n) => n.next_contact_date);
+  return ultima && !ultima.next_contact_done_at ? ultima : null;
 }
 
 /** "15-10" de un AAAA-MM-DD. */
