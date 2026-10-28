@@ -99,7 +99,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const pintar = (congelada = false) =>
+const pintar = (congelada = false, ganada = false) =>
   render(
     <QueryClientProvider
       client={
@@ -111,6 +111,7 @@ const pintar = (congelada = false) =>
           oportunidadId={87}
           anterior={ANTERIOR}
           congelada={congelada}
+          ganada={ganada}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -338,6 +339,88 @@ describe("Una postulada antes de «Armar postulación» (26-10)", () => {
     expect(
       screen.queryByRole("button", { name: /Crear o vincular cotización/ }),
     ).toBeNull();
+  });
+});
+
+describe("La cotización de una ganada (decisión 104)", () => {
+  it("sin cotización, se crea con lo postulado y queda aceptada con su cuota a 30 días", async () => {
+    // Felipe: "cuando una licitación está ganada, y no tengo nada
+    // vinculado, debería poder crear la cotización desde ahi".
+    s.llevarACotizacion.mockResolvedValue({
+      ...CON_COTIZACION,
+      cotizacion: { ...CON_COTIZACION.cotizacion!, estado: "aceptada" },
+    });
+    pintar(true, true);
+    expect(
+      screen.queryByText("Se postuló sin cotización vinculada."),
+    ).toBeNull();
+    await abrir();
+    expect(
+      screen.getByText(
+        /Queda aceptada, con una cuota por el total 30 días después del servicio\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Queda aceptada, con una cuota a 30 días del servicio\./,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
+    await waitFor(() =>
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 5_500_000, {
+        desde: "2026-10-28",
+        hasta: null,
+      }),
+    );
+    expect(await screen.findByText(/Cotización N° 612/)).toBeInTheDocument();
+  });
+
+  it("postulada sin «Armar postulación»: la IA arma «Qué ofreces» con las bases y la cotización se crea sola", async () => {
+    p.getOfertaDeLaPostulacion.mockResolvedValue(null);
+    const SIN_OFERTA = {
+      cotizacion: null,
+      presupuesto: 12_000_000,
+      propuesta: null,
+      faltan: [],
+      fechas: { desde: "2026-10-30", hasta: "2026-10-31" },
+    };
+    s.getCotizacionDeLaPostulacion.mockResolvedValue(SIN_OFERTA);
+    s.getGeneraciones.mockResolvedValue({
+      anexos: {
+        id: 1,
+        tipo: "anexos",
+        estado: "listo",
+        parametros: { adjuntos: [3], monto_total: 11_930_000 },
+        resultado: null,
+      },
+      firma: null,
+      propuesta: null,
+    } as never);
+    s.llevarACotizacion.mockResolvedValue({
+      ...SIN_OFERTA,
+      armando: true,
+    } as never);
+    pintar(true, true);
+    expect(screen.queryByText(/Primero arma la postulación/)).toBeNull();
+    await abrir();
+    expect(
+      screen.getByText(/La IA arma primero «Qué ofreces» con las bases/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Crear la cotización" }),
+    );
+    // Con el precio con que se llenaron los anexos y los días de las bases.
+    await waitFor(() =>
+      expect(s.llevarACotizacion).toHaveBeenCalledWith(87, 11_930_000, {
+        desde: "2026-10-30",
+        hasta: "2026-10-31",
+      }),
+    );
+    expect(
+      await screen.findByText(/La IA está armando «Qué ofreces» con las bases/),
+    ).toBeInTheDocument();
   });
 });
 

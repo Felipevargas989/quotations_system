@@ -101,6 +101,10 @@ export class PaymentsService {
   async createPaymentPlan(
     createPaymentPlanDto: CreatePaymentPlanDto,
     companyId: Company['id'],
+    /** Sin el correo del plan al cliente: la cotización de una licitación
+     *  ganada, que se acepta sola (decisión 104 del doc 17). El comprador es
+     *  un organismo público y paga contra la orden de compra. */
+    { sinCorreo = false }: { sinCorreo?: boolean } = {},
   ) {
     this.logger.info(
       `createPaymentPlan with createPaymentPlanDto ${JSON.stringify(createPaymentPlanDto)}`,
@@ -124,6 +128,7 @@ export class PaymentsService {
     // 4. Send email to client with payment plan details
     try {
       if (
+        !sinCorreo &&
         quotation &&
         quotation.quotation_status !== QuotationStatus.ACEPTADA
       ) {

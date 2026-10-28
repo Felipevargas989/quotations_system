@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import {
@@ -6,6 +6,7 @@ import {
   MercadoPublicoError,
 } from '../mercado-publico/mercado-publico.client';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import { AceptarLaGanadaService } from '../postulacion/aceptar-la-ganada.service';
 import { CompetenciaRepository } from './competencia.repository';
 import {
   type ResultadoPublico,
@@ -39,6 +40,9 @@ export class ResultadosDePostuladasService {
     private readonly oferente: OferenteRepository,
     private readonly mp: MercadoPublicoClient,
     private readonly logger: PinoLogger,
+    /** Decisión 104: al salir ganada, su cotización vinculada queda
+     *  aceptada. Opcional: las pruebas de antes no la traen. */
+    @Optional() private readonly ganada?: AceptarLaGanadaService,
   ) {
     this.logger.setContext(ResultadosDePostuladasService.name);
   }
@@ -102,6 +106,12 @@ export class ResultadosDePostuladasService {
         resultado.estado,
       ));
     if (!marcada && p.anotada) return false;
+    // Decisión 104 (28-10): Felipe, "si esta ganada la licitación la
+    // cotización debe quedar como aceptada con un plan de pagos a 30 dias
+    // post realización del evento".
+    if (marcada && resultado?.estado === 'ganada' && p.quotation_id) {
+      await this.ganada?.aceptar(companyId, p.quotation_id, p.codigo);
+    }
     this.logger.info(
       `${p.tipo === 'licitacion' ? 'licitación' : 'compra ágil'} ${p.codigo}: ${marcada && resultado ? resultado.estado : 'anotada'}`,
     );
