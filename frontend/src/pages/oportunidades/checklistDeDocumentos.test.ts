@@ -162,6 +162,45 @@ describe("El checklist de documentos", () => {
     });
   });
 
+  it("decisión 102: la certificación de que el personal conoce el programa de integridad la cubre el programa, que la trae dentro", () => {
+    const certificacion = pedido(
+      "Certificación de que el personal conoce el programa de integridad",
+      "dj_trabajadores",
+      {
+        condicion:
+          "Incluye al representante legal y a los trabajadores que participan en el servicio",
+      },
+    );
+    const programa = enLaCarpeta(
+      46,
+      "programa_integridad",
+      "Programa de integridad - firmado.pdf",
+      null,
+    );
+    const [fila] = checklistDeDocumentos({
+      r: { ...SIN_REQUISITOS, documentos: [certificacion] },
+      carpeta: [programa],
+      postulacion: [],
+      corte: "2026-11-06",
+    });
+    // En la 5040-14-LE26 salía «Falta».
+    expect([fila.estado, fila.detalle]).toEqual([
+      "en_tu_carpeta",
+      "Programa de integridad - firmado.pdf",
+    ]);
+    // Si la empresa tiene la declaración aparte, va esa.
+    const [aparte] = checklistDeDocumentos({
+      r: { ...SIN_REQUISITOS, documentos: [certificacion] },
+      carpeta: [
+        programa,
+        enLaCarpeta(47, "dj_trabajadores", "DJ trabajadores.pdf", null),
+      ],
+      postulacion: [],
+      corte: "2026-11-06",
+    });
+    expect(aparte.detalle).toBe("DJ trabajadores.pdf");
+  });
+
   it("sin cierre que lo venza, lo que no vence sigue en tu carpeta", () => {
     const [fila] = checklistDeDocumentos({
       r: {

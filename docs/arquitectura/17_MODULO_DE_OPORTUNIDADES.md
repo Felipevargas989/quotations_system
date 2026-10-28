@@ -661,6 +661,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - Si las bases no dan una fecha (un contrato con servicios a pedido), la ganada queda por cumplir y dice «Sin fecha en las bases».
     - El servicio, y el cierre en «Mis licitaciones», quedan siempre a la derecha, también con un nombre largo; en el teléfono bajan bajo el nombre (Felipe, al ver la de Laja Diguillín con la fecha debajo: *"si siempre a la derecha"*).
     - La cotización vinculada no cambia de estado al ganar: Felipe lo pensó y lo retiró (*"No, mejor eso último no"*).
+102. **El programa de integridad vale con la firma del representante legal y del coordinador** (28-10, en el laboratorio y en producción el mismo día: *"a producción"*; la 101 la tomó otra sesión). Felipe, con el registro de difusión de la 5040-14-LE26 en rojo por no tener fecha ni las firmas de todo el personal: *"el personal del servicio no es quienes están involucrados en procesos de decisión de compras públicas a quienes esta orientado ese papel... dalo por bueno porfavor, mientras el representante legal y el coordinador del evento estén, el papel es valido"*. Motor y pantalla, sin migración.
+    - Las bases (pág. 11) piden el programa y «la certificación que es conocido por todo su personal», y en una nota cuentan como personal al representante legal y a «todos los trabajadores atingentes a la presente licitación». Felipe lee atingentes como los que deciden en las compras públicas.
+    - «Validar todo» da por buena la certificación (un registro de difusión o una declaración, que suele ir dentro del programa) si la firman el representante legal y el coordinador del servicio, con sus nombres de «Mi empresa». No pide fecha ni las firmas del resto del personal. Si falta uno de los dos, es grave.
+    - En «Bases y criterios», la certificación (que el análisis deja en `dj_trabajadores`) la cubre el programa de integridad de «Mi empresa» cuando no hay una declaración aparte (`checklistDeDocumentos`). Salía «Falta», y «Cómo te evalúan» decía «falta 1 de 2». El ZIP ya la tomaba del programa (`el-set.ts`).
 
 ## 4. Reglas del módulo (no se negocian)
 
