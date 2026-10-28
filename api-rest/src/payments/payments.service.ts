@@ -45,7 +45,12 @@ import {
 } from './interfaces/payments.types';
 import { PaymentsRepository } from './payments.repository';
 import { planAlAnular } from './plan-al-anular';
-import { CuotaPedida, planEditado } from './plan-editado';
+import {
+  CuotaPedida,
+  PLAN_CON_PAGOS_NO_SE_EDITA,
+  planEditado,
+  tienePlata,
+} from './plan-editado';
 
 /**
  * Service responsible for managing payment operations including
@@ -182,11 +187,12 @@ export class PaymentsService {
 
   /**
    * «EDITAR PLAN DE PAGOS» (Felipe, 28-10-2026; doc 14 §Editar el plan): en
-   * Post-Venta se cambian los montos, las fechas y la cantidad de cuotas.
-   * Las cuotas con plata no se mueven y entre todas suman el total. Sirve
-   * también para armar el plan de un evento aceptado que quedó sin cuotas.
-   * No cambia el estado ni manda correos: el cliente ve el plan nuevo en su
-   * portal. Un anulado no se edita: su plan quedó cerrado en lo pagado.
+   * Post-Venta se cambian los montos, las fechas y la cantidad de cuotas,
+   * y entre todas suman el total. Solo mientras no haya ningún pago: Felipe,
+   * "no creo que se deba poder editar después de cargar la primera cuota".
+   * Sirve también para armar el plan de un evento aceptado que quedó sin
+   * cuotas. No cambia el estado ni manda correos: el cliente ve el plan nuevo
+   * en su portal. Un anulado no se edita: su plan quedó cerrado en lo pagado.
    */
   async editarPlan(dto: EditarPlanDto, companyId: Company['id']) {
     this.logger.info(`editarPlan with dto ${JSON.stringify(dto)}`);
@@ -212,11 +218,9 @@ export class PaymentsService {
       dto.cuotas,
       quotation.total_amount,
       companyId,
+      { soloSinPagos: true },
     );
-    return {
-      conPlata: plan.fijas.length,
-      cuotas: plan.fijas.length + plan.crear.length,
-    };
+    return { cuotas: plan.crear.length };
   }
 
   /**
@@ -250,8 +254,13 @@ export class PaymentsService {
     pedidas: readonly CuotaPedida[],
     total: Quotation['total_amount'],
     companyId: Company['id'],
+    // Editar desde Post-Venta: con un solo pago registrado, ya no se toca.
+    { soloSinPagos = false }: { soloSinPagos?: boolean } = {},
   ) {
     const { cuotas, piezas } = await this.leerPlan(quotationId, companyId);
+    if (soloSinPagos && cuotas.some((c) => tienePlata(c, piezas))) {
+      throw new BadRequestException(PLAN_CON_PAGOS_NO_SE_EDITA);
+    }
     const plan = planEditado(cuotas, piezas, pedidas, total, hoyEnChile());
     if (!plan.ok) throw new BadRequestException(plan.motivo);
 

@@ -24,7 +24,9 @@ import {
 // - "aceptar": se abre al pasar una cotización a Aceptada (tablero y ficha
 //   del negocio); guardar crea el plan y acepta.
 // - "editar" (28-10-2026, caso 703): «Editar plan de pagos» de Post-Venta;
-//   cambia montos, fechas y cantidad de cuotas sin tocar el estado.
+//   cambia montos, fechas y cantidad de cuotas sin tocar el estado, y solo
+//   mientras no haya ningún pago (Felipe: "no creo que se deba poder editar
+//   después de cargar la primera cuota").
 // En los dos, las cuotas con plata se ven fijas arriba y no se mueven: lo
 // que se reparte es lo que falta (doc 14 §Editar el plan). El plan nuevo
 // parte con el abono de Mi empresa hoy y el saldo 7 días antes del evento
@@ -218,7 +220,7 @@ export default function PaymentPlanEditor({
         <AlertTriangle size={16} className="text-yellow-600 shrink-0 mt-0.5" />
         <p className="text-yellow-800 text-sm font-medium">
           {editando
-            ? "Las cuotas con pagos no se mueven. El cliente ve el plan nuevo en su portal; no se le manda correo."
+            ? "El cliente ve el plan nuevo en su portal; no se le manda correo. Después del primer pago, el plan ya no se edita."
             : "Al aceptar, la cotización queda Aceptada y el evento pasa a Post-Venta con estas cuotas para el seguimiento de pagos."}
         </p>
       </div>

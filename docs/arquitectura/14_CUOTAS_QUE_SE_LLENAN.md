@@ -138,15 +138,17 @@ los eventos no deberían desaparecer"*. Medido ese día: además de la 703, hab�
 
 Cuatro reglas, aprobadas por Felipe el 28-10-2026 (*"ok hazlo los 4"*):
 
-1. **«Editar plan de pagos» en Post-Venta.** En la pestaña Pagos de un evento
-   aceptado o realizado se cambian los montos, las fechas y la cantidad de
-   cuotas. Las cuotas con plata (con algún pago registrado, pagadas o
-   «pagadas por fuera») **no se mueven**: quedan primero, como están, y lo que
-   se reparte es lo que falta. Entre todas suman al peso el total (el portero
-   del caso 501). No cambia el estado ni manda correo: el cliente ve el plan
-   nuevo en su portal. Un anulado no se edita: su plan quedó cerrado en lo
-   pagado. Después de guardar, lo pagado se vuelve a repartir desde la
-   primera (regla 3); como las cuotas con plata van primero, no se mueve nada.
+1. **«Editar plan de pagos» en Post-Venta, solo antes del primer pago.** En la
+   pestaña Pagos de un evento aceptado o realizado se cambian los montos, las
+   fechas y la cantidad de cuotas, y entre todas suman al peso el total (el
+   portero del caso 501). **Con un solo pago registrado, el plan ya no se
+   edita** (Felipe, 28-10-2026, al aprobar el laboratorio: *"no creo que se
+   deba poder editar después de cargar la primera cuota"*): el botón no
+   aparece, la pestaña lo dice en gris y el motor responde 400
+   (`PLAN_CON_PAGOS_NO_SE_EDITA`). Quedan el lápiz de fecha y nota de cada
+   cuota sin plata (Nivel A) y, si el total cambia, la cascada de siempre. No
+   cambia el estado ni manda correo: el cliente ve el plan nuevo en su portal.
+   Un anulado no se edita: su plan quedó cerrado en lo pagado.
 2. **El plan parte con el abono de Mi empresa.** La primera cuota es el
    abono para reservar (el % de `companies.abono_reserva_pct`, migración 160,
    sobre el total sin propina: el mismo monto que dice la hoja de la
@@ -170,8 +172,10 @@ Cuatro reglas, aprobadas por Felipe el 28-10-2026 (*"ok hazlo los 4"*):
    anulados, que nunca cuentan.
 
 **Armar el plan ya no borra todo.** `POST /payments/plan` (al aceptar) y `PUT
-/payments/plan` (al editar) comparten la misma pieza: las cuotas con plata
-quedan y solo se reemplazan las demás. Antes, armar el plan borraba todas las
+/payments/plan` (al editar, sin pagos) comparten la misma pieza: las cuotas con
+plata quedan y solo se reemplazan las demás. Eso sirve al volver a aceptar un
+anulado que guardó lo pagado: el editor muestra esas cuotas fijas y se completa
+lo que falta. Antes, armar el plan borraba todas las
 cuotas y las creaba de nuevo; con abonos encima el borrado fallaba en silencio
 (la base no deja borrar una cuota con pagos) y el plan quedaba duplicado.
 

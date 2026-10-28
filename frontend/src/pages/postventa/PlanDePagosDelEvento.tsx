@@ -13,10 +13,12 @@ import type { EventRow } from "./filasDePostVenta";
  * solo se movía la fecha y la nota de cada cuota, así que para repartirlo
  * se anuló y se volvió a aceptar. Felipe: "ella quería editar las cuotas".
  *
- * Con plan: «Editar plan de pagos» (montos, fechas y cantidad de cuotas; las
- * cuotas con pagos no se mueven). Sin cuotas (aceptada o realizada que quedó
- * sin plan): el aviso ámbar y «Armar plan de pagos». Un anulado no se edita:
- * su plan quedó cerrado en lo pagado. Es la cabecera del «Calendario de
+ * Con plan y sin ningún pago: «Editar plan de pagos» (montos, fechas y
+ * cantidad de cuotas). Después del primer pago ya no se edita (Felipe,
+ * 28-10-2026: "no creo que se deba poder editar después de cargar la primera
+ * cuota"). Sin cuotas (aceptada o realizada que quedó sin plan): el aviso
+ * ámbar y «Armar plan de pagos». Un anulado no se edita: su plan quedó
+ * cerrado en lo pagado. Es la cabecera del «Calendario de
  * pagos»; vive aparte por el techo de tamaño de PostVentaPage.
  */
 export default function CabeceraDelPlan({
@@ -32,6 +34,14 @@ export default function CabeceraDelPlan({
   const sinPlan = event.cuotas === 0;
   // Una cortesía de $0 sin cuotas no tiene nada que cobrar ni que editar.
   const nadaQueCobrar = sinPlan && event.total <= 0;
+  // Con un solo pago registrado el plan ya no se edita (el motor lo frena
+  // igual: PLAN_CON_PAGOS_NO_SE_EDITA).
+  const conPagos = event.payments.some(
+    (p) =>
+      p.status === "pagado" ||
+      (p.paid_amount || 0) > 0 ||
+      (p.payment_count || 0) > 0,
+  );
 
   const guardar = async (
     cuotas: { payment_type: string; amount: number; due_date: string }[],
@@ -59,7 +69,12 @@ export default function CabeceraDelPlan({
     <>
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-sm font-bold text-gray-800">Calendario de pagos</h4>
-        {!event.cancelled && !sinPlan && (
+        {!event.cancelled && !sinPlan && conPagos && (
+          <span className="text-xs text-gray-400">
+            Con pagos registrados, el plan ya no se edita.
+          </span>
+        )}
+        {!event.cancelled && !sinPlan && !conPagos && (
           <button
             type="button"
             onClick={() => setAbierto(true)}

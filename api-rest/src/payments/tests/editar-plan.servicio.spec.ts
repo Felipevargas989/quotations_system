@@ -5,6 +5,7 @@ import { QuotationsService } from 'src/quotations/quotations.service';
 import { mockPinoLogger } from '../../testing/mocks';
 import { PaymentsRepository } from '../payments.repository';
 import { PaymentsService } from '../payments.service';
+import { PLAN_CON_PAGOS_NO_SE_EDITA } from '../plan-editado';
 
 /**
  * EDITAR EL PLAN DE PAGOS — DE PUNTA A PUNTA (Felipe, 28-10-2026; doc 14
@@ -146,7 +147,9 @@ describe('Editar el plan de pagos', () => {
     expect(base.aceptarRepo.update).not.toHaveBeenCalled();
   });
 
-  it('la cuota pagada no se mueve: queda primera, con su pago', async () => {
+  it('con un pago registrado, el plan ya no se edita y no se toca nada', async () => {
+    // Felipe, 28-10-2026: "no creo que se deba poder editar después de
+    // cargar la primera cuota".
     const base = new Base();
     base.cuotas = [
       {
@@ -179,23 +182,27 @@ describe('Editar el plan de pagos', () => {
         pago_grupo: 'g1',
       },
     ];
-    await base.servicio('aceptada').editarPlan(
-      {
-        quotation_id: 'q703',
-        cuotas: [
-          { payment_type: 'Cuota 2', due_date: '2099-11-15', amount: 974700 },
-          { payment_type: 'Cuota 3', due_date: '2099-12-02', amount: 1000000 },
-        ],
-      },
-      1,
-    );
+    await expect(
+      base.servicio('aceptada').editarPlan(
+        {
+          quotation_id: 'q703',
+          cuotas: [
+            { payment_type: 'Cuota 2', due_date: '2099-11-15', amount: 974700 },
+            {
+              payment_type: 'Cuota 3',
+              due_date: '2099-12-02',
+              amount: 1000000,
+            },
+          ],
+        },
+        1,
+      ),
+    ).rejects.toThrow(PLAN_CON_PAGOS_NO_SE_EDITA);
+    expect(base.repo.removePayment).not.toHaveBeenCalled();
+    expect(base.repo.createPaymentPlan).not.toHaveBeenCalled();
     expect(base.plan()).toEqual([
       [1, 846300, 'pagado', 'c1'],
-      [2, 974700, 'pendiente', 'n1'],
-      [3, 1000000, 'pendiente', 'n2'],
-    ]);
-    expect(base.piezas).toEqual([
-      expect.objectContaining({ payment_id: 'c1' }),
+      [2, 1974700, 'pendiente', 'c2'],
     ]);
   });
 

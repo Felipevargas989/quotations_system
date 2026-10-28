@@ -76,6 +76,13 @@ export const tienePlata = (
   c.status === 'pagado' ||
   piezas.some((p) => p.payment_id === c.id);
 
+/** Editar desde Post-Venta es solo mientras no haya ningún pago (Felipe,
+ *  28-10-2026: "no creo que se deba poder editar después de cargar la
+ *  primera cuota"). Armar el plan al aceptar sí conserva lo pagado y
+ *  completa el resto: un anulado con abonos que se vuelve a aceptar. */
+export const PLAN_CON_PAGOS_NO_SE_EDITA =
+  'Este plan ya tiene pagos registrados: después del primer pago, el plan de pagos ya no se edita.';
+
 const clp = (n: number) => `$${n.toLocaleString('es-CL')}`;
 
 export function planEditado(
