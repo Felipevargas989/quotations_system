@@ -24,8 +24,9 @@ export interface NotaDelDocumento {
   texto: string;
   /** Completar: falta algo. Revisar: está, pero conviene mirarlo. */
   tono: "completar" | "revisar";
-  /** Decisión 85: lo que se revisa pero puede dejar la oferta fuera o
-   *  costarle puntaje. Lo que falta («completar») es grave siempre. */
+  /** Decisión 85: lo que se revisa pero puede dejar la oferta fuera; desde
+   *  la 105, ya no lo que solo cuesta puntaje. Lo que falta («completar»)
+   *  es grave siempre. */
   grave?: true;
 }
 
