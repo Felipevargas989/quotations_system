@@ -345,6 +345,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         <ComparacionDeOfertas
           oportunidadId={ficha.id}
           adjudicada={yaSeAdjudico(ficha)}
+          perdida={ficha.estado === "perdida"}
         />
       )}
 

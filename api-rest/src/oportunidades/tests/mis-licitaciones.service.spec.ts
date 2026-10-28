@@ -72,6 +72,10 @@ function armar() {
         creado_en: '2026-10-17T16:00Z',
       },
     ]),
+    // Decisión 97: sin análisis, una compra ágil se compara por la ley.
+    criteriosDe: jest
+      .fn<Promise<Map<number, Array<{ nombre: string }>>>, [number, number[]]>()
+      .mockResolvedValue(new Map()),
   };
   const validacion = {
     ultimosDe: jest.fn().mockResolvedValue([
@@ -261,5 +265,18 @@ describe('MisLicitacionesService', () => {
       lugar: 2,
     });
     expect(lista.find((m) => m.id === 40)?.resultado).toBeNull();
+
+    // Decisión 97: si la solicitud trae sus criterios, no se compara solo
+    // por precio: ni lugar ni aviso rojo.
+    analisis.criteriosDe.mockResolvedValue(
+      new Map([[3219, [{ nombre: 'Precio' }, { nombre: 'Plazo de entrega' }]]]),
+    );
+    const conCriterios = await servicio.mias(1);
+    expect(conCriterios.find((m) => m.id === 3219)?.resultado).toMatchObject({
+      estado: 'perdida',
+      mi_monto: 7_090_000,
+      lugar: null,
+      era_la_mas_barata: false,
+    });
   });
 });
