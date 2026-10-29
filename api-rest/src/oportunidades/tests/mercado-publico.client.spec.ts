@@ -4,6 +4,7 @@ import {
   MercadoPublicoClient,
   MercadoPublicoError,
   ticketsDelMotor,
+  turnoDelTicket,
 } from '../mercado-publico/mercado-publico.client';
 
 const TICKET = 'TICKET-DE-PRUEBA-0000';
@@ -289,6 +290,30 @@ describe('MercadoPublicoClient', () => {
           enLaCabecera ?? new URL(String(url)).searchParams.get('ticket');
         return [TICKET, TICKET_2, TICKET_3].indexOf(t ?? '') + 1;
       });
+
+    it('de mañana el primero y de tarde el segundo (decisión 109)', () => {
+      // 29-10-2026: Chile en horario de verano (UTC-3).
+      const chile = (hora: number, minuto = 7) =>
+        Date.UTC(2026, 9, 29, hora + 3, minuto);
+      expect([8, 12, 13].map((h) => turnoDelTicket(chile(h)))).toEqual([
+        0, 0, 0,
+      ]);
+      expect([14, 15, 18].map((h) => turnoDelTicket(chile(h, 0)))).toEqual([
+        1, 1, 1,
+      ]);
+    });
+
+    it('la pasada de la tarde parte con el segundo; con uno solo, siempre ese', async () => {
+      const tarde = Date.UTC(2026, 9, 29, 18, 7);
+      fetchFalso.mockImplementation(siempre(200, { Listado: [] }));
+      cliente.empezarPasada(tarde);
+      await cliente.licitacionesActivas();
+      expect(ticketsUsados()).toEqual([1]);
+      process.env.MP_TICKET_2 = TICKET_2;
+      cliente.empezarPasada(tarde);
+      await cliente.licitacionesActivas();
+      expect(ticketsUsados()).toEqual([1, 2]);
+    });
 
     it('el mismo ticket en dos variables cuenta una vez', () => {
       process.env.MP_TICKET_2 = TICKET.toLowerCase();

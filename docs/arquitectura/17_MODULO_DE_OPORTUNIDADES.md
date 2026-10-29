@@ -711,10 +711,25 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Resúmenes listos** (3). «Se viene», los competidores y la ficha leen `mercado_compras` una región a la vez, por su código oficial (`codigosDeRegiones`, el mismo del radar) y por el índice de la zona. Medido en el laboratorio: la misma zona que la vista de la 169, 3.490 licitaciones del rubro en Ñuble y Biobío y 3.027 con ganador, en páginas de 15 ms en vez de casi un segundo. Cada mes guarda juntas las del rubro de cada región: la zona ocupa 299 páginas del disco en vez de unas 2.400, y la primera lectura, con la base fría, baja en la misma proporción. Si la capa está vacía, se lee la vista de la 169 como antes.
     - Resumir un mes tarda de 2 a 9 s en el laboratorio; noviembre de 2023, el de más licitaciones con 16.636, tardó 5,7 s. La API de la base corta a los 8 s, así que la función lleva su propio tope de 60 s, y el motor la llama con su cliente para trabajos largos (75 s): el de siempre se rinde a los 10 s, y en la primera prueba en el laboratorio cortó dos meses grandes. La capa pesa unos 390 MB y queda fuera del respaldo diario, como el resto del mercado: la base la rearma sola.
     - Fuera del rubro, `mercado_ganadores_por_mes` guarda solo a los proveedores que ganaron algo; los que solo ofertaron eran 6 de cada 10 filas.
-    - Quedan pendientes, con el mismo OK:
-      - (4) «Año anterior» desde el mercado, y apagar la historia por la API.
-      - (5) Las preguntas con nombre y el diccionario; esta migración ya deja explicadas sus tablas nuevas.
-      - (6) El rubro que se elige al preguntar.
+    - **Las otras tres, el mismo 29-10.** Felipe: *"primero haz los tres cambios que me pediste"*.
+    - **(4) Una sola historia.** «Quién ganó el año anterior», en la bandeja y en la ficha, sale del mercado.
+      - `MercadoDeLaZonaRepository.historialDeOrganismos` toma las licitaciones del rubro de la empresa con ganador, de los últimos 31 meses, y `anteriorDe` no cambia. Con la capa vacía, vuelve a la historia del radar.
+      - El estudio de mercado de un competidor (`CompetenciaService.ficha`) también lee del mercado. Era lo último que leía la historia de la API.
+      - La historia por la API quedó apagada: el radar ya no llama a `cargarHistoria`. `mp_historia` y lo que bajó quedan como estaban.
+    - **El reloj del radar, el de Felipe:** *"cuatro revisiones"*, a las 8, 12, 15 y 18 h. Reemplaza al de la 18.
+      - Medido ese día con 5.792 compras ágiles de 3 semanas: no se pierde ninguna, y ninguna llega con menos de 6 horas para cerrar.
+      - Los resultados de lo postulado se miran media hora después de cada pasada. La cabecera de la pantalla dice el horario nuevo.
+    - **Las dos claves de la API:** *"una puede trabajar de mañana y otra de tarde"*.
+      - Antes de las 14:00 parte el `MP_TICKET` y desde ahí el `MP_TICKET_2`.
+      - Si la del turno se queda sin cupo, sigue con la otra.
+    - **(5) Preguntas con nombre y un diccionario** (migración 173).
+      - Preguntas: `mercado_buscar_comprador`, `mercado_gasto_de`, `mercado_quien_gana`, `mercado_proveedor`, `mercado_categorias` y `mercado_calidad`.
+      - La vista `mercado_diccionario` junta lo que dicen los comentarios de cada tabla, columna y pregunta del mercado. En el laboratorio explica 36 piezas.
+    - **(6) El rubro se elige al preguntar** (migración 173): un índice de las categorías de ChileCompra y `oportunidades_config.categorias`.
+      - Con categorías, «Se viene», los competidores, el estudio de mercado y el año anterior toman las licitaciones que tienen alguna de ellas.
+      - Sin categorías, vale la marca «del rubro» de siempre. Valle del Sol no las tiene, así que no cambia.
+      - Medido en el laboratorio: de las licitaciones marcadas del rubro, 14.903 son de «Servicios para la comercialización y distribución». Ahí caen las tarjetas de alimentación y la distribución de alimentos, y por eso AMIPASS, EDENRED y PLUXEE encabezan quién gana en la zona.
+      - Las categorías de Valle del Sol las elige Felipe.
 
 ## 4. Reglas del módulo (no se negocian)
 

@@ -26,7 +26,7 @@ export default function BandejaVacia({
 }: {
   readonly caso: Caso;
   readonly vista: Vista;
-  /** «02:07» (`proximaPasada`). */
+  /** «08:07» (`proximaPasada`). */
   readonly proxima: string;
   /** Las rojas del reciclaje escondidas por el semáforo (decisión 72: la
    *  basura no se ofrece); 0 si ya están a la vista. */

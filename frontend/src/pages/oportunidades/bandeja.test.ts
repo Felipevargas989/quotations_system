@@ -71,19 +71,19 @@ describe("la próxima pasada del radar", () => {
 
   it("en hora de Chile, la que sigue", () => {
     // Octubre: Chile está en UTC-3.
-    expect(proximaPasada(new Date("2026-10-18T11:00:00Z"))).toBe("09:07"); // 08:00
+    expect(proximaPasada(new Date("2026-10-18T11:00:00Z"))).toBe("08:07"); // 08:00
     expect(proximaPasada(new Date("2026-10-18T15:30:00Z"))).toBe("15:07"); // 12:30
-    expect(proximaPasada(new Date("2026-10-18T21:30:00Z"))).toBe("23:07"); // 18:30
+    expect(proximaPasada(new Date("2026-10-18T11:07:00Z"))).toBe("12:07"); // 08:07, ya partió
   });
 
-  it("de noche: después de las 23:07 viene la de las 02:07", () => {
-    expect(proximaPasada(new Date("2026-10-18T02:55:00Z"))).toBe("02:07"); // 23:55
-    expect(proximaPasada(new Date("2026-10-18T05:06:00Z"))).toBe("02:07"); // 02:06
-    expect(proximaPasada(new Date("2026-10-18T05:07:00Z"))).toBe("05:07"); // 02:07, ya partió
+  it("de noche no pasa (decisión 109): después de las 18:07 viene la de las 08:07", () => {
+    expect(proximaPasada(new Date("2026-10-18T21:30:00Z"))).toBe("08:07"); // 18:30
+    expect(proximaPasada(new Date("2026-10-18T02:55:00Z"))).toBe("08:07"); // 23:55
+    expect(proximaPasada(new Date("2026-10-18T05:06:00Z"))).toBe("08:07"); // 02:06
   });
 
   it("en invierno también (Chile en UTC-4)", () => {
-    expect(proximaPasada(new Date("2026-07-01T13:00:00Z"))).toBe("09:07"); // 09:00
+    expect(proximaPasada(new Date("2026-07-01T13:00:00Z"))).toBe("12:07"); // 09:00
   });
 });
 

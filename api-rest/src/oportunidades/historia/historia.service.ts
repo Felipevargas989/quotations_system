@@ -35,6 +35,11 @@ import { HistoriaRepository, unidadDelCodigo } from './historia.repository';
 //    se pide su detalle.
 // Las bases y anexos NO se bajan: Mercado Público protege la lista de
 // adjuntos con reCAPTCHA (medido el 17-10) y esta casa no lo esquiva.
+// APAGADA LA HISTORIA desde la decisión 109 (29-10): la historia de 3 años
+// sale de los archivos de ChileCompra (`DatosAbiertosService`), y el radar ya
+// no llama a `cargarHistoria` ni pasa de noche. `mp_historia` y lo que bajó
+// quedan como estaban; quién ganó lo de la zona (`revisarAdjudicaciones`)
+// sigue igual.
 
 const MINUTO = 60 * 1000;
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { ProcesoPasado } from '../historia/anterior';
 import type { ProcesoDeLaZona } from '../historia/mercado';
 import type { ProcesoParaLeer } from '../lectura/lectura.service';
 import { codigosDeRegiones } from '../mercado-publico/mapeo';
@@ -23,6 +24,12 @@ import {
 // Se pagina por código (después del último), no con «range»: saltarse
 // miles de filas para llegar a la página siguiente pasaba el tope de
 // tiempo de la base (medido en el laboratorio el 28-10).
+// También de aquí sale «quién ganó el año anterior» (decisión 109): la
+// historia ya no se pide a la API.
+// El rubro de la empresa (decisión 109): si su configuración trae
+// categorías de ChileCompra, son las licitaciones que tienen alguna de
+// ellas; si no, la marca «del rubro» de siempre, la de eventos y
+// alimentación.
 
 const COMPRAS = 'mercado_compras';
 const VISTA = 'mercado_licitaciones_con_ganadores';
@@ -33,11 +40,17 @@ const COLUMNAS_DE_COMPRAS =
   'codigo, nombre, organismo, organismo_codigo, unidad, comuna, region, fecha_publicacion, fecha_cierre, monto_estimado:monto, oferentes, rubros, ganadores';
 /** Como la historia del radar: algo más de 3 años. */
 const MESES_DE_LA_ZONA = 38;
+/** «El año anterior» se busca entre 6 y 30 meses atrás (`anteriorDe`). */
+const MESES_DEL_ANTERIOR = 31;
 /** PostgREST no entrega más de mil filas por pedido. */
 const PAGINA = 1000;
 /** De a cuántos códigos se pregunta (la URL tiene tope). */
 const LOTE = 100;
 const VIGENCIA_MS = 10 * 60_000;
+
+/** Las categorías de ChileCompra del rubro de la empresa; vacío o null =
+ *  la marca «del rubro» de siempre. */
+export type CategoriasDelRubro = readonly string[] | null | undefined;
 
 @Injectable()
 export class MercadoDeLaZonaRepository {
@@ -46,16 +59,35 @@ export class MercadoDeLaZonaRepository {
     { en: number; procesos: ProcesoDeLaZona[] }
   >();
 
+  private capa: { en: number; hay: boolean } | null = null;
+
   constructor(private readonly supabase: SupabaseService) {}
 
   private get db() {
     return this.supabase.client;
   }
 
-  async procesosDeLaZona(regiones: string[]): Promise<ProcesoDeLaZona[]> {
+  /** ¿Ya tiene algo la capa resumida? Se mira una vez cada 10 minutos. */
+  private async hayCapa(): Promise<boolean> {
+    if (this.capa && Date.now() - this.capa.en < VIGENCIA_MS) {
+      return this.capa.hay;
+    }
+    const { data, error } = await this.db
+      .from(COMPRAS)
+      .select('codigo')
+      .limit(1);
+    if (error) throw error;
+    this.capa = { en: Date.now(), hay: (data ?? []).length > 0 };
+    return this.capa.hay;
+  }
+
+  async procesosDeLaZona(
+    regiones: string[],
+    categorias?: CategoriasDelRubro,
+  ): Promise<ProcesoDeLaZona[]> {
     const codigos = codigosDeRegiones(regiones);
     if (codigos.length === 0) return [];
-    const clave = codigos.join('|');
+    const clave = `${codigos.join('|')}#${(categorias ?? []).join('|')}`;
     const guardada = this.guardadas.get(clave);
     if (guardada && Date.now() - guardada.en < VIGENCIA_MS) {
       return guardada.procesos;
@@ -65,7 +97,7 @@ export class MercadoDeLaZonaRepository {
     const dia = desde.toISOString().slice(0, 10);
     const filas: FilaDeLaZona[] = [];
     for (const region of codigos) {
-      filas.push(...(await this.deLaCapaResumida(region, dia)));
+      filas.push(...(await this.deLaCapaResumida(region, dia, categorias)));
     }
     if (filas.length === 0) {
       filas.push(...(await this.deLaVista(regionesDelMercado(regiones), dia)));
@@ -79,14 +111,11 @@ export class MercadoDeLaZonaRepository {
   private async deLaCapaResumida(
     region: number,
     desde: string,
+    categorias?: CategoriasDelRubro,
   ): Promise<FilaDeLaZona[]> {
     const filas: FilaDeLaZona[] = [];
     for (let ultimo = ''; ; ) {
-      let consulta = this.db
-        .from(COMPRAS)
-        .select(COLUMNAS_DE_COMPRAS)
-        .eq('tipo', 'licitacion')
-        .eq('del_rubro', true)
+      let consulta = this.licitacionesDelRubro(categorias)
         .eq('region_codigo', region)
         .gte('mes', desde)
         .order('codigo', { ascending: true })
@@ -99,6 +128,51 @@ export class MercadoDeLaZonaRepository {
       if (pagina.length < PAGINA) return filas;
       ultimo = pagina[pagina.length - 1].codigo;
     }
+  }
+
+  /** Las licitaciones del rubro de la empresa en la capa resumida: las de
+   *  sus categorías, si las tiene; si no, la marca «del rubro» de siempre. */
+  private licitacionesDelRubro(categorias?: CategoriasDelRubro) {
+    const licitaciones = this.db
+      .from(COMPRAS)
+      .select(COLUMNAS_DE_COMPRAS)
+      .eq('tipo', 'licitacion');
+    return categorias?.length
+      ? licitaciones.overlaps('rubros', [...categorias])
+      : licitaciones.eq('del_rubro', true);
+  }
+
+  /** «Quién ganó el año anterior» (decisión 109): lo adjudicado de estos
+   *  compradores en la capa resumida, solo licitaciones del rubro de la
+   *  empresa y de los últimos 31 meses. null = la capa todavía está vacía:
+   *  el que llama usa la historia del radar, como antes. */
+  async historialDeOrganismos(
+    organismos: string[],
+    categorias?: CategoriasDelRubro,
+  ): Promise<ProcesoPasado[] | null> {
+    if (!(await this.hayCapa())) return null;
+    const unicos = [...new Set(organismos.filter(Boolean))];
+    const desde = new Date();
+    desde.setUTCMonth(desde.getUTCMonth() - MESES_DEL_ANTERIOR);
+    const pasados: ProcesoPasado[] = [];
+    for (let i = 0; i < unicos.length; i += LOTE) {
+      for (let ultimo = ''; ; ) {
+        let consulta = this.licitacionesDelRubro(categorias)
+          .in('organismo_codigo', unicos.slice(i, i + LOTE))
+          .not('ganadores', 'is', null)
+          .gte('fecha_publicacion', desde.toISOString().slice(0, 10))
+          .order('codigo', { ascending: true })
+          .limit(PAGINA);
+        if (ultimo) consulta = consulta.gt('codigo', ultimo);
+        const { data, error } = await consulta;
+        if (error) throw error;
+        const pagina = (data ?? []) as unknown as FilaDeLaZona[];
+        pasados.push(...pagina.map(procesoDeLaZona));
+        if (pagina.length < PAGINA) break;
+        ultimo = pagina[pagina.length - 1].codigo;
+      }
+    }
+    return pasados;
   }
 
   /** Lo mismo desde la vista de la 169, mientras la capa resumida esté

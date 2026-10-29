@@ -70,6 +70,7 @@ export function armar(base = new Map<string, ProcesoConocido>()) {
   const releer = new Set<string>();
   const mp = {
     configurado: true,
+    empezarPasada: jest.fn(),
     licitacionesActivas: jest.fn().mockResolvedValue([]),
     detalleLicitacion: jest.fn((codigo: string) =>
       Promise.resolve(detalle(codigo)),

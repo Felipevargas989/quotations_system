@@ -55,6 +55,22 @@ export const ticketsDelMotor = (): string[] => {
   return tickets;
 };
 
+/** El ticket de cada turno (decisión 109, 29-10). Felipe: "tenemos dos
+ *  APIs cargadas, cosa de no sobresaturar ninguna. Una puede trabajar de
+ *  mañana y otra de tarde": antes de las 14:00 de Chile, el primero
+ *  (`MP_TICKET`); desde ahí, el segundo (`MP_TICKET_2`). Con un solo ticket,
+ *  siempre ese. */
+export const turnoDelTicket = (instante: number): number => {
+  const hora = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Santiago',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).format(new Date(instante)),
+  );
+  return hora < 14 ? 0 : 1;
+};
+
 const escaparRegex = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Lo que dice algo de un ticket que Mercado Público no reconoce. */
@@ -150,6 +166,13 @@ export class MercadoPublicoClient {
   /** El ticket con que se pide ahora (decisión 55): uno sin cupo pasa al
    *  siguiente y ahí se queda; después del último vuelve al primero. */
   private turno = 0;
+
+  /** Cada pasada del radar parte con el ticket de su turno (decisión 109):
+   *  el primero de mañana y el segundo de tarde. Si el del turno se queda
+   *  sin cupo, sigue con el otro, como siempre. */
+  empezarPasada(instante = Date.now()): void {
+    this.turno = turnoDelTicket(instante);
+  }
 
   /** ¿Está el ticket? Sin él, el radar no corre (y lo dice). */
   get configurado(): boolean {
