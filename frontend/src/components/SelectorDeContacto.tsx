@@ -142,7 +142,7 @@ export default function SelectorDeContacto({
   };
 
   return (
-    <div className="w-64 max-w-full">
+    <div className="w-80 max-w-full">
       <SelectWithSearch
         options={opciones}
         value={calza?.name ?? actual ?? ""}
