@@ -31,6 +31,7 @@ import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 import { textoDelResultadoPublico } from "./resultadoDeCompraAgil";
 import { avisoAlGuardar } from "./servicioDeLaGanada";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
+import { preguntarPorQue } from "./porQueDescartas";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
 // qué piden, las bases y anexos que sube la empresa, las fechas, el
@@ -166,9 +167,17 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
       responsable_id?: string | null;
       notas?: string | null;
     }) => actualizarOportunidad(ficha.id, cambios),
-    onSuccess: (respuesta) => {
-      // Decisión 104: ganada, su cotización vinculada queda aceptada.
-      toast.success(avisoAlGuardar(respuesta));
+    onSuccess: (respuesta, cambios) => {
+      // Decisión 113: al descartar, el porqué de un clic, opcional.
+      if (cambios.estado === "descartada") {
+        preguntarPorQue(
+          ficha.id,
+          "Descartada. Queda en «Descartadas»: no se borra.",
+        );
+      } else {
+        // Decisión 104: ganada, su cotización vinculada queda aceptada.
+        toast.success(avisoAlGuardar(respuesta));
+      }
       void qc.invalidateQueries({ queryKey: ["oportunidades"] });
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),

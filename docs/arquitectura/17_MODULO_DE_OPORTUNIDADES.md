@@ -763,6 +763,16 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **La base queda como está:** la columna `oportunidades_config.categorias`, vacía; el índice de categorías de la 173, y la función y el índice de la 174.
       - Felipe: *"no borraría la base, porque creo que también puede ser un indicador de transparencia todas las licitaciones que no estén correctamente categorizadas. Y ver si identificamos algún patrón"*.
     - **Para el ruido de las tarjetas de alimentación** queda propuesto quitarlas por su nombre, no por categoría: son unos 30 convenios en la zona.
+113. **El ciclo de aprendizaje del semáforo** (29-10, sprint 1 en el laboratorio). Felipe: *"pongamos un ciclo de aprendizaje en función de las licitaciones que voy descartando. Identifiquemos patrones para ir mejorando los semáforos... sigamos mostrando lo mismo, pero sí me gustaría afinar más los colores, que verde sea realmente lo que sea verde, amarillo, y que rojo sea lo de baja probabilidad... vayamos dejando registro de todas las licitaciones que he ido descartando, de todas las que me interesa y saco las bases y de todas las que he postulado para identificar patrones y poder afinar el semáforo"*. Con el plan a la vista: *"me parece perfecto. Pongamos esto"*.
+    - **Lo que había el 29-10** en producción, desde el 17-10. De las verdes, Felipe descartó 49, trabajó 7 y dejó 11 sin tocar. De las amarillas descartó 106, trabajó 1 y dejó 44. De las rojas descartó 56 y dejó 7.070. De cada 8 verdes que tocó, descartó 7: el verde sale muy generoso. 39 de las descartadas las estudió con bases antes de soltarlas.
+    - **El plan**, en cuatro pasos: (1) el registro de cada decisión, (2) el porqué al descartar, (3) lecciones semanales que la IA propone y Felipe aprueba antes de que cambien el semáforo, y (4) medir cada semana cuántas verdes se descartan. Nada se deja de mostrar: solo se afinan los colores. Verde, alta probabilidad de postular; amarillo, media; rojo, baja.
+    - **Sprint 1, pasos 1 y 2** (migración 175). `oportunidades_decisiones` anota cada decisión con el color y la razón de la IA de ese momento:
+      - Cada cambio de estado: descartar, «Me interesa», seguir, postular, ganar, perder o recuperar, venga de la pantalla o del motor.
+      - «estudiada»: la primera vez que se suben o se traen las bases o se pide su análisis.
+      - Lo anotan triggers de la base (`anotar_cambio_de_estado`, `anotar_estudio_por_bases`, `anotar_estudio_por_analisis`), así ningún camino se queda afuera.
+      - Lo que ya había entró como `origen = historia`, con la fecha de la última actualización de cada oportunidad.
+    - **El porqué** es opcional y de un clic: al descartar, desde la bandeja, el panel, la ficha o el desistir de las exigencias, el aviso de siempre trae «Muy chica», «Muy lejos», «No es lo mío», «No alcanzo» y «Otro» por 12 segundos (`PATCH /oportunidades/:id/motivo`). Descartar sigue siendo un clic. La tarjeta de aviso de la casa aprendió a llevar botones (`acciones`).
+    - **Viene después:** las lecciones semanales y la medición, pasos 3 y 4.
 
 ## 4. Reglas del módulo (no se negocian)
 
