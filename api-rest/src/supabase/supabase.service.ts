@@ -13,9 +13,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  */
 const TOPE_POR_DEFECTO_MS = 10_000;
 
+/** La excepción, para lo que la base hace de una sola vez y de noche, como
+ *  resumir un mes del mercado (decisión 109, 29-10): un mes grande tardó
+ *  más de 10 s en el laboratorio y el motor lo cortaba. La función de la
+ *  base lleva su propio tope de 60 s; el motor espera un poco más, para que
+ *  el error, si llega, sea el de la base. */
+const TOPE_DE_LOS_TRABAJOS_LARGOS_MS = 75_000;
+
 @Injectable()
 export class SupabaseService {
   private readonly supabase: SupabaseClient;
+  private readonly largo: SupabaseClient;
 
   constructor(private readonly configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
@@ -36,10 +44,21 @@ export class SupabaseService {
     this.supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { fetch: conTope(tope) },
     });
+    this.largo = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        fetch: conTope(Math.max(tope, TOPE_DE_LOS_TRABAJOS_LARGOS_MS)),
+      },
+    });
   }
 
   get client(): SupabaseClient {
     return this.supabase;
+  }
+
+  /** Solo para un trabajo largo que la base hace de una vez y de noche:
+   *  tope de 75 s en vez de 10. Todo lo demás usa `client`. */
+  get clientParaTrabajosLargos(): SupabaseClient {
+    return this.largo;
   }
 }
 

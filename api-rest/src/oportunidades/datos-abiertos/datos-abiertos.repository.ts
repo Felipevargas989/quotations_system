@@ -128,12 +128,16 @@ export class DatosAbiertosRepository {
   }
 
   /** Rehace los resúmenes de ese mes en la base (`mercado_resumir_mes`, con
-   *  su propio tope de 60 s) y devuelve el control de calidad. */
+   *  su propio tope de 60 s) y devuelve el control de calidad. Un mes grande
+   *  pasa de los 10 s del cliente de siempre: va por el de trabajos largos. */
   async resumirMes(fuente: Fuente, mes: string): Promise<CalidadDelMes> {
-    const { data, error } = await this.db.rpc('mercado_resumir_mes', {
-      p_fuente: fuente,
-      p_mes: mes,
-    });
+    const { data, error } = await this.supabase.clientParaTrabajosLargos.rpc(
+      'mercado_resumir_mes',
+      {
+        p_fuente: fuente,
+        p_mes: mes,
+      },
+    );
     if (error) throw error;
     return (data ?? {}) as CalidadDelMes;
   }

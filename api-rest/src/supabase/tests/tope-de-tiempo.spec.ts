@@ -1,5 +1,6 @@
+import type { ConfigService } from '@nestjs/config';
 import { mensajeDe } from '../../logging/mensaje-de-error';
-import { conTope } from '../supabase.service';
+import { conTope, SupabaseService } from '../supabase.service';
 
 /**
  * EL TOPE DE TIEMPO HACIA LA BASE y EL MENSAJE LEGIBLE (22-09-2026,
@@ -40,6 +41,20 @@ describe('el fetch con tope', () => {
       .mockResolvedValue({ ok: true, status: 200 }) as never;
     const r = await conTope(1000)('https://base/rest/v1/x');
     expect(r.status).toBe(200);
+  });
+});
+
+describe('el cliente para trabajos largos (decisión 109)', () => {
+  it('es otro cliente: lo de siempre sigue con su tope de 10 s', () => {
+    const config = {
+      get: (clave: string) =>
+        ({
+          SUPABASE_URL: 'https://base-de-prueba.supabase.co',
+          SUPABASE_SERVICE_ROLE_KEY: 'llave-de-prueba',
+        })[clave],
+    } as unknown as ConfigService;
+    const servicio = new SupabaseService(config);
+    expect(servicio.clientParaTrabajosLargos).not.toBe(servicio.client);
   });
 });
 
