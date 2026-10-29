@@ -26,6 +26,11 @@ import {
   getQuotations,
 } from "../../services/quotations.service";
 import { recursosQueryOpts } from "../postventa/EventResourcesSection";
+import {
+  asignarPistas,
+  esVendido,
+  loVendidoPrimero,
+} from "./ordenDelCalendario";
 import { useAuth } from "../../contexts/AuthContext";
 import { SECTION_ROLES } from "../../constants/permissions";
 import {
@@ -240,29 +245,19 @@ export default function CalendarPage() {
   }, [todasLasCotizaciones, activeMonth]);
 
   // Asignación de PISTAS (filas) para que las bandas de eventos que se topan
-  // no se pisen: cada evento toma la primera pista libre en todo su rango.
-  const eventLanes = useMemo(() => {
-    const evs = quotations
-      .map((q) => ({ id: q.id, ...eventRange(q) }))
-      .sort((a, b) =>
-        a.start === b.start
-          ? b.end.localeCompare(a.end) // el más largo primero
-          : a.start.localeCompare(b.start),
-      );
-    const laneEnds: string[] = [];
-    const map = new Map<string, number>();
-    evs.forEach((e) => {
-      let lane = laneEnds.findIndex((le) => le < e.start);
-      if (lane === -1) {
-        lane = laneEnds.length;
-        laneEnds.push(e.end);
-      } else {
-        laneEnds[lane] = e.end;
-      }
-      map.set(e.id, lane);
-    });
-    return map;
-  }, [quotations]);
+  // no se pisen; lo vendido toma las de arriba (28-10-2026,
+  // ordenDelCalendario.ts).
+  const eventLanes = useMemo(
+    () =>
+      asignarPistas(
+        quotations.map((q) => ({
+          id: q.id,
+          ...eventRange(q),
+          vendido: esVendido(q.quotation_status),
+        })),
+      ),
+    [quotations],
+  );
 
   const getQuotationsForDate = (date: Date): QuotationWithClient[] => {
     // Comparación por texto yyyy-mm-dd (inmune a zonas horarias). Un evento
@@ -422,8 +417,9 @@ export default function CalendarPage() {
     navigate(`/negocio/${q.id}`);
   };
 
+  // Lo vendido arriba en el panel del día (28-10-2026).
   const eventsForSelectedDate = selectedDate
-    ? getQuotationsForDate(selectedDate)
+    ? loVendidoPrimero(getQuotationsForDate(selectedDate))
     : [];
 
   // PRECALENTADO (12-08, "se demoran los chips"): apenas llega el mes,

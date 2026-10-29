@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar), y el 28-10-2026 con lo vendido primero en el calendario (sección 6). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -26,7 +26,7 @@ Son tres cosas distintas que comparten mapa:
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| `/calendar` | `CalendarPage` (export por defecto) | `frontend/src/pages/calendar/Calendar.tsx` | Mira el mes con bandas por evento (hasta 3 por día, más "+N más"), cambia de mes y aprieta "Hoy". Filtra estados con el chip "Estados", que muestra el conteo del mes visible. Pincha un día y ve sus tarjetas. En el título ve el mes, el número de eventos y la venta sin propina según el filtro | Ruta: `SECTION_ROLES.calendar` = los cuatro roles (`PermissionGuard` en `frontend/src/App.tsx`). Menú lateral: solo recepción, operaciones y administrador. El `Sidebar` filtra con `canAccessSection`, que lee `ROLE_PERMISSIONS`, y ahí vendedor no tiene `calendar` |
+| `/calendar` | `CalendarPage` (export por defecto) | `frontend/src/pages/calendar/Calendar.tsx` | Mira el mes con bandas por evento (hasta 3 por día, más "+N más"; lo aceptado y lo realizado arriba desde el 28-10-2026), cambia de mes y aprieta "Hoy". Filtra estados con el chip "Estados", que muestra el conteo del mes visible. Pincha un día y ve sus tarjetas, con lo vendido primero. En el título ve el mes, el número de eventos y la venta sin propina según el filtro | Ruta: `SECTION_ROLES.calendar` = los cuatro roles (`PermissionGuard` en `frontend/src/App.tsx`). Menú lateral: solo recepción, operaciones y administrador. El `Sidebar` filtra con `canAccessSection`, que lee `ROLE_PERMISSIONS`, y ahí vendedor no tiene `calendar` |
 | `/calendar?date=AAAA-MM-DD&filter=all` | mismo | mismo | Llega en pestaña nueva desde el aviso "Hay más eventos programados…" del cotizador (`QuotationForm`) y del formulario de requerimientos (`RequestForm`). Abre en ese día, ya seleccionado, con todos los estados menos rechazada y anulada | Mismo. Por este enlace también entra vendedor |
 | (panel lateral del día) | `TarjetaEvento` | mismo archivo | Ve cliente, N°, personas y monto, tipo de evento y chips de categorías (sacados del detalle de la cotización). En aceptada, realizada o anulada ve además cuánto personal está asignado. Al pinchar, abre Post-Venta en pestaña nueva si el evento está en aceptada, realizada o anulada y el usuario puede editar cotizaciones. Si no, abre la ficha del negocio `/negocio/:id` en la misma pestaña | Mismo |
 | App móvil (repo aparte): `/avisos`, `/leads`, `/evento/:id`, `/evento/:id/cocina` | rutas de `eventia-movil/src/App.tsx` | fuera de este monorepo | Son los destinos de los push y la pantalla del checklist de cocina | Cualquier usuario con sesión: `MovilController` no tiene `@Roles` |
@@ -105,11 +105,11 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 4. **Cálculos en el navegador.**
    - Se descartan las cotizaciones sin `event_date`.
    - `eventRange` compara `event_date` y `event_end_date` como texto `aaaa-mm-dd`: un evento de varios días se pinta en todos sus días.
-   - `eventLanes` reparte las bandas en filas para que no se pisen.
+   - `eventLanes` reparte las bandas en filas para que no se pisen (`asignarPistas`, en `ordenDelCalendario.ts`): primero lo vendido (aceptado y realizado), después lo que sigue en juego, que aprovecha los huecos.
    - `resumenMes` cuenta los eventos que tocan el mes visible y suma `total_amount − tip_amount`.
    - `conteoPorEstado` da los números del chip.
 5. **Precalentado.** Un `useEffect` pide por detrás hasta 25 detalles (`GET /quotations/:id`, uno cada 120 ms, primero los del día seleccionado). Usa la clave `["quotation", id]`, la misma de la ficha y de Post-Venta.
-6. **Día seleccionado.** Cada `TarjetaEvento` pide su detalle (las categorías salen de `items.variable_services`). Si el evento está en aceptada, realizada o anulada, también pide `recursosQueryOpts` para contar el personal asignado.
+6. **Día seleccionado.** Las tarjetas van con lo vendido primero (`loVendidoPrimero`). Cada `TarjetaEvento` pide su detalle (las categorías salen de `items.variable_services`). Si el evento está en aceptada, realizada o anulada, también pide `recursosQueryOpts` para contar el personal asignado.
 7. **Salida.** `handleNavigateToQuotation` abre `window.open('/post-venta/:id')` o `navigate('/negocio/:id')`.
 8. **Efectos.** Ninguno en la base. El calendario se refresca cuando cualquier guardado invalida el prefijo `["quotations"]` (ver `flujos/04_ACEPTAR_COTIZACION_Y_PLAN_DE_PAGOS.md` y `flujos/08_MARCAR_EVENTO_REALIZADO.md`).
 
@@ -197,6 +197,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 
 **Calendario**
 - **Aceptada + Realizada por defecto.** "decisión de Felipe 29-07: el calendario no debe olvidar los eventos ya hechos". Evidencia: comentario de `getInitialStatuses` en `Calendar.tsx`; `flujos/08_MARCAR_EVENTO_REALIZADO.md`.
+- **Lo vendido primero** (Felipe, 28-10-2026: *"el calendario puede mostrar primero lo aceptado tanto en el resumen como en el calendario"*). Lo aceptado y lo realizado van arriba en el panel del día y toman las primeras filas de bandas, así nunca quedan en "+N más" detrás de lo que sigue en juego; dentro de cada grupo, el orden de antes. Los realizados suben con los aceptados porque en los días pasados son lo que estuvo aceptado. Con el filtro por defecto (Aceptada + Realizada) casi no se nota: se ve al marcar también los estados en juego. Evidencia: `ordenDelCalendario.ts` y su prueba.
 - **Recepción ve el calendario.** Sin él "no puede responder '¿tienen el 20 libre?'", y "no escribe nada en la base, es solo-mirar por naturaleza" (12-08). Evidencia: comentario de `ROLE_PERMISSIONS` en `frontend/src/constants/permissions.ts`.
 - **Venta sin propina.** La venta del mes se mide así ("regla de la casa 24-07"): `total_amount − tip_amount`. Evidencia: `resumenMes`.
 - **Clic con destino (12-08).** "nunca más al cotizador". Aceptada, realizada y anulada van a Post-Venta, que abre "en PESTAÑA NUEVA (pedido de Felipe 12-08)". Lo que sigue en juego va a la ficha del negocio. Recepción, que no edita, siempre llega a la ficha. Evidencia: `handleNavigateToQuotation`.
@@ -322,7 +323,7 @@ Tareas automáticas que **no** son `@Cron`:
 20. **Si cambias** la clave `["quotations","calendar"]`, **se afecta** el refresco del calendario después de guardar en otras pantallas, **porque** esas pantallas invalidan por el prefijo `["quotations"]`.
 21. **Si alguien sube** un archivo muy grande, **se afecta** la memoria del motor, **porque** `FileInterceptor('file')` no tiene `limits`: el archivo entero llega a memoria (`file.buffer`) antes de que `StorageService.upload` revise los 5 MB.
 22. **Si un vendedor** llega al calendario por el enlace del cotizador y pincha un evento aceptado, **ve** "Permisos Insuficientes" en la pestaña nueva, **porque** `puedeEditar` usa `SECTION_ROLES.quotations_edit` (que incluye vendedor), mientras la ruta `/post-venta/:id` exige `SECTION_ROLES.payments` (operaciones y administrador). Evidencia: `handleNavigateToQuotation`; `frontend/src/App.tsx`; `PermissionGuard.tsx`.
-23. **Si tocas** `Calendar.tsx`, **te detiene** el portero, **porque** el archivo tiene 897 líneas (cuenta para el techo de 27 archivos sobre 800) y su filtro de estados es un panel flotante hecho a mano, contado en el techo 13. Migrarlo a `MultiSelect` espera la tanda B3 de `09_PLAN_DE_HOMOLOGACION.md`.
+23. **Si tocas** `Calendar.tsx`, **te detiene** el portero, **porque** el archivo tiene 928 líneas (cuenta para el techo de 27 archivos sobre 800) y su filtro de estados es un panel flotante hecho a mano, contado en el techo 13. Migrarlo a `MultiSelect` espera la tanda B3 de `09_PLAN_DE_HOMOLOGACION.md`.
 24. **Si quitas** `logSafe` de un log o el `redact` de pino, **vuelven** a los registros de Railway contraseñas, datos de clientes o el token de sesión completo, **porque** esas dos capas son lo único que los tapa, y los registros "viven 30+ días".
 
 ## 9. Pruebas que lo protegen
@@ -342,7 +343,7 @@ Tareas automáticas que **no** son `@Cron`:
 - **Infraestructura.** `HealthController`, `logSafe`, el orden de los guardias, CORS y los techos de frecuencia.
 - **Storage a medias.** `StorageService.upload` solo se prueba con `payment-receipt`; los otros ocho tipos y el camino exitoso de `remove` no tienen prueba.
 - **Relojes.** Ninguna prueba cubre los horarios ni su efecto (el seguimiento ya está anotado en el mapa 02).
-- **Calendario.** `Calendar.tsx` no tiene pruebas: filas de bandas, eventos de varios días, memoria del filtro, resumen de venta y destino del clic.
+- **Calendario.** `ordenDelCalendario.test.ts` (28-10-2026) cubre las filas de bandas y el orden del panel del día: lo vendido primero, eventos de varios días y los huecos. `Calendar.tsx` sigue sin pruebas para la memoria del filtro, el resumen de venta y el destino del clic.
 
 ## 10. Deuda y rarezas conocidas
 
@@ -352,7 +353,7 @@ Tareas automáticas que **no** son `@Cron`:
   - `CalendarService` tiene comentados `blockedDays` y todo el CRUD, con el TODO "change name to model bcs logic has changed".
   - `GET /calendar/events` no tiene quién lo llame.
   - En el frontend, `calendar.service.ts`, `types/calendar.types.ts` y `API_ROUTES.CALENDAR_EVENTS` solo se usan entre sí.
-- **Archivo grande.** `Calendar.tsx` tiene 897 líneas: página, `TarjetaEvento` y unas 170 líneas de CSS en un bloque `<style>`, todo junto.
+- **Archivo grande.** `Calendar.tsx` tiene 928 líneas: página, `TarjetaEvento` y unas 170 líneas de CSS en un bloque `<style>`, todo junto.
 - **Filtro a mano.** El filtro de estados es un multiselect hecho a mano: deuda nombrada en `CLAUDE.md` y en la tanda C2 del plan de homologación. `getStatusColor` y `getStatusLabel` vuelven a buscar en `statusOptions` lo que el diccionario ya entrega.
 - **Cliente sin `?.`.** `TarjetaEvento` usa `q.clients.name`, mientras el tooltip usa `q.clients?.name`: una cotización sin cliente rompería la tarjeta.
 - **Comentario viejo.** La cabecera de `TarjetaEvento` dice "comentarios plegados", pero la tarjeta ya no muestra comentarios (commit `c0c61a5`).
@@ -446,7 +447,7 @@ Tareas automáticas que **no** son `@Cron`:
 - Migraciones: `docs/migrations/9_storage_payment_receipts_bucket.sql`, `20_furniture_inventory.sql`, `42_storage_candado.sql` (y su reversa), `44_cocina_checklist.sql` (y su reversa), `45_movil_push.sql` (y su reversa) y `60_umbral_alto_valor.sql`.
 
 **App**
-- `frontend/src/pages/calendar/Calendar.tsx`.
+- `frontend/src/pages/calendar/Calendar.tsx` y `ordenDelCalendario.ts` (lo vendido primero, 28-10-2026).
 - `frontend/src/services/calendar.service.ts` y `frontend/src/types/calendar.types.ts` (sin uso).
 - `frontend/src/services/storage.service.ts`.
 - `frontend/src/services/quotations.service.ts` (`getQuotations`, `getQuotationById`).
