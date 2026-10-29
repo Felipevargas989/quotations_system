@@ -1,6 +1,6 @@
 # Mapa: Post-Venta
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; el 20-10-2026, la pregunta del reembolso al anular (§5.4) y la barra roja con los reembolsos por partes (pestaña Pagos); el 28-10-2026, los eventos sin cuotas en la lista y «Editar plan de pagos» en la pestaña Pagos (doc 14 §Editar el plan); esa misma tarde, el tablero que solo marca los compromisos de los aceptados (§6, La lista y la ficha); el 29-10-2026, «Cambiar» el contacto en la ficha (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; el 20-10-2026, la pregunta del reembolso al anular (§5.4) y la barra roja con los reembolsos por partes (pestaña Pagos); el 28-10-2026, los eventos sin cuotas en la lista y «Editar plan de pagos» en la pestaña Pagos (doc 14 §Editar el plan); esa misma tarde, el tablero que solo marca los compromisos de los aceptados (§6, La lista y la ficha); el 29-10-2026, el contacto como lista plegable en la ficha (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -52,7 +52,7 @@ Formas de llegar a Post-Venta:
 | `POST /storage/delete` | `StorageController.remove` | `StorageService.remove` | `deleteStorageFileByUrl` ← `PostVentaPage` (ficha, `DocumentosTab.onDelete`); es la única pantalla que lo llama | sin `@Roles` |
 | `POST /quotations/:id/realizado` | `QuotationsController.markEventDone` | `QuotationsService.markEventDone` | `markEventDone` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.doMarkDone`); es la única pantalla | `OPERATIONS_AND_UP` |
 | `POST /quotations/:id/volver-a-pendiente` | `QuotationsController.unmarkEventDone` | `QuotationsService.unmarkEventDone` | `unmarkEventDone` ← `PostVentaPage` (ficha `/post-venta/:id`, `EventModal.doUnmarkDone`); es la única pantalla | `ADMIN_ONLY` |
-| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` ← `PostVentaPage` (ficha: `EventModal.doCancelEvent`, `ServiciosTab.save`, `EventoCajitas.guardar`), `CambiarContacto.guardar` (solo `contact_name`, 29-10-2026), `NegocioPage` (directo en `cambiarEstado`, más `ServiciosTab` y `EventoCajitas`), y fuera de Post-Venta `QuotationsPage`, `QuotationForm` y `RequestsPage` (pieza `RequestForm`) | sin `@Roles`; el service frena a `recepcion` si no es requerimiento |
+| `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` ← `PostVentaPage` (ficha: `EventModal.doCancelEvent`, `ServiciosTab.save`, `EventoCajitas.guardar`), `SelectorDeContacto.guardar` (solo `contact_name`, 29-10-2026), `NegocioPage` (directo en `cambiarEstado`, más `ServiciosTab` y `EventoCajitas`), y fuera de Post-Venta `QuotationsPage`, `QuotationForm` y `RequestsPage` (pieza `RequestForm`) | sin `@Roles`; el service frena a `recepcion` si no es requerimiento |
 | `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` | `getQuotationById` ← `PostVentaPage` (ficha, `EventModal`, clave `["quotation", id]`), y además `NegocioPage`, `QuotationForm`, `QuotationsPage`, `Calendar`, `ClientDetailPage`, `ResumenDelDia` (Personas), `PublicSurvey` y `PaymentPlanEditor` (desde `QuotationsPage` y `NegocioPage`) | `@Public` |
 | `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | `QuotationsService.checkConflictsWithExistingQuotations` | `checkConflictsWithExistingQuotations` ← `PostVentaPage` (ficha) y `NegocioPage`, las dos por `EventoCajitas.revisarChoques`; fuera de Post-Venta, `QuotationForm` y `RequestsPage` (`RequestForm`) por el hook `useDateAvailability` | sin `@Roles` |
 
@@ -186,10 +186,10 @@ Formas de llegar a Post-Venta:
 4. Fecha: `EventoCajitas.revisarChoques` consulta `GET /quotations/check-conflicts` con `exclude_id` igual al propio evento (avisa, no bloquea). Luego `guardar` → `PATCH /quotations/:id` con `event_date` y `event_end_date`, y el toast avisa que "las cuotas del plan de pagos y los servicios de temporada no se mueven solos".
 
 ### 5.7 Cambiar el contacto del evento
-1. En la cabecera de la ficha, junto al contacto, `CambiarContacto` (`pages/postventa/CambiarContacto.tsx`) muestra «Cambiar» a administrador y operaciones (`puedeCambiarContacto` en `EventModal`), salvo en un realizado o un anulado. Necesita el `client_id` de la cotización completa (`GET /quotations/:id`, la `quote` de la ficha).
-2. Al abrirlo pide `getClientContacts(client_id)` → `GET /client-contacts?clientId=` y lista las personas con su correo («sin correo» si no tiene, porque la encuesta va a esa persona) y la actual marcada.
-3. «+ Nuevo contacto» crea la persona en la ficha del cliente (`createClientContact` → `POST /client-contacts`, con el portero de teléfono y correo de `utils/phone`) y la deja elegida. En Particulares con su persona no se ofrece (mapa 09, regla 10).
-4. «Guardar» manda `updateQuotation({ contact_name })` → `PATCH /quotations/:id`. El parche no toca plata, así que `QuotationsService.update` no mueve el plan de pagos; `resolveContactId` vincula el `client_contact_id` por nombre. Un realizado lo rechaza el motor igual (`EVENTO_REALIZADO_CONGELADO`). Después, `refreshAfterSave` refresca la lista y la cabecera muestra el teléfono y el correo de la persona nueva. Si no cambió nada, no guarda.
+1. En la cabecera de la ficha, el contacto es la lista plegable `SelectorDeContacto` (`components/SelectorDeContacto.tsx`, la misma de la ficha de la cotización, mapa 02). Quién la ve como lista lo decide `utils/puedeCambiarContacto.ts`: en una aceptada, administrador y operaciones; un realizado o un anulado, nadie (es el nombre a secas). Necesita el `client_id` y el estado de la cotización completa (`GET /quotations/:id`, la `quote` de la ficha).
+2. Pide `getClientContacts(client_id)` → `GET /client-contacts?clientId=` y arma la lista sobre `SelectWithSearch` (kit de la casa), con el correo de cada persona a la derecha o la etiqueta roja «sin correo» (la encuesta va a esa persona).
+3. Al elegir, queda guardado: `updateQuotation({ contact_name })` → `PATCH /quotations/:id`. El parche no toca plata, así que `QuotationsService.update` no mueve el plan de pagos; `resolveContactId` vincula el `client_contact_id` por nombre. Un realizado lo rechaza el motor igual (`EVENTO_REALIZADO_CONGELADO`). Elegir al mismo no guarda nada. Después, `refreshAfterSave` refresca la lista y la cabecera.
+4. La última opción, «+ Nuevo contacto», abre un `Modal` corto (nombre, correo y teléfono con el portero de `utils/phone`): crea la persona en la ficha del cliente (`createClientContact` → `POST /client-contacts`) y la deja de contacto. En Particulares con su persona no se ofrece (mapa 09, regla 10).
 
 ## 6. Reglas de negocio acordadas
 
@@ -238,7 +238,7 @@ Formas de llegar a Post-Venta:
 - **Fechas de evento y de cuota en UTC** (12-08: la #423 decía 13-17 en la lista y 14-18 en la ficha) (`PostVentaPage.fmtDate`).
 - **La ficha es página propia, no modal** (03-08): volver conserva los filtros, el botón atrás funciona y el enlace se puede compartir.
 - **Seguimiento va primero** (07-08: *"si algo se olvida uno va a seguimiento y está todo"*). Solo alarma un compromiso de hoy o atrasado; uno futuro no. Desde el 28-10-2026 es opcional de verdad (Felipe: *"es solamente cuando ya un evento necesita alguna revisión o algún seguimiento"*): al aceptar se cierran los compromisos de la venta, y vale solo el de la nota más reciente con fecha, así que un «Listo» no destapa el anterior (mapa 02, §6). Desde esa misma tarde el tablero solo marca los aceptados: una fecha anotada en un realizado o en un anulado se ve al abrir su Seguimiento, pero ya no marca la fila (Felipe: *"de las anuladas o las ya realizadas, traerlas solamente si entramos particularmente a ese seguimiento"*). Un realizado con cuotas vencidas sigue apareciendo en el filtro «Vencidos».
-- **El contacto se cambia desde la ficha, sin el cotizador** (Felipe, 29-10-2026: *"¿puedo en post venta en alguna parte configurar a quién tengo como contacto de una cotización?"*). Lo cambian administrador y operaciones, los mismos que editan una aceptada; un realizado sigue congelado (`CambiarContacto`, §5.7).
+- **El contacto se cambia desde la ficha, sin el cotizador** (Felipe, 29-10-2026: *"¿puedo en post venta en alguna parte configurar a quién tengo como contacto de una cotización?"*). Felipe pidió después que fuera una lista plegable y que estuviera sobre todo en la ficha de la cotización (*"generalmente se cambian más a nivel de cotizaciones que a nivel de postventa"*): es la misma pieza en las dos. En una aceptada lo cambian administrador y operaciones, los mismos que la editan en el cotizador; un realizado sigue congelado (`SelectorDeContacto`, §5.7).
 - **Cambiar la fecha avisa choques pero no bloquea** ("los dobles eventos deliberados existen en el rubro"), no choca consigo misma (21-08) y no mueve cuotas ni servicios de temporada (`EventoCajitas`).
 
 ### Gestión
@@ -306,7 +306,7 @@ Formas de llegar a Post-Venta:
 | `api-rest/src/quotations/tests/unit/quotations.service.spec.ts` | En `update`: candado de recepción y cascada de una aceptada cuando el total queda igual, cuando baja sin cuotas (reembolso), cuando sube sin cuotas (cuota nueva) y cuando sube con cuotas (agranda la última). Además `checkConflictsWithExistingQuotations` con `exclude_id` |
 | `api-rest/src/quotations/tests/unit/money.spec.ts` | La fórmula de `money.ts` que `ServiciosTab` usa a través de `@dinero` |
 | `api-rest/src/payments/tests/payments.service.spec.ts` | El control del plan del caso 501: rechaza cuotas que no calzan con el total actual |
-| `frontend/src/pages/postventa/CambiarContacto.test.tsx` | «Cambiar» contacto: lista las personas con la actual y «sin correo», guarda solo `contact_name`, sin cambio no guarda, el error del motor no cierra y una persona nueva queda elegida y en Particulares no se ofrece «Nuevo contacto» |
+| `frontend/src/components/SelectorDeContacto.test.tsx` | La lista plegable del contacto: quién la puede usar (ventas al vender, aceptada solo administrador y operaciones, realizado y anulado nadie), sin permiso es el nombre a secas, al elegir guarda solo `contact_name`, elegir al mismo no guarda, «+ Nuevo contacto» crea y deja de contacto, y en Particulares no se ofrece |
 | `frontend/src/utils/quotationMoney.test.ts`, `costoDeRecursos.test.ts`, `dates.test.ts`, `estadoCotizacion.test.ts` | Venta sin propina, costo de recursos (Gestión y Servicios), fechas UTC y "Anulada" como palabra oficial |
 
 **Lo importante que NO está cubierto** (la búsqueda en las pruebas no encontró nada):
@@ -401,7 +401,7 @@ Formas de llegar a Post-Venta:
 - `frontend/src/App.tsx`: rutas `post-venta` y `post-venta/:id`
 - `frontend/src/pages/postventa/PostVentaPage.tsx`: lista, `EventModal`, Pagos, `DocumentosTab`, `DocViewerPanel`
 - `frontend/src/pages/postventa/ServiciosTab.tsx`
-- `frontend/src/pages/postventa/CambiarContacto.tsx`: «Cambiar» el contacto en la cabecera de la ficha (§5.7)
+- `frontend/src/components/SelectorDeContacto.tsx` y `frontend/src/utils/puedeCambiarContacto.ts`: el contacto como lista plegable en la cabecera de la ficha (§5.7; también en la ficha de la cotización, mapa 02)
 - `frontend/src/pages/postventa/GestionTab.tsx`, `GrillaPersonal.tsx`, `EventResourcesSection.tsx`
 - `frontend/src/pages/postventa/CocinaTab.tsx`, `FichaCocinaSection.tsx`
 - `frontend/src/utils/eventoCongelado.ts`

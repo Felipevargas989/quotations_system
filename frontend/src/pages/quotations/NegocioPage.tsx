@@ -47,6 +47,7 @@ import { esEventoCongelado } from "../../utils/eventoCongelado";
 import { normalizeText } from "../../utils/searchMatch";
 import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
 import { SECTION_ROLES } from "../../constants/permissions";
+import SelectorDeContacto from "../../components/SelectorDeContacto";
 
 // Mandante con su teléfono/correo (misma regla que el tablero).
 const contactoDe = (q: QuotationWithClient) => {
@@ -393,7 +394,21 @@ export default function NegocioPage() {
                 cada dato en su línea y el ícono como etiqueta, igual que
                 en la ficha del cliente y en Post-Venta. */}
             <div className="mt-1 text-sm text-gray-500">
-              <p>{contacto.name || "—"}</p>
+              {fila ? (
+                <SelectorDeContacto
+                  quotationId={fila.id}
+                  clientId={fila.client_id}
+                  clientType={
+                    (fila.clients as { client_type?: string } | undefined)
+                      ?.client_type
+                  }
+                  estado={fila.quotation_status}
+                  actual={contacto.name}
+                  onCambiado={refrescarEstado}
+                />
+              ) : (
+                <p>—</p>
+              )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                 {contacto.phone && (
                   <button
