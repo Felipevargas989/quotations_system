@@ -3,7 +3,6 @@ import { regionesDelMercado } from '../datos-abiertos/mercado-de-la-zona';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
-  anioEnChile,
   TODO_CHILE,
   variantesDelRut,
   type TableroDelRadar,
@@ -12,7 +11,8 @@ import { RadarMunicipalRepository } from './radar-municipal.repository';
 
 // El radar municipal (decisión 108): de partida, las regiones de la empresa
 // (las de Configuración, las mismas de «Se viene»); también una región o
-// todo Chile. Los RUT de la empresa salen de «Mi empresa».
+// todo Chile. Los RUT de la empresa salen de «Mi empresa». Sin año, la base
+// elige el último completo.
 @Injectable()
 export class RadarMunicipalService {
   constructor(
@@ -37,7 +37,7 @@ export class RadarMunicipalService {
           ? regionesDelMercado([pedido.region])
           : zona;
     const tablero = await this.repo.tablero(
-      pedido.anio ?? anioEnChile(new Date()),
+      pedido.anio ?? null,
       regiones,
       variantesDelRut(oferente?.rut),
     );

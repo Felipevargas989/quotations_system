@@ -21,14 +21,5 @@ export const variantesDelRut = (rut: string | null | undefined): string[] => {
   return [...new Set([`${conPuntos}-${dv}`, `${cuerpo}-${dv}`])];
 };
 
-/** El año en curso, en hora de Chile. */
-export const anioEnChile = (hoy: Date): number =>
-  Number(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Santiago',
-      year: 'numeric',
-    }).format(hoy),
-  );
-
 /** «chile» = todo el país; sin región = las de la empresa. */
 export const TODO_CHILE = 'chile';

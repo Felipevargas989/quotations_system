@@ -13,8 +13,8 @@ import { RadarMunicipalService } from './radar-municipal.service';
 export class RadarMunicipalController {
   constructor(private readonly radar: RadarMunicipalService) {}
 
-  /** Todo lo de la pestaña. `anio`: por omisión, el en curso. `region`:
-   *  por omisión, las de la empresa; «chile» = todo el país. */
+  /** Todo lo de la pestaña. `anio`: por omisión, el último completo.
+   *  `region`: por omisión, las de la empresa; «chile» = todo el país. */
   @Get()
   tablero(
     @CurrentUser() user: User,

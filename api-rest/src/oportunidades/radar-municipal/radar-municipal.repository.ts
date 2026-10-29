@@ -10,8 +10,9 @@ import type { TableroDelRadar } from './radar-municipal';
 export class RadarMunicipalRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  /** `anio` nulo: la base elige el último año completo. */
   async tablero(
-    anio: number,
+    anio: number | null,
     regiones: string[],
     ruts: string[],
   ): Promise<TableroDelRadar> {

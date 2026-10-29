@@ -711,7 +711,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Las compras ágiles de los municipios**, de cualquier rubro, en `mercado_compras_agiles` con `municipal` y `del_rubro`. Guardan cuántas cotizaciones tuvieron y la elegida, pero no cada cotización: esas siguen solo para el rubro.
     - **La población de las 346 comunas**, del Censo 2024 del INE (`mercado_poblacion`, 18.480.432 personas, de la capa pública `COMUNA_DPA_INDICADORES`). Sirve para el gasto por habitante, como el CIC N°22 de Contraloría sobre las celebraciones.
     - **La UTM de cada mes**, del SII (`mercado_utm`), para los topes legales: compra ágil hasta 100 UTM, concejo desde 500 y publicidad del trato directo desde 1.000.
-    - **La pestaña «Radar municipal»** en Oportunidades, con las vistas que eligió Felipe y un filtro de región (de partida, las de la empresa; también una sola o todo Chile) y de año:
+    - **La pestaña «Radar municipal»** en Oportunidades, con las vistas que eligió Felipe y un filtro de región (de partida, las de la empresa; también una sola o todo Chile) y de año (de partida, el último completo; solo se ofrecen los años con 6 meses o más, porque los 3 años hacia atrás empiezan en noviembre de 2023; uno incompleto dice qué meses trae):
         - **Cuánto se gasta:** lo que compró cada municipio en el rubro, por habitante, todo lo que compró y su parte en trato directo; arriba, el promedio por municipio y por habitante de todo Chile.
         - **Quién gana:** a quién le compraron el rubro, por monto de sus órdenes, con sus órdenes y sus municipios.
         - **Cuándo compran:** las órdenes del rubro mes a mes.
