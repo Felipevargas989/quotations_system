@@ -745,7 +745,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **(5) Preguntas con nombre y un diccionario** (migración 173).
       - Preguntas: `mercado_buscar_comprador`, `mercado_gasto_de`, `mercado_quien_gana`, `mercado_proveedor`, `mercado_categorias` y `mercado_calidad`.
       - La vista `mercado_diccionario` junta lo que dicen los comentarios de cada tabla, columna y pregunta del mercado. En el laboratorio explica 36 piezas.
-    - **(6) El rubro se elige al preguntar** (migración 173): un índice de las categorías de ChileCompra y `oportunidades_config.categorias`.
+    - **(6) El rubro se elige al preguntar** (migración 173): un índice de las categorías de ChileCompra y `oportunidades_config.categorias`. **La 112 lo sacó el 29-10:** el rubro es siempre «la marca»; la columna y el índice quedan en la base.
       - Con categorías, «Se viene», los competidores, el estudio de mercado y el año anterior toman las licitaciones que tienen alguna de ellas.
       - Sin categorías, vale la marca «del rubro» de siempre. Valle del Sol no las tiene, así que no cambia.
       - Medido en el laboratorio: de las licitaciones marcadas del rubro, 14.903 son de «Servicios para la comercialización y distribución». **Corregido el 29-10 con lo medido en producción (decisión 111):** ahí caen los Días del Funcionario y del Profesor y las productoras de eventos, no las tarjetas de alimentación. Las de AMIPASS, EDENRED y Pluxee de Ñuble y Biobío están en «Ayuda y asistencia humanitaria» (22 convenios), «Servicio doméstico y de cuidados» (2) y «Restaurantes y catering» (9): por eso encabezan quién gana en la zona.
@@ -760,7 +760,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - Al comprador se le reconoce por el código del organismo, por la unidad de compra (el comienzo del código) o por el nombre del organismo sin el «I.» ni el «Ilustre». Las compras ágiles del radar no traen el código del organismo, y por eso el cruce de antes no las veía.
     - **El caso medido:** San Ignacio publicó su Día del Funcionario 2026 el 23-10 como compra ágil (3706-382-COT26), y «Se viene» lo seguía anunciando para el 29-10 por la licitación 3706-59-LE25 de 2025. Ese mes muchos municipios de la zona lo publicaron por compra ágil: Bulnes, Santa Bárbara, Antuco, Quilleco, Chillán y otros.
     - La pantalla lo dice: «debería volver a salir en las próximas 4 semanas, o que lleva hasta 3 de atraso. Lo que ya salió este año no aparece».
-111. **Las categorías de ChileCompra se eligen en Configuración** (29-10, en el laboratorio y en producción el mismo día: *"pasalo a producción"*; en producción no queda ninguna marcada: las elige Felipe en la pestaña). Felipe, ante las categorías propuestas para Valle del Sol: *"si, pero deja esto como una sección para elegir en la pestaña de configuración"*; y con el dibujo de la sección: *"si dale armalo asi"*. Motor, pantalla y migración 174.
+111. **Las categorías de ChileCompra se eligen en Configuración** (29-10, en el laboratorio y en producción el mismo día: *"pasalo a producción"*; en producción no queda ninguna marcada: las elige Felipe en la pestaña). **La 112 la sacó el mismo día.** Felipe, ante las categorías propuestas para Valle del Sol: *"si, pero deja esto como una sección para elegir en la pestaña de configuración"*; y con el dibujo de la sección: *"si dale armalo asi"*. Motor, pantalla y migración 174.
     - **La sección** «Categorías de ChileCompra», debajo de «Comunas cercanas», es la misma lista con buscador de «Regiones de interés». Cada categoría dice cuántas licitaciones tuvo en las regiones de la empresa en los 3 años de la capa (`GET /oportunidades/config/categorias`).
       - Se guardan con el botón «Guardar» de siempre, en `oportunidades_config.categorias`. Sin ninguna queda null, y vale la marca «del rubro» de la 101.
       - Al guardar se refrescan «Se viene», Competidores y la bandeja.
@@ -772,6 +772,17 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Contarlas rápido** (migración 174): `mercado_categorias_de_la_zona(regiones)`, con un índice por región que trae las categorías (`INCLUDE`), cuenta sin abrir ninguna licitación.
       - Tarda 0,6 s en frío en el laboratorio, contra 6,9 s recorriendo la tabla y 3,6 s con un índice sin las categorías.
       - El motor guarda la lista 10 minutos.
+112. **El rubro es «la marca»: las categorías de ChileCompra no filtran** (29-10, en el laboratorio). Felipe, después de marcar las 4 sugeridas en producción: *"en mercado publico muchas veces mandan intencionalmente las licitaciones a otro rubro para esconderlas y enviarlos os IDS a quien quieren que ganen, por este filtro creo que puede haber sido un error"*. Con los números a la vista: *"desmarca todo y eliminemos esta función para el se viene no tiene sentido"*. Y sobre el nombre: *"me gusta que lo llamemos como la marca"*. Motor y pantalla, sin migración.
+    - **Lo medido en producción**, Ñuble y Biobío en 3 años: «la marca» da 3.490 licitaciones y las 4 categorías 2.837.
+      - El filtro perdía 718 que «la marca» encuentra por el nombre o por lo que se compra, y sumaba 65.
+      - Entre las perdidas: «Conmemoración y homenaje Día del Funcionario Municipal 2026», puesta en «Servicios de recursos humanos», y la «Producción del evento de Fiestas Patrias», en «Clubes».
+      - Ya lo decía este documento: no confiar en la categoría (§1), y el Día del Profesor 2025 de Quillón está como «ventas y marketing» (decisión 72).
+    - **Sale:** la sección «Categorías de ChileCompra» de Configuración, su ruta y la forma de filtrar por categoría en «Se viene», Competidores, la ficha y el año anterior.
+      - El rubro es siempre «la marca» de la 101, que mira el nombre de la compra y el código de lo que se compra.
+      - Las 4 que alcanzaron a quedar marcadas en producción se desmarcaron el mismo día, con respaldo, y también en el laboratorio.
+    - **La base queda como está:** la columna `oportunidades_config.categorias`, vacía; el índice de categorías de la 173, y la función y el índice de la 174.
+      - Felipe: *"no borraría la base, porque creo que también puede ser un indicador de transparencia todas las licitaciones que no estén correctamente categorizadas. Y ver si identificamos algún patrón"*.
+    - **Para el ruido de las tarjetas de alimentación** queda propuesto quitarlas por su nombre, no por categoría: son unos 30 convenios en la zona.
 
 ## 4. Reglas del módulo (no se negocian)
 

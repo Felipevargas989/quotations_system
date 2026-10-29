@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
-import { categoriasParaElegir } from './datos-abiertos/categorias';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
@@ -101,12 +100,11 @@ export class OportunidadesService {
 
   /** Lo de la zona (decisión 106): el mercado de ChileCompra, todo Chile con
    *  todas las ofertas; si todavía no tiene nada cargado, la historia que
-   *  bajó el radar. Desde la 109, del rubro de la empresa: sus categorías
-   *  de ChileCompra, si las tiene. */
+   *  bajó el radar. El rubro es «la marca» (decisión 112). */
   private async procesosDeLaZona(config: ConfigOportunidades | null) {
     const regiones = config?.regiones ?? [];
     const delMercado = this.mercado
-      ? await this.mercado.procesosDeLaZona(regiones, config?.categorias)
+      ? await this.mercado.procesosDeLaZona(regiones)
       : [];
     return delMercado.length > 0
       ? delMercado
@@ -115,12 +113,9 @@ export class OportunidadesService {
 
   /** «Quién ganó el año anterior» (decisión 109): de la capa resumida del
    *  mercado; mientras esté vacía, de la historia que bajó el radar. */
-  private async historialDeOrganismos(
-    organismos: string[],
-    config: ConfigOportunidades | null,
-  ) {
+  private async historialDeOrganismos(organismos: string[]) {
     const delMercado = this.mercado
-      ? await this.mercado.historialDeOrganismos(organismos, config?.categorias)
+      ? await this.mercado.historialDeOrganismos(organismos)
       : null;
     return delMercado ?? this.repo.historialDeOrganismos(organismos);
   }
@@ -154,7 +149,6 @@ export class OportunidadesService {
         filas
           .map((f) => f.proceso.organismo_codigo)
           .filter((c): c is string => Boolean(c)),
-        await this.repo.configDe(companyId),
       ),
     );
     return filas.map((f) => ({
@@ -195,14 +189,7 @@ export class OportunidadesService {
     const [cambios, pasados, historiaPendiente] = await Promise.all([
       this.repo.cambiosDe(ficha.codigo),
       ficha.proceso.organismo_codigo
-        ? this.repo
-            .configDe(companyId)
-            .then((config) =>
-              this.historialDeOrganismos(
-                [ficha.proceso.organismo_codigo as string],
-                config,
-              ),
-            )
+        ? this.historialDeOrganismos([ficha.proceso.organismo_codigo])
         : Promise.resolve([]),
       this.fichas.diasDeHistoriaPendientes(),
     ]);
@@ -396,21 +383,9 @@ export class OportunidadesService {
       regiones: config?.regiones ?? [],
       comunas_cercanas: config?.comunas_cercanas ?? [],
       perfil: config?.perfil ?? '',
-      categorias: config?.categorias ?? [],
       umbral_alto_valor: empresa?.high_value_threshold ?? null,
       correo_avisos: empresa?.notifications?.replyTo ?? null,
     };
-  }
-
-  /** La sección «Categorías de ChileCompra» de Configuración (decisión
-   *  111): cada categoría con cuántas licitaciones tuvo en las regiones de
-   *  la empresa, las sugeridas primero. */
-  async categorias(companyId: number) {
-    const config = await this.repo.configDe(companyId);
-    const enLaZona = this.mercado
-      ? await this.mercado.categoriasDeLaZona(config?.regiones ?? [])
-      : [];
-    return categoriasParaElegir(enLaZona, config?.categorias ?? []);
   }
 
   async guardarConfig(companyId: number, dto: GuardarConfigOportunidadesDto) {
@@ -418,7 +393,6 @@ export class OportunidadesService {
       regiones?: string[];
       comunas_cercanas?: string[];
       perfil?: string | null;
-      categorias?: string[] | null;
     } = {};
     if (dto.regiones !== undefined)
       cambios.regiones = limpiarLista(dto.regiones);
@@ -426,11 +400,6 @@ export class OportunidadesService {
       cambios.comunas_cercanas = limpiarLista(dto.comunas_cercanas);
     }
     if (dto.perfil !== undefined) cambios.perfil = dto.perfil.trim() || null;
-    // Sin ninguna, vale la marca «del rubro» de siempre (decisión 111).
-    if (dto.categorias !== undefined) {
-      const elegidas = limpiarLista(dto.categorias);
-      cambios.categorias = elegidas.length > 0 ? elegidas : null;
-    }
     if (Object.keys(cambios).length === 0) {
       throw new BadRequestException('No hay nada que guardar.');
     }
