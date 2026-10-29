@@ -728,7 +728,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **(6) El rubro se elige al preguntar** (migración 173): un índice de las categorías de ChileCompra y `oportunidades_config.categorias`.
       - Con categorías, «Se viene», los competidores, el estudio de mercado y el año anterior toman las licitaciones que tienen alguna de ellas.
       - Sin categorías, vale la marca «del rubro» de siempre. Valle del Sol no las tiene, así que no cambia.
-      - Medido en el laboratorio: de las licitaciones marcadas del rubro, 14.903 son de «Servicios para la comercialización y distribución». Ahí caen las tarjetas de alimentación y la distribución de alimentos, y por eso AMIPASS, EDENRED y PLUXEE encabezan quién gana en la zona.
+      - Medido en el laboratorio: de las licitaciones marcadas del rubro, 14.903 son de «Servicios para la comercialización y distribución». **Corregido el 29-10 con lo medido en producción (decisión 111):** ahí caen los Días del Funcionario y del Profesor y las productoras de eventos, no las tarjetas de alimentación. Las de AMIPASS, EDENRED y Pluxee de Ñuble y Biobío están en «Ayuda y asistencia humanitaria» (22 convenios), «Servicio doméstico y de cuidados» (2) y «Restaurantes y catering» (9): por eso encabezan quién gana en la zona.
       - Las categorías de Valle del Sol las elige Felipe.
     - **En producción, el disco** (29-10). La base real tenía un disco de 2 GB. Al armar la capa, lo escrito más el registro de cambios de la base (WAL) lo llevó al 95%, y Supabase la dejó en solo lectura de 14:49 a 14:52. No se perdió nada: las únicas escrituras rechazadas fueron las de la capa.
       - Se vació la capa, Felipe subió el disco a 8 GB, lo que trae su plan, y la capa se rearmó. En producción pesa 421 MB, y la zona da lo mismo que la vista de la 169: 3.490 licitaciones del rubro y 3.027 con ganador.
@@ -740,6 +740,18 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - Al comprador se le reconoce por el código del organismo, por la unidad de compra (el comienzo del código) o por el nombre del organismo sin el «I.» ni el «Ilustre». Las compras ágiles del radar no traen el código del organismo, y por eso el cruce de antes no las veía.
     - **El caso medido:** San Ignacio publicó su Día del Funcionario 2026 el 23-10 como compra ágil (3706-382-COT26), y «Se viene» lo seguía anunciando para el 29-10 por la licitación 3706-59-LE25 de 2025. Ese mes muchos municipios de la zona lo publicaron por compra ágil: Bulnes, Santa Bárbara, Antuco, Quilleco, Chillán y otros.
     - La pantalla lo dice: «debería volver a salir en las próximas 4 semanas, o que lleva hasta 3 de atraso. Lo que ya salió este año no aparece».
+111. **Las categorías de ChileCompra se eligen en Configuración** (29-10, en el laboratorio). Felipe, ante las categorías propuestas para Valle del Sol: *"si, pero deja esto como una sección para elegir en la pestaña de configuración"*; y con el dibujo de la sección: *"si dale armalo asi"*. Motor, pantalla y migración 174.
+    - **La sección** «Categorías de ChileCompra», debajo de «Comunas cercanas», es la misma lista con buscador de «Regiones de interés». Cada categoría dice cuántas licitaciones tuvo en las regiones de la empresa en los 3 años de la capa (`GET /oportunidades/config/categorias`).
+      - Se guardan con el botón «Guardar» de siempre, en `oportunidades_config.categorias`. Sin ninguna queda null, y vale la marca «del rubro» de la 101.
+      - Al guardar se refrescan «Se viene», Competidores y la bandeja.
+    - **Las sugeridas** van primero y dicen «sugerida»: «Servicios para la comercialización y distribución», «Restaurantes y catering», «Instalaciones hoteleras, alojamientos y centros de eventos» y «Asistencia para viajes» (`CATEGORIAS_SUGERIDAS`). No se aplican solas: las marca la empresa.
+    - **Lo medido en producción el 29-10**, licitaciones de Ñuble y Biobío en 3 años:
+      - Las cuatro suman 2.837, contra 3.490 de la marca de la 101.
+      - De 9 licitaciones que le importan a Valle del Sol quedan 7. Se pierden las dos giras de estudio de Pemuco, que están en «Transporte de pasajeros».
+      - Pluxee y AMIPASS salen de «quién gana», pero siguen Sodexo y Edenred y aparecen productoras de sonido y de fuegos artificiales: las categorías de ChileCompra son de familia, muy amplias.
+    - **Contarlas rápido** (migración 174): `mercado_categorias_de_la_zona(regiones)`, con un índice por región que trae las categorías (`INCLUDE`), cuenta sin abrir ninguna licitación.
+      - Tarda 0,6 s en frío en el laboratorio, contra 6,9 s recorriendo la tabla y 3,6 s con un índice sin las categorías.
+      - El motor guarda la lista 10 minutos.
 
 ## 4. Reglas del módulo (no se negocian)
 
