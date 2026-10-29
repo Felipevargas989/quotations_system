@@ -722,6 +722,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
         - Comparadas con los demás municipios con la cerca de Tukey de la guía de la Open Contracting Partnership (lo que queda sobre el tercer cuartil más 1,5 veces el rango intercuartil): un solo oferente, demora en adjudicar, adjudicadas más de 30 % sobre lo estimado, no ganó la más barata, mucho trato directo, compras ágiles partidas (el mismo día, la misma unidad y el mismo proveedor, sobre 100 UTM juntas), compras ágiles entre 95 y 100 UTM, gasto en el rubro por habitante y compras ágiles con una sola cotización.
         - El primer cálculo, marcando con una sola vez, marcaba a casi todos en tres señales (compras partidas por trimestre a 327 de 345 municipios). Por eso esas pasaron a ser proporciones comparadas, que es lo que pide el informe: si una señal se enciende en casi todos, no sirve.
     - **El cálculo vive en la base** (migración 171): vistas materializadas que llena `radar_recalcular()` después de cada carga, y la función `radar_tablero` que devuelve todo lo de la pestaña en un JSON. En el laboratorio se recalcula a mano.
+    - **Medido con la carga completa** (29-10, a las 00:04):
+        - 1.630.550 órdenes de compra municipales y 980.322 compras ágiles municipales, en 36 meses. La base del laboratorio quedó en 1,88 GB.
+        - En Ñuble y Biobío, en 2025: $22.313 millones en el rubro. Los que más gastan por habitante son Alto Biobío ($87.231), Antuco y Quillón (los eventos de Quillón son reales: el Quillón Fest, el Sudamericano de Canotaje y el Concurso del Vino).
+        - Señales en los últimos 12 meses: 1,25 por municipio en promedio, y Arica la que más tiene, con 6. En la zona, 43 de 54 municipios tienen alguna.
+        - San Carlos, que Contraloría objetó por emergencias repetidas, sale marcado justo en esa señal.
 
 ## 4. Reglas del módulo (no se negocian)
 
