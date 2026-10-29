@@ -8,7 +8,17 @@ import { MercadoDeLaZonaRepository } from '../datos-abiertos/mercado-de-la-zona.
 
 type Consulta = { tabla: string; pasos: unknown[][] };
 
-const METODOS = ['select', 'eq', 'in', 'gte', 'gt', 'order', 'limit'];
+const METODOS = [
+  'select',
+  'eq',
+  'in',
+  'gte',
+  'gt',
+  'order',
+  'limit',
+  'overlaps',
+  'not',
+];
 
 const fila = (codigo: string, region: string): FilaDeLaZona => ({
   codigo,
@@ -58,6 +68,14 @@ function armar(
           filas = filas.filter((f) => (valor as string[]).includes(f.region!));
         if (m === 'in' && campo === 'codigo')
           filas = filas.filter((f) => (valor as string[]).includes(f.codigo));
+        if (m === 'in' && campo === 'organismo_codigo')
+          filas = filas.filter((f) =>
+            (valor as string[]).includes(f.organismo_codigo ?? ''),
+          );
+        if (m === 'overlaps' && campo === 'rubros')
+          filas = filas.filter((f) =>
+            (f.rubros ?? []).some((r) => (valor as string[]).includes(r)),
+          );
       }
       return Promise.resolve({ data: filas, error: null }).then(bien);
     };
@@ -135,5 +153,59 @@ describe('Lo que «Se viene» y los competidores leen del mercado (decisión 109
     const { repo, consultas } = armar({});
     expect(await repo.procesosDeLaZona(['Marte'])).toEqual([]);
     expect(consultas).toEqual([]);
+  });
+
+  it('con las categorías de la empresa, el rubro son sus categorías y no la marca de siempre', async () => {
+    const { repo, consultas } = armar({
+      mercado_compras: [
+        {
+          ...fila('1-1-LE25', 'Región del Ñuble'),
+          region_codigo: 16,
+          rubros: ['RESTAURANTES Y CATERING'],
+        },
+        {
+          ...fila('2-2-LE25', 'Región del Ñuble'),
+          region_codigo: 16,
+          rubros: ['SERVICIOS PARA LA COMERCIALIZACIÓN Y DISTRIBUCIÓN'],
+        },
+      ],
+    });
+    const procesos = await repo.procesosDeLaZona(
+      ['Ñuble'],
+      ['RESTAURANTES Y CATERING'],
+    );
+    expect(procesos.map((p) => p.codigo)).toEqual(['1-1-LE25']);
+    expect(consultas[0].pasos).toContainEqual([
+      'overlaps',
+      'rubros',
+      ['RESTAURANTES Y CATERING'],
+    ]);
+    expect(filtro(consultas[0], 'del_rubro')).toBeUndefined();
+  });
+});
+
+describe('«Quién ganó el año anterior» desde el mercado (decisión 109)', () => {
+  it('lo adjudicado de esos compradores, solo licitaciones del rubro con ganador', async () => {
+    const { repo, consultas } = armar({
+      mercado_compras: [
+        fila('4364-5-LE25', 'Región del Ñuble'),
+        { ...fila('9-9-LE25', 'Región del Ñuble'), organismo_codigo: 'otro' },
+      ],
+    });
+    const pasados = await repo.historialDeOrganismos(['135562', '135562']);
+    expect(pasados?.map((p) => p.codigo)).toEqual(['4364-5-LE25']);
+    const lectura = consultas[consultas.length - 1];
+    expect(lectura.pasos).toContainEqual([
+      'in',
+      'organismo_codigo',
+      ['135562'],
+    ]);
+    expect(lectura.pasos).toContainEqual(['not', 'ganadores', 'is', null]);
+    expect(filtro(lectura, 'del_rubro')).toBe(true);
+  });
+
+  it('con la capa vacía responde null: el que llama usa la historia del radar', async () => {
+    const { repo } = armar({ mercado_compras: [] });
+    expect(await repo.historialDeOrganismos(['135562'])).toBeNull();
   });
 });

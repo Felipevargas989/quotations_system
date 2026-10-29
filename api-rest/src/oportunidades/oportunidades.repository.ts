@@ -43,6 +43,8 @@ export type ConfigOportunidades = {
   regiones: string[];
   comunas_cercanas: string[];
   perfil: string | null;
+  /** Categorías de ChileCompra del rubro (109); null = la marca del_rubro. */
+  categorias?: string[] | null;
 };
 
 const COLUMNAS_DE_LISTA =
@@ -375,10 +377,11 @@ export class OportunidadesRepository {
       }));
   }
 
+  // Con `*`: una base sin la migración 173 (categorías) no tumba Oportunidades.
   async configDe(companyId: number): Promise<ConfigOportunidades | null> {
     const { data, error } = await this.db
       .from('oportunidades_config')
-      .select('regiones, comunas_cercanas, perfil')
+      .select('*')
       .eq('company_id', companyId)
       .maybeSingle();
     if (error) throw error;

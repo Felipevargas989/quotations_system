@@ -31,6 +31,7 @@ import {
 import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import {
+  type ConfigOportunidades,
   type FichaDeOportunidad,
   type FilaDeLista,
   OportunidadesRepository,
@@ -99,14 +100,28 @@ export class OportunidadesService {
 
   /** Lo de la zona (decisión 106): el mercado de ChileCompra, todo Chile con
    *  todas las ofertas; si todavía no tiene nada cargado, la historia que
-   *  bajó el radar. */
-  private async procesosDeLaZona(regiones: string[]) {
+   *  bajó el radar. Desde la 109, del rubro de la empresa: sus categorías
+   *  de ChileCompra, si las tiene. */
+  private async procesosDeLaZona(config: ConfigOportunidades | null) {
+    const regiones = config?.regiones ?? [];
     const delMercado = this.mercado
-      ? await this.mercado.procesosDeLaZona(regiones)
+      ? await this.mercado.procesosDeLaZona(regiones, config?.categorias)
       : [];
     return delMercado.length > 0
       ? delMercado
       : this.repo.procesosDeLaZona(regiones);
+  }
+
+  /** «Quién ganó el año anterior» (decisión 109): de la capa resumida del
+   *  mercado; mientras esté vacía, de la historia que bajó el radar. */
+  private async historialDeOrganismos(
+    organismos: string[],
+    config: ConfigOportunidades | null,
+  ) {
+    const delMercado = this.mercado
+      ? await this.mercado.historialDeOrganismos(organismos, config?.categorias)
+      : null;
+    return delMercado ?? this.repo.historialDeOrganismos(organismos);
   }
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
@@ -134,10 +149,11 @@ export class OportunidadesService {
       return filas.map((f) => ({ ...f, anterior: null }));
     }
     const indice = indexarPorOrganismo(
-      await this.repo.historialDeOrganismos(
+      await this.historialDeOrganismos(
         filas
           .map((f) => f.proceso.organismo_codigo)
           .filter((c): c is string => Boolean(c)),
+        await this.repo.configDe(companyId),
       ),
     );
     return filas.map((f) => ({
@@ -178,7 +194,14 @@ export class OportunidadesService {
     const [cambios, pasados, historiaPendiente] = await Promise.all([
       this.repo.cambiosDe(ficha.codigo),
       ficha.proceso.organismo_codigo
-        ? this.repo.historialDeOrganismos([ficha.proceso.organismo_codigo])
+        ? this.repo
+            .configDe(companyId)
+            .then((config) =>
+              this.historialDeOrganismos(
+                [ficha.proceso.organismo_codigo as string],
+                config,
+              ),
+            )
         : Promise.resolve([]),
       this.fichas.diasDeHistoriaPendientes(),
     ]);
@@ -318,7 +341,7 @@ export class OportunidadesService {
       this.repo.configDe(companyId),
       this.repo.datosDeEmpresa(companyId),
     ]);
-    const procesos = await this.procesosDeLaZona(config?.regiones ?? []);
+    const procesos = await this.procesosDeLaZona(config);
     const comunasCercanas = config?.comunas_cercanas ?? [];
     const umbralAltoValor = empresa?.high_value_threshold ?? null;
     const series = seVienen(procesos, new Date(), {
@@ -335,9 +358,7 @@ export class OportunidadesService {
   /** Quién gana en las regiones de la empresa (los últimos 3 años). */
   async competidores(companyId: number) {
     const config = await this.repo.configDe(companyId);
-    return rankingDeCompetidores(
-      await this.procesosDeLaZona(config?.regiones ?? []),
-    );
+    return rankingDeCompetidores(await this.procesosDeLaZona(config));
   }
 
   /** La ficha de un proveedor: lo que ganó en las regiones de la empresa. */
@@ -347,7 +368,7 @@ export class OportunidadesService {
     }
     const config = await this.repo.configDe(companyId);
     const ficha = fichaDeCompetidor(
-      await this.procesosDeLaZona(config?.regiones ?? []),
+      await this.procesosDeLaZona(config),
       rut.trim(),
     );
     if (!ficha) {

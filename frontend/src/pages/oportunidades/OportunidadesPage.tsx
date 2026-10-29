@@ -72,7 +72,7 @@ import { useMisLicitaciones } from "./useMisLicitaciones";
 const RadarMunicipal = lazy(() => import("./RadarMunicipal"));
 
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
-// ágiles que el radar trae (09, 12, 15 y 18 h, y de noche; decisión 18) y la
+// ágiles que el radar trae (08, 12, 15 y 18 h; decisiones 18 y 109) y la
 // IA lee. Base: el mockup del 16-10. Solo administrador. Sin resumen por
 // correo (Felipe, 17-10: "se revisa en Eventia").
 
@@ -139,7 +139,7 @@ export default function OportunidadesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Oportunidades</h1>
           <p className="text-sm text-gray-500">
             Licitaciones y compras ágiles de Mercado Público, leídas con IA. Se
-            pone al día a las 9, 12, 15 y 18 h, y de noche.
+            pone al día a las 8, 12, 15 y 18 h.
           </p>
         </div>
         <EstadoDelRadar />
