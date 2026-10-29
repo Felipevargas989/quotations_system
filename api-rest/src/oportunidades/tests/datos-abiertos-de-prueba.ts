@@ -147,3 +147,30 @@ export const filaDeCompraAgil = (cambios: FilaDelCsv = {}): FilaDelCsv => ({
     'El proveedor cotizó todos los productos y su precio total fue el más bajo.',
   ...cambios,
 });
+
+/** Una fila de una orden de compra (un producto), de un municipio. */
+export const filaDeOrdenDeCompra = (cambios: FilaDelCsv = {}): FilaDelCsv => ({
+  Codigo: '3497-120-SE26',
+  Nombre: 'CENA DIA DEL FUNCIONARIO MUNICIPAL',
+  Tipo: 'SE',
+  ProcedenciaOC: 'Proveniente de licitación pública',
+  EsTratoDirecto: 'No',
+  EsCompraAgil: 'No',
+  Estado: 'Aceptada',
+  FechaEnvio: '2026-10-21',
+  MontoTotalOC_PesosChilenos: '6902000',
+  CodigoUnidadCompra: '3497',
+  CodigoOrganismoPublico: '7240',
+  OrganismoPublico: 'I MUNICIPALIDAD DE COBQUECURA',
+  sector: 'Municipalidades',
+  CiudadUnidadCompra: 'Cobquecura',
+  RegionUnidadCompra: 'Región del Ñuble',
+  RutSucursal: '76.111.111-1',
+  NombreProveedor: 'VALLE DEL SOL SPA',
+  ActividadProveedor: 'SERVICIOS DE BANQUETERIA',
+  ComunaProveedor: 'Quillón',
+  RegionProveedor: 'Región del Ñuble',
+  CodigoLicitacion: '3497-55-LE26',
+  codigoProductoONU: '90101603',
+  ...cambios,
+});

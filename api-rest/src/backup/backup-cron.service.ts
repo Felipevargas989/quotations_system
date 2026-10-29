@@ -34,7 +34,10 @@ import { gzipSync } from 'zlib';
  * Igual las `mercado_*` (decisión 101, 28-10): el mercado de todo Chile
  * desde los datos abiertos de ChileCompra, cerca de 1 GB, que se vuelve a
  * bajar. También `mercado_cargas`: si se restaurara sin las otras, diría
- * «lista» con las tablas vacías.
+ * «lista» con las tablas vacías. Y las del radar municipal (decisión 108):
+ * las órdenes de compra de los municipios con sus organismos y proveedores,
+ * que también se vuelven a bajar, y la población y la UTM, que vienen en
+ * la migración 170.
  */
 export const FUERA_DEL_RESPALDO = new Set([
   'mp_procesos',
@@ -44,6 +47,11 @@ export const FUERA_DEL_RESPALDO = new Set([
   'mercado_compras_agiles',
   'mercado_cotizaciones',
   'mercado_compras_agiles_totales',
+  'mercado_ordenes_de_compra',
+  'mercado_organismos',
+  'mercado_proveedores',
+  'mercado_poblacion',
+  'mercado_utm',
 ]);
 
 @Injectable()
