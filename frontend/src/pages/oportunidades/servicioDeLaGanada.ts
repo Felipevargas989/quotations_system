@@ -42,6 +42,21 @@ export const separarGanadas = <T extends object>(ganadas: T[], hoy: string) => {
   };
 };
 
+/** Las que aún no se realizan, para el número de la pestaña (decisión
+ *  107, 28-10). Felipe: "las ganadas solo las que aún no se realizan (por
+ *  fecha de realización)": el almuerzo de Laja Diguillín seguía en «1» la
+ *  tarde del mismo día. El día del servicio ya no cuenta; las que las
+ *  bases no fechan, sí. La lista no cambia: «Por cumplir» la sigue
+ *  mostrando ese día, con «hoy» en rojo. */
+export const ganadasPorRealizar = <T extends object>(
+  ganadas: T[],
+  hoy: string,
+) =>
+  ganadas.filter((m) => {
+    const dias = diasDe(m);
+    return dias.length === 0 || dias[dias.length - 1] > hoy;
+  });
+
 /** El próximo día del servicio, en palabras: «hoy», «mañana» o «en 5
  *  días». null si las bases no lo fechan o ya pasó. */
 export const cuandoEsElServicio = (
