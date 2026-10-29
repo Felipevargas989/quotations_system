@@ -118,6 +118,13 @@ motor, `REGLAS_DE_CORREO.md`, que leen el botón y la skill
 Cada corrección de Felipe se escribe en ese archivo, en «Lecciones», y la
 aplican el botón y la skill desde el siguiente despliegue.
 
+Primeras lecciones, 28-10-2026, con la 541 (Armada de Chile): no repetir lo
+que ya dijo el correo de la cotización (datos del documento, abono, orden de
+compra), no contar el tiempo que falta, una sola pregunta, y un poco más
+amable: «Esperamos que muy bien» en el saludo y una línea cálida de cierre
+(«Sería un gusto recibirlos en Valle del Sol»), sin fórmula de despedida ni
+firma.
+
 ## 5. Pantallas
 
 - **Cotizaciones:** en cada fila que calce, un botón chico «✉ Generar

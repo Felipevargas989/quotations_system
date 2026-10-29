@@ -99,12 +99,14 @@ bitácora y el hilo antes de elegir. En este orden:
 
 ## La estructura
 
-1. Saludo breve, con la pregunta de cómo está.
+1. Saludo breve y cálido, con la pregunta de cómo está («¿cómo está?
+   Esperamos que muy bien.»).
 2. En qué está la cotización, en una línea: el evento y su día y fecha.
 3. El ángulo: la pregunta o el dato que da una razón para responder.
-4. Una pregunta abierta y específica, fácil de contestar.
-
-Sin despedida: termina en la última línea de contenido.
+4. Una sola pregunta, abierta y específica, fácil de contestar. Un solo
+   pedido por correo.
+5. Una línea cálida de cierre, corta («Sería un gusto recibirlos en Valle
+   del Sol.»). Sin fórmula de despedida («Con afecto», «Saludos») ni firma.
 
 ## Formato
 
@@ -119,4 +121,38 @@ Sin despedida: termina en la última línea de contenido.
 
 ## Lecciones (de las correcciones de Felipe)
 
-- (Todavía ninguna. Cada corrección se anota acá, con su fecha.)
+Cada corrección se anota acá, con su fecha.
+
+**28-10-2026, cotización 541 (Armada de Chile, segundo seguimiento).**
+Felipe corrigió el borrador del botón. El que salió:
+
+> Le escribimos por la cotización de la actividad para 200 personas del
+> viernes 11 de diciembre. Quedan unas siete semanas para esa fecha. Si
+> siguen adelante, apenas nos indiquen la unidad a la que debe ir dirigido
+> el documento lo emitimos, para que puedan avanzar con la orden de compra.
+> Le recordamos que la fecha queda reservada con el abono. ¿Sigue en pie la
+> actividad para el 11 de diciembre? (…)
+
+El que aprobó:
+
+> Estimada Masiel, ¿cómo está? Esperamos que muy bien.
+> Le escribimos para retomar la cotización de la jornada del viernes 11 de
+> diciembre para 200 personas.
+> ¿Sigue en pie la actividad para esa fecha? Si se les movió o cambió el
+> plan, ningún problema: con saberlo nos basta, y si podemos ayudarles en
+> algo, aquí estamos.
+> Sería un gusto recibirlos en Valle del Sol.
+
+1. **No repetir lo que ya dijo el correo de la cotización.** Los datos para
+   emitir el documento, el abono o la orden de compra ya los tiene el
+   cliente: no se vuelven a pedir ni a recordar en un seguimiento. Solo si
+   el cliente los preguntó, o si el evento está a menos de 30 días (el
+   abono, con tacto).
+2. **No contar el tiempo que falta.** «Quedan unas siete semanas» no
+   aporta y suena a apuro. La fecha se nombra; la cuenta, no.
+3. **Una sola pregunta.** Un seguimiento pide una cosa: si pregunta si
+   sigue en pie la fecha, no pide además datos ni trámites.
+4. **Un poco más amable.** Saludo con «Esperamos que muy bien» y una línea
+   cálida de cierre («Sería un gusto recibirlos en Valle del Sol»), más la
+   disposición a ayudar («si podemos ayudarles en algo, aquí estamos»).
+   Sigue sin fórmula de despedida ni firma: la firma la pone Outlook.
