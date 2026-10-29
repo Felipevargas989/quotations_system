@@ -102,7 +102,11 @@ function armar(extra: { ganada?: unknown; laOferta?: unknown } = {}) {
       ]),
     create: jest.fn().mockResolvedValue({ id: 'cli-nuevo' }),
   };
-  const bitacora = { create: jest.fn().mockResolvedValue({}) };
+  // Las notas del armado las firma el Asistente (Felipe, 28-10-2026).
+  const bitacora = {
+    create: jest.fn().mockResolvedValue({}),
+    crearComoAsistente: jest.fn().mockResolvedValue({}),
+  };
   const servicio = new CotizacionDeLaPostulacionService(
     repo as unknown as PostulacionRepository,
     analisis as unknown as AnalisisRepository,
@@ -115,7 +119,9 @@ function armar(extra: { ganada?: unknown; laOferta?: unknown } = {}) {
     extra.laOferta as never,
   );
   const notas = () =>
-    bitacora.create.mock.calls.map(([, dto]) => (dto as { note: string }).note);
+    bitacora.crearComoAsistente.mock.calls.map(
+      ([, dto]) => (dto as { note: string }).note,
+    );
   return {
     repo,
     analisis,

@@ -291,10 +291,12 @@ export class GenerarCotizacionService {
       plan: user.plan,
     });
 
+    // Lo que escribe la IA lo firma el Asistente (Felipe, 28-10-2026).
     await this.bitacora
-      .create(user, {
+      .crearComoAsistente(companyId, {
         quotation_id: id,
         tipo: 'otro',
+        next_contact_date: null,
         note: `Cotización generada con IA en ${segundos} s${costo != null ? ` (costo aprox. US$ ${costo.toFixed(2)})` : ''}. Total ${pesos(dinero.totalAmount)}. Las notas quedaron en el comentario interno: revísalas antes de enviarla.`,
       })
       .catch((e: unknown) =>

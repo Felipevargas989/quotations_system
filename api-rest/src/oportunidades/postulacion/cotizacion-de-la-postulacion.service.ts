@@ -733,9 +733,17 @@ export class CotizacionDeLaPostulacionService {
     return creado.id;
   }
 
+  // Estas notas las escribe el armado automático de la postulación: las
+  // firma el Asistente, con su robot (Felipe, 28-10-2026: «todo lo que
+  // coloque la IA déjalo con la etiqueta de IA»).
   private async anotar(user: User, quotationId: string, nota: string) {
     await this.bitacora
-      .create(user, { quotation_id: quotationId, tipo: 'otro', note: nota })
+      .crearComoAsistente(user.company_id, {
+        quotation_id: quotationId,
+        tipo: 'otro',
+        note: nota,
+        next_contact_date: null,
+      })
       .catch((e: unknown) =>
         this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
       );
