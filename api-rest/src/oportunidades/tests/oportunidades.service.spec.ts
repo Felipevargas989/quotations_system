@@ -25,6 +25,7 @@ function armar(
     historialDeOrganismos?: jest.Mock;
     recientesDeLaZona?: jest.Mock;
   },
+  decisiones?: { ponerMotivo: jest.Mock },
 ) {
   const repo = {
     listar: jest.fn().mockResolvedValue([]),
@@ -63,6 +64,7 @@ function armar(
     (mercado
       ? { recientesDeLaZona: jest.fn().mockResolvedValue([]), ...mercado }
       : undefined) as never,
+    decisiones as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -381,6 +383,30 @@ describe('OportunidadesService — la ficha y decidir', () => {
     await expect(
       servicio.actualizar(1, 9, { estado: 'descartada' }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('OportunidadesService — el porqué de un descarte (decisión 113)', () => {
+  it('va al registro de decisiones con el mismo cambio de estado', async () => {
+    const decisiones = { ponerMotivo: jest.fn().mockResolvedValue(null) };
+    const { repo, servicio } = armar(undefined, undefined, decisiones);
+    repo.actualizar.mockResolvedValue({ id: 9, estado: 'descartada' });
+    await servicio.actualizar(1, 9, {
+      estado: 'descartada',
+      motivo: 'muy_lejos',
+    });
+    expect(repo.actualizar).toHaveBeenCalledWith(1, 9, {
+      estado: 'descartada',
+    });
+    expect(decisiones.ponerMotivo).toHaveBeenCalledWith(1, 9, 'muy_lejos');
+  });
+
+  it('sin motivo, o con otro estado, no se anota ningún porqué', async () => {
+    const decisiones = { ponerMotivo: jest.fn() };
+    const { servicio } = armar(undefined, undefined, decisiones);
+    await servicio.actualizar(1, 9, { estado: 'descartada' });
+    await servicio.actualizar(1, 9, { estado: 'seguida', motivo: 'otro' });
+    expect(decisiones.ponerMotivo).not.toHaveBeenCalled();
   });
 });
 

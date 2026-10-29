@@ -66,7 +66,8 @@ import {
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
-import { preguntarPorQue } from "./porQueDescartas";
+import type { MotivoDelDescarte } from "../../services/decisiones";
+import PorQueDescartas from "./PorQueDescartas";
 
 // El radar municipal (decisión 108, solo en el laboratorio) trae sus
 // gráficos: se baja solo al abrir su pestaña.
@@ -379,28 +380,44 @@ function Bandeja({
   // pestaña.
   const [abierta, setAbierta] = useState<Oportunidad | null>(null);
 
+  // Decisión 113: «Descartar» abre el porqué; elegir uno descarta y lo anota.
+  const [porDescartar, setPorDescartar] = useState<number | null>(null);
+
   const decidir = useMutation({
-    mutationFn: ({ id, estado }: { id: number; estado: EstadoOportunidad }) =>
-      actualizarOportunidad(id, { estado }),
-    onSuccess: (_r, { id, estado }) => {
+    mutationFn: ({
+      id,
+      estado,
+      motivo,
+    }: {
+      id: number;
+      estado: EstadoOportunidad;
+      motivo?: MotivoDelDescarte;
+    }) => actualizarOportunidad(id, { estado, motivo }),
+    onSuccess: (_r, { estado }) => {
       setAbierta(null);
-      // Decisión 113: al descartar, el porqué de un clic, opcional.
-      if (estado === "descartada") {
-        preguntarPorQue(id, "Descartada. Queda en «Descartadas»: no se borra.");
-      } else {
-        toast.success(
-          estado === "en_estudio"
+      setPorDescartar(null);
+      toast.success(
+        estado === "descartada"
+          ? "Descartada. Queda en «Descartadas»: no se borra."
+          : estado === "en_estudio"
             ? "Quedó en «Mis licitaciones» para trabajarla."
             : estado === "seguida"
               ? "Queda en «En seguimiento»: el radar revisa cada día quién gana."
               : "Lista.",
-        );
-      }
+      );
       void qc.invalidateQueries({ queryKey: ["oportunidades", "lista"] });
       void qc.invalidateQueries({ queryKey: ["oportunidades", "mias"] });
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
   });
+  const alDecidir = (id: number, estado: EstadoOportunidad) => {
+    if (estado !== "descartada") {
+      decidir.mutate({ id, estado });
+      return;
+    }
+    setAbierta(null);
+    setPorDescartar(id);
+  };
 
   return (
     <div className="space-y-4">
@@ -466,9 +483,7 @@ function Bandeja({
                       key={o.id}
                       o={o}
                       ocupado={decidir.isPending}
-                      onDecidir={(estado) =>
-                        decidir.mutate({ id: o.id, estado })
-                      }
+                      onDecidir={(estado) => alDecidir(o.id, estado)}
                       onAbrir={() => setAbierta(o)}
                     />
                   ))}
@@ -483,8 +498,22 @@ function Bandeja({
         <PanelDeOportunidad
           o={abierta}
           ocupado={decidir.isPending}
-          onDecidir={(estado) => decidir.mutate({ id: abierta.id, estado })}
+          onDecidir={(estado) => alDecidir(abierta.id, estado)}
           onCerrar={() => setAbierta(null)}
+        />
+      )}
+
+      {porDescartar !== null && (
+        <PorQueDescartas
+          ocupado={decidir.isPending}
+          onElegir={(motivo) =>
+            decidir.mutate({
+              id: porDescartar,
+              estado: "descartada",
+              motivo: motivo ?? undefined,
+            })
+          }
+          onCancelar={() => setPorDescartar(null)}
         />
       )}
     </div>
