@@ -38,10 +38,12 @@ language sql immutable as $$
     regexp_replace(coalesce(nombre, ''), '^.*M[UI]NICIPALIDAD\s+(DE\s+|DEL\s+)?', '', 'i'))
 $$;
 
--- Un municipio, y no una corporación ni la asociación de municipios.
+-- Un municipio, y no una corporación ni una asociación de municipios
+-- («Asociación Chilena de Municipalidades», «Asoc. Regional de
+-- Municipalidades de Magallanes...»).
 create or replace function public.radar_es_municipio(nombre text) returns boolean
 language sql immutable as $$
-  select coalesce(nombre, '') ~* 'm[ui]nicipalidad' and coalesce(nombre, '') !~* 'asociaci'
+  select coalesce(nombre, '') ~* 'm[ui]nicipalidad' and coalesce(nombre, '') !~* '(asociaci|asoc\.)'
 $$;
 
 -- Una orden anulada o por anularse no es gasto.
