@@ -29,6 +29,8 @@ import { cuotaStatus, statusBadge } from "./estadoCuota";
 import { pagoEntero, preguntaAlBorrar } from "./pagoRepartido";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { useAuth } from "../../contexts/AuthContext";
+import { UserRole } from "../../constants/users";
+import CambiarContacto from "./CambiarContacto";
 import { tieneDerecho } from "../../constants/permissions";
 import SoloConDerecho from "../../components/SoloConDerecho";
 import MultiSelect, { MultiSelectOption } from "../../components/MultiSelect";
@@ -1055,6 +1057,13 @@ function EventModal({
   // Solo el administrador puede anular (los demás roles no ven el botón).
   const { userRole } = useAuth();
   const canCancel = userRole === "administrador";
+  // Cambiar contacto (29-10-2026): los mismos que editan una aceptada en el
+  // cotizador; un realizado está congelado y un anulado ya no se atiende.
+  const puedeCambiarContacto =
+    (userRole === UserRole.ADMINISTRADOR ||
+      userRole === UserRole.OPERACIONES) &&
+    !event.done &&
+    !event.cancelled;
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -1186,7 +1195,18 @@ function EventModal({
                   ve igual de completa y se nota que ese dato falta. Las
                   nuevas ya no pueden nacer así —el cotizador lo exige—
                   pero las viejas siguen existiendo (07-08). */}
-              <p>{event.contactPerson || "—"}</p>
+              <div className="flex flex-wrap items-center gap-x-2">
+                <p>{event.contactPerson || "—"}</p>
+                {puedeCambiarContacto && quote?.client_id && (
+                  <CambiarContacto
+                    quotationId={event.quotationId}
+                    clientId={quote.client_id}
+                    actual={event.contactPerson}
+                    clientType={event.clientType}
+                    onCambiado={onDataChanged}
+                  />
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                 {event.phone && (
                   <button
