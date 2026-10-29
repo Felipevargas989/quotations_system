@@ -210,6 +210,35 @@ describe('«Quién ganó el año anterior» desde el mercado (decisión 109)', (
   });
 });
 
+describe('Las categorías de ChileCompra de la zona, para Configuración (decisión 111)', () => {
+  it('las pide a la base con los códigos oficiales de las regiones, y las guarda 10 minutos', async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: [{ categoria: 'RESTAURANTES Y CATERING', licitaciones: '516' }],
+      error: null,
+    });
+    const repo = new MercadoDeLaZonaRepository({
+      client: { rpc },
+    } as unknown as SupabaseService);
+    await expect(repo.categoriasDeLaZona(['Ñuble', 'Biobío'])).resolves.toEqual(
+      [{ categoria: 'RESTAURANTES Y CATERING', licitaciones: 516 }],
+    );
+    expect(rpc).toHaveBeenCalledWith('mercado_categorias_de_la_zona', {
+      p_regiones: [8, 16],
+    });
+    await repo.categoriasDeLaZona(['Ñuble', 'Biobío']);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin regiones conocidas no pregunta', async () => {
+    const rpc = jest.fn();
+    const repo = new MercadoDeLaZonaRepository({
+      client: { rpc },
+    } as unknown as SupabaseService);
+    await expect(repo.categoriasDeLaZona(['Marte'])).resolves.toEqual([]);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe('Lo que ya salió este año, para «Se viene» (decisión 110)', () => {
   it('lo del radar de esas regiones, por su nombre exacto, y las compras ágiles del rubro de los archivos, por su código', async () => {
     const { repo, consultas } = armar({

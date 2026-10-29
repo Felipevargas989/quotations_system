@@ -4,6 +4,7 @@ import type { ProcesoPasado } from '../historia/anterior';
 import type { ProcesoDeLaZona, ProcesoReciente } from '../historia/mercado';
 import type { ProcesoParaLeer } from '../lectura/lectura.service';
 import { codigosDeRegiones } from '../mercado-publico/mapeo';
+import type { CategoriaDeLaZona } from './categorias';
 import {
   type FilaDeLaZona,
   procesoDeLaZona,
@@ -67,6 +68,10 @@ export class MercadoDeLaZonaRepository {
   private readonly recientes = new Map<
     string,
     { en: number; procesos: ProcesoReciente[] }
+  >();
+  private readonly categorias = new Map<
+    string,
+    { en: number; lista: CategoriaDeLaZona[] }
   >();
 
   constructor(private readonly supabase: SupabaseService) {}
@@ -265,6 +270,32 @@ export class MercadoDeLaZonaRepository {
       if (pagina.length < PAGINA) return filas;
       ultimo = pagina[pagina.length - 1].codigo;
     }
+  }
+
+  /** Cuántas licitaciones tuvo cada categoría de ChileCompra en estas
+   *  regiones, en los 3 años de la capa resumida, de más a menos (decisión
+   *  111, migración 174): lo que muestra la sección «Categorías de
+   *  ChileCompra» de Configuración. */
+  async categoriasDeLaZona(regiones: string[]): Promise<CategoriaDeLaZona[]> {
+    const codigos = codigosDeRegiones(regiones);
+    if (codigos.length === 0) return [];
+    const clave = codigos.join('|');
+    const guardada = this.categorias.get(clave);
+    if (guardada && Date.now() - guardada.en < VIGENCIA_MS) {
+      return guardada.lista;
+    }
+    const { data, error } = await this.db.rpc('mercado_categorias_de_la_zona', {
+      p_regiones: codigos,
+    });
+    if (error) throw error;
+    const lista = (
+      (data ?? []) as Array<{ categoria: string; licitaciones: number }>
+    ).map((c) => ({
+      categoria: c.categoria,
+      licitaciones: Number(c.licitaciones),
+    }));
+    this.categorias.set(clave, { en: Date.now(), lista });
+    return lista;
   }
 
   /** Para la IA de «Se viene», las que el radar no tiene guardadas: de la

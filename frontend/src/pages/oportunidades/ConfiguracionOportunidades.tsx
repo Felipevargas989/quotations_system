@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import MultiSelect from "../../components/MultiSelect";
 import { toast } from "../../components/toast/Toast";
 import {
+  getCategoriasOportunidades,
   getConfigOportunidades,
   guardarConfigOportunidades,
-} from "../../services/oportunidades.service";
+} from "../../services/oportunidades-config.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
+import { opcionesDeCategoria } from "./categorias";
 import { REGIONES_DE_CHILE } from "./oportunidades.utils";
 
 // LA CONFIGURACIÓN DEL MÓDULO (doc 17 §5.7): regiones y comunas cercanas
@@ -16,6 +18,9 @@ import { REGIONES_DE_CHILE } from "./oportunidades.utils";
 // 16-10: "eso debería ser configurable en el módulo de Eventia"). El monto
 // de alto valor y el correo de avisos viven en Configuración de empresa:
 // aquí solo se muestran, para no tenerlos en dos lados.
+// Desde la decisión 111 (29-10), las categorías de ChileCompra del rubro:
+// Felipe, «deja esto como una sección para elegir en la pestaña de
+// configuración».
 
 export default function ConfiguracionOportunidades() {
   const qc = useQueryClient();
@@ -24,14 +29,22 @@ export default function ConfiguracionOportunidades() {
     queryFn: getConfigOportunidades,
   });
 
+  // Cada categoría con cuántas licitaciones tuvo en las regiones guardadas.
+  const { data: paraElegir } = useQuery({
+    queryKey: ["oportunidades", "config", "categorias"],
+    queryFn: getCategoriasOportunidades,
+  });
+
   const [regiones, setRegiones] = useState<string[]>([]);
   const [comunas, setComunas] = useState<string[]>([]);
   const [nuevaComuna, setNuevaComuna] = useState("");
+  const [categorias, setCategorias] = useState<string[]>([]);
 
   useEffect(() => {
     if (!data) return;
     setRegiones(data.regiones);
     setComunas(data.comunas_cercanas);
+    setCategorias(data.categorias ?? []);
   }, [data]);
 
   const guardar = useMutation({
@@ -41,9 +54,20 @@ export default function ConfiguracionOportunidades() {
         comunas_cercanas: comunas,
         // Lo que vende la empresa se edita en «Mi empresa»: aquí va como está.
         perfil: data?.perfil ?? "",
+        categorias,
       }),
     onSuccess: (config) => {
       qc.setQueryData(["oportunidades", "config"], config);
+      // Las regiones y las categorías cambian lo que muestran «Se viene»,
+      // Competidores y el año anterior de la bandeja.
+      for (const clave of [
+        ["oportunidades", "config", "categorias"],
+        ["oportunidades", "calendario"],
+        ["oportunidades", "competencia"],
+        ["oportunidades", "lista"],
+      ]) {
+        void qc.invalidateQueries({ queryKey: clave });
+      }
       toast.success(
         "Configuración guardada. La próxima revisión de Mercado Público ya la usa.",
       );
@@ -146,6 +170,27 @@ export default function ConfiguracionOportunidades() {
             Agregar
           </button>
         </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-900">
+          Categorías de ChileCompra
+        </h2>
+        <p className="text-xs text-gray-500">
+          Las licitaciones de estas categorías son las de tu rubro: con ellas se
+          arman «Se viene», Competidores, la ficha de cada competidor y quién
+          ganó el año anterior. Si no marcas ninguna, vale la marca de siempre:
+          eventos, alimentación y alojamiento. El número es cuántas licitaciones
+          tuvo cada categoría en tus regiones en los últimos 3 años.
+        </p>
+        <MultiSelect
+          options={opcionesDeCategoria(paraElegir ?? [], categorias)}
+          value={categorias}
+          onChange={setCategorias}
+          placeholder="Elige las categorías de tu rubro"
+          buscador
+          searchPlaceholder="Buscar una categoría"
+        />
       </section>
 
       <p className="p-3 rounded-lg bg-gray-50 text-sm text-gray-600">
