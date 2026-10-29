@@ -76,12 +76,18 @@ describe('SeguimientoConIAService', () => {
       angulo: 'pregunta si pudo revisar las fechas de octubre',
       creado_por: 'u1',
     });
-    // La bitácora: tipo correo y SIN próxima fecha (la pone el envío).
-    expect(bitacora.create).toHaveBeenCalledWith(usuario, {
-      quotation_id: 'q607',
-      tipo: 'correo',
-      note: `Borrador de seguimiento con IA listo en el hilo de ${CONTACTO}: pregunta si pudo revisar las fechas de octubre. Revísalo en Outlook y envíalo desde ahí.`,
-    });
+    // La bitácora: tipo correo y SIN próxima fecha (la pone el envío),
+    // firmada por el Asistente: lo escribió la IA (Felipe, 28-10-2026).
+    expect(bitacora.create).not.toHaveBeenCalled();
+    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(
+      usuario.company_id,
+      {
+        quotation_id: 'q607',
+        tipo: 'correo',
+        next_contact_date: null,
+        note: `Borrador de seguimiento con IA listo en el hilo de ${CONTACTO}: pregunta si pudo revisar las fechas de octubre. Revísalo en Outlook y envíalo desde ahí.`,
+      },
+    );
     // Un viaje a Claude, con las reglas en caché y el comentario interno
     // marcado como del equipo.
     expect(parse).toHaveBeenCalledTimes(1);
@@ -134,6 +140,7 @@ describe('SeguimientoConIAService', () => {
     });
     expect(outlook.borradorDeSeguimiento).not.toHaveBeenCalled();
     expect(bitacora.create).not.toHaveBeenCalled();
+    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
   });
 
   it('una que no venció por correo no entra: 409 sin llamar a nadie', async () => {
@@ -211,6 +218,7 @@ describe('SeguimientoConIAService', () => {
     expect(r.accion).toBe('saltada');
     expect(outlook.borradorDeSeguimiento).not.toHaveBeenCalled();
     expect(bitacora.create).not.toHaveBeenCalled();
+    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
   });
 
   it('sin el hilo de la cotización en contacto@, lo busca en los demás buzones (nunca otro hilo)', async () => {
