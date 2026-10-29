@@ -22,6 +22,7 @@ import {
   textoDeLaOferta,
 } from "./relacionDeLasBases";
 import TituloDeBloque from "./TituloDeBloque";
+import { preguntarPorQue } from "./porQueDescartas";
 
 // LAS EXIGENCIAS DE LA LICITACIÓN (19-10, migración 152). Felipe: "un
 // listado de exigencias... y marcar algunos que sean como lo tengo y otro
@@ -108,7 +109,11 @@ export default function ExigenciasDeLaLicitacion({
       actualizarOportunidad(oportunidadId, { estado: "descartada" }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: claveDeLaFicha(oportunidadId) });
-      toast.success("Desististe de esta licitación: quedó en «Descartadas».");
+      // Decisión 113: el porqué de un clic, opcional.
+      preguntarPorQue(
+        oportunidadId,
+        "Desististe de esta licitación: quedó en «Descartadas».",
+      );
       setDesistiendo(false);
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo desistir.")),

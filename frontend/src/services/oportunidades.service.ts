@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
+import type { MotivoDelDescarte } from "./decisiones";
 import type { DocumentoPedido, MarcaDeExigencia } from "./exigencias.service";
 import type { DatosDeRespaldo } from "./postulacion.service";
 
@@ -776,3 +777,13 @@ export const correrRadar = async () =>
     corrida?: number;
     motivo?: string;
   };
+
+/** El porqué de un descarte (decisión 113): va al último descarte de esa
+ *  oportunidad. Descartar sigue siendo `actualizarOportunidad`. */
+export const ponerMotivoDelDescarte = async (
+  id: number,
+  motivo: MotivoDelDescarte,
+) =>
+  (await apiRequest(`${API_ROUTES.OPORTUNIDADES}/${id}/motivo`, "PATCH", {
+    motivo,
+  })) as { motivo: MotivoDelDescarte };

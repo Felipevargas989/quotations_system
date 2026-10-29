@@ -66,6 +66,7 @@ import {
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
+import { preguntarPorQue } from "./porQueDescartas";
 
 // El radar municipal (decisión 108, solo en el laboratorio) trae sus
 // gráficos: se baja solo al abrir su pestaña.
@@ -381,17 +382,20 @@ function Bandeja({
   const decidir = useMutation({
     mutationFn: ({ id, estado }: { id: number; estado: EstadoOportunidad }) =>
       actualizarOportunidad(id, { estado }),
-    onSuccess: (_r, { estado }) => {
+    onSuccess: (_r, { id, estado }) => {
       setAbierta(null);
-      toast.success(
-        estado === "descartada"
-          ? "Descartada. Queda en «Descartadas»: no se borra."
-          : estado === "en_estudio"
+      // Decisión 113: al descartar, el porqué de un clic, opcional.
+      if (estado === "descartada") {
+        preguntarPorQue(id, "Descartada. Queda en «Descartadas»: no se borra.");
+      } else {
+        toast.success(
+          estado === "en_estudio"
             ? "Quedó en «Mis licitaciones» para trabajarla."
             : estado === "seguida"
               ? "Queda en «En seguimiento»: el radar revisa cada día quién gana."
               : "Lista.",
-      );
+        );
+      }
       void qc.invalidateQueries({ queryKey: ["oportunidades", "lista"] });
       void qc.invalidateQueries({ queryKey: ["oportunidades", "mias"] });
     },
