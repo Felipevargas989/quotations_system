@@ -253,7 +253,12 @@ describe('QuotationFollowupsService', () => {
 
       const map = await service.mapByCompany(7);
 
-      expect(findMapRows).toHaveBeenCalledWith(7);
+      expect(findMapRows).toHaveBeenCalledWith(7, [
+        'solicitada',
+        'enviada',
+        'en_negociacion',
+        'aceptada',
+      ]);
       expect(map).toEqual({
         'q-1': {
           last_at: '2026-08-02T12:00:00Z',
@@ -271,6 +276,18 @@ describe('QuotationFollowupsService', () => {
           next_contact_done_at: null,
         },
       });
+    });
+
+    it('no pide las notas de rechazadas, realizadas ni anuladas (28-10-2026)', async () => {
+      // Felipe: lo cerrado se lee solo al entrar a su Seguimiento. Todo
+      // evento vendido termina realizado con sus notas: si el semáforo
+      // las leyera, la lista crecería para siempre.
+      const findMapRows = jest.fn().mockResolvedValue([]);
+      await buildService({ findMapRows }).mapByCompany(7);
+
+      const [, estados] = findMapRows.mock.calls[0] as [number, string[]];
+      for (const cerrado of ['rechazada', 'realizada', 'cancelada'])
+        expect(estados).not.toContain(cerrado);
     });
   });
 
