@@ -730,6 +730,13 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - Sin categorías, vale la marca «del rubro» de siempre. Valle del Sol no las tiene, así que no cambia.
       - Medido en el laboratorio: de las licitaciones marcadas del rubro, 14.903 son de «Servicios para la comercialización y distribución». Ahí caen las tarjetas de alimentación y la distribución de alimentos, y por eso AMIPASS, EDENRED y PLUXEE encabezan quién gana en la zona.
       - Las categorías de Valle del Sol las elige Felipe.
+110. **«Se viene» en su ventana y sin lo que ya ocurrió** (29-10, en el laboratorio). Felipe: *"deberíamos trabajar con el mes en cuestión... darle un rango de tolerancia, hacia el futuro... y al revés también, puede ser que se atrase, pero tener una visión tan larga así del «Se viene» con 100 o con 50 eventos creo que es mucho"*. Y: *"hacer un cruce en el «Se viene» con el ya ocurrió... hay varios días del funcionario que yo he visto que ya lo lanzaron las municipalidades, entonces ya no se viene porque ya ocurrió"*. Ante la propuesta: *"si dale con 3 semanas atras y 4 adelante"*. Motor y pantalla, sin migración.
+    - **La ventana:** se muestra lo que, según la última vez, debería salir en las próximas 4 semanas o lleva hasta 3 de atraso (`seVienen`: `dias` 28 y `gracia` 21; antes, 90 y 30). Ese día el laboratorio mostraba 78 series en 90 días.
+    - **Lo que ya ocurrió:** `MercadoDeLaZonaRepository.recientesDeLaZona` junta lo de este año: las licitaciones y compras ágiles que trajo el radar, que es lo de hoy, y las compras ágiles del rubro de los archivos, que llegan con un mes de atraso. Son 8 meses, diez minutos en memoria.
+      - Una serie sale de la lista si el mismo comprador publicó algo con un nombre parecido, la misma vara de siempre, más de medio año después de la última vez.
+      - Al comprador se le reconoce por el código del organismo, por la unidad de compra (el comienzo del código) o por el nombre del organismo sin el «I.» ni el «Ilustre». Las compras ágiles del radar no traen el código del organismo, y por eso el cruce de antes no las veía.
+    - **El caso medido:** San Ignacio publicó su Día del Funcionario 2026 el 23-10 como compra ágil (3706-382-COT26), y «Se viene» lo seguía anunciando para el 29-10 por la licitación 3706-59-LE25 de 2025. Ese mes muchos municipios de la zona lo publicaron por compra ágil: Bulnes, Santa Bárbara, Antuco, Quilleco, Chillán y otros.
+    - La pantalla lo dice: «debería volver a salir en las próximas 4 semanas, o que lleva hasta 3 de atraso. Lo que ya salió este año no aparece».
 
 ## 4. Reglas del módulo (no se negocian)
 

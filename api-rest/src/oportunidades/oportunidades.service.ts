@@ -341,12 +341,17 @@ export class OportunidadesService {
       this.repo.configDe(companyId),
       this.repo.datosDeEmpresa(companyId),
     ]);
-    const procesos = await this.procesosDeLaZona(config);
+    const [procesos, recientes] = await Promise.all([
+      this.procesosDeLaZona(config),
+      // Decisión 110: lo que ya salió este año, licitación o compra ágil.
+      this.mercado?.recientesDeLaZona(config?.regiones ?? []) ?? [],
+    ]);
     const comunasCercanas = config?.comunas_cercanas ?? [];
     const umbralAltoValor = empresa?.high_value_threshold ?? null;
     const series = seVienen(procesos, new Date(), {
       comunas: comunasCercanas,
       umbralAltoValor,
+      recientes,
     }).filter((s) => umbralAltoValor === null || s.alto_valor);
     return this.seViene.conSemaforo(companyId, series, procesos, {
       comunasCercanas,

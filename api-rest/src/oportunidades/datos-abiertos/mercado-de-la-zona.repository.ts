@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ProcesoPasado } from '../historia/anterior';
-import type { ProcesoDeLaZona } from '../historia/mercado';
+import type { ProcesoDeLaZona, ProcesoReciente } from '../historia/mercado';
 import type { ProcesoParaLeer } from '../lectura/lectura.service';
 import { codigosDeRegiones } from '../mercado-publico/mapeo';
 import {
@@ -42,6 +42,10 @@ const COLUMNAS_DE_COMPRAS =
 const MESES_DE_LA_ZONA = 38;
 /** «El año anterior» se busca entre 6 y 30 meses atrás (`anteriorDe`). */
 const MESES_DEL_ANTERIOR = 31;
+/** Lo de este año para «ya salió» (decisión 110): los últimos 8 meses. */
+const DIAS_DE_LO_RECIENTE = 240;
+const COLUMNAS_DE_LO_RECIENTE =
+  'codigo, nombre, organismo, organismo_codigo, fecha_publicacion';
 /** PostgREST no entrega más de mil filas por pedido. */
 const PAGINA = 1000;
 /** De a cuántos códigos se pregunta (la URL tiene tope). */
@@ -60,6 +64,10 @@ export class MercadoDeLaZonaRepository {
   >();
 
   private capa: { en: number; hay: boolean } | null = null;
+  private readonly recientes = new Map<
+    string,
+    { en: number; procesos: ProcesoReciente[] }
+  >();
 
   constructor(private readonly supabase: SupabaseService) {}
 
@@ -173,6 +181,64 @@ export class MercadoDeLaZonaRepository {
       }
     }
     return pasados;
+  }
+
+  /** Lo que salió este año en las regiones de la empresa, para que «Se
+   *  viene» no anuncie lo que ya ocurrió (decisión 110): las licitaciones y
+   *  compras ágiles que trajo el radar, que es lo de hoy y no trae el código
+   *  del organismo en las compras ágiles, y las compras ágiles del rubro de
+   *  los archivos, que llegan con un mes de atraso. Diez minutos en memoria. */
+  async recientesDeLaZona(regiones: string[]): Promise<ProcesoReciente[]> {
+    const nombres = regionesDelMercado(regiones);
+    const codigos = codigosDeRegiones(regiones);
+    if (nombres.length === 0) return [];
+    const clave = nombres.join('|');
+    const guardada = this.recientes.get(clave);
+    if (guardada && Date.now() - guardada.en < VIGENCIA_MS) {
+      return guardada.procesos;
+    }
+    const desde = new Date(Date.now() - DIAS_DE_LO_RECIENTE * 24 * 3_600_000)
+      .toISOString()
+      .slice(0, 10);
+    const procesos: ProcesoReciente[] = [];
+    for (let ultimo = ''; ; ) {
+      let consulta = this.db
+        .from('mp_procesos')
+        .select(COLUMNAS_DE_LO_RECIENTE)
+        .in('region', nombres)
+        .gte('fecha_publicacion', desde)
+        .order('codigo', { ascending: true })
+        .limit(PAGINA);
+      if (ultimo) consulta = consulta.gt('codigo', ultimo);
+      const { data, error } = await consulta;
+      if (error) throw error;
+      const pagina = (data ?? []) as ProcesoReciente[];
+      procesos.push(...pagina);
+      if (pagina.length < PAGINA) break;
+      ultimo = pagina[pagina.length - 1].codigo;
+    }
+    for (const region of codigos) {
+      for (let ultimo = ''; ; ) {
+        let consulta = this.db
+          .from(COMPRAS)
+          .select(COLUMNAS_DE_LO_RECIENTE)
+          .eq('tipo', 'compra_agil')
+          .eq('del_rubro', true)
+          .eq('region_codigo', region)
+          .gte('fecha_publicacion', desde)
+          .order('codigo', { ascending: true })
+          .limit(PAGINA);
+        if (ultimo) consulta = consulta.gt('codigo', ultimo);
+        const { data, error } = await consulta;
+        if (error) throw error;
+        const pagina = (data ?? []) as ProcesoReciente[];
+        procesos.push(...pagina);
+        if (pagina.length < PAGINA) break;
+        ultimo = pagina[pagina.length - 1].codigo;
+      }
+    }
+    this.recientes.set(clave, { en: Date.now(), procesos });
+    return procesos;
   }
 
   /** Lo mismo desde la vista de la 169, mientras la capa resumida esté

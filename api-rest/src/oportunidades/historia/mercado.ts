@@ -1,4 +1,5 @@
 import { esDeComunaCercana } from '../lectura/reglas';
+import { normalizar } from '../mercado-publico/mapeo';
 import { parecido } from './anterior';
 import { type Ganador, ganadoresDe, normalizarRut } from './ganadores';
 
@@ -32,6 +33,14 @@ export type ProcesoDeLaZona = {
 };
 
 export type { Ganador };
+
+/** Una compra de este año, licitación o compra ágil, para saber si lo que
+ *  «Se viene» ya salió (decisión 110): del radar, que es lo de hoy, y de
+ *  los archivos de ChileCompra. */
+export type ProcesoReciente = Pick<
+  ProcesoDeLaZona,
+  'codigo' | 'nombre' | 'organismo' | 'organismo_codigo' | 'fecha_publicacion'
+>;
 
 export type SeViene = {
   nombre: string;
@@ -82,6 +91,42 @@ export type FichaDeCompetidor = Competidor & {
 
 const PARECIDO_MINIMO = 0.3;
 const DIA = 24 * 60 * 60 * 1000;
+/** Lo que salió más de medio año después de la última vez es la edición
+ *  de este año, no la misma. */
+const MEDIO_ANIO = 182 * DIA;
+
+/** El comprador sin el «I.» ni el «Ilustre» del comienzo: el radar dice
+ *  «I MUNICIPALIDAD DE QUILLON» y los archivos «ILUSTRE MUNICIPALIDAD DE
+ *  QUILLON». */
+const claveDelComprador = (organismo: string | null): string =>
+  normalizar(organismo).replace(/^(ilustre|i)\s+/, '');
+
+/** La unidad de compra: el comienzo del código (3706 en 3706-382-COT26). */
+const unidadDe = (codigo: string): string => codigo.split('-')[0]?.trim() ?? '';
+
+/** Cómo se reconoce al comprador: por el código del organismo, por la
+ *  unidad de compra o por el nombre del organismo. Las compras ágiles del
+ *  radar no traen el código del organismo, y una municipalidad puede
+ *  cambiar de unidad de un año a otro. */
+const llavesDelComprador = (p: ProcesoReciente): string[] =>
+  [
+    p.organismo_codigo ? `o:${p.organismo_codigo}` : '',
+    unidadDe(p.codigo) ? `u:${unidadDe(p.codigo)}` : '',
+    claveDelComprador(p.organismo) ? `n:${claveDelComprador(p.organismo)}` : '',
+  ].filter(Boolean);
+
+/** Lo de este año, agrupado por cada llave de su comprador. */
+const porComprador = (recientes: ProcesoReciente[]) => {
+  const indice = new Map<string, ProcesoReciente[]>();
+  for (const r of recientes) {
+    for (const llave of llavesDelComprador(r)) {
+      const lista = indice.get(llave);
+      if (lista) lista.push(r);
+      else indice.set(llave, [r]);
+    }
+  }
+  return indice;
+};
 
 const instante = (fecha: string | null): number => {
   const t = fecha ? new Date(fecha).getTime() : NaN;
@@ -94,15 +139,21 @@ const instante = (fecha: string | null): number => {
  * los próximos `dias` (o salió hace menos de `gracia` días y todavía no
  * aparece: "atrasada"). Si este año ya salió, esa es la última vez y queda
  * fuera de la ventana: no se repite lo que ya está en la bandeja.
+ * Decisión 110 (Felipe, 29-10): *"darle un rango de tolerancia, hacia el
+ * futuro... y al revés también"*, con *"3 semanas atrás y 4 adelante"*; antes
+ * eran 30 días atrás y 90 adelante. Y *"hacer un cruce con el ya ocurrió"*:
+ * si el mismo comprador ya publicó este año algo parecido, sea licitación o
+ * compra ágil (`recientes`), ya no se viene.
  */
 export const seVienen = (
   procesos: ProcesoDeLaZona[],
   hoy: Date,
   {
-    dias = 90,
-    gracia = 30,
+    dias = 28,
+    gracia = 21,
     comunas = [] as string[],
     umbralAltoValor = null as number | null,
+    recientes = [] as ProcesoReciente[],
   } = {},
 ): SeViene[] => {
   const porOrganismo = new Map<string, ProcesoDeLaZona[]>();
@@ -119,6 +170,17 @@ export const seVienen = (
   const desde = ahora - gracia * DIA;
   const hasta = ahora + dias * DIA;
   const resultado: SeViene[] = [];
+  const deEsteAnio = porComprador(recientes);
+  /** ¿El mismo comprador ya publicó algo parecido medio año o más después
+   *  de la última vez? Entonces ya salió. */
+  const yaSalio = (ultima: ProcesoDeLaZona, t: number) =>
+    llavesDelComprador(ultima).some((llave) =>
+      (deEsteAnio.get(llave) ?? []).some(
+        (r) =>
+          instante(r.fecha_publicacion) > t + MEDIO_ANIO &&
+          parecido(ultima.nombre, r.nombre) >= PARECIDO_MINIMO,
+      ),
+    );
 
   for (const grupo of porOrganismo.values()) {
     grupo.sort(
@@ -142,6 +204,7 @@ export const seVienen = (
       esperada.setUTCFullYear(esperada.getUTCFullYear() + 1);
       const e = esperada.getTime();
       if (e < desde || e > hasta) continue;
+      if (yaSalio(ultima, t)) continue;
       const monto =
         ultima.monto ??
         ganadoresDe(ultima.adjudicacion).reduce(
