@@ -416,7 +416,11 @@ begin
     left join mercado_comunas c
       on c.clave = mercado_clave_de_comuna(coalesce(l.comuna, u.comuna))
     left join mercado_ganadores_del_mes g on g.codigo = l.codigo
-    where l.mes = p_mes;
+    where l.mes = p_mes
+    -- Las del rubro de cada región, juntas en el disco: la zona se lee de
+    -- una pasada (en frío, 2.476 páginas del disco para la zona sin este
+    -- orden, medido en el laboratorio el 29-10).
+    order by l.del_rubro desc, r.codigo, l.codigo;
   else
     delete from mercado_compras m using mercado_compras_agiles ca
     where m.codigo = ca.codigo and ca.mes = p_mes;
@@ -443,7 +447,8 @@ begin
     ) u on true
     left join mercado_comunas c on c.clave = mercado_clave_de_comuna(u.comuna)
     left join mercado_ganadores_del_mes g on g.codigo = ca.codigo
-    where ca.mes = p_mes and ca.del_rubro;
+    where ca.mes = p_mes and ca.del_rubro
+    order by r.codigo, ca.codigo;
   end if;
 
   insert into mercado_ganadores_por_mes (mes, tipo, del_rubro, region_codigo,
