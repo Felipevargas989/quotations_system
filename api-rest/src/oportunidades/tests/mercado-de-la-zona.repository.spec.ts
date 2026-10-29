@@ -209,3 +209,36 @@ describe('«Quién ganó el año anterior» desde el mercado (decisión 109)', (
     expect(await repo.historialDeOrganismos(['135562'])).toBeNull();
   });
 });
+
+describe('Lo que ya salió este año, para «Se viene» (decisión 110)', () => {
+  it('lo del radar de esas regiones, por su nombre exacto, y las compras ágiles del rubro de los archivos, por su código', async () => {
+    const { repo, consultas } = armar({
+      mp_procesos: [
+        {
+          ...fila('3706-382-COT26', 'Región del Ñuble'),
+          organismo_codigo: null,
+        },
+        { ...fila('1-1-COT26', 'Región del Maule'), organismo_codigo: null },
+      ],
+      mercado_compras: [
+        { ...fila('2-2-COT26', 'Región del Ñuble'), region_codigo: 16 },
+      ],
+    });
+    const recientes = await repo.recientesDeLaZona(['Ñuble']);
+    expect(recientes.map((r) => r.codigo).sort()).toEqual([
+      '2-2-COT26',
+      '3706-382-COT26',
+    ]);
+    expect(consultas[0].tabla).toBe('mp_procesos');
+    expect(consultas[0].pasos).toContainEqual([
+      'in',
+      'region',
+      ['Región del Ñuble'],
+    ]);
+    expect(filtro(consultas[1], 'tipo')).toBe('compra_agil');
+    expect(filtro(consultas[1], 'region_codigo')).toBe(16);
+    // Diez minutos en memoria: la segunda vez no pregunta.
+    await repo.recientesDeLaZona(['Ñuble']);
+    expect(consultas).toHaveLength(2);
+  });
+});

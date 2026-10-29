@@ -23,6 +23,7 @@ function armar(
   mercado?: {
     procesosDeLaZona: jest.Mock;
     historialDeOrganismos?: jest.Mock;
+    recientesDeLaZona?: jest.Mock;
   },
 ) {
   const repo = {
@@ -59,7 +60,9 @@ function armar(
     fichas as unknown as FichaRepository,
     seViene as unknown as SeVieneService,
     ganada as never,
-    mercado as never,
+    (mercado
+      ? { recientesDeLaZona: jest.fn().mockResolvedValue([]), ...mercado }
+      : undefined) as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -538,6 +541,30 @@ describe('OportunidadesService — Se viene y competidores', () => {
     expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble'], undefined);
     expect(repo.procesosDeLaZona).not.toHaveBeenCalled();
     expect(r.map((s) => s.ultima.codigo)).toEqual(['5040-25-LE25']);
+  });
+
+  it('lo que el mismo comprador ya publicó este año, aunque sea compra ágil, ya no se viene (decisión 110)', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([campo()]),
+      recientesDeLaZona: jest.fn().mockResolvedValue([
+        {
+          codigo: '5040-382-COT26',
+          nombre:
+            'Servicio de producción día de campo del dirigente social 2026',
+          organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          organismo_codigo: null,
+          fecha_publicacion: new Date().toISOString(),
+        },
+      ]),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    expect(await servicio.calendario(1)).toEqual([]);
+    expect(mercado.recientesDeLaZona).toHaveBeenCalledWith(['Ñuble']);
   });
 
   it('sin umbral en Mi empresa, «Se viene» muestra todas', async () => {

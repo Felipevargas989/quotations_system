@@ -88,7 +88,7 @@ describe('Se viene: lo que se repite cada año', () => {
     ).toEqual([]);
   });
 
-  it('la que debió salir hace menos de 30 días queda como atrasada; antes de eso, nada', () => {
+  it('la que debió salir hace menos de 3 semanas queda como atrasada; antes de eso, nada (decisión 110)', () => {
     const r = seVienen(
       [
         proceso({ codigo: 'A', fecha_publicacion: '2025-10-01T15:00:00.000Z' }),
@@ -103,13 +103,45 @@ describe('Se viene: lo que se repite cada año', () => {
     expect(r.map((s) => [s.ultima.codigo, s.atrasada])).toEqual([['A', true]]);
   });
 
-  it('lo que viene en más de 90 días todavía no se muestra', () => {
+  it('lo que viene en más de 4 semanas todavía no se muestra (decisión 110; antes, 90 días)', () => {
     expect(
       seVienen(
-        [proceso({ fecha_publicacion: '2026-03-01T15:00:00.000Z' })],
+        [proceso({ fecha_publicacion: '2025-11-20T15:00:00.000Z' })],
         HOY,
       ),
     ).toEqual([]);
+  });
+
+  it('la ventana de Felipe: 3 semanas atrás y 4 adelante (decisión 110)', () => {
+    const r = seVienen(
+      [
+        proceso({
+          codigo: 'HACE-22',
+          organismo_codigo: 'A',
+          fecha_publicacion: '2025-09-25T12:00:00.000Z',
+        }),
+        proceso({
+          codigo: 'HACE-20',
+          organismo_codigo: 'B',
+          fecha_publicacion: '2025-09-27T12:00:00.000Z',
+        }),
+        proceso({
+          codigo: 'EN-27',
+          organismo_codigo: 'C',
+          fecha_publicacion: '2025-11-13T12:00:00.000Z',
+        }),
+        proceso({
+          codigo: 'EN-29',
+          organismo_codigo: 'D',
+          fecha_publicacion: '2025-11-15T12:00:00.000Z',
+        }),
+      ],
+      HOY,
+    );
+    expect(r.map((s) => [s.ultima.codigo, s.atrasada])).toEqual([
+      ['HACE-20', true],
+      ['EN-27', false],
+    ]);
   });
 
   it('nombres distintos del mismo comprador son series distintas; sin organismo no hay serie', () => {
@@ -119,7 +151,7 @@ describe('Se viene: lo que se repite cada año', () => {
         proceso({
           codigo: 'NAVIDAD',
           nombre: 'Cena navideña funcionarios',
-          fecha_publicacion: '2025-12-01T15:00:00.000Z',
+          fecha_publicacion: '2025-11-12T15:00:00.000Z',
         }),
         proceso({ codigo: 'SIN', organismo_codigo: null }),
       ],
@@ -135,6 +167,60 @@ describe('Se viene: lo que se repite cada año', () => {
       umbralAltoValor: 3_000_000,
     });
     expect(s.alto_valor).toBe(false);
+  });
+});
+
+describe('Se viene: lo que ya ocurrió este año no se viene (decisión 110)', () => {
+  // El caso que vio Felipe el 29-10: San Ignacio publicó su Día del
+  // Funcionario el 23-10 como compra ágil, y «Se viene» lo seguía anunciando.
+  const sanIgnacio = proceso({
+    codigo: '3706-59-LE25',
+    nombre: '“CELEBRACIÓN DÍA DEL FUNCIONARIO MUNICIPAL AÑO 2025',
+    organismo: 'I MUNICIPALIDAD DE SAN IGNACIO',
+    organismo_codigo: '3706',
+    comuna: 'San Ignacio',
+    fecha_publicacion: '2025-10-30T12:00:00.000Z',
+  });
+  const compraAgil = {
+    codigo: '3706-382-COT26',
+    nombre:
+      'Servicio integral de producción y habilitación del evento - Celebración del Día del Funcionario Municipal 2026.',
+    organismo: 'I MUNICIPALIDAD DE SAN IGNACIO',
+    organismo_codigo: null,
+    fecha_publicacion: '2026-10-23T14:20:00.000Z',
+  };
+
+  it('el Día del Funcionario de San Ignacio ya salió como compra ágil: no se anuncia', () => {
+    expect(seVienen([sanIgnacio], HOY)).toHaveLength(1);
+    expect(seVienen([sanIgnacio], HOY, { recientes: [compraAgil] })).toEqual(
+      [],
+    );
+  });
+
+  it('el comprador se reconoce también por su nombre, aunque cambie de unidad', () => {
+    const otraUnidad = {
+      ...compraAgil,
+      codigo: '1532886-12-COT26',
+      organismo: 'ILUSTRE MUNICIPALIDAD DE SAN IGNACIO',
+    };
+    expect(seVienen([sanIgnacio], HOY, { recientes: [otraUnidad] })).toEqual(
+      [],
+    );
+  });
+
+  it('otro comprador, otra compra o la misma edición de antes no la sacan', () => {
+    const r = seVienen([sanIgnacio], HOY, {
+      recientes: [
+        {
+          ...compraAgil,
+          codigo: '4027-355-COT26',
+          organismo: 'I MUNICIPALIDAD DE ANTUCO',
+        },
+        { ...compraAgil, nombre: 'Adquisición de computadores para oficina' },
+        { ...compraAgil, fecha_publicacion: '2025-11-02T12:00:00.000Z' },
+      ],
+    });
+    expect(r).toHaveLength(1);
   });
 });
 
