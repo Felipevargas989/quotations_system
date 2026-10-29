@@ -517,10 +517,13 @@ export class SeguimientoConIAService {
       decision.modo === 'nuevo'
         ? `en ${decision.buzon} (correo nuevo: no había hilo)`
         : `en el hilo de ${decision.buzon}`;
+    // Lo que escribe la IA lo firma el Asistente, con su robot (Felipe,
+    // 28-10-2026: «todo lo que coloque la IA déjalo con la etiqueta de IA»).
     await this.bitacora
-      .create(user, {
+      .crearComoAsistente(companyId, {
         quotation_id: id,
         tipo: 'correo',
+        next_contact_date: null,
         note: `Borrador de seguimiento con IA listo ${donde}${angulo ? `: ${angulo}` : ''}. Revísalo en Outlook y envíalo desde ahí.`,
       })
       .catch((e: unknown) =>
