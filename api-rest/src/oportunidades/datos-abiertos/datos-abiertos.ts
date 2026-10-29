@@ -8,22 +8,33 @@
 //    cada cotización; sale con un mes de atraso.
 // Medido el 28-10 con octubre 2025: 9.043 licitaciones con 38.056 ofertas y
 // 93.446 compras ágiles con 442.216 cotizaciones.
+//  - órdenes de compra (decisión 108, el radar municipal): oc-da/{año}-{mes}.zip,
+//    mes sin cero, una fila por producto de cada orden. ChileCompra rehace a
+//    diario los últimos 15 meses. Medido con septiembre 2026: 147.627
+//    órdenes, 45.495 de municipios.
 
 export const ARCHIVOS_DE_CHILECOMPRA =
   'https://transparenciachc.blob.core.windows.net';
 
-export type Fuente = 'licitaciones' | 'compra_agil';
-export const FUENTES: readonly Fuente[] = ['licitaciones', 'compra_agil'];
+export type Fuente = 'licitaciones' | 'compra_agil' | 'ordenes_de_compra';
+export const FUENTES: readonly Fuente[] = [
+  'licitaciones',
+  'compra_agil',
+  'ordenes_de_compra',
+];
 
 export type Mes = { anio: number; mes: number };
 
 /** Cuántos meses hacia atrás se cargan: 3 años. */
 export const MESES_DE_HISTORIA = 36;
 
-export const urlDelArchivo = (fuente: Fuente, { anio, mes }: Mes): string =>
-  fuente === 'licitaciones'
-    ? `${ARCHIVOS_DE_CHILECOMPRA}/lic-da/${anio}-${mes}.zip`
-    : `${ARCHIVOS_DE_CHILECOMPRA}/trnspchc/COT_${anio}-${String(mes).padStart(2, '0')}.zip`;
+export const urlDelArchivo = (fuente: Fuente, { anio, mes }: Mes): string => {
+  if (fuente === 'licitaciones')
+    return `${ARCHIVOS_DE_CHILECOMPRA}/lic-da/${anio}-${mes}.zip`;
+  if (fuente === 'ordenes_de_compra')
+    return `${ARCHIVOS_DE_CHILECOMPRA}/oc-da/${anio}-${mes}.zip`;
+  return `${ARCHIVOS_DE_CHILECOMPRA}/trnspchc/COT_${anio}-${String(mes).padStart(2, '0')}.zip`;
+};
 
 /** El primer día del mes, como lo guarda la base. */
 export const diaUnoDe = ({ anio, mes }: Mes): string =>
@@ -83,6 +94,16 @@ export const limpio = (
   const t = (texto ?? '').replace(/\s+/g, ' ').trim();
   return t ? plano(t.slice(0, largo)) : null;
 };
+
+/** Lo que ChileCompra escribe «NA» cuando no hay dato. */
+export const sinNA = (texto: string | null): string | null =>
+  texto && texto !== 'NA' ? texto : null;
+
+/** Un municipio o una corporación municipal, por el nombre del organismo
+ *  (las compras ágiles no traen el sector; las órdenes y licitaciones sí:
+ *  «Municipalidades»). */
+export const esMunicipal = (organismo: string | null | undefined): boolean =>
+  /municipal/i.test(organismo ?? '');
 
 /** Pesos chilenos, como lo escribe cada archivo. */
 export const esPeso = (moneda: string | undefined): boolean =>

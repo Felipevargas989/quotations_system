@@ -1,6 +1,7 @@
 import type { FilaDelCsv } from './csv';
 import {
   codigoDelRubro,
+  esMunicipal,
   esPeso,
   fecha,
   limpio,
@@ -13,7 +14,9 @@ import {
 // una fila por producto de cada cotización (1,36 millones en octubre 2025).
 // Se lee dos veces para no tenerlo todo en memoria:
 //  1. Los totales de TODAS por unidad de compra, y cuáles son del rubro.
-//  2. Solo las del rubro, con cada cotización.
+//  2. Las del rubro, con cada cotización, y las de MUNICIPIOS (decisión 108,
+//     el radar municipal), de cualquier rubro, con cuántas cotizaciones
+//     tuvieron y la elegida, pero sin guardar cada cotización.
 // El monto de una cotización se repite en cada producto: se cuenta una vez.
 // Si un proveedor manda varias alternativas, vale la más barata, o la
 // elegida si alguna lo fue.
@@ -38,6 +41,8 @@ export type CompraAgilDelMercado = {
   monto_elegido: number | null;
   criterio: string | null;
   productos: string | null;
+  del_rubro: boolean;
+  municipal: boolean;
 };
 
 export type CotizacionDelMercado = {
@@ -95,6 +100,7 @@ export async function comprasAgilesDelMes(
   const unidadDe = new Map<string, string>();
   const elegidoDe = new Map<string, number | null>();
   const delRubro = new Set<string>();
+  const municipales = new Set<string>();
   const unidades = new Map<string, TotalDeCompraAgil>();
   let filas = 0;
   for await (const f of leer()) {
@@ -123,6 +129,7 @@ export async function comprasAgilesDelMes(
         });
       }
       if (nombreDelRubro(f['NombreCotizacion'])) delRubro.add(codigo);
+      if (esMunicipal(organismoDe(f))) municipales.add(codigo);
     }
     if (codigoDelRubro(f['CodigoProducto'])) delRubro.add(codigo);
     if (elegida(f)) {
@@ -145,12 +152,14 @@ export async function comprasAgilesDelMes(
     }
   }
 
-  // 2. Solo las del rubro, con cada cotización.
+  // 2. Las del rubro y las de municipios.
   const solicitudes = new Map<string, CompraAgilDelMercado>();
   const productos = new Map<string, Set<string>>();
   const cotizaciones = new Map<string, CotizacionDelMercado>();
   for await (const f of leer()) {
-    if (!delRubro.has((f['CodigoCotizacion'] ?? '').trim())) continue;
+    const crudo = (f['CodigoCotizacion'] ?? '').trim();
+    const rubro = delRubro.has(crudo);
+    if (!rubro && !municipales.has(crudo)) continue;
     const codigo = llave(f['CodigoCotizacion']);
     let s = solicitudes.get(codigo);
     if (!s) {
@@ -174,6 +183,8 @@ export async function comprasAgilesDelMes(
         monto_elegido: null,
         criterio: null,
         productos: null,
+        del_rubro: rubro,
+        municipal: municipales.has(crudo),
       };
       solicitudes.set(codigo, s);
       productos.set(codigo, new Set());
@@ -214,11 +225,17 @@ export async function comprasAgilesDelMes(
     if (c.elegida) s.monto_elegido = c.monto;
   }
   for (const [codigo, s] of solicitudes) {
-    s.productos = limpio([...productos.get(codigo)!].join(' · '), 300);
+    s.productos = limpio(
+      [...productos.get(codigo)!].join(' · '),
+      s.del_rubro ? 300 : 150,
+    );
   }
   return {
     solicitudes: [...solicitudes.values()],
-    cotizaciones: [...cotizaciones.values()],
+    // Las cotizaciones de fuera del rubro solo se cuentan.
+    cotizaciones: [...cotizaciones.values()].filter(
+      (c) => solicitudes.get(c.codigo)!.del_rubro,
+    ),
     totales: [...unidades.values()],
     filas,
     todas: unidadDe.size,

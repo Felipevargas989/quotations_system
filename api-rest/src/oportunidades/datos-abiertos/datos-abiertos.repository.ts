@@ -9,11 +9,14 @@ import type {
   LicitacionesDelMes,
   OfertaDelMercado,
 } from './licitaciones-del-mes';
+import type { OrdenesDeCompraDelMes } from './ordenes-de-compra-del-mes';
 
 // Las tablas mercado_* (migración 168, decisión 101 del doc 17). Datos
 // públicos de todo Chile, sin empresa. Recargar un mes no duplica: las
 // licitaciones y solicitudes se reemplazan por su código, y sus ofertas y
-// cotizaciones se borran y se vuelven a escribir.
+// cotizaciones se borran y se vuelven a escribir. Las órdenes de compra
+// municipales (decisión 108) se reemplazan por mes, y su organismo y su
+// proveedor se guardan una vez cada uno.
 
 export type CargaDelMercado = {
   fuente: Fuente;
@@ -133,5 +136,21 @@ export class DatosAbiertosRepository {
       .eq('mes', mes);
     if (error) throw error;
     await this.escribir('mercado_compras_agiles_totales', totales);
+  }
+
+  async guardarOrdenesDeCompra(
+    mes: string,
+    { ordenes, organismos, proveedores }: OrdenesDeCompraDelMes,
+  ): Promise<void> {
+    // Sin la comuna (`cut`): la une el radar después, y un upsert sin ella
+    // no la borra.
+    await this.escribir('mercado_organismos', organismos, 'codigo');
+    await this.escribir('mercado_proveedores', proveedores, 'rut');
+    const { error } = await this.db
+      .from('mercado_ordenes_de_compra')
+      .delete()
+      .eq('mes', mes);
+    if (error) throw error;
+    await this.escribir('mercado_ordenes_de_compra', ordenes);
   }
 }

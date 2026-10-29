@@ -24,6 +24,7 @@ import {
   DatosAbiertosRepository,
 } from './datos-abiertos.repository';
 import { licitacionesDelMes } from './licitaciones-del-mes';
+import { ordenesDeCompraDelMes } from './ordenes-de-compra-del-mes';
 import { entradasDelZip, leerEntrada } from './zip';
 
 // EL CARGADOR DEL MERCADO (decisión 101 del doc 17). Mes a mes, del más
@@ -33,6 +34,10 @@ import { entradasDelZip, leerEntrada } from './zip';
 // licitaciones del mes en curso cambian todos los días y se recargan cada
 // noche. Un mes que falla queda en «error» y se reintenta la noche
 // siguiente. Una sola carga a la vez.
+// Las órdenes de compra (decisión 108) son distintas: ChileCompra rehace a
+// diario los archivos de los últimos 15 meses, 1,4 GB. Felipe: "yo traeria
+// las del día no más". Cada noche se lee el mes en curso y el anterior; un
+// mes más viejo ya cargado se repasa una vez al mes, para sumar lo anulado.
 
 export type CabeceraDelArchivo = {
   existe: boolean;
@@ -55,6 +60,29 @@ export type ResumenDeLaCarga = {
 };
 
 const SEGUNDO = 1000;
+const DIA = 24 * 60 * 60 * SEGUNDO;
+
+/** Cada cuánto se repasa una orden de compra de un mes viejo. */
+export const REPASO_DE_ORDENES_MS = 30 * DIA;
+
+/** Cuántos meses atrás de hoy está ese mes (0 = el mes en curso), en hora
+ *  de Chile. */
+export const mesesAtras = (mes: Mes, hoy: Date): number => {
+  const [actual] = mesesHaciaAtras(hoy, 1);
+  return actual.anio * 12 + actual.mes - (mes.anio * 12 + mes.mes);
+};
+
+/** Un mes viejo de órdenes de compra, cargado hace menos de un mes: no se
+ *  vuelve a leer aunque ChileCompra haya rehecho su archivo. */
+export const ordenesAlDia = (
+  mes: Mes,
+  registrada: CargaDelMercado | undefined,
+  ahora: Date,
+): boolean =>
+  registrada?.estado === 'lista' &&
+  mesesAtras(mes, ahora) >= 2 &&
+  !!registrada.terminada_en &&
+  ahora.getTime() - Date.parse(registrada.terminada_en) < REPASO_DE_ORDENES_MS;
 
 export const redDeChileCompra: RedDeChileCompra = {
   async cabecera(url) {
@@ -123,6 +151,7 @@ export class DatosAbiertosService {
   iniciar(opciones: {
     hasta: number;
     meses?: number;
+    fuentes?: readonly Fuente[];
     origen: string;
   }): boolean {
     if (this.corriendo) return false;
@@ -139,6 +168,7 @@ export class DatosAbiertosService {
   async cargar(opciones: {
     hasta: number;
     meses?: number;
+    fuentes?: readonly Fuente[];
     origen: string;
   }): Promise<ResumenDeLaCarga | null> {
     if (this.corriendo) return null;
@@ -158,8 +188,9 @@ export class DatosAbiertosService {
         new Date(),
         opciones.meses ?? MESES_DE_HISTORIA,
       );
+      const fuentes = opciones.fuentes?.length ? opciones.fuentes : FUENTES;
       for (const mes of meses) {
-        for (const fuente of FUENTES) {
+        for (const fuente of fuentes) {
           if (Date.now() > opciones.hasta) {
             resumen.pendientes++;
             continue;
@@ -202,8 +233,10 @@ export class DatosAbiertosService {
       return;
     }
     if (
-      registrada?.estado === 'lista' &&
-      registrada.archivo_modificado === cabecera.modificado
+      (registrada?.estado === 'lista' &&
+        registrada.archivo_modificado === cabecera.modificado) ||
+      (fuente === 'ordenes_de_compra' &&
+        ordenesAlDia(mes, registrada, new Date()))
     ) {
       resumen.sinCambios++;
       return;
@@ -225,6 +258,11 @@ export class DatosAbiertosService {
         await this.repo.guardarLicitaciones(del);
         filas = del.filas;
         procesos = del.licitaciones.length;
+      } else if (fuente === 'ordenes_de_compra') {
+        const del = await ordenesDeCompraDelMes(leer(), dia);
+        await this.repo.guardarOrdenesDeCompra(dia, del);
+        filas = del.filas;
+        procesos = del.ordenes.length;
       } else {
         const del = await comprasAgilesDelMes(leer, dia);
         await this.repo.guardarComprasAgiles(dia, del);
