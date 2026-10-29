@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Hourglass,
   Inbox,
+  Landmark,
   RefreshCw,
   Settings,
   Star,
@@ -19,7 +20,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
   actualizarOportunidad,
@@ -66,6 +67,10 @@ import {
 } from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
 
+// El radar municipal (decisión 108, solo en el laboratorio) trae sus
+// gráficos: se baja solo al abrir su pestaña.
+const RadarMunicipal = lazy(() => import("./RadarMunicipal"));
+
 // OPORTUNIDADES (doc 17, sprint 2): la bandeja de licitaciones y compras
 // ágiles que el radar trae (09, 12, 15 y 18 h, y de noche; decisión 18) y la
 // IA lee. Base: el mockup del 16-10. Solo administrador. Sin resumen por
@@ -82,6 +87,7 @@ type Pestana =
   | "ganadas"
   | "seviene"
   | "competidores"
+  | "radar"
   | "empresa"
   | "configuracion";
 
@@ -151,6 +157,7 @@ export default function OportunidadesPage() {
               ["ganadas", "Ganadas", Trophy],
               ["seviene", "Se viene", CalendarClock],
               ["competidores", "Competidores", Users],
+              ["radar", "Radar municipal", Landmark],
               ["empresa", "Mi empresa", Building2],
               ["configuracion", "Configuración", Settings],
             ] as const
@@ -183,6 +190,11 @@ export default function OportunidadesPage() {
           {pestana === "configuracion" && <ConfiguracionOportunidades />}
           {pestana === "seviene" && <SeVieneOportunidades />}
           {pestana === "competidores" && <CompetidoresOportunidades />}
+          {pestana === "radar" && (
+            <Suspense fallback={null}>
+              <RadarMunicipal />
+            </Suspense>
+          )}
           {pestana === "empresa" && <OferenteOportunidades />}
           {pestana === "bandeja" && (
             <Bandeja

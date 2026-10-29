@@ -66,6 +66,9 @@ import { PostulacionRepository } from './postulacion/postulacion.repository';
 import { PreguntasController } from './preguntas/preguntas.controller';
 import { PreguntasRepository } from './preguntas/preguntas.repository';
 import { PreguntasService } from './preguntas/preguntas.service';
+import { RadarMunicipalController } from './radar-municipal/radar-municipal.controller';
+import { RadarMunicipalRepository } from './radar-municipal/radar-municipal.repository';
+import { RadarMunicipalService } from './radar-municipal/radar-municipal.service';
 import { RadarService } from './radar.service';
 import { ResumenDeNegocioService } from './seguimiento/resumen-de-negocio.service';
 import { SeguimientoController } from './seguimiento/seguimiento.controller';
@@ -87,6 +90,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
   controllers: [
     CompetenciaController,
     DatosAbiertosController,
+    RadarMunicipalController,
     PreguntasController,
     OportunidadesController,
     PostulacionController,
@@ -110,6 +114,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     DatosAbiertosService,
     DatosAbiertosCronService,
     MercadoDeLaZonaRepository,
+    RadarMunicipalRepository,
+    RadarMunicipalService,
     PreguntasRepository,
     PreguntasService,
     ResumenDeNegocioService,

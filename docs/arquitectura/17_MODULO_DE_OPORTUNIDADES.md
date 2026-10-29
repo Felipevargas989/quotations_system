@@ -711,6 +711,17 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Las compras ágiles de los municipios**, de cualquier rubro, en `mercado_compras_agiles` con `municipal` y `del_rubro`. Guardan cuántas cotizaciones tuvieron y la elegida, pero no cada cotización: esas siguen solo para el rubro.
     - **La población de las 346 comunas**, del Censo 2024 del INE (`mercado_poblacion`, 18.480.432 personas, de la capa pública `COMUNA_DPA_INDICADORES`). Sirve para el gasto por habitante, como el CIC N°22 de Contraloría sobre las celebraciones.
     - **La UTM de cada mes**, del SII (`mercado_utm`), para los topes legales: compra ágil hasta 100 UTM, concejo desde 500 y publicidad del trato directo desde 1.000.
+    - **La pestaña «Radar municipal»** en Oportunidades, con las vistas que eligió Felipe y un filtro de región (de partida, las de la empresa; también una sola o todo Chile) y de año:
+        - **Cuánto se gasta:** lo que compró cada municipio en el rubro, por habitante, todo lo que compró y su parte en trato directo; arriba, el promedio por municipio y por habitante de todo Chile.
+        - **Quién gana:** a quién le compraron el rubro, por monto de sus órdenes, con sus órdenes y sus municipios.
+        - **Cuándo compran:** las órdenes del rubro mes a mes.
+        - **Dónde no estás:** los municipios que compraron el rubro donde la empresa no ofertó, no cotizó ni vendió en los 3 años, con quién les vende más.
+        - **Transparencia:** cada municipio con cuántas de las 13 señales tiene y cuáles; al abrirlo, qué vio el radar, sus ejemplos con enlace a Mercado Público y de dónde sale la regla. Arriba, el aviso: *una señal no es una acusación: muestra dónde mirar.*
+    - **Las 13 señales**, en los últimos 12 meses con órdenes de compra, salen del informe y de las reglas de Contraloría y del Observatorio de ChileCompra que se pueden calcular con estos datos:
+        - Por proceso: plazo para ofertar bajo el mínimo legal; tres o más tratos directos por emergencia al mismo proveedor; licitaciones de un tipo menor al que pedía su monto (L1 hasta 100 UTM, LE hasta 1.000); un proveedor que se lleva más del 40 % de lo que compra el municipio.
+        - Comparadas con los demás municipios con la cerca de Tukey de la guía de la Open Contracting Partnership (lo que queda sobre el tercer cuartil más 1,5 veces el rango intercuartil): un solo oferente, demora en adjudicar, adjudicadas más de 30 % sobre lo estimado, no ganó la más barata, mucho trato directo, compras ágiles partidas (el mismo día, la misma unidad y el mismo proveedor, sobre 100 UTM juntas), compras ágiles entre 95 y 100 UTM, gasto en el rubro por habitante y compras ágiles con una sola cotización.
+        - El primer cálculo, marcando con una sola vez, marcaba a casi todos en tres señales (compras partidas por trimestre a 327 de 345 municipios). Por eso esas pasaron a ser proporciones comparadas, que es lo que pide el informe: si una señal se enciende en casi todos, no sirve.
+    - **El cálculo vive en la base** (migración 171): vistas materializadas que llena `radar_recalcular()` después de cada carga, y la función `radar_tablero` que devuelve todo lo de la pestaña en un JSON. En el laboratorio se recalcula a mano.
 
 ## 4. Reglas del módulo (no se negocian)
 
