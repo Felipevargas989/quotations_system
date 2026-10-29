@@ -775,6 +775,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - Elegir uno descarta y lo anota en el mismo clic; también se puede descartar sin motivo o cancelar. En las exigencias, el modal reemplaza la confirmación de antes.
       - El porqué viaja con el mismo cambio de estado: `PATCH /oportunidades/:id` con `motivo`, y el motor lo pone en el último descarte (`DecisionesRepository.ponerMotivo`).
       - Felipe eligió el modal entre dos dibujos: *"creo que debería ser un modal que aparezca cuando uno pincha el botón"*. El primer armado, un aviso abajo con botones por 12 segundos, no llegó a producción.
+    - **La bandeja que no cargaba** (migración 176, al probarla en el laboratorio el 29-10). «Quién ganó el año anterior», que desde la 109 se lee de `mercado_compras`, recorría la tabla entera por su llave para traer unas 2.000 filas: 17 s por página. En el laboratorio la bandeja se cortaba; en producción pasó de 0,5 s a entre 1,5 y 9,9 s. Un índice con solo las licitaciones del rubro con ganador, unas 20 mil, dejó la consulta en 0,07 s, sin tocar el código ni lo que se muestra.
     - **Viene después:** las lecciones semanales y la medición, pasos 3 y 4.
 
 ## 4. Reglas del módulo (no se negocian)
