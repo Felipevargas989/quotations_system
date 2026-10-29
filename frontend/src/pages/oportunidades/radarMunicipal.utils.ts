@@ -74,6 +74,12 @@ export const ventanaEnPalabras = (
   return desde && hasta ? `${mes(desde)} a ${mes(hasta)}` : "";
 };
 
+/** «de enero a octubre» si el año no está completo; si está, nada. */
+export const mesesDelAnio = (meses: number[]): string =>
+  meses.length === 0 || meses.length === 12
+    ? ""
+    : `de ${NOMBRES_DE_MES[Math.min(...meses) - 1]} a ${NOMBRES_DE_MES[Math.max(...meses) - 1]}`;
+
 /** La ficha de una orden de compra en Mercado Público. */
 export const urlOrdenDeCompra = (codigo: string): string =>
   `https://www.mercadopublico.cl/PurchaseOrder/Modules/PO/DetailsPurchaseOrder.aspx?codigoOC=${encodeURIComponent(codigo)}`;
@@ -158,10 +164,11 @@ export const SENALES: Senal[] = [
   },
   {
     clave: "s_por_habitante",
-    titulo: "Celebraciones por habitante",
+    titulo: "Eventos y alimentación por habitante",
     explicar: (s) =>
       `Gasta ${pesos(s.rubro_por_habitante)} por habitante en eventos y alimentación; el país, ${pesos(s.promedio_por_habitante)}.`,
-    fuente: "El ranking de Contraloría sobre el gasto en celebraciones (CIC N°22).",
+    fuente:
+      "Como el ranking de Contraloría del gasto en celebraciones por habitante (CIC N°22).",
   },
   {
     clave: "s_tipo_no_calza",

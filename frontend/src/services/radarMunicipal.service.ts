@@ -92,8 +92,12 @@ export interface MunicipioDelRadar {
 }
 
 export interface TableroDelRadar {
+  /** El año mirado: el pedido o, sin pedir, el último completo. */
   anio: number;
+  /** Los años con al menos 6 meses de datos. */
   anios: number[];
+  /** Los meses con datos del año mirado (1 a 12). */
+  meses_del_anio: number[];
   ventana: { desde: string | null; hasta: string | null };
   nacional: {
     municipios_con_rubro: number;

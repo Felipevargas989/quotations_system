@@ -1,9 +1,6 @@
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
-import {
-  anioEnChile,
-  variantesDelRut,
-} from '../radar-municipal/radar-municipal';
+import { variantesDelRut } from '../radar-municipal/radar-municipal';
 import type { RadarMunicipalRepository } from '../radar-municipal/radar-municipal.repository';
 import { RadarMunicipalService } from '../radar-municipal/radar-municipal.service';
 
@@ -29,9 +26,14 @@ describe('El radar municipal (decisión 108)', () => {
     expect(variantesDelRut(null)).toEqual([]);
   });
 
-  it('el año es el de Chile: el 1 de enero a las 02:00 UTC todavía es el año anterior', () => {
-    expect(anioEnChile(new Date('2027-01-01T02:00:00Z'))).toBe(2026);
-    expect(anioEnChile(new Date('2026-10-28T15:00:00Z'))).toBe(2026);
+  it('sin año, le deja a la base elegir el último completo', async () => {
+    const { servicio, tablero } = armar();
+    await servicio.tablero(1);
+    expect(tablero).toHaveBeenCalledWith(
+      null,
+      ['Región del Ñuble', 'Región del Biobío'],
+      expect.any(Array),
+    );
   });
 
   const armar = () => {

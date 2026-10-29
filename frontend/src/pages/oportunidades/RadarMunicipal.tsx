@@ -16,7 +16,13 @@ import {
 } from "../../services/radarMunicipal.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { REGIONES_DE_CHILE } from "./oportunidades.utils";
-import { MESES, millones, pesos, porcentaje } from "./radarMunicipal.utils";
+import {
+  MESES,
+  mesesDelAnio,
+  millones,
+  pesos,
+  porcentaje,
+} from "./radarMunicipal.utils";
 import SenalesDelRadar from "./SenalesDelRadar";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -200,7 +206,11 @@ function CuantoSeGasta({ tablero }: { readonly tablero: TableroDelRadar }) {
         <Cifra
           titulo={`Eventos y alimentación, ${tablero.anio}`}
           valor={millones(total)}
-          nota="lo que compraron los municipios mirados"
+          nota={
+            mesesDelAnio(tablero.meses_del_anio)
+              ? `${mesesDelAnio(tablero.meses_del_anio)}, en los municipios mirados`
+              : "lo que compraron los municipios mirados"
+          }
         />
         <Cifra
           titulo="Municipios que compraron del rubro"
@@ -326,7 +336,10 @@ function CuandoCompran({ tablero }: { readonly tablero: TableroDelRadar }) {
     <div className="space-y-3">
       <p className="text-sm text-gray-600">
         Órdenes de compra de eventos y alimentación de los municipios, mes a
-        mes, en {tablero.anio}.
+        mes, en {tablero.anio}
+        {mesesDelAnio(tablero.meses_del_anio) &&
+          ` (${mesesDelAnio(tablero.meses_del_anio)})`}
+        .
         {mayor && mayor.ordenes > 0 &&
           ` El mes con más compras fue ${MESES[mayor.mes - 1].toLowerCase()}.`}
       </p>

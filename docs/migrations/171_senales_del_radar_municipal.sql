@@ -443,16 +443,29 @@ end $$;
 -- ------------------------------------------------------------
 -- 5. Todo lo de la pestaña, en un JSON
 -- ------------------------------------------------------------
--- p_regiones vacío = todo Chile. p_ruts: los RUT de la empresa, como los
--- escribe ChileCompra (con puntos y sin ellos), para «Dónde no estás».
+-- p_anio nulo = el último año completo (con sus 12 meses). Solo se ofrecen
+-- los años con al menos 6 meses de datos: los 3 años hacia atrás empiezan
+-- en noviembre, y 2023 traería solo dos meses. p_regiones vacío = todo
+-- Chile. p_ruts: los RUT de la empresa, como los escribe ChileCompra (con
+-- puntos y sin ellos), para «Dónde no estás».
 create or replace function public.radar_tablero(p_anio integer, p_regiones text[], p_ruts text[])
 returns jsonb language sql stable as $$
 with
+meses_por_anio as (
+  select anio, count(distinct mes) as meses from public.radar_meses_rubro group by anio
+),
+sel as (
+  select coalesce(
+    p_anio,
+    (select max(anio) from meses_por_anio where meses = 12),
+    (select max(anio) from meses_por_anio)
+  ) as anio
+),
 mun as (
   select * from public.radar_municipios
   where coalesce(cardinality(p_regiones), 0) = 0 or region = any(p_regiones)
 ),
-gasto as (select * from public.radar_gasto_anual where anio = p_anio),
+gasto as (select * from public.radar_gasto_anual where anio = (select anio from sel)),
 nacional as (
   select count(*) filter (where g.rubro > 0) as municipios_con_rubro,
     avg(g.rubro) filter (where g.rubro > 0) as rubro_promedio,
@@ -487,8 +500,12 @@ filas as (
   left join public.radar_senales s using (organismo_codigo)
 )
 select jsonb_build_object(
-  'anio', p_anio,
-  'anios', (select coalesce(jsonb_agg(distinct anio order by anio desc), '[]'::jsonb) from public.radar_gasto_anual),
+  'anio', (select anio from sel),
+  'anios', (select coalesce(jsonb_agg(anio order by anio desc), '[]'::jsonb) from meses_por_anio where meses >= 6),
+  'meses_del_anio', (
+    select coalesce(jsonb_agg(distinct r.mes order by r.mes), '[]'::jsonb)
+    from public.radar_meses_rubro r where r.anio = (select anio from sel)
+  ),
   'ventana', (select jsonb_build_object('desde', min(desde), 'hasta', min(hasta)) from public.radar_senales),
   'nacional', (select to_jsonb(n) from nacional n),
   'municipios', (select coalesce(jsonb_agg(to_jsonb(f) order by f.rubro desc nulls last, f.nombre), '[]'::jsonb) from filas f),
@@ -499,7 +516,7 @@ select jsonb_build_object(
       from public.radar_proveedores_anual p
       join mun m using (organismo_codigo)
       left join public.mercado_proveedores pr on pr.rut = p.rut_proveedor
-      where p.anio = p_anio and p.rubro > 0
+      where p.anio = (select anio from sel) and p.rubro > 0
       group by 1, 2, 3
       order by 4 desc
       limit 15
@@ -511,7 +528,7 @@ select jsonb_build_object(
     left join (
       select r.mes, sum(r.ordenes) as ordenes, sum(r.monto) as monto
       from public.radar_meses_rubro r join mun m using (organismo_codigo)
-      where r.anio = p_anio group by r.mes
+      where r.anio = (select anio from sel) group by r.mes
     ) t on t.mes = g.mes
   ),
   'donde_no_estas', (
@@ -519,7 +536,7 @@ select jsonb_build_object(
       select f.organismo_codigo, f.nombre, f.comuna, f.rubro, f.ordenes_rubro,
         (select pr.nombre from public.radar_proveedores_anual p
           left join public.mercado_proveedores pr on pr.rut = p.rut_proveedor
-          where p.organismo_codigo = f.organismo_codigo and p.anio = p_anio and p.rubro > 0
+          where p.organismo_codigo = f.organismo_codigo and p.anio = (select anio from sel) and p.rubro > 0
           order by p.rubro desc limit 1) as quien_le_vende
       from filas f where f.rubro > 0 and not f.presente
     ) x
