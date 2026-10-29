@@ -33,7 +33,6 @@ import { DatosAbiertosController } from './datos-abiertos/datos-abiertos.control
 import { DatosAbiertosRepository } from './datos-abiertos/datos-abiertos.repository';
 import { DatosAbiertosService } from './datos-abiertos/datos-abiertos.service';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
-import { DecisionesController } from './decisiones/decisiones.controller';
 import { DecisionesRepository } from './decisiones/decisiones.repository';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
@@ -96,7 +95,6 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     SeguimientoController,
     ComparacionController,
     AprendizajesController,
-    DecisionesController,
   ],
   providers: [
     CompetenciaRepository,

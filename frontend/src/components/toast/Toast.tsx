@@ -11,24 +11,14 @@ import { AlertTriangle, CheckCircle2, X, XCircle } from "lucide-react";
 //   toast.success("Cliente creado");
 //   toast.error("No se pudo guardar");
 //   toast.warn("Revisa la unidad");
-// Desde el 29-10 (decisión 113 de Oportunidades) puede llevar botones bajo
-// el texto: al apretar uno, corre y la tarjeta se cierra.
-//   toast.success("Descartada. ¿Por qué?", { acciones: [...], duracion: 12000 });
 // El <ToastHost /> vive UNA vez en App.tsx.
 
 type Kind = "success" | "error" | "warn";
-
-/** Un botón bajo el texto de la tarjeta. */
-export interface AccionDelToast {
-  etiqueta: string;
-  alHacer: () => void;
-}
 
 interface ToastItem {
   id: number;
   kind: Kind;
   text: string;
-  acciones?: AccionDelToast[];
 }
 
 // Almacén mínimo por suscripción (sin dependencias): las pantallas
@@ -55,26 +45,21 @@ const DURACION: Record<Kind, number> = {
 // sticky = tarjeta PEGAJOSA: no se va sola, queda hasta que el usuario
 // la cierre. Para instrucciones (ej. "permite ventanas emergentes"),
 // no para noticias.
-interface ToastOpts {
-  sticky?: boolean;
-  /** Botones bajo el texto: al apretar uno, corre y la tarjeta se cierra. */
-  acciones?: AccionDelToast[];
-  /** Cuánto dura, si no es la de siempre (una tarjeta con botones
-   *  necesita más tiempo para leerla). */
-  duracion?: number;
-}
-
-const push = (kind: Kind, text: string, o?: ToastOpts) => {
+const push = (kind: Kind, text: string, sticky = false) => {
   const id = nextId++;
-  items = [...items, { id, kind, text, acciones: o?.acciones }];
+  items = [...items, { id, kind, text }];
   emit();
-  if (!o?.sticky) setTimeout(() => quitar(id), o?.duracion ?? DURACION[kind]);
+  if (!sticky) setTimeout(() => quitar(id), DURACION[kind]);
 };
 
+interface ToastOpts {
+  sticky?: boolean;
+}
+
 export const toast = {
-  success: (text: string, o?: ToastOpts) => push("success", text, o),
-  error: (text: string, o?: ToastOpts) => push("error", text, o),
-  warn: (text: string, o?: ToastOpts) => push("warn", text, o),
+  success: (text: string, o?: ToastOpts) => push("success", text, o?.sticky),
+  error: (text: string, o?: ToastOpts) => push("error", text, o?.sticky),
+  warn: (text: string, o?: ToastOpts) => push("warn", text, o?.sticky),
 };
 
 const ESTILO: Record<Kind, { borde: string; icono: JSX.Element }> = {
@@ -111,26 +96,7 @@ export function ToastHost() {
           className={`flex items-center gap-2.5 bg-white border border-gray-200 border-l-4 ${ESTILO[t.kind].borde} rounded-lg shadow-lg pl-3 pr-2 py-2.5 max-w-sm`}
         >
           {ESTILO[t.kind].icono}
-          <div>
-            <p className="text-sm text-gray-800 leading-snug">{t.text}</p>
-            {t.acciones && t.acciones.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {t.acciones.map((a) => (
-                  <button
-                    key={a.etiqueta}
-                    type="button"
-                    onClick={() => {
-                      quitar(t.id);
-                      a.alHacer();
-                    }}
-                    className="px-2 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50"
-                  >
-                    {a.etiqueta}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <p className="text-sm text-gray-800 leading-snug">{t.text}</p>
           <button
             type="button"
             onClick={() => quitar(t.id)}

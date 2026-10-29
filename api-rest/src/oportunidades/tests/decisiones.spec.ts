@@ -1,12 +1,10 @@
-import { NotFoundException } from '@nestjs/common';
 import type { SupabaseService } from 'src/supabase/supabase.service';
-import type { User } from 'src/users/entities/user.entity';
-import { DecisionesController } from '../decisiones/decisiones.controller';
 import { DecisionesRepository } from '../decisiones/decisiones.repository';
 
 // EL PORQUÉ DE UN DESCARTE (decisión 113): va al último descarte de esa
 // oportunidad, solo de la empresa de la sesión. Las decisiones las anotan
-// los triggers de la migración 175.
+// los triggers de la migración 175; el porqué llega con el mismo cambio de
+// estado (lo prueba oportunidades.service.spec.ts).
 
 type Paso = unknown[];
 
@@ -60,13 +58,9 @@ describe('El porqué de un descarte (decisión 113)', () => {
     );
   });
 
-  it('si no hay descarte de esa empresa, no guarda nada y la ruta responde 404', async () => {
+  it('si no hay descarte de esa empresa, no guarda nada', async () => {
     const { repo, consultas } = armar([]);
     await expect(repo.ponerMotivo(2, 9, 'otro')).resolves.toBeNull();
     expect(consultas).toHaveLength(1);
-    const controlador = new DecisionesController(repo);
-    await expect(
-      controlador.motivo(9, { motivo: 'otro' }, { company_id: 2 } as User),
-    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

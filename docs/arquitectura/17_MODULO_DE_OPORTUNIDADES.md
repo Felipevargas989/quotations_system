@@ -771,7 +771,10 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - «estudiada»: la primera vez que se suben o se traen las bases o se pide su análisis.
       - Lo anotan triggers de la base (`anotar_cambio_de_estado`, `anotar_estudio_por_bases`, `anotar_estudio_por_analisis`), así ningún camino se queda afuera.
       - Lo que ya había entró como `origen = historia`, con la fecha de la última actualización de cada oportunidad.
-    - **El porqué** es opcional y de un clic: al descartar, desde la bandeja, el panel, la ficha o el desistir de las exigencias, el aviso de siempre trae «Muy chica», «Muy lejos», «No es lo mío», «No alcanzo» y «Otro» por 12 segundos (`PATCH /oportunidades/:id/motivo`). Descartar sigue siendo un clic. La tarjeta de aviso de la casa aprendió a llevar botones (`acciones`).
+    - **El porqué, en un modal** (`PorQueDescartas`). Al apretar «Descartar», en la bandeja, el panel o la ficha, o «Desistir», en las exigencias, se abre «¿Por qué la descartas?» con «Muy chica», «Muy lejos», «No es lo mío», «No alcanzo» y «Otro».
+      - Elegir uno descarta y lo anota en el mismo clic; también se puede descartar sin motivo o cancelar. En las exigencias, el modal reemplaza la confirmación de antes.
+      - El porqué viaja con el mismo cambio de estado: `PATCH /oportunidades/:id` con `motivo`, y el motor lo pone en el último descarte (`DecisionesRepository.ponerMotivo`).
+      - Felipe eligió el modal entre dos dibujos: *"creo que debería ser un modal que aparezca cuando uno pincha el botón"*. El primer armado, un aviso abajo con botones por 12 segundos, no llegó a producción.
     - **Viene después:** las lecciones semanales y la medición, pasos 3 y 4.
 
 ## 4. Reglas del módulo (no se negocian)

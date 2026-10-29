@@ -666,10 +666,12 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Desistir de esta licitación" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sí, desistir" }));
+    // Decisión 113: el modal del porqué confirma y anota el motivo.
+    fireEvent.click(screen.getByRole("button", { name: "No alcanzo" }));
     await waitFor(() =>
       expect(s.actualizarOportunidad).toHaveBeenCalledWith(40, {
         estado: "descartada",
+        motivo: "no_alcanzo",
       }),
     );
   });

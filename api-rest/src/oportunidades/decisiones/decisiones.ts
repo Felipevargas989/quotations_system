@@ -6,7 +6,8 @@
 //
 // Cada decisión la anotan dos triggers de la base (migración 175), con el
 // color y la razón de la IA de ese momento. El motor solo pone el porqué de
-// un descarte, que es opcional y de un clic.
+// un descarte: llega con el mismo cambio de estado (`PATCH :id` con
+// `motivo`), elegido en el modal que se abre al descartar.
 
 /** El porqué de un descarte. */
 export const MOTIVOS_DEL_DESCARTE = [

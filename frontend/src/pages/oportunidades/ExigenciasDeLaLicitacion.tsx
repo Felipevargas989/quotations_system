@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { useState } from "react";
-import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
   type MarcaDeExigencia,
@@ -22,7 +21,8 @@ import {
   textoDeLaOferta,
 } from "./relacionDeLasBases";
 import TituloDeBloque from "./TituloDeBloque";
-import { preguntarPorQue } from "./porQueDescartas";
+import type { MotivoDelDescarte } from "../../services/decisiones";
+import PorQueDescartas from "./PorQueDescartas";
 
 // LAS EXIGENCIAS DE LA LICITACIÓN (19-10, migración 152). Felipe: "un
 // listado de exigencias... y marcar algunos que sean como lo tengo y otro
@@ -105,15 +105,14 @@ export default function ExigenciasDeLaLicitacion({
     },
   });
   const desistir = useMutation({
-    mutationFn: () =>
-      actualizarOportunidad(oportunidadId, { estado: "descartada" }),
+    mutationFn: (motivo: MotivoDelDescarte | null) =>
+      actualizarOportunidad(oportunidadId, {
+        estado: "descartada",
+        motivo: motivo ?? undefined,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: claveDeLaFicha(oportunidadId) });
-      // Decisión 113: el porqué de un clic, opcional.
-      preguntarPorQue(
-        oportunidadId,
-        "Desististe de esta licitación: quedó en «Descartadas».",
-      );
+      toast.success("Desististe de esta licitación: quedó en «Descartadas».");
       setDesistiendo(false);
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo desistir.")),
@@ -154,24 +153,26 @@ export default function ExigenciasDeLaLicitacion({
             {noPuedo.map((e) => `«${e.que}»`).join(", ")}. Si es obligatoria, lo
             sano es desistir.
           </p>
-          {!postulada &&
-            (desistiendo ? (
-              <ConfirmInline
-                question="¿Desistes de esta licitación? Queda en «Descartadas» (se puede recuperar)."
-                yesLabel="Sí, desistir"
-                onYes={() => desistir.mutate()}
-                onNo={() => setDesistiendo(false)}
-                busy={desistir.isPending}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setDesistiendo(true)}
-                className="px-3 py-1.5 text-sm font-semibold text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-100"
-              >
-                Desistir de esta licitación
-              </button>
-            ))}
+          {!postulada && (
+            <button
+              type="button"
+              onClick={() => setDesistiendo(true)}
+              className="px-3 py-1.5 text-sm font-semibold text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-100"
+            >
+              Desistir de esta licitación
+            </button>
+          )}
+          {/* Decisión 113: el modal del porqué también confirma. */}
+          {desistiendo && (
+            <PorQueDescartas
+              titulo="¿Por qué desistes?"
+              subtitulo="Queda en «Descartadas» y se puede recuperar. Así el semáforo aprende."
+              sinMotivo="Desistir sin motivo"
+              ocupado={desistir.isPending}
+              onElegir={(motivo) => desistir.mutate(motivo)}
+              onCancelar={() => setDesistiendo(false)}
+            />
+          )}
         </div>
       )}
 

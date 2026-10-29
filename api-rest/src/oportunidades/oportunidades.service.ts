@@ -7,6 +7,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
+import { DecisionesRepository } from './decisiones/decisiones.repository';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import type { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import type { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
@@ -94,6 +95,9 @@ export class OportunidadesService {
     /** Decisión 106: «Se viene» y los competidores leen del mercado de
      *  ChileCompra. Opcional: las pruebas de antes no lo traen. */
     @Optional() private readonly mercado?: MercadoDeLaZonaRepository,
+    /** Decisión 113: el porqué de un descarte va al registro de decisiones.
+     *  Opcional: las pruebas de antes no lo traen. */
+    @Optional() private readonly decisiones?: DecisionesRepository,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -304,6 +308,10 @@ export class OportunidadesService {
     }
     const fila = await this.repo.actualizar(companyId, id, cambios);
     if (!fila) throw new NotFoundException('No encontramos esa oportunidad.');
+    // Decisión 113: el descarte ya quedó anotado por la base; aquí, su porqué.
+    if (cambios.estado === 'descartada' && dto.motivo && this.decisiones) {
+      await this.decisiones.ponerMotivo(companyId, id, dto.motivo);
+    }
     // Decisión 104 (28-10): ganada a mano, su cotización vinculada queda
     // aceptada con su cuota a 30 días, como cuando el resultado llega solo.
     let cotizacion_aceptada: CotizacionAceptada | null = null;
