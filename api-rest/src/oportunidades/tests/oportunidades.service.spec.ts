@@ -24,7 +24,6 @@ function armar(
     procesosDeLaZona: jest.Mock;
     historialDeOrganismos?: jest.Mock;
     recientesDeLaZona?: jest.Mock;
-    categoriasDeLaZona?: jest.Mock;
   },
 ) {
   const repo = {
@@ -232,7 +231,7 @@ describe('OportunidadesService — el año anterior', () => {
     expect(ficha.anterior?.codigo).toBe('4364-5-LE25');
   });
 
-  it('desde la 109 sale del mercado, con el rubro de la empresa, y ya no de la historia del radar', async () => {
+  it('desde la 109 sale del mercado, con «la marca» del rubro, y ya no de la historia del radar', async () => {
     const mercado = {
       procesosDeLaZona: jest.fn().mockResolvedValue([]),
       historialDeOrganismos: jest.fn().mockResolvedValue([profesor2025]),
@@ -242,14 +241,10 @@ describe('OportunidadesService — el año anterior', () => {
       regiones: ['Ñuble'],
       comunas_cercanas: [],
       perfil: null,
-      categorias: ['RESTAURANTES Y CATERING'],
     });
     repo.listar.mockResolvedValue([profesor]);
     const lista = await servicio.listar(1, {});
-    expect(mercado.historialDeOrganismos).toHaveBeenCalledWith(
-      ['1234'],
-      ['RESTAURANTES Y CATERING'],
-    );
+    expect(mercado.historialDeOrganismos).toHaveBeenCalledWith(['1234']);
     expect(repo.historialDeOrganismos).not.toHaveBeenCalled();
     expect(lista[0].anterior?.codigo).toBe('4364-5-LE25');
   });
@@ -396,7 +391,6 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble'],
       comunas_cercanas: ['Quillón'],
       perfil: 'Complejo en Quillón',
-      categorias: ['RESTAURANTES Y CATERING'],
     });
     repo.datosDeEmpresa.mockResolvedValue({
       high_value_threshold: 3_000_000,
@@ -406,7 +400,6 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble'],
       comunas_cercanas: ['Quillón'],
       perfil: 'Complejo en Quillón',
-      categorias: ['RESTAURANTES Y CATERING'],
       umbral_alto_valor: 3_000_000,
       correo_avisos: 'contacto@valledelsolquillon.cl',
     });
@@ -418,7 +411,6 @@ describe('OportunidadesService — la configuración', () => {
       regiones: [],
       comunas_cercanas: [],
       perfil: '',
-      categorias: [],
       umbral_alto_valor: null,
       correo_avisos: null,
     });
@@ -435,53 +427,6 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble', 'Biobío'],
       comunas_cercanas: ['Quillón', 'San Ignacio'],
       perfil: null,
-    });
-  });
-
-  it('las categorías de ChileCompra se guardan limpias; sin ninguna, null: vale la marca de siempre (decisión 111)', async () => {
-    const { repo, servicio } = armar();
-    await servicio.guardarConfig(1, {
-      categorias: [' RESTAURANTES Y CATERING ', 'RESTAURANTES Y CATERING', ''],
-    });
-    expect(repo.guardarConfig).toHaveBeenLastCalledWith(1, {
-      categorias: ['RESTAURANTES Y CATERING'],
-    });
-    await servicio.guardarConfig(1, { categorias: [] });
-    expect(repo.guardarConfig).toHaveBeenLastCalledWith(1, {
-      categorias: null,
-    });
-  });
-
-  it('las categorías para elegir: las de la zona de la empresa, con las sugeridas primero (decisión 111)', async () => {
-    const mercado = {
-      procesosDeLaZona: jest.fn().mockResolvedValue([]),
-      categoriasDeLaZona: jest.fn().mockResolvedValue([
-        { categoria: 'TRANSPORTE DE PASAJEROS', licitaciones: 1792 },
-        { categoria: 'RESTAURANTES Y CATERING', licitaciones: 516 },
-      ]),
-    };
-    const { repo, servicio } = armar(undefined, mercado);
-    repo.configDe.mockResolvedValue({
-      regiones: ['Ñuble', 'Biobío'],
-      comunas_cercanas: [],
-      perfil: null,
-      categorias: null,
-    });
-    const lista = await servicio.categorias(1);
-    expect(mercado.categoriasDeLaZona).toHaveBeenCalledWith([
-      'Ñuble',
-      'Biobío',
-    ]);
-    expect(lista.filter((c) => c.sugerida)).toHaveLength(4);
-    expect(lista[1]).toEqual({
-      categoria: 'RESTAURANTES Y CATERING',
-      licitaciones: 516,
-      sugerida: true,
-    });
-    expect(lista[lista.length - 1]).toEqual({
-      categoria: 'TRANSPORTE DE PASAJEROS',
-      licitaciones: 1792,
-      sugerida: false,
     });
   });
 
@@ -589,7 +534,7 @@ describe('OportunidadesService — Se viene y competidores', () => {
       notifications: null,
     });
     const r = await servicio.calendario(1);
-    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble'], undefined);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
     expect(repo.procesosDeLaZona).not.toHaveBeenCalled();
     expect(r.map((s) => s.ultima.codigo)).toEqual(['5040-25-LE25']);
   });
@@ -642,7 +587,7 @@ describe('OportunidadesService — Se viene y competidores', () => {
     });
     repo.procesosDeLaZona.mockResolvedValue([campo()]);
     const ranking = await servicio.competidores(1);
-    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble'], undefined);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
     expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
     expect(ranking.map((c) => c.rut)).toEqual(['76154667-8']);
   });

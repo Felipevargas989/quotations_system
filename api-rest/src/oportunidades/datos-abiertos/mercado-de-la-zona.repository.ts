@@ -4,7 +4,6 @@ import type { ProcesoPasado } from '../historia/anterior';
 import type { ProcesoDeLaZona, ProcesoReciente } from '../historia/mercado';
 import type { ProcesoParaLeer } from '../lectura/lectura.service';
 import { codigosDeRegiones } from '../mercado-publico/mapeo';
-import type { CategoriaDeLaZona } from './categorias';
 import {
   type FilaDeLaZona,
   procesoDeLaZona,
@@ -27,10 +26,10 @@ import {
 // tiempo de la base (medido en el laboratorio el 28-10).
 // También de aquí sale «quién ganó el año anterior» (decisión 109): la
 // historia ya no se pide a la API.
-// El rubro de la empresa (decisión 109): si su configuración trae
-// categorías de ChileCompra, son las licitaciones que tienen alguna de
-// ellas; si no, la marca «del rubro» de siempre, la de eventos y
-// alimentación.
+// El rubro es «la marca» de la 101, la de eventos y alimentación, que mira
+// el nombre de la compra y el código de lo que se compra (decisión 112). La
+// categoría de ChileCompra no sirve para esto: un comprador puede esconder
+// una licitación en otra categoría.
 
 const COMPRAS = 'mercado_compras';
 const VISTA = 'mercado_licitaciones_con_ganadores';
@@ -53,10 +52,6 @@ const PAGINA = 1000;
 const LOTE = 100;
 const VIGENCIA_MS = 10 * 60_000;
 
-/** Las categorías de ChileCompra del rubro de la empresa; vacío o null =
- *  la marca «del rubro» de siempre. */
-export type CategoriasDelRubro = readonly string[] | null | undefined;
-
 @Injectable()
 export class MercadoDeLaZonaRepository {
   private readonly guardadas = new Map<
@@ -68,10 +63,6 @@ export class MercadoDeLaZonaRepository {
   private readonly recientes = new Map<
     string,
     { en: number; procesos: ProcesoReciente[] }
-  >();
-  private readonly categorias = new Map<
-    string,
-    { en: number; lista: CategoriaDeLaZona[] }
   >();
 
   constructor(private readonly supabase: SupabaseService) {}
@@ -94,13 +85,10 @@ export class MercadoDeLaZonaRepository {
     return this.capa.hay;
   }
 
-  async procesosDeLaZona(
-    regiones: string[],
-    categorias?: CategoriasDelRubro,
-  ): Promise<ProcesoDeLaZona[]> {
+  async procesosDeLaZona(regiones: string[]): Promise<ProcesoDeLaZona[]> {
     const codigos = codigosDeRegiones(regiones);
     if (codigos.length === 0) return [];
-    const clave = `${codigos.join('|')}#${(categorias ?? []).join('|')}`;
+    const clave = codigos.join('|');
     const guardada = this.guardadas.get(clave);
     if (guardada && Date.now() - guardada.en < VIGENCIA_MS) {
       return guardada.procesos;
@@ -110,7 +98,7 @@ export class MercadoDeLaZonaRepository {
     const dia = desde.toISOString().slice(0, 10);
     const filas: FilaDeLaZona[] = [];
     for (const region of codigos) {
-      filas.push(...(await this.deLaCapaResumida(region, dia, categorias)));
+      filas.push(...(await this.deLaCapaResumida(region, dia)));
     }
     if (filas.length === 0) {
       filas.push(...(await this.deLaVista(regionesDelMercado(regiones), dia)));
@@ -124,11 +112,10 @@ export class MercadoDeLaZonaRepository {
   private async deLaCapaResumida(
     region: number,
     desde: string,
-    categorias?: CategoriasDelRubro,
   ): Promise<FilaDeLaZona[]> {
     const filas: FilaDeLaZona[] = [];
     for (let ultimo = ''; ; ) {
-      let consulta = this.licitacionesDelRubro(categorias)
+      let consulta = this.licitacionesDelRubro()
         .eq('region_codigo', region)
         .gte('mes', desde)
         .order('codigo', { ascending: true })
@@ -143,16 +130,13 @@ export class MercadoDeLaZonaRepository {
     }
   }
 
-  /** Las licitaciones del rubro de la empresa en la capa resumida: las de
-   *  sus categorías, si las tiene; si no, la marca «del rubro» de siempre. */
-  private licitacionesDelRubro(categorias?: CategoriasDelRubro) {
-    const licitaciones = this.db
+  /** Las licitaciones del rubro en la capa resumida: las de «la marca». */
+  private licitacionesDelRubro() {
+    return this.db
       .from(COMPRAS)
       .select(COLUMNAS_DE_COMPRAS)
-      .eq('tipo', 'licitacion');
-    return categorias?.length
-      ? licitaciones.overlaps('rubros', [...categorias])
-      : licitaciones.eq('del_rubro', true);
+      .eq('tipo', 'licitacion')
+      .eq('del_rubro', true);
   }
 
   /** «Quién ganó el año anterior» (decisión 109): lo adjudicado de estos
@@ -161,7 +145,6 @@ export class MercadoDeLaZonaRepository {
    *  el que llama usa la historia del radar, como antes. */
   async historialDeOrganismos(
     organismos: string[],
-    categorias?: CategoriasDelRubro,
   ): Promise<ProcesoPasado[] | null> {
     if (!(await this.hayCapa())) return null;
     const unicos = [...new Set(organismos.filter(Boolean))];
@@ -170,7 +153,7 @@ export class MercadoDeLaZonaRepository {
     const pasados: ProcesoPasado[] = [];
     for (let i = 0; i < unicos.length; i += LOTE) {
       for (let ultimo = ''; ; ) {
-        let consulta = this.licitacionesDelRubro(categorias)
+        let consulta = this.licitacionesDelRubro()
           .in('organismo_codigo', unicos.slice(i, i + LOTE))
           .not('ganadores', 'is', null)
           .gte('fecha_publicacion', desde.toISOString().slice(0, 10))
@@ -270,32 +253,6 @@ export class MercadoDeLaZonaRepository {
       if (pagina.length < PAGINA) return filas;
       ultimo = pagina[pagina.length - 1].codigo;
     }
-  }
-
-  /** Cuántas licitaciones tuvo cada categoría de ChileCompra en estas
-   *  regiones, en los 3 años de la capa resumida, de más a menos (decisión
-   *  111, migración 174): lo que muestra la sección «Categorías de
-   *  ChileCompra» de Configuración. */
-  async categoriasDeLaZona(regiones: string[]): Promise<CategoriaDeLaZona[]> {
-    const codigos = codigosDeRegiones(regiones);
-    if (codigos.length === 0) return [];
-    const clave = codigos.join('|');
-    const guardada = this.categorias.get(clave);
-    if (guardada && Date.now() - guardada.en < VIGENCIA_MS) {
-      return guardada.lista;
-    }
-    const { data, error } = await this.db.rpc('mercado_categorias_de_la_zona', {
-      p_regiones: codigos,
-    });
-    if (error) throw error;
-    const lista = (
-      (data ?? []) as Array<{ categoria: string; licitaciones: number }>
-    ).map((c) => ({
-      categoria: c.categoria,
-      licitaciones: Number(c.licitaciones),
-    }));
-    this.categorias.set(clave, { en: Date.now(), lista });
-    return lista;
   }
 
   /** Para la IA de «Se viene», las que el radar no tiene guardadas: de la
