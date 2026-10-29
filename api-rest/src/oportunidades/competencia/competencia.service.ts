@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { MODELO_HAIKU } from '../analisis/comun';
+import { MercadoDeLaZonaRepository } from '../datos-abiertos/mercado-de-la-zona.repository';
 import { normalizarRut } from '../historia/ganadores';
 import { fichaDeCompetidor } from '../historia/mercado';
 import { OferenteRepository } from '../oferente/oferente.repository';
@@ -54,6 +56,10 @@ export class CompetenciaService {
     private readonly actas: ActasDeLaZonaService,
     private readonly rubro: RubroService,
     private readonly logger: PinoLogger,
+    /** Decisión 109: los triunfos de la zona salen del mercado, como en
+     *  «Se viene» y la lista de competidores. Opcional: las pruebas de antes
+     *  no lo traen. */
+    @Optional() private readonly mercado?: MercadoDeLaZonaRepository,
   ) {
     this.logger.setContext(CompetenciaService.name);
   }
@@ -98,6 +104,20 @@ export class CompetenciaService {
     };
   }
 
+  /** Lo de la zona: el mercado de ChileCompra (decisión 109); si todavía no
+   *  tiene nada, la historia que bajó el radar. */
+  private async procesosDeLaZona(
+    regiones: string[],
+    categorias?: string[] | null,
+  ) {
+    const delMercado = this.mercado
+      ? await this.mercado.procesosDeLaZona(regiones, categorias)
+      : [];
+    return delMercado.length > 0
+      ? delMercado
+      : this.oportunidades.procesosDeLaZona(regiones);
+  }
+
   /** El estudio de mercado de un competidor. */
   async ficha(companyId: number, rut: string): Promise<FichaDeMercado> {
     const limpio = normalizarRut(rut);
@@ -122,7 +142,7 @@ export class CompetenciaService {
     ];
     const [actas, procesos] = await Promise.all([
       this.repo.actasDe(conLaEmpresa),
-      this.oportunidades.procesosDeLaZona(config?.regiones ?? []),
+      this.procesosDeLaZona(config?.regiones ?? [], config?.categorias),
     ]);
     const deLaZona = fichaDeCompetidor(procesos, limpio);
     const ficha = fichaDeMercado({

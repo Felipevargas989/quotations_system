@@ -23,8 +23,9 @@ import {
 
 // SE VIENE (doc 17 §5.3, sprint 2): lo que el mismo comprador publicó en
 // años anteriores, con un nombre parecido, y que debería volver a salir en
-// los próximos 90 días. Ejemplo de Felipe: "en noviembre viene el Día de
-// Campo del Dirigente". Se arma con la historia de 3 años, que se carga de
+// las próximas 4 semanas, o que lleva hasta 3 de atraso; lo que ya salió
+// este año no aparece (decisión 110; antes, 90 días). Ejemplo de Felipe:
+// "en noviembre viene el Día de Campo del Dirigente". Se arma con la historia de 3 años, que se carga de
 // noche: las primeras semanas trae poco.
 //
 // Desde la decisión 62 (20-10), con el semáforo de la bandeja. Felipe:
@@ -182,7 +183,8 @@ export default function SeVieneOportunidades() {
       <div className="space-y-3">
         <p className="text-sm text-gray-500">
           Lo que el mismo comprador publicó en años anteriores y debería volver
-          a salir en los próximos 90 días.
+          a salir en las próximas 4 semanas, o que lleva hasta 3 de atraso. Lo
+          que ya salió este año no aparece.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {regiones.length > 1 && (

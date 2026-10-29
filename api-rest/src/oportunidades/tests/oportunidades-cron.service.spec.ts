@@ -1,13 +1,10 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { esDeNocheEnChile } from '../historia/historia.service';
-import {
-  historiaHasta,
-  OportunidadesCronService,
-} from '../oportunidades-cron.service';
+import { OportunidadesCronService } from '../oportunidades-cron.service';
 import type { RadarService } from '../radar.service';
 
-describe('El horario del radar (Felipe, 17-10: cuatro de día y tres de noche)', () => {
+describe('El horario del radar (Felipe, 29-10: cuatro revisiones, a las 8, 12, 15 y 18)', () => {
   // Lo que deja @Cron en el método (clave de @nestjs/schedule, que no la
   // exporta desde su índice).
   const reloj = Reflect.getMetadata(
@@ -20,20 +17,17 @@ describe('El horario del radar (Felipe, 17-10: cuatro de día y tres de noche)',
     .map(Number)
     .sort((a, b) => a - b);
 
-  it('en hora de Chile, a los :07: 09, 12, 15 y 18 de día; 23, 02 y 05 de noche', () => {
+  it('en hora de Chile, a los :07: 08, 12, 15 y 18', () => {
     expect(reloj).toEqual({
-      cronTime: '7 2,5,9,12,15,18,23 * * *',
+      cronTime: '7 8,12,15,18 * * *',
       timeZone: 'America/Santiago',
     });
   });
 
-  it('solo las de noche cargan la historia (22:00 a 07:00)', () => {
-    // 20-10-2026: Chile en horario de verano (UTC-3); 10 minutos después
-    // de partir, cuando la corrida llega a la historia o antes.
-    const enChile = (hora: number) => Date.UTC(2026, 9, 20, hora + 3, 17);
-    expect(horas.filter((h) => esDeNocheEnChile(enChile(h)))).toEqual([
-      2, 5, 23,
-    ]);
+  it('ninguna de noche: la historia ya no se pide a la API (decisión 109)', () => {
+    // 20-10-2026: Chile en horario de verano (UTC-3).
+    const enChile = (hora: number) => Date.UTC(2026, 9, 20, hora + 3, 7);
+    expect(horas.filter((h) => esDeNocheEnChile(enChile(h)))).toEqual([]);
   });
 
   it('tres horas o más entre una y otra: una corrida (2,5 h a lo más) no pisa la siguiente', () => {
@@ -44,25 +38,15 @@ describe('El horario del radar (Felipe, 17-10: cuatro de día y tres de noche)',
   });
 });
 
-describe('La gran descarga: hasta cuándo carga historia cada pasada de noche (19-10, decisión 28)', () => {
-  // Octubre de 2026: Chile en horario de verano (UTC-3).
-  const chile = (dia: number, hora: number, minuto: number) =>
-    Date.UTC(2026, 9, dia, hora + 3, minuto);
-
-  it('10 minutos antes de la pasada siguiente; la de las 05 hasta las 06:55 (ChileCompra: descargas grandes de 22:00 a 07:00)', () => {
-    expect(historiaHasta(chile(19, 23, 7))).toBe(chile(20, 1, 57));
-    expect(historiaHasta(chile(20, 2, 7) + 30_000)).toBe(chile(20, 4, 57));
-    expect(historiaHasta(chile(20, 5, 7))).toBe(chile(20, 6, 55));
-  });
-
-  it('el reloj le pasa esa hora a la corrida', async () => {
+describe('El reloj corre el radar solo con lo vivo (decisión 109)', () => {
+  it('sin hora para la historia', async () => {
     const radar = { correr: jest.fn().mockResolvedValue(null) };
     const cron = new OportunidadesCronService(
       radar as unknown as RadarService,
       mockPinoLogger() as unknown as PinoLogger,
     );
     await cron.radarProgramado();
-    expect(radar.correr).toHaveBeenCalledWith('reloj', expect.any(Number));
+    expect(radar.correr).toHaveBeenCalledWith('reloj');
   });
 });
 

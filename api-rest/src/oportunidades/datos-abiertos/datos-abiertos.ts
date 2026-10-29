@@ -15,6 +15,13 @@ export const ARCHIVOS_DE_CHILECOMPRA =
 export type Fuente = 'licitaciones' | 'compra_agil';
 export const FUENTES: readonly Fuente[] = ['licitaciones', 'compra_agil'];
 
+/** Las que la base resume en `mercado_compras` apenas se cargan (decisión
+ *  109, migración 172): las demás fuentes no pasan por el resumen. */
+export const FUENTES_RESUMIDAS: readonly Fuente[] = [
+  'licitaciones',
+  'compra_agil',
+];
+
 export type Mes = { anio: number; mes: number };
 
 /** Cuántos meses hacia atrás se cargan: 3 años. */

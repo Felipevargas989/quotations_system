@@ -137,7 +137,10 @@ export type ResumenCorrida = {
        *  quedó marcado en error y la corrida sigue bien (18-10). */
       | 'falla'
       | 'sin_ticket'
-      | 'sin_llave';
+      | 'sin_llave'
+      /** Desde la decisión 109 (29-10): la historia sale de los archivos
+       *  de ChileCompra y el radar ya no la pide a la API. */
+      | 'apagada';
     dias: number;
     listadas: number;
     candidatas: number;
@@ -179,7 +182,7 @@ export const resumenVacio = (): ResumenCorrida => ({
   },
   adjudicaciones: { estado: 'ok', revisadas: 0, adjudicadas: 0 },
   historia: {
-    estado: 'ok',
+    estado: 'apagada',
     dias: 0,
     listadas: 0,
     candidatas: 0,
@@ -274,24 +277,26 @@ export class RadarService {
   }
 
   /** Corre completo y espera (el reloj). null = ya había una en marcha. */
-  async correr(origen: 'reloj', historiaHasta?: number) {
+  async correr(origen: 'reloj') {
     const id = await this.repo.tomarCorrida(origen);
     if (id === null) {
       this.logger.info('radar: ya hay una corrida en marcha; esta no parte');
       return null;
     }
-    return this.ejecutar(id, origen, historiaHasta);
+    return this.ejecutar(id, origen);
   }
 
-  /** Nunca lanza: todo error queda en la bitácora de la corrida.
-   *  `historiaHasta`: lo que el reloj le da a la historia (decisión 28). */
+  /** Nunca lanza: todo error queda en la bitácora de la corrida. Desde la
+   *  decisión 109 (29-10) solo trae lo vivo: la historia sale de los
+   *  archivos de ChileCompra (`DatosAbiertosService`), y cada pasada parte
+   *  con el ticket de su turno, el de la mañana o el de la tarde. */
   private async ejecutar(
     id: number,
     origen: 'reloj' | 'manual' | 'arranque',
-    historiaHasta?: number,
   ): Promise<ResumenCorrida> {
     const resumen = resumenVacio();
     const inicio = Date.now();
+    this.mp.empezarPasada(inicio);
     try {
       const empresas = await this.repo.empresasConModulo();
       const configs = new Map<number, ConfigOportunidades>();
@@ -313,15 +318,11 @@ export class RadarService {
       await this.licitaciones(resumen, inicio);
       await this.historia.revisarAdjudicaciones(resumen, regiones, inicio);
       await this.leer(resumen, empresas, configs, inicio, intentadas);
-      await this.historia.cargarHistoria(resumen, inicio, origen, {
-        regiones,
-        hasta: historiaHasta,
-      });
 
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       await this.repo.terminarCorrida(id, 'ok', resumen);
       this.logger.info(
-        `radar ${id} listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas, ${resumen.lectura.releidas} releídas)`,
+        `radar ${id} (${origen}) listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas, ${resumen.lectura.releidas} releídas)`,
       );
     } catch (error) {
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);

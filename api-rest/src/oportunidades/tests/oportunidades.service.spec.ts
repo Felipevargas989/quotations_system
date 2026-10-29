@@ -20,7 +20,11 @@ const fila = (id: number, fecha_cierre: string | null) => ({
 
 function armar(
   ganada?: { aceptar: jest.Mock },
-  mercado?: { procesosDeLaZona: jest.Mock },
+  mercado?: {
+    procesosDeLaZona: jest.Mock;
+    historialDeOrganismos?: jest.Mock;
+    recientesDeLaZona?: jest.Mock;
+  },
 ) {
   const repo = {
     listar: jest.fn().mockResolvedValue([]),
@@ -56,7 +60,9 @@ function armar(
     fichas as unknown as FichaRepository,
     seViene as unknown as SeVieneService,
     ganada as never,
-    mercado as never,
+    (mercado
+      ? { recientesDeLaZona: jest.fn().mockResolvedValue([]), ...mercado }
+      : undefined) as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -223,6 +229,41 @@ describe('OportunidadesService — el año anterior', () => {
     repo.historialDeOrganismos.mockResolvedValue([profesor2025]);
     const ficha = await servicio.ficha(1, 9);
     expect(ficha.anterior?.codigo).toBe('4364-5-LE25');
+  });
+
+  it('desde la 109 sale del mercado, con el rubro de la empresa, y ya no de la historia del radar', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([]),
+      historialDeOrganismos: jest.fn().mockResolvedValue([profesor2025]),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+      categorias: ['RESTAURANTES Y CATERING'],
+    });
+    repo.listar.mockResolvedValue([profesor]);
+    const lista = await servicio.listar(1, {});
+    expect(mercado.historialDeOrganismos).toHaveBeenCalledWith(
+      ['1234'],
+      ['RESTAURANTES Y CATERING'],
+    );
+    expect(repo.historialDeOrganismos).not.toHaveBeenCalled();
+    expect(lista[0].anterior?.codigo).toBe('4364-5-LE25');
+  });
+
+  it('mientras la capa del mercado esté vacía, sigue con la historia del radar', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([]),
+      historialDeOrganismos: jest.fn().mockResolvedValue(null),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.listar.mockResolvedValue([profesor]);
+    repo.historialDeOrganismos.mockResolvedValue([profesor2025]);
+    const lista = await servicio.listar(1, {});
+    expect(repo.historialDeOrganismos).toHaveBeenCalledWith(['1234']);
+    expect(lista[0].anterior?.codigo).toBe('4364-5-LE25');
   });
 });
 
@@ -497,9 +538,33 @@ describe('OportunidadesService — Se viene y competidores', () => {
       notifications: null,
     });
     const r = await servicio.calendario(1);
-    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble'], undefined);
     expect(repo.procesosDeLaZona).not.toHaveBeenCalled();
     expect(r.map((s) => s.ultima.codigo)).toEqual(['5040-25-LE25']);
+  });
+
+  it('lo que el mismo comprador ya publicó este año, aunque sea compra ágil, ya no se viene (decisión 110)', async () => {
+    const mercado = {
+      procesosDeLaZona: jest.fn().mockResolvedValue([campo()]),
+      recientesDeLaZona: jest.fn().mockResolvedValue([
+        {
+          codigo: '5040-382-COT26',
+          nombre:
+            'Servicio de producción día de campo del dirigente social 2026',
+          organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          organismo_codigo: null,
+          fecha_publicacion: new Date().toISOString(),
+        },
+      ]),
+    };
+    const { repo, servicio } = armar(undefined, mercado);
+    repo.configDe.mockResolvedValue({
+      regiones: ['Ñuble'],
+      comunas_cercanas: [],
+      perfil: null,
+    });
+    expect(await servicio.calendario(1)).toEqual([]);
+    expect(mercado.recientesDeLaZona).toHaveBeenCalledWith(['Ñuble']);
   });
 
   it('sin umbral en Mi empresa, «Se viene» muestra todas', async () => {
@@ -526,7 +591,7 @@ describe('OportunidadesService — Se viene y competidores', () => {
     });
     repo.procesosDeLaZona.mockResolvedValue([campo()]);
     const ranking = await servicio.competidores(1);
-    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
+    expect(mercado.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble'], undefined);
     expect(repo.procesosDeLaZona).toHaveBeenCalledWith(['Ñuble']);
     expect(ranking.map((c) => c.rut)).toEqual(['76154667-8']);
   });

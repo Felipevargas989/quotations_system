@@ -18,11 +18,11 @@ import {
  *  una prueba lee ese archivo y compara, así que si el horario cambia allá
  *  y no acá, la prueba se pone roja antes de que la pantalla mienta. */
 export const MINUTO_DEL_RADAR = 7;
-export const HORAS_DEL_RADAR: readonly number[] = [2, 5, 9, 12, 15, 18, 23];
+export const HORAS_DEL_RADAR: readonly number[] = [8, 12, 15, 18];
 
 const dosCifras = (n: number) => String(n).padStart(2, "0");
 
-/** «02:07»: la próxima pasada del radar, en hora de Chile, mire quien
+/** «08:07»: la próxima pasada del radar, en hora de Chile, mire quien
  *  mire. Siempre cae dentro de las 5 horas siguientes, así que no hace
  *  falta decir el día. */
 export const proximaPasada = (ahora: Date = new Date()): string => {

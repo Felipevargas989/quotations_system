@@ -11,11 +11,11 @@ import { OfertasDeLaCompetenciaService } from './ofertas-de-la-competencia.servi
 import { ResultadosDePostuladasService } from './resultados.service';
 import { RubroService } from './rubro.service';
 
-// LA COMPETENCIA, DE NOCHE (decisiones 70 y 71 del doc 17). Dos vueltas entre
-// las pasadas del radar (23:07, 02:07 y 05:07, de unos 15 minutos): de 23:30
-// a 01:55 y de 02:30 a 04:55. En cada una, por empresa con el módulo: las
-// compras ágiles cerradas (pocas consultas), la IA del rubro y las actas de
-// la zona. La primera noche alcanza para las ~6.000 actas de 3 años; las
+// LA COMPETENCIA, DE NOCHE (decisiones 70 y 71 del doc 17). Dos vueltas, de
+// 23:30 a 01:55 y de 02:30 a 04:55; desde la 109 el radar ya no pasa de
+// noche, así que no se cruzan con nada. En cada una, por empresa con el
+// módulo: las compras ágiles cerradas (pocas consultas), la IA del rubro y
+// las actas de la zona. La primera noche alcanza para las ~6.000 actas de 3 años; las
 // siguientes, solo lo nuevo. Como todos los relojes, solo con
 // NODE_ENV=production.
 export const PRIMERA_VUELTA = '30 23 * * *';
@@ -23,8 +23,9 @@ export const SEGUNDA_VUELTA = '30 2 * * *';
 export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
 // El resultado de lo postulado (decisión 92) y, en las licitaciones ganadas
 // o perdidas sin la competencia subida, sus ofertas públicas (decisión 96):
-// media hora después de cada pasada del radar, unos minutos.
-export const RESULTADOS = '37 2,5,9,12,15,18,23 * * *';
+// media hora después de cada pasada del radar, unos minutos. Desde la 109,
+// las pasadas son a las 8, 12, 15 y 18.
+export const RESULTADOS = '37 8,12,15,18 * * *';
 export const DURACION_DE_LOS_RESULTADOS_MS = 10 * 60_000;
 
 @Injectable()

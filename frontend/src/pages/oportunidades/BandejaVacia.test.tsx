@@ -22,7 +22,7 @@ const pintar = (
     <BandejaVacia
       caso={caso}
       vista="nueva"
-      proxima="02:07"
+      proxima="08:07"
       rojas={extra.rojas ?? 0}
       enCurso={extra.enCurso ?? 0}
       {...acciones}
@@ -36,7 +36,7 @@ describe("BandejaVacia", () => {
     const { onIrAMisLicitaciones } = pintar("al_dia", { enCurso: 2 });
     expect(screen.getByText("Revisaste todo lo nuevo")).toBeInTheDocument();
     expect(
-      screen.getByText(/próxima pasada del radar es a las 02:07/),
+      screen.getByText(/próxima pasada del radar es a las 08:07/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
@@ -71,7 +71,7 @@ describe("BandejaVacia", () => {
   it("sin nada leído todavía: cuándo vuelve a mirar el radar", () => {
     pintar("sin_datos");
     expect(
-      screen.getByText(/la próxima pasada es a las 02:07/),
+      screen.getByText(/la próxima pasada es a las 08:07/),
     ).toBeInTheDocument();
   });
 });
