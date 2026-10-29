@@ -58,59 +58,77 @@ export class QuotationsRepository {
       'survey_sent_at, event_end_date, children_count, tip_percentage, ' +
       'contact_name, tip_amount, sent_at, loss_reason, ' +
       'recontacted_at, recontacted_by, harvest_status, comentario_interno';
-    const query = this.supabase.client.from('quotations').select(
-      `${COLUMNAS_LISTA},
-        mandante:client_contacts!quotations_client_contact_id_fkey (
-          name
-        ),
-        clients (
-          name,
-          email,
-          client_type,
-          contact_person,
-          phone,
-          client_contacts (
+    // Por páginas (28-10-2026): la base entrega de a 1.000 filas como
+    // máximo y corta sin avisar. Con el orden por número ascendente, al
+    // pasar las 1.000 se habrían perdido las MÁS NUEVAS: el calendario y
+    // el Dashboard leen todas (528 ese día, unas 120 más al mes) y el
+    // tablero, las en juego y las rechazadas. El `id` desempata (y ordena
+    // cuando nadie pidió orden) para que las páginas no repitan ni salten.
+    const PAGINA = 1000;
+    const pagina = (desde: number) => {
+      const query = this.supabase.client.from('quotations').select(
+        `${COLUMNAS_LISTA},
+          mandante:client_contacts!quotations_client_contact_id_fkey (
+            name
+          ),
+          clients (
             name,
+            email,
+            client_type,
+            contact_person,
             phone,
-            email
+            client_contacts (
+              name,
+              phone,
+              email
+            )
+          ),
+          companies (
+            name
           )
-        ),
-        companies (
-          name
-        )
-        `,
-    );
-    if (company_id) {
-      query.eq('company_id', company_id);
-    }
-    if (request_type) {
-      query.eq('request_type', request_type);
-    }
+          `,
+      );
+      if (company_id) {
+        query.eq('company_id', company_id);
+      }
+      if (request_type) {
+        query.eq('request_type', request_type);
+      }
 
-    if (sort_by) {
-      query.order(sort_by, { ascending: sort_order === 'asc' });
-    }
+      if (sort_by) {
+        query.order(sort_by, { ascending: sort_order === 'asc' });
+      }
+      query.order('id', { ascending: true });
 
-    if (statuses) {
-      query.in('quotation_status', statuses);
-    }
+      if (statuses) {
+        query.in('quotation_status', statuses);
+      }
 
-    if (event_date) {
-      query.eq('event_date', event_date.toISOString());
-    }
+      if (event_date) {
+        query.eq('event_date', event_date.toISOString());
+      }
 
-    if (dateRange) {
-      query.gte('created_at', dateRange.start_date.toISOString());
-      query.lte('created_at', dateRange.end_date.toISOString());
-    }
+      if (dateRange) {
+        query.gte('created_at', dateRange.start_date.toISOString());
+        query.lte('created_at', dateRange.end_date.toISOString());
+      }
 
-    if (eventDateFrom) {
-      query.gte('event_date', eventDateFrom.toISOString());
-    }
+      if (eventDateFrom) {
+        query.gte('event_date', eventDateFrom.toISOString());
+      }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data as unknown as QuotationWithClientAndCompany[];
+      return query.range(desde, desde + PAGINA - 1);
+    };
+
+    const filas: QuotationWithClientAndCompany[] = [];
+    for (let desde = 0; ; desde += PAGINA) {
+      const { data, error } = await pagina(desde);
+      if (error) throw error;
+      const lote = (data ?? []) as unknown as QuotationWithClientAndCompany[];
+      filas.push(...lote);
+      if (lote.length < PAGINA) break;
+    }
+    return filas;
   }
 
   // La CARTA del catálogo (categorías, secciones y vínculos) para que el
