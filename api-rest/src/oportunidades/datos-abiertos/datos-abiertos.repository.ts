@@ -13,7 +13,14 @@ import type {
 // Las tablas mercado_* (migración 168, decisión 101 del doc 17). Datos
 // públicos de todo Chile, sin empresa. Recargar un mes no duplica: las
 // licitaciones y solicitudes se reemplazan por su código, y sus ofertas y
-// cotizaciones se borran y se vuelven a escribir.
+// cotizaciones se borran y se vuelven a escribir. Después, la base resume
+// el mes (decisión 109, migración 172): claves limpias, control de calidad
+// y los resúmenes que leen «Se viene» y los competidores.
+
+/** Lo que no calzó al resumir un mes: cuántas compras y ofertas, cuántas sin
+ *  región o sin comuna, y cuántas con un RUT que no es un RUT chileno
+ *  válido (y de esas, cuántas ganaron). */
+export type CalidadDelMes = Record<string, number>;
 
 export type CargaDelMercado = {
   fuente: Fuente;
@@ -26,6 +33,9 @@ export type CargaDelMercado = {
   error: string | null;
   empezo_en: string | null;
   terminada_en: string | null;
+  /** null = falta resumirlo. No viene si la base no tiene la migración 172. */
+  resumida_en?: string | null;
+  calidad?: CalidadDelMes | null;
 };
 
 /** De a cuántas filas se escribe. */
@@ -115,6 +125,17 @@ export class DatosAbiertosRepository {
       licitaciones.map((l) => l.codigo),
       ofertas,
     );
+  }
+
+  /** Rehace los resúmenes de ese mes en la base (`mercado_resumir_mes`, con
+   *  su propio tope de 60 s) y devuelve el control de calidad. */
+  async resumirMes(fuente: Fuente, mes: string): Promise<CalidadDelMes> {
+    const { data, error } = await this.db.rpc('mercado_resumir_mes', {
+      p_fuente: fuente,
+      p_mes: mes,
+    });
+    if (error) throw error;
+    return (data ?? {}) as CalidadDelMes;
   }
 
   async guardarComprasAgiles(

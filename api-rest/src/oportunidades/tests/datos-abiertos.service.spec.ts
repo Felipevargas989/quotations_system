@@ -13,6 +13,7 @@ import type {
 import {
   type CabeceraDelArchivo,
   DatosAbiertosService,
+  faltaResumir,
 } from '../datos-abiertos/datos-abiertos.service';
 import type { LicitacionesDelMes } from '../datos-abiertos/licitaciones-del-mes';
 import {
@@ -23,7 +24,8 @@ import {
 } from './datos-abiertos-de-prueba';
 
 // EL CARGADOR DEL MERCADO (decisión 101): baja cada mes, lo guarda y no
-// repite lo que no cambió.
+// repite lo que no cambió. Desde la 109, la base resume cada mes guardado y
+// los que quedaron sin resumir.
 
 const logger = {
   setContext: jest.fn(),
@@ -60,6 +62,11 @@ class RepoDePrueba {
   guardarComprasAgiles = jest.fn((_mes: string, c: ComprasAgilesDelMes) => {
     this.comprasAgiles.push(c);
     return Promise.resolve();
+  });
+  resumidos: string[] = [];
+  resumirMes = jest.fn((fuente: string, mes: string) => {
+    this.resumidos.push(`${fuente}:${mes}`);
+    return Promise.resolve({ procesos: 1 });
   });
 }
 
@@ -120,6 +127,7 @@ describe('El cargador del mercado (decisión 101)', () => {
       sinPublicar: 0,
       errores: 0,
       pendientes: 0,
+      resumidas: 2,
     });
     expect(bajadas).toEqual([URL_LIC, URL_COT]);
     expect(repo.licitaciones[0].licitaciones.map((l) => l.codigo)).toEqual([
@@ -220,5 +228,72 @@ describe('El cargador del mercado (decisión 101)', () => {
     ).toBeNull();
     await primera;
     expect(servicio.enMarcha).toBe(false);
+  });
+});
+
+describe('El resumen de cada mes (decisión 109)', () => {
+  it('la base resume cada mes apenas se guarda', async () => {
+    const { repo, servicio } = armar();
+    await servicio.cargar({ hasta: UNA_HORA(), meses: 1, origen: 'prueba' });
+    expect(repo.resumidos).toEqual([
+      `licitaciones:${DIA}`,
+      `compra_agil:${DIA}`,
+    ]);
+  });
+
+  it('un mes listo que nunca se resumió se resume sin volver a bajar el archivo', async () => {
+    const { repo, servicio, bajadas } = armar();
+    repo.registradas = [
+      {
+        fuente: 'licitaciones',
+        mes: DIA,
+        estado: 'lista',
+        archivo_modificado: MODIFICADO,
+        terminada_en: '2026-10-29T03:15:05.594Z',
+        resumida_en: null,
+      } as CargaDelMercado,
+    ];
+    const resumen = await servicio.cargar({
+      hasta: UNA_HORA(),
+      meses: 1,
+      origen: 'prueba',
+    });
+    expect(bajadas).toEqual([URL_COT]);
+    expect(repo.resumidos).toContain(`licitaciones:${DIA}`);
+    expect(resumen?.resumidas).toBe(2);
+  });
+
+  it('si resumir falla, el mes queda listo y la carga sigue', async () => {
+    const { repo, servicio } = armar();
+    repo.resumirMes.mockImplementation(() =>
+      Promise.reject(new Error('tope de tiempo')),
+    );
+    const resumen = await servicio.cargar({
+      hasta: UNA_HORA(),
+      meses: 1,
+      origen: 'prueba',
+    });
+    expect(resumen).toMatchObject({ cargadas: 2, errores: 0, resumidas: 0 });
+    expect(repo.marcas.filter((m) => m.estado === 'lista')).toHaveLength(2);
+  });
+
+  it('falta resumir lo nunca resumido y lo recargado después; nada en una base sin la migración 172', () => {
+    const lista = {
+      fuente: 'licitaciones',
+      mes: DIA,
+      estado: 'lista',
+      terminada_en: '2026-10-29T03:15:05.594Z',
+    } as CargaDelMercado;
+    expect(faltaResumir({ ...lista, resumida_en: null })).toBe(true);
+    expect(
+      faltaResumir({ ...lista, resumida_en: '2026-10-29T03:15:01.000Z' }),
+    ).toBe(true);
+    expect(
+      faltaResumir({ ...lista, resumida_en: '2026-10-29T03:15:09.000Z' }),
+    ).toBe(false);
+    expect(faltaResumir(lista)).toBe(false);
+    expect(faltaResumir({ ...lista, estado: 'error', resumida_en: null })).toBe(
+      false,
+    );
   });
 });
