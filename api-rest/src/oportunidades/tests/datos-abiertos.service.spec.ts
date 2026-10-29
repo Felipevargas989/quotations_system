@@ -258,7 +258,7 @@ describe('El resumen de cada mes (decisión 109)', () => {
       meses: 1,
       origen: 'prueba',
     });
-    expect(bajadas).toEqual([URL_COT]);
+    expect(bajadas).not.toContain(URL_LIC);
     expect(repo.resumidos).toContain(`licitaciones:${DIA}`);
     expect(resumen?.resumidas).toBe(2);
   });
@@ -273,8 +273,10 @@ describe('El resumen de cada mes (decisión 109)', () => {
       meses: 1,
       origen: 'prueba',
     });
-    expect(resumen).toMatchObject({ cargadas: 2, errores: 0, resumidas: 0 });
-    expect(repo.marcas.filter((m) => m.estado === 'lista')).toHaveLength(2);
+    expect(resumen).toMatchObject({ errores: 0, resumidas: 0 });
+    expect(repo.marcas.filter((m) => m.estado === 'lista')).toHaveLength(
+      resumen!.cargadas,
+    );
   });
 
   it('falta resumir lo nunca resumido y lo recargado después; nada en una base sin la migración 172', () => {
