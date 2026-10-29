@@ -99,6 +99,12 @@ export class OportunidadesController {
     return this.servicio.guardarConfig(user.company_id, dto);
   }
 
+  /** Las categorías de ChileCompra para elegir el rubro (decisión 111). */
+  @Get('config/categorias')
+  categorias(@CurrentUser() user: User) {
+    return this.servicio.categorias(user.company_id);
+  }
+
   /** Corre el radar ahora. Responde al tiro: la corrida sigue sola y queda
    *  en la bitácora (GET radar/corridas). */
   @Post('radar')

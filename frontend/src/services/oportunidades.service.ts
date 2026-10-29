@@ -7,6 +7,10 @@ import type { DatosDeRespaldo } from "./postulacion.service";
 // que el radar trae y la IA lee. Solo administrador, solo empresas con el
 // derecho `oportunidades`.
 
+// La configuración del módulo vive en su propio archivo desde la decisión
+// 111 (29-10); se reexporta para que nada cambie al importarla.
+export * from "./oportunidades-config.service";
+
 export type Semaforo = "verde" | "amarillo" | "rojo";
 
 export type EstadoOportunidad =
@@ -160,15 +164,6 @@ export interface FichaDeOportunidad extends Omit<Oportunidad, "proceso"> {
   anterior: Anterior | null;
 }
 
-export interface ConfigOportunidades {
-  regiones: string[];
-  comunas_cercanas: string[];
-  perfil: string;
-  /** De Configuración de empresa: aquí solo se muestran. */
-  umbral_alto_valor: number | null;
-  correo_avisos: string | null;
-}
-
 export interface CorridaDelRadar {
   id: number;
   origen: string;
@@ -234,23 +229,6 @@ export const actualizarOportunidad = async (
     FichaDeOportunidad,
     "id" | "estado" | "responsable_id" | "notas" | "actualizado_en"
   >;
-
-export const getConfigOportunidades = async () =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/config`,
-    "GET",
-  )) as ConfigOportunidades;
-
-export const guardarConfigOportunidades = async (config: {
-  regiones?: string[];
-  comunas_cercanas?: string[];
-  perfil?: string;
-}) =>
-  (await apiRequest(
-    `${API_ROUTES.OPORTUNIDADES}/config`,
-    "PATCH",
-    config,
-  )) as ConfigOportunidades;
 
 /** Lo que Opus leyó de las bases (doc 17, sprint 3, paso 1; migración 125). */
 export interface ResultadoDeBases {
