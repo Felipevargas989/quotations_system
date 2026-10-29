@@ -14,6 +14,7 @@ import {
   diaUnoDe,
   type Fuente,
   FUENTES,
+  FUENTES_RESUMIDAS,
   type Mes,
   MESES_DE_HISTORIA,
   mesesHaciaAtras,
@@ -38,6 +39,11 @@ import { entradasDelZip, leerEntrada } from './zip';
 // diario los archivos de los últimos 15 meses, 1,4 GB. Felipe: "yo traeria
 // las del día no más". Cada noche se lee el mes en curso y el anterior; un
 // mes más viejo ya cargado se repasa una vez al mes, para sumar lo anulado.
+// Apenas se guarda un mes, la base lo resume (decisión 109, migración 172):
+// claves limpias, control de calidad y `mercado_compras`, que es lo que leen
+// «Se viene» y los competidores. Al final de cada carga se resumen los meses
+// listos que nunca se resumieron o que cambiaron después: los de antes de la
+// 172 y los que fallaron al resumir, sin volver a bajar el archivo.
 
 export type CabeceraDelArchivo = {
   existe: boolean;
@@ -57,7 +63,19 @@ export type ResumenDeLaCarga = {
   sinPublicar: number;
   errores: number;
   pendientes: number;
+  /** Meses que la base resumió en esta carga. */
+  resumidas: number;
 };
+
+/** Le falta el resumen: nunca se resumió, o se volvió a cargar después.
+ *  Sin `resumida_en` (una base sin la migración 172) no se resume nada. */
+export const faltaResumir = (c: CargaDelMercado): boolean =>
+  c.estado === 'lista' &&
+  FUENTES_RESUMIDAS.includes(c.fuente) &&
+  (c.resumida_en === null ||
+    (c.resumida_en !== undefined &&
+      c.terminada_en !== null &&
+      new Date(c.resumida_en).getTime() < new Date(c.terminada_en).getTime()));
 
 const SEGUNDO = 1000;
 const DIA = 24 * 60 * 60 * SEGUNDO;
@@ -179,6 +197,7 @@ export class DatosAbiertosService {
       sinPublicar: 0,
       errores: 0,
       pendientes: 0,
+      resumidas: 0,
     };
     try {
       const registradas = new Map(
@@ -203,8 +222,9 @@ export class DatosAbiertosService {
           );
         }
       }
+      await this.resumirPendientes(opciones.hasta, resumen);
       this.logger.info(
-        `datos abiertos (${opciones.origen}): ${resumen.cargadas} meses cargados, ${resumen.sinCambios} sin cambios, ${resumen.sinPublicar} sin publicar, ${resumen.errores} con error, ${resumen.pendientes} para la próxima`,
+        `datos abiertos (${opciones.origen}): ${resumen.cargadas} meses cargados, ${resumen.sinCambios} sin cambios, ${resumen.sinPublicar} sin publicar, ${resumen.errores} con error, ${resumen.pendientes} para la próxima, ${resumen.resumidas} resumidos`,
       );
       return resumen;
     } finally {
@@ -282,6 +302,7 @@ export class DatosAbiertosService {
       this.logger.info(
         `datos abiertos: ${fuente} ${dia}: ${procesos} procesos de ${filas} filas`,
       );
+      await this.resumir(fuente, dia, resumen);
     } catch (error) {
       resumen.errores++;
       this.logger.warn(
@@ -296,6 +317,41 @@ export class DatosAbiertosService {
         .catch(() => undefined);
     } finally {
       await rm(carpeta, { recursive: true, force: true });
+    }
+  }
+
+  /** La base resume el mes recién guardado. Si falla, el mes queda listo
+   *  igual y se vuelve a intentar al final de esta carga o en la próxima. */
+  private async resumir(
+    fuente: Fuente,
+    dia: string,
+    resumen: ResumenDeLaCarga,
+  ): Promise<void> {
+    if (!FUENTES_RESUMIDAS.includes(fuente)) return;
+    try {
+      const calidad = await this.repo.resumirMes(fuente, dia);
+      resumen.resumidas++;
+      this.logger.info(
+        `datos abiertos: ${fuente} ${dia} resumido: ${JSON.stringify(calidad)}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `datos abiertos: ${fuente} ${dia} no se pudo resumir: ${mensajeDe(error)}`,
+      );
+    }
+  }
+
+  /** Los meses listos a los que les falta el resumen, hasta la hora tope. */
+  private async resumirPendientes(
+    hasta: number,
+    resumen: ResumenDeLaCarga,
+  ): Promise<void> {
+    for (const c of (await this.repo.cargas()).filter(faltaResumir)) {
+      if (Date.now() > hasta) {
+        resumen.pendientes++;
+        continue;
+      }
+      await this.resumir(c.fuente, c.mes, resumen);
     }
   }
 }

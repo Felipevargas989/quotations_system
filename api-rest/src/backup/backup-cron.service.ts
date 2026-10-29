@@ -37,7 +37,9 @@ import { gzipSync } from 'zlib';
  * «lista» con las tablas vacías. Y las del radar municipal (decisión 108):
  * las órdenes de compra de los municipios con sus organismos y proveedores,
  * que también se vuelven a bajar, y la población y la UTM, que vienen en
- * la migración 170.
+ * la migración 170. Y la capa resumida de la decisión 109 (migración
+ * 172), unos 390 MB que la base rearma sola desde las otras, con sus
+ * regiones y comunas, que vienen en la misma migración.
  */
 export const FUERA_DEL_RESPALDO = new Set([
   'mp_procesos',
@@ -52,6 +54,11 @@ export const FUERA_DEL_RESPALDO = new Set([
   'mercado_proveedores',
   'mercado_poblacion',
   'mercado_utm',
+  'mercado_regiones',
+  'mercado_comunas',
+  'mercado_compras',
+  'mercado_gasto_por_comprador_mes',
+  'mercado_ganadores_por_mes',
 ]);
 
 @Injectable()
