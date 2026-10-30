@@ -71,7 +71,7 @@ export default function SelectorDeContacto({
     };
   }, [puede, clientId]);
 
-  if (!puede) return <p>{actual || "—"}</p>;
+  if (!puede) return <p className="mb-2">{actual || "—"}</p>;
 
   const calza = personas.find(
     (p) => normalizeText(p.name) === normalizeText(actual || ""),
@@ -147,7 +147,7 @@ export default function SelectorDeContacto({
   };
 
   return (
-    <div>
+    <div className="mb-2">
       <SelectWithSearch
         options={opciones}
         value={calza?.name ?? actual ?? ""}
