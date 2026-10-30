@@ -31,6 +31,8 @@ import { RAZON_DE_PRIORIDAD } from "./coloresDeLaBandeja";
 import { textoDelResultadoPublico } from "./resultadoDeCompraAgil";
 import { avisoAlGuardar } from "./servicioDeLaGanada";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
+import type { MotivoDelDescarte } from "../../services/decisiones";
+import PorQueDescartas from "./PorQueDescartas";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
 // qué piden, las bases y anexos que sube la empresa, las fechas, el
@@ -160,13 +162,18 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   const [notas, setNotas] = useState(ficha.notas ?? "");
   useEffect(() => setNotas(ficha.notas ?? ""), [ficha.notas]);
 
+  // Decisión 113: descartar abre el porqué; elegir uno descarta y lo anota.
+  const [descartando, setDescartando] = useState(false);
+
   const guardar = useMutation({
     mutationFn: (cambios: {
       estado?: EstadoOportunidad;
       responsable_id?: string | null;
       notas?: string | null;
+      motivo?: MotivoDelDescarte;
     }) => actualizarOportunidad(ficha.id, cambios),
     onSuccess: (respuesta) => {
+      setDescartando(false);
       // Decisión 104: ganada, su cotización vinculada queda aceptada.
       toast.success(avisoAlGuardar(respuesta));
       void qc.invalidateQueries({ queryKey: ["oportunidades"] });
@@ -187,8 +194,25 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
         ficha={ficha}
         bases={bases}
         guardando={guardar.isPending}
-        onGuardar={(cambios) => guardar.mutate(cambios)}
+        onGuardar={(cambios) =>
+          cambios.estado === "descartada"
+            ? setDescartando(true)
+            : guardar.mutate(cambios)
+        }
       />
+
+      {descartando && (
+        <PorQueDescartas
+          ocupado={guardar.isPending}
+          onElegir={(motivo) =>
+            guardar.mutate({
+              estado: "descartada",
+              motivo: motivo ?? undefined,
+            })
+          }
+          onCancelar={() => setDescartando(false)}
+        />
+      )}
 
       {ficha.estado !== "descartada" && (
         <CaminoDePostulacion oportunidadId={ficha.id} estado={ficha.estado} />

@@ -1,5 +1,9 @@
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import {
+  MOTIVOS_DEL_DESCARTE,
+  type MotivoDelDescarte,
+} from '../decisiones/decisiones';
+import {
   ESTADOS_OPORTUNIDAD,
   type EstadoOportunidad,
 } from './listar-oportunidades.dto';
@@ -20,4 +24,10 @@ export class ActualizarOportunidadDto {
   @IsString()
   @MaxLength(5000)
   notas?: string | null;
+
+  /** El porqué de un descarte (decisión 113): solo vale con estado
+   *  «descartada»; se anota en el registro de decisiones. */
+  @IsOptional()
+  @IsIn(MOTIVOS_DEL_DESCARTE)
+  motivo?: MotivoDelDescarte;
 }

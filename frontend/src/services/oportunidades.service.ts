@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
+import type { MotivoDelDescarte } from "./decisiones";
 import type { DocumentoPedido, MarcaDeExigencia } from "./exigencias.service";
 import type { DatosDeRespaldo } from "./postulacion.service";
 
@@ -219,6 +220,8 @@ export const actualizarOportunidad = async (
     estado?: EstadoOportunidad;
     responsable_id?: string | null;
     notas?: string | null;
+    /** El porqué de un descarte (decisión 113). */
+    motivo?: MotivoDelDescarte;
   },
 ) =>
   (await apiRequest(

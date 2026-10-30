@@ -27,14 +27,4 @@ export class GuardarConfigOportunidadesDto {
   @IsString()
   @MaxLength(3000)
   perfil?: string;
-
-  /** Las categorías de ChileCompra del rubro (decisión 111); vacía = la
-   *  marca «del rubro» de siempre. La lista trae «Seleccionar Todo», y una
-   *  zona tiene unas 350. */
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(500)
-  @IsString({ each: true })
-  @MaxLength(200, { each: true })
-  categorias?: string[];
 }
