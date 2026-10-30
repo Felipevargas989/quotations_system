@@ -31,7 +31,9 @@ export default function SelectWithSearch({
   tamano = "base",
   mostrarConteo = true,
   sinLimpiar = false,
+  aspecto = "caja",
 }: SelectWithSearchProps) {
+  const comoTexto = aspecto === "texto";
   const [isOpen, setIsOpen] = useState(false);
 
   // La mecánica —filtrar, teclado, mantener a la vista lo marcado y
@@ -184,11 +186,20 @@ export default function SelectWithSearch({
   const handleSearchChange = lista.alEscribir;
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
+    <div
+      className={comoTexto ? "relative inline-block max-w-full" : "relative w-full"}
+      ref={dropdownRef}
+    >
       {/* Main selector button */}
       <button
         type="button"
-        className={`
+        className={comoTexto ? `
+          inline-flex max-w-full items-center gap-1 rounded text-left
+          text-gray-900 hover:text-blue-700 focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer
+          ${tamano === "sm" ? "text-sm" : ""}
+          disabled:cursor-not-allowed disabled:opacity-60
+        ` : `
           w-full px-3 py-2 border border-gray-300 rounded-lg
           focus:ring-2 focus:ring-blue-500 focus:border-transparent
           cursor-pointer bg-white flex items-center justify-between
@@ -216,9 +227,11 @@ export default function SelectWithSearch({
         >
           {selectedOption?.label ?? (rescatable ? value : placeholder)}
         </span>
-        <div className="flex items-center space-x-1">
+        <div className="flex shrink-0 items-center space-x-1">
           {/* Hueco para que la X no se monte sobre el texto. */}
-          {value && !disabled && <span className="w-4" aria-hidden="true" />}
+          {value && !disabled && !comoTexto && (
+            <span className="w-4" aria-hidden="true" />
+          )}
           <ChevronDown
             size={16}
             className={`text-gray-400 transition-transform ${
@@ -247,7 +260,9 @@ export default function SelectWithSearch({
       {/* Dropdown (hacia abajo, o hacia arriba si abajo no cabe) */}
       {isOpen && (
         <div
-          className={`absolute z-50 w-full bg-white border border-gray-300 rounded-lg shadow-lg ${
+          className={`absolute z-50 ${
+            comoTexto ? "left-0 w-80 max-w-[90vw]" : "w-full"
+          } bg-white border border-gray-300 rounded-lg shadow-lg ${
             openUp ? "bottom-full mb-1" : "mt-1"
           }`}
         >
