@@ -107,11 +107,24 @@ describe("SelectorDeContacto", () => {
     abrir();
     expect(await screen.findByText("sin correo")).toBeInTheDocument();
     fireEvent.click(screen.getByText("María Pérez"));
+    // Antes de guardar, pregunta.
+    expect(q.updateQuotation).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Cambiar el contacto?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, cambiar" }));
     await waitFor(() => expect(onCambiado).toHaveBeenCalled());
     expect(q.updateQuotation).toHaveBeenCalledWith(
       { contact_name: "María Pérez" },
       "q1",
     );
+  });
+
+  it("si se cancela la pregunta, no guarda", async () => {
+    await dibujar();
+    abrir();
+    fireEvent.click(await screen.findByText("María Pérez"));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByText("¿Cambiar el contacto?")).not.toBeInTheDocument();
+    expect(q.updateQuotation).not.toHaveBeenCalled();
   });
 
   it("elegir al mismo no guarda nada", async () => {

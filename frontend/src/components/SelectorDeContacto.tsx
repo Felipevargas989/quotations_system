@@ -29,6 +29,10 @@ const NUEVO = "__nuevo__";
  * motor lo vincula con su persona (`resolveContactId`). Al final de la lista,
  * «+ Nuevo contacto» abre una ventana corta; en Particulares con su persona
  * no aparece (mapa 09, regla 10). Sin permiso, es el nombre a secas.
+ *
+ * 29-10, segunda vuelta: la caja de formulario "quedó feo" en la cabecera,
+ * así que va como texto con una flechita (aspecto "texto"), y antes de
+ * guardar pregunta (Felipe: "puedes poner un modal de confirmación").
  */
 export default function SelectorDeContacto({
   quotationId,
@@ -50,6 +54,7 @@ export default function SelectorDeContacto({
   const [personas, setPersonas] = useState<ClientContact[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [nueva, setNueva] = useState(false);
+  const [porConfirmar, setPorConfirmar] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [fono, setFono] = useState("");
@@ -142,13 +147,14 @@ export default function SelectorDeContacto({
   };
 
   return (
-    <div className="w-80 max-w-full">
+    <div>
       <SelectWithSearch
         options={opciones}
         value={calza?.name ?? actual ?? ""}
         onChange={(v) => {
           if (v === NUEVO) setNueva(true);
-          else void guardar(v);
+          else if (normalizeText(v) !== normalizeText(actual || ""))
+            setPorConfirmar(v);
         }}
         placeholder="Elegir contacto"
         searchPlaceholder="Buscar persona…"
@@ -157,7 +163,43 @@ export default function SelectorDeContacto({
         tamano="sm"
         sinLimpiar
         mostrarConteo={false}
+        aspecto="texto"
       />
+      {porConfirmar && (
+        <Modal
+          titulo="¿Cambiar el contacto?"
+          ancho="max-w-sm"
+          onCerrar={() => setPorConfirmar(null)}
+          pie={
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPorConfirmar(null)}
+                className="px-3 py-2 text-sm text-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const elegido = porConfirmar;
+                  setPorConfirmar(null);
+                  void guardar(elegido);
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Sí, cambiar
+              </button>
+            </div>
+          }
+        >
+          <p className="text-sm text-gray-700">
+            El contacto de esta cotización pasa de{" "}
+            <strong>{actual || "nadie"}</strong> a{" "}
+            <strong>{porConfirmar}</strong>.
+          </p>
+        </Modal>
+      )}
       {nueva && (
         <Modal
           titulo="Nuevo contacto"

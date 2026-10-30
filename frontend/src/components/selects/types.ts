@@ -43,4 +43,11 @@ export interface SelectWithSearchProps {
   // ya usan la pieza lo tienen— pero ninguna de las copias escritas a
   // mano lo lleva, y en listas largas roba alto útil.
   readonly mostrarConteo?: boolean;
+
+  // Cómo se ve cerrada (29-10-2026). "caja" es el campo de siempre.
+  // "texto" es el valor a secas con una flechita, sin borde ni fondo:
+  // para cabeceras donde una caja de formulario desentona (Felipe, con el
+  // contacto de la ficha: "quedó feo esto"). La lista que se abre es la
+  // misma. Por omisión, "caja".
+  readonly aspecto?: "caja" | "texto";
 }
