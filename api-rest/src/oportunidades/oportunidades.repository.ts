@@ -43,8 +43,6 @@ export type ConfigOportunidades = {
   regiones: string[];
   comunas_cercanas: string[];
   perfil: string | null;
-  /** Categorías de ChileCompra del rubro (109); null = la marca del_rubro. */
-  categorias?: string[] | null;
 };
 
 const COLUMNAS_DE_LISTA =

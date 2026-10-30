@@ -106,12 +106,9 @@ export class CompetenciaService {
 
   /** Lo de la zona: el mercado de ChileCompra (decisión 109); si todavía no
    *  tiene nada, la historia que bajó el radar. */
-  private async procesosDeLaZona(
-    regiones: string[],
-    categorias?: string[] | null,
-  ) {
+  private async procesosDeLaZona(regiones: string[]) {
     const delMercado = this.mercado
-      ? await this.mercado.procesosDeLaZona(regiones, categorias)
+      ? await this.mercado.procesosDeLaZona(regiones)
       : [];
     return delMercado.length > 0
       ? delMercado
@@ -142,7 +139,7 @@ export class CompetenciaService {
     ];
     const [actas, procesos] = await Promise.all([
       this.repo.actasDe(conLaEmpresa),
-      this.procesosDeLaZona(config?.regiones ?? [], config?.categorias),
+      this.procesosDeLaZona(config?.regiones ?? []),
     ]);
     const deLaZona = fichaDeCompetidor(procesos, limpio);
     const ficha = fichaDeMercado({
