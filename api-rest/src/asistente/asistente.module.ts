@@ -5,7 +5,7 @@ import { AsistenteController } from './asistente.controller';
 import { AsistenteRepository } from './asistente.repository';
 import { AsistenteService } from './asistente.service';
 
-// Evia, la IA de Eventia (doc 20). Lee con piezas que ya existen: la lista
+// BelIA, la IA de Eventia (doc 20). Lee con piezas que ya existen: la lista
 // y el catálogo del cotizador (QuotationsModule) y la bitácora
 // (QuotationFollowupsModule).
 @Module({

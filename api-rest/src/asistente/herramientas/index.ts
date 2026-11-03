@@ -8,7 +8,7 @@ import type { Herramienta } from './comun';
 import { seguimientosPendientes } from './seguimientos-pendientes';
 import { verCotizacion } from './ver-cotizacion';
 
-// LA LISTA CERRADA (doc 20 §3, regla 2). Lo que no está acá, Evia no lo
+// LA LISTA CERRADA (doc 20 §3, regla 2). Lo que no está acá, BelIA no lo
 // puede hacer: no hay herramienta que escriba, que borre, que mande un
 // correo ni que toque pagos. Fase 1, sprint 1: solo consultas de quien
 // vende. Los pagos, las compras, los proveedores, el mobiliario y el

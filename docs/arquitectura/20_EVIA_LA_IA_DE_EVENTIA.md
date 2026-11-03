@@ -26,8 +26,35 @@
 >   la respuesta falle.
 > - Las dos matrices de permisos ya la incluyen. 1.783 pruebas en verde y
 >   `nest build` limpio.
-> - La migración 180 está escrita y **sin aplicar**. Falta probarlo en el
->   laboratorio con preguntas reales.
+> - **En el laboratorio desde el 03-11-2026.** La migración 180 se aplicó en
+>   la base del lab, y el motor del lab (`api-rest-pruebas`) corre la rama.
+>   Cinco preguntas reales, con la sesión de Felipe:
+>   - los seguimientos pendientes;
+>   - el calendario de noviembre;
+>   - la leche asada en el catálogo;
+>   - «anula la 437», que no la anula;
+>   - «¿qué comen el día 2 de esta?», con la 436 abierta.
+>
+>   Respondió en 5 a 9 s, con US$ 0,014 a 0,039 por pregunta (unos US$ 0,02
+>   en promedio). De ahí salió una regla de las instrucciones: la bitácora y
+>   el comentario interno no los ve el cliente; las observaciones, sí.
+> - **Falta:** la ventanilla (sprint 2), el resto de las consultas (sprint
+>   3) y la 180 en producción.
+>
+> **03-11-2026 · Sprint 2a, la ventanilla, con la cara provisoria.**
+> - Ya se llama BelIA en el motor (el derecho sigue siendo `asistente`).
+> - `GET /asistente/estado`, sin IA, da el ánimo de fondo.
+> - La ventanilla sigue la lámina de Felipe:
+>   - cabecera azul noche con «BelIA · Asistente de Eventia», «—» y «×»;
+>   - el saludo «¡Guau! … ¿Qué organizamos hoy?»;
+>   - cuatro atajos (Ver pendientes, Calendario, Esta cotización o
+>     Catálogo, Ayuda); «Crear evento» espera a la fase 2;
+>   - «Escribe tu mensaje...» con el botón azul redondo.
+> - Los cinco ánimos andan, pero celebrar todavía no lo dispara ninguna
+>   pantalla.
+> - La cara es un círculo con una huella hasta que llegue el SVG de Bela
+>   con sus partes separadas.
+> - Su mapa es `mapa/25_BELIA.md`.
 
 ## 1. Por qué
 
@@ -58,7 +85,7 @@ cosas de pagos, tal vez. O eventos que ya estén como sobre la marcha"*.
 | Qué | Decisión | Felipe |
 |---|---|---|
 | Quiénes | Vendedor y arriba: vendedores, operaciones y administración. Operaciones entra porque está entre los dos | *"lo usa administración y vendedores"* |
-| Nombre | **Evia**: Ev(ent)IA. Se descartó «Camilia» porque en la bitácora quedaría a una letra de Camila | *"Evia"* |
+| Nombre | **BelIA**, por Bela (03-11, más tarde): reemplaza a «Evia», que reemplazó a «Camilia». Es una mascota, no el robot, y Felipe manda su imagen (§8b). El derecho sigue siendo `asistente` | *"no me gusta el robot, se llamará Belia, por Bela"* |
 | Modelo | Opus 5.5 (`claude-opus-5-5`). Se cambia en Railway con `MODELO_ASISTENTE`, sin tocar código | *"ojalá Opus"* |
 | Tope | US$ 100 al mes, solo para Evia (§7) | *"mmm 100 USD mensuales?"* |
 | Cotizaciones aceptadas | Como Post-Venta → Servicios, con las consecuencias a la vista (§5) | *"si me sirve"* |
@@ -221,6 +248,28 @@ Oportunidades siguen con lo suyo.
 - **La conversación** sigue abierta al cambiar de pantalla.
 - **Cuidado:** el botón no puede tapar botones de las pantallas, por
   ejemplo «Guardar cambios» de Servicios o los avisos.
+
+## 8b. BelIA: la mascota y sus cinco estados (Felipe, 03-11-2026)
+
+*"no me gusta el robot, se llamará Belia, por Bela, te pasaré su imagen,
+dale personalidad"*. El botón de §8 deja de ser el robot: es BelIA,
+dibujada a partir de las fotos de Bela, para que pueda cerrar los ojos,
+mover las orejas y la cola y fruncir el ceño. Los cinco estados son los
+que escribió Felipe; en cursiva, lo que dispara cada uno en Eventia, por
+confirmar con él.
+
+| Estado | Cómo se ve y qué dice (Felipe) | Lo dispara |
+|---|---|---|
+| Dormida | Cierra los ojitos, baja las orejas, una «Zzz» sobre la cabeza | *Unos minutos sin que nadie use Eventia (propuesta: 5)* |
+| Despierta | Abre los ojos, levanta las orejas, mueve la colita: «¡Guau! ¿Qué organizamos hoy?» | Al pincharla |
+| Llama tu atención | Un ladrido chico y la burbuja «¡Guau! Tienes algo importante que revisar». El sonido es opcional y no interrumpe todo el rato | *Algo nuevo e importante: un compromiso que vence hoy, un comprobante del portal por revisar, un requerimiento nuevo, un tope de calendario. Como mucho una vez por hora, sonido apagado por defecto* |
+| Se enoja | Frunce el ceño, levanta las orejas, se pone seria: «¡Oye! Tenemos demasiado trabajo acumulado. ¡Vamos a resolverlo!» | *Demasiado acumulado: propuesta, más de 10 cotizaciones con el compromiso vencido (la herramienta `seguimientos_pendientes`)* |
+| Celebra | Feliz, mueve la cola y celebra | *Un compromiso marcado «Listo», una cotización aceptada (la reserva), un abono registrado, un evento marcado realizado* |
+
+Regla de la casa que aplica: lo que se mueve en una pantalla que se mira
+todo el día termina siendo ruido (`tailwind.config.js`, la animación
+«vibrar»: *"tres veces y para"*). Por eso cada animación de BelIA tiene
+fin, salvo la respiración lenta de dormida.
 
 ## 9. Cómo se arma (para quien programe)
 

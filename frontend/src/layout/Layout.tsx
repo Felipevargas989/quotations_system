@@ -16,6 +16,7 @@ import {
 import { canAccessSection } from "../constants/permissions";
 import Sidebar from "./Sidebar";
 import PageSkeleton from "../components/PageSkeleton";
+import BeliaVentanilla from "../components/belia/BeliaVentanilla";
 
 // ¿Estamos en el LABORATORIO? (la base espejo, no producción). El
 // letrero evita para siempre confundir ambientes: acá se puede romper
@@ -305,7 +306,9 @@ export default function Layout() {
           </main>
         </div>
 
-        {/* Floating WhatsApp Button */}
+        {/* BelIA, la asistente con IA (doc 20): de vendedor para arriba, en
+            la empresa con el módulo propio. Ella misma decide si se muestra. */}
+        <BeliaVentanilla />
       </div>
     </>
   );

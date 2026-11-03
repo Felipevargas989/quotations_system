@@ -13,7 +13,7 @@ import type { AsistenteRepository } from '../asistente.repository';
 import { AsistenteService, comoMensajes } from '../asistente.service';
 import { herramientasPara } from '../herramientas';
 
-// EVIA (doc 20). Lo que importa probar acá son las barreras: la empresa
+// BELIA (doc 20). Lo que importa probar acá son las barreras: la empresa
 // sale de la sesión aunque la IA pida otra, lo que no tiene herramienta no
 // existe, el tope frena antes de gastar y la cuenta del mes se anota.
 
@@ -94,7 +94,7 @@ const armar = (respuestas: unknown[], gastado = 0) => {
   return { servicio, create, repositorio };
 };
 
-describe('AsistenteService (Evia)', () => {
+describe('AsistenteService (BelIA)', () => {
   const llave = process.env.ANTHROPIC_API_KEY;
   const tope = process.env.TOPE_ASISTENTE_USD;
   beforeEach(() => {
@@ -247,14 +247,72 @@ describe('la conversación que viaja', () => {
   it('parte con la persona, alterna y deja fuera el saludo de la ventanilla', () => {
     const m = comoMensajes(
       [
-        { rol: 'evia', texto: 'Hola, ¿en qué te ayudo?' },
+        { rol: 'belia', texto: 'Hola, ¿en qué te ayudo?' },
         { rol: 'persona', texto: '¿qué tiene Rudel?' },
-        { rol: 'evia', texto: 'La 500.' },
+        { rol: 'belia', texto: 'La 500.' },
         { rol: 'persona', texto: 'y' },
       ],
       '¿cuándo es?',
     );
     expect(m.map((x) => x.role)).toEqual(['user', 'assistant', 'user']);
     expect(m[2].content).toBe('y\n\n¿cuándo es?');
+  });
+});
+
+describe('el ánimo de BelIA (GET /asistente/estado)', () => {
+  it('cuenta lo vencido y lo de hoy con la regla del tablero, sin llamar a Claude', async () => {
+    const hoy = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago',
+    }).format(new Date());
+    const hace = (dias: number) =>
+      new Date(Date.now() - dias * 86_400_000).toISOString();
+    const vivas = [
+      { id: 'a', created_at: hace(30), sent_at: hace(20) },
+      { id: 'b', created_at: hace(30), sent_at: hace(20) },
+      { id: 'c', created_at: hace(30), sent_at: hace(10) },
+      { id: 'd', created_at: hace(1), sent_at: null },
+    ];
+    const bitacora = {
+      // vencido hace 5 días
+      a: { last_at: hace(6), next_contact_date: '2000-01-01' },
+      // vence hoy: al día, pero cuenta para llamar la atención
+      b: { last_at: hace(2), next_contact_date: hoy },
+      // c: sin compromiso y 10 días sin gestión
+    };
+    const repositorio = {
+      buscarCotizaciones: jest.fn().mockResolvedValue({ total: 2, filas: [] }),
+    };
+    const cotizaciones = { findAll: jest.fn().mockResolvedValue(vivas) };
+    const seguimientos = {
+      mapByCompany: jest.fn().mockResolvedValue(bitacora),
+    };
+    const servicio = new AsistenteService(
+      repositorio as unknown as AsistenteRepository,
+      cotizaciones as unknown as QuotationsRepository,
+      {} as unknown as GenerarRepository,
+      seguimientos as unknown as QuotationFollowupsService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    const crear = jest.fn();
+    jest
+      .spyOn(servicio as unknown as { cliente: () => unknown }, 'cliente')
+      .mockReturnValue({ messages: { create: crear } });
+
+    const e = await servicio.estado(usuario());
+
+    expect(e).toEqual({
+      vencidos: 1,
+      sin_gestion: 1,
+      vencen_hoy: 1,
+      requerimientos_de_hoy: 2,
+    });
+    expect(cotizaciones.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ company_id: 1 }),
+    );
+    expect(repositorio.buscarCotizaciones).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ tipo: RequestType.REQUERIMIENTO, limite: 1 }),
+    );
+    expect(crear).not.toHaveBeenCalled();
   });
 });

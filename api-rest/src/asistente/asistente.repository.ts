@@ -7,7 +7,7 @@ import {
 } from 'src/quotations/constants/constants';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
-// LO QUE EVIA LEE DE LA BASE (doc 20 §9). Solo lectura, salvo la cuenta
+// LO QUE BELIA LEE DE LA BASE (doc 20 §9). Solo lectura, salvo la cuenta
 // del mes. Toda consulta filtra por la empresa de la SESIÓN, que llega
 // como parámetro y nunca de lo que pida la IA (doc 20 §3, regla 1; mapa 22
 // §6). No usa `QuotationsRepository.findOne`: no filtra por empresa (zona

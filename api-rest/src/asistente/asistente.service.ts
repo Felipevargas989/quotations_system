@@ -17,6 +17,7 @@ import {
   type UsoDeTokens,
 } from 'src/oportunidades/analisis/comun';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
+import { RequestType } from 'src/quotations/constants/constants';
 import { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { UserRole, type User } from 'src/users/entities/user.entity';
@@ -26,12 +27,14 @@ import { herramientasPara } from './herramientas';
 import {
   ErrorDeHerramienta,
   estadoDe,
+  inicioDelDiaEnChile,
   type ContextoDeHerramienta,
   type Herramienta,
 } from './herramientas/comun';
+import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
 
-// EVIA, LA IA DE EVENTIA (doc 20; Felipe, 03-11-2026: "una ventanilla como
+// BELIA, LA IA DE EVENTIA (doc 20; Felipe, 03-11-2026: "una ventanilla como
 // de soporte de chat en Eventia, que esté conectado a un agente, ojalá
 // Opus").
 //
@@ -60,13 +63,25 @@ const MAX_TOKENS = 16_000;
 /** Cuántos turnos de la conversación viajan (los más nuevos). */
 const MAX_TURNOS = 20;
 
-export type RespuestaDeEvia = {
+export type RespuestaDeBelia = {
   respuesta: string;
   herramientas: string[];
   segundos: number;
   costo_usd: number;
   /** Solo para administradores (doc 20 §7: el aviso del 80 %). */
   uso_del_mes?: { gastado_usd: number; tope_usd: number };
+};
+
+/** Lo que mira la ventanilla para el ánimo de BelIA (doc 20 §8b). */
+export type EstadoDeBelia = {
+  /** Cotizaciones vivas con el compromiso vencido. */
+  vencidos: number;
+  /** Las que llevan 3 días o más sin gestión, sin compromiso. */
+  sin_gestion: number;
+  /** Compromisos que vencen hoy, todavía sin cumplir. */
+  vencen_hoy: number;
+  /** Requerimientos que llegaron hoy (día en Chile). */
+  requerimientos_de_hoy: number;
 };
 
 /** La conversación que trae la ventanilla, como la pide la API: parte con
@@ -81,7 +96,7 @@ export const comoMensajes = (
   ];
   const mensajes: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   for (const t of turnos) {
-    const role = t.rol === 'evia' ? 'assistant' : 'user';
+    const role = t.rol === 'belia' ? 'assistant' : 'user';
     const texto = t.texto.trim();
     if (!texto) continue;
     if (mensajes.length === 0 && role === 'assistant') continue;
@@ -143,7 +158,7 @@ export class AsistenteService {
     return Number.isFinite(v) && v > 0 ? v : TOPE_POR_DEFECTO_USD;
   }
 
-  async responder(dto: MensajeDto, usuario: User): Promise<RespuestaDeEvia> {
+  async responder(dto: MensajeDto, usuario: User): Promise<RespuestaDeBelia> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
     }
@@ -157,8 +172,8 @@ export class AsistenteService {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          codigo: 'TOPE_DE_EVIA',
-          message: `Evia llegó al tope de US$ ${this.tope} de este mes. Vuelve el día 1, o un administrador puede subir el tope.`,
+          codigo: 'TOPE_DE_BELIA',
+          message: `BelIA llegó al tope de US$ ${this.tope} de este mes. Vuelve el día 1, o un administrador puede subir el tope.`,
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
@@ -279,16 +294,16 @@ export class AsistenteService {
           fallo: falla ? mensajeDe(falla).slice(0, 300) : null,
         })
         .catch((e) =>
-          this.logger.warn(`no pude anotar el uso de Evia: ${mensajeDe(e)}`),
+          this.logger.warn(`no pude anotar el uso de BelIA: ${mensajeDe(e)}`),
         );
     }
     this.logger.info(
-      `Evia ${falla ? 'falló' : 'respondió'} en ${segundos} s · vueltas ${vueltas + 1} · herramientas ${usadas.join(',') || '-'} · entrada ${uso.entrada} · caché ${uso.cacheEscrita}/${uso.cacheLeida} · salida ${uso.salida} · US$ ${costo.toFixed(4)}`,
+      `BelIA ${falla ? 'falló' : 'respondió'} en ${segundos} s · vueltas ${vueltas + 1} · herramientas ${usadas.join(',') || '-'} · entrada ${uso.entrada} · caché ${uso.cacheEscrita}/${uso.cacheLeida} · salida ${uso.salida} · US$ ${costo.toFixed(4)}`,
     );
     if (falla) {
-      this.logger.error(`Evia: ${mensajeDe(falla)}`);
+      this.logger.error(`BelIA: ${mensajeDe(falla)}`);
       throw new ServiceUnavailableException(
-        errorDeIA(falla, 'Evia no pudo responder'),
+        errorDeIA(falla, 'BelIA no pudo responder'),
       );
     }
 
@@ -305,6 +320,33 @@ export class AsistenteService {
             },
           }
         : {}),
+    };
+  }
+
+  /** Los ánimos de BelIA (doc 20 §8b), sin IA y sin costo: lo vencido
+   *  para enojarse y lo nuevo de hoy para llamar la atención. Cuenta con la
+   *  misma regla que la herramienta de seguimientos y que el tablero. */
+  async estado(usuario: User): Promise<EstadoDeBelia> {
+    const empresa = usuario.company_id;
+    if (!empresa) throw new BadRequestException('La sesión no trae empresa.');
+    const hoy = hoyEnChile();
+    const [{ pendientes, vencenHoy }, deHoy] = await Promise.all([
+      pendientesDe(
+        { cotizaciones: this.cotizaciones, bitacora: this.bitacora, hoy },
+        empresa,
+      ),
+      this.repositorio.buscarCotizaciones(empresa, {
+        tipo: RequestType.REQUERIMIENTO,
+        creadaDesde: inicioDelDiaEnChile(hoy),
+        orden: 'creada',
+        limite: 1,
+      }),
+    ]);
+    return {
+      vencidos: pendientes.filter((p) => p.s.urgencia >= 1000).length,
+      sin_gestion: pendientes.filter((p) => p.s.urgencia < 1000).length,
+      vencen_hoy: vencenHoy,
+      requerimientos_de_hoy: deHoy.total,
     };
   }
 
@@ -364,7 +406,7 @@ export class AsistenteService {
       if (e instanceof ErrorDeHerramienta) {
         return { ...base, is_error: true, content: e.message };
       }
-      this.logger.error(`Evia, herramienta ${h.nombre}: ${mensajeDe(e)}`);
+      this.logger.error(`BelIA, herramienta ${h.nombre}: ${mensajeDe(e)}`);
       return {
         ...base,
         is_error: true,

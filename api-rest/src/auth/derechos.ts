@@ -69,7 +69,7 @@ export type Derecho =
   // (migración 140, doc 18): la llave de Outlook y la de Anthropic son de
   // Valle del Sol, y los buzones también.
   | 'seguimiento_con_ia'
-  // Evia, la ventanilla de chat con IA (migración 180, doc 20): la cuenta
+  // BelIA, la ventanilla de chat con IA (migración 180, doc 20): la cuenta
   // de Anthropic es de Valle del Sol, con su propio tope mensual.
   | 'asistente';
 
@@ -182,7 +182,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   oportunidades: 'El módulo de Oportunidades',
   cotizar_con_ia: 'Cotizar con IA',
   seguimiento_con_ia: 'El seguimiento con IA',
-  asistente: 'Evia, la IA de Eventia',
+  asistente: 'BelIA, la asistente de Eventia',
 };
 
 /** Lo que el motor trata como empresa para calcular derechos. */

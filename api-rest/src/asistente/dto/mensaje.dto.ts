@@ -11,12 +11,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-// Lo que manda la ventanilla de Evia (doc 20 §8). La conversación vive en
+// Lo que manda la ventanilla de BelIA (doc 20 §8). La conversación vive en
 // el navegador: cada mensaje trae la historia corta y la pantalla.
 
 export class TurnoDto {
-  @IsIn(['persona', 'evia'])
-  rol: 'persona' | 'evia';
+  @IsIn(['persona', 'belia'])
+  rol: 'persona' | 'belia';
 
   @IsString()
   @MaxLength(8000)
