@@ -1,6 +1,7 @@
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
+import { AsistenteController } from 'src/asistente/asistente.controller';
 import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientContactsController } from 'src/clients/client-contacts.controller';
 import { ClientsController } from 'src/clients/clients.controller';
@@ -197,6 +198,8 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/generaciones/propuesta': A,
     },
   ],
+  // Evia (doc 20, 03-11-2026): "lo usa administración y vendedores".
+  [AsistenteController, { 'POST mensajes': S }],
 ];
 
 // Solo sesión a propósito: el propio perfil, la propia clave y la propia

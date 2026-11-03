@@ -60,6 +60,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `quotation_followups` | Bitácora comercial: nota, autor con nombre congelado, `tipo`, próximo contacto y cuándo se cumplió | 02 | 59; 65 |
 | `choques_de_fecha` | La revisión de cada tope de calendario entre una cotización viva y una aceptada (`puede_seguir`; `gestionar` quedó solo de la prueba del laboratorio), las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 |
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
+| `asistente_uso` | Cada respuesta de Evia (doc 20): el mes en Chile (AAAA-MM), el modelo, los tokens con la caché aparte, lo que costó, los segundos, las herramientas que usó, la ruta de la pantalla y si falló. No guarda la pregunta. De ahí sale el tope mensual. Quién (id de la sesión, sin llave) | 20 (doc) | 180 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -604,3 +605,10 @@ y **antes** del deploy del motor.
 
 **Estado.** Escrita el 18-10-2026 (Felipe: *"la 1, la 2, la 3 y la 4"*, sin atajo). Número reservado con la sesión de Oportunidades. **Aplicada en el laboratorio y en producción el 18-10-2026** (producción a las 10:38 Chile, antes del motor de la PR #158). Verificado en las dos: RLS, sin acceso para `anon` ni `authenticated`, el motor escribe y usa la secuencia.
 
+## 25. Migración 180: Evia, el derecho y la cuenta del mes (03-11-2026)
+
+**Qué hace.** Dos cosas (doc 20 §7 y §9). Suma el módulo propio `asistente` a la empresa 1, como la 130 y la 140. Y crea `asistente_uso`: una fila por cada respuesta de Evia con el mes en Chile, el modelo, los tokens (entrada, salida, caché escrita y leída), el costo en US$, los segundos, las herramientas que usó, la ruta de la pantalla y la falla si la hubo. No guarda lo que se preguntó (pregunta abierta 3 del doc 20). `usuario_id` es el id de la **sesión**, sin llave, por la lección de la 142. Es de cada empresa: `company_id` con el índice `(company_id, mes)`. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role`, también de la secuencia. Trae la reversa comentada. Número reservado para Evia el 03-11; las 177 a 179 quedan para otras sesiones.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 180, Valle del Sol no tiene el derecho (la puerta responde 403) y la cuenta del mes no se puede leer.
+
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Sin aplicar** en ninguna de las dos bases.

@@ -15,8 +15,8 @@ import { ForbiddenException } from '@nestjs/common';
 //
 // Los módulos propios (personal y marketing desde la migración 111,
 // oportunidades desde la 122, cotizar_con_ia desde la 130,
-// seguimiento_con_ia desde la 140) son derechos más: no los da ningún
-// plan, los
+// seguimiento_con_ia desde la 140, asistente desde la 180) son derechos
+// más: no los da ningún plan, los
 // da la columna `modulos_propios` de la empresa. Valle del Sol los conserva.
 //
 // Hay dos clases de derecho, y se cuidan en lugares distintos:
@@ -68,7 +68,10 @@ export type Derecho =
   // Escribir los seguimientos con IA y dejarlos de borrador en Outlook
   // (migración 140, doc 18): la llave de Outlook y la de Anthropic son de
   // Valle del Sol, y los buzones también.
-  | 'seguimiento_con_ia';
+  | 'seguimiento_con_ia'
+  // Evia, la ventanilla de chat con IA (migración 180, doc 20): la cuenta
+  // de Anthropic es de Valle del Sol, con su propio tope mensual.
+  | 'asistente';
 
 /** Lo que el motor calcula una vez y viaja en la sesión y en el perfil. */
 export type Derechos = {
@@ -155,6 +158,7 @@ export const PLAN_MINIMO: Record<Derecho, Plan | null> = {
   oportunidades: null,
   cotizar_con_ia: null,
   seguimiento_con_ia: null,
+  asistente: null,
 };
 
 /** Cómo se llama cada derecho cuando hay que explicárselo a una persona. */
@@ -178,6 +182,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   oportunidades: 'El módulo de Oportunidades',
   cotizar_con_ia: 'Cotizar con IA',
   seguimiento_con_ia: 'El seguimiento con IA',
+  asistente: 'Evia, la IA de Eventia',
 };
 
 /** Lo que el motor trata como empresa para calcular derechos. */
@@ -205,7 +210,8 @@ const esModuloPropio = (v: string): v is Derecho =>
   v === 'marketing' ||
   v === 'oportunidades' ||
   v === 'cotizar_con_ia' ||
-  v === 'seguimiento_con_ia';
+  v === 'seguimiento_con_ia' ||
+  v === 'asistente';
 
 /**
  * Los derechos de una empresa. Única fuente de verdad: lo llaman AuthGuard
