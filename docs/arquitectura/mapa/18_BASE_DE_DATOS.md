@@ -611,4 +611,4 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 180, Valle del Sol no tiene el derecho (la puerta responde 403) y la cuenta del mes no se puede leer.
 
-**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Sin aplicar** en ninguna de las dos bases.
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: el derecho en la empresa 1, la tabla con RLS, `anon` sin lectura y `service_role` con escritura). **Sin aplicar en producción.**

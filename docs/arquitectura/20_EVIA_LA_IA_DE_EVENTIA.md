@@ -26,8 +26,20 @@
 >   la respuesta falle.
 > - Las dos matrices de permisos ya la incluyen. 1.783 pruebas en verde y
 >   `nest build` limpio.
-> - La migración 180 está escrita y **sin aplicar**. Falta probarlo en el
->   laboratorio con preguntas reales.
+> - **En el laboratorio desde el 03-11-2026.** La migración 180 se aplicó en
+>   la base del lab, y el motor del lab (`api-rest-pruebas`) corre la rama.
+>   Cinco preguntas reales, con la sesión de Felipe:
+>   - los seguimientos pendientes;
+>   - el calendario de noviembre;
+>   - la leche asada en el catálogo;
+>   - «anula la 437», que no la anula;
+>   - «¿qué comen el día 2 de esta?», con la 436 abierta.
+>
+>   Respondió en 5 a 9 s, con US$ 0,014 a 0,039 por pregunta (unos US$ 0,02
+>   en promedio). De ahí salió una regla de las instrucciones: la bitácora y
+>   el comentario interno no los ve el cliente; las observaciones, sí.
+> - **Falta:** la ventanilla (sprint 2), el resto de las consultas (sprint
+>   3) y la 180 en producción.
 
 ## 1. Por qué
 
