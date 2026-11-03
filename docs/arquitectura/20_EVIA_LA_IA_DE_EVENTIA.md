@@ -40,6 +40,21 @@
 >   el comentario interno no los ve el cliente; las observaciones, sí.
 > - **Falta:** la ventanilla (sprint 2), el resto de las consultas (sprint
 >   3) y la 180 en producción.
+>
+> **03-11-2026 · Sprint 2a, la ventanilla, con la cara provisoria.**
+> - Ya se llama BelIA en el motor (el derecho sigue siendo `asistente`).
+> - `GET /asistente/estado`, sin IA, da el ánimo de fondo.
+> - La ventanilla sigue la lámina de Felipe:
+>   - cabecera azul noche con «BelIA · Asistente de Eventia», «—» y «×»;
+>   - el saludo «¡Guau! … ¿Qué organizamos hoy?»;
+>   - cuatro atajos (Ver pendientes, Calendario, Esta cotización o
+>     Catálogo, Ayuda); «Crear evento» espera a la fase 2;
+>   - «Escribe tu mensaje...» con el botón azul redondo.
+> - Los cinco ánimos andan, pero celebrar todavía no lo dispara ninguna
+>   pantalla.
+> - La cara es un círculo con una huella hasta que llegue el SVG de Bela
+>   con sus partes separadas.
+> - Su mapa es `mapa/25_BELIA.md`.
 
 ## 1. Por qué
 
