@@ -35,16 +35,16 @@ describe("Cada estado tiene sus cinco formas, y son coherentes", () => {
 
   it.each([...ESTADOS_COTIZACION])("%s tiene nombre, chip, punto y color", (e) => {
     expect(etiquetaEstado(e).length).toBeGreaterThan(0);
-    expect(chipEstado(e)).toMatch(/^bg-[a-z]+-\d{3} text-[a-z]+-\d{3}$/);
+    expect(chipEstado(e)).toMatch(/^bg-[a-z]+-\d{3} text-[a-z]+-\d{2,3}$/);
     expect(puntoEstado(e)).toMatch(/^bg-[a-z]+-\d{3}$/);
     expect(hexEstado(e)).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   it("REALIZADA es UN SOLO verde, no cinco", () => {
     // Antes tenía cinco tonos distintos según la pantalla.
-    expect(chipEstado("realizada")).toBe("bg-emerald-100 text-emerald-800");
-    expect(puntoEstado("realizada")).toBe("bg-emerald-500");
-    expect(hexEstado("realizada")).toBe("#10b981");
+    expect(chipEstado("realizada")).toBe("bg-emerald-700 text-emerald-50");
+    expect(puntoEstado("realizada")).toBe("bg-emerald-700");
+    expect(hexEstado("realizada")).toBe("#047857");
   });
 
   it("dos estados distintos nunca comparten color", () => {
