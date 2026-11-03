@@ -76,7 +76,9 @@ export const hayAlgoNuevo = (
 
 export type Trozo =
   | { tipo: "texto"; texto: string }
-  | { tipo: "negrita"; texto: string }
+  // Una negrita puede traer enlaces adentro: «**[N° 436](/post-venta/…) ·
+  // Aerobica**» (primera prueba en el laboratorio, 03-11).
+  | { tipo: "negrita"; trozos: Trozo[] }
   | { tipo: "enlace"; texto: string; ruta: string };
 
 export type Bloque =
@@ -85,26 +87,30 @@ export type Bloque =
   | { tipo: "tabla"; cabecera: Trozo[][]; filas: Trozo[][][] };
 
 const INLINE = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\))/g;
+const ENLACES = /(\[[^\]]+\]\([^)\s]+\))/g;
 
-/** Una línea en trozos. Solo se enlazan rutas de Eventia (empiezan con
- *  «/»): un enlace de afuera queda como texto. */
-export const trozosDe = (linea: string): Trozo[] =>
-  linea
-    .split(INLINE)
+/** Los enlaces de un texto. Solo se enlazan rutas de Eventia (empiezan
+ *  con «/»): un enlace de afuera queda como texto. */
+const conEnlaces = (texto: string, partir: RegExp): Trozo[] =>
+  texto
+    .split(partir)
     .filter((x) => x !== "")
     .map((x): Trozo => {
-      if (x.startsWith("**") && x.endsWith("**") && x.length > 4) {
-        return { tipo: "negrita", texto: x.slice(2, -2) };
+      if (partir === INLINE && /^\*\*[^*]+\*\*$/.test(x)) {
+        return { tipo: "negrita", trozos: conEnlaces(x.slice(2, -2), ENLACES) };
       }
       const enlace = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(x);
       if (enlace) {
-        const [, texto, ruta] = enlace;
+        const [, t, ruta] = enlace;
         return ruta.startsWith("/") && !ruta.startsWith("//")
-          ? { tipo: "enlace", texto, ruta }
-          : { tipo: "texto", texto };
+          ? { tipo: "enlace", texto: t, ruta }
+          : { tipo: "texto", texto: t };
       }
       return { tipo: "texto", texto: x };
     });
+
+/** Una línea en trozos: negritas (con sus enlaces) y enlaces. */
+export const trozosDe = (linea: string): Trozo[] => conEnlaces(linea, INLINE);
 
 const celdas = (fila: string): string[] =>
   fila
