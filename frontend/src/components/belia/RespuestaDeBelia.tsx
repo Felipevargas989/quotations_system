@@ -21,7 +21,7 @@ const Linea = ({
     {trozos.map((t, i) =>
       t.tipo === "negrita" ? (
         <strong key={i} className="font-semibold text-slate-900">
-          {t.texto}
+          <Linea trozos={t.trozos} alNavegar={alNavegar} />
         </strong>
       ) : t.tipo === "enlace" ? (
         <Link

@@ -79,10 +79,21 @@ describe("lo que contesta BelIA", () => {
       { tipo: "texto", texto: "Abre la " },
       { tipo: "enlace", texto: "N° 500", ruta: "/negocio/abc" },
       { tipo: "texto", texto: " y " },
-      { tipo: "negrita", texto: "revisa" },
+      { tipo: "negrita", trozos: [{ tipo: "texto", texto: "revisa" }] },
       { tipo: "texto", texto: " " },
       { tipo: "texto", texto: "esto" },
       { tipo: "texto", texto: "." },
+    ]);
+  });
+  it("enlaza también dentro de una negrita (la 436 del laboratorio, 03-11)", () => {
+    expect(trozosDe("**[N° 436](/post-venta/abc) · Aerobica**")).toEqual([
+      {
+        tipo: "negrita",
+        trozos: [
+          { tipo: "enlace", texto: "N° 436", ruta: "/post-venta/abc" },
+          { tipo: "texto", texto: " · Aerobica" },
+        ],
+      },
     ]);
   });
   it("arma tablas, listas y párrafos", () => {
