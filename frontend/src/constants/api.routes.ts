@@ -6,6 +6,10 @@ export const API_ROUTES = {
   QUOTATIONS_CHECK_CONFLICTS: "/quotations/check-conflicts",
   QUOTATIONS_PUBLIC: "/quotations/public",
 
+  // BelIA, la asistente con IA (doc 20)
+  ASISTENTE_MENSAJES: "/asistente/mensajes",
+  ASISTENTE_ESTADO: "/asistente/estado",
+
   // bitácora comercial (migración 59)
   FOLLOWUPS: "/quotation-followups",
   FOLLOWUPS_MAP: "/quotation-followups/map",
