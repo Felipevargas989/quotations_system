@@ -70,7 +70,7 @@ cosas de pagos, tal vez. O eventos que ya estén como sobre la marcha"*.
 | Qué | Decisión | Felipe |
 |---|---|---|
 | Quiénes | Vendedor y arriba: vendedores, operaciones y administración. Operaciones entra porque está entre los dos | *"lo usa administración y vendedores"* |
-| Nombre | **Evia**: Ev(ent)IA. Se descartó «Camilia» porque en la bitácora quedaría a una letra de Camila | *"Evia"* |
+| Nombre | **BelIA**, por Bela (03-11, más tarde): reemplaza a «Evia», que reemplazó a «Camilia». Es una mascota, no el robot, y Felipe manda su imagen (§8b). El derecho sigue siendo `asistente` | *"no me gusta el robot, se llamará Belia, por Bela"* |
 | Modelo | Opus 5.5 (`claude-opus-5-5`). Se cambia en Railway con `MODELO_ASISTENTE`, sin tocar código | *"ojalá Opus"* |
 | Tope | US$ 100 al mes, solo para Evia (§7) | *"mmm 100 USD mensuales?"* |
 | Cotizaciones aceptadas | Como Post-Venta → Servicios, con las consecuencias a la vista (§5) | *"si me sirve"* |
@@ -233,6 +233,28 @@ Oportunidades siguen con lo suyo.
 - **La conversación** sigue abierta al cambiar de pantalla.
 - **Cuidado:** el botón no puede tapar botones de las pantallas, por
   ejemplo «Guardar cambios» de Servicios o los avisos.
+
+## 8b. BelIA: la mascota y sus cinco estados (Felipe, 03-11-2026)
+
+*"no me gusta el robot, se llamará Belia, por Bela, te pasaré su imagen,
+dale personalidad"*. El botón de §8 deja de ser el robot: es BelIA,
+dibujada a partir de las fotos de Bela, para que pueda cerrar los ojos,
+mover las orejas y la cola y fruncir el ceño. Los cinco estados son los
+que escribió Felipe; en cursiva, lo que dispara cada uno en Eventia, por
+confirmar con él.
+
+| Estado | Cómo se ve y qué dice (Felipe) | Lo dispara |
+|---|---|---|
+| Dormida | Cierra los ojitos, baja las orejas, una «Zzz» sobre la cabeza | *Unos minutos sin que nadie use Eventia (propuesta: 5)* |
+| Despierta | Abre los ojos, levanta las orejas, mueve la colita: «¡Guau! ¿Qué organizamos hoy?» | Al pincharla |
+| Llama tu atención | Un ladrido chico y la burbuja «¡Guau! Tienes algo importante que revisar». El sonido es opcional y no interrumpe todo el rato | *Algo nuevo e importante: un compromiso que vence hoy, un comprobante del portal por revisar, un requerimiento nuevo, un tope de calendario. Como mucho una vez por hora, sonido apagado por defecto* |
+| Se enoja | Frunce el ceño, levanta las orejas, se pone seria: «¡Oye! Tenemos demasiado trabajo acumulado. ¡Vamos a resolverlo!» | *Demasiado acumulado: propuesta, más de 10 cotizaciones con el compromiso vencido (la herramienta `seguimientos_pendientes`)* |
+| Celebra | Feliz, mueve la cola y celebra | *Un compromiso marcado «Listo», una cotización aceptada (la reserva), un abono registrado, un evento marcado realizado* |
+
+Regla de la casa que aplica: lo que se mueve en una pantalla que se mira
+todo el día termina siendo ruido (`tailwind.config.js`, la animación
+«vibrar»: *"tres veces y para"*). Por eso cada animación de BelIA tiene
+fin, salvo la respiración lenta de dormida.
 
 ## 9. Cómo se arma (para quien programe)
 
