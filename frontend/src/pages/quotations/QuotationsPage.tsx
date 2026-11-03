@@ -1177,7 +1177,11 @@ export default function QuotationsPage() {
                       · {formatISOUTCDateToString(q.event_date)}
                     </span>
                   </span>
-                  <span className="text-sm font-semibold text-gray-900">
+                  {/* Columnas de ancho fijo (Felipe, 03-11: "¿se pueden
+                      ordenar esas columnas?"): monto, estado, Post-Venta,
+                      PDF y flecha quedan alineados aunque una fila no
+                      tenga Post-Venta o flecha. */}
+                  <span className="w-28 shrink-0 text-right text-sm font-semibold text-gray-900">
                     ${q.total_amount.toLocaleString("es-CL")}
                   </span>
                   {estadoPill(q)}
@@ -1185,34 +1189,38 @@ export default function QuotationsPage() {
                       ese permiso el enlace terminaba en "Permisos
                       Insuficientes" (12-08). Recepción se queda con el
                       resumen y con la ficha, que sí abre. */}
-                  {puedeVerPostVenta &&
-                    (q.quotation_status === QuotationStatus.ACEPTADA ||
-                      q.quotation_status === QuotationStatus.REALIZADA) && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/post-venta/${q.id}`)}
-                        className="text-sm font-semibold text-blue-600 hover:underline"
-                      >
-                        → Post-Venta
-                      </button>
-                    )}
+                  <span className="w-24 shrink-0">
+                    {puedeVerPostVenta &&
+                      (q.quotation_status === QuotationStatus.ACEPTADA ||
+                        q.quotation_status === QuotationStatus.REALIZADA) && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/post-venta/${q.id}`)}
+                          className="text-sm font-semibold text-blue-600 hover:underline"
+                        >
+                          → Post-Venta
+                        </button>
+                      )}
+                  </span>
                   <button
                     onClick={() => handleViewQuotation(q)}
-                    className="text-sm font-semibold text-blue-600 hover:underline"
+                    className="w-8 shrink-0 text-sm font-semibold text-blue-600 hover:underline"
                     title="Ver el documento de la cotización"
                   >
                     PDF
                   </button>
-                  {q.quotation_status === QuotationStatus.RECHAZADA && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/negocio/${q.id}`)}
-                      className="text-gray-300 hover:text-gray-500"
-                      title="Abrir la ficha del negocio"
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                  )}
+                  <span className="w-5 shrink-0">
+                    {q.quotation_status === QuotationStatus.RECHAZADA && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/negocio/${q.id}`)}
+                        className="text-gray-300 hover:text-gray-500"
+                        title="Abrir la ficha del negocio"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1258,7 +1266,7 @@ export default function QuotationsPage() {
                         · {formatISOUTCDateToString(q.event_date)}
                       </span>
                     </span>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="w-28 shrink-0 text-right text-sm font-semibold text-gray-900">
                       ${q.total_amount.toLocaleString("es-CL")}
                     </span>
                     {/* Píldora completa: revivir una rechazada a
