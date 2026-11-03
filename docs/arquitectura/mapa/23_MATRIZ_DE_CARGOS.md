@@ -43,6 +43,10 @@ Lo que ya vende.
   de requerimientos también aplica a borrar (`QuotationsService.remove`
   recibe el cargo), y enviar por correo es de vendedor.
 - Catálogo, leer: servicios, secciones fijas, menús guardados y paquetes.
+- Evia, la ventanilla de chat con IA (doc 20, 03-11-2026): `POST
+  /asistente/mensajes`, con el derecho `asistente`. Felipe: *"lo usa
+  administración y vendedores"*. Cada herramienta de Evia pide además el
+  cargo de la pantalla que muestra ese dato (doc 20 §3).
 - Editar y borrar clientes, contactos y tipos de cliente, y marcar el
   contacto principal. **Decisión 2, tomada** (Felipe: recepción "debería poder ver qué
   cotizaciones tiene un cliente vigente, no editar, no eliminar"): la
