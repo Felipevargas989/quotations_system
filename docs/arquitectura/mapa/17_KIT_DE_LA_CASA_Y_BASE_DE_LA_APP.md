@@ -228,7 +228,7 @@ La app no toca tablas: `lib/supabase.ts` solo lo importan `services/api.ts` y `c
 | `utils/dates.ts` | `formatFechaEvento`, `formatMomento`, `hoyEnChile`, `hoyEnChileMas`, `formatISOUTCDateToString` | 18 | — |
 | `utils/apiErrors.ts` | `humanizeApiError`: campos de validación de NestJS en español; desde el 17-10, la falla de fábrica "Internal server error" (en inglés) cambia por el mensaje de la pantalla, y un 5xx con mensaje propio (el 503 de la base lenta) se muestra tal cual. Prueba: `apiErrors.test.ts` | 20 | — |
 | `utils/phone.ts`, `utils/validation.ts` | `+56XXXXXXXXX` al guardar, formato al mostrar, `phoneProblem` (30-07), `emailProblem` | 14 y 2 | 09 |
-| `utils/estadoCotizacion.ts` | Nombre, color, emoji y orden de cada estado; "Anulada" en pantalla, `cancelada` en la base | 8 | 02 |
+| `utils/estadoCotizacion.ts` | Nombre, color, emoji y orden de cada estado; "Anulada" en pantalla, `cancelada` en la base; desde el 03-11-2026 Realizada es la única píldora oscura (verde bosque `emerald-700` con letra clara) para no confundirse con el verde claro de Aceptada | 8 | 02 |
 | `utils/estadoPersona.ts`, `rut.ts`, `bancos.ts` | Diccionarios de Personas | 4, 5 y 5 | 07, 08 |
 | `utils/costoDeRecursos.ts` | Fijo una vez + variable × personas × días (16-08) | 3 | 04, 07 |
 | `utils/eventConsolidation.ts` | Consolida insumos y mobiliario; la merma solo infla el costo (22-07) | 7 | 06 |

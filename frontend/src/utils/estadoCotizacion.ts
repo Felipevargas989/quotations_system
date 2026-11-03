@@ -91,9 +91,12 @@ const DEF: Record<EstadoCotizacion, Definicion> = {
   realizada: {
     etiqueta: "Realizada",
     emoji: "🎉",
-    chip: "bg-emerald-100 text-emerald-800",
-    punto: "bg-emerald-500",
-    hex: "#10b981",
+    // Verde bosque con letra blanca (Felipe, 03-11: "invertir, un verde
+    // más profundo y las letras más claras"): antes era casi el mismo
+    // verde claro de Aceptada y no se distinguían en la lista.
+    chip: "bg-emerald-700 text-emerald-50",
+    punto: "bg-emerald-700",
+    hex: "#047857",
   },
   rechazada: {
     etiqueta: "Rechazada",
