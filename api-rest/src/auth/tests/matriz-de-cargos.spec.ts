@@ -198,8 +198,8 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/generaciones/propuesta': A,
     },
   ],
-  // Evia (doc 20, 03-11-2026): "lo usa administración y vendedores".
-  [AsistenteController, { 'POST mensajes': S }],
+  // BelIA (doc 20, 03-11-2026): "lo usa administración y vendedores".
+  [AsistenteController, { 'POST mensajes': S, 'GET estado': S }],
 ];
 
 // Solo sesión a propósito: el propio perfil, la propia clave y la propia

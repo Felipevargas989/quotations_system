@@ -11,7 +11,7 @@ import type { QuotationsRepository } from 'src/quotations/quotations.repository'
 import type { User, UserRole } from 'src/users/entities/user.entity';
 import type { AsistenteRepository } from '../asistente.repository';
 
-// LO COMÚN DE LAS HERRAMIENTAS DE EVIA (doc 20 §3 y §9).
+// LO COMÚN DE LAS HERRAMIENTAS DE BELIA (doc 20 §3 y §9).
 //
 // Una herramienta es un botón que ya existe: lee con la empresa y el cargo
 // de la persona que escribe, nunca con lo que diga la IA. Devuelve un

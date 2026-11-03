@@ -4,7 +4,7 @@ import { conDia, fecha, inicioDelDiaEnChile } from '../herramientas/comun';
 import { semaforo } from '../herramientas/seguimientos-pendientes';
 import { diasDe } from '../herramientas/ver-cotizacion';
 
-// Las herramientas de Evia sin base: la regla del tablero, los días de la
+// Las herramientas de BelIA sin base: la regla del tablero, los días de la
 // minuta y la búsqueda en el catálogo.
 
 describe('seguimientos pendientes: la regla del tablero', () => {

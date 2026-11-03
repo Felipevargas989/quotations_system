@@ -173,8 +173,8 @@ const ESPERADO: Array<{
     abiertas: 0,
   },
   {
-    // Evia (doc 20, migración 180): módulo propio de Valle del Sol.
-    nombre: 'Evia',
+    // BelIA (doc 20, migración 180): módulo propio de Valle del Sol.
+    nombre: 'BelIA',
     cls: AsistenteController,
     derecho: 'asistente',
     abiertas: 0,

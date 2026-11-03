@@ -12,6 +12,7 @@ import {
   estadoDe,
   fechaEnChile,
   pesos,
+  type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
 
@@ -68,6 +69,52 @@ export const semaforo = (
   };
 };
 
+/** Las vivas que requieren seguimiento, de la más urgente a la menos, y
+ *  cuántos compromisos vencen hoy. La usan la herramienta y los ánimos de
+ *  BelIA (`AsistenteService.estado`), así las dos cuentan igual. */
+export const pendientesDe = async (
+  ctx: Pick<ContextoDeHerramienta, 'cotizaciones' | 'bitacora' | 'hoy'>,
+  empresa: number,
+) => {
+  const [vivas, bitacora] = await Promise.all([
+    ctx.cotizaciones.findAll({
+      company_id: empresa,
+      request_type: RequestType.COTIZACION,
+      statuses: VIVAS,
+    }),
+    ctx.bitacora.mapByCompany(empresa) as Promise<
+      Record<string, InfoDeBitacora>
+    >,
+  ]);
+  const vencenHoy = vivas.filter(
+    (q) => bitacora[q.id]?.next_contact_date?.slice(0, 10) === ctx.hoy,
+  ).length;
+  const pendientes = vivas
+    .map((q) => ({
+      q,
+      s: semaforo(
+        {
+          // La lista sí trae sent_at (COLUMNAS_LISTA), aunque el tipo no
+          // lo declare.
+          sent_at: (q as { sent_at?: string | null }).sent_at ?? null,
+          created_at: String(q.created_at),
+        },
+        bitacora[q.id],
+        ctx.hoy,
+      ),
+    }))
+    .filter(
+      (
+        x,
+      ): x is {
+        q: (typeof vivas)[number];
+        s: Extract<Semaforo, { requiere: true }>;
+      } => x.s.requiere,
+    )
+    .sort((a, b) => b.s.urgencia - a.s.urgencia);
+  return { pendientes, vencenHoy };
+};
+
 export const seguimientosPendientes: Herramienta = {
   nombre: 'seguimientos_pendientes',
   descripcion:
@@ -87,40 +134,7 @@ export const seguimientosPendientes: Herramienta = {
   },
   cargos: SALES_AND_UP,
   async ejecutar(entrada, ctx) {
-    const empresa = ctx.usuario.company_id;
-    const [vivas, bitacora] = await Promise.all([
-      ctx.cotizaciones.findAll({
-        company_id: empresa,
-        request_type: RequestType.COTIZACION,
-        statuses: VIVAS,
-      }),
-      ctx.bitacora.mapByCompany(empresa) as Promise<
-        Record<string, InfoDeBitacora>
-      >,
-    ]);
-    const pendientes = vivas
-      .map((q) => ({
-        q,
-        s: semaforo(
-          {
-            // La lista sí trae sent_at (COLUMNAS_LISTA), aunque el tipo no
-            // lo declare.
-            sent_at: (q as { sent_at?: string | null }).sent_at ?? null,
-            created_at: String(q.created_at),
-          },
-          bitacora[q.id],
-          ctx.hoy,
-        ),
-      }))
-      .filter(
-        (
-          x,
-        ): x is {
-          q: (typeof vivas)[number];
-          s: Extract<Semaforo, { requiere: true }>;
-        } => x.s.requiere,
-      )
-      .sort((a, b) => b.s.urgencia - a.s.urgencia);
+    const { pendientes } = await pendientesDe(ctx, ctx.usuario.company_id);
     const limite = entero(entrada.limite, 1, 60) ?? 20;
     return {
       total: pendientes.length,
