@@ -336,9 +336,13 @@ export default function RequestsPage() {
           {conIA &&
             (confirmarTodas ? (
               // La pregunta en la misma línea, sin panel flotante (kit de
-              // la casa: ConfirmInline).
+              // la casa: ConfirmInline). Armar no destruye nada: «Sí, armar»
+              // en azul, no el «Sí, eliminar» rojo que la pieza trae por
+              // defecto (Felipe, 02-11-2026).
               <ConfirmInline
                 question={`¿Armar con IA los ${filteredRequests.length}? Cerca de un minuto cada uno.`}
+                yesLabel="Sí, armar"
+                tono="normal"
                 onYes={() => {
                   setConfirmarTodas(false);
                   void ia.generarTodas(
