@@ -580,6 +580,46 @@ armado por BelIA desde la OC, las referencias que pide cada cliente, todo
 amarrado al evento y a sus pagos, la cadena de anulaciones para los
 reportes, y la pantalla corta de recepción.
 
+### 9.12 Un cliente, varios RUT (Felipe, 04-11, en la tarde)
+
+Felipe: *"si tenemos OC cargada los datos de facturación Belia los debería
+extraer directo de ahí, si no preguntarlos antes de facturar y luego
+guardarlos (…) es posible como en CCU que algunas facturas sean a un rut y
+otras a otro (…) ve el caso santo tomas tiene 3 OC a 2 rut por 1 evento"*.
+
+**El caso, medido en producción el 04-11 (evento #481, solo lectura).** En
+Eventia es un solo cliente, «Instituto Profesional Santo Tomás»:
+
+| OC | La emite | RUT | Factura |
+|---|---|---|---|
+| 1 de 3 (menú) | Corporación Centro de Formación Técnica Santo Tomás | 65.175.242-6 | N° 375, con la dirección de Talca y no la impresa en la OC |
+| 2 de 3 (carro de palomitas) | La misma corporación del CFT | 65.175.242-6 | Sin factura todavía |
+| 3 de 3 (menú) | Corporación Instituto Profesional Santo Tomás | 65.175.239-6 | N° 374 |
+
+- Las dos facturas van por menos que su OC (E4) y con el giro «EDUCACION»:
+  el de la OC («853202-ENSEÑANZA SUPERIOR EN CENTROS DE FORMACION
+  TECNICA») pasa de los 40 caracteres.
+- El evento trae el «Instructivo para facturar» de Santo Tomás: la
+  referencia 801 lleva **solo el N° de la OC**, sin texto agregado, con la
+  fecha de la OC.
+
+**Lo que cambia (propuesta del 04-11, falta el OK de Felipe):**
+- Un cliente tiene una **lista de razones sociales**: RUT, razón social,
+  giro, dirección, comuna, ciudad, correos y referencias que pide. Reemplaza
+  al juego único de datos del paso 1a. La tarjeta «Datos de facturación» de
+  la ficha muestra la lista.
+- Cada OC guarda a nombre de quién viene (el RUT y la razón social leídos de
+  la OC). La factura de esa OC va a ese RUT.
+- **Con OC:** BelIA saca los datos de la OC. Si ese RUT ya está en la lista
+  del cliente, usa lo guardado: lo confirmado manda sobre lo impreso en la
+  OC (la dirección de Talca de la N° 375). Si no está, propone lo de la OC,
+  la persona lo confirma y al emitir queda guardado.
+- **Sin OC:** con una sola razón social, va esa; con varias, BelIA pregunta
+  a cuál; sin ninguna, pregunta los datos antes de facturar y los guarda.
+- La migración 184 todavía no está en producción: se rehace antes de subir.
+  En el laboratorio, los datos de prueba de CCU se mudan a la lista y no se
+  pierde nada.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
