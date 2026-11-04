@@ -14,6 +14,7 @@ import {
   proponerCambioDeServicios,
   proponerCotizacionNueva,
   proponerNota,
+  proponerSeguimiento,
 } from './proponer';
 import { seguimientosPendientes } from './seguimientos-pendientes';
 import { verCotizacion } from './ver-cotizacion';
@@ -42,6 +43,8 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   proponerCambioDeServicios,
   proponerNota,
   proponerCotizacionNueva,
+  // Doc 20 §17: el borrador del seguimiento, con su tarjeta.
+  proponerSeguimiento,
 ];
 
 /** Las que puede usar esta persona: su cargo las ve en pantalla y su

@@ -12,6 +12,7 @@ import { LoLeido } from './conversacion/lo-leido';
 import { CotizacionNuevaService } from './propuestas/cotizacion-nueva.service';
 import { PropuestasRepository } from './propuestas/propuestas.repository';
 import { PropuestasService } from './propuestas/propuestas.service';
+import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
 
 // BelIA, la IA de Eventia (doc 20). Lee con piezas que ya existen: la lista
 // y el catálogo del cotizador (QuotationsModule), la bitácora
@@ -33,6 +34,8 @@ import { PropuestasService } from './propuestas/propuestas.service';
     PropuestasService,
     PropuestasRepository,
     CotizacionNuevaService,
+    // «Prepárame el seguimiento de la 600» (doc 20 §17, mejora 4).
+    SeguimientoDesdeElChat,
     // La conversación de cada persona (doc 20 §13, migración 182).
     ConversacionService,
     ConversacionRepository,

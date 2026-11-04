@@ -17,7 +17,7 @@ export type PantallaDeBelia = {
  *  persona la aplica con «Sí, aplicar». Las cifras ya vienen escritas. */
 export type TarjetaDePropuesta = {
   id: string;
-  tipo: "servicios" | "nota" | "cotizacion_nueva";
+  tipo: "servicios" | "nota" | "cotizacion_nueva" | "seguimiento";
   /** Null en un evento nuevo hasta que se crea. */
   numero: number | null;
   cliente: string | null;
@@ -75,6 +75,8 @@ export type ResultadoDePropuesta = {
   enlace?: string;
   total?: string;
   se_puede_deshacer?: boolean;
+  /** Lo que pasó, en una línea (el borrador del seguimiento, doc 20 §17). */
+  aviso?: string;
 };
 
 /** Lo que mira la ventanilla para el ánimo de BelIA (doc 20 §8b). */

@@ -673,3 +673,15 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026**, en dos tiempos: la primera versión guardaba un solo juego de datos en columnas de `clients`; esa misma tarde la 184 se rehízo con `razones_sociales` y la `184b_laboratorio_razones_sociales.sql` (solo laboratorio, no va a producción) mudó los datos de prueba de CCU y quitó esas columnas. Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. En producción va solo la 184. **Falta en producción** (con el «a producción» de Felipe, antes del motor).
 
+
+## 30. Migración 185: el seguimiento desde BelIA y sus lecciones (04-11-2026)
+
+**Qué hace.** Dos cosas:
+- Suma tres tipos al check de `asistente_propuestas.tipo`: `seguimiento` (el borrador del seguimiento con IA, pedido desde el chat), `leccion` (anotar una lección) y `leccion_estado` (aprobarla, olvidarla o descartarla).
+- Crea `cerebro_lecciones`: lo que la IA de la empresa aprendió de una corrección. Guarda para qué tarea vale (`todas`, `armar`, `escribir` o `conversar`), el texto (10 a 500 caracteres), de qué corrección salió (`motivo`), quién la propuso y quién la decidió (ids de la **sesión**, sin llave, como la 181), el `estado` (`pendiente`, `aprobada`, `descartada` u `olvidada`: nada se borra) y las fechas. Índice por empresa, estado y fecha. RLS encendido, `anon` y `authenticated` sin permisos y `service_role` sin `DELETE`.
+
+**Por qué.** Felipe, 04-11: *"vamos con todas las mejoras que propusiste"* (doc 20 §17, mejoras 4 y 5). Número reservado ese día con Facturación, que tiene la 184.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 185, la tarjeta del seguimiento no se puede guardar (el check la rechaza) y BelIA explica que no pudo; lo demás de BelIA sigue igual.
+
+**Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: el check con los seis tipos, RLS encendido, `anon` y `authenticated` sin permisos, `service_role` con lectura, alta y cambio). **Falta en producción** (con el «a producción» de Felipe, antes del motor).

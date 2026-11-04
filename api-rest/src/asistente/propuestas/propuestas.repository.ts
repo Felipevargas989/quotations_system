@@ -198,7 +198,7 @@ export type NuevaPropuesta = {
   quotation_id: string | null;
   usuario_id: string;
   usuario_nombre: string | null;
-  tipo: 'servicios' | 'nota' | 'cotizacion_nueva';
+  tipo: 'servicios' | 'nota' | 'cotizacion_nueva' | 'seguimiento';
   resumen: string;
   antes: Record<string, unknown>;
   despues: Record<string, unknown>;

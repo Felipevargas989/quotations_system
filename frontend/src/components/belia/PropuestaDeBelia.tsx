@@ -1,4 +1,10 @@
-import { Check, NotebookPen, RotateCcw, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  Mail,
+  NotebookPen,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { PropuestaEnPantalla } from "./useBelia";
@@ -35,11 +41,14 @@ export default function PropuestaDeBelia({
   const enviando = p.estado === "enviando";
   const esNota = p.tipo === "nota";
   const esNueva = p.tipo === "cotizacion_nueva";
+  // «Prepárame el seguimiento» (doc 20 §17): el borrador en el hilo.
+  const esSeguimiento = p.tipo === "seguimiento";
+  const Icono = esSeguimiento ? Mail : NotebookPen;
 
   return (
     <article className="rounded-2xl border border-blue-200 bg-white text-sm shadow-sm">
       <header className="flex items-center gap-2 rounded-t-2xl bg-blue-50 px-3.5 py-2">
-        <NotebookPen
+        <Icono
           size={15}
           className="shrink-0 text-blue-700"
           aria-hidden="true"
@@ -47,11 +56,13 @@ export default function PropuestaDeBelia({
         <p className="min-w-0 flex-1 truncate font-semibold text-slate-800">
           {esNota
             ? "Nota en la bitácora"
-            : esNueva
-              ? p.nueva?.es === "requerimiento"
-                ? "Requerimiento nuevo"
-                : "Cotización nueva"
-              : "Propuesta"}
+            : esSeguimiento
+              ? "Seguimiento por correo"
+              : esNueva
+                ? p.nueva?.es === "requerimiento"
+                  ? "Requerimiento nuevo"
+                  : "Cotización nueva"
+                : "Propuesta"}
           {p.enlace && p.numero != null && (
             <>
               {" · "}
@@ -247,12 +258,16 @@ export default function PropuestaDeBelia({
               className="min-h-[40px] flex-1 rounded-xl bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {enviando
-                ? "Aplicando…"
+                ? esSeguimiento
+                  ? "Escribiendo el borrador…"
+                  : "Aplicando…"
                 : esNota
                   ? "Sí, anotar"
-                  : esNueva
-                    ? "Sí, crear"
-                    : "Sí, aplicar"}
+                  : esSeguimiento
+                    ? "Sí, dejar el borrador"
+                    : esNueva
+                      ? "Sí, crear"
+                      : "Sí, aplicar"}
             </button>
             <button
               type="button"
@@ -268,7 +283,13 @@ export default function PropuestaDeBelia({
           <div className="flex items-center gap-2 pt-1 text-emerald-700">
             <Check size={16} aria-hidden="true" />
             <p className="flex-1 font-medium">
-              {esNota ? "Anotada" : esNueva ? "Creada" : "Aplicada"}
+              {esNota
+                ? "Anotada"
+                : esSeguimiento
+                  ? "Listo"
+                  : esNueva
+                    ? "Creada"
+                    : "Aplicada"}
               {p.total_final ? ` · total ${p.total_final}` : ""}
             </p>
             {p.se_puede_deshacer && (
@@ -282,6 +303,11 @@ export default function PropuestaDeBelia({
               </button>
             )}
           </div>
+        )}
+        {p.estado === "aplicada" && p.aviso && (
+          <p className="text-xs text-slate-600" role="status">
+            {p.aviso}
+          </p>
         )}
         {p.estado === "deshecha" && (
           <p className="pt-1 font-medium text-slate-600">
