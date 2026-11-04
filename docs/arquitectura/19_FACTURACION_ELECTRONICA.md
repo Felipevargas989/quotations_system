@@ -540,7 +540,39 @@ La conexión de verdad es el paso 5.
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
 
-### 9.10 Fuentes nuevas (04-11)
+### 9.10 El desafío: integrarse bien a facturacion.cl
+
+Felipe, 04-11: *"nosotros facturamos a través de facturación.cl (…) ellos
+resuelven con el servicio (…) internos. Nuestra dificultad o nuestro
+desafío tecnológico es integrarnos bien a la API de facturación.cl y qué
+cosas podemos hacer nosotros a nivel de interfaz y de usabilidad con las
+limitaciones que tiene esta API"*.
+
+Eventia habla **solo** con facturacion.cl, y facturacion.cl firma, numera y
+se entiende con el SII. Cada límite de su API tiene su respuesta en la
+pantalla:
+
+| Lo que la API no da | Lo que hace la pantalla de Eventia |
+|---|---|
+| Ni borrador ni vista previa: `Procesar` emite al tiro (L6) | La vista previa se arma en Eventia, igual al PDF, y nada sale sin «Emitir» |
+| El folio de la factura hay que saberlo antes, y choca si alguien emite en la web (L2, L3) | Eventia pide el folio justo antes de emitir. Si choca, prueba una sola vez más y avisa |
+| Si la conexión se corta, no se sabe si salió (L5) | Queda «por confirmar» con el botón «Comprobar»: Eventia mira si el folio avanzó y trae ese documento para compararlo. Nunca reintenta solo |
+| No dice si el SII lo aceptó (L4) | La pantalla dice «Emitida por facturacion.cl», nunca «aceptada por el SII» (D9 cerrada) |
+| No se puede borrar (L6) | El circuito de anulación del §9.5, con la cadena y los plazos a la vista |
+| El PDF sale después y su enlace es público (L10) | Eventia trae su propia copia y la vuelve a pedir sola si todavía no está; mientras, dice «PDF en camino» |
+| Si va un correo, facturacion.cl lo manda solo (L11) | Antes de emitir, la vista previa dice a qué correo llegará. En el laboratorio va vacío |
+| Textos con tope y sin «;» (L7) | Los campos se limpian y se cortan con su contador, y la vista previa muestra cómo quedan |
+| Montos enteros; el IVA se calcula desde el neto (L8, L17) | Neto, IVA y total cuadrados en pantalla, y aviso si queda $1 de diferencia |
+| Sin topes de uso documentados (L14) | Un documento a la vez: el botón queda en «Emitiendo…» hasta la respuesta |
+| La boleta no lleva referencias (L13) | Si hay OC, Eventia ofrece factura, no boleta |
+| El ambiente de pruebas es otro (§2) | En el laboratorio, un letrero «Modo prueba» en todo Facturación |
+
+Lo que suma Eventia sobre la plataforma web de facturacion.cl: el borrador
+armado por BelIA desde la OC, las referencias que pide cada cliente, todo
+amarrado al evento y a sus pagos, la cadena de anulaciones para los
+reportes, y la pantalla corta de recepción.
+
+### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
   de 10-07-2019: https://www.sii.cl/factura_electronica/factura_mercado/formato_dte.pdf
