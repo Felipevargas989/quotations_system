@@ -734,11 +734,12 @@ export class CotizacionDeLaPostulacionService {
   }
 
   // Estas notas las escribe el armado automático de la postulación: las
-  // firma el Asistente, con su robot (Felipe, 28-10-2026: «todo lo que
-  // coloque la IA déjalo con la etiqueta de IA»).
+  // firma BelIA, a pedido de quien lo apretó (Felipe, 04-11-2026; antes, el
+  // Asistente con su robot: «todo lo que coloque la IA déjalo con la
+  // etiqueta de IA», 28-10-2026).
   private async anotar(user: User, quotationId: string, nota: string) {
     await this.bitacora
-      .crearComoAsistente(user.company_id, {
+      .crearComoBeliaAPedidoDe(user, {
         quotation_id: quotationId,
         tipo: 'otro',
         note: nota,
