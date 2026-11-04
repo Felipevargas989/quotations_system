@@ -1,69 +1,91 @@
 -- ============================================================
 -- 184 · FACTURACIÓN ELECTRÓNICA, PASO 1: LOS DATOS (04-11-2026)
 -- ============================================================
--- Doc 19 §9.9, paso 1. Felipe, 04-11: "nosotros facturamos a través de
--- facturación.cl (…) Nuestra dificultad (…) es integrarnos bien a la API
--- de facturación.cl". Y antes: "Cuando una factura se anule, debería
--- quedar anulada y también debería quedar como vinculada a su crédito,
--- cosa de poder ver cuál va con cuál".
+-- Doc 19 §9.9, paso 1, y §9.12. Felipe, 04-11: "nosotros facturamos a
+-- través de facturación.cl (…) Nuestra dificultad (…) es integrarnos bien
+-- a la API de facturación.cl". Y: "Cuando una factura se anule, debería
+-- quedar anulada y también debería quedar como vinculada a su crédito".
+-- En la tarde: "es posible como en CCU que algunas facturas sean a un rut y
+-- otras a otro (…) ve el caso santo tomas tiene 3 OC a 2 rut por 1 evento".
 --
--- Tres cosas:
---  1. `clients`: los datos de facturación del receptor (RUT, razón
---     social, giro, dirección, comuna, ciudad y correos) y las
---     referencias que exige cada cliente (CCU: la OC y la nota de
---     pedido). Los largos máximos son los del archivo de facturacion.cl
---     y los cuida el motor. `address` es un dato muerto y no se reusa.
+-- Tres tablas:
+--  1. `razones_sociales`: a quién se le factura. Un cliente puede tener
+--     varias (Santo Tomás: el CFT y el Instituto Profesional, cada uno con
+--     su RUT). Cada una con su RUT, razón social, giro, dirección, comuna,
+--     ciudad, correos y las referencias que exige (CCU: la OC y la nota de
+--     pedido). Los largos máximos son los del archivo de facturacion.cl y
+--     los cuida el motor.
 --  2. `ordenes_de_compra`: las OC de cada evento, con su N°, fecha,
---     detalle y montos. El PDF sigue en Documentos (`event_documents`,
---     categoría `ordenes_compra`); acá va el vínculo.
---  3. `documentos_tributarios`: cada boleta, factura y nota, con lo que
---     se mandó y lo que respondió facturacion.cl. La cadena de anulación
---     va en `modifica_id`: la nota de crédito apunta a la factura que
---     anula o rebaja, y la nota de débito a la nota de crédito que anula.
+--     detalle, montos y a nombre de quién vienen (el RUT y la razón social
+--     impresos en la OC). La factura de una OC va a ese RUT. El PDF sigue
+--     en Documentos (`event_documents`, categoría `ordenes_compra`); acá va
+--     el vínculo.
+--  3. `documentos_tributarios`: cada boleta, factura y nota, con lo que se
+--     mandó y lo que respondió facturacion.cl. La cadena de anulación va en
+--     `modifica_id`: la nota de crédito apunta a la factura que anula o
+--     rebaja, y la nota de débito a la nota de crédito que anula.
 --
 -- Un documento tributario no se borra nunca: se anula con otro (L6). Por
 -- eso `documentos_tributarios` apunta a la cotización y a la OC SIN
 -- cascada, y el motor no tiene permiso de DELETE sobre ella. Una
 -- cotización con documentos no se puede eliminar: la guardia
--- `QuotationsRepository.assertDeletable` lo dice con palabras. Las OC
--- sí se van con su cotización.
+-- `QuotationsRepository.assertDeletable` lo dice con palabras. Las OC sí
+-- se van con su cotización, y las razones sociales con su cliente.
 --
 -- Cerradas a la llave pública, como la 180 a la 182: solo el motor, que
 -- filtra por company_id. Idempotente. Se aplica primero en el
 -- laboratorio y después en producción, ANTES del motor que la usa (la
 -- guardia de borrado ya cuenta `documentos_tributarios`). Número
 -- reservado el 04-11, avisado a las sesiones de Oportunidades y BelIA.
+--
+-- En el laboratorio corrió antes una primera versión que guardaba un solo
+-- juego de datos en `clients`; la 184b (solo laboratorio) muda esos datos a
+-- `razones_sociales`. En producción va únicamente este archivo.
 -- ============================================================
 
--- 1 · Los datos de facturación del cliente ---------------------------------
+-- 1 · Las razones sociales de cada cliente ---------------------------------
 
-alter table public.clients
-  add column if not exists rut text,
-  add column if not exists razon_social text,
-  add column if not exists giro text,
-  add column if not exists direccion_facturacion text,
-  add column if not exists comuna text,
-  add column if not exists ciudad text,
+create table if not exists public.razones_sociales (
+  id bigint generated always as identity primary key,
+  company_id bigint not null references public.companies(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  -- Limpio, como en people (migración 68): sin puntos, con guion y la K
+  -- mayúscula. El dígito verificador lo revisa el motor.
+  rut text not null check (rut ~ '^[0-9]{7,8}-[0-9K]$'),
+  razon_social text not null check (char_length(razon_social) between 1 and 100),
+  giro text,
+  direccion text,
+  comuna text,
+  ciudad text,
   -- Uno o varios, separados por coma: facturacion.cl le manda el
   -- documento a todos (hasta 200 caracteres en su archivo).
-  add column if not exists correo_facturacion text,
-  -- Los códigos de referencia que el cliente exige en su factura: '801'
-  -- (orden de compra), '802' (nota de pedido), '803' (contrato), 'HES'…
-  -- La lista vive en el motor (`facturacion/referencias.ts`).
-  add column if not exists referencias_exigidas text[] not null default '{}';
+  correo_facturacion text,
+  -- Los códigos de referencia que exige en su factura: '801' (orden de
+  -- compra), '802' (nota de pedido), '803' (contrato), 'HES'… La lista vive
+  -- en el motor (`facturacion/referencias.ts`).
+  referencias_exigidas text[] not null default '{}',
+  -- De dónde salió: escrita a mano, o leída de una OC y confirmada.
+  origen text not null default 'manual'
+    check (origen in ('manual', 'orden_de_compra')),
+  -- El id de la SESIÓN (`user.id`, el de auth), sin llave, como en la 180.
+  creado_por uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
--- Limpio, como en people (migración 68): sin puntos, con guion y la K
--- mayúscula. El dígito verificador lo revisa el motor.
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'clients_rut_chk'
-  ) then
-    alter table public.clients
-      add constraint clients_rut_chk
-      check (rut is null or rut ~ '^[0-9]{7,8}-[0-9K]$');
-  end if;
-end $$;
+-- Un RUT va una sola vez en cada cliente.
+create unique index if not exists razones_sociales_rut_uniq
+  on public.razones_sociales (client_id, rut);
+-- Para encontrar al cliente por el RUT de una OC.
+create index if not exists idx_razones_sociales_empresa_rut
+  on public.razones_sociales (company_id, rut);
+
+alter table public.razones_sociales enable row level security;
+revoke all on public.razones_sociales from anon, authenticated;
+grant select, insert, update, delete on public.razones_sociales
+  to service_role;
+grant usage, select on sequence public.razones_sociales_id_seq
+  to service_role;
 
 -- 2 · Las órdenes de compra ------------------------------------------------
 
@@ -75,6 +97,11 @@ create table if not exists public.ordenes_de_compra (
   -- el SII admite ahí hasta 18 letras o números (FolioRef).
   numero text not null check (char_length(numero) between 1 and 18),
   fecha date not null,
+  -- A nombre de quién viene, como lo imprime la OC. La factura va a ese
+  -- RUT; si ya está entre las razones sociales del cliente, manda lo
+  -- guardado (doc 19 §9.12).
+  rut text check (rut is null or rut ~ '^[0-9]{7,8}-[0-9K]$'),
+  razon_social text,
   -- El detalle que va en la factura: con OC, manda la OC (E1).
   descripcion text,
   -- Los montos de la misma OC (L17): el total siempre; el neto y el IVA
@@ -93,6 +120,13 @@ create table if not exists public.ordenes_de_compra (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Si la tabla venía de la primera versión (solo en el laboratorio), le
+-- faltan a nombre de quién viene la OC.
+alter table public.ordenes_de_compra
+  add column if not exists rut text
+    check (rut is null or rut ~ '^[0-9]{7,8}-[0-9K]$'),
+  add column if not exists razon_social text;
 
 -- La misma OC no se carga dos veces en el mismo evento.
 create unique index if not exists ordenes_de_compra_numero_uniq
@@ -136,8 +170,8 @@ create table if not exists public.documentos_tributarios (
   -- el `salesId` de Bsale).
   clave_emision uuid not null default gen_random_uuid(),
   -- El receptor TAL COMO SE MANDÓ (rut, razón social, giro, dirección,
-  -- comuna, ciudad y correo): si después cambia la ficha del cliente, el
-  -- documento no cambia.
+  -- comuna, ciudad y correo): si después cambia la razón social guardada,
+  -- el documento no cambia.
   receptor jsonb not null default '{}'::jsonb,
   -- Las líneas del detalle y las referencias (la OC 801, la nota de
   -- pedido 802, el documento que modifica…), como se mandaron.
@@ -224,14 +258,5 @@ grant usage, select on sequence public.documentos_tributarios_id_seq
 -- REVERSA (solo mientras no haya documentos de verdad):
 --   drop table if exists public.documentos_tributarios;
 --   drop table if exists public.ordenes_de_compra;
---   alter table public.clients drop constraint if exists clients_rut_chk;
---   alter table public.clients
---     drop column if exists referencias_exigidas,
---     drop column if exists correo_facturacion,
---     drop column if exists ciudad,
---     drop column if exists comuna,
---     drop column if exists direccion_facturacion,
---     drop column if exists giro,
---     drop column if exists razon_social,
---     drop column if exists rut;
+--   drop table if exists public.razones_sociales;
 -- ============================================================

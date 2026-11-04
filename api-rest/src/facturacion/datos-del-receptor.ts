@@ -3,7 +3,8 @@ import { normalizarRut } from '../people/utils/rut';
 import { CODIGOS_DE_REFERENCIA } from './referencias';
 
 /**
- * LOS DATOS DE FACTURACIÓN DEL CLIENTE (migración 184, doc 19 §5.1)
+ * LOS DATOS DE UNA RAZÓN SOCIAL: A QUIÉN SE FACTURA (migración 184,
+ * doc 19 §5.1 y §9.12)
  *
  * ⚠ GEMELO: los largos viven también en
  *   `frontend/src/constants/facturacion.ts`
@@ -17,7 +18,7 @@ import { CODIGOS_DE_REFERENCIA } from './referencias';
 export const LARGO_MAXIMO = {
   razon_social: 100,
   giro: 40,
-  direccion_facturacion: 60,
+  direccion: 60,
   comuna: 20,
   ciudad: 20,
   correo_facturacion: 200,
@@ -27,7 +28,7 @@ export interface DatosDeFacturacion {
   rut?: string | null;
   razon_social?: string | null;
   giro?: string | null;
-  direccion_facturacion?: string | null;
+  direccion?: string | null;
   comuna?: string | null;
   ciudad?: string | null;
   correo_facturacion?: string | null;
@@ -37,7 +38,7 @@ export interface DatosDeFacturacion {
 const TEXTOS = [
   'razon_social',
   'giro',
-  'direccion_facturacion',
+  'direccion',
   'comuna',
   'ciudad',
 ] as const;
@@ -61,8 +62,8 @@ const textoLimpio = (valor: string | null | undefined): string | null =>
  *  3. Los correos, en minúscula y separados por «, ».
  *  4. Las referencias, sin repetir y en el orden de la lista del SII.
  *
- * Solo devuelve los campos que venían: un PATCH de las notas no borra los
- * datos de facturación.
+ * Solo devuelve los campos que venían: un PATCH del giro no borra el
+ * resto.
  */
 export const datosDeFacturacionLimpios = (
   datos: DatosDeFacturacion,
