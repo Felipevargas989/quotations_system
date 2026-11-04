@@ -18,6 +18,7 @@ import type {
   EventoDeLaCotizacion,
   FotoGuardada,
 } from '../propuestas/editar-foto';
+import type { LeccionesDesdeElChat } from '../propuestas/lecciones-desde-el-chat';
 import type {
   Propuesta,
   PropuestasRepository,
@@ -253,6 +254,16 @@ export const armarServicio = (
   } as unknown as GenerarRepository;
   // «Prepárame el seguimiento» (doc 20 §17): el borrador lo deja el
   // seguimiento con IA; acá basta saber que se llamó.
+  // Las lecciones (doc 20 §17): basta saber a quién se le pidió.
+  const leccionesDelChat = {
+    anotar: jest
+      .fn()
+      .mockResolvedValue({ estado: 'aplicada', aviso: 'Anotada y aprobada.' }),
+    decidir: jest
+      .fn()
+      .mockResolvedValue({ estado: 'aplicada', aviso: 'Aprobada.' }),
+    porAprobar: jest.fn().mockResolvedValue([]),
+  };
   const seguimientoDelChat = {
     proponer: jest.fn(),
     dejar: jest.fn().mockResolvedValue({
@@ -284,6 +295,7 @@ export const armarServicio = (
     mockPinoLogger() as unknown as PinoLogger,
     nuevas,
     seguimientoDelChat as unknown as SeguimientoDesdeElChat,
+    leccionesDelChat as unknown as LeccionesDesdeElChat,
   );
   return {
     servicio,
@@ -292,6 +304,7 @@ export const armarServicio = (
     bitacora,
     clientes,
     seguimientoDelChat,
+    leccionesDelChat,
   };
 };
 
