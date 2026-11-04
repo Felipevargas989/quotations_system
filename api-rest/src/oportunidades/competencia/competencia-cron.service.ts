@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { PorQuePerdimosService } from '../comparacion/por-que-perdimos.service';
+import { CerradasSinPostularService } from '../decisiones/cerradas-sin-postular.service';
 import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ActasDeLaZonaService } from './actas.service';
@@ -24,7 +25,8 @@ export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
 // El resultado de lo postulado (decisión 92) y, en las licitaciones ganadas
 // o perdidas sin la competencia subida, sus ofertas públicas (decisión 96):
 // media hora después de cada pasada del radar, unos minutos. Desde la 109,
-// las pasadas son a las 8, 12, 15 y 18.
+// las pasadas son a las 8, 12, 15 y 18. Antes, las «Me interesa» que
+// cerraron sin postular quedan descartadas (decisión 116).
 export const RESULTADOS = '37 8,12,15,18 * * *';
 export const DURACION_DE_LOS_RESULTADOS_MS = 10 * 60_000;
 
@@ -43,6 +45,8 @@ export class CompetenciaCronService {
     @Optional() private readonly ofertas?: OfertasDeLaCompetenciaService,
     /** Por qué perdimos (decisión 97): dos por pasada. */
     @Optional() private readonly porQue?: PorQuePerdimosService,
+    /** Las cerradas sin postular, a descartadas (decisión 116). */
+    @Optional() private readonly cerradas?: CerradasSinPostularService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
@@ -65,6 +69,12 @@ export class CompetenciaCronService {
     try {
       for (const { id } of await this.oportunidades.empresasConModulo()) {
         if (Date.now() > hasta) return;
+        const cerradas = this.cerradas;
+        if (cerradas) {
+          await this.paso('cerradas sin postular', () =>
+            cerradas.descartar(id),
+          );
+        }
         await this.paso('resultados', () => resultados.revisar(id, hasta));
         const ofertas = this.ofertas;
         if (ofertas) {
