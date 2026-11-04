@@ -47,15 +47,16 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto. Datos de facturación (184): `rut` (limpio, con CHECK `clients_rut_chk`), `razon_social`, `giro`, `direccion_facturacion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma) y `referencias_exigidas` (`text[]`, los códigos del SII que exige el cliente) | 09 | `0_initial_models.sql`; columnas de facturación en 184 |
+| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto. | 09 | `0_initial_models.sql` |
 | `client_contacts` | Las personas del cliente: `name`, `email`, `phone`, `is_primary`, `portal_token` | 09 | 34; columnas en 35, 36 y 48 |
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
+| `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
 
 ### Facturación electrónica (migración 184, solo en el laboratorio desde el 04-11-2026)
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
+| `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, a nombre de quién viene (`rut` y `razon_social`, como los imprime la OC: la factura va a ese RUT), `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
 | `documentos_tributarios` | Cada boleta, factura y nota: `tipo` (33, 34, 39, 41, 56, 61), `ambiente` (`simulado`, `prueba`, `produccion`), `folio`, `estado` (`borrador`, `enviando`, `emitido`, `por_confirmar`, `rechazado`), `clave_emision` única, el receptor, el detalle y las referencias como se mandaron, los montos, la cotización y la OC, el `porcentaje`, la cadena (`modifica_id` y `codigo_referencia`), el archivo enviado y la respuesta, el PDF y quién lo emitió. **No se borra**: sin cascada y sin `DELETE` para el motor | doc 19 | 184 |
 
 ### Cotizaciones y negocio
@@ -662,12 +663,13 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Qué hace.** Tres cosas (doc 19 §5.2 y §9.9, paso 1):
 
-- Suma a `clients` los datos de facturación del receptor: `rut` (limpio, con el CHECK `clients_rut_chk` de la misma forma que `people_rut_chk`; el dígito verificador lo revisa el motor), `razon_social`, `giro`, `direccion_facturacion`, `comuna`, `ciudad`, `correo_facturacion` y `referencias_exigidas` (`text[] not null default '{}'`). Los largos son los del archivo de facturacion.cl y los cuida el motor (`facturacion/datos-del-receptor.ts`).
-- Crea `ordenes_de_compra` (sección 2): se va con su cotización.
+- Crea `razones_sociales` (sección 2): a quién se le factura, VARIAS por cliente (Felipe, 04-11: *"es posible como en CCU que algunas facturas sean a un rut y otras a otro"*; Santo Tomás tiene 3 OC a 2 RUT en el evento #481). El `rut` lleva el CHECK de la misma forma que `people_rut_chk`; el dígito verificador lo revisa el motor. Los largos son los del archivo de facturacion.cl y los cuida el motor (`facturacion/datos-del-receptor.ts`).
+- Crea `ordenes_de_compra` (sección 2), con el RUT y la razón social impresos en la OC: se va con su cotización.
 - Crea `documentos_tributarios` (sección 2), con la cadena de anulación: `modifica_id` apunta al documento que la nota anula o rebaja, y `codigo_referencia` dice cómo (1 anula, 2 corrige texto, 3 corrige montos). El CHECK `documentos_tributarios_cadena_chk` deja que solo las notas (56 y 61) modifiquen algo y obliga a toda nota a decir cómo. Únicos: el folio por empresa, ambiente y tipo, la `clave_emision`, y un solo `enviando` por cotización (el candado de un envío a la vez).
 
 **Lo que no se borra.** `documentos_tributarios` apunta a `companies`, `quotations` y `ordenes_de_compra` sin cascada, y `service_role` tiene `SELECT`, `INSERT` y `UPDATE`, pero **no `DELETE`**: ni un error del motor puede borrar un documento tributario. Por eso `QuotationsRepository.assertDeletable` la cuenta primero (zona de riesgo 2): una cotización con documentos no se borra. Ojo: un `borrador` guardado también frena el borrado de su cotización.
 
-**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 184, borrar una cotización falla, porque la guardia cuenta `documentos_tributarios`, y guardar los datos de facturación de un cliente también.
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 184, borrar una cotización falla, porque la guardia cuenta `documentos_tributarios`, y la tarjeta «Datos de facturación» de la ficha no carga.
 
-**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026.** Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026**, en dos tiempos: la primera versión guardaba un solo juego de datos en columnas de `clients`; esa misma tarde la 184 se rehízo con `razones_sociales` y la `184b_laboratorio_razones_sociales.sql` (solo laboratorio, no va a producción) mudó los datos de prueba de CCU y quitó esas columnas. Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. En producción va solo la 184. **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+

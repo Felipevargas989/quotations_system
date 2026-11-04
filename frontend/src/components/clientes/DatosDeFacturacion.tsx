@@ -1,17 +1,23 @@
 import { useState } from "react";
-import { Pencil, Receipt } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { toast } from "../toast/Toast";
 import RutInput from "../inputs/RutInput";
 import MultiSelect from "../MultiSelect";
-import { updateClient } from "../../services/clients.service";
-import { ClientFormData } from "../../types/clients.types";
+import ConfirmInline from "../ConfirmInline";
+import {
+  RazonSocial,
+  createRazonSocial,
+  deleteRazonSocial,
+  getRazonesSociales,
+  updateRazonSocial,
+} from "../../services/razonesSociales.service";
 import { formatearRut } from "../../utils/rut";
 import { humanizeApiError } from "../../utils/apiErrors";
 import {
-  BorradorDeFacturacion,
-  ClienteConFacturacion,
-  borradorDeFacturacion,
-  cambiosDeFacturacion,
+  BorradorDeRazonSocial,
+  borradorDeRazonSocial,
+  cambiosDeRazonSocial,
   problemaDeCorreos,
 } from "../../utils/datosDeFacturacion";
 import {
@@ -20,13 +26,15 @@ import {
   nombreDeReferencia,
 } from "../../constants/facturacion";
 
-// DATOS DE FACTURACIÓN DEL CLIENTE (migración 184, doc 19 §5.1 y §9.3).
+// DATOS DE FACTURACIÓN DEL CLIENTE (migración 184, doc 19 §9.12).
 //
-// Es lo que va en la factura de facturacion.cl: el RUT con su dígito
-// verificador, la razón social, el giro, la dirección y los correos a los
-// que facturacion.cl le manda el documento. Y las referencias que exige el
-// cliente (CCU: la orden de compra y la nota de pedido), para que la
-// factura no salga sin ellas.
+// Felipe, 04-11: *"es posible como en CCU que algunas facturas sean a un rut
+// y otras a otro"*. Por eso es una LISTA de razones sociales: Santo Tomás
+// factura un mismo evento al CFT y al Instituto Profesional, cada uno con su
+// RUT. Cada una con lo que va en la factura de facturacion.cl (RUT con
+// dígito verificador, razón social, giro, dirección y los correos a los que
+// facturacion.cl le manda el documento) y las referencias que exige (CCU:
+// la orden de compra y la nota de pedido).
 //
 // Cada casilla tiene el largo que cabe en la factura y lo cuenta mientras
 // se escribe: nada se corta a escondidas al facturar (doc 19 §9.10).
@@ -67,76 +75,202 @@ function Casilla({
   );
 }
 
-function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+function Formulario({
+  inicial,
+  guardando,
+  onGuardar,
+  onCancelar,
+}: {
+  inicial: BorradorDeRazonSocial;
+  guardando: boolean;
+  onGuardar: (borrador: BorradorDeRazonSocial) => void;
+  onCancelar: () => void;
+}) {
+  const [borrador, setBorrador] = useState(inicial);
+  const [rutValido, setRutValido] = useState(!!inicial.rut);
+  const poner = (
+    campo: keyof BorradorDeRazonSocial,
+    valor: string | string[],
+  ) => setBorrador((b) => ({ ...b, [campo]: valor }));
+
+  const problemaCorreos = problemaDeCorreos(borrador.correo_facturacion);
+  const listo = rutValido && !!borrador.razon_social.trim() && !problemaCorreos;
+
   return (
-    <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-gray-500">{etiqueta}</dt>
-      <dd className="text-gray-900 break-words min-w-0">{valor}</dd>
+    <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+      <label className="block">
+        <span className="text-xs text-gray-500">RUT</span>
+        <RutInput
+          value={borrador.rut}
+          onChange={(rut, valido) => {
+            poner("rut", rut);
+            setRutValido(valido);
+          }}
+          obligatorio
+          placeholder="65.175.242-6"
+          className="text-sm"
+        />
+      </label>
+      <Casilla
+        etiqueta="Razón social"
+        valor={borrador.razon_social}
+        largo={LARGO_MAXIMO.razon_social}
+        onChange={(v) => poner("razon_social", v)}
+      />
+      <Casilla
+        etiqueta="Giro"
+        valor={borrador.giro}
+        largo={LARGO_MAXIMO.giro}
+        onChange={(v) => poner("giro", v)}
+      />
+      <Casilla
+        etiqueta="Dirección"
+        valor={borrador.direccion}
+        largo={LARGO_MAXIMO.direccion}
+        onChange={(v) => poner("direccion", v)}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <Casilla
+          etiqueta="Comuna"
+          valor={borrador.comuna}
+          largo={LARGO_MAXIMO.comuna}
+          onChange={(v) => poner("comuna", v)}
+        />
+        <Casilla
+          etiqueta="Ciudad"
+          valor={borrador.ciudad}
+          largo={LARGO_MAXIMO.ciudad}
+          onChange={(v) => poner("ciudad", v)}
+        />
+      </div>
+      <Casilla
+        etiqueta="Correos para la factura"
+        valor={borrador.correo_facturacion}
+        largo={LARGO_MAXIMO.correo_facturacion}
+        placeholder="facturas@empresa.cl, pagos@empresa.cl"
+        onChange={(v) => poner("correo_facturacion", v)}
+      />
+      {problemaCorreos && (
+        <p className="text-xs text-red-600 font-medium">{problemaCorreos}</p>
+      )}
+      <div>
+        <span className="text-xs text-gray-500">Referencias que pide</span>
+        <MultiSelect
+          options={REFERENCIAS_QUE_PIDE.map((r) => ({
+            value: r.codigo,
+            label: `${r.nombre} (${r.codigo})`,
+          }))}
+          value={borrador.referencias_exigidas}
+          onChange={(v) => poner("referencias_exigidas", v)}
+          placeholder="Ninguna"
+        />
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          disabled={guardando || !listo}
+          onClick={() => onGuardar(borrador)}
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+        >
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancelar}
+          className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Ficha({ r }: { r: RazonSocial }) {
+  const direccion = [r.direccion, r.comuna, r.ciudad]
+    .filter(Boolean)
+    .join(", ");
+  return (
+    <div className="space-y-0.5 text-sm min-w-0">
+      <p className="font-medium text-gray-900 break-words">{r.razon_social}</p>
+      <p className="text-gray-600">
+        RUT {formatearRut(r.rut)}
+        {r.giro ? ` · ${r.giro}` : ""}
+      </p>
+      {direccion && <p className="text-gray-600 break-words">{direccion}</p>}
+      {r.correo_facturacion && (
+        <p className="text-gray-600 break-words">{r.correo_facturacion}</p>
+      )}
+      {r.referencias_exigidas.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {r.referencias_exigidas.map((codigo) => (
+            <span
+              key={codigo}
+              className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium"
+            >
+              {nombreDeReferencia(codigo)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function DatosDeFacturacion({
-  cliente,
+  clientId,
   puedeEditar,
-  alGuardar,
 }: {
-  cliente: ClienteConFacturacion;
+  clientId: string;
   puedeEditar: boolean;
-  /** Para refrescar la ficha y la lista tras guardar. */
-  alGuardar: () => void;
 }) {
-  const [borrador, setBorrador] = useState<BorradorDeFacturacion | null>(null);
-  const [rutValido, setRutValido] = useState(true);
+  const queryClient = useQueryClient();
+  const llave = ["razonesSociales", clientId];
+  const consulta = useQuery({
+    queryKey: llave,
+    queryFn: () => getRazonesSociales(clientId),
+  });
+  const razones = consulta.data ?? [];
+
+  // Una sola a la vez: la que se edita (su id) o «nueva».
+  const [editando, setEditando] = useState<number | "nueva" | null>(null);
+  const [borrandoId, setBorrandoId] = useState<number | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  const referencias = cliente.referencias_exigidas || [];
-  const direccion = [
-    cliente.direccion_facturacion,
-    cliente.comuna,
-    cliente.ciudad,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const vacio =
-    !cliente.rut &&
-    !cliente.razon_social &&
-    !cliente.giro &&
-    !direccion &&
-    !cliente.correo_facturacion &&
-    referencias.length === 0;
+  const recargar = () => queryClient.invalidateQueries({ queryKey: llave });
 
-  const editar = () => {
-    setBorrador(borradorDeFacturacion(cliente));
-    setRutValido(true);
-  };
-  const poner = (
-    campo: keyof BorradorDeFacturacion,
-    valor: string | string[],
-  ) => setBorrador((b) => b && { ...b, [campo]: valor });
-
-  const problemaCorreos = borrador
-    ? problemaDeCorreos(borrador.correo_facturacion)
-    : null;
-  const rutMalo = !!borrador?.rut && !rutValido;
-
-  const guardar = async () => {
-    if (!borrador || rutMalo || problemaCorreos) return;
-    const cambios = cambiosDeFacturacion(cliente, borrador);
+  const guardar = async (
+    antes: RazonSocial | null,
+    borrador: BorradorDeRazonSocial,
+  ) => {
+    const cambios = cambiosDeRazonSocial(antes, borrador);
     if (Object.keys(cambios).length === 0) {
-      setBorrador(null);
+      setEditando(null);
       return;
     }
     setGuardando(true);
     try {
-      await updateClient(cambios as unknown as ClientFormData, cliente.id);
-      alGuardar();
+      if (antes) await updateRazonSocial(clientId, antes.id, cambios);
+      else await createRazonSocial(clientId, cambios);
+      await recargar();
       toast.success("Datos de facturación guardados.");
-      setBorrador(null);
+      setEditando(null);
     } catch (error) {
       toast.error(humanizeApiError(error, "No se pudieron guardar los datos."));
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const quitar = async (id: number) => {
+    try {
+      await deleteRazonSocial(clientId, id);
+      await recargar();
+      toast.success("Razón social quitada.");
+    } catch (error) {
+      toast.error(humanizeApiError(error, "No se pudo quitar."));
+    } finally {
+      setBorrandoId(null);
     }
   };
 
@@ -146,136 +280,80 @@ export default function DatosDeFacturacion({
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <Receipt size={18} /> Datos de facturación
         </h2>
-        {puedeEditar && !borrador && (
+        {puedeEditar && editando === null && (
           <button
             type="button"
-            onClick={editar}
+            onClick={() => setEditando("nueva")}
             className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
           >
-            <Pencil size={13} /> {vacio ? "Agregar" : "Editar"}
+            <Plus size={13} /> Agregar
           </button>
         )}
       </div>
 
-      {borrador ? (
-        <div className="space-y-2">
-          <label className="block">
-            <span className="text-xs text-gray-500">RUT</span>
-            <RutInput
-              value={borrador.rut}
-              onChange={(rut, valido) => {
-                poner("rut", rut);
-                setRutValido(valido);
-              }}
-              placeholder="90.413.000-1"
-              className="text-sm"
-            />
-          </label>
-          <Casilla
-            etiqueta="Razón social"
-            valor={borrador.razon_social}
-            largo={LARGO_MAXIMO.razon_social}
-            onChange={(v) => poner("razon_social", v)}
-          />
-          <Casilla
-            etiqueta="Giro"
-            valor={borrador.giro}
-            largo={LARGO_MAXIMO.giro}
-            onChange={(v) => poner("giro", v)}
-          />
-          <Casilla
-            etiqueta="Dirección"
-            valor={borrador.direccion_facturacion}
-            largo={LARGO_MAXIMO.direccion_facturacion}
-            onChange={(v) => poner("direccion_facturacion", v)}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Casilla
-              etiqueta="Comuna"
-              valor={borrador.comuna}
-              largo={LARGO_MAXIMO.comuna}
-              onChange={(v) => poner("comuna", v)}
-            />
-            <Casilla
-              etiqueta="Ciudad"
-              valor={borrador.ciudad}
-              largo={LARGO_MAXIMO.ciudad}
-              onChange={(v) => poner("ciudad", v)}
-            />
-          </div>
-          <Casilla
-            etiqueta="Correos para la factura"
-            valor={borrador.correo_facturacion}
-            largo={LARGO_MAXIMO.correo_facturacion}
-            placeholder="facturas@empresa.cl, pagos@empresa.cl"
-            onChange={(v) => poner("correo_facturacion", v)}
-          />
-          {problemaCorreos && (
-            <p className="text-xs text-red-600 font-medium">
-              {problemaCorreos}
-            </p>
-          )}
-          <div>
-            <span className="text-xs text-gray-500">Referencias que pide</span>
-            <MultiSelect
-              options={REFERENCIAS_QUE_PIDE.map((r) => ({
-                value: r.codigo,
-                label: `${r.nombre} (${r.codigo})`,
-              }))}
-              value={borrador.referencias_exigidas}
-              onChange={(v) => poner("referencias_exigidas", v)}
-              placeholder="Ninguna"
-            />
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              disabled={guardando || rutMalo || !!problemaCorreos}
-              onClick={guardar}
-              className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-            >
-              {guardando ? "Guardando…" : "Guardar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setBorrador(null)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : vacio ? (
+      {consulta.isPending ? (
+        <p className="text-sm text-gray-400">Cargando…</p>
+      ) : consulta.isError ? (
+        <p className="text-sm text-red-600">
+          No se pudieron cargar los datos de facturación.
+        </p>
+      ) : razones.length === 0 && editando !== "nueva" ? (
         <p className="text-sm text-gray-500">Sin datos de facturación.</p>
-      ) : (
-        <dl className="space-y-1 text-sm">
-          {cliente.rut && (
-            <Dato etiqueta="RUT" valor={formatearRut(cliente.rut)} />
-          )}
-          {cliente.razon_social && (
-            <Dato etiqueta="Razón social" valor={cliente.razon_social} />
-          )}
-          {cliente.giro && <Dato etiqueta="Giro" valor={cliente.giro} />}
-          {direccion && <Dato etiqueta="Dirección" valor={direccion} />}
-          {cliente.correo_facturacion && (
-            <Dato etiqueta="Correos" valor={cliente.correo_facturacion} />
-          )}
-          {referencias.length > 0 && (
-            <div className="flex gap-2">
-              <dt className="w-24 shrink-0 text-gray-500">Pide</dt>
-              <dd className="flex flex-wrap gap-1">
-                {referencias.map((codigo) => (
-                  <span
-                    key={codigo}
-                    className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium"
-                  >
-                    {nombreDeReferencia(codigo)}
-                  </span>
-                ))}
-              </dd>
-            </div>
-          )}
-        </dl>
+      ) : null}
+
+      {razones.map((r) =>
+        editando === r.id ? (
+          <Formulario
+            key={r.id}
+            inicial={borradorDeRazonSocial(r)}
+            guardando={guardando}
+            onGuardar={(b) => guardar(r, b)}
+            onCancelar={() => setEditando(null)}
+          />
+        ) : borrandoId === r.id ? (
+          <ConfirmInline
+            key={r.id}
+            question={`¿Quitar ${r.razon_social}?`}
+            onYes={() => quitar(r.id)}
+            onNo={() => setBorrandoId(null)}
+          />
+        ) : (
+          <div
+            key={r.id}
+            className="flex items-start justify-between gap-2 border-t border-gray-100 pt-3 first:border-t-0 first:pt-0"
+          >
+            <Ficha r={r} />
+            {puedeEditar && editando === null && (
+              <div className="flex shrink-0 gap-2 text-gray-400">
+                <button
+                  type="button"
+                  onClick={() => setEditando(r.id)}
+                  className="hover:text-blue-600"
+                  title="Editar"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBorrandoId(r.id)}
+                  className="hover:text-red-600"
+                  title="Quitar"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        ),
+      )}
+
+      {editando === "nueva" && (
+        <Formulario
+          inicial={borradorDeRazonSocial()}
+          guardando={guardando}
+          onGuardar={(b) => guardar(null, b)}
+          onCancelar={() => setEditando(null)}
+        />
       )}
     </div>
   );
