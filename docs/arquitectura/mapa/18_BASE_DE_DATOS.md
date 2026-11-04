@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -47,9 +47,16 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto | 09 | `0_initial_models.sql` |
+| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto. Datos de facturación (184): `rut` (limpio, con CHECK `clients_rut_chk`), `razon_social`, `giro`, `direccion_facturacion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma) y `referencias_exigidas` (`text[]`, los códigos del SII que exige el cliente) | 09 | `0_initial_models.sql`; columnas de facturación en 184 |
 | `client_contacts` | Las personas del cliente: `name`, `email`, `phone`, `is_primary`, `portal_token` | 09 | 34; columnas en 35, 36 y 48 |
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
+
+### Facturación electrónica (migración 184, solo en el laboratorio desde el 04-11-2026)
+
+| Tabla | Qué guarda | Módulo dueño | Migración que la crea |
+|---|---|---|---|
+| `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
+| `documentos_tributarios` | Cada boleta, factura y nota: `tipo` (33, 34, 39, 41, 56, 61), `ambiente` (`simulado`, `prueba`, `produccion`), `folio`, `estado` (`borrador`, `enviando`, `emitido`, `por_confirmar`, `rechazado`), `clave_emision` única, el receptor, el detalle y las referencias como se mandaron, los montos, la cotización y la OC, el `porcentaje`, la cadena (`modifica_id` y `codigo_referencia`), el archivo enviado y la respuesta, el PDF y quién lo emitió. **No se borra**: sin cascada y sin `DELETE` para el motor | doc 19 | 184 |
 
 ### Cotizaciones y negocio
 
@@ -650,3 +657,17 @@ o el valor por defecto): las empresas nuevas quedarían con 100 en vez de 10.
 
 **Estado.** Escrita el 04-11-2026. En las dos bases: en el laboratorio y en
 producción desde la tarde del 04-11 (Felipe: «a producción»), antes del motor.
+
+## 29. Migración 184: facturación electrónica, paso 1 (04-11-2026)
+
+**Qué hace.** Tres cosas (doc 19 §5.2 y §9.9, paso 1):
+
+- Suma a `clients` los datos de facturación del receptor: `rut` (limpio, con el CHECK `clients_rut_chk` de la misma forma que `people_rut_chk`; el dígito verificador lo revisa el motor), `razon_social`, `giro`, `direccion_facturacion`, `comuna`, `ciudad`, `correo_facturacion` y `referencias_exigidas` (`text[] not null default '{}'`). Los largos son los del archivo de facturacion.cl y los cuida el motor (`facturacion/datos-del-receptor.ts`).
+- Crea `ordenes_de_compra` (sección 2): se va con su cotización.
+- Crea `documentos_tributarios` (sección 2), con la cadena de anulación: `modifica_id` apunta al documento que la nota anula o rebaja, y `codigo_referencia` dice cómo (1 anula, 2 corrige texto, 3 corrige montos). El CHECK `documentos_tributarios_cadena_chk` deja que solo las notas (56 y 61) modifiquen algo y obliga a toda nota a decir cómo. Únicos: el folio por empresa, ambiente y tipo, la `clave_emision`, y un solo `enviando` por cotización (el candado de un envío a la vez).
+
+**Lo que no se borra.** `documentos_tributarios` apunta a `companies`, `quotations` y `ordenes_de_compra` sin cascada, y `service_role` tiene `SELECT`, `INSERT` y `UPDATE`, pero **no `DELETE`**: ni un error del motor puede borrar un documento tributario. Por eso `QuotationsRepository.assertDeletable` la cuenta primero (zona de riesgo 2): una cotización con documentos no se borra. Ojo: un `borrador` guardado también frena el borrado de su cotización.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 184, borrar una cotización falla, porque la guardia cuenta `documentos_tributarios`, y guardar los datos de facturación de un cliente también.
+
+**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026.** Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. **Falta en producción** (con el «a producción» de Felipe, antes del motor).
