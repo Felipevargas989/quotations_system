@@ -414,7 +414,7 @@ describe('Las reglas de los cambios', () => {
 });
 
 describe('Sí, aplicar', () => {
-  it('aplica por la puerta del cotizador y lo anota a nombre del Asistente', async () => {
+  it('aplica por la puerta del cotizador y lo anota a nombre de BelIA', async () => {
     const q = cotizacion();
     const { servicio, cotizaciones, bitacora, repositorio } = armarServicio(q);
     const r = await servicio.aplicar(camila(), 'p1');
@@ -432,11 +432,14 @@ describe('Sí, aplicar', () => {
       'pendiente',
       { estado: 'aplicando' },
     );
-    const [, nota] = bitacora.crearComoAsistente.mock.calls[0] as [
+    const [, nota] = bitacora.crearComoBelia.mock.calls[0] as [
       number,
       { note: string },
     ];
-    expect(nota.note).toContain('a pedido de Camila');
+    // La firma «BelIA» va en el autor: el texto no repite el nombre.
+    expect(nota.note).toMatch(/^A pedido de Camila: /);
+    expect(nota.note).not.toContain('BelIA');
+    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
   });
 
   it('si alguien cambió la cotización entre medio, no aplica', async () => {

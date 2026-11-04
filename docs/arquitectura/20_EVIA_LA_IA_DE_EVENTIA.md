@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, en el laboratorio desde el 04-11. Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -106,8 +106,11 @@
 >   mismas funciones de «el plan mantiene su forma» que corre el guardado.
 > - **Decisiones que tomé por defecto, para que Felipe las confirme:**
 >   1. sin descuentos (pregunta 1 del §11, como decía el plan);
->   2. las notas van a nombre del Asistente, con el robot, y el texto dice
->      «BelIA, a pedido de …» (pregunta 2);
+>   2. ~~las notas van a nombre del Asistente, con el robot, y el texto dice
+>      «BelIA, a pedido de …» (pregunta 2)~~ **cambió el 04-11** (Felipe,
+>      sobre la maqueta: *"Sí, me parece bien"*): las notas de BelIA
+>      firman «BelIA», con su carita, y el texto ya no repite el nombre
+>      («A pedido de …: …»; abajo);
 >   3. una propuesta dura 2 horas y solo la aplica quien la pidió;
 >   4. «Deshacer» solo en lo no vendido: en una aceptada la cascada del plan
 >      no tiene vuelta exacta, así que se pide el cambio contrario y se ven
@@ -203,6 +206,28 @@
 > - **Falta que Felipe decida:** si se guardan las conversaciones (§11,
 >   pregunta 3) y si confirma las seis decisiones por defecto de la fase 2
 >   (arriba).
+>
+> **04-11-2026, mañana · BelIA firma con su carita** (Felipe: *"puedes
+> hacer un pequeño icono de Belia (perrita negra) y que esto quede siempre
+> con icono y como BelIA?"*; con la maqueta: *"Sí, me parece bien"*).
+> - Lo que anota BelIA en la bitácora (crear un evento, cambiar servicios,
+>   una nota, deshacer) queda a nombre de **«BelIA»**
+>   (`QuotationFollowupsService.crearComoBelia`), sin autor de sesión: como
+>   el Asistente, nadie la edita ni la borra.
+> - En el Seguimiento sale con **su carita**, `public/belia/icono.png`,
+>   armada con las mismas piezas de su dibujo y sin fondo como los otros
+>   personajes, más la «B» y la franja en el gris grafito de la IA. Nadie
+>   la puede elegir en Mi cuenta.
+> - El texto ya no repite el nombre: «A pedido de Felipe Vargas: creó la
+>   cotización. …», «… (a pedido de Camila)» al final de una nota
+>   propuesta y «Deshizo, a pedido de …: …». El comentario interno de una
+>   cotización nueva sigue diciendo «Lo que pidió el cliente (BelIA, a
+>   pedido de …)»: ahí no hay firma.
+> - Lo que escriben las otras IA («✉ Generar seguimiento», «✨ Crear con
+>   IA», Oportunidades) sigue a nombre del «Asistente», con el robot.
+> - En el laboratorio, las notas de BelIA ya escritas pasaron a la firma
+>   nueva, con respaldo. En producción queda una sola (la de Marval, N°
+>   743): pasa con el «a producción», con su respaldo.
 
 ## 1. Por qué
 
@@ -496,7 +521,9 @@ hay que comprar (ver el estado arriba).
 2. **Las firmas de la bitácora.** ¿Las notas de «Crear con IA» y del
    seguimiento pasan a firmar «Evia»? Hoy firman «Asistente», con el
    robot. (03-11: las de BelIA también firman «Asistente», y el texto
-   dice «BelIA, a pedido de …».)
+   dice «BelIA, a pedido de …». **04-11, decidido para BelIA:** las suyas
+   firman «BelIA», con su carita; las de «Crear con IA» y del
+   seguimiento siguen como «Asistente».)
 3. **Las conversaciones.** ¿Se guardan para revisar quién preguntó qué?
    La propuesta es que sí, por 90 días, y que solo las vea
    administración.

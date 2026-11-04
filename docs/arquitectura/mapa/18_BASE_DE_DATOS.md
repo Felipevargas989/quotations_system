@@ -323,7 +323,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `clients` | `clients` | `clients`, `marketing`, funciones SQL de análisis; embebida desde `quotations`, `payments`, `refunds`, `logistics`, `movil`, `people`, `customer_satisfaction_survey` y `portal-receipts.controller.ts` |
 | `client_contacts` | `clients` (`client-contacts.controller.ts`, que contiene `ClientContactsRepository`) | `clients`, `marketing`, `quotations`; embebida desde `clients` y `portal-receipts.controller.ts` |
 | `client_types` | `clients` | `clients` |
-| `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
+| `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`, y la de BelIA, `crearComoBelia`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
 | `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
 | `choques_de_fecha` | `quotations` (`choques/choques.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |

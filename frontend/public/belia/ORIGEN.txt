@@ -5,3 +5,7 @@ seis piezas son recortes de ese dibujo original, sin redibujar, al 2/3 de
 su tamaño: cuerpo (con los huecos de las piezas), oreja izquierda y
 derecha, ojo izquierdo y derecho, y boca. Se montan una sobre otra en
 components/belia/BeliaAvatar.tsx, todas en el mismo lienzo de 530 x 455.
+
+icono.png (04-11-2026) es la cara de Bela para la bitácora del Seguimiento:
+las mismas seis piezas montadas en su pose de siempre, sin redibujar,
+recortada en cuadrado a 128 x 128 y sin fondo, como los otros personajes.

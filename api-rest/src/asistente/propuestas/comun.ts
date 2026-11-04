@@ -75,6 +75,15 @@ export type Canal = (typeof CANALES)[number];
 export const aPedidoDe = (p: Pick<Propuesta, 'usuario_nombre'>): string =>
   p.usuario_nombre ? `a pedido de ${p.usuario_nombre}` : 'a pedido del equipo';
 
+/** Lo mismo al comienzo de la nota: «A pedido de Camila: …». La firma
+ *  «BelIA» ya va arriba, en el autor (04-11-2026). */
+export const aPedidoDeAlComienzo = (
+  p: Pick<Propuesta, 'usuario_nombre'>,
+): string => {
+  const t = aPedidoDe(p);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 /** El día de una línea en palabras: «Día 2 · mar 10-11-2026». */
 export const diaEnPalabras = (dia: number, desde: string | null): string =>
   dia === 0
@@ -106,9 +115,9 @@ export const ESTADOS: Record<EstadoDePropuesta, string> = {
   vencida: 'venció: pídemela de nuevo',
 };
 
-/** La línea de la bitácora, a nombre del Asistente (con el robot). Si no
- *  se puede, se avisa en el registro: el cambio ya quedó. */
-export const anotarComoAsistente = async (
+/** La línea de la bitácora, a nombre de BelIA (con su carita, 04-11-2026).
+ *  Si no se puede, se avisa en el registro: el cambio ya quedó. */
+export const anotarComoBelia = async (
   bitacora: QuotationFollowupsService,
   logger: PinoLogger,
   empresa: number,
@@ -116,7 +125,7 @@ export const anotarComoAsistente = async (
   note: string,
 ): Promise<void> => {
   await bitacora
-    .crearComoAsistente(empresa, {
+    .crearComoBelia(empresa, {
       quotation_id: quotationId,
       tipo: 'otro',
       next_contact_date: null,

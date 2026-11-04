@@ -1,6 +1,6 @@
 # Mapa: BelIA, la asistente con IA (la ventanilla de chat)
 
-> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **En producción desde el 04-11-2026** (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **En producción desde el 04-11-2026** (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). La firma «BelIA» con su carita en la bitácora (04-11, verificada contra el código al escribirla) está en el laboratorio. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -35,7 +35,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | Botón y ventanilla | `frontend/src/components/belia/BeliaVentanilla.tsx`, montada en `layout/Layout.tsx` | El botón redondo con la burbuja de aviso o de enojo. Al pincharlo, el panel con el saludo, cuatro atajos, la conversación y el campo de texto. En el celular ocupa toda la pantalla. «—» minimiza y «×» termina la conversación | `SECTION_ROLES.quotations` (vendedor y arriba) con el derecho `asistente` |
 | El cerebro | `components/belia/useBelia.ts` | La conversación en `sessionStorage`, con sus tarjetas y lo que la persona hizo con cada una. El ánimo de fondo con `GET /asistente/estado` cada 5 minutos. El reloj de dormir, los avisos (máximo uno por hora, con `localStorage`) y el evento `belia:celebra`. `responder` manda el «Sí, aplicar», el «No» o el «Deshacer» | — |
 | La tarjeta | `components/belia/PropuestaDeBelia.tsx` | Debajo de la respuesta: el antes y el después por día (las líneas largas plegadas), el total y la diferencia, las cuotas de una aceptada, los avisos en ámbar, «Sí, aplicar» en azul y «No». Ya aplicada, «Deshacer» (solo lo no vendido) | — |
-| La cara | `components/belia/BeliaAvatar.tsx`, piezas en `public/belia/` | El dibujo de Bela (demo de GPT del 03-11) en seis piezas recortadas (cuerpo, orejas, ojos, boca) más párpados, cejas, boca cerrada, notebook y señales dibujados encima, con las poses de la demo. Sin animación corriendo: transiciones cortas entre poses, pestañeo cada 5 a 10 s y respirar dormida. Fondo azul, rojo si está enojada. En el laboratorio, `?belia=<ánimo>` la muestra en ese ánimo | — |
+| La cara | `components/belia/BeliaAvatar.tsx`, piezas en `public/belia/` | El dibujo de Bela (demo de GPT del 03-11) en seis piezas recortadas (cuerpo, orejas, ojos, boca) más párpados, cejas, boca cerrada, notebook y señales dibujados encima, con las poses de la demo. Sin animación corriendo: transiciones cortas entre poses, pestañeo cada 5 a 10 s y respirar dormida. Fondo azul, rojo si está enojada. En el laboratorio, `?belia=<ánimo>` la muestra en ese ánimo. Su carita chica de la bitácora es `public/belia/icono.png` (las mismas piezas, sin fondo, 128 px) | — |
 | Lo que contesta | `components/belia/RespuestaDeBelia.tsx` y `belia.ts` | Un markdown chico armado con elementos de React (párrafos, listas, tablas, negritas y enlaces). Solo se enlazan rutas que empiezan con «/». Una tabla pegada a un párrafo, sin línea en blanco, se separa antes de leer los bloques (`separarTablas`, 04-11: así llegó la primera respuesta en producción) | — |
 
 ## 3. Endpoints del motor
@@ -71,7 +71,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | `clients` | Lo consultan `buscar_clientes` y «Crear evento». Un cliente nuevo se crea, con el «Sí, crear», por `ClientsService.crearDesdePantalla`: el portero de clientes parecidos de las pantallas | L / E por `ClientsService` | — |
 | `event_types`, `client_types` | Los tipos de evento activos y los tipos de cliente de la empresa, para validar «Crear evento» | Solo L | — |
 | `portal_receipts` | Los comprobantes que mandaron los clientes por el portal y nadie revisó (`avisos_de_hoy` y el ánimo) | Solo L | — |
-| `quotation_followups` | La bitácora: se lee en la ficha y, al aplicar, se escribe con `crearComoAsistente` (a nombre del Asistente, con el robot) | L / E por `QuotationFollowupsService` | — |
+| `quotation_followups` | La bitácora: se lee en la ficha y, al aplicar, se escribe con `crearComoBelia` (a nombre de «BelIA», sin autor de sesión; en el Seguimiento, con su carita y el gris de la IA, `aparienciaDeAutor`) | L / E por `QuotationFollowupsService` | — |
 | `clients` y el catálogo | Lo que consultan las herramientas, con el `company_id` de la sesión | Solo L | — |
 | `payments`, `payment_transactions`, `refunds` | Las cuotas, los abonos y los reembolsos (para la cobranza y para mostrar cómo quedan las cuotas de una aceptada). **No tienen `company_id`**: se leen solo después de comprobar que la cotización es de la empresa, o con `quotations!inner` filtrado por ella (la cobranza) | Solo L | — |
 | `supplies`, `suppliers`, `service_recipe_items`, `event_supply_provisions`, `furniture_items`, `variable_services`, `fixed_services` | Los insumos con su receta, lo comprado por evento, los proveedores y el mobiliario, con `company_id`. Lo que hay que comprar los lee con las lecturas de `LogisticsService` que usa la pantalla de Compras | Solo L | — |
@@ -96,7 +96,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 5. La plata la hace `computeMoney` (`parcheDe`), sin tocar el descuento ni la propina. En una aceptada, las cuotas se muestran con las mismas funciones de «el plan mantiene su forma» que corre el guardado (`cuotasDespues`).
 6. Se guarda la propuesta con el antes, el parche y la huella (`huellaDe`). Una nueva de la misma persona sobre la misma cotización reemplaza a la pendiente.
 7. La tarjeta viaja con la respuesta. Con «Sí, aplicar», `aplicar` toma la propuesta (pasa de `pendiente` a `aplicando` solo si seguía pendiente: el candado de dos clics), revisa que sea de quien la pide y que no haya vencido, compara la huella con la de ahora y vuelve a revisar el cargo y los días servidos. Recién ahí llama a `QuotationsService.update` con el parche guardado, que vuelve a verificar la plata y corre la cascada del plan.
-8. Anota en la bitácora «BelIA, a pedido de …: … Total $A → $B.» y guarda la huella de cómo quedó. En la app, BelIA celebra, las pantallas se ponen al día y, si la persona tenía abierta esa cotización, la página se recarga (la tarjeta lo avisa antes).
+8. Anota en la bitácora, a nombre de «BelIA», «A pedido de …: … Total $A → $B.» y guarda la huella de cómo quedó. En la app, BelIA celebra, las pantallas se ponen al día y, si la persona tenía abierta esa cotización, la página se recarga (la tarjeta lo avisa antes).
 9. «Deshacer» (solo lo no vendido) vuelve a la foto del antes si nadie tocó la cotización después (la huella de cómo quedó).
 
 **Crear evento.**
@@ -104,7 +104,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 2. `proponerCotizacionNueva` valida el tipo de evento contra los de la empresa, la fecha (no pasada; varios días con su derecho), las personas y el cliente. Un cliente nuevo pasa por `ClientsService.coincidencias`: si se parece a otro, no se propone y la IA pregunta si es ese o es otro (`es_otro_cliente`).
 3. Los servicios se arman con `editarFoto` sobre una foto vacía (las reglas de «Crear con IA»); sin servicios, nace como requerimiento. La plata la hace `computeMoney` y la fecha se revisa contra los aceptados (`checkConflictsWithExistingQuotations`, aviso en ámbar).
 4. Lo que pidió el cliente va al comentario interno; las observaciones (salen en el PDF) quedan en blanco.
-5. Con «Sí, crear», `crearLaNueva` crea el cliente nuevo por `crearDesdePantalla` (si entre medio apareció uno parecido, responde 409 y no crea nada) y la cotización por `QuotationsService.create` (el N° atómico, el tope del plan y la cuenta del dinero). La propuesta guarda el id de la cotización y la bitácora la línea del Asistente. No se deshace: borrar es del rojo.
+5. Con «Sí, crear», `crearLaNueva` crea el cliente nuevo por `crearDesdePantalla` (si entre medio apareció uno parecido, responde 409 y no crea nada) y la cotización por `QuotationsService.create` (el N° atómico, el tope del plan y la cuenta del dinero). La propuesta guarda el id de la cotización y la bitácora la línea de BelIA («A pedido de …: creó la cotización. …»). No se deshace: borrar es del rojo.
 
 **La respuesta en vivo.** `useBelia.enviar` llama a `POST /asistente/mensajes/en-vivo` por la instancia `api` de siempre, con `onDownloadProgress`: el navegador entrega lo recibido y `leerEventos` (`utils/eventosEnVivo.ts`) lo lee. El texto va a un turno provisional (`escribiendo`), que no se guarda ni viaja; si BelIA va a buscar algo (`herramientas`), lo escrito hasta ahí se borra, porque la respuesta es lo de la última vuelta. Con `fin` queda el turno de verdad, con sus tarjetas.
 
@@ -155,11 +155,12 @@ De la fase 2 (03-11):
 - `computeMoney` de `quotations/utils/money.ts`;
 - `repartirRebaja` y `repartirAlza` de `payments/cuotas-que-se-llenan.ts` (doc 14), para mostrar las cuotas;
 - `LogisticsService` (lecturas de Compras y `findDayPrints`) y `logistics/utils/consolidacion.ts`;
-- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoAsistente`, la bitácora;
+- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoBelia`, la bitácora (la misma puerta que `crearComoAsistente`, firmada «BelIA»);
 - de `oportunidades/analisis/comun.ts`: `costoDelUso`, `usoDeLaRespuesta`, `hoyEnChile` y `errorDeIA`.
 
 **Lo que usa de la app:**
 - `useAuth`, `SECTION_ROLES`, `tieneDerecho`, `apiRequest` y `humanizeApiError`;
+- `PERSONAJE_BELIA` y `aparienciaDeAutor` de `utils/personajes.ts`, su carita en el Seguimiento;
 - `celebrarConBelia` y el `QueryClient` de React Query;
 - las animaciones `belia-*` de `tailwind.config.js`.
 
@@ -197,6 +198,8 @@ De la fase 2 (03-11):
 | `api-rest/src/auth/tests/matriz-de-cargos.spec.ts` y `matriz-de-derechos.spec.ts` | Las cinco rutas con su cargo y su derecho |
 | `frontend/src/components/belia/belia.test.ts` | La pantalla abierta, el orden de los ánimos, el aviso cuando sube lo de hoy (también los topes y los comprobantes), que solo se enlacen rutas de Eventia y lo que BelIA lee de sus propuestas |
 | `frontend/src/utils/eventosEnVivo.test.ts` | Los eventos de la respuesta en vivo, también cuando uno llega partido |
+| `api-rest/src/quotation-followups/tests/quotation-followups.service.spec.ts` | `crearComoBelia`: firma «BelIA», sin autor de sesión, con el candado de empresa |
+| `frontend/src/utils/personajes.test.ts` | La carita de BelIA: su imagen existe, nadie la elige y una persona que la guardara no la muestra |
 
 ## 13. Archivos clave
 
