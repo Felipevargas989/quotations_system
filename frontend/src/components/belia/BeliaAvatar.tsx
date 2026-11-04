@@ -347,13 +347,13 @@ export default function BeliaAvatar({ animo, tamano = 56 }: Props) {
           fontWeight="900"
           textAnchor="middle"
         >
-          <text x="402" y="92" fontSize="58">
+          <text x="386" y="124" fontSize="62">
             ?
           </text>
         </g>
         <g
           style={ver(p.senal === "fiesta" || p.senal === "enojo")}
-          transform="translate(80 34)"
+          transform="translate(96 48)"
           fill="none"
           stroke="#ffffff"
           strokeWidth="9"
