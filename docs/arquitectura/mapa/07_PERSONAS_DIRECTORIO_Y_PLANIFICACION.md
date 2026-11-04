@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. La silla vacía que toma el valor de su cargo (`utils/valor-del-cargo.ts`), al día el 04-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -136,6 +136,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 
 1. **Gestión (mapa 04)**: `GrillaPersonal` llama `addStaff` sin `person_id`.
    - `PeopleService.addStaff` exige `quotation_id` y `role_id`, y crea una silla vacía: `freelance`, `por_confirmar`, `amount` = valor estimado.
+   - Si llega sin valor, nace con el de su cargo en el evento (`valorDeLaSillaNueva` → `valorDelCargo`: el de una silla vacía con monto, si no el de una persona freelance del cargo; el mismo orden que el «Valor c/u» de la grilla). Y toda fila freelance de un evento que recibe monto (`addStaff` y `updateStaff` con `amount`) se lo da a las sillas vacías SIN monto de su cargo (`valorizarVacias` → `valorizarVaciasSinMonto`). Felipe, 04-11-2026, con la 522.
    - Sin evento responde "El staff no lleva sillas vacías…"; sin cargo, "Una silla vacía necesita su cargo".
 2. **Sábana**: `SemanaTab` arma una fila por evento y cargo con las filas de `event_staff` del rango.
    - Deja fuera la planta traída por la ficha y las filas dormidas o solo-propina (`esPlanificacion`).
@@ -237,6 +238,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 
 - **El plan y la realidad viven en una sola tabla** (Felipe, 17-08: *"una tabla que primero se rellena parcialmente solo con cargos, días, valor, y luego en planificación se le pone apellido a esos cargos"*). Una silla vacía necesita evento y cargo. Al sentar a alguien se usa primero la silla de ese día y después una por ubicar; si no queda ninguna, nace otra. Sacar a alguien desde Planificación **libera** la silla. Evidencia: `addStaff`, `findSillaVacia`, `removeStaff(liberar)`; `84_las_sillas.sql`; doc §2 "Las sillas".
 - **El costo es uno solo, por construcción**: las sillas con nombre cuentan al monto acordado y las vacías al estimado, nunca con propina. Evidencia: `costoPersonalPorEvento`; comentario de `EventResourcesSection`.
+- **La silla vacía vale lo que vale su cargo** (Felipe, 04-11-2026: *"como estamos solamente planificando… debe sumar el total y multiplicarlo por el valor de cada uno"*). Una silla vacía sin monto toma el valor de su cargo en el evento, al nacer y cuando el cargo recibe valor por cualquier puerta; un estimado escrito y lo acordado con una persona no se pisan, y la planta no da valor. Antes, en la 522, la grilla mostraba «Valor c/u $28.000» y el subtotal, el margen y el Dashboard sumaban esas sillas en $0. Evidencia: `utils/valor-del-cargo.ts`; `tests/valor-del-cargo.spec.ts`.
 - **Una silla vacía jamás llega a liquidación ni a nómina**, y al cerrar la ficha las vacías se retiran (mapa 08). Evidencia: `cerrarFicha` → `deleteSillasVacias`; comentario de `person_id` en la 84.
 - **En un evento, lo planificado es siempre freelance.** Por eso `kind='planta'` en un evento significa "traída por la ficha, solo para liquidación", y la sábana, Gestión y el calendario la esconden. Medido en producción el 18-08: 4 filas, las 4 del #423. Evidencia: `esPlanificacion` en `frontend/src/pages/personas/estadoDelPago.ts`; doc §2 "La planta que la ficha trae a un evento".
 - **Traer la planta a un evento se puede repetir sin duplicar.** Trae a los citados al restaurante esos días que no estén dormidos (desde el 22-09-2026 también a quien vino como staff, que entra como fila solo-de-propina con "sin propina" marcado; antes solo `kind = 'planta'`), y no repite a quien ya está; nace `confirmado` y sin monto. El 04-09 el imán trajo a Soledad un día que descansaba y le repartió propina. Evidencia: `traerPlantaAlEvento`; `plantaEnDias` (`.or('ajuste.is.null,ajuste.neq.descansa')`; se llama `citadosEnDias` desde el 22-09).

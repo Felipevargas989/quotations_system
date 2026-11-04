@@ -467,6 +467,50 @@ export class PeopleRepository {
     );
   }
 
+  /** El valor de un cargo en un evento (utils/valor-del-cargo): el de una
+   *  silla vacía con monto, si no el de una persona freelance del cargo.
+   *  Mismo orden que el «Valor c/u» de la grilla de Gestión. */
+  async valorDelCargo(
+    companyId: number,
+    quotationId: string,
+    roleId: number,
+  ): Promise<number | null> {
+    const { data, error } = await this.supabase.client
+      .from('event_staff')
+      .select('person_id, amount')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .eq('role_id', roleId)
+      .eq('kind', 'freelance')
+      .gt('amount', 0);
+    if (error) throw error;
+    const filas = (data ?? []) as {
+      person_id: number | null;
+      amount: number;
+    }[];
+    const fila = filas.find((f) => f.person_id == null) ?? filas[0];
+    return fila ? Number(fila.amount) : null;
+  }
+
+  /** Las sillas vacías SIN monto de un cargo en un evento toman su valor
+   *  (utils/valor-del-cargo). Un estimado ya escrito no se pisa. */
+  async valorizarVaciasSinMonto(
+    companyId: number,
+    quotationId: string,
+    roleId: number,
+    amount: number,
+  ) {
+    const { error } = await this.supabase.client
+      .from('event_staff')
+      .update({ amount })
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .eq('role_id', roleId)
+      .is('person_id', null)
+      .is('amount', null);
+    if (error) throw error;
+  }
+
   /** Al cerrar la ficha, las sillas que quedaron vacías se van: no se
    *  contrató a nadie y el costo converge a lo real (migración 84). */
   async deleteSillasVacias(companyId: number, quotationId: string) {

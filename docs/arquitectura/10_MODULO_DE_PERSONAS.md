@@ -145,6 +145,19 @@ vacía**: cargo, día y valor estimado, sin nombre (`person_id NULL`).
   queda); borrar de verdad es bajar el plan o "no se presentó".
 - **El costo es UNO por construcción**: sillas con nombre al monto
   acordado, vacías al estimado. Sin propina, jamás.
+- **La silla vacía vale lo que vale su cargo** (Felipe, 04-11-2026, con la
+  522: *"como estamos solamente planificando y aún no tiene nombre, debe
+  sumar el total y multiplicarlo por el valor de cada uno"*). Una silla
+  puesta antes de que el cargo tuviera valor nacía sin monto y se quedaba
+  así cuando el valor llegaba por otra puerta (el monto de la persona en
+  Planificación): la grilla mostraba «Valor c/u $28.000» y el subtotal, el
+  margen y el Dashboard la sumaban en $0 ($287.000 donde iban $571.000).
+  Ahora una silla vacía **sin monto** toma el valor de su cargo en el
+  evento: al nacer, y cada vez que una fila freelance del cargo recibe
+  monto. Un estimado ya escrito no se pisa, lo acordado con una persona
+  tampoco, y la asignación extra de la planta no cuenta como precio del
+  cargo. Después manda lo real: nombres, montos ajustados y la
+  liquidación, que retira las vacías.
 - **El gris** (acotado el 18-08): con todas las sillas sentadas y
   confirmadas, el **valor c/u** pasa a ser el promedio real, en gris y
   de solo lectura — para no cruzar precios. Pero NO apaga la sección:
