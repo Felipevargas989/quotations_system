@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_CARACTERES_GUARDADOS,
+  MAX_TURNOS_GUARDADOS,
   UMBRAL_DE_ENOJO,
   animoDe,
   animoForzado,
   bloquesDe,
   hayAlgoNuevo,
   pantallaDe,
+  paraGuardar,
   textoParaBelia,
   trozosDe,
 } from "./belia";
@@ -169,5 +172,56 @@ describe("textoParaBelia", () => {
   });
   it("sin propuestas, viaja el texto tal cual", () => {
     expect(textoParaBelia({ texto: "Hola" })).toBe("Hola");
+  });
+});
+
+describe("la conversación que se guarda en Eventia (doc 20 §13)", () => {
+  it("no guarda lo que BelIA está escribiendo en vivo", () => {
+    expect(
+      paraGuardar([
+        { rol: "persona", texto: "Hola" },
+        { rol: "belia", texto: "Escribien", escribiendo: true },
+      ]),
+    ).toEqual([{ rol: "persona", texto: "Hola" }]);
+  });
+  it("guarda los avisos de error y las tarjetas", () => {
+    const g = paraGuardar([
+      { rol: "belia", texto: "No pude", error: true },
+      {
+        rol: "belia",
+        texto: "Te propongo",
+        propuestas: [{ estado: "aplicada" }],
+      },
+    ]);
+    expect(g[0]).toEqual({ rol: "belia", texto: "No pude", error: true });
+    expect(g[1].propuestas).toEqual([{ estado: "aplicada" }]);
+  });
+  it("una tarjeta que se estaba aplicando queda pendiente", () => {
+    const g = paraGuardar([
+      { rol: "belia", texto: "x", propuestas: [{ estado: "enviando" }] },
+    ]);
+    expect(g[0].propuestas).toEqual([{ estado: "pendiente" }]);
+  });
+  it("guarda los 30 más nuevos", () => {
+    const muchos = Array.from({ length: 40 }, (_, i) => ({
+      rol: "persona" as const,
+      texto: `pregunta ${i}`,
+    }));
+    const g = paraGuardar(muchos);
+    expect(g).toHaveLength(MAX_TURNOS_GUARDADOS);
+    expect(g[0].texto).toBe("pregunta 10");
+  });
+  it("si pesan demasiado, salen los más viejos, pero el último queda", () => {
+    const largo = "a".repeat(30_000);
+    const g = paraGuardar([
+      { rol: "persona", texto: largo },
+      { rol: "belia", texto: largo },
+      { rol: "persona", texto: largo },
+    ]);
+    expect(JSON.stringify(g).length).toBeLessThanOrEqual(
+      MAX_CARACTERES_GUARDADOS,
+    );
+    expect(g).toHaveLength(2);
+    expect(g[g.length - 1].rol).toBe("persona");
   });
 });

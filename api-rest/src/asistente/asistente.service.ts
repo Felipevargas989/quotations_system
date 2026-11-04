@@ -37,6 +37,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './herramientas/comun';
+import { esRecepcion, sinMontos } from './herramientas/recepcion';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
 import type { TarjetaDePropuesta } from './propuestas/comun';
@@ -477,6 +478,24 @@ export class AsistenteService {
     const empresa = usuario.company_id;
     if (!empresa) throw new BadRequestException('La sesión no trae empresa.');
     const hoy = hoyEnChile();
+    // Recepción (doc 20 §13): solo la avisan los requerimientos que llegan.
+    // Los seguimientos vencidos son de quien vende: no la enojan.
+    if (esRecepcion(usuario.role)) {
+      const deHoy = await this.repositorio.buscarCotizaciones(empresa, {
+        tipo: RequestType.REQUERIMIENTO,
+        creadaDesde: inicioDelDiaEnChile(hoy),
+        orden: 'creada',
+        limite: 1,
+      });
+      return {
+        vencidos: 0,
+        sin_gestion: 0,
+        vencen_hoy: 0,
+        requerimientos_de_hoy: deHoy.total,
+        topes_de_calendario: 0,
+        comprobantes_por_revisar: 0,
+      };
+    }
     const veComprobantes =
       OPERATIONS_AND_UP.includes(usuario.role) &&
       tieneDerecho(usuario.derechos, 'post_venta');
@@ -579,8 +598,16 @@ export class AsistenteService {
         ? (pedida.input as Record<string, unknown>)
         : {};
     try {
-      const resultado = await h.ejecutar(entrada, ctx);
-      return { ...base, content: JSON.stringify(resultado) };
+      const resultado =
+        JSON.stringify(await h.ejecutar(entrada, ctx)) ?? 'null';
+      // La red de recepción (doc 20 §13): las herramientas ya le sacan la
+      // plata, y esto tapa la que venga escrita a mano en una nota.
+      return {
+        ...base,
+        content: esRecepcion(ctx.usuario.role)
+          ? sinMontos(resultado)
+          : resultado,
+      };
     } catch (e) {
       if (e instanceof ErrorDeHerramienta) {
         return { ...base, is_error: true, content: e.message };

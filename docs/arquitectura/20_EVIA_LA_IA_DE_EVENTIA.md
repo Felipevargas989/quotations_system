@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, en el laboratorio desde el 04-11. Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, en el laboratorio desde el 04-11. La conversación guardada por persona y BelIA para recepción, en el laboratorio desde el 04-11 (§13; la migración 182, solo en el lab). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -228,6 +228,14 @@
 > - En el laboratorio, las notas de BelIA ya escritas pasaron a la firma
 >   nueva, con respaldo. En producción queda una sola (la de Marval, N°
 >   743): pasa con el «a producción», con su respaldo.
+>
+> **04-11-2026, mediodía · La conversación de cada persona y BelIA para
+> recepción, en el laboratorio** (Felipe: *"Sí, me parece bien"* a la
+> propuesta, y de la bitácora para recepción *"muéstrale lo que dice la
+> bitácora ... más que mostrarles, como darle contexto"*; del tope, *"No
+> importa ... esto se paga solo, así que vamos"*). El detalle va en el §13.
+> Resuelve la pregunta 3 del §11: las conversaciones se guardan, pero
+> cada una es solo de su persona.
 
 ## 1. Por qué
 
@@ -257,7 +265,7 @@ cosas de pagos, tal vez. O eventos que ya estén como sobre la marcha"*.
 
 | Qué | Decisión | Felipe |
 |---|---|---|
-| Quiénes | Vendedor y arriba: vendedores, operaciones y administración. Operaciones entra porque está entre los dos | *"lo usa administración y vendedores"* |
+| Quiénes | Vendedor y arriba: vendedores, operaciones y administración. Operaciones entra porque está entre los dos. **Desde el 04-11 también recepción**, sin montos (§13) | *"lo usa administración y vendedores"*; *"para que también pueda la recepcionista trabajar con Belia"* |
 | Nombre | **BelIA**, por Bela (03-11, más tarde): reemplaza a «Evia», que reemplazó a «Camilia». Es una mascota, no el robot, y Felipe manda su imagen (§8b). El derecho sigue siendo `asistente` | *"no me gusta el robot, se llamará Belia, por Bela"* |
 | Modelo | Opus 5.5 (`claude-opus-5-5`). Se cambia en Railway con `MODELO_ASISTENTE`, sin tocar código | *"ojalá Opus"* |
 | Tope | US$ 100 al mes, solo para Evia (§7) | *"mmm 100 USD mensuales?"* |
@@ -272,6 +280,9 @@ cosas de pagos, tal vez. O eventos que ya estén como sobre la marcha"*.
   ese dato (`SECTION_ROLES` en `frontend/src/constants/permissions.ts`).
   No se abre a lo que el motor deja leer por dentro, que es más suelto:
   recepción lee cotizaciones aunque no las vea (mapa 23).
+- **La excepción de recepción (04-11, §13):** Felipe le abrió el estado
+  de las cotizaciones y la bitácora como contexto, aunque su pantalla no
+  los muestre. Nunca la plata ni la ficha del negocio.
 - La empresa sale siempre de la sesión, nunca de lo que diga la IA (mapa
   22).
 
@@ -526,7 +537,9 @@ hay que comprar (ver el estado arriba).
    seguimiento siguen como «Asistente».)
 3. **Las conversaciones.** ¿Se guardan para revisar quién preguntó qué?
    La propuesta es que sí, por 90 días, y que solo las vea
-   administración.
+   administración. **04-11, decidido:** se guardan para que BelIA siga la
+   conversación, una por persona, y solo las ve esa persona; se borran a
+   los 90 días sin uso (§13).
 
 ## 12. Cómo se protege
 
@@ -539,3 +552,74 @@ hay que comprar (ver el estado arriba).
   - días servidos;
   - compras hechas;
   - cotización cambiada entre medio.
+
+## 13. La conversación de cada persona y BelIA para recepción (04-11-2026)
+
+Felipe, 04-11: *"¿No será también bueno que vaya guardando como cierto
+contexto cuando se cierra la ventana? Por cada usuario ... cada usuario
+debería estar como medio limitado a sus roles"*, y *"pasarle Belia a la
+recepcionista para que pueda hacer preguntas sobre disponibilidad,
+seguimientos que sigue ocultando el tema de los montos totales"*. Aprobó
+la propuesta con *"Sí, me parece bien"* y, de la bitácora: *"muéstrale lo
+que dice la bitácora ... más que mostrarles, como darle contexto"*.
+
+### La conversación de cada persona (migración 182)
+
+- **Se guarda en Eventia**, en `asistente_conversaciones`: una por persona
+  y empresa. Sigue al cerrar la ventana, al otro día y desde otro equipo.
+  Antes vivía en la pestaña (`sessionStorage`) y se perdía al cerrarla.
+- **Es solo de esa persona.** El motor la busca con la sesión
+  (`GET`, `PUT` y `DELETE /asistente/conversacion`); no hay cómo pedir la
+  de otro, ni siquiera siendo administrador.
+- **Limitada a su cargo.** La guardada lleva el cargo con que se conversó
+  y la ventanilla manda el que cree tener. Si cualquiera de los dos no
+  calza con el de la sesión (le cambiaron el cargo), se borra y BelIA
+  parte de cero: no arrastra lo que vio con el cargo anterior. Y siempre
+  responde con el cargo de ahora, como antes.
+- **Lo que guarda:** los 30 turnos más nuevos, como los muestra la
+  ventanilla, con sus tarjetas, hasta 80.000 caracteres (el motor recibe
+  hasta 100 KB). A la IA siguen viajando los últimos 20. Una tarjeta que
+  se estaba aplicando se guarda pendiente.
+- **Las tarjetas guardadas son solo para pintarlas:** el «Sí, aplicar» se
+  revisa contra la propuesta de la 181, que vence a las 2 horas.
+- **Se borra sola a los 90 días sin uso:** el motor limpia las viejas de
+  la empresa cada vez que guarda una. La «×» de la ventanilla («Nueva
+  conversación») también la borra en Eventia.
+- Hasta que llega la guardada, la ventanilla no guarda nada: una pestaña
+  nueva y vacía no pisa la conversación que quedó.
+
+### BelIA para recepción
+
+- **Entra a la ventanilla.** Las rutas de BelIA pasan a
+  `RECEPTION_AND_UP`; lo que ve cada cargo lo siguen decidiendo sus
+  herramientas.
+- **Sus herramientas:** `calendario`, `buscar_cotizaciones`,
+  `ver_cotizacion`, `buscar_clientes`, `avisos_de_hoy` y
+  `proponer_cotizacion_nueva`, esta última solo como requerimiento (sin
+  servicios). Las demás no se le ofrecen.
+- **Nunca le llega un monto.** Las herramientas le sacan el total, el
+  valor por persona, la plata, los servicios (cada uno trae su precio),
+  las observaciones, el comentario interno y el enlace a la ficha del
+  negocio. Y todo lo que le llega pasa además por `sinMontos`
+  (`herramientas/recepcion.ts`), que tapa la plata escrita a mano en una
+  nota. La barrera vive en el código, no en las instrucciones (§3, regla
+  2).
+- **La bitácora le llega como contexto.** Cuando pregunta en qué va un
+  pedido, BelIA le cuenta en una o dos líneas lo último que se hizo, por
+  qué canal y lo que quedó pendiente, sin pegar las notas (las
+  instrucciones del momento para recepción).
+- **No ordena por plata:** «las más grandes primero» también dice cuánto
+  valen.
+- **Sus enlaces llevan a Requerimientos**, su pantalla, nunca a la ficha.
+- **Su ánimo:** solo la avisan los requerimientos que llegan hoy. Los
+  seguimientos vencidos son de quien vende y no la enojan.
+- **Sus atajos:** «Fechas libres», «Requerimientos», «Crear
+  requerimiento» y «Ayuda».
+- **Lo que crea:** solo requerimientos. Si la IA propone servicios, la
+  herramienta lo rechaza, y el motor rechaza que recepción aplique otra
+  propuesta.
+
+### El tope
+
+Sigue en US$ 100 al mes por empresa, para todos los cargos juntos (§7).
+Felipe: *"No importa el tema del tope ... esto se paga solo"*.

@@ -34,6 +34,13 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   empresa (`GET /users/apariencias`) y cambiar los propios
   (`PATCH /users/apariencia`). Las dos con `RECEPTION_AND_UP`, no "solo
   sesión": así la prueba de la matriz las tiene anotadas por nombre.
+- BelIA, la ventanilla de chat con IA (doc 20 §13, 04-11-2026: *"para que
+  también pueda la recepcionista trabajar con Belia"*): las nueve rutas de
+  `/asistente` pasan a `RECEPTION_AND_UP`, con el derecho `asistente`. Lo
+  que ve cada cargo lo deciden sus herramientas: a recepción le llegan sin
+  plata ni enlace a la ficha, y solo crea requerimientos. Incluye la
+  conversación de quien escribe (`GET`, `PUT` y `DELETE
+  /asistente/conversacion`, migración 182), siempre la de la sesión.
 
 ## Vendedor y arriba
 
@@ -45,7 +52,8 @@ Lo que ya vende.
 - Catálogo, leer: servicios, secciones fijas, menús guardados y paquetes.
 - Evia, la ventanilla de chat con IA (doc 20, 03-11-2026): `POST
   /asistente/mensajes`, con el derecho `asistente`. Felipe: *"lo usa
-  administración y vendedores"*. Cada herramienta de Evia pide además el
+  administración y vendedores"*. (Desde el 04-11, las rutas de BelIA son
+  de recepción y arriba: ver arriba.) Cada herramienta de Evia pide además el
   cargo de la pantalla que muestra ese dato (doc 20 §3). Desde la fase 2
   (03-11), también `POST /asistente/propuestas/:id/aplicar`, `descartar` y
   `deshacer`, el «Sí, aplicar» de sus tarjetas, y desde el 04-11 `POST

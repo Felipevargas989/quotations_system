@@ -158,6 +158,38 @@ export const preguntarABeliaEnVivo = async (
 export const estadoDeBelia = async () =>
   (await apiRequest(API_ROUTES.ASISTENTE_ESTADO, "GET")) as EstadoDeBelia;
 
+/** Un turno como lo guarda el motor (doc 20 §13): el de la pantalla, sin
+ *  lo que BelIA está escribiendo en vivo. Las tarjetas van tal cual. */
+export type TurnoGuardado = TurnoDeBelia & {
+  error?: boolean;
+  propuestas?: Record<string, unknown>[];
+};
+
+/** La conversación de quien escribe, la de la sesión: sigue al cerrar la
+ *  ventana y desde otro equipo. */
+export const leerConversacion = async () =>
+  (
+    (await apiRequest(API_ROUTES.ASISTENTE_CONVERSACION, "GET")) as {
+      turnos: TurnoGuardado[];
+    }
+  ).turnos ?? [];
+
+/** `reiniciada`: a la persona le cambiaron el cargo y la conversación
+ *  parte de cero (no arrastra lo que vio con el anterior). */
+export const guardarConversacion = async (
+  cargo: string,
+  turnos: TurnoGuardado[],
+) =>
+  (await apiRequest(API_ROUTES.ASISTENTE_CONVERSACION, "PUT", {
+    cargo,
+    turnos,
+  })) as { reiniciada: boolean };
+
+/** «Nueva conversación». */
+export const borrarConversacion = async () => {
+  await apiRequest(API_ROUTES.ASISTENTE_CONVERSACION, "DELETE");
+};
+
 /** «Sí, aplicar», «No» o «Deshacer». El motor vuelve a revisar todo. */
 export const responderPropuesta = async (
   id: string,
