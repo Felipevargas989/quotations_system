@@ -16,6 +16,10 @@
       {
         "include": "quotations/**/*.md",
         "watchAssets": true
+      },
+      {
+        "include": "cerebro/**/*.md",
+        "watchAssets": true
       }
     ]
   }
