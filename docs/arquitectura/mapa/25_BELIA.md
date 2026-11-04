@@ -1,6 +1,6 @@
 # Mapa: BelIA, la asistente con IA (la ventanilla de chat)
 
-> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 (solo consultas): el motor en el laboratorio desde el 03-11 y la ventanilla con la cara provisoria hasta que llegue el dibujo de Bela. **Nada en producción.** Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 (solo consultas): el motor en el laboratorio desde el 03-11 y la ventanilla con la cara provisoria hasta que llegue el dibujo de Bela. **Nada en producción.** Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -20,7 +20,8 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 |---|---|---|---|
 | Botón y ventanilla | `frontend/src/components/belia/BeliaVentanilla.tsx`, montada en `layout/Layout.tsx` | El botón redondo con la burbuja de aviso o de enojo. Al pincharlo, el panel con el saludo, cuatro atajos, la conversación y el campo de texto. En el celular ocupa toda la pantalla. «—» minimiza y «×» termina la conversación | `SECTION_ROLES.quotations` (vendedor y arriba) con el derecho `asistente` |
 | El cerebro | `components/belia/useBelia.ts` | La conversación en `sessionStorage`. El ánimo de fondo con `GET /asistente/estado` cada 5 minutos. El reloj de dormir, los avisos (máximo uno por hora, con `localStorage`) y el evento `belia:celebra` | — |
-| La cara | `components/belia/BeliaAvatar.tsx` | **Provisoria**: un círculo con una huella que cambia de color y se mueve según el ánimo. La reemplaza el SVG de Bela | — |
+| La cara | `components/belia/BeliaAvatar.tsx`, piezas en `public/belia/` | El dibujo de Bela (demo de GPT del 03-11) en seis piezas recortadas (cuerpo, orejas, ojos, boca) más párpados, cejas, boca cerrada, notebook y señales dibujados encima, con las poses de la demo. Sin animación corriendo: transiciones cortas entre poses, pestañeo cada 5 a 10 s y respirar dormida. Fondo azul, rojo si está enojada. En el laboratorio, `?belia=<ánimo>` la muestra en ese ánimo | — |
+| El ladrido | `components/belia/ladrido.ts` | Dos «guau» con el audio del navegador, sin archivo. Suena solo si se activa en la cabecera (el parlante); se guarda en `localStorage` | — |
 | Lo que contesta | `components/belia/RespuestaDeBelia.tsx` y `belia.ts` | Un markdown chico armado con elementos de React (párrafos, listas, tablas, negritas y enlaces). Solo se enlazan rutas que empiezan con «/» | — |
 
 ## 3. Endpoints del motor
@@ -60,7 +61,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 **El ánimo de fondo.** `estado` cuenta con la misma regla del filtro «Requieren seguimiento» del tablero. La función `pendientesDe` la comparten la herramienta `seguimientos_pendientes` y `estado`.
 
 **Los cinco ánimos.** `animoDe` decide, en este orden:
-1. pensando;
+1. pensando, que pasa a trabajando a los 2,5 s;
 2. celebra;
 3. atención;
 4. dormida;

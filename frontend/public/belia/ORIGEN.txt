@@ -1,0 +1,7 @@
+BelIA, la asistente de Eventia (doc 20 §8b)
+
+Dibujo de Bela aprobado por Felipe el 03-11-2026, hecho con ChatGPT. Estas
+seis piezas son recortes de ese dibujo original, sin redibujar, al 2/3 de
+su tamaño: cuerpo (con los huecos de las piezas), oreja izquierda y
+derecha, ojo izquierdo y derecho, y boca. Se montan una sobre otra en
+components/belia/BeliaAvatar.tsx, todas en el mismo lienzo de 530 x 455.
