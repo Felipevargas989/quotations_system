@@ -242,6 +242,10 @@
 > el motor, y la nota de Marval (N° 743) pasó a la firma de BelIA, con su
 > respaldo en `02_RESPALDOS/cambios_de_datos`. Recepción quedó probada solo
 > con las pruebas del motor.
+> - Esa misma tarde Felipe perdió su conversación al cerrar con la «×», que
+>   la borraba. Ahora la «×» cierra y guarda, y «Nueva conversación» va
+>   abajo, con su pregunta (*"ok arréglalo"*): en el laboratorio;
+>   producción, con el «a producción».
 
 ## 1. Por qué
 
@@ -589,8 +593,10 @@ que dice la bitácora ... más que mostrarles, como darle contexto"*.
 - **Las tarjetas guardadas son solo para pintarlas:** el «Sí, aplicar» se
   revisa contra la propuesta de la 181, que vence a las 2 horas.
 - **Se borra sola a los 90 días sin uso:** el motor limpia las viejas de
-  la empresa cada vez que guarda una. La «×» de la ventanilla («Nueva
-  conversación») también la borra en Eventia.
+  la empresa cada vez que guarda una. «Nueva conversación», abajo en la
+  ventanilla y después de preguntar, también la borra en Eventia. La «×»
+  solo cierra: la conversación queda (Felipe, 04-11: *"acabo de
+  actualizar y no se guardó la conversación"*; la «×» la borraba).
 - Hasta que llega la guardada, la ventanilla no guarda nada: una pestaña
   nueva y vacía no pisa la conversación que quedó.
 
