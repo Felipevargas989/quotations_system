@@ -129,6 +129,12 @@ export class UsersService {
     if (error || !data) {
       throw new NotFoundException('Usuario no encontrado');
     }
+    // El guardián recuerda perfiles 1 hora por el id de Auth (user_id),
+    // no por el id del perfil que llega en la ruta. Sin esto, un cambio
+    // de cargo no regía hasta una hora después: Cotota (03-11-2026) pasó
+    // de vendedor a operaciones y el motor le siguió negando los
+    // respaldos.
+    olvidarPerfil(data.user_id);
     return { data, error: null };
   }
 
@@ -168,17 +174,20 @@ export class UsersService {
   }
 
   async remove(id: User['id'], companyId: Company['id']) {
-    // El guardián recuerda perfiles 1 hora: al eliminar, se olvida YA.
-    olvidarPerfil(id);
     this.logger.info(`remove user with id ${id} and companyId ${companyId}`);
 
     // 1. remove user from public.user_profiles table
-    const { error } = await this.usersRepository.remove(id, companyId);
+    const { data, error } = await this.usersRepository.remove(id, companyId);
 
     if (error) {
       this.logger.error(error);
       throw error;
     }
+
+    // El guardián recuerda perfiles 1 hora: al eliminar, se olvida YA. La
+    // memoria va por el id de Auth (user_id); antes se olvidaba el id del
+    // perfil y el eliminado seguía entrando hasta una hora (03-11-2026).
+    if (data) olvidarPerfil(data.user_id);
 
     // 2. remove user from auth.users table
     const { error: authError } = await this.usersRepository.removeAuthUser(
