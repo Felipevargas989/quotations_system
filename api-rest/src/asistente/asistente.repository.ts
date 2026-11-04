@@ -293,4 +293,357 @@ export class AsistenteRepository {
       .insert(fila);
     if (error) throw error;
   }
+
+  // ---------- Fase 1, sprint 3: pagos, logística y personal ----------
+  //
+  // `payments`, `payment_transactions` y `refunds` NO tienen company_id
+  // (mapa 18): se leen solo después de comprobar que la cotización es de
+  // la empresa, o con `quotations!inner` filtrado por ella.
+
+  async cotizacionPorNumero(
+    companyId: Company['id'],
+    numero: number,
+  ): Promise<FilaDeLista | null> {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+      .eq('company_id', companyId)
+      .eq('quotation_number', numero)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as FilaDeLista | null) ?? null;
+  }
+
+  /** Cuotas, abonos y reembolsos de UNA cotización ya comprobada. */
+  async plataDe(quotationId: string): Promise<{
+    cuotas: Cuota[];
+    abonos: Abono[];
+    reembolsos: Reembolso[];
+  }> {
+    const [cuotas, abonos, reembolsos] = await Promise.all([
+      this.supabase.client
+        .from('payments')
+        .select('id, payment_number, amount, due_date, status, payment_type')
+        .eq('quotation_id', quotationId)
+        .order('payment_number', { ascending: true }),
+      this.supabase.client
+        .from('payment_transactions')
+        .select('payment_id, amount, payment_method, transaction_date')
+        .eq('quotation_id', quotationId)
+        .order('transaction_date', { ascending: false }),
+      this.supabase.client
+        .from('refunds')
+        .select('amount, is_paid, refund_date')
+        .eq('quotation_id', quotationId),
+    ]);
+    for (const r of [cuotas, abonos, reembolsos]) if (r.error) throw r.error;
+    return {
+      cuotas: (cuotas.data ?? []) as Cuota[],
+      abonos: (abonos.data ?? []) as Abono[],
+      reembolsos: (reembolsos.data ?? []) as Reembolso[],
+    };
+  }
+
+  /** Las cuotas sin pagar de los eventos vivos de la empresa, que vencen
+   *  hasta `hasta` (las ya vencidas incluidas). */
+  async cuotasPorCobrar(
+    companyId: Company['id'],
+    hasta: string,
+  ): Promise<{ cuotas: CuotaPorCobrar[]; abonos: Abono[] }> {
+    const { data, error } = await this.supabase.client
+      .from('payments')
+      .select(
+        `id, payment_number, amount, due_date, status,
+         quotations!inner ( id, quotation_number, quotation_status, company_id, event_date, clients ( name ) )`,
+      )
+      .eq('quotations.company_id', companyId)
+      .in('quotations.quotation_status', ['aceptada', 'realizada'])
+      .neq('status', 'pagado')
+      .lte('due_date', hasta)
+      .order('due_date', { ascending: true })
+      .limit(300);
+    if (error) throw error;
+    const cuotas = (data ?? []) as unknown as CuotaPorCobrar[];
+    if (cuotas.length === 0) return { cuotas, abonos: [] };
+    const { data: abonos, error: e2 } = await this.supabase.client
+      .from('payment_transactions')
+      .select('payment_id, amount, payment_method, transaction_date')
+      .in(
+        'payment_id',
+        cuotas.map((c) => c.id),
+      );
+    if (e2) throw e2;
+    return { cuotas, abonos: (abonos ?? []) as Abono[] };
+  }
+
+  async insumos(companyId: Company['id'], texto: string): Promise<Insumo[]> {
+    const { data, error } = await this.supabase.client
+      .from('supplies')
+      .select('id, name, unit_family, price, suppliers ( name )')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .ilike('name', `%${literal(texto)}%`)
+      .order('name', { ascending: true })
+      .limit(10);
+    if (error) throw error;
+    return (data ?? []) as unknown as Insumo[];
+  }
+
+  /** En qué productos va cada insumo (la receta) y lo comprado para cada
+   *  evento. */
+  async usosDeInsumos(
+    companyId: Company['id'],
+    insumos: number[],
+  ): Promise<{ recetas: Receta[]; compras: CompraDeInsumo[] }> {
+    if (insumos.length === 0) return { recetas: [], compras: [] };
+    const [recetas, compras] = await Promise.all([
+      this.supabase.client
+        .from('service_recipe_items')
+        .select('supply_id, service_type, service_id, qty_per_person, unit')
+        .eq('company_id', companyId)
+        .in('supply_id', insumos),
+      this.supabase.client
+        .from('event_supply_provisions')
+        .select(
+          `supply_id, qty_base, cost, provisioned_at, supplier_name,
+           quotations ( id, quotation_number, quotation_status, event_date, clients ( name ) )`,
+        )
+        .eq('company_id', companyId)
+        .in('supply_id', insumos)
+        .order('provisioned_at', { ascending: false, nullsFirst: false })
+        .limit(40),
+    ]);
+    if (recetas.error) throw recetas.error;
+    if (compras.error) throw compras.error;
+    return {
+      recetas: (recetas.data ?? []) as Receta[],
+      compras: (compras.data ?? []) as unknown as CompraDeInsumo[],
+    };
+  }
+
+  /** Los nombres de los productos de una receta, variables o fijos. */
+  async nombresDeProductos(
+    companyId: Company['id'],
+    variables: number[],
+    fijos: number[],
+  ): Promise<{ variables: Map<number, string>; fijos: Map<number, string> }> {
+    const leer = async (tabla: string, ids: number[]) => {
+      if (ids.length === 0) return new Map<number, string>();
+      const { data, error } = await this.supabase.client
+        .from(tabla)
+        .select('id, name')
+        .eq('company_id', companyId)
+        .in('id', ids);
+      if (error) throw error;
+      return new Map(
+        ((data ?? []) as Array<{ id: number; name: string }>).map((f) => [
+          Number(f.id),
+          f.name,
+        ]),
+      );
+    };
+    const [v, f] = await Promise.all([
+      leer('variable_services', variables),
+      leer('fixed_services', fijos),
+    ]);
+    return { variables: v, fijos: f };
+  }
+
+  async proveedores(
+    companyId: Company['id'],
+    texto: string | undefined,
+  ): Promise<{ proveedores: Proveedor[]; insumos: InsumoDeProveedor[] }> {
+    let query = this.supabase.client
+      .from('suppliers')
+      .select('id, name, contact_name, phone, notes')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+    if (texto) query = query.ilike('name', `%${literal(texto)}%`);
+    const { data, error } = await query
+      .order('name', { ascending: true })
+      .limit(30);
+    if (error) throw error;
+    const proveedores = (data ?? []) as Proveedor[];
+    if (proveedores.length === 0) return { proveedores, insumos: [] };
+    const { data: insumos, error: e2 } = await this.supabase.client
+      .from('supplies')
+      .select('supplier_id, name, unit_family, price')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .in(
+        'supplier_id',
+        proveedores.map((p) => p.id),
+      )
+      .order('name', { ascending: true });
+    if (e2) throw e2;
+    return { proveedores, insumos: (insumos ?? []) as InsumoDeProveedor[] };
+  }
+
+  async mobiliario(
+    companyId: Company['id'],
+    texto: string | undefined,
+  ): Promise<Mueble[]> {
+    let query = this.supabase.client
+      .from('furniture_items')
+      .select('name, category, stock')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+    if (texto) query = query.ilike('name', `%${literal(texto)}%`);
+    const { data, error } = await query
+      .order('category', { ascending: true })
+      .order('name', { ascending: true })
+      .limit(80);
+    if (error) throw error;
+    return (data ?? []) as Mueble[];
+  }
+
+  /** El personal de un evento, o el citado un día (de todos los eventos
+   *  y del restaurante), con el nombre de la persona y del cargo. */
+  async personal(
+    companyId: Company['id'],
+    por: { quotationId: string } | { dia: string },
+  ): Promise<{
+    turnos: Turno[];
+    personas: Map<number, string>;
+    cargos: Map<number, string>;
+    eventos: Map<string, FilaDeLista>;
+  }> {
+    let query = this.supabase.client
+      .from('event_staff')
+      .select(
+        'quotation_id, person_id, day, role_id, kind, starts_at, ends_at, status',
+      )
+      .eq('company_id', companyId);
+    query =
+      'quotationId' in por
+        ? query.eq('quotation_id', por.quotationId)
+        : query.eq('day', por.dia);
+    const { data, error } = await query
+      .order('day', { ascending: true, nullsFirst: false })
+      .order('starts_at', { ascending: true, nullsFirst: false })
+      .limit(300);
+    if (error) throw error;
+    const turnos = (data ?? []) as Turno[];
+    const ids = <T>(xs: Array<T | null>) => [
+      ...new Set(xs.filter((x): x is T => x != null)),
+    ];
+    const nombres = async (tabla: string, lista: number[]) => {
+      if (lista.length === 0) return new Map<number, string>();
+      const { data: filas, error: e } = await this.supabase.client
+        .from(tabla)
+        .select('id, name')
+        .eq('company_id', companyId)
+        .in('id', lista);
+      if (e) throw e;
+      return new Map(
+        ((filas ?? []) as Array<{ id: number; name: string }>).map((f) => [
+          Number(f.id),
+          f.name,
+        ]),
+      );
+    };
+    const delEvento = ids(turnos.map((t) => t.quotation_id));
+    const [personas, cargos, eventos] = await Promise.all([
+      nombres('people', ids(turnos.map((t) => t.person_id))),
+      nombres('management_resources', ids(turnos.map((t) => t.role_id))),
+      (async () => {
+        if (delEvento.length === 0) return new Map<string, FilaDeLista>();
+        const { data: qs, error: e } = await this.supabase.client
+          .from('quotations')
+          .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+          .eq('company_id', companyId)
+          .in('id', delEvento);
+        if (e) throw e;
+        return new Map(
+          ((qs ?? []) as unknown as FilaDeLista[]).map((q) => [q.id, q]),
+        );
+      })(),
+    ]);
+    return { turnos, personas, cargos, eventos };
+  }
 }
+
+export type Cuota = {
+  id: string;
+  payment_number: number;
+  amount: number | string;
+  due_date: string | null;
+  status: string;
+  payment_type: string | null;
+};
+export type Abono = {
+  payment_id: string | null;
+  amount: number | string;
+  payment_method: string | null;
+  transaction_date: string | null;
+};
+export type Reembolso = {
+  amount: number | string;
+  is_paid: boolean | null;
+  refund_date: string | null;
+};
+export type CuotaPorCobrar = Omit<Cuota, 'payment_type'> & {
+  quotations: {
+    id: string;
+    quotation_number: number;
+    quotation_status: QuotationStatus;
+    event_date: string | null;
+    clients: { name: string | null } | null;
+  };
+};
+export type Insumo = {
+  id: number;
+  name: string;
+  unit_family: string | null;
+  price: number | string | null;
+  suppliers: { name: string | null } | null;
+};
+export type Receta = {
+  supply_id: number;
+  service_type: string;
+  service_id: number;
+  qty_per_person: number | string | null;
+  unit: string | null;
+};
+export type CompraDeInsumo = {
+  supply_id: number;
+  qty_base: number | string | null;
+  cost: number | string | null;
+  provisioned_at: string | null;
+  supplier_name: string | null;
+  quotations: {
+    id: string;
+    quotation_number: number;
+    quotation_status: QuotationStatus;
+    event_date: string | null;
+    clients: { name: string | null } | null;
+  } | null;
+};
+export type Proveedor = {
+  id: number;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  notes: string | null;
+};
+export type InsumoDeProveedor = {
+  supplier_id: number;
+  name: string;
+  unit_family: string | null;
+  price: number | string | null;
+};
+export type Mueble = {
+  name: string;
+  category: string | null;
+  stock: number | string | null;
+};
+export type Turno = {
+  quotation_id: string | null;
+  person_id: number | null;
+  day: string | null;
+  role_id: number | null;
+  kind: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: string | null;
+};

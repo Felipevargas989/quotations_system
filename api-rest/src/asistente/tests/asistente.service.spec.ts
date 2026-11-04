@@ -10,7 +10,12 @@ import type { QuotationsRepository } from 'src/quotations/quotations.repository'
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../testing/mocks';
 import type { AsistenteRepository } from '../asistente.repository';
-import { AsistenteService, comoMensajes } from '../asistente.service';
+import {
+  AsistenteService,
+  comoMensajes,
+  costoDe,
+  usoDe as usoDeLaApi,
+} from '../asistente.service';
 import { herramientasPara } from '../herramientas';
 
 // BELIA (doc 20). Lo que importa probar acá son las barreras: la empresa
@@ -210,15 +215,46 @@ describe('AsistenteService (BelIA)', () => {
 });
 
 describe('las herramientas de cada cargo', () => {
-  it('recepción no recibe ninguna; quien vende recibe las seis', () => {
+  it('cada cargo recibe solo lo que ve en sus pantallas', () => {
     const con = (role: UserRole) =>
       herramientasPara({
         role,
-        derechos: ['base', 'calendario', 'asistente'],
+        derechos: [
+          'base',
+          'calendario',
+          'post_venta',
+          'logistica',
+          'personal',
+          'asistente',
+        ],
       } as unknown as User).map((h) => h.nombre);
     expect(con(UserRole.RECEPCION)).toEqual([]);
+    // Quien vende: lo del tablero, el catálogo y los clientes.
     expect(con(UserRole.VENDEDOR)).toHaveLength(6);
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(6);
+    expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
+    // Operaciones suma pagos y logística, pero no el personal.
+    expect(con(UserRole.OPERACIONES)).toEqual(
+      expect.arrayContaining([
+        'pagos_del_evento',
+        'cobranza',
+        'insumos',
+        'proveedores',
+        'mobiliario',
+      ]),
+    );
+    expect(con(UserRole.OPERACIONES)).not.toContain('personal');
+    // Administración, todo.
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(12);
+  });
+
+  it('sin el derecho del plan, la herramienta no se ofrece', () => {
+    const nombres = herramientasPara({
+      role: UserRole.ADMINISTRADOR,
+      derechos: ['base', 'asistente'],
+    } as unknown as User).map((h) => h.nombre);
+    expect(nombres).not.toEqual(expect.arrayContaining(['pagos_del_evento']));
+    expect(nombres).not.toContain('insumos');
+    expect(nombres).not.toContain('personal');
   });
 
   it('el calendario pide el derecho del plan', () => {
@@ -314,5 +350,63 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
       expect.objectContaining({ tipo: RequestType.REQUERIMIENTO, limite: 1 }),
     );
     expect(crear).not.toHaveBeenCalled();
+  });
+});
+
+describe('lo que cuesta (doc 20 §7)', () => {
+  const llave = process.env.ANTHROPIC_API_KEY;
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = 'llave_de_prueba';
+  });
+  afterAll(() => {
+    process.env.ANTHROPIC_API_KEY = llave;
+  });
+
+  it('guarda las instrucciones una hora, marca solo el final de la conversación y piensa «medium»', async () => {
+    const { servicio, create } = armar([
+      pide('buscar_cotizaciones', { cliente: 'Rudel' }),
+      texto('La 500.'),
+    ]);
+    await servicio.responder({ mensaje: '¿y Rudel?' }, usuario());
+    const pedido = create.mock.calls[1][0] as unknown as {
+      system: Array<{ cache_control?: { ttl?: string } }>;
+      tools: Array<{ cache_control?: { ttl?: string } }>;
+      output_config: { effort: string };
+      messages: Array<{ content: unknown }>;
+    };
+    expect(pedido.system[0].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+    expect(pedido.tools[pedido.tools.length - 1].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+    expect(pedido.output_config).toEqual({ effort: 'medium' });
+    // Una sola marca en la conversación: en el último bloque.
+    const marcas = JSON.stringify(pedido.messages).match(/cache_control/g);
+    expect(marcas).toHaveLength(1);
+    const ultimo = pedido.messages[pedido.messages.length - 1]
+      .content as Array<{
+      cache_control?: unknown;
+    }>;
+    expect(ultimo[ultimo.length - 1].cache_control).toEqual({
+      type: 'ephemeral',
+    });
+  });
+
+  it('la caché de una hora se cobra a su precio', () => {
+    const u = usoDeLaApi({
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 2_000_000,
+      cache_creation: {
+        ephemeral_1h_input_tokens: 1_000_000,
+        ephemeral_5m_input_tokens: 1_000_000,
+      },
+    } as unknown as Parameters<typeof usoDeLaApi>[0]);
+    // Opus 5.5: US$ 8 el millón a una hora y US$ 5 a cinco minutos.
+    expect(costoDe(u, 'claude-opus-5-5')).toBe(13);
   });
 });

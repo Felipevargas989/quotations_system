@@ -39,6 +39,18 @@ const Linea = ({
   </>
 );
 
+/** Lo corto de una celda (una fecha, un monto, un N°) no se parte en dos
+ *  líneas: «mar 03-11-2026» se veía en tres (Felipe, 03-11). Lo largo, como
+ *  un nombre, sí. */
+const corto = (trozos: Trozo[]): boolean =>
+  trozos
+    .map((t) =>
+      t.tipo === "negrita"
+        ? t.trozos.map((x) => ("texto" in x ? x.texto : "")).join("")
+        : t.texto,
+    )
+    .join("").length <= 18;
+
 export default function RespuestaDeBelia({ texto, alNavegar }: Props) {
   return (
     <div className="space-y-2 text-sm leading-relaxed text-slate-700">
@@ -66,7 +78,10 @@ export default function RespuestaDeBelia({ texto, alNavegar }: Props) {
                   {b.filas.map((fila, j) => (
                     <tr key={j}>
                       {fila.map((c, k) => (
-                        <td key={k} className="px-2 py-1.5 align-top">
+                        <td
+                          key={k}
+                          className={`px-2 py-1.5 align-top ${corto(c) ? "whitespace-nowrap" : ""}`}
+                        >
                           <Linea trozos={c} alNavegar={alNavegar} />
                         </td>
                       ))}

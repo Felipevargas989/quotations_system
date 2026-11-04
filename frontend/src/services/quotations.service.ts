@@ -9,6 +9,7 @@ import {
   QuotationWithClient,
 } from "../types/quotations.types";
 import { apiRequest } from "./api";
+import { celebrarConBelia } from "../utils/celebrarConBelia";
 
 export const getQuotations = async (
   requirementType?: QuotationRequestType,
@@ -47,6 +48,8 @@ export const markEventDone = async (quotationId: string) => {
     `${API_ROUTES.QUOTATIONS}/${quotationId}/realizado`,
     "POST",
   );
+  // Un evento terminado: BelIA celebra (doc 20 §8b).
+  celebrarConBelia();
   return response as MarkEventDoneResult;
 };
 

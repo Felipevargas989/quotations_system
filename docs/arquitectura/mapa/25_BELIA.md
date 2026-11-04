@@ -4,7 +4,10 @@
 
 ## 1. Qué hace
 
-BelIA es una ventanilla de chat abajo a la derecha de todas las pantallas. Conversa con Claude (Opus 5.5), que consulta Eventia con seis herramientas de solo lectura. Las usan vendedor, operaciones y administración, y solo en la empresa con el módulo propio `asistente` (Valle del Sol, migración 180).
+BelIA es una ventanilla de chat abajo a la derecha de todas las pantallas. Conversa con Claude (Opus 5.5), que consulta Eventia con doce herramientas de solo lectura, cada una con el cargo de su pantalla:
+- **Quien vende:** `buscar_cotizaciones`, `ver_cotizacion`, `calendario`, `seguimientos_pendientes`, `buscar_en_catalogo` (varios `textos` a la vez) y `buscar_clientes`.
+- **Operaciones para arriba:** `pagos_del_evento` y `cobranza` (derecho `post_venta`); `insumos`, `proveedores` y `mobiliario` (derecho `logistica`).
+- **Solo administración:** `personal` (derecho `personal`). Nunca trae RUT, cuentas ni montos. Las usan vendedor, operaciones y administración, y solo en la empresa con el módulo propio `asistente` (Valle del Sol, migración 180).
 
 Las reglas que la sostienen (doc 20 §3):
 - actúa con el cargo y la empresa de quien escribe;
@@ -46,6 +49,9 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | `asistente_uso` | Una fila por respuesta: mes en Chile, modelo, tokens, costo, segundos, herramientas, ruta y falla. Sin la pregunta | L (`gastoDelMes`) / E (`registrarUso`) | 180 |
 | `companies.modulos_propios` | El derecho `asistente` | L (`derechosDe`) | 180 (solo datos) |
 | `quotations`, `clients`, `quotation_followups` y el catálogo | Lo que consultan las herramientas, siempre con el `company_id` de la sesión | Solo L | — |
+| `payments`, `payment_transactions`, `refunds` | Las cuotas, los abonos y los reembolsos. **No tienen `company_id`**: se leen solo después de comprobar que la cotización es de la empresa, o con `quotations!inner` filtrado por ella (la cobranza) | Solo L | — |
+| `supplies`, `suppliers`, `service_recipe_items`, `event_supply_provisions`, `furniture_items`, `variable_services`, `fixed_services` | Los insumos con su receta, lo comprado por evento, los proveedores y el mobiliario, con `company_id` | Solo L | — |
+| `event_staff`, `people`, `management_resources` | Las sillas del personal, con el nombre de la persona y del cargo. Solo nombre, cargo, día, horario y estado | Solo L | — |
 
 ## 5. Flujos principales
 
@@ -107,6 +113,12 @@ Dos reglas salieron de la primera prueba del 03-11:
 2. **Si cambias la regla del tablero** (`semaforoDe` en `QuotationsPage.tsx`), cámbiala también en `semaforo` de `seguimientos-pendientes.ts`, o BelIA y el tablero contarán distinto.
 3. **Si tocas las instrucciones** (`instrucciones.ts`), recuerda que no son la barrera: solo explican.
 4. **Si cambias el modelo** (`MODELO_ASISTENTE`), revisa que `costoDelUso` tenga su precio. Si no lo tiene, cuenta como Opus.
+5. **Lo que necesita cada evento NO lo calcula BelIA.** Lo hace la pantalla de Compras (`consolidateEvent`, en la app, mapa 06). Una copia en el motor podría dar otra cifra: BelIA da lo ya comprado y manda a Compras. Para que lo calcule ella, primero hay que mover esa cuenta a un solo lugar compartido.
+6. **El costo** (doc 20 §7):
+   - las instrucciones y las herramientas van en caché una hora, y la conversación cinco minutos, con la marca solo en su último bloque (`marcarElFinal`);
+   - son 3 marcas de las 4 que permite la API;
+   - `costoDe` cobra cada duración a su precio;
+   - si cambias el orden de las marcas, las de una hora tienen que ir antes que las de cinco minutos.
 
 ## 9. Pruebas que lo protegen
 

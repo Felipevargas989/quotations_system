@@ -2,6 +2,7 @@ import { API_ROUTES } from "../constants/api.routes";
 import { Client } from "../types/clients.types";
 import { Refund } from "../types/refunds.types";
 import { apiRequest } from "./api";
+import { celebrarConBelia } from "../utils/celebrarConBelia";
 
 // TODO: Move this to the types folder
 export interface PaymentTransaction {
@@ -56,15 +57,11 @@ export interface PaymentWithTransactions {
 export const getPaymentsWithTransactions = async (): Promise<{
   data: PaymentWithTransactions[];
 }> => {
-  try {
-    const response = await apiRequest(
-      `${API_ROUTES.PAYMENTS_TRANSACTIONS}`,
-      "GET",
-    );
-    return { data: response };
-  } catch (error) {
-    throw error;
-  }
+  const response = await apiRequest(
+    `${API_ROUTES.PAYMENTS_TRANSACTIONS}`,
+    "GET",
+  );
+  return { data: response };
 };
 
 // Registro de pago con "derrame": el backend reparte el monto en cascada por
@@ -93,6 +90,8 @@ export const createOverflowPayment = async (payload: {
       "POST",
       payload,
     );
+    // Un abono registrado: BelIA celebra (doc 20 §8b).
+    celebrarConBelia();
     return { data: response };
   } catch (error) {
     console.error("Error creating overflow payment:", error);

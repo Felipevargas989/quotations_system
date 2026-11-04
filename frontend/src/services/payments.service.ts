@@ -2,6 +2,7 @@ import { API_ROUTES } from "../constants/api.routes";
 import { CreatePayment } from "../types/payments.types";
 import { Quotation } from "../types/quotations.types";
 import { apiRequest } from "./api";
+import { celebrarConBelia } from "../utils/celebrarConBelia";
 
 // Get payments for a specific quotation
 // Calendario de pagos Nivel A: solo fecha y nota de una cuota SIN
@@ -50,6 +51,9 @@ export const createPaymentPlan = async (
     quotation_id: quotationId,
     payments,
   });
+  // Crear el plan deja la cotización aceptada (mapa 04): una reserva
+  // confirmada, y BelIA celebra (doc 20 §8b).
+  celebrarConBelia();
   return response;
 };
 

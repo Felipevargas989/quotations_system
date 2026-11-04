@@ -1,6 +1,12 @@
+import { QuotationStatus } from 'src/quotations/constants/constants';
 import type { Catalogo } from 'src/quotations/generar/catalogo';
-import { buscarEn, normal } from '../herramientas/buscar-en-catalogo';
+import {
+  buscarEn,
+  buscarEnCatalogo,
+  normal,
+} from '../herramientas/buscar-en-catalogo';
 import { conDia, fecha, inicioDelDiaEnChile } from '../herramientas/comun';
+import { resumenDePlata } from '../herramientas/pagos';
 import { semaforo } from '../herramientas/seguimientos-pendientes';
 import { diasDe } from '../herramientas/ver-cotizacion';
 
@@ -165,5 +171,117 @@ describe('las fechas', () => {
     expect(inicioDelDiaEnChile('2026-11-03')).toBe('2026-11-03T03:00:00.000Z');
     // Y a las 4 en invierno.
     expect(inicioDelDiaEnChile('2026-07-15')).toBe('2026-07-15T04:00:00.000Z');
+  });
+});
+
+describe('buscar_en_catalogo con varios a la vez', () => {
+  it('una sola búsqueda trae cada producto con lo suyo', async () => {
+    const catalogo = {
+      categorias: [],
+      menus: [],
+      servicios: new Map([
+        [1, { id: 1, nombre: 'Once tradicional', precio: 9300 }],
+        [2, { id: 2, nombre: 'Alojamiento temporada alta', precio: 28000 }],
+      ]),
+      fijos: new Map(),
+      paquetes: [],
+    };
+    const ctx = {
+      usuario: { company_id: 1 },
+      catalogo: { catalogo: jest.fn().mockResolvedValue(catalogo) },
+    } as unknown as Parameters<typeof buscarEnCatalogo.ejecutar>[1];
+    const r = (await buscarEnCatalogo.ejecutar(
+      { textos: ['once', 'alojamiento', 'x'] },
+      ctx,
+    )) as { busquedas: Array<{ texto: string; encontrados: number }> };
+    // «x» no llega a dos letras: no se busca.
+    expect(r.busquedas.map((b) => [b.texto, b.encontrados])).toEqual([
+      ['once', 1],
+      ['alojamiento', 1],
+    ]);
+    expect(ctx.catalogo.catalogo).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('pagos_del_evento: la plata como la pestaña Pagos', () => {
+  const cuotas = [
+    {
+      id: 'c1',
+      payment_number: 1,
+      amount: 1000,
+      due_date: '2026-10-01',
+      status: 'pagado',
+      payment_type: null,
+    },
+    {
+      id: 'c2',
+      payment_number: 2,
+      amount: 1000,
+      due_date: '2026-10-20',
+      status: 'pendiente',
+      payment_type: null,
+    },
+    {
+      id: 'c3',
+      payment_number: 3,
+      amount: 1000,
+      due_date: '2026-12-01',
+      status: 'pendiente',
+      payment_type: null,
+    },
+  ];
+  const abonos = [
+    {
+      payment_id: 'c1',
+      amount: 1000,
+      payment_method: 'transferencia',
+      transaction_date: '2026-09-30',
+    },
+    {
+      payment_id: 'c2',
+      amount: 400,
+      payment_method: 'transferencia',
+      transaction_date: '2026-10-19',
+    },
+  ];
+
+  it('saldo, cuota vencida con lo que le falta y la que viene', () => {
+    const r = resumenDePlata(
+      3000,
+      QuotationStatus.ACEPTADA,
+      cuotas,
+      abonos,
+      [],
+      '2026-11-03',
+    );
+    expect(r.pagado).toBe('$1.400');
+    expect(r.saldo).toBe('$1.600');
+    expect(r.cuotas.map((c) => [c.cuota, c.estado, c.falta])).toEqual([
+      [1, 'pagada', undefined],
+      [2, 'vencida', '$600'],
+      [3, 'pendiente', '$1.000'],
+    ]);
+  });
+
+  it('un reembolso pagado vuelve al saldo y un anulado no debe nada', () => {
+    const r = resumenDePlata(
+      3000,
+      QuotationStatus.ACEPTADA,
+      cuotas,
+      abonos,
+      [{ amount: 400, is_paid: true, refund_date: '2026-10-25' }],
+      '2026-11-03',
+    );
+    expect(r.saldo).toBe('$2.000');
+    const anulado = resumenDePlata(
+      3000,
+      QuotationStatus.CANCELADA,
+      cuotas,
+      abonos,
+      [],
+      '2026-11-03',
+    );
+    expect(anulado.saldo).toBe('$0');
+    expect(anulado.nota).toContain('anulado');
   });
 });
