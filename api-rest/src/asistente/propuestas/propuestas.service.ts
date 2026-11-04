@@ -27,10 +27,7 @@ import {
   pesos,
 } from '../herramientas/comun';
 import {
-  conPersonasNuevas,
-  fijosPorPersona,
-  quienesSon,
-  topeDeDescuento,
+  revisarCabecera,
   type CabeceraNueva,
   type CambioDeCabecera,
 } from './cabecera';
@@ -68,6 +65,7 @@ import {
   type CotizacionParaCambiar,
   type Parche,
 } from './reglas';
+import { SeguimientoDesdeElChat } from './seguimiento-desde-el-chat';
 
 const n = (v: unknown): number => Number(v) || 0;
 
@@ -98,8 +96,27 @@ export class PropuestasService {
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
     private readonly nuevas: CotizacionNuevaService,
+    // «Prepárame el seguimiento de la 600» (doc 20 §17, mejora 4).
+    private readonly seguimientoDelChat?: SeguimientoDesdeElChat,
   ) {
     this.logger.setContext(PropuestasService.name);
+  }
+
+  private conSeguimiento(): SeguimientoDesdeElChat {
+    if (!this.seguimientoDelChat) {
+      throw new ErrorDeHerramienta(
+        'El seguimiento con IA no está disponible en este motor.',
+      );
+    }
+    return this.seguimientoDelChat;
+  }
+
+  /** La tarjeta del borrador del seguimiento (`seguimiento-desde-el-chat.ts`). */
+  proponerSeguimiento(
+    usuario: User,
+    por: { numero: number } | { id: string },
+  ): Promise<TarjetaDePropuesta> {
+    return this.conSeguimiento().proponer(usuario, por);
   }
 
   /** Arma la propuesta de cambiar los servicios y la guarda. Lo que no se
@@ -145,6 +162,8 @@ export class PropuestasService {
         people_count: q.people_count,
         children_count: q.children_count,
         discount_percentage: q.discount_percentage,
+        event_date: q.event_date,
+        event_end_date: q.event_end_date,
       },
       despues: {
         cambios,
@@ -273,6 +292,15 @@ export class PropuestasService {
       });
       if (!q) throw new NotFoundException('La cotización ya no existe.');
 
+      if (p.tipo === 'seguimiento') {
+        // El borrador lo escribe el seguimiento con IA, con su nota en la
+        // bitácora; nada más que guardar acá.
+        const r = await this.conSeguimiento().dejar(usuario, q);
+        guardada = true;
+        await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
+        return r;
+      }
+
       if (p.tipo === 'nota') {
         const nota = (p.despues as { nota: NotaGuardada }).nota;
         await this.bitacora.crearComoBelia(empresa, {
@@ -355,7 +383,9 @@ export class PropuestasService {
           ? 'Una nota de la bitácora no se deshace desde acá.'
           : p.tipo === 'cotizacion_nueva'
             ? 'Una cotización creada no se deshace desde acá: si no va, se anula o se borra desde el tablero.'
-            : `Esa propuesta ${ESTADOS[p.estado]}.`,
+            : p.tipo === 'seguimiento'
+              ? 'El borrador del seguimiento quedó en Outlook: si no va, bórralo desde ahí.'
+              : `Esa propuesta ${ESTADOS[p.estado]}.`,
       );
     }
     const cotizacionId = p.quotation_id;
@@ -390,9 +420,14 @@ export class PropuestasService {
         children_count?: number | null;
         discount_percentage?: number | string | null;
         discount_amount?: number | string | null;
+        event_date?: string | null;
+        event_end_date?: string | null;
       };
       // Las propuestas desde el 04-11 guardan también la cabecera (las
-      // personas y el descuento); las de antes no la cambiaban.
+      // personas y el descuento; desde §17, las fechas); las de antes no la
+      // cambiaban.
+      const inicio = diaDelEvento(antes.event_date);
+      const ultimo = diaDelEvento(antes.event_end_date);
       const { parche } = parcheDe(
         q,
         antes.items ?? {},
@@ -402,6 +437,8 @@ export class PropuestasService {
               children_count: n(antes.children_count),
               discount_percentage: n(antes.discount_percentage),
               discount_amount: n(antes.discount_amount),
+              ...(inicio ? { event_date: inicio } : {}),
+              ...(ultimo ? { event_end_date: ultimo } : {}),
             }
           : {},
       );
@@ -512,7 +549,26 @@ export class PropuestasService {
       }
       r = editada;
     }
-    const conCabecera = this.cabeceraDe(q, usuario, r.foto, cabecera);
+    const conCabecera = revisarCabecera(q, usuario, r.foto, cabecera, hoy);
+    // La fecha nueva contra los eventos aceptados, como «Crear evento»
+    // (doc 20 §17, mejora 3).
+    if (conCabecera.nueva.event_date) {
+      const { has_conflicts } =
+        await this.cotizaciones.checkConflictsWithExistingQuotations(
+          {
+            event_date: conCabecera.nueva.event_date,
+            ...(conCabecera.nueva.event_end_date
+              ? { event_end_date: conCabecera.nueva.event_end_date }
+              : {}),
+          },
+          empresa,
+        );
+      if (has_conflicts) {
+        conCabecera.avisos.unshift(
+          'Esas fechas se topan con un evento aceptado (tope de calendario): revísalo antes de aplicar.',
+        );
+      }
+    }
     if (cambios.length === 0 && conCabecera.lineas.length === 0) {
       throw new ErrorDeHerramienta(
         'No cambia nada: la cotización ya está así.',
@@ -575,128 +631,6 @@ export class PropuestasService {
       cuotas,
       cabecera: conCabecera.nueva,
     };
-  }
-
-  /** Las personas del evento y el descuento que trae la propuesta (doc 20,
-   *  regla 5 y §11, pregunta 1; `cabecera.ts`): revisados, con la foto como
-   *  la deja el cotizador y sus líneas para la tarjeta. */
-  private cabeceraDe(
-    q: CotizacionParaCambiar,
-    usuario: User,
-    fotoDeServicios: FotoGuardada,
-    cabecera: CambioDeCabecera | undefined,
-  ) {
-    let foto = fotoDeServicios;
-    const nueva: CabeceraNueva = {};
-    const lineas: LineaDelCambio[] = [];
-    const avisos: string[] = [];
-    const diasTocados: number[] = [];
-    const personas = n(q.people_count);
-    const ninos = n(q.children_count);
-
-    if (cabecera?.personas) {
-      if (q.quotation_status === QuotationStatus.ACEPTADA) {
-        throw new ErrorDeHerramienta(
-          `La N° ${q.quotation_number} está aceptada: sus personas se cambian en Post-Venta → Servicios, donde se ven las compras y las cuotas.`,
-        );
-      }
-      const total = cabecera.personas.total;
-      const deNinos = cabecera.personas.ninos ?? ninos;
-      if (!(total >= 1)) {
-        throw new ErrorDeHerramienta(
-          'Faltan las personas del evento (1 o más).',
-        );
-      }
-      if (deNinos < 0 || deNinos > total) {
-        throw new ErrorDeHerramienta(
-          'Los niños van dentro del total de personas.',
-        );
-      }
-      if (total !== personas || deNinos !== ninos) {
-        const r = conPersonasNuevas(
-          foto,
-          { adultos: Math.max(0, personas - ninos), ninos },
-          { adultos: total - deNinos, ninos: deNinos },
-        );
-        foto = r.foto;
-        nueva.people_count = total;
-        nueva.children_count = deNinos;
-        lineas.push(
-          {
-            dia: 0,
-            que: `Personas del evento: ${quienesSon(personas, ninos)} → ${quienesSon(total, deNinos)}`,
-            quita: [],
-            agrega: [],
-          },
-          ...r.lineas,
-        );
-        diasTocados.push(...r.lineas.map((l) => l.dia));
-        const porPersona = fijosPorPersona(foto);
-        if (porPersona.length > 0) {
-          avisos.push(
-            `${porPersona.join(', ')} cobra por persona y queda con el precio de antes, como hace el cotizador: si corresponde, ajústalo en la pantalla.`,
-          );
-        }
-      }
-    }
-
-    if (cabecera?.descuento) {
-      const tope = topeDeDescuento(usuario.role);
-      if (tope <= 0) {
-        throw new ErrorDeHerramienta('Con tu cargo no se aplican descuentos.');
-      }
-      const { porcentaje, monto } = cabecera.descuento;
-      const subtotal = parcheDe(q, foto, nueva).parche.subtotal_amount;
-      if (porcentaje != null) {
-        if (porcentaje < 0 || porcentaje > tope) {
-          throw new ErrorDeHerramienta(
-            `Tu cargo descuenta hasta ${tope} %: ese descuento lo aplica un administrador.`,
-          );
-        }
-        nueva.discount_percentage = porcentaje;
-        nueva.discount_amount = 0;
-      } else if (monto != null) {
-        const maximo = Math.round((subtotal * tope) / 100);
-        if (monto < 0 || monto > maximo) {
-          throw new ErrorDeHerramienta(
-            `Tu cargo descuenta hasta ${tope} %: ${pesos(maximo)} sobre el subtotal de ${pesos(subtotal)}.`,
-          );
-        }
-        nueva.discount_percentage = 0;
-        nueva.discount_amount = monto;
-      } else {
-        throw new ErrorDeHerramienta(
-          'El descuento va en `porcentaje` o en `monto`.',
-        );
-      }
-      const antes = this.descuentoEnPalabras(
-        parcheDe(q, q.items ?? {}, {}).parche,
-      );
-      const despues = this.descuentoEnPalabras(parcheDe(q, foto, nueva).parche);
-      if (antes !== despues) {
-        lineas.push({
-          dia: 0,
-          que: `Descuento: ${antes} → ${despues}`,
-          quita: [],
-          agrega: [],
-        });
-      } else {
-        delete nueva.discount_percentage;
-        delete nueva.discount_amount;
-      }
-    }
-    return { foto, nueva, lineas, avisos, diasTocados };
-  }
-
-  /** «10 % ($44.300)», «$50.000» o «sin descuento», con la plata que hizo
-   *  la cuenta de la casa: total = (subtotal − descuento) + propina. */
-  private descuentoEnPalabras(p: Parche): string {
-    const pesosDelDescuento =
-      p.subtotal_amount - (p.total_amount - p.tip_amount);
-    if (pesosDelDescuento <= 0) return 'sin descuento';
-    return p.discount_percentage > 0
-      ? `${p.discount_percentage} % (${pesos(pesosDelDescuento)})`
-      : pesos(pesosDelDescuento);
   }
 
   /** Al aplicar o deshacer, las reglas otra vez: pudo pasar el día. */

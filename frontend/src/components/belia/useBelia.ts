@@ -53,6 +53,8 @@ export type PropuestaEnPantalla = TarjetaDePropuesta & {
   mensaje?: string;
   /** El total que quedó guardado. */
   total_final?: string;
+  /** Lo que pasó al aplicar (el borrador del seguimiento, doc 20 §17). */
+  aviso?: string;
 };
 
 /** Un turno en pantalla. `error` no viaja al motor: no es una respuesta.
@@ -334,6 +336,7 @@ export function useBelia() {
         cambiar({
           estado: r.estado,
           total_final: r.total,
+          aviso: r.aviso,
           se_puede_deshacer: r.se_puede_deshacer ?? false,
           // Un evento nuevo recién tiene N° al crearse.
           ...(r.numero != null && r.enlace

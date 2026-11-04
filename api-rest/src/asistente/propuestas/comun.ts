@@ -13,7 +13,7 @@ import type { EstadoDePropuesta, Propuesta } from './propuestas.repository';
 /** Lo que ve la persona en la tarjeta (doc 20 §8). */
 export type TarjetaDePropuesta = {
   id: string;
-  tipo: 'servicios' | 'nota' | 'cotizacion_nueva';
+  tipo: 'servicios' | 'nota' | 'cotizacion_nueva' | 'seguimiento';
   /** Null en una cotización nueva: el N° lo da la base al crearla. */
   numero: number | null;
   cliente: string | null;
@@ -60,6 +60,8 @@ export type ResultadoDeAplicar = {
   enlace: string;
   total?: string;
   se_puede_deshacer?: boolean;
+  /** Lo que pasó, en una línea (el borrador del seguimiento, doc 20 §17). */
+  aviso?: string;
 };
 
 export const CANALES = [

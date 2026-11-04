@@ -168,6 +168,11 @@ export const parcheDe = (
       ...(cabecera.people_count != null
         ? { people_count: personas, children_count: ninos }
         : {}),
+      // La fecha nueva (doc 20 §17): el último día, solo si es de varios.
+      ...(cabecera.event_date ? { event_date: cabecera.event_date } : {}),
+      ...(cabecera.event_end_date
+        ? { event_end_date: cabecera.event_end_date }
+        : {}),
       value_per_person: t.valuePerPerson,
       fixed_value: t.fixedTotal,
       subtotal_amount: t.subtotalAmount,

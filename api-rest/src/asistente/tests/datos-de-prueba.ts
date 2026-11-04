@@ -28,6 +28,7 @@ import {
   parcheDe,
   type CotizacionParaCambiar,
 } from '../propuestas/reglas';
+import type { SeguimientoDesdeElChat } from '../propuestas/seguimiento-desde-el-chat';
 
 // LOS DATOS DE PRUEBA DE LAS PROPUESTAS DE BELIA (doc 20, fase 2): el
 // catálogo chico, la foto de la 500, la cotización y el servicio armado con
@@ -250,6 +251,17 @@ export const armarServicio = (
   const generar = {
     catalogo: jest.fn().mockResolvedValue(catalogo()),
   } as unknown as GenerarRepository;
+  // «Prepárame el seguimiento» (doc 20 §17): el borrador lo deja el
+  // seguimiento con IA; acá basta saber que se llamó.
+  const seguimientoDelChat = {
+    proponer: jest.fn(),
+    dejar: jest.fn().mockResolvedValue({
+      estado: 'aplicada',
+      numero: q.quotation_number,
+      enlace: `/negocio/${q.id}`,
+      aviso: 'El borrador quedó en el hilo del cliente.',
+    }),
+  };
   const nuevas = new CotizacionNuevaService(
     repositorio as unknown as PropuestasRepository,
     generar,
@@ -271,8 +283,16 @@ export const armarServicio = (
     bitacora as unknown as QuotationFollowupsService,
     mockPinoLogger() as unknown as PinoLogger,
     nuevas,
+    seguimientoDelChat as unknown as SeguimientoDesdeElChat,
   );
-  return { servicio, repositorio, cotizaciones, bitacora, clientes };
+  return {
+    servicio,
+    repositorio,
+    cotizaciones,
+    bitacora,
+    clientes,
+    seguimientoDelChat,
+  };
 };
 
 export const camila = (role = UserRole.VENDEDOR): User =>
