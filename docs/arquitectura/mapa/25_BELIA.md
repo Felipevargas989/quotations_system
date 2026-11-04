@@ -1,6 +1,6 @@
 # Mapa: BelIA, la asistente con IA (la ventanilla de chat)
 
-> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **Nada en producción.** Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **En producción desde el 04-11-2026** (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -36,7 +36,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | El cerebro | `components/belia/useBelia.ts` | La conversación en `sessionStorage`, con sus tarjetas y lo que la persona hizo con cada una. El ánimo de fondo con `GET /asistente/estado` cada 5 minutos. El reloj de dormir, los avisos (máximo uno por hora, con `localStorage`) y el evento `belia:celebra`. `responder` manda el «Sí, aplicar», el «No» o el «Deshacer» | — |
 | La tarjeta | `components/belia/PropuestaDeBelia.tsx` | Debajo de la respuesta: el antes y el después por día (las líneas largas plegadas), el total y la diferencia, las cuotas de una aceptada, los avisos en ámbar, «Sí, aplicar» en azul y «No». Ya aplicada, «Deshacer» (solo lo no vendido) | — |
 | La cara | `components/belia/BeliaAvatar.tsx`, piezas en `public/belia/` | El dibujo de Bela (demo de GPT del 03-11) en seis piezas recortadas (cuerpo, orejas, ojos, boca) más párpados, cejas, boca cerrada, notebook y señales dibujados encima, con las poses de la demo. Sin animación corriendo: transiciones cortas entre poses, pestañeo cada 5 a 10 s y respirar dormida. Fondo azul, rojo si está enojada. En el laboratorio, `?belia=<ánimo>` la muestra en ese ánimo | — |
-| Lo que contesta | `components/belia/RespuestaDeBelia.tsx` y `belia.ts` | Un markdown chico armado con elementos de React (párrafos, listas, tablas, negritas y enlaces). Solo se enlazan rutas que empiezan con «/» | — |
+| Lo que contesta | `components/belia/RespuestaDeBelia.tsx` y `belia.ts` | Un markdown chico armado con elementos de React (párrafos, listas, tablas, negritas y enlaces). Solo se enlazan rutas que empiezan con «/». Una tabla pegada a un párrafo, sin línea en blanco, se separa antes de leer los bloques (`separarTablas`, 04-11: así llegó la primera respuesta en producción) | — |
 
 ## 3. Endpoints del motor
 
