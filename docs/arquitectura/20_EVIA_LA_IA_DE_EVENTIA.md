@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 en el laboratorio desde el 03-11 (ver abajo). Nada en producción.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -187,6 +187,22 @@
 >     observaciones en blanco. **La 484 quedó en el laboratorio.**
 >
 >   La prueba costó US$ 0,14 (la propuesta de «Crear evento», US$ 0,035).
+>
+> **04-11-2026, madrugada · EN PRODUCCIÓN** (Felipe: *"fusiona ahora"*,
+> sin esperar las 07:00: el radar de Oportunidades no estaba corriendo).
+> - El PR #288 se fusionó a main (`cc03e22d`). El motor de producción
+>   subió con esa versión y la vitrina de producción es la 6aeaa85b. Las
+>   migraciones 180 y 181 ya estaban aplicadas (arriba).
+> - La primera pregunta real, «¿Qué tengo que revisar hoy?», contestó con
+>   los datos de Valle del Sol: 20 cotizaciones con tope de calendario.
+> - De esa pregunta salió un arreglo de pantalla: una tabla escrita justo
+>   debajo de un párrafo, sin línea en blanco, se veía como texto con
+>   rayas. `belia.ts` ahora la separa antes de leer los bloques
+>   (`separarTablas`, con su prueba). Va en el PR siguiente, solo
+>   pantalla: no reinicia el motor.
+> - **Falta que Felipe decida:** si se guardan las conversaciones (§11,
+>   pregunta 3) y si confirma las seis decisiones por defecto de la fase 2
+>   (arriba).
 
 ## 1. Por qué
 
@@ -462,7 +478,8 @@ camino entre Railway y la vitrina.
      usa un insumo (`service_recipe_items`);
    - proveedores y mobiliario;
    - personal, solo para administración.
-4. **Prueba de Felipe** en el lab y, con su «a producción», a producción.
+4. **Prueba de Felipe** en el lab y, con su «a producción», a producción
+   (hecho el 04-11, PR #288).
 
 **Fase 2 · Cambios con OK.** Primero las cotizaciones no vendidas, las
 minutas y las notas de la bitácora. Después las aceptadas, con lo del §5.
