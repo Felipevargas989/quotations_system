@@ -163,6 +163,11 @@ export type ContextoDeBases = {
 // preguntar) va después de la marca. Así el análisis deja las bases
 // guardadas y cada pregunta de esa hora las lee de la caché (el 5 % del
 // precio de entrada), en vez de volver a leerlas.
+// El formato de la respuesta también es parte del comienzo: la API pone sus
+// instrucciones en el sistema. Hasta la decisión 115 (04-11) cada pedido
+// tenía el suyo y la primera pregunta nunca leyó lo que dejó el análisis;
+// desde entonces los dos piden el mismo, `FORMATO_DE_LAS_BASES`
+// (analisis.service.ts), con las dos respuestas posibles.
 
 /** Una hora: lo que dura leer el análisis, pensar y preguntar de a poco.
  *  Escribirla cuesta 2 veces la entrada (5 minutos costaría 1,25). */
@@ -207,6 +212,32 @@ export const prefijoDeDocumentos = (
     cache_control: CACHE_DE_BASES,
   },
 ];
+
+/** La respuesta de «Pregúntale a la IA» (decisión 67): el texto, hasta 4
+ *  citas y la seguridad. Vive aquí porque va dentro del formato que
+ *  comparten el análisis y las preguntas (decisión 115). */
+export const ESQUEMA_DE_RESPUESTA = {
+  type: 'object',
+  properties: {
+    respuesta: { type: 'string' },
+    citas: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          documento: { type: 'string' },
+          pagina: { type: 'integer' },
+          texto: { type: 'string' },
+        },
+        required: ['documento', 'pagina', 'texto'],
+        additionalProperties: false,
+      },
+    },
+    seguridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
+  },
+  required: ['respuesta', 'citas', 'seguridad'],
+  additionalProperties: false,
+} as const;
 
 /** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes), en el orden
  *  en que se subió: así "el documento" es el que uno ve. */
