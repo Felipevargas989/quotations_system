@@ -11,6 +11,7 @@ import {
   type TurnoDeBelia,
 } from "../../services/asistente.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import { EVENTO_CELEBRAR } from "../../utils/celebrarConBelia";
 import {
   MINUTOS_ENTRE_AVISOS,
   MINUTOS_PARA_DORMIR,
@@ -41,10 +42,6 @@ const CLAVE_ULTIMO_AVISO = "belia:ultimo-aviso";
 const MAX_TURNOS = 30;
 const SEGUNDOS_DE_AVISO = 12;
 const SEGUNDOS_DE_FIESTA = 4;
-
-/** Las otras pantallas la hacen celebrar con
- *  `window.dispatchEvent(new Event(EVENTO_CELEBRAR))` (doc 20 §8b). */
-export const EVENTO_CELEBRAR = "belia:celebra";
 
 const leer = <T>(
   almacen: "session" | "local",
