@@ -1,11 +1,12 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { cerebroPara, VALLE_DEL_SOL } from 'src/cerebro/cerebro';
 
 // LAS REGLAS QUE LEE LA IA AL ARMAR UNA COTIZACIÓN.
 //
-// Las de NEGOCIO viven en REGLAS_DE_ARMADO.md, al lado de este archivo: es
-// el mismo documento que lee la skill `armar-cotizacion` del chat (Felipe,
-// 17-10-2026: "¿no podemos montar la skill que tenemos en ese agente?").
+// Las de NEGOCIO viven en el cerebro común (`src/cerebro`, 04-11-2026): lo
+// de todas las empresas (LA_CASA.md), lo de Valle del Sol (EL_COMPLEJO.md) y
+// cómo se arma (COMO_SE_ARMA.md), los mismos archivos que leen BelIA y la
+// skill `armar-cotizacion` del chat (Felipe, 17-10-2026: "¿no podemos montar
+// la skill que tenemos en ese agente?").
 // Una corrección se escribe UNA vez, allá, y la aplican los dos. Acá solo
 // queda lo propio del botón: qué devuelve y dos reglas que el motor revisa
 // con código.
@@ -22,24 +23,9 @@ export const ofrecible = (categoria: string): boolean =>
 export const esTourOperador = (tipoCliente: string | null | undefined) =>
   /tour/i.test(tipoCliente ?? '');
 
-/** El archivo viaja junto al código compilado (nest-cli.json, "assets"). */
-const ARCHIVO_DE_REGLAS = join(__dirname, 'REGLAS_DE_ARMADO.md');
-
-let reglasLeidas: string | null = null;
-
-/** Las reglas de negocio, leídas una vez. Si el archivo no llegó al
- *  despliegue, falla claro en vez de armar sin reglas. */
-export function reglasDeArmado(): string {
-  if (reglasLeidas === null) {
-    if (!existsSync(ARCHIVO_DE_REGLAS)) {
-      throw new Error(
-        `Falta ${ARCHIVO_DE_REGLAS}: el botón no arma sin las reglas de la casa.`,
-      );
-    }
-    reglasLeidas = readFileSync(ARCHIVO_DE_REGLAS, 'utf8');
-  }
-  return reglasLeidas;
-}
+/** Las reglas de negocio del cerebro común: lo de la casa, lo de Valle del
+ *  Sol y cómo se arma. Si falta un archivo, el cerebro falla claro. */
+export const reglasDeArmado = (): string => cerebroPara(VALLE_DEL_SOL, 'armar');
 
 /** Lo propio del botón: qué devuelve. Va antes de las reglas de la casa. */
 export const SALIDA = `Eres quien arma las cotizaciones de Valle del Sol Quillón. Recibes un requerimiento y lo conviertes en una cotización armada SOLO con el catálogo que viene al final, siguiendo las reglas de la casa que vienen a continuación. Una persona del equipo la revisa antes de enviarla.
