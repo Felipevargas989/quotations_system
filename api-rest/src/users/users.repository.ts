@@ -150,7 +150,7 @@ export class UsersRepository {
     id: User['id'],
     updateUserDto: UpdateUserDto,
     companyId: Company['id'],
-  ) {
+  ): Promise<{ data: User | null; error: PostgrestError | null }> {
     this.logger.info(
       `update user with id ${id} and updateUserDto ${logSafe(updateUserDto)}`,
     );
@@ -163,7 +163,10 @@ export class UsersRepository {
       .single();
   }
 
-  async remove(id: User['id'], companyId: Company['id']) {
+  async remove(
+    id: User['id'],
+    companyId: Company['id'],
+  ): Promise<{ data: User | null; error: PostgrestError | null }> {
     this.logger.info(`remove user with id ${id} and companyId ${companyId}`);
     return await this.supabase.client
       .from('user_profiles')

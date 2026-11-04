@@ -556,10 +556,10 @@ La columna JSON `quotations.items` es un contrato sin tipos compartidos entre fr
 
 #### x4-06 · El comentario promete borrar la caché del perfil al editar un usuario; el código no lo hace
 
-`AuthGuard` cachea el perfil de cada usuario (incluido su cargo) por 1 hora en `cachePerfiles`, y `RolesGuard` decide permisos con ese cargo cacheado. Los comentarios de `auth.guard.ts` y `memoria.ts` prometen que "`users.service` llama `olvidarPerfil`" al editar un usuario, pero en el código `UsersService.update` pasa directo a `UsersRepository.update` SIN llamar `olvidarPerfil` — solo `UsersService.remove` lo hace. Como `UpdateUserDto` permite cambiar `role`, quitarle a alguien el cargo de administrador puede tardar hasta 1 hora en aplicarse (o hasta el próximo redeploy). El comentario contradice al código.
+`AuthGuard` cachea el perfil de cada usuario (incluido su cargo) por 1 hora en `cachePerfiles`, y `RolesGuard` decide permisos con ese cargo cacheado. Los comentarios de `auth.guard.ts` y `memoria.ts` prometen que "`users.service` llama `olvidarPerfil`" al editar un usuario, pero en el código `UsersService.update` pasa directo a `UsersRepository.update` SIN llamar `olvidarPerfil` — solo `UsersService.remove` lo hace. Como `UpdateUserDto` permite cambiar `role`, quitarle a alguien el cargo de administrador podía tardar hasta 1 hora en aplicarse. **Resuelto el 03-11-2026**: `update` y `remove` llaman `olvidarPerfil(data.user_id)` (pruebas en `users/tests/cargo-al-instante.spec.ts`).
 
 **Evidencia:**
-- `api-rest/src/users/users.service.ts` — `update()` sin `olvidarPerfil`; `remove()` sí lo llama
+- `api-rest/src/users/users.service.ts` — `update()` y `remove()` llaman `olvidarPerfil(data.user_id)` (03-11-2026)
 - `api-rest/src/users/dto/update-user.dto.ts` — permite cambiar `role` (hereda de `CreateUserDto` sin omitirlo)
 - `api-rest/src/auth/auth.guard.ts` — `cachePerfiles`, comentario "`users.service` llama `olvidarPerfil`"
 - `api-rest/src/cache/memoria.ts` — comentario "se olvida su ficha AL INSTANTE"
