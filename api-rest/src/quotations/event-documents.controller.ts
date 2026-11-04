@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Injectable,
   Param,
@@ -12,9 +13,9 @@ import {
 import { IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import type { User } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 
 // Mudanza #7 (28-07): documentos del evento por el backend. La tabla no
 // tiene company_id: la pertenencia se verifica vía la cotización.
@@ -80,15 +81,18 @@ export class EventDocumentsRepository {
     return { added: true };
   }
 
-  async delete(companyId: number, id: number) {
+  async delete(companyId: number, id: number, soloComercial = false) {
     this.logger.info(`delete document ${id}`);
     const { data, error: findErr } = await this.supabase.client
       .from('event_documents')
-      .select('id, quotations!inner(company_id)')
+      .select('id, category, quotations!inner(company_id)')
       .eq('id', id)
       .eq('quotations.company_id', companyId)
       .single();
     if (findErr || !data) throw findErr || new Error('Documento no encontrado');
+    if (soloComercial && data.category !== 'comercial') {
+      throw new ForbiddenException(SOLO_COMERCIAL);
+    }
     const { error } = await this.supabase.client
       .from('event_documents')
       .delete()
@@ -98,7 +102,16 @@ export class EventDocumentsRepository {
   }
 }
 
-@Roles(...OPERATIONS_AND_UP)
+// Vendedor incluido desde el 03-11-2026 (Felipe: "los vendedores sí deben
+// subir captures"): la ficha del negocio les muestra los respaldos
+// comerciales y el motor se los rechazaba. Solo la categoría
+// 'comercial': contratos, órdenes de compra y facturas son de Post-Venta,
+// que sigue siendo de operaciones para arriba.
+const SOLO_COMERCIAL =
+  'Tu cargo solo puede subir o quitar respaldos comerciales.';
+const esVendedor = (user: User) => user.role === UserRole.VENDEDOR;
+
+@Roles(...SALES_AND_UP)
 @Controller('event-documents')
 export class EventDocumentsController {
   constructor(private readonly repo: EventDocumentsRepository) {}
@@ -113,11 +126,14 @@ export class EventDocumentsController {
 
   @Post()
   add(@Body() dto: AddDocumentDto, @CurrentUser() user: User) {
+    if (esVendedor(user) && dto.category !== 'comercial') {
+      throw new ForbiddenException(SOLO_COMERCIAL);
+    }
     return this.repo.add(user.company_id, dto);
   }
 
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
-    return this.repo.delete(user.company_id, id);
+    return this.repo.delete(user.company_id, id, esVendedor(user));
   }
 }
