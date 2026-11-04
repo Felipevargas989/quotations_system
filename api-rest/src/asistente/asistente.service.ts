@@ -276,12 +276,23 @@ export class AsistenteService {
     }
 
     const herramientas = herramientasPara(usuario);
-    const [pantalla, nombreEmpresa] = await Promise.all([
+    const [pantalla, nombreEmpresa, nombre] = await Promise.all([
       this.pantallaDe(dto.pantalla, empresa),
       this.repositorio.nombreDeLaEmpresa(empresa),
+      // La sesión no trae el nombre: sin él, BelIA no sabía con quién
+      // hablaba ni a pedido de quién anotar (03-11, la 447 del laboratorio).
+      usuario.id
+        ? this.repositorio
+            .nombreDeLaPersona(empresa, usuario.id)
+            .catch(() => null)
+        : Promise.resolve(null),
     ]);
+    const persona: User = {
+      ...usuario,
+      full_name: nombre ?? usuario.full_name,
+    };
     const ctx: ContextoDeHerramienta = {
-      usuario,
+      usuario: persona,
       cotizacionAbierta: pantalla.cotizacion,
       repositorio: this.repositorio,
       cotizaciones: this.cotizaciones,
@@ -301,7 +312,7 @@ export class AsistenteService {
       {
         type: 'text',
         text: instruccionesDelMomento({
-          nombre: usuario.full_name,
+          nombre: persona.full_name,
           cargo: usuario.role,
           empresa: nombreEmpresa,
           hoy,

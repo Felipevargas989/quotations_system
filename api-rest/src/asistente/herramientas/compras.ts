@@ -216,6 +216,19 @@ export const loQueHayQueComprar: Herramienta = {
           a.insumo.name.localeCompare(b.insumo.name),
       );
 
+    // Lo buscado no lo pide ningún evento: no es «falta $0», es que no hay
+    // de dónde sacar la cifra (03-11: con la carne mechada del laboratorio,
+    // BelIA leyó el $0 como lo que dice Compras).
+    if (q && filas.length === 0) {
+      return {
+        eventos_aceptados: elegidos.length,
+        nota: `Ningún insumo que calce con «${buscado}» lo piden las recetas de esos eventos: o el insumo no existe en la despensa, o los servicios que lo llevan no tienen receta. Eventia no puede calcular cuánto se necesita.`,
+        servicios_sin_receta: sinReceta.size
+          ? [...sinReceta].slice(0, 15)
+          : undefined,
+      };
+    }
+
     return {
       eventos: {
         rango: numero

@@ -115,6 +115,10 @@ export type Canal = (typeof CANALES)[number];
 
 const n = (v: unknown): number => Number(v) || 0;
 
+/** «a pedido de Camila», o «a pedido del equipo» si no hay nombre. */
+const aPedidoDe = (p: Pick<Propuesta, 'usuario_nombre'>): string =>
+  p.usuario_nombre ? `a pedido de ${p.usuario_nombre}` : 'a pedido del equipo';
+
 /** El día de una línea en palabras: «Día 2 · mar 10-11-2026». */
 export const diaEnPalabras = (dia: number, desde: string | null): string =>
   dia === 0
@@ -316,7 +320,7 @@ export class PropuestasService {
           quotation_id: q.id,
           tipo: nota.canal,
           next_contact_date: nota.proximo_contacto,
-          note: `${nota.texto}\n(BelIA, a pedido de ${p.usuario_nombre ?? 'el equipo'})`,
+          note: `${nota.texto}\n(BelIA, ${aPedidoDe(p)})`,
         });
         guardada = true;
         await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
@@ -358,7 +362,7 @@ export class PropuestasService {
       await this.anotar(
         empresa,
         q.id,
-        `BelIA, a pedido de ${p.usuario_nombre ?? 'el equipo'}: ${p.resumen}. Total ${pesos(antes)} → ${pesos(despues.parche.total_amount)}.`,
+        `BelIA, ${aPedidoDe(p)}: ${p.resumen}. Total ${pesos(antes)} → ${pesos(despues.parche.total_amount)}.`,
       );
       return {
         estado: 'aplicada',
@@ -437,7 +441,7 @@ export class PropuestasService {
       await this.anotar(
         empresa,
         q.id,
-        `BelIA deshizo, a pedido de ${p.usuario_nombre ?? 'el equipo'}: ${p.resumen}. Total de vuelta en ${pesos(parche.total_amount)}.`,
+        `BelIA deshizo, ${aPedidoDe(p)}: ${p.resumen}. Total de vuelta en ${pesos(parche.total_amount)}.`,
       );
       return {
         estado: 'deshecha',

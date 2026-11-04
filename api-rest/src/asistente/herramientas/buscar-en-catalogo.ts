@@ -1,5 +1,8 @@
 import { SALES_AND_UP } from 'src/auth/roles.decorator';
-import type { Catalogo } from 'src/quotations/generar/catalogo';
+import {
+  porPersonaDeMenu,
+  type Catalogo,
+} from 'src/quotations/generar/catalogo';
 import { ErrorDeHerramienta, pesos, texto, type Herramienta } from './comun';
 
 // «¿Cuánto vale la cena nivel 1?», «¿en qué menús va la leche asada?». El
@@ -50,6 +53,10 @@ export const buscarEn = (
       if (!calza(s.nombre)) continue;
       hallazgos.push({
         tipo: 'servicio por persona',
+        // El id, para proponer cambios (fase 2): la IA nunca escribe un
+        // precio, elige por id (03-11: sin él, BelIA no pudo agregar la
+        // leche asada a la 473 del laboratorio).
+        id: s.id,
         nombre: s.nombre,
         ...dondeVa.get(s.id),
         precio_por_persona: pesos(s.precio),
@@ -62,14 +69,16 @@ export const buscarEn = (
       if (!calza(m.nombre) && enSusItems.length === 0) continue;
       hallazgos.push({
         tipo: 'menú guardado',
+        id: m.id,
         nombre: m.nombre,
         categoria: m.categoria,
         nivel: m.nivel,
-        precio_por_persona: pesos(
-          m.items.reduce((s, i) => s + i.precio * (i.cantidad || 1), 0),
-        ),
-        servicios: m.items.map((i) =>
-          i.cantidad > 1 ? `${i.nombre} (×${i.cantidad})` : i.nombre,
+        // Con la sección fija que el menú no traiga, como la casilla que
+        // arma el cotizador.
+        precio_por_persona: pesos(porPersonaDeMenu(catalogo, m)),
+        servicios: m.items.map(
+          (i) =>
+            `${i.nombre}${i.cantidad > 1 ? ` ×${i.cantidad}` : ''} (id ${i.id})`,
         ),
       });
     }
@@ -79,6 +88,7 @@ export const buscarEn = (
       if (!calza(f.nombre)) continue;
       hallazgos.push({
         tipo: 'fijo',
+        id: f.id,
         nombre: f.nombre,
         precio: pesos(f.precio),
       });
@@ -87,7 +97,26 @@ export const buscarEn = (
   if (quiere('paquetes')) {
     for (const p of catalogo.paquetes) {
       if (!calza(p.nombre)) continue;
-      hallazgos.push({ tipo: 'paquete', nombre: p.nombre, grupo: p.grupo });
+      const nombreDe = (id: number) =>
+        catalogo.servicios.get(id)?.nombre ?? `#${id}`;
+      hallazgos.push({
+        tipo: 'paquete',
+        id: p.id,
+        nombre: p.nombre,
+        grupo: p.grupo,
+        menus: p.menus.map((id) => {
+          const m = catalogo.menus.find((x) => x.id === id);
+          return m ? `${m.categoria} → menú ${id}` : `menú ${id}`;
+        }),
+        sueltos: p.sueltos.map(
+          (x) =>
+            `${nombreDe(x.id)}${x.cantidad > 1 ? ` ×${x.cantidad}` : ''} (id ${x.id})`,
+        ),
+        fijos: p.fijos.map(
+          (x) =>
+            `${catalogo.fijos.get(x.id)?.nombre ?? `#${x.id}`} (id ${x.id})`,
+        ),
+      });
     }
   }
   return {
@@ -102,8 +131,9 @@ export const buscarEnCatalogo: Herramienta = {
   descripcion:
     'Busca en el catálogo de hoy por nombre (sin importar tildes): servicios por persona con ' +
     'su categoría y precio, menús guardados con lo que traen y su valor por persona (también ' +
-    'si el texto está en uno de sus platos), fijos con su precio y paquetes. Para armar un ' +
-    'pedido o una minuta, manda TODOS los productos juntos en `textos`: es una sola búsqueda.',
+    'si el texto está en uno de sus platos), fijos con su precio y paquetes. Cada cosa trae su ' +
+    'id: es el que va en una propuesta de cambio. Para armar un pedido o una minuta, manda ' +
+    'TODOS los productos juntos en `textos`: es una sola búsqueda.',
   esquema: {
     type: 'object',
     properties: {

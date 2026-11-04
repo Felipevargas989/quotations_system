@@ -182,6 +182,19 @@ describe('Los cambios de BelIA sobre los servicios', () => {
       },
     ]);
     expect(r.diasTocados).toEqual([1]);
+    // El principal ya iba sin guarnición: no es aviso de este cambio.
+    expect(r.avisos).toEqual([]);
+  });
+
+  it('avisa solo la forma que trae el cambio: sacar el postre sí, lo que ya venía no', () => {
+    const r = editarFoto(
+      foto(),
+      [{ accion: 'quitar', dia: 1, categoria: 'Cena', ids: ['3'] }],
+      catalogo(),
+      evento,
+    );
+    if (!r.ok) throw new Error(r.errores.join(' | '));
+    expect(r.avisos).toEqual(['Día 1 · Cena: no trae postre.']);
   });
 
   it('pone una casilla con un menú guardado: la sección fija entra sola y va en su día', () => {

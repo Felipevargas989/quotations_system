@@ -136,6 +136,25 @@ export class AsistenteRepository {
     return (data as { name: string | null } | null)?.name ?? null;
   }
 
+  /** El nombre de quien escribe: la sesión no lo trae (solo id, empresa,
+   *  cargo y correo; AuthGuard). Se busca por el id de la sesión
+   *  (`user_profiles.user_id`) y con su empresa. */
+  async nombreDeLaPersona(
+    companyId: Company['id'],
+    userId: string,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from('user_profiles')
+      .select('full_name')
+      .eq('user_id', userId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (
+      (data as { full_name: string | null } | null)?.full_name?.trim() || null
+    );
+  }
+
   /** La cotización que la persona tiene abierta, si es de su empresa. */
   async cotizacionVista(
     companyId: Company['id'],

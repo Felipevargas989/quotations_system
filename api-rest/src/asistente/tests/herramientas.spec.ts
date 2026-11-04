@@ -136,6 +136,8 @@ describe('buscar_en_catalogo', () => {
     expect(r.resultados).toEqual([
       {
         tipo: 'servicio por persona',
+        // El id va para proponer cambios (fase 2).
+        id: 11,
         nombre: 'Leche asada',
         categoria: 'Cena',
         seccion: 'Postres',
@@ -145,13 +147,14 @@ describe('buscar_en_catalogo', () => {
         tipo: 'menú guardado',
         nombre: 'Cena nivel 1 - pollo',
         precio_por_persona: '$8.000',
+        servicios: ['Pollo al jugo (id 10)', 'Leche asada (id 11)'],
       }),
     ]);
   });
 
   it('acota por tipo', () => {
     expect(buscarEn(catalogo, 'salon', 'fijos').resultados).toEqual([
-      { tipo: 'fijo', nombre: 'Salón principal', precio: '$300.000' },
+      { tipo: 'fijo', id: 5, nombre: 'Salón principal', precio: '$300.000' },
     ]);
     expect(buscarEn(catalogo, 'salon', 'menus').encontrados).toBe(0);
   });
