@@ -6,10 +6,12 @@ import {
   ListChecks,
   Minus,
   PawPrint,
+  RotateCcw,
   Send,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import ConfirmInline from "../ConfirmInline";
 import BeliaAvatar from "./BeliaAvatar";
 import PropuestaDeBelia from "./PropuestaDeBelia";
 import RespuestaDeBelia from "./RespuestaDeBelia";
@@ -43,6 +45,7 @@ export default function BeliaVentanilla() {
   const b = useBelia();
   const [texto, setTexto] = useState("");
   const [verBurbuja, setVerBurbuja] = useState(false);
+  const [confirmandoNueva, setConfirmandoNueva] = useState(false);
   const finRef = useRef<HTMLDivElement>(null);
   const campoRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,6 +68,8 @@ export default function BeliaVentanilla() {
 
   useEffect(() => {
     if (b.abierta) campoRef.current?.focus();
+    // La pregunta de «Nueva conversación» no queda abierta para la próxima.
+    else setConfirmandoNueva(false);
   }, [b.abierta]);
 
   if (!b.puede) return null;
@@ -192,13 +197,15 @@ export default function BeliaVentanilla() {
         >
           <Minus size={18} />
         </button>
+        {/* La «×» solo cierra: la conversación queda guardada (Felipe,
+            04-11-2026: «acabo de actualizar y no se guardó la
+            conversación»; la «×» la borraba). Borrarla es «Nueva
+            conversación», abajo, después de preguntar. */}
         <button
           type="button"
-          onClick={() => {
-            b.nuevaConversacion();
-            b.cerrar();
-          }}
-          aria-label="Terminar la conversación"
+          onClick={b.cerrar}
+          aria-label="Cerrar"
+          title="Cerrar: la conversación queda guardada"
           className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white"
         >
           <X size={18} />
@@ -290,6 +297,30 @@ export default function BeliaVentanilla() {
       </div>
 
       <div className="border-t border-slate-200 bg-white px-3 py-3">
+        {b.turnos.length > 0 && !b.pensando && (
+          <div className="mb-2 flex justify-start">
+            {confirmandoNueva ? (
+              <ConfirmInline
+                question="¿Borrar esta conversación?"
+                yesLabel="Sí, borrar"
+                onYes={() => {
+                  setConfirmandoNueva(false);
+                  b.nuevaConversacion();
+                }}
+                onNo={() => setConfirmandoNueva(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoNueva(true)}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <RotateCcw size={12} aria-hidden="true" />
+                Nueva conversación
+              </button>
+            )}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <label htmlFor="belia-mensaje" className="sr-only">
             Mensaje para BelIA

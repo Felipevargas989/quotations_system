@@ -261,17 +261,19 @@ export class AsistenteRepository {
     return (data ?? []) as unknown as FilaDeLista[];
   }
 
-  async clientes(
+  /** Los clientes de la empresa, para buscarlos como el buscador de la
+   *  casa (sin tildes y por palabras, en `buscar_clientes`): con `ilike`,
+   *  «Matias» no encontraba a «Matías». Son pocos (475 en Valle del Sol el
+   *  04-11-2026); el tope es de seguridad. */
+  async clientesDeLaEmpresa(
     companyId: Company['id'],
-    texto: string,
   ): Promise<FilaDeCliente[]> {
     const { data, error } = await this.supabase.client
       .from('clients')
       .select('id, name, client_type, email, phone, contact_person')
       .eq('company_id', companyId)
-      .ilike('name', `%${literal(texto)}%`)
       .order('name', { ascending: true })
-      .limit(10);
+      .range(0, 2999);
     if (error) throw error;
     return (data ?? []) as FilaDeCliente[];
   }
@@ -289,7 +291,9 @@ export class AsistenteRepository {
       .eq('company_id', companyId)
       .in('client_id', clientes)
       .order('event_date', { ascending: false, nullsFirst: false })
-      .limit(200);
+      // Varios clientes de una vez (hasta 15 nombres): cada uno trae sus
+      // seis últimas, y con 200 se cortaban.
+      .limit(1000);
     if (error) throw error;
     return (data ?? []) as CotizacionDeCliente[];
   }

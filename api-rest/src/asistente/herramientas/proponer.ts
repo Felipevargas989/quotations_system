@@ -1,4 +1,5 @@
 import { RECEPTION_AND_UP, SALES_AND_UP } from 'src/auth/roles.decorator';
+import type { CambioDeCabecera } from '../propuestas/cabecera';
 import { CANALES, type Canal } from '../propuestas/comun';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
 import {
@@ -98,6 +99,41 @@ export const leerCambios = (v: unknown): Cambio[] => {
   });
 };
 
+/** Las personas del evento y el descuento (04-11-2026, `cabecera.ts`),
+ *  leídos sin creerle a la IA. undefined = la propuesta no los cambia. */
+export const leerCabecera = (
+  entrada: Record<string, unknown>,
+): CambioDeCabecera | undefined => {
+  const cabecera: CambioDeCabecera = {};
+  const p = entrada.personas_del_evento;
+  if (p && typeof p === 'object') {
+    const o = p as Record<string, unknown>;
+    const total = entero(o.total, 1, 100_000);
+    if (total === undefined) {
+      throw new ErrorDeHerramienta(
+        '`personas_del_evento.total`: cuántas personas son en total, niños incluidos.',
+      );
+    }
+    cabecera.personas = { total, ninos: entero(o.ninos, 0, 100_000) };
+  }
+  const d = entrada.descuento;
+  if (d && typeof d === 'object') {
+    const o = d as Record<string, unknown>;
+    const pct =
+      typeof o.porcentaje === 'number' && Number.isFinite(o.porcentaje)
+        ? Math.round(o.porcentaje * 100) / 100
+        : undefined;
+    const monto = entero(o.monto, 0, 10_000_000_000);
+    if ((pct === undefined) === (monto === undefined)) {
+      throw new ErrorDeHerramienta(
+        '`descuento`: uno de los dos, `porcentaje` (10 = 10 %) o `monto` en pesos. 0 lo saca.',
+      );
+    }
+    cabecera.descuento = pct !== undefined ? { porcentaje: pct } : { monto };
+  }
+  return cabecera.personas || cabecera.descuento ? cabecera : undefined;
+};
+
 /** La cotización: la del N°, o la que la persona tiene abierta. */
 const cual = (
   entrada: Record<string, unknown>,
@@ -132,7 +168,9 @@ export const proponerCambioDeServicios: Herramienta = {
     'Propone cambiar los servicios de una cotización: agregar o quitar servicios del catálogo de ' +
     'una casilla (un día, una categoría, adultos o niños), cambiar sus personas, poner una casilla ' +
     'entera (un menú guardado adaptado, como «Crear con IA»: así se arma una minuta día por día), ' +
-    'sacar una casilla, o poner y sacar fijos. NO cambia nada: arma la propuesta y la persona la ' +
+    'sacar una casilla, o poner y sacar fijos. También las personas del evento (adultos y niños, ' +
+    'solo si no está aceptada: las casillas que tenían el total lo siguen, como en el cotizador) y ' +
+    'el descuento que la persona pida, con el tope de su cargo. NO cambia nada: arma la propuesta y la persona la ' +
     'aprueba con «Sí, aplicar». Eventia pone los nombres y los precios del catálogo; tú solo ids y ' +
     'cantidades. Antes, mira la ficha (ver_cotizacion trae el id de cada servicio) y busca en el ' +
     'catálogo. Todos los cambios de una vez, en una sola propuesta. Sin `numero`, la cotización ' +
@@ -146,9 +184,28 @@ export const proponerCambioDeServicios: Herramienta = {
         description:
           'Una línea para la persona y la bitácora: «Leche asada en vez de leche nevada los días 1 y 13».',
       },
+      personas_del_evento: {
+        type: 'object',
+        description:
+          'Las personas del evento, solo si cambian: `total` (niños incluidos) y `ninos`. Solo en una cotización no aceptada.',
+        properties: {
+          total: { type: 'integer' },
+          ninos: { type: 'integer' },
+        },
+        required: ['total'],
+      },
+      descuento: {
+        type: 'object',
+        description:
+          'Solo si la persona lo pide (nunca lo ofrezcas tú): `porcentaje` (10 = 10 %) o `monto` en pesos; 0 lo saca. Tope: administración 40 %, ventas y operaciones 15 %.',
+        properties: {
+          porcentaje: { type: 'number' },
+          monto: { type: 'integer' },
+        },
+      },
       cambios: {
         type: 'array',
-        description: `Los cambios, en orden (hasta ${MAX_CAMBIOS}).`,
+        description: `Los cambios de servicios, en orden (hasta ${MAX_CAMBIOS}). Puede ir vacío si solo cambian las personas del evento o el descuento.`,
         items: {
           type: 'object',
           properties: {
@@ -227,7 +284,7 @@ export const proponerCambioDeServicios: Herramienta = {
         },
       },
     },
-    required: ['resumen', 'cambios'],
+    required: ['resumen'],
   },
   cargos: SALES_AND_UP,
   async ejecutar(entrada, ctx) {
@@ -237,12 +294,21 @@ export const proponerCambioDeServicios: Herramienta = {
         'Falta el `resumen`: una línea para la persona.',
       );
     }
+    const cabecera = leerCabecera(entrada);
+    const hayServicios =
+      Array.isArray(entrada.cambios) && entrada.cambios.length > 0;
+    if (!hayServicios && !cabecera) {
+      throw new ErrorDeHerramienta(
+        'Falta qué cambiar: `cambios` de servicios, `personas_del_evento` o `descuento`.',
+      );
+    }
     const tarjeta = await ctx.propuestas.proponerServicios(
       ctx.usuario,
       cual(entrada, ctx),
-      leerCambios(entrada.cambios),
+      hayServicios ? leerCambios(entrada.cambios) : [],
       resumen,
       ctx.hoy,
+      cabecera,
     );
     mostrar(ctx, tarjeta);
     return {
