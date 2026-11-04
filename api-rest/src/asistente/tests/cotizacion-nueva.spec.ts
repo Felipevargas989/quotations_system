@@ -152,9 +152,13 @@ describe('Crear evento', () => {
       'aplicando',
       expect.objectContaining({ estado: 'aplicada', quotation_id: 'q-nueva' }),
     );
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(
       1,
-      expect.objectContaining({ quotation_id: 'q-nueva' }),
+      expect.objectContaining({
+        quotation_id: 'q-nueva',
+        note: expect.stringMatching(/^A pedido de.*: creó la cotización\./),
+      }),
     );
+    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
   });
 });

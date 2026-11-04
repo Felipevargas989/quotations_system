@@ -245,6 +245,7 @@ export const armarServicio = (
   };
   const bitacora = {
     crearComoAsistente: jest.fn().mockResolvedValue({}),
+    crearComoBelia: jest.fn().mockResolvedValue({}),
   };
   const generar = {
     catalogo: jest.fn().mockResolvedValue(catalogo()),

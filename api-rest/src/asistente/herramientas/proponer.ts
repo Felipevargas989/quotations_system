@@ -264,7 +264,7 @@ export const proponerNota: Herramienta = {
   descripcion:
     'Propone una nota en la bitácora (Seguimiento) de una cotización: lo que la persona hizo o ' +
     'acordó, por qué canal y, si quedó, el próximo contacto. NO la escribe: la persona la aprueba. ' +
-    'Queda a nombre del Asistente, «a pedido de» quien la pidió. Sin `numero`, la cotización abierta.',
+    'Queda a nombre de BelIA, «a pedido de» quien la pidió. Sin `numero`, la cotización abierta.',
   esquema: {
     type: 'object',
     properties: {

@@ -12,7 +12,7 @@ import {
   PERSONAJES,
   colorAutomatico,
   colorDePersona,
-  imagenDePersonaje,
+  esPersonajeElegible,
   nombreDeAutor,
 } from "../../utils/personajes";
 
@@ -38,10 +38,10 @@ export default function TuPersonaje() {
   const { porUsuario } = useApariencias();
   const queryClient = useQueryClient();
   const mia = user ? porUsuario.get(user.id) : undefined;
-  const guardadoPersonaje = imagenDePersonaje(mia?.personaje)
+  const guardadoPersonaje = esPersonajeElegible(mia?.personaje)
     ? (mia?.personaje ?? null)
     : null;
-  // El gris grafito es del Asistente: si alguien lo tuviera, se ve el automático.
+  // El gris grafito es de la IA: si alguien lo tuviera, se ve el automático.
   const guardadoColor = colorDePersona(mia?.color);
 
   const [personaje, setPersonaje] = useState<string | null>(null);

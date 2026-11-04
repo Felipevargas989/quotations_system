@@ -27,8 +27,9 @@ import {
   pesos,
 } from '../herramientas/comun';
 import {
-  anotarComoAsistente,
+  anotarComoBelia,
   aPedidoDe,
+  aPedidoDeAlComienzo,
   ESTADOS,
   lineasDeLaTarjeta,
   type Canal,
@@ -69,7 +70,7 @@ const n = (v: unknown): number => Number(v) || 0;
 //    (la huella), el cargo, el estado y los días ya servidos. Recién ahí se
 //    guarda, por la MISMA puerta del cotizador (`QuotationsService.update`,
 //    con la cuenta del dinero y la cascada del plan de pagos).
-// 3. Queda en la bitácora a nombre del Asistente y de quien lo pidió, con el
+// 3. Queda en la bitácora a nombre de BelIA y de quien lo pidió, con el
 //    antes guardado para deshacer (`deshacer`, solo lo no vendido: en una
 //    vendida la cascada del plan no tiene vuelta exacta).
 
@@ -247,11 +248,11 @@ export class PropuestasService {
 
       if (p.tipo === 'nota') {
         const nota = (p.despues as { nota: NotaGuardada }).nota;
-        await this.bitacora.crearComoAsistente(empresa, {
+        await this.bitacora.crearComoBelia(empresa, {
           quotation_id: q.id,
           tipo: nota.canal,
           next_contact_date: nota.proximo_contacto,
-          note: `${nota.texto}\n(BelIA, ${aPedidoDe(p)})`,
+          note: `${nota.texto}\n(${aPedidoDe(p)})`,
         });
         guardada = true;
         await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
@@ -290,12 +291,12 @@ export class PropuestasService {
       guardada = true;
       const antes = n((p.antes as { total_amount?: number }).total_amount);
       await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
-      await anotarComoAsistente(
+      await anotarComoBelia(
         this.bitacora,
         this.logger,
         empresa,
         q.id,
-        `BelIA, ${aPedidoDe(p)}: ${p.resumen}. Total ${pesos(antes)} → ${pesos(despues.parche.total_amount)}.`,
+        `${aPedidoDeAlComienzo(p)}: ${p.resumen}. Total ${pesos(antes)} → ${pesos(despues.parche.total_amount)}.`,
       );
       return {
         estado: 'aplicada',
@@ -374,12 +375,12 @@ export class PropuestasService {
         .catch((e: unknown) =>
           this.logger.warn(`propuesta ${id}: ${mensajeDe(e)}`),
         );
-      await anotarComoAsistente(
+      await anotarComoBelia(
         this.bitacora,
         this.logger,
         empresa,
         q.id,
-        `BelIA deshizo, ${aPedidoDe(p)}: ${p.resumen}. Total de vuelta en ${pesos(parche.total_amount)}.`,
+        `Deshizo, ${aPedidoDe(p)}: ${p.resumen}. Total de vuelta en ${pesos(parche.total_amount)}.`,
       );
       return {
         estado: 'deshecha',
