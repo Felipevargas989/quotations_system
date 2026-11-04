@@ -24,6 +24,7 @@ import {
   DURACION_DE_LA_CACHE,
   ENCENDIDO,
   errorDeIA,
+  ESQUEMA_DE_RESPUESTA,
   instruccionesComunes,
   MAX_BYTES_DE_BASES,
   MAX_BYTES_DE_PDF,
@@ -238,6 +239,23 @@ export const ESQUEMA_DE_BASES = {
   additionalProperties: false,
 } as const;
 
+/** EL MISMO FORMATO EN EL ANÁLISIS Y EN LAS PREGUNTAS (decisión 115, 04-11;
+ *  Felipe: "sí, arregla lo de la primera pregunta"). La API pone las
+ *  instrucciones del formato de la respuesta en el sistema, antes de los
+ *  documentos: con un formato para cada uno, el comienzo del pedido no era
+ *  el mismo y la primera pregunta después del análisis nunca leyó la caché
+ *  que este dejó (medido en producción: 4 de 4 dentro de la hora). Los dos
+ *  piden este formato, con las dos respuestas posibles, y cada uno dice
+ *  después de la marca de caché cuál llena. */
+export const FORMATO_DE_LAS_BASES = jsonSchemaOutputFormat({
+  type: 'object',
+  properties: {
+    analisis_de_las_bases: ESQUEMA_DE_BASES,
+    respuesta_a_la_pregunta: ESQUEMA_DE_RESPUESTA,
+  },
+  additionalProperties: false,
+} as const);
+
 /** Lo que se sabe de la licitación y de la empresa, para leer con
  *  contexto. */
 export type { ContextoDeBases };
@@ -265,7 +283,7 @@ export const razonSegunLasBases = (
 /** Lo que se le pide al análisis, DESPUÉS de la marca de caché (así no
  *  cambia el prefijo que comparte con «Pregúntale a la IA»). */
 export const PEDIDO_DE_ANALISIS: string = [
-  'RESPONDE',
+  'RESPONDE en «analisis_de_las_bases» (deja fuera «respuesta_a_la_pregunta»):',
   '- resumen: 2 a 4 frases: qué se contrata, para cuántas personas, cuándo y dónde.',
   '- lugar: dónde se presta el servicio según las bases, o "lo propone el oferente".',
   '- se_puede_en_el_complejo: "si" si el servicio se puede prestar en las instalaciones de la empresa o el lugar lo propone el oferente; "no" si exige otro lugar; "dudoso" si no queda claro.',
@@ -521,7 +539,8 @@ export class AnalisisService {
         max_tokens: 16000,
         output_config: {
           effort: 'medium',
-          format: jsonSchemaOutputFormat(ESQUEMA_DE_BASES),
+          // El mismo formato que las preguntas (decisión 115).
+          format: FORMATO_DE_LAS_BASES,
         },
         // El prefijo compartido con «Pregúntale a la IA» (decisión 67):
         // sistema y documentos idénticos, con la marca de caché de 1 hora;
@@ -545,7 +564,12 @@ export class AnalisisService {
       const entrada = uso.entrada + uso.cacheEscrita + uso.cacheLeida;
       const salida = uso.salida;
       const costo = costoDelUso(uso, MODELO_BASES, DURACION_DE_LA_CACHE);
-      if (!respuesta.parsed_output) {
+      const bases = (
+        respuesta.parsed_output as unknown as {
+          analisis_de_las_bases?: Record<string, unknown>;
+        } | null
+      )?.analisis_de_las_bases;
+      if (!bases) {
         await this.repo.terminar(companyId, analisisId, {
           estado: 'error',
           no_leidos: noLeidosFinal,
@@ -556,10 +580,6 @@ export class AnalisisService {
         });
         return;
       }
-      const bases = respuesta.parsed_output as unknown as Record<
-        string,
-        unknown
-      >;
       const cumplir = await this.puedoCumplir(companyId, contexto, bases);
       await this.repo.terminar(companyId, analisisId, {
         estado: 'listo',
@@ -578,7 +598,7 @@ export class AnalisisService {
         costo_usd: Math.round((costo + cumplir.costo) * 10_000) / 10_000,
       });
       this.logger.info(
-        `análisis ${analisisId} listo: ${entrada} tokens de entrada, ${salida} de salida, US$${costo}; ¿puedo cumplir?: US$${cumplir.costo}`,
+        `análisis ${analisisId} listo: ${entrada} tokens de entrada (${uso.cacheLeida} leídos de la caché, ${uso.cacheEscrita} escritos), ${salida} de salida, US$${costo}; ¿puedo cumplir?: US$${cumplir.costo}`,
       );
       // El color sigue a lo que dicen las bases (Felipe, 17-10: el punto
       // amarillo y "Se puede hacer en el complejo" se contradecían): verde

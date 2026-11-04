@@ -251,8 +251,9 @@ describe('Pregúntale a la IA: pedir', () => {
 });
 
 describe('Pregúntale a la IA: responder', () => {
+  // La pregunta llena su parte del formato compartido (decisión 115).
   const respuestaDeOpus = (parsed: unknown, stop = 'end_turn') => ({
-    parsed_output: parsed,
+    parsed_output: parsed === null ? null : { respuesta_a_la_pregunta: parsed },
     stop_reason: stop,
     usage: {
       input_tokens: 50,
