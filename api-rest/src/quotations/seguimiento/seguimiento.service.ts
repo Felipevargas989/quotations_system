@@ -517,10 +517,12 @@ export class SeguimientoConIAService {
       decision.modo === 'nuevo'
         ? `en ${decision.buzon} (correo nuevo: no había hilo)`
         : `en el hilo de ${decision.buzon}`;
-    // Lo que escribe la IA lo firma el Asistente, con su robot (Felipe,
-    // 28-10-2026: «todo lo que coloque la IA déjalo con la etiqueta de IA»).
+    // Lo firma BelIA, a pedido de quien apretó «✉ Generar seguimiento»
+    // (Felipe, 04-11-2026: «si yo presiono generar seguimiento, eso lo hizo
+    // BelIA»). Las rutinas de correo de la empresa van aparte: no son de
+    // Eventia.
     await this.bitacora
-      .crearComoAsistente(companyId, {
+      .crearComoBeliaAPedidoDe(user, {
         quotation_id: id,
         tipo: 'correo',
         next_contact_date: null,
@@ -688,7 +690,8 @@ export class SeguimientoConIAService {
       const proximo = ESTADOS_CON_SEGUIMIENTO.includes(q.quotation_status)
         ? proximoTrasElEnvio(envio.fecha, sinRespuesta)
         : null;
-      await this.bitacora.crearComoAsistente(companyId, {
+      // El envío lo ve Eventia sola en Outlook: BelIA, sin «a pedido de».
+      await this.bitacora.crearComoBelia(companyId, {
         quotation_id: fila.quotation_id,
         note: notaDelEnvio({
           buzon: fila.buzon,

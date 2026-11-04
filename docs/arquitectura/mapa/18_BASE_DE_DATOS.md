@@ -324,7 +324,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `clients` | `clients` | `clients`, `marketing`, funciones SQL de análisis; embebida desde `quotations`, `payments`, `refunds`, `logistics`, `movil`, `people`, `customer_satisfaction_survey` y `portal-receipts.controller.ts` |
 | `client_contacts` | `clients` (`client-contacts.controller.ts`, que contiene `ClientContactsRepository`) | `clients`, `marketing`, `quotations`; embebida desde `clients` y `portal-receipts.controller.ts` |
 | `client_types` | `clients` | `clients` |
-| `quotation_followups` | `quotation-followups` (también la línea «Asistente» de los correos, `crearComoAsistente`, y la de BelIA, `crearComoBelia` y `crearComoBeliaAPedidoDe`: lo demás que escribe la IA, desde el 04-11) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
+| `quotation_followups` | `quotation-followups` (también las líneas de BelIA, `crearComoBelia` y `crearComoBeliaAPedidoDe`: todo lo que escribe la IA de Eventia desde el 04-11; `crearComoAsistente` ya no la usa el motor: «Asistente» queda para las rutinas de correo de la empresa) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
 | `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
 | `choques_de_fecha` | `quotations` (`choques/choques.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |

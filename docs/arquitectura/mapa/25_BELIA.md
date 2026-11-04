@@ -172,7 +172,7 @@ De la fase 2 (03-11):
 - `computeMoney` de `quotations/utils/money.ts`;
 - `repartirRebaja` y `repartirAlza` de `payments/cuotas-que-se-llenan.ts` (doc 14), para mostrar las cuotas;
 - `LogisticsService` (lecturas de Compras y `findDayPrints`) y `logistics/utils/consolidacion.ts`;
-- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoBelia`, la bitácora (la misma puerta que `crearComoAsistente`, firmada «BelIA»). Desde el 04-11 también firman «BelIA» «✨ Crear con IA» y el armado de una postulación (`crearComoBeliaAPedidoDe`, con «A pedido de …») y la ganada que se acepta sola; los correos siguen con el Asistente (doc 20 §15);
+- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoBelia`, la bitácora (la misma puerta que `crearComoAsistente`, firmada «BelIA»). Desde el 04-11 también firman «BelIA» «✨ Crear con IA», el borrador de «✉ Generar seguimiento» y el armado de una postulación (`crearComoBeliaAPedidoDe`, con «A pedido de …»), y el envío del seguimiento y la ganada que se acepta sola (`crearComoBelia`); el «Asistente» queda para las rutinas de correo de la empresa, fuera de Eventia (doc 20 §15);
 - de `oportunidades/analisis/comun.ts`: `costoDelUso`, `usoDeLaRespuesta`, `hoyEnChile` y `errorDeIA`.
 
 **Lo que usa de la app:**
