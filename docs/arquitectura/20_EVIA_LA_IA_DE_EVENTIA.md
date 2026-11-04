@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 en el laboratorio desde el 03-11 (ver abajo). Nada en producción.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -142,6 +142,11 @@
 >   hora se vuelve a escribir).
 > - **Falta:** con su «a producción», las dos migraciones (180 y 181) y el
 >   motor, y después la vitrina.
+> - **04-11, 00:2x · «a producción»** (Felipe). Las migraciones 180 y 181,
+>   **aplicadas en producción** y verificadas (respaldo de los módulos de la
+>   empresa 1 en `02_RESPALDOS/cambios_de_datos`). El motor y la vitrina van
+>   con la fusión del PR a main, después de las 07:00: fusionar reinicia el
+>   motor de producción y de noche eso corta el radar de Oportunidades.
 >
 > **04-11-2026, madrugada · Las tres que faltaban** (Felipe: *"haz las 3
 > primeras"*, de la lista contra este plan).
@@ -170,6 +175,34 @@
 >   «Crear evento» vive en `propuestas/cotizacion-nueva.service.ts` y lo de
 >   la tabla de propuestas en `propuestas/propuestas.repository.ts`.
 > - 1.838 pruebas del motor y las de la app en verde.
+> - **En el laboratorio desde el 04-11** (pruebas `ace8b33`, vitrina
+>   6aeaa31d) y probado en la pantalla con la sesión de Felipe:
+>   - la burbuja de aviso salió sola por los topes de calendario, y «¿Qué
+>     tengo que revisar hoy?» los listó (4 cotizaciones, con la aceptada con
+>     que chocan);
+>   - la respuesta en vivo llegó en 34 trozos, del segundo 1,6 al 3,4:
+>     Railway no la junta;
+>   - «Crear evento» armó y creó la N° 484 de prueba (Cliente demo, 27-11,
+>     30 adultos, $432.000 = $14.400 × 30), con el aviso del tope y las
+>     observaciones en blanco. **La 484 quedó en el laboratorio.**
+>
+>   La prueba costó US$ 0,14 (la propuesta de «Crear evento», US$ 0,035).
+>
+> **04-11-2026, madrugada · EN PRODUCCIÓN** (Felipe: *"fusiona ahora"*,
+> sin esperar las 07:00: el radar de Oportunidades no estaba corriendo).
+> - El PR #288 se fusionó a main (`cc03e22d`). El motor de producción
+>   subió con esa versión y la vitrina de producción es la 6aeaa85b. Las
+>   migraciones 180 y 181 ya estaban aplicadas (arriba).
+> - La primera pregunta real, «¿Qué tengo que revisar hoy?», contestó con
+>   los datos de Valle del Sol: 20 cotizaciones con tope de calendario.
+> - De esa pregunta salió un arreglo de pantalla: una tabla escrita justo
+>   debajo de un párrafo, sin línea en blanco, se veía como texto con
+>   rayas. `belia.ts` ahora la separa antes de leer los bloques
+>   (`separarTablas`, con su prueba). Va en el PR siguiente, solo
+>   pantalla: no reinicia el motor.
+> - **Falta que Felipe decida:** si se guardan las conversaciones (§11,
+>   pregunta 3) y si confirma las seis decisiones por defecto de la fase 2
+>   (arriba).
 
 ## 1. Por qué
 
@@ -445,7 +478,8 @@ camino entre Railway y la vitrina.
      usa un insumo (`service_recipe_items`);
    - proveedores y mobiliario;
    - personal, solo para administración.
-4. **Prueba de Felipe** en el lab y, con su «a producción», a producción.
+4. **Prueba de Felipe** en el lab y, con su «a producción», a producción
+   (hecho el 04-11, PR #288).
 
 **Fase 2 · Cambios con OK.** Primero las cotizaciones no vendidas, las
 minutas y las notas de la bitácora. Después las aceptadas, con lo del §5.
