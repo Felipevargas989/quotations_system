@@ -66,6 +66,7 @@ const armar = (respuestas: unknown[], gastado = 0) => {
     gastoDelMes: jest.fn().mockResolvedValue(gastado),
     registrarUso: jest.fn().mockResolvedValue(undefined),
     nombreDeLaEmpresa: jest.fn().mockResolvedValue('Valle del Sol'),
+    nombreDeLaPersona: jest.fn().mockResolvedValue('Camila Torres'),
     cotizacionVista: jest.fn().mockResolvedValue(null),
     buscarCotizaciones: jest.fn().mockResolvedValue({
       total: 1,
@@ -116,9 +117,14 @@ describe('AsistenteService (BelIA)', () => {
   });
 
   it('contesta y anota la cuenta del mes con la empresa de la sesión', async () => {
-    const { servicio, repositorio } = armar([texto('Hola, Camila.')]);
+    const { servicio, repositorio, create } = armar([texto('Hola, Camila.')]);
     const r = await servicio.responder({ mensaje: 'hola' }, usuario());
     expect(r.respuesta).toBe('Hola, Camila.');
+    // La sesión no trae el nombre: BelIA lo lee del perfil, con la empresa.
+    expect(repositorio.nombreDeLaPersona).toHaveBeenCalledWith(1, 'perfil-1');
+    expect(JSON.stringify(create.mock.calls[0][0])).toContain(
+      'Te escribe Camila Torres',
+    );
     expect(r.costo_usd).toBeGreaterThan(0);
     const [fila] = repositorio.registrarUso.mock.calls[0] as [
       Record<string, unknown>,

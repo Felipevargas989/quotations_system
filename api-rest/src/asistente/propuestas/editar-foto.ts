@@ -545,15 +545,26 @@ export function editarFoto(
       });
     }
     // La forma de la comida, como la revisa «Crear con IA»: avisa, no
-    // impide.
+    // impide. Solo lo que trae el cambio: lo que la casilla ya tenía (dos
+    // bebestibles en la 447 del laboratorio) no es asunto de esta propuesta.
     const cat = categoriaDe(c);
     if (cat) {
+      const donde = `Día ${diaDe(c)} · ${c.category}`;
+      const yaEstaban = new Set(
+        o
+          ? avisosDeForma(
+              cat,
+              (o.items ?? []).map((x) => String(x.codigo)),
+              donde,
+            )
+          : [],
+      );
       avisos.push(
         ...avisosDeForma(
           cat,
           items.map((x) => String(x.codigo)),
-          `Día ${diaDe(c)} · ${c.category}`,
-        ),
+          donde,
+        ).filter((a) => !yaEstaban.has(a)),
       );
     }
   }
