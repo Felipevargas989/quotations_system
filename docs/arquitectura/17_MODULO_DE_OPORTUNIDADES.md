@@ -794,6 +794,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Lo que cambia en la plata**: nada en el análisis, que ya pagaba la caché de 1 hora. La primera pregunta de esa hora pasa a leerla, al 5 % de la entrada. Pasada la hora, la primera pregunta la vuelve a escribir, como antes.
     - Lo fija `el-mismo-comienzo.spec.ts`: hasta la marca de los documentos, el análisis y la pregunta mandan lo mismo (modelo, esfuerzo, formato, sistema y documentos). El registro del análisis ahora dice cuánto leyó de la caché y cuánto escribió, como el de las preguntas.
     - Probada en el laboratorio con la 1057432-97-LE26: el análisis escribió 71.956 tokens en la caché (US$0,73) y la primera pregunta, 26 segundos después, leyó esos mismos 71.956 y costó US$0,04, con 3 citas y seguridad alta. Antes de la 115 esa primera pregunta habría vuelto a escribirlos: unos US$0,60.
+117. **«No es para ti»: cuando las bases piden otro lugar, «Lo que te deja fuera» lo dice arriba en burdeo y se desiste de un clic** (04-11, en el laboratorio). Felipe, con la de San Ignacio a la vista: *"cuando la licitación es excluyente de por sí, que no es mi opción, debería estar marcado de otra forma para anularlo altiro"*; y del color: *"un rojo más intenso y las letras claras... que se note de, oye, ni la leas... yo la dejaría en rojo burdeo o un rojo vino tinto"*. Su ejemplo: *"se necesita arriendo de salón en Talca. Yo no tengo salón en Talca... ni siquiera es algo que es una decisión mía"*.
+    - Sale cuando el análisis dice que exigen otro lugar (`se_puede_en_el_complejo = "no"`), el mismo dato que ya pinta de rojo la licitación en la bandeja (decisión 21). Arriba de la lista de la IA, sin cuadros nuevos: «No es para ti: las bases te dejan fuera» y, debajo, «Piden otro lugar:» con lo que leyó la IA, en burdeo (`bg-rose-900`) con letra clara (`NoEsParaTi`).
+    - Al lado, «Desistir de esta licitación», el mismo botón y el mismo modal del porqué de «Lo que tienes que ofrecer» (decisiones 37 y 113), ahora en una sola pieza: `DesistirDeLaLicitacion`. Descartada, postulada, ganada o perdida, no se ofrece.
+    - No se descarta sola: la decisión queda en Felipe.
+    - Lo fijan `NoEsParaTi.test.tsx` y `AnalisisYValidacion.test.tsx`.
 
 ## 4. Reglas del módulo (no se negocian)
 
