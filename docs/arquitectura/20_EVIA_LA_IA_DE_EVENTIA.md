@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, en el laboratorio desde el 04-11. La conversación guardada por persona y BelIA para recepción, en el laboratorio desde el 04-11 (§13; la migración 182, solo en el lab). Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -226,8 +226,8 @@
 > - Lo que escriben las otras IA («✉ Generar seguimiento», «✨ Crear con
 >   IA», Oportunidades) sigue a nombre del «Asistente», con el robot.
 > - En el laboratorio, las notas de BelIA ya escritas pasaron a la firma
->   nueva, con respaldo. En producción queda una sola (la de Marval, N°
->   743): pasa con el «a producción», con su respaldo.
+>   nueva, con respaldo. En producción había una sola (la de Marval, N°
+>   743): pasó con el «a producción» del 04-11, con su respaldo.
 >
 > **04-11-2026, mediodía · La conversación de cada persona y BelIA para
 > recepción, en el laboratorio** (Felipe: *"Sí, me parece bien"* a la
@@ -236,6 +236,12 @@
 > importa ... esto se paga solo, así que vamos"*). El detalle va en el §13.
 > Resuelve la pregunta 3 del §11: las conversaciones se guardan, pero
 > cada una es solo de su persona.
+>
+> **04-11-2026, tarde · Las tres, en producción** (Felipe: *"a
+> producción"*). La 182 se aplicó en la base de producción antes de subir
+> el motor, y la nota de Marval (N° 743) pasó a la firma de BelIA, con su
+> respaldo en `02_RESPALDOS/cambios_de_datos`. Recepción quedó probada solo
+> con las pruebas del motor.
 
 ## 1. Por qué
 
