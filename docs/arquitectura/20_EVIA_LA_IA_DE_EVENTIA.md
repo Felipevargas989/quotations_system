@@ -821,8 +821,11 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
 > promedio; 0 fallos; 4 propuestas y las 4 aplicadas) y respondió *"vamos
 > con todas las mejoras que propusiste, me gustaron todas"*. Van al
 > laboratorio por tandas; a producción, solo con su «a producción».
-> La tanda A (1 y 2) y la B (3 y 4), en el laboratorio desde el 04-11 en la
-> noche; la migración 185, solo en el laboratorio.
+> La tanda A (1 y 2), la B (3 y 4) y la C (5), en el laboratorio desde el
+> 04-11 en la noche; la migración 185, solo en el laboratorio. Las
+> habilidades del chat leen también las lecciones aprobadas. De la 6, el
+> cerebro ya tiene la tarea `postular`; falta que la sesión de
+> Oportunidades la ponga en sus instrucciones.
 
 **Lo que entendí, mejora por mejora** (lo marcado «por defecto» lo puede
 cambiar Felipe):

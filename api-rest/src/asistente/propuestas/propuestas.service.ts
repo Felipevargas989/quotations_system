@@ -52,6 +52,11 @@ import {
   type LineaDelCambio,
 } from './editar-foto';
 import {
+  LeccionesDesdeElChat,
+  type Decision,
+  type LeccionPedida,
+} from './lecciones-desde-el-chat';
+import {
   PropuestasRepository,
   type EstadoDePropuesta,
   type Propuesta,
@@ -98,6 +103,8 @@ export class PropuestasService {
     private readonly nuevas: CotizacionNuevaService,
     // «Prepárame el seguimiento de la 600» (doc 20 §17, mejora 4).
     private readonly seguimientoDelChat?: SeguimientoDesdeElChat,
+    // Lo que aprende de las correcciones (doc 20 §17, mejora 5).
+    private readonly leccionesDelChat?: LeccionesDesdeElChat,
   ) {
     this.logger.setContext(PropuestasService.name);
   }
@@ -109,6 +116,38 @@ export class PropuestasService {
       );
     }
     return this.seguimientoDelChat;
+  }
+
+  private conLecciones(): LeccionesDesdeElChat {
+    if (!this.leccionesDelChat) {
+      throw new ErrorDeHerramienta(
+        'Las lecciones no están disponibles en este motor.',
+      );
+    }
+    return this.leccionesDelChat;
+  }
+
+  /** Las lecciones (`lecciones-desde-el-chat.ts`): anotarlas, decidirlas y
+   *  leerlas. */
+  proponerLeccion(usuario: User, l: LeccionPedida) {
+    return this.conLecciones().proponer(usuario, l);
+  }
+
+  proponerDecisionDeLeccion(
+    usuario: User,
+    d: { id: string; decision: Decision },
+  ) {
+    return this.conLecciones().proponerDecision(usuario, d);
+  }
+
+  leccionesVivas(usuario: User) {
+    return this.conLecciones().vivas(usuario);
+  }
+
+  leccionesPorAprobar(usuario: User) {
+    return this.leccionesDelChat
+      ? this.leccionesDelChat.porAprobar(usuario)
+      : Promise.resolve([]);
   }
 
   /** La tarjeta del borrador del seguimiento (`seguimiento-desde-el-chat.ts`). */
@@ -284,6 +323,22 @@ export class PropuestasService {
           guardada = true;
         });
       }
+      if (p.tipo === 'leccion' || p.tipo === 'leccion_estado') {
+        const r =
+          p.tipo === 'leccion'
+            ? await this.conLecciones().anotar(usuario, p)
+            : await this.conLecciones().decidir(usuario, p);
+        guardada = true;
+        await this.guardadas
+          .moverPropuesta(empresa, id, 'aplicando', {
+            estado: 'aplicada',
+            aplicada_at: new Date().toISOString(),
+          })
+          .catch((e: unknown) =>
+            this.logger.warn(`propuesta ${id}: ${mensajeDe(e)}`),
+          );
+        return r;
+      }
       if (!p.quotation_id) {
         throw new NotFoundException('La cotización ya no existe.');
       }
@@ -385,7 +440,9 @@ export class PropuestasService {
             ? 'Una cotización creada no se deshace desde acá: si no va, se anula o se borra desde el tablero.'
             : p.tipo === 'seguimiento'
               ? 'El borrador del seguimiento quedó en Outlook: si no va, bórralo desde ahí.'
-              : `Esa propuesta ${ESTADOS[p.estado]}.`,
+              : p.tipo === 'leccion' || p.tipo === 'leccion_estado'
+                ? 'Una lección no se deshace desde acá: pídeme que la olvide.'
+                : `Esa propuesta ${ESTADOS[p.estado]}.`,
       );
     }
     const cotizacionId = p.quotation_id;

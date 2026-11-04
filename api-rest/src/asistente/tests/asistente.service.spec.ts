@@ -194,6 +194,9 @@ describe('AsistenteService (BelIA)', () => {
       'proponer_cambio_de_servicios',
       'proponer_nota',
       'proponer_cotizacion_nueva',
+      // Doc 20 §17: lo que aprende (leer y proponer una lección).
+      'lecciones',
+      'proponer_leccion',
     ]);
   });
 
@@ -355,9 +358,9 @@ describe('las herramientas de cada cargo', () => {
       'buscar_clientes',
       'proponer_cotizacion_nueva',
     ]);
-    // Quien vende: lo del tablero, el catálogo, los clientes y las dos que
-    // proponen (fase 2).
-    expect(con(UserRole.VENDEDOR)).toHaveLength(10);
+    // Quien vende: lo del tablero, el catálogo, los clientes, las que
+    // proponen (fase 2) y las lecciones (doc 20 §17).
+    expect(con(UserRole.VENDEDOR)).toHaveLength(12);
     expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
     // Operaciones suma pagos y logística, pero no el personal.
     expect(con(UserRole.OPERACIONES)).toEqual(
@@ -371,8 +374,11 @@ describe('las herramientas de cada cargo', () => {
       ]),
     );
     expect(con(UserRole.OPERACIONES)).not.toContain('personal');
-    // Administración, todo.
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(17);
+    // Administración, todo, también decidir las lecciones (doc 20 §17).
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(20);
+    expect(con(UserRole.ADMINISTRADOR)).toContain(
+      'proponer_decision_de_leccion',
+    );
   });
 
   it('sin el derecho del plan, la herramienta no se ofrece', () => {

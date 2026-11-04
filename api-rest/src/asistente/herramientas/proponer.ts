@@ -151,14 +151,19 @@ const cual = (
   );
 };
 
-/** Una propuesta nueva de la misma cotización reemplaza a la anterior. */
-const mostrar = (
+/** Una propuesta nueva de la misma cotización reemplaza a la anterior.
+ *  Las lecciones (doc 20 §17) no son de una cotización: ni reemplazan ni
+ *  se reemplazan. */
+export const mostrar = (
   ctx: ContextoDeHerramienta,
   tarjeta: ContextoDeHerramienta['tarjetas'][number],
 ) => {
-  const k = ctx.tarjetas.findIndex(
-    (t) => t.cotizacion_id === tarjeta.cotizacion_id,
-  );
+  const esLeccion = (t: { tipo: string }) => t.tipo.startsWith('leccion');
+  const k = esLeccion(tarjeta)
+    ? -1
+    : ctx.tarjetas.findIndex(
+        (t) => !esLeccion(t) && t.cotizacion_id === tarjeta.cotizacion_id,
+      );
   if (k >= 0) ctx.tarjetas.splice(k, 1);
   ctx.tarjetas.push(tarjeta);
 };

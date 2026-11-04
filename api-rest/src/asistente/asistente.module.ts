@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CerebroModule } from 'src/cerebro/cerebro.module';
 import { ClientsModule } from 'src/clients/clients.module';
 import { LogisticsModule } from 'src/logistics/logistics.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
@@ -10,6 +11,7 @@ import { ConversacionRepository } from './conversacion/conversacion.repository';
 import { ConversacionService } from './conversacion/conversacion.service';
 import { LoLeido } from './conversacion/lo-leido';
 import { CotizacionNuevaService } from './propuestas/cotizacion-nueva.service';
+import { LeccionesDesdeElChat } from './propuestas/lecciones-desde-el-chat';
 import { PropuestasRepository } from './propuestas/propuestas.repository';
 import { PropuestasService } from './propuestas/propuestas.service';
 import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
@@ -26,6 +28,8 @@ import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
     LogisticsModule,
     // El portero de clientes parecidos, para «Crear evento».
     ClientsModule,
+    // Lo que aprendió BelIA: las lecciones de cada empresa (doc 20 §17).
+    CerebroModule,
   ],
   controllers: [AsistenteController],
   providers: [
@@ -36,6 +40,8 @@ import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
     CotizacionNuevaService,
     // «Prepárame el seguimiento de la 600» (doc 20 §17, mejora 4).
     SeguimientoDesdeElChat,
+    // Lo que aprende de las correcciones (doc 20 §17, mejora 5).
+    LeccionesDesdeElChat,
     // La conversación de cada persona (doc 20 §13, migración 182).
     ConversacionService,
     ConversacionRepository,

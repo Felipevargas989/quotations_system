@@ -17,7 +17,13 @@ export type PantallaDeBelia = {
  *  persona la aplica con «Sí, aplicar». Las cifras ya vienen escritas. */
 export type TarjetaDePropuesta = {
   id: string;
-  tipo: "servicios" | "nota" | "cotizacion_nueva" | "seguimiento";
+  tipo:
+    | "servicios"
+    | "nota"
+    | "cotizacion_nueva"
+    | "seguimiento"
+    | "leccion"
+    | "leccion_estado";
   /** Null en un evento nuevo hasta que se crea. */
   numero: number | null;
   cliente: string | null;
@@ -54,6 +60,14 @@ export type TarjetaDePropuesta = {
   reembolso_compensado?: string;
   avisos: string[];
   nota?: { texto: string; canal: string; proximo_contacto: string | null };
+  /** Una lección (doc 20 §17): el texto, para qué vale y qué se decide. */
+  leccion?: {
+    texto: string;
+    para: string;
+    motivo: string | null;
+    decision?: "aprobar" | "descartar" | "olvidar";
+    propuesta_por?: string | null;
+  };
   se_puede_deshacer: boolean;
   vence_at: string;
 };

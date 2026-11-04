@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { aprobadasDe, seccionDeLecciones } from './lecciones';
 
 // EL CEREBRO COMÚN DE LA IA DE EVENTIA (doc 20 §15, etapa 2; Felipe,
 // 04-11-2026: «tenemos una sola IA que conoce todo el sistema de operación
@@ -17,9 +18,15 @@ import { join } from 'path';
 // cómo se arma; «✉ Generar seguimiento», lo común y cómo se escribe. Las
 // habilidades del chat (`armar-cotizacion`, `correos-cotizaciones-vds`) leen
 // los mismos archivos. Una corrección se escribe UNA vez y la aplican todas.
+//
+// Al final van las lecciones que aprobó administración en Eventia (doc 20
+// §17, `lecciones.ts`): lo que BelIA aprendió de una corrección, sin esperar
+// a que alguien lo pase a estos archivos.
 
-/** Para qué se lee: armar una cotización, escribir un correo o conversar. */
-export type Tarea = 'armar' | 'escribir' | 'conversar';
+/** Para qué se lee: armar una cotización, escribir un correo, conversar o
+ *  postular a una licitación (Oportunidades, doc 20 §17, mejora 6: lo
+ *  común y lo del complejo, sin las guías de armar ni de escribir). */
+export type Tarea = 'armar' | 'escribir' | 'conversar' | 'postular';
 
 /** La empresa 1. Es la única con lo suyo escrito (el derecho de «Crear con
  *  IA» y del seguimiento con IA también es solo suyo). */
@@ -58,12 +65,16 @@ export function cerebroPara(
   const carpeta = companyId ? CARPETAS[companyId] : undefined;
   if (carpeta) {
     partes.push(leer(`empresas/${carpeta}/EL_COMPLEJO.md`));
-    if (tarea !== 'escribir') {
+    if (tarea === 'armar' || tarea === 'conversar') {
       partes.push(leer(`empresas/${carpeta}/COMO_SE_ARMA.md`));
     }
-    if (tarea !== 'armar') {
+    if (tarea === 'escribir' || tarea === 'conversar') {
       partes.push(leer(`empresas/${carpeta}/COMO_SE_ESCRIBE.md`));
     }
   }
+  const aprendido = companyId
+    ? seccionDeLecciones(aprobadasDe(companyId), tarea)
+    : null;
+  if (aprendido) partes.push(aprendido);
   return partes.join('\n\n---\n\n');
 }
