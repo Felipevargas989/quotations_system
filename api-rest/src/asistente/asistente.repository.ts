@@ -6,9 +6,12 @@ import {
   RequestType,
 } from 'src/quotations/constants/constants';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { CotizacionParaCambiar } from './propuestas/reglas';
 
 // LO QUE BELIA LEE DE LA BASE (doc 20 §9). Solo lectura, salvo la cuenta
-// del mes. Toda consulta filtra por la empresa de la SESIÓN, que llega
+// del mes y sus propuestas (fase 2): los cambios de una cotización NO se
+// escriben acá, van por `QuotationsService.update` como los del cotizador.
+// Toda consulta filtra por la empresa de la SESIÓN, que llega
 // como parámetro y nunca de lo que pida la IA (doc 20 §3, regla 1; mapa 22
 // §6). No usa `QuotationsRepository.findOne`: no filtra por empresa (zona
 // de riesgo 3 del mapa 00).
@@ -323,7 +326,9 @@ export class AsistenteRepository {
     const [cuotas, abonos, reembolsos] = await Promise.all([
       this.supabase.client
         .from('payments')
-        .select('id, payment_number, amount, due_date, status, payment_type')
+        .select(
+          'id, payment_number, amount, due_date, status, payment_type, paid_date',
+        )
         .eq('quotation_id', quotationId)
         .order('payment_number', { ascending: true }),
       this.supabase.client
@@ -561,7 +566,139 @@ export class AsistenteRepository {
     ]);
     return { turnos, personas, cargos, eventos };
   }
+
+  // ---------- Fase 2: las propuestas (doc 20 §3, regla 3) ----------
+
+  /** Lo que se necesita para cambiar los servicios de una cotización, con
+   *  la empresa de la sesión. */
+  async cotizacionParaCambiar(
+    companyId: Company['id'],
+    por: { numero: number } | { id: string },
+  ): Promise<CotizacionParaCambiar | null> {
+    let query = this.supabase.client
+      .from('quotations')
+      .select(
+        `id, quotation_number, quotation_status, request_type, event_date,
+         event_end_date, people_count, children_count, items,
+         subtotal_amount, discount_percentage, discount_amount,
+         tip_percentage, tip_amount, total_amount, value_per_person,
+         fixed_value, clients ( name, client_type )`,
+      )
+      .eq('company_id', companyId);
+    query =
+      'numero' in por
+        ? query.eq('quotation_number', por.numero)
+        : query.eq('id', por.id);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return (data as unknown as CotizacionParaCambiar | null) ?? null;
+  }
+
+  /** Cuántos insumos de este evento ya compró Compras. */
+  async comprasDelEvento(
+    companyId: Company['id'],
+    quotationId: string,
+  ): Promise<number> {
+    const { count, error } = await this.supabase.client
+      .from('event_supply_provisions')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  async crearPropuesta(fila: NuevaPropuesta): Promise<Propuesta> {
+    const { data, error } = await this.supabase.client
+      .from('asistente_propuestas')
+      .insert(fila)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as Propuesta;
+  }
+
+  async propuesta(
+    companyId: Company['id'],
+    id: string,
+  ): Promise<Propuesta | null> {
+    const { data, error } = await this.supabase.client
+      .from('asistente_propuestas')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as Propuesta | null) ?? null;
+  }
+
+  /** Cambia la propuesta SOLO si sigue en el estado esperado: es el candado
+   *  de dos clics. Devuelve si la tomó. */
+  async moverPropuesta(
+    companyId: Company['id'],
+    id: string,
+    desde: EstadoDePropuesta,
+    cambios: Partial<Propuesta> & { estado: EstadoDePropuesta },
+  ): Promise<boolean> {
+    const { data, error } = await this.supabase.client
+      .from('asistente_propuestas')
+      .update(cambios)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('estado', desde)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  }
+
+  /** Una propuesta nueva reemplaza a las pendientes de la misma persona
+   *  sobre la misma cotización. */
+  async descartarPendientes(
+    companyId: Company['id'],
+    quotationId: string,
+    usuarioId: string,
+  ): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('asistente_propuestas')
+      .update({ estado: 'descartada' })
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .eq('usuario_id', usuarioId)
+      .eq('estado', 'pendiente');
+    if (error) throw error;
+  }
 }
+
+export type EstadoDePropuesta =
+  | 'pendiente'
+  | 'aplicando'
+  | 'aplicada'
+  | 'deshaciendo'
+  | 'deshecha'
+  | 'descartada'
+  | 'vencida';
+
+export type NuevaPropuesta = {
+  company_id: Company['id'];
+  quotation_id: string;
+  usuario_id: string;
+  usuario_nombre: string | null;
+  tipo: 'servicios' | 'nota';
+  resumen: string;
+  antes: Record<string, unknown>;
+  despues: Record<string, unknown>;
+  huella_antes: string;
+};
+
+export type Propuesta = NuevaPropuesta & {
+  id: string;
+  estado: EstadoDePropuesta;
+  huella_despues: string | null;
+  vence_at: string;
+  aplicada_at: string | null;
+  deshecha_at: string | null;
+  created_at: string;
+};
 
 export type Cuota = {
   id: string;
@@ -570,6 +707,8 @@ export type Cuota = {
   due_date: string | null;
   status: string;
   payment_type: string | null;
+  /** Con status pagado y sin abonos: «pagada por fuera» (doc 14). */
+  paid_date?: string | null;
 };
 export type Abono = {
   payment_id: string | null;

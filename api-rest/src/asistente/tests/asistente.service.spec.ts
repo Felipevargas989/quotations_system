@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { derechosDe } from 'src/auth/derechos';
+import type { LogisticsService } from 'src/logistics/logistics.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import {
   QuotationStatus,
@@ -17,6 +18,7 @@ import {
   usoDe as usoDeLaApi,
 } from '../asistente.service';
 import { herramientasPara } from '../herramientas';
+import type { PropuestasService } from '../propuestas/propuestas.service';
 
 // BELIA (doc 20). Lo que importa probar acá son las barreras: la empresa
 // sale de la sesión aunque la IA pida otra, lo que no tiene herramienta no
@@ -92,6 +94,8 @@ const armar = (respuestas: unknown[], gastado = 0) => {
     {} as unknown as GenerarRepository,
     {} as unknown as QuotationFollowupsService,
     mockPinoLogger() as unknown as PinoLogger,
+    {} as unknown as LogisticsService,
+    {} as unknown as PropuestasService,
   );
   jest
     .spyOn(servicio as unknown as { cliente: () => unknown }, 'cliente')
@@ -166,7 +170,8 @@ describe('AsistenteService (BelIA)', () => {
       segunda.messages[segunda.messages.length - 1].content,
     );
     expect(resultado).toContain('"is_error":true');
-    // Y a la IA nunca se le ofreció nada que escriba.
+    // Y a la IA nunca se le ofreció nada que escriba: las de la fase 2 solo
+    // PROPONEN, y la persona aplica con «Sí, aplicar».
     const ofrecidas = (create.mock.calls[0][0].tools ?? []).map((t) => t.name);
     expect(ofrecidas).toEqual([
       'buscar_cotizaciones',
@@ -175,6 +180,8 @@ describe('AsistenteService (BelIA)', () => {
       'seguimientos_pendientes',
       'buscar_en_catalogo',
       'buscar_clientes',
+      'proponer_cambio_de_servicios',
+      'proponer_nota',
     ]);
   });
 
@@ -229,8 +236,9 @@ describe('las herramientas de cada cargo', () => {
         ],
       } as unknown as User).map((h) => h.nombre);
     expect(con(UserRole.RECEPCION)).toEqual([]);
-    // Quien vende: lo del tablero, el catálogo y los clientes.
-    expect(con(UserRole.VENDEDOR)).toHaveLength(6);
+    // Quien vende: lo del tablero, el catálogo, los clientes y las dos que
+    // proponen (fase 2).
+    expect(con(UserRole.VENDEDOR)).toHaveLength(8);
     expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
     // Operaciones suma pagos y logística, pero no el personal.
     expect(con(UserRole.OPERACIONES)).toEqual(
@@ -238,13 +246,14 @@ describe('las herramientas de cada cargo', () => {
         'pagos_del_evento',
         'cobranza',
         'insumos',
+        'lo_que_hay_que_comprar',
         'proveedores',
         'mobiliario',
       ]),
     );
     expect(con(UserRole.OPERACIONES)).not.toContain('personal');
     // Administración, todo.
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(12);
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(15);
   });
 
   it('sin el derecho del plan, la herramienta no se ofrece', () => {
@@ -328,6 +337,8 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
       {} as unknown as GenerarRepository,
       seguimientos as unknown as QuotationFollowupsService,
       mockPinoLogger() as unknown as PinoLogger,
+      {} as unknown as LogisticsService,
+      {} as unknown as PropuestasService,
     );
     const crear = jest.fn();
     jest

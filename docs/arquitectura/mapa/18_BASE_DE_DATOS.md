@@ -61,6 +61,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `choques_de_fecha` | La revisión de cada tope de calendario entre una cotización viva y una aceptada (`puede_seguir`; `gestionar` quedó solo de la prueba del laboratorio), las fechas de las dos al decidir, la línea de la bitácora y quién (id de la sesión, sin llave). El choque se calcula; solo se guarda lo decidido | 02 | 143 |
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `asistente_uso` | Cada respuesta de Evia (doc 20): el mes en Chile (AAAA-MM), el modelo, los tokens con la caché aparte, lo que costó, los segundos, las herramientas que usó, la ruta de la pantalla y si falló. No guarda la pregunta. De ahí sale el tope mensual. Quién (id de la sesión, sin llave) | 20 (doc) | 180 |
+| `asistente_propuestas` | Las propuestas de BelIA (doc 20, fase 2): quién la pidió, el resumen, el `antes` (la foto y la plata, el respaldo para deshacer), el `despues` (el parche ya calculado o la nota), la huella de la cotización al proponer y al aplicar, el estado (`pendiente`, `aplicando`, `aplicada`, `deshaciendo`, `deshecha`, `descartada`, `vencida`) y el vencimiento (2 horas). Lo aprobado NO se escribe acá: va por `QuotationsService.update` | 25 | 181 |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -612,3 +613,11 @@ y **antes** del deploy del motor.
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 180, Valle del Sol no tiene el derecho (la puerta responde 403) y la cuenta del mes no se puede leer.
 
 **Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: el derecho en la empresa 1, la tabla con RLS, `anon` sin lectura y `service_role` con escritura). **Sin aplicar en producción.**
+
+## 26. Migración 181: las propuestas de BelIA (03-11-2026)
+
+**Qué hace.** Crea `asistente_propuestas` (doc 20 §3, regla 3, y §9): una fila por cada cambio que BelIA propone y la persona aprueba con «Sí, aplicar». Guarda la cotización (`quotation_id`, `on delete cascade`), quién la pidió (`usuario_id`, el id de la **sesión** sin llave, lección de la 142, y su nombre), el tipo (`servicios` o `nota`), el resumen, el `antes` (la foto de los servicios y la plata: el respaldo para deshacer) y el `despues` (el parche ya calculado por `computeMoney`, o la nota), la huella de la cotización al proponer y al aplicar, el estado y el vencimiento (`now() + 2 horas`). Los estados `aplicando` y `deshaciendo` son el candado de dos clics: el motor toma la propuesta solo si seguía en el estado anterior. Lo aprobado **no** se escribe en esta tabla: va por `QuotationsService.update`, como el cotizador. Es de cada empresa: `company_id` con el índice `(company_id, quotation_id, estado)`. Viene con RLS, `REVOKE` a `anon` y `authenticated`, y `GRANT` a `service_role` (el id es uuid, sin secuencia). Trae la reversa comentada. Número reservado para BelIA el 03-11 junto con la 180; las 177 a 179 siguen libres.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 181, BelIA responde igual, pero las herramientas que proponen fallan al guardar la propuesta.
+
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Sin aplicar en producción.**

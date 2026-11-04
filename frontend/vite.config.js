@@ -10,6 +10,9 @@ export default defineConfig({
     resolve: {
         alias: {
             "@dinero": path.resolve(__dirname, "../api-rest/src/quotations/utils/money.ts"),
+            // 03-11-2026: lo que lleva cada evento (insumos, mobiliario, costo),
+            // la misma cuenta para las pantallas y para BelIA.
+            "@consolidacion": path.resolve(__dirname, "../api-rest/src/logistics/utils/consolidacion.ts"),
         },
     },
     server: {

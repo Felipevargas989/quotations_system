@@ -15,9 +15,8 @@ import {
 // mobiliario: es de operaciones para arriba (SECTION_ROLES.logistics) con
 // el derecho del plan `logistica`.
 //
-// Lo que necesita cada evento NO sale de acá: lo calcula la pantalla de
-// Compras (`consolidateEvent`, en la app) y una copia en el motor podría
-// dar otra cifra (zona de riesgo del mapa 06). BelIA manda a Compras.
+// Lo que necesita cada evento lo trae `lo_que_hay_que_comprar`
+// (compras.ts), con la misma cuenta de Compras (03-11-2026).
 
 const UNIDAD: Record<string, string> = {
   masa: 'kg',
@@ -32,7 +31,7 @@ export const insumos: Herramienta = {
   descripcion:
     'Un insumo de la despensa (carne mechada, choclo granado…): su precio y proveedor, en qué ' +
     'productos del catálogo va (la receta, con cuánto por persona) y lo que ya se compró para ' +
-    'cada evento. NO trae lo que necesitan los eventos que vienen: eso se ve en Compras. ' +
+    'cada evento. Lo que necesitan los eventos que vienen lo trae lo_que_hay_que_comprar. ' +
     'Eventia no lleva el stock de bodega de los insumos.',
   esquema: {
     type: 'object',

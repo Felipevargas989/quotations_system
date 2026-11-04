@@ -199,7 +199,19 @@ const esperado: [Clase, Record<string, string[]>][] = [
     },
   ],
   // BelIA (doc 20, 03-11-2026): "lo usa administración y vendedores".
-  [AsistenteController, { 'POST mensajes': S, 'GET estado': S }],
+  [
+    AsistenteController,
+    {
+      'POST mensajes': S,
+      'GET estado': S,
+      // Fase 2: el «Sí, aplicar», el «No» y el «Deshacer» de la tarjeta.
+      // Las aceptadas, solo administración y operaciones: lo revisa
+      // PropuestasService, como Post-Venta → Servicios.
+      'POST propuestas/:id/aplicar': S,
+      'POST propuestas/:id/descartar': S,
+      'POST propuestas/:id/deshacer': S,
+    },
+  ],
 ];
 
 // Solo sesión a propósito: el propio perfil, la propia clave y la propia

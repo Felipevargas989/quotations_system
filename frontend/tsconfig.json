@@ -21,7 +21,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@dinero": ["../api-rest/src/quotations/utils/money.ts"]
+      "@dinero": ["../api-rest/src/quotations/utils/money.ts"],
+      "@consolidacion": ["../api-rest/src/logistics/utils/consolidacion.ts"]
     }
   },
   "include": [

@@ -181,3 +181,38 @@ export const bloquesDe = (texto: string): Bloque[] => {
   }
   return bloques;
 };
+
+// ---------- Fase 2: lo que pasó con cada propuesta ----------
+
+/** Lo que pasó con una propuesta en la ventanilla. */
+export type EstadoDeTarjeta =
+  | "pendiente"
+  | "enviando"
+  | "aplicada"
+  | "descartada"
+  | "deshecha"
+  | "fallo";
+
+const LO_QUE_PASO: Record<EstadoDeTarjeta, string> = {
+  pendiente: "la persona todavía no la aplica",
+  enviando: "se está aplicando",
+  aplicada: "la persona la aplicó y quedó guardada",
+  descartada: "la persona dijo que no",
+  deshecha: "la persona la aplicó y después la deshizo",
+  fallo: "no se pudo aplicar",
+};
+
+/** Lo que BelIA lee de su turno en la conversación: su texto y, si propuso
+ *  algo, qué hizo la persona con eso. Sin esto, en la pregunta siguiente
+ *  no sabría si su propuesta se aplicó. */
+export const textoParaBelia = (t: {
+  texto: string;
+  propuestas?: { numero: number; estado: EstadoDeTarjeta }[];
+}): string =>
+  t.propuestas?.length
+    ? `${t.texto}\n\n${t.propuestas
+        .map(
+          (p) => `(Propuesta de la N° ${p.numero}: ${LO_QUE_PASO[p.estado]}.)`,
+        )
+        .join("\n")}`
+    : t.texto;

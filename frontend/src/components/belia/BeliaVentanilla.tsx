@@ -10,14 +10,15 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import BeliaAvatar from "./BeliaAvatar";
+import PropuestaDeBelia from "./PropuestaDeBelia";
 import RespuestaDeBelia from "./RespuestaDeBelia";
 import { useBelia } from "./useBelia";
 
 // LA VENTANILLA DE BELIA (doc 20 §8 y §8b, la lámina de Felipe del 03-11):
 // el botón redondo abajo a la derecha y, al pincharlo, el panel al
 // costado, sin tapar la pantalla en que se está. En el celular ocupa todo.
-// Fase 1: solo consultas, así que «Crear evento» de la lámina espera a la
-// fase 2.
+// Desde la fase 2 (03-11), lo que BelIA propone cambiar llega como tarjeta
+// debajo de su respuesta, con «Sí, aplicar» (PropuestaDeBelia).
 
 const SALUDO =
   "¡Guau! Soy BelIA, tu asistente de Eventia. ¿Qué organizamos hoy?";
@@ -209,18 +210,30 @@ export default function BeliaVentanilla() {
               </p>
             </div>
           ) : (
-            <div
-              key={i}
-              className={`rounded-2xl rounded-tl-sm px-3.5 py-2.5 ring-1 ${
-                t.error
-                  ? "bg-amber-50 ring-amber-200"
-                  : "bg-white ring-slate-200"
-              }`}
-            >
-              <RespuestaDeBelia
-                texto={t.texto}
-                alNavegar={() => esCelular() && b.cerrar()}
-              />
+            <div key={i} className="space-y-2">
+              <div
+                className={`rounded-2xl rounded-tl-sm px-3.5 py-2.5 ring-1 ${
+                  t.error
+                    ? "bg-amber-50 ring-amber-200"
+                    : "bg-white ring-slate-200"
+                }`}
+              >
+                <RespuestaDeBelia
+                  texto={t.texto}
+                  alNavegar={() => esCelular() && b.cerrar()}
+                />
+              </div>
+              {t.propuestas?.map((p) => (
+                <PropuestaDeBelia
+                  key={p.id}
+                  p={p}
+                  esLaAbierta={b.cotizacionAbierta === p.cotizacion_id}
+                  onAplicar={() => void b.responder(i, p.id, "aplicar")}
+                  onDescartar={() => void b.responder(i, p.id, "descartar")}
+                  onDeshacer={() => void b.responder(i, p.id, "deshacer")}
+                  alNavegar={() => esCelular() && b.cerrar()}
+                />
+              ))}
             </div>
           ),
         )}

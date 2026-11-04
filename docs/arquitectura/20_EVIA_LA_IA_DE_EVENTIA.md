@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Nada programado.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fase 1 en el laboratorio y fase 2 escrita el mismo día (ver abajo). Nada en producción.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -73,6 +73,54 @@
 > - **Lo que no hace:** calcular lo que hay que comprar (eso es Compras,
 >   mapa 25 §8 riesgo 5).
 > - **Falta:** probarlo en el lab, la 180 en producción y la fase 2.
+>
+> **03-11-2026, noche · La fase 2 y lo que hay que comprar** (Felipe:
+> *"vamos con lo que no puede hacer para dejarla lista hoy"*).
+> - **Lo que hay que comprar.** La cuenta de cada evento (`consolidateEvent`)
+>   se mudó de la app al motor, sin cambiar una coma:
+>   `api-rest/src/logistics/utils/consolidacion.ts`, que la app importa con
+>   el alias `@consolidacion`, como la del dinero. Tiene sus primeras
+>   pruebas. La herramienta `lo_que_hay_que_comprar` (operaciones para
+>   arriba, derecho `logistica`) la corre con los mismos datos y el mismo
+>   filtro de Compras: por insumo, lo que piden los eventos aceptados, lo
+>   que falta comprar, su costo y qué cotizaciones lo piden.
+> - **Propone y la persona aprueba (§3, regla 3).** Dos herramientas que no
+>   escriben: `proponer_cambio_de_servicios` (agregar o quitar servicios
+>   del catálogo, personas por casilla, una casilla entera con un menú
+>   guardado adaptado —así se arma la minuta—, sacar casillas, poner y
+>   sacar fijos) y `proponer_nota` (la bitácora). La propuesta queda en
+>   `asistente_propuestas` (**migración 181**) y la persona la ve en una
+>   tarjeta con el antes y el después, el total, las cuotas, los avisos en
+>   ámbar y «Sí, aplicar».
+> - **Al aplicar se revisa todo de nuevo** (`POST
+>   /asistente/propuestas/:id/aplicar`): que sea de quien la pidió, que no
+>   haya vencido (2 horas), que nadie haya tocado la cotización entre medio
+>   (una huella), el cargo, el estado y los días servidos. Se guarda con
+>   `QuotationsService.update`, la puerta del cotizador, y queda en la
+>   bitácora: «BelIA, a pedido de …». Dos clics no la aplican dos veces.
+> - **Las reglas del §4 y §5, con código:** lo no vendido, quien vende; lo
+>   aceptado, solo operaciones y administración; lo realizado, nadie; en un
+>   evento que empezó, ni los días servidos ni el de hoy; con compras
+>   hechas, bajar personas solo el administrador, con aviso; la ficha de
+>   cocina ya impresa, con aviso. Las cuotas de la tarjeta salen de las
+>   mismas funciones de «el plan mantiene su forma» que corre el guardado.
+> - **Decisiones que tomé por defecto, para que Felipe las confirme:**
+>   1. sin descuentos (pregunta 1 del §11, como decía el plan);
+>   2. las notas van a nombre del Asistente, con el robot, y el texto dice
+>      «BelIA, a pedido de …» (pregunta 2);
+>   3. una propuesta dura 2 horas y solo la aplica quien la pidió;
+>   4. «Deshacer» solo en lo no vendido: en una aceptada la cascada del plan
+>      no tiene vuelta exacta, así que se pide el cambio contrario y se ven
+>      las cuotas antes;
+>   5. BelIA no cambia las fechas ni las personas del evento, ni agrega
+>      fijos cuyo precio depende de las personas: eso, en la pantalla;
+>   6. si la persona tiene abierta la misma cotización, la página se recarga
+>      al aplicar (la tarjeta lo avisa antes), para que un formulario viejo
+>      no pise el cambio.
+> - Su mapa es `mapa/25_BELIA.md`. 1.829 pruebas del motor y 803 de la app
+>   en verde.
+> - **Falta:** la 181 en el laboratorio, probarlo con preguntas reales y,
+>   con su «a producción», las dos migraciones (180 y 181) y el motor.
 
 ## 1. Por qué
 
@@ -310,11 +358,16 @@ del SDK no se adivinan.
   migración 180. La misma migración suma `asistente` a los
   `modulos_propios` de la empresa 1, como la 140.
 
-**Fase 2 (§10):**
-- La tabla `asistente_propuestas` guarda la propuesta con su antes.
+**Fase 2 (§10), construida el 03-11:**
+- La tabla `asistente_propuestas` (migración 181) guarda la propuesta con
+  su antes, su parche y su huella.
 - `POST /asistente/propuestas/:id/aplicar` vuelve a validar y aplica con
   `QuotationsService.update`, la misma puerta del cotizador, con
-  `assertMoneyMatches` y la cascada del plan.
+  `assertMoneyMatches` y la cascada del plan. `descartar` es el «No» y
+  `deshacer`, la vuelta atrás de lo no vendido.
+- Los cambios se arman en `api-rest/src/asistente/propuestas/`:
+  `editar-foto.ts` (con `armarFoto` de «Crear con IA»), `reglas.ts` (quién,
+  qué días, la plata y las cuotas) y `propuestas.service.ts`.
 
 **Vitrina:** la ventanilla va en el marco de la app, así aparece en todas
 las pantallas. Manda la ruta y la cotización abierta con cada mensaje.
@@ -347,6 +400,8 @@ camino entre Railway y la vitrina.
 
 **Fase 2 · Cambios con OK.** Primero las cotizaciones no vendidas, las
 minutas y las notas de la bitácora. Después las aceptadas, con lo del §5.
+Escrita completa el 03-11 en la noche, las dos partes a la vez, con lo que
+hay que comprar (ver el estado arriba).
 
 **Fase 3.** Lo que vaya pidiendo el uso.
 
@@ -354,10 +409,11 @@ minutas y las notas de la bitácora. Después las aceptadas, con lo del §5.
 
 1. **Descuentos.** ¿Evia puede aplicar uno si la persona lo pide, con el
    tope de su cargo (administrador 40 %, vendedor y operaciones 15 %)?
-   Hasta que Felipe decida, no.
+   Hasta que Felipe decida, no. (03-11: la fase 2 salió así.)
 2. **Las firmas de la bitácora.** ¿Las notas de «Crear con IA» y del
    seguimiento pasan a firmar «Evia»? Hoy firman «Asistente», con el
-   robot.
+   robot. (03-11: las de BelIA también firman «Asistente», y el texto
+   dice «BelIA, a pedido de …».)
 3. **Las conversaciones.** ¿Se guardan para revisar quién preguntó qué?
    La propuesta es que sí, por 90 días, y que solo las vea
    administración.

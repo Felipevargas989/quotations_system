@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
@@ -6,12 +6,17 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   estadoDeBelia,
   preguntarABelia,
+  responderPropuesta,
   type EstadoDeBelia,
   type RespuestaDeBelia,
+  type TarjetaDePropuesta,
   type TurnoDeBelia,
 } from "../../services/asistente.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { EVENTO_CELEBRAR } from "../../utils/celebrarConBelia";
+import {
+  EVENTO_CELEBRAR,
+  celebrarConBelia,
+} from "../../utils/celebrarConBelia";
 import {
   MINUTOS_ENTRE_AVISOS,
   MINUTOS_PARA_DORMIR,
@@ -20,6 +25,8 @@ import {
   animoForzado,
   hayAlgoNuevo,
   pantallaDe,
+  textoParaBelia,
+  type EstadoDeTarjeta,
 } from "./belia";
 
 // EL CEREBRO DE LA VENTANILLA (doc 20 §8 y §8b): la conversación, el ánimo
@@ -33,8 +40,21 @@ const ES_LABORATORIO = String(import.meta.env.VITE_SUPABASE_URL || "").includes(
   "uonjtbyoxawxvhuikbgx",
 );
 
-/** Un turno en pantalla. `error` no viaja al motor: no es una respuesta. */
-export type TurnoEnPantalla = TurnoDeBelia & { error?: boolean };
+export type PropuestaEnPantalla = TarjetaDePropuesta & {
+  estado: EstadoDeTarjeta;
+  /** Lo que respondió el motor si no se pudo. */
+  mensaje?: string;
+  /** El total que quedó guardado. */
+  total_final?: string;
+};
+
+/** Un turno en pantalla. `error` no viaja al motor: no es una respuesta.
+ *  Las propuestas tampoco: viaja lo que la persona hizo con ellas
+ *  (`textoParaBelia`). */
+export type TurnoEnPantalla = TurnoDeBelia & {
+  error?: boolean;
+  propuestas?: PropuestaEnPantalla[];
+};
 
 const CLAVE_CONVERSACION = "belia:conversacion";
 const CLAVE_VISTO = "belia:visto";
@@ -84,6 +104,7 @@ export function useBelia() {
     tieneDerecho(company, "asistente");
   const esAdmin = userRole === "administrador";
   const { pathname, search } = useLocation();
+  const queryClient = useQueryClient();
 
   const [abierta, setAbierta] = useState(false);
   const [turnos, setTurnos] = useState<TurnoEnPantalla[]>(() =>
@@ -191,7 +212,7 @@ export function useBelia() {
       enviando.current = true;
       const historial = turnos
         .filter((t) => !t.error)
-        .map(({ rol, texto: t }) => ({ rol, texto: t }));
+        .map((t) => ({ rol: t.rol, texto: textoParaBelia(t) }));
       setTurnos((p) => [...p, { rol: "persona", texto: mensaje }]);
       setPensando(true);
       try {
@@ -200,7 +221,21 @@ export function useBelia() {
           historial,
           pantallaDe(pathname),
         );
-        setTurnos((p) => [...p, { rol: "belia", texto: r.respuesta }]);
+        setTurnos((p) => [
+          ...p,
+          {
+            rol: "belia",
+            texto: r.respuesta,
+            ...(r.propuestas?.length
+              ? {
+                  propuestas: r.propuestas.map((x) => ({
+                    ...x,
+                    estado: "pendiente" as const,
+                  })),
+                }
+              : {}),
+          },
+        ]);
         if (r.uso_del_mes) setUso(r.uso_del_mes);
       } catch (e) {
         setTurnos((p) => [
@@ -220,6 +255,64 @@ export function useBelia() {
       }
     },
     [turnos, pathname],
+  );
+
+  // «Sí, aplicar», «No» y «Deshacer» de una tarjeta. El motor vuelve a
+  // revisar todo; acá solo se pinta lo que respondió.
+  const responder = useCallback(
+    async (
+      indice: number,
+      id: string,
+      accion: "aplicar" | "descartar" | "deshacer",
+    ) => {
+      const cambiar = (c: Partial<PropuestaEnPantalla>) =>
+        setTurnos((p) =>
+          p.map((t, i) =>
+            i !== indice
+              ? t
+              : {
+                  ...t,
+                  propuestas: t.propuestas?.map((x) =>
+                    x.id === id ? { ...x, ...c } : x,
+                  ),
+                },
+          ),
+        );
+      const tarjeta = turnos[indice]?.propuestas?.find((x) => x.id === id);
+      const antes = tarjeta?.estado ?? "pendiente";
+      cambiar({ estado: "enviando", mensaje: undefined });
+      try {
+        const r = await responderPropuesta(id, accion);
+        cambiar({
+          estado: r.estado,
+          total_final: r.total,
+          se_puede_deshacer: r.se_puede_deshacer ?? false,
+        });
+        if (r.estado === "descartada") return;
+        if (r.estado === "aplicada") celebrarConBelia();
+        // La cotización cambió: las pantallas abiertas se ponen al día. Si
+        // es la que la persona tiene abierta, la página se recarga (la
+        // tarjeta lo avisó antes): un formulario viejo podría pisar el
+        // cambio al guardar. La conversación sigue (sessionStorage).
+        void queryClient.invalidateQueries();
+        if (
+          tarjeta &&
+          pantallaDe(pathname).cotizacion_id === tarjeta.cotizacion_id
+        ) {
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } catch (e) {
+        const estado = (e as { response?: { status?: number } })?.response
+          ?.status;
+        // Un 409 o un 404 no se arregla reintentando: hay que pedirla de
+        // nuevo. Lo demás (la red) deja la tarjeta como estaba.
+        cambiar({
+          estado: estado === 409 || estado === 404 ? "fallo" : antes,
+          mensaje: humanizeApiError(e, "No se pudo. Intenta de nuevo."),
+        });
+      }
+    },
+    [turnos, pathname, queryClient],
   );
 
   const animo =
@@ -247,6 +340,9 @@ export function useBelia() {
     turnos,
     pensando,
     enviar,
+    responder,
+    /** La cotización que la persona tiene abierta, si tiene una. */
+    cotizacionAbierta: pantallaDe(pathname).cotizacion_id ?? null,
     animo,
     estado: datos,
     uso,
