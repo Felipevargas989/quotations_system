@@ -742,9 +742,19 @@ así como estaban aparte. Belia es para todos los usuarios de Eventia, solo
 que en las otras empresas que se vayan creando, dale $10 de cupo inicial,
 nada más. Sí, pasa las 188 notas del asistente antiguo, pásalas como Belia y
 ponle su carita"*.
-- **Los correos siguen aparte, como «Asistente» con el robot:** «✉ Generar
-  seguimiento» (`seguimiento.service.ts`) y la habilidad
-  `correos-cotizaciones-vds`.
+- **Lo corrigió el mismo día:** *"Los que son seguimientos y borradores, yo
+  los dejaría también como Belia. Lo que pasa es que me refería yo a estos
+  seguimientos que hacemos en las mañanas y en las tardes en mi correo, en
+  los correos de la empresa, que eso es aparte, no es de Eventia, pero si yo
+  presiono generar seguimiento, eso lo hizo Belia ... Estamos confundiendo
+  una automatización interna de la compañía con este asistente"*.
+  - **Lo de Eventia firma «BelIA»**, también «✉ Generar seguimiento»: el
+    borrador, a pedido de quien apretó (`crearComoBeliaAPedidoDe`), y el
+    envío que Eventia ve sola en Outlook, sin «a pedido de»
+    (`crearComoBelia`).
+  - **Aparte, y sin cambios:** las rutinas de correo de la empresa (las de
+    la mañana y la tarde, con la habilidad `correos-cotizaciones-vds`). No
+    son de Eventia; si anotan algo en la bitácora, sale como «Asistente».
 - **La etapa 1 (la firma), en el laboratorio:**
   - «✨ Crear con IA» y el armado de una postulación firman «BelIA» y dicen
     «A pedido de …» (`crearComoBeliaAPedidoDe`: el nombre sale del perfil
@@ -753,9 +763,10 @@ ponle su carita"*.
     (`crearComoBelia`).
 - **Las notas viejas, en producción el mismo 04-11:** pasaron a «BelIA» 123
   de las 188, con respaldo en `02_RESPALDOS/cambios_de_datos`; cambió la
-  firma y no el texto. Las 65 de los correos (los borradores y «Seguimiento
-  con IA enviado») siguen como «Asistente», igual que los correos que
-  vienen. Si Felipe las quiere con BelIA, es el mismo cambio.
+  firma y no el texto. Con su corrección pasaron también las 65 de los
+  correos (14 de «✉ Generar seguimiento» y 51 de las rutinas de mediados de
+  octubre), con su respaldo: en la bitácora ya no queda ninguna nota de la
+  IA con el robot.
 - Las etapas 2 (el cerebro común) y 3 (Oportunidades) siguen como plan.
 
 ## 16. BelIA para todas las empresas, con su cupo (04-11-2026)

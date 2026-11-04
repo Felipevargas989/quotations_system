@@ -55,7 +55,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
       CONTACTO,
       'inm-borr1',
     );
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(1, {
       quotation_id: 'q607',
       note: 'Seguimiento con IA enviado desde contacto@ el 17-10. Próximo contacto por correo el 31-10, en 14 días.',
       tipo: 'correo',
@@ -86,7 +86,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
 
     await servicio.revisar(usuario);
 
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(1, {
       quotation_id: 'q607',
       note: 'Seguimiento con IA enviado desde contacto@ el 17-10. Van 2 seguimientos por correo sin respuesta: toca llamar el 24-10.',
       tipo: 'llamada',
@@ -115,7 +115,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
     expect(repositorio.cerrarBorrador).toHaveBeenCalledWith(1, 7, {
       estado: 'descartado',
     });
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBelia).not.toHaveBeenCalled();
   });
 
   it('se borró, pero salió otro correo de la casa en el hilo: ese fue el seguimiento', async () => {
@@ -134,7 +134,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
 
     // Sin el identificador, el hilo sale de la fila.
     expect(outlook.mensajesDelHilo).toHaveBeenCalledWith(CONTACTO, 'h1');
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(1, {
       quotation_id: 'q607',
       note: 'Se envió un seguimiento en el hilo de contacto@ el 17-10 (el borrador de la IA no se usó). Próximo contacto por correo el 31-10, en 14 días.',
       tipo: 'correo',
@@ -163,7 +163,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
 
     await servicio.revisar(usuario);
 
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBelia).not.toHaveBeenCalled();
     expect(repositorio.cerrarBorrador).toHaveBeenCalledWith(1, 7, {
       estado: 'enviado',
       enviado_at: '2026-10-17T20:58:00Z',
@@ -185,7 +185,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
 
     await servicio.revisar(usuario);
 
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(1, {
       quotation_id: 'q607',
       note: 'Seguimiento con IA enviado desde contacto@ el 17-10.',
       tipo: 'correo',
@@ -209,7 +209,7 @@ describe('cuando el borrador sale (doc 18 §9): Eventia lo anota solo', () => {
       cambiaron: [],
     });
     expect(repositorio.cerrarBorrador).not.toHaveBeenCalled();
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBelia).not.toHaveBeenCalled();
   });
 
   it('el freno: lo que se miró hace menos de 5 minutos no se le pregunta a Outlook', async () => {
