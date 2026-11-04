@@ -52,6 +52,10 @@ export type Cambio = {
   cantidad?: number;
   /** Las personas que tiene HOY la casilla, si hay dos iguales ese día. */
   cual?: number;
+  /** El código de un servicio que tiene HOY la casilla: distingue dos
+   *  casillas iguales del mismo día (las cotizaciones del formato antiguo
+   *  no traen día ni personas, como la 447 del laboratorio). */
+  que_tiene?: string;
 };
 
 // La foto como la guarda el cotizador (ServiciosTab.buildItemsSnapshot). Lo
@@ -176,7 +180,7 @@ export function editarFoto(
     categoriaDe(c)?.orden ?? Number.MAX_SAFE_INTEGER;
 
   /** Las casillas de ese día, categoría y audiencia (y con esas personas,
-   *  si viene `cual`). */
+   *  si viene `cual`, o con ese servicio, si viene `que_tiene`). */
   const iguales = (cambio: Cambio): CasillaGuardada[] => {
     const cat = catalogo.categorias.find((x) => x.nombre === cambio.categoria);
     return casillas.filter(
@@ -185,7 +189,9 @@ export function editarFoto(
         (c.category === cambio.categoria ||
           (cat !== undefined && n(c.category_id) === cat.id)) &&
         audienciaDe(c) === (cambio.audiencia ?? 'adultos') &&
-        (cambio.cual == null || personasDe(c) === cambio.cual),
+        (cambio.cual == null || personasDe(c) === cambio.cual) &&
+        (cambio.que_tiene == null ||
+          (c.items ?? []).some((x) => String(x.codigo) === cambio.que_tiene)),
     );
   };
 
@@ -198,10 +204,20 @@ export function editarFoto(
     donde: string,
     obligatoria: boolean,
   ): CasillaGuardada | null | false => {
-    const lista = iguales(cambio);
+    let lista = iguales(cambio);
+    // Al sacar servicios, la casilla es la que los tiene: no hace falta
+    // decir cuál si solo una de las iguales los trae.
+    if (lista.length > 1 && cambio.accion === 'quitar' && cambio.ids?.length) {
+      const conTodos = lista.filter((c) =>
+        cambio.ids!.every((id) =>
+          (c.items ?? []).some((x) => String(x.codigo) === id),
+        ),
+      );
+      if (conTodos.length === 1) lista = conTodos;
+    }
     if (lista.length > 1) {
       errores.push(
-        `${donde}: hay ${lista.length} casillas ${nombreDeLaCasilla(cambio)}; di cuál con «cual» (sus personas hoy: ${lista.map(personasDe).join(', ')}).`,
+        `${donde}: hay ${lista.length} casillas ${nombreDeLaCasilla(cambio)}; di cuál con «que_tiene» (el id de un servicio que tiene esa casilla, como lo trae la ficha) o con «cual» (sus personas hoy: ${lista.map(personasDe).join(', ')}).`,
       );
       return false;
     }
