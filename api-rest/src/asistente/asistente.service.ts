@@ -60,8 +60,10 @@ import { PropuestasService } from './propuestas/propuestas.service';
 /** El modelo se cambia en Railway sin tocar código (doc 20 §2). */
 export const MODELO_POR_DEFECTO = MODELO_OPUS;
 
-/** US$ al mes por empresa (Felipe, 03-11: "mmm 100 USD mensuales?"). Se
- *  cambia en Railway con TOPE_ASISTENTE_USD. */
+/** US$ al mes por empresa (Felipe, 03-11: "mmm 100 USD mensuales?"). Desde
+ *  el 04-11 cada empresa trae su cupo (`companies.tope_asistente_usd`,
+ *  migración 183: 10 para las nuevas, 100 para Valle del Sol); este valor,
+ *  o TOPE_ASISTENTE_USD en Railway, queda para cuando no se puede leer. */
 export const TOPE_POR_DEFECTO_USD = 100;
 
 /** Vueltas de herramientas por pregunta: una búsqueda, la ficha y una más
@@ -292,13 +294,16 @@ export class AsistenteService {
 
     const hoy = hoyEnChile();
     const mes = hoy.slice(0, 7);
-    const gastado = await this.repositorio.gastoDelMes(empresa, mes);
-    if (gastado >= this.tope) {
+    const [gastado, tope] = await Promise.all([
+      this.repositorio.gastoDelMes(empresa, mes),
+      this.topeDe(empresa),
+    ]);
+    if (gastado >= tope) {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           codigo: 'TOPE_DE_BELIA',
-          message: `BelIA llegó al tope de US$ ${this.tope} de este mes. Vuelve el día 1, o un administrador puede subir el tope.`,
+          message: `BelIA llegó a su cupo de US$ ${tope} de este mes. Vuelve el día 1, o pídele a Eventia más cupo.`,
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
@@ -476,11 +481,22 @@ export class AsistenteService {
         ? {
             uso_del_mes: {
               gastado_usd: Math.round((gastado + costo) * 100) / 100,
-              tope_usd: this.tope,
+              tope_usd: tope,
             },
           }
         : {}),
     };
+  }
+
+  /** El cupo del mes de la empresa (Felipe, 04-11-2026: «en las otras
+   *  empresas que se vayan creando, dale $10 de cupo inicial»). Si no se
+   *  puede leer (la 183 sin aplicar), el de siempre. */
+  private async topeDe(empresa: number): Promise<number> {
+    try {
+      return (await this.repositorio.cupoDeLaEmpresa(empresa)) ?? this.tope;
+    } catch {
+      return this.tope;
+    }
   }
 
   /** Los ánimos de BelIA (doc 20 §8b), sin IA y sin costo: lo vencido

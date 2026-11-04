@@ -124,7 +124,7 @@ const armar = (parse: Parse, fila = requerimiento()) => {
   };
   const bitacora = {
     create: jest.fn().mockResolvedValue({}),
-    crearComoAsistente: jest.fn().mockResolvedValue({}),
+    crearComoBeliaAPedidoDe: jest.fn().mockResolvedValue({}),
   };
   const servicio = new GenerarCotizacionService(
     repositorio as unknown as GenerarRepository,
@@ -176,10 +176,10 @@ describe('GenerarCotizacionService', () => {
       'Se excede el presupuesto: el cliente habla de $1.000.000 en total y la cotización suma $1.951.600 en total.',
     );
     expect(cambios).not.toHaveProperty('observations');
-    // La nota la firma el Asistente: la escribió la IA (Felipe, 28-10-2026).
+    // La nota la firma BelIA, a pedido de quien apretó (Felipe, 04-11-2026).
     expect(bitacora.create).not.toHaveBeenCalled();
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(
-      usuario.company_id,
+    expect(bitacora.crearComoBeliaAPedidoDe).toHaveBeenCalledWith(
+      usuario,
       expect.objectContaining({ quotation_id: 'q476', tipo: 'otro' }),
     );
     // Un solo viaje a Claude, con el catálogo en caché.

@@ -164,7 +164,10 @@ export const armar = (
   repositorio.bitacora.mockResolvedValue(notas[notas.length - 1]);
   const bitacora = {
     create: jest.fn().mockResolvedValue({}),
-    crearComoAsistente: jest.fn().mockResolvedValue({}),
+    // Desde el 04-11-2026 firma BelIA: el botón «a pedido de», y el envío
+    // que Eventia ve sola, sin.
+    crearComoBelia: jest.fn().mockResolvedValue({}),
+    crearComoBeliaAPedidoDe: jest.fn().mockResolvedValue({}),
   };
   const outlook = opciones.outlook ?? outlookFalso();
   const choques = {
