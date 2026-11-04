@@ -6,6 +6,7 @@ import {
   bloquesDe,
   hayAlgoNuevo,
   pantallaDe,
+  textoParaBelia,
   trozosDe,
 } from "./belia";
 
@@ -118,5 +119,21 @@ describe("lo que contesta BelIA", () => {
     expect(tabla.filas[0][0]).toEqual([
       { tipo: "enlace", texto: "N° 437", ruta: "/negocio/x" },
     ]);
+  });
+});
+
+describe("textoParaBelia", () => {
+  it("le cuenta a BelIA qué hizo la persona con su propuesta", () => {
+    expect(
+      textoParaBelia({
+        texto: "Te propongo la leche asada.",
+        propuestas: [{ numero: 500, estado: "aplicada" }],
+      }),
+    ).toBe(
+      "Te propongo la leche asada.\n\n(Propuesta de la N° 500: la persona la aplicó y quedó guardada.)",
+    );
+  });
+  it("sin propuestas, viaja el texto tal cual", () => {
+    expect(textoParaBelia({ texto: "Hola" })).toBe("Hola");
   });
 });
