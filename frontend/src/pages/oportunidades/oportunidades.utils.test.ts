@@ -632,7 +632,7 @@ describe("Mis licitaciones: el avance", () => {
     expect(perdidas.map((m) => m.estado)).toEqual(["perdida"]);
   });
 
-  it("por postular, por vencimiento y las ya cerradas al final; las postuladas aparte (19-10)", () => {
+  it("por postular, por vencimiento y sin las ya cerradas (decisión 116); las postuladas aparte (19-10)", () => {
     const cierra = (id: number, estado: string, fecha: string | null) => ({
       id,
       estado,
@@ -652,10 +652,11 @@ describe("Mis licitaciones: el avance", () => {
       ahora,
     );
     // Abiertas de la que vence antes a la que vence después (sin fecha, al
-    // final de ellas); las que ya cerraron sin postular, después.
-    expect(porPostular.map((m) => m.id)).toEqual([3, 1, 5, 6, 4]);
+    // final de ellas). Las que ya cerraron sin postular, la 6 y la 4, ya
+    // no salen: el motor las descarta solas (decisión 116).
+    expect(porPostular.map((m) => m.id)).toEqual([3, 1, 5]);
     expect(postuladas.map((m) => m.id)).toEqual([7, 2]);
-    expect(enCurso.map((m) => m.id)).toEqual([3, 1, 5, 6, 4, 7, 2]);
+    expect(enCurso.map((m) => m.id)).toEqual([3, 1, 5, 7, 2]);
     // Decisión 107: el número de la pestaña, solo las que se pueden
     // postular todavía; ni las ya cerradas ni las postuladas.
     expect(pendientes.map((m) => m.id)).toEqual([3, 1, 5]);

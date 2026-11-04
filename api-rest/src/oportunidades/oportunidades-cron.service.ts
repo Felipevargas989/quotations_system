@@ -1,7 +1,8 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { CerradasSinPostularService } from './decisiones/cerradas-sin-postular.service';
 import { RadarService } from './radar.service';
 
 // EL RELOJ DEL RADAR (doc 17 §5.1; decisiones 18 y 109): en hora de Chile, a
@@ -30,6 +31,8 @@ export class OportunidadesCronService implements OnApplicationBootstrap {
   constructor(
     private readonly radar: RadarService,
     private readonly logger: PinoLogger,
+    /** Las cerradas sin postular, a descartadas (decisión 116). */
+    @Optional() private readonly cerradas?: CerradasSinPostularService,
   ) {
     this.logger.setContext(OportunidadesCronService.name);
   }
@@ -48,6 +51,14 @@ export class OportunidadesCronService implements OnApplicationBootstrap {
     // reinicio no puede seguir teniendo el candado.
     const encendido = new Date().toISOString();
     const limpieza = this.radar.limpiarAlEncender(encendido);
+    // También en cualquier ambiente: lo que cerró sin postular mientras el
+    // motor estaba apagado, o en el laboratorio, donde no corren los relojes
+    // (decisión 116).
+    void this.cerradas?.enTodas().catch((error) => {
+      this.logger.warn(
+        `las cerradas sin postular no se revisaron al encender: ${mensajeDe(error)}`,
+      );
+    });
 
     if (process.env.OPORTUNIDADES_RADAR_AL_ARRANCAR !== '1') return;
     this.logger.warn(

@@ -49,7 +49,8 @@ const mia = (
     region: "Región del Ñuble",
     monto: 12_000_000,
     fecha_publicacion: "2026-10-09T16:24:00.000Z",
-    fecha_cierre: "2026-10-19T18:01:00.000Z",
+    // Abierta: desde la decisión 116 lo cerrado sin postular no sale.
+    fecha_cierre: "2099-10-19T18:01:00.000Z",
     estado: "Publicada",
   },
   avance: avance(),
@@ -147,10 +148,19 @@ describe("Mis licitaciones", () => {
           fecha_cierre: "2099-11-05T18:00:00.000Z",
         },
       }),
+      // Cerró sin postular: ya no sale (decisión 116).
+      mia(93, "Gira de estudios", "en_estudio", {
+        proceso: {
+          ...mia(0, "", "").proceso,
+          nombre: "Gira de estudios",
+          fecha_cierre: "2026-11-04T15:00:00.000Z",
+        },
+      }),
     ] as never);
     pintar();
 
     expect(await screen.findByText("Por postular (2)")).toBeInTheDocument();
+    expect(screen.queryByText("Gira de estudios")).not.toBeInTheDocument();
     expect(screen.getByText("Postuladas (1)")).toBeInTheDocument();
     const nombres = screen.getAllByRole("link").map((a) => a.textContent);
     // La que vence antes, primero; la postulada, al final.
