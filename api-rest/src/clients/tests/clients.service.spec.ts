@@ -77,12 +77,81 @@ describe('ClientsService', () => {
     expect(repo.create).not.toHaveBeenCalled();
   });
 
-  it('"Es otro cliente, crear igual": con confirmado crea sin preguntar y sin guardar la marca', async () => {
+  it('"Es otro cliente, crear igual": con confirmado crea aunque se parezca, y sin guardar la marca', async () => {
+    repo.paraCoincidir.mockResolvedValue([
+      {
+        id: 'rene',
+        name: 'Rene Neira',
+        client_type: 'Club Adulto Mayor',
+        email: null,
+        phone: null,
+        personas: [
+          { id: 436, name: 'Rene Neira', email: null, phone: '+56991644870' },
+        ],
+        ultimaCotizacion: 590,
+      },
+    ]);
     await service.crearDesdePantalla({ ...dto, confirmado: true }, 1);
-    expect(repo.paraCoincidir).not.toHaveBeenCalled();
     expect(repo.create).toHaveBeenCalledTimes(1);
     const guardado = (repo.create.mock.calls as unknown[][])[0][0];
     expect(guardado).not.toHaveProperty('confirmado');
+  });
+
+  it('Hospital de Bulnes (04-11): mismo correo y mismo nombre NO se crea aunque venga confirmado', async () => {
+    repo.paraCoincidir.mockResolvedValue([
+      {
+        id: 'bulnes',
+        name: 'Hospital Comunitario de Salud Familiar de Bulnes',
+        client_type: 'Particulares',
+        email: 'nicol.aedo@redsalud.gob.cl',
+        phone: '',
+        personas: [
+          {
+            id: 573,
+            name: 'Nicol Aedo Muñoz',
+            email: 'nicol.aedo@redsalud.gob.cl',
+            phone: null,
+          },
+        ],
+        ultimaCotizacion: null,
+      },
+    ]);
+    const intento = service.crearDesdePantalla(
+      {
+        name: 'Hospital Comunitario de Salud Familiar de Bulnes',
+        client_type: 'Empresas Publicas',
+        email: 'nicol.aedo@redsalud.gob.cl',
+        contact_person: 'Nicol Aedo Muñoz',
+        confirmado: true,
+      },
+      1,
+    );
+    await expect(intento).rejects.toBeInstanceOf(ConflictException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('mismo correo con OTRO nombre (quien organiza varios grupos): confirmado sí crea', async () => {
+    repo.paraCoincidir.mockResolvedValue([
+      {
+        id: 'club1',
+        name: 'Club Adulto Mayor Los Aromos',
+        client_type: 'Club Adulto Mayor',
+        email: 'organiza@correo.cl',
+        phone: null,
+        personas: [],
+        ultimaCotizacion: 400,
+      },
+    ]);
+    await service.crearDesdePantalla(
+      {
+        name: 'Agrupación Renacer',
+        client_type: 'Club Adulto Mayor',
+        email: 'organiza@correo.cl',
+        confirmado: true,
+      },
+      1,
+    );
+    expect(repo.create).toHaveBeenCalledTimes(1);
   });
 
   it('sin nada parecido, crea como siempre (con su persona principal)', async () => {
