@@ -82,37 +82,59 @@ export default function BeliaVentanilla() {
     }
   };
 
-  const atajos = [
-    {
-      icono: ListChecks,
-      texto: "Ver pendientes",
-      pregunta: "¿Qué cotizaciones requieren seguimiento?",
-    },
-    {
-      icono: CalendarDays,
-      texto: "Calendario",
-      pregunta: "¿Qué eventos tenemos esta semana?",
-    },
-    b.conCotizacion
-      ? {
-          icono: BookOpen,
-          texto: "Esta cotización",
-          pregunta: "Resúmeme esta cotización.",
-        }
-      : {
-          icono: BookOpen,
-          texto: "Catálogo",
-          pregunta: "¿Qué menús de cena tenemos y cuánto valen?",
+  // Recepción (doc 20 §13): fechas, los requerimientos que llegan y crear
+  // uno. Los pendientes de seguimiento y el catálogo con precios son de
+  // quien vende.
+  const atajos = b.esRecepcion
+    ? [
+        {
+          icono: CalendarDays,
+          texto: "Fechas libres",
+          pregunta: "¿Qué fechas tenemos libres este mes?",
         },
-    // «Crear evento», de la lámina de Felipe (doc 20 §8b): BelIA pregunta
-    // lo que falta y propone la cotización con «Sí, crear».
-    {
-      icono: CalendarPlus,
-      texto: "Crear evento",
-      pregunta: "Quiero crear un evento nuevo.",
-    },
-    { icono: CircleHelp, texto: "Ayuda", pregunta: "¿Qué puedes hacer?" },
-  ];
+        {
+          icono: ListChecks,
+          texto: "Requerimientos",
+          pregunta: "¿Qué requerimientos llegaron hoy?",
+        },
+        {
+          icono: CalendarPlus,
+          texto: "Crear requerimiento",
+          pregunta: "Quiero crear un requerimiento nuevo.",
+        },
+        { icono: CircleHelp, texto: "Ayuda", pregunta: "¿Qué puedes hacer?" },
+      ]
+    : [
+        {
+          icono: ListChecks,
+          texto: "Ver pendientes",
+          pregunta: "¿Qué cotizaciones requieren seguimiento?",
+        },
+        {
+          icono: CalendarDays,
+          texto: "Calendario",
+          pregunta: "¿Qué eventos tenemos esta semana?",
+        },
+        b.conCotizacion
+          ? {
+              icono: BookOpen,
+              texto: "Esta cotización",
+              pregunta: "Resúmeme esta cotización.",
+            }
+          : {
+              icono: BookOpen,
+              texto: "Catálogo",
+              pregunta: "¿Qué menús de cena tenemos y cuánto valen?",
+            },
+        // «Crear evento», de la lámina de Felipe (doc 20 §8b): BelIA pregunta
+        // lo que falta y propone la cotización con «Sí, crear».
+        {
+          icono: CalendarPlus,
+          texto: "Crear evento",
+          pregunta: "Quiero crear un evento nuevo.",
+        },
+        { icono: CircleHelp, texto: "Ayuda", pregunta: "¿Qué puedes hacer?" },
+      ];
 
   if (!b.abierta) {
     return (

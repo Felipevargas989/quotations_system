@@ -10,7 +10,7 @@ import {
 } from 'src/quotations/constants/constants';
 import type { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import type { QuotationsRepository } from 'src/quotations/quotations.repository';
-import type { User, UserRole } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 import type { AsistenteRepository } from '../asistente.repository';
 import type { TarjetaDePropuesta } from '../propuestas/comun';
 import type { PropuestasService } from '../propuestas/propuestas.service';
@@ -163,11 +163,14 @@ export const inicioDelDiaEnChile = (ymd: string): string => {
 };
 
 /** Dónde se abre una cotización en Eventia. Lo vendido se mira en
- *  Post-Venta, que es de operaciones para arriba (SECTION_ROLES.payments). */
+ *  Post-Venta, que es de operaciones para arriba (SECTION_ROLES.payments).
+ *  Recepción no abre la ficha del negocio: su pantalla es Requerimientos
+ *  (doc 20 §13). */
 export const enlaceDe = (
   q: { id: string; quotation_status: QuotationStatus },
   rol: UserRole,
 ): string => {
+  if (rol === UserRole.RECEPCION) return '/requests';
   const vendido = [
     QuotationStatus.ACEPTADA,
     QuotationStatus.REALIZADA,

@@ -1,4 +1,4 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { RequestType } from 'src/quotations/constants/constants';
 import type { FilaDeLista } from '../asistente.repository';
 import {
@@ -17,10 +17,13 @@ import {
   texto,
   type Herramienta,
 } from './comun';
+import { esRecepcion } from './recepcion';
 
 // «¿Cuántas cotizaciones de matrimonio enviamos en octubre?», «¿qué tiene
 // Rudel?». La lista del tablero de Cotizaciones, con sus filtros: es de
-// quien vende (SECTION_ROLES.quotations).
+// quien vende (SECTION_ROLES.quotations). Recepción también la usa desde
+// el 04-11 (doc 20 §13), para saber en qué va el pedido de un cliente: le
+// llega sin el total ni el enlace a la ficha, que su pantalla no abre.
 
 const ORDENES = ['fecha_evento', 'numero', 'creada', 'total'] as const;
 
@@ -29,7 +32,7 @@ export const filaComoLaVePersona = (
   rol: Parameters<typeof enlaceDe>[1],
 ) => ({
   numero: q.quotation_number,
-  enlace: enlaceDe(q, rol),
+  ...(esRecepcion(rol) ? {} : { enlace: enlaceDe(q, rol) }),
   cliente: q.clients?.name ?? null,
   estado: estadoDe(q.quotation_status),
   tipo:
@@ -41,7 +44,7 @@ export const filaComoLaVePersona = (
   hasta: conDia(diaDelEvento(q.event_end_date)),
   personas: q.people_count,
   ninos: q.children_count || undefined,
-  total: pesos(q.total_amount),
+  ...(esRecepcion(rol) ? {} : { total: pesos(q.total_amount) }),
   enviada: q.sent_at ? fechaEnChile(q.sent_at) : undefined,
   creada: fechaEnChile(q.created_at),
 });
@@ -51,7 +54,8 @@ export const buscarCotizaciones: Herramienta = {
   descripcion:
     'Busca cotizaciones y requerimientos de la empresa, como el tablero de Cotizaciones. ' +
     'Sirve para contar ("¿cuántas…?") y para listar. Devuelve el total que calza con los ' +
-    'filtros y hasta `limite` filas, cada una con su enlace. Fechas en AAAA-MM-DD.',
+    'filtros y hasta `limite` filas, cada una con su enlace (para recepción, sin el total ni ' +
+    'el enlace). Fechas en AAAA-MM-DD.',
   esquema: {
     type: 'object',
     properties: {
@@ -101,7 +105,7 @@ export const buscarCotizaciones: Herramienta = {
       },
     },
   },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const creadaHasta = fecha(entrada.creada_hasta, 'creada_hasta');
     const tipo = entrada.tipo;
@@ -128,9 +132,13 @@ export const buscarCotizaciones: Herramienta = {
         creadaHasta: creadaHasta
           ? inicioDelDiaEnChile(sumarDias(creadaHasta, 1))
           : undefined,
-        orden: ORDENES.includes(entrada.orden as (typeof ORDENES)[number])
-          ? (entrada.orden as (typeof ORDENES)[number])
-          : 'fecha_evento',
+        // Recepción no ordena por plata: «las más grandes primero» también
+        // dice cuánto valen.
+        orden:
+          ORDENES.includes(entrada.orden as (typeof ORDENES)[number]) &&
+          !(entrada.orden === 'total' && esRecepcion(ctx.usuario.role))
+            ? (entrada.orden as (typeof ORDENES)[number])
+            : 'fecha_evento',
         limite: entero(entrada.limite, 1, 50) ?? 20,
       },
     );

@@ -62,6 +62,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `asistente_uso` | Cada respuesta de Evia (doc 20): el mes en Chile (AAAA-MM), el modelo, los tokens con la caché aparte, lo que costó, los segundos, las herramientas que usó, la ruta de la pantalla y si falló. No guarda la pregunta. De ahí sale el tope mensual. Quién (id de la sesión, sin llave) | 20 (doc) | 180 |
 | `asistente_propuestas` | Las propuestas de BelIA (doc 20, fase 2): quién la pidió, el resumen, el `antes` (la foto y la plata, el respaldo para deshacer), el `despues` (el parche ya calculado o la nota), la huella de la cotización al proponer y al aplicar, el estado (`pendiente`, `aplicando`, `aplicada`, `deshaciendo`, `deshecha`, `descartada`, `vencida`) y el vencimiento (2 horas). Lo aprobado NO se escribe acá: va por `QuotationsService.update` | 25 | 181 |
+| `asistente_conversaciones` | La conversación de cada persona con BelIA (doc 20 §13): una fila por persona y empresa (`company_id` y `usuario_id`, la llave), el cargo con que se conversó, los turnos como los muestra la ventanilla (`turnos`, jsonb, los 30 más nuevos con sus tarjetas) y `updated_at`. Cerrada a la llave pública: solo el motor, con la sesión. Si el cargo no calza o lleva 90 días sin uso, el motor la borra | 25 | 182 (solo en el lab) |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -621,3 +622,13 @@ y **antes** del deploy del motor.
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 181, BelIA responde igual, pero las herramientas que proponen fallan al guardar la propuesta.
 
 **Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Completada el 04-11-2026** para «Crear evento» (Felipe: *"haz las 3 primeras"*): `quotation_id` puede faltar mientras la cotización nueva no se crea, y el tipo `cotizacion_nueva` (el check de tipo va con nombre, `asistente_propuestas_tipo_check`). El archivo trae los `alter` idempotentes para la tabla que ya existía; **aplicados en el laboratorio el 04-11** (verificado). **Aplicada en producción el 04-11-2026**, completa y antes del motor (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura, los tres tipos y la cotización que puede faltar).
+
+## 27. Migración 182: la conversación de cada persona con BelIA (04-11-2026)
+
+**Qué hace.** Crea `asistente_conversaciones` (doc 20 §13): una fila por persona y empresa (llave `company_id` + `usuario_id`, el id de la **sesión** sin llave, como la 181), con el cargo con que se conversó, los turnos de la ventanilla (`turnos`, jsonb) y `created_at` y `updated_at`. Un índice por empresa y `updated_at` para la limpieza de las que llevan 90 días sin uso. RLS encendido, `anon` y `authenticated` sin permisos y `service_role` con lectura y escritura, como la 180 y la 181.
+
+**Por qué.** Felipe, 04-11: *"que vaya guardando como cierto contexto cuando se cierra la ventana ... por cada usuario"*. Antes la conversación vivía en la pestaña del navegador y se perdía al cerrarla.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 182, BelIA responde igual, pero la ventanilla no puede leer ni guardar la conversación: conversa, sin guardarla.
+
+**Estado.** Escrita el 04-11-2026 (Felipe: *"Sí, me parece bien"* y *"así que vamos"*). Solo en el laboratorio; producción, con el «a producción».

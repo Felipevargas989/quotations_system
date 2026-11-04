@@ -210,6 +210,13 @@ export class PropuestasService {
   async aplicar(usuario: User, id: string): Promise<ResultadoDeAplicar> {
     const empresa = usuario.company_id;
     const p = await this.suya(usuario, id);
+    // Recepción solo crea requerimientos con BelIA (doc 20 §13). Si le
+    // cambiaron el cargo con una propuesta vieja en la mano, no se aplica.
+    if (usuario.role === UserRole.RECEPCION && p.tipo !== 'cotizacion_nueva') {
+      throw new ForbiddenException(
+        'Con el cargo de recepción, BelIA solo crea requerimientos.',
+      );
+    }
     if (p.estado !== 'pendiente') {
       throw new ConflictException(`Esa propuesta ${ESTADOS[p.estado]}.`);
     }
