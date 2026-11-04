@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15), plan que espera el OK de Felipe. Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma lo de la IA, salvo los correos), BelIA en todas las empresas y el cupo de US$ 10 (§16, migración 183) quedaron en el laboratorio. Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -284,7 +284,7 @@ cosas de pagos, tal vez. O eventos que ya estén como sobre la marcha"*.
 | Modelo | Opus 5.5 (`claude-opus-5-5`). Se cambia en Railway con `MODELO_ASISTENTE`, sin tocar código | *"ojalá Opus"* |
 | Tope | US$ 100 al mes, solo para Evia (§7) | *"mmm 100 USD mensuales?"* |
 | Cotizaciones aceptadas | Como Post-Venta → Servicios, con las consecuencias a la vista (§5) | *"si me sirve"* |
-| Empresa | Módulo propio de Valle del Sol: el derecho `asistente`, como `cotizar_con_ia`. La cuenta de Anthropic es de VdS (`api-rest/src/auth/derechos.ts`) | — |
+| Empresa | ~~Módulo propio de Valle del Sol~~ **desde el 04-11, todas las empresas**: el derecho `asistente` va en todos los planes, con el cupo de cada empresa (§16). La cuenta de Anthropic es de VdS (`api-rest/src/auth/derechos.ts`) | *"Belia es para todos los usuarios de Eventia"* |
 
 ## 3. Las cuatro reglas
 
@@ -414,7 +414,11 @@ Las instrucciones y la lista de herramientas van en caché.
 **La cuenta del mes.**
 - El motor anota el costo de cada respuesta en `asistente_uso`
   (migración 180), por empresa, usuario y mes.
-- El tope vive en Railway: `TOPE_ASISTENTE_USD=100`.
+- ~~El tope vive en Railway: `TOPE_ASISTENTE_USD=100`.~~ **Desde el 04-11,
+  cada empresa tiene su cupo** (`companies.tope_asistente_usd`, migración
+  183): US$ 10 para las nuevas y 100 para Valle del Sol (§16).
+  `TOPE_ASISTENTE_USD` queda solo para cuando el motor no puede leer la
+  columna.
 
 **Al acercarse al tope:**
 - Al 80 %, los administradores ven un aviso en la ventanilla.
@@ -732,3 +736,42 @@ de operación del complejo"*.
 - Las otras empresas: BelIA es de Valle del Sol. ¿Su «Crear con IA» sigue
   como «Asistente»?
 - Las 188 notas viejas: ¿se pasan a «BelIA»?
+
+**Lo que decidió Felipe (04-11, en la tarde):** *"No, los correos dejémoslo
+así como estaban aparte. Belia es para todos los usuarios de Eventia, solo
+que en las otras empresas que se vayan creando, dale $10 de cupo inicial,
+nada más. Sí, pasa las 188 notas del asistente antiguo, pásalas como Belia y
+ponle su carita"*.
+- **Los correos siguen aparte, como «Asistente» con el robot:** «✉ Generar
+  seguimiento» (`seguimiento.service.ts`) y la habilidad
+  `correos-cotizaciones-vds`.
+- **La etapa 1 (la firma), en el laboratorio:**
+  - «✨ Crear con IA» y el armado de una postulación firman «BelIA» y dicen
+    «A pedido de …» (`crearComoBeliaAPedidoDe`: el nombre sale del perfil
+    de quien apretó el botón y, si no está, de su correo);
+  - la ganada que se acepta sola firma «BelIA», sin «a pedido de»
+    (`crearComoBelia`).
+- **Las notas viejas, en producción el mismo 04-11:** pasaron a «BelIA» 123
+  de las 188, con respaldo en `02_RESPALDOS/cambios_de_datos`; cambió la
+  firma y no el texto. Las 65 de los correos (los borradores y «Seguimiento
+  con IA enviado») siguen como «Asistente», igual que los correos que
+  vienen. Si Felipe las quiere con BelIA, es el mismo cambio.
+- Las etapas 2 (el cerebro común) y 3 (Oportunidades) siguen como plan.
+
+## 16. BelIA para todas las empresas, con su cupo (04-11-2026)
+
+Felipe: *"Belia es para todos los usuarios de Eventia, solo que en las otras
+empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
+
+- **El derecho `asistente` va en todos los planes**, desde Cotiza
+  (`DE_COTIZA` en `api-rest/src/auth/derechos.ts`, y la copia de la app en
+  `constants/permissions.ts`), también en la prueba de 7 días. A Valle del
+  Sol, que lo tenía como módulo propio, no se le cuenta dos veces.
+- **El cupo es de cada empresa** (`companies.tope_asistente_usd`, migración
+  183): US$ 10 al mes por defecto y 100 para Valle del Sol (la empresa 1).
+  Se cambia en la base, a mano, por empresa. Al llegar al cupo, BelIA
+  contesta «Vuelve el día 1, o pídele a Eventia más cupo» sin llamar a la
+  IA.
+- Las herramientas siguen el plan de cada empresa: sin Post-Venta no hay
+  pagos ni cobranza, sin Logística no hay compras, sin Personal no hay
+  personal.

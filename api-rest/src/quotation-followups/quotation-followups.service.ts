@@ -26,6 +26,20 @@ type NotaDeLaIA = Pick<
 // anulado ya no lo marca (las cuotas vencidas siguen en «Vencidos»). Todo
 // evento vendido termina realizado con todas sus notas: leerlas también
 // haría crecer esta lista para siempre.
+/** «felipe@valledelsolquillon.cl» → «Felipe»: el nombre cuando el perfil
+ *  no trae uno (como lo muestra el Seguimiento, `nombreDeAutor`). */
+const nombreDelCorreo = (correo?: string | null): string | null => {
+  const base = (correo ?? '').split('@')[0].trim();
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
+};
+
+/** «Cotización generada…» → «cotización generada…», para que siga a «A
+ *  pedido de X:». Una sigla («N°», «IA») queda como está. */
+const conMinuscula = (texto: string): string =>
+  /^\p{Lu}\p{Ll}/u.test(texto)
+    ? texto.charAt(0).toLowerCase() + texto.slice(1)
+    : texto;
+
 const ESTADOS_DEL_SEMAFORO = [
   QuotationStatus.SOLICITADA,
   QuotationStatus.ENVIADA,
@@ -168,6 +182,25 @@ export class QuotationFollowupsService {
   // el robot (Felipe, 04-11-2026). Quién lo pidió va en el texto.
   async crearComoBelia(companyId: Company['id'], p: NotaDeLaIA) {
     return this.crearSinSesion(companyId, 'BelIA', p);
+  }
+
+  // Lo que deja un botón con IA que alguien apretó («✨ Crear con IA», el
+  // armado de una postulación): firmado «BelIA» y con «A pedido de …» al
+  // comienzo, como las notas de la ventanilla (Felipe, 04-11-2026: «si
+  // alguien aprieta ... debería ser BelIA quien firma»). Los correos siguen
+  // con el Asistente (crearComoAsistente): «los correos dejémoslo así».
+  async crearComoBeliaAPedidoDe(user: User, p: NotaDeLaIA) {
+    const nombre =
+      (user.id
+        ? await this.followupsRepository
+            .nombreDeLaPersona(user.company_id, user.id)
+            .catch(() => null)
+        : null) ?? nombreDelCorreo(user.email);
+    const quien = nombre ? `A pedido de ${nombre}` : 'A pedido del equipo';
+    return this.crearSinSesion(user.company_id, 'BelIA', {
+      ...p,
+      note: `${quien}: ${conMinuscula(p.note.trim())}`,
+    });
   }
 
   private async crearSinSesion(

@@ -78,6 +78,23 @@ export class QuotationFollowupsRepository {
 
   // Verifica que la cotización exista Y sea de la empresa de la sesión
   // (candado previo al insert: nadie anota en cotizaciones ajenas).
+  /** El nombre de quien apretó un botón con IA (la sesión no lo trae). */
+  async nombreDeLaPersona(
+    companyId: Company['id'],
+    userId: string,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from('user_profiles')
+      .select('full_name')
+      .eq('user_id', userId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (
+      (data as { full_name: string | null } | null)?.full_name?.trim() || null
+    );
+  }
+
   async findOwnedQuotation(companyId: Company['id'], quotationId: string) {
     this.logger.info(`findOwnedQuotation ${quotationId} company ${companyId}`);
     const { data, error } = await this.supabase.client

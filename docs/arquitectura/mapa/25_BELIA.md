@@ -19,7 +19,7 @@ BelIA es una ventanilla de chat abajo a la derecha de todas las pantallas. Conve
 
 La persona ve la propuesta en una tarjeta y recién con su «Sí, aplicar» el motor la guarda, por la misma puerta del cotizador.
 
-Las usan vendedor, operaciones y administración y, desde el 04-11, recepción (sin plata), solo en la empresa con el módulo propio `asistente` (Valle del Sol, migración 180).
+Las usan vendedor, operaciones y administración y, desde el 04-11, recepción (sin plata). ~~Solo en la empresa con el módulo propio `asistente`~~ Desde el 04-11 (doc 20 §16), en todas las empresas: el derecho `asistente` va en todos los planes (`DE_COTIZA`), con el cupo de cada empresa (`companies.tope_asistente_usd`, migración 183: US$ 10, y 100 Valle del Sol).
 
 Las reglas que la sostienen (doc 20 §3):
 - actúa con el cargo y la empresa de quien escribe;
@@ -71,7 +71,8 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | `asistente_uso` | Una fila por respuesta: mes en Chile, modelo, tokens, costo, segundos, herramientas, ruta y falla. Sin la pregunta | L (`gastoDelMes`) / E (`registrarUso`) | 180 |
 | `asistente_propuestas` | Una fila por propuesta: quién la pidió, el resumen, el `antes` (la foto y la plata, el respaldo para deshacer), el `despues` (el parche ya calculado o la nota), la huella de la cotización al proponer y al aplicar, el estado y el vencimiento (2 horas) | L/E (`crearPropuesta`, `propuesta`, `moverPropuesta`, `descartarPendientes`) | 181 |
 | `asistente_conversaciones` | Una fila por persona y empresa: el cargo con que se conversó, los turnos como los muestra la ventanilla (los 30 más nuevos, con sus tarjetas) y cuándo se usó. Cerrada a la llave pública: solo el motor, con la sesión | L/E (`ConversacionRepository`: `leer`, `guardar`, `borrar`, `borrarSinUso`) | 182 (en las dos bases) |
-| `companies.modulos_propios` | El derecho `asistente` | L (`derechosDe`) | 180 (solo datos) |
+| `companies.modulos_propios` | El derecho `asistente` de Valle del Sol desde la 180; desde el 04-11 lo trae todo plan y no se cuenta dos veces | L (`derechosDe`) | 180 (solo datos) |
+| `companies.tope_asistente_usd` | El cupo del mes de cada empresa, en US$: 10 por defecto y 100 para Valle del Sol | L (`AsistenteRepository.cupoDeLaEmpresa`) | 183 |
 | `quotations` | Lo que consultan las herramientas, siempre con el `company_id` de la sesión. **BelIA no la escribe**: lo aprobado se guarda con `QuotationsService.update` o, si es nueva, con `QuotationsService.create`, como el cotizador y el formulario | L | — |
 | `clients` | Lo consultan `buscar_clientes` y «Crear evento». Un cliente nuevo se crea, con el «Sí, crear», por `ClientsService.crearDesdePantalla`: el portero de clientes parecidos de las pantallas | L / E por `ClientsService` | — |
 | `event_types`, `client_types` | Los tipos de evento activos y los tipos de cliente de la empresa, para validar «Crear evento» | Solo L | — |
@@ -87,7 +88,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 
 **Una pregunta.**
 1. La ventanilla manda el mensaje, la historia y la pantalla.
-2. El motor mira el tope del mes (`TOPE_ASISTENTE_USD`, 100 si no se dice). Si se alcanzó, contesta 429 `TOPE_DE_BELIA` sin llamar a Claude.
+2. El motor mira el cupo del mes de la empresa (`tope_asistente_usd`, migración 183; si no lo puede leer, `TOPE_ASISTENTE_USD` o 100). Si se alcanzó, contesta 429 `TOPE_DE_BELIA` sin llamar a Claude.
 3. Arma las instrucciones fijas (en caché) y las del momento (quién, qué día, qué pantalla). La cotización abierta se revisa contra la empresa.
 4. Ofrece solo las herramientas que el cargo y el plan permiten (`herramientasPara`).
 5. Repite el ciclo de Claude hasta 8 vueltas. Cada herramienta pedida corre con el `User` de la sesión; lo que falla vuelve como error y no corta el ciclo.
@@ -171,7 +172,7 @@ De la fase 2 (03-11):
 - `computeMoney` de `quotations/utils/money.ts`;
 - `repartirRebaja` y `repartirAlza` de `payments/cuotas-que-se-llenan.ts` (doc 14), para mostrar las cuotas;
 - `LogisticsService` (lecturas de Compras y `findDayPrints`) y `logistics/utils/consolidacion.ts`;
-- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoBelia`, la bitácora (la misma puerta que `crearComoAsistente`, firmada «BelIA»);
+- `QuotationFollowupsService.mapByCompany`, `findByQuotation` y `crearComoBelia`, la bitácora (la misma puerta que `crearComoAsistente`, firmada «BelIA»). Desde el 04-11 también firman «BelIA» «✨ Crear con IA» y el armado de una postulación (`crearComoBeliaAPedidoDe`, con «A pedido de …») y la ganada que se acepta sola; los correos siguen con el Asistente (doc 20 §15);
 - de `oportunidades/analisis/comun.ts`: `costoDelUso`, `usoDeLaRespuesta`, `hoyEnChile` y `errorDeIA`.
 
 **Lo que usa de la app:**
