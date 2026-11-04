@@ -30,6 +30,13 @@ const ids = (v: unknown): number[] | undefined =>
         .filter((x): x is number => x !== undefined)
     : undefined;
 
+/** El código de un servicio, venga como texto o como número. */
+const codigo = (v: unknown): string | undefined => {
+  if (typeof v !== 'string' && typeof v !== 'number') return undefined;
+  const t = String(v).trim().slice(0, 40);
+  return t || undefined;
+};
+
 /** Lee los cambios que manda la IA, sin creerle: lo que no es del tipo
  *  esperado queda afuera y las reglas del armado avisan qué falta. */
 export const leerCambios = (v: unknown): Cambio[] => {
@@ -84,10 +91,7 @@ export const leerCambios = (v: unknown): Cambio[] => {
       id: entero(c.id, 1, 100_000_000),
       cantidad: entero(c.cantidad, 0, 10_000),
       cual: entero(c.cual, 1, 100_000),
-      que_tiene:
-        c.que_tiene != null && String(c.que_tiene).trim()
-          ? String(c.que_tiene).trim().slice(0, 40)
-          : undefined,
+      que_tiene: codigo(c.que_tiene),
     };
   });
 };
