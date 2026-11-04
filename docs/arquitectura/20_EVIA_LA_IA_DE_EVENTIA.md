@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fase 1 en el laboratorio y fase 2 escrita el mismo día (ver abajo). Nada en producción.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 en el laboratorio desde el 03-11 (ver abajo). Nada en producción.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -119,8 +119,29 @@
 >      no pise el cambio.
 > - Su mapa es `mapa/25_BELIA.md`. 1.829 pruebas del motor y 803 de la app
 >   en verde.
-> - **Falta:** la 181 en el laboratorio, probarlo con preguntas reales y,
->   con su «a producción», las dos migraciones (180 y 181) y el motor.
+> - **En el laboratorio desde el 03-11, ya tarde** (migración 181 aplicada
+>   y verificada; motor `793cc22` y después `f74368e`; vitrina 6aea93cd).
+>   Probado en la pantalla, con la sesión de Felipe:
+>   - la 447 (formato antiguo, sin días ni personas en sus casillas):
+>     macedonia por leche asada en el almuerzo del pollo, $2.273.920 →
+>     $2.289.120 (+$15.200: $500 × 40 con el 24 % de descuento). Aplicada,
+>     con la nota en la bitácora, y deshecha: quedó idéntica (misma huella);
+>   - la 473 aceptada: + leche asada al almuerzo, +$240.000. Las tres cuotas
+>     vencidas no cambian y nace una de $240.000, como manda el doc 14. Se
+>     dijo «No»;
+>   - una nota en la 445 con llamada y próximo contacto, «a pedido de Felipe
+>     Vargas»;
+>   - lo que hay que comprar para los 12 aceptados: $11.562.416, **la misma
+>     cifra al peso** que «Faltante por comprar» de Compras.
+>
+>   De la prueba salieron cuatro arreglos: el nombre de quien escribe (la
+>   sesión no lo trae), los ids en la búsqueda del catálogo, avisar solo la
+>   forma que trae el cambio y distinguir casillas iguales del formato
+>   antiguo por lo que tienen (`que_tiene`). Cada propuesta costó US$ 0,01
+>   a 0,04; la primera después de cada subida, US$ 0,09 (la caché de una
+>   hora se vuelve a escribir).
+> - **Falta:** con su «a producción», las dos migraciones (180 y 181) y el
+>   motor, y después la vitrina.
 
 ## 1. Por qué
 

@@ -304,7 +304,8 @@ export const proponerNota: Herramienta = {
     return {
       propuesta: 'lista',
       numero: tarjeta.numero,
-      importante: CUANDO_TERMINA,
+      importante:
+        'La persona ve la nota en una tarjeta con el botón «Sí, anotar». Todavía NO está anotada: no digas que ya se hizo. Dile en una línea qué vas a anotar y que lo apruebe en la tarjeta.',
     };
   },
 };
