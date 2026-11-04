@@ -515,15 +515,17 @@ amarrada a él en Eventia.
 | L20 | Los plazos del SII para anular y rebajar (§9.5). | Eventia muestra el plazo y avisa antes. |
 | L21 | No se sabe si facturacion.cl acepta por el TXT la nota de crédito de una boleta, ni la nota de débito que anula una nota de crédito. | Se prueba en el paso 0, antes de construir esas pantallas. |
 
-### 9.8 Decisiones nuevas
+### 9.8 Decisiones nuevas (tomadas por Felipe el 04-11)
 
-| # | Pregunta | Recomendación |
+| # | Pregunta | Decisión de Felipe |
 |---|---|---|
-| E1 | Con OC, ¿la factura va siempre por el total de la OC, aunque la cotización diga otra cosa? | Sí, como lo dijo Felipe. La vista previa avisa la diferencia. |
+| E1 | Con OC, ¿la factura va siempre por el total de la OC, aunque la cotización diga otra cosa? | *"si siempre por el total"*. La vista previa avisa la diferencia con la cotización. |
 | E2 | ¿Qué referencias pide cada cliente? | Se aprenden al facturar: la primera vez se pregunta y queda en la ficha (CCU: la OC y la nota de pedido). |
-| E3 | Boletas de cabañas: ¿el administrador deja el total y recepción solo lo reparte? | Sí, más la boleta suelta con el tarifario (D3). |
-| E4 | ¿Se puede facturar antes del evento (anticipo)? | Sí, por un % del total o de la OC. |
-| E5 | ¿Quién anula? | El administrador: las notas de crédito y de débito. |
+| E3 | Boletas de cabañas: ¿el administrador deja el total y recepción solo lo reparte? | *"debe ser editable"*: el total y lo de cada cabaña se pueden cambiar en la pantalla, y queda anotado quién cambió qué. |
+| E4 | ¿Se puede facturar antes del evento, o por otro monto? | *"si un % pero debe quedar el registro (…) también puede ser que se facture un monto diferente al evento y eso no debería ser una limitante, debe mandar la OC, y finalmente ser editable a mano, Belia arma todo y luego se confirma a mano"*. Se factura por un % o por un monto, sin tope contra el total del evento. Si hay OC, manda la OC. Todo es editable a mano antes de emitir, y queda el registro de lo facturado contra el evento y contra la OC. |
+| E5 | ¿Quién anula? | *"solo el administrador"*: las notas de crédito y de débito. |
+
+Felipe cerró con *"si avanza así"*: se parte con el paso 1 del §9.9.
 
 ### 9.9 Pasos v2 (sprints cortos)
 
