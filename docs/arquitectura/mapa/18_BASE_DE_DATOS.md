@@ -620,4 +620,4 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 181, BelIA responde igual, pero las herramientas que proponen fallan al guardar la propuesta.
 
-**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Sin aplicar en ninguna base todavía.**
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Sin aplicar en producción.**
