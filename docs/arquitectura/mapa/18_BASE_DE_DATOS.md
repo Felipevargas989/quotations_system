@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -62,7 +62,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `seguimientos_con_ia` | Cada borrador que dejó «✉ Generar seguimiento»: buzón, modo, identificador inmutable de Outlook, hilo, enlace, ángulo, estado (borrador, enviado, descartado), cuándo salió, cuándo se miró por última vez, quién (id de la sesión, sin llave) y cuándo | 01 | 141; 142 |
 | `asistente_uso` | Cada respuesta de Evia (doc 20): el mes en Chile (AAAA-MM), el modelo, los tokens con la caché aparte, lo que costó, los segundos, las herramientas que usó, la ruta de la pantalla y si falló. No guarda la pregunta. De ahí sale el tope mensual. Quién (id de la sesión, sin llave) | 20 (doc) | 180 |
 | `asistente_propuestas` | Las propuestas de BelIA (doc 20, fase 2): quién la pidió, el resumen, el `antes` (la foto y la plata, el respaldo para deshacer), el `despues` (el parche ya calculado o la nota), la huella de la cotización al proponer y al aplicar, el estado (`pendiente`, `aplicando`, `aplicada`, `deshaciendo`, `deshecha`, `descartada`, `vencida`) y el vencimiento (2 horas). Lo aprobado NO se escribe acá: va por `QuotationsService.update` | 25 | 181 |
-| `asistente_conversaciones` | La conversación de cada persona con BelIA (doc 20 §13): una fila por persona y empresa (`company_id` y `usuario_id`, la llave), el cargo con que se conversó, los turnos como los muestra la ventanilla (`turnos`, jsonb, los 30 más nuevos con sus tarjetas) y `updated_at`. Cerrada a la llave pública: solo el motor, con la sesión. Si el cargo no calza o lleva 90 días sin uso, el motor la borra | 25 | 182 (solo en el lab) |
+| `asistente_conversaciones` | La conversación de cada persona con BelIA (doc 20 §13): una fila por persona y empresa (`company_id` y `usuario_id`, la llave), el cargo con que se conversó, los turnos como los muestra la ventanilla (`turnos`, jsonb, los 30 más nuevos con sus tarjetas) y `updated_at`. Cerrada a la llave pública: solo el motor, con la sesión. Si el cargo no calza o lleva 90 días sin uso, el motor la borra | 25 | 182 (en las dos bases) |
 | `event_documents` | Documentos del evento (contratos, órdenes de compra, facturas, otros) con su URL. **No tiene `company_id`** | 02 y 04 | 8 |
 
 ### Pagos, reembolsos y portal
@@ -631,4 +631,4 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 182, BelIA responde igual, pero la ventanilla no puede leer ni guardar la conversación: conversa, sin guardarla.
 
-**Estado.** Escrita el 04-11-2026 (Felipe: *"Sí, me parece bien"* y *"así que vamos"*). Solo en el laboratorio; producción, con el «a producción».
+**Estado.** Escrita el 04-11-2026 (Felipe: *"Sí, me parece bien"* y *"así que vamos"*). En las dos bases: en el laboratorio desde el mediodía del 04-11 y en producción desde la tarde del mismo día (Felipe: *"a producción"*), antes de subir el motor.
