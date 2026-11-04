@@ -31,6 +31,7 @@ import { logSafe } from '../logging/log-safe';
 import { ChoquesDeFechaService } from './choques/choques.service';
 import { filaSinComentario, sinComentarioAjeno } from './comentario-interno';
 import { RequestType } from './constants/constants';
+import { AvisoDeCierreDto } from './dto/aviso-de-cierre.dto';
 import { CheckConflictsWithExistingQuotationsDto } from './dto/check-conflicts-with-existing-quotations.dto';
 import { CreateQuotationPublicDto } from './dto/create-quotation-public.dto';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
@@ -297,6 +298,26 @@ export class QuotationsController {
   enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
     return this.envioCotizacion.enviar(id, user);
+  }
+
+  // El aviso de cierre al rechazar (Felipe, 04-11-2026): el pop-up pide
+  // el borrador, la persona lo edita y lo envía. Mismo cargo que enviar.
+  @Roles(...SALES_AND_UP)
+  @Get(':id/aviso-de-cierre')
+  borradorAvisoDeCierre(@Param('id') id: string, @CurrentUser() user: User) {
+    this.logger.info(`GET /quotations/${id}/aviso-de-cierre`);
+    return this.envioCotizacion.borradorDelAvisoDeCierre(id, user);
+  }
+
+  @Roles(...SALES_AND_UP)
+  @Post(':id/aviso-de-cierre')
+  enviarAvisoDeCierre(
+    @Param('id') id: string,
+    @Body() body: AvisoDeCierreDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /quotations/${id}/aviso-de-cierre`);
+    return this.envioCotizacion.enviarAvisoDeCierre(id, user, body);
   }
 
   // Declara el evento REALIZADO y dispara la encuesta de satisfacción al

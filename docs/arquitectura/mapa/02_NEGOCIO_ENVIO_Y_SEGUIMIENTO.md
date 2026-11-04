@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar, y esa misma tarde con el semáforo que solo lee la bitácora de lo vivo, por páginas (§6, Seguimiento), y esa noche con la lista de cotizaciones por páginas (§3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: el vendedor sube y quita respaldos comerciales (`/event-documents` en `SALES_AND_UP`).
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar, y esa misma tarde con el semáforo que solo lee la bitácora de lo vivo, por páginas (§6, Seguimiento), y esa noche con la lista de cotizaciones por páginas (§3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: el vendedor sube y quita respaldos comerciales (`/event-documents` en `SALES_AND_UP`). Actualizado el 04-11-2026: el aviso de cierre al rechazar (§5.2 punto 8, `GET` y `POST /quotations/:id/aviso-de-cierre`).
 
 ## 1. Qué hace
 
@@ -43,6 +43,8 @@ Otras puertas a la ficha:
 | `GET /quotations` | `QuotationsController.findAll` | `QuotationsService.findAll` → `QuotationsRepository.findAll` (lista liviana `COLUMNAS_LISTA`, sin `items`; por páginas de 1.000 desde el 28-10-2026, mapa 16 §8 riesgo 14) | `getQuotations` ← `QuotationsPage` (el tablero: llaves `embudo-y-rechazadas`, `cerradas-busqueda` y `requirements`), `NegocioPage` (la ficha, llave `ficha-lista`) y `RequestsPage`. La misma función la llaman además `Calendar`, `DashboardPage`, `NewAccount` (en `DashboardPage`) y las pestañas `FichasTab` y `SemanaTab` de Personal | Autenticado, sin `@Roles` |
 | `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` → `QuotationsRepository.findOne` (`select *`) | `getQuotationById` ← `NegocioPage` (detalle de la ficha) y `QuotationsPage` (visor PDF del tablero). Fuera de este mapa la llaman `QuotationForm`, `PostVentaPage`, `ClientDetailPage`, `Calendar`, `ResumenDelDia`, `PublicSurvey` y el componente `PaymentPlanEditor` | **`@Public`** (lo usa la encuesta pública; TODO en el controller) |
 | `PATCH /quotations/:id` | `QuotationsController.update` | `QuotationsService.update` | `updateQuotation` en `NegocioPage.cambiarEstado`, `QuotationsPage.applyStatusChange`, `EventoCajitas`, `ServiciosTab`, `RequestForm` | Autenticado. En el service: recepción solo requerimientos; evento realizado congelado para todos |
+| `GET /quotations/:id/aviso-de-cierre` | `QuotationsController.borradorAvisoDeCierre` | `EnvioCotizacionService.borradorDelAvisoDeCierre` → `borradorDeCierre` (`correo-cierre.ts`) | `getBorradorDeCierre` ← `AvisoDeCierre` (en `NegocioPage` y `QuotationsPage`, tras rechazar) | `SALES_AND_UP`. Solo rechazadas de la propia empresa (400 / 404) |
+| `POST /quotations/:id/aviso-de-cierre` | `QuotationsController.enviarAvisoDeCierre` | `EnvioCotizacionService.enviarAvisoDeCierre` → `cuerpoHtmlDeCierre` (`correo-cierre.ts`) | `enviarAvisoDeCierre` ← `AvisoDeCierre` | `SALES_AND_UP`. Body `AvisoDeCierreDto` (`asunto`, `cuerpo`) |
 | `POST /quotations/:id/enviar-correo` | `QuotationsController.enviarPorCorreo` | `EnvioCotizacionService.enviar` | `enviarCotizacionPorCorreo` desde `NegocioPage.enviarPorCorreo` | Autenticado, **sin `@Roles`** (recepción incluida) |
 | `GET /quotations/imprimir/:token` | `QuotationsController.hojaParaImprimir` | `EnvioCotizacionService.hojaParaImprimir` | `getHojaParaImprimir` desde `ImprimirCotizacion` | `@Public`, `@Throttle` de 30 por minuto |
 | `GET /quotations/check-conflicts` | `QuotationsController.checkConflictsWithExistingQuotations` | `QuotationsService.checkConflictsWithExistingQuotations` | `checkConflictsWithExistingQuotations` ← el componente `EventoCajitas` (con `exclude_id`), montado en `NegocioPage` y `PostVentaPage`; vía el hook `useDateAvailability`, también `QuotationForm` (mapa 01) y `RequestForm` (en `RequestsPage`) | Autenticado |
@@ -141,6 +143,11 @@ Endpoints vecinos que este módulo usa pero que documenta otro mapa:
    - se sella `sent_at` con la hora actual.
 6. Si el parche trae `contact_name`, `resolveContactId` recalcula `client_contact_id`. Después se llama `QuotationsRepository.update`.
 7. **Efectos en la app**: el comentario de `MotivoPerdida` se guarda con `createFollowup` como nota sin tipo. El tablero invalida `["quotations"]` y `["requirements"]`; la ficha, `["quotations"]` y `["quotation", id]`.
+8. **Aviso de cierre al rechazar** (Felipe, 04-11-2026): si el cambio fue a `rechazada` y salió bien, el tablero (`confirmarMotivo`) y la ficha (`cambiarEstado` ahora devuelve `true` al cambiar) abren `AvisoDeCierre`, «¿Avisarle al cliente?».
+   - `GET /quotations/:id/aviso-de-cierre` trae `{ para, asunto, cuerpo }`: el destino con la misma regla de `correoDeDestino` (§5.1 paso 5) y el texto fijo de `borradorDeCierre`, con tú, que agradece el interés, da la cotización «por cerrada», libera la fecha y deja la puerta abierta. Nunca dice «rechazada» (regla de la skill de correos: dicho desde nuestro lado suena a reproche).
+   - Asunto y mensaje se pueden **editar** en el pop-up. «No, gracias» solo cierra: el estado ya cambió. Sin correo del cliente, `para` es `null` y el pop-up lo dice, sin botón de envío.
+   - «Sí, enviar aviso» llama `POST` con el texto editado. El motor vuelve a exigir rechazada y de la propia empresa, escapa el texto (línea en blanco = párrafo, salto simple = `<br />`), lo viste con `plantillaCampana` y lo manda por Resend **igual que la cotización** (§5.1 paso 10: mismo `from`, copia oculta al «Responder a» de la empresa y mismo `replyTo`), sin PDF. Un segundo envío simultáneo responde 400 (`enviosEnCurso`, llave `cierre:<id>`).
+   - Bitácora: «Aviso de cierre enviado por correo a X.» con `tipo = 'correo'` (no empieza con `MARCA_DE_ENVIO`, así que no cuenta como versión de la cotización). El pop-up invalida `["seguimientos", id]`.
 
 ### 5.3 Anotar en la bitácora
 
@@ -222,6 +229,10 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 - **El portero frena solo tres cosas**:
   - Qué: sin correo, total cero, servicio en $0. No hay frenos por estado: "quien aprieta el botón decide".
   - Evidencia: `reparosDelPortero`; doc 13; `correo-cotizacion.spec.ts`.
+- **Aviso de cierre al rechazar, opcional y editable** (Felipe, 04-11-2026):
+  - Cita: "¿deseas avisarle al cliente que la cotización fue rechazada? Y en caso que ponga sí, enviar un correo típico"; "dejémoslo editable"; "con copia a contacto"; "déjalo con tú".
+  - Qué: se pregunta solo al pasar a rechazada; texto fijo editable, con tú, sin la palabra «rechazada»; sale con la copia oculta de la cotización.
+  - Evidencia: `correo-cierre.ts`, `EnvioCotizacionService.enviarAvisoDeCierre`, `AvisoDeCierre.tsx`; pruebas «aviso de cierre al rechazar».
 - **Copia oculta al buzón de respuestas** (Felipe, 08-09):
   - Qué: nunca visible, y sin duplicar si el destino ya es ese buzón.
   - Evidencia: `enviarDeVerdad`; pruebas "copia OCULTA" y "no se manda copia duplicada".
@@ -456,6 +467,7 @@ Motor (Jest, corre en CI con `npx jest --silent`):
 - **`api-rest/src/quotations/tests/unit/quotations-cron.spec.ts`** (§5.4 y §5.6): a la cotización con tope de calendario no se le escribe y a la otra sí; los topes se calculan una vez por empresa; si no se pueden calcular, no se le insiste a nadie de esa empresa.
 - **`api-rest/src/quotations/tests/unit/choques/choques.spec.ts`** (§5.6): qué choca (estadía larga, viva de varios días, lo pasado, consigo misma), lo revisado no vuelve y vuelve si cambia una fecha, una fila vieja de `gestionar` no saca el tope, el fin anterior al inicio, la exclusividad, la línea de la bitácora y `seguir` (la línea y la decisión; 409 sin tocar la bitácora). Matriz de cargos: `GET choques/pendientes` recepción y arriba; `POST :id/choques/:aceptadaId` ventas. En la app, `frontend/src/components/AvisoDeChoque.test.tsx` (una viñeta para varios topes, el detalle en la ficha, un solo botón).
 - **`api-rest/src/quotations/tests/unit/envio-cotizacion.service.spec.ts`**: la orquestación del envío, con Chromium y Resend simulados.
+  - Aviso de cierre (§5.2 punto 8): el borrador va al contacto, con tú y sin «rechaz»; solo rechazadas y de la propia empresa; el texto editado sale escapado, con copia oculta, sin adjunto y con su nota en la bitácora; sin correo no sale nada.
   - Circuito feliz: PDF, destinatario, asunto con día de semana, nombre del archivo, `replyTo` del vendedor y nota de tipo correo.
   - Respaldo al correo del cliente.
   - Copia oculta al "Responder a", y sin duplicar si el destino es ese buzón.
@@ -581,6 +593,7 @@ App (Vitest, corre en CI con `npm run test`):
 
 - `api-rest/src/quotations/envio-cotizacion.service.ts`: el circuito del botón y la puerta de impresión.
 - `api-rest/src/quotations/correo-cotizacion.ts`: portero, totales, fecha y correo tipo.
+- `api-rest/src/quotations/correo-cierre.ts` y `dto/aviso-de-cierre.dto.ts`: el aviso de cierre al rechazar (§5.2 punto 8). En la app, `frontend/src/components/AvisoDeCierre.tsx`.
 - `api-rest/src/quotations/firma-impresion.ts`: token de impresión.
 - `api-rest/src/quotations/hoja-publica.ts`: lista blanca de la hoja.
 - `api-rest/src/quotations/quotations.controller.ts`
