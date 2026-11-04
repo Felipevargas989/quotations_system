@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { tieneDerecho } from 'src/auth/derechos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
+import { cerebroPara } from 'src/cerebro/cerebro';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LogisticsService } from 'src/logistics/logistics.service';
 import {
@@ -341,7 +342,10 @@ export class AsistenteService {
     const sistema: Anthropic.TextBlockParam[] = [
       {
         type: 'text',
-        text: INSTRUCCIONES_FIJAS,
+        // Sus instrucciones y, después, el cerebro común de la IA de Eventia
+        // (Felipe, 04-11-2026: «una sola IA»): lo de la casa y, si la empresa
+        // lo tiene escrito, lo suyo. Todo en la caché de una hora.
+        text: `${INSTRUCCIONES_FIJAS}\n\n---\n\n${cerebroPara(empresa, 'conversar')}`,
         cache_control: CACHE_1H,
       },
       {

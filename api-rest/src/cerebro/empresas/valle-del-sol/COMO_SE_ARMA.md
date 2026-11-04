@@ -1,20 +1,19 @@
-# Reglas de armado de Valle del Sol
+# Cómo se arma una cotización en Valle del Sol
 
-Este archivo es UNO solo y lo leen los dos que arman cotizaciones: el botón
-«✨ Crear con IA» de Eventia y la skill `armar-cotizacion` del chat (Felipe,
-17-10-2026: *"¿no podemos montar la skill que tenemos en ese agente?"*).
-Cada corrección de Felipe se escribe acá, en «Lecciones», y desde el
-siguiente despliegue la aplican los dos. El diseño y la historia están en
+Es la guía de trabajo de los que arman cotizaciones: el botón «✨ Crear con
+IA» de Eventia, la skill `armar-cotizacion` del chat (Felipe, 17-10-2026:
+*"¿no podemos montar la skill que tenemos en ese agente?"*) y BelIA cuando
+propone un evento o una minuta (el cerebro común, 04-11-2026). Antes van lo
+común (`LA_CASA.md`) y lo de Valle del Sol (`EL_COMPLEJO.md`). Cada
+corrección de Felipe se escribe acá, en «Lecciones», y desde el siguiente
+despliegue la aplican todos. El diseño y la historia están en
 `docs/arquitectura/16_PROPUESTAS_DE_COTIZACION.md`.
 
-Valle del Sol Quillón: complejo turístico en Quillón, Ñuble, Chile, con
-cabañas, restaurante, salones y áreas verdes. La cotización se arma SOLO con
-el catálogo de Eventia, y una persona del equipo la revisa antes de enviarla.
+La cotización se arma SOLO con el catálogo de Eventia, y una persona del
+equipo la revisa antes de enviarla.
 
 ## Precios
 
-- Nunca se escribe un precio: se eligen productos del catálogo y el precio lo
-  pone Eventia. Los precios del catálogo ya traen IVA.
 - El precio es una VARIABLE para elegir, no un tope (Felipe, 17-10).
   «Económico» = el nivel más barato de esa comida; «mediano» = el del medio;
   «caro» o «premium» = el más alto. Almuerzo y cena: Nivel 1 o Básicos,
@@ -119,16 +118,6 @@ el catálogo de Eventia, y una persona del equipo la revisa antes de enviarla.
   y fiestas.
 - Exclusividad solo si la piden, según el día de la semana: lunes a jueves,
   viernes a domingo, o full.
-- Lo que más se vende: salones con desayuno, almuerzo y un coffee en la
-  tarde; matrimonios con cóctel, cena y fiesta (barra libre y trasnoche) más
-  los fijos del matrimonio íntimo (salón cúpula, audiovisual 6 horas,
-  decoración premium); paseos de curso con entrada y poca comida.
-- Sernatur no se ofrece: va por contrato.
-
-## Descuentos
-
-- Tour operadores: 15%. Clubes de adulto mayor: sin descuento. Ningún otro
-  sin que Felipe lo decida.
 
 ## Recetas que ya resultaron
 
