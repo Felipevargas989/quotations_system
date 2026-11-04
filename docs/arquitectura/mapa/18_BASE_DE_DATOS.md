@@ -648,5 +648,5 @@ planes en el código (`derechos.ts`); el cupo es dato de cada empresa.
 el motor no puede leer el cupo y usa los 100 de siempre (`TOPE_ASISTENTE_USD`
 o el valor por defecto): las empresas nuevas quedarían con 100 en vez de 10.
 
-**Estado.** Escrita el 04-11-2026. En el laboratorio; producción, con el «a
-producción».
+**Estado.** Escrita el 04-11-2026. En las dos bases: en el laboratorio y en
+producción desde la tarde del 04-11 (Felipe: «a producción»), antes del motor.

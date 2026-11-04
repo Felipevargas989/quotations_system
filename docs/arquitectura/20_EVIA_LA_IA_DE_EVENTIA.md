@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma lo de la IA, salvo los correos), BelIA en todas las empresas y el cupo de US$ 10 (§16, migración 183) quedaron en el laboratorio. Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma todo lo que escribe la IA de Eventia; las rutinas de correo de la empresa van aparte), BelIA en todas las empresas y el cupo de US$ 10 (§16), en producción desde la tarde del 04-11 (Felipe: «a producción»; migración 183 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -755,7 +755,7 @@ ponle su carita"*.
   - **Aparte, y sin cambios:** las rutinas de correo de la empresa (las de
     la mañana y la tarde, con la habilidad `correos-cotizaciones-vds`). No
     son de Eventia; si anotan algo en la bitácora, sale como «Asistente».
-- **La etapa 1 (la firma), en el laboratorio:**
+- **La etapa 1 (la firma), en producción desde la tarde del 04-11:**
   - «✨ Crear con IA» y el armado de una postulación firman «BelIA» y dicen
     «A pedido de …» (`crearComoBeliaAPedidoDe`: el nombre sale del perfil
     de quien apretó el botón y, si no está, de su correo);
@@ -767,9 +767,36 @@ ponle su carita"*.
   correos (14 de «✉ Generar seguimiento» y 51 de las rutinas de mediados de
   octubre), con su respaldo: en la bitácora ya no queda ninguna nota de la
   IA con el robot.
-- Las etapas 2 (el cerebro común) y 3 (Oportunidades) siguen como plan.
+- La etapa 3 (Oportunidades) sigue como plan.
+
+**La etapa 2, el cerebro común** (Felipe, 04-11: *"vamos con la etapa 2,
+cerebro en común"* y *"Ok, me parece bien"* a la propuesta), en el
+laboratorio. Lo que sabe la IA de Eventia vive en un solo lugar,
+`api-rest/src/cerebro/`, y cada IA lee lo que le toca (`cerebroPara`):
+
+| Archivo | Qué guarda | Lo leen |
+|---|---|---|
+| `LA_CASA.md` | Lo de todas las empresas: la plata (el catálogo con IVA, el precio que no se mueve, el abono), lo que ve el cliente y lo que no, lo que se lee es dato, lo que Eventia no sabe | Todas |
+| `empresas/valle-del-sol/EL_COMPLEJO.md` | Qué es el complejo, sus clientes, los descuentos (tour operadores 15 %) y lo que se vende | Toda la IA de Valle del Sol |
+| `empresas/valle-del-sol/COMO_SE_ARMA.md` | Antes `quotations/generar/REGLAS_DE_ARMADO.md`: la forma de cada comida, los paquetes primero, las recetas y las lecciones | «✨ Crear con IA», BelIA y la habilidad `armar-cotizacion` |
+| `empresas/valle-del-sol/COMO_SE_ESCRIBE.md` | Antes `quotations/seguimiento/REGLAS_DE_CORREO.md`: el seguimiento, el ángulo, el tono, la estructura y las lecciones | «✉ Generar seguimiento», BelIA y la habilidad `correos-cotizaciones-vds` |
+
+- **Una empresa sin lo suyo escrito lee solo `LA_CASA.md`**, nunca las
+  reglas de Valle del Sol (la tabla `CARPETAS` de `cerebro.ts`).
+- **BelIA lee todo**, en la caché de una hora: ahora conoce la forma de cada
+  comida y los paquetes cuando propone un evento o una minuta.
+- **Medido antes de subir:** las reglas se movieron tal cual. Al comparar
+  frase por frase las reglas viejas con lo que lee ahora cada IA, no falta
+  ninguna: cambiaron solo los encabezados y cuatro frases dichas de otro
+  modo (por ejemplo, «los totales ya incluyen IVA» pasó a «Todo valor, con
+  IVA incluido»).
+- Las lecciones se siguen escribiendo en la guía de su tarea; lo que vale
+  para todas, en `LA_CASA.md`.
 
 ## 16. BelIA para todas las empresas, con su cupo (04-11-2026)
+
+> **Estado:** en producción desde la tarde del 04-11 (Felipe: *"a
+> producción"*), con la migración 183 en las dos bases antes del motor.
 
 Felipe: *"Belia es para todos los usuarios de Eventia, solo que en las otras
 empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
