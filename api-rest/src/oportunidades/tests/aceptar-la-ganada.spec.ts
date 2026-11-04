@@ -25,7 +25,7 @@ const LA_679 = {
 function armar(cotizacion: Record<string, unknown> | null = LA_679) {
   const repo = { cotizacion: jest.fn().mockResolvedValue(cotizacion) };
   const pagos = { createPaymentPlan: jest.fn().mockResolvedValue(undefined) };
-  const bitacora = { crearComoAsistente: jest.fn().mockResolvedValue({}) };
+  const bitacora = { crearComoBelia: jest.fn().mockResolvedValue({}) };
   const servicio = new AceptarLaGanadaService(
     repo as unknown as PostulacionRepository,
     pagos as unknown as PaymentsService,
@@ -57,8 +57,8 @@ describe('La cotización de una ganada queda aceptada', () => {
       1,
       { sinCorreo: true },
     );
-    // En su bitácora, a nombre del Asistente.
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledWith(1, {
+    // En su bitácora, a nombre de BelIA (04-11-2026).
+    expect(bitacora.crearComoBelia).toHaveBeenCalledWith(1, {
       quotation_id: 'q-679',
       tipo: 'otro',
       next_contact_date: null,
@@ -77,14 +77,14 @@ describe('La cotización de una ganada queda aceptada', () => {
       await servicio.aceptar(1, 'q-679', '1030177-85-COT26');
       // Después de «Aceptada sola»: el compromiso vivo es la nota más
       // reciente con fecha.
-      expect(bitacora.crearComoAsistente).toHaveBeenCalledTimes(2);
+      expect(bitacora.crearComoBelia).toHaveBeenCalledTimes(2);
       // Y después del plan: al aceptar se cierran los compromisos de la
       // venta que quedan abiertos (Felipe, 28-10); escrita antes, la tarea
       // nacería cerrada.
       expect(pagos.createPaymentPlan.mock.invocationCallOrder[0]).toBeLessThan(
-        bitacora.crearComoAsistente.mock.invocationCallOrder[1],
+        bitacora.crearComoBelia.mock.invocationCallOrder[1],
       );
-      expect(bitacora.crearComoAsistente.mock.calls[1]).toEqual([
+      expect(bitacora.crearComoBelia.mock.calls[1]).toEqual([
         1,
         {
           quotation_id: 'q-679',
@@ -111,11 +111,11 @@ describe('La cotización de una ganada queda aceptada', () => {
 
   it('si la bitácora falla, la cotización queda aceptada igual', async () => {
     const { bitacora, servicio } = armar();
-    bitacora.crearComoAsistente.mockRejectedValue(new Error('sin red'));
+    bitacora.crearComoBelia.mockRejectedValue(new Error('sin red'));
     await expect(
       servicio.aceptar(1, 'q-679', '1030177-85-COT26'),
     ).resolves.toEqual({ numero: 679, vence: '2026-11-27', total: 1_136_500 });
-    expect(bitacora.crearComoAsistente).toHaveBeenCalledTimes(2);
+    expect(bitacora.crearComoBelia).toHaveBeenCalledTimes(2);
   });
 
   it('de varios días, la cuota vence 30 días después del último', async () => {
@@ -155,6 +155,6 @@ describe('La cotización de una ganada queda aceptada', () => {
     const { pagos, bitacora, servicio } = armar();
     pagos.createPaymentPlan.mockRejectedValue(new Error('el total cambió'));
     await expect(servicio.aceptar(1, 'q-679', 'X')).resolves.toBeNull();
-    expect(bitacora.crearComoAsistente).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBelia).not.toHaveBeenCalled();
   });
 });

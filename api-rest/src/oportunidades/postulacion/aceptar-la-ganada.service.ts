@@ -125,15 +125,17 @@ export class AceptarLaGanadaService {
     }
   }
 
-  /** Una línea en la bitácora a nombre del Asistente. Si falla, solo lo
-   *  avisa: la cotización ya quedó aceptada. */
+  /** Una línea en la bitácora a nombre de BelIA (Felipe, 04-11-2026; antes,
+   *  el Asistente): la ganada se acepta sola, sin nadie que apriete, así que
+   *  va sin «a pedido de». Si falla, solo lo avisa: la cotización ya quedó
+   *  aceptada. */
   private anotar(
     companyId: number,
     codigo: string,
-    nota: Parameters<QuotationFollowupsService['crearComoAsistente']>[1],
+    nota: Parameters<QuotationFollowupsService['crearComoBelia']>[1],
   ) {
     return this.bitacora
-      .crearComoAsistente(companyId, nota)
+      .crearComoBelia(companyId, nota)
       .catch((error: unknown) =>
         this.logger.warn(
           `ganada ${codigo}: no pude anotar en la bitácora: ${mensajeDe(error)}`,
