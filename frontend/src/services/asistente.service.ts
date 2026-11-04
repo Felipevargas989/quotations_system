@@ -7,7 +7,11 @@ import { api, apiRequest } from "./api";
 
 export type TurnoDeBelia = { rol: "persona" | "belia"; texto: string };
 
-export type PantallaDeBelia = { ruta: string; cotizacion_id?: string };
+export type PantallaDeBelia = {
+  ruta: string;
+  cotizacion_id?: string;
+  cliente_id?: string;
+};
 
 /** Una propuesta de cambio (fase 2, doc 20 §3 y §8): la arma el motor y la
  *  persona la aplica con «Sí, aplicar». Las cifras ya vienen escritas. */

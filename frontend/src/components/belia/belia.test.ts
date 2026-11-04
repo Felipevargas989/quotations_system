@@ -27,9 +27,16 @@ describe("pantallaDe", () => {
       expect(pantallaDe(ruta)).toEqual({ ruta, cotizacion_id: ID });
     }
   });
+  it("reconoce el cliente abierto en su ficha", () => {
+    expect(pantallaDe(`/clients/${ID}`)).toEqual({
+      ruta: `/clients/${ID}`,
+      cliente_id: ID,
+    });
+    expect(pantallaDe(`/clients/${ID.toUpperCase()}`).cliente_id).toBe(ID);
+  });
   it("en las demás pantallas viaja solo la ruta", () => {
     expect(pantallaDe("/quotations")).toEqual({ ruta: "/quotations" });
-    expect(pantallaDe(`/clients/${ID}`)).toEqual({ ruta: `/clients/${ID}` });
+    expect(pantallaDe("/clients")).toEqual({ ruta: "/clients" });
   });
 });
 

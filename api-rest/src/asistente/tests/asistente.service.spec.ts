@@ -69,6 +69,8 @@ const armar = (respuestas: unknown[], gastado = 0) => {
     nombreDeLaEmpresa: jest.fn().mockResolvedValue('Valle del Sol'),
     nombreDeLaPersona: jest.fn().mockResolvedValue('Camila Torres'),
     cotizacionVista: jest.fn().mockResolvedValue(null),
+    clienteDeLaEmpresa: jest.fn().mockResolvedValue(null),
+    cotizacionesDeClientes: jest.fn().mockResolvedValue([]),
     buscarCotizaciones: jest.fn().mockResolvedValue({
       total: 1,
       filas: [
@@ -289,6 +291,47 @@ describe('AsistenteService (BelIA)', () => {
 });
 
 describe('las herramientas de cada cargo', () => {
+  it('la ficha del cliente abierto viaja antes de la pregunta, leída con la empresa de la sesión', async () => {
+    const CLIENTE = '0b9e4c1a-2f3d-4e5f-8a7b-6c5d4e3f2a1b';
+    const { servicio, repositorio, create } = armar([
+      texto('Rudel tiene una.'),
+    ]);
+    repositorio.clienteDeLaEmpresa.mockResolvedValue({
+      id: CLIENTE,
+      name: 'Rudel',
+      client_type: 'empresa',
+      email: null,
+      phone: null,
+      contact_person: 'Paula',
+    });
+    await servicio.responder(
+      {
+        mensaje: '¿qué ha cotizado este cliente?',
+        pantalla: { ruta: `/clients/${CLIENTE}`, cliente_id: CLIENTE },
+      },
+      usuario(),
+    );
+    expect(repositorio.clienteDeLaEmpresa).toHaveBeenCalledWith(1, CLIENTE);
+    const pedido = JSON.stringify(create.mock.calls[0][0]);
+    expect(pedido).toContain('Ahora está mirando la ficha del cliente Rudel');
+    expect(pedido).toContain('FICHA DEL CLIENTE QUE TIENE ABIERTO');
+  });
+
+  it('un cliente que no es de la empresa no viaja: queda solo la ruta', async () => {
+    const CLIENTE = '0b9e4c1a-2f3d-4e5f-8a7b-6c5d4e3f2a1b';
+    const { servicio, create } = armar([texto('No sé cuál.')]);
+    await servicio.responder(
+      {
+        mensaje: '¿qué ha cotizado este cliente?',
+        pantalla: { ruta: `/clients/${CLIENTE}`, cliente_id: CLIENTE },
+      },
+      usuario(),
+    );
+    const pedido = JSON.stringify(create.mock.calls[0][0]);
+    expect(pedido).not.toContain('FICHA DEL CLIENTE');
+    expect(pedido).toContain(`la pantalla /clients/${CLIENTE}`);
+  });
+
   it('cada cargo recibe solo lo que ve en sus pantallas', () => {
     const con = (role: UserRole) =>
       herramientasPara({
