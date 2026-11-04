@@ -821,6 +821,7 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
 > promedio; 0 fallos; 4 propuestas y las 4 aplicadas) y respondió *"vamos
 > con todas las mejoras que propusiste, me gustaron todas"*. Van al
 > laboratorio por tandas; a producción, solo con su «a producción».
+> La tanda A (1 y 2), en el laboratorio desde el 04-11 en la noche.
 
 **Lo que entendí, mejora por mejora** (lo marcado «por defecto» lo puede
 cambiar Felipe):

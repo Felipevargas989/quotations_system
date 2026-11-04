@@ -29,6 +29,7 @@ import {
   AsistenteRepository,
   type ComprobantePorRevisar,
 } from './asistente.repository';
+import { clienteAbierto } from './conversacion/cliente-abierto';
 import { LoLeido } from './conversacion/lo-leido';
 import type { MensajeDto, PantallaDto, TurnoDto } from './dto/mensaje.dto';
 import { herramientasPara } from './herramientas';
@@ -312,7 +313,7 @@ export class AsistenteService {
 
     const herramientas = herramientasPara(usuario);
     const [pantalla, nombreEmpresa, nombre] = await Promise.all([
-      this.pantallaDe(dto.pantalla, empresa),
+      this.pantallaDe(dto.pantalla, empresa, usuario.role),
       this.repositorio.nombreDeLaEmpresa(empresa),
       // La sesión no trae el nombre: sin él, BelIA no sabía con quién
       // hablaba ni a pedido de quién anotar (03-11, la 447 del laboratorio).
@@ -370,8 +371,12 @@ export class AsistenteService {
       dto.historial,
       dto.mensaje,
     );
-    // Las fichas que ya revisó, al día, antes de la pregunta (`LoLeido`).
-    const alDia = await this.fichasAlDia(herramientas, ctx);
+    // Antes de la pregunta: la ficha del cliente abierto (doc 20 §17) y las
+    // fichas que ya revisó, al día (`LoLeido`).
+    const alDia =
+      [pantalla.cliente, await this.fichasAlDia(herramientas, ctx)]
+        .filter((b): b is string => Boolean(b))
+        .join('\n\n') || null;
     const pregunta = mensajes[mensajes.length - 1];
     if (alDia && pregunta && typeof pregunta.content === 'string') {
       pregunta.content = [
@@ -574,7 +579,12 @@ export class AsistenteService {
   private async pantallaDe(
     p: PantallaDto | undefined,
     empresa: number,
-  ): Promise<{ texto: string | null; cotizacion: string | null }> {
+    rol: UserRole,
+  ): Promise<{
+    texto: string | null;
+    cotizacion: string | null;
+    cliente: string | null;
+  }> {
     if (p?.cotizacion_id) {
       const q = await this.repositorio.cotizacionVista(
         empresa,
@@ -585,12 +595,26 @@ export class AsistenteService {
         return {
           texto: `la cotización N° ${q.quotation_number}${cliente} (${estadoDe(q.quotation_status)})`,
           cotizacion: q.id,
+          cliente: null,
         };
       }
+    }
+    if (p?.cliente_id) {
+      const c = await clienteAbierto(
+        this.repositorio,
+        empresa,
+        p.cliente_id,
+        rol,
+      ).catch((e: unknown) => {
+        this.logger.warn(`BelIA, cliente abierto: ${mensajeDe(e)}`);
+        return null;
+      });
+      if (c) return { texto: c.texto, cotizacion: null, cliente: c.bloque };
     }
     return {
       texto: p?.ruta ? `la pantalla ${p.ruta}` : null,
       cotizacion: null,
+      cliente: null,
     };
   }
 

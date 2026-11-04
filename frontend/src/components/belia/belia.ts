@@ -2,7 +2,10 @@
 // Separado para probarlo: en qué pantalla está la persona, qué ánimo
 // muestra BelIA y cómo se lee lo que contesta.
 
-import type { EstadoDeBelia } from "../../services/asistente.service";
+import type {
+  EstadoDeBelia,
+  PantallaDeBelia,
+} from "../../services/asistente.service";
 
 /** Minutos sin que nadie use Eventia para que BelIA se duerma. */
 export const MINUTOS_PARA_DORMIR = 5;
@@ -56,13 +59,16 @@ const CON_COTIZACION = new RegExp(
   "i",
 );
 
-/** La pantalla que viaja con cada pregunta: la ruta, y la cotización
- *  abierta si hay una. El motor revisa que sea de la empresa. */
-export const pantallaDe = (
-  ruta: string,
-): { ruta: string; cotizacion_id?: string } => {
+/** La ficha de UN cliente (doc 20 §17, mejora 2). */
+const CON_CLIENTE = new RegExp(`^/clients/(${UUID})(?:/|$)`, "i");
+
+/** La pantalla que viaja con cada pregunta: la ruta, y la cotización o el
+ *  cliente abierto si hay uno. El motor revisa que sea de la empresa. */
+export const pantallaDe = (ruta: string): PantallaDeBelia => {
   const m = CON_COTIZACION.exec(ruta);
-  return m ? { ruta, cotizacion_id: m[1].toLowerCase() } : { ruta };
+  if (m) return { ruta, cotizacion_id: m[1].toLowerCase() };
+  const c = CON_CLIENTE.exec(ruta);
+  return c ? { ruta, cliente_id: c[1].toLowerCase() } : { ruta };
 };
 
 /** El ánimo que se ve, en orden de prioridad: lo que pasa ahora manda
