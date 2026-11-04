@@ -8,6 +8,7 @@ import { AsistenteRepository } from './asistente.repository';
 import { AsistenteService } from './asistente.service';
 import { ConversacionRepository } from './conversacion/conversacion.repository';
 import { ConversacionService } from './conversacion/conversacion.service';
+import { LoLeido } from './conversacion/lo-leido';
 import { CotizacionNuevaService } from './propuestas/cotizacion-nueva.service';
 import { PropuestasRepository } from './propuestas/propuestas.repository';
 import { PropuestasService } from './propuestas/propuestas.service';
@@ -35,6 +36,8 @@ import { PropuestasService } from './propuestas/propuestas.service';
     // La conversación de cada persona (doc 20 §13, migración 182).
     ConversacionService,
     ConversacionRepository,
+    // Lo que BelIA ya leyó, en la memoria del motor (04-11-2026).
+    LoLeido,
   ],
 })
 export class AsistenteModule {}

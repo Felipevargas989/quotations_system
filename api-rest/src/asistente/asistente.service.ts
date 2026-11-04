@@ -28,6 +28,7 @@ import {
   AsistenteRepository,
   type ComprobantePorRevisar,
 } from './asistente.repository';
+import { LoLeido } from './conversacion/lo-leido';
 import type { MensajeDto, PantallaDto, TurnoDto } from './dto/mensaje.dto';
 import { herramientasPara } from './herramientas';
 import {
@@ -245,6 +246,9 @@ export class AsistenteService {
     private readonly logistica: LogisticsService,
     private readonly propuestas: PropuestasService,
     private readonly choques: ChoquesDeFechaService,
+    // Lo que BelIA ya leyó en la conversación (04-11-2026). Con valor por
+    // defecto: las pruebas que no lo pasan siguen igual.
+    private readonly loLeido: LoLeido = new LoLeido(),
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -357,6 +361,15 @@ export class AsistenteService {
       dto.historial,
       dto.mensaje,
     );
+    // Las fichas que ya revisó, al día, antes de la pregunta (`LoLeido`).
+    const alDia = await this.fichasAlDia(herramientas, ctx);
+    const pregunta = mensajes[mensajes.length - 1];
+    if (alDia && pregunta && typeof pregunta.content === 'string') {
+      pregunta.content = [
+        { type: 'text', text: alDia },
+        { type: 'text', text: pregunta.content },
+      ];
+    }
 
     const inicio = Date.now();
     let uso = SIN_USO;
@@ -573,6 +586,31 @@ export class AsistenteService {
     return vivo.finalMessage();
   }
 
+  /** Las fichas de las cotizaciones que BelIA revisó en los últimos minutos,
+   *  recién leídas de la base con la misma herramienta y el cargo de quien
+   *  escribe (`LoLeido`). null si no hay ninguna. */
+  private async fichasAlDia(
+    herramientas: Herramienta[],
+    ctx: ContextoDeHerramienta,
+  ): Promise<string | null> {
+    const ver = herramientas.find((h) => h.nombre === 'ver_cotizacion');
+    const numeros = ver ? this.loLeido.recientes(ctx.usuario) : [];
+    if (!ver || numeros.length === 0) return null;
+    const fichas = (
+      await Promise.all(
+        numeros.map((numero) =>
+          ver.ejecutar({ numero }, ctx).catch((e: unknown) => {
+            this.logger.warn(`BelIA, ficha al día ${numero}: ${mensajeDe(e)}`);
+            return null;
+          }),
+        ),
+      )
+    ).filter((f) => f != null);
+    if (fichas.length === 0) return null;
+    const json = JSON.stringify(fichas);
+    return `FICHAS AL DÍA de las cotizaciones que ya revisaste en esta conversación, recién leídas de Eventia: úsalas y no las vuelvas a pedir con ver_cotizacion.\n${esRecepcion(ctx.usuario.role) ? sinMontos(json) : json}`;
+  }
+
   /** Corre una herramienta pedida por Claude. Nunca revienta el ciclo: lo
    *  que falla vuelve como error y Claude se lo explica a la persona. */
   private async usar(
@@ -598,8 +636,13 @@ export class AsistenteService {
         ? (pedida.input as Record<string, unknown>)
         : {};
     try {
-      const resultado =
-        JSON.stringify(await h.ejecutar(entrada, ctx)) ?? 'null';
+      const salida = await h.ejecutar(entrada, ctx);
+      // La ficha que leyó viaja al día en las preguntas que siguen.
+      const numero = (salida as { numero?: unknown } | null)?.numero;
+      if (h.nombre === 'ver_cotizacion' && typeof numero === 'number') {
+        this.loLeido.anotar(ctx.usuario, numero);
+      }
+      const resultado = JSON.stringify(salida) ?? 'null';
       // La red de recepción (doc 20 §13): las herramientas ya le sacan la
       // plata, y esto tapa la que venga escrita a mano en una nota.
       return {

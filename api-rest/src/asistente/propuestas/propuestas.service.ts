@@ -27,6 +27,14 @@ import {
   pesos,
 } from '../herramientas/comun';
 import {
+  conPersonasNuevas,
+  fijosPorPersona,
+  quienesSon,
+  topeDeDescuento,
+  type CabeceraNueva,
+  type CambioDeCabecera,
+} from './cabecera';
+import {
   anotarComoBelia,
   aPedidoDe,
   aPedidoDeAlComienzo,
@@ -40,7 +48,12 @@ import {
   CotizacionNuevaService,
   type DatosDeLaNueva,
 } from './cotizacion-nueva.service';
-import { editarFoto, type Cambio, type FotoGuardada } from './editar-foto';
+import {
+  editarFoto,
+  type Cambio,
+  type FotoGuardada,
+  type LineaDelCambio,
+} from './editar-foto';
 import {
   PropuestasRepository,
   type EstadoDePropuesta,
@@ -97,6 +110,8 @@ export class PropuestasService {
     cambios: Cambio[],
     resumen: string,
     hoy: string,
+    // Las personas del evento y el descuento (04-11-2026; `cabecera.ts`).
+    cabecera?: CambioDeCabecera,
   ): Promise<TarjetaDePropuesta> {
     const empresa = usuario.company_id;
     const q = await this.guardadas.cotizacionParaCambiar(empresa, por);
@@ -107,7 +122,7 @@ export class PropuestasService {
           : 'No encontré la cotización abierta.',
       );
     }
-    const armada = await this.armar(q, usuario, cambios, hoy);
+    const armada = await this.armar(q, usuario, cambios, hoy, cabecera);
     const antes = n(q.total_amount);
     await this.guardadas.descartarPendientes(empresa, q.id, usuario.id);
     const fila = await this.guardadas.crearPropuesta({
@@ -126,9 +141,14 @@ export class PropuestasService {
         fixed_value: q.fixed_value,
         discount_amount: q.discount_amount,
         tip_amount: q.tip_amount,
+        // La cabecera, para que «Deshacer» la deje como estaba.
+        people_count: q.people_count,
+        children_count: q.children_count,
+        discount_percentage: q.discount_percentage,
       },
       despues: {
         cambios,
+        cabecera: armada.cabecera,
         parche: armada.parche,
         dias_tocados: armada.diasTocados,
         bajan_personas: armada.bajanPersonas,
@@ -364,8 +384,27 @@ export class PropuestasService {
       }
       const despues = p.despues as DespuesGuardado;
       this.revisarDeNuevo(q, usuario, despues.dias_tocados);
-      const antes = p.antes as { items: FotoGuardada | null };
-      const { parche } = parcheDe(q, antes.items ?? {});
+      const antes = p.antes as {
+        items: FotoGuardada | null;
+        people_count?: number | null;
+        children_count?: number | null;
+        discount_percentage?: number | string | null;
+        discount_amount?: number | string | null;
+      };
+      // Las propuestas desde el 04-11 guardan también la cabecera (las
+      // personas y el descuento); las de antes no la cambiaban.
+      const { parche } = parcheDe(
+        q,
+        antes.items ?? {},
+        'people_count' in antes
+          ? {
+              people_count: n(antes.people_count),
+              children_count: n(antes.children_count),
+              discount_percentage: n(antes.discount_percentage),
+              discount_amount: n(antes.discount_amount),
+            }
+          : {},
+      );
       await this.cotizaciones.update(
         q.id,
         parche as unknown as UpdateQuotationDto,
@@ -430,35 +469,62 @@ export class PropuestasService {
     usuario: User,
     cambios: Cambio[],
     hoy: string,
+    cabecera?: CambioDeCabecera,
   ) {
     const no = porQueNo(q, usuario);
     if (no) throw new ErrorDeHerramienta(no);
     const empresa = usuario.company_id;
-    const catalogo = await this.catalogo.catalogo(empresa);
-    const fecha = diaDelEvento(q.event_date) ?? hoy;
-    const fin = diaDelEvento(q.event_end_date);
-    const r = editarFoto(
-      q.items,
-      cambios,
-      catalogo,
-      {
-        fecha,
-        personas: n(q.people_count),
-        ninos: n(q.children_count),
-        esTourOperador: esTourOperador(q.clients?.client_type),
-        ultimoDia: fin && fin > fecha ? fin : null,
-      },
-      ofrecible,
-    );
-    if (!r.ok) {
+    // Los servicios, si la propuesta los trae (puede ser solo de cabecera).
+    let r: {
+      foto: FotoGuardada;
+      lineas: LineaDelCambio[];
+      avisos: string[];
+      diasTocados: number[];
+      bajanPersonas: boolean;
+    } = {
+      foto: q.items ?? {},
+      lineas: [],
+      avisos: [],
+      diasTocados: [],
+      bajanPersonas: false,
+    };
+    if (cambios.length > 0) {
+      const catalogo = await this.catalogo.catalogo(empresa);
+      const fecha = diaDelEvento(q.event_date) ?? hoy;
+      const fin = diaDelEvento(q.event_end_date);
+      const editada = editarFoto(
+        q.items,
+        cambios,
+        catalogo,
+        {
+          fecha,
+          personas: n(q.people_count),
+          ninos: n(q.children_count),
+          esTourOperador: esTourOperador(q.clients?.client_type),
+          ultimoDia: fin && fin > fecha ? fin : null,
+        },
+        ofrecible,
+      );
+      if (!editada.ok) {
+        throw new ErrorDeHerramienta(
+          `No se puede armar así:\n- ${editada.errores.slice(0, 12).join('\n- ')}`,
+        );
+      }
+      r = editada;
+    }
+    const conCabecera = this.cabeceraDe(q, usuario, r.foto, cabecera);
+    if (cambios.length === 0 && conCabecera.lineas.length === 0) {
       throw new ErrorDeHerramienta(
-        `No se puede armar así:\n- ${r.errores.slice(0, 12).join('\n- ')}`,
+        'No cambia nada: la cotización ya está así.',
       );
     }
-    const choque = choqueConLoServido(q, r.diasTocados, hoy);
+    const diasTocados = [
+      ...new Set([...r.diasTocados, ...conCabecera.diasTocados]),
+    ];
+    const choque = choqueConLoServido(q, diasTocados, hoy);
     if (choque) throw new ErrorDeHerramienta(choque);
-    const { total, parche } = parcheDe(q, r.foto);
-    const avisos = [...r.avisos];
+    const { total, parche } = parcheDe(q, conCabecera.foto, conCabecera.nueva);
+    const avisos = [...conCabecera.avisos, ...r.avisos];
     let cuotas: ReturnType<typeof cuotasDespues> | undefined;
 
     if (q.quotation_status === QuotationStatus.ACEPTADA) {
@@ -500,14 +566,137 @@ export class PropuestasService {
       );
     }
     return {
-      lineas: r.lineas,
-      diasTocados: r.diasTocados,
+      lineas: [...conCabecera.lineas, ...r.lineas],
+      diasTocados,
       bajanPersonas: r.bajanPersonas,
       avisos,
       total,
       parche,
       cuotas,
+      cabecera: conCabecera.nueva,
     };
+  }
+
+  /** Las personas del evento y el descuento que trae la propuesta (doc 20,
+   *  regla 5 y §11, pregunta 1; `cabecera.ts`): revisados, con la foto como
+   *  la deja el cotizador y sus líneas para la tarjeta. */
+  private cabeceraDe(
+    q: CotizacionParaCambiar,
+    usuario: User,
+    fotoDeServicios: FotoGuardada,
+    cabecera: CambioDeCabecera | undefined,
+  ) {
+    let foto = fotoDeServicios;
+    const nueva: CabeceraNueva = {};
+    const lineas: LineaDelCambio[] = [];
+    const avisos: string[] = [];
+    const diasTocados: number[] = [];
+    const personas = n(q.people_count);
+    const ninos = n(q.children_count);
+
+    if (cabecera?.personas) {
+      if (q.quotation_status === QuotationStatus.ACEPTADA) {
+        throw new ErrorDeHerramienta(
+          `La N° ${q.quotation_number} está aceptada: sus personas se cambian en Post-Venta → Servicios, donde se ven las compras y las cuotas.`,
+        );
+      }
+      const total = cabecera.personas.total;
+      const deNinos = cabecera.personas.ninos ?? ninos;
+      if (!(total >= 1)) {
+        throw new ErrorDeHerramienta(
+          'Faltan las personas del evento (1 o más).',
+        );
+      }
+      if (deNinos < 0 || deNinos > total) {
+        throw new ErrorDeHerramienta(
+          'Los niños van dentro del total de personas.',
+        );
+      }
+      if (total !== personas || deNinos !== ninos) {
+        const r = conPersonasNuevas(
+          foto,
+          { adultos: Math.max(0, personas - ninos), ninos },
+          { adultos: total - deNinos, ninos: deNinos },
+        );
+        foto = r.foto;
+        nueva.people_count = total;
+        nueva.children_count = deNinos;
+        lineas.push(
+          {
+            dia: 0,
+            que: `Personas del evento: ${quienesSon(personas, ninos)} → ${quienesSon(total, deNinos)}`,
+            quita: [],
+            agrega: [],
+          },
+          ...r.lineas,
+        );
+        diasTocados.push(...r.lineas.map((l) => l.dia));
+        const porPersona = fijosPorPersona(foto);
+        if (porPersona.length > 0) {
+          avisos.push(
+            `${porPersona.join(', ')} cobra por persona y queda con el precio de antes, como hace el cotizador: si corresponde, ajústalo en la pantalla.`,
+          );
+        }
+      }
+    }
+
+    if (cabecera?.descuento) {
+      const tope = topeDeDescuento(usuario.role);
+      if (tope <= 0) {
+        throw new ErrorDeHerramienta('Con tu cargo no se aplican descuentos.');
+      }
+      const { porcentaje, monto } = cabecera.descuento;
+      const subtotal = parcheDe(q, foto, nueva).parche.subtotal_amount;
+      if (porcentaje != null) {
+        if (porcentaje < 0 || porcentaje > tope) {
+          throw new ErrorDeHerramienta(
+            `Tu cargo descuenta hasta ${tope} %: ese descuento lo aplica un administrador.`,
+          );
+        }
+        nueva.discount_percentage = porcentaje;
+        nueva.discount_amount = 0;
+      } else if (monto != null) {
+        const maximo = Math.round((subtotal * tope) / 100);
+        if (monto < 0 || monto > maximo) {
+          throw new ErrorDeHerramienta(
+            `Tu cargo descuenta hasta ${tope} %: ${pesos(maximo)} sobre el subtotal de ${pesos(subtotal)}.`,
+          );
+        }
+        nueva.discount_percentage = 0;
+        nueva.discount_amount = monto;
+      } else {
+        throw new ErrorDeHerramienta(
+          'El descuento va en `porcentaje` o en `monto`.',
+        );
+      }
+      const antes = this.descuentoEnPalabras(
+        parcheDe(q, q.items ?? {}, {}).parche,
+      );
+      const despues = this.descuentoEnPalabras(parcheDe(q, foto, nueva).parche);
+      if (antes !== despues) {
+        lineas.push({
+          dia: 0,
+          que: `Descuento: ${antes} → ${despues}`,
+          quita: [],
+          agrega: [],
+        });
+      } else {
+        delete nueva.discount_percentage;
+        delete nueva.discount_amount;
+      }
+    }
+    return { foto, nueva, lineas, avisos, diasTocados };
+  }
+
+  /** «10 % ($44.300)», «$50.000» o «sin descuento», con la plata que hizo
+   *  la cuenta de la casa: total = (subtotal − descuento) + propina. */
+  private descuentoEnPalabras(p: Parche): string {
+    const pesosDelDescuento =
+      p.subtotal_amount - (p.total_amount - p.tip_amount);
+    if (pesosDelDescuento <= 0) return 'sin descuento';
+    return p.discount_percentage > 0
+      ? `${p.discount_percentage} % (${pesos(pesosDelDescuento)})`
+      : pesos(pesosDelDescuento);
   }
 
   /** Al aplicar o deshacer, las reglas otra vez: pudo pasar el día. */
@@ -571,6 +760,7 @@ type NotaGuardada = {
 
 type DespuesGuardado = {
   cambios: Cambio[];
+  cabecera?: CabeceraNueva;
   parche: Parche;
   dias_tocados: number[];
   bajan_personas: boolean;
