@@ -1,5 +1,10 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { QuotationStatus } from 'src/quotations/constants/constants';
+import type {
+  CotizacionDeCliente,
+  FilaDeCliente,
+} from '../asistente.repository';
+import { normal } from './buscar-en-catalogo';
 import {
   ErrorDeHerramienta,
   conDia,
@@ -17,63 +22,116 @@ import { esRecepcion } from './recepcion';
 // de quien vende (SECTION_ROLES.clients). Recepción también busca clientes
 // para levantar un requerimiento (mapa 23) y, desde el 04-11 (doc 20 §13),
 // para saber en qué va su pedido: le llega sin el total ni el enlace.
+//
+// Busca como el buscador de la casa (utils/searchMatch de la app, Felipe
+// 21-07-2026): sin tildes ni mayúsculas y por palabras en cualquier orden.
+// Y varios clientes de una vez (04-11-2026: una pregunta buscó 24 clientes,
+// uno por uno, y fue la más cara del día).
 
 const GANADAS = new Set([QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA]);
+
+const MAX = 10;
+const MAX_TEXTOS = 15;
+const MAX_POR_TEXTO = 5;
+
+/** true si TODAS las palabras buscadas están, sin tildes y en cualquier
+ *  orden, en el nombre o el contacto (el criterio de `matchesSearch`).
+ *  Exportada para probarla sin base. */
+export const calzaCliente = (buscado: string, c: FilaDeCliente): boolean => {
+  const palabras = normal(buscado).split(/\s+/).filter(Boolean);
+  const donde = normal([c.name, c.contact_person].filter(Boolean).join(' '));
+  return palabras.length > 0 && palabras.every((p) => donde.includes(p));
+};
 
 export const buscarClientes: Herramienta = {
   nombre: 'buscar_clientes',
   descripcion:
-    'Busca clientes por parte del nombre: tipo, contacto, teléfono y correo, cuántas ' +
-    'cotizaciones tienen (ganadas y perdidas) y las últimas seis con su enlace.',
+    'Busca clientes por su nombre o su contacto (sin importar tildes ni el orden de las palabras): ' +
+    'tipo, contacto, teléfono y correo, cuántas cotizaciones tienen (ganadas y perdidas) y las ' +
+    'últimas seis con su enlace. Para varios clientes, manda TODOS los nombres juntos en ' +
+    '`textos`: es una sola búsqueda.',
   esquema: {
     type: 'object',
     properties: {
-      texto: { type: 'string', description: 'Parte del nombre del cliente.' },
+      texto: {
+        type: 'string',
+        description: 'Un solo cliente: parte de su nombre.',
+      },
+      textos: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: MAX_TEXTOS,
+        description: `Varios clientes de una vez (hasta ${MAX_TEXTOS}): trae hasta ${MAX_POR_TEXTO} de cada uno.`,
+      },
     },
-    required: ['texto'],
   },
   cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
-    const buscado = texto(entrada.texto, 80);
-    if (!buscado || buscado.length < 2) {
+    const pedidos = (
+      Array.isArray(entrada.textos) ? entrada.textos : [entrada.texto]
+    )
+      .map((t) => texto(t, 80))
+      .filter((t): t is string => Boolean(t && t.length >= 2))
+      .slice(0, MAX_TEXTOS);
+    if (pedidos.length === 0) {
       throw new ErrorDeHerramienta(
         'Falta el nombre (dos letras por lo menos).',
       );
     }
     const empresa = ctx.usuario.company_id;
     const recepcion = esRecepcion(ctx.usuario.role);
-    const clientes = await ctx.repositorio.clientes(empresa, buscado);
+    const todos = await ctx.repositorio.clientesDeLaEmpresa(empresa);
+    const max = pedidos.length === 1 ? MAX : MAX_POR_TEXTO;
+    const hallados = pedidos.map((t) => ({
+      texto: t,
+      clientes: todos.filter((c) => calzaCliente(t, c)).slice(0, max),
+    }));
+    const ids = [
+      ...new Set(hallados.flatMap((h) => h.clientes.map((c) => c.id))),
+    ];
     const cotizaciones = await ctx.repositorio.cotizacionesDeClientes(
       empresa,
-      clientes.map((c) => c.id),
+      ids,
     );
+    const ficha = (c: FilaDeCliente) => {
+      const suyas = cotizaciones.filter(
+        (q: CotizacionDeCliente) => q.client_id === c.id,
+      );
+      return {
+        // El id, para crear un evento a este cliente (fase 2).
+        id: c.id,
+        nombre: c.name,
+        tipo: c.client_type,
+        contacto: c.contact_person,
+        telefono: c.phone,
+        correo: c.email,
+        cotizaciones: suyas.length,
+        ganadas: suyas.filter((q) => GANADAS.has(q.quotation_status)).length,
+        perdidas: suyas.filter(
+          (q) => q.quotation_status === QuotationStatus.RECHAZADA,
+        ).length,
+        ultimas: suyas.slice(0, 6).map((q) => ({
+          numero: q.quotation_number,
+          ...(recepcion ? {} : { enlace: enlaceDe(q, ctx.usuario.role) }),
+          estado: estadoDe(q.quotation_status),
+          evento: q.event_type,
+          fecha: conDia(diaDelEvento(q.event_date)),
+          ...(recepcion ? {} : { total: pesos(q.total_amount) }),
+        })),
+      };
+    };
+    if (pedidos.length === 1) {
+      return {
+        encontrados: hallados[0].clientes.length,
+        clientes: hallados[0].clientes.map(ficha),
+      };
+    }
     return {
-      encontrados: clientes.length,
-      clientes: clientes.map((c) => {
-        const suyas = cotizaciones.filter((q) => q.client_id === c.id);
-        return {
-          // El id, para crear un evento a este cliente (fase 2).
-          id: c.id,
-          nombre: c.name,
-          tipo: c.client_type,
-          contacto: c.contact_person,
-          telefono: c.phone,
-          correo: c.email,
-          cotizaciones: suyas.length,
-          ganadas: suyas.filter((q) => GANADAS.has(q.quotation_status)).length,
-          perdidas: suyas.filter(
-            (q) => q.quotation_status === QuotationStatus.RECHAZADA,
-          ).length,
-          ultimas: suyas.slice(0, 6).map((q) => ({
-            numero: q.quotation_number,
-            ...(recepcion ? {} : { enlace: enlaceDe(q, ctx.usuario.role) }),
-            estado: estadoDe(q.quotation_status),
-            evento: q.event_type,
-            fecha: conDia(diaDelEvento(q.event_date)),
-            ...(recepcion ? {} : { total: pesos(q.total_amount) }),
-          })),
-        };
-      }),
+      busquedas: hallados.map((h) => ({
+        texto: h.texto,
+        encontrados: h.clientes.length,
+        clientes: h.clientes.map(ficha),
+      })),
     };
   },
 };

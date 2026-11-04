@@ -1,19 +1,19 @@
 # Mapa: BelIA, la asistente con IA (la ventanilla de chat)
 
-> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **En producción desde el 04-11-2026** (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). La firma «BelIA» con su carita en la bitácora (04-11, verificada contra el código al escribirla), la conversación guardada por persona y BelIA para recepción (doc 20 §13, migración 182; 04-11, escritas con el código), en producción desde la tarde del 04-11 (migración 182 en las dos bases). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: escrito al construir** (rama `feature/evia-asistente`, 03-11-2026), verificado contra ese código; la cara de Bela entró la misma noche y la fase 2 (las propuestas con «Sí, aplicar» y lo que hay que comprar) esa misma noche, ya tarde. El plan y las decisiones de Felipe viven en `docs/arquitectura/20_EVIA_LA_IA_DE_EVENTIA.md`, que manda sobre este mapa. Fase 1 en el laboratorio desde el 03-11; la fase 2, con la migración 181, en el laboratorio desde el 03-11 en la noche, probada en la pantalla (doc 20, estado). **En producción desde el 04-11-2026** (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases). La firma «BelIA» con su carita en la bitácora (04-11, verificada contra el código al escribirla), la conversación guardada por persona y BelIA para recepción (doc 20 §13, migración 182; 04-11, escritas con el código), en producción desde la tarde del 04-11 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (doc 20 §14: la «×» que guarda, clientes sin tildes y de a varios, fichas al día, personas del evento y descuento con tope), escritas con el código, en el laboratorio. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
 BelIA es una ventanilla de chat abajo a la derecha de todas las pantallas. Conversa con Claude (Opus 5.5), que usa diecisiete herramientas, cada una con el cargo de su pantalla. La respuesta llega en vivo: el texto aparece mientras BelIA lo escribe.
 
 **Catorce consultan:**
-- **Quien vende:** `buscar_cotizaciones`, `ver_cotizacion` (cada servicio con su id), `calendario`, `seguimientos_pendientes`, `avisos_de_hoy` (lo que vence hoy, los requerimientos nuevos, los topes de calendario y, para operaciones, los comprobantes del portal), `buscar_en_catalogo` (varios `textos` a la vez, con sus ids) y `buscar_clientes` (con su id).
+- **Quien vende:** `buscar_cotizaciones`, `ver_cotizacion` (cada servicio con su id), `calendario`, `seguimientos_pendientes`, `avisos_de_hoy` (lo que vence hoy, los requerimientos nuevos, los topes de calendario y, para operaciones, los comprobantes del portal), `buscar_en_catalogo` (varios `textos` a la vez, con sus ids) y `buscar_clientes` (con su id; desde el 04-11 busca como el buscador de la casa, sin tildes y por palabras en cualquier orden, en el nombre y el contacto, y varios clientes a la vez en `textos`).
 - **Operaciones para arriba:** `pagos_del_evento` y `cobranza` (derecho `post_venta`); `insumos`, `lo_que_hay_que_comprar`, `proveedores` y `mobiliario` (derecho `logistica`).
 - **Solo administración:** `personal` (derecho `personal`). Nunca trae RUT, cuentas ni montos.
 - **Recepción (doc 20 §13, 04-11):** `calendario`, `buscar_cotizaciones`, `ver_cotizacion`, `buscar_clientes` y `avisos_de_hoy`, **sin plata**: sin el total, el valor por persona, los servicios, las observaciones, el comentario interno ni el enlace a la ficha. La bitácora sí, como contexto. Todo lo que le llega pasa además por `sinMontos` (`herramientas/recepcion.ts`).
 
 **Tres proponen, y ninguna escribe (fase 2):**
-- `proponer_cambio_de_servicios`: agregar o quitar servicios del catálogo en una casilla, cambiar sus personas, poner una casilla entera (así se arma una minuta) o sacarla, y poner o sacar fijos;
+- `proponer_cambio_de_servicios`: agregar o quitar servicios del catálogo en una casilla, cambiar sus personas, poner una casilla entera (así se arma una minuta) o sacarla, y poner o sacar fijos. Desde el 04-11 (doc 20 §14), también las personas del evento (`personas_del_evento`, solo en las no aceptadas) y el descuento (`descuento`, el que pida la persona, con el tope de su cargo), en `propuestas/cabecera.ts`;
 - `proponer_nota`: una nota en la bitácora;
 - `proponer_cotizacion_nueva` («Crear evento»): una cotización nueva con sus servicios, o un requerimiento sin ellos, para un cliente que existe o uno nuevo. Recepción solo crea requerimientos: con servicios, la herramienta no propone.
 
@@ -152,7 +152,10 @@ Dos reglas salieron de la primera prueba del 03-11:
 - BelIA no opina de las notas del equipo si no se lo preguntan.
 
 De la fase 2 (03-11):
-- BelIA no cambia el descuento ni la propina (doc 20 §11, pregunta 1: hasta que Felipe decida, no), ni las fechas ni las personas del evento: eso se hace en la pantalla.
+- ~~BelIA no cambia el descuento ni la propina, ni las fechas ni las personas del evento~~ **cambió el 04-11** (doc 20 §14):
+  - las personas del evento, sí, en las no aceptadas. La casilla que tenía el total de su audiencia lo sigue y la ajustada a mano no, como al guardar en el cotizador; los fijos que cobran por persona no se rehacen (el cotizador tampoco) y la tarjeta lo avisa;
+  - el descuento, sí, el que pida la persona, nunca uno que ofrezca BelIA, con el tope de su cargo: administración 40 %, ventas y operaciones 15 % (`topeDeDescuento`, calco de `getMaxDiscountForRole`; por monto, ese % del subtotal);
+  - las fechas y la propina, en la pantalla.
 - Solo agrega fijos de precio fijo, como «Crear con IA»; los que dependen de las personas se agregan en el cotizador.
 - Una aceptada no queda en $0: se anula en Post-Venta.
 - Una propuesta dura 2 horas y solo la aplica quien la pidió.
@@ -198,6 +201,8 @@ De la fase 2 (03-11):
 9. **Si sacas un campo de `huellaDe`**, un cambio en ese campo entre la propuesta y el «Sí, aplicar» ya no se notaría y BelIA guardaría sobre algo que la persona no vio. Si agregas a la propuesta algo que dependa de otro campo de la cotización, súmalo a la huella.
 11. **Si cambias el portero de clientes parecidos** (`ClientsService.crearDesdePantalla`), cambia también lo que hace «Crear evento»: BelIA lo usa al proponer y al crear.
 12. **Si tocas la respuesta en vivo**, revisa que ningún proxy junte los trozos (`X-Accel-Buffering: no`, sin compresión en el motor) y que lo escrito antes de una herramienta se siga borrando en la ventanilla: si no, la persona leería un texto que no es la respuesta.
+15. **Si cambias cómo el cotizador reparte las personas** (`loadExistingItemsFromJSON` y `boxPeople` en `QuotationForm.tsx`) o el tope de descuento (`getMaxDiscountForRole`, en el cotizador y en Post-Venta), cambia también `propuestas/cabecera.ts`: BelIA armaría una cuenta que la pantalla movería al guardar.
+16. **Si cambias la ficha de `ver_cotizacion`**, cambian también las fichas al día (`LoLeido`): son la misma herramienta corrida por el motor antes de la pregunta, con el cargo de quien escribe y `sinMontos` para recepción.
 13. **Si agregas un dato con plata a una herramienta que ve recepción** (`calendario`, `buscar_cotizaciones`, `ver_cotizacion`, `buscar_clientes`, `avisos_de_hoy`), sácalo en su vista de recepción: `sinMontos` solo tapa lo que se ve como plata («$…», «… pesos»), no un número suelto. La prueba es `recepcion.spec.ts`.
 14. **Si cambias el formato de un turno de la ventanilla** (`TurnoEnPantalla`), revisa `paraGuardar` y `TurnoGuardadoDto`: el motor rechaza una clave que no conoce (`forbidNonWhitelisted`), y la conversación dejaría de guardarse.
 10. **Si cambias los estados de `asistente_propuestas`** (el check de la 181), revisa `moverPropuesta`: el candado de dos clics es el paso de `pendiente` a `aplicando` solo si seguía pendiente.
@@ -212,6 +217,9 @@ De la fase 2 (03-11):
 | `api-rest/src/logistics/tests/consolidacion.spec.ts` | La cuenta de lo que lleva cada evento (la misma de Compras) |
 | `api-rest/src/asistente/tests/conversacion.spec.ts` | La conversación de la sesión, el cargo distinto que parte de cero (al leer y al guardar), los 90 días, los 30 turnos y el peso, la limpieza que falla sin perder lo guardado y lo que acepta el `PUT` |
 | `api-rest/src/asistente/tests/recepcion.spec.ts` | `sinMontos`, las herramientas de recepción, la fila y la ficha sin plata, lo que le llega a la IA (sin montos ni enlaces, con sus instrucciones, sin ordenar por total), su ánimo, «Crear requerimiento» sin servicios y su enlace a Requerimientos |
+| `api-rest/src/asistente/tests/buscar-clientes.spec.ts` | La búsqueda de la casa (sin tildes, por palabras, también el contacto), varios clientes en una sola lectura y recepción sin plata |
+| `api-rest/src/asistente/tests/lo-leido.spec.ts` | Las fichas al día: las últimas tres, los 20 minutos, cada persona lo suyo, la segunda pregunta con la ficha recién leída de la base y recepción sin montos |
+| `api-rest/src/asistente/tests/cabecera.spec.ts` | Las personas del evento como el cotizador (las casillas que siguen al total y las ajustadas), el aviso de los fijos por persona, el tope de cada cargo, lo que manda la IA, la aceptada que no, la cuenta que acepta el motor, el descuento por % y por monto, y el deshacer que devuelve la cabecera |
 | `api-rest/src/auth/tests/matriz-de-cargos.spec.ts` y `matriz-de-derechos.spec.ts` | Las nueve rutas con su cargo (`RECEPTION_AND_UP`) y su derecho |
 | `frontend/src/components/belia/belia.test.ts` | Lo que se guarda de la conversación (`paraGuardar`), la pantalla abierta, el orden de los ánimos, el aviso cuando sube lo de hoy (también los topes y los comprobantes), que solo se enlacen rutas de Eventia y lo que BelIA lee de sus propuestas |
 | `frontend/src/utils/eventosEnVivo.test.ts` | Los eventos de la respuesta en vivo, también cuando uno llega partido |

@@ -24,6 +24,7 @@ import { computeMoney } from 'src/quotations/utils/money';
 import type { User } from 'src/users/entities/user.entity';
 import type { Abono, Cuota, Reembolso } from '../asistente.repository';
 import { conDia, diaDelEvento, diasEntre, pesos } from '../herramientas/comun';
+import type { CabeceraNueva } from './cabecera';
 import type { FotoGuardada } from './editar-foto';
 
 /** Lo que se lee de una cotización para cambiarla. */
@@ -139,24 +140,34 @@ export const choqueConLoServido = (
 };
 
 /** La plata con la foto nueva y lo que se guarda: la misma cuenta y los
- *  mismos campos que guarda Post-Venta → Servicios. El descuento y la
- *  propina no se tocan (doc 20 §11: los descuentos, hasta que Felipe
- *  decida, no). */
-export const parcheDe = (q: CotizacionParaCambiar, foto: FotoGuardada) => {
-  const pct = n(q.discount_percentage);
+ *  mismos campos que guarda Post-Venta → Servicios. Las personas del evento
+ *  y el descuento cambian solo si la propuesta los trae (`cabecera`, 04-11:
+ *  Felipe abrió las dos); la propina nunca. */
+export const parcheDe = (
+  q: CotizacionParaCambiar,
+  foto: FotoGuardada,
+  cabecera: CabeceraNueva = {},
+) => {
+  const personas = cabecera.people_count ?? n(q.people_count);
+  const ninos = cabecera.children_count ?? n(q.children_count);
+  const pct = n(cabecera.discount_percentage ?? q.discount_percentage);
+  const monto = pct > 0 ? 0 : n(cabecera.discount_amount ?? q.discount_amount);
   const propina = q.tip_percentage == null ? null : n(q.tip_percentage);
   const t = computeMoney({
     items: foto as Parameters<typeof computeMoney>[0]['items'],
-    people_count: q.people_count,
-    children_count: q.children_count,
+    people_count: personas,
+    children_count: ninos,
     discount_percentage: pct,
-    discount_amount: pct > 0 ? 0 : n(q.discount_amount),
+    discount_amount: monto,
     tip_percentage: propina,
   });
   return {
     total: t.totalAmount,
     parche: {
       items: foto,
+      ...(cabecera.people_count != null
+        ? { people_count: personas, children_count: ninos }
+        : {}),
       value_per_person: t.valuePerPerson,
       fixed_value: t.fixedTotal,
       subtotal_amount: t.subtotalAmount,
