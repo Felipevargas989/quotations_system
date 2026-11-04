@@ -4,7 +4,11 @@ import { UsersRepository } from 'src/users/users.repository';
 import { logSafe } from '../logging/log-safe';
 import { ClientContactsRepository } from './client-contacts.controller';
 import { ClientsRepository } from './clients.repository';
-import { CoincidenciaCliente, buscarCoincidencias } from './coincidencias';
+import {
+  CoincidenciaCliente,
+  buscarCoincidencias,
+  esElMismoCliente,
+} from './coincidencias';
 import { CreateClientDto } from './dto/create-client.dto';
 import { RevisarClienteDto } from './dto/revisar-cliente.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -61,24 +65,25 @@ export class ClientsService {
    * persona como contacto, o "es otro cliente, crear igual", que vuelve
    * con `confirmado`). El formulario público y las consultas NO pasan
    * por acá: siguen con `findMatch`, solo por correo (regla del 05-09).
+   * Desde el 04-11-2026, `confirmado` no alcanza si hay un cliente con el
+   * mismo correo y el mismo nombre (`esElMismoCliente`): es ese cliente.
    */
   async crearDesdePantalla(dto: CreateClientDto, companyId: number) {
     const { confirmado, ...datos } = dto;
-    if (!confirmado) {
-      const coincidencias = await this.coincidencias(datos, companyId);
-      if (coincidencias.length > 0) {
-        this.logger.info(
-          `crearDesdePantalla: ${coincidencias.length} cliente(s) parecido(s) (${coincidencias
-            .map((c) => c.motivos.join('+'))
-            .join(', ')}); se pregunta antes de crear`,
-        );
-        throw new ConflictException({
-          statusCode: 409,
-          codigo: CLIENTE_PARECIDO,
-          message: 'Ya hay un cliente parecido en Eventia.',
-          coincidencias,
-        });
-      }
+    const todas = await this.coincidencias(datos, companyId);
+    const coincidencias = confirmado ? todas.filter(esElMismoCliente) : todas;
+    if (coincidencias.length > 0) {
+      this.logger.info(
+        `crearDesdePantalla: ${coincidencias.length} cliente(s) parecido(s) (${coincidencias
+          .map((c) => c.motivos.join('+'))
+          .join(', ')}); se pregunta antes de crear`,
+      );
+      throw new ConflictException({
+        statusCode: 409,
+        codigo: CLIENTE_PARECIDO,
+        message: 'Ya hay un cliente parecido en Eventia.',
+        coincidencias,
+      });
     }
     return this.create(datos, companyId);
   }

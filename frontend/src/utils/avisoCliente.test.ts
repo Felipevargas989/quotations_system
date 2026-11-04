@@ -6,6 +6,7 @@ import {
   datosParaRevisar,
   detalleDeCoincidencia,
   motivoCorto,
+  permiteCrearIgual,
   tituloConLista,
   tituloDelAviso,
 } from "./avisoCliente";
@@ -104,5 +105,18 @@ describe("aviso de cliente parecido", () => {
   it("a un Particular no se le suman contactos (una sola persona)", () => {
     expect(admiteOtroContacto(rene)).toBe(true);
     expect(admiteOtroContacto({ ...rene, tipo: "Particulares" })).toBe(false);
+  });
+
+  it("Hospital de Bulnes (04-11): mismo correo y mismo nombre no deja crear igual", () => {
+    const bulnes: CoincidenciaCliente = {
+      ...rene,
+      nombre: "Hospital Comunitario de Salud Familiar de Bulnes",
+      motivos: ["correo", "nombre"],
+    };
+    expect(permiteCrearIgual([bulnes])).toBe(false);
+    expect(permiteCrearIgual([rene, bulnes])).toBe(false);
+    // Mismo correo con otro nombre: quien organiza varios grupos.
+    expect(permiteCrearIgual([{ ...rene, motivos: ["correo"] }])).toBe(true);
+    expect(permiteCrearIgual([rene])).toBe(true);
   });
 });
