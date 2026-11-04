@@ -1,15 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
-import { useState } from "react";
 import { toast } from "../../components/toast/Toast";
 import {
   type MarcaDeExigencia,
   marcarExigencia,
 } from "../../services/exigencias.service";
-import {
-  actualizarOportunidad,
-  type FichaDeOportunidad,
-} from "../../services/oportunidades.service";
+import type { FichaDeOportunidad } from "../../services/oportunidades.service";
 import type { FilaDeLaOferta } from "../../services/postulacion.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import type { Exigencia } from "./exigencias";
@@ -20,9 +16,8 @@ import {
   resumenDeLasExigencias,
   textoDeLaOferta,
 } from "./relacionDeLasBases";
+import DesistirDeLaLicitacion from "./DesistirDeLaLicitacion";
 import TituloDeBloque from "./TituloDeBloque";
-import type { MotivoDelDescarte } from "../../services/decisiones";
-import PorQueDescartas from "./PorQueDescartas";
 
 // LAS EXIGENCIAS DE LA LICITACIÓN (19-10, migración 152). Felipe: "un
 // listado de exigencias... y marcar algunos que sean como lo tengo y otro
@@ -66,7 +61,6 @@ export default function ExigenciasDeLaLicitacion({
   readonly postulada: boolean;
 }) {
   const qc = useQueryClient();
-  const [desistiendo, setDesistiendo] = useState(false);
 
   const ponerMarcas = (nuevas: Record<string, MarcaDeExigencia>) =>
     qc.setQueryData<FichaDeOportunidad>(claveDeLaFicha(oportunidadId), (f) =>
@@ -103,19 +97,6 @@ export default function ExigenciasDeLaLicitacion({
       void qc.invalidateQueries({ queryKey: claveDeLaFicha(oportunidadId) });
       toast.error(humanizeApiError(e, "No se pudo guardar la marca."));
     },
-  });
-  const desistir = useMutation({
-    mutationFn: (motivo: MotivoDelDescarte | null) =>
-      actualizarOportunidad(oportunidadId, {
-        estado: "descartada",
-        motivo: motivo ?? undefined,
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: claveDeLaFicha(oportunidadId) });
-      toast.success("Desististe de esta licitación: quedó en «Descartadas».");
-      setDesistiendo(false);
-    },
-    onError: (e) => toast.error(humanizeApiError(e, "No se pudo desistir.")),
   });
 
   if (exigencias.length === 0) return null;
@@ -154,24 +135,7 @@ export default function ExigenciasDeLaLicitacion({
             sano es desistir.
           </p>
           {!postulada && (
-            <button
-              type="button"
-              onClick={() => setDesistiendo(true)}
-              className="px-3 py-1.5 text-sm font-semibold text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-100"
-            >
-              Desistir de esta licitación
-            </button>
-          )}
-          {/* Decisión 113: el modal del porqué también confirma. */}
-          {desistiendo && (
-            <PorQueDescartas
-              titulo="¿Por qué desistes?"
-              subtitulo="Queda en «Descartadas» y se puede recuperar. Así el semáforo aprende."
-              sinMotivo="Desistir sin motivo"
-              ocupado={desistir.isPending}
-              onElegir={(motivo) => desistir.mutate(motivo)}
-              onCancelar={() => setDesistiendo(false)}
-            />
+            <DesistirDeLaLicitacion oportunidadId={oportunidadId} />
           )}
         </div>
       )}
