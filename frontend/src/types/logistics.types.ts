@@ -1,5 +1,7 @@
 // Tipos del módulo Logística (catálogos base).
 
+import { grossQty, toBaseQty, type RecipeUnit } from "@consolidacion";
+
 // Familias de unidad (convención Fudo): la unidad de una receta debe
 // pertenecer a la familia del insumo, nunca cruzarse.
 export type UnitFamily = "masa" | "volumen" | "unidad";
@@ -43,23 +45,15 @@ export interface Supply {
   created_at: string;
 }
 
-// Unidades concretas permitidas en recetas, por familia del insumo.
-export type RecipeUnit = "kg" | "gr" | "L" | "ml" | "u";
+// Unidades concretas permitidas en recetas (por familia del insumo), la
+// unidad base y la merma: viven con la cuenta de los eventos, en el motor
+// (@consolidacion, 03-11-2026), para que la app y BelIA cuenten igual.
+export { grossQty, toBaseQty, type RecipeUnit };
 
 export const UNITS_BY_FAMILY: Record<UnitFamily, RecipeUnit[]> = {
   masa: ["kg", "gr"],
   volumen: ["L", "ml"],
   unidad: ["u"],
-};
-
-// Convierte una cantidad de receta a la unidad base del insumo (kg/L/u).
-export const toBaseQty = (qty: number, unit: RecipeUnit): number =>
-  unit === "gr" || unit === "ml" ? qty / 1000 : qty;
-
-// Cantidad BRUTA a comprar: lo servido (neto) más la merma del insumo.
-export const grossQty = (netBase: number, supply: Supply): number => {
-  const w = supply.waste_pct || 0;
-  return w > 0 && w < 100 ? netBase / (1 - w / 100) : netBase;
 };
 
 export type FurnitureCategory =
