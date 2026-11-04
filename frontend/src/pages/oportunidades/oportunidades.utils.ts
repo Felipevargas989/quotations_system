@@ -650,9 +650,10 @@ export const algunaEnCurso = (
 /** «Mis licitaciones» en dos listas (Felipe, 19-10: "ordenar por
  *  pendientes, ya postuladas abajo y de algún color diferente para saber
  *  que están listas... y por orden de vencimiento"). Por postular: las en
- *  estudio, de la que vence antes a la que vence después, y al final las
- *  que ya cerraron sin postular (la más reciente primero). Postuladas,
- *  aparte. Las ganadas, para su pestaña (decisión 100, 28-10: "no me
+ *  estudio que siguen abiertas, de la que vence antes a la que vence
+ *  después. Las que cerraron sin postular ya no salen (decisión 116, 04-11:
+ *  el motor las descarta solas con el porqué «No alcanzo»; aquí se van
+ *  apenas pasa su hora de cierre). Postuladas, aparte. Las ganadas, para su pestaña (decisión 100, 28-10: "no me
  *  gusta que las perdidas queden con las ganadas"); las perdidas, al
  *  final. Desde la decisión 107 (28-10) el número de la pestaña es
  *  `pendientes`, las por postular que siguen abiertas (Felipe: "ese número
@@ -671,10 +672,7 @@ export const separarMias = <
   const antes = (a: T, b: T) => cierre(a) - cierre(b) || 0;
   const enEstudio = lista.filter((m) => m.estado === "en_estudio");
   const abiertas = enEstudio.filter((m) => cierre(m) >= ahora).sort(antes);
-  const porPostular = [
-    ...abiertas,
-    ...enEstudio.filter((m) => cierre(m) < ahora).sort((a, b) => antes(b, a)),
-  ];
+  const porPostular = abiertas;
   const postuladas = lista.filter((m) => m.estado === "postulada").sort(antes);
   return {
     porPostular,

@@ -72,12 +72,44 @@ describe("Una fila de la bandeja", () => {
     expect(screen.queryByText("Alto valor")).not.toBeInTheDocument();
   });
 
-  it("lo que cierra pronto va con reloj y sin rojo: el rojo es de las rojas", () => {
+  it("el cierre va a la derecha junto a los botones, en rojo, en negrita y con reloj (decisión 116)", () => {
     pintar(oportunidad());
-    const urgencia = screen.getByText(/cierra en 11 h/);
+    const urgencia = screen.getByText("Cierra en 11 h");
     expect(urgencia.className).toContain("font-semibold");
-    expect(urgencia.className).not.toMatch(/red/);
     expect(urgencia.querySelector("svg")).not.toBeNull();
+    const cierre = urgencia.closest("p");
+    expect(cierre?.className).toContain("text-red-600");
+    // En la misma columna que «Me interesa» y «Descartar».
+    expect(cierre?.parentElement?.querySelector("button")?.textContent).toBe(
+      "Me interesa",
+    );
+  });
+
+  it("lo ya cerrado y lo que no informa cierre van en gris y sin reloj (decisión 116)", () => {
+    pintar(
+      oportunidad({
+        proceso: {
+          ...oportunidad().proceso,
+          fecha_cierre: new Date(Date.now() - HORA).toISOString(),
+        } as Oportunidad["proceso"],
+      }),
+    );
+    const cerrada = screen.getByText("Cerrada");
+    expect(cerrada.closest("p")?.className).toContain("text-gray-500");
+    expect(cerrada.querySelector("svg")).toBeNull();
+
+    cleanup();
+    pintar(
+      oportunidad({
+        proceso: {
+          ...oportunidad().proceso,
+          fecha_cierre: null,
+        } as Oportunidad["proceso"],
+      }),
+    );
+    expect(
+      screen.getByText("Sin cierre informado").closest("p")?.className,
+    ).toContain("text-gray-500");
   });
 
   it("sin «Ver resumen»: la fila entera abre el resumen; una seguida dice en qué va en Mercado Público (19-10)", () => {
