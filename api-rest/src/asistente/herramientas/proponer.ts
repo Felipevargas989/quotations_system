@@ -84,6 +84,10 @@ export const leerCambios = (v: unknown): Cambio[] => {
       id: entero(c.id, 1, 100_000_000),
       cantidad: entero(c.cantidad, 0, 10_000),
       cual: entero(c.cual, 1, 100_000),
+      que_tiene:
+        c.que_tiene != null && String(c.que_tiene).trim()
+          ? String(c.que_tiene).trim().slice(0, 40)
+          : undefined,
     };
   });
 };
@@ -202,10 +206,15 @@ export const proponerCambioDeServicios: Herramienta = {
               type: 'integer',
               description: 'poner_fijo: cuántos (1 o más).',
             },
+            que_tiene: {
+              type: 'string',
+              description:
+                'Solo si ese día hay dos casillas iguales: el id de un servicio que tiene HOY la que se cambia (la ficha trae los ids).',
+            },
             cual: {
               type: 'integer',
               description:
-                'Solo si ese día hay dos casillas iguales: las personas que tiene HOY la que se cambia.',
+                'Otra forma de distinguir dos casillas iguales: las personas que tiene HOY la que se cambia.',
             },
           },
           required: ['accion'],

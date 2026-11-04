@@ -307,6 +307,71 @@ describe('Los cambios de BelIA sobre los servicios', () => {
     expect(bien.ok).toBe(true);
   });
 
+  it('dos casillas iguales del formato antiguo (sin día ni personas): se distinguen por lo que tienen', () => {
+    const antigua: FotoGuardada = {
+      variable_services: [
+        {
+          category: 'Cena',
+          items: [
+            { codigo: '2', nombre: 'Lomo', precio: 9_000, quantity: 1 },
+            { codigo: '3', nombre: 'Leche nevada', precio: 2_000, quantity: 1 },
+          ],
+        },
+        {
+          category: 'Cena',
+          items: [
+            { codigo: '4', nombre: 'Leche asada', precio: 2_500, quantity: 1 },
+          ],
+        },
+      ],
+    };
+    // Al sacar, la casilla es la que tiene el plato.
+    const quita = editarFoto(
+      antigua,
+      [{ accion: 'quitar', dia: 1, categoria: 'Cena', ids: ['3'] }],
+      catalogo(),
+      evento,
+    );
+    if (!quita.ok) throw new Error(quita.errores.join(' | '));
+    expect(quita.foto.variable_services![0].items).toHaveLength(1);
+    // Al agregar, se dice con «que_tiene».
+    const sinPista = editarFoto(
+      antigua,
+      [
+        {
+          accion: 'agregar',
+          dia: 1,
+          categoria: 'Cena',
+          servicios: [{ id: 3, cantidad: 1 }],
+        },
+      ],
+      catalogo(),
+      evento,
+    );
+    expect(sinPista.ok).toBe(false);
+    const conPista = editarFoto(
+      antigua,
+      [
+        {
+          accion: 'agregar',
+          dia: 1,
+          categoria: 'Cena',
+          que_tiene: '4',
+          servicios: [{ id: 3, cantidad: 1 }],
+        },
+      ],
+      catalogo(),
+      evento,
+    );
+    if (!conPista.ok) throw new Error(conPista.errores.join(' | '));
+    expect(conPista.foto.variable_services![1].items).toHaveLength(2);
+    // Lo que no se tocó sigue sin día ni personas: la plata no cambia sola.
+    expect(conPista.foto.variable_services![0]).toEqual(
+      antigua.variable_services![0],
+    );
+    expect(conPista.foto.variable_services![1].day).toBeUndefined();
+  });
+
   it('si no cambia nada, no hay propuesta', () => {
     const r = editarFoto(
       foto(),
