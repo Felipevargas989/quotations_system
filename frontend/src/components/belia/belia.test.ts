@@ -137,6 +137,15 @@ describe("lo que contesta BelIA", () => {
   });
 });
 
+describe("una tabla pegada al párrafo", () => {
+  it("se lee como tabla aunque no tenga línea en blanco antes ni después", () => {
+    const b = bloquesDe(
+      "Las que chocan:\n| Choca con | Cotizaciones |\n|---|---|\n| N° 500 | 455, 513 |\nHoy no llegaron requerimientos.",
+    );
+    expect(b.map((x) => x.tipo)).toEqual(["parrafo", "tabla", "parrafo"]);
+  });
+});
+
 describe("textoParaBelia", () => {
   it("le cuenta a BelIA qué hizo la persona con su propuesta", () => {
     expect(
