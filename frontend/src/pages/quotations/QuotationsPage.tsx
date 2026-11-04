@@ -33,6 +33,7 @@ import ResultadosDeSeguimiento from "../../components/ResultadosDeSeguimiento";
 import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
+import AvisoDeCierre from "../../components/AvisoDeCierre";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
 import {
@@ -383,6 +384,8 @@ export default function QuotationsPage() {
     newStatus: string;
   } | null>(null);
   const [guardandoMotivo, setGuardandoMotivo] = useState(false);
+  // Tras rechazar: «¿Avisarle al cliente?» (Felipe, 04-11-2026).
+  const [avisoDeCierre, setAvisoDeCierre] = useState<string | null>(null);
   const confirmarMotivo = async (
     motivo: string,
     comentario: string,
@@ -404,6 +407,8 @@ export default function QuotationsPage() {
           note: comentario,
         }).catch(() => {});
       setPidiendoMotivo(null);
+      if (pidiendoMotivo.newStatus === QuotationStatus.RECHAZADA)
+        setAvisoDeCierre(pidiendoMotivo.quotationId);
     } finally {
       setGuardandoMotivo(false);
     }
@@ -756,6 +761,12 @@ export default function QuotationsPage() {
           onConfirmar={(motivo, comentario, reembolso) =>
             void confirmarMotivo(motivo, comentario, reembolso)
           }
+        />
+      )}
+      {avisoDeCierre && (
+        <AvisoDeCierre
+          quotationId={avisoDeCierre}
+          onCerrar={() => setAvisoDeCierre(null)}
         />
       )}
       {showViewer && viewingQuotation && (
