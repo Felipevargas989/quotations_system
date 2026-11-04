@@ -1,5 +1,6 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { RequestType } from 'src/quotations/constants/constants';
+import { UserRole } from 'src/users/entities/user.entity';
 import type { FichaDeCotizacion } from '../asistente.repository';
 import {
   conDia,
@@ -14,11 +15,18 @@ import {
   sumarDias,
   type Herramienta,
 } from './comun';
+import { esRecepcion, sinMontos } from './recepcion';
 
 // «¿Qué cena tiene el día 3 de la 500?», «¿qué trae esta cotización?». La
 // ficha del negocio: los servicios día por día, la plata y la bitácora. Es
 // de quien vende (SECTION_ROLES.quotations_edit). Los pagos no van acá:
 // son de operaciones para arriba (fase 1, sprint 3).
+//
+// Recepción (doc 20 §13, 04-11): «¿en qué está la cotización de Marval?».
+// Le llegan el estado, las fechas, las personas, el cliente y la bitácora,
+// para darle contexto; nunca la plata, los servicios (cada uno trae su
+// precio), las observaciones, el comentario interno ni el enlace a la
+// ficha, que su pantalla no abre.
 
 type Item = {
   codigo?: string | null;
@@ -163,6 +171,23 @@ export const fichaComoLaVePersona = (
   };
 };
 
+/** Lo que ve recepción de la ficha: lo de la cabecera, sin plata. */
+export const fichaParaRecepcion = (q: FichaDeCotizacion) => {
+  const completa = fichaComoLaVePersona(q, UserRole.RECEPCION);
+  return {
+    numero: completa.numero,
+    estado: completa.estado,
+    tipo: completa.tipo,
+    cliente: completa.cliente,
+    contacto: completa.contacto,
+    evento: completa.evento,
+    personas: completa.personas,
+    enviada: completa.enviada,
+    creada: completa.creada,
+    nota: 'Recepción no ve la plata ni los servicios: eso lo ve quien vende.',
+  };
+};
+
 type Nota = {
   created_at: string;
   author_name?: string | null;
@@ -177,14 +202,15 @@ export const verCotizacion: Herramienta = {
   descripcion:
     'La ficha completa de una cotización: cliente, contacto, fechas, personas, los servicios ' +
     'día por día (cada casilla con su valor por persona), los fijos, la plata y las últimas ' +
-    'notas de la bitácora. Sin `numero`, la que la persona tiene abierta en la pantalla.',
+    'notas de la bitácora. Sin `numero`, la que la persona tiene abierta en la pantalla. ' +
+    'Para recepción, sin la plata ni los servicios: el estado, las fechas, las personas y la bitácora.',
   esquema: {
     type: 'object',
     properties: {
       numero: { type: 'integer', description: 'El N° de la cotización.' },
     },
   },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const numero = entero(entrada.numero, 1, 10_000_000);
     if (!numero && !ctx.cotizacionAbierta) {
@@ -204,6 +230,7 @@ export const verCotizacion: Herramienta = {
     }
     const notas = ((await ctx.bitacora.findByQuotation(empresa, q.id)) ??
       []) as Nota[];
+    const recepcion = esRecepcion(ctx.usuario.role);
     const recientes = [...notas]
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
       .slice(0, 8)
@@ -211,12 +238,16 @@ export const verCotizacion: Herramienta = {
         cuando: fechaEnChile(f.created_at),
         autor: f.author_name ?? undefined,
         canal: f.tipo ?? undefined,
-        nota: (f.note ?? '').slice(0, 500),
+        nota: recepcion
+          ? sinMontos((f.note ?? '').slice(0, 500))
+          : (f.note ?? '').slice(0, 500),
         proximo_contacto: f.next_contact_date ?? undefined,
         cumplido: f.next_contact_done_at ? true : undefined,
       }));
     return {
-      ...fichaComoLaVePersona(q, ctx.usuario.role),
+      ...(recepcion
+        ? fichaParaRecepcion(q)
+        : fichaComoLaVePersona(q, ctx.usuario.role)),
       bitacora: recientes,
       notas_en_total: notas.length,
     };

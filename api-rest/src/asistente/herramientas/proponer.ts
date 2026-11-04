@@ -1,4 +1,4 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP, SALES_AND_UP } from 'src/auth/roles.decorator';
 import { CANALES, type Canal } from '../propuestas/comun';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
 import {
@@ -15,6 +15,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
+import { esRecepcion } from './recepcion';
 
 // FASE 2: PROPONER, NUNCA ESCRIBIR (doc 20 §3, regla 3). Estas herramientas
 // no cambian nada: arman una PROPUESTA con el antes y el después, el total y
@@ -264,7 +265,7 @@ export const proponerNota: Herramienta = {
   descripcion:
     'Propone una nota en la bitácora (Seguimiento) de una cotización: lo que la persona hizo o ' +
     'acordó, por qué canal y, si quedó, el próximo contacto. NO la escribe: la persona la aprueba. ' +
-    'Queda a nombre del Asistente, «a pedido de» quien la pidió. Sin `numero`, la cotización abierta.',
+    'Queda a nombre de BelIA, «a pedido de» quien la pidió. Sin `numero`, la cotización abierta.',
   esquema: {
     type: 'object',
     properties: {
@@ -323,7 +324,7 @@ export const proponerCotizacionNueva: Herramienta = {
     'servicios, un requerimiento para armarla después. El cliente es uno que ya existe (su id, ' +
     'de buscar_clientes; búscalo SIEMPRE primero) o uno nuevo con sus datos. NO crea nada: la ' +
     'persona lo aprueba con «Sí, crear». Si falta un dato (tipo de evento, fecha, personas, ' +
-    'cliente), pregúntalo antes de proponer.',
+    'cliente), pregúntalo antes de proponer. Recepción solo crea requerimientos: sin `cambios`.',
   esquema: {
     type: 'object',
     properties: {
@@ -392,12 +393,23 @@ export const proponerCotizacionNueva: Herramienta = {
     },
     required: ['resumen', 'tipo_de_evento', 'fecha', 'personas'],
   },
-  cargos: SALES_AND_UP,
+  // Recepción también (doc 20 §13): solo requerimientos, sin servicios ni
+  // precios, como en su formulario. El motor lo vuelve a revisar al crear.
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
       throw new ErrorDeHerramienta(
         'Falta el `resumen`: una línea para la persona.',
+      );
+    }
+    if (
+      esRecepcion(ctx.usuario.role) &&
+      Array.isArray(entrada.cambios) &&
+      entrada.cambios.length > 0
+    ) {
+      throw new ErrorDeHerramienta(
+        'Recepción crea requerimientos, sin servicios ni precios: la cotización la arma quien vende. Propónlo sin `cambios`.',
       );
     }
     const fechaDelEvento = fecha(entrada.fecha, 'fecha');

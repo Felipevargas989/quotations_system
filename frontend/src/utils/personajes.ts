@@ -61,10 +61,11 @@ export const COLORES_PERSONALES: readonly {
   { hex: "#b8860b", nombre: "Mostaza" },
 ];
 
-// El gris grafito es SOLO del Asistente (Felipe, 27-10-2026): con el
-// verde automático de su nombre, una persona podía quedar igual que él.
-// Por eso no está en la lista de arriba, y si alguien lo tuviera guardado
-// igual se le muestra el color automático.
+// El gris grafito es SOLO de la IA (Felipe, 27-10-2026): el Asistente y,
+// desde el 04-11-2026, BelIA. Con el verde automático de su nombre, una
+// persona podía quedar igual que él. Por eso no está en la lista de
+// arriba, y si alguien lo tuviera guardado igual se le muestra el color
+// automático.
 export const COLOR_ASISTENTE = "#475569";
 
 /**
@@ -93,21 +94,36 @@ export const nombreDeAutor = (raw?: string | null): string => {
 /** El personaje fijo del Asistente: las notas que deja la IA. */
 export const PERSONAJE_ASISTENTE = "robot";
 
-/** La imagen de un personaje, o null si la clave no es de la lista. */
+/**
+ * La carita de BelIA en sus notas (Felipe, 04-11-2026: «Sí, me parece
+ * bien»), sacada de su propio dibujo (public/belia/icono.png). No está en
+ * PERSONAJES: es suya, nadie la elige en Mi cuenta.
+ */
+export const PERSONAJE_BELIA = "belia";
+
+/** Si la clave es de la lista que cada persona elige en Mi cuenta. */
+export const esPersonajeElegible = (clave?: string | null): boolean =>
+  !!clave && PERSONAJES.some((p) => p.clave === clave);
+
+/** La imagen de un personaje (o la carita de BelIA), o null si no es. */
 export const imagenDePersonaje = (clave?: string | null): string | null =>
-  clave && PERSONAJES.some((p) => p.clave === clave)
-    ? `/personajes/${clave}.png`
-    : null;
+  clave === PERSONAJE_BELIA
+    ? "/belia/icono.png"
+    : esPersonajeElegible(clave)
+      ? `/personajes/${clave}.png`
+      : null;
 
 /** Nombre legible del personaje, para el title y el texto alternativo. */
 export const nombreDePersonaje = (clave?: string | null): string =>
-  PERSONAJES.find((p) => p.clave === clave)?.nombre ?? "";
+  clave === PERSONAJE_BELIA
+    ? "BelIA"
+    : (PERSONAJES.find((p) => p.clave === clave)?.nombre ?? "");
 
 /** Un color solo se usa si viene con la forma que guarda la base. */
 export const colorValido = (color?: string | null): string | null =>
   color && /^#[0-9a-f]{6}$/.test(color) ? color : null;
 
-/** El color de una persona: el que eligió, salvo el del Asistente. */
+/** El color de una persona: el que eligió, salvo el gris de la IA. */
 export const colorDePersona = (color?: string | null): string | null => {
   const c = colorValido(color);
   return c === COLOR_ASISTENTE ? null : c;
@@ -123,9 +139,12 @@ export type Apariencia = {
 
 /**
  * Lo que pinta una nota del Seguimiento según su autor:
- * - la persona de la nota: lo que eligió en Mi cuenta;
+ * - la persona de la nota: lo que eligió en Mi cuenta (solo personajes de
+ *   la lista: la carita de BelIA no la lleva nadie más);
  * - el Asistente (nota sin persona, a nombre de «Asistente»): su robot y
  *   su gris grafito;
+ * - BelIA (nota sin persona, a nombre de «BelIA»): su carita y el mismo
+ *   gris de la IA;
  * - el resto: nada, y la nota se ve como antes.
  */
 export const aparienciaDeAutor = (
@@ -136,10 +155,15 @@ export const aparienciaDeAutor = (
   const a = autorUserId ? apariencias.get(autorUserId) : undefined;
   if (a)
     return {
-      personaje: imagenDePersonaje(a.personaje) ? (a.personaje ?? null) : null,
+      personaje: esPersonajeElegible(a.personaje)
+        ? (a.personaje ?? null)
+        : null,
       color: colorDePersona(a.color),
     };
-  if (!autorUserId && (autorNombre ?? "").trim() === "Asistente")
+  const nombre = (autorNombre ?? "").trim();
+  if (!autorUserId && nombre === "Asistente")
     return { personaje: PERSONAJE_ASISTENTE, color: COLOR_ASISTENTE };
+  if (!autorUserId && nombre === "BelIA")
+    return { personaje: PERSONAJE_BELIA, color: COLOR_ASISTENTE };
   return { personaje: null, color: null };
 };

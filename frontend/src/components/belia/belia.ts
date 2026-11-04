@@ -250,3 +250,45 @@ export const textoParaBelia = (t: {
         )
         .join("\n")}`
     : t.texto;
+
+/** Los turnos y lo que pesan, como mucho, al guardarse en Eventia (el motor
+ *  recibe hasta 100 KB). */
+export const MAX_TURNOS_GUARDADOS = 30;
+export const MAX_CARACTERES_GUARDADOS = 80_000;
+
+/** La conversación como se guarda en Eventia (doc 20 §13, migración 182):
+ *  sin lo que BelIA está escribiendo en vivo, los 30 turnos más nuevos y,
+ *  si pesan demasiado, menos. Una tarjeta que se estaba aplicando se guarda
+ *  pendiente: al volver a apretarla, el motor dice cómo quedó. */
+export const paraGuardar = (
+  turnos: {
+    rol: "persona" | "belia";
+    texto: string;
+    error?: boolean;
+    escribiendo?: boolean;
+    propuestas?: { estado: EstadoDeTarjeta }[];
+  }[],
+) => {
+  let guardados = turnos
+    .filter((t) => !t.escribiendo)
+    .slice(-MAX_TURNOS_GUARDADOS)
+    .map((t) => ({
+      rol: t.rol,
+      texto: t.texto,
+      ...(t.error ? { error: true } : {}),
+      ...(t.propuestas?.length
+        ? {
+            propuestas: t.propuestas.map((p) =>
+              p.estado === "enviando" ? { ...p, estado: "pendiente" } : p,
+            ) as unknown as Record<string, unknown>[],
+          }
+        : {}),
+    }));
+  while (
+    guardados.length > 1 &&
+    JSON.stringify(guardados).length > MAX_CARACTERES_GUARDADOS
+  ) {
+    guardados = guardados.slice(1);
+  }
+  return guardados;
+};

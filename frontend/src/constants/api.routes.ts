@@ -10,6 +10,8 @@ export const API_ROUTES = {
   ASISTENTE_MENSAJES: "/asistente/mensajes",
   ASISTENTE_EN_VIVO: "/asistente/mensajes/en-vivo",
   ASISTENTE_ESTADO: "/asistente/estado",
+  // La conversación de quien escribe (doc 20 §13, migración 182).
+  ASISTENTE_CONVERSACION: "/asistente/conversacion",
   // fase 2: + "/<id>/aplicar", "/<id>/descartar" o "/<id>/deshacer"
   ASISTENTE_PROPUESTAS: "/asistente/propuestas",
 

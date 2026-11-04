@@ -1,4 +1,4 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import { filaComoLaVePersona } from './buscar-cotizaciones';
 import {
@@ -15,8 +15,9 @@ import {
 
 // «¿Qué eventos tenemos la semana que viene?», «¿está libre el 14-11?». El
 // Calendario: los eventos que tocan un rango de fechas y los días con más
-// de uno. Lo ven todos los que venden (SECTION_ROLES.calendar), con el
-// derecho del plan (`calendario`, Gestiona y Cobra para arriba).
+// de uno. Lo ven todos, recepción incluida (SECTION_ROLES.calendar), con
+// el derecho del plan (`calendario`, Gestiona y Cobra para arriba). A
+// recepción le llega sin el total ni el enlace a la ficha (doc 20 §13).
 
 /** Lo que se ve en el Calendario si no se pide otra cosa: lo vivo y lo
  *  vendido, sin lo perdido ni lo anulado. */
@@ -51,7 +52,7 @@ export const calendario: Herramienta = {
     },
     required: ['desde', 'hasta'],
   },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
   derecho: 'calendario',
   async ejecutar(entrada, ctx) {
     const desde = fecha(entrada.desde, 'desde');

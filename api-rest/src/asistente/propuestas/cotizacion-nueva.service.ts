@@ -30,8 +30,9 @@ import {
   pesos,
 } from '../herramientas/comun';
 import {
-  anotarComoAsistente,
+  anotarComoBelia,
   aPedidoDe,
+  aPedidoDeAlComienzo,
   lineasDeLaTarjeta,
   type ResultadoDeAplicar,
   type TarjetaDePropuesta,
@@ -384,18 +385,21 @@ export class CotizacionNuevaService {
       .catch((e: unknown) =>
         this.logger.warn(`propuesta ${p.id}: ${mensajeDe(e)}`),
       );
-    await anotarComoAsistente(
+    await anotarComoBelia(
       this.bitacora,
       this.logger,
       empresa,
       q.id,
-      `BelIA, ${aPedidoDe(p)}: creó ${dto.request_type === RequestType.COTIZACION ? 'la cotización' : 'el requerimiento'}. ${p.resumen}.`,
+      `${aPedidoDeAlComienzo(p)}: creó ${dto.request_type === RequestType.COTIZACION ? 'la cotización' : 'el requerimiento'}. ${p.resumen}.`,
     );
     return {
       estado: 'aplicada',
       numero: q.quotation_number,
       enlace: enlaceDe(q, usuario.role),
-      total: pesos(dto.total_amount ?? 0),
+      // Un requerimiento no tiene plata todavía (y recepción no la ve).
+      ...(dto.request_type === RequestType.COTIZACION
+        ? { total: pesos(dto.total_amount ?? 0) }
+        : {}),
       se_puede_deshacer: false,
     };
   }

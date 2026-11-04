@@ -1,4 +1,4 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import {
   ErrorDeHerramienta,
@@ -10,10 +10,13 @@ import {
   texto,
   type Herramienta,
 } from './comun';
+import { esRecepcion } from './recepcion';
 
 // «¿Qué ha cotizado Ecofor?», «¿cuál es el teléfono de Rudel?». La lista de
 // Clientes con su historia corta: lo cotizado, lo ganado y lo perdido. Es
-// de quien vende (SECTION_ROLES.clients).
+// de quien vende (SECTION_ROLES.clients). Recepción también busca clientes
+// para levantar un requerimiento (mapa 23) y, desde el 04-11 (doc 20 §13),
+// para saber en qué va su pedido: le llega sin el total ni el enlace.
 
 const GANADAS = new Set([QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA]);
 
@@ -29,7 +32,7 @@ export const buscarClientes: Herramienta = {
     },
     required: ['texto'],
   },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const buscado = texto(entrada.texto, 80);
     if (!buscado || buscado.length < 2) {
@@ -38,6 +41,7 @@ export const buscarClientes: Herramienta = {
       );
     }
     const empresa = ctx.usuario.company_id;
+    const recepcion = esRecepcion(ctx.usuario.role);
     const clientes = await ctx.repositorio.clientes(empresa, buscado);
     const cotizaciones = await ctx.repositorio.cotizacionesDeClientes(
       empresa,
@@ -62,11 +66,11 @@ export const buscarClientes: Herramienta = {
           ).length,
           ultimas: suyas.slice(0, 6).map((q) => ({
             numero: q.quotation_number,
-            enlace: enlaceDe(q, ctx.usuario.role),
+            ...(recepcion ? {} : { enlace: enlaceDe(q, ctx.usuario.role) }),
             estado: estadoDe(q.quotation_status),
             evento: q.event_type,
             fecha: conDia(diaDelEvento(q.event_date)),
-            total: pesos(q.total_amount),
+            ...(recepcion ? {} : { total: pesos(q.total_amount) }),
           })),
         };
       }),
