@@ -69,6 +69,13 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
   ],
   // GenerarRepository: el catálogo con ids que también usa la propuesta
   // técnica de Oportunidades (decisión 29 del doc 17, 19-10).
-  exports: [QuotationsService, QuotationsRepository, GenerarRepository],
+  // ChoquesDeFechaService: los topes de calendario que también avisa BelIA
+  // (doc 20 §8b), con la misma lista del tablero.
+  exports: [
+    QuotationsService,
+    QuotationsRepository,
+    GenerarRepository,
+    ChoquesDeFechaService,
+  ],
 })
 export class QuotationsModule {}

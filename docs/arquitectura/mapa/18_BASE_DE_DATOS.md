@@ -620,4 +620,4 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 181, BelIA responde igual, pero las herramientas que proponen fallan al guardar la propuesta.
 
-**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Sin aplicar en producción.**
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Completada el 04-11-2026** para «Crear evento» (Felipe: *"haz las 3 primeras"*): `quotation_id` puede faltar mientras la cotización nueva no se crea, y el tipo `cotizacion_nueva` (el check de tipo va con nombre, `asistente_propuestas_tipo_check`). El archivo trae los `alter` idempotentes para la tabla que ya existía; **aplicados en el laboratorio el 04-11** (verificado). **Sin aplicar en producción.**

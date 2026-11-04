@@ -2,6 +2,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { derechosDe } from 'src/auth/derechos';
 import type { LogisticsService } from 'src/logistics/logistics.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
+import type { ChoquesDeFechaService } from 'src/quotations/choques/choques.service';
 import {
   QuotationStatus,
   RequestType,
@@ -97,6 +98,7 @@ const armar = (respuestas: unknown[], gastado = 0) => {
     mockPinoLogger() as unknown as PinoLogger,
     {} as unknown as LogisticsService,
     {} as unknown as PropuestasService,
+    {} as unknown as ChoquesDeFechaService,
   );
   jest
     .spyOn(servicio as unknown as { cliente: () => unknown }, 'cliente')
@@ -184,10 +186,49 @@ describe('AsistenteService (BelIA)', () => {
       'ver_cotizacion',
       'calendario',
       'seguimientos_pendientes',
+      'avisos_de_hoy',
       'buscar_en_catalogo',
       'buscar_clientes',
       'proponer_cambio_de_servicios',
       'proponer_nota',
+      'proponer_cotizacion_nueva',
+    ]);
+  });
+
+  it('en vivo: manda el texto apenas llega y avisa cuando va a buscar', async () => {
+    const { servicio } = armar([]);
+    const vueltas: unknown[] = [
+      pide('buscar_cotizaciones', { cliente: 'Rudel' }),
+      texto('Hola, Camila.'),
+    ];
+    const stream = jest.fn().mockImplementation(() => {
+      const r = vueltas.shift() as { content: Array<{ type: string }> };
+      let alTexto: ((t: string) => void) | undefined;
+      return {
+        on: (evento: string, cb: (t: string) => void) => {
+          if (evento === 'text') alTexto = cb;
+        },
+        finalMessage: () => {
+          if (r.content.some((b) => b.type === 'text')) {
+            alTexto?.('Hola, ');
+            alTexto?.('Camila.');
+          }
+          return Promise.resolve(r);
+        },
+      };
+    });
+    jest
+      .spyOn(servicio as unknown as { cliente: () => unknown }, 'cliente')
+      .mockReturnValue({ messages: { create: jest.fn(), stream } });
+    const eventos: unknown[] = [];
+    const r = await servicio.responder({ mensaje: 'hola' }, usuario(), (e) =>
+      eventos.push(e),
+    );
+    expect(r.respuesta).toBe('Hola, Camila.');
+    expect(eventos).toEqual([
+      { tipo: 'herramientas', nombres: ['buscar_cotizaciones'] },
+      { tipo: 'texto', texto: 'Hola, ' },
+      { tipo: 'texto', texto: 'Camila.' },
     ]);
   });
 
@@ -244,7 +285,7 @@ describe('las herramientas de cada cargo', () => {
     expect(con(UserRole.RECEPCION)).toEqual([]);
     // Quien vende: lo del tablero, el catálogo, los clientes y las dos que
     // proponen (fase 2).
-    expect(con(UserRole.VENDEDOR)).toHaveLength(8);
+    expect(con(UserRole.VENDEDOR)).toHaveLength(10);
     expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
     // Operaciones suma pagos y logística, pero no el personal.
     expect(con(UserRole.OPERACIONES)).toEqual(
@@ -259,7 +300,7 @@ describe('las herramientas de cada cargo', () => {
     );
     expect(con(UserRole.OPERACIONES)).not.toContain('personal');
     // Administración, todo.
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(15);
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(17);
   });
 
   it('sin el derecho del plan, la herramienta no se ofrece', () => {
@@ -332,6 +373,13 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
     };
     const repositorio = {
       buscarCotizaciones: jest.fn().mockResolvedValue({ total: 2, filas: [] }),
+      comprobantesPorRevisar: jest.fn().mockResolvedValue([{}, {}, {}]),
+    };
+    // Dos choques de la misma cotización cuentan como un tope.
+    const choques = {
+      listar: jest
+        .fn()
+        .mockResolvedValue([{ quotation_id: 'a' }, { quotation_id: 'a' }]),
     };
     const cotizaciones = { findAll: jest.fn().mockResolvedValue(vivas) };
     const seguimientos = {
@@ -345,6 +393,7 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
       mockPinoLogger() as unknown as PinoLogger,
       {} as unknown as LogisticsService,
       {} as unknown as PropuestasService,
+      choques as unknown as ChoquesDeFechaService,
     );
     const crear = jest.fn();
     jest
@@ -358,7 +407,17 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
       sin_gestion: 1,
       vencen_hoy: 1,
       requerimientos_de_hoy: 2,
+      topes_de_calendario: 1,
+      // Quien vende no revisa comprobantes: no se le cuentan.
+      comprobantes_por_revisar: 0,
     });
+    expect(repositorio.comprobantesPorRevisar).not.toHaveBeenCalled();
+    // Operaciones con Post-Venta sí.
+    const deOperaciones = await servicio.estado({
+      ...usuario(UserRole.OPERACIONES),
+      derechos: ['base', 'post_venta', 'asistente'],
+    } as User);
+    expect(deOperaciones.comprobantes_por_revisar).toBe(3);
     expect(cotizaciones.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ company_id: 1 }),
     );

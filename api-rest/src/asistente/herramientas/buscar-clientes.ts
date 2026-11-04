@@ -48,6 +48,8 @@ export const buscarClientes: Herramienta = {
       clientes: clientes.map((c) => {
         const suyas = cotizaciones.filter((q) => q.client_id === c.id);
         return {
+          // El id, para crear un evento a este cliente (fase 2).
+          id: c.id,
           nombre: c.name,
           tipo: c.client_type,
           contacto: c.contact_person,

@@ -142,6 +142,34 @@
 >   hora se vuelve a escribir).
 > - **Falta:** con su «a producción», las dos migraciones (180 y 181) y el
 >   motor, y después la vitrina.
+>
+> **04-11-2026, madrugada · Las tres que faltaban** (Felipe: *"haz las 3
+> primeras"*, de la lista contra este plan).
+> - **La respuesta en vivo (§9).** `POST /asistente/mensajes/en-vivo`
+>   responde `text/event-stream`: el texto llega mientras BelIA lo escribe
+>   (`messages.stream`), avisa cuando va a buscar algo y termina con la
+>   respuesta completa y sus tarjetas. La ventanilla lo lee por la misma
+>   instancia `api` de la casa. Lo escrito antes de una herramienta se borra:
+>   la respuesta es lo de la última vuelta. La puerta sin vivo queda.
+> - **Los avisos (§8b).** «Llama tu atención» también salta con un tope de
+>   calendario nuevo (la lista del tablero, `ChoquesDeFechaService`) y con
+>   un comprobante del portal por revisar (operaciones para arriba con
+>   Post-Venta). La burbuja pregunta «¿Qué tengo que revisar hoy?» y BelIA
+>   contesta con la consulta nueva `avisos_de_hoy`.
+> - **«Crear evento» (la lámina).** `proponer_cotizacion_nueva`: una
+>   cotización nueva con sus servicios (las reglas de «Crear con IA») o un
+>   requerimiento sin ellos, para un cliente que existe o uno nuevo. El
+>   cliente nuevo pasa por el portero de clientes parecidos de las pantallas
+>   y la cotización por la puerta del formulario (`QuotationsService.create`).
+>   Lo que pidió el cliente va al comentario interno, nunca a las
+>   observaciones. Se aprueba con «Sí, crear» y no se deshace (borrar es del
+>   rojo). Es el atajo «Crear evento» de la ventanilla.
+> - La 181 se completó en el mismo archivo (la cotización puede faltar
+>   mientras no se crea, y el tipo `cotizacion_nueva`), aplicada en el
+>   laboratorio. Para que el portero de los 800 renglones deje pasar,
+>   «Crear evento» vive en `propuestas/cotizacion-nueva.service.ts` y lo de
+>   la tabla de propuestas en `propuestas/propuestas.repository.ts`.
+> - 1.838 pruebas del motor y las de la app en verde.
 
 ## 1. Por qué
 

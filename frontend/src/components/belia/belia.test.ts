@@ -79,6 +79,21 @@ describe("hayAlgoNuevo", () => {
     expect(hayAlgoNuevo(e(1, 2), e(1, 1))).toBe(true);
     expect(hayAlgoNuevo(e(0, 0), e(2, 0))).toBe(false);
   });
+  it("también con un tope de calendario o un comprobante del portal nuevos", () => {
+    expect(hayAlgoNuevo({ ...e(0, 0), topes_de_calendario: 1 }, e(0, 0))).toBe(
+      true,
+    );
+    expect(
+      hayAlgoNuevo(
+        { ...e(0, 0), comprobantes_por_revisar: 2 },
+        { ...e(0, 0), comprobantes_por_revisar: 2 },
+      ),
+    ).toBe(false);
+    // Un motor viejo no trae los números nuevos: no avisa por eso.
+    expect(hayAlgoNuevo(e(0, 0), { ...e(0, 0), topes_de_calendario: 3 })).toBe(
+      false,
+    );
+  });
 });
 
 describe("lo que contesta BelIA", () => {
@@ -131,6 +146,16 @@ describe("textoParaBelia", () => {
       }),
     ).toBe(
       "Te propongo la leche asada.\n\n(Propuesta de la N° 500: la persona la aplicó y quedó guardada.)",
+    );
+  });
+  it("un evento nuevo todavía no tiene N°", () => {
+    expect(
+      textoParaBelia({
+        texto: "Te propongo la cena.",
+        propuestas: [{ numero: null, estado: "pendiente" }],
+      }),
+    ).toContain(
+      "(Propuesta de un evento nuevo: la persona todavía no la aplica.)",
     );
   });
   it("sin propuestas, viaja el texto tal cual", () => {

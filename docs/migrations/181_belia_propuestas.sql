@@ -28,12 +28,16 @@
 create table if not exists public.asistente_propuestas (
   id uuid primary key default gen_random_uuid(),
   company_id bigint not null references public.companies(id) on delete cascade,
-  quotation_id uuid not null references public.quotations(id) on delete cascade,
+  -- Null mientras una cotización NUEVA («Crear evento») no se crea: la
+  -- gana al aplicarse.
+  quotation_id uuid references public.quotations(id) on delete cascade,
   -- El id de la SESIÓN de quien la pidió (`user.id`, el de auth), sin
   -- llave (lección de la 142). Solo esa persona la aplica.
   usuario_id uuid not null,
   usuario_nombre text,
-  tipo text not null check (tipo in ('servicios', 'nota')),
+  -- 'servicios', 'nota' o 'cotizacion_nueva' (el check va abajo, con
+  -- nombre, para poder ampliarlo).
+  tipo text not null,
   -- Una línea, en palabras de la persona: «Leche asada en vez de leche
   -- nevada los días 1 y 13».
   resumen text not null,
@@ -53,6 +57,18 @@ create table if not exists public.asistente_propuestas (
   deshecha_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- 03-11-2026, más tarde («Crear evento», Felipe: *"haz las 3 primeras"*):
+-- la tabla ya estaba creada en el laboratorio con la cotización obligatoria
+-- y dos tipos. Estos pasos la dejan igual que arriba; en una base nueva no
+-- cambian nada.
+alter table public.asistente_propuestas
+  alter column quotation_id drop not null;
+alter table public.asistente_propuestas
+  drop constraint if exists asistente_propuestas_tipo_check;
+alter table public.asistente_propuestas
+  add constraint asistente_propuestas_tipo_check
+  check (tipo in ('servicios', 'nota', 'cotizacion_nueva'));
 
 create index if not exists idx_asistente_propuestas_cotizacion
   on public.asistente_propuestas (company_id, quotation_id, estado);

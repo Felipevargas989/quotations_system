@@ -1,0 +1,97 @@
+import { tieneDerecho } from 'src/auth/derechos';
+import { OPERATIONS_AND_UP, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RequestType } from 'src/quotations/constants/constants';
+import {
+  conDia,
+  diaDelEvento,
+  enlaceDe,
+  fechaEnChile,
+  inicioDelDiaEnChile,
+  pesos,
+  type Herramienta,
+} from './comun';
+import { pendientesDe } from './seguimientos-pendientes';
+
+// «¿Qué tengo que revisar hoy?»: lo que hace que BelIA llame la atención
+// (doc 20 §8b), en detalle. Cuatro cosas, cada una con el cargo de su
+// pantalla:
+// - los compromisos que vencen hoy y los requerimientos que llegaron hoy
+//   (el tablero, de quien vende);
+// - los topes de calendario (el tablero; `ChoquesDeFechaService`, la misma
+//   lista que pinta el borde rojo);
+// - los comprobantes que mandaron los clientes por el portal y nadie revisó
+//   (Post-Venta → Pagos: operaciones para arriba con `post_venta`).
+
+const MAX = 20;
+
+export const avisosDeHoy: Herramienta = {
+  nombre: 'avisos_de_hoy',
+  descripcion:
+    'Lo importante de hoy, lo que hace que BelIA avise: los compromisos de seguimiento que ' +
+    'vencen hoy, los requerimientos que llegaron hoy, las cotizaciones con tope de calendario ' +
+    '(se topan con un evento aceptado) y, para operaciones y administración, los comprobantes ' +
+    'del portal que nadie ha revisado. Para «¿qué tengo que revisar hoy?».',
+  esquema: { type: 'object', properties: {} },
+  cargos: SALES_AND_UP,
+  async ejecutar(_entrada, ctx) {
+    const empresa = ctx.usuario.company_id;
+    const rol = ctx.usuario.role;
+    const veComprobantes =
+      OPERATIONS_AND_UP.includes(rol) &&
+      tieneDerecho(ctx.usuario.derechos, 'post_venta');
+    const [{ deHoy }, requerimientos, choques, comprobantes] =
+      await Promise.all([
+        pendientesDe(ctx, empresa),
+        ctx.repositorio.buscarCotizaciones(empresa, {
+          tipo: RequestType.REQUERIMIENTO,
+          creadaDesde: inicioDelDiaEnChile(ctx.hoy),
+          orden: 'creada',
+          limite: MAX,
+        }),
+        ctx.choques.listar(ctx.usuario),
+        veComprobantes
+          ? ctx.repositorio.comprobantesPorRevisar(empresa)
+          : Promise.resolve([]),
+      ]);
+    const topes = new Map<string, (typeof choques)[number][]>();
+    for (const c of choques) {
+      topes.set(c.quotation_id, [...(topes.get(c.quotation_id) ?? []), c]);
+    }
+    return {
+      compromisos_que_vencen_hoy: deHoy.slice(0, MAX).map((q) => ({
+        numero: q.quotation_number,
+        enlace: enlaceDe(q, rol),
+        cliente: q.clients?.name ?? null,
+        evento: conDia(diaDelEvento(q.event_date as unknown as string)),
+      })),
+      requerimientos_de_hoy: requerimientos.filas.map((q) => ({
+        numero: q.quotation_number,
+        enlace: enlaceDe(q, rol),
+        cliente: q.clients?.name ?? null,
+        tipo: q.event_type ?? undefined,
+        evento: conDia(diaDelEvento(q.event_date)),
+      })),
+      topes_de_calendario: [...topes.values()].slice(0, MAX).map((lista) => ({
+        numero: lista[0].quotation_number,
+        enlace: `/negocio/${lista[0].quotation_id}`,
+        se_topa_con: lista.map(
+          (c) =>
+            `N° ${c.aceptada.numero}${c.aceptada.cliente ? ` · ${c.aceptada.cliente}` : ''} (${conDia(c.aceptada.desde)}${c.aceptada.hasta !== c.aceptada.desde ? ` a ${conDia(c.aceptada.hasta)}` : ''}${c.aceptada.exclusiva ? ', con exclusividad' : ''})`,
+        ),
+      })),
+      comprobantes_por_revisar: veComprobantes
+        ? comprobantes.map((r) => ({
+            numero: r.quotations?.quotation_number ?? null,
+            enlace: r.quotations ? enlaceDe(r.quotations, rol) : undefined,
+            cliente: r.quotations?.clients?.name ?? null,
+            cuota: r.payments?.payment_number ?? undefined,
+            monto_declarado: pesos(r.declared_amount),
+            llego: fechaEnChile(r.created_at),
+          }))
+        : undefined,
+      nota: veComprobantes
+        ? undefined
+        : 'Los comprobantes del portal los revisan operaciones y administración.',
+    };
+  },
+};
