@@ -26,6 +26,7 @@ function armar(
     recientesDeLaZona?: jest.Mock;
   },
   decisiones?: { ponerMotivo: jest.Mock },
+  preparar?: { preparar: jest.Mock },
 ) {
   const repo = {
     listar: jest.fn().mockResolvedValue([]),
@@ -65,6 +66,7 @@ function armar(
       ? { recientesDeLaZona: jest.fn().mockResolvedValue([]), ...mercado }
       : undefined) as never,
     decisiones as never,
+    preparar as never,
   );
   return { repo, mp, fichas, seViene, servicio };
 }
@@ -322,6 +324,27 @@ describe('OportunidadesService — la ficha y decidir', () => {
     expect(repo.actualizar).toHaveBeenLastCalledWith(1, 9, {
       estado: 'descartada',
     });
+  });
+
+  it('decisión 114: «Me interesa» trae los documentos y analiza por detrás, sin esperar; otro estado no', async () => {
+    let soltar: () => void = () => undefined;
+    const preparar = {
+      preparar: jest.fn(
+        () =>
+          new Promise<void>((listo) => {
+            soltar = listo;
+          }),
+      ),
+    };
+    const { servicio } = armar(undefined, undefined, undefined, preparar);
+    await expect(
+      servicio.actualizar(1, 9, { estado: 'en_estudio' }, 'sesion-felipe'),
+    ).resolves.toMatchObject({ id: 9 });
+    expect(preparar.preparar).toHaveBeenCalledWith(1, 'sesion-felipe', 9);
+    soltar();
+    await servicio.actualizar(1, 9, { estado: 'descartada' }, 'sesion-felipe');
+    await servicio.actualizar(1, 9, { notas: 'llamar' }, 'sesion-felipe');
+    expect(preparar.preparar).toHaveBeenCalledTimes(1);
   });
 
   it('decisión 104: marcada ganada a mano, su cotización vinculada queda aceptada y la respuesta lo dice', async () => {

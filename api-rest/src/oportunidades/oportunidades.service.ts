@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import { DecisionesRepository } from './decisiones/decisiones.repository';
 import type { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
@@ -98,6 +99,9 @@ export class OportunidadesService {
     /** Decisión 113: el porqué de un descarte va al registro de decisiones.
      *  Opcional: las pruebas de antes no lo traen. */
     @Optional() private readonly decisiones?: DecisionesRepository,
+    /** Decisión 114: «Me interesa» trae los documentos y analiza las bases.
+     *  Opcional: las pruebas de antes no lo traen. */
+    @Optional() private readonly preparar?: PrepararLaLicitacionService,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -308,6 +312,11 @@ export class OportunidadesService {
     }
     const fila = await this.repo.actualizar(companyId, id, cambios);
     if (!fila) throw new NotFoundException('No encontramos esa oportunidad.');
+    // Decisión 114 (04-11): «Me interesa» trae los documentos y analiza las
+    // bases por detrás; la respuesta no los espera.
+    if (cambios.estado === 'en_estudio' && usuarioId && this.preparar) {
+      void this.preparar.preparar(companyId, usuarioId, id);
+    }
     // Decisión 113: el descarte ya quedó anotado por la base; aquí, su porqué.
     if (cambios.estado === 'descartada' && dto.motivo && this.decisiones) {
       await this.decisiones.ponerMotivo(companyId, id, dto.motivo);
