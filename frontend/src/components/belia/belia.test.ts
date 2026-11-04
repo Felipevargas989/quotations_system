@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   UMBRAL_DE_ENOJO,
   animoDe,
+  animoForzado,
   bloquesDe,
   hayAlgoNuevo,
   pantallaDe,
@@ -30,16 +31,17 @@ describe("pantallaDe", () => {
 
 describe("animoDe", () => {
   const base = {
-    pensando: false,
+    esperando: null,
     celebrando: false,
     avisando: false,
     dormida: false,
     vencidos: 0,
   };
   it("lo que pasa ahora manda sobre el humor de fondo", () => {
-    expect(animoDe({ ...base, pensando: true, celebrando: true })).toBe(
+    expect(animoDe({ ...base, esperando: "pensando", celebrando: true })).toBe(
       "pensando",
     );
+    expect(animoDe({ ...base, esperando: "trabajando" })).toBe("trabajando");
     expect(animoDe({ ...base, celebrando: true, avisando: true })).toBe(
       "celebra",
     );
@@ -51,6 +53,15 @@ describe("animoDe", () => {
     expect(animoDe({ ...base, vencidos: UMBRAL_DE_ENOJO })).toBe("espera");
     expect(animoDe({ ...base, vencidos: UMBRAL_DE_ENOJO + 1 })).toBe("enojada");
     expect(animoDe({ ...base, vencidos: 50, dormida: true })).toBe("dormida");
+  });
+});
+
+describe("animoForzado", () => {
+  it("solo en el laboratorio y solo con un ánimo que existe", () => {
+    expect(animoForzado("?belia=dormida", true)).toBe("dormida");
+    expect(animoForzado("?belia=dormida", false)).toBeNull();
+    expect(animoForzado("?belia=bailando", true)).toBeNull();
+    expect(animoForzado("", true)).toBeNull();
   });
 });
 

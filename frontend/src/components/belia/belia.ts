@@ -13,13 +13,40 @@ export const UMBRAL_DE_ENOJO = 10;
 /** Como mucho un aviso («¡Guau! Tienes algo importante…») por hora. */
 export const MINUTOS_ENTRE_AVISOS = 60;
 
+/** Segundos pensando antes de mostrarla «trabajando» (con su notebook):
+ *  si tarda, es que está consultando Eventia. */
+export const SEGUNDOS_PARA_TRABAJAR = 2.5;
+
 export type Animo =
   | "espera"
   | "pensando"
+  | "trabajando"
   | "atencion"
   | "enojada"
   | "celebra"
   | "dormida";
+
+export const ANIMOS: readonly Animo[] = [
+  "espera",
+  "pensando",
+  "trabajando",
+  "atencion",
+  "enojada",
+  "celebra",
+  "dormida",
+];
+
+/** Solo en el laboratorio, `?belia=dormida` muestra ese ánimo, para mirar
+ *  cada uno sin esperar a que pase (Felipe, 03-11: "para ver como
+ *  quedaría"). En producción no hace nada. */
+export const animoForzado = (
+  busqueda: string,
+  esLaboratorio: boolean,
+): Animo | null => {
+  if (!esLaboratorio) return null;
+  const pedido = new URLSearchParams(busqueda).get("belia");
+  return ANIMOS.includes(pedido as Animo) ? (pedido as Animo) : null;
+};
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
@@ -42,13 +69,14 @@ export const pantallaDe = (
  *  sobre el humor de fondo. Dormida le gana al enojo: si nadie la mira,
  *  descansa. */
 export const animoDe = (a: {
-  pensando: boolean;
+  /** Mientras espera la respuesta: primero piensa, después trabaja. */
+  esperando: "pensando" | "trabajando" | null;
   celebrando: boolean;
   avisando: boolean;
   dormida: boolean;
   vencidos: number;
 }): Animo => {
-  if (a.pensando) return "pensando";
+  if (a.esperando) return a.esperando;
   if (a.celebrando) return "celebra";
   if (a.avisando) return "atencion";
   if (a.dormida) return "dormida";

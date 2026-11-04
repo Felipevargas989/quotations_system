@@ -14,10 +14,13 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import {
   MINUTOS_ENTRE_AVISOS,
   MINUTOS_PARA_DORMIR,
+  SEGUNDOS_PARA_TRABAJAR,
   animoDe,
+  animoForzado,
   hayAlgoNuevo,
   pantallaDe,
 } from "./belia";
+import { ladrar } from "./ladrido";
 
 // EL CEREBRO DE LA VENTANILLA (doc 20 §8 y §8b): la conversación, el ánimo
 // de BelIA y cuándo duerme, avisa o celebra. La conversación vive en la
@@ -25,12 +28,18 @@ import {
 // cerrarla. Todo acceso al almacenamiento va con try/catch: en una ventana
 // privada puede fallar, y la ventanilla igual funciona.
 
+/** El laboratorio, con la misma regla del letrero de Layout.tsx. */
+const ES_LABORATORIO = String(import.meta.env.VITE_SUPABASE_URL || "").includes(
+  "uonjtbyoxawxvhuikbgx",
+);
+
 /** Un turno en pantalla. `error` no viaja al motor: no es una respuesta. */
 export type TurnoEnPantalla = TurnoDeBelia & { error?: boolean };
 
 const CLAVE_CONVERSACION = "belia:conversacion";
 const CLAVE_VISTO = "belia:visto";
 const CLAVE_ULTIMO_AVISO = "belia:ultimo-aviso";
+const CLAVE_SONIDO = "belia:sonido";
 const MAX_TURNOS = 30;
 const SEGUNDOS_DE_AVISO = 12;
 const SEGUNDOS_DE_FIESTA = 4;
@@ -79,7 +88,7 @@ export function useBelia() {
     SECTION_ROLES.quotations.includes(userRole as never) &&
     tieneDerecho(company, "asistente");
   const esAdmin = userRole === "administrador";
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   const [abierta, setAbierta] = useState(false);
   const [turnos, setTurnos] = useState<TurnoEnPantalla[]>(() =>
@@ -90,6 +99,24 @@ export function useBelia() {
   const [dormida, setDormida] = useState(false);
   const [avisando, setAvisando] = useState(false);
   const [celebrando, setCelebrando] = useState(false);
+  // Mientras espera la respuesta: piensa y, si tarda, trabaja (doc 20 §8b).
+  const [trabajando, setTrabajando] = useState(false);
+  // El ladrido suena solo si la persona lo activa (Felipe, 03-11).
+  const [sonido, setSonido] = useState(() =>
+    leer("local", CLAVE_SONIDO, false),
+  );
+
+  useEffect(() => {
+    if (!pensando) {
+      setTrabajando(false);
+      return;
+    }
+    const t = setTimeout(
+      () => setTrabajando(true),
+      SEGUNDOS_PARA_TRABAJAR * 1000,
+    );
+    return () => clearTimeout(t);
+  }, [pensando]);
 
   useEffect(() => {
     guardar("session", CLAVE_CONVERSACION, turnos.slice(-MAX_TURNOS));
@@ -142,6 +169,7 @@ export function useBelia() {
     guardar("local", CLAVE_ULTIMO_AVISO, Date.now());
     setDormida(false);
     setAvisando(true);
+    if (leer("local", CLAVE_SONIDO, false)) ladrar();
     const t = setTimeout(() => setAvisando(false), SEGUNDOS_DE_AVISO * 1000);
     return () => clearTimeout(t);
     // Solo cuando cambian los números, no al abrir o cerrar.
@@ -204,13 +232,15 @@ export function useBelia() {
     [turnos, pathname],
   );
 
-  const animo = animoDe({
-    pensando,
-    celebrando,
-    avisando,
-    dormida,
-    vencidos: datos?.vencidos ?? 0,
-  });
+  const animo =
+    animoForzado(search, ES_LABORATORIO) ??
+    animoDe({
+      esperando: pensando ? (trabajando ? "trabajando" : "pensando") : null,
+      celebrando,
+      avisando,
+      dormida,
+      vencidos: datos?.vencidos ?? 0,
+    });
 
   return {
     puede,
@@ -231,5 +261,12 @@ export function useBelia() {
     estado: datos,
     uso,
     conCotizacion: Boolean(pantallaDe(pathname).cotizacion_id),
+    sonido,
+    cambiarSonido: () =>
+      setSonido((antes) => {
+        guardar("local", CLAVE_SONIDO, !antes);
+        if (!antes) ladrar();
+        return !antes;
+      }),
   };
 }
