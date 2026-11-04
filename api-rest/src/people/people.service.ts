@@ -35,6 +35,7 @@ import { PeopleRepository } from './people.repository';
 import { cambiosParaRevivir, horarioDelDia } from './utils/alta-de-jornada';
 import { filaTraidaAlEvento } from './utils/fila-traida-al-evento';
 import { normalizarRut } from './utils/rut';
+import { valorDeLaSillaNueva, valorizarVacias } from './utils/valor-del-cargo';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
  *
@@ -248,7 +249,7 @@ export class PeopleService {
         throw new BadRequestException('Una silla vacía necesita su cargo');
       }
       await this.sonDeLaEmpresa(companyId, dto);
-      return this.repo.addStaff({
+      const vacia = await this.repo.addStaff({
         company_id: companyId,
         quotation_id: dto.quotation_id,
         person_id: null,
@@ -256,12 +257,13 @@ export class PeopleService {
         role_id: dto.role_id,
         kind: 'freelance',
         status: 'por_confirmar',
-        amount: dto.amount ?? null,
+        amount: await valorDeLaSillaNueva(this.repo, companyId, dto),
         starts_at: null,
         ends_at: null,
         break_minutes: null,
         notes: dto.notes ?? null,
       });
+      return valorizarVacias(this.repo, companyId, vacia);
     }
 
     if (!dto.day) {
@@ -299,7 +301,7 @@ export class PeopleService {
         const kindS =
           dto.kind ??
           (esJornadaExtra(persona, dto) ? 'freelance' : persona.default_kind);
-        return this.repo.updateStaff(
+        const sentada = await this.repo.updateStaff(
           silla.id,
           {
             person_id: dto.person_id,
@@ -316,6 +318,7 @@ export class PeopleService {
           },
           companyId,
         );
+        return valorizarVacias(this.repo, companyId, sentada);
       }
     }
     // LA PREGUNTA DEL DÍA EXTRA (Felipe, 04-09, capítulo 11): para el
@@ -350,7 +353,7 @@ export class PeopleService {
         );
       }
     }
-    return this.repo.addStaff({
+    const nueva = await this.repo.addStaff({
       ...dto,
       quotation_id: dto.quotation_id ?? null,
       company_id: companyId,
@@ -381,6 +384,7 @@ export class PeopleService {
       // excepción.
       ...horarioDelDia(persona, dto.day, dto),
     });
+    return valorizarVacias(this.repo, companyId, nueva);
   }
 
   async updateStaff(id: number, dto: UpdateEventStaffDto, companyId: number) {
@@ -407,7 +411,11 @@ export class PeopleService {
         );
       }
     }
-    return this.repo.updateStaff(id, cambios, companyId);
+    const fila = await this.repo.updateStaff(id, cambios, companyId);
+    // Un monto nuevo le da valor al cargo (utils/valor-del-cargo).
+    return dto.amount != null
+      ? valorizarVacias(this.repo, companyId, fila)
+      : fila;
   }
 
   /**

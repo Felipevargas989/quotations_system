@@ -298,6 +298,21 @@ export class AsistenteRepository {
     return (data ?? []) as CotizacionDeCliente[];
   }
 
+  /** El cupo de BelIA de la empresa, en US$ al mes (migración 183: 10 para
+   *  las empresas nuevas, 100 para Valle del Sol). null si no lo trae. */
+  async cupoDeLaEmpresa(companyId: Company['id']): Promise<number | null> {
+    const { data, error } = await this.supabase.client
+      .from('companies')
+      .select('tope_asistente_usd')
+      .eq('id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    const v = Number(
+      (data as { tope_asistente_usd?: unknown } | null)?.tope_asistente_usd,
+    );
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }
+
   /** Lo gastado por la empresa en el mes (AAAA-MM, en Chile). */
   async gastoDelMes(companyId: Company['id'], mes: string): Promise<number> {
     const { data, error } = await this.supabase.client

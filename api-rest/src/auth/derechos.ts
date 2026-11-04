@@ -82,7 +82,11 @@ export type Derechos = {
   cotizaciones_mes: number | null;
 };
 
-const DE_COTIZA: Derecho[] = ['base'];
+// BelIA va en todos los planes (Felipe, 04-11-2026: «Belia es para todos los
+// usuarios de Eventia»), con el cupo de cada empresa (migración 183: US$ 10
+// al mes para las nuevas). Antes era un módulo propio de Valle del Sol, que
+// lo sigue teniendo en `modulos_propios`: no se cuenta dos veces.
+const DE_COTIZA: Derecho[] = ['base', 'asistente'];
 
 const DE_GESTIONA: Derecho[] = [
   ...DE_COTIZA,
@@ -158,7 +162,7 @@ export const PLAN_MINIMO: Record<Derecho, Plan | null> = {
   oportunidades: null,
   cotizar_con_ia: null,
   seguimiento_con_ia: null,
-  asistente: null,
+  asistente: 'cotiza',
 };
 
 /** Cómo se llama cada derecho cuando hay que explicárselo a una persona. */
@@ -248,7 +252,7 @@ export function derechosDe(
   const propios = (empresa?.modulos_propios ?? []).filter(esModuloPropio);
 
   return {
-    derechos: [...base.derechos, ...propios],
+    derechos: [...new Set([...base.derechos, ...propios])],
     usuarios_max: base.usuarios_max,
     cotizaciones_mes: base.cotizaciones_mes,
   };

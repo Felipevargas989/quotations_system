@@ -234,7 +234,8 @@ Dos hallazgos de esa medición:
    5 minutos, y una sola pantalla a la vez):
    - **Sigue de borrador:** nada. La tarjeta dice «Borrador en Outlook» y
      «Generar seguimientos (N)» no lo cuenta.
-   - **Salió:** una línea en la bitácora a nombre de **Asistente**, por
+   - **Salió:** una línea en la bitácora a nombre de **BelIA** (desde el
+     04-11-2026; antes, el Asistente), por
      ejemplo «Seguimiento con IA enviado desde contacto@ el 17-10. Próximo
      contacto por correo el 31-10, en 14 días.» El tipo de la nota es el del
      próximo contacto, así que la cotización deja la lista.
