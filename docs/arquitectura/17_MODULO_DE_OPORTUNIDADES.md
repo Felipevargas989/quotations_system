@@ -793,6 +793,7 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **El arreglo**: los dos piden el mismo formato, `FORMATO_DE_LAS_BASES` (`analisis.service.ts`), con las dos respuestas posibles y ninguna obligatoria: `analisis_de_las_bases` (`ESQUEMA_DE_BASES`) y `respuesta_a_la_pregunta` (`ESQUEMA_DE_RESPUESTA`, que pasó a `comun.ts` para que los dos servicios no se crucen). Después de la marca de caché, `PEDIDO_DE_ANALISIS` y `REGLAS_DE_PREGUNTAS` dicen cuál se llena, y cada servicio lee solo la suya: si llega la otra, queda en error, como cuando la IA no responde.
     - **Lo que cambia en la plata**: nada en el análisis, que ya pagaba la caché de 1 hora. La primera pregunta de esa hora pasa a leerla, al 5 % de la entrada. Pasada la hora, la primera pregunta la vuelve a escribir, como antes.
     - Lo fija `el-mismo-comienzo.spec.ts`: hasta la marca de los documentos, el análisis y la pregunta mandan lo mismo (modelo, esfuerzo, formato, sistema y documentos). El registro del análisis ahora dice cuánto leyó de la caché y cuánto escribió, como el de las preguntas.
+    - Probada en el laboratorio con la 1057432-97-LE26: el análisis escribió 71.956 tokens en la caché (US$0,73) y la primera pregunta, 26 segundos después, leyó esos mismos 71.956 y costó US$0,04, con 3 citas y seguridad alta. Antes de la 115 esa primera pregunta habría vuelto a escribirlos: unos US$0,60.
 
 ## 4. Reglas del módulo (no se negocian)
 
