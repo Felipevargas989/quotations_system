@@ -34,6 +34,8 @@ import { DatosAbiertosController } from './datos-abiertos/datos-abiertos.control
 import { DatosAbiertosRepository } from './datos-abiertos/datos-abiertos.repository';
 import { DatosAbiertosService } from './datos-abiertos/datos-abiertos.service';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
+import { CerradasSinPostularRepository } from './decisiones/cerradas-sin-postular.repository';
+import { CerradasSinPostularService } from './decisiones/cerradas-sin-postular.service';
 import { DecisionesRepository } from './decisiones/decisiones.repository';
 import { EventiaRepository } from './eventia/eventia.repository';
 import { FichaRepository } from './ficha/ficha.repository';
@@ -119,6 +121,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     AprendizajesRepository,
     AprendizajesService,
     DecisionesRepository,
+    CerradasSinPostularRepository,
+    CerradasSinPostularService,
     PostulacionRepository,
     CotizacionDeLaPostulacionService,
     AceptarLaGanadaService,

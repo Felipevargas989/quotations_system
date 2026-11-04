@@ -413,7 +413,7 @@ impreso en el programa del cliente, por eso no dice "solo en paquete".
 >   - el catálogo le llega por secciones (Entradas, Principales,
 >     Guarniciones, Postres…);
 >   - **un solo archivo de reglas**,
->     `api-rest/src/quotations/generar/REGLAS_DE_ARMADO.md`, que leen el
+>     `api-rest/src/quotations/generar/REGLAS_DE_ARMADO.md` (desde el 04-11-2026, `api-rest/src/cerebro/empresas/valle-del-sol/COMO_SE_ARMA.md`, en el cerebro común con `LA_CASA.md` y `EL_COMPLEJO.md`: doc 20 §15), que leen el
 >     botón y la skill `armar-cotizacion` (Felipe: *"¿no podemos montar la
 >     skill que tenemos en ese agente?"*). Las correcciones de Felipe se
 >     escriben ahí, en «Lecciones», y desde el siguiente despliegue las
