@@ -246,16 +246,26 @@ const LO_QUE_PASO: Record<EstadoDeTarjeta, string> = {
  *  no sabría si su propuesta se aplicó. */
 export const textoParaBelia = (t: {
   texto: string;
-  propuestas?: { numero: number | null; estado: EstadoDeTarjeta }[];
+  propuestas?: {
+    numero: number | null;
+    estado: EstadoDeTarjeta;
+    tipo?: string;
+  }[];
 }): string =>
   t.propuestas?.length
     ? `${t.texto}\n\n${t.propuestas
-        .map(
-          (p) =>
-            `(Propuesta ${p.numero != null ? `de la N° ${p.numero}` : "de un evento nuevo"}: ${LO_QUE_PASO[p.estado]}.)`,
-        )
+        .map((p) => `(${deQueEs(p)}: ${LO_QUE_PASO[p.estado]}.)`)
         .join("\n")}`
     : t.texto;
+
+/** De qué era la tarjeta, para que BelIA no confunda una lección (sin N°)
+ *  con un evento nuevo (doc 20 §17). */
+const deQueEs = (p: { numero: number | null; tipo?: string }): string =>
+  p.tipo === "leccion"
+    ? "Lección para anotar"
+    : p.tipo === "leccion_estado"
+      ? "Decisión sobre una lección"
+      : `Propuesta ${p.numero != null ? `de la N° ${p.numero}` : "de un evento nuevo"}`;
 
 /** Los turnos y lo que pesan, como mucho, al guardarse en Eventia (el motor
  *  recibe hasta 100 KB). */
