@@ -799,6 +799,11 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **En la bandeja ya era así**: lo cerrado solo sale en «Historial», y lo nunca revisado no se descarta, para no llenar el aprendizaje del semáforo de descartes que nadie hizo.
     - **El cierre de cada fila**, a la derecha y arriba de «Me interesa» y «Descartar», en rojo, en negrita y con reloj: «Cierra en 1 día» y debajo el día y la hora. Lo cerrado y lo que no informa cierre, en gris. Cambia lo de la decisión 31, que lo dejaba sin rojo; sin cuadros nuevos.
     - Lo fijan `cerradas-sin-postular.spec.ts` (la consulta, el porqué y cuándo corre), `FilaDeOportunidad.test.tsx`, `MisLicitaciones.test.tsx` y `oportunidades.utils.test.ts`.
+117. **«No es para ti»: cuando las bases piden otro lugar, «Lo que te deja fuera» lo dice arriba en burdeo y se desiste de un clic** (04-11, en el laboratorio y en producción el mismo día: *"pasa a producción, por favor"*). Felipe, con la de San Ignacio a la vista: *"cuando la licitación es excluyente de por sí, que no es mi opción, debería estar marcado de otra forma para anularlo altiro"*; y del color: *"un rojo más intenso y las letras claras... que se note de, oye, ni la leas... yo la dejaría en rojo burdeo o un rojo vino tinto"*. Su ejemplo: *"se necesita arriendo de salón en Talca. Yo no tengo salón en Talca... ni siquiera es algo que es una decisión mía"*.
+    - Sale cuando el análisis dice que exigen otro lugar (`se_puede_en_el_complejo = "no"`), el mismo dato que ya pinta de rojo la licitación en la bandeja (decisión 21). Arriba de la lista de la IA, sin cuadros nuevos: «No es para ti: las bases te dejan fuera» y, debajo, «Piden otro lugar:» con lo que leyó la IA, en burdeo (`bg-rose-900`) con letra clara (`NoEsParaTi`).
+    - Al lado, «Desistir de esta licitación», el mismo botón y el mismo modal del porqué de «Lo que tienes que ofrecer» (decisiones 37 y 113), ahora en una sola pieza: `DesistirDeLaLicitacion`. Descartada, postulada, ganada o perdida, no se ofrece.
+    - No se descarta sola: la decisión queda en Felipe.
+    - Lo fijan `NoEsParaTi.test.tsx` y `AnalisisYValidacion.test.tsx`.
 
 ## 4. Reglas del módulo (no se negocian)
 

@@ -17,6 +17,7 @@ import AlFinalDeLasBases from "./AlFinalDeLasBases";
 import DocumentosAPresentar from "./DocumentosAPresentar";
 import ExigenciasDeLaLicitacion from "./ExigenciasDeLaLicitacion";
 import { exigenciasDe } from "./exigencias";
+import NoEsParaTi from "./NoEsParaTi";
 import Plegable from "./Plegable";
 import PreguntasALaIA from "./PreguntasALaIA";
 import {
@@ -306,6 +307,12 @@ function Relacionado({
     integridad: selloDeLaIntegridad(filas),
   };
   const { dejanFuera } = alertasDelAnalisis(r);
+  // Decisión 117: piden el servicio en otro lugar, no en el complejo de la
+  // empresa. Descartada, postulada, ganada o perdida: ya no se desiste.
+  const otroLugar = r.se_puede_en_el_complejo === "no";
+  const decidida = ["descartada", "postulada", "ganada", "perdida"].includes(
+    ficha.estado,
+  );
   // Decisión 95: los mismos criterios que la validación y la comparación;
   // en una compra ágil sin criterios, el de la ley.
   const compraAgil = ficha.proceso.tipo === "compra_agil";
@@ -317,29 +324,39 @@ function Relacionado({
         <Criterios criterios={criterios} vas={vas} compraAgil={compraAgil} />
       )}
 
-      {dejanFuera.length > 0 && (
+      {(dejanFuera.length > 0 || otroLugar) && (
         <section className="bg-white rounded-lg shadow p-5 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">
             <TituloDeBloque numero={2}>Lo que te deja fuera</TituloDeBloque>
           </h2>
-          <ul className="divide-y divide-red-100 rounded-lg border border-red-200 bg-red-50/40">
-            {dejanFuera.map((a, i) => {
-              const sello = estadoDeLoQueTeDejaFuera(a, {
-                filas,
-                precio,
-                exigencias: vas.exigencias,
-              });
-              return (
-                <li
-                  key={i}
-                  className="px-3 py-2 flex flex-wrap items-start justify-between gap-3"
-                >
-                  <p className="min-w-0 flex-1 text-sm text-red-900">{a}</p>
-                  {sello && <Sellito sello={sello} />}
-                </li>
-              );
-            })}
-          </ul>
+          {/* Decisión 117: si piden otro lugar, no depende de la empresa. */}
+          {otroLugar && (
+            <NoEsParaTi
+              oportunidadId={oportunidadId}
+              lugar={r.lugar ?? ""}
+              puedeDesistir={!decidida}
+            />
+          )}
+          {dejanFuera.length > 0 && (
+            <ul className="divide-y divide-red-100 rounded-lg border border-red-200 bg-red-50/40">
+              {dejanFuera.map((a, i) => {
+                const sello = estadoDeLoQueTeDejaFuera(a, {
+                  filas,
+                  precio,
+                  exigencias: vas.exigencias,
+                });
+                return (
+                  <li
+                    key={i}
+                    className="px-3 py-2 flex flex-wrap items-start justify-between gap-3"
+                  >
+                    <p className="min-w-0 flex-1 text-sm text-red-900">{a}</p>
+                    {sello && <Sellito sello={sello} />}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 
