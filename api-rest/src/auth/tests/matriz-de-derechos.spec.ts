@@ -2,6 +2,7 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
 import { AnalyticsController } from 'src/analytics/analytics.controller';
+import { AsistenteController } from 'src/asistente/asistente.controller';
 import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
@@ -169,6 +170,13 @@ const ESPERADO: Array<{
     nombre: 'Oportunidades',
     cls: OportunidadesController,
     derecho: 'oportunidades',
+    abiertas: 0,
+  },
+  {
+    // BelIA (doc 20, migración 180): módulo propio de Valle del Sol.
+    nombre: 'BelIA',
+    cls: AsistenteController,
+    derecho: 'asistente',
     abiertas: 0,
   },
 ];

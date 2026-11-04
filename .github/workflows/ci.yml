@@ -81,12 +81,12 @@ jobs:
       # Lote 2 (04-09): de 89 a 87 — fuera los 2 hooks condicionales del
       # panel de pagos (el único hallazgo con riesgo real de pantalla
       # blanca). Lo que queda se paga "al tocar".
-      - name: Lint (techo 87 — la deuda solo baja)
+      - name: Lint (techo 84 — la deuda solo baja)
         run: |
           ERRORES=$(npx eslint . --ext ts,tsx --report-unused-disable-directives 2>/dev/null | grep -oE '[0-9]+ problems' | grep -oE '^[0-9]+' | head -1)
           ERRORES=${ERRORES:-0}
-          echo "avisos de lint: $ERRORES (techo: 87)"
-          test "$ERRORES" -le 87
+          echo "avisos de lint: $ERRORES (techo: 84)"
+          test "$ERRORES" -le 84
       # Portero del kit de la casa (13-08): mismo principio que el techo
       # de lint del backend. El sistema tiene piezas propias —desplegable
       # con buscador, elección múltiple, avisos, confirmaciones, campo

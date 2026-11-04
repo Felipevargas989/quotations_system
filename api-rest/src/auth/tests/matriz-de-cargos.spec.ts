@@ -1,6 +1,7 @@
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
+import { AsistenteController } from 'src/asistente/asistente.controller';
 import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientContactsController } from 'src/clients/client-contacts.controller';
 import { ClientsController } from 'src/clients/clients.controller';
@@ -195,6 +196,22 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/generaciones/anexos': A,
       'POST :id/generaciones/firma': A,
       'POST :id/generaciones/propuesta': A,
+    },
+  ],
+  // BelIA (doc 20, 03-11-2026): "lo usa administración y vendedores".
+  [
+    AsistenteController,
+    {
+      'POST mensajes': S,
+      // La misma pregunta, con la respuesta en vivo (doc 20 §9).
+      'POST mensajes/en-vivo': S,
+      'GET estado': S,
+      // Fase 2: el «Sí, aplicar», el «No» y el «Deshacer» de la tarjeta.
+      // Las aceptadas, solo administración y operaciones: lo revisa
+      // PropuestasService, como Post-Venta → Servicios.
+      'POST propuestas/:id/aplicar': S,
+      'POST propuestas/:id/descartar': S,
+      'POST propuestas/:id/deshacer': S,
     },
   ],
 ];

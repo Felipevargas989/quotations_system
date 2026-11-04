@@ -11,23 +11,13 @@
 // un solo criterio para siempre.
 
 export const normalizeText = (s: string): string =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Nombre CANÓNICO de un servicio del catálogo, para emparejar los items
- *  guardados en cotizaciones (fotos con nombres antiguos) contra el
- *  catálogo vigente: sin tildes ni mayúsculas, sin el prefijo de orden
- *  ("02 - "), espacios colapsados y "1pp" ≡ "1 pp". Definido el 22-07
- *  tras la limpieza de nombres del catálogo que dejó recetas sin
- *  reconocer en Gestión y la ficha de cocina. */
-export const canonicalServiceName = (name: string): string =>
-  normalizeText(name)
-    .replace(/^\s*\d+\s*-\s*/, "")
-    .replace(/(\d)\s*pp\b/g, "$1 pp")
-    .replace(/\s+/g, " ")
-    .trim();
+/** Nombre CANÓNICO de un servicio del catálogo (sin tildes ni mayúsculas,
+ *  sin el prefijo "02 - ", "1pp" ≡ "1 pp"). Vive con la cuenta de los
+ *  eventos, en el motor (@consolidacion, 03-11-2026): con él se reconocen
+ *  las recetas, y BelIA tiene que reconocerlas igual que las pantallas. */
+export { canonicalServiceName } from "@consolidacion";
 
 /** true si TODAS las palabras de `query` aparecen (sin tildes ni
  *  mayúsculas, en cualquier orden) dentro de los textos entregados.

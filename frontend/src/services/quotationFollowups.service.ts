@@ -3,6 +3,7 @@
 // semáforo de la lista.
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
+import { celebrarConBelia } from "../utils/celebrarConBelia";
 
 export type FollowupTipo =
   | "llamada"
@@ -79,6 +80,8 @@ export const updateFollowup = async (
     "PATCH",
     payload,
   );
+  // Un compromiso marcado «Listo»: BelIA celebra (doc 20 §8b).
+  if (payload.next_contact_done_at) celebrarConBelia();
   return data as Followup;
 };
 

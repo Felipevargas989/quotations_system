@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AsistenteModule } from './asistente/asistente.module';
 import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { DerechosGuard } from './auth/derechos.guard';
@@ -95,6 +96,8 @@ import { UsersModule } from './users/users.module';
     MarketingModule,
     PeopleModule,
     OportunidadesModule,
+    // Evia, la IA de Eventia (doc 20).
+    AsistenteModule,
   ],
   controllers: [HealthController],
   providers: [

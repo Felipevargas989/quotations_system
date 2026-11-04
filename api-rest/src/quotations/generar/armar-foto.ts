@@ -75,6 +75,25 @@ export type ResultadoDelArmado =
 const entero = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v);
 
+/** Un fijo del catálogo (de tipo «fijo») como lo guarda el cotizador. Lo
+ *  usan este armado y los cambios de BelIA (doc 20, fase 2). */
+export const fijoDeFoto = (
+  fijo: { id: number; nombre: string; precio: number },
+  dia: number,
+  cantidad: number,
+): FijoDeFoto => ({
+  codigo: String(fijo.id),
+  nombre: fijo.nombre,
+  day: dia,
+  precio: fijo.precio,
+  categoria: 'General',
+  quantity: cantidad,
+  tipo_calculo: 'fijo',
+  min_precio: 0,
+  max_precio: 0,
+  precio_por_persona: 0,
+});
+
 /** La cantidad de un suelto es POR PERSONA (la caja ya se multiplica por
  *  sus personas). En el catálogo nunca pasa de 6 (medido el 17-10); 10 es
  *  el tope. La primera prueba del laboratorio (17-10) puso 80 platos por
@@ -271,18 +290,7 @@ export function armarFoto(
       errores.push(`${donde}: la cantidad debe ser 1 o más.`);
       return;
     }
-    fijos.push({
-      codigo: String(fijo.id),
-      nombre: fijo.nombre,
-      day: f.dia,
-      precio: fijo.precio,
-      categoria: 'General',
-      quantity: f.cantidad,
-      tipo_calculo: 'fijo',
-      min_precio: 0,
-      max_precio: 0,
-      precio_por_persona: 0,
-    });
+    fijos.push(fijoDeFoto(fijo, f.dia, f.cantidad));
   });
   fijos.sort(
     (a, b) =>
