@@ -6,6 +6,7 @@ import {
   ConversacionRepository,
   type TurnoGuardado,
 } from './conversacion.repository';
+import { LoLeido } from './lo-leido';
 
 // LA CONVERSACIÓN DE CADA PERSONA (doc 20 §13; Felipe, 04-11-2026: "que
 // vaya guardando como cierto contexto cuando se cierra la ventana ... por
@@ -47,6 +48,8 @@ export class ConversacionService {
   constructor(
     private readonly repositorio: ConversacionRepository,
     private readonly logger: PinoLogger,
+    // Lo que BelIA ya leyó se olvida con la conversación (04-11-2026).
+    private readonly loLeido: LoLeido = new LoLeido(),
   ) {
     this.logger.setContext(ConversacionService.name);
   }
@@ -80,6 +83,7 @@ export class ConversacionService {
         : null;
     if (cargo !== usuario.role || (fila && fila.cargo !== usuario.role)) {
       await this.repositorio.borrar(empresa, persona);
+      this.loLeido.olvidar(usuario);
       return { reiniciada: true };
     }
     await this.repositorio.guardar(
@@ -102,6 +106,7 @@ export class ConversacionService {
   async borrar(usuario: User): Promise<void> {
     const { empresa, persona } = quienEs(usuario);
     await this.repositorio.borrar(empresa, persona);
+    this.loLeido.olvidar(usuario);
   }
 }
 

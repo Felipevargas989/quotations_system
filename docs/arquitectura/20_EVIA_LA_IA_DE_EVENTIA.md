@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15), plan que espera el OK de Felipe. Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -115,8 +115,12 @@
 >   4. «Deshacer» solo en lo no vendido: en una aceptada la cascada del plan
 >      no tiene vuelta exacta, así que se pide el cambio contrario y se ven
 >      las cuotas antes;
->   5. BelIA no cambia las fechas ni las personas del evento, ni agrega
->      fijos cuyo precio depende de las personas: eso, en la pantalla;
+>   5. ~~BelIA no cambia las fechas ni las personas del evento, ni agrega
+>      fijos cuyo precio depende de las personas: eso, en la pantalla~~
+>      **cambió el 04-11** (Felipe: *"creo que debería poder en una
+>      cotización aún no aceptada"*): las personas del evento sí, en las
+>      no aceptadas (§14); las fechas y los fijos que cobran por persona,
+>      en la pantalla;
 >   6. si la persona tiene abierta la misma cotización, la página se recarga
 >      al aplicar (la tarjeta lo avisa antes), para que un formulario viejo
 >      no pise el cambio.
@@ -242,6 +246,10 @@
 > el motor, y la nota de Marval (N° 743) pasó a la firma de BelIA, con su
 > respaldo en `02_RESPALDOS/cambios_de_datos`. Recepción quedó probada solo
 > con las pruebas del motor.
+> - Esa misma tarde Felipe perdió su conversación al cerrar con la «×», que
+>   la borraba. Ahora la «×» cierra y guarda, y «Nueva conversación» va
+>   abajo, con su pregunta (*"ok arréglalo"*). En producción con las
+>   mejoras del §14.
 
 ## 1. Por qué
 
@@ -534,7 +542,9 @@ hay que comprar (ver el estado arriba).
 
 1. **Descuentos.** ¿Evia puede aplicar uno si la persona lo pide, con el
    tope de su cargo (administrador 40 %, vendedor y operaciones 15 %)?
-   Hasta que Felipe decida, no. (03-11: la fase 2 salió así.)
+   Hasta que Felipe decida, no. (03-11: la fase 2 salió así.) **04-11,
+   decidido** (Felipe: *"vamos con la 1 a la 6"*): sí, el que la persona
+   pida y nunca uno que ofrezca BelIA, con ese tope (§14).
 2. **Las firmas de la bitácora.** ¿Las notas de «Crear con IA» y del
    seguimiento pasan a firmar «Evia»? Hoy firman «Asistente», con el
    robot. (03-11: las de BelIA también firman «Asistente», y el texto
@@ -589,8 +599,10 @@ que dice la bitácora ... más que mostrarles, como darle contexto"*.
 - **Las tarjetas guardadas son solo para pintarlas:** el «Sí, aplicar» se
   revisa contra la propuesta de la 181, que vence a las 2 horas.
 - **Se borra sola a los 90 días sin uso:** el motor limpia las viejas de
-  la empresa cada vez que guarda una. La «×» de la ventanilla («Nueva
-  conversación») también la borra en Eventia.
+  la empresa cada vez que guarda una. «Nueva conversación», abajo en la
+  ventanilla y después de preguntar, también la borra en Eventia. La «×»
+  solo cierra: la conversación queda (Felipe, 04-11: *"acabo de
+  actualizar y no se guardó la conversación"*; la «×» la borraba).
 - Hasta que llega la guardada, la ventanilla no guarda nada: una pestaña
   nueva y vacía no pisa la conversación que quedó.
 
@@ -629,3 +641,94 @@ que dice la bitácora ... más que mostrarles, como darle contexto"*.
 
 Sigue en US$ 100 al mes por empresa, para todos los cargos juntos (§7).
 Felipe: *"No importa el tema del tope ... esto se paga solo"*.
+
+## 14. Las mejoras del 04-11 en la tarde (Felipe: *"vamos con la 1 a la 6"*)
+
+> **Estado:** en producción desde la tarde del 04-11 (Felipe: *"a
+> producción"*), después de probarlas en el laboratorio. Sin migración:
+> las fichas al día viven en la memoria del motor.
+
+Salieron de medir el primer día en producción: 22 preguntas, todas de
+Felipe; US$ 1,55 de los 100 del mes; 15 s por respuesta en promedio y 29 s
+la más lenta; ninguna falla; 4 propuestas aplicadas.
+
+1. **La «×» cierra y guarda.** Borraba la conversación, y Felipe la perdió
+   al cerrar: el registro del motor tiene el `DELETE` de las 14:54.
+   «Nueva conversación» quedó abajo, con su pregunta (`ConfirmInline`).
+2. **Las fichas al día** (`conversacion/lo-leido.ts`). A la IA solo le
+   viajan los textos de la conversación, y por eso volvía a pedir cada
+   ficha: en la conversación de la 739, 16 lecturas en 10 preguntas.
+   - Ahora el motor anota las cotizaciones que BelIA revisó (las 3
+     últimas, por 20 minutos).
+   - Antes de cada pregunta se las trae recién leídas de la base, con el
+     cargo de quien escribe (recepción, sin montos).
+   - Vive en la memoria del motor: un reinicio la borra y BelIA vuelve a
+     leer, como antes. «Nueva conversación» también la borra.
+3. **Los clientes, como el buscador de la casa** (`buscar-clientes.ts`).
+   Sin tildes y por palabras en cualquier orden, en el nombre y el
+   contacto: antes, «Matias» no encontraba a «Matías». Y varios clientes a
+   la vez en `textos`: una pregunta había hecho 24 búsquedas, con 27 s y
+   US$ 0,20.
+4. **Las personas del evento** (`propuestas/cabecera.ts`; la regla 5 de
+   arriba). En las no aceptadas, con la cuenta del cotizador:
+   - la casilla que tenía el total de su audiencia lo sigue, y la ajustada
+     a mano no;
+   - los fijos que cobran por persona no se rehacen, porque el cotizador
+     tampoco lo hace al cambiar las personas, y la tarjeta lo avisa;
+   - en una aceptada, Post-Venta → Servicios.
+6. **El descuento** (§11, pregunta 1). El que la persona pida, nunca uno
+   que ofrezca BelIA, por % o por monto, con el tope de su cargo:
+   administración 40 %, ventas y operaciones 15 %. Es el mismo
+   `getMaxDiscountForRole` del cotizador y de Post-Venta; por monto, ese %
+   del subtotal. En una aceptada se ven las cuotas, como en cualquier
+   cambio.
+
+«Deshacer» devuelve también las personas y el descuento: la propuesta
+guarda la cabecera de antes. La 5 es el §15. La 7 (que la use el equipo)
+no es código.
+
+## 15. Una sola IA (plan del 04-11, espera el OK de Felipe)
+
+Felipe, 04-11: *"si alguien aprieta como oportunidades, aprieta borradores,
+aprieta crear con la IA, debería ser BelIA quien firma, y así trabajamos
+siempre como el motor de razonamiento de BelIA y no estamos arreglando cada
+botón por separado, sino que tenemos una sola IA que conoce todo el sistema
+de operación del complejo"*.
+
+**Lo que entendí:**
+- Todo botón con IA firma «BelIA», con «a pedido de» quien lo apretó. Lo
+  escrito a mano sigue con la cara de la persona, y los botones sin IA
+  («Enviar cotización», «Sí, puede seguir») también.
+- Por dentro, una sola IA: lo que sabe del complejo (las reglas de la
+  casa, el catálogo, cómo se cotiza) vive en un solo lugar y lo usan todos
+  los botones, en vez de que cada uno tenga su copia.
+
+**Lo que hay hoy (medido el 04-11):**
+
+| Quién firma «Asistente» | Dónde | Notas en producción |
+|---|---|---|
+| «✨ Crear con IA» | `quotations/generar/generar.service.ts` | 103 |
+| Los borradores de correo: «✉ Generar seguimiento» y la habilidad `correos-cotizaciones-vds` | `quotations/seguimiento/seguimiento.service.ts` (2 lugares) y la habilidad, por SQL | 63 |
+| Oportunidades | `oportunidades/postulacion/cotizacion-de-la-postulacion.service.ts` y `aceptar-la-ganada.service.ts` | 6 |
+| Otras | — | 16 |
+
+**Por etapas, cada una al laboratorio primero:**
+1. **La firma.** Los lugares del motor y la habilidad de correos firman
+   «BelIA», con «A pedido de …» cuando alguien apretó el botón. Las notas
+   viejas pasan a «BelIA» con respaldo: cambia la firma, no el texto.
+2. **El cerebro común.** Las reglas de la casa que hoy repiten «Crear con
+   IA», «Generar seguimiento» y BelIA se juntan en un solo módulo que usan
+   los tres. Primero se mide qué dice cada uno, para no perder lo aprendido
+   (las lecciones de correo de la 541, por ejemplo). Se prueba en el
+   laboratorio con casos reales: la misma cotización y el mismo
+   seguimiento, antes y después.
+3. **Oportunidades, con su sesión.** Sus análisis siguen especializados
+   (Haiku para leer, Opus para analizar), pero firman BelIA y usan lo común
+   donde corresponda.
+
+**Lo que decide Felipe antes de programar:**
+- Lo que corre solo, sin que nadie apriete un botón (las rutinas de la
+  mañana y la tarde): ¿firma «BelIA» sin «a pedido de»?
+- Las otras empresas: BelIA es de Valle del Sol. ¿Su «Crear con IA» sigue
+  como «Asistente»?
+- Las 188 notas viejas: ¿se pasan a «BelIA»?
