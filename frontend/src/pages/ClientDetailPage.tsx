@@ -44,7 +44,6 @@ import {
 } from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
 import DatosDeFacturacion from "../components/clientes/DatosDeFacturacion";
-import { ClienteConFacturacion } from "../utils/datosDeFacturacion";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
 // 21-07-2026): resumen comercial para hacer gestión — cotizaciones
@@ -61,7 +60,7 @@ interface SummaryContact {
   is_primary: boolean;
 }
 
-interface SummaryClient extends ClienteConFacturacion {
+interface SummaryClient {
   id: string;
   name: string;
   client_type: string;
@@ -974,15 +973,8 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Datos de facturación (migración 184, doc 19) */}
-          <DatosDeFacturacion
-            cliente={client}
-            puedeEditar={puedeEditar}
-            alGuardar={() => {
-              invalidateSummary();
-              invalidateClients();
-            }}
-          />
+          {/* Datos de facturación: las razones sociales (migración 184, doc 19) */}
+          <DatosDeFacturacion clientId={client.id} puedeEditar={puedeEditar} />
         </div>
 
         {/* Historial de cotizaciones */}

@@ -2,7 +2,6 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { olvidarTiposDeCliente } from 'src/cache/memoria';
 import { UsersRepository } from 'src/users/users.repository';
-import { datosDeFacturacionLimpios } from '../facturacion/datos-del-receptor';
 import { logSafe } from '../logging/log-safe';
 import { ClientContactsRepository } from './client-contacts.controller';
 import { ClientsRepository } from './clients.repository';
@@ -103,7 +102,6 @@ export class ClientsService {
     delete clientFields.confirmado;
     const newClient: CreateClient = {
       ...clientFields,
-      ...datosDeFacturacionLimpios(clientFields),
       company_id: companyId,
     };
 
@@ -170,11 +168,7 @@ export class ClientsService {
     this.logger.info(
       `update client with id ${id} and updateClientDto ${logSafe(updateClientDto)}`,
     );
-    return this.clientsRepository.update(
-      id,
-      { ...updateClientDto, ...datosDeFacturacionLimpios(updateClientDto) },
-      companyId,
-    );
+    return this.clientsRepository.update(id, updateClientDto, companyId);
   }
 
   remove(id: string, companyId: number) {

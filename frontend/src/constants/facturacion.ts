@@ -13,7 +13,7 @@
 export const LARGO_MAXIMO = {
   razon_social: 100,
   giro: 40,
-  direccion_facturacion: 60,
+  direccion: 60,
   comuna: 20,
   ciudad: 20,
   correo_facturacion: 200,

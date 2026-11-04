@@ -2,13 +2,14 @@
 
 > **Estado: en construcción (04-11-2026).** Felipe aprobó el plan v2 (*"si
 > avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
-> 184 (los datos de facturación de `clients`, `ordenes_de_compra` y
-> `documentos_tributarios` con su cadena) y la tarjeta «Datos de
-> facturación» de la ficha del cliente, con «Referencias que pide».
+> 184 (`razones_sociales`, varias por cliente; `ordenes_de_compra` con el
+> RUT de cada OC; y `documentos_tributarios` con su cadena) y la tarjeta
+> «Datos de facturación» de la ficha del cliente, con la lista de razones
+> sociales y «Referencias que pide» (§9.12).
 > **Paso 1b construido el 04-11** (sin rutas ni pantallas, no cambia nada a
 > la vista): los armadores del archivo y facturacion.cl simulado (§9.13).
-> Pendiente el OK de Felipe a la lista de razones sociales por cliente
-> (§9.12), que rehace el 1a antes de producción.
+> El 1a se rehízo esa tarde con la lista de razones sociales (§9.12,
+> Felipe: *"si vamos avancemos"*).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -203,20 +204,23 @@ el siguiente libre ese día, avisando a las sesiones de Oportunidades.
 La 166 estaba reservada, pero el 27-10 Oportunidades la usó para la
 decisión 97 (`por_que` en `oportunidad_generacion`), y se la dejamos.
 
-**`clients`** suma estas columnas:
+**`razones_sociales`** (tabla nueva, 04-11; §9.12): a quién se le factura,
+VARIAS por cliente, cada una con:
 - `rut`;
 - `razon_social`;
 - `giro`;
-- `direccion_facturacion`;
+- `direccion`;
 - `comuna`;
 - `ciudad`;
-- `correo_facturacion`.
+- `correo_facturacion`;
+- `referencias_exigidas`, las que pide en su factura.
 
-`address` es un dato muerto y no se reusa.
+`clients.address` es un dato muerto y no se reusa.
 
 **`ordenes_de_compra`** (tabla nueva) guarda:
 - la empresa y la cotización;
 - el N°, la fecha y la descripción;
+- a nombre de quién viene (RUT y razón social, como los imprime la OC);
 - el monto con IVA;
 - el origen (manual o Mercado Público);
 - el PDF (opcional);
@@ -610,7 +614,7 @@ Eventia es un solo cliente, «Instituto Profesional Santo Tomás»:
   referencia 801 lleva **solo el N° de la OC**, sin texto agregado, con la
   fecha de la OC.
 
-**Lo que cambia (propuesta del 04-11, falta el OK de Felipe):**
+**Lo que cambia (decidido el 04-11; Felipe: *"si vamos avancemos"*):**
 - Un cliente tiene una **lista de razones sociales**: RUT, razón social,
   giro, dirección, comuna, ciudad, correos y referencias que pide. Reemplaza
   al juego único de datos del paso 1a. La tarjeta «Datos de facturación» de
@@ -623,9 +627,10 @@ Eventia es un solo cliente, «Instituto Profesional Santo Tomás»:
   la persona lo confirma y al emitir queda guardado.
 - **Sin OC:** con una sola razón social, va esa; con varias, BelIA pregunta
   a cuál; sin ninguna, pregunta los datos antes de facturar y los guarda.
-- La migración 184 todavía no está en producción: se rehace antes de subir.
-  En el laboratorio, los datos de prueba de CCU se mudan a la lista y no se
-  pierde nada.
+- La migración 184 se rehízo antes de producción, con `razones_sociales`.
+  En el laboratorio, la `184b` (solo laboratorio) mudó los datos de prueba
+  de CCU a la lista y quitó las columnas de la primera versión: no se perdió
+  nada.
 
 ### 9.13 Lo que quedó del paso 1b (04-11)
 
