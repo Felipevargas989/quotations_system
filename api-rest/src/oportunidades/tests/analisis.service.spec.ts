@@ -147,10 +147,11 @@ function armar() {
     configDe: jest.fn().mockResolvedValue({ perfil: 'Complejo en Quillón' }),
   };
   const ficha = { colorSegunLasBases: jest.fn().mockResolvedValue(true) };
+  // El análisis llena su parte del formato compartido (decisión 115).
   const parse = jest.fn().mockResolvedValue({
     stop_reason: 'end_turn',
     usage: { input_tokens: 100_000, output_tokens: 5_000 },
-    parsed_output: RESULTADO,
+    parsed_output: { analisis_de_las_bases: RESULTADO },
   });
   const eventia = {
     carta: jest.fn().mockResolvedValue({
@@ -438,7 +439,7 @@ describe('AnalisisService — ejecutar (por detrás)', () => {
     parse.mockResolvedValue({
       stop_reason: 'end_turn',
       usage: { input_tokens: 100_000, output_tokens: 5_000 },
-      parsed_output: { ...RESULTADO, criterios: [] },
+      parsed_output: { analisis_de_las_bases: { ...RESULTADO, criterios: [] } },
     });
     await servicio.ejecutar(
       1,

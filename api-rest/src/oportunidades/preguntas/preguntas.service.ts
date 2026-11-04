@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
 import {
   BadRequestException,
   Injectable,
@@ -12,6 +11,7 @@ import {
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
 import { AnalisisRepository } from '../analisis/analisis.repository';
+import { FORMATO_DE_LAS_BASES } from '../analisis/analisis.service';
 import {
   armarContenido,
   type ContextoDeBases,
@@ -47,6 +47,8 @@ import {
 // en comun.ts): las instrucciones comunes y los documentos primero, con la
 // marca de caché de 1 hora. El análisis deja las bases guardadas y cada
 // pregunta de esa hora las lee de la caché (el 5 % del precio de entrada).
+// También el formato de la respuesta es el del análisis (decisión 115): la
+// API pone sus instrucciones al comienzo del pedido.
 // Después de la marca van las reglas de las preguntas, lo que la IA ya dijo
 // en el análisis, el hilo (las preguntas y respuestas anteriores de esta
 // oportunidad) y la pregunta nueva. Responde Opus 5.5, el mismo modelo que
@@ -61,29 +63,6 @@ export const MAX_LARGO_DE_PREGUNTA = 600;
 export const PREGUNTAS_EN_EL_HILO = 8;
 export const MAX_CITAS = 4;
 
-export const ESQUEMA_DE_RESPUESTA = {
-  type: 'object',
-  properties: {
-    respuesta: { type: 'string' },
-    citas: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          documento: { type: 'string' },
-          pagina: { type: 'integer' },
-          texto: { type: 'string' },
-        },
-        required: ['documento', 'pagina', 'texto'],
-        additionalProperties: false,
-      },
-    },
-    seguridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
-  },
-  required: ['respuesta', 'citas', 'seguridad'],
-  additionalProperties: false,
-} as const;
-
 /** Las reglas de las preguntas, DESPUÉS de la marca de caché (así el
  *  prefijo es el mismo del análisis). */
 export const REGLAS_DE_PREGUNTAS: string = [
@@ -92,7 +71,7 @@ export const REGLAS_DE_PREGUNTAS: string = [
   'Puedes razonar con los números de los documentos (presupuesto, cantidades, días) para proponer la lectura más consistente, diciendo que es una deducción.',
   'Máximo 120 palabras. Sin rodeos y sin repetir la pregunta.',
   '',
-  'RESPONDE',
+  'RESPONDE en «respuesta_a_la_pregunta» (deja fuera «analisis_de_las_bases»):',
   '- respuesta: la respuesta, directa.',
   `- citas: hasta ${MAX_CITAS}, cada una con el documento (el título tal como te lo pasé), la página (0 si no se sabe o es un Word) y el texto citado, corto.`,
   '- seguridad: "alta" si los documentos lo dicen directo; "media" si es una deducción; "baja" si no está en los documentos.',
@@ -423,7 +402,8 @@ export class PreguntasService {
         max_tokens: 3000,
         output_config: {
           effort: 'medium',
-          format: jsonSchemaOutputFormat(ESQUEMA_DE_RESPUESTA),
+          // El mismo formato que el análisis (decisión 115).
+          format: FORMATO_DE_LAS_BASES,
         },
         system: sistemaConCache(contexto),
         messages: armarMensajes(bloques, previo, anteriores, pregunta),
@@ -437,7 +417,16 @@ export class PreguntasService {
         tokens_cache_leida: uso.cacheLeida,
         costo_usd: costo,
       };
-      if (!respuesta.parsed_output) {
+      const salida = (
+        respuesta.parsed_output as unknown as {
+          respuesta_a_la_pregunta?: {
+            respuesta: string;
+            citas: unknown;
+            seguridad: SeguridadDeRespuesta;
+          };
+        } | null
+      )?.respuesta_a_la_pregunta;
+      if (!salida) {
         await this.repo.terminar(companyId, preguntaId, {
           estado: 'error',
           error: `La IA no respondió (${respuesta.stop_reason ?? 'sin respuesta'}).`,
@@ -445,11 +434,6 @@ export class PreguntasService {
         });
         return;
       }
-      const salida = respuesta.parsed_output as unknown as {
-        respuesta: string;
-        citas: unknown;
-        seguridad: SeguridadDeRespuesta;
-      };
       await this.repo.terminar(companyId, preguntaId, {
         estado: 'listo',
         respuesta: salida.respuesta.trim(),
