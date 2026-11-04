@@ -159,9 +159,35 @@ const ES_SEPARADOR = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/;
 const ITEM = /^\s*(?:[-*•]|(\d+)[.)])\s+/;
 
 /** El texto de BelIA en bloques: tablas, listas y párrafos. */
+/** Una tabla pegada al párrafo de arriba o de abajo, sin línea en blanco,
+ *  se separa: Claude a veces la escribe así (la primera pregunta en
+ *  producción, 04-11: «…según con cuál chocan:» y la tabla debajo salió
+ *  como texto con rayas). */
+const separarTablas = (texto: string): string => {
+  const lineas = texto.split("\n");
+  const salida: string[] = [];
+  lineas.forEach((l, i) => {
+    const anterior = salida[salida.length - 1];
+    const esFila = l.trim().startsWith("|");
+    const empiezaTabla =
+      esFila && ES_SEPARADOR.test((lineas[i + 1] ?? "").trim());
+    const veniaTabla =
+      anterior !== undefined && anterior.trim().startsWith("|");
+    if (empiezaTabla && anterior !== undefined && anterior.trim() !== "") {
+      salida.push("");
+    } else if (!esFila && veniaTabla && l.trim() !== "") {
+      salida.push("");
+    }
+    salida.push(l);
+  });
+  return salida.join("\n");
+};
+
 export const bloquesDe = (texto: string): Bloque[] => {
   const bloques: Bloque[] = [];
-  for (const crudo of texto.replace(/\r/g, "").split(/\n\s*\n/)) {
+  for (const crudo of separarTablas(texto.replace(/\r/g, "")).split(
+    /\n\s*\n/,
+  )) {
     const lineas = crudo.split("\n").filter((l) => l.trim() !== "");
     if (lineas.length === 0) continue;
     if (
