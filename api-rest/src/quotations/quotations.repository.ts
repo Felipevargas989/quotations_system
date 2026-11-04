@@ -485,6 +485,15 @@ export class QuotationsRepository {
     // cotización con dinero registrado también tiene plan de pagos, y
     // avisarle del plan sería mandarlo por un camino que no lleva a
     // ninguna parte.
+    //
+    // Lo más grave va primero: un documento tributario (migración 184)
+    // no se borra nunca, ni con la cotización. Se anula con una nota de
+    // crédito (doc 19 §9.5).
+    if (await cuantasHay('documentos_tributarios')) {
+      throw new ConflictException(
+        'No se puede eliminar: esta cotización tiene documentos tributarios (factura, boleta o nota). Esos no se borran: si el evento no se hizo, anúlalo desde Post-Venta y anula la factura con una nota de crédito.',
+      );
+    }
     if (await cuantasHay('payment_transactions')) {
       throw new ConflictException(
         'No se puede eliminar: esta cotización tiene pagos registrados. Si el evento no se hizo, anúlala desde Post-Venta.',

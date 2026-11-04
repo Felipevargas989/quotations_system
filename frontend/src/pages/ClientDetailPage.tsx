@@ -44,6 +44,8 @@ import {
   phoneProblem,
 } from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
+import DatosDeFacturacion from "../components/clientes/DatosDeFacturacion";
+import { ClienteConFacturacion } from "../utils/datosDeFacturacion";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
 // 21-07-2026): resumen comercial para hacer gestión — cotizaciones
@@ -60,7 +62,7 @@ interface SummaryContact {
   is_primary: boolean;
 }
 
-interface SummaryClient {
+interface SummaryClient extends ClienteConFacturacion {
   id: string;
   name: string;
   client_type: string;
@@ -701,271 +703,287 @@ export default function ClientDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Contactos y datos de la ficha */}
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Contactos</h2>
-          {contacts.length === 0 && !client.contact_person && (
-            <p className="text-sm text-gray-500">Sin contactos registrados.</p>
-          )}
-          {contacts.map((c) => (
-            <div key={c.id} className="text-sm">
-              {confirmContactDelId === c.id ? (
-                <ConfirmInline
-                  question={`¿Eliminar a ${c.name}?`}
-                  onYes={() => removeContact(c.id)}
-                  onNo={() => setConfirmContactDelId(null)}
-                />
-              ) : contactEdit?.id === c.id ? (
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    autoFocus
-                    value={contactEdit.name}
-                    onChange={(e) =>
-                      setContactEdit((p) => p && { ...p, name: e.target.value })
-                    }
-                    placeholder="Nombre *"
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <div className="space-y-6">
+          {/* Contactos y datos de la ficha */}
+          <div className="bg-white rounded-lg shadow p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Contactos</h2>
+            {contacts.length === 0 && !client.contact_person && (
+              <p className="text-sm text-gray-500">
+                Sin contactos registrados.
+              </p>
+            )}
+            {contacts.map((c) => (
+              <div key={c.id} className="text-sm">
+                {confirmContactDelId === c.id ? (
+                  <ConfirmInline
+                    question={`¿Eliminar a ${c.name}?`}
+                    onYes={() => removeContact(c.id)}
+                    onNo={() => setConfirmContactDelId(null)}
                   />
-                  <input
-                    type="email"
-                    value={contactEdit.email}
-                    onChange={(e) =>
-                      setContactEdit(
-                        (p) => p && { ...p, email: e.target.value },
-                      )
-                    }
-                    placeholder="Correo (opcional)"
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <input
-                    type="tel"
-                    value={contactEdit.phone}
-                    onChange={(e) =>
-                      setContactEdit(
-                        (p) => p && { ...p, phone: e.target.value },
-                      )
-                    }
-                    onBlur={() =>
-                      setContactEdit(
-                        (p) => p && { ...p, phone: normalizePhone(p.phone) },
-                      )
-                    }
-                    placeholder="Teléfono (opcional)"
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {contactFormError && (
-                    <p className="text-xs text-red-600 font-medium">
-                      {contactFormError}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={savingContact || !contactEdit.name.trim()}
-                      onClick={saveContactEdit}
-                      className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingContact ? "…" : "Guardar cambios"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setContactEdit(null);
-                        setContactFormError(null);
-                      }}
-                      className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="font-medium text-gray-900 flex items-center gap-1">
-                    {c.is_primary ? (
-                      <Star
-                        size={14}
-                        className="text-amber-500 fill-amber-400"
-                      />
-                    ) : (
+                ) : contactEdit?.id === c.id ? (
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={contactEdit.name}
+                      onChange={(e) =>
+                        setContactEdit(
+                          (p) => p && { ...p, name: e.target.value },
+                        )
+                      }
+                      placeholder="Nombre *"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <input
+                      type="email"
+                      value={contactEdit.email}
+                      onChange={(e) =>
+                        setContactEdit(
+                          (p) => p && { ...p, email: e.target.value },
+                        )
+                      }
+                      placeholder="Correo (opcional)"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <input
+                      type="tel"
+                      value={contactEdit.phone}
+                      onChange={(e) =>
+                        setContactEdit(
+                          (p) => p && { ...p, phone: e.target.value },
+                        )
+                      }
+                      onBlur={() =>
+                        setContactEdit(
+                          (p) => p && { ...p, phone: normalizePhone(p.phone) },
+                        )
+                      }
+                      placeholder="Teléfono (opcional)"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {contactFormError && (
+                      <p className="text-xs text-red-600 font-medium">
+                        {contactFormError}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => makePrimary(c.id, c.name)}
-                        className="text-gray-300 hover:text-amber-500"
-                        title="Marcar como contacto principal"
+                        disabled={savingContact || !contactEdit.name.trim()}
+                        onClick={saveContactEdit}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
                       >
-                        <Star size={14} />
+                        {savingContact ? "…" : "Guardar cambios"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContactEdit(null);
+                          setContactFormError(null);
+                        }}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-medium text-gray-900 flex items-center gap-1">
+                      {c.is_primary ? (
+                        <Star
+                          size={14}
+                          className="text-amber-500 fill-amber-400"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => makePrimary(c.id, c.name)}
+                          className="text-gray-300 hover:text-amber-500"
+                          title="Marcar como contacto principal"
+                        >
+                          <Star size={14} />
+                        </button>
+                      )}
+                      {c.name}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmContactDelId(null);
+                          setContactDraft(null);
+                          setContactFormError(null);
+                          setContactEdit({
+                            id: c.id,
+                            name: c.name,
+                            email: c.email || "",
+                            phone: c.phone || "",
+                          });
+                        }}
+                        className="ml-auto text-gray-300 hover:text-blue-600"
+                        title="Editar contacto"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmContactDelId(c.id)}
+                        className="text-gray-300 hover:text-red-600"
+                        title="Eliminar contacto"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </p>
+                    {c.email && (
+                      <button
+                        type="button"
+                        onClick={() => copyDato(`c${c.id}-mail`, c.email!)}
+                        title="Copiar correo"
+                        className="flex items-center gap-1 text-blue-600 hover:underline"
+                      >
+                        <Mail size={13} /> {c.email}
+                        {copiedKey === `c${c.id}-mail` && (
+                          <Check size={13} className="text-green-600" />
+                        )}
                       </button>
                     )}
-                    {c.name}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmContactDelId(null);
-                        setContactDraft(null);
-                        setContactFormError(null);
-                        setContactEdit({
-                          id: c.id,
-                          name: c.name,
-                          email: c.email || "",
-                          phone: c.phone || "",
-                        });
-                      }}
-                      className="ml-auto text-gray-300 hover:text-blue-600"
-                      title="Editar contacto"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmContactDelId(c.id)}
-                      className="text-gray-300 hover:text-red-600"
-                      title="Eliminar contacto"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </p>
-                  {c.email && (
-                    <button
-                      type="button"
-                      onClick={() => copyDato(`c${c.id}-mail`, c.email!)}
-                      title="Copiar correo"
-                      className="flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      <Mail size={13} /> {c.email}
-                      {copiedKey === `c${c.id}-mail` && (
-                        <Check size={13} className="text-green-600" />
-                      )}
-                    </button>
-                  )}
-                  {c.phone && (
-                    <button
-                      type="button"
-                      onClick={() => copyDato(`c${c.id}-tel`, c.phone!)}
-                      title="Copiar teléfono"
-                      className="flex items-center gap-1 text-blue-600 hover:underline"
-                    >
-                      <Phone size={13} /> {formatPhone(c.phone)}
-                      {copiedKey === `c${c.id}-tel` && (
-                        <Check size={13} className="text-green-600" />
-                      )}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
-
-          {/* Agregar contacto desde la ficha */}
-          {contactDraft ? (
-            <div className="space-y-1.5">
-              <input
-                type="text"
-                autoFocus
-                value={contactDraft.name}
-                onChange={(e) =>
-                  setContactDraft((p) => p && { ...p, name: e.target.value })
-                }
-                placeholder="Nombre *"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <input
-                type="email"
-                value={contactDraft.email}
-                onChange={(e) =>
-                  setContactDraft((p) => p && { ...p, email: e.target.value })
-                }
-                placeholder="Correo (opcional)"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <input
-                type="tel"
-                value={contactDraft.phone}
-                onChange={(e) =>
-                  setContactDraft((p) => p && { ...p, phone: e.target.value })
-                }
-                onBlur={() =>
-                  setContactDraft(
-                    (p) => p && { ...p, phone: normalizePhone(p.phone) },
-                  )
-                }
-                placeholder="Teléfono (opcional)"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {contactFormError && (
-                <p className="text-xs text-red-600 font-medium">
-                  {contactFormError}
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={savingContact || !contactDraft.name.trim()}
-                  onClick={addContact}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {savingContact ? "…" : "Guardar contacto"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContactDraft(null);
-                    setContactFormError(null);
-                  }}
-                  className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
-                >
-                  Cancelar
-                </button>
+                    {c.phone && (
+                      <button
+                        type="button"
+                        onClick={() => copyDato(`c${c.id}-tel`, c.phone!)}
+                        title="Copiar teléfono"
+                        className="flex items-center gap-1 text-blue-600 hover:underline"
+                      >
+                        <Phone size={13} /> {formatPhone(c.phone)}
+                        {copiedKey === `c${c.id}-tel` && (
+                          <Check size={13} className="text-green-600" />
+                        )}
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
-          ) : // Particulares = UNA persona (regla de Felipe 30-07,
-          // medido: 0 de 134 tenían más; sin candado en la base).
-          client.client_type === "Particulares" &&
-            (data.client.client_contacts || []).length >= 1 ? null : (
-            <button
-              type="button"
-              onClick={() => {
-                setContactFormError(null);
-                setContactDraft({ name: "", email: "", phone: "" });
-              }}
-              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-            >
-              <Plus size={13} /> Agregar contacto
-            </button>
-          )}
-          {/* Los datos sueltos de la ficha ya NO se muestran (migración
+            ))}
+
+            {/* Agregar contacto desde la ficha */}
+            {contactDraft ? (
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  autoFocus
+                  value={contactDraft.name}
+                  onChange={(e) =>
+                    setContactDraft((p) => p && { ...p, name: e.target.value })
+                  }
+                  placeholder="Nombre *"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <input
+                  type="email"
+                  value={contactDraft.email}
+                  onChange={(e) =>
+                    setContactDraft((p) => p && { ...p, email: e.target.value })
+                  }
+                  placeholder="Correo (opcional)"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <input
+                  type="tel"
+                  value={contactDraft.phone}
+                  onChange={(e) =>
+                    setContactDraft((p) => p && { ...p, phone: e.target.value })
+                  }
+                  onBlur={() =>
+                    setContactDraft(
+                      (p) => p && { ...p, phone: normalizePhone(p.phone) },
+                    )
+                  }
+                  placeholder="Teléfono (opcional)"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {contactFormError && (
+                  <p className="text-xs text-red-600 font-medium">
+                    {contactFormError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={savingContact || !contactDraft.name.trim()}
+                    onClick={addContact}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {savingContact ? "…" : "Guardar contacto"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactDraft(null);
+                      setContactFormError(null);
+                    }}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : // Particulares = UNA persona (regla de Felipe 30-07,
+            // medido: 0 de 134 tenían más; sin candado en la base).
+            client.client_type === "Particulares" &&
+              (data.client.client_contacts || []).length >= 1 ? null : (
+              <button
+                type="button"
+                onClick={() => {
+                  setContactFormError(null);
+                  setContactDraft({ name: "", email: "", phone: "" });
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+              >
+                <Plus size={13} /> Agregar contacto
+              </button>
+            )}
+            {/* Los datos sueltos de la ficha ya NO se muestran (migración
               52, adopción completa): correo y teléfono viven en las
               personas. El espejo interno sigue bajo el capó para el
               anti-duplicados del formulario público. */}
 
-          <div className="pt-3 border-t border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-1">
-              <FileText size={14} /> Notas
-            </h3>
-            <textarea
-              value={notesDraft}
-              onChange={(e) => setNotesDraft(e.target.value)}
-              rows={4}
-              placeholder="Notas de gestión comercial del cliente…"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <div className="flex items-center gap-2 mt-1">
-              <button
-                type="button"
-                disabled={savingNotes || notesDraft === (client.notes || "")}
-                onClick={saveNotes}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-40"
-              >
-                {savingNotes ? "Guardando…" : "Guardar notas"}
-              </button>
-              {notesSaved && (
-                <span className="text-xs text-green-600 font-semibold">
-                  Guardado ✓
-                </span>
-              )}
+            <div className="pt-3 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-1">
+                <FileText size={14} /> Notas
+              </h3>
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                rows={4}
+                placeholder="Notas de gestión comercial del cliente…"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  disabled={savingNotes || notesDraft === (client.notes || "")}
+                  onClick={saveNotes}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {savingNotes ? "Guardando…" : "Guardar notas"}
+                </button>
+                {notesSaved && (
+                  <span className="text-xs text-green-600 font-semibold">
+                    Guardado ✓
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Datos de facturación (migración 184, doc 19) */}
+          <DatosDeFacturacion
+            cliente={client}
+            puedeEditar={puedeEditar}
+            alGuardar={() => {
+              invalidateSummary();
+              invalidateClients();
+            }}
+          />
         </div>
 
         {/* Historial de cotizaciones */}

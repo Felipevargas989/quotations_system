@@ -1,7 +1,13 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
-> **Estado: PLAN v2 (04-11-2026), para aprobar. No hay nada construido.** El
-> 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
+> **Estado: en construcción (04-11-2026).** Felipe aprobó el plan v2 (*"si
+> avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
+> 184 (los datos de facturación de `clients`, `ordenes_de_compra` y
+> `documentos_tributarios` con su cadena) y la tarjeta «Datos de
+> facturación» de la ficha del cliente, con «Referencias que pide». Sigue
+> el paso 1b: los armadores del archivo y facturacion.cl simulado.
+>
+> **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
 > en el §9, que reemplaza los pasos del §6.
 >
@@ -536,7 +542,7 @@ La conexión de verdad es el paso 5.
 
 | Paso | Qué | Necesita |
 |---|---|---|
-| 1 | Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
+| 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
 | 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
