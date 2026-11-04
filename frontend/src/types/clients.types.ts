@@ -9,6 +9,16 @@ export interface Client {
   address?: string;
   contact_person?: string;
   notes?: string;
+  /** Datos de facturación (migración 184). El RUT viaja limpio:
+   *  `90413000-1`. Ver constants/facturacion. */
+  rut?: string | null;
+  razon_social?: string | null;
+  giro?: string | null;
+  direccion_facturacion?: string | null;
+  comuna?: string | null;
+  ciudad?: string | null;
+  correo_facturacion?: string | null;
+  referencias_exigidas?: string[] | null;
   created_at: Date;
   updated_at: Date;
   company_id: Company["id"];
