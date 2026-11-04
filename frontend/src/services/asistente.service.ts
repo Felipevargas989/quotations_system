@@ -1,5 +1,6 @@
 import { API_ROUTES } from "../constants/api.routes";
-import { apiRequest } from "./api";
+import { leerEventos } from "../utils/eventosEnVivo";
+import { api, apiRequest } from "./api";
 
 // BelIA, la asistente con IA (doc 20). El motor conversa con Claude y
 // sus herramientas; acá solo viaja la conversación corta y la pantalla.
@@ -12,12 +13,23 @@ export type PantallaDeBelia = { ruta: string; cotizacion_id?: string };
  *  persona la aplica con «Sí, aplicar». Las cifras ya vienen escritas. */
 export type TarjetaDePropuesta = {
   id: string;
-  tipo: "servicios" | "nota";
-  numero: number;
+  tipo: "servicios" | "nota" | "cotizacion_nueva";
+  /** Null en un evento nuevo hasta que se crea. */
+  numero: number | null;
   cliente: string | null;
-  cotizacion_id: string;
-  enlace: string;
+  cotizacion_id: string | null;
+  enlace: string | null;
   resumen: string;
+  /** «Crear evento»: lo que se va a crear. */
+  nueva?: {
+    es: "cotización" | "requerimiento";
+    cliente: string;
+    cliente_nuevo: boolean;
+    tipo_de_evento: string;
+    fechas: string;
+    personas: string;
+    contacto?: string;
+  };
   lineas: Array<{
     dia: string;
     que: string;
@@ -67,6 +79,10 @@ export type EstadoDeBelia = {
   sin_gestion: number;
   vencen_hoy: number;
   requerimientos_de_hoy: number;
+  /** Cotizaciones con tope de calendario (03-11, la lista del tablero). */
+  topes_de_calendario?: number;
+  /** Comprobantes del portal sin revisar (operaciones para arriba). */
+  comprobantes_por_revisar?: number;
 };
 
 export const preguntarABelia = async (
@@ -79,6 +95,65 @@ export const preguntarABelia = async (
     historial,
     pantalla,
   })) as RespuestaDeBelia;
+
+/** Lo que va llegando mientras BelIA trabaja: el texto, y el aviso de que
+ *  va a buscar algo (lo escrito antes de eso no es la respuesta). */
+export type EventoDeBelia =
+  | { tipo: "texto"; texto: string }
+  | { tipo: "herramientas"; nombres: string[] };
+
+/** La respuesta en vivo (doc 20 §9): el texto va llegando mientras BelIA
+ *  lo escribe. Va por la misma instancia de la casa (`api`, con la sesión y
+ *  su renovación); el navegador entrega lo recibido en cada avance de la
+ *  descarga. Termina con la respuesta completa, igual que la otra puerta. */
+export const preguntarABeliaEnVivo = async (
+  mensaje: string,
+  historial: TurnoDeBelia[],
+  pantalla: PantallaDeBelia,
+  alEscribir: (e: EventoDeBelia) => void,
+): Promise<RespuestaDeBelia> => {
+  let leido = 0;
+  let final: RespuestaDeBelia | null = null;
+  let falla: { status?: number; message?: string } | null = null;
+  const alLeer = (evento: string, datos: unknown) => {
+    if (evento === "fin") final = datos as RespuestaDeBelia;
+    else if (evento === "error") falla = datos as typeof falla;
+    else alEscribir(datos as EventoDeBelia);
+  };
+  try {
+    const r = await api.post(
+      API_ROUTES.ASISTENTE_EN_VIVO,
+      { mensaje, historial, pantalla },
+      {
+        responseType: "text",
+        onDownloadProgress: (p) => {
+          const xhr = p.event?.target as XMLHttpRequest | undefined;
+          if (xhr?.responseText)
+            leido = leerEventos(xhr.responseText, leido, alLeer);
+        },
+      },
+    );
+    leido = leerEventos(String(r.data ?? ""), leido, alLeer);
+  } catch (e) {
+    // Lo que el motor rechaza antes de empezar (el tope, el cargo) llega
+    // como texto: se lee como JSON para que humanizeApiError lo entienda.
+    const resp = (e as { response?: { data?: unknown } }).response;
+    if (resp && typeof resp.data === "string") {
+      try {
+        resp.data = JSON.parse(resp.data);
+      } catch {
+        // Se queda como texto.
+      }
+    }
+    throw e;
+  }
+  if (falla) {
+    const { status, message } = falla as { status?: number; message?: string };
+    throw { response: { status, data: { message } } };
+  }
+  if (!final) throw new Error("La respuesta de BelIA se cortó en el camino.");
+  return final;
+};
 
 export const estadoDeBelia = async () =>
   (await apiRequest(API_ROUTES.ASISTENTE_ESTADO, "GET")) as EstadoDeBelia;

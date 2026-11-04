@@ -34,6 +34,7 @@ export default function PropuestaDeBelia({
   const ocultas = p.lineas.length - lineas.length;
   const enviando = p.estado === "enviando";
   const esNota = p.tipo === "nota";
+  const esNueva = p.tipo === "cotizacion_nueva";
 
   return (
     <article className="rounded-2xl border border-blue-200 bg-white text-sm shadow-sm">
@@ -44,20 +45,55 @@ export default function PropuestaDeBelia({
           aria-hidden="true"
         />
         <p className="min-w-0 flex-1 truncate font-semibold text-slate-800">
-          {esNota ? "Nota en la bitácora" : "Propuesta"} ·{" "}
-          <Link
-            to={p.enlace}
-            onClick={alNavegar}
-            className="text-blue-600 underline underline-offset-2 hover:text-blue-800"
-          >
-            N° {p.numero}
-          </Link>
+          {esNota
+            ? "Nota en la bitácora"
+            : esNueva
+              ? p.nueva?.es === "requerimiento"
+                ? "Requerimiento nuevo"
+                : "Cotización nueva"
+              : "Propuesta"}
+          {p.enlace && p.numero != null && (
+            <>
+              {" · "}
+              <Link
+                to={p.enlace}
+                onClick={alNavegar}
+                className="text-blue-600 underline underline-offset-2 hover:text-blue-800"
+              >
+                N° {p.numero}
+              </Link>
+            </>
+          )}
           {p.cliente ? ` · ${p.cliente}` : ""}
         </p>
       </header>
 
       <div className="space-y-2.5 px-3.5 py-3">
         {!esNota && <p className="font-medium text-slate-800">{p.resumen}</p>}
+
+        {esNueva && p.nueva && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-2.5 py-2 text-xs">
+            <dt className="text-slate-500">Cliente</dt>
+            <dd className="text-slate-800">
+              {p.nueva.cliente}
+              {p.nueva.cliente_nuevo && (
+                <span className="ml-1.5 text-emerald-700">cliente nuevo</span>
+              )}
+            </dd>
+            <dt className="text-slate-500">Evento</dt>
+            <dd className="text-slate-800">{p.nueva.tipo_de_evento}</dd>
+            <dt className="text-slate-500">Fecha</dt>
+            <dd className="text-slate-800">{p.nueva.fechas}</dd>
+            <dt className="text-slate-500">Personas</dt>
+            <dd className="text-slate-800">{p.nueva.personas}</dd>
+            {p.nueva.contacto && (
+              <>
+                <dt className="text-slate-500">Contacto</dt>
+                <dd className="text-slate-800">{p.nueva.contacto}</dd>
+              </>
+            )}
+          </dl>
+        )}
 
         {esNota && p.nota && (
           <div className="space-y-1">
@@ -114,7 +150,15 @@ export default function PropuestaDeBelia({
           </button>
         )}
 
-        {p.total && (
+        {p.total && esNueva && (
+          <p className="flex items-baseline gap-x-1.5 border-t border-slate-100 pt-2 text-slate-700">
+            <span>Total</span>
+            <span className="whitespace-nowrap font-semibold text-slate-900">
+              {p.total.despues}
+            </span>
+          </p>
+        )}
+        {p.total && !esNueva && (
           <p className="flex flex-wrap items-baseline gap-x-1.5 border-t border-slate-100 pt-2 text-slate-700">
             <span>Total</span>
             <span className="whitespace-nowrap">{p.total.antes}</span>
@@ -202,7 +246,13 @@ export default function PropuestaDeBelia({
               disabled={enviando}
               className="min-h-[40px] flex-1 rounded-xl bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {enviando ? "Aplicando…" : esNota ? "Sí, anotar" : "Sí, aplicar"}
+              {enviando
+                ? "Aplicando…"
+                : esNota
+                  ? "Sí, anotar"
+                  : esNueva
+                    ? "Sí, crear"
+                    : "Sí, aplicar"}
             </button>
             <button
               type="button"
@@ -218,7 +268,7 @@ export default function PropuestaDeBelia({
           <div className="flex items-center gap-2 pt-1 text-emerald-700">
             <Check size={16} aria-hidden="true" />
             <p className="flex-1 font-medium">
-              {esNota ? "Anotada" : "Aplicada"}
+              {esNota ? "Anotada" : esNueva ? "Creada" : "Aplicada"}
               {p.total_final ? ` · total ${p.total_final}` : ""}
             </p>
             {p.se_puede_deshacer && (

@@ -8,6 +8,7 @@ export const API_ROUTES = {
 
   // BelIA, la asistente con IA (doc 20)
   ASISTENTE_MENSAJES: "/asistente/mensajes",
+  ASISTENTE_EN_VIVO: "/asistente/mensajes/en-vivo",
   ASISTENTE_ESTADO: "/asistente/estado",
   // fase 2: + "/<id>/aplicar", "/<id>/descartar" o "/<id>/deshacer"
   ASISTENTE_PROPUESTAS: "/asistente/propuestas",

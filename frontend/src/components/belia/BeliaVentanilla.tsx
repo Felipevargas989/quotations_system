@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarDays,
+  CalendarPlus,
   CircleHelp,
   ListChecks,
   Minus,
@@ -29,7 +30,7 @@ const BURBUJA = {
 } as const;
 
 const PREGUNTA_DE_LA_BURBUJA = {
-  atencion: "¿Qué tengo pendiente para hoy?",
+  atencion: "¿Qué tengo que revisar hoy?",
   enojada:
     "¿Qué cotizaciones requieren seguimiento? Empecemos por las más urgentes.",
 } as const;
@@ -56,9 +57,11 @@ export default function BeliaVentanilla() {
     return () => clearTimeout(t);
   }, [burbuja]);
 
+  // Al final de la conversación, también mientras BelIA escribe en vivo.
+  const ultimoTexto = b.turnos[b.turnos.length - 1]?.texto.length ?? 0;
   useEffect(() => {
     finRef.current?.scrollIntoView({ block: "end" });
-  }, [b.turnos.length, b.pensando, b.abierta]);
+  }, [b.turnos.length, ultimoTexto, b.pensando, b.abierta]);
 
   useEffect(() => {
     if (b.abierta) campoRef.current?.focus();
@@ -101,6 +104,13 @@ export default function BeliaVentanilla() {
           texto: "Catálogo",
           pregunta: "¿Qué menús de cena tenemos y cuánto valen?",
         },
+    // «Crear evento», de la lámina de Felipe (doc 20 §8b): BelIA pregunta
+    // lo que falta y propone la cotización con «Sí, crear».
+    {
+      icono: CalendarPlus,
+      texto: "Crear evento",
+      pregunta: "Quiero crear un evento nuevo.",
+    },
     { icono: CircleHelp, texto: "Ayuda", pregunta: "¿Qué puedes hacer?" },
   ];
 
@@ -227,7 +237,10 @@ export default function BeliaVentanilla() {
                 <PropuestaDeBelia
                   key={p.id}
                   p={p}
-                  esLaAbierta={b.cotizacionAbierta === p.cotizacion_id}
+                  esLaAbierta={
+                    Boolean(p.cotizacion_id) &&
+                    b.cotizacionAbierta === p.cotizacion_id
+                  }
                   onAplicar={() => void b.responder(i, p.id, "aplicar")}
                   onDescartar={() => void b.responder(i, p.id, "descartar")}
                   onDeshacer={() => void b.responder(i, p.id, "deshacer")}
@@ -238,7 +251,7 @@ export default function BeliaVentanilla() {
           ),
         )}
 
-        {b.pensando && (
+        {b.pensando && !b.escribiendo && (
           <p
             className="flex items-center gap-2 text-sm text-slate-500"
             role="status"

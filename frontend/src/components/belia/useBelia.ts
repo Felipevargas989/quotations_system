@@ -5,8 +5,9 @@ import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   estadoDeBelia,
-  preguntarABelia,
+  preguntarABeliaEnVivo,
   responderPropuesta,
+  type EventoDeBelia,
   type EstadoDeBelia,
   type RespuestaDeBelia,
   type TarjetaDePropuesta,
@@ -54,6 +55,8 @@ export type PropuestaEnPantalla = TarjetaDePropuesta & {
 export type TurnoEnPantalla = TurnoDeBelia & {
   error?: boolean;
   propuestas?: PropuestaEnPantalla[];
+  /** El turno que BelIA está escribiendo en vivo: no viaja ni se guarda. */
+  escribiendo?: boolean;
 };
 
 const CLAVE_CONVERSACION = "belia:conversacion";
@@ -108,7 +111,9 @@ export function useBelia() {
 
   const [abierta, setAbierta] = useState(false);
   const [turnos, setTurnos] = useState<TurnoEnPantalla[]>(() =>
-    leer("session", CLAVE_CONVERSACION, []),
+    leer<TurnoEnPantalla[]>("session", CLAVE_CONVERSACION, []).filter(
+      (t) => !t.escribiendo,
+    ),
   );
   const [pensando, setPensando] = useState(false);
   const [uso, setUso] = useState<RespuestaDeBelia["uso_del_mes"]>();
@@ -131,7 +136,11 @@ export function useBelia() {
   }, [pensando]);
 
   useEffect(() => {
-    guardar("session", CLAVE_CONVERSACION, turnos.slice(-MAX_TURNOS));
+    guardar(
+      "session",
+      CLAVE_CONVERSACION,
+      turnos.filter((t) => !t.escribiendo).slice(-MAX_TURNOS),
+    );
   }, [turnos]);
 
   // El humor de fondo: lo vencido y lo nuevo de hoy, cada 5 minutos.
@@ -215,14 +224,26 @@ export function useBelia() {
         .map((t) => ({ rol: t.rol, texto: textoParaBelia(t) }));
       setTurnos((p) => [...p, { rol: "persona", texto: mensaje }]);
       setPensando(true);
+      // La respuesta en vivo (doc 20 §9): el texto aparece mientras BelIA
+      // lo escribe. Si va a buscar algo, lo escrito hasta ahí se borra: la
+      // respuesta es lo que escribe al final.
+      const alEscribir = (e: EventoDeBelia) =>
+        setTurnos((p) => {
+          if (e.tipo === "herramientas") return p.filter((t) => !t.escribiendo);
+          const ultimo = p[p.length - 1];
+          return ultimo?.escribiendo
+            ? [...p.slice(0, -1), { ...ultimo, texto: ultimo.texto + e.texto }]
+            : [...p, { rol: "belia", texto: e.texto, escribiendo: true }];
+        });
       try {
-        const r = await preguntarABelia(
+        const r = await preguntarABeliaEnVivo(
           mensaje,
           historial,
           pantallaDe(pathname),
+          alEscribir,
         );
         setTurnos((p) => [
-          ...p,
+          ...p.filter((t) => !t.escribiendo),
           {
             rol: "belia",
             texto: r.respuesta,
@@ -239,7 +260,7 @@ export function useBelia() {
         if (r.uso_del_mes) setUso(r.uso_del_mes);
       } catch (e) {
         setTurnos((p) => [
-          ...p,
+          ...p.filter((t) => !t.escribiendo),
           {
             rol: "belia",
             texto: humanizeApiError(
@@ -287,6 +308,10 @@ export function useBelia() {
           estado: r.estado,
           total_final: r.total,
           se_puede_deshacer: r.se_puede_deshacer ?? false,
+          // Un evento nuevo recién tiene N° al crearse.
+          ...(r.numero != null && r.enlace
+            ? { numero: r.numero, enlace: r.enlace }
+            : {}),
         });
         if (r.estado === "descartada") return;
         if (r.estado === "aplicada") celebrarConBelia();
@@ -296,7 +321,7 @@ export function useBelia() {
         // cambio al guardar. La conversación sigue (sessionStorage).
         void queryClient.invalidateQueries();
         if (
-          tarjeta &&
+          tarjeta?.cotizacion_id &&
           pantallaDe(pathname).cotizacion_id === tarjeta.cotizacion_id
         ) {
           setTimeout(() => window.location.reload(), 1500);
@@ -339,6 +364,8 @@ export function useBelia() {
     nuevaConversacion: () => setTurnos([]),
     turnos,
     pensando,
+    /** BelIA ya está escribiendo la respuesta (en vivo). */
+    escribiendo: turnos.some((t) => t.escribiendo),
     enviar,
     responder,
     /** La cotización que la persona tiene abierta, si tiene una. */

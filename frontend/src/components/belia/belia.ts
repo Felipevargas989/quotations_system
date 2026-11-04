@@ -84,16 +84,23 @@ export const animoDe = (a: {
   return "espera";
 };
 
+/** Lo que hace que BelIA llame la atención cuando sube (doc 20 §8b). */
+const LO_IMPORTANTE = [
+  "vencen_hoy",
+  "requerimientos_de_hoy",
+  "topes_de_calendario",
+  "comprobantes_por_revisar",
+] as const;
+
 /** Si desde la última vez que miró llegó algo importante: un compromiso
- *  que vence hoy o un requerimiento nuevo. */
+ *  que vence hoy, un requerimiento nuevo, un tope de calendario o un
+ *  comprobante del portal por revisar. */
 export const hayAlgoNuevo = (
   ahora: EstadoDeBelia | undefined,
   antes: EstadoDeBelia | undefined,
 ): boolean =>
   Boolean(
-    ahora &&
-      (ahora.vencen_hoy > (antes?.vencen_hoy ?? 0) ||
-        ahora.requerimientos_de_hoy > (antes?.requerimientos_de_hoy ?? 0)),
+    ahora && LO_IMPORTANTE.some((k) => (ahora[k] ?? 0) > (antes?.[k] ?? 0)),
   );
 
 // ---------- Lo que contesta BelIA: un markdown chico ----------
@@ -207,12 +214,13 @@ const LO_QUE_PASO: Record<EstadoDeTarjeta, string> = {
  *  no sabría si su propuesta se aplicó. */
 export const textoParaBelia = (t: {
   texto: string;
-  propuestas?: { numero: number; estado: EstadoDeTarjeta }[];
+  propuestas?: { numero: number | null; estado: EstadoDeTarjeta }[];
 }): string =>
   t.propuestas?.length
     ? `${t.texto}\n\n${t.propuestas
         .map(
-          (p) => `(Propuesta de la N° ${p.numero}: ${LO_QUE_PASO[p.estado]}.)`,
+          (p) =>
+            `(Propuesta ${p.numero != null ? `de la N° ${p.numero}` : "de un evento nuevo"}: ${LO_QUE_PASO[p.estado]}.)`,
         )
         .join("\n")}`
     : t.texto;
