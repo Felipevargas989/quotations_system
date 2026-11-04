@@ -55,6 +55,24 @@
 > - La cara es un círculo con una huella hasta que llegue el SVG de Bela
 >   con sus partes separadas.
 > - Su mapa es `mapa/25_BELIA.md`.
+>
+> **03-11-2026, noche · La cara, más barata y la fase 1 completa.**
+> - **La cara** es el dibujo de Bela que mandó GPT, en seis piezas. Va sin
+>   sonido (Felipe: *"es sin sonido esto"*).
+> - **Más barata** (Felipe: *"vamos con tus 4 recomendaciones"*):
+>   - busca varios productos del catálogo de una vez;
+>   - guarda la conversación en caché dentro de cada pregunta;
+>   - guarda sus instrucciones una hora;
+>   - piensa con esfuerzo «medium».
+> - **Celebra** cuando se marca «Listo», se crea un plan de pagos (es
+>   aceptar), se registra un abono o se marca un evento realizado.
+> - **Consultas nuevas (sprint 3):**
+>   - pagos y cobranza, para operaciones para arriba;
+>   - insumos, proveedores y mobiliario, para operaciones para arriba;
+>   - personal, solo administración.
+> - **Lo que no hace:** calcular lo que hay que comprar (eso es Compras,
+>   mapa 25 §8 riesgo 5).
+> - **Falta:** probarlo en el lab, la 180 en producción y la fase 2.
 
 ## 1. Por qué
 

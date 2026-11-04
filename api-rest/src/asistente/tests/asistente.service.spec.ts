@@ -215,15 +215,46 @@ describe('AsistenteService (BelIA)', () => {
 });
 
 describe('las herramientas de cada cargo', () => {
-  it('recepción no recibe ninguna; quien vende recibe las seis', () => {
+  it('cada cargo recibe solo lo que ve en sus pantallas', () => {
     const con = (role: UserRole) =>
       herramientasPara({
         role,
-        derechos: ['base', 'calendario', 'asistente'],
+        derechos: [
+          'base',
+          'calendario',
+          'post_venta',
+          'logistica',
+          'personal',
+          'asistente',
+        ],
       } as unknown as User).map((h) => h.nombre);
     expect(con(UserRole.RECEPCION)).toEqual([]);
+    // Quien vende: lo del tablero, el catálogo y los clientes.
     expect(con(UserRole.VENDEDOR)).toHaveLength(6);
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(6);
+    expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
+    // Operaciones suma pagos y logística, pero no el personal.
+    expect(con(UserRole.OPERACIONES)).toEqual(
+      expect.arrayContaining([
+        'pagos_del_evento',
+        'cobranza',
+        'insumos',
+        'proveedores',
+        'mobiliario',
+      ]),
+    );
+    expect(con(UserRole.OPERACIONES)).not.toContain('personal');
+    // Administración, todo.
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(12);
+  });
+
+  it('sin el derecho del plan, la herramienta no se ofrece', () => {
+    const nombres = herramientasPara({
+      role: UserRole.ADMINISTRADOR,
+      derechos: ['base', 'asistente'],
+    } as unknown as User).map((h) => h.nombre);
+    expect(nombres).not.toEqual(expect.arrayContaining(['pagos_del_evento']));
+    expect(nombres).not.toContain('insumos');
+    expect(nombres).not.toContain('personal');
   });
 
   it('el calendario pide el derecho del plan', () => {

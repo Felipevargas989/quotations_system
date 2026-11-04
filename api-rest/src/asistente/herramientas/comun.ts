@@ -94,7 +94,8 @@ export const estados = (v: unknown): QuotationStatus[] | undefined => {
 
 // ---------- Escribir como lo ve la persona ----------
 
-export const pesos = (n: number | null | undefined): string =>
+/** Los montos llegan de la base como número o como texto (numeric). */
+export const pesos = (n: number | string | null | undefined): string =>
   `$${Math.round(Number(n) || 0).toLocaleString('es-CL')}`;
 
 export const estadoDe = (e: QuotationStatus): string => STATUS_LABELS[e] ?? e;
