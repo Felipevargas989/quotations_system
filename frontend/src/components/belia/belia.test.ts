@@ -180,6 +180,22 @@ describe("textoParaBelia", () => {
   it("sin propuestas, viaja el texto tal cual", () => {
     expect(textoParaBelia({ texto: "Hola" })).toBe("Hola");
   });
+  it("una lección no se confunde con un evento nuevo", () => {
+    expect(
+      textoParaBelia({
+        texto: "Te dejé la lección.",
+        propuestas: [{ numero: null, estado: "aplicada", tipo: "leccion" }],
+      }),
+    ).toContain("(Lección para anotar: la persona la aplicó");
+    expect(
+      textoParaBelia({
+        texto: "Te dejé el evento.",
+        propuestas: [
+          { numero: null, estado: "descartada", tipo: "cotizacion_nueva" },
+        ],
+      }),
+    ).toContain("(Propuesta de un evento nuevo: la persona dijo que no.)");
+  });
 });
 
 describe("la conversación que se guarda en Eventia (doc 20 §13)", () => {

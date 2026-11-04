@@ -160,6 +160,17 @@ describe('Aprobar, descartar u olvidar una lección', () => {
       decidida_por: 'perfil-1',
       decidida_por_nombre: 'Camila',
     });
+    // Sin el nombre en la sesión, el de la tarjeta.
+    await chat.decidir(
+      { ...camila(UserRole.ADMINISTRADOR), full_name: undefined } as User,
+      { ...p, usuario_nombre: 'Felipe Vargas' } as Propuesta,
+    );
+    expect(lecciones.mover).toHaveBeenLastCalledWith(
+      1,
+      ID,
+      'pendiente',
+      expect.objectContaining({ decidida_por_nombre: 'Felipe Vargas' }),
+    );
     lecciones.mover.mockResolvedValue(null);
     await expect(
       chat.decidir(camila(UserRole.ADMINISTRADOR), p),

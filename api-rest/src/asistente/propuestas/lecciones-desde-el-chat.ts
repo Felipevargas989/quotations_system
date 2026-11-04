@@ -232,7 +232,10 @@ export class LeccionesDesdeElChat {
       {
         estado: CAMINO[decision].a,
         decidida_por: usuario.id,
-        decidida_por_nombre: usuario.full_name?.trim() || null,
+        // La sesión no trae el nombre: va el de la tarjeta, que es de esta
+        // misma persona (solo la aplica quien la pidió).
+        decidida_por_nombre:
+          usuario.full_name?.trim() || p.usuario_nombre || null,
       },
     );
     if (!movida) {
