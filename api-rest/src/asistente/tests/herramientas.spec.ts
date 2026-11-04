@@ -1,5 +1,9 @@
 import type { Catalogo } from 'src/quotations/generar/catalogo';
-import { buscarEn, normal } from '../herramientas/buscar-en-catalogo';
+import {
+  buscarEn,
+  buscarEnCatalogo,
+  normal,
+} from '../herramientas/buscar-en-catalogo';
 import { conDia, fecha, inicioDelDiaEnChile } from '../herramientas/comun';
 import { semaforo } from '../herramientas/seguimientos-pendientes';
 import { diasDe } from '../herramientas/ver-cotizacion';
@@ -165,5 +169,34 @@ describe('las fechas', () => {
     expect(inicioDelDiaEnChile('2026-11-03')).toBe('2026-11-03T03:00:00.000Z');
     // Y a las 4 en invierno.
     expect(inicioDelDiaEnChile('2026-07-15')).toBe('2026-07-15T04:00:00.000Z');
+  });
+});
+
+describe('buscar_en_catalogo con varios a la vez', () => {
+  it('una sola búsqueda trae cada producto con lo suyo', async () => {
+    const catalogo = {
+      categorias: [],
+      menus: [],
+      servicios: new Map([
+        [1, { id: 1, nombre: 'Once tradicional', precio: 9300 }],
+        [2, { id: 2, nombre: 'Alojamiento temporada alta', precio: 28000 }],
+      ]),
+      fijos: new Map(),
+      paquetes: [],
+    };
+    const ctx = {
+      usuario: { company_id: 1 },
+      catalogo: { catalogo: jest.fn().mockResolvedValue(catalogo) },
+    } as unknown as Parameters<typeof buscarEnCatalogo.ejecutar>[1];
+    const r = (await buscarEnCatalogo.ejecutar(
+      { textos: ['once', 'alojamiento', 'x'] },
+      ctx,
+    )) as { busquedas: Array<{ texto: string; encontrados: number }> };
+    // «x» no llega a dos letras: no se busca.
+    expect(r.busquedas.map((b) => [b.texto, b.encontrados])).toEqual([
+      ['once', 1],
+      ['alojamiento', 1],
+    ]);
+    expect(ctx.catalogo.catalogo).toHaveBeenCalledTimes(1);
   });
 });

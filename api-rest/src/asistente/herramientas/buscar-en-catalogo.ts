@@ -12,13 +12,20 @@ const TIPOS = ['todo', 'servicios', 'menus', 'fijos', 'paquetes'] as const;
 type Tipo = (typeof TIPOS)[number];
 
 const MAX = 40;
+const MAX_TEXTOS = 15;
+const MAX_POR_TEXTO = 8;
 
 /** Sin mayúsculas ni tildes: «Leche asada» calza con «leche ásada». */
 export const normal = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Exportada para probarla sin base. */
-export const buscarEn = (catalogo: Catalogo, buscado: string, tipo: Tipo) => {
+export const buscarEn = (
+  catalogo: Catalogo,
+  buscado: string,
+  tipo: Tipo,
+  max = MAX,
+) => {
   const q = normal(buscado);
   const calza = (s: string) => normal(s).includes(q);
 
@@ -85,8 +92,8 @@ export const buscarEn = (catalogo: Catalogo, buscado: string, tipo: Tipo) => {
   }
   return {
     encontrados: hallazgos.length,
-    mostrados: Math.min(MAX, hallazgos.length),
-    resultados: hallazgos.slice(0, MAX),
+    mostrados: Math.min(max, hallazgos.length),
+    resultados: hallazgos.slice(0, max),
   };
 };
 
@@ -95,13 +102,21 @@ export const buscarEnCatalogo: Herramienta = {
   descripcion:
     'Busca en el catálogo de hoy por nombre (sin importar tildes): servicios por persona con ' +
     'su categoría y precio, menús guardados con lo que traen y su valor por persona (también ' +
-    'si el texto está en uno de sus platos), fijos con su precio y paquetes.',
+    'si el texto está en uno de sus platos), fijos con su precio y paquetes. Para armar un ' +
+    'pedido o una minuta, manda TODOS los productos juntos en `textos`: es una sola búsqueda.',
   esquema: {
     type: 'object',
     properties: {
       texto: {
         type: 'string',
-        description: 'Lo que se busca: «leche asada», «cena nivel 1»…',
+        description: 'Una sola cosa: «leche asada», «cena nivel 1»…',
+      },
+      textos: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 15,
+        description:
+          'Varias cosas de una vez (hasta 15): «once», «alojamiento», «almuerzo»… Trae hasta 8 resultados de cada una.',
       },
       tipo: {
         type: 'string',
@@ -109,12 +124,18 @@ export const buscarEnCatalogo: Herramienta = {
         description: 'Para acotar. Si no se dice: todo.',
       },
     },
-    required: ['texto'],
   },
   cargos: SALES_AND_UP,
   async ejecutar(entrada, ctx) {
-    const buscado = texto(entrada.texto, 80);
-    if (!buscado || buscado.length < 2) {
+    // Varias de una vez (Felipe, 03-11: una pregunta buscó diez veces, una
+    // por producto, y costó el triple).
+    const pedidos = (
+      Array.isArray(entrada.textos) ? entrada.textos : [entrada.texto]
+    )
+      .map((t) => texto(t, 80))
+      .filter((t): t is string => Boolean(t && t.length >= 2))
+      .slice(0, MAX_TEXTOS);
+    if (pedidos.length === 0) {
       throw new ErrorDeHerramienta(
         'Falta qué buscar (dos letras por lo menos).',
       );
@@ -123,6 +144,12 @@ export const buscarEnCatalogo: Herramienta = {
       ? (entrada.tipo as Tipo)
       : 'todo';
     const catalogo = await ctx.catalogo.catalogo(ctx.usuario.company_id);
-    return buscarEn(catalogo, buscado, tipo);
+    if (pedidos.length === 1) return buscarEn(catalogo, pedidos[0], tipo);
+    return {
+      busquedas: pedidos.map((t) => ({
+        texto: t,
+        ...buscarEn(catalogo, t, tipo, MAX_POR_TEXTO),
+      })),
+    };
   },
 };

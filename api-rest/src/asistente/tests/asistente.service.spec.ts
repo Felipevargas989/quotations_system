@@ -10,7 +10,12 @@ import type { QuotationsRepository } from 'src/quotations/quotations.repository'
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../testing/mocks';
 import type { AsistenteRepository } from '../asistente.repository';
-import { AsistenteService, comoMensajes } from '../asistente.service';
+import {
+  AsistenteService,
+  comoMensajes,
+  costoDe,
+  usoDe as usoDeLaApi,
+} from '../asistente.service';
 import { herramientasPara } from '../herramientas';
 
 // BELIA (doc 20). Lo que importa probar acá son las barreras: la empresa
@@ -314,5 +319,63 @@ describe('el ánimo de BelIA (GET /asistente/estado)', () => {
       expect.objectContaining({ tipo: RequestType.REQUERIMIENTO, limite: 1 }),
     );
     expect(crear).not.toHaveBeenCalled();
+  });
+});
+
+describe('lo que cuesta (doc 20 §7)', () => {
+  const llave = process.env.ANTHROPIC_API_KEY;
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = 'llave_de_prueba';
+  });
+  afterAll(() => {
+    process.env.ANTHROPIC_API_KEY = llave;
+  });
+
+  it('guarda las instrucciones una hora, marca solo el final de la conversación y piensa «medium»', async () => {
+    const { servicio, create } = armar([
+      pide('buscar_cotizaciones', { cliente: 'Rudel' }),
+      texto('La 500.'),
+    ]);
+    await servicio.responder({ mensaje: '¿y Rudel?' }, usuario());
+    const pedido = create.mock.calls[1][0] as unknown as {
+      system: Array<{ cache_control?: { ttl?: string } }>;
+      tools: Array<{ cache_control?: { ttl?: string } }>;
+      output_config: { effort: string };
+      messages: Array<{ content: unknown }>;
+    };
+    expect(pedido.system[0].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+    expect(pedido.tools[pedido.tools.length - 1].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+    expect(pedido.output_config).toEqual({ effort: 'medium' });
+    // Una sola marca en la conversación: en el último bloque.
+    const marcas = JSON.stringify(pedido.messages).match(/cache_control/g);
+    expect(marcas).toHaveLength(1);
+    const ultimo = pedido.messages[pedido.messages.length - 1]
+      .content as Array<{
+      cache_control?: unknown;
+    }>;
+    expect(ultimo[ultimo.length - 1].cache_control).toEqual({
+      type: 'ephemeral',
+    });
+  });
+
+  it('la caché de una hora se cobra a su precio', () => {
+    const u = usoDeLaApi({
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 2_000_000,
+      cache_creation: {
+        ephemeral_1h_input_tokens: 1_000_000,
+        ephemeral_5m_input_tokens: 1_000_000,
+      },
+    } as unknown as Parameters<typeof usoDeLaApi>[0]);
+    // Opus 5.5: US$ 8 el millón a una hora y US$ 5 a cinco minutos.
+    expect(costoDe(u, 'claude-opus-5-5')).toBe(13);
   });
 });

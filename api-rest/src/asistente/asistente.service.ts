@@ -13,8 +13,6 @@ import {
   costoDelUso,
   errorDeIA,
   hoyEnChile,
-  usoDeLaRespuesta,
-  type UsoDeTokens,
 } from 'src/oportunidades/analisis/comun';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { RequestType } from 'src/quotations/constants/constants';
@@ -110,19 +108,101 @@ export const comoMensajes = (
   return mensajes;
 };
 
-const sumar = (a: UsoDeTokens, b: UsoDeTokens): UsoDeTokens => ({
-  entrada: a.entrada + b.entrada,
-  salida: a.salida + b.salida,
-  cacheEscrita: a.cacheEscrita + b.cacheEscrita,
-  cacheLeida: a.cacheLeida + b.cacheLeida,
-});
+// LO QUE CUESTA (doc 20 §7; Felipe, 03-11: "alguna forma de que sea más
+// eficiente?"). Las instrucciones y las herramientas se guardan en la caché
+// una hora; la conversación, cinco minutos, con la marca siempre al final,
+// así cada vuelta lee de la caché lo de las anteriores en vez de pagarlo
+// de nuevo. Las de una hora van antes que las de cinco minutos, como pide
+// la API, y son 3 marcas de las 4 que permite.
+const CACHE_5M: Anthropic.CacheControlEphemeral = { type: 'ephemeral' };
+const CACHE_1H: Anthropic.CacheControlEphemeral = {
+  type: 'ephemeral',
+  ttl: '1h',
+};
 
-const SIN_USO: UsoDeTokens = {
+/** Los tokens de una respuesta, con la caché de cada duración aparte. */
+type Uso = {
+  entrada: number;
+  salida: number;
+  cacheLeida: number;
+  cache5m: number;
+  cache1h: number;
+};
+
+const SIN_USO: Uso = {
   entrada: 0,
   salida: 0,
-  cacheEscrita: 0,
   cacheLeida: 0,
+  cache5m: 0,
+  cache1h: 0,
 };
+
+export const usoDe = (u: Anthropic.Usage): Uso => {
+  const escrita = u.cache_creation_input_tokens ?? 0;
+  const unaHora = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  return {
+    entrada: u.input_tokens ?? 0,
+    salida: u.output_tokens ?? 0,
+    cacheLeida: u.cache_read_input_tokens ?? 0,
+    cache5m: u.cache_creation?.ephemeral_5m_input_tokens ?? escrita - unaHora,
+    cache1h: unaHora,
+  };
+};
+
+const sumar = (a: Uso, b: Uso): Uso => ({
+  entrada: a.entrada + b.entrada,
+  salida: a.salida + b.salida,
+  cacheLeida: a.cacheLeida + b.cacheLeida,
+  cache5m: a.cache5m + b.cache5m,
+  cache1h: a.cache1h + b.cache1h,
+});
+
+/** Lo que cuesta, con los precios de la página de Anthropic (verificados
+ *  el 03-11): la caché de una hora se escribe más cara que la de cinco
+ *  minutos. */
+export const costoDe = (u: Uso, modelo: string): number =>
+  costoDelUso(
+    {
+      entrada: u.entrada,
+      salida: u.salida,
+      cacheEscrita: u.cache5m,
+      cacheLeida: u.cacheLeida,
+    },
+    modelo,
+    '5m',
+  ) +
+  costoDelUso(
+    { entrada: 0, salida: 0, cacheEscrita: u.cache1h, cacheLeida: 0 },
+    modelo,
+    '1h',
+  );
+
+/** La marca de caché de la conversación va en su último bloque, y en ningún
+ *  otro: la de la vuelta anterior se saca. */
+export const marcarElFinal = (mensajes: Anthropic.MessageParam[]): void => {
+  for (const m of mensajes) {
+    if (typeof m.content === 'string') continue;
+    for (const b of m.content) {
+      delete (b as { cache_control?: unknown }).cache_control;
+    }
+  }
+  const ultimo = mensajes[mensajes.length - 1];
+  if (!ultimo) return;
+  if (typeof ultimo.content === 'string') {
+    ultimo.content = [
+      { type: 'text', text: ultimo.content, cache_control: CACHE_5M },
+    ];
+    return;
+  }
+  const bloque = ultimo.content[ultimo.content.length - 1];
+  if (bloque) (bloque as { cache_control?: unknown }).cache_control = CACHE_5M;
+};
+
+/** Cuánto piensa antes de contestar (doc 20 §7): «medium» por defecto,
+ *  porque escribir es lo más caro. Se cambia en Railway con
+ *  ESFUERZO_ASISTENTE. */
+const ESFUERZOS = ['low', 'medium', 'high'] as const;
+type Esfuerzo = (typeof ESFUERZOS)[number];
 
 @Injectable()
 export class AsistenteService {
@@ -151,6 +231,11 @@ export class AsistenteService {
 
   get modelo(): string {
     return process.env.MODELO_ASISTENTE?.trim() || MODELO_POR_DEFECTO;
+  }
+
+  get esfuerzo(): Esfuerzo {
+    const v = process.env.ESFUERZO_ASISTENTE?.trim();
+    return ESFUERZOS.includes(v as Esfuerzo) ? (v as Esfuerzo) : 'medium';
   }
 
   get tope(): number {
@@ -197,7 +282,7 @@ export class AsistenteService {
       {
         type: 'text',
         text: INSTRUCCIONES_FIJAS,
-        cache_control: { type: 'ephemeral' },
+        cache_control: CACHE_1H,
       },
       {
         type: 'text',
@@ -215,9 +300,7 @@ export class AsistenteService {
       description: h.descripcion,
       input_schema: h.esquema,
       // La lista va en caché junto con las instrucciones fijas.
-      ...(i === herramientas.length - 1
-        ? { cache_control: { type: 'ephemeral' as const } }
-        : {}),
+      ...(i === herramientas.length - 1 ? { cache_control: CACHE_1H } : {}),
     }));
     const mensajes: Anthropic.MessageParam[] = comoMensajes(
       dto.historial,
@@ -232,15 +315,17 @@ export class AsistenteService {
     let falla: unknown = null;
     try {
       for (; vueltas < MAX_VUELTAS; vueltas++) {
+        marcarElFinal(mensajes);
         const r = await this.cliente().messages.create({
           model: this.modelo,
           max_tokens: MAX_TOKENS,
           thinking: { type: 'adaptive' },
+          output_config: { effort: this.esfuerzo },
           system: sistema,
           ...(definiciones.length ? { tools: definiciones } : {}),
           messages: mensajes,
         });
-        uso = sumar(uso, usoDeLaRespuesta(r.usage));
+        uso = sumar(uso, usoDe(r.usage));
         const pedidas = r.content.filter(
           (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
         );
@@ -275,8 +360,11 @@ export class AsistenteService {
     }
 
     const segundos = Math.round((Date.now() - inicio) / 1000);
-    const costo = costoDelUso(uso, this.modelo, '5m');
-    if (uso.entrada + uso.salida + uso.cacheEscrita + uso.cacheLeida > 0) {
+    const costo = costoDe(uso, this.modelo);
+    if (
+      uso.entrada + uso.salida + uso.cache5m + uso.cache1h + uso.cacheLeida >
+      0
+    ) {
       await this.repositorio
         .registrarUso({
           company_id: empresa,
@@ -285,7 +373,7 @@ export class AsistenteService {
           modelo: this.modelo,
           tokens_entrada: uso.entrada,
           tokens_salida: uso.salida,
-          tokens_cache_escrita: uso.cacheEscrita,
+          tokens_cache_escrita: uso.cache5m + uso.cache1h,
           tokens_cache_leida: uso.cacheLeida,
           costo_usd: costo,
           segundos,
@@ -298,7 +386,7 @@ export class AsistenteService {
         );
     }
     this.logger.info(
-      `BelIA ${falla ? 'falló' : 'respondió'} en ${segundos} s · vueltas ${vueltas + 1} · herramientas ${usadas.join(',') || '-'} · entrada ${uso.entrada} · caché ${uso.cacheEscrita}/${uso.cacheLeida} · salida ${uso.salida} · US$ ${costo.toFixed(4)}`,
+      `BelIA ${falla ? 'falló' : 'respondió'} en ${segundos} s · vueltas ${vueltas + 1} · herramientas ${usadas.join(',') || '-'} · entrada ${uso.entrada} · caché 1h ${uso.cache1h} 5m ${uso.cache5m} leída ${uso.cacheLeida} · salida ${uso.salida} · US$ ${costo.toFixed(4)}`,
     );
     if (falla) {
       this.logger.error(`BelIA: ${mensajeDe(falla)}`);
