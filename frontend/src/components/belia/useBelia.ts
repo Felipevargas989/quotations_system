@@ -20,7 +20,6 @@ import {
   hayAlgoNuevo,
   pantallaDe,
 } from "./belia";
-import { ladrar } from "./ladrido";
 
 // EL CEREBRO DE LA VENTANILLA (doc 20 §8 y §8b): la conversación, el ánimo
 // de BelIA y cuándo duerme, avisa o celebra. La conversación vive en la
@@ -39,7 +38,6 @@ export type TurnoEnPantalla = TurnoDeBelia & { error?: boolean };
 const CLAVE_CONVERSACION = "belia:conversacion";
 const CLAVE_VISTO = "belia:visto";
 const CLAVE_ULTIMO_AVISO = "belia:ultimo-aviso";
-const CLAVE_SONIDO = "belia:sonido";
 const MAX_TURNOS = 30;
 const SEGUNDOS_DE_AVISO = 12;
 const SEGUNDOS_DE_FIESTA = 4;
@@ -101,10 +99,6 @@ export function useBelia() {
   const [celebrando, setCelebrando] = useState(false);
   // Mientras espera la respuesta: piensa y, si tarda, trabaja (doc 20 §8b).
   const [trabajando, setTrabajando] = useState(false);
-  // El ladrido suena solo si la persona lo activa (Felipe, 03-11).
-  const [sonido, setSonido] = useState(() =>
-    leer("local", CLAVE_SONIDO, false),
-  );
 
   useEffect(() => {
     if (!pensando) {
@@ -169,7 +163,6 @@ export function useBelia() {
     guardar("local", CLAVE_ULTIMO_AVISO, Date.now());
     setDormida(false);
     setAvisando(true);
-    if (leer("local", CLAVE_SONIDO, false)) ladrar();
     const t = setTimeout(() => setAvisando(false), SEGUNDOS_DE_AVISO * 1000);
     return () => clearTimeout(t);
     // Solo cuando cambian los números, no al abrir o cerrar.
@@ -261,12 +254,5 @@ export function useBelia() {
     estado: datos,
     uso,
     conCotizacion: Boolean(pantallaDe(pathname).cotizacion_id),
-    sonido,
-    cambiarSonido: () =>
-      setSonido((antes) => {
-        guardar("local", CLAVE_SONIDO, !antes);
-        if (!antes) ladrar();
-        return !antes;
-      }),
   };
 }

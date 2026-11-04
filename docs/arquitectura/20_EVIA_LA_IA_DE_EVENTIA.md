@@ -262,7 +262,7 @@ confirmar con él.
 |---|---|---|
 | Dormida | Cierra los ojitos, baja las orejas, una «Zzz» sobre la cabeza | *Unos minutos sin que nadie use Eventia (propuesta: 5)* |
 | Despierta | Abre los ojos, levanta las orejas, mueve la colita: «¡Guau! ¿Qué organizamos hoy?» | Al pincharla |
-| Llama tu atención | Un ladrido chico y la burbuja «¡Guau! Tienes algo importante que revisar». El sonido es opcional y no interrumpe todo el rato | *Algo nuevo e importante: un compromiso que vence hoy, un comprobante del portal por revisar, un requerimiento nuevo, un tope de calendario. Como mucho una vez por hora, sonido apagado por defecto* |
+| Llama tu atención | Un ladrido chico y la burbuja «¡Guau! Tienes algo importante que revisar». El sonido es opcional y no interrumpe todo el rato | *Algo nuevo e importante: un compromiso que vence hoy, un comprobante del portal por revisar, un requerimiento nuevo, un tope de calendario. Como mucho una vez por hora.* **Sin sonido** (Felipe, 03-11: *"es sin sonido esto"*): el ladrido es solo la burbuja y las ondas |
 | Se enoja | Frunce el ceño, levanta las orejas, se pone seria: «¡Oye! Tenemos demasiado trabajo acumulado. ¡Vamos a resolverlo!» | *Demasiado acumulado: propuesta, más de 10 cotizaciones con el compromiso vencido (la herramienta `seguimientos_pendientes`)* |
 | Celebra | Feliz, mueve la cola y celebra | *Un compromiso marcado «Listo», una cotización aceptada (la reserva), un abono registrado, un evento marcado realizado* |
 

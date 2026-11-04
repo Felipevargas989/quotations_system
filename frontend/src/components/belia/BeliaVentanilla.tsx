@@ -6,8 +6,6 @@ import {
   Minus,
   PawPrint,
   Send,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -153,15 +151,6 @@ export default function BeliaVentanilla() {
           <p className="text-base font-bold leading-tight">BelIA</p>
           <p className="text-xs text-blue-100">Asistente de Eventia</p>
         </div>
-        <button
-          type="button"
-          onClick={b.cambiarSonido}
-          aria-label={b.sonido ? "Silenciar el ladrido" : "Activar el ladrido"}
-          title={b.sonido ? "Ladrido activado" : "Ladrido en silencio"}
-          className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white"
-        >
-          {b.sonido ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        </button>
         <button
           type="button"
           onClick={b.cerrar}
