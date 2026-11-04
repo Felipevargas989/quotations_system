@@ -198,20 +198,28 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST :id/generaciones/propuesta': A,
     },
   ],
-  // BelIA (doc 20, 03-11-2026): "lo usa administración y vendedores".
+  // BelIA (doc 20, 03-11-2026): "lo usa administración y vendedores" y,
+  // desde el 04-11 (§13), también recepción: "para que también pueda la
+  // recepcionista trabajar con Belia". Lo que ve cada cargo lo deciden sus
+  // herramientas (a recepción, sin plata).
   [
     AsistenteController,
     {
-      'POST mensajes': S,
+      'POST mensajes': R,
       // La misma pregunta, con la respuesta en vivo (doc 20 §9).
-      'POST mensajes/en-vivo': S,
-      'GET estado': S,
+      'POST mensajes/en-vivo': R,
+      'GET estado': R,
+      // La conversación de quien escribe (§13, migración 182): siempre la
+      // de la sesión.
+      'GET conversacion': R,
+      'PUT conversacion': R,
+      'DELETE conversacion': R,
       // Fase 2: el «Sí, aplicar», el «No» y el «Deshacer» de la tarjeta.
-      // Las aceptadas, solo administración y operaciones: lo revisa
-      // PropuestasService, como Post-Venta → Servicios.
-      'POST propuestas/:id/aplicar': S,
-      'POST propuestas/:id/descartar': S,
-      'POST propuestas/:id/deshacer': S,
+      // Las aceptadas, solo administración y operaciones, y recepción solo
+      // sus requerimientos nuevos: lo revisa PropuestasService.
+      'POST propuestas/:id/aplicar': R,
+      'POST propuestas/:id/descartar': R,
+      'POST propuestas/:id/deshacer': R,
     },
   ],
 ];

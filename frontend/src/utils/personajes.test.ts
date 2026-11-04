@@ -4,10 +4,13 @@ import {
   COLORES_PERSONALES,
   COLOR_ASISTENTE,
   PERSONAJES,
+  PERSONAJE_BELIA,
   aparienciaDeAutor,
   colorAutomatico,
   colorValido,
+  esPersonajeElegible,
   imagenDePersonaje,
+  nombreDePersonaje,
   nombreDeAutor,
   type Apariencia,
 } from "./personajes";
@@ -42,6 +45,18 @@ describe("la lista de personajes", () => {
   it("el gris grafito del Asistente no se puede elegir", () => {
     expect(COLOR_ASISTENTE).toMatch(/^#[0-9a-f]{6}$/);
     expect(COLORES_PERSONALES.map((c) => c.hex)).not.toContain(COLOR_ASISTENTE);
+  });
+});
+
+describe("la carita de BelIA (04-11-2026)", () => {
+  it("tiene su imagen, su nombre y nadie la puede elegir", () => {
+    expect(PERSONAJES.map((p) => p.clave)).not.toContain(PERSONAJE_BELIA);
+    expect(esPersonajeElegible(PERSONAJE_BELIA)).toBe(false);
+    expect(imagenDePersonaje(PERSONAJE_BELIA)).toBe("/belia/icono.png");
+    expect(nombreDePersonaje(PERSONAJE_BELIA)).toBe("BelIA");
+    expect(
+      existsSync(new URL("../../public/belia/icono.png", import.meta.url)),
+    ).toBe(true);
   });
 });
 
@@ -131,6 +146,23 @@ describe("aparienciaDeAutor", () => {
     expect(aparienciaDeAutor(null, "Asistente", apariencias)).toEqual({
       personaje: "robot",
       color: COLOR_ASISTENTE,
+    });
+  });
+
+  it("BelIA lleva su carita y el gris de la IA", () => {
+    expect(aparienciaDeAutor(null, "BelIA", apariencias)).toEqual({
+      personaje: PERSONAJE_BELIA,
+      color: COLOR_ASISTENTE,
+    });
+  });
+
+  it("una persona que guardara la carita de BelIA no la muestra", () => {
+    const conBela = new Map<string, Apariencia>([
+      ["a-5", { user_id: "a-5", personaje: PERSONAJE_BELIA, color: null }],
+    ]);
+    expect(aparienciaDeAutor("a-5", "BelIA", conBela)).toEqual({
+      personaje: null,
+      color: null,
     });
   });
 

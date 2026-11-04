@@ -13,6 +13,12 @@ import { UpdateQuotationFollowupDto } from './dto/update-quotation-followup.dto'
 import { QuotationFollowupsRepository } from './quotation-followups.repository';
 import { CreateFollowupPayload, UpdateFollowupPayload } from './types';
 
+/** Lo que anota la IA: sin sesión detrás, la empresa la pone quien llama. */
+type NotaDeLaIA = Pick<
+  CreateFollowupPayload,
+  'quotation_id' | 'note' | 'tipo' | 'next_contact_date'
+>;
+
 // El semáforo solo lee la bitácora de lo vivo (Felipe, 28-10-2026): las
 // cotizaciones en curso y los eventos vigentes. Lo de las rechazadas,
 // realizadas y anuladas se ve al abrir su Seguimiento (findByQuotation);
@@ -153,15 +159,24 @@ export class QuotationFollowupsService {
   // así que nadie la edita ni la borra (la historia no se reescribe). La
   // empresa la pone quien llama, nunca un body, y el candado de empresa
   // sigue: la cotización tiene que ser de ella.
-  async crearComoAsistente(
+  async crearComoAsistente(companyId: Company['id'], p: NotaDeLaIA) {
+    return this.crearSinSesion(companyId, 'Asistente', p);
+  }
+
+  // Lo que anota BelIA, la ventanilla de chat (doc 20): las mismas reglas,
+  // pero firmada «BelIA», que en el Seguimiento sale con su carita y no con
+  // el robot (Felipe, 04-11-2026). Quién lo pidió va en el texto.
+  async crearComoBelia(companyId: Company['id'], p: NotaDeLaIA) {
+    return this.crearSinSesion(companyId, 'BelIA', p);
+  }
+
+  private async crearSinSesion(
     companyId: Company['id'],
-    p: Pick<
-      CreateFollowupPayload,
-      'quotation_id' | 'note' | 'tipo' | 'next_contact_date'
-    >,
+    autor: 'Asistente' | 'BelIA',
+    p: NotaDeLaIA,
   ) {
     this.logger.info(
-      `create followup (Asistente) for quotation ${p.quotation_id} company ${companyId}`,
+      `create followup (${autor}) for quotation ${p.quotation_id} company ${companyId}`,
     );
     const note = p.note.trim();
     if (!note) {
@@ -178,7 +193,7 @@ export class QuotationFollowupsService {
       quotation_id: p.quotation_id,
       company_id: companyId,
       author_user_id: null,
-      author_name: 'Asistente',
+      author_name: autor,
       note,
       tipo: p.tipo,
       next_contact_date: p.next_contact_date,

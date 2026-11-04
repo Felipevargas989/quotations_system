@@ -1,5 +1,5 @@
 import { tieneDerecho } from 'src/auth/derechos';
-import { OPERATIONS_AND_UP, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { OPERATIONS_AND_UP, RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { RequestType } from 'src/quotations/constants/constants';
 import {
   conDia,
@@ -10,6 +10,7 @@ import {
   pesos,
   type Herramienta,
 } from './comun';
+import { esRecepcion } from './recepcion';
 import { pendientesDe } from './seguimientos-pendientes';
 
 // «¿Qué tengo que revisar hoy?»: lo que hace que BelIA llame la atención
@@ -21,6 +22,8 @@ import { pendientesDe } from './seguimientos-pendientes';
 //   lista que pinta el borde rojo);
 // - los comprobantes que mandaron los clientes por el portal y nadie revisó
 //   (Post-Venta → Pagos: operaciones para arriba con `post_venta`).
+// A recepción (doc 20 §13, 04-11) le tocan solo los requerimientos que
+// llegaron hoy, sin enlace: los seguimientos y los topes son de quien vende.
 
 const MAX = 20;
 
@@ -30,12 +33,30 @@ export const avisosDeHoy: Herramienta = {
     'Lo importante de hoy, lo que hace que BelIA avise: los compromisos de seguimiento que ' +
     'vencen hoy, los requerimientos que llegaron hoy, las cotizaciones con tope de calendario ' +
     '(se topan con un evento aceptado) y, para operaciones y administración, los comprobantes ' +
-    'del portal que nadie ha revisado. Para «¿qué tengo que revisar hoy?».',
+    'del portal que nadie ha revisado. Para «¿qué tengo que revisar hoy?». A recepción, solo ' +
+    'los requerimientos que llegaron hoy.',
   esquema: { type: 'object', properties: {} },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
   async ejecutar(_entrada, ctx) {
     const empresa = ctx.usuario.company_id;
     const rol = ctx.usuario.role;
+    if (esRecepcion(rol)) {
+      const { filas } = await ctx.repositorio.buscarCotizaciones(empresa, {
+        tipo: RequestType.REQUERIMIENTO,
+        creadaDesde: inicioDelDiaEnChile(ctx.hoy),
+        orden: 'creada',
+        limite: MAX,
+      });
+      return {
+        requerimientos_de_hoy: filas.map((q) => ({
+          numero: q.quotation_number,
+          cliente: q.clients?.name ?? null,
+          tipo: q.event_type ?? undefined,
+          evento: conDia(diaDelEvento(q.event_date)),
+        })),
+        nota: 'Los seguimientos y los topes de calendario los ve quien vende.',
+      };
+    }
     const veComprobantes =
       OPERATIONS_AND_UP.includes(rol) &&
       tieneDerecho(ctx.usuario.derechos, 'post_venta');

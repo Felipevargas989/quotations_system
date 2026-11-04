@@ -73,6 +73,48 @@ describe('QuotationFollowupsService', () => {
     });
   });
 
+  describe('crearComoBelia (lo que anota BelIA, doc 20)', () => {
+    it('firma «BelIA», sin autor de sesión, y con el candado de empresa', async () => {
+      const create = jest.fn().mockResolvedValue({ id: 10 });
+      const findOwnedQuotation = jest.fn().mockResolvedValue({ id: 'q-1' });
+      const service = buildService({ create, findOwnedQuotation });
+
+      await service.crearComoBelia(7, {
+        quotation_id: 'q-1',
+        note: ' A pedido de Camila: creó la cotización. ',
+        tipo: 'otro',
+        next_contact_date: null,
+      });
+
+      expect(findOwnedQuotation).toHaveBeenCalledWith(7, 'q-1');
+      expect(create).toHaveBeenCalledWith({
+        quotation_id: 'q-1',
+        company_id: 7,
+        author_user_id: null,
+        author_name: 'BelIA',
+        note: 'A pedido de Camila: creó la cotización.',
+        tipo: 'otro',
+        next_contact_date: null,
+      });
+    });
+
+    it('una cotización de otra empresa no se toca', async () => {
+      const create = jest.fn();
+      const findOwnedQuotation = jest.fn().mockResolvedValue(null);
+      const service = buildService({ create, findOwnedQuotation });
+
+      await expect(
+        service.crearComoBelia(7, {
+          quotation_id: 'q-ajena',
+          note: 'x',
+          tipo: 'otro',
+          next_contact_date: null,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create', () => {
     it('inserta con empresa y autor de la SESIÓN (nombre congelado)', async () => {
       const create = jest.fn().mockResolvedValue({ id: 1 });

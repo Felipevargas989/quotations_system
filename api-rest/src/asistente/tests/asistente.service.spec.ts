@@ -282,7 +282,16 @@ describe('las herramientas de cada cargo', () => {
           'asistente',
         ],
       } as unknown as User).map((h) => h.nombre);
-    expect(con(UserRole.RECEPCION)).toEqual([]);
+    // Recepción (doc 20 §13): el calendario, en qué va cada pedido y lo de
+    // hoy, sin plata (recepcion.spec.ts).
+    expect(con(UserRole.RECEPCION)).toEqual([
+      'buscar_cotizaciones',
+      'ver_cotizacion',
+      'calendario',
+      'avisos_de_hoy',
+      'buscar_clientes',
+      'proponer_cotizacion_nueva',
+    ]);
     // Quien vende: lo del tablero, el catálogo, los clientes y las dos que
     // proponen (fase 2).
     expect(con(UserRole.VENDEDOR)).toHaveLength(10);
