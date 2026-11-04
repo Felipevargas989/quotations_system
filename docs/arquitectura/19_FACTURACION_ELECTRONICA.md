@@ -4,8 +4,11 @@
 > avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
 > 184 (los datos de facturación de `clients`, `ordenes_de_compra` y
 > `documentos_tributarios` con su cadena) y la tarjeta «Datos de
-> facturación» de la ficha del cliente, con «Referencias que pide». Sigue
-> el paso 1b: los armadores del archivo y facturacion.cl simulado.
+> facturación» de la ficha del cliente, con «Referencias que pide».
+> **Paso 1b construido el 04-11** (sin rutas ni pantallas, no cambia nada a
+> la vista): los armadores del archivo y facturacion.cl simulado (§9.13).
+> Pendiente el OK de Felipe a la lista de razones sociales por cliente
+> (§9.12), que rehace el 1a antes de producción.
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -520,6 +523,10 @@ amarrada a él en Eventia.
 | L19 | La IA puede leer mal un N° o un monto de una OC escaneada. | Nunca emite sola. Cada dato muestra su origen, y los montos tienen que cuadrar con los totales de la misma OC. |
 | L20 | Los plazos del SII para anular y rebajar (§9.5). | Eventia muestra el plazo y avisa antes. |
 | L21 | No se sabe si facturacion.cl acepta por el TXT la nota de crédito de una boleta, ni la nota de débito que anula una nota de crédito. | Se prueba en el paso 0, antes de construir esas pantallas. |
+| L22 | En la boleta, el manual pide el neto y el IVA solo cuando las líneas van en neto. Las de la casa van con IVA (IndMntNeto 0). | El armador los deja vacíos y la vista previa muestra el desglose. Se confirma en el paso 0. |
+| L23 | Las páginas del manual vienen en latin-1 aunque dicen UTF-8: el archivo seguramente también va en latin-1 (L9). | El armador entrega el texto; la codificación la pone la conexión y se prueba en el paso 0 con «Cabaña» y «Quillón». |
+| L24 | El manual no dice si el código de la línea puede ir vacío. | Sin código va «SERV». Se confirma en el paso 0. |
+| L25 | La fórmula del manual para lo exento es ambigua (el valor de la línea suma el exento). | La factura exenta (34), la boleta exenta (41) y las líneas exentas no se arman todavía. Se prueban en el paso 0. |
 
 ### 9.8 Decisiones nuevas (tomadas por Felipe el 04-11)
 
@@ -619,6 +626,26 @@ Eventia es un solo cliente, «Instituto Profesional Santo Tomás»:
 - La migración 184 todavía no está en producción: se rehace antes de subir.
   En el laboratorio, los datos de prueba de CCU se mudan a la lista y no se
   pierde nada.
+
+### 9.13 Lo que quedó del paso 1b (04-11)
+
+En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
+
+| Pieza | Qué hace |
+|---|---|
+| `archivo/factura.ts` | Arma el archivo de la factura (33), con sus referencias (801, 802, 803, 805, 806, HES), y de las notas de crédito (61) y de débito (56). Revisa lo que pide el SII: en la factura, la razón social, el giro, la dirección y la comuna; toda nota modifica UN documento y dice cómo (1, 2 o 3); la que anula o corrige un texto lleva una sola referencia; la que corrige un texto va en $0; la de débito solo anula una nota de crédito. |
+| `archivo/boleta.ts` | Arma la boleta (39): folio 0, «ventas y servicios», líneas con IVA, el RUT auxiliar 66666666-6 sin el del huésped y su correo si lo da. |
+| `archivo/montos.ts` | El neto, el IVA y el total como el SII (L8): el IVA desde el neto y, para un total con IVA, el neto que más se acerca y cuánto se aleja. |
+| `archivo/texto.ts` | Limpia los textos (sin «;» ni saltos), corta lo que no cabe y lo AVISA: la vista previa muestra cada corte. |
+| `facturacion-cl/facturacion-cl.ts` | La interfaz con facturacion.cl: `enLinea`, `folioSiguiente`, `procesar` (nunca reintenta: si se corta, `EnvioSinRespuesta` = «por confirmar») y `obtenerPdf`. |
+| `facturacion-cl/simulado.ts` | facturacion.cl simulado: revisa el archivo como el manual (campos, orden, totales), sigue la numeración de la base, rechaza el folio repetido con el mensaje de L3 y entrega un PDF que dice «SIMULADO». |
+
+- Los armadores no leen la base ni llaman a nadie: reciben los datos ya
+  confirmados y devuelven el archivo con sus avisos, o la lista de lo que
+  falta.
+- Las pruebas usan la factura N° 374 de Santo Tomás (neto $2.201.621, IVA
+  $418.308, total $2.619.929), y todo lo armado pasa la revisión del
+  simulado.
 
 ### 9.11 Fuentes nuevas (04-11)
 

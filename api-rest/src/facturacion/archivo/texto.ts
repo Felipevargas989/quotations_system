@@ -1,0 +1,83 @@
+/**
+ * EL TEXTO Y LOS NÚMEROS DEL ARCHIVO DE FACTURACION.CL (doc 19, L7)
+ *
+ * El archivo plano separa los campos con «;» y cada dato va en su línea,
+ * así que ni el «;» ni un salto de línea pueden ir dentro de un texto. Cada
+ * campo tiene su largo máximo (archivoplano.php y
+ * archivoboletaelectronica.php). Lo que se corta queda anotado en los
+ * avisos, para que la vista previa lo muestre: nada se corta a escondidas
+ * (doc 19 §9.10).
+ */
+
+/** Un dato de texto que entra al archivo. */
+export type Dato = string | number | null | undefined;
+
+/** Limpia un texto para el archivo, sin cortarlo. */
+export const textoLimpio = (valor: Dato): string =>
+  String(valor ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/;/g, ',')
+    .replace(/[“”„]/g, '"')
+    .replace(/[‘’‚]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Junta los avisos de lo que se cortó mientras se arma un documento. Cada
+ * campo se limpia y, si no cabe, se corta y se avisa con su nombre.
+ */
+export class Avisos {
+  readonly lista: string[] = [];
+
+  campo(nombre: string, valor: Dato, largo: number): string {
+    const limpio = textoLimpio(valor);
+    const letras = Array.from(limpio);
+    if (letras.length <= largo) return limpio;
+    const cortado = letras.slice(0, largo).join('').trim();
+    this.lista.push(
+      `${nombre} no cabe entero (máximo ${largo} caracteres): queda «${cortado}»`,
+    );
+    return cortado;
+  }
+
+  agregar(aviso: string): void {
+    this.lista.push(aviso);
+  }
+}
+
+/**
+ * Un número para el archivo: punto decimal, sin separador de miles y con
+ * hasta `decimales` decimales (la cantidad y el precio admiten 6).
+ */
+export const numeroDelArchivo = (n: number, decimales = 6): string => {
+  if (!Number.isFinite(n)) throw new Error(`Número inválido: ${n}`);
+  const fijo = n.toFixed(decimales);
+  return fijo.includes('.') ? fijo.replace(/\.?0+$/, '') : fijo;
+};
+
+/** Un monto en pesos: entero, sin separador de miles. */
+export const pesosDelArchivo = (n: number): string => String(Math.round(n));
+
+/** Una fecha AAAA-MM-DD que existe en el calendario. */
+export const esFechaDelArchivo = (fecha: unknown): fecha is string => {
+  if (typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha))
+    return false;
+  const [a, m, d] = fecha.split('-').map(Number);
+  const real = new Date(Date.UTC(a, m - 1, d));
+  return (
+    real.getUTCFullYear() === a &&
+    real.getUTCMonth() === m - 1 &&
+    real.getUTCDate() === d
+  );
+};
+
+/** Una línea del archivo: cada campo seguido de «;», como pide el manual. */
+export const lineaDelArchivo = (campos: (string | number)[]): string =>
+  campos.map((c) => `${c};`).join('');
+
+/** Las líneas van separadas por salto de línea de Windows (\r\n). */
+export const SALTO = '\r\n';
