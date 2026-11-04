@@ -11,6 +11,7 @@ import {
   ValidacionRepository,
 } from './analisis/analisis.repository';
 import { AnalisisService } from './analisis/analisis.service';
+import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { ValidacionService } from './analisis/validacion.service';
 import { AprendizajesController } from './aprendizajes/aprendizajes.controller';
 import { AprendizajesRepository } from './aprendizajes/aprendizajes.repository';
@@ -143,6 +144,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     LicifyService,
     AnalisisRepository,
     AnalisisService,
+    PrepararLaLicitacionService,
     ValidacionRepository,
     ValidacionService,
     GeneracionRepository,

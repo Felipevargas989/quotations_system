@@ -800,6 +800,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
       - Felipe eligió el modal entre dos dibujos: *"creo que debería ser un modal que aparezca cuando uno pincha el botón"*. El primer armado, un aviso abajo con botones por 12 segundos, no llegó a producción.
     - **En producción el mismo 29-10** (*"pasalo a producción"*, después de que Felipe probara el modal en el laboratorio). La migración 175 trajo la historia de producción: 212 descartadas, 47 estudiadas, 3 postuladas, 2 en estudio, 2 perdidas, 1 seguida y 1 ganada.
     - **Viene después:** las lecciones semanales y la medición, pasos 3 y 4.
+114. **«Me interesa» trae los documentos y analiza las bases** (04-11, en el laboratorio: *"sí... ármalo en el laboratorio"*). Felipe: *"el botón de me interesa cuando estoy revisando una licitación debería automáticamente traer las bases y hacer el análisis. Creo que apretar esos tres botones uno por uno no tiene ningún sentido"*. Solo motor, sin migración.
+    - Al pasar a `en_estudio` con la sesión de quien la marcó, `OportunidadesService.actualizar` larga `PrepararLaLicitacionService.preparar` por detrás, sin esperarlo: la respuesta del «Me interesa» sale igual que antes.
+    - Primero trae lo que publicó el comprador, como «Traer los documentos» (decisión 65), sin repetir lo que ya está. Después, si no hay análisis o el último falló, pide uno, como «Analizar bases». Uno listo o en curso no se repite.
+    - Si la empresa ya estaba trayendo los documentos a mano, no hace nada: esa vuelta manda, y analizar en ese momento leería las bases a medio llegar. Sin Licify configurado, no trae, pero igual analiza lo que ya se subió.
+    - No hay cuadros nuevos: «Trayendo…» y el análisis en curso se ven donde ya se veían. Los dos botones se quedan para repetir a mano, por ejemplo cuando llega una aclaratoria. Si no llegan documentos o pasan de 40 MB, la ficha muestra el aviso de siempre.
+    - Cuesta lo que ya costaba un análisis: medidos 65 en producción al 04-11, la mediana es US$0,23 y el más caro fue US$1,16.
 
 ## 4. Reglas del módulo (no se negocian)
 
