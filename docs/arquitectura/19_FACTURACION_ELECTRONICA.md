@@ -1,6 +1,11 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
-> **Estado: PLAN para aprobar (26-10-2026). No hay nada construido.**
+> **Estado: PLAN v2 (04-11-2026), para aprobar. No hay nada construido.** El
+> 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
+> pedido, las boletas por cabaña de recepción y el circuito de anulación: va
+> en el §9, que reemplaza los pasos del §6.
+>
+> **Estado anterior: PLAN para aprobar (26-10-2026).**
 > El proveedor es facturacion.cl (Desis). Felipe pidió: *"armemos el plan,
 > pero revisa bien las limitaciones de la api de facturación.cl"*. Las
 > limitaciones están en la §3; se revisaron contra el manual completo y
@@ -145,7 +150,7 @@ Se revisaron tres fuentes:
 | D6 | ¿Los eventos de particulares (matrimonios) también se boletean desde la ficha del evento? | Sí, en el paso 3. |
 | D7 | ¿Se paga `ConsultaLibroVentas` para cuadrar solos con el libro de ventas? | No al partir; se ve después del primer mes. |
 | D8 | ¿El monto de la OC se anota con IVA incluido? | Sí, como todo en Eventia. La OC de Mercado Público trae el neto, el IVA y el total. |
-| D9 | ¿Eventia le pregunta directo al SII si aceptó cada documento? (Felipe, 27-10.) El servicio `QueryEstDte` del SII recibe el RUT, el tipo, el folio, la fecha y el monto, y responde: recibido (DOK), recibido con datos que no coinciden (DNK), no recibido (FAU), no autorizado (FNA), anulado (FAN), o modificado o anulado por una nota de crédito o débito. Pero exige la «autenticación automática» con un **certificado digital**: Eventia tendría que guardar el certificado y su clave en el servidor. | Al partir, no: Eventia sigue sin ver el certificado. Primero se le pregunta a soporte de facturacion.cl si `ConsultarEstado` entrega el estado del SII. Guardar el certificado en Eventia lo decide Felipe (son sus claves). |
+| D9 | **CERRADA el 04-11** (Felipe: *"Si se van al SII, (…) solamente debes tener como resultado de facturación.cl"*): Eventia no le pregunta al SII ni guarda el certificado; guarda lo que responde facturacion.cl. Lo de abajo queda como historia. ¿Eventia le pregunta directo al SII si aceptó cada documento? (Felipe, 27-10.) El servicio `QueryEstDte` del SII recibe el RUT, el tipo, el folio, la fecha y el monto, y responde: recibido (DOK), recibido con datos que no coinciden (DNK), no recibido (FAU), no autorizado (FNA), anulado (FAN), o modificado o anulado por una nota de crédito o débito. Pero exige la «autenticación automática» con un **certificado digital**: Eventia tendría que guardar el certificado y su clave en el servidor. | Al partir, no: Eventia sigue sin ver el certificado. Primero se le pregunta a soporte de facturacion.cl si `ConsultarEstado` entrega el estado del SII. Guardar el certificado en Eventia lo decide Felipe (son sus claves). |
 
 ## 5. Cómo funciona en Eventia
 
@@ -273,7 +278,7 @@ giro no viene en la OC.
 - No lleva contabilidad.
 - No reemplaza la plataforma web.
 
-## 6. Pasos (sprints cortos)
+## 6. Pasos (sprints cortos) — reemplazados por el §9.9
 
 **Paso 0. Conexión con el ambiente de pruebas, sin pantallas.**
 - Qué se hace: `Online`, `ConsultarCAF`, una boleta y una factura de prueba.
@@ -347,3 +352,209 @@ giro no viene en la OC.
   27-10-2026). Exige la autenticación automática con certificado digital.
 - Las referencias: `TipoDTERef` 801 = orden de compra y HES = hoja de
   entrada; `CodigoRef` 0 para las referencias informativas.
+
+## 9. Plan v2 (04-11-2026): la factura con IA, la nota de pedido, las boletas por cabaña y la anulación
+
+> Lo de los §2 a §5 sigue valiendo, salvo donde esta sección lo cambia. Las
+> maquetas se mostraron en el chat el 04-11: la factura armada por BelIA
+> con la pregunta de la nota de pedido, la vista previa, las boletas por
+> cabaña y la lista con las anulaciones en cadena.
+
+### 9.1 Lo que pidió Felipe (04-11)
+
+- *"cuando meto facturación, me debe generar automáticamente con IA la
+  factura. En caso de que exista una orden de compra cargada, debe tomar el
+  archivo de la orden de compra y poner el detalle (…), el total (…) de la
+  orden de compra y referenciar la factura (…) con la orden de compra"*.
+- *"Existen algunos casos como CCU que piden, además del número de orden de
+  compra, la nota de pedido, y eso no siempre está en la orden de compra
+  (…) hay que hacer alguna pregunta"*.
+- *"la recepcionista debería poder ver el módulo de facturación para poder
+  hacer la emisión de boletas (…) de las cabañas (…) que yo le pueda
+  colocar como el total y que ella coloque la facturación por cabaña"*.
+- *"El resto lo vemos nosotros desde el evento. Debe ser algún botón de un
+  evento ya realizado o previo a realizar"*.
+- *"dejar al tiro resuelto el circuito para (…) anular las facturas con
+  notas de crédito y anular las notas de crédito con notas de débito"*.
+- *"Si se van al SII, entonces ahí solamente debes tener como resultado de
+  facturación.cl"*: **la D9 queda cerrada** (§4).
+- *"Cuando una factura se anule, debería quedar anulada y también debería
+  quedar como vinculada a su crédito, cosa de poder ver cuál va con cuál en
+  caso de algún reporte"*.
+- *"sería bueno quizás que fuéramos desarrollando, avanzando esto, y luego
+  lo montamos"*.
+
+### 9.2 La factura la arma BelIA, desde el evento
+
+**Dónde y quién.** En la pestaña «Facturación» de la ficha del evento, con
+el evento aceptado (antes de hacerse) o ya realizado. La emite el
+administrador (D5).
+
+**Lo que hace BelIA** (una sola IA, doc 20 §15):
+1. Lee la cotización, los datos de facturación del cliente y las órdenes de
+   compra de Documentos (`ordenes_compra`). La lectura del PDF es la que ya
+   usa Oportunidades para los respaldos de Post-venta
+   (`oportunidades/oferente/respaldos-de-post-venta.ts` y
+   `EventiaRepository.documentosDeExperiencia`).
+2. Arma el borrador:
+   - **con OC:** el detalle es el de la OC; el neto, el IVA y el total son
+     los de la OC; va la referencia 801 con su N° y su fecha;
+   - **sin OC:** el detalle sale de la cotización («Servicio de [tipo] del
+     [fecha], [N] personas, según cotización N° X»), por el % del total
+     que se elija (D4).
+3. Pregunta lo que falta: una referencia que el cliente exige y no está en
+   la OC (CCU: la nota de pedido, 802), o un dato de facturación (el giro,
+   la comuna). Lo que se responde queda guardado: la próxima vez ya sabe
+   que CCU pide nota de pedido.
+4. Muestra la vista previa igual al PDF, con lo ya facturado de esa OC y los
+   avisos (la OC no calza con la cotización, la OC ya está al 100 %…).
+
+**Lo que BelIA no hace:** emitir sola, poner montos que no salgan de la OC o
+de la cotización, ni inventar un N° de referencia. Cada dato dice de dónde
+salió: la OC, la ficha del cliente o la persona.
+
+**Al emitir:**
+- el folio y el PDF en Documentos → Facturas;
+- la nota de BelIA en la bitácora («A pedido de Felipe Vargas: emitió la
+  factura N° 1235 por $5.355.000, OC 4500918822»);
+- el estado que devuelve facturacion.cl.
+
+### 9.3 Las referencias (formato DTE del SII, versión 2.2)
+
+| Código | Qué es | Cuándo |
+|---|---|---|
+| 801 | Orden de compra | Siempre que haya OC (también la de Mercado Público) |
+| 802 | Nota de pedido | Si el cliente la pide (CCU) |
+| 803 | Contrato | Si el cliente factura contra un contrato |
+| HES | Hoja de entrada de servicio | Si el cliente la pide. Es un código propio: el SII no lo valida |
+| 805 y 806 | Proceso y ficha ChileCompra | Opcionales en compras públicas |
+| 33, 61 y 56 | Factura, nota de crédito y nota de débito | En las notas del circuito de anulación (§9.5) |
+
+- Caben hasta 40 referencias por documento. El N° de la referencia admite
+  hasta 18 letras o números, y la razón hasta 90.
+- **Lo que pide cada cliente** queda en su ficha («Referencias que pide»).
+  Si al facturar falta una, BelIA la pregunta.
+
+### 9.4 Recepción: las boletas de las cabañas
+
+- Sección «Boletas» en el menú, de recepción hacia arriba (D5). Recepción no
+  ve las facturas ni los montos de los eventos: solo lo que tiene que
+  boletear.
+- **Por boletear.** El administrador deja un cobro con su total, desde el
+  evento (el alojamiento de una delegación) o suelto. Recepción lo reparte
+  por cabaña, con el correo del huésped si lo da, y emite una boleta por
+  cabaña. Eventia no deja emitir si lo repartido no suma el total.
+- **Boleta suelta.** La cabaña y las noches, con el valor del tarifario
+  (D3). Escribir un monto a mano es solo del administrador (las reglas de
+  la casa: los precios nunca a dedo).
+- **La boleta:** tipo 39, con IVA incluido y sin referencias (L13). Lleva el
+  RUT 66666666-6 si el huésped no da el suyo. Si va su correo,
+  facturacion.cl se la manda sola.
+- Desde agosto de 2022 el SII no pide el resumen diario de boletas (L18):
+  «Emitidas hoy» es solo control de la casa.
+
+### 9.5 El circuito de anulación
+
+Nada se borra (L6). Cada nota referencia **un solo** documento y queda
+amarrada a él en Eventia.
+
+| Para | Se emite | Código de referencia | Monto |
+|---|---|---|---|
+| Anular una factura completa | Nota de crédito (61) | 1: anula | El total de la factura |
+| Rebajar una parte (devolución, menos personas) | Nota de crédito | 3: corrige montos | Lo que se rebaja |
+| Corregir un texto (el giro, la dirección) | Nota de crédito | 2: corrige texto | $0 |
+| Anular una nota de crédito | Nota de débito (56) | 1: anula | El de la nota de crédito |
+| Anular una nota de débito | Nota de crédito | 1: anula | El de la nota de débito |
+| Devolver una boleta | Nota de crédito que referencia la boleta (39) | 1 o 3 | Lo devuelto (se prueba en el paso 0, L21) |
+
+**Los plazos del SII**
+- Para anular un error propio: el mismo mes o el siguiente (Res. Ex. 45 de
+  2003). Después, el débito ya pagado solo se recupera con una petición
+  administrativa (formulario 2117).
+- Para rebajar por devolución o por término del contrato: hasta 6 meses
+  (Ley 21.398, arts. 21 y 70 de la Ley del IVA). Después, la nota sale
+  «sin derecho a rebajar el débito» (`IndNoRebaja` = 1).
+- Eventia muestra el plazo en el botón y avisa antes de que venza.
+
+**Cómo queda en Eventia**
+- Cada documento guarda cuál modifica (`modifica_id`) y con qué código.
+- El estado sale de la cadena:
+  - una factura queda vigente, rebajada (con lo que le queda), corregida o
+    **anulada por la NC N° …**;
+  - una nota de crédito queda vigente o **anulada por la ND N° …**.
+- La lista de Facturación muestra la cadena (factura → NC → ND). El reporte
+  la exporta con dos columnas: el documento y el que lo anuló o rebajó.
+- Una nota nunca pasa del saldo de lo que modifica: las notas de crédito de
+  una factura no suman más que su total.
+- Si un evento se anula con reembolso (Post-Venta), la ficha propone la nota
+  de crédito de su factura.
+
+### 9.6 Lo que hacen los facturadores grandes, y lo que toma Eventia
+
+| Práctica | Dónde se ve | En Eventia |
+|---|---|---|
+| Borrador y vista previa igual al PDF antes de emitir | Bsale, Nubox, Defontana | Sí |
+| Una clave única por emisión, para que un reintento no duplique | Bsale (`salesId`) | Sí: una por borrador. Si se corta, «por confirmar» (L5) |
+| Referencias como lista, con el código del SII | Bsale (`references` con `codeSii` 801) | Sí (§9.3) |
+| El documento llega solo al correo del cliente | Bsale (`sendEmail`), facturacion.cl | Sí: lo manda facturacion.cl (L11) |
+| El estado ante el SII de cada documento | Bsale (`informedSii` y `responseMsgSii`) | Solo lo que diga facturacion.cl (D9 cerrada) |
+| Nunca se borra: se anula con nota de crédito, y la de crédito con una de débito | SII, Nubox, LibreDTE | Sí (§9.5) |
+| Facturación parcial contra la OC, con el saldo a la vista | Defontana, Bsale | Sí: % por OC, nunca más del 100 % |
+| Datos del cliente validados (RUT con dígito verificador) | Todos | Sí |
+| Aviso de folios por agotarse | Facto, Bsale | Sí, en la lista |
+| Lectura de la OC con IA, con confirmación | Lo nuevo | Sí: cada dato con su origen, y la persona confirma |
+
+### 9.7 Limitaciones nuevas
+
+| # | Limitación | Cómo se maneja |
+|---|---|---|
+| L16 | El manual REST sigue en la versión 1.0 de julio de 2026 (releído el 04-11): no documenta referencias ni notas, y el archivo sigue yendo en un GET (L1). | Se sigue con el SOAP. |
+| L17 | Una OC que trae solo el total con IVA puede no cuadrar al peso con el neto más el IVA (L8). | Se usan el neto y el IVA de la misma OC. Si no los trae, se calculan y se avisa si queda $1 de diferencia. |
+| L18 | El SII eliminó el resumen diario de boletas desde el 01-08-2022 (Res. Ex. 53 de 2022). | No hay nada que mandar; el cierre del día es solo control interno. |
+| L19 | La IA puede leer mal un N° o un monto de una OC escaneada. | Nunca emite sola. Cada dato muestra su origen, y los montos tienen que cuadrar con los totales de la misma OC. |
+| L20 | Los plazos del SII para anular y rebajar (§9.5). | Eventia muestra el plazo y avisa antes. |
+| L21 | No se sabe si facturacion.cl acepta por el TXT la nota de crédito de una boleta, ni la nota de débito que anula una nota de crédito. | Se prueba en el paso 0, antes de construir esas pantallas. |
+
+### 9.8 Decisiones nuevas
+
+| # | Pregunta | Recomendación |
+|---|---|---|
+| E1 | Con OC, ¿la factura va siempre por el total de la OC, aunque la cotización diga otra cosa? | Sí, como lo dijo Felipe. La vista previa avisa la diferencia. |
+| E2 | ¿Qué referencias pide cada cliente? | Se aprenden al facturar: la primera vez se pregunta y queda en la ficha (CCU: la OC y la nota de pedido). |
+| E3 | Boletas de cabañas: ¿el administrador deja el total y recepción solo lo reparte? | Sí, más la boleta suelta con el tarifario (D3). |
+| E4 | ¿Se puede facturar antes del evento (anticipo)? | Sí, por un % del total o de la OC. |
+| E5 | ¿Quién anula? | El administrador: las notas de crédito y de débito. |
+
+### 9.9 Pasos v2 (sprints cortos)
+
+Felipe: *"que fuéramos desarrollando, avanzando esto, y luego lo
+montamos"*. Los pasos 1 a 4 se construyen en el laboratorio con
+facturacion.cl **simulado**: responde como dice el manual y no emite nada.
+La conexión de verdad es el paso 5.
+
+| Paso | Qué | Necesita |
+|---|---|---|
+| 1 | Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
+| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). | E1, E2 y E4. |
+| 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
+| 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
+| 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
+
+### 9.10 Fuentes nuevas (04-11)
+
+- Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
+  de 10-07-2019: https://www.sii.cl/factura_electronica/factura_mercado/formato_dte.pdf
+  (la sección «Información de referencia»: los códigos 801 a 820, el N° de
+  18 caracteres, la razón de 90, hasta 40 referencias, los códigos 1, 2 y 3,
+  y `IndNoRebaja`).
+- SII, preguntas frecuentes, «¿Qué documentos y en qué plazos se deben
+  emitir, para rebajar o anular documentos tributarios electrónicos?»:
+  https://www.sii.cl/preguntas_frecuentes/factura_electronica/001_003_7335.htm
+- SII, guía «¿Cómo anular nota de crédito electrónica?»:
+  https://www.sii.cl/factura_electronica/factura_sii/guias_ayuda/nota_debito_anula_fe.htm
+- SII, Res. Ex. 53 de 2022, que eliminó el resumen de ventas diarias de
+  boletas: https://www.sii.cl/normativa_legislacion/resoluciones/2022/reso53.pdf
+- La API de Bsale para Chile: https://docs.bsale.dev/documentos
+  (`references` con `codeSii`, `salesId`, `sendEmail`, `informedSii`).
+- El manual REST de facturacion.cl, releído el 04-11: sigue en la versión
+  1.0 de julio de 2026.
