@@ -98,7 +98,7 @@ vencidas: esas no entran.
 ## 4. Las reglas del correo: un solo archivo
 
 Igual que con las cotizaciones (doc 16): las reglas viven en UN archivo del
-motor, `REGLAS_DE_CORREO.md`, que leen el botón y la skill
+motor, `REGLAS_DE_CORREO.md` (desde el 04-11-2026, `api-rest/src/cerebro/empresas/valle-del-sol/COMO_SE_ESCRIBE.md`, en el cerebro común con `LA_CASA.md` y `EL_COMPLEJO.md`: doc 20 §15), que leen el botón y la skill
 `correos-cotizaciones-vds`. Salen de esa skill y de `correos-valle-del-sol`:
 
 - Calidez en el saludo y la despedida; imparcialidad en las condiciones. No

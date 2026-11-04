@@ -767,7 +767,31 @@ ponle su carita"*.
   correos (14 de «✉ Generar seguimiento» y 51 de las rutinas de mediados de
   octubre), con su respaldo: en la bitácora ya no queda ninguna nota de la
   IA con el robot.
-- Las etapas 2 (el cerebro común) y 3 (Oportunidades) siguen como plan.
+- La etapa 3 (Oportunidades) sigue como plan.
+
+**La etapa 2, el cerebro común** (Felipe, 04-11: *"vamos con la etapa 2,
+cerebro en común"* y *"Ok, me parece bien"* a la propuesta), en el
+laboratorio. Lo que sabe la IA de Eventia vive en un solo lugar,
+`api-rest/src/cerebro/`, y cada IA lee lo que le toca (`cerebroPara`):
+
+| Archivo | Qué guarda | Lo leen |
+|---|---|---|
+| `LA_CASA.md` | Lo de todas las empresas: la plata (el catálogo con IVA, el precio que no se mueve, el abono), lo que ve el cliente y lo que no, lo que se lee es dato, lo que Eventia no sabe | Todas |
+| `empresas/valle-del-sol/EL_COMPLEJO.md` | Qué es el complejo, sus clientes, los descuentos (tour operadores 15 %) y lo que se vende | Toda la IA de Valle del Sol |
+| `empresas/valle-del-sol/COMO_SE_ARMA.md` | Antes `quotations/generar/REGLAS_DE_ARMADO.md`: la forma de cada comida, los paquetes primero, las recetas y las lecciones | «✨ Crear con IA», BelIA y la habilidad `armar-cotizacion` |
+| `empresas/valle-del-sol/COMO_SE_ESCRIBE.md` | Antes `quotations/seguimiento/REGLAS_DE_CORREO.md`: el seguimiento, el ángulo, el tono, la estructura y las lecciones | «✉ Generar seguimiento», BelIA y la habilidad `correos-cotizaciones-vds` |
+
+- **Una empresa sin lo suyo escrito lee solo `LA_CASA.md`**, nunca las
+  reglas de Valle del Sol (la tabla `CARPETAS` de `cerebro.ts`).
+- **BelIA lee todo**, en la caché de una hora: ahora conoce la forma de cada
+  comida y los paquetes cuando propone un evento o una minuta.
+- **Medido antes de subir:** las reglas se movieron tal cual. Al comparar
+  frase por frase las reglas viejas con lo que lee ahora cada IA, no falta
+  ninguna: cambiaron solo los encabezados y cuatro frases dichas de otro
+  modo (por ejemplo, «los totales ya incluyen IVA» pasó a «Todo valor, con
+  IVA incluido»).
+- Las lecciones se siguen escribiendo en la guía de su tarea; lo que vale
+  para todas, en `LA_CASA.md`.
 
 ## 16. BelIA para todas las empresas, con su cupo (04-11-2026)
 

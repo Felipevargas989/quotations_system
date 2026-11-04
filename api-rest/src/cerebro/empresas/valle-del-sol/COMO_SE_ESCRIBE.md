@@ -1,19 +1,19 @@
-# Reglas del correo de seguimiento de Valle del Sol
+# Cómo se escribe un correo de seguimiento en Valle del Sol
 
-Este archivo es UNO solo y lo leen los dos que escriben seguimientos: el
-botón «✉ Generar seguimiento» de Eventia y la skill `correos-cotizaciones-vds`
-del chat (Felipe, 17-10-2026: *"sigue los principios de la skill de
-correo"*). Cada corrección de Felipe se escribe acá, en «Lecciones», y desde
-el siguiente despliegue la aplican los dos. El diseño está en
+Es la guía de trabajo de los que escriben seguimientos: el botón «✉ Generar
+seguimiento» de Eventia, la skill `correos-cotizaciones-vds` del chat
+(Felipe, 17-10-2026: *"sigue los principios de la skill de correo"*) y BelIA
+cuando ayuda con un correo (el cerebro común, 04-11-2026). Antes van lo
+común (`LA_CASA.md`) y lo de Valle del Sol (`EL_COMPLEJO.md`). Cada
+corrección de Felipe se escribe acá, en «Lecciones», y desde el siguiente
+despliegue la aplican todos. El diseño está en
 `docs/arquitectura/18_SEGUIMIENTO_CON_IA.md`; el tono completo de la casa,
 en la skill `correos-valle-del-sol`. Aquí está lo que un seguimiento
 necesita.
 
-Valle del Sol Quillón: complejo turístico en Quillón, Ñuble, con cabañas,
-restaurante, salones, piscinas y áreas verdes. Los correos van a
-coordinadoras de empresas, encargadas de bienestar y particulares que
-organizan paseos, matrimonios, graduaciones y jornadas. Tienen que ser
-cálidos de leer y fáciles de aprobar.
+Los correos van a coordinadoras de empresas, encargadas de bienestar y
+particulares que organizan paseos, matrimonios, graduaciones y jornadas.
+Tienen que ser cálidos de leer y fáciles de aprobar.
 
 ## Qué es un seguimiento
 
@@ -73,23 +73,15 @@ bitácora y el hilo antes de elegir. En este orden:
   el compromiso demostrado · en pos de · nos complace informar · reciba un
   cordial saludo · quedamos a su entera disposición · esperamos que esta
   propuesta cumpla con sus expectativas · gracias por contarme lo que pasó.
-- No inventes hechos. Si no está en la cotización, la bitácora o el hilo,
-  no va.
 - Si el cliente nunca vino (solo cotizó), no "los recibimos": "preparamos
   la cotización".
 - Cada cosa se dice una sola vez.
 
 ## Lo que nunca va
 
-- El precio no se mueve: nada de descuentos, rebajas, "podríamos revisarlo",
-  urgencias inventadas ni "últimos cupos".
-- Todo valor, con IVA incluido. De preferencia sin cifras: el detalle está
-  en la cotización.
-- La fecha se reserva contra el abono: no se promete bloquearla. Si el
-  evento está a menos de 30 días, recordarlo con tacto.
-- El comentario interno es del equipo: nunca se copia, se cita ni se
-  parafrasea al cliente.
-- Nada de RUT, datos bancarios, enlaces ni claves del portal.
+- De preferencia sin cifras: el detalle está en la cotización.
+- Si el evento está a menos de 30 días, recordar con tacto que la fecha se
+  reserva contra el abono.
 - Sin firma y sin "Con afecto,": la firma la pone Outlook al enviar.
 
 ## La voz según el buzón

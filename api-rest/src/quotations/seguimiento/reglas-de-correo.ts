@@ -1,32 +1,19 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { cerebroPara, VALLE_DEL_SOL } from 'src/cerebro/cerebro';
 
 // LAS REGLAS QUE LEE LA IA AL ESCRIBIR UN SEGUIMIENTO (doc 18, sección 4).
 //
-// Las de la casa viven en REGLAS_DE_CORREO.md, al lado de este archivo: es
-// el mismo documento que lee la skill `correos-cotizaciones-vds` del chat
-// (Felipe, 17-10-2026: "sigue los principios de la skill de correo"). Una
-// corrección se escribe UNA vez, allá, y la aplican los dos. Acá solo queda
-// lo propio del botón: qué devuelve.
+// Las de la casa viven en el cerebro común (`src/cerebro`, 04-11-2026): lo de
+// todas las empresas (LA_CASA.md), lo de Valle del Sol (EL_COMPLEJO.md) y
+// cómo se escribe (COMO_SE_ESCRIBE.md), los mismos archivos que leen BelIA y
+// la skill `correos-cotizaciones-vds` del chat (Felipe, 17-10-2026: "sigue
+// los principios de la skill de correo"). Una corrección se escribe UNA vez,
+// allá, y la aplican todos. Acá solo queda lo propio del botón: qué
+// devuelve.
 
-/** El archivo viaja junto al código compilado (nest-cli.json, "assets"). */
-const ARCHIVO_DE_REGLAS = join(__dirname, 'REGLAS_DE_CORREO.md');
-
-let reglasLeidas: string | null = null;
-
-/** Las reglas de la casa, leídas una vez. Si el archivo no llegó al
- *  despliegue, falla claro en vez de escribir sin reglas. */
-export function reglasDeCorreo(): string {
-  if (reglasLeidas === null) {
-    if (!existsSync(ARCHIVO_DE_REGLAS)) {
-      throw new Error(
-        `Falta ${ARCHIVO_DE_REGLAS}: el botón no escribe sin las reglas de la casa.`,
-      );
-    }
-    reglasLeidas = readFileSync(ARCHIVO_DE_REGLAS, 'utf8');
-  }
-  return reglasLeidas;
-}
+/** Las reglas de la casa del cerebro común: lo de la casa, lo de Valle del
+ *  Sol y cómo se escribe. Si falta un archivo, el cerebro falla claro. */
+export const reglasDeCorreo = (): string =>
+  cerebroPara(VALLE_DEL_SOL, 'escribir');
 
 /** Lo propio del botón: qué devuelve. Va antes de las reglas de la casa. */
 export const SALIDA = `Eres quien escribe los correos de seguimiento de las cotizaciones de Valle del Sol Quillón. Recibes una cotización ya enviada, su bitácora, el hilo de correos con el cliente (si lo hay) y dónde va a quedar el borrador. Escribes UN correo de seguimiento con las reglas de la casa que vienen a continuación, o decides saltarlo. Una persona del equipo lo revisa y lo envía: tú nunca envías nada.

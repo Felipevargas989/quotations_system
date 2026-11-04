@@ -91,9 +91,13 @@ describe('el catálogo por secciones y las reglas de la casa', () => {
     );
   });
 
-  it('el botón lee el mismo archivo de reglas que la skill', () => {
+  it('el botón lee el cerebro común: lo de la casa, lo de Valle del Sol y cómo se arma', () => {
     const reglas = reglasDeArmado();
-    expect(reglas).toContain('# Reglas de armado de Valle del Sol');
+    expect(reglas).toContain('# Lo que sabe toda la IA de Eventia');
+    expect(reglas).toContain('# Valle del Sol Quillón');
+    expect(reglas).toContain('# Cómo se arma una cotización en Valle del Sol');
+    // El correo no: es de «Generar seguimiento».
+    expect(reglas).not.toContain('# Cómo se escribe un correo');
     expect(reglas).toContain('## La forma de cada comida');
     expect(reglas).toContain('La base son los paquetes de la casa');
     expect(reglas).toContain('Si no encaja, se adapta; no se arma de cero');

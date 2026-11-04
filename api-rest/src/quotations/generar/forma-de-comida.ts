@@ -2,7 +2,7 @@
 // tiene sentido: dos puntos de hidratación, dos principales, sin postre y
 // sin guarnición… ¿por qué pasó esto?").
 //
-// La regla vive en REGLAS_DE_ARMADO.md («La forma de cada comida»); acá se
+// La regla vive en el cerebro común, COMO_SE_ARMA.md («La forma de cada comida»); acá se
 // mira si una caja la cumple, con las secciones del cotizador. No es un
 // error que impida guardar —un pedido puede querer dos principales—: es un
 // AVISO. La IA lo recibe una vez para corregir o explicar, y lo que quede va
