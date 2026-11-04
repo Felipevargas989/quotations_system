@@ -206,7 +206,8 @@ export const PLAN_MINIMO: Record<
   oportunidades: null,
   cotizar_con_ia: null,
   seguimiento_con_ia: null,
-  asistente: null,
+  // BelIA en todos los planes desde el 04-11-2026 (antes, módulo propio).
+  asistente: "cotiza",
 };
 
 export const NOMBRE_DEL_PLAN = {

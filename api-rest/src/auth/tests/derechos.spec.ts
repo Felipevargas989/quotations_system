@@ -18,7 +18,7 @@ import {
 describe('derechosDe', () => {
   it('Cotiza trae lo básico, con sus dos topes', () => {
     const d = derechosDe({ plan: 'cotiza', estado_plan: 'activo' });
-    expect(d.derechos).toEqual(['base']);
+    expect(d.derechos).toEqual(['base', 'asistente']);
     expect(d.usuarios_max).toBe(1);
     expect(d.cotizaciones_mes).toBe(20);
   });
@@ -118,12 +118,12 @@ describe('derechosDe', () => {
     // Pasa si la migración 112 no se aplicó: la elección segura es el
     // plan más chico, no el más grande.
     const d = derechosDe({ plan: null, estado_plan: 'activo' });
-    expect(d.derechos).toEqual(['base']);
+    expect(d.derechos).toEqual(['base', 'asistente']);
   });
 
   it('un plan que no existe tampoco abre nada de más', () => {
     const d = derechosDe({ plan: 'inventado', estado_plan: 'activo' });
-    expect(d.derechos).toEqual(['base']);
+    expect(d.derechos).toEqual(['base', 'asistente']);
   });
 
   it('los módulos propios se suman al plan, y solo los que existen', () => {

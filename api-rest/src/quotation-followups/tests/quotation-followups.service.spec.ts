@@ -115,6 +115,60 @@ describe('QuotationFollowupsService', () => {
     });
   });
 
+  describe('crearComoBeliaAPedidoDe (un botón con IA, 04-11-2026)', () => {
+    it('firma «BelIA» con el nombre del perfil de quien apretó', async () => {
+      const create = jest.fn().mockResolvedValue({ id: 11 });
+      const findOwnedQuotation = jest.fn().mockResolvedValue({ id: 'q-1' });
+      const nombreDeLaPersona = jest.fn().mockResolvedValue('Felipe Vargas');
+      const service = buildService({
+        create,
+        findOwnedQuotation,
+        nombreDeLaPersona,
+      });
+
+      await service.crearComoBeliaAPedidoDe(vendedora, {
+        quotation_id: 'q-1',
+        note: 'Cotización generada con IA en 16 s. Total $4.430.000.',
+        tipo: 'otro',
+        next_contact_date: null,
+      });
+
+      expect(nombreDeLaPersona).toHaveBeenCalledWith(7, 'user-1');
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company_id: 7,
+          author_user_id: null,
+          author_name: 'BelIA',
+          note: 'A pedido de Felipe Vargas: cotización generada con IA en 16 s. Total $4.430.000.',
+        }),
+      );
+    });
+
+    it('sin nombre en el perfil, el del correo; una sigla queda como está', async () => {
+      const create = jest.fn().mockResolvedValue({ id: 12 });
+      const findOwnedQuotation = jest.fn().mockResolvedValue({ id: 'q-1' });
+      const nombreDeLaPersona = jest.fn().mockResolvedValue(null);
+      const service = buildService({
+        create,
+        findOwnedQuotation,
+        nombreDeLaPersona,
+      });
+
+      await service.crearComoBeliaAPedidoDe(vendedora, {
+        quotation_id: 'q-1',
+        note: 'N° 739 vinculada a la licitación.',
+        tipo: 'otro',
+        next_contact_date: null,
+      });
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          note: 'A pedido de Vendedora: N° 739 vinculada a la licitación.',
+        }),
+      );
+    });
+  });
+
   describe('create', () => {
     it('inserta con empresa y autor de la SESIÓN (nombre congelado)', async () => {
       const create = jest.fn().mockResolvedValue({ id: 1 });

@@ -291,9 +291,10 @@ export class GenerarCotizacionService {
       plan: user.plan,
     });
 
-    // Lo que escribe la IA lo firma el Asistente (Felipe, 28-10-2026).
+    // Lo firma BelIA, a pedido de quien apretó el botón (Felipe, 04-11-2026;
+    // antes, el Asistente con su robot).
     await this.bitacora
-      .crearComoAsistente(companyId, {
+      .crearComoBeliaAPedidoDe(user, {
         quotation_id: id,
         tipo: 'otro',
         next_contact_date: null,

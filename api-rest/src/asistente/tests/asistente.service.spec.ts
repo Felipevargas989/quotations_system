@@ -252,6 +252,26 @@ describe('AsistenteService (BelIA)', () => {
     expect(r.uso_del_mes?.gastado_usd).toBeGreaterThanOrEqual(120);
   });
 
+  it('el cupo de cada empresa manda: US$ 10 para las nuevas (migración 183)', async () => {
+    const { servicio, create, repositorio } = armar([texto('no debería')], 10);
+    (repositorio as unknown as Record<string, unknown>).cupoDeLaEmpresa = jest
+      .fn()
+      .mockResolvedValue(10);
+    await expect(
+      servicio.responder({ mensaje: 'hola' }, usuario()),
+    ).rejects.toMatchObject({ status: 429 });
+    expect(create).not.toHaveBeenCalled();
+
+    const otra = armar([texto('sí')], 4);
+    (otra.repositorio as unknown as Record<string, unknown>).cupoDeLaEmpresa =
+      jest.fn().mockResolvedValue(10);
+    const r = await otra.servicio.responder(
+      { mensaje: 'hola' },
+      usuario(UserRole.ADMINISTRADOR),
+    );
+    expect(r.uso_del_mes?.tope_usd).toBe(10);
+  });
+
   it('si Claude falla, igual anota lo gastado y responde en palabras de la casa', async () => {
     const { servicio, create, repositorio } = armar([
       pide('buscar_cotizaciones', { cliente: 'Rudel' }),
@@ -330,16 +350,27 @@ describe('las herramientas de cada cargo', () => {
     expect(nombres).not.toContain('calendario');
   });
 
-  it('el derecho «asistente» lo da la columna de módulos propios', () => {
+  it('el derecho «asistente» viene en todos los planes (Felipe, 04-11-2026)', () => {
+    // «Belia es para todos los usuarios de Eventia»: desde Cotiza, también
+    // en la prueba, con el cupo de cada empresa (migración 183).
+    for (const plan of ['cotiza', 'gestiona', 'crece']) {
+      expect(derechosDe({ plan, estado_plan: 'activo' }).derechos).toContain(
+        'asistente',
+      );
+    }
+    expect(derechosDe({ estado_plan: 'prueba' }).derechos).toContain(
+      'asistente',
+    );
+    // Valle del Sol lo tenía como módulo propio: no queda dos veces.
+    const vds = derechosDe({
+      plan: 'crece',
+      estado_plan: 'gratis',
+      modulos_propios: ['asistente'],
+    }).derechos;
+    expect(vds.filter((d) => d === 'asistente')).toHaveLength(1);
+    // La bloqueada, nada.
     expect(
-      derechosDe({
-        plan: 'crece',
-        estado_plan: 'gratis',
-        modulos_propios: ['asistente'],
-      }).derechos,
-    ).toContain('asistente');
-    expect(
-      derechosDe({ plan: 'crece', estado_plan: 'activo' }).derechos,
+      derechosDe({ plan: 'crece', estado_plan: 'bloqueado' }).derechos,
     ).not.toContain('asistente');
   });
 });

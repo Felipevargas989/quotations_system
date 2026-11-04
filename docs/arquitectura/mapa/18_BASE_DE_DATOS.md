@@ -324,7 +324,7 @@ Tres accesos cubren a todas las tablas o cruzan módulos:
 | `clients` | `clients` | `clients`, `marketing`, funciones SQL de análisis; embebida desde `quotations`, `payments`, `refunds`, `logistics`, `movil`, `people`, `customer_satisfaction_survey` y `portal-receipts.controller.ts` |
 | `client_contacts` | `clients` (`client-contacts.controller.ts`, que contiene `ClientContactsRepository`) | `clients`, `marketing`, `quotations`; embebida desde `clients` y `portal-receipts.controller.ts` |
 | `client_types` | `clients` | `clients` |
-| `quotation_followups` | `quotation-followups` (también la línea «Asistente» del seguimiento con IA, `crearComoAsistente`, y la de BelIA, `crearComoBelia`) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
+| `quotation_followups` | `quotation-followups` (también las líneas de BelIA, `crearComoBelia` y `crearComoBeliaAPedidoDe`: todo lo que escribe la IA de Eventia desde el 04-11; `crearComoAsistente` ya no la usa el motor: «Asistente» queda para las rutinas de correo de la empresa) | `quotation-followups`, `quotations` (`seguimiento/seguimiento.repository.ts`: la bitácora y los compromisos abiertos) |
 | `seguimientos_con_ia` | `quotations` (`seguimiento/seguimiento.repository.ts`) | `quotations` (el mismo) |
 | `choques_de_fecha` | `quotations` (`choques/choques.repository.ts`) | `quotations` (el mismo) |
 | `event_documents` | `quotations` (`event-documents.controller.ts`) | `quotations` (`event-documents.controller.ts`) |
@@ -632,3 +632,21 @@ y **antes** del deploy del motor.
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 182, BelIA responde igual, pero la ventanilla no puede leer ni guardar la conversación: conversa, sin guardarla.
 
 **Estado.** Escrita el 04-11-2026 (Felipe: *"Sí, me parece bien"* y *"así que vamos"*). En las dos bases: en el laboratorio desde el mediodía del 04-11 y en producción desde la tarde del mismo día (Felipe: *"a producción"*), antes de subir el motor.
+
+## 28. Migración 183: el cupo de BelIA de cada empresa (04-11-2026)
+
+**Qué hace.** Suma `companies.tope_asistente_usd numeric(10,2) not null
+default 10` (con un check de no negativo) y deja la empresa 1, Valle del Sol,
+en 100.
+
+**Por qué.** Felipe, 04-11: *"Belia es para todos los usuarios de Eventia,
+solo que en las otras empresas que se vayan creando, dale $10 de cupo
+inicial, nada más"* (doc 20 §16). El derecho `asistente` pasó a todos los
+planes en el código (`derechos.ts`); el cupo es dato de cada empresa.
+
+**Ojo con el orden del motor:** va antes del motor que la lee. Sin la 183,
+el motor no puede leer el cupo y usa los 100 de siempre (`TOPE_ASISTENTE_USD`
+o el valor por defecto): las empresas nuevas quedarían con 100 en vez de 10.
+
+**Estado.** Escrita el 04-11-2026. En las dos bases: en el laboratorio y en
+producción desde la tarde del 04-11 (Felipe: «a producción»), antes del motor.
