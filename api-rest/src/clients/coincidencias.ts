@@ -267,3 +267,14 @@ export const buscarCoincidencias = (
     .slice(0, limite)
     .map((r) => r.coincidencia);
 };
+
+/**
+ * Mismo correo Y mismo nombre: es el mismo cliente, no "otro". Ahí el
+ * aviso ya no ofrece «Es otro cliente, crear igual» (Felipe, 04-11-2026,
+ * después del Hospital de Bulnes triplicado: Recepción creó dos fichas
+ * iguales en un minuto, la segunda con el correo exacto de la primera).
+ * Con el mismo correo y OTRO nombre sigue pudiendo crear: quien organiza
+ * varios grupos con un solo correo (regla 26).
+ */
+export const esElMismoCliente = (c: { motivos: MotivoCoincidencia[] }) =>
+  c.motivos.includes('correo') && c.motivos.includes('nombre');
