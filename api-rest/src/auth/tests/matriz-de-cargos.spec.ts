@@ -203,6 +203,8 @@ const esperado: [Clase, Record<string, string[]>][] = [
     AsistenteController,
     {
       'POST mensajes': S,
+      // La misma pregunta, con la respuesta en vivo (doc 20 §9).
+      'POST mensajes/en-vivo': S,
       'GET estado': S,
       // Fase 2: el «Sí, aplicar», el «No» y el «Deshacer» de la tarjeta.
       // Las aceptadas, solo administración y operaciones: lo revisa

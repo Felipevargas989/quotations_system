@@ -86,9 +86,9 @@ export const pendientesDe = async (
       Record<string, InfoDeBitacora>
     >,
   ]);
-  const vencenHoy = vivas.filter(
+  const deHoy = vivas.filter(
     (q) => bitacora[q.id]?.next_contact_date?.slice(0, 10) === ctx.hoy,
-  ).length;
+  );
   const pendientes = vivas
     .map((q) => ({
       q,
@@ -112,7 +112,7 @@ export const pendientesDe = async (
       } => x.s.requiere,
     )
     .sort((a, b) => b.s.urgencia - a.s.urgencia);
-  return { pendientes, vencenHoy };
+  return { pendientes, vencenHoy: deHoy.length, deHoy };
 };
 
 export const seguimientosPendientes: Herramienta = {

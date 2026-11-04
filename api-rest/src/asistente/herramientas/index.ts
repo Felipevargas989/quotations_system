@@ -1,5 +1,6 @@
 import { tieneDerecho } from 'src/auth/derechos';
 import type { User } from 'src/users/entities/user.entity';
+import { avisosDeHoy } from './avisos';
 import { buscarClientes } from './buscar-clientes';
 import { buscarCotizaciones } from './buscar-cotizaciones';
 import { buscarEnCatalogo } from './buscar-en-catalogo';
@@ -9,7 +10,11 @@ import type { Herramienta } from './comun';
 import { insumos, mobiliario, proveedores } from './logistica';
 import { cobranza, pagosDelEvento } from './pagos';
 import { personal } from './personal';
-import { proponerCambioDeServicios, proponerNota } from './proponer';
+import {
+  proponerCambioDeServicios,
+  proponerCotizacionNueva,
+  proponerNota,
+} from './proponer';
 import { seguimientosPendientes } from './seguimientos-pendientes';
 import { verCotizacion } from './ver-cotizacion';
 
@@ -24,6 +29,7 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   verCotizacion,
   calendario,
   seguimientosPendientes,
+  avisosDeHoy,
   buscarEnCatalogo,
   buscarClientes,
   pagosDelEvento,
@@ -35,6 +41,7 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   personal,
   proponerCambioDeServicios,
   proponerNota,
+  proponerCotizacionNueva,
 ];
 
 /** Las que puede usar esta persona: su cargo las ve en pantalla y su

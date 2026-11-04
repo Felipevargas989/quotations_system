@@ -1,11 +1,12 @@
 import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { CANALES, type Canal } from '../propuestas/comun';
+import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
 import {
   ACCIONES,
   MAX_CAMBIOS,
   type Accion,
   type Cambio,
 } from '../propuestas/editar-foto';
-import { CANALES, type Canal } from '../propuestas/propuestas.service';
 import {
   ErrorDeHerramienta,
   entero,
@@ -306,6 +307,156 @@ export const proponerNota: Herramienta = {
       numero: tarjeta.numero,
       importante:
         'La persona ve la nota en una tarjeta con el botón «Sí, anotar». Todavía NO está anotada: no digas que ya se hizo. Dile en una línea qué vas a anotar y que lo apruebe en la tarjeta.',
+    };
+  },
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** «Crear evento» (doc 20 §8b, la lámina de Felipe): una cotización nueva,
+ *  como propuesta. No crea nada: la persona aprueba con «Sí, crear». */
+export const proponerCotizacionNueva: Herramienta = {
+  nombre: 'proponer_cotizacion_nueva',
+  descripcion:
+    'Propone crear un evento nuevo: una cotización con sus servicios del catálogo (casillas con ' +
+    'poner_casilla y fijos con poner_fijo, igual que en proponer_cambio_de_servicios) o, sin ' +
+    'servicios, un requerimiento para armarla después. El cliente es uno que ya existe (su id, ' +
+    'de buscar_clientes; búscalo SIEMPRE primero) o uno nuevo con sus datos. NO crea nada: la ' +
+    'persona lo aprueba con «Sí, crear». Si falta un dato (tipo de evento, fecha, personas, ' +
+    'cliente), pregúntalo antes de proponer.',
+  esquema: {
+    type: 'object',
+    properties: {
+      resumen: {
+        type: 'string',
+        description:
+          'Una línea: «Almuerzo de fin de año de Ecofor, 80 personas, vie 12-12».',
+      },
+      cliente_id: {
+        type: 'string',
+        description: 'El id de un cliente que ya existe (de buscar_clientes).',
+      },
+      cliente_nuevo: {
+        type: 'object',
+        description:
+          'Solo si no existe. Eventia revisa que no se parezca a otro antes de crearlo.',
+        properties: {
+          nombre: { type: 'string' },
+          tipo: {
+            type: 'string',
+            description:
+              'El tipo de cliente de la empresa (Empresas, Particulares…).',
+          },
+          correo: { type: 'string' },
+          telefono: { type: 'string' },
+          contacto: {
+            type: 'string',
+            description: 'La persona de contacto, si es otra.',
+          },
+          es_otro_cliente: {
+            type: 'boolean',
+            description:
+              'Solo si Eventia avisó de un cliente parecido y la persona dijo que es otro.',
+          },
+        },
+        required: ['nombre', 'tipo'],
+      },
+      tipo_de_evento: {
+        type: 'string',
+        description: 'Uno de los tipos de evento de la empresa.',
+      },
+      fecha: { type: 'string', description: 'El primer día, AAAA-MM-DD.' },
+      ultimo_dia: {
+        type: 'string',
+        description: 'AAAA-MM-DD, solo si dura más de un día.',
+      },
+      personas: {
+        type: 'integer',
+        description: 'El total, adultos y niños.',
+      },
+      ninos: { type: 'integer', description: 'Los niños dentro del total.' },
+      contacto: {
+        type: 'string',
+        description: 'Quién pide el evento por el cliente (opcional).',
+      },
+      pedido: {
+        type: 'string',
+        description:
+          'Lo que pidió el cliente, en pocas líneas: va al comentario interno, nunca a las observaciones.',
+      },
+      cambios: {
+        type: 'array',
+        description: `Las casillas y los fijos (hasta ${MAX_CAMBIOS}), con el mismo formato de proponer_cambio_de_servicios. Vacío = requerimiento.`,
+        items: { type: 'object' },
+      },
+    },
+    required: ['resumen', 'tipo_de_evento', 'fecha', 'personas'],
+  },
+  cargos: SALES_AND_UP,
+  async ejecutar(entrada, ctx) {
+    const resumen = texto(entrada.resumen, 200);
+    if (!resumen) {
+      throw new ErrorDeHerramienta(
+        'Falta el `resumen`: una línea para la persona.',
+      );
+    }
+    const fechaDelEvento = fecha(entrada.fecha, 'fecha');
+    if (!fechaDelEvento)
+      throw new ErrorDeHerramienta('Falta la fecha del evento.');
+    const tipoDeEvento = texto(entrada.tipo_de_evento, 80);
+    if (!tipoDeEvento) throw new ErrorDeHerramienta('Falta el tipo de evento.');
+    const clienteId = texto(entrada.cliente_id, 40);
+    if (clienteId && !UUID.test(clienteId)) {
+      throw new ErrorDeHerramienta(
+        'El cliente_id no es un id de Eventia: búscalo con buscar_clientes.',
+      );
+    }
+    const n =
+      entrada.cliente_nuevo && typeof entrada.cliente_nuevo === 'object'
+        ? (entrada.cliente_nuevo as Record<string, unknown>)
+        : null;
+    const datos: DatosDeLaNueva = {
+      resumen,
+      tipo_de_evento: tipoDeEvento,
+      fecha: fechaDelEvento,
+      ultimo_dia: fecha(entrada.ultimo_dia, 'ultimo_dia'),
+      personas: entero(entrada.personas, 0, 100_000) ?? 0,
+      ninos: entero(entrada.ninos, 0, 100_000) ?? 0,
+      contacto: texto(entrada.contacto, 120),
+      pedido: texto(entrada.pedido, 2_000),
+      ...(clienteId
+        ? { cliente_id: clienteId }
+        : n
+          ? {
+              cliente_nuevo: {
+                nombre: texto(n.nombre, 160) ?? '',
+                tipo: texto(n.tipo, 80) ?? '',
+                correo: texto(n.correo, 160),
+                telefono: texto(n.telefono, 40),
+                contacto: texto(n.contacto, 120),
+                es_otro_cliente: n.es_otro_cliente === true,
+              },
+            }
+          : {}),
+      cambios:
+        Array.isArray(entrada.cambios) && entrada.cambios.length > 0
+          ? leerCambios(entrada.cambios)
+          : [],
+    };
+    const tarjeta = await ctx.propuestas.proponerCotizacionNueva(
+      ctx.usuario,
+      datos,
+      ctx.hoy,
+    );
+    ctx.tarjetas.push(tarjeta);
+    return {
+      propuesta: 'lista',
+      es: tarjeta.nueva?.es,
+      cliente: tarjeta.cliente,
+      total: tarjeta.total?.despues,
+      avisos: tarjeta.avisos.length ? tarjeta.avisos : undefined,
+      importante:
+        'La persona ve la tarjeta con «Sí, crear». Todavía NO está creada: no digas que ya se hizo. Cuéntale en una o dos líneas qué vas a crear y pídele que lo revise en la tarjeta.',
     };
   },
 };

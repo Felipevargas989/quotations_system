@@ -3,6 +3,7 @@ import type { Derecho } from 'src/auth/derechos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 import type { LogisticsService } from 'src/logistics/logistics.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
+import type { ChoquesDeFechaService } from 'src/quotations/choques/choques.service';
 import {
   QuotationStatus,
   STATUS_LABELS,
@@ -11,10 +12,8 @@ import type { GenerarRepository } from 'src/quotations/generar/generar.repositor
 import type { QuotationsRepository } from 'src/quotations/quotations.repository';
 import type { User, UserRole } from 'src/users/entities/user.entity';
 import type { AsistenteRepository } from '../asistente.repository';
-import type {
-  PropuestasService,
-  TarjetaDePropuesta,
-} from '../propuestas/propuestas.service';
+import type { TarjetaDePropuesta } from '../propuestas/comun';
+import type { PropuestasService } from '../propuestas/propuestas.service';
 
 // LO COMÚN DE LAS HERRAMIENTAS DE BELIA (doc 20 §3 y §9).
 //
@@ -34,6 +33,8 @@ export type ContextoDeHerramienta = {
   bitacora: QuotationFollowupsService;
   /** Las mismas lecturas de la pantalla de Compras (base y eventos). */
   logistica: LogisticsService;
+  /** Los topes de calendario, con la misma lista del tablero. */
+  choques: ChoquesDeFechaService;
   /** Fase 2: arma y guarda las propuestas (doc 20 §3, regla 3). */
   propuestas: PropuestasService;
   /** Las tarjetas que arman las herramientas en esta pregunta: viajan a la

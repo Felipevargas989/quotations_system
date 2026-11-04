@@ -48,7 +48,8 @@ Lo que ya vende.
   administración y vendedores"*. Cada herramienta de Evia pide además el
   cargo de la pantalla que muestra ese dato (doc 20 §3). Desde la fase 2
   (03-11), también `POST /asistente/propuestas/:id/aplicar`, `descartar` y
-  `deshacer`, el «Sí, aplicar» de sus tarjetas: la ruta es de vendedor, y
+  `deshacer`, el «Sí, aplicar» de sus tarjetas, y desde el 04-11 `POST
+  /asistente/mensajes/en-vivo`, la misma pregunta con la respuesta en vivo: la ruta es de vendedor, y
   cambiar una aceptada lo revisa el servicio, solo para operaciones y
   administración, como Post-Venta → Servicios (mapa 25).
 - Editar y borrar clientes, contactos y tipos de cliente, y marcar el

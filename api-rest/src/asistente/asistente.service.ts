@@ -7,6 +7,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { tieneDerecho } from 'src/auth/derechos';
+import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LogisticsService } from 'src/logistics/logistics.service';
 import {
@@ -16,11 +18,16 @@ import {
   hoyEnChile,
 } from 'src/oportunidades/analisis/comun';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
+import type { ChoqueDeFecha } from 'src/quotations/choques/choques';
+import { ChoquesDeFechaService } from 'src/quotations/choques/choques.service';
 import { RequestType } from 'src/quotations/constants/constants';
 import { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { UserRole, type User } from 'src/users/entities/user.entity';
-import { AsistenteRepository } from './asistente.repository';
+import {
+  AsistenteRepository,
+  type ComprobantePorRevisar,
+} from './asistente.repository';
 import type { MensajeDto, PantallaDto, TurnoDto } from './dto/mensaje.dto';
 import { herramientasPara } from './herramientas';
 import {
@@ -32,10 +39,8 @@ import {
 } from './herramientas/comun';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
-import {
-  PropuestasService,
-  type TarjetaDePropuesta,
-} from './propuestas/propuestas.service';
+import type { TarjetaDePropuesta } from './propuestas/comun';
+import { PropuestasService } from './propuestas/propuestas.service';
 
 // BELIA, LA IA DE EVENTIA (doc 20; Felipe, 03-11-2026: "una ventanilla como
 // de soporte de chat en Eventia, que esté conectado a un agente, ojalá
@@ -78,6 +83,14 @@ export type RespuestaDeBelia = {
   propuestas?: TarjetaDePropuesta[];
 };
 
+/** Lo que la respuesta en vivo va mandando mientras BelIA trabaja (doc 20
+ *  §9, «respuesta en vivo»): el texto apenas Claude lo escribe, y el aviso
+ *  de que va a usar herramientas. Lo escrito antes de una herramienta no es
+ *  la respuesta: la respuesta es lo de la última vuelta. */
+export type EventoEnVivo =
+  | { tipo: 'texto'; texto: string }
+  | { tipo: 'herramientas'; nombres: string[] };
+
 /** Lo que mira la ventanilla para el ánimo de BelIA (doc 20 §8b). */
 export type EstadoDeBelia = {
   /** Cotizaciones vivas con el compromiso vencido. */
@@ -88,6 +101,11 @@ export type EstadoDeBelia = {
   vencen_hoy: number;
   /** Requerimientos que llegaron hoy (día en Chile). */
   requerimientos_de_hoy: number;
+  /** Cotizaciones vivas con tope de calendario (la lista del tablero). */
+  topes_de_calendario: number;
+  /** Comprobantes del portal sin revisar: solo a operaciones para arriba
+   *  con Post-Venta (los demás reciben 0). */
+  comprobantes_por_revisar: number;
 };
 
 /** La conversación que trae la ventanilla, como la pide la API: parte con
@@ -225,6 +243,7 @@ export class AsistenteService {
     // AL FINAL a propósito: las pruebas arman este servicio por posición.
     private readonly logistica: LogisticsService,
     private readonly propuestas: PropuestasService,
+    private readonly choques: ChoquesDeFechaService,
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -254,7 +273,12 @@ export class AsistenteService {
     return Number.isFinite(v) && v > 0 ? v : TOPE_POR_DEFECTO_USD;
   }
 
-  async responder(dto: MensajeDto, usuario: User): Promise<RespuestaDeBelia> {
+  async responder(
+    dto: MensajeDto,
+    usuario: User,
+    // Con esto, la respuesta va en vivo (POST /asistente/mensajes/en-vivo).
+    alEscribir?: (evento: EventoEnVivo) => void,
+  ): Promise<RespuestaDeBelia> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
     }
@@ -299,6 +323,7 @@ export class AsistenteService {
       catalogo: this.catalogo,
       bitacora: this.bitacora,
       logistica: this.logistica,
+      choques: this.choques,
       propuestas: this.propuestas,
       tarjetas: [],
       hoy,
@@ -341,7 +366,7 @@ export class AsistenteService {
     try {
       for (; vueltas < MAX_VUELTAS; vueltas++) {
         marcarElFinal(mensajes);
-        const r = await this.cliente().messages.create({
+        const pedido: Anthropic.MessageCreateParamsNonStreaming = {
           model: this.modelo,
           max_tokens: MAX_TOKENS,
           thinking: { type: 'adaptive' },
@@ -349,7 +374,10 @@ export class AsistenteService {
           system: sistema,
           ...(definiciones.length ? { tools: definiciones } : {}),
           messages: mensajes,
-        });
+        };
+        const r = alEscribir
+          ? await this.enVivo(pedido, alEscribir)
+          : await this.cliente().messages.create(pedido);
         uso = sumar(uso, usoDe(r.usage));
         const pedidas = r.content.filter(
           (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
@@ -357,6 +385,10 @@ export class AsistenteService {
         if (r.stop_reason === 'tool_use' && pedidas.length > 0) {
           mensajes.push({ role: 'assistant', content: r.content });
           usadas.push(...pedidas.map((p) => p.name));
+          alEscribir?.({
+            tipo: 'herramientas',
+            nombres: pedidas.map((p) => p.name),
+          });
           const resultados = await Promise.all(
             pedidas.map((p) => this.usar(p, herramientas, ctx)),
           );
@@ -438,29 +470,50 @@ export class AsistenteService {
   }
 
   /** Los ánimos de BelIA (doc 20 §8b), sin IA y sin costo: lo vencido
-   *  para enojarse y lo nuevo de hoy para llamar la atención. Cuenta con la
-   *  misma regla que la herramienta de seguimientos y que el tablero. */
+   *  para enojarse y lo nuevo de hoy para llamar la atención (compromisos,
+   *  requerimientos, topes de calendario y comprobantes del portal). Cuenta
+   *  con las mismas reglas que las herramientas y que el tablero. */
   async estado(usuario: User): Promise<EstadoDeBelia> {
     const empresa = usuario.company_id;
     if (!empresa) throw new BadRequestException('La sesión no trae empresa.');
     const hoy = hoyEnChile();
-    const [{ pendientes, vencenHoy }, deHoy] = await Promise.all([
-      pendientesDe(
-        { cotizaciones: this.cotizaciones, bitacora: this.bitacora, hoy },
-        empresa,
-      ),
-      this.repositorio.buscarCotizaciones(empresa, {
-        tipo: RequestType.REQUERIMIENTO,
-        creadaDesde: inicioDelDiaEnChile(hoy),
-        orden: 'creada',
-        limite: 1,
-      }),
-    ]);
+    const veComprobantes =
+      OPERATIONS_AND_UP.includes(usuario.role) &&
+      tieneDerecho(usuario.derechos, 'post_venta');
+    // Los topes y los comprobantes no frenan el ánimo si fallan: se mira
+    // cada 5 minutos y lo demás sigue sirviendo.
+    const [{ pendientes, vencenHoy }, deHoy, choques, comprobantes] =
+      await Promise.all([
+        pendientesDe(
+          { cotizaciones: this.cotizaciones, bitacora: this.bitacora, hoy },
+          empresa,
+        ),
+        this.repositorio.buscarCotizaciones(empresa, {
+          tipo: RequestType.REQUERIMIENTO,
+          creadaDesde: inicioDelDiaEnChile(hoy),
+          orden: 'creada',
+          limite: 1,
+        }),
+        this.choques.listar(usuario).catch((e: unknown): ChoqueDeFecha[] => {
+          this.logger.warn(`BelIA, topes de calendario: ${mensajeDe(e)}`);
+          return [];
+        }),
+        veComprobantes
+          ? this.repositorio
+              .comprobantesPorRevisar(empresa)
+              .catch((e: unknown): ComprobantePorRevisar[] => {
+                this.logger.warn(`BelIA, comprobantes: ${mensajeDe(e)}`);
+                return [];
+              })
+          : Promise.resolve<ComprobantePorRevisar[]>([]),
+      ]);
     return {
       vencidos: pendientes.filter((p) => p.s.urgencia >= 1000).length,
       sin_gestion: pendientes.filter((p) => p.s.urgencia < 1000).length,
       vencen_hoy: vencenHoy,
       requerimientos_de_hoy: deHoy.total,
+      topes_de_calendario: new Set(choques.map((c) => c.quotation_id)).size,
+      comprobantes_por_revisar: comprobantes.length,
     };
   }
 
@@ -487,6 +540,18 @@ export class AsistenteService {
       texto: p?.ruta ? `la pantalla ${p.ruta}` : null,
       cotizacion: null,
     };
+  }
+
+  /** Una vuelta en vivo: el texto sale apenas Claude lo escribe; lo demás
+   *  (lo que piensa, las herramientas que pide) llega con el mensaje final,
+   *  igual que sin vivo. */
+  private async enVivo(
+    pedido: Anthropic.MessageCreateParamsNonStreaming,
+    alEscribir: (evento: EventoEnVivo) => void,
+  ): Promise<Anthropic.Message> {
+    const vivo = this.cliente().messages.stream(pedido);
+    vivo.on('text', (texto) => alEscribir({ tipo: 'texto', texto }));
+    return vivo.finalMessage();
   }
 
   /** Corre una herramienta pedida por Claude. Nunca revienta el ciclo: lo

@@ -18,25 +18,33 @@ import {
 } from 'src/quotations/generar/reglas-valle-del-sol';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
+import { AsistenteRepository } from '../asistente.repository';
 import {
-  AsistenteRepository,
-  type EstadoDePropuesta,
-  type Propuesta,
-} from '../asistente.repository';
-import {
-  ErrorDeHerramienta,
   conDia,
   diaDelEvento,
   enlaceDe,
+  ErrorDeHerramienta,
   pesos,
-  sumarDias,
 } from '../herramientas/comun';
 import {
-  editarFoto,
-  type Cambio,
-  type FotoGuardada,
-  type LineaDelCambio,
-} from './editar-foto';
+  anotarComoAsistente,
+  aPedidoDe,
+  ESTADOS,
+  lineasDeLaTarjeta,
+  type Canal,
+  type ResultadoDeAplicar,
+  type TarjetaDePropuesta,
+} from './comun';
+import {
+  CotizacionNuevaService,
+  type DatosDeLaNueva,
+} from './cotizacion-nueva.service';
+import { editarFoto, type Cambio, type FotoGuardada } from './editar-foto';
+import {
+  PropuestasRepository,
+  type EstadoDePropuesta,
+  type Propuesta,
+} from './propuestas.repository';
 import {
   choqueConLoServido,
   cuotasDespues,
@@ -46,6 +54,8 @@ import {
   type CotizacionParaCambiar,
   type Parche,
 } from './reglas';
+
+const n = (v: unknown): number => Number(v) || 0;
 
 // LA FASE 2 DE BELIA: PROPONE, Y LA PERSONA APRUEBA (doc 20 §3, regla 3;
 // Felipe, 03-11: "vamos con lo que no puede hacer para dejarla lista hoy").
@@ -63,102 +73,17 @@ import {
 //    antes guardado para deshacer (`deshacer`, solo lo no vendido: en una
 //    vendida la cascada del plan no tiene vuelta exacta).
 
-/** Lo que ve la persona en la tarjeta (doc 20 §8). */
-export type TarjetaDePropuesta = {
-  id: string;
-  tipo: 'servicios' | 'nota';
-  numero: number;
-  cliente: string | null;
-  cotizacion_id: string;
-  enlace: string;
-  resumen: string;
-  lineas: Array<{
-    dia: string;
-    que: string;
-    quita: string[];
-    agrega: string[];
-    personas?: string;
-    casilla?: 'nueva' | 'sale';
-  }>;
-  total?: { antes: string; despues: string; diferencia: string };
-  cuotas?: Array<{
-    cuota: number;
-    vence: string | null;
-    antes: string;
-    despues: string;
-  }>;
-  cuota_nueva?: string;
-  reembolso_nuevo?: string;
-  reembolso_compensado?: string;
-  avisos: string[];
-  nota?: { texto: string; canal: string; proximo_contacto: string | null };
-  se_puede_deshacer: boolean;
-  vence_at: string;
-};
-
-export type ResultadoDeAplicar = {
-  estado: 'aplicada' | 'deshecha' | 'descartada';
-  numero: number;
-  enlace: string;
-  total?: string;
-  se_puede_deshacer?: boolean;
-};
-
-export const CANALES = [
-  'llamada',
-  'correo',
-  'reunion',
-  'whatsapp',
-  'otro',
-] as const;
-export type Canal = (typeof CANALES)[number];
-
-const n = (v: unknown): number => Number(v) || 0;
-
-/** «a pedido de Camila», o «a pedido del equipo» si no hay nombre. */
-const aPedidoDe = (p: Pick<Propuesta, 'usuario_nombre'>): string =>
-  p.usuario_nombre ? `a pedido de ${p.usuario_nombre}` : 'a pedido del equipo';
-
-/** El día de una línea en palabras: «Día 2 · mar 10-11-2026». */
-export const diaEnPalabras = (dia: number, desde: string | null): string =>
-  dia === 0
-    ? 'Todo el evento'
-    : `Día ${dia}${desde ? ` · ${conDia(sumarDias(desde, dia - 1))}` : ''}`;
-
-const lineasDeLaTarjeta = (
-  lineas: LineaDelCambio[],
-  desde: string | null,
-): TarjetaDePropuesta['lineas'] =>
-  lineas.map((l) => ({
-    dia: diaEnPalabras(l.dia, desde),
-    que: l.que,
-    quita: l.quita,
-    agrega: l.agrega,
-    ...(l.personas
-      ? { personas: `${l.personas.antes} → ${l.personas.despues} personas` }
-      : {}),
-    ...(l.casilla ? { casilla: l.casilla } : {}),
-  }));
-
-const ESTADOS: Record<EstadoDePropuesta, string> = {
-  pendiente: 'está esperando tu «Sí, aplicar»',
-  aplicando: 'se está aplicando en este momento',
-  aplicada: 'ya se aplicó',
-  deshaciendo: 'se está deshaciendo en este momento',
-  deshecha: 'ya se deshizo',
-  descartada: 'se descartó (dijiste que no, o la reemplazó una más nueva)',
-  vencida: 'venció: pídemela de nuevo',
-};
-
 @Injectable()
 export class PropuestasService {
   constructor(
     private readonly repositorio: AsistenteRepository,
+    private readonly guardadas: PropuestasRepository,
     private readonly catalogo: GenerarRepository,
     private readonly logistica: LogisticsService,
     private readonly cotizaciones: QuotationsService,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    private readonly nuevas: CotizacionNuevaService,
   ) {
     this.logger.setContext(PropuestasService.name);
   }
@@ -173,7 +98,7 @@ export class PropuestasService {
     hoy: string,
   ): Promise<TarjetaDePropuesta> {
     const empresa = usuario.company_id;
-    const q = await this.repositorio.cotizacionParaCambiar(empresa, por);
+    const q = await this.guardadas.cotizacionParaCambiar(empresa, por);
     if (!q) {
       throw new ErrorDeHerramienta(
         'numero' in por
@@ -183,8 +108,8 @@ export class PropuestasService {
     }
     const armada = await this.armar(q, usuario, cambios, hoy);
     const antes = n(q.total_amount);
-    await this.repositorio.descartarPendientes(empresa, q.id, usuario.id);
-    const fila = await this.repositorio.crearPropuesta({
+    await this.guardadas.descartarPendientes(empresa, q.id, usuario.id);
+    const fila = await this.guardadas.crearPropuesta({
       company_id: empresa,
       quotation_id: q.id,
       usuario_id: usuario.id,
@@ -240,7 +165,7 @@ export class PropuestasService {
     proximoContacto: string | null,
   ): Promise<TarjetaDePropuesta> {
     const empresa = usuario.company_id;
-    const q = await this.repositorio.cotizacionParaCambiar(empresa, por);
+    const q = await this.guardadas.cotizacionParaCambiar(empresa, por);
     if (!q) {
       throw new ErrorDeHerramienta(
         'numero' in por
@@ -248,9 +173,9 @@ export class PropuestasService {
           : 'No encontré la cotización abierta.',
       );
     }
-    await this.repositorio.descartarPendientes(empresa, q.id, usuario.id);
+    await this.guardadas.descartarPendientes(empresa, q.id, usuario.id);
     const nota = { texto, canal, proximo_contacto: proximoContacto };
-    const fila = await this.repositorio.crearPropuesta({
+    const fila = await this.guardadas.crearPropuesta({
       company_id: empresa,
       quotation_id: q.id,
       usuario_id: usuario.id,
@@ -288,7 +213,7 @@ export class PropuestasService {
       throw new ConflictException(`Esa propuesta ${ESTADOS[p.estado]}.`);
     }
     if (Date.parse(p.vence_at) < Date.now()) {
-      await this.repositorio.moverPropuesta(empresa, id, 'pendiente', {
+      await this.guardadas.moverPropuesta(empresa, id, 'pendiente', {
         estado: 'vencida',
       });
       throw new ConflictException(
@@ -297,7 +222,7 @@ export class PropuestasService {
     }
     // El candado de dos clics: solo uno la toma.
     if (
-      !(await this.repositorio.moverPropuesta(empresa, id, 'pendiente', {
+      !(await this.guardadas.moverPropuesta(empresa, id, 'pendiente', {
         estado: 'aplicando',
       }))
     ) {
@@ -307,15 +232,21 @@ export class PropuestasService {
     let q: CotizacionParaCambiar | null = null;
     let guardada = false;
     try {
-      q = await this.repositorio.cotizacionParaCambiar(empresa, {
+      if (p.tipo === 'cotizacion_nueva') {
+        return await this.nuevas.crear(usuario, p, () => {
+          guardada = true;
+        });
+      }
+      if (!p.quotation_id) {
+        throw new NotFoundException('La cotización ya no existe.');
+      }
+      q = await this.guardadas.cotizacionParaCambiar(empresa, {
         id: p.quotation_id,
       });
       if (!q) throw new NotFoundException('La cotización ya no existe.');
 
       if (p.tipo === 'nota') {
-        const nota = (
-          p.despues as { nota: Propuesta['despues'] & NotaGuardada }
-        ).nota;
+        const nota = (p.despues as { nota: NotaGuardada }).nota;
         await this.bitacora.crearComoAsistente(empresa, {
           quotation_id: q.id,
           tipo: nota.canal,
@@ -342,7 +273,7 @@ export class PropuestasService {
         q.quotation_status === QuotationStatus.ACEPTADA &&
         despues.bajan_personas &&
         usuario.role !== UserRole.ADMINISTRADOR &&
-        (await this.repositorio.comprasDelEvento(empresa, q.id)) > 0
+        (await this.guardadas.comprasDelEvento(empresa, q.id)) > 0
       ) {
         throw new ForbiddenException(
           'Este evento ya tiene compras: solo un administrador baja personas.',
@@ -359,7 +290,9 @@ export class PropuestasService {
       guardada = true;
       const antes = n((p.antes as { total_amount?: number }).total_amount);
       await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
-      await this.anotar(
+      await anotarComoAsistente(
+        this.bitacora,
+        this.logger,
         empresa,
         q.id,
         `BelIA, ${aPedidoDe(p)}: ${p.resumen}. Total ${pesos(antes)} → ${pesos(despues.parche.total_amount)}.`,
@@ -375,7 +308,7 @@ export class PropuestasService {
       // Si alcanzó a guardarse, la propuesta quedó aplicada aunque falle lo
       // de después; si no, no sirve volver a intentarla tal cual.
       if (!guardada) {
-        await this.repositorio
+        await this.guardadas
           .moverPropuesta(empresa, id, 'aplicando', { estado: 'vencida' })
           .catch(() => undefined);
       }
@@ -388,15 +321,18 @@ export class PropuestasService {
   async deshacer(usuario: User, id: string): Promise<ResultadoDeAplicar> {
     const empresa = usuario.company_id;
     const p = await this.suya(usuario, id);
-    if (p.tipo !== 'servicios' || p.estado !== 'aplicada') {
+    if (p.tipo !== 'servicios' || p.estado !== 'aplicada' || !p.quotation_id) {
       throw new ConflictException(
         p.tipo === 'nota'
           ? 'Una nota de la bitácora no se deshace desde acá.'
-          : `Esa propuesta ${ESTADOS[p.estado]}.`,
+          : p.tipo === 'cotizacion_nueva'
+            ? 'Una cotización creada no se deshace desde acá: si no va, se anula o se borra desde el tablero.'
+            : `Esa propuesta ${ESTADOS[p.estado]}.`,
       );
     }
+    const cotizacionId = p.quotation_id;
     if (
-      !(await this.repositorio.moverPropuesta(empresa, id, 'aplicada', {
+      !(await this.guardadas.moverPropuesta(empresa, id, 'aplicada', {
         estado: 'deshaciendo',
       }))
     ) {
@@ -404,8 +340,8 @@ export class PropuestasService {
     }
     let guardada = false;
     try {
-      const q = await this.repositorio.cotizacionParaCambiar(empresa, {
-        id: p.quotation_id,
+      const q = await this.guardadas.cotizacionParaCambiar(empresa, {
+        id: cotizacionId,
       });
       if (!q) throw new NotFoundException('La cotización ya no existe.');
       if (q.quotation_status === QuotationStatus.ACEPTADA) {
@@ -430,7 +366,7 @@ export class PropuestasService {
         { derechos: usuario.derechos, plan: usuario.plan },
       );
       guardada = true;
-      await this.repositorio
+      await this.guardadas
         .moverPropuesta(empresa, id, 'deshaciendo', {
           estado: 'deshecha',
           deshecha_at: new Date().toISOString(),
@@ -438,7 +374,9 @@ export class PropuestasService {
         .catch((e: unknown) =>
           this.logger.warn(`propuesta ${id}: ${mensajeDe(e)}`),
         );
-      await this.anotar(
+      await anotarComoAsistente(
+        this.bitacora,
+        this.logger,
         empresa,
         q.id,
         `BelIA deshizo, ${aPedidoDe(p)}: ${p.resumen}. Total de vuelta en ${pesos(parche.total_amount)}.`,
@@ -451,7 +389,7 @@ export class PropuestasService {
       };
     } catch (e) {
       if (!guardada) {
-        await this.repositorio
+        await this.guardadas
           .moverPropuesta(empresa, id, 'deshaciendo', { estado: 'aplicada' })
           .catch(() => undefined);
       }
@@ -465,10 +403,15 @@ export class PropuestasService {
     if (p.estado !== 'pendiente') {
       throw new ConflictException(`Esa propuesta ${ESTADOS[p.estado]}.`);
     }
-    await this.repositorio.moverPropuesta(usuario.company_id, id, 'pendiente', {
+    await this.guardadas.moverPropuesta(usuario.company_id, id, 'pendiente', {
       estado: 'descartada',
     });
     return { estado: 'descartada' };
+  }
+
+  /** «Crear evento»: lo arma su propio servicio (cotizacion-nueva.service). */
+  proponerCotizacionNueva(usuario: User, datos: DatosDeLaNueva, hoy: string) {
+    return this.nuevas.proponer(usuario, datos, hoy);
   }
 
   // ---------- Por dentro ----------
@@ -517,7 +460,7 @@ export class PropuestasService {
         );
       }
       const [compras, impresas, plata] = await Promise.all([
-        this.repositorio.comprasDelEvento(empresa, q.id),
+        this.guardadas.comprasDelEvento(empresa, q.id),
         this.logistica.findDayPrints(empresa, q.id),
         this.repositorio.plataDe(q.id),
       ]);
@@ -572,7 +515,7 @@ export class PropuestasService {
   }
 
   private async suya(usuario: User, id: string): Promise<Propuesta> {
-    const p = await this.repositorio.propuesta(usuario.company_id, id);
+    const p = await this.guardadas.propuesta(usuario.company_id, id);
     // Solo quien la pidió la aplica: la tarjeta está en su conversación.
     if (!p || p.usuario_id !== usuario.id) {
       throw new NotFoundException('Esa propuesta no existe o no es tuya.');
@@ -590,10 +533,10 @@ export class PropuestasService {
     try {
       // La huella de cómo quedó, para que deshacer sepa si alguien la tocó
       // después.
-      const ahora = await this.repositorio.cotizacionParaCambiar(empresa, {
+      const ahora = await this.guardadas.cotizacionParaCambiar(empresa, {
         id: q.id,
       });
-      await this.repositorio.moverPropuesta(empresa, id, desde, {
+      await this.guardadas.moverPropuesta(empresa, id, desde, {
         estado,
         aplicada_at: new Date().toISOString(),
         huella_despues: ahora ? huellaDe(ahora) : null,
@@ -601,20 +544,6 @@ export class PropuestasService {
     } catch (e) {
       this.logger.warn(`propuesta ${id}: ${mensajeDe(e)}`);
     }
-  }
-
-  /** La línea de la bitácora, a nombre del Asistente (con el robot). */
-  private async anotar(empresa: number, quotationId: string, note: string) {
-    await this.bitacora
-      .crearComoAsistente(empresa, {
-        quotation_id: quotationId,
-        tipo: 'otro',
-        next_contact_date: null,
-        note,
-      })
-      .catch((e: unknown) =>
-        this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
-      );
   }
 
   /** Un ErrorDeHerramienta (lo que no se puede) llega a la pantalla como
