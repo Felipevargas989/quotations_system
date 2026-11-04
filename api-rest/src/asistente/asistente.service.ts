@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { LogisticsService } from 'src/logistics/logistics.service';
 import {
   MODELO_OPUS,
   costoDelUso,
@@ -31,15 +32,20 @@ import {
 } from './herramientas/comun';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
+import {
+  PropuestasService,
+  type TarjetaDePropuesta,
+} from './propuestas/propuestas.service';
 
 // BELIA, LA IA DE EVENTIA (doc 20; Felipe, 03-11-2026: "una ventanilla como
 // de soporte de chat en Eventia, que esté conectado a un agente, ojalá
 // Opus").
 //
-// Fase 1, sprint 1: solo consultas. Claude conversa con las herramientas de
-// `herramientas/`, que leen con la empresa y el cargo de quien escribe. El
-// ciclo es el de siempre de la API: si Claude pide una herramienta, el
-// motor la corre y le devuelve el resultado, hasta que contesta.
+// Claude conversa con las herramientas de `herramientas/`, que leen con la
+// empresa y el cargo de quien escribe (fase 1) o arman propuestas que la
+// persona aprueba (fase 2, `propuestas/`). El ciclo es el de siempre de la
+// API: si Claude pide una herramienta, el motor la corre y le devuelve el
+// resultado, hasta que contesta.
 //
 // Las barreras no viven acá ni en las instrucciones: viven en que no hay
 // herramienta para lo que no se debe hacer (doc 20 §3, regla 2).
@@ -68,6 +74,8 @@ export type RespuestaDeBelia = {
   costo_usd: number;
   /** Solo para administradores (doc 20 §7: el aviso del 80 %). */
   uso_del_mes?: { gastado_usd: number; tope_usd: number };
+  /** Las propuestas de esta respuesta, para las tarjetas (fase 2). */
+  propuestas?: TarjetaDePropuesta[];
 };
 
 /** Lo que mira la ventanilla para el ánimo de BelIA (doc 20 §8b). */
@@ -214,6 +222,9 @@ export class AsistenteService {
     private readonly catalogo: GenerarRepository,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    // AL FINAL a propósito: las pruebas arman este servicio por posición.
+    private readonly logistica: LogisticsService,
+    private readonly propuestas: PropuestasService,
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -276,6 +287,9 @@ export class AsistenteService {
       cotizaciones: this.cotizaciones,
       catalogo: this.catalogo,
       bitacora: this.bitacora,
+      logistica: this.logistica,
+      propuestas: this.propuestas,
+      tarjetas: [],
       hoy,
     };
     const sistema: Anthropic.TextBlockParam[] = [
@@ -400,6 +414,7 @@ export class AsistenteService {
       herramientas: usadas,
       segundos,
       costo_usd: costo,
+      ...(ctx.tarjetas.length ? { propuestas: ctx.tarjetas } : {}),
       ...(usuario.role === UserRole.ADMINISTRADOR
         ? {
             uso_del_mes: {

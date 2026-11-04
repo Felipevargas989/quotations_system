@@ -46,7 +46,11 @@ Lo que ya vende.
 - Evia, la ventanilla de chat con IA (doc 20, 03-11-2026): `POST
   /asistente/mensajes`, con el derecho `asistente`. Felipe: *"lo usa
   administración y vendedores"*. Cada herramienta de Evia pide además el
-  cargo de la pantalla que muestra ese dato (doc 20 §3).
+  cargo de la pantalla que muestra ese dato (doc 20 §3). Desde la fase 2
+  (03-11), también `POST /asistente/propuestas/:id/aplicar`, `descartar` y
+  `deshacer`, el «Sí, aplicar» de sus tarjetas: la ruta es de vendedor, y
+  cambiar una aceptada lo revisa el servicio, solo para operaciones y
+  administración, como Post-Venta → Servicios (mapa 25).
 - Editar y borrar clientes, contactos y tipos de cliente, y marcar el
   contacto principal. **Decisión 2, tomada** (Felipe: recepción "debería poder ver qué
   cotizaciones tiene un cliente vigente, no editar, no eliminar"): la

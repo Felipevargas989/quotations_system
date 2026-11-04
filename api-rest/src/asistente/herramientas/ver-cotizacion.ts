@@ -21,6 +21,7 @@ import {
 // son de operaciones para arriba (fase 1, sprint 3).
 
 type Item = {
+  codigo?: string | null;
   nombre?: string | null;
   precio?: number | null;
   quantity?: number | null;
@@ -40,9 +41,12 @@ type Foto = {
 
 const n = (v: unknown): number => Number(v) || 0;
 
+/** «Leche asada ×2 (id 812)»: con el id, BelIA propone sacar ese plato
+ *  exacto (fase 2). */
 const conCantidad = (it: Item): string => {
   const c = n(it.quantity) || 1;
-  return c > 1 ? `${it.nombre ?? '?'} (×${c})` : (it.nombre ?? '?');
+  const id = it.codigo ? ` (id ${it.codigo})` : '';
+  return `${it.nombre ?? '?'}${c > 1 ? ` ×${c}` : ''}${id}`;
 };
 
 /** Los servicios por día, como los muestra Servicios: cada casilla con su
@@ -75,6 +79,7 @@ export const diasDe = (foto: Foto, desde: string | null, personas: number) => {
   for (const f of fijos) {
     const linea = {
       nombre: f.nombre ?? '?',
+      id: f.codigo ?? undefined,
       cantidad: n(f.quantity) || 1,
       precio: pesos(n(f.precio)),
     };
