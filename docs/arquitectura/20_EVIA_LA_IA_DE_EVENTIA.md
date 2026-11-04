@@ -170,6 +170,18 @@
 >   «Crear evento» vive en `propuestas/cotizacion-nueva.service.ts` y lo de
 >   la tabla de propuestas en `propuestas/propuestas.repository.ts`.
 > - 1.838 pruebas del motor y las de la app en verde.
+> - **En el laboratorio desde el 04-11** (pruebas `ace8b33`, vitrina
+>   6aeaa31d) y probado en la pantalla con la sesión de Felipe:
+>   - la burbuja de aviso salió sola por los topes de calendario, y «¿Qué
+>     tengo que revisar hoy?» los listó (4 cotizaciones, con la aceptada con
+>     que chocan);
+>   - la respuesta en vivo llegó en 34 trozos, del segundo 1,6 al 3,4:
+>     Railway no la junta;
+>   - «Crear evento» armó y creó la N° 484 de prueba (Cliente demo, 27-11,
+>     30 adultos, $432.000 = $14.400 × 30), con el aviso del tope y las
+>     observaciones en blanco. **La 484 quedó en el laboratorio.**
+>
+>   La prueba costó US$ 0,14 (la propuesta de «Crear evento», US$ 0,035).
 
 ## 1. Por qué
 
