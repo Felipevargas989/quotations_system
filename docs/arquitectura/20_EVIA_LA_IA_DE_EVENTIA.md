@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en el laboratorio; «una sola IA» (§15), plan que espera el OK de Felipe. Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15), plan que espera el OK de Felipe. Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -248,8 +248,8 @@
 > con las pruebas del motor.
 > - Esa misma tarde Felipe perdió su conversación al cerrar con la «×», que
 >   la borraba. Ahora la «×» cierra y guarda, y «Nueva conversación» va
->   abajo, con su pregunta (*"ok arréglalo"*): en el laboratorio;
->   producción, con el «a producción».
+>   abajo, con su pregunta (*"ok arréglalo"*). En producción con las
+>   mejoras del §14.
 
 ## 1. Por qué
 
@@ -643,6 +643,10 @@ Sigue en US$ 100 al mes por empresa, para todos los cargos juntos (§7).
 Felipe: *"No importa el tema del tope ... esto se paga solo"*.
 
 ## 14. Las mejoras del 04-11 en la tarde (Felipe: *"vamos con la 1 a la 6"*)
+
+> **Estado:** en producción desde la tarde del 04-11 (Felipe: *"a
+> producción"*), después de probarlas en el laboratorio. Sin migración:
+> las fichas al día viven en la memoria del motor.
 
 Salieron de medir el primer día en producción: 22 preguntas, todas de
 Felipe; US$ 1,55 de los 100 del mes; 15 s por respuesta en promedio y 29 s
