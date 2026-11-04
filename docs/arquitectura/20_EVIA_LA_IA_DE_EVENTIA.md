@@ -142,6 +142,11 @@
 >   hora se vuelve a escribir).
 > - **Falta:** con su «a producción», las dos migraciones (180 y 181) y el
 >   motor, y después la vitrina.
+> - **04-11, 00:2x · «a producción»** (Felipe). Las migraciones 180 y 181,
+>   **aplicadas en producción** y verificadas (respaldo de los módulos de la
+>   empresa 1 en `02_RESPALDOS/cambios_de_datos`). El motor y la vitrina van
+>   con la fusión del PR a main, después de las 07:00: fusionar reinicia el
+>   motor de producción y de noche eso corta el radar de Oportunidades.
 >
 > **04-11-2026, madrugada · Las tres que faltaban** (Felipe: *"haz las 3
 > primeras"*, de la lista contra este plan).

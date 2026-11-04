@@ -612,7 +612,7 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 180, Valle del Sol no tiene el derecho (la puerta responde 403) y la cuenta del mes no se puede leer.
 
-**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: el derecho en la empresa 1, la tabla con RLS, `anon` sin lectura y `service_role` con escritura). **Sin aplicar en producción.**
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos hazlo"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: el derecho en la empresa 1, la tabla con RLS, `anon` sin lectura y `service_role` con escritura). **Aplicada en producción el 04-11-2026 a las 00:2x** (Felipe: *"a producción"*), antes del motor y con el respaldo de los módulos de la empresa 1 en `02_RESPALDOS/cambios_de_datos/2026-11-04_belia_migracion_180_modulos_empresa_1.json`. Verificado igual que en el lab.
 
 ## 26. Migración 181: las propuestas de BelIA (03-11-2026)
 
@@ -620,4 +620,4 @@ y **antes** del deploy del motor.
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 181, BelIA responde igual, pero las herramientas que proponen fallan al guardar la propuesta.
 
-**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Completada el 04-11-2026** para «Crear evento» (Felipe: *"haz las 3 primeras"*): `quotation_id` puede faltar mientras la cotización nueva no se crea, y el tipo `cotizacion_nueva` (el check de tipo va con nombre, `asistente_propuestas_tipo_check`). El archivo trae los `alter` idempotentes para la tabla que ya existía; **aplicados en el laboratorio el 04-11** (verificado). **Sin aplicar en producción.**
+**Estado.** Escrita el 03-11-2026 (Felipe: *"vamos con lo que no puede hacer para dejarla lista hoy"*). **Aplicada en el laboratorio el 03-11-2026** (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura). **Completada el 04-11-2026** para «Crear evento» (Felipe: *"haz las 3 primeras"*): `quotation_id` puede faltar mientras la cotización nueva no se crea, y el tipo `cotizacion_nueva` (el check de tipo va con nombre, `asistente_propuestas_tipo_check`). El archivo trae los `alter` idempotentes para la tabla que ya existía; **aplicados en el laboratorio el 04-11** (verificado). **Aplicada en producción el 04-11-2026**, completa y antes del motor (verificado: RLS, `anon` y `authenticated` sin lectura, `service_role` con escritura, los tres tipos y la cotización que puede faltar).
