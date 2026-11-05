@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { datosDeFacturacionLimpios } from '../../facturacion/datos-del-receptor';
 import { CrearRazonSocialDto, EditarRazonSocialDto } from './razon-social.dto';
-import { RazonesSocialesRepository } from './razones-sociales.repository';
+import {
+  RazonesSocialesRepository,
+  type RazonSocial,
+} from './razones-sociales.repository';
 
 /**
  * LAS RAZONES SOCIALES DE UN CLIENTE: a quién se le factura (doc 19 §9.12).
@@ -29,11 +32,14 @@ export class RazonesSocialesService {
     return this.repo.deCliente(clientId, companyId);
   }
 
+  /** `origen` 'orden_de_compra': la guardó la primera factura a ese RUT,
+   *  con lo que decía la OC y la persona confirmó (paso 2c). */
   async crear(
     clientId: string,
     companyId: number,
     dto: CrearRazonSocialDto,
     usuarioId: string | null,
+    origen: RazonSocial['origen'] = 'manual',
   ) {
     await this.asegurarCliente(clientId, companyId);
     const limpios = datosDeFacturacionLimpios(dto);
@@ -44,7 +50,7 @@ export class RazonesSocialesService {
         razon_social: limpios.razon_social ?? '',
         company_id: companyId,
         client_id: clientId,
-        origen: 'manual',
+        origen,
         creado_por: usuarioId,
       }),
     );

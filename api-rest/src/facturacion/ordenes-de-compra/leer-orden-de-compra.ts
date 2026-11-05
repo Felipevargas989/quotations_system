@@ -78,7 +78,7 @@ export const instruccionesDeLaOC = (empresa: EmpresaQueVende): string =>
     '- numero: el N° de la orden tal cual, sin texto agregado.',
     '- fecha: la de emisión de la orden, AAAA-MM-DD.',
     '- rut_comprador y razon_social_comprador: los del comprador, como los imprime la orden.',
-    '- giro_comprador, direccion_comprador, comuna_comprador y ciudad_comprador: los del comprador, si la orden los trae.',
+    '- giro_comprador, direccion_comprador, comuna_comprador y ciudad_comprador: los del comprador, si la orden los trae. Si no trae la dirección del comprador pero sí la de facturación o de envío de la factura (como las de Mercado Público), usa esa, con su comuna.',
     '- detalle: qué se compra, en una o dos frases, con las palabras de la orden.',
     '- neto, iva y total: en pesos, sin puntos. Si la orden trae solo el total, deja el neto y el IVA en 0.',
     '- otras_referencias: si la orden menciona otro documento que el comprador exige en la factura (una nota de pedido, una HES, un contrato), su tipo y su N°.',

@@ -97,6 +97,18 @@ export class OrdenesDeCompraService {
       datos.rut = dto.rut ? normalizarRut(dto.rut) : null;
     if (dto.razon_social !== undefined)
       datos.razon_social = textoLimpio(dto.razon_social) || null;
+    if (dto.comprador !== undefined) {
+      const c = dto.comprador ?? {};
+      const comprador = {
+        giro: textoLimpio(c.giro) || null,
+        direccion: textoLimpio(c.direccion) || null,
+        comuna: textoLimpio(c.comuna) || null,
+        ciudad: textoLimpio(c.ciudad) || null,
+      };
+      datos.comprador = Object.values(comprador).some(Boolean)
+        ? comprador
+        : null;
+    }
     if (dto.descripcion !== undefined)
       datos.descripcion = (dto.descripcion ?? '').trim() || null;
     for (const campo of ['neto', 'iva'] as const) {
