@@ -115,6 +115,7 @@ export class NotasService {
             )
           : undefined;
       const esNota = d.tipo === NC || d.tipo === ND;
+      const signo = d.tipo === NC ? -1 : 1;
       const titulo =
         esNota && modifica
           ? `${nombreDe(d)} · ${QUE_HACE[d.codigo_referencia ?? 0] ?? 'modifica'} la ${modifica.tipo === 33 ? modifica.folio : nombreDe(modifica)}`
@@ -141,9 +142,11 @@ export class NotasService {
           d.tipo === 39
             ? (detalle[0]?.cabana ?? 'Boleta')
             : (d.receptor?.razon_social ?? null),
-        total: esNota && d.tipo === NC ? -total : total,
-        neto: Number(d.neto),
-        iva: Number(d.iva),
+        // La NC resta: total, neto e IVA en negativo, para que el reporte
+        // sume bien en Excel.
+        total: signo * total,
+        neto: signo * Number(d.neto),
+        iva: signo * Number(d.iva),
         numero: d.cotizacion?.quotation_number ?? null,
         quotation_id: d.quotation_id,
         oc: d.oc?.numero ?? null,

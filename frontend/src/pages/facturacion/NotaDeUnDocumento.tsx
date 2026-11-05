@@ -209,22 +209,24 @@ export default function NotaDeUnDocumento({
       </label>
 
       {accion === "rebajar" && (
-        <label className="block w-48">
+        <label className="block">
           <span className="text-xs text-gray-500">
             Cuánto se rebaja, con IVA
             {doc.saldo != null ? ` (le quedan ${clp(doc.saldo)})` : ""}
           </span>
-          <NumberInput
-            value={monto}
-            min={0}
-            currency
-            placeholder="0"
-            onChange={(v) => {
-              setMonto(v);
-              setVista(null);
-            }}
-            className="px-3 py-1.5 text-sm"
-          />
+          <div className="w-48">
+            <NumberInput
+              value={monto}
+              min={0}
+              currency
+              placeholder="0"
+              onChange={(v) => {
+                setMonto(v);
+                setVista(null);
+              }}
+              className="px-3 py-1.5 text-sm"
+            />
+          </div>
         </label>
       )}
 
