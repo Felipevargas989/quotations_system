@@ -13,6 +13,8 @@
 > **Paso 2a construido el 04-11 en la noche** (Felipe: *"que estamos
 > esperando?"*): la pestaña «Facturación» de Post-Venta con las órdenes de
 > compra del evento, solo con el módulo propio `facturacion` (§9.14).
+> **Paso 2b construido esa misma noche:** «✨ Leer con BelIA» el PDF de
+> la OC (§9.14).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -557,7 +559,7 @@ La conexión de verdad es el paso 5.
 | Paso | Qué | Necesita |
 |---|---|---|
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
-| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos; **2c** la factura armada, la vista previa y «Emitir». | E1, E2 y E4. |
+| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir». | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
@@ -670,6 +672,17 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
   que la cotización sea de la empresa, que el PDF sea de los documentos del
   mismo evento y que la fecha exista. La misma OC dos veces en un evento, o
   quitar una con documentos tributarios, responde 409 con palabras.
+- **«✨ Leer con BelIA» (paso 2b).** Arriba de la lista, los PDF de órdenes
+  de compra de Documentos que todavía no son una OC. BelIA (Haiku, unos
+  US$0,002 por documento, como los respaldos de Oportunidades) lee el PDF
+  con una estructura fija y llena el formulario: el N°, la fecha, el
+  comprador (su RUT y razón social, nunca los de la propia empresa), los
+  montos y el detalle. Arriba del formulario, en ámbar, los avisos (un RUT
+  que no es válido, un neto con IVA que no cuadra con el total, un N° de
+  más de 18, la OC ya cargada) y lo que dice la OC del comprador (giro,
+  dirección, comuna) y de otras referencias (la nota de pedido). Nada se
+  guarda solo: la persona revisa y guarda (L19), y la OC queda con origen
+  «pdf». La ruta: `POST /quotations/:id/ordenes-de-compra/leer`.
 
 ### 9.11 Fuentes nuevas (04-11)
 
