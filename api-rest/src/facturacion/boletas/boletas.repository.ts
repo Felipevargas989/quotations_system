@@ -198,6 +198,24 @@ export class BoletasRepository {
     if (error) throw error;
   }
 
+  /** El nombre de la persona en su perfil, el mismo con que firma la
+   *  bitácora (`QuotationFollowupsRepository.nombreDeLaPersona`). */
+  async nombreDeLaPersona(
+    companyId: number,
+    userId: string,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from('user_profiles')
+      .select('full_name')
+      .eq('user_id', userId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (
+      (data as { full_name: string | null } | null)?.full_name?.trim() || null
+    );
+  }
+
   /** E3: quién cambió qué. Solo se agrega. */
   async anotar(cambios: NuevoCambio[]) {
     if (!cambios.length) return;
