@@ -1,6 +1,7 @@
 import { Controller, Get, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
@@ -174,6 +175,7 @@ export class HoyRepository {
 export class HoyController {
   constructor(private readonly repo: HoyRepository) {}
 
+  @Permiso('dashboard')
   @Get('hoy')
   alerts(@CurrentUser() user: User) {
     return this.repo.alerts(user.company_id);

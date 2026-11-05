@@ -99,6 +99,7 @@ export const pagosDelEvento: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['postventa'],
   derecho: 'post_venta',
   async ejecutar(entrada, ctx) {
     const numero = entero(entrada.numero, 1, 10_000_000);
@@ -151,6 +152,7 @@ export const cobranza: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['postventa'],
   derecho: 'post_venta',
   async ejecutar(entrada, ctx) {
     const hasta = fecha(entrada.hasta, 'hasta') ?? sumarDias(ctx.hoy, 7);

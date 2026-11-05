@@ -108,6 +108,7 @@ export const buscarClientes: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones', 'clientes'],
   async ejecutar(entrada, ctx) {
     const pedidos = (
       Array.isArray(entrada.textos) ? entrada.textos : [entrada.texto]

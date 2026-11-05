@@ -132,6 +132,7 @@ export const buscarCotizaciones: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const creadaHasta = fecha(entrada.creada_hasta, 'creada_hasta');
     const tipo = entrada.tipo;

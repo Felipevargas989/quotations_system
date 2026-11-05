@@ -12,6 +12,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   OPERATIONS_AND_UP,
   RECEPTION_AND_UP,
@@ -44,6 +45,8 @@ export class PaymentsController {
   ) {}
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DentroDe('cotizaciones')
   @Post('plan')
   createPaymentPlan(
     @Body() createPaymentPlanDto: CreatePaymentPlanDto,
@@ -59,6 +62,7 @@ export class PaymentsController {
   // «Editar plan de pagos» de Post-Venta (doc 14 §Editar el plan,
   // 28-10-2026): llegan las cuotas sin plata; las que tienen pagos quedan.
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Put('plan')
   editarPlan(@Body() dto: EditarPlanDto, @CurrentUser() user: User) {
     this.logger.info(`PUT /payments/plan with user ${user.id}`);
@@ -68,6 +72,7 @@ export class PaymentsController {
   // Las aceptadas, realizadas y anuladas sin ninguna cuota: Post-Venta las
   // muestra con el aviso «Sin plan de pagos» (28-10-2026, caso 703).
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Get('eventos-sin-plan')
   findEventosSinPlan(@CurrentUser() user: User) {
     this.logger.info(`GET /payments/eventos-sin-plan with user ${user.id}`);
@@ -76,6 +81,7 @@ export class PaymentsController {
 
   @Roles(...RECEPTION_AND_UP)
   @Derecho(null)
+  @Permiso('cotizaciones', 'postventa', 'dashboard')
   @Get()
   async findAllPaymensFromQuotation(
     @Query('quotationId') quotationId: Quotation['id'],
@@ -91,6 +97,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Get('transactions')
   findAllPaymentsWithTransactions(@CurrentUser() user: User) {
     this.logger.info(`GET /payments/transactions with user ${user.id}`);
@@ -100,6 +107,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('transactions')
   createPaymentTransaction(
     @Body() createPaymentTransactionDto: CreatePaymentTransactionDto,
@@ -113,6 +121,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('transactions/overflow')
   createOverflowPaymentTransaction(
     @Body() createOverflowTransactionDto: CreateOverflowTransactionDto,
@@ -128,6 +137,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Patch('transactions/:id')
   updatePaymentTransaction(
     @Param('id') paymentTransactionId: PaymentTransaction['id'],
@@ -151,6 +161,7 @@ export class PaymentsController {
   // Calendario de pagos, Nivel A: solo fecha y nota, solo cuotas sin
   // dinero registrado (el servicio lo verifica).
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Patch(':id')
   updatePaymentSchedule(
     @Param('id') id: Payment['id'],
@@ -162,6 +173,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Delete(':id')
   removePayment(@Param('id') id: Payment['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/${id}`);
@@ -169,6 +181,7 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Delete('transactions/:id')
   removePaymentTransaction(@Param('id') id: number, @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/transactions/${id}`);

@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { tieneDerecho } from 'src/auth/derechos';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { AnalyticsService } from './analytics.service';
@@ -11,6 +12,7 @@ import { GetDashboardStatsDto } from './dto/get-dashboard-stats.dto';
 
 // Sección de administrador (Fase 3): el cargo se exige acá.
 @Roles(...ADMIN_ONLY)
+@Permiso('dashboard')
 @Controller('analytics')
 export class AnalyticsController {
   constructor(

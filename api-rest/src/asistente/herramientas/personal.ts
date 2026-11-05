@@ -36,6 +36,7 @@ export const personal: Herramienta = {
     },
   },
   cargos: ADMIN_ONLY,
+  permiso: ['personal'],
   derecho: 'personal',
   async ejecutar(entrada, ctx) {
     const empresa = ctx.usuario.company_id;

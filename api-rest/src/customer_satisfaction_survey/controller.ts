@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -14,6 +15,7 @@ import { CustomerSatisfactionSurveyService } from './service';
 // cliente desde su correo: esas no pasan por el guardián y se revisan
 // en el servicio, resolviendo la empresa desde la cotización.
 @Derecho('encuestas')
+@Permiso('encuestas')
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
   constructor(

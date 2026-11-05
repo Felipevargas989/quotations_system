@@ -675,3 +675,18 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: «Particulares» marcado en las empresas 1, 51 y 52). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
 
+## 33. Migración 188: los permisos por cargo (05-11-2026)
+
+(La §32 es la 187, de Facturación, que vive en el laboratorio.)
+
+**Qué hace.** Dos tablas y dos funciones:
+- `permisos_por_cargo` (`company_id`, `cargo`, `permiso`, `prendido`, `cambiado_por`, `cambiado_en`), llave (`company_id`, `cargo`, `permiso`). Guarda **solo lo que la empresa aparta de fábrica**: lo de fábrica vive en el motor (`auth/permisos.ts`) y es lo de hoy. La clave del permiso no lleva CHECK: el catálogo crece en el código.
+- `permisos_por_cargo_cambios`: el registro (quién, con su nombre de ese día, cuándo, `accion` = `cambio` o `fabrica`, cargo, permiso y cómo quedó).
+- `permisos_por_cargo_cambiar(...)` y `permisos_por_cargo_a_fabrica(...)`: cambian y anotan en un solo paso. Si el permiso queda como de fábrica, la fila se borra.
+- Cerradas a `anon` y `authenticated`, con permiso a `service_role`; las funciones, solo `service_role`.
+
+**Por qué.** Felipe, 05-11-2026: *"deberíamos transformar hoy todos los permisos existentes en pestañas que se puedan deslizar como botones"*. Plan y catálogo en el doc 22.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor. Sin la 188 el motor no se cae: usa lo de fábrica (lo de hoy), pero la pantalla de permisos responde error al guardar.
+
+**Estado.** Escrita el 05-11-2026, con su reversa. **Falta en el laboratorio y en producción** (producción, con el «a producción» de Felipe, antes del motor).

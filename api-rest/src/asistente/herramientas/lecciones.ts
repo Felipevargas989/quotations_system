@@ -20,6 +20,7 @@ export const lecciones: Herramienta = {
     'estado y quién la propuso. Para «¿qué aprendiste?» y antes de aprobar, descartar u olvidar una.',
   esquema: { type: 'object', properties: {} },
   cargos: SALES_AND_UP,
+  dentroDe: ['cotizaciones'],
   async ejecutar(_entrada, ctx) {
     const lista = await ctx.propuestas.leccionesVivas(ctx.usuario);
     return { total: lista.length, lecciones: lista };
@@ -56,6 +57,7 @@ export const proponerLeccion: Herramienta = {
     required: ['texto', 'tarea'],
   },
   cargos: SALES_AND_UP,
+  dentroDe: ['cotizaciones'],
   async ejecutar(entrada, ctx) {
     const t = texto(entrada.texto, 500);
     if (!t || t.length < 10) {
@@ -95,6 +97,7 @@ export const proponerDecisionDeLeccion: Herramienta = {
     required: ['id', 'decision'],
   },
   cargos: [UserRole.ADMINISTRADOR],
+  dentroDe: ['cotizaciones'],
   async ejecutar(entrada, ctx) {
     const id = texto(entrada.id, 40);
     if (!id || !UUID.test(id)) {

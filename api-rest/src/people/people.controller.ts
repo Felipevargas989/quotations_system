@@ -12,6 +12,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -58,18 +59,21 @@ export class PeopleController {
   // ---- Cargos ----
   // Van ANTES de las rutas con :id para que "roles" no se lea como un id.
 
+  @Permiso('personal')
   @Get('roles')
   findRoles(@CurrentUser() user: User, @Query('todos') todos?: string) {
     this.logger.info(`GET /people/roles with user ${user.id}`);
     return this.peopleService.findRoles(user.company_id, todos === 'true');
   }
 
+  @Permiso('personal')
   @Post('roles')
   createRole(@Body() dto: CreateJobRoleDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/roles ${dto.name}`);
     return this.peopleService.createRole(user.company_id, dto.name);
   }
 
+  @Permiso('personal')
   @Patch('roles/:id')
   updateRole(
     @Param('id') id: string,
@@ -82,6 +86,7 @@ export class PeopleController {
 
   // Un cargo se APAGA, no se borra: si alguien lo tiene como cargo por
   // defecto, borrarlo dejaría esa ficha apuntando a la nada.
+  @Permiso('personal')
   @Delete('roles/:id')
   deactivateRole(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /people/roles/${id} (apagar)`);
@@ -93,6 +98,8 @@ export class PeopleController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'personal')
+  @DentroDe('cotizaciones', 'calendario')
   @Get('staff')
   findStaff(
     @Query('evento') evento: string | undefined,
@@ -114,6 +121,7 @@ export class PeopleController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'personal')
   @Post('staff')
   addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff ${logSafe(dto)}`);
@@ -122,6 +130,7 @@ export class PeopleController {
 
   // La sábana lo llama UNA vez al abrirse: deja el año de toda la
   // planta proyectado. Desplazarse por los meses ya no carga nada.
+  @Permiso('personal')
   @Post('staff/proyectar-planta')
   proyectarPlanta(@CurrentUser() user: User) {
     this.logger.info('POST /people/staff/proyectar-planta');
@@ -130,6 +139,7 @@ export class PeopleController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'personal')
   @Patch('staff/:id')
   updateStaff(
     @Param('id') id: string,
@@ -142,6 +152,7 @@ export class PeopleController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'personal')
   @Delete('staff/:id')
   removeStaff(
     @Param('id') id: string,
@@ -161,6 +172,7 @@ export class PeopleController {
   /** Lo que YA se le pagó al equipo, mes a mes: el flujo de caja del
    *  panel usa la fecha en que se marcó pagado en la nómina. */
   @Derecho(null)
+  @Permiso('dashboard', 'personal')
   @Get('pagado-por-mes')
   pagadoPorMes(@CurrentUser() user: User) {
     return this.peopleService.pagadoDePersonalPorMes(user.company_id);
@@ -168,12 +180,14 @@ export class PeopleController {
 
   /** El costo de personal por evento y cargo, desde las sillas. */
   @Derecho(null)
+  @Permiso('dashboard', 'personal')
   @Get('costo-personal')
   costoPersonal(@CurrentUser() user: User) {
     return this.peopleService.costoPersonal(user.company_id);
   }
 
   /** La planta con turno los días del evento entra a su ficha. */
+  @Permiso('personal')
   @Post('sheets/:quotationId/traer-planta')
   traerPlanta(
     @Param('quotationId') quotationId: string,
@@ -186,17 +200,20 @@ export class PeopleController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'personal')
   @Get('sheets')
   findSheets(@CurrentUser() user: User) {
     return this.peopleService.findSheets(user.company_id);
   }
 
+  @Permiso('personal')
   @Post('sheets')
   upsertSheet(@Body() dto: UpsertSheetDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/sheets ${dto.quotation_id} ${dto.status}`);
     return this.peopleService.upsertSheet(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Post('sheets/cerrar')
   cerrarFicha(@Body() dto: CerrarFichaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/sheets/cerrar ${dto.quotation_id}`);
@@ -205,17 +222,20 @@ export class PeopleController {
 
   // ---- Los pozos y el reparto ----
 
+  @Permiso('personal')
   @Get('pools')
   findPools(@CurrentUser() user: User) {
     return this.peopleService.findPools(user.company_id);
   }
 
+  @Permiso('personal')
   @Post('pools')
   createPool(@Body() dto: CreatePoolDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/pools ${logSafe(dto)}`);
     return this.peopleService.createPool(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Patch('pools/:id')
   updatePool(
     @Param('id') id: string,
@@ -225,11 +245,13 @@ export class PeopleController {
     return this.peopleService.updatePool(+id, dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Delete('pools/:id')
   removePool(@Param('id') id: string, @CurrentUser() user: User) {
     return this.peopleService.removePool(+id, user.company_id);
   }
 
+  @Permiso('personal')
   @Post('pools/:id/sin-propina')
   sinPropina(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /people/pools/${id}/sin-propina`);
@@ -238,12 +260,14 @@ export class PeopleController {
 
   // La fila solo-de-propina del invitado del evento: se crea o corrige
   // desde la tabla del día (el extra y el "sin propina" viven ahí).
+  @Permiso('personal')
   @Post('staff/del-evento-al-dia')
   soloPropinaDelDia(@Body() dto: SoloPropinaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff/del-evento-al-dia ${logSafe(dto)}`);
     return this.peopleService.soloPropinaDelDia(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Post('pools/:id/repartir')
   repartir(
     @Param('id') id: string,
@@ -256,6 +280,7 @@ export class PeopleController {
 
   // ---- Las estrellas ----
 
+  @Permiso('personal')
   @Get('reviews')
   findReviews(@CurrentUser() user: User, @Query('persona') persona?: string) {
     return this.peopleService.findReviews(
@@ -264,6 +289,7 @@ export class PeopleController {
     );
   }
 
+  @Permiso('personal')
   @Post('reviews')
   createReview(@Body() dto: CreateReviewDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/reviews persona ${dto.person_id}`);
@@ -272,12 +298,14 @@ export class PeopleController {
 
   // ---- La nómina y el pago ----
 
+  @Permiso('personal')
   @Get('payrolls')
   findPayrolls(@CurrentUser() user: User) {
     return this.peopleService.findPayrolls(user.company_id);
   }
 
   /** El día de restaurante más viejo con gente: el piso de la ventana. */
+  @Permiso('personal')
   @Get('dias/mas-viejo')
   async diaMasViejo(@CurrentUser() user: User) {
     return {
@@ -286,6 +314,7 @@ export class PeopleController {
   }
 
   /** Devuelve una liquidación a Liquidación (solo si nada está pagado). */
+  @Permiso('personal')
   @Post('payrolls/reabrir')
   reabrirLiquidacion(
     @Body() dto: ReabrirLiquidacionDto,
@@ -295,11 +324,13 @@ export class PeopleController {
   }
 
   /** Lo liquidado que todavía no entró a ninguna nómina. */
+  @Permiso('personal')
   @Get('historico/graficos')
   graficosHistorico(@CurrentUser() user: User) {
     return this.peopleService.graficosHistorico(user.company_id);
   }
 
+  @Permiso('personal')
   @Get('payrolls/pendientes')
   liquidacionesPendientes(@CurrentUser() user: User) {
     return this.peopleService.liquidacionesPendientes(user.company_id);
@@ -307,6 +338,7 @@ export class PeopleController {
 
   /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
   /** La misma revisión, para un evento aún abierto: qué quedaría por pagar. */
+  @Permiso('personal')
   @Post('payrolls/previa-preliminar')
   previaPreliminar(
     @Body() dto: PreviaPreliminarDto,
@@ -315,22 +347,26 @@ export class PeopleController {
     return this.peopleService.previaPreliminar(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Post('payrolls/previa')
   previaPayroll(@Body() dto: SeleccionPayrollDto, @CurrentUser() user: User) {
     return this.peopleService.previaPayroll(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Post('payrolls')
   createPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/payrolls ${logSafe(dto)}`);
     return this.peopleService.createPayroll(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Get('payrolls/:id')
   getPayroll(@Param('id') id: string, @CurrentUser() user: User) {
     return this.peopleService.getPayroll(+id, user.company_id);
   }
 
+  @Permiso('personal')
   @Patch('payrolls/:id/pago')
   marcarPago(
     @Param('id') id: string,
@@ -346,6 +382,7 @@ export class PeopleController {
   // ---- El historial de una persona (su pestaña de Pagos) ----
   // Va antes de las rutas con :id sueltas.
 
+  @Permiso('personal')
   @Get(':id/historial')
   findHistorial(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /people/${id}/historial`);
@@ -356,6 +393,7 @@ export class PeopleController {
   // Van antes de las rutas con :id de personas, para que
   // "day-notes" no se lea como el id de una persona.
 
+  @Permiso('personal')
   @Get('day-notes')
   findDayNotes(
     @CurrentUser() user: User,
@@ -371,12 +409,14 @@ export class PeopleController {
     return this.peopleService.findDayNotes(user.company_id, desde, hasta);
   }
 
+  @Permiso('personal')
   @Post('day-notes')
   createDayNote(@Body() dto: CreateDayNoteDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/day-notes ${dto.day}`);
     return this.peopleService.createDayNote(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Patch('day-notes/:id')
   updateDayNote(
     @Param('id') id: string,
@@ -386,6 +426,7 @@ export class PeopleController {
     return this.peopleService.updateDayNote(+id, dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Delete('day-notes/:id')
   removeDayNote(@Param('id') id: string, @CurrentUser() user: User) {
     return this.peopleService.removeDayNote(+id, user.company_id);
@@ -393,24 +434,28 @@ export class PeopleController {
 
   // ---- Personas ----
 
+  @Permiso('personal')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /people with user ${user.id}`);
     return this.peopleService.findAll(user.company_id);
   }
 
+  @Permiso('personal')
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /people/${id}`);
     return this.peopleService.findOne(+id, user.company_id);
   }
 
+  @Permiso('personal')
   @Post()
   create(@Body() dto: CreatePersonDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people with ${logSafe(dto)}`);
     return this.peopleService.create(dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -421,6 +466,7 @@ export class PeopleController {
     return this.peopleService.update(+id, dto, user.company_id);
   }
 
+  @Permiso('personal')
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /people/${id}`);

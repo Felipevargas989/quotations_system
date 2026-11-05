@@ -61,7 +61,7 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `POST /auth/password/recovery` | `AuthController.requestPasswordRecovery` | `AuthService.requestPasswordRecovery` (Supabase `resetPasswordForEmail` con `SUPABASE_PASSWORD_RECOVERY_REDIRECT_URL`) | `requestPasswordRecovery` (`services/auth.service.ts`) ← `ForgotPasswordPage` | `@Public`, responde 202. Sin `@Throttle` propio |
 | `POST /auth/password/reset` | `AuthController.resetPassword` | `AuthService.resetPasswordWithToken` (`auth.getUser(accessToken)` y `auth.admin.updateUserById`) | `resetPasswordWithToken` ← `ResetPasswordPage` | `@Public`. Sin `@Throttle` propio |
 | `GET /users` | `UsersController.findAll` | `UsersService.findAll` → `UsersRepository.findAll(companyId)` | `getUsers` (`services/users.service.ts`) ← `UserManagementPage` | solo sesión |
-| `GET /users/:id` (id de **Auth**) | `UsersController.findOne` | `UsersService.findOne` → `UsersRepository.findOne` (perfil + 15 columnas de `companies`) | `getUser` ← `AuthContext` (`profileQuery` y `signIn`), que alimenta a **todas** las pantallas tras el login; además `QuotationForm` (`fetchCreatorUser`, para mostrar quién creó la cotización) | solo sesión. **No filtra por empresa** |
+| `GET /users/:id` (id de **Auth**) | `UsersController.findOne` | `UsersService.findOne` → `UsersRepository.findOne` (perfil + 15 columnas de `companies`); desde el 05-11-2026 suma `permisos`, los prendidos del cargo en su empresa (doc 22, §5.9) | `getUser` ← `AuthContext` (`profileQuery` y `signIn`), que alimenta a **todas** las pantallas tras el login; además `QuotationForm` (`fetchCreatorUser`, para mostrar quién creó la cotización) | solo sesión. **No filtra por empresa** |
 | `POST /users` | `UsersController.create` | `UsersService.create` → `UsersRepository.createAuthUser` (`auth.admin.createUser` — JAMÁS `signUp`, incidente 70) + `UsersRepository.createUser` | `createUser` ← `UserManagementPage.createUser` | `ADMIN_ONLY` |
 | `PATCH /users/password` | `UsersController.updatePassword` | `UsersService.updatePassword` → `UsersRepository.updatePassword` (`auth.admin.updateUserById`) | `updatePassword` ← `ConfigurationPage.handleSubmit` | solo sesión (cambia la del propio usuario) |
 | `GET /users/apariencias` (27-10-2026, migración 167) | `UsersController.apariencias` | `UsersService.apariencias` → `UsersRepository.aparienciasDeEmpresa(companyId)`: solo `user_id`, `full_name`, `personaje` y `color`, ni correos ni cargos | `getApariencias` ← `useApariencias` ← `HiloSeguimiento` (`SeguimientoPanel`) y `TuPersonaje` (Mi cuenta) | `RECEPTION_AND_UP` (todos los cargos); solo la empresa de la sesión. Va antes de `GET :id` |
@@ -69,6 +69,9 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `PATCH /users/:id` (id del **perfil**) | `UsersController.update` | `UsersService.update` → `UsersRepository.update` | `updateUser` ← `UserManagementPage.createUser` en modo edición | `ADMIN_ONLY`. No filtra por empresa |
 | `DELETE /users/:id` (id del perfil) | `UsersController.remove` | `UsersService.remove` → `UsersRepository.remove` + `UsersRepository.removeAuthUser` | `deleteUser` ← `UserManagementPage.deleteUser` | `ADMIN_ONLY` |
 | `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5); acepta `origen_detalle` opcional (migración 116) y, si el motor lo rechazara, la app reintenta sin la marca | `@Public` + `@Throttle` 10/min |
+| `GET /permisos` (05-11-2026, doc 22) | `PermisosController.pantalla` | `PermisosService.pantalla`: cada permiso del catálogo (`auth/permisos.ts`) con sus cuatro celdas (prendido y de fábrica), su candado (`fijo` o `plan`) y el último cambio. Lee `permisos_por_cargo` y `permisos_por_cargo_cambios` de la base, no de la memoria | la pestaña «Permisos por cargo» de `UserManagementPage` | `ADMIN_ONLY` y `@Permiso('usuarios')`, fijo del administrador |
+| `PUT /permisos` (05-11-2026, doc 22) | `PermisosController.cambiar` | `PermisosService.cambiar` → función `permisos_por_cargo_cambiar` (migración 188): guarda o borra la fila y anota quién, en un solo paso; olvida `cachePermisos` de la empresa. Rechaza `mi_empresa` y `usuarios` (400) y prender lo que el plan no trae (`SIN_DERECHO`). Si ya estaba así, no anota | el interruptor de la pestaña | igual |
+| `POST /permisos/fabrica` (05-11-2026, doc 22) | `PermisosController.volverAFabrica` | `PermisosService.volverAFabrica` → función `permisos_por_cargo_a_fabrica`: borra lo apartado de la empresa y lo anota como un cambio más | «Volver a lo de fábrica» | igual |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; el controller recorta a 11 campos | `getCompanyPublic` ← `CreateQuotationPublic` (mapa 11); `getCompanyById` (`services/superAdmin.service.tsx`) ← `PublicSurvey` (mapa 14) | `@Public` |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` → `CompaniesRepository.findOne` (`select('*')`) | `getCompany` ← `ConfigurationPage` (queryKey `["company", id]`) | solo sesión. **No compara con la empresa de la sesión** |
 | `PATCH /companies` | `CompaniesController.update` | `CompaniesService.update` → `CompaniesRepository.update` (empresa de la sesión) | `updateCompany` (`services/companies.service.ts`) ← `CompanyConfiguration.handleSubmit`, `ConfigurationPage.handleSaveNotifications` | `ADMIN_ONLY` |
@@ -688,3 +691,42 @@ Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
 secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`
 / `MP_PLAN_CRECE` (opcionales). Sin el token, `POST /pagos/suscribir`
 responde 503 y la pantalla de planes cae con honestidad al WhatsApp.
+
+### 5.9 Los permisos por cargo (05-11-2026, doc 22)
+
+Felipe pidió *"transformar hoy todos los permisos existentes en pestañas que
+se puedan deslizar como botones"* y aprobó el catálogo el mismo día, con el
+Calendario del vendedor prendido. El plan y el catálogo viven en
+`docs/arquitectura/22_PERMISOS_POR_CARGO.md`.
+
+**La idea.** Cada empresa prende y apaga, por cargo, las secciones del menú
+(tanda 1). Lo de fábrica es lo de hoy y vive en el código
+(`api-rest/src/auth/permisos.ts`); la base guarda solo lo que la empresa
+aparta (`permisos_por_cargo`, migración 188) y el registro
+(`permisos_por_cargo_cambios`). Cargo, permiso y derecho son tres preguntas:
+`RolesGuard` hace las dos primeras y `DerechosGuard` la tercera, que no
+cambió.
+
+**En el motor.**
+- `AuthGuard` deja en la sesión `permisos` (los prendidos del cargo en su
+  empresa, `PermisosService.delCargo`, de `cachePermisos`: una hora, y
+  guardar un cambio lo olvida al instante) y `full_name` (para el registro).
+  Si la tabla no se puede leer, lo de fábrica, sin recordarlo.
+- Cada puerta dice de qué sección es con `@Permiso` o `@DentroDe`
+  (`auth/permiso.decorator.ts`) y `RolesGuard` hace la cuenta de `pasa`
+  (mapa 23). El 403 lleva `{ codigo: 'SIN_PERMISO', message, mensaje }`.
+- El perfil (`GET /users/:id`) trae `permisos`, con la misma cuenta: la app
+  no tiene copia de la configuración.
+- `Mi empresa` y `Usuarios` son fijos: el administrador nunca queda afuera.
+  Lo que el plan no trae sale con candado y no se prende.
+- La lista de cotizaciones tiene dos reglas en `AlcanceDeRecepcion.deLaLista`
+  (mapa 01 y 16): sin Calendario no hay vista de calendario, y sin
+  Cotizaciones, Dashboard ni Personal trae solo requerimientos.
+- BelIA hace la misma cuenta con sus herramientas (mapa 25).
+
+**Pruebas.** `auth/tests/permisos-de-fabrica.spec.ts` (todas las puertas:
+de fábrica, exactamente su `@Roles`; las sin permiso son las 33 fijas, cada
+una con su porqué; y las herramientas de BelIA), `permisos.spec.ts`,
+`permisos.service.spec.ts`, `roles.guard.spec.ts`, la matriz de cargos (que
+calcula el cargo de fábrica, con los mismos valores) y
+`asistente/tests/permisos-por-cargo.spec.ts`.

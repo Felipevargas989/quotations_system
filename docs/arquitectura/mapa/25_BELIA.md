@@ -28,7 +28,7 @@ La persona ve la propuesta en una tarjeta y recién con su «Sí, aplicar» el m
 Las usan vendedor, operaciones y administración y, desde el 04-11, recepción (sin plata). ~~Solo en la empresa con el módulo propio `asistente`~~ Desde el 04-11 (doc 20 §16), en todas las empresas: el derecho `asistente` va en todos los planes (`DE_COTIZA`), con el cupo de cada empresa (`companies.tope_asistente_usd`, migración 183: US$ 10, y 100 Valle del Sol).
 
 Las reglas que la sostienen (doc 20 §3):
-- actúa con el cargo y la empresa de quien escribe;
+- actúa con el cargo y la empresa de quien escribe, y desde el 05-11-2026 con sus permisos por cargo (doc 22): cada herramienta dice de qué sección es (`permiso` las que consultan, `dentroDe` las que proponen) y `herramientasPara` hace la misma cuenta que las puertas del motor. Apagarle Post-Venta a operaciones le saca `pagos_del_evento` y `cobranza`; de fábrica nada cambia (`auth/tests/permisos-de-fabrica.spec.ts`);
 - solo tiene herramientas cerradas: las de consulta leen y las de cambio proponen;
 - cada cifra sale de una herramienta;
 - la plata la calcula Eventia.

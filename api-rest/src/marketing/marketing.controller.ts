@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { CompaniesRepository } from 'src/companies/companies.repository';
 import type { User } from 'src/users/entities/user.entity';
@@ -44,6 +45,7 @@ import type { MarcaEmpresa } from './plantilla';
 // Módulo propio (14-09-2026): Marketing es de Valle del Sol. Las rutas
 // @Public (webhook y baja) no pasan por el guardián.
 @Derecho('marketing')
+@Permiso('marketing')
 @Controller('marketing')
 export class MarketingController {
   constructor(

@@ -102,6 +102,7 @@ export const loQueHayQueComprar: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const empresa = ctx.usuario.company_id;

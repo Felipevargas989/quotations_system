@@ -72,3 +72,11 @@ export const CINCO_MINUTOS_MS = 5 * 60 * 1000;
 
 export const olvidarDerechos = (companyId: number): void =>
   cacheDerechos.delete(String(companyId));
+
+// companyId → lo que la empresa apartó de fábrica en sus permisos por cargo
+// (doc 22 §4.5, 05-11-2026). Una hora, como los perfiles: guardar un cambio
+// lo borra al instante, así que un interruptor rige de inmediato.
+export const cachePermisos = new CacheMemoria<unknown>(500);
+
+export const olvidarPermisos = (companyId: number): void =>
+  cachePermisos.delete(String(companyId));

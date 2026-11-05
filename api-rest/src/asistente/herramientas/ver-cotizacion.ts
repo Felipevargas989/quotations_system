@@ -215,6 +215,7 @@ export const verCotizacion: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const numero = entero(entrada.numero, 1, 10_000_000);
     if (!numero && !ctx.cotizacionAbierta) {

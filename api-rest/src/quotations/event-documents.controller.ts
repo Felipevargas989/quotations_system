@@ -13,6 +13,7 @@ import {
 import { IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
@@ -112,6 +113,8 @@ const SOLO_COMERCIAL =
 const esVendedor = (user: User) => user.role === UserRole.VENDEDOR;
 
 @Roles(...SALES_AND_UP)
+@Permiso('postventa')
+@DentroDe('cotizaciones')
 @Controller('event-documents')
 export class EventDocumentsController {
   constructor(private readonly repo: EventDocumentsRepository) {}
