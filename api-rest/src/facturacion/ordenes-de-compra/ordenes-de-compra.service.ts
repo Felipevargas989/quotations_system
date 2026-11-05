@@ -52,7 +52,7 @@ export class OrdenesDeCompraService {
         total: datos.total ?? 0,
         company_id: companyId,
         quotation_id: quotationId,
-        origen: 'manual',
+        origen: dto.origen ?? 'manual',
         creado_por: usuarioId,
       }),
     );

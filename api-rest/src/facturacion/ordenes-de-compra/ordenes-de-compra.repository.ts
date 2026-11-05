@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
 /** Una OC guardada (tabla `ordenes_de_compra`, migración 184). */
@@ -81,6 +82,59 @@ export class OrdenesDeCompraRepository {
       .maybeSingle();
     if (error) throw error;
     return !!data;
+  }
+
+  /** Un documento del evento, para leerlo (la cotización ya se verificó). */
+  async documentoDelEvento(documentoId: number, quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_documents')
+      .select('id, file_url, file_name, category')
+      .eq('id', documentoId)
+      .eq('quotation_id', quotationId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as {
+      id: number;
+      file_url: string;
+      file_name: string;
+      category: string;
+    } | null;
+  }
+
+  /** El archivo, del balde privado. */
+  async descargar(ruta: string): Promise<Buffer> {
+    const { data, error } = await this.supabase.client.storage
+      .from(BUCKET_PRIVADO)
+      .download(ruta);
+    if (error || !data) throw error ?? new Error(`sin datos: ${ruta}`);
+    return Buffer.from(await data.arrayBuffer());
+  }
+
+  /** Quién vende (la empresa): su nombre y, si lo cargó en «Mi empresa»
+   *  de Oportunidades, su RUT. Sirve para que BelIA no la confunda con el
+   *  comprador. */
+  async empresaQueVende(companyId: number) {
+    const [{ data: empresa }, { data: oferente }] = await Promise.all([
+      this.supabase.client
+        .from('companies')
+        .select('name')
+        .eq('id', companyId)
+        .maybeSingle(),
+      this.supabase.client
+        .from('oportunidades_oferente')
+        .select('razon_social, rut')
+        .eq('company_id', companyId)
+        .maybeSingle(),
+    ]);
+    const o = (oferente ?? null) as {
+      razon_social?: string | null;
+      rut?: string | null;
+    } | null;
+    return {
+      nombre:
+        o?.razon_social || (empresa as { name?: string } | null)?.name || null,
+      rut: o?.rut || null,
+    };
   }
 
   async deCotizacion(quotationId: string, companyId: number) {

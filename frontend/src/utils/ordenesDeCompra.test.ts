@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  borradorDeLaLectura,
   borradorDeOC,
   cambiosDeOC,
   faltaEnLaOC,
@@ -77,4 +78,43 @@ describe("Lo que viaja al guardar una OC", () => {
 
 it("la fecha se muestra sin correrse un día", () => {
   expect(fechaCorta("2026-10-14")).toBe("14-10-2026");
+});
+
+describe("Lo que leyó BelIA llena el formulario (paso 2b)", () => {
+  const propuesta = {
+    numero: "32000066941",
+    fecha: "2026-10-14",
+    rut: "65175239-6",
+    razon_social: "Corporación Instituto Profesional Santo Tomás",
+    descripcion: "Fiesta de Navidad Santo Tomás 2026",
+    neto: null,
+    iva: null,
+    total: 4405023,
+    giro: null,
+    direccion: null,
+    comuna: null,
+    ciudad: null,
+    otras_referencias: [],
+  };
+
+  it("con el PDF de Documentos y el origen «pdf»", () => {
+    const b = borradorDeLaLectura(propuesta, 261);
+    expect(b).toMatchObject({
+      numero: "32000066941",
+      rut: "65175239-6",
+      total: 4405023,
+      documento_id: "261",
+      origen: "pdf",
+    });
+    expect(faltaEnLaOC(b)).toEqual([]);
+    expect(cambiosDeOC(null, b)).toMatchObject({ origen: "pdf" });
+  });
+
+  it("lo que no leyó queda vacío y se pide", () => {
+    const b = borradorDeLaLectura(
+      { ...propuesta, fecha: null, total: null },
+      261,
+    );
+    expect(faltaEnLaOC(b)).toEqual(["la fecha", "el total"]);
+  });
 });
