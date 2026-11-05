@@ -11,6 +11,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { SinPlan } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { API_ROUTES } from 'src/constants/api.routes';
 import { logSafe } from '../logging/log-safe';
@@ -32,6 +33,7 @@ export class UsersController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('usuarios')
   @Post()
   create(@Body() createUserDto: CreateUserDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -46,6 +48,7 @@ export class UsersController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('oportunidades', 'usuarios')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /users with user ${user.id}`);
@@ -99,6 +102,7 @@ export class UsersController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('usuarios')
   @Patch(':id')
   update(
     @Param('id') id: User['id'],
@@ -112,6 +116,7 @@ export class UsersController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('usuarios')
   @Delete(':id')
   remove(@Param('id') id: User['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /users/${id} with user ${user.id}`);

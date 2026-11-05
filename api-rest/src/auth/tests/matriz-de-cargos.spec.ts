@@ -19,6 +19,8 @@ import { ServiceGroupsController } from 'src/service-groups/service-groups.contr
 import { ServicesController } from 'src/services/services.controller';
 import { StorageController } from 'src/storage/storage.controller';
 import { UsersController } from 'src/users/users.controller';
+import { DENTRO_DE_KEY, PERMISO_KEY } from '../permiso.decorator';
+import { cargosDeFabrica, type Permiso } from '../permisos';
 import { IS_PUBLIC_KEY } from '../public.decorator';
 import {
   ADMIN_ONLY,
@@ -37,6 +39,10 @@ import {
  * rutas decididas con Felipe tengan exactamente el cargo acordado, y que
  * en estos controladores no quede NINGUNA ruta sin cargo, salvo las que se
  * dejan a propósito solo con sesión (ver `soloSesion`).
+ *
+ * Desde los permisos por cargo (doc 22, 05-11-2026), el cargo de una ruta
+ * con `@Permiso` o `@DentroDe` es el que da su cuenta con todo de fábrica.
+ * Los valores acordados no cambiaron: lo de fábrica es lo de hoy.
  */
 type Clase = abstract new (...args: never[]) => unknown;
 const verbo = (m: number) => RequestMethod[m];
@@ -49,9 +55,16 @@ const rutasDe = (cls: Clase) => {
     const path = Reflect.getMetadata(PATH_METADATA, h) as string | undefined;
     if (path === undefined) continue;
     const metodo = Reflect.getMetadata(METHOD_METADATA, h) as number;
+    const lee = <T>(k: string) =>
+      (Reflect.getMetadata(k, h) as T | undefined) ??
+      (Reflect.getMetadata(k, cls) as T | undefined);
+    const deRoles = lee<string[]>(ROLES_KEY);
+    const permiso = lee<Permiso[]>(PERMISO_KEY);
+    const dentroDe = lee<Permiso[]>(DENTRO_DE_KEY);
     const roles =
-      (Reflect.getMetadata(ROLES_KEY, h) as string[] | undefined) ??
-      (Reflect.getMetadata(ROLES_KEY, cls) as string[] | undefined);
+      permiso?.length || dentroDe?.length
+        ? cargosDeFabrica({ roles: deRoles, permiso, dentroDe })
+        : deRoles;
     const publica = Boolean(
       Reflect.getMetadata(IS_PUBLIC_KEY, h) ??
         Reflect.getMetadata(IS_PUBLIC_KEY, cls),

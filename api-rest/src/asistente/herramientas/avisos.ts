@@ -41,6 +41,7 @@ export const avisosDeHoy: Herramienta = {
     'revisar hoy?». A recepción, solo los requerimientos que llegaron hoy.',
   esquema: { type: 'object', properties: {} },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones'],
   async ejecutar(_entrada, ctx) {
     const empresa = ctx.usuario.company_id;
     const rol = ctx.usuario.role;

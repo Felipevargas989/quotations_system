@@ -137,6 +137,7 @@ export const seguimientosPendientes: Herramienta = {
   // Recepción también desde el doc 21: hace el seguimiento de las
   // cotizaciones de clientes particulares, y solo de esas.
   cargos: RECEPTION_AND_UP,
+  permiso: ['cotizaciones'],
   async ejecutar(entrada, ctx) {
     const { pendientes: todos } = await pendientesDe(
       ctx,

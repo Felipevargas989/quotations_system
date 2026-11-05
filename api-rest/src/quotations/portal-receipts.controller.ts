@@ -15,6 +15,7 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { PaymentsService } from 'src/payments/payments.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
@@ -158,6 +159,7 @@ export class PortalReceiptsController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'dashboard')
   @Get()
   async list(@CurrentUser() user: User) {
     const { data, error } = await this.repo.listPending(user.company_id);
@@ -166,6 +168,7 @@ export class PortalReceiptsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post(':id/confirmar')
   async confirm(
     @Param('id', ParseIntPipe) id: number,
@@ -201,6 +204,7 @@ export class PortalReceiptsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post(':id/rechazar')
   async reject(
     @Param('id', ParseIntPipe) id: number,

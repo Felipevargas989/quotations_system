@@ -305,6 +305,7 @@ export const proponerCambioDeServicios: Herramienta = {
   // Recepción también, en las cotizaciones de clientes particulares (doc
   // 21): lo revisa PropuestasService.
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
@@ -371,6 +372,7 @@ export const proponerNota: Herramienta = {
   // Recepción también: en sus requerimientos y en las cotizaciones de
   // particulares (doc 21).
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const nota = texto(entrada.nota, 1_000);
     if (!nota) throw new ErrorDeHerramienta('Falta el texto de la nota.');
@@ -420,6 +422,7 @@ export const proponerSeguimiento: Herramienta = {
   },
   // Recepción también, en las cotizaciones de particulares (doc 21).
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['cotizaciones'],
   derecho: 'seguimiento_con_ia',
   async ejecutar(entrada, ctx) {
     const tarjeta = await ctx.propuestas.proponerSeguimiento(
@@ -521,6 +524,7 @@ export const proponerCotizacionNueva: Herramienta = {
   // desde el doc 21, cotizaciones con servicios para los particulares. Lo
   // revisa PropuestasService, y otra vez al crear.
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {

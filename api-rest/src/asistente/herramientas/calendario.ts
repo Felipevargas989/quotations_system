@@ -54,6 +54,7 @@ export const calendario: Herramienta = {
     required: ['desde', 'hasta'],
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['calendario'],
   derecho: 'calendario',
   async ejecutar(entrada, ctx) {
     const desde = fecha(entrada.desde, 'desde');

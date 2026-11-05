@@ -11,6 +11,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { RegisterRefundDto } from './dto/register-refund.dto';
@@ -30,6 +31,8 @@ export class RefundsController {
     private readonly logger: PinoLogger,
   ) {}
 
+  @Permiso('postventa', 'dashboard')
+  @DentroDe('cotizaciones')
   @Get('by-quotation')
   findByQuotation(
     @Query('quotationId') quotationId: string,
@@ -39,12 +42,14 @@ export class RefundsController {
     return this.refundsService.findByQuotation(user.company_id, quotationId);
   }
 
+  @Permiso('postventa')
   @Get('paid-map')
   paidMap(@CurrentUser() user: User) {
     this.logger.info(`GET /refunds/paid-map company ${user.company_id}`);
     return this.refundsService.paidMapByCompany(user.company_id);
   }
 
+  @Permiso('postventa')
   @Patch(':id/register')
   register(
     @Param('id') id: string,
@@ -59,6 +64,7 @@ export class RefundsController {
 
   // REEMBOLSOS POR PARTES (20-10-2026): registrar contra lo que falta por
   // devolver de la cotización, y eliminar un registro (vuelve a lo que falta).
+  @Permiso('postventa')
   @Post('registrar')
   registrar(@Body() dto: RegistrarReembolsoDto, @CurrentUser() user: User) {
     this.logger.info(`POST /refunds/registrar ${dto.quotation_id}`);
@@ -66,6 +72,7 @@ export class RefundsController {
     return this.refundsService.registrar(user.company_id, quotation_id, campos);
   }
 
+  @Permiso('postventa')
   @Delete(':id')
   eliminar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /refunds/${id}`);
@@ -77,6 +84,7 @@ export class RefundsController {
   //   return this.refundsService.create(createRefundDto);
   // }
 
+  @Permiso('postventa')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(

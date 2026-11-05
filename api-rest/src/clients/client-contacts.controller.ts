@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { assertDerecho } from 'src/auth/derechos';
+import { Permiso } from 'src/auth/permiso.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -121,6 +122,7 @@ export class ClientContactsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'clientes', 'postventa')
   @Get()
   findByClient(@Query('clientId') clientId: string, @CurrentUser() user: User) {
     return this.repo.findByClient(user.company_id, clientId);
@@ -131,6 +133,7 @@ export class ClientContactsController {
   // contactos por cliente es Clientes 360 (Gestiona y Cobra), así que el
   // candado mira cuántos hay antes de dejar agregar otro (paso 3.2).
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'clientes', 'postventa')
   @Post()
   async create(@Body() dto: CreateClientContactDto, @CurrentUser() user: User) {
     const existentes = await this.repo.findByClient(
@@ -144,6 +147,7 @@ export class ClientContactsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -154,12 +158,14 @@ export class ClientContactsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.repo.delete(user.company_id, id);
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Post(':id/primary')
   setPrimary(
     @Param('id', ParseIntPipe) id: number,

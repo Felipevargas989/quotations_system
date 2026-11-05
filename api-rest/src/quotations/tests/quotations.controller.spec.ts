@@ -23,10 +23,9 @@ describe('QuotationsController', () => {
   const findAll = jest.fn();
   // Lo que ve recepción (doc 21): por defecto, todo.
   const ve = jest.fn().mockResolvedValue(true);
-  const filtrar = jest.fn((_s: unknown, filas: unknown[]) =>
-    Promise.resolve(filas),
-  );
-  const paraElCalendario = jest.fn((_s: unknown, filas: unknown[]) =>
+  // La lista pasa entera por la regla de recepción y de los permisos por
+  // cargo (doc 21 y doc 22 §4.4), que se prueba en alcance-de-recepcion.
+  const deLaLista = jest.fn((_s: unknown, filas: unknown[]) =>
     Promise.resolve(filas),
   );
   const exigirClienteParticular = jest.fn().mockResolvedValue(undefined);
@@ -60,8 +59,7 @@ describe('QuotationsController', () => {
         provideMock(ChoquesDeFechaService),
         provideMock(AlcanceDeRecepcion, {
           ve,
-          filtrar,
-          paraElCalendario,
+          deLaLista,
           exigirClienteParticular,
         }),
       ],
@@ -180,16 +178,15 @@ describe('QuotationsController', () => {
       const filas = [{ id: 'a' }, { id: 'b' }];
       findAll.mockResolvedValue(filas);
       await controller.findAll(recepcion, { vista: 'calendario' } as never);
-      expect(paraElCalendario).toHaveBeenCalledWith(recepcion, filas);
-      expect(filtrar).not.toHaveBeenCalled();
+      expect(deLaLista).toHaveBeenCalledWith(recepcion, filas, 'calendario');
     });
 
     it('el tablero pasa por la regla', async () => {
       const filas = [{ id: 'a' }, { id: 'b' }];
       findAll.mockResolvedValue(filas);
-      filtrar.mockResolvedValueOnce([filas[0]]);
+      deLaLista.mockResolvedValueOnce([filas[0]]);
       const r = await controller.findAll(recepcion, {} as never);
-      expect(filtrar).toHaveBeenCalledWith(recepcion, filas);
+      expect(deLaLista).toHaveBeenCalledWith(recepcion, filas, undefined);
       expect(r).toEqual([filas[0]]);
     });
 

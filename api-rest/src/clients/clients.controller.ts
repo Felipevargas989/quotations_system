@@ -11,6 +11,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -45,6 +46,7 @@ export class ClientsController {
   // "types" no sea capturado como un id de cliente.
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'clientes')
   @Get('types')
   findTypes(@CurrentUser() user: User) {
     this.logger.info(`GET /clients/types with user ${user.id}`);
@@ -62,6 +64,7 @@ export class ClientsController {
 
   @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Post('types')
   createType(
     @Body() createClientTypeDto: CreateClientTypeDto,
@@ -78,6 +81,7 @@ export class ClientsController {
 
   @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Delete('types/:id')
   removeType(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/types/${id}`);
@@ -88,6 +92,7 @@ export class ClientsController {
   // Declarado antes de PATCH :id para que "types" no sea capturado.
   @Derecho('clientes_360')
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Patch('types/reorder')
   reorderTypes(
     @Body() reorderDto: ReorderClientTypesDto,
@@ -104,6 +109,7 @@ export class ClientsController {
   // de POST /clients, sin crear nada. POST para que el correo y el teléfono
   // no viajen en la dirección (quedarían en los registros).
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'clientes')
   @Post('coincidencias')
   @HttpCode(200)
   revisar(@Body() dto: RevisarClienteDto, @CurrentUser() user: User) {
@@ -114,6 +120,7 @@ export class ClientsController {
   // Con portero (16-10-2026): si el cliente se parece a uno que ya
   // existe, responde 409 CLIENTE_PARECIDO y la pantalla pregunta.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'clientes')
   @Post()
   create(@Body() createClientDto: CreateClientDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -126,6 +133,14 @@ export class ClientsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso(
+    'requerimientos',
+    'cotizaciones',
+    'clientes',
+    'postventa',
+    'dashboard',
+    'oportunidades',
+  )
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /clients with user ${user.id}`);
@@ -153,6 +168,7 @@ export class ClientsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -166,6 +182,7 @@ export class ClientsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/${id}`);

@@ -41,6 +41,7 @@ export const insumos: Herramienta = {
     required: ['texto'],
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const buscado = texto(entrada.texto, 80);
@@ -130,6 +131,7 @@ export const proveedores: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const { proveedores: lista, insumos: suyos } =
@@ -172,6 +174,7 @@ export const mobiliario: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const muebles = await ctx.repositorio.mobiliario(

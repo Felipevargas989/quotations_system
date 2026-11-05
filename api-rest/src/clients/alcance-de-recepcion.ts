@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { permisosDelCargo, sinPermiso, type Permiso } from 'src/auth/permisos';
 import { UserRole } from 'src/users/entities/user.entity';
 import { ClientsRepository } from './clients.repository';
 
@@ -17,7 +18,21 @@ import { ClientsRepository } from './clients.repository';
 // tablero, la ficha, las cuotas, el resumen del cliente, crear, editar,
 // enviar, el seguimiento y BelIA.
 
-type Sesion = { role?: string | null; company_id: number };
+type Sesion = {
+  role?: string | null;
+  company_id: number;
+  /** Los permisos por cargo de la sesión (doc 22); sin ellos, los de
+   *  fábrica del cargo. */
+  permisos?: readonly Permiso[];
+};
+
+/** Las secciones que leen la lista entera de cotizaciones (doc 22 §4.4);
+ *  con solo Requerimientos, la lista trae solo requerimientos. */
+const LEEN_LA_LISTA_ENTERA: readonly Permiso[] = [
+  'cotizaciones',
+  'dashboard',
+  'personal',
+];
 
 /** Lo justo de una cotización para decidir: si es requerimiento y el tipo
  *  de su cliente. */
@@ -220,6 +235,37 @@ export class AlcanceDeRecepcion {
   ): Promise<boolean> {
     if (!esRecepcion(s)) return true;
     return this.esParticular(s.company_id, tipo);
+  }
+
+  /**
+   * `GET /quotations`, con los permisos por cargo (doc 22 §4.4) y lo que ve
+   * recepción. La puerta la usan cinco secciones y queda abierta mientras
+   * el cargo tenga una; lo que cambia es lo que trae:
+   * - la vista de calendario (la agenda de toda la empresa), solo con el
+   *   Calendario prendido;
+   * - la lista entera, con Cotizaciones, Dashboard o Personal; con solo
+   *   Requerimientos, los requerimientos.
+   * Con todo de fábrica no cambia nada: todos los cargos tienen
+   * Cotizaciones y Calendario.
+   */
+  async deLaLista<T extends CotizacionParaElAlcance>(
+    s: Sesion,
+    filas: T[],
+    vista?: string,
+  ): Promise<Array<T | CotizacionDeAgenda>> {
+    const prendidos = s.permisos ?? permisosDelCargo(s.role);
+    if (vista === 'calendario') {
+      if (!prendidos.includes('calendario')) throw sinPermiso();
+      return this.paraElCalendario(s, filas);
+    }
+    if (LEEN_LA_LISTA_ENTERA.some((p) => prendidos.includes(p))) {
+      return this.filtrar(s, filas);
+    }
+    if (!prendidos.includes('requerimientos')) throw sinPermiso();
+    return this.filtrar(
+      s,
+      filas.filter((q) => q.request_type === 'requerimiento'),
+    );
   }
 
   /** La lista del tablero, con lo que ve quien la pide. */

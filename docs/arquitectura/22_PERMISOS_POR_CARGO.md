@@ -1,11 +1,12 @@
 # 22 · Permisos por cargo (los interruptores)
 
-> **Estado: PROPUESTA del 05-11-2026, esperando el OK de Felipe al catálogo
-> (§3).** La maqueta la aprobó ese día (*"si me parece perfecto"*). Nada
-> programado todavía. Migración reservada: **188** (la 186 es de recepción y
-> la 187 de facturación). Rama `feature/permisos-por-cargo`, carpeta
-> `wt-permisos`. Al laboratorio por pasos; a producción, solo con su «a
-> producción».
+> **Estado: APROBADO el 05-11-2026.** La maqueta (*"si me parece
+> perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
+> Calendario del vendedor prendido. **P1 (motor) programado** ese día; P2
+> (pantalla) y P3 (laboratorio) siguen. Migración **188** (la 186 es de
+> recepción y la 187 de facturación). Rama `feature/permisos-por-cargo`,
+> carpeta `wt-permisos`. Al laboratorio por pasos; a producción, solo con su
+> «a producción».
 
 ## 1. Lo que pidió Felipe
 
@@ -73,7 +74,7 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Comercial | Consultas (`consultas`) | Menú → Consultas | ✓ | ✓ | ✓ | ✓ | `consultas` |
 | Comercial | Clientes (`clientes`) | Menú → Clientes | – | ✓ | ✓ | ✓ | — |
 | Comercial | BelIA (`belia`) | La ventanita de chat | ✓ | ✓ | ✓ | ✓ | `asistente` |
-| Operación | Calendario (`calendario`) | Menú → Calendario | ✓ | **?** | ✓ | ✓ | `calendario` |
+| Operación | Calendario (`calendario`) | Menú → Calendario | ✓ | **✓** | ✓ | ✓ | `calendario` |
 | Operación | Post-Venta (`postventa`) | Menú → Post-Venta | – | – | ✓ | ✓ | `post_venta` |
 | Operación | Proveedores e inventario (`proveedores`) | Menú → Proveedores y Menú → Inventario | – | – | ✓ | ✓ | `logistica` |
 | Facturación | Boletas (`boletas`) | Menú → Facturación: Boleta suelta, Por boletear, Emitidas hoy | ✓ | ✓ | ✓ | ✓ | `facturacion` |
@@ -89,8 +90,9 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Administración | Mi empresa (`mi_empresa`) | Menú de usuario → Mi empresa: marca, correos, formulario web, plan | 🔒– | 🔒– | 🔒– | 🔒✓ | — |
 | Administración | Gestión de usuarios y permisos (`usuarios`) | Mi empresa → Usuarios | 🔒– | 🔒– | 🔒– | 🔒✓ | — |
 
-- **?** Calendario del vendedor: es la discrepancia del §2. Decide Felipe:
-  prendido (le aparece en el menú) o apagado (pierde «Ver en calendario»).
+- **Calendario del vendedor: prendido** (Felipe, 05-11-2026). Era la
+  discrepancia del §2: ahora le aparece en el menú, y sigue teniendo «Ver en
+  calendario». En el motor no cambia nada: ya entraba.
 - **Facturación** existe solo en el laboratorio (rama
   `feature/facturacion-electronica`). Sus cuatro filas aparecen cuando las
   dos ramas estén juntas (§7).
@@ -174,7 +176,18 @@ solo con su `@Roles`.
 `RolesGuard` hace la cuenta con la lista de permisos prendidos del cargo, que
 `AuthGuard` deja en la sesión (`request.user.permisos`), calculada una vez con
 la fábrica y las filas de la empresa. El 403 lleva cuerpo fijo
-`{ codigo: 'SIN_PERMISO', mensaje }`, como `SIN_DERECHO`.
+`{ codigo: 'SIN_PERMISO', message, mensaje }`, como `SIN_DERECHO` (con
+`message` también, que es lo que leen los avisos de error de siempre).
+
+Las piezas: el catálogo y la cuenta (`pasa`, `permisosDelCargo`,
+`cargosDeFabrica`) en `api-rest/src/auth/permisos.ts`; los decorados en
+`auth/permiso.decorator.ts`; la base y la pantalla en
+`auth/permisos.service.ts` y `auth/permisos.controller.ts` (`GET /permisos`,
+`PUT /permisos`, `POST /permisos/fabrica`). Las 318 puertas se marcaron con
+la regla medida en `atlas_pendiente/permisos_por_cargo/etiquetas.py`: un
+controlador entero cuando todas sus puertas son de lo mismo (BelIA,
+Marketing, Oportunidades, la bitácora, los documentos del evento, el
+Dashboard), y ruta por ruta en los demás.
 
 ### 4.3 Lo de fábrica = lo de hoy, y se prueba
 
@@ -207,7 +220,11 @@ recepción (`AlcanceDeRecepcion`, doc 21):
    (`vista=calendario`), que es la que trae la agenda de toda la empresa.
 2. **Sin Cotizaciones, Dashboard ni Personal**, la lista trae solo
    requerimientos (`request_type=requerimiento`, lo que pide la pantalla de
-   Requerimientos).
+   Requerimientos). Sin ninguna sección que lea la lista (un cargo con solo
+   el Calendario), la lista entera se niega.
+
+Van en `AlcanceDeRecepcion.deLaLista`, que es lo único que llama
+`GET /quotations`.
 
 Lo que recepción ve de cada cotización (las de particulares completas, el
 resto sin plata) lo sigue decidiendo `AlcanceDeRecepcion`
@@ -235,6 +252,17 @@ permisos son de `usuarios`.
 `DerechosGuard` no cambia. Cargo, permiso y derecho son tres preguntas, y las
 tres tienen que decir que sí. La pantalla pinta con candado el permiso cuyo
 derecho falta, y la puerta de guardar no lo deja prender.
+
+### 4.8 BelIA
+
+BelIA lee datos por su cuenta, sin pasar por las puertas: si no siguiera los
+interruptores, apagarle Clientes a un vendedor no le cerraría la búsqueda de
+clientes por chat. Cada herramienta dice de qué sección es, con la misma
+cuenta de las puertas: las que consultan con `permiso` (por ejemplo, los
+pagos son de `postventa`) y las que proponen con `dentroDe` (siguen con su
+cargo, y PropuestasService vuelve a revisar al aplicar).
+`herramientasPara` hace la cuenta. De fábrica, cada una la ven los mismos
+cargos que antes (lo prueba `permisos-de-fabrica.spec.ts`).
 
 ## 5. La pantalla
 
@@ -279,8 +307,8 @@ de Oportunidades, que queda en `oportunidades`).
 
 ## 8. Decisiones de Felipe
 
-1. **El catálogo del §3**: los permisos, sus cargos de fábrica y lo que
-   cierran.
-2. **Calendario del vendedor**: prendido o apagado (§3.1).
+1. **El catálogo del §3**: aprobado el 05-11-2026 (*"ok al catalogo
+   vamos"*).
+2. **Calendario del vendedor**: prendido (05-11-2026).
 
 Anotado, no decidido: las 9 puertas «más abiertas que sus pantallas» (§4.3).

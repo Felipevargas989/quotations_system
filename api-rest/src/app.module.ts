@@ -10,6 +10,7 @@ import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { DerechosGuard } from './auth/derechos.guard';
 import { DerechosModule } from './auth/derechos.module';
+import { PermisosModule } from './auth/permisos.module';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
@@ -42,6 +43,8 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     DerechosModule,
+    // Los permisos por cargo de cada empresa (doc 22, 05-11-2026).
+    PermisosModule,
     ConfigModule.forRoot({
       isGlobal: true, // makes ConfigService available everywhere without importing
     }),

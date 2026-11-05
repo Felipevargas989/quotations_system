@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateQuotationFollowupDto } from './dto/create-quotation-followup.dto';
@@ -23,6 +24,7 @@ import { QuotationFollowupsService } from './quotation-followups.service';
 // Escribir su nota sí; tocar las de otros no — de eso se encarga la
 // regla de autoría del servicio, que no distingue rangos.
 @Roles(...RECEPTION_AND_UP)
+@Permiso('cotizaciones', 'postventa')
 @Controller('quotation-followups')
 export class QuotationFollowupsController {
   constructor(

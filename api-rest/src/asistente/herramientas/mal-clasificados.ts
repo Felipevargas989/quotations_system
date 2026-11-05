@@ -263,6 +263,7 @@ export const proponerCambioDeCliente: Herramienta = {
   // Cambiar un cliente es de quien vende (PATCH /clients/:id, mapa 23).
   // Recepción no cambia tipos (doc 21 §6).
   cargos: SALES_AND_UP,
+  dentroDe: ['clientes'],
   async ejecutar(entrada, ctx) {
     const id = texto(entrada.cliente_id, 40);
     if (!id || !UUID.test(id)) {

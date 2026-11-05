@@ -173,3 +173,39 @@ Esta matriz tiene desde ese día una **hermana**:
 los derechos. Aquella cuida que ninguna ruta quede sin cargo; esta cuida que
 ninguna función de un plan superior quede sin candado de plan. Las dos leen
 los decoradores reales, no una copia.
+
+## Desde el 05-11-2026: los interruptores (permisos por cargo, doc 22)
+
+Cada empresa prende y apaga por cargo las secciones del menú. La matriz de
+arriba sigue siendo **lo de fábrica**: el día que se instala, nadie gana ni
+pierde nada.
+
+Cada puerta dice de qué sección es, junto a su `@Roles` de siempre:
+
+- `@Permiso('postventa', 'cotizaciones')`: la puerta es de esas secciones y
+  se abre a todo cargo que tenga prendida alguna. Así una puerta que usan
+  varias pantallas sigue abierta mientras el cargo tenga una.
+- `@DentroDe('postventa')`: una acción fina dentro de esa sección; exige el
+  `@Roles` de hoy **y** la sección prendida. Prenderle Post-Venta a un
+  vendedor le abre los pagos como a operaciones, pero no «Volver a
+  pendiente», que sigue siendo del administrador (tanda 2).
+
+La cuenta (`pasa`, en `auth/permisos.ts`): `permitido = prendidos(@Permiso) ∪
+(@Roles ∩ prendidos(@DentroDe))`. Medido el 05-11-2026 en `main`: 318
+puertas quedan gobernadas por los interruptores y 33 quedan solo con su
+`@Roles`, a propósito: la sesión propia (5), las de cualquier cargo (4), el
+cobro del plan (4), Eventia Móvil (5), la Torre de Control (6) y 9 «más
+abiertas que sus pantallas», cuyo cierre es una decisión aparte, anotada y
+no tomada (doc 22 §4.3).
+
+**Cómo se protege.** `matriz-de-cargos.spec.ts` calcula el cargo de fábrica
+de cada ruta con esa cuenta y lo compara con lo acordado: los valores no
+cambiaron. `permisos-de-fabrica.spec.ts` recorre **todas** las puertas del
+motor: cada una con permisos tiene que dar, de fábrica, exactamente su
+`@Roles`, y las que no llevan permiso tienen que ser exactamente las 33
+fijas, cada una con su porqué. Una puerta nueva tiene que decir de qué
+sección es o entrar a esa lista.
+
+**Lo que no cambia.** El candado por plan (`DerechosGuard`) sigue igual. El
+Calendario del vendedor: de fábrica prendido (Felipe, 05-11-2026); antes no
+estaba en su menú pero entraba por «Ver en calendario».

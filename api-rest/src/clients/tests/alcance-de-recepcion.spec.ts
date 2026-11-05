@@ -239,3 +239,67 @@ describe('AlcanceDeRecepcion', () => {
     expect(r.pendingPayments).toEqual([]);
   });
 });
+
+// LA LISTA CON LOS PERMISOS POR CARGO (doc 22 §4.4, 05-11-2026): las dos
+// reglas van en esta misma pieza, nunca por un camino aparte.
+describe('AlcanceDeRecepcion: la lista con los permisos por cargo', () => {
+  const empresas = cotizacion('Empresas');
+  const pedido = cotizacion('Empresas', 'requerimiento');
+  const filas = [empresas, pedido];
+
+  /** El código del 403, o null si respondió. */
+  const codigo = (p: Promise<unknown>) =>
+    p.then(
+      () => null,
+      (e: ForbiddenException) =>
+        (e.getResponse() as { codigo?: string }).codigo,
+    );
+
+  it('con todo de fábrica no cambia nada', async () => {
+    const { alcance } = armar();
+    expect(await alcance.deLaLista(vendedor, filas)).toEqual(filas);
+    expect(await alcance.deLaLista(vendedor, filas, 'calendario')).toEqual(
+      filas,
+    );
+  });
+
+  it('sin Calendario, la vista de calendario se niega', async () => {
+    const { alcance } = armar();
+    const s = { ...vendedor, permisos: ['requerimientos', 'cotizaciones'] };
+    expect(
+      await codigo(alcance.deLaLista(s as never, filas, 'calendario')),
+    ).toBe('SIN_PERMISO');
+    expect(await alcance.deLaLista(s as never, filas)).toEqual(filas);
+  });
+
+  it('sin Cotizaciones, Dashboard ni Personal, solo los requerimientos', async () => {
+    const { alcance } = armar();
+    const s = { ...vendedor, permisos: ['requerimientos', 'calendario'] };
+    expect(await alcance.deLaLista(s as never, filas)).toEqual([pedido]);
+    const conDashboard = { ...vendedor, permisos: ['dashboard'] };
+    expect(await alcance.deLaLista(conDashboard as never, filas)).toEqual(
+      filas,
+    );
+  });
+
+  it('sin ninguna sección que lea la lista, se niega', async () => {
+    const { alcance } = armar();
+    const s = { ...vendedor, permisos: ['calendario'] };
+    expect(await codigo(alcance.deLaLista(s as never, filas))).toBe(
+      'SIN_PERMISO',
+    );
+  });
+
+  it('a recepción le sigue su regla encima', async () => {
+    const { alcance } = armar();
+    const particular = cotizacion('Particulares');
+    const s = { ...recepcion, permisos: ['requerimientos'] };
+    expect(await alcance.deLaLista(s as never, [particular, ...filas])).toEqual(
+      [pedido],
+    );
+    expect(await alcance.deLaLista(recepcion, [particular, ...filas])).toEqual([
+      particular,
+      pedido,
+    ]);
+  });
+});
