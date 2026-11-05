@@ -410,10 +410,17 @@ describe('La lista de Facturación', () => {
     });
     const lista = await servicio.lista(1, '2026-11');
     expect(
-      lista.documentos.map((d) => [d.titulo, d.cadena.texto, d.total]),
+      lista.documentos.map((d) => [
+        d.titulo,
+        d.cadena.texto,
+        d.neto,
+        d.iva,
+        d.total,
+      ]),
     ).toEqual([
-      ['Factura 1', 'Anulada por NC 1', 1428000],
-      ['NC 1 · anula la 1', 'Código 1 · 04-11', -1428000],
+      ['Factura 1', 'Anulada por NC 1', 1200000, 228000, 1428000],
+      // La NC resta en las tres columnas: el reporte suma bien en Excel.
+      ['NC 1 · anula la 1', 'Código 1 · 04-11', -1200000, -228000, -1428000],
     ]);
     expect(lista.resumen).toMatchObject({
       facturado: 0,
