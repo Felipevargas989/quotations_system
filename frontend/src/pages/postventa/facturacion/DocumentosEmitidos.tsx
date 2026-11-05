@@ -5,8 +5,8 @@ import { fechaCorta } from "../../../utils/ordenesDeCompra";
 // LO EMITIDO DEL EVENTO (doc 19 §9.10, paso 2c). Solo lo que dice
 // facturacion.cl (D9): «emitida por facturacion.cl», nunca «aceptada por el
 // SII». Lo que se cortó al mandarlo queda «por confirmar» y no se emite de
-// nuevo (L5). Lo que facturacion.cl rechazó no salió: no se lista. La
-// cadena de anulaciones (notas de crédito y de débito) llega en el paso 4.
+// nuevo (L5). Lo que facturacion.cl rechazó no salió: no se lista. Con la
+// cadena (paso 4): «Anulada por NC 1» en rojo, y cada nota dice qué hace.
 
 const NOMBRE_DEL_TIPO: Record<number, string> = {
   33: "Factura",
@@ -19,7 +19,21 @@ const NOMBRE_DEL_TIPO: Record<number, string> = {
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
+const COLOR_DE_LA_CADENA: Record<string, string> = {
+  anulado: "text-red-700",
+  rebajado: "text-amber-700",
+  corregido: "text-gray-600",
+};
+
 function Estado({ d }: { readonly d: DocumentoTributario }) {
+  if (d.estado === "emitido" && d.cadena.texto)
+    return (
+      <span
+        className={`text-xs font-semibold ${COLOR_DE_LA_CADENA[d.cadena.como] ?? "text-gray-600"}`}
+      >
+        {d.cadena.texto}
+      </span>
+    );
   if (d.estado === "emitido")
     return (
       <span className="text-xs font-semibold text-green-700">
@@ -71,6 +85,9 @@ export default function DocumentosEmitidos({
                   </span>
                 )}
               </p>
+              {d.cadena.modifica && (
+                <p className="text-xs text-gray-500">{d.cadena.modifica}</p>
+              )}
               <p className="text-gray-700 break-words">
                 {d.receptor?.razon_social}
                 {oc ? ` · OC ${oc.numero}` : ""}

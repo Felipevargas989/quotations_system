@@ -26,6 +26,10 @@ import NotaDeUnDocumento from "./NotaDeUnDocumento";
 const clp = (n: number) =>
   `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("es-CL")}`;
 
+/** «1 factura», «4 boletas». */
+const cuantas = (n: number, cosa: string) =>
+  `${n} ${cosa}${n === 1 ? "" : "s"}`;
+
 const MESES = [
   "enero",
   "febrero",
@@ -198,7 +202,7 @@ export default function FacturacionPage() {
         <td className="py-2 pr-2 text-gray-700 break-words">
           {d.cliente ?? "—"}
         </td>
-        <td className="py-2 pr-2 text-right whitespace-nowrap text-gray-900">
+        <td className="py-2 pr-4 text-right whitespace-nowrap text-gray-900">
           {clp(d.total)}
         </td>
         <td className={`py-2 pr-2 text-xs font-semibold ${colorDelEstado(d)}`}>
@@ -274,7 +278,9 @@ export default function FacturacionPage() {
   const nombreDelMes = meses.find((m) => m.value === mes)?.label ?? mes;
 
   return (
-    <div className="max-w-5xl space-y-4 p-4 sm:p-6">
+    // Abajo, espacio para que el botón de BelIA no tape las acciones de la
+    // última fila.
+    <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900">Facturación</h1>
         <div className="flex items-center gap-2">
@@ -319,7 +325,8 @@ export default function FacturacionPage() {
               {r.facturas + r.boletas + r.notas}
             </p>
             <p className="text-xs text-gray-500">
-              {r.facturas} facturas · {r.boletas} boletas · {r.notas} notas
+              {cuantas(r.facturas, "factura")} · {cuantas(r.boletas, "boleta")}{" "}
+              · {cuantas(r.notas, "nota")}
             </p>
           </div>
           <div
@@ -366,7 +373,7 @@ export default function FacturacionPage() {
               <tr className="text-left text-xs text-gray-500">
                 <th className="pb-2 font-medium">Documento</th>
                 <th className="pb-2 font-medium">Cliente</th>
-                <th className="pb-2 text-right font-medium">Total</th>
+                <th className="pb-2 pr-4 text-right font-medium">Total</th>
                 <th className="pb-2 font-medium">Estado</th>
                 <th className="pb-2" />
               </tr>

@@ -4,7 +4,7 @@ import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { Receptor } from '../archivo/tipos';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
-import { Cadena, type DocumentoDeLaCadena } from '../notas/cadena';
+import { facturadoDeLasOC, type DocumentoDeLaCadena } from '../notas/cadena';
 import type { EventoAFacturar, OrdenAFacturar } from './borrador';
 
 /** Un documento tributario (tabla `documentos_tributarios`, migración 184). */
@@ -184,13 +184,8 @@ export class DocumentosTributariosRepository {
     return (data ?? []) as unknown as DocumentoTributario[];
   }
 
-  /** Lo facturado del evento y de cada una de sus OC (facturas). */
-  /**
-   * Lo facturado del evento y de cada una de sus OC: cada factura vale lo
-   * que le queda en la cadena (paso 4). Una factura anulada por una NC ya no
-   * cuenta, y la OC se puede volver a facturar; una rebajada cuenta lo que
-   * le queda.
-   */
+  /** Lo facturado del evento y de cada una de sus OC, con la cadena (paso
+   *  4): `facturadoDeLasOC`. */
   async facturado(quotationId: string, companyId: number) {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
@@ -202,24 +197,13 @@ export class DocumentosTributariosRepository {
       .in('tipo', [33, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
-    const filas = (
-      (data ?? []) as (DocumentoDeLaCadena & {
-        orden_de_compra_id: number | null;
-      })[]
-    ).map((d) => ({ ...d, total: Number(d.total) }));
-    const cadena = new Cadena(filas);
-    const porOC = new Map<number, number>();
-    let total = 0;
-    for (const d of filas.filter((f) => f.tipo === 33)) {
-      const vale = cadena.facturado(d.id);
-      total += vale;
-      if (d.orden_de_compra_id != null)
-        porOC.set(
-          d.orden_de_compra_id,
-          (porOC.get(d.orden_de_compra_id) ?? 0) + vale,
-        );
-    }
-    return { total, porOC };
+    return facturadoDeLasOC(
+      (
+        (data ?? []) as (DocumentoDeLaCadena & {
+          orden_de_compra_id: number | null;
+        })[]
+      ).map((d) => ({ ...d, total: Number(d.total) })),
+    );
   }
 
   /** Un documento entero, con el archivo y la respuesta («Comprobar»,

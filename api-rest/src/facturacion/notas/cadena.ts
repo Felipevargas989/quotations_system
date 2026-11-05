@@ -47,6 +47,20 @@ export const NOMBRE_CORTO: Record<number, string> = {
   61: 'NC',
 };
 
+export const NOMBRE_LARGO: Record<number, string> = {
+  33: 'la factura',
+  39: 'la boleta',
+  56: 'la nota de débito',
+  61: 'la nota de crédito',
+};
+
+/** Lo que hace una nota según su código de referencia. */
+export const QUE_HACE: Record<number, string> = {
+  1: 'anula',
+  2: 'corrige',
+  3: 'rebaja',
+};
+
 export class Cadena {
   private readonly porId = new Map<number, DocumentoDeLaCadena>();
   private readonly hijos = new Map<number, DocumentoDeLaCadena[]>();
@@ -115,9 +129,42 @@ export class Cadena {
   }
 }
 
+/**
+ * Lo facturado de un evento y de cada una de sus OC: cada factura vale lo que
+ * le queda en la cadena. Una factura anulada por una NC ya no cuenta, y la OC
+ * se puede volver a facturar; una rebajada cuenta lo que le queda.
+ */
+export const facturadoDeLasOC = (
+  filas: (DocumentoDeLaCadena & { orden_de_compra_id: number | null })[],
+  cadena = new Cadena(filas),
+) => {
+  const porOC = new Map<number, number>();
+  let total = 0;
+  for (const d of filas.filter((f) => f.tipo === 33)) {
+    const vale = cadena.facturado(d.id);
+    total += vale;
+    if (d.orden_de_compra_id != null)
+      porOC.set(
+        d.orden_de_compra_id,
+        (porOC.get(d.orden_de_compra_id) ?? 0) + vale,
+      );
+  }
+  return { total, porOC };
+};
+
 /** «NC 88», «Factura 1235», «Boleta 1021». */
 export const nombreDe = (d: Pick<DocumentoDeLaCadena, 'tipo' | 'folio'>) =>
   `${NOMBRE_CORTO[d.tipo] ?? `Documento ${d.tipo}`} ${d.folio ?? 's/n'}`;
+
+/** «Anula la factura N° 1», «Rebaja la factura N° 3», «Anula la nota de
+ *  crédito N° 2». */
+export const loQueHace = (
+  nota: Pick<DocumentoDeLaCadena, 'codigo_referencia'>,
+  modifica: Pick<DocumentoDeLaCadena, 'tipo' | 'folio'>,
+) => {
+  const verbo = QUE_HACE[nota.codigo_referencia ?? 0] ?? 'modifica';
+  return `${verbo[0].toUpperCase()}${verbo.slice(1)} ${NOMBRE_LARGO[modifica.tipo] ?? 'el documento'} N° ${modifica.folio ?? 's/n'}`;
+};
 
 /** Cómo lo dice la lista: «Anulada por NC 88», «Rebajada: queda $1.800.000». */
 export const estadoEnPalabras = (e: EstadoEnLaCadena, femenino = true) => {

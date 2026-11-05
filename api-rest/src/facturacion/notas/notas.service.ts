@@ -21,6 +21,8 @@ import { mandarConFolio } from '../facturas/emision';
 import {
   Cadena,
   NOMBRE_CORTO,
+  NOMBRE_LARGO,
+  QUE_HACE,
   estadoEnPalabras,
   nombreDe,
   plazoDelSii,
@@ -48,17 +50,6 @@ const ND = 56;
 const CON_NOTAS = new Set([33, ND, NC]);
 const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
 const fechaCorta = (f: string) => f.slice(0, 10).split('-').reverse().join('-');
-const QUE_HACE: Record<number, string> = {
-  1: 'anula',
-  2: 'corrige',
-  3: 'rebaja',
-};
-const NOMBRE_LARGO: Record<number, string> = {
-  33: 'la factura',
-  39: 'la boleta',
-  56: 'la nota de débito',
-  61: 'la nota de crédito',
-};
 
 /** El primer y el siguiente día del mes (AAAA-MM-DD). */
 const delMes = (mes: string) => {

@@ -12,6 +12,12 @@ import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
+import {
+  Cadena,
+  estadoEnPalabras,
+  facturadoDeLasOC,
+  loQueHace,
+} from '../notas/cadena';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   armarBorrador,
@@ -48,6 +54,8 @@ import { mandarConFolio } from './emision';
  */
 
 const FACTURA = 33;
+// Lo que lleva notas de crédito y de débito (las boletas, en el paso 0: L21).
+const CON_NOTAS = new Set([FACTURA, 56, 61]);
 
 // Se factura un evento aceptado o realizado (§9.2), como lo que cuenta
 // como vendido en el resto del motor.
@@ -102,13 +110,38 @@ export class FacturasService {
   }
 
   /** Los documentos del evento, y dónde se emiten (en los pasos 1 a 4,
-   *  'simulado': la pantalla lo dice en un letrero). */
+   *  'simulado': la pantalla lo dice en un letrero). Cada uno con su estado
+   *  en la cadena (las notas heredan el evento de lo que modifican), y lo
+   *  facturado de cada OC con la cadena: una factura anulada ya no cuenta y
+   *  la OC se puede volver a facturar. */
   async documentos(quotationId: string, companyId: number) {
     if (!(await this.repo.eventoAFacturar(quotationId, companyId)))
       throw new NotFoundException('Ese evento no existe');
+    const documentos = await this.repo.deCotizacion(quotationId, companyId);
+    const filas = documentos.map((d) => ({ ...d, total: Number(d.total) }));
+    const cadena = new Cadena(filas);
+    const porId = new Map(filas.map((d) => [d.id, d]));
     return {
       ambiente: this.conexion.de(companyId).ambiente,
-      documentos: await this.repo.deCotizacion(quotationId, companyId),
+      documentos: documentos.map((d) => {
+        const estado =
+          d.estado === 'emitido' && CON_NOTAS.has(d.tipo)
+            ? cadena.estado(d.id)
+            : { como: 'vigente' as const };
+        const modifica =
+          d.modifica_id != null ? porId.get(d.modifica_id) : undefined;
+        return {
+          ...d,
+          cadena: {
+            como: estado.como,
+            texto: estado.como === 'vigente' ? null : estadoEnPalabras(estado),
+            modifica: modifica ? loQueHace(d, modifica) : null,
+          },
+        };
+      }),
+      facturado_por_oc: Object.fromEntries(
+        facturadoDeLasOC(filas, cadena).porOC,
+      ),
     };
   }
 
