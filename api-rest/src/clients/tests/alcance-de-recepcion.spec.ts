@@ -68,6 +68,42 @@ describe('AlcanceDeRecepcion', () => {
     expect(await alcance.filtrar(vendedor, filas)).toHaveLength(4);
   });
 
+  it('el calendario de recepción: todos los eventos, los demás sin plata', async () => {
+    const { alcance } = armar();
+    const filas = [
+      {
+        id: 'a',
+        total_amount: 900_000,
+        ...cotizacion('Particulares'),
+      },
+      {
+        id: 'b',
+        quotation_number: 408,
+        quotation_status: 'aceptada',
+        event_date: '2026-12-20',
+        people_count: 120,
+        total_amount: 21_844_000,
+        discount_amount: 500_000,
+        observations: '$182.000 por persona',
+        request_type: 'cotizacion',
+        clients: { name: 'FEPASA', client_type: 'Empresas', phone: '+569' },
+      },
+    ];
+    const vistas = await alcance.paraElCalendario(recepcion, filas);
+    expect(vistas[0]).toBe(filas[0]);
+    expect(vistas[1]).toEqual({
+      solo_agenda: true,
+      id: 'b',
+      quotation_number: 408,
+      quotation_status: 'aceptada',
+      event_date: '2026-12-20',
+      people_count: 120,
+      request_type: 'cotizacion',
+      clients: { name: 'FEPASA' },
+    });
+    expect(await alcance.paraElCalendario(vendedor, filas)).toBe(filas);
+  });
+
   it('los tipos de la empresa se recuerdan unos minutos', async () => {
     const { alcance, repositorio } = armar();
     await alcance.ve(recepcion, cotizacion('Particulares'));
@@ -135,6 +171,59 @@ describe('AlcanceDeRecepcion', () => {
     ).not.toThrow();
     expect(() =>
       revisarLoQueCotiza({ quotation_status: 'rechazada' }),
+    ).not.toThrow();
+  });
+
+  it('al editar, el descuento que ya dio quien vende se mantiene, pero no sube', () => {
+    const guardada = {
+      discount_percentage: 10,
+      discount_amount: 0,
+      quotation_status: 'enviada',
+    };
+    // El cotizador vuelve a mandar el mismo 10 %: no es un descuento nuevo.
+    expect(() =>
+      revisarLoQueCotiza(
+        { discount_percentage: 10, discount_amount: 0 },
+        guardada,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      revisarLoQueCotiza({ discount_percentage: 5 }, guardada),
+    ).not.toThrow();
+    expect(() =>
+      revisarLoQueCotiza({ discount_percentage: 12 }, guardada),
+    ).toThrow('descuentos');
+    expect(() => revisarLoQueCotiza({ discount_amount: 1 }, guardada)).toThrow(
+      'descuentos',
+    );
+    // Lo guardado puede venir como texto (numeric de la base).
+    expect(() =>
+      revisarLoQueCotiza(
+        { discount_amount: 20_000 },
+        { discount_amount: '20000' },
+      ),
+    ).not.toThrow();
+  });
+
+  it('al editar, el estado se revisa solo si cambia; reabrir una anulada, tampoco', () => {
+    const anulada = { quotation_status: 'cancelada' };
+    expect(() =>
+      revisarLoQueCotiza({ quotation_status: 'cancelada' }, anulada),
+    ).not.toThrow();
+    expect(() =>
+      revisarLoQueCotiza({ quotation_status: 'enviada' }, anulada),
+    ).toThrow('operaciones');
+    expect(() =>
+      revisarLoQueCotiza(
+        { quotation_status: 'aceptada' },
+        { quotation_status: 'enviada' },
+      ),
+    ).toThrow('operaciones');
+    expect(() =>
+      revisarLoQueCotiza(
+        { quotation_status: 'en_negociacion' },
+        { quotation_status: 'rechazada' },
+      ),
     ).not.toThrow();
   });
 

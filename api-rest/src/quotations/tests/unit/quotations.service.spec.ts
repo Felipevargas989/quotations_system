@@ -330,6 +330,27 @@ describe('QuotationsService', () => {
         expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
       });
 
+      it('el descuento que ya dio quien vende viaja igual al guardar', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({ discount_percentage: 10, discount_amount: 0 }),
+        );
+        await service.update(
+          '1',
+          { people_count: 40, discount_percentage: 10 } as never,
+          1,
+          UserRole.RECEPCION,
+        );
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+        await expect(
+          service.update(
+            '1',
+            { discount_percentage: 15 } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow('descuentos');
+      });
+
       it('no pasa a cotización el requerimiento de una empresa', async () => {
         quotationsRepositoryMock.findOne.mockResolvedValue(
           deParticular({

@@ -50,7 +50,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   // (el menú lateral, vía canAccessSection) y SECTION_ROLES más abajo
   // (las rutas, vía PermissionGuard). El 03-10 se cambió solo la de
   // abajo y el menú siguió ofreciendo pantallas que la ruta rebotaba.
-  recepcion: ["requests", "calendar", "configuration"],
+  // 04-11-2026 (doc 21, Felipe: "recepción podría ver la parte de
+  // cotizaciones de personas naturales... crear, editar y enviar"):
+  // vuelve a ver Cotizaciones, pero el motor le entrega solo las de
+  // clientes particulares (y los requerimientos de todos).
+  recepcion: [
+    "requests",
+    "quotations",
+    "quotations_edit",
+    "calendar",
+    "configuration",
+  ],
   vendedor: [
     "requests",
     "clients",
@@ -248,8 +258,9 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   // del negocio y Clientes pasan a vendedor para arriba. El motor sigue
   // dejándole buscar y crear clientes DENTRO del formulario de
   // requerimiento, que lo necesita.
-  quotations: ROLE_GROUPS.SALES_AND_UP,
-  quotations_edit: ROLE_GROUPS.SALES_AND_UP,
+  // Desde el doc 21, recepción también: el motor le filtra lo que ve.
+  quotations: ROLE_GROUPS.RECEPTION_AND_UP,
+  quotations_edit: ROLE_GROUPS.RECEPTION_AND_UP,
   clients: ROLE_GROUPS.SALES_AND_UP,
   payments: ROLE_GROUPS.OPERATIONS_AND_UP,
   admin: ROLE_GROUPS.ADMIN_ONLY,

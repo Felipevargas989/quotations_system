@@ -36,26 +36,42 @@ const normal = (t: string | null | undefined): string =>
  *  operaciones), y anular y realizado tampoco son de ella (doc 21 §2). */
 const ESTADOS_DE_OPERACIONES = new Set(['aceptada', 'cancelada', 'realizada']);
 
+type LoQueCotiza = {
+  discount_percentage?: number | string | null;
+  discount_amount?: number | string | null;
+  quotation_status?: string | null;
+};
+
 /** Lo que recepción no puede poner en una cotización: descuento ni esos
  *  estados (Felipe, 04-11-2026: "recepción no puede dar descuento"; "el
- *  aceptar ya no"). */
-export const revisarLoQueCotiza = (cambio: {
-  discount_percentage?: number | null;
-  discount_amount?: number | null;
-  quotation_status?: string | null;
-}): void => {
+ *  aceptar ya no"). Al editar, `actual` es lo guardado: el descuento que
+ *  ya dio quien vende se mantiene (el cotizador lo vuelve a mandar), pero
+ *  no sube; y el estado se revisa solo si cambia, también para sacarla de
+ *  uno de operaciones (reabrir una anulada). */
+export const revisarLoQueCotiza = (
+  cambio: LoQueCotiza,
+  actual?: LoQueCotiza | null,
+): void => {
+  const sube = (
+    nuevo: number | string | null | undefined,
+    antes: number | string | null | undefined,
+  ) => nuevo != null && Number(nuevo) > Number(antes ?? 0);
   if (
-    Number(cambio.discount_percentage ?? 0) > 0 ||
-    Number(cambio.discount_amount ?? 0) > 0
+    sube(cambio.discount_percentage, actual?.discount_percentage) ||
+    sube(cambio.discount_amount, actual?.discount_amount)
   ) {
     throw new ForbiddenException('Recepción no da descuentos.');
   }
+  const nuevo = cambio.quotation_status;
+  const antes = actual?.quotation_status ?? null;
   if (
-    cambio.quotation_status &&
-    ESTADOS_DE_OPERACIONES.has(cambio.quotation_status)
+    nuevo &&
+    nuevo !== antes &&
+    (ESTADOS_DE_OPERACIONES.has(nuevo) ||
+      (antes !== null && ESTADOS_DE_OPERACIONES.has(antes)))
   ) {
     throw new ForbiddenException(
-      'Aceptar, anular o marcar realizada una cotización es de operaciones.',
+      'Aceptar, anular, marcar realizada o reabrir una cotización es de operaciones.',
     );
   }
 };
@@ -81,6 +97,61 @@ export const sinMontosDelResumen = <
     pendingPayments: [],
   };
 };
+
+/** Lo que recepción ve de una cotización que no es de particulares: lo
+ *  del calendario, donde sigue solo mirando (03-10-2026), sin plata. Una
+ *  lista cerrada: un campo que se agregue mañana a la cotización no viaja
+ *  solo. Las categorías salen de los servicios, sin sus precios. */
+const CAMPOS_DE_LA_AGENDA = [
+  'id',
+  'company_id',
+  'quotation_number',
+  'request_type',
+  'quotation_status',
+  'event_type',
+  'event_date',
+  'event_end_date',
+  'people_count',
+  'children_count',
+  'client_id',
+] as const;
+
+export type CotizacionDeAgenda = Record<string, unknown> & {
+  solo_agenda: true;
+  clients: { name: string | null };
+  categorias?: string[];
+};
+
+export const paraLaAgenda = (cotizacion: object): CotizacionDeAgenda => {
+  const q = cotizacion as Record<string, unknown>;
+  const cliente = q.clients as { name?: string | null } | null | undefined;
+  const agenda: CotizacionDeAgenda = {
+    solo_agenda: true,
+    clients: { name: cliente?.name ?? null },
+  };
+  for (const campo of CAMPOS_DE_LA_AGENDA) {
+    if (campo in q) agenda[campo] = q[campo];
+  }
+  const servicios = (
+    q.items as { variable_services?: Array<{ category?: unknown }> } | null
+  )?.variable_services;
+  if (Array.isArray(servicios)) {
+    agenda.categorias = [
+      ...new Set(
+        servicios
+          .map((g) => g?.category)
+          .filter((c): c is string => typeof c === 'string' && c.trim() !== ''),
+      ),
+    ];
+  }
+  return agenda;
+};
+
+/** ¿Recepción ve completa esta cotización? Los requerimientos y las de
+ *  clientes particulares. */
+const laVe = (particulares: Set<string>, q: CotizacionParaElAlcance): boolean =>
+  q.request_type === 'requerimiento' ||
+  particulares.has(normal(q.clients?.client_type));
 
 /** Cuánto dura lo que se sabe de los tipos de una empresa. */
 const MINUTOS = 5;
@@ -147,11 +218,18 @@ export class AlcanceDeRecepcion {
   ): Promise<T[]> {
     if (!esRecepcion(s)) return filas;
     const particulares = await this.particulares(s.company_id);
-    return filas.filter(
-      (q) =>
-        q.request_type === 'requerimiento' ||
-        particulares.has(normal(q.clients?.client_type)),
-    );
+    return filas.filter((q) => laVe(particulares, q));
+  }
+
+  /** La lista del calendario: recepción sigue viendo todos los eventos,
+   *  pero los que no son de particulares le llegan como agenda, sin plata. */
+  async paraElCalendario<T extends CotizacionParaElAlcance>(
+    s: Sesion,
+    filas: T[],
+  ): Promise<Array<T | CotizacionDeAgenda>> {
+    if (!esRecepcion(s)) return filas;
+    const particulares = await this.particulares(s.company_id);
+    return filas.map((q) => (laVe(particulares, q) ? q : paraLaAgenda(q)));
   }
 
   /** ¿Ve esta cotización de la empresa, por su id? */

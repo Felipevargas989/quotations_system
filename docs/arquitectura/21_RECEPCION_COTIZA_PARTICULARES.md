@@ -3,8 +3,8 @@
 > **Estado: PLAN del 04-11-2026 en la noche.** Felipe lo aprobó ese día
 > (*"perfecto todas tus indicaciones"*). Va al laboratorio por tandas; a
 > producción, solo con su «a producción». Migración reservada: **186**
-> (con Facturación, que tiene la 184), aplicada en el laboratorio. La
-> tanda R1 (el motor) escrita esa noche en la rama
+> (con Facturación, que tiene la 184), aplicada en el laboratorio. Las
+> tandas R1 (el motor) y R2 (la pantalla) escritas esa noche en la rama
 > `feature/recepcion-particulares`.
 
 ## 1. Lo que pidió Felipe
@@ -36,7 +36,7 @@ Recepción, solo en las cotizaciones de clientes particulares:
 |---|---|
 | Ver el tablero, la ficha y los precios | Ver las de empresas, colegios, clubes y los demás tipos (los requerimientos de todos, sí, como hoy) |
 | Crear, editar y enviar la cotización, también pasar un requerimiento a cotización | Aceptarla (el plan de pagos) ni cobrar: sigue en operaciones |
-| Anotar en la bitácora y hacer el seguimiento, con «✉ Generar seguimiento» | Dar descuentos (su tope sigue en 0 %) |
+| Anotar en la bitácora y hacer el seguimiento, con «✉ Generar seguimiento» | Dar descuentos (su tope sigue en 0 %; el que ya dio quien vende se mantiene al guardar, pero no sube) |
 | Marcarla enviada, en negociación o perdida | Anularla, borrarla (solo borra requerimientos, como hoy) o cambiarle el tipo a un cliente |
 | BelIA con los montos de esas cotizaciones | BelIA con montos de las demás |
 
@@ -62,10 +62,10 @@ con la regla:
 
 | Puerta | Hoy, para recepción | Con la regla |
 |---|---|---|
-| `GET /quotations` (el tablero) | Entrega TODAS, con montos (la pantalla las escondía) | Requerimientos de todos y cotizaciones de particulares |
+| `GET /quotations` (el tablero) | Entrega TODAS, con montos (la pantalla las escondía) | Requerimientos de todos y cotizaciones de particulares. El calendario pide `vista=calendario`: ahí, todos los eventos, y los demás como agenda (cliente, fecha, personas, estado), sin plata |
 | `GET /clients/:id/summary` (resumen del cliente) | Entrega los totales de todas sus cotizaciones y sus pagos | Los montos, solo si el cliente es particular |
 | `GET /payments?quotationId=` (las cuotas) | Entrega las cuotas de cualquiera | Solo de una cotización que puede ver |
-| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, sin montos si no es particular. Lo público, pregunta a Felipe (§7) |
+| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, completa si es de particular; si no, la agenda, con sus categorías (la tarjeta del calendario las pide aquí), sin plata. Lo público, pregunta a Felipe (§7) |
 | `POST /quotations` y `PATCH /quotations/:id` | Solo requerimientos | También cotizaciones de particulares: sin descuento, sin aceptar ni anular |
 | `POST /quotations/:id/enviar-correo` | Vendedor | Recepción, en particulares |
 | `POST /quotations/:id/seguimiento` y `GET seguimiento/pendientes` | Vendedor | Recepción, en particulares |
@@ -80,6 +80,17 @@ con la regla:
 Recepción ve Cotizaciones (el tablero, la ficha y el cotizador) con lo que
 el motor le entrega. Sin «Aceptar», sin plan de pagos, sin descuento, sin
 anular ni borrar una cotización. Las sumas del tablero salen de lo que ve.
+
+Hecho en R2:
+- el menú y las rutas: Cotizaciones y su edición, de recepción para arriba;
+- los menús de estado del tablero y de la ficha, sin aceptar, anular ni
+  realizada (`estadosPara`); en una que ya está en uno de esos, solo su
+  estado, como chip;
+- el descuento ya no se le mostraba (tope 0 %);
+- en la ficha, el nombre del cliente no lleva a Clientes (sigue siendo de
+  vendedor para arriba); cambiar el contacto, sí, mientras se vende;
+- **el calendario queda como estaba**: ve todos los eventos, sin montos y
+  sin abrir la ficha. Sus particulares los trabaja desde el tablero.
 
 ## 6. BelIA
 

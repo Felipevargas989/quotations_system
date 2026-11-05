@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { estadosPara } from "../../utils/recepcion";
 import { useNavigate } from "react-router-dom";
 import {
   keepPreviousData,
@@ -183,7 +184,8 @@ export default function QuotationsPage() {
       q.quotation_status === "cancelada"
     )
       base.push("cancelada");
-    return base;
+    // Recepción (doc 21): sin aceptar, anular ni realizada.
+    return estadosPara(userRole, base, q.quotation_status);
   };
 
   // Cambio post-venta → pre-venta pendiente de confirmación (Tanda 3a).

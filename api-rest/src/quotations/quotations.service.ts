@@ -1028,6 +1028,8 @@ export class QuotationsService {
     quotation: {
       request_type?: string | null;
       quotation_status?: string | null;
+      discount_percentage?: number | null;
+      discount_amount?: number | null;
       clients?: { client_type?: string | null } | null;
     },
     cambio: UpdateQuotationDto,
@@ -1058,7 +1060,7 @@ export class QuotationsService {
         'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
       );
     }
-    revisarLoQueCotiza(cambio);
+    revisarLoQueCotiza(cambio, quotation);
     if (cambio.client_id && this.alcance) {
       await this.alcance.exigirClienteParticular(sesion, cambio.client_id);
     }

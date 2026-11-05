@@ -77,10 +77,14 @@ describe("puedeCambiarContacto", () => {
     expect(puedeCambiarContacto("operaciones", "aceptada")).toBe(true);
     expect(puedeCambiarContacto("administrador", "aceptada")).toBe(true);
   });
-  it("realizado y anulado, nadie; recepción, tampoco", () => {
+  it("realizado y anulado, nadie; recepción, mientras se vende", () => {
     expect(puedeCambiarContacto("administrador", "realizada")).toBe(false);
     expect(puedeCambiarContacto("administrador", "cancelada")).toBe(false);
-    expect(puedeCambiarContacto("recepcion", "enviada")).toBe(false);
+    // Recepción cotiza a los particulares (doc 21, 04-11-2026): el motor
+    // solo le entrega esas y los requerimientos. Una aceptada ya es de
+    // operaciones.
+    expect(puedeCambiarContacto("recepcion", "enviada")).toBe(true);
+    expect(puedeCambiarContacto("recepcion", "aceptada")).toBe(false);
   });
 });
 

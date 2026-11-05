@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Headers,
   HttpException,
@@ -27,6 +26,7 @@ import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import {
   AlcanceDeRecepcion,
   esRecepcion,
+  paraLaAgenda,
   revisarLoQueCotiza,
   type CotizacionParaElAlcance,
 } from 'src/clients/alcance-de-recepcion';
@@ -177,8 +177,11 @@ export class QuotationsController {
     });
     // Recepción: los requerimientos y las cotizaciones de particulares
     // (doc 21). Antes le llegaban todas con montos y solo la pantalla las
-    // escondía.
-    return this.alcance.filtrar(user, filas);
+    // escondía. En el calendario sigue viendo todos los eventos, los demás
+    // sin plata.
+    return getQuotationsDto.vista === 'calendario'
+      ? this.alcance.paraElCalendario(user, filas)
+      : this.alcance.filtrar(user, filas);
   }
 
   @Roles(...RECEPTION_AND_UP)
@@ -232,10 +235,11 @@ export class QuotationsController {
     if (empresa === null || !fila || Number(fila.company_id) !== empresa) {
       return limpia;
     }
-    // Recepción, con su sesión, ve los requerimientos y las cotizaciones de
-    // particulares (doc 21): las demás las ve quien vende.
+    // Recepción, con su sesión, ve completos los requerimientos y las
+    // cotizaciones de particulares (doc 21). De las demás, lo que muestra
+    // el calendario (la tarjeta pide aquí sus categorías), sin plata.
     if (perfil && !(await this.alcance.ve(perfil, fila))) {
-      throw new ForbiddenException('Esa cotización la ve quien vende.');
+      return { ...limpia, data: paraLaAgenda(fila) };
     }
     // Solo a su empresa: si es la copia de lo postulado en una licitación,
     // la pantalla la muestra de solo lectura (decisión 35 del doc 17).

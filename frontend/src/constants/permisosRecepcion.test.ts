@@ -6,8 +6,10 @@ import {
 } from "./permissions";
 
 /**
- * RECEPCIÓN SOLO VE REQUERIMIENTOS Y CALENDARIO (Felipe, 03-10-2026:
- * "requerimiento y calendario, pero no más que eso"). Este archivo tiene
+ * LO QUE VE RECEPCIÓN. Felipe, 03-10-2026: "requerimiento y calendario,
+ * pero no más que eso"; el 04-11-2026 sumó Cotizaciones, solo las de
+ * clientes particulares (doc 21: el motor le entrega esas y los
+ * requerimientos, nada más). Este archivo tiene
  * dos listas: ROLE_PERMISSIONS (el menú lateral) y SECTION_ROLES (las
  * rutas). El primer intento cambió solo la segunda y el menú siguió
  * ofreciendo Cotizaciones, Consultas y Clientes, que la ruta rebotaba.
@@ -30,9 +32,15 @@ describe("lo que ve recepción", () => {
     }
   });
 
-  it("solo Requerimientos, Calendario y su propia cuenta", () => {
+  it("Requerimientos, Cotizaciones, Calendario y su propia cuenta", () => {
     expect([...ROLE_PERMISSIONS.recepcion].sort()).toEqual(
-      ["calendar", "configuration", "requests"].sort(),
+      [
+        "calendar",
+        "configuration",
+        "quotations",
+        "quotations_edit",
+        "requests",
+      ].sort(),
     );
   });
 });

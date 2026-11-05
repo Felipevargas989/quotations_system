@@ -1,4 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { DerechosService } from 'src/auth/derechos.service';
@@ -25,6 +24,9 @@ describe('QuotationsController', () => {
   // Lo que ve recepción (doc 21): por defecto, todo.
   const ve = jest.fn().mockResolvedValue(true);
   const filtrar = jest.fn((_s: unknown, filas: unknown[]) =>
+    Promise.resolve(filas),
+  );
+  const paraElCalendario = jest.fn((_s: unknown, filas: unknown[]) =>
     Promise.resolve(filas),
   );
   const exigirClienteParticular = jest.fn().mockResolvedValue(undefined);
@@ -59,6 +61,7 @@ describe('QuotationsController', () => {
         provideMock(AlcanceDeRecepcion, {
           ve,
           filtrar,
+          paraElCalendario,
           exigirClienteParticular,
         }),
       ],
@@ -122,16 +125,63 @@ describe('QuotationsController', () => {
   describe('recepción y las cotizaciones de particulares', () => {
     const recepcion = { id: 'u1', company_id: 1, role: 'recepcion' } as never;
 
-    it('la ficha de una que no ve, con su sesión, no llega', async () => {
+    it('la ficha de una que no ve llega como agenda: sin plata, con sus categorías', async () => {
       findOne.mockResolvedValue({
-        data: { id: 'q1', company_id: 1, request_type: 'cotizacion' },
+        data: {
+          id: 'q1',
+          company_id: 1,
+          quotation_number: 408,
+          request_type: 'cotizacion',
+          quotation_status: 'aceptada',
+          event_date: '2026-12-20',
+          people_count: 120,
+          total_amount: 21_844_000,
+          subtotal_amount: 18_356_303,
+          value_per_person: 182_000,
+          observations: 'Valor acordado $182.000 por persona',
+          comentario_interno: 'cliente preferente',
+          items: {
+            variable_services: [
+              { category: 'Alimentación', price: 25_000 },
+              { category: 'Piscina', price: 5_000 },
+              { category: 'Alimentación', price: 12_000 },
+            ],
+          },
+          clients: {
+            name: 'FEPASA',
+            email: 'rrhh@fepasa.cl',
+            client_type: 'Empresas',
+          },
+        },
         error: null,
       });
       perfilDe.mockResolvedValue({ company_id: 1, role: 'recepcion' });
       ve.mockResolvedValueOnce(false);
-      await expect(controller.findOne('q1', 'Bearer pase')).rejects.toThrow(
-        ForbiddenException,
-      );
+      licitacionDe.mockClear();
+      const r = (await controller.findOne('q1', 'Bearer pase')) as {
+        data: Record<string, unknown>;
+      };
+      expect(r.data).toEqual({
+        solo_agenda: true,
+        id: 'q1',
+        company_id: 1,
+        quotation_number: 408,
+        request_type: 'cotizacion',
+        quotation_status: 'aceptada',
+        event_date: '2026-12-20',
+        people_count: 120,
+        clients: { name: 'FEPASA' },
+        categorias: ['Alimentación', 'Piscina'],
+      });
+      expect(licitacionDe).not.toHaveBeenCalled();
+    });
+
+    it('el calendario le muestra todos los eventos, por su propia regla', async () => {
+      const filas = [{ id: 'a' }, { id: 'b' }];
+      findAll.mockResolvedValue(filas);
+      await controller.findAll(recepcion, { vista: 'calendario' } as never);
+      expect(paraElCalendario).toHaveBeenCalledWith(recepcion, filas);
+      expect(filtrar).not.toHaveBeenCalled();
     });
 
     it('el tablero pasa por la regla', async () => {

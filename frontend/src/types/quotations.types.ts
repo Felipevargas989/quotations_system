@@ -118,6 +118,11 @@ export interface Quotation {
   subtotal_amount: number;
   items: QuotationItem;
   company_id: number;
+  // Lo que recepción ve de una cotización que no es de particulares (doc
+  // 21): lo del calendario, sin plata ni ítems; las categorías vienen
+  // aparte.
+  solo_agenda?: boolean;
+  categorias?: string[];
 }
 
 export interface QuotationFormData
