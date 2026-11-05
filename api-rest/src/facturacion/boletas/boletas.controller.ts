@@ -16,9 +16,12 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import {
+  BoletaSueltaDto,
   CrearCobroDto,
   EditarCobroDto,
+  EditarItemDelTarifarioDto,
   EditarLineaDelCobroDto,
+  ItemDelTarifarioDto,
   LineaDelCobroDto,
 } from './boleta.dto';
 import { BoletasService } from './boletas.service';
@@ -109,6 +112,45 @@ export class BoletasController {
     @CurrentUser() user: User,
   ) {
     return this.boletas.quitarLinea(user, id, lineaId);
+  }
+
+  // El tarifario (D3, paso 3b): recepción lo lee para la boleta suelta; lo
+  // escribe el administrador.
+  @Roles(...RECEPTION_AND_UP)
+  @Get('tarifario')
+  tarifario(@CurrentUser() user: User) {
+    return this.boletas.tarifario(user.company_id);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Post('tarifario')
+  crearItem(@Body() dto: ItemDelTarifarioDto, @CurrentUser() user: User) {
+    return this.boletas.crearItem(user, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Patch('tarifario/:id')
+  editarItem(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: EditarItemDelTarifarioDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.boletas.editarItem(user, id, dto);
+  }
+
+  @Roles(...ADMIN_ONLY)
+  @Delete('tarifario/:id')
+  borrarItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.boletas.borrarItem(user, id);
+  }
+
+  // La boleta suelta: recepción hacia arriba (D5); la línea a mano, solo el
+  // administrador (lo revisa el servicio).
+  @Roles(...RECEPTION_AND_UP)
+  @Post('sueltas')
+  emitirSuelta(@Body() dto: BoletaSueltaDto, @CurrentUser() user: User) {
+    this.logger.info('POST /boletas/sueltas');
+    return this.boletas.emitirSuelta(user, dto);
   }
 
   @Roles(...RECEPTION_AND_UP)

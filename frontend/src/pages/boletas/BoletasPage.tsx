@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import FileViewLink from "../../components/FileViewLink";
@@ -12,7 +12,9 @@ import {
   type CobroPorBoletear as Cobro,
 } from "../../services/boletas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import BoletaSuelta from "./BoletaSuelta";
 import CobroPorBoletear from "./CobroPorBoletear";
+import TarifarioDeBoletas from "./TarifarioDeBoletas";
 
 // LA SECCIÓN «BOLETAS» (doc 19 §9.4, paso 3a; maqueta del 04-11), de
 // recepción hacia arriba (D5) y solo con el módulo propio `facturacion`.
@@ -20,7 +22,8 @@ import CobroPorBoletear from "./CobroPorBoletear";
 // «Por boletear»: los cobros que dejó el administrador (desde el evento o
 // acá mismo), cada uno repartido por cabaña. «Emitidas hoy»: el control del
 // día de la casa (el SII ya no pide el resumen diario, L18). La boleta
-// suelta con el tarifario llega en el paso 3b. En los pasos 1 a 4, contra
+// suelta con el tarifario es el paso 3b, y el tarifario lo escribe el
+// administrador (D3: «tarifario aparte»). En los pasos 1 a 4, contra
 // facturacion.cl simulado: el letrero lo dice.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
@@ -117,9 +120,9 @@ export default function BoletasPage() {
   const queryClient = useQueryClient();
   const { userRole } = useAuth();
   const esAdmin = userRole === "administrador";
-  const [pestana, setPestana] = useState<"por_boletear" | "hoy">(
-    "por_boletear",
-  );
+  const [pestana, setPestana] = useState<
+    "suelta" | "por_boletear" | "hoy" | "tarifario"
+  >("suelta");
   const porBoletear = useQuery({
     queryKey: LLAVE,
     queryFn: () => getPorBoletear(),
@@ -148,9 +151,20 @@ export default function BoletasPage() {
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
 
+  // Si hay algo por boletear, la página parte ahí (la maqueta); si no, en
+  // la boleta suelta. Una sola vez: después manda lo que elija la persona.
+  const elegida = useRef(false);
+  useEffect(() => {
+    if (elegida.current || !porBoletear.isSuccess) return;
+    elegida.current = true;
+    if (porBoletear.data.cobros.length > 0) setPestana("por_boletear");
+  }, [porBoletear.isSuccess, porBoletear.data]);
+
   const pestanas = [
+    { key: "suelta" as const, label: "Boleta suelta" },
     { key: "por_boletear" as const, label: `Por boletear (${cobros.length})` },
     { key: "hoy" as const, label: `Emitidas hoy (${boletas.length})` },
+    ...(esAdmin ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
 
   return (
@@ -175,7 +189,16 @@ export default function BoletasPage() {
         ))}
       </div>
 
-      {pestana === "por_boletear" ? (
+      {pestana === "suelta" ? (
+        <BoletaSuelta
+          esAdmin={esAdmin}
+          onEmitida={() =>
+            void queryClient.invalidateQueries({ queryKey: LLAVE_HOY })
+          }
+        />
+      ) : pestana === "tarifario" ? (
+        <TarifarioDeBoletas />
+      ) : pestana === "por_boletear" ? (
         <div className="space-y-3">
           {esAdmin && <NuevoCobro onCreado={() => void refrescar()} />}
           {porBoletear.isPending ? (
