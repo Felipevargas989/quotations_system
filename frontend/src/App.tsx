@@ -47,6 +47,9 @@ const OportunidadesPage = lazy(
   () => import("./pages/oportunidades/OportunidadesPage"),
 );
 const BoletasPage = lazy(() => import("./pages/boletas/BoletasPage"));
+const FacturacionPage = lazy(
+  () => import("./pages/facturacion/FacturacionPage"),
+);
 const CompetidorPage = lazy(
   () => import("./pages/oportunidades/CompetidorPage"),
 );
@@ -391,6 +394,17 @@ function App() {
               />
               {/* Oportunidades - solo administrador y solo con el
                   derecho: licitaciones y compras ágiles (doc 17). */}
+              <Route
+                path="facturacion"
+                element={
+                  <PermissionGuard
+                    allowedRoles={SECTION_ROLES.facturacion}
+                    derecho="facturacion"
+                  >
+                    <FacturacionPage />
+                  </PermissionGuard>
+                }
+              />
               <Route
                 path="boletas"
                 element={

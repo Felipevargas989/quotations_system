@@ -17,6 +17,7 @@ import {
   Lock,
   Radar,
   ReceiptText,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   canAccessSection,
@@ -107,6 +108,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: ReceiptText,
       section: "boletas",
       precargar: () => import("../pages/boletas/BoletasPage.tsx"),
+    },
+    {
+      // Todo lo emitido, la cadena de anulaciones y las notas (doc 19
+      // §9.5): solo el administrador, con el módulo propio `facturacion`.
+      name: "Facturación",
+      href: "/facturacion",
+      icon: FileSpreadsheet,
+      section: "facturacion",
+      precargar: () => import("../pages/facturacion/FacturacionPage.tsx"),
     },
     {
       // 28-07 (pedido de Felipe): "Catálogo" describe mejor lo que hay

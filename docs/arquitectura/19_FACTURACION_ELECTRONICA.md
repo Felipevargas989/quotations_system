@@ -27,7 +27,11 @@
 > Probado en el laboratorio con el evento #423: las boletas simuladas N° 1,
 > 2 y 3. **Paso 3b construido el 05-11** (Felipe: *"si avancemos con el
 > 3b"*): la boleta suelta con el tarifario y la pantalla del tarifario
-> (§9.16).
+> (§9.16). **Paso 4 construido el 05-11** (Felipe: *"puedes avanzar
+> haciendo tú todas las pruebas hasta completar el trabajo"*): la lista de
+> Facturación con la cadena de anulaciones, las notas de crédito y de
+> débito, «Comprobar» y el reporte (§9.17). Lo que queda es el paso 5: la
+> conexión de verdad, con el «a producción».
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -549,6 +553,7 @@ amarrada a él en Eventia.
 | L23 | Las páginas del manual vienen en latin-1 aunque dicen UTF-8: el archivo seguramente también va en latin-1 (L9). | El armador entrega el texto; la codificación la pone la conexión y se prueba en el paso 0 con «Cabaña» y «Quillón». |
 | L24 | El manual no dice si el código de la línea puede ir vacío. | Sin código va «SERV». Se confirma en el paso 0. |
 | L25 | La fórmula del manual para lo exento es ambigua (el valor de la línea suma el exento). | La factura exenta (34), la boleta exenta (41) y las líneas exentas no se arman todavía. Se prueban en el paso 0. |
+| L26 | El manual del TXT no nombra `IndNoRebaja` (la nota que rebaja después de los 6 meses sale sin derecho a rebajar el débito). | La nota se emite igual y la vista previa lo avisa. Se confirma en el paso 0. |
 
 ### 9.8 Decisiones nuevas (tomadas por Felipe el 04-11)
 
@@ -574,7 +579,7 @@ La conexión de verdad es el paso 5.
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
 | 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir» (hecho el 04-11, §9.15). | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. En dos tramos: **3a** «Por boletear» con el reparto por cabaña y «Emitidas hoy» (hecho el 05-11, §9.16); **3b** la boleta suelta y el tarifario (hecho el 05-11, §9.16). | D3 (decidida el 04-11) y E3. |
-| 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
+| 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte (hecho el 05-11, §9.17). | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
 
 ### 9.10 El desafío: integrarse bien a facturacion.cl
@@ -813,6 +818,58 @@ notas de crédito resten de lo facturado de la OC (paso 4).
   Sale también en «Emitidas hoy».
 - Las rutas, en `api-rest/src/facturacion/boletas/`: `GET`, `POST`, `PATCH`
   y `DELETE /boletas/tarifario` y `POST /boletas/sueltas`.
+
+### 9.17 El paso 4: la lista de Facturación y las notas (05-11)
+
+Como la maqueta del 04-11 («la lista de Facturación muestra cada factura con
+la nota de crédito que la anuló o rebajó, y la nota de débito que anuló a
+esa nota, en cadena»). Solo el administrador (E5).
+
+**La sección «Facturación»** del menú (`/facturacion`):
+- Arriba, lo facturado del mes neto de notas de crédito, cuántos documentos
+  (facturas, boletas y notas) y cuántos esperan «Comprobar». El mes se
+  elige; los filtros son Todo, Facturas, Boletas y Notas.
+- Cada documento con su estado en la cadena: la factura «Vigente»,
+  «Rebajada: queda $…», «Corregida por NC …» o «Anulada por NC …»; la nota
+  «Código 1 · 04-11» o «Anulada por ND …». Las notas van debajo de lo que
+  modifican (factura → NC → ND). Una factura de la misma OC que reemplaza a
+  una anulada dice «reemplaza a la …». Una nota anulada no cuenta: si la ND
+  anula la NC, la factura vuelve a quedar entera (`notas/cadena.ts`).
+- «Anular o rebajar…» en una factura abre el panel de la maqueta: «Anular
+  completa» (NC por el total, código 1), «Rebajar un monto» (NC parcial,
+  código 3, nunca más de lo que le queda) o «Corregir un texto» (NC en $0,
+  código 2, con el receptor como debe decir). En una NC, «Anular…» la anula
+  con una nota de débito; en una ND, con una de crédito. Cada nota lleva
+  UNA referencia con su código y el motivo como razón (90).
+- **Los plazos del SII** se ven en el panel: para anular o corregir, el mes
+  de la factura o el siguiente; para rebajar, 6 meses. Si venció, «Ver cómo
+  sale» lo avisa: la nota sale igual, pero el débito ya pagado solo se
+  recupera con el formulario 2117, o la rebaja sale sin derecho a rebajar
+  el débito.
+- «Comprobar» (L5): lo que se cortó al mandarlo. Si en facturacion.cl el
+  folio ya pasó el que se mandó (el del archivo; en la boleta, el que le
+  tocaba, guardado al mandarla), salió con ese folio; si no, «No salió» y se
+  puede emitir de nuevo (la cabaña de un cobro vuelve al reparto).
+- «Pedir el PDF» si la copia no llegó (L10), y «Reporte (CSV)»: el mes con
+  cada documento y su estado (el que lo anuló o rebajó), con `;` y acentos
+  que Excel abre bien.
+
+**Lo facturado ahora sigue la cadena:** cada factura vale lo que le queda.
+Una OC con su factura anulada se puede volver a facturar, y el tope de la OC
+cuenta las rebajas.
+
+**En el motor:** `api-rest/src/facturacion/notas/` (las rutas
+`/facturacion/documentos`), y `facturas/emision.ts`: el recorrido de mandar
+un documento con folio (`enviando`, sin reintentos, el folio repetido una
+vez), que ahora comparten la factura y las notas.
+
+**Lo que queda para el paso 0 (L21 sigue abierta):** que facturacion.cl
+acepte por el TXT la nota de débito que anula una nota de crédito (en el
+simulado ya se arma y se emite), la nota de crédito de una boleta (no se
+ofrece todavía) e `IndNoRebaja` (L26, nueva: el manual del TXT no lo
+nombra; la rebaja fuera de plazo solo se avisa). Los folios libres de cada
+tipo (la maqueta los mostraba) llegan con `ConsultarCAF` en el paso 5: el
+simulado no los tiene.
 
 ### 9.11 Fuentes nuevas (04-11)
 
