@@ -418,6 +418,40 @@ describe('Cada documento en su ambiente (§9.18)', () => {
     expect(repo.crear).not.toHaveBeenCalled();
   });
 
+  it('la lista no ofrece lo que no se puede: notas de otro ambiente, ni comprobar sin su conexión', async () => {
+    const { servicio } = armar({
+      documentos: [
+        FACTURA_1,
+        {
+          ...FACTURA_1,
+          id: 30,
+          ambiente: 'produccion',
+          folio: null,
+          estado: 'por_confirmar',
+        },
+      ],
+      conexion: {
+        de: (_: number, ambiente?: string) =>
+          !ambiente || ambiente === 'prueba'
+            ? enPrueba
+            : ambiente === 'simulado'
+              ? new FacturacionClSimulado()
+              : null,
+      },
+    });
+    const lista = await servicio.lista(1, '2026-11');
+    const simulada = lista.documentos.find((d) => d.id === 10);
+    expect(simulada?.acciones).toMatchObject({
+      anular: false,
+      rebajar: false,
+      corregir: false,
+    });
+    expect(lista.documentos.find((d) => d.id === 30)?.acciones.comprobar).toBe(
+      false,
+    );
+    expect(lista.ambiente).toBe('prueba');
+  });
+
   it('«Comprobar» pregunta al ambiente que lo emitió, y si ya no está, lo dice', async () => {
     const simulado = new FacturacionClSimulado({
       ultimoFolio: () => Promise.resolve(5),
