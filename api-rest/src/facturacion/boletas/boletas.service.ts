@@ -154,7 +154,10 @@ export class BoletasService {
         estado: b.estado,
         ambiente: b.ambiente,
         total: Number(b.total),
-        cabana: b.lineas?.[0]?.cabana ?? null,
+        cabana:
+          b.lineas?.[0]?.cabana ??
+          (b.detalle?.[0] as { cabana?: string | null } | undefined)?.cabana ??
+          null,
         descripcion: b.detalle?.[0]?.descripcion ?? null,
         correo: b.receptor?.correo ?? null,
         pdf_path: b.pdf_path,
@@ -572,6 +575,9 @@ export class BoletasService {
         porcentaje: null,
         creado_por: user.id ?? null,
         archivo_enviado: armado.archivo,
+        // La boleta va con folio 0: el que debería tocarle, para
+        // «Comprobar» si se corta (L5).
+        respuesta: { folio_esperado: await conexion.folioSiguiente(BOLETA) },
       });
     } catch (error) {
       if ((error as { code?: string })?.code === '23505')

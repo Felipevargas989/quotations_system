@@ -36,7 +36,10 @@ export type Section =
   | "oportunidades"
   // Las boletas de las cabañas (doc 19 §9.4): de recepción hacia arriba
   // (D5), solo con el módulo propio `facturacion` (SECTION_DERECHO).
-  | "boletas";
+  | "boletas"
+  // La lista de Facturación con la cadena de anulaciones y las notas (doc 19
+  // §9.5): solo el administrador (E5), con el módulo propio `facturacion`.
+  | "facturacion";
 
 // Define which roles can access which sections. Desde los permisos por
 // cargo (doc 22, 05-11-2026) solo deciden las secciones sin permiso (Mi
@@ -107,6 +110,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "customer_satisfaction_survey",
     "oportunidades",
     "boletas",
+    "facturacion",
   ],
 };
 
@@ -297,6 +301,7 @@ export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   marketing: "marketing",
   oportunidades: "oportunidades",
   boletas: "facturacion",
+  facturacion: "facturacion",
 };
 
 export type EmpresaConDerechos =
@@ -407,4 +412,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
   oportunidades: ROLE_GROUPS.ADMIN_ONLY,
   boletas: ROLE_GROUPS.RECEPTION_AND_UP,
+  facturacion: ROLE_GROUPS.ADMIN_ONLY,
 };

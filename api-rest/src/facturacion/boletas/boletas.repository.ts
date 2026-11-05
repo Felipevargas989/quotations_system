@@ -283,6 +283,17 @@ export class BoletasRepository {
     );
   }
 
+  /** La boleta no salió («Comprobar»): su cabaña vuelve a quedar por
+   *  emitir. */
+  async desamarrarDeLaBoleta(documentoId: number, companyId: number) {
+    const { error } = await this.supabase.client
+      .from('cobros_por_boletear_lineas')
+      .update({ documento_id: null, updated_at: new Date().toISOString() })
+      .eq('documento_id', documentoId)
+      .eq('company_id', companyId);
+    if (error) throw error;
+  }
+
   /** E3: quién cambió qué. Solo se agrega. */
   async anotar(cambios: NuevoCambio[]) {
     if (!cambios.length) return;
