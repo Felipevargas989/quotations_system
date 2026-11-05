@@ -931,9 +931,9 @@ producción».
   trae el folio también queda «por confirmar».
 - **Cada documento en su ambiente.** «Comprobar», «Pedir el PDF» y las notas
   usan la conexión del ambiente donde salió el documento. A una factura
-  simulada no se le emite una nota de prueba. Lo facturado de una OC cuenta
-  solo lo del ambiente donde se emite: una factura simulada no factura una
-  OC de verdad.
+  simulada no se le emite una nota de prueba, y la lista ni lo ofrece. Lo
+  facturado de una OC cuenta solo lo del ambiente donde se emite: una
+  factura simulada no factura una OC de verdad.
 - **L11:** en el ambiente de prueba el correo va vacío y la vista previa lo
   avisa. El laboratorio tiene los correos de clientes reales.
 - **L23:** lo que no cabe en latin-1 se quita y se avisa (`texto.ts`). El
@@ -962,6 +962,12 @@ producción».
   servicio (el manual dice `tipodte`). Manda la definición.
 - La forma exacta de lo que responden `ConsultarCAF` y `ObtenerPdf` no está
   en el manual. La lectura es tolerante y se confirma en el 5b.
+
+**En el laboratorio desde el 05-11:**
+- `pruebas` d6dc2bc7 y 89fb492e (la lista sin acciones fuera de su
+  ambiente), con la vitrina 6aec83bc.
+- Al arrancar, el motor del laboratorio anotó «facturacion.cl: simulado
+  (sin credenciales)». Sigue simulado y no se tomó por producción.
 
 **5b, el paso 0 (necesita las credenciales de prueba).** Lo que hace Felipe:
 1. Contratar el Servicio de Integración (D2), con felipe@ como técnico.
