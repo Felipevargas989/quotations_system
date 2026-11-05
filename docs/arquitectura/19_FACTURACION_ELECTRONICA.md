@@ -24,6 +24,10 @@
 > **Paso 3a construido el 05-11** (Felipe: *"si avancemos con el paso 3"*):
 > «Por boletear» en el evento y la sección «Boletas» de recepción, con el
 > reparto por cabaña y una boleta por cabaña (§9.16). La D3 quedó decidida.
+> Probado en el laboratorio con el evento #423: las boletas simuladas N° 1,
+> 2 y 3. **Paso 3b construido el 05-11** (Felipe: *"si avancemos con el
+> 3b"*): la boleta suelta con el tarifario y la pantalla del tarifario
+> (§9.16).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -569,7 +573,7 @@ La conexión de verdad es el paso 5.
 |---|---|---|
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
 | 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir» (hecho el 04-11, §9.15). | E1, E2 y E4. |
-| 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. En dos tramos: **3a** «Por boletear» con el reparto por cabaña y «Emitidas hoy» (hecho el 05-11, §9.16); **3b** la boleta suelta y el tarifario. | D3 (decidida el 04-11) y E3. |
+| 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. En dos tramos: **3a** «Por boletear» con el reparto por cabaña y «Emitidas hoy» (hecho el 05-11, §9.16); **3b** la boleta suelta y el tarifario (hecho el 05-11, §9.16). | D3 (decidida el 04-11) y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
 
@@ -790,10 +794,25 @@ notas de crédito resten de lo facturado de la OC (paso 4).
 - En el motor, `api-rest/src/facturacion/boletas/`, y la copia del PDF
   compartida con la factura en `facturas/copia-del-pdf.ts`.
 
-**3b, lo que sigue:** la boleta suelta (lo del tarifario por la cantidad,
-con la cabaña escrita por recepción) y la pantalla del tarifario para el
-administrador. Escribir el monto a mano en una boleta suelta: solo el
-administrador.
+**3b, hecho el 05-11:**
+- **«Tarifario»** (pestaña de «Boletas», solo el administrador): cada ítem
+  con su nombre (hasta 60, sale en la boleta), su precio con IVA y su unidad
+  (noche, persona, día, hora o unidad), «Activo», editar y quitar. Una
+  boleta guarda su propia copia de lo cobrado: cambiar o quitar un ítem no
+  cambia ninguna boleta emitida. Parte vacío: los precios los pone Felipe.
+- **«Boleta suelta»** (recepción hacia arriba): una o varias líneas del
+  tarifario por su cantidad (la descripción larga dice «2 noches»), la
+  cabaña que escribe recepción (va en la observación de la boleta) y el
+  correo del huésped si lo da. El total sale del tarifario; «Emitir boleta»
+  pide confirmación. «Línea a mano» (qué se cobra y su monto) es solo del
+  administrador: el motor la rechaza a los demás (D3, los precios nunca a
+  dedo).
+- La boleta suelta pasa por la misma emisión que las del reparto
+  (`emitirBoleta`): `enviando`, sin reintentos, «por confirmar» si se corta
+  y la copia del PDF, que sin evento va a `c<empresa>/documentos-tributarios/`.
+  Sale también en «Emitidas hoy».
+- Las rutas, en `api-rest/src/facturacion/boletas/`: `GET`, `POST`, `PATCH`
+  y `DELETE /boletas/tarifario` y `POST /boletas/sueltas`.
 
 ### 9.11 Fuentes nuevas (04-11)
 
