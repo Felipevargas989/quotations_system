@@ -840,7 +840,10 @@ esa nota, en cadena»). Solo el administrador (E5).
   código 3, nunca más de lo que le queda) o «Corregir un texto» (NC en $0,
   código 2, con el receptor como debe decir). En una NC, «Anular…» la anula
   con una nota de débito; en una ND, con una de crédito. Cada nota lleva
-  UNA referencia con su código y el motivo como razón (90).
+  UNA referencia con su código y el motivo como razón (90). La ND le
+  devuelve a la factura lo que la NC anuló o rebajó: si esa OC ya se volvió
+  a facturar, no sale (nunca más del 100 %, §5.3); primero se anula la
+  factura que la reemplazó (05-11, encontrado al probar).
 - **Los plazos del SII** se ven en el panel: para anular o corregir, el mes
   de la factura o el siguiente; para rebajar, 6 meses. Si venció, «Ver cómo
   sale» lo avisa: la nota sale igual, pero el débito ya pagado solo se
@@ -856,7 +859,12 @@ esa nota, en cadena»). Solo el administrador (E5).
 
 **Lo facturado ahora sigue la cadena:** cada factura vale lo que le queda.
 Una OC con su factura anulada se puede volver a facturar, y el tope de la OC
-cuenta las rebajas.
+cuenta las rebajas. También en la pestaña Facturación del evento: el motor
+le entrega lo facturado de cada OC (`facturado_por_oc`, la misma cuenta del
+candado) y el estado de cada documento en la cadena («Anulada por NC 1», y
+en cada nota lo que hace). La pantalla no suma por su cuenta: la primera
+versión lo hacía, y en la prueba del 05-11 la OC de CCU, con su factura
+anulada, seguía «Facturado $1.428.000 de $1.428.000» y sin «Facturar».
 
 **En el motor:** `api-rest/src/facturacion/notas/` (las rutas
 `/facturacion/documentos`), y `facturas/emision.ts`: el recorrido de mandar

@@ -386,7 +386,7 @@ export default function FacturacionTab({
   // Lo facturado de cada OC lo cuenta el motor con la cadena: lo emitido y
   // lo que quedó por confirmar, menos lo anulado o rebajado con notas.
   const facturadoDe = (ocId: number) =>
-    emitidos.data?.facturado_por_oc[ocId] ?? 0;
+    emitidos.data?.facturado_por_oc?.[ocId] ?? 0;
 
   const emitida = async () => {
     setFacturando(null);

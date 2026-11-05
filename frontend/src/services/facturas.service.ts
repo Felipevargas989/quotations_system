@@ -108,8 +108,9 @@ export interface DocumentoTributario {
   created_at: string;
   /** El estado en la cadena (paso 4): «Anulada por NC 1», «Rebajada:
    *  queda $…» (sin texto si está vigente), y lo que hace una nota:
-   *  «Anula la factura N° 1». */
-  cadena: {
+   *  «Anula la factura N° 1». Opcional: un motor anterior al paso 4 no lo
+   *  manda, y la vitrina puede llegar antes que el motor. */
+  cadena?: {
     como: "vigente" | "anulado" | "rebajado" | "corregido";
     texto: string | null;
     modifica: string | null;
@@ -120,8 +121,8 @@ export interface DocumentosDelEvento {
   ambiente: Ambiente;
   documentos: DocumentoTributario[];
   /** Lo facturado de cada OC con la cadena: una factura anulada ya no
-   *  cuenta. */
-  facturado_por_oc: Record<number, number>;
+   *  cuenta. Opcional, como `cadena`. */
+  facturado_por_oc?: Record<number, number>;
 }
 
 const ruta = (quotationId: string) => `/quotations/${quotationId}/facturas`;

@@ -26,7 +26,7 @@ const COLOR_DE_LA_CADENA: Record<string, string> = {
 };
 
 function Estado({ d }: { readonly d: DocumentoTributario }) {
-  if (d.estado === "emitido" && d.cadena.texto)
+  if (d.estado === "emitido" && d.cadena?.texto)
     return (
       <span
         className={`text-xs font-semibold ${COLOR_DE_LA_CADENA[d.cadena.como] ?? "text-gray-600"}`}
@@ -85,7 +85,7 @@ export default function DocumentosEmitidos({
                   </span>
                 )}
               </p>
-              {d.cadena.modifica && (
+              {d.cadena?.modifica && (
                 <p className="text-xs text-gray-500">{d.cadena.modifica}</p>
               )}
               <p className="text-gray-700 break-words">
