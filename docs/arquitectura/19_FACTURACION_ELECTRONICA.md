@@ -10,6 +10,9 @@
 > la vista): los armadores del archivo y facturacion.cl simulado (§9.13).
 > El 1a se rehízo esa tarde con la lista de razones sociales (§9.12,
 > Felipe: *"si vamos avancemos"*).
+> **Paso 2a construido el 04-11 en la noche** (Felipe: *"que estamos
+> esperando?"*): la pestaña «Facturación» de Post-Venta con las órdenes de
+> compra del evento, solo con el módulo propio `facturacion` (§9.14).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -554,7 +557,7 @@ La conexión de verdad es el paso 5.
 | Paso | Qué | Necesita |
 |---|---|---|
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
-| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). | E1, E2 y E4. |
+| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos; **2c** la factura armada, la vista previa y «Emitir». | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
@@ -651,6 +654,22 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
 - Las pruebas usan la factura N° 374 de Santo Tomás (neto $2.201.621, IVA
   $418.308, total $2.619.929), y todo lo armado pasa la revisión del
   simulado.
+
+### 9.14 Lo que quedó del paso 2a (04-11)
+
+- **La pestaña «Facturación» de la ficha del evento** (`/post-venta/:id`,
+  `FacturacionTab.tsx`), entre Documentos y Servicios. La ven operaciones y
+  el administrador, y solo la empresa con el módulo propio `facturacion`
+  (migración 184, la empresa 1): sin él ni se nombra.
+- **Las órdenes de compra del evento**: el N° (hasta 18), la fecha, a nombre
+  de quién viene (una de las razones sociales del cliente, u otra con su
+  RUT), el total con IVA, el neto y el IVA si la OC los trae, el detalle y
+  su PDF de Documentos. Agregar, editar y quitar.
+- **Las rutas**: `GET`, `POST`, `PATCH` y `DELETE
+  /quotations/:id/ordenes-de-compra` (`api-rest/src/facturacion/`). Revisan
+  que la cotización sea de la empresa, que el PDF sea de los documentos del
+  mismo evento y que la fecha exista. La misma OC dos veces en un evento, o
+  quitar una con documentos tributarios, responde 409 con palabras.
 
 ### 9.11 Fuentes nuevas (04-11)
 

@@ -8,6 +8,7 @@ import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
+import { OrdenesDeCompraController } from 'src/facturacion/ordenes-de-compra/ordenes-de-compra.controller';
 import { LogisticsController } from 'src/logistics/logistics.controller';
 import { MarketingController } from 'src/marketing/marketing.controller';
 import { MovilController } from 'src/movil/movil.controller';
@@ -177,6 +178,13 @@ const ESPERADO: Array<{
     nombre: 'BelIA',
     cls: AsistenteController,
     derecho: 'asistente',
+    abiertas: 0,
+  },
+  {
+    // La facturación (doc 19, migración 184): módulo propio de Valle del Sol.
+    nombre: 'Facturación: órdenes de compra',
+    cls: OrdenesDeCompraController,
+    derecho: 'facturacion',
     abiertas: 0,
   },
 ];
