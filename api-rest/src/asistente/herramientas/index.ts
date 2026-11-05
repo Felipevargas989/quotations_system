@@ -7,6 +7,11 @@ import { buscarEnCatalogo } from './buscar-en-catalogo';
 import { calendario } from './calendario';
 import { loQueHayQueComprar } from './compras';
 import type { Herramienta } from './comun';
+import {
+  lecciones,
+  proponerDecisionDeLeccion,
+  proponerLeccion,
+} from './lecciones';
 import { insumos, mobiliario, proveedores } from './logistica';
 import { cobranza, pagosDelEvento } from './pagos';
 import { personal } from './personal';
@@ -14,6 +19,7 @@ import {
   proponerCambioDeServicios,
   proponerCotizacionNueva,
   proponerNota,
+  proponerSeguimiento,
 } from './proponer';
 import { seguimientosPendientes } from './seguimientos-pendientes';
 import { verCotizacion } from './ver-cotizacion';
@@ -42,6 +48,12 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   proponerCambioDeServicios,
   proponerNota,
   proponerCotizacionNueva,
+  // Doc 20 §17: el borrador del seguimiento, con su tarjeta, y lo que
+  // aprende de las correcciones.
+  proponerSeguimiento,
+  lecciones,
+  proponerLeccion,
+  proponerDecisionDeLeccion,
 ];
 
 /** Las que puede usar esta persona: su cargo las ve en pantalla y su

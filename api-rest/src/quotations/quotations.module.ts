@@ -76,6 +76,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     QuotationsRepository,
     GenerarRepository,
     ChoquesDeFechaService,
+    // «Prepárame el seguimiento de la 600» desde BelIA (doc 20 §17).
+    SeguimientoConIAService,
   ],
 })
 export class QuotationsModule {}

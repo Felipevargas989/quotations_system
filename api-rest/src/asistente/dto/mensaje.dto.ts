@@ -34,6 +34,12 @@ export class PantallaDto {
   @IsOptional()
   @IsUUID()
   cotizacion_id?: string;
+
+  /** El cliente abierto (su ficha), si hay uno. Se revisa que sea de la
+   *  empresa (doc 20 §17, mejora 2). */
+  @IsOptional()
+  @IsUUID()
+  cliente_id?: string;
 }
 
 export class MensajeDto {

@@ -278,6 +278,22 @@ export class AsistenteRepository {
     return (data ?? []) as FilaDeCliente[];
   }
 
+  /** Un cliente, solo si es de la empresa (el id viene del navegador: la
+   *  ficha que la persona tiene abierta). */
+  async clienteDeLaEmpresa(
+    companyId: Company['id'],
+    id: string,
+  ): Promise<FilaDeCliente | null> {
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .select('id, name, client_type, email, phone, contact_person')
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as FilaDeCliente | null) ?? null;
+  }
+
   async cotizacionesDeClientes(
     companyId: Company['id'],
     clientes: string[],

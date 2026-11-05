@@ -60,7 +60,7 @@ export const avisosDeHoy: Herramienta = {
     const veComprobantes =
       OPERATIONS_AND_UP.includes(rol) &&
       tieneDerecho(ctx.usuario.derechos, 'post_venta');
-    const [{ deHoy }, requerimientos, choques, comprobantes] =
+    const [{ deHoy }, requerimientos, choques, comprobantes, porAprobar] =
       await Promise.all([
         pendientesDe(ctx, empresa),
         ctx.repositorio.buscarCotizaciones(empresa, {
@@ -73,6 +73,8 @@ export const avisosDeHoy: Herramienta = {
         veComprobantes
           ? ctx.repositorio.comprobantesPorRevisar(empresa)
           : Promise.resolve([]),
+        // Las lecciones que esperan a administración (doc 20 §17).
+        ctx.propuestas.leccionesPorAprobar(ctx.usuario).catch(() => []),
       ]);
     const topes = new Map<string, (typeof choques)[number][]>();
     for (const c of choques) {
@@ -113,6 +115,8 @@ export const avisosDeHoy: Herramienta = {
       nota: veComprobantes
         ? undefined
         : 'Los comprobantes del portal los revisan operaciones y administración.',
+      lecciones_por_aprobar:
+        porAprobar.length > 0 ? porAprobar.slice(0, MAX) : undefined,
     };
   },
 };

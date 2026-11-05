@@ -4,6 +4,7 @@ import {
   CalendarPlus,
   CircleHelp,
   ListChecks,
+  Mic,
   Minus,
   PawPrint,
   RotateCcw,
@@ -16,6 +17,7 @@ import BeliaAvatar from "./BeliaAvatar";
 import PropuestaDeBelia from "./PropuestaDeBelia";
 import RespuestaDeBelia from "./RespuestaDeBelia";
 import { useBelia } from "./useBelia";
+import { useDictado } from "./useDictado";
 
 // LA VENTANILLA DE BELIA (doc 20 §8 y §8b, la lámina de Felipe del 03-11):
 // el botón redondo abajo a la derecha y, al pincharlo, el panel al
@@ -48,6 +50,17 @@ export default function BeliaVentanilla() {
   const [confirmandoNueva, setConfirmandoNueva] = useState(false);
   const finRef = useRef<HTMLDivElement>(null);
   const campoRef = useRef<HTMLTextAreaElement>(null);
+  // Hablarle (doc 20 §17, mejora 1): lo dictado se suma a lo que ya estaba
+  // escrito y queda en el campo, para leerlo antes de «Enviar».
+  const escritoRef = useRef("");
+  const dictado = useDictado((t, final) => {
+    const junto = [escritoRef.current, t].filter(Boolean).join(" ");
+    setTexto(junto);
+    if (final) {
+      escritoRef.current = junto;
+      campoRef.current?.focus();
+    }
+  });
 
   const burbuja =
     b.animo === "atencion" || b.animo === "enojada" ? b.animo : null;
@@ -66,18 +79,35 @@ export default function BeliaVentanilla() {
     finRef.current?.scrollIntoView({ block: "end" });
   }, [b.turnos.length, ultimoTexto, b.pensando, b.abierta]);
 
+  const dejarDeEscuchar = dictado.detener;
   useEffect(() => {
-    if (b.abierta) campoRef.current?.focus();
-    // La pregunta de «Nueva conversación» no queda abierta para la próxima.
-    else setConfirmandoNueva(false);
-  }, [b.abierta]);
+    if (b.abierta) {
+      campoRef.current?.focus();
+      return;
+    }
+    // La pregunta de «Nueva conversación» no queda abierta para la próxima,
+    // y con la ventanilla cerrada no se sigue escuchando.
+    setConfirmandoNueva(false);
+    dejarDeEscuchar();
+  }, [b.abierta, dejarDeEscuchar]);
 
   if (!b.puede) return null;
 
   const mandar = (t: string) => {
     if (!t.trim() || b.pensando) return;
+    dictado.detener();
+    escritoRef.current = "";
     b.enviar(t);
     setTexto("");
+  };
+
+  const alternarMicrofono = () => {
+    if (dictado.escuchando) {
+      dictado.detener();
+      return;
+    }
+    escritoRef.current = texto.trim();
+    dictado.empezar();
   };
 
   const alTeclear = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -332,9 +362,33 @@ export default function BeliaVentanilla() {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={alTeclear}
-            placeholder="Escribe tu mensaje..."
+            placeholder={
+              dictado.escuchando ? "Te escucho..." : "Escribe tu mensaje..."
+            }
             className="max-h-32 min-h-[44px] flex-1 resize-none rounded-2xl border border-slate-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
           />
+          {dictado.puede && (
+            <button
+              type="button"
+              onClick={alternarMicrofono}
+              aria-pressed={dictado.escuchando}
+              aria-label={
+                dictado.escuchando ? "Dejar de escuchar" : "Dictar el mensaje"
+              }
+              title={
+                dictado.escuchando
+                  ? "Te escucho. Toca para terminar"
+                  : "Dictar: tu navegador convierte la voz en texto"
+              }
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${
+                dictado.escuchando
+                  ? "animate-pulse border-red-500 bg-red-500 text-white"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <Mic size={18} aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => mandar(texto)}
@@ -345,6 +399,11 @@ export default function BeliaVentanilla() {
             <Send size={18} />
           </button>
         </div>
+        {dictado.aviso && (
+          <p className="mt-1 text-xs text-amber-700" role="status">
+            {dictado.aviso}
+          </p>
+        )}
         {b.esAdmin && gastado != null && tope != null && (
           <p
             className={`mt-2 text-center text-xs ${cerca ? "font-medium text-amber-700" : "text-slate-400"}`}

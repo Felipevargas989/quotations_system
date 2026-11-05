@@ -813,3 +813,74 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
 - Las herramientas siguen el plan de cada empresa: sin Post-Venta no hay
   pagos ni cobranza, sin Logística no hay compras, sin Personal no hay
   personal.
+
+## 17. Las mejoras del 04-11 en la noche (Felipe: *"vamos con todas"*)
+
+> **Estado:** plan del 04-11 en la noche. Felipe vio la lista con el uso
+> real de BelIA en producción (24 preguntas, todas suyas; US$ 1,69; 15 s de
+> promedio; 0 fallos; 4 propuestas y las 4 aplicadas) y respondió *"vamos
+> con todas las mejoras que propusiste, me gustaron todas"*. Van al
+> laboratorio por tandas; a producción, solo con su «a producción».
+> La tanda A (1 y 2), la B (3 y 4) y la C (5), en el laboratorio desde el
+> 04-11 en la noche; la migración 185, solo en el laboratorio. Las
+> habilidades del chat leen también las lecciones aprobadas. De la 6, el
+> cerebro ya tiene la tarea `postular`; falta que la sesión de
+> Oportunidades la ponga en sus instrucciones.
+
+**Lo que entendí, mejora por mejora** (lo marcado «por defecto» lo puede
+cambiar Felipe):
+
+1. **Hablarle con el micrófono.** Un botón con el micrófono al lado de
+   «Enviar». Usa el dictado del navegador (Chrome y Safari; en Firefox el
+   botón no aparece), gratis y sin llaves. El audio lo procesa Google o
+   Apple; Eventia no lo guarda. Lo dictado cae en el campo de texto y sale
+   con «Enviar», para leerlo antes (por defecto). BelIA sigue respondiendo
+   por escrito y sin sonido (*"es sin sonido esto"*).
+2. **Que sepa qué cliente tienes abierto.** Hoy sabe la cotización abierta,
+   pero en la ficha de un cliente (`/clients/:id`) solo le llegaba la ruta:
+   tenía que buscarlo (una pregunta ahí tardó 22 s y 6 búsquedas). Desde
+   ahora la ficha viaja como `cliente_id`; el motor revisa que el cliente sea
+   de la empresa y le da a BelIA su nombre y sus cotizaciones más nuevas,
+   como hace con las fichas al día. Recepción no abre fichas de clientes.
+3. **Cambiar la fecha de una cotización no aceptada.** Con
+   `proponer_cambio_de_servicios`, como las personas del evento (§14):
+   solo en las no aceptadas (solicitada, enviada, en negociación), nunca a
+   una fecha pasada. Se mueve el evento entero: el último día corre lo
+   mismo, y los servicios siguen solos porque van por día del evento.
+   Avisos en ámbar antes del «Sí, aplicar»: si choca con un evento aceptado
+   (`checkConflictsWithExistingQuotations`, el mismo de «Crear evento») y,
+   si la cotización trae ítems de temporada, que se revisen contra la fecha
+   nueva (por defecto, BelIA no cambia esos ítems sola).
+4. **«Prepárame el seguimiento de la 600».** Herramienta nueva
+   `proponer_seguimiento`: una tarjeta con la cotización, el cliente y el
+   buzón, y «Sí, dejar el borrador». Al aprobarla corre lo mismo que
+   «✉ Generar seguimiento» (`SeguimientoConIAService.generar`): las mismas
+   reglas de cuándo entra, el borrador en el hilo con el aviso ámbar, nunca
+   envía, y la nota «BelIA · A pedido de …». Solo quien vende para arriba,
+   y solo en la empresa con el derecho `seguimiento_con_ia`.
+5. **Que aprenda de las correcciones.** Cuando la persona dice «No» a una
+   tarjeta, BelIA pregunta por qué; y cuando la corrige en la conversación
+   («los paseos de curso no llevan cena»), ofrece anotarlo. La lección es
+   una tarjeta (`proponer_leccion`) con el texto exacto y para qué tarea
+   vale (todas, armar, escribir o conversar). La aprueba administración
+   (Felipe o Camila); la de otro cargo queda esperando y administración la
+   ve en «¿Qué tengo que revisar hoy?». Aprobada, la leen desde la pregunta
+   siguiente todas las IA de la empresa: va al final del cerebro común,
+   bajo «Lo que aprendió BelIA». «¿Qué aprendiste?» las muestra y «Olvidar»
+   saca una (queda anotada, no se borra). Tabla nueva `cerebro_lecciones`,
+   **migración 185** (reservada el 04-11 con Facturación, que tiene la 184).
+   De vez en cuando, con el OK de Felipe, las lecciones pasan a los
+   archivos del cerebro, para que queden en el repo.
+6. **Oportunidades con el mismo cerebro (etapa 3 del §15).** Una tarea
+   nueva del cerebro, `postular`: lo común y lo del complejo, sin las guías
+   de armar ni de escribir. La sesión de Oportunidades la pone en sus
+   instrucciones (análisis, validación, preguntas y anexos); la cotización
+   de la postulación ya lee cómo se arma, porque usa «Crear con IA».
+
+Además, nadie más del equipo ha usado BelIA: mostrársela a Camila y a
+recepción es de Felipe, no de código.
+
+**Por tandas:** A, la 2 y la 1 (sin migración); B, la 3 y la 4 (sin
+migración); C, la 5 (con la 185); la 6, con la sesión de Oportunidades.
+`propuestas.service.ts` tiene 767 líneas: lo nuevo va en archivos propios
+(el portero corta en 800).

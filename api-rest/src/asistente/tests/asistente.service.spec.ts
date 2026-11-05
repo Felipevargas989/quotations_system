@@ -69,6 +69,8 @@ const armar = (respuestas: unknown[], gastado = 0) => {
     nombreDeLaEmpresa: jest.fn().mockResolvedValue('Valle del Sol'),
     nombreDeLaPersona: jest.fn().mockResolvedValue('Camila Torres'),
     cotizacionVista: jest.fn().mockResolvedValue(null),
+    clienteDeLaEmpresa: jest.fn().mockResolvedValue(null),
+    cotizacionesDeClientes: jest.fn().mockResolvedValue([]),
     buscarCotizaciones: jest.fn().mockResolvedValue({
       total: 1,
       filas: [
@@ -192,6 +194,9 @@ describe('AsistenteService (BelIA)', () => {
       'proponer_cambio_de_servicios',
       'proponer_nota',
       'proponer_cotizacion_nueva',
+      // Doc 20 §17: lo que aprende (leer y proponer una lección).
+      'lecciones',
+      'proponer_leccion',
     ]);
   });
 
@@ -289,6 +294,47 @@ describe('AsistenteService (BelIA)', () => {
 });
 
 describe('las herramientas de cada cargo', () => {
+  it('la ficha del cliente abierto viaja antes de la pregunta, leída con la empresa de la sesión', async () => {
+    const CLIENTE = '0b9e4c1a-2f3d-4e5f-8a7b-6c5d4e3f2a1b';
+    const { servicio, repositorio, create } = armar([
+      texto('Rudel tiene una.'),
+    ]);
+    repositorio.clienteDeLaEmpresa.mockResolvedValue({
+      id: CLIENTE,
+      name: 'Rudel',
+      client_type: 'empresa',
+      email: null,
+      phone: null,
+      contact_person: 'Paula',
+    });
+    await servicio.responder(
+      {
+        mensaje: '¿qué ha cotizado este cliente?',
+        pantalla: { ruta: `/clients/${CLIENTE}`, cliente_id: CLIENTE },
+      },
+      usuario(),
+    );
+    expect(repositorio.clienteDeLaEmpresa).toHaveBeenCalledWith(1, CLIENTE);
+    const pedido = JSON.stringify(create.mock.calls[0][0]);
+    expect(pedido).toContain('Ahora está mirando la ficha del cliente Rudel');
+    expect(pedido).toContain('FICHA DEL CLIENTE QUE TIENE ABIERTO');
+  });
+
+  it('un cliente que no es de la empresa no viaja: queda solo la ruta', async () => {
+    const CLIENTE = '0b9e4c1a-2f3d-4e5f-8a7b-6c5d4e3f2a1b';
+    const { servicio, create } = armar([texto('No sé cuál.')]);
+    await servicio.responder(
+      {
+        mensaje: '¿qué ha cotizado este cliente?',
+        pantalla: { ruta: `/clients/${CLIENTE}`, cliente_id: CLIENTE },
+      },
+      usuario(),
+    );
+    const pedido = JSON.stringify(create.mock.calls[0][0]);
+    expect(pedido).not.toContain('FICHA DEL CLIENTE');
+    expect(pedido).toContain(`la pantalla /clients/${CLIENTE}`);
+  });
+
   it('cada cargo recibe solo lo que ve en sus pantallas', () => {
     const con = (role: UserRole) =>
       herramientasPara({
@@ -312,9 +358,9 @@ describe('las herramientas de cada cargo', () => {
       'buscar_clientes',
       'proponer_cotizacion_nueva',
     ]);
-    // Quien vende: lo del tablero, el catálogo, los clientes y las dos que
-    // proponen (fase 2).
-    expect(con(UserRole.VENDEDOR)).toHaveLength(10);
+    // Quien vende: lo del tablero, el catálogo, los clientes, las que
+    // proponen (fase 2) y las lecciones (doc 20 §17).
+    expect(con(UserRole.VENDEDOR)).toHaveLength(12);
     expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
     // Operaciones suma pagos y logística, pero no el personal.
     expect(con(UserRole.OPERACIONES)).toEqual(
@@ -328,8 +374,11 @@ describe('las herramientas de cada cargo', () => {
       ]),
     );
     expect(con(UserRole.OPERACIONES)).not.toContain('personal');
-    // Administración, todo.
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(17);
+    // Administración, todo, también decidir las lecciones (doc 20 §17).
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(20);
+    expect(con(UserRole.ADMINISTRADOR)).toContain(
+      'proponer_decision_de_leccion',
+    );
   });
 
   it('sin el derecho del plan, la herramienta no se ofrece', () => {

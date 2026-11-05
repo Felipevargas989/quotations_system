@@ -1,4 +1,11 @@
-import { Check, NotebookPen, RotateCcw, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  Lightbulb,
+  Mail,
+  NotebookPen,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { PropuestaEnPantalla } from "./useBelia";
@@ -35,11 +42,24 @@ export default function PropuestaDeBelia({
   const enviando = p.estado === "enviando";
   const esNota = p.tipo === "nota";
   const esNueva = p.tipo === "cotizacion_nueva";
+  // «Prepárame el seguimiento» (doc 20 §17): el borrador en el hilo.
+  const esSeguimiento = p.tipo === "seguimiento";
+  // Lo que aprende de las correcciones (doc 20 §17): anotar una lección y,
+  // administración, aprobarla, descartarla u olvidarla.
+  const esLeccion = p.tipo === "leccion";
+  const esDecision = p.tipo === "leccion_estado";
+  const deLeccion = esLeccion || esDecision;
+  const Icono = esSeguimiento ? Mail : deLeccion ? Lightbulb : NotebookPen;
+  const siDeLaDecision = {
+    aprobar: "Sí, aprobar",
+    descartar: "Sí, descartar",
+    olvidar: "Sí, olvidar",
+  }[p.leccion?.decision ?? "aprobar"];
 
   return (
     <article className="rounded-2xl border border-blue-200 bg-white text-sm shadow-sm">
       <header className="flex items-center gap-2 rounded-t-2xl bg-blue-50 px-3.5 py-2">
-        <NotebookPen
+        <Icono
           size={15}
           className="shrink-0 text-blue-700"
           aria-hidden="true"
@@ -47,11 +67,17 @@ export default function PropuestaDeBelia({
         <p className="min-w-0 flex-1 truncate font-semibold text-slate-800">
           {esNota
             ? "Nota en la bitácora"
-            : esNueva
-              ? p.nueva?.es === "requerimiento"
-                ? "Requerimiento nuevo"
-                : "Cotización nueva"
-              : "Propuesta"}
+            : esLeccion
+              ? "Lección para BelIA"
+              : esDecision
+                ? p.resumen
+                : esSeguimiento
+                  ? "Seguimiento por correo"
+                  : esNueva
+                    ? p.nueva?.es === "requerimiento"
+                      ? "Requerimiento nuevo"
+                      : "Cotización nueva"
+                    : "Propuesta"}
           {p.enlace && p.numero != null && (
             <>
               {" · "}
@@ -69,7 +95,28 @@ export default function PropuestaDeBelia({
       </header>
 
       <div className="space-y-2.5 px-3.5 py-3">
-        {!esNota && <p className="font-medium text-slate-800">{p.resumen}</p>}
+        {!esNota && !deLeccion && (
+          <p className="font-medium text-slate-800">{p.resumen}</p>
+        )}
+
+        {deLeccion && p.leccion && (
+          <div className="space-y-1">
+            <p className="rounded-lg border-l-4 border-amber-300 bg-amber-50 px-3 py-2 text-slate-800">
+              {p.leccion.texto}
+            </p>
+            <p className="text-xs text-slate-500">
+              Vale para {p.leccion.para}
+              {p.leccion.propuesta_por
+                ? ` · la propuso ${p.leccion.propuesta_por}`
+                : ""}
+            </p>
+            {p.leccion.motivo && (
+              <p className="text-xs text-slate-500">
+                Salió de: {p.leccion.motivo}
+              </p>
+            )}
+          </div>
+        )}
 
         {esNueva && p.nueva && (
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-2.5 py-2 text-xs">
@@ -247,12 +294,18 @@ export default function PropuestaDeBelia({
               className="min-h-[40px] flex-1 rounded-xl bg-blue-600 px-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {enviando
-                ? "Aplicando…"
-                : esNota
+                ? esSeguimiento
+                  ? "Escribiendo el borrador…"
+                  : "Aplicando…"
+                : esNota || esLeccion
                   ? "Sí, anotar"
-                  : esNueva
-                    ? "Sí, crear"
-                    : "Sí, aplicar"}
+                  : esDecision
+                    ? siDeLaDecision
+                    : esSeguimiento
+                      ? "Sí, dejar el borrador"
+                      : esNueva
+                        ? "Sí, crear"
+                        : "Sí, aplicar"}
             </button>
             <button
               type="button"
@@ -268,7 +321,13 @@ export default function PropuestaDeBelia({
           <div className="flex items-center gap-2 pt-1 text-emerald-700">
             <Check size={16} aria-hidden="true" />
             <p className="flex-1 font-medium">
-              {esNota ? "Anotada" : esNueva ? "Creada" : "Aplicada"}
+              {esNota || esLeccion
+                ? "Anotada"
+                : esSeguimiento || esDecision
+                  ? "Listo"
+                  : esNueva
+                    ? "Creada"
+                    : "Aplicada"}
               {p.total_final ? ` · total ${p.total_final}` : ""}
             </p>
             {p.se_puede_deshacer && (
@@ -283,6 +342,11 @@ export default function PropuestaDeBelia({
             )}
           </div>
         )}
+        {p.estado === "aplicada" && p.aviso && (
+          <p className="text-xs text-slate-600" role="status">
+            {p.aviso}
+          </p>
+        )}
         {p.estado === "deshecha" && (
           <p className="pt-1 font-medium text-slate-600">
             Deshecha: la cotización volvió a como estaba
@@ -290,10 +354,14 @@ export default function PropuestaDeBelia({
           </p>
         )}
         {p.estado === "descartada" && (
-          <p className="pt-1 text-slate-500">No se aplicó.</p>
+          <p className="pt-1 text-slate-500">
+            No se aplicó.
+            {!deLeccion &&
+              " Si me cuentas por qué, lo aprendo para la próxima."}
+          </p>
         )}
 
-        {!esNota && p.estado === "pendiente" && (
+        {!esNota && !deLeccion && p.estado === "pendiente" && (
           <p className="text-xs text-slate-400">
             Queda anotado en la bitácora, a pedido tuyo.
           </p>

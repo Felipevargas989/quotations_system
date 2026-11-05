@@ -131,7 +131,11 @@ export const leerCabecera = (
     }
     cabecera.descuento = pct !== undefined ? { porcentaje: pct } : { monto };
   }
-  return cabecera.personas || cabecera.descuento ? cabecera : undefined;
+  const f = texto(entrada.fecha_del_evento, 10);
+  if (f) cabecera.fecha = { inicio: f };
+  return cabecera.personas || cabecera.descuento || cabecera.fecha
+    ? cabecera
+    : undefined;
 };
 
 /** La cotización: la del N°, o la que la persona tiene abierta. */
@@ -147,14 +151,19 @@ const cual = (
   );
 };
 
-/** Una propuesta nueva de la misma cotización reemplaza a la anterior. */
-const mostrar = (
+/** Una propuesta nueva de la misma cotización reemplaza a la anterior.
+ *  Las lecciones (doc 20 §17) no son de una cotización: ni reemplazan ni
+ *  se reemplazan. */
+export const mostrar = (
   ctx: ContextoDeHerramienta,
   tarjeta: ContextoDeHerramienta['tarjetas'][number],
 ) => {
-  const k = ctx.tarjetas.findIndex(
-    (t) => t.cotizacion_id === tarjeta.cotizacion_id,
-  );
+  const esLeccion = (t: { tipo: string }) => t.tipo.startsWith('leccion');
+  const k = esLeccion(tarjeta)
+    ? -1
+    : ctx.tarjetas.findIndex(
+        (t) => !esLeccion(t) && t.cotizacion_id === tarjeta.cotizacion_id,
+      );
   if (k >= 0) ctx.tarjetas.splice(k, 1);
   ctx.tarjetas.push(tarjeta);
 };
@@ -169,8 +178,10 @@ export const proponerCambioDeServicios: Herramienta = {
     'una casilla (un día, una categoría, adultos o niños), cambiar sus personas, poner una casilla ' +
     'entera (un menú guardado adaptado, como «Crear con IA»: así se arma una minuta día por día), ' +
     'sacar una casilla, o poner y sacar fijos. También las personas del evento (adultos y niños, ' +
-    'solo si no está aceptada: las casillas que tenían el total lo siguen, como en el cotizador) y ' +
-    'el descuento que la persona pida, con el tope de su cargo. NO cambia nada: arma la propuesta y la persona la ' +
+    'solo si no está aceptada: las casillas que tenían el total lo siguen, como en el cotizador), ' +
+    'la fecha del evento (solo si no está aceptada: se mueve entero y la tarjeta avisa si choca con ' +
+    'un evento aceptado) y el descuento que la persona pida, con el tope de su cargo. NO cambia ' +
+    'nada: arma la propuesta y la persona la ' +
     'aprueba con «Sí, aplicar». Eventia pone los nombres y los precios del catálogo; tú solo ids y ' +
     'cantidades. Antes, mira la ficha (ver_cotizacion trae el id de cada servicio) y busca en el ' +
     'catálogo. Todos los cambios de una vez, en una sola propuesta. Sin `numero`, la cotización ' +
@@ -194,6 +205,11 @@ export const proponerCambioDeServicios: Herramienta = {
         },
         required: ['total'],
       },
+      fecha_del_evento: {
+        type: 'string',
+        description:
+          'La fecha nueva del primer día, AAAA-MM-DD, solo si cambia y la cotización no está aceptada. El evento entero se mueve: el último día corre lo mismo. Nunca una fecha pasada.',
+      },
       descuento: {
         type: 'object',
         description:
@@ -205,7 +221,7 @@ export const proponerCambioDeServicios: Herramienta = {
       },
       cambios: {
         type: 'array',
-        description: `Los cambios de servicios, en orden (hasta ${MAX_CAMBIOS}). Puede ir vacío si solo cambian las personas del evento o el descuento.`,
+        description: `Los cambios de servicios, en orden (hasta ${MAX_CAMBIOS}). Puede ir vacío si solo cambian las personas del evento, la fecha o el descuento.`,
         items: {
           type: 'object',
           properties: {
@@ -299,7 +315,7 @@ export const proponerCambioDeServicios: Herramienta = {
       Array.isArray(entrada.cambios) && entrada.cambios.length > 0;
     if (!hayServicios && !cabecera) {
       throw new ErrorDeHerramienta(
-        'Falta qué cambiar: `cambios` de servicios, `personas_del_evento` o `descuento`.',
+        'Falta qué cambiar: `cambios` de servicios, `personas_del_evento`, `fecha_del_evento` o `descuento`.',
       );
     }
     const tarjeta = await ctx.propuestas.proponerServicios(
@@ -374,6 +390,41 @@ export const proponerNota: Herramienta = {
       numero: tarjeta.numero,
       importante:
         'La persona ve la nota en una tarjeta con el botón «Sí, anotar». Todavía NO está anotada: no digas que ya se hizo. Dile en una línea qué vas a anotar y que lo apruebe en la tarjeta.',
+    };
+  },
+};
+
+/** «Prepárame el seguimiento de la 600» (doc 20 §17, mejora 4): el
+ *  borrador del correo en el hilo del cliente, como «✉ Generar
+ *  seguimiento». No escribe nada: la persona lo aprueba en la tarjeta. */
+export const proponerSeguimiento: Herramienta = {
+  nombre: 'proponer_seguimiento',
+  descripcion:
+    'Propone dejar el borrador del correo de seguimiento de una cotización dentro del hilo del ' +
+    'cliente en Outlook: lo mismo que el botón «✉ Generar seguimiento». La IA de Eventia lo escribe ' +
+    'con las reglas de la casa y nunca se envía: la persona lo revisa y lo envía. Solo entran las ' +
+    'enviadas o en negociación cuyo próximo contacto, por correo, ya venció; si no entra, ' +
+    'explícale por qué. NO hace nada: la persona lo aprueba en la tarjeta. Sin `numero`, la ' +
+    'cotización abierta.',
+  esquema: {
+    type: 'object',
+    properties: {
+      numero: { type: 'integer', description: 'El N° de la cotización.' },
+    },
+  },
+  cargos: SALES_AND_UP,
+  derecho: 'seguimiento_con_ia',
+  async ejecutar(entrada, ctx) {
+    const tarjeta = await ctx.propuestas.proponerSeguimiento(
+      ctx.usuario,
+      cual(entrada, ctx),
+    );
+    mostrar(ctx, tarjeta);
+    return {
+      propuesta: 'lista',
+      numero: tarjeta.numero,
+      importante:
+        'La persona ve una tarjeta con «Sí, dejar el borrador». Todavía NO está escrito: no digas que ya se hizo ni inventes lo que dirá el correo. Dile en una línea que lo apruebe en la tarjeta.',
     };
   },
 };

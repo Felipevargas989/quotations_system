@@ -1,5 +1,6 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { QuotationStatus } from 'src/quotations/constants/constants';
+import type { UserRole } from 'src/users/entities/user.entity';
 import type {
   CotizacionDeCliente,
   FilaDeCliente,
@@ -43,6 +44,42 @@ export const calzaCliente = (buscado: string, c: FilaDeCliente): boolean => {
   return palabras.length > 0 && palabras.every((p) => donde.includes(p));
 };
 
+/** Un cliente con su historia corta, como lo ve quien pregunta: lo
+ *  cotizado, lo ganado, lo perdido y sus últimas cotizaciones (recepción,
+ *  sin el total ni el enlace). La usa también la ficha del cliente abierto
+ *  (`conversacion/cliente-abierto.ts`). */
+export const fichaDeCliente = (
+  c: FilaDeCliente,
+  cotizaciones: CotizacionDeCliente[],
+  rol: UserRole,
+  ultimas = 6,
+) => {
+  const recepcion = esRecepcion(rol);
+  const suyas = cotizaciones.filter((q) => q.client_id === c.id);
+  return {
+    // El id, para crear un evento a este cliente (fase 2).
+    id: c.id,
+    nombre: c.name,
+    tipo: c.client_type,
+    contacto: c.contact_person,
+    telefono: c.phone,
+    correo: c.email,
+    cotizaciones: suyas.length,
+    ganadas: suyas.filter((q) => GANADAS.has(q.quotation_status)).length,
+    perdidas: suyas.filter(
+      (q) => q.quotation_status === QuotationStatus.RECHAZADA,
+    ).length,
+    ultimas: suyas.slice(0, ultimas).map((q) => ({
+      numero: q.quotation_number,
+      ...(recepcion ? {} : { enlace: enlaceDe(q, rol) }),
+      estado: estadoDe(q.quotation_status),
+      evento: q.event_type,
+      fecha: conDia(diaDelEvento(q.event_date)),
+      ...(recepcion ? {} : { total: pesos(q.total_amount) }),
+    })),
+  };
+};
+
 export const buscarClientes: Herramienta = {
   nombre: 'buscar_clientes',
   descripcion:
@@ -79,7 +116,6 @@ export const buscarClientes: Herramienta = {
       );
     }
     const empresa = ctx.usuario.company_id;
-    const recepcion = esRecepcion(ctx.usuario.role);
     const todos = await ctx.repositorio.clientesDeLaEmpresa(empresa);
     const max = pedidos.length === 1 ? MAX : MAX_POR_TEXTO;
     const hallados = pedidos.map((t) => ({
@@ -93,33 +129,8 @@ export const buscarClientes: Herramienta = {
       empresa,
       ids,
     );
-    const ficha = (c: FilaDeCliente) => {
-      const suyas = cotizaciones.filter(
-        (q: CotizacionDeCliente) => q.client_id === c.id,
-      );
-      return {
-        // El id, para crear un evento a este cliente (fase 2).
-        id: c.id,
-        nombre: c.name,
-        tipo: c.client_type,
-        contacto: c.contact_person,
-        telefono: c.phone,
-        correo: c.email,
-        cotizaciones: suyas.length,
-        ganadas: suyas.filter((q) => GANADAS.has(q.quotation_status)).length,
-        perdidas: suyas.filter(
-          (q) => q.quotation_status === QuotationStatus.RECHAZADA,
-        ).length,
-        ultimas: suyas.slice(0, 6).map((q) => ({
-          numero: q.quotation_number,
-          ...(recepcion ? {} : { enlace: enlaceDe(q, ctx.usuario.role) }),
-          estado: estadoDe(q.quotation_status),
-          evento: q.event_type,
-          fecha: conDia(diaDelEvento(q.event_date)),
-          ...(recepcion ? {} : { total: pesos(q.total_amount) }),
-        })),
-      };
-    };
+    const ficha = (c: FilaDeCliente) =>
+      fichaDeCliente(c, cotizaciones, ctx.usuario.role);
     if (pedidos.length === 1) {
       return {
         encontrados: hallados[0].clientes.length,
