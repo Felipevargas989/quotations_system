@@ -177,7 +177,7 @@ export const fechaLargaDelEvento = (fecha: Date | string): string =>
 
 // ---------- El correo ----------
 
-const primerNombre = (nombre: string | null | undefined): string => {
+export const primerNombre = (nombre: string | null | undefined): string => {
   const limpio = String(nombre || '').trim();
   if (!limpio) return '';
   const primera = limpio.split(/\s+/)[0];
