@@ -12,6 +12,8 @@ export type FiltrosTablero = {
   busqueda?: string;
   soloSeguimiento?: boolean;
   verRechazadas?: boolean;
+  /** Los tipos de cliente elegidos (`filtroPorTipo.ts`, 05-11-2026). */
+  tipos?: string[];
 };
 
 export const filtrosGuardados = (
@@ -32,6 +34,11 @@ export const filtrosGuardados = (
         typeof f.soloSeguimiento === "boolean" ? f.soloSeguimiento : undefined,
       verRechazadas:
         typeof f.verRechazadas === "boolean" ? f.verRechazadas : undefined,
+      tipos:
+        Array.isArray(f.tipos) &&
+        f.tipos.every((t: unknown) => typeof t === "string")
+          ? (f.tipos as string[])
+          : undefined,
     };
   } catch {
     return {};
@@ -44,7 +51,10 @@ export const guardarFiltros = (
 ): void => {
   if (userId === undefined) return;
   try {
-    sessionStorage.setItem(FILTROS_TABLERO_KEY(userId), JSON.stringify(filtros));
+    sessionStorage.setItem(
+      FILTROS_TABLERO_KEY(userId),
+      JSON.stringify(filtros),
+    );
   } catch {
     // sin sessionStorage disponible: los filtros viven sin memoria
   }

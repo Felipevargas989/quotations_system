@@ -1,6 +1,6 @@
 # Mapa: Ficha del negocio, envío de cotizaciones y seguimiento
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar, y esa misma tarde con el semáforo que solo lee la bitácora de lo vivo, por páginas (§6, Seguimiento), y esa noche con la lista de cotizaciones por páginas (§3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: el vendedor sube y quita respaldos comerciales (`/event-documents` en `SALES_AND_UP`). Actualizado el 04-11-2026: el aviso de cierre al rechazar (§5.2 punto 8, `GET` y `POST /quotations/:id/aviso-de-cierre`). Ese mismo día, las notas de BelIA firman «BelIA», con su carita (§5.3 punto 7).
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), con el abono para reservar bajo el TOTAL de la hoja el 22-10-2026, revisada la columna de llamadores el 14-09-2026, y el 17-10-2026 con el aviso «Borrador en Outlook» y las líneas «Asistente» del seguimiento con IA (mapa 01 §5.8 punto 8), y el 18-10-2026 con los topes de calendario con una aceptada (§5.6, migración 143; en producción desde el 18-10-2026, PR #158), y el 27-10-2026 con el personaje y el color de cada autor (§5.3 punto 7, migración 167), y el 28-10-2026 con el compromiso vigente (solo el de la nota más reciente con fecha) y los compromisos de la venta que se cierran al aceptar, y esa misma tarde con el semáforo que solo lee la bitácora de lo vivo, por páginas (§6, Seguimiento), y esa noche con la lista de cotizaciones por páginas (§3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: el vendedor sube y quita respaldos comerciales (`/event-documents` en `SALES_AND_UP`). Actualizado el 04-11-2026: el aviso de cierre al rechazar (§5.2 punto 8, `GET` y `POST /quotations/:id/aviso-de-cierre`). Ese mismo día, las notas de BelIA firman «BelIA», con su carita (§5.3 punto 7). Actualizado el 05-11-2026: el filtro por tipo de cliente del tablero (§2 y §6), y recepción con las cotizaciones de particulares (doc 21).
 
 ## 1. Qué hace
 
@@ -13,13 +13,13 @@ Es todo lo que le pasa a una cotización **después de armada y antes de ganarse
 - **La bitácora de seguimiento**: notas con próximo contacto que pintan el semáforo.
 - **La bandeja de requerimientos**: pedidos todavía sin cotizar.
 
-Lo usan vendedores, operaciones y administración. Recepción mira el tablero y la ficha y anota seguimiento, pero no edita. Por detrás corren dos relojes: los toques automáticos al cliente a los 7 y 14 días de enviada, y el resumen semanal de los lunes. Cuando la cotización se acepta, la vida del evento sigue en Post-Venta (mapa 04), que monta la misma bitácora.
+Lo usan vendedores, operaciones y administración. Recepción trabaja los requerimientos de todos y las cotizaciones de clientes particulares (doc 21); las demás las mira y les anota seguimiento. Por detrás corren dos relojes: los toques automáticos al cliente a los 7 y 14 días de enviada, y el resumen semanal de los lunes. Cuando la cotización se acepta, la vida del evento sigue en Post-Venta (mapa 04), que monta la misma bitácora.
 
 ## 2. Pantallas y rutas de la app
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| `/quotations` | `QuotationsPage` | `frontend/src/pages/quotations/QuotationsPage.tsx` | Tablero único de 3 columnas con la suma por columna. Ahí se puede:<br>• cambiar el estado con el menú de la tarjeta o arrastrándola<br>• ordenar por monto, urgencia, fecha o N°<br>• filtrar "Requieren seguimiento"<br>• buscar, que también encuentra cerradas y rechazadas plegadas<br>• ver el aviso de requerimientos pendientes<br>• abrir la ficha o el visor PDF<br>• «✉ Generar seguimiento» en la tarjeta vencida por correo y «✉ Generar seguimientos (N)» arriba (17-10-2026, doc 18; mapa 01 §5.8): la IA deja el borrador en Outlook, nunca envía; mientras el borrador espera, la tarjeta muestra el aviso «Borrador en Outlook», y cuando sale Eventia lo anota solo en la bitácora a nombre de «Asistente» con el próximo contacto (doc 18 §9)<br>• el «Tope de calendario» (borde rojo) en la tarjeta que cae en las fechas de una aceptada, con «Sí, puede seguir» (§5.6) | `SECTION_ROLES.quotations` (recepción, vendedor, operaciones, administrador). Cambiar estado, arrastrar y "nueva cotización": solo `quotations_edit` |
+| `/quotations` | `QuotationsPage` | `frontend/src/pages/quotations/QuotationsPage.tsx` | Tablero único de 3 columnas con la suma por columna. Ahí se puede:<br>• cambiar el estado con el menú de la tarjeta o arrastrándola<br>• ordenar por monto, urgencia, fecha o N°<br>• filtrar "Requieren seguimiento"<br>• filtrar por tipo de cliente (05-11-2026, `filtroPorTipo.ts`, §6): cada tipo con cuántas tarjetas deja; a recepción, solo los tipos particulares<br>• buscar, que también encuentra cerradas y rechazadas plegadas<br>• ver el aviso de requerimientos pendientes<br>• abrir la ficha o el visor PDF<br>• «✉ Generar seguimiento» en la tarjeta vencida por correo y «✉ Generar seguimientos (N)» arriba (17-10-2026, doc 18; mapa 01 §5.8): la IA deja el borrador en Outlook, nunca envía; mientras el borrador espera, la tarjeta muestra el aviso «Borrador en Outlook», y cuando sale Eventia lo anota solo en la bitácora a nombre de «Asistente» con el próximo contacto (doc 18 §9)<br>• el «Tope de calendario» (borde rojo) en la tarjeta que cae en las fechas de una aceptada, con «Sí, puede seguir» (§5.6) | `SECTION_ROLES.quotations` (recepción, vendedor, operaciones, administrador). Cambiar estado, arrastrar y "nueva cotización": solo `quotations_edit` |
 | `/negocio/:id` | `NegocioPage` | `frontend/src/pages/quotations/NegocioPage.tsx` | Encabezado con cliente y mandante (el mandante es la lista plegable `SelectorDeContacto` desde el 29-10-2026: el nombre con una flechita, sin caja; se elige, se confirma en una ventana y queda guardado con un parche de solo `contact_name`, con «+ Nuevo contacto»; ventas mientras se vende, en una aceptada administrador y operaciones, realizado y anulado nadie, `utils/puedeCambiarContacto.ts`; mapa 04 §5.7; copiar teléfono y correo; el nombre del cliente lleva a su ficha `/clients/:id`, 14-10-2026), chip de estado, WhatsApp, **Enviar cotización** y PDF. Abajo `EventoCajitas` (fecha editable si el evento no está congelado). Bajo las fechas, el «Tope de calendario» con el detalle de cada choque con una aceptada (`AvisoDeChoque`, §5.6); el hilo de seguimiento lleva borde rojo mientras dure. Pestaña Seguimiento: `HiloSeguimiento` + `AdjuntosComerciales` (en el aviso «Contacto comprometido», «✉ Generar seguimiento con IA» si venció por correo; doc 18). Pestaña Servicios: `ServiciosTab`, el editor completo, con Observaciones y el comentario interno (17-10-2026; mapa 01, regla 31) | `SECTION_ROLES.quotations`. Chip que cambia estado, fecha de las cajitas, pestaña Servicios y respaldos: solo `quotations_edit`. El botón Enviar cotización lo ve cualquiera que entre |
 | `/imprimir/:token` | `ImprimirCotizacion` | `frontend/src/pages/quotations/ImprimirCotizacion.tsx` | Ninguna persona: la abre el navegador invisible del motor para imprimir el PDF. Pinta `buildQuotationPrintDoc` | Pública, fuera de `Layout`; solo con token firmado |
 | `/requests` | `RequestsPage` | `frontend/src/pages/RequestsPage.tsx` y `frontend/src/components/RequestForm.tsx` | Lista y busca requerimientos; los crea o edita con `RequestForm`; los elimina con `ConfirmInline`; comparte el enlace del formulario público. "Cotizar" lleva a `/quotation-form/:id` (mapa 01) | `SECTION_ROLES.requests` (todos). Cotizar solo `quotations_edit` |
@@ -28,7 +28,8 @@ Piezas del módulo que no son ruta:
 - `HiloSeguimiento` y `AdjuntosComerciales` (`frontend/src/pages/quotations/SeguimientoPanel.tsx`), montadas también en `/post-venta/:id`.
 - `QuotationViewer` (`frontend/src/components/QuotationViewer.tsx`), el modal del PDF.
 - `MotivoPerdida` y `EventoCajitas` (`frontend/src/components/`).
-- `filtrosTablero.ts`: memoria de filtros por usuario en `sessionStorage`.
+- `filtrosTablero.ts`: memoria de filtros por usuario en `sessionStorage` (la búsqueda, «Requieren», las rechazadas y los tipos de cliente).
+- `filtroPorTipo.ts`: las opciones y la regla del filtro por tipo de cliente del tablero.
 - El diccionario de estados `frontend/src/utils/estadoCotizacion.ts`.
 
 Otras puertas a la ficha:
@@ -292,8 +293,8 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 - **La palabra oficial es "Anulada"** (Felipe, 12-08):
   - Qué: se muestra así aunque la base guarde `cancelada`. Nombres y colores viven solo en el diccionario.
   - Evidencia: `estadoCotizacion.ts` y su prueba.
-- **Recepción trabaja requerimientos, no cotizaciones** (28-07 al crear, 12-08 al editar):
-  - Qué: igual ve el tablero y la ficha, y anota seguimiento.
+- **Recepción trabaja requerimientos, no cotizaciones** (28-07 al crear, 12-08 al editar), **salvo las de particulares** (doc 21, 04-11-2026):
+  - Qué: ve el tablero y la ficha, y anota seguimiento. Desde el doc 21 crea, edita y envía las cotizaciones de clientes particulares, sin descuento y sin aceptar, anular ni marcar realizada (`AlcanceDeRecepcion`, en `api-rest/src/clients/alcance-de-recepcion.ts`).
   - Cita del 12-08: "llamar y anotar en qué quedó la conversación es literalmente su pega".
   - Evidencia: `QuotationsController.create`; `QuotationsService.update`; comentario de `QuotationFollowupsController`; `frontend/src/constants/permissions.ts`.
 
@@ -335,6 +336,9 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 - **El tablero es la única vista**:
   - Qué: la Lista se jubiló el 04-08. Orden por monto por defecto (06-08). Los filtros se recuerdan por usuario en la pestaña (05-08) y se olvidan al crear una cotización.
   - Evidencia: `QuotationsPage`; `filtrosTablero.ts`.
+- **El filtro por tipo de cliente** (Felipe, 05-11-2026: *"si yo quiero ver cuántas cotizaciones tengo a empresas pendientes, cuántas cotizaciones tengo a grupos de adultos mayores pendientes"*):
+  - Qué: un selector «Tipo de cliente» (`MultiSelect`) al lado de «Requieren seguimiento», para todos. Trae cada tipo de la empresa, en su orden, con cuántas tarjetas deja en el tablero con la búsqueda y «Requieren» como están; un tipo que no está en la lista de la empresa, o un cliente sin tipo, va al final. Con uno o varios elegidos, las columnas (con su cantidad y su suma), «Requieren», las rechazadas y lo que encuentra la búsqueda quedan solo con esos. A recepción le ofrece solo los tipos particulares (doc 21). Se recuerda con los otros filtros y se olvida al crear una cotización; lo guardado que ya no es opción no filtra.
+  - Evidencia: `filtroPorTipo.ts` y su prueba; `filtrosTablero.test.ts`.
 - **Estados honestos**:
   - Qué: cargando = rueda; error = mensaje con reintento (pillada del 04-08).
   - Evidencia: `NegocioPage`.
@@ -512,7 +516,7 @@ App (Vitest, corre en CI con `npm run test`):
   - el calce del destinatario solo por nombre;
   - los reparos por ítems variables en $0 (solo se prueba un fijo).
 - **Paridad hoja-correo**: ninguna prueba compara la matemática de `quotationPrintDoc.ts` con la de `correo-cotizacion.ts`.
-- **Pantallas**: `NegocioPage`, `QuotationsPage`, `SeguimientoPanel`, `ImprimirCotizacion`, `RequestsPage`, el semáforo (`semaforoDe`) y `filtrosTablero.ts` no tienen pruebas.
+- **Pantallas**: `NegocioPage`, `QuotationsPage`, `SeguimientoPanel`, `ImprimirCotizacion`, `RequestsPage` y el semáforo (`semaforoDe`) no tienen pruebas; `filtrosTablero.ts` y `filtroPorTipo.ts`, sí (05-11-2026).
 
 ## 10. Deuda y rarezas conocidas
 
