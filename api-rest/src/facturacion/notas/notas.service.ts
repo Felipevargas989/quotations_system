@@ -103,11 +103,18 @@ export class NotasService {
     ]);
     const cadena = new Cadena(todos);
     const porId = new Map(todos.map((d) => [d.id, d]));
+    const conexion = this.conexion.de(companyId);
+    // Las notas salen en el ambiente de lo que modifican, y «Comprobar» y
+    // «Pedir el PDF» necesitan la conexión de ese ambiente (§9.18): lo que
+    // no se puede, no se ofrece.
+    const aMano = (ambiente: AmbienteDeFacturacion) =>
+      this.conexion.de(companyId, ambiente) != null;
 
     const documentos = delPeriodo.map((d) => {
       const total = Number(d.total);
       const emitido = d.estado === 'emitido';
       const conCadena = emitido && CON_NOTAS.has(d.tipo);
+      const conNotas = conCadena && d.ambiente === conexion.ambiente;
       const estado = conCadena
         ? cadena.estado(d.id)
         : { como: 'vigente' as const };
@@ -165,14 +172,16 @@ export class NotasService {
         error: d.error,
         acciones: {
           anular:
-            conCadena &&
+            conNotas &&
             vigente &&
             !(d.tipo === 33 && estado.como === 'rebajado'),
           rebajar:
-            conCadena && d.tipo === 33 && vigente && cadena.saldo(d.id) > 0,
-          corregir: conCadena && d.tipo === 33 && vigente,
-          comprobar: d.estado === 'por_confirmar' || d.estado === 'enviando',
-          pedirPdf: emitido && !d.pdf_path,
+            conNotas && d.tipo === 33 && vigente && cadena.saldo(d.id) > 0,
+          corregir: conNotas && d.tipo === 33 && vigente,
+          comprobar:
+            (d.estado === 'por_confirmar' || d.estado === 'enviando') &&
+            aMano(d.ambiente),
+          pedirPdf: emitido && !d.pdf_path && aMano(d.ambiente),
         },
         saldo: conCadena && d.tipo === 33 ? cadena.saldo(d.id) : null,
         plazos:
@@ -186,7 +195,6 @@ export class NotasService {
     });
 
     const emitidos = delPeriodo.filter((d) => d.estado === 'emitido');
-    const conexion = this.conexion.de(companyId);
     return {
       ambiente: conexion.ambiente,
       sin_conexion: conexion.sinConexion ?? null,
