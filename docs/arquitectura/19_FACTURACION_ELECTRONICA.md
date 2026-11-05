@@ -871,6 +871,18 @@ anulada, seguía «Facturado $1.428.000 de $1.428.000» y sin «Facturar».
 un documento con folio (`enviando`, sin reintentos, el folio repetido una
 vez), que ahora comparten la factura y las notas.
 
+**Probado en el laboratorio el 05-11 (madrugada), con CCU #408:** la NC 1
+anuló la factura simulada N° 1 ($1.428.000) y lo facturado del mes bajó de
+$2.313.000 a $885.000; la OC se volvió a facturar (factura N° 2, «reemplaza
+a la Factura 1»); la ND para anular la NC 1 no salió («la OC volvería a
+sumar $2.856.000 facturados de $1.428.000»); la NC 2 anuló la factura 2 y
+entonces la ND 1 sí salió: la factura 1 volvió a quedar vigente y la NC 1
+«Anulada por ND 1». Al final, la NC 3 rebajó $119.000 de la factura 1
+(«Rebajada: queda $1.309.000») y la OC volvió a ofrecer «Facturar» por lo
+que falta. Cada nota con su PDF en Documentos → Facturas y la nota de BelIA
+en la bitácora. El reporte (CSV) sale con BOM y `;`; desde ese día la NC
+resta también en el neto y el IVA, para que las columnas sumen en Excel.
+
 **Lo que queda para el paso 0 (L21 sigue abierta):** que facturacion.cl
 acepte por el TXT la nota de débito que anula una nota de crédito (en el
 simulado ya se arma y se emite), la nota de crédito de una boleta (no se
