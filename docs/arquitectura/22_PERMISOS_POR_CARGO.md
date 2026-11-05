@@ -3,7 +3,8 @@
 > **Estado: APROBADO el 05-11-2026.** La maqueta (*"si me parece
 > perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
 > Calendario del vendedor prendido. **P1 (motor) y P2 (pantalla)
-> programados** ese día; P3 (laboratorio) sigue. Migración **188** (la 186 es de
+> programados** ese día; la migración 188, en la base del laboratorio
+> desde ese día; el resto de P3 (laboratorio) sigue. Migración **188** (la 186 es de
 > recepción y la 187 de facturación). Rama `feature/permisos-por-cargo`,
 > carpeta `wt-permisos`. Al laboratorio por pasos; a producción, solo con su
 > «a producción».

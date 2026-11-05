@@ -689,4 +689,4 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor. Sin la 188 el motor no se cae: usa lo de fábrica (lo de hoy), pero la pantalla de permisos responde error al guardar.
 
-**Estado.** Escrita el 05-11-2026, con su reversa. **Falta en el laboratorio y en producción** (producción, con el «a producción» de Felipe, antes del motor).
+**Estado.** Escrita el 05-11-2026, con su reversa. **Aplicada en el laboratorio el 05-11-2026** (verificado: solo `service_role` lee y escribe, las funciones solo para él, y una prueba de las dos funciones que se deshizo sola). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
