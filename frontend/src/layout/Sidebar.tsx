@@ -16,7 +16,6 @@ import {
   Inbox,
   Lock,
   Radar,
-  ReceiptText,
   FileSpreadsheet,
 } from "lucide-react";
 import {
@@ -106,21 +105,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       precargar: () => import("../pages/postventa/PostVentaPage"),
     },
     {
-      // Las boletas de las cabañas (doc 19 §9.4): recepción hacia arriba,
-      // solo con el módulo propio `facturacion`.
-      name: "Boletas",
-      href: "/boletas",
-      icon: ReceiptText,
-      section: "boletas",
-      precargar: () => import("../pages/boletas/BoletasPage.tsx"),
-    },
-    {
-      // Todo lo emitido, la cadena de anulaciones y las notas (doc 19
-      // §9.5): solo el administrador, con el módulo propio `facturacion`.
+      // Facturación (doc 19 §9.19): una sola entrada para las boletas y
+      // los documentos, solo con el módulo propio `facturacion`. La ve todo
+      // el que ve boletas (recepción hacia arriba); adentro, cada cargo ve
+      // sus pestañas («Documentos», operaciones y administrador).
       name: "Facturación",
       href: "/facturacion",
       icon: FileSpreadsheet,
-      section: "facturacion",
+      section: "boletas",
       precargar: () => import("../pages/facturacion/FacturacionPage.tsx"),
     },
     {

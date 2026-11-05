@@ -35,10 +35,14 @@ export type Section =
   // administrador (Felipe, 17-10: "solo el administrador y Camila").
   | "oportunidades"
   // Las boletas de las cabañas (doc 19 §9.4): de recepción hacia arriba
-  // (D5), solo con el módulo propio `facturacion` (SECTION_DERECHO).
+  // (D5), solo con el módulo propio `facturacion` (SECTION_DERECHO). Desde
+  // el 05-11 son las pestañas de boletas de la sección Facturación, y quien
+  // las ve tiene la entrada del menú (§9.19).
   | "boletas"
-  // La lista de Facturación con la cadena de anulaciones y las notas (doc 19
-  // §9.5): solo el administrador (E5), con el módulo propio `facturacion`.
+  // «Documentos», la lista de Facturación con la cadena de anulaciones
+  // (doc 19 §9.5): desde el 05-11, operaciones y el administrador (§9.19,
+  // Felipe: «ver, reporte y PDF»). Anular sigue solo del administrador
+  // (E5), y eso lo cuida el motor. Con el módulo propio `facturacion`.
   | "facturacion";
 
 // Define which roles can access which sections. Desde los permisos por
@@ -88,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "calendar",
     "logistics",
     "boletas",
+    "facturacion",
   ],
   administrador: [
     "dashboard",
@@ -412,5 +417,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
   oportunidades: ROLE_GROUPS.ADMIN_ONLY,
   boletas: ROLE_GROUPS.RECEPTION_AND_UP,
-  facturacion: ROLE_GROUPS.ADMIN_ONLY,
+  facturacion: ROLE_GROUPS.OPERATIONS_AND_UP,
 };

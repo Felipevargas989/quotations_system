@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import FileViewLink from "../../components/FileViewLink";
 import NumberInput from "../../components/inputs/NumberInput";
@@ -7,18 +7,23 @@ import { toast } from "../../components/toast/Toast";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   crearCobro,
-  getEmitidasHoy,
-  getPorBoletear,
   type CobroPorBoletear as Cobro,
 } from "../../services/boletas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import LetreroDelAmbiente from "../facturacion/LetreroDelAmbiente";
 import BoletaSuelta from "./BoletaSuelta";
 import CobroPorBoletear from "./CobroPorBoletear";
 import TarifarioDeBoletas from "./TarifarioDeBoletas";
+import {
+  LLAVE_HOY,
+  LLAVE_POR_BOLETEAR as LLAVE,
+  useEmitidasHoy,
+  usePorBoletear,
+} from "./consultas";
 
-// LA SECCIÓN «BOLETAS» (doc 19 §9.4, paso 3a; maqueta del 04-11), de
+// LAS PESTAÑAS DE BOLETAS (doc 19 §9.4, paso 3a; maqueta del 04-11), de
 // recepción hacia arriba (D5) y solo con el módulo propio `facturacion`.
+// Desde el 05-11 viven dentro de la sección Facturación (§9.19): la sección
+// dibuja las pestañas y esto, lo de cada una.
 //
 // «Por boletear»: los cobros que dejó el administrador (desde el evento o
 // acá mismo), cada uno repartido por cabaña. «Emitidas hoy»: el control del
@@ -28,8 +33,8 @@ import TarifarioDeBoletas from "./TarifarioDeBoletas";
 // facturacion.cl simulado: el letrero lo dice.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
-const LLAVE = ["boletas", "por-boletear"];
-const LLAVE_HOY = ["boletas", "emitidas-hoy"];
+
+export type PestanaDeBoletas = "suelta" | "por_boletear" | "hoy" | "tarifario";
 
 const hora = (iso: string | null) =>
   iso
@@ -117,22 +122,19 @@ function NuevoCobro({ onCreado }: { readonly onCreado: () => void }) {
   );
 }
 
-export default function BoletasPage() {
+export default function Boletas({
+  pestana,
+}: {
+  readonly pestana: PestanaDeBoletas;
+}) {
   const queryClient = useQueryClient();
   const { userRole } = useAuth();
   const esAdmin = userRole === "administrador";
-  const [pestana, setPestana] = useState<
-    "suelta" | "por_boletear" | "hoy" | "tarifario"
-  >("suelta");
-  const porBoletear = useQuery({
-    queryKey: LLAVE,
-    queryFn: () => getPorBoletear(),
-  });
-  const hoy = useQuery({ queryKey: LLAVE_HOY, queryFn: getEmitidasHoy });
+  const porBoletear = usePorBoletear();
+  const hoy = useEmitidasHoy();
 
   const cobros = porBoletear.data?.cobros ?? [];
   const boletas = hoy.data?.boletas ?? [];
-  const donde = porBoletear.data ?? hoy.data;
 
   const refrescar = () =>
     Promise.all([
@@ -151,43 +153,8 @@ export default function BoletasPage() {
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
 
-  // Si hay algo por boletear, la página parte ahí (la maqueta); si no, en
-  // la boleta suelta. Una sola vez: después manda lo que elija la persona.
-  const elegida = useRef(false);
-  useEffect(() => {
-    if (elegida.current || !porBoletear.isSuccess) return;
-    elegida.current = true;
-    if (porBoletear.data.cobros.length > 0) setPestana("por_boletear");
-  }, [porBoletear.isSuccess, porBoletear.data]);
-
-  const pestanas = [
-    { key: "suelta" as const, label: "Boleta suelta" },
-    { key: "por_boletear" as const, label: `Por boletear (${cobros.length})` },
-    { key: "hoy" as const, label: `Emitidas hoy (${boletas.length})` },
-    ...(esAdmin ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
-  ];
-
   return (
-    <div className="max-w-4xl space-y-4 p-4 sm:p-6">
-      <h1 className="text-xl font-semibold text-gray-900">Boletas</h1>
-      <LetreroDelAmbiente
-        ambiente={donde?.ambiente}
-        sinConexion={donde?.sin_conexion}
-        que="Las boletas"
-      />
-      <div className="flex gap-4 border-b border-gray-200">
-        {pestanas.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => setPestana(p.key)}
-            className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium ${pestana === p.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"}`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
+    <div className="space-y-4">
       {pestana === "suelta" ? (
         <BoletaSuelta
           esAdmin={esAdmin}

@@ -35,7 +35,8 @@
 > de facturacion.cl, dormida hasta que Felipe cargue las credenciales en
 > Railway; «Probar la conexión»; y los candados para no mezclar ambientes
 > (§9.18). Lo que queda: las credenciales, el paso 0 en el ambiente de
-> pruebas, la certificación y el «a producción».
+> pruebas, la certificación y el «a producción». **El 05-11, una sola
+> sección «Facturación»** con pestañas por cargo (§9.19).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -1046,6 +1047,43 @@ el 05-11):
 - **Si algo sale mal:** se le saca el módulo `facturacion` a Valle del Sol
   y Facturación desaparece. Lo ya emitido no se borra: se anula con nota de
   crédito (L6).
+
+### 9.19 Una sola sección «Facturación» (05-11)
+
+Felipe, 05-11: *"Yo hubiese hecho uno solo y que dependiendo del usuario,
+qué es lo que puede ver (…) Operaciones y administrador debería poder ver
+facturación y boletas. Creo que es demasiado poner dos"*. El módulo ya era
+uno (el derecho `facturacion`); lo que eran dos eran las entradas del menú,
+«Boletas» y «Facturación». Ahora hay una sola, «Facturación», y adentro
+cada cargo ve sus pestañas:
+
+| Cargo | Qué ve |
+|---|---|
+| Recepción (y el vendedor, como hasta ahora) | «Boleta suelta», «Por boletear» y «Emitidas hoy» |
+| Operaciones | Lo de recepción, más «Documentos»: todo lo emitido del mes, el reporte y «Pedir el PDF» (Felipe: *"Ver, reporte y PDF"*) |
+| Administrador | Todo, más el «Tarifario», «Comprobar», «Probar la conexión» y anular o rebajar con notas (E5) |
+
+- La pestaña Facturación de cada evento en Post-Venta no cambia. La
+  dirección vieja `/boletas` lleva a `/facturacion`.
+- **En el motor:** la lista (`GET /facturacion/documentos`) y «Pedir el
+  PDF» pasaron a operaciones y arriba. Las notas, «Comprobar» y «Probar la
+  conexión» siguen solo del administrador, y cada puerta de
+  `NotasController` dice su cargo. La lista no le ofrece a operaciones
+  anular, rebajar, corregir ni «Comprobar».
+- **Lo que cubren las pruebas:**
+  - `facturacion/tests/notas.spec.ts`: lo que ve cada cargo y las puertas
+    del motor;
+  - `pages/facturacion/FacturacionPage.test.tsx`: las pestañas de cada
+    cargo y dónde parte cada uno.
+- **El vendedor** sigue viendo las boletas, como hasta ahora. Felipe lo
+  decidirá con los interruptores de «Permisos por cargo».
+
+Ese mismo día Felipe aprobó la maqueta de **«Permisos por cargo»** (*"si me
+parece perfecto"*): una pestaña en Gestión de usuarios con un interruptor
+por permiso y por cargo. Lo de fábrica es lo de hoy, lo cumple también el
+motor, el administrador nunca se deja afuera y el plan manda arriba. Es un
+proyecto aparte, porque toca los permisos de todos los módulos; la
+facturación se sumará a él con sus pestañas como permisos.
 
 ### 9.11 Fuentes nuevas (04-11)
 
