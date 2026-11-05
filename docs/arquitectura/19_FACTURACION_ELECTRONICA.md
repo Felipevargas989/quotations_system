@@ -14,7 +14,12 @@
 > esperando?"*): la pestaña «Facturación» de Post-Venta con las órdenes de
 > compra del evento, solo con el módulo propio `facturacion` (§9.14).
 > **Paso 2b construido esa misma noche:** «✨ Leer con BelIA» el PDF de
-> la OC (§9.14).
+> la OC (§9.14). Probado en el laboratorio (evento #423): llenó la OC de
+> prueba y con un informe dijo que no es una orden.
+> **Paso 2c construido esa misma noche:** «Facturar» en cada OC (o sin OC):
+> el borrador de BelIA como la maqueta, «Editar a mano», «Ver cómo sale» y
+> «Emitir factura» contra facturacion.cl simulado, con la lista de lo
+> emitido (§9.15).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -559,7 +564,7 @@ La conexión de verdad es el paso 5.
 | Paso | Qué | Necesita |
 |---|---|---|
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
-| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir». | E1, E2 y E4. |
+| 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir» (hecho el 04-11, §9.15). | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
@@ -683,6 +688,65 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
   dirección, comuna) y de otras referencias (la nota de pedido). Nada se
   guarda solo: la persona revisa y guarda (L19), y la OC queda con origen
   «pdf». La ruta: `POST /quotations/:id/ordenes-de-compra/leer`.
+
+### 9.15 Lo que quedó del paso 2c (04-11, en la noche)
+
+**En la pantalla** (pestaña «Facturación», como las maquetas del 04-11):
+- **«Facturar»** en cada OC, y **«Facturar sin OC»** (un % o un monto del
+  evento, D4 y E4). Abre el **borrador de BelIA**: de dónde leyó (el PDF de
+  la OC, la cotización, la ficha del cliente), el total de la OC con lo ya
+  facturado y el % de esta factura, el receptor, el detalle, el neto y el
+  IVA, y las referencias.
+- **Lo que falta se pregunta en ámbar**, ahí mismo: la referencia que pide el
+  receptor y no viene en la OC (CCU: la nota de pedido, con su N° y su
+  fecha, y «Pedírmela siempre en las facturas de CCU»); el giro, la
+  dirección o la comuna de un RUT nuevo; a cuál razón social va si no hay
+  OC y el cliente tiene varias. El aviso «Falta N datos» se va cuando está
+  todo.
+- **«Editar a mano»** abre todo (E4): el receptor con sus contadores, el
+  detalle (la glosa de 80 y la descripción larga de 1.000), el monto (un %
+  o un monto con IVA) y las referencias (agregar, quitar y «siempre»).
+- **«Ver cómo sale»** muestra la factura tal como saldrá: el emisor, el N°
+  que sigue, el receptor, el detalle, las referencias, la observación
+  (cotización y fecha del evento) y los totales, con «Emitir factura» solo
+  para el administrador (D5).
+- **«Documentos emitidos»** abajo, con el PDF. Arriba, el letrero «Modo
+  simulado» mientras no esté la conexión de verdad (§9.10).
+
+**En el motor** (`api-rest/src/facturacion/facturas/`):
+- `borrador.ts` (puro): `armarBorrador` propone desde la OC y el evento, y
+  `revisarFactura` revisa lo que falta, los largos de la factura (lo que se
+  guarda en la ficha cabe entero), nunca más del 100 % de una OC (con $1 de
+  redondeo), los avisos de E1 (las OC no suman lo de la cotización) y E4
+  (lo facturado pasa el total del evento) y arma el archivo con
+  `armarFactura`. La vista previa y la emisión pasan por la MISMA revisión.
+- Las rutas: `GET /quotations/:id/facturas` (lo emitido y el ambiente),
+  `POST …/borrador`, `POST …/revisar` y `POST …/emitir` (solo el
+  administrador).
+- **Emitir:** el registro en `enviando` (uno a la vez por evento), el folio
+  que sigue, `procesar` sin reintentos (si se corta, «por confirmar», L5;
+  si el folio ya existe, otro folio una sola vez, L3) y `emitido` con la
+  respuesta. Después, sin tumbar la factura si algo falla: la copia del PDF
+  en Documentos → Facturas, la razón social en la ficha (nueva, o completada
+  con lo que le faltaba y las referencias «siempre») y la nota de BelIA en
+  la bitácora («A pedido de …: emitió la factura N° … por $… a …, OC …»).
+- `conexion.ts`: la conexión de cada empresa. En los pasos 1 a 4, siempre
+  el simulado, siguiendo la numeración de la base en el ambiente
+  `simulado`.
+
+**Lo que se sumó a los pasos 2a y 2b:**
+- La OC guarda **lo que BelIA leyó del comprador** (`comprador`: giro,
+  dirección, comuna y ciudad; la 184 suma la columna, todavía no está en
+  producción). La primera factura a un RUT nuevo lo propone.
+- Medido en el laboratorio con la OC de Mercado Público de la Municipalidad
+  de Quillón: la orden no trae «Dirección del demandante», pero sí
+  «Dirección de envío factura». BelIA ahora toma esa cuando no hay otra
+  (§5.3: «la dirección de facturación y comuna»). El giro no viene en las OC
+  de Mercado Público: se pregunta.
+
+**Queda para después:** «Comprobar» una factura por confirmar y volver a
+pedir un PDF que no llegó (paso 4, con la lista de Facturación); que las
+notas de crédito resten de lo facturado de la OC (paso 4).
 
 ### 9.11 Fuentes nuevas (04-11)
 

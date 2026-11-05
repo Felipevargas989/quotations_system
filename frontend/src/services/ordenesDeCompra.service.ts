@@ -5,6 +5,15 @@ import { apiRequest } from "./api";
 // OC del CFT y del Instituto Profesional para un mismo evento, y la factura
 // de cada OC va a su RUT. La empresa sale SIEMPRE de la sesión, en el motor.
 
+/** Lo que la OC dice del comprador, como lo leyó BelIA (paso 2b): la
+ *  primera factura a un RUT nuevo lo propone (paso 2c). */
+export interface CompradorDeLaOC {
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  ciudad: string | null;
+}
+
 export interface OrdenDeCompra {
   id: number;
   quotation_id: string;
@@ -12,6 +21,7 @@ export interface OrdenDeCompra {
   fecha: string;
   rut: string | null;
   razon_social: string | null;
+  comprador: CompradorDeLaOC | null;
   descripcion: string | null;
   neto: number | null;
   iva: number | null;
@@ -28,6 +38,7 @@ export type DatosDeOrdenDeCompra = Partial<
     | "fecha"
     | "rut"
     | "razon_social"
+    | "comprador"
     | "descripcion"
     | "neto"
     | "iva"

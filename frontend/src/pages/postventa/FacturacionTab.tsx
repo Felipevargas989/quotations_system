@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { FileText, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -17,6 +18,7 @@ import {
   updateOrdenDeCompra,
 } from "../../services/ordenesDeCompra.service";
 import { getRazonesSociales } from "../../services/razonesSociales.service";
+import { getDocumentosTributarios } from "../../services/facturas.service";
 import type { EventDocument } from "../../services/documents.service";
 import { formatearRut } from "../../utils/rut";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -29,6 +31,8 @@ import {
   fechaCorta,
 } from "../../utils/ordenesDeCompra";
 import { docsQueryOpts } from "./consultaDeDocumentos";
+import ArmarFactura from "./facturacion/ArmarFactura";
+import DocumentosEmitidos from "./facturacion/DocumentosEmitidos";
 
 // PESTAÑA «FACTURACIÓN» DEL EVENTO (doc 19, paso 2a): las órdenes de compra.
 //
@@ -38,8 +42,10 @@ import { docsQueryOpts } from "./consultaDeDocumentos";
 // OC: Santo Tomás manda OC del CFT y del Instituto Profesional para un
 // mismo evento (§9.12). Con «✨ Leer con BelIA» (paso 2b) la llena BelIA
 // leyendo el PDF de Documentos, y la persona confirma: lo leído trae sus
-// avisos (L19, la IA puede leer mal un N° o un monto). En el 2c sale de acá
-// la factura de cada una.
+// avisos (L19, la IA puede leer mal un N° o un monto). Con «Facturar»
+// (paso 2c) BelIA arma la factura de cada OC, o del evento si no hay OC
+// (`facturacion/ArmarFactura`), y abajo queda lo emitido. En los pasos 1 a
+// 4, contra facturacion.cl simulado: el letrero lo dice.
 
 const NOMBRE_DE_LA_REFERENCIA: Record<string, string> = {
   nota_de_pedido: "Nota de pedido",
@@ -279,7 +285,15 @@ function Formulario({
   );
 }
 
-function Fila({ oc, pdf }: { oc: OrdenDeCompra; pdf?: EventDocument }) {
+function Fila({
+  oc,
+  pdf,
+  facturado,
+}: {
+  oc: OrdenDeCompra;
+  pdf?: EventDocument;
+  facturado: number;
+}) {
   return (
     <div className="space-y-0.5 text-sm min-w-0">
       <p className="font-semibold text-gray-900">
@@ -309,6 +323,11 @@ function Fila({ oc, pdf }: { oc: OrdenDeCompra; pdf?: EventDocument }) {
           {oc.descripcion}
         </p>
       )}
+      {facturado > 0 && (
+        <p className="text-xs font-semibold text-green-700">
+          Facturado {clp(facturado)} de {clp(oc.total)}
+        </p>
+      )}
       {pdf && <FileViewLink url={pdf.file_url} title={pdf.file_name} />}
     </div>
   );
@@ -328,6 +347,14 @@ export default function FacturacionTab({
     queryFn: () => getOrdenesDeCompra(quotationId),
   });
   const docs = useQuery(docsQueryOpts(quotationId));
+  const { userRole } = useAuth();
+  const llaveDeDocumentos = ["facturacion", "documentos", quotationId];
+  const emitidos = useQuery({
+    queryKey: llaveDeDocumentos,
+    queryFn: () => getDocumentosTributarios(quotationId),
+  });
+  // La OC que se está facturando, o el evento sin OC.
+  const [facturando, setFacturando] = useState<number | "sin_oc" | null>(null);
   const razones = useQuery({
     queryKey: ["razonesSociales", clientId],
     queryFn: () => getRazonesSociales(clientId as string),
@@ -353,6 +380,31 @@ export default function FacturacionTab({
   const cerrar = () => {
     setEditando(null);
     setLectura(null);
+  };
+
+  // Lo facturado de cada OC: lo emitido y lo que quedó por confirmar.
+  const facturadoDe = (ocId: number) =>
+    (emitidos.data?.documentos ?? [])
+      .filter(
+        (d) =>
+          d.tipo === 33 &&
+          d.orden_de_compra_id === ocId &&
+          d.estado !== "rechazado" &&
+          d.estado !== "borrador",
+      )
+      .reduce((s, d) => s + d.total, 0);
+
+  const emitida = async () => {
+    setFacturando(null);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: llaveDeDocumentos }),
+      queryClient.invalidateQueries({
+        queryKey: ["razonesSociales", clientId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: docsQueryOpts(quotationId).queryKey,
+      }),
+    ]);
   };
 
   const leer = async (doc: EventDocument) => {
@@ -422,12 +474,18 @@ export default function FacturacionTab({
 
   return (
     <div className="max-w-3xl space-y-4">
+      {emitidos.data?.ambiente === "simulado" && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Modo simulado: facturacion.cl todavía no está conectado. Las facturas
+          se arman y se numeran, pero no sale nada al SII.
+        </p>
+      )}
       <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900">
             Órdenes de compra
           </h3>
-          {editando === null && (
+          {editando === null && facturando === null && (
             <button
               type="button"
               onClick={() => setEditando("nueva")}
@@ -438,7 +496,7 @@ export default function FacturacionTab({
           )}
         </div>
 
-        {sinCargar.length > 0 && editando === null && (
+        {sinCargar.length > 0 && editando === null && facturando === null && (
           <div className="space-y-1.5 rounded-lg bg-gray-50 p-3">
             {sinCargar.map((d) => (
               <div
@@ -493,9 +551,16 @@ export default function FacturacionTab({
               key={oc.id}
               className="flex items-start justify-between gap-3 border-t border-gray-100 pt-3 first:border-t-0 first:pt-0"
             >
-              <Fila oc={oc} pdf={pdfDe(oc)} />
-              {editando === null && (
-                <div className="flex shrink-0 gap-2 text-gray-400">
+              <Fila oc={oc} pdf={pdfDe(oc)} facturado={facturadoDe(oc.id)} />
+              {editando === null && facturando === null && (
+                <div className="flex shrink-0 items-start gap-2 text-gray-400">
+                  <button
+                    type="button"
+                    onClick={() => setFacturando(oc.id)}
+                    className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+                  >
+                    <FileText size={12} /> Facturar
+                  </button>
                   <button
                     type="button"
                     onClick={() => setEditando(oc.id)}
@@ -519,7 +584,32 @@ export default function FacturacionTab({
         )}
 
         {editando === "nueva" && formulario(null)}
+
+        {editando === null && facturando === null && ordenes.isSuccess && (
+          <button
+            type="button"
+            onClick={() => setFacturando("sin_oc")}
+            className="text-xs font-semibold text-violet-700 hover:underline"
+          >
+            Facturar sin OC (un % o un monto del evento)
+          </button>
+        )}
       </div>
+
+      {facturando !== null && (
+        <ArmarFactura
+          quotationId={quotationId}
+          ordenDeCompraId={facturando === "sin_oc" ? null : facturando}
+          puedeEmitir={userRole === "administrador"}
+          onCerrar={() => setFacturando(null)}
+          onEmitida={emitida}
+        />
+      )}
+
+      <DocumentosEmitidos
+        documentos={emitidos.data?.documentos ?? []}
+        ocs={lista}
+      />
     </div>
   );
 }

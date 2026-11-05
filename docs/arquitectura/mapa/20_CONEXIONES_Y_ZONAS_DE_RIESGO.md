@@ -776,6 +776,15 @@ El token de corta vida con que el navegador invisible abre la hoja de impresión
 - `api-rest/src/analytics/analytics.module.ts` — imports `EmailModule` y `UsersModule`; grep confirma que `EmailService`/`UsersService` no aparecen en `analytics.service.ts` ni `hoy.controller.ts`
 - CLAUDE.md — línea 80 menciona `analyitics-cront.service.ts`; `find` confirma que no existe ningún archivo `*cron*` en `api-rest/src/analytics`
 
+#### x4-26 · Emitir una factura escribe en Clientes, en Documentos y en la bitácora (04-11-2026)
+
+`FacturasService.emitir` (Post-Venta, pestaña Facturación; doc 19, paso 2c) no termina en `documentos_tributarios`. Con la factura ya emitida, deja la copia del PDF en el balde privado y una fila `facturas` en `event_documents` (Documentos del evento), crea o completa la razón social del receptor por medio de `RazonesSocialesService` (Clientes, mapa 09 flujo G: una nueva va con `origen` `orden_de_compra`) y escribe la nota firmada «BelIA» en `quotation_followups` con `crearComoBeliaAPedidoDe`. Las tres van después de anotar la factura y sus errores solo se registran: nunca tumban una factura emitida. Ojo: quitar el PDF desde Documentos borra el archivo del balde y deja `documentos_tributarios.pdf_path` apuntando a nada; la factura sigue intacta y su PDF se vuelve a pedir a facturacion.cl.
+
+**Evidencia:**
+- `api-rest/src/facturacion/facturas/facturas.service.ts` — `emitir`, `guardarPdf`, `recordarReceptor` y la llamada a `crearComoBeliaAPedidoDe`
+- `api-rest/src/facturacion/facturacion.module.ts` — importa `ClientsModule` y `QuotationFollowupsModule`
+- `api-rest/src/facturacion/tests/facturas.spec.ts` — «sale con el folio que sigue y deja el PDF, la razón social nueva y la nota de BelIA»
+
 ### x5 — Permisos y endpoints públicos
 
 #### x5-01 · El portal reparte el UUID de TODAS las cotizaciones, y el endpoint público trae la fila completa

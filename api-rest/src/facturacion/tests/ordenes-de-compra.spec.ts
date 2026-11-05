@@ -105,6 +105,42 @@ describe('Las órdenes de compra de un evento', () => {
     });
   });
 
+  it('lo que BelIA leyó del comprador viaja con la OC, limpio (paso 2c)', async () => {
+    const { repo, service } = armar();
+    await service.crear(
+      'ev-481',
+      1,
+      plainToInstance(CrearOrdenDeCompraDto, {
+        ...OC3,
+        origen: 'pdf',
+        comprador: {
+          giro: '  853201-ENSEÑANZA SUPERIOR  ',
+          direccion: 'Av. Vicuña Mackenna 4835',
+          comuna: 'San Joaquín',
+          ciudad: '',
+        },
+      }),
+      'felipe',
+    );
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origen: 'pdf',
+        comprador: {
+          giro: '853201-ENSEÑANZA SUPERIOR',
+          direccion: 'Av. Vicuña Mackenna 4835',
+          comuna: 'San Joaquín',
+          ciudad: null,
+        },
+      }),
+    );
+    expect(
+      await errores(CrearOrdenDeCompraDto, {
+        ...OC3,
+        comprador: { comuna: 'x'.repeat(41), otra: 1 },
+      }),
+    ).toEqual(['comprador']);
+  });
+
   it('el evento de otra empresa no existe para esta', async () => {
     const { repo, service } = armar({ deLaEmpresa: false });
     await expect(service.deCotizacion('ajeno', 1)).rejects.toThrow(

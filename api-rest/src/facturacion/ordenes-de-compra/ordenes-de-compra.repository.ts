@@ -3,6 +3,14 @@ import { PinoLogger } from 'nestjs-pino';
 import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
+/** Lo que la OC dice del comprador, como lo leyó BelIA (paso 2b). */
+export interface CompradorDeLaOC {
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  ciudad: string | null;
+}
+
 /** Una OC guardada (tabla `ordenes_de_compra`, migración 184). */
 export interface OrdenDeCompra {
   id: number;
@@ -12,6 +20,7 @@ export interface OrdenDeCompra {
   fecha: string;
   rut: string | null;
   razon_social: string | null;
+  comprador: CompradorDeLaOC | null;
   descripcion: string | null;
   neto: number | null;
   iva: number | null;
@@ -30,6 +39,7 @@ export type DatosDeOrdenDeCompra = Partial<
     | 'fecha'
     | 'rut'
     | 'razon_social'
+    | 'comprador'
     | 'descripcion'
     | 'neto'
     | 'iva'

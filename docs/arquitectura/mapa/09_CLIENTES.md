@@ -1,6 +1,6 @@
 # Mapa: Clientes y contactos
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). **Actualizado el 16-10-2026: el aviso de cliente parecido** (portero en `POST /clients`, flujo A y regla 26). **Actualizado el 04-11-2026: las razones sociales de cada cliente** (migración 184: a quién se factura, varias por cliente; rutas en §3, flujo G, regla 27 y zona 17; en el laboratorio). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). **Actualizado el 16-10-2026: el aviso de cliente parecido** (portero en `POST /clients`, flujo A y regla 26). **Actualizado el 04-11-2026: las razones sociales de cada cliente** (migración 184: a quién se factura, varias por cliente; rutas en §3, flujo G, regla 27 y zona 17; en el laboratorio). **Actualizado el 04-11-2026 en la noche: la factura las guarda al emitir** (flujo G, paso 5). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué hace
 
@@ -172,6 +172,7 @@ Felipe, 04-11: *"es posible como en CCU que algunas facturas sean a un rut y otr
 2. «Agregar» y el lápiz abren el formulario en el mismo lugar, uno a la vez y sin panel flotante: el RUT con `RutInput` (la pieza de la casa, obligatorio), cada casilla con su contador de largo y las referencias con `MultiSelect`. El basurero pregunta con `ConfirmInline`. Solo los ve quien edita la ficha (`puedeEditar`, vendedor hacia arriba).
 3. «Guardar» manda lo que cambió (`utils/datosDeFacturacion.cambiosDeRazonSocial`; al agregar, todo). El motor valida en `CrearRazonSocialDto` y `EditarRazonSocialDto` (el RUT con `RutChileno` de Personas, los largos de `facturacion/datos-del-receptor.LARGO_MAXIMO`, los correos con `CorreosDeFacturacion` y las referencias contra `facturacion/referencias`), verifica que el cliente sea de la empresa de la sesión y limpia con `datosDeFacturacionLimpios`: el RUT sin puntos y con la K mayúscula, lo vacío en null, los correos en minúscula separados por «, » y las referencias sin repetir, en el orden del SII. El mismo RUT dos veces en un cliente responde 409 con palabras.
 4. Los usa la facturación (doc 19 §9.12, paso 2): la factura de una OC va al RUT de esa OC; si ese RUT ya está en la lista, manda lo guardado y no lo impreso en la OC; sin OC, BelIA pregunta a cuál si hay varias, y si no hay ninguna pregunta los datos y los guarda.
+5. **Al emitir una factura (paso 2c, 04-11-2026)** la razón social queda en la ficha sola: si el RUT era nuevo, `FacturasService.recordarReceptor` la crea con `RazonesSocialesService.crear` (con `origen` `orden_de_compra` si venía de una OC, con lo que dijo la OC y la persona confirmó); si ya estaba, lo guardado manda y solo se completa lo que la ficha no tenía, más las referencias que se marcaron «Pedírmela siempre» (E2). Es la conexión x4-26 del mapa 20.
 
 ## 6. Reglas de negocio acordadas
 
