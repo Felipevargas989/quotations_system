@@ -724,5 +724,5 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden:** va DESPUÉS de la 184 (usa `documentos_tributarios`). El número se reservó el 04-11 con la sesión «Eventia (Full)» (que usó la 186). La §30 y la §31 son la 185 y la 186 de las otras sesiones.
 
-**Estado.** Escrita el 05-11-2026. Falta aplicarla en el laboratorio y, con el «a producción» de Felipe, en producción, antes del motor que la usa.
+**Estado.** Escrita el 05-11-2026. **Aplicada en el laboratorio el 05-11-2026** (verificado: RLS encendido, `anon` y `authenticated` sin permisos, y `service_role` sin `UPDATE` ni `DELETE` en `cobros_por_boletear_cambios`). **Falta en producción**, con el «a producción» de Felipe, antes del motor que la usa.
 
