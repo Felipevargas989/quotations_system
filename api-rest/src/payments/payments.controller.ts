@@ -17,6 +17,7 @@ import {
   RECEPTION_AND_UP,
   Roles,
 } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
@@ -38,6 +39,8 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly logger: PinoLogger,
+    // Recepción ve las cuotas solo de lo que ve (doc 21).
+    private readonly alcance: AlcanceDeRecepcion,
   ) {}
 
   @Roles(...OPERATIONS_AND_UP)
@@ -74,10 +77,13 @@ export class PaymentsController {
   @Roles(...RECEPTION_AND_UP)
   @Derecho(null)
   @Get()
-  findAllPaymensFromQuotation(
+  async findAllPaymensFromQuotation(
     @Query('quotationId') quotationId: Quotation['id'],
     @CurrentUser() user: User,
   ) {
+    // Recepción: las cuotas de una cotización que no es de particulares no
+    // le llegan (doc 21); antes le llegaban las de cualquiera.
+    if (!(await this.alcance.veLaCotizacion(user, quotationId))) return [];
     return this.paymentsService.findAllPaymentsFromQuotation(
       [quotationId],
       user.company_id,

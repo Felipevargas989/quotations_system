@@ -19,7 +19,19 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
 
 - Cotizaciones: listar, ver una, crear y editar. El motor ya tiene el
   candado de que recepción solo crea y edita **requerimientos**, nunca
-  cotizaciones formales; se conserva.
+  cotizaciones formales; se conserva. **Desde el 04-11-2026 (doc 21),
+  también las cotizaciones de clientes particulares** (el tipo que la
+  empresa marca con `client_types.es_particular`, migración 186): verlas
+  con precios, crearlas, editarlas, enviarlas, «✨ Crear con IA», el
+  seguimiento, el aviso de cierre y «Sí, puede seguir», sin descuento y sin
+  aceptar, anular ni marcar realizada. Lo decide una sola pieza,
+  `AlcanceDeRecepcion` (`clients/alcance-de-recepcion.ts`), que usan el
+  tablero (`GET /quotations` ya no le entrega las de otros tipos: antes le
+  llegaban todas con montos), la ficha con su sesión, las cuotas, el
+  resumen del cliente (sin montos si no es particular), crear y editar
+  (`QuotationsService.update`). Las rutas de enviar, generar, el
+  seguimiento, el aviso de cierre y los choques pasaron de vendedor a
+  recepción, y cada una revisa que la cotización sea de un particular.
 - Revisar choques de fecha.
 - Consultas del embudo: listar, convertir y descartar.
 - Tipos de evento: leer.

@@ -1,7 +1,9 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { DerechosService } from 'src/auth/derechos.service';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { ChoquesDeFechaService } from '../choques/choques.service';
 import { EnvioCotizacionService } from '../envio-cotizacion.service';
@@ -17,14 +19,27 @@ describe('QuotationsController', () => {
   let controller: QuotationsController;
   const findOne = jest.fn();
   const createPublic = jest.fn();
-  const empresaDe = jest.fn();
+  const perfilDe = jest.fn();
   const licitacionDe = jest.fn();
+  const findAll = jest.fn();
+  // Lo que ve recepción (doc 21): por defecto, todo.
+  const ve = jest.fn().mockResolvedValue(true);
+  const filtrar = jest.fn((_s: unknown, filas: unknown[]) =>
+    Promise.resolve(filas),
+  );
+  const exigirClienteParticular = jest.fn().mockResolvedValue(undefined);
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [QuotationsController],
       providers: [
-        provideMock(QuotationsService, { findOne, createPublic, licitacionDe }),
+        provideMock(QuotationsService, {
+          findOne,
+          findAll,
+          createPublic,
+          licitacionDe,
+          create: jest.fn().mockResolvedValue({ id: 'q-nueva' }),
+        }),
         provideMock(EnvioCotizacionService),
         // El controller pregunta los derechos de la empresa en las
         // puertas públicas, que no tienen sesión (paso 3.2, 14-09-2026).
@@ -35,12 +50,17 @@ describe('QuotationsController', () => {
           useValue: { rescatar: jest.fn() },
         },
         // GET /quotations/:id es pública: quién pregunta (17-10-2026).
-        provideMock(SesionOpcional, { empresaDe }),
+        provideMock(SesionOpcional, { perfilDe }),
         // El botón «✨ Crear con IA» (17-10-2026).
         provideMock(GenerarCotizacionService),
         // «✉ Generar seguimiento» (17-10-2026, doc 18).
         provideMock(SeguimientoConIAService),
         provideMock(ChoquesDeFechaService),
+        provideMock(AlcanceDeRecepcion, {
+          ve,
+          filtrar,
+          exigirClienteParticular,
+        }),
       ],
     }).compile();
 
@@ -62,10 +82,10 @@ describe('QuotationsController', () => {
     });
 
     it('sin sesión, llega sin el comentario', async () => {
-      empresaDe.mockResolvedValue(null);
+      perfilDe.mockResolvedValue(null);
       const r = await controller.findOne('q1');
       expect(r.data).not.toHaveProperty('comentario_interno');
-      expect(empresaDe).toHaveBeenCalledWith(undefined);
+      expect(perfilDe).toHaveBeenCalledWith(undefined);
       // Ni la licitación: eso es de la empresa (decisión 35).
       expect(r.data).not.toHaveProperty('de_licitacion');
       expect(licitacionDe).not.toHaveBeenCalled();
@@ -79,15 +99,15 @@ describe('QuotationsController', () => {
     });
 
     it('con sesión de la misma empresa, llega con el comentario', async () => {
-      empresaDe.mockResolvedValue(1);
+      perfilDe.mockResolvedValue({ company_id: 1, role: 'vendedor' });
       const r = await controller.findOne('q1', 'Bearer pase');
       expect(r.data).toHaveProperty('comentario_interno', 'interno');
-      expect(empresaDe).toHaveBeenCalledWith('Bearer pase');
+      expect(perfilDe).toHaveBeenCalledWith('Bearer pase');
       expect(r.data).toHaveProperty('de_licitacion', null);
     });
 
     it('a su empresa le dice si es lo postulado en una licitación (solo lectura)', async () => {
-      empresaDe.mockResolvedValue(1);
+      perfilDe.mockResolvedValue({ company_id: 1, role: 'administrador' });
       licitacionDe.mockResolvedValue({ id: 40, codigo: '1532886-5-LE26' });
       const r = await controller.findOne('q1', 'Bearer pase');
       expect(r.data).toHaveProperty('de_licitacion', {
@@ -95,6 +115,59 @@ describe('QuotationsController', () => {
         codigo: '1532886-5-LE26',
       });
       expect(licitacionDe).toHaveBeenCalledWith('q1', 1);
+    });
+  });
+
+  // Lo que ve recepción (doc 21, 04-11-2026).
+  describe('recepción y las cotizaciones de particulares', () => {
+    const recepcion = { id: 'u1', company_id: 1, role: 'recepcion' } as never;
+
+    it('la ficha de una que no ve, con su sesión, no llega', async () => {
+      findOne.mockResolvedValue({
+        data: { id: 'q1', company_id: 1, request_type: 'cotizacion' },
+        error: null,
+      });
+      perfilDe.mockResolvedValue({ company_id: 1, role: 'recepcion' });
+      ve.mockResolvedValueOnce(false);
+      await expect(controller.findOne('q1', 'Bearer pase')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('el tablero pasa por la regla', async () => {
+      const filas = [{ id: 'a' }, { id: 'b' }];
+      findAll.mockResolvedValue(filas);
+      filtrar.mockResolvedValueOnce([filas[0]]);
+      const r = await controller.findAll(recepcion, {} as never);
+      expect(filtrar).toHaveBeenCalledWith(recepcion, filas);
+      expect(r).toEqual([filas[0]]);
+    });
+
+    it('crear una cotización: el cliente tiene que ser particular y sin descuento', async () => {
+      await controller.create(
+        { request_type: 'cotizacion', client_id: 'c1' } as never,
+        recepcion,
+      );
+      expect(exigirClienteParticular).toHaveBeenCalledWith(recepcion, 'c1');
+      await expect(
+        controller.create(
+          {
+            request_type: 'cotizacion',
+            client_id: 'c1',
+            discount_percentage: 10,
+          } as never,
+          recepcion,
+        ),
+      ).rejects.toThrow('descuentos');
+    });
+
+    it('un requerimiento lo crea como siempre, sin revisar el cliente', async () => {
+      exigirClienteParticular.mockClear();
+      await controller.create(
+        { request_type: 'requerimiento', client_id: 'c2' } as never,
+        recepcion,
+      );
+      expect(exigirClienteParticular).not.toHaveBeenCalled();
     });
   });
 });

@@ -160,7 +160,9 @@ export class QuotationsRepository {
 
   async findOne(id: string): Promise<{
     data:
-      | (Quotation & { clients: Pick<Client, 'name' | 'email'> } & {
+      | (Quotation & {
+          clients: Pick<Client, 'name' | 'email' | 'client_type'>;
+        } & {
           companies: Pick<Company, 'name'>;
         })
       | null;
@@ -173,7 +175,8 @@ export class QuotationsRepository {
         `*,
         clients (
           name,
-          email
+          email,
+          client_type
         ),
         companies (
           name
