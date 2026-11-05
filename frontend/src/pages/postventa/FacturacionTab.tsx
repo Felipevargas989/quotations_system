@@ -554,13 +554,16 @@ export default function FacturacionTab({
               <Fila oc={oc} pdf={pdfDe(oc)} facturado={facturadoDe(oc.id)} />
               {editando === null && facturando === null && (
                 <div className="flex shrink-0 items-start gap-2 text-gray-400">
-                  <button
-                    type="button"
-                    onClick={() => setFacturando(oc.id)}
-                    className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
-                  >
-                    <FileText size={12} /> Facturar
-                  </button>
+                  {/* Nunca más del 100 % de una OC (doc 19 §5.3). */}
+                  {facturadoDe(oc.id) < oc.total && (
+                    <button
+                      type="button"
+                      onClick={() => setFacturando(oc.id)}
+                      className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+                    >
+                      <FileText size={12} /> Facturar
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditando(oc.id)}
