@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma todo lo que escribe la IA de Eventia; las rutinas de correo de la empresa van aparte), BelIA en todas las empresas y el cupo de US$ 10 (§16), en producción desde la tarde del 04-11 (Felipe: «a producción»; migración 183 en las dos bases); la etapa 2, el cerebro común de la IA de Eventia (`api-rest/src/cerebro/`, §15), en producción desde la tarde del 04-11 (Felipe: «a producción»; sin migración). Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma todo lo que escribe la IA de Eventia; las rutinas de correo de la empresa van aparte), BelIA en todas las empresas y el cupo de US$ 10 (§16), en producción desde la tarde del 04-11 (Felipe: «a producción»; migración 183 en las dos bases); la etapa 2, el cerebro común de la IA de Eventia (`api-rest/src/cerebro/`, §15), en producción desde la tarde del 04-11 (Felipe: «a producción»; sin migración). Las seis mejoras del 04-11 en la noche (§17: el micrófono, el cliente abierto, la fecha, el seguimiento desde el chat, lo que aprende de las correcciones y el cerebro común en Oportunidades), en producción desde esa noche (migración 185 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -814,7 +814,7 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
   pagos ni cobranza, sin Logística no hay compras, sin Personal no hay
   personal.
 
-## 17. Las mejoras del 04-11 en la noche (Felipe: *"vamos con todas"*)
+## 17. Las mejoras del 04-11 en la noche (Felipe: *"vamos con todas"*; en producción)
 
 > **Estado:** plan del 04-11 en la noche. Felipe vio la lista con el uso
 > real de BelIA en producción (24 preguntas, todas suyas; US$ 1,69; 15 s de
@@ -822,10 +822,11 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
 > con todas las mejoras que propusiste, me gustaron todas"*. Van al
 > laboratorio por tandas; a producción, solo con su «a producción».
 > La tanda A (1 y 2), la B (3 y 4) y la C (5), en el laboratorio desde el
-> 04-11 en la noche; la migración 185, solo en el laboratorio. Las
-> habilidades del chat leen también las lecciones aprobadas. De la 6, el
-> cerebro ya tiene la tarea `postular`; falta que la sesión de
-> Oportunidades la ponga en sus instrucciones.
+> 04-11 en la noche; la 6, conectada en las instrucciones de Oportunidades
+> esa misma noche (Felipe: *"conéctalo tú y a producción"*). Todo en
+> producción desde la noche del 04-11, con la migración 185 en las dos
+> bases antes del motor. Las habilidades del chat leen también las
+> lecciones aprobadas.
 
 **Lo que entendí, mejora por mejora** (lo marcado «por defecto» lo puede
 cambiar Felipe):
