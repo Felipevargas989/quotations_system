@@ -131,3 +131,12 @@ export const motivoCorto = (c: CoincidenciaCliente): string => {
 /** Particulares = UNA persona (regla de Felipe, 30-07): no se le suman contactos. */
 export const admiteOtroContacto = (c: CoincidenciaCliente): boolean =>
   (c.tipo || "").trim().toLowerCase() !== "particulares";
+
+/** Mismo correo Y mismo nombre: es ese cliente, no "otro" (Felipe,
+ *  04-11-2026, Hospital de Bulnes triplicado). Ahí no se ofrece «crear
+ *  igual»; con el mismo correo y otro nombre sí (quien organiza varios
+ *  grupos). El motor aplica la misma regla (`esElMismoCliente`). */
+export const permiteCrearIgual = (lista: CoincidenciaCliente[]): boolean =>
+  !lista.some(
+    (c) => c.motivos.includes("correo") && c.motivos.includes("nombre"),
+  );

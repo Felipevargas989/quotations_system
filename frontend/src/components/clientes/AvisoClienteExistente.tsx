@@ -5,6 +5,7 @@ import {
   admiteOtroContacto,
   detalleDeCoincidencia,
   motivoCorto,
+  permiteCrearIgual,
   tituloConLista,
   tituloDelAviso,
 } from "../../utils/avisoCliente";
@@ -109,16 +110,23 @@ export default function AvisoClienteExistente({
               </button>
             )}
           </div>
-          <div className="border-t border-amber-200 pt-3">
-            <button
-              type="button"
-              disabled={ocupado}
-              onClick={onCrearIgual}
-              className={otro}
-            >
-              Es otro cliente, crear igual
-            </button>
-          </div>
+          {permiteCrearIgual(coincidencias) ? (
+            <div className="border-t border-amber-200 pt-3">
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={onCrearIgual}
+                className={otro}
+              >
+                Es otro cliente, crear igual
+              </button>
+            </div>
+          ) : (
+            <p className="border-t border-amber-200 pt-3 text-xs">
+              Mismo correo y mismo nombre: es este cliente. Si algo cambió,
+              corrígelo en su ficha.
+            </p>
+          )}
         </div>
       </div>
     </div>
