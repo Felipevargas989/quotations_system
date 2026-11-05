@@ -487,7 +487,7 @@ En la **misma** migración, las tres empresas vivas (1 Valle del Sol, 51 MDS Hot
 | `oportunidades` | El módulo de Oportunidades: licitaciones y compras ágiles (doc 17, mapa 24) | `modulos_propios`, ningún plan (migración 122) |
 | `cotizar_con_ia` | El botón «✨ Crear con IA» (17-10-2026, mapa 01 §5.7): la llave de Anthropic la paga Valle del Sol | `modulos_propios`, ningún plan (migración 130) |
 | `asistente` | Evia, la ventanilla de chat con IA (03-11-2026, doc 20): la cuenta de Anthropic la paga Valle del Sol, con tope mensual propio | `modulos_propios`, ningún plan (migración 180) |
-| `facturacion` | La facturación electrónica por facturacion.cl (04-11-2026, doc 19): la pestaña «Facturación» de Post-Venta y sus rutas (`OrdenesDeCompraController`); las credenciales y los folios son de Valle del Sol | `modulos_propios`, ningún plan (migración 184) |
+| `facturacion` | La facturación electrónica por facturacion.cl (04-11-2026, doc 19): la pestaña «Facturación» de Post-Venta y sus rutas (`OrdenesDeCompraController`, `FacturasController`), y desde el 05-11-2026 la sección «Boletas» del menú (`BoletasController`; la sección `boletas`, de recepción hacia arriba, con `SECTION_DERECHO.boletas` = `facturacion`: sin el derecho sale con candado, como Oportunidades); las credenciales y los folios son de Valle del Sol | `modulos_propios`, ningún plan (migración 184) |
 
 Topes de cantidad, que no son derechos de sí o no y por eso se cuentan en el servicio: **Cotiza**, 1 usuario y 20 cotizaciones al mes; **Gestiona y Cobra**, 3 usuarios y cotizaciones sin tope; **Opera y Crece**, sin topes.
 

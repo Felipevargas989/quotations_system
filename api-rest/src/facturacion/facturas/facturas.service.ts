@@ -16,7 +16,6 @@ import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
 import {
   EnvioSinRespuesta,
-  type FacturacionCl,
   type RespuestaDeProcesar,
 } from '../facturacion-cl/facturacion-cl';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
@@ -30,6 +29,7 @@ import {
   type Revision,
 } from './borrador';
 import { ConexionConFacturacionCl } from './conexion';
+import { guardarCopiaDelPdf } from './copia-del-pdf';
 import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
@@ -289,11 +289,12 @@ export class FacturasService {
 
     // Lo que sigue no cambia la factura: si algo falla, se avisa en el
     // registro y la factura queda emitida igual.
-    emitido = await this.guardarPdf(
-      emitido,
-      quotationId,
-      companyId,
+    emitido = await guardarCopiaDelPdf(
+      this.repo,
       conexion,
+      emitido,
+      companyId,
+      quotationId,
     ).catch((e: unknown) => {
       this.logger.warn(`PDF de la factura ${emitido.folio}: ${mensajeDe(e)}`);
       return emitido;
@@ -378,31 +379,6 @@ export class FacturasService {
       emisor,
       ambiente: conexion.ambiente,
     };
-  }
-
-  /** La copia propia del PDF (L10), también en Documentos → Facturas. */
-  private async guardarPdf(
-    doc: DocumentoTributario,
-    quotationId: string,
-    companyId: number,
-    conexion: FacturacionCl,
-  ) {
-    if (doc.folio == null) return doc;
-    const pdf = await conexion.obtenerPdf(doc.tipo, doc.folio);
-    // Todavía no está: la pantalla dice «PDF en camino» (§9.10).
-    if (!pdf) return doc;
-    const sufijo = doc.ambiente === 'produccion' ? '' : `_${doc.ambiente}`;
-    const ruta = `c${companyId}/event-documents/${quotationId}/facturas/factura_${doc.folio}${sufijo}.pdf`;
-    await this.repo.guardarPdf(ruta, pdf);
-    const conPdf = await this.repo.actualizar(doc.id, companyId, {
-      pdf_path: ruta,
-    });
-    await this.repo.agregarAlEvento(
-      quotationId,
-      `Factura N° ${doc.folio}${doc.ambiente === 'simulado' ? ' (simulada)' : ''}.pdf`,
-      ruta,
-    );
-    return conPdf;
   }
 
   /**

@@ -19,7 +19,11 @@
 > **Paso 2c construido esa misma noche:** «Facturar» en cada OC (o sin OC):
 > el borrador de BelIA como la maqueta, «Editar a mano», «Ver cómo sale» y
 > «Emitir factura» contra facturacion.cl simulado, con la lista de lo
-> emitido (§9.15).
+> emitido (§9.15). Probado en el laboratorio con CCU (#408): la factura
+> simulada N° 1.
+> **Paso 3a construido el 05-11** (Felipe: *"si avancemos con el paso 3"*):
+> «Por boletear» en el evento y la sección «Boletas» de recepción, con el
+> reparto por cabaña y una boleta por cabaña (§9.16). La D3 quedó decidida.
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -164,7 +168,7 @@ Se revisaron tres fuentes:
 |---|---|---|
 | D1 | ¿Las boletas del restaurante siguen saliendo por Fudo? | Sí. Fudo es la caja del restaurante, y los dos sistemas pueden convivir si cada uno tiene sus propios folios. |
 | D2 | ¿Se compra el Servicio de Integración, y quién queda como técnico registrado? | Sí, con felipe@ como técnico: las claves le llegan a Felipe y él las carga en Railway. |
-| D3 | ¿De dónde sale el valor de la boleta de cabaña? Hoy el catálogo no tiene las tarifas de las cabañas: solo «Alojamiento temporada…» por persona y una «Cabaña 3H 2B». | Agregar un tarifario de cabañas: 2, 4 y 6 personas por temporada, persona adicional y tinaja. Que solo el administrador pueda escribir el monto a mano. |
+| D3 | ¿De dónde sale el valor de la boleta de cabaña? Hoy el catálogo no tiene las tarifas de las cabañas: solo «Alojamiento temporada…» por persona y una «Cabaña 3H 2B». | **DECIDIDA el 04-11** (Felipe: *"tarifario aparte puede ser cabañas, ticket diario, otros"*): un tarifario propio de las boletas, fuera del catálogo del cotizador (migración 187, §9.16). Que solo el administrador pueda escribir el monto a mano. |
 | D4 | En una factura sin OC, ¿el % se calcula sobre el total del evento? | Sí. |
 | D5 | ¿Quién emite cada documento? | Boletas: de recepción hacia arriba. Facturas y notas de crédito: el administrador. |
 | D6 | ¿Los eventos de particulares (matrimonios) también se boletean desde la ficha del evento? | Sí, en el paso 3. |
@@ -565,7 +569,7 @@ La conexión de verdad es el paso 5.
 |---|---|---|
 | 1 | **1a, en el laboratorio desde el 04-11** (migración 184): «Datos de facturación» y «Referencias que pide» en la ficha del cliente, y las tablas. **1b, pendiente:** los armadores y el simulado. Los datos: «Datos de facturación» y «Referencias que pide» en la ficha del cliente; las tablas de OC y de documentos tributarios, con su cadena (`modifica_id`); los armadores puros del TXT (factura con referencias, boleta, nota de crédito y de débito) con sus pruebas; y facturacion.cl simulado. | Nada de afuera. |
 | 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir» (hecho el 04-11, §9.15). | E1, E2 y E4. |
-| 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. | D3 y E3. |
+| 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. En dos tramos: **3a** «Por boletear» con el reparto por cabaña y «Emitidas hoy» (hecho el 05-11, §9.16); **3b** la boleta suelta y el tarifario. | D3 (decidida el 04-11) y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte. | E5. |
 | 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
 
@@ -747,6 +751,49 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
 **Queda para después:** «Comprobar» una factura por confirmar y volver a
 pedir un PDF que no llegó (paso 4, con la lista de Facturación); que las
 notas de crédito resten de lo facturado de la OC (paso 4).
+
+### 9.16 El paso 3: las boletas de recepción (04-11 y 05-11)
+
+**Lo que decidió Felipe (04-11, en la noche):**
+- **D3:** *"tarifario aparte puede ser cabañas, ticket diario, otros"*. Un
+  tarifario propio de las boletas (`tarifario_de_boletas`), fuera del
+  catálogo del cotizador. Lo medido en producción ese día: el catálogo
+  tiene el alojamiento **por persona** (temporada baja $18.000, media
+  $22.000 y alta $28.000), las tinajas ($30.000 las 4 horas) y una «Cabaña
+  3H 2B» desactivada; no hay tarifa por cabaña y noche.
+- **La cabaña la escribe recepción** (*"Recepción la escribe"*): texto
+  libre, sin una lista de las 14 cabañas.
+
+**3a, hecho el 05-11** (migración 187; maqueta del 04-11):
+- **En el evento** (pestaña Facturación): «Por boletear» con «Dejar para
+  boletear» (solo el administrador: qué se cobra, hasta 55, y el total con
+  IVA) y lo que va boleteado de cada cobro.
+- **La sección «Boletas»** del menú, de recepción hacia arriba (D5) y solo
+  con el módulo propio `facturacion` (sin él, el ítem sale con candado como
+  Oportunidades). «Por boletear»: cada cobro con «Total puesto por …», lo
+  boleteado y lo que falta, y sus cabañas (la cabaña hasta 22, el monto y
+  el correo del huésped). Se guarda al salir de cada casilla. «Emitir N
+  boletas» se prende solo cuando lo repartido suma el total, y pide
+  confirmación. «Emitidas hoy»: las boletas del día y su total (L18).
+- **E3:** el total y cada cabaña se cambian antes de emitir, y cada cambio
+  queda en `cobros_por_boletear_cambios` con el antes, el después y quién
+  («Ver cambios»). Lo que ya tiene boleta no se toca, el total no baja de
+  lo boleteado y un cobro con boletas no se borra.
+- **Una boleta por cabaña** (39, folio 0, con IVA, el RUT 66666666-6 y el
+  correo del huésped si lo dio): la glosa es la cabaña y el cobro
+  («Cabaña 8 · Delegación Vilcún · alojamiento 12 al 15-11»), que cabe
+  entera en 80. Cada una con los candados de la factura: `enviando` antes
+  de mandarla, la cabaña amarrada a su boleta ANTES de `procesar` (un corte
+  no la emite dos veces), sin reintentos (si se corta, «por confirmar» y se
+  detiene) y, si facturacion.cl la rechaza, la cabaña vuelve a quedar por
+  emitir. El PDF va a Documentos → Facturas del evento.
+- En el motor, `api-rest/src/facturacion/boletas/`, y la copia del PDF
+  compartida con la factura en `facturas/copia-del-pdf.ts`.
+
+**3b, lo que sigue:** la boleta suelta (lo del tarifario por la cantidad,
+con la cabaña escrita por recepción) y la pantalla del tarifario para el
+administrador. Escribir el monto a mano en una boleta suelta: solo el
+administrador.
 
 ### 9.11 Fuentes nuevas (04-11)
 

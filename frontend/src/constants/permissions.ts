@@ -33,7 +33,10 @@ export type Section =
   | "customer_satisfaction_survey"
   // Licitaciones y compras ágiles de Mercado Público (doc 17): solo
   // administrador (Felipe, 17-10: "solo el administrador y Camila").
-  | "oportunidades";
+  | "oportunidades"
+  // Las boletas de las cabañas (doc 19 §9.4): de recepción hacia arriba
+  // (D5), solo con el módulo propio `facturacion` (SECTION_DERECHO).
+  | "boletas";
 
 // Define which roles can access which sections
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
@@ -50,13 +53,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   // (el menú lateral, vía canAccessSection) y SECTION_ROLES más abajo
   // (las rutas, vía PermissionGuard). El 03-10 se cambió solo la de
   // abajo y el menú siguió ofreciendo pantallas que la ruta rebotaba.
-  recepcion: ["requests", "calendar", "configuration"],
+  recepcion: ["requests", "calendar", "configuration", "boletas"],
   vendedor: [
     "requests",
     "clients",
     "quotations",
     "quotations_edit",
     "configuration",
+    "boletas",
   ],
   operaciones: [
     "requests",
@@ -67,6 +71,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "configuration",
     "calendar",
     "logistics",
+    "boletas",
   ],
   administrador: [
     "dashboard",
@@ -88,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "marketing",
     "customer_satisfaction_survey",
     "oportunidades",
+    "boletas",
   ],
 };
 
@@ -164,6 +170,7 @@ export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   people: "personal",
   marketing: "marketing",
   oportunidades: "oportunidades",
+  boletas: "facturacion",
 };
 
 export type EmpresaConDerechos =
@@ -270,4 +277,5 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   marketing: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
   oportunidades: ROLE_GROUPS.ADMIN_ONLY,
+  boletas: ROLE_GROUPS.RECEPTION_AND_UP,
 };

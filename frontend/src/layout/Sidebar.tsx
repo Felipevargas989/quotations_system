@@ -16,6 +16,7 @@ import {
   Inbox,
   Lock,
   Radar,
+  ReceiptText,
 } from "lucide-react";
 import {
   canAccessSection,
@@ -97,6 +98,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Receipt,
       section: "payments",
       precargar: () => import("../pages/postventa/PostVentaPage"),
+    },
+    {
+      // Las boletas de las cabañas (doc 19 §9.4): recepción hacia arriba,
+      // solo con el módulo propio `facturacion`.
+      name: "Boletas",
+      href: "/boletas",
+      icon: ReceiptText,
+      section: "boletas",
+      precargar: () => import("../pages/boletas/BoletasPage.tsx"),
     },
     {
       // 28-07 (pedido de Felipe): "Catálogo" describe mejor lo que hay
