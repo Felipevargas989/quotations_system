@@ -1,4 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  ADMIN_ONLY,
+  OPERATIONS_AND_UP,
+  ROLES_KEY,
+} from 'src/auth/roles.decorator';
+import { UserRole } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../testing/mocks';
 import {
   FacturacionClSimulado,
@@ -10,6 +16,7 @@ import {
   plazoDelSii,
   type DocumentoDeLaCadena,
 } from '../notas/cadena';
+import { NotasController } from '../notas/notas.controller';
 import { NotasService } from '../notas/notas.service';
 
 /**
@@ -439,7 +446,7 @@ describe('Cada documento en su ambiente (§9.18)', () => {
               : null,
       },
     });
-    const lista = await servicio.lista(1, '2026-11');
+    const lista = await servicio.lista(1, '2026-11', UserRole.ADMINISTRADOR);
     const simulada = lista.documentos.find((d) => d.id === 10);
     expect(simulada?.acciones).toMatchObject({
       anular: false,
@@ -486,6 +493,55 @@ describe('Cada documento en su ambiente (§9.18)', () => {
   });
 });
 
+describe('Una sola sección: lo que ve cada cargo (§9.19)', () => {
+  it('operaciones mira la lista y pide el PDF; anular y «Comprobar» son del administrador', async () => {
+    const { servicio } = armar({
+      documentos: [
+        { ...FACTURA_1, pdf_path: null },
+        {
+          ...FACTURA_1,
+          id: 30,
+          folio: null,
+          estado: 'por_confirmar',
+        },
+      ],
+    });
+    const lista = await servicio.lista(1, '2026-11', UserRole.OPERACIONES);
+    expect(lista.documentos.find((d) => d.id === 10)?.acciones).toEqual({
+      anular: false,
+      rebajar: false,
+      corregir: false,
+      comprobar: false,
+      pedirPdf: true,
+    });
+    expect(lista.documentos.find((d) => d.id === 30)?.acciones.comprobar).toBe(
+      false,
+    );
+    const delAdmin = await servicio.lista(1, '2026-11', UserRole.ADMINISTRADOR);
+    expect(
+      delAdmin.documentos.find((d) => d.id === 10)?.acciones,
+    ).toMatchObject({ anular: true, rebajar: true, corregir: true });
+  });
+
+  it('las puertas del motor: la lista y el PDF desde operaciones, lo demás solo el administrador', () => {
+    const cargos = (metodo: keyof NotasController) =>
+      Reflect.getMetadata(ROLES_KEY, NotasController.prototype[metodo]) as
+        | string[]
+        | undefined;
+    expect(cargos('lista')).toEqual(OPERATIONS_AND_UP);
+    expect(cargos('pedirPdf')).toEqual(OPERATIONS_AND_UP);
+    for (const m of [
+      'comprobar',
+      'revisarNota',
+      'emitirNota',
+      'conexion',
+    ] as const)
+      expect(cargos(m)).toEqual(ADMIN_ONLY);
+    // Sin cargo en la clase: cada puerta dice el suyo.
+    expect(Reflect.getMetadata(ROLES_KEY, NotasController)).toBeUndefined();
+  });
+});
+
 describe('La lista de Facturación', () => {
   it('cada documento con su cadena, y lo facturado del mes neto de notas', async () => {
     const { servicio } = armar({
@@ -501,7 +557,7 @@ describe('La lista de Facturación', () => {
         },
       ],
     });
-    const lista = await servicio.lista(1, '2026-11');
+    const lista = await servicio.lista(1, '2026-11', UserRole.ADMINISTRADOR);
     expect(
       lista.documentos.map((d) => [
         d.titulo,

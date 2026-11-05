@@ -69,6 +69,11 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   conversación de quien escribe (`GET`, `PUT` y `DELETE
   /asistente/conversacion`, migración 182), siempre la de la sesión.
 
+- Facturación (doc 19, mapa 04): las boletas de las cabañas, «Por
+  boletear» repartido por cabaña y la boleta suelta (`/boletas`), con el
+  derecho `facturacion`. El tarifario, los cobros y la línea a mano, solo el
+  administrador.
+
 ## Vendedor y arriba
 
 Lo que ya vende.
@@ -101,6 +106,12 @@ Lo que ya se cobró y se opera.
 - Post‑Venta: abonos y comprobantes del portal, leer y confirmar.
 - Las sillas de personal por cargo y monto, y leer fichas de liquidación.
 - Borrar archivos.
+- Facturación (doc 19 §9.19, 05-11-2026; Felipe: «ver, reporte y PDF»): la
+  lista de documentos del mes (`GET /facturacion/documentos`), con el
+  reporte, y «Pedir el PDF». También la pestaña Facturación del evento y
+  sus OC. Emitir una factura, anular o rebajar con notas (E5), «Comprobar»
+  y «Probar la conexión» quedan solo para el administrador. Cada puerta de
+  `NotasController` dice su cargo: lo cubre `facturacion/tests/notas.spec.ts`.
 
 ## Solo administrador
 

@@ -7,7 +7,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
-import type { User } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { armarFactura } from '../archivo/factura';
 import { netoParaElTotal } from '../archivo/montos';
@@ -92,8 +92,10 @@ export class NotasService {
     this.logger.setContext(NotasService.name);
   }
 
-  /** La lista de Facturación de un mes, con la cadena. */
-  async lista(companyId: number, mes?: string) {
+  /** La lista de Facturación de un mes, con la cadena. Anular, rebajar,
+   *  corregir y «Comprobar» se ofrecen solo al administrador (E5); los
+   *  demás miran, bajan el reporte y piden el PDF (§9.19). */
+  async lista(companyId: number, mes: string | undefined, cargo: UserRole) {
     const hoy = hoyEnChile();
     const elMes = mes ?? hoy.slice(0, 7);
     const { desde, hasta } = delMes(elMes);
@@ -109,12 +111,13 @@ export class NotasService {
     // no se puede, no se ofrece.
     const aMano = (ambiente: AmbienteDeFacturacion) =>
       this.conexion.de(companyId, ambiente) != null;
+    const esAdmin = cargo === UserRole.ADMINISTRADOR;
 
     const documentos = delPeriodo.map((d) => {
       const total = Number(d.total);
       const emitido = d.estado === 'emitido';
       const conCadena = emitido && CON_NOTAS.has(d.tipo);
-      const conNotas = conCadena && d.ambiente === conexion.ambiente;
+      const conNotas = esAdmin && conCadena && d.ambiente === conexion.ambiente;
       const estado = conCadena
         ? cadena.estado(d.id)
         : { como: 'vigente' as const };
@@ -179,6 +182,7 @@ export class NotasService {
             conNotas && d.tipo === 33 && vigente && cadena.saldo(d.id) > 0,
           corregir: conNotas && d.tipo === 33 && vigente,
           comprobar:
+            esAdmin &&
             (d.estado === 'por_confirmar' || d.estado === 'enviando') &&
             aMano(d.ambiente),
           pedirPdf: emitido && !d.pdf_path && aMano(d.ambiente),

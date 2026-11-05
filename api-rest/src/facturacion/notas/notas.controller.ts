@@ -10,17 +10,19 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
-import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { MesDto, NotaPedidaDto } from './nota.dto';
 import { NotasService } from './notas.service';
 
 // La lista de Facturación y las notas (doc 19 §9.5, paso 4): todo lo
 // emitido, la cadena de anulaciones, «Comprobar» y las notas de crédito y
-// de débito. Solo el administrador (E5), solo con el módulo propio
-// `facturacion`, y la empresa sale SIEMPRE de la sesión.
+// de débito. Solo con el módulo propio `facturacion`, y la empresa sale
+// SIEMPRE de la sesión. Desde el 05-11 (§9.19, una sola sección), la lista
+// y «Pedir el PDF» son de operaciones y arriba (Felipe: «ver, reporte y
+// PDF»); anular, «Comprobar» y «Probar la conexión», solo del
+// administrador (E5).
 @Derecho('facturacion')
-@Roles(...ADMIN_ONLY)
 @Controller('facturacion')
 export class NotasController {
   constructor(
@@ -31,29 +33,34 @@ export class NotasController {
   }
 
   @Get('documentos')
+  @Roles(...OPERATIONS_AND_UP)
   lista(@Query() q: MesDto, @CurrentUser() user: User) {
-    return this.notas.lista(user.company_id, q.mes);
+    return this.notas.lista(user.company_id, q.mes, user.role);
   }
 
   /** «Probar la conexión» con facturacion.cl (paso 0): no emite nada. */
   @Get('conexion')
+  @Roles(...ADMIN_ONLY)
   conexion(@CurrentUser() user: User) {
     this.logger.info('GET /facturacion/conexion');
     return this.notas.conexionConFacturacionCl(user.company_id);
   }
 
   @Post('documentos/:id/comprobar')
+  @Roles(...ADMIN_ONLY)
   comprobar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     this.logger.info(`POST /facturacion/documentos/${id}/comprobar`);
     return this.notas.comprobar(user, id);
   }
 
   @Post('documentos/:id/pdf')
+  @Roles(...OPERATIONS_AND_UP)
   pedirPdf(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.notas.pedirPdf(user, id);
   }
 
   @Post('documentos/:id/notas/revisar')
+  @Roles(...ADMIN_ONLY)
   revisarNota(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: NotaPedidaDto,
@@ -63,6 +70,7 @@ export class NotasController {
   }
 
   @Post('documentos/:id/notas/emitir')
+  @Roles(...ADMIN_ONLY)
   emitirNota(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: NotaPedidaDto,
