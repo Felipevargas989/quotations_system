@@ -14,6 +14,7 @@ import type { QuotationsService } from 'src/quotations/quotations.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../testing/mocks';
 import type { AsistenteRepository } from '../asistente.repository';
+import type { CambioDeCliente } from '../propuestas/cambio-de-cliente';
 import { CotizacionNuevaService } from '../propuestas/cotizacion-nueva.service';
 import type {
   EventoDeLaCotizacion,
@@ -180,8 +181,9 @@ export const armarServicio = (
   q: CotizacionParaCambiar,
   propuesta: Partial<Propuesta> = {},
   // Los tipos de cliente particulares de la empresa, para recepción (doc
-  // 21). Sin ellos, el servicio se arma sin la pieza, como antes.
-  opciones: { particulares?: string[] } = {},
+  // 21), y el cambio de un cliente (§6). Sin ellos, el servicio se arma sin
+  // esas piezas, como antes.
+  opciones: { particulares?: string[]; cambioDeCliente?: CambioDeCliente } = {},
 ) => {
   const p: Propuesta = {
     id: 'p1',
@@ -312,6 +314,7 @@ export const armarServicio = (
     seguimientoDelChat as unknown as SeguimientoDesdeElChat,
     leccionesDelChat as unknown as LeccionesDesdeElChat,
     alcance as unknown as AlcanceDeRecepcion | undefined,
+    opciones.cambioDeCliente,
   );
   return {
     servicio,

@@ -23,7 +23,9 @@ export type TarjetaDePropuesta = {
     | "cotizacion_nueva"
     | "seguimiento"
     | "leccion"
-    | "leccion_estado";
+    | "leccion_estado"
+    // Corregir un cliente mal clasificado (doc 21 §6).
+    | "cliente";
   /** Null en un evento nuevo hasta que se crea. */
   numero: number | null;
   cliente: string | null;

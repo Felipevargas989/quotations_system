@@ -10,6 +10,7 @@ import { AsistenteService } from './asistente.service';
 import { ConversacionRepository } from './conversacion/conversacion.repository';
 import { ConversacionService } from './conversacion/conversacion.service';
 import { LoLeido } from './conversacion/lo-leido';
+import { CambioDeCliente } from './propuestas/cambio-de-cliente';
 import { CotizacionNuevaService } from './propuestas/cotizacion-nueva.service';
 import { LeccionesDesdeElChat } from './propuestas/lecciones-desde-el-chat';
 import { PropuestasRepository } from './propuestas/propuestas.repository';
@@ -42,6 +43,8 @@ import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
     SeguimientoDesdeElChat,
     // Lo que aprende de las correcciones (doc 20 §17, mejora 5).
     LeccionesDesdeElChat,
+    // Corregir un cliente mal clasificado (doc 21 §6).
+    CambioDeCliente,
     // La conversación de cada persona (doc 20 §13, migración 182).
     ConversacionService,
     ConversacionRepository,

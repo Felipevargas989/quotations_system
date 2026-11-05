@@ -611,6 +611,7 @@ export class AsistenteService {
         empresa,
         p.cliente_id,
         rol,
+        this.alcance,
       ).catch((e: unknown) => {
         this.logger.warn(`BelIA, cliente abierto: ${mensajeDe(e)}`);
         return null;

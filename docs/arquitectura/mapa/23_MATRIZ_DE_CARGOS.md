@@ -63,7 +63,9 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   que ve cada cargo lo deciden sus herramientas: a recepción le llegan sin
   plata ni enlace a la ficha, y solo crea requerimientos. Desde el doc 21,
   lo de un cliente particular le llega completo y lo puede cotizar con
-  BelIA (mapa 25). Incluye la
+  BelIA (mapa 25). Corregir un cliente mal clasificado
+  (`proponer_cambio_de_cliente`, doc 21 §6) es de quien vende, como editar
+  el cliente: recepción no cambia tipos. Incluye la
   conversación de quien escribe (`GET`, `PUT` y `DELETE
   /asistente/conversacion`, migración 182), siempre la de la sesión.
 

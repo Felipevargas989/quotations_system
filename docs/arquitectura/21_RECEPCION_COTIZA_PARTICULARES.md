@@ -7,8 +7,11 @@
 > tandas R1 (el motor) y R2 (la pantalla) escritas esa noche en la rama
 > `feature/recepcion-particulares`, y en el laboratorio desde las 22:5x
 > (pruebas 35699c36). La R3, primera parte (BelIA con los particulares, y
-> el catálogo que le faltaba al cotizador), escrita en la madrugada del
-> 05-11. Falta la segunda parte: los clientes mal clasificados.
+> el catálogo que le faltaba al cotizador), en el laboratorio desde la
+> madrugada del 05-11 (pruebas 397cb8ef); la segunda parte (los clientes
+> mal clasificados), escrita esa misma madrugada (Felipe: *"siga en
+> secuencia con todas las partes que falten"*). Con eso, las tres tandas
+> están escritas; a producción, con su «a producción».
 
 ## 1. Lo que pidió Felipe
 
@@ -117,6 +120,12 @@ Hecho en R2:
   (*"el cliente es el particular que está cotizando"*). Con una tarjeta para
   cambiar el tipo o el nombre, que se aprueba como las demás (tipo de
   propuesta nuevo `cliente`, migración 186). Recepción no cambia tipos.
+  **Hecho (R3, segunda parte):** con los casos del 04-11 como regla: los
+  clubes a gremios (el de adulto mayor, a su tipo), las fundaciones y las
+  SpA a empresas, los colegios a colegios, las municipalidades a empresas
+  públicas, y con nombre de colegio, correo personal y un contacto, el
+  cliente pasa a ser esa persona. La tarjeta avisa si con el cambio
+  recepción deja de ver (o empieza a ver) sus cotizaciones.
 
 ## 7. La encuesta: la vía queda abierta (decidido)
 
@@ -133,5 +142,10 @@ importa"*. Queda como está: el enlace es un código largo que no se adivina.
 1. **R1, el motor**: la 186, la regla y sus puertas, con sus pruebas (también
    la prueba de la matriz de cargos).
 2. **R2, la pantalla**.
-3. **R3, BelIA**: los montos y las propuestas (primera parte, hecha) y los
-   clientes mal clasificados (segunda parte).
+3. **R3, BelIA**: los montos y las propuestas (primera parte) y los
+   clientes mal clasificados (segunda parte). Las dos, hechas.
+
+**A producción**, con el «a producción» de Felipe y en este orden: la 186 en
+la base de producción, el motor (PR desde `feature/recepcion-particulares`)
+y después la vitrina, que manda `vista=calendario` (el motor viejo la
+rechaza).

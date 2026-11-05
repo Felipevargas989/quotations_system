@@ -204,7 +204,9 @@ export type NuevaPropuesta = {
     | 'cotizacion_nueva'
     | 'seguimiento'
     | 'leccion'
-    | 'leccion_estado';
+    | 'leccion_estado'
+    // Corregir un cliente mal clasificado (doc 21 §6, migración 186).
+    | 'cliente';
   resumen: string;
   antes: Record<string, unknown>;
   despues: Record<string, unknown>;
