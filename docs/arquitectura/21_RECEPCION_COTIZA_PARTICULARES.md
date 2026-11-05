@@ -99,7 +99,11 @@ Hecho en R2:
 - **el calendario queda como estaba**: ve todos los eventos, sin montos y
   sin abrir la ficha. Sus particulares los trabaja desde el tablero;
 - en el cotizador usa los menús guardados y los paquetes, sin guardarlos,
-  renombrarlos, borrarlos ni ordenar sus grupos (`soloElegir`).
+  renombrarlos, borrarlos ni ordenar sus grupos (`soloElegir`);
+- y en la lista de clientes del cotizador ve solo a los de sus tipos
+  particulares, más el que ya está elegido (`clientesParaElCotizador`; la
+  lista de tipos trae la marca `es_particular`). Al guardar, el motor lo
+  revisa igual.
 
 ## 6. BelIA
 

@@ -28,3 +28,29 @@ export const estadosPara = (
   if (actual && ESTADOS_DE_OPERACIONES.includes(actual)) return [actual];
   return estados.filter((e) => !ESTADOS_DE_OPERACIONES.includes(e));
 };
+
+/** Los clientes que recepción ve en el cotizador: los de los tipos que su
+ *  empresa marcó como particulares (doc 21), más el que ya está elegido,
+ *  para no esconderlo. Los demás cargos, todos. Si la empresa no marcó
+ *  ninguno, todos: al guardar, el motor responde igual. */
+export const clientesParaElCotizador = <
+  C extends { id: string; client_type?: string | null },
+>(
+  rol: string | null | undefined,
+  clientes: C[],
+  tipos: { name: string; es_particular?: boolean }[],
+  elegido?: string | null,
+): C[] => {
+  if (!esRecepcion(rol)) return clientes;
+  const particulares = new Set(
+    tipos
+      .filter((t) => t.es_particular)
+      .map((t) => t.name.trim().toLowerCase()),
+  );
+  if (particulares.size === 0) return clientes;
+  return clientes.filter(
+    (c) =>
+      c.id === elegido ||
+      particulares.has((c.client_type ?? "").trim().toLowerCase()),
+  );
+};

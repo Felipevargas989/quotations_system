@@ -10,6 +10,8 @@ export interface ClientTypeItem {
   id: number;
   name: string;
   sort_order?: number | null;
+  /** Lo que recepción cotiza (doc 21, migración 186). */
+  es_particular?: boolean;
 }
 
 export const getClientTypes = async (): Promise<ClientTypeItem[]> => {
@@ -50,7 +52,10 @@ export const createClientType = async (
 };
 
 export const deleteClientType = async (id: number) => {
-  const response = await apiRequest(`${API_ROUTES.CLIENT_TYPES}/${id}`, "DELETE");
+  const response = await apiRequest(
+    `${API_ROUTES.CLIENT_TYPES}/${id}`,
+    "DELETE",
+  );
   return { data: response };
 };
 

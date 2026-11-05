@@ -84,7 +84,7 @@ import { comentarioParaGuardar } from "../../utils/comentarioInterno";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
-import { esRecepcion } from "../../utils/recepcion";
+import { clientesParaElCotizador, esRecepcion } from "../../utils/recepcion";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
 import { getBaseCatalogo } from "../../services/logistics.service";
@@ -2464,8 +2464,14 @@ export default function QuotationForm() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Cliente *
                 </label>
+                {/* Recepción, sus clientes particulares (doc 21). */}
                 <SelectWithSearch
-                  options={clients.map((client) => ({
+                  options={clientesParaElCotizador(
+                    userRole,
+                    clients,
+                    clientTypesData ?? [],
+                    formData.client_id,
+                  ).map((client) => ({
                     value: client.id,
                     label: client.name,
                   }))}

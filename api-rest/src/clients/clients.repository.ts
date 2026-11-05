@@ -107,15 +107,27 @@ export class ClientsRepository {
   async findTypes(companyId: number) {
     this.logger.info(`findTypes with companyId ${companyId}`);
     // Orden manual de la empresa (flechas ↑↓ en "Gestionar tipos");
-    // los sin orden asignado van al final, alfabéticamente.
-    const { data, error } = await this.supabase.client
-      .from('client_types')
-      .select('id, name, sort_order')
-      .eq('company_id', companyId)
-      .order('sort_order', { ascending: true, nullsFirst: false })
-      .order('name');
+    // los sin orden asignado van al final, alfabéticamente. Con la marca de
+    // los particulares (doc 21, migración 186): el cotizador de recepción
+    // muestra solo esos clientes. Sin la columna todavía, como antes.
+    const leer = (columnas: string) =>
+      this.supabase.client
+        .from('client_types')
+        .select(columnas)
+        .eq('company_id', companyId)
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('name');
+    type Tipo = {
+      id: number;
+      name: string;
+      sort_order: number | null;
+      es_particular?: boolean;
+    };
+    const conMarca = await leer('id, name, sort_order, es_particular');
+    if (!conMarca.error) return conMarca.data as unknown as Tipo[];
+    const { data, error } = await leer('id, name, sort_order');
     if (error) throw error;
-    return data as { id: number; name: string; sort_order: number | null }[];
+    return data as unknown as Tipo[];
   }
 
   /** Los tipos que la empresa marcó como particulares (doc 21 §3,
