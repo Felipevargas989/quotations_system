@@ -39,6 +39,11 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   seguimiento, el aviso de cierre y los choques pasaron de vendedor a
   recepción, y cada una revisa que la cotización sea de un particular.
 - Revisar choques de fecha.
+- Catálogo, leer (doc 21, 04-11-2026): servicios, secciones fijas, menús
+  guardados y paquetes, con sus grupos. Recepción cotiza a los particulares
+  desde el cotizador, que los necesita; ahí usa los menús y los paquetes sin
+  guardarlos, renombrarlos ni borrarlos (`soloElegir` en `MenusGuardados` y
+  `SelectorDePaquetes`).
 - Consultas del embudo: listar, convertir y descartar.
 - Tipos de evento: leer.
 - Clientes: listar, ver la ficha y el resumen 360, leer tipos, leer contactos.
@@ -56,7 +61,9 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   también pueda la recepcionista trabajar con Belia"*): las nueve rutas de
   `/asistente` pasan a `RECEPTION_AND_UP`, con el derecho `asistente`. Lo
   que ve cada cargo lo deciden sus herramientas: a recepción le llegan sin
-  plata ni enlace a la ficha, y solo crea requerimientos. Incluye la
+  plata ni enlace a la ficha, y solo crea requerimientos. Desde el doc 21,
+  lo de un cliente particular le llega completo y lo puede cotizar con
+  BelIA (mapa 25). Incluye la
   conversación de quien escribe (`GET`, `PUT` y `DELETE
   /asistente/conversacion`, migración 182), siempre la de la sesión.
 
@@ -67,7 +74,9 @@ Lo que ya vende.
 - Borrar una cotización, y mandarla por correo. **Decisión 1, tomada**: el candado
   de requerimientos también aplica a borrar (`QuotationsService.remove`
   recibe el cargo), y enviar por correo es de vendedor.
-- Catálogo, leer: servicios, secciones fijas, menús guardados y paquetes.
+- Catálogo, cambiarlo: los menús guardados y los paquetes (guardar, renombrar,
+  borrar, ordenar sus grupos). Leerlo pasó a recepción y arriba el 04-11
+  (doc 21: ver arriba).
 - Evia, la ventanilla de chat con IA (doc 20, 03-11-2026): `POST
   /asistente/mensajes`, con el derecho `asistente`. Felipe: *"lo usa
   administración y vendedores"*. (Desde el 04-11, las rutas de BelIA son

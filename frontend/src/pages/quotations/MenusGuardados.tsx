@@ -43,6 +43,7 @@ export default function MenusGuardados({
   onConfirmarEliminar,
   onCancelarEliminar,
   onRenombrar,
+  soloElegir = false,
 }: {
   readonly grupos: ServiceGroup[];
   readonly conCategoria: boolean;
@@ -52,6 +53,9 @@ export default function MenusGuardados({
   readonly onConfirmarEliminar: (id: number) => Promise<void> | void;
   readonly onCancelarEliminar: () => void;
   readonly onRenombrar: (id: number, nombre: string) => Promise<void>;
+  /** Solo usar los menús, sin renombrar, borrar ni ordenar (recepción, doc
+   *  21: lee el catálogo, no lo cambia). */
+  readonly soloElegir?: boolean;
 }) {
   const [editando, setEditando] = useState<ServiceGroup | null>(null);
   const [ordenandoGrupos, setOrdenandoGrupos] = useState(false);
@@ -151,8 +155,12 @@ export default function MenusGuardados({
                   const m = menuDe(id);
                   if (m) onElegir(m);
                 }}
-                onEditar={(id) => setEditando(menuDe(id) ?? null)}
-                onPedirEliminar={onPedirEliminar}
+                onEditar={
+                  soloElegir
+                    ? undefined
+                    : (id) => setEditando(menuDe(id) ?? null)
+                }
+                onPedirEliminar={soloElegir ? undefined : onPedirEliminar}
                 tituloEliminar="Eliminar menú guardado"
               />
               {lista.filtradas.length === 0 && (
@@ -163,7 +171,7 @@ export default function MenusGuardados({
             </>
           )}
         </div>
-        {categoria && (
+        {categoria && !soloElegir && (
           <div className="flex justify-end border-t border-gray-200">
             <button
               type="button"

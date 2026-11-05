@@ -1,6 +1,6 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { QuotationStatus } from 'src/quotations/constants/constants';
-import { filaComoLaVePersona } from './buscar-cotizaciones';
+import { filasComoLasVePersona } from './buscar-cotizaciones';
 import {
   ESTADOS,
   ErrorDeHerramienta,
@@ -17,7 +17,8 @@ import {
 // Calendario: los eventos que tocan un rango de fechas y los días con más
 // de uno. Lo ven todos, recepción incluida (SECTION_ROLES.calendar), con
 // el derecho del plan (`calendario`, Gestiona y Cobra para arriba). A
-// recepción le llega sin el total ni el enlace a la ficha (doc 20 §13).
+// recepción le llega sin el total ni el enlace a la ficha (doc 20 §13), salvo
+// los eventos de clientes particulares (doc 21).
 
 /** Lo que se ve en el Calendario si no se pide otra cosa: lo vivo y lo
  *  vendido, sin lo perdido ni lo anulado. */
@@ -107,7 +108,7 @@ export const calendario: Herramienta = {
 
     return {
       rango: { desde: conDia(desde), hasta: conDia(hasta) },
-      eventos: filas.map((q) => filaComoLaVePersona(q, ctx.usuario.role)),
+      eventos: await filasComoLasVePersona(filas, ctx),
       dias_con_mas_de_un_evento: conVarios,
     };
   },

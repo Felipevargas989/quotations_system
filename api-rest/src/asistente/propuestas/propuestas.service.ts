@@ -3,8 +3,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LogisticsService } from 'src/logistics/logistics.service';
 import { hoyEnChile } from 'src/oportunidades/analisis/comun';
@@ -45,6 +47,7 @@ import {
   CotizacionNuevaService,
   type DatosDeLaNueva,
 } from './cotizacion-nueva.service';
+import { LoQuePuedeRecepcion } from './de-recepcion';
 import {
   editarFoto,
   type Cambio,
@@ -105,9 +108,16 @@ export class PropuestasService {
     private readonly seguimientoDelChat?: SeguimientoDesdeElChat,
     // Lo que aprende de las correcciones (doc 20 §17, mejora 5).
     private readonly leccionesDelChat?: LeccionesDesdeElChat,
+    // Lo que trabaja recepción (doc 21): las cotizaciones de particulares.
+    // Sin ella, recepción solo crea requerimientos, como antes.
+    @Optional() private readonly alcance?: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(PropuestasService.name);
+    this.deRecepcion = new LoQuePuedeRecepcion(this.guardadas, this.alcance);
   }
+
+  /** Lo que recepción trabaja con BelIA (doc 21, `de-recepcion.ts`). */
+  private readonly deRecepcion: LoQuePuedeRecepcion;
 
   private conSeguimiento(): SeguimientoDesdeElChat {
     if (!this.seguimientoDelChat) {
@@ -151,10 +161,11 @@ export class PropuestasService {
   }
 
   /** La tarjeta del borrador del seguimiento (`seguimiento-desde-el-chat.ts`). */
-  proponerSeguimiento(
+  async proponerSeguimiento(
     usuario: User,
     por: { numero: number } | { id: string },
   ): Promise<TarjetaDePropuesta> {
+    await this.deRecepcion.alProponerSeguimiento(usuario, por);
     return this.conSeguimiento().proponer(usuario, por);
   }
 
@@ -178,6 +189,7 @@ export class PropuestasService {
           : 'No encontré la cotización abierta.',
       );
     }
+    await this.deRecepcion.alProponer(usuario, q, 'cotizar');
     const armada = await this.armar(q, usuario, cambios, hoy, cabecera);
     const antes = n(q.total_amount);
     await this.guardadas.descartarPendientes(empresa, q.id, usuario.id);
@@ -220,7 +232,8 @@ export class PropuestasService {
       numero: q.quotation_number,
       cliente: q.clients?.name ?? null,
       cotizacion_id: q.id,
-      enlace: enlaceDe(q, usuario.role),
+      // A recepción solo le llega la de un particular (doc 21).
+      enlace: enlaceDe(q, usuario.role, true),
       resumen,
       lineas: lineasDeLaTarjeta(armada.lineas, desde),
       total: {
@@ -252,6 +265,7 @@ export class PropuestasService {
           : 'No encontré la cotización abierta.',
       );
     }
+    await this.deRecepcion.alProponer(usuario, q, 'anotar');
     await this.guardadas.descartarPendientes(empresa, q.id, usuario.id);
     const nota = { texto, canal, proximo_contacto: proximoContacto };
     const fila = await this.guardadas.crearPropuesta({
@@ -271,7 +285,7 @@ export class PropuestasService {
       numero: q.quotation_number,
       cliente: q.clients?.name ?? null,
       cotizacion_id: q.id,
-      enlace: enlaceDe(q, usuario.role),
+      enlace: enlaceDe(q, usuario.role, true),
       resumen: fila.resumen,
       lineas: [],
       avisos: [],
@@ -288,12 +302,20 @@ export class PropuestasService {
   async aplicar(usuario: User, id: string): Promise<ResultadoDeAplicar> {
     const empresa = usuario.company_id;
     const p = await this.suya(usuario, id);
-    // Recepción solo crea requerimientos con BelIA (doc 20 §13). Si le
-    // cambiaron el cargo con una propuesta vieja en la mano, no se aplica.
-    if (usuario.role === UserRole.RECEPCION && p.tipo !== 'cotizacion_nueva') {
+    // Recepción (doc 20 §13 y doc 21): requerimientos para cualquiera y las
+    // cotizaciones de particulares; nunca lecciones. Lo de cada cotización
+    // se revisa abajo, con la cotización leída. Si le cambiaron el cargo con
+    // una propuesta vieja en la mano, también.
+    if (
+      usuario.role === UserRole.RECEPCION &&
+      (p.tipo === 'leccion' || p.tipo === 'leccion_estado')
+    ) {
       throw new ForbiddenException(
-        'Con el cargo de recepción, BelIA solo crea requerimientos.',
+        'Con el cargo de recepción, BelIA no anota lecciones.',
       );
+    }
+    if (p.tipo === 'cotizacion_nueva') {
+      await this.deRecepcion.alCrearLaNueva(usuario, p);
     }
     if (p.estado !== 'pendiente') {
       throw new ConflictException(`Esa propuesta ${ESTADOS[p.estado]}.`);
@@ -346,6 +368,11 @@ export class PropuestasService {
         id: p.quotation_id,
       });
       if (!q) throw new NotFoundException('La cotización ya no existe.');
+      await this.deRecepcion.alAplicar(
+        usuario,
+        q,
+        p.tipo === 'nota' ? 'anotar' : 'cotizar',
+      );
 
       if (p.tipo === 'seguimiento') {
         // El borrador lo escribe el seguimiento con IA, con su nota en la
@@ -369,7 +396,7 @@ export class PropuestasService {
         return {
           estado: 'aplicada',
           numero: q.quotation_number,
-          enlace: enlaceDe(q, usuario.role),
+          enlace: enlaceDe(q, usuario.role, true),
         };
       }
 
@@ -411,7 +438,7 @@ export class PropuestasService {
       return {
         estado: 'aplicada',
         numero: q.quotation_number,
-        enlace: enlaceDe(q, usuario.role),
+        enlace: enlaceDe(q, usuario.role, true),
         total: pesos(despues.parche.total_amount),
         se_puede_deshacer: q.quotation_status !== QuotationStatus.ACEPTADA,
       };
@@ -525,7 +552,7 @@ export class PropuestasService {
       return {
         estado: 'deshecha',
         numero: q.quotation_number,
-        enlace: enlaceDe(q, usuario.role),
+        enlace: enlaceDe(q, usuario.role, true),
         total: pesos(parche.total_amount),
       };
     } catch (e) {
@@ -551,7 +578,12 @@ export class PropuestasService {
   }
 
   /** «Crear evento»: lo arma su propio servicio (cotizacion-nueva.service). */
-  proponerCotizacionNueva(usuario: User, datos: DatosDeLaNueva, hoy: string) {
+  async proponerCotizacionNueva(
+    usuario: User,
+    datos: DatosDeLaNueva,
+    hoy: string,
+  ) {
+    await this.deRecepcion.alProponerLaNueva(usuario, datos);
     return this.nuevas.proponer(usuario, datos, hoy);
   }
 

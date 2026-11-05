@@ -55,8 +55,10 @@ export default function ListaConGrupos({
   readonly pregunta: PreguntaEnFila | null;
   readonly onNo: () => void;
   readonly onElegir: (id: number) => void;
-  readonly onEditar: (id: number) => void;
-  readonly onPedirEliminar: (id: number) => void;
+  /** Sin ellas, la lista es solo para elegir (recepción, doc 21: lee el
+   *  catálogo, no lo cambia). */
+  readonly onEditar?: (id: number) => void;
+  readonly onPedirEliminar?: (id: number) => void;
   readonly tituloEliminar?: string;
 }) {
   return (
@@ -118,30 +120,34 @@ export default function ListaConGrupos({
                   </span>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditar(fila.id);
-                }}
-                className="ml-2 shrink-0 text-gray-400 hover:text-blue-600"
-                title="Cambiar nombre o grupo"
-                aria-label={`Editar ${fila.nombre}`}
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPedirEliminar(fila.id);
-                }}
-                className="ml-2 shrink-0 text-red-600 hover:text-red-800"
-                title={tituloEliminar}
-                aria-label={`Eliminar ${fila.nombre}`}
-              >
-                <Trash2 size={14} />
-              </button>
+              {onEditar && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditar(fila.id);
+                  }}
+                  className="ml-2 shrink-0 text-gray-400 hover:text-blue-600"
+                  title="Cambiar nombre o grupo"
+                  aria-label={`Editar ${fila.nombre}`}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+              {onPedirEliminar && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPedirEliminar(fila.id);
+                  }}
+                  className="ml-2 shrink-0 text-red-600 hover:text-red-800"
+                  title={tituloEliminar}
+                  aria-label={`Eliminar ${fila.nombre}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           </Fragment>
         );

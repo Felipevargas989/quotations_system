@@ -1,4 +1,5 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
+import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import { RequestType } from 'src/quotations/constants/constants';
 import type { FilaDeLista } from '../asistente.repository';
 import {
@@ -17,37 +18,61 @@ import {
   texto,
   type Herramienta,
 } from './comun';
-import { esRecepcion } from './recepcion';
+import { esRecepcion, particularesPara } from './recepcion';
 
 // «¿Cuántas cotizaciones de matrimonio enviamos en octubre?», «¿qué tiene
 // Rudel?». La lista del tablero de Cotizaciones, con sus filtros: es de
 // quien vende (SECTION_ROLES.quotations). Recepción también la usa desde
 // el 04-11 (doc 20 §13), para saber en qué va el pedido de un cliente: le
-// llega sin el total ni el enlace a la ficha, que su pantalla no abre.
+// llega sin el total ni el enlace a la ficha, que su pantalla no abre. Las de
+// clientes particulares, completas y con la marca `particular` (doc 21).
 
 const ORDENES = ['fecha_evento', 'numero', 'creada', 'total'] as const;
 
 export const filaComoLaVePersona = (
   q: FilaDeLista,
   rol: Parameters<typeof enlaceDe>[1],
-) => ({
-  numero: q.quotation_number,
-  ...(esRecepcion(rol) ? {} : { enlace: enlaceDe(q, rol) }),
-  cliente: q.clients?.name ?? null,
-  estado: estadoDe(q.quotation_status),
-  tipo:
-    q.request_type === RequestType.REQUERIMIENTO
-      ? 'requerimiento'
-      : 'cotización',
-  evento: q.event_type,
-  fecha: conDia(diaDelEvento(q.event_date)),
-  hasta: conDia(diaDelEvento(q.event_end_date)),
-  personas: q.people_count,
-  ninos: q.children_count || undefined,
-  ...(esRecepcion(rol) ? {} : { total: pesos(q.total_amount) }),
-  enviada: q.sent_at ? fechaEnChile(q.sent_at) : undefined,
-  creada: fechaEnChile(q.created_at),
-});
+  // Para recepción: si el cliente es particular, la ve completa (doc 21).
+  deParticular = false,
+) => {
+  const recepcion = esRecepcion(rol);
+  const conPlata = !recepcion || deParticular;
+  return {
+    numero: q.quotation_number,
+    ...(recepcion && deParticular ? { particular: true as const } : {}),
+    ...(conPlata ? { enlace: enlaceDe(q, rol, deParticular) } : {}),
+    cliente: q.clients?.name ?? null,
+    estado: estadoDe(q.quotation_status),
+    tipo:
+      q.request_type === RequestType.REQUERIMIENTO
+        ? 'requerimiento'
+        : 'cotización',
+    evento: q.event_type,
+    fecha: conDia(diaDelEvento(q.event_date)),
+    hasta: conDia(diaDelEvento(q.event_end_date)),
+    personas: q.people_count,
+    ninos: q.children_count || undefined,
+    ...(conPlata ? { total: pesos(q.total_amount) } : {}),
+    enviada: q.sent_at ? fechaEnChile(q.sent_at) : undefined,
+    creada: fechaEnChile(q.created_at),
+  };
+};
+
+/** La lista como la ve quien pregunta: a recepción, fila por fila, completa
+ *  la de un particular y sin plata las demás. */
+export const filasComoLasVePersona = async (
+  filas: FilaDeLista[],
+  ctx: Parameters<typeof particularesPara>[0],
+) => {
+  const particulares = await particularesPara(ctx);
+  return filas.map((q) =>
+    filaComoLaVePersona(
+      q,
+      ctx.usuario.role,
+      esDeLosParticulares(particulares, q.clients?.client_type),
+    ),
+  );
+};
 
 export const buscarCotizaciones: Herramienta = {
   nombre: 'buscar_cotizaciones',
@@ -55,7 +80,8 @@ export const buscarCotizaciones: Herramienta = {
     'Busca cotizaciones y requerimientos de la empresa, como el tablero de Cotizaciones. ' +
     'Sirve para contar ("¿cuántas…?") y para listar. Devuelve el total que calza con los ' +
     'filtros y hasta `limite` filas, cada una con su enlace (para recepción, sin el total ni ' +
-    'el enlace). Fechas en AAAA-MM-DD.',
+    'el enlace, salvo las de clientes particulares, que traen `particular: true`). ' +
+    'Fechas en AAAA-MM-DD.',
   esquema: {
     type: 'object',
     properties: {
@@ -145,7 +171,7 @@ export const buscarCotizaciones: Herramienta = {
     return {
       total_que_calzan: total,
       mostradas: filas.length,
-      cotizaciones: filas.map((q) => filaComoLaVePersona(q, ctx.usuario.role)),
+      cotizaciones: await filasComoLasVePersona(filas, ctx),
     };
   },
 };

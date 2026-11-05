@@ -138,12 +138,20 @@ const esperado: [Clase, Record<string, string[]>][] = [
   ],
   [PaymentsController, { 'GET ': R, 'GET transactions': O }],
   [PortalReceiptsController, { 'GET ': O }],
+  // Leer el catálogo, también recepción (doc 21, 04-11-2026): cotiza a los
+  // particulares desde el cotizador. Cambiarlo, no.
   [
     ServicesController,
-    { 'GET ': S, 'GET used-codes': A, 'GET fixed-sections': S },
+    { 'GET ': R, 'GET used-codes': A, 'GET fixed-sections': R },
   ],
-  [ServiceGroupsController, { 'GET ': S }],
-  [ServiceGroupCollectionsController, { 'GET ': S }],
+  [
+    ServiceGroupsController,
+    { 'GET ': R, 'GET grupos': R, 'POST ': S, 'DELETE :id': S },
+  ],
+  [
+    ServiceGroupCollectionsController,
+    { 'GET ': R, 'GET grupos': R, 'POST ': S },
+  ],
   [
     PeopleController,
     {

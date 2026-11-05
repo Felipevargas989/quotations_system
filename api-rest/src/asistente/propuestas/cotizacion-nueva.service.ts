@@ -395,8 +395,9 @@ export class CotizacionNuevaService {
     return {
       estado: 'aplicada',
       numero: q.quotation_number,
-      enlace: enlaceDe(q, usuario.role),
-      // Un requerimiento no tiene plata todavía (y recepción no la ve).
+      enlace: enlaceDe(q, usuario.role, true),
+      // Un requerimiento no tiene plata todavía (y a recepción solo le
+      // llega la cotización de un particular, doc 21).
       ...(dto.request_type === RequestType.COTIZACION
         ? { total: pesos(dto.total_amount ?? 0) }
         : {}),

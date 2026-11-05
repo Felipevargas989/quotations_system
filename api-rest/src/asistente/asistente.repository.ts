@@ -34,7 +34,7 @@ export type FilaDeLista = {
   total_amount: number | null;
   sent_at: string | null;
   created_at: string;
-  clients: { name: string | null } | null;
+  clients: { name: string | null; client_type?: string | null } | null;
 };
 
 export type FiltrosDeBusqueda = {
@@ -161,7 +161,7 @@ export class AsistenteRepository {
   ): Promise<FilaDeLista | null> {
     const { data, error } = await this.supabase.client
       .from('quotations')
-      .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+      .select(`${COLUMNAS_DE_LISTA}, clients ( name, client_type )`)
       .eq('company_id', companyId)
       .eq('id', id)
       .maybeSingle();
@@ -176,7 +176,10 @@ export class AsistenteRepository {
     this.logger.info(`buscarCotizaciones company ${companyId}`);
     // `!inner` solo cuando se filtra por el cliente: sin él, el filtro de
     // la tabla embebida no saca ninguna fila (mapa 22 §6).
-    const cliente = f.cliente ? 'clients!inner ( name )' : 'clients ( name )';
+    // El tipo, para saber qué es de un particular (recepción, doc 21).
+    const cliente = f.cliente
+      ? 'clients!inner ( name, client_type )'
+      : 'clients ( name, client_type )';
     let query = this.supabase.client
       .from('quotations')
       .select(`${COLUMNAS_DE_LISTA}, ${cliente}`, { count: 'exact' })
@@ -247,7 +250,7 @@ export class AsistenteRepository {
     this.logger.info(`calendario company ${companyId} ${desde}..${hasta}`);
     const { data, error } = await this.supabase.client
       .from('quotations')
-      .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+      .select(`${COLUMNAS_DE_LISTA}, clients ( name, client_type )`)
       .eq('company_id', companyId)
       .in('quotation_status', estados)
       .lte('event_date', `${hasta}T23:59:59.999Z`)
@@ -362,7 +365,7 @@ export class AsistenteRepository {
   ): Promise<FilaDeLista | null> {
     const { data, error } = await this.supabase.client
       .from('quotations')
-      .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+      .select(`${COLUMNAS_DE_LISTA}, clients ( name, client_type )`)
       .eq('company_id', companyId)
       .eq('quotation_number', numero)
       .maybeSingle();
@@ -608,7 +611,7 @@ export class AsistenteRepository {
         if (delEvento.length === 0) return new Map<string, FilaDeLista>();
         const { data: qs, error: e } = await this.supabase.client
           .from('quotations')
-          .select(`${COLUMNAS_DE_LISTA}, clients ( name )`)
+          .select(`${COLUMNAS_DE_LISTA}, clients ( name, client_type )`)
           .eq('company_id', companyId)
           .in('id', delEvento);
         if (e) throw e;

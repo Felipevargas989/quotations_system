@@ -5,7 +5,10 @@
 > producción, solo con su «a producción». Migración reservada: **186**
 > (con Facturación, que tiene la 184), aplicada en el laboratorio. Las
 > tandas R1 (el motor) y R2 (la pantalla) escritas esa noche en la rama
-> `feature/recepcion-particulares`.
+> `feature/recepcion-particulares`, y en el laboratorio desde las 22:5x
+> (pruebas 35699c36). La R3, primera parte (BelIA con los particulares, y
+> el catálogo que le faltaba al cotizador), escrita en la madrugada del
+> 05-11. Falta la segunda parte: los clientes mal clasificados.
 
 ## 1. Lo que pidió Felipe
 
@@ -65,7 +68,7 @@ con la regla:
 | `GET /quotations` (el tablero) | Entrega TODAS, con montos (la pantalla las escondía) | Requerimientos de todos y cotizaciones de particulares. El calendario pide `vista=calendario`: ahí, todos los eventos, y los demás como agenda (cliente, fecha, personas, estado), sin plata |
 | `GET /clients/:id/summary` (resumen del cliente) | Entrega los totales de todas sus cotizaciones y sus pagos | Los montos, solo si el cliente es particular |
 | `GET /payments?quotationId=` (las cuotas) | Entrega las cuotas de cualquiera | Solo de una cotización que puede ver |
-| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, completa si es de particular; si no, la agenda, con sus categorías (la tarjeta del calendario las pide aquí), sin plata. Lo público, pregunta a Felipe (§7) |
+| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, completa si es de particular; si no, la agenda, con sus categorías (la tarjeta del calendario las pide aquí), sin plata. Lo público queda como está (§7, decisión de Felipe) |
 | `POST /quotations` y `PATCH /quotations/:id` | Solo requerimientos | También cotizaciones de particulares: sin descuento, sin aceptar ni anular |
 | `POST /quotations/:id/enviar-correo` | Vendedor | Recepción, en particulares |
 | `POST /quotations/:id/seguimiento` y `GET seguimiento/pendientes` | Vendedor | Recepción, en particulares |
@@ -73,6 +76,7 @@ con la regla:
 | `POST /quotations/:id/generar` («✨ Crear con IA») | Vendedor | Recepción, en requerimientos de particulares |
 | `POST /quotations/:id/choques/:aceptadaId` («Sí, puede seguir») | Vendedor | Recepción, en particulares |
 | La bitácora (`/quotation-followups`) | Recepción y arriba | Igual (la bitácora es contexto, Felipe 04-11) |
+| Leer el catálogo (`GET /services`, `/services/fixed-sections`, `/service-groups` y `/service-group-collections`, con sus grupos) | Vendedor | Recepción y arriba: el cotizador los necesita para cotizar a un particular (se notó en R3). Cambiarlo sigue en vendedor y administrador |
 | El plan de pagos, los abonos, realizado | Operaciones para arriba | Igual |
 
 ## 5. La pantalla
@@ -90,14 +94,22 @@ Hecho en R2:
 - en la ficha, el nombre del cliente no lleva a Clientes (sigue siendo de
   vendedor para arriba); cambiar el contacto, sí, mientras se vende;
 - **el calendario queda como estaba**: ve todos los eventos, sin montos y
-  sin abrir la ficha. Sus particulares los trabaja desde el tablero.
+  sin abrir la ficha. Sus particulares los trabaja desde el tablero;
+- en el cotizador usa los menús guardados y los paquetes, sin guardarlos,
+  renombrarlos, borrarlos ni ordenar sus grupos (`soloElegir`).
 
 ## 6. BelIA
 
 - Para recepción, los montos de las cotizaciones de particulares; las demás,
-  sin plata, como hoy (`sinMontos`).
+  sin plata, como hoy (`sinMontos`). **Hecho (R3, primera parte):** lo de un
+  particular le llega completo, con la marca `particular: true`, y la red
+  (`taparPlata`) deja pasar solo eso y el catálogo (mapa 25).
 - Recepción propone cambios y cotizaciones nuevas de particulares, sin
-  descuento; nunca aceptar.
+  descuento; nunca aceptar. **Hecho:** cambiar servicios, anotar, preparar el
+  seguimiento y crear cotizaciones con servicios, solo de particulares,
+  revisado al proponer y otra vez al aplicar (`propuestas/de-recepcion.ts`);
+  con su tope de 0 %, BelIA no le propone descuentos. Suma también sus
+  seguimientos pendientes (solo de particulares) y el catálogo.
 - **Clientes mal clasificados** (vendedor para arriba): BelIA los avisa en
   «¿Qué tengo que revisar hoy?» y en la ficha del cliente: un nombre de
   institución en «Particulares» (liceo, colegio, club, fundación, SpA,
@@ -106,17 +118,20 @@ Hecho en R2:
   cambiar el tipo o el nombre, que se aprueba como las demás (tipo de
   propuesta nuevo `cliente`, migración 186). Recepción no cambia tipos.
 
-## 7. Pregunta abierta
+## 7. La encuesta: la vía queda abierta (decidido)
 
 La ficha de una cotización (`GET /quotations/:id`) es pública: la encuesta de
-satisfacción la abre sin sesión, y entrega la cotización con precios a
-cualquiera que tenga el enlace. Para que recepción no vea las de empresas de
-verdad, conviene darle a la encuesta su propia puerta, con lo justo, y que
-la ficha completa pida sesión. Espera el OK de Felipe.
+satisfacción la abre sin sesión y muestra solo el N°, el tipo de evento y la
+fecha, pero recibe la cotización completa, con precios, a quien tenga el
+enlace. Con su sesión, a recepción una que no es de particulares le llega
+como agenda; sin sesión, completa. Se propuso darle a la encuesta su propia
+puerta con esos tres datos. Felipe, 04-11-2026: *"dejemos esa vía abierta no
+importa"*. Queda como está: el enlace es un código largo que no se adivina.
 
 ## 8. Por tandas
 
 1. **R1, el motor**: la 186, la regla y sus puertas, con sus pruebas (también
    la prueba de la matriz de cargos).
 2. **R2, la pantalla**.
-3. **R3, BelIA**: los montos, las propuestas y los clientes mal clasificados.
+3. **R3, BelIA**: los montos y las propuestas (primera parte, hecha) y los
+   clientes mal clasificados (segunda parte).

@@ -1,4 +1,4 @@
-import { RECEPTION_AND_UP, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import type { CambioDeCabecera } from '../propuestas/cabecera';
 import { CANALES, type Canal } from '../propuestas/comun';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
@@ -302,7 +302,9 @@ export const proponerCambioDeServicios: Herramienta = {
     },
     required: ['resumen'],
   },
-  cargos: SALES_AND_UP,
+  // Recepción también, en las cotizaciones de clientes particulares (doc
+  // 21): lo revisa PropuestasService.
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
@@ -328,6 +330,8 @@ export const proponerCambioDeServicios: Herramienta = {
     );
     mostrar(ctx, tarjeta);
     return {
+      // A recepción solo le llega si es de un particular (doc 21).
+      ...(esRecepcion(ctx.usuario.role) ? { particular: true as const } : {}),
       propuesta: 'lista',
       numero: tarjeta.numero,
       total: tarjeta.total,
@@ -364,7 +368,9 @@ export const proponerNota: Herramienta = {
     },
     required: ['nota'],
   },
-  cargos: SALES_AND_UP,
+  // Recepción también: en sus requerimientos y en las cotizaciones de
+  // particulares (doc 21).
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const nota = texto(entrada.nota, 1_000);
     if (!nota) throw new ErrorDeHerramienta('Falta el texto de la nota.');
@@ -412,7 +418,8 @@ export const proponerSeguimiento: Herramienta = {
       numero: { type: 'integer', description: 'El N° de la cotización.' },
     },
   },
-  cargos: SALES_AND_UP,
+  // Recepción también, en las cotizaciones de particulares (doc 21).
+  cargos: RECEPTION_AND_UP,
   derecho: 'seguimiento_con_ia',
   async ejecutar(entrada, ctx) {
     const tarjeta = await ctx.propuestas.proponerSeguimiento(
@@ -510,23 +517,15 @@ export const proponerCotizacionNueva: Herramienta = {
     },
     required: ['resumen', 'tipo_de_evento', 'fecha', 'personas'],
   },
-  // Recepción también (doc 20 §13): solo requerimientos, sin servicios ni
-  // precios, como en su formulario. El motor lo vuelve a revisar al crear.
+  // Recepción también (doc 20 §13): requerimientos para cualquier cliente y,
+  // desde el doc 21, cotizaciones con servicios para los particulares. Lo
+  // revisa PropuestasService, y otra vez al crear.
   cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
       throw new ErrorDeHerramienta(
         'Falta el `resumen`: una línea para la persona.',
-      );
-    }
-    if (
-      esRecepcion(ctx.usuario.role) &&
-      Array.isArray(entrada.cambios) &&
-      entrada.cambios.length > 0
-    ) {
-      throw new ErrorDeHerramienta(
-        'Recepción crea requerimientos, sin servicios ni precios: la cotización la arma quien vende. Propónlo sin `cambios`.',
       );
     }
     const fechaDelEvento = fecha(entrada.fecha, 'fecha');
@@ -579,6 +578,11 @@ export const proponerCotizacionNueva: Herramienta = {
     );
     ctx.tarjetas.push(tarjeta);
     return {
+      // Con plata solo si es una cotización, y a recepción solo le llega
+      // la de un particular (doc 21).
+      ...(esRecepcion(ctx.usuario.role) && tarjeta.total
+        ? { particular: true as const }
+        : {}),
       propuesta: 'lista',
       es: tarjeta.nueva?.es,
       cliente: tarjeta.cliente,
