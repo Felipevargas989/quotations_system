@@ -1,6 +1,6 @@
 # 20 · Evia, la IA de Eventia (la ventanilla de chat)
 
-> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma todo lo que escribe la IA de Eventia; las rutinas de correo de la empresa van aparte), BelIA en todas las empresas y el cupo de US$ 10 (§16), en producción desde la tarde del 04-11 (Felipe: «a producción»; migración 183 en las dos bases); la etapa 2, el cerebro común de la IA de Eventia (`api-rest/src/cerebro/`, §15), en producción desde la tarde del 04-11 (Felipe: «a producción»; sin migración). Ver abajo.**
+> **Estado: PLAN APROBADO el 03-11-2026. Fases 1 y 2 EN PRODUCCIÓN desde el 04-11-2026 (PR #288, main `cc03e22d`, vitrina 6aeaa85b; migraciones 180 y 181 en las dos bases); las tablas pegadas, en producción el mismo día (PR #289). La firma «BelIA» con su carita en la bitácora, la conversación guardada por persona y BelIA para recepción (§13), en producción desde la tarde del 04-11-2026 (migración 182 en las dos bases). Las mejoras del 04-11 en la tarde (§14), en producción desde ese mismo día (Felipe: «a producción»; sin migración); «una sola IA» (§15): Felipe decidió el 04-11, y la etapa 1 (BelIA firma todo lo que escribe la IA de Eventia; las rutinas de correo de la empresa van aparte), BelIA en todas las empresas y el cupo de US$ 10 (§16), en producción desde la tarde del 04-11 (Felipe: «a producción»; migración 183 en las dos bases); la etapa 2, el cerebro común de la IA de Eventia (`api-rest/src/cerebro/`, §15), en producción desde la tarde del 04-11 (Felipe: «a producción»; sin migración). Las seis mejoras del 04-11 en la noche (§17: el micrófono, el cliente abierto, la fecha, el seguimiento desde el chat, lo que aprende de las correcciones y el cerebro común en Oportunidades), en producción desde esa noche (migración 185 en las dos bases). Ver abajo.**
 > - En el chat, Felipe decidió los cargos, el nombre, el tope y la regla
 >   de los vendidos: *"lo usa administración y vendedores"*, *"si me
 >   sirve, Evia, mmm 100 USD mensuales?"*.
@@ -813,3 +813,75 @@ empresas que se vayan creando, dale $10 de cupo inicial, nada más"*.
 - Las herramientas siguen el plan de cada empresa: sin Post-Venta no hay
   pagos ni cobranza, sin Logística no hay compras, sin Personal no hay
   personal.
+
+## 17. Las mejoras del 04-11 en la noche (Felipe: *"vamos con todas"*; en producción)
+
+> **Estado:** plan del 04-11 en la noche. Felipe vio la lista con el uso
+> real de BelIA en producción (24 preguntas, todas suyas; US$ 1,69; 15 s de
+> promedio; 0 fallos; 4 propuestas y las 4 aplicadas) y respondió *"vamos
+> con todas las mejoras que propusiste, me gustaron todas"*. Van al
+> laboratorio por tandas; a producción, solo con su «a producción».
+> La tanda A (1 y 2), la B (3 y 4) y la C (5), en el laboratorio desde el
+> 04-11 en la noche; la 6, conectada en las instrucciones de Oportunidades
+> esa misma noche (Felipe: *"conéctalo tú y a producción"*). Todo en
+> producción desde la noche del 04-11, con la migración 185 en las dos
+> bases antes del motor. Las habilidades del chat leen también las
+> lecciones aprobadas.
+
+**Lo que entendí, mejora por mejora** (lo marcado «por defecto» lo puede
+cambiar Felipe):
+
+1. **Hablarle con el micrófono.** Un botón con el micrófono al lado de
+   «Enviar». Usa el dictado del navegador (Chrome y Safari; en Firefox el
+   botón no aparece), gratis y sin llaves. El audio lo procesa Google o
+   Apple; Eventia no lo guarda. Lo dictado cae en el campo de texto y sale
+   con «Enviar», para leerlo antes (por defecto). BelIA sigue respondiendo
+   por escrito y sin sonido (*"es sin sonido esto"*).
+2. **Que sepa qué cliente tienes abierto.** Hoy sabe la cotización abierta,
+   pero en la ficha de un cliente (`/clients/:id`) solo le llegaba la ruta:
+   tenía que buscarlo (una pregunta ahí tardó 22 s y 6 búsquedas). Desde
+   ahora la ficha viaja como `cliente_id`; el motor revisa que el cliente sea
+   de la empresa y le da a BelIA su nombre y sus cotizaciones más nuevas,
+   como hace con las fichas al día. Recepción no abre fichas de clientes.
+3. **Cambiar la fecha de una cotización no aceptada.** Con
+   `proponer_cambio_de_servicios`, como las personas del evento (§14):
+   solo en las no aceptadas (solicitada, enviada, en negociación), nunca a
+   una fecha pasada. Se mueve el evento entero: el último día corre lo
+   mismo, y los servicios siguen solos porque van por día del evento.
+   Avisos en ámbar antes del «Sí, aplicar»: si choca con un evento aceptado
+   (`checkConflictsWithExistingQuotations`, el mismo de «Crear evento») y,
+   si la cotización trae ítems de temporada, que se revisen contra la fecha
+   nueva (por defecto, BelIA no cambia esos ítems sola).
+4. **«Prepárame el seguimiento de la 600».** Herramienta nueva
+   `proponer_seguimiento`: una tarjeta con la cotización, el cliente y el
+   buzón, y «Sí, dejar el borrador». Al aprobarla corre lo mismo que
+   «✉ Generar seguimiento» (`SeguimientoConIAService.generar`): las mismas
+   reglas de cuándo entra, el borrador en el hilo con el aviso ámbar, nunca
+   envía, y la nota «BelIA · A pedido de …». Solo quien vende para arriba,
+   y solo en la empresa con el derecho `seguimiento_con_ia`.
+5. **Que aprenda de las correcciones.** Cuando la persona dice «No» a una
+   tarjeta, BelIA pregunta por qué; y cuando la corrige en la conversación
+   («los paseos de curso no llevan cena»), ofrece anotarlo. La lección es
+   una tarjeta (`proponer_leccion`) con el texto exacto y para qué tarea
+   vale (todas, armar, escribir o conversar). La aprueba administración
+   (Felipe o Camila); la de otro cargo queda esperando y administración la
+   ve en «¿Qué tengo que revisar hoy?». Aprobada, la leen desde la pregunta
+   siguiente todas las IA de la empresa: va al final del cerebro común,
+   bajo «Lo que aprendió BelIA». «¿Qué aprendiste?» las muestra y «Olvidar»
+   saca una (queda anotada, no se borra). Tabla nueva `cerebro_lecciones`,
+   **migración 185** (reservada el 04-11 con Facturación, que tiene la 184).
+   De vez en cuando, con el OK de Felipe, las lecciones pasan a los
+   archivos del cerebro, para que queden en el repo.
+6. **Oportunidades con el mismo cerebro (etapa 3 del §15).** Una tarea
+   nueva del cerebro, `postular`: lo común y lo del complejo, sin las guías
+   de armar ni de escribir. La sesión de Oportunidades la pone en sus
+   instrucciones (análisis, validación, preguntas y anexos); la cotización
+   de la postulación ya lee cómo se arma, porque usa «Crear con IA».
+
+Además, nadie más del equipo ha usado BelIA: mostrársela a Camila y a
+recepción es de Felipe, no de código.
+
+**Por tandas:** A, la 2 y la 1 (sin migración); B, la 3 y la 4 (sin
+migración); C, la 5 (con la 185); la 6, con la sesión de Oportunidades.
+`propuestas.service.ts` tiene 767 líneas: lo nuevo va en archivos propios
+(el portero corta en 800).

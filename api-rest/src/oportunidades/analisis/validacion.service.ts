@@ -34,6 +34,7 @@ import {
   ENCENDIDO,
   errorDeIA,
   hoyEnChile,
+  loQueSabeLaCasa,
   MODELO_OPUS,
   type NoLeido,
 } from './comun';
@@ -441,7 +442,8 @@ export class ValidacionService {
           effort: 'medium',
           format: jsonSchemaOutputFormat(ESQUEMA_DE_VALIDACION),
         },
-        system: instruccionesDeValidacion(contexto),
+        system:
+          instruccionesDeValidacion(contexto) + loQueSabeLaCasa(companyId),
         messages: [
           {
             role: 'user',

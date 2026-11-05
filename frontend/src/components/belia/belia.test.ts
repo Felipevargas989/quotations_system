@@ -27,9 +27,16 @@ describe("pantallaDe", () => {
       expect(pantallaDe(ruta)).toEqual({ ruta, cotizacion_id: ID });
     }
   });
+  it("reconoce el cliente abierto en su ficha", () => {
+    expect(pantallaDe(`/clients/${ID}`)).toEqual({
+      ruta: `/clients/${ID}`,
+      cliente_id: ID,
+    });
+    expect(pantallaDe(`/clients/${ID.toUpperCase()}`).cliente_id).toBe(ID);
+  });
   it("en las demás pantallas viaja solo la ruta", () => {
     expect(pantallaDe("/quotations")).toEqual({ ruta: "/quotations" });
-    expect(pantallaDe(`/clients/${ID}`)).toEqual({ ruta: `/clients/${ID}` });
+    expect(pantallaDe("/clients")).toEqual({ ruta: "/clients" });
   });
 });
 
@@ -172,6 +179,22 @@ describe("textoParaBelia", () => {
   });
   it("sin propuestas, viaja el texto tal cual", () => {
     expect(textoParaBelia({ texto: "Hola" })).toBe("Hola");
+  });
+  it("una lección no se confunde con un evento nuevo", () => {
+    expect(
+      textoParaBelia({
+        texto: "Te dejé la lección.",
+        propuestas: [{ numero: null, estado: "aplicada", tipo: "leccion" }],
+      }),
+    ).toContain("(Lección para anotar: la persona la aplicó");
+    expect(
+      textoParaBelia({
+        texto: "Te dejé el evento.",
+        propuestas: [
+          { numero: null, estado: "descartada", tipo: "cotizacion_nueva" },
+        ],
+      }),
+    ).toContain("(Propuesta de un evento nuevo: la persona dijo que no.)");
   });
 });
 

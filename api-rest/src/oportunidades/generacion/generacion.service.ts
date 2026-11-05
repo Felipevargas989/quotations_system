@@ -24,6 +24,7 @@ import {
   costoDelUso,
   ENCENDIDO,
   errorDeIA,
+  loQueSabeLaCasa,
   MODELO_HAIKU,
   MODELO_OPUS,
   MODELO_SONNET,
@@ -264,15 +265,16 @@ export class GeneracionService {
       archivos: elegidos,
       noLeidos: [],
       plan: {
-        sistema: instruccionesDeAnexos(
-          contexto.datos,
-          formularios.map((f) => ({
-            enElTaller: f.enElTaller,
-            original: f.adjunto.nombre,
-            clase: f.clase,
-          })),
-          oferta,
-        ),
+        sistema:
+          instruccionesDeAnexos(
+            contexto.datos,
+            formularios.map((f) => ({
+              enElTaller: f.enElTaller,
+              original: f.adjunto.nombre,
+              clase: f.clase,
+            })),
+            oferta,
+          ) + loQueSabeLaCasa(companyId),
         texto: 'Llena los anexos.',
         reemplaza: pedido.reemplaza,
         modelo: modeloParaFormularios(formularios),
@@ -455,16 +457,17 @@ export class GeneracionService {
       archivos: paraLeer,
       noLeidos,
       plan: {
-        sistema: instruccionesDePropuesta(
-          contexto.datos,
-          paraLeer.map((a) => ({
-            enElTaller: enElTaller(a),
-            original: a.nombre,
-          })),
-          enElTallerLogo,
-          catalogo,
-          valor,
-        ),
+        sistema:
+          instruccionesDePropuesta(
+            contexto.datos,
+            paraLeer.map((a) => ({
+              enElTaller: enElTaller(a),
+              original: a.nombre,
+            })),
+            enElTallerLogo,
+            catalogo,
+            valor,
+          ) + loQueSabeLaCasa(companyId),
         texto: 'Escribe la propuesta técnica.',
         reemplaza: pedido.reemplaza,
         // Es nota: Opus decide; con lo postulado ya decidido, Sonnet escribe.

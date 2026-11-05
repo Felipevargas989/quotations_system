@@ -52,3 +52,15 @@ describe('cerebroPara', () => {
     expect(veces('Sernatur no se ofrece: va por contrato.')).toBe(1);
   });
 });
+
+describe('postular (Oportunidades, doc 20 §17)', () => {
+  it('lee lo común y lo del complejo, sin las guías de armar ni de escribir', () => {
+    const t = cerebroPara(VALLE_DEL_SOL, 'postular');
+    expect(t).toContain('# Lo que sabe toda la IA de Eventia');
+    expect(t).toContain('# Valle del Sol Quillón');
+    expect(t).not.toContain('# Cómo se arma una cotización en Valle del Sol');
+    expect(t).not.toContain(
+      '# Cómo se escribe un correo de seguimiento en Valle del Sol',
+    );
+  });
+});

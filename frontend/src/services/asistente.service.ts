@@ -7,13 +7,23 @@ import { api, apiRequest } from "./api";
 
 export type TurnoDeBelia = { rol: "persona" | "belia"; texto: string };
 
-export type PantallaDeBelia = { ruta: string; cotizacion_id?: string };
+export type PantallaDeBelia = {
+  ruta: string;
+  cotizacion_id?: string;
+  cliente_id?: string;
+};
 
 /** Una propuesta de cambio (fase 2, doc 20 §3 y §8): la arma el motor y la
  *  persona la aplica con «Sí, aplicar». Las cifras ya vienen escritas. */
 export type TarjetaDePropuesta = {
   id: string;
-  tipo: "servicios" | "nota" | "cotizacion_nueva";
+  tipo:
+    | "servicios"
+    | "nota"
+    | "cotizacion_nueva"
+    | "seguimiento"
+    | "leccion"
+    | "leccion_estado";
   /** Null en un evento nuevo hasta que se crea. */
   numero: number | null;
   cliente: string | null;
@@ -50,6 +60,14 @@ export type TarjetaDePropuesta = {
   reembolso_compensado?: string;
   avisos: string[];
   nota?: { texto: string; canal: string; proximo_contacto: string | null };
+  /** Una lección (doc 20 §17): el texto, para qué vale y qué se decide. */
+  leccion?: {
+    texto: string;
+    para: string;
+    motivo: string | null;
+    decision?: "aprobar" | "descartar" | "olvidar";
+    propuesta_por?: string | null;
+  };
   se_puede_deshacer: boolean;
   vence_at: string;
 };
@@ -71,6 +89,8 @@ export type ResultadoDePropuesta = {
   enlace?: string;
   total?: string;
   se_puede_deshacer?: boolean;
+  /** Lo que pasó, en una línea (el borrador del seguimiento, doc 20 §17). */
+  aviso?: string;
 };
 
 /** Lo que mira la ventanilla para el ánimo de BelIA (doc 20 §8b). */
