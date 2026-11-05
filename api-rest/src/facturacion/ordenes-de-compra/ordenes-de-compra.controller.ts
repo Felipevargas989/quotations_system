@@ -12,6 +12,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { LeerOrdenDeCompraService } from './leer-orden-de-compra.service';
@@ -27,6 +28,7 @@ import { OrdenesDeCompraService } from './ordenes-de-compra.service';
 // y el administrador, y solo en la empresa con el módulo propio
 // `facturacion`. La empresa sale SIEMPRE de la sesión.
 @Derecho('facturacion')
+@Permiso('postventa')
 @Controller('quotations/:quotationId/ordenes-de-compra')
 export class OrdenesDeCompraController {
   constructor(

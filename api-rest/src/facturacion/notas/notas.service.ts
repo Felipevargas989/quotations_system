@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { permisosDelCargo, type Permiso } from 'src/auth/permisos';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
@@ -95,7 +96,12 @@ export class NotasService {
   /** La lista de Facturación de un mes, con la cadena. Anular, rebajar,
    *  corregir y «Comprobar» se ofrecen solo al administrador (E5); los
    *  demás miran, bajan el reporte y piden el PDF (§9.19). */
-  async lista(companyId: number, mes: string | undefined, cargo: UserRole) {
+  async lista(
+    companyId: number,
+    mes: string | undefined,
+    cargo: UserRole,
+    permisos: readonly Permiso[] = permisosDelCargo(cargo),
+  ) {
     const hoy = hoyEnChile();
     const elMes = mes ?? hoy.slice(0, 7);
     const { desde, hasta } = delMes(elMes);
@@ -111,13 +117,18 @@ export class NotasService {
     // no se puede, no se ofrece.
     const aMano = (ambiente: AmbienteDeFacturacion) =>
       this.conexion.de(companyId, ambiente) != null;
-    const esAdmin = cargo === UserRole.ADMINISTRADOR;
+    // Desde los permisos por cargo (doc 22 §7): anular o rebajar es
+    // `facturacion_notas` y «Comprobar», `facturacion_ajustes`. De fábrica,
+    // los dos son del administrador, como antes.
+    const conNotasPermiso = permisos.includes('facturacion_notas');
+    const conAjustes = permisos.includes('facturacion_ajustes');
 
     const documentos = delPeriodo.map((d) => {
       const total = Number(d.total);
       const emitido = d.estado === 'emitido';
       const conCadena = emitido && CON_NOTAS.has(d.tipo);
-      const conNotas = esAdmin && conCadena && d.ambiente === conexion.ambiente;
+      const conNotas =
+        conNotasPermiso && conCadena && d.ambiente === conexion.ambiente;
       const estado = conCadena
         ? cadena.estado(d.id)
         : { como: 'vigente' as const };
@@ -182,7 +193,7 @@ export class NotasService {
             conNotas && d.tipo === 33 && vigente && cadena.saldo(d.id) > 0,
           corregir: conNotas && d.tipo === 33 && vigente,
           comprobar:
-            esAdmin &&
+            conAjustes &&
             (d.estado === 'por_confirmar' || d.estado === 'enviando') &&
             aMano(d.ambiente),
           pedirPdf: emitido && !d.pdf_path && aMano(d.ambiente),

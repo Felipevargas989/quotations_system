@@ -9,10 +9,19 @@ import FacturacionPage from "./FacturacionPage";
 // administrador, todo y el tarifario.
 
 let rol = "recepcion";
+// Los permisos por cargo (doc 22 §7): sin lista propia, los de fábrica del
+// cargo, que son las pestañas de antes.
+let permisos: string[] | null = null;
 let cobros: unknown[] = [];
-vi.mock("../../contexts/AuthContext", () => ({
-  useAuth: () => ({ userRole: rol }),
-}));
+vi.mock("../../contexts/AuthContext", async () => {
+  const { permisosDe } = await import("../../constants/permissions");
+  return {
+    useAuth: () => ({
+      userRole: rol,
+      permisos: permisosDe(rol as never, permisos),
+    }),
+  };
+});
 vi.mock("../boletas/consultas", () => ({
   usePorBoletear: () => ({
     data: { ambiente: "simulado", cobros },
@@ -37,6 +46,7 @@ const pestanas = () =>
 afterEach(() => {
   cleanup();
   rol = "recepcion";
+  permisos = null;
   cobros = [];
 });
 
@@ -82,5 +92,16 @@ describe("la sección Facturación", () => {
       "Emitidas hoy",
       "Tarifario",
     ]);
+  });
+
+  it("con los interruptores: Documentos a recepción, sin el tarifario al administrador", () => {
+    permisos = ["boletas", "facturacion_documentos"];
+    render(<FacturacionPage />);
+    expect(pestanas()).toContain("Documentos");
+    cleanup();
+    rol = "administrador";
+    permisos = ["boletas", "facturacion_documentos", "facturacion_notas"];
+    render(<FacturacionPage />);
+    expect(pestanas()).not.toContain("Tarifario");
   });
 });

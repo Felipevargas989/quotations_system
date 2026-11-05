@@ -20,6 +20,7 @@ describe('Permisos por cargo: la cuenta', () => {
       'consultas',
       'belia',
       'calendario',
+      'boletas',
     ]);
     // El Calendario del vendedor, prendido (Felipe, 05-11-2026).
     expect(permisosDelCargo(UserRole.VENDEDOR)).toEqual([
@@ -29,6 +30,7 @@ describe('Permisos por cargo: la cuenta', () => {
       'clientes',
       'belia',
       'calendario',
+      'boletas',
     ]);
     expect(permisosDelCargo(UserRole.OPERACIONES)).toEqual([
       'requerimientos',
@@ -39,6 +41,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'calendario',
       'postventa',
       'proveedores',
+      'boletas',
+      'facturacion_documentos',
     ]);
     expect(permisosDelCargo(UserRole.ADMINISTRADOR)).toEqual(
       CATALOGO_DE_PERMISOS.map((p) => p.clave),
