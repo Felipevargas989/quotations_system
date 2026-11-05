@@ -58,10 +58,17 @@ import {
  */
 
 const BOLETA = 39;
+
+type Cambio = Omit<NuevoCambio, 'company_id' | 'cobro_id' | 'nombre'>;
 const SE_BOLETEA = ['aceptada', 'realizada'];
 
 const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
-const nombreDe = (user: User) => user.full_name?.trim() || user.email || null;
+/** «felipe@valledelsolquillon.cl» → «Felipe», cuando el perfil no trae
+ *  nombre (como la bitácora, `QuotationFollowupsService`). */
+const nombreDelCorreo = (correo?: string | null): string | null => {
+  const base = (correo ?? '').split('@')[0].trim();
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
+};
 const correoLimpio = (c: string | null | undefined) =>
   (c ?? '').trim().toLowerCase() || null;
 
@@ -89,6 +96,11 @@ const vista = (c: CobroGuardado) => ({
     despues: x.despues,
     nombre: x.nombre,
     created_at: x.created_at,
+    // La cabaña del cambio, si sigue en el reparto («El monto de Cabaña 5»).
+    cabana:
+      x.linea_id != null
+        ? (c.lineas.find((l) => l.id === x.linea_id)?.cabana ?? null)
+        : null,
   })),
   ...repartoDelCobro(c),
 });
@@ -156,7 +168,7 @@ export class BoletasService {
       descripcion: textoLimpio(dto.descripcion),
       total: dto.total,
       creado_por: user.id ?? null,
-      creado_por_nombre: nombreDe(user),
+      creado_por_nombre: await this.nombreDe(user),
     });
     return this.uno(id, companyId);
   }
@@ -167,7 +179,7 @@ export class BoletasService {
     const cobro = await this.cargar(id, companyId);
     const { boleteado } = repartoDelCobro(cobro);
     const cambios: { descripcion?: string; total?: number } = {};
-    const anotados: Omit<NuevoCambio, 'company_id' | 'cobro_id'>[] = [];
+    const anotados: Cambio[] = [];
     if (dto.descripcion !== undefined) {
       const descripcion = textoLimpio(dto.descripcion);
       if (descripcion !== cobro.descripcion) {
@@ -200,7 +212,7 @@ export class BoletasService {
     }
     if (anotados.length) {
       await this.repo.editarCobro(id, companyId, cambios);
-      await this.anotar(companyId, id, anotados);
+      await this.anotar(user, id, anotados);
     }
     return this.uno(id, companyId);
   }
@@ -227,7 +239,7 @@ export class BoletasService {
       correo: correoLimpio(dto.correo),
       creado_por: user.id ?? null,
     });
-    await this.anotar(companyId, cobroId, [
+    await this.anotar(user, cobroId, [
       this.cambio(
         user,
         lineaId,
@@ -252,7 +264,7 @@ export class BoletasService {
     );
     const cambios: { cabana?: string; monto?: number; correo?: string | null } =
       {};
-    const anotados: Omit<NuevoCambio, 'company_id' | 'cobro_id'>[] = [];
+    const anotados: Cambio[] = [];
     if (dto.cabana !== undefined) {
       const cabana = textoLimpio(dto.cabana);
       if (cabana !== linea.cabana) {
@@ -285,7 +297,7 @@ export class BoletasService {
     }
     if (anotados.length) {
       await this.repo.editarLinea(lineaId, cobroId, companyId, cambios);
-      await this.anotar(companyId, cobroId, anotados);
+      await this.anotar(user, cobroId, anotados);
     }
     return this.uno(cobroId, companyId);
   }
@@ -297,7 +309,7 @@ export class BoletasService {
       lineaId,
     );
     await this.repo.quitarLinea(lineaId, cobroId, companyId);
-    await this.anotar(companyId, cobroId, [
+    await this.anotar(user, cobroId, [
       this.cambio(
         user,
         lineaId,
@@ -461,7 +473,7 @@ export class BoletasService {
     ).catch((e: unknown) =>
       this.logger.warn(`PDF de la boleta ${emitido.folio}: ${mensajeDe(e)}`),
     );
-    await this.anotar(companyId, cobro.id, [
+    await this.anotar(user, cobro.id, [
       this.cambio(
         user,
         linea.id,
@@ -501,24 +513,36 @@ export class BoletasService {
     que: string,
     antes: string | null,
     despues: string | null,
-  ): Omit<NuevoCambio, 'company_id' | 'cobro_id'> {
+  ): Cambio {
     return {
       linea_id: lineaId,
       que,
       antes,
       despues,
       usuario: user.id ?? null,
-      nombre: nombreDe(user),
     };
   }
 
-  private anotar(
-    companyId: number,
-    cobroId: number,
-    cambios: Omit<NuevoCambio, 'company_id' | 'cobro_id'>[],
-  ) {
+  /** El nombre de quien cambia: el de su perfil (`user_profiles`), como
+   *  firma la bitácora; si no tiene, el de la sesión o el del correo. */
+  private async nombreDe(user: User): Promise<string | null> {
+    const delPerfil = user.id
+      ? await this.repo
+          .nombreDeLaPersona(user.company_id, user.id)
+          .catch(() => null)
+      : null;
+    return delPerfil || user.full_name?.trim() || nombreDelCorreo(user.email);
+  }
+
+  private async anotar(user: User, cobroId: number, cambios: Cambio[]) {
+    const nombre = await this.nombreDe(user);
     return this.repo.anotar(
-      cambios.map((c) => ({ ...c, company_id: companyId, cobro_id: cobroId })),
+      cambios.map((c) => ({
+        ...c,
+        company_id: user.company_id,
+        cobro_id: cobroId,
+        nombre,
+      })),
     );
   }
 }

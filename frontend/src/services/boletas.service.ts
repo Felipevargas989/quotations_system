@@ -24,6 +24,8 @@ export interface CambioDelCobro {
   despues: string | null;
   nombre: string | null;
   created_at: string;
+  /** La cabaña del cambio, si sigue en el reparto. */
+  cabana: string | null;
 }
 
 export interface CobroPorBoletear {
