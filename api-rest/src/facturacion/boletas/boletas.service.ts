@@ -1,17 +1,19 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
-import type { User } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { armarBoleta } from '../archivo/boleta';
 import { RUT_AUXILIAR } from '../archivo/comun';
 import { textoLimpio } from '../archivo/texto';
+import type { LineaDeDetalle } from '../archivo/tipos';
 import {
   EnvioSinRespuesta,
   type FacturacionCl,
@@ -24,9 +26,12 @@ import {
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
 import {
+  BoletaSueltaDto,
   CrearCobroDto,
   EditarCobroDto,
+  EditarItemDelTarifarioDto,
   EditarLineaDelCobroDto,
+  ItemDelTarifarioDto,
   LineaDelCobroDto,
 } from './boleta.dto';
 import {
@@ -58,6 +63,15 @@ import {
  */
 
 const BOLETA = 39;
+
+/** «2 noches», «3 personas»: la cantidad en la descripción de la línea. */
+const PLURAL: Record<string, string> = {
+  noche: 'noches',
+  persona: 'personas',
+  día: 'días',
+  hora: 'horas',
+  unidad: 'unidades',
+};
 
 type Cambio = Omit<NuevoCambio, 'company_id' | 'cobro_id' | 'nombre'>;
 const SE_BOLETEA = ['aceptada', 'realizada'];
@@ -321,6 +335,106 @@ export class BoletasService {
     return this.uno(cobroId, companyId);
   }
 
+  /** El tarifario (D3): lo que se boletea suelto. Recepción ve los
+   *  activos para elegir; el administrador, todos. */
+  async tarifario(companyId: number) {
+    return this.repo.tarifario(companyId);
+  }
+
+  async crearItem(user: User, dto: ItemDelTarifarioDto) {
+    await this.repo.crearItem({
+      company_id: user.company_id,
+      nombre: textoLimpio(dto.nombre),
+      precio: dto.precio,
+      unidad: dto.unidad,
+      creado_por: user.id ?? null,
+    });
+    return this.repo.tarifario(user.company_id);
+  }
+
+  async editarItem(user: User, id: number, dto: EditarItemDelTarifarioDto) {
+    const cambios: EditarItemDelTarifarioDto = { ...dto };
+    if (dto.nombre !== undefined) cambios.nombre = textoLimpio(dto.nombre);
+    if (!(await this.repo.editarItem(id, user.company_id, cambios)))
+      throw new NotFoundException('Ese ítem del tarifario no existe');
+    return this.repo.tarifario(user.company_id);
+  }
+
+  // Una boleta guarda su propia copia de lo cobrado: quitar un ítem no
+  // cambia ninguna boleta.
+  async borrarItem(user: User, id: number) {
+    if (!(await this.repo.borrarItem(id, user.company_id)))
+      throw new NotFoundException('Ese ítem del tarifario no existe');
+    return this.repo.tarifario(user.company_id);
+  }
+
+  /**
+   * La boleta suelta (§9.4, 3b): lo del tarifario por su cantidad, con la
+   * cabaña (la escribe recepción) en la observación. Escribir un monto a
+   * mano es solo del administrador: los precios nunca a dedo.
+   */
+  async emitirSuelta(user: User, dto: BoletaSueltaDto) {
+    const companyId = user.company_id;
+    const tarifario = await this.repo.tarifario(companyId);
+    const lineas: LineaDeDetalle[] = dto.lineas.map((l) => {
+      if (l.tarifario_id != null) {
+        const item = tarifario.find((t) => t.id === l.tarifario_id);
+        if (!item || !item.activo)
+          throw new BadRequestException(
+            'Ese ítem del tarifario no existe o está desactivado',
+          );
+        const cantidad = l.cantidad ?? 1;
+        return {
+          descripcion: item.nombre,
+          cantidad,
+          precio: item.precio,
+          descripcionLarga:
+            cantidad > 1 && item.unidad !== 'unidad'
+              ? `${cantidad} ${PLURAL[item.unidad] ?? item.unidad}`
+              : null,
+        };
+      }
+      if (user.role !== UserRole.ADMINISTRADOR)
+        throw new ForbiddenException(
+          'Escribir un monto a mano es solo del administrador: elige del tarifario',
+        );
+      const descripcion = textoLimpio(l.descripcion);
+      if (!descripcion || !l.monto)
+        throw new BadRequestException(
+          'La línea a mano necesita qué se cobra y su monto',
+        );
+      return { descripcion, cantidad: 1, precio: l.monto };
+    });
+    const cabana = textoLimpio(dto.cabana) || null;
+    const conexion = this.conexion.de(companyId);
+    const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
+      lineas,
+      correo: correoLimpio(dto.correo),
+      observaciones: cabana ? [cabana] : [],
+      quotationId: null,
+      cabana,
+      cual: 'la boleta',
+      totalEsperado: null,
+    });
+    if (!r.emitido && !r.porConfirmar)
+      throw new BadRequestException(r.alto ?? 'No se pudo emitir la boleta');
+    this.logger.info(
+      `boleta suelta ${r.emitido?.folio ?? 'por confirmar'} (${conexion.ambiente})`,
+    );
+    return {
+      boleta: r.emitido
+        ? {
+            id: r.emitido.id,
+            folio: r.emitido.folio,
+            estado: r.emitido.estado,
+            total: Number(r.emitido.total),
+            pdf_path: r.emitido.pdf_path,
+          }
+        : null,
+      aviso: r.alto,
+    };
+  }
+
   /**
    * Una boleta por cada cabaña que falta, solo si lo repartido suma el
    * total. Si una se corta o facturacion.cl la rechaza, se detiene ahí y lo
@@ -349,6 +463,7 @@ export class BoletasService {
     return { cobro: await this.uno(cobroId, companyId), emitidas, aviso };
   }
 
+  /** La boleta de una cabaña del cobro, amarrada a su línea. */
   private async emitirUna(
     user: User,
     cobro: CobroGuardado,
@@ -358,19 +473,84 @@ export class BoletasService {
   ): Promise<{ folio: number | null; alto: string | null }> {
     const companyId = user.company_id;
     const glosa = glosaDeLaBoleta(cobro, linea);
-    const armado = armarBoleta({
-      fecha,
-      receptor: linea.correo ? { correo: linea.correo } : null,
+    const r = await this.emitirBoleta(user, conexion, fecha, {
       lineas: [{ descripcion: glosa, cantidad: 1, precio: linea.monto }],
+      correo: linea.correo,
       observaciones: cobro.cotizacion
         ? [`Cotización N° ${cobro.cotizacion.quotation_number}`]
         : [],
+      quotationId: cobro.quotation_id,
+      cabana: linea.cabana,
+      cual: `la boleta de ${linea.cabana}`,
       totalEsperado: linea.monto,
+      // Amarrada ANTES de mandarla: un corte no la emite dos veces.
+      antesDeMandar: (docId) =>
+        this.repo.editarLinea(linea.id, cobro.id, companyId, {
+          documento_id: docId,
+        }),
+      // No salió: la cabaña vuelve a quedar por boletear.
+      siLaRechazan: () =>
+        this.repo.editarLinea(linea.id, cobro.id, companyId, {
+          documento_id: null,
+        }),
+    });
+    if (r.emitido)
+      await this.anotar(user, cobro.id, [
+        this.cambio(
+          user,
+          linea.id,
+          'emite',
+          null,
+          `Boleta N° ${r.emitido.folio}`,
+        ),
+      ]).catch((e: unknown) =>
+        this.logger.warn(`no pude anotar la boleta: ${mensajeDe(e)}`),
+      );
+    return { folio: r.emitido?.folio ?? null, alto: r.alto };
+  }
+
+  /**
+   * UNA boleta (39) con los candados de la factura (§5.3): `enviando` antes
+   * de mandarla, `procesar` sin reintentos (si se corta, «por confirmar»,
+   * L5) y, emitida, su copia del PDF. La usan el reparto de un cobro y la
+   * boleta suelta.
+   */
+  private async emitirBoleta(
+    user: User,
+    conexion: FacturacionCl,
+    fecha: string,
+    b: {
+      lineas: LineaDeDetalle[];
+      correo: string | null;
+      observaciones: string[];
+      quotationId: string | null;
+      /** La cabaña, para la pantalla (no va en el archivo). */
+      cabana: string | null;
+      /** «la boleta de Cabaña 4», para los avisos. */
+      cual: string;
+      totalEsperado: number | null;
+      antesDeMandar?: (docId: number) => Promise<void>;
+      siLaRechazan?: () => Promise<void>;
+    },
+  ): Promise<{
+    emitido: DocumentoTributario | null;
+    alto: string | null;
+    /** Se cortó al mandarla: puede haber salido (L5). */
+    porConfirmar?: boolean;
+  }> {
+    const companyId = user.company_id;
+    const Cual = b.cual.charAt(0).toUpperCase() + b.cual.slice(1);
+    const armado = armarBoleta({
+      fecha,
+      receptor: b.correo ? { correo: b.correo } : null,
+      lineas: b.lineas,
+      observaciones: b.observaciones,
+      totalEsperado: b.totalEsperado,
     });
     if (!armado.ok)
       return {
-        folio: null,
-        alto: `La boleta de ${linea.cabana} no se pudo armar: ${armado.problemas.join('. ')}`,
+        emitido: null,
+        alto: `${Cual} no se pudo armar: ${armado.problemas.join('. ')}`,
       };
 
     let doc: DocumentoTributario;
@@ -380,18 +560,14 @@ export class BoletasService {
         tipo: BOLETA,
         ambiente: conexion.ambiente,
         estado: 'enviando',
-        receptor: {
-          rut: RUT_AUXILIAR,
-          razon_social: '',
-          correo: linea.correo,
-        },
-        detalle: [{ descripcion: glosa, cantidad: 1, precio: linea.monto }],
+        receptor: { rut: RUT_AUXILIAR, razon_social: '', correo: b.correo },
+        detalle: b.lineas.map((l) => ({ ...l, cabana: b.cabana })),
         referencias: [],
         neto: armado.montos.neto,
         exento: 0,
         iva: armado.montos.iva,
         total: armado.montos.total,
-        quotation_id: cobro.quotation_id,
+        quotation_id: b.quotationId,
         orden_de_compra_id: null,
         porcentaje: null,
         creado_por: user.id ?? null,
@@ -400,15 +576,12 @@ export class BoletasService {
     } catch (error) {
       if ((error as { code?: string })?.code === '23505')
         return {
-          folio: null,
+          emitido: null,
           alto: 'Ya se está emitiendo un documento de este evento: espera su respuesta.',
         };
       throw error;
     }
-    // Amarrada ANTES de mandarla: un corte no la emite dos veces.
-    await this.repo.editarLinea(linea.id, cobro.id, companyId, {
-      documento_id: doc.id,
-    });
+    if (b.antesDeMandar) await b.antesDeMandar(doc.id);
 
     let respuesta: RespuestaDeProcesar;
     try {
@@ -423,8 +596,9 @@ export class BoletasService {
         error: motivo,
       });
       return {
-        folio: null,
-        alto: `La boleta de ${linea.cabana} quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.`,
+        emitido: null,
+        alto: `${Cual} quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.`,
+        porConfirmar: true,
       };
     }
     if (respuesta.resultado === 'rechazado') {
@@ -433,13 +607,10 @@ export class BoletasService {
         error: respuesta.mensaje,
         respuesta: respuesta.crudo,
       });
-      // No salió: la cabaña vuelve a quedar por boletear.
-      await this.repo.editarLinea(linea.id, cobro.id, companyId, {
-        documento_id: null,
-      });
+      if (b.siLaRechazan) await b.siLaRechazan();
       return {
-        folio: null,
-        alto: `facturacion.cl no aceptó la boleta de ${linea.cabana}: ${respuesta.mensaje}`,
+        emitido: null,
+        alto: `facturacion.cl no aceptó ${b.cual}: ${respuesta.mensaje}`,
       };
     }
 
@@ -457,34 +628,24 @@ export class BoletasService {
       });
     } catch (error) {
       this.logger.error(
-        `boleta ${respuesta.folio} del cobro ${cobro.id} emitida y SIN anotar: ${mensajeDe(error)}`,
+        `boleta ${respuesta.folio} emitida y SIN anotar: ${mensajeDe(error)}`,
       );
       throw new InternalServerErrorException(
-        `La boleta N° ${respuesta.folio} de ${linea.cabana} salió, pero Eventia no la pudo anotar. No la emitas de nuevo: avisa para revisarla.`,
+        `La boleta N° ${respuesta.folio} salió, pero Eventia no la pudo anotar. No la emitas de nuevo: avisa para revisarla.`,
       );
     }
     // Lo que sigue no cambia la boleta: si falla, se registra y sigue.
-    await guardarCopiaDelPdf(
+    const conPdf = await guardarCopiaDelPdf(
       this.documentos,
       conexion,
       emitido,
       companyId,
-      cobro.quotation_id,
-    ).catch((e: unknown) =>
-      this.logger.warn(`PDF de la boleta ${emitido.folio}: ${mensajeDe(e)}`),
-    );
-    await this.anotar(user, cobro.id, [
-      this.cambio(
-        user,
-        linea.id,
-        'emite',
-        null,
-        `Boleta N° ${respuesta.folio}`,
-      ),
-    ]).catch((e: unknown) =>
-      this.logger.warn(`no pude anotar la boleta: ${mensajeDe(e)}`),
-    );
-    return { folio: respuesta.folio, alto: null };
+      b.quotationId,
+    ).catch((e: unknown) => {
+      this.logger.warn(`PDF de la boleta ${emitido.folio}: ${mensajeDe(e)}`);
+      return emitido;
+    });
+    return { emitido: conPdf, alto: null };
   }
 
   private async cargar(id: number, companyId: number) {

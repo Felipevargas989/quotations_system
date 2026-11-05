@@ -149,3 +149,72 @@ export const emitirBoletas = async (
     emitidas: number[];
     aviso: string | null;
   };
+
+/** Lo que se boletea suelto (D3): cabañas, ticket diario, tinaja… */
+export interface ItemDelTarifario {
+  id: number;
+  nombre: string;
+  /** Con IVA. */
+  precio: number;
+  unidad: string;
+  activo: boolean;
+  orden: number;
+}
+
+export interface LineaSuelta {
+  tarifario_id?: number | null;
+  cantidad?: number;
+  /** Solo el administrador: una línea a mano. */
+  descripcion?: string | null;
+  monto?: number | null;
+}
+
+export const getTarifario = async (): Promise<ItemDelTarifario[]> =>
+  ((await apiRequest(`${base}/tarifario`, "GET")) || []) as ItemDelTarifario[];
+
+export const crearItemDelTarifario = async (item: {
+  nombre: string;
+  precio: number;
+  unidad: string;
+}): Promise<ItemDelTarifario[]> =>
+  (await apiRequest(`${base}/tarifario`, "POST", item)) as ItemDelTarifario[];
+
+export const editarItemDelTarifario = async (
+  id: number,
+  cambios: Partial<Omit<ItemDelTarifario, "id">>,
+): Promise<ItemDelTarifario[]> =>
+  (await apiRequest(
+    `${base}/tarifario/${id}`,
+    "PATCH",
+    cambios,
+  )) as ItemDelTarifario[];
+
+export const borrarItemDelTarifario = async (
+  id: number,
+): Promise<ItemDelTarifario[]> =>
+  (await apiRequest(`${base}/tarifario/${id}`, "DELETE")) as ItemDelTarifario[];
+
+export const emitirBoletaSuelta = async (datos: {
+  lineas: LineaSuelta[];
+  cabana?: string | null;
+  correo?: string | null;
+}): Promise<{
+  boleta: {
+    id: number;
+    folio: number | null;
+    estado: string;
+    total: number;
+    pdf_path: string | null;
+  } | null;
+  aviso: string | null;
+}> =>
+  (await apiRequest(`${base}/sueltas`, "POST", datos)) as {
+    boleta: {
+      id: number;
+      folio: number | null;
+      estado: string;
+      total: number;
+      pdf_path: string | null;
+    } | null;
+    aviso: string | null;
+  };

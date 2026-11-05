@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
+/** Lo que recepción boletea suelto (migración 187, D3). */
+export interface ItemDelTarifario {
+  id: number;
+  nombre: string;
+  precio: number;
+  unidad: string;
+  activo: boolean;
+  orden: number;
+}
+
 /** Una línea del reparto, con su boleta si ya salió. */
 export interface LineaGuardada {
   id: number;
@@ -196,6 +206,63 @@ export class BoletasRepository {
       .eq('company_id', companyId)
       .is('documento_id', null);
     if (error) throw error;
+  }
+
+  /** El tarifario de la empresa, en su orden. */
+  async tarifario(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('tarifario_de_boletas')
+      .select('id, nombre, precio, unidad, activo, orden')
+      .eq('company_id', companyId)
+      .order('orden', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as ItemDelTarifario[]).map((i) => ({
+      ...i,
+      precio: Number(i.precio),
+    }));
+  }
+
+  async crearItem(fila: {
+    company_id: number;
+    nombre: string;
+    precio: number;
+    unidad: string;
+    creado_por: string | null;
+  }) {
+    this.logger.info(`nuevo ítem del tarifario (empresa ${fila.company_id})`);
+    const { error } = await this.supabase.client
+      .from('tarifario_de_boletas')
+      .insert([fila]);
+    if (error) throw error;
+  }
+
+  async editarItem(
+    id: number,
+    companyId: number,
+    cambios: Partial<Omit<ItemDelTarifario, 'id'>>,
+  ) {
+    this.logger.info(`edita el ítem ${id} del tarifario`);
+    const { data, error } = await this.supabase.client
+      .from('tarifario_de_boletas')
+      .update({ ...cambios, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
+  }
+
+  async borrarItem(id: number, companyId: number) {
+    this.logger.info(`borra el ítem ${id} del tarifario`);
+    const { data, error } = await this.supabase.client
+      .from('tarifario_de_boletas')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).length;
   }
 
   /** El nombre de la persona en su perfil, el mismo con que firma la

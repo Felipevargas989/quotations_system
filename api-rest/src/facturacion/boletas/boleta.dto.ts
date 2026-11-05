@@ -1,14 +1,22 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
   IsEmail,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 
 /**
@@ -73,3 +81,88 @@ export class LineaDelCobroDto {
 }
 
 export class EditarLineaDelCobroDto extends PartialType(LineaDelCobroDto) {}
+
+/**
+ * ⚠ GEMELO: las unidades viven también en
+ *   `frontend/src/constants/boletas.ts`. Si se cambian acá, se cambian allá.
+ */
+export const UNIDADES_DEL_TARIFARIO = [
+  'noche',
+  'persona',
+  'día',
+  'hora',
+  'unidad',
+] as const;
+
+/** Un ítem del tarifario de las boletas (D3): lo escribe el administrador. */
+export class ItemDelTarifarioDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Falta el nombre' })
+  @MaxLength(60, { message: 'El nombre cabe en 60 caracteres' })
+  nombre: string;
+
+  @IsInt({ message: 'El precio va en pesos, sin decimales' })
+  @Min(1, { message: 'El precio tiene que ser mayor que cero' })
+  precio: number;
+
+  @IsIn(UNIDADES_DEL_TARIFARIO, { message: 'Esa unidad no existe' })
+  unidad: string;
+}
+
+export class EditarItemDelTarifarioDto extends PartialType(
+  ItemDelTarifarioDto,
+) {
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  orden?: number;
+}
+
+/** Una línea de la boleta suelta: del tarifario por una cantidad, o (solo
+ *  el administrador) a mano, con qué se cobra y su monto. */
+export class LineaSueltaDto {
+  @IsOptional()
+  @IsInt()
+  tarifario_id?: number | null;
+
+  @IsOptional()
+  @IsInt({ message: 'La cantidad va sin decimales' })
+  @Min(1, { message: 'La cantidad tiene que ser al menos 1' })
+  @Max(999)
+  cantidad?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80, { message: 'Qué se cobra cabe en 80 caracteres' })
+  descripcion?: string | null;
+
+  @IsOptional()
+  @IsInt({ message: 'El monto va en pesos, sin decimales' })
+  @Min(1, { message: 'El monto tiene que ser mayor que cero' })
+  monto?: number | null;
+}
+
+export class BoletaSueltaDto {
+  @IsArray()
+  @ArrayMinSize(1, { message: 'La boleta necesita al menos una línea' })
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => LineaSueltaDto)
+  lineas: LineaSueltaDto[];
+
+  // La escribe recepción: va en la observación de la boleta.
+  @IsOptional()
+  @IsString()
+  @MaxLength(22, { message: 'La cabaña cabe en 22 caracteres' })
+  cabana?: string | null;
+
+  @IsOptional()
+  @ValidateIf((o: { correo?: string | null }) => !!o.correo)
+  @IsEmail({}, { message: 'Ese correo no es válido' })
+  @MaxLength(200)
+  correo?: string | null;
+}
