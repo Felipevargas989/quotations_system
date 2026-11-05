@@ -2,8 +2,8 @@
 
 > **Estado: APROBADO el 05-11-2026.** La maqueta (*"si me parece
 > perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
-> Calendario del vendedor prendido. **P1 (motor) programado** ese día; P2
-> (pantalla) y P3 (laboratorio) siguen. Migración **188** (la 186 es de
+> Calendario del vendedor prendido. **P1 (motor) y P2 (pantalla)
+> programados** ese día; P3 (laboratorio) sigue. Migración **188** (la 186 es de
 > recepción y la 187 de facturación). Rama `feature/permisos-por-cargo`,
 > carpeta `wt-permisos`. Al laboratorio por pasos; a producción, solo con su
 > «a producción».
@@ -283,6 +283,21 @@ cargos que antes (lo prueba `permisos-de-fabrica.spec.ts`).
   `aria-checked`, Espacio y Enter, deshabilitado con candado). Fila en la
   tabla del kit de `CLAUDE.md` y, si el patrón se deja reconocer con una
   expresión confiable, una regla del portero.
+
+### 5.1 Cómo quedó (05-11-2026)
+
+- La pestaña vive en `pages/configuration/PermisosPorCargo.tsx` (el texto
+  del último cambio, en `ultimoCambio.ts`) y la llama
+  `UserManagementPage` con `?vista=permisos`.
+- `PermissionGuard` pregunta por la sección (`section="quotations"`), no por
+  una lista de cargos; Consultas lleva `permiso="consultas"`.
+- `AuthContext` expone `permisos`; `services/api.ts` avisa un
+  `SIN_PERMISO` y dispara `eventia:sin-permiso`, que vuelve a pedir el
+  perfil.
+- Los botones que preguntaban `SECTION_ROLES` ahora preguntan el permiso:
+  cotizar (`cotizaciones`), ir a Post-Venta (`postventa`), la ficha del
+  cliente (`clientes`) y BelIA (`belia`). Las acciones finas por cargo
+  (`ROLE_GROUPS.ADMIN_ONLY`) quedan para la tanda 2.
 
 ## 6. Pasos (sprints cortos)
 

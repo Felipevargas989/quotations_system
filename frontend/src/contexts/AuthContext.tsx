@@ -2,13 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase.ts";
-import { UserRole } from "../constants/permissions";
+import { Permiso, UserRole, permisosDe } from "../constants/permissions";
 import { getUser } from "../services/users.service.ts";
 import { Company } from "../types/companies.types.ts";
 
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
+  /** Los permisos por cargo prendidos (doc 22): los del perfil, o los de
+   *  fábrica del cargo si el motor todavía no los manda. */
+  permisos: Permiso[];
   userName: string | null;
   company: Omit<Company, "created_at"> | null;
   loading: boolean;
@@ -40,6 +43,7 @@ interface ProfileData {
   role: UserRole;
   full_name?: string | null;
   companies?: Omit<Company, "created_at"> | null;
+  permisos?: string[] | null;
 }
 
 const readCachedProfile = (userId: string): ProfileData | undefined => {
@@ -79,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: data.role,
         full_name: (data as { full_name?: string }).full_name || null,
         companies: data.companies || null,
+        permisos: (data as { permisos?: string[] }).permisos ?? null,
       };
       writeCachedProfile(user!.id, profile);
       return profile;
@@ -92,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const userRole: UserRole | null = profileQuery.data?.role ?? null;
+  const permisos = permisosDe(userRole, profileQuery.data?.permisos);
   const userName = profileQuery.data?.full_name ?? null;
   const company = profileQuery.data?.companies ?? null;
   const roleLoading = !!user && !profileQuery.data && profileQuery.isPending;
@@ -99,6 +105,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUserProfile = async () => {
     await profileQuery.refetch();
   };
+
+  // Un permiso apagado (doc 22 §4.5): el motor respondió SIN_PERMISO y
+  // `services/api.ts` avisa. Se vuelve a pedir el perfil para que el menú
+  // y los botones se pongan al día con lo que la empresa cambió.
+  const { refetch: refrescarPerfil } = profileQuery;
+  useEffect(() => {
+    const alPerderPermiso = () => void refrescarPerfil();
+    window.addEventListener("eventia:sin-permiso", alPerderPermiso);
+    return () =>
+      window.removeEventListener("eventia:sin-permiso", alPerderPermiso);
+  }, [refrescarPerfil]);
 
   useEffect(() => {
     // Get initial session with better error handling
@@ -252,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession,
     userRole,
+    permisos,
     userName,
     company,
     roleLoading,

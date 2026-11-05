@@ -9,7 +9,7 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react";
-import { SECTION_ROLES, tieneDerecho } from "../constants/permissions";
+import { tieneDerecho } from "../constants/permissions";
 import { useCrearConIA } from "../hooks/useCrearConIA";
 import { useAuth } from "../contexts/AuthContext";
 import { validateCompleteClientForm } from "../utils/validation";
@@ -45,7 +45,7 @@ interface RequestFormProps {
 }
 
 export default function RequestForm({ request, onSave }: RequestFormProps) {
-  const { user, userRole, company } = useAuth();
+  const { user, company, permisos } = useAuth();
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
   // «✨ Crear con IA» al editar (Felipe, 17-10-2026): se escribe el
@@ -53,7 +53,7 @@ export default function RequestForm({ request, onSave }: RequestFormProps) {
   // cotiza, en la empresa con el módulo propio cotizar_con_ia.
   const conIA =
     Boolean(request?.id) &&
-    SECTION_ROLES.quotations_edit.includes(userRole as never) &&
+    permisos.includes("cotizaciones") &&
     tieneDerecho(company, "cotizar_con_ia");
   const ia = useCrearConIA();
   // Un requerimiento maneja solo el esqueleto del evento (sin montos):
