@@ -1,8 +1,6 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -14,10 +12,6 @@ import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
-import {
-  EnvioSinRespuesta,
-  type RespuestaDeProcesar,
-} from '../facturacion-cl/facturacion-cl';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   armarBorrador,
@@ -30,10 +24,8 @@ import {
 } from './borrador';
 import { ConexionConFacturacionCl } from './conexion';
 import { guardarCopiaDelPdf } from './copia-del-pdf';
-import {
-  DocumentosTributariosRepository,
-  type DocumentoTributario,
-} from './documentos-tributarios.repository';
+import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
+import { mandarConFolio } from './emision';
 
 /**
  * LA FACTURA DEL EVENTO (doc 19 §9.2 y §9.10, paso 2c).
@@ -178,12 +170,8 @@ export class FacturasService {
     );
     const conexion = this.conexion.de(companyId);
     const fecha = hoyEnChile();
-    let revision = revisarFactura(
-      pedida,
-      ctx,
-      await conexion.folioSiguiente(FACTURA),
-      fecha,
-    );
+    const folio = await conexion.folioSiguiente(FACTURA);
+    const revision = revisarFactura(pedida, ctx, folio, fecha);
     if (!revision.ok || !revision.archivo || !revision.montos)
       throw new BadRequestException(
         revision.faltan.length
@@ -191,10 +179,13 @@ export class FacturasService {
           : revision.problemas.join('. '),
       );
 
-    // Un solo envío a la vez por evento: el índice único lo asegura.
-    let documento: DocumentoTributario;
-    try {
-      documento = await this.repo.crear({
+    const enviado = await mandarConFolio({
+      repo: this.repo,
+      conexion,
+      logger: this.logger,
+      user,
+      tipo: FACTURA,
+      fila: {
         company_id: companyId,
         tipo: FACTURA,
         ambiente: conexion.ambiente,
@@ -210,82 +201,18 @@ export class FacturasService {
         orden_de_compra_id: pedida.orden_de_compra_id,
         porcentaje: pedida.porcentaje,
         creado_por: user.id ?? null,
-        archivo_enviado: revision.archivo,
-      });
-    } catch (error) {
-      if ((error as { code?: string })?.code === '23505')
-        throw new ConflictException(
-          'Ya se está emitiendo un documento de este evento: espera su respuesta.',
-        );
-      throw error;
-    }
-
-    let respuesta: RespuestaDeProcesar;
-    try {
-      respuesta = await conexion.procesar(revision.archivo, FACTURA);
-      if (
-        respuesta.resultado === 'rechazado' &&
-        /ya existe el documento/i.test(respuesta.mensaje)
-      ) {
-        revision = revisarFactura(
-          pedida,
-          ctx,
-          await conexion.folioSiguiente(FACTURA),
-          fecha,
-        );
-        if (revision.ok && revision.archivo) {
-          await this.repo.actualizar(documento.id, companyId, {
-            archivo_enviado: revision.archivo,
-          });
-          respuesta = await conexion.procesar(revision.archivo, FACTURA);
-        }
-      }
-    } catch (error) {
-      // L5: no se sabe si salió. Nunca se reintenta solo.
-      const motivo =
-        error instanceof EnvioSinRespuesta
-          ? error.message
-          : `El envío falló sin respuesta: ${mensajeDe(error)}`;
-      this.logger.warn(`factura de ${quotationId} por confirmar: ${motivo}`);
-      return this.repo.actualizar(documento.id, companyId, {
-        estado: 'por_confirmar',
-        error: motivo,
-      });
-    }
-
-    if (respuesta.resultado === 'rechazado') {
-      await this.repo.actualizar(documento.id, companyId, {
-        estado: 'rechazado',
-        error: respuesta.mensaje,
-        respuesta: respuesta.crudo,
-      });
-      throw new BadRequestException(
-        `facturacion.cl no la aceptó: ${respuesta.mensaje}`,
-      );
-    }
-
-    let emitido: DocumentoTributario;
-    try {
-      emitido = await this.repo.actualizar(documento.id, companyId, {
-        estado: 'emitido',
-        folio: respuesta.folio,
-        fecha_emision: respuesta.fecha ?? fecha,
-        respuesta: respuesta.crudo,
-        url_original: respuesta.urlOriginal,
-        url_cedible: respuesta.urlCedible,
-        emitido_por: user.id ?? null,
-        emitido_en: new Date().toISOString(),
-      });
-    } catch (error) {
-      // Salió, pero no quedó anotado: el registro sigue «enviando» y frena
-      // otra emisión del evento hasta revisarlo.
-      this.logger.error(
-        `factura ${respuesta.folio} de ${quotationId} emitida y SIN anotar: ${mensajeDe(error)}`,
-      );
-      throw new InternalServerErrorException(
-        `La factura N° ${respuesta.folio} salió, pero Eventia no la pudo anotar. No la emitas de nuevo: avisa para revisarla.`,
-      );
-    }
+      },
+      // El mismo archivo de la vista previa, con el folio que toque.
+      armar: (f) =>
+        f === folio
+          ? revision.archivo
+          : revisarFactura(pedida, ctx, f, fecha).archivo,
+      folio,
+      fecha,
+      nombre: 'La factura',
+    });
+    if (enviado.porConfirmar) return enviado.documento;
+    let emitido = enviado.documento;
 
     // Lo que sigue no cambia la factura: si algo falla, se avisa en el
     // registro y la factura queda emitida igual.

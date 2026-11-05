@@ -4,6 +4,7 @@ import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { Receptor } from '../archivo/tipos';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
+import { Cadena, type DocumentoDeLaCadena } from '../notas/cadena';
 import type { EventoAFacturar, OrdenAFacturar } from './borrador';
 
 /** Un documento tributario (tabla `documentos_tributarios`, migración 184). */
@@ -52,7 +53,15 @@ export type NuevoDocumentoTributario = Pick<
   | 'orden_de_compra_id'
   | 'porcentaje'
   | 'creado_por'
-> & { archivo_enviado: string };
+> & {
+  archivo_enviado: string;
+  /** Las notas (paso 4): lo que modifican y cómo. */
+  modifica_id?: number | null;
+  codigo_referencia?: number | null;
+  /** Lo que se sabe al mandarla (la boleta: el folio que debería tocarle,
+   *  para «Comprobar» si se corta). */
+  respuesta?: unknown;
+};
 
 export type CambiosDelDocumento = Partial<
   Pick<
@@ -176,29 +185,103 @@ export class DocumentosTributariosRepository {
   }
 
   /** Lo facturado del evento y de cada una de sus OC (facturas). */
+  /**
+   * Lo facturado del evento y de cada una de sus OC: cada factura vale lo
+   * que le queda en la cadena (paso 4). Una factura anulada por una NC ya no
+   * cuenta, y la OC se puede volver a facturar; una rebajada cuenta lo que
+   * le queda.
+   */
   async facturado(quotationId: string, companyId: number) {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
-      .select('orden_de_compra_id, total')
+      .select(
+        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id',
+      )
       .eq('quotation_id', quotationId)
       .eq('company_id', companyId)
-      .eq('tipo', 33)
+      .in('tipo', [33, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
+    const filas = (
+      (data ?? []) as (DocumentoDeLaCadena & {
+        orden_de_compra_id: number | null;
+      })[]
+    ).map((d) => ({ ...d, total: Number(d.total) }));
+    const cadena = new Cadena(filas);
     const porOC = new Map<number, number>();
     let total = 0;
-    for (const d of (data ?? []) as {
-      orden_de_compra_id: number | null;
-      total: number;
-    }[]) {
-      total += Number(d.total);
+    for (const d of filas.filter((f) => f.tipo === 33)) {
+      const vale = cadena.facturado(d.id);
+      total += vale;
       if (d.orden_de_compra_id != null)
         porOC.set(
           d.orden_de_compra_id,
-          (porOC.get(d.orden_de_compra_id) ?? 0) + Number(d.total),
+          (porOC.get(d.orden_de_compra_id) ?? 0) + vale,
         );
     }
     return { total, porOC };
+  }
+
+  /** Un documento entero, con el archivo y la respuesta («Comprobar»,
+   *  las notas). */
+  async documento(id: number, companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(`${COLUMNAS}, archivo_enviado, respuesta`)
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as unknown as
+      | (DocumentoTributario & {
+          archivo_enviado: string | null;
+          respuesta: unknown;
+        })
+      | null;
+  }
+
+  /** Los documentos de un período (la lista de Facturación), con el N° del
+   *  evento y de la OC: los emitidos en esas fechas y, siempre, los que
+   *  esperan «Comprobar» (L5). `desde` y `hasta` son AAAA-MM-DD de Chile
+   *  (hasta, excluido). */
+  async delPeriodo(companyId: number, desde: string, hasta: string) {
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(
+        `${COLUMNAS}, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)`,
+      )
+      .eq('company_id', companyId)
+      .in('estado', FACTURADO)
+      .or(
+        `and(fecha_emision.gte.${desde},fecha_emision.lt.${hasta}),estado.in.(por_confirmar,enviando)`,
+      )
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    if (error) throw error;
+    return (data ?? []) as unknown as (DocumentoTributario & {
+      cotizacion: { quotation_number: number } | null;
+      oc: { numero: string } | null;
+    })[];
+  }
+
+  /** La cadena entera de la empresa: facturas y notas, livianas (las
+   *  boletas no tienen notas todavía, L21). */
+  async cadenaDeLaEmpresa(companyId: number) {
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(
+        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, created_at',
+      )
+      .eq('company_id', companyId)
+      .in('tipo', [33, 56, 61])
+      .in('estado', FACTURADO);
+    if (error) throw error;
+    return (
+      (data ?? []) as (DocumentoDeLaCadena & {
+        orden_de_compra_id: number | null;
+        created_at: string;
+      })[]
+    ).map((d) => ({ ...d, total: Number(d.total) }));
   }
 
   /** El último folio usado de un tipo, para seguir la numeración. */
