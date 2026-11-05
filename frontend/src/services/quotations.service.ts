@@ -171,6 +171,29 @@ export const enviarCotizacionPorCorreo = async (quotationId: string) =>
     {},
   )) as { enviado_a: string };
 
+/** El aviso de cierre al rechazar (Felipe, 04-11-2026): el borrador
+ *  que muestra el pop-up y su envío con el texto editado. `para` es null
+ *  si el cliente no tiene correo. */
+export interface BorradorDeCierre {
+  para: string | null;
+  asunto: string;
+  cuerpo: string;
+}
+export const getBorradorDeCierre = async (quotationId: string) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/aviso-de-cierre`,
+    "GET",
+  )) as BorradorDeCierre;
+export const enviarAvisoDeCierre = async (
+  quotationId: string,
+  texto: { asunto: string; cuerpo: string },
+) =>
+  (await apiRequest(
+    `${API_ROUTES.QUOTATIONS}/${quotationId}/aviso-de-cierre`,
+    "POST",
+    texto,
+  )) as { enviado_a: string };
+
 /** El botón «✨ Crear con IA» (17-10-2026, doc 16 §6): el motor arma el
  *  requerimiento con Claude y lo deja en solicitada. Tarda cerca de un
  *  minuto; nunca envía nada. */

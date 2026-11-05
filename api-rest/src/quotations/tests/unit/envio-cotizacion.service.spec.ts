@@ -291,3 +291,79 @@ describe('enviar cotización por correo', () => {
     );
   });
 });
+
+// El aviso de cierre al rechazar (Felipe, 04-11-2026): borrador fijo con
+// tú, editable en el pop-up, con copia oculta a contacto@ y sin PDF.
+describe('aviso de cierre al rechazar', () => {
+  const RECHAZADA = { ...COTIZACION, quotation_status: 'rechazada' };
+  const TEXTO = {
+    asunto: 'Gracias por considerarnos · Cotización N.º 42',
+    cuerpo: 'Hola Ana:\n\nGracias <de verdad>.\nSaludos,\nEquipo',
+  };
+
+  it('el borrador va al contacto, con tú y sin la palabra rechazada', async () => {
+    const { service } = armar({ quotation: RECHAZADA });
+    const b = await service.borradorDelAvisoDeCierre('q-1', USUARIO);
+    expect(b.para).toBe('ana@x.cl');
+    expect(b.asunto).toContain('N.º 42');
+    expect(b.cuerpo).toMatch(/^Hola Ana:/);
+    expect(b.cuerpo).toContain('dedicaste');
+    expect(b.cuerpo).toContain('sábado 14 de marzo de 2026');
+    expect(b.cuerpo).toContain('Equipo Valle del Sol');
+    expect(b.cuerpo.toLowerCase()).not.toContain('rechaz');
+  });
+
+  it('solo para cotizaciones rechazadas y de la propia empresa', async () => {
+    await expect(
+      armar({}).service.borradorDelAvisoDeCierre('q-1', USUARIO),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      armar({
+        quotation: { ...RECHAZADA, company_id: 2 },
+      }).service.enviarAvisoDeCierre('q-1', USUARIO, TEXTO),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(enviarResend).not.toHaveBeenCalled();
+  });
+
+  it('envía el texto editado, escapado, con copia oculta y lo anota', async () => {
+    const followup = jest.fn();
+    const { service } = armar({
+      quotation: RECHAZADA,
+      followup,
+      empresa: { notifications: { replyTo: 'contacto@x.cl' } },
+    });
+    const r = await service.enviarAvisoDeCierre('q-1', USUARIO, TEXTO);
+    expect(r.enviado_a).toBe('ana@x.cl');
+    const llamada = (enviarResend.mock.calls as unknown[][])[0][0] as {
+      to: string[];
+      bcc?: string[];
+      subject: string;
+      html: string;
+      attachments?: unknown;
+    };
+    expect(llamada.to).toEqual(['ana@x.cl']);
+    expect(llamada.bcc).toEqual(['contacto@x.cl']);
+    expect(llamada.subject).toBe(TEXTO.asunto);
+    expect(llamada.attachments).toBeUndefined();
+    expect(llamada.html).toContain('Gracias &lt;de verdad&gt;.<br />Saludos,');
+    expect(followup).toHaveBeenCalledWith(USUARIO, {
+      quotation_id: 'q-1',
+      note: 'Aviso de cierre enviado por correo a ana@x.cl.',
+      tipo: 'correo',
+    });
+  });
+
+  it('sin correo del cliente no envía nada', async () => {
+    const { service } = armar({
+      quotation: { ...RECHAZADA, clients: { name: 'Sin correo' } },
+      contactos: [],
+    });
+    expect(
+      (await service.borradorDelAvisoDeCierre('q-1', USUARIO)).para,
+    ).toBeNull();
+    await expect(
+      service.enviarAvisoDeCierre('q-1', USUARIO, TEXTO),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(enviarResend).not.toHaveBeenCalled();
+  });
+});

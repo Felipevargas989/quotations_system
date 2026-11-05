@@ -16,7 +16,9 @@ import { plantillaCampana } from 'src/marketing/plantilla';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { User } from 'src/users/entities/user.entity';
 import { QuotationStatus } from './constants/constants';
+import { borradorDeCierre, cuerpoHtmlDeCierre } from './correo-cierre';
 import { correoDeCotizacion, reparosDelPortero } from './correo-cotizacion';
+import type { AvisoDeCierreDto } from './dto/aviso-de-cierre.dto';
 import type { UpdateQuotationDto } from './dto/update-quotation.dto';
 import type { Quotation } from './entities/quotation.entity';
 import { firmarTokenImpresion, validarTokenImpresion } from './firma-impresion';
@@ -31,6 +33,7 @@ const ESTADO_ANTES_DE_ENVIAR = QuotationStatus.SOLICITADA;
 const ESTADO_TRAS_ENVIAR = QuotationStatus.ENVIADA;
 
 const MARCA_DE_ENVIO = 'Cotización enviada por correo';
+const MARCA_DE_CIERRE = 'Aviso de cierre enviado por correo';
 
 type CotizacionConCliente = Quotation & {
   clients?: { name?: string | null; email?: string | null } | null;
@@ -310,5 +313,108 @@ export class EnvioCotizacionService {
     }
 
     return { enviado_a: destino.correo };
+  }
+
+  // ---- El aviso de cierre al rechazar (Felipe, 04-11-2026) ----
+
+  /** La cotización rechazada de la empresa de quien pide, o un error. */
+  private async rechazadaDe(quotationId: string, user: User) {
+    const { data: q } = await this.quotationsRepository.findOne(quotationId);
+    if (!q || q.company_id !== user.company_id) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    if (q.quotation_status !== QuotationStatus.RECHAZADA) {
+      throw new BadRequestException(
+        'El aviso de cierre es solo para cotizaciones rechazadas.',
+      );
+    }
+    return q as CotizacionConCliente;
+  }
+
+  /** El borrador que muestra el pop-up: a quién va y el texto fijo,
+   *  que la persona puede editar. Sin correo de destino, `para` es null
+   *  y la pantalla lo dice en vez de ofrecer el envío. */
+  async borradorDelAvisoDeCierre(quotationId: string, user: User) {
+    const q = await this.rechazadaDe(quotationId, user);
+    const destino = await this.correoDeDestino(q);
+    const { data: filaEmpresa } = await this.companies.findOne(q.company_id);
+    const marca = marcaDesdeFila(filaEmpresa || {});
+    return {
+      para: destino.correo,
+      ...borradorDeCierre(q, marca, destino.nombre),
+    };
+  }
+
+  /** Envía el aviso con el texto editado: el mismo remitente, la misma
+   *  copia oculta al buzón de respuestas y el mismo «Responder a» que el
+   *  correo de la cotización, y lo anota en la bitácora. */
+  async enviarAvisoDeCierre(
+    quotationId: string,
+    user: User,
+    texto: AvisoDeCierreDto,
+  ) {
+    const llave = `cierre:${quotationId}`;
+    if (this.enviosEnCurso.has(llave)) {
+      throw new BadRequestException(
+        'Ya hay un aviso de esta cotización en curso: espera unos segundos.',
+      );
+    }
+    this.enviosEnCurso.add(llave);
+    try {
+      const q = await this.rechazadaDe(quotationId, user);
+      const destino = await this.correoDeDestino(q);
+      if (!destino.correo) {
+        throw new BadRequestException(
+          'El cliente no tiene correo registrado: no se puede avisar.',
+        );
+      }
+      const asunto = texto.asunto.trim();
+      const cuerpoHtml = cuerpoHtmlDeCierre(texto.cuerpo);
+      if (!asunto || !cuerpoHtml) {
+        throw new BadRequestException('El aviso necesita asunto y texto.');
+      }
+      const { data: filaEmpresa, error: errMarca } =
+        await this.companies.findOne(q.company_id);
+      if (errMarca && errMarca.code !== 'PGRST116') throw errMarca;
+      const marca = marcaDesdeFila(filaEmpresa || {});
+      const copiaOculta =
+        marca.replyTo &&
+        marca.replyTo.toLowerCase() !== destino.correo.toLowerCase()
+          ? [marca.replyTo]
+          : [];
+
+      this.logger.info(`aviso de cierre ${quotationId} a ${destino.correo}`);
+      const resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
+      const { error } = await resend.emails.send({
+        from: `${marca.nombre} <hola@eventi-app.com>`,
+        to: [destino.correo],
+        ...(copiaOculta.length ? { bcc: copiaOculta } : {}),
+        subject: asunto,
+        html: plantillaCampana({
+          marca,
+          titulo: `Cotización N.º ${String(q.quotation_number)}`,
+          cuerpoHtml,
+          iconosBase: this.frontendUrl(),
+        }),
+        ...(marca.replyTo || user.email
+          ? { replyTo: marca.replyTo || user.email }
+          : {}),
+      });
+      if (error) throw new BadRequestException(error.message);
+
+      // Si la bitácora fallara, el correo YA salió: se anota el error.
+      try {
+        await this.followups.create(user, {
+          quotation_id: quotationId,
+          note: `${MARCA_DE_CIERRE} a ${destino.correo}.`,
+          tipo: 'correo',
+        });
+      } catch (e) {
+        this.logger.error(`bitácora del aviso de cierre falló: ${String(e)}`);
+      }
+      return { enviado_a: destino.correo };
+    } finally {
+      this.enviosEnCurso.delete(llave);
+    }
   }
 }
