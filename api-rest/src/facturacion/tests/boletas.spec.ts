@@ -137,6 +137,7 @@ const armar = ({
         },
       ),
     quitarLinea: jest.fn().mockResolvedValue(undefined),
+    nombreDeLaPersona: jest.fn().mockResolvedValue(null),
     agregarLinea: jest.fn().mockResolvedValue(4),
     anotar: jest.fn().mockImplementation((c: NuevoCambio[]) => {
       anotados.push(...c);
@@ -242,6 +243,33 @@ describe('E3: editable, y queda anotado quién cambió qué', () => {
       ['monto', '$500.000', '$450.000', 'Isabel'],
       ['total', '$1.200.000', '$1.150.000', 'Isabel'],
     ]);
+  });
+
+  it('firma con el nombre del perfil, como la bitácora, y dice de qué cabaña es cada cambio', async () => {
+    const { servicio, repo, anotados } = armar();
+    repo.nombreDeLaPersona.mockResolvedValue('Isabel Rojas');
+    const cobro = await servicio.editarLinea(USUARIO, 5, 2, { monto: 450000 });
+    expect(anotados[0].nombre).toBe('Isabel Rojas');
+    expect(repo.nombreDeLaPersona).toHaveBeenCalledWith(1, 'u-isabel');
+    // El cambio se anotó en el repositorio de mentira, pero la pantalla
+    // arma la cabaña desde la línea: acá se prueba con uno guardado.
+    repo.cobro.mockResolvedValue({
+      ...COBRO(),
+      cambios: [
+        {
+          id: 1,
+          linea_id: 2,
+          que: 'monto',
+          antes: '$500.000',
+          despues: '$450.000',
+          nombre: 'Isabel Rojas',
+          created_at: '2026-11-05T03:13:00Z',
+        },
+      ],
+    });
+    const vista = await servicio.editarCobro(USUARIO, 5, {});
+    expect(vista.cambios[0]).toMatchObject({ cabana: 'Cabaña 8' });
+    expect(cobro.lineas[1]).toMatchObject({ cabana: 'Cabaña 8' });
   });
 
   it('lo que ya tiene boleta no se toca, y el total no baja de lo boleteado', async () => {

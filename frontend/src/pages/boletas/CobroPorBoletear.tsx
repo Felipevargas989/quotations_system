@@ -11,6 +11,7 @@ import {
   editarLinea,
   emitirBoletas,
   quitarLinea,
+  type CambioDelCobro,
   type CobroPorBoletear,
   type LineaDelCobro,
 } from "../../services/boletas.service";
@@ -37,6 +38,15 @@ const QUE: Record<string, string> = {
   correo: "El correo",
   quita: "Quitó",
   emite: "Emitió",
+};
+
+/** «El monto de Cabaña 5», «Emitió (Cabaña 4)»: el cambio con su cabaña. */
+const etiqueta = (c: CambioDelCobro) => {
+  const que = QUE[c.que] ?? c.que;
+  if (!c.cabana) return que;
+  if (c.que === "monto" || c.que === "correo") return `${que} de ${c.cabana}`;
+  if (c.que === "emite") return `${que} (${c.cabana})`;
+  return que;
 };
 
 const cuando = (iso: string) =>
@@ -353,47 +363,55 @@ export default function CobroPorBoletear({
               />
             ),
           )}
-          <tr className="align-top">
-            <td className="py-1.5 pr-2">
-              <input
-                type="text"
-                value={nueva.cabana}
-                maxLength={22}
-                placeholder="Cabaña"
-                onChange={(e) => setNueva({ ...nueva, cabana: e.target.value })}
-                className={casilla}
-              />
-            </td>
-            <td className="py-1.5 pr-2">
-              <NumberInput
-                value={nueva.monto}
-                min={0}
-                currency
-                placeholder="$"
-                onChange={(v) => setNueva({ ...nueva, monto: v })}
-                className="px-2 py-1 text-sm"
-              />
-            </td>
-            <td className="py-1.5 pr-2">
-              <input
-                type="email"
-                value={nueva.correo}
-                placeholder="Opcional"
-                onChange={(e) => setNueva({ ...nueva, correo: e.target.value })}
-                className={casilla}
-              />
-            </td>
-            <td className="py-1.5">
-              <button
-                type="button"
-                disabled={ocupado || !nueva.cabana.trim() || !nueva.monto}
-                onClick={() => void agregar()}
-                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline disabled:opacity-40"
-              >
-                <Plus size={13} /> Agregar
-              </button>
-            </td>
-          </tr>
+          {/* Boleteado entero, no queda qué repartir: para sumar una cabaña
+              hay que subir antes el total (queda anotado). */}
+          {cobro.boleteado < cobro.total && (
+            <tr className="align-top">
+              <td className="py-1.5 pr-2">
+                <input
+                  type="text"
+                  value={nueva.cabana}
+                  maxLength={22}
+                  placeholder="Cabaña"
+                  onChange={(e) =>
+                    setNueva({ ...nueva, cabana: e.target.value })
+                  }
+                  className={casilla}
+                />
+              </td>
+              <td className="py-1.5 pr-2">
+                <NumberInput
+                  value={nueva.monto}
+                  min={0}
+                  currency
+                  placeholder="$"
+                  onChange={(v) => setNueva({ ...nueva, monto: v })}
+                  className="px-2 py-1 text-sm"
+                />
+              </td>
+              <td className="py-1.5 pr-2">
+                <input
+                  type="email"
+                  value={nueva.correo}
+                  placeholder="Opcional"
+                  onChange={(e) =>
+                    setNueva({ ...nueva, correo: e.target.value })
+                  }
+                  className={casilla}
+                />
+              </td>
+              <td className="py-1.5">
+                <button
+                  type="button"
+                  disabled={ocupado || !nueva.cabana.trim() || !nueva.monto}
+                  onClick={() => void agregar()}
+                  className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline disabled:opacity-40"
+                >
+                  <Plus size={13} /> Agregar
+                </button>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -468,7 +486,7 @@ export default function CobroPorBoletear({
         <ul className="space-y-0.5 text-xs text-gray-600">
           {cobro.cambios.map((c, i) => (
             <li key={i}>
-              {cuando(c.created_at)} · {c.nombre ?? "—"} · {QUE[c.que] ?? c.que}
+              {cuando(c.created_at)} · {c.nombre ?? "—"} · {etiqueta(c)}
               {c.antes ? `: ${c.antes}` : ""}
               {c.despues ? `${c.antes ? " →" : ":"} ${c.despues}` : ""}
             </li>
