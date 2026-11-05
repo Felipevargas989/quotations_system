@@ -16,7 +16,10 @@ import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { BoletasRepository } from '../boletas/boletas.repository';
 import { ConexionConFacturacionCl } from '../facturas/conexion';
 import { guardarCopiaDelPdf } from '../facturas/copia-del-pdf';
-import { DocumentosTributariosRepository } from '../facturas/documentos-tributarios.repository';
+import {
+  DocumentosTributariosRepository,
+  type DocumentoTributario,
+} from '../facturas/documentos-tributarios.repository';
 import { mandarConFolio } from '../facturas/emision';
 import {
   Cadena,
@@ -24,6 +27,7 @@ import {
   NOMBRE_LARGO,
   QUE_HACE,
   estadoEnPalabras,
+  facturadoDeLasOC,
   nombreDe,
   plazoDelSii,
 } from './cadena';
@@ -371,9 +375,8 @@ export class NotasService {
       throw new BadRequestException(
         'La nota de crédito de una boleta se prueba con facturacion.cl en el paso 0 (L21)',
       );
-    const cadena = new Cadena(
-      await this.documentos.cadenaDeLaEmpresa(companyId),
-    );
+    const todos = await this.documentos.cadenaDeLaEmpresa(companyId);
+    const cadena = new Cadena(todos);
     if (!cadena.vigente(id))
       throw new ConflictException(`${nombreDe(original)} ya está anulada`);
     if (dto.accion !== 'anular' && original.tipo !== 33)
@@ -384,6 +387,7 @@ export class NotasService {
 
     // La ND anula una NC; la NC, todo lo demás (la factura o una ND).
     const tipo: 56 | 61 = original.tipo === NC ? ND : NC;
+    if (tipo === ND) await this.sinPasarDeLaOC(companyId, original, todos);
     const codigo: 1 | 2 | 3 =
       dto.accion === 'anular' ? 1 : dto.accion === 'corregir' ? 2 : 3;
     const saldo = cadena.saldo(id);
@@ -476,6 +480,48 @@ export class NotasService {
       armado,
       nombre: NOMBRE_CORTO[tipo],
     };
+  }
+
+  /**
+   * La ND que anula una NC le devuelve a la factura lo que la NC anuló o
+   * rebajó. Si esa OC ya se volvió a facturar, nunca más del 100 % (§5.3):
+   * primero se anula la factura que la reemplazó. Se mira la cadena con la
+   * ND puesta, como quedaría; $1 de redondeo se tolera, como en la factura.
+   */
+  private async sinPasarDeLaOC(
+    companyId: number,
+    nc: Pick<
+      DocumentoTributario,
+      'id' | 'total' | 'quotation_id' | 'orden_de_compra_id'
+    >,
+    todos: Awaited<
+      ReturnType<DocumentosTributariosRepository['cadenaDeLaEmpresa']>
+    >,
+  ) {
+    const ocId = nc.orden_de_compra_id;
+    if (ocId == null || !nc.quotation_id) return;
+    const oc = (
+      await this.documentos.ordenesDelEvento(nc.quotation_id, companyId)
+    ).find((o) => o.id === ocId);
+    if (!oc) return;
+    const conLaND = facturadoDeLasOC([
+      ...todos,
+      {
+        id: 0,
+        tipo: ND,
+        folio: null,
+        estado: 'emitido',
+        total: Number(nc.total),
+        fecha_emision: null,
+        modifica_id: nc.id,
+        codigo_referencia: 1,
+        orden_de_compra_id: ocId,
+      },
+    ]).porOC.get(ocId);
+    if ((conLaND ?? 0) > Number(oc.total) + 1)
+      throw new ConflictException(
+        `Con la nota de débito, la OC N° ${oc.numero} volvería a sumar ${pesos(conLaND ?? 0)} facturados de ${pesos(Number(oc.total))}: ya se volvió a facturar. Anula primero la factura que la reemplazó.`,
+      );
   }
 
   private archivoCon(
