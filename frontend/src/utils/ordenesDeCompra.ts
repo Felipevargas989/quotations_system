@@ -2,6 +2,7 @@ import { normalizarRut, revisarRut } from "./rut";
 import type {
   DatosDeOrdenDeCompra,
   OrdenDeCompra,
+  PropuestaDeOC,
 } from "../services/ordenesDeCompra.service";
 
 // LAS ÓRDENES DE COMPRA DE LA PESTAÑA «FACTURACIÓN» (doc 19, paso 2a): qué
@@ -18,6 +19,8 @@ export type BorradorDeOC = {
   total?: number;
   /** '' = sin PDF. */
   documento_id: string;
+  /** «pdf» si lo llenó BelIA leyendo el PDF. */
+  origen?: "manual" | "pdf";
 };
 
 export const borradorDeOC = (oc?: OrdenDeCompra | null): BorradorDeOC => ({
@@ -58,7 +61,7 @@ export const cambiosDeOC = (
     total: b.total ?? 0,
     documento_id: b.documento_id ? Number(b.documento_id) : null,
   };
-  if (!antes) return ahora;
+  if (!antes) return b.origen ? { ...ahora, origen: b.origen } : ahora;
   const cambios: DatosDeOrdenDeCompra = {};
   for (const campo of Object.keys(ahora) as (keyof DatosDeOrdenDeCompra)[]) {
     if ((ahora[campo] ?? null) !== (antes[campo] ?? null))
@@ -66,6 +69,23 @@ export const cambiosDeOC = (
   }
   return cambios;
 };
+
+/** El formulario lleno con lo que leyó BelIA, listo para confirmar. */
+export const borradorDeLaLectura = (
+  p: PropuestaDeOC,
+  documentoId: number,
+): BorradorDeOC => ({
+  numero: p.numero.slice(0, 18),
+  fecha: p.fecha ?? "",
+  rut: p.rut ?? "",
+  razon_social: p.razon_social ?? "",
+  descripcion: p.descripcion ?? "",
+  neto: p.neto ?? undefined,
+  iva: p.iva ?? undefined,
+  total: p.total ?? undefined,
+  documento_id: String(documentoId),
+  origen: "pdf",
+});
 
 /** «2026-10-14» → «14-10-2026», sin pasar por Date (no se corre un día). */
 export const fechaCorta = (iso: string): string => {

@@ -1,5 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import {
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -71,6 +72,17 @@ export class CrearOrdenDeCompraDto {
   @IsOptional()
   @IsInt()
   documento_id?: number | null;
+
+  // De dónde salió: escrita a mano, o leída por BelIA del PDF y confirmada.
+  @IsOptional()
+  @IsIn(['manual', 'pdf'])
+  origen?: 'manual' | 'pdf';
+}
+
+/** «✨ Leer con BelIA»: el PDF de Documentos que hay que leer. */
+export class LeerOrdenDeCompraDto {
+  @IsInt({ message: 'Falta el PDF de la orden de compra' })
+  documento_id: number;
 }
 
 export class EditarOrdenDeCompraDto extends PartialType(

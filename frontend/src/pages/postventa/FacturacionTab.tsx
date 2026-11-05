@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import ConfirmInline from "../../components/ConfirmInline";
 import FileViewLink from "../../components/FileViewLink";
@@ -8,10 +8,12 @@ import RutInput from "../../components/inputs/RutInput";
 import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
+  LecturaDeOC,
   OrdenDeCompra,
   createOrdenDeCompra,
   deleteOrdenDeCompra,
   getOrdenesDeCompra,
+  leerOrdenDeCompra,
   updateOrdenDeCompra,
 } from "../../services/ordenesDeCompra.service";
 import { getRazonesSociales } from "../../services/razonesSociales.service";
@@ -20,6 +22,7 @@ import { formatearRut } from "../../utils/rut";
 import { humanizeApiError } from "../../utils/apiErrors";
 import {
   BorradorDeOC,
+  borradorDeLaLectura,
   borradorDeOC,
   cambiosDeOC,
   faltaEnLaOC,
@@ -33,8 +36,42 @@ import { docsQueryOpts } from "./consultaDeDocumentos";
 // PDF de Documentos. El N° va tal cual en la referencia 801 de la factura
 // (hasta 18 caracteres). A nombre de quién viene es a quién se factura esa
 // OC: Santo Tomás manda OC del CFT y del Instituto Profesional para un
-// mismo evento (§9.12). En el paso 2b las llena BelIA leyendo el PDF, y en
-// el 2c sale de acá la factura de cada una.
+// mismo evento (§9.12). Con «✨ Leer con BelIA» (paso 2b) la llena BelIA
+// leyendo el PDF de Documentos, y la persona confirma: lo leído trae sus
+// avisos (L19, la IA puede leer mal un N° o un monto). En el 2c sale de acá
+// la factura de cada una.
+
+const NOMBRE_DE_LA_REFERENCIA: Record<string, string> = {
+  nota_de_pedido: "Nota de pedido",
+  hes: "HES",
+  contrato: "Contrato",
+  otro: "Otra referencia",
+};
+
+/** Lo que BelIA leyó y no va en los campos de la OC: los avisos y lo que
+ *  dice del comprador (para su razón social, en el paso 2c). */
+function LoQueLeyoBelia({ lectura }: { lectura: LecturaDeOC }) {
+  const p = lectura.propuesta;
+  const comprador = [p.giro, p.direccion, p.comuna, p.ciudad]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      <p className="font-semibold flex items-center gap-1">
+        <Sparkles size={13} /> Leída por BelIA: revisa antes de guardar
+      </p>
+      {lectura.avisos.map((a) => (
+        <p key={a}>• {a}</p>
+      ))}
+      {comprador && <p>El comprador según la OC: {comprador}</p>}
+      {p.otras_referencias.map((r) => (
+        <p key={`${r.tipo}-${r.numero}`}>
+          {NOMBRE_DE_LA_REFERENCIA[r.tipo] ?? r.tipo}: N° {r.numero}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const OTRA = "otra";
@@ -44,6 +81,7 @@ const claseCasilla =
 
 function Formulario({
   inicial,
+  lectura,
   razones,
   pdfs,
   guardando,
@@ -51,6 +89,7 @@ function Formulario({
   onCancelar,
 }: {
   inicial: BorradorDeOC;
+  lectura?: LecturaDeOC | null;
   razones: { rut: string; razon_social: string }[];
   pdfs: EventDocument[];
   guardando: boolean;
@@ -66,6 +105,7 @@ function Formulario({
 
   return (
     <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/40 p-4">
+      {lectura && <LoQueLeyoBelia lectura={lectura} />}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="flex justify-between text-xs text-gray-500">
@@ -297,16 +337,42 @@ export default function FacturacionTab({
   const [editando, setEditando] = useState<number | "nueva" | null>(null);
   const [borrandoId, setBorrandoId] = useState<number | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // Lo que leyó BelIA para la OC nueva, y el PDF que está leyendo.
+  const [lectura, setLectura] = useState<LecturaDeOC | null>(null);
+  const [leyendoId, setLeyendoId] = useState<number | null>(null);
 
   const pdfs = (docs.data ?? []).filter((d) => d.category === "ordenes_compra");
   const pdfDe = (oc: OrdenDeCompra) =>
     (docs.data ?? []).find((d) => d.id === oc.documento_id);
   const lista = ordenes.data ?? [];
+  // Los PDF de órdenes de compra de Documentos que todavía no son una OC.
+  const sinCargar = ordenes.isSuccess
+    ? pdfs.filter((d) => !lista.some((oc) => oc.documento_id === d.id))
+    : [];
+
+  const cerrar = () => {
+    setEditando(null);
+    setLectura(null);
+  };
+
+  const leer = async (doc: EventDocument) => {
+    setLeyendoId(doc.id);
+    try {
+      setLectura(await leerOrdenDeCompra(quotationId, doc.id));
+      setEditando("nueva");
+    } catch (error) {
+      toast.error(
+        humanizeApiError(error, "BelIA no pudo leer la orden de compra."),
+      );
+    } finally {
+      setLeyendoId(null);
+    }
+  };
 
   const guardar = async (antes: OrdenDeCompra | null, b: BorradorDeOC) => {
     const cambios = cambiosDeOC(antes, b);
     if (Object.keys(cambios).length === 0) {
-      setEditando(null);
+      cerrar();
       return;
     }
     setGuardando(true);
@@ -315,7 +381,7 @@ export default function FacturacionTab({
       else await createOrdenDeCompra(quotationId, cambios);
       await queryClient.invalidateQueries({ queryKey: llave });
       toast.success("Orden de compra guardada.");
-      setEditando(null);
+      cerrar();
     } catch (error) {
       toast.error(
         humanizeApiError(error, "No se pudo guardar la orden de compra."),
@@ -339,13 +405,18 @@ export default function FacturacionTab({
 
   const formulario = (antes: OrdenDeCompra | null) => (
     <Formulario
-      key={antes?.id ?? "nueva"}
-      inicial={borradorDeOC(antes)}
+      key={antes?.id ?? `nueva-${lectura?.documento_id ?? ""}`}
+      inicial={
+        !antes && lectura
+          ? borradorDeLaLectura(lectura.propuesta, lectura.documento_id)
+          : borradorDeOC(antes)
+      }
+      lectura={antes ? null : lectura}
       razones={razones.data ?? []}
       pdfs={pdfs}
       guardando={guardando}
       onGuardar={(b) => guardar(antes, b)}
-      onCancelar={() => setEditando(null)}
+      onCancelar={cerrar}
     />
   );
 
@@ -366,6 +437,36 @@ export default function FacturacionTab({
             </button>
           )}
         </div>
+
+        {sinCargar.length > 0 && editando === null && (
+          <div className="space-y-1.5 rounded-lg bg-gray-50 p-3">
+            {sinCargar.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="text-gray-700 min-w-0 truncate">
+                  {d.file_name}
+                  <span className="text-gray-400">
+                    {" "}
+                    · {fechaCorta(d.uploaded_at.slice(0, 10))}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={leyendoId !== null}
+                  onClick={() => leer(d)}
+                  className="flex shrink-0 items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  <Sparkles size={12} />
+                  {leyendoId === d.id
+                    ? "BelIA está leyendo…"
+                    : "Leer con BelIA"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {ordenes.isPending ? (
           <p className="text-sm text-gray-400">Cargando…</p>
