@@ -4,12 +4,14 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { tieneDerecho } from 'src/auth/derechos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 import { cerebroPara } from 'src/cerebro/cerebro';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LogisticsService } from 'src/logistics/logistics.service';
 import {
@@ -40,7 +42,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './herramientas/comun';
-import { esRecepcion, sinMontos } from './herramientas/recepcion';
+import { esRecepcion, taparPlata } from './herramientas/recepcion';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
 import type { TarjetaDePropuesta } from './propuestas/comun';
@@ -253,6 +255,9 @@ export class AsistenteService {
     // Lo que BelIA ya leyó en la conversación (04-11-2026). Con valor por
     // defecto: las pruebas que no lo pasan siguen igual.
     private readonly loLeido: LoLeido = new LoLeido(),
+    // Lo que ve recepción (doc 21): la plata de sus particulares. Sin ella,
+    // recepción no ve la de nadie.
+    @Optional() private readonly alcance?: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -339,6 +344,7 @@ export class AsistenteService {
       propuestas: this.propuestas,
       tarjetas: [],
       hoy,
+      alcance: this.alcance,
     };
     const sistema: Anthropic.TextBlockParam[] = [
       {
@@ -651,8 +657,10 @@ export class AsistenteService {
       )
     ).filter((f) => f != null);
     if (fichas.length === 0) return null;
-    const json = JSON.stringify(fichas);
-    return `FICHAS AL DÍA de las cotizaciones que ya revisaste en esta conversación, recién leídas de Eventia: úsalas y no las vuelvas a pedir con ver_cotizacion.\n${esRecepcion(ctx.usuario.role) ? sinMontos(json) : json}`;
+    const json = JSON.stringify(
+      esRecepcion(ctx.usuario.role) ? taparPlata(fichas) : fichas,
+    );
+    return `FICHAS AL DÍA de las cotizaciones que ya revisaste en esta conversación, recién leídas de Eventia: úsalas y no las vuelvas a pedir con ver_cotizacion.\n${json}`;
   }
 
   /** Corre una herramienta pedida por Claude. Nunca revienta el ciclo: lo
@@ -686,15 +694,16 @@ export class AsistenteService {
       if (h.nombre === 'ver_cotizacion' && typeof numero === 'number') {
         this.loLeido.anotar(ctx.usuario, numero);
       }
-      const resultado = JSON.stringify(salida) ?? 'null';
       // La red de recepción (doc 20 §13): las herramientas ya le sacan la
-      // plata, y esto tapa la que venga escrita a mano en una nota.
-      return {
-        ...base,
-        content: esRecepcion(ctx.usuario.role)
-          ? sinMontos(resultado)
-          : resultado,
-      };
+      // plata, y esto tapa la que venga escrita a mano en una nota. Menos lo
+      // que es de un particular (doc 21) y el catálogo (`plataLibre`).
+      const resultado =
+        JSON.stringify(
+          esRecepcion(ctx.usuario.role) && !h.plataLibre
+            ? taparPlata(salida)
+            : salida,
+        ) ?? 'null';
+      return { ...base, content: resultado };
     } catch (e) {
       if (e instanceof ErrorDeHerramienta) {
         return { ...base, is_error: true, content: e.message };

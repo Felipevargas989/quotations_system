@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { ADMIN_ONLY, Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateFixedServiceDto } from './dto/create-fixed-service.dto';
@@ -54,7 +54,9 @@ export class ServicesController {
     );
   }
 
-  @Roles(...SALES_AND_UP)
+  // Leer, también recepción: cotiza a los particulares desde el cotizador
+  // (doc 21). Cambiar el catálogo sigue siendo del administrador.
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll services with user ${user.id}`);
@@ -76,7 +78,7 @@ export class ServicesController {
 
   // ---- Secciones de servicios FIJOS (migración 53) ----
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Get('fixed-sections')
   listFixedSections(@CurrentUser() user: User) {
     return this.servicesService.listFixedSections(user.company_id);

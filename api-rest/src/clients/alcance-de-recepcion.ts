@@ -32,6 +32,14 @@ export const esRecepcion = (s: Pick<Sesion, 'role'>): boolean =>
 const normal = (t: string | null | undefined): string =>
   (t ?? '').trim().toLowerCase();
 
+/** ¿Este tipo de cliente está entre los particulares de la empresa (los de
+ *  `particulares()`)? Sin mayúsculas ni espacios de diferencia: el mismo
+ *  criterio de toda la regla. */
+export const esDeLosParticulares = (
+  particulares: ReadonlySet<string>,
+  tipo: string | null | undefined,
+): boolean => particulares.has(normal(tipo));
+
 /** Los estados que recepción no da: aceptar es el plan de pagos (de
  *  operaciones), y anular y realizado tampoco son de ella (doc 21 §2). */
 const ESTADOS_DE_OPERACIONES = new Set(['aceptada', 'cancelada', 'realizada']);
@@ -149,9 +157,12 @@ export const paraLaAgenda = (cotizacion: object): CotizacionDeAgenda => {
 
 /** ¿Recepción ve completa esta cotización? Los requerimientos y las de
  *  clientes particulares. */
-const laVe = (particulares: Set<string>, q: CotizacionParaElAlcance): boolean =>
+const laVe = (
+  particulares: ReadonlySet<string>,
+  q: CotizacionParaElAlcance,
+): boolean =>
   q.request_type === 'requerimiento' ||
-  particulares.has(normal(q.clients?.client_type));
+  esDeLosParticulares(particulares, q.clients?.client_type);
 
 /** Cuánto dura lo que se sabe de los tipos de una empresa. */
 const MINUTOS = 5;

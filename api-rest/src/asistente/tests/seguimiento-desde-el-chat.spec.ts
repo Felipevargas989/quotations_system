@@ -180,8 +180,13 @@ describe('Quién tiene la herramienta', () => {
     expect(con(UserRole.VENDEDOR, ['base'])).not.toContain(
       'proponer_seguimiento',
     );
-    expect(
-      con(UserRole.RECEPCION, ['base', 'seguimiento_con_ia']),
-    ).not.toContain('proponer_seguimiento');
+    // Recepción también desde el doc 21, en sus particulares (lo revisa
+    // PropuestasService).
+    expect(con(UserRole.RECEPCION, ['base', 'seguimiento_con_ia'])).toContain(
+      'proponer_seguimiento',
+    );
+    expect(con(UserRole.RECEPCION, ['base'])).not.toContain(
+      'proponer_seguimiento',
+    );
   });
 });

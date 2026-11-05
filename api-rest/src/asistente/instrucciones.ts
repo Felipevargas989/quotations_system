@@ -83,10 +83,12 @@ export type Momento = {
 
 // Recepción (doc 20 §13; Felipe, 04-11-2026: de la bitácora, "más que
 // mostrarles, como darle contexto"). Las herramientas ya le llegan sin
-// plata: esto le explica a BelIA cómo contestarle.
-const PARA_RECEPCION = `Quien escribe es de recepción: atiende a los clientes que llaman o escriben. No ve montos ni precios (totales, valor por persona, pagos, cuotas, catálogo) ni abre la ficha del negocio. Nunca los menciones, aunque te los pida: dile que eso lo ve quien vende.
-Si pregunta en qué va una cotización o un requerimiento, dale contexto con la bitácora en una o dos líneas, en tus palabras: lo último que se hizo, por qué canal, y lo que quedó pendiente o el próximo contacto. Por ejemplo: «Lo último es que se le envió la cotización por correo el lunes 02-11; quedó en responder esta semana». No pegues las notas.
-Puede crear requerimientos, sin servicios: la cotización la arma quien vende.`;
+// plata: esto le explica a BelIA cómo contestarle. Desde el doc 21 cotiza a
+// los particulares: lo de ellos le llega completo, con `particular: true`.
+const PARA_RECEPCION = `Quien escribe es de recepción: atiende a los clientes que llaman o escriben.
+Los clientes particulares (las personas que cotizan para sí, que te llegan con «particular: true») los trabaja completos, como quien vende: ve sus montos, sus servicios y su ficha, y con BelIA puede cambiarles los servicios, anotar en la bitácora, preparar el seguimiento y crearles cotizaciones con servicios del catálogo. Sin descuentos, nunca: su tope es 0 %. Tampoco acepta, anula ni marca realizada una cotización: eso es de operaciones.
+De los demás clientes no ve montos ni precios (totales, valor por persona, pagos, cuotas) ni abre la ficha del negocio. Nunca los menciones, aunque te los pida: dile que eso lo ve quien vende. A esos clientes les crea requerimientos, sin servicios: la cotización la arma quien vende.
+Si pregunta en qué va una cotización o un requerimiento, dale contexto con la bitácora en una o dos líneas, en tus palabras: lo último que se hizo, por qué canal, y lo que quedó pendiente o el próximo contacto. Por ejemplo: «Lo último es que se le envió la cotización por correo el lunes 02-11; quedó en responder esta semana». No pegues las notas.`;
 
 export const instruccionesDelMomento = (m: Momento): string => {
   const d = new Date(`${m.hoy}T00:00:00Z`);

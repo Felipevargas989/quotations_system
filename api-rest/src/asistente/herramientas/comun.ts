@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Derecho } from 'src/auth/derechos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
+import type { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { LogisticsService } from 'src/logistics/logistics.service';
 import type { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { ChoquesDeFechaService } from 'src/quotations/choques/choques.service';
@@ -42,6 +43,9 @@ export type ContextoDeHerramienta = {
   tarjetas: TarjetaDePropuesta[];
   /** AAAA-MM-DD, en Chile. */
   hoy: string;
+  /** Lo que ve recepción (doc 21): cuáles tipos de cliente son
+   *  particulares. Sin ella, recepción no ve plata de nadie. */
+  alcance?: AlcanceDeRecepcion;
 };
 
 export type Herramienta = {
@@ -52,6 +56,9 @@ export type Herramienta = {
   cargos: readonly UserRole[];
   /** El derecho del plan que pide la pantalla, si pide alguno. */
   derecho?: Derecho;
+  /** Lo que devuelve no es plata de un cliente (el catálogo): a recepción
+   *  le llega sin pasar por la red, como lo ve en el cotizador (doc 21). */
+  plataLibre?: true;
   ejecutar: (
     entrada: Record<string, unknown>,
     ctx: ContextoDeHerramienta,
@@ -167,10 +174,17 @@ export const inicioDelDiaEnChile = (ymd: string): string => {
  *  Recepción no abre la ficha del negocio: su pantalla es Requerimientos
  *  (doc 20 §13). */
 export const enlaceDe = (
-  q: { id: string; quotation_status: QuotationStatus },
+  q: { id: string; quotation_status: QuotationStatus; request_type?: string },
   rol: UserRole,
+  // Recepción abre la ficha de las cotizaciones de particulares (doc 21);
+  // lo demás lo ve en Requerimientos.
+  deParticular = false,
 ): string => {
-  if (rol === UserRole.RECEPCION) return '/requests';
+  if (rol === UserRole.RECEPCION) {
+    return deParticular && q.request_type !== 'requerimiento'
+      ? `/negocio/${q.id}`
+      : '/requests';
+  }
   const vendido = [
     QuotationStatus.ACEPTADA,
     QuotationStatus.REALIZADA,

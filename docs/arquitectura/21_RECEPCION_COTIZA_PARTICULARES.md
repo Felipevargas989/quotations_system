@@ -5,7 +5,10 @@
 > producción, solo con su «a producción». Migración reservada: **186**
 > (con Facturación, que tiene la 184), aplicada en el laboratorio. Las
 > tandas R1 (el motor) y R2 (la pantalla) escritas esa noche en la rama
-> `feature/recepcion-particulares`.
+> `feature/recepcion-particulares`, y en el laboratorio desde las 22:5x
+> (pruebas 35699c36). La R3, primera parte (BelIA con los particulares, y
+> el catálogo que le faltaba al cotizador), escrita en la madrugada del
+> 05-11. Falta la segunda parte: los clientes mal clasificados.
 
 ## 1. Lo que pidió Felipe
 
@@ -73,6 +76,7 @@ con la regla:
 | `POST /quotations/:id/generar` («✨ Crear con IA») | Vendedor | Recepción, en requerimientos de particulares |
 | `POST /quotations/:id/choques/:aceptadaId` («Sí, puede seguir») | Vendedor | Recepción, en particulares |
 | La bitácora (`/quotation-followups`) | Recepción y arriba | Igual (la bitácora es contexto, Felipe 04-11) |
+| Leer el catálogo (`GET /services`, `/services/fixed-sections`, `/service-groups` y `/service-group-collections`, con sus grupos) | Vendedor | Recepción y arriba: el cotizador los necesita para cotizar a un particular (se notó en R3). Cambiarlo sigue en vendedor y administrador |
 | El plan de pagos, los abonos, realizado | Operaciones para arriba | Igual |
 
 ## 5. La pantalla
@@ -90,14 +94,22 @@ Hecho en R2:
 - en la ficha, el nombre del cliente no lleva a Clientes (sigue siendo de
   vendedor para arriba); cambiar el contacto, sí, mientras se vende;
 - **el calendario queda como estaba**: ve todos los eventos, sin montos y
-  sin abrir la ficha. Sus particulares los trabaja desde el tablero.
+  sin abrir la ficha. Sus particulares los trabaja desde el tablero;
+- en el cotizador usa los menús guardados y los paquetes, sin guardarlos,
+  renombrarlos, borrarlos ni ordenar sus grupos (`soloElegir`).
 
 ## 6. BelIA
 
 - Para recepción, los montos de las cotizaciones de particulares; las demás,
-  sin plata, como hoy (`sinMontos`).
+  sin plata, como hoy (`sinMontos`). **Hecho (R3, primera parte):** lo de un
+  particular le llega completo, con la marca `particular: true`, y la red
+  (`taparPlata`) deja pasar solo eso y el catálogo (mapa 25).
 - Recepción propone cambios y cotizaciones nuevas de particulares, sin
-  descuento; nunca aceptar.
+  descuento; nunca aceptar. **Hecho:** cambiar servicios, anotar, preparar el
+  seguimiento y crear cotizaciones con servicios, solo de particulares,
+  revisado al proponer y otra vez al aplicar (`propuestas/de-recepcion.ts`);
+  con su tope de 0 %, BelIA no le propone descuentos. Suma también sus
+  seguimientos pendientes (solo de particulares) y el catálogo.
 - **Clientes mal clasificados** (vendedor para arriba): BelIA los avisa en
   «¿Qué tengo que revisar hoy?» y en la ficha del cliente: un nombre de
   institución en «Particulares» (liceo, colegio, club, fundación, SpA,
@@ -121,4 +133,5 @@ importa"*. Queda como está: el enlace es un código largo que no se adivina.
 1. **R1, el motor**: la 186, la regla y sus puertas, con sus pruebas (también
    la prueba de la matriz de cargos).
 2. **R2, la pantalla**.
-3. **R3, BelIA**: los montos, las propuestas y los clientes mal clasificados.
+3. **R3, BelIA**: los montos y las propuestas (primera parte, hecha) y los
+   clientes mal clasificados (segunda parte).
