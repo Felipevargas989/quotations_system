@@ -90,10 +90,11 @@ import { getPaidRefundsByQuotation } from "../../services/refunds.service";
 import {
   EventDocument,
   DOCUMENT_CATEGORIES,
-  getDocumentsByQuotation,
   addDocument,
   deleteDocument,
 } from "../../services/documents.service";
+import { docsQueryOpts } from "./consultaDeDocumentos";
+import FacturacionTab from "./FacturacionTab";
 import {
   uploadPaymentReceipt,
   uploadEventDocument,
@@ -165,9 +166,7 @@ export default function PostVentaPage() {
   // con sus filtros, el botón atrás funciona y el enlace se comparte.
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<
-    "seguimiento" | "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
-  >("pagos");
+  const [tab, setTab] = useState<EventModalProps["tab"]>("pagos");
 
   // Restaurar los filtros persistidos (por usuario) al entrar. Si solo
   // existe la clave vieja (una lista mezclada), se reparte una vez entre
@@ -878,18 +877,11 @@ interface EventModalProps {
     | "seguimiento"
     | "pagos"
     | "documentos"
+    | "facturacion"
     | "servicios"
     | "gestion"
     | "cocina";
-  readonly setTab: (
-    t:
-      | "seguimiento"
-      | "pagos"
-      | "documentos"
-      | "servicios"
-      | "gestion"
-      | "cocina",
-  ) => void;
+  readonly setTab: (t: EventModalProps["tab"]) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
   // Comprobantes del portal PENDIENTES de este evento (Fase 2b): el
@@ -981,12 +973,15 @@ function EventModal({
   // Gestión y Cocina las trae el plan Opera y Crece, con el derecho
   // `gestion_y_cocina`; las otras cuatro son del plan que abre la pantalla.
   const conGestionYCocina = tieneDerecho(empresaPre, "gestion_y_cocina");
+  const conFacturacion = tieneDerecho(empresaPre, "facturacion");
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     // Seguimiento va PRIMERO (07-08, pedido de Felipe): es la historia
     // del evento — "si algo se olvida uno va a seguimiento y está todo".
     { key: "seguimiento", label: "Seguimiento" },
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
+    // La facturación (doc 19): módulo propio de Valle del Sol.
+    { key: "facturacion", label: "Facturación" },
     { key: "servicios", label: "Servicios" },
     { key: "gestion", label: "Gestión" },
     { key: "cocina", label: "Cocina" },
@@ -1494,6 +1489,7 @@ function EventModal({
             // Sin el derecho ni se nombran: no se ofrece lo que no se abre.
             const delPlanCrece = t.key === "gestion" || t.key === "cocina";
             if (delPlanCrece && !conGestionYCocina) return null;
+            if (t.key === "facturacion" && !conFacturacion) return null;
             // La pestaña Seguimiento avisa sola cuando hay algo
             // pendiente (07-08, pedido de Felipe): se pinta de ámbar
             // —rojo si venció— y tiembla tres veces al abrir el evento.
@@ -1833,6 +1829,15 @@ function EventModal({
 
           {tab === "documentos" && (
             <DocumentosTab quotationId={event.quotationId} />
+          )}
+
+          {tab === "facturacion" && (
+            <SoloConDerecho derecho="facturacion">
+              <FacturacionTab
+                quotationId={event.quotationId}
+                clientId={quote?.client_id ?? null}
+              />
+            </SoloConDerecho>
           )}
 
           {/* Se puede llegar igual sin el derecho: el estado venía
@@ -2218,12 +2223,8 @@ function EditRegistroModal({
 // de subida que pregunta la categoría al elegir el archivo, lista
 // agrupada a la izquierda (categorías vacías ocultas) y VISOR embebido
 // al lado — se acabó abrir una ventanita por cada documento. ----
-// Receta compartida con el precalentado del evento (03-08).
-const docsQueryOpts = (quotationId: string) => ({
-  queryKey: ["postventa", "docs", quotationId],
-  staleTime: 0,
-  queryFn: () => getDocumentsByQuotation(quotationId),
-});
+// Receta compartida con el precalentado del evento (03-08):
+// `consultaDeDocumentos.ts`.
 
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const queryClient = useQueryClient();

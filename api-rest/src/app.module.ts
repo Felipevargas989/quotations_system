@@ -18,6 +18,7 @@ import { ClientsModule } from './clients/clients.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey/module';
 import { EmailModule } from './email/email.module';
+import { FacturacionModule } from './facturacion/facturacion.module';
 import { HealthController } from './health/health.controller';
 import { LogisticsModule } from './logistics/logistics.module';
 import { MarketingModule } from './marketing/marketing.module';
@@ -98,6 +99,8 @@ import { UsersModule } from './users/users.module';
     OportunidadesModule,
     // Evia, la IA de Eventia (doc 20).
     AsistenteModule,
+    // La facturación electrónica por facturacion.cl (doc 19).
+    FacturacionModule,
   ],
   controllers: [HealthController],
   providers: [
