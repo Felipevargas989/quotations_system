@@ -118,6 +118,69 @@ export class ClientsRepository {
     return data as { id: number; name: string; sort_order: number | null }[];
   }
 
+  /** Los tipos que la empresa marcó como particulares (doc 21 §3,
+   *  migración 186). Sin la columna todavía, los que se llaman como
+   *  particulares: recepción no queda sin trabajo por una migración que
+   *  falta. */
+  async tiposParticulares(companyId: number): Promise<string[]> {
+    const { data, error } = await this.supabase.client
+      .from('client_types')
+      .select('name, es_particular')
+      .eq('company_id', companyId);
+    if (!error) {
+      return ((data ?? []) as { name: string; es_particular: boolean }[])
+        .filter((t) => t.es_particular)
+        .map((t) => t.name);
+    }
+    this.logger.warn(
+      `tiposParticulares sin la 186 (${error.message}): por el nombre`,
+    );
+    const tipos = await this.findTypes(companyId);
+    return tipos
+      .map((t) => t.name)
+      .filter((n) => /^\s*(particular|persona\S*\s+natural)/i.test(n));
+  }
+
+  /** El tipo del cliente de una cotización de la empresa, y si es
+   *  requerimiento. null si no es de la empresa. */
+  async clienteDeLaCotizacion(
+    companyId: number,
+    quotationId: string,
+  ): Promise<{ request_type: string; client_type: string | null } | null> {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('request_type, clients ( client_type )')
+      .eq('company_id', companyId)
+      .eq('id', quotationId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const fila = data as unknown as {
+      request_type: string;
+      clients: { client_type: string | null } | null;
+    };
+    return {
+      request_type: fila.request_type,
+      client_type: fila.clients?.client_type ?? null,
+    };
+  }
+
+  /** El tipo de un cliente de la empresa; undefined si no es de ella. */
+  async tipoDelCliente(
+    companyId: number,
+    clientId: string,
+  ): Promise<string | null | undefined> {
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .select('client_type')
+      .eq('company_id', companyId)
+      .eq('id', clientId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return undefined;
+    return (data as { client_type: string | null }).client_type ?? null;
+  }
+
   async createType(companyId: number, name: string) {
     const clean = (name ?? '').trim();
     this.logger.info(`createType "${clean}" with companyId ${companyId}`);

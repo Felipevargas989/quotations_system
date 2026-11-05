@@ -5,6 +5,7 @@
 // hilo comercial + respaldos + compartir por WhatsApp/correo) y
 // Cotización (resumen + PDF + editar).
 import { useState } from "react";
+import { estadosPara } from "../../utils/recepcion";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, FileText, Mail, Phone, Send } from "lucide-react";
@@ -209,6 +210,8 @@ export default function NegocioPage() {
   // quien la ve (operaciones y administrador) va directo allá. Un
   // vendedor no la ve y se queda en esta ficha, como antes.
   const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
+  // Recepción ve la ficha de la cotización, no la del cliente (doc 21).
+  const puedeVerClientes = SECTION_ROLES.clients.includes(userRole as never);
   const irAPostVenta = (id: string) => {
     if (puedeVerPostVenta) navigate(`/post-venta/${id}`);
   };
@@ -379,7 +382,7 @@ export default function NegocioPage() {
               {/* El nombre lleva a la ficha del cliente (Felipe, 14-10-2026:
                   "si pincho el nombre del cliente me debería llevar al
                   cliente"); desde ahí, el N° de la cotización trae de vuelta. */}
-              {fila?.client_id ? (
+              {fila?.client_id && puedeVerClientes ? (
                 <Link
                   to={`/clients/${fila.client_id}`}
                   className="hover:text-blue-700 hover:underline"
@@ -477,13 +480,17 @@ export default function NegocioPage() {
                         {/* Cancelada NO va: es destino exclusivo de lo
                           aceptado (regla de Felipe 04-08), y las
                           aceptadas llevan chip fijo en esta ficha. */}
-                        {[
-                          "solicitada",
-                          "enviada",
-                          "en_negociacion",
-                          "aceptada",
-                          "rechazada",
-                        ].map((st) => (
+                        {estadosPara(
+                          userRole,
+                          [
+                            "solicitada",
+                            "enviada",
+                            "en_negociacion",
+                            "aceptada",
+                            "rechazada",
+                          ],
+                          fila?.quotation_status,
+                        ).map((st) => (
                           <button
                             key={st}
                             type="button"

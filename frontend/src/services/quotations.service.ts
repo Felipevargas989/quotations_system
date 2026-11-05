@@ -19,6 +19,10 @@ export const getQuotations = async (
   /** Solo eventos desde esta fecha (YYYY-MM-DD): para no traer la
    *  historia completa cuando basta con los últimos meses. */
   eventDateFrom?: string,
+  /** «calendario»: recepción ve todos los eventos, los que no son de
+   *  particulares sin plata (doc 21). Sin ella, su lista es la del
+   *  tablero. */
+  vista?: "calendario",
 ) => {
   let requestTypeParam = "";
   if (requirementType !== undefined) {
@@ -28,8 +32,9 @@ export const getQuotations = async (
   const sortByParam = sort_by ? `&sort_by=${sort_by}` : "";
   const sortOrderParam = sort_order ? `&sort_order=${sort_order}` : "";
   const fromParam = eventDateFrom ? `&event_date_from=${eventDateFrom}` : "";
+  const vistaParam = vista ? `&vista=${vista}` : "";
   const response = await apiRequest(
-    `${API_ROUTES.QUOTATIONS}?${requestTypeParam}${statusesParam}${sortByParam}${sortOrderParam}${fromParam}`,
+    `${API_ROUTES.QUOTATIONS}?${requestTypeParam}${statusesParam}${sortByParam}${sortOrderParam}${fromParam}${vistaParam}`,
     "GET",
   );
   return { data: response as QuotationWithClient[] };

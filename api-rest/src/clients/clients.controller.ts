@@ -18,6 +18,10 @@ import {
 } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import {
+  AlcanceDeRecepcion,
+  sinMontosDelResumen,
+} from './alcance-de-recepcion';
 import { ClientsService } from './clients.service';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -30,6 +34,8 @@ export class ClientsController {
   constructor(
     private readonly clientsService: ClientsService,
     private readonly logger: PinoLogger,
+    // Recepción ve montos solo de los clientes particulares (doc 21).
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(ClientsController.name);
   }
@@ -134,9 +140,16 @@ export class ClientsController {
   // Ficha 360° del cliente: resumen comercial completo en una llamada.
   @Roles(...RECEPTION_AND_UP)
   @Get(':id/summary')
-  findSummary(@Param('id') id: string, @CurrentUser() user: User) {
+  async findSummary(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /clients/${id}/summary`);
-    return this.clientsService.findSummary(id, user.company_id);
+    const resumen = await this.clientsService.findSummary(id, user.company_id);
+    // Recepción ve qué cotizaciones tiene un cliente (mapa 23, decisión 2),
+    // pero los montos solo si es particular (doc 21): antes le llegaban
+    // los totales y los pagos de todos.
+    const cliente = resumen?.client as { client_type?: string | null } | null;
+    return (await this.alcance.veLosMontos(user, cliente?.client_type))
+      ? resumen
+      : sinMontosDelResumen(resumen);
   }
 
   @Roles(...SALES_AND_UP)

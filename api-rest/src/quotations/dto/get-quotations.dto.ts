@@ -31,4 +31,11 @@ export class GetQuotationsDto {
   @IsOptional()
   @IsString()
   event_date_from?: string;
+
+  /** «calendario»: recepción ve todos los eventos, los que no son de
+   *  particulares sin plata (doc 21). Sin ella, su lista es la del
+   *  tablero: los requerimientos y las cotizaciones de particulares. */
+  @IsOptional()
+  @IsIn(['calendario'])
+  vista?: 'calendario';
 }

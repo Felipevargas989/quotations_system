@@ -23,6 +23,15 @@ export class SesionOpcional {
 
   /** La empresa de quien llama, o null si no trae una sesión válida. */
   async empresaDe(authorization?: string): Promise<number | null> {
+    return (await this.perfilDe(authorization))?.company_id ?? null;
+  }
+
+  /** La empresa y el cargo de quien llama, o null sin una sesión válida:
+   *  recepción no ve por acá las cotizaciones que no son de particulares
+   *  (doc 21, 04-11-2026). */
+  async perfilDe(
+    authorization?: string,
+  ): Promise<{ company_id: number; role: string | null } | null> {
     const [tipo, pase] = authorization?.split(' ') ?? [];
     if (tipo !== 'Bearer' || !pase) return null;
     try {
@@ -33,7 +42,11 @@ export class SesionOpcional {
         perfil = data;
         if (data) cachePerfiles.set(id, data, HORA_MS);
       }
-      return perfil?.company_id ?? null;
+      if (perfil?.company_id == null) return null;
+      return {
+        company_id: perfil.company_id,
+        role: (perfil as { role?: string | null }).role ?? null,
+      };
     } catch {
       return null;
     }

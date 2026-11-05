@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   forwardRef,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -14,6 +15,10 @@ import {
   tieneDerecho,
   type Derechos,
 } from 'src/auth/derechos';
+import {
+  AlcanceDeRecepcion,
+  revisarLoQueCotiza,
+} from 'src/clients/alcance-de-recepcion';
 import { ClientsService } from 'src/clients/clients.service';
 import { pctDeAbono } from 'src/companies/abono-para-reservar';
 import { Company } from 'src/companies/entities/company.entity';
@@ -84,6 +89,10 @@ export class QuotationsService {
     // AL FINAL a propósito: las pruebas arman este servicio por
     // posición — insertarla al medio rompió 34 de una (05-09).
     private readonly consultasService: ConsultasService,
+    // Lo que trabaja recepción: requerimientos y cotizaciones de
+    // particulares (doc 21). Opcional y al final, por lo mismo: sin ella
+    // (las pruebas), recepción sigue con solo requerimientos.
+    @Optional() private readonly alcance?: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(QuotationsService.name);
   }
@@ -1014,6 +1023,49 @@ export class QuotationsService {
     return this.quotationsRepository.licitacionDe(companyId, id);
   }
 
+  /** Lo que recepción puede cambiar de una cotización (doc 21 §2). */
+  private async revisarLoDeRecepcion(
+    quotation: {
+      request_type?: string | null;
+      quotation_status?: string | null;
+      discount_percentage?: number | null;
+      discount_amount?: number | null;
+      clients?: { client_type?: string | null } | null;
+    },
+    cambio: UpdateQuotationDto,
+    companyId: number,
+  ): Promise<void> {
+    const sesion = { role: UserRole.RECEPCION, company_id: companyId };
+    const pasaACotizacion =
+      cambio.request_type !== undefined &&
+      cambio.request_type !== RequestType.REQUERIMIENTO;
+    const esRequerimiento =
+      quotation.request_type === RequestType.REQUERIMIENTO;
+    if (esRequerimiento && !pasaACotizacion) return;
+    const deParticular = this.alcance
+      ? await this.alcance.esParticular(
+          companyId,
+          quotation.clients?.client_type,
+        )
+      : false;
+    if (!deParticular) {
+      throw new ForbiddenException(
+        esRequerimiento
+          ? 'Recepción pasa a cotización los requerimientos de particulares: este lo cotiza quien vende.'
+          : 'Recepción puede editar requerimientos y cotizaciones de particulares, no esta.',
+      );
+    }
+    if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+      throw new ForbiddenException(
+        'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
+      );
+    }
+    revisarLoQueCotiza(cambio, quotation);
+    if (cambio.client_id && this.alcance) {
+      await this.alcance.exigirClienteParticular(sesion, cambio.client_id);
+    }
+  }
+
   async update(
     id: string,
     updateQuotationDto: UpdateQuotationDto,
@@ -1060,12 +1112,15 @@ export class QuotationsService {
       // nacida no la toca: ahí viven los ítems, los descuentos y la
       // plata. Se comprueba acá y no en el controlador porque el tipo
       // no viaja en el parche — hay que mirar la cotización guardada.
-      if (
-        role === UserRole.RECEPCION &&
-        quotation.request_type !== RequestType.REQUERIMIENTO
-      ) {
-        throw new ForbiddenException(
-          'Recepción puede editar requerimientos, no cotizaciones.',
+      // Desde el doc 21 (04-11-2026), también las cotizaciones de clientes
+      // particulares, sin descuento, sin aceptarlas y sin pasarlas a otro
+      // cliente; y pasar a cotización un requerimiento, solo si es de un
+      // particular.
+      if (role === UserRole.RECEPCION) {
+        await this.revisarLoDeRecepcion(
+          quotation,
+          updateQuotationDto,
+          companyId,
         );
       }
 

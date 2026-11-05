@@ -73,17 +73,23 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST ': R,
       'GET ': R,
       'GET check-conflicts': R,
-      'POST :id/enviar-correo': S,
-      'POST :id/generar': S,
-      // «✉ Generar seguimiento» (doc 18, 17-10-2026): quien vende.
-      'GET seguimiento/pendientes': S,
-      'POST :id/seguimiento': S,
+      // Desde el doc 21 (04-11-2026), recepción también cotiza a los
+      // particulares: enviar, «✨ Crear con IA», el seguimiento, el aviso de
+      // cierre y «Sí, puede seguir» le abren, y la ruta revisa que la
+      // cotización sea de un particular (`AlcanceDeRecepcion`).
+      'POST :id/enviar-correo': R,
+      'POST :id/generar': R,
+      // «✉ Generar seguimiento» (doc 18, 17-10-2026).
+      'GET seguimiento/pendientes': R,
+      'POST :id/seguimiento': R,
       // Y la revisión de si el borrador ya salió (doc 18 §9).
-      'POST seguimiento/revisar': S,
-      // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero; decidir
-      // es de quien vende.
+      'POST seguimiento/revisar': R,
+      // El aviso de cierre al rechazar (04-11-2026).
+      'GET :id/aviso-de-cierre': R,
+      'POST :id/aviso-de-cierre': R,
+      // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero.
       'GET choques/pendientes': R,
-      'POST :id/choques/:aceptadaId': S,
+      'POST :id/choques/:aceptadaId': R,
       'POST :id/cosecha': S,
       'PATCH :id': R,
       'DELETE :id': R,

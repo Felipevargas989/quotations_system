@@ -28,7 +28,8 @@ export type PaymentWithTransactionsAndQuotation = Payment & {
 };
 
 export type QuotationWithClientAndCompany = Quotation & {
-  clients: Pick<Client, 'name' | 'email'>;
+  /** Con su tipo: lo que ve recepción depende de él (doc 21). */
+  clients: Pick<Client, 'name' | 'email' | 'client_type'>;
   companies: Pick<Company, 'name'>;
   /** Mandante vinculado (migración 48/50) — para búsqueda y pantalla. */
   mandante?: { name: string } | null;

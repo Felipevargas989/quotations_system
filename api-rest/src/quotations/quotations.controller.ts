@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Headers,
   HttpException,
@@ -24,9 +23,15 @@ import {
   SALES_AND_UP,
 } from 'src/auth/roles.decorator';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
+import {
+  AlcanceDeRecepcion,
+  esRecepcion,
+  paraLaAgenda,
+  revisarLoQueCotiza,
+  type CotizacionParaElAlcance,
+} from 'src/clients/alcance-de-recepcion';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
-import { UserRole } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { ChoquesDeFechaService } from './choques/choques.service';
 import { filaSinComentario, sinComentarioAjeno } from './comentario-interno';
@@ -63,13 +68,16 @@ export class QuotationsController {
     private readonly seguimientoConIA: SeguimientoConIAService,
     // Los choques de fecha con una aceptada (mapa 02 §5.6, 18-10-2026).
     private readonly choques: ChoquesDeFechaService,
+    // Lo que ve recepción: requerimientos y cotizaciones de particulares
+    // (doc 21, 04-11-2026).
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
 
   @Roles(...RECEPTION_AND_UP)
   @Post()
-  create(
+  async create(
     @Body() createQuotationDto: CreateQuotationDto,
     @CurrentUser() user: User,
   ) {
@@ -79,13 +87,17 @@ export class QuotationsController {
     // Regla de Felipe (28-07): recepción crea REQUERIMIENTOS, no
     // cotizaciones formales. Mismo endpoint para ambos (los usa la
     // misma tabla), así que la distinción es por el tipo de solicitud.
+    // Desde el doc 21 (04-11-2026), también cotizaciones de clientes
+    // particulares, sin descuento y sin aceptarlas.
     if (
-      (user as User & { role?: string }).role === UserRole.RECEPCION &&
+      esRecepcion(user) &&
       createQuotationDto.request_type !== RequestType.REQUERIMIENTO
     ) {
-      throw new ForbiddenException(
-        'Recepción puede registrar requerimientos, no crear cotizaciones.',
+      await this.alcance.exigirClienteParticular(
+        user,
+        createQuotationDto.client_id,
       );
+      revisarLoQueCotiza(createQuotationDto);
     }
     return this.quotationsService.create(
       createQuotationDto,
@@ -146,14 +158,14 @@ export class QuotationsController {
 
   @Roles(...RECEPTION_AND_UP)
   @Get()
-  findAll(
+  async findAll(
     @CurrentUser() user: User,
     @Query() getQuotationsDto: GetQuotationsDto,
   ) {
     this.logger.info(
       `GET /quotations with user ${user.id} with params ${JSON.stringify(getQuotationsDto)}`,
     );
-    return this.quotationsService.findAll({
+    const filas = await this.quotationsService.findAll({
       companyId: user.company_id,
       request_type: getQuotationsDto.request_type,
       statuses: getQuotationsDto.statuses,
@@ -163,6 +175,13 @@ export class QuotationsController {
         ? new Date(`${getQuotationsDto.event_date_from}T00:00:00Z`)
         : undefined,
     });
+    // Recepción: los requerimientos y las cotizaciones de particulares
+    // (doc 21). Antes le llegaban todas con montos y solo la pantalla las
+    // escondía. En el calendario sigue viendo todos los eventos, los demás
+    // sin plata.
+    return getQuotationsDto.vista === 'calendario'
+      ? this.alcance.paraElCalendario(user, filas)
+      : this.alcance.filtrar(user, filas);
   }
 
   @Roles(...RECEPTION_AND_UP)
@@ -204,14 +223,23 @@ export class QuotationsController {
     @Headers('authorization') authorization?: string,
   ) {
     this.logger.info(`GET /quotations/${id}`);
-    const [respuesta, empresa] = await Promise.all([
+    const [respuesta, perfil] = await Promise.all([
       this.quotationsService.findOne(id),
-      this.sesionOpcional.empresaDe(authorization),
+      this.sesionOpcional.perfilDe(authorization),
     ]);
+    const empresa = perfil?.company_id ?? null;
     const limpia = sinComentarioAjeno(respuesta, empresa);
-    const fila = limpia?.data as { company_id?: number | string } | null;
+    const fila = limpia?.data as
+      | ({ company_id?: number | string } & CotizacionParaElAlcance)
+      | null;
     if (empresa === null || !fila || Number(fila.company_id) !== empresa) {
       return limpia;
+    }
+    // Recepción, con su sesión, ve completos los requerimientos y las
+    // cotizaciones de particulares (doc 21). De las demás, lo que muestra
+    // el calendario (la tarjeta pide aquí sus categorías), sin plata.
+    if (perfil && !(await this.alcance.ve(perfil, fila))) {
+      return { ...limpia, data: paraLaAgenda(fila) };
     }
     // Solo a su empresa: si es la copia de lo postulado en una licitación,
     // la pantalla la muestra de solo lectura (decisión 35 del doc 17).
@@ -228,11 +256,13 @@ export class QuotationsController {
   // requerimiento con Claude y lo deja en solicitada; nunca envía. Solo
   // quien cotiza (convertir es pega de venta, 12-08) y solo la empresa con
   // el módulo propio cotizar_con_ia (Valle del Sol, migración 130).
-  @Roles(...SALES_AND_UP)
+  // Desde el doc 21, también recepción, en requerimientos de particulares.
+  @Roles(...RECEPTION_AND_UP)
   @Derecho('cotizar_con_ia')
   @Post(':id/generar')
-  generar(@Param('id') id: string, @CurrentUser() user: User) {
+  async generar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/generar`);
+    await this.alcance.exigirParticular(user, id);
     return this.generarCotizacion.generar(id, user);
   }
 
@@ -240,19 +270,25 @@ export class QuotationsController {
   // próximo contacto venció y es por correo, y el borrador del seguimiento
   // en el hilo del cliente (Outlook). Nunca envía. Solo quien vende, y solo
   // la empresa con el módulo propio seguimiento_con_ia (migración 140).
-  @Roles(...SALES_AND_UP)
+  // Desde el doc 21, también recepción: solo sus particulares.
+  @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
   @Get('seguimiento/pendientes')
-  seguimientosPendientes(@CurrentUser() user: User) {
+  async seguimientosPendientes(@CurrentUser() user: User) {
     this.logger.info('GET /quotations/seguimiento/pendientes');
-    return this.seguimientoConIA.pendientes(user);
+    const pendientes = await this.seguimientoConIA.pendientes(user);
+    if (!esRecepcion(user)) return pendientes;
+    const ve = await Promise.all(
+      pendientes.map((p) => this.alcance.veLaCotizacion(user, p.id)),
+    );
+    return pendientes.filter((_, i) => ve[i]);
   }
 
   // Al abrir Cotizaciones (doc 18 §9, Felipe 17-10): le pregunta a Outlook
   // si los borradores que esperan ya salieron; si salieron, anota el envío
   // en la bitácora con el próximo contacto. Sin IA, como mucho una consulta
   // por borrador cada 5 minutos.
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
   @Post('seguimiento/revisar')
   revisarSeguimientos(@CurrentUser() user: User) {
@@ -260,11 +296,12 @@ export class QuotationsController {
     return this.seguimientoConIA.revisar(user);
   }
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
   @Post(':id/seguimiento')
-  generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
+  async generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/seguimiento`);
+    await this.alcance.exigirParticular(user, id);
     return this.seguimientoConIA.generar(id, user);
   }
 
@@ -278,9 +315,9 @@ export class QuotationsController {
     return this.choques.listar(user);
   }
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Post(':id/choques/:aceptadaId')
-  decidirChoque(
+  async decidirChoque(
     @Param('id') id: string,
     @Param('aceptadaId') aceptadaId: string,
     @Body() body: DecisionDeChoqueDto,
@@ -289,34 +326,42 @@ export class QuotationsController {
     this.logger.info(
       `POST /quotations/${id}/choques/${aceptadaId} (${body.decision})`,
     );
+    await this.alcance.exigirParticular(user, id);
     return this.choques.seguir(user, id, aceptadaId);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
-  @Roles(...SALES_AND_UP)
+  // Desde el doc 21, también recepción, en particulares.
+  @Roles(...RECEPTION_AND_UP)
   @Post(':id/enviar-correo')
-  enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
+  async enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
+    await this.alcance.exigirParticular(user, id);
     return this.envioCotizacion.enviar(id, user);
   }
 
   // El aviso de cierre al rechazar (Felipe, 04-11-2026): el pop-up pide
   // el borrador, la persona lo edita y lo envía. Mismo cargo que enviar.
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Get(':id/aviso-de-cierre')
-  borradorAvisoDeCierre(@Param('id') id: string, @CurrentUser() user: User) {
+  async borradorAvisoDeCierre(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`GET /quotations/${id}/aviso-de-cierre`);
+    await this.alcance.exigirParticular(user, id);
     return this.envioCotizacion.borradorDelAvisoDeCierre(id, user);
   }
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Post(':id/aviso-de-cierre')
-  enviarAvisoDeCierre(
+  async enviarAvisoDeCierre(
     @Param('id') id: string,
     @Body() body: AvisoDeCierreDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${id}/aviso-de-cierre`);
+    await this.alcance.exigirParticular(user, id);
     return this.envioCotizacion.enviarAvisoDeCierre(id, user, body);
   }
 
