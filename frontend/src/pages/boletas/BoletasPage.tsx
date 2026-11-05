@@ -12,6 +12,7 @@ import {
   type CobroPorBoletear as Cobro,
 } from "../../services/boletas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import LetreroDelAmbiente from "../facturacion/LetreroDelAmbiente";
 import BoletaSuelta from "./BoletaSuelta";
 import CobroPorBoletear from "./CobroPorBoletear";
 import TarifarioDeBoletas from "./TarifarioDeBoletas";
@@ -131,8 +132,7 @@ export default function BoletasPage() {
 
   const cobros = porBoletear.data?.cobros ?? [];
   const boletas = hoy.data?.boletas ?? [];
-  const simulado =
-    (porBoletear.data?.ambiente ?? hoy.data?.ambiente) === "simulado";
+  const donde = porBoletear.data ?? hoy.data;
 
   const refrescar = () =>
     Promise.all([
@@ -170,12 +170,11 @@ export default function BoletasPage() {
   return (
     <div className="max-w-4xl space-y-4 p-4 sm:p-6">
       <h1 className="text-xl font-semibold text-gray-900">Boletas</h1>
-      {simulado && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Modo simulado: facturacion.cl todavía no está conectado. Las boletas
-          se arman y se numeran, pero no sale nada al SII.
-        </p>
-      )}
+      <LetreroDelAmbiente
+        ambiente={donde?.ambiente}
+        sinConexion={donde?.sin_conexion}
+        que="Las boletas"
+      />
       <div className="flex gap-4 border-b border-gray-200">
         {pestanas.map((p) => (
           <button

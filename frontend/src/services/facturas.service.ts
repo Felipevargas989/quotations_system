@@ -119,6 +119,9 @@ export interface DocumentoTributario {
 
 export interface DocumentosDelEvento {
   ambiente: Ambiente;
+  /** Por qué no se puede emitir, si no se puede (paso 5). Opcional: un
+   *  motor anterior no lo manda. */
+  sin_conexion?: string | null;
   documentos: DocumentoTributario[];
   /** Lo facturado de cada OC con la cadena: una factura anulada ya no
    *  cuenta. Opcional, como `cadena`. */

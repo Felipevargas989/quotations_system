@@ -67,22 +67,25 @@ export interface DatosDeLaLinea {
 
 const base = "/boletas";
 
+/** Dónde se emite y, si no se puede, por qué (paso 5). */
+interface DondeSeEmite {
+  ambiente: Ambiente;
+  sin_conexion?: string | null;
+}
+
 export const getPorBoletear = async (
   quotationId?: string,
-): Promise<{ ambiente: Ambiente; cobros: CobroPorBoletear[] }> =>
+): Promise<DondeSeEmite & { cobros: CobroPorBoletear[] }> =>
   (await apiRequest(
     `${base}/por-boletear${quotationId ? `?quotation_id=${encodeURIComponent(quotationId)}` : ""}`,
     "GET",
-  )) as { ambiente: Ambiente; cobros: CobroPorBoletear[] };
+  )) as DondeSeEmite & { cobros: CobroPorBoletear[] };
 
-export const getEmitidasHoy = async (): Promise<{
-  fecha: string;
-  ambiente: Ambiente;
-  boletas: BoletaDelDia[];
-}> =>
-  (await apiRequest(`${base}/emitidas-hoy`, "GET")) as {
+export const getEmitidasHoy = async (): Promise<
+  DondeSeEmite & { fecha: string; boletas: BoletaDelDia[] }
+> =>
+  (await apiRequest(`${base}/emitidas-hoy`, "GET")) as DondeSeEmite & {
     fecha: string;
-    ambiente: Ambiente;
     boletas: BoletaDelDia[];
   };
 

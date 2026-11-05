@@ -30,8 +30,12 @@
 > (§9.16). **Paso 4 construido el 05-11** (Felipe: *"puedes avanzar
 > haciendo tú todas las pruebas hasta completar el trabajo"*): la lista de
 > Facturación con la cadena de anulaciones, las notas de crédito y de
-> débito, «Comprobar» y el reporte (§9.17). Lo que queda es el paso 5: la
-> conexión de verdad, con el «a producción».
+> débito, «Comprobar» y el reporte (§9.17). **Paso 5a construido el 05-11**
+> (Felipe: *"avancemos con el paso 5"*): la conexión de verdad por el SOAP
+> de facturacion.cl, dormida hasta que Felipe cargue las credenciales en
+> Railway; «Probar la conexión»; y los candados para no mezclar ambientes
+> (§9.18). Lo que queda: las credenciales, el paso 0 en el ambiente de
+> pruebas, la certificación y el «a producción».
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -296,7 +300,10 @@ cotización y la fecha del evento.
 - `FACTURACIONCL_USUARIO`;
 - `FACTURACIONCL_RUT`;
 - `FACTURACIONCL_CLAVE`;
-- `FACTURACIONCL_AMBIENTE` (prueba o producción).
+- `FACTURACIONCL_AMBIENTE` (prueba o producción);
+- `FACTURACIONCL_EMPRESA` (sumada el 05-11): el N° de la empresa de
+  Eventia dueña de esas credenciales, la 1 para Valle del Sol. Ninguna otra
+  empresa emite con ellas (§9.18).
 
 Por ahora hay una sola empresa: Valle del Sol. El laboratorio usa **solo**
 las credenciales de prueba; las de producción van solo en el motor de
@@ -550,7 +557,7 @@ amarrada a él en Eventia.
 | L20 | Los plazos del SII para anular y rebajar (§9.5). | Eventia muestra el plazo y avisa antes. |
 | L21 | No se sabe si facturacion.cl acepta por el TXT la nota de crédito de una boleta, ni la nota de débito que anula una nota de crédito. | Se prueba en el paso 0, antes de construir esas pantallas. |
 | L22 | En la boleta, el manual pide el neto y el IVA solo cuando las líneas van en neto. Las de la casa van con IVA (IndMntNeto 0). | El armador los deja vacíos y la vista previa muestra el desglose. Se confirma en el paso 0. |
-| L23 | Las páginas del manual vienen en latin-1 aunque dicen UTF-8: el archivo seguramente también va en latin-1 (L9). | El armador entrega el texto; la codificación la pone la conexión y se prueba en el paso 0 con «Cabaña» y «Quillón». |
+| L23 | Las páginas del manual vienen en latin-1 aunque dicen UTF-8: el archivo seguramente también va en latin-1 (L9). | El armador entrega el texto; la codificación la pone la conexión y se prueba en el paso 0 con «Cabaña» y «Quillón». **05-11:** el manual del XML pide ISO-8859-1 (latin-1); la conexión manda el TXT igual, y lo que no cabe en latin-1 (un emoji, otro alfabeto) se quita con aviso en la vista previa. Se confirma en el paso 0. |
 | L24 | El manual no dice si el código de la línea puede ir vacío. | Sin código va «SERV». Se confirma en el paso 0. |
 | L25 | La fórmula del manual para lo exento es ambigua (el valor de la línea suma el exento). | La factura exenta (34), la boleta exenta (41) y las líneas exentas no se arman todavía. Se prueban en el paso 0. |
 | L26 | El manual del TXT no nombra `IndNoRebaja` (la nota que rebaja después de los 6 meses sale sin derecho a rebajar el débito). | La nota se emite igual y la vista previa lo avisa. Se confirma en el paso 0. |
@@ -580,7 +587,7 @@ La conexión de verdad es el paso 5.
 | 2 | La factura con BelIA en el evento: la lectura de la OC, las preguntas, la vista previa y «Emitir» (simulado). En tres tramos: **2a** las OC del evento a mano (hecho el 04-11, §9.14); **2b** BelIA lee el PDF de la OC y llena sus datos para confirmarlos (hecho el 04-11, §9.14); **2c** la factura armada, la vista previa y «Emitir» (hecho el 04-11, §9.15). | E1, E2 y E4. |
 | 3 | Las boletas de recepción: el cobro por boletear repartido por cabaña y la boleta suelta con el tarifario. En dos tramos: **3a** «Por boletear» con el reparto por cabaña y «Emitidas hoy» (hecho el 05-11, §9.16); **3b** la boleta suelta y el tarifario (hecho el 05-11, §9.16). | D3 (decidida el 04-11) y E3. |
 | 4 | La lista de Facturación, la cadena y el circuito de anulación (notas de crédito y de débito), con los plazos y el reporte (hecho el 05-11, §9.17). | E5. |
-| 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
+| 5 | La conexión de verdad: el paso 0 del §6 (el ambiente de pruebas de facturacion.cl) y la certificación. Con el «a producción», las credenciales productivas y la primera boleta y factura reales, mirándolas juntos. **5a, hecho el 05-11 (§9.18):** la conexión por SOAP, dormida hasta las credenciales, con «Probar la conexión» y los candados de los ambientes. | El Servicio de Integración pagado (D2); el certificado y los folios de boleta cargados en facturacion.cl; las credenciales en Railway (las carga Felipe). |
 
 ### 9.10 El desafío: integrarse bien a facturacion.cl
 
@@ -891,6 +898,112 @@ nombra; la rebaja fuera de plazo solo se avisa). Los folios libres de cada
 tipo (la maqueta los mostraba) llegan con `ConsultarCAF` en el paso 5: el
 simulado no los tiene.
 
+### 9.18 El paso 5: la conexión de verdad (05-11)
+
+Felipe, 05-11: *"avancemos con el paso 5"*. Sin las credenciales no se
+puede emitir nada de verdad, así que el paso 5 va en tramos: **5a** (hecho)
+deja la conexión lista y dormida; **5b** es el paso 0 en el ambiente de
+pruebas, apenas estén las credenciales; **5c** la certificación y el «a
+producción».
+
+**5a, hecho el 05-11** (en `api-rest/src/facturacion/facturacion-cl/`):
+
+| Pieza | Qué hace |
+|---|---|
+| `soap.ts` | `FacturacionClSoap`, el SOAP `wsplano.asmx` sin librerías: `Online`, `ConsultarCAF` (el folio que sigue y los libres), `Procesar` (el TXT en latin-1 y en Base64, `formato` 1) y `ObtenerPdf` (en Base64, para la copia propia). Las credenciales van en Base64, como pide el manual, y nunca van a un error ni al registro. No se pide `IncluyeLink`: el enlace es público (L10). |
+| `configuracion.ts` | Qué conexión usa cada motor, con las variables de Railway (§5.3). |
+| `sin-conexion.ts` | La que no emite: producción sin credenciales, o credenciales en el motor que no es. Dice por qué, y nunca deja nada «por confirmar». |
+
+**Los candados:**
+- El laboratorio emite **solo** con las credenciales de prueba, y producción
+  **solo** con las de producción. Producción se reconoce por `NODE_ENV` o
+  por su base. Si el laboratorio pareciera producción, queda sin emitir: el
+  error va hacia el lado seguro.
+- Producción **nunca** usa el simulado: sin credenciales no emite y lo dice
+  en un letrero rojo.
+- Las credenciales son solo de la empresa de `FACTURACIONCL_EMPRESA`. En el
+  laboratorio las demás empresas siguen simuladas; en producción, sin
+  conexión.
+- `Procesar` nunca se reintenta (L5). Un corte, una demora (60 segundos) o
+  una falla del servidor de facturacion.cl dejan «por confirmar». Son un
+  rechazo solo la falla `soap:Client` (no leyó el pedido) y un carácter
+  fuera de latin-1 (no se mandó). Una respuesta que dice que sí pero no
+  trae el folio también queda «por confirmar».
+- **Cada documento en su ambiente.** «Comprobar», «Pedir el PDF» y las notas
+  usan la conexión del ambiente donde salió el documento. A una factura
+  simulada no se le emite una nota de prueba. Lo facturado de una OC cuenta
+  solo lo del ambiente donde se emite: una factura simulada no factura una
+  OC de verdad.
+- **L11:** en el ambiente de prueba el correo va vacío y la vista previa lo
+  avisa. El laboratorio tiene los correos de clientes reales.
+- **L23:** lo que no cabe en latin-1 se quita y se avisa (`texto.ts`). El
+  conector tiene un último resguardo antes de mandar.
+
+**En la pantalla:**
+- El letrero de arriba (`LetreroDelAmbiente`, en Facturación, Boletas y la
+  pestaña del evento) dice «Modo simulado», «Modo prueba» o, en rojo, «No
+  se puede emitir: …».
+- Lo emitido en prueba dice «(de prueba)», y su PDF en Documentos, «(prueba)».
+- **«Probar la conexión»** en Facturación (`GET /facturacion/conexion`,
+  solo el administrador, no emite nada) muestra:
+  - si facturacion.cl responde desde el motor, en cuánto, y su versión;
+  - conectado, los folios que quedan de facturas, notas de crédito, notas
+    de débito y boletas. Son los folios libres de la maqueta (§9.17).
+
+**Medido en vivo el 05-11 (sin credenciales, solo lo público):**
+- `Online` respondió «Online=1» en 0,2 s, y `Version` respondió «1.2.8.3».
+- La conexión de Eventia, desde el Mac, contestó «en línea» en 0,4 s, con
+  las dos llamadas.
+- Una acción que no existe responde HTTP 500 con `soap:Client`. Así queda
+  probado el formato de las fallas.
+- El esquema es `elementFormDefault="qualified"` con el espacio
+  `http://tempuri.org`, sin barra al final.
+- El parámetro de `ConsultarCAF` se llama `tipoDTE` en la definición del
+  servicio (el manual dice `tipodte`). Manda la definición.
+- La forma exacta de lo que responden `ConsultarCAF` y `ObtenerPdf` no está
+  en el manual. La lectura es tolerante y se confirma en el 5b.
+
+**5b, el paso 0 (necesita las credenciales de prueba).** Lo que hace Felipe:
+1. Contratar el Servicio de Integración (D2), con felipe@ como técnico.
+2. Esperar el correo de bienvenida con las credenciales de prueba.
+3. Cargar el certificado y los folios en facturacion.cl.
+4. En Railway, en el motor del **laboratorio**, cargar las cinco variables:
+   - `FACTURACIONCL_USUARIO`, `FACTURACIONCL_RUT` y `FACTURACIONCL_CLAVE`,
+     las de «Ambiente Prueba»;
+   - `FACTURACIONCL_AMBIENTE` = `prueba`;
+   - `FACTURACIONCL_EMPRESA` = `1`.
+
+   El motor toma las variables al reiniciar.
+
+Después, en el laboratorio:
+- «Probar la conexión»: los folios de cada tipo;
+- una boleta y una factura con «Cabaña» y «Quillón» (L9 y L23);
+- el folio 0 en una factura (L2);
+- la ND que anula una NC y la NC de una boleta (L21);
+- el neto y el IVA vacíos en la boleta (L22);
+- «SERV» como código (L24);
+- `IndNoRebaja` (L26);
+- los tiempos;
+- el PDF.
+
+Lo emitido se revisa en «Contabilidad/Libro de Ventas» del acceso web de
+prueba. Lo que se encuentre se arregla en el laboratorio y se anota acá.
+
+**5c, la certificación y el «a producción».**
+- Con el 5b listo, el técnico aprieta «Solicitar» en la plataforma. La
+  certificación toma de 3 a 5 días hábiles.
+- Con el «a producción» de Felipe, en este orden:
+  1. En la base de producción, las migraciones 184 y 187, respaldando antes
+     `modulos_propios`.
+  2. El motor (PR a `main`).
+  3. La vitrina.
+  4. En el motor de producción, las credenciales de producción, con
+     `FACTURACIONCL_AMBIENTE` = `produccion` y `FACTURACIONCL_EMPRESA` = `1`.
+  5. La primera boleta y la primera factura reales, mirándolas juntos.
+
+Mientras el motor de producción no tenga las credenciales, Facturación se
+ve pero no emite: el letrero lo dice.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
@@ -909,3 +1022,11 @@ simulado no los tiene.
   (`references` con `codeSii`, `salesId`, `sendEmail`, `informedSii`).
 - El manual REST de facturacion.cl, releído el 04-11: sigue en la versión
   1.0 de julio de 2026.
+- 05-11 (paso 5a): la definición del servicio en vivo
+  (https://wss.facturacion.cl/WSDS/wsplano.asmx?wsdl) y su respuesta a
+  `Online`, `Version` y a una acción que no existe; y del manual,
+  «Integración mediante WebService» (`integracionservicioweb.php`: Base64,
+  `logininfo`, `Procesar`, `ObtenerPdf`, `ConsultarCAF`), «Credenciales de
+  acceso» (`credencialesacceso.php`), la ficha técnica
+  (`fichatecnicaserviciointegracion.php`) y el formato XML de la factura
+  (`archivofacturaelectronica.php`: ISO-8859-1).

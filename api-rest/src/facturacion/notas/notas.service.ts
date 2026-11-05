@@ -14,6 +14,10 @@ import { netoParaElTotal } from '../archivo/montos';
 import { textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { BoletasRepository } from '../boletas/boletas.repository';
+import {
+  NOTA_DEL_AMBIENTE,
+  type AmbienteDeFacturacion,
+} from '../facturacion-cl/facturacion-cl';
 import { ConexionConFacturacionCl } from '../facturas/conexion';
 import { guardarCopiaDelPdf } from '../facturas/copia-del-pdf';
 import {
@@ -52,6 +56,11 @@ import { NotaPedidaDto } from './nota.dto';
 const NC = 61;
 const ND = 56;
 const CON_NOTAS = new Set([33, ND, NC]);
+const EN_PALABRAS: Record<AmbienteDeFacturacion, string> = {
+  simulado: 'en el modo simulado',
+  prueba: 'en el ambiente de prueba',
+  produccion: 'en producción',
+};
 const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
 const fechaCorta = (f: string) => f.slice(0, 10).split('-').reverse().join('-');
 
@@ -177,8 +186,10 @@ export class NotasService {
     });
 
     const emitidos = delPeriodo.filter((d) => d.estado === 'emitido');
+    const conexion = this.conexion.de(companyId);
     return {
-      ambiente: this.conexion.de(companyId).ambiente,
+      ambiente: conexion.ambiente,
+      sin_conexion: conexion.sinConexion ?? null,
       mes: elMes,
       hoy,
       resumen: {
@@ -277,7 +288,7 @@ export class NotasService {
           quotation_id: original.quotation_id,
           tipo: 'otro',
           next_contact_date: null,
-          note: `Emitió ${tipo === NC ? 'la nota de crédito' : 'la nota de débito'} N° ${emitida.folio} que ${QUE_HACE[codigo]} ${NOMBRE_LARGO[original.tipo] ?? 'el documento'} N° ${original.folio} (${pesos(emitida.total)}): ${textoLimpio(dto.motivo)}.${emitida.ambiente === 'simulado' ? ' Es simulada: no salió nada al SII.' : ''}`,
+          note: `Emitió ${tipo === NC ? 'la nota de crédito' : 'la nota de débito'} N° ${emitida.folio} que ${QUE_HACE[codigo]} ${NOMBRE_LARGO[original.tipo] ?? 'el documento'} N° ${original.folio} (${pesos(emitida.total)}): ${textoLimpio(dto.motivo)}.${NOTA_DEL_AMBIENTE[emitida.ambiente] ?? ''}`,
         })
         .catch((e: unknown) =>
           this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
@@ -307,7 +318,7 @@ export class NotasService {
       throw new BadRequestException(
         'Se está emitiendo: espera unos minutos y vuelve a comprobar',
       );
-    const conexion = this.conexion.de(companyId);
+    const conexion = this.delMismoAmbiente(companyId, doc);
     const siguiente = await conexion.folioSiguiente(doc.tipo);
     const enviado =
       doc.tipo === 39 || doc.tipo === 41
@@ -351,7 +362,7 @@ export class NotasService {
     if (doc.pdf_path) return doc;
     const conPdf = await guardarCopiaDelPdf(
       this.documentos,
-      this.conexion.de(companyId),
+      this.delMismoAmbiente(companyId, doc),
       doc,
       companyId,
       doc.quotation_id,
@@ -361,6 +372,25 @@ export class NotasService {
         'facturacion.cl todavía no tiene el PDF: prueba en unos minutos',
       );
     return conPdf;
+  }
+
+  /** «Probar la conexión» (paso 0): no emite nada. */
+  conexionConFacturacionCl(companyId: number) {
+    return this.conexion.probar(companyId);
+  }
+
+  /** «Comprobar» y «Pedir el PDF» le preguntan al ambiente que emitió el
+   *  documento: un folio simulado no es un folio de prueba. */
+  private delMismoAmbiente(
+    companyId: number,
+    doc: { ambiente: AmbienteDeFacturacion },
+  ) {
+    const conexion = this.conexion.de(companyId, doc.ambiente);
+    if (!conexion)
+      throw new ConflictException(
+        `Ese documento salió ${EN_PALABRAS[doc.ambiente]}: se revisa en la plataforma de facturacion.cl`,
+      );
+    return conexion;
   }
 
   /** Arma la nota con el folio que sigue: lo usan la vista previa y emitir. */
@@ -378,7 +408,16 @@ export class NotasService {
       throw new BadRequestException(
         'La nota de crédito de una boleta se prueba con facturacion.cl en el paso 0 (L21)',
       );
-    const todos = await this.documentos.cadenaDeLaEmpresa(companyId);
+    // Una nota sale donde salió lo que modifica: una nota de prueba no
+    // anula una factura simulada (§9.18).
+    const conexion = this.conexion.de(companyId);
+    if (original.ambiente !== conexion.ambiente)
+      throw new ConflictException(
+        `${nombreDe(original)} salió ${EN_PALABRAS[original.ambiente]} y hoy se emite ${EN_PALABRAS[conexion.ambiente]}: no se le emiten notas`,
+      );
+    const todos = (await this.documentos.cadenaDeLaEmpresa(companyId)).filter(
+      (d) => d.ambiente === original.ambiente,
+    );
     const cadena = new Cadena(todos);
     if (!cadena.vigente(id))
       throw new ConflictException(`${nombreDe(original)} ya está anulada`);
@@ -453,7 +492,6 @@ export class NotasService {
           ? `Pasaron los 6 meses para rebajar (hasta el ${fechaCorta(plazo)}): la nota sale sin derecho a rebajar el débito del IVA.`
           : `Venció el plazo del SII (hasta el ${fechaCorta(plazo)}): el débito ya pagado solo se recupera con el formulario 2117.`,
       );
-    const conexion = this.conexion.de(companyId);
     const folio = await conexion.folioSiguiente(tipo);
     const referencia = {
       tipo: String(original.tipo),
@@ -462,7 +500,16 @@ export class NotasService {
       codigo,
       razon: motivo,
     };
-    const base = { tipo, fecha, receptor, lineas, referencia, totalEsperado };
+    const ambiente = conexion.ambiente;
+    const base = {
+      tipo,
+      fecha,
+      receptor,
+      lineas,
+      referencia,
+      totalEsperado,
+      ambiente,
+    };
     const armado = armarFactura({
       tipo,
       folio,
@@ -471,6 +518,7 @@ export class NotasService {
       lineas,
       referencias: [referencia],
       totalEsperado,
+      ambiente,
     });
     return {
       ...base,
@@ -541,6 +589,7 @@ export class NotasService {
         razon: string;
       };
       totalEsperado: number;
+      ambiente: AmbienteDeFacturacion;
     },
     folio: number,
   ) {
@@ -552,6 +601,7 @@ export class NotasService {
       lineas: a.lineas,
       referencias: [a.referencia],
       totalEsperado: a.totalEsperado,
+      ambiente: a.ambiente,
     });
     return r.ok ? r.archivo : null;
   }

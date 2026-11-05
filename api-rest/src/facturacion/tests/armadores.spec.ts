@@ -44,6 +44,48 @@ const factura374 = (): DatosDeFactura => ({
   ],
 });
 
+describe('Lo que facturacion.cl no lee (L23)', () => {
+  it('el archivo va en latin-1: un emoji o un signo raro se quita, y se avisa', () => {
+    const armado = armarFactura({
+      ...factura374(),
+      lineas: [
+        {
+          descripcion: 'Cena de gala 🎉 • con baile',
+          cantidad: 1,
+          precio: 2201621,
+        },
+      ],
+    });
+    if (!armado.ok) throw new Error(armado.problemas.join(' | '));
+    expect(armado.archivo).toContain('Cena de gala - con baile');
+    expect(armado.archivo).not.toContain('🎉');
+    expect(armado.avisos).toContain(
+      'La descripción de la línea 1 trae «🎉», que facturacion.cl no lee: se quita',
+    );
+    expect(
+      Array.from(armado.archivo).every((c) => (c.codePointAt(0) ?? 0) <= 0xff),
+    ).toBe(true);
+  });
+
+  it('en el ambiente de prueba, la factura sale sin correo (L11)', () => {
+    const base = factura374();
+    const armado = armarFactura({
+      ...base,
+      receptor: { ...base.receptor, correo: 'dte@santotomas.cl' },
+      ambiente: 'prueba',
+    });
+    expect(armado.ok && armado.archivo).not.toContain('dte@santotomas.cl');
+    const enProduccion = armarFactura({
+      ...base,
+      receptor: { ...base.receptor, correo: 'dte@santotomas.cl' },
+      ambiente: 'produccion',
+    });
+    expect(enProduccion.ok && enProduccion.archivo).toContain(
+      'dte@santotomas.cl',
+    );
+  });
+});
+
 const archivoDe = (armado: ReturnType<typeof armarFactura>) => {
   if (!armado.ok) throw new Error(armado.problemas.join(' | '));
   return armado;
@@ -454,6 +496,25 @@ describe('La boleta (39): las cabañas', () => {
     });
     expect(armado.ok && armado.archivo).toContain(
       ';7093990-8;;Avelina Pereira;;;;;avelina@correo.cl;',
+    );
+  });
+
+  it('en el ambiente de prueba el correo va vacío: no se le escribe a nadie (L11)', () => {
+    const armado = armarBoleta({
+      ...cabanas,
+      receptor: {
+        rut: '7.093.990-8',
+        razon_social: 'Avelina Pereira',
+        correo: 'Avelina@correo.cl',
+      },
+      ambiente: 'prueba',
+    });
+    expect(armado.ok && armado.archivo).toContain(
+      ';7093990-8;;Avelina Pereira;;;;;;',
+    );
+    expect(armado.ok && armado.archivo).not.toContain('avelina@correo.cl');
+    expect(armado.ok && armado.avisos).toContain(
+      'En el ambiente de prueba el correo va vacío: facturacion.cl no le manda el documento a nadie',
     );
   });
 
