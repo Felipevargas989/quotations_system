@@ -35,6 +35,13 @@ export class NotasController {
     return this.notas.lista(user.company_id, q.mes);
   }
 
+  /** «Probar la conexión» con facturacion.cl (paso 0): no emite nada. */
+  @Get('conexion')
+  conexion(@CurrentUser() user: User) {
+    this.logger.info('GET /facturacion/conexion');
+    return this.notas.conexionConFacturacionCl(user.company_id);
+  }
+
   @Post('documentos/:id/comprobar')
   comprobar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     this.logger.info(`POST /facturacion/documentos/${id}/comprobar`);

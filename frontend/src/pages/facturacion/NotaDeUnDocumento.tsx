@@ -309,6 +309,12 @@ export default function NotaDeUnDocumento({
               al SII.
             </p>
           )}
+          {vista.ambiente === "prueba" && (
+            <p className="text-xs text-sky-700">
+              De prueba: sale en el ambiente de pruebas de facturacion.cl y no
+              vale ante el SII.
+            </p>
+          )}
         </div>
       )}
 

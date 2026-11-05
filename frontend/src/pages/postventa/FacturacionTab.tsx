@@ -34,6 +34,7 @@ import { docsQueryOpts } from "./consultaDeDocumentos";
 import ArmarFactura from "./facturacion/ArmarFactura";
 import CobrosDelEvento from "./facturacion/CobrosDelEvento";
 import DocumentosEmitidos from "./facturacion/DocumentosEmitidos";
+import LetreroDelAmbiente from "../facturacion/LetreroDelAmbiente";
 
 // PESTAÑA «FACTURACIÓN» DEL EVENTO (doc 19, paso 2a): las órdenes de compra.
 //
@@ -468,12 +469,11 @@ export default function FacturacionTab({
 
   return (
     <div className="max-w-3xl space-y-4">
-      {emitidos.data?.ambiente === "simulado" && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Modo simulado: facturacion.cl todavía no está conectado. Las facturas
-          se arman y se numeran, pero no sale nada al SII.
-        </p>
-      )}
+      <LetreroDelAmbiente
+        ambiente={emitidos.data?.ambiente}
+        sinConexion={emitidos.data?.sin_conexion}
+        que="Las facturas"
+      />
       <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900">

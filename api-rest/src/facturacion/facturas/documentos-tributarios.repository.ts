@@ -185,8 +185,13 @@ export class DocumentosTributariosRepository {
   }
 
   /** Lo facturado del evento y de cada una de sus OC, con la cadena (paso
-   *  4): `facturadoDeLasOC`. */
-  async facturado(quotationId: string, companyId: number) {
+   *  4): `facturadoDeLasOC`. Solo lo del ambiente donde se emite: una
+   *  factura simulada no factura una OC de verdad (§9.18). */
+  async facturado(
+    quotationId: string,
+    companyId: number,
+    ambiente: AmbienteDeFacturacion,
+  ) {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
@@ -194,6 +199,7 @@ export class DocumentosTributariosRepository {
       )
       .eq('quotation_id', quotationId)
       .eq('company_id', companyId)
+      .eq('ambiente', ambiente)
       .in('tipo', [33, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
@@ -254,7 +260,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
-        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, created_at',
+        'id, tipo, ambiente, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, created_at',
       )
       .eq('company_id', companyId)
       .in('tipo', [33, 56, 61])
@@ -262,6 +268,7 @@ export class DocumentosTributariosRepository {
     if (error) throw error;
     return (
       (data ?? []) as (DocumentoDeLaCadena & {
+        ambiente: AmbienteDeFacturacion;
         orden_de_compra_id: number | null;
         created_at: string;
       })[]

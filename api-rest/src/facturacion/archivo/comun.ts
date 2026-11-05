@@ -1,6 +1,7 @@
 import { isEmail } from 'class-validator';
 import { mensajeRut, normalizarRut, revisarRut } from '../../people/utils/rut';
 import { correosDe } from '../datos-del-receptor';
+import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import { Avisos, numeroDelArchivo } from './texto';
 import type { LineaDeDetalle } from './tipos';
 
@@ -27,16 +28,25 @@ export const rutDelReceptor = (
   return canonico ?? '';
 };
 
-/** Los correos del receptor, separados por coma. Vacío si no hay. */
+/** Los correos del receptor, separados por coma. Vacío si no hay. En el
+ *  ambiente de prueba de facturacion.cl van vacíos (L11): el laboratorio
+ *  tiene los correos de clientes reales y no se le escribe a nadie. */
 export const correosDelReceptor = (
   correo: string | null | undefined,
   avisos: Avisos,
   problemas: string[],
+  ambiente?: AmbienteDeFacturacion,
 ): string => {
   const correos = correosDe(correo);
   const malo = correos.find((c) => !isEmail(c));
   if (malo) {
     problemas.push(`El correo «${malo}» no es válido`);
+    return '';
+  }
+  if (ambiente === 'prueba' && correos.length) {
+    avisos.agregar(
+      'En el ambiente de prueba el correo va vacío: facturacion.cl no le manda el documento a nadie',
+    );
     return '';
   }
   return avisos.campo('Los correos', correos.join(','), 200);

@@ -213,6 +213,11 @@ export class FacturacionClSimulado implements FacturacionCl {
     return (await this.ultimo(tipo)) + 1;
   }
 
+  /** El simulado no tiene rangos de folios (CAF): numera sin fin. */
+  folios(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
   async procesar(archivo: string, tipo: number): Promise<RespuestaDeProcesar> {
     if (this.opciones.cortarEnElEnvio)
       throw new EnvioSinRespuesta(

@@ -141,6 +141,9 @@ const armar = ({
   simulado = new FacturacionClSimulado({
     ultimoFolio: () => Promise.resolve(0),
   }),
+  conexion = { de: () => simulado } as {
+    de: (empresa: number, ambiente?: string) => unknown;
+  },
 } = {}) => {
   const filas = new Map<number, Record<string, unknown>>(
     documentos.map((d) => [d.id as number, { ...d }]),
@@ -186,7 +189,7 @@ const armar = ({
   const servicio = new NotasService(
     repo as never,
     boletas as never,
-    { de: () => simulado } as never,
+    conexion as never,
     bitacora as never,
     mockPinoLogger() as never,
   );
@@ -390,6 +393,62 @@ describe('Comprobar lo que quedó por confirmar (L5)', () => {
     });
     await servicio.comprobar(ADMIN, 20);
     expect(boletas.desamarrarDeLaBoleta).toHaveBeenCalledWith(20, 1);
+  });
+});
+
+describe('Cada documento en su ambiente (§9.18)', () => {
+  /** Ya conectado al ambiente de prueba de facturacion.cl: lo de antes
+   *  quedó simulado. */
+  const enPrueba = {
+    ambiente: 'prueba',
+    folioSiguiente: jest.fn().mockResolvedValue(1),
+  };
+
+  it('a una factura simulada no se le emite una nota de prueba', async () => {
+    const { servicio, repo } = armar({ conexion: { de: () => enPrueba } });
+    await expect(
+      servicio.revisarNota(ADMIN, 10, {
+        accion: 'anular',
+        motivo: 'Se emitió con el RUT equivocado',
+      }),
+    ).rejects.toThrow(
+      'Factura 1 salió en el modo simulado y hoy se emite en el ambiente de prueba: no se le emiten notas',
+    );
+    expect(enPrueba.folioSiguiente).not.toHaveBeenCalled();
+    expect(repo.crear).not.toHaveBeenCalled();
+  });
+
+  it('«Comprobar» pregunta al ambiente que lo emitió, y si ya no está, lo dice', async () => {
+    const simulado = new FacturacionClSimulado({
+      ultimoFolio: () => Promise.resolve(5),
+    });
+    const porConfirmar = {
+      ...FACTURA_1,
+      id: 20,
+      folio: null,
+      fecha_emision: null,
+      estado: 'por_confirmar',
+      archivo_enviado:
+        '->Encabezado<-\r\n33;5;2026-11-04;0;0;90413000-1;CCU;;;;;;',
+    };
+    const de = jest.fn((_: number, ambiente?: string) =>
+      ambiente === 'simulado' || !ambiente ? simulado : null,
+    );
+    const { servicio, filas } = armar({
+      documentos: [porConfirmar],
+      conexion: { de },
+    });
+    await servicio.comprobar(ADMIN, 20);
+    expect(de).toHaveBeenCalledWith(1, 'simulado');
+    expect(filas.get(20)).toMatchObject({ estado: 'emitido', folio: 5 });
+
+    const sinSuAmbiente = armar({
+      documentos: [{ ...porConfirmar, ambiente: 'produccion' }],
+      conexion: { de },
+    });
+    await expect(sinSuAmbiente.servicio.comprobar(ADMIN, 20)).rejects.toThrow(
+      'Ese documento salió en producción: se revisa en la plataforma de facturacion.cl',
+    );
   });
 });
 

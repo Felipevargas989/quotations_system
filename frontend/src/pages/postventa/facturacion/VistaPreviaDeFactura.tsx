@@ -31,6 +31,7 @@ export default function VistaPreviaDeFactura({
 }) {
   const r = pedida.receptor;
   const simulado = vista.ambiente === "simulado";
+  const prueba = vista.ambiente === "prueba";
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-gray-300 bg-white p-4 text-sm space-y-3">
@@ -143,12 +144,20 @@ export default function VistaPreviaDeFactura({
 
       <p className="text-xs text-gray-500">
         Emitida no se borra: un error se anula con nota de crédito.
-        {r.correo && !simulado ? ` facturacion.cl la manda a ${r.correo}.` : ""}
+        {r.correo && vista.ambiente === "produccion"
+          ? ` facturacion.cl la manda a ${r.correo}.`
+          : ""}
       </p>
       {simulado && (
         <p className="text-xs text-amber-700">
           Simulada: facturacion.cl todavía no está conectado y no sale nada al
           SII.
+        </p>
+      )}
+      {prueba && (
+        <p className="text-xs text-sky-700">
+          De prueba: sale en el ambiente de pruebas de facturacion.cl, no vale
+          ante el SII y no se le manda a nadie.
         </p>
       )}
       <div className="flex items-center gap-2">

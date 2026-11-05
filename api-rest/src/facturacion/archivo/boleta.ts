@@ -1,3 +1,4 @@
+import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import {
   RUT_AUXILIAR,
   cantidadYPrecio,
@@ -49,6 +50,8 @@ export interface DatosDeBoleta {
   /** Lo que debería sumar (lo repartido de un cobro): si no calza, se
    *  avisa. */
   totalEsperado?: number | null;
+  /** Dónde sale: en el ambiente de prueba, sin correo (L11). */
+  ambiente?: AmbienteDeFacturacion;
 }
 
 const MAXIMO_DE_LINEAS = 1000;
@@ -83,7 +86,12 @@ export const armarBoleta = (datos: DatosDeBoleta): Armado => {
   if (referencias.length > MAXIMO_DE_REFERENCIAS)
     problemas.push(`Caben ${MAXIMO_DE_REFERENCIAS} referencias`);
 
-  const correo = correosDelReceptor(r.correo, avisos, problemas);
+  const correo = correosDelReceptor(
+    r.correo,
+    avisos,
+    problemas,
+    datos.ambiente,
+  );
   if (problemas.length) return { ok: false, problemas };
 
   // Con las líneas con IVA, el total es la suma. El neto y el IVA solo se

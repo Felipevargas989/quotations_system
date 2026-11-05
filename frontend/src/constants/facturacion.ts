@@ -1,3 +1,5 @@
+import type { Ambiente } from "../services/facturas.service";
+
 /**
  * FACTURACIÓN: LO QUE CABE EN LA FACTURA Y LAS REFERENCIAS (doc 19)
  *
@@ -32,3 +34,14 @@ export const REFERENCIAS_QUE_PIDE = [
 
 export const nombreDeReferencia = (codigo: string): string =>
   REFERENCIAS_QUE_PIDE.find((r) => r.codigo === codigo)?.nombre ?? codigo;
+
+/** Lo que no vale ante el SII lo dice: «(simulada)», «(de prueba)» (doc 19
+ *  §9.18). No es gemelo del motor. */
+const NOMBRE_DEL_AMBIENTE: Record<Ambiente, string> = {
+  simulado: "simulada",
+  prueba: "de prueba",
+  produccion: "",
+};
+
+export const marcaDelAmbiente = (ambiente: Ambiente) =>
+  NOMBRE_DEL_AMBIENTE[ambiente] ? ` (${NOMBRE_DEL_AMBIENTE[ambiente]})` : "";

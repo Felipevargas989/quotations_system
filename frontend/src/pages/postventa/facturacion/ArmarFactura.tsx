@@ -7,6 +7,7 @@ import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import {
   LARGO_MAXIMO,
   nombreDeReferencia,
+  marcaDelAmbiente,
 } from "../../../constants/facturacion";
 import {
   armarBorradorDeFactura,
@@ -249,7 +250,7 @@ function Borrador({
         );
       else
         toast.success(
-          `Factura N° ${doc.folio} emitida${doc.ambiente === "simulado" ? " (simulada)" : ""}.`,
+          `Factura N° ${doc.folio} emitida${marcaDelAmbiente(doc.ambiente)}.`,
         );
       onEmitida();
     } catch (error) {
