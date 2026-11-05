@@ -86,8 +86,8 @@ export default function VistaPreviaDeFactura({
           <thead>
             <tr className="border-b border-gray-200 text-gray-500">
               <th className="py-1 text-left font-medium">Detalle</th>
-              <th className="py-1 text-right font-medium">Cant.</th>
-              <th className="py-1 text-right font-medium">Neto</th>
+              <th className="w-14 py-1 pl-3 text-right font-medium">Cant.</th>
+              <th className="w-28 py-1 pl-3 text-right font-medium">Neto</th>
             </tr>
           </thead>
           <tbody>
@@ -99,8 +99,12 @@ export default function VistaPreviaDeFactura({
                     <p className="text-gray-500">{l.descripcionLarga}</p>
                   )}
                 </td>
-                <td className="py-1 text-right">{l.cantidad}</td>
-                <td className="py-1 text-right">{clp(l.precio)}</td>
+                <td className="py-1 pl-3 text-right whitespace-nowrap">
+                  {l.cantidad}
+                </td>
+                <td className="py-1 pl-3 text-right whitespace-nowrap">
+                  {clp(l.precio)}
+                </td>
               </tr>
             ))}
           </tbody>
