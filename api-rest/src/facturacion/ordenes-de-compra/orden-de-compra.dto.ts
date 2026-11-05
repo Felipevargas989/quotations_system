@@ -1,4 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -10,8 +11,34 @@ import {
   Min,
   Validate,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { RutChileno } from '../../people/dto/create-person.dto';
+
+/** Lo que la OC dice del comprador y no tiene casilla propia, como lo leyó
+ *  BelIA (paso 2b). Los largos son los de lo leído: al facturar, la persona
+ *  lo ajusta a lo que cabe en la factura (doc 19 §9.12). */
+export class CompradorDeLaOCDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  giro?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  direccion?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  comuna?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  ciudad?: string | null;
+}
 
 /**
  * UNA ORDEN DE COMPRA DEL EVENTO (migración 184, doc 19 §9.2 y §9.12).
@@ -46,6 +73,11 @@ export class CrearOrdenDeCompraDto {
     message: 'La razón social no puede pasar de 100 caracteres',
   })
   razon_social?: string | null;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CompradorDeLaOCDto)
+  comprador?: CompradorDeLaOCDto | null;
 
   @IsOptional()
   @IsString()

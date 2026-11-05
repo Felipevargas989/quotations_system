@@ -18,6 +18,7 @@ const oc3: OrdenDeCompra = {
   fecha: "2026-10-14",
   rut: "65175239-6",
   razon_social: "Corporación Instituto Profesional Santo Tomás",
+  comprador: null,
   descripcion: null,
   neto: null,
   iva: null,
@@ -108,6 +109,26 @@ describe("Lo que leyó BelIA llena el formulario (paso 2b)", () => {
     });
     expect(faltaEnLaOC(b)).toEqual([]);
     expect(cambiosDeOC(null, b)).toMatchObject({ origen: "pdf" });
+  });
+
+  it("lo que dice del comprador viaja con la OC nueva (paso 2c)", () => {
+    const b = borradorDeLaLectura(
+      {
+        ...propuesta,
+        direccion: "Calle 18 de Septiembre N°250",
+        comuna: "Quillón",
+      },
+      12,
+    );
+    expect(cambiosDeOC(null, b)).toMatchObject({
+      comprador: {
+        giro: null,
+        direccion: "Calle 18 de Septiembre N°250",
+        comuna: "Quillón",
+        ciudad: null,
+      },
+    });
+    expect(borradorDeLaLectura(propuesta, 12).comprador).toBeNull();
   });
 
   it("lo que no leyó queda vacío y se pide", () => {

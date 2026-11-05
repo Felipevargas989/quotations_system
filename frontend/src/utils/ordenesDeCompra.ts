@@ -1,5 +1,6 @@
 import { normalizarRut, revisarRut } from "./rut";
 import type {
+  CompradorDeLaOC,
   DatosDeOrdenDeCompra,
   OrdenDeCompra,
   PropuestaDeOC,
@@ -21,6 +22,9 @@ export type BorradorDeOC = {
   documento_id: string;
   /** «pdf» si lo llenó BelIA leyendo el PDF. */
   origen?: "manual" | "pdf";
+  /** Lo que BelIA leyó del comprador (giro, dirección…): viaja con la OC
+   *  nueva y lo propone su primera factura (paso 2c). */
+  comprador?: CompradorDeLaOC | null;
 };
 
 export const borradorDeOC = (oc?: OrdenDeCompra | null): BorradorDeOC => ({
@@ -61,7 +65,12 @@ export const cambiosDeOC = (
     total: b.total ?? 0,
     documento_id: b.documento_id ? Number(b.documento_id) : null,
   };
-  if (!antes) return b.origen ? { ...ahora, origen: b.origen } : ahora;
+  if (!antes)
+    return {
+      ...ahora,
+      ...(b.origen ? { origen: b.origen } : {}),
+      ...(b.comprador ? { comprador: b.comprador } : {}),
+    };
   const cambios: DatosDeOrdenDeCompra = {};
   for (const campo of Object.keys(ahora) as (keyof DatosDeOrdenDeCompra)[]) {
     if ((ahora[campo] ?? null) !== (antes[campo] ?? null))
@@ -85,6 +94,15 @@ export const borradorDeLaLectura = (
   total: p.total ?? undefined,
   documento_id: String(documentoId),
   origen: "pdf",
+  comprador:
+    p.giro || p.direccion || p.comuna || p.ciudad
+      ? {
+          giro: p.giro,
+          direccion: p.direccion,
+          comuna: p.comuna,
+          ciudad: p.ciudad,
+        }
+      : null,
 });
 
 /** «2026-10-14» → «14-10-2026», sin pasar por Date (no se corre un día). */

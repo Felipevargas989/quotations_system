@@ -102,6 +102,11 @@ create table if not exists public.ordenes_de_compra (
   -- guardado (doc 19 §9.12).
   rut text check (rut is null or rut ~ '^[0-9]{7,8}-[0-9K]$'),
   razon_social text,
+  -- Lo que la OC dice del comprador y no tiene casilla propia (giro,
+  -- dirección, comuna y ciudad), como lo leyó BelIA (paso 2b): la primera
+  -- factura a un RUT nuevo lo propone, la persona lo confirma y queda en
+  -- su razón social (doc 19 §9.12). Nulo si la OC se escribió a mano.
+  comprador jsonb,
   -- El detalle que va en la factura: con OC, manda la OC (E1).
   descripcion text,
   -- Los montos de la misma OC (L17): el total siempre; el neto y el IVA
@@ -121,12 +126,13 @@ create table if not exists public.ordenes_de_compra (
   updated_at timestamptz not null default now()
 );
 
--- Si la tabla venía de la primera versión (solo en el laboratorio), le
--- faltan a nombre de quién viene la OC.
+-- Si la tabla venía de una versión anterior (solo en el laboratorio), le
+-- faltan a nombre de quién viene la OC y lo que dice del comprador.
 alter table public.ordenes_de_compra
   add column if not exists rut text
     check (rut is null or rut ~ '^[0-9]{7,8}-[0-9K]$'),
-  add column if not exists razon_social text;
+  add column if not exists razon_social text,
+  add column if not exists comprador jsonb;
 
 -- La misma OC no se carga dos veces en el mismo evento.
 create unique index if not exists ordenes_de_compra_numero_uniq
