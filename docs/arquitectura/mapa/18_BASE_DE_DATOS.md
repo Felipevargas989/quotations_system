@@ -661,5 +661,5 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 185, la tarjeta del seguimiento no se puede guardar (el check la rechaza) y BelIA explica que no pudo; lo demás de BelIA sigue igual.
 
-**Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: el check con los seis tipos, RLS encendido, `anon` y `authenticated` sin permisos, `service_role` con lectura, alta y cambio). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+**Estado.** Escrita el 04-11-2026. En las dos bases: en el laboratorio desde la noche del 04-11 y en producción desde las 21:1x del mismo día (Felipe: *"a producción"*), antes del motor. Verificado en las dos: el check con los seis tipos, RLS encendido, `anon` y `authenticated` sin permisos y `service_role` sin `DELETE` ni `TRUNCATE` (en producción la tabla nació con todos los permisos de Supabase y se le quitaron, también en la migración).
 

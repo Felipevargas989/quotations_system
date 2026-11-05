@@ -52,3 +52,6 @@ create index if not exists idx_cerebro_lecciones_empresa
 alter table public.cerebro_lecciones enable row level security;
 revoke all on public.cerebro_lecciones from anon, authenticated;
 grant select, insert, update on public.cerebro_lecciones to service_role;
+-- Nada se borra: en producción la tabla nació con todos los permisos para
+-- service_role (los de siempre de Supabase), y se le quitan los de borrar.
+revoke delete, truncate on public.cerebro_lecciones from service_role;
