@@ -11,7 +11,8 @@
 > madrugada del 05-11 (pruebas 397cb8ef); la segunda parte (los clientes
 > mal clasificados), escrita esa misma madrugada (Felipe: *"siga en
 > secuencia con todas las partes que falten"*). Con eso, las tres tandas
-> están escritas; a producción, con su «a producción».
+> están escritas; a producción, con su «a producción». El 05-11 en la
+> mañana, el filtro por tipo de cliente del tablero, para todos (§5).
 
 ## 1. Lo que pidió Felipe
 
@@ -100,10 +101,13 @@ Hecho en R2:
   sin abrir la ficha. Sus particulares los trabaja desde el tablero;
 - en el cotizador usa los menús guardados y los paquetes, sin guardarlos,
   renombrarlos, borrarlos ni ordenar sus grupos (`soloElegir`);
-- y en la lista de clientes del cotizador ve solo a los de sus tipos
+- en la lista de clientes del cotizador ve solo a los de sus tipos
   particulares, más el que ya está elegido (`clientesParaElCotizador`; la
   lista de tipos trae la marca `es_particular`). Al guardar, el motor lo
-  revisa igual.
+  revisa igual;
+- y el filtro por tipo de cliente del tablero (Felipe, 05-11-2026), que
+  es para todos, a ella le ofrece solo los tipos particulares
+  (`filtroPorTipo.ts`; mapa 02 §6).
 
 ## 6. BelIA
 
