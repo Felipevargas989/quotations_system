@@ -8,7 +8,7 @@
 -- En la tarde: "es posible como en CCU que algunas facturas sean a un rut y
 -- otras a otro (…) ve el caso santo tomas tiene 3 OC a 2 rut por 1 evento".
 --
--- Tres tablas:
+-- Tres tablas y el módulo propio `facturacion` (la cuarta parte):
 --  1. `razones_sociales`: a quién se le factura. Un cliente puede tener
 --     varias (Santo Tomás: el CFT y el Instituto Profesional, cada uno con
 --     su RUT). Cada una con su RUT, razón social, giro, dirección, comuna,
@@ -254,9 +254,23 @@ grant select, insert, update on public.documentos_tributarios
 grant usage, select on sequence public.documentos_tributarios_id_seq
   to service_role;
 
+-- 4 · El módulo propio `facturacion` para Valle del Sol --------------------
+
+-- Como la 180 con `asistente`: no lo da ningún plan, lo da la columna
+-- `modulos_propios`. Las credenciales y los folios de facturacion.cl son de
+-- Valle del Sol. Sin esto, la pestaña «Facturación» de Post-Venta ni se
+-- nombra y el motor responde 403.
+update public.companies
+   set modulos_propios = array_append(coalesce(modulos_propios, '{}'), 'facturacion')
+ where id = 1
+   and not ('facturacion' = any (coalesce(modulos_propios, '{}')));
+
 -- ============================================================
 -- REVERSA (solo mientras no haya documentos de verdad):
 --   drop table if exists public.documentos_tributarios;
 --   drop table if exists public.ordenes_de_compra;
 --   drop table if exists public.razones_sociales;
+--   update public.companies
+--      set modulos_propios = array_remove(modulos_propios, 'facturacion')
+--    where id = 1;
 -- ============================================================

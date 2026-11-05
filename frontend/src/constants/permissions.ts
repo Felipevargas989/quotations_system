@@ -276,7 +276,10 @@ export type Derecho =
   // del Sol (sus llaves y sus buzones).
   | "seguimiento_con_ia"
   // BelIA, la asistente con IA (doc 20, migración 180): módulo propio.
-  | "asistente";
+  | "asistente"
+  // La facturación electrónica (doc 19, migración 184): módulo propio de
+  // Valle del Sol.
+  | "facturacion";
 
 export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   payments: "post_venta",
@@ -333,6 +336,7 @@ export const PLAN_MINIMO: Record<
   seguimiento_con_ia: null,
   // BelIA en todos los planes desde el 04-11-2026 (antes, módulo propio).
   asistente: "cotiza",
+  facturacion: null,
 };
 
 export const NOMBRE_DEL_PLAN = {
@@ -362,6 +366,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   cotizar_con_ia: "Cotizar con IA",
   seguimiento_con_ia: "El seguimiento con IA",
   asistente: "BelIA, la asistente de Eventia",
+  facturacion: "La facturación electrónica",
 };
 
 // Las rutas. Igual que ROLE_PERMISSIONS: desde el doc 22 solo decide en
