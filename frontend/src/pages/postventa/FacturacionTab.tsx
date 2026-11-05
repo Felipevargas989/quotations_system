@@ -32,6 +32,7 @@ import {
 } from "../../utils/ordenesDeCompra";
 import { docsQueryOpts } from "./consultaDeDocumentos";
 import ArmarFactura from "./facturacion/ArmarFactura";
+import CobrosDelEvento from "./facturacion/CobrosDelEvento";
 import DocumentosEmitidos from "./facturacion/DocumentosEmitidos";
 
 // PESTAÑA «FACTURACIÓN» DEL EVENTO (doc 19, paso 2a): las órdenes de compra.
@@ -612,6 +613,11 @@ export default function FacturacionTab({
       <DocumentosEmitidos
         documentos={emitidos.data?.documentos ?? []}
         ocs={lista}
+      />
+
+      <CobrosDelEvento
+        quotationId={quotationId}
+        esAdmin={userRole === "administrador"}
       />
     </div>
   );

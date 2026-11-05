@@ -35,7 +35,7 @@ describe("tieneDerecho", () => {
     expect(tieneDerecho({ derechos: ["personal"] }, "marketing")).toBe(false);
   });
 
-  it("las secciones con candado son las siete que corresponden", () => {
+  it("las secciones con candado son las ocho que corresponden", () => {
     expect(SECTION_DERECHO).toEqual({
       payments: "post_venta",
       logistics: "logistica",
@@ -44,6 +44,9 @@ describe("tieneDerecho", () => {
       people: "personal",
       marketing: "marketing",
       oportunidades: "oportunidades",
+      // Las boletas de recepción (doc 19 §9.4): el módulo propio
+      // `facturacion`, 04-11-2026.
+      boletas: "facturacion",
     });
   });
 

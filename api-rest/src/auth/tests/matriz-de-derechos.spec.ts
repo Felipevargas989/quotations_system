@@ -7,6 +7,7 @@ import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
+import { BoletasController } from 'src/facturacion/boletas/boletas.controller';
 import { FacturasController } from 'src/facturacion/facturas/facturas.controller';
 import { OrdenesDeCompraController } from 'src/facturacion/ordenes-de-compra/ordenes-de-compra.controller';
 import { LogisticsController } from 'src/logistics/logistics.controller';
@@ -188,6 +189,12 @@ const ESPERADO: Array<{
   {
     nombre: 'Facturación: la factura del evento',
     cls: FacturasController,
+    derecho: 'facturacion',
+    abiertas: 0,
+  },
+  {
+    nombre: 'Facturación: las boletas de recepción',
+    cls: BoletasController,
     derecho: 'facturacion',
     abiertas: 0,
   },
