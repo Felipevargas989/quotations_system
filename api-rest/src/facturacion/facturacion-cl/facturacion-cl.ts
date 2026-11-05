@@ -1,12 +1,14 @@
 /**
- * LA CONEXIÓN CON FACTURACION.CL (doc 19 §2, §5.3 y §9.10)
+ * LA CONEXIÓN CON FACTURACION.CL (doc 19 §2, §5.3, §9.10 y §9.18)
  *
- * Eventia le habla a facturacion.cl solo por esta interfaz. Hay dos
+ * Eventia le habla a facturacion.cl solo por esta interfaz. Hay tres
  * implementaciones:
  * - la SIMULADA (`FacturacionClSimulado`, pasos 1 a 4 del doc 19): responde
- *   como dice el manual y no emite nada;
- * - la de verdad, por el servicio SOAP `wsplano.asmx` (paso 5), con las
- *   credenciales que carga Felipe en Railway.
+ *   como dice el manual y no emite nada. Solo fuera de producción;
+ * - la de verdad (`FacturacionClSoap`, paso 5), por el servicio SOAP
+ *   `wsplano.asmx`, con las credenciales que carga Felipe en Railway;
+ * - la que NO emite (`FacturacionClSinConexion`): producción sin sus
+ *   credenciales, o credenciales en el ambiente equivocado. Dice por qué.
  *
  * Las reglas valen para las dos:
  * - un documento por llamada (L14);
@@ -17,6 +19,14 @@
  */
 
 export type AmbienteDeFacturacion = 'simulado' | 'prueba' | 'produccion';
+
+/** Lo que la nota de BelIA en la bitácora agrega según dónde salió. */
+export const NOTA_DEL_AMBIENTE: Partial<Record<AmbienteDeFacturacion, string>> =
+  {
+    simulado: ' Es simulada: no salió nada al SII.',
+    prueba:
+      ' Es de prueba (el ambiente de pruebas de facturacion.cl): no vale ante el SII.',
+  };
 
 /** Lo que responde facturacion.cl a `Procesar`. */
 export interface RespuestaDeProcesar {
@@ -44,13 +54,30 @@ export class EnvioSinRespuesta extends Error {
   }
 }
 
+/** Los folios que le quedan a un tipo (`ConsultarCAF`). */
+export interface FoliosDisponibles {
+  tipo: number;
+  siguiente: number;
+  /** El último folio del rango que se está usando. */
+  hasta: number;
+  /** Cuántos quedan, contando los rangos que siguen. */
+  libres: number;
+  /** El vencimiento del rango, tal como lo dice facturacion.cl. */
+  vence: string | null;
+}
+
 export interface FacturacionCl {
   readonly ambiente: AmbienteDeFacturacion;
+  /** Por qué no se puede emitir, si no se puede (la pantalla lo dice). */
+  readonly sinConexion?: string;
   /** ¿Está arriba? (`Online`). */
   enLinea(): Promise<boolean>;
   /** El folio siguiente de un tipo (`ConsultarCAF`), para la factura y las
    *  notas (L2). La boleta va con folio 0. */
   folioSiguiente(tipo: number): Promise<number>;
+  /** Los folios que quedan de un tipo. null si no hay (o en el simulado,
+   *  que no los tiene). */
+  folios(tipo: number): Promise<FoliosDisponibles | null>;
   /** Manda UN documento (`Procesar`). Nunca reintenta. */
   procesar(archivo: string, tipo: number): Promise<RespuestaDeProcesar>;
   /** El PDF de un documento emitido (`ObtenerPdf`), para guardar la copia

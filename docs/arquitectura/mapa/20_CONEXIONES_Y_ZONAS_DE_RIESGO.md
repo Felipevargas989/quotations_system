@@ -1,6 +1,6 @@
 # Conexiones entre módulos y zonas de riesgo
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1; el 05-11-2026, la conexión con facturacion.cl (x4-27). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## Cómo leer este documento
 
@@ -784,6 +784,20 @@ El token de corta vida con que el navegador invisible abre la hoja de impresión
 - `api-rest/src/facturacion/facturas/facturas.service.ts` — `emitir`, `guardarPdf`, `recordarReceptor` y la llamada a `crearComoBeliaAPedidoDe`
 - `api-rest/src/facturacion/facturacion.module.ts` — importa `ClientsModule` y `QuotationFollowupsModule`
 - `api-rest/src/facturacion/tests/facturas.spec.ts` — «sale con el folio que sigue y deja el PDF, la razón social nueva y la nota de BelIA»
+
+#### x4-27 · Lo que emite Facturación lo decide Railway: las variables de facturacion.cl (05-11-2026)
+
+La conexión de verdad (`FacturacionClSoap`, doc 19 §9.18, paso 5) habla con un servicio de afuera, `https://wss.facturacion.cl/WSDS/wsplano.asmx`, la misma dirección para el ambiente de prueba y el de producción: lo que cambia son las credenciales. Cuál conexión usa cada motor no está en la base ni en el código, sino en cinco variables de Railway (`FACTURACIONCL_USUARIO`, `_RUT`, `_CLAVE`, `_AMBIENTE` y `_EMPRESA`, mapa 19 §6) que lee `configuracionDeFacturacionCl` al arrancar. Por eso:
+- **cambiar una variable exige reiniciar el motor**, y hasta que reinicie sigue con la conexión de antes;
+- **el riesgo de mezclar ambientes** lo frenan los candados de `configuracion.ts`: el laboratorio solo emite con las de prueba y producción solo con las de producción (producción se reconoce por `NODE_ENV` o por su base); producción sin credenciales no emite ni simulado; y las credenciales son solo de la empresa de `FACTURACIONCL_EMPRESA`;
+- **lo ya emitido se revisa en su ambiente**: «Comprobar», «Pedir el PDF» y las notas usan la conexión del `ambiente` del documento, y lo facturado de una OC cuenta solo lo de ese ambiente (una factura simulada no factura una OC de verdad);
+- **si facturacion.cl no responde**, nada sale: `Procesar` nunca se reintenta (L5) y lo demás responde 503 con palabras.
+
+**Evidencia:**
+- `api-rest/src/facturacion/facturacion-cl/configuracion.ts` — `configuracionDeFacturacionCl`, `BASE_DE_PRODUCCION`
+- `api-rest/src/facturacion/facturas/conexion.ts` — `ConexionConFacturacionCl.de(empresa, ambiente)` y `probar`
+- `api-rest/src/facturacion/facturacion-cl/soap.ts` — `URL_DE_FACTURACION_CL`, `FacturacionClSoap.procesar`
+- `api-rest/src/facturacion/tests/configuracion.spec.ts` y `soap.spec.ts`
 
 ### x5 — Permisos y endpoints públicos
 

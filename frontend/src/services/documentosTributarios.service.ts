@@ -44,6 +44,8 @@ export interface DocumentoDeLaLista {
 
 export interface ListaDeFacturacion {
   ambiente: Ambiente;
+  /** Por qué no se puede emitir, si no se puede (paso 5). */
+  sin_conexion?: string | null;
   mes: string;
   hoy: string;
   resumen: {
@@ -78,6 +80,35 @@ export interface VistaDeLaNota {
   receptor: Receptor;
   ambiente: Ambiente;
 }
+
+/** «Probar la conexión» (paso 0): si facturacion.cl responde desde el
+ *  motor y, conectado, los folios que quedan de cada tipo. */
+export interface ConexionConFacturacionCl {
+  ambiente: Ambiente;
+  sin_conexion: string | null;
+  servicio: {
+    en_linea: boolean;
+    version: string | null;
+    ms: number;
+    error: string | null;
+  };
+  folios: {
+    tipo: number;
+    ms: number;
+    siguiente?: number;
+    hasta?: number;
+    libres?: number;
+    vence?: string | null;
+    error?: string;
+  }[];
+}
+
+export const probarConexionConFacturacionCl =
+  async (): Promise<ConexionConFacturacionCl> =>
+    (await apiRequest(
+      "/facturacion/conexion",
+      "GET",
+    )) as ConexionConFacturacionCl;
 
 const base = "/facturacion/documentos";
 

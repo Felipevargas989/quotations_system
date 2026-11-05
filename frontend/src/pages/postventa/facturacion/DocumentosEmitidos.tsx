@@ -1,4 +1,5 @@
 import FileViewLink from "../../../components/FileViewLink";
+import { marcaDelAmbiente } from "../../../constants/facturacion";
 import type { DocumentoTributario } from "../../../services/facturas.service";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
 
@@ -37,9 +38,9 @@ function Estado({ d }: { readonly d: DocumentoTributario }) {
   if (d.estado === "emitido")
     return (
       <span className="text-xs font-semibold text-green-700">
-        {d.ambiente === "simulado"
-          ? "Emitida (simulada)"
-          : "Emitida por facturacion.cl"}
+        {d.ambiente === "produccion"
+          ? "Emitida por facturacion.cl"
+          : `Emitida${marcaDelAmbiente(d.ambiente)}`}
       </span>
     );
   if (d.estado === "por_confirmar")

@@ -128,6 +128,7 @@ describe('Los documentos del evento', () => {
   const FACTURA_1 = {
     id: 7,
     tipo: 33,
+    ambiente: 'simulado',
     folio: 1,
     estado: 'emitido',
     total: 2480000,

@@ -1,4 +1,7 @@
-import type { FacturacionCl } from '../facturacion-cl/facturacion-cl';
+import type {
+  AmbienteDeFacturacion,
+  FacturacionCl,
+} from '../facturacion-cl/facturacion-cl';
 import type {
   DocumentoTributario,
   DocumentosTributariosRepository,
@@ -16,6 +19,12 @@ const NOMBRE: Record<number, { archivo: string; titulo: string }> = {
   39: { archivo: 'boleta', titulo: 'Boleta' },
   56: { archivo: 'nota_de_debito', titulo: 'Nota de débito' },
   61: { archivo: 'nota_de_credito', titulo: 'Nota de crédito' },
+};
+
+/** Lo que no es de producción lo dice en el nombre de Documentos. */
+const EN_EL_NOMBRE: Partial<Record<AmbienteDeFacturacion, string>> = {
+  simulado: ' (simulada)',
+  prueba: ' (prueba)',
 };
 
 export async function guardarCopiaDelPdf(
@@ -43,7 +52,7 @@ export async function guardarCopiaDelPdf(
   if (quotationId)
     await repo.agregarAlEvento(
       quotationId,
-      `${nombre.titulo} N° ${doc.folio}${doc.ambiente === 'simulado' ? ' (simulada)' : ''}.pdf`,
+      `${nombre.titulo} N° ${doc.folio}${EN_EL_NOMBRE[doc.ambiente] ?? ''}.pdf`,
       ruta,
     );
   return conPdf;

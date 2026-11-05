@@ -1,3 +1,4 @@
+import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import { CODIGOS_DE_REFERENCIA } from '../referencias';
 import {
   cantidadYPrecio,
@@ -59,6 +60,8 @@ export interface DatosDeFactura {
   /** Lo que debería dar (el total de la OC o el % del evento): si no
    *  calza, se avisa antes de emitir. */
   totalEsperado?: number | null;
+  /** Dónde sale: en el ambiente de prueba, sin correo (L11). */
+  ambiente?: AmbienteDeFacturacion;
 }
 
 const NOMBRE: Record<TipoDeFactura, string> = {
@@ -208,7 +211,12 @@ export const armarFactura = (datos: DatosDeFactura): Armado => {
       'La forma de pago no existe (1 contado, 2 crédito, 3 sin costo)',
     );
 
-  const correo = correosDelReceptor(r.correo, avisos, problemas);
+  const correo = correosDelReceptor(
+    r.correo,
+    avisos,
+    problemas,
+    datos.ambiente,
+  );
   if (problemas.length) return { ok: false, problemas };
 
   // Los montos, desde el neto de cada línea.

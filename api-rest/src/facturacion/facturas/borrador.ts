@@ -8,6 +8,7 @@ import {
 import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { LARGO_MAXIMO } from '../datos-del-receptor';
+import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
 
 /**
@@ -93,6 +94,8 @@ export interface ContextoDeLaFactura {
   /** Lo que suman todas las OC del evento (E1: la diferencia con la
    *  cotización se avisa). */
   totalDeLasOC: number;
+  /** Dónde sale: en el ambiente de prueba, sin correo (L11). */
+  ambiente?: AmbienteDeFacturacion;
 }
 
 export interface ReferenciaPedida {
@@ -464,6 +467,7 @@ export function revisarFactura(
     })),
     observaciones,
     totalEsperado: monto?.esperado ?? null,
+    ambiente: ctx.ambiente,
   });
   if (!armado.ok)
     return {

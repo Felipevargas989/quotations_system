@@ -12,7 +12,9 @@ import {
 } from "../../services/documentosTributarios.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
+import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import NotaDeUnDocumento from "./NotaDeUnDocumento";
+import ProbarLaConexion from "./ProbarLaConexion";
 
 // LA LISTA DE FACTURACIÓN (doc 19 §9.5, paso 4; maqueta del 04-11). Solo el
 // administrador (E5), solo con el módulo propio `facturacion`.
@@ -303,12 +305,12 @@ export default function FacturacionPage() {
         </div>
       </div>
 
-      {lista.data?.ambiente === "simulado" && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Modo simulado: facturacion.cl todavía no está conectado. Los
-          documentos se arman y se numeran, pero no sale nada al SII.
-        </p>
-      )}
+      <LetreroDelAmbiente
+        ambiente={lista.data?.ambiente}
+        sinConexion={lista.data?.sin_conexion}
+        que="Los documentos"
+      />
+      <ProbarLaConexion />
 
       {r && (
         <div className="grid gap-3 sm:grid-cols-3">

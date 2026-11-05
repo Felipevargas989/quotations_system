@@ -12,8 +12,9 @@
 /** Un dato de texto que entra al archivo. */
 export type Dato = string | number | null | undefined;
 
-/** Limpia un texto para el archivo, sin cortarlo. */
-export const textoLimpio = (valor: Dato): string =>
+/** Los signos de la escritura de todos los días que tienen su equivalente
+ *  en ISO-8859-1. */
+const normalizado = (valor: Dato): string =>
   String(valor ?? '')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/;/g, ',')
@@ -21,8 +22,25 @@ export const textoLimpio = (valor: Dato): string =>
     .replace(/[‘’‚]/g, "'")
     .replace(/[–—]/g, '-')
     .replace(/…/g, '...')
+    .replace(/•/g, '-')
+    .replace(/€/g, 'EUR');
+
+/** Lo que queda fuera de ISO-8859-1 (un emoji, otro alfabeto): el archivo
+ *  va en latin-1 (L23) y facturacion.cl no lo leería. */
+export const fueraDelArchivo = (valor: Dato): string[] => [
+  ...new Set(
+    Array.from(normalizado(valor)).filter(
+      (c) => (c.codePointAt(0) ?? 0) > 0xff,
+    ),
+  ),
+];
+
+/** Limpia un texto para el archivo, sin cortarlo. */
+export const textoLimpio = (valor: Dato): string =>
+  normalizado(valor)
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[^\x20-\xff]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -34,6 +52,11 @@ export class Avisos {
   readonly lista: string[] = [];
 
   campo(nombre: string, valor: Dato, largo: number): string {
+    const raros = fueraDelArchivo(valor);
+    if (raros.length)
+      this.lista.push(
+        `${nombre} trae ${raros.map((c) => `«${c}»`).join(' ')}, que facturacion.cl no lee: se quita`,
+      );
     const limpio = textoLimpio(valor);
     const letras = Array.from(limpio);
     if (letras.length <= largo) return limpio;

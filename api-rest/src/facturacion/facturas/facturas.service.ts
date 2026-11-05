@@ -12,6 +12,7 @@ import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
+import { NOTA_DEL_AMBIENTE } from '../facturacion-cl/facturacion-cl';
 import {
   Cadena,
   estadoEnPalabras,
@@ -121,8 +122,10 @@ export class FacturasService {
     const filas = documentos.map((d) => ({ ...d, total: Number(d.total) }));
     const cadena = new Cadena(filas);
     const porId = new Map(filas.map((d) => [d.id, d]));
+    const conexion = this.conexion.de(companyId);
     return {
-      ambiente: this.conexion.de(companyId).ambiente,
+      ambiente: conexion.ambiente,
+      sin_conexion: conexion.sinConexion ?? null,
       documentos: documentos.map((d) => {
         const estado =
           d.estado === 'emitido' && CON_NOTAS.has(d.tipo)
@@ -139,8 +142,12 @@ export class FacturasService {
           },
         };
       }),
+      // Lo facturado de cada OC cuenta solo lo del ambiente donde se emite.
       facturado_por_oc: Object.fromEntries(
-        facturadoDeLasOC(filas, cadena).porOC,
+        facturadoDeLasOC(
+          filas.filter((d) => d.ambiente === conexion.ambiente),
+          cadena,
+        ).porOC,
       ),
     };
   }
@@ -267,7 +274,7 @@ export class FacturasService {
         quotation_id: quotationId,
         tipo: 'otro',
         next_contact_date: null,
-        note: `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${emitido.ambiente === 'simulado' ? ' Es simulada: no salió nada al SII.' : ''}`,
+        note: `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${NOTA_DEL_AMBIENTE[emitido.ambiente] ?? ''}`,
       })
       .catch((e: unknown) =>
         this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
@@ -290,9 +297,10 @@ export class FacturasService {
       throw new BadRequestException(
         'Se factura un evento aceptado o ya realizado',
       );
+    const ambiente = this.conexion.de(companyId).ambiente;
     const [ocs, facturado, razones] = await Promise.all([
       this.repo.ordenesDelEvento(quotationId, companyId),
-      this.repo.facturado(quotationId, companyId),
+      this.repo.facturado(quotationId, companyId, ambiente),
       evento.clientId
         ? this.razonesSociales.deCliente(evento.clientId, companyId)
         : Promise.resolve([]),
@@ -318,6 +326,7 @@ export class FacturasService {
       razones,
       facturadoDelEvento: facturado.total,
       totalDeLasOC: ocs.reduce((s, o) => s + Number(o.total), 0),
+      ambiente,
     };
   }
 

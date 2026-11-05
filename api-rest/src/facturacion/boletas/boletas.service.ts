@@ -133,8 +133,10 @@ export class BoletasService {
   /** Lo que queda por boletear. De un evento, todos sus cobros. */
   async porBoletear(companyId: number, quotationId?: string) {
     const cobros = (await this.repo.cobros(companyId, quotationId)).map(vista);
+    const conexion = this.conexion.de(companyId);
     return {
-      ambiente: this.conexion.de(companyId).ambiente,
+      ambiente: conexion.ambiente,
+      sin_conexion: conexion.sinConexion ?? null,
       cobros: quotationId
         ? cobros
         : cobros.filter((c) => c.porEmitir > 0 || c.falta !== 0),
@@ -145,9 +147,11 @@ export class BoletasService {
   async emitidasHoy(companyId: number) {
     const fecha = hoyEnChile();
     const boletas = await this.repo.boletasDelDia(companyId, fecha);
+    const conexion = this.conexion.de(companyId);
     return {
       fecha,
-      ambiente: this.conexion.de(companyId).ambiente,
+      ambiente: conexion.ambiente,
+      sin_conexion: conexion.sinConexion ?? null,
       boletas: boletas.map((b) => ({
         id: b.id,
         folio: b.folio,
@@ -549,6 +553,7 @@ export class BoletasService {
       lineas: b.lineas,
       observaciones: b.observaciones,
       totalEsperado: b.totalEsperado,
+      ambiente: conexion.ambiente,
     });
     if (!armado.ok)
       return {
