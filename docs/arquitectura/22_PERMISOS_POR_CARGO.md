@@ -209,6 +209,13 @@ recepción (`AlcanceDeRecepcion`, doc 21):
    requerimientos (`request_type=requerimiento`, lo que pide la pantalla de
    Requerimientos).
 
+Lo que recepción ve de cada cotización (las de particulares completas, el
+resto sin plata) lo sigue decidiendo `AlcanceDeRecepcion`
+(`api-rest/src/clients/alcance-de-recepcion.ts`), también en BelIA
+(`asistente/propuestas/de-recepcion.ts`) y en la pantalla
+(`frontend/src/utils/recepcion.ts`). Las dos reglas de arriba van en la misma
+pieza, nunca por un camino aparte (lo pidió «Eventia (Full)» el 05-11).
+
 ### 4.5 Rige al instante
 
 Los permisos de cada empresa se recuerdan en la memoria del motor y se
