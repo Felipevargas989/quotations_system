@@ -138,6 +138,11 @@ export type Permiso =
   | "calendario"
   | "postventa"
   | "proveedores"
+  // Facturación (doc 22 §7), con el módulo propio `facturacion`.
+  | "boletas"
+  | "facturacion_documentos"
+  | "facturacion_notas"
+  | "facturacion_ajustes"
   | "dashboard"
   | "catalogo"
   | "personal"
@@ -161,6 +166,10 @@ export const SECTION_PERMISO: Partial<Record<Section, Permiso>> = {
   company_configuration: "mi_empresa",
   calendar: "calendario",
   logistics: "proveedores",
+  // Facturación: entra quien tiene las boletas; «Documentos» es su propio
+  // permiso (FacturacionPage).
+  boletas: "boletas",
+  facturacion: "facturacion_documentos",
   people: "personal",
   marketing: "marketing",
   customer_satisfaction_survey: "encuestas",
@@ -173,6 +182,7 @@ const DE_TODOS: Permiso[] = [
   "consultas",
   "belia",
   "calendario",
+  "boletas",
 ];
 
 // Lo de fábrica, que es lo de hoy: lo mismo que `api-rest/src/auth/
@@ -182,12 +192,21 @@ const DE_TODOS: Permiso[] = [
 export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
   recepcion: DE_TODOS,
   vendedor: [...DE_TODOS, "clientes"],
-  operaciones: [...DE_TODOS, "clientes", "postventa", "proveedores"],
+  operaciones: [
+    ...DE_TODOS,
+    "clientes",
+    "postventa",
+    "proveedores",
+    "facturacion_documentos",
+  ],
   administrador: [
     ...DE_TODOS,
     "clientes",
     "postventa",
     "proveedores",
+    "facturacion_documentos",
+    "facturacion_notas",
+    "facturacion_ajustes",
     "dashboard",
     "catalogo",
     "personal",

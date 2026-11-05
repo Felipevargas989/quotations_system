@@ -13,6 +13,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -42,6 +43,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Get('por-boletear')
   porBoletear(
     @Query('quotation_id', new ParseUUIDPipe({ optional: true }))
@@ -52,12 +54,14 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Get('emitidas-hoy')
   emitidasHoy(@CurrentUser() user: User) {
     return this.boletas.emitidasHoy(user.company_id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('postventa', 'boletas')
   @Post('cobros')
   crearCobro(@Body() dto: CrearCobroDto, @CurrentUser() user: User) {
     this.logger.info('POST /boletas/cobros');
@@ -65,6 +69,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Patch('cobros/:id')
   editarCobro(
     @Param('id', ParseIntPipe) id: number,
@@ -75,6 +80,7 @@ export class BoletasController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('postventa', 'boletas')
   @Delete('cobros/:id')
   borrarCobro(
     @Param('id', ParseIntPipe) id: number,
@@ -84,6 +90,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Post('cobros/:id/lineas')
   agregarLinea(
     @Param('id', ParseIntPipe) id: number,
@@ -94,6 +101,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Patch('cobros/:id/lineas/:lineaId')
   editarLinea(
     @Param('id', ParseIntPipe) id: number,
@@ -105,6 +113,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Delete('cobros/:id/lineas/:lineaId')
   quitarLinea(
     @Param('id', ParseIntPipe) id: number,
@@ -117,18 +126,21 @@ export class BoletasController {
   // El tarifario (D3, paso 3b): recepción lo lee para la boleta suelta; lo
   // escribe el administrador.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Get('tarifario')
   tarifario(@CurrentUser() user: User) {
     return this.boletas.tarifario(user.company_id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('facturacion_ajustes')
   @Post('tarifario')
   crearItem(@Body() dto: ItemDelTarifarioDto, @CurrentUser() user: User) {
     return this.boletas.crearItem(user, dto);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('facturacion_ajustes')
   @Patch('tarifario/:id')
   editarItem(
     @Param('id', ParseIntPipe) id: number,
@@ -139,6 +151,7 @@ export class BoletasController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('facturacion_ajustes')
   @Delete('tarifario/:id')
   borrarItem(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.boletas.borrarItem(user, id);
@@ -147,6 +160,7 @@ export class BoletasController {
   // La boleta suelta: recepción hacia arriba (D5); la línea a mano, solo el
   // administrador (lo revisa el servicio).
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Post('sueltas')
   emitirSuelta(@Body() dto: BoletaSueltaDto, @CurrentUser() user: User) {
     this.logger.info('POST /boletas/sueltas');
@@ -154,6 +168,7 @@ export class BoletasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
   @Post('cobros/:id/emitir')
   emitir(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     this.logger.info(`POST /boletas/cobros/${id}/emitir`);

@@ -1077,6 +1077,15 @@ cada cargo ve sus pestañas:
     cargo y dónde parte cada uno.
 - **El vendedor** sigue viendo las boletas, como hasta ahora. Felipe lo
   decidirá con los interruptores de «Permisos por cargo».
+- **Desde el 05-11 en la noche (doc 22 §7), cada pestaña es un
+  interruptor** de Mi empresa → Usuarios → Permisos por cargo: «Boletas»,
+  «Documentos y reporte», «Anular o rebajar» y «Tarifario y conexión». De
+  fábrica, la tabla de arriba. Sus puertas del motor llevan `@Permiso` o
+  `@DentroDe`; la lista ofrece anular o rebajar con `facturacion_notas` y
+  «Comprobar» con `facturacion_ajustes` (`NotasService.lista`), y
+  `FacturacionPage` elige las pestañas por permiso. Las acciones finas de
+  las boletas (la línea a mano, el cobro nuevo, borrar un cobro) siguen del
+  administrador: son de la tanda 2.
 
 Ese mismo día Felipe aprobó la maqueta de **«Permisos por cargo»** (*"si me
 parece perfecto"*): una pestaña en Gestión de usuarios con un interruptor

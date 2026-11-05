@@ -381,10 +381,7 @@ function App() {
               <Route
                 path="facturacion"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.boletas}
-                    derecho="facturacion"
-                  >
+                  <PermissionGuard section="boletas" derecho="facturacion">
                     <FacturacionPage />
                   </PermissionGuard>
                 }

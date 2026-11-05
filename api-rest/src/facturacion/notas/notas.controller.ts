@@ -10,6 +10,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { MesDto, NotaPedidaDto } from './nota.dto';
@@ -32,13 +33,15 @@ export class NotasController {
     this.logger.setContext(NotasController.name);
   }
 
+  @Permiso('facturacion_documentos')
   @Get('documentos')
   @Roles(...OPERATIONS_AND_UP)
   lista(@Query() q: MesDto, @CurrentUser() user: User) {
-    return this.notas.lista(user.company_id, q.mes, user.role);
+    return this.notas.lista(user.company_id, q.mes, user.role, user.permisos);
   }
 
   /** «Probar la conexión» con facturacion.cl (paso 0): no emite nada. */
+  @Permiso('facturacion_ajustes')
   @Get('conexion')
   @Roles(...ADMIN_ONLY)
   conexion(@CurrentUser() user: User) {
@@ -46,6 +49,7 @@ export class NotasController {
     return this.notas.conexionConFacturacionCl(user.company_id);
   }
 
+  @Permiso('facturacion_ajustes')
   @Post('documentos/:id/comprobar')
   @Roles(...ADMIN_ONLY)
   comprobar(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
@@ -53,12 +57,14 @@ export class NotasController {
     return this.notas.comprobar(user, id);
   }
 
+  @Permiso('facturacion_documentos')
   @Post('documentos/:id/pdf')
   @Roles(...OPERATIONS_AND_UP)
   pedirPdf(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.notas.pedirPdf(user, id);
   }
 
+  @Permiso('facturacion_notas')
   @Post('documentos/:id/notas/revisar')
   @Roles(...ADMIN_ONLY)
   revisarNota(
@@ -69,6 +75,7 @@ export class NotasController {
     return this.notas.revisarNota(user, id, dto);
   }
 
+  @Permiso('facturacion_notas')
   @Post('documentos/:id/notas/emitir')
   @Roles(...ADMIN_ONLY)
   emitirNota(

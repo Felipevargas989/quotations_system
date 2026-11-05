@@ -31,6 +31,12 @@ export type Permiso =
   | 'calendario'
   | 'postventa'
   | 'proveedores'
+  // Facturación (doc 19 y doc 22 §7): sus cuatro, desde que el módulo
+  // existe. Con el módulo propio `facturacion`.
+  | 'boletas'
+  | 'facturacion_documentos'
+  | 'facturacion_notas'
+  | 'facturacion_ajustes'
   | 'dashboard'
   | 'catalogo'
   | 'personal'
@@ -41,7 +47,7 @@ export type Permiso =
   | 'usuarios';
 
 /** Los grupos de filas de la pantalla, en su orden. */
-export type Area = 'comercial' | 'operacion' | 'administracion';
+export type Area = 'comercial' | 'operacion' | 'facturacion' | 'administracion';
 
 export type DefinicionDePermiso = {
   clave: Permiso;
@@ -128,6 +134,36 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     nombre: 'Proveedores e inventario',
     fabrica: [O, A],
     derecho: 'logistica',
+  },
+  // Facturación (doc 22 §7): las pestañas que hasta el 05-11 decidía el
+  // cargo. El vendedor ve las boletas, como hasta hoy.
+  {
+    clave: 'boletas',
+    area: 'facturacion',
+    nombre: 'Boletas',
+    fabrica: CARGOS,
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_documentos',
+    area: 'facturacion',
+    nombre: 'Documentos y reporte',
+    fabrica: [O, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_notas',
+    area: 'facturacion',
+    nombre: 'Anular o rebajar',
+    fabrica: [A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_ajustes',
+    area: 'facturacion',
+    nombre: 'Tarifario y conexión',
+    fabrica: [A],
+    derecho: 'facturacion',
   },
   {
     clave: 'dashboard',

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { canAccessSection } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
 import Boletas, { type PestanaDeBoletas } from "../boletas/Boletas";
 import { useEmitidasHoy, usePorBoletear } from "../boletas/consultas";
@@ -13,14 +12,18 @@ import LetreroDelAmbiente from "./LetreroDelAmbiente";
 // - operaciones: además «Documentos», para mirar, bajar el reporte y pedir
 //   el PDF;
 // - el administrador: todo, con el tarifario y las notas (E5).
-// Solo con el módulo propio `facturacion`.
+// Solo con el módulo propio `facturacion`. Desde los permisos por cargo
+// (doc 22 §7, 05-11-2026) cada pestaña es un interruptor de Mi empresa →
+// Usuarios → Permisos por cargo: «Documentos» es `facturacion_documentos`
+// y el tarifario y «Probar la conexión», `facturacion_ajustes`. Lo de
+// fábrica es lo de arriba.
 
 type Pestana = "documentos" | PestanaDeBoletas;
 
 export default function FacturacionPage() {
-  const { userRole } = useAuth();
-  const conDocumentos = !!userRole && canAccessSection(userRole, "facturacion");
-  const esAdmin = userRole === "administrador";
+  const { permisos } = useAuth();
+  const conDocumentos = permisos.includes("facturacion_documentos");
+  const conAjustes = permisos.includes("facturacion_ajustes");
   const porBoletear = usePorBoletear();
   const hoy = useEmitidasHoy();
   const cobros = porBoletear.data?.cobros.length ?? 0;
@@ -41,7 +44,7 @@ export default function FacturacionPage() {
     { key: "suelta", label: "Boleta suelta" },
     { key: "por_boletear", label: `Por boletear (${cobros})` },
     { key: "hoy", label: `Emitidas hoy (${boletas})` },
-    ...(esAdmin ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
+    ...(conAjustes ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
 
   return (
@@ -67,7 +70,7 @@ export default function FacturacionPage() {
         ))}
       </div>
       {pestana === "documentos" ? (
-        <DocumentosDelMes esAdmin={esAdmin} />
+        <DocumentosDelMes conAjustes={conAjustes} />
       ) : (
         <Boletas pestana={pestana} />
       )}

@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { RadarMunicipalService } from './radar-municipal.service';
@@ -15,6 +16,7 @@ export class RadarMunicipalController {
 
   /** Todo lo de la pestaña. `anio`: por omisión, el último completo.
    *  `region`: por omisión, las de la empresa; «chile» = todo el país. */
+  @Permiso('oportunidades')
   @Get()
   tablero(
     @CurrentUser() user: User,

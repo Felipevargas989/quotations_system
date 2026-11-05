@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -33,6 +34,7 @@ export class RazonesSocialesController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'clientes', 'postventa', 'boletas')
   @Get()
   deCliente(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -42,6 +44,8 @@ export class RazonesSocialesController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
+  @DentroDe('cotizaciones', 'postventa')
   @Post()
   crear(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -58,6 +62,8 @@ export class RazonesSocialesController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
+  @DentroDe('cotizaciones', 'postventa')
   @Patch(':id')
   editar(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -70,6 +76,8 @@ export class RazonesSocialesController {
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
+  @DentroDe('cotizaciones', 'postventa')
   @Delete(':id')
   borrar(
     @Param('clientId', ParseUUIDPipe) clientId: string,

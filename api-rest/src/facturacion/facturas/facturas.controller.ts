@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { BaseDeLaFacturaDto, FacturaPedidaDto } from './factura.dto';
@@ -30,6 +31,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Get()
   documentos(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -39,6 +41,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('borrador')
   borrador(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -54,6 +57,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('revisar')
   revisar(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -73,6 +77,7 @@ export class FacturasController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('postventa')
   @Post('emitir')
   emitir(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,

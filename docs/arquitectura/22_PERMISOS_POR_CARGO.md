@@ -320,6 +320,18 @@ con ella. Medido con el borrador: sus 33 puertas quedan gobernadas, sin
 cambiar ninguna (el laboratorio tiene una más que `main`, el radar municipal
 de Oportunidades, que queda en `oportunidades`).
 
+**Hecho el 05-11-2026**, en un commit encima de `pruebas`:
+- el catálogo suma el área «Facturación» con sus cuatro permisos (derecho
+  `facturacion`);
+- sus 33 puertas y la del radar municipal llevan su marca (las órdenes de
+  compra, el controlador entero en `postventa`);
+- `NotasService.lista` ofrece anular o rebajar con `facturacion_notas` y
+  «Comprobar» con `facturacion_ajustes`;
+- `FacturacionPage` elige «Documentos» y «Tarifario» por permiso, y
+  «Probar la conexión» va con `facturacion_ajustes`.
+La prueba de fábrica del laboratorio recorre sus 388 puertas con sesión
+(355 gobernadas, con las 3 de la pantalla de permisos, y 33 fijas).
+
 ## 8. Decisiones de Felipe
 
 1. **El catálogo del §3**: aprobado el 05-11-2026 (*"ok al catalogo

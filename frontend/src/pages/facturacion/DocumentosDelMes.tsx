@@ -120,9 +120,10 @@ const descargarReporte = (mes: string, docs: DocumentoDeLaLista[]) => {
 };
 
 export default function DocumentosDelMes({
-  esAdmin,
+  conAjustes,
 }: {
-  readonly esAdmin: boolean;
+  /** El permiso «Tarifario y conexión» (doc 22 §7): «Probar la conexión». */
+  readonly conAjustes: boolean;
 }) {
   const queryClient = useQueryClient();
   const meses = ultimosMeses();
@@ -306,7 +307,7 @@ export default function DocumentosDelMes({
           </button>
         </div>
       </div>
-      {esAdmin && <ProbarLaConexion />}
+      {conAjustes && <ProbarLaConexion />}
 
       {r && (
         <div className="grid gap-3 sm:grid-cols-3">
