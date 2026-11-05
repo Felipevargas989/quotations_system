@@ -153,6 +153,9 @@ const armar = ({
     cadenaDeLaEmpresa: jest
       .fn()
       .mockImplementation(() => Promise.resolve([...filas.values()])),
+    ordenesDelEvento: jest
+      .fn()
+      .mockResolvedValue([{ id: 1, numero: '4500918822', total: 1428000 }]),
     delPeriodo: jest.fn().mockImplementation(() =>
       Promise.resolve(
         [...filas.values()].map((f) => ({
@@ -264,6 +267,35 @@ describe('Las notas', () => {
     });
     expect(nd).toMatchObject({ tipo: 56, codigo_referencia: 1, total: 178500 });
     expect(filas.size).toBe(3);
+  });
+
+  it('la ND no devuelve la factura si la OC ya se volvió a facturar (nunca más del 100 %)', async () => {
+    const NC_1 = {
+      ...FACTURA_1,
+      id: 11,
+      tipo: 61,
+      folio: 1,
+      fecha_emision: '2026-11-05',
+      modifica_id: 10,
+      codigo_referencia: 1,
+    };
+    const { servicio, repo } = armar({
+      documentos: [
+        FACTURA_1,
+        NC_1,
+        { ...FACTURA_1, id: 12, folio: 2, fecha_emision: '2026-11-05' },
+      ],
+    });
+    await expect(
+      servicio.emitirNota(ADMIN, 11, {
+        accion: 'anular',
+        motivo: 'La anulación no correspondía',
+      }),
+    ).rejects.toThrow(
+      'Con la nota de débito, la OC N° 4500918822 volvería a sumar $2.856.000 facturados de $1.428.000: ya se volvió a facturar. Anula primero la factura que la reemplazó.',
+    );
+    expect(repo.ordenesDelEvento).toHaveBeenCalledWith('ev-408', 1);
+    expect(repo.crear).not.toHaveBeenCalled();
   });
 
   it('a una nota solo se la anula, y la boleta espera el paso 0 (L21)', async () => {
