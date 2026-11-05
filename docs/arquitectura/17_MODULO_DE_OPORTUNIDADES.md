@@ -822,6 +822,12 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - No se descarta sola: la decisión queda en Felipe.
     - Lo fijan `NoEsParaTi.test.tsx` y `AnalisisYValidacion.test.tsx`.
 
+**El cerebro común de la IA de Eventia, también al postular** (sin número de este documento: es la mejora 6 del doc 20 §17, la etapa 3 de «una sola IA»; 04-11, en producción esa noche, Felipe: *"conéctalo tú y a producción"*). El análisis de bases, «¿Puedo cumplir?», «Pregúntale a la IA», «Validar todo», los anexos y la propuesta técnica leen, después de sus instrucciones, lo que sabe de la empresa toda la IA de Eventia: las reglas de la casa (`LA_CASA.md`), su complejo (`EL_COMPLEJO.md`) y las lecciones aprobadas para «todas» (`cerebroPara(empresa, 'postular')`, sin las guías de armar ni de escribir).
+    - Va con la frase «al postular, lo que piden las bases manda sobre esto»: lo de la casa sirve para saber qué ofrece y cómo trabaja la empresa, nunca para pasar por encima de las bases (la regla de la decisión 60).
+    - En el análisis y las preguntas va dentro de `instruccionesComunes`, antes de la marca de caché: siguen mandando el mismo comienzo (decisión 115). Una lección aprobada cambia ese comienzo: la caché de las bases se escribe de nuevo una vez.
+    - La cotización de la postulación ya lo leía, porque usa las reglas de «✨ Crear con IA».
+    - Lo fijan `el-cerebro-al-postular.spec.ts` y `el-mismo-comienzo.spec.ts`.
+
 ## 4. Reglas del módulo (no se negocian)
 
 1. **La IA propone, la persona decide.** Nada se sube a Mercado Público

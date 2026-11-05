@@ -205,7 +205,8 @@ describe('Pregúntale a la IA: pedir', () => {
       ejecutar.mock.calls[0];
     expect([companyId, id, oportunidadId]).toEqual([1, 7, 40]);
     expect(leibles.map((a) => a.nombre)).toEqual(['Bases.pdf']);
-    expect(contexto).toEqual(CONTEXTO);
+    // Con la empresa: lo que sabe de ella toda la IA de Eventia (doc 20 §17).
+    expect(contexto).toEqual({ ...CONTEXTO, empresa: 1 });
     expect(pregunta).toBe('¿Las colaciones son por día?');
   });
 

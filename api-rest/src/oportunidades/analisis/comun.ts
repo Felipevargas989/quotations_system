@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { cerebroPara } from 'src/cerebro/cerebro';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { Adjunto } from '../adjuntos/adjuntos.repository';
 import { extensionDe } from '../adjuntos/adjuntos.service';
@@ -152,7 +153,24 @@ export type ContextoDeBases = {
   /** «licitacion» o «compra_agil» (decisión 95). No entra a las
    *  instrucciones: la caché compartida sigue igual. */
   tipo?: string;
+  /** La empresa: lo que sabe de ella toda la IA de Eventia (doc 20 §17,
+   *  mejora 6). Va igual en el análisis y en las preguntas, así que la
+   *  caché compartida sigue siendo una. */
+  empresa?: number;
 };
+
+// EL CEREBRO COMÚN DE LA IA DE EVENTIA, TAMBIÉN AL POSTULAR (doc 20 §17,
+// mejora 6; Felipe, 04-11-2026: «Oportunidades con el mismo cerebro»). Lo
+// que sabe toda la IA de la empresa (`api-rest/src/cerebro/`, tarea
+// `postular`): las reglas de la casa, su complejo y las lecciones de «todas».
+// Sirve para saber qué ofrece y cómo trabaja; al postular mandan las bases.
+
+/** El bloque del cerebro para las instrucciones de una IA de Oportunidades,
+ *  o vacío sin empresa. */
+export const loQueSabeLaCasa = (empresa: number | null | undefined): string =>
+  empresa
+    ? `\n\n---\n\nLO QUE SABE TODA LA IA DE EVENTIA DE ESTA EMPRESA (sus reglas de la casa y su complejo). Úsalo para saber qué ofrece y cómo trabaja. Al postular, lo que piden las bases manda sobre esto.\n\n${cerebroPara(empresa, 'postular')}`
+    : '';
 
 // EL PREFIJO COMPARTIDO (decisión 67, 22-10). Felipe: "¿pero la primera
 // lectura no es cuando aprieto analizar las bases?". La caché de la API
@@ -187,7 +205,7 @@ export const instruccionesComunes = (c: ContextoDeBases): string =>
     '',
     'Lee COMPLETOS todos los documentos que te paso (bases, anexos, aclaratorias, decretos). Si una aclaratoria cambia algo, manda la aclaratoria.',
     'Responde en español de Chile, claro y sin jerga. No inventes: si algo no está en los documentos, no lo des por dicho.',
-  ].join('\n');
+  ].join('\n') + loQueSabeLaCasa(c.empresa);
 
 /** El sistema del pedido, con la marca de caché. */
 export const sistemaConCache = (

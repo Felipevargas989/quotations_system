@@ -354,6 +354,7 @@ export class PreguntasService {
         organismo: ficha.proceso.organismo,
         comuna: ficha.proceso.comuna,
         perfil: config?.perfil ?? null,
+        empresa: companyId,
       },
       pregunta,
     );
