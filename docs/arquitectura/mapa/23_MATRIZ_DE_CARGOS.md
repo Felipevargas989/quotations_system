@@ -15,12 +15,35 @@ Los cuatro cargos, de menor a mayor: **recepción**, **vendedor**,
 
 > **03-10-2026, en las pantallas (Felipe: "creo que el perfil de recepción ve demasiadas cosas ... requerimiento y calendario, pero no más que eso"):** recepción ve solo **Requerimientos**, **Calendario** (solo mirar: sin montos, sin estrella de alto valor y sin abrir la ficha del negocio) y **Mi cuenta**. Cotizaciones, Consultas, la ficha del negocio y Clientes pasaron a vendedor para arriba (`SECTION_ROLES.quotations` y `.clients` = `SALES_AND_UP` en `frontend/src/constants/permissions.ts`; `veNegocio` en `pages/calendar/Calendar.tsx`). **El motor no cambió**: recepción sigue pudiendo leer cotizaciones (el calendario y Requerimientos las usan) y buscar o crear clientes y contactos (el formulario de requerimiento lo necesita). Lo de abajo describe las puertas del motor.
 
+> **04-11-2026, en las pantallas (doc 21):** recepción vuelve a ver **Cotizaciones**: el tablero, la ficha y el cotizador (`SECTION_ROLES.quotations` y `.quotations_edit` = `RECEPTION_AND_UP`, y las dos en su menú). Lo que le llega lo filtra el motor. En los menús de estado no le aparecen aceptar, anular ni realizada (`estadosPara`, `frontend/src/utils/recepcion.ts`); el descuento ya no se le mostraba (tope 0 %); en la ficha, el nombre del cliente no lleva a Clientes, que sigue siendo de vendedor para arriba. El calendario queda igual: solo mirar.
+
 Todo lo que usa el mostrador: atender, buscar, mirar.
 
 - Cotizaciones: listar, ver una, crear y editar. El motor ya tiene el
   candado de que recepción solo crea y edita **requerimientos**, nunca
-  cotizaciones formales; se conserva.
+  cotizaciones formales; se conserva. **Desde el 04-11-2026 (doc 21),
+  también las cotizaciones de clientes particulares** (el tipo que la
+  empresa marca con `client_types.es_particular`, migración 186): verlas
+  con precios, crearlas, editarlas, enviarlas, «✨ Crear con IA», el
+  seguimiento, el aviso de cierre y «Sí, puede seguir», sin descuento y sin
+  aceptar, anular ni marcar realizada. Lo decide una sola pieza,
+  `AlcanceDeRecepcion` (`clients/alcance-de-recepcion.ts`), que usan el
+  tablero (`GET /quotations` ya no le entrega las de otros tipos: antes le
+  llegaban todas con montos), la ficha con su sesión, las cuotas, el
+  resumen del cliente (sin montos si no es particular), crear y editar
+  (`QuotationsService.update`: el descuento que ya dio quien vende se
+  mantiene al guardar, pero no sube). El calendario pide su propia vista
+  (`vista=calendario`), con todos los eventos y los que no son de
+  particulares sin plata; la ficha de uno de esos le llega igual, como
+  agenda. Las rutas de enviar, generar, el
+  seguimiento, el aviso de cierre y los choques pasaron de vendedor a
+  recepción, y cada una revisa que la cotización sea de un particular.
 - Revisar choques de fecha.
+- Catálogo, leer (doc 21, 04-11-2026): servicios, secciones fijas, menús
+  guardados y paquetes, con sus grupos. Recepción cotiza a los particulares
+  desde el cotizador, que los necesita; ahí usa los menús y los paquetes sin
+  guardarlos, renombrarlos ni borrarlos (`soloElegir` en `MenusGuardados` y
+  `SelectorDePaquetes`).
 - Consultas del embudo: listar, convertir y descartar.
 - Tipos de evento: leer.
 - Clientes: listar, ver la ficha y el resumen 360, leer tipos, leer contactos.
@@ -38,7 +61,11 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   también pueda la recepcionista trabajar con Belia"*): las nueve rutas de
   `/asistente` pasan a `RECEPTION_AND_UP`, con el derecho `asistente`. Lo
   que ve cada cargo lo deciden sus herramientas: a recepción le llegan sin
-  plata ni enlace a la ficha, y solo crea requerimientos. Incluye la
+  plata ni enlace a la ficha, y solo crea requerimientos. Desde el doc 21,
+  lo de un cliente particular le llega completo y lo puede cotizar con
+  BelIA (mapa 25). Corregir un cliente mal clasificado
+  (`proponer_cambio_de_cliente`, doc 21 §6) es de quien vende, como editar
+  el cliente: recepción no cambia tipos. Incluye la
   conversación de quien escribe (`GET`, `PUT` y `DELETE
   /asistente/conversacion`, migración 182), siempre la de la sesión.
 
@@ -49,7 +76,9 @@ Lo que ya vende.
 - Borrar una cotización, y mandarla por correo. **Decisión 1, tomada**: el candado
   de requerimientos también aplica a borrar (`QuotationsService.remove`
   recibe el cargo), y enviar por correo es de vendedor.
-- Catálogo, leer: servicios, secciones fijas, menús guardados y paquetes.
+- Catálogo, cambiarlo: los menús guardados y los paquetes (guardar, renombrar,
+  borrar, ordenar sus grupos). Leerlo pasó a recepción y arriba el 04-11
+  (doc 21: ver arriba).
 - Evia, la ventanilla de chat con IA (doc 20, 03-11-2026): `POST
   /asistente/mensajes`, con el derecho `asistente`. Felipe: *"lo usa
   administración y vendedores"*. (Desde el 04-11, las rutas de BelIA son

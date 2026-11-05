@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { ClientsController } from '../clients.controller';
 import { ClientsService } from '../clients.service';
@@ -13,6 +14,14 @@ describe('ClientsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClientsController],
       providers: [
+        // Lo que ve recepción (doc 21).
+        {
+          provide: AlcanceDeRecepcion,
+          useValue: {
+            veLaCotizacion: jest.fn().mockResolvedValue(true),
+            veLosMontos: jest.fn().mockResolvedValue(true),
+          },
+        },
         provideMock(ClientsService),
         { provide: PinoLogger, useValue: mockPinoLogger() },
       ],

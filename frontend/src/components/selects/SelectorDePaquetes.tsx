@@ -36,6 +36,7 @@ export default function SelectorDePaquetes({
   onCargar,
   onEliminar,
   onCrearNuevo,
+  soloElegir = false,
 }: {
   readonly paquetes: ServiceGroupCollection[];
   /** Modo restringido o nada que ofrecer: el botón ni se enciende. */
@@ -47,6 +48,9 @@ export default function SelectorDePaquetes({
   readonly onCargar: (paquete: ServiceGroupCollection) => void;
   readonly onEliminar: (paquete: ServiceGroupCollection) => Promise<void>;
   readonly onCrearNuevo: () => void;
+  /** Solo partir de un paquete, sin crear, editar, borrar ni ordenar
+   *  (recepción, doc 21: lee el catálogo, no lo cambia). */
+  readonly soloElegir?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [confirma, setConfirma] = useState<{
@@ -191,11 +195,19 @@ export default function SelectorDePaquetes({
                 const p = paqueteDe(id);
                 if (p) elegir(p);
               }}
-              onEditar={(id) => {
-                cerrar();
-                setEditando(paqueteDe(id) ?? null);
-              }}
-              onPedirEliminar={(id) => setConfirma({ id, accion: "eliminar" })}
+              onEditar={
+                soloElegir
+                  ? undefined
+                  : (id) => {
+                      cerrar();
+                      setEditando(paqueteDe(id) ?? null);
+                    }
+              }
+              onPedirEliminar={
+                soloElegir
+                  ? undefined
+                  : (id) => setConfirma({ id, accion: "eliminar" })
+              }
               tituloEliminar="Eliminar paquete"
             />
             {paquetes.length === 0 && (
@@ -209,31 +221,33 @@ export default function SelectorDePaquetes({
               </p>
             )}
           </div>
-          <div className="flex border-t border-gray-200">
-            <button
-              type="button"
-              onClick={() => {
-                cerrar();
-                onCrearNuevo();
-              }}
-              disabled={!puedeCrear}
-              className="flex-1 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
-              title="Crear un paquete agrupando menús guardados"
-            >
-              + Crear paquete nuevo…
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                cerrar();
-                setOrdenandoGrupos(true);
-              }}
-              className="px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-              title="Crear, renombrar, ordenar y borrar los grupos de esta lista"
-            >
-              Ordenar grupos…
-            </button>
-          </div>
+          {!soloElegir && (
+            <div className="flex border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  cerrar();
+                  onCrearNuevo();
+                }}
+                disabled={!puedeCrear}
+                className="flex-1 px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+                title="Crear un paquete agrupando menús guardados"
+              >
+                + Crear paquete nuevo…
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  cerrar();
+                  setOrdenandoGrupos(true);
+                }}
+                className="px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                title="Crear, renombrar, ordenar y borrar los grupos de esta lista"
+              >
+                Ordenar grupos…
+              </button>
+            </div>
+          )}
         </div>
       )}
 

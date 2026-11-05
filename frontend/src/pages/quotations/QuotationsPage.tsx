@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { estadosPara } from "../../utils/recepcion";
 import { useNavigate } from "react-router-dom";
 import {
   keepPreviousData,
@@ -10,6 +11,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronRight,
+  Filter,
   MessageSquare,
   Plus,
   Search,
@@ -35,7 +37,9 @@ import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import AvisoDeCierre from "../../components/AvisoDeCierre";
 import MotivoPerdida from "../../components/MotivoPerdida";
+import MultiSelect from "../../components/MultiSelect";
 import { createFollowup } from "../../services/quotationFollowups.service";
+import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import {
   Quotation,
   QuotationRequestType,
@@ -62,6 +66,7 @@ import {
   etiquetaEstado,
 } from "../../utils/estadoCotizacion";
 import { filtrosGuardados, guardarFiltros } from "./filtrosTablero";
+import { coincideTipo, opcionesDeTipo } from "./filtroPorTipo";
 
 // La Lista se jubiló (04-08, decisión de Felipe): el tablero es la
 // única vista — cerradas en Post-Venta, rechazadas en su franja, la
@@ -183,7 +188,8 @@ export default function QuotationsPage() {
       q.quotation_status === "cancelada"
     )
       base.push("cancelada");
-    return base;
+    // Recepción (doc 21): sin aceptar, anular ni realizada.
+    return estadosPara(userRole, base, q.quotation_status);
   };
 
   // Cambio post-venta → pre-venta pendiente de confirmación (Tanda 3a).
@@ -191,10 +197,13 @@ export default function QuotationsPage() {
     quotationId: string;
     newStatus: string;
   } | null>(null);
-  // Una sola foto del storage por montaje: los tres filtros parten
-  // de la misma lectura.
+  // Una sola foto del storage por montaje: los filtros parten de la
+  // misma lectura.
   const [filtrosIniciales] = useState(() => filtrosGuardados(user?.id));
   const [searchTerm, setSearchTerm] = useState(filtrosIniciales.busqueda ?? "");
+  const [tiposElegidos, setTiposElegidos] = useState<string[]>(
+    filtrosIniciales.tipos ?? [],
+  );
   const [showViewer, setShowViewer] = useState(false);
   const [viewingQuotation, setViewingQuotation] =
     useState<QuotationWithClient | null>(null);
@@ -262,6 +271,9 @@ export default function QuotationsPage() {
     (q) => q.quotation_status !== QuotationStatus.RECHAZADA,
   );
   const loading = quotationsQuery.isPending;
+  // Los tipos de cliente de la empresa, para el filtro por tipo (el mismo
+  // caché que Clientes y el cotizador).
+  const { data: tiposDeCliente = [] } = useQuery(clientTypesQueryOptions);
 
   const { data: requirements = [] } = useQuery({
     queryKey: ["requirements"],
@@ -682,7 +694,24 @@ export default function QuotationsPage() {
     matchesSearch(searchTerm, quotation.contact_name) ||
     matchesSearch(searchTerm, quotation.mandante?.name);
 
-  const filtradasBase = quotations.filter(coincideBusqueda);
+  // El tipo de cliente (Felipe, 05-11-2026; `filtroPorTipo.ts`): cada
+  // opción cuenta las tarjetas que dejaría en el tablero, con la búsqueda
+  // y «Requieren» como están. Lo guardado que ya no es opción (otro
+  // cargo, un tipo que cambió de nombre) no filtra a escondidas.
+  const enElTablero = quotations.filter(coincideBusqueda);
+  const opcionesTipo = opcionesDeTipo(
+    userRole,
+    tiposDeCliente,
+    quotationsQuery.data ?? [],
+    soloSeguimiento ? enElTablero.filter(requiereSeguimiento) : enElTablero,
+  );
+  const tiposActivos = tiposElegidos.filter((t) =>
+    opcionesTipo.some((o) => o.value === t),
+  );
+  const coincideFiltros = (q: QuotationWithClient) =>
+    coincideBusqueda(q) && coincideTipo(tiposActivos, q);
+
+  const filtradasBase = quotations.filter(coincideFiltros);
 
   // Camino a tablero-único: las rechazadas viven plegadas bajo el
   // tablero, y la búsqueda también revisa el archivo completo para que
@@ -690,7 +719,7 @@ export default function QuotationsPage() {
   // Ya vienen en la misma llamada de arriba: acá solo se separan.
   const rechazadas = (quotationsQuery.data ?? [])
     .filter((q) => q.quotation_status === QuotationStatus.RECHAZADA)
-    .filter(coincideBusqueda);
+    .filter(coincideFiltros);
   const [verRechazadas, setVerRechazadas] = useState(
     filtrosIniciales.verRechazadas ?? false,
   );
@@ -701,8 +730,9 @@ export default function QuotationsPage() {
       busqueda: searchTerm,
       soloSeguimiento,
       verRechazadas,
+      tipos: tiposElegidos,
     });
-  }, [userId, searchTerm, soloSeguimiento, verRechazadas]);
+  }, [userId, searchTerm, soloSeguimiento, verRechazadas, tiposElegidos]);
 
   const busquedaActiva = searchTerm.trim() !== "";
   const cerradasQuery = useQuery({
@@ -718,7 +748,7 @@ export default function QuotationsPage() {
     },
   });
   const cerradasCoinciden = busquedaActiva
-    ? (cerradasQuery.data ?? []).filter(coincideBusqueda)
+    ? (cerradasQuery.data ?? []).filter(coincideFiltros)
     : [];
 
   // Orden de las tarjetas dentro de cada columna.
@@ -916,6 +946,19 @@ export default function QuotationsPage() {
               </>
             )}
           </span>
+          {/* Por tipo de cliente (05-11-2026): las columnas, «Requieren»,
+              las rechazadas y la búsqueda quedan solo con esos tipos. */}
+          {opcionesTipo.length > 0 && (
+            <MultiSelect
+              compacto
+              icono={<Filter size={14} />}
+              options={opcionesTipo}
+              value={tiposActivos}
+              onChange={setTiposElegidos}
+              placeholder="Tipo de cliente"
+              className="shrink-0"
+            />
+          )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button
             type="button"

@@ -74,7 +74,7 @@ export class SeguimientoDesdeElChat {
       numero: q.quotation_number,
       cliente: q.clients?.name ?? null,
       cotizacion_id: q.id,
-      enlace: enlaceDe(q, usuario.role),
+      enlace: enlaceDe(q, usuario.role, true),
       resumen: fila.resumen,
       lineas: [],
       avisos: [
@@ -95,7 +95,7 @@ export class SeguimientoDesdeElChat {
     return {
       estado: 'aplicada',
       numero: q.quotation_number,
-      enlace: enlaceDe(q, usuario.role),
+      enlace: enlaceDe(q, usuario.role, true),
       aviso:
         r.accion === 'borrador'
           ? `El borrador quedó en el hilo del cliente${r.buzon ? ` (${r.buzon})` : ''}: revísalo y envíalo desde Outlook.`

@@ -1,4 +1,4 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import {
   porPersonaDeMenu,
   type Catalogo,
@@ -8,8 +8,9 @@ import { ErrorDeHerramienta, pesos, texto, type Herramienta } from './comun';
 // «¿Cuánto vale la cena nivel 1?», «¿en qué menús va la leche asada?». El
 // catálogo como lo usa el cotizador, el mismo que lee «Crear con IA»
 // (`GenerarRepository.catalogo`): servicios por persona, menús guardados,
-// fijos y paquetes, con el precio de hoy. Leerlo es de quien cotiza (mapa
-// 23: "Catálogo, leer" es de vendedor para arriba).
+// fijos y paquetes, con el precio de hoy. Leerlo es de quien cotiza: desde
+// el doc 21 también recepción, que cotiza a los particulares (lo ve en su
+// cotizador). No es plata de un cliente: no pasa por su red.
 
 const TIPOS = ['todo', 'servicios', 'menus', 'fijos', 'paquetes'] as const;
 type Tipo = (typeof TIPOS)[number];
@@ -155,7 +156,8 @@ export const buscarEnCatalogo: Herramienta = {
       },
     },
   },
-  cargos: SALES_AND_UP,
+  cargos: RECEPTION_AND_UP,
+  plataLibre: true,
   async ejecutar(entrada, ctx) {
     // Varias de una vez (Felipe, 03-11: una pregunta buscó diez veces, una
     // por producto, y costó el triple).

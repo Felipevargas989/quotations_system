@@ -19,7 +19,9 @@ export type TarjetaDePropuesta = {
     | 'cotizacion_nueva'
     | 'seguimiento'
     | 'leccion'
-    | 'leccion_estado';
+    | 'leccion_estado'
+    // Corregir un cliente mal clasificado (doc 21 §6, migración 186).
+    | 'cliente';
   /** Null en una cotización nueva: el N° lo da la base al crearla. */
   numero: number | null;
   cliente: string | null;

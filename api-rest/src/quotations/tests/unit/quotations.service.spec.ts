@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { ClientsService } from 'src/clients/clients.service';
 import { ConsultasService } from 'src/consultas/consultas.service';
 import { EmailService } from 'src/email/email.service';
@@ -31,6 +32,10 @@ describe('QuotationsService', () => {
   let emailServiceMock: jest.Mocked<EmailService>;
   let usersServiceMock: jest.Mocked<UsersService>;
   let loggerMock: jest.Mocked<PinoLogger>;
+  let alcanceMock: {
+    esParticular: jest.Mock;
+    exigirClienteParticular: jest.Mock;
+  };
 
   beforeEach(async () => {
     // Create mock objects
@@ -108,6 +113,13 @@ describe('QuotationsService', () => {
       setContext: jest.fn(),
     } as any;
 
+    alcanceMock = {
+      esParticular: jest.fn((_empresa: number, tipo?: string | null) =>
+        Promise.resolve(tipo === 'Particulares'),
+      ),
+      exigirClienteParticular: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuotationsService,
@@ -154,6 +166,11 @@ describe('QuotationsService', () => {
         {
           provide: PinoLogger,
           useValue: loggerMock,
+        },
+        // Lo que trabaja recepción (doc 21): «Particulares» es particular.
+        {
+          provide: AlcanceDeRecepcion,
+          useValue: alcanceMock,
         },
       ],
     }).compile();
@@ -262,6 +279,113 @@ describe('QuotationsService', () => {
         await service.update('1', {}, 1, UserRole.RECEPCION);
 
         expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
+
+      // Doc 21 (04-11-2026): recepción también cotiza a los particulares.
+      const deParticular = (c: Record<string, unknown> = {}) => ({
+        data: {
+          quotation_status: QuotationStatus.ENVIADA,
+          request_type: RequestType.COTIZACION,
+          clients: { client_type: 'Particulares' },
+          ...c,
+        },
+        error: null,
+      });
+
+      it('recepción SÍ edita una cotización de un particular', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(deParticular());
+        await service.update(
+          '1',
+          { quotation_status: QuotationStatus.EN_NEGOCIACION } as never,
+          1,
+          UserRole.RECEPCION,
+        );
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+      });
+
+      it('pero sin descuento, sin aceptarla y sin tocar una aceptada', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(deParticular());
+        await expect(
+          service.update(
+            '1',
+            { discount_percentage: 10 } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow('descuentos');
+        await expect(
+          service.update(
+            '1',
+            { quotation_status: QuotationStatus.ACEPTADA } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow('operaciones');
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({ quotation_status: QuotationStatus.ACEPTADA }),
+        );
+        await expect(
+          service.update('1', {}, 1, UserRole.RECEPCION),
+        ).rejects.toThrow('Post-Venta');
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+      });
+
+      it('el descuento que ya dio quien vende viaja igual al guardar', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({ discount_percentage: 10, discount_amount: 0 }),
+        );
+        await service.update(
+          '1',
+          { people_count: 40, discount_percentage: 10 } as never,
+          1,
+          UserRole.RECEPCION,
+        );
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
+        await expect(
+          service.update(
+            '1',
+            { discount_percentage: 15 } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow('descuentos');
+      });
+
+      it('no pasa a cotización el requerimiento de una empresa', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({
+            request_type: RequestType.REQUERIMIENTO,
+            clients: { client_type: 'Empresas' },
+          }),
+        );
+        await expect(
+          service.update(
+            '1',
+            { request_type: RequestType.COTIZACION } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow('quien vende');
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+      });
+
+      it('ni la pasa a un cliente que no es particular', async () => {
+        quotationsRepositoryMock.findOne.mockResolvedValue(deParticular());
+        alcanceMock.exigirClienteParticular.mockRejectedValueOnce(
+          new ForbiddenException('Recepción cotiza a clientes particulares'),
+        );
+        await expect(
+          service.update(
+            '1',
+            { client_id: 'c-empresa' } as never,
+            1,
+            UserRole.RECEPCION,
+          ),
+        ).rejects.toThrow(ForbiddenException);
+        expect(alcanceMock.exigirClienteParticular).toHaveBeenCalledWith(
+          { role: UserRole.RECEPCION, company_id: 1 },
+          'c-empresa',
+        );
       });
 
       // Los llamados internos del backend (cron de seguimiento, portal

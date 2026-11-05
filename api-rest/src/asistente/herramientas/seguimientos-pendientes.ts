@@ -1,4 +1,5 @@
-import { SALES_AND_UP } from 'src/auth/roles.decorator';
+import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
+import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import {
   QuotationStatus,
   RequestType,
@@ -15,6 +16,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
+import { esRecepcion, particularesPara } from './recepcion';
 
 // «¿Cuántas cotizaciones me falta gestionar?». El filtro «Requieren
 // seguimiento» del tablero de Cotizaciones, con la MISMA regla
@@ -132,9 +134,21 @@ export const seguimientosPendientes: Herramienta = {
       },
     },
   },
-  cargos: SALES_AND_UP,
+  // Recepción también desde el doc 21: hace el seguimiento de las
+  // cotizaciones de clientes particulares, y solo de esas.
+  cargos: RECEPTION_AND_UP,
   async ejecutar(entrada, ctx) {
-    const { pendientes } = await pendientesDe(ctx, ctx.usuario.company_id);
+    const { pendientes: todos } = await pendientesDe(
+      ctx,
+      ctx.usuario.company_id,
+    );
+    const recepcion = esRecepcion(ctx.usuario.role);
+    const particulares = await particularesPara(ctx);
+    const pendientes = recepcion
+      ? todos.filter(({ q }) =>
+          esDeLosParticulares(particulares, q.clients?.client_type),
+        )
+      : todos;
     const limite = entero(entrada.limite, 1, 60) ?? 20;
     return {
       total: pendientes.length,
@@ -144,7 +158,8 @@ export const seguimientosPendientes: Herramienta = {
       mostradas: Math.min(limite, pendientes.length),
       cotizaciones: pendientes.slice(0, limite).map(({ q, s }) => ({
         numero: q.quotation_number,
-        enlace: enlaceDe(q, ctx.usuario.role),
+        ...(recepcion ? { particular: true as const } : {}),
+        enlace: enlaceDe(q, ctx.usuario.role, recepcion),
         cliente: q.clients?.name ?? null,
         estado: estadoDe(q.quotation_status),
         evento: q.event_type,

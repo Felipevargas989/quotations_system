@@ -10,7 +10,11 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
-import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
+import {
+  RECEPTION_AND_UP,
+  Roles,
+  SALES_AND_UP,
+} from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateServiceGroupDto } from './dto/create-service-group.dto';
 import {
@@ -47,7 +51,9 @@ export class ServiceGroupsController {
     );
   }
 
-  @Roles(...SALES_AND_UP)
+  // Leer, también recepción: cotiza a los particulares desde el cotizador
+  // (doc 21). Cambiar el catálogo sigue siendo de quien vende para arriba.
+  @Roles(...RECEPTION_AND_UP)
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service groups with user ${user.id}`);
@@ -59,7 +65,7 @@ export class ServiceGroupsController {
   // las de 'grupos' antes de las de ':id'. Express calza en el orden en
   // que se declaran.
 
-  @Roles(...SALES_AND_UP)
+  @Roles(...RECEPTION_AND_UP)
   @Get('grupos')
   listarGrupos(@CurrentUser() user: User) {
     this.logger.info(`listarGrupos de menús with user ${user.id}`);

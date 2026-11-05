@@ -71,7 +71,7 @@ describe('sinMontos', () => {
 });
 
 describe('las herramientas de recepción', () => {
-  it('ve el calendario, las cotizaciones, los clientes y lo de hoy; nada con plata', () => {
+  it('ve el calendario, las cotizaciones, los clientes y lo de hoy; y cotiza a los particulares (doc 21)', () => {
     const nombres = herramientasPara(recepcion()).map((h) => h.nombre);
     expect(nombres).toEqual(
       expect.arrayContaining([
@@ -80,18 +80,22 @@ describe('las herramientas de recepción', () => {
         'calendario',
         'avisos_de_hoy',
         'buscar_clientes',
-        // Solo como requerimiento, sin servicios.
         'proponer_cotizacion_nueva',
+        // Doc 21: los particulares los trabaja completos (lo revisa
+        // PropuestasService, cotización por cotización).
+        'seguimientos_pendientes',
+        'buscar_en_catalogo',
+        'proponer_cambio_de_servicios',
+        'proponer_nota',
       ]),
     );
     for (const nunca of [
-      'buscar_en_catalogo',
-      'seguimientos_pendientes',
       'pagos_del_evento',
       'cobranza',
       'personal',
-      'proponer_cambio_de_servicios',
-      'proponer_nota',
+      'insumos',
+      'lecciones',
+      'proponer_leccion',
     ]) {
       expect(nombres).not.toContain(nunca);
     }
@@ -281,7 +285,7 @@ describe('lo que le llega a la IA cuando escribe recepción', () => {
 });
 
 describe('«Crear requerimiento» de recepción', () => {
-  it('sin servicios ni precios: con `cambios`, no propone', async () => {
+  it('con `cambios`, la herramienta lo pasa: PropuestasService revisa que el cliente sea particular (doc 21)', async () => {
     const herramienta = herramientasPara(recepcion()).find(
       (h) => h.nombre === 'proponer_cotizacion_nueva',
     )!;
@@ -303,8 +307,12 @@ describe('«Crear requerimiento» de recepción', () => {
         },
         ctx,
       ),
-    ).rejects.toThrow('Recepción crea requerimientos');
-    expect(proponerCotizacionNueva).not.toHaveBeenCalled();
+    ).rejects.toThrow();
+    expect(proponerCotizacionNueva).toHaveBeenCalledWith(
+      expect.objectContaining({ role: UserRole.RECEPCION }),
+      expect.objectContaining({ cambios: expect.any(Array) }),
+      '2026-11-04',
+    );
   });
 
   it('el enlace de recepción lleva a Requerimientos, no a la ficha', () => {

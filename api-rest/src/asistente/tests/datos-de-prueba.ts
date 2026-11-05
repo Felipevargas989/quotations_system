@@ -1,4 +1,5 @@
 import type { PinoLogger } from 'nestjs-pino';
+import type { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { ClientsService } from 'src/clients/clients.service';
 import type { LogisticsService } from 'src/logistics/logistics.service';
 import { hoyEnChile } from 'src/oportunidades/analisis/comun';
@@ -13,6 +14,7 @@ import type { QuotationsService } from 'src/quotations/quotations.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import { mockPinoLogger } from '../../testing/mocks';
 import type { AsistenteRepository } from '../asistente.repository';
+import type { CambioDeCliente } from '../propuestas/cambio-de-cliente';
 import { CotizacionNuevaService } from '../propuestas/cotizacion-nueva.service';
 import type {
   EventoDeLaCotizacion,
@@ -178,6 +180,10 @@ export const hoy = hoyEnChile();
 export const armarServicio = (
   q: CotizacionParaCambiar,
   propuesta: Partial<Propuesta> = {},
+  // Los tipos de cliente particulares de la empresa, para recepción (doc
+  // 21), y el cambio de un cliente (§6). Sin ellos, el servicio se arma sin
+  // esas piezas, como antes.
+  opciones: { particulares?: string[]; cambioDeCliente?: CambioDeCliente } = {},
 ) => {
   const p: Propuesta = {
     id: 'p1',
@@ -273,6 +279,17 @@ export const armarServicio = (
       aviso: 'El borrador quedó en el hilo del cliente.',
     }),
   };
+  const alcance = opciones.particulares
+    ? {
+        esParticular: jest.fn((_empresa: number, tipo?: string | null) =>
+          Promise.resolve(
+            opciones
+              .particulares!.map((t) => t.toLowerCase())
+              .includes((tipo ?? '').trim().toLowerCase()),
+          ),
+        ),
+      }
+    : undefined;
   const nuevas = new CotizacionNuevaService(
     repositorio as unknown as PropuestasRepository,
     generar,
@@ -296,9 +313,12 @@ export const armarServicio = (
     nuevas,
     seguimientoDelChat as unknown as SeguimientoDesdeElChat,
     leccionesDelChat as unknown as LeccionesDesdeElChat,
+    alcance as unknown as AlcanceDeRecepcion | undefined,
+    opciones.cambioDeCliente,
   );
   return {
     servicio,
+    alcance,
     repositorio,
     cotizaciones,
     bitacora,

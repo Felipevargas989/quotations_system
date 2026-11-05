@@ -197,6 +197,8 @@ describe('AsistenteService (BelIA)', () => {
       // Doc 20 §17: lo que aprende (leer y proponer una lección).
       'lecciones',
       'proponer_leccion',
+      // Doc 21 §6: corregir un cliente mal clasificado.
+      'proponer_cambio_de_cliente',
     ]);
   });
 
@@ -349,18 +351,25 @@ describe('las herramientas de cada cargo', () => {
         ],
       } as unknown as User).map((h) => h.nombre);
     // Recepción (doc 20 §13): el calendario, en qué va cada pedido y lo de
-    // hoy, sin plata (recepcion.spec.ts).
+    // hoy, sin plata (recepcion.spec.ts). Desde el doc 21, también lo que
+    // cotiza a los particulares: el catálogo, sus seguimientos y las que
+    // proponen (recepcion-particulares.spec.ts).
     expect(con(UserRole.RECEPCION)).toEqual([
       'buscar_cotizaciones',
       'ver_cotizacion',
       'calendario',
+      'seguimientos_pendientes',
       'avisos_de_hoy',
+      'buscar_en_catalogo',
       'buscar_clientes',
+      'proponer_cambio_de_servicios',
+      'proponer_nota',
       'proponer_cotizacion_nueva',
     ]);
     // Quien vende: lo del tablero, el catálogo, los clientes, las que
-    // proponen (fase 2) y las lecciones (doc 20 §17).
-    expect(con(UserRole.VENDEDOR)).toHaveLength(12);
+    // proponen (fase 2), las lecciones (doc 20 §17) y corregir un cliente
+    // (doc 21 §6).
+    expect(con(UserRole.VENDEDOR)).toHaveLength(13);
     expect(con(UserRole.VENDEDOR)).not.toContain('pagos_del_evento');
     // Operaciones suma pagos y logística, pero no el personal.
     expect(con(UserRole.OPERACIONES)).toEqual(
@@ -374,8 +383,9 @@ describe('las herramientas de cada cargo', () => {
       ]),
     );
     expect(con(UserRole.OPERACIONES)).not.toContain('personal');
-    // Administración, todo, también decidir las lecciones (doc 20 §17).
-    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(20);
+    // Administración, todo, también decidir las lecciones (doc 20 §17) y
+    // corregir un cliente (doc 21 §6).
+    expect(con(UserRole.ADMINISTRADOR)).toHaveLength(21);
     expect(con(UserRole.ADMINISTRADOR)).toContain(
       'proponer_decision_de_leccion',
     );

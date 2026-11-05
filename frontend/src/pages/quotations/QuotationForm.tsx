@@ -84,6 +84,7 @@ import { comentarioParaGuardar } from "../../utils/comentarioInterno";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { buscarCategoria, nombreVigente } from "../../utils/categoriaCaja";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
+import { clientesParaElCotizador, esRecepcion } from "../../utils/recepcion";
 // Margen en el cotizador (24-07): misma máquina de consolidación que usa
 // Post-venta → Gestión y la pestaña Compras.
 import { getBaseCatalogo } from "../../services/logistics.service";
@@ -2387,6 +2388,7 @@ export default function QuotationForm() {
               );
             }}
             onCrearNuevo={openCollectionModal}
+            soloElegir={esRecepcion(userRole)}
           />
           <button
             onClick={handleSubmit}
@@ -2462,8 +2464,14 @@ export default function QuotationForm() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Cliente *
                 </label>
+                {/* Recepción, sus clientes particulares (doc 21). */}
                 <SelectWithSearch
-                  options={clients.map((client) => ({
+                  options={clientesParaElCotizador(
+                    userRole,
+                    clients,
+                    clientTypesData ?? [],
+                    formData.client_id,
+                  ).map((client) => ({
                     value: client.id,
                     label: client.name,
                   }))}
@@ -3237,15 +3245,19 @@ export default function QuotationForm() {
                                               setConfirmGroupDel(null)
                                             }
                                             onRenombrar={renameServiceGroup}
+                                            soloElegir={esRecepcion(userRole)}
                                           />
                                         )}
                                     </>
                                   );
                                 })()}
                               </div>
+                              {/* Recepción usa los menús guardados, pero
+                                  no los crea (doc 21). */}
                               {!box.groupName &&
                                 box.services.length > 0 &&
-                                !isRestrictedEditing && (
+                                !isRestrictedEditing &&
+                                !esRecepcion(userRole) && (
                                   <button
                                     type="button"
                                     onClick={() => openSaveGroupModal(box.id)}

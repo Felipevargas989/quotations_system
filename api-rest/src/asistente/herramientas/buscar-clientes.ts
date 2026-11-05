@@ -1,4 +1,5 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
+import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import type { UserRole } from 'src/users/entities/user.entity';
 import type {
@@ -16,13 +17,14 @@ import {
   texto,
   type Herramienta,
 } from './comun';
-import { esRecepcion } from './recepcion';
+import { esRecepcion, particularesPara } from './recepcion';
 
 // «¿Qué ha cotizado Ecofor?», «¿cuál es el teléfono de Rudel?». La lista de
 // Clientes con su historia corta: lo cotizado, lo ganado y lo perdido. Es
 // de quien vende (SECTION_ROLES.clients). Recepción también busca clientes
 // para levantar un requerimiento (mapa 23) y, desde el 04-11 (doc 20 §13),
-// para saber en qué va su pedido: le llega sin el total ni el enlace.
+// para saber en qué va su pedido: le llega sin el total ni el enlace. Un
+// cliente particular, completo y con la marca `particular` (doc 21).
 //
 // Busca como el buscador de la casa (utils/searchMatch de la app, Felipe
 // 21-07-2026): sin tildes ni mayúsculas y por palabras en cualquier orden.
@@ -53,10 +55,13 @@ export const fichaDeCliente = (
   cotizaciones: CotizacionDeCliente[],
   rol: UserRole,
   ultimas = 6,
+  // Para recepción: si el cliente es particular, lo ve completo (doc 21).
+  deParticular = false,
 ) => {
-  const recepcion = esRecepcion(rol);
+  const sinPlata = esRecepcion(rol) && !deParticular;
   const suyas = cotizaciones.filter((q) => q.client_id === c.id);
   return {
+    ...(esRecepcion(rol) && deParticular ? { particular: true as const } : {}),
     // El id, para crear un evento a este cliente (fase 2).
     id: c.id,
     nombre: c.name,
@@ -71,11 +76,11 @@ export const fichaDeCliente = (
     ).length,
     ultimas: suyas.slice(0, ultimas).map((q) => ({
       numero: q.quotation_number,
-      ...(recepcion ? {} : { enlace: enlaceDe(q, rol) }),
+      ...(sinPlata ? {} : { enlace: enlaceDe(q, rol, deParticular) }),
       estado: estadoDe(q.quotation_status),
       evento: q.event_type,
       fecha: conDia(diaDelEvento(q.event_date)),
-      ...(recepcion ? {} : { total: pesos(q.total_amount) }),
+      ...(sinPlata ? {} : { total: pesos(q.total_amount) }),
     })),
   };
 };
@@ -129,8 +134,15 @@ export const buscarClientes: Herramienta = {
       empresa,
       ids,
     );
+    const particulares = await particularesPara(ctx);
     const ficha = (c: FilaDeCliente) =>
-      fichaDeCliente(c, cotizaciones, ctx.usuario.role);
+      fichaDeCliente(
+        c,
+        cotizaciones,
+        ctx.usuario.role,
+        undefined,
+        esDeLosParticulares(particulares, c.client_type),
+      );
     if (pedidos.length === 1) {
       return {
         encontrados: hallados[0].clientes.length,

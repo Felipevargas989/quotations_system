@@ -13,6 +13,7 @@ import {
   proponerLeccion,
 } from './lecciones';
 import { insumos, mobiliario, proveedores } from './logistica';
+import { proponerCambioDeCliente } from './mal-clasificados';
 import { cobranza, pagosDelEvento } from './pagos';
 import { personal } from './personal';
 import {
@@ -54,6 +55,8 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   lecciones,
   proponerLeccion,
   proponerDecisionDeLeccion,
+  // Doc 21 §6: corregir un cliente mal clasificado, con su tarjeta.
+  proponerCambioDeCliente,
 ];
 
 /** Las que puede usar esta persona: su cargo las ve en pantalla y su
