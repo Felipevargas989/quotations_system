@@ -124,6 +124,65 @@ const armar = ({
   return { servicio, repo, razones, bitacora };
 };
 
+describe('Los documentos del evento', () => {
+  const FACTURA_1 = {
+    id: 7,
+    tipo: 33,
+    folio: 1,
+    estado: 'emitido',
+    total: 2480000,
+    fecha_emision: '2026-11-04',
+    modifica_id: null,
+    codigo_referencia: null,
+    orden_de_compra_id: 12,
+  };
+  const NC_1 = {
+    ...FACTURA_1,
+    id: 12,
+    tipo: 61,
+    fecha_emision: '2026-11-05',
+    modifica_id: 7,
+    codigo_referencia: 1,
+  };
+
+  it('una factura anulada por una NC ya no cuenta: la OC se puede volver a facturar', async () => {
+    const { servicio, repo } = armar();
+    repo.deCotizacion.mockResolvedValue([NC_1, FACTURA_1]);
+    const r = await servicio.documentos('ev-423', 1);
+    expect(r.facturado_por_oc).toEqual({ 12: 0 });
+    expect(r.documentos.find((d) => d.id === 7)?.cadena).toEqual({
+      como: 'anulado',
+      texto: 'Anulada por NC 1',
+      modifica: null,
+    });
+    expect(r.documentos.find((d) => d.id === 12)?.cadena).toEqual({
+      como: 'vigente',
+      texto: null,
+      modifica: 'Anula la factura N° 1',
+    });
+  });
+
+  it('con la ND que anula la NC, la factura vuelve a contar entera', async () => {
+    const { servicio, repo } = armar();
+    repo.deCotizacion.mockResolvedValue([
+      { ...NC_1, id: 13, tipo: 56, modifica_id: 12 },
+      NC_1,
+      FACTURA_1,
+    ]);
+    const r = await servicio.documentos('ev-423', 1);
+    expect(r.facturado_por_oc).toEqual({ 12: 2480000 });
+    expect(r.documentos.find((d) => d.id === 7)?.cadena.texto).toBeNull();
+    expect(r.documentos.find((d) => d.id === 12)?.cadena).toEqual({
+      como: 'anulado',
+      texto: 'Anulada por ND 1',
+      modifica: 'Anula la factura N° 1',
+    });
+    expect(r.documentos.find((d) => d.id === 13)?.cadena.modifica).toBe(
+      'Anula la nota de crédito N° 1',
+    );
+  });
+});
+
 describe('Emitir la factura del evento', () => {
   it('sale con el folio que sigue y deja el PDF, la razón social nueva y la nota de BelIA', async () => {
     const { servicio, repo, razones, bitacora } = armar();

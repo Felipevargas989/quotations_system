@@ -383,17 +383,10 @@ export default function FacturacionTab({
     setLectura(null);
   };
 
-  // Lo facturado de cada OC: lo emitido y lo que quedó por confirmar.
+  // Lo facturado de cada OC lo cuenta el motor con la cadena: lo emitido y
+  // lo que quedó por confirmar, menos lo anulado o rebajado con notas.
   const facturadoDe = (ocId: number) =>
-    (emitidos.data?.documentos ?? [])
-      .filter(
-        (d) =>
-          d.tipo === 33 &&
-          d.orden_de_compra_id === ocId &&
-          d.estado !== "rechazado" &&
-          d.estado !== "borrador",
-      )
-      .reduce((s, d) => s + d.total, 0);
+    emitidos.data?.facturado_por_oc[ocId] ?? 0;
 
   const emitida = async () => {
     setFacturando(null);

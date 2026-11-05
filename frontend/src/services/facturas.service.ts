@@ -106,17 +106,30 @@ export interface DocumentoTributario {
   error: string | null;
   pdf_path: string | null;
   created_at: string;
+  /** El estado en la cadena (paso 4): «Anulada por NC 1», «Rebajada:
+   *  queda $…» (sin texto si está vigente), y lo que hace una nota:
+   *  «Anula la factura N° 1». */
+  cadena: {
+    como: "vigente" | "anulado" | "rebajado" | "corregido";
+    texto: string | null;
+    modifica: string | null;
+  };
+}
+
+export interface DocumentosDelEvento {
+  ambiente: Ambiente;
+  documentos: DocumentoTributario[];
+  /** Lo facturado de cada OC con la cadena: una factura anulada ya no
+   *  cuenta. */
+  facturado_por_oc: Record<number, number>;
 }
 
 const ruta = (quotationId: string) => `/quotations/${quotationId}/facturas`;
 
 export const getDocumentosTributarios = async (
   quotationId: string,
-): Promise<{ ambiente: Ambiente; documentos: DocumentoTributario[] }> =>
-  (await apiRequest(ruta(quotationId), "GET")) as {
-    ambiente: Ambiente;
-    documentos: DocumentoTributario[];
-  };
+): Promise<DocumentosDelEvento> =>
+  (await apiRequest(ruta(quotationId), "GET")) as DocumentosDelEvento;
 
 export const armarBorradorDeFactura = async (
   quotationId: string,
