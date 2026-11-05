@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronRight,
+  Filter,
   MessageSquare,
   Plus,
   Search,
@@ -948,15 +949,15 @@ export default function QuotationsPage() {
           {/* Por tipo de cliente (05-11-2026): las columnas, «Requieren»,
               las rechazadas y la búsqueda quedan solo con esos tipos. */}
           {opcionesTipo.length > 0 && (
-            <div className="w-64 shrink-0">
-              <MultiSelect
-                options={opcionesTipo}
-                value={tiposActivos}
-                onChange={setTiposElegidos}
-                placeholder="Tipo de cliente"
-                className="w-full"
-              />
-            </div>
+            <MultiSelect
+              compacto
+              icono={<Filter size={14} />}
+              options={opcionesTipo}
+              value={tiposActivos}
+              onChange={setTiposElegidos}
+              placeholder="Tipo de cliente"
+              className="shrink-0"
+            />
           )}
           {/* La cola del martes a las 11: vencidas y frías arriba. */}
           <button

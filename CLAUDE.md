@@ -203,7 +203,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/selects/SelectWithSearch` | **pick ONE value** — arrows/Enter/Escape with the marked option kept in view, typing marks the first match so Enter picks it (06-10-2026), opens up when there's no room below, sizes itself against the nearest scroll container, closes on outside click, optional `group` (section headers), `hint`, `dotClass`, `tamano`, `mostrarConteo`; shows the saved label even when it left the catalog | 17 screens |
 | `components/selects/AgregadorDeItems` | **ADD several to a list** — never shows the selection, stays open with the cursor in the search box, marks the first row for type+Enter, tall list, always opens downward, controlled `abierto`/`onAbiertoChange` so the screen owns open/close | 4 |
 | `hooks/useListaBuscable` | the shared engine of both: filtering, keyboard, keep-in-view, close-on-outside-click. **Fix it here and both pieces get it** | — |
-| `components/MultiSelect` | multiple choice with chips | 3 |
+| `components/MultiSelect` | multiple choice with chips. `compacto` (05-11-2026) makes it a filter chip the size of the board's sort chip: blue when something is picked, the whole list in view, a colour dot (`dotClass`) and a count (`cantidad`) per option, «Ver todos» instead of Select/Clear all | 8 |
 | `components/inputs/NumberInput` | any numeric field (Chilean decimal comma, dot→comma) | 16 |
 | `components/inputs/SelectorColacion` | the meal break (30 min / 1 h, never zero). Same `event_staff` row in Planning and in Liquidación — editing it in one shows in the other; there is no second copy to keep in sync | 4 |
 | `components/toast/Toast` | every notice — **never `alert()`/`confirm()`** | 18 |

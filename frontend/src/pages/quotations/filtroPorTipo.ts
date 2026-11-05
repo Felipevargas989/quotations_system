@@ -1,3 +1,4 @@
+import { getClientTypeDot } from "../../utils/clientTypeColor";
 import { esRecepcion } from "../../utils/recepcion";
 
 // EL FILTRO POR TIPO DE CLIENTE DEL TABLERO (Felipe, 05-11-2026: "si yo
@@ -11,7 +12,13 @@ import { esRecepcion } from "../../utils/recepcion";
 
 type ConTipo = { clients?: { client_type?: string | null } | null };
 type TipoDeLaEmpresa = { name: string; es_particular?: boolean };
-export type OpcionDeTipo = { value: string; label: string };
+export type OpcionDeTipo = {
+  value: string;
+  label: string;
+  cantidad: number;
+  /** El punto de color: el del tipo en Clientes. */
+  dotClass: string;
+};
 
 const SIN_TIPO = "__sin_tipo";
 
@@ -52,7 +59,9 @@ export const opcionesDeTipo = (
   }
   return [...nombres].map(([value, nombre]) => ({
     value,
-    label: `${nombre} (${(cuantas.get(value) ?? 0).toLocaleString("es-CL")})`,
+    label: nombre,
+    cantidad: cuantas.get(value) ?? 0,
+    dotClass: value === SIN_TIPO ? "bg-gray-300" : getClientTypeDot(nombre),
   }));
 };
 

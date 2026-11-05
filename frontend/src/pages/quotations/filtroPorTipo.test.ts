@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { coincideTipo, opcionesDeTipo } from "./filtroPorTipo";
+import {
+  coincideTipo,
+  opcionesDeTipo,
+  type OpcionDeTipo,
+} from "./filtroPorTipo";
 
 // El filtro por tipo de cliente del tablero (05-11-2026).
 
@@ -11,21 +15,45 @@ const TIPOS = [
   { name: "Particulares", es_particular: true },
 ];
 
+/** «Nombre cantidad», para leer las opciones de un vistazo. */
+const enCorto = (opciones: OpcionDeTipo[]) =>
+  opciones.map((o) => `${o.label} ${o.cantidad}`);
+
 describe("las opciones del filtro por tipo de cliente", () => {
   it("son los tipos de la empresa en su orden, con cuántas tarjetas tiene cada uno", () => {
     const tablero = [q("Empresas"), q("Particulares"), q("Empresas")];
-    expect(opcionesDeTipo("vendedor", TIPOS, tablero, tablero)).toEqual([
-      { value: "club adulto mayor", label: "Club Adulto Mayor (0)" },
-      { value: "empresas", label: "Empresas (2)" },
-      { value: "particulares", label: "Particulares (1)" },
+    const opciones = opcionesDeTipo("vendedor", TIPOS, tablero, tablero);
+    expect(enCorto(opciones)).toEqual([
+      "Club Adulto Mayor 0",
+      "Empresas 2",
+      "Particulares 1",
     ]);
+    expect(opciones.map((o) => o.value)).toEqual([
+      "club adulto mayor",
+      "empresas",
+      "particulares",
+    ]);
+  });
+
+  it("cada tipo trae el punto de su color de Clientes; sin tipo, gris", () => {
+    const todas = [q(null)];
+    const color = Object.fromEntries(
+      opcionesDeTipo("vendedor", TIPOS, todas, todas).map((o) => [
+        o.label,
+        o.dotClass,
+      ]),
+    );
+    expect(color["Empresas"]).toBe("bg-orange-500");
+    expect(color["Particulares"]).toBe("bg-green-500");
+    expect(color["Club Adulto Mayor"]).toMatch(/^bg-[a-z]+-500$/);
+    expect(color["Sin tipo"]).toBe("bg-gray-300");
   });
 
   it("a recepción le ofrece solo los tipos particulares", () => {
     const tablero = [q("Particulares")];
-    expect(opcionesDeTipo("recepcion", TIPOS, tablero, tablero)).toEqual([
-      { value: "particulares", label: "Particulares (1)" },
-    ]);
+    expect(
+      enCorto(opcionesDeTipo("recepcion", TIPOS, tablero, tablero)),
+    ).toEqual(["Particulares 1"]);
   });
 
   it("sin tipos particulares marcados, recepción no tiene filtro", () => {
@@ -37,26 +65,24 @@ describe("las opciones del filtro por tipo de cliente", () => {
   it("un tipo fuera de la lista y un cliente sin tipo van al final: ninguna tarjeta queda fuera", () => {
     const todas = [q("Empresa antigua"), q(null), q(" empresas ")];
     expect(
-      opcionesDeTipo("administrador", TIPOS, todas, todas).map((o) => o.label),
+      enCorto(opcionesDeTipo("administrador", TIPOS, todas, todas)),
     ).toEqual([
-      "Club Adulto Mayor (0)",
-      "Empresas (1)",
-      "Particulares (0)",
-      "Empresa antigua (1)",
-      "Sin tipo (1)",
+      "Club Adulto Mayor 0",
+      "Empresas 1",
+      "Particulares 0",
+      "Empresa antigua 1",
+      "Sin tipo 1",
     ]);
   });
 
   it("la lista sale de todas las cargadas, pero cuenta solo lo que queda en el tablero", () => {
     const todas = [q("Empresa antigua"), q("Empresas")];
     const tablero = [q("Empresas")];
-    expect(
-      opcionesDeTipo("vendedor", TIPOS, todas, tablero).map((o) => o.label),
-    ).toEqual([
-      "Club Adulto Mayor (0)",
-      "Empresas (1)",
-      "Particulares (0)",
-      "Empresa antigua (0)",
+    expect(enCorto(opcionesDeTipo("vendedor", TIPOS, todas, tablero))).toEqual([
+      "Club Adulto Mayor 0",
+      "Empresas 1",
+      "Particulares 0",
+      "Empresa antigua 0",
     ]);
   });
 });
