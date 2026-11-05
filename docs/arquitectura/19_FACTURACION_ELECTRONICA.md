@@ -995,20 +995,57 @@ Después, en el laboratorio:
 Lo emitido se revisa en «Contabilidad/Libro de Ventas» del acceso web de
 prueba. Lo que se encuentre se arregla en el laboratorio y se anota acá.
 
-**5c, la certificación y el «a producción».**
-- Con el 5b listo, el técnico aprieta «Solicitar» en la plataforma. La
-  certificación toma de 3 a 5 días hábiles.
-- Con el «a producción» de Felipe, en este orden:
-  1. En la base de producción, las migraciones 184 y 187, respaldando antes
-     `modulos_propios`.
-  2. El motor (PR a `main`).
-  3. La vitrina.
-  4. En el motor de producción, las credenciales de producción, con
-     `FACTURACIONCL_AMBIENTE` = `produccion` y `FACTURACIONCL_EMPRESA` = `1`.
-  5. La primera boleta y la primera factura reales, mirándolas juntos.
+**5c, la certificación y el «a producción»** (el paso a paso, revisado
+el 05-11):
 
-Mientras el motor de producción no tenga las credenciales, Facturación se
-ve pero no emite: el letrero lo dice.
+*Medido ese día:*
+- En producción no hay ninguna tabla de facturación y Valle del Sol no
+  tiene el módulo.
+- Las migraciones 184 y 187 tienen su número libre en `main`; la 187 trae
+  también el tarifario.
+- La rama va 2 commits detrás de `main`, y al juntarlas solo chocan dos
+  mapas del atlas, el 09 y el 18. El código no choca.
+
+*Antes, sin tocar producción:*
+1. Felipe pide el paso a producción con «Solicitar», en la pantalla de
+   inicio de facturacion.cl. Antes tiene que estar listo el 5b.
+2. La certificación toma de 3 a 5 días hábiles.
+3. Al terminar llegan las credenciales de producción.
+
+*El día del «a producción», en este orden:*
+1. **Respaldo:** `modulos_propios` de la empresa 1, en
+   `02_RESPALDOS/cambios_de_datos`.
+2. **Base de producción:** las migraciones 184 y 187 (la 184b es solo del
+   laboratorio). Así quedan las tablas y el módulo de Valle del Sol.
+3. **Motor:**
+   - se junta `main` en la rama y se resuelven los dos mapas;
+   - el PR va a `main`, y al fusionarlo Railway publica solo;
+   - se verifica que `/health` muestre el commit nuevo;
+   - si se cae al fusionar, «Deploy Latest Commit», no «Redeploy».
+4. **Vitrina:** se arma desde `main` y se publica en www.eventi-app.com.
+5. **Sin credenciales todavía:** el registro del motor dice «sin conexión:
+   facturacion.cl todavía no está conectado» y la pantalla muestra el
+   letrero rojo. Nada se emite.
+6. **Felipe carga las credenciales de producción** en Railway → api-rest →
+   Variables:
+   - las tres de «Ambiente Producción»;
+   - `FACTURACIONCL_AMBIENTE` = `produccion`;
+   - `FACTURACIONCL_EMPRESA` = `1`.
+
+   Después aprieta «Deploy». El registro tiene que decir «conectado en
+   produccion para la empresa 1».
+7. **«Probar la conexión»** muestra los folios de producción de cada tipo.
+
+*Después:*
+- Felipe pone los precios del tarifario de boletas (parte vacío).
+- La primera boleta y la primera factura reales se emiten mirándolas
+  juntos: el folio, el PDF y el Libro de Ventas de facturacion.cl. En
+  producción, facturacion.cl le manda el documento al correo del cliente.
+- Cuando las boletas de Eventia funcionen, Facto deja de emitir boletas
+  (D1).
+- **Si algo sale mal:** se le saca el módulo `facturacion` a Valle del Sol
+  y Facturación desaparece. Lo ya emitido no se borra: se anula con nota de
+  crédito (L6).
 
 ### 9.11 Fuentes nuevas (04-11)
 
