@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
+import { BoletasController } from './boletas/boletas.controller';
+import { BoletasRepository } from './boletas/boletas.repository';
+import { BoletasService } from './boletas/boletas.service';
 import { ConexionConFacturacionCl } from './facturas/conexion';
 import { DocumentosTributariosRepository } from './facturas/documentos-tributarios.repository';
 import { FacturasController } from './facturas/facturas.controller';
@@ -14,12 +17,17 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
  * LA FACTURACIÓN ELECTRÓNICA (doc 19). Las órdenes de compra de cada evento
  * (paso 2a), su lectura con BelIA (paso 2b) y la factura del evento (paso
  * 2c): el borrador, la vista previa y la emisión contra facturacion.cl
- * SIMULADO (`facturas/conexion.ts`; la conexión de verdad es el paso 5). Es
- * el módulo propio `facturacion`: solo Valle del Sol.
+ * SIMULADO (`facturas/conexion.ts`; la conexión de verdad es el paso 5), y
+ * las boletas de recepción por cabaña (paso 3a, `boletas/`). Es el módulo
+ * propio `facturacion`: solo Valle del Sol.
  */
 @Module({
   imports: [ClientsModule, QuotationFollowupsModule],
-  controllers: [OrdenesDeCompraController, FacturasController],
+  controllers: [
+    OrdenesDeCompraController,
+    FacturasController,
+    BoletasController,
+  ],
   providers: [
     OrdenesDeCompraService,
     OrdenesDeCompraRepository,
@@ -27,6 +35,8 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     FacturasService,
     DocumentosTributariosRepository,
     ConexionConFacturacionCl,
+    BoletasService,
+    BoletasRepository,
   ],
   exports: [OrdenesDeCompraService],
 })

@@ -57,6 +57,10 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
 | `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, a nombre de quién viene (`rut` y `razon_social`, como los imprime la OC: la factura va a ese RUT), `comprador` (`jsonb`: giro, dirección, comuna y ciudad como los leyó BelIA, para la primera factura a un RUT nuevo), `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
+| `tarifario_de_boletas` | Lo que recepción boletea suelto: cabañas, ticket diario, tinaja… (`nombre` hasta 60, `precio` con IVA, `unidad`, `activo`, `orden`). Aparte del catálogo del cotizador (D3, Felipe 04-11: *"tarifario aparte puede ser cabañas, ticket diario, otros"*) | doc 19 | 187 |
+| `cobros_por_boletear` | El total que deja el administrador para boletear (`descripcion` hasta 55, `total` con IVA), desde un evento (`quotation_id`, cascada) o suelto, con quién lo dejó (`creado_por`, `creado_por_nombre`) | doc 19 | 187 |
+| `cobros_por_boletear_lineas` | Cómo lo reparte recepción: una por cabaña (`cabana` hasta 22, la escribe ella), `monto`, `correo` del huésped y `documento_id`, su boleta (sin cascada; única) | doc 19 | 187 |
+| `cobros_por_boletear_cambios` | E3: quién cambió qué (`que`, `antes`, `despues`, `usuario`, `nombre`). `service_role` solo `SELECT` e `INSERT`: lo anotado no se reescribe | doc 19 | 187 |
 | `documentos_tributarios` | Cada boleta, factura y nota: `tipo` (33, 34, 39, 41, 56, 61), `ambiente` (`simulado`, `prueba`, `produccion`), `folio`, `estado` (`borrador`, `enviando`, `emitido`, `por_confirmar`, `rechazado`), `clave_emision` única, el receptor, el detalle y las referencias como se mandaron, los montos, la cotización y la OC, el `porcentaje`, la cadena (`modifica_id` y `codigo_referencia`), el archivo enviado y la respuesta, el PDF y quién lo emitió. **No se borra**: sin cascada y sin `DELETE` para el motor | doc 19 | 184 |
 
 ### Cotizaciones y negocio
@@ -698,4 +702,14 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 186 el motor reconoce los particulares por el nombre del tipo (`tiposParticulares`), así que recepción no se queda sin trabajo; pero la tarjeta de BelIA para corregir un cliente no se puede guardar.
 
 **Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: «Particulares» marcado en las empresas 1, 51 y 52). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+
+## 32. Migración 187: las boletas de recepción (05-11-2026)
+
+**Qué hace.** Cuatro tablas para el paso 3 del doc 19 (§9.4 y §9.16): el `tarifario_de_boletas` (lo que se boletea suelto, aparte del catálogo, D3), los `cobros_por_boletear` que deja el administrador, su reparto por cabaña (`cobros_por_boletear_lineas`, cada una con su boleta en `documentos_tributarios`) y quién cambió qué (`cobros_por_boletear_cambios`, E3: solo se agrega). Cerradas a la llave pública como la 184.
+
+**Lo que no se borra.** Una cabaña con boleta no se edita ni se quita, y un cobro con boletas no se borra: lo cuida el motor (`facturacion/boletas/`); la llave de la línea a `documentos_tributarios` no tiene cascada. Un evento con boletas no se borra porque la guardia de borrado ya cuenta `documentos_tributarios` (la 184).
+
+**Ojo con el orden:** va DESPUÉS de la 184 (usa `documentos_tributarios`). El número se reservó el 04-11 con la sesión «Eventia (Full)» (que usó la 186). La §30 y la §31 son la 185 y la 186 de las otras sesiones.
+
+**Estado.** Escrita el 05-11-2026. Falta aplicarla en el laboratorio y, con el «a producción» de Felipe, en producción, antes del motor que la usa.
 
