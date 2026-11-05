@@ -23,9 +23,12 @@ import SelloDeTipo from "./SelloDeTipo";
 
 // UNA FILA DE LA BANDEJA. Aparte de OportunidadesPage desde el 19-10, con
 // los colores de la decisión 31 (coloresDeLaBandeja.ts): el semáforo es la
-// franja y la tinta de la fila; las razones de la prioridad van en violeta;
-// la urgencia, con reloj y sin rojo. Sin «Ver resumen» (decisión 30, Felipe:
-// "una vez que la pinche me muestra el modal"): la fila entera lo abre.
+// franja y la tinta de la fila; las razones de la prioridad van en violeta.
+// El cierre, a la derecha junto a los botones y en rojo, con reloj
+// (decisión 116, 04-11; Felipe: "se pierde con la otra información y
+// debería estar a la derecha, un poco más destacada"): hasta entonces iba
+// abajo del nombre y sin rojo. Sin «Ver resumen» (decisión 30, Felipe: "una
+// vez que la pinche me muestra el modal"): la fila entera lo abre.
 
 export default function FilaDeOportunidad({
   o,
@@ -40,6 +43,8 @@ export default function FilaDeOportunidad({
 }) {
   const p = o.proceso;
   const cierre = cuandoCierra(p.fecha_cierre);
+  // Lo cerrado y lo que no informa cierre ya no apuran: en gris.
+  const apura = Boolean(p.fecha_cierre) && !cierre.cerrada;
   const estado = ESTADOS.find((e) => e.value === o.estado);
   // Los botones de la derecha deciden sin abrir el resumen.
   const solo = (accion: () => void) => (e: { stopPropagation: () => void }) => {
@@ -91,19 +96,6 @@ export default function FilaDeOportunidad({
             .filter(Boolean)
             .join(" · ")}
         </p>
-        <p className="text-xs mt-0.5">
-          <span className="text-gray-500">
-            Cierra {formatMomento(p.fecha_cierre, "diaHora", "sin fecha")}
-          </span>{" "}
-          {cierre.urgente ? (
-            <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
-              <AlarmClock size={12} aria-hidden />
-              {cierre.texto}
-            </span>
-          ) : (
-            <span className="text-gray-500">({cierre.texto})</span>
-          )}
-        </p>
         {o.estado === "seguida" && (
           <p className="text-xs font-semibold text-sky-800 mt-1">
             En seguimiento · Mercado Público: {p.estado ?? "sin estado"}
@@ -146,6 +138,21 @@ export default function FilaDeOportunidad({
         </div>
       </div>
       <div className="flex flex-col gap-1.5 items-stretch">
+        <p
+          className={`text-right text-xs leading-tight ${
+            apura ? "text-red-600" : "text-gray-500"
+          }`}
+        >
+          <span className="inline-flex items-center gap-1 font-semibold">
+            {apura && <AlarmClock size={12} aria-hidden />}
+            {cierre.texto.charAt(0).toUpperCase() + cierre.texto.slice(1)}
+          </span>
+          {p.fecha_cierre && (
+            <span className="block">
+              {formatMomento(p.fecha_cierre, "diaHora", "sin fecha")}
+            </span>
+          )}
+        </p>
         {o.estado === "nueva" ? (
           <>
             <button

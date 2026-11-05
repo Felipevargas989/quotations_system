@@ -740,3 +740,40 @@ describe("Lo que tienes que ofrecer (las exigencias)", () => {
     expect(screen.queryByText("Lo que tienes que ofrecer")).toBeNull();
   });
 });
+
+describe("No es para ti (decisión 117; el detalle, en NoEsParaTi.test.tsx)", () => {
+  it("si piden otro lugar, va arriba de «Lo que te deja fuera»; ya descartada, sin «Desistir»; si se puede en el complejo, no sale", async () => {
+    const enOtroLugar = {
+      ...ANALISIS,
+      resultado: { ...RESULTADO, se_puede_en_el_complejo: "no" },
+    };
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />, enOtroLugar);
+    const aviso = await screen.findByText(
+      "No es para ti: las bases te dejan fuera.",
+    );
+    expect(aviso.closest("section")?.textContent).toContain(
+      "Lo que te deja fuera",
+    );
+    expect(
+      screen.getByRole("button", { name: "Desistir de esta licitación" }),
+    ).toBeInTheDocument();
+    cleanup();
+
+    pintar(
+      <AnalisisDeBases
+        oportunidadId={40}
+        ficha={{ ...FICHA, estado: "descartada" }}
+      />,
+      enOtroLugar,
+    );
+    await screen.findByText("No es para ti: las bases te dejan fuera.");
+    expect(
+      screen.queryByRole("button", { name: "Desistir de esta licitación" }),
+    ).toBeNull();
+    cleanup();
+
+    pintar(<AnalisisDeBases oportunidadId={40} ficha={FICHA} />);
+    await screen.findByText("Cómo te evalúan");
+    expect(screen.queryByText(/No es para ti/)).toBeNull();
+  });
+});

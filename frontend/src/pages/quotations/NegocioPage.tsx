@@ -35,6 +35,7 @@ import PaymentPlanEditor from "../../components/PaymentPlanEditor";
 import AvisoDeChoque from "../../components/AvisoDeChoque";
 import EventoCajitas from "../../components/EventoCajitas";
 import ServiciosTab from "../postventa/ServiciosTab";
+import AvisoDeCierre from "../../components/AvisoDeCierre";
 import MotivoPerdida from "../../components/MotivoPerdida";
 import { createFollowup } from "../../services/quotationFollowups.service";
 import { formatPhone } from "../../utils/phone";
@@ -221,6 +222,8 @@ export default function NegocioPage() {
   // antes de aplicarse; el comentario queda como nota del hilo.
   const [pidiendoMotivo, setPidiendoMotivo] = useState<string | null>(null);
   const [guardandoMotivo, setGuardandoMotivo] = useState(false);
+  // Tras rechazar: «¿Avisarle al cliente?» (Felipe, 04-11-2026).
+  const [avisoDeCierre, setAvisoDeCierre] = useState(false);
 
   const cambiarEstado = async (nuevo: string, motivo?: string) => {
     if (!fila || nuevo === fila.quotation_status) return;
@@ -265,6 +268,7 @@ export default function NegocioPage() {
       if (error) throw new Error(error.message);
       toast.success("Estado actualizado.");
       await refrescarEstado();
+      return true;
     } catch (error) {
       const backendMsg = (
         error as { response?: { data?: { message?: string } } }
@@ -678,7 +682,7 @@ export default function NegocioPage() {
             setGuardandoMotivo(true);
             void (async () => {
               try {
-                await cambiarEstado(estado, motivo);
+                const cambio = await cambiarEstado(estado, motivo);
                 if (comentario)
                   await createFollowup({
                     quotation_id: id!,
@@ -686,11 +690,18 @@ export default function NegocioPage() {
                   }).catch(() => {});
                 refrescarBitacora();
                 setPidiendoMotivo(null);
+                if (cambio && estado === "rechazada") setAvisoDeCierre(true);
               } finally {
                 setGuardandoMotivo(false);
               }
             })();
           }}
+        />
+      )}
+      {avisoDeCierre && id && (
+        <AvisoDeCierre
+          quotationId={id}
+          onCerrar={() => setAvisoDeCierre(false)}
         />
       )}
       {/* El visor necesita la cotización COMPLETA (detalle): la fila

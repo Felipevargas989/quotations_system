@@ -1,6 +1,6 @@
 # Mapa: Correos internos, avisos y notificaciones
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y ampliado el 14-09-2026 con el filtro por derecho de los correos automáticos (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026, y ampliado el 14-09-2026 con el filtro por derecho de los correos automáticos (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 04-11-2026: el aviso de cierre al rechazar, opcional y editable (tabla de correos al cliente; mapa 02 §5.2 punto 8).
 
 ## 1. Qué hace
 
@@ -100,6 +100,7 @@ Los relojes (sin endpoint) se describen en la sección 5.3.
 | `WEEKLY_ANALYTICS`: "Análisis semanal de tus eventos" | Nadie | — | `weekly_analytics/weekly_analytics.ts` | — | **Muerto** |
 | 16 muestras `[PRUEBA] …` | `POST /email-previews` → `sendPreviewBatch` | La casilla que se indique | Las mismas plantillas | No pasa por interruptores ni por el silenciador, a propósito | Vivo solo fuera de producción |
 | Cotización con PDF adjunto | `EnvioCotizacionService.enviar` (botón "Enviar cotización") | Contacto (`correoDeDestino`) + copia oculta al "Responder a" | `plantillaCampana` + PDF | Ninguna; el silenciador no aplica | Vivo (mapa 02) |
+| Aviso de cierre al rechazar (04-11-2026) | `EnvioCotizacionService.enviarAvisoDeCierre` (pop-up «¿Avisarle al cliente?» tras rechazar) | Contacto (`correoDeDestino`) + copia oculta al "Responder a" | `plantillaCampana`, texto editado, sin PDF | Ninguna; el silenciador no aplica | Vivo (mapa 02 §5.2 punto 8) |
 | Brochure del embudo: "{empresa}: valores para tu {tipo}" | `ConsultasCronService.despachar` (cada minuto) → `ConsultasService.enviarBrochure` | Quien consultó + copia oculta al "Responder a" (desde 16-09-2026) | `plantillaCampana` + brochures | Configuración del embudo por tipo; el silenciador no aplica | Vivo (mapa 11) |
 | Campañas: prueba, envío, reenvío a no abiertos, programadas | `MarketingService.enviarPrueba`, `enviarCampana`, `reenviarANoAbiertos`; `MarketingCronService.despacharProgramadas` | Audiencias | Mapa 10 | Bajas (mapa 10); el silenciador no aplica | Vivo (mapa 10) |
 | Recuperar contraseña | `AuthService` con `supabase.auth.resetPasswordForEmail` | El usuario | Supabase Auth, fuera del motor | — | Vivo (mapa 15) |
