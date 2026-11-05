@@ -281,6 +281,19 @@ export class AsistenteRepository {
     return (data ?? []) as FilaDeCliente[];
   }
 
+  /** Los tipos de cliente de la empresa, por su orden (Configuración): para
+   *  revisar los mal clasificados (doc 21 §6). */
+  async tiposDeCliente(companyId: Company['id']): Promise<string[]> {
+    const { data, error } = await this.supabase.client
+      .from('client_types')
+      .select('name')
+      .eq('company_id', companyId)
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .order('name');
+    if (error) throw error;
+    return ((data ?? []) as { name: string }[]).map((t) => t.name);
+  }
+
   /** Un cliente, solo si es de la empresa (el id viene del navegador: la
    *  ficha que la persona tiene abierta). */
   async clienteDeLaEmpresa(

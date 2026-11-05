@@ -5,6 +5,7 @@ import {
   NotebookPen,
   RotateCcw,
   TriangleAlert,
+  UserPen,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -49,7 +50,15 @@ export default function PropuestaDeBelia({
   const esLeccion = p.tipo === "leccion";
   const esDecision = p.tipo === "leccion_estado";
   const deLeccion = esLeccion || esDecision;
-  const Icono = esSeguimiento ? Mail : deLeccion ? Lightbulb : NotebookPen;
+  // Corregir un cliente mal clasificado (doc 21 §6): su tipo o su nombre.
+  const esCliente = p.tipo === "cliente";
+  const Icono = esSeguimiento
+    ? Mail
+    : deLeccion
+      ? Lightbulb
+      : esCliente
+        ? UserPen
+        : NotebookPen;
   const siDeLaDecision = {
     aprobar: "Sí, aprobar",
     descartar: "Sí, descartar",
@@ -73,11 +82,13 @@ export default function PropuestaDeBelia({
                 ? p.resumen
                 : esSeguimiento
                   ? "Seguimiento por correo"
-                  : esNueva
-                    ? p.nueva?.es === "requerimiento"
-                      ? "Requerimiento nuevo"
-                      : "Cotización nueva"
-                    : "Propuesta"}
+                  : esCliente
+                    ? "Corregir el cliente"
+                    : esNueva
+                      ? p.nueva?.es === "requerimiento"
+                        ? "Requerimiento nuevo"
+                        : "Cotización nueva"
+                      : "Propuesta"}
           {p.enlace && p.numero != null && (
             <>
               {" · "}
@@ -303,9 +314,11 @@ export default function PropuestaDeBelia({
                     ? siDeLaDecision
                     : esSeguimiento
                       ? "Sí, dejar el borrador"
-                      : esNueva
-                        ? "Sí, crear"
-                        : "Sí, aplicar"}
+                      : esCliente
+                        ? "Sí, cambiar"
+                        : esNueva
+                          ? "Sí, crear"
+                          : "Sí, aplicar"}
             </button>
             <button
               type="button"
@@ -325,9 +338,11 @@ export default function PropuestaDeBelia({
                 ? "Anotada"
                 : esSeguimiento || esDecision
                   ? "Listo"
-                  : esNueva
-                    ? "Creada"
-                    : "Aplicada"}
+                  : esCliente
+                    ? "Cambiado"
+                    : esNueva
+                      ? "Creada"
+                      : "Aplicada"}
               {p.total_final ? ` · total ${p.total_final}` : ""}
             </p>
             {p.se_puede_deshacer && (

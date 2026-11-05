@@ -10,6 +10,7 @@ import {
   pesos,
   type Herramienta,
 } from './comun';
+import { clientesQueRevisar } from './mal-clasificados';
 import { esRecepcion } from './recepcion';
 import { pendientesDe } from './seguimientos-pendientes';
 
@@ -24,6 +25,8 @@ import { pendientesDe } from './seguimientos-pendientes';
 //   (Post-Venta → Pagos: operaciones para arriba con `post_venta`).
 // A recepción (doc 20 §13, 04-11) le tocan solo los requerimientos que
 // llegaron hoy, sin enlace: los seguimientos y los topes son de quien vende.
+// Desde el doc 21 (§6), a quien vende también los clientes que parecen mal
+// clasificados (`mal-clasificados.ts`).
 
 const MAX = 20;
 
@@ -33,8 +36,9 @@ export const avisosDeHoy: Herramienta = {
     'Lo importante de hoy, lo que hace que BelIA avise: los compromisos de seguimiento que ' +
     'vencen hoy, los requerimientos que llegaron hoy, las cotizaciones con tope de calendario ' +
     '(se topan con un evento aceptado) y, para operaciones y administración, los comprobantes ' +
-    'del portal que nadie ha revisado. Para «¿qué tengo que revisar hoy?». A recepción, solo ' +
-    'los requerimientos que llegaron hoy.',
+    'del portal que nadie ha revisado y los clientes que parecen mal clasificados (con lo ' +
+    'que conviene cambiarles: se ofrece con proponer_cambio_de_cliente). Para «¿qué tengo que ' +
+    'revisar hoy?». A recepción, solo los requerimientos que llegaron hoy.',
   esquema: { type: 'object', properties: {} },
   cargos: RECEPTION_AND_UP,
   async ejecutar(_entrada, ctx) {
@@ -60,22 +64,30 @@ export const avisosDeHoy: Herramienta = {
     const veComprobantes =
       OPERATIONS_AND_UP.includes(rol) &&
       tieneDerecho(ctx.usuario.derechos, 'post_venta');
-    const [{ deHoy }, requerimientos, choques, comprobantes, porAprobar] =
-      await Promise.all([
-        pendientesDe(ctx, empresa),
-        ctx.repositorio.buscarCotizaciones(empresa, {
-          tipo: RequestType.REQUERIMIENTO,
-          creadaDesde: inicioDelDiaEnChile(ctx.hoy),
-          orden: 'creada',
-          limite: MAX,
-        }),
-        ctx.choques.listar(ctx.usuario),
-        veComprobantes
-          ? ctx.repositorio.comprobantesPorRevisar(empresa)
-          : Promise.resolve([]),
-        // Las lecciones que esperan a administración (doc 20 §17).
-        ctx.propuestas.leccionesPorAprobar(ctx.usuario).catch(() => []),
-      ]);
+    const [
+      { deHoy },
+      requerimientos,
+      choques,
+      comprobantes,
+      porAprobar,
+      malClasificados,
+    ] = await Promise.all([
+      pendientesDe(ctx, empresa),
+      ctx.repositorio.buscarCotizaciones(empresa, {
+        tipo: RequestType.REQUERIMIENTO,
+        creadaDesde: inicioDelDiaEnChile(ctx.hoy),
+        orden: 'creada',
+        limite: MAX,
+      }),
+      ctx.choques.listar(ctx.usuario),
+      veComprobantes
+        ? ctx.repositorio.comprobantesPorRevisar(empresa)
+        : Promise.resolve([]),
+      // Las lecciones que esperan a administración (doc 20 §17).
+      ctx.propuestas.leccionesPorAprobar(ctx.usuario).catch(() => []),
+      // Los clientes mal clasificados (doc 21 §6): si falla, lo demás sirve.
+      clientesQueRevisar(ctx).catch(() => []),
+    ]);
     const topes = new Map<string, (typeof choques)[number][]>();
     for (const c of choques) {
       topes.set(c.quotation_id, [...(topes.get(c.quotation_id) ?? []), c]);
@@ -117,6 +129,13 @@ export const avisosDeHoy: Herramienta = {
         : 'Los comprobantes del portal los revisan operaciones y administración.',
       lecciones_por_aprobar:
         porAprobar.length > 0 ? porAprobar.slice(0, MAX) : undefined,
+      clientes_que_revisar:
+        malClasificados.length > 0
+          ? {
+              total: malClasificados.length,
+              primeros: malClasificados.slice(0, 10),
+            }
+          : undefined,
     };
   },
 };

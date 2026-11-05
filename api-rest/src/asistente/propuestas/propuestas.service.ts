@@ -33,6 +33,7 @@ import {
   type CabeceraNueva,
   type CambioDeCabecera,
 } from './cabecera';
+import { CambioDeCliente, type CambioPedido } from './cambio-de-cliente';
 import {
   anotarComoBelia,
   aPedidoDe,
@@ -111,13 +112,20 @@ export class PropuestasService {
     // Lo que trabaja recepción (doc 21): las cotizaciones de particulares.
     // Sin ella, recepción solo crea requerimientos, como antes.
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
+    // Corregir un cliente mal clasificado (doc 21 §6).
+    @Optional() private readonly cambioDeCliente?: CambioDeCliente,
   ) {
     this.logger.setContext(PropuestasService.name);
     this.deRecepcion = new LoQuePuedeRecepcion(this.guardadas, this.alcance);
   }
 
-  /** Lo que recepción trabaja con BelIA (doc 21, `de-recepcion.ts`). */
+  // Lo que recepción trabaja con BelIA (doc 21, `de-recepcion.ts`).
   private readonly deRecepcion: LoQuePuedeRecepcion;
+
+  /** Corregir un cliente mal clasificado (doc 21 §6). */
+  proponerCambioDeCliente(usuario: User, pedido: CambioPedido) {
+    return this.cambioDeCliente!.proponer(usuario, pedido);
+  }
 
   private conSeguimiento(): SeguimientoDesdeElChat {
     if (!this.seguimientoDelChat) {
@@ -302,16 +310,14 @@ export class PropuestasService {
   async aplicar(usuario: User, id: string): Promise<ResultadoDeAplicar> {
     const empresa = usuario.company_id;
     const p = await this.suya(usuario, id);
-    // Recepción (doc 20 §13 y doc 21): requerimientos para cualquiera y las
-    // cotizaciones de particulares; nunca lecciones. Lo de cada cotización
-    // se revisa abajo, con la cotización leída. Si le cambiaron el cargo con
-    // una propuesta vieja en la mano, también.
+    // Recepción (doc 20 §13 y doc 21): nunca lecciones ni clientes; lo de
+    // cada cotización se revisa abajo, con la cotización leída.
     if (
       usuario.role === UserRole.RECEPCION &&
-      (p.tipo === 'leccion' || p.tipo === 'leccion_estado')
+      ['leccion', 'leccion_estado', 'cliente'].includes(p.tipo)
     ) {
       throw new ForbiddenException(
-        'Con el cargo de recepción, BelIA no anota lecciones.',
+        'Con el cargo de recepción, BelIA no anota lecciones ni cambia clientes.',
       );
     }
     if (p.tipo === 'cotizacion_nueva') {
@@ -345,6 +351,11 @@ export class PropuestasService {
           guardada = true;
         });
       }
+      if (p.tipo === 'cliente' && this.cambioDeCliente) {
+        return await this.cambioDeCliente.aplicar(usuario, p, () => {
+          guardada = true;
+        });
+      }
       if (p.tipo === 'leccion' || p.tipo === 'leccion_estado') {
         const r =
           p.tipo === 'leccion'
@@ -368,11 +379,8 @@ export class PropuestasService {
         id: p.quotation_id,
       });
       if (!q) throw new NotFoundException('La cotización ya no existe.');
-      await this.deRecepcion.alAplicar(
-        usuario,
-        q,
-        p.tipo === 'nota' ? 'anotar' : 'cotizar',
-      );
+      const para = p.tipo === 'nota' ? 'anotar' : 'cotizar';
+      await this.deRecepcion.alAplicar(usuario, q, para);
 
       if (p.tipo === 'seguimiento') {
         // El borrador lo escribe el seguimiento con IA, con su nota en la
