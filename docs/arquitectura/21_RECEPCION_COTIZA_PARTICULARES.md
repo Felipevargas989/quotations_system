@@ -65,7 +65,7 @@ con la regla:
 | `GET /quotations` (el tablero) | Entrega TODAS, con montos (la pantalla las escondía) | Requerimientos de todos y cotizaciones de particulares. El calendario pide `vista=calendario`: ahí, todos los eventos, y los demás como agenda (cliente, fecha, personas, estado), sin plata |
 | `GET /clients/:id/summary` (resumen del cliente) | Entrega los totales de todas sus cotizaciones y sus pagos | Los montos, solo si el cliente es particular |
 | `GET /payments?quotationId=` (las cuotas) | Entrega las cuotas de cualquiera | Solo de una cotización que puede ver |
-| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, completa si es de particular; si no, la agenda, con sus categorías (la tarjeta del calendario las pide aquí), sin plata. Lo público, pregunta a Felipe (§7) |
+| `GET /quotations/:id` (la ficha) | Pública: la usa la encuesta de satisfacción, con precios, para cualquiera con el enlace | Con la sesión de recepción, completa si es de particular; si no, la agenda, con sus categorías (la tarjeta del calendario las pide aquí), sin plata. Lo público queda como está (§7, decisión de Felipe) |
 | `POST /quotations` y `PATCH /quotations/:id` | Solo requerimientos | También cotizaciones de particulares: sin descuento, sin aceptar ni anular |
 | `POST /quotations/:id/enviar-correo` | Vendedor | Recepción, en particulares |
 | `POST /quotations/:id/seguimiento` y `GET seguimiento/pendientes` | Vendedor | Recepción, en particulares |
@@ -106,13 +106,15 @@ Hecho en R2:
   cambiar el tipo o el nombre, que se aprueba como las demás (tipo de
   propuesta nuevo `cliente`, migración 186). Recepción no cambia tipos.
 
-## 7. Pregunta abierta
+## 7. La encuesta: la vía queda abierta (decidido)
 
 La ficha de una cotización (`GET /quotations/:id`) es pública: la encuesta de
-satisfacción la abre sin sesión, y entrega la cotización con precios a
-cualquiera que tenga el enlace. Para que recepción no vea las de empresas de
-verdad, conviene darle a la encuesta su propia puerta, con lo justo, y que
-la ficha completa pida sesión. Espera el OK de Felipe.
+satisfacción la abre sin sesión y muestra solo el N°, el tipo de evento y la
+fecha, pero recibe la cotización completa, con precios, a quien tenga el
+enlace. Con su sesión, a recepción una que no es de particulares le llega
+como agenda; sin sesión, completa. Se propuso darle a la encuesta su propia
+puerta con esos tres datos. Felipe, 04-11-2026: *"dejemos esa vía abierta no
+importa"*. Queda como está: el enlace es un código largo que no se adivina.
 
 ## 8. Por tandas
 
