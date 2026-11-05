@@ -21,6 +21,7 @@ import {
 import {
   canAccessSection,
   Derecho,
+  Permiso,
   SECTION_DERECHO,
   tieneDerecho,
   Section,
@@ -33,16 +34,18 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { userRole, company } = useAuth();
+  const { userRole, company, permisos } = useAuth();
 
-  const canAccess = (section: string): boolean => {
+  const canAccess = (section: string, permiso?: Permiso): boolean => {
     // Mientras el rol viene en camino NO se muestra nada (12-08). El
     // "mostrar todo por defecto" de antes le hacía ver a recepción, por
     // un parpadeo, Dashboard / Post-Venta / Catálogo / Logística; un
     // clic en esa ventana la dejaba en "Permisos Insuficientes". Y si la
     // consulta del rol falla, el menú se queda vacío en vez de mentir.
     if (!userRole) return false;
-    return canAccessSection(userRole, section as any);
+    // Los permisos por cargo de su empresa (doc 22, 05-11-2026).
+    if (permiso) return permisos.includes(permiso);
+    return canAccessSection(userRole, section as any, permisos);
   };
 
   // PRECALENTADO POR CURSOR (12-08, hallazgo #2 de velocidad): al posar
@@ -81,8 +84,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       // Comparte sección con Cotizaciones (el cargo es el mismo) pero NO
       // el plan: el embudo con brochure automático entra con Opera y
       // Crece. Por eso el derecho va acá y no en SECTION_DERECHO, que
-      // solo sabe de secciones (15-09-2026).
+      // solo sabe de secciones (15-09-2026). Y su propio interruptor
+      // (doc 22, 05-11-2026).
       derecho: "consultas" as Derecho,
+      permiso: "consultas" as Permiso,
       precargar: () => import("../pages/consultas/ConsultasPage.tsx"),
     },
     {
@@ -241,7 +246,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              if (!canAccess(item.section)) return null;
+              if (
+                !canAccess(
+                  item.section,
+                  "permiso" in item ? item.permiso : undefined,
+                )
+              )
+                return null;
 
               const Icon = item.icon;
               // FUERA DEL PLAN (paso 3.2, 14-09-2026): el ítem se muestra

@@ -33,7 +33,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import ConfirmInline from "../../components/ConfirmInline";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import Personaje from "../../components/Personaje";
-import { SECTION_ROLES, tieneDerecho } from "../../constants/permissions";
+import { tieneDerecho } from "../../constants/permissions";
 import { compromisoVigente } from "./compromisoVigente";
 import { useApariencias } from "../../hooks/useApariencias";
 import { useChoquesDeFecha } from "../../hooks/useChoquesDeFecha";
@@ -192,11 +192,11 @@ export function HiloSeguimiento({
   // Post-Venta (Quotation a secas) sin inventar datos (07-08).
   readonly quotation: CotizacionDelHilo;
 }) {
-  const { user, userRole, company } = useAuth();
+  const { user, company, permisos } = useAuth();
   // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
   // empresa con el módulo propio.
   const conSeguimientoIA =
-    SECTION_ROLES.quotations_edit.includes(userRole as never) &&
+    permisos.includes("cotizaciones") &&
     tieneDerecho(company, "seguimiento_con_ia");
   // Con la lista: si el borrador de antes sigue en Outlook, el aviso
   // muestra el aviso «Borrador en Outlook» en vez del botón (doc 18 §9).

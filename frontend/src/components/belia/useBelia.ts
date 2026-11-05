@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { ROLE_GROUPS, tieneDerecho } from "../../constants/permissions";
+import { tieneDerecho } from "../../constants/permissions";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   borrarConversacion,
@@ -92,14 +92,15 @@ const guardar = (clave: string, valor: unknown) => {
 };
 
 export function useBelia() {
-  const { userRole, company, userName } = useAuth();
+  const { userRole, company, userName, permisos } = useAuth();
   // De vendedor para arriba (Felipe, 03-11: "lo usa administración y
   // vendedores") y, desde el 04-11, también recepción (doc 20 §13), solo en
   // la empresa con el módulo propio. A recepción el motor le da las
-  // herramientas sin plata; y niega igual lo que no corresponde.
+  // herramientas sin plata; y niega igual lo que no corresponde. Desde el
+  // doc 22 (05-11-2026), con el permiso BelIA de su cargo.
   const puede =
     Boolean(userRole) &&
-    ROLE_GROUPS.RECEPTION_AND_UP.includes(userRole as never) &&
+    permisos.includes("belia") &&
     tieneDerecho(company, "asistente");
   const esRecepcion = userRole === "recepcion";
   const esAdmin = userRole === "administrador";

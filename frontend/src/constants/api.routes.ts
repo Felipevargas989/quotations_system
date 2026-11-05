@@ -105,6 +105,10 @@ export const API_ROUTES = {
   // El personaje y el color de cada uno (migración 167).
   USERS_APARIENCIAS: "/users/apariencias",
   USERS_APARIENCIA: "/users/apariencia",
+  // Los permisos por cargo (doc 22): la pantalla, un interruptor (PUT) y
+  // «Volver a lo de fábrica».
+  PERMISOS: "/permisos",
+  PERMISOS_FABRICA: "/permisos/fabrica",
 
   // calendar
   CALENDAR_EVENTS: "/calendar/events",

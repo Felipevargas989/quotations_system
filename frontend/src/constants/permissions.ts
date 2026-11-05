@@ -45,7 +45,9 @@ export type Section =
   // (E5), y eso lo cuida el motor. Con el módulo propio `facturacion`.
   | "facturacion";
 
-// Define which roles can access which sections
+// Define which roles can access which sections. Desde los permisos por
+// cargo (doc 22, 05-11-2026) solo deciden las secciones sin permiso (Mi
+// cuenta y Planes): las demás las decide SECTION_PERMISO.
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   // Recepción (12-08, definido con Felipe): contesta el teléfono, toma
   // solicitudes y hace seguimiento. Ve todo lo que el cliente YA SABE
@@ -117,9 +119,122 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   ],
 };
 
-// Helper function to check if a role can access a section
-export const canAccessSection = (role: UserRole, section: Section): boolean => {
+// LOS PERMISOS POR CARGO (doc 22, 05-11-2026). Felipe: «transformar hoy
+// todos los permisos existentes en pestañas que se puedan deslizar como
+// botones». Cada empresa prende y apaga, por cargo, las secciones del menú
+// (Mi empresa → Usuarios → Permisos por cargo).
+//
+// La app NO guarda copia de la configuración: el motor manda en el perfil
+// la lista de permisos prendidos del cargo (`permisos`), con la misma
+// cuenta con que cierra sus puertas. Las secciones que tienen permiso dejan
+// de mirar ROLE_PERMISSIONS y SECTION_ROLES: el menú y las rutas preguntan
+// lo mismo. Las que no tienen (Mi cuenta y Planes) siguen como estaban.
+export type Permiso =
+  | "requerimientos"
+  | "cotizaciones"
+  | "consultas"
+  | "clientes"
+  | "belia"
+  | "calendario"
+  | "postventa"
+  | "proveedores"
+  | "dashboard"
+  | "catalogo"
+  | "personal"
+  | "marketing"
+  | "oportunidades"
+  | "encuestas"
+  | "mi_empresa"
+  | "usuarios";
+
+export const SECTION_PERMISO: Partial<Record<Section, Permiso>> = {
+  dashboard: "dashboard",
+  analytics: "dashboard",
+  requests: "requerimientos",
+  quotations: "cotizaciones",
+  quotations_edit: "cotizaciones",
+  clients: "clientes",
+  payments: "postventa",
+  admin: "usuarios",
+  user_management: "usuarios",
+  services: "catalogo",
+  company_configuration: "mi_empresa",
+  calendar: "calendario",
+  logistics: "proveedores",
+  people: "personal",
+  marketing: "marketing",
+  customer_satisfaction_survey: "encuestas",
+  oportunidades: "oportunidades",
+};
+
+const DE_TODOS: Permiso[] = [
+  "requerimientos",
+  "cotizaciones",
+  "consultas",
+  "belia",
+  "calendario",
+];
+
+// Lo de fábrica, que es lo de hoy: lo mismo que `api-rest/src/auth/
+// permisos.ts`. Solo se usa si el motor todavía no manda la lista (el
+// despliegue va motor primero) o con un perfil viejo guardado en el
+// navegador. El Calendario del vendedor, prendido (Felipe, 05-11-2026).
+export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
+  recepcion: DE_TODOS,
+  vendedor: [...DE_TODOS, "clientes"],
+  operaciones: [...DE_TODOS, "clientes", "postventa", "proveedores"],
+  administrador: [
+    ...DE_TODOS,
+    "clientes",
+    "postventa",
+    "proveedores",
+    "dashboard",
+    "catalogo",
+    "personal",
+    "marketing",
+    "oportunidades",
+    "encuestas",
+    "mi_empresa",
+    "usuarios",
+  ],
+};
+
+/** Los permisos prendidos de quien está conectado: los del perfil; sin
+ *  ellos, los de fábrica de su cargo. Sin cargo, ninguno. */
+export const permisosDe = (
+  role: UserRole | null | undefined,
+  delPerfil?: string[] | null,
+): Permiso[] =>
+  Array.isArray(delPerfil)
+    ? (delPerfil as Permiso[])
+    : role
+      ? (PERMISOS_DE_FABRICA[role] ?? [])
+      : [];
+
+// Helper function to check if a role can access a section (the menu).
+// Con permiso por cargo, manda el permiso; si no, la lista de siempre.
+export const canAccessSection = (
+  role: UserRole,
+  section: Section,
+  permisos: readonly Permiso[] = permisosDe(role),
+): boolean => {
+  const permiso = SECTION_PERMISO[section];
+  if (permiso) return permisos.includes(permiso);
   return ROLE_PERMISSIONS[role]?.includes(section) || false;
+};
+
+/** ¿Puede entrar a la ruta? Igual que el menú para las secciones con
+ *  permiso; las demás, con SECTION_ROLES (Planes es de todos por la
+ *  ruta, aunque el menú la muestre solo al administrador). */
+export const puedeEntrar = (
+  role: UserRole | null | undefined,
+  section: Section,
+  permisos: readonly Permiso[] = permisosDe(role),
+): boolean => {
+  if (!role) return false;
+  const permiso = SECTION_PERMISO[section];
+  if (permiso) return permisos.includes(permiso);
+  return SECTION_ROLES[section].includes(role);
 };
 
 // Predefined role arrays for common use cases
@@ -272,6 +387,8 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   facturacion: "La facturación electrónica",
 };
 
+// Las rutas. Igual que ROLE_PERMISSIONS: desde el doc 22 solo decide en
+// las secciones sin permiso por cargo (`puedeEntrar`).
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
   dashboard: ROLE_GROUPS.ADMIN_ONLY,
   requests: ROLE_GROUPS.ALL_ROLES,

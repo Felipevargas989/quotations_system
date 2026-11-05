@@ -9,7 +9,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ToastHost } from "./components/toast/Toast";
 import Layout from "./layout/Layout.tsx";
 import PermissionGuard from "./components/PermissionGuard";
-import { SECTION_ROLES } from "./constants/permissions";
 import { initGA } from "./lib/analytics.ts";
 import { usePageViews } from "./hooks/usePageViews.ts";
 
@@ -201,7 +200,7 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.dashboard}>
+                  <PermissionGuard section="dashboard">
                     <DashboardPage />
                   </PermissionGuard>
                 }
@@ -211,7 +210,7 @@ function App() {
               <Route
                 path="requests"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.requests}>
+                  <PermissionGuard section="requests">
                     <RequestsPage />
                   </PermissionGuard>
                 }
@@ -221,7 +220,7 @@ function App() {
               <Route
                 path="quotations"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <PermissionGuard section="quotations">
                     <QuotationsPage />
                   </PermissionGuard>
                 }
@@ -233,7 +232,8 @@ function App() {
                 path="consultas"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.quotations}
+                    section="quotations"
+                    permiso="consultas"
                     derecho="consultas"
                   >
                     <ConsultasPage />
@@ -245,7 +245,7 @@ function App() {
               <Route
                 path="negocio/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations}>
+                  <PermissionGuard section="quotations">
                     <NegocioPage />
                   </PermissionGuard>
                 }
@@ -258,7 +258,7 @@ function App() {
               <Route
                 path="quotation-form"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations_edit}>
+                  <PermissionGuard section="quotations_edit">
                     <QuotationForm />
                   </PermissionGuard>
                 }
@@ -268,7 +268,7 @@ function App() {
               <Route
                 path="quotation-form/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.quotations_edit}>
+                  <PermissionGuard section="quotations_edit">
                     <QuotationForm />
                   </PermissionGuard>
                 }
@@ -278,7 +278,7 @@ function App() {
               <Route
                 path="clients"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.clients}>
+                  <PermissionGuard section="clients">
                     <ClientsPage />
                   </PermissionGuard>
                 }
@@ -288,7 +288,7 @@ function App() {
               <Route
                 path="clients/:id"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.clients}>
+                  <PermissionGuard section="clients">
                     <ClientDetailPage />
                   </PermissionGuard>
                 }
@@ -298,10 +298,7 @@ function App() {
               <Route
                 path="post-venta"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.payments}
-                    derecho="post_venta"
-                  >
+                  <PermissionGuard section="payments" derecho="post_venta">
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -310,10 +307,7 @@ function App() {
               <Route
                 path="post-venta/:id"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.payments}
-                    derecho="post_venta"
-                  >
+                  <PermissionGuard section="payments" derecho="post_venta">
                     <PostVentaPage />
                   </PermissionGuard>
                 }
@@ -332,7 +326,7 @@ function App() {
               <Route
                 path="services"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.services}>
+                  <PermissionGuard section="services">
                     <ServicesPage />
                   </PermissionGuard>
                 }
@@ -342,10 +336,7 @@ function App() {
               <Route
                 path="logistica"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.logistics}
-                    derecho="logistica"
-                  >
+                  <PermissionGuard section="logistics" derecho="logistica">
                     <LogisticaPage />
                   </PermissionGuard>
                 }
@@ -356,10 +347,7 @@ function App() {
               <Route
                 path="inventario"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.logistics}
-                    derecho="logistica"
-                  >
+                  <PermissionGuard section="logistics" derecho="logistica">
                     <InventarioPage />
                   </PermissionGuard>
                 }
@@ -370,10 +358,7 @@ function App() {
               <Route
                 path="personas"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.people}
-                    derecho="personal"
-                  >
+                  <PermissionGuard section="people" derecho="personal">
                     <PersonasPage />
                   </PermissionGuard>
                 }
@@ -383,10 +368,7 @@ function App() {
               <Route
                 path="marketing"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.marketing}
-                    derecho="marketing"
-                  >
+                  <PermissionGuard section="marketing" derecho="marketing">
                     <MarketingPage />
                   </PermissionGuard>
                 }
@@ -415,7 +397,7 @@ function App() {
                 path="oportunidades"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.oportunidades}
+                    section="oportunidades"
                     derecho="oportunidades"
                   >
                     <OportunidadesPage />
@@ -426,7 +408,7 @@ function App() {
                 path="oportunidades/:id"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.oportunidades}
+                    section="oportunidades"
                     derecho="oportunidades"
                   >
                     <OportunidadFichaPage />
@@ -439,7 +421,7 @@ function App() {
                 path="oportunidades/competidores/:rut"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.oportunidades}
+                    section="oportunidades"
                     derecho="oportunidades"
                   >
                     <CompetidorPage />
@@ -451,10 +433,7 @@ function App() {
               <Route
                 path="marketing/campana/:id"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.marketing}
-                    derecho="marketing"
-                  >
+                  <PermissionGuard section="marketing" derecho="marketing">
                     <CampanaFichaPage />
                   </PermissionGuard>
                 }
@@ -465,10 +444,7 @@ function App() {
               <Route
                 path="personas/:id"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.people}
-                    derecho="personal"
-                  >
+                  <PermissionGuard section="people" derecho="personal">
                     <PersonaFichaPage />
                   </PermissionGuard>
                 }
@@ -478,7 +454,7 @@ function App() {
               <Route
                 path="configuration"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.configuration}>
+                  <PermissionGuard section="configuration">
                     <ConfigurationPage />
                   </PermissionGuard>
                 }
@@ -486,9 +462,7 @@ function App() {
               <Route
                 path="company-configuration"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.company_configuration}
-                  >
+                  <PermissionGuard section="company_configuration">
                     <MiEmpresa />
                   </PermissionGuard>
                 }
@@ -496,10 +470,7 @@ function App() {
               <Route
                 path="calendar"
                 element={
-                  <PermissionGuard
-                    allowedRoles={SECTION_ROLES.calendar}
-                    derecho="calendario"
-                  >
+                  <PermissionGuard section="calendar" derecho="calendario">
                     <Calendar />
                   </PermissionGuard>
                 }
@@ -509,7 +480,7 @@ function App() {
               <Route
                 path="plans"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.plans}>
+                  <PermissionGuard section="plans">
                     <Plans />
                   </PermissionGuard>
                 }
@@ -519,7 +490,7 @@ function App() {
               <Route
                 path="plans/confirmation"
                 element={
-                  <PermissionGuard allowedRoles={SECTION_ROLES.plans}>
+                  <PermissionGuard section="plans">
                     <ConfirmationPage />
                   </PermissionGuard>
                 }
@@ -541,7 +512,7 @@ function App() {
                 path="customer-satisfaction-survey"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    section="customer_satisfaction_survey"
                     derecho="encuestas"
                   >
                     <CustomerSatisfactionSurveysPage />
@@ -552,7 +523,7 @@ function App() {
                 path="customer-satisfaction-survey/template"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    section="customer_satisfaction_survey"
                     derecho="encuestas"
                   >
                     <TemplateView />
@@ -563,7 +534,7 @@ function App() {
                 path="customer-satisfaction-survey/answers"
                 element={
                   <PermissionGuard
-                    allowedRoles={SECTION_ROLES.customer_satisfaction_survey}
+                    section="customer_satisfaction_survey"
                     derecho="encuestas"
                   >
                     <AnswersView />

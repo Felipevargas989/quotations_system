@@ -21,11 +21,7 @@ import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
-import {
-  ROLE_GROUPS,
-  SECTION_ROLES,
-  tieneDerecho,
-} from "../../constants/permissions";
+import { ROLE_GROUPS, tieneDerecho } from "../../constants/permissions";
 import AvisoDeChoque from "../../components/AvisoDeChoque";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import GenerarSeguimientos, {
@@ -141,10 +137,10 @@ const ORDEN_ETIQUETA: Record<string, string> = {
 };
 
 export default function QuotationsPage() {
-  const { user, userRole, company } = useAuth();
+  const { user, userRole, company, permisos } = useAuth();
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
-  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  const puedeEditar = permisos.includes("cotizaciones");
   // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
   // empresa con el módulo propio. El motor dice cuáles vencieron por correo.
   const conSeguimientoIA =
@@ -156,7 +152,7 @@ export default function QuotationsPage() {
   const choquesDeFecha = useChoquesDeFecha();
   const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
-  const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
+  const puedeVerPostVenta = permisos.includes("postventa");
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const navigate = useNavigate();

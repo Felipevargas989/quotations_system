@@ -17,7 +17,6 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { SECTION_ROLES } from "../constants/permissions";
 import { formatFechaEvento, formatMomento } from "../utils/dates";
 import { chipEstado, etiquetaEstado } from "../utils/estadoCotizacion";
 import ConfirmInline from "../components/ConfirmInline";
@@ -108,12 +107,12 @@ const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { company, userRole } = useAuth();
+  const { company, permisos } = useAuth();
   // La ficha del cliente tiene tres puertas al cotizador (nueva, lápiz y
   // duplicar). Recepción entra acá a buscar datos y a mirar el historial,
   // no a cotizar: sin esto, el lápiz la mandaba a "Permisos Insuficientes"
   // (pillado por Felipe en el laboratorio, 12-08).
-  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  const puedeEditar = permisos.includes("cotizaciones");
   const queryClient = useQueryClient();
 
   // Ficha 360° vía React Query (Etapa 1, 21-07-2026): la primera visita
