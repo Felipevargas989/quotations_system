@@ -80,11 +80,15 @@ export class ConexionConFacturacionCl {
       for (const tipo of TIPOS) {
         const inicio = Date.now();
         try {
-          const f = await conexion.folios(tipo);
+          const { folios: f, mensaje } = await conexion.foliosYLoQueDijo(tipo);
           folios.push(
             f
               ? { ...f, ms: Date.now() - inicio }
-              : { tipo, ms: Date.now() - inicio, error: 'sin folios' },
+              : {
+                  tipo,
+                  ms: Date.now() - inicio,
+                  error: mensaje ? `sin folios («${mensaje}»)` : 'sin folios',
+                },
           );
         } catch (error) {
           folios.push({

@@ -303,6 +303,18 @@ describe('los folios (ConsultarCAF)', () => {
     expect((error as Error).message).toContain('No existen CAF vigentes');
   });
 
+  it('sin folios y sin «Mensaje»: dice el comienzo de lo que respondió (el paso 0)', async () => {
+    const { soap } = servicio(() => ({
+      texto: sobre(
+        'ConsultarCAF',
+        '<WSPLANO><Resultado>OK</Resultado></WSPLANO>',
+      ),
+    }));
+    const r = await soap.foliosYLoQueDijo(33);
+    expect(r.folios).toBeNull();
+    expect(r.mensaje).toContain('<Resultado>OK</Resultado>');
+  });
+
   it('si no responde, se dice y no se emite nada', async () => {
     const { soap } = servicio(() => ({ status: 502, texto: 'Bad Gateway' }));
     await expect(soap.folioSiguiente(33)).rejects.toBeInstanceOf(

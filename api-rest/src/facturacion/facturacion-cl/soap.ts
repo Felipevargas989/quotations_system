@@ -377,6 +377,13 @@ export class FacturacionClSoap implements FacturacionCl {
     return (await this.consultarCaf(tipo)).folios;
   }
 
+  /** Para «Probar la conexión»: los folios, y si no hay, lo que respondió
+   *  facturacion.cl (el paso 0, 06-11: sin eso no se sabe si faltan los
+   *  folios o la respuesta trae otra forma). */
+  async foliosYLoQueDijo(tipo: number) {
+    return this.consultarCaf(tipo);
+  }
+
   async folioSiguiente(tipo: number): Promise<number> {
     const { folios, mensaje } = await this.consultarCaf(tipo);
     if (!folios)
@@ -453,10 +460,15 @@ export class FacturacionClSoap implements FacturacionCl {
         'ConsultarCAF',
         `${this.login()}<tipoDTE>${base64(String(tipo))}</tipoDTE>`,
       )) ?? '';
+    const folios = leerFolios(xml, tipo);
     return {
-      folios: leerFolios(xml, tipo),
-      // Lo que dijo si no hay folios (las credenciales, por ejemplo).
-      mensaje: valorDe(xml, 'Mensaje') ?? (xml.includes('<') ? null : xml),
+      folios,
+      // Lo que dijo si no hay folios (las credenciales, por ejemplo); si no
+      // trae «Mensaje», el comienzo de lo que respondió. Es la respuesta:
+      // nunca lleva las credenciales.
+      mensaje:
+        valorDe(xml, 'Mensaje') ??
+        (folios ? null : xml.replace(/\s+/g, ' ').trim().slice(0, 300) || null),
     };
   }
 
