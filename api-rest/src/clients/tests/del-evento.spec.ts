@@ -11,8 +11,8 @@ import {
   type DondeEstaElEvento,
 } from '../del-evento.decorator';
 
-// CADA PUERTA DE POST-VENTA QUE TOCA UN EVENTO DICE DE CUÁL ES (doc 22 §9,
-// tanda 2). Si una se queda sin `@DelEvento`, un cargo con ese tipo de
+// CADA PUERTA QUE TOCA UN EVENTO DICE DE CUÁL ES (doc 22 §9, tandas 2 y 3:
+// Post-Venta, Compras y la planificación de Personal). Si una se queda sin `@DelEvento`, un cargo con ese tipo de
 // cliente apagado la podría abrir: esta lista es el candado. Una puerta
 // nueva de un evento se agrega acá.
 
@@ -105,6 +105,18 @@ const PUERTAS: [ConMetodos, string, DondeEstaElEvento][] = [
   ],
   [LogisticsController, 'dayPrints', { query: 'quotationId' }],
   [LogisticsController, 'markDaysPrinted', { body: 'quotation_id' }],
+  // Tanda 3: Compras y la planificación de Personal.
+  [LogisticsController, 'markProvisioned', { filas: 'entries', campo: 'id' }],
+  [LogisticsController, 'clearProvisioned', { body: 'ids' }],
+  [
+    LogisticsController,
+    'upsertSupplyProvisions',
+    { filas: 'rows', campo: 'quotation_id' },
+  ],
+  [LogisticsController, 'deleteSupplyProvisions', { body: 'quotationIds' }],
+  [PeopleController, 'traerPlanta', { param: 'quotationId' }],
+  [PeopleController, 'upsertSheet', { body: 'quotation_id' }],
+  [PeopleController, 'cerrarFicha', { body: 'quotation_id' }],
   [PeopleController, 'findStaff', { query: 'evento' }],
   [PeopleController, 'addStaff', { body: 'quotation_id' }],
   [PeopleController, 'updateStaff', { tabla: 'event_staff', param: 'id' }],

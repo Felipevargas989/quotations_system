@@ -14,8 +14,10 @@
 > **Los tipos de cliente de cada cargo (§9): aprobados el 05-11-2026**
 > (*"si vamos"*), con sus dos excepciones. La tanda 1 (la pantalla,
 > Cotizaciones, el Calendario y BelIA) en el laboratorio desde esa noche,
-> sin migración; la tanda 2 (Post-Venta, *"si sigue con la tanda 2"*)
-> programada esa misma noche (§9.6); las tandas 3 y 4, pendientes.
+> sin migración; la tanda 2 (Post-Venta, *"si sigue con la tanda 2"*) en
+> el laboratorio esa misma noche (§9.6), y la tanda 3 (Compras y la
+> planificación de Personal, *"si sigue con la tanda 3"*) programada
+> después (§9.7); la tanda 4, pendiente.
 
 ## 1. Lo que pidió Felipe
 
@@ -381,7 +383,7 @@ plan del §9.3 el mismo día: *"si vamos"*.
 |---|---|---|---|
 | 1 | La pantalla; Cotizaciones (tablero, ficha del negocio, cotizador, crear, editar, borrar, enviar, seguimiento, aviso de cierre, topes, «Crear con IA»), las cuotas de la ficha, el resumen del cliente, el Calendario y BelIA | No ve sus cotizaciones ni sus montos, y no las toca. Es lo de hoy de recepción, ahora para los cuatro cargos | Programada el 05-11-2026 |
 | 2 | Post-Venta: pagos, reembolsos, comprobantes, documentos, cocina | Esos eventos no aparecen | Programada el 05-11-2026 (§9.6) |
-| 3 | Proveedores (compras del evento) y Personal (planificación) | Esos eventos no aparecen. Ojo: si a quien compra le apagas un tipo, su lista de compras sale sin los insumos de esos eventos | Pendiente |
+| 3 | Proveedores (compras del evento) y Personal (planificación) | Esos eventos no aparecen. Ojo: si a quien compra le apagas un tipo, su lista de compras sale sin los insumos de esos eventos | Programada el 05-11-2026 (§9.7) |
 | 4 | Clientes, Encuestas y Dashboard | Esos clientes no aparecen ni cuentan en sus números | Pendiente |
 
 ### 9.4 Cómo lo cumple el motor (tanda 1)
@@ -469,4 +471,36 @@ eventos de ese tipo no aparecen en Post-Venta ni se tocan.
   (tanda 3; con un tipo apagado, BelIA todavía tapa la plata de `compras` y
   `logistica` en vez de esconder esos eventos), y Clientes, Encuestas y
   Dashboard (tanda 4).
+
+### 9.7 La tanda 3: Compras y la planificación de Personal (05-11-2026)
+
+Felipe: *"si sigue con la tanda 3"*. Con un tipo de cliente apagado, los
+eventos de ese tipo no aparecen en Compras ni en la planificación de
+Personal; como se dijo, la lista de compras de ese cargo sale sin los
+insumos de esos eventos.
+
+- **Compras** (`logistics.controller.ts`): el estado de compras
+  (`GET /logistics/estado-compras`), los eventos ganados
+  (`GET /logistics/purchasing/won-events`) y lo provisionado
+  (`GET /logistics/purchasing/supply-provisions`) traen solo los eventos
+  que el cargo ve; marcar y desmarcar lo provisionado y guardar o borrar lo
+  comprado llevan `@DelEvento`.
+- **La planificación de Personal** (`people.controller.ts`): las sillas por
+  rango de fechas (`GET /people/staff?desde&hasta`) y las fichas
+  (`GET /people/sheets`) sin los eventos que no ve; las sillas de un día
+  de restaurante, que no son de un evento, quedan (`soloLasQueVe` con
+  `'queda'`). Guardar y cerrar una ficha y «traer la planta» llevan
+  `@DelEvento`.
+- **Lo que no entra**: la liquidación, la propina, la nómina y el histórico
+  de Personal (pagarle a la gente no depende del tipo de cliente), y la
+  proyección de la planta (`POST /people/staff/proyectar-planta`), que
+  arma la planta de toda la empresa.
+- **BelIA**: `lo_que_hay_que_comprar` e `insumos` cuentan solo los eventos
+  que el cargo ve y marcan lo suyo con `trabaja: true`; `personal` no da la
+  planificación de un evento de un tipo apagado y, de un día, deja solo las
+  sillas que ve; `proveedores` y `mobiliario` llevan `plataLibre` (son
+  precios del catálogo, no plata de un cliente). Con esto se acaba lo que
+  el §9.6 dejó anotado: ya no se tapa la plata de compras en vez de
+  esconder esos eventos.
+- Las puertas nuevas están en `clients/tests/del-evento.spec.ts`.
 

@@ -395,15 +395,18 @@ export class AlcanceDeRecepcion {
     if (quotationId) await this.exigirQueLaVea(s, quotationId);
   }
 
-  /** De una lista de toda la empresa (Post-Venta, doc 22 §9, tanda 2), solo
-   *  lo de las cotizaciones que ve: los eventos de un tipo que su cargo no
-   *  trabaja no aparecen. `deQue` dice de qué cotización es cada fila; una
-   *  fila sin cotización no aparece. Un cargo que trabaja todos los tipos,
-   *  todo, sin preguntarle a la base. */
+  /** De una lista de toda la empresa (Post-Venta, Compras y Personal, doc
+   *  22 §9, tandas 2 y 3), solo lo de las cotizaciones que ve: los eventos
+   *  de un tipo que su cargo no trabaja no aparecen. `deQue` dice de qué
+   *  cotización es cada fila. Una fila sin cotización no aparece, salvo en
+   *  una lista que también trae lo que no es de un evento (una silla de un
+   *  día de restaurante): `sinCotizacion: 'queda'`. Un cargo que trabaja
+   *  todos los tipos, todo, sin preguntarle a la base. */
   async soloLasQueVe<T>(
     s: Sesion,
     filas: T[],
     deQue: (fila: T) => string | null | undefined,
+    sinCotizacion: 'sale' | 'queda' = 'sale',
   ): Promise<T[]> {
     const tipos = await this.tiposDelCargo(s);
     if (!tipos || filas.length === 0) return filas;
@@ -414,7 +417,8 @@ export class AlcanceDeRecepcion {
     );
     return filas.filter((f) => {
       const id = deQue(f);
-      const q = id ? cotizaciones.get(id) : undefined;
+      if (!id) return sinCotizacion === 'queda';
+      const q = cotizaciones.get(id);
       return (
         !!q &&
         laVe(tipos, {

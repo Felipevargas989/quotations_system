@@ -63,9 +63,10 @@ import { LogisticsService } from './logistics.service';
 // lista vacía: sus funciones ya traen su propio catch.
 @Derecho('logistica')
 @Roles(...OPERATIONS_AND_UP)
-// Lo de un evento (sus recursos, su cocina, lo provisionado) se ve y se
-// toca solo si el cargo trabaja el tipo de su cliente (doc 22 §9, tanda 2):
-// @DelEvento en cada puerta, y las listas de toda la empresa filtradas.
+// Lo de un evento (sus recursos, su cocina, lo provisionado, sus compras)
+// se ve y se toca solo si el cargo trabaja el tipo de su cliente (doc 22
+// §9, tandas 2 y 3): @DelEvento en cada puerta, y las listas de toda la
+// empresa filtradas.
 @Controller('logistics')
 export class LogisticsController {
   constructor(
@@ -115,7 +116,20 @@ export class LogisticsController {
       this.logisticsService.findAcceptedEvents(user.company_id),
       this.logisticsService.findSupplyProvisions(user.company_id),
     ]);
-    return { events, provisions };
+    // Solo los eventos de los tipos de cliente que trabaja su cargo (doc
+    // 22 §9, tanda 3).
+    return {
+      events: await this.alcance.soloLasQueVe(
+        user,
+        events,
+        (q) => q.id as string | undefined,
+      ),
+      provisions: await this.alcance.soloLasQueVe(
+        user,
+        provisions,
+        (p) => p.quotation_id as string | undefined,
+      ),
+    };
   }
 
   @Roles(...SALES_AND_UP)
@@ -370,17 +384,23 @@ export class LogisticsController {
 
   @Permiso('proveedores', 'dashboard')
   @Get('purchasing/won-events')
-  wonEvents(@Query('from') from: string, @CurrentUser() user: User) {
-    return this.logisticsService.findWonEventsSince(user.company_id, from);
+  async wonEvents(@Query('from') from: string, @CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findWonEventsSince(user.company_id, from),
+      (q) => q.id as string | undefined,
+    );
   }
 
   @Permiso('proveedores')
+  @DelEvento({ filas: 'entries', campo: 'id' })
   @Post('purchasing/mark-provisioned')
   markProvisioned(@Body() dto: MarkProvisionedDto, @CurrentUser() user: User) {
     return this.logisticsService.markProvisioned(user.company_id, dto);
   }
 
   @Permiso('proveedores')
+  @DelEvento({ body: 'ids' })
   @Post('purchasing/clear-provisioned')
   clearProvisioned(
     @Body() dto: ClearProvisionedDto,
@@ -405,11 +425,16 @@ export class LogisticsController {
 
   @Permiso('proveedores', 'dashboard')
   @Get('purchasing/supply-provisions')
-  supplyProvisions(@CurrentUser() user: User) {
-    return this.logisticsService.findSupplyProvisions(user.company_id);
+  async supplyProvisions(@CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findSupplyProvisions(user.company_id),
+      (p) => p.quotation_id as string | undefined,
+    );
   }
 
   @Permiso('proveedores')
+  @DelEvento({ filas: 'rows', campo: 'quotation_id' })
   @Post('purchasing/supply-provisions')
   upsertSupplyProvisions(
     @Body() dto: UpsertSupplyProvisionsDto,
@@ -419,6 +444,7 @@ export class LogisticsController {
   }
 
   @Permiso('proveedores')
+  @DelEvento({ body: 'quotationIds' })
   @Post('purchasing/supply-provisions/delete')
   deleteSupplyProvisions(
     @Body() dto: DeleteSupplyProvisionsDto,
