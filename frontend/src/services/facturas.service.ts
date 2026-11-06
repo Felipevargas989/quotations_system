@@ -234,3 +234,44 @@ export interface EventosPorFacturar {
 
 export const getPorFacturar = async (): Promise<EventosPorFacturar> =>
   (await apiRequest("/facturacion/por-facturar", "GET")) as EventosPorFacturar;
+
+/** La razón social guardada con un RUT (de cualquier cliente), para la
+ *  factura de «Nuevo documento» (doc 19 §9.21). */
+export interface RazonSocialEncontrada {
+  rut: string;
+  razon_social: string;
+  giro: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  ciudad: string | null;
+  correo_facturacion: string | null;
+  referencias_exigidas: string[];
+  cliente: string | null;
+}
+
+export const buscarRazonSocial = async (
+  rut: string,
+): Promise<RazonSocialEncontrada | null> =>
+  ((await apiRequest(
+    `/facturacion/razon-social?rut=${encodeURIComponent(rut)}`,
+    "GET",
+  )) as RazonSocialEncontrada | "" | null) || null;
+
+/** La factura de «Nuevo documento»: de cero, sin evento ni OC. */
+export const revisarFacturaSinEvento = async (
+  pedida: DtePedido,
+): Promise<VistaPrevia> =>
+  (await apiRequest(
+    "/facturacion/facturas/revisar",
+    "POST",
+    pedida,
+  )) as VistaPrevia;
+
+export const emitirFacturaSinEvento = async (
+  pedida: DtePedido,
+): Promise<DocumentoTributario> =>
+  (await apiRequest(
+    "/facturacion/facturas/emitir",
+    "POST",
+    pedida,
+  )) as DocumentoTributario;

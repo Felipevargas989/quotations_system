@@ -357,6 +357,45 @@ export class DocumentosTributariosRepository {
     return cuantas;
   }
 
+  /** La razón social guardada con ese RUT (de cualquier cliente de la
+   *  empresa), para llenar la factura de «Nuevo documento» (§9.21). */
+  async razonSocialDeLaEmpresa(companyId: number, rut: string) {
+    const { data, error } = await this.supabase.client
+      .from('razones_sociales')
+      .select(
+        'rut, razon_social, giro, direccion, comuna, ciudad, correo_facturacion, referencias_exigidas, cliente:clients(name)',
+      )
+      .eq('company_id', companyId)
+      .eq('rut', rut)
+      .limit(1);
+    if (error) throw error;
+    const r = (data ?? [])[0] as
+      | {
+          rut: string;
+          razon_social: string;
+          giro: string | null;
+          direccion: string | null;
+          comuna: string | null;
+          ciudad: string | null;
+          correo_facturacion: string | null;
+          referencias_exigidas: string[] | null;
+          cliente: { name?: string | null } | null;
+        }
+      | undefined;
+    if (!r) return null;
+    return {
+      rut: r.rut,
+      razon_social: r.razon_social,
+      giro: r.giro,
+      direccion: r.direccion,
+      comuna: r.comuna,
+      ciudad: r.ciudad,
+      correo_facturacion: r.correo_facturacion,
+      referencias_exigidas: r.referencias_exigidas ?? [],
+      cliente: r.cliente?.name?.trim() || null,
+    };
+  }
+
   /** El último folio usado de un tipo, para seguir la numeración. */
   async ultimoFolio(
     companyId: number,

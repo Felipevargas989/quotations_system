@@ -6,6 +6,7 @@ import { BoletasRepository } from './boletas/boletas.repository';
 import { BoletasService } from './boletas/boletas.service';
 import { ConexionConFacturacionCl } from './facturas/conexion';
 import { DocumentosTributariosRepository } from './facturas/documentos-tributarios.repository';
+import { FacturaSinEventoController } from './facturas/factura-sin-evento.controller';
 import { FacturasController } from './facturas/facturas.controller';
 import { FacturasService } from './facturas/facturas.service';
 import { PorFacturarController } from './facturas/por-facturar.controller';
@@ -33,6 +34,7 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     BoletasController,
     NotasController,
     PorFacturarController,
+    FacturaSinEventoController,
   ],
   providers: [
     OrdenesDeCompraService,

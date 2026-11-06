@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import BoletaSuelta from "../boletas/BoletaSuelta";
 import ElegirDocumento from "./ElegirDocumento";
+import FacturaNueva from "./FacturaNueva";
 
 // «NUEVO DOCUMENTO» (doc 19 §9.21). Felipe, 06-11: *"un botón de crear
 // nuevo DTE que me pregunte si va a ser nota de crédito, débito, factura,
@@ -62,6 +63,9 @@ export default function NuevoDocumento({
           <X size={16} />
         </button>
       </div>
+      {tipo === "factura" && (
+        <FacturaNueva puedeEmitir={esAdmin} onEmitida={onEmitido} />
+      )}
       {tipo === "boleta" && (
         <BoletaSuelta esAdmin={esAdmin} onEmitida={onEmitido} />
       )}
