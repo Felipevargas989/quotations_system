@@ -94,6 +94,19 @@ export class OrdenesDeCompraRepository {
     return !!data;
   }
 
+  /** Los PDF de «Órdenes de compra» de Documentos del evento (la cotización
+   *  ya se verificó): de ahí salen sus OC (doc 19 §9.20). */
+  async ordenesEnDocumentos(quotationId: string) {
+    const { data, error } = await this.supabase.client
+      .from('event_documents')
+      .select('id, file_name')
+      .eq('quotation_id', quotationId)
+      .eq('category', 'ordenes_compra')
+      .order('uploaded_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as { id: number; file_name: string }[];
+  }
+
   /** Un documento del evento, para leerlo (la cotización ya se verificó). */
   async documentoDelEvento(documentoId: number, quotationId: string) {
     const { data, error } = await this.supabase.client

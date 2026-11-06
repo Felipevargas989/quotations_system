@@ -1,8 +1,10 @@
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
+import { armarBoleta } from '../archivo/boleta';
 import { armarFactura } from '../archivo/factura';
 import {
+  desgloseDelTotal,
   montosDesdeElNeto,
-  netoParaElTotal,
+  precioNetoDe,
   type Montos,
 } from '../archivo/montos';
 import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
@@ -12,16 +14,22 @@ import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
 
 /**
- * EL BORRADOR DE LA FACTURA QUE ARMA BELIA (doc 19 §9.2, paso 2c)
+ * EL DTE DEL EVENTO QUE ARMA BELIA (doc 19 §9.2 y §9.20)
  *
- * Felipe, 04-11: *"Belia arma todo y luego se confirma a mano"*. Con OC, el
- * detalle, el total y la referencia 801 salen de la OC (E1), y la factura va
- * al RUT de la OC (§9.12): si ese RUT ya es una razón social del cliente,
- * manda lo guardado; si no, se propone lo que dice la OC y la persona lo
- * confirma. Sin OC, el detalle sale de la cotización y el monto es un % del
- * evento (D4). Lo que falta se pregunta: las referencias que pide el
- * cliente (CCU, la nota de pedido 802) y los datos del receptor que el SII
- * exige en la factura.
+ * Felipe, 05-11: *"finalmente esto es emitir DTE. Y yo puedo elegir si el
+ * DTE es una factura, una boleta y punto"*. El DTE lleva sus líneas (la
+ * descripción, la cantidad de personas y el precio CON IVA), y abajo el
+ * neto, el IVA y el total a pagar. Se llena solo desde la OC o desde la
+ * cotización, y se edita a mano.
+ *
+ * La factura con OC: el detalle, el total y la referencia 801 salen de la
+ * OC (E1), y va al RUT de la OC (§9.12): si ese RUT ya es una razón social
+ * del cliente, manda lo guardado; si no, se propone lo que dice la OC y la
+ * persona lo confirma. Sin OC, el detalle sale de la cotización. Lo que
+ * falta se pregunta: las referencias que pide el cliente (CCU, la nota de
+ * pedido 802) y los datos del receptor que el SII exige en la factura. La
+ * boleta no va contra una OC ni lleva referencias: solo sus líneas y el
+ * correo del cliente.
  *
  * Es puro: recibe lo leído de la base y no llama a nadie. El servicio lo
  * usa igual para la vista previa y para emitir, así que lo que se ve es lo
@@ -42,11 +50,16 @@ export interface EventoAFacturar {
   desde: string | null;
   hasta: string | null;
   personas: number | null;
+  /** Los niños, aparte de las personas (`children_count`). */
+  ninos?: number | null;
   /** El total de la cotización, con IVA. */
   total: number;
   clientId: string | null;
   /** El nombre del cliente en Eventia. */
   cliente: string | null;
+  /** El correo del contacto del evento (o el del cliente): a él le llega
+   *  la boleta. */
+  correo?: string | null;
 }
 
 /** La OC que se factura, con lo que ya se le facturó. */
@@ -106,15 +119,29 @@ export interface ReferenciaPedida {
   fecha: string;
 }
 
+/** 33 la factura, 39 la boleta. */
+export type TipoDeDte = 33 | 39;
+
+/** Una línea del DTE: la descripción, la cantidad de personas y el precio
+ *  unitario CON IVA, como todo precio en Eventia. En la factura el archivo
+ *  lo lleva en neto (`precioNetoDe`). */
+export interface LineaPedida {
+  /** La glosa (80 caracteres). */
+  descripcion: string;
+  descripcion_larga: string | null;
+  cantidad: number;
+  precio: number;
+}
+
 /** Lo que se emite: lo propone BelIA y la persona lo corrige a mano (E4). */
-export interface FacturaPedida {
+export interface DtePedido {
+  tipo: TipoDeDte;
+  /** La OC contra la que va la factura (la boleta, nunca). */
   orden_de_compra_id: number | null;
-  /** El % de la OC, o del evento si no hay OC (D4). Nulo si va por monto. */
-  porcentaje: number | null;
-  /** El total con IVA, si va por un monto (E4). */
-  monto: number | null;
+  /** La boleta solo usa el correo. */
   receptor: Receptor;
-  detalle: { descripcion: string; descripcion_larga: string | null };
+  lineas: LineaPedida[];
+  /** Solo la factura. */
   referencias: ReferenciaPedida[];
   /** Las referencias que este receptor pide siempre: al emitir quedan en
    *  su razón social (E2). */
@@ -122,7 +149,7 @@ export interface FacturaPedida {
 }
 
 export interface Borrador {
-  pedida: FacturaPedida;
+  pedida: DtePedido;
   origenes: { receptor: Origen; detalle: Origen };
   /** «OC 4500918822.pdf», «cotización N° 712», «ficha de CCU». */
   leidoDe: string[];
@@ -175,7 +202,9 @@ const LARGO_DE_LA_DESCRIPCION = 1000;
  * no cabe en la glosa, la glosa se corta en una palabra y el texto entero
  * va en la descripción larga. Sin «…»: el archivo va en latin-1 (L23).
  */
-export const glosaYDescripcion = (texto: string): FacturaPedida['detalle'] => {
+export const glosaYDescripcion = (
+  texto: string,
+): Pick<LineaPedida, 'descripcion' | 'descripcion_larga'> => {
   const limpio = textoLimpio(texto);
   const letras = Array.from(limpio);
   if (letras.length <= LARGO_DE_LA_GLOSA)
@@ -193,8 +222,12 @@ export const glosaYDescripcion = (texto: string): FacturaPedida['detalle'] => {
 };
 
 /** El detalle sin OC (§9.2): «Servicio de [tipo] del [fecha], [N]
- *  personas, según cotización N° X». */
-export const detalleDelEvento = (e: EventoAFacturar): string => {
+ *  personas, según cotización N° X». Sin las personas si ya van en la
+ *  cantidad de la línea. */
+export const detalleDelEvento = (
+  e: EventoAFacturar,
+  conPersonas = true,
+): string => {
   const tipo = textoLimpio(e.tipoDeEvento);
   const servicio = tipo ? `Servicio de ${enMinuscula(tipo)}` : 'Servicio';
   const fechas = !e.desde
@@ -202,8 +235,31 @@ export const detalleDelEvento = (e: EventoAFacturar): string => {
     : e.hasta && e.hasta.slice(0, 10) !== e.desde.slice(0, 10)
       ? ` del ${fechaCorta(e.desde)} al ${fechaCorta(e.hasta)}`
       : ` del ${fechaCorta(e.desde)}`;
-  const personas = e.personas ? `, ${e.personas} personas` : '';
+  const ninos = e.ninos ? ` y ${e.ninos} niños` : '';
+  const personas =
+    conPersonas && e.personas ? `, ${e.personas} personas${ninos}` : '';
   return `${servicio}${fechas}${personas}, según cotización N° ${e.numero}`;
+};
+
+/**
+ * La línea por lo que se emite. Con las personas (`personas`, solo cuando
+ * va todo el evento), las personas por su precio si cuadra al peso; si no,
+ * una línea por el monto, con las personas en el texto.
+ */
+const lineaDelMonto = (
+  texto: (conPersonas: boolean) => string,
+  monto: number,
+  personas: number | null | undefined,
+): LineaPedida => {
+  const cuantas =
+    personas && personas > 0 && monto > 0 && monto % personas === 0
+      ? personas
+      : null;
+  return {
+    ...glosaYDescripcion(texto(!cuantas)),
+    cantidad: cuantas ?? 1,
+    precio: cuantas ? monto / cuantas : monto,
+  };
 };
 
 const receptorDe = (r: RazonSocialGuardada): Receptor => ({
@@ -242,12 +298,53 @@ const enOrdenDelSii = (refs: ReferenciaPedida[]) =>
     (a, b) => ORDEN_SII.indexOf(a.tipo) - ORDEN_SII.indexOf(b.tipo),
   );
 
-/** Lo que BelIA propone: el punto de partida que la persona corrige. */
-export function armarBorrador(ctx: ContextoDeLaFactura): Borrador {
-  const { evento, oc, razones } = ctx;
+/** Lo que BelIA propone: el punto de partida que la persona corrige. La
+ *  boleta no va contra una OC (Felipe, 05-11: *"por la orden de compra van
+ *  contra facturas"*). */
+export function armarBorrador(
+  ctx: ContextoDeLaFactura,
+  tipo: TipoDeDte = 33,
+): Borrador {
+  const { evento, razones } = ctx;
+  const oc = tipo === 33 ? ctx.oc : null;
   const leidoDe: string[] = [];
   if (oc) leidoDe.push(oc.pdf ? `OC ${oc.pdf}` : `OC N° ${oc.numero}`);
   leidoDe.push(`cotización N° ${evento.numero}`);
+
+  // El monto: todo lo que queda de la OC (E1) o del evento (D4). Las
+  // personas van en la cantidad solo si va todo el evento y sin niños,
+  // que tienen su propio precio.
+  const base = oc ? oc.total : evento.total;
+  const facturado = oc ? oc.facturado : ctx.facturadoDelEvento;
+  const queda = Math.max(0, base - facturado);
+  const todoElEvento =
+    facturado === 0 && base === evento.total && !evento.ninos;
+  const conTextoDeLaOC = !!oc && !!textoLimpio(oc.descripcion);
+  const linea = lineaDelMonto(
+    (conPersonas) =>
+      conTextoDeLaOC
+        ? (oc?.descripcion ?? '')
+        : detalleDelEvento(evento, conPersonas),
+    queda,
+    todoElEvento ? evento.personas : null,
+  );
+
+  if (tipo === 39)
+    return {
+      pedida: {
+        tipo,
+        orden_de_compra_id: null,
+        receptor: { ...RECEPTOR_VACIO, correo: evento.correo ?? null },
+        lineas: [linea],
+        referencias: [],
+        pedir_siempre: [],
+      },
+      origenes: {
+        receptor: evento.correo ? 'ficha' : 'persona',
+        detalle: 'cotizacion',
+      },
+      leidoDe,
+    };
 
   // A quién: con OC, al RUT de la OC; sin OC (o sin RUT en la OC), a la
   // única razón social del cliente. Con varias, la persona elige.
@@ -275,11 +372,6 @@ export function armarBorrador(ctx: ContextoDeLaFactura): Borrador {
     origenDelReceptor = 'orden_de_compra';
   }
 
-  const conTextoDeLaOC = !!oc && !!textoLimpio(oc.descripcion);
-  const detalle = glosaYDescripcion(
-    conTextoDeLaOC ? (oc?.descripcion ?? '') : detalleDelEvento(evento),
-  );
-
   // Las referencias: la OC (801) y las que este receptor pide siempre.
   const exigidas = guardada?.referencias_exigidas ?? [];
   const referencias: ReferenciaPedida[] = oc
@@ -289,20 +381,12 @@ export function armarBorrador(ctx: ContextoDeLaFactura): Borrador {
     if (!referencias.some((r) => r.tipo === codigo))
       referencias.push({ tipo: codigo, folio: '', fecha: '' });
 
-  // El monto: todo lo que queda de la OC (E1) o del evento (D4). Si ya se
-  // facturó una parte, va por lo que falta, en pesos.
-  const base = oc ? oc.total : evento.total;
-  const facturado = oc ? oc.facturado : ctx.facturadoDelEvento;
-  const queda = Math.max(0, base - facturado);
-  const porMonto = facturado > 0 && queda > 0;
-
   return {
     pedida: {
+      tipo,
       orden_de_compra_id: oc?.id ?? null,
-      porcentaje: porMonto ? null : 100,
-      monto: porMonto ? queda : null,
       receptor,
-      detalle,
+      lineas: [linea],
       referencias: enOrdenDelSii(referencias),
       pedir_siempre: [...exigidas],
     },
@@ -315,55 +399,43 @@ export function armarBorrador(ctx: ContextoDeLaFactura): Borrador {
 }
 
 /** Lo que falta para emitir: se pregunta en el borrador. */
-export const faltaEnLaFactura = (p: FacturaPedida): Falta[] => {
+export const faltaEnElDte = (p: DtePedido): Falta[] => {
   const faltan: Falta[] = [];
+  const factura = p.tipo !== 39;
   const r = p.receptor ?? RECEPTOR_VACIO;
-  if (!r.rut || revisarRut(r.rut) !== null)
-    faltan.push({ campo: 'rut', texto: 'el RUT' });
-  if (!textoLimpio(r.razon_social))
-    faltan.push({ campo: 'razon_social', texto: 'la razón social' });
-  // Lo que el SII exige en la factura (doc 19 §9.13).
-  if (!textoLimpio(r.giro)) faltan.push({ campo: 'giro', texto: 'el giro' });
-  if (!textoLimpio(r.direccion))
-    faltan.push({ campo: 'direccion', texto: 'la dirección' });
-  if (!textoLimpio(r.comuna))
-    faltan.push({ campo: 'comuna', texto: 'la comuna' });
-  if (!textoLimpio(p.detalle?.descripcion))
-    faltan.push({ campo: 'detalle', texto: 'el detalle' });
-  for (const ref of p.referencias ?? [])
-    if (!textoLimpio(ref.folio) || !esFechaDelArchivo(ref.fecha))
+  if (factura) {
+    if (!r.rut || revisarRut(r.rut) !== null)
+      faltan.push({ campo: 'rut', texto: 'el RUT' });
+    if (!textoLimpio(r.razon_social))
+      faltan.push({ campo: 'razon_social', texto: 'la razón social' });
+    // Lo que el SII exige en la factura (doc 19 §9.13).
+    if (!textoLimpio(r.giro)) faltan.push({ campo: 'giro', texto: 'el giro' });
+    if (!textoLimpio(r.direccion))
+      faltan.push({ campo: 'direccion', texto: 'la dirección' });
+    if (!textoLimpio(r.comuna))
+      faltan.push({ campo: 'comuna', texto: 'la comuna' });
+  }
+  const lineas = p.lineas ?? [];
+  if (!lineas.length)
+    faltan.push({ campo: 'detalle', texto: 'una línea con su descripción' });
+  lineas.forEach((l, i) => {
+    if (!textoLimpio(l.descripcion))
       faltan.push({
-        campo: `referencia:${ref.tipo}`,
-        texto: `${nombreDeReferencia(ref.tipo).toLowerCase()} (${ref.tipo}): su N° y su fecha`,
+        campo: `detalle:${i}`,
+        texto:
+          lineas.length > 1
+            ? `la descripción de la línea ${i + 1}`
+            : 'la descripción',
       });
+  });
+  if (factura)
+    for (const ref of p.referencias ?? [])
+      if (!textoLimpio(ref.folio) || !esFechaDelArchivo(ref.fecha))
+        faltan.push({
+          campo: `referencia:${ref.tipo}`,
+          texto: `${nombreDeReferencia(ref.tipo).toLowerCase()} (${ref.tipo}): su N° y su fecha`,
+        });
   return faltan;
-};
-
-/** El neto de la línea y el total que debería dar, según lo pedido. */
-const montoPedido = (
-  p: FacturaPedida,
-  ctx: ContextoDeLaFactura,
-  problemas: string[],
-): { neto: number; esperado: number } | null => {
-  const { oc, evento } = ctx;
-  if (p.monto != null) {
-    if (!Number.isInteger(p.monto) || p.monto <= 0) {
-      problemas.push('El monto va en pesos, sin decimales y mayor que cero');
-      return null;
-    }
-    return { neto: netoParaElTotal(p.monto).neto, esperado: p.monto };
-  }
-  const pc = p.porcentaje;
-  if (pc == null || !Number.isFinite(pc) || pc <= 0 || pc > 100) {
-    problemas.push('El porcentaje va entre 0,01 y 100');
-    return null;
-  }
-  const base = oc ? oc.total : evento.total;
-  const esperado = pc === 100 ? base : Math.round((base * pc) / 100);
-  // Con el neto de la OC, se factura su neto (L17): el IVA sale de él.
-  if (oc && oc.neto != null && oc.iva != null)
-    return { neto: Math.round((oc.neto * pc) / 100), esperado };
-  return { neto: netoParaElTotal(esperado).neto, esperado };
 };
 
 /** La observación del documento: el N° de la cotización y la fecha del
@@ -372,46 +444,79 @@ const observacionesDe = (e: EventoAFacturar): string[] => [
   `Cotización N° ${e.numero}${e.desde ? ` · evento ${fechaCorta(e.desde)}` : ''}`,
 ];
 
+/** Lo que una línea vale con IVA, al peso: lo que el DTE debería sumar. */
+const conIva = (l: LineaPedida) => Math.round(l.cantidad * l.precio);
+
 /**
  * La vista previa y la emisión usan esta misma revisión: lo que falta, los
- * candados (nunca más del 100 % de una OC) y el archivo armado con su folio.
+ * candados (nunca más del 100 % de una OC) y el archivo armado con su folio
+ * (la boleta va con folio 0: lo pone facturacion.cl).
  */
-export function revisarFactura(
-  p: FacturaPedida,
+export function revisarDte(
+  p: DtePedido,
   ctx: ContextoDeLaFactura,
   folio: number,
   fecha: string,
 ): Revision {
-  const { oc, evento } = ctx;
+  const { evento } = ctx;
+  const factura = p.tipo !== 39;
+  const oc = factura ? ctx.oc : null;
+  const Cual = factura ? 'La factura' : 'La boleta';
   const problemas: string[] = [];
   const avisos: string[] = [];
-  const faltan = faltaEnLaFactura(p);
+  const faltan = faltaEnElDte(p);
 
-  const monto = montoPedido(p, ctx, problemas);
-  const lineas: LineaDeDetalle[] = monto
-    ? [
-        {
-          descripcion: p.detalle?.descripcion ?? '',
-          descripcionLarga: p.detalle?.descripcion_larga ?? null,
-          cantidad: 1,
-          precio: monto.neto,
-        },
-      ]
-    : [];
-  const montos = monto ? montosDesdeElNeto(monto.neto) : null;
-  if (montos && montos.total <= 0) problemas.push('La factura queda en $0');
+  const pedidas = p.lineas ?? [];
+  pedidas.forEach((l, i) => {
+    const de = pedidas.length > 1 ? ` de la línea ${i + 1}` : '';
+    if (!Number.isFinite(l.cantidad) || l.cantidad <= 0)
+      problemas.push(`La cantidad${de} va mayor que cero`);
+    if (!Number.isInteger(l.precio) || l.precio < 0)
+      problemas.push(`El precio${de} va en pesos, sin decimales`);
+  });
+  // Las líneas como van en el archivo: en la factura, en neto con los seis
+  // decimales que admite (así 78 menús de $55.000 suman exacto con su IVA);
+  // en la boleta, con IVA.
+  const lineas: LineaDeDetalle[] = pedidas.map((l) => ({
+    descripcion: l.descripcion ?? '',
+    descripcionLarga: l.descripcion_larga ?? null,
+    cantidad: l.cantidad,
+    precio: factura ? precioNetoDe(l.precio) : l.precio,
+  }));
+  const esperado = pedidas.reduce((s, l) => s + conIva(l), 0);
+  const montos: Montos | null = problemas.length
+    ? null
+    : factura
+      ? montosDesdeElNeto(
+          lineas.reduce((s, l) => s + Math.round(l.cantidad * l.precio), 0),
+        )
+      : desgloseDelTotal(esperado);
+  if (montos && montos.total <= 0) problemas.push(`${Cual} queda en $0`);
 
   // Los textos de la ficha caben enteros (datos-del-receptor): lo que se
   // escribe acá, también.
   const r = p.receptor ?? RECEPTOR_VACIO;
   const largos: [string, string | null | undefined, number][] = [
-    ['La razón social', r.razon_social, LARGO_MAXIMO.razon_social],
-    ['El giro', r.giro, LARGO_MAXIMO.giro],
-    ['La dirección', r.direccion, LARGO_MAXIMO.direccion],
-    ['La comuna', r.comuna, LARGO_MAXIMO.comuna],
-    ['La ciudad', r.ciudad, LARGO_MAXIMO.ciudad],
+    ...(factura
+      ? ([
+          ['La razón social', r.razon_social, LARGO_MAXIMO.razon_social],
+          ['El giro', r.giro, LARGO_MAXIMO.giro],
+          ['La dirección', r.direccion, LARGO_MAXIMO.direccion],
+          ['La comuna', r.comuna, LARGO_MAXIMO.comuna],
+          ['La ciudad', r.ciudad, LARGO_MAXIMO.ciudad],
+        ] as [string, string | null | undefined, number][])
+      : []),
     ['Los correos', r.correo, LARGO_MAXIMO.correo_facturacion],
-    ['El detalle', p.detalle?.descripcion, LARGO_DE_LA_GLOSA],
+    ...pedidas.map(
+      (l, i) =>
+        [
+          pedidas.length > 1
+            ? `La descripción de la línea ${i + 1}`
+            : 'La descripción',
+          l.descripcion,
+          LARGO_DE_LA_GLOSA,
+        ] as [string, string, number],
+    ),
   ];
   for (const [nombre, valor, largo] of largos)
     if (Array.from(textoLimpio(valor)).length > largo)
@@ -433,11 +538,22 @@ export function revisarFactura(
       problemas.push(
         `A la OC N° ${oc.numero} le quedan ${pesos(saldo)} por facturar, y esta factura va por ${pesos(montos.total)}`,
       );
+    // L17: la OC trae su neto y su IVA, y la factura de la OC entera los
+    // repite; si no, se dice.
+    if (
+      oc.neto != null &&
+      oc.iva != null &&
+      montos.total === oc.total &&
+      (montos.neto !== oc.neto || montos.iva !== oc.iva)
+    )
+      avisos.push(
+        `La OC dice neto ${pesos(oc.neto)} e IVA ${pesos(oc.iva)}; la factura queda en neto ${pesos(montos.neto)} e IVA ${pesos(montos.iva)}.`,
+      );
   }
   // E4: sin tope contra el evento, pero se dice.
   if (montos && ctx.facturadoDelEvento + montos.total > evento.total)
     avisos.push(
-      `Con esta factura, lo facturado del evento suma ${pesos(ctx.facturadoDelEvento + montos.total)} y la cotización ${pesos(evento.total)}.`,
+      `Con ${factura ? 'esta factura' : 'esta boleta'}, lo emitido del evento suma ${pesos(ctx.facturadoDelEvento + montos.total)} y la cotización ${pesos(evento.total)}.`,
     );
 
   const observaciones = observacionesDe(evento);
@@ -453,22 +569,31 @@ export function revisarFactura(
       faltan,
     };
 
-  const armado = armarFactura({
-    tipo: 33,
-    folio,
-    fecha,
-    receptor: r,
-    lineas,
-    referencias: p.referencias.map((ref) => ({
-      tipo: ref.tipo,
-      folio: ref.folio,
-      fecha: ref.fecha,
-      codigo: 0,
-    })),
-    observaciones,
-    totalEsperado: monto?.esperado ?? null,
-    ambiente: ctx.ambiente,
-  });
+  const armado = factura
+    ? armarFactura({
+        tipo: 33,
+        folio,
+        fecha,
+        receptor: r,
+        lineas,
+        referencias: p.referencias.map((ref) => ({
+          tipo: ref.tipo,
+          folio: ref.folio,
+          fecha: ref.fecha,
+          codigo: 0,
+        })),
+        observaciones,
+        totalEsperado: esperado,
+        ambiente: ctx.ambiente,
+      })
+    : armarBoleta({
+        fecha,
+        receptor: r.correo ? { correo: r.correo } : null,
+        lineas,
+        observaciones,
+        totalEsperado: esperado,
+        ambiente: ctx.ambiente,
+      });
   if (!armado.ok)
     return {
       ok: false,

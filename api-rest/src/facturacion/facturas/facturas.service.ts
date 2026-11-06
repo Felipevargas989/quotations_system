@@ -12,7 +12,11 @@ import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
-import { NOTA_DEL_AMBIENTE } from '../facturacion-cl/facturacion-cl';
+import { BoletasService } from '../boletas/boletas.service';
+import {
+  NOTA_DEL_AMBIENTE,
+  type FacturacionCl,
+} from '../facturacion-cl/facturacion-cl';
 import {
   Cadena,
   estadoEnPalabras,
@@ -20,14 +24,16 @@ import {
   loQueHace,
 } from '../notas/cadena';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
+import { OrdenesDeCompraService } from '../ordenes-de-compra/ordenes-de-compra.service';
 import {
   armarBorrador,
   razonSocialDelRut,
-  revisarFactura,
+  revisarDte,
   type ContextoDeLaFactura,
-  type FacturaPedida,
+  type DtePedido,
   type OrdenAFacturar,
   type Revision,
+  type TipoDeDte,
 } from './borrador';
 import { ConexionConFacturacionCl } from './conexion';
 import { guardarCopiaDelPdf } from './copia-del-pdf';
@@ -35,12 +41,14 @@ import { DocumentosTributariosRepository } from './documentos-tributarios.reposi
 import { mandarConFolio } from './emision';
 
 /**
- * LA FACTURA DEL EVENTO (doc 19 §9.2 y §9.10, paso 2c).
+ * EL DTE DEL EVENTO (doc 19 §9.2, §9.10 y §9.20): la factura o la boleta.
  *
- * BelIA arma el borrador desde la OC (o desde el evento), la persona lo
- * corrige y lo mira tal como saldrá, y el administrador lo emite (D5). La
- * vista previa y la emisión pasan por la MISMA revisión (`revisarFactura`):
- * lo que se ve es lo que sale.
+ * Al abrir «Emitir DTE», BelIA lee las OC que están en Documentos
+ * (`preparar`). Arma el borrador desde la OC (o desde la cotización), la
+ * persona lo corrige y lo mira tal como saldrá, y el administrador lo
+ * emite (D5). La vista previa y la emisión pasan por la MISMA revisión
+ * (`revisarDte`): lo que se ve es lo que sale. La boleta sale por el mismo
+ * camino que las de recepción (`BoletasService.emitirDelEvento`).
  *
  * Los candados (§5.3):
  * - un solo envío a la vez por evento (índice único de la 184);
@@ -55,6 +63,7 @@ import { mandarConFolio } from './emision';
  */
 
 const FACTURA = 33;
+const BOLETA = 39;
 // Lo que lleva notas de crédito y de débito (las boletas, en el paso 0: L21).
 const CON_NOTAS = new Set([FACTURA, 56, 61]);
 
@@ -64,27 +73,55 @@ const SE_FACTURA = ['aceptada', 'realizada'];
 
 const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
 
-/** Lo que llega de la pantalla, con las mismas reglas de limpieza. */
-const normalizada = (p: FacturaPedida): FacturaPedida => ({
-  orden_de_compra_id: p.orden_de_compra_id ?? null,
-  porcentaje: p.monto != null ? null : (p.porcentaje ?? null),
-  monto: p.monto ?? null,
-  receptor: {
-    ...p.receptor,
-    rut: normalizarRut(p.receptor?.rut ?? '') ?? textoLimpio(p.receptor?.rut),
-    razon_social: textoLimpio(p.receptor?.razon_social),
-  },
-  detalle: {
-    descripcion: textoLimpio(p.detalle?.descripcion),
-    descripcion_larga: (p.detalle?.descripcion_larga ?? '').trim() || null,
-  },
-  referencias: (p.referencias ?? []).map((r) => ({
-    tipo: r.tipo,
-    folio: textoLimpio(r.folio),
-    fecha: (r.fecha ?? '').trim(),
-  })),
-  pedir_siempre: [...new Set(p.pedir_siempre ?? [])],
-});
+/** Lo que llega de la pantalla, con las mismas reglas de limpieza. La
+ *  boleta no va contra una OC ni lleva referencias. */
+const normalizada = (p: DtePedido): DtePedido => {
+  const boleta = p.tipo === BOLETA;
+  return {
+    tipo: boleta ? BOLETA : FACTURA,
+    orden_de_compra_id: boleta ? null : (p.orden_de_compra_id ?? null),
+    receptor: boleta
+      ? {
+          rut: '',
+          razon_social: '',
+          giro: null,
+          direccion: null,
+          comuna: null,
+          ciudad: null,
+          // Como en la boleta suelta: el correo en minúscula.
+          correo: (p.receptor?.correo ?? '').trim().toLowerCase() || null,
+        }
+      : {
+          ...p.receptor,
+          rut:
+            normalizarRut(p.receptor?.rut ?? '') ??
+            textoLimpio(p.receptor?.rut),
+          razon_social: textoLimpio(p.receptor?.razon_social),
+        },
+    lineas: (p.lineas ?? []).map((l) => ({
+      descripcion: textoLimpio(l.descripcion),
+      descripcion_larga: (l.descripcion_larga ?? '').trim() || null,
+      cantidad: Number(l.cantidad),
+      precio: Number(l.precio),
+    })),
+    referencias: boleta
+      ? []
+      : (p.referencias ?? []).map((r) => ({
+          tipo: r.tipo,
+          folio: textoLimpio(r.folio),
+          fecha: (r.fecha ?? '').trim(),
+        })),
+    pedir_siempre: boleta ? [] : [...new Set(p.pedir_siempre ?? [])],
+  };
+};
+
+/** El % de la OC o del evento que va en el documento (E4: queda el
+ *  registro); nulo si pasa del 100 %. */
+const porcentajeDe = (total: number, ctx: ContextoDeLaFactura) => {
+  const base = ctx.oc ? ctx.oc.total : ctx.evento.total;
+  const pct = base > 0 ? Math.round((total / base) * 10000) / 100 : 0;
+  return pct > 0 && pct <= 100 ? pct : null;
+};
 
 /** La revisión para la pantalla: sin el archivo. */
 const paraLaPantalla = (r: Revision) => ({
@@ -106,6 +143,8 @@ export class FacturasService {
     private readonly razonesSociales: RazonesSocialesService,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    private readonly ocs: OrdenesDeCompraService,
+    private readonly boletas: BoletasService,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -152,14 +191,67 @@ export class FacturasService {
     };
   }
 
+  /**
+   * Al abrir «Emitir DTE»: BelIA lee las OC que están en Documentos y
+   * todavía no lee (Felipe, 05-11: *"si en documentos existe un documento
+   * cargado como orden de compra, Bel ya debe leerlo automáticamente"*), y
+   * dice de dónde se puede llenar: cada OC con lo que le queda, y la
+   * cotización. Propone la factura si hay OC o razones sociales, y si no,
+   * la boleta.
+   */
+  async preparar(quotationId: string, user: User) {
+    const companyId = user.company_id;
+    const evento = await this.repo.eventoAFacturar(quotationId, companyId);
+    if (!evento) throw new NotFoundException('Ese evento no existe');
+    if (!SE_FACTURA.includes(evento.estado))
+      throw new BadRequestException(
+        'Se factura un evento aceptado o ya realizado',
+      );
+    const { ordenes, sinLeer } = await this.ocs.deDocumentos(
+      quotationId,
+      companyId,
+      user.id ?? null,
+    );
+    const ambiente = this.conexion.de(companyId).ambiente;
+    const [facturado, razones] = await Promise.all([
+      this.repo.facturado(quotationId, companyId, ambiente),
+      evento.clientId
+        ? this.razonesSociales.deCliente(evento.clientId, companyId)
+        : Promise.resolve([]),
+    ]);
+    return {
+      tipo: (ordenes.length || razones.length ? FACTURA : BOLETA) as TipoDeDte,
+      ocs: ordenes.map((o) => ({
+        id: o.id,
+        numero: o.numero,
+        fecha: o.fecha,
+        razon_social: o.razon_social,
+        total: Number(o.total),
+        facturado: facturado.porOC.get(o.id) ?? 0,
+      })),
+      sin_leer: sinLeer,
+      evento: {
+        numero: evento.numero,
+        total: evento.total,
+        facturado: facturado.total,
+        cliente: evento.cliente,
+      },
+    };
+  }
+
   /** El borrador de BelIA, con su vista previa. */
   async borrador(
     quotationId: string,
     companyId: number,
+    tipo: TipoDeDte,
     ordenDeCompraId: number | null,
   ) {
-    const ctx = await this.contexto(quotationId, companyId, ordenDeCompraId);
-    const borrador = armarBorrador(ctx);
+    const ctx = await this.contexto(
+      quotationId,
+      companyId,
+      tipo === BOLETA ? null : ordenDeCompraId,
+    );
+    const borrador = armarBorrador(ctx, tipo);
     return {
       ...borrador,
       oc: ctx.oc
@@ -190,7 +282,7 @@ export class FacturasService {
   }
 
   /** La vista previa de lo que la persona corrigió. */
-  async revisar(quotationId: string, companyId: number, dto: FacturaPedida) {
+  async revisar(quotationId: string, companyId: number, dto: DtePedido) {
     const pedida = normalizada(dto);
     const ctx = await this.contexto(
       quotationId,
@@ -200,7 +292,7 @@ export class FacturasService {
     return this.vistaPrevia(pedida, ctx, companyId);
   }
 
-  async emitir(quotationId: string, user: User, dto: FacturaPedida) {
+  async emitir(quotationId: string, user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = normalizada(dto);
     const ctx = await this.contexto(
@@ -210,14 +302,17 @@ export class FacturasService {
     );
     const conexion = this.conexion.de(companyId);
     const fecha = hoyEnChile();
-    const folio = await conexion.folioSiguiente(FACTURA);
-    const revision = revisarFactura(pedida, ctx, folio, fecha);
+    const boleta = pedida.tipo === BOLETA;
+    const folio = boleta ? 0 : await conexion.folioSiguiente(FACTURA);
+    const revision = revisarDte(pedida, ctx, folio, fecha);
     if (!revision.ok || !revision.archivo || !revision.montos)
       throw new BadRequestException(
         revision.faltan.length
           ? `Falta ${revision.faltan.map((f) => f.texto).join(', ')}`
           : revision.problemas.join('. '),
       );
+    if (boleta)
+      return this.emitirBoleta(quotationId, user, pedida, revision, conexion);
 
     const enviado = await mandarConFolio({
       repo: this.repo,
@@ -239,14 +334,14 @@ export class FacturasService {
         total: revision.montos.total,
         quotation_id: quotationId,
         orden_de_compra_id: pedida.orden_de_compra_id,
-        porcentaje: pedida.porcentaje,
+        porcentaje: porcentajeDe(revision.montos.total, ctx),
         creado_por: user.id ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>
         f === folio
           ? revision.archivo
-          : revisarFactura(pedida, ctx, f, fecha).archivo,
+          : revisarDte(pedida, ctx, f, fecha).archivo,
       folio,
       fecha,
       nombre: 'La factura',
@@ -269,20 +364,60 @@ export class FacturasService {
     await this.recordarReceptor(ctx, pedida, user).catch((e: unknown) =>
       this.logger.warn(`razón social de la factura: ${mensajeDe(e)}`),
     );
+    await this.anotar(
+      user,
+      quotationId,
+      `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${NOTA_DEL_AMBIENTE[emitido.ambiente] ?? ''}`,
+    );
+    this.logger.info(
+      `factura ${emitido.folio} (${emitido.ambiente}) de ${quotationId}: ${emitido.total}`,
+    );
+    return emitido;
+  }
+
+  /** La boleta del evento: el mismo camino que las de recepción, con las
+   *  líneas y el correo del DTE, y su nota en la bitácora. */
+  private async emitirBoleta(
+    quotationId: string,
+    user: User,
+    pedida: DtePedido,
+    revision: Revision,
+    conexion: FacturacionCl,
+  ) {
+    const emitida = await this.boletas.emitirDelEvento(user, conexion, {
+      quotationId,
+      lineas: revision.lineas,
+      correo: pedida.receptor.correo ?? null,
+      observaciones: revision.observaciones,
+      totalEsperado: pedida.lineas.reduce(
+        (s, l) => s + Math.round(l.cantidad * l.precio),
+        0,
+      ),
+    });
+    if (emitida.estado !== 'emitido') return emitida;
+    await this.anotar(
+      user,
+      quotationId,
+      `Emitió la boleta N° ${emitida.folio} por ${pesos(Number(emitida.total))}.${NOTA_DEL_AMBIENTE[emitida.ambiente] ?? ''}`,
+    );
+    this.logger.info(
+      `boleta ${emitida.folio} (${emitida.ambiente}) de ${quotationId}: ${emitida.total}`,
+    );
+    return emitida;
+  }
+
+  /** La nota de BelIA en la bitácora: si falla, se registra y sigue. */
+  private async anotar(user: User, quotationId: string, note: string) {
     await this.bitacora
       .crearComoBeliaAPedidoDe(user, {
         quotation_id: quotationId,
         tipo: 'otro',
         next_contact_date: null,
-        note: `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${NOTA_DEL_AMBIENTE[emitido.ambiente] ?? ''}`,
+        note,
       })
       .catch((e: unknown) =>
         this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
       );
-    this.logger.info(
-      `factura ${emitido.folio} (${emitido.ambiente}) de ${quotationId}: ${emitido.total}`,
-    );
-    return emitido;
   }
 
   /** Todo lo que el borrador y la revisión necesitan saber del evento. */
@@ -331,18 +466,22 @@ export class FacturasService {
   }
 
   private async vistaPrevia(
-    pedida: FacturaPedida,
+    pedida: DtePedido,
     ctx: ContextoDeLaFactura,
     companyId: number,
   ) {
     const conexion = this.conexion.de(companyId);
+    // La boleta va con folio 0 (lo pone facturacion.cl): se muestra el que
+    // debería tocarle.
     const [folio, emisor] = await Promise.all([
-      conexion.folioSiguiente(FACTURA),
+      conexion.folioSiguiente(pedida.tipo),
       this.ordenes.empresaQueVende(companyId),
     ]);
     const fecha = hoyEnChile();
     return {
-      ...paraLaPantalla(revisarFactura(pedida, ctx, folio, fecha)),
+      ...paraLaPantalla(
+        revisarDte(pedida, ctx, pedida.tipo === BOLETA ? 0 : folio, fecha),
+      ),
       folio,
       fecha,
       emisor,
@@ -357,7 +496,7 @@ export class FacturasService {
    */
   private async recordarReceptor(
     ctx: ContextoDeLaFactura,
-    pedida: FacturaPedida,
+    pedida: DtePedido,
     user: User,
   ) {
     const clientId = ctx.evento.clientId;

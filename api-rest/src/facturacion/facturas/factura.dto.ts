@@ -11,17 +11,23 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { CODIGOS_DE_REFERENCIA } from '../referencias';
+import type { TipoDeDte } from './borrador';
 
 /**
- * LA FACTURA QUE SE PIDE (doc 19 §9.2, paso 2c).
+ * EL DTE QUE SE PIDE: LA FACTURA O LA BOLETA DEL EVENTO (doc 19 §9.2 y
+ * §9.20).
  *
  * Los largos de acá solo frenan lo absurdo: lo que no cabe en la factura
  * (el giro de 40, la comuna de 20…) lo dice la revisión con palabras, para
  * que la vista previa no se caiga mientras la persona escribe.
  */
 
-/** De qué se arma el borrador: de una OC, o del evento si no hay OC. */
-export class BaseDeLaFacturaDto {
+/** Qué se emite y de dónde se arma el borrador: de una OC (solo la
+ *  factura), o de la cotización. */
+export class BaseDelDteDto {
+  @IsIn([33, 39], { message: 'El DTE es una factura (33) o una boleta (39)' })
+  tipo: TipoDeDte;
+
   @IsOptional()
   @IsInt()
   orden_de_compra_id?: number | null;
@@ -62,7 +68,10 @@ export class ReceptorDeLaFacturaDto {
   correo?: string | null;
 }
 
-export class DetalleDeLaFacturaDto {
+/** Una línea: la descripción, la cantidad de personas y el precio
+ *  unitario con IVA. Que la cantidad sea mayor que cero lo dice la
+ *  revisión con palabras. */
+export class LineaDelDteDto {
   @IsString()
   @MaxLength(200)
   descripcion: string;
@@ -71,6 +80,12 @@ export class DetalleDeLaFacturaDto {
   @IsString()
   @MaxLength(1000)
   descripcion_larga?: string | null;
+
+  @IsNumber({ maxDecimalPlaces: 6 })
+  cantidad: number;
+
+  @IsInt({ message: 'El precio va en pesos, sin decimales' })
+  precio: number;
 }
 
 export class ReferenciaDeLaFacturaDto {
@@ -86,22 +101,17 @@ export class ReferenciaDeLaFacturaDto {
   fecha: string;
 }
 
-export class FacturaPedidaDto extends BaseDeLaFacturaDto {
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  porcentaje?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'El monto va en pesos, sin decimales' })
-  monto?: number | null;
-
+export class DtePedidoDto extends BaseDelDteDto {
   @ValidateNested()
   @Type(() => ReceptorDeLaFacturaDto)
   receptor: ReceptorDeLaFacturaDto;
 
-  @ValidateNested()
-  @Type(() => DetalleDeLaFacturaDto)
-  detalle: DetalleDeLaFacturaDto;
+  // La factura admite 60 líneas (archivo/factura.ts).
+  @IsArray()
+  @ArrayMaxSize(60)
+  @ValidateNested({ each: true })
+  @Type(() => LineaDelDteDto)
+  lineas: LineaDelDteDto[];
 
   @IsArray()
   @ArrayMaxSize(40)

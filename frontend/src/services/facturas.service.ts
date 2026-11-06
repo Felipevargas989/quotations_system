@@ -1,12 +1,15 @@
 import { apiRequest } from "./api";
 
-// La factura del evento (doc 19, paso 2c): BelIA arma el borrador desde la
-// OC (o desde el evento), la persona lo corrige y lo mira tal como saldrá,
-// y el administrador lo emite (D5). En los pasos 1 a 4, contra
-// facturacion.cl SIMULADO: no sale nada al SII. La empresa sale SIEMPRE de
-// la sesión, en el motor.
+// El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta. Al abrir
+// «Emitir DTE», BelIA lee las OC de Documentos (`prepararDte`); arma el
+// borrador desde una OC o desde la cotización; la persona lo corrige y lo
+// mira tal como saldrá, y el administrador lo emite (D5). La empresa sale
+// SIEMPRE de la sesión, en el motor.
 
 export type Ambiente = "simulado" | "prueba" | "produccion";
+
+/** 33 la factura, 39 la boleta. */
+export type TipoDeDte = 33 | 39;
 
 export interface Receptor {
   rut: string;
@@ -24,13 +27,22 @@ export interface ReferenciaPedida {
   fecha: string;
 }
 
-/** Lo que se emite: lo propone BelIA y se corrige a mano (E4). */
-export interface FacturaPedida {
+/** Una línea del DTE: la descripción, la cantidad de personas y el precio
+ *  unitario CON IVA. */
+export interface LineaPedida {
+  descripcion: string;
+  descripcion_larga: string | null;
+  cantidad: number;
+  precio: number;
+}
+
+/** Lo que se emite: lo propone BelIA y se corrige a mano (E4). La boleta
+ *  no va contra una OC ni lleva referencias, y del receptor usa el correo. */
+export interface DtePedido {
+  tipo: TipoDeDte;
   orden_de_compra_id: number | null;
-  porcentaje: number | null;
-  monto: number | null;
   receptor: Receptor;
-  detalle: { descripcion: string; descripcion_larga: string | null };
+  lineas: LineaPedida[];
   referencias: ReferenciaPedida[];
   pedir_siempre: string[];
 }
@@ -47,6 +59,8 @@ export interface Montos {
 export interface VistaPrevia {
   ok: boolean;
   montos: Montos | null;
+  /** Como van en el archivo: en la factura, el precio en neto; en la
+   *  boleta, con IVA. */
   lineas: {
     descripcion: string;
     descripcionLarga: string | null;
@@ -75,8 +89,8 @@ export interface RazonSocialDelBorrador {
   referencias_exigidas: string[];
 }
 
-export interface BorradorDeFactura {
-  pedida: FacturaPedida;
+export interface BorradorDelDte {
+  pedida: DtePedido;
   origenes: { receptor: Origen; detalle: Origen };
   leidoDe: string[];
   oc: { numero: string; total: number; facturado: number } | null;
@@ -128,6 +142,28 @@ export interface DocumentosDelEvento {
   facturado_por_oc?: Record<number, number>;
 }
 
+/** De dónde se puede llenar el DTE: cada OC que BelIA leyó de Documentos,
+ *  con lo ya facturado, y la cotización. Lo que no pudo leer, con su
+ *  porqué. */
+export interface PreparacionDelDte {
+  tipo: TipoDeDte;
+  ocs: {
+    id: number;
+    numero: string;
+    fecha: string;
+    razon_social: string | null;
+    total: number;
+    facturado: number;
+  }[];
+  sin_leer: { documento_id: number; nombre: string; motivo: string }[];
+  evento: {
+    numero: number;
+    total: number;
+    facturado: number;
+    cliente: string | null;
+  };
+}
+
 const ruta = (quotationId: string) => `/quotations/${quotationId}/facturas`;
 
 export const getDocumentosTributarios = async (
@@ -135,17 +171,27 @@ export const getDocumentosTributarios = async (
 ): Promise<DocumentosDelEvento> =>
   (await apiRequest(ruta(quotationId), "GET")) as DocumentosDelEvento;
 
-export const armarBorradorDeFactura = async (
+export const prepararDte = async (
   quotationId: string,
-  ordenDeCompraId: number | null,
-): Promise<BorradorDeFactura> =>
-  (await apiRequest(`${ruta(quotationId)}/borrador`, "POST", {
-    orden_de_compra_id: ordenDeCompraId,
-  })) as BorradorDeFactura;
+): Promise<PreparacionDelDte> =>
+  (await apiRequest(
+    `${ruta(quotationId)}/preparar`,
+    "POST",
+  )) as PreparacionDelDte;
 
-export const revisarFactura = async (
+export const armarBorradorDeDte = async (
   quotationId: string,
-  pedida: FacturaPedida,
+  tipo: TipoDeDte,
+  ordenDeCompraId: number | null,
+): Promise<BorradorDelDte> =>
+  (await apiRequest(`${ruta(quotationId)}/borrador`, "POST", {
+    tipo,
+    orden_de_compra_id: ordenDeCompraId,
+  })) as BorradorDelDte;
+
+export const revisarDte = async (
+  quotationId: string,
+  pedida: DtePedido,
 ): Promise<VistaPrevia> =>
   (await apiRequest(
     `${ruta(quotationId)}/revisar`,
@@ -153,9 +199,9 @@ export const revisarFactura = async (
     pedida,
   )) as VistaPrevia;
 
-export const emitirFactura = async (
+export const emitirDte = async (
   quotationId: string,
-  pedida: FacturaPedida,
+  pedida: DtePedido,
 ): Promise<DocumentoTributario> =>
   (await apiRequest(
     `${ruta(quotationId)}/emitir`,
