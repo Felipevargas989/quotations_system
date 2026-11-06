@@ -4,8 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { normalizarRut } from '../../people/utils/rut';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { normalizarRut, revisarRut } from '../../people/utils/rut';
 import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
+import { LeerOrdenDeCompraService } from './leer-orden-de-compra.service';
 import {
   CrearOrdenDeCompraDto,
   EditarOrdenDeCompraDto,
@@ -13,7 +15,15 @@ import {
 import {
   DatosDeOrdenDeCompra,
   OrdenesDeCompraRepository,
+  type OrdenDeCompra,
 } from './ordenes-de-compra.repository';
+
+/** Un PDF de órdenes de compra que BelIA no pudo dejar como OC. */
+export interface OcSinLeer {
+  documento_id: number;
+  nombre: string;
+  motivo: string;
+}
 
 /**
  * LAS ÓRDENES DE COMPRA DE UN EVENTO (doc 19 §9.2, paso 2a).
@@ -29,11 +39,125 @@ import {
  */
 @Injectable()
 export class OrdenesDeCompraService {
-  constructor(private readonly repo: OrdenesDeCompraRepository) {}
+  constructor(
+    private readonly repo: OrdenesDeCompraRepository,
+    private readonly lector: LeerOrdenDeCompraService,
+  ) {}
 
   async deCotizacion(quotationId: string, companyId: number) {
     await this.asegurarCotizacion(quotationId, companyId);
     return this.repo.deCotizacion(quotationId, companyId);
+  }
+
+  /**
+   * Las OC del evento salen de Documentos (doc 19 §9.20; Felipe, 05-11:
+   * *"si en documentos existe un documento cargado como orden de compra,
+   * Bel ya debe leerlo automáticamente y traer la información"*). Cada PDF
+   * de «Órdenes de compra» que todavía no es una OC lo lee BelIA y queda
+   * guardado tal como lo leyó (`origen` `pdf`). La OC leída cuyo PDF se
+   * quitó de Documentos se va con él, salvo que ya tenga documentos
+   * tributarios (L6). Lo que BelIA no pudo leer se dice, y se vuelve a
+   * intentar la próxima vez.
+   */
+  async deDocumentos(
+    quotationId: string,
+    companyId: number,
+    usuarioId: string | null,
+  ): Promise<{ ordenes: OrdenDeCompra[]; sinLeer: OcSinLeer[] }> {
+    await this.asegurarCotizacion(quotationId, companyId);
+    const [pdfs, antes] = await Promise.all([
+      this.repo.ordenesEnDocumentos(quotationId),
+      this.repo.deCotizacion(quotationId, companyId),
+    ]);
+    const sinSuPdf = antes.filter(
+      (o) => o.origen === 'pdf' && o.documento_id == null,
+    );
+    for (const oc of sinSuPdf)
+      await this.borrar(quotationId, companyId, oc.id).catch(
+        (e: unknown) => e, // con documentos tributarios, se queda
+      );
+
+    const sinLeer: OcSinLeer[] = [];
+    const nuevos = pdfs.filter(
+      (d) => !antes.some((o) => o.documento_id === d.id),
+    );
+    await Promise.all(
+      nuevos.map(async (d) => {
+        const motivo = await this.leerYGuardar(
+          quotationId,
+          companyId,
+          d.id,
+          usuarioId,
+        );
+        if (motivo)
+          sinLeer.push({ documento_id: d.id, nombre: d.file_name, motivo });
+      }),
+    );
+    return {
+      ordenes:
+        nuevos.length || sinSuPdf.length
+          ? await this.repo.deCotizacion(quotationId, companyId)
+          : antes,
+      sinLeer: sinLeer.sort((a, b) => a.documento_id - b.documento_id),
+    };
+  }
+
+  /** Lee un PDF y lo guarda como OC; si no se puede, el porqué. */
+  private async leerYGuardar(
+    quotationId: string,
+    companyId: number,
+    documentoId: number,
+    usuarioId: string | null,
+  ): Promise<string | null> {
+    let leida: Awaited<ReturnType<LeerOrdenDeCompraService['leer']>>;
+    try {
+      leida = await this.lector.leer(quotationId, companyId, documentoId);
+    } catch (error) {
+      return mensajeDe(error);
+    }
+    const p = leida.propuesta;
+    const falta = [
+      ...(p.fecha ? [] : ['la fecha']),
+      ...(p.total ? [] : ['el total']),
+    ];
+    if (falta.length) return `BelIA no encontró ${falta.join(' ni ')}`;
+    const comprador = {
+      giro: p.giro,
+      direccion: p.direccion,
+      comuna: p.comuna,
+      ciudad: p.ciudad,
+    };
+    try {
+      await this.crear(
+        quotationId,
+        companyId,
+        {
+          numero: p.numero.slice(0, 18),
+          fecha: p.fecha ?? '',
+          // Un RUT mal leído no se guarda: la factura elige la razón social.
+          rut: p.rut && revisarRut(p.rut) === null ? p.rut : null,
+          razon_social: p.razon_social,
+          comprador: Object.values(comprador).some(Boolean) ? comprador : null,
+          descripcion: p.descripcion,
+          neto: p.neto,
+          iva: p.iva,
+          total: p.total ?? 0,
+          documento_id: documentoId,
+          origen: 'pdf',
+        },
+        usuarioId,
+      );
+      return null;
+    } catch (error) {
+      // Otra pestaña la guardó recién: está bien.
+      const ya = (await this.repo.deCotizacion(quotationId, companyId)).some(
+        (o) => o.documento_id === documentoId,
+      );
+      if (ya) return null;
+      return error instanceof ConflictException
+        ? `Es la OC N° ${p.numero}, que ya está en este evento`
+        : mensajeDe(error);
+    }
   }
 
   async crear(

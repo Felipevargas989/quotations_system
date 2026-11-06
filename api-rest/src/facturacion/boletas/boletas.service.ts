@@ -443,6 +443,37 @@ export class BoletasService {
   }
 
   /**
+   * La boleta del evento (doc 19 §9.20): el DTE que el administrador emite
+   * desde la pestaña Facturación, con sus líneas con IVA y el correo del
+   * cliente. Ya viene revisada (`revisarDte`, la misma de la vista previa).
+   * Devuelve la boleta emitida, o la que quedó «por confirmar» (L5).
+   */
+  async emitirDelEvento(
+    user: User,
+    conexion: FacturacionCl,
+    b: {
+      quotationId: string;
+      lineas: LineaDeDetalle[];
+      correo: string | null;
+      observaciones: string[];
+      totalEsperado: number;
+    },
+  ): Promise<DocumentoTributario> {
+    const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
+      lineas: b.lineas,
+      correo: correoLimpio(b.correo),
+      observaciones: b.observaciones,
+      quotationId: b.quotationId,
+      cabana: null,
+      cual: 'la boleta',
+      totalEsperado: b.totalEsperado,
+    });
+    if (r.emitido) return r.emitido;
+    if (r.porConfirmar && r.documento) return r.documento;
+    throw new BadRequestException(r.alto ?? 'No se pudo emitir la boleta');
+  }
+
+  /**
    * Una boleta por cada cabaña que falta, solo si lo repartido suma el
    * total. Si una se corta o facturacion.cl la rechaza, se detiene ahí y lo
    * dice: las que ya salieron quedan emitidas.
@@ -544,6 +575,8 @@ export class BoletasService {
     alto: string | null;
     /** Se cortó al mandarla: puede haber salido (L5). */
     porConfirmar?: boolean;
+    /** La que quedó por confirmar. */
+    documento?: DocumentoTributario;
   }> {
     const companyId = user.company_id;
     const Cual = b.cual.charAt(0).toUpperCase() + b.cual.slice(1);
@@ -602,7 +635,7 @@ export class BoletasService {
         error instanceof EnvioSinRespuesta
           ? error.message
           : `El envío falló sin respuesta: ${mensajeDe(error)}`;
-      await this.documentos.actualizar(doc.id, companyId, {
+      const porConfirmar = await this.documentos.actualizar(doc.id, companyId, {
         estado: 'por_confirmar',
         error: motivo,
       });
@@ -610,6 +643,7 @@ export class BoletasService {
         emitido: null,
         alto: `${Cual} quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.`,
         porConfirmar: true,
+        documento: porConfirmar,
       };
     }
     if (respuesta.resultado === 'rechazado') {

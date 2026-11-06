@@ -12,11 +12,13 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
-import { BaseDeLaFacturaDto, FacturaPedidaDto } from './factura.dto';
+import type { DtePedido } from './borrador';
+import { BaseDelDteDto, DtePedidoDto } from './factura.dto';
 import { FacturasService } from './facturas.service';
 
-// La factura del evento (doc 19, paso 2c), en la pestaña «Facturación» de
-// Post-Venta. El borrador y la vista previa los ven operaciones y el
+// El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta, en la
+// pestaña «Facturación» de Post-Venta. Preparar (BelIA lee las OC de
+// Documentos), el borrador y la vista previa los ven operaciones y el
 // administrador; emitir es solo del administrador (D5). Solo en la empresa
 // con el módulo propio `facturacion`, y la empresa sale SIEMPRE de la
 // sesión.
@@ -42,16 +44,28 @@ export class FacturasController {
 
   @Roles(...OPERATIONS_AND_UP)
   @Permiso('postventa')
+  @Post('preparar')
+  preparar(
+    @Param('quotationId', ParseUUIDPipe) quotationId: string,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /quotations/${quotationId}/facturas/preparar`);
+    return this.facturas.preparar(quotationId, user);
+  }
+
+  @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('borrador')
   borrador(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
-    @Body() dto: BaseDeLaFacturaDto,
+    @Body() dto: BaseDelDteDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${quotationId}/facturas/borrador`);
     return this.facturas.borrador(
       quotationId,
       user.company_id,
+      dto.tipo,
       dto.orden_de_compra_id ?? null,
     );
   }
@@ -61,19 +75,14 @@ export class FacturasController {
   @Post('revisar')
   revisar(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
-    @Body() dto: FacturaPedidaDto,
+    @Body() dto: DtePedidoDto,
     @CurrentUser() user: User,
   ) {
-    return this.facturas.revisar(quotationId, user.company_id, {
-      ...dto,
-      orden_de_compra_id: dto.orden_de_compra_id ?? null,
-      porcentaje: dto.porcentaje ?? null,
-      monto: dto.monto ?? null,
-      detalle: {
-        ...dto.detalle,
-        descripcion_larga: dto.detalle.descripcion_larga ?? null,
-      },
-    });
+    return this.facturas.revisar(
+      quotationId,
+      user.company_id,
+      dto as DtePedido,
+    );
   }
 
   @Roles(...ADMIN_ONLY)
@@ -81,19 +90,10 @@ export class FacturasController {
   @Post('emitir')
   emitir(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
-    @Body() dto: FacturaPedidaDto,
+    @Body() dto: DtePedidoDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${quotationId}/facturas/emitir`);
-    return this.facturas.emitir(quotationId, user, {
-      ...dto,
-      orden_de_compra_id: dto.orden_de_compra_id ?? null,
-      porcentaje: dto.porcentaje ?? null,
-      monto: dto.monto ?? null,
-      detalle: {
-        ...dto.detalle,
-        descripcion_larga: dto.detalle.descripcion_larga ?? null,
-      },
-    });
+    return this.facturas.emitir(quotationId, user, dto as DtePedido);
   }
 }

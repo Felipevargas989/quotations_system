@@ -109,7 +109,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, quotation_number, quotation_status, event_type, event_date, event_end_date, people_count, total_amount, client_id, cliente:clients(name)',
+        'id, quotation_number, quotation_status, event_type, event_date, event_end_date, people_count, children_count, total_amount, client_id, cliente:clients(name, email), mandante:client_contacts!quotations_client_contact_id_fkey(email)',
       )
       .eq('id', quotationId)
       .eq('company_id', companyId)
@@ -124,9 +124,11 @@ export class DocumentosTributariosRepository {
       event_date: string | null;
       event_end_date: string | null;
       people_count: number | null;
+      children_count: number | null;
       total_amount: number | string | null;
       client_id: string | null;
-      cliente: { name?: string | null } | null;
+      cliente: { name?: string | null; email?: string | null } | null;
+      mandante: { email?: string | null } | null;
     };
     return {
       id: q.id,
@@ -136,9 +138,11 @@ export class DocumentosTributariosRepository {
       desde: q.event_date ? q.event_date.slice(0, 10) : null,
       hasta: q.event_end_date ? q.event_end_date.slice(0, 10) : null,
       personas: q.people_count,
+      ninos: q.children_count,
       total: Math.round(Number(q.total_amount ?? 0)),
       clientId: q.client_id,
       cliente: q.cliente?.name?.trim() || null,
+      correo: q.mandante?.email?.trim() || q.cliente?.email?.trim() || null,
     };
   }
 
@@ -185,8 +189,9 @@ export class DocumentosTributariosRepository {
   }
 
   /** Lo facturado del evento y de cada una de sus OC, con la cadena (paso
-   *  4): `facturadoDeLasOC`. Solo lo del ambiente donde se emite: una
-   *  factura simulada no factura una OC de verdad (§9.18). */
+   *  4): `facturadoDeLasOC`. Lo del evento cuenta también sus boletas
+   *  (§9.20). Solo lo del ambiente donde se emite: una factura simulada no
+   *  factura una OC de verdad (§9.18). */
   async facturado(
     quotationId: string,
     companyId: number,
@@ -200,7 +205,7 @@ export class DocumentosTributariosRepository {
       .eq('quotation_id', quotationId)
       .eq('company_id', companyId)
       .eq('ambiente', ambiente)
-      .in('tipo', [33, 56, 61])
+      .in('tipo', [33, 39, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
     return facturadoDeLasOC(

@@ -2,16 +2,17 @@ import { revisarArchivo } from '../facturacion-cl/simulado';
 import {
   armarBorrador,
   glosaYDescripcion,
-  revisarFactura,
+  revisarDte,
   type ContextoDeLaFactura,
   type OrdenAFacturar,
   type RazonSocialGuardada,
 } from '../facturas/borrador';
 
 /**
- * EL BORRADOR DE LA FACTURA (doc 19 §9.2, paso 2c), con los casos del
+ * EL BORRADOR DEL DTE (doc 19 §9.2 y §9.20), con los casos del
  * laboratorio: CCU (#408, pide la nota de pedido) y Santo Tomás (#481, dos
- * RUT para un evento).
+ * RUT para un evento). Las líneas llevan la cantidad de personas y el
+ * precio con IVA.
  */
 
 const CCU: RazonSocialGuardada = {
@@ -77,11 +78,16 @@ describe('El borrador que arma BelIA', () => {
     expect(b.pedida.receptor.razon_social).toBe(
       'Compañía Cervecerías Unidas S.A.',
     );
-    expect(b.pedida.porcentaje).toBe(100);
-    expect(b.pedida.detalle).toEqual({
-      descripcion: 'Paseo fin de año CCU, 400 personas',
-      descripcion_larga: null,
-    });
+    // Va todo el evento: las 400 personas por su precio con IVA.
+    expect(b.pedida.tipo).toBe(33);
+    expect(b.pedida.lineas).toEqual([
+      {
+        descripcion: 'Paseo fin de año CCU, 400 personas',
+        descripcion_larga: null,
+        cantidad: 400,
+        precio: 3570,
+      },
+    ]);
     expect(b.pedida.referencias).toEqual([
       { tipo: '801', folio: '4500918822', fecha: '2026-10-01' },
       { tipo: '802', folio: '', fecha: '' },
@@ -92,7 +98,7 @@ describe('El borrador que arma BelIA', () => {
   it('pregunta la nota de pedido, y con ella el archivo pasa la revisión de facturacion.cl', () => {
     const ctx = contexto();
     const { pedida } = armarBorrador(ctx);
-    const sinNota = revisarFactura(pedida, ctx, 1235, '2026-11-15');
+    const sinNota = revisarDte(pedida, ctx, 1235, '2026-11-15');
     expect(sinNota.ok).toBe(false);
     expect(sinNota.faltan).toEqual([
       {
@@ -112,7 +118,7 @@ describe('El borrador que arma BelIA', () => {
       folio: '4505440173',
       fecha: '2026-10-30',
     };
-    const lista = revisarFactura(pedida, ctx, 1235, '2026-11-15');
+    const lista = revisarDte(pedida, ctx, 1235, '2026-11-15');
     expect(lista.ok).toBe(true);
     expect(lista.avisos).toEqual([]);
     expect(lista.archivo).toContain('1;801;4500918822;2026-10-01;0;;');
@@ -155,12 +161,12 @@ describe('El borrador que arma BelIA', () => {
     expect(b.pedida.referencias).toEqual([
       { tipo: '801', folio: '32000066941', fecha: '2026-10-14' },
     ]);
-    const r = revisarFactura(b.pedida, ctx, 1, '2026-11-15');
+    const r = revisarDte(b.pedida, ctx, 1, '2026-11-15');
     expect(r.ok).toBe(false);
     expect(r.problemas).toContain('El giro pasa de 40 caracteres');
 
     b.pedida.receptor.giro = 'EDUCACION';
-    expect(revisarFactura(b.pedida, ctx, 1, '2026-11-15').ok).toBe(true);
+    expect(revisarDte(b.pedida, ctx, 1, '2026-11-15').ok).toBe(true);
   });
 
   it('con el neto y el IVA de la OC (L17), la factura N° 374 de Santo Tomás cuadra al peso', () => {
@@ -174,7 +180,7 @@ describe('El borrador que arma BelIA', () => {
       totalDeLasOC: 2619929,
       evento: { ...contexto().evento, total: 2619929 },
     });
-    const r = revisarFactura(
+    const r = revisarDte(
       { ...armarBorrador(ctx).pedida, referencias: [] },
       ctx,
       374,
@@ -192,11 +198,14 @@ describe('El borrador que arma BelIA', () => {
   it('nunca más del 100 % de la OC; si ya se facturó una parte, propone lo que falta', () => {
     const parcial = contexto({ oc: { ...OC_CCU, facturado: 428000 } });
     const b = armarBorrador(parcial);
-    expect(b.pedida).toMatchObject({ porcentaje: null, monto: 1000000 });
+    expect(b.pedida.lineas).toMatchObject([{ cantidad: 1, precio: 1000000 }]);
 
     const completa = contexto({ oc: { ...OC_CCU, facturado: 1428000 } });
-    const r = revisarFactura(
-      { ...armarBorrador(completa).pedida, porcentaje: 100, monto: null },
+    const r = revisarDte(
+      {
+        ...armarBorrador(completa).pedida,
+        lineas: [{ ...b.pedida.lineas[0], precio: 1428000 }],
+      },
       completa,
       1,
       '2026-11-15',
@@ -205,8 +214,8 @@ describe('El borrador que arma BelIA', () => {
       'La OC N° 4500918822 ya está facturada completa',
     );
 
-    const deMas = revisarFactura(
-      { ...b.pedida, monto: 1100000 },
+    const deMas = revisarDte(
+      { ...b.pedida, lineas: [{ ...b.pedida.lineas[0], precio: 1100000 }] },
       parcial,
       1,
       '2026-11-15',
@@ -220,33 +229,92 @@ describe('El borrador que arma BelIA', () => {
     const ctx = contexto({
       evento: { ...contexto().evento, total: 1500000 },
     });
-    const r = revisarFactura(armarBorrador(ctx).pedida, ctx, 1, '2026-11-15');
+    const r = revisarDte(armarBorrador(ctx).pedida, ctx, 1, '2026-11-15');
     expect(r.avisos).toContain(
       'La cotización suma $1.500.000: la factura va por el total de la OC.',
     );
   });
 
-  it('sin OC: la única razón social, el detalle de la cotización y el % del evento (D4)', () => {
+  it('sin OC: la única razón social, el detalle de la cotización y sus personas (D4)', () => {
     const ctx = contexto({ oc: null, totalDeLasOC: 0 });
     const b = armarBorrador(ctx);
     expect(b.origenes).toEqual({ receptor: 'ficha', detalle: 'cotizacion' });
     expect(b.pedida.orden_de_compra_id).toBeNull();
-    expect(b.pedida.detalle.descripcion_larga).toBe(
-      'Servicio de paseo fin de año del 06-12-2026, 400 personas, según cotización N° 408',
-    );
-    expect(Array.from(b.pedida.detalle.descripcion).length).toBeLessThanOrEqual(
-      80,
-    );
+    // Las personas van en la cantidad, no en el texto.
+    expect(b.pedida.lineas).toEqual([
+      {
+        descripcion:
+          'Servicio de paseo fin de año del 06-12-2026, según cotización N° 408',
+        descripcion_larga: null,
+        cantidad: 400,
+        precio: 3570,
+      },
+    ]);
     // CCU pide la OC y no hay: se pregunta.
     expect(b.pedida.referencias.map((r) => r.tipo)).toEqual(['801', '802']);
 
-    const mitad = revisarFactura(
-      { ...b.pedida, porcentaje: 50, referencias: [] },
+    // A mano: la mitad de las personas.
+    const mitad = revisarDte(
+      {
+        ...b.pedida,
+        lineas: [{ ...b.pedida.lineas[0], cantidad: 200 }],
+        referencias: [],
+      },
       ctx,
       1,
       '2026-11-15',
     );
-    expect(mitad.montos?.total).toBe(714000);
+    expect(mitad.montos).toEqual({
+      neto: 600000,
+      exento: 0,
+      iva: 114000,
+      total: 714000,
+    });
+  });
+
+  it('con niños, que tienen su propio precio: una línea por el monto y las personas en el texto', () => {
+    const ctx = contexto({
+      oc: null,
+      evento: { ...contexto().evento, ninos: 20 },
+    });
+    const [linea] = armarBorrador(ctx).pedida.lineas;
+    expect(linea).toMatchObject({ cantidad: 1, precio: 1428000 });
+    expect(linea.descripcion_larga).toBe(
+      'Servicio de paseo fin de año del 06-12-2026, 400 personas y 20 niños, según cotización N° 408',
+    );
+  });
+
+  it('el precio con IVA va en neto con seis decimales: 78 menús de $55.000 suman exacto', () => {
+    const ctx = contexto({ oc: null, razones: [CCU] });
+    const { pedida } = armarBorrador(ctx);
+    const r = revisarDte(
+      {
+        ...pedida,
+        lineas: [
+          {
+            descripcion: 'Menú de matrimonio',
+            descripcion_larga: null,
+            cantidad: 78,
+            precio: 55000,
+          },
+        ],
+        referencias: [],
+      },
+      ctx,
+      1,
+      '2026-11-15',
+    );
+    expect(r.ok).toBe(true);
+    expect(r.montos).toEqual({
+      neto: 3605042,
+      exento: 0,
+      iva: 684958,
+      total: 4290000,
+    });
+    expect(r.lineas[0].precio).toBe(46218.487395);
+    expect(r.avisos).toEqual([
+      'Con esta factura, lo emitido del evento suma $4.290.000 y la cotización $1.428.000.',
+    ]);
   });
 
   it('sin OC y con varias razones sociales, la persona elige a cuál', () => {
@@ -257,6 +325,52 @@ describe('El borrador que arma BelIA', () => {
     const b = armarBorrador(ctx);
     expect(b.origenes.receptor).toBe('persona');
     expect(b.pedida.receptor.rut).toBe('');
+  });
+});
+
+describe('La boleta del evento', () => {
+  it('no va contra la OC ni lleva referencias: sus líneas con IVA y el correo del contacto', () => {
+    const ctx = contexto({
+      evento: { ...contexto().evento, correo: 'novios@gmail.com' },
+    });
+    const b = armarBorrador(ctx, 39);
+    expect(b.leidoDe).toEqual(['cotización N° 408']);
+    expect(b.pedida).toMatchObject({
+      tipo: 39,
+      orden_de_compra_id: null,
+      referencias: [],
+      pedir_siempre: [],
+      receptor: { rut: '', razon_social: '', correo: 'novios@gmail.com' },
+    });
+    expect(b.pedida.lineas).toMatchObject([{ cantidad: 400, precio: 3570 }]);
+
+    const r = revisarDte(b.pedida, ctx, 0, '2026-11-15');
+    expect(r.ok).toBe(true);
+    expect(r.faltan).toEqual([]);
+    expect(r.montos).toEqual({
+      neto: 1200000,
+      exento: 0,
+      iva: 228000,
+      total: 1428000,
+    });
+    // Con IVA en la línea, y el folio lo pone facturacion.cl.
+    expect(r.lineas[0].precio).toBe(3570);
+    expect(r.archivo).toContain('39;0;2026-11-15;3;0;');
+    expect(r.archivo).toContain(';400;3570;0;1428000;INT1;UN;');
+    expect(revisarArchivo(r.archivo ?? '')).toMatchObject({ tipo: 39 });
+  });
+
+  it('sin descripción no sale, y sin RUT ni giro sí', () => {
+    const ctx = contexto();
+    const { pedida } = armarBorrador(ctx, 39);
+    const r = revisarDte(
+      { ...pedida, lineas: [{ ...pedida.lineas[0], descripcion: ' ' }] },
+      ctx,
+      0,
+      '2026-11-15',
+    );
+    expect(r.ok).toBe(false);
+    expect(r.faltan).toEqual([{ campo: 'detalle:0', texto: 'la descripción' }]);
   });
 });
 

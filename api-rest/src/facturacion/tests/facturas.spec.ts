@@ -1,14 +1,17 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { mockPinoLogger } from '../../testing/mocks';
 import { FacturacionClSimulado } from '../facturacion-cl/simulado';
-import type { FacturaPedida } from '../facturas/borrador';
+import type { DtePedido } from '../facturas/borrador';
+import { DtePedidoDto } from '../facturas/factura.dto';
 import { FacturasService } from '../facturas/facturas.service';
 
 /**
- * EMITIR LA FACTURA DEL EVENTO (doc 19 §9.10, paso 2c), contra
- * facturacion.cl simulado: el folio que sigue, un envío a la vez, el «por
- * confirmar» si se corta, y lo que queda después (el PDF, la razón social
- * y la nota de BelIA).
+ * EMITIR EL DTE DEL EVENTO (doc 19 §9.10 y §9.20), contra facturacion.cl
+ * simulado: el folio que sigue, un envío a la vez, el «por confirmar» si se
+ * corta, y lo que queda después (el PDF, la razón social y la nota de
+ * BelIA). La boleta sale por el camino de las boletas de recepción.
  */
 
 const EVENTO = {
@@ -43,10 +46,9 @@ const OC = {
   documento_id: null,
 };
 
-const PEDIDA: FacturaPedida = {
+const PEDIDA: DtePedido = {
+  tipo: 33,
   orden_de_compra_id: 12,
-  porcentaje: 100,
-  monto: null,
   receptor: {
     rut: '69141400-0',
     razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
@@ -56,11 +58,15 @@ const PEDIDA: FacturaPedida = {
     ciudad: null,
     correo: null,
   },
-  detalle: {
-    descripcion:
-      'Servicio de Catering y Arriendo de Salón, Ciclo de Foros 2026',
-    descripcion_larga: null,
-  },
+  lineas: [
+    {
+      descripcion:
+        'Servicio de Catering y Arriendo de Salón, Ciclo de Foros 2026',
+      descripcion_larga: null,
+      cantidad: 1,
+      precio: 2480000,
+    },
+  ],
   referencias: [{ tipo: '801', folio: '1213301-49-AG26', fecha: '2026-05-15' }],
   pedir_siempre: [],
 };
@@ -113,6 +119,19 @@ const armar = ({
     editar: jest.fn().mockResolvedValue({}),
   };
   const bitacora = { crearComoBeliaAPedidoDe: jest.fn().mockResolvedValue({}) };
+  const ocs = {
+    deDocumentos: jest.fn().mockResolvedValue({ ordenes: [OC], sinLeer: [] }),
+  };
+  const boletas = {
+    emitirDelEvento: jest.fn().mockResolvedValue({
+      id: 8,
+      tipo: 39,
+      ambiente: 'simulado',
+      estado: 'emitido',
+      folio: 1021,
+      total: 2480000,
+    }),
+  };
   const servicio = new FacturasService(
     repo as never,
     ordenes as never,
@@ -120,8 +139,10 @@ const armar = ({
     razones as never,
     bitacora as never,
     mockPinoLogger() as never,
+    ocs as never,
+    boletas as never,
   );
-  return { servicio, repo, razones, bitacora };
+  return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
 
 describe('Los documentos del evento', () => {
@@ -280,5 +301,114 @@ describe('Emitir la factura del evento', () => {
     await expect(servicio.emitir('ev-423', USUARIO, PEDIDA)).rejects.toThrow(
       'Se factura un evento aceptado o ya realizado',
     );
+  });
+});
+
+describe('La boleta del evento', () => {
+  const BOLETA: DtePedido = {
+    ...PEDIDA,
+    tipo: 39,
+    receptor: { ...PEDIDA.receptor, correo: 'Novios@Gmail.com' },
+  };
+
+  it('sale por el camino de las boletas, sin OC, con sus líneas con IVA, y deja la nota de BelIA', async () => {
+    const { servicio, boletas, bitacora, simulado, repo } = armar();
+    const r = await servicio.emitir('ev-423', USUARIO, BOLETA);
+    expect(r).toMatchObject({ tipo: 39, folio: 1021 });
+    expect(boletas.emitirDelEvento).toHaveBeenCalledWith(USUARIO, simulado, {
+      quotationId: 'ev-423',
+      lineas: [
+        {
+          descripcion:
+            'Servicio de Catering y Arriendo de Salón, Ciclo de Foros 2026',
+          descripcionLarga: null,
+          cantidad: 1,
+          precio: 2480000,
+        },
+      ],
+      correo: 'novios@gmail.com',
+      observaciones: ['Cotización N° 423 · evento 11-08-2026'],
+      totalEsperado: 2480000,
+    });
+    // La boleta nunca va contra una OC: ni la busca.
+    expect(repo.crear).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBeliaAPedidoDe).toHaveBeenCalledWith(
+      USUARIO,
+      expect.objectContaining({
+        note: 'Emitió la boleta N° 1021 por $2.480.000. Es simulada: no salió nada al SII.',
+      }),
+    );
+  });
+
+  it('por confirmar, sin nota', async () => {
+    const { servicio, boletas, bitacora } = armar();
+    boletas.emitirDelEvento.mockResolvedValue({
+      id: 8,
+      tipo: 39,
+      ambiente: 'simulado',
+      estado: 'por_confirmar',
+      folio: null,
+      total: 2480000,
+    });
+    const r = await servicio.emitir('ev-423', USUARIO, BOLETA);
+    expect(r).toMatchObject({ estado: 'por_confirmar' });
+    expect(bitacora.crearComoBeliaAPedidoDe).not.toHaveBeenCalled();
+  });
+});
+
+describe('Preparar el DTE', () => {
+  it('BelIA lee las OC de Documentos y propone la factura, con lo que le queda a cada OC', async () => {
+    const { servicio, ocs, repo } = armar();
+    repo.facturado.mockResolvedValue({
+      total: 480000,
+      porOC: new Map([[12, 480000]]),
+    });
+    const r = await servicio.preparar('ev-423', USUARIO);
+    expect(ocs.deDocumentos).toHaveBeenCalledWith('ev-423', 1, 'u-felipe');
+    expect(r).toEqual({
+      tipo: 33,
+      ocs: [
+        {
+          id: 12,
+          numero: '1213301-49-AG26',
+          fecha: '2026-05-15',
+          razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+          total: 2480000,
+          facturado: 480000,
+        },
+      ],
+      sin_leer: [],
+      evento: {
+        numero: 423,
+        total: 3440000,
+        facturado: 480000,
+        cliente: 'JOKER SERVICIOS SPA',
+      },
+    });
+  });
+
+  it('sin OC ni razones sociales, propone la boleta', async () => {
+    const { servicio, ocs } = armar();
+    ocs.deDocumentos.mockResolvedValue({ ordenes: [], sinLeer: [] });
+    expect((await servicio.preparar('ev-423', USUARIO)).tipo).toBe(39);
+  });
+});
+
+describe('Lo que acepta el motor', () => {
+  const errores = async (body: object) =>
+    (await validate(plainToInstance(DtePedidoDto, body))).map(
+      (e) => e.property,
+    );
+
+  it('una factura o una boleta, con líneas de precio entero', async () => {
+    expect(await errores(PEDIDA)).toEqual([]);
+    expect(await errores({ ...PEDIDA, tipo: 39 })).toEqual([]);
+    expect(await errores({ ...PEDIDA, tipo: 34 })).toEqual(['tipo']);
+    expect(
+      await errores({
+        ...PEDIDA,
+        lineas: [{ ...PEDIDA.lineas[0], precio: 10.5 }],
+      }),
+    ).toEqual(['lineas']);
   });
 });

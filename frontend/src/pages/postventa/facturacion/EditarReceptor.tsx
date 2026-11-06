@@ -1,4 +1,3 @@
-import NumberInput from "../../../components/inputs/NumberInput";
 import RutInput from "../../../components/inputs/RutInput";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import { Plus, Trash2 } from "lucide-react";
@@ -8,20 +7,20 @@ import {
   nombreDeReferencia,
 } from "../../../constants/facturacion";
 import type {
-  BorradorDeFactura,
-  FacturaPedida,
+  BorradorDelDte,
+  DtePedido,
   Receptor,
   ReferenciaPedida,
 } from "../../../services/facturas.service";
 import { formatearRut } from "../../../utils/rut";
 import Casilla from "./CasillaDeLaFactura";
-import { DEL_RECEPTOR, OTRA, claseCasilla } from "./datosDeLaFactura";
+import { DEL_RECEPTOR, OTRA } from "./datosDeLaFactura";
 
-/** «Editar a mano» (E4): todo lo de la factura, antes de emitir. */
-export default function EditarFacturaAMano({
+/** «Editar receptor y referencias» de la factura (E4): a quién va y las
+ *  referencias, antes de emitir. Las líneas se editan en el DTE mismo. */
+export default function EditarReceptor({
   pedida,
   inicial,
-  totalActual,
   otra,
   elegirLaRazon,
   poner,
@@ -30,20 +29,17 @@ export default function EditarFacturaAMano({
   siempre,
   elegirRazon,
 }: {
-  readonly pedida: FacturaPedida;
-  readonly inicial: BorradorDeFactura;
-  /** El total de la vista previa: al pasar a «un monto», parte de él. */
-  readonly totalActual: number;
+  readonly pedida: DtePedido;
+  readonly inicial: BorradorDelDte;
   readonly otra: boolean;
   readonly elegirLaRazon: boolean;
-  readonly poner: (c: Partial<FacturaPedida>) => void;
+  readonly poner: (c: Partial<DtePedido>) => void;
   readonly ponerReceptor: (campo: keyof Receptor, valor: string) => void;
   readonly ponerReferencia: (i: number, c: Partial<ReferenciaPedida>) => void;
   readonly siempre: (codigo: string, si: boolean) => void;
   readonly elegirRazon: (rut: string) => void;
 }) {
   const r = pedida.receptor;
-  const porMonto = pedida.monto != null;
   const sinUsar = REFERENCIAS_QUE_PIDE.filter(
     (x) => !pedida.referencias.some((y) => y.tipo === x.codigo),
   );
@@ -111,84 +107,6 @@ export default function EditarFacturaAMano({
           largo={LARGO_MAXIMO.correo_facturacion}
           onChange={(v) => ponerReceptor("correo", v)}
         />
-      </div>
-
-      <div className="space-y-2">
-        <Casilla
-          etiqueta="Detalle"
-          valor={pedida.detalle.descripcion}
-          largo={80}
-          onChange={(v) =>
-            poner({ detalle: { ...pedida.detalle, descripcion: v } })
-          }
-        />
-        <label className="block">
-          <span className="flex justify-between text-xs text-gray-500">
-            Descripción larga (opcional)
-            <span>
-              {Array.from(pedida.detalle.descripcion_larga ?? "").length}/1000
-            </span>
-          </span>
-          <textarea
-            value={pedida.detalle.descripcion_larga ?? ""}
-            maxLength={1000}
-            rows={2}
-            onChange={(e) =>
-              poner({
-                detalle: {
-                  ...pedida.detalle,
-                  descripcion_larga: e.target.value || null,
-                },
-              })
-            }
-            className={claseCasilla}
-          />
-        </label>
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-xs font-semibold text-gray-500">
-          Cuánto se factura {inicial.oc ? "de la OC" : "del evento"}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => poner({ porcentaje: 100, monto: null })}
-            className={`px-2.5 py-1 text-xs rounded-lg font-semibold ${!porMonto ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
-          >
-            Un %
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              poner({ porcentaje: null, monto: pedida.monto ?? totalActual })
-            }
-            className={`px-2.5 py-1 text-xs rounded-lg font-semibold ${porMonto ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
-          >
-            Un monto con IVA
-          </button>
-          <div className="w-40">
-            {porMonto ? (
-              <NumberInput
-                value={pedida.monto ?? undefined}
-                min={0}
-                currency
-                placeholder="0"
-                onChange={(v) => poner({ monto: v ?? 0 })}
-                className="px-3 py-1.5 text-sm"
-              />
-            ) : (
-              <NumberInput
-                value={pedida.porcentaje ?? undefined}
-                min={0}
-                max={100}
-                placeholder="100"
-                onChange={(v) => poner({ porcentaje: v ?? null })}
-                className="px-3 py-1.5 text-sm"
-              />
-            )}
-          </div>
-        </div>
       </div>
 
       <div className="space-y-2">

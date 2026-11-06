@@ -81,7 +81,10 @@ describe('Las órdenes de compra de un evento', () => {
       editar: jest.fn().mockResolvedValue({ id: 1 }),
       borrar: jest.fn().mockResolvedValue(1),
     };
-    return { repo, service: new OrdenesDeCompraService(repo as never) };
+    return {
+      repo,
+      service: new OrdenesDeCompraService(repo as never, {} as never),
+    };
   };
   const dto = () => plainToInstance(CrearOrdenDeCompraDto, OC3);
 
@@ -201,6 +204,152 @@ describe('Las órdenes de compra de un evento', () => {
     );
     await expect(service.borrar('ev-481', 1, 99)).rejects.toThrow(
       NotFoundException,
+    );
+  });
+});
+
+describe('Las OC salen de Documentos (doc 19 §9.20)', () => {
+  const LEIDA = {
+    numero: '32000066941',
+    fecha: '2026-10-14',
+    rut: '65175239-6',
+    razon_social: 'Corporación Instituto Profesional Santo Tomás',
+    descripcion: 'Fiesta de Navidad Santo Tomás 2026',
+    neto: 2201621,
+    iva: 418308,
+    total: 2619929,
+    giro: 'EDUCACION',
+    direccion: null,
+    comuna: 'San Joaquín',
+    ciudad: null,
+    otras_referencias: [],
+  };
+  const armar = ({
+    pdfs = [{ id: 261, file_name: 'OC Santo Tomás' }],
+    antes = [] as Record<string, unknown>[],
+    leida = LEIDA as Record<string, unknown>,
+    falla = null as Error | null,
+  } = {}) => {
+    const guardadas: Record<string, unknown>[] = [...antes];
+    const repo = {
+      cotizacionDeLaEmpresa: jest.fn().mockResolvedValue(true),
+      documentoDeLaCotizacion: jest.fn().mockResolvedValue(true),
+      ordenesEnDocumentos: jest.fn().mockResolvedValue(pdfs),
+      deCotizacion: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve([...guardadas])),
+      crear: jest.fn().mockImplementation((fila: object) => {
+        const oc = { id: 90 + guardadas.length, ...fila };
+        guardadas.push(oc);
+        return Promise.resolve(oc);
+      }),
+      borrar: jest.fn().mockResolvedValue(1),
+    };
+    const lector = {
+      leer: jest
+        .fn()
+        .mockImplementation((_q: string, _c: number, id: number) =>
+          falla
+            ? Promise.reject(falla)
+            : Promise.resolve({
+                propuesta: leida,
+                avisos: [],
+                documento_id: id,
+              }),
+        ),
+    };
+    return {
+      repo,
+      lector,
+      service: new OrdenesDeCompraService(repo as never, lector as never),
+    };
+  };
+
+  it('el PDF que todavía no es una OC lo lee BelIA y queda guardado, tal como lo leyó', async () => {
+    const { service, repo, lector } = armar();
+    const r = await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).toHaveBeenCalledWith('ev-481', 1, 261);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        numero: '32000066941',
+        fecha: '2026-10-14',
+        rut: '65175239-6',
+        total: 2619929,
+        neto: 2201621,
+        documento_id: 261,
+        origen: 'pdf',
+        comprador: {
+          giro: 'EDUCACION',
+          direccion: null,
+          comuna: 'San Joaquín',
+          ciudad: null,
+        },
+        creado_por: 'felipe',
+      }),
+    );
+    expect(r.ordenes).toHaveLength(1);
+    expect(r.sinLeer).toEqual([]);
+  });
+
+  it('lo ya leído no se vuelve a leer', async () => {
+    const { service, lector } = armar({
+      antes: [{ id: 5, origen: 'pdf', documento_id: 261 }],
+    });
+    const r = await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).not.toHaveBeenCalled();
+    expect(r.ordenes).toEqual([{ id: 5, origen: 'pdf', documento_id: 261 }]);
+  });
+
+  it('la OC leída cuyo PDF se quitó de Documentos se va con él; la escrita a mano se queda', async () => {
+    const { service, repo } = armar({
+      pdfs: [],
+      antes: [
+        { id: 5, origen: 'pdf', documento_id: null },
+        { id: 6, origen: 'manual', documento_id: null },
+      ],
+    });
+    repo.deCotizacion
+      .mockResolvedValueOnce([
+        { id: 5, origen: 'pdf', documento_id: null },
+        { id: 6, origen: 'manual', documento_id: null },
+      ])
+      .mockResolvedValueOnce([{ id: 6, origen: 'manual', documento_id: null }]);
+    const r = await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(repo.borrar).toHaveBeenCalledTimes(1);
+    expect(repo.borrar).toHaveBeenCalledWith(5, 'ev-481', 1);
+    expect(r.ordenes).toEqual([
+      { id: 6, origen: 'manual', documento_id: null },
+    ]);
+  });
+
+  it('lo que BelIA no pudo leer se dice, sin guardar nada', async () => {
+    const sinFecha = armar({ leida: { ...LEIDA, fecha: null } });
+    expect(
+      (await sinFecha.service.deDocumentos('ev-481', 1, 'felipe')).sinLeer,
+    ).toEqual([
+      {
+        documento_id: 261,
+        nombre: 'OC Santo Tomás',
+        motivo: 'BelIA no encontró la fecha',
+      },
+    ]);
+    expect(sinFecha.repo.crear).not.toHaveBeenCalled();
+
+    const caida = armar({
+      falla: new BadRequestException('BelIA no pudo leer la orden de compra'),
+    });
+    expect(
+      (await caida.service.deDocumentos('ev-481', 1, 'felipe')).sinLeer,
+    ).toMatchObject([{ motivo: 'BelIA no pudo leer la orden de compra' }]);
+  });
+
+  it('un RUT mal leído no se guarda: la factura elige la razón social', async () => {
+    const { service, repo } = armar({
+      leida: { ...LEIDA, rut: '65175239-5' },
+    });
+    await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ rut: null }),
     );
   });
 });

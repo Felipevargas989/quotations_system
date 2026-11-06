@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { LARGO_MAXIMO } from "../../../constants/facturacion";
 import type { Receptor } from "../../../services/facturas.service";
 
-// LO QUE COMPARTEN EL BORRADOR DE BELIA (`ArmarFactura`) Y «EDITAR A MANO»
-// (`EditarFacturaAMano`): la factura del evento (doc 19, paso 2c).
+// LO QUE COMPARTEN EL DTE QUE ARMA BELIA (`EmitirDte`), SUS LÍNEAS
+// (`LineasDelDte`) Y «EDITAR RECEPTOR Y REFERENCIAS» (`EditarReceptor`): el
+// DTE del evento (doc 19 §9.20).
 
 export const OTRA = "otra";
 export const claseCasilla =

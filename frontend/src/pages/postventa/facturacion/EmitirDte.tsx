@@ -10,18 +10,20 @@ import {
   marcaDelAmbiente,
 } from "../../../constants/facturacion";
 import {
-  armarBorradorDeFactura,
-  emitirFactura,
-  revisarFactura,
-  type BorradorDeFactura,
-  type FacturaPedida,
+  armarBorradorDeDte,
+  emitirDte,
+  prepararDte,
+  revisarDte,
+  type BorradorDelDte,
+  type DtePedido,
+  type PreparacionDelDte,
   type Receptor,
   type ReferenciaPedida,
+  type TipoDeDte,
 } from "../../../services/facturas.service";
 import { humanizeApiError } from "../../../utils/apiErrors";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
 import { formatearRut } from "../../../utils/rut";
-import EditarFacturaAMano from "./EditarFacturaAMano";
 import Casilla from "./CasillaDeLaFactura";
 import {
   DEL_RECEPTOR,
@@ -29,34 +31,215 @@ import {
   RECEPTOR_VACIO,
   useQuieto,
 } from "./datosDeLaFactura";
-import VistaPreviaDeFactura from "./VistaPreviaDeFactura";
+import EditarReceptor from "./EditarReceptor";
+import LineasDelDte from "./LineasDelDte";
+import VistaPreviaDelDte from "./VistaPreviaDelDte";
 
-// LA FACTURA QUE ARMA BELIA (doc 19 §9.2, paso 2c; maqueta del 04-11).
+// EMITIR DTE (doc 19 §9.20): la factura o la boleta del evento.
 //
-// Felipe: "Belia arma todo y luego se confirma a mano". Desde la OC (o desde
-// el evento): de dónde leyó, el total de la OC con lo ya facturado, el
-// receptor, el detalle, el neto y el IVA, y las referencias. Lo que falta se
-// pregunta acá mismo (CCU: la nota de pedido; un RUT nuevo: el giro) y lo
-// que se responde queda en la ficha al emitir. «Editar a mano» abre todo
-// (E4), «Ver cómo sale» muestra la factura tal como saldrá y ahí se emite.
-// La revisión es la del motor: la misma que emite.
+// Felipe, 05-11: *"puedo elegir si el DTE es una factura, una boleta y
+// punto (…) el DTE tiene una descripción, un precio neto, un precio, una
+// cantidad de personas, un precio total, el IVA y el total a pagar. Eso o
+// se completa solo de la orden de compra o se completa de la información
+// que tiene Eventia, o bien se edita a mano"*. Al abrir, BelIA lee las OC
+// que están en Documentos; el DTE se llena desde la OC que queda por
+// facturar, o desde la cotización. Lo que falta se pregunta acá mismo (CCU:
+// la nota de pedido; un RUT nuevo: el giro) y queda en la ficha al emitir.
+// «Ver cómo sale» muestra el DTE tal como saldrá y ahí se emite. La
+// revisión es la del motor: la misma que emite.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
-function Cifra({
-  titulo,
-  valor,
-  detalle,
+
+const NOMBRE: Record<TipoDeDte, string> = { 33: "Factura", 39: "Boleta" };
+
+export default function EmitirDte({
+  quotationId,
+  puedeEmitir,
+  onCerrar,
+  onEmitido,
 }: {
-  readonly titulo: string;
-  readonly valor: string;
-  readonly detalle?: string;
+  readonly quotationId: string;
+  readonly puedeEmitir: boolean;
+  readonly onCerrar: () => void;
+  readonly onEmitido: () => void;
+}) {
+  const preparacion = useQuery({
+    queryKey: ["facturacion", "preparar", quotationId],
+    queryFn: () => prepararDte(quotationId),
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  return (
+    <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50/40 p-4">
+      {preparacion.isPending ? (
+        <p className="flex items-center gap-2 text-sm text-violet-700">
+          <Sparkles size={14} /> BelIA está leyendo las órdenes de compra de
+          Documentos…
+        </p>
+      ) : preparacion.isError ? (
+        <Falla error={preparacion.error} onCerrar={onCerrar} />
+      ) : (
+        <ConLaPreparacion
+          preparacion={preparacion.data}
+          quotationId={quotationId}
+          puedeEmitir={puedeEmitir}
+          onCerrar={onCerrar}
+          onEmitido={onEmitido}
+        />
+      )}
+    </div>
+  );
+}
+
+function Falla({
+  error,
+  onCerrar,
+}: {
+  readonly error: unknown;
+  readonly onCerrar: () => void;
 }) {
   return (
-    <div className="rounded-lg bg-white px-3 py-2 border border-gray-200">
-      <p className="text-xs text-gray-500">{titulo}</p>
-      <p className="text-base font-semibold text-gray-900">{valor}</p>
-      {detalle && <p className="text-xs text-gray-500">{detalle}</p>}
+    <div className="flex items-center justify-between gap-2">
+      <p className="text-sm text-red-600">
+        {humanizeApiError(error, "BelIA no pudo armar el DTE.")}
+      </p>
+      <button
+        type="button"
+        onClick={onCerrar}
+        className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+      >
+        Cerrar
+      </button>
     </div>
+  );
+}
+
+/** Factura o boleta, y de dónde se llena: una OC o la cotización. */
+function ConLaPreparacion({
+  preparacion,
+  quotationId,
+  puedeEmitir,
+  onCerrar,
+  onEmitido,
+}: {
+  readonly preparacion: PreparacionDelDte;
+  readonly quotationId: string;
+  readonly puedeEmitir: boolean;
+  readonly onCerrar: () => void;
+  readonly onEmitido: () => void;
+}) {
+  const [tipo, setTipo] = useState<TipoDeDte>(preparacion.tipo);
+  // La primera OC que queda por facturar; si no hay, la cotización.
+  const [desde, setDesde] = useState<number | null>(
+    () => preparacion.ocs.find((o) => o.facturado < o.total)?.id ?? null,
+  );
+  // La boleta no va contra una OC.
+  const oc = tipo === 33 ? desde : null;
+  const borrador = useQuery({
+    queryKey: ["facturacion", "borrador", quotationId, tipo, oc],
+    queryFn: () => armarBorradorDeDte(quotationId, tipo, oc),
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  const ev = preparacion.evento;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
+          {([33, 39] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTipo(t)}
+              className={`rounded-md px-3 py-1 text-xs font-semibold ${tipo === t ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+            >
+              {NOMBRE[t]}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onCerrar}
+          title="Cerrar sin emitir"
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-gray-500">Se llena desde</span>
+        {tipo === 33 &&
+          preparacion.ocs.map((o) => (
+            <Fuente
+              key={o.id}
+              elegida={desde === o.id}
+              onClick={() => setDesde(o.id)}
+              titulo={`OC N° ${o.numero}`}
+              queda={o.total - o.facturado}
+            />
+          ))}
+        <Fuente
+          elegida={oc === null}
+          onClick={() => setDesde(null)}
+          titulo={`Cotización N° ${ev.numero}`}
+          queda={ev.total - ev.facturado}
+        />
+      </div>
+
+      {preparacion.sin_leer.length > 0 && (
+        <div className="space-y-0.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+          {preparacion.sin_leer.map((s) => (
+            <p key={s.documento_id}>
+              BelIA no pudo leer «{s.nombre}»: {s.motivo}.
+            </p>
+          ))}
+        </div>
+      )}
+
+      {borrador.isPending ? (
+        <p className="flex items-center gap-2 text-sm text-violet-700">
+          <Sparkles size={14} /> BelIA está armando el DTE…
+        </p>
+      ) : borrador.isError ? (
+        <Falla error={borrador.error} onCerrar={onCerrar} />
+      ) : (
+        <Borrador
+          key={`${tipo}-${oc ?? "cotizacion"}`}
+          inicial={borrador.data}
+          quotationId={quotationId}
+          puedeEmitir={puedeEmitir}
+          onEmitido={onEmitido}
+        />
+      )}
+    </div>
+  );
+}
+
+function Fuente({
+  elegida,
+  onClick,
+  titulo,
+  queda,
+}: {
+  readonly elegida: boolean;
+  readonly onClick: () => void;
+  readonly titulo: string;
+  readonly queda: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-2.5 py-0.5 font-semibold ${elegida ? "border-violet-600 bg-violet-600 text-white" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+    >
+      {titulo}
+      <span className="font-normal">
+        {" "}
+        · {queda > 0 ? `queda ${clp(queda)}` : "emitida completa"}
+      </span>
+    </button>
   );
 }
 
@@ -79,74 +262,18 @@ const DeDonde = ({ children }: { readonly children: ReactNode }) => (
   <span className="text-xs text-gray-500"> {children}</span>
 );
 
-export default function ArmarFactura({
-  quotationId,
-  ordenDeCompraId,
-  puedeEmitir,
-  onCerrar,
-  onEmitida,
-}: {
-  readonly quotationId: string;
-  readonly ordenDeCompraId: number | null;
-  readonly puedeEmitir: boolean;
-  readonly onCerrar: () => void;
-  readonly onEmitida: () => void;
-}) {
-  const borrador = useQuery({
-    queryKey: ["facturacion", "borrador", quotationId, ordenDeCompraId],
-    queryFn: () => armarBorradorDeFactura(quotationId, ordenDeCompraId),
-    gcTime: 0,
-    refetchOnWindowFocus: false,
-  });
-  return (
-    <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50/40 p-4">
-      {borrador.isPending ? (
-        <p className="flex items-center gap-2 text-sm text-violet-700">
-          <Sparkles size={14} /> BelIA está armando la factura…
-        </p>
-      ) : borrador.isError ? (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-red-600">
-            {humanizeApiError(
-              borrador.error,
-              "BelIA no pudo armar la factura.",
-            )}
-          </p>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="text-xs font-semibold text-gray-500 hover:text-gray-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      ) : (
-        <Borrador
-          inicial={borrador.data}
-          quotationId={quotationId}
-          puedeEmitir={puedeEmitir}
-          onCerrar={onCerrar}
-          onEmitida={onEmitida}
-        />
-      )}
-    </div>
-  );
-}
-
 function Borrador({
   inicial,
   quotationId,
   puedeEmitir,
-  onCerrar,
-  onEmitida,
+  onEmitido,
 }: {
-  readonly inicial: BorradorDeFactura;
+  readonly inicial: BorradorDelDte;
   readonly quotationId: string;
   readonly puedeEmitir: boolean;
-  readonly onCerrar: () => void;
-  readonly onEmitida: () => void;
+  readonly onEmitido: () => void;
 }) {
-  const [pedida, setPedida] = useState<FacturaPedida>(inicial.pedida);
+  const [pedida, setPedida] = useState<DtePedido>(inicial.pedida);
   const [editando, setEditando] = useState(false);
   const [viendo, setViendo] = useState(false);
   const [emitiendo, setEmitiendo] = useState(false);
@@ -156,7 +283,7 @@ function Borrador({
   const cambio = quieta !== inicial.pedida;
   const revision = useQuery({
     queryKey: ["facturacion", "revisar", quotationId, quieta],
-    queryFn: () => revisarFactura(quotationId, quieta),
+    queryFn: () => revisarDte(quotationId, quieta),
     enabled: cambio,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -165,6 +292,7 @@ function Borrador({
   const vista = cambio && revision.data ? revision.data : inicial.vista;
   const revisando = pedida !== quieta || revision.isFetching;
 
+  const factura = pedida.tipo === 33;
   const r = pedida.receptor;
   const conOC = !!inicial.oc;
   const quien =
@@ -186,12 +314,12 @@ function Borrador({
   );
   // Sin RUT en la OC (o sin OC): se elige entre las razones sociales del
   // cliente, o se escribe una nueva.
-  const sinReceptor = inicial.origenes.receptor === "persona";
+  const sinReceptor = factura && inicial.origenes.receptor === "persona";
   const elegirLaRazon = sinReceptor && inicial.razones.length > 0;
   const escribirReceptor =
     otra || (sinReceptor && inicial.razones.length === 0);
 
-  const poner = (cambios: Partial<FacturaPedida>) =>
+  const poner = (cambios: Partial<DtePedido>) =>
     setPedida((p) => ({ ...p, ...cambios }));
   const ponerReceptor = (campo: keyof Receptor, valor: string) =>
     setPedida((p) => ({ ...p, receptor: { ...p.receptor, [campo]: valor } }));
@@ -241,20 +369,21 @@ function Borrador({
 
   const emitir = async () => {
     setEmitiendo(true);
+    const cual = factura ? "factura" : "boleta";
     try {
-      const doc = await emitirFactura(quotationId, pedida);
+      const doc = await emitirDte(quotationId, pedida);
       if (doc.estado === "por_confirmar")
         toast.warn(
-          "Se cortó la conexión con facturacion.cl: la factura queda por confirmar. No la emitas de nuevo.",
+          `Se cortó la conexión con facturacion.cl: la ${cual} queda por confirmar. No la emitas de nuevo.`,
           { sticky: true },
         );
       else
         toast.success(
-          `Factura N° ${doc.folio} emitida${marcaDelAmbiente(doc.ambiente)}.`,
+          `${NOMBRE[pedida.tipo]} N° ${doc.folio} emitida${marcaDelAmbiente(doc.ambiente)}.`,
         );
-      onEmitida();
+      onEmitido();
     } catch (error) {
-      toast.error(humanizeApiError(error, "No se pudo emitir la factura."));
+      toast.error(humanizeApiError(error, `No se pudo emitir la ${cual}.`));
     } finally {
       setEmitiendo(false);
     }
@@ -262,7 +391,7 @@ function Borrador({
 
   if (viendo)
     return (
-      <VistaPreviaDeFactura
+      <VistaPreviaDelDte
         vista={vista}
         pedida={pedida}
         puedeEmitir={puedeEmitir}
@@ -272,17 +401,6 @@ function Borrador({
       />
     );
 
-  const base = inicial.oc ? inicial.oc.total : inicial.evento.total;
-  const facturado = inicial.oc
-    ? inicial.oc.facturado
-    : inicial.evento.facturado;
-  const pct = (n: number) =>
-    base > 0
-      ? `${(Math.round((n / base) * 1000) / 10).toLocaleString("es-CL")} %`
-      : "—";
-  const total = vista.montos?.total ?? 0;
-  const cuadra =
-    conOC && facturado === 0 && total === inicial.oc?.total && !revisando;
   const faltan = vista.faltan.length;
 
   return (
@@ -290,13 +408,13 @@ function Borrador({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-violet-900">
-            <Sparkles size={14} /> Borrador de factura armado por BelIA
+            <Sparkles size={14} /> {NOMBRE[pedida.tipo]} armada por BelIA
           </p>
           <p className="text-xs text-gray-500">
             Leído de: {inicial.leidoDe.join(" · ")}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="shrink-0">
           {revisando ? (
             <span className="text-xs text-gray-400">Revisando…</span>
           ) : faltan > 0 ? (
@@ -308,35 +426,13 @@ function Borrador({
               Lista para emitir
             </span>
           ) : null}
-          <button
-            type="button"
-            onClick={onCerrar}
-            title="Cerrar sin emitir"
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={16} />
-          </button>
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Cifra
-          titulo={conOC ? "Total de la OC" : "Total del evento"}
-          valor={clp(base)}
-        />
-        <Cifra
-          titulo={conOC ? "Ya facturado de la OC" : "Ya facturado del evento"}
-          valor={clp(facturado)}
-          detalle={pct(facturado)}
-        />
-        <Cifra titulo="Esta factura" valor={pct(total)} detalle={clp(total)} />
-      </div>
-
-      {editando ? (
-        <EditarFacturaAMano
+      {factura && editando && (
+        <EditarReceptor
           pedida={pedida}
           inicial={inicial}
-          totalActual={total}
           otra={otra}
           elegirLaRazon={elegirLaRazon}
           poner={poner}
@@ -345,7 +441,9 @@ function Borrador({
           siempre={siempre}
           elegirRazon={elegirRazon}
         />
-      ) : (
+      )}
+
+      {factura && !editando && (
         <>
           <dl className="divide-y divide-gray-100 rounded-lg bg-white px-3 border border-gray-200">
             <Fila titulo="Receptor">
@@ -364,25 +462,6 @@ function Borrador({
               ) : (
                 <span className="text-gray-400">Falta elegirlo</span>
               )}
-            </Fila>
-            <Fila titulo="Detalle">
-              {pedida.detalle.descripcion}
-              <DeDonde>
-                {inicial.origenes.detalle === "orden_de_compra"
-                  ? "(como dice la OC)"
-                  : "(de la cotización)"}
-              </DeDonde>
-              {pedida.detalle.descripcion_larga && (
-                <span className="block text-xs text-gray-500">
-                  {pedida.detalle.descripcion_larga}
-                </span>
-              )}
-            </Fila>
-            <Fila titulo="Neto · IVA">
-              {vista.montos
-                ? `${clp(vista.montos.neto)} · ${clp(vista.montos.iva)}`
-                : "—"}
-              {cuadra && <DeDonde>(cuadra con la OC)</DeDonde>}
             </Fila>
             {pedida.referencias
               .filter((x) => !preguntadas.has(x.tipo))
@@ -500,6 +579,21 @@ function Borrador({
         </>
       )}
 
+      <LineasDelDte
+        lineas={pedida.lineas}
+        montos={vista.montos}
+        onChange={(lineas) => poner({ lineas })}
+      />
+
+      {!factura && (
+        <Casilla
+          etiqueta="Correo del cliente (facturacion.cl le manda la boleta)"
+          valor={r.correo}
+          largo={LARGO_MAXIMO.correo_facturacion}
+          onChange={(v) => ponerReceptor("correo", v)}
+        />
+      )}
+
       {(vista.avisos.length > 0 || vista.problemas.length > 0) && (
         <div className="space-y-0.5 text-xs">
           {vista.avisos.map((a) => (
@@ -516,13 +610,15 @@ function Borrador({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setEditando((e) => !e)}
-          className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded-lg font-semibold hover:bg-gray-50"
-        >
-          {editando ? "Listo" : "Editar a mano"}
-        </button>
+        {factura && (
+          <button
+            type="button"
+            onClick={() => setEditando((e) => !e)}
+            className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded-lg font-semibold hover:bg-gray-50"
+          >
+            {editando ? "Listo" : "Editar receptor y referencias"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setViendo(true)}
