@@ -973,7 +973,18 @@ export default function QuotationsPage() {
             }`}
             title="Cotizaciones vivas con contacto vencido o 3+ días sin gestión, las más urgentes arriba"
           >
-            Requieren seguimiento ({nRequieren})
+            {/* El número cambia con el tipo de cliente elegido: el botón
+                guarda lugar para dos cifras para que el chip del tipo, a
+                su izquierda, y su menú no se corran a cada clic (Felipe,
+                06-11-2026: "esto se mueve cuando lo pincho"). */}
+            <span className="inline-grid tabular-nums">
+              <span aria-hidden className="invisible col-start-1 row-start-1">
+                Requieren seguimiento (00)
+              </span>
+              <span className="col-start-1 row-start-1 text-center">
+                Requieren seguimiento ({nRequieren})
+              </span>
+            </span>
           </button>
         </div>
       </div>
