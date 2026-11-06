@@ -973,6 +973,22 @@ producción».
 - La forma exacta de lo que responden `ConsultarCAF` y `ObtenerPdf` no está
   en el manual. La lectura es tolerante y se confirma en el 5b.
 
+**Medido en vivo el 06-11 (con las credenciales de prueba, en el
+laboratorio):**
+- Las credenciales sirven: el motor anotó «conectado en prueba para la
+  empresa 1».
+- `ConsultarCAF` responde un bloque `<CAF>` por cada rango, con `idcaf`,
+  `tipodte`, `fecha` y `fechavencimiento` en DD-MM-AAAA («NO APLICA» en las
+  boletas), `rangodesde`, `rangohasta`, `cantidad` y `foliosiguiente`. El
+  manual no dice `rangodesde` ni `rangohasta`: la primera lectura buscaba
+  `foliodesde` y `foliohasta` y respondía «sin folios».
+- Llegan varios rangos por tipo, y algunos agotados: el folio que sigue
+  quedó fuera del rango (la nota de débito: 1 a 292.099, con el siguiente
+  en 292.100). Vale el primer rango con folios; los libres suman todos.
+- La empresa de prueba es compartida por muchos integradores: los folios
+  van en los miles de millones y avanzan solos. Por eso importa reintentar
+  una vez si el folio ya existe (L3).
+
 **En el laboratorio desde el 05-11:**
 - `pruebas` d6dc2bc7 y 89fb492e (la lista sin acciones fuera de su
   ambiente), con la vitrina 6aec83bc.
