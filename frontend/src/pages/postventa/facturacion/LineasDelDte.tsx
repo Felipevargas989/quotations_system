@@ -8,7 +8,10 @@ import { claseCasilla, claseTitulo } from "./datosDeLaFactura";
 // personas, el precio con IVA y su total, y abajo el neto, el IVA y el
 // total a pagar como los calcula el motor (los mismos que salen). Todo se
 // edita a mano. Las tres casillas van del mismo alto que las demás del DTE
-// (`claseCasilla`, el py-2 del campo numérico).
+// (`claseCasilla`, el py-2 del campo numérico). La descripción larga va
+// plegada en cada línea (Felipe, 06-11: «ok»): «+ Descripción larga» la
+// abre, y «Quitar» la saca del DTE; si BelIA trae el texto largo de la OC,
+// ya viene abierta.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -87,22 +90,40 @@ export default function LineasDelDte({
               <span />
             )}
           </div>
-          {l.descripcion_larga != null && (
-            <label className="block">
-              <span className={claseTitulo}>
+          {l.descripcion_larga != null ? (
+            <div>
+              <div className={claseTitulo}>
                 Descripción larga
-                <span>{Array.from(l.descripcion_larga).length}/1000</span>
-              </span>
+                <span className="flex items-center gap-2">
+                  {Array.from(l.descripcion_larga).length}/1000
+                  <button
+                    type="button"
+                    onClick={() => poner(i, { descripcion_larga: null })}
+                    className="font-semibold hover:text-red-600"
+                  >
+                    Quitar
+                  </button>
+                </span>
+              </div>
               <textarea
                 value={l.descripcion_larga}
                 maxLength={1000}
                 rows={2}
+                aria-label="Descripción larga"
                 onChange={(e) =>
                   poner(i, { descripcion_larga: e.target.value })
                 }
                 className={`${claseCasilla} text-xs`}
               />
-            </label>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => poner(i, { descripcion_larga: "" })}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <Plus size={12} /> Descripción larga
+            </button>
           )}
         </div>
       ))}
