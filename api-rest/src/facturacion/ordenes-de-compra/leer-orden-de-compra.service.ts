@@ -144,7 +144,7 @@ export class LeerOrdenDeCompraService {
     }
     if (!leido) {
       throw new BadRequestException(
-        'Ese documento no parece una orden de compra, o no trae su N°: cárgala a mano.',
+        'Ese documento no parece una orden de compra, o no trae su N°',
       );
     }
     const yaCargada = (

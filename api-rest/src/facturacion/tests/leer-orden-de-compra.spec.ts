@@ -241,7 +241,7 @@ describe('Leer con BelIA una OC de Documentos', () => {
       usage: {},
     });
     await expect(lector.leer('ev-481', 1, 261)).rejects.toThrow(
-      'Ese documento no parece una orden de compra, o no trae su N°: cárgala a mano.',
+      'Ese documento no parece una orden de compra, o no trae su N°',
     );
   });
 });
