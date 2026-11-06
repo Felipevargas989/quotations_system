@@ -190,9 +190,12 @@ function ConLaPreparacion({
 
       {preparacion.sin_leer.length > 0 && (
         <div className="space-y-0.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+          <p className="font-semibold">
+            BelIA no pudo leer estas órdenes de compra de Documentos:
+          </p>
           {preparacion.sin_leer.map((s) => (
             <p key={s.documento_id}>
-              BelIA no pudo leer «{s.nombre}»: {s.motivo}.
+              • «{s.nombre}»: {s.motivo.replace(/\.$/, "")}.
             </p>
           ))}
         </div>
