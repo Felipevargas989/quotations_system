@@ -89,9 +89,9 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Operación | Calendario (`calendario`) | Menú → Calendario | ✓ | **✓** | ✓ | ✓ | `calendario` |
 | Operación | Post-Venta (`postventa`) | Menú → Post-Venta | – | – | ✓ | ✓ | `post_venta` |
 | Operación | Proveedores e inventario (`proveedores`) | Menú → Proveedores y Menú → Inventario | – | – | ✓ | ✓ | `logistica` |
-| Facturación | Boletas (`boletas`) | Menú → Facturación: Boleta suelta, Por boletear, Emitidas hoy | ✓ | ✓ | ✓ | ✓ | `facturacion` |
-| Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos | – | – | ✓ | ✓ | `facturacion` |
-| Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → Documentos → notas | – | – | – | ✓ | `facturacion` |
+| Facturación | Boletas (`boletas`) | Facturación → «Nuevo documento» → Boleta (desde el 06-11-2026; antes, las pestañas Boleta suelta, Por boletear y Emitidas hoy) | ✓ | ✓ | ✓ | ✓ | `facturacion` |
+| Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos y Por facturar; «Nuevo documento» → Factura (emitirla, solo el administrador) | – | – | ✓ | ✓ | `facturacion` |
+| Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → «Nuevo documento» → Nota de crédito o de débito | – | – | – | ✓ | `facturacion` |
 | Facturación | Tarifario y conexión (`facturacion_ajustes`) | Facturación → Tarifario, «Comprobar», «Probar la conexión» | – | – | – | ✓ | `facturacion` |
 | Administración | Dashboard (`dashboard`) | Menú → Dashboard | – | – | – | ✓ | — |
 | Administración | Catálogo (`catalogo`) | Menú → Catálogo | – | – | – | ✓ | — |
@@ -137,10 +137,14 @@ cierra cada uno, apagándolo solo a él y con todo lo demás de fábrica:
 | Marketing | 25 | Campañas, audiencias y envíos |
 | Oportunidades | 66 | Todo Oportunidades |
 | Encuestas | 2 | Respuestas y plantilla |
-| Boletas (lab) | 9 | Boleta suelta, por boletear, emitir, emitidas hoy |
-| Documentos y reporte (lab) | 2 | La lista del mes y «Pedir el PDF» |
-| Anular o rebajar (lab) | 2 | Revisar y emitir notas |
-| Tarifario y conexión (lab) | 5 | Tarifario, «Comprobar» y «Probar la conexión» |
+| Boletas (lab) | 9* | Emitir boletas desde «Nuevo documento» |
+| Documentos y reporte (lab) | 2* | Documentos, Por facturar y la factura |
+| Anular o rebajar (lab) | 2* | Las notas de crédito y de débito |
+| Tarifario y conexión (lab) | 5* | Tarifario, «Comprobar» y «Probar la conexión» |
+
+\* Contado el 05-11-2026, antes de que la sección Facturación se rehiciera
+(06-11: «Documentos», «Por facturar», «Tarifario» y «Nuevo documento»). Se
+vuelve a contar cuando Facturación vaya a producción.
 
 Y al revés: prender un permiso a un cargo que no lo tiene le abre las puertas
 de esa sección como las usa hoy el cargo más bajo que la tiene. Las acciones
