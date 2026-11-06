@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
 import { toast } from "../../../components/toast/Toast";
-import RutInput from "../../../components/inputs/RutInput";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import {
   LARGO_MAXIMO,
@@ -24,7 +23,7 @@ import {
 import { humanizeApiError } from "../../../utils/apiErrors";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
 import { formatearRut } from "../../../utils/rut";
-import Casilla from "./CasillaDeLaFactura";
+import Casilla, { CasillaDelRut } from "./CasillaDeLaFactura";
 import {
   DEL_RECEPTOR,
   OTRA,
@@ -501,11 +500,9 @@ function Borrador({
                 ¿A quién se factura? Queda en la ficha del cliente al emitir.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <RutInput
-                  value={r.rut}
+                <CasillaDelRut
+                  valor={r.rut}
                   onChange={(rut) => ponerReceptor("rut", rut)}
-                  placeholder="RUT"
-                  className="text-sm"
                 />
                 <Casilla
                   etiqueta="Razón social"
