@@ -7,7 +7,8 @@ import { claseCasilla } from "./datosDeLaFactura";
 // LAS LÍNEAS DEL DTE (doc 19 §9.20): la descripción, la cantidad de
 // personas, el precio con IVA y su total, y abajo el neto, el IVA y el
 // total a pagar como los calcula el motor (los mismos que salen). Todo se
-// edita a mano.
+// edita a mano. Las tres casillas van del mismo alto que las demás del DTE
+// (`!py-1.5`: el campo numérico trae py-2 de fábrica).
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -60,7 +61,7 @@ export default function LineasDelDte({
               min={0}
               placeholder="1"
               onChange={(v) => poner(i, { cantidad: v ?? 0 })}
-              className="px-3 py-1.5 text-sm text-right"
+              className="px-3 !py-1.5 text-sm text-right"
             />
             <NumberInput
               value={l.precio}
@@ -68,7 +69,7 @@ export default function LineasDelDte({
               currency
               placeholder="0"
               onChange={(v) => poner(i, { precio: v ?? 0 })}
-              className="px-3 py-1.5 text-sm text-right"
+              className="px-3 !py-1.5 text-sm text-right"
             />
             <span className="text-right text-sm text-gray-900">
               {clp(l.cantidad * l.precio)}
