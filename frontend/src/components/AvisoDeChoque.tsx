@@ -62,9 +62,12 @@ export default function AvisoDeChoque({
   const rueda = guardando && (
     <Loader2 size={13} className="animate-spin self-center" aria-hidden />
   );
+  // La viñeta lleva un borde de su mismo rojo para medir lo mismo que el
+  // botón, que tiene el suyo: así quedan parejos arriba y abajo (Felipe,
+  // 06-11-2026: "los chip de abajo los podemos ordenar alineados abajo").
   const vineta = (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white"
+      className="inline-flex items-center gap-1 rounded-full border border-red-600 bg-red-600 px-2 py-0.5 text-xs font-semibold text-white"
       title={`${choques.map(detalleDe).join("\n")}\nSe quita solo si cambia la fecha o se cierra la cotización; o con «Sí, puede seguir».`}
     >
       <AlertTriangle size={12} aria-hidden />

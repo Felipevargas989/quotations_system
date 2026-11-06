@@ -89,6 +89,23 @@ describe("AvisoDeChoque", () => {
     ).toHaveLength(1);
   });
 
+  it("la viñeta y el botón miden lo mismo: los dos con borde, así quedan parejos (06-11-2026)", () => {
+    render(
+      <AvisoDeChoque
+        compacto
+        choques={[con411]}
+        puedeDecidir
+        guardando={false}
+        onSeguir={vi.fn()}
+      />,
+    );
+    const vineta = screen.getByText("Tope de calendario");
+    const boton = screen.getByRole("button", { name: "Sí, puede seguir" });
+    for (const pieza of [vineta, boton]) {
+      expect(pieza).toHaveClass("border", "py-0.5", "text-xs");
+    }
+  });
+
   it("quien no vende ve el tope pero no el botón", () => {
     render(
       <AvisoDeChoque
