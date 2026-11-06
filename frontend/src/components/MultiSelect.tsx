@@ -24,7 +24,10 @@ interface MultiSelectProps {
   /** Como chip de filtro (05-11-2026, el tipo de cliente del tablero): del
    *  tamaño del chip de orden, dice qué filtra y se pone azul con algo
    *  elegido. La lista va compacta y entera, sin «Seleccionar Todo»: se
-   *  limpia con la × del chip o con «Ver todos». */
+   *  limpia con la × del chip o con «Ver todos». El menú cuelga del borde
+   *  DERECHO del chip (06-11-2026, Felipe: "esto se mueve cuando lo
+   *  pincho"): el chip vive al final de una barra cargada a la derecha y
+   *  su texto cambia a cada clic, así que su borde izquierdo se corre. */
   readonly compacto?: boolean;
   /** El ícono del chip compacto. */
   readonly icono?: ReactNode;
@@ -198,7 +201,7 @@ export default function MultiSelect({
         <div
           className={`absolute z-50 mt-1 bg-white border rounded-lg shadow-lg ${
             compacto
-              ? "left-0 top-full w-72 border-gray-200 py-1"
+              ? "right-0 top-full w-72 border-gray-200 py-1"
               : "w-full border-gray-300"
           }`}
         >

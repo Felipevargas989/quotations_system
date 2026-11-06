@@ -66,6 +66,14 @@ describe("la lista de varias, compacta", () => {
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
+  it("el menú cuelga del borde derecho del chip, el que no se corre al elegir (06-11-2026)", () => {
+    pintar([]);
+    fireEvent.click(screen.getByRole("button", { name: /Tipo de cliente/ }));
+    const menu = screen.getByText("Particulares").closest(".absolute");
+    expect(menu).toHaveClass("right-0");
+    expect(menu).not.toHaveClass("left-0");
+  });
+
   it("sin `compacto` queda como siempre: con «Seleccionar Todo» y «Limpiar Todo»", () => {
     pintar([], vi.fn(), false);
     fireEvent.click(screen.getByRole("button", { name: /Tipo de cliente/ }));
