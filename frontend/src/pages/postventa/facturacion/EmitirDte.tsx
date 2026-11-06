@@ -442,7 +442,6 @@ function Borrador({
           poner={poner}
           ponerReceptor={ponerReceptor}
           ponerReferencia={ponerReferencia}
-          siempre={siempre}
           elegirRazon={elegirRazon}
         />
       )}

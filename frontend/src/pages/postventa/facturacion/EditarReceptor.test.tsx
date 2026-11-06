@@ -9,8 +9,8 @@ import type {
 import EditarReceptor from "./EditarReceptor";
 
 // LAS REFERENCIAS DEL DTE (doc 19 §9.20). Felipe, 05-11: el tipo en su
-// caja, la fecha bajo su título y «+ Agregar referencia» como un botón azul
-// chico.
+// caja, la fecha bajo su título, «+ Agregar referencia» como un botón azul
+// chico y sin el check de «pedirla siempre» («no tiene sentido»).
 
 afterEach(cleanup);
 
@@ -41,7 +41,6 @@ const abrir = (poner = vi.fn()) => {
       poner={poner}
       ponerReceptor={vi.fn()}
       ponerReferencia={vi.fn()}
-      siempre={vi.fn()}
       elegirRazon={vi.fn()}
     />,
   );
@@ -54,9 +53,7 @@ describe("Las referencias", () => {
     expect(screen.getByText("Tipo")).toBeInTheDocument();
     expect(screen.getByText("N°")).toBeInTheDocument();
     expect(screen.getByText("Fecha")).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Pedirla siempre a este cliente").length,
-    ).toBeGreaterThan(0);
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /801 · Orden de compra/ }),
     ).toBeInTheDocument();

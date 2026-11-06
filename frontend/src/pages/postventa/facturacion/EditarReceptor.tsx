@@ -17,8 +17,10 @@ import { OTRA, claseCasilla } from "./datosDeLaFactura";
 // Las referencias en UNA grilla: los títulos y cada referencia comparten
 // las columnas, así cada título queda sobre su casilla. El tipo va en su
 // caja, y «+ Agregar referencia» es un botón azul chico, como «+ Agregar
-// línea» (Felipe, 05-11).
-const COLUMNAS = "sm:grid-cols-[13rem_1fr_9.5rem_7.5rem_1.25rem]";
+// línea» (Felipe, 05-11). Sin el check de «pedirla siempre» (Felipe: «saca
+// el check no tiene sentido»): las referencias que pide cada cliente se
+// llevan en su ficha (Datos de facturación → «Referencias que pide»).
+const COLUMNAS = "sm:grid-cols-[13rem_1fr_9.5rem_1.25rem]";
 const TITULO = "hidden self-end text-xs leading-tight text-gray-500 sm:block";
 
 /** «Editar receptor y referencias» de la factura (E4): a quién va y las
@@ -31,7 +33,6 @@ export default function EditarReceptor({
   poner,
   ponerReceptor,
   ponerReferencia,
-  siempre,
   elegirRazon,
 }: {
   readonly pedida: DtePedido;
@@ -41,21 +42,18 @@ export default function EditarReceptor({
   readonly poner: (c: Partial<DtePedido>) => void;
   readonly ponerReceptor: (campo: keyof Receptor, valor: string) => void;
   readonly ponerReferencia: (i: number, c: Partial<ReferenciaPedida>) => void;
-  readonly siempre: (codigo: string, si: boolean) => void;
   readonly elegirRazon: (rut: string) => void;
 }) {
   const r = pedida.receptor;
   const sinUsar = REFERENCIAS_QUE_PIDE.filter(
     (x) => !pedida.referencias.some((y) => y.tipo === x.codigo),
   );
-  // Otro tipo en la caja: la referencia lo toma, y si se pedía siempre,
-  // se pide siempre el nuevo.
+  // Otro tipo en la caja: la referencia lo toma.
   const cambiarTipo = (antes: string, ahora: string) =>
     poner({
       referencias: pedida.referencias.map((y) =>
         y.tipo === antes ? { ...y, tipo: ahora } : y,
       ),
-      pedir_siempre: pedida.pedir_siempre.map((c) => (c === antes ? ahora : c)),
     });
   return (
     <div className="space-y-3 rounded-lg bg-white p-3 border border-gray-200">
@@ -138,7 +136,6 @@ export default function EditarReceptor({
             <span className={TITULO}>Tipo</span>
             <span className={TITULO}>N°</span>
             <span className={TITULO}>Fecha</span>
-            <span className={TITULO}>Pedirla siempre a este cliente</span>
             <span className="hidden sm:block" />
             {pedida.referencias.map((x, i) => (
               <div key={x.tipo} className="contents">
@@ -175,17 +172,6 @@ export default function EditarReceptor({
                   }
                   className={claseCasilla}
                 />
-                <label className="flex items-center gap-1 text-xs text-gray-600">
-                  <input
-                    type="checkbox"
-                    aria-label="Pedirla siempre a este cliente"
-                    checked={pedida.pedir_siempre.includes(x.tipo)}
-                    onChange={(e) => siempre(x.tipo, e.target.checked)}
-                  />
-                  <span className="sm:hidden">
-                    Pedirla siempre a este cliente
-                  </span>
-                </label>
                 <button
                   type="button"
                   title="Quitar la referencia"
