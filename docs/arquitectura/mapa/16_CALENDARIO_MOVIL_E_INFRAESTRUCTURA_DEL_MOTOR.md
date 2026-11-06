@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar), y el 28-10-2026 con lo vendido primero en el calendario (sección 6) y la lista de cotizaciones por páginas (sección 8, riesgo 14). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar), y el 28-10-2026 con lo vendido primero en el calendario (sección 6) y la lista de cotizaciones por páginas (sección 8, riesgo 14). El 06-11-2026 se borró la puerta vieja del calendario, `GET /calendar/events`, con su módulo (doc 22 §4.3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -43,11 +43,10 @@ El ícono de calendario de `frontend/src/layout/Layout.tsx` **no** es este módu
 
 ## 3. Endpoints del motor
 
-### 3.1 Propios del módulo (10)
+### 3.1 Propios del módulo (9)
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /calendar/events` | `CalendarController.findAllEvents` | `CalendarService.findAllEvents` → `QuotationsService.findAll({ companyId })`, sin filtros (toda la historia) | **Nadie.** `findAllEvents` de `frontend/src/services/calendar.service.ts` existe, pero su import está comentado en `Calendar.tsx`. La app móvil tampoco lo usa | Sesión, sin `@Roles` |
 | `GET /movil/push/clave-publica` | `MovilController.clavePublica` | `MovilService.clavePublica` (devuelve `VAPID_PUBLIC_KEY` o texto vacío) | `eventia-movil/src/lib/push.ts` | Sesión, sin `@Roles` |
 | `POST /movil/push/dispositivos` | `MovilController.registrar` (`RegistrarDispositivoDto`: `endpoint`, `p256dh`, `auth`) | `MovilService.registrarDispositivo` | `eventia-movil/src/lib/push.ts` | Sesión |
 | `POST /movil/push/probar` | `MovilController.probar` | `MovilService.probar` | `eventia-movil/src/lib/push.ts` | Sesión |
@@ -334,7 +333,6 @@ Tareas automáticas que **no** son `@Cron`:
 |---|---|
 | `api-rest/src/storage/tests/storage.service.spec.ts` | 10 pruebas de la regla del dueño: firma una ruta nueva de la misma empresa; rechaza una de otra empresa; firma una ruta vieja si la cotización es de la empresa y la rechaza si es ajena; acepta la URL pública vieja; rechaza URLs de otro sitio y prefijos desconocidos; borrar exige el mismo candado; subir rechaza tipos no permitidos y arma la ruta con `c<empresa>` |
 | `api-rest/src/config/validate-env.spec.ts` | Sin variable crítica no parte; una crítica en blanco cuenta como faltante; con todo presente no advierte; una importante ausente se reporta sin detener |
-| `api-rest/src/calendar/tests/calendar.controller.spec.ts` y `calendar.service.spec.ts` | Solo "should be defined": que la clase se pueda construir con sus dependencias simuladas |
 | `frontend/src/utils/estadoCotizacion.test.ts` | Prueba el diccionario de estados del que el calendario saca nombres y colores (vitest, corre en CI) |
 | `api-rest/test/app.e2e-spec.ts` | Nada útil: espera `GET /` con "Hello World!", una ruta que no existe. Es el esqueleto original de NestJS. No corre con `jest` ni en CI, porque `roots` apunta a `src` en `api-rest/package.json`; solo corre con `npm run test:e2e` |
 
@@ -350,11 +348,7 @@ Tareas automáticas que **no** son `@Cron`:
 ## 10. Deuda y rarezas conocidas
 
 **Calendario**
-- **Backend muerto.**
-  - `CalendarRepository` está vacío.
-  - `CalendarService` tiene comentados `blockedDays` y todo el CRUD, con el TODO "change name to model bcs logic has changed".
-  - `GET /calendar/events` no tiene quién lo llame.
-  - En el frontend, `calendar.service.ts`, `types/calendar.types.ts` y `API_ROUTES.CALENDAR_EVENTS` solo se usan entre sí.
+- ~~**Backend muerto.**~~ Enterrado el 06-11-2026 (doc 22 §4.3, Felipe: *"si hazlo si"*). `GET /calendar/events` le entregaba a cualquier cargo todas las cotizaciones con sus montos, sin las reglas de recepción ni de los tipos de cliente, y nadie lo llamaba. Se borraron el módulo `calendar` del motor (controlador, servicio, repositorio vacío, tipos y pruebas) y, en la app, `calendar.service.ts`, `types/calendar.types.ts` y `API_ROUTES.CALENDAR_EVENTS`. La pantalla lee `GET /quotations?vista=calendario` (doc 22 §4.4).
 - **Archivo grande.** `Calendar.tsx` tiene 928 líneas: página, `TarjetaEvento` y unas 170 líneas de CSS en un bloque `<style>`, todo junto.
 - **Filtro a mano.** El filtro de estados es un multiselect hecho a mano: deuda nombrada en `CLAUDE.md` y en la tanda C2 del plan de homologación. `getStatusColor` y `getStatusLabel` vuelven a buscar en `statusOptions` lo que el diccionario ya entrega.
 - **Cliente sin `?.`.** `TarjetaEvento` usa `q.clients.name`, mientras el tooltip usa `q.clients?.name`: una cotización sin cliente rompería la tarjeta.
@@ -422,7 +416,7 @@ Tareas automáticas que **no** son `@Cron`:
 7. ¿El laboratorio corre con `NODE_ENV = 'production'`? De eso depende si allá corren los relojes y el respaldo (la misma pregunta está en los mapas 10 y 11).
 8. ¿El motor de producción corre en una sola instancia? Si son varias, la memoria de sesión y del panel no se comparte entre ellas.
 9. ¿Vendedor debe ver el calendario? La ruta lo deja pasar (`SECTION_ROLES.calendar`), el menú no lo muestra (`ROLE_PERMISSIONS.vendedor`), llega por el enlace del cotizador y, al pinchar un evento aceptado, termina en "Permisos Insuficientes".
-10. ¿Se conservan `GET /calendar/events` y su servicio del frontend, o se entierran?
+10. ~~¿Se conservan `GET /calendar/events` y su servicio del frontend, o se entierran?~~ Se enterraron el 06-11-2026 (doc 22 §4.3).
 11. ¿La "cotización fría" del móvil debería contarse desde `sent_at`, como el seguimiento, en vez de `created_at`?
 12. ¿Quién o qué consulta `GET /health`? No hay llamador en el repo (mapa 19).
 
@@ -432,7 +426,6 @@ Tareas automáticas que **no** son `@Cron`:
 - `api-rest/src/main.ts`: CORS, `trust proxy`, `ValidationPipe`, Swagger `/docs`, `validateEnv` y `rawBody`.
 - `api-rest/src/app.module.ts`: `ScheduleModule`, `ThrottlerModule`, `LoggerModule`, guardias e interceptor globales.
 - `api-rest/src/config/validate-env.ts` y `api-rest/src/config/validate-env.spec.ts`.
-- `api-rest/src/calendar/calendar.controller.ts`, `calendar.service.ts`, `calendar.repository.ts`, `calendar.module.ts`, `types/index.ts` y `tests/`.
 - `api-rest/src/movil/movil.controller.ts`, `movil.service.ts` y `movil.module.ts`.
 - `api-rest/src/storage/storage.controller.ts`, `storage.service.ts`, `storage.module.ts`, `dto/upload-file.dto.ts` y `tests/storage.service.spec.ts`.
 - `api-rest/src/backup/backup-cron.service.ts` y `backup.module.ts`.
@@ -450,7 +443,6 @@ Tareas automáticas que **no** son `@Cron`:
 
 **App**
 - `frontend/src/pages/calendar/Calendar.tsx` y `ordenDelCalendario.ts` (lo vendido primero, 28-10-2026).
-- `frontend/src/services/calendar.service.ts` y `frontend/src/types/calendar.types.ts` (sin uso).
 - `frontend/src/services/storage.service.ts`.
 - `frontend/src/services/quotations.service.ts` (`getQuotations`, `getQuotationById`).
 - `frontend/src/constants/permissions.ts` y `frontend/src/constants/api.routes.ts`.

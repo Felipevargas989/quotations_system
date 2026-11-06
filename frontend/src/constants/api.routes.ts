@@ -68,8 +68,6 @@ export const API_ROUTES = {
   LOGISTICS_KITCHEN_DAY_PRINTS: "/logistics/kitchen/day-prints",
   LOGISTICS_RECIPES: "/logistics/recipes",
   LOGISTICS_RECIPES_ALL: "/logistics/recipes/all",
-  LOGISTICS_CATALOG_NAMES: "/logistics/catalog/service-names",
-  LOGISTICS_CATALOG_FIXED_COSTS: "/logistics/catalog/fixed-costs",
   LOGISTICS_FIXED_COSTS: "/logistics/fixed-costs",
   LOGISTICS_FIXED_COST_ITEMS: "/logistics/fixed-cost-items",
 
@@ -110,9 +108,6 @@ export const API_ROUTES = {
   PERMISOS: "/permisos",
   PERMISOS_FABRICA: "/permisos/fabrica",
   PERMISOS_TIPOS: "/permisos/tipos",
-
-  // calendar
-  CALENDAR_EVENTS: "/calendar/events",
 
   // plans
   PLAN_CONFIRMATION: "/plans/confirmation",

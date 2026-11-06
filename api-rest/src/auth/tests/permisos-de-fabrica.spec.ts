@@ -114,20 +114,9 @@ const FIJAS: Record<string, string[]> = {
     'GET /super-admin/stats/last-month',
     'GET /super-admin/torre',
   ],
-  // El motor ya se las abre a un cargo que ninguna pantalla suya usa:
-  // cerrarlas cambia lo de hoy, y eso es una decisión aparte, anotada y no
-  // tomada.
-  'Más abiertas que sus pantallas': [
-    'GET /calendar/events',
-    'GET /clients/:id/summary',
-    'POST /quotations/:id/cosecha',
-    'GET /logistics/estado-compras',
-    'GET /logistics/furniture',
-    'GET /logistics/supplies',
-    'GET /logistics/catalog/fixed-costs',
-    'GET /logistics/catalog/service-names',
-    'GET /logistics/recipes/all',
-  ],
+  // Las 9 «más abiertas que sus pantallas» ya no están acá: el 06-11-2026
+  // Felipe decidió («si hazlo si») que cada una sea de la sección de su
+  // pantalla, y borrar las tres que nadie llamaba (doc 22 §4.3).
 };
 
 const deHoy = (roles?: readonly string[]) =>

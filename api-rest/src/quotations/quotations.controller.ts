@@ -21,7 +21,6 @@ import {
   OPERATIONS_AND_UP,
   RECEPTION_AND_UP,
   Roles,
-  SALES_AND_UP,
 } from 'src/auth/roles.decorator';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import {
@@ -418,9 +417,14 @@ export class QuotationsController {
     return this.quotationsService.unmarkEventDone(id, user.company_id);
   }
 
-  // La palabra final sobre una fila de la cosecha del mes. Cualquiera
-  // que venda puede corregirla: es su oficio, no una decisión de sistema.
-  @Roles(...SALES_AND_UP)
+  // La palabra final sobre una fila de la cosecha del mes. La corrige quien
+  // tiene el Dashboard, que es donde vive la cosecha: desde el 06-11-2026
+  // la puerta es de esa sección (doc 22 §4.3, Felipe: «si hazlo si»), y
+  // una cotización de un tipo de cliente que su cargo no trabaja no se
+  // toca, como en el resto del Dashboard (doc 22 §9.8).
+  @Roles(...ADMIN_ONLY)
+  @Permiso('dashboard')
+  @DelEvento({ param: 'id' })
   @Post(':id/cosecha')
   setHarvestStatus(
     @Param('id') id: string,

@@ -1,6 +1,6 @@
 # Mapa: Dashboard y analítica
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): con un tipo apagado, sus clientes no cuentan en el panel ni en Análisis.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): con un tipo apagado, sus clientes no cuentan en el panel ni en Análisis. Actualizado el 06-11-2026: corregir la cosecha es de quien tiene el Dashboard (doc 22 §4.3).
 
 ## 1. Qué hace
 
@@ -40,7 +40,7 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
 | Método y ruta | Controller → service | Llamada de la app (queryKey) | Mapa |
 |---|---|---|---|
 | `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `DashboardPage` (`tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada`, `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]`) y su tarjeta `NewAccount` | 01 / 02 |
-| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
+| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); desde el 06-11-2026, solo quien tiene el Dashboard (`@Permiso('dashboard')`, administrador) y nunca una cotización de un tipo de cliente apagado (`@DelEvento`) | 02 |
 | `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `DashboardPage` (`receiptsQuery` `["postventa","comprobantes"]`); la misma caché la usa `PostVentaPage` | 03 |
 | `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `DashboardPage` (`marginBaseQuery` `["logistica","compras","base", companyId]`; caché compartida con `LogisticaPage` y `QuotationForm`) | 06 |
 | `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `DashboardPage` (`wonEventsQuery`) | 06 |

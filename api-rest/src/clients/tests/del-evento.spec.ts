@@ -77,6 +77,8 @@ const PUERTAS: [ConMetodos, string, DondeEstaElEvento][] = [
   ],
   [QuotationsController, 'markEventDone', { param: 'id' }],
   [QuotationsController, 'unmarkEventDone', { param: 'id' }],
+  // La cosecha del mes, en el Dashboard (doc 22 §4.3, 06-11-2026).
+  [QuotationsController, 'setHarvestStatus', { param: 'id' }],
   [LogisticsController, 'quotationProvisioning', { param: 'quotationId' }],
   [LogisticsController, 'eventResources', { query: 'quotationId' }],
   [
