@@ -1,5 +1,5 @@
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   LARGO_MAXIMO,
   REFERENCIAS_QUE_PIDE,
@@ -13,7 +13,11 @@ import type {
 } from "../../../services/facturas.service";
 import { formatearRut } from "../../../utils/rut";
 import Casilla, { CasillaDelRut } from "./CasillaDeLaFactura";
-import { OTRA } from "./datosDeLaFactura";
+import { OTRA, claseCasilla, claseTitulo } from "./datosDeLaFactura";
+
+// Las columnas de las referencias: el tipo, el N°, la fecha, «Siempre» y
+// quitar (Felipe, 05-11: «ordenar también las referencias»).
+const COLUMNAS = "sm:grid-cols-[13rem_1fr_10rem_auto_1.25rem]";
 
 /** «Editar receptor y referencias» de la factura (E4): a quién va y las
  *  referencias, antes de emitir. Las líneas se editan en el DTE mismo. */
@@ -118,12 +122,18 @@ export default function EditarReceptor({
 
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-500">Referencias</p>
+        {pedida.referencias.length > 0 && (
+          <div className={`hidden gap-2 sm:grid ${COLUMNAS}`}>
+            <span className={claseTitulo}>Tipo</span>
+            <span className={claseTitulo}>N°</span>
+            <span className={claseTitulo}>Fecha</span>
+            <span />
+            <span />
+          </div>
+        )}
         {pedida.referencias.map((x, i) => (
-          <div
-            key={x.tipo}
-            className="flex flex-wrap items-center gap-2 text-xs"
-          >
-            <span className="w-40 font-semibold text-gray-700">
+          <div key={x.tipo} className={`grid items-center gap-2 ${COLUMNAS}`}>
+            <span className="text-sm font-semibold text-gray-700">
               {x.tipo} · {nombreDeReferencia(x.tipo)}
             </span>
             <input
@@ -132,15 +142,15 @@ export default function EditarReceptor({
               maxLength={18}
               placeholder="N°"
               onChange={(e) => ponerReferencia(i, { folio: e.target.value })}
-              className="w-40 px-2 py-1 text-sm border border-gray-300 rounded-lg"
+              className={claseCasilla}
             />
             <input
               type="date"
               value={x.fecha}
               onChange={(e) => ponerReferencia(i, { fecha: e.target.value })}
-              className="px-2 py-1 text-sm border border-gray-300 rounded-lg"
+              className={claseCasilla}
             />
-            <label className="flex items-center gap-1 text-gray-600">
+            <label className="flex items-center gap-1 text-xs text-gray-600">
               <input
                 type="checkbox"
                 checked={pedida.pedir_siempre.includes(x.tipo)}
@@ -163,9 +173,8 @@ export default function EditarReceptor({
           </div>
         ))}
         {sinUsar.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Plus size={13} className="text-blue-600" />
-            <div className="w-64">
+          <div className={`grid gap-2 ${COLUMNAS}`}>
+            <div>
               <SelectWithSearch
                 options={sinUsar.map((x) => ({
                   value: x.codigo,
@@ -181,7 +190,7 @@ export default function EditarReceptor({
                     ],
                   })
                 }
-                placeholder="Agregar referencia"
+                placeholder="+ Agregar referencia"
                 tamano="sm"
               />
             </div>
