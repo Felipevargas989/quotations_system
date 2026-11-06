@@ -334,13 +334,6 @@ function Borrador({
         j === i ? { ...x, ...cambios } : x,
       ),
     }));
-  const siempre = (codigo: string, si: boolean) =>
-    setPedida((p) => ({
-      ...p,
-      pedir_siempre: si
-        ? [...new Set([...p.pedir_siempre, codigo])]
-        : p.pedir_siempre.filter((c) => c !== codigo),
-    }));
   const elegirRazon = (rut: string) => {
     const elegida = inicial.razones.find((x) => x.rut === rut);
     setOtra(rut === OTRA);
@@ -546,7 +539,7 @@ function Borrador({
                   {nombreDeReferencia(x.tipo).toLowerCase()} (referencia{" "}
                   {x.tipo}){conOC ? ", y no viene en la orden de compra" : ""}.
                 </p>
-                <div className="grid items-end gap-2 sm:grid-cols-[11rem_10rem_1fr]">
+                <div className="grid items-end gap-2 sm:grid-cols-[11rem_10rem]">
                   <label className="block">
                     <span className={claseTitulo}>N°</span>
                     <input
@@ -569,14 +562,6 @@ function Borrador({
                       }
                       className={claseCasilla}
                     />
-                  </label>
-                  <label className="flex items-center gap-1 pb-2.5">
-                    <input
-                      type="checkbox"
-                      checked={pedida.pedir_siempre.includes(x.tipo)}
-                      onChange={(e) => siempre(x.tipo, e.target.checked)}
-                    />
-                    Pedírmela siempre en las facturas de {quien}
                   </label>
                 </div>
               </Pregunta>

@@ -1136,6 +1136,23 @@ Salen de la pestaña el bloque de las OC («Agregar OC», «Leer con BelIA»,
 editar y quitar), «Facturar sin OC (un % o un monto)» y «Por boletear». El
 reparto por cabaña de recepción sigue en la sección Facturación.
 
+**Lo que ajustó Felipe al probarlo (05 y 06-11):**
+- Las casillas en orden y de un solo alto: la razón social a todo el
+  ancho, el RUT con el giro, la dirección con la comuna y la ciudad; las
+  referencias en una grilla (tipo en su caja, N°, fecha y quitar) y
+  «+ Agregar referencia» como botón azul chico.
+- **Sin los checks de «pedir siempre»** (*"saca el check no tiene
+  sentido"*; el 06-11, *"ok a ambas"* también para el de la pregunta
+  ámbar). Lo que pide cada cliente se cambia solo en su ficha (Datos de
+  facturación → «Referencias que pide»); la pregunta ámbar sigue pidiendo
+  la referencia que falta. Emitir ya no cambia lo que pide el cliente.
+- **La descripción larga, plegada en cada línea:** «+ Descripción larga»
+  la abre y «Quitar» la saca del DTE; si BelIA trae el texto largo de la
+  OC, ya viene abierta. La buena práctica: el nombre de la línea corto y
+  claro (80, lo que se lee en la factura) y la larga (1.000) solo cuando
+  el cliente necesita el detalle; para cuadrar, el cliente mira el N° de
+  la OC y el monto.
+
 **En el motor:**
 - `POST /quotations/:id/facturas/preparar` lee las OC de Documentos
   (`OrdenesDeCompraService.deDocumentos`) y dice de dónde se puede llenar
