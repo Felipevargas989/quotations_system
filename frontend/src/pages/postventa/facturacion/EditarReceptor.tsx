@@ -1,9 +1,8 @@
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   LARGO_MAXIMO,
   REFERENCIAS_QUE_PIDE,
-  nombreDeReferencia,
 } from "../../../constants/facturacion";
 import type {
   BorradorDelDte,
@@ -13,11 +12,14 @@ import type {
 } from "../../../services/facturas.service";
 import { formatearRut } from "../../../utils/rut";
 import Casilla, { CasillaDelRut } from "./CasillaDeLaFactura";
-import { OTRA, claseCasilla, claseTitulo } from "./datosDeLaFactura";
+import { OTRA, claseCasilla } from "./datosDeLaFactura";
 
-// Las columnas de las referencias: el tipo, el N°, la fecha, «Siempre» y
-// quitar (Felipe, 05-11: «ordenar también las referencias»).
-const COLUMNAS = "sm:grid-cols-[13rem_1fr_10rem_auto_1.25rem]";
+// Las referencias en UNA grilla: los títulos y cada referencia comparten
+// las columnas, así cada título queda sobre su casilla. El tipo va en su
+// caja, y «+ Agregar referencia» es un botón azul chico, como «+ Agregar
+// línea» (Felipe, 05-11).
+const COLUMNAS = "sm:grid-cols-[13rem_1fr_9.5rem_7.5rem_1.25rem]";
+const TITULO = "hidden self-end text-xs leading-tight text-gray-500 sm:block";
 
 /** «Editar receptor y referencias» de la factura (E4): a quién va y las
  *  referencias, antes de emitir. Las líneas se editan en el DTE mismo. */
@@ -46,6 +48,15 @@ export default function EditarReceptor({
   const sinUsar = REFERENCIAS_QUE_PIDE.filter(
     (x) => !pedida.referencias.some((y) => y.tipo === x.codigo),
   );
+  // Otro tipo en la caja: la referencia lo toma, y si se pedía siempre,
+  // se pide siempre el nuevo.
+  const cambiarTipo = (antes: string, ahora: string) =>
+    poner({
+      referencias: pedida.referencias.map((y) =>
+        y.tipo === antes ? { ...y, tipo: ahora } : y,
+      ),
+      pedir_siempre: pedida.pedir_siempre.map((c) => (c === antes ? ahora : c)),
+    });
   return (
     <div className="space-y-3 rounded-lg bg-white p-3 border border-gray-200">
       <div className="space-y-2">
@@ -123,78 +134,89 @@ export default function EditarReceptor({
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-500">Referencias</p>
         {pedida.referencias.length > 0 && (
-          <div className={`hidden gap-2 sm:grid ${COLUMNAS}`}>
-            <span className={claseTitulo}>Tipo</span>
-            <span className={claseTitulo}>N°</span>
-            <span className={claseTitulo}>Fecha</span>
-            <span />
-            <span />
+          <div className={`grid items-center gap-2 ${COLUMNAS}`}>
+            <span className={TITULO}>Tipo</span>
+            <span className={TITULO}>N°</span>
+            <span className={TITULO}>Fecha</span>
+            <span className={TITULO}>Pedirla siempre a este cliente</span>
+            <span className="hidden sm:block" />
+            {pedida.referencias.map((x, i) => (
+              <div key={x.tipo} className="contents">
+                <SelectWithSearch
+                  options={REFERENCIAS_QUE_PIDE.filter(
+                    (t) =>
+                      t.codigo === x.tipo ||
+                      !pedida.referencias.some((y) => y.tipo === t.codigo),
+                  ).map((t) => ({
+                    value: t.codigo,
+                    label: `${t.codigo} · ${t.nombre}`,
+                  }))}
+                  value={x.tipo}
+                  onChange={(v) => v && cambiarTipo(x.tipo, v)}
+                  tamano="sm"
+                  sinLimpiar
+                  mostrarConteo={false}
+                />
+                <input
+                  type="text"
+                  value={x.folio}
+                  maxLength={18}
+                  placeholder="N°"
+                  onChange={(e) =>
+                    ponerReferencia(i, { folio: e.target.value })
+                  }
+                  className={claseCasilla}
+                />
+                <input
+                  type="date"
+                  value={x.fecha}
+                  onChange={(e) =>
+                    ponerReferencia(i, { fecha: e.target.value })
+                  }
+                  className={claseCasilla}
+                />
+                <label className="flex items-center gap-1 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    aria-label="Pedirla siempre a este cliente"
+                    checked={pedida.pedir_siempre.includes(x.tipo)}
+                    onChange={(e) => siempre(x.tipo, e.target.checked)}
+                  />
+                  <span className="sm:hidden">
+                    Pedirla siempre a este cliente
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  title="Quitar la referencia"
+                  onClick={() =>
+                    poner({
+                      referencias: pedida.referencias.filter((_, j) => j !== i),
+                    })
+                  }
+                  className="text-gray-400 hover:text-red-600"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
-        {pedida.referencias.map((x, i) => (
-          <div key={x.tipo} className={`grid items-center gap-2 ${COLUMNAS}`}>
-            <span className="text-sm font-semibold text-gray-700">
-              {x.tipo} · {nombreDeReferencia(x.tipo)}
-            </span>
-            <input
-              type="text"
-              value={x.folio}
-              maxLength={18}
-              placeholder="N°"
-              onChange={(e) => ponerReferencia(i, { folio: e.target.value })}
-              className={claseCasilla}
-            />
-            <input
-              type="date"
-              value={x.fecha}
-              onChange={(e) => ponerReferencia(i, { fecha: e.target.value })}
-              className={claseCasilla}
-            />
-            <label className="flex items-center gap-1 text-xs text-gray-600">
-              <input
-                type="checkbox"
-                checked={pedida.pedir_siempre.includes(x.tipo)}
-                onChange={(e) => siempre(x.tipo, e.target.checked)}
-              />
-              Siempre
-            </label>
-            <button
-              type="button"
-              title="Quitar la referencia"
-              onClick={() =>
-                poner({
-                  referencias: pedida.referencias.filter((_, j) => j !== i),
-                })
-              }
-              className="text-gray-400 hover:text-red-600"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))}
         {sinUsar.length > 0 && (
-          <div className={`grid gap-2 ${COLUMNAS}`}>
-            <div>
-              <SelectWithSearch
-                options={sinUsar.map((x) => ({
-                  value: x.codigo,
-                  label: `${x.codigo} · ${x.nombre}`,
-                }))}
-                value=""
-                onChange={(v) =>
-                  v &&
-                  poner({
-                    referencias: [
-                      ...pedida.referencias,
-                      { tipo: v, folio: "", fecha: "" },
-                    ],
-                  })
-                }
-                placeholder="+ Agregar referencia"
-                tamano="sm"
-              />
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              poner({
+                referencias: [
+                  ...pedida.referencias,
+                  { tipo: sinUsar[0].codigo, folio: "", fecha: "" },
+                ],
+              })
+            }
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+          >
+            <Plus size={13} /> Agregar referencia
+          </button>
         )}
       </div>
     </div>
