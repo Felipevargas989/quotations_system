@@ -39,7 +39,12 @@
 > sección «Facturación»** con pestañas por cargo (§9.19). **Esa tarde, la
 > pestaña del evento es «Emitir DTE»** (Felipe: *"ok, vamos programa"*):
 > factura o boleta, se llena desde la OC que BelIA lee sola de Documentos o
-> desde la cotización, y se edita a mano (§9.20).
+> desde la cotización, y se edita a mano (§9.20). **El 06-11, el paso 0
+> hecho en el laboratorio** con las credenciales de prueba: una boleta, una
+> factura, la NC que la anula y la ND que anula la NC salieron de verdad en
+> el ambiente de prueba de facturacion.cl, con su PDF; la tabla está en el
+> §9.18 (5b). Lo que queda: que Felipe lo revise en el Libro de Ventas, la
+> certificación y el «a producción».
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -984,22 +989,25 @@ laboratorio):**
   `foliodesde` y `foliohasta` y respondía «sin folios».
 - Llegan varios rangos por tipo, y algunos agotados: el folio que sigue
   quedó fuera del rango (la nota de débito: 1 a 292.099, con el siguiente
-  en 292.100). Vale el rango con folios **de folio siguiente más alto**; los
-  libres suman todos los rangos con folios. Medido ese mismo día:
-  - a la boleta (folio 0) facturacion.cl le puso el siguiente del rango más
-    alto (9.300.006.564), no el del más bajo (745.814);
-  - la factura con el siguiente de un rango más bajo (292.282) fue
-    rechazada: «El folio que esta enviando se encuentra fuera del rango que
-    tiene autorizado». Con el del más alto (9.999.839.213) salió;
-  - la nota de crédito salió con el del más alto (9.999.974.794);
-  - la nota de débito con el del segundo de la lista (292.104) fue
-    rechazada igual que la factura.
+  en 292.100). Vale, entre los rangos con folios, **el cargado primero**
+  (el `idcaf` más bajo); los libres suman todos los rangos con folios.
+  Medido ese mismo día, con todos los rangos de la misma fecha:
+  - a la boleta (folio 0) facturacion.cl le puso el siguiente del rango 59
+    (9.300.006.564), no el del 90 (745.814);
+  - la factura con el siguiente del rango 67 (292.282) fue rechazada: «El
+    folio que esta enviando se encuentra fuera del rango que tiene
+    autorizado». Con el del 6 (9.999.839.213) salió;
+  - la nota de crédito salió con el del 12 (9.999.974.794);
+  - la nota de débito con el del 73 (292.104) fue rechazada igual que la
+    factura, y con el del 10 (9.999.742.766) salió.
 
-  Ni el orden de la lista ni el número del rango (`idcaf`) lo explican; el
-  más alto sí, en los cuatro tipos. Por si en producción fuera de otra
-  manera, la emisión que recibe «fuera del rango» pide una vez más el folio
-  de otro rango (L3). «Probar la conexión» anota en el registro del motor
-  todos los rangos de cada tipo, tal como los lista facturacion.cl.
+  En el ambiente de prueba el cargado primero es también el de números más
+  altos (los otros rangos los cargó después alguien más); en una empresa de
+  verdad es el que se está usando, y el que se carga después sigue cuando
+  se acaba. Por si en producción fuera de otra manera, la emisión que
+  recibe «fuera del rango» pide una vez más el folio de otro rango (L3).
+  «Probar la conexión» anota en el registro del motor todos los rangos de
+  cada tipo, tal como los lista facturacion.cl.
 - La empresa de prueba es compartida por muchos integradores: los folios
   van en los miles de millones y avanzan solos. Por eso importa reintentar
   una vez si el folio ya existe (L3).
@@ -1035,6 +1043,36 @@ Después, en el laboratorio:
 
 Lo emitido se revisa en «Contabilidad/Libro de Ventas» del acceso web de
 prueba. Lo que se encuentre se arregla en el laboratorio y se anota acá.
+
+**Resultado del paso 0 (06-11, en el laboratorio, con las credenciales de
+prueba de Felipe).** Lo emitido sale con los datos de la empresa de prueba
+de facturacion.cl («RAZON SOCIAL PRUEBA», RUT 1-9), no con los de Valle del
+Sol: es así en ese ambiente.
+
+| Qué | Resultado |
+|---|---|
+| La conexión | Conectado en prueba para la empresa 1; `Online` y `Version` (1.2.8.3) en 1 s |
+| Los folios (`ConsultarCAF`) | Llegan los cuatro tipos, con varios rangos cada uno: vale el cargado primero (arriba) |
+| Boleta | N° 9.300.006.564, $130.000. Con folio 0: el folio lo pone facturacion.cl. 1 s en facturacion.cl y 3,5 s con el PDF |
+| Factura | N° 9.999.839.213, $119.000, al receptor Valle del Sol Quillón SpA. El primer intento, con el folio de otro rango, fue rechazado (arriba). 0,9 s en facturacion.cl y 6 s con el PDF |
+| NC que anula la factura | N° 9.999.974.794, código 1. 0,7 s en facturacion.cl y 4,9 s con el PDF |
+| ND que anula la NC (L21) | N° 9.999.742.766, código 1: **facturacion.cl la acepta**. La factura vuelve a quedar vigente. 1,3 s y 5,7 s |
+| «Cabaña» y «Quillón» (L9 y L23) | **Bien en latin-1**: la razón social, la dirección y la descripción salen con su tilde y su ñ. La comuna la imprime facturacion.cl en mayúsculas y sin tilde («QUILLON») |
+| Neto e IVA vacíos en la boleta (L22) | Aceptado: el IVA lo calcula facturacion.cl y sale en el PDF ($20.756) |
+| «SERV» como código (L24) | Aceptado |
+| El PDF (L10) | Llega por `ObtenerPdf` y queda guardado en Eventia en los cuatro documentos |
+| La cabaña en la boleta | Va en «Observación» y facturacion.cl la acepta, pero **el PDF de la boleta no la imprime** (el de la factura sí trae el cuadro «Observaciones») |
+| La forma de pago | El PDF de la factura dice «CREDITO» |
+| El folio 0 en una factura (L2) | No se probó: con el folio de `ConsultarCAF` no hace falta |
+| La NC de una boleta (L21) | No se probó: Eventia todavía no la ofrece |
+| `IndNoRebaja` (L26) | No se puede probar todavía: pide una nota más de 6 meses después de su factura |
+
+Lo arreglado en el laboratorio ese día (`pruebas` c22e8097, c4bc8189 y
+3845ddf1, y el del cargado primero): la lectura de los rangos con su forma
+de verdad, el rango que vale y el reintento con otro rango. Queda para
+Felipe: revisar lo emitido en el Libro de Ventas del acceso web de prueba,
+decidir si la cabaña de la boleta va en la descripción para que se imprima,
+y pedir la certificación con «Solicitar» (5c).
 
 **5c, la certificación y el «a producción»** (el paso a paso, revisado
 el 05-11):
