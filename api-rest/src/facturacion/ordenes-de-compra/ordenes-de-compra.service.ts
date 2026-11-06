@@ -120,7 +120,7 @@ export class OrdenesDeCompraService {
       ...(p.fecha ? [] : ['la fecha']),
       ...(p.total ? [] : ['el total']),
     ];
-    if (falta.length) return `BelIA no encontró ${falta.join(' ni ')}`;
+    if (falta.length) return `no encontró ${falta.join(' ni ')}`;
     const comprador = {
       giro: p.giro,
       direccion: p.direccion,
@@ -155,7 +155,7 @@ export class OrdenesDeCompraService {
       );
       if (ya) return null;
       return error instanceof ConflictException
-        ? `Es la OC N° ${p.numero}, que ya está en este evento`
+        ? `es la OC N° ${p.numero}, que ya está en este evento`
         : mensajeDe(error);
     }
   }

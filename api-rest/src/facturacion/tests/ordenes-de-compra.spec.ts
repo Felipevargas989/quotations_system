@@ -330,7 +330,7 @@ describe('Las OC salen de Documentos (doc 19 §9.20)', () => {
       {
         documento_id: 261,
         nombre: 'OC Santo Tomás',
-        motivo: 'BelIA no encontró la fecha',
+        motivo: 'no encontró la fecha',
       },
     ]);
     expect(sinFecha.repo.crear).not.toHaveBeenCalled();

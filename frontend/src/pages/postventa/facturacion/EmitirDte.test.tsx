@@ -96,7 +96,7 @@ const preparado = () => {
       {
         documento_id: 9,
         nombre: "OC escaneada.pdf",
-        motivo: "BelIA no encontró la fecha",
+        motivo: "no encontró la fecha",
       },
     ],
     evento: { numero: 408, total: 1428000, facturado: 0, cliente: "CCU" },
@@ -134,9 +134,7 @@ describe("Emitir DTE", () => {
       screen.getByRole("button", { name: /OC N° 4500918822 · queda/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "BelIA no pudo leer «OC escaneada.pdf»: BelIA no encontró la fecha.",
-      ),
+      screen.getByText("• «OC escaneada.pdf»: no encontró la fecha."),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Paseo fin de año CCU"),
