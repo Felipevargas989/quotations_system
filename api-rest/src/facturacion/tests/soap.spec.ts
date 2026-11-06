@@ -308,6 +308,22 @@ describe('los folios (ConsultarCAF)', () => {
       libres: 160787,
       vence: '2101-02-19',
     });
+    // Dos rangos con folios, el primero más alto (la factura del 06-11): vale
+    // el primero de la lista. El otro siguiente (292.282) fue rechazado por
+    // facturacion.cl, «fuera del rango que tiene autorizado».
+    expect(
+      leerFolios(
+        caf(6, 33, 293001, 9999999999, 9999839213) +
+          caf(66, 33, 1, 293000, 292282),
+        33,
+      ),
+    ).toEqual({
+      tipo: 33,
+      siguiente: 9999839213,
+      hasta: 9999999999,
+      libres: 160787 + 719,
+      vence: '2101-02-19',
+    });
     // La nota de débito: el primer rango está agotado (el siguiente quedó
     // fuera), vale el que sigue.
     expect(

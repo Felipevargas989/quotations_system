@@ -984,7 +984,12 @@ laboratorio):**
   `foliodesde` y `foliohasta` y respondía «sin folios».
 - Llegan varios rangos por tipo, y algunos agotados: el folio que sigue
   quedó fuera del rango (la nota de débito: 1 a 292.099, con el siguiente
-  en 292.100). Vale el primer rango con folios; los libres suman todos.
+  en 292.100). Vale el primer rango con folios **en el orden en que los
+  lista facturacion.cl**; los libres suman todos. Medido ese mismo día: la
+  boleta salió con el siguiente del primer rango de la lista (9.300.006.564),
+  y una factura con el siguiente de un segundo rango más bajo (292.282) fue
+  rechazada, «El folio que esta enviando se encuentra fuera del rango que
+  tiene autorizado». Por eso los rangos no se ordenan por número.
 - La empresa de prueba es compartida por muchos integradores: los folios
   van en los miles de millones y avanzan solos. Por eso importa reintentar
   una vez si el folio ya existe (L3).
