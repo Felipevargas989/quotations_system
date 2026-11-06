@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "../components/toast/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Users,
   Edit2,
   Save,
   X,
@@ -26,10 +25,12 @@ import {
 import { UpdateUser } from "../types/users.types";
 import PermisosPorCargo from "./configuration/PermisosPorCargo";
 
-// Las pestañas de Gestión de usuarios. La de permisos viaja en la URL
-// (?vista=permisos), como la pestaña de Mi empresa (?tab=).
+// Las pestañas de Mi empresa → Usuarios. La de permisos viaja en la URL
+// (?vista=permisos), como la pestaña de Mi empresa (?tab=). La del equipo
+// se llama «Equipo» para no repetir «Usuarios» (Felipe, 05-11-2026: "los
+// titulos se ven raros").
 const VISTAS = [
-  { id: "usuarios", nombre: "Usuarios" },
+  { id: "usuarios", nombre: "Equipo" },
   { id: "permisos", nombre: "Permisos por cargo" },
 ] as const;
 
@@ -48,6 +49,9 @@ export default function UserManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const vista =
     searchParams.get("vista") === "permisos" ? "permisos" : "usuarios";
+  // Donde «Permisos por cargo» pone su «Volver a lo de fábrica»: en la fila
+  // de las pestañas, como «Crear usuario» en Equipo.
+  const [ranura, setRanura] = useState<HTMLDivElement | null>(null);
   const irA = (id: (typeof VISTAS)[number]["id"]) => {
     const p = new URLSearchParams(searchParams);
     if (id === "permisos") p.set("vista", "permisos");
@@ -252,56 +256,11 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Gestión de Usuarios
-            </h1>
-            <p className="text-gray-600">
-              Administra roles y permisos de usuarios
-            </p>
-          </div>
-        </div>
-        {/* EL TOPE DE USUARIOS DEL PLAN (paso 3.2, 14-09-2026). Cotiza
-            trae 1 usuario y Gestiona y Cobra 3; Opera y Crece no tiene
-            tope. Al llegar al tope el botón se apaga con su explicación:
-            el motor rechaza igual, pero es mejor decirlo antes de que
-            escriba una cuenta entera. Bajar de plan NO bloquea a nadie
-            que ya exista — solo impide agregar uno más. */}
-        {vista === "usuarios" && (
-          <div className="flex flex-col items-end gap-1">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              disabled={sinCupoDeUsuarios}
-              title={
-                sinCupoDeUsuarios
-                  ? `Tu plan incluye ${company?.usuarios_max} ${company?.usuarios_max === 1 ? "usuario" : "usuarios"}`
-                  : undefined
-              }
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <UserPlus size={16} />
-              <span>Crear Usuario</span>
-            </button>
-            {sinCupoDeUsuarios && (
-              <p className="text-xs text-gray-500">
-                Tu plan incluye {company?.usuarios_max}{" "}
-                {company?.usuarios_max === 1 ? "usuario" : "usuarios"}.{" "}
-                <a href="/plans" className="text-blue-600 hover:underline">
-                  Ver los planes
-                </a>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Dos pestañas (doc 22, 05-11-2026): el equipo y los permisos por
-          cargo. Reemplazan el cuadro «📋 Permisos por Rol», que era solo
-          texto y estaba desactualizado (decía que recepción ve Clientes). */}
-      <div className="border-b border-gray-200">
+      {/* Un solo título, el de Mi empresa (Felipe, 05-11-2026: "los titulos
+          se ven raros"): aquí solo las dos pestañas y, a su derecha, el
+          botón de cada una. Reemplazan el cuadro «📋 Permisos por Rol», que
+          era solo texto y estaba desactualizado (doc 22). */}
+      <div className="flex items-end justify-between gap-3 border-b border-gray-200">
         <nav className="flex gap-1 -mb-px overflow-x-auto">
           {VISTAS.map((v) => (
             <button
@@ -318,9 +277,44 @@ export default function UserManagementPage() {
             </button>
           ))}
         </nav>
+        <div className="pb-2">
+          {/* EL TOPE DE USUARIOS DEL PLAN (paso 3.2, 14-09-2026). Cotiza
+              trae 1 usuario y Gestiona y Cobra 3; Opera y Crece no tiene
+              tope. Al llegar al tope el botón se apaga con su explicación:
+              el motor rechaza igual, pero es mejor decirlo antes de que
+              escriba una cuenta entera. Bajar de plan NO bloquea a nadie
+              que ya exista — solo impide agregar uno más. */}
+          {vista === "usuarios" && (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                disabled={sinCupoDeUsuarios}
+                title={
+                  sinCupoDeUsuarios
+                    ? `Tu plan incluye ${company?.usuarios_max} ${company?.usuarios_max === 1 ? "usuario" : "usuarios"}`
+                    : undefined
+                }
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <UserPlus size={16} />
+                <span>Crear Usuario</span>
+              </button>
+              {sinCupoDeUsuarios && (
+                <p className="text-xs text-gray-500">
+                  Tu plan incluye {company?.usuarios_max}{" "}
+                  {company?.usuarios_max === 1 ? "usuario" : "usuarios"}.{" "}
+                  <a href="/plans" className="text-blue-600 hover:underline">
+                    Ver los planes
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+          {vista === "permisos" && <div ref={setRanura} />}
+        </div>
       </div>
 
-      {vista === "permisos" && <PermisosPorCargo />}
+      {vista === "permisos" && <PermisosPorCargo ranura={ranura} />}
 
       {vista === "usuarios" && (
         <>
