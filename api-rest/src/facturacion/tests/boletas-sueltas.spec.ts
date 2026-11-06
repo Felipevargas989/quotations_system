@@ -79,8 +79,58 @@ const armar = (
     { de: () => simulado } as never,
     mockPinoLogger() as never,
   );
-  return { servicio, documentos };
+  return { servicio, documentos, simulado };
 };
+
+describe('La boleta del evento (doc 19 §9.20)', () => {
+  const LINEAS = [
+    {
+      descripcion: 'Servicio de matrimonio del 15-11-2026',
+      descripcionLarga: null,
+      cantidad: 100,
+      precio: 80000,
+    },
+  ];
+
+  it('una boleta con las líneas del DTE, en el evento y con su PDF en Documentos', async () => {
+    const { servicio, documentos, simulado } = armar();
+    const r = await servicio.emitirDelEvento(ADMIN, simulado, {
+      quotationId: 'ev-512',
+      lineas: LINEAS,
+      correo: 'Novios@Gmail.com',
+      observaciones: ['Cotización N° 512 · evento 15-11-2026'],
+      totalEsperado: 8000000,
+    });
+    expect(r).toMatchObject({ estado: 'emitido', folio: 43, total: 8000000 });
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 39,
+        quotation_id: 'ev-512',
+        orden_de_compra_id: null,
+        total: 8000000,
+        receptor: expect.objectContaining({ correo: 'novios@gmail.com' }),
+      }),
+    );
+    expect(documentos.agregarAlEvento).toHaveBeenCalledWith(
+      'ev-512',
+      'Boleta N° 43 (simulada).pdf',
+      expect.any(String),
+    );
+  });
+
+  it('si se corta, devuelve la que quedó por confirmar', async () => {
+    const simulado = new FacturacionClSimulado({ cortarEnElEnvio: true });
+    const { servicio } = armar(simulado);
+    const r = await servicio.emitirDelEvento(ADMIN, simulado, {
+      quotationId: 'ev-512',
+      lineas: LINEAS,
+      correo: null,
+      observaciones: [],
+      totalEsperado: 8000000,
+    });
+    expect(r).toMatchObject({ estado: 'por_confirmar', tipo: 39 });
+  });
+});
 
 describe('La boleta suelta', () => {
   it('lo del tarifario por su cantidad, con la cabaña en la observación', async () => {

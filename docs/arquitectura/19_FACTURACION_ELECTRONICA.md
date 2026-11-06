@@ -36,7 +36,10 @@
 > Railway; «Probar la conexión»; y los candados para no mezclar ambientes
 > (§9.18). Lo que queda: las credenciales, el paso 0 en el ambiente de
 > pruebas, la certificación y el «a producción». **El 05-11, una sola
-> sección «Facturación»** con pestañas por cargo (§9.19).
+> sección «Facturación»** con pestañas por cargo (§9.19). **Esa tarde, la
+> pestaña del evento es «Emitir DTE»** (Felipe: *"ok, vamos programa"*):
+> factura o boleta, se llena desde la OC que BelIA lee sola de Documentos o
+> desde la cotización, y se edita a mano (§9.20).
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -429,6 +432,12 @@ giro no viene en la OC.
 
 ### 9.2 La factura la arma BelIA, desde el evento
 
+> Desde el 05-11 la pestaña es «Emitir DTE» (§9.20): la factura o la
+> boleta, con sus líneas (descripción, personas y precio con IVA). BelIA
+> lee sola las OC de Documentos al abrirla, y el % del evento dejó de ser
+> una casilla: el monto lo dan las líneas. Lo demás de esta sección sigue
+> valiendo para la factura.
+
 **Dónde y quién.** En la pestaña «Facturación» de la ficha del evento, con
 el evento aceptado (antes de hacerse) o ya realizado. La emite el
 administrador (D5).
@@ -570,7 +579,7 @@ amarrada a él en Eventia.
 | E1 | Con OC, ¿la factura va siempre por el total de la OC, aunque la cotización diga otra cosa? | *"si siempre por el total"*. La vista previa avisa la diferencia con la cotización. |
 | E2 | ¿Qué referencias pide cada cliente? | Se aprenden al facturar: la primera vez se pregunta y queda en la ficha (CCU: la OC y la nota de pedido). |
 | E3 | Boletas de cabañas: ¿el administrador deja el total y recepción solo lo reparte? | *"debe ser editable"*: el total y lo de cada cabaña se pueden cambiar en la pantalla, y queda anotado quién cambió qué. |
-| E4 | ¿Se puede facturar antes del evento, o por otro monto? | *"si un % pero debe quedar el registro (…) también puede ser que se facture un monto diferente al evento y eso no debería ser una limitante, debe mandar la OC, y finalmente ser editable a mano, Belia arma todo y luego se confirma a mano"*. Se factura por un % o por un monto, sin tope contra el total del evento. Si hay OC, manda la OC. Todo es editable a mano antes de emitir, y queda el registro de lo facturado contra el evento y contra la OC. |
+| E4 | ¿Se puede facturar antes del evento, o por otro monto? | *"si un % pero debe quedar el registro (…) también puede ser que se facture un monto diferente al evento y eso no debería ser una limitante, debe mandar la OC, y finalmente ser editable a mano, Belia arma todo y luego se confirma a mano"*. Se factura por un % o por un monto, sin tope contra el total del evento. Si hay OC, manda la OC. Todo es editable a mano antes de emitir, y queda el registro de lo facturado contra el evento y contra la OC. Desde el 05-11 (§9.20), el monto lo dan las líneas del DTE (cantidad por precio con IVA), editables a mano; el % y «un monto» dejaron de ser casillas, y el % de la OC o del evento queda calculado en el documento |
 | E5 | ¿Quién anula? | *"solo el administrador"*: las notas de crédito y de débito. |
 
 Felipe cerró con *"si avanza así"*: se parte con el paso 1 del §9.9.
@@ -1063,8 +1072,8 @@ cada cargo ve sus pestañas:
 | Operaciones | Lo de recepción, más «Documentos»: todo lo emitido del mes, el reporte y «Pedir el PDF» (Felipe: *"Ver, reporte y PDF"*) |
 | Administrador | Todo, más el «Tarifario», «Comprobar», «Probar la conexión» y anular o rebajar con notas (E5) |
 
-- La pestaña Facturación de cada evento en Post-Venta no cambia. La
-  dirección vieja `/boletas` lleva a `/facturacion`.
+- La pestaña Facturación de cada evento en Post-Venta no cambia (cambió
+  esa tarde: §9.20). La dirección vieja `/boletas` lleva a `/facturacion`.
 - **En el motor:** la lista (`GET /facturacion/documentos`) y «Pedir el
   PDF» pasaron a operaciones y arriba. Las notas, «Comprobar» y «Probar la
   conexión» siguen solo del administrador, y cada puerta de
@@ -1084,6 +1093,70 @@ por permiso y por cargo. Lo de fábrica es lo de hoy, lo cumple también el
 motor, el administrador nunca se deja afuera y el plan manda arriba. Es un
 proyecto aparte, porque toca los permisos de todos los módulos; la
 facturación se sumará a él con sus pestañas como permisos.
+
+### 9.20 «Emitir DTE» en el evento (05-11)
+
+Felipe, 05-11, al revisar la pestaña Facturación del evento: *"el agregar
+la orden de compra creo que está mal e innecesario. Si yo en documentos
+tengo subido los documentos, se siguen subiendo todos en documentos. Si en
+documentos existe un documento cargado como orden de compra, Bel ya debe
+leerlo automáticamente y traer la información"*. Y después: *"finalmente
+esto es emitir DTE. Y yo puedo elegir si el DTE es una factura, una boleta
+y punto. No estos procesos distintos. Luego, el DTE que tiene una
+descripción, tiene un precio neto, un precio, una cantidad de personas, un
+precio total, el IVA y el total a pagar. Entonces, eso o se completa solo
+de la orden de compra o se completa de la información que tiene Eventia, o
+bien se edita a mano. Y eso es todo"*. Aprobó el modelo devuelto con *"ok,
+vamos programa"*.
+
+**Cómo queda la pestaña Facturación del evento:**
+
+1. **«Emitir DTE».** Al abrir, BelIA lee las órdenes de compra que están en
+   Documentos (categoría «Órdenes de compra») y todavía no leyó, y las
+   guarda tal como las leyó. Lo que no pudo leer lo dice en ámbar (sin la
+   fecha o sin el total no se guarda) y lo vuelve a intentar la próxima
+   vez. La OC leída cuyo PDF se quita de Documentos se va con él, salvo que
+   ya tenga documentos tributarios.
+2. **Factura o Boleta.** Propone la factura si el evento tiene OC o el
+   cliente razones sociales; si no, la boleta.
+3. **Se llena desde** cada OC, con lo que le queda, o desde la cotización.
+   La boleta no va contra una OC (Felipe: *"por la orden de compra van
+   contra facturas"*): se llena desde la cotización, con el correo del
+   contacto del evento.
+4. **Las líneas:** la descripción, la cantidad (las personas), el precio
+   con IVA y su total; abajo el neto, el IVA y el total a pagar, como los
+   calcula el motor. Todo se edita a mano y se pueden agregar líneas. Si va
+   todo el evento y sin niños, BelIA pone las personas por su precio cuando
+   cuadra al peso; si no, una línea por el monto con las personas en el
+   texto.
+5. **«Ver cómo sale»** y «Emitir factura» o «Emitir boleta», solo el
+   administrador (D5). Abajo queda lo emitido.
+
+Salen de la pestaña el bloque de las OC («Agregar OC», «Leer con BelIA»,
+editar y quitar), «Facturar sin OC (un % o un monto)» y «Por boletear». El
+reparto por cabaña de recepción sigue en la sección Facturación.
+
+**En el motor:**
+- `POST /quotations/:id/facturas/preparar` lee las OC de Documentos
+  (`OrdenesDeCompraService.deDocumentos`) y dice de dónde se puede llenar
+  y qué tipo se propone.
+- El borrador, la revisión y la emisión reciben el `tipo` (33 o 39) y las
+  `lineas`, con el precio entero con IVA.
+- La factura lleva sus líneas en neto con seis decimales (`precioNetoDe`):
+  78 menús de $55.000 suman exacto $4.290.000. L17 queda como aviso: si la
+  factura de la OC entera no repite el neto y el IVA de la OC, se dice.
+- La boleta sale por el camino de las de recepción
+  (`BoletasService.emitirDelEvento`): folio 0, «por confirmar» si se corta,
+  la copia del PDF en Documentos y la nota de BelIA en la bitácora.
+- Lo ya emitido del evento cuenta también sus boletas.
+- E4 sigue igual: sin tope contra el evento (se avisa), nunca más del 100 %
+  de una OC, y queda el registro (el % de la OC o del evento se calcula y
+  se guarda en el documento).
+
+**Lo que cubren las pruebas:**
+- en el motor, `borrador-de-factura.spec.ts`, `facturas.spec.ts`,
+  `ordenes-de-compra.spec.ts` y `boletas-sueltas.spec.ts`;
+- en la vitrina, `EmitirDte.test.tsx`.
 
 ### 9.11 Fuentes nuevas (04-11)
 

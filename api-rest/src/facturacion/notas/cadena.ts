@@ -132,7 +132,9 @@ export class Cadena {
 /**
  * Lo facturado de un evento y de cada una de sus OC: cada factura vale lo que
  * le queda en la cadena. Una factura anulada por una NC ya no cuenta, y la OC
- * se puede volver a facturar; una rebajada cuenta lo que le queda.
+ * se puede volver a facturar; una rebajada cuenta lo que le queda. Lo del
+ * evento suma también sus boletas (§9.20); una boleta nunca va contra una
+ * OC.
  */
 export const facturadoDeLasOC = (
   filas: (DocumentoDeLaCadena & { orden_de_compra_id: number | null })[],
@@ -140,7 +142,7 @@ export const facturadoDeLasOC = (
 ) => {
   const porOC = new Map<number, number>();
   let total = 0;
-  for (const d of filas.filter((f) => f.tipo === 33)) {
+  for (const d of filas.filter((f) => f.tipo === 33 || f.tipo === 39)) {
     const vale = cadena.facturado(d.id);
     total += vale;
     if (d.orden_de_compra_id != null)
