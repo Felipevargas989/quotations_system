@@ -829,7 +829,9 @@ notas de crédito resten de lo facturado de la OC (paso 4).
   cambia ninguna boleta emitida. Parte vacío: los precios los pone Felipe.
 - **«Boleta suelta»** (recepción hacia arriba): una o varias líneas del
   tarifario por su cantidad (la descripción larga dice «2 noches»), la
-  cabaña que escribe recepción (va en la observación de la boleta) y el
+  cabaña que escribe recepción (va al comienzo de la descripción de cada
+  línea, «Cabaña 4 · …»: el PDF de la boleta no imprime las observaciones,
+  paso 0 del 06-11) y el
   correo del huésped si lo da. El total sale del tarifario; «Emitir boleta»
   pide confirmación. «Línea a mano» (qué se cobra y su monto) es solo del
   administrador: el motor la rechaza a los demás (D3, los precios nunca a
@@ -1061,7 +1063,7 @@ Sol: es así en ese ambiente.
 | Neto e IVA vacíos en la boleta (L22) | Aceptado: el IVA lo calcula facturacion.cl y sale en el PDF ($20.756) |
 | «SERV» como código (L24) | Aceptado |
 | El PDF (L10) | Llega por `ObtenerPdf` y queda guardado en Eventia en los cuatro documentos |
-| La cabaña en la boleta | Va en «Observación» y facturacion.cl la acepta, pero **el PDF de la boleta no la imprime** (el de la factura sí trae el cuadro «Observaciones») |
+| La cabaña en la boleta | Iba en «Observación» y facturacion.cl la aceptaba, pero **el PDF de la boleta no la imprime** (el de la factura sí trae el cuadro «Observaciones»). Felipe: *"si ponlo en la descripción"*: ahora va al comienzo de cada línea («Cabaña 4 · Cabaña 4 personas…»), como en «Por boletear» |
 | La forma de pago | El PDF de la factura dice «CREDITO» |
 | El folio 0 en una factura (L2) | No se probó: con el folio de `ConsultarCAF` no hace falta |
 | La NC de una boleta (L21) | No se probó: Eventia todavía no la ofrece |
@@ -1070,9 +1072,8 @@ Sol: es así en ese ambiente.
 Lo arreglado en el laboratorio ese día (`pruebas` c22e8097, c4bc8189 y
 3845ddf1, y el del cargado primero): la lectura de los rangos con su forma
 de verdad, el rango que vale y el reintento con otro rango. Queda para
-Felipe: revisar lo emitido en el Libro de Ventas del acceso web de prueba,
-decidir si la cabaña de la boleta va en la descripción para que se imprima,
-y pedir la certificación con «Solicitar» (5c).
+Felipe: revisar lo emitido en el Libro de Ventas del acceso web de prueba y
+pedir la certificación con «Solicitar» (5c).
 
 **5c, la certificación y el «a producción»** (el paso a paso, revisado
 el 05-11):

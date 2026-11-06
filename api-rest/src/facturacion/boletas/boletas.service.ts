@@ -412,12 +412,21 @@ export class BoletasService {
         );
       return { descripcion, cantidad: 1, precio: l.monto };
     });
+    // La cabaña va al comienzo de la descripción de cada línea, como en
+    // «Por boletear» (`glosaDeLaBoleta`): el PDF de la boleta no imprime
+    // las observaciones (paso 0, 06-11; Felipe: «si ponlo en la
+    // descripción»).
     const cabana = textoLimpio(dto.cabana) || null;
     const conexion = this.conexion.de(companyId);
     const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
-      lineas,
+      lineas: cabana
+        ? lineas.map((l) => ({
+            ...l,
+            descripcion: glosaDeLaBoleta(l, { cabana }),
+          }))
+        : lineas,
       correo: correoLimpio(dto.correo),
-      observaciones: cabana ? [cabana] : [],
+      observaciones: [],
       quotationId: null,
       cabana,
       cual: 'la boleta',
