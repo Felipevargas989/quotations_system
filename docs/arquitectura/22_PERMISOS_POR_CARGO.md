@@ -1,6 +1,12 @@
 # 22 · Permisos por cargo (los interruptores)
 
-> **Estado: APROBADO el 05-11-2026.** La maqueta (*"si me parece
+> **Estado: EN PRODUCCIÓN desde el 06-11-2026** (Felipe: *"quedó bien,
+> pásalo a producción"*): PR #304, `main` 54d150b6, web de producción
+> 6aed463f, migración 188 aplicada en producción antes del motor. Todo de
+> fábrica: nadie ganó ni perdió nada. El commit de Facturación 977c490b
+> sigue solo en el laboratorio y viaja con Facturación.
+>
+> **Aprobado el 05-11-2026.** La maqueta (*"si me parece
 > perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
 > Calendario del vendedor prendido. **P1 (motor) y P2 (pantalla)
 > programados** ese día y **en el laboratorio desde esa noche** (`pruebas`
