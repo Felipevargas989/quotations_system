@@ -14,6 +14,7 @@ import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -53,6 +54,9 @@ export class PeopleController {
   constructor(
     private readonly peopleService: PeopleService,
     private readonly logger: PinoLogger,
+    // La planificación muestra solo los eventos de los tipos de cliente
+    // que trabaja el cargo (doc 22 §9, tanda 3).
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(PeopleController.name);
   }
@@ -102,11 +106,12 @@ export class PeopleController {
   @Permiso('postventa', 'personal')
   @DentroDe('cotizaciones', 'calendario')
   // Las sillas de un evento (Post-Venta → Gestión): solo si el cargo
-  // trabaja el tipo de su cliente (doc 22 §9, tanda 2). Sin evento, la
-  // planificación de Personal (tanda 3).
+  // trabaja el tipo de su cliente (doc 22 §9, tanda 2). Por rango, la
+  // planificación de Personal: sin las sillas de esos eventos, y con las de
+  // los días de restaurante, que no son de un evento (tanda 3).
   @DelEvento({ query: 'evento' })
   @Get('staff')
-  findStaff(
+  async findStaff(
     @Query('evento') evento: string | undefined,
     @Query('desde') desde: string | undefined,
     @Query('hasta') hasta: string | undefined,
@@ -119,7 +124,12 @@ export class PeopleController {
     }
     if (desde && hasta) {
       this.logger.info(`GET /people/staff ${desde} a ${hasta}`);
-      return this.peopleService.findStaffRange(user.company_id, desde, hasta);
+      return this.alcance.soloLasQueVe(
+        user,
+        await this.peopleService.findStaffRange(user.company_id, desde, hasta),
+        (s) => s.quotation_id,
+        'queda',
+      );
     }
     throw new BadRequestException('Falta el evento o el rango de fechas');
   }
@@ -196,6 +206,7 @@ export class PeopleController {
 
   /** La planta con turno los días del evento entra a su ficha. */
   @Permiso('personal')
+  @DelEvento({ param: 'quotationId' })
   @Post('sheets/:quotationId/traer-planta')
   traerPlanta(
     @Param('quotationId') quotationId: string,
@@ -210,11 +221,18 @@ export class PeopleController {
   @Derecho(null)
   @Permiso('postventa', 'personal')
   @Get('sheets')
-  findSheets(@CurrentUser() user: User) {
-    return this.peopleService.findSheets(user.company_id);
+  async findSheets(@CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      (await this.peopleService.findSheets(user.company_id)) as {
+        quotation_id?: string | null;
+      }[],
+      (f) => f.quotation_id,
+    );
   }
 
   @Permiso('personal')
+  @DelEvento({ body: 'quotation_id' })
   @Post('sheets')
   upsertSheet(@Body() dto: UpsertSheetDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/sheets ${dto.quotation_id} ${dto.status}`);
@@ -222,6 +240,7 @@ export class PeopleController {
   }
 
   @Permiso('personal')
+  @DelEvento({ body: 'quotation_id' })
   @Post('sheets/cerrar')
   cerrarFicha(@Body() dto: CerrarFichaDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/sheets/cerrar ${dto.quotation_id}`);

@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en la planificación.
 
 ## 1. Qué hace
 
@@ -196,6 +196,9 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 4. **Lectura**: `getReviews` da el promedio simple, calculado solo sobre las evaluaciones con estrella. Se muestra en `PersonasPage` (lista) y `PersonaFichaPage` (cabecera). `Estrellas` muestra "sin evaluar" en vez de cero.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.7, 05-11-2026)
+- **Con un tipo de cliente apagado, sus eventos no aparecen en la planificación**: las sillas por rango de fechas y las fichas traen solo los eventos que el cargo ve; las sillas de un día de restaurante (sin evento) quedan. Las puertas de un evento (sillas, fichas, «traer la planta») llevan `@DelEvento`. La liquidación, la propina, la nómina y el histórico no cambian: pagarle a la gente no depende del tipo de cliente.
 
 **La persona y el cargo**
 

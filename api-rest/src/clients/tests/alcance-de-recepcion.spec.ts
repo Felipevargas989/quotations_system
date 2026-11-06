@@ -464,6 +464,26 @@ describe('AlcanceDeRecepcion: Post-Venta', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('la planificación: las sillas sin evento (el restaurante) quedan', async () => {
+    const { alcance, repositorio } = conInterruptores(sinEmpresas);
+    repositorio.clientesDeLasCotizaciones.mockResolvedValue(deLaBase);
+    const sillas = [
+      { id: 's1', quotation_id: 'q1' },
+      { id: 's2', quotation_id: 'q2' },
+      { id: 's3', quotation_id: null },
+    ];
+    expect(
+      (
+        await alcance.soloLasQueVe(
+          operaciones,
+          sillas,
+          (f) => f.quotation_id,
+          'queda',
+        )
+      ).map((f) => f.id),
+    ).toEqual(['s1', 's3']);
+  });
+
   it('sus puertas: el evento de un tipo apagado, o de otra empresa, no', async () => {
     const { alcance, repositorio } = conInterruptores(sinEmpresas);
     repositorio.clienteDeLaCotizacion.mockImplementation(

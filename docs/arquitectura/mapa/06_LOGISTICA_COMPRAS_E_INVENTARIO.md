@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en Compras.
 
 ## 1. Qué hace
 
@@ -256,6 +256,9 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
   - Si el evento está `realizada`, la pantalla deshabilita la edición (`esEventoCongelado`) y el motor también la rechaza.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.7, 05-11-2026)
+- **Con un tipo de cliente apagado, sus eventos no aparecen en Compras** (Felipe: *"si sigue con la tanda 3"*): el estado de compras, los eventos ganados y aceptados, lo provisionado y los recursos traen solo lo que el cargo ve (`AlcanceDeRecepcion.soloLasQueVe`), y las puertas que tocan un evento llevan `@DelEvento` (`clients/tests/del-evento.spec.ts`). La lista de compras de ese cargo sale sin los insumos de esos eventos: así se acordó.
 
 **Acceso**
 - **Logística es de operaciones y administración; algunas lecturas se abren a vendedor+** porque las usan el cotizador, el Dashboard y Post-Venta ("medido en 8 pantallas (28-07)"). Evidencia: comentarios en `LogisticsController`; `SECTION_ROLES.logistics = OPERATIONS_AND_UP` en `frontend/src/constants/permissions.ts`.
