@@ -1,6 +1,6 @@
 # Mapa: La matriz de cargos, aplicada al motor
 
-> **Estado: verificado una vez contra el código** (rama `pruebas`, 14-09-2026). Aplicada en el motor el 14-09-2026, paso 2 del roadmap de venta, con las cuatro decisiones de Felipe de ese día. El 27-10-2026 se sumaron las dos rutas del personaje y el color (migración 167), las dos de recepción y arriba. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (rama `pruebas`, 14-09-2026). Aplicada en el motor el 14-09-2026, paso 2 del roadmap de venta, con las cuatro decisiones de Felipe de ese día. El 27-10-2026 se sumaron las dos rutas del personaje y el color (migración 167), las dos de recepción y arriba. El 06-11-2026, las 9 puertas «más abiertas que sus pantallas» (doc 22 §4.3): la ficha 360 pasó a vendedor y arriba (Clientes), corregir la cosecha al administrador (Dashboard) y la puerta vieja del calendario se borró. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 El 14-09-2026, para el paso 2 del roadmap de venta, El motor tiene
 113 puertas que hoy solo piden estar logueado. La regla para cada una: se
@@ -48,11 +48,16 @@ Todo lo que usa el mostrador: atender, buscar, mirar.
   `SelectorDePaquetes`).
 - Consultas del embudo: listar, convertir y descartar.
 - Tipos de evento: leer.
-- Clientes: listar, ver la ficha y el resumen 360, leer tipos, leer contactos.
+- Clientes: listar, leer tipos, leer contactos. La ficha 360 (`GET /clients/:id/summary`) pasó a
+  vendedor y arriba el 06-11-2026 (doc 22 §4.3): la lee solo la pantalla de Clientes, que recepción
+  no ve desde el 03-10. Si se le prende Clientes, la vuelve a ver, sin los montos de lo que no es
+  particular (doc 21).
 - Crear cliente y crear contacto: recepción los necesita para levantar un
   requerimiento.
 - Ver las cuotas de una cotización, que el tablero muestra como estado.
-- Calendario.
+- Calendario: la vista de calendario de la lista de cotizaciones (`vista=calendario`, doc 22 §4.4).
+  La puerta vieja, `GET /calendar/events`, que nadie llamaba y le entregaba a cualquier cargo todas
+  las cotizaciones con sus montos, se borró el 06-11-2026 (doc 22 §4.3).
 - Subir y ver archivos del seguimiento y de la ficha.
 - Ver la propia empresa y el propio perfil, y cambiar la propia clave.
 - El personaje y el color (27-10-2026, migración 167): ver los de su
@@ -204,8 +209,8 @@ no tomada (doc 22 §4.3).
 de cada ruta con esa cuenta y lo compara con lo acordado: los valores no
 cambiaron. `permisos-de-fabrica.spec.ts` recorre **todas** las puertas del
 motor: cada una con permisos tiene que dar, de fábrica, exactamente su
-`@Roles`, y las que no llevan permiso tienen que ser exactamente las 33
-fijas, cada una con su porqué. Una puerta nueva tiene que decir de qué
+`@Roles`, y las que no llevan permiso tienen que ser exactamente las 24
+fijas (eran 33 hasta el 06-11-2026, doc 22 §4.3), cada una con su porqué. Una puerta nueva tiene que decir de qué
 sección es o entrar a esa lista.
 
 **Lo que no cambia.** El candado por plan (`DerechosGuard`) sigue igual. El

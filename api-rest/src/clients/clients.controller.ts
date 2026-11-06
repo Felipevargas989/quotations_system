@@ -153,7 +153,11 @@ export class ClientsController {
   // }
 
   // Ficha 360° del cliente: resumen comercial completo en una llamada.
-  @Roles(...RECEPTION_AND_UP)
+  // La lee solo la pantalla de Clientes: desde el 06-11-2026 la puerta es
+  // de esa sección (doc 22 §4.3, Felipe: «si hazlo si»). Antes se le abría
+  // también a recepción, que no la ve desde el 03-10.
+  @Roles(...SALES_AND_UP)
+  @Permiso('clientes')
   @Get(':id/summary')
   async findSummary(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`GET /clients/${id}/summary`);

@@ -106,7 +106,10 @@ export class LogisticsController {
     return { recipes, supplies, furniture, suppliers, nameIds, fixedCosts };
   }
 
-  @Roles(...SALES_AND_UP)
+  // La lee solo Proveedores → Compras: desde el 06-11-2026 la puerta es de
+  // esa sección (doc 22 §4.3, Felipe: «si hazlo si»). Antes se le abría
+  // también al vendedor, sin pantalla que la usara.
+  @Permiso('proveedores')
   @Get('estado-compras')
   async estadoCompras(@CurrentUser() user: User) {
     this.logger.info(
@@ -196,8 +199,10 @@ export class LogisticsController {
 
   // ---------- Insumos (mudanza #3, 28-07) ----------
 
-  // Los insumos los leen 9 pantallas, incluido el cotizador → vendedor+.
-  @Roles(...SALES_AND_UP)
+  // La lista de insumos la leen Proveedores → Insumos y el Catálogo. El
+  // cotizador y Post-Venta los reciben en `base-catalogo`. Desde el
+  // 06-11-2026 la puerta es de esas dos secciones (doc 22 §4.3).
+  @Permiso('proveedores', 'catalogo')
   @Get('supplies')
   findAllSupplies(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/supplies company ${user.company_id}`);
@@ -261,8 +266,11 @@ export class LogisticsController {
 
   // ---------- Mobiliario (mudanza #4, 28-07) ----------
 
-  // El mobiliario lo leen 7 pantallas, cotizador incluido → vendedor+.
-  @Roles(...SALES_AND_UP)
+  // La lista de mobiliario la leen Inventario, el Catálogo (la receta) y
+  // el Inventario de Eventia Móvil, que es de operaciones y administración.
+  // El cotizador y Post-Venta la reciben en `base-catalogo`. Desde el
+  // 06-11-2026 la puerta es de Proveedores y Catálogo (doc 22 §4.3).
+  @Permiso('proveedores', 'catalogo')
   @Get('furniture')
   findAllFurniture(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/furniture company ${user.company_id}`);
@@ -585,21 +593,12 @@ export class LogisticsController {
 
   // ---------- Recetas y costos — reglas medidas 28-07 ----------
 
-  // Lecturas que usa el COTIZADOR (vendedor+): catálogo de nombres,
-  // costos cacheados de fijos y todas las líneas de receta.
-  @Roles(...SALES_AND_UP)
-  @Get('catalog/service-names')
-  catalogServiceNames(@CurrentUser() user: User) {
-    return this.logisticsService.catalogServiceNames(user.company_id);
-  }
-
-  @Roles(...SALES_AND_UP)
-  @Get('catalog/fixed-costs')
-  fixedServiceCosts(@CurrentUser() user: User) {
-    return this.logisticsService.fixedServiceCosts(user.company_id);
-  }
-
-  @Roles(...SALES_AND_UP)
+  // Los nombres del catálogo y los costos de los fijos ya no tienen puerta
+  // propia: el cotizador los recibe en `base-catalogo`, y las dos puertas
+  // sueltas no tenían quién las llamara (se borraron el 06-11-2026, doc 22
+  // §4.3). Todas las líneas de receta las lee el Catálogo.
+  @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Get('recipes/all')
   allRecipeItems(@CurrentUser() user: User) {
     return this.logisticsService.findAllRecipeItems(user.company_id);

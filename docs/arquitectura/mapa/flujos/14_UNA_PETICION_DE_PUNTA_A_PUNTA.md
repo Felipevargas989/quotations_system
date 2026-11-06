@@ -76,7 +76,7 @@ Para ir rápido, el motor recuerda pases y fichas hasta una hora, y la app muest
 |---|---|---|
 | `dashboard`, `analytics` | administrador | `@Roles(...ADMIN_ONLY)` en la clase de `AnalyticsController` y de `HoyController` |
 | `requests`, `clients`, `configuration`, `plans` | todos | `ClientsController`, `ClientContactsController` y `PlansController`: sin `@Roles` |
-| `quotations` (ver), `calendar` | recepción y más | `QuotationsController`: 2 rutas con `@Roles` más candados a mano para recepción. `CalendarController`: sin `@Roles` |
+| `quotations` (ver), `calendar` | recepción y más | `QuotationsController`: 2 rutas con `@Roles` más candados a mano para recepción. `CalendarController`: sin `@Roles` (se borró el 06-11-2026, doc 22 §4.3) |
 | `quotations_edit` | vendedor y más | no existe un `@Roles` de vendedor; solo el candado a mano de recepción (paso 8.6) |
 | `payments` | operaciones y administrador | `PaymentsController`: `OPERATIONS_AND_UP` ruta por ruta, salvo sus 2 `GET` (lista y `transactions`), sin `@Roles` — cualquier sesión los lee (ver sección 8). `RefundsController`: en la clase |
 | `logistics` | operaciones y administrador | `LogisticsController`: `OPERATIONS_AND_UP` en la clase, lecturas con `SALES_AND_UP` y recetas con `ADMIN_ONLY` |
@@ -174,7 +174,7 @@ Archivo `api-rest/src/auth/roles.guard.ts`, método `RolesGuard.canActivate`. El
 7. **Inventario en el commit** (conteo de decoradores con grep):
    - **`@Roles` en la clase:** `AnalyticsController`, `HoyController`, `MarketingController`, `LogisticsController`, `RefundsController`, `EventDocumentsController` (`OPERATIONS_AND_UP`; **corregido:** el borrador lo tenía en la lista de abajo, pero el decorador está sobre la clase, no sobre una ruta) y `QuotationFollowupsController` (`RECEPTION_AND_UP`).
    - **`@Roles` ruta por ruta:** `PaymentsController` (**ojo:** sus dos rutas `GET` —lista y `transactions`— no llevan `@Roles`; ver sección 8), `ServicesController`, `SectionsController`, `ServiceGroupsController`, `ServiceGroupCollectionsController`, `PortalReceiptsController`, `UsersController`, `CompaniesController`, `QuotationsController` y el controller de encuestas.
-   - **Sin ningún `@Roles`:** `PeopleController` (44 rutas), `ClientsController`, `ClientContactsController`, `ConsultasController`, `EventTypesController`, `StorageController`, `CalendarController`, `PlansController`, `MovilController` y `SuperAdminController` (este usa la lista de correos). `PortalController`, `AuthController`, `HealthController` y `EmailPreviewsController` solo tienen rutas `@Public`.
+   - **Sin ningún `@Roles`:** `PeopleController` (44 rutas), `ClientsController`, `ClientContactsController`, `ConsultasController`, `EventTypesController`, `StorageController`, `CalendarController` (borrado el 06-11-2026), `PlansController`, `MovilController` y `SuperAdminController` (este usa la lista de correos). `PortalController`, `AuthController`, `HealthController` y `EmailPreviewsController` solo tienen rutas `@Public`.
 8. **Rutas `@Public` del motor:**
    - acceso: `POST /auth/password/recovery`, `POST /auth/password/reset` y `GET /health`;
    - catálogos públicos: `GET /clients/types/public/:company_id`, `GET /event-types/public/:companyId` y `GET /companies/public/:id`;
