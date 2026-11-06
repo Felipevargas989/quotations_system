@@ -208,9 +208,15 @@ export const leerProcesar = (
  * fecha, fechavencimiento, el rango, cantidad y foliosiguiente. El manual
  * nombra el rango `foliodesde`/`foliohasta`; el servicio de verdad (paso 0,
  * 06-11) responde `rangodesde`/`rangohasta`, con las fechas en DD-MM-AAAA
- * y «NO APLICA» de vencimiento en las boletas: se leen las dos formas. Vale
- * el primer rango que todavía tiene folios (los agotados traen el
- * siguiente fuera del rango); los que siguen suman a los libres.
+ * y «NO APLICA» de vencimiento en las boletas: se leen las dos formas.
+ *
+ * Vale el primer rango **en el orden en que los lista facturacion.cl** que
+ * todavía tiene folios (los agotados traen el siguiente fuera del rango);
+ * los que siguen suman a los libres. Medido el 06-11: con dos rangos con
+ * folios, facturacion.cl usa el primero de la lista. La boleta salió con el
+ * siguiente del primero, y la factura con el siguiente del segundo (un
+ * rango más bajo) fue rechazada: «fuera del rango que tiene autorizado».
+ * Por eso no se ordenan por número.
  */
 export const leerFolios = (
   xml: string,
@@ -240,8 +246,7 @@ export const leerFolios = (
         [r.siguiente, r.desde, r.hasta].every(Number.isInteger) &&
         r.siguiente >= r.desde &&
         r.siguiente <= r.hasta,
-    )
-    .sort((a, b) => a.desde - b.desde);
+    );
   if (!rangos.length) return null;
   const [actual] = rangos;
   return {
