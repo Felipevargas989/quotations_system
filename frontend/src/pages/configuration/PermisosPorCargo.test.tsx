@@ -218,6 +218,21 @@ describe("PermisosPorCargo", () => {
     pintar();
     expect(await screen.findByText("Tipos de cliente")).toBeInTheDocument();
     expect(screen.getAllByRole("switch")).toHaveLength(20);
+    // La franja dice el cargo de cada columna, y las columnas son fijas
+    // (Felipe: "se ven chuecos los botones, y no veo cual es cual").
+    const franja = screen.getByText("Tipos de cliente").closest("tr")!;
+    expect(
+      within(franja)
+        .getAllByRole("cell")
+        .map((c) => c.textContent),
+    ).toEqual([
+      "Tipos de cliente",
+      "Recepción",
+      "Vendedor",
+      "Operaciones",
+      "Administrador",
+    ]);
+    expect(franja.closest("table")).toHaveClass("table-fixed");
     const empresasDeRecepcion = screen.getByRole("switch", {
       name: "Empresas de Recepción",
     });

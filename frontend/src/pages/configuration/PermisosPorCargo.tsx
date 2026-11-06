@@ -157,7 +157,16 @@ export default function PermisosPorCargo() {
       </div>
 
       <div className="bg-white shadow rounded-lg overflow-x-auto">
-        <table className="min-w-full text-sm">
+        {/* Columnas fijas (Felipe, 05-11-2026: "se ven chuecos los
+            botones"): la primera más ancha y las de los cargos iguales,
+            así cada interruptor queda justo bajo su cargo. */}
+        <table className="w-full min-w-[40rem] table-fixed text-sm">
+          <colgroup>
+            <col className="w-64" />
+            {data.cargos.map((c) => (
+              <col key={c} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
               <th className="px-4 py-3 text-left font-medium text-gray-500">
@@ -211,14 +220,21 @@ export default function PermisosPorCargo() {
                   ))}
               </Fragment>
             ))}
+            {/* La franja repite el cargo de cada columna: al bajar hasta
+                acá, el encabezado ya no se ve ("no veo cual es cual"). */}
             {tipos.length > 0 && (
               <tr className="bg-gray-50">
-                <td
-                  colSpan={data.cargos.length + 1}
-                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
-                >
+                <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Tipos de cliente
                 </td>
+                {data.cargos.map((c) => (
+                  <td
+                    key={c}
+                    className="px-4 py-2 text-center text-xs font-semibold text-gray-500"
+                  >
+                    {NOMBRE_DEL_CARGO[c]}
+                  </td>
+                ))}
               </tr>
             )}
             {tipos.map((t) => (
