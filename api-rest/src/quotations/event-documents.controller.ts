@@ -13,7 +13,9 @@ import {
 import { IsIn, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 
@@ -111,11 +113,16 @@ const SOLO_COMERCIAL =
   'Tu cargo solo puede subir o quitar respaldos comerciales.';
 const esVendedor = (user: User) => user.role === UserRole.VENDEDOR;
 
+// Con un tipo de cliente apagado (doc 22 §9, tanda 2), los documentos de
+// sus eventos no se ven ni se tocan.
 @Roles(...SALES_AND_UP)
+@Permiso('postventa')
+@DentroDe('cotizaciones')
 @Controller('event-documents')
 export class EventDocumentsController {
   constructor(private readonly repo: EventDocumentsRepository) {}
 
+  @DelEvento({ query: 'quotationId' })
   @Get()
   findByQuotation(
     @Query('quotationId') quotationId: string,
@@ -124,6 +131,7 @@ export class EventDocumentsController {
     return this.repo.findByQuotation(user.company_id, quotationId);
   }
 
+  @DelEvento({ body: 'quotation_id' })
   @Post()
   add(@Body() dto: AddDocumentDto, @CurrentUser() user: User) {
     if (esVendedor(user) && dto.category !== 'comercial') {
@@ -132,6 +140,7 @@ export class EventDocumentsController {
     return this.repo.add(user.company_id, dto);
   }
 
+  @DelEvento({ tabla: 'event_documents', param: 'id' })
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.repo.delete(user.company_id, id, esVendedor(user));

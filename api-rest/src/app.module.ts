@@ -10,11 +10,13 @@ import { AuthGuard } from './auth';
 import { AuthModule } from './auth/auth.module';
 import { DerechosGuard } from './auth/derechos.guard';
 import { DerechosModule } from './auth/derechos.module';
+import { PermisosModule } from './auth/permisos.module';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
+import { TipoDelEventoGuard } from './clients/tipo-del-evento.guard';
 import { CompaniesModule } from './companies/companies.module';
 import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey/module';
 import { EmailModule } from './email/email.module';
@@ -41,6 +43,8 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     DerechosModule,
+    // Los permisos por cargo de cada empresa (doc 22, 05-11-2026).
+    PermisosModule,
     ConfigModule.forRoot({
       isGlobal: true, // makes ConfigService available everywhere without importing
     }),
@@ -127,6 +131,13 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: DerechosGuard,
+    },
+    // Los tipos de cliente de cada cargo (doc 22 §9, tanda 2): una puerta
+    // de Post-Venta marcada con @DelEvento se abre solo si el cargo
+    // trabaja el tipo del cliente de ese evento. Después de todo lo demás.
+    {
+      provide: APP_GUARD,
+      useClass: TipoDelEventoGuard,
     },
   ],
 })

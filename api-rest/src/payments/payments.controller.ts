@@ -12,12 +12,14 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   OPERATIONS_AND_UP,
   RECEPTION_AND_UP,
   Roles,
 } from 'src/auth/roles.decorator';
 import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateOverflowTransactionDto } from './dto/create-overflow-transaction.dto';
@@ -33,6 +35,10 @@ import { PaymentsService } from './payments.service';
 // Cobra (paso 3.2, 14-09-2026). La lectura de cuotas de una cotización
 // queda abierta más abajo: la pide el cotizador para avisar que hay un
 // plan vivo, y en una empresa de Cotiza simplemente viene vacía.
+//
+// Los tipos de cliente de cada cargo (doc 22 §9, tanda 2): cada puerta que
+// toca un evento dice con @DelEvento de cuál es, y las dos listas de toda
+// la empresa traen solo los eventos que el cargo ve.
 @Derecho('post_venta')
 @Controller('payments')
 export class PaymentsController {
@@ -44,6 +50,9 @@ export class PaymentsController {
   ) {}
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DentroDe('cotizaciones')
+  @DelEvento({ body: 'quotation_id' })
   @Post('plan')
   createPaymentPlan(
     @Body() createPaymentPlanDto: CreatePaymentPlanDto,
@@ -59,6 +68,8 @@ export class PaymentsController {
   // «Editar plan de pagos» de Post-Venta (doc 14 §Editar el plan,
   // 28-10-2026): llegan las cuotas sin plata; las que tienen pagos quedan.
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Put('plan')
   editarPlan(@Body() dto: EditarPlanDto, @CurrentUser() user: User) {
     this.logger.info(`PUT /payments/plan with user ${user.id}`);
@@ -68,14 +79,24 @@ export class PaymentsController {
   // Las aceptadas, realizadas y anuladas sin ninguna cuota: Post-Venta las
   // muestra con el aviso «Sin plan de pagos» (28-10-2026, caso 703).
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Get('eventos-sin-plan')
-  findEventosSinPlan(@CurrentUser() user: User) {
+  async findEventosSinPlan(@CurrentUser() user: User) {
     this.logger.info(`GET /payments/eventos-sin-plan with user ${user.id}`);
-    return this.paymentsService.findEventosSinPlan(user.company_id);
+    const r = await this.paymentsService.findEventosSinPlan(user.company_id);
+    return {
+      ...r,
+      data: await this.alcance.soloLasQueVe(
+        user,
+        r.data as { id: string }[],
+        (q) => q.id,
+      ),
+    };
   }
 
   @Roles(...RECEPTION_AND_UP)
   @Derecho(null)
+  @Permiso('cotizaciones', 'postventa', 'dashboard')
   @Get()
   async findAllPaymensFromQuotation(
     @Query('quotationId') quotationId: Quotation['id'],
@@ -91,15 +112,22 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Get('transactions')
-  findAllPaymentsWithTransactions(@CurrentUser() user: User) {
+  async findAllPaymentsWithTransactions(@CurrentUser() user: User) {
     this.logger.info(`GET /payments/transactions with user ${user.id}`);
-    return this.paymentsService.findAllPaymentsWithTransactions(
-      user.company_id,
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.paymentsService.findAllPaymentsWithTransactions(
+        user.company_id,
+      ),
+      (p) => p.quotation_id,
     );
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('transactions')
   createPaymentTransaction(
     @Body() createPaymentTransactionDto: CreatePaymentTransactionDto,
@@ -113,6 +141,8 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('transactions/overflow')
   createOverflowPaymentTransaction(
     @Body() createOverflowTransactionDto: CreateOverflowTransactionDto,
@@ -128,6 +158,8 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'payment_transactions', param: 'id' })
   @Patch('transactions/:id')
   updatePaymentTransaction(
     @Param('id') paymentTransactionId: PaymentTransaction['id'],
@@ -151,6 +183,8 @@ export class PaymentsController {
   // Calendario de pagos, Nivel A: solo fecha y nota, solo cuotas sin
   // dinero registrado (el servicio lo verifica).
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'payments', param: 'id' })
   @Patch(':id')
   updatePaymentSchedule(
     @Param('id') id: Payment['id'],
@@ -162,6 +196,8 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'payments', param: 'id' })
   @Delete(':id')
   removePayment(@Param('id') id: Payment['id'], @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/${id}`);
@@ -169,6 +205,8 @@ export class PaymentsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'payment_transactions', param: 'id' })
   @Delete('transactions/:id')
   removePaymentTransaction(@Param('id') id: number, @CurrentUser() user: User) {
     this.logger.info(`DELETE /payments/transactions/${id}`);

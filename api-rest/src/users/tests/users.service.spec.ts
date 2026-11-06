@@ -1,4 +1,5 @@
 import { PinoLogger } from 'nestjs-pino';
+import { PermisosService } from 'src/auth/permisos.service';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
 import { mockPinoLogger } from '../../testing/mocks';
 import { UsersRepository } from '../users.repository';
@@ -13,6 +14,7 @@ describe('UsersService', () => {
       {} as UsersRepository,
       mockPinoLogger() as unknown as PinoLogger,
       {} as SuperAdminService,
+      {} as PermisosService,
     );
     expect(service).toBeDefined();
   });

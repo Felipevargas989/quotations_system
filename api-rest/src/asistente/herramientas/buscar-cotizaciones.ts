@@ -1,5 +1,4 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
-import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import { RequestType } from 'src/quotations/constants/constants';
 import type { FilaDeLista } from '../asistente.repository';
 import {
@@ -16,31 +15,34 @@ import {
   pesos,
   sumarDias,
   texto,
+  type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
-import { esRecepcion, particularesPara } from './recepcion';
+import { esRecepcion, loTrabaja, tiposPara } from './recepcion';
 
 // «¿Cuántas cotizaciones de matrimonio enviamos en octubre?», «¿qué tiene
 // Rudel?». La lista del tablero de Cotizaciones, con sus filtros: es de
 // quien vende (SECTION_ROLES.quotations). Recepción también la usa desde
 // el 04-11 (doc 20 §13), para saber en qué va el pedido de un cliente: le
 // llega sin el total ni el enlace a la ficha, que su pantalla no abre. Las de
-// clientes particulares, completas y con la marca `particular` (doc 21).
+// clientes particulares, completas y con la marca `trabaja` (doc 21). Desde
+// el doc 22 §9, lo mismo para cualquier cargo con un tipo de cliente
+// apagado.
 
 const ORDENES = ['fecha_evento', 'numero', 'creada', 'total'] as const;
 
 export const filaComoLaVePersona = (
   q: FilaDeLista,
   rol: Parameters<typeof enlaceDe>[1],
-  // Para recepción: si el cliente es particular, la ve completa (doc 21).
-  deParticular = false,
+  // Si el cargo trabaja el tipo del cliente (doc 22 §9; `loTrabaja`): null
+  // si trabaja todos. Sin saberlo, recepción no.
+  trabaja: boolean | null = esRecepcion(rol) ? false : null,
 ) => {
-  const recepcion = esRecepcion(rol);
-  const conPlata = !recepcion || deParticular;
+  const conPlata = trabaja !== false;
   return {
     numero: q.quotation_number,
-    ...(recepcion && deParticular ? { particular: true as const } : {}),
-    ...(conPlata ? { enlace: enlaceDe(q, rol, deParticular) } : {}),
+    ...(trabaja === true ? { trabaja: true as const } : {}),
+    ...(conPlata ? { enlace: enlaceDe(q, rol, conPlata) } : {}),
     cliente: q.clients?.name ?? null,
     estado: estadoDe(q.quotation_status),
     tipo:
@@ -58,18 +60,19 @@ export const filaComoLaVePersona = (
   };
 };
 
-/** La lista como la ve quien pregunta: a recepción, fila por fila, completa
- *  la de un particular y sin plata las demás. */
+/** La lista como la ve quien pregunta: fila por fila, completa la de un
+ *  tipo de cliente que su cargo trabaja y sin plata las demás (doc 22 §9;
+ *  a recepción, de fábrica, las de particulares). */
 export const filasComoLasVePersona = async (
   filas: FilaDeLista[],
-  ctx: Parameters<typeof particularesPara>[0],
+  ctx: Pick<ContextoDeHerramienta, 'usuario' | 'alcance'>,
 ) => {
-  const particulares = await particularesPara(ctx);
+  const tipos = await tiposPara(ctx);
   return filas.map((q) =>
     filaComoLaVePersona(
       q,
       ctx.usuario.role,
-      esDeLosParticulares(particulares, q.clients?.client_type),
+      loTrabaja(tipos, q.clients?.client_type),
     ),
   );
 };
@@ -79,8 +82,9 @@ export const buscarCotizaciones: Herramienta = {
   descripcion:
     'Busca cotizaciones y requerimientos de la empresa, como el tablero de Cotizaciones. ' +
     'Sirve para contar ("¿cuántas…?") y para listar. Devuelve el total que calza con los ' +
-    'filtros y hasta `limite` filas, cada una con su enlace (para recepción, sin el total ni ' +
-    'el enlace, salvo las de clientes particulares, que traen `particular: true`). ' +
+    'filtros y hasta `limite` filas, cada una con su enlace (si el cargo no trabaja todos los ' +
+    'tipos de cliente, sin el total ni el enlace, salvo las de los tipos que trabaja, que traen ' +
+    '`trabaja: true`). ' +
     'Fechas en AAAA-MM-DD.',
   esquema: {
     type: 'object',
@@ -132,9 +136,13 @@ export const buscarCotizaciones: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const creadaHasta = fecha(entrada.creada_hasta, 'creada_hasta');
     const tipo = entrada.tipo;
+    // Quien no trabaja todos los tipos no ordena por plata: «las más
+    // grandes primero» también dice cuánto valen.
+    const conRed = (await tiposPara(ctx)) !== null;
     const { filas, total } = await ctx.repositorio.buscarCotizaciones(
       ctx.usuario.company_id,
       {
@@ -158,11 +166,9 @@ export const buscarCotizaciones: Herramienta = {
         creadaHasta: creadaHasta
           ? inicioDelDiaEnChile(sumarDias(creadaHasta, 1))
           : undefined,
-        // Recepción no ordena por plata: «las más grandes primero» también
-        // dice cuánto valen.
         orden:
           ORDENES.includes(entrada.orden as (typeof ORDENES)[number]) &&
-          !(entrada.orden === 'total' && esRecepcion(ctx.usuario.role))
+          !(entrada.orden === 'total' && conRed)
             ? (entrada.orden as (typeof ORDENES)[number])
             : 'fecha_evento',
         limite: entero(entrada.limite, 1, 50) ?? 20,

@@ -1,5 +1,4 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
-import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import type { UserRole } from 'src/users/entities/user.entity';
 import type {
@@ -17,14 +16,15 @@ import {
   texto,
   type Herramienta,
 } from './comun';
-import { esRecepcion, particularesPara } from './recepcion';
+import { esRecepcion, loTrabaja, tiposPara } from './recepcion';
 
 // «¿Qué ha cotizado Ecofor?», «¿cuál es el teléfono de Rudel?». La lista de
 // Clientes con su historia corta: lo cotizado, lo ganado y lo perdido. Es
 // de quien vende (SECTION_ROLES.clients). Recepción también busca clientes
 // para levantar un requerimiento (mapa 23) y, desde el 04-11 (doc 20 §13),
 // para saber en qué va su pedido: le llega sin el total ni el enlace. Un
-// cliente particular, completo y con la marca `particular` (doc 21).
+// cliente particular, completo y con la marca `trabaja` (doc 21). Desde el
+// doc 22 §9, lo mismo para cualquier cargo con un tipo de cliente apagado.
 //
 // Busca como el buscador de la casa (utils/searchMatch de la app, Felipe
 // 21-07-2026): sin tildes ni mayúsculas y por palabras en cualquier orden.
@@ -47,21 +47,22 @@ export const calzaCliente = (buscado: string, c: FilaDeCliente): boolean => {
 };
 
 /** Un cliente con su historia corta, como lo ve quien pregunta: lo
- *  cotizado, lo ganado, lo perdido y sus últimas cotizaciones (recepción,
- *  sin el total ni el enlace). La usa también la ficha del cliente abierto
- *  (`conversacion/cliente-abierto.ts`). */
+ *  cotizado, lo ganado, lo perdido y sus últimas cotizaciones (sin el total
+ *  ni el enlace si su cargo no trabaja el tipo del cliente). La usa también
+ *  la ficha del cliente abierto (`conversacion/cliente-abierto.ts`). */
 export const fichaDeCliente = (
   c: FilaDeCliente,
   cotizaciones: CotizacionDeCliente[],
   rol: UserRole,
   ultimas = 6,
-  // Para recepción: si el cliente es particular, lo ve completo (doc 21).
-  deParticular = false,
+  // Si el cargo trabaja el tipo del cliente (doc 22 §9; `loTrabaja`): null
+  // si trabaja todos. Sin saberlo, recepción no.
+  trabaja: boolean | null = esRecepcion(rol) ? false : null,
 ) => {
-  const sinPlata = esRecepcion(rol) && !deParticular;
+  const sinPlata = trabaja === false;
   const suyas = cotizaciones.filter((q) => q.client_id === c.id);
   return {
-    ...(esRecepcion(rol) && deParticular ? { particular: true as const } : {}),
+    ...(trabaja === true ? { trabaja: true as const } : {}),
     // El id, para crear un evento a este cliente (fase 2).
     id: c.id,
     nombre: c.name,
@@ -76,7 +77,7 @@ export const fichaDeCliente = (
     ).length,
     ultimas: suyas.slice(0, ultimas).map((q) => ({
       numero: q.quotation_number,
-      ...(sinPlata ? {} : { enlace: enlaceDe(q, rol, deParticular) }),
+      ...(sinPlata ? {} : { enlace: enlaceDe(q, rol, !sinPlata) }),
       estado: estadoDe(q.quotation_status),
       evento: q.event_type,
       fecha: conDia(diaDelEvento(q.event_date)),
@@ -108,6 +109,7 @@ export const buscarClientes: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones', 'clientes'],
   async ejecutar(entrada, ctx) {
     const pedidos = (
       Array.isArray(entrada.textos) ? entrada.textos : [entrada.texto]
@@ -134,14 +136,14 @@ export const buscarClientes: Herramienta = {
       empresa,
       ids,
     );
-    const particulares = await particularesPara(ctx);
+    const tipos = await tiposPara(ctx);
     const ficha = (c: FilaDeCliente) =>
       fichaDeCliente(
         c,
         cotizaciones,
         ctx.usuario.role,
         undefined,
-        esDeLosParticulares(particulares, c.client_type),
+        loTrabaja(tipos, c.client_type),
       );
     if (pedidos.length === 1) {
       return {

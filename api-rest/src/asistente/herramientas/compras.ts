@@ -1,4 +1,5 @@
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
+import { textoDeNoLoTrabaja } from 'src/clients/alcance-de-recepcion';
 import {
   buildConsolidationContext,
   consolidateEvent,
@@ -23,6 +24,7 @@ import {
   texto,
   type Herramienta,
 } from './comun';
+import { loTrabaja, tiposPara } from './recepcion';
 
 // «¿Cuánta carne mechada necesito?», «¿qué falta comprar esta semana?». Lo
 // que piden los eventos aceptados con la MISMA cuenta de la pantalla de
@@ -102,6 +104,7 @@ export const loQueHayQueComprar: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const empresa = ctx.usuario.company_id;
@@ -113,11 +116,19 @@ export const loQueHayQueComprar: Herramienta = {
       : (fecha(entrada.desde, 'desde') ?? ctx.hoy);
     const hasta = numero ? undefined : fecha(entrada.hasta, 'hasta');
 
+    // Con un tipo de cliente apagado (doc 22 §9, tanda 3), los eventos de
+    // ese tipo no aparecen en Compras.
+    const tipos = await tiposPara(ctx);
     if (numero) {
       const q = await ctx.repositorio.cotizacionPorNumero(empresa, numero);
       if (!q) {
         throw new ErrorDeHerramienta(
           `No hay ninguna cotización N° ${numero} en esta empresa.`,
+        );
+      }
+      if (loTrabaja(tipos, q.clients?.client_type) === false) {
+        throw new ErrorDeHerramienta(
+          textoDeNoLoTrabaja(q.clients?.client_type),
         );
       }
       if (q.quotation_status !== QuotationStatus.ACEPTADA) {
@@ -127,13 +138,29 @@ export const loQueHayQueComprar: Herramienta = {
       }
     }
 
-    const [recetas, insumos, nombres, eventos, compras] = await Promise.all([
-      ctx.logistica.findAllRecipeItems(empresa),
-      ctx.logistica.findAllSupplies(empresa),
-      ctx.logistica.catalogServiceNames(empresa),
-      ctx.logistica.findAcceptedEvents(empresa),
-      ctx.logistica.findSupplyProvisions(empresa),
-    ]);
+    const [recetas, insumos, nombres, todosLosEventos, todasLasCompras] =
+      await Promise.all([
+        ctx.logistica.findAllRecipeItems(empresa),
+        ctx.logistica.findAllSupplies(empresa),
+        ctx.logistica.catalogServiceNames(empresa),
+        ctx.logistica.findAcceptedEvents(empresa),
+        ctx.logistica.findSupplyProvisions(empresa),
+      ]);
+    const [eventos, compras] =
+      tipos && ctx.alcance
+        ? await Promise.all([
+            ctx.alcance.soloLasQueVe(
+              ctx.usuario,
+              todosLosEventos,
+              (e) => e.id as string | undefined,
+            ),
+            ctx.alcance.soloLasQueVe(
+              ctx.usuario,
+              todasLasCompras,
+              (c) => c.quotation_id as string | undefined,
+            ),
+          ])
+        : [todosLosEventos, todasLasCompras];
     const lista = (insumos as unknown as Insumo[]).map((i) => ({
       ...i,
       price: n(i.price),
@@ -230,6 +257,8 @@ export const loQueHayQueComprar: Herramienta = {
     }
 
     return {
+      // Todo lo de acá es de eventos que su cargo trabaja: la red no lo tapa.
+      ...(tipos ? { trabaja: true as const } : {}),
       eventos: {
         rango: numero
           ? `la N° ${numero}`

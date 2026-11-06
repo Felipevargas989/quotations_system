@@ -15,7 +15,10 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import { PaymentsService } from 'src/payments/payments.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
@@ -144,6 +147,8 @@ export class PortalReceiptsRepository {
 // Revisar los comprobantes que sube el cliente por el portal es de
 // Gestiona y Cobra (paso 3.2). La lista queda abierta: la cuenta la
 // fila 'para actuar hoy' del Dashboard, que está en todos los planes.
+// Con un tipo de cliente apagado (doc 22 §9, tanda 2), los comprobantes de
+// sus eventos no aparecen ni se revisan.
 @Derecho('post_venta')
 @Controller('portal-receipts')
 export class PortalReceiptsController {
@@ -152,20 +157,28 @@ export class PortalReceiptsController {
     @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(PortalReceiptsController.name);
   }
 
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
+  @Permiso('postventa', 'dashboard')
   @Get()
   async list(@CurrentUser() user: User) {
     const { data, error } = await this.repo.listPending(user.company_id);
     if (error) throw error;
-    return data || [];
+    return this.alcance.soloLasQueVe(
+      user,
+      (data || []) as { quotation_id?: string | null }[],
+      (r) => r.quotation_id,
+    );
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'portal_receipts', param: 'id' })
   @Post(':id/confirmar')
   async confirm(
     @Param('id', ParseIntPipe) id: number,
@@ -201,6 +214,8 @@ export class PortalReceiptsController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'portal_receipts', param: 'id' })
   @Post(':id/rechazar')
   async reject(
     @Param('id', ParseIntPipe) id: number,

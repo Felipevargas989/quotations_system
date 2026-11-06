@@ -32,7 +32,6 @@ import {
   loVendidoPrimero,
 } from "./ordenDelCalendario";
 import { useAuth } from "../../contexts/AuthContext";
-import { SECTION_ROLES } from "../../constants/permissions";
 import { esRecepcion } from "../../utils/recepcion";
 import {
   ESTADOS_COTIZACION,
@@ -100,16 +99,14 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     searchParams.get("date") ? initialDate : null,
   );
-  const { user, userRole, company } = useAuth();
-  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  const { user, userRole, company, permisos } = useAuth();
+  const puedeEditar = permisos.includes("cotizaciones");
   // RECEPCIÓN SOLO MIRA (Felipe, 03-10-2026: "requerimiento y calendario,
   // pero no más que eso"): ve qué hay cada día, sin montos y sin abrir
   // la ficha del negocio, que ya no le corresponde. Desde el doc 21 ve
   // Cotizaciones (las de particulares), pero el calendario sigue igual:
   // sus particulares los trabaja desde el tablero.
-  const veNegocio =
-    SECTION_ROLES.quotations.includes(userRole as never) &&
-    !esRecepcion(userRole);
+  const veNegocio = permisos.includes("cotizaciones") && !esRecepcion(userRole);
   // Estrella de alto valor: misma regla del tablero (umbral 0/null =
   // sin estrellas).
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
@@ -318,7 +315,7 @@ export default function CalendarPage() {
           tooltip: `${q.clients?.name || "Sin cliente"}\n${q.event_type} · ${
             q.people_count
           } personas${
-            veNegocio
+            veNegocio && !q.solo_agenda
               ? `\n$${(q.total_amount || 0).toLocaleString("es-CL")}`
               : ""
           }`,
@@ -326,6 +323,7 @@ export default function CalendarPage() {
           // el texto para no repetirla casilla por casilla.
           star:
             veNegocio &&
+            !q.solo_agenda &&
             muestraTexto &&
             umbralAltoValor > 0 &&
             (q.total_amount || 0) >= umbralAltoValor,
@@ -628,8 +626,11 @@ export default function CalendarPage() {
                       </span>
                     }
                     companyId={company?.id ? Number(company.id) : 0}
+                    // Un evento de un tipo de cliente que su cargo no
+                    // trabaja llega como agenda (doc 22 §9): sin plata y
+                    // sin abrir la ficha.
                     onOpen={
-                      veNegocio
+                      veNegocio && !quotation.solo_agenda
                         ? () => handleNavigateToQuotation(quotation)
                         : undefined
                     }

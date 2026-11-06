@@ -1,6 +1,6 @@
 # Mapa: Dashboard y analítica
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): con un tipo apagado, sus clientes no cuentan en el panel ni en Análisis.
 
 ## 1. Qué hace
 
@@ -219,6 +219,9 @@ esa zona: tres recuadros seguidos diciendo lo mismo se leen como una
 pantalla rota, no como una oferta.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.8, 05-11-2026)
+- **Con un tipo apagado, esos clientes no cuentan en ningún número** (Felipe: *"si sigue con la tanda 4"*). Los KPIs se cuentan sin ellos; Análisis, cuando el cargo no trabaja todos los tipos, se calcula en el motor con las mismas reglas de las nueve funciones de la base (`analytics/analisis-por-tipos.ts`); quien trabaja todos sigue con las de la base, sin cambios. La memoria del panel lleva la firma de los tipos (`firmaDeTipos`). «Para actuar hoy» y el costo de personal por evento tampoco cuentan esos clientes (los requerimientos sí: son de todos).
 
 1. **La propina no es venta ni margen** (24-07, Felipe). Ventas, KPI, pipeline, Resultado y margen usan `saleWithoutTip`. Evidencia: cabecera de `api-rest/src/quotations/utils/tip.ts` (*"Criterio ÚNICO para todo el sistema"*), comentarios "24-07: SIN propina" en `AnalyticsService.getDashboardStats`, leyenda "del período, sin propina" en `DashboardPage`; doc 10: *"es plata que entra y sale, somos intermediarios"*. **En la caja sí sale**: `pagado-por-mes.ts` la incluye "a propósito".
 2. **Venta y evento confirmado = `aceptada` + `realizada`** (23-07). Antes solo contaba `aceptada` y *"cada evento marcado realizado DESAPARECÍA de ingresos/conversión/uso"*. Evidencia: cabecera de `db_functions_analytics_23_07.sql`; `ES_EVENTO` ("decisión de Felipe") en `tendencias.ts`.

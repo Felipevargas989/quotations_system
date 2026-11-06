@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { trabajaElTipo, type TiposQueTrabaja } from 'src/auth/permisos';
 import { cachePanel, HORA_MS } from 'src/cache/memoria';
 import { ClientsService } from 'src/clients/clients.service';
 import { Company } from 'src/companies/entities/company.entity';
@@ -13,6 +14,12 @@ import {
 } from 'src/quotations/constants/constants';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import {
+  analisisPorTipos,
+  firmaDeTipos,
+  type CotizacionDelAnalisis,
+  type ServiciosDelAnalisis,
+} from './analisis-por-tipos';
 import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
 import { CompleteStatsResponse, DashboardStatsResponse } from './types';
 import { generateMonthRange } from './utils';
@@ -58,6 +65,9 @@ export class AnalyticsService {
     // 14-09-2026). Por defecto va en true: los llamados internos y las
     // pruebas que no saben de planes siguen recibiendo todo.
     conCaja: boolean = true,
+    // Los tipos de cliente que trabaja quien pregunta (doc 22 §9.8): los
+    // clientes de un tipo apagado no cuentan. null, todos (lo de siempre).
+    tipos: TiposQueTrabaja = null,
   ): Promise<DashboardStatsResponse> {
     this.logger.info(
       `getDashboardStats with companyId ${companyId} and dateRange ${JSON.stringify(dateRange)}`,
@@ -76,7 +86,7 @@ export class AnalyticsService {
       // FASE VELOCIDAD (28-07): panel con memoria de 1 hora. Cualquier
       // cambio de cotización/pago/reembolso la borra al instante
       // (invalidarPanelEmpresa), así que nunca muestra números viejos.
-      const clavePanel = `${companyId}:dash:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}`;
+      const clavePanel = `${companyId}:dash:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}${firmaDeTipos(tipos)}`;
       const enMemoria = cachePanel.get(clavePanel);
       if (enMemoria) {
         return this.sinCaja(enMemoria as DashboardStatsResponse, conCaja);
@@ -100,21 +110,35 @@ export class AnalyticsService {
       ];
       // FASE VELOCIDAD: las tres lecturas no dependen entre sí — van
       // en paralelo en vez de en fila india.
-      const [quotations, concretadas, clients] = await Promise.all([
-        this.quotationsService.findAll({
-          companyId,
-          request_type: RequestType.COTIZACION,
-          statuses: ALL_STATUSES,
-          dateRange: { start_date, end_date },
-        }),
-        this.quotationsService.findAll({
-          companyId,
-          request_type: RequestType.COTIZACION,
-          statuses: [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
-          eventDateFrom: start_date,
-        }),
-        this.clientsService.findAll(companyId),
-      ]);
+      const [todasLasCotizaciones, todasLasConcretadas, todosLosClientes] =
+        await Promise.all([
+          this.quotationsService.findAll({
+            companyId,
+            request_type: RequestType.COTIZACION,
+            statuses: ALL_STATUSES,
+            dateRange: { start_date, end_date },
+          }),
+          this.quotationsService.findAll({
+            companyId,
+            request_type: RequestType.COTIZACION,
+            statuses: [QuotationStatus.ACEPTADA, QuotationStatus.REALIZADA],
+            eventDateFrom: start_date,
+          }),
+          this.clientsService.findAll(companyId),
+        ]);
+      // Con un tipo de cliente apagado (doc 22 §9.8), lo de esos clientes
+      // no cuenta en ningún número del panel.
+      const seVe = (tipo: string | null | undefined) =>
+        trabajaElTipo(tipos, tipo);
+      const quotations = tipos
+        ? todasLasCotizaciones.filter((q) => seVe(q.clients?.client_type))
+        : todasLasCotizaciones;
+      const concretadas = tipos
+        ? todasLasConcretadas.filter((q) => seVe(q.clients?.client_type))
+        : todasLasConcretadas;
+      const clients = tipos
+        ? todosLosClientes.filter((c) => seVe(c.client_type))
+        : todosLosClientes;
 
       // get all payments
       // Caja: pagos de lo creado en el período + lo concretado con evento
@@ -383,6 +407,9 @@ export class AnalyticsService {
   async getCompleteStats(
     companyId: Company['id'],
     getCompleteStatsDto: GetCompleteStatsDto,
+    // Los tipos de cliente que trabaja quien pregunta (doc 22 §9.8): con
+    // uno apagado, las cuentas se hacen acá, sin esos clientes.
+    tipos: TiposQueTrabaja = null,
   ): Promise<CompleteStatsResponse> {
     this.logger.info(
       `getCompleteStats with companyId ${companyId} and getCompleteStatsDto ${JSON.stringify(getCompleteStatsDto)}`,
@@ -400,9 +427,27 @@ export class AnalyticsService {
       // FASE VELOCIDAD (28-07): memoria de 1 hora (se borra sola con
       // cualquier cambio de plata/cotizaciones) y las 9 consultas en
       // PARALELO en vez de en fila india (era el costo principal).
-      const claveStats = `${companyId}:stats:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}`;
+      const claveStats = `${companyId}:stats:${start_date.toISOString().slice(0, 10)}:${end_date.toISOString().slice(0, 10)}${firmaDeTipos(tipos)}`;
       const statsEnMemoria = cachePanel.get(claveStats);
       if (statsEnMemoria) return statsEnMemoria as CompleteStatsResponse;
+
+      if (tipos) {
+        const desde = start_date.toISOString().slice(0, 10);
+        const hasta = end_date.toISOString().slice(0, 10);
+        const [cotizaciones, servicios] = await Promise.all([
+          this.cotizacionesDelAnalisis(companyId, desde, hasta),
+          this.serviciosDelAnalisis(companyId, desde, hasta),
+        ]);
+        const porTipos = analisisPorTipos(
+          tipos,
+          cotizaciones,
+          servicios,
+          desde,
+          hasta,
+        ) as unknown as CompleteStatsResponse;
+        cachePanel.set(claveStats, porTipos, HORA_MS);
+        return porTipos;
+      }
 
       const params = {
         p_company_id: companyId,
@@ -470,6 +515,63 @@ export class AnalyticsService {
         'Error getting complete stats',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  /** Las cotizaciones del período, como las lee la base para el análisis
+   *  (`created_at::date` entre los dos días), de a 1000. Solo para un
+   *  cargo con un tipo de cliente apagado (doc 22 §9.8). */
+  private async cotizacionesDelAnalisis(
+    companyId: number,
+    desde: string,
+    hasta: string,
+  ): Promise<CotizacionDelAnalisis[]> {
+    const manana = new Date(`${hasta}T00:00:00Z`);
+    manana.setUTCDate(manana.getUTCDate() + 1);
+    const filas: CotizacionDelAnalisis[] = [];
+    for (let i = 0; ; i += 1000) {
+      const { data, error } = await this.supabase.client
+        .from('quotations')
+        .select(
+          'quotation_status, event_type, total_amount, created_at, clients ( id, name, client_type )',
+        )
+        .eq('company_id', companyId)
+        .gte('created_at', `${desde}T00:00:00Z`)
+        .lt('created_at', manana.toISOString())
+        .order('created_at', { ascending: true })
+        .range(i, i + 999);
+      if (error) throw error;
+      const tanda = (data ?? []) as unknown as CotizacionDelAnalisis[];
+      filas.push(...tanda);
+      if (tanda.length < 1000) return filas;
+    }
+  }
+
+  /** Los servicios de las ganadas, con el rango de la base para contarlos
+   *  (`created_at` entre las medianoches de los dos días), de a 1000. */
+  private async serviciosDelAnalisis(
+    companyId: number,
+    desde: string,
+    hasta: string,
+  ): Promise<ServiciosDelAnalisis[]> {
+    const filas: ServiciosDelAnalisis[] = [];
+    for (let i = 0; ; i += 1000) {
+      const { data, error } = await this.supabase.client
+        .from('quotations')
+        .select('created_at, items, clients ( client_type )')
+        .eq('company_id', companyId)
+        .in('quotation_status', [
+          QuotationStatus.ACEPTADA,
+          QuotationStatus.REALIZADA,
+        ])
+        .gte('created_at', `${desde}T00:00:00Z`)
+        .lte('created_at', `${hasta}T00:00:00Z`)
+        .order('created_at', { ascending: true })
+        .range(i, i + 999);
+      if (error) throw error;
+      const tanda = (data ?? []) as unknown as ServiciosDelAnalisis[];
+      filas.push(...tanda);
+      if (tanda.length < 1000) return filas;
     }
   }
 }

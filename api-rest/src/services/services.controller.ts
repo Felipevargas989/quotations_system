@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -40,6 +41,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('bulk')
   createServicesBulk(
     @Body() createServicesBulkDto: CreateServicesBulkDto,
@@ -57,6 +59,7 @@ export class ServicesController {
   // Leer, también recepción: cotiza a los particulares desde el cotizador
   // (doc 21). Cambiar el catálogo sigue siendo del administrador.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa', 'dashboard', 'catalogo')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll services with user ${user.id}`);
@@ -71,6 +74,7 @@ export class ServicesController {
   // Códigos de servicio EN USO en cotizaciones (migración 54): la
   // pantalla apaga el basurero para ellos.
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Get('used-codes')
   usedServiceCodes(@CurrentUser() user: User) {
     return this.servicesService.usedServiceCodes(user.company_id);
@@ -79,12 +83,14 @@ export class ServicesController {
   // ---- Secciones de servicios FIJOS (migración 53) ----
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa', 'dashboard', 'catalogo')
   @Get('fixed-sections')
   listFixedSections(@CurrentUser() user: User) {
     return this.servicesService.listFixedSections(user.company_id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('fixed-sections/new')
   createFixedSection(
     @Body() dto: CreateFixedSectionDto,
@@ -97,6 +103,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed-sections/reorder')
   reorderFixedSections(
     @Body() dto: ReorderFixedSectionsDto,
@@ -109,6 +116,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed-sections/:id')
   updateFixedSection(
     @Param('id') id: string,
@@ -123,12 +131,14 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('fixed-sections/:id')
   deleteFixedSection(@Param('id') id: string, @CurrentUser() user: User) {
     return this.servicesService.deleteFixedSectionById(user.company_id, +id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed/reorder')
   reorderFixedServices(
     @Body() dto: ReorderFixedServicesDto,
@@ -142,6 +152,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('categories')
   updateServiceCategory(
     @Body() updateServiceCategoryDto: UpdateServiceCategoryDto,
@@ -159,6 +170,7 @@ export class ServicesController {
   // ---- Multi-category endpoints (declared before variable/:id) ----
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('reorder-services')
   reorderServicesInCategory(
     @Body() dto: ReorderServicesInCategoryDto,
@@ -172,6 +184,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('reorder-categories')
   reorderCategories(
     @Body() dto: ReorderCategoriesDto,
@@ -184,6 +197,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('categories/new')
   createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() user: User) {
     return this.servicesService.createCategoryForCompany(
@@ -193,6 +207,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('categories/:id')
   updateCategoryById(
     @Param('id') id: string,
@@ -207,12 +222,14 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('categories/:id')
   deleteCategoryById(@Param('id') id: string, @CurrentUser() user: User) {
     return this.servicesService.deleteCategoryForCompany(user.company_id, +id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('variable/:id/categories')
   setServiceCategories(
     @Param('id') id: VariableService['id'],
@@ -227,6 +244,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('variable/:id')
   updateVariableService(
     @Param('id') id: VariableService['id'],
@@ -244,6 +262,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed/:id')
   updateFixedService(
     @Param('id') id: FixedService['id'],
@@ -261,6 +280,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('variable')
   createVariableService(
     @Body()
@@ -277,6 +297,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('fixed')
   createFixedService(
     @Body()
@@ -297,6 +318,7 @@ export class ServicesController {
   // empresa— podía borrar un servicio ajeno por su número. Mismo tipo
   // de hoyo que el GET /quotations/:id que sigue congelado.
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('variable/:id')
   removeVariableService(
     @Param('id') id: VariableService['id'],
@@ -307,6 +329,7 @@ export class ServicesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('fixed/:id')
   removeFixedService(
     @Param('id') id: FixedService['id'],

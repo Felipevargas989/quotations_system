@@ -16,7 +16,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
-import { esRecepcion } from './recepcion';
+import { tiposPara } from './recepcion';
 
 // FASE 2: PROPONER, NUNCA ESCRIBIR (doc 20 §3, regla 3). Estas herramientas
 // no cambian nada: arman una PROPUESTA con el antes y el después, el total y
@@ -305,6 +305,7 @@ export const proponerCambioDeServicios: Herramienta = {
   // Recepción también, en las cotizaciones de clientes particulares (doc
   // 21): lo revisa PropuestasService.
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
@@ -330,8 +331,10 @@ export const proponerCambioDeServicios: Herramienta = {
     );
     mostrar(ctx, tarjeta);
     return {
-      // A recepción solo le llega si es de un particular (doc 21).
-      ...(esRecepcion(ctx.usuario.role) ? { particular: true as const } : {}),
+      // Si su cargo no trabaja todos los tipos, solo le llega si es de uno
+      // que trabaja (doc 22 §9; a recepción, de fábrica, un particular):
+      // lo revisó `alProponer`.
+      ...((await tiposPara(ctx)) ? { trabaja: true as const } : {}),
       propuesta: 'lista',
       numero: tarjeta.numero,
       total: tarjeta.total,
@@ -371,6 +374,7 @@ export const proponerNota: Herramienta = {
   // Recepción también: en sus requerimientos y en las cotizaciones de
   // particulares (doc 21).
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const nota = texto(entrada.nota, 1_000);
     if (!nota) throw new ErrorDeHerramienta('Falta el texto de la nota.');
@@ -420,6 +424,7 @@ export const proponerSeguimiento: Herramienta = {
   },
   // Recepción también, en las cotizaciones de particulares (doc 21).
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['cotizaciones'],
   derecho: 'seguimiento_con_ia',
   async ejecutar(entrada, ctx) {
     const tarjeta = await ctx.propuestas.proponerSeguimiento(
@@ -521,6 +526,7 @@ export const proponerCotizacionNueva: Herramienta = {
   // desde el doc 21, cotizaciones con servicios para los particulares. Lo
   // revisa PropuestasService, y otra vez al crear.
   cargos: RECEPTION_AND_UP,
+  dentroDe: ['requerimientos', 'cotizaciones'],
   async ejecutar(entrada, ctx) {
     const resumen = texto(entrada.resumen, 200);
     if (!resumen) {
@@ -578,10 +584,10 @@ export const proponerCotizacionNueva: Herramienta = {
     );
     ctx.tarjetas.push(tarjeta);
     return {
-      // Con plata solo si es una cotización, y a recepción solo le llega
-      // la de un particular (doc 21).
-      ...(esRecepcion(ctx.usuario.role) && tarjeta.total
-        ? { particular: true as const }
+      // Con plata solo si es una cotización, y si su cargo no trabaja todos
+      // los tipos, solo le llega la de uno que trabaja (doc 22 §9).
+      ...((await tiposPara(ctx)) && tarjeta.total
+        ? { trabaja: true as const }
         : {}),
       propuesta: 'lista',
       es: tarjeta.nueva?.es,

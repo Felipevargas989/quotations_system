@@ -14,6 +14,13 @@
 > están escritas; a producción, con su «a producción». El 05-11 en la
 > mañana, el filtro por tipo de cliente del tablero, para todos (§5).
 
+> **Desde el 05-11-2026, lo de este documento es lo de fábrica de un
+> interruptor** (doc 22 §9, *"si vamos"*): qué tipos de cliente trabaja
+> cada cargo se prende y se apaga en Permisos por cargo. Recepción parte con
+> los tipos `es_particular`; si se le prende otro (por ejemplo «Club Adulto
+> Mayor»), lo trabaja igual que a los particulares. La misma regla vale
+> para los otros tres cargos. La marca de BelIA pasó a `trabaja: true`.
+
 ## 1. Lo que pidió Felipe
 
 *"Creo que recepción podría ver la parte de cotizaciones de personas

@@ -16,6 +16,7 @@ import type { Response } from 'express';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { AsistenteService } from './asistente.service';
@@ -32,6 +33,7 @@ import { PropuestasService } from './propuestas/propuestas.service';
 // herramientas: a recepción le llegan sin plata (`herramientas/recepcion.ts`).
 @Roles(...RECEPTION_AND_UP)
 @Derecho('asistente')
+@Permiso('belia')
 @Controller('asistente')
 export class AsistenteController {
   constructor(

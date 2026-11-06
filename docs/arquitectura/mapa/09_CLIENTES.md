@@ -1,6 +1,6 @@
 # Mapa: Clientes y contactos
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). **Actualizado el 16-10-2026: el aviso de cliente parecido** (portero en `POST /clients`, flujo A y regla 26). **Actualizado el 04-11-2026: con el mismo correo y el mismo nombre ya no se puede «crear igual»** (flujo A paso 3, regla 26). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). **Actualizado el 16-10-2026: el aviso de cliente parecido** (portero en `POST /clients`, flujo A y regla 26). **Actualizado el 04-11-2026: con el mismo correo y el mismo nombre ya no se puede «crear igual»** (flujo A paso 3, regla 26). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): la pantalla de Clientes deja solo los tipos que el cargo trabaja y el motor no deja editar ni borrar los demás.
 
 ## 1. Qué hace
 
@@ -160,6 +160,9 @@ Hay **varias versiones** de la regla, repartidas entre la app y el motor. Esta t
 Los correos de pago y el portal se ven en el mapa 03; el envío y la bitácora en el 02; el marketing en el 10.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.8, 05-11-2026)
+- **Con un tipo apagado, esos clientes no aparecen en Clientes** (Felipe: *"si sigue con la tanda 4"*). `GET /clients` sigue trayendo todos, porque la usa también el formulario de requerimientos (los requerimientos son de todos): la pantalla filtra con `tiposQueTrabaja` del perfil, y `PATCH`/`DELETE /clients/:id` revisan `exigirElTipoDelCliente`. La ficha 360 de uno de esos clientes, si se abre por su dirección, sale sin plata (tanda 1).
 
 1. **Los tipos de cliente son un catálogo de cada empresa, no una lista fija** (definido con Felipe el 21-07-2026; ejemplo: "Club Adulto Mayor"). Evidencia: comentario en `ClientsRepository.findTypes` y `services/clientTypes.service.ts`.
 2. **Toda la gestión de tipos vive en el panel "Gestionar tipos"**: crear, ordenar y eliminar. El desplegable solo sirve para elegir (decisión de Felipe, 21-07-2026). Evidencia: comentario en `ClientsPage`.

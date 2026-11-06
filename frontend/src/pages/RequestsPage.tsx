@@ -33,14 +33,12 @@ import {
 } from "../services/quotations.service.ts";
 import { formatISOUTCDateToString } from "../utils/dates.ts";
 import { matchesSearch } from "../utils/searchMatch";
-import { SECTION_ROLES } from "../constants/permissions";
 
 export default function RequestsPage() {
-  const { user, userRole, company } = useAuth();
-  // Convertir un requerimiento en cotización es pega de venta.
-  const puedeCotizar = SECTION_ROLES.quotations_edit.includes(
-    userRole as never,
-  );
+  const { user, userRole, company, permisos } = useAuth();
+  // Convertir un requerimiento en cotización es pega de quien cotiza: el
+  // permiso Cotizaciones de su cargo (doc 22).
+  const puedeCotizar = permisos.includes("cotizaciones");
   // «✨ Crear con IA» (Felipe, 17-10-2026): quien cotiza, en la empresa
   // con el módulo propio cotizar_con_ia. El motor niega igual.
   const conIA = puedeCotizar && tieneDerecho(company, "cotizar_con_ia");

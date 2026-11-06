@@ -1,4 +1,5 @@
 import { PinoLogger } from 'nestjs-pino';
+import { PermisosService } from 'src/auth/permisos.service';
 import { cachePerfiles } from 'src/cache/memoria';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
 import { mockPinoLogger } from '../../testing/mocks';
@@ -16,6 +17,7 @@ describe('UsersService: el cargo nuevo rige al instante', () => {
       repo as UsersRepository,
       mockPinoLogger() as unknown as PinoLogger,
       {} as SuperAdminService,
+      {} as PermisosService,
     );
 
   beforeEach(() => cachePerfiles.set('auth-1', { role: 'vendedor' }, 60_000));

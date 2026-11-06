@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Derecho } from 'src/auth/derechos';
+import type { Permiso } from 'src/auth/permisos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 import type { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { LogisticsService } from 'src/logistics/logistics.service';
@@ -54,6 +55,12 @@ export type Herramienta = {
   esquema: Anthropic.Tool.InputSchema;
   /** Los cargos que ven ese dato en sus pantallas (SECTION_ROLES). */
   cargos: readonly UserRole[];
+  /** Los permisos por cargo, con la misma cuenta que las puertas (doc 22
+   *  §4.2): las que leen son de sus secciones (`permiso`) y las que
+   *  proponen, acciones dentro de ellas (`dentroDe`). Con todo de fábrica
+   *  dan exactamente `cargos`. */
+  permiso?: readonly Permiso[];
+  dentroDe?: readonly Permiso[];
   /** El derecho del plan que pide la pantalla, si pide alguno. */
   derecho?: Derecho;
   /** Lo que devuelve no es plata de un cliente (el catálogo): a recepción

@@ -1,4 +1,5 @@
 import { ADMIN_ONLY } from 'src/auth/roles.decorator';
+import { textoDeNoLoTrabaja } from 'src/clients/alcance-de-recepcion';
 import {
   ErrorDeHerramienta,
   conDia,
@@ -8,6 +9,7 @@ import {
   fecha,
   type Herramienta,
 } from './comun';
+import { loTrabaja, tiposPara } from './recepcion';
 
 // «¿Qué garzones van a la 500?», «¿quién trabaja el sábado?». Las sillas
 // del personal: SOLO administración (SECTION_ROLES.people), con el derecho
@@ -36,6 +38,7 @@ export const personal: Herramienta = {
     },
   },
   cargos: ADMIN_ONLY,
+  permiso: ['personal'],
   derecho: 'personal',
   async ejecutar(entrada, ctx) {
     const empresa = ctx.usuario.company_id;
@@ -60,10 +63,28 @@ export const personal: Herramienta = {
             : 'Falta el N° del evento o el día.',
         );
       }
+      // Con un tipo de cliente apagado, la planificación de sus eventos no
+      // se ve (doc 22 §9, tanda 3).
+      if (loTrabaja(await tiposPara(ctx), q.clients?.client_type) === false) {
+        throw new ErrorDeHerramienta(
+          textoDeNoLoTrabaja(q.clients?.client_type),
+        );
+      }
       por = { quotationId: q.id };
     }
-    const { turnos, personas, cargos, eventos } =
-      await ctx.repositorio.personal(empresa, por);
+    const datos = await ctx.repositorio.personal(empresa, por);
+    const { personas, cargos, eventos } = datos;
+    // Un día: sin las sillas de los eventos de un tipo que su cargo no
+    // trabaja; las del restaurante (sin evento) quedan.
+    const turnos =
+      'dia' in por && ctx.alcance && (await tiposPara(ctx))
+        ? await ctx.alcance.soloLasQueVe(
+            ctx.usuario,
+            datos.turnos,
+            (t) => t.quotation_id,
+            'queda',
+          )
+        : datos.turnos;
     return {
       sillas: turnos.length,
       vacias: turnos.filter((t) => t.person_id == null).length,

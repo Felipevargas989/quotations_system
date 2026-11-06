@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "../components/toast/Toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Users,
   Edit2,
   Save,
   X,
@@ -23,6 +23,16 @@ import {
   deleteUser as deleteUserService,
 } from "../services/users.service";
 import { UpdateUser } from "../types/users.types";
+import PermisosPorCargo from "./configuration/PermisosPorCargo";
+
+// Las pestañas de Mi empresa → Usuarios. La de permisos viaja en la URL
+// (?vista=permisos), como la pestaña de Mi empresa (?tab=). La del equipo
+// se llama «Equipo» para no repetir «Usuarios» (Felipe, 05-11-2026: "los
+// titulos se ven raros").
+const VISTAS = [
+  { id: "usuarios", nombre: "Equipo" },
+  { id: "permisos", nombre: "Permisos por cargo" },
+] as const;
 
 interface UserProfile {
   id: string;
@@ -36,6 +46,18 @@ interface UserProfile {
 export default function UserManagementPage() {
   const { user, company } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista =
+    searchParams.get("vista") === "permisos" ? "permisos" : "usuarios";
+  // Donde «Permisos por cargo» pone su «Volver a lo de fábrica»: en la fila
+  // de las pestañas, como «Crear usuario» en Equipo.
+  const [ranura, setRanura] = useState<HTMLDivElement | null>(null);
+  const irA = (id: (typeof VISTAS)[number]["id"]) => {
+    const p = new URLSearchParams(searchParams);
+    if (id === "permisos") p.set("vista", "permisos");
+    else p.delete("vista");
+    setSearchParams(p);
+  };
 
   // Usuarios vía React Query (Etapa 3): caché con revalidación en
   // segundo plano; cada crear/editar/eliminar invalida la lista.
@@ -165,9 +187,7 @@ export default function UserManagementPage() {
       setEditingUserId(null);
     } catch (error) {
       console.error("Error creating/updating user:", error);
-      toast.error(
-        "No se pudo guardar el usuario: " + (error as Error).message,
-      );
+      toast.error("No se pudo guardar el usuario: " + (error as Error).message);
     } finally {
       setCreatingUser(false);
     }
@@ -236,231 +256,197 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Gestión de Usuarios
-            </h1>
-            <p className="text-gray-600">
-              Administra roles y permisos de usuarios
-            </p>
-          </div>
-        </div>
-        {/* EL TOPE DE USUARIOS DEL PLAN (paso 3.2, 14-09-2026). Cotiza
-            trae 1 usuario y Gestiona y Cobra 3; Opera y Crece no tiene
-            tope. Al llegar al tope el botón se apaga con su explicación:
-            el motor rechaza igual, pero es mejor decirlo antes de que
-            escriba una cuenta entera. Bajar de plan NO bloquea a nadie
-            que ya exista — solo impide agregar uno más. */}
-        <div className="flex flex-col items-end gap-1">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            disabled={sinCupoDeUsuarios}
-            title={
-              sinCupoDeUsuarios
-                ? `Tu plan incluye ${company?.usuarios_max} ${company?.usuarios_max === 1 ? "usuario" : "usuarios"}`
-                : undefined
-            }
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            <UserPlus size={16} />
-            <span>Crear Usuario</span>
-          </button>
-          {sinCupoDeUsuarios && (
-            <p className="text-xs text-gray-500">
-              Tu plan incluye {company?.usuarios_max}{" "}
-              {company?.usuarios_max === 1 ? "usuario" : "usuarios"}.{" "}
-              <a href="/plans" className="text-blue-600 hover:underline">
-                Ver los planes
-              </a>
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Información de roles */}
-      <div className="bg-blue-50 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-900 mb-4">
-          📋 Permisos por Rol
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium">
-                Recepción
-              </span>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Requerimientos</li>
-              <li>• Clientes</li>
-            </ul>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                Vendedor
-              </span>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Requerimientos</li>
-              <li>• Clientes</li>
-              <li>• Cotizaciones</li>
-            </ul>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                Operaciones
-              </span>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Requerimientos</li>
-              <li>• Clientes</li>
-              <li>• Cotizaciones</li>
-              <li>• Pagos</li>
-            </ul>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                Administrador
-              </span>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Acceso completo</li>
-              <li>• Dashboard</li>
-              <li>• Configuración</li>
-              <li>• Gestión usuarios</li>
-              <li>• Gestión servicios</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Lista de usuarios */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">
-            Usuarios del Sistema
-          </h2>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nombre Completo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rol
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha Registro
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.length === 0 ? (
-                <tr>
-                  <td
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"
-                    colSpan={5}
-                  >
-                    No hay usuarios registrados
-                  </td>
-                </tr>
-              ) : (
-                users.map((userProfile) => (
-                  <tr key={userProfile.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                            <UserIcon className="h-5 w-5 text-gray-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {userProfile.email}
-                          </div>
-                          {userProfile.user_id === user?.id && (
-                            <div className="text-xs text-blue-600 font-medium">
-                              (Tu cuenta)
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {userProfile.full_name || "Sin nombre"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleInfo(userProfile.role).color}`}
-                      >
-                        {getRoleInfo(userProfile.role).label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(userProfile.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => openEditModal(userProfile)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Editar usuario"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(userProfile)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Eliminar usuario"
-                          disabled={userProfile.user_id === user?.id}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+      {/* Un solo título, el de Mi empresa (Felipe, 05-11-2026: "los titulos
+          se ven raros"): aquí solo las dos pestañas y, a su derecha, el
+          botón de cada una. Reemplazan el cuadro «📋 Permisos por Rol», que
+          era solo texto y estaba desactualizado (doc 22). */}
+      <div className="flex items-end justify-between gap-3 border-b border-gray-200">
+        <nav className="flex gap-1 -mb-px overflow-x-auto">
+          {VISTAS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => irA(v.id)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                vista === v.id
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              {v.nombre}
+            </button>
+          ))}
+        </nav>
+        <div className="pb-2">
+          {/* EL TOPE DE USUARIOS DEL PLAN (paso 3.2, 14-09-2026). Cotiza
+              trae 1 usuario y Gestiona y Cobra 3; Opera y Crece no tiene
+              tope. Al llegar al tope el botón se apaga con su explicación:
+              el motor rechaza igual, pero es mejor decirlo antes de que
+              escriba una cuenta entera. Bajar de plan NO bloquea a nadie
+              que ya exista — solo impide agregar uno más. */}
+          {vista === "usuarios" && (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                disabled={sinCupoDeUsuarios}
+                title={
+                  sinCupoDeUsuarios
+                    ? `Tu plan incluye ${company?.usuarios_max} ${company?.usuarios_max === 1 ? "usuario" : "usuarios"}`
+                    : undefined
+                }
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <UserPlus size={16} />
+                <span>Crear Usuario</span>
+              </button>
+              {sinCupoDeUsuarios && (
+                <p className="text-xs text-gray-500">
+                  Tu plan incluye {company?.usuarios_max}{" "}
+                  {company?.usuarios_max === 1 ? "usuario" : "usuarios"}.{" "}
+                  <a href="/plans" className="text-blue-600 hover:underline">
+                    Ver los planes
+                  </a>
+                </p>
               )}
-            </tbody>
-          </table>
+            </div>
+          )}
+          {vista === "permisos" && <div ref={setRanura} />}
         </div>
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {roles.map((role) => {
-          const count = users.filter((u) => u.role === role.value).length;
-          return (
-            <div key={role.value} className="bg-white p-6 rounded-lg shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    {role.label}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">{count}</p>
-                </div>
-                <Shield className="h-8 w-8 text-gray-400" />
-              </div>
+      {vista === "permisos" && <PermisosPorCargo ranura={ranura} />}
+
+      {vista === "usuarios" && (
+        <>
+          {/* Lista de usuarios */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">
+                Usuarios del Sistema
+              </h2>
             </div>
-          );
-        })}
-      </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Usuario
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Nombre Completo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Rol
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha Registro
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"
+                        colSpan={5}
+                      >
+                        No hay usuarios registrados
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((userProfile) => (
+                      <tr key={userProfile.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                <UserIcon className="h-5 w-5 text-gray-600" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {userProfile.email}
+                              </div>
+                              {userProfile.user_id === user?.id && (
+                                <div className="text-xs text-blue-600 font-medium">
+                                  (Tu cuenta)
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {userProfile.full_name || "Sin nombre"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleInfo(userProfile.role).color}`}
+                          >
+                            {getRoleInfo(userProfile.role).label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(userProfile.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => openEditModal(userProfile)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Editar usuario"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(userProfile)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Eliminar usuario"
+                              disabled={userProfile.user_id === user?.id}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Estadísticas */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {roles.map((role) => {
+              const count = users.filter((u) => u.role === role.value).length;
+              return (
+                <div
+                  key={role.value}
+                  className="bg-white p-6 rounded-lg shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {role.label}
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {count}
+                      </p>
+                    </div>
+                    <Shield className="h-8 w-8 text-gray-400" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Create User Modal */}
       {showCreateModal && (

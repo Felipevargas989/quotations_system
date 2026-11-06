@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { MarcarCompetidorDto } from '../dto/marcar-competidor.dto';
@@ -13,6 +14,7 @@ import { CompetenciaService } from './competencia.service';
 // Sin botón de leer: las actas y el rubro se leen solos (decisión 71).
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
+@Permiso('oportunidades')
 @Controller('oportunidades')
 export class CompetenciaController {
   constructor(

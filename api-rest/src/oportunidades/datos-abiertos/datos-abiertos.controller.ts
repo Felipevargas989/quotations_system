@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Query } from '@nestjs/common';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import { MESES_DE_HISTORIA } from './datos-abiertos';
 import { DURACION_DE_LA_CARGA_MS } from './datos-abiertos-cron.service';
@@ -11,6 +12,7 @@ import { DatosAbiertosService } from './datos-abiertos.service';
 // Solo administrador, como el radar a mano.
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
+@Permiso('oportunidades')
 @Controller('oportunidades/mercado')
 export class DatosAbiertosController {
   constructor(

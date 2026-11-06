@@ -15,6 +15,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { DerechosService } from 'src/auth/derechos.service';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   ADMIN_ONLY,
   OPERATIONS_AND_UP,
@@ -30,6 +31,7 @@ import {
   revisarLoQueCotiza,
   type CotizacionParaElAlcance,
 } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -76,6 +78,7 @@ export class QuotationsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones')
   @Post()
   async create(
     @Body() createQuotationDto: CreateQuotationDto,
@@ -88,16 +91,15 @@ export class QuotationsController {
     // cotizaciones formales. Mismo endpoint para ambos (los usa la
     // misma tabla), así que la distinción es por el tipo de solicitud.
     // Desde el doc 21 (04-11-2026), también cotizaciones de clientes
-    // particulares, sin descuento y sin aceptarlas.
-    if (
-      esRecepcion(user) &&
-      createQuotationDto.request_type !== RequestType.REQUERIMIENTO
-    ) {
-      await this.alcance.exigirClienteParticular(
+    // particulares, sin descuento y sin aceptarlas. Desde el doc 22 §9, cada
+    // cargo cotiza solo a clientes de los tipos que trabaja (a recepción, de
+    // fábrica, los particulares).
+    if (createQuotationDto.request_type !== RequestType.REQUERIMIENTO) {
+      await this.alcance.exigirElTipoDelCliente(
         user,
         createQuotationDto.client_id,
       );
-      revisarLoQueCotiza(createQuotationDto);
+      if (esRecepcion(user)) revisarLoQueCotiza(createQuotationDto);
     }
     return this.quotationsService.create(
       createQuotationDto,
@@ -157,6 +159,13 @@ export class QuotationsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso(
+    'requerimientos',
+    'cotizaciones',
+    'calendario',
+    'dashboard',
+    'personal',
+  )
   @Get()
   async findAll(
     @CurrentUser() user: User,
@@ -178,13 +187,20 @@ export class QuotationsController {
     // Recepción: los requerimientos y las cotizaciones de particulares
     // (doc 21). Antes le llegaban todas con montos y solo la pantalla las
     // escondía. En el calendario sigue viendo todos los eventos, los demás
-    // sin plata.
-    return getQuotationsDto.vista === 'calendario'
-      ? this.alcance.paraElCalendario(user, filas)
-      : this.alcance.filtrar(user, filas);
+    // sin plata. Y los permisos por cargo (doc 22 §4.4): sin Calendario no
+    // hay vista de calendario, y sin Cotizaciones, Dashboard ni Personal,
+    // solo requerimientos.
+    return this.alcance.deLaLista(user, filas, getQuotationsDto.vista);
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso(
+    'requerimientos',
+    'cotizaciones',
+    'clientes',
+    'calendario',
+    'postventa',
+  )
   @Get('check-conflicts')
   checkConflictsWithExistingQuotations(
     @Query()
@@ -235,9 +251,11 @@ export class QuotationsController {
     if (empresa === null || !fila || Number(fila.company_id) !== empresa) {
       return limpia;
     }
-    // Recepción, con su sesión, ve completos los requerimientos y las
-    // cotizaciones de particulares (doc 21). De las demás, lo que muestra
-    // el calendario (la tarjeta pide aquí sus categorías), sin plata.
+    // Con su sesión, cada cargo ve completos los requerimientos y las
+    // cotizaciones de los tipos de cliente que trabaja (doc 22 §9; a
+    // recepción, de fábrica, los particulares, doc 21). De las demás, lo que
+    // muestra el calendario (la tarjeta pide aquí sus categorías), sin
+    // plata.
     if (perfil && !(await this.alcance.ve(perfil, fila))) {
       return { ...limpia, data: paraLaAgenda(fila) };
     }
@@ -259,10 +277,11 @@ export class QuotationsController {
   // Desde el doc 21, también recepción, en requerimientos de particulares.
   @Roles(...RECEPTION_AND_UP)
   @Derecho('cotizar_con_ia')
+  @Permiso('requerimientos')
   @Post(':id/generar')
   async generar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/generar`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.generarCotizacion.generar(id, user);
   }
 
@@ -273,11 +292,13 @@ export class QuotationsController {
   // Desde el doc 21, también recepción: solo sus particulares.
   @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
+  @Permiso('cotizaciones', 'postventa')
   @Get('seguimiento/pendientes')
   async seguimientosPendientes(@CurrentUser() user: User) {
     this.logger.info('GET /quotations/seguimiento/pendientes');
     const pendientes = await this.seguimientoConIA.pendientes(user);
-    if (!esRecepcion(user)) return pendientes;
+    // Solo las de los tipos que trabaja su cargo (doc 22 §9).
+    if (!(await this.alcance.tiposDelCargo(user))) return pendientes;
     const ve = await Promise.all(
       pendientes.map((p) => this.alcance.veLaCotizacion(user, p.id)),
     );
@@ -290,6 +311,7 @@ export class QuotationsController {
   // por borrador cada 5 minutos.
   @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
+  @Permiso('cotizaciones', 'postventa')
   @Post('seguimiento/revisar')
   revisarSeguimientos(@CurrentUser() user: User) {
     this.logger.info('POST /quotations/seguimiento/revisar');
@@ -298,10 +320,11 @@ export class QuotationsController {
 
   @Roles(...RECEPTION_AND_UP)
   @Derecho('seguimiento_con_ia')
+  @Permiso('cotizaciones', 'postventa')
   @Post(':id/seguimiento')
   async generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/seguimiento`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.seguimientoConIA.generar(id, user);
   }
 
@@ -309,6 +332,7 @@ export class QuotationsController {
   // vivas cuyas fechas se topan con una aceptada. La lista la ve todo el que
   // ve el tablero; «Sí, puede seguir» es de quien vende.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa')
   @Get('choques/pendientes')
   choquesDeFecha(@CurrentUser() user: User) {
     this.logger.info('GET /quotations/choques/pendientes');
@@ -316,6 +340,7 @@ export class QuotationsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa')
   @Post(':id/choques/:aceptadaId')
   async decidirChoque(
     @Param('id') id: string,
@@ -326,34 +351,37 @@ export class QuotationsController {
     this.logger.info(
       `POST /quotations/${id}/choques/${aceptadaId} (${body.decision})`,
     );
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.choques.seguir(user, id, aceptadaId);
   }
 
   // El botón "Enviar cotización" (doc 13): correo tipo + PDF del motor.
   // Desde el doc 21, también recepción, en particulares.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones')
   @Post(':id/enviar-correo')
   async enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.enviar(id, user);
   }
 
   // El aviso de cierre al rechazar (Felipe, 04-11-2026): el pop-up pide
   // el borrador, la persona lo edita y lo envía. Mismo cargo que enviar.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones')
   @Get(':id/aviso-de-cierre')
   async borradorAvisoDeCierre(
     @Param('id') id: string,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`GET /quotations/${id}/aviso-de-cierre`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.borradorDelAvisoDeCierre(id, user);
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones')
   @Post(':id/aviso-de-cierre')
   async enviarAvisoDeCierre(
     @Param('id') id: string,
@@ -361,13 +389,15 @@ export class QuotationsController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${id}/aviso-de-cierre`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.enviarAvisoDeCierre(id, user, body);
   }
 
   // Declara el evento REALIZADO y dispara la encuesta de satisfacción al
   // cliente (una sola vez; ver QuotationsService.markEventDone).
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
+  @DelEvento({ param: 'id' })
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
@@ -380,6 +410,8 @@ export class QuotationsController {
   // realizado por error. Solo administrador. La encuesta ya enviada no
   // se toca (y si se re-marca, no se reenvia: survey_sent_at manda).
   @Roles(...ADMIN_ONLY)
+  @DentroDe('postventa')
+  @DelEvento({ param: 'id' })
   @Post(':id/volver-a-pendiente')
   unmarkEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/volver-a-pendiente`);
@@ -405,6 +437,7 @@ export class QuotationsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'postventa')
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -428,6 +461,7 @@ export class QuotationsController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones')
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     // Recepción solo borra requerimientos (14-09-2026): el service revisa

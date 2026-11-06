@@ -29,10 +29,32 @@ export const estadosPara = (
   return estados.filter((e) => !ESTADOS_DE_OPERACIONES.includes(e));
 };
 
-/** Los clientes que recepción ve en el cotizador: los de los tipos que su
- *  empresa marcó como particulares (doc 21), más el que ya está elegido,
- *  para no esconderlo. Los demás cargos, todos. Si la empresa no marcó
- *  ninguno, todos: al guardar, el motor responde igual. */
+const normal = (t: string | null | undefined): string =>
+  (t ?? "").trim().toLowerCase();
+
+/** Los tipos de cliente que trabaja el cargo, en minúsculas; null si los
+ *  trabaja todos (doc 22 §9). Los dice el motor en el perfil
+ *  (`useAuth().tiposDeCliente`); si todavía no los manda, lo de fábrica: a
+ *  recepción, los tipos que su empresa marcó como particulares (doc 21); a
+ *  los demás cargos, todos. */
+export const tiposQueTrabaja = (
+  rol: string | null | undefined,
+  tiposDeLaEmpresa: readonly { name: string; es_particular?: boolean }[],
+  delPerfil?: string[] | null,
+): Set<string> | null => {
+  const nombres =
+    delPerfil !== undefined
+      ? delPerfil
+      : esRecepcion(rol)
+        ? tiposDeLaEmpresa.filter((t) => t.es_particular).map((t) => t.name)
+        : null;
+  return nombres === null ? null : new Set(nombres.map(normal));
+};
+
+/** Los clientes que el cargo ve en el cotizador: los de los tipos que
+ *  trabaja (`tiposQueTrabaja`), más el que ya está elegido, para no
+ *  esconderlo. Si no trabaja ninguno, todos: al guardar, el motor responde
+ *  igual. */
 export const clientesParaElCotizador = <
   C extends { id: string; client_type?: string | null },
 >(
@@ -40,17 +62,11 @@ export const clientesParaElCotizador = <
   clientes: C[],
   tipos: { name: string; es_particular?: boolean }[],
   elegido?: string | null,
+  delPerfil?: string[] | null,
 ): C[] => {
-  if (!esRecepcion(rol)) return clientes;
-  const particulares = new Set(
-    tipos
-      .filter((t) => t.es_particular)
-      .map((t) => t.name.trim().toLowerCase()),
-  );
-  if (particulares.size === 0) return clientes;
+  const trabaja = tiposQueTrabaja(rol, tipos, delPerfil);
+  if (!trabaja || trabaja.size === 0) return clientes;
   return clientes.filter(
-    (c) =>
-      c.id === elegido ||
-      particulares.has((c.client_type ?? "").trim().toLowerCase()),
+    (c) => c.id === elegido || trabaja.has(normal(c.client_type)),
   );
 };
