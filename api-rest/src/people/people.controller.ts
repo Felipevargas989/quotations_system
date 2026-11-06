@@ -200,8 +200,14 @@ export class PeopleController {
   @Derecho(null)
   @Permiso('dashboard', 'personal')
   @Get('costo-personal')
-  costoPersonal(@CurrentUser() user: User) {
-    return this.peopleService.costoPersonal(user.company_id);
+  async costoPersonal(@CurrentUser() user: User) {
+    // Sin los eventos de un tipo de cliente que su cargo no trabaja (doc
+    // 22 §9.8).
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.peopleService.costoPersonal(user.company_id),
+      (f) => f.quotation_id,
+    );
   }
 
   /** La planta con turno los días del evento entra a su ficha. */

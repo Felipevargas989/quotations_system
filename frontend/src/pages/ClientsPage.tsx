@@ -32,6 +32,7 @@ import {
 import { Client, ClientFormData } from "../types/clients.types";
 import SelectWithSearch from "../components/selects/SelectWithSearch";
 import { tieneDerecho } from "../constants/permissions";
+import { tiposQueTrabaja } from "../utils/recepcion";
 
 // Persistencia por usuario del filtro de tipos (mismo patrón que el
 // filtro de estados de Cotizaciones): la selección sobrevive recargas.
@@ -41,14 +42,14 @@ const SEGMENT_FILTER_KEY = (userId: string | number) =>
   `eventia_clients_segment_filter_${userId}`;
 
 export default function ClientsPage() {
-  const { user, company } = useAuth();
+  const { user, company, userRole, tiposDeCliente } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Lista de clientes vía React Query (Etapa 1, 21-07-2026): al volver
   // a esta pantalla se pinta AL INSTANTE con lo último conocido y se
   // revalida en segundo plano. Tras cada guardado se invalida.
-  const { data: clients = [], isPending: loading } = useQuery({
+  const { data: todosLosClientes = [], isPending: loading } = useQuery({
     ...clientsQueryOptions,
     enabled: !!user,
   });
@@ -91,6 +92,15 @@ export default function ClientsPage() {
     ...clientTypesQueryOptions,
     enabled: !!user,
   });
+  // Los clientes de un tipo que su cargo no trabaja no aparecen (doc 22
+  // §9.8): la lista es la de todos porque los requerimientos son de todos,
+  // y acá se dejan solo los suyos. Editarlos o borrarlos lo frena el motor.
+  const trabaja = tiposQueTrabaja(userRole, clientTypes, tiposDeCliente);
+  const clients = trabaja
+    ? todosLosClientes.filter((c) =>
+        trabaja.has((c.client_type ?? "").trim().toLowerCase()),
+      )
+    : todosLosClientes;
   const invalidateTypes = () =>
     queryClient.invalidateQueries({ queryKey: ["clientTypes"] });
 

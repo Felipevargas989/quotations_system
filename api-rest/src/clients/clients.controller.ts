@@ -170,7 +170,7 @@ export class ClientsController {
   @Roles(...SALES_AND_UP)
   @Permiso('clientes')
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateClientDto: UpdateClientDto,
     @CurrentUser() user: User,
@@ -178,14 +178,18 @@ export class ClientsController {
     this.logger.info(
       `PATCH /clients/${id} with updateClientDto ${logSafe(updateClientDto)}`,
     );
+    // Un cliente de un tipo que su cargo no trabaja no se toca (doc 22
+    // §9.8).
+    await this.alcance.exigirElTipoDelCliente(user, id);
     return this.clientsService.update(id, updateClientDto, user.company_id);
   }
 
   @Roles(...SALES_AND_UP)
   @Permiso('clientes')
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: User) {
+  async remove(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /clients/${id}`);
+    await this.alcance.exigirElTipoDelCliente(user, id);
     return this.clientsService.remove(id, user.company_id);
   }
 }

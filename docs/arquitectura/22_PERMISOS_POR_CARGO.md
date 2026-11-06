@@ -15,9 +15,10 @@
 > (*"si vamos"*), con sus dos excepciones. La tanda 1 (la pantalla,
 > Cotizaciones, el Calendario y BelIA) en el laboratorio desde esa noche,
 > sin migración; la tanda 2 (Post-Venta, *"si sigue con la tanda 2"*) en
-> el laboratorio esa misma noche (§9.6), y la tanda 3 (Compras y la
-> planificación de Personal, *"si sigue con la tanda 3"*) programada
-> después (§9.7); la tanda 4, pendiente.
+> el laboratorio esa misma noche (§9.6), la tanda 3 (Compras y la
+> planificación de Personal, *"si sigue con la tanda 3"*) en el laboratorio
+> después (§9.7) y la tanda 4 (Clientes, Encuestas y Dashboard, *"si sigue
+> con la tanda 4"*) programada al final (§9.8). Con eso, las cuatro.
 
 ## 1. Lo que pidió Felipe
 
@@ -396,7 +397,7 @@ plan del §9.3 el mismo día: *"si vamos"*.
 | 1 | La pantalla; Cotizaciones (tablero, ficha del negocio, cotizador, crear, editar, borrar, enviar, seguimiento, aviso de cierre, topes, «Crear con IA»), las cuotas de la ficha, el resumen del cliente, el Calendario y BelIA | No ve sus cotizaciones ni sus montos, y no las toca. Es lo de hoy de recepción, ahora para los cuatro cargos | Programada el 05-11-2026 |
 | 2 | Post-Venta: pagos, reembolsos, comprobantes, documentos, cocina | Esos eventos no aparecen | Programada el 05-11-2026 (§9.6) |
 | 3 | Proveedores (compras del evento) y Personal (planificación) | Esos eventos no aparecen. Ojo: si a quien compra le apagas un tipo, su lista de compras sale sin los insumos de esos eventos | Programada el 05-11-2026 (§9.7) |
-| 4 | Clientes, Encuestas y Dashboard | Esos clientes no aparecen ni cuentan en sus números | Pendiente |
+| 4 | Clientes, Encuestas y Dashboard | Esos clientes no aparecen ni cuentan en sus números | Programada el 05-11-2026 (§9.8) |
 
 ### 9.4 Cómo lo cumple el motor (tanda 1)
 
@@ -515,4 +516,30 @@ insumos de esos eventos.
   el §9.6 dejó anotado: ya no se tapa la plata de compras en vez de
   esconder esos eventos.
 - Las puertas nuevas están en `clients/tests/del-evento.spec.ts`.
+
+### 9.8 La tanda 4: Clientes, Encuestas y Dashboard (05-11-2026)
+
+Felipe: *"si sigue con la tanda 4"*. Con un tipo de cliente apagado, esos
+clientes no aparecen ni cuentan en sus números.
+
+- **Clientes**: la lista de `GET /clients` es la de todos, porque la usa
+  también el formulario de requerimientos, que es de todos (la excepción
+  del §9.2); la pantalla de Clientes deja solo los de los tipos que el
+  cargo trabaja (`ClientsPage`, con `tiposQueTrabaja` del perfil). Editar
+  o borrar uno de un tipo apagado lo frena el motor
+  (`exigirElTipoDelCliente` en `PATCH` y `DELETE /clients/:id`). La ficha
+  360 sigue como en la tanda 1: sin plata.
+- **Dashboard**: los KPIs (`GET /analytics/dashboard`) se cuentan sin esos
+  clientes; la sección Análisis (`GET /analytics/complete`), que la base
+  calcula para toda la empresa con nueve funciones, se calcula en el motor
+  con las mismas reglas cuando el cargo no trabaja todos los tipos
+  (`analytics/analisis-por-tipos.ts`, de a 1000 cotizaciones). Quien
+  trabaja todos sigue con las funciones de la base: sus números no
+  cambian. La memoria del panel separa cada combinación de tipos
+  (`firmaDeTipos`). «Para actuar hoy» (`GET /analytics/hoy`) no avisa lo
+  de esos clientes, salvo los requerimientos; el costo de personal por
+  evento (`GET /people/costo-personal`), tampoco los cuenta.
+- **Encuestas**: las respuestas (`GET /customer-satisfaction-survey/answers`)
+  de esos clientes no aparecen ni cuentan en los promedios.
+- **Sin migración**, como las otras tres.
 
