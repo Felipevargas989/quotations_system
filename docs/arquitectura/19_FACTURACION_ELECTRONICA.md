@@ -1212,8 +1212,15 @@ boletas de las cabañas. Hagamos ese cambio y yo me voy a acostar"*.
      nota siempre modifica un documento (§9.5), así que primero se elige
      cuál, del mes que se quiera (el motor dice qué admite cada uno), y
      sigue el panel de siempre.
-3. Abajo, **el detalle**: «Documentos» y «Tarifario».
-4. Salen «Boleta suelta», «Por boletear» y «Emitidas hoy». Los cobros por
+3. Abajo, **el detalle**: «Documentos», «Por facturar» y «Tarifario».
+4. **«Por facturar (N)»**: los eventos aceptados o realizados de los
+   últimos 90 días y los que vienen a los que les queda algo por emitir
+   (lo de antes se facturó fuera de Eventia). Cada uno con su total, lo
+   emitido (facturas y boletas, con la cadena: una anulada ya no cuenta) y
+   lo que queda. «Facturar» abre ahí mismo el «Emitir DTE» del evento, el
+   mismo de Post-Venta. Lo ve quien ve «Documentos»; emite el
+   administrador (D5).
+5. Salen «Boleta suelta», «Por boletear» y «Emitidas hoy». Los cobros por
    boletear quedan en el motor sin pantalla: no se borra nada.
 
 ### 9.11 Fuentes nuevas (04-11)

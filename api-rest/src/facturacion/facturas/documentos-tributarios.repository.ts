@@ -280,6 +280,83 @@ export class DocumentosTributariosRepository {
     ).map((d) => ({ ...d, total: Number(d.total) }));
   }
 
+  /** Los eventos aceptados o realizados desde una fecha (AAAA-MM-DD),
+   *  para «Por facturar» (doc 19 §9.21). */
+  async eventosDesde(companyId: number, desde: string) {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select(
+        'id, quotation_number, quotation_status, event_type, event_date, total_amount, cliente:clients(name)',
+      )
+      .eq('company_id', companyId)
+      .in('quotation_status', ['aceptada', 'realizada'])
+      .gte('event_date', desde)
+      .order('event_date', { ascending: true })
+      .limit(300);
+    if (error) throw error;
+    return (
+      (data ?? []) as unknown as {
+        id: string;
+        quotation_number: number;
+        quotation_status: string;
+        event_type: string | null;
+        event_date: string | null;
+        total_amount: number | string | null;
+        cliente: { name?: string | null } | null;
+      }[]
+    ).map((q) => ({
+      id: q.id,
+      numero: q.quotation_number,
+      estado: q.quotation_status,
+      tipoDeEvento: q.event_type,
+      fecha: q.event_date ? q.event_date.slice(0, 10) : null,
+      total: Math.round(Number(q.total_amount ?? 0)),
+      cliente: q.cliente?.name?.trim() || null,
+    }));
+  }
+
+  /** Lo emitido de esos eventos en un ambiente, con sus notas (las notas
+   *  heredan el evento de lo que modifican): para la cadena. */
+  async emitidoDeLosEventos(
+    companyId: number,
+    ambiente: AmbienteDeFacturacion,
+    ids: string[],
+  ) {
+    if (!ids.length) return [];
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(
+        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, quotation_id',
+      )
+      .eq('company_id', companyId)
+      .eq('ambiente', ambiente)
+      .in('quotation_id', ids)
+      .in('tipo', [33, 39, 56, 61])
+      .in('estado', FACTURADO);
+    if (error) throw error;
+    return (
+      (data ?? []) as (DocumentoDeLaCadena & {
+        orden_de_compra_id: number | null;
+        quotation_id: string;
+      })[]
+    ).map((d) => ({ ...d, total: Number(d.total) }));
+  }
+
+  /** Cuántas OC tiene cada uno de esos eventos. */
+  async ocsDeLosEventos(companyId: number, ids: string[]) {
+    const cuantas = new Map<string, number>();
+    if (!ids.length) return cuantas;
+    const { data, error } = await this.supabase.client
+      .from('ordenes_de_compra')
+      .select('quotation_id')
+      .eq('company_id', companyId)
+      .in('quotation_id', ids);
+    if (error) throw error;
+    for (const o of (data ?? []) as { quotation_id: string }[])
+      cuantas.set(o.quotation_id, (cuantas.get(o.quotation_id) ?? 0) + 1);
+    return cuantas;
+  }
+
   /** El último folio usado de un tipo, para seguir la numeración. */
   async ultimoFolio(
     companyId: number,

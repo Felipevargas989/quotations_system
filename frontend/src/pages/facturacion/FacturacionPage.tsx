@@ -4,24 +4,28 @@ import { Plus } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
+import { usePorFacturar } from "./consultas";
 import DocumentosDelMes from "./DocumentosDelMes";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import NuevoDocumento, { type TipoNuevo } from "./NuevoDocumento";
+import PorFacturar from "./PorFacturar";
 
 // LA SECCIÓN «FACTURACIÓN» (doc 19 §9.19 y §9.21). Una sola entrada del
 // menú, justo debajo de Dashboard. Felipe, 06-11: arriba *"un botón de
 // crear nuevo DTE que me pregunte si va a ser nota de crédito, débito,
 // factura, boleta"*, y abajo el detalle. Salieron «Boleta suelta», «Por
-// boletear» y «Emitidas hoy»; el tarifario se queda.
+// boletear» y «Emitidas hoy»; el tarifario se queda. «Por facturar»: los
+// eventos con algo por emitir, para facturarlos desde acá.
 //
 // Cada pieza sigue su interruptor de Mi empresa → Usuarios → Permisos por
 // cargo (doc 22 §7): «Nuevo documento» ofrece la boleta con «Boletas» y
-// las notas con «Anular o rebajar» (`facturacion_notas`); «Documentos» es
-// `facturacion_documentos`, y el tarifario y «Probar la conexión»,
+// las notas con «Anular o rebajar» (`facturacion_notas`); «Documentos» y
+// «Por facturar» son `facturacion_documentos`, y el tarifario y «Probar la
+// conexión»,
 // `facturacion_ajustes`. Lo de fábrica: recepción, la boleta; operaciones,
 // además «Documentos»; el administrador, todo.
 
-type Pestana = "documentos" | "tarifario";
+type Pestana = "documentos" | "por_facturar" | "tarifario";
 
 export default function FacturacionPage() {
   const queryClient = useQueryClient();
@@ -37,9 +41,20 @@ export default function FacturacionPage() {
   // Dónde se emite: lo trae el día de boletas, que lo lee todo el que
   // entra.
   const hoy = useEmitidasHoy();
+  const porFacturar = usePorFacturar(conDocumentos);
+  const pendientes = porFacturar.data?.eventos.length;
   const pestanas: { key: Pestana; label: string }[] = [
     ...(conDocumentos
-      ? [{ key: "documentos" as const, label: "Documentos" }]
+      ? [
+          { key: "documentos" as const, label: "Documentos" },
+          {
+            key: "por_facturar" as const,
+            label:
+              pendientes == null
+                ? "Por facturar"
+                : `Por facturar (${pendientes})`,
+          },
+        ]
       : []),
     ...(conAjustes ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
@@ -49,6 +64,9 @@ export default function FacturacionPage() {
 
   const emitido = () => {
     void queryClient.invalidateQueries({ queryKey: ["facturacion", "lista"] });
+    void queryClient.invalidateQueries({
+      queryKey: ["facturacion", "por-facturar"],
+    });
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
 
@@ -97,6 +115,9 @@ export default function FacturacionPage() {
           </div>
           {pestana === "documentos" && (
             <DocumentosDelMes conAjustes={conAjustes} />
+          )}
+          {pestana === "por_facturar" && (
+            <PorFacturar puedeEmitir={userRole === "administrador"} />
           )}
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>

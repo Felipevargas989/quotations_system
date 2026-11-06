@@ -8,6 +8,7 @@ import { ConexionConFacturacionCl } from './facturas/conexion';
 import { DocumentosTributariosRepository } from './facturas/documentos-tributarios.repository';
 import { FacturasController } from './facturas/facturas.controller';
 import { FacturasService } from './facturas/facturas.service';
+import { PorFacturarController } from './facturas/por-facturar.controller';
 import { NotasController } from './notas/notas.controller';
 import { NotasService } from './notas/notas.service';
 import { LeerOrdenDeCompraService } from './ordenes-de-compra/leer-orden-de-compra.service';
@@ -31,6 +32,7 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     FacturasController,
     BoletasController,
     NotasController,
+    PorFacturarController,
   ],
   providers: [
     OrdenesDeCompraService,
