@@ -1226,6 +1226,15 @@ boletas de las cabañas. Hagamos ese cambio y yo me voy a acostar"*.
    lo que queda. «Facturar» abre ahí mismo el «Emitir DTE» del evento, el
    mismo de Post-Venta. Lo ve quien ve «Documentos»; emite el
    administrador (D5).
+   - **La facturación masiva:** el administrador marca varios (o todos) y
+     «Facturar los N marcados». BelIA arma el DTE de cada uno como lo haría
+     «Emitir DTE» al abrirse (sus OC de Documentos, la factura o la boleta,
+     desde la OC que queda por facturar o desde la cotización), sin
+     correcciones a mano. Cada evento dice «Lista» o lo que le falta (ese
+     se factura uno por uno). «Emitir las N listas» pide una sola
+     confirmación con el total y las emite una tras otra; si una queda por
+     confirmar o no sale, se detiene ahí, como las boletas de un cobro: lo
+     emitido queda emitido.
 5. Salen «Boleta suelta», «Por boletear» y «Emitidas hoy». Los cobros por
    boletear quedan en el motor sin pantalla: no se borra nada.
 

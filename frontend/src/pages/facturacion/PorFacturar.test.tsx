@@ -18,6 +18,11 @@ vi.mock("./consultas", () => ({
     data: { ambiente: "simulado", desde: "2026-08-08", eventos },
   }),
 }));
+vi.mock("./FacturacionMasiva", () => ({
+  default: ({ eventos }: { eventos: { numero: number }[] }) => (
+    <p>facturar juntos: {eventos.map((e) => e.numero).join(", ")}</p>
+  ),
+}));
 vi.mock("../postventa/facturacion/EmitirDte", () => ({
   default: ({ quotationId }: { quotationId: string }) => (
     <p>emitir el DTE de {quotationId}</p>
@@ -64,6 +69,27 @@ describe("Por facturar", () => {
     expect(screen.getByText("$600.000")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Facturar/ }));
     expect(screen.getByText("emitir el DTE de ev-501")).toBeInTheDocument();
+  });
+
+  it("el administrador marca varios y los factura juntos", () => {
+    eventos = [501, 502].map((numero) => ({
+      id: `ev-${numero}`,
+      numero,
+      estado: "aceptada",
+      tipoDeEvento: null,
+      fecha: "2026-12-06",
+      cliente: "CCU",
+      total: 100000,
+      emitido: 0,
+      queda: 100000,
+      ocs: 0,
+    }));
+    abrir();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar todos" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Facturar los 2 marcados" }),
+    );
+    expect(screen.getByText("facturar juntos: 501, 502")).toBeInTheDocument();
   });
 
   it("sin nada pendiente, lo dice desde cuándo mira", () => {
