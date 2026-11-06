@@ -1,5 +1,5 @@
 import RutInput from "../../../components/inputs/RutInput";
-import { claseCasilla } from "./datosDeLaFactura";
+import { claseCasilla, claseTitulo } from "./datosDeLaFactura";
 
 // La casilla de la factura del evento (doc 19, paso 2c), con su contador.
 // La del RUT va con el mismo título y el mismo alto, para que queden
@@ -22,7 +22,7 @@ export default function CasillaDeLaFactura({
   const n = Array.from(valor ?? "").length;
   return (
     <label className="block">
-      <span className="flex justify-between text-xs text-gray-500">
+      <span className={claseTitulo}>
         {etiqueta}
         {largo && (
           <span className={n > largo ? "font-semibold text-red-600" : ""}>
@@ -51,12 +51,12 @@ export function CasillaDelRut({
 }) {
   return (
     <label className="block">
-      <span className="flex justify-between text-xs text-gray-500">RUT</span>
+      <span className={claseTitulo}>RUT</span>
       <RutInput
         value={valor}
         onChange={(rut) => onChange(rut)}
         placeholder="12.345.678-9"
-        className="text-sm !py-1.5"
+        className="text-sm"
       />
     </label>
   );
