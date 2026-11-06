@@ -18,8 +18,9 @@ import PorFacturar from "./PorFacturar";
 // eventos con algo por emitir, para facturarlos desde acá.
 //
 // Cada pieza sigue su interruptor de Mi empresa → Usuarios → Permisos por
-// cargo (doc 22 §7): «Nuevo documento» ofrece la boleta con «Boletas» y
-// las notas con «Anular o rebajar» (`facturacion_notas`); «Documentos» y
+// cargo (doc 22 §7): «Nuevo documento» ofrece la factura al administrador
+// con «Documentos» (D5), la boleta con «Boletas» y las notas con «Anular o
+// rebajar» (`facturacion_notas`); «Documentos» y
 // «Por facturar» son `facturacion_documentos`, y el tarifario y «Probar la
 // conexión»,
 // `facturacion_ajustes`. Lo de fábrica: recepción, la boleta; operaciones,
@@ -32,7 +33,11 @@ export default function FacturacionPage() {
   const { permisos, userRole } = useAuth();
   const conDocumentos = permisos.includes("facturacion_documentos");
   const conAjustes = permisos.includes("facturacion_ajustes");
+  // La factura de cero la emite el administrador (D5), con «Documentos».
   const tipos: TipoNuevo[] = [
+    ...(userRole === "administrador" && conDocumentos
+      ? (["factura"] as const)
+      : []),
     ...(permisos.includes("boletas") ? (["boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
       ? (["nota_credito", "nota_debito"] as const)

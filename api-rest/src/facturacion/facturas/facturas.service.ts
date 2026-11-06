@@ -31,6 +31,7 @@ import {
   revisarDte,
   type ContextoDeLaFactura,
   type DtePedido,
+  type EventoAFacturar,
   type OrdenAFacturar,
   type Revision,
   type TipoDeDte,
@@ -129,7 +130,7 @@ const normalizada = (p: DtePedido): DtePedido => {
 /** El % de la OC o del evento que va en el documento (E4: queda el
  *  registro); nulo si pasa del 100 %. */
 const porcentajeDe = (total: number, ctx: ContextoDeLaFactura) => {
-  const base = ctx.oc ? ctx.oc.total : ctx.evento.total;
+  const base = ctx.oc ? ctx.oc.total : (ctx.evento?.total ?? 0);
   const pct = base > 0 ? Math.round((total / base) * 10000) / 100 : 0;
   return pct > 0 && pct <= 100 ? pct : null;
 };
@@ -369,7 +370,93 @@ export class FacturasService {
       );
     if (boleta)
       return this.emitirBoleta(quotationId, user, pedida, revision, conexion);
+    return this.emitirFactura(user, pedida, ctx, quotationId, {
+      folio,
+      fecha,
+      archivo: revision.archivo,
+      revision,
+    });
+  }
 
+  /** La factura de «Nuevo documento» (§9.21): de cero, sin evento ni OC.
+   *  La vista previa y la emisión pasan por la misma revisión. */
+  async revisarSinEvento(companyId: number, dto: DtePedido) {
+    const pedida = normalizada({
+      ...dto,
+      tipo: FACTURA,
+      orden_de_compra_id: null,
+    });
+    return this.vistaPrevia(pedida, this.sinEvento(companyId), companyId);
+  }
+
+  async emitirSinEvento(user: User, dto: DtePedido) {
+    const companyId = user.company_id;
+    const pedida = normalizada({
+      ...dto,
+      tipo: FACTURA,
+      orden_de_compra_id: null,
+    });
+    const ctx = this.sinEvento(companyId);
+    const conexion = this.conexion.de(companyId);
+    const fecha = hoyEnChile();
+    const folio = await conexion.folioSiguiente(FACTURA);
+    const revision = revisarDte(pedida, ctx, folio, fecha);
+    if (!revision.ok || !revision.archivo || !revision.montos)
+      throw new BadRequestException(
+        revision.faltan.length
+          ? `Falta ${revision.faltan.map((f) => f.texto).join(', ')}`
+          : revision.problemas.join('. '),
+      );
+    return this.emitirFactura(user, pedida, ctx, null, {
+      folio,
+      fecha,
+      archivo: revision.archivo,
+      revision,
+    });
+  }
+
+  /** La razón social guardada con ese RUT, para llenar la factura de
+   *  «Nuevo documento»; nulo si el RUT es nuevo. */
+  async razonSocialPorRut(companyId: number, rut: string) {
+    const canonico = normalizarRut(rut);
+    if (!canonico) return null;
+    return this.repo.razonSocialDeLaEmpresa(companyId, canonico);
+  }
+
+  /** Lo que una factura sin evento sabe: nada del evento ni de la OC. */
+  private sinEvento(companyId: number): ContextoDeLaFactura {
+    return {
+      evento: null,
+      oc: null,
+      razones: [],
+      facturadoDelEvento: 0,
+      totalDeLasOC: 0,
+      ambiente: this.conexion.de(companyId).ambiente,
+    };
+  }
+
+  /**
+   * Manda la factura ya revisada, con o sin evento: `enviando` antes de
+   * `procesar`, sin reintentos (L5), y después el PDF, la razón social en
+   * la ficha (con evento) y la nota de BelIA en la bitácora (con evento).
+   */
+  private async emitirFactura(
+    user: User,
+    pedida: DtePedido,
+    ctx: ContextoDeLaFactura,
+    quotationId: string | null,
+    revisada: {
+      folio: number;
+      fecha: string;
+      archivo: string;
+      revision: Revision;
+    },
+  ) {
+    const companyId = user.company_id;
+    const conexion = this.conexion.de(companyId);
+    const { folio, fecha, revision } = revisada;
+    const montos = revision.montos;
+    if (!montos) throw new BadRequestException('La factura no tiene montos');
     const enviado = await mandarConFolio({
       repo: this.repo,
       conexion,
@@ -384,19 +471,19 @@ export class FacturasService {
         receptor: pedida.receptor,
         detalle: revision.lineas,
         referencias: pedida.referencias,
-        neto: revision.montos.neto,
+        neto: montos.neto,
         exento: 0,
-        iva: revision.montos.iva,
-        total: revision.montos.total,
+        iva: montos.iva,
+        total: montos.total,
         quotation_id: quotationId,
         orden_de_compra_id: pedida.orden_de_compra_id,
-        porcentaje: porcentajeDe(revision.montos.total, ctx),
+        porcentaje: quotationId ? porcentajeDe(montos.total, ctx) : null,
         creado_por: user.id ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>
         f === folio
-          ? revision.archivo
+          ? revisada.archivo
           : revisarDte(pedida, ctx, f, fecha).archivo,
       folio,
       fecha,
@@ -420,13 +507,14 @@ export class FacturasService {
     await this.recordarReceptor(ctx, pedida, user).catch((e: unknown) =>
       this.logger.warn(`razón social de la factura: ${mensajeDe(e)}`),
     );
-    await this.anotar(
-      user,
-      quotationId,
-      `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${NOTA_DEL_AMBIENTE[emitido.ambiente] ?? ''}`,
-    );
+    if (quotationId)
+      await this.anotar(
+        user,
+        quotationId,
+        `Emitió la factura N° ${emitido.folio} por ${pesos(emitido.total)} a ${pedida.receptor.razon_social}${ctx.oc ? `, OC ${ctx.oc.numero}` : ''}.${NOTA_DEL_AMBIENTE[emitido.ambiente] ?? ''}`,
+      );
     this.logger.info(
-      `factura ${emitido.folio} (${emitido.ambiente}) de ${quotationId}: ${emitido.total}`,
+      `factura ${emitido.folio} (${emitido.ambiente}) de ${quotationId ?? 'Nuevo documento'}: ${emitido.total}`,
     );
     return emitido;
   }
@@ -481,7 +569,7 @@ export class FacturasService {
     quotationId: string,
     companyId: number,
     ordenDeCompraId: number | null,
-  ): Promise<ContextoDeLaFactura> {
+  ): Promise<ContextoDeLaFactura & { evento: EventoAFacturar }> {
     const evento = await this.repo.eventoAFacturar(quotationId, companyId);
     if (!evento) throw new NotFoundException('Ese evento no existe');
     if (!SE_FACTURA.includes(evento.estado))
@@ -555,7 +643,7 @@ export class FacturasService {
     pedida: DtePedido,
     user: User,
   ) {
-    const clientId = ctx.evento.clientId;
+    const clientId = ctx.evento?.clientId;
     if (!clientId) return;
     const r = pedida.receptor;
     const guardada = razonSocialDelRut(ctx.razones, r.rut);

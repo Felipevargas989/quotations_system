@@ -1204,6 +1204,12 @@ boletas de las cabañas. Hagamos ese cambio y yo me voy a acostar"*.
 2. Arriba, **«Nuevo documento»** pregunta el tipo, y cada uno ve solo lo
    que puede emitir (sus interruptores de Permisos por cargo, doc 22 §7).
    Con una sola opción (recepción, la boleta) va directo:
+   - **Factura** (el administrador con «Documentos», D5): de cero, sin
+     evento ni OC. Primero el RUT: si ya es la razón social de un cliente,
+     se llena con su ficha y pide las referencias que ese cliente exige; si
+     es nuevo, se escribe. Después, el mismo DTE de Post-Venta (las
+     líneas, el receptor, las referencias, «Ver cómo sale» y «Emitir
+     factura»). No toca ninguna ficha ni bitácora: no es de un evento.
    - **Boleta** (permiso «Boletas»): lo del tarifario por su cantidad, la
      línea a mano solo del administrador, la cabaña y el correo del
      huésped; abajo el neto, el IVA y el total a pagar; «Emitir boleta».

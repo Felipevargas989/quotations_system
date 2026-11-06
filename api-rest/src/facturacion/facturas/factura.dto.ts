@@ -33,6 +33,13 @@ export class BaseDelDteDto {
   orden_de_compra_id?: number | null;
 }
 
+/** El RUT que se busca entre las razones sociales de la empresa. */
+export class RutDto {
+  @IsString()
+  @MaxLength(20)
+  rut: string;
+}
+
 export class ReceptorDeLaFacturaDto {
   @IsString()
   @MaxLength(20)

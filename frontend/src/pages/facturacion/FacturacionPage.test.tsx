@@ -46,6 +46,9 @@ vi.mock("./consultas", () => ({
 vi.mock("./PorFacturar", () => ({
   default: () => <p>los eventos por facturar</p>,
 }));
+vi.mock("./FacturaNueva", () => ({
+  default: () => <p>la factura nueva</p>,
+}));
 vi.mock("./ElegirDocumento", () => ({
   default: ({ tipo }: { tipo: string }) => <p>elegir el documento: {tipo}</p>,
 }));
@@ -105,11 +108,20 @@ describe("la sección Facturación", () => {
     abrir();
     expect(pestanas()).toEqual(["Documentos", "Por facturar (1)", "Tarifario"]);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    for (const t of ["Boleta", "Nota de crédito", "Nota de débito"])
+    for (const t of ["Factura", "Boleta", "Nota de crédito", "Nota de débito"])
       expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
     expect(screen.queryByText("la boleta")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
     expect(screen.getByText("la boleta")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    expect(screen.getByText("la factura nueva")).toBeInTheDocument();
+  });
+
+  it("operaciones no ve la factura de cero: la emite el administrador (D5)", () => {
+    rol = "operaciones";
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    expect(screen.queryByRole("button", { name: "Factura" })).toBeNull();
   });
 
   it("con los interruptores: Documentos a recepción, sin el tarifario al administrador", () => {

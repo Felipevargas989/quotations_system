@@ -98,7 +98,9 @@ export interface RazonSocialGuardada {
 }
 
 export interface ContextoDeLaFactura {
-  evento: EventoAFacturar;
+  /** Nulo en la factura de «Nuevo documento», que no es de un evento
+   *  (§9.21). */
+  evento: EventoAFacturar | null;
   oc: OrdenAFacturar | null;
   /** Las razones sociales del cliente. */
   razones: RazonSocialGuardada[];
@@ -306,6 +308,7 @@ export function armarBorrador(
   tipo: TipoDeDte = 33,
 ): Borrador {
   const { evento, razones } = ctx;
+  if (!evento) throw new Error('El borrador de BelIA es de un evento');
   const oc = tipo === 33 ? ctx.oc : null;
   const leidoDe: string[] = [];
   if (oc) leidoDe.push(oc.pdf ? `OC ${oc.pdf}` : `OC N° ${oc.numero}`);
@@ -524,7 +527,7 @@ export function revisarDte(
 
   // E1: con OC, la factura va por la OC; si las OC no suman lo de la
   // cotización, se avisa.
-  if (oc && ctx.totalDeLasOC !== evento.total)
+  if (oc && evento && ctx.totalDeLasOC !== evento.total)
     avisos.push(
       `La cotización suma ${pesos(evento.total)}: la factura va por el total de la OC.`,
     );
@@ -551,12 +554,12 @@ export function revisarDte(
       );
   }
   // E4: sin tope contra el evento, pero se dice.
-  if (montos && ctx.facturadoDelEvento + montos.total > evento.total)
+  if (montos && evento && ctx.facturadoDelEvento + montos.total > evento.total)
     avisos.push(
       `Con ${factura ? 'esta factura' : 'esta boleta'}, lo emitido del evento suma ${pesos(ctx.facturadoDelEvento + montos.total)} y la cotización ${pesos(evento.total)}.`,
     );
 
-  const observaciones = observacionesDe(evento);
+  const observaciones = evento ? observacionesDe(evento) : [];
   if (faltan.length || problemas.length)
     return {
       ok: false,

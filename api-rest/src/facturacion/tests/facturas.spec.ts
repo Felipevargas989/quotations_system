@@ -495,3 +495,68 @@ describe('Por facturar (§9.21)', () => {
     ]);
   });
 });
+
+describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
+  const SUELTA: DtePedido = {
+    ...PEDIDA,
+    orden_de_compra_id: null,
+    referencias: [],
+  };
+
+  it('sale con el folio que sigue, sin evento, sin nota en la bitácora y sin tocar fichas', async () => {
+    const { servicio, repo, razones, bitacora } = armar();
+    const emitida = await servicio.emitirSinEvento(USUARIO, SUELTA);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 33,
+        estado: 'enviando',
+        quotation_id: null,
+        orden_de_compra_id: null,
+        porcentaje: null,
+        total: 2480000,
+      }),
+    );
+    expect(emitida).toMatchObject({ estado: 'emitido', folio: 42 });
+    expect(repo.eventoAFacturar).not.toHaveBeenCalled();
+    expect(razones.crear).not.toHaveBeenCalled();
+    expect(bitacora.crearComoBeliaAPedidoDe).not.toHaveBeenCalled();
+  });
+
+  it('la vista previa no trae la observación de la cotización ni el aviso del evento', async () => {
+    const { servicio } = armar();
+    const vista = await servicio.revisarSinEvento(1, {
+      ...SUELTA,
+      tipo: 39,
+    });
+    expect(vista.ok).toBe(true);
+    expect(vista.observaciones).toEqual([]);
+    expect(vista.avisos).toEqual([]);
+    expect(vista.montos?.total).toBe(2480000);
+  });
+
+  it('con un dato que falta no se manda nada', async () => {
+    const { servicio, repo } = armar();
+    await expect(
+      servicio.emitirSinEvento(USUARIO, {
+        ...SUELTA,
+        receptor: { ...SUELTA.receptor, comuna: '' },
+      }),
+    ).rejects.toThrow(new BadRequestException('Falta la comuna'));
+    expect(repo.crear).not.toHaveBeenCalled();
+  });
+
+  it('la razón social se busca por el RUT limpio; un RUT que no sirve, ni se busca', async () => {
+    const { servicio, repo } = armar();
+    const r = repo as unknown as Record<string, jest.Mock>;
+    r.razonSocialDeLaEmpresa = jest
+      .fn()
+      .mockResolvedValue({ rut: '90413000-1', razon_social: 'CCU' });
+    expect(await servicio.razonSocialPorRut(1, '90.413.000-1')).toMatchObject({
+      razon_social: 'CCU',
+    });
+    expect(r.razonSocialDeLaEmpresa).toHaveBeenCalledWith(1, '90413000-1');
+    r.razonSocialDeLaEmpresa.mockClear();
+    expect(await servicio.razonSocialPorRut(1, 'hola')).toBeNull();
+    expect(r.razonSocialDeLaEmpresa).not.toHaveBeenCalled();
+  });
+});

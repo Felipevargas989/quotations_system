@@ -14,11 +14,13 @@ import {
   prepararDte,
   revisarDte,
   type BorradorDelDte,
+  type DocumentoTributario,
   type DtePedido,
   type PreparacionDelDte,
   type Receptor,
   type ReferenciaPedida,
   type TipoDeDte,
+  type VistaPrevia,
 } from "../../../services/facturas.service";
 import { humanizeApiError } from "../../../utils/apiErrors";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
@@ -212,9 +214,11 @@ function ConLaPreparacion({
         <Borrador
           key={`${tipo}-${oc ?? "cotizacion"}`}
           inicial={borrador.data}
-          quotationId={quotationId}
           puedeEmitir={puedeEmitir}
           onEmitido={onEmitido}
+          revisar={(p) => revisarDte(quotationId, p)}
+          emitir={(p) => emitirDte(quotationId, p)}
+          llave={[quotationId]}
         />
       )}
     </div>
@@ -266,16 +270,31 @@ const DeDonde = ({ children }: { readonly children: ReactNode }) => (
   <span className="text-xs text-gray-500"> {children}</span>
 );
 
-function Borrador({
+/** El DTE que se corrige y se emite: el del evento (lo arma BelIA) o el
+ *  de «Nuevo documento» de la sección Facturación (de cero, §9.21). La
+ *  revisión es la del motor, la misma que emite. */
+export function Borrador({
   inicial,
-  quotationId,
   puedeEmitir,
   onEmitido,
+  revisar,
+  emitir: emitirElDte,
+  llave,
+  titulo,
+  sinFicha = false,
 }: {
   readonly inicial: BorradorDelDte;
-  readonly quotationId: string;
   readonly puedeEmitir: boolean;
-  readonly onEmitido: () => void;
+  readonly onEmitido: (doc: DocumentoTributario) => void;
+  readonly revisar: (p: DtePedido) => Promise<VistaPrevia>;
+  readonly emitir: (p: DtePedido) => Promise<DocumentoTributario>;
+  /** Lo que distingue su consulta de revisión (el evento). */
+  readonly llave: unknown[];
+  /** Arriba; sin él, «Factura armada por BelIA» y de dónde leyó. */
+  readonly titulo?: string;
+  /** La factura de «Nuevo documento» no es de un evento: lo que se
+   *  escribe no queda en ninguna ficha. */
+  readonly sinFicha?: boolean;
 }) {
   const [pedida, setPedida] = useState<DtePedido>(inicial.pedida);
   const [editando, setEditando] = useState(false);
@@ -286,8 +305,8 @@ function Borrador({
   const quieta = useQuieto(pedida);
   const cambio = quieta !== inicial.pedida;
   const revision = useQuery({
-    queryKey: ["facturacion", "revisar", quotationId, quieta],
-    queryFn: () => revisarDte(quotationId, quieta),
+    queryKey: ["facturacion", "revisar", ...llave, quieta],
+    queryFn: () => revisar(quieta),
     enabled: cambio,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -368,7 +387,7 @@ function Borrador({
     setEmitiendo(true);
     const cual = factura ? "factura" : "boleta";
     try {
-      const doc = await emitirDte(quotationId, pedida);
+      const doc = await emitirElDte(pedida);
       if (doc.estado === "por_confirmar")
         toast.warn(
           `Se cortó la conexión con facturacion.cl: la ${cual} queda por confirmar. No la emitas de nuevo.`,
@@ -378,7 +397,7 @@ function Borrador({
         toast.success(
           `${NOMBRE[pedida.tipo]} N° ${doc.folio} emitida${marcaDelAmbiente(doc.ambiente)}.`,
         );
-      onEmitido();
+      onEmitido(doc);
     } catch (error) {
       toast.error(humanizeApiError(error, `No se pudo emitir la ${cual}.`));
     } finally {
@@ -403,14 +422,18 @@ function Borrador({
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-violet-900">
-            <Sparkles size={14} /> {NOMBRE[pedida.tipo]} armada por BelIA
-          </p>
-          <p className="text-xs text-gray-500">
-            Leído de: {inicial.leidoDe.join(" · ")}
-          </p>
-        </div>
+        {titulo ? (
+          <p className="text-sm font-semibold text-violet-900">{titulo}</p>
+        ) : (
+          <div className="space-y-0.5">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-violet-900">
+              <Sparkles size={14} /> {NOMBRE[pedida.tipo]} armada por BelIA
+            </p>
+            <p className="text-xs text-gray-500">
+              Leído de: {inicial.leidoDe.join(" · ")}
+            </p>
+          </div>
+        )}
         <div className="shrink-0">
           {revisando ? (
             <span className="text-xs text-gray-400">Revisando…</span>
@@ -491,7 +514,8 @@ function Borrador({
           {escribirReceptor && (
             <Pregunta>
               <p>
-                ¿A quién se factura? Queda en la ficha del cliente al emitir.
+                ¿A quién se factura?
+                {sinFicha ? "" : " Queda en la ficha del cliente al emitir."}
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <CasillaDelRut
@@ -512,8 +536,8 @@ function Borrador({
             <Pregunta>
               <p>
                 Para facturar a {r.razon_social || "este receptor"} el SII pide{" "}
-                {conOC ? "lo que no trae la OC" : "estos datos"}. Queda en la
-                ficha al emitir.
+                {conOC ? "lo que no trae la OC" : "estos datos"}.
+                {sinFicha ? "" : " Queda en la ficha al emitir."}
               </p>
               <div className="grid gap-2 sm:grid-cols-3">
                 {(escribirReceptor ? DEL_RECEPTOR : faltabanDelReceptor).map(
