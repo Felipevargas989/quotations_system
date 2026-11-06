@@ -133,7 +133,7 @@ describe('La boleta del evento (doc 19 §9.20)', () => {
 });
 
 describe('La boleta suelta', () => {
-  it('lo del tarifario por su cantidad, con la cabaña en la observación', async () => {
+  it('lo del tarifario por su cantidad, con la cabaña al comienzo de cada línea (el PDF no imprime las observaciones)', async () => {
     const { servicio, documentos } = armar();
     const r = await servicio.emitirSuelta(RECEPCION, {
       lineas: [
@@ -162,10 +162,14 @@ describe('La boleta suelta', () => {
     expect(fila.quotation_id).toBeNull();
     expect(fila.receptor.correo).toBe('huesped@example.com');
     expect(fila.detalle[0]).toMatchObject({
-      descripcion: 'Cabaña 4 personas temporada alta',
+      descripcion: 'Cabaña 4 · Cabaña 4 personas temporada alta',
       descripcionLarga: '2 noches',
     });
-    expect(fila.archivo_enviado).toContain('->Observacion<-\r\nCabaña 4;');
+    expect(fila.detalle[1].descripcion).toMatch(/^Cabaña 4 · /);
+    expect(fila.archivo_enviado).toContain(
+      ';Cabaña 4 · Cabaña 4 personas temporada alta;',
+    );
+    expect(fila.archivo_enviado).not.toContain('->Observacion<-');
     // Sin evento, no va a Documentos de ningún evento.
     expect(documentos.agregarAlEvento).not.toHaveBeenCalled();
   });
