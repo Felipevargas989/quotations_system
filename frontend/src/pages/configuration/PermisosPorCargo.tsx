@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
+import { createPortal } from "react-dom";
 import ConfirmInline from "../../components/ConfirmInline";
 import Interruptor from "../../components/Interruptor";
 import { toast } from "../../components/toast/Toast";
@@ -48,7 +49,13 @@ const yaAvisado = (e: unknown): boolean =>
     ),
   );
 
-export default function PermisosPorCargo() {
+export default function PermisosPorCargo({
+  ranura,
+}: {
+  /** Dónde va «Volver a lo de fábrica»: la fila de las pestañas de Mi
+   *  empresa → Usuarios. Sin ella, arriba de la tabla. */
+  ranura?: HTMLElement | null;
+} = {}) {
   const queryClient = useQueryClient();
   const { data, isPending, isError } = useQuery({
     queryKey: ["permisos-por-cargo"],
@@ -131,32 +138,39 @@ export default function PermisosPorCargo() {
     return data.permisos.find((p) => p.clave === clave)?.nombre ?? clave;
   };
 
+  const aLoDeFabrica = confirmando ? (
+    <ConfirmInline
+      question="¿Volver todos los cargos a lo de fábrica?"
+      yesLabel="Sí, volver"
+      tono="normal"
+      busy={volviendo}
+      onYes={aFabrica}
+      onNo={() => setConfirmando(false)}
+    />
+  ) : (
+    <button
+      type="button"
+      onClick={() => setConfirmando(true)}
+      disabled={data.deFabrica}
+      title={data.deFabrica ? "Ya está todo de fábrica" : undefined}
+      className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+    >
+      Volver a lo de fábrica
+    </button>
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        {confirmando ? (
-          <ConfirmInline
-            question="¿Volver todos los cargos a lo de fábrica?"
-            yesLabel="Sí, volver"
-            tono="normal"
-            busy={volviendo}
-            onYes={aFabrica}
-            onNo={() => setConfirmando(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmando(true)}
-            disabled={data.deFabrica}
-            title={data.deFabrica ? "Ya está todo de fábrica" : undefined}
-            className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            Volver a lo de fábrica
-          </button>
-        )}
-      </div>
+      {ranura ? (
+        createPortal(aLoDeFabrica, ranura)
+      ) : (
+        <div className="flex justify-end">{aLoDeFabrica}</div>
+      )}
 
-      <div className="bg-white shadow rounded-lg overflow-x-auto">
+      {/* Sin el corte horizontal en pantallas anchas, para que la fila de
+          los cargos quede fija arriba al bajar (Felipe, 05-11-2026: "cuando
+          bajo no veo el perfil que estamos configurando"). */}
+      <div className="bg-white shadow rounded-lg overflow-x-auto md:overflow-visible">
         {/* Columnas fijas (Felipe, 05-11-2026: "se ven chuecos los
             botones"): la primera más ancha y las de los cargos iguales,
             así cada interruptor queda justo bajo su cargo. */}
@@ -169,13 +183,13 @@ export default function PermisosPorCargo() {
           </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="sticky top-0 z-10 bg-white px-4 py-3 text-left font-medium text-gray-500 shadow-[inset_0_-1px_0_theme(colors.gray.200)]">
                 Permiso
               </th>
               {data.cargos.map((c) => (
                 <th
                   key={c}
-                  className="px-4 py-3 text-center font-medium text-gray-500"
+                  className="sticky top-0 z-10 bg-white px-4 py-3 text-center font-medium text-gray-500 shadow-[inset_0_-1px_0_theme(colors.gray.200)]"
                 >
                   {NOMBRE_DEL_CARGO[c]}
                 </th>

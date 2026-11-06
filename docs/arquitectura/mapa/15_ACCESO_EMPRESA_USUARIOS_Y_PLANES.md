@@ -740,13 +740,15 @@ cargo menos recepción, como hoy. El perfil trae `tipos_de_cliente` (null si
 todos), que usan el cotizador y el filtro por tipo del tablero.
 
 **En la app.** Gestión de usuarios (Mi empresa → Usuarios) tiene dos
-pestañas: «Usuarios» y «Permisos por cargo» (`?vista=permisos`,
+pestañas, bajo el único título de Mi empresa (05-11-2026): «Equipo» (la
+lista de usuarios, antes «Usuarios») y «Permisos por cargo» (`?vista=permisos`,
 `pages/configuration/PermisosPorCargo.tsx`), que reemplazó el cuadro
 «📋 Permisos por Rol» (era solo texto y decía que recepción ve Clientes).
 La pestaña pinta lo que manda `GET /permisos`: filas por área, un
 `Interruptor` por cargo, debajo el bloque «Tipos de cliente» (doc 22 §9),
-«Volver a lo de fábrica» arriba (con `ConfirmInline`, vuelve también los
-tipos) y el último cambio abajo. El menú (`Sidebar`, `Layout`),
+«Volver a lo de fábrica» en la fila de las pestañas (con `ConfirmInline`,
+vuelve también los tipos), la fila de los cargos fija arriba al bajar y el
+último cambio abajo. El menú (`Sidebar`, `Layout`),
 las rutas (`PermissionGuard section=…`) y los botones de las pantallas
 (cotizar, ver Post-Venta, ver Clientes, BelIA) preguntan por el permiso de
 `useAuth().permisos`; sin la lista del motor, los de fábrica

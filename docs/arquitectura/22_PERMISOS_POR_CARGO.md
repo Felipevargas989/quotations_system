@@ -301,6 +301,16 @@ cargos que antes (lo prueba `permisos-de-fabrica.spec.ts`).
 - La pestaña vive en `pages/configuration/PermisosPorCargo.tsx` (el texto
   del último cambio, en `ultimoCambio.ts`) y la llama
   `UserManagementPage` con `?vista=permisos`.
+- **Un solo título** (Felipe, 05-11-2026: *"los titulos se ven raros, y
+  cuando bajo no veo el perfil que estamos configurando"*): el de Mi
+  empresa. `UserManagementPage` ya no lleva «Gestión de Usuarios»; sus dos
+  pestañas son «Equipo» (antes «Usuarios», para no repetir la de Mi
+  empresa) y «Permisos por cargo», con el botón de cada una a la derecha
+  de la misma fila («Crear usuario» y «Volver a lo de fábrica», que
+  `PermisosPorCargo` pone ahí con `createPortal`). Las columnas son fijas
+  (los interruptores parejos) y la fila de los cargos queda fija arriba al
+  bajar (`sticky`, sin el corte horizontal en pantallas anchas); la franja
+  «Tipos de cliente» repite el cargo de cada columna.
 - `PermissionGuard` pregunta por la sección (`section="quotations"`), no por
   una lista de cargos; Consultas lleva `permiso="consultas"`.
 - `AuthContext` expone `permisos`; `services/api.ts` avisa un
