@@ -87,14 +87,21 @@ export default function LineasDelDte({
             )}
           </div>
           {l.descripcion_larga != null && (
-            <textarea
-              value={l.descripcion_larga}
-              maxLength={1000}
-              rows={2}
-              title="Descripción larga"
-              onChange={(e) => poner(i, { descripcion_larga: e.target.value })}
-              className={`${claseCasilla} text-xs`}
-            />
+            <label className="block">
+              <span className="flex justify-between text-xs text-gray-500">
+                Descripción larga
+                <span>{Array.from(l.descripcion_larga).length}/1000</span>
+              </span>
+              <textarea
+                value={l.descripcion_larga}
+                maxLength={1000}
+                rows={2}
+                onChange={(e) =>
+                  poner(i, { descripcion_larga: e.target.value })
+                }
+                className={`${claseCasilla} text-xs`}
+              />
+            </label>
           )}
         </div>
       ))}

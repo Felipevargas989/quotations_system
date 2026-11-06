@@ -1,4 +1,3 @@
-import RutInput from "../../../components/inputs/RutInput";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import { Plus, Trash2 } from "lucide-react";
 import {
@@ -13,8 +12,8 @@ import type {
   ReferenciaPedida,
 } from "../../../services/facturas.service";
 import { formatearRut } from "../../../utils/rut";
-import Casilla from "./CasillaDeLaFactura";
-import { DEL_RECEPTOR, OTRA } from "./datosDeLaFactura";
+import Casilla, { CasillaDelRut } from "./CasillaDeLaFactura";
+import { OTRA } from "./datosDeLaFactura";
 
 /** «Editar receptor y referencias» de la factura (E4): a quién va y las
  *  referencias, antes de emitir. Las líneas se editan en el DTE mismo. */
@@ -69,31 +68,39 @@ export default function EditarReceptor({
             tamano="sm"
           />
         )}
+        {/* El orden que aprobó Felipe (05-11): la razón social entera,
+            el RUT con el giro, la dirección con la comuna y la ciudad. */}
+        <Casilla
+          etiqueta="Razón social"
+          valor={r.razon_social}
+          largo={LARGO_MAXIMO.razon_social}
+          onChange={(v) => ponerReceptor("razon_social", v)}
+        />
         <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-xs text-gray-500">RUT</span>
-            <RutInput
-              value={r.rut}
-              onChange={(rut) => ponerReceptor("rut", rut)}
-              placeholder="RUT"
-              className="text-sm"
-            />
-          </label>
-          <Casilla
-            etiqueta="Razón social"
-            valor={r.razon_social}
-            largo={LARGO_MAXIMO.razon_social}
-            onChange={(v) => ponerReceptor("razon_social", v)}
+          <CasillaDelRut
+            valor={r.rut}
+            onChange={(rut) => ponerReceptor("rut", rut)}
           />
-          {DEL_RECEPTOR.map((c) => (
-            <Casilla
-              key={c.campo}
-              etiqueta={c.nombre}
-              valor={r[c.campo]}
-              largo={c.largo}
-              onChange={(v) => ponerReceptor(c.campo, v)}
-            />
-          ))}
+          <Casilla
+            etiqueta="Giro"
+            valor={r.giro}
+            largo={LARGO_MAXIMO.giro}
+            onChange={(v) => ponerReceptor("giro", v)}
+          />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
+          <Casilla
+            etiqueta="Dirección"
+            valor={r.direccion}
+            largo={LARGO_MAXIMO.direccion}
+            onChange={(v) => ponerReceptor("direccion", v)}
+          />
+          <Casilla
+            etiqueta="Comuna"
+            valor={r.comuna}
+            largo={LARGO_MAXIMO.comuna}
+            onChange={(v) => ponerReceptor("comuna", v)}
+          />
           <Casilla
             etiqueta="Ciudad"
             valor={r.ciudad}
