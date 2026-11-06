@@ -154,7 +154,8 @@ export class BoletaSueltaDto {
   @Type(() => LineaSueltaDto)
   lineas: LineaSueltaDto[];
 
-  // La escribe recepción: va en la observación de la boleta.
+  // La escribe recepción: va al comienzo de la descripción de cada línea
+  // (el PDF de la boleta no imprime las observaciones, paso 0 del 06-11).
   @IsOptional()
   @IsString()
   @MaxLength(22, { message: 'La cabaña cabe en 22 caracteres' })
