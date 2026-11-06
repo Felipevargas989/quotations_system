@@ -28,6 +28,8 @@ import {
   DEL_RECEPTOR,
   OTRA,
   RECEPTOR_VACIO,
+  claseCasilla,
+  claseTitulo,
   useQuieto,
 } from "./datosDeLaFactura";
 import EditarReceptor from "./EditarReceptor";
@@ -545,26 +547,31 @@ function Borrador({
                   {nombreDeReferencia(x.tipo).toLowerCase()} (referencia{" "}
                   {x.tipo}){conOC ? ", y no viene en la orden de compra" : ""}.
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={x.folio}
-                    maxLength={18}
-                    placeholder="N°"
-                    onChange={(e) =>
-                      ponerReferencia(i, { folio: e.target.value })
-                    }
-                    className="w-44 px-2 py-1 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <input
-                    type="date"
-                    value={x.fecha}
-                    onChange={(e) =>
-                      ponerReferencia(i, { fecha: e.target.value })
-                    }
-                    className="px-2 py-1 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <label className="flex items-center gap-1">
+                <div className="grid items-end gap-2 sm:grid-cols-[11rem_10rem_1fr]">
+                  <label className="block">
+                    <span className={claseTitulo}>N°</span>
+                    <input
+                      type="text"
+                      value={x.folio}
+                      maxLength={18}
+                      onChange={(e) =>
+                        ponerReferencia(i, { folio: e.target.value })
+                      }
+                      className={claseCasilla}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={claseTitulo}>Fecha</span>
+                    <input
+                      type="date"
+                      value={x.fecha}
+                      onChange={(e) =>
+                        ponerReferencia(i, { fecha: e.target.value })
+                      }
+                      className={claseCasilla}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 pb-2.5">
                     <input
                       type="checkbox"
                       checked={pedida.pedir_siempre.includes(x.tipo)}

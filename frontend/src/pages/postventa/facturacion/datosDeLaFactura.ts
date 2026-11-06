@@ -7,8 +7,12 @@ import type { Receptor } from "../../../services/facturas.service";
 // DTE del evento (doc 19 §9.20).
 
 export const OTRA = "otra";
+// Un solo alto en todo el DTE (Felipe, 05-11: «los altos no son los
+// mismos»): el py-2 de las piezas de la casa (el RUT, el campo numérico y
+// el desplegable), y arriba el título de cada casilla.
 export const claseCasilla =
-  "w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+export const claseTitulo = "flex justify-between text-xs text-gray-500";
 
 export const RECEPTOR_VACIO: Receptor = {
   rut: "",
