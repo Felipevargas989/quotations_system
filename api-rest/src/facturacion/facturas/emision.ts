@@ -25,7 +25,9 @@ import type {
  * - `procesar` nunca se reintenta solo: si se corta, queda «por confirmar»
  *   (L5) y se resuelve con «Comprobar»;
  * - solo si facturacion.cl dice que el folio ya existe (alguien emitió en
- *   su web, L3), se pide otro folio UNA vez más;
+ *   su web, L3) o que está «fuera del rango que tiene autorizado» (hay
+ *   varios rangos y usa otro, paso 0 del 06-11), se pide otro folio UNA vez
+ *   más: el que sigue, o el de otro rango;
  * - si salió y no se pudo anotar, se dice con palabras: no se emite de nuevo.
  */
 export async function mandarConFolio(p: {
@@ -46,7 +48,8 @@ export async function mandarConFolio(p: {
 }): Promise<{ documento: DocumentoTributario; porConfirmar: boolean }> {
   const { repo, conexion, user, tipo } = p;
   const companyId = user.company_id;
-  const archivo = p.armar(p.folio ?? (await conexion.folioSiguiente(tipo)));
+  const folio = p.folio ?? (await conexion.folioSiguiente(tipo));
+  const archivo = p.armar(folio);
   if (!archivo) throw new BadRequestException(`${p.nombre} no se pudo armar`);
 
   let documento: DocumentoTributario;
@@ -63,11 +66,21 @@ export async function mandarConFolio(p: {
   let respuesta: RespuestaDeProcesar;
   try {
     respuesta = await conexion.procesar(archivo, tipo);
-    if (
-      respuesta.resultado === 'rechazado' &&
-      /ya existe el documento/i.test(respuesta.mensaje)
-    ) {
-      const otro = p.armar(await conexion.folioSiguiente(tipo));
+    const descartados =
+      respuesta.resultado !== 'rechazado'
+        ? null
+        : /ya existe el documento/i.test(respuesta.mensaje)
+          ? []
+          : /fuera del rango/i.test(respuesta.mensaje)
+            ? [folio]
+            : null;
+    if (descartados) {
+      // Si no hay otro folio, o no responde, queda el rechazo tal cual: no
+      // es un envío sin respuesta.
+      const nuevo = await conexion
+        .folioSiguiente(tipo, descartados)
+        .catch(() => folio);
+      const otro = nuevo !== folio ? p.armar(nuevo) : null;
       if (otro) {
         await repo.actualizar(documento.id, companyId, {
           archivo_enviado: otro,

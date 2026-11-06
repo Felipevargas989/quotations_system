@@ -80,7 +80,16 @@ export class ConexionConFacturacionCl {
       for (const tipo of TIPOS) {
         const inicio = Date.now();
         try {
-          const { folios: f, mensaje } = await conexion.foliosYLoQueDijo(tipo);
+          const {
+            folios: f,
+            mensaje,
+            rangos,
+          } = await conexion.foliosYLoQueDijo(tipo);
+          // Los rangos tal como los lista facturacion.cl (paso 0, 06-11):
+          // son números de folio y fechas, nunca las credenciales.
+          this.logger.info(
+            `facturacion.cl: rangos del tipo ${tipo}: ${JSON.stringify(rangos)}`,
+          );
           folios.push(
             f
               ? { ...f, ms: Date.now() - inicio }
