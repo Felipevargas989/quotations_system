@@ -251,16 +251,18 @@ const conFolios = (r: RangoDeFolios) =>
   r.siguiente <= r.hasta;
 
 /**
- * Los folios de un tipo. Vale el rango con folios **de folio siguiente más
- * alto**; todos los rangos con folios suman a los libres.
+ * Los folios de un tipo. Vale, entre los rangos con folios, **el cargado
+ * primero** (el `idcaf` más bajo; sin `idcaf`, el de siguiente más alto).
+ * Todos los rangos con folios suman a los libres.
  *
  * Medido el 06-11 en el ambiente de prueba, con varios rangos con folios
- * por tipo: facturacion.cl aceptó la factura y la nota de crédito con el
- * siguiente del rango más alto, y a la boleta (folio 0) le puso el del más
- * alto. Rechazó «fuera del rango que tiene autorizado» la factura con el
- * siguiente de un rango más bajo (292.282) y la nota de débito con el del
- * segundo de la lista (292.104). Ni el orden de la lista ni el número de
- * rango (`idcaf`) lo explican. Si igual lo rechaza, la emisión pide el
+ * por tipo, todos con la misma fecha: facturacion.cl aceptó la factura, la
+ * nota de crédito y la de débito con el siguiente del rango de `idcaf` más
+ * bajo (6, 12 y 10), y a la boleta (folio 0) le puso el del 59. Rechazó
+ * «fuera del rango que tiene autorizado» los de los rangos 67 y 73 (292.282
+ * y 292.104). Ahí el cargado primero es también el de números más altos;
+ * en una empresa de verdad es el que se está usando, y el que se carga
+ * después sigue cuando se acaba. Si igual lo rechaza, la emisión pide el
  * folio de otro rango una vez, con `descartados` (`mandarConFolio`).
  */
 export const leerFolios = (
@@ -271,8 +273,14 @@ export const leerFolios = (
   const rangos = rangosDeLosFolios(xml).filter(conFolios);
   const candidatos = rangos.filter((r) => !descartados.includes(r.siguiente));
   if (!candidatos.length) return null;
+  const orden = (r: RangoDeFolios) => {
+    const n = r.idcaf == null || r.idcaf === '' ? NaN : Number(r.idcaf);
+    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+  };
   const actual = candidatos.reduce((a, r) =>
-    r.siguiente > a.siguiente ? r : a,
+    orden(r) < orden(a) || (orden(r) === orden(a) && r.siguiente > a.siguiente)
+      ? r
+      : a,
   );
   return {
     tipo,

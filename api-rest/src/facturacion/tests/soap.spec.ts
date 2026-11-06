@@ -274,7 +274,7 @@ describe('la respuesta de Procesar', () => {
 });
 
 describe('los folios (ConsultarCAF)', () => {
-  it('vale el rango con folios de siguiente más alto; todos los que tienen folios suman a los libres', () => {
+  it('vale el rango cargado primero que tiene folios (el agotado no); todos los que tienen folios suman a los libres', () => {
     expect(
       leerFolios(
         '<CAF><idcaf>1</idcaf><foliodesde>1</foliodesde><foliohasta>50</foliohasta><fechavencimiento>2027-05-01</fechavencimiento><foliosiguiente>51</foliosiguiente></CAF>' +
@@ -284,11 +284,21 @@ describe('los folios (ConsultarCAF)', () => {
       ),
     ).toEqual({
       tipo: 33,
-      siguiente: 101,
-      hasta: 150,
+      siguiente: 61,
+      hasta: 100,
       libres: 40 + 50,
-      vence: '2027-09-01',
+      vence: '2027-08-01',
     });
+  });
+
+  it('sin idcaf: el de siguiente más alto', () => {
+    expect(
+      leerFolios(
+        '<CAF><rangodesde>1</rangodesde><rangohasta>50</rangohasta><foliosiguiente>7</foliosiguiente></CAF>' +
+          '<CAF><rangodesde>51</rangodesde><rangohasta>100</rangohasta><foliosiguiente>60</foliosiguiente></CAF>',
+        33,
+      ),
+    ).toMatchObject({ siguiente: 60 });
   });
 
   it('los descartados (facturacion.cl dijo «fuera del rango») no vuelven: toca el de otro rango', () => {
@@ -335,13 +345,14 @@ describe('los folios (ConsultarCAF)', () => {
       libres: 160787,
       vence: '2101-02-19',
     });
-    // Dos rangos con folios (la factura del 06-11): vale el más alto. El
-    // otro siguiente (292.282) fue rechazado por facturacion.cl, «fuera del
-    // rango que tiene autorizado».
+    // Los rangos de la factura como los listó facturacion.cl: vale el 6, el
+    // cargado primero. El siguiente del 67 (292.282) fue rechazado, «fuera
+    // del rango que tiene autorizado».
     expect(
       leerFolios(
         caf(6, 33, 293001, 9999999999, 9999839213) +
-          caf(66, 33, 1, 293000, 292282),
+          caf(66, 33, 1, 292099, 292100) +
+          caf(67, 33, 292100, 293000, 292282),
         33,
       ),
     ).toEqual({
@@ -351,13 +362,13 @@ describe('los folios (ConsultarCAF)', () => {
       libres: 160787 + 719,
       vence: '2101-02-19',
     });
-    // La nota de débito: el segundo de la lista (292.104) fue rechazado
-    // «fuera del rango»; con un rango más alto en la lista, vale ese.
+    // La nota de débito: el 72 agotado, el 73 rechazado (292.104) y el 10,
+    // cargado primero, salió (9.999.742.766).
     expect(
       leerFolios(
         caf(72, 56, 1, 292099, 292100) +
           caf(73, 56, 292100, 293000, 292104) +
-          caf(7, 56, 293001, 9999999999, 9999742766),
+          caf(10, 56, 293001, 9999999999, 9999742766),
         56,
       ),
     ).toMatchObject({ siguiente: 9999742766 });
@@ -370,9 +381,17 @@ describe('los folios (ConsultarCAF)', () => {
         56,
       ),
     ).toMatchObject({ siguiente: 292150 });
-    // La boleta: «NO APLICA» de vencimiento.
+    // La boleta: «NO APLICA» de vencimiento, cinco rangos (tres agotados);
+    // facturacion.cl le puso el siguiente del 59.
     expect(
-      leerFolios(caf(59, 39, 746670, 9309980000, 9300006564, 'NO APLICA'), 39),
+      leerFolios(
+        caf(59, 39, 746670, 9309980000, 9300006564, 'NO APLICA') +
+          caf(84, 39, 1, 108004, 108005, 'NO APLICA') +
+          caf(89, 39, 108575, 745793, 745794, 'NO APLICA') +
+          caf(90, 39, 745794, 746669, 745814, 'NO APLICA') +
+          caf(85, 39, 108005, 108574, 108575, 'NO APLICA'),
+        39,
+      ),
     ).toMatchObject({ siguiente: 9300006564, vence: null });
   });
 
