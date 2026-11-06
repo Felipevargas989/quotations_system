@@ -36,6 +36,16 @@ vi.mock("../boletas/TarifarioDeBoletas", () => ({
 vi.mock("../boletas/BoletaSuelta", () => ({
   default: () => <p>la boleta</p>,
 }));
+vi.mock("./consultas", () => ({
+  usePorFacturar: (activa: boolean) => ({
+    data: activa
+      ? { ambiente: "simulado", desde: "2026-08-08", eventos: [{ id: "a" }] }
+      : undefined,
+  }),
+}));
+vi.mock("./PorFacturar", () => ({
+  default: () => <p>los eventos por facturar</p>,
+}));
 vi.mock("./ElegirDocumento", () => ({
   default: ({ tipo }: { tipo: string }) => <p>elegir el documento: {tipo}</p>,
 }));
@@ -51,7 +61,12 @@ const pestanas = () =>
   screen
     .queryAllByRole("button")
     .map((b) => b.textContent)
-    .filter((t) => t === "Documentos" || t === "Tarifario");
+    .filter(
+      (t) =>
+        t === "Documentos" ||
+        t === "Tarifario" ||
+        (t ?? "").startsWith("Por facturar"),
+    );
 
 afterEach(() => {
   cleanup();
@@ -73,10 +88,13 @@ describe("la sección Facturación", () => {
     ).toBeInTheDocument();
   });
 
-  it("operaciones: «Documentos» abajo, y la boleta arriba", () => {
+  it("operaciones: «Documentos» y «Por facturar» abajo, y la boleta arriba", () => {
     rol = "operaciones";
     abrir();
-    expect(pestanas()).toEqual(["Documentos"]);
+    expect(pestanas()).toEqual(["Documentos", "Por facturar (1)"]);
+    fireEvent.click(screen.getByRole("button", { name: "Por facturar (1)" }));
+    expect(screen.getByText("los eventos por facturar")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Documentos" }));
     expect(screen.getByText("lista de documentos")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
     expect(screen.getByText("la boleta")).toBeInTheDocument();
@@ -85,7 +103,7 @@ describe("la sección Facturación", () => {
   it("el administrador: el tarifario se queda, y «Nuevo documento» pregunta qué documento", () => {
     rol = "administrador";
     abrir();
-    expect(pestanas()).toEqual(["Documentos", "Tarifario"]);
+    expect(pestanas()).toEqual(["Documentos", "Por facturar (1)", "Tarifario"]);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
     for (const t of ["Boleta", "Nota de crédito", "Nota de débito"])
       expect(screen.getByRole("button", { name: t })).toBeInTheDocument();

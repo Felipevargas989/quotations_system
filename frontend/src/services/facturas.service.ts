@@ -208,3 +208,29 @@ export const emitirDte = async (
     "POST",
     pedida,
   )) as DocumentoTributario;
+
+/** Un evento de «Por facturar» (doc 19 §9.21): aceptado o realizado, con
+ *  lo ya emitido (facturas y boletas, con la cadena) y lo que queda. */
+export interface EventoPorFacturar {
+  id: string;
+  numero: number;
+  estado: string;
+  tipoDeEvento: string | null;
+  fecha: string | null;
+  cliente: string | null;
+  total: number;
+  emitido: number;
+  queda: number;
+  ocs: number;
+}
+
+export interface EventosPorFacturar {
+  ambiente: Ambiente;
+  sin_conexion?: string | null;
+  /** Desde qué fecha mira (los últimos 90 días y lo que viene). */
+  desde: string;
+  eventos: EventoPorFacturar[];
+}
+
+export const getPorFacturar = async (): Promise<EventosPorFacturar> =>
+  (await apiRequest("/facturacion/por-facturar", "GET")) as EventosPorFacturar;
