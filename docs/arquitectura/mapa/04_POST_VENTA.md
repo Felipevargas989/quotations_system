@@ -1,6 +1,6 @@
 # Mapa: Post-Venta
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; el 20-10-2026, la pregunta del reembolso al anular (§5.4) y la barra roja con los reembolsos por partes (pestaña Pagos); el 28-10-2026, los eventos sin cuotas en la lista y «Editar plan de pagos» en la pestaña Pagos (doc 14 §Editar el plan); esa misma tarde, el tablero que solo marca los compromisos de los aceptados (§6, La lista y la ficha); el 29-10-2026, el contacto como lista plegable en la ficha (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: `/event-documents` admite al vendedor solo en la categoría `comercial`.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; el 20-10-2026, la pregunta del reembolso al anular (§5.4) y la barra roja con los reembolsos por partes (pestaña Pagos); el 28-10-2026, los eventos sin cuotas en la lista y «Editar plan de pagos» en la pestaña Pagos (doc 14 §Editar el plan); esa misma tarde, el tablero que solo marca los compromisos de los aceptados (§6, La lista y la ficha); el 29-10-2026, el contacto como lista plegable en la ficha (§5.7). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: `/event-documents` admite al vendedor solo en la categoría `comercial`. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.6): los eventos de un tipo apagado no aparecen en las listas y sus puertas los rechazan (`@DelEvento`).
 
 ## 1. Qué hace
 
@@ -193,6 +193,12 @@ Formas de llegar a Post-Venta:
 
 ## 6. Reglas de negocio acordadas
 
+### Los tipos de cliente de cada cargo (doc 22 §9.6, 05-11-2026)
+- **Con un tipo de cliente apagado, esos eventos no aparecen** (Felipe: *"Todo debería mirar el tipo"*; *"si sigue con la tanda 2"*).
+  - Las listas de toda la empresa (pagos, eventos sin plan, reembolsos, comprobantes del portal, mapa de la bitácora, eventos aceptados de compras, recursos) traen solo lo que el cargo ve (`AlcanceDeRecepcion.soloLasQueVe`).
+  - Cada puerta que toca un evento lleva `@DelEvento` (`api-rest/src/clients/del-evento.decorator.ts`) y la revisa `TipoDelEventoGuard`; la lista que las nombra es `clients/tests/del-evento.spec.ts`.
+  - La ficha de un evento que no está en la lista dice «No se encontró ese evento en Post-Venta», como antes.
+
 ### El evento realizado
 - **Un evento realizado queda congelado** (13-08-2026). Felipe: *"El realizado es un estado de que YA SE HIZO. Puede faltar cobrar, facturar, etc., pero ya se hizo."*
   - Se congelan ítems, montos, propina, personas, fecha y el borrado.
@@ -280,6 +286,8 @@ Formas de llegar a Post-Venta:
 - **Otros módulos que leen estos estados**: `analytics/hoy.controller.ts` excluye canceladas del por cobrar (mapa 13); `marketing/segmento.ts` usa realizada y cancelada (mapa 10); `movil/movil.service.ts` arma avisos con aceptadas y realizadas (mapa 16).
 
 ## 8. Zonas de riesgo: si tocas esto, cuidado con aquello
+
+0. **Si agregas** una puerta que toca un evento (por id de cotización o por una fila con `quotation_id`), **se afecta** lo que ve cada cargo según el tipo de cliente, **porque** sin `@DelEvento` un cargo con ese tipo apagado la abre igual. Agrégala también a `clients/tests/del-evento.spec.ts`; y si es una lista de toda la empresa, fíltrala con `AlcanceDeRecepcion.soloLasQueVe` (doc 22 §9.6).
 
 1. **Si tocas** el orden del inicio de `QuotationsService.update`, **se afecta** el congelamiento de Servicios, del cotizador, de la fecha de la cabecera y del desplegable del tablero, **porque** el candado de realizado es "LA puerta ancha": va antes que todo y rige incluso para el administrador. Evidencia: `api-rest/src/quotations/quotations.service.ts` `update`; `candado-evento-realizado.spec.ts` ("si alguien reordena update() o remove(), acá se entera").
 2. **Si tocas** `planVivo`, `autoGuardar` o la forma en que `getPaymentsByQuotationId` entrega la lista, **se afecta** el plan de pagos, **porque** cada guardado automático dispara la cascada a medio editar. Ya pasó en el caso 501 (06-09): el guardado automático movía las cuotas mientras Felipe aplicaba un descuento (commit `77e13a6`), y la "doble envoltura" de la respuesta dejaba el freno sin activarse. `ServiciosTab` y `AvisoPlanDePagos` leen `data.data`, así que la forma `{ data: lista }` que hoy devuelve el servicio es parte del freno. Evidencia: `ServiciosTab.autoGuardar` y `planVivo`, comentario de `getPaymentsByQuotationId` en `frontend/src/services/payments.service.ts`, commit `77e13a6`. La cuota "doblada" de la 501 es otra falla del mismo caso: según el comentario de `PaymentsService.createPaymentPlan`, nació de un plan cuadrado contra un total viejo.

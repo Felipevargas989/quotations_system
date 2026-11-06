@@ -16,6 +16,7 @@ import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
 import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
+import { TipoDelEventoGuard } from './clients/tipo-del-evento.guard';
 import { CompaniesModule } from './companies/companies.module';
 import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey/module';
 import { EmailModule } from './email/email.module';
@@ -130,6 +131,13 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: DerechosGuard,
+    },
+    // Los tipos de cliente de cada cargo (doc 22 §9, tanda 2): una puerta
+    // de Post-Venta marcada con @DelEvento se abre solo si el cargo
+    // trabaja el tipo del cliente de ese evento. Después de todo lo demás.
+    {
+      provide: APP_GUARD,
+      useClass: TipoDelEventoGuard,
     },
   ],
 })

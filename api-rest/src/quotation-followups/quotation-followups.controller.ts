@@ -12,6 +12,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Permiso } from 'src/auth/permiso.decorator';
 import { RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CreateQuotationFollowupDto } from './dto/create-quotation-followup.dto';
 import { UpdateQuotationFollowupDto } from './dto/update-quotation-followup.dto';
@@ -23,6 +25,10 @@ import { QuotationFollowupsService } from './quotation-followups.service';
 // única pestaña que ve de la ficha. Sin esto, la abría en un 403.
 // Escribir su nota sí; tocar las de otros no — de eso se encarga la
 // regla de autoría del servicio, que no distingue rangos.
+//
+// Con un tipo de cliente apagado (doc 22 §9), la bitácora de sus
+// cotizaciones no se ve ni se escribe; la de los requerimientos, sí: son
+// de todos.
 @Roles(...RECEPTION_AND_UP)
 @Permiso('cotizaciones', 'postventa')
 @Controller('quotation-followups')
@@ -30,6 +36,7 @@ export class QuotationFollowupsController {
   constructor(
     private readonly followupsService: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(QuotationFollowupsController.name);
   }
@@ -37,11 +44,15 @@ export class QuotationFollowupsController {
   // OJO: las rutas estáticas van ANTES que las paramétricas — si :id
   // se declara primero, "map" cae en el ParseIntPipe y muere en 400.
   @Get('map')
-  map(@CurrentUser() user: User) {
+  async map(@CurrentUser() user: User) {
     this.logger.info(`GET /quotation-followups/map company ${user.company_id}`);
-    return this.followupsService.mapByCompany(user.company_id);
+    return this.alcance.soloLasClavesQueVe(
+      user,
+      await this.followupsService.mapByCompany(user.company_id),
+    );
   }
 
+  @DelEvento({ param: 'quotationId' })
   @Get('by-quotation/:quotationId')
   findByQuotation(
     @Param('quotationId') quotationId: string,
@@ -51,6 +62,7 @@ export class QuotationFollowupsController {
     return this.followupsService.findByQuotation(user.company_id, quotationId);
   }
 
+  @DelEvento({ body: 'quotation_id' })
   @Post()
   create(@Body() dto: CreateQuotationFollowupDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -59,6 +71,7 @@ export class QuotationFollowupsController {
     return this.followupsService.create(user, dto);
   }
 
+  @DelEvento({ tabla: 'quotation_followups', param: 'id' })
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -69,6 +82,7 @@ export class QuotationFollowupsController {
     return this.followupsService.update(user, id, dto);
   }
 
+  @DelEvento({ tabla: 'quotation_followups', param: 'id' })
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     this.logger.info(`DELETE /quotation-followups/${id}`);

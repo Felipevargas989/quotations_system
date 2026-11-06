@@ -19,6 +19,8 @@ import {
   Roles,
   SALES_AND_UP,
 } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import {
   CreateFurnitureItemDto,
@@ -61,11 +63,15 @@ import { LogisticsService } from './logistics.service';
 // lista vacía: sus funciones ya traen su propio catch.
 @Derecho('logistica')
 @Roles(...OPERATIONS_AND_UP)
+// Lo de un evento (sus recursos, su cocina, lo provisionado) se ve y se
+// toca solo si el cargo trabaja el tipo de su cliente (doc 22 §9, tanda 2):
+// @DelEvento en cada puerta, y las listas de toda la empresa filtradas.
 @Controller('logistics')
 export class LogisticsController {
   constructor(
     private readonly logisticsService: LogisticsService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(LogisticsController.name);
   }
@@ -354,8 +360,12 @@ export class LogisticsController {
 
   @Permiso('postventa', 'proveedores')
   @Get('purchasing/accepted-events')
-  acceptedEvents(@CurrentUser() user: User) {
-    return this.logisticsService.findAcceptedEvents(user.company_id);
+  async acceptedEvents(@CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findAcceptedEvents(user.company_id),
+      (q) => q.id as string | undefined,
+    );
   }
 
   @Permiso('proveedores', 'dashboard')
@@ -381,6 +391,7 @@ export class LogisticsController {
 
   @Permiso('postventa')
   @DentroDe('cotizaciones')
+  @DelEvento({ param: 'quotationId' })
   @Get('purchasing/provisioning/:quotationId')
   quotationProvisioning(
     @Param('quotationId') quotationId: string,
@@ -424,18 +435,30 @@ export class LogisticsController {
 
   @Permiso('postventa', 'dashboard')
   @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ query: 'quotationId' })
   @Get('event-resources')
-  eventResources(
+  async eventResources(
     @Query('quotationId') quotationId: string,
     @CurrentUser() user: User,
   ) {
-    return quotationId
-      ? this.logisticsService.findEventResources(user.company_id, quotationId)
-      : this.logisticsService.findAllEventResources(user.company_id);
+    if (quotationId) {
+      return this.logisticsService.findEventResources(
+        user.company_id,
+        quotationId,
+      );
+    }
+    return this.alcance.soloLasQueVe(
+      user,
+      (await this.logisticsService.findAllEventResources(user.company_id)) as {
+        quotation_id?: string | null;
+      }[],
+      (r) => r.quotation_id,
+    );
   }
 
   @Permiso('postventa', 'dashboard')
   @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ filas: 'rows', campo: 'quotation_id' })
   @Post('event-resources')
   addEventResources(
     @Body() dto: AddEventResourcesDto,
@@ -446,6 +469,7 @@ export class LogisticsController {
 
   @Permiso('postventa', 'dashboard')
   @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ tabla: 'event_resources', param: 'id' })
   @Patch('event-resources/:id')
   updateEventResource(
     @Param('id', ParseIntPipe) id: number,
@@ -457,6 +481,7 @@ export class LogisticsController {
 
   @Permiso('postventa', 'dashboard')
   @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ tabla: 'event_resources', param: 'id' })
   @Delete('event-resources/:id')
   deleteEventResource(
     @Param('id', ParseIntPipe) id: number,
@@ -468,6 +493,7 @@ export class LogisticsController {
   // ---------- Ficha de cocina — operaciones+ ----------
 
   @Permiso('postventa', 'personal')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/times')
   serviceTimes(
     @Query('quotationId') quotationId: string,
@@ -477,12 +503,14 @@ export class LogisticsController {
   }
 
   @Permiso('postventa', 'personal')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/times')
   setServiceTime(@Body() dto: SetServiceTimeDto, @CurrentUser() user: User) {
     return this.logisticsService.setServiceTime(user.company_id, dto);
   }
 
   @Permiso('postventa')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/notes')
   kitchenNotes(
     @Query('quotationId') quotationId: string,
@@ -492,12 +520,14 @@ export class LogisticsController {
   }
 
   @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/notes')
   addKitchenNote(@Body() dto: AddKitchenNoteDto, @CurrentUser() user: User) {
     return this.logisticsService.addKitchenNote(user.company_id, dto);
   }
 
   @Permiso('postventa')
+  @DelEvento({ tabla: 'event_kitchen_notes', param: 'id' })
   @Delete('kitchen/notes/:id')
   deleteKitchenNote(
     @Param('id', ParseIntPipe) id: number,
@@ -507,6 +537,7 @@ export class LogisticsController {
   }
 
   @Permiso('postventa')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/day-prints')
   dayPrints(
     @Query('quotationId') quotationId: string,
@@ -516,6 +547,7 @@ export class LogisticsController {
   }
 
   @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/day-prints')
   markDaysPrinted(@Body() dto: MarkDaysPrintedDto, @CurrentUser() user: User) {
     return this.logisticsService.markDaysPrinted(

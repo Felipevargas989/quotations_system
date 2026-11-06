@@ -35,6 +35,8 @@ const armar = () => {
     tiposConMarca: jest.fn().mockResolvedValue(TIPOS),
     clienteDeLaCotizacion: jest.fn(),
     tipoDelCliente: jest.fn(),
+    clientesDeLasCotizaciones: jest.fn(),
+    cotizacionDeLaFila: jest.fn(),
   };
   const alcance = new AlcanceDeRecepcion(
     repositorio as unknown as ClientsRepository,
@@ -408,5 +410,93 @@ describe('AlcanceDeRecepcion: los tipos que trabaja cada cargo', () => {
     expect(await alcance.nombresDeSusTipos(recepcion)).toEqual([
       'Particulares',
     ]);
+  });
+});
+
+// POST-VENTA (doc 22 §9, tanda 2): los eventos de un tipo apagado no
+// aparecen en sus listas ni se tocan por sus puertas.
+describe('AlcanceDeRecepcion: Post-Venta', () => {
+  const sinEmpresas: FilaDePermiso[] = [
+    { cargo: UserRole.OPERACIONES, permiso: claveDeTipo(4), prendido: false },
+  ];
+  const operaciones = { role: UserRole.OPERACIONES, company_id: 1 };
+  const deLaBase = new Map([
+    ['q1', { request_type: 'cotizacion', client_type: 'Particulares' }],
+    ['q2', { request_type: 'cotizacion', client_type: 'Empresas' }],
+    ['q3', { request_type: 'requerimiento', client_type: 'Empresas' }],
+  ]);
+
+  it('las listas traen solo lo que ve; de fábrica, todo sin preguntar', async () => {
+    const { alcance, repositorio } = conInterruptores(sinEmpresas);
+    repositorio.clientesDeLasCotizaciones.mockResolvedValue(deLaBase);
+    const filas = [
+      { id: 1, quotation_id: 'q1' },
+      { id: 2, quotation_id: 'q2' },
+      { id: 3, quotation_id: 'q3' },
+      { id: 4, quotation_id: 'q9' },
+      { id: 5, quotation_id: null },
+    ];
+    expect(
+      (
+        await alcance.soloLasQueVe(operaciones, filas, (f) => f.quotation_id)
+      ).map((f) => f.id),
+    ).toEqual([1, 3]);
+    expect(repositorio.clientesDeLasCotizaciones).toHaveBeenCalledWith(1, [
+      'q1',
+      'q2',
+      'q3',
+      'q9',
+    ]);
+    expect(
+      await alcance.soloLasClavesQueVe(operaciones, { q1: 10, q2: 20 }),
+    ).toEqual({ q1: 10 });
+
+    const deFabrica = conInterruptores([]);
+    expect(
+      await deFabrica.alcance.soloLasQueVe(
+        operaciones,
+        filas,
+        (f) => f.quotation_id,
+      ),
+    ).toBe(filas);
+    expect(
+      deFabrica.repositorio.clientesDeLasCotizaciones,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('sus puertas: el evento de un tipo apagado, o de otra empresa, no', async () => {
+    const { alcance, repositorio } = conInterruptores(sinEmpresas);
+    repositorio.clienteDeLaCotizacion.mockImplementation(
+      (_empresa: number, id: string) => {
+        const q = deLaBase.get(id);
+        return Promise.resolve(q ?? null);
+      },
+    );
+    await expect(
+      alcance.exigirQueLaVea(operaciones, 'q1'),
+    ).resolves.toBeUndefined();
+    await expect(alcance.exigirQueLaVea(operaciones, 'q2')).rejects.toThrow(
+      '«Empresas»',
+    );
+    // Un requerimiento es de todos.
+    await expect(
+      alcance.exigirQueLaVea(operaciones, 'q3'),
+    ).resolves.toBeUndefined();
+    await expect(alcance.exigirQueLaVea(operaciones, 'q9')).rejects.toThrow(
+      ForbiddenException,
+    );
+    // Desde una fila: un pago de la q2, no; una fila sin evento, pasa.
+    repositorio.cotizacionDeLaFila.mockResolvedValueOnce('q2');
+    await expect(
+      alcance.exigirQueLaVeaLaFila(operaciones, 'payments', 'p1'),
+    ).rejects.toThrow('«Empresas»');
+    expect(repositorio.cotizacionDeLaFila).toHaveBeenCalledWith(
+      'payments',
+      'p1',
+    );
+    repositorio.cotizacionDeLaFila.mockResolvedValueOnce(null);
+    await expect(
+      alcance.exigirQueLaVeaLaFila(operaciones, 'event_staff', 's1'),
+    ).resolves.toBeUndefined();
   });
 });

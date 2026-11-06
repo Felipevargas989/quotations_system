@@ -12,6 +12,7 @@ import { PermisosService } from 'src/auth/permisos.service';
 import { olvidarTiposDeCliente } from 'src/cache/memoria';
 import { UserRole } from 'src/users/entities/user.entity';
 import { ClientsRepository } from './clients.repository';
+import type { TablaDelEvento } from './del-evento.decorator';
 
 // LO QUE VE CADA CARGO DE LAS COTIZACIONES, SEGÚN LOS TIPOS DE CLIENTE QUE
 // TRABAJA (doc 22 §9). Nació para recepción (doc 21; Felipe, 04-11-2026:
@@ -360,6 +361,81 @@ export class AlcanceDeRecepcion {
       request_type: q.request_type,
       clients: { client_type: q.client_type },
     });
+  }
+
+  /** Para Post-Venta (doc 22 §9, tanda 2; `TipoDelEventoGuard`): si no la
+   *  ve —una cotización de un tipo que su cargo no trabaja, o de otra
+   *  empresa—, 403. Los requerimientos, siempre. */
+  async exigirQueLaVea(s: Sesion, quotationId: string): Promise<void> {
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return;
+    const q = await this.repositorio.clienteDeLaCotizacion(
+      s.company_id,
+      quotationId,
+    );
+    const ve =
+      !!q &&
+      laVe(tipos, {
+        request_type: q.request_type,
+        clients: { client_type: q.client_type },
+      });
+    if (!ve) throw noLoTrabaja(q?.client_type);
+  }
+
+  /** Lo mismo, desde una fila del evento (un pago, un abono, un
+   *  documento…). Una fila que no existe o no es de un evento pasa: la
+   *  puerta responde lo de siempre. */
+  async exigirQueLaVeaLaFila(
+    s: Sesion,
+    tabla: TablaDelEvento,
+    id: string,
+  ): Promise<void> {
+    if (!(await this.tiposDelCargo(s))) return;
+    const quotationId = await this.repositorio.cotizacionDeLaFila(tabla, id);
+    if (quotationId) await this.exigirQueLaVea(s, quotationId);
+  }
+
+  /** De una lista de toda la empresa (Post-Venta, doc 22 §9, tanda 2), solo
+   *  lo de las cotizaciones que ve: los eventos de un tipo que su cargo no
+   *  trabaja no aparecen. `deQue` dice de qué cotización es cada fila; una
+   *  fila sin cotización no aparece. Un cargo que trabaja todos los tipos,
+   *  todo, sin preguntarle a la base. */
+  async soloLasQueVe<T>(
+    s: Sesion,
+    filas: T[],
+    deQue: (fila: T) => string | null | undefined,
+  ): Promise<T[]> {
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos || filas.length === 0) return filas;
+    const ids = [...new Set(filas.map(deQue).filter((x): x is string => !!x))];
+    const cotizaciones = await this.repositorio.clientesDeLasCotizaciones(
+      s.company_id,
+      ids,
+    );
+    return filas.filter((f) => {
+      const id = deQue(f);
+      const q = id ? cotizaciones.get(id) : undefined;
+      return (
+        !!q &&
+        laVe(tipos, {
+          request_type: q.request_type,
+          clients: { client_type: q.client_type },
+        })
+      );
+    });
+  }
+
+  /** Lo mismo, para un mapa cuyas llaves son ids de cotización. */
+  async soloLasClavesQueVe<V>(
+    s: Sesion,
+    mapa: Record<string, V>,
+  ): Promise<Record<string, V>> {
+    const entradas = await this.soloLasQueVe(
+      s,
+      Object.entries(mapa),
+      ([id]) => id,
+    );
+    return Object.fromEntries(entradas);
   }
 
   /** Para cotizar (enviar, el seguimiento, «Crear con IA»…): la cotización
