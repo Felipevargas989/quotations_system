@@ -33,8 +33,8 @@ describe('QuotationsService', () => {
   let usersServiceMock: jest.Mocked<UsersService>;
   let loggerMock: jest.Mocked<PinoLogger>;
   let alcanceMock: {
-    esParticular: jest.Mock;
-    exigirClienteParticular: jest.Mock;
+    trabaja: jest.Mock;
+    exigirElTipoDelCliente: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -113,11 +113,15 @@ describe('QuotationsService', () => {
       setContext: jest.fn(),
     } as any;
 
+    // Lo de fábrica (doc 22 §9): recepción trabaja los particulares y los
+    // demás cargos, todos.
     alcanceMock = {
-      esParticular: jest.fn((_empresa: number, tipo?: string | null) =>
-        Promise.resolve(tipo === 'Particulares'),
+      trabaja: jest.fn((s: { role?: string }, tipo?: string | null) =>
+        Promise.resolve(
+          s.role !== UserRole.RECEPCION || tipo === 'Particulares',
+        ),
       ),
-      exigirClienteParticular: jest.fn().mockResolvedValue(undefined),
+      exigirElTipoDelCliente: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -365,13 +369,39 @@ describe('QuotationsService', () => {
             1,
             UserRole.RECEPCION,
           ),
-        ).rejects.toThrow('quien vende');
+        ).rejects.toThrow('«Empresas»');
         expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+      });
+
+      // Doc 22 §9: lo del tipo vale para cada cargo, con sus interruptores.
+      it('un vendedor con «Empresas» apagado no edita ni borra una de empresa', async () => {
+        alcanceMock.trabaja.mockImplementation((_s, tipo?: string | null) =>
+          Promise.resolve(tipo !== 'Empresas'),
+        );
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({ company_id: 1, clients: { client_type: 'Empresas' } }),
+        );
+        await expect(
+          service.update('1', {}, 1, UserRole.VENDEDOR),
+        ).rejects.toThrow('«Empresas»');
+        await expect(service.remove('1', 1, UserRole.VENDEDOR)).rejects.toThrow(
+          '«Empresas»',
+        );
+        expect(quotationsRepositoryMock.update).not.toHaveBeenCalled();
+        // Un requerimiento de empresa sí: son de todos.
+        quotationsRepositoryMock.findOne.mockResolvedValue(
+          deParticular({
+            request_type: RequestType.REQUERIMIENTO,
+            clients: { client_type: 'Empresas' },
+          }),
+        );
+        await service.update('1', {}, 1, UserRole.VENDEDOR);
+        expect(quotationsRepositoryMock.update).toHaveBeenCalled();
       });
 
       it('ni la pasa a un cliente que no es particular', async () => {
         quotationsRepositoryMock.findOne.mockResolvedValue(deParticular());
-        alcanceMock.exigirClienteParticular.mockRejectedValueOnce(
+        alcanceMock.exigirElTipoDelCliente.mockRejectedValueOnce(
           new ForbiddenException('Recepción cotiza a clientes particulares'),
         );
         await expect(
@@ -382,7 +412,7 @@ describe('QuotationsService', () => {
             UserRole.RECEPCION,
           ),
         ).rejects.toThrow(ForbiddenException);
-        expect(alcanceMock.exigirClienteParticular).toHaveBeenCalledWith(
+        expect(alcanceMock.exigirElTipoDelCliente).toHaveBeenCalledWith(
           { role: UserRole.RECEPCION, company_id: 1 },
           'c-empresa',
         );

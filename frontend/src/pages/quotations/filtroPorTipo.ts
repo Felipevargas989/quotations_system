@@ -1,14 +1,15 @@
 import { getClientTypeDot } from "../../utils/clientTypeColor";
-import { esRecepcion } from "../../utils/recepcion";
+import { tiposQueTrabaja } from "../../utils/recepcion";
 
 // EL FILTRO POR TIPO DE CLIENTE DEL TABLERO (Felipe, 05-11-2026: "si yo
 // quiero ver cuántas cotizaciones tengo a empresas pendientes, cuántas
 // cotizaciones tengo a grupos de adultos mayores pendientes"). Una opción
 // por tipo de la empresa, en su orden, con cuántas tarjetas deja en el
-// tablero. Recepción ve solo los tipos particulares: son los únicos que
-// trabaja, y el motor ya le manda solo esos (doc 21). Un tipo que no está
-// en la lista de la empresa, o un cliente sin tipo, va al final: ninguna
-// tarjeta queda fuera del filtro.
+// tablero. Un cargo que no trabaja todos los tipos ve solo los suyos: el
+// motor ya le manda solo esos (doc 22 §9; a recepción, de fábrica, los
+// particulares, doc 21). Un tipo que no está en la lista de la empresa, o
+// un cliente sin tipo, va al final: ninguna tarjeta queda fuera del
+// filtro.
 
 type ConTipo = { clients?: { client_type?: string | null } | null };
 type TipoDeLaEmpresa = { name: string; es_particular?: boolean };
@@ -34,15 +35,17 @@ export const opcionesDeTipo = (
   tipos: readonly TipoDeLaEmpresa[],
   todas: readonly ConTipo[],
   enElTablero: readonly ConTipo[],
+  // Los tipos que trabaja su cargo, del perfil (`useAuth().tiposDeCliente`).
+  delPerfil?: string[] | null,
 ): OpcionDeTipo[] => {
-  const recepcion = esRecepcion(rol);
+  const trabaja = tiposQueTrabaja(rol, tipos, delPerfil);
   const nombres = new Map<string, string>();
   for (const t of tipos) {
     const k = claveDe(t.name);
-    if (k !== SIN_TIPO && (!recepcion || t.es_particular) && !nombres.has(k))
+    if (k !== SIN_TIPO && (!trabaja || trabaja.has(k)) && !nombres.has(k))
       nombres.set(k, t.name.trim());
   }
-  if (!recepcion) {
+  if (!trabaja) {
     for (const q of todas) {
       const k = claveDe(q.clients?.client_type);
       if (!nombres.has(k))

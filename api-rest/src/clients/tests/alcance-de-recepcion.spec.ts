@@ -1,4 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
+import {
+  claveDeTipo,
+  tiposQueTrabaja,
+  type FilaDePermiso,
+} from 'src/auth/permisos';
+import type { PermisosService } from 'src/auth/permisos.service';
 import { UserRole } from 'src/users/entities/user.entity';
 import {
   AlcanceDeRecepcion,
@@ -9,14 +15,24 @@ import type { ClientsRepository } from '../clients.repository';
 
 // LO QUE VE RECEPCIÓN DE LAS COTIZACIONES (doc 21, 04-11-2026): todos los
 // requerimientos y, de las cotizaciones, solo las de clientes particulares;
-// vendedor para arriba, todo.
+// vendedor para arriba, todo. Desde el doc 22 §9, eso es lo de fábrica: los
+// interruptores de cada tipo y cargo lo cambian (al final).
 
 const recepcion = { role: UserRole.RECEPCION, company_id: 1 };
 const vendedor = { role: UserRole.VENDEDOR, company_id: 1 };
 
+const TIPOS = [
+  { id: 2, name: 'Particulares', es_particular: true },
+  { id: 4, name: 'Empresas', es_particular: false },
+  { id: 7, name: 'Club Adulto Mayor', es_particular: false },
+  { id: 3, name: 'Tour Operadores', es_particular: false },
+  { id: 5, name: 'Iglesias', es_particular: false },
+];
+
+/** Sin la pieza de los permisos: lo de fábrica, leído de la base. */
 const armar = () => {
   const repositorio = {
-    tiposParticulares: jest.fn().mockResolvedValue(['Particulares']),
+    tiposConMarca: jest.fn().mockResolvedValue(TIPOS),
     clienteDeLaCotizacion: jest.fn(),
     tipoDelCliente: jest.fn(),
   };
@@ -24,6 +40,22 @@ const armar = () => {
     repositorio as unknown as ClientsRepository,
   );
   return { alcance, repositorio };
+};
+
+/** Con los interruptores de la empresa (lo que apartó de fábrica). */
+const conInterruptores = (filas: FilaDePermiso[]) => {
+  const { repositorio } = armar();
+  const permisos = {
+    tiposDe: jest.fn().mockResolvedValue(TIPOS),
+    tiposDelCargo: jest.fn((_empresa: number, cargo?: string | null) =>
+      Promise.resolve(tiposQueTrabaja(cargo, TIPOS, filas)),
+    ),
+  };
+  const alcance = new AlcanceDeRecepcion(
+    repositorio as unknown as ClientsRepository,
+    permisos as unknown as PermisosService,
+  );
+  return { alcance, repositorio, permisos };
 };
 
 const cotizacion = (tipo: string | null, request_type = 'cotizacion') => ({
@@ -52,7 +84,7 @@ describe('AlcanceDeRecepcion', () => {
     const { alcance, repositorio } = armar();
     expect(await alcance.ve(vendedor, cotizacion('Empresas'))).toBe(true);
     expect(await alcance.veLosMontos(vendedor, 'Empresas')).toBe(true);
-    expect(repositorio.tiposParticulares).not.toHaveBeenCalled();
+    expect(repositorio.tiposConMarca).not.toHaveBeenCalled();
   });
 
   it('el tablero de recepción: requerimientos y particulares', async () => {
@@ -104,20 +136,24 @@ describe('AlcanceDeRecepcion', () => {
     expect(await alcance.paraElCalendario(vendedor, filas)).toBe(filas);
   });
 
-  it('los tipos de la empresa se recuerdan unos minutos', async () => {
-    const { alcance, repositorio } = armar();
+  it('con la pieza de los permisos, los tipos los recuerda ella', async () => {
+    const { alcance, repositorio, permisos } = conInterruptores([]);
     await alcance.ve(recepcion, cotizacion('Particulares'));
-    await alcance.ve(recepcion, cotizacion('Empresas'));
-    expect(repositorio.tiposParticulares).toHaveBeenCalledTimes(1);
-    alcance.olvidar(1);
-    await alcance.ve(recepcion, cotizacion('Empresas'));
-    expect(repositorio.tiposParticulares).toHaveBeenCalledTimes(2);
+    expect(await alcance.particulares(1)).toEqual(new Set(['particulares']));
+    expect(permisos.tiposDelCargo).toHaveBeenCalledWith(1, UserRole.RECEPCION);
+    expect(permisos.tiposDe).toHaveBeenCalledWith(1);
+    expect(repositorio.tiposConMarca).not.toHaveBeenCalled();
   });
 
   it('sin ningún tipo marcado, recepción sigue con solo requerimientos', async () => {
     const { alcance, repositorio } = armar();
-    repositorio.tiposParticulares.mockResolvedValue([]);
+    repositorio.tiposConMarca.mockResolvedValue(
+      TIPOS.map((t) => ({ ...t, es_particular: false })),
+    );
     expect(await alcance.ve(recepcion, cotizacion('Particulares'))).toBe(false);
+    expect(
+      await alcance.ve(recepcion, cotizacion('Particulares', 'requerimiento')),
+    ).toBe(true);
   });
 
   it('para cotizar: la cotización y el cliente tienen que ser de particulares', async () => {
@@ -126,28 +162,28 @@ describe('AlcanceDeRecepcion', () => {
       request_type: 'cotizacion',
       client_type: 'Empresas',
     });
-    await expect(alcance.exigirParticular(recepcion, 'q1')).rejects.toThrow(
-      ForbiddenException,
+    await expect(alcance.exigirElTipo(recepcion, 'q1')).rejects.toThrow(
+      '«Empresas»',
     );
     repositorio.clienteDeLaCotizacion.mockResolvedValue({
       request_type: 'requerimiento',
       client_type: 'Particulares',
     });
     await expect(
-      alcance.exigirParticular(recepcion, 'q1'),
+      alcance.exigirElTipo(recepcion, 'q1'),
     ).resolves.toBeUndefined();
     // Una de otra empresa no existe para ella.
     repositorio.clienteDeLaCotizacion.mockResolvedValue(null);
-    await expect(alcance.exigirParticular(recepcion, 'q9')).rejects.toThrow(
+    await expect(alcance.exigirElTipo(recepcion, 'q9')).rejects.toThrow(
       ForbiddenException,
     );
     expect(repositorio.clienteDeLaCotizacion).toHaveBeenCalledWith(1, 'q9');
     repositorio.tipoDelCliente.mockResolvedValue('Iglesias');
     await expect(
-      alcance.exigirClienteParticular(recepcion, 'c1'),
-    ).rejects.toThrow(ForbiddenException);
+      alcance.exigirElTipoDelCliente(recepcion, 'c1'),
+    ).rejects.toThrow('«Iglesias»');
     await expect(
-      alcance.exigirClienteParticular(vendedor, 'c1'),
+      alcance.exigirElTipoDelCliente(vendedor, 'c1'),
     ).resolves.toBeUndefined();
   });
 
@@ -300,6 +336,77 @@ describe('AlcanceDeRecepcion: la lista con los permisos por cargo', () => {
     expect(await alcance.deLaLista(recepcion, [particular, ...filas])).toEqual([
       particular,
       pedido,
+    ]);
+  });
+});
+
+// LOS TIPOS DE CLIENTE DE CADA CARGO (doc 22 §9; Felipe, 05-11-2026: "Todo
+// debería mirar el tipo"): la misma regla de recepción, para los cuatro
+// cargos, con sus interruptores.
+describe('AlcanceDeRecepcion: los tipos que trabaja cada cargo', () => {
+  const apagado = (cargo: UserRole, id: number): FilaDePermiso => ({
+    cargo,
+    permiso: claveDeTipo(id),
+    prendido: false,
+  });
+  const prendido = (cargo: UserRole, id: number): FilaDePermiso => ({
+    cargo,
+    permiso: claveDeTipo(id),
+    prendido: true,
+  });
+
+  it('un vendedor con «Empresas» apagado no ve ni cotiza las de empresas', async () => {
+    const { alcance, repositorio } = conInterruptores([
+      apagado(UserRole.VENDEDOR, 4),
+    ]);
+    const filas = [
+      { id: 'a', ...cotizacion('Particulares') },
+      { id: 'b', ...cotizacion('Empresas') },
+      { id: 'c', ...cotizacion('Empresas', 'requerimiento') },
+    ];
+    expect((await alcance.filtrar(vendedor, filas)).map((f) => f.id)).toEqual([
+      'a',
+      'c',
+    ]);
+    const calendario = await alcance.paraElCalendario(vendedor, filas);
+    expect(calendario[1]).toMatchObject({ solo_agenda: true, id: 'b' });
+    expect(await alcance.veLosMontos(vendedor, 'empresas')).toBe(false);
+    repositorio.tipoDelCliente.mockResolvedValue('Empresas');
+    await expect(
+      alcance.exigirElTipoDelCliente(vendedor, 'c1'),
+    ).rejects.toThrow('«Empresas»');
+    // A operaciones no le cambió nada.
+    const operaciones = { role: UserRole.OPERACIONES, company_id: 1 };
+    expect(await alcance.filtrar(operaciones, filas)).toBe(filas);
+  });
+
+  it('recepción con «Club Adulto Mayor» prendido lo trabaja completo', async () => {
+    const { alcance } = conInterruptores([prendido(UserRole.RECEPCION, 7)]);
+    expect(await alcance.ve(recepcion, cotizacion('Club Adulto Mayor'))).toBe(
+      true,
+    );
+    expect(await alcance.ve(recepcion, cotizacion('Empresas'))).toBe(false);
+    expect(await alcance.nombresDeSusTipos(recepcion)).toEqual([
+      'Particulares',
+      'Club Adulto Mayor',
+    ]);
+  });
+
+  it('los clientes sin tipo: los ve quien no es recepción, como hoy', async () => {
+    const { alcance } = conInterruptores([apagado(UserRole.VENDEDOR, 4)]);
+    expect(await alcance.ve(vendedor, cotizacion(null))).toBe(true);
+    expect(
+      await alcance.ve(vendedor, cotizacion('Otro que ya no existe')),
+    ).toBe(true);
+    expect(await alcance.ve(recepcion, cotizacion(null))).toBe(false);
+  });
+
+  it('con todo de fábrica, vendedor para arriba trabaja todos', async () => {
+    const { alcance } = conInterruptores([]);
+    expect(await alcance.tiposDelCargo(vendedor)).toBeNull();
+    expect(await alcance.nombresDeSusTipos(vendedor)).toBeNull();
+    expect(await alcance.nombresDeSusTipos(recepcion)).toEqual([
+      'Particulares',
     ]);
   });
 });

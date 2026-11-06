@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { olvidarTiposDeCliente } from 'src/cache/memoria';
 import { UsersRepository } from 'src/users/users.repository';
 import { logSafe } from '../logging/log-safe';
 import { ClientContactsRepository } from './client-contacts.controller';
@@ -185,15 +186,23 @@ export class ClientsService {
     return this.clientsRepository.findTypes(companyId);
   }
 
-  createType(companyId: number, name: string) {
-    return this.clientsRepository.createType(companyId, name);
+  // Los tipos que trabaja cada cargo se cuentan con la lista de tipos (doc
+  // 22 §9): crear, ordenar o borrar uno la olvida.
+  async createType(companyId: number, name: string) {
+    const tipo = await this.clientsRepository.createType(companyId, name);
+    olvidarTiposDeCliente(companyId);
+    return tipo;
   }
 
-  reorderTypes(companyId: number, ids: number[]) {
-    return this.clientsRepository.reorderTypes(companyId, ids);
+  async reorderTypes(companyId: number, ids: number[]) {
+    const tipos = await this.clientsRepository.reorderTypes(companyId, ids);
+    olvidarTiposDeCliente(companyId);
+    return tipos;
   }
 
-  removeType(id: number, companyId: number) {
-    return this.clientsRepository.removeType(id, companyId);
+  async removeType(id: number, companyId: number) {
+    const borrado = await this.clientsRepository.removeType(id, companyId);
+    olvidarTiposDeCliente(companyId);
+    return borrado;
   }
 }

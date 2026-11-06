@@ -155,7 +155,7 @@ describe('El «Sí, dejar el borrador» por la puerta de las propuestas', () => 
     });
     await expect(
       servicio.aplicar(camila(UserRole.RECEPCION), 'p1'),
-    ).rejects.toThrow('recepción');
+    ).rejects.toThrow('no trabaja');
     expect(seguimientoDelChat.dejar).not.toHaveBeenCalled();
   });
 

@@ -28,7 +28,7 @@ describe('QuotationsController', () => {
   const deLaLista = jest.fn((_s: unknown, filas: unknown[]) =>
     Promise.resolve(filas),
   );
-  const exigirClienteParticular = jest.fn().mockResolvedValue(undefined);
+  const exigirElTipoDelCliente = jest.fn().mockResolvedValue(undefined);
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -60,7 +60,7 @@ describe('QuotationsController', () => {
         provideMock(AlcanceDeRecepcion, {
           ve,
           deLaLista,
-          exigirClienteParticular,
+          exigirElTipoDelCliente,
         }),
       ],
     }).compile();
@@ -195,7 +195,7 @@ describe('QuotationsController', () => {
         { request_type: 'cotizacion', client_id: 'c1' } as never,
         recepcion,
       );
-      expect(exigirClienteParticular).toHaveBeenCalledWith(recepcion, 'c1');
+      expect(exigirElTipoDelCliente).toHaveBeenCalledWith(recepcion, 'c1');
       await expect(
         controller.create(
           {
@@ -208,13 +208,29 @@ describe('QuotationsController', () => {
       ).rejects.toThrow('descuentos');
     });
 
+    // Doc 22 §9: cada cargo cotiza solo a los tipos que trabaja; el
+    // descuento sigue siendo cosa de recepción.
+    it('un vendedor también pasa por el tipo del cliente, con descuento', async () => {
+      exigirElTipoDelCliente.mockClear();
+      const vendedor = { id: 'u2', company_id: 1, role: 'vendedor' } as never;
+      await controller.create(
+        {
+          request_type: 'cotizacion',
+          client_id: 'c1',
+          discount_percentage: 10,
+        } as never,
+        vendedor,
+      );
+      expect(exigirElTipoDelCliente).toHaveBeenCalledWith(vendedor, 'c1');
+    });
+
     it('un requerimiento lo crea como siempre, sin revisar el cliente', async () => {
-      exigirClienteParticular.mockClear();
+      exigirElTipoDelCliente.mockClear();
       await controller.create(
         { request_type: 'requerimiento', client_id: 'c2' } as never,
         recepcion,
       );
-      expect(exigirClienteParticular).not.toHaveBeenCalled();
+      expect(exigirElTipoDelCliente).not.toHaveBeenCalled();
     });
   });
 });

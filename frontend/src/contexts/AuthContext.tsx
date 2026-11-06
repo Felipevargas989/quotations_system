@@ -12,6 +12,10 @@ interface AuthContextType {
   /** Los permisos por cargo prendidos (doc 22): los del perfil, o los de
    *  fábrica del cargo si el motor todavía no los manda. */
   permisos: Permiso[];
+  /** Los tipos de cliente que trabaja su cargo (doc 22 §9), por nombre:
+   *  null si todos; undefined si el motor todavía no lo manda (entonces,
+   *  lo de fábrica: `tiposQueTrabaja` en utils/recepcion). */
+  tiposDeCliente: string[] | null | undefined;
   userName: string | null;
   company: Omit<Company, "created_at"> | null;
   loading: boolean;
@@ -44,6 +48,7 @@ interface ProfileData {
   full_name?: string | null;
   companies?: Omit<Company, "created_at"> | null;
   permisos?: string[] | null;
+  tipos_de_cliente?: string[] | null;
 }
 
 const readCachedProfile = (userId: string): ProfileData | undefined => {
@@ -84,6 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         full_name: (data as { full_name?: string }).full_name || null,
         companies: data.companies || null,
         permisos: (data as { permisos?: string[] }).permisos ?? null,
+        tipos_de_cliente: (data as { tipos_de_cliente?: string[] | null })
+          .tipos_de_cliente,
       };
       writeCachedProfile(user!.id, profile);
       return profile;
@@ -98,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const userRole: UserRole | null = profileQuery.data?.role ?? null;
   const permisos = permisosDe(userRole, profileQuery.data?.permisos);
+  const tiposDeCliente = profileQuery.data?.tipos_de_cliente;
   const userName = profileQuery.data?.full_name ?? null;
   const company = profileQuery.data?.companies ?? null;
   const roleLoading = !!user && !profileQuery.data && profileQuery.isPending;
@@ -270,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession,
     userRole,
     permisos,
+    tiposDeCliente,
     userName,
     company,
     roleLoading,

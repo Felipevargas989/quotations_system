@@ -20,7 +20,11 @@ const armar = (perfil: Record<string, unknown> | null, editado = true) => {
     repo as never,
     mockPinoLogger() as never,
     {} as never,
-    { delCargo: jest.fn().mockResolvedValue(['cotizaciones']) } as never,
+    {
+      delCargo: jest.fn().mockResolvedValue(['cotizaciones']),
+      // Los tipos de cliente que trabaja (doc 22 §9).
+      nombresDeSusTipos: jest.fn().mockResolvedValue(['Particulares']),
+    } as never,
   );
   return { service, repo };
 };
@@ -30,7 +34,11 @@ describe('Usuarios: candado de empresa', () => {
     const { service } = armar({ id: 'u-2', company_id: 1 });
     const r = await service.findOneDeLaEmpresa('u-2', 1);
     // Con los permisos de su cargo (doc 22 §5).
-    expect(r.data).toMatchObject({ id: 'u-2', permisos: ['cotizaciones'] });
+    expect(r.data).toMatchObject({
+      id: 'u-2',
+      permisos: ['cotizaciones'],
+      tipos_de_cliente: ['Particulares'],
+    });
   });
 
   it('ver un perfil de otra empresa es 404', async () => {

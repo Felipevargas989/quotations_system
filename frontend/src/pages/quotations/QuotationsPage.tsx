@@ -137,7 +137,13 @@ const ORDEN_ETIQUETA: Record<string, string> = {
 };
 
 export default function QuotationsPage() {
-  const { user, userRole, company, permisos } = useAuth();
+  const {
+    user,
+    userRole,
+    company,
+    permisos,
+    tiposDeCliente: tiposDelCargo,
+  } = useAuth();
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
   const puedeEditar = permisos.includes("cotizaciones");
@@ -700,6 +706,7 @@ export default function QuotationsPage() {
     tiposDeCliente,
     quotationsQuery.data ?? [],
     soloSeguimiento ? enElTablero.filter(requiereSeguimiento) : enElTablero,
+    tiposDelCargo,
   );
   const tiposActivos = tiposElegidos.filter((t) =>
     opcionesTipo.some((o) => o.value === t),

@@ -21,6 +21,13 @@ export interface FilaDePermisos {
   celdas: Record<UserRole, CeldaDePermiso>;
 }
 
+/** Un tipo de cliente de la empresa con sus cuatro celdas (doc 22 §9). */
+export interface FilaDeTipo {
+  id: number;
+  nombre: string;
+  celdas: Record<UserRole, CeldaDePermiso>;
+}
+
 export interface UltimoCambio {
   quien: string | null;
   cuando: string;
@@ -33,6 +40,9 @@ export interface UltimoCambio {
 export interface PantallaDePermisos {
   cargos: UserRole[];
   permisos: FilaDePermisos[];
+  /** Los tipos de cliente de la empresa, en su orden. Un motor sin el
+   *  §9 no los manda. */
+  tipos?: FilaDeTipo[];
   deFabrica: boolean;
   ultimoCambio: UltimoCambio | null;
 }
@@ -46,6 +56,17 @@ export const cambiarPermiso = async (cambio: {
   prendido: boolean;
 }): Promise<PantallaDePermisos> =>
   (await apiRequest(API_ROUTES.PERMISOS, "PUT", cambio)) as PantallaDePermisos;
+
+export const cambiarTipo = async (cambio: {
+  cargo: UserRole;
+  tipo: number;
+  prendido: boolean;
+}): Promise<PantallaDePermisos> =>
+  (await apiRequest(
+    API_ROUTES.PERMISOS_TIPOS,
+    "PUT",
+    cambio,
+  )) as PantallaDePermisos;
 
 export const volverAFabrica = async (): Promise<PantallaDePermisos> =>
   (await apiRequest(API_ROUTES.PERMISOS_FABRICA, "POST")) as PantallaDePermisos;

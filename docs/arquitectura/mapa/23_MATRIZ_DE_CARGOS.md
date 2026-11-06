@@ -15,6 +15,8 @@ Los cuatro cargos, de menor a mayor: **recepción**, **vendedor**,
 
 > **03-10-2026, en las pantallas (Felipe: "creo que el perfil de recepción ve demasiadas cosas ... requerimiento y calendario, pero no más que eso"):** recepción ve solo **Requerimientos**, **Calendario** (solo mirar: sin montos, sin estrella de alto valor y sin abrir la ficha del negocio) y **Mi cuenta**. Cotizaciones, Consultas, la ficha del negocio y Clientes pasaron a vendedor para arriba (`SECTION_ROLES.quotations` y `.clients` = `SALES_AND_UP` en `frontend/src/constants/permissions.ts`; `veNegocio` en `pages/calendar/Calendar.tsx`). **El motor no cambió**: recepción sigue pudiendo leer cotizaciones (el calendario y Requerimientos las usan) y buscar o crear clientes y contactos (el formulario de requerimiento lo necesita). Lo de abajo describe las puertas del motor.
 
+> **05-11-2026 (doc 22 §9):** qué tipos de cliente trabaja cada cargo es un interruptor de Permisos por cargo. Lo de recepción con los particulares (doc 21, abajo) es su valor de fábrica; los otros tres cargos parten con todos los tipos. La regla la aplica `AlcanceDeRecepcion` a los cuatro cargos.
+
 > **04-11-2026, en las pantallas (doc 21):** recepción vuelve a ver **Cotizaciones**: el tablero, la ficha y el cotizador (`SECTION_ROLES.quotations` y `.quotations_edit` = `RECEPTION_AND_UP`, y las dos en su menú). Lo que le llega lo filtra el motor. En los menús de estado no le aparecen aceptar, anular ni realizada (`estadosPara`, `frontend/src/utils/recepcion.ts`); el descuento ya no se le mostraba (tope 0 %); en la ficha, el nombre del cliente no lleva a Clientes, que sigue siendo de vendedor para arriba. El calendario queda igual: solo mirar.
 
 Todo lo que usa el mostrador: atender, buscar, mirar.

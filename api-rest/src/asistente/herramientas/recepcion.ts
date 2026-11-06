@@ -1,5 +1,6 @@
+import { trabajaElTipo, type TiposQueTrabaja } from 'src/auth/permisos';
+import type { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { UserRole } from 'src/users/entities/user.entity';
-import type { ContextoDeHerramienta } from './comun';
 
 // RECEPCIÓN CON BELIA (doc 20 §13; Felipe, 04-11-2026: "pasarle Belia a la
 // recepcionista para que pueda hacer preguntas sobre disponibilidad,
@@ -16,8 +17,13 @@ import type { ContextoDeHerramienta } from './comun';
 //
 // Desde el doc 21 (Felipe, 04-11-2026: "Belia sí le puede dar con montos
 // para recepción, pero solo de cotizaciones para particulares"): lo que es
-// de un cliente particular le llega completo, con la marca
-// `particular: true`, y la red no lo toca. Lo demás, igual que antes.
+// de un cliente particular le llega completo, con la marca `trabaja: true`,
+// y la red no lo toca. Lo demás, igual que antes.
+//
+// Desde el doc 22 §9 (05-11-2026), lo mismo para cualquier cargo al que le
+// apaguen un tipo de cliente en Permisos por cargo: lo de los tipos que
+// trabaja le llega completo, con la marca; lo de los demás, sin plata. Un
+// cargo que trabaja todos los tipos no pasa por la red, como siempre.
 
 export const esRecepcion = (rol: string | null | undefined): boolean =>
   rol === UserRole.RECEPCION;
@@ -36,17 +42,18 @@ export const MONTO_TAPADO = '[monto]';
 export const sinMontos = (texto: string): string =>
   PLATA.reduce((t, r) => t.replace(r, MONTO_TAPADO), texto);
 
-/** La red de recepción sobre lo que devuelve una herramienta: tapa la plata
- *  escrita en todos los textos, menos dentro de lo que trae la marca
- *  `particular: true` (una fila, una ficha o un cliente de un particular,
- *  doc 21). La marca la pone el código de la herramienta, nunca un texto de
- *  la base: un texto que la diga es solo un texto, y se tapa. */
+/** La red sobre lo que devuelve una herramienta a un cargo que no trabaja
+ *  todos los tipos de cliente: tapa la plata escrita en todos los textos,
+ *  menos dentro de lo que trae la marca `trabaja: true` (una fila, una ficha
+ *  o un cliente de un tipo que su cargo trabaja). La marca la pone el código
+ *  de la herramienta, nunca un texto de la base: un texto que la diga es
+ *  solo un texto, y se tapa. */
 export const taparPlata = (valor: unknown): unknown => {
   if (typeof valor === 'string') return sinMontos(valor);
   if (Array.isArray(valor)) return valor.map(taparPlata);
   if (valor && typeof valor === 'object') {
     const o = valor as Record<string, unknown>;
-    if (o.particular === true) return o;
+    if (o.trabaja === true) return o;
     return Object.fromEntries(
       Object.entries(o).map(([k, v]) => [k, taparPlata(v)]),
     );
@@ -54,16 +61,32 @@ export const taparPlata = (valor: unknown): unknown => {
   return valor;
 };
 
-/** Los tipos de cliente particulares de la empresa, para recepción (doc
- *  21). Los demás cargos no los necesitan: ven toda la plata. Sin la pieza,
- *  o si falla la lectura, ninguno: recepción sigue sin plata. */
-export const particularesPara = async (
-  ctx: Pick<ContextoDeHerramienta, 'usuario' | 'alcance'>,
-): Promise<ReadonlySet<string>> => {
-  if (!esRecepcion(ctx.usuario.role) || !ctx.alcance) return new Set();
+/** Ningún tipo: lo de quien no se puede saber qué trabaja. */
+const NINGUNO: TiposQueTrabaja = {
+  prendidos: new Set(),
+  conocidos: new Set(),
+  sinTipo: false,
+};
+
+/** Los tipos de cliente que trabaja el cargo de quien escribe (doc 22 §9;
+ *  a recepción, de fábrica, los particulares, doc 21); null si los trabaja
+ *  todos. Sin la pieza, lo de fábrica sin tipos: recepción, ninguno. Si
+ *  falla la lectura, ninguno: sin plata. */
+export const tiposPara = async (ctx: {
+  usuario: { role?: string | null; company_id: number };
+  alcance?: Pick<AlcanceDeRecepcion, 'tiposDelCargo'>;
+}): Promise<TiposQueTrabaja> => {
+  if (!ctx.alcance) return esRecepcion(ctx.usuario.role) ? NINGUNO : null;
   try {
-    return await ctx.alcance.particulares(ctx.usuario.company_id);
+    return await ctx.alcance.tiposDelCargo(ctx.usuario);
   } catch {
-    return new Set();
+    return NINGUNO;
   }
 };
+
+/** Para una fila: null si el cargo trabaja todos los tipos (sin red); si
+ *  no, si trabaja el de esta. */
+export const loTrabaja = (
+  tipos: TiposQueTrabaja,
+  tipo: string | null | undefined,
+): boolean | null => (tipos ? trabajaElTipo(tipos, tipo) : null);

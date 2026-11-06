@@ -106,3 +106,21 @@ describe("qué tarjetas pasan el filtro", () => {
     expect(coincideTipo([sinTipo.value], q("Empresas"))).toBe(false);
   });
 });
+
+// Doc 22 §9: el cargo ve en el filtro solo los tipos que trabaja (los
+// manda el motor en el perfil).
+describe("opcionesDeTipo con los tipos del perfil", () => {
+  it("un vendedor con «Empresas» apagado no la ve en el filtro", () => {
+    const opciones = opcionesDeTipo(
+      "vendedor",
+      TIPOS,
+      [q("Particulares")],
+      [q("Particulares")],
+      ["Club Adulto Mayor", "Particulares"],
+    );
+    expect(opciones.map((o) => o.label)).toEqual([
+      "Club Adulto Mayor",
+      "Particulares",
+    ]);
+  });
+});

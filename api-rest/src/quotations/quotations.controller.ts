@@ -90,16 +90,15 @@ export class QuotationsController {
     // cotizaciones formales. Mismo endpoint para ambos (los usa la
     // misma tabla), así que la distinción es por el tipo de solicitud.
     // Desde el doc 21 (04-11-2026), también cotizaciones de clientes
-    // particulares, sin descuento y sin aceptarlas.
-    if (
-      esRecepcion(user) &&
-      createQuotationDto.request_type !== RequestType.REQUERIMIENTO
-    ) {
-      await this.alcance.exigirClienteParticular(
+    // particulares, sin descuento y sin aceptarlas. Desde el doc 22 §9, cada
+    // cargo cotiza solo a clientes de los tipos que trabaja (a recepción, de
+    // fábrica, los particulares).
+    if (createQuotationDto.request_type !== RequestType.REQUERIMIENTO) {
+      await this.alcance.exigirElTipoDelCliente(
         user,
         createQuotationDto.client_id,
       );
-      revisarLoQueCotiza(createQuotationDto);
+      if (esRecepcion(user)) revisarLoQueCotiza(createQuotationDto);
     }
     return this.quotationsService.create(
       createQuotationDto,
@@ -251,9 +250,11 @@ export class QuotationsController {
     if (empresa === null || !fila || Number(fila.company_id) !== empresa) {
       return limpia;
     }
-    // Recepción, con su sesión, ve completos los requerimientos y las
-    // cotizaciones de particulares (doc 21). De las demás, lo que muestra
-    // el calendario (la tarjeta pide aquí sus categorías), sin plata.
+    // Con su sesión, cada cargo ve completos los requerimientos y las
+    // cotizaciones de los tipos de cliente que trabaja (doc 22 §9; a
+    // recepción, de fábrica, los particulares, doc 21). De las demás, lo que
+    // muestra el calendario (la tarjeta pide aquí sus categorías), sin
+    // plata.
     if (perfil && !(await this.alcance.ve(perfil, fila))) {
       return { ...limpia, data: paraLaAgenda(fila) };
     }
@@ -279,7 +280,7 @@ export class QuotationsController {
   @Post(':id/generar')
   async generar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/generar`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.generarCotizacion.generar(id, user);
   }
 
@@ -295,7 +296,8 @@ export class QuotationsController {
   async seguimientosPendientes(@CurrentUser() user: User) {
     this.logger.info('GET /quotations/seguimiento/pendientes');
     const pendientes = await this.seguimientoConIA.pendientes(user);
-    if (!esRecepcion(user)) return pendientes;
+    // Solo las de los tipos que trabaja su cargo (doc 22 §9).
+    if (!(await this.alcance.tiposDelCargo(user))) return pendientes;
     const ve = await Promise.all(
       pendientes.map((p) => this.alcance.veLaCotizacion(user, p.id)),
     );
@@ -321,7 +323,7 @@ export class QuotationsController {
   @Post(':id/seguimiento')
   async generarSeguimiento(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/seguimiento`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.seguimientoConIA.generar(id, user);
   }
 
@@ -348,7 +350,7 @@ export class QuotationsController {
     this.logger.info(
       `POST /quotations/${id}/choques/${aceptadaId} (${body.decision})`,
     );
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.choques.seguir(user, id, aceptadaId);
   }
 
@@ -359,7 +361,7 @@ export class QuotationsController {
   @Post(':id/enviar-correo')
   async enviarPorCorreo(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/enviar-correo`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.enviar(id, user);
   }
 
@@ -373,7 +375,7 @@ export class QuotationsController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`GET /quotations/${id}/aviso-de-cierre`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.borradorDelAvisoDeCierre(id, user);
   }
 
@@ -386,7 +388,7 @@ export class QuotationsController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${id}/aviso-de-cierre`);
-    await this.alcance.exigirParticular(user, id);
+    await this.alcance.exigirElTipo(user, id);
     return this.envioCotizacion.enviarAvisoDeCierre(id, user, body);
   }
 

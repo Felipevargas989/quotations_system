@@ -315,7 +315,7 @@ export default function CalendarPage() {
           tooltip: `${q.clients?.name || "Sin cliente"}\n${q.event_type} · ${
             q.people_count
           } personas${
-            veNegocio
+            veNegocio && !q.solo_agenda
               ? `\n$${(q.total_amount || 0).toLocaleString("es-CL")}`
               : ""
           }`,
@@ -323,6 +323,7 @@ export default function CalendarPage() {
           // el texto para no repetirla casilla por casilla.
           star:
             veNegocio &&
+            !q.solo_agenda &&
             muestraTexto &&
             umbralAltoValor > 0 &&
             (q.total_amount || 0) >= umbralAltoValor,
@@ -625,8 +626,11 @@ export default function CalendarPage() {
                       </span>
                     }
                     companyId={company?.id ? Number(company.id) : 0}
+                    // Un evento de un tipo de cliente que su cargo no
+                    // trabaja llega como agenda (doc 22 §9): sin plata y
+                    // sin abrir la ficha.
                     onOpen={
-                      veNegocio
+                      veNegocio && !quotation.solo_agenda
                         ? () => handleNavigateToQuotation(quotation)
                         : undefined
                     }

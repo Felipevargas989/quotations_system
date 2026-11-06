@@ -109,6 +109,7 @@ export const API_ROUTES = {
   // «Volver a lo de fábrica».
   PERMISOS: "/permisos",
   PERMISOS_FABRICA: "/permisos/fabrica",
+  PERMISOS_TIPOS: "/permisos/tipos",
 
   // calendar
   CALENDAR_EVENTS: "/calendar/events",

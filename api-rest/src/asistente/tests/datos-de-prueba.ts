@@ -1,4 +1,5 @@
 import type { PinoLogger } from 'nestjs-pino';
+import { trabajaElTipo, type TiposQueTrabaja } from 'src/auth/permisos';
 import type { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { ClientsService } from 'src/clients/clients.service';
 import type { LogisticsService } from 'src/logistics/logistics.service';
@@ -177,6 +178,32 @@ export const persona = (role: UserRole, derechos = ['base', 'post_venta']) =>
 
 export const hoy = hoyEnChile();
 
+/** La pieza de lo que ve cada cargo, de fábrica (doc 22 §9): recepción
+ *  trabaja estos tipos (los particulares) y los demás cargos, todos. */
+export const alcanceDeFabrica = (particulares: string[]) => {
+  const nombres = new Set(particulares.map((t) => t.trim().toLowerCase()));
+  const tiposDelCargo = jest.fn(
+    (s: { role?: string | null }): Promise<TiposQueTrabaja> =>
+      Promise.resolve(
+        s.role === UserRole.RECEPCION
+          ? { prendidos: nombres, conocidos: nombres, sinTipo: false }
+          : null,
+      ),
+  );
+  return {
+    particulares: jest.fn().mockResolvedValue(nombres),
+    tiposDelCargo,
+    trabaja: jest.fn(
+      async (s: { role?: string | null }, tipo?: string | null) =>
+        trabajaElTipo(await tiposDelCargo(s), tipo),
+    ),
+    nombresDeSusTipos: jest.fn(async (s: { role?: string | null }) =>
+      (await tiposDelCargo(s)) ? particulares : null,
+    ),
+    veLaCotizacion: jest.fn().mockResolvedValue(true),
+  };
+};
+
 export const armarServicio = (
   q: CotizacionParaCambiar,
   propuesta: Partial<Propuesta> = {},
@@ -280,15 +307,7 @@ export const armarServicio = (
     }),
   };
   const alcance = opciones.particulares
-    ? {
-        esParticular: jest.fn((_empresa: number, tipo?: string | null) =>
-          Promise.resolve(
-            opciones
-              .particulares!.map((t) => t.toLowerCase())
-              .includes((tipo ?? '').trim().toLowerCase()),
-          ),
-        ),
-      }
+    ? alcanceDeFabrica(opciones.particulares)
     : undefined;
   const nuevas = new CotizacionNuevaService(
     repositorio as unknown as PropuestasRepository,
