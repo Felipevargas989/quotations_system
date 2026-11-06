@@ -10,6 +10,7 @@ import {
   leerPdf,
   leerProcesar,
   pulsoDeFacturacionCl,
+  rangosDeLosFolios,
 } from '../facturacion-cl/soap';
 
 /**
@@ -273,7 +274,7 @@ describe('la respuesta de Procesar', () => {
 });
 
 describe('los folios (ConsultarCAF)', () => {
-  it('el rango que tiene folios; los que siguen suman a los libres', () => {
+  it('vale el rango con folios de siguiente más alto; todos los que tienen folios suman a los libres', () => {
     expect(
       leerFolios(
         '<CAF><idcaf>1</idcaf><foliodesde>1</foliodesde><foliohasta>50</foliohasta><fechavencimiento>2027-05-01</fechavencimiento><foliosiguiente>51</foliosiguiente></CAF>' +
@@ -283,11 +284,37 @@ describe('los folios (ConsultarCAF)', () => {
       ),
     ).toEqual({
       tipo: 33,
-      siguiente: 61,
-      hasta: 100,
+      siguiente: 101,
+      hasta: 150,
       libres: 40 + 50,
-      vence: '2027-08-01',
+      vence: '2027-09-01',
     });
+  });
+
+  it('los descartados (facturacion.cl dijo «fuera del rango») no vuelven: toca el de otro rango', () => {
+    const xml =
+      '<CAF><idcaf>6</idcaf><rangodesde>293001</rangodesde><rangohasta>9999999999</rangohasta><foliosiguiente>9999839213</foliosiguiente></CAF>' +
+      '<CAF><idcaf>66</idcaf><rangodesde>1</rangodesde><rangohasta>293000</rangohasta><foliosiguiente>292282</foliosiguiente></CAF>';
+    expect(leerFolios(xml, 33)?.siguiente).toBe(9999839213);
+    expect(leerFolios(xml, 33, [9999839213])?.siguiente).toBe(292282);
+    expect(leerFolios(xml, 33, [9999839213, 292282])).toBeNull();
+  });
+
+  it('todos los rangos, como los lista facturacion.cl, para el registro de «Probar la conexión»', () => {
+    expect(
+      rangosDeLosFolios(
+        '<CAF> <idcaf>72</idcaf> <tipodte>56</tipodte> <fecha>19-08-2100</fecha> <fechavencimiento>19-02-2101</fechavencimiento> <rangodesde>1</rangodesde> <rangohasta>292099</rangohasta> <cantidad>292099</cantidad> <foliosiguiente>292100</foliosiguiente> </CAF>',
+      ),
+    ).toEqual([
+      {
+        idcaf: '72',
+        fecha: '19-08-2100',
+        desde: 1,
+        hasta: 292099,
+        siguiente: 292100,
+        vence: '2101-02-19',
+      },
+    ]);
   });
 
   it('la respuesta de verdad del ambiente de pruebas (06-11): rangodesde/rangohasta, DD-MM-AAAA y los rangos agotados', () => {
@@ -308,9 +335,9 @@ describe('los folios (ConsultarCAF)', () => {
       libres: 160787,
       vence: '2101-02-19',
     });
-    // Dos rangos con folios, el primero más alto (la factura del 06-11): vale
-    // el primero de la lista. El otro siguiente (292.282) fue rechazado por
-    // facturacion.cl, «fuera del rango que tiene autorizado».
+    // Dos rangos con folios (la factura del 06-11): vale el más alto. El
+    // otro siguiente (292.282) fue rechazado por facturacion.cl, «fuera del
+    // rango que tiene autorizado».
     expect(
       leerFolios(
         caf(6, 33, 293001, 9999999999, 9999839213) +
@@ -324,7 +351,17 @@ describe('los folios (ConsultarCAF)', () => {
       libres: 160787 + 719,
       vence: '2101-02-19',
     });
-    // La nota de débito: el primer rango está agotado (el siguiente quedó
+    // La nota de débito: el segundo de la lista (292.104) fue rechazado
+    // «fuera del rango»; con un rango más alto en la lista, vale ese.
+    expect(
+      leerFolios(
+        caf(72, 56, 1, 292099, 292100) +
+          caf(73, 56, 292100, 293000, 292104) +
+          caf(7, 56, 293001, 9999999999, 9999742766),
+        56,
+      ),
+    ).toMatchObject({ siguiente: 9999742766 });
+    // El primer rango está agotado (el siguiente quedó
     // fuera), vale el que sigue.
     expect(
       leerFolios(

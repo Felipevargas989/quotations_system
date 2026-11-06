@@ -133,7 +133,7 @@ Se revisaron tres fuentes:
 |---|---|---|---|
 | L1 | La API REST es nueva (julio de 2026) y su manual se contradice. El documento va en un **GET**: unos ejemplos lo ponen en el cuerpo y otros en la dirección. | El `fetch` del motor no permite cuerpo en un GET, y una dirección larga suele tener tope. Una factura con varias líneas podría no caber. | Se usa el **servicio web SOAP**, que va por POST y es el maduro. La REST queda como plan B si en pruebas responde igual. |
 | L2 | La REST no consulta folios. Para **facturas**, el manual pide que el folio *"coincida con el folio siguiente almacenado"*. Para **boletas**, basta 0, y la plataforma lo asigna sola. | Sin saber el próximo folio no se puede emitir una factura. | Antes de cada factura se llama a `ConsultarCAF` (SOAP, incluido), que entrega `foliosiguiente`. En el paso 0 se prueba si 0 también sirve para facturas. |
-| L3 | Si alguien emite en la plataforma web al mismo tiempo, el folio avanza y la respuesta es *"Ya existe el Documento del TipoDTE = 33 con Folio = N"*. | Choque de folios. | El folio se consulta justo antes de emitir. Si choca, se consulta una vez más; si vuelve a chocar, se avisa. |
+| L3 | Si alguien emite en la plataforma web al mismo tiempo, el folio avanza y la respuesta es *"Ya existe el Documento del TipoDTE = 33 con Folio = N"*. | Choque de folios. | El folio se consulta justo antes de emitir. Si choca, se consulta una vez más; si vuelve a chocar, se avisa. **06-11 (paso 0):** lo mismo si responde *"fuera del rango que tiene autorizado"* (hay varios rangos y usa otro): una vez más, con el folio de otro rango. |
 | L4 | No hay una forma incluida de saber si el **SII** aceptó o rechazó un documento. `Procesar` solo dice si facturacion.cl lo generó. `ConsultaLibroVentas` (acuse del cliente) se paga aparte. `ConsultarEstado` existe en el servicio pero no aparece en el manual: es para el envío masivo asíncrono. | Eventia sabe que un documento se emitió, no que el SII lo aceptó. | Eventia lo marca **emitido**, y un rechazo del SII se ve en la plataforma. Hay que preguntarle a soporte por `ConsultarEstado`. La cuadratura se paga solo si hace falta (D7). El SII sí lo informa directo, pero pide el certificado digital (D9). |
 | L5 | Si la conexión se corta a mitad, no se sabe si el documento salió. | En las boletas (folio automático), reintentar puede **duplicar**. | Nunca se reintenta solo: el documento queda **«por confirmar»** y se revisa en la plataforma. Las facturas, con folio fijo, no se duplican, porque un folio repetido se rechaza. |
 | L6 | Lo emitido no se borra. `EliminarDoc` sirve solo para documentos **no electrónicos**, y `AnularGuia` solo para guías. | Un error queda emitido. | Siempre hay **vista previa y confirmación** antes de emitir. Para anular se emite una **nota de crédito** (tipo 61) que referencia al documento, con código 1. |
@@ -984,12 +984,22 @@ laboratorio):**
   `foliodesde` y `foliohasta` y respondía «sin folios».
 - Llegan varios rangos por tipo, y algunos agotados: el folio que sigue
   quedó fuera del rango (la nota de débito: 1 a 292.099, con el siguiente
-  en 292.100). Vale el primer rango con folios **en el orden en que los
-  lista facturacion.cl**; los libres suman todos. Medido ese mismo día: la
-  boleta salió con el siguiente del primer rango de la lista (9.300.006.564),
-  y una factura con el siguiente de un segundo rango más bajo (292.282) fue
-  rechazada, «El folio que esta enviando se encuentra fuera del rango que
-  tiene autorizado». Por eso los rangos no se ordenan por número.
+  en 292.100). Vale el rango con folios **de folio siguiente más alto**; los
+  libres suman todos los rangos con folios. Medido ese mismo día:
+  - a la boleta (folio 0) facturacion.cl le puso el siguiente del rango más
+    alto (9.300.006.564), no el del más bajo (745.814);
+  - la factura con el siguiente de un rango más bajo (292.282) fue
+    rechazada: «El folio que esta enviando se encuentra fuera del rango que
+    tiene autorizado». Con el del más alto (9.999.839.213) salió;
+  - la nota de crédito salió con el del más alto (9.999.974.794);
+  - la nota de débito con el del segundo de la lista (292.104) fue
+    rechazada igual que la factura.
+
+  Ni el orden de la lista ni el número del rango (`idcaf`) lo explican; el
+  más alto sí, en los cuatro tipos. Por si en producción fuera de otra
+  manera, la emisión que recibe «fuera del rango» pide una vez más el folio
+  de otro rango (L3). «Probar la conexión» anota en el registro del motor
+  todos los rangos de cada tipo, tal como los lista facturacion.cl.
 - La empresa de prueba es compartida por muchos integradores: los folios
   van en los miles de millones y avanzan solos. Por eso importa reintentar
   una vez si el folio ya existe (L3).

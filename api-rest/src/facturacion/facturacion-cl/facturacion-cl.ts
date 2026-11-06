@@ -73,8 +73,10 @@ export interface FacturacionCl {
   /** ¿Está arriba? (`Online`). */
   enLinea(): Promise<boolean>;
   /** El folio siguiente de un tipo (`ConsultarCAF`), para la factura y las
-   *  notas (L2). La boleta va con folio 0. */
-  folioSiguiente(tipo: number): Promise<number>;
+   *  notas (L2). La boleta va con folio 0. `descartados`: folios que
+   *  facturacion.cl ya rechazó «fuera del rango que tiene autorizado»; se
+   *  toma el de otro rango (paso 0, 06-11). */
+  folioSiguiente(tipo: number, descartados?: number[]): Promise<number>;
   /** Los folios que quedan de un tipo. null si no hay (o en el simulado,
    *  que no los tiene). */
   folios(tipo: number): Promise<FoliosDisponibles | null>;
