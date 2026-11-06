@@ -14,6 +14,7 @@ import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreatePersonDto } from './dto/create-person.dto';
@@ -100,6 +101,10 @@ export class PeopleController {
   @Derecho(null)
   @Permiso('postventa', 'personal')
   @DentroDe('cotizaciones', 'calendario')
+  // Las sillas de un evento (Post-Venta → Gestión): solo si el cargo
+  // trabaja el tipo de su cliente (doc 22 §9, tanda 2). Sin evento, la
+  // planificación de Personal (tanda 3).
+  @DelEvento({ query: 'evento' })
   @Get('staff')
   findStaff(
     @Query('evento') evento: string | undefined,
@@ -122,6 +127,7 @@ export class PeopleController {
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
   @Permiso('postventa', 'personal')
+  @DelEvento({ body: 'quotation_id' })
   @Post('staff')
   addStaff(@Body() dto: CreateEventStaffDto, @CurrentUser() user: User) {
     this.logger.info(`POST /people/staff ${logSafe(dto)}`);
@@ -140,6 +146,7 @@ export class PeopleController {
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
   @Permiso('postventa', 'personal')
+  @DelEvento({ tabla: 'event_staff', param: 'id' })
   @Patch('staff/:id')
   updateStaff(
     @Param('id') id: string,
@@ -153,6 +160,7 @@ export class PeopleController {
   @Roles(...OPERATIONS_AND_UP)
   @Derecho(null)
   @Permiso('postventa', 'personal')
+  @DelEvento({ tabla: 'event_staff', param: 'id' })
   @Delete('staff/:id')
   removeStaff(
     @Param('id') id: string,

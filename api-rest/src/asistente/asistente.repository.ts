@@ -428,7 +428,7 @@ export class AsistenteRepository {
       .from('payments')
       .select(
         `id, payment_number, amount, due_date, status,
-         quotations!inner ( id, quotation_number, quotation_status, company_id, event_date, clients ( name ) )`,
+         quotations!inner ( id, quotation_number, quotation_status, company_id, event_date, clients ( name, client_type ) )`,
       )
       .eq('quotations.company_id', companyId)
       .in('quotations.quotation_status', ['aceptada', 'realizada'])
@@ -699,7 +699,7 @@ export type CuotaPorCobrar = Omit<Cuota, 'payment_type'> & {
     quotation_number: number;
     quotation_status: QuotationStatus;
     event_date: string | null;
-    clients: { name: string | null } | null;
+    clients: { name: string | null; client_type?: string | null } | null;
   };
 };
 export type Insumo = {

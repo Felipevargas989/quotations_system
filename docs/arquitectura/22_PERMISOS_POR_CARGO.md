@@ -13,8 +13,9 @@
 >
 > **Los tipos de cliente de cada cargo (§9): aprobados el 05-11-2026**
 > (*"si vamos"*), con sus dos excepciones. La tanda 1 (la pantalla,
-> Cotizaciones, el Calendario y BelIA) programada ese día, sin migración;
-> las tandas 2 a 4, pendientes.
+> Cotizaciones, el Calendario y BelIA) en el laboratorio desde esa noche,
+> sin migración; la tanda 2 (Post-Venta, *"si sigue con la tanda 2"*)
+> programada esa misma noche (§9.6); las tandas 3 y 4, pendientes.
 
 ## 1. Lo que pidió Felipe
 
@@ -391,7 +392,7 @@ plan del §9.3 el mismo día: *"si vamos"*.
 | Tanda | Dónde | Con el tipo apagado | Estado |
 |---|---|---|---|
 | 1 | La pantalla; Cotizaciones (tablero, ficha del negocio, cotizador, crear, editar, borrar, enviar, seguimiento, aviso de cierre, topes, «Crear con IA»), las cuotas de la ficha, el resumen del cliente, el Calendario y BelIA | No ve sus cotizaciones ni sus montos, y no las toca. Es lo de hoy de recepción, ahora para los cuatro cargos | Programada el 05-11-2026 |
-| 2 | Post-Venta: pagos, reembolsos, comprobantes, documentos, cocina | Esos eventos no aparecen | Pendiente |
+| 2 | Post-Venta: pagos, reembolsos, comprobantes, documentos, cocina | Esos eventos no aparecen | Programada el 05-11-2026 (§9.6) |
 | 3 | Proveedores (compras del evento) y Personal (planificación) | Esos eventos no aparecen. Ojo: si a quien compra le apagas un tipo, su lista de compras sale sin los insumos de esos eventos | Pendiente |
 | 4 | Clientes, Encuestas y Dashboard | Esos clientes no aparecen ni cuentan en sus números | Pendiente |
 
@@ -443,3 +444,41 @@ plan del §9.3 el mismo día: *"si vamos"*.
   todavía no lo manda, lo de fábrica.
 - El Calendario: un evento que llega como agenda no muestra plata ni abre
   la ficha.
+
+### 9.6 La tanda 2: Post-Venta (05-11-2026)
+
+Felipe: *"si sigue con la tanda 2"*. Con un tipo de cliente apagado, los
+eventos de ese tipo no aparecen en Post-Venta ni se tocan.
+
+- **Las listas de toda la empresa** traen solo los eventos que el cargo ve
+  (`AlcanceDeRecepcion.soloLasQueVe` y `soloLasClavesQueVe`, que buscan el
+  tipo de cada cotización de a 100): la lista de Post-Venta
+  (`GET /payments/transactions` y `GET /payments/eventos-sin-plan`), los
+  reembolsos (`GET /refunds` y `GET /refunds/paid-map`), los comprobantes
+  del portal (`GET /portal-receipts`), el mapa de la bitácora
+  (`GET /quotation-followups/map`), los eventos aceptados de compras
+  (`GET /logistics/purchasing/accepted-events`) y los recursos de todos los
+  eventos (`GET /logistics/event-resources` sin evento).
+- **Cada puerta que toca un evento** dice de cuál es con `@DelEvento`
+  (`clients/del-evento.decorator.ts`): en la ruta, la consulta, el cuerpo o
+  una fila de otra tabla (un pago, un abono, un reembolso, un comprobante,
+  un documento, una nota de la bitácora, un recurso, una nota de cocina,
+  una silla del personal). El guardián global `TipoDelEventoGuard` (después
+  de los derechos) busca la cotización y la deja pasar solo si el cargo la
+  ve: los requerimientos, siempre. Un cargo que trabaja todos los tipos
+  pasa sin preguntarle a la base. Son 39 puertas; la prueba
+  `clients/tests/del-evento.spec.ts` las nombra una por una: **una puerta
+  nueva de un evento se agrega ahí**.
+- **La ficha** (`/post-venta/:id`) de un evento que no aparece en la lista
+  muestra lo de siempre: *«No se encontró ese evento en Post-Venta»*. La
+  pantalla no cambió.
+- **BelIA**: `pagos_del_evento` no da la plata de un tipo apagado (lo dice
+  con el mismo texto) y `cobranza` cuenta solo los eventos de los tipos que
+  trabaja; las dos marcan lo suyo con `trabaja: true`.
+- **Fuera de la tanda 2**: Facturación (vive solo en el laboratorio; sus
+  puertas del evento, como «Emitir DTE», se marcan cuando vaya con
+  Post-Venta), la planificación de Personal y las listas de compras
+  (tanda 3; con un tipo apagado, BelIA todavía tapa la plata de `compras` y
+  `logistica` en vez de esconder esos eventos), y Clientes, Encuestas y
+  Dashboard (tanda 4).
+

@@ -1,4 +1,6 @@
+import { trabajaElTipo } from 'src/auth/permisos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
+import { textoDeNoLoTrabaja } from 'src/clients/alcance-de-recepcion';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import type { Abono, Cuota, Reembolso } from '../asistente.repository';
 import {
@@ -13,6 +15,7 @@ import {
   sumarDias,
   type Herramienta,
 } from './comun';
+import { loTrabaja, tiposPara } from './recepcion';
 
 // «¿Cuánto falta por pagar de la 500?», «¿quién me debe esta semana?». La
 // pestaña Pagos de Post-Venta y la cobranza: es de operaciones para arriba
@@ -116,8 +119,15 @@ export const pagosDelEvento: Herramienta = {
           : 'Falta el N°: la persona no tiene ninguna cotización abierta.',
       );
     }
+    // Con un tipo de cliente apagado (doc 22 §9, tanda 2), la plata de sus
+    // eventos no se ve; la de los demás va completa, con la marca.
+    const trabaja = loTrabaja(await tiposPara(ctx), q.clients?.client_type);
+    if (trabaja === false) {
+      throw new ErrorDeHerramienta(textoDeNoLoTrabaja(q.clients?.client_type));
+    }
     const { cuotas, abonos, reembolsos } = await ctx.repositorio.plataDe(q.id);
     return {
+      ...(trabaja ? { trabaja: true as const } : {}),
       numero: q.quotation_number,
       enlace: enlaceDe(q, ctx.usuario.role),
       cliente: q.clients?.name ?? null,
@@ -161,7 +171,11 @@ export const cobranza: Herramienta = {
       hasta,
     );
     const deCuota = pagadoPorCuota(abonos);
+    // Solo los eventos de los tipos de cliente que su cargo trabaja (doc
+    // 22 §9, tanda 2).
+    const tipos = await tiposPara(ctx);
     const filas = cuotas
+      .filter((c) => trabajaElTipo(tipos, c.quotations.clients?.client_type))
       .map((c) => ({
         c,
         falta: Math.max(0, n(c.amount) - (deCuota.get(c.id) ?? 0)),
@@ -171,6 +185,7 @@ export const cobranza: Herramienta = {
       (x) => !!x.c.due_date && x.c.due_date < ctx.hoy,
     );
     return {
+      ...(tipos ? { trabaja: true as const } : {}),
       hasta: conDia(hasta),
       total_por_cobrar: pesos(filas.reduce((s, x) => s + x.falta, 0)),
       vencido: pesos(vencidas.reduce((s, x) => s + x.falta, 0)),

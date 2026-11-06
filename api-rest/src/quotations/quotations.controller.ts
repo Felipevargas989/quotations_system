@@ -31,6 +31,7 @@ import {
   revisarLoQueCotiza,
   type CotizacionParaElAlcance,
 } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
@@ -396,6 +397,7 @@ export class QuotationsController {
   // cliente (una sola vez; ver QuotationsService.markEventDone).
   @Roles(...OPERATIONS_AND_UP)
   @Permiso('postventa')
+  @DelEvento({ param: 'id' })
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
@@ -409,6 +411,7 @@ export class QuotationsController {
   // se toca (y si se re-marca, no se reenvia: survey_sent_at manda).
   @Roles(...ADMIN_ONLY)
   @DentroDe('postventa')
+  @DelEvento({ param: 'id' })
   @Post(':id/volver-a-pendiente')
   unmarkEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/volver-a-pendiente`);
