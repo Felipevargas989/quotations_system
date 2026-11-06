@@ -5,12 +5,14 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { tieneDerecho } from 'src/auth/derechos';
 import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { User } from 'src/users/entities/user.entity';
 import { AnalyticsService } from './analytics.service';
 import { GetCompleteStatsDto } from './dto/get-complete-stats.dto';
 import { GetDashboardStatsDto } from './dto/get-dashboard-stats.dto';
 
-// Sección de administrador (Fase 3): el cargo se exige acá.
+// Sección de administrador (Fase 3): el cargo se exige acá. Con un tipo de
+// cliente apagado (doc 22 §9.8), sus clientes no cuentan en los números.
 @Roles(...ADMIN_ONLY)
 @Permiso('dashboard')
 @Controller('analytics')
@@ -18,10 +20,11 @@ export class AnalyticsController {
   constructor(
     private readonly analyticsService: AnalyticsService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {}
 
   @Get('dashboard')
-  getDashboardStats(
+  async getDashboardStats(
     @CurrentUser() user: User,
     @Query() getDashboardStatsDto: GetDashboardStatsDto,
   ) {
@@ -38,6 +41,7 @@ export class AnalyticsController {
       // NO lleva candado: la misma respuesta sirve a los dos niveles y el
       // servicio entrega solo los bloques que corresponden.
       tieneDerecho(user.derechos, 'dashboard_2'),
+      await this.alcance.tiposDelCargo(user),
     );
   }
 
@@ -46,7 +50,7 @@ export class AnalyticsController {
   // Gestiona y Cobra (paso 3.2, 14-09-2026).
   @Derecho('dashboard_2')
   @Get('complete')
-  getCompleteStats(
+  async getCompleteStats(
     @CurrentUser() user: User,
     @Query() getCompleteStatsDto: GetCompleteStatsDto,
   ) {
@@ -55,6 +59,7 @@ export class AnalyticsController {
     return this.analyticsService.getCompleteStats(
       user.company_id,
       getCompleteStatsDto,
+      await this.alcance.tiposDelCargo(user),
     );
   }
 }
