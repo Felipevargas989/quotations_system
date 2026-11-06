@@ -290,6 +290,39 @@ describe('los folios (ConsultarCAF)', () => {
     });
   });
 
+  it('la respuesta de verdad del ambiente de pruebas (06-11): rangodesde/rangohasta, DD-MM-AAAA y los rangos agotados', () => {
+    const caf = (
+      id: number,
+      tipo: number,
+      desde: number,
+      hasta: number,
+      siguiente: number,
+      vence = '19-02-2101',
+    ) =>
+      `<CAF> <idcaf>${id}</idcaf> <tipodte>${tipo}</tipodte> <fecha>19-08-2100</fecha> <fechavencimiento>${vence}</fechavencimiento> <rangodesde>${desde}</rangodesde> <rangohasta>${hasta}</rangohasta> <cantidad>${hasta - desde + 1}</cantidad> <foliosiguiente>${siguiente}</foliosiguiente> </CAF>`;
+    // La factura: el rango que va en el folio 9.999.839.213.
+    expect(leerFolios(caf(6, 33, 293001, 9999999999, 9999839213), 33)).toEqual({
+      tipo: 33,
+      siguiente: 9999839213,
+      hasta: 9999999999,
+      libres: 160787,
+      vence: '2101-02-19',
+    });
+    // La nota de débito: el primer rango está agotado (el siguiente quedó
+    // fuera), vale el que sigue.
+    expect(
+      leerFolios(
+        caf(72, 56, 1, 292099, 292100) +
+          caf(73, 56, 292100, 9999999999, 292150),
+        56,
+      ),
+    ).toMatchObject({ siguiente: 292150 });
+    // La boleta: «NO APLICA» de vencimiento.
+    expect(
+      leerFolios(caf(59, 39, 746670, 9309980000, 9300006564, 'NO APLICA'), 39),
+    ).toMatchObject({ siguiente: 9300006564, vence: null });
+  });
+
   it('sin folios: dice lo que respondió facturacion.cl', async () => {
     const { soap } = servicio(() => ({
       texto: sobre(

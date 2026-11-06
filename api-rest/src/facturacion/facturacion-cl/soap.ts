@@ -204,30 +204,36 @@ export const leerProcesar = (
 };
 
 /**
- * Lee `ConsultarCAF`: idcaf, tipodte, foliodesde, foliohasta, fecha,
- * fechavencimiento, cantidad y foliosiguiente, por cada rango cargado. Vale
- * el primer rango que todavía tiene folios; los que siguen suman a los
- * libres.
+ * Lee `ConsultarCAF`, un `<CAF>` por cada rango cargado: idcaf, tipodte,
+ * fecha, fechavencimiento, el rango, cantidad y foliosiguiente. El manual
+ * nombra el rango `foliodesde`/`foliohasta`; el servicio de verdad (paso 0,
+ * 06-11) responde `rangodesde`/`rangohasta`, con las fechas en DD-MM-AAAA
+ * y «NO APLICA» de vencimiento en las boletas: se leen las dos formas. Vale
+ * el primer rango que todavía tiene folios (los agotados traen el
+ * siguiente fuera del rango); los que siguen suman a los libres.
  */
 export const leerFolios = (
   xml: string,
   tipo: number,
 ): FoliosDisponibles | null => {
-  const todos = (etiqueta: string) =>
-    [
-      ...xml.matchAll(
-        new RegExp(`<(?:[\\w-]+:)?${etiqueta}\\s*>([^<]*)<`, 'gi'),
-      ),
-    ].map((m) => desescapar(m[1]).trim());
-  const desde = todos('foliodesde').map(Number);
-  const hasta = todos('foliohasta').map(Number);
-  const vence = todos('fechavencimiento');
-  const rangos = todos('foliosiguiente')
-    .map((s, i) => ({
-      siguiente: Number(s),
-      desde: desde[i],
-      hasta: hasta[i],
-      vence: vence[i] || null,
+  const cafs = [
+    ...xml.matchAll(/<(?:[\w-]+:)?CAF\s*>([\s\S]*?)<\/(?:[\w-]+:)?CAF\s*>/gi),
+  ].map((m) => m[1]);
+  // Lo que no viene no es un 0: queda NaN y el rango no vale.
+  const uno = (bloque: string, ...etiquetas: string[]) => {
+    for (const e of etiquetas) {
+      const v = valorDe(bloque, e);
+      if (v != null && v !== '') return v;
+    }
+    return null;
+  };
+  const numero = (v: string | null) => (v == null ? NaN : Number(v));
+  const rangos = (cafs.length ? cafs : [xml])
+    .map((b) => ({
+      siguiente: numero(uno(b, 'foliosiguiente')),
+      desde: numero(uno(b, 'rangodesde', 'foliodesde')),
+      hasta: numero(uno(b, 'rangohasta', 'foliohasta')),
+      vence: fechaDe(uno(b, 'fechavencimiento')),
     }))
     .filter(
       (r) =>
