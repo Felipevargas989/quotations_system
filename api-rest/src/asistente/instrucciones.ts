@@ -79,16 +79,31 @@ export type Momento = {
   hoy: string;
   /** "la cotización N° 500 · Rudel (Aceptada)", o la ruta. */
   pantalla: string | null;
+  /** Los tipos de cliente que trabaja su cargo (doc 22 §9); null si todos.
+   *  Sin el dato, como recepción de fábrica: los particulares. */
+  tipos?: string[] | null;
 };
+
+const LISTA_DE_TIPOS = (tipos: readonly string[]): string =>
+  tipos.length ? tipos.map((t) => `«${t}»`).join(', ') : 'ninguno por ahora';
 
 // Recepción (doc 20 §13; Felipe, 04-11-2026: de la bitácora, "más que
 // mostrarles, como darle contexto"). Las herramientas ya le llegan sin
 // plata: esto le explica a BelIA cómo contestarle. Desde el doc 21 cotiza a
-// los particulares: lo de ellos le llega completo, con `particular: true`.
-const PARA_RECEPCION = `Quien escribe es de recepción: atiende a los clientes que llaman o escriben.
-Los clientes particulares (las personas que cotizan para sí, que te llegan con «particular: true») los trabaja completos, como quien vende: ve sus montos, sus servicios y su ficha, y con BelIA puede cambiarles los servicios, anotar en la bitácora, preparar el seguimiento y crearles cotizaciones con servicios del catálogo. Sin descuentos, nunca: su tope es 0 %. Tampoco acepta, anula ni marca realizada una cotización: eso es de operaciones.
+// los particulares: lo de ellos le llega completo, con `trabaja: true`. Desde
+// el doc 22 §9, los tipos que trabaja los dicen sus interruptores (de
+// fábrica, los particulares).
+const PARA_RECEPCION = (
+  tipos: string,
+) => `Quien escribe es de recepción: atiende a los clientes que llaman o escriben.
+Los clientes de los tipos que trabaja su cargo (${tipos}; te llegan con «trabaja: true») los trabaja completos, como quien vende: ve sus montos, sus servicios y su ficha, y con BelIA puede cambiarles los servicios, anotar en la bitácora, preparar el seguimiento y crearles cotizaciones con servicios del catálogo. Sin descuentos, nunca: su tope es 0 %. Tampoco acepta, anula ni marca realizada una cotización: eso es de operaciones.
 De los demás clientes no ve montos ni precios (totales, valor por persona, pagos, cuotas) ni abre la ficha del negocio. Nunca los menciones, aunque te los pida: dile que eso lo ve quien vende. A esos clientes les crea requerimientos, sin servicios: la cotización la arma quien vende.
 Si pregunta en qué va una cotización o un requerimiento, dale contexto con la bitácora en una o dos líneas, en tus palabras: lo último que se hizo, por qué canal, y lo que quedó pendiente o el próximo contacto. Por ejemplo: «Lo último es que se le envió la cotización por correo el lunes 02-11; quedó en responder esta semana». No pegues las notas.`;
+
+// Otro cargo con un tipo de cliente apagado en Permisos por cargo (doc 22
+// §9): lo mismo que recepción en lo del tipo, nada más.
+const PARA_TIPOS = (tipos: string) =>
+  `Su cargo trabaja solo los clientes de estos tipos: ${tipos}. Lo de ellos te llega completo, con «trabaja: true». De los clientes de los demás tipos no ve montos ni precios (totales, valor por persona, pagos, cuotas), ni sus servicios, ni puede cambiar sus cotizaciones: si te lo pide, dile que su cargo no trabaja ese tipo de cliente (se cambia en Permisos por cargo).`;
 
 export const instruccionesDelMomento = (m: Momento): string => {
   const d = new Date(`${m.hoy}T00:00:00Z`);
@@ -100,6 +115,10 @@ export const instruccionesDelMomento = (m: Momento): string => {
     m.pantalla
       ? `Ahora está mirando ${m.pantalla}. Si dice «esta» o «este», habla de eso.`
       : 'No hay una cotización abierta en su pantalla.',
-    ...(m.cargo === UserRole.RECEPCION ? [PARA_RECEPCION] : []),
+    ...(m.cargo === UserRole.RECEPCION
+      ? [PARA_RECEPCION(m.tipos ? LISTA_DE_TIPOS(m.tipos) : 'los particulares')]
+      : m.tipos
+        ? [PARA_TIPOS(LISTA_DE_TIPOS(m.tipos))]
+        : []),
   ].join('\n');
 };

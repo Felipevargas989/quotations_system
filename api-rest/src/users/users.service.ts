@@ -109,10 +109,16 @@ export class UsersService {
     // cuenta que usa el motor: el menú, las rutas y los botones dejan de
     // tener su propia copia.
     const permisos = await this.permisosService.delCargo(companyId, data.role);
+    // Y los tipos de cliente que trabaja (doc 22 §9): null si todos. Si no
+    // se pueden leer, el perfil sale igual y la app usa lo de fábrica.
+    const tipos_de_cliente = await this.permisosService
+      .nombresDeSusTipos(companyId, data.role)
+      .catch(() => undefined);
     return {
       data: {
         ...data,
         permisos,
+        ...(tipos_de_cliente !== undefined ? { tipos_de_cliente } : {}),
         companies: empresa ? { ...empresa, ...derechos } : empresa,
       },
       error: null,

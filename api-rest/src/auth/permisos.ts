@@ -258,6 +258,100 @@ export function permisosDelCargo(
   }).map((p) => p.clave);
 }
 
+// LOS TIPOS DE CLIENTE QUE TRABAJA CADA CARGO (doc 22 §9; Felipe,
+// 05-11-2026: "podría ser un botón que prende y se apaga, porque no puede
+// ser una marca sobre otra"). Un interruptor por tipo y por cargo, en la
+// misma tabla que los permisos, con la clave `tipo_cliente:<id>` (el id no
+// cambia aunque el tipo cambie de nombre). De fábrica, lo de hoy: recepción
+// trabaja los tipos particulares (doc 21) y los demás cargos, todos.
+
+export const PREFIJO_DE_TIPO = 'tipo_cliente:';
+
+export const claveDeTipo = (id: number): string => `${PREFIJO_DE_TIPO}${id}`;
+
+/** Un tipo de cliente de la empresa, con su marca de particular (doc 21). */
+export type TipoDeCliente = {
+  id: number;
+  name: string;
+  es_particular?: boolean | null;
+};
+
+/** ¿El cargo trabaja este tipo de fábrica? */
+export const tipoDeFabrica = (
+  cargo: string,
+  tipo: Pick<TipoDeCliente, 'es_particular'>,
+): boolean =>
+  cargo === (UserRole.RECEPCION as string) ? !!tipo.es_particular : true;
+
+/** ¿El cargo trabaja este tipo en su empresa? Lo de fábrica, con lo que la
+ *  empresa cambió. */
+export const tipoPrendido = (
+  cargo: string,
+  tipo: TipoDeCliente,
+  filas: readonly FilaDePermiso[] = [],
+): boolean => {
+  const fila = filas.find(
+    (f) => f.cargo === cargo && f.permiso === claveDeTipo(tipo.id),
+  );
+  return fila ? fila.prendido : tipoDeFabrica(cargo, tipo);
+};
+
+/** ¿La empresa le cambió a este cargo algún tipo? Sin filas de tipos, el
+ *  cargo trabaja lo de fábrica. */
+export const cambiaronSusTipos = (
+  cargo: string,
+  filas: readonly FilaDePermiso[] = [],
+): boolean =>
+  filas.some((f) => f.cargo === cargo && f.permiso.startsWith(PREFIJO_DE_TIPO));
+
+const normalDelTipo = (t: string | null | undefined): string =>
+  (t ?? '').trim().toLowerCase();
+
+/** Los tipos que trabaja un cargo (sus nombres, en minúsculas), o `null` si
+ *  los trabaja todos: entonces no se filtra nada, como siempre a vendedor,
+ *  operaciones y administrador. */
+export type TiposQueTrabaja = {
+  prendidos: ReadonlySet<string>;
+  /** Todos los de la empresa: un cliente con un tipo que no está acá, o sin
+   *  tipo, va por `sinTipo`. */
+  conocidos: ReadonlySet<string>;
+  /** Los clientes sin tipo: como hoy, todos los cargos menos recepción. No
+   *  llevan interruptor: en producción hay uno solo (medido el 05-11-2026). */
+  sinTipo: boolean;
+} | null;
+
+/** ¿Trabaja un cliente de este tipo? Sin mayúsculas ni espacios de
+ *  diferencia. */
+export const trabajaElTipo = (
+  tipos: TiposQueTrabaja,
+  tipo: string | null | undefined,
+): boolean => {
+  if (!tipos) return true;
+  const t = normalDelTipo(tipo);
+  if (tipos.prendidos.has(t)) return true;
+  return !tipos.conocidos.has(t) && tipos.sinTipo;
+};
+
+/** La cuenta de los tipos de un cargo, sin base: los tipos de la empresa y
+ *  lo que la empresa apartó de fábrica. Sin cargo, como vendedor para
+ *  arriba: no se filtra (lo de siempre). */
+export const tiposQueTrabaja = (
+  cargo: string | null | undefined,
+  tipos: readonly TipoDeCliente[],
+  filas: readonly FilaDePermiso[] = [],
+): TiposQueTrabaja => {
+  const sinTipo = cargo !== UserRole.RECEPCION;
+  const prendidos = cargo
+    ? tipos.filter((t) => tipoPrendido(cargo, t, filas))
+    : tipos;
+  if (sinTipo && prendidos.length === tipos.length) return null;
+  return {
+    prendidos: new Set(prendidos.map((t) => normalDelTipo(t.name))),
+    conocidos: new Set(tipos.map((t) => normalDelTipo(t.name))),
+    sinTipo,
+  };
+};
+
 /** Lo que marca una puerta: su `@Roles` de siempre y sus permisos. */
 export type MarcasDeLaPuerta = {
   roles?: readonly string[];

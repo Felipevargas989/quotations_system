@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PantallaDePermisos,
   cambiarPermiso,
+  cambiarTipo,
   getPermisos,
   volverAFabrica,
 } from "../../services/permisos.service";
@@ -19,6 +20,7 @@ import { textoDelUltimoCambio } from "./ultimoCambio";
 vi.mock("../../services/permisos.service", () => ({
   getPermisos: vi.fn(),
   cambiarPermiso: vi.fn(),
+  cambiarTipo: vi.fn(),
   volverAFabrica: vi.fn(),
 }));
 vi.mock("../../components/toast/Toast", () => ({
@@ -183,5 +185,82 @@ describe("PermisosPorCargo", () => {
         nombre,
       ),
     ).toMatch(/^Último cambio: Camila volvió todo a lo de fábrica, /);
+  });
+
+  // Doc 22 §9: el bloque «Tipos de cliente», sin candados.
+  it("los tipos de cliente: un interruptor por tipo y por cargo, y guarda de a uno", async () => {
+    const conTipos = pantalla({
+      tipos: [
+        {
+          id: 2,
+          nombre: "Particulares",
+          celdas: celdas(true, true, true, true),
+        },
+        { id: 4, nombre: "Empresas", celdas: celdas(false, true, true, true) },
+      ],
+    });
+    vi.mocked(getPermisos).mockResolvedValue(conTipos);
+    const despues = pantalla({
+      deFabrica: false,
+      tipos: [
+        conTipos.tipos![0],
+        {
+          id: 4,
+          nombre: "Empresas",
+          celdas: {
+            ...celdas(false, true, true, true),
+            vendedor: { prendido: false, fabrica: true },
+          },
+        },
+      ],
+    });
+    vi.mocked(cambiarTipo).mockResolvedValue(despues);
+    pintar();
+    expect(await screen.findByText("Tipos de cliente")).toBeInTheDocument();
+    expect(screen.getAllByRole("switch")).toHaveLength(20);
+    const empresasDeRecepcion = screen.getByRole("switch", {
+      name: "Empresas de Recepción",
+    });
+    expect(empresasDeRecepcion).toHaveAttribute("aria-checked", "false");
+    expect(empresasDeRecepcion).not.toBeDisabled();
+    await userEvent.click(
+      screen.getByRole("switch", { name: "Empresas de Vendedor" }),
+    );
+    expect(cambiarTipo).toHaveBeenCalledWith({
+      cargo: "vendedor",
+      tipo: 4,
+      prendido: false,
+    });
+    expect(
+      await screen.findByRole("switch", { name: "Empresas de Vendedor" }),
+    ).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("el último cambio de un tipo dice su nombre", async () => {
+    vi.mocked(getPermisos).mockResolvedValue(
+      pantalla({
+        tipos: [
+          {
+            id: 7,
+            nombre: "Club Adulto Mayor",
+            celdas: celdas(true, true, true, true),
+          },
+        ],
+        ultimoCambio: {
+          quien: "Felipe",
+          cuando: "2026-11-05T21:30:00Z",
+          accion: "cambio",
+          cargo: "recepcion",
+          permiso: "tipo_cliente:7",
+          prendido: true,
+        },
+      }),
+    );
+    pintar();
+    expect(
+      await screen.findByText(
+        /^Último cambio: Felipe prendió el tipo «Club Adulto Mayor» a Recepción/,
+      ),
+    ).toBeInTheDocument();
   });
 });

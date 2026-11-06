@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`).
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`). Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (§5.9, `PUT /permisos/tipos`, doc 22 §9).
 
 ## 1. Qué hace
 
@@ -69,8 +69,9 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `PATCH /users/:id` (id del **perfil**) | `UsersController.update` | `UsersService.update` → `UsersRepository.update` | `updateUser` ← `UserManagementPage.createUser` en modo edición | `ADMIN_ONLY`. No filtra por empresa |
 | `DELETE /users/:id` (id del perfil) | `UsersController.remove` | `UsersService.remove` → `UsersRepository.remove` + `UsersRepository.removeAuthUser` | `deleteUser` ← `UserManagementPage.deleteUser` | `ADMIN_ONLY` |
 | `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5); acepta `origen_detalle` opcional (migración 116) y, si el motor lo rechazara, la app reintenta sin la marca | `@Public` + `@Throttle` 10/min |
-| `GET /permisos` (05-11-2026, doc 22) | `PermisosController.pantalla` | `PermisosService.pantalla`: cada permiso del catálogo (`auth/permisos.ts`) con sus cuatro celdas (prendido y de fábrica), su candado (`fijo` o `plan`) y el último cambio. Lee `permisos_por_cargo` y `permisos_por_cargo_cambios` de la base, no de la memoria | la pestaña «Permisos por cargo» de `UserManagementPage` | `ADMIN_ONLY` y `@Permiso('usuarios')`, fijo del administrador |
+| `GET /permisos` (05-11-2026, doc 22) | `PermisosController.pantalla` | `PermisosService.pantalla`: cada permiso del catálogo (`auth/permisos.ts`) con sus cuatro celdas (prendido y de fábrica), su candado (`fijo` o `plan`), los tipos de cliente de la empresa con sus cuatro celdas (`tipos`, doc 22 §9) y el último cambio. Lee `permisos_por_cargo`, `client_types` y `permisos_por_cargo_cambios` de la base, no de la memoria | la pestaña «Permisos por cargo» de `UserManagementPage` | `ADMIN_ONLY` y `@Permiso('usuarios')`, fijo del administrador |
 | `PUT /permisos` (05-11-2026, doc 22) | `PermisosController.cambiar` | `PermisosService.cambiar` → función `permisos_por_cargo_cambiar` (migración 188): guarda o borra la fila y anota quién, en un solo paso; olvida `cachePermisos` de la empresa. Rechaza `mi_empresa` y `usuarios` (400) y prender lo que el plan no trae (`SIN_DERECHO`). Si ya estaba así, no anota | el interruptor de la pestaña | igual |
+| `PUT /permisos/tipos` (05-11-2026, doc 22 §9) | `PermisosController.cambiarTipo` | `PermisosService.cambiarTipo` → la misma función `permisos_por_cargo_cambiar`, con la clave `tipo_cliente:<id>`; olvida `cachePermisos` y `cacheTiposDeCliente` de la empresa. Un tipo que no es de la empresa, 400. Sin candados: los cuatro cargos se editan | el bloque «Tipos de cliente» de la pestaña | igual |
 | `POST /permisos/fabrica` (05-11-2026, doc 22) | `PermisosController.volverAFabrica` | `PermisosService.volverAFabrica` → función `permisos_por_cargo_a_fabrica`: borra lo apartado de la empresa y lo anota como un cambio más | «Volver a lo de fábrica» | igual |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; el controller recorta a 11 campos | `getCompanyPublic` ← `CreateQuotationPublic` (mapa 11); `getCompanyById` (`services/superAdmin.service.tsx`) ← `PublicSurvey` (mapa 14) | `@Public` |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` → `CompaniesRepository.findOne` (`select('*')`) | `getCompany` ← `ConfigurationPage` (queryKey `["company", id]`) | solo sesión. **No compara con la empresa de la sesión** |
@@ -725,13 +726,28 @@ cambió.
   Cotizaciones, Dashboard ni Personal trae solo requerimientos.
 - BelIA hace la misma cuenta con sus herramientas (mapa 25).
 
+**Los tipos de cliente de cada cargo (doc 22 §9).** Felipe, 05-11-2026:
+*"Todo debería mirar el tipo"*. Un interruptor por tipo de cliente y por
+cargo, en la misma tabla (`permiso` = `tipo_cliente:<id>`). De fábrica, lo
+de hoy: recepción trabaja los tipos con `es_particular` (doc 21) y los
+demás cargos, todos. La cuenta (`tiposQueTrabaja` y `trabajaElTipo`, en
+`auth/permisos.ts`) la hace `PermisosService.tiposDelCargo`, con los tipos
+de la empresa en `cacheTiposDeCliente` (cinco minutos; crear, ordenar o
+borrar un tipo y cambiar un interruptor la olvidan). Vendedor para arriba
+sin ningún interruptor de tipo cambiado: null, sin leer los tipos. La
+aplica `AlcanceDeRecepcion` en todas las puertas de cotizaciones (mapa 02)
+y BelIA (mapa 25). Los clientes sin tipo no llevan interruptor: los ve todo
+cargo menos recepción, como hoy. El perfil trae `tipos_de_cliente` (null si
+todos), que usan el cotizador y el filtro por tipo del tablero.
+
 **En la app.** Gestión de usuarios (Mi empresa → Usuarios) tiene dos
 pestañas: «Usuarios» y «Permisos por cargo» (`?vista=permisos`,
 `pages/configuration/PermisosPorCargo.tsx`), que reemplazó el cuadro
 «📋 Permisos por Rol» (era solo texto y decía que recepción ve Clientes).
 La pestaña pinta lo que manda `GET /permisos`: filas por área, un
-`Interruptor` por cargo, «Volver a lo de fábrica» arriba (con
-`ConfirmInline`) y el último cambio abajo. El menú (`Sidebar`, `Layout`),
+`Interruptor` por cargo, debajo el bloque «Tipos de cliente» (doc 22 §9),
+«Volver a lo de fábrica» arriba (con `ConfirmInline`, vuelve también los
+tipos) y el último cambio abajo. El menú (`Sidebar`, `Layout`),
 las rutas (`PermissionGuard section=…`) y los botones de las pantallas
 (cotizar, ver Post-Venta, ver Clientes, BelIA) preguntan por el permiso de
 `useAuth().permisos`; sin la lista del motor, los de fábrica

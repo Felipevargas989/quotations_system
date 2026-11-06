@@ -1,5 +1,4 @@
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
-import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import { RequestType } from 'src/quotations/constants/constants';
 import { UserRole } from 'src/users/entities/user.entity';
 import type { FichaDeCotizacion } from '../asistente.repository';
@@ -16,7 +15,7 @@ import {
   sumarDias,
   type Herramienta,
 } from './comun';
-import { esRecepcion, particularesPara, sinMontos } from './recepcion';
+import { esRecepcion, loTrabaja, sinMontos, tiposPara } from './recepcion';
 
 // «¿Qué cena tiene el día 3 de la 500?», «¿qué trae esta cotización?». La
 // ficha del negocio: los servicios día por día, la plata y la bitácora. Es
@@ -112,7 +111,9 @@ export const diasDe = (foto: Foto, desde: string | null, personas: number) => {
 export const fichaComoLaVePersona = (
   q: FichaDeCotizacion,
   rol: Parameters<typeof enlaceDe>[1],
-  deParticular = false,
+  // Si su cargo trabaja el tipo del cliente: a recepción le cambia el
+  // enlace (`enlaceDe`).
+  trabaja = false,
 ) => {
   const desde = diaDelEvento(q.event_date);
   const hasta = diaDelEvento(q.event_end_date);
@@ -120,7 +121,7 @@ export const fichaComoLaVePersona = (
   const ninos = n(q.children_count);
   return {
     numero: q.quotation_number,
-    enlace: enlaceDe(q, rol, deParticular),
+    enlace: enlaceDe(q, rol, trabaja),
     estado: estadoDe(q.quotation_status),
     tipo:
       q.request_type === RequestType.REQUERIMIENTO
@@ -174,8 +175,13 @@ export const fichaComoLaVePersona = (
   };
 };
 
-/** Lo que ve recepción de la ficha: lo de la cabecera, sin plata. */
-export const fichaParaRecepcion = (q: FichaDeCotizacion) => {
+/** Lo que ve de la ficha un cargo que no trabaja el tipo del cliente (doc
+ *  22 §9; recepción, de fábrica, el de los que no son particulares): lo de
+ *  la cabecera, sin plata. */
+export const fichaParaRecepcion = (
+  q: FichaDeCotizacion,
+  rol: UserRole = UserRole.RECEPCION,
+) => {
   const completa = fichaComoLaVePersona(q, UserRole.RECEPCION);
   return {
     numero: completa.numero,
@@ -187,7 +193,9 @@ export const fichaParaRecepcion = (q: FichaDeCotizacion) => {
     personas: completa.personas,
     enviada: completa.enviada,
     creada: completa.creada,
-    nota: 'Recepción no ve la plata ni los servicios: eso lo ve quien vende.',
+    nota: esRecepcion(rol)
+      ? 'Recepción no ve la plata ni los servicios: eso lo ve quien vende.'
+      : 'Su cargo no trabaja este tipo de cliente (Permisos por cargo): no ve la plata ni los servicios.',
   };
 };
 
@@ -206,8 +214,9 @@ export const verCotizacion: Herramienta = {
     'La ficha completa de una cotización: cliente, contacto, fechas, personas, los servicios ' +
     'día por día (cada casilla con su valor por persona), los fijos, la plata y las últimas ' +
     'notas de la bitácora. Sin `numero`, la que la persona tiene abierta en la pantalla. ' +
-    'Para recepción, sin la plata ni los servicios (el estado, las fechas, las personas y la ' +
-    'bitácora), salvo la de un cliente particular, que llega completa con `particular: true`.',
+    'Si el cargo no trabaja todos los tipos de cliente, la de un tipo que no trabaja llega sin la ' +
+    'plata ni los servicios (el estado, las fechas, las personas y la bitácora); la de un tipo que ' +
+    'trabaja llega completa con `trabaja: true`.',
   esquema: {
     type: 'object',
     properties: {
@@ -235,12 +244,10 @@ export const verCotizacion: Herramienta = {
     }
     const notas = ((await ctx.bitacora.findByQuotation(empresa, q.id)) ??
       []) as Nota[];
-    const recepcion = esRecepcion(ctx.usuario.role);
-    // Recepción ve completa la de un cliente particular (doc 21).
-    const deParticular =
-      recepcion &&
-      esDeLosParticulares(await particularesPara(ctx), q.clients?.client_type);
-    const sinPlata = recepcion && !deParticular;
+    // Completa la de un tipo de cliente que su cargo trabaja (doc 22 §9; a
+    // recepción, de fábrica, la de un particular, doc 21).
+    const trabaja = loTrabaja(await tiposPara(ctx), q.clients?.client_type);
+    const sinPlata = trabaja === false;
     const recientes = [...notas]
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
       .slice(0, 8)
@@ -255,10 +262,10 @@ export const verCotizacion: Herramienta = {
         cumplido: f.next_contact_done_at ? true : undefined,
       }));
     return {
-      ...(deParticular ? { particular: true as const } : {}),
+      ...(trabaja === true ? { trabaja: true as const } : {}),
       ...(sinPlata
-        ? fichaParaRecepcion(q)
-        : fichaComoLaVePersona(q, ctx.usuario.role, deParticular)),
+        ? fichaParaRecepcion(q, ctx.usuario.role)
+        : fichaComoLaVePersona(q, ctx.usuario.role, true)),
       bitacora: recientes,
       notas_en_total: notas.length,
     };

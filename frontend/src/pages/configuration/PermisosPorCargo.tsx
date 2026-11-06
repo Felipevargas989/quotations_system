@@ -7,6 +7,7 @@ import { Permiso, UserRole } from "../../constants/permissions";
 import {
   PantallaDePermisos,
   cambiarPermiso,
+  cambiarTipo,
   getPermisos,
   volverAFabrica,
 } from "../../services/permisos.service";
@@ -21,6 +22,10 @@ import { NOMBRE_DEL_CARGO, textoDelUltimoCambio } from "./ultimoCambio";
 // Rige al instante: el motor guarda, anota quién y olvida su memoria. Lo
 // que el plan no trae y lo que es fijo del administrador vienen con
 // candado desde el motor, que además rechaza moverlos.
+//
+// Debajo, «Tipos de cliente» (doc 22 §9; Felipe, 05-11-2026: "un botón que
+// prende y se apaga"): qué tipos trabaja cada cargo, en todas las
+// secciones. Sin candados: los cuatro cargos se editan.
 
 const NOMBRE_DEL_AREA: Record<string, string> = {
   comercial: "Comercial",
@@ -74,6 +79,21 @@ export default function PermisosPorCargo() {
     }
   };
 
+  const cambiarElTipo = async (
+    tipo: number,
+    cargo: UserRole,
+    prendido: boolean,
+  ) => {
+    setGuardando(`tipo:${tipo}:${cargo}`);
+    try {
+      alGuardar(await cambiarTipo({ cargo, tipo, prendido }));
+    } catch (e) {
+      if (!yaAvisado(e)) toast.error(humanizeApiError(e));
+    } finally {
+      setGuardando(null);
+    }
+  };
+
   const aFabrica = async () => {
     setVolviendo(true);
     try {
@@ -102,8 +122,14 @@ export default function PermisosPorCargo() {
   }
 
   const areas = [...new Set(data.permisos.map((p) => p.area))];
-  const nombreDe = (clave: string) =>
-    data.permisos.find((p) => p.clave === clave)?.nombre ?? clave;
+  const tipos = data.tipos ?? [];
+  const nombreDe = (clave: string) => {
+    if (clave.startsWith("tipo_cliente:")) {
+      const t = tipos.find((x) => `tipo_cliente:${x.id}` === clave);
+      return t ? `el tipo «${t.nombre}»` : "un tipo de cliente";
+    }
+    return data.permisos.find((p) => p.clave === clave)?.nombre ?? clave;
+  };
 
   return (
     <div className="space-y-4">
@@ -184,6 +210,31 @@ export default function PermisosPorCargo() {
                     </tr>
                   ))}
               </Fragment>
+            ))}
+            {tipos.length > 0 && (
+              <tr className="bg-gray-50">
+                <td
+                  colSpan={data.cargos.length + 1}
+                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
+                >
+                  Tipos de cliente
+                </td>
+              </tr>
+            )}
+            {tipos.map((t) => (
+              <tr key={`tipo-${t.id}`} className="border-t border-gray-100">
+                <td className="px-4 py-3 text-gray-900">{t.nombre}</td>
+                {data.cargos.map((c) => (
+                  <td key={c} className="px-4 py-3 text-center">
+                    <Interruptor
+                      prendido={t.celdas[c].prendido}
+                      etiqueta={`${t.nombre} de ${NOMBRE_DEL_CARGO[c]}`}
+                      ocupado={guardando === `tipo:${t.id}:${c}`}
+                      onCambiar={(prendido) => cambiarElTipo(t.id, c, prendido)}
+                    />
+                  </td>
+                ))}
+              </tr>
             ))}
           </tbody>
         </table>

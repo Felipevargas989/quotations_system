@@ -17,6 +17,7 @@ import {
 } from 'src/auth/derechos';
 import {
   AlcanceDeRecepcion,
+  noLoTrabaja,
   revisarLoQueCotiza,
 } from 'src/clients/alcance-de-recepcion';
 import { ClientsService } from 'src/clients/clients.service';
@@ -1023,8 +1024,12 @@ export class QuotationsService {
     return this.quotationsRepository.licitacionDe(companyId, id);
   }
 
-  /** Lo que recepción puede cambiar de una cotización (doc 21 §2). */
-  private async revisarLoDeRecepcion(
+  /** Lo que un cargo puede cambiar de una cotización (doc 22 §9): solo las
+   *  de los tipos de cliente que trabaja, y pasarla a otro cliente, solo a
+   *  uno de esos; los requerimientos que siguen siendo requerimientos, de
+   *  todos. A recepción, además, lo del doc 21 §2: sin descuento, sin los
+   *  estados de operaciones y nunca una aceptada. */
+  private async revisarElCambio(
     quotation: {
       request_type?: string | null;
       quotation_status?: string | null;
@@ -1034,35 +1039,33 @@ export class QuotationsService {
     },
     cambio: UpdateQuotationDto,
     companyId: number,
+    role: string,
   ): Promise<void> {
-    const sesion = { role: UserRole.RECEPCION, company_id: companyId };
+    const sesion = { role, company_id: companyId };
+    const recepcion = role === (UserRole.RECEPCION as string);
     const pasaACotizacion =
       cambio.request_type !== undefined &&
       cambio.request_type !== RequestType.REQUERIMIENTO;
     const esRequerimiento =
       quotation.request_type === RequestType.REQUERIMIENTO;
     if (esRequerimiento && !pasaACotizacion) return;
-    const deParticular = this.alcance
-      ? await this.alcance.esParticular(
-          companyId,
-          quotation.clients?.client_type,
-        )
-      : false;
-    if (!deParticular) {
-      throw new ForbiddenException(
-        esRequerimiento
-          ? 'Recepción pasa a cotización los requerimientos de particulares: este lo cotiza quien vende.'
-          : 'Recepción puede editar requerimientos y cotizaciones de particulares, no esta.',
-      );
+    const tipo = quotation.clients?.client_type;
+    // Sin la pieza (algunas pruebas), lo de fábrica sin interruptores:
+    // recepción no trabaja ningún tipo y los demás cargos, todos.
+    const loTrabaja = this.alcance
+      ? await this.alcance.trabaja(sesion, tipo)
+      : !recepcion;
+    if (!loTrabaja) throw noLoTrabaja(tipo);
+    if (recepcion) {
+      if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+        throw new ForbiddenException(
+          'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
+        );
+      }
+      revisarLoQueCotiza(cambio, quotation);
     }
-    if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
-      throw new ForbiddenException(
-        'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
-      );
-    }
-    revisarLoQueCotiza(cambio, quotation);
     if (cambio.client_id && this.alcance) {
-      await this.alcance.exigirClienteParticular(sesion, cambio.client_id);
+      await this.alcance.exigirElTipoDelCliente(sesion, cambio.client_id);
     }
   }
 
@@ -1115,12 +1118,14 @@ export class QuotationsService {
       // Desde el doc 21 (04-11-2026), también las cotizaciones de clientes
       // particulares, sin descuento, sin aceptarlas y sin pasarlas a otro
       // cliente; y pasar a cotización un requerimiento, solo si es de un
-      // particular.
-      if (role === UserRole.RECEPCION) {
-        await this.revisarLoDeRecepcion(
+      // particular. Desde el doc 22 §9, lo del tipo de cliente vale para
+      // cada cargo, con los tipos que trabaja.
+      if (role) {
+        await this.revisarElCambio(
           quotation,
           updateQuotationDto,
           companyId,
+          role,
         );
       }
 
@@ -1524,6 +1529,21 @@ export class QuotationsService {
       throw new ForbiddenException(
         'Recepción puede borrar requerimientos, no cotizaciones.',
       );
+    }
+    // Una cotización de un tipo de cliente que su cargo no trabaja, tampoco
+    // (doc 22 §9).
+    if (
+      role &&
+      this.alcance &&
+      quotation &&
+      quotation.company_id === companyId &&
+      quotation.request_type !== RequestType.REQUERIMIENTO &&
+      !(await this.alcance.trabaja(
+        { role, company_id: companyId },
+        quotation.clients?.client_type,
+      ))
+    ) {
+      throw noLoTrabaja(quotation.clients?.client_type);
     }
     if (
       quotation &&

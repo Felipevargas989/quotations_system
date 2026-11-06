@@ -1,18 +1,36 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
-import { permisosDelCargo, sinPermiso, type Permiso } from 'src/auth/permisos';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import {
+  permisosDelCargo,
+  sinPermiso,
+  tiposQueTrabaja,
+  trabajaElTipo,
+  type Permiso,
+  type TipoDeCliente,
+  type TiposQueTrabaja,
+} from 'src/auth/permisos';
+import { PermisosService } from 'src/auth/permisos.service';
+import { olvidarTiposDeCliente } from 'src/cache/memoria';
 import { UserRole } from 'src/users/entities/user.entity';
 import { ClientsRepository } from './clients.repository';
 
-// LO QUE VE RECEPCIÓN DE LAS COTIZACIONES (doc 21; Felipe, 04-11-2026:
+// LO QUE VE CADA CARGO DE LAS COTIZACIONES, SEGÚN LOS TIPOS DE CLIENTE QUE
+// TRABAJA (doc 22 §9). Nació para recepción (doc 21; Felipe, 04-11-2026:
 // "recepción podría ver la parte de cotizaciones de personas naturales...
-// mostrar los precios... solo personas naturales").
+// mostrar los precios... solo personas naturales") y desde el 05-11-2026 es
+// de los cuatro cargos (Felipe: "Todo debería mirar el tipo"): un
+// interruptor por tipo y por cargo en Permisos por cargo.
 //
 // Una sola regla, en el motor (la pantalla esconde, pero la barrera es
 // esta, mapa 23):
-// - vendedor para arriba: todo, como siempre;
-// - recepción: todos los requerimientos (sin plata, como hoy) y, de las
-//   cotizaciones, solo las de clientes de un tipo particular de su empresa
-//   (`client_types.es_particular`, migración 186). Los montos, solo de esas.
+// - un cargo ve y trabaja las cotizaciones de los tipos que tiene
+//   prendidos; de las demás, nada (en el calendario, la agenda sin plata);
+// - los requerimientos, de todos: son la puerta de entrada, y el tipo a
+//   veces se corrige después;
+// - de fábrica, lo de hoy: recepción trabaja los tipos particulares
+//   (`client_types.es_particular`, migración 186) y los demás cargos,
+//   todos.
+// Recepción, además, no da descuento ni los estados de operaciones
+// (`revisarLoQueCotiza`): eso es de su cargo, no del tipo (doc 21 §2).
 //
 // La usan todas las puertas que entregan o cambian una cotización: el
 // tablero, la ficha, las cuotas, el resumen del cliente, crear, editar,
@@ -47,13 +65,29 @@ export const esRecepcion = (s: Pick<Sesion, 'role'>): boolean =>
 const normal = (t: string | null | undefined): string =>
   (t ?? '').trim().toLowerCase();
 
+export { trabajaElTipo, type TiposQueTrabaja };
+
 /** ¿Este tipo de cliente está entre los particulares de la empresa (los de
  *  `particulares()`)? Sin mayúsculas ni espacios de diferencia: el mismo
- *  criterio de toda la regla. */
+ *  criterio de toda la regla. Describe al cliente (es persona natural), no
+ *  un permiso: para eso, `trabajaElTipo`. */
 export const esDeLosParticulares = (
   particulares: ReadonlySet<string>,
   tipo: string | null | undefined,
 ): boolean => particulares.has(normal(tipo));
+
+/** Por qué no: el cargo no trabaja el tipo de este cliente. */
+export const textoDeNoLoTrabaja = (tipo: string | null | undefined): string =>
+  tipo?.trim()
+    ? `Tu cargo no trabaja los clientes de tipo «${tipo.trim()}»: se prende en Permisos por cargo.`
+    : 'Tu cargo no trabaja los clientes sin tipo.';
+
+/** El 403 de un cliente de un tipo que el cargo no trabaja. Con el código
+ *  de los permisos: la app vuelve a pedir el perfil (los interruptores
+ *  pueden haber cambiado). */
+export const noLoTrabaja = (
+  tipo: string | null | undefined,
+): ForbiddenException => sinPermiso(textoDeNoLoTrabaja(tipo));
 
 /** Los estados que recepción no da: aceptar es el plan de pagos (de
  *  operaciones), y anular y realizado tampoco son de ella (doc 21 §2). */
@@ -100,8 +134,8 @@ export const revisarLoQueCotiza = (
 };
 
 /** El resumen de un cliente sin plata: sus cotizaciones sin el total y sin
- *  los pagos por cobrar (para recepción, de un cliente que no es
- *  particular). */
+ *  los pagos por cobrar (para un cargo que no trabaja el tipo del
+ *  cliente). */
 export const sinMontosDelResumen = <
   R extends {
     quotations?: Array<Record<string, unknown>>;
@@ -121,10 +155,10 @@ export const sinMontosDelResumen = <
   };
 };
 
-/** Lo que recepción ve de una cotización que no es de particulares: lo
- *  del calendario, donde sigue solo mirando (03-10-2026), sin plata. Una
- *  lista cerrada: un campo que se agregue mañana a la cotización no viaja
- *  solo. Las categorías salen de los servicios, sin sus precios. */
+/** Lo que un cargo ve de una cotización de un tipo que no trabaja: lo del
+ *  calendario, donde se sigue viendo qué hay cada día (03-10-2026), sin
+ *  plata. Una lista cerrada: un campo que se agregue mañana a la cotización
+ *  no viaja solo. Las categorías salen de los servicios, sin sus precios. */
 const CAMPOS_DE_LA_AGENDA = [
   'id',
   'company_id',
@@ -170,77 +204,99 @@ export const paraLaAgenda = (cotizacion: object): CotizacionDeAgenda => {
   return agenda;
 };
 
-/** ¿Recepción ve completa esta cotización? Los requerimientos y las de
- *  clientes particulares. */
-const laVe = (
-  particulares: ReadonlySet<string>,
-  q: CotizacionParaElAlcance,
-): boolean =>
+/** ¿La ve completa? Los requerimientos, de todos; las cotizaciones, si el
+ *  cargo trabaja el tipo de su cliente. */
+const laVe = (tipos: TiposQueTrabaja, q: CotizacionParaElAlcance): boolean =>
   q.request_type === 'requerimiento' ||
-  esDeLosParticulares(particulares, q.clients?.client_type);
-
-/** Cuánto dura lo que se sabe de los tipos de una empresa. */
-const MINUTOS = 5;
+  trabajaElTipo(tipos, q.clients?.client_type);
 
 @Injectable()
 export class AlcanceDeRecepcion {
-  private readonly tipos = new Map<
-    number,
-    { particulares: Set<string>; hasta: number }
-  >();
+  constructor(
+    private readonly repositorio: ClientsRepository,
+    // Los interruptores de la empresa (doc 22 §9). Sin la pieza (algunas
+    // pruebas), lo de fábrica.
+    @Optional() private readonly permisos?: PermisosService,
+  ) {}
 
-  constructor(private readonly repositorio: ClientsRepository) {}
+  /** Los tipos de la empresa con su marca de particular: los recuerda la
+   *  pieza de los permisos (doc 22 §9); sin ella (algunas pruebas), de la
+   *  base. */
+  private tiposDe(empresa: number): Promise<TipoDeCliente[]> {
+    return this.permisos
+      ? this.permisos.tiposDe(empresa)
+      : this.repositorio.tiposConMarca(empresa);
+  }
 
-  /** Los tipos particulares de la empresa (en minúsculas), recordados 5
-   *  minutos. */
+  /** Los tipos particulares de la empresa, en minúsculas: los que la marca
+   *  `es_particular` dice que son personas naturales. Describen al cliente,
+   *  no un permiso; BelIA los usa para avisar los mal clasificados (doc 21
+   *  §6). */
   async particulares(empresa: number): Promise<Set<string>> {
-    const ya = this.tipos.get(empresa);
-    if (ya && ya.hasta > Date.now()) return ya.particulares;
-    const lista = await this.repositorio.tiposParticulares(empresa);
-    const particulares = new Set(lista.map(normal));
-    this.tipos.set(empresa, {
-      particulares,
-      hasta: Date.now() + MINUTOS * 60_000,
-    });
-    return particulares;
+    return new Set(
+      (await this.tiposDe(empresa))
+        .filter((t) => t.es_particular)
+        .map((t) => t.name.trim().toLowerCase()),
+    );
   }
 
   /** Para cuando la empresa cambia sus tipos. */
   olvidar(empresa: number): void {
-    this.tipos.delete(empresa);
+    olvidarTiposDeCliente(empresa);
   }
 
-  /** ¿El cliente de este tipo es particular en la empresa? */
-  async esParticular(
-    empresa: number,
+  /** Los tipos que trabaja el cargo de la sesión (doc 22 §9); null si los
+   *  trabaja todos. Sin la pieza de los permisos, lo de fábrica. */
+  async tiposDelCargo(
+    s: Pick<Sesion, 'role' | 'company_id'>,
+  ): Promise<TiposQueTrabaja> {
+    if (this.permisos) return this.permisos.tiposDelCargo(s.company_id, s.role);
+    if (!esRecepcion(s)) return null;
+    return tiposQueTrabaja(
+      s.role,
+      await this.repositorio.tiposConMarca(s.company_id),
+    );
+  }
+
+  /** Los nombres de los tipos que trabaja el cargo, en su orden; null si
+   *  los trabaja todos. Para contárselo a BelIA. */
+  async nombresDeSusTipos(
+    s: Pick<Sesion, 'role' | 'company_id'>,
+  ): Promise<string[] | null> {
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return null;
+    return (await this.tiposDe(s.company_id))
+      .filter((t) => trabajaElTipo(tipos, t.name))
+      .map((t) => t.name);
+  }
+
+  /** ¿El cargo de la sesión trabaja un cliente de este tipo? */
+  async trabaja(
+    s: Pick<Sesion, 'role' | 'company_id'>,
     tipo: string | null | undefined,
   ): Promise<boolean> {
-    if (!normal(tipo)) return false;
-    return (await this.particulares(empresa)).has(normal(tipo));
+    return trabajaElTipo(await this.tiposDelCargo(s), tipo);
   }
 
-  /** ¿Ve esta cotización? Recepción: los requerimientos y las de
-   *  particulares; los demás cargos, todo. */
+  /** ¿Ve completa esta cotización? Los requerimientos, siempre; las
+   *  cotizaciones, si trabaja el tipo de su cliente. */
   async ve(s: Sesion, q: CotizacionParaElAlcance): Promise<boolean> {
-    if (!esRecepcion(s)) return true;
     if (q.request_type === 'requerimiento') return true;
-    return this.esParticular(s.company_id, q.clients?.client_type);
+    return this.trabaja(s, q.clients?.client_type);
   }
 
-  /** ¿Ve los montos de un cliente de este tipo? Recepción, solo de los
-   *  particulares. */
+  /** ¿Ve los montos de un cliente de este tipo? Si lo trabaja. */
   async veLosMontos(
     s: Sesion,
     tipo: string | null | undefined,
   ): Promise<boolean> {
-    if (!esRecepcion(s)) return true;
-    return this.esParticular(s.company_id, tipo);
+    return this.trabaja(s, tipo);
   }
 
   /**
-   * `GET /quotations`, con los permisos por cargo (doc 22 §4.4) y lo que ve
-   * recepción. La puerta la usan cinco secciones y queda abierta mientras
-   * el cargo tenga una; lo que cambia es lo que trae:
+   * `GET /quotations`, con los permisos por cargo (doc 22 §4.4) y los tipos
+   * que trabaja cada cargo (§9). La puerta la usan cinco secciones y queda
+   * abierta mientras el cargo tenga una; lo que cambia es lo que trae:
    * - la vista de calendario (la agenda de toda la empresa), solo con el
    *   Calendario prendido;
    * - la lista entera, con Cotizaciones, Dashboard o Personal; con solo
@@ -273,62 +329,63 @@ export class AlcanceDeRecepcion {
     s: Sesion,
     filas: T[],
   ): Promise<T[]> {
-    if (!esRecepcion(s)) return filas;
-    const particulares = await this.particulares(s.company_id);
-    return filas.filter((q) => laVe(particulares, q));
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return filas;
+    return filas.filter((q) => laVe(tipos, q));
   }
 
-  /** La lista del calendario: recepción sigue viendo todos los eventos,
-   *  pero los que no son de particulares le llegan como agenda, sin plata. */
+  /** La lista del calendario: cada cargo sigue viendo todos los eventos,
+   *  pero los de los tipos que no trabaja le llegan como agenda, sin
+   *  plata (la excepción del calendario, Felipe 05-11-2026: «¿tienen el 20
+   *  libre?»). */
   async paraElCalendario<T extends CotizacionParaElAlcance>(
     s: Sesion,
     filas: T[],
   ): Promise<Array<T | CotizacionDeAgenda>> {
-    if (!esRecepcion(s)) return filas;
-    const particulares = await this.particulares(s.company_id);
-    return filas.map((q) => (laVe(particulares, q) ? q : paraLaAgenda(q)));
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return filas;
+    return filas.map((q) => (laVe(tipos, q) ? q : paraLaAgenda(q)));
   }
 
   /** ¿Ve esta cotización de la empresa, por su id? */
   async veLaCotizacion(s: Sesion, quotationId: string): Promise<boolean> {
-    if (!esRecepcion(s)) return true;
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return true;
     const q = await this.repositorio.clienteDeLaCotizacion(
       s.company_id,
       quotationId,
     );
     if (!q) return false;
-    return this.ve(s, {
+    return laVe(tipos, {
       request_type: q.request_type,
       clients: { client_type: q.client_type },
     });
   }
 
-  /** Para cotizar (enviar, el seguimiento, «Crear con IA»…): si es
-   *  recepción, la cotización tiene que ser de un particular. Un
-   *  requerimiento de otro tipo de cliente tampoco: pasarlo a cotización es
-   *  de quien vende. */
-  async exigirParticular(s: Sesion, quotationId: string): Promise<void> {
-    if (!esRecepcion(s)) return;
+  /** Para cotizar (enviar, el seguimiento, «Crear con IA»…): la cotización
+   *  tiene que ser de un cliente de un tipo que el cargo trabaja. Un
+   *  requerimiento de otro tipo tampoco: pasarlo a cotización es de quien
+   *  trabaja ese tipo. */
+  async exigirElTipo(s: Sesion, quotationId: string): Promise<void> {
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return;
     const q = await this.repositorio.clienteDeLaCotizacion(
       s.company_id,
       quotationId,
     );
-    if (!q || !(await this.esParticular(s.company_id, q.client_type))) {
-      throw new ForbiddenException(
-        'Recepción trabaja las cotizaciones de clientes particulares: esta la ve quien vende.',
-      );
+    if (!q || !trabajaElTipo(tipos, q.client_type)) {
+      throw noLoTrabaja(q?.client_type);
     }
   }
 
-  /** Para crear una cotización o cambiarle el cliente: si es recepción, el
-   *  cliente tiene que ser particular. */
-  async exigirClienteParticular(s: Sesion, clientId: string): Promise<void> {
-    if (!esRecepcion(s)) return;
+  /** Para crear una cotización o cambiarle el cliente: el cliente tiene que
+   *  ser de un tipo que el cargo trabaja. */
+  async exigirElTipoDelCliente(s: Sesion, clientId: string): Promise<void> {
+    const tipos = await this.tiposDelCargo(s);
+    if (!tipos) return;
     const tipo = await this.repositorio.tipoDelCliente(s.company_id, clientId);
-    if (tipo === undefined || !(await this.esParticular(s.company_id, tipo))) {
-      throw new ForbiddenException(
-        'Recepción cotiza a clientes particulares: a este cliente lo cotiza quien vende.',
-      );
+    if (tipo === undefined || !trabajaElTipo(tipos, tipo)) {
+      throw noLoTrabaja(tipo);
     }
   }
 }

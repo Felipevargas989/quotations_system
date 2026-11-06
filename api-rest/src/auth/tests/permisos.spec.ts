@@ -1,9 +1,14 @@
 import { UserRole } from 'src/users/entities/user.entity';
 import {
   CATALOGO_DE_PERMISOS,
+  cambiaronSusTipos,
   cargosDeFabrica,
+  claveDeTipo,
   pasa,
   permisosDelCargo,
+  tipoDeFabrica,
+  tiposQueTrabaja,
+  trabajaElTipo,
 } from '../permisos';
 
 // LA CUENTA DE LOS PERMISOS POR CARGO (doc 22, 05-11-2026).
@@ -111,5 +116,58 @@ describe('Permisos por cargo: la cuenta', () => {
       UserRole.OPERACIONES,
       UserRole.ADMINISTRADOR,
     ]);
+  });
+});
+
+// LOS TIPOS DE CLIENTE DE CADA CARGO (doc 22 §9).
+describe('Permisos por cargo: los tipos de cliente', () => {
+  const TIPOS = [
+    { id: 2, name: 'Particulares', es_particular: true },
+    { id: 4, name: 'Empresas', es_particular: false },
+  ];
+  const fila = (cargo: string, id: number, prendido: boolean) => ({
+    cargo,
+    permiso: claveDeTipo(id),
+    prendido,
+  });
+
+  it('de fábrica es lo de hoy: recepción, los particulares; los demás, todos', () => {
+    expect(tipoDeFabrica(UserRole.RECEPCION, TIPOS[0])).toBe(true);
+    expect(tipoDeFabrica(UserRole.RECEPCION, TIPOS[1])).toBe(false);
+    expect(tipoDeFabrica(UserRole.VENDEDOR, TIPOS[1])).toBe(true);
+    expect(tiposQueTrabaja(UserRole.VENDEDOR, TIPOS)).toBeNull();
+    expect(tiposQueTrabaja(null, TIPOS)).toBeNull();
+    const r = tiposQueTrabaja(UserRole.RECEPCION, TIPOS);
+    expect(trabajaElTipo(r, ' PARTICULARES ')).toBe(true);
+    expect(trabajaElTipo(r, 'Empresas')).toBe(false);
+    expect(trabajaElTipo(r, null)).toBe(false);
+  });
+
+  it('un interruptor cambia lo de fábrica, y recepción con todo prendido sigue sin los sin tipo', () => {
+    const v = tiposQueTrabaja(UserRole.VENDEDOR, TIPOS, [
+      fila(UserRole.VENDEDOR, 4, false),
+    ]);
+    expect(trabajaElTipo(v, 'Empresas')).toBe(false);
+    expect(trabajaElTipo(v, 'Particulares')).toBe(true);
+    expect(trabajaElTipo(v, null)).toBe(true);
+    expect(
+      cambiaronSusTipos(UserRole.VENDEDOR, [fila('vendedor', 4, false)]),
+    ).toBe(true);
+    expect(
+      cambiaronSusTipos(UserRole.OPERACIONES, [fila('vendedor', 4, false)]),
+    ).toBe(false);
+    const r = tiposQueTrabaja(UserRole.RECEPCION, TIPOS, [
+      fila(UserRole.RECEPCION, 4, true),
+    ]);
+    expect(r).not.toBeNull();
+    expect(trabajaElTipo(r, 'Empresas')).toBe(true);
+    expect(trabajaElTipo(r, 'Otro')).toBe(false);
+  });
+
+  it('una empresa sin tipos: recepción no trabaja ninguno, los demás todo', () => {
+    expect(trabajaElTipo(tiposQueTrabaja(UserRole.RECEPCION, []), 'X')).toBe(
+      false,
+    );
+    expect(tiposQueTrabaja(UserRole.ADMINISTRADOR, [])).toBeNull();
   });
 });

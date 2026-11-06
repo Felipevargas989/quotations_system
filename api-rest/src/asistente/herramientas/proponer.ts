@@ -16,7 +16,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
-import { esRecepcion } from './recepcion';
+import { tiposPara } from './recepcion';
 
 // FASE 2: PROPONER, NUNCA ESCRIBIR (doc 20 §3, regla 3). Estas herramientas
 // no cambian nada: arman una PROPUESTA con el antes y el después, el total y
@@ -331,8 +331,10 @@ export const proponerCambioDeServicios: Herramienta = {
     );
     mostrar(ctx, tarjeta);
     return {
-      // A recepción solo le llega si es de un particular (doc 21).
-      ...(esRecepcion(ctx.usuario.role) ? { particular: true as const } : {}),
+      // Si su cargo no trabaja todos los tipos, solo le llega si es de uno
+      // que trabaja (doc 22 §9; a recepción, de fábrica, un particular):
+      // lo revisó `alProponer`.
+      ...((await tiposPara(ctx)) ? { trabaja: true as const } : {}),
       propuesta: 'lista',
       numero: tarjeta.numero,
       total: tarjeta.total,
@@ -582,10 +584,10 @@ export const proponerCotizacionNueva: Herramienta = {
     );
     ctx.tarjetas.push(tarjeta);
     return {
-      // Con plata solo si es una cotización, y a recepción solo le llega
-      // la de un particular (doc 21).
-      ...(esRecepcion(ctx.usuario.role) && tarjeta.total
-        ? { particular: true as const }
+      // Con plata solo si es una cotización, y si su cargo no trabaja todos
+      // los tipos, solo le llega la de uno que trabaja (doc 22 §9).
+      ...((await tiposPara(ctx)) && tarjeta.total
+        ? { trabaja: true as const }
         : {}),
       propuesta: 'lista',
       es: tarjeta.nueva?.es,

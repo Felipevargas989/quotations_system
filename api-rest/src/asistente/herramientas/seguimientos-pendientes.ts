@@ -1,5 +1,5 @@
+import { trabajaElTipo } from 'src/auth/permisos';
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
-import { esDeLosParticulares } from 'src/clients/alcance-de-recepcion';
 import {
   QuotationStatus,
   RequestType,
@@ -16,7 +16,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './comun';
-import { esRecepcion, particularesPara } from './recepcion';
+import { tiposPara } from './recepcion';
 
 // «¿Cuántas cotizaciones me falta gestionar?». El filtro «Requieren
 // seguimiento» del tablero de Cotizaciones, con la MISMA regla
@@ -135,7 +135,8 @@ export const seguimientosPendientes: Herramienta = {
     },
   },
   // Recepción también desde el doc 21: hace el seguimiento de las
-  // cotizaciones de clientes particulares, y solo de esas.
+  // cotizaciones de clientes particulares, y solo de esas. Desde el doc 22
+  // §9, cada cargo, solo de los tipos de cliente que trabaja.
   cargos: RECEPTION_AND_UP,
   permiso: ['cotizaciones'],
   async ejecutar(entrada, ctx) {
@@ -143,12 +144,9 @@ export const seguimientosPendientes: Herramienta = {
       ctx,
       ctx.usuario.company_id,
     );
-    const recepcion = esRecepcion(ctx.usuario.role);
-    const particulares = await particularesPara(ctx);
-    const pendientes = recepcion
-      ? todos.filter(({ q }) =>
-          esDeLosParticulares(particulares, q.clients?.client_type),
-        )
+    const tipos = await tiposPara(ctx);
+    const pendientes = tipos
+      ? todos.filter(({ q }) => trabajaElTipo(tipos, q.clients?.client_type))
       : todos;
     const limite = entero(entrada.limite, 1, 60) ?? 20;
     return {
@@ -159,8 +157,8 @@ export const seguimientosPendientes: Herramienta = {
       mostradas: Math.min(limite, pendientes.length),
       cotizaciones: pendientes.slice(0, limite).map(({ q, s }) => ({
         numero: q.quotation_number,
-        ...(recepcion ? { particular: true as const } : {}),
-        enlace: enlaceDe(q, ctx.usuario.role, recepcion),
+        ...(tipos ? { trabaja: true as const } : {}),
+        enlace: enlaceDe(q, ctx.usuario.role, true),
         cliente: q.clients?.name ?? null,
         estado: estadoDe(q.quotation_status),
         evento: q.event_type,

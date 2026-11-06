@@ -10,6 +10,11 @@
 > recepción y la 187 de facturación). Rama `feature/permisos-por-cargo`,
 > carpeta `wt-permisos`. Al laboratorio por pasos; a producción, solo con su
 > «a producción».
+>
+> **Los tipos de cliente de cada cargo (§9): aprobados el 05-11-2026**
+> (*"si vamos"*), con sus dos excepciones. La tanda 1 (la pantalla,
+> Cotizaciones, el Calendario y BelIA) programada ese día, sin migración;
+> las tandas 2 a 4, pendientes.
 
 ## 1. Lo que pidió Felipe
 
@@ -340,5 +345,101 @@ La prueba de fábrica del laboratorio recorre sus 388 puertas con sesión
 1. **El catálogo del §3**: aprobado el 05-11-2026 (*"ok al catalogo
    vamos"*).
 2. **Calendario del vendedor**: prendido (05-11-2026).
+3. **Los tipos de cliente de cada cargo (§9)**: aprobados el 05-11-2026
+   (*"si vamos"*), en cuatro tandas, con dos excepciones: Requerimientos de
+   todos y el Calendario como agenda.
 
 Anotado, no decidido: las 9 puertas «más abiertas que sus pantallas» (§4.3).
+
+## 9. Los tipos de cliente de cada cargo (05-11-2026)
+
+### 9.1 Lo que pidió Felipe
+
+Al pedir que recepción vea también «Club Adulto Mayor» (por «Eventia
+(Full)»): *"piénsalo a nivel más sistémico ... podría ser un botón que
+prende y se apaga, porque no puede ser una marca sobre otra, sobre otra,
+sobre otra en cada configuración"*. Después: *"podrían quedar todos
+abiertos, así yo los puedo ir editando"* y *"Todo debería mirar el tipo.
+Ahora, si yo un perfil le tengo cerrado postventa, no ve nada"*. Aprobó el
+plan del §9.3 el mismo día: *"si vamos"*.
+
+### 9.2 La regla
+
+- **Dos llaves.** Un cargo ve y trabaja lo de un cliente en una sección
+  solo si tiene prendidas las dos: la sección (§3) y el tipo del cliente.
+  Recepción con «Empresas» prendido pero sin Post-Venta no ve nada de
+  Empresas en Post-Venta.
+- **Un interruptor por tipo y por cargo**, en el bloque «Tipos de cliente»
+  de la pestaña, debajo de los permisos. Sin candados: los cuatro cargos
+  se editan.
+- **De fábrica, lo de hoy.** Recepción trabaja los tipos marcados
+  `es_particular` (doc 21) y los demás cargos, todos. Un tipo nuevo nace
+  igual: si no es particular, recepción no lo trabaja hasta que se le
+  prenda.
+- **Dos excepciones.** Los requerimientos se ven todos: son la puerta de
+  entrada y el tipo a veces se corrige después. En el Calendario, los
+  eventos de un tipo apagado se ven como agenda, sin plata ni ficha, para
+  responder «¿tienen el 20 libre?».
+- **Los clientes sin tipo** no llevan interruptor: los ve todo cargo menos
+  recepción, como hoy. En producción hay uno solo (medido el 05-11-2026).
+- **`es_particular` queda como dato del cliente** (es persona natural): es
+  lo de fábrica de recepción y lo usa BelIA para avisar los mal
+  clasificados (doc 21 §6). Ya no decide sola lo que ve un cargo.
+
+### 9.3 Las cuatro tandas
+
+| Tanda | Dónde | Con el tipo apagado | Estado |
+|---|---|---|---|
+| 1 | La pantalla; Cotizaciones (tablero, ficha del negocio, cotizador, crear, editar, borrar, enviar, seguimiento, aviso de cierre, topes, «Crear con IA»), las cuotas de la ficha, el resumen del cliente, el Calendario y BelIA | No ve sus cotizaciones ni sus montos, y no las toca. Es lo de hoy de recepción, ahora para los cuatro cargos | Programada el 05-11-2026 |
+| 2 | Post-Venta: pagos, reembolsos, comprobantes, documentos, cocina | Esos eventos no aparecen | Pendiente |
+| 3 | Proveedores (compras del evento) y Personal (planificación) | Esos eventos no aparecen. Ojo: si a quien compra le apagas un tipo, su lista de compras sale sin los insumos de esos eventos | Pendiente |
+| 4 | Clientes, Encuestas y Dashboard | Esos clientes no aparecen ni cuentan en sus números | Pendiente |
+
+### 9.4 Cómo lo cumple el motor (tanda 1)
+
+- **La tabla**: la misma `permisos_por_cargo`, con la clave
+  `tipo_cliente:<id>` (el id no cambia aunque el tipo cambie de nombre), y
+  el mismo registro. **Sin migración.**
+- **La cuenta** (`auth/permisos.ts`): `claveDeTipo`, `tipoDeFabrica`,
+  `tipoPrendido`, `cambiaronSusTipos`, `tiposQueTrabaja` (null si el cargo
+  trabaja todos) y `trabajaElTipo`.
+- **`PermisosService`**: `tiposDe` (los tipos de la empresa, en
+  `cacheTiposDeCliente`, cinco minutos), `tiposDelCargo` (vendedor para
+  arriba sin ningún tipo cambiado: null sin leer los tipos, como siempre),
+  `nombresDeSusTipos` (el perfil trae `tipos_de_cliente`), `cambiarTipo`
+  (`PUT /permisos/tipos`) y la pantalla con `tipos`. Cambiar un interruptor
+  de tipo olvida la memoria al instante; crear, ordenar o borrar un tipo,
+  también.
+- **`AlcanceDeRecepcion`** (sigue con su nombre: nació para recepción)
+  aplica la regla a los cuatro cargos en todas sus puertas: `ve`,
+  `veLosMontos`, `filtrar`, `paraElCalendario`, `veLaCotizacion`,
+  `exigirElTipo` (antes `exigirParticular`) y `exigirElTipoDelCliente`
+  (antes `exigirClienteParticular`). El 403 es `SIN_PERMISO`: *«Tu cargo
+  no trabaja los clientes de tipo «Empresas»: se prende en Permisos por
+  cargo.»*
+- **`QuotationsService`**: editar (`revisarElCambio`) y borrar revisan el
+  tipo para cualquier cargo; lo de recepción (sin descuento, sin los
+  estados de operaciones) sigue siendo solo de ella.
+- **BelIA**: la red (`taparPlata`) corre para todo cargo que no trabaja
+  todos los tipos; la marca pasó de `particular: true` a `trabaja: true`;
+  las herramientas preguntan con `tiposPara` y `loTrabaja`; las propuestas
+  (`propuestas/de-recepcion.ts`) revisan el tipo para cualquier cargo; el
+  aviso al cambiar el tipo de un cliente dice qué cargos lo ganan o lo
+  pierden; y las instrucciones le cuentan a BelIA los tipos del cargo.
+- **Lo que la tanda 1 no cubre**: `GET /quotations/check-conflicts` (dice
+  si una fecha está tomada: es agenda), las marcas de tope del tablero
+  (solo se pintan en las tarjetas que se ven), y Post-Venta, Proveedores,
+  Personal, Clientes, Encuestas y Dashboard (tandas 2 a 4).
+
+### 9.5 La pantalla
+
+- El bloque «Tipos de cliente» va en la misma tabla, debajo de los
+  permisos, con un `Interruptor` por cargo. «Volver a lo de fábrica»
+  vuelve también los tipos. El último cambio dice, por ejemplo, *«prendió
+  el tipo «Club Adulto Mayor» a Recepción»*.
+- El perfil trae `tipos_de_cliente` (`useAuth().tiposDeCliente`): el
+  cotizador muestra solo los clientes de esos tipos y el filtro del tablero,
+  solo esos tipos (`utils/recepcion.ts`, `tiposQueTrabaja`). Si el motor
+  todavía no lo manda, lo de fábrica.
+- El Calendario: un evento que llega como agenda no muestra plata ni abre
+  la ficha.

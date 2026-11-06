@@ -130,27 +130,21 @@ export class ClientsRepository {
     return data as unknown as Tipo[];
   }
 
-  /** Los tipos que la empresa marcó como particulares (doc 21 §3,
-   *  migración 186). Sin la columna todavía, los que se llaman como
-   *  particulares: recepción no queda sin trabajo por una migración que
-   *  falta. */
-  async tiposParticulares(companyId: number): Promise<string[]> {
-    const { data, error } = await this.supabase.client
-      .from('client_types')
-      .select('name, es_particular')
-      .eq('company_id', companyId);
-    if (!error) {
-      return ((data ?? []) as { name: string; es_particular: boolean }[])
-        .filter((t) => t.es_particular)
-        .map((t) => t.name);
-    }
-    this.logger.warn(
-      `tiposParticulares sin la 186 (${error.message}): por el nombre`,
-    );
+  /** Los tipos de la empresa con su marca de particular (doc 21 §3,
+   *  migración 186), para saber qué tipos trabaja cada cargo (doc 22 §9).
+   *  Sin la columna todavía, son particulares los que se llaman así:
+   *  recepción no queda sin trabajo por una migración que falta. */
+  async tiposConMarca(
+    companyId: number,
+  ): Promise<{ id: number; name: string; es_particular: boolean }[]> {
     const tipos = await this.findTypes(companyId);
-    return tipos
-      .map((t) => t.name)
-      .filter((n) => /^\s*(particular|persona\S*\s+natural)/i.test(n));
+    return tipos.map((t) => ({
+      id: t.id,
+      name: t.name,
+      es_particular:
+        t.es_particular ??
+        /^\s*(particular|persona\S*\s+natural)/i.test(t.name),
+    }));
   }
 
   /** El tipo del cliente de una cotización de la empresa, y si es

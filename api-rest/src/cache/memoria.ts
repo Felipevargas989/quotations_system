@@ -80,3 +80,11 @@ export const cachePermisos = new CacheMemoria<unknown>(500);
 
 export const olvidarPermisos = (companyId: number): void =>
   cachePermisos.delete(String(companyId));
+
+// companyId → los tipos de cliente de la empresa con su marca de particular
+// (doc 22 §9): con ellos se sabe qué tipos trabaja cada cargo. Cinco
+// minutos; cambiar un interruptor de tipo los borra al instante.
+export const cacheTiposDeCliente = new CacheMemoria<unknown>(500);
+
+export const olvidarTiposDeCliente = (companyId: number): void =>
+  cacheTiposDeCliente.delete(String(companyId));

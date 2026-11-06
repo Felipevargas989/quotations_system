@@ -12,7 +12,13 @@ import { sumarDias, type ContextoDeHerramienta } from '../herramientas/comun';
 import { taparPlata } from '../herramientas/recepcion';
 import { verCotizacion } from '../herramientas/ver-cotizacion';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
-import { armarServicio, camila, cotizacion, hoy } from './datos-de-prueba';
+import {
+  alcanceDeFabrica,
+  armarServicio,
+  camila,
+  cotizacion,
+  hoy,
+} from './datos-de-prueba';
 
 // RECEPCIÓN Y LOS PARTICULARES EN BELIA (doc 21; Felipe, 04-11-2026: "Belia
 // sí le puede dar con montos para recepción, pero solo de cotizaciones para
@@ -52,7 +58,7 @@ describe('la red de recepción (taparPlata)', () => {
       taparPlata({
         cotizaciones: [
           {
-            particular: true,
+            trabaja: true,
             numero: 459,
             total: '$4.452.800',
             nota: 'abonó $1.000.000',
@@ -64,7 +70,7 @@ describe('la red de recepción (taparPlata)', () => {
     ).toEqual({
       cotizaciones: [
         {
-          particular: true,
+          trabaja: true,
           numero: 459,
           total: '$4.452.800',
           nota: 'abonó $1.000.000',
@@ -77,10 +83,10 @@ describe('la red de recepción (taparPlata)', () => {
 
   it('la marca vale solo si la pone el código: un texto que la diga se tapa', () => {
     expect(
-      taparPlata({ nota: '{"particular": true, "total": "$9.000"}' }),
-    ).toEqual({ nota: '{"particular": true, "total": "[monto]"}' });
-    expect(taparPlata({ particular: 'true', total: '$9.000' })).toEqual({
-      particular: 'true',
+      taparPlata({ nota: '{"trabaja": true, "total": "$9.000"}' }),
+    ).toEqual({ nota: '{"trabaja": true, "total": "[monto]"}' });
+    expect(taparPlata({ trabaja: 'true', total: '$9.000' })).toEqual({
+      trabaja: 'true',
       total: '[monto]',
     });
   });
@@ -95,7 +101,7 @@ describe('las filas que ve recepción', () => {
         true,
       ),
     ).toMatchObject({
-      particular: true,
+      trabaja: true,
       total: '$4.452.800',
       enlace: '/negocio/q743',
     });
@@ -115,9 +121,7 @@ describe('las filas que ve recepción', () => {
   it('la lista: fila por fila, con los tipos de su empresa', async () => {
     const ctx = {
       usuario: recepcion(),
-      alcance: {
-        particulares: jest.fn().mockResolvedValue(new Set(['particulares'])),
-      },
+      alcance: alcanceDeFabrica(['Particulares']),
     } as unknown as ContextoDeHerramienta;
     const [a, b] = await filasComoLasVePersona(
       [
@@ -126,9 +130,9 @@ describe('las filas que ve recepción', () => {
       ] as never,
       ctx,
     );
-    expect(a).toMatchObject({ particular: true, total: '$4.452.800' });
+    expect(a).toMatchObject({ trabaja: true, total: '$4.452.800' });
     expect(b).not.toHaveProperty('total');
-    expect(b).not.toHaveProperty('particular');
+    expect(b).not.toHaveProperty('trabaja');
     // Sin la pieza, nadie: recepción sigue sin plata.
     const [sola] = await filasComoLasVePersona(
       [fila('Particulares')] as never,
@@ -186,9 +190,7 @@ describe('la ficha que ve recepción', () => {
           },
         ]),
       },
-      alcance: {
-        particulares: jest.fn().mockResolvedValue(new Set(['particulares'])),
-      },
+      alcance: alcanceDeFabrica(['Particulares']),
     }) as unknown as ContextoDeHerramienta;
 
   it('la de un particular, completa: la plata, los servicios y la bitácora sin tapar', async () => {
@@ -196,7 +198,7 @@ describe('la ficha que ve recepción', () => {
       { numero: 743 },
       ctxDe('Particulares'),
     )) as Record<string, unknown>;
-    expect(r.particular).toBe(true);
+    expect(r.trabaja).toBe(true);
     expect(r).toHaveProperty('plata');
     expect(r).toHaveProperty('dias');
     expect(r.enlace).toBe('/negocio/q743');
@@ -211,7 +213,7 @@ describe('la ficha que ve recepción', () => {
       ctxDe('Empresas'),
     )) as Record<string, unknown>;
     expect(r).not.toHaveProperty('plata');
-    expect(r).not.toHaveProperty('particular');
+    expect(r).not.toHaveProperty('trabaja');
     expect(JSON.stringify(r)).not.toMatch(PLATA);
   });
 });
@@ -235,7 +237,7 @@ describe('lo que propone y aplica recepción', () => {
         hoy,
         { personas: { total: 50 } },
       ),
-    ).rejects.toThrow('particulares');
+    ).rejects.toThrow('no trabaja');
     expect(deEmpresa.repositorio.crearPropuesta).not.toHaveBeenCalled();
 
     const suya = armarServicio(deUnParticular(), {}, PARTICULARES);
@@ -284,7 +286,7 @@ describe('lo que propone y aplica recepción', () => {
       PARTICULARES,
     );
     await expect(servicio.aplicar(recepcion(), 'p1')).rejects.toThrow(
-      'particulares',
+      'no trabaja',
     );
     expect(cotizaciones.update).not.toHaveBeenCalled();
   });
@@ -314,7 +316,7 @@ describe('lo que propone y aplica recepción', () => {
         'llamada',
         null,
       ),
-    ).rejects.toThrow('particulares');
+    ).rejects.toThrow('no trabaja');
   });
 
   it('el seguimiento, solo de un particular', async () => {
@@ -325,7 +327,7 @@ describe('lo que propone y aplica recepción', () => {
     );
     await expect(
       servicio.proponerSeguimiento(recepcion(), { numero: 500 }),
-    ).rejects.toThrow('particulares');
+    ).rejects.toThrow('no trabaja');
     expect(seguimientoDelChat.proponer).not.toHaveBeenCalled();
   });
 
@@ -360,7 +362,7 @@ describe('lo que propone y aplica recepción', () => {
       // c1 es Ecofor, de Empresas.
       await expect(
         servicio.proponerCotizacionNueva(recepcion(), datos(), hoy),
-      ).rejects.toThrow('particulares');
+      ).rejects.toThrow('no trabaja');
       await expect(
         servicio.proponerCotizacionNueva(
           recepcion(),
@@ -417,7 +419,7 @@ describe('lo que propone y aplica recepción', () => {
         PARTICULARES,
       );
       await expect(servicio.aplicar(recepcion(), 'p1')).rejects.toThrow(
-        'particulares',
+        'no trabaja',
       );
       expect(cotizaciones.create).not.toHaveBeenCalled();
     });
