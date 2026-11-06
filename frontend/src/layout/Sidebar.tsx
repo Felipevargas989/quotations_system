@@ -62,6 +62,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       precargar: () => import("../pages/dashboard/DashboardPage.tsx"),
     },
     {
+      // Facturación (doc 19 §9.19 y §9.21): una sola entrada para las
+      // boletas y los documentos, solo con el módulo propio `facturacion`,
+      // justo debajo de Dashboard (Felipe, 06-11). La ve todo el que ve
+      // boletas (recepción hacia arriba); adentro, cada cargo ve lo suyo.
+      name: "Facturación",
+      href: "/facturacion",
+      icon: FileSpreadsheet,
+      section: "boletas",
+      precargar: () => import("../pages/facturacion/FacturacionPage.tsx"),
+    },
+    {
       name: "Requerimientos",
       href: "/requests",
       icon: ClipboardList,
@@ -103,17 +114,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Receipt,
       section: "payments",
       precargar: () => import("../pages/postventa/PostVentaPage"),
-    },
-    {
-      // Facturación (doc 19 §9.19): una sola entrada para las boletas y
-      // los documentos, solo con el módulo propio `facturacion`. La ve todo
-      // el que ve boletas (recepción hacia arriba); adentro, cada cargo ve
-      // sus pestañas («Documentos», operaciones y administrador).
-      name: "Facturación",
-      href: "/facturacion",
-      icon: FileSpreadsheet,
-      section: "boletas",
-      precargar: () => import("../pages/facturacion/FacturacionPage.tsx"),
     },
     {
       // 28-07 (pedido de Felipe): "Catálogo" describe mejor lo que hay
