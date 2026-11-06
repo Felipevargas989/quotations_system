@@ -1184,6 +1184,38 @@ reparto por cabaña de recepción sigue en la sección Facturación.
   `ordenes-de-compra.spec.ts` y `boletas-sueltas.spec.ts`;
 - en la vitrina, `EmitirDte.test.tsx`.
 
+### 9.21 La sección Facturación con «Nuevo documento» (06-11)
+
+Felipe, 06-11, en la noche: *"en el modo facturación, primero lo pondría
+abajo de dashboard, segundo eliminaría esto boleta suelta, el por
+boletear, emitidas hoy. Creo que el tarifario lo podría dejar. Pero el
+resto pondría como abajo el detalle, pondría un botón de crear nuevo DTE
+que me pregunte si va a ser nota de crédito, débito, factura, boleta, y
+crearla de cero con quizás la misma estructura que tiene el, en
+facturación de, de postventa. Y así se pueden armar las boletas y la
+factura. Y quizás dejaría un por facturar (…) los eventos que no se hayan
+facturado (…) y los pudiera como facturar de acá, hacer una facturación
+masiva, etc. Y el otro, un botón arriba que diga, no boleta suelta, sino
+que nuevo documento y queda ahí la recepcionista pueda como emitir las
+boletas de las cabañas. Hagamos ese cambio y yo me voy a acostar"*.
+
+**Cómo queda la sección:**
+1. «Facturación» va en el menú **justo debajo de Dashboard**.
+2. Arriba, **«Nuevo documento»** pregunta el tipo, y cada uno ve solo lo
+   que puede emitir (sus interruptores de Permisos por cargo, doc 22 §7).
+   Con una sola opción (recepción, la boleta) va directo:
+   - **Boleta** (permiso «Boletas»): lo del tarifario por su cantidad, la
+     línea a mano solo del administrador, la cabaña y el correo del
+     huésped; abajo el neto, el IVA y el total a pagar; «Emitir boleta».
+     Es donde la recepcionista emite las boletas de las cabañas.
+   - **Nota de crédito o de débito** (permiso «Anular o rebajar»): una
+     nota siempre modifica un documento (§9.5), así que primero se elige
+     cuál, del mes que se quiera (el motor dice qué admite cada uno), y
+     sigue el panel de siempre.
+3. Abajo, **el detalle**: «Documentos» y «Tarifario».
+4. Salen «Boleta suelta», «Por boletear» y «Emitidas hoy». Los cobros por
+   boletear quedan en el motor sin pantalla: no se borra nada.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

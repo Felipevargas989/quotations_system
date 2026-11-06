@@ -12,6 +12,7 @@ import {
 } from "../../services/documentosTributarios.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
+import { ultimosMeses } from "./meses";
 import NotaDeUnDocumento from "./NotaDeUnDocumento";
 import ProbarLaConexion from "./ProbarLaConexion";
 
@@ -32,29 +33,6 @@ const clp = (n: number) =>
 /** «1 factura», «4 boletas». */
 const cuantas = (n: number, cosa: string) =>
   `${n} ${cosa}${n === 1 ? "" : "s"}`;
-
-const MESES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-/** Los últimos 12 meses, del más nuevo al más viejo (AAAA-MM). */
-const ultimosMeses = (hoy = new Date()) =>
-  Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-    const valor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    return { value: valor, label: `${MESES[d.getMonth()]} ${d.getFullYear()}` };
-  });
 
 type Filtro = "todo" | "facturas" | "boletas" | "notas";
 const FILTROS: { key: Filtro; label: string }[] = [

@@ -13,17 +13,22 @@ import {
 } from "../../services/boletas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 
-// LA BOLETA SUELTA (doc 19 §9.4 y §9.16, paso 3b).
+// LA BOLETA DE «NUEVO DOCUMENTO» (doc 19 §9.4, §9.16 y §9.21).
 //
 // Lo del tarifario (cabañas, ticket diario, tinaja…; D3) por su cantidad,
 // con la cabaña que escribe recepción y el correo del huésped si lo da:
 // facturacion.cl le manda la boleta (L11). El total sale del tarifario:
 // los precios nunca a dedo. Escribir una línea a mano es solo del
-// administrador.
+// administrador. Desde el 06-11 vive en «Nuevo documento» de la sección
+// Facturación, con el alto de las casillas del DTE y abajo el neto, el IVA
+// y el total a pagar.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
+// El neto y el IVA dentro del total con IVA, como los calcula el motor para
+// la boleta (`desgloseDelTotal`): el neto redondeado y el IVA, lo que falta.
+const netoDe = (total: number) => Math.round(total / 1.19);
 const casilla =
-  "w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 
 interface LineaEnPantalla {
   clave: number;
@@ -164,7 +169,7 @@ export default function BoletaSuelta({
                     currency
                     placeholder="0"
                     onChange={(v) => poner(l.clave, { monto: v })}
-                    className="px-3 py-1.5 text-sm"
+                    className="text-sm"
                   />
                 </label>
               </>
@@ -194,7 +199,7 @@ export default function BoletaSuelta({
                     value={l.cantidad}
                     min={1}
                     onChange={(v) => poner(l.clave, { cantidad: v })}
-                    className="px-3 py-1.5 text-sm"
+                    className="text-sm"
                   />
                 </label>
               </>
@@ -223,7 +228,7 @@ export default function BoletaSuelta({
               onClick={() => setLineas((ls) => [...ls, lineaNueva()])}
               className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
             >
-              <Plus size={13} /> Otra línea
+              <Plus size={13} /> Agregar línea
             </button>
           )}
           {esAdmin && (
@@ -266,10 +271,16 @@ export default function BoletaSuelta({
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-        <p className="text-base font-semibold text-gray-900">
-          Total {clp(total)}
-        </p>
+      <dl className="ml-auto grid w-full grid-cols-2 gap-x-3 text-sm sm:w-64">
+        <dt className="text-gray-500">Neto</dt>
+        <dd className="text-right">{clp(netoDe(total))}</dd>
+        <dt className="text-gray-500">IVA 19 %</dt>
+        <dd className="text-right">{clp(total - netoDe(total))}</dd>
+        <dt className="font-semibold">Total a pagar</dt>
+        <dd className="text-right font-semibold">{clp(total)}</dd>
+      </dl>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-3">
         {confirmando ? (
           <ConfirmInline
             question={`¿Emitir la boleta por ${clp(total)}? Una boleta emitida no se borra.`}
