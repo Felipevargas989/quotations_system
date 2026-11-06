@@ -203,25 +203,25 @@ export const leerProcesar = (
   return null;
 };
 
+/** Un rango de `ConsultarCAF`, tal como lo lista facturacion.cl. */
+export interface RangoDeFolios {
+  idcaf: string | null;
+  /** La fecha del rango, como la dice facturacion.cl. */
+  fecha: string | null;
+  desde: number;
+  hasta: number;
+  siguiente: number;
+  vence: string | null;
+}
+
 /**
  * Lee `ConsultarCAF`, un `<CAF>` por cada rango cargado: idcaf, tipodte,
  * fecha, fechavencimiento, el rango, cantidad y foliosiguiente. El manual
  * nombra el rango `foliodesde`/`foliohasta`; el servicio de verdad (paso 0,
  * 06-11) responde `rangodesde`/`rangohasta`, con las fechas en DD-MM-AAAA
  * y «NO APLICA» de vencimiento en las boletas: se leen las dos formas.
- *
- * Vale el primer rango **en el orden en que los lista facturacion.cl** que
- * todavía tiene folios (los agotados traen el siguiente fuera del rango);
- * los que siguen suman a los libres. Medido el 06-11: con dos rangos con
- * folios, facturacion.cl usa el primero de la lista. La boleta salió con el
- * siguiente del primero, y la factura con el siguiente del segundo (un
- * rango más bajo) fue rechazada: «fuera del rango que tiene autorizado».
- * Por eso no se ordenan por número.
  */
-export const leerFolios = (
-  xml: string,
-  tipo: number,
-): FoliosDisponibles | null => {
+export const rangosDeLosFolios = (xml: string): RangoDeFolios[] => {
   const cafs = [
     ...xml.matchAll(/<(?:[\w-]+:)?CAF\s*>([\s\S]*?)<\/(?:[\w-]+:)?CAF\s*>/gi),
   ].map((m) => m[1]);
@@ -234,21 +234,46 @@ export const leerFolios = (
     return null;
   };
   const numero = (v: string | null) => (v == null ? NaN : Number(v));
-  const rangos = (cafs.length ? cafs : [xml])
-    .map((b) => ({
-      siguiente: numero(uno(b, 'foliosiguiente')),
-      desde: numero(uno(b, 'rangodesde', 'foliodesde')),
-      hasta: numero(uno(b, 'rangohasta', 'foliohasta')),
-      vence: fechaDe(uno(b, 'fechavencimiento')),
-    }))
-    .filter(
-      (r) =>
-        [r.siguiente, r.desde, r.hasta].every(Number.isInteger) &&
-        r.siguiente >= r.desde &&
-        r.siguiente <= r.hasta,
-    );
-  if (!rangos.length) return null;
-  const [actual] = rangos;
+  return (cafs.length ? cafs : [xml]).map((b) => ({
+    idcaf: uno(b, 'idcaf'),
+    fecha: uno(b, 'fecha'),
+    siguiente: numero(uno(b, 'foliosiguiente')),
+    desde: numero(uno(b, 'rangodesde', 'foliodesde')),
+    hasta: numero(uno(b, 'rangohasta', 'foliohasta')),
+    vence: fechaDe(uno(b, 'fechavencimiento')),
+  }));
+};
+
+/** ¿Le quedan folios? Los agotados traen el siguiente fuera del rango. */
+const conFolios = (r: RangoDeFolios) =>
+  [r.siguiente, r.desde, r.hasta].every(Number.isInteger) &&
+  r.siguiente >= r.desde &&
+  r.siguiente <= r.hasta;
+
+/**
+ * Los folios de un tipo. Vale el rango con folios **de folio siguiente más
+ * alto**; todos los rangos con folios suman a los libres.
+ *
+ * Medido el 06-11 en el ambiente de prueba, con varios rangos con folios
+ * por tipo: facturacion.cl aceptó la factura y la nota de crédito con el
+ * siguiente del rango más alto, y a la boleta (folio 0) le puso el del más
+ * alto. Rechazó «fuera del rango que tiene autorizado» la factura con el
+ * siguiente de un rango más bajo (292.282) y la nota de débito con el del
+ * segundo de la lista (292.104). Ni el orden de la lista ni el número de
+ * rango (`idcaf`) lo explican. Si igual lo rechaza, la emisión pide el
+ * folio de otro rango una vez, con `descartados` (`mandarConFolio`).
+ */
+export const leerFolios = (
+  xml: string,
+  tipo: number,
+  descartados: number[] = [],
+): FoliosDisponibles | null => {
+  const rangos = rangosDeLosFolios(xml).filter(conFolios);
+  const candidatos = rangos.filter((r) => !descartados.includes(r.siguiente));
+  if (!candidatos.length) return null;
+  const actual = candidatos.reduce((a, r) =>
+    r.siguiente > a.siguiente ? r : a,
+  );
   return {
     tipo,
     siguiente: actual.siguiente,
@@ -388,15 +413,18 @@ export class FacturacionClSoap implements FacturacionCl {
     return (await this.consultarCaf(tipo)).folios;
   }
 
-  /** Para «Probar la conexión»: los folios, y si no hay, lo que respondió
-   *  facturacion.cl (el paso 0, 06-11: sin eso no se sabe si faltan los
-   *  folios o la respuesta trae otra forma). */
+  /** Para «Probar la conexión»: los folios y todos los rangos, y si no hay,
+   *  lo que respondió facturacion.cl (el paso 0, 06-11: sin eso no se sabe
+   *  si faltan los folios o la respuesta trae otra forma). */
   async foliosYLoQueDijo(tipo: number) {
     return this.consultarCaf(tipo);
   }
 
-  async folioSiguiente(tipo: number): Promise<number> {
-    const { folios, mensaje } = await this.consultarCaf(tipo);
+  async folioSiguiente(
+    tipo: number,
+    descartados: number[] = [],
+  ): Promise<number> {
+    const { folios, mensaje } = await this.consultarCaf(tipo, descartados);
     if (!folios)
       throw new BadGatewayException(
         `facturacion.cl no tiene folios disponibles del tipo ${tipo}${mensaje ? ` («${mensaje}»)` : ''}: hay que cargarlos en su plataforma`,
@@ -465,15 +493,16 @@ export class FacturacionClSoap implements FacturacionCl {
     return xml ? leerPdf(xml) : null;
   }
 
-  private async consultarCaf(tipo: number) {
+  private async consultarCaf(tipo: number, descartados: number[] = []) {
     const xml =
       (await this.consultar(
         'ConsultarCAF',
         `${this.login()}<tipoDTE>${base64(String(tipo))}</tipoDTE>`,
       )) ?? '';
-    const folios = leerFolios(xml, tipo);
+    const folios = leerFolios(xml, tipo, descartados);
     return {
       folios,
+      rangos: rangosDeLosFolios(xml),
       // Lo que dijo si no hay folios (las credenciales, por ejemplo); si no
       // trae «Mensaje», el comienzo de lo que respondió. Es la respuesta:
       // nunca lleva las credenciales.
