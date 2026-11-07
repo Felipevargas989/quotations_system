@@ -234,6 +234,46 @@ describe('Las notas', () => {
     );
   });
 
+  it('anular una factura con descuento: la NC lleva las líneas con su descuento y va por el total de verdad (§9.22)', async () => {
+    const CON_DESCUENTO = {
+      ...FACTURA_1,
+      id: 11,
+      folio: 2,
+      quotation_id: null,
+      orden_de_compra_id: null,
+      porcentaje: null,
+      detalle: [
+        {
+          descripcion: 'Jornada corporativa',
+          descripcionLarga: null,
+          cantidad: 1,
+          precio: 100000,
+          descuento: 10,
+        },
+      ],
+      neto: 90000,
+      iva: 17100,
+      total: 107100,
+    };
+    const { servicio, repo } = armar({ documentos: [CON_DESCUENTO] });
+    const nc = await servicio.emitirNota(ADMIN, 11, {
+      accion: 'anular',
+      motivo: 'Prueba del descuento',
+    });
+    expect(nc).toMatchObject({ tipo: 61, estado: 'emitido', total: 107100 });
+    const { archivo_enviado } = (
+      repo.crear.mock.calls as unknown[][]
+    )[0][0] as {
+      archivo_enviado: string;
+    };
+    expect(archivo_enviado).toContain(
+      '1;SERV;Jornada corporativa;1;100000;10;10000;0;0;0;90000;INT1;UN;',
+    );
+    expect(archivo_enviado).toContain(
+      '->Totales<-\r\n0;10000;0;0;90000;0;19;17100;107100;',
+    );
+  });
+
   it('una factura ya anulada no se anula dos veces', async () => {
     const { servicio } = armar({
       documentos: [
