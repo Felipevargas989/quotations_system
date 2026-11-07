@@ -1078,6 +1078,19 @@ de verdad, el rango que vale y el reintento con otro rango. Queda para
 Felipe: revisar lo emitido en el Libro de Ventas del acceso web de prueba y
 pedir la certificación con «Solicitar» (5c).
 
+**El Libro de Ventas, revisado el 07-11** (Felipe entró al acceso web de
+prueba, www.facturacion.cl/plano/, con el usuario y la clave del cuadro
+«Ambiente Prueba Acceso Web»; Contabilidad → Libro Ventas, noviembre de
+2026): están los 8 documentos de las pruebas y cuadran con Eventia. Las
+facturas 9999839213 ($119.000) y 9999839219 ($107.100, con el descuento de
+$10.000), las boletas 9300006564 y 9300006566 ($130.000 cada una) y
+9300006574 ($25.000, al RUT 66.666.666-6), las NC 9999974794 (−$119.000)
+y 9999974795 (−$1.000) y la ND 9999742766 ($119.000). En total, neto
+$428.656 e IVA $81.444. Solo se ven los nuestros. El recuadro «Estado
+certificación empresa», con el botón «Solicitar», no está en ese acceso
+de prueba: según el manual (Ficha técnica, paso 5) está en la pantalla de
+inicio del sistema de siempre de facturacion.cl.
+
 **5c, la certificación y el «a producción»** (el paso a paso, revisado
 el 05-11):
 
@@ -1092,7 +1105,10 @@ el 05-11):
 
 *Antes, sin tocar producción:*
 1. Felipe pide el paso a producción con «Solicitar», en la pantalla de
-   inicio de facturacion.cl. Antes tiene que estar listo el 5b.
+   inicio de facturacion.cl (el recuadro «Estado certificación empresa»:
+   *"confirmar que ha finalizado las pruebas necesarias y solicitar el paso
+   a producción"*). Antes tiene que estar listo el 5b (hecho el 06-11, y el
+   Libro de Ventas revisado el 07-11).
 2. La certificación toma de 3 a 5 días hábiles.
 3. Al terminar llegan las credenciales de producción.
 
