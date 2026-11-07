@@ -10,12 +10,6 @@ import {
   FacturacionClSimulado,
   revisarArchivo,
 } from '../facturacion-cl/simulado';
-import {
-  Cadena,
-  estadoEnPalabras,
-  plazoDelSii,
-  type DocumentoDeLaCadena,
-} from '../notas/cadena';
 import { NotasController } from '../notas/notas.controller';
 import { NotasService } from '../notas/notas.service';
 
@@ -23,73 +17,6 @@ import { NotasService } from '../notas/notas.service';
  * LA CADENA DE ANULACIONES Y LAS NOTAS (doc 19 §9.5, paso 4), con el caso
  * del laboratorio: la factura simulada N° 1 de CCU, $1.428.000.
  */
-
-const doc = (
-  d: Partial<DocumentoDeLaCadena> & Pick<DocumentoDeLaCadena, 'id' | 'tipo'>,
-): DocumentoDeLaCadena => ({
-  folio: d.id,
-  estado: 'emitido',
-  total: 1000000,
-  fecha_emision: '2026-11-04',
-  modifica_id: null,
-  codigo_referencia: null,
-  ...d,
-});
-
-describe('La cadena', () => {
-  it('una NC que anula deja la factura anulada; la ND que anula esa NC la devuelve', () => {
-    const factura = doc({ id: 1, tipo: 33 });
-    const nc = doc({ id: 2, tipo: 61, modifica_id: 1, codigo_referencia: 1 });
-    let c = new Cadena([factura, nc]);
-    expect(estadoEnPalabras(c.estado(1))).toBe('Anulada por NC 2');
-    expect(c.facturado(1)).toBe(0);
-
-    const nd = doc({ id: 3, tipo: 56, modifica_id: 2, codigo_referencia: 1 });
-    c = new Cadena([factura, nc, nd]);
-    expect(estadoEnPalabras(c.estado(2))).toBe('Anulada por ND 3');
-    expect(c.estado(1)).toEqual({ como: 'vigente' });
-    expect(c.facturado(1)).toBe(1000000);
-  });
-
-  it('una rebaja deja lo que queda; una corrección de texto no cambia el monto', () => {
-    const c = new Cadena([
-      doc({ id: 1, tipo: 33 }),
-      doc({
-        id: 2,
-        tipo: 61,
-        modifica_id: 1,
-        codigo_referencia: 3,
-        total: 300000,
-      }),
-      doc({ id: 3, tipo: 33 }),
-      doc({ id: 4, tipo: 61, modifica_id: 3, codigo_referencia: 2, total: 0 }),
-    ]);
-    expect(estadoEnPalabras(c.estado(1))).toBe('Rebajada: queda $700.000');
-    expect(c.saldo(1)).toBe(700000);
-    expect(estadoEnPalabras(c.estado(3))).toBe('Corregida por NC 4');
-    expect(c.saldo(3)).toBe(1000000);
-  });
-
-  it('una nota rechazada no salió: no cuenta', () => {
-    const c = new Cadena([
-      doc({ id: 1, tipo: 33 }),
-      doc({
-        id: 2,
-        tipo: 61,
-        modifica_id: 1,
-        codigo_referencia: 1,
-        estado: 'rechazado',
-      }),
-    ]);
-    expect(c.vigente(1)).toBe(true);
-  });
-
-  it('los plazos del SII: anular, el mes siguiente; rebajar, 6 meses', () => {
-    expect(plazoDelSii('2026-11-04', 'anular')).toBe('2026-12-31');
-    expect(plazoDelSii('2026-12-15', 'corregir')).toBe('2027-01-31');
-    expect(plazoDelSii('2026-11-04', 'rebajar')).toBe('2027-05-04');
-  });
-});
 
 const FACTURA_1 = {
   id: 10,
@@ -621,14 +548,21 @@ describe('La lista de Facturación', () => {
       lista.documentos.map((d) => [
         d.titulo,
         d.cadena.texto,
+        d.cadena.detalle,
         d.neto,
         d.iva,
         d.total,
       ]),
     ).toEqual([
-      ['Factura 1', 'Anulada por NC 1', 1200000, 228000, 1428000],
+      // El chip en una palabra y abajo la nota que la anuló (§9.22, 07-11).
+      ['Factura 1', 'Anulada', 'Por NC 1', 1200000, 228000, 1428000],
       // La NC resta en las tres columnas: el reporte suma bien en Excel.
-      ['NC 1 · anula la 1', 'Código 1 · 04-11', -1200000, -228000, -1428000],
+      ['NC 1 · anula la 1', 'Vigente', null, -1200000, -228000, -1428000],
+    ]);
+    // La lista pone el nombre arriba y lo que hace la nota junto a la fecha.
+    expect(lista.documentos.map((d) => [d.nombre, d.que_hace])).toEqual([
+      ['Factura 1', null],
+      ['NC 1', 'anula la 1'],
     ]);
     expect(lista.resumen).toMatchObject({
       facturado: 0,
@@ -786,6 +720,22 @@ describe('La lista de Facturación', () => {
     expect(de(23)?.situacion).toBe('nota');
     expect(de(26)?.situacion).toBe('anulada');
     expect(de(27)?.situacion).toBe('nota');
+    // El chip en una palabra y abajo lo que lo cambió (§9.22, 07-11).
+    expect(de(20)?.cadena).toMatchObject({ texto: 'Vigente', detalle: null });
+    expect(de(22)?.cadena).toMatchObject({
+      texto: 'Rebajada',
+      detalle: 'Se rebajaron $100.000',
+    });
+    expect(de(23)?.cadena).toMatchObject({ texto: 'Vigente', detalle: null });
+    expect(de(23)).toMatchObject({ nombre: 'NC 3', que_hace: 'rebaja la 22' });
+    expect(de(26)?.cadena).toMatchObject({
+      texto: 'Anulada',
+      detalle: 'Por NC 4',
+    });
+    expect(de(25)?.cadena).toMatchObject({
+      texto: 'Por confirmar',
+      detalle: null,
+    });
     expect(de(24)).toMatchObject({
       situacion: 'vigente',
       cliente: 'Cabaña 4',

@@ -33,7 +33,7 @@ import {
   NOMBRE_CORTO,
   NOMBRE_LARGO,
   QUE_HACE,
-  estadoEnPalabras,
+  estadoCorto,
   facturadoDeLasOC,
   nombreDe,
   plazoDelSii,
@@ -213,17 +213,19 @@ export class NotasService {
           : undefined;
       const esNota = d.tipo === NC || d.tipo === ND;
       const signo = d.tipo === NC ? -1 : 1;
-      const titulo =
+      const nombre = nombreDe(d);
+      // Lo que hace la nota («rebaja la 1235»): la lista lo pone junto a la
+      // fecha (§9.22, 07-11), y el reporte y el buscador lo leen en el título.
+      const queHace =
         esNota && modifica
-          ? `${nombreDe(d)} · ${QUE_HACE[d.codigo_referencia ?? 0] ?? 'modifica'} la ${modifica.tipo === 33 ? modifica.folio : nombreDe(modifica)}`
-          : nombreDe(d);
-      const textoDelEstado = !emitido
-        ? 'Por confirmar'
-        : esNota
-          ? estado.como === 'anulado'
-            ? estadoEnPalabras(estado)
-            : `Código ${d.codigo_referencia} · ${d.fecha_emision ? fechaCorta(d.fecha_emision).slice(0, 5) : ''}`
-          : estadoEnPalabras(estado);
+          ? `${QUE_HACE[d.codigo_referencia ?? 0] ?? 'modifica'} la ${modifica.tipo === 33 ? modifica.folio : nombreDe(modifica)}`
+          : null;
+      const titulo = queHace ? `${nombre} · ${queHace}` : nombre;
+      // El chip en una palabra y abajo lo que lo cambió (§9.22, 07-11). La
+      // nota en pie también dice «Vigente»; lo que hace ya va en `que_hace`.
+      const { texto: textoDelEstado, detalle: detalleDelEstado } = emitido
+        ? estadoCorto(estado, total)
+        : { texto: 'Por confirmar', detalle: null };
       const vigente = estado.como !== 'anulado';
       const detalle = (d.detalle ?? []) as { cabana?: string | null }[];
       const situacion: SituacionEnLaLista = !emitido
@@ -254,6 +256,8 @@ export class NotasService {
         estado: d.estado,
         ambiente: d.ambiente,
         titulo,
+        nombre,
+        que_hace: queHace,
         reemplaza: reemplaza ? nombreDe(reemplaza) : null,
         cliente:
           d.tipo === 39
@@ -268,7 +272,11 @@ export class NotasService {
         quotation_id: d.quotation_id,
         oc: d.oc?.numero ?? null,
         modifica_id: d.modifica_id,
-        cadena: { como: estado.como, texto: textoDelEstado },
+        cadena: {
+          como: estado.como,
+          texto: textoDelEstado,
+          detalle: detalleDelEstado,
+        },
         situacion,
         // El RUT del receptor, para buscar (la boleta no lo tiene).
         rut: d.tipo === 39 ? null : (d.receptor?.rut ?? null),

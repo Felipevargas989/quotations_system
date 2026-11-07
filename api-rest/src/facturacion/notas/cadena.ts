@@ -180,6 +180,32 @@ export const estadoEnPalabras = (e: EstadoEnLaCadena, femenino = true) => {
 };
 
 /**
+ * El estado de la lista de Facturación (doc 19 §9.22, 07-11): una palabra
+ * en el chip y, abajo, lo que lo cambió. Felipe: *"que diga rebajada nomás y
+ * que abajo diga cuánto se rebajó (…) solamente anulada y abajo la nota que
+ * la anuló"*. La factura con un texto corregido vale entera: «Vigente», con
+ * la nota que la corrigió abajo. `total` es lo que se emitió (sin signo).
+ */
+export const estadoCorto = (
+  e: EstadoEnLaCadena,
+  total: number,
+): { texto: string; detalle: string | null } => {
+  if (e.como === 'anulado')
+    return { texto: 'Anulada', detalle: `Por ${nombreDe(e.por)}` };
+  if (e.como === 'rebajado')
+    return {
+      texto: 'Rebajada',
+      detalle: `Se rebajaron $${Math.round(total - e.queda).toLocaleString('es-CL')}`,
+    };
+  if (e.como === 'corregido')
+    return {
+      texto: 'Vigente',
+      detalle: `Corregida por ${e.por.map(nombreDe).join(', ')}`,
+    };
+  return { texto: 'Vigente', detalle: null };
+};
+
+/**
  * Los plazos del SII (§9.5) para la nota que se quiere emitir:
  * - anular o corregir un error propio: el mismo mes o el siguiente (Res.
  *   Ex. 45 de 2003); después, el débito ya pagado solo se recupera con el
