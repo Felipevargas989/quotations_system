@@ -3,7 +3,6 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
 import { AnalyticsController } from 'src/analytics/analytics.controller';
 import { AsistenteController } from 'src/asistente/asistente.controller';
-import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
@@ -100,12 +99,10 @@ const ESPERADO: Array<{
   derecho: Derecho;
   abiertas: number; // rutas con @Derecho(null), a propósito
 }> = [
-  {
-    nombre: 'Calendario',
-    cls: CalendarController,
-    derecho: 'calendario',
-    abiertas: 0,
-  },
+  // El Calendario ya no tiene controlador propio: su única puerta,
+  // `GET /calendar/events`, no tenía quién la llamara y se borró el
+  // 06-11-2026 (doc 22 §4.3). La pantalla lee `GET /quotations` con
+  // `vista=calendario`.
   {
     nombre: 'Pagos',
     cls: PaymentsController,

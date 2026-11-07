@@ -2,7 +2,6 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
 import { AsistenteController } from 'src/asistente/asistente.controller';
-import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientContactsController } from 'src/clients/client-contacts.controller';
 import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
@@ -103,7 +102,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero.
       'GET choques/pendientes': R,
       'POST :id/choques/:aceptadaId': R,
-      'POST :id/cosecha': S,
+      // La cosecha la corrige quien tiene el Dashboard (doc 22 §4.3,
+      // 06-11-2026; antes, vendedor y arriba sin pantalla que la usara).
+      'POST :id/cosecha': A,
       'PATCH :id': R,
       'DELETE :id': R,
     },
@@ -134,7 +135,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST coincidencias': R,
       'POST ': R,
       'GET ': R,
-      'GET :id/summary': R,
+      // La ficha 360 la lee solo la pantalla de Clientes (doc 22 §4.3,
+      // 06-11-2026; recepción no la ve desde el 03-10).
+      'GET :id/summary': S,
       'PATCH :id': S,
       'DELETE :id': S,
     },
@@ -178,7 +181,6 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET costo-personal': A,
     },
   ],
-  [CalendarController, { 'GET events': R }],
   [
     StorageController,
     { 'POST upload': R, 'GET signed-url': R, 'POST delete': O },

@@ -39,7 +39,6 @@ import {
   hexEstado,
   puntoEstado,
 } from "../../utils/estadoCotizacion";
-// import { findAllEvents } from "../../services/calendar.service";
 
 // El filtro se recuerda por usuario (mismo patrón de Post-Venta).
 const CAL_FILTER_KEY = (userId: string | number) =>

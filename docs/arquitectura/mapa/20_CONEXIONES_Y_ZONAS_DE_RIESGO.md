@@ -767,6 +767,8 @@ El token de corta vida con que el navegador invisible abre la hoja de impresión
 
 #### x4-25 · El Calendario es un envoltorio de Cotizaciones; Analítica importa dos módulos que no usa
 
+> **El Calendario: resuelto el 06-11-2026.** El módulo `calendar` del motor se borró con su única puerta, que nadie llamaba (doc 22 §4.3). Lo de Analítica sigue.
+
 `CalendarService.findAllEvents` devuelve tal cual al frontend el resultado de `quotationsService.findAll({companyId})` dentro de `{quotations}`; `CalendarRepository` es una clase vacía, sin métodos propios. `AnalyticsService.getDashboardStats` usa `quotationsService.findAll(...)`, `clientsService.findAll(companyId)` y `paymentsService.findAllPaymentsFromQuotation(...)`, e importa la función pura `fechaDelUltimoAbono` directamente desde `payments.service.ts`. `AnalyticsModule` importa `EmailModule` y `UsersModule` aunque un grep confirma que ni `AnalyticsService` ni `HoyController` usan `EmailService` ni `UsersService`. CLAUDE.md nombra `analyitics-cront.service.ts` como ejemplo de cron, pero ese archivo no existe en `api-rest/src/analytics`. Cambiar el objeto de filtros o las columnas de `findAll` (por ejemplo recortar `COLUMNAS_LISTA` para acelerar el listado) cambia a la vez lo que ve el Calendario y los números del Dashboard; mover `fechaDelUltimoAbono` fuera de `payments.service.ts` rompe la compilación de analytics.
 
 **Evidencia:**
