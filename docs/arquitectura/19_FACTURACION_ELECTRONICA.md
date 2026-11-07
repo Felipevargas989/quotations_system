@@ -1472,6 +1472,17 @@ fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
   · 06-11»), y la factura con un texto corregido vale entera: «Vigente»,
   con «Corregida por NC …» abajo. Los montos no cambian: la nota resta en
   su fila y el resumen ya la descuenta. El filtro «Estado» no cambia.
+- La línea de abajo del documento va siempre en una: si no cabe (los folios
+  de prueba), termina en «…» y se lee entera al pasar el mouse. La nota
+  dice solo la fecha y lo que hace; la OC y el N° del evento ya están en la
+  fila de su factura. Si la vitrina llega antes que el motor, la lista se
+  ve como antes (los campos nuevos van opcionales).
+- **Probado el 07-11 en el laboratorio** (pantalla de 1.210 de ancho, como
+  la de Felipe): cada fila en dos líneas (de 53 a 65 px de alto), el
+  cliente en dos como máximo, y «Rebajada» con «Se rebajaron $1.000 ·
+  vence 06-12», «Anulada» con «Por ND 9999742766» y la NC con «06-11-2026
+  · rebaja la 9999839219». `pruebas` e41a341e, bf648b6e y dcbc3544; motor
+  e41a341, vitrina 6aef35ed.
 
 ### 9.11 Fuentes nuevas (04-11)
 
