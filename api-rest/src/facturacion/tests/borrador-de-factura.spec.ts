@@ -367,7 +367,8 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
     expect(r.ok).toBe(true);
     expect(r.pago).toEqual({ forma: 2, dias: 30, vencimiento: '2026-12-06' });
     expect(r.archivo).toContain('->FechaVencimiento<-\r\n2026-12-06;');
-    expect(r.archivo).toContain('->FormaPago<-\r\n2;Crédito a 30 días;');
+    // Sin glosa: facturacion.cl rechaza las tildes en TermPagoGlosa (06-11).
+    expect(r.archivo).toContain('->FormaPago<-\r\n2;;');
     // El simulado lo lee entero, con sus secciones nuevas.
     expect(revisarArchivo(r.archivo ?? '')).toEqual({
       tipo: 33,
@@ -394,7 +395,7 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
       '2026-11-06',
     );
     expect(r.pago).toEqual({ forma: 1, dias: null, vencimiento: null });
-    expect(r.archivo).toContain('->FormaPago<-\r\n1;Contado;');
+    expect(r.archivo).toContain('->FormaPago<-\r\n1;;');
     expect(r.archivo).not.toContain('->FechaVencimiento<-');
   });
 
