@@ -6,6 +6,13 @@
 > fábrica: nadie ganó ni perdió nada. El commit de Facturación 977c490b
 > sigue solo en el laboratorio y viaja con Facturación.
 >
+> **Las 9 puertas «más abiertas que sus pantallas» (§4.3): decididas el
+> 06-11-2026** (*"si hazlo si"*). Seis pasan a la sección de su pantalla y
+> se borran tres que nadie llamaba, entre ellas el calendario viejo. En el
+> laboratorio desde el 06-11 (`pruebas` 7c79787d) y **en producción desde
+> el 06-11-2026** (Felipe: *"pasalo a producción"*; PR #307, rama
+> `feature/puertas-mas-abiertas`). Sin migración.
+>
 > **Aprobado el 05-11-2026.** La maqueta (*"si me parece
 > perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
 > Calendario del vendedor prendido. **P1 (motor) y P2 (pantalla)
@@ -125,20 +132,22 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 Una puerta del motor que usan varias secciones sigue abierta mientras el
 cargo tenga **alguna** de ellas prendida; si no, apagar una sección rompería
 la otra. Por eso algunos permisos cierran mucho y otros casi nada. Lo que
-cierra cada uno, apagándolo solo a él y con todo lo demás de fábrica:
+cierra cada uno, apagándolo solo a él y con todo lo demás de fábrica
+(Clientes, Proveedores, Dashboard y Catálogo, medidos de nuevo el
+06-11-2026 con las puertas del §4.3):
 
 | Permiso | Cierra (puertas) | Qué |
 |---|---|---|
 | Requerimientos | 1 | «✨ Crear con IA» del requerimiento. Lo demás lo comparte con Cotizaciones |
 | Cotizaciones | 12 a 41 según el cargo | Enviar, aviso de cierre, seguimiento y bitácora, choques de fecha, menús y paquetes guardados; y la lista del motor le trae solo requerimientos (§4.4) |
 | Consultas | 4 (8 al administrador) | La bandeja del embudo: convertir y descartar; al administrador, también configurar el embudo y los tipos de evento |
-| Clientes | 8 | Editar y borrar clientes, contactos y tipos de cliente |
+| Clientes | 9 | Editar y borrar clientes, contactos y tipos de cliente, y la ficha 360 |
 | BelIA | 9 | Todas las de BelIA |
 | Calendario | 0 puertas, 1 regla | No tiene puertas propias (lee la lista de cotizaciones); el motor le niega la vista de calendario de esa lista (§4.4) |
 | Post-Venta | 30 a operaciones, 24 al administrador | Plan de pagos, abonos, reembolsos, comprobantes del portal, cocina, sillas del personal, marcar realizado, borrar archivos |
-| Proveedores e inventario | 21 a operaciones, 16 al administrador | Proveedores, insumos, mobiliario, recursos y compras |
-| Dashboard | 3 | Los números del panel |
-| Catálogo | 34 | Cambiar servicios, categorías, secciones, recetas y costos fijos |
+| Proveedores e inventario | 24 a operaciones, 17 al administrador | Proveedores, insumos, mobiliario, recursos y compras |
+| Dashboard | 4 | Los números del panel y corregir la cosecha del mes |
+| Catálogo | 35 | Cambiar servicios, categorías, secciones, recetas y costos fijos, y leer todas las líneas de receta |
 | Personal | 37 | Directorio, planificación, liquidación, propina, nómina e histórico |
 | Marketing | 25 | Campañas, audiencias y envíos |
 | Oportunidades | 66 | Todo Oportunidades |
@@ -213,10 +222,12 @@ La matriz de cargos (`auth/tests/matriz-de-cargos.spec.ts`) **no cambia sus
 valores esperados**: pasa a calcular el cargo de fábrica de cada puerta con la
 cuenta del §4.2 y lo compara con lo acordado. Una prueba nueva recorre las
 351 puertas con sesión y exige, para cada una con permisos, que la fábrica dé
-exactamente su `@Roles`. Medido con el borrador: **318 puertas quedan
-gobernadas por los interruptores y 33 quedan fijas**, sin ninguna que cambie.
+exactamente su `@Roles`. Medido con el borrador: **318 puertas quedaban
+gobernadas por los interruptores y 33 fijas**, sin ninguna que cambie.
+Desde el 06-11-2026 (abajo): **324 gobernadas, 24 fijas y 3 puertas
+menos.**
 
-Las 33 fijas:
+Las 24 fijas:
 
 | Grupo | Puertas | Por qué |
 |---|---|---|
@@ -225,7 +236,38 @@ Las 33 fijas:
 | El cobro del plan | 4 | Contratar, cambiar y cancelar el plan: administrador |
 | Eventia Móvil | 5 | Otra aplicación (§3.3) |
 | Torre de Control | 6 | Su lista de correos |
-| Más abiertas que sus pantallas | 9 | El motor ya se las abre a un cargo que ninguna pantalla suya usa: `GET /calendar/events` y tres lecturas de logística (sin llamador), la ficha 360 del cliente (recepción), la cosecha del mes (vendedor), y estado de compras, mobiliario e insumos (vendedor). Cerrarlas cambia lo de hoy: es una decisión aparte, anotada, no tomada |
+
+#### Las 9 «más abiertas que sus pantallas» (06-11-2026)
+
+Eran fijas porque el motor se las abría a un cargo que ninguna pantalla suya
+usaba, y cerrarlas cambiaba lo de hoy. Felipe lo decidió el 06-11-2026
+(*"si hazlo si"*): cada una, de la sección de su pantalla; y las que nadie
+llama, borradas.
+
+| Puerta | Antes | Ahora | Pantalla que la usa |
+|---|---|---|---|
+| `GET /calendar/events` (el calendario viejo) | Los cuatro cargos, con todas las cotizaciones y sus montos, sin las reglas de recepción ni de los tipos de cliente | **Borrada**, con el módulo `calendar` del motor y su servicio de la app | Ninguna: el Calendario lee `GET /quotations` con `vista=calendario` (§4.4) |
+| `GET /clients/:id/summary` (la ficha 360) | Los cuatro | `@Permiso('clientes')`: vendedor y arriba | Clientes → un cliente |
+| `POST /quotations/:id/cosecha` | Vendedor y arriba | `@Permiso('dashboard')`: administrador; y `@DelEvento`, como el resto del Dashboard (§9.8) | Dashboard → pinchar la barra de un mes |
+| `GET /logistics/estado-compras` | Vendedor y arriba | `@Permiso('proveedores')`: operaciones y administrador | Proveedores → Compras |
+| `GET /logistics/furniture` | Vendedor y arriba | `@Permiso('proveedores', 'catalogo')`: operaciones y administrador | Inventario; Catálogo → un servicio → Receta; el Inventario de Eventia Móvil |
+| `GET /logistics/supplies` | Vendedor y arriba | `@Permiso('proveedores', 'catalogo')`: operaciones y administrador | Proveedores → Insumos; Catálogo |
+| `GET /logistics/recipes/all` | Vendedor y arriba | `@Permiso('catalogo')`: administrador | Catálogo (por `getAllIngredientRecipeItems`) |
+| `GET /logistics/catalog/service-names` | Vendedor y arriba | **Borrada** | Ninguna: el cotizador recibe lo mismo en `base-catalogo` |
+| `GET /logistics/catalog/fixed-costs` | Vendedor y arriba | **Borrada** | Ninguna: ídem |
+
+- Con todo de fábrica, en la app web nadie pierde nada de lo que ve. Lo
+  único: un vendedor que abra Inventario en Eventia Móvil deja de ver el
+  mobiliario; esa app es de operaciones y administración (§3.3).
+- **Medido mal la primera vez:** el 05-11 se anotaron tres lecturas de
+  logística «sin llamador», y `recipes/all` sí lo tiene (el Catálogo, a
+  través de `getAllIngredientRecipeItems`). Por eso no se borró: quedó del
+  Catálogo. Se revisó también la app móvil (repo `eventia-movil`): usa
+  `furniture`, `supplies` (sin pantalla que la muestre), `base-catalogo`,
+  `purchasing/accepted-events` y `kitchen/times`.
+- La ficha 360: recepción no ve Clientes desde el 03-10 (mapa 23). Si se
+  le prende el interruptor, la vuelve a ver, sin los montos de lo que no es
+  particular (doc 21).
 
 ### 4.4 Dos reglas de datos en la lista de cotizaciones
 

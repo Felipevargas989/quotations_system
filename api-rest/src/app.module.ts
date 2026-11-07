@@ -14,7 +14,6 @@ import { PermisosModule } from './auth/permisos.module';
 import { RolesGuard } from './auth/roles.guard';
 import { BackupModule } from './backup/backup.module';
 import { PanelInvalidationInterceptor } from './cache/panel-invalidation.interceptor';
-import { CalendarModule } from './calendar/calendar.module';
 import { ClientsModule } from './clients/clients.module';
 import { TipoDelEventoGuard } from './clients/tipo-del-evento.guard';
 import { CompaniesModule } from './companies/companies.module';
@@ -87,7 +86,6 @@ import { UsersModule } from './users/users.module';
     ServicesModule,
     SuperAdminModule,
     AnalyticsModule,
-    CalendarModule,
     PagosModule,
     PlansModule,
     RefundsModule,

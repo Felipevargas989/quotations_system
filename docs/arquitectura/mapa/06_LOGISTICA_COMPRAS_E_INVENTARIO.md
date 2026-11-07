@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en Compras.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en Compras. Actualizado el 06-11-2026 con las puertas «más abiertas que sus pantallas» (doc 22 §4.3): `estado-compras`, `supplies` y `furniture` pasaron a sus secciones, `recipes/all` al Catálogo y se borraron `catalog/service-names` y `catalog/fixed-costs`, que nadie llamaba.
 
 ## 1. Qué hace
 
@@ -42,18 +42,18 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles |
 |---|---|---|---|---|
 | GET `/logistics/base-catalogo` | `baseCatalogo` | junta 6 lecturas en paralelo: `findAllRecipeItems`, `findAllSupplies`, `findAllFurniture`, `findAllSuppliers`, `catalogServiceNames`, `fixedServiceCosts` | `getBaseCatalogo` ← `PostVentaPage` (pestañas Gestión, Cocina y Servicios), `NegocioPage` (pestaña Servicios) e `InventarioPage` (`MobiliarioTab`), por `useBaseLogistica`; con la misma clave escrita a mano, `LogisticaPage` (pestaña Compras), `DashboardPage` y `QuotationForm` (cotizador) | vend+ |
-| GET `/logistics/estado-compras` | `estadoCompras` | `findAcceptedEvents` + `findSupplyProvisions` | `getEstadoCompras` ← `LogisticaPage` (pestaña Compras) | vend+ |
+| GET `/logistics/estado-compras` | `estadoCompras` | `findAcceptedEvents` + `findSupplyProvisions` | `getEstadoCompras` ← `LogisticaPage` (pestaña Compras) | ops+ (`@Permiso('proveedores')`, desde el 06-11-2026) |
 | GET `/logistics/suppliers` | `findAllSuppliers` | `findAllSuppliers` | `getSuppliers` ← `LogisticaPage` (pestañas Proveedores, Insumos y Servicios externos), `PostVentaPage` (pestaña Gestión, también `EventResourcesSection`) y `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | vend+ |
 | GET `/logistics/suppliers/usage` | `suppliersUsage` | `suppliersUsage` | `getSuppliersUsage` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
 | POST `/logistics/suppliers` | `createSupplier` | `createSupplier` | `createSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
 | PATCH `/logistics/suppliers/:id` | `updateSupplier` | `updateSupplier` | `updateSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
 | DELETE `/logistics/suppliers/:id` | `deleteSupplier` | `deleteSupplier` (409 si tiene insumos o recursos) | `deleteSupplier` ← `LogisticaPage` (pestaña Proveedores) | ops+ |
-| GET `/logistics/supplies` | `findAllSupplies` | `findAllSupplies` | `getSupplies` ← `LogisticaPage` (pestaña Insumos) y `ServicesPage` (Catálogo: la página y `RecipeTab`) | vend+ |
+| GET `/logistics/supplies` | `findAllSupplies` | `findAllSupplies` | `getSupplies` ← `LogisticaPage` (pestaña Insumos) y `ServicesPage` (Catálogo: la página y `RecipeTab`); `getInsumos` de Eventia Móvil, sin pantalla que la use | ops+ (`@Permiso('proveedores', 'catalogo')`, desde el 06-11-2026) |
 | GET `/logistics/supplies/usage?ids=` | `suppliesUsage` | `suppliesUsage` | `getSupplyUsage` ← `LogisticaPage` (pestaña Insumos) | ops+ |
 | POST `/logistics/supplies` | `createSupply` | `createSupply` | `createSupply` ← `LogisticaPage` (pestaña Insumos) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | ops+ |
 | PATCH `/logistics/supplies/:id` | `updateSupply` | `updateSupply` (candado de familia) | `updateSupply` ← `LogisticaPage` (pestaña Insumos, y pestaña Compras: el precio que se aprende de la compra) | ops+ |
 | DELETE `/logistics/supplies/:id` | `deleteSupply` | `deleteSupply` (409 si tiene recetas o compras) | `deleteSupply` ← `LogisticaPage` (pestaña Insumos) | ops+ |
-| GET `/logistics/furniture` | `findAllFurniture` | `findAllFurniture` | `getFurnitureItems` ← `InventarioPage` (`MobiliarioTab`) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | vend+ |
+| GET `/logistics/furniture` | `findAllFurniture` | `findAllFurniture` | `getFurnitureItems` ← `InventarioPage` (`MobiliarioTab`) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`); y el Inventario de Eventia Móvil (`getMobiliario`) | ops+ (`@Permiso('proveedores', 'catalogo')`, desde el 06-11-2026) |
 | GET `/logistics/furniture/usage` | `furnitureUsage` | `furnitureUsage` | `getFurnitureUsage` ← `InventarioPage` (`MobiliarioTab`) | ops+ |
 | POST `/logistics/furniture` | `createFurniture` | `createFurniture` | `createFurnitureItem` ← `InventarioPage` (`MobiliarioTab`) y `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`, "Crear y usar") | ops+ |
 | PATCH `/logistics/furniture/:id` | `updateFurniture` | `updateFurniture` | `updateFurnitureItem` ← `InventarioPage` (`MobiliarioTab`) | ops+ |
@@ -82,9 +82,7 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 | DELETE `/logistics/kitchen/notes/:id` | `deleteKitchenNote` | `deleteKitchenNote` | `deleteEventKitchenNote` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
 | GET `/logistics/kitchen/day-prints?quotationId=` | `dayPrints` | `findDayPrints` | `getEventDayPrints` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
 | POST `/logistics/kitchen/day-prints` | `markDaysPrinted` | `markDaysPrinted` | `markEventDaysPrinted` ← `PostVentaPage` (pestaña Cocina, `FichaCocinaSection`) | ops+ |
-| GET `/logistics/catalog/service-names` | `catalogServiceNames` | `catalogServiceNames` | **Nadie** desde la app: `getCatalogServiceNameIds` no tiene quien la llame (ver §10). El motor sí usa el método `catalogServiceNames` por dentro, en `baseCatalogo`, pero nadie pega en esta ruta. La app móvil no vive en este repo, así que no se pudo revisar | vend+ |
-| GET `/logistics/catalog/fixed-costs` | `fixedServiceCosts` | `fixedServiceCosts` | **Nadie** desde la app: `getFixedServiceCostsById` no tiene quien la llame. Igual que la anterior, el motor usa `fixedServiceCosts` por dentro, en `baseCatalogo`, y la app móvil no vive en este repo | vend+ |
-| GET `/logistics/recipes/all` | `allRecipeItems` | `findAllRecipeItems` | `getAllRecipeItems` ← `ServicesPage` (Catálogo), solo a través de `getAllIngredientRecipeItems` | vend+ |
+| GET `/logistics/recipes/all` | `allRecipeItems` | `findAllRecipeItems` | `getAllRecipeItems` ← `ServicesPage` (Catálogo), solo a través de `getAllIngredientRecipeItems` | admin (`@Permiso('catalogo')`, desde el 06-11-2026) |
 | GET `/logistics/recipes?serviceType&serviceId` | `recipeItems` | `findRecipeItems` | `getRecipeItems` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
 | POST `/logistics/recipes` | `addRecipeItem` | `addRecipeItem` | `addRecipeItem` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
 | PATCH `/logistics/recipes/:id` | `updateRecipeItem` | `updateRecipeItem` | `updateRecipeItem` ← `ServicesPage` (Catálogo, pestaña Receta `RecipeTab`) | admin |
@@ -95,7 +93,7 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 | PATCH `/logistics/fixed-cost-items/:id` | `updateCostItem` | `updateCostItem` | `updateFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
 | DELETE `/logistics/fixed-cost-items/:id` | `deleteCostItem` | `deleteCostItem` | `deleteFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
 
-Total: **53 endpoints**. El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
+Total: **51 endpoints** (53 hasta el 06-11-2026: se borraron GET `/logistics/catalog/service-names` y `/logistics/catalog/fixed-costs`, que nadie llamaba; el cotizador recibe lo mismo en `base-catalogo`. Doc 22 §4.3). El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
 
 **Aislamiento entre empresas en recetas y costos (sprint 1, SOLO EN LA RAMA `pruebas`, commit 8266ba1 — no está en producción).** `POST /logistics/recipes` y `POST /logistics/fixed-cost-items` ahora exigen que las piezas referenciadas sean del catálogo de la empresa de la sesión, antes de insertar:
 - `addRecipeItem` valida que el `service_id` (según `service_type`, contra `variable_services` o `fixed_services`) y el `supply_id` o `furniture_id` (según `item_kind`) sean de la empresa.
@@ -261,7 +259,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 - **Con un tipo de cliente apagado, sus eventos no aparecen en Compras** (Felipe: *"si sigue con la tanda 3"*): el estado de compras, los eventos ganados y aceptados, lo provisionado y los recursos traen solo lo que el cargo ve (`AlcanceDeRecepcion.soloLasQueVe`), y las puertas que tocan un evento llevan `@DelEvento` (`clients/tests/del-evento.spec.ts`). La lista de compras de ese cargo sale sin los insumos de esos eventos: así se acordó.
 
 **Acceso**
-- **Logística es de operaciones y administración; algunas lecturas se abren a vendedor+** porque las usan el cotizador, el Dashboard y Post-Venta ("medido en 8 pantallas (28-07)"). Evidencia: comentarios en `LogisticsController`; `SECTION_ROLES.logistics = OPERATIONS_AND_UP` en `frontend/src/constants/permissions.ts`.
+- **Logística es de operaciones y administración; algunas lecturas se abren a vendedor+** porque las usan el cotizador, el Dashboard y Post-Venta ("medido en 8 pantallas (28-07)"). Desde el 06-11-2026 quedan en vendedor+ solo `base-catalogo` y `suppliers`: `estado-compras`, `supplies` y `furniture` pasaron a sus secciones (doc 22 §4.3). Evidencia: comentarios en `LogisticsController`; `SECTION_ROLES.logistics = OPERATIONS_AND_UP` en `frontend/src/constants/permissions.ts`.
 - **La edición de recetas y costos es solo del administrador y vive en el Catálogo.** Evidencia: `@Roles(...ADMIN_ONLY)` y el comentario en `LogisticsController.recipeItems`.
 - **`company_id` nunca viaja en el body: sale de la sesión.** Evidencia: comentarios en los DTO (`create-supplier.dto.ts`, `event-operations.dto.ts`); la app lo quita (`company_id: _omitido`) en `frontend/src/services/logistics.service.ts`.
 - **Solo operaciones y administrador ven el costo en el cotizador y en Servicios** ("decisión de Felipe"). El vendedor puede descontar, pero no ve el margen. Evidencia: `puedeVerMargen` en `QuotationForm.tsx` y `ServiciosTab.tsx`.
@@ -405,7 +403,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 - `CLAUDE.md` no los lista en su deuda de modales.
 
 **Duplicaciones y código muerto**
-- `getCatalogServiceNameIds` y `getFixedServiceCostsById` en `frontend/src/services/logistics.service.ts` no tienen quien las llame. Duplican `mapNameIds` y `mapFixedCosts` ("si cambias una, cambia la otra"). Por eso GET `/logistics/catalog/service-names` y `/catalog/fixed-costs` quedan sin uso desde la app.
+- ~~`getCatalogServiceNameIds` y `getFixedServiceCostsById` no tenían quien las llamara~~: se enterraron el 06-11-2026 con sus dos puertas, GET `/logistics/catalog/service-names` y `/catalog/fixed-costs` (doc 22 §4.3).
 - La consulta de la base está escrita a mano en 3 pantallas en vez de `useBaseLogistica` (§8.2).
 - `FichaCocinaSection.resolveVarId` repite los dos primeros pasos de `resolveId` (sin el respaldo final por id numérico).
 - `UNITS_BY_FAMILY` existe en el motor y en la app.
