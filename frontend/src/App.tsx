@@ -45,6 +45,9 @@ const importMarketing = () => import("./pages/marketing/MarketingPage");
 const OportunidadesPage = lazy(
   () => import("./pages/oportunidades/OportunidadesPage"),
 );
+const FacturacionPage = lazy(
+  () => import("./pages/facturacion/FacturacionPage"),
+);
 const CompetidorPage = lazy(
   () => import("./pages/oportunidades/CompetidorPage"),
 );
@@ -372,6 +375,21 @@ function App() {
               />
               {/* Oportunidades - solo administrador y solo con el
                   derecho: licitaciones y compras ágiles (doc 17). */}
+              {/* Facturación (doc 19 §9.19): una sola sección para las
+                  boletas y los documentos; entra todo el que ve boletas, y
+                  adentro cada cargo ve sus pestañas. /boletas lleva acá. */}
+              <Route
+                path="facturacion"
+                element={
+                  <PermissionGuard section="boletas" derecho="facturacion">
+                    <FacturacionPage />
+                  </PermissionGuard>
+                }
+              />
+              <Route
+                path="boletas"
+                element={<Navigate to="/facturacion" replace />}
+              />
               <Route
                 path="oportunidades"
                 element={

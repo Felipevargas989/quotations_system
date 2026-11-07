@@ -1,6 +1,6 @@
 # Conexiones entre módulos y zonas de riesgo
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1; el 05-11-2026, la conexión con facturacion.cl (x4-27). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## Cómo leer este documento
 
@@ -172,7 +172,7 @@ El orden del menú se escribe por 4 caminos sobre las mismas columnas (`section_
 
 #### x1-16 · El candado de borrado de una cotización no menciona las tablas que se van en cascada
 
-`QuotationsRepository.remove`→`assertDeletable` solo revisa `payment_transactions`, `refunds`, `payments` y `customer_satisfaction_survey_responses` (las `NO ACTION` que bloquean el DELETE); las que tienen `ON DELETE CASCADE` hacia `quotations` (`event_documents`-8, `event_supply_provisions`-16, `event_resources`-17, `cocina`-22/28, `portal_receipts`-49, `quotation_followups`-59, `event_staff`-71, `staff_sheets`/`tip_pools`/`person_reviews`/`day_notes`-79) se borran en cascada sin que `assertDeletable` las mencione (comentario propio: "OJO SI SE AGREGA OTRA TABLA... hay que sumarla ACÁ TAMBIÉN"). `kitchen_checklist_marks` (44) tiene `quotation_id uuid NOT NULL` sin FK: queda huérfana, ni siquiera cae en cascada. La migración 79 trae en su encabezado "Aplicada en PRODUCCIÓN: pendiente (paquete 68→79)". Relajar `assertDeletable` pierde historia de Personas (`event_staff.payroll_id`) y Seguimiento sin aviso; una tabla hija nueva sin decidir su `ON DELETE` deja la cotización imposible de borrar con un 500 (ya ocurrió en laboratorio el 15-08 con `staff_sheets`). Pregunta abierta: si la migración 79 está aplicada en producción. Ver también x2-17, x4-03.
+`QuotationsRepository.remove`→`assertDeletable` solo revisa `payment_transactions`, `refunds`, `payments` y `customer_satisfaction_survey_responses` (las `NO ACTION` que bloquean el DELETE; desde el 04-11-2026 también `documentos_tributarios`, migración 184); las que tienen `ON DELETE CASCADE` hacia `quotations` (`event_documents`-8, `event_supply_provisions`-16, `event_resources`-17, `cocina`-22/28, `portal_receipts`-49, `quotation_followups`-59, `event_staff`-71, `staff_sheets`/`tip_pools`/`person_reviews`/`day_notes`-79) se borran en cascada sin que `assertDeletable` las mencione (comentario propio: "OJO SI SE AGREGA OTRA TABLA... hay que sumarla ACÁ TAMBIÉN"). `kitchen_checklist_marks` (44) tiene `quotation_id uuid NOT NULL` sin FK: queda huérfana, ni siquiera cae en cascada. La migración 79 trae en su encabezado "Aplicada en PRODUCCIÓN: pendiente (paquete 68→79)". Relajar `assertDeletable` pierde historia de Personas (`event_staff.payroll_id`) y Seguimiento sin aviso; una tabla hija nueva sin decidir su `ON DELETE` deja la cotización imposible de borrar con un 500 (ya ocurrió en laboratorio el 15-08 con `staff_sheets`). Pregunta abierta: si la migración 79 está aplicada en producción. Ver también x2-17, x4-03.
 
 **Evidencia:**
 - `api-rest/src/quotations/quotations.repository.ts` — `assertDeletable` (solo 4 tablas `NO ACTION`)
@@ -349,7 +349,7 @@ Abrir una ficha de evento no cerrada en `FichasTab` (queryFn con `staleTime 0`) 
 
 #### x2-17 · El candado de borrado cuenta 4 tablas; el resto se va por cascada sin aviso
 
-`QuotationsRepository.assertDeletable`, el candado de `DELETE /quotations/:id`, solo cuenta `payment_transactions`, `refunds`, `payments` y `customer_satisfaction_survey_responses`. Todo lo demás se va por `ON DELETE CASCADE` de la base: documentos, provisiones/recursos, cocina, comprobantes del portal, bitácora comercial y —clave— `staff_sheets`, `tip_pools`, `person_reviews` y `day_notes`, cuyo CASCADE lo agregó recién la migración 79, cuyo encabezado dice literalmente "Aplicada en PRODUCCIÓN: pendiente". Si esa migración no corrió en producción, borrar una cotización con ficha de personal abierta falla con un 500 crudo; si corrió, se borra sin preguntar si hay jornadas o propinas ya selladas en nómina.
+`QuotationsRepository.assertDeletable`, el candado de `DELETE /quotations/:id`, solo cuenta `payment_transactions`, `refunds`, `payments` y `customer_satisfaction_survey_responses` (desde el 04-11-2026, también `documentos_tributarios`: migración 184). Todo lo demás se va por `ON DELETE CASCADE` de la base: documentos, provisiones/recursos, cocina, comprobantes del portal, bitácora comercial y —clave— `staff_sheets`, `tip_pools`, `person_reviews` y `day_notes`, cuyo CASCADE lo agregó recién la migración 79, cuyo encabezado dice literalmente "Aplicada en PRODUCCIÓN: pendiente". Si esa migración no corrió en producción, borrar una cotización con ficha de personal abierta falla con un 500 crudo; si corrió, se borra sin preguntar si hay jornadas o propinas ya selladas en nómina.
 
 **Evidencia:**
 - `api-rest/src/quotations/quotations.repository.ts`: `assertDeletable` (4 tablas contadas)
@@ -777,6 +777,29 @@ El token de corta vida con que el navegador invisible abre la hoja de impresión
 - `api-rest/src/analytics/analytics.service.ts` — usa `quotationsService.findAll`, `clientsService.findAll`, `paymentsService.findAllPaymentsFromQuotation`; `import { fechaDelUltimoAbono, PaymentsService } from 'src/payments/payments.service'`
 - `api-rest/src/analytics/analytics.module.ts` — imports `EmailModule` y `UsersModule`; grep confirma que `EmailService`/`UsersService` no aparecen en `analytics.service.ts` ni `hoy.controller.ts`
 - CLAUDE.md — línea 80 menciona `analyitics-cront.service.ts`; `find` confirma que no existe ningún archivo `*cron*` en `api-rest/src/analytics`
+
+#### x4-26 · Emitir una factura escribe en Clientes, en Documentos y en la bitácora (04-11-2026)
+
+`FacturasService.emitir` (Post-Venta, pestaña Facturación; doc 19, paso 2c) no termina en `documentos_tributarios`. Con la factura ya emitida, deja la copia del PDF en el balde privado y una fila `facturas` en `event_documents` (Documentos del evento), crea o completa la razón social del receptor por medio de `RazonesSocialesService` (Clientes, mapa 09 flujo G: una nueva va con `origen` `orden_de_compra`) y escribe la nota firmada «BelIA» en `quotation_followups` con `crearComoBeliaAPedidoDe`. Las tres van después de anotar la factura y sus errores solo se registran: nunca tumban una factura emitida. Ojo: quitar el PDF desde Documentos borra el archivo del balde y deja `documentos_tributarios.pdf_path` apuntando a nada; la factura sigue intacta y su PDF se vuelve a pedir a facturacion.cl.
+
+**Evidencia:**
+- `api-rest/src/facturacion/facturas/facturas.service.ts` — `emitir`, `guardarPdf`, `recordarReceptor` y la llamada a `crearComoBeliaAPedidoDe`
+- `api-rest/src/facturacion/facturacion.module.ts` — importa `ClientsModule` y `QuotationFollowupsModule`
+- `api-rest/src/facturacion/tests/facturas.spec.ts` — «sale con el folio que sigue y deja el PDF, la razón social nueva y la nota de BelIA»
+
+#### x4-27 · Lo que emite Facturación lo decide Railway: las variables de facturacion.cl (05-11-2026)
+
+La conexión de verdad (`FacturacionClSoap`, doc 19 §9.18, paso 5) habla con un servicio de afuera, `https://wss.facturacion.cl/WSDS/wsplano.asmx`, la misma dirección para el ambiente de prueba y el de producción: lo que cambia son las credenciales. Cuál conexión usa cada motor no está en la base ni en el código, sino en cinco variables de Railway (`FACTURACIONCL_USUARIO`, `_RUT`, `_CLAVE`, `_AMBIENTE` y `_EMPRESA`, mapa 19 §6) que lee `configuracionDeFacturacionCl` al arrancar. Por eso:
+- **cambiar una variable exige reiniciar el motor**, y hasta que reinicie sigue con la conexión de antes;
+- **el riesgo de mezclar ambientes** lo frenan los candados de `configuracion.ts`: el laboratorio solo emite con las de prueba y producción solo con las de producción (producción se reconoce por `NODE_ENV` o por su base); producción sin credenciales no emite ni simulado; y las credenciales son solo de la empresa de `FACTURACIONCL_EMPRESA`;
+- **lo ya emitido se revisa en su ambiente**: «Comprobar», «Pedir el PDF» y las notas usan la conexión del `ambiente` del documento, y lo facturado de una OC cuenta solo lo de ese ambiente (una factura simulada no factura una OC de verdad);
+- **si facturacion.cl no responde**, nada sale: `Procesar` nunca se reintenta (L5) y lo demás responde 503 con palabras.
+
+**Evidencia:**
+- `api-rest/src/facturacion/facturacion-cl/configuracion.ts` — `configuracionDeFacturacionCl`, `BASE_DE_PRODUCCION`
+- `api-rest/src/facturacion/facturas/conexion.ts` — `ConexionConFacturacionCl.de(empresa, ambiente)` y `probar`
+- `api-rest/src/facturacion/facturacion-cl/soap.ts` — `URL_DE_FACTURACION_CL`, `FacturacionClSoap.procesar`
+- `api-rest/src/facturacion/tests/configuracion.spec.ts` y `soap.spec.ts`
 
 ### x5 — Permisos y endpoints públicos
 

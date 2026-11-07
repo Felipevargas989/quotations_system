@@ -32,9 +32,13 @@ describe("lo que ve recepción", () => {
     }
   });
 
-  it("Requerimientos, Cotizaciones, Calendario y su propia cuenta", () => {
+  // 04-11-2026: más las Boletas de las cabañas (doc 19 §9.4, D5: de
+  // recepción hacia arriba), que solo ve la empresa con el módulo propio
+  // `facturacion`.
+  it("Requerimientos, Cotizaciones, Calendario, Boletas y su propia cuenta", () => {
     expect([...ROLE_PERMISSIONS.recepcion].sort()).toEqual(
       [
+        "boletas",
         "calendar",
         "configuration",
         "quotations",

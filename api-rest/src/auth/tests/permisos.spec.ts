@@ -20,8 +20,11 @@ describe('Permisos por cargo: la cuenta', () => {
       'consultas',
       'belia',
       'calendario',
+      'boletas',
     ]);
-    // El Calendario del vendedor, prendido (Felipe, 05-11-2026).
+    // El Calendario del vendedor, prendido (Felipe, 05-11-2026). Las
+    // boletas y facturas del tarifario, apagadas desde el 07-11 (doc 19
+    // §9.23).
     expect(permisosDelCargo(UserRole.VENDEDOR)).toEqual([
       'requerimientos',
       'cotizaciones',
@@ -30,6 +33,7 @@ describe('Permisos por cargo: la cuenta', () => {
       'belia',
       'calendario',
     ]);
+    // «Facturar eventos» (07-11): operaciones y el administrador.
     expect(permisosDelCargo(UserRole.OPERACIONES)).toEqual([
       'requerimientos',
       'cotizaciones',
@@ -39,6 +43,9 @@ describe('Permisos por cargo: la cuenta', () => {
       'calendario',
       'postventa',
       'proveedores',
+      'boletas',
+      'facturacion_eventos',
+      'facturacion_documentos',
     ]);
     expect(permisosDelCargo(UserRole.ADMINISTRADOR)).toEqual(
       CATALOGO_DE_PERMISOS.map((p) => p.clave),
@@ -73,7 +80,7 @@ describe('Permisos por cargo: la cuenta', () => {
   });
 
   it('una fila de un permiso que no existe no cuenta, y sin cargo no hay ninguno', () => {
-    const filas = [{ cargo: 'vendedor', permiso: 'boletas', prendido: true }];
+    const filas = [{ cargo: 'vendedor', permiso: 'boletitas', prendido: true }];
     expect(permisosDelCargo(UserRole.VENDEDOR, filas)).toEqual(
       permisosDelCargo(UserRole.VENDEDOR),
     );

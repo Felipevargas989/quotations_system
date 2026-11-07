@@ -16,6 +16,7 @@ import {
   Inbox,
   Lock,
   Radar,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   canAccessSection,
@@ -59,6 +60,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: Home,
       section: "dashboard",
       precargar: () => import("../pages/dashboard/DashboardPage.tsx"),
+    },
+    {
+      // Facturación (doc 19 §9.19 y §9.21): una sola entrada para las
+      // boletas y los documentos, solo con el módulo propio `facturacion`,
+      // justo debajo de Dashboard (Felipe, 06-11). La ve todo el que ve
+      // boletas (recepción hacia arriba); adentro, cada cargo ve lo suyo.
+      name: "Facturación",
+      href: "/facturacion",
+      icon: FileSpreadsheet,
+      section: "boletas",
+      precargar: () => import("../pages/facturacion/FacturacionPage.tsx"),
     },
     {
       name: "Requerimientos",

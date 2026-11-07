@@ -4,7 +4,7 @@
 > pásalo a producción"*): PR #304, `main` 54d150b6, web de producción
 > 6aed463f, migración 188 aplicada en producción antes del motor. Todo de
 > fábrica: nadie ganó ni perdió nada. El commit de Facturación 977c490b
-> sigue solo en el laboratorio y viaja con Facturación.
+> llegó a producción con Facturación el 07-11-2026 (PR #310).
 >
 > **Las 9 puertas «más abiertas que sus pantallas» (§4.3): decididas el
 > 06-11-2026** (*"si hazlo si"*). Seis pasan a la sección de su pantalla y
@@ -102,9 +102,10 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Operación | Calendario (`calendario`) | Menú → Calendario | ✓ | **✓** | ✓ | ✓ | `calendario` |
 | Operación | Post-Venta (`postventa`) | Menú → Post-Venta | – | – | ✓ | ✓ | `post_venta` |
 | Operación | Proveedores e inventario (`proveedores`) | Menú → Proveedores y Menú → Inventario | – | – | ✓ | ✓ | `logistica` |
-| Facturación | Boletas (`boletas`) | Menú → Facturación: Boleta suelta, Por boletear, Emitidas hoy | ✓ | ✓ | ✓ | ✓ | `facturacion` |
-| Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos | – | – | ✓ | ✓ | `facturacion` |
-| Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → Documentos → notas | – | – | – | ✓ | `facturacion` |
+| Facturación | Boletas y facturas del tarifario (`boletas`) | Facturación → «Nuevo documento» → Boleta o Factura, con los precios del tarifario; a mano y con descuento, solo el administrador (desde el 07-11-2026, doc 19 §9.23; antes «Boletas», con el vendedor prendido) | ✓ | – | ✓ | ✓ | `facturacion` |
+| Facturación | Facturar eventos (`facturacion_eventos`) | Facturación → Por facturar: emitir el DTE de cada evento y la facturación masiva (desde el 07-11-2026; antes lo emitía solo el administrador desde la pestaña del evento), y «Ya está facturado» y «Devolver» para lo facturado fuera de Eventia (doc 19 §9.24) | – | – | ✓ | ✓ | `facturacion` |
+| Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos: la lista, el reporte y el PDF | – | – | ✓ | ✓ | `facturacion` |
+| Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → «Nuevo documento» → Nota de crédito o de débito | – | – | – | ✓ | `facturacion` |
 | Facturación | Tarifario y conexión (`facturacion_ajustes`) | Facturación → Tarifario, «Comprobar», «Probar la conexión» | – | – | – | ✓ | `facturacion` |
 | Administración | Dashboard (`dashboard`) | Menú → Dashboard | – | – | – | ✓ | — |
 | Administración | Catálogo (`catalogo`) | Menú → Catálogo | – | – | – | ✓ | — |
@@ -119,8 +120,9 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
   discrepancia del §2: ahora le aparece en el menú, y sigue teniendo «Ver en
   calendario». En el motor no cambia nada: ya entraba.
 - **Facturación** existe solo en el laboratorio (rama
-  `feature/facturacion-electronica`). Sus cuatro filas aparecen cuando las
-  dos ramas estén juntas (§7).
+  `feature/facturacion-electronica`). Sus cinco filas aparecen cuando las
+  dos ramas estén juntas (§7). La entrada del menú la ve quien tenga
+  cualquiera de las cinco (doc 19 §9.23).
 - **Mi empresa va con candado, igual que Usuarios**: Usuarios vive adentro
   de Mi empresa, y ahí está también el plan que se paga. Si otro cargo
   tuviera que administrar usuarios, se le cambia el cargo a administrador.
@@ -152,10 +154,15 @@ cierra cada uno, apagándolo solo a él y con todo lo demás de fábrica
 | Marketing | 25 | Campañas, audiencias y envíos |
 | Oportunidades | 66 | Todo Oportunidades |
 | Encuestas | 2 | Respuestas y plantilla |
-| Boletas (lab) | 9 | Boleta suelta, por boletear, emitir, emitidas hoy |
-| Documentos y reporte (lab) | 2 | La lista del mes y «Pedir el PDF» |
-| Anular o rebajar (lab) | 2 | Revisar y emitir notas |
-| Tarifario y conexión (lab) | 5 | Tarifario, «Comprobar» y «Probar la conexión» |
+| Boletas y facturas del tarifario (lab) | 9* | Emitir boletas desde «Nuevo documento»; desde el 07-11, también la factura (4 puertas más) |
+| Facturar eventos (lab) | desde el 07-11 | Por facturar y el DTE de cada evento (antes, en Post-Venta y en Documentos) |
+| Documentos y reporte (lab) | 2* | Documentos, Por facturar y la factura (hasta el 07-11) |
+| Anular o rebajar (lab) | 2* | Las notas de crédito y de débito |
+| Tarifario y conexión (lab) | 5* | Tarifario, «Comprobar» y «Probar la conexión» |
+
+\* Contado el 05-11-2026, antes de que la sección Facturación se rehiciera
+(06-11: «Documentos», «Por facturar», «Tarifario» y «Nuevo documento»). Se
+vuelve a contar cuando Facturación vaya a producción.
 
 Y al revés: prender un permiso a un cargo que no lo tiene le abre las puertas
 de esa sección como las usa hoy el cargo más bajo que la tiene. Las acciones
@@ -390,6 +397,35 @@ con ella. Medido con el borrador: sus 33 puertas quedan gobernadas, sin
 cambiar ninguna (el laboratorio tiene una más que `main`, el radar municipal
 de Oportunidades, que queda en `oportunidades`).
 
+**Hecho el 05-11-2026**, en un commit encima de `pruebas`:
+- el catálogo suma el área «Facturación» con sus cuatro permisos (derecho
+  `facturacion`);
+- sus 33 puertas y la del radar municipal llevan su marca (las órdenes de
+  compra, el controlador entero en `postventa`);
+- `NotasService.lista` ofrece anular o rebajar con `facturacion_notas` y
+  «Comprobar» con `facturacion_ajustes`;
+- `FacturacionPage` elige «Documentos» y «Tarifario» por permiso, y
+  «Probar la conexión» va con `facturacion_ajustes`.
+La prueba de fábrica del laboratorio recorre sus 388 puertas con sesión
+(355 gobernadas, con las 3 de la pantalla de permisos, y 33 fijas).
+
+**Desde el 07-11-2026 (doc 19 §9.23; Felipe: *"ok hazlo"*), cinco
+permisos.** Todo se factura en la sección Facturación y la pestaña del
+evento en Post-Venta salió:
+- «Boletas» pasa a «Boletas y facturas del tarifario» (misma clave
+  `boletas`), apagado de fábrica para el vendedor. Sus puertas llevan
+  `@Roles(...DEL_TARIFARIO)` (recepción, operaciones y el administrador,
+  `facturacion/cargos-del-tarifario.ts`), y suma las cuatro de la factura
+  de «Nuevo documento» (`/facturacion/razon-social`, `clientes`,
+  `facturas/revisar` y `facturas/emitir`, antes de «Documentos y reporte»
+  y la emisión solo del administrador).
+- «Facturar eventos» (`facturacion_eventos`, nuevo): «Por facturar» y las
+  puertas del DTE del evento (`/quotations/:id/facturas` y
+  `ordenes-de-compra`, antes `postventa`; emitir, antes solo del
+  administrador).
+- La app abre la entrada «Facturación» del menú con cualquiera de los
+  cinco (`SECTION_PERMISO.boletas` es una lista).
+
 ## 8. Decisiones de Felipe
 
 1. **El catálogo del §3**: aprobado el 05-11-2026 (*"ok al catalogo
@@ -398,6 +434,10 @@ de Oportunidades, que queda en `oportunidades`).
 3. **Los tipos de cliente de cada cargo (§9)**: aprobados el 05-11-2026
    (*"si vamos"*), en cuatro tandas, con dos excepciones: Requerimientos de
    todos y el Calendario como agenda.
+4. **Facturación repartida (07-11-2026, *"ok hazlo"*):** recepción emite
+   boletas y facturas con el tarifario, operaciones y el administrador
+   facturan los eventos, y el vendedor queda sin facturación de fábrica
+   (§7 y doc 19 §9.23).
 
 Anotado, no decidido: las 9 puertas «más abiertas que sus pantallas» (§4.3).
 

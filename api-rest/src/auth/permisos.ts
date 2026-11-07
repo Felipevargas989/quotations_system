@@ -31,6 +31,13 @@ export type Permiso =
   | 'calendario'
   | 'postventa'
   | 'proveedores'
+  // Facturación (doc 19 y doc 22 §7): sus cinco, con el módulo propio
+  // `facturacion`. «Facturar eventos», desde el 07-11 (doc 19 §9.23).
+  | 'boletas'
+  | 'facturacion_eventos'
+  | 'facturacion_documentos'
+  | 'facturacion_notas'
+  | 'facturacion_ajustes'
   | 'dashboard'
   | 'catalogo'
   | 'personal'
@@ -41,7 +48,7 @@ export type Permiso =
   | 'usuarios';
 
 /** Los grupos de filas de la pantalla, en su orden. */
-export type Area = 'comercial' | 'operacion' | 'administracion';
+export type Area = 'comercial' | 'operacion' | 'facturacion' | 'administracion';
 
 export type DefinicionDePermiso = {
   clave: Permiso;
@@ -128,6 +135,48 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     nombre: 'Proveedores e inventario',
     fabrica: [O, A],
     derecho: 'logistica',
+  },
+  // Facturación (doc 22 §7): las pestañas que hasta el 05-11 decidía el
+  // cargo. Desde el 07-11 todo se factura en la sección Facturación (doc 19
+  // §9.23; Felipe: *"el recepcionista solamente puede emitir boletas y
+  // facturas de cabañas según el tarifario, y los de operación y
+  // administrador pueden facturar los eventos que falten facturar"*): las
+  // boletas y facturas del tarifario, de recepción hacia arriba sin el
+  // vendedor, y «Facturar eventos», de operaciones y el administrador.
+  {
+    clave: 'boletas',
+    area: 'facturacion',
+    nombre: 'Boletas y facturas del tarifario',
+    fabrica: [R, O, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_eventos',
+    area: 'facturacion',
+    nombre: 'Facturar eventos',
+    fabrica: [O, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_documentos',
+    area: 'facturacion',
+    nombre: 'Documentos y reporte',
+    fabrica: [O, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_notas',
+    area: 'facturacion',
+    nombre: 'Anular o rebajar',
+    fabrica: [A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_ajustes',
+    area: 'facturacion',
+    nombre: 'Tarifario y conexión',
+    fabrica: [A],
+    derecho: 'facturacion',
   },
   {
     clave: 'dashboard',

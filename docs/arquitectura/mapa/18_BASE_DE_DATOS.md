@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -47,9 +47,22 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
-| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto | 09 | `0_initial_models.sql` |
+| `clients` | El cliente: `name`, `client_type` (el nombre del tipo, como texto), `notes`. Espejo heredado: `contact_person`, `email`, `phone`; `address` es un dato muerto. | 09 | `0_initial_models.sql` |
 | `client_contacts` | Las personas del cliente: `name`, `email`, `phone`, `is_primary`, `portal_token` | 09 | 34; columnas en 35, 36 y 48 |
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
+| `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
+
+### Facturación electrónica (migraciones 184, 187 y 191; en producción desde el 07-11-2026)
+
+| Tabla | Qué guarda | Módulo dueño | Migración que la crea |
+|---|---|---|---|
+| `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, a nombre de quién viene (`rut` y `razon_social`, como los imprime la OC: la factura va a ese RUT), `comprador` (`jsonb`: giro, dirección, comuna y ciudad como los leyó BelIA, para la primera factura a un RUT nuevo), `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
+| `tarifario_de_boletas` | Lo que recepción boletea suelto: cabañas, ticket diario, tinaja… (`nombre` hasta 60, `precio` con IVA, `unidad`, `activo`, `orden`). Aparte del catálogo del cotizador (D3, Felipe 04-11: *"tarifario aparte puede ser cabañas, ticket diario, otros"*) | doc 19 | 187 |
+| `cobros_por_boletear` | El total que deja el administrador para boletear (`descripcion` hasta 55, `total` con IVA), desde un evento (`quotation_id`, cascada) o suelto, con quién lo dejó (`creado_por`, `creado_por_nombre`) | doc 19 | 187 |
+| `cobros_por_boletear_lineas` | Cómo lo reparte recepción: una por cabaña (`cabana` hasta 22, la escribe ella), `monto`, `correo` del huésped y `documento_id`, su boleta (sin cascada; única) | doc 19 | 187 |
+| `cobros_por_boletear_cambios` | E3: quién cambió qué (`que`, `antes`, `despues`, `usuario`, `nombre`). `service_role` solo `SELECT` e `INSERT`: lo anotado no se reescribe | doc 19 | 187 |
+| `documentos_tributarios` | Cada boleta, factura y nota: `tipo` (33, 34, 39, 41, 56, 61), `ambiente` (`simulado`, `prueba`, `produccion`), `folio`, `estado` (`borrador`, `enviando`, `emitido`, `por_confirmar`, `rechazado`), `clave_emision` única, el receptor, el detalle y las referencias como se mandaron, los montos, la cotización y la OC, el `porcentaje`, la cadena (`modifica_id` y `codigo_referencia`), el archivo enviado y la respuesta, el PDF y quién lo emitió. **No se borra**: sin cascada y sin `DELETE` para el motor | doc 19 | 184 |
+| `eventos_facturados_fuera` | Los eventos marcados con «Ya está facturado» en «Por facturar» (`quotation_id` llave y cascada, `company_id`, quién lo marcó: `marcado_por` y `marcado_por_nombre`, `created_at`): se facturaron fuera de Eventia y salen de la lista y de la masiva. «Devolver» borra la fila | doc 19 §9.24 | 191 |
 
 ### Cotizaciones y negocio
 
@@ -651,6 +664,22 @@ o el valor por defecto): las empresas nuevas quedarían con 100 en vez de 10.
 **Estado.** Escrita el 04-11-2026. En las dos bases: en el laboratorio y en
 producción desde la tarde del 04-11 (Felipe: «a producción»), antes del motor.
 
+## 29. Migración 184: facturación electrónica, paso 1 (04-11-2026)
+
+**Qué hace.** Tres cosas (doc 19 §5.2 y §9.9, paso 1):
+
+- Crea `razones_sociales` (sección 2): a quién se le factura, VARIAS por cliente (Felipe, 04-11: *"es posible como en CCU que algunas facturas sean a un rut y otras a otro"*; Santo Tomás tiene 3 OC a 2 RUT en el evento #481). El `rut` lleva el CHECK de la misma forma que `people_rut_chk`; el dígito verificador lo revisa el motor. Los largos son los del archivo de facturacion.cl y los cuida el motor (`facturacion/datos-del-receptor.ts`).
+- Crea `ordenes_de_compra` (sección 2), con el RUT y la razón social impresos en la OC: se va con su cotización. Desde el paso 2c (04-11-2026, en la noche) también `comprador` (`jsonb`), lo que la OC dice del comprador y no tiene casilla propia; la misma 184 lo agrega con `add column if not exists` donde la tabla ya existía (el laboratorio).
+- Suma el módulo propio `facturacion` a la empresa 1, como la 180 con `asistente` (la pestaña «Facturación» de Post-Venta, mapa 04). Antes de correrla en producción, el respaldo de `companies.modulos_propios` de la empresa 1.
+- Crea `documentos_tributarios` (sección 2), con la cadena de anulación: `modifica_id` apunta al documento que la nota anula o rebaja, y `codigo_referencia` dice cómo (1 anula, 2 corrige texto, 3 corrige montos). El CHECK `documentos_tributarios_cadena_chk` deja que solo las notas (56 y 61) modifiquen algo y obliga a toda nota a decir cómo. Únicos: el folio por empresa, ambiente y tipo, la `clave_emision`, y un solo `enviando` por cotización (el candado de un envío a la vez).
+
+**Lo que no se borra.** `documentos_tributarios` apunta a `companies`, `quotations` y `ordenes_de_compra` sin cascada, y `service_role` tiene `SELECT`, `INSERT` y `UPDATE`, pero **no `DELETE`**: ni un error del motor puede borrar un documento tributario. Por eso `QuotationsRepository.assertDeletable` la cuenta primero (zona de riesgo 2): una cotización con documentos no se borra. Ojo: un `borrador` guardado también frena el borrado de su cotización.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 184, borrar una cotización falla, porque la guardia cuenta `documentos_tributarios`, y la tarjeta «Datos de facturación» de la ficha no carga.
+
+**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026**, en dos tiempos: la primera versión guardaba un solo juego de datos en columnas de `clients`; esa misma tarde la 184 se rehízo con `razones_sociales` y la `184b_laboratorio_razones_sociales.sql` (solo laboratorio, no va a producción) mudó los datos de prueba de CCU y quitó esas columnas. Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. En producción va solo la 184. **En producción desde el 07-11-2026** (PR #310), antes del motor; ahí Supabase le da todo a `service_role` en cada tabla nueva, así que se le quitó explícito el `DELETE` y el `TRUNCATE` de `documentos_tributarios` (el archivo de la 184 lo dice).
+
+
 ## 30. Migración 185: el seguimiento desde BelIA y sus lecciones (04-11-2026)
 
 **Qué hace.** Dos cosas:
@@ -675,6 +704,16 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: «Particulares» marcado en las empresas 1, 51 y 52). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
 
+## 32. Migración 187: las boletas de recepción (05-11-2026)
+
+**Qué hace.** Cuatro tablas para el paso 3 del doc 19 (§9.4 y §9.16): el `tarifario_de_boletas` (lo que se boletea suelto, aparte del catálogo, D3), los `cobros_por_boletear` que deja el administrador, su reparto por cabaña (`cobros_por_boletear_lineas`, cada una con su boleta en `documentos_tributarios`) y quién cambió qué (`cobros_por_boletear_cambios`, E3: solo se agrega). Cerradas a la llave pública como la 184.
+
+**Lo que no se borra.** Una cabaña con boleta no se edita ni se quita, y un cobro con boletas no se borra: lo cuida el motor (`facturacion/boletas/`); la llave de la línea a `documentos_tributarios` no tiene cascada. Un evento con boletas no se borra porque la guardia de borrado ya cuenta `documentos_tributarios` (la 184).
+
+**Ojo con el orden:** va DESPUÉS de la 184 (usa `documentos_tributarios`). El número se reservó el 04-11 con la sesión «Eventia (Full)» (que usó la 186). La §30 y la §31 son la 185 y la 186 de las otras sesiones.
+
+**Estado.** Escrita el 05-11-2026. **Aplicada en el laboratorio el 05-11-2026** (verificado: RLS encendido, `anon` y `authenticated` sin permisos, y `service_role` sin `UPDATE` ni `DELETE` en `cobros_por_boletear_cambios`). **En producción desde el 07-11-2026** (PR #310), antes del motor; ahí se le quitó a `service_role` el `UPDATE`, el `DELETE` y el `TRUNCATE` de `cobros_por_boletear_cambios`, que Supabase le da por defecto (el archivo de la 187 lo dice).
+
 ## 33. Migración 188: los permisos por cargo (05-11-2026)
 
 (La §32 es la 187, de Facturación, que vive en el laboratorio.)
@@ -690,3 +729,13 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 **Ojo con el orden del motor:** se aplica antes de subir el motor. Sin la 188 el motor no se cae: usa lo de fábrica (lo de hoy), pero la pantalla de permisos responde error al guardar.
 
 **Estado.** Escrita el 05-11-2026, con su reversa. **Aplicada en el laboratorio el 05-11-2026** (verificado: solo `service_role` lee y escribe, las funciones solo para él, y una prueba de las dos funciones que se deshizo sola). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+
+## 34. Migración 191: lo ya facturado fuera de Eventia (07-11-2026)
+
+**Qué hace.** Una tabla, `eventos_facturados_fuera`: un evento por fila (`quotation_id` es la llave, con cascada), con `company_id`, quién lo marcó (`marcado_por`, id de sesión sin llave, y `marcado_por_nombre` congelado) y cuándo. Cerrada a `anon` y `authenticated`, con permiso a `service_role`, como la 184 y la 187.
+
+**Por qué.** Felipe, 07-11-2026: *"yo te puedo dar el check de lo que ya está facturado"*. Medido ese día en producción: «Por facturar» mostraría 48 eventos ($265 millones) facturados a mano o boleteados en Facto, sin que Eventia lo sepa. Doc 19 §9.24.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 191, «Por facturar» responde error (lee la tabla en cada carga).
+
+**Estado.** Escrita el 07-11-2026, con su reversa. El 190 queda para Oportunidades (parte 3 de la decisión 119). **Aplicada en el laboratorio el 07-11-2026** (verificado: RLS encendido y sin políticas, `anon` y `authenticated` sin permisos, `service_role` escribe). **En producción desde el 07-11-2026** (PR #310), junto con la 184, la 187 y la 189, antes del motor.
