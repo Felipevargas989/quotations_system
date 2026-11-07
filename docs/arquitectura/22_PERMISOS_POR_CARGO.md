@@ -9,8 +9,9 @@
 > **Las 9 puertas «más abiertas que sus pantallas» (§4.3): decididas el
 > 06-11-2026** (*"si hazlo si"*). Seis pasan a la sección de su pantalla y
 > se borran tres que nadie llamaba, entre ellas el calendario viejo. En el
-> laboratorio desde el 06-11 (rama `feature/puertas-mas-abiertas`); falta
-> el «a producción».
+> laboratorio desde el 06-11 (`pruebas` 7c79787d) y **en producción desde
+> el 06-11-2026** (Felipe: *"pasalo a producción"*; PR #307, rama
+> `feature/puertas-mas-abiertas`). Sin migración.
 >
 > **Aprobado el 05-11-2026.** La maqueta (*"si me parece
 > perfecto"*) y el catálogo del §3 (*"ok al catalogo vamos"*), con el
