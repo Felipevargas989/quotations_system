@@ -4,6 +4,10 @@ import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
 import {
+  esLaCotizacionDetallada,
+  laCotizacionQueFalta,
+} from './la-cotizacion-detallada';
+import {
   type DocumentoDeLaSeccion4,
   fijaUnPlazo,
   type PedidoDeLaCarpeta,
@@ -86,6 +90,9 @@ export type DatosDelSet = {
   inicioDe: ReadonlyMap<number, string>;
   /** Cuándo quedó lista la última oferta armada (decisión 33). */
   ofertaLista: string | null;
+  /** El id de esa oferta: la cotización detallada se arma con ella
+   *  (decisión 119) y, con otra más nueva, queda vieja. */
+  ofertaId?: number | null;
   /** El precio de la última oferta armada y el de cada trabajo de anexos,
    *  por su id: lo firmado de la parte económica con otro precio se avisa
    *  (decisión 49). */
@@ -113,7 +120,13 @@ export type PiezaDelSet = {
   carpetas: Carpeta[];
   /** Una carpeta dentro de la carpeta (los respaldos van juntos). */
   subcarpeta?: string;
-  que_es: 'formulario' | 'propuesta' | 'subido' | 'documento' | 'respaldo';
+  que_es:
+    | 'formulario'
+    | 'propuesta'
+    | 'cotizacion'
+    | 'subido'
+    | 'documento'
+    | 'respaldo';
   aviso: string | null;
   /** El Word del que se lee el texto (los números de los respaldos): el
    *  firmado se sube en PDF, pero dice lo mismo que su Word. */
@@ -330,18 +343,23 @@ export function armarElSet(d: DatosDelSet): ElSet {
     );
   const grupos = new Map<string, ArchivoDelSet[]>();
   for (const g of generados) {
+    // La cotización detallada del motor (decisión 119) va aparte: no es la
+    // propuesta, aunque tampoco venga de un archivo del comprador.
     const clave =
       g.viene_de !== null
         ? String(g.viene_de)
-        : !solo(g) || PROPUESTA.test(normalizar(g.nombre))
-          ? 'propuesta'
-          : `solo-${g.id}`;
+        : esLaCotizacionDetallada(g.nombre)
+          ? 'cotizacion'
+          : !solo(g) || PROPUESTA.test(normalizar(g.nombre))
+            ? 'propuesta'
+            : `solo-${g.id}`;
     grupos.set(clave, [...(grupos.get(clave) ?? []), g]);
   }
   for (const [clave, grupo] of grupos) {
     const ultimo = masNuevo(grupo) as ArchivoDelSet;
     const vigentes =
       clave === 'propuesta' ||
+      clave === 'cotizacion' ||
       clave.startsWith('solo-') ||
       ultimo.generacion_id === null
         ? [ultimo]
@@ -352,8 +370,15 @@ export function armarElSet(d: DatosDelSet): ElSet {
       const inicio = g.generacion_id ? d.inicioDe.get(g.generacion_id) : null;
       // Lo firmado no se rehace al volver a armar (decisión 49): no queda
       // viejo, salvo por el precio (abajo, con su carpeta).
+      // La cotización detallada nace de su oferta: queda vieja solo si hay
+      // otra oferta más nueva.
       const viejo =
-        !firmado && Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista);
+        !firmado &&
+        (clave === 'cotizacion'
+          ? Boolean(
+              d.ofertaId && g.generacion_id && g.generacion_id !== d.ofertaId,
+            )
+          : Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista));
       const avisos = [
         firmado ? null : 'sin firma',
         viejo ? 'se hizo antes de la última oferta' : null,
@@ -372,6 +397,8 @@ export function armarElSet(d: DatosDelSet): ElSet {
       let carpetas: Carpeta[];
       if (clave === 'propuesta') {
         carpetas = ['tecnica'];
+      } else if (clave === 'cotizacion') {
+        carpetas = ['economica'];
       } else {
         const delComprador = bases.find((b) => b.id === g.viene_de);
         const suyos = delComprador
@@ -421,7 +448,12 @@ export function armarElSet(d: DatosDelSet): ElSet {
         ruta: usado.ruta,
         bytes: usado.bytes,
         carpetas,
-        que_es: clave === 'propuesta' ? 'propuesta' : 'formulario',
+        que_es:
+          clave === 'propuesta'
+            ? 'propuesta'
+            : clave === 'cotizacion'
+              ? 'cotizacion'
+              : 'formulario',
         aviso: avisos.length > 0 ? avisos.join(' · ') : null,
         texto: { ruta: g.ruta, nombre: g.nombre },
       });
@@ -489,6 +521,9 @@ export function armarElSet(d: DatosDelSet): ElSet {
       'Falta la propuesta técnica: créala con «Crear propuesta técnica».',
     );
   }
+  // La cotización que piden las bases (decisión 119).
+  const sinCotizacion = laCotizacionQueFalta(d.documentos ?? [], piezas);
+  if (sinCotizacion) faltan.push(sinCotizacion);
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
   for (const { tipo, carpeta, condicion, obligatorio } of deLaCarpeta) {
@@ -735,24 +770,6 @@ export function conLaPropuestaQueNombran(
       ...set.faltan,
       'Un anexo dice que se adjunta la propuesta técnica en formato propio, y la propuesta no está: vuelve a armar la postulación.',
     ],
-  };
-}
-
-/** Una compra ágil va en una sola carpeta, «Compra ágil», sin subcarpetas
- *  (decisión 118, 07-11). Felipe: "1 zip 1 carpeta que se llame (Compra
- *  agil) solo lo que soliciten las bases y lo que la ley pida en compra agil
- *  nada más". La ley no pide adjuntar nada (arts. 97 y 98 del DS 661/2024):
- *  basta estar hábil en el Registro de Proveedores y con su declaración
- *  jurada firmada, y eso vive en ChileProveedores, no en el ZIP. Lo que va
- *  ya lo decidió `armarElSet` (sin «4. Otros» con `compraAgil`). */
-export function enUnaSolaCarpeta(set: ElSet): ElSet {
-  return {
-    ...set,
-    piezas: set.piezas.map((p) => {
-      const sinSubcarpeta = { ...p };
-      delete sinSubcarpeta.subcarpeta;
-      return { ...sinSubcarpeta, carpetas: ['compra_agil'] };
-    }),
   };
 }
 

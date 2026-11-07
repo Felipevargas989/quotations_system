@@ -94,7 +94,76 @@ describe('Qué se rehace y qué se reemplaza', () => {
       borradoresDeFormularios: [63, 64],
       borradoresDePropuesta: [68],
       propuestaFirmada: false,
+      borradoresDeCotizacion: [],
+      cotizacion: 'no_hay',
     });
+  });
+
+  it('la cotización detallada del motor (decisión 119): su borrador se reemplaza aparte, y la firmada solo se rehace si cambió el precio', () => {
+    const borrador = {
+      ...POSTULACION[0],
+      id: 90,
+      nombre: 'Cotización detallada 2705-1740-COT26.docx',
+      origen: 'generado' as const,
+      viene_de: null,
+      generacion_id: 105,
+    };
+    const conBorrador = laVueltaAnterior({
+      postulacion: [...POSTULACION, borrador],
+      formularios: FORMULARIOS,
+      total: 1_780_000,
+      totalDe: new Map(),
+    });
+    expect(conBorrador.borradoresDeCotizacion).toEqual([90]);
+    // No es una propuesta: no la borra la propuesta nueva.
+    expect(conBorrador.borradoresDePropuesta).toEqual([68]);
+    expect(conBorrador.cotizacion).toBe('no_hay');
+
+    const firmada = {
+      ...borrador,
+      id: 91,
+      nombre: 'Cotización detallada 2705-1740-COT26 - firmado.pdf',
+      origen: 'firmado' as const,
+      generacion_id: 109,
+    };
+    const mismoPrecio = laVueltaAnterior({
+      postulacion: [firmada],
+      formularios: FORMULARIOS,
+      total: 1_780_000,
+      totalDe: new Map(),
+      precioAnterior: 1_780_000,
+    });
+    expect(mismoPrecio.cotizacion).toBe('firmada');
+    // Firmada no cuenta como la propuesta técnica.
+    expect(mismoPrecio.propuestaFirmada).toBe(false);
+    expect(
+      laVueltaAnterior({
+        postulacion: [firmada],
+        formularios: FORMULARIOS,
+        total: 1_700_000,
+        totalDe: new Map(),
+        precioAnterior: 1_780_000,
+      }).cotizacion,
+    ).toBe('otro_precio');
+    // La subida a mano manda: no se rehace.
+    expect(
+      laVueltaAnterior({
+        postulacion: [
+          {
+            ...borrador,
+            id: 92,
+            nombre:
+              'Cotización detallada oferta económica 2705-1740-COT26.docx',
+            origen: 'subido' as const,
+            generacion_id: null,
+          },
+        ],
+        formularios: FORMULARIOS,
+        total: 1_700_000,
+        totalDe: new Map(),
+        precioAnterior: 1_780_000,
+      }).cotizacion,
+    ).toBe('subida');
   });
 
   it('si se borra todo, se rehace todo; lo subido a mano cuenta como firmado', () => {
