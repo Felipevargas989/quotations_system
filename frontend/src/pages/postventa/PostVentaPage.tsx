@@ -94,7 +94,6 @@ import {
   deleteDocument,
 } from "../../services/documents.service";
 import { docsQueryOpts } from "./consultaDeDocumentos";
-import FacturacionTab from "./FacturacionTab";
 import {
   uploadPaymentReceipt,
   uploadEventDocument,
@@ -877,7 +876,6 @@ interface EventModalProps {
     | "seguimiento"
     | "pagos"
     | "documentos"
-    | "facturacion"
     | "servicios"
     | "gestion"
     | "cocina";
@@ -973,15 +971,14 @@ function EventModal({
   // Gestión y Cocina las trae el plan Opera y Crece, con el derecho
   // `gestion_y_cocina`; las otras cuatro son del plan que abre la pantalla.
   const conGestionYCocina = tieneDerecho(empresaPre, "gestion_y_cocina");
-  const conFacturacion = tieneDerecho(empresaPre, "facturacion");
   const tabs: { key: EventModalProps["tab"]; label: string }[] = [
     // Seguimiento va PRIMERO (07-08, pedido de Felipe): es la historia
     // del evento — "si algo se olvida uno va a seguimiento y está todo".
     { key: "seguimiento", label: "Seguimiento" },
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
-    // La facturación (doc 19): módulo propio de Valle del Sol.
-    { key: "facturacion", label: "Facturación" },
+    // La facturación ya no va acá: desde el 07-11 todo se factura en la
+    // sección Facturación (doc 19 §9.23). La OC se sube en Documentos.
     { key: "servicios", label: "Servicios" },
     { key: "gestion", label: "Gestión" },
     { key: "cocina", label: "Cocina" },
@@ -1489,7 +1486,6 @@ function EventModal({
             // Sin el derecho ni se nombran: no se ofrece lo que no se abre.
             const delPlanCrece = t.key === "gestion" || t.key === "cocina";
             if (delPlanCrece && !conGestionYCocina) return null;
-            if (t.key === "facturacion" && !conFacturacion) return null;
             // La pestaña Seguimiento avisa sola cuando hay algo
             // pendiente (07-08, pedido de Felipe): se pinta de ámbar
             // —rojo si venció— y tiembla tres veces al abrir el evento.
@@ -1829,15 +1825,6 @@ function EventModal({
 
           {tab === "documentos" && (
             <DocumentosTab quotationId={event.quotationId} />
-          )}
-
-          {tab === "facturacion" && (
-            <SoloConDerecho derecho="facturacion">
-              <FacturacionTab
-                quotationId={event.quotationId}
-                clientId={quote?.client_id ?? null}
-              />
-            </SoloConDerecho>
           )}
 
           {/* Se puede llegar igual sin el derecho: el estado venía

@@ -42,6 +42,10 @@ export interface LineaPedida {
   precio: number;
   /** Solo la factura: el descuento de la línea en % (doc 19 §9.22). */
   descuento?: number | null;
+  /** La factura de «Nuevo documento» (§9.23): la línea elegida del
+   *  tarifario (nulo mientras no se elige; sin la clave, la línea va a
+   *  mano). Su nombre y su precio los pone el motor. */
+  tarifario_id?: number | null;
 }
 
 /** Lo que se emite: lo propone BelIA y se corrige a mano (E4). La boleta
@@ -178,17 +182,6 @@ export interface DocumentoTributario {
   };
 }
 
-export interface DocumentosDelEvento {
-  ambiente: Ambiente;
-  /** Por qué no se puede emitir, si no se puede (paso 5). Opcional: un
-   *  motor anterior no lo manda. */
-  sin_conexion?: string | null;
-  documentos: DocumentoTributario[];
-  /** Lo facturado de cada OC con la cadena: una factura anulada ya no
-   *  cuenta. Opcional, como `cadena`. */
-  facturado_por_oc?: Record<number, number>;
-}
-
 /** De dónde se puede llenar el DTE: cada OC que BelIA leyó de Documentos,
  *  con lo ya facturado, y la cotización. Lo que no pudo leer, con su
  *  porqué. */
@@ -212,11 +205,6 @@ export interface PreparacionDelDte {
 }
 
 const ruta = (quotationId: string) => `/quotations/${quotationId}/facturas`;
-
-export const getDocumentosTributarios = async (
-  quotationId: string,
-): Promise<DocumentosDelEvento> =>
-  (await apiRequest(ruta(quotationId), "GET")) as DocumentosDelEvento;
 
 export const prepararDte = async (
   quotationId: string,

@@ -31,13 +31,17 @@ import PorFacturar from "./PorFacturar";
 // elegido.
 //
 // Cada pieza sigue su interruptor de Mi empresa → Usuarios → Permisos por
-// cargo (doc 22 §7): «Nuevo documento» ofrece la factura al administrador
-// con «Documentos» (D5), la boleta con «Boletas» y las notas con «Anular o
-// rebajar» (`facturacion_notas`); «Documentos» y
-// «Por facturar» son `facturacion_documentos`, y el tarifario y «Probar la
-// conexión»,
-// `facturacion_ajustes`. Lo de fábrica: recepción, la boleta; operaciones,
-// además «Documentos»; el administrador, todo.
+// cargo (doc 22 §7). Desde el 07-11 todo se factura acá (doc 19 §9.23;
+// Felipe: *"se debería facturar todo desde el módulo de facturación"*):
+// - «Nuevo documento» ofrece la boleta y la factura con «Boletas y facturas
+//   del tarifario» (`boletas`): las líneas, del tarifario; a mano y con
+//   descuento, solo el administrador. Las notas, con «Anular o rebajar»
+//   (`facturacion_notas`).
+// - «Por facturar» es de «Facturar eventos» (`facturacion_eventos`), que
+//   también los emite; «Documentos», de `facturacion_documentos`, y el
+//   tarifario y «Probar la conexión», de `facturacion_ajustes`.
+// Lo de fábrica: recepción, la boleta y la factura del tarifario;
+// operaciones, además los eventos y «Documentos»; el administrador, todo.
 
 type Pestana = "documentos" | "por_facturar" | "tarifario";
 
@@ -52,13 +56,10 @@ export default function FacturacionPage() {
   const queryClient = useQueryClient();
   const { permisos, userRole } = useAuth();
   const conDocumentos = permisos.includes("facturacion_documentos");
+  const conEventos = permisos.includes("facturacion_eventos");
   const conAjustes = permisos.includes("facturacion_ajustes");
-  // La factura de cero la emite el administrador (D5), con «Documentos».
   const tipos: TipoNuevo[] = [
-    ...(userRole === "administrador" && conDocumentos
-      ? (["factura"] as const)
-      : []),
-    ...(permisos.includes("boletas") ? (["boleta"] as const) : []),
+    ...(permisos.includes("boletas") ? (["factura", "boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
       ? (["nota_credito", "nota_debito"] as const)
       : []),
@@ -66,12 +67,14 @@ export default function FacturacionPage() {
   // Dónde se emite: lo trae el día de boletas, que lo lee todo el que
   // entra.
   const hoy = useEmitidasHoy();
-  const porFacturar = usePorFacturar(conDocumentos);
+  const porFacturar = usePorFacturar(conEventos);
   const pendientes = porFacturar.data?.eventos.length;
   const pestanas: { key: Pestana; label: string }[] = [
     ...(conDocumentos
+      ? [{ key: "documentos" as const, label: "Documentos" }]
+      : []),
+    ...(conEventos
       ? [
-          { key: "documentos" as const, label: "Documentos" },
           {
             key: "por_facturar" as const,
             label:
@@ -124,9 +127,11 @@ export default function FacturacionPage() {
         {letrero}
         {abierto.tipo === "factura" ? (
           <FacturaNueva
-            puedeEmitir={esAdmin}
+            esAdmin={esAdmin}
+            // Sin la lista a la vista (recepción), se queda para la próxima.
+            quedarse={!conDocumentos}
             onVolver={() => setAbierto(null)}
-            onEmitida={(doc) => emitido(doc.id)}
+            onEmitida={(doc) => (conDocumentos ? emitido(doc.id) : refrescar())}
           />
         ) : abierto.tipo === "boleta" ? (
           <BoletaNueva
@@ -205,9 +210,7 @@ export default function FacturacionPage() {
               }
             />
           )}
-          {pestana === "por_facturar" && (
-            <PorFacturar puedeEmitir={userRole === "administrador"} />
-          )}
+          {pestana === "por_facturar" && <PorFacturar />}
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}

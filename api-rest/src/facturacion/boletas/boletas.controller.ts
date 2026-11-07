@@ -14,8 +14,9 @@ import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
-import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { DEL_TARIFARIO } from '../cargos-del-tarifario';
 import {
   BoletaSueltaDto,
   CrearCobroDto,
@@ -28,7 +29,8 @@ import {
 import { BoletasService } from './boletas.service';
 
 // Las boletas de recepción (migración 187, doc 19, paso 3a): la sección
-// «Boletas» del menú, de recepción hacia arriba (D5). El administrador deja
+// «Boletas» del menú, de recepción hacia arriba (D5); el vendedor, desde el
+// 07-11, solo si la empresa se lo prende (§9.23). El administrador deja
 // el cobro (desde el evento o suelto) y lo puede borrar si no tiene
 // boletas; recepción lo reparte por cabaña y emite. Solo en la empresa con
 // el módulo propio `facturacion`, y la empresa sale SIEMPRE de la sesión.
@@ -42,7 +44,7 @@ export class BoletasController {
     this.logger.setContext(BoletasController.name);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Get('por-boletear')
   porBoletear(
@@ -53,7 +55,7 @@ export class BoletasController {
     return this.boletas.porBoletear(user.company_id, quotationId);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Get('emitidas-hoy')
   emitidasHoy(@CurrentUser() user: User) {
@@ -68,7 +70,7 @@ export class BoletasController {
     return this.boletas.crearCobro(user, dto);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Patch('cobros/:id')
   editarCobro(
@@ -89,7 +91,7 @@ export class BoletasController {
     return this.boletas.borrarCobro(user, id);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Post('cobros/:id/lineas')
   agregarLinea(
@@ -100,7 +102,7 @@ export class BoletasController {
     return this.boletas.agregarLinea(user, id, dto);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Patch('cobros/:id/lineas/:lineaId')
   editarLinea(
@@ -112,7 +114,7 @@ export class BoletasController {
     return this.boletas.editarLinea(user, id, lineaId, dto);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Delete('cobros/:id/lineas/:lineaId')
   quitarLinea(
@@ -125,7 +127,7 @@ export class BoletasController {
 
   // El tarifario (D3, paso 3b): recepción lo lee para la boleta suelta; lo
   // escribe el administrador.
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Get('tarifario')
   tarifario(@CurrentUser() user: User) {
@@ -160,14 +162,14 @@ export class BoletasController {
   // La boleta suelta: recepción hacia arriba (D5); la línea a mano, solo el
   // administrador (lo revisa el servicio).
   /** La boleta tal como saldrá (doc 19 §9.22, sprint 3): no guarda nada. */
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Post('sueltas/revisar')
   revisarSuelta(@Body() dto: BoletaSueltaDto, @CurrentUser() user: User) {
     return this.boletas.revisarSuelta(user, dto);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Post('sueltas')
   emitirSuelta(@Body() dto: BoletaSueltaDto, @CurrentUser() user: User) {
@@ -175,7 +177,7 @@ export class BoletasController {
     return this.boletas.emitirSuelta(user, dto);
   }
 
-  @Roles(...RECEPTION_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   @Permiso('boletas')
   @Post('cobros/:id/emitir')
   emitir(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {

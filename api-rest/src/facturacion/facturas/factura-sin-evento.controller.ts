@@ -2,19 +2,22 @@ import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
-import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
-import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
+import { Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { DEL_TARIFARIO } from '../cargos-del-tarifario';
 import type { DtePedido } from './borrador';
 import { DtePedidoDto, RutDto } from './factura.dto';
 import { FacturasService } from './facturas.service';
 
 // La factura de «Nuevo documento» de la sección Facturación (doc 19
 // §9.21): de cero, sin evento ni OC. La razón social se busca por su RUT
-// entre las de los clientes; la vista previa la ven los que ven
-// «Documentos» (`facturacion_documentos`), y emitir es solo del
-// administrador (D5). Solo con el módulo propio `facturacion`, y la
-// empresa sale SIEMPRE de la sesión.
+// entre las de los clientes. Desde el 07-11 (§9.23) la emiten los que
+// tienen «Boletas y facturas del tarifario» (`boletas`: recepción,
+// operaciones y el administrador, de fábrica), con las líneas del
+// tarifario; la línea a mano y el descuento siguen del administrador, y eso
+// lo cuida el servicio (`del-tarifario.ts`). Solo con el módulo propio
+// `facturacion`, y la empresa sale SIEMPRE de la sesión.
 @Derecho('facturacion')
 @Controller('facturacion')
 export class FacturaSinEventoController {
@@ -25,34 +28,32 @@ export class FacturaSinEventoController {
     this.logger.setContext(FacturaSinEventoController.name);
   }
 
-  @Permiso('facturacion_documentos')
+  @Permiso('boletas')
   @Get('razon-social')
-  @Roles(...OPERATIONS_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   razonSocial(@Query() q: RutDto, @CurrentUser() user: User) {
     return this.facturas.razonSocialPorRut(user.company_id, q.rut);
   }
 
   // El buscador del destinatario (§9.22): los clientes con sus razones
   // sociales y su contacto principal.
-  @Permiso('facturacion_documentos')
+  @Permiso('boletas')
   @Get('clientes')
-  @Roles(...OPERATIONS_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   clientes(@CurrentUser() user: User) {
     return this.facturas.clientesParaFacturar(user.company_id);
   }
 
-  @Permiso('facturacion_documentos')
+  @Permiso('boletas')
   @Post('facturas/revisar')
-  @Roles(...OPERATIONS_AND_UP)
+  @Roles(...DEL_TARIFARIO)
   revisar(@Body() dto: DtePedidoDto, @CurrentUser() user: User) {
-    return this.facturas.revisarSinEvento(user.company_id, dto as DtePedido);
+    return this.facturas.revisarSinEvento(user, dto as DtePedido);
   }
 
-  // Emitir es del administrador (D5), dentro de «Documentos»: como la
-  // factura del evento, que va dentro de Post-Venta.
-  @DentroDe('facturacion_documentos')
+  @Permiso('boletas')
   @Post('facturas/emitir')
-  @Roles(...ADMIN_ONLY)
+  @Roles(...DEL_TARIFARIO)
   emitir(@Body() dto: DtePedidoDto, @CurrentUser() user: User) {
     this.logger.info('POST /facturacion/facturas/emitir');
     return this.facturas.emitirSinEvento(user, dto as DtePedido);

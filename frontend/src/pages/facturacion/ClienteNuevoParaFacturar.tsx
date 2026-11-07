@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
+import { useAuth } from "../../contexts/AuthContext";
 import { useCrearCliente } from "../../hooks/useCrearCliente";
 import { clientTypesQueryOptions } from "../../services/clientTypes.service";
 import type {
@@ -27,6 +28,9 @@ import { RECEPTOR_VACIO } from "../postventa/facturacion/datosDeLaFactura";
 // mismo gancho de Recepción, el cotizador y Clientes: el aviso de «cliente
 // parecido» es el mismo en todas partes. Un RUT que ya está en Clientes
 // no se crea dos veces: se ofrece usar ese cliente.
+//
+// Recepción (§9.23) no escribe en la ficha de los clientes: sus datos de
+// facturación no se guardan acá sino al emitir, que los deja en la ficha.
 
 const TIPO_POR_DEFECTO = "Empresas";
 
@@ -44,6 +48,8 @@ export default function ClienteNuevoParaFacturar({
   readonly onUsar: (valor: string) => void;
 }) {
   const tipos = useQuery(clientTypesQueryOptions);
+  // Sin «Clientes», la razón social la guarda la emisión.
+  const guardaLaRazon = useAuth().permisos.includes("clientes");
   const [receptor, setReceptor] = useState<Receptor>(RECEPTOR_VACIO);
   const [tipo, setTipo] = useState("");
   const [contacto, setContacto] = useState({
@@ -108,6 +114,10 @@ export default function ClienteNuevoParaFacturar({
     // cliente y la factura va a él.
     alElegir: (cliente) => {
       const datos = { ...receptor, rut: rut ?? receptor.rut };
+      if (!guardaLaRazon) {
+        onListo(cliente.id, datos);
+        return;
+      }
       void createRazonSocial(cliente.id, {
         rut: datos.rut,
         razon_social: datos.razon_social.trim(),

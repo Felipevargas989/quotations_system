@@ -23,12 +23,14 @@ import {
 } from './orden-de-compra.dto';
 import { OrdenesDeCompraService } from './ordenes-de-compra.service';
 
-// Las órdenes de compra de un evento (migración 184, doc 19, paso 2a). Es
-// la pestaña «Facturación» de Post-Venta: la ven y la escriben operaciones
-// y el administrador, y solo en la empresa con el módulo propio
-// `facturacion`. La empresa sale SIEMPRE de la sesión.
+// Las órdenes de compra de un evento (migración 184, doc 19, paso 2a). Eran
+// de la pestaña «Facturación» de Post-Venta, que salió el 07-11 (§9.23): hoy
+// BelIA lee las OC de Documentos al facturar (`preparar`), y estas puertas
+// quedan sin pantalla, de «Facturar eventos» (`facturacion_eventos`:
+// operaciones y el administrador, de fábrica). Solo en la empresa con el
+// módulo propio `facturacion`. La empresa sale SIEMPRE de la sesión.
 @Derecho('facturacion')
-@Permiso('postventa')
+@Permiso('facturacion_eventos')
 @Controller('quotations/:quotationId/ordenes-de-compra')
 export class OrdenesDeCompraController {
   constructor(

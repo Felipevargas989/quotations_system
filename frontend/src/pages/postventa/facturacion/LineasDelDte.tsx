@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import NumberInput from "../../../components/inputs/NumberInput";
+import SelectWithSearch from "../../../components/selects/SelectWithSearch";
+import type { ItemDelTarifario } from "../../../services/boletas.service";
 import type { LineaPedida, Montos } from "../../../services/facturas.service";
-import { claseCasilla, claseTitulo, valorDeLaLinea } from "./datosDeLaFactura";
+import {
+  claseCasilla,
+  claseTitulo,
+  lineaAMano,
+  lineaDelTarifario,
+  valorDeLaLinea,
+} from "./datosDeLaFactura";
 
 // LAS LÍNEAS DEL DTE (doc 19 §9.20): la descripción, la cantidad de
 // personas, el precio con IVA y su total, y abajo el neto, el IVA y el
@@ -12,6 +20,11 @@ import { claseCasilla, claseTitulo, valorDeLaLinea } from "./datosDeLaFactura";
 // plegada en cada línea (Felipe, 06-11: «ok»): «+ Descripción larga» la
 // abre, y «Quitar» la saca del DTE; si BelIA trae el texto largo de la OC,
 // ya viene abierta.
+//
+// La factura de «Nuevo documento» (§9.23) suma las líneas del tarifario: se
+// elige el ítem y su nombre y su precio vienen de ahí (el motor los vuelve
+// a poner); la persona pone la cantidad. Recepción, solo esas
+// (`soloTarifario`); el administrador, también a mano.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -42,6 +55,8 @@ export default function LineasDelDte({
   onChange,
   sinMarco = false,
   conDescuento = false,
+  tarifario,
+  soloTarifario = false,
 }: {
   readonly lineas: LineaPedida[];
   /** Los del motor; nulos si una línea no sirve todavía. */
@@ -52,7 +67,12 @@ export default function LineasDelDte({
   readonly sinMarco?: boolean;
   /** La factura lleva el descuento en % por línea (§9.22); la boleta no. */
   readonly conDescuento?: boolean;
+  /** Los ítems del tarifario, para las líneas que salen de ahí (§9.23). */
+  readonly tarifario?: ItemDelTarifario[];
+  /** Sin líneas a mano: solo del tarifario (recepción, D3). */
+  readonly soloTarifario?: boolean;
 }) {
+  const activos = (tarifario ?? []).filter((t) => t.activo);
   const columnas = conDescuento ? COLUMNAS_CON_DESCUENTO : COLUMNAS;
   // Al agregar o quitar una línea, las casillas se vuelven a armar: así
   // ninguna se queda con el número de otra.
@@ -85,14 +105,34 @@ export default function LineasDelDte({
       {lineas.map((l, i) => (
         <div key={`${version}-${i}`} className="space-y-1">
           <div className={`grid items-center gap-2 ${columnas}`}>
-            <input
-              type="text"
-              value={l.descripcion}
-              maxLength={80}
-              placeholder="Descripción"
-              onChange={(e) => poner(i, { descripcion: e.target.value })}
-              className={claseCasilla}
-            />
+            {l.tarifario_id === undefined ? (
+              <input
+                type="text"
+                value={l.descripcion}
+                maxLength={80}
+                placeholder="Descripción"
+                onChange={(e) => poner(i, { descripcion: e.target.value })}
+                className={claseCasilla}
+              />
+            ) : (
+              <SelectWithSearch
+                options={activos.map((t) => ({
+                  value: String(t.id),
+                  label: t.nombre,
+                  hint: `${clp(t.precio)} por ${t.unidad}`,
+                }))}
+                value={l.tarifario_id == null ? "" : String(l.tarifario_id)}
+                onChange={(v) => {
+                  const item = activos.find((t) => String(t.id) === v);
+                  poner(i, {
+                    tarifario_id: item?.id ?? null,
+                    descripcion: item?.nombre ?? "",
+                    precio: item?.precio ?? 0,
+                  });
+                }}
+                placeholder="Elegir del tarifario"
+              />
+            )}
             <NumberInput
               value={l.cantidad}
               min={0}
@@ -100,14 +140,24 @@ export default function LineasDelDte({
               onChange={(v) => poner(i, { cantidad: v ?? 0 })}
               className="text-sm text-right"
             />
-            <NumberInput
-              value={l.precio}
-              min={0}
-              currency
-              placeholder="0"
-              onChange={(v) => poner(i, { precio: v ?? 0 })}
-              className="text-sm text-right"
-            />
+            {l.tarifario_id === undefined ? (
+              <NumberInput
+                value={l.precio}
+                min={0}
+                currency
+                placeholder="0"
+                onChange={(v) => poner(i, { precio: v ?? 0 })}
+                className="text-sm text-right"
+              />
+            ) : (
+              // El precio del tarifario no se toca (D3).
+              <span
+                title="El precio del tarifario"
+                className={`${claseCasilla} bg-gray-50 text-right text-gray-700`}
+              >
+                {clp(l.precio)}
+              </span>
+            )}
             {conDescuento && (
               <NumberInput
                 value={l.descuento ?? undefined}
@@ -171,23 +221,29 @@ export default function LineasDelDte({
           )}
         </div>
       ))}
-      <button
-        type="button"
-        onClick={() =>
-          cambiarLineas([
-            ...lineas,
-            {
-              descripcion: "",
-              descripcion_larga: null,
-              cantidad: 1,
-              precio: 0,
-            },
-          ])
-        }
-        className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-      >
-        <Plus size={13} /> Agregar línea
-      </button>
+      <div className="flex flex-wrap gap-4">
+        <button
+          type="button"
+          onClick={() =>
+            cambiarLineas([
+              ...lineas,
+              soloTarifario ? lineaDelTarifario() : lineaAMano(),
+            ])
+          }
+          className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+        >
+          <Plus size={13} /> Agregar línea
+        </button>
+        {!soloTarifario && activos.length > 0 && (
+          <button
+            type="button"
+            onClick={() => cambiarLineas([...lineas, lineaDelTarifario()])}
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+          >
+            <Plus size={13} /> Del tarifario
+          </button>
+        )}
+      </div>
       {!sinMarco && <TotalesDelDte montos={montos} />}
     </div>
   );

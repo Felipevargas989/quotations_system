@@ -13,16 +13,14 @@ import FacturacionMasiva from "./FacturacionMasiva";
 // por emitir: el total, lo emitido (facturas y boletas, con la cadena) y lo
 // que queda. «Facturar» abre ahí mismo el mismo «Emitir DTE» del evento:
 // BelIA lee sus OC de Documentos y se llena desde la OC o la cotización.
-// Emite el administrador (D5), que además puede marcar varios y
-// facturarlos juntos (`FacturacionMasiva`).
+// Desde el 07-11 (§9.23) es el único lugar donde se factura un evento (la
+// pestaña de Post-Venta salió), y lo ve y lo emite quien tiene «Facturar
+// eventos» (operaciones y el administrador, de fábrica), que además puede
+// marcar varios y facturarlos juntos (`FacturacionMasiva`).
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
-export default function PorFacturar({
-  puedeEmitir,
-}: {
-  readonly puedeEmitir: boolean;
-}) {
+export default function PorFacturar() {
   const queryClient = useQueryClient();
   const lista = usePorFacturar();
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -79,7 +77,7 @@ export default function PorFacturar({
           }}
         />
       )}
-      {puedeEmitir && marcados.size > 0 && !masiva && (
+      {marcados.size > 0 && !masiva && (
         <div className="flex justify-end">
           <button
             type="button"
@@ -97,22 +95,20 @@ export default function PorFacturar({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-              {puedeEmitir && (
-                <th className="w-6 py-1">
-                  <input
-                    type="checkbox"
-                    aria-label="Marcar todos"
-                    checked={todos}
-                    onChange={(ev) =>
-                      setMarcados(
-                        ev.target.checked
-                          ? new Set(eventos.map((e) => e.id))
-                          : new Set(),
-                      )
-                    }
-                  />
-                </th>
-              )}
+              <th className="w-6 py-1">
+                <input
+                  type="checkbox"
+                  aria-label="Marcar todos"
+                  checked={todos}
+                  onChange={(ev) =>
+                    setMarcados(
+                      ev.target.checked
+                        ? new Set(eventos.map((e) => e.id))
+                        : new Set(),
+                    )
+                  }
+                />
+              </th>
               <th className="py-1 font-medium">Evento</th>
               <th className="py-1 font-medium">Cliente</th>
               <th className="py-1 font-medium">Fecha</th>
@@ -126,16 +122,14 @@ export default function PorFacturar({
             {eventos.map((e) => (
               <Fragment key={e.id}>
                 <tr className="align-top">
-                  {puedeEmitir && (
-                    <td className="py-1.5">
-                      <input
-                        type="checkbox"
-                        aria-label={`Marcar el #${e.numero}`}
-                        checked={marcados.has(e.id)}
-                        onChange={(ev) => marcar(e.id, ev.target.checked)}
-                      />
-                    </td>
-                  )}
+                  <td className="py-1.5">
+                    <input
+                      type="checkbox"
+                      aria-label={`Marcar el #${e.numero}`}
+                      checked={marcados.has(e.id)}
+                      onChange={(ev) => marcar(e.id, ev.target.checked)}
+                    />
+                  </td>
                   <td className="py-1.5 pr-2">
                     <Link
                       to={`/post-venta/${e.id}`}
@@ -183,10 +177,10 @@ export default function PorFacturar({
                 </tr>
                 {abierto === e.id && (
                   <tr>
-                    <td colSpan={puedeEmitir ? 8 : 7} className="pb-3">
+                    <td colSpan={8} className="pb-3">
                       <EmitirDte
                         quotationId={e.id}
-                        puedeEmitir={puedeEmitir}
+                        puedeEmitir
                         onCerrar={() => setAbierto(null)}
                         onEmitido={emitido}
                       />

@@ -104,6 +104,12 @@ export class LineaDelDteDto {
   @Min(0)
   @Max(99.99, { message: 'El descuento va de 0 a menos de 100 %' })
   descuento?: number | null;
+
+  // §9.23: la línea elegida del tarifario (la factura de «Nuevo
+  // documento»); el nombre y el precio los pone el motor.
+  @IsOptional()
+  @IsInt()
+  tarifario_id?: number | null;
 }
 
 export class ReferenciaDeLaFacturaDto {

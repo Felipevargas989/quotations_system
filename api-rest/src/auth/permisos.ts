@@ -31,9 +31,10 @@ export type Permiso =
   | 'calendario'
   | 'postventa'
   | 'proveedores'
-  // Facturación (doc 19 y doc 22 §7): sus cuatro, desde que el módulo
-  // existe. Con el módulo propio `facturacion`.
+  // Facturación (doc 19 y doc 22 §7): sus cinco, con el módulo propio
+  // `facturacion`. «Facturar eventos», desde el 07-11 (doc 19 §9.23).
   | 'boletas'
+  | 'facturacion_eventos'
   | 'facturacion_documentos'
   | 'facturacion_notas'
   | 'facturacion_ajustes'
@@ -136,12 +137,24 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     derecho: 'logistica',
   },
   // Facturación (doc 22 §7): las pestañas que hasta el 05-11 decidía el
-  // cargo. El vendedor ve las boletas, como hasta hoy.
+  // cargo. Desde el 07-11 todo se factura en la sección Facturación (doc 19
+  // §9.23; Felipe: *"el recepcionista solamente puede emitir boletas y
+  // facturas de cabañas según el tarifario, y los de operación y
+  // administrador pueden facturar los eventos que falten facturar"*): las
+  // boletas y facturas del tarifario, de recepción hacia arriba sin el
+  // vendedor, y «Facturar eventos», de operaciones y el administrador.
   {
     clave: 'boletas',
     area: 'facturacion',
-    nombre: 'Boletas',
-    fabrica: CARGOS,
+    nombre: 'Boletas y facturas del tarifario',
+    fabrica: [R, O, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'facturacion_eventos',
+    area: 'facturacion',
+    nombre: 'Facturar eventos',
+    fabrica: [O, A],
     derecho: 'facturacion',
   },
   {

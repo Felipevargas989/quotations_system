@@ -34,10 +34,11 @@ export type Section =
   // Licitaciones y compras ágiles de Mercado Público (doc 17): solo
   // administrador (Felipe, 17-10: "solo el administrador y Camila").
   | "oportunidades"
-  // Las boletas de las cabañas (doc 19 §9.4): de recepción hacia arriba
-  // (D5), solo con el módulo propio `facturacion` (SECTION_DERECHO). Desde
-  // el 05-11 son las pestañas de boletas de la sección Facturación, y quien
-  // las ve tiene la entrada del menú (§9.19).
+  // La sección Facturación (doc 19 §9.19), con el nombre que tuvo cuando
+  // eran las boletas de las cabañas: solo con el módulo propio
+  // `facturacion` (SECTION_DERECHO). Desde el 07-11 (§9.23) la ve quien
+  // tenga cualquiera de sus cinco permisos (SECTION_PERMISO): de fábrica,
+  // recepción, operaciones y el administrador; el vendedor ya no.
   | "boletas"
   // «Documentos», la lista de Facturación con la cadena de anulaciones
   // (doc 19 §9.5): desde el 05-11, operaciones y el administrador (§9.19,
@@ -80,7 +81,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "quotations",
     "quotations_edit",
     "configuration",
-    "boletas",
   ],
   operaciones: [
     "requests",
@@ -138,8 +138,10 @@ export type Permiso =
   | "calendario"
   | "postventa"
   | "proveedores"
-  // Facturación (doc 22 §7), con el módulo propio `facturacion`.
+  // Facturación (doc 22 §7), con el módulo propio `facturacion`. «Facturar
+  // eventos», desde el 07-11 (doc 19 §9.23).
   | "boletas"
+  | "facturacion_eventos"
   | "facturacion_documentos"
   | "facturacion_notas"
   | "facturacion_ajustes"
@@ -152,7 +154,21 @@ export type Permiso =
   | "mi_empresa"
   | "usuarios";
 
-export const SECTION_PERMISO: Partial<Record<Section, Permiso>> = {
+/** Los permisos de Facturación: con cualquiera de ellos se entra a la
+ *  sección (doc 19 §9.23), y adentro cada pestaña pide el suyo
+ *  (FacturacionPage). Así, apagar uno no deja afuera de los otros. */
+export const PERMISOS_DE_FACTURACION: readonly Permiso[] = [
+  "boletas",
+  "facturacion_eventos",
+  "facturacion_documentos",
+  "facturacion_notas",
+  "facturacion_ajustes",
+];
+
+/** Cada sección con su permiso; con una lista, basta cualquiera. */
+export const SECTION_PERMISO: Partial<
+  Record<Section, Permiso | readonly Permiso[]>
+> = {
   dashboard: "dashboard",
   analytics: "dashboard",
   requests: "requerimientos",
@@ -166,9 +182,8 @@ export const SECTION_PERMISO: Partial<Record<Section, Permiso>> = {
   company_configuration: "mi_empresa",
   calendar: "calendario",
   logistics: "proveedores",
-  // Facturación: entra quien tiene las boletas; «Documentos» es su propio
-  // permiso (FacturacionPage).
-  boletas: "boletas",
+  // Facturación: entra quien tenga cualquiera de sus permisos (§9.23).
+  boletas: PERMISOS_DE_FACTURACION,
   facturacion: "facturacion_documentos",
   people: "personal",
   marketing: "marketing",
@@ -182,21 +197,24 @@ const DE_TODOS: Permiso[] = [
   "consultas",
   "belia",
   "calendario",
-  "boletas",
 ];
 
 // Lo de fábrica, que es lo de hoy: lo mismo que `api-rest/src/auth/
 // permisos.ts`. Solo se usa si el motor todavía no manda la lista (el
 // despliegue va motor primero) o con un perfil viejo guardado en el
 // navegador. El Calendario del vendedor, prendido (Felipe, 05-11-2026).
+// Las boletas y facturas del tarifario, sin el vendedor, y «Facturar
+// eventos», de operaciones y el administrador (doc 19 §9.23, 07-11).
 export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
-  recepcion: DE_TODOS,
+  recepcion: [...DE_TODOS, "boletas"],
   vendedor: [...DE_TODOS, "clientes"],
   operaciones: [
     ...DE_TODOS,
     "clientes",
     "postventa",
     "proveedores",
+    "boletas",
+    "facturacion_eventos",
     "facturacion_documentos",
   ],
   administrador: [
@@ -204,6 +222,8 @@ export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
     "clientes",
     "postventa",
     "proveedores",
+    "boletas",
+    "facturacion_eventos",
     "facturacion_documentos",
     "facturacion_notas",
     "facturacion_ajustes",
@@ -230,6 +250,15 @@ export const permisosDe = (
       ? (PERMISOS_DE_FABRICA[role] ?? [])
       : [];
 
+/** ¿Alguno de los prendidos abre la sección? Con una lista, basta uno. */
+const abre = (
+  permisos: readonly Permiso[],
+  deLaSeccion: Permiso | readonly Permiso[],
+): boolean =>
+  typeof deLaSeccion === "string"
+    ? permisos.includes(deLaSeccion)
+    : deLaSeccion.some((p) => permisos.includes(p));
+
 // Helper function to check if a role can access a section (the menu).
 // Con permiso por cargo, manda el permiso; si no, la lista de siempre.
 export const canAccessSection = (
@@ -238,7 +267,7 @@ export const canAccessSection = (
   permisos: readonly Permiso[] = permisosDe(role),
 ): boolean => {
   const permiso = SECTION_PERMISO[section];
-  if (permiso) return permisos.includes(permiso);
+  if (permiso) return abre(permisos, permiso);
   return ROLE_PERMISSIONS[role]?.includes(section) || false;
 };
 
@@ -252,7 +281,7 @@ export const puedeEntrar = (
 ): boolean => {
   if (!role) return false;
   const permiso = SECTION_PERMISO[section];
-  if (permiso) return permisos.includes(permiso);
+  if (permiso) return abre(permisos, permiso);
   return SECTION_ROLES[section].includes(role);
 };
 
@@ -435,6 +464,7 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   marketing: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
   oportunidades: ROLE_GROUPS.ADMIN_ONLY,
-  boletas: ROLE_GROUPS.RECEPTION_AND_UP,
+  // Facturación: sin el vendedor desde el 07-11 (doc 19 §9.23).
+  boletas: ["recepcion", "operaciones", "administrador"],
   facturacion: ROLE_GROUPS.OPERATIONS_AND_UP,
 };
