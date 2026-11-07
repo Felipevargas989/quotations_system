@@ -38,6 +38,8 @@ import {
   leerArmado,
 } from './armar-la-oferta';
 import { esGanadaSinCotizacion, noSiEstaCongelada } from './congelada';
+import { laCotizacionVinculadaEnTexto } from './la-cotizacion-vinculada';
+import { PostulacionRepository } from './postulacion.repository';
 
 // ARMAR LA OFERTA (decisión 33 del doc 17, sprint G, 19-10): un trabajo de
 // la IA como los demás (oportunidad_generacion, tipo 'oferta', migración
@@ -62,6 +64,9 @@ export class ArmarLaOfertaService {
     /** La memoria de la licitación (decisión 68). Opcional: las pruebas de
      *  antes no la traen y sin ella no hay nada aclarado. */
     @Optional() private readonly preguntas?: PreguntasRepository,
+    /** La cotización vinculada (decisión 119). Opcional por lo mismo: sin
+     *  ella, la oferta sale del catálogo como antes. */
+    @Optional() private readonly postulacion?: PostulacionRepository,
   ) {
     this.logger.setContext(ArmarLaOfertaService.name);
   }
@@ -142,21 +147,28 @@ export class ArmarLaOfertaService {
       }
       caben.push(a);
     }
-    const [catalogo, oferente, config, aclarado] = await Promise.all([
-      catalogoParaLaOferta(this.catalogos, companyId),
-      this.oferente.oferente(companyId),
-      this.oportunidades.configDe(companyId),
-      memoriaDeLaLicitacion(this.preguntas, companyId, oportunidadId, (m) =>
-        this.logger.warn(m),
-      ),
-    ]);
+    const [catalogo, oferente, config, aclarado, vinculada] = await Promise.all(
+      [
+        catalogoParaLaOferta(this.catalogos, companyId),
+        this.oferente.oferente(companyId),
+        this.oportunidades.configDe(companyId),
+        memoriaDeLaLicitacion(this.preguntas, companyId, oportunidadId, (m) =>
+          this.logger.warn(m),
+        ),
+        this.laVinculada(companyId, ficha.quotation_id),
+      ],
+    );
 
     await this.repo.abandonarAntesDe(companyId, oportunidadId, ENCENDIDO);
     const fila = await this.repo.crearGeneracion({
       company_id: companyId,
       oportunidad_id: oportunidadId,
       tipo: 'oferta',
-      parametros: encadenar.parametros ?? {},
+      parametros: {
+        ...(encadenar.parametros ?? {}),
+        // Con qué cotización se armó (decisión 119).
+        ...(vinculada ? { con_la_cotizacion: vinculada.numero } : {}),
+      },
       modelo: MODELO_DE_LA_OFERTA,
       archivos: caben.map((a) => ({ id: a.id, nombre: a.nombre })),
       no_leidos: fuera,
@@ -181,6 +193,7 @@ export class ArmarLaOfertaService {
         instalaciones: oferente?.instalaciones ?? null,
         loQueVende: config?.perfil ?? null,
         catalogo,
+        cotizacion: vinculada?.texto ?? null,
       }),
     )
       .then((lista) =>
@@ -192,6 +205,28 @@ export class ArmarLaOfertaService {
         ),
       );
     return fila;
+  }
+
+  /** La cotización vinculada en texto (decisión 119); null si no hay, no
+   *  trae productos o no se pudo leer: entonces la oferta sale del catálogo
+   *  como antes. */
+  private async laVinculada(
+    companyId: number,
+    quotationId: string | null | undefined,
+  ): Promise<{ numero: number; texto: string } | null> {
+    if (!quotationId || !this.postulacion) return null;
+    try {
+      const q = await this.postulacion.cotizacion(companyId, {
+        id: quotationId,
+      });
+      const texto = q ? laCotizacionVinculadaEnTexto(q) : null;
+      return q && texto ? { numero: q.quotation_number, texto } : null;
+    } catch (error) {
+      this.logger.warn(
+        `la cotización vinculada ${quotationId}: ${mensajeDe(error)}`,
+      );
+      return null;
+    }
   }
 
   /** Por detrás. Nunca lanza: lo que falle queda escrito en la fila.

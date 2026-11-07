@@ -28,6 +28,7 @@ vi.mock("../../services/oportunidades.service", () => ({
   getGeneraciones: vi.fn(),
   generarAnexos: vi.fn(),
   crearPropuestaTecnica: vi.fn(),
+  getCotizacionDeLaPostulacion: vi.fn(),
 }));
 vi.mock("../../services/postulacion.service", () => ({
   armarPostulacion: vi.fn(),
@@ -65,6 +66,14 @@ beforeEach(() => {
     propuesta: null,
   });
   p.getOfertaDeLaPostulacion.mockResolvedValue(null);
+  // De partida, sin cotización vinculada.
+  s.getCotizacionDeLaPostulacion.mockResolvedValue({
+    cotizacion: null,
+    presupuesto: null,
+    propuesta: null,
+    faltan: [],
+    fechas: null,
+  });
   // De partida, bases que no piden experiencia (decisión 76).
   x.getExperiencia.mockResolvedValue({ piden: false, trabajo: null });
 });
@@ -121,6 +130,46 @@ describe("Armar postulación", () => {
     expect(
       screen.getByRole("button", { name: "Armando la postulación…" }),
     ).toBeDisabled();
+  });
+
+  it("con la cotización vinculada, el precio parte con su total y dice que arma con ella (decisión 119)", async () => {
+    s.getCotizacionDeLaPostulacion.mockResolvedValue({
+      cotizacion: {
+        id: "d5dee709",
+        numero: 574,
+        estado: "aceptada",
+        cliente: "Universidad del Bío-Bío",
+        catalogo: 1_788_000,
+        descuento: 8_000,
+        total: 1_780_000,
+      },
+      presupuesto: 1_788_000,
+      propuesta: null,
+      faltan: [],
+      fechas: null,
+    });
+    p.armarPostulacion.mockResolvedValue({
+      id: 22,
+      estado: "procesando",
+      creado_en: "2026-11-07T15:00:00.000Z",
+      terminado_en: null,
+      parametros: { postulacion: { total: 1_780_000, propuesta: true } },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(
+        /arma todo con tu cotización N° 574, cumpliendo las bases/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Neto \$1\.495\.798 \+ IVA \$284\.202/),
+    ).toBeInTheDocument();
+    const boton = screen.getByRole("button", { name: "Armar postulación" });
+    await waitFor(() => expect(boton).toBeEnabled());
+    fireEvent.click(boton);
+    await waitFor(() =>
+      expect(p.armarPostulacion).toHaveBeenCalledWith(40, 1_780_000),
+    );
   });
 
   it("postulada antes de «Armar postulación»: una línea con el precio de los anexos, sin nada que armar (26-10)", async () => {
