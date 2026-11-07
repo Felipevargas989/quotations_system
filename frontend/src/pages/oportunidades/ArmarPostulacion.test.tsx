@@ -164,6 +164,13 @@ describe("Armar postulación", () => {
     expect(
       await screen.findByText(/Neto \$1\.495\.798 \+ IVA \$284\.202/),
     ).toBeInTheDocument();
+    // El reparto (Felipe, 07-11): la cotización manda en los servicios y
+    // este total, en el precio.
+    expect(
+      screen.getByText(
+        /Si piden precio por ítem, este total se reparte en la misma proporción sobre los precios de tu cotización N° 574\./,
+      ),
+    ).toBeInTheDocument();
     const boton = screen.getByRole("button", { name: "Armar postulación" });
     await waitFor(() => expect(boton).toBeEnabled());
     fireEvent.click(boton);

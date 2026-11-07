@@ -1,4 +1,4 @@
-import { desgloseDeOferta, pesos } from '../generacion/instrucciones';
+import { desgloseDeOferta, pesos } from '../generacion/la-plata';
 import type { PiezaDelSet } from './el-set';
 import type { CotizacionDeLaPostulacion } from './postulacion.repository';
 import { armarZip } from './zip';
@@ -9,11 +9,12 @@ import { armarZip } from './zip';
 // datos bancarios)» y que «Armar postulación» no hizo: "todos los
 // documentos debieron generarse", "si está vinculada a una cotización, la
 // arme en base a esa cotización" y "con nuestro formato". La arma el motor,
-// sin IA, para que las cifras sean las de la cotización: cada servicio con
-// sus precios del catálogo, el descuento hasta el precio que se postula
-// (precios nunca a dedo), el neto y el IVA de `desgloseDeOferta`, el plazo y
-// los datos bancarios de Configuración de empresa. El Word se arma a mano,
-// como el ZIP (`armarZip`), y se firma después con «Firmar».
+// sin IA: cada servicio de la cotización con su precio repartido hasta el
+// precio que se postula (el-reparto.ts, sin línea de descuento: Felipe,
+// 07-11, "la cotización manda en los servicios", no en el precio), el neto
+// y el IVA de `desgloseDeOferta`, el plazo y los datos bancarios de
+// Configuración de empresa. El Word se arma a mano, como el ZIP
+// (`armarZip`), y se firma después con «Firmar».
 
 // Como el de `el-set.ts`, aquí: el set lee este archivo y no se importan en
 // círculo.
@@ -90,8 +91,15 @@ export type LineaDeLaCotizacion = {
   /** Vacío en un servicio fijo: su nombre ya lo dice. */
   detalle: string;
   cantidad: string;
+  /** La cantidad en número: la de un servicio fijo, las personas de una
+   *  comida. */
+  unidades: number;
   unitario: number;
   total: number;
+  /** Del reparto del precio (el-reparto.ts): lo mismo en neto, para el
+   *  formulario que pide precios netos. */
+  unitarioNeto?: number;
+  totalNeto?: number;
 };
 
 export type DiaDeLaCotizacion = {
@@ -159,6 +167,7 @@ export const diasDeLaCotizacion = (
         servicio: texto(f.nombre) || 'Servicio',
         detalle: '',
         cantidad: String(cantidad),
+        unidades: cantidad,
         unitario,
         total: unitario * cantidad,
       });
@@ -180,6 +189,7 @@ export const diasDeLaCotizacion = (
           .filter(Boolean)
           .join('; '),
         cantidad: `${personas} personas`,
+        unidades: personas,
         unitario,
         total: unitario * personas,
       });
@@ -231,12 +241,14 @@ export type DatosDeLaCotizacionDetallada = {
   /** «7 de noviembre de 2026». */
   fecha: string;
   proveedor: Array<[string, string]>;
+  /** Con el detalle, repartidos hasta el precio que se postula
+   *  (`repartirElPrecio`): suman justo `total`. En una sola línea, solo
+   *  dicen lo que incluye. */
   dias: DiaDeLaCotizacion[];
   /** El precio que se postula, con IVA. */
   total: number;
   /** Una sola línea por el total, con lo que incluye y sin precio por ítem:
-   *  si las bases no piden el detalle de precios o si el precio que se
-   *  postula pasa la cotización (decisión 119). */
+   *  si las bases no piden el detalle de precios (decisión 119). */
   unaSolaLinea?: boolean;
   /** Lo que la propuesta técnica describe: se nombra si va. */
   conPropuesta: boolean;
@@ -416,10 +428,15 @@ export const loQueIncluye = (dias: DiaDeLaCotizacion[]): string =>
 
 /** El cuerpo del Word, sin el logo. */
 const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
-  const subtotal = d.unaSolaLinea
-    ? d.total
-    : d.dias.reduce((s, x) => s + x.subtotal, 0);
-  const descuento = subtotal - d.total;
+  // Con el detalle, los precios ya vienen repartidos hasta el precio que se
+  // postula (el-reparto.ts): sin línea de descuento. Si no suman justo, no
+  // sale un Word que se contradice.
+  const suma = d.dias.reduce((s, x) => s + x.subtotal, 0);
+  if (!d.unaSolaLinea && suma !== d.total) {
+    throw new Error(
+      `el detalle suma ${pesos(suma)} y el precio es ${pesos(d.total)}`,
+    );
+  }
   const { neto, iva } = desgloseDeOferta(d.total);
   const { primario, secundario } = d.marca ?? SIN_MARCA;
   const cuatro = A_DETALLE.slice(0, 4).reduce((s, a) => s + a, 0);
@@ -507,10 +524,6 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
         tot(`Subtotal ${dia.titulo.toLowerCase()}`, pesos(dia.subtotal)),
       );
     }
-  }
-  if (descuento > 0) {
-    detalle.push(tot('Subtotal', pesos(subtotal)));
-    detalle.push(tot('Descuento', `-${pesos(descuento)}`));
   }
   detalle.push(tot('Neto', pesos(neto)));
   detalle.push(tot('IVA (19%)', pesos(iva)));
