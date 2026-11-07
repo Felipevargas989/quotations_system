@@ -316,6 +316,30 @@ describe('la cotización detallada', () => {
     expect(texto).not.toContain('Plazo de entrega');
   });
 
+  it('el formato de la casa (Felipe, 07-11): los colores de la marca en los títulos, la tabla y el total; sin ellos, grises sobrios', () => {
+    const conMarca =
+      archivoDelZip(
+        armarLaCotizacionDetallada(
+          datos({ marca: { primario: '213A33', secundario: 'E9E2D3' } }),
+        ),
+        'word/document.xml',
+      )?.toString() ?? '';
+    // El encabezado de la tabla y el total, del color de la marca y en blanco.
+    expect(conMarca).toContain('w:fill="213A33"');
+    expect(conMarca).toContain('<w:color w:val="FFFFFF"/>');
+    // Cada día, sobre el segundo color.
+    expect(conMarca).toContain('w:fill="E9E2D3"');
+    // Los títulos de cada parte, en mayúsculas y del color de la marca.
+    expect(conMarca).toContain('<w:caps/><w:color w:val="213A33"/>');
+    const sinMarca =
+      archivoDelZip(
+        armarLaCotizacionDetallada(datos()),
+        'word/document.xml',
+      )?.toString() ?? '';
+    expect(sinMarca).not.toContain('213A33');
+    expect(sinMarca).toContain('w:fill="1F2937"');
+  });
+
   it('las medidas de un PNG y de un JPG; otra cosa no es un logo', () => {
     expect(medidasDeLaImagen(PNG)).toEqual({
       ancho: 400,

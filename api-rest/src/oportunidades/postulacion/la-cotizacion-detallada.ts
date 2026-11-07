@@ -240,6 +240,9 @@ export type DatosDeLaCotizacionDetallada = {
   unaSolaLinea?: boolean;
   /** Lo que la propuesta técnica describe: se nombra si va. */
   conPropuesta: boolean;
+  /** Los colores de la marca (Configuración de empresa), RRGGBB; sin
+   *  ellos, grises sobrios. */
+  marca?: { primario: string; secundario: string } | null;
   plazo: string | null;
   /** Dónde: solo si las bases dicen que es en el recinto de la empresa. */
   lugar: string | null;
@@ -290,9 +293,11 @@ export const medidasDeLaImagen = (
 // ---------------------------------------------------------------- el Word
 
 const LETRA = 'Calibri';
-const BORDE = '8C8C8C';
-const FONDO_TITULO = 'E8EFEA';
-const FONDO_TOTAL = 'F3EFE4';
+const BORDE = 'D1D5DB';
+const GRIS = '6B7280';
+const BLANCO = 'FFFFFF';
+/** Sin colores de la marca en Configuración de empresa: grises sobrios. */
+const SIN_MARCA = { primario: '1F2937', secundario: 'F3F4F6' };
 const ANCHO = 9972;
 const A_DATOS = [2900, ANCHO - 2900];
 const A_DETALLE = [1750, 4222, 1300, 1350, 1350];
@@ -305,7 +310,14 @@ const xml = (t: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-type Estilo = { negrita?: boolean; tam?: number };
+type Estilo = {
+  negrita?: boolean;
+  tam?: number;
+  color?: string;
+  mayus?: boolean;
+  /** Entre letras, en veinteavos de punto: los rótulos de la casa. */
+  espaciado?: number;
+};
 
 const corrida = (t: string, e: Estilo = {}): string => {
   const tam = e.tam ?? 22;
@@ -316,7 +328,8 @@ const corrida = (t: string, e: Estilo = {}): string => {
         `${i > 0 ? '<w:br/>' : ''}<w:t xml:space="preserve">${xml(p)}</w:t>`,
     )
     .join('');
-  return `<w:r><w:rPr><w:rFonts w:ascii="${LETRA}" w:hAnsi="${LETRA}" w:cs="${LETRA}"/>${e.negrita ? '<w:b/>' : ''}<w:sz w:val="${tam}"/><w:szCs w:val="${tam}"/></w:rPr>${partes}</w:r>`;
+  // En el orden del esquema de Word: rFonts, b, caps, color, spacing, sz.
+  return `<w:r><w:rPr><w:rFonts w:ascii="${LETRA}" w:hAnsi="${LETRA}" w:cs="${LETRA}"/>${e.negrita ? '<w:b/>' : ''}${e.mayus ? '<w:caps/>' : ''}${e.color ? `<w:color w:val="${e.color}"/>` : ''}${e.espaciado ? `<w:spacing w:val="${e.espaciado}"/>` : ''}<w:sz w:val="${tam}"/><w:szCs w:val="${tam}"/></w:rPr>${partes}</w:r>`;
 };
 
 type Parrafo = {
@@ -330,7 +343,7 @@ type Parrafo = {
 const parrafo = (contenido: string, p: Parrafo = {}): string =>
   `<w:p><w:pPr>${p.junto ? '<w:keepNext/><w:keepLines/>' : ''}<w:spacing w:before="${p.antes ?? 0}" w:after="${p.despues ?? 80}"/><w:jc w:val="${p.alineado ?? 'left'}"/></w:pPr>${contenido}</w:p>`;
 
-type Celda = {
+type Celda = Omit<Estilo, 'negrita'> & {
   ancho: number;
   negrita?: boolean;
   alineado?: 'left' | 'center' | 'right';
@@ -339,7 +352,7 @@ type Celda = {
 };
 
 const celda = (t: string, c: Celda): string =>
-  `<w:tc><w:tcPr><w:tcW w:w="${c.ancho}" w:type="dxa"/>${c.juntas && c.juntas > 1 ? `<w:gridSpan w:val="${c.juntas}"/>` : ''}${c.fondo ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fondo}"/>` : ''}</w:tcPr>${parrafo(corrida(t, { negrita: c.negrita }), { alineado: c.alineado, despues: 0 })}</w:tc>`;
+  `<w:tc><w:tcPr><w:tcW w:w="${c.ancho}" w:type="dxa"/>${c.juntas && c.juntas > 1 ? `<w:gridSpan w:val="${c.juntas}"/>` : ''}${c.fondo ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fondo}"/>` : ''}<w:vAlign w:val="center"/></w:tcPr>${parrafo(corrida(t, c), { alineado: c.alineado, despues: 0 })}</w:tc>`;
 
 const fila = (...celdas: string[]): string =>
   `<w:tr><w:trPr><w:cantSplit/></w:trPr>${celdas.join('')}</w:tr>`;
@@ -353,19 +366,28 @@ const tabla = (anchos: number[], filasDeLaTabla: string[]): string => {
   return `<w:tbl><w:tblPr><w:tblW w:w="${anchos.reduce((s, a) => s + a, 0)}" w:type="dxa"/><w:tblBorders>${bordes}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="90" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="90" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="0000"/></w:tblPr><w:tblGrid>${anchos.map((a) => `<w:gridCol w:w="${a}"/>`).join('')}</w:tblGrid>${filasDeLaTabla.join('')}</w:tbl>`;
 };
 
-const titulo = (t: string): string =>
-  parrafo(corrida(t, { negrita: true, tam: 24 }), {
-    antes: 200,
-    despues: 80,
-    junto: true,
-  });
+/** El título de cada parte, como los de la cotización de Eventia: chico,
+ *  en mayúsculas espaciadas y del color de la marca. */
+const titulo = (t: string, color: string): string =>
+  parrafo(
+    corrida(t, { negrita: true, tam: 21, color, mayus: true, espaciado: 24 }),
+    { antes: 240, despues: 100, junto: true },
+  );
 
+/** Rótulo gris en mayúsculas y el dato al lado. */
 const deDatos = (pares: Array<[string, string]>): string =>
   tabla(
     A_DATOS,
     pares.map(([k, v]) =>
       fila(
-        celda(k, { ancho: A_DATOS[0], negrita: true }),
+        celda(k, {
+          ancho: A_DATOS[0],
+          negrita: true,
+          tam: 17,
+          color: GRIS,
+          mayus: true,
+          espaciado: 10,
+        }),
         celda(v, { ancho: A_DATOS[1] }),
       ),
     ),
@@ -399,6 +421,7 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
     : d.dias.reduce((s, x) => s + x.subtotal, 0);
   const descuento = subtotal - d.total;
   const { neto, iva } = desgloseDeOferta(d.total);
+  const { primario, secundario } = d.marca ?? SIN_MARCA;
   const cuatro = A_DETALLE.slice(0, 4).reduce((s, a) => s + a, 0);
   const tot = (etiqueta: string, valor: string, fuerte = false) =>
     fila(
@@ -407,13 +430,15 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
         juntas: 4,
         alineado: 'right',
         negrita: fuerte,
-        fondo: fuerte ? FONDO_TOTAL : undefined,
+        fondo: fuerte ? primario : undefined,
+        color: fuerte ? BLANCO : undefined,
       }),
       celda(valor, {
         ancho: A_DETALLE[4],
         alineado: 'right',
         negrita: fuerte,
-        fondo: fuerte ? FONDO_TOTAL : undefined,
+        fondo: fuerte ? primario : undefined,
+        color: fuerte ? BLANCO : undefined,
       }),
     );
   const detalle: string[] = [
@@ -423,7 +448,11 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
           celda(t, {
             ancho: A_DETALLE[i],
             negrita: true,
-            fondo: FONDO_TITULO,
+            fondo: primario,
+            color: BLANCO,
+            tam: 18,
+            mayus: true,
+            espaciado: 10,
             alineado: i === 2 ? 'center' : i > 2 ? 'right' : 'left',
           }),
       ),
@@ -442,7 +471,15 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
   }
   for (const dia of d.unaSolaLinea ? [] : d.dias) {
     detalle.push(
-      fila(celda(dia.titulo, { ancho: ANCHO, juntas: 5, negrita: true })),
+      fila(
+        celda(dia.titulo, {
+          ancho: ANCHO,
+          juntas: 5,
+          negrita: true,
+          fondo: secundario,
+          color: primario,
+        }),
+      ),
     );
     for (const l of dia.lineas) {
       const nombre = l.detalle
@@ -484,6 +521,8 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
       corrida(d.unaSolaLinea ? 'COTIZACIÓN' : 'COTIZACIÓN DETALLADA', {
         negrita: true,
         tam: 32,
+        color: primario,
+        espaciado: 20,
       }),
       {
         despues: 60,
@@ -499,9 +538,9 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
         `Cotización N° ${d.numero} · Fecha: ${d.fecha} · Validez: 30 días`,
       ),
     ),
-    titulo('1. Proveedor'),
+    titulo('1. Proveedor', primario),
     deDatos(d.proveedor),
-    titulo('2. Detalle de lo ofertado'),
+    titulo('2. Detalle de lo ofertado', primario),
     parrafo(corrida('Valores en pesos chilenos, con IVA incluido.')),
     tabla(A_DETALLE, detalle),
     parrafo(
@@ -515,7 +554,7 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
   ];
   let n = 3;
   if (d.plazo) {
-    partes.push(titulo(`${n++}. Plazo de entrega`));
+    partes.push(titulo(`${n++}. Plazo de entrega`, primario));
     partes.push(
       parrafo(
         corrida(
@@ -525,7 +564,7 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
     );
   }
   if (d.banco.length > 0) {
-    partes.push(titulo(`${n++}. Datos bancarios`));
+    partes.push(titulo(`${n++}. Datos bancarios`, primario));
     partes.push(deDatos(d.banco));
   }
   partes.push(
