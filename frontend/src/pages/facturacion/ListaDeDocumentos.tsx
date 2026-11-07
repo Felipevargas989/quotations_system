@@ -31,11 +31,17 @@ import ProbarLaConexion from "./ProbarLaConexion";
 //   filtros: suma lo que se ve.
 // - Buscar por N° o cliente (también por el RUT); el tipo, el estado y el
 //   rango de fechas (este mes, si no se dice; hasta un año por vez).
-// - Cada documento con su estado en la cadena («Anulada por NC 88»,
-//   «Rebajada: queda $…») y sus notas debajo (factura → NC → ND); la factura
-//   con su condición de pago. Ver, descargar el PDF y, del administrador,
-//   «Comprobar» y «Anular o rebajar…», que abre la nota en su pantalla con
-//   el documento ya elegido (sprint 3).
+// - Cada documento en dos líneas (Felipe, 07-11: *"hay que ordenar esa
+//   matriz"*): arriba el N°, el cliente, los montos, el estado y los
+//   íconos; abajo, en letra chica, la fecha (con lo que hace la nota), lo
+//   que cambió el estado y la acción. Nada se parte, salvo el cliente, que
+//   llega a dos líneas.
+// - El estado, en una palabra: Vigente, Rebajada, Anulada o Por confirmar;
+//   abajo lo que lo cambió («Se rebajaron $1.000», «Por NC 88») o, en la
+//   factura, su condición de pago. Sus notas van debajo (factura → NC → ND).
+//   Ver, descargar el PDF y, del administrador, «Comprobar» y «Anular o
+//   rebajar…», que abre la nota en su pantalla con el documento ya elegido
+//   (sprint 3).
 // - El XML existe en facturacion.cl, pero es un servicio adicional con costo
 //   (su manual, `getXMLDte`); los recibidos no los entrega su integración.
 //   Los dos se dicen tal cual, sin prometerlos.
@@ -107,17 +113,14 @@ const pasa = (d: DocumentoDeLaLista, f: Filtros) => {
   );
 };
 
-/** El color del estado, como la maqueta. */
+/** El color del estado, como la maqueta: lo vigente en verde (también la
+ *  nota en pie y la factura corregida, que valen enteras). */
 const colorDelEstado = (d: DocumentoDeLaLista) =>
-  d.situacion === "por_confirmar" ||
-  d.situacion === "rebajada" ||
-  d.cadena.como === "corregido"
+  d.situacion === "por_confirmar" || d.situacion === "rebajada"
     ? "border-amber-200 bg-amber-50 text-amber-800"
     : d.situacion === "anulada"
       ? "border-red-200 bg-red-50 text-red-700"
-      : d.situacion === "nota"
-        ? "border-gray-200 bg-gray-100 text-gray-600"
-        : "border-green-200 bg-green-50 text-green-700";
+      : "border-green-200 bg-green-50 text-green-700";
 
 /** «Crédito 30 días · vence 06-12» o «Contado»: la factura (§9.22). */
 const condicionDePago = (d: DocumentoDeLaLista) =>
@@ -127,8 +130,22 @@ const condicionDePago = (d: DocumentoDeLaLista) =>
       ? "Contado"
       : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
 
-/** La línea de abajo del documento: la fecha, la OC (o la referencia que
- *  lleve) y el N° del evento. */
+/** Abajo del estado, en letra chica (§9.22, 07-11): lo que lo cambió («Se
+ *  rebajaron $1.000», «Por NC 88») con el vencimiento de la factura que
+ *  sigue por cobrar; sin cambios, su condición de pago. */
+const lineaDelEstado = (d: DocumentoDeLaLista) => {
+  if (d.estado !== "emitido") return null;
+  if (d.situacion === "anulada") return d.cadena.detalle;
+  if (!d.cadena.detalle) return condicionDePago(d);
+  const vence = d.vencimiento
+    ? `vence ${fechaCorta(d.vencimiento).slice(0, 5)}`
+    : null;
+  return [d.cadena.detalle, vence].filter(Boolean).join(" · ");
+};
+
+/** La línea de abajo del documento: la fecha, lo que hace la nota («rebaja
+ *  la 1235»), la OC (o la referencia que lleve), el N° del evento y la
+ *  factura anulada que reemplaza. */
 const subtitulo = (d: DocumentoDeLaLista) => {
   const ref = d.referencia
     ? `${d.referencia.tipo === "801" ? "OC" : d.referencia.tipo} ${d.referencia.folio}`
@@ -137,8 +154,10 @@ const subtitulo = (d: DocumentoDeLaLista) => {
       : null;
   return [
     d.fecha_emision ? fechaCorta(d.fecha_emision) : "sin fecha",
+    d.que_hace,
     ref,
     d.numero ? `N° ${d.numero}` : null,
+    d.reemplaza ? `reemplaza a la ${d.reemplaza}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -181,7 +200,7 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
       d.neto,
       d.iva,
       d.total,
-      d.cadena.texto,
+      [d.cadena.texto, d.cadena.detalle].filter(Boolean).join(" · "),
     ]),
   ];
   const texto = filas.map((x) => x.map(campo).join(";")).join("\r\n");
@@ -298,14 +317,14 @@ export default function ListaDeDocumentos({
   const descargar = async (d: DocumentoDeLaLista) => {
     if (!d.pdf_path) return;
     try {
-      await descargarArchivo(d.pdf_path, `${d.titulo.split(" · ")[0]}.pdf`);
+      await descargarArchivo(d.pdf_path, `${d.nombre}.pdf`);
     } catch (e) {
       toast.error(humanizeApiError(e, "No se pudo descargar el PDF."));
     }
   };
 
   const fila = (d: DocumentoDeLaLista, nivel: number): JSX.Element => {
-    const cond = condicionDePago(d);
+    const linea = lineaDelEstado(d);
     return (
       <Fragment key={d.id}>
         <tr
@@ -316,20 +335,22 @@ export default function ListaDeDocumentos({
             style={{ paddingLeft: `${nivel * 1.25}rem` }}
           >
             <p
-              className={`font-semibold ${esNota(d) ? "text-gray-700" : "text-gray-900"}`}
+              className={`whitespace-nowrap font-semibold ${esNota(d) ? "text-gray-700" : "text-gray-900"}`}
             >
               {nivel > 0 && <span className="text-gray-300">└ </span>}
-              {d.titulo}
+              {d.nombre}
             </p>
-            {d.reemplaza && (
-              <p className="text-xs text-gray-500">
-                reemplaza a la {d.reemplaza}
-              </p>
-            )}
             <p className="text-xs text-gray-400">{subtitulo(d)}</p>
           </td>
-          <td className="break-words py-2 pr-2 text-gray-700">
-            {d.cliente ?? "—"}
+          <td className="py-2 pr-2 text-gray-700">
+            {/* Lo único que puede bajar de línea: hasta dos, y entero al
+                pasar el mouse. */}
+            <p
+              className="line-clamp-2 break-words"
+              title={d.cliente ?? undefined}
+            >
+              {d.cliente ?? "—"}
+            </p>
           </td>
           {[d.neto, d.iva, d.total].map((n, i) => (
             <td
@@ -341,13 +362,15 @@ export default function ListaDeDocumentos({
           ))}
           <td className="py-2 pr-2 text-xs">
             <span
-              className={`inline-block rounded-full border px-2 py-0.5 font-semibold ${colorDelEstado(d)}`}
+              title={
+                d.estado !== "emitido" ? (d.error ?? undefined) : undefined
+              }
+              className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 font-semibold ${colorDelEstado(d)}`}
             >
               {d.cadena.texto}
             </span>
-            {cond && <p className="mt-1 text-gray-500">{cond}</p>}
-            {d.error && d.estado !== "emitido" && (
-              <p className="mt-1 text-gray-500">{d.error}</p>
+            {linea && (
+              <p className="mt-1 whitespace-nowrap text-gray-500">{linea}</p>
             )}
           </td>
           <td className="py-2 text-right text-xs">
@@ -355,7 +378,7 @@ export default function ListaDeDocumentos({
               {d.pdf_path ? (
                 <FileViewLink
                   url={d.pdf_path}
-                  title={`${d.titulo.split(" · ")[0]}.pdf`}
+                  title={`${d.nombre}.pdf`}
                   boton={<Eye size={14} />}
                   claseDelBoton={icono}
                   tituloDelBoton={`Ver ${d.titulo}`}
@@ -393,7 +416,7 @@ export default function ListaDeDocumentos({
                 <FileCode size={14} />
               </button>
             </div>
-            <div className="mt-1 flex flex-col items-end gap-1">
+            <div className="mt-1 flex flex-col items-end gap-1 whitespace-nowrap">
               {d.acciones.pedirPdf && (
                 <button
                   type="button"

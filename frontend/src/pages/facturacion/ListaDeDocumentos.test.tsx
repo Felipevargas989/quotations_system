@@ -46,6 +46,8 @@ const base: DocumentoDeLaLista = {
   estado: "emitido",
   ambiente: "prueba",
   titulo: "",
+  nombre: "",
+  que_hace: null,
   reemplaza: null,
   cliente: null,
   total: 0,
@@ -55,7 +57,7 @@ const base: DocumentoDeLaLista = {
   quotation_id: null,
   oc: null,
   modifica_id: null,
-  cadena: { como: "vigente", texto: "Vigente" },
+  cadena: { como: "vigente", texto: "Vigente", detalle: null },
   situacion: "vigente",
   rut: null,
   referencia: null,
@@ -81,12 +83,17 @@ const DOCS: DocumentoDeLaLista[] = [
     id: 20,
     folio: 20,
     titulo: "Factura 20",
+    nombre: "Factura 20",
     cliente: "Compañía Cervecerías Unidas S.A.",
     rut: "90413000-1",
     neto: 100000,
     iva: 19000,
     total: 119000,
-    cadena: { como: "rebajado", texto: "Rebajada: queda $107.100" },
+    cadena: {
+      como: "rebajado",
+      texto: "Rebajada",
+      detalle: "Se rebajaron $11.900",
+    },
     situacion: "rebajada",
     referencia: { tipo: "801", folio: "4500-112" },
     forma_de_pago: 2,
@@ -100,13 +107,15 @@ const DOCS: DocumentoDeLaLista[] = [
     tipo: 61,
     folio: 3,
     titulo: "NC 3 · rebaja la 20",
+    nombre: "NC 3",
+    que_hace: "rebaja la 20",
     cliente: "Compañía Cervecerías Unidas S.A.",
     rut: "90413000-1",
     neto: -10000,
     iva: -1900,
     total: -11900,
     modifica_id: 20,
-    cadena: { como: "vigente", texto: "Código 3 · 06-11" },
+    cadena: { como: "vigente", texto: "Vigente", detalle: null },
     situacion: "nota",
   },
   {
@@ -115,6 +124,7 @@ const DOCS: DocumentoDeLaLista[] = [
     tipo: 39,
     folio: 500,
     titulo: "Boleta 500",
+    nombre: "Boleta 500",
     cliente: "Cabaña 4",
     neto: 21008,
     iva: 3992,
@@ -127,12 +137,13 @@ const DOCS: DocumentoDeLaLista[] = [
     fecha_emision: null,
     estado: "por_confirmar",
     titulo: "Factura s/n",
+    nombre: "Factura s/n",
     cliente: "Constructora Cerro Negro SpA",
     rut: "77052981-6",
     neto: 42017,
     iva: 7983,
     total: 50000,
-    cadena: { como: "vigente", texto: "Por confirmar" },
+    cadena: { como: "vigente", texto: "Por confirmar", detalle: null },
     situacion: "por_confirmar",
     pdf_path: null,
     acciones: { ...base.acciones, comprobar: true },
@@ -220,15 +231,17 @@ describe("la lista de Facturación (§9.22)", () => {
   it("cada uno con su estado, su condición de pago, su OC y sus notas debajo", async () => {
     abrir();
     await screen.findByText("Factura 20");
-    expect(screen.getByText("Rebajada: queda $107.100")).toBeInTheDocument();
+    // El chip en una palabra; abajo, cuánto se rebajó y cuándo vence.
+    expect(screen.getByText("Rebajada")).toBeInTheDocument();
     expect(
-      screen.getByText("Crédito 30 días · vence 06-12"),
+      screen.getByText("Se rebajaron $11.900 · vence 06-12"),
     ).toBeInTheDocument();
     expect(screen.getByText("06-11-2026 · OC 4500-112")).toBeInTheDocument();
-    // La NC va debajo de su factura.
+    // La NC va debajo de su factura; lo que hace, junto a la fecha.
     const filas = screen.getAllByRole("row").map((r) => r.textContent ?? "");
     const i = filas.findIndex((t) => t.includes("Factura 20"));
-    expect(filas[i + 1]).toContain("└ NC 3 · rebaja la 20");
+    expect(filas[i + 1]).toContain("└ NC 3");
+    expect(screen.getByText("06-11-2026 · rebaja la 20")).toBeInTheDocument();
     expect(screen.getByText("−$11.900")).toBeInTheDocument();
     // Lo que espera «Comprobar», primero; sin PDF, sin ver ni descargar.
     expect(filas[1]).toContain("Factura s/n");
@@ -251,6 +264,76 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(screen.getByText("Boleta 500").closest("tr")).toHaveClass(
       "bg-green-50",
     );
+  });
+
+  it("el estado en una palabra y abajo lo que lo cambió, sin partirse (07-11)", async () => {
+    const credito = {
+      forma_de_pago: 2 as const,
+      vencimiento: "2026-12-06",
+      plazo_dias: 30,
+    };
+    d.getListaDeFacturacion.mockResolvedValueOnce({
+      ambiente: "prueba",
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-06",
+      resumen: {
+        facturado: 0,
+        facturas: 0,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos: [
+        { ...base, id: 1, folio: 1, nombre: "Factura 1", ...credito },
+        {
+          ...base,
+          id: 2,
+          folio: 2,
+          nombre: "Factura 2",
+          forma_de_pago: 1,
+        },
+        {
+          ...base,
+          id: 3,
+          folio: 3,
+          nombre: "Factura 3",
+          ...credito,
+          cadena: { como: "anulado", texto: "Anulada", detalle: "Por NC 9" },
+          situacion: "anulada",
+        },
+        {
+          ...base,
+          id: 4,
+          folio: 4,
+          nombre: "Factura 4",
+          ...credito,
+          cadena: {
+            como: "corregido",
+            texto: "Vigente",
+            detalle: "Corregida por NC 5",
+          },
+        },
+      ],
+    });
+    abrir();
+    await screen.findByText("Factura 1");
+    // Vigente con su condición de pago; la anulada, solo la nota que la
+    // anuló; la corregida vale entera, con la nota y el vencimiento.
+    expect(
+      screen.getByText("Crédito 30 días · vence 06-12"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Contado")).toBeInTheDocument();
+    expect(screen.getByText("Anulada")).toBeInTheDocument();
+    expect(screen.getByText("Por NC 9")).toBeInTheDocument();
+    expect(
+      screen.getByText("Corregida por NC 5 · vence 06-12"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Vigente")).toHaveLength(3);
+    // El chip y la línea de abajo no se parten.
+    expect(screen.getByText("Anulada")).toHaveClass("whitespace-nowrap");
+    expect(screen.getByText("Por NC 9")).toHaveClass("whitespace-nowrap");
   });
 
   it("sin nada con esos filtros, «Limpiar los filtros» vuelve a todo", async () => {

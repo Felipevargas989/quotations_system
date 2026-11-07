@@ -1452,6 +1452,27 @@ entregue: se averiguan antes de prometerlos.
   que se cortó (L5) no es confiable en prueba: el folio pudo avanzar por
   otro. En producción el rango de folios es solo de la empresa.
 
+**La lista ordenada (07-11):** Felipe, con un pantallazo del laboratorio:
+*"hay que ordenar esa matriz"*. Con los folios de prueba de 10 dígitos se
+partían el estado, el título de las notas y «Anular o rebajar…», y cada
+fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
+*"exacto"*), y quedó así:
+- Cada documento en dos líneas: arriba el N°, el cliente, los montos, el
+  estado y los íconos; abajo, en letra chica, la fecha, lo que cambió el
+  estado y la acción. Nada se parte; solo el cliente llega a dos líneas.
+- En las notas, arriba solo «NC 9999974795»; lo que hace («rebaja la
+  9999839219») va junto a la fecha. El motor lo manda aparte (`nombre` y
+  `que_hace`); el `titulo` entero sigue en el reporte y en el buscador.
+- El estado en una palabra (Felipe: *"que diga rebajada nomás y que abajo
+  diga cuánto se rebajó (…) solamente anulada y abajo la nota que la
+  anuló"*): «Vigente», «Rebajada», «Anulada» o «Por confirmar»
+  (`estadoCorto`, en `cadena.ts`). Abajo, lo que lo cambió: «Se rebajaron
+  $1.000 · vence 06-12», «Por NC 9999974794»; sin cambios, la condición de
+  pago de la factura. Las notas en pie dicen «Vigente» (salió el «Código 3
+  · 06-11»), y la factura con un texto corregido vale entera: «Vigente»,
+  con «Corregida por NC …» abajo. Los montos no cambian: la nota resta en
+  su fila y el resumen ya la descuenta. El filtro «Estado» no cambia.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
