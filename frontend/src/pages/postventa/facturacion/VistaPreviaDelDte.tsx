@@ -212,7 +212,10 @@ export default function VistaPreviaDelDte({
               <dd className="text-right">{clp(vista.montos.neto)}</dd>
               <dt className="text-gray-500">IVA 19 %</dt>
               <dd className="text-right">{clp(vista.montos.iva)}</dd>
-              <dt className="font-semibold">Total a pagar</dt>
+              {/* Una nota no se paga: dice lo que anula, rebaja o suma. */}
+              <dt className="font-semibold">
+                {factura || boleta ? "Total a pagar" : "Total"}
+              </dt>
               <dd className="text-right font-semibold">
                 {clp(vista.montos.total)}
               </dd>
