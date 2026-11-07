@@ -52,7 +52,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
 | `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
 
-### Facturación electrónica (migración 184, solo en el laboratorio desde el 04-11-2026)
+### Facturación electrónica (migraciones 184, 187 y 191; en producción desde el 07-11-2026)
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
@@ -677,7 +677,7 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 184, borrar una cotización falla, porque la guardia cuenta `documentos_tributarios`, y la tarjeta «Datos de facturación» de la ficha no carga.
 
-**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026**, en dos tiempos: la primera versión guardaba un solo juego de datos en columnas de `clients`; esa misma tarde la 184 se rehízo con `razones_sociales` y la `184b_laboratorio_razones_sociales.sql` (solo laboratorio, no va a producción) mudó los datos de prueba de CCU y quitó esas columnas. Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. En producción va solo la 184. **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+**Estado.** Escrita el 04-11-2026 (Felipe: *"si avanza así"*). Número reservado ese día con las sesiones de Oportunidades y BelIA. **Aplicada en el laboratorio el 04-11-2026**, en dos tiempos: la primera versión guardaba un solo juego de datos en columnas de `clients`; esa misma tarde la 184 se rehízo con `razones_sociales` y la `184b_laboratorio_razones_sociales.sql` (solo laboratorio, no va a producción) mudó los datos de prueba de CCU y quitó esas columnas. Verificado: RLS encendido, `anon` y `authenticated` sin permisos, `service_role` sin `DELETE` en `documentos_tributarios`; y, con una prueba que se deshizo entera, que la base frena una nota sin código, una factura que modifica algo, un folio repetido y un RUT con puntos, que el mismo folio entra en otro ambiente y que `service_role` no puede borrar. En producción va solo la 184. **En producción desde el 07-11-2026** (PR #310), antes del motor; ahí Supabase le da todo a `service_role` en cada tabla nueva, así que se le quitó explícito el `DELETE` y el `TRUNCATE` de `documentos_tributarios` (el archivo de la 184 lo dice).
 
 
 ## 30. Migración 185: el seguimiento desde BelIA y sus lecciones (04-11-2026)
@@ -712,7 +712,7 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden:** va DESPUÉS de la 184 (usa `documentos_tributarios`). El número se reservó el 04-11 con la sesión «Eventia (Full)» (que usó la 186). La §30 y la §31 son la 185 y la 186 de las otras sesiones.
 
-**Estado.** Escrita el 05-11-2026. **Aplicada en el laboratorio el 05-11-2026** (verificado: RLS encendido, `anon` y `authenticated` sin permisos, y `service_role` sin `UPDATE` ni `DELETE` en `cobros_por_boletear_cambios`). **Falta en producción**, con el «a producción» de Felipe, antes del motor que la usa.
+**Estado.** Escrita el 05-11-2026. **Aplicada en el laboratorio el 05-11-2026** (verificado: RLS encendido, `anon` y `authenticated` sin permisos, y `service_role` sin `UPDATE` ni `DELETE` en `cobros_por_boletear_cambios`). **En producción desde el 07-11-2026** (PR #310), antes del motor; ahí se le quitó a `service_role` el `UPDATE`, el `DELETE` y el `TRUNCATE` de `cobros_por_boletear_cambios`, que Supabase le da por defecto (el archivo de la 187 lo dice).
 
 ## 33. Migración 188: los permisos por cargo (05-11-2026)
 
@@ -738,4 +738,4 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 191, «Por facturar» responde error (lee la tabla en cada carga).
 
-**Estado.** Escrita el 07-11-2026, con su reversa. El 190 queda para Oportunidades (parte 3 de la decisión 119). **Aplicada en el laboratorio el 07-11-2026** (verificado: RLS encendido y sin políticas, `anon` y `authenticated` sin permisos, `service_role` escribe). **Falta en producción** (con el «a producción» de Felipe, junto con la 184, la 187 y la 189, antes del motor).
+**Estado.** Escrita el 07-11-2026, con su reversa. El 190 queda para Oportunidades (parte 3 de la decisión 119). **Aplicada en el laboratorio el 07-11-2026** (verificado: RLS encendido y sin políticas, `anon` y `authenticated` sin permisos, `service_role` escribe). **En producción desde el 07-11-2026** (PR #310), junto con la 184, la 187 y la 189, antes del motor.

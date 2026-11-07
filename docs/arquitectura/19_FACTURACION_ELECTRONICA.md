@@ -1,5 +1,11 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
+> **EN PRODUCCIÓN desde el 07-11-2026** (Felipe: *"a producción"*; PR #310;
+> las migraciones 184, 187, 189 y 191 en las dos bases, antes del motor).
+> Sin las credenciales de producción en Railway todavía: no emite nada y
+> la pantalla muestra el letrero rojo. Las boletas, en pausa hasta que
+> facturacion.cl las habilite (OT 377564).
+>
 > **Estado: en construcción (04-11-2026).** Felipe aprobó el plan v2 (*"si
 > avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
 > 184 (`razones_sociales`, varias por cliente; `ordenes_de_compra` con el
@@ -1177,6 +1183,16 @@ el 05-11):
    Después aprieta «Deploy». El registro tiene que decir «conectado en
    produccion para la empresa 1».
 7. **«Probar la conexión»** muestra los folios de producción de cada tipo.
+
+**Hecho el 07-11-2026** (Felipe: *"a producción"*), pasos 1 a 5: el
+respaldo en `02_RESPALDOS/cambios_de_datos/2026-11-07_facturacion_a_produccion_PROD.json`;
+las migraciones 184, 187, 189 y 191 en producción (ahí Supabase le da todo
+a `service_role` en cada tabla nueva: se le quitó explícito el DELETE de
+`documentos_tributarios` y el UPDATE y el DELETE de
+`cobros_por_boletear_cambios`, como en el laboratorio); y la rama
+`feature/facturacion-a-produccion`, con los 73 commits de Facturación
+encima de `main` (el trozo del radar municipal de 977c490b, solo del
+laboratorio, quedó fuera), por el PR #310. Faltan el 6 y el 7.
 
 *Después:*
 - Felipe pone los precios del tarifario de boletas (parte vacío).

@@ -4,7 +4,7 @@
 > pásalo a producción"*): PR #304, `main` 54d150b6, web de producción
 > 6aed463f, migración 188 aplicada en producción antes del motor. Todo de
 > fábrica: nadie ganó ni perdió nada. El commit de Facturación 977c490b
-> sigue solo en el laboratorio y viaja con Facturación.
+> llegó a producción con Facturación el 07-11-2026 (PR #310).
 >
 > **Las 9 puertas «más abiertas que sus pantallas» (§4.3): decididas el
 > 06-11-2026** (*"si hazlo si"*). Seis pasan a la sección de su pantalla y
