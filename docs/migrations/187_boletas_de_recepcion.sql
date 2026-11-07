@@ -151,6 +151,10 @@ grant select, insert, update, delete on public.cobros_por_boletear_lineas
   to service_role;
 -- Lo que se anotó no se reescribe.
 grant select, insert on public.cobros_por_boletear_cambios to service_role;
+-- En producción Supabase le da TODO a service_role en cada tabla nueva; se
+-- quita explícito (07-11-2026, al pasar a producción).
+revoke update, delete, truncate on public.cobros_por_boletear_cambios
+  from service_role;
 
 grant usage, select on sequence public.tarifario_de_boletas_id_seq
   to service_role;

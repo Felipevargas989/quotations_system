@@ -257,6 +257,10 @@ revoke all on public.documentos_tributarios from anon, authenticated;
 -- documento tributario.
 grant select, insert, update on public.documentos_tributarios
   to service_role;
+-- En producción Supabase le da TODO a service_role en cada tabla nueva (sus
+-- permisos por defecto); el laboratorio no. Se quita explícito (07-11-2026,
+-- al pasar a producción: ahí había quedado con DELETE).
+revoke delete, truncate on public.documentos_tributarios from service_role;
 grant usage, select on sequence public.documentos_tributarios_id_seq
   to service_role;
 
