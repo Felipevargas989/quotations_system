@@ -37,8 +37,9 @@ import ProbarLaConexion from "./ProbarLaConexion";
 //   letra chica, la fecha (con lo que hace la nota) y lo que cambió el
 //   estado. Nada se parte, salvo el cliente, que llega a dos líneas.
 // - El estado, en una palabra: Vigente, Rebajada, Anulada o Por confirmar;
-//   abajo lo que lo cambió («Se rebajaron $1.000», «Por NC 88») o, en la
-//   factura, su condición de pago. Sus notas van debajo (factura → NC → ND).
+//   abajo lo que lo cambió («−$1.000», «Por NC 88») o, en la factura, su
+//   condición de pago. Todas sus notas van debajo con una sola sangría, y
+//   lo anulado va achurado en gris suave (07-11).
 //   Ver, descargar el PDF y, del administrador, «Comprobar» y «Anular o
 //   rebajar…», que abre la nota en su pantalla con el documento ya elegido
 //   (sprint 3).
@@ -225,6 +226,12 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
 
 const icono =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
+/** Lo anulado: líneas finas en gris suave, de lado a lado (07-11). */
+const ACHURADO = {
+  backgroundImage:
+    "repeating-linear-gradient(135deg, rgb(156 163 175 / 0.28) 0 1px, transparent 1px 7px)",
+};
+
 /** «Anular o rebajar…»: el mismo botón, en rojo. */
 const iconoRojo =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-white text-red-600 hover:border-red-400 hover:text-red-700";
@@ -277,6 +284,23 @@ export default function ListaDeDocumentos({
   for (const d of visibles)
     if (d.modifica_id != null && ids.has(d.modifica_id))
       hijos.set(d.modifica_id, [...(hijos.get(d.modifica_id) ?? []), d]);
+  /** Todas las notas de un documento y las de sus notas, de la más vieja a
+   *  la más nueva: van debajo de él con UNA sola sangría, sin cascada
+   *  (Felipe, 07-11; así estaba en la maqueta). Lo que modifica cada una lo
+   *  dice su línea de abajo («anula la NC 88»). */
+  const notasDebajo = (id: number) => {
+    const vistas = new Set<number>([id]);
+    const salida: DocumentoDeLaLista[] = [];
+    const pendientes = [...(hijos.get(id) ?? [])];
+    for (let i = 0; i < pendientes.length; i++) {
+      const n = pendientes[i];
+      if (vistas.has(n.id)) continue;
+      vistas.add(n.id);
+      salida.push(n);
+      pendientes.push(...(hijos.get(n.id) ?? []));
+    }
+    return salida.sort((a, b) => a.id - b.id);
+  };
   // Lo más nuevo arriba; lo que espera «Comprobar» (sin fecha), primero.
   const raices = visibles
     .filter((d) => d.modifica_id == null || !ids.has(d.modifica_id))
@@ -349,6 +373,10 @@ export default function ListaDeDocumentos({
       <Fragment key={d.id}>
         <tr
           className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : ""}`}
+          // Lo anulado, achurado en gris suave de lado a lado; la nota que
+          // anula, no (Felipe, 07-11).
+          style={d.situacion === "anulada" ? ACHURADO : undefined}
+          data-achurado={d.situacion === "anulada" || undefined}
         >
           <td
             className="py-2 pr-2"
@@ -383,7 +411,7 @@ export default function ListaDeDocumentos({
           {[d.neto, d.iva, d.total].map((n, i) => (
             <td
               key={i}
-              className={`whitespace-nowrap py-2 pr-3 text-right ${n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
+              className={`whitespace-nowrap py-2 pr-2 text-right ${n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
             >
               {clp(n)}
             </td>
@@ -486,9 +514,6 @@ export default function ListaDeDocumentos({
             )}
           </td>
         </tr>
-        {[...(hijos.get(d.id) ?? [])]
-          .sort((a, b) => a.id - b.id)
-          .map((h) => fila(h, nivel + 1))}
       </Fragment>
     );
   };
@@ -672,14 +697,19 @@ export default function ListaDeDocumentos({
                   <tr className="text-left text-xs text-gray-500">
                     <th className="pb-2 font-medium">Documento</th>
                     <th className="pb-2 font-medium">Cliente</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Neto</th>
-                    <th className="pb-2 pr-3 text-right font-medium">IVA</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Total</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Neto</th>
+                    <th className="pb-2 pr-2 text-right font-medium">IVA</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Total</th>
                     <th className="pb-2 font-medium">Estado</th>
                     <th className="pb-2 text-right font-medium">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>{raices.map((d) => fila(d, 0))}</tbody>
+                <tbody>
+                  {raices.map((d) => [
+                    fila(d, 0),
+                    ...notasDebajo(d.id).map((n) => fila(n, 1)),
+                  ])}
+                </tbody>
               </table>
             </div>
           )}

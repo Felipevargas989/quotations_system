@@ -1466,8 +1466,9 @@ fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
 - El estado en una palabra (Felipe: *"que diga rebajada nomás y que abajo
   diga cuánto se rebajó (…) solamente anulada y abajo la nota que la
   anuló"*): «Vigente», «Rebajada», «Anulada» o «Por confirmar»
-  (`estadoCorto`, en `cadena.ts`). Abajo, lo que lo cambió: «Se rebajaron
-  $1.000 · vence 06-12», «Por NC 9999974794»; sin cambios, la condición de
+  (`estadoCorto`, en `cadena.ts`). Abajo, lo que lo cambió: «−$1.000 ·
+  vence 06-12» (hasta el 07-11 en la tarde, «Se rebajaron $1.000»), «Por NC
+  9999974794»; sin cambios, la condición de
   pago de la factura. Las notas en pie dicen «Vigente» (salió el «Código 3
   · 06-11»), y la factura con un texto corregido vale entera: «Vigente»,
   con «Corregida por NC …» abajo. Los montos no cambian: la nota resta en
@@ -1490,6 +1491,23 @@ fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
   anulado), su lugar queda vacío y los otros íconos no se mueven; quien no
   tiene el permiso no ve el lugar. «Pedir el PDF» y «Comprobar» siguen
   debajo, como texto.
+- Y con un pantallazo (Felipe: *"¿hay alguna otra forma de dejar
+  vinculados los documentos sin que se arme esta cascada infinita?"*;
+  dibujado y aprobado, *"si hazlo así"*):
+  - **Una sola sangría:** debajo de cada factura van todas sus notas (y
+    las notas de sus notas) a la misma distancia, de la más vieja a la más
+    nueva; lo que modifica cada una lo dice su línea de abajo («anula la
+    NC 9999974794»). Así lo dibujaba la maqueta.
+  - **Lo anulado, achurado en gris suave** de lado a lado (líneas finas;
+    Felipe: *"plomita, un achurado más suave"*): la factura anulada sí, la
+    nota que la anula no. Una nota va achurada solo si otra la anuló (la
+    NC que anuló una ND).
+  - **«−$1.000»** bajo «Rebajada», en vez de «Se rebajaron $1.000», y un
+    poco menos de aire entre los montos: desde el cuarto botón la tabla no
+    cabía y «Acciones» quedaba pegado al borde.
+  - **La lista a todo el ancho de la pantalla** (Felipe: *"si ocupas el
+    ancho completo de la pantalla podrías tener más espacio"*); el
+    documento que se arma sigue con su ancho de formulario.
 
 ### 9.11 Fuentes nuevas (04-11)
 

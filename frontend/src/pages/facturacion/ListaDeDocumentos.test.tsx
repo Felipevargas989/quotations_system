@@ -92,7 +92,7 @@ const DOCS: DocumentoDeLaLista[] = [
     cadena: {
       como: "rebajado",
       texto: "Rebajada",
-      detalle: "Se rebajaron $11.900",
+      detalle: "−$11.900",
     },
     situacion: "rebajada",
     referencia: { tipo: "801", folio: "4500-112" },
@@ -233,9 +233,7 @@ describe("la lista de Facturación (§9.22)", () => {
     await screen.findByText("Factura 20");
     // El chip en una palabra; abajo, cuánto se rebajó y cuándo vence.
     expect(screen.getByText("Rebajada")).toBeInTheDocument();
-    expect(
-      screen.getByText("Se rebajaron $11.900 · vence 06-12"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("−$11.900 · vence 06-12")).toBeInTheDocument();
     expect(screen.getByText("06-11-2026 · OC 4500-112")).toBeInTheDocument();
     // La NC va debajo de su factura; lo que hace, junto a la fecha.
     const filas = screen.getAllByRole("row").map((r) => r.textContent ?? "");
@@ -340,6 +338,88 @@ describe("la lista de Facturación (§9.22)", () => {
     // El chip y la línea de abajo no se parten.
     expect(screen.getByText("Anulada")).toHaveClass("whitespace-nowrap");
     expect(screen.getByText("Por NC 9")).toHaveClass("whitespace-nowrap");
+  });
+
+  it("las notas con una sola sangría, y lo anulado achurado (no la nota que anula)", async () => {
+    const lista = (documentos: DocumentoDeLaLista[]) => ({
+      ambiente: "prueba" as const,
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-06",
+      resumen: {
+        facturado: 0,
+        facturas: 0,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos,
+    });
+    d.getListaDeFacturacion.mockResolvedValueOnce(
+      lista([
+        // La factura vuelve a estar vigente: la ND anuló la NC que la anulaba.
+        { ...base, id: 1, folio: 1, nombre: "Factura 1" },
+        {
+          ...base,
+          id: 2,
+          tipo: 61,
+          folio: 2,
+          nombre: "NC 2",
+          que_hace: "anula la 1",
+          modifica_id: 1,
+          cadena: { como: "anulado", texto: "Anulada", detalle: "Por ND 3" },
+          situacion: "anulada",
+        },
+        {
+          ...base,
+          id: 3,
+          tipo: 56,
+          folio: 3,
+          nombre: "ND 3",
+          que_hace: "anula la NC 2",
+          modifica_id: 2,
+          situacion: "nota",
+        },
+        // La factura anulada y la NC que la anula.
+        {
+          ...base,
+          id: 4,
+          folio: 4,
+          nombre: "Factura 4",
+          cadena: { como: "anulado", texto: "Anulada", detalle: "Por NC 5" },
+          situacion: "anulada",
+        },
+        {
+          ...base,
+          id: 5,
+          tipo: 61,
+          folio: 5,
+          nombre: "NC 5",
+          que_hace: "anula la 4",
+          modifica_id: 4,
+          situacion: "nota",
+        },
+      ]),
+    );
+    abrir();
+    const fila = async (nombre: string) =>
+      (await screen.findByText(nombre)).closest("tr") as HTMLElement;
+    const sangria = (tr: HTMLElement) =>
+      (tr.querySelector("td") as HTMLElement).style.paddingLeft;
+    // La ND que anula la NC va a la misma distancia que la NC: sin cascada.
+    expect(sangria(await fila("NC 2"))).toBe("1.25rem");
+    expect(sangria(await fila("ND 3"))).toBe("1.25rem");
+    const orden = screen
+      .getAllByRole("row")
+      .map((r) => r.querySelector("td p")?.textContent ?? "")
+      .filter(Boolean);
+    expect(orden.indexOf("└ ND 3")).toBe(orden.indexOf("└ NC 2") + 1);
+    // Achurado lo anulado (la NC 2 y la Factura 4); la NC 5 que anula, no.
+    expect(await fila("NC 2")).toHaveAttribute("data-achurado");
+    expect(await fila("Factura 4")).toHaveAttribute("data-achurado");
+    expect(await fila("NC 5")).not.toHaveAttribute("data-achurado");
+    expect(await fila("Factura 1")).not.toHaveAttribute("data-achurado");
   });
 
   it("con un motor de antes (sin el nombre ni el detalle), se ve como antes", async () => {

@@ -195,7 +195,8 @@ export const estadoCorto = (
   if (e.como === 'rebajado')
     return {
       texto: 'Rebajada',
-      detalle: `Se rebajaron $${Math.round(total - e.queda).toLocaleString('es-CL')}`,
+      // «−$1.000» bajo «Rebajada» (07-11): corto, para que la tabla quepa.
+      detalle: `−$${Math.round(total - e.queda).toLocaleString('es-CL')}`,
     };
   if (e.como === 'corregido')
     return {

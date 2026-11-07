@@ -151,9 +151,11 @@ export default function FacturacionPage() {
     );
 
   return (
-    // Abajo, espacio para que el botón de BelIA no tape las acciones de la
-    // última fila.
-    <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
+    // A todo el ancho de la pantalla (Felipe, 07-11: *"si ocupas el ancho
+    // completo de la pantalla podrías tener más espacio"*); el documento que
+    // se arma sigue con su ancho de formulario. Abajo, espacio para que el
+    // botón de BelIA no tape las acciones de la última fila.
+    <div className="space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900">Facturación</h1>
         {tipos.length > 0 && (

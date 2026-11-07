@@ -77,7 +77,7 @@ describe('La cadena', () => {
     ]);
     expect(estadoCorto(c.estado(1), 1000000)).toEqual({
       texto: 'Rebajada',
-      detalle: 'Se rebajaron $300.000',
+      detalle: '−$300.000',
     });
     // La corregida vale entera: vigente, con la nota abajo.
     expect(estadoCorto(c.estado(3), 1000000)).toEqual({
