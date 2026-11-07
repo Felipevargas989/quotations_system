@@ -34,7 +34,12 @@ import {
 //   arriendo o comodato de una patente de otro, y lo que lo valida, donde
 //   va la patente y justo detrás.
 
-export type Carpeta = 'administrativa' | 'tecnica' | 'economica' | 'otros';
+export type Carpeta =
+  | 'administrativa'
+  | 'tecnica'
+  | 'economica'
+  | 'otros'
+  | 'compra_agil';
 
 /** Las tres partes donde el portal pide los anexos al ingresar la oferta,
  *  y una cuarta con lo general para contratar (Felipe, 19-10: "debería
@@ -45,6 +50,8 @@ export const CARPETAS: Readonly<Record<Carpeta, string>> = {
   tecnica: '2. Técnica',
   economica: '3. Económica',
   otros: '4. Otros',
+  // Decisión 118 (07-11): una compra ágil va en una sola carpeta.
+  compra_agil: 'Compra ágil',
 };
 
 export type ArchivoDelSet = {
@@ -94,6 +101,9 @@ export type DatosDelSet = {
   }>;
   /** AAAA-MM-DD: el cierre en Chile (o hoy), contra el que se vence. */
   corte: string;
+  /** ¿Es una compra ágil? Entonces de «Mi empresa» va solo lo que piden
+   *  las bases: sin «4. Otros» (decisión 118). */
+  compraAgil?: boolean;
 };
 
 export type PiezaDelSet = {
@@ -169,7 +179,7 @@ const carpetaDe = (seEntregaEn: string): Carpeta =>
 /** Sin formulario que lo diga, la carpeta por el nombre. */
 const carpetaPorNombre = (nombre: string): Carpeta => {
   const n = normalizar(nombre);
-  if (/econom|precio/.test(n)) return 'economica';
+  if (/econom|precio|cotizacion/.test(n)) return 'economica';
   if (/tecnic|propuesta|experiencia/.test(n)) return 'tecnica';
   return 'administrativa';
 };
@@ -527,7 +537,14 @@ export function armarElSet(d: DatosDelSet): ElSet {
     ...(d.documentos ?? []).map((x) => normalizar(x.nombre)),
   ];
   const sinSubir: string[] = [];
-  for (const [tipo, patron] of GENERALES) {
+  // Decisión 118 (07-11): en una compra ágil, solo lo que piden las bases.
+  // Felipe, con la 2705-1740-COT26, que pedía solo la cotización detallada y
+  // llevaba siete documentos de «Mi empresa» en «4. Otros»: "solo trajera lo
+  // que piden las bases... la declaración de uso de patentes solamente
+  // cuando piden patentes... hay que responder lo justo y necesario, nada
+  // más". Sin la patente en el set, sus respaldos tampoco van (abajo).
+  const generales = d.compraAgil ? [] : GENERALES;
+  for (const [tipo, patron] of generales) {
     if (yaLoPiden(tipo) || enUnFormulario(patron)) continue;
     if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
@@ -718,6 +735,24 @@ export function conLaPropuestaQueNombran(
       ...set.faltan,
       'Un anexo dice que se adjunta la propuesta técnica en formato propio, y la propuesta no está: vuelve a armar la postulación.',
     ],
+  };
+}
+
+/** Una compra ágil va en una sola carpeta, «Compra ágil», sin subcarpetas
+ *  (decisión 118, 07-11). Felipe: "1 zip 1 carpeta que se llame (Compra
+ *  agil) solo lo que soliciten las bases y lo que la ley pida en compra agil
+ *  nada más". La ley no pide adjuntar nada (arts. 97 y 98 del DS 661/2024):
+ *  basta estar hábil en el Registro de Proveedores y con su declaración
+ *  jurada firmada, y eso vive en ChileProveedores, no en el ZIP. Lo que va
+ *  ya lo decidió `armarElSet` (sin «4. Otros» con `compraAgil`). */
+export function enUnaSolaCarpeta(set: ElSet): ElSet {
+  return {
+    ...set,
+    piezas: set.piezas.map((p) => {
+      const sinSubcarpeta = { ...p };
+      delete sinSubcarpeta.subcarpeta;
+      return { ...sinSubcarpeta, carpetas: ['compra_agil'] };
+    }),
   };
 }
 

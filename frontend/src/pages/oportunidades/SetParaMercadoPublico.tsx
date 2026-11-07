@@ -23,6 +23,11 @@ import { humanizeApiError } from "../../utils/apiErrors";
 // Público», después de «Validar todo»: «Descargar el ZIP» baja de una, y
 // «Ver qué lleva» muestra cada archivo en su carpeta y los avisos de antes
 // de subir.
+//
+// Desde la decisión 118 (07-11), una compra ágil va en una sola carpeta,
+// «Compra ágil», con lo que piden las bases y nada más: la ley no pide
+// adjuntar nada y lo general de «Mi empresa» ya no va. Las carpetas las
+// manda el motor; aquí solo cambia la línea que lo explica.
 
 const QUE_ES: Record<PiezaDelSet["que_es"], string> = {
   formulario: "Anexo",
@@ -40,9 +45,11 @@ type Fila = PiezaDelSet & { subcarpeta: string };
 export default function SetParaMercadoPublico({
   oportunidadId,
   codigo,
+  compraAgil = false,
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
+  readonly compraAgil?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const {
@@ -101,8 +108,9 @@ export default function SetParaMercadoPublico({
           {descargar.isPending ? "Armando el ZIP…" : "Descargar el ZIP"}
         </button>
         <span className="text-xs text-gray-500">
-          Una carpeta por cada parte del portal (administrativa, técnica,
-          económica y «4. Otros»), lista para subir.{" "}
+          {compraAgil
+            ? "Una sola carpeta, «Compra ágil», con lo que piden las bases, lista para subir."
+            : "Una carpeta por cada parte del portal (administrativa, técnica, económica y «4. Otros»), lista para subir."}{" "}
           <button
             type="button"
             onClick={() => setAbierto((v) => !v)}
