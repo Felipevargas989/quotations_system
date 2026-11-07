@@ -130,6 +130,11 @@ const condicionDePago = (d: DocumentoDeLaLista) =>
       ? "Contado"
       : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
 
+/** «NC 88.pdf»: sin lo que hace la nota (un motor de antes no manda el
+ *  `nombre`, y se corta del título). */
+const nombreDelArchivo = (d: DocumentoDeLaLista) =>
+  d.nombre ?? d.titulo.split(" · ")[0];
+
 /** Abajo del estado, en letra chica (§9.22, 07-11): lo que lo cambió («Se
  *  rebajaron $1.000», «Por NC 88») con el vencimiento de la factura que
  *  sigue por cobrar; sin cambios, su condición de pago. */
@@ -317,7 +322,7 @@ export default function ListaDeDocumentos({
   const descargar = async (d: DocumentoDeLaLista) => {
     if (!d.pdf_path) return;
     try {
-      await descargarArchivo(d.pdf_path, `${d.nombre}.pdf`);
+      await descargarArchivo(d.pdf_path, `${nombreDelArchivo(d)}.pdf`);
     } catch (e) {
       toast.error(humanizeApiError(e, "No se pudo descargar el PDF."));
     }
@@ -338,7 +343,7 @@ export default function ListaDeDocumentos({
               className={`whitespace-nowrap font-semibold ${esNota(d) ? "text-gray-700" : "text-gray-900"}`}
             >
               {nivel > 0 && <span className="text-gray-300">└ </span>}
-              {d.nombre}
+              {d.nombre ?? d.titulo}
             </p>
             <p className="text-xs text-gray-400">{subtitulo(d)}</p>
           </td>
@@ -378,7 +383,7 @@ export default function ListaDeDocumentos({
               {d.pdf_path ? (
                 <FileViewLink
                   url={d.pdf_path}
-                  title={`${d.nombre}.pdf`}
+                  title={`${nombreDelArchivo(d)}.pdf`}
                   boton={<Eye size={14} />}
                   claseDelBoton={icono}
                   tituloDelBoton={`Ver ${d.titulo}`}

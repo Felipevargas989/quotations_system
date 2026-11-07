@@ -336,6 +336,38 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(screen.getByText("Por NC 9")).toHaveClass("whitespace-nowrap");
   });
 
+  it("con un motor de antes (sin el nombre ni el detalle), se ve como antes", async () => {
+    const viejo = { ...base, nombre: undefined, que_hace: undefined };
+    d.getListaDeFacturacion.mockResolvedValueOnce({
+      ambiente: "prueba",
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-06",
+      resumen: {
+        facturado: 0,
+        facturas: 0,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos: [
+        {
+          ...viejo,
+          id: 5,
+          tipo: 61,
+          folio: 5,
+          titulo: "NC 5 · anula la 4",
+          cadena: { como: "anulado", texto: "Anulada por ND 1" },
+          situacion: "anulada",
+        },
+      ],
+    });
+    abrir();
+    expect(await screen.findByText("NC 5 · anula la 4")).toBeInTheDocument();
+    expect(screen.getByText("Anulada por ND 1")).toBeInTheDocument();
+  });
+
   it("sin nada con esos filtros, «Limpiar los filtros» vuelve a todo", async () => {
     abrir();
     await screen.findByText("Factura 20");
