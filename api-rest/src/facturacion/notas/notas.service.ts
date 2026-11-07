@@ -464,11 +464,14 @@ export class NotasService {
         throw new ConflictException(
           `${nombreDe(original)} tiene rebajas: rebaja lo que le queda (${pesos(saldo)})`,
         );
+      // Las líneas tal cual salieron, con su descuento (§9.22): la nota
+      // anula el total de verdad.
       lineas = ((original.detalle ?? []) as LineaDeDetalle[]).map((l) => ({
         descripcion: l.descripcion,
         descripcionLarga: l.descripcionLarga ?? null,
         cantidad: l.cantidad,
         precio: l.precio,
+        ...(l.descuento ? { descuento: l.descuento } : {}),
       }));
       totalEsperado = Number(original.total);
     } else if (dto.accion === 'rebajar') {
