@@ -78,6 +78,12 @@ const armar = (
     documentos as never,
     { de: () => simulado } as never,
     mockPinoLogger() as never,
+    {
+      empresaQueVende: jest.fn().mockResolvedValue({
+        nombre: 'Valle del Sol Quillón SpA',
+        rut: '77701305-K',
+      }),
+    } as never,
   );
   return { servicio, documentos, simulado };
 };
@@ -208,6 +214,64 @@ describe('La boleta suelta', () => {
         'La boleta quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.',
     });
     expect(documentos.crear).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('La boleta suelta tal como saldrá (doc 19 §9.22, sprint 3)', () => {
+  it('las mismas líneas que al emitirla, con la cabaña, el total y el N° que debería tocarle, sin guardar nada', async () => {
+    const { servicio, documentos } = armar();
+    const v = await servicio.revisarSuelta(RECEPCION, {
+      lineas: [
+        { tarifario_id: 1, cantidad: 2 },
+        { tarifario_id: 2, cantidad: 1 },
+      ],
+      cabana: 'Cabaña 4',
+      correo: 'HUESPED@example.com',
+    });
+    expect(v).toMatchObject({
+      ok: true,
+      folio: 43,
+      emisor: { nombre: 'Valle del Sol Quillón SpA', rut: '77701305-K' },
+      correo: 'huesped@example.com',
+      ambiente: 'simulado',
+      montos: { total: 290000 },
+    });
+    expect(v.lineas).toEqual([
+      {
+        descripcion: 'Cabaña 4 · Cabaña 4 personas temporada alta',
+        descripcionLarga: '2 noches',
+        cantidad: 2,
+        precio: 130000,
+      },
+      {
+        descripcion: 'Cabaña 4 · Tinaja',
+        descripcionLarga: null,
+        cantidad: 1,
+        precio: 30000,
+      },
+    ]);
+    expect(documentos.crear).not.toHaveBeenCalled();
+  });
+
+  it('la línea a mano, solo del administrador, también en la vista previa', async () => {
+    const { servicio } = armar();
+    const aMano = { lineas: [{ descripcion: 'Leña', monto: 15000 }] };
+    await expect(servicio.revisarSuelta(RECEPCION, aMano)).rejects.toThrow(
+      ForbiddenException,
+    );
+    const v = await servicio.revisarSuelta(ADMIN, aMano);
+    expect(v.montos).toMatchObject({ total: 15000 });
+  });
+
+  it('un correo que no sirve no la deja lista: lo dice antes de emitir', async () => {
+    const { servicio } = armar();
+    const v = await servicio.revisarSuelta(RECEPCION, {
+      lineas: [{ tarifario_id: 2 }],
+      correo: 'esto no es un correo',
+    });
+    expect(v.ok).toBe(false);
+    expect(v.problemas.join(' ')).toMatch(/correo/i);
+    expect(v.montos).toBeNull();
   });
 });
 

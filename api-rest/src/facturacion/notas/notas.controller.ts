@@ -40,7 +40,13 @@ export class NotasController {
     // Un rango de fechas (§9.22, sprint 2) o, como antes, un mes.
     const periodo =
       q.desde || q.hasta ? { desde: q.desde, hasta: q.hasta } : q.mes;
-    return this.notas.lista(user.company_id, periodo, user.role, user.permisos);
+    return this.notas.lista(
+      user.company_id,
+      periodo,
+      user.role,
+      user.permisos,
+      q.tipos?.split(',').map(Number),
+    );
   }
 
   /** «Probar la conexión» con facturacion.cl (paso 0): no emite nada. */

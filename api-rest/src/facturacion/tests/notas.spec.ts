@@ -199,6 +199,12 @@ const armar = ({
     conexion as never,
     bitacora as never,
     mockPinoLogger() as never,
+    {
+      empresaQueVende: jest.fn().mockResolvedValue({
+        nombre: 'Valle del Sol Quillón SpA',
+        rut: '77701305-K',
+      }),
+    } as never,
   );
   return { servicio, repo, boletas, bitacora, filas };
 };
@@ -387,6 +393,19 @@ describe('Las notas', () => {
     expect(vista.avisos[0]).toContain(
       'Venció el plazo del SII (hasta el 28-02-2026)',
     );
+    // Para dibujarla como saldrá (§9.22, sprint 3): el emisor y lo que
+    // modifica, con su fecha y el motivo.
+    expect(vista.emisor).toEqual({
+      nombre: 'Valle del Sol Quillón SpA',
+      rut: '77701305-K',
+    });
+    expect(vista.referencia).toEqual({
+      tipo: '33',
+      folio: '1',
+      fecha: '2026-01-10',
+      codigo: 1,
+      razon: 'Error',
+    });
   });
 });
 
@@ -631,14 +650,41 @@ describe('La lista de Facturación', () => {
       UserRole.ADMINISTRADOR,
     );
     // La consulta pide hasta el día siguiente, excluido.
-    expect(repo.delPeriodo).toHaveBeenCalledWith(1, '2026-10-15', '2026-11-07');
+    expect(repo.delPeriodo).toHaveBeenCalledWith(
+      1,
+      '2026-10-15',
+      '2026-11-07',
+      undefined,
+    );
     expect(lista).toMatchObject({ desde: '2026-10-15', hasta: '2026-11-06' });
+  });
+
+  it('solo los tipos que se piden: la nota elige de las facturas y las notas (§9.22, sprint 3)', async () => {
+    const { servicio, repo } = armar();
+    await servicio.lista(
+      1,
+      { desde: '2025-11-07', hasta: '2026-11-06' },
+      UserRole.ADMINISTRADOR,
+      undefined,
+      [33, 56, 61],
+    );
+    expect(repo.delPeriodo).toHaveBeenCalledWith(
+      1,
+      '2025-11-07',
+      '2026-11-07',
+      [33, 56, 61],
+    );
   });
 
   it('el mes, como antes: del primero al último día', async () => {
     const { servicio, repo } = armar();
     const lista = await servicio.lista(1, '2026-12', UserRole.ADMINISTRADOR);
-    expect(repo.delPeriodo).toHaveBeenCalledWith(1, '2026-12-01', '2027-01-01');
+    expect(repo.delPeriodo).toHaveBeenCalledWith(
+      1,
+      '2026-12-01',
+      '2027-01-01',
+      undefined,
+    );
     expect(lista).toMatchObject({
       mes: '2026-12',
       desde: '2026-12-01',

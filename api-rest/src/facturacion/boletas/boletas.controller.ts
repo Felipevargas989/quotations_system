@@ -159,6 +159,14 @@ export class BoletasController {
 
   // La boleta suelta: recepción hacia arriba (D5); la línea a mano, solo el
   // administrador (lo revisa el servicio).
+  /** La boleta tal como saldrá (doc 19 §9.22, sprint 3): no guarda nada. */
+  @Roles(...RECEPTION_AND_UP)
+  @Permiso('boletas')
+  @Post('sueltas/revisar')
+  revisarSuelta(@Body() dto: BoletaSueltaDto, @CurrentUser() user: User) {
+    return this.boletas.revisarSuelta(user, dto);
+  }
+
   @Roles(...RECEPTION_AND_UP)
   @Permiso('boletas')
   @Post('sueltas')

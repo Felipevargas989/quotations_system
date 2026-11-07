@@ -166,6 +166,12 @@ const armar = ({
     documentos as never,
     { de: () => simulado } as never,
     mockPinoLogger() as never,
+    {
+      empresaQueVende: jest.fn().mockResolvedValue({
+        nombre: 'Valle del Sol Quillón SpA',
+        rut: '77701305-K',
+      }),
+    } as never,
   );
   return { servicio, repo, documentos, filas, anotados };
 };

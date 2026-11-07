@@ -20,7 +20,6 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { matchesSearch } from "../../utils/searchMatch";
-import NotaDeUnDocumento from "./NotaDeUnDocumento";
 import ProbarLaConexion from "./ProbarLaConexion";
 
 // «DOCUMENTOS», LA LISTA DE FACTURACIÓN (doc 19 §9.5 y §9.22, sprint 2),
@@ -35,7 +34,8 @@ import ProbarLaConexion from "./ProbarLaConexion";
 // - Cada documento con su estado en la cadena («Anulada por NC 88»,
 //   «Rebajada: queda $…») y sus notas debajo (factura → NC → ND); la factura
 //   con su condición de pago. Ver, descargar el PDF y, del administrador,
-//   «Comprobar» y «Anular o rebajar…».
+//   «Comprobar» y «Anular o rebajar…», que abre la nota en su pantalla con
+//   el documento ya elegido (sprint 3).
 // - El XML existe en facturacion.cl, pero es un servicio adicional con costo
 //   (su manual, `getXMLDte`); los recibidos no los entrega su integración.
 //   Los dos se dicen tal cual, sin prometerlos.
@@ -206,16 +206,19 @@ const casilla =
 export default function ListaDeDocumentos({
   conAjustes,
   recien = null,
+  onModificar,
 }: {
   /** El permiso «Tarifario y conexión» (doc 22 §7): «Probar la conexión». */
   readonly conAjustes: boolean;
   /** El que se acaba de emitir: se marca en la lista. */
   readonly recien?: number | null;
+  /** «Anular o rebajar…»: la nota en su pantalla, con este documento ya
+   *  elegido (§9.22, sprint 3). */
+  readonly onModificar: (doc: DocumentoDeLaLista) => void;
 }) {
   const queryClient = useQueryClient();
   const [lado, setLado] = useState<"emitidos" | "recibidos">("emitidos");
   const [f, setF] = useState<Filtros>(filtrosDeHoy);
-  const [anulando, setAnulando] = useState<number | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
   const poner = (cambios: Partial<Filtros>) =>
     setF((x) => ({ ...x, ...cambios }));
@@ -413,37 +416,18 @@ export default function ListaDeDocumentos({
               )}
               {(d.acciones.anular ||
                 d.acciones.rebajar ||
-                d.acciones.corregir) &&
-                anulando !== d.id && (
-                  <button
-                    type="button"
-                    onClick={() => setAnulando(d.id)}
-                    className="font-semibold text-red-600 hover:underline"
-                  >
-                    {d.tipo === 33 ? "Anular o rebajar…" : "Anular…"}
-                  </button>
-                )}
+                d.acciones.corregir) && (
+                <button
+                  type="button"
+                  onClick={() => onModificar(d)}
+                  className="font-semibold text-red-600 hover:underline"
+                >
+                  {d.tipo === 33 ? "Anular o rebajar…" : "Anular…"}
+                </button>
+              )}
             </div>
           </td>
         </tr>
-        {anulando === d.id && (
-          <tr>
-            <td
-              colSpan={7}
-              className="pb-3"
-              style={{ paddingLeft: `${nivel * 1.25}rem` }}
-            >
-              <NotaDeUnDocumento
-                doc={d}
-                onCerrar={() => setAnulando(null)}
-                onEmitida={() => {
-                  setAnulando(null);
-                  void refrescar();
-                }}
-              />
-            </td>
-          </tr>
-        )}
         {[...(hijos.get(d.id) ?? [])]
           .sort((a, b) => a.id - b.id)
           .map((h) => fila(h, nivel + 1))}
@@ -539,7 +523,7 @@ export default function ListaDeDocumentos({
                 className={`${casilla} w-full pl-8`}
               />
             </label>
-            <div className="w-44">
+            <div className="w-48">
               <span className="sr-only">Tipo</span>
               <SelectWithSearch
                 options={TIPOS}
@@ -550,7 +534,7 @@ export default function ListaDeDocumentos({
                 mostrarConteo={false}
               />
             </div>
-            <div className="w-44">
+            <div className="w-48">
               <span className="sr-only">Estado</span>
               <SelectWithSearch
                 options={ESTADOS}

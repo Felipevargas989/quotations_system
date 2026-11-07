@@ -1409,6 +1409,38 @@ entregue: se averiguan antes de prometerlos.
     y el de boletas). «Recibidos» lo dice tal cual; habría que preguntarle
     a su mesa de ayuda.
 
+**El sprint 3, la boleta y las notas (06-11, en la noche):**
+- Las dos en su propia pantalla, como la factura y la maqueta: arriba
+  «← Documentos» y el título, el documento en secciones, «Crear documento»
+  que lo muestra tal como saldrá en una ventana, y ahí «Emitir». Las tres
+  usan las mismas piezas (`PiezasDelDocumento`: la cabecera y las
+  secciones) y la misma vista previa (`VistaPreviaDelDte`), que desde ahora
+  sabe dibujar la factura, la boleta y las dos notas.
+- Como la maqueta, «Emitir» pregunta antes, en los cuatro documentos:
+  «¿Emitir la factura N° … por $…?» (la boleta, sin el N°, que lo pone
+  facturacion.cl). Emitido no se borra.
+- **La boleta** (`BoletaNueva`): «Qué se cobra» (lo del tarifario por su
+  cantidad, con el nombre de su unidad, y la línea a mano solo del
+  administrador), «Huésped» (la cabaña, que sale al comienzo de cada
+  línea, y el correo) y el total a pagar. Su vista previa la arma el motor
+  con las mismas líneas y el mismo armado que al emitirla
+  (`POST /boletas/sueltas/revisar`; las líneas, en `boletas/suelta.ts`,
+  las comparten las dos). Quien no ve la lista (recepción, de fábrica) se
+  queda en la boleta después de emitir, con la última a la vista y otra en
+  blanco, para seguir con la próxima.
+- **Las notas** (`NotaNueva`): primero qué documento modifica, buscando por
+  N°, cliente o RUT entre las facturas y las notas del último año que la
+  admiten (la lista con `tipos=33,56,61`: sin bajar las boletas); después
+  cómo («Anular completa», «Rebajar un monto» con lo que queda por rebajar,
+  o «Corregir un texto» con lo que debe decir), el motivo y el plazo del
+  SII. La vista previa trae el emisor y lo que modifica («Corrige el monto
+  de la factura electrónica N° … del … · motivo»). «Anular o rebajar…» de
+  la lista abre esta pantalla con el documento ya elegido; una rebajada
+  parte en «Rebajar», porque ya no se anula entera.
+- Salieron la nota en un panel dentro de la lista (`NotaDeUnDocumento`), la
+  que se elegía por mes (`ElegirDocumento` y `meses.ts`) y la boleta de
+  antes (`BoletaSuelta`).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import ConfirmInline from "../../../components/ConfirmInline";
 import { nombreDeReferencia } from "../../../constants/facturacion";
 import type {
   DtePedido,
@@ -13,26 +15,54 @@ import { valorDeLaLinea } from "./datosDeLaFactura";
 // esta se arma en Eventia con la misma revisión que emite, así que lo que
 // se ve es lo que sale. La factura lleva sus líneas en neto; la boleta, con
 // IVA, y su N° lo pone facturacion.cl.
+//
+// Desde el 06-11 (doc 19 §9.22, sprint 3) es la misma para los cuatro
+// documentos de «Nuevo documento»: la factura, la boleta y las notas de
+// crédito y de débito (con lo que modifican en `referencia`). Y como la
+// maqueta, «Emitir» pregunta antes («¿Emitir la factura N° … por $…?»):
+// emitido no se borra.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
+
+const TITULO: Record<number, string> = {
+  33: "Factura electrónica",
+  39: "Boleta electrónica",
+  56: "Nota de débito electrónica",
+  61: "Nota de crédito electrónica",
+};
+const NOMBRE: Record<number, string> = {
+  33: "factura",
+  39: "boleta",
+  56: "nota de débito",
+  61: "nota de crédito",
+};
 
 export default function VistaPreviaDelDte({
   vista,
   pedida,
+  referencia = null,
   puedeEmitir,
   emitiendo,
   onVolver,
   onEmitir,
 }: {
   readonly vista: VistaPrevia;
-  readonly pedida: DtePedido;
+  /** La factura y la boleta (33 y 39) y las notas (61 y 56). */
+  readonly pedida: Pick<DtePedido, "receptor" | "referencias"> & {
+    tipo: number;
+  };
+  /** La nota: lo que modifica, como va en ella («Anula la factura N° …»). */
+  readonly referencia?: string | null;
   readonly puedeEmitir: boolean;
   readonly emitiendo: boolean;
   readonly onVolver: () => void;
   readonly onEmitir: () => void;
 }) {
+  const [confirmando, setConfirmando] = useState(false);
   const r = pedida.receptor;
   const factura = pedida.tipo === 33;
+  const boleta = pedida.tipo === 39;
+  const nombre = NOMBRE[pedida.tipo] ?? "documento";
   // La columna del descuento solo si alguna línea lo lleva (§9.22).
   const conDescuento = vista.lineas.some((l) => !!l.descuento);
   const simulado = vista.ambiente === "simulado";
@@ -53,7 +83,7 @@ export default function VistaPreviaDelDte({
           </div>
           <div className="rounded border-2 border-red-600 px-3 py-1 text-center text-red-700">
             <p className="text-xs font-semibold">
-              {factura ? "Factura electrónica" : "Boleta electrónica"}
+              {TITULO[pedida.tipo] ?? "Documento electrónico"}
             </p>
             <p className="text-sm font-bold">
               N° {vista.folio}{" "}
@@ -62,7 +92,7 @@ export default function VistaPreviaDelDte({
           </div>
         </div>
 
-        {factura ? (
+        {!boleta ? (
           <div className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
             <p>
               <span className="text-gray-500">Señor(es): </span>
@@ -89,7 +119,7 @@ export default function VistaPreviaDelDte({
               {r.comuna || "—"}
               {r.ciudad ? ` · ${r.ciudad}` : ""}
             </p>
-            {vista.pago && (
+            {factura && vista.pago && (
               <p className="sm:col-span-2">
                 <span className="text-gray-500">Condición de pago: </span>
                 {vista.pago.forma === 1 || !vista.pago.vencimiento
@@ -111,13 +141,13 @@ export default function VistaPreviaDelDte({
               <th className="py-1 text-left font-medium">Detalle</th>
               <th className="w-14 py-1 pl-3 text-right font-medium">Cant.</th>
               <th className="w-28 py-1 pl-3 text-right font-medium">
-                {factura ? "Precio neto" : "Precio"}
+                {boleta ? "Precio" : "Precio neto"}
               </th>
               {conDescuento && (
                 <th className="w-16 py-1 pl-3 text-right font-medium">Desc.</th>
               )}
               <th className="w-28 py-1 pl-3 text-right font-medium">
-                {factura ? "Neto" : "Total"}
+                {boleta ? "Total" : "Neto"}
               </th>
             </tr>
           </thead>
@@ -151,6 +181,13 @@ export default function VistaPreviaDelDte({
             ))}
           </tbody>
         </table>
+
+        {referencia && (
+          <div className="text-xs">
+            <p className="text-gray-500">Referencia</p>
+            <p>{referencia}</p>
+          </div>
+        )}
 
         {factura && pedida.referencias.length > 0 && (
           <div className="text-xs">
@@ -187,7 +224,9 @@ export default function VistaPreviaDelDte({
       <p className="text-xs text-gray-500">
         {factura
           ? "Emitida no se borra: un error se anula con nota de crédito."
-          : "Emitida no se borra."}
+          : boleta
+            ? "Emitida no se borra."
+            : "Emitida no se borra: una nota se anula con otra nota."}
         {r.correo && vista.ambiente === "produccion"
           ? ` facturacion.cl la manda a ${r.correo}.`
           : ""}
@@ -204,27 +243,36 @@ export default function VistaPreviaDelDte({
           ante el SII y no se le manda a nadie.
         </p>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onVolver}
           className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg font-semibold hover:bg-gray-200"
         >
-          Volver
+          Volver a editar
         </button>
         {puedeEmitir ? (
-          <button
-            type="button"
-            disabled={!vista.ok || emitiendo}
-            onClick={onEmitir}
-            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-          >
-            {emitiendo
-              ? "Emitiendo…"
-              : factura
-                ? "Emitir factura"
-                : "Emitir boleta"}
-          </button>
+          confirmando && vista.montos && !emitiendo ? (
+            <ConfirmInline
+              question={`¿Emitir la ${nombre}${boleta ? "" : ` N° ${vista.folio}`} por ${clp(vista.montos.total)}?`}
+              yesLabel="Sí, emitir"
+              tono="normal"
+              onYes={() => {
+                setConfirmando(false);
+                onEmitir();
+              }}
+              onNo={() => setConfirmando(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              disabled={!vista.ok || emitiendo}
+              onClick={() => setConfirmando(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+            >
+              {emitiendo ? "Emitiendo…" : `Emitir ${nombre}`}
+            </button>
+          )
         ) : (
           <span className="text-xs text-gray-500">
             La emite el administrador.

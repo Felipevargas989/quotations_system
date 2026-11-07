@@ -58,4 +58,12 @@ export class ListaDto {
   @IsOptional()
   @Matches(FECHA, { message: 'La fecha «hasta» va como AAAA-MM-DD' })
   hasta?: string;
+
+  /** Solo esos tipos, separados por coma (33,56,61): la nota elige de las
+   *  facturas y las notas, sin bajar las boletas (§9.22, sprint 3). */
+  @IsOptional()
+  @Matches(/^\d{2}(,\d{2}){0,5}$/, {
+    message: 'Los tipos van como 33,56,61',
+  })
+  tipos?: string;
 }

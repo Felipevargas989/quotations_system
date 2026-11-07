@@ -1,5 +1,5 @@
 import { apiRequest } from "./api";
-import type { Ambiente } from "./facturas.service";
+import type { Ambiente, VistaPrevia } from "./facturas.service";
 
 // Las boletas de recepción (migración 187, doc 19, paso 3a). El
 // administrador deja un cobro «por boletear» (desde el evento o suelto) y
@@ -196,6 +196,21 @@ export const borrarItemDelTarifario = async (
   id: number,
 ): Promise<ItemDelTarifario[]> =>
   (await apiRequest(`${base}/tarifario/${id}`, "DELETE")) as ItemDelTarifario[];
+
+/** La boleta tal como saldrá (doc 19 §9.22, sprint 3): las mismas líneas
+ *  y el mismo armado que al emitirla. El N° es el que debería tocarle. */
+export const revisarBoletaSuelta = async (datos: {
+  lineas: LineaSuelta[];
+  cabana?: string | null;
+  correo?: string | null;
+}): Promise<VistaPrevia & { correo: string | null }> =>
+  (await apiRequest(
+    `${base}/sueltas/revisar`,
+    "POST",
+    datos,
+  )) as VistaPrevia & {
+    correo: string | null;
+  };
 
 export const emitirBoletaSuelta = async (datos: {
   lineas: LineaSuelta[];

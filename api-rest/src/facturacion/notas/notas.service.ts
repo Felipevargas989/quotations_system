@@ -27,6 +27,7 @@ import {
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
 import { mandarConFolio } from '../facturas/emision';
+import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   Cadena,
   NOMBRE_CORTO,
@@ -153,6 +154,8 @@ export class NotasService {
     private readonly conexion: ConexionConFacturacionCl,
     private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
+    /** El emisor de la vista previa (§9.22, sprint 3). */
+    private readonly ordenes: OrdenesDeCompraRepository,
   ) {
     this.logger.setContext(NotasService.name);
   }
@@ -165,11 +168,12 @@ export class NotasService {
     periodo: PeriodoDeLaLista,
     cargo: UserRole,
     permisos: readonly Permiso[] = permisosDelCargo(cargo),
+    tipos?: number[],
   ) {
     const hoy = hoyEnChile();
     const { mes, desde, hasta, hastaExcluido } = periodoDeLaLista(periodo, hoy);
     const [delPeriodo, todos] = await Promise.all([
-      this.documentos.delPeriodo(companyId, desde, hastaExcluido),
+      this.documentos.delPeriodo(companyId, desde, hastaExcluido, tipos),
       this.documentos.cadenaDeLaEmpresa(companyId),
     ]);
     const cadena = new Cadena(todos);
@@ -331,7 +335,10 @@ export class NotasService {
 
   /** La vista previa de la nota: lo que sale y los plazos del SII. */
   async revisarNota(user: User, id: number, dto: NotaPedidaDto) {
-    const armada = await this.armar(user, id, dto);
+    const [armada, emisor] = await Promise.all([
+      this.armar(user, id, dto),
+      this.ordenes.empresaQueVende(user.company_id),
+    ]);
     return {
       ok: armada.armado.ok,
       problemas: armada.armado.ok ? [] : armada.armado.problemas,
@@ -344,6 +351,10 @@ export class NotasService {
       fecha: armada.fecha,
       codigo: armada.codigo,
       modifica: nombreDe(armada.original),
+      // Lo que modifica, como va en la nota: el tipo, el N°, la fecha, el
+      // código y el motivo (§9.22: la vista previa lo muestra).
+      referencia: armada.referencia,
+      emisor,
       plazo: armada.plazo,
       montos: armada.armado.ok ? armada.armado.montos : null,
       lineas: armada.lineas,

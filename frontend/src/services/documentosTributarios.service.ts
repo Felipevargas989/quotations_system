@@ -95,9 +95,25 @@ export interface VistaDeLaNota {
   fecha: string;
   codigo: number;
   modifica: string;
+  /** Lo que modifica, como va en la nota (§9.22, sprint 3). */
+  referencia: {
+    tipo: string;
+    folio: string;
+    fecha: string;
+    codigo: number;
+    razon: string;
+  };
+  emisor: { nombre: string | null; rut: string | null };
   plazo: string;
   montos: { neto: number; exento: number; iva: number; total: number } | null;
-  lineas: { descripcion: string; cantidad: number; precio: number }[];
+  /** La de anular copia las de lo que anula, con su descuento (§9.22). */
+  lineas: {
+    descripcion: string;
+    descripcionLarga?: string | null;
+    cantidad: number;
+    precio: number;
+    descuento?: number | null;
+  }[];
   receptor: Receptor;
   ambiente: Ambiente;
 }
@@ -136,13 +152,19 @@ const base = "/facturacion/documentos";
 /** La lista de un mes (AAAA-MM) o, desde el 06-11 (§9.22), de un rango de
  *  fechas con las dos incluidas: hasta un año por vez. */
 export const getListaDeFacturacion = async (
-  periodo: string | { desde: string; hasta: string },
+  periodo: string | { desde: string; hasta: string; tipos?: number[] },
 ): Promise<ListaDeFacturacion> =>
   (await apiRequest(
     base,
     "GET",
     undefined,
-    typeof periodo === "string" ? { mes: periodo } : periodo,
+    typeof periodo === "string"
+      ? { mes: periodo }
+      : {
+          desde: periodo.desde,
+          hasta: periodo.hasta,
+          ...(periodo.tipos?.length ? { tipos: periodo.tipos.join(",") } : {}),
+        },
   )) as ListaDeFacturacion;
 
 export const comprobarDocumento = async (
@@ -167,12 +189,18 @@ export const revisarNota = async (
     nota,
   )) as VistaDeLaNota;
 
+/** La nota emitida (o la que quedó por confirmar): el motor devuelve el
+ *  documento entero; la pantalla usa su id para marcarla en la lista. */
+export interface NotaEmitida {
+  id: number;
+  estado: string;
+  folio: number | null;
+  tipo: number;
+  total: number;
+}
+
 export const emitirNota = async (
   id: number,
   nota: NotaPedida,
-): Promise<{ estado: string; folio: number | null; tipo: number }> =>
-  (await apiRequest(`${base}/${id}/notas/emitir`, "POST", nota)) as {
-    estado: string;
-    folio: number | null;
-    tipo: number;
-  };
+): Promise<NotaEmitida> =>
+  (await apiRequest(`${base}/${id}/notas/emitir`, "POST", nota)) as NotaEmitida;

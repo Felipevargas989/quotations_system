@@ -33,9 +33,6 @@ vi.mock("../../utils/dates", async (original) => ({
 vi.mock("../../components/toast/Toast", () => ({
   toast: { error: vi.fn(), success: vi.fn(), warn: vi.fn() },
 }));
-vi.mock("./NotaDeUnDocumento", () => ({
-  default: () => <p>el panel de la nota</p>,
-}));
 vi.mock("./ProbarLaConexion", () => ({
   default: () => <p>probar la conexión</p>,
 }));
@@ -165,10 +162,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const modificar = vi.fn();
 const abrir = (conAjustes = false) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ListaDeDocumentos conAjustes={conAjustes} recien={22} />
+      <ListaDeDocumentos
+        conAjustes={conAjustes}
+        recien={22}
+        onModificar={modificar}
+      />
     </QueryClientProvider>,
   );
 
@@ -241,9 +243,10 @@ describe("la lista de Facturación (§9.22)", () => {
       name: "El XML: servicio adicional de facturacion.cl",
     }))
       expect(x).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Anular o rebajar…" }),
-    ).toBeInTheDocument();
+    // «Anular o rebajar…» abre la nota en su pantalla, con la factura ya
+    // elegida (sprint 3).
+    fireEvent.click(screen.getByRole("button", { name: "Anular o rebajar…" }));
+    expect(modificar).toHaveBeenCalledWith(expect.objectContaining({ id: 20 }));
     // El recién emitido, marcado.
     expect(screen.getByText("Boleta 500").closest("tr")).toHaveClass(
       "bg-green-50",

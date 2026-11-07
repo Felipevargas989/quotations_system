@@ -273,7 +273,12 @@ export class DocumentosTributariosRepository {
    *  evento y de la OC: los emitidos en esas fechas y, siempre, los que
    *  esperan «Comprobar» (L5). `desde` y `hasta` son AAAA-MM-DD de Chile
    *  (hasta, excluido). */
-  async delPeriodo(companyId: number, desde: string, hasta: string) {
+  async delPeriodo(
+    companyId: number,
+    desde: string,
+    hasta: string,
+    tipos?: number[],
+  ) {
     type Fila = DocumentoTributario & {
       cotizacion: { quotation_number: number } | null;
       oc: { numero: string } | null;
@@ -283,7 +288,7 @@ export class DocumentosTributariosRepository {
     // una vez, y lo que sobra no puede quedar fuera sin avisar.
     const filas: Fila[] = [];
     for (let inicio = 0; ; inicio += PAGINA) {
-      const { data, error } = await this.supabase.client
+      let consulta = this.supabase.client
         .from('documentos_tributarios')
         .select(
           `${COLUMNAS}, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)`,
@@ -292,7 +297,9 @@ export class DocumentosTributariosRepository {
         .in('estado', FACTURADO)
         .or(
           `and(fecha_emision.gte.${desde},fecha_emision.lt.${hasta}),estado.in.(por_confirmar,enviando)`,
-        )
+        );
+      if (tipos?.length) consulta = consulta.in('tipo', tipos);
+      const { data, error } = await consulta
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .range(inicio, inicio + PAGINA - 1);
