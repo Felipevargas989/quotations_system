@@ -32,6 +32,15 @@ export class FacturaSinEventoController {
     return this.facturas.razonSocialPorRut(user.company_id, q.rut);
   }
 
+  // El buscador del destinatario (§9.22): los clientes con sus razones
+  // sociales y su contacto principal.
+  @Permiso('facturacion_documentos')
+  @Get('clientes')
+  @Roles(...OPERATIONS_AND_UP)
+  clientes(@CurrentUser() user: User) {
+    return this.facturas.clientesParaFacturar(user.company_id);
+  }
+
   @Permiso('facturacion_documentos')
   @Post('facturas/revisar')
   @Roles(...OPERATIONS_AND_UP)

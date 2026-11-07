@@ -25,7 +25,13 @@ export interface ReferenciaPedida {
   tipo: string;
   folio: string;
   fecha: string;
+  /** El motivo, si se escribe (hasta 90, doc 19 §9.22). */
+  razon?: string | null;
 }
+
+/** 1 contado y 2 crédito (doc 19 §9.22); los plazos viven en
+ *  constants/facturacion (`PLAZOS_DE_PAGO`). */
+export type FormaDePago = 1 | 2;
 
 /** Una línea del DTE: la descripción, la cantidad de personas y el precio
  *  unitario CON IVA. */
@@ -45,9 +51,40 @@ export interface DtePedido {
   lineas: LineaPedida[];
   referencias: ReferenciaPedida[];
   pedir_siempre: string[];
+  /** Solo la factura: contado (1) o crédito (2); sin esto, crédito a 30. */
+  forma_de_pago?: FormaDePago | null;
+  /** Los días del crédito (30, 45 o 60); nulo al contado. */
+  plazo_dias?: number | null;
+  /** «Nuevo documento»: el cliente de Eventia al que va (su ficha recibe
+   *  la razón social al emitir). */
+  cliente_id?: string | null;
 }
 
 export type Origen = "orden_de_compra" | "ficha" | "cotizacion" | "persona";
+
+/** Un cliente con sus razones sociales y su contacto principal: el
+ *  buscador del destinatario de «Nuevo documento» (§9.22). */
+export interface ClienteParaFacturar {
+  id: string;
+  nombre: string;
+  tipo: string | null;
+  contacto: {
+    nombre: string;
+    correo: string | null;
+    telefono: string | null;
+  } | null;
+  razones: {
+    id: number;
+    rut: string;
+    razon_social: string;
+    giro: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    ciudad: string | null;
+    correo_facturacion: string | null;
+    referencias_exigidas: string[];
+  }[];
+}
 
 export interface Montos {
   neto: number;
@@ -76,6 +113,12 @@ export interface VistaPrevia {
   fecha: string;
   emisor: { nombre: string | null; rut: string | null };
   ambiente: Ambiente;
+  /** La condición de pago como va en la factura; nula en la boleta. */
+  pago?: {
+    forma: FormaDePago;
+    dias: number | null;
+    vencimiento: string | null;
+  } | null;
 }
 
 export interface RazonSocialDelBorrador {
@@ -256,6 +299,14 @@ export const buscarRazonSocial = async (
     `/facturacion/razon-social?rut=${encodeURIComponent(rut)}`,
     "GET",
   )) as RazonSocialEncontrada | "" | null) || null;
+
+/** Los clientes con sus razones sociales, para elegir a quién va la
+ *  factura de «Nuevo documento». */
+export const getClientesParaFacturar = async (): Promise<
+  ClienteParaFacturar[]
+> =>
+  ((await apiRequest("/facturacion/clientes", "GET")) ??
+    []) as ClienteParaFacturar[];
 
 /** La factura de «Nuevo documento»: de cero, sin evento ni OC. */
 export const revisarFacturaSinEvento = async (

@@ -1,4 +1,5 @@
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
+import { sumarDias } from '../../quotations/generar/fechas';
 import { armarBoleta } from '../archivo/boleta';
 import { armarFactura } from '../archivo/factura';
 import {
@@ -104,6 +105,9 @@ export interface ContextoDeLaFactura {
   oc: OrdenAFacturar | null;
   /** Las razones sociales del cliente. */
   razones: RazonSocialGuardada[];
+  /** El cliente de la factura de «Nuevo documento» (§9.22): al emitir, su
+   *  razón social queda en su ficha. Con evento, manda el del evento. */
+  clienteId?: string | null;
   /** Lo ya facturado del evento entero. */
   facturadoDelEvento: number;
   /** Lo que suman todas las OC del evento (E1: la diferencia con la
@@ -119,7 +123,18 @@ export interface ReferenciaPedida {
   folio: string;
   /** AAAA-MM-DD. */
   fecha: string;
+  /** El motivo, si se escribe (RazonRef, hasta 90). */
+  razon?: string | null;
 }
+
+/** 1 contado (no queda por cobrar) y 2 crédito (§9.22). */
+export type FormaDePago = 1 | 2;
+
+/** Los plazos del crédito: 30 días es el máximo de la ley de pago a 30
+ *  días (Ley 19.983); 45 y 60, con bases de licitación o un acuerdo
+ *  inscrito en el Ministerio de Economía (§9.22). */
+export const PLAZOS_DE_PAGO = [30, 45, 60] as const;
+export const PLAZO_POR_DEFECTO = 30;
 
 /** 33 la factura, 39 la boleta. */
 export type TipoDeDte = 33 | 39;
@@ -148,7 +163,28 @@ export interface DtePedido {
   /** Las referencias que este receptor pide siempre: al emitir quedan en
    *  su razón social (E2). */
   pedir_siempre: string[];
+  /** Solo la factura. Sin esto, crédito a 30 días (§9.22). */
+  forma_de_pago?: FormaDePago | null;
+  /** Los días del crédito: 30, 45 o 60. Nulo al contado. */
+  plazo_dias?: number | null;
+  /** «Nuevo documento»: el cliente al que va (su ficha recibe la razón
+   *  social al emitir). */
+  cliente_id?: string | null;
 }
+
+/** La condición de pago como va en la factura: contado, o crédito con su
+ *  vencimiento desde la emisión. */
+export interface PagoDeLaFactura {
+  forma: FormaDePago;
+  dias: number | null;
+  vencimiento: string | null;
+}
+
+export const pagoDe = (p: DtePedido, fecha: string): PagoDeLaFactura => {
+  if (p.forma_de_pago === 1) return { forma: 1, dias: null, vencimiento: null };
+  const dias = p.plazo_dias ?? PLAZO_POR_DEFECTO;
+  return { forma: 2, dias, vencimiento: sumarDias(fecha, dias) };
+};
 
 export interface Borrador {
   pedida: DtePedido;
@@ -175,6 +211,8 @@ export interface Revision {
   avisos: string[];
   problemas: string[];
   faltan: Falta[];
+  /** La condición de pago de la factura; nula en la boleta. */
+  pago: PagoDeLaFactura | null;
 }
 
 const ORDEN_SII: string[] = REFERENCIAS_QUE_PIDE.map((r) => r.codigo);
@@ -341,6 +379,8 @@ export function armarBorrador(
         lineas: [linea],
         referencias: [],
         pedir_siempre: [],
+        forma_de_pago: tipo === 39 ? null : 2,
+        plazo_dias: tipo === 39 ? null : PLAZO_POR_DEFECTO,
       },
       origenes: {
         receptor: evento.correo ? 'ficha' : 'persona',
@@ -392,6 +432,9 @@ export function armarBorrador(
       lineas: [linea],
       referencias: enOrdenDelSii(referencias),
       pedir_siempre: [...exigidas],
+      // Acá ya es factura (la boleta salió antes): crédito a 30 días.
+      forma_de_pago: 2,
+      plazo_dias: PLAZO_POR_DEFECTO,
     },
     origenes: {
       receptor: origenDelReceptor,
@@ -468,6 +511,13 @@ export function revisarDte(
   const problemas: string[] = [];
   const avisos: string[] = [];
   const faltan = faltaEnElDte(p);
+
+  const pago = factura ? pagoDe(p, fecha) : null;
+  if (
+    pago?.dias != null &&
+    !(PLAZOS_DE_PAGO as readonly number[]).includes(pago.dias)
+  )
+    problemas.push('El crédito va a 30, 45 o 60 días');
 
   const pedidas = p.lineas ?? [];
   pedidas.forEach((l, i) => {
@@ -570,6 +620,7 @@ export function revisarDte(
       avisos,
       problemas,
       faltan,
+      pago,
     };
 
   const armado = factura
@@ -584,8 +635,18 @@ export function revisarDte(
           folio: ref.folio,
           fecha: ref.fecha,
           codigo: 0,
+          razon: ref.razon ?? null,
         })),
         observaciones,
+        // Contado o crédito con su vencimiento (§9.22): la glosa dice el
+        // plazo.
+        formaDePago: pago
+          ? {
+              codigo: pago.forma,
+              glosa: pago.dias ? `Crédito a ${pago.dias} días` : 'Contado',
+            }
+          : null,
+        vencimiento: pago?.vencimiento ?? null,
         totalEsperado: esperado,
         ambiente: ctx.ambiente,
       })
@@ -607,6 +668,7 @@ export function revisarDte(
       avisos,
       problemas: armado.problemas,
       faltan,
+      pago,
     };
   return {
     ok: true,
@@ -617,5 +679,6 @@ export function revisarDte(
     avisos: [...avisos, ...armado.avisos],
     problemas: [],
     faltan,
+    pago,
   };
 }

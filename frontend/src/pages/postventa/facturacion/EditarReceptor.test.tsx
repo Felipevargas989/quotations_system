@@ -40,7 +40,6 @@ const abrir = (poner = vi.fn()) => {
       elegirLaRazon={false}
       poner={poner}
       ponerReceptor={vi.fn()}
-      ponerReferencia={vi.fn()}
       elegirRazon={vi.fn()}
     />,
   );
@@ -51,8 +50,9 @@ describe("Las referencias", () => {
   it("van en columnas con su título, y el tipo en su caja", () => {
     abrir();
     expect(screen.getByText("Tipo")).toBeInTheDocument();
-    expect(screen.getByText("N°")).toBeInTheDocument();
+    expect(screen.getByText("Folio")).toBeInTheDocument();
     expect(screen.getByText("Fecha")).toBeInTheDocument();
+    expect(screen.getByText("Motivo (opcional)")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /801 · Orden de compra/ }),

@@ -411,6 +411,30 @@ describe('Lo que acepta el motor', () => {
       }),
     ).toEqual(['lineas']);
   });
+
+  it('la condición de pago: contado o crédito a 30, 45 o 60 días; el cliente es un uuid (§9.22)', async () => {
+    expect(
+      await errores({ ...PEDIDA, forma_de_pago: 2, plazo_dias: 45 }),
+    ).toEqual([]);
+    expect(await errores({ ...PEDIDA, forma_de_pago: 1 })).toEqual([]);
+    expect(await errores({ ...PEDIDA, forma_de_pago: 3 })).toEqual([
+      'forma_de_pago',
+    ]);
+    expect(await errores({ ...PEDIDA, plazo_dias: 90 })).toEqual([
+      'plazo_dias',
+    ]);
+    expect(await errores({ ...PEDIDA, cliente_id: 'ccu' })).toEqual([
+      'cliente_id',
+    ]);
+    expect(
+      await errores({
+        ...PEDIDA,
+        referencias: [
+          { ...PEDIDA.referencias[0], razon: 'Paseo de fin de año' },
+        ],
+      }),
+    ).toEqual([]);
+  });
 });
 
 describe('Por facturar (§9.21)', () => {
@@ -532,6 +556,73 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(vista.observaciones).toEqual([]);
     expect(vista.avisos).toEqual([]);
     expect(vista.montos?.total).toBe(2480000);
+  });
+
+  it('la condición de pago queda en el documento: crédito a 30 días si no se dice, o al contado', async () => {
+    const { servicio, repo } = armar();
+    await servicio.emitirSinEvento(USUARIO, SUELTA);
+    const fila = (repo.crear.mock.calls as unknown[][])[0][0] as {
+      forma_de_pago: number;
+      vencimiento: string;
+    };
+    expect(fila.forma_de_pago).toBe(2);
+    expect(fila.vencimiento).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    repo.crear.mockClear();
+    await servicio.emitirSinEvento(USUARIO, { ...SUELTA, forma_de_pago: 1 });
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ forma_de_pago: 1, vencimiento: null }),
+    );
+  });
+
+  it('a un cliente de Eventia (§9.22): su razón social nueva queda en su ficha', async () => {
+    const { servicio, razones } = armar();
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      cliente_id: '0b8f7a52-3c1e-4a8e-9d55-1f2c3a4b5c6d',
+    });
+    expect(razones.deCliente).toHaveBeenCalledWith(
+      '0b8f7a52-3c1e-4a8e-9d55-1f2c3a4b5c6d',
+      1,
+    );
+    expect(razones.crear).toHaveBeenCalledWith(
+      '0b8f7a52-3c1e-4a8e-9d55-1f2c3a4b5c6d',
+      1,
+      expect.objectContaining({
+        rut: '69141400-0',
+        razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+        giro: 'MUNICIPALIDAD',
+      }),
+      'u-felipe',
+      'manual',
+    );
+  });
+
+  it('lo editado a mano manda: los cambios quedan en la ficha del cliente', async () => {
+    const { servicio, razones } = armar();
+    razones.deCliente.mockResolvedValue([
+      {
+        id: 7,
+        rut: '69141400-0',
+        razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
+        giro: 'MUNICIPALIDAD',
+        direccion: 'Calle vieja 1',
+        comuna: 'Quillón',
+        ciudad: null,
+        correo_facturacion: null,
+        referencias_exigidas: [],
+      },
+    ]);
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      cliente_id: '0b8f7a52-3c1e-4a8e-9d55-1f2c3a4b5c6d',
+    });
+    expect(razones.crear).not.toHaveBeenCalled();
+    expect(razones.editar).toHaveBeenCalledWith(
+      '0b8f7a52-3c1e-4a8e-9d55-1f2c3a4b5c6d',
+      1,
+      7,
+      { direccion: 'Calle 18 de Septiembre N°250' },
+    );
   });
 
   it('con un dato que falta no se manda nada', async () => {

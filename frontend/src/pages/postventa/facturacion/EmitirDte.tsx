@@ -26,6 +26,7 @@ import { humanizeApiError } from "../../../utils/apiErrors";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
 import { formatearRut } from "../../../utils/rut";
 import Casilla, { CasillaDelRut } from "./CasillaDeLaFactura";
+import CondicionDePago from "./CondicionDePago";
 import {
   DEL_RECEPTOR,
   OTRA,
@@ -449,6 +450,17 @@ export function Borrador({
         </div>
       </div>
 
+      {/* §9.22: contado o crédito a 30, 45 o 60 días (30 por defecto). */}
+      {factura && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+          <CondicionDePago
+            pedida={pedida}
+            fecha={vista.fecha}
+            onChange={poner}
+          />
+        </div>
+      )}
+
       {factura && editando && (
         <EditarReceptor
           pedida={pedida}
@@ -457,7 +469,6 @@ export function Borrador({
           elegirLaRazon={elegirLaRazon}
           poner={poner}
           ponerReceptor={ponerReceptor}
-          ponerReferencia={ponerReferencia}
           elegirRazon={elegirRazon}
         />
       )}

@@ -328,6 +328,121 @@ describe('El borrador que arma BelIA', () => {
   });
 });
 
+describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
+  // La factura de «Nuevo documento»: sin evento ni OC, a un cliente con su
+  // razón social completa.
+  const sinEvento = contexto({ evento: null, oc: null, razones: [CCU] });
+  const pedida = (cambios: Record<string, unknown> = {}) => ({
+    tipo: 33 as const,
+    orden_de_compra_id: null,
+    receptor: {
+      rut: CCU.rut,
+      razon_social: CCU.razon_social,
+      giro: CCU.giro,
+      direccion: CCU.direccion,
+      comuna: CCU.comuna,
+      ciudad: CCU.ciudad,
+      correo: null,
+    },
+    lineas: [
+      {
+        descripcion: 'Jornada corporativa',
+        descripcion_larga: null,
+        cantidad: 1,
+        precio: 119000,
+      },
+    ],
+    referencias: [] as {
+      tipo: string;
+      folio: string;
+      fecha: string;
+      razon?: string | null;
+    }[],
+    pedir_siempre: [],
+    ...cambios,
+  });
+
+  it('sin decir nada, crédito a 30 días: la forma de pago y el vencimiento van en el archivo', () => {
+    const r = revisarDte(pedida(), sinEvento, 1053, '2026-11-06');
+    expect(r.ok).toBe(true);
+    expect(r.pago).toEqual({ forma: 2, dias: 30, vencimiento: '2026-12-06' });
+    expect(r.archivo).toContain('->FechaVencimiento<-\r\n2026-12-06;');
+    expect(r.archivo).toContain('->FormaPago<-\r\n2;Crédito a 30 días;');
+    // El simulado lo lee entero, con sus secciones nuevas.
+    expect(revisarArchivo(r.archivo ?? '')).toEqual({
+      tipo: 33,
+      folio: 1053,
+      fecha: '2026-11-06',
+    });
+  });
+
+  it('a 45 y a 60 días; el vencimiento cuenta desde la emisión', () => {
+    expect(
+      revisarDte(pedida({ plazo_dias: 45 }), sinEvento, 1, '2026-11-06').pago,
+    ).toEqual({ forma: 2, dias: 45, vencimiento: '2026-12-21' });
+    expect(
+      revisarDte(pedida({ plazo_dias: 60 }), sinEvento, 1, '2026-12-15').pago
+        ?.vencimiento,
+    ).toBe('2027-02-13');
+  });
+
+  it('al contado: forma de pago 1 y sin vencimiento', () => {
+    const r = revisarDte(
+      pedida({ forma_de_pago: 1, plazo_dias: 30 }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(r.pago).toEqual({ forma: 1, dias: null, vencimiento: null });
+    expect(r.archivo).toContain('->FormaPago<-\r\n1;Contado;');
+    expect(r.archivo).not.toContain('->FechaVencimiento<-');
+  });
+
+  it('otro plazo no vale: la ley de pago a 30 días deja 30, 45 o 60', () => {
+    const r = revisarDte(
+      pedida({ plazo_dias: 90 }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(r.ok).toBe(false);
+    expect(r.problemas).toContain('El crédito va a 30, 45 o 60 días');
+  });
+
+  it('el motivo de la referencia va en el archivo (RazonRef)', () => {
+    const r = revisarDte(
+      pedida({
+        referencias: [
+          {
+            tipo: '801',
+            folio: '4500-112',
+            fecha: '2026-11-02',
+            razon: 'Paseo de fin de año',
+          },
+        ],
+      }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(r.archivo).toContain(
+      '->Referencia<-\r\n1;801;4500-112;2026-11-02;0;Paseo de fin de año;',
+    );
+  });
+
+  it('el borrador del evento parte a crédito 30 días; la boleta no lleva condición', () => {
+    expect(armarBorrador(contexto()).pedida).toMatchObject({
+      forma_de_pago: 2,
+      plazo_dias: 30,
+    });
+    const boleta = armarBorrador(contexto({ oc: null }), 39);
+    expect(boleta.pedida.forma_de_pago).toBeNull();
+    expect(
+      revisarDte(boleta.pedida, contexto({ oc: null }), 0, '2026-11-06').pago,
+    ).toBeNull();
+  });
+});
+
 describe('La boleta del evento', () => {
   it('no va contra la OC ni lleva referencias: sus líneas con IVA y el correo del contacto', () => {
     const ctx = contexto({

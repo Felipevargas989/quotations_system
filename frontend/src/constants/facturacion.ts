@@ -32,6 +32,12 @@ export const REFERENCIAS_QUE_PIDE = [
   { codigo: "HES", nombre: "Hoja de entrada de servicio" },
 ] as const;
 
+/** Los plazos del crédito de la factura (doc 19 §9.22): 30 días es el
+ *  máximo de la ley de pago a 30 días (Ley 19.983); 45 y 60, con las bases
+ *  de una licitación o un acuerdo inscrito. Gemelo del motor
+ *  (`facturas/borrador.ts`). */
+export const PLAZOS_DE_PAGO = [30, 45, 60] as const;
+
 export const nombreDeReferencia = (codigo: string): string =>
   REFERENCIAS_QUE_PIDE.find((r) => r.codigo === codigo)?.nombre ?? codigo;
 
