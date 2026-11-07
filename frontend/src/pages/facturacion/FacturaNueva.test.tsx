@@ -17,6 +17,7 @@ import FacturaNueva from "./FacturaNueva";
 // LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta del
 // 06-11: en su propia pantalla, a crédito 30 días si no se dice, con el
 // destinatario buscado en Clientes (por el nombre o el RUT) o creado nuevo.
+// Desde el 07-11 (§9.23) también la emite recepción, solo con el tarifario.
 
 vi.mock("../../services/facturas.service", () => ({
   getClientesParaFacturar: vi.fn(),
@@ -38,6 +39,24 @@ vi.mock("../../services/razonesSociales.service", () => ({
 }));
 vi.mock("../../hooks/useCrearCliente", () => ({
   useCrearCliente: () => ({ enviar: vi.fn(), cargando: false, aviso: null }),
+}));
+vi.mock("../../components/FileViewLink", () => ({
+  default: ({ title }: { title: string }) => <span>ver {title}</span>,
+}));
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({ permisos: ["clientes", "boletas"] }),
+}));
+vi.mock("../../services/boletas.service", () => ({
+  getTarifario: () =>
+    Promise.resolve([
+      {
+        id: 5,
+        nombre: "Cabaña 6 personas, temporada media",
+        precio: 140000,
+        unidad: "noche",
+        activo: true,
+      },
+    ]),
 }));
 const f = vi.mocked(facturas);
 
@@ -90,12 +109,17 @@ const CLIENTES: facturas.ClienteParaFacturar[] = [
   },
 ];
 
-const abrir = () => {
+const abrir = (esAdmin = true) => {
   f.getClientesParaFacturar.mockResolvedValue(CLIENTES);
   f.revisarFacturaSinEvento.mockResolvedValue(VISTA);
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <FacturaNueva puedeEmitir onVolver={() => {}} onEmitida={() => {}} />
+      <FacturaNueva
+        esAdmin={esAdmin}
+        quedarse={!esAdmin}
+        onVolver={() => {}}
+        onEmitida={() => {}}
+      />
     </QueryClientProvider>,
   );
 };
@@ -207,6 +231,59 @@ describe("La factura de «Nuevo documento»", () => {
     expect(screen.getByText("Nombre del contacto")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: /Empresas/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("recepción (§9.23): solo del tarifario, con su precio fijo, y sin descuento", async () => {
+    const usuario = userEvent.setup();
+    abrir(false);
+    expect(
+      await screen.findByText("Elige del tarifario cada línea, o quítala."),
+    ).toBeInTheDocument();
+    // Ni la casilla a mano ni la del descuento.
+    expect(screen.queryByPlaceholderText("Descripción")).toBeNull();
+    expect(screen.queryByText("Desc. %")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Del tarifario/ })).toBeNull();
+    await usuario.click(
+      await screen.findByRole("button", { name: /Elegir del tarifario/ }),
+    );
+    const lista = within(
+      document.querySelector("[data-lista-scroll]") as HTMLElement,
+    );
+    await usuario.click(
+      lista.getByRole("button", { name: /Cabaña 6 personas/ }),
+    );
+    expect(screen.getByTitle("El precio del tarifario")).toHaveTextContent(
+      "$140.000",
+    );
+    expect(
+      screen.queryByText("Elige del tarifario cada línea, o quítala."),
+    ).toBeNull();
+    await waitFor(
+      () =>
+        expect(ultimaRevision().lineas).toEqual([
+          expect.objectContaining({
+            tarifario_id: 5,
+            descripcion: "Cabaña 6 personas, temporada media",
+            precio: 140000,
+            cantidad: 1,
+          }),
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("el administrador escribe a mano y también puede tomar del tarifario", async () => {
+    abrir();
+    expect(
+      await screen.findByPlaceholderText("Descripción"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Desc. %")).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Del tarifario/ }),
+    );
+    expect(
+      screen.getByText("Elige del tarifario cada línea, o quítala."),
     ).toBeInTheDocument();
   });
 });

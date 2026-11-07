@@ -7,7 +7,9 @@ import FacturacionPage from "./FacturacionPage";
 
 // LA SECCIÓN «FACTURACIÓN» (doc 19 §9.21, 06-11). Arriba «Nuevo documento»
 // con lo que cada uno puede emitir; abajo el detalle. Ya no están «Boleta
-// suelta», «Por boletear» ni «Emitidas hoy».
+// suelta», «Por boletear» ni «Emitidas hoy». Desde el 07-11 (§9.23) todo
+// se factura acá: recepción, la boleta y la factura del tarifario;
+// operaciones, además los eventos («Facturar eventos») y «Documentos».
 
 let rol = "recepcion";
 // Los permisos por cargo (doc 22 §7): sin lista propia, los de fábrica.
@@ -88,20 +90,27 @@ afterEach(() => {
 });
 
 describe("la sección Facturación", () => {
-  it("recepción: «Nuevo documento» la lleva directo a la boleta, sin pestañas", () => {
+  it("recepción: «Nuevo documento» ofrece la boleta y la factura del tarifario, sin pestañas", () => {
     abrir();
     expect(pestanas()).toEqual([]);
     expect(screen.queryByText("Boleta suelta")).not.toBeInTheDocument();
     expect(screen.queryByText(/Por boletear/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Emitidas hoy/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    expect(
+      screen.getByRole("button", { name: "Factura electrónica" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Nota de crédito" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Boleta electrónica" }));
     expect(screen.getByText("la boleta")).toBeInTheDocument();
     expect(
       screen.getByText(/Modo simulado: .*Los documentos/),
     ).toBeInTheDocument();
   });
 
-  it("operaciones: «Documentos» y «Por facturar» abajo, y la boleta arriba", () => {
+  it("operaciones: «Documentos» y «Por facturar» abajo, y la boleta y la factura arriba", () => {
     rol = "operaciones";
     abrir();
     expect(pestanas()).toEqual(["Documentos", "Por facturar (1)"]);
@@ -110,7 +119,10 @@ describe("la sección Facturación", () => {
     fireEvent.click(screen.getByRole("button", { name: "Documentos" }));
     expect(screen.getByText("lista de documentos")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    expect(screen.getByText("la boleta")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Factura electrónica" }),
+    );
+    expect(screen.getByText("la factura nueva")).toBeInTheDocument();
   });
 
   it("el administrador: el tarifario se queda, y «Nuevo documento» pregunta en una ventana qué documento (§9.22)", () => {
@@ -140,13 +152,19 @@ describe("la sección Facturación", () => {
     expect(screen.getByText("la factura nueva")).toBeInTheDocument();
   });
 
-  it("operaciones no ve la factura de cero: la emite el administrador (D5)", () => {
+  it("«Por facturar» va con «Facturar eventos», y «Documentos» con el suyo (§9.23)", () => {
     rol = "operaciones";
+    permisos = ["facturacion_eventos"];
     abrir();
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    expect(pestanas()).toEqual(["Por facturar (1)"]);
+    // Sin «Boletas y facturas del tarifario», no emite de cero.
     expect(
-      screen.queryByRole("button", { name: "Factura electrónica" }),
+      screen.queryByRole("button", { name: "Nuevo documento" }),
     ).toBeNull();
+    cleanup();
+    permisos = ["facturacion_documentos"];
+    abrir();
+    expect(pestanas()).toEqual(["Documentos"]);
   });
 
   it("con los interruptores: Documentos a recepción, sin el tarifario al administrador", () => {

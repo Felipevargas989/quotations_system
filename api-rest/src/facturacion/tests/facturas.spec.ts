@@ -131,6 +131,16 @@ const armar = ({
       folio: 1021,
       total: 2480000,
     }),
+    // §9.23: el tarifario de la factura de «Nuevo documento».
+    tarifario: jest.fn().mockResolvedValue([
+      {
+        id: 5,
+        nombre: 'Cabaña 6 personas, temporada media',
+        precio: 140000,
+        unidad: 'noche',
+        activo: true,
+      },
+    ]),
   };
   const servicio = new FacturasService(
     repo as never,
@@ -547,8 +557,8 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
   });
 
   it('la vista previa no trae la observación de la cotización ni el aviso del evento', async () => {
-    const { servicio } = armar();
-    const vista = await servicio.revisarSinEvento(1, {
+    const { servicio, boletas } = armar();
+    const vista = await servicio.revisarSinEvento(USUARIO, {
       ...SUELTA,
       tipo: 39,
     });
@@ -556,6 +566,31 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(vista.observaciones).toEqual([]);
     expect(vista.avisos).toEqual([]);
     expect(vista.montos?.total).toBe(2480000);
+    // El administrador con líneas a mano: el tarifario ni se lee.
+    expect(boletas.tarifario).not.toHaveBeenCalled();
+  });
+
+  it('recepción (§9.23): la línea del tarifario sale con su nombre y su precio, y a mano no se puede', async () => {
+    const { servicio, repo } = armar();
+    const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
+    await servicio.emitirSinEvento(RECEPCION, {
+      ...SUELTA,
+      lineas: [
+        {
+          descripcion: 'lo que sea',
+          descripcion_larga: 'Del 7 al 9 de noviembre',
+          cantidad: 2,
+          precio: 1,
+          tarifario_id: 5,
+        },
+      ],
+    });
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 33, total: 280000 }),
+    );
+    await expect(servicio.revisarSinEvento(RECEPCION, SUELTA)).rejects.toThrow(
+      'solo del administrador',
+    );
   });
 
   it('la condición de pago queda en el documento: crédito a 30 días si no se dice, o al contado', async () => {

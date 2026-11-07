@@ -44,7 +44,10 @@
 > factura, la NC que la anula y la ND que anula la NC salieron de verdad en
 > el ambiente de prueba de facturacion.cl, con su PDF; la tabla está en el
 > §9.18 (5b). Lo que queda: que Felipe lo revise en el Libro de Ventas, la
-> certificación y el «a producción».
+> certificación y el «a producción». **El 07-11, todo se factura en
+> Facturación** (§9.23, Felipe: *"ok hazlo"*): la pestaña del evento en
+> Post-Venta salió; recepción emite boletas y facturas con el tarifario, y
+> operaciones y el administrador facturan los eventos.
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -1176,6 +1179,10 @@ facturación se sumará a él con sus pestañas como permisos.
 
 ### 9.20 «Emitir DTE» en el evento (05-11)
 
+> Desde el 07-11 (§9.23) este «Emitir DTE» se abre solo desde Facturación →
+> «Por facturar»: la pestaña del evento en Post-Venta salió, y emite quien
+> tiene «Facturar eventos» (operaciones y el administrador).
+
 Felipe, 05-11, al revisar la pestaña Facturación del evento: *"el agregar
 la orden de compra creo que está mal e innecesario. Si yo en documentos
 tengo subido los documentos, se siguen subiendo todos en documentos. Si en
@@ -1508,6 +1515,61 @@ fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
   - **La lista a todo el ancho de la pantalla** (Felipe: *"si ocupas el
     ancho completo de la pantalla podrías tener más espacio"*); el
     documento que se arma sigue con su ancho de formulario.
+
+### 9.23 Todo se factura en Facturación (07-11)
+
+Felipe, 07-11: *"No estoy seguro si me convence que en postventa hay una
+parte de facturación (…) creo que se debería facturar todo desde el módulo
+de facturación, así las funciones quedan bien repartidas. Y lo que podemos
+separar es que el recepcionista solamente puede emitir boletas y facturas
+de cabañas según el tarifario, y los de operación y administrador pueden
+facturar los eventos que falten facturar"*. Se le propuso el reparto de
+abajo, con el vendedor apagado, y respondió *"ok hazlo"*.
+
+**Un solo lugar para facturar.** El mismo «Emitir DTE» estaba en dos
+partes: la pestaña Facturación del evento y «Por facturar». La pestaña de
+Post-Venta salió (`FacturacionTab` y `DocumentosEmitidos` borrados); el
+evento se factura solo en Facturación → «Por facturar». Post-Venta se queda
+con lo que es del evento: la OC se sube en Documentos (BelIA la lee al
+facturar) y el PDF de cada documento sigue llegando a Documentos →
+Facturas. Las puertas de las OC del evento (`/quotations/:id/ordenes-de-
+compra`) quedan sin pantalla.
+
+**Quién emite qué** (de fábrica; cada fila es un interruptor de Permisos
+por cargo, doc 22 §3.1):
+
+| Cargo | Qué emite | Dónde |
+|---|---|---|
+| Recepción | Boletas y facturas, solo con los precios del tarifario | Facturación → «Nuevo documento» |
+| Vendedor | Nada (se le prende si hace falta) | — |
+| Operaciones | Lo de recepción, más los eventos que faltan por facturar | Facturación → «Por facturar» |
+| Administrador | Todo: líneas a mano, descuento, notas de crédito y débito, y el tarifario | Facturación |
+
+- **Los interruptores:** «Boletas» pasó a llamarse «Boletas y facturas del
+  tarifario» (la misma clave `boletas`; el vendedor, apagado de fábrica), y
+  se sumó «Facturar eventos» (`facturacion_eventos`: operaciones y el
+  administrador), con «Por facturar», la facturación masiva y la emisión
+  del evento. **Cambia la D5:** los eventos ya no los emite solo el
+  administrador. La E5 sigue: anular o rebajar, solo el administrador.
+- **La factura del tarifario** (`facturas/del-tarifario.ts`, puro, lo usan
+  la vista previa y la emisión): cada línea elegida del tarifario lleva su
+  nombre y su precio con IVA de ahí, y la persona pone la cantidad y, si
+  quiere, la descripción larga. La línea a mano y el descuento son del
+  administrador, como en la boleta (D3). En la pantalla, recepción solo
+  ve «Elegir del tarifario» con el precio fijo; el administrador escribe a
+  mano y también tiene «+ Del tarifario».
+- **El destinatario de recepción:** lo busca en Clientes o lo crea, como
+  el administrador. Como no escribe en la ficha de los clientes, su razón
+  social no se guarda al crearlo: la guarda la emisión.
+- **Quien no ve la lista** (recepción) se queda en la factura después de
+  emitir, con la última a la vista y su PDF, como en la boleta.
+- **La entrada del menú** la ve quien tenga cualquiera de los cinco
+  permisos de Facturación: apagar uno no deja afuera de los otros.
+- **Lo que cubren las pruebas:** en el motor, `tests/del-tarifario.spec.ts`
+  y `facturas.spec.ts` (recepción emite con el tarifario y no a mano);
+  `permisos-de-fabrica.spec.ts` revisa que cada puerta diga lo mismo que el
+  catálogo. En la vitrina, `FacturaNueva.test.tsx` (recepción y el
+  administrador) y `FacturacionPage.test.tsx` (las pestañas por permiso).
 
 ### 9.11 Fuentes nuevas (04-11)
 

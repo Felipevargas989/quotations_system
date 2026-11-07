@@ -152,6 +152,9 @@ export interface LineaPedida {
   /** Solo la factura: el descuento de la línea en %, de 0 a menos de 100
    *  (§9.22). */
   descuento?: number | null;
+  /** La factura de «Nuevo documento» (§9.23): el ítem del tarifario de la
+   *  línea; su nombre y su precio los pone el motor (`del-tarifario.ts`). */
+  tarifario_id?: number | null;
 }
 
 /** Lo que se emite: lo propone BelIA y la persona lo corrige a mano (E4). */

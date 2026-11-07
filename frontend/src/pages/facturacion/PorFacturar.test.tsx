@@ -38,7 +38,7 @@ const abrir = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <PorFacturar puedeEmitir />
+        <PorFacturar />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -71,7 +71,7 @@ describe("Por facturar", () => {
     expect(screen.getByText("emitir el DTE de ev-501")).toBeInTheDocument();
   });
 
-  it("el administrador marca varios y los factura juntos", () => {
+  it("quien factura eventos marca varios y los factura juntos", () => {
     eventos = [501, 502].map((numero) => ({
       id: `ev-${numero}`,
       numero,

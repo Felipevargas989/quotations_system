@@ -9,19 +9,21 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
-import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
-import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
+import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import type { DtePedido } from './borrador';
 import { BaseDelDteDto, DtePedidoDto } from './factura.dto';
 import { FacturasService } from './facturas.service';
 
-// El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta, en la
-// pestaña «Facturación» de Post-Venta. Preparar (BelIA lee las OC de
-// Documentos), el borrador y la vista previa los ven operaciones y el
-// administrador; emitir es solo del administrador (D5). Solo en la empresa
-// con el módulo propio `facturacion`, y la empresa sale SIEMPRE de la
-// sesión.
+// El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta. Desde el
+// 07-11 se emite solo en Facturación → «Por facturar» (§9.23; la pestaña de
+// Post-Venta salió), y todo, también emitir, es de «Facturar eventos»
+// (`facturacion_eventos`: operaciones y el administrador, de fábrica; antes
+// emitía solo el administrador, D5). Felipe: *"los de operación y
+// administrador pueden facturar los eventos que falten facturar"*. Solo en
+// la empresa con el módulo propio `facturacion`, y la empresa sale SIEMPRE
+// de la sesión.
 @Derecho('facturacion')
 @Controller('quotations/:quotationId/facturas')
 export class FacturasController {
@@ -33,7 +35,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
-  @Permiso('postventa')
+  @Permiso('facturacion_eventos')
   @Get()
   documentos(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -43,7 +45,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
-  @Permiso('postventa')
+  @Permiso('facturacion_eventos')
   @Post('preparar')
   preparar(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -54,7 +56,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
-  @Permiso('postventa')
+  @Permiso('facturacion_eventos')
   @Post('borrador')
   borrador(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -71,7 +73,7 @@ export class FacturasController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
-  @Permiso('postventa')
+  @Permiso('facturacion_eventos')
   @Post('revisar')
   revisar(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
@@ -85,8 +87,8 @@ export class FacturasController {
     );
   }
 
-  @Roles(...ADMIN_ONLY)
-  @DentroDe('postventa')
+  @Roles(...OPERATIONS_AND_UP)
+  @Permiso('facturacion_eventos')
   @Post('emitir')
   emitir(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,

@@ -8,7 +8,7 @@ import type { EditarRazonSocialDto } from 'src/clients/razones-sociales/razon-so
 import { RazonesSocialesService } from 'src/clients/razones-sociales/razones-sociales.service';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
-import type { User } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
@@ -38,6 +38,7 @@ import {
 } from './borrador';
 import { ConexionConFacturacionCl } from './conexion';
 import { guardarCopiaDelPdf } from './copia-del-pdf';
+import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
 
@@ -389,18 +390,34 @@ export class FacturasService {
   }
 
   /** La factura de «Nuevo documento» (§9.21): de cero, sin evento ni OC.
-   *  La vista previa y la emisión pasan por la misma revisión. */
-  async revisarSinEvento(companyId: number, dto: DtePedido) {
-    const pedida = normalizada({
-      ...dto,
-      tipo: FACTURA,
-      orden_de_compra_id: null,
-    });
+   *  La vista previa y la emisión pasan por la misma revisión, y por las
+   *  mismas líneas del tarifario (§9.23). */
+  async revisarSinEvento(user: User, dto: DtePedido) {
+    const companyId = user.company_id;
+    const pedida = await this.pedidaSinEvento(user, dto);
     return this.vistaPrevia(
       pedida,
       await this.sinEvento(companyId, pedida.cliente_id),
       companyId,
     );
+  }
+
+  /** Lo que llega de «Nuevo documento», con las líneas del tarifario ya
+   *  puestas (`del-tarifario.ts`): la línea a mano y el descuento, solo el
+   *  administrador. */
+  private async pedidaSinEvento(user: User, dto: DtePedido) {
+    const lineas = dto.lineas ?? [];
+    const esAdministrador = user.role === UserRole.ADMINISTRADOR;
+    const tarifario =
+      usaElTarifario(lineas) || !esAdministrador
+        ? await this.boletas.tarifario(user.company_id)
+        : [];
+    return normalizada({
+      ...dto,
+      tipo: FACTURA,
+      orden_de_compra_id: null,
+      lineas: conElTarifario(lineas, tarifario, esAdministrador),
+    });
   }
 
   /** El buscador del destinatario de «Nuevo documento» (§9.22): los
@@ -411,11 +428,7 @@ export class FacturasService {
 
   async emitirSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
-    const pedida = normalizada({
-      ...dto,
-      tipo: FACTURA,
-      orden_de_compra_id: null,
-    });
+    const pedida = await this.pedidaSinEvento(user, dto);
     const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
     const fecha = hoyEnChile();

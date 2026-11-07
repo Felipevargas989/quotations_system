@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LARGO_MAXIMO } from "../../../constants/facturacion";
-import type { Receptor } from "../../../services/facturas.service";
+import type { LineaPedida, Receptor } from "../../../services/facturas.service";
 
 // LO QUE COMPARTEN EL DTE QUE ARMA BELIA (`EmitirDte`), SUS LÍNEAS
 // (`LineasDelDte`) Y «EDITAR RECEPTOR Y REFERENCIAS» (`EditarReceptor`): el
@@ -13,6 +13,21 @@ export const OTRA = "otra";
 export const claseCasilla =
   "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 export const claseTitulo = "flex justify-between text-xs text-gray-500";
+
+/** Una línea escrita a mano: descripción y precio libres. */
+export const lineaAMano = (): LineaPedida => ({
+  descripcion: "",
+  descripcion_larga: null,
+  cantidad: 1,
+  precio: 0,
+});
+
+/** Una línea del tarifario, todavía sin elegir (doc 19 §9.23): su nombre
+ *  y su precio llegan al elegir el ítem. */
+export const lineaDelTarifario = (): LineaPedida => ({
+  ...lineaAMano(),
+  tarifario_id: null,
+});
 
 export const RECEPTOR_VACIO: Receptor = {
   rut: "",

@@ -30,7 +30,7 @@ const PLURAL: Record<string, string> = {
 export const correoLimpio = (c: string | null | undefined) =>
   (c ?? '').trim().toLowerCase() || null;
 
-interface ItemDelTarifario {
+export interface ItemDelTarifario {
   id: number;
   nombre: string;
   precio: number;
