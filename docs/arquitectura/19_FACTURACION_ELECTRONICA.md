@@ -1440,6 +1440,17 @@ entregue: se averiguan antes de prometerlos.
 - Salieron la nota en un panel dentro de la lista (`NotaDeUnDocumento`), la
   que se elegía por mes (`ElegirDocumento` y `meses.ts`) y la boleta de
   antes (`BoletaSuelta`).
+- **Probado el 06-11 en el ambiente de prueba de facturacion.cl:** la
+  boleta N° 9300006574 (una tinaja, con la cabaña al comienzo de la línea)
+  y la nota de crédito N° 9999974795, que rebaja $1.000 la factura
+  N° 9999839219 (código 3; la factura quedó «Rebajada: queda $106.100»).
+  Las dos con su PDF.
+- **Medido ese día:** en el ambiente de prueba, la empresa de prueba de
+  facturacion.cl es compartida: entre dos boletas de Eventia (6566 y 6574)
+  se usaron siete folios que no son nuestros. Por eso el N° que anuncia la
+  vista previa de una boleta puede adelantarse, y «Comprobar» una boleta
+  que se cortó (L5) no es confiable en prueba: el folio pudo avanzar por
+  otro. En producción el rango de folios es solo de la empresa.
 
 ### 9.11 Fuentes nuevas (04-11)
 
