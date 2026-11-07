@@ -25,13 +25,17 @@ const normalizar = (t: string): string =>
     .replace(/[_\s]+/g, ' ')
     .trim();
 
-/** El nombre de la cotización detallada en «Mi postulación». */
-export const nombreDeLaCotizacionDetallada = (codigo: string): string =>
-  `Cotización detallada ${codigo}.docx`;
+/** El nombre de la cotización en «Mi postulación»: «Cotización detallada»
+ *  con el precio de cada servicio, «Cotización» en una sola línea. */
+export const nombreDeLaCotizacionDetallada = (
+  codigo: string,
+  detallada = true,
+): string => `Cotización${detallada ? ' detallada' : ''} ${codigo}.docx`;
 
-/** ¿Es la cotización detallada que arma el motor (o su firmado)? */
+/** ¿Es la cotización que arma el motor (o su firmado, o una subida a mano
+ *  con ese nombre)? */
 export const esLaCotizacionDetallada = (nombre: string): boolean =>
-  /^cotizacion detallada\b/.test(normalizar(nombre));
+  /^cotizacion\b/.test(normalizar(nombre));
 
 /** ¿Las bases piden una cotización como documento? En la sección 4 del
  *  análisis («Lo que tienes que presentar»), con la oferta. */
@@ -43,6 +47,26 @@ export const pidenLaCotizacion = (
       typeof d?.nombre === 'string' &&
       /\bcotizacion\b/.test(normalizar(d.nombre)) &&
       (d.cuando === undefined || d.cuando === 'con_la_oferta'),
+  );
+
+/** ¿Piden el precio de cada servicio? Una «cotización detallada», con
+ *  desglose o con precios unitarios. Si no, la cotización va en una sola
+ *  línea, con lo que incluye y sin precio por ítem (Felipe eligió ese
+ *  formato con la 3904-996-COT26 de Bulnes, que pedía una cotización formal
+ *  y aparte el detalle del servicio, sin costos). */
+export const pidenElDetalle = (
+  resultado: Record<string, unknown> | null | undefined,
+): boolean =>
+  (Array.isArray(resultado?.documentos) ? resultado.documentos : []).some(
+    (d: { nombre?: unknown; condicion?: unknown }) => {
+      const t = normalizar(
+        `${typeof d?.nombre === 'string' ? d.nombre : ''} ${typeof d?.condicion === 'string' ? d.condicion : ''}`,
+      );
+      return (
+        /\bcotizacion\b/.test(t) &&
+        /detallad|desglos|por item|unitari|por servicio/.test(t)
+      );
+    },
   );
 
 /** Lo que dice el set si las bases piden la cotización y no va: la arma
@@ -210,6 +234,10 @@ export type DatosDeLaCotizacionDetallada = {
   dias: DiaDeLaCotizacion[];
   /** El precio que se postula, con IVA. */
   total: number;
+  /** Una sola línea por el total, con lo que incluye y sin precio por ítem:
+   *  si las bases no piden el detalle de precios o si el precio que se
+   *  postula pasa la cotización (decisión 119). */
+  unaSolaLinea?: boolean;
   /** Lo que la propuesta técnica describe: se nombra si va. */
   conPropuesta: boolean;
   plazo: string | null;
@@ -346,9 +374,29 @@ const deDatos = (pares: Array<[string, string]>): string =>
 const logoEnLinea = (alto: number, ancho: number): string =>
   `<w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${ancho}" cy="${alto}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${ancho}" cy="${alto}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 
+/** «Incluye: miércoles 11 de noviembre de 2026: salón…; desayuno para 20
+ *  personas (té, café…)». Sin precios. */
+export const loQueIncluye = (dias: DiaDeLaCotizacion[]): string =>
+  `Incluye: ${dias
+    .map(
+      (d, i) =>
+        // El primer día va en minúscula tras «Incluye:»; los demás, tras un
+        // punto, con mayúscula.
+        `${i === 0 ? d.titulo.replace(/^./, (c) => c.toLowerCase()) : d.titulo}: ${d.lineas
+          .map((l) =>
+            l.detalle
+              ? `${l.servicio} para ${l.cantidad} (${l.detalle})`
+              : l.servicio,
+          )
+          .join('; ')}`,
+    )
+    .join('. ')}.`;
+
 /** El cuerpo del Word, sin el logo. */
 const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
-  const subtotal = d.dias.reduce((s, x) => s + x.subtotal, 0);
+  const subtotal = d.unaSolaLinea
+    ? d.total
+    : d.dias.reduce((s, x) => s + x.subtotal, 0);
   const descuento = subtotal - d.total;
   const { neto, iva } = desgloseDeOferta(d.total);
   const cuatro = A_DETALLE.slice(0, 4).reduce((s, a) => s + a, 0);
@@ -381,7 +429,18 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
       ),
     ),
   ];
-  for (const dia of d.dias) {
+  if (d.unaSolaLinea) {
+    detalle.push(
+      fila(
+        celda('Servicio integral', { ancho: A_DETALLE[0] }),
+        celda(loQueIncluye(d.dias), { ancho: A_DETALLE[1] }),
+        celda('1 servicio', { ancho: A_DETALLE[2], alineado: 'center' }),
+        celda(pesos(d.total), { ancho: A_DETALLE[3], alineado: 'right' }),
+        celda(pesos(d.total), { ancho: A_DETALLE[4], alineado: 'right' }),
+      ),
+    );
+  }
+  for (const dia of d.unaSolaLinea ? [] : d.dias) {
     detalle.push(
       fila(celda(dia.titulo, { ancho: ANCHO, juntas: 5, negrita: true })),
     );
@@ -421,9 +480,15 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
   detalle.push(tot('Total con IVA incluido', pesos(d.total), true));
 
   const partes = [
-    parrafo(corrida('COTIZACIÓN DETALLADA', { negrita: true, tam: 32 }), {
-      despues: 60,
-    }),
+    parrafo(
+      corrida(d.unaSolaLinea ? 'COTIZACIÓN' : 'COTIZACIÓN DETALLADA', {
+        negrita: true,
+        tam: 32,
+      }),
+      {
+        despues: 60,
+      },
+    ),
     parrafo(
       corrida(d.proceso, { negrita: true }) +
         corrida(`\n${d.nombre}${d.comprador ? `\n${d.comprador}` : ''}`),
