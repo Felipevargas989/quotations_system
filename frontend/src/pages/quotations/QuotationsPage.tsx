@@ -327,7 +327,8 @@ export default function QuotationsPage() {
     if (next && next < hoy) {
       const d = diasEntreFechas(next, hoy);
       return {
-        texto: `Vencido hace ${d} d`,
+        // Sin «hace», como «Sin gestión 5 d» (Felipe, 06-11-2026).
+        texto: `Vencido ${d} d`,
         clase: "bg-red-100 text-red-800",
         urgencia: 1000 + d,
       };
@@ -1148,68 +1149,74 @@ export default function QuotationsPage() {
                             : ""}
                           {formatISOUTCDateToString(quotation.event_date)}
                         </p>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-gray-900">
-                            ${quotation.total_amount.toLocaleString("es-CL")}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {sem && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/negocio/${quotation.id}`);
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
-                                title="Abrir bitácora de seguimiento"
-                              >
-                                <MessageSquare size={12} className="shrink-0" />
-                                {sem.texto}
-                              </button>
-                            )}
+                        <p className="mt-2 text-sm font-semibold text-gray-900">
+                          ${quotation.total_amount.toLocaleString("es-CL")}
+                        </p>
+                        {/* La línea de abajo (Felipe, 06-11-2026: "opción A
+                            abajo todo pero el PDF también abajo"): el
+                            recordatorio siempre en el mismo lugar, abajo a
+                            la izquierda, "cosa de acostumbrar la vista a
+                            ver el chip"; después el tope, o el seguimiento
+                            con IA de la vencida por correo (doc 18: la IA
+                            deja el borrador en Outlook), y el PDF al final.
+                            Los chips miden lo mismo: 22 px. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {sem && (
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleViewQuotation(quotation);
+                                navigate(`/negocio/${quotation.id}`);
                               }}
-                              className="text-sm font-semibold text-blue-600 hover:underline"
-                              title="Ver el documento de la cotización"
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 border border-transparent text-xs font-semibold rounded-full ${sem.clase}`}
+                              title="Abrir bitácora de seguimiento"
                             >
-                              PDF
+                              <MessageSquare size={12} className="shrink-0" />
+                              {sem.texto}
                             </button>
-                          </div>
+                          )}
+                          <AvisoDeChoque
+                            compacto
+                            choques={choquesDeFecha.choquesDe(quotation.id)}
+                            puedeDecidir={puedeEditar}
+                            guardando={choquesDeFecha.guardandoDe(quotation.id)}
+                            onSeguir={(lista) =>
+                              void choquesDeFecha.seguir(lista)
+                            }
+                          />
+                          {conSeguimientoIA &&
+                            pendientesIA.has(quotation.id) && (
+                              <BotonSeguimientoIA
+                                compacto
+                                trabajando={
+                                  seguimientoIA.trabajando === quotation.id
+                                }
+                                ocupado={seguimientoIA.ocupado}
+                                resultado={seguimientoIA.resultadoDe(
+                                  quotation.id,
+                                )}
+                                enEspera={seguimientoIA.borradorDe(
+                                  quotation.id,
+                                )}
+                                onGenerar={() =>
+                                  void seguimientoIA.generar({
+                                    id: quotation.id,
+                                    numero: quotation.quotation_number,
+                                  })
+                                }
+                              />
+                            )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewQuotation(quotation);
+                            }}
+                            className="ml-auto text-sm font-semibold text-blue-600 hover:underline"
+                            title="Ver el documento de la cotización"
+                          >
+                            PDF
+                          </button>
                         </div>
-                        {/* Vencida por correo: la IA deja el seguimiento
-                            de borrador en Outlook (doc 18). */}
-                        {conSeguimientoIA && pendientesIA.has(quotation.id) && (
-                          <div className="mt-2">
-                            <BotonSeguimientoIA
-                              trabajando={
-                                seguimientoIA.trabajando === quotation.id
-                              }
-                              ocupado={seguimientoIA.ocupado}
-                              resultado={seguimientoIA.resultadoDe(
-                                quotation.id,
-                              )}
-                              enEspera={seguimientoIA.borradorDe(quotation.id)}
-                              onGenerar={() =>
-                                void seguimientoIA.generar({
-                                  id: quotation.id,
-                                  numero: quotation.quotation_number,
-                                })
-                              }
-                            />
-                          </div>
-                        )}
-                        <AvisoDeChoque
-                          compacto
-                          choques={choquesDeFecha.choquesDe(quotation.id)}
-                          puedeDecidir={puedeEditar}
-                          guardando={choquesDeFecha.guardandoDe(quotation.id)}
-                          onSeguir={(lista) =>
-                            void choquesDeFecha.seguir(lista)
-                          }
-                        />
                       </div>
                     );
                   })
