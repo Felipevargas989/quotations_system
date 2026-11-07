@@ -143,7 +143,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, quotation_number, quotation_status, event_type, event_date, event_end_date, people_count, children_count, total_amount, client_id, cliente:clients(name, email), mandante:client_contacts!quotations_client_contact_id_fkey(email)',
+        'id, quotation_number, quotation_status, event_type, event_date, event_end_date, people_count, children_count, total_amount, client_id, cliente:clients(name, email, client_type), mandante:client_contacts!quotations_client_contact_id_fkey(email)',
       )
       .eq('id', quotationId)
       .eq('company_id', companyId)
@@ -161,7 +161,11 @@ export class DocumentosTributariosRepository {
       children_count: number | null;
       total_amount: number | string | null;
       client_id: string | null;
-      cliente: { name?: string | null; email?: string | null } | null;
+      cliente: {
+        name?: string | null;
+        email?: string | null;
+        client_type?: string | null;
+      } | null;
       mandante: { email?: string | null } | null;
     };
     return {
@@ -176,6 +180,7 @@ export class DocumentosTributariosRepository {
       total: Math.round(Number(q.total_amount ?? 0)),
       clientId: q.client_id,
       cliente: q.cliente?.name?.trim() || null,
+      tipoDeCliente: q.cliente?.client_type?.trim() || null,
       correo: q.mandante?.email?.trim() || q.cliente?.email?.trim() || null,
     };
   }
@@ -406,6 +411,92 @@ export class DocumentosTributariosRepository {
     for (const o of (data ?? []) as { quotation_id: string }[])
       cuantas.set(o.quotation_id, (cuantas.get(o.quotation_id) ?? 0) + 1);
     return cuantas;
+  }
+
+  /** Los eventos marcados con «Ya está facturado» (doc 19 §9.24, migración
+   *  191): se facturaron fuera de Eventia y salen de «Por facturar». */
+  async facturadosFuera(companyId: number, ids: string[]) {
+    const marcados = new Map<string, { por: string | null; en: string }>();
+    if (!ids.length) return marcados;
+    const { data, error } = await this.supabase.client
+      .from('eventos_facturados_fuera')
+      .select('quotation_id, marcado_por_nombre, created_at')
+      .eq('company_id', companyId)
+      .in('quotation_id', ids);
+    if (error) throw error;
+    for (const m of (data ?? []) as {
+      quotation_id: string;
+      marcado_por_nombre: string | null;
+      created_at: string;
+    }[])
+      marcados.set(m.quotation_id, {
+        por: m.marcado_por_nombre,
+        en: m.created_at,
+      });
+    return marcados;
+  }
+
+  /** De esos eventos (ya filtrados por la empresa), los que tienen en
+   *  Documentos el PDF de una factura subido a mano: el aviso «Tiene
+   *  factura en Documentos» (§9.24). Las copias que deja Eventia al emitir
+   *  (`pdf_path` de lo emitido) no cuentan: eso ya lo dice lo emitido. */
+  async conFacturaEnDocumentos(companyId: number, ids: string[]) {
+    const con = new Set<string>();
+    if (!ids.length) return con;
+    const [subidos, copias] = await Promise.all([
+      this.supabase.client
+        .from('event_documents')
+        .select('quotation_id, file_url')
+        .eq('category', 'facturas')
+        .in('quotation_id', ids),
+      this.supabase.client
+        .from('documentos_tributarios')
+        .select('pdf_path')
+        .eq('company_id', companyId)
+        .in('quotation_id', ids)
+        .not('pdf_path', 'is', null),
+    ]);
+    if (subidos.error) throw subidos.error;
+    if (copias.error) throw copias.error;
+    const deEventia = new Set(
+      ((copias.data ?? []) as { pdf_path: string }[]).map((c) => c.pdf_path),
+    );
+    for (const d of (subidos.data ?? []) as {
+      quotation_id: string;
+      file_url: string;
+    }[])
+      if (!deEventia.has(d.file_url)) con.add(d.quotation_id);
+    return con;
+  }
+
+  /** «Ya está facturado»: lo marca (o lo deja como estaba si ya lo está). */
+  async marcarFacturadoFuera(
+    companyId: number,
+    quotationId: string,
+    por: { id: string | null; nombre: string | null },
+  ) {
+    const { error } = await this.supabase.client
+      .from('eventos_facturados_fuera')
+      .upsert(
+        {
+          quotation_id: quotationId,
+          company_id: companyId,
+          marcado_por: por.id,
+          marcado_por_nombre: por.nombre,
+        },
+        { onConflict: 'quotation_id', ignoreDuplicates: true },
+      );
+    if (error) throw error;
+  }
+
+  /** «Devolver»: el evento vuelve a «Por facturar». */
+  async desmarcarFacturadoFuera(companyId: number, quotationId: string) {
+    const { error } = await this.supabase.client
+      .from('eventos_facturados_fuera')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId);
+    if (error) throw error;
   }
 
   /** La razón social guardada con ese RUT (de cualquier cliente de la

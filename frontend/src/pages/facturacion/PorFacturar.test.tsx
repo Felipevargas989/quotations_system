@@ -1,22 +1,44 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PorFacturar from "./PorFacturar";
 
 // «POR FACTURAR» (doc 19 §9.21): los eventos con algo por emitir, y
-// «Facturar» abre ahí mismo el «Emitir DTE» del evento.
+// «Facturar» abre ahí mismo el «Emitir DTE» del evento. Lo facturado fuera
+// de Eventia (§9.24): «Ya está facturado», abajo plegado, y «Devolver».
 
 let eventos: unknown[] = [];
+let fuera: unknown[] = [];
 vi.mock("./consultas", () => ({
   LLAVE_POR_FACTURAR: ["facturacion", "por-facturar"],
   usePorFacturar: () => ({
     isPending: false,
     isError: false,
-    data: { ambiente: "simulado", desde: "2026-08-08", eventos },
+    data: {
+      ambiente: "simulado",
+      desde: "2026-08-08",
+      eventos,
+      facturados_fuera: fuera,
+    },
   }),
+}));
+const marcarFacturadoFuera = vi.fn().mockResolvedValue({ ok: true });
+const devolverAPorFacturar = vi.fn().mockResolvedValue({ ok: true });
+vi.mock("../../services/facturas.service", () => ({
+  marcarFacturadoFuera: (id: string) => marcarFacturadoFuera(id),
+  devolverAPorFacturar: (id: string) => devolverAPorFacturar(id),
+}));
+vi.mock("../../components/toast/Toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 vi.mock("./FacturacionMasiva", () => ({
   default: ({ eventos }: { eventos: { numero: number }[] }) => (
@@ -32,7 +54,22 @@ vi.mock("../postventa/facturacion/EmitirDte", () => ({
 afterEach(() => {
   cleanup();
   eventos = [];
+  fuera = [];
+  vi.clearAllMocks();
 });
+
+const EVENTO = {
+  id: "ev-473",
+  numero: 473,
+  estado: "realizada",
+  tipoDeEvento: "Seminario",
+  fecha: "2026-08-10",
+  cliente: "Municipalidad",
+  total: 1245000,
+  emitido: 0,
+  queda: 1245000,
+  ocs: 1,
+};
 
 const abrir = () =>
   render(
@@ -97,5 +134,49 @@ describe("Por facturar", () => {
     expect(
       screen.getByText(/Todos los eventos desde el 08-08-2026 están emitidos/),
     ).toBeInTheDocument();
+  });
+
+  it("el PDF de una factura en Documentos se avisa bajo el cliente (§9.24)", () => {
+    eventos = [{ ...EVENTO, tiene_factura_en_documentos: true }];
+    abrir();
+    expect(screen.getByText("Tiene factura en Documentos")).toBeInTheDocument();
+    expect(screen.getByText("1 OC")).toBeInTheDocument();
+  });
+
+  it("«Ya está facturado» pregunta antes y lo saca de la lista", async () => {
+    eventos = [EVENTO];
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Ya está facturado" }));
+    expect(
+      screen.getByText("¿Ya se facturó fuera de Eventia?"),
+    ).toBeInTheDocument();
+    expect(marcarFacturadoFuera).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, sacarlo" }));
+    await waitFor(() =>
+      expect(marcarFacturadoFuera).toHaveBeenCalledWith("ev-473"),
+    );
+  });
+
+  it("lo facturado fuera queda abajo, plegado, con quién lo marcó y «Devolver»", async () => {
+    fuera = [
+      {
+        ...EVENTO,
+        marcado_por: "Felipe",
+        marcado_en: "2026-11-07T20:00:00Z",
+      },
+    ];
+    abrir();
+    // Sin pendientes, igual se ve lo facturado fuera.
+    expect(screen.getByText(/están emitidos/)).toBeInTheDocument();
+    const plegado = screen.getByRole("button", {
+      name: /Facturados fuera de Eventia \(1\)/,
+    });
+    expect(screen.queryByText("Felipe · 7 nov.")).not.toBeInTheDocument();
+    fireEvent.click(plegado);
+    expect(screen.getByText("Felipe · 7 nov.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver" }));
+    await waitFor(() =>
+      expect(devolverAPorFacturar).toHaveBeenCalledWith("ev-473"),
+    );
   });
 });

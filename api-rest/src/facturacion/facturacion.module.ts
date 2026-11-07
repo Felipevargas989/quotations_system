@@ -10,6 +10,7 @@ import { FacturaSinEventoController } from './facturas/factura-sin-evento.contro
 import { FacturasController } from './facturas/facturas.controller';
 import { FacturasService } from './facturas/facturas.service';
 import { PorFacturarController } from './facturas/por-facturar.controller';
+import { PorFacturarService } from './facturas/por-facturar.service';
 import { NotasController } from './notas/notas.controller';
 import { NotasService } from './notas/notas.service';
 import { LeerOrdenDeCompraService } from './ordenes-de-compra/leer-orden-de-compra.service';
@@ -41,6 +42,7 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     OrdenesDeCompraRepository,
     LeerOrdenDeCompraService,
     FacturasService,
+    PorFacturarService,
     DocumentosTributariosRepository,
     ConexionConFacturacionCl,
     BoletasService,

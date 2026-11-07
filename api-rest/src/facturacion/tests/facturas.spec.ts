@@ -83,6 +83,8 @@ const armar = ({
     ultimoFolio: () => Promise.resolve(41),
   }),
   errorAlCrear = null as { code: string } | null,
+  // Los tipos de cliente particulares (doc 21); sin ellos, como antes.
+  particulares = null as string[] | null,
 } = {}) => {
   let fila: Record<string, unknown> = {};
   const repo = {
@@ -142,6 +144,9 @@ const armar = ({
       },
     ]),
   };
+  const alcance = particulares
+    ? { particulares: jest.fn().mockResolvedValue(new Set(particulares)) }
+    : undefined;
   const servicio = new FacturasService(
     repo as never,
     ordenes as never,
@@ -151,6 +156,7 @@ const armar = ({
     mockPinoLogger() as never,
     ocs as never,
     boletas as never,
+    alcance as never,
   );
   return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
@@ -402,6 +408,28 @@ describe('Preparar el DTE', () => {
     ocs.deDocumentos.mockResolvedValue({ ordenes: [], sinLeer: [] });
     expect((await servicio.preparar('ev-423', USUARIO)).tipo).toBe(39);
   });
+
+  describe('la boleta, solo a un particular (§9.24)', () => {
+    const sinDatos = (tipoDeCliente: string | null) => {
+      const r = armar({ particulares: ['particulares'] });
+      r.ocs.deDocumentos.mockResolvedValue({ ordenes: [], sinLeer: [] });
+      r.repo.eventoAFacturar.mockResolvedValue({ ...EVENTO, tipoDeCliente });
+      return r.servicio.preparar('ev-423', USUARIO);
+    };
+
+    it('a una empresa sin OC ni datos de facturación, la factura', async () => {
+      expect((await sinDatos('Empresas')).tipo).toBe(33);
+    });
+
+    it('a un particular sin OC ni razón social, la boleta', async () => {
+      expect((await sinDatos('Particulares')).tipo).toBe(39);
+      expect((await sinDatos('  PARTICULARES ')).tipo).toBe(39);
+    });
+
+    it('un cliente sin tipo no es particular: la factura', async () => {
+      expect((await sinDatos(null)).tipo).toBe(33);
+    });
+  });
 });
 
 describe('Lo que acepta el motor', () => {
@@ -444,89 +472,6 @@ describe('Lo que acepta el motor', () => {
         ],
       }),
     ).toEqual([]);
-  });
-});
-
-describe('Por facturar (§9.21)', () => {
-  const doc = (
-    id: number,
-    tipo: number,
-    total: number,
-    quotation_id: string,
-    nota: { modifica_id: number; codigo_referencia: number } | null = null,
-  ) => ({
-    id,
-    tipo,
-    folio: id,
-    estado: 'emitido',
-    total,
-    fecha_emision: '2026-11-01',
-    modifica_id: nota?.modifica_id ?? null,
-    codigo_referencia: nota?.codigo_referencia ?? null,
-    orden_de_compra_id: null,
-    quotation_id,
-  });
-
-  it('los eventos con algo por emitir: lo emitido con la cadena, y las boletas también cuentan', async () => {
-    const { servicio, repo } = armar();
-    const r = repo as unknown as Record<string, jest.Mock>;
-    r.eventosDesde = jest.fn().mockResolvedValue([
-      {
-        id: 'ev-501',
-        numero: 501,
-        estado: 'aceptada',
-        tipoDeEvento: 'Paseo fin de año',
-        fecha: '2026-12-06',
-        total: 1000000,
-        cliente: 'CCU',
-      },
-      {
-        id: 'ev-502',
-        numero: 502,
-        estado: 'realizada',
-        tipoDeEvento: 'Matrimonio',
-        fecha: '2026-10-20',
-        total: 800000,
-        cliente: 'Los novios',
-      },
-      {
-        id: 'ev-503',
-        numero: 503,
-        estado: 'realizada',
-        tipoDeEvento: 'Seminario',
-        fecha: '2026-10-25',
-        total: 500000,
-        cliente: 'Municipalidad',
-      },
-    ]);
-    r.emitidoDeLosEventos = jest.fn().mockResolvedValue([
-      // La 501, con una factura de $400.000.
-      doc(1, 33, 400000, 'ev-501'),
-      // La 502, con una boleta por todo: no queda nada.
-      doc(2, 39, 800000, 'ev-502'),
-      // La 503, con su factura anulada por una NC: ya no cuenta.
-      doc(3, 33, 500000, 'ev-503'),
-      doc(4, 61, 500000, 'ev-503', { modifica_id: 3, codigo_referencia: 1 }),
-    ]);
-    r.ocsDeLosEventos = jest.fn().mockResolvedValue(new Map([['ev-501', 1]]));
-
-    const lista = await servicio.porFacturar(1);
-    expect(
-      lista.eventos.map((e) => [e.numero, e.emitido, e.queda, e.ocs]),
-    ).toEqual([
-      [501, 400000, 600000, 1],
-      [503, 0, 500000, 0],
-    ]);
-    expect(lista.ambiente).toBe('simulado');
-    expect(r.eventosDesde).toHaveBeenCalledWith(
-      1,
-      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-    );
-    expect(r.emitidoDeLosEventos).toHaveBeenCalledWith(1, 'simulado', [
-      'ev-501',
-      'ev-502',
-      'ev-503',
-    ]);
   });
 });
 
