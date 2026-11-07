@@ -13,11 +13,13 @@ import {
 } from '../adjuntos/adjuntos.repository';
 import { sello, TIPOS_POR_EXTENSION } from '../adjuntos/adjuntos.service';
 import { AnalisisRepository } from '../analisis/analisis.repository';
-import { fechaLarga } from '../generacion/instrucciones';
+import { fechaLarga, pesos } from '../generacion/instrucciones';
 import { bajarLogo, urlDelLogo } from '../generacion/logo';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import { calzaCon, repartirElPrecio } from './el-reparto';
 import {
   armarLaCotizacionDetallada,
+  type DiaDeLaCotizacion,
   diasDeLaCotizacion,
   medidasDeLaImagen,
   nombreDeLaCotizacionDetallada,
@@ -28,9 +30,9 @@ import { PostulacionRepository } from './postulacion.repository';
 
 // LA COTIZACIÓN DETALLADA EN «MI POSTULACIÓN» (decisión 119 del doc 17,
 // 07-11, parte 2). La arma «Armar postulación» cuando las bases piden una
-// cotización y hay una vinculada: el Word sale del motor, sin IA, con las
-// cifras de la cotización, y queda sin firma como lo demás. Se firma con
-// «Firmar».
+// cotización y hay una vinculada: el Word sale del motor, sin IA, con los
+// servicios de la cotización y el precio que se postula repartido entre
+// ellos, y queda sin firma como lo demás. Se firma con «Firmar».
 
 const TIPO_WORD = TIPOS_POR_EXTENSION.docx;
 
@@ -54,7 +56,13 @@ export class LaCotizacionDetalladaService {
     oportunidadId: number,
     ofertaId: number,
     total: number,
-    opciones: { conPropuesta: boolean; reemplaza: number[] },
+    opciones: {
+      conPropuesta: boolean;
+      reemplaza: number[];
+      /** El reparto que calculó «Armar postulación» (el mismo que va a los
+       *  formularios); sin él, se calcula aquí igual. */
+      reparto?: DiaDeLaCotizacion[] | null;
+    },
   ): Promise<Adjunto> {
     const companyId = user.company_id;
     const o = await this.repo.oportunidad(companyId, oportunidadId);
@@ -85,13 +93,24 @@ export class LaCotizacionDetalladaService {
     }
     // El precio que manda es el que se postula, no el de la cotización
     // (Felipe postula a propósito por otro monto y, si gana, ajusta la
-    // cotización). Con el detalle de precios solo si las bases lo piden y
-    // el precio cabe en la cotización: lo que baja va como descuento
-    // (precios nunca a dedo). Si no, una sola línea por el total, con lo que
-    // incluye y sin precio por ítem, como eligió Felipe con la
-    // 3904-996-COT26.
+    // cotización): "la cotización manda en los servicios". Con el detalle
+    // de precios si las bases lo piden: cada precio repartido en la misma
+    // proporción hasta el que se postula, suba o baje, sin línea de
+    // descuento (el-reparto.ts). Si no lo piden, una sola línea por el
+    // total, con lo que incluye y sin precio por ítem, como eligió Felipe
+    // con la 3904-996-COT26.
     const resultado = analisis?.estado === 'listo' ? analisis.resultado : null;
-    const detallada = pidenElDetalle(resultado) && total <= subtotal;
+    const detallada = pidenElDetalle(resultado);
+    const repartidos = !detallada
+      ? null
+      : calzaCon(opciones.reparto, total)
+        ? opciones.reparto
+        : repartirElPrecio(dias, total);
+    if (detallada && !repartidos) {
+      throw new BadRequestException(
+        `No pudimos repartir ${pesos(total)} entre los servicios de la cotización N° ${q.quotation_number}.`,
+      );
+    }
     if (q.subtotal_amount && q.subtotal_amount !== subtotal) {
       this.logger.warn(
         `cotización ${q.quotation_number}: sus líneas suman ${subtotal} y su subtotal dice ${q.subtotal_amount}`,
@@ -157,7 +176,7 @@ export class LaCotizacionDetalladaService {
       ).flatMap(([k, v]) =>
         v?.trim() ? [[k, v.trim()] as [string, string]] : [],
       ),
-      dias,
+      dias: repartidos ?? dias,
       total,
       unaSolaLinea: !detallada,
       marca: primario ? { primario, secundario: secundario ?? 'F3F4F6' } : null,

@@ -267,7 +267,9 @@ export default function ArmarPostulacion({
           <p className="text-xs text-gray-500">
             {vinculada
               ? `Pones el precio y la IA arma todo con tu cotización N° ${vinculada.numero}, cumpliendo las bases. Sale `
-              : "Pones el precio y la IA arma todo con tu catálogo. Sale "}
+              : vuelta
+                ? "Pones el precio y la IA arma todo con tu catálogo. Sale "
+                : "Pones el precio y la IA arma todo con tu catálogo, o con tu cotización si la vinculas abajo, en «El precio». Sale "}
             <b>sin firma</b> a «Tus documentos»: revísalo y recién ahí fírmalo.
             Al volver a armar, <b>lo firmado se queda</b>.
           </p>
@@ -351,6 +353,11 @@ export default function ArmarPostulacion({
         <p className="text-xs text-gray-500">
           Neto {pesos(desglose.neto)} + IVA {pesos(desglose.iva)}. El neto y el
           IVA los calcula Eventia: la IA nunca pone un precio.
+          {/* El reparto (decisión 119, 07-11): la cotización manda en los
+              servicios y este total, en el precio. */}
+          {vinculada
+            ? ` Si piden precio por ítem, este total se reparte en la misma proporción sobre los precios de tu cotización N° ${vinculada.numero}.`
+            : ""}
         </p>
       )}
 

@@ -51,11 +51,40 @@ const archivo = (id: number, nombre: string, origen: string) => ({
   creado_en: '2026-11-06T22:44:00.000Z',
 });
 
+/** La cotización vinculada: un salón y un almuerzo para 20, $500.000. */
+const LA_VINCULADA = {
+  id: 'd5dee709',
+  quotation_number: 574,
+  quotation_status: 'solicitada',
+  people_count: 20,
+  children_count: null,
+  event_date: '2026-11-11',
+  event_end_date: null,
+  subtotal_amount: 500_000,
+  discount_amount: 0,
+  total_amount: 500_000,
+  client: null,
+  items: {
+    fixed_services: [
+      { day: 1, nombre: 'Salón auditorio', precio: 250_000, quantity: 1 },
+    ],
+    variable_services: [
+      {
+        day: 1,
+        people: 20,
+        category: 'Almuerzo',
+        items: [{ nombre: 'Carne mechada', precio: 12_500, quantity: 1 }],
+      },
+    ],
+  },
+};
+
 function armar(
   extra: {
     archivos?: unknown[];
     trabajos?: unknown[];
     conDetallada?: boolean;
+    tipo?: string;
   } = {},
 ) {
   const oferta = {
@@ -83,8 +112,9 @@ function armar(
     oportunidad: jest.fn().mockResolvedValue({
       id: 11072,
       quotation_id: 'd5dee709',
-      proceso: { tipo: 'compra_agil' },
+      proceso: { tipo: extra.tipo ?? 'compra_agil' },
     }),
+    cotizacion: jest.fn().mockResolvedValue(LA_VINCULADA),
     archivosDelSet: jest.fn().mockResolvedValue(extra.archivos ?? []),
     trabajosDeLaIA: jest.fn().mockResolvedValue(extra.trabajos ?? []),
   };
@@ -106,7 +136,7 @@ function armar(
       ? undefined
       : (detallada as unknown as LaCotizacionDetalladaService),
   );
-  return { servicio, oferta, documentos, generaciones, detallada };
+  return { servicio, oferta, documentos, generaciones, detallada, repo };
 }
 
 /** «Armar postulación» y lo que sigue cuando la oferta quedó lista. */
@@ -134,7 +164,7 @@ describe('Armar postulación arma la cotización detallada', () => {
       11072,
       105,
       1_780_000,
-      { conPropuesta: true, reemplaza: [90] },
+      { conPropuesta: true, reemplaza: [90], reparto: expect.any(Array) },
     );
     expect(s.documentos.crearPropuesta).toHaveBeenCalled();
     expect(s.documentos.generarAnexos).not.toHaveBeenCalled();
@@ -200,6 +230,49 @@ describe('Armar postulación arma la cotización detallada', () => {
         ],
       }),
     });
+  });
+
+  it('el precio se reparte una sola vez sobre la vinculada y las mismas cifras van a la cotización y a los formularios (Felipe, 07-11)', async () => {
+    // Una licitación: con formularios que llenar.
+    const s = armar({ tipo: 'licitacion' });
+    await armarYSeguir(s, 600_000);
+    const [, , , , cotizacion] = s.detallada.armar.mock.calls[0] as [
+      unknown,
+      unknown,
+      unknown,
+      unknown,
+      { reparto: Array<{ lineas: Array<{ unitario: number }> }> },
+    ];
+    const [, , , anexos] = s.documentos.generarAnexos.mock.calls[0] as [
+      unknown,
+      unknown,
+      unknown,
+      { monto_total: number; reparto: unknown },
+    ];
+    expect(anexos.monto_total).toBe(600_000);
+    expect(anexos.reparto).toBe(cotizacion.reparto);
+    // $500.000 hasta $600.000: todo sube un 20 %.
+    expect(cotizacion.reparto[0].lineas.map((l) => l.unitario)).toEqual([
+      300_000, 15_000,
+    ]);
+  });
+
+  it('sin cotización vinculada no hay reparto: los formularios dejan el precio por ítem pendiente, como antes', async () => {
+    const s = armar({ tipo: 'licitacion' });
+    s.repo.oportunidad.mockResolvedValue({
+      id: 11072,
+      quotation_id: null,
+      proceso: { tipo: 'licitacion' },
+    });
+    await armarYSeguir(s, 600_000);
+    const [, , , anexos] = s.documentos.generarAnexos.mock.calls[0] as [
+      unknown,
+      unknown,
+      unknown,
+      Record<string, unknown>,
+    ];
+    expect(anexos).not.toHaveProperty('reparto');
+    expect(s.repo.cotizacion).not.toHaveBeenCalled();
   });
 
   it('si las bases no la piden, no se arma', async () => {

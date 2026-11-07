@@ -12,8 +12,13 @@ import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
+import { repartirElPrecio } from './el-reparto';
 import { type FormularioDeLasBases, normalizar } from './el-set';
-import { pidenLaCotizacion } from './la-cotizacion-detallada';
+import {
+  type DiaDeLaCotizacion,
+  diasDeLaCotizacion,
+  pidenLaCotizacion,
+} from './la-cotizacion-detallada';
 import { LaCotizacionDetalladaService } from './la-cotizacion-detallada.service';
 import {
   type ExperienciaConfirmada,
@@ -193,6 +198,14 @@ export class ArmarPostulacionService {
         ? { ...armada, firmados: true }
         : armada;
     if (anotada !== armada) await this.anotar(companyId, ofertaId, anotada);
+    // Decisión 119 (07-11, el reparto): el precio se reparte una sola vez
+    // sobre los servicios de la cotización vinculada, y las mismas cifras
+    // van a la cotización detallada y a los formularios.
+    const reparto = await this.elReparto(
+      companyId,
+      oportunidadId,
+      armada.total,
+    );
     const pasos: Array<[string, () => Promise<unknown>]> = [];
     if (vuelta.todoFirmado || armada.anexos === false) {
       // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
@@ -217,6 +230,7 @@ export class ArmarPostulacionService {
             ...(experiencia ? { experiencia } : {}),
             ya_firmados: vuelta.yaFirmados,
             reemplaza: [...vuelta.borradoresDeFormularios, ...propuestasViejas],
+            ...(reparto ? { reparto } : {}),
           }),
       ]);
     }
@@ -247,6 +261,7 @@ export class ArmarPostulacionService {
           detallada.armar(user, oportunidadId, ofertaId, armada.total, {
             conPropuesta: armada.propuesta,
             reemplaza: vuelta.borradoresDeCotizacion,
+            ...(reparto ? { reparto } : {}),
           }),
       ]);
       if (vuelta.cotizacion === 'otro_precio') {
@@ -284,6 +299,27 @@ export class ArmarPostulacionService {
           `no pude anotar lo que pasó con la postulación ${ofertaId}: ${mensajeDe(error)}`,
         ),
       );
+  }
+
+  /** El precio repartido sobre la cotización vinculada (el-reparto.ts).
+   *  Sin vinculada, o si no se puede leer, null: los formularios dejan el
+   *  precio por ítem pendiente, como antes. Nunca lanza. */
+  private async elReparto(
+    companyId: number,
+    oportunidadId: number,
+    total: number,
+  ): Promise<DiaDeLaCotizacion[] | null> {
+    try {
+      const o = await this.repo.oportunidad(companyId, oportunidadId);
+      if (!o?.quotation_id) return null;
+      const q = await this.repo.cotizacion(companyId, { id: o.quotation_id });
+      return q ? repartirElPrecio(diasDeLaCotizacion(q), total) : null;
+    } catch (error) {
+      this.logger.warn(
+        `el reparto del precio de la oportunidad ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+      return null;
+    }
   }
 
   /** Lo que ya hay en «Mi postulación»: qué está firmado y qué borradores

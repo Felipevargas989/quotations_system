@@ -160,7 +160,11 @@ describe('La cotización detallada en «Mi postulación»', () => {
     expect(texto).toContain(
       'El servicio se presta el miércoles 11 de noviembre de 2026, en Los Guindos 467, Quillón.',
     );
-    expect(texto).toContain('-$20.000');
+    // $500.000 de la cotización repartidos hasta $480.000: el salón a
+    // $240.000 y la carne mechada a $12.000 por persona, sin descuento.
+    expect(texto).toContain('$240.000');
+    expect(texto).toContain('$12.000');
+    expect(texto).not.toContain('Descuento');
     expect(texto).toContain('$480.000');
     expect(texto).toContain('Banco de Prueba');
     expect(texto).toContain('Compra Ágil 2705-1740-COT26');
@@ -183,27 +187,79 @@ describe('La cotización detallada en «Mi postulación»', () => {
     expect(adjuntos.subirArchivo).not.toHaveBeenCalled();
   });
 
-  it('si el precio pasa la cotización, va en una sola línea por el total, con lo que incluye y sin precio por ítem', async () => {
+  it('si el precio pasa la cotización, los precios suben en la misma proporción: ya no va en una sola línea (Felipe, 07-11)', async () => {
     const { servicio, adjuntos, subidos } = armar();
     await servicio.armar(USUARIO, 11072, 105, 600_000, {
       conPropuesta: false,
       reemplaza: [],
     });
     expect(adjuntos.guardar).toHaveBeenCalledWith(
-      expect.objectContaining({ nombre: 'Cotización 2705-1740-COT26.docx' }),
+      expect.objectContaining({
+        nombre: 'Cotización detallada 2705-1740-COT26.docx',
+      }),
     );
     const [ruta] = adjuntos.subirArchivo.mock.calls[0];
     const texto = textoDeDocx(subidos.get(ruta) as Buffer) ?? '';
-    expect(texto).toContain('COTIZACIÓN');
-    expect(texto).not.toContain('COTIZACIÓN DETALLADA');
-    expect(texto).toContain('Servicio integral');
-    expect(texto).toContain(
-      'Incluye: miércoles 11 de noviembre de 2026: Salón auditorio día completo; Almuerzo para 20 personas (Carne mechada).',
-    );
-    expect(texto).toContain('1 servicio');
+    expect(texto).toContain('COTIZACIÓN DETALLADA');
+    expect(texto).not.toContain('Servicio integral');
+    expect(texto).toContain('$300.000');
+    expect(texto).toContain('$15.000');
     expect(texto).toContain('$600.000');
     expect(texto).not.toContain('Descuento');
     expect(texto).not.toContain('$12.500');
+  });
+
+  it('usa el reparto que le pasa «Armar postulación», el mismo de los formularios; uno de otro precio no', async () => {
+    const reparto = [
+      {
+        titulo: 'Miércoles 11 de noviembre de 2026',
+        subtotal: 480_000,
+        lineas: [
+          {
+            servicio: 'Salón auditorio día completo',
+            detalle: '',
+            cantidad: '1',
+            unidades: 1,
+            unitario: 240_020,
+            total: 240_020,
+            unitarioNeto: 201_701,
+            totalNeto: 201_701,
+          },
+          {
+            servicio: 'Almuerzo',
+            detalle: 'Carne mechada',
+            cantidad: '20 personas',
+            unidades: 20,
+            unitario: 11_999,
+            total: 239_980,
+            unitarioNeto: 10_083,
+            totalNeto: 201_660,
+          },
+        ],
+      },
+    ];
+    const pasado = armar();
+    await pasado.servicio.armar(USUARIO, 11072, 105, 480_000, {
+      conPropuesta: false,
+      reemplaza: [],
+      reparto,
+    });
+    const [ruta] = pasado.adjuntos.subirArchivo.mock.calls[0];
+    const texto = textoDeDocx(pasado.subidos.get(ruta) as Buffer) ?? '';
+    expect(texto).toContain('$240.020');
+    expect(texto).toContain('$11.999');
+
+    const otroPrecio = armar();
+    await otroPrecio.servicio.armar(USUARIO, 11072, 105, 500_000, {
+      conPropuesta: false,
+      reemplaza: [],
+      reparto,
+    });
+    const [otra] = otroPrecio.adjuntos.subirArchivo.mock.calls[0];
+    const suyo = textoDeDocx(otroPrecio.subidos.get(otra) as Buffer) ?? '';
+    expect(suyo).not.toContain('$240.020');
+    expect(suyo).toContain('$250.000');
+    expect(suyo).toContain('$12.500');
   });
 
   it('si las bases piden una cotización sin detalle de precios, también va en una sola línea', async () => {
