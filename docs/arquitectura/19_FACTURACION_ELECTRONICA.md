@@ -1356,8 +1356,12 @@ entregue: se averiguan antes de prometerlos.
   RUT que ya está en Clientes no se duplica: se ofrece usar ese cliente. Al
   emitir, lo editado a mano queda en la ficha del cliente (con evento, como
   antes, solo se llena lo que faltaba).
-- **Ítems:** los de Post-Venta (`LineasDelDte`); el descuento en % por
-  ítem va en un segundo envío del sprint.
+- **Ítems:** los de Post-Venta (`LineasDelDte`), con el descuento en % por
+  ítem (Felipe: *"un porcentaje de descuento y el total"*): va sobre el
+  neto de la línea, con su % en PorcDescto y su monto en ValorDescto del
+  archivo, como lo cuenta el SII; menos de 100 % y con dos decimales. Solo
+  en la factura (también la del evento); la boleta no lo lleva. Las notas
+  copian las líneas con su descuento.
 - **Referencias:** las mismas en el evento y acá (`ReferenciasDelDte`): el
   tipo angosto y el folio ancho (Felipe: *"el tipo más chiquito el folio
   más grande"*), la fecha y el motivo, opcional, hasta 90 (RazonRef).

@@ -31,6 +31,17 @@ export const DEL_RECEPTOR = [
   { campo: "comuna", nombre: "Comuna", largo: LARGO_MAXIMO.comuna },
 ] as const;
 
+/** Una línea al peso, con su descuento (doc 19 §9.22), como la cuenta el
+ *  motor (`valorDeLaLinea`): cantidad por precio, menos su %. Sirve para
+ *  el precio con IVA de la pantalla y para el neto de la vista previa. */
+export const valorDeLaLinea = (l: {
+  cantidad: number;
+  precio: number;
+  descuento?: number | null;
+}): number =>
+  Math.round(l.cantidad * l.precio) -
+  (l.descuento ? Math.round((l.cantidad * l.precio * l.descuento) / 100) : 0);
+
 /** El valor, cuando la persona deja de escribir: la vista previa se pide
  *  una vez y no en cada tecla. */
 export function useQuieto<T>(valor: T, ms = 400): T {

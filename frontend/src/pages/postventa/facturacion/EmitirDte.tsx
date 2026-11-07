@@ -609,6 +609,7 @@ export function Borrador({
         lineas={pedida.lineas}
         montos={vista.montos}
         onChange={(lineas) => poner({ lineas })}
+        conDescuento={factura}
       />
 
       {!factura && (

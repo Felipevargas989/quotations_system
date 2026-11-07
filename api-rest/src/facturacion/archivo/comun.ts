@@ -52,9 +52,17 @@ export const correosDelReceptor = (
   return avisos.campo('Los correos', correos.join(','), 200);
 };
 
-/** El valor de una línea: cantidad por precio, al peso. */
+/** El descuento de una línea, al peso: su % de cantidad por precio, como
+ *  lo cuenta el SII (DescuentoMonto). Sin descuento, 0. */
+export const descuentoDeLaLinea = (linea: LineaDeDetalle): number =>
+  linea.descuento
+    ? Math.round((linea.cantidad * linea.precio * linea.descuento) / 100)
+    : 0;
+
+/** El valor de una línea: cantidad por precio, al peso, menos su
+ *  descuento. */
 export const valorDeLaLinea = (linea: LineaDeDetalle): number =>
-  Math.round(linea.cantidad * linea.precio);
+  Math.round(linea.cantidad * linea.precio) - descuentoDeLaLinea(linea);
 
 /** Revisa una línea del detalle; anota lo que no sirve. */
 export const revisarLinea = (
@@ -69,6 +77,13 @@ export const revisarLinea = (
     problemas.push(`La línea ${n} necesita una cantidad mayor que cero`);
   if (!Number.isFinite(linea.precio) || linea.precio < 0)
     problemas.push(`La línea ${n} tiene un precio que no sirve`);
+  if (
+    linea.descuento != null &&
+    (!Number.isFinite(linea.descuento) ||
+      linea.descuento < 0 ||
+      linea.descuento >= 100)
+  )
+    problemas.push(`El descuento de la línea ${n} va de 0 a menos de 100 %`);
   return problemas.length === antes;
 };
 

@@ -5,6 +5,7 @@ import type {
 } from "../../../services/facturas.service";
 import { fechaCorta } from "../../../utils/ordenesDeCompra";
 import { formatearRut } from "../../../utils/rut";
+import { valorDeLaLinea } from "./datosDeLaFactura";
 
 // EL DTE TAL COMO SALDRÁ (doc 19 §9.10 y §9.20; maqueta del 04-11): el
 // emisor, el N° que sigue, el receptor, el detalle, las referencias, la
@@ -32,6 +33,8 @@ export default function VistaPreviaDelDte({
 }) {
   const r = pedida.receptor;
   const factura = pedida.tipo === 33;
+  // La columna del descuento solo si alguna línea lo lleva (§9.22).
+  const conDescuento = vista.lineas.some((l) => !!l.descuento);
   const simulado = vista.ambiente === "simulado";
   const prueba = vista.ambiente === "prueba";
   return (
@@ -110,6 +113,9 @@ export default function VistaPreviaDelDte({
               <th className="w-28 py-1 pl-3 text-right font-medium">
                 {factura ? "Precio neto" : "Precio"}
               </th>
+              {conDescuento && (
+                <th className="w-16 py-1 pl-3 text-right font-medium">Desc.</th>
+              )}
               <th className="w-28 py-1 pl-3 text-right font-medium">
                 {factura ? "Neto" : "Total"}
               </th>
@@ -131,8 +137,15 @@ export default function VistaPreviaDelDte({
                   {/* El neto unitario lleva decimales: se muestran dos. */}
                   {`$${l.precio.toLocaleString("es-CL", { maximumFractionDigits: 2 })}`}
                 </td>
+                {conDescuento && (
+                  <td className="py-1 pl-3 text-right whitespace-nowrap">
+                    {l.descuento
+                      ? `${l.descuento.toLocaleString("es-CL")} %`
+                      : ""}
+                  </td>
+                )}
                 <td className="py-1 pl-3 text-right whitespace-nowrap">
-                  {clp(l.cantidad * l.precio)}
+                  {clp(valorDeLaLinea(l))}
                 </td>
               </tr>
             ))}

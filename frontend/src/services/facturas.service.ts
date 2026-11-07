@@ -40,6 +40,8 @@ export interface LineaPedida {
   descripcion_larga: string | null;
   cantidad: number;
   precio: number;
+  /** Solo la factura: el descuento de la línea en % (doc 19 §9.22). */
+  descuento?: number | null;
 }
 
 /** Lo que se emite: lo propone BelIA y se corrige a mano (E4). La boleta
@@ -103,6 +105,8 @@ export interface VistaPrevia {
     descripcionLarga: string | null;
     cantidad: number;
     precio: number;
+    /** El descuento de la línea en % (la factura, §9.22). */
+    descuento?: number | null;
   }[];
   observaciones: string[];
   avisos: string[];
