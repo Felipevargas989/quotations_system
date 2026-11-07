@@ -1111,8 +1111,11 @@ el 05-11):
    facturacion.cl todavía no está conectado» y la pantalla muestra el
    letrero rojo. Nada se emite.
 6. **Felipe carga las credenciales de producción** en Railway → api-rest →
-   Variables:
-   - las tres de «Ambiente Producción»;
+   Variables (07-11: ya están emitidas, en facturacion.cl → Administrador →
+   Integración → Configuración → Credenciales, cuadro «Ambiente
+   Producción»; el cuadro «Ambiente Prueba Acceso Web» trae el enlace y el
+   acceso para revisar lo emitido en prueba):
+   - las tres de «Ambiente Producción» (RUT, clave y usuario);
    - `FACTURACIONCL_AMBIENTE` = `produccion`;
    - `FACTURACIONCL_EMPRESA` = `1`.
 
