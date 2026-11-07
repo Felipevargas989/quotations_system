@@ -139,7 +139,14 @@ export interface PiezaDelSet {
   nombre: string;
   /** Dónde queda dentro del ZIP: «2. Técnica/Respaldos de experiencia». */
   carpetas: string[];
-  que_es: "formulario" | "propuesta" | "subido" | "documento" | "respaldo";
+  que_es:
+    | "formulario"
+    | "propuesta"
+    /** La cotización detallada que arma el motor (decisión 119). */
+    | "cotizacion"
+    | "subido"
+    | "documento"
+    | "respaldo";
   aviso: string | null;
 }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
@@ -12,7 +12,14 @@ import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
+import { repartirElPrecio } from './el-reparto';
 import { type FormularioDeLasBases, normalizar } from './el-set';
+import {
+  type DiaDeLaCotizacion,
+  diasDeLaCotizacion,
+  pidenLaCotizacion,
+} from './la-cotizacion-detallada';
+import { LaCotizacionDetalladaService } from './la-cotizacion-detallada.service';
 import {
   type ExperienciaConfirmada,
   loQueDicenLasBases,
@@ -93,6 +100,10 @@ export class ArmarPostulacionService {
     private readonly experiencia: LaExperienciaService,
     private readonly adjuntos: AdjuntosRepository,
     private readonly logger: PinoLogger,
+    /** La cotización detallada (decisión 119). Opcional: las pruebas de
+     *  antes no la traen, y sin ella no se arma. */
+    @Optional()
+    private readonly cotizacionDetallada?: LaCotizacionDetalladaService,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
   }
@@ -175,6 +186,7 @@ export class ArmarPostulacionService {
       oportunidadId,
       armada.total,
       resultado,
+      ofertaId,
     );
     const conPropuesta = armada.propuesta && !vuelta.propuestaFirmada;
     const propuestasViejas = conPropuesta ? [] : vuelta.borradoresDePropuesta;
@@ -186,6 +198,14 @@ export class ArmarPostulacionService {
         ? { ...armada, firmados: true }
         : armada;
     if (anotada !== armada) await this.anotar(companyId, ofertaId, anotada);
+    // Decisión 119 (07-11, el reparto): el precio se reparte una sola vez
+    // sobre los servicios de la cotización vinculada, y las mismas cifras
+    // van a la cotización detallada y a los formularios.
+    const reparto = await this.elReparto(
+      companyId,
+      oportunidadId,
+      armada.total,
+    );
     const pasos: Array<[string, () => Promise<unknown>]> = [];
     if (vuelta.todoFirmado || armada.anexos === false) {
       // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
@@ -210,6 +230,7 @@ export class ArmarPostulacionService {
             ...(experiencia ? { experiencia } : {}),
             ya_firmados: vuelta.yaFirmados,
             reemplaza: [...vuelta.borradoresDeFormularios, ...propuestasViejas],
+            ...(reparto ? { reparto } : {}),
           }),
       ]);
     }
@@ -223,7 +244,32 @@ export class ArmarPostulacionService {
           }),
       ]);
     }
+    // Decisión 119 (07-11): si las bases piden una cotización, la arma el
+    // motor desde la cotización vinculada. Felipe, con la 2705-1740-COT26:
+    // "todos los documentos debieron generarse". Lo subido a mano manda; la
+    // firmada con el mismo precio se queda.
     const problemas: string[] = [];
+    const conCotizacion =
+      Boolean(this.cotizacionDetallada) &&
+      pidenLaCotizacion(resultado) &&
+      (vuelta.cotizacion === 'no_hay' || vuelta.cotizacion === 'otro_precio');
+    if (conCotizacion && this.cotizacionDetallada) {
+      const detallada = this.cotizacionDetallada;
+      pasos.push([
+        'La cotización detallada',
+        () =>
+          detallada.armar(user, oportunidadId, ofertaId, armada.total, {
+            conPropuesta: armada.propuesta,
+            reemplaza: vuelta.borradoresDeCotizacion,
+            ...(reparto ? { reparto } : {}),
+          }),
+      ]);
+      if (vuelta.cotizacion === 'otro_precio') {
+        problemas.push(
+          'La cotización detallada firmada tiene el precio de antes: firma la nueva y borra la anterior.',
+        );
+      }
+    }
     await Promise.all(
       pasos.map(async ([que, paso]) => {
         try {
@@ -255,6 +301,27 @@ export class ArmarPostulacionService {
       );
   }
 
+  /** El precio repartido sobre la cotización vinculada (el-reparto.ts).
+   *  Sin vinculada, o si no se puede leer, null: los formularios dejan el
+   *  precio por ítem pendiente, como antes. Nunca lanza. */
+  private async elReparto(
+    companyId: number,
+    oportunidadId: number,
+    total: number,
+  ): Promise<DiaDeLaCotizacion[] | null> {
+    try {
+      const o = await this.repo.oportunidad(companyId, oportunidadId);
+      if (!o?.quotation_id) return null;
+      const q = await this.repo.cotizacion(companyId, { id: o.quotation_id });
+      return q ? repartirElPrecio(diasDeLaCotizacion(q), total) : null;
+    } catch (error) {
+      this.logger.warn(
+        `el reparto del precio de la oportunidad ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+      return null;
+    }
+  }
+
   /** Lo que ya hay en «Mi postulación»: qué está firmado y qué borradores
    *  se reemplazan (volver-a-armar.ts). Si no se puede leer, se rehace todo
    *  y no se borra nada. */
@@ -263,6 +330,7 @@ export class ArmarPostulacionService {
     oportunidadId: number,
     total: number,
     resultado: Record<string, unknown> | null,
+    ofertaId?: number,
   ): Promise<LaVueltaAnterior> {
     try {
       const [archivos, trabajos] = await Promise.all([
@@ -283,6 +351,19 @@ export class ArmarPostulacionService {
               return [t.id, monto > 0 ? monto : null];
             }),
         ),
+        // El precio de la vuelta anterior: la oferta lista más nueva que no
+        // es esta (decisión 119).
+        precioAnterior: (() => {
+          const antes = trabajos.find(
+            (t) =>
+              t.tipo === 'oferta' && t.estado === 'listo' && t.id !== ofertaId,
+          );
+          const monto = Number(
+            (antes?.parametros?.postulacion as { total?: unknown } | undefined)
+              ?.total,
+          );
+          return monto > 0 ? monto : null;
+        })(),
       });
     } catch (error) {
       this.logger.warn(
@@ -294,6 +375,8 @@ export class ArmarPostulacionService {
         borradoresDeFormularios: [],
         borradoresDePropuesta: [],
         propuestaFirmada: false,
+        borradoresDeCotizacion: [],
+        cotizacion: 'no_hay',
       };
     }
   }

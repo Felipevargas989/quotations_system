@@ -10,12 +10,14 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import {
   instruccionesDeLaOferta,
+  LA_COTIZACION_MANDA,
   leerArmado,
 } from '../postulacion/armar-la-oferta';
 import {
   ArmarLaOfertaService,
   MODELO_DE_LA_OFERTA,
 } from '../postulacion/armar-la-oferta.service';
+import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 
 // ARMAR LA OFERTA (decisión 33 del doc 17, sprint G, 19-10): por cada
 // especificación técnica de las bases, qué se ofrece y con qué productos
@@ -226,6 +228,85 @@ describe('Armar la oferta', () => {
     expect(sistema).toContain(
       'lo que haya que comprar o contratar a un tercero aunque no sea audiovisual',
     );
+  });
+
+  it('con la cotización vinculada (decisión 119), lo que se ofrece es ella y queda anotado con qué cotización se armó', async () => {
+    const base = armar();
+    const { oportunidades } = base.servicio as unknown as {
+      oportunidades: { ficha: jest.Mock; configDe: jest.Mock };
+    };
+    oportunidades.ficha.mockResolvedValue({
+      id: 11072,
+      codigo: '2705-1740-COT26',
+      quotation_id: 'd5dee709',
+      proceso: { nombre: 'Arriendo de salón', organismo: 'UBB' },
+    });
+    const postulacion = {
+      cotizacion: jest.fn().mockResolvedValue({
+        id: 'd5dee709',
+        quotation_number: 574,
+        quotation_status: 'aceptada',
+        people_count: 20,
+        children_count: null,
+        event_date: '2026-11-11',
+        event_end_date: null,
+        subtotal_amount: 1_788_000,
+        discount_amount: 8_000,
+        total_amount: 1_780_000,
+        client: null,
+        items: {
+          fixed_services: [
+            {
+              day: 1,
+              codigo: '39',
+              nombre: 'Salón auditorio día completo',
+              quantity: 1,
+            },
+          ],
+          variable_services: [],
+        },
+      }),
+    };
+    const piezas = base.servicio as unknown as Record<string, unknown>;
+    const servicio = new OfertaDePrueba(
+      piezas.repo as GeneracionRepository,
+      piezas.adjuntos as AdjuntosRepository,
+      piezas.analisis as AnalisisRepository,
+      piezas.oferente as OferenteRepository,
+      piezas.oportunidades as OportunidadesRepository,
+      piezas.catalogos as GenerarRepository,
+      mockPinoLogger() as unknown as PinoLogger,
+      undefined,
+      postulacion as unknown as PostulacionRepository,
+    );
+    const ejecutar = jest.spyOn(servicio, 'ejecutar').mockResolvedValue(false);
+    await servicio.pedir(1, 'cuenta-1', 11072);
+    expect(postulacion.cotizacion).toHaveBeenCalledWith(1, { id: 'd5dee709' });
+    const sistema = ejecutar.mock.calls[0][4];
+    expect(sistema).toContain(LA_COTIZACION_MANDA);
+    expect(sistema).toContain(
+      'LA COTIZACIÓN VINCULADA (la empresa ya decidió qué ofrece; con los ids de su catálogo):',
+    );
+    expect(sistema).toContain(
+      '- Servicio fijo: Salón auditorio día completo (id 39)',
+    );
+    expect(
+      (piezas.repo as { crearGeneracion: jest.Mock }).crearGeneracion,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parametros: expect.objectContaining({ con_la_cotizacion: 574 }),
+      }),
+    );
+    // Sin cotización vinculada, como antes: del catálogo y sin el aviso.
+    const solo = jest.spyOn(base.servicio, 'ejecutar').mockResolvedValue(false);
+    oportunidades.ficha.mockResolvedValue({
+      id: 40,
+      codigo: '1532886-5-LE26',
+      quotation_id: null,
+      proceso: { nombre: 'Día del Funcionario', organismo: null },
+    });
+    await base.servicio.pedir(1, 'cuenta-1', 40);
+    expect(solo.mock.calls[0][4]).not.toContain('COTIZACIÓN VINCULADA');
   });
 
   it('«Armar postulación» (decisión 35): anota sus parámetros y sigue solo si la oferta quedó lista', async () => {

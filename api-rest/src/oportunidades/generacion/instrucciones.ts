@@ -9,6 +9,8 @@ import type {
   Oferente,
 } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
+import { elPrecioPorItem } from '../postulacion/el-reparto';
+import type { DiaDeLaCotizacion } from '../postulacion/la-cotizacion-detallada';
 import type { ExperienciaConfirmada } from '../postulacion/la-experiencia';
 import {
   EL_DETALLE_EN_EL_FORMULARIO,
@@ -17,6 +19,7 @@ import {
   type OfertaParaDocumentos,
 } from '../postulacion/la-oferta-en-texto';
 import { type Aclaracion, textoDeLoAclarado } from '../preguntas/lo-aclarado';
+import { desgloseDeOferta, IVA, pesos } from './la-plata';
 import {
   COMO_LISTAR_LA_OFERTA,
   leerOferta,
@@ -32,17 +35,8 @@ import {
 //  - la firma va en dos tiempos: los anexos salen SIN firma, la empresa los
 //    revisa y recién ahí "Firmar" pone la foto (decidido el 17-10).
 
-export const IVA = 0.19;
-
-/** El monto de la oferta: la empresa pone el total con IVA (así piensa
- *  Felipe: "valores con IVA porque se factura") y el neto y el IVA salen de
- *  aquí, no de la IA. */
-export const desgloseDeOferta = (total: number) => {
-  const neto = Math.round(total / (1 + IVA));
-  return { total, neto, iva: total - neto };
-};
-
-export const pesos = (n: number): string => `$${n.toLocaleString('es-CL')}`;
+// El IVA, el neto y los pesos viven en la-plata.ts; se leen también de aquí.
+export { desgloseDeOferta, IVA, pesos };
 
 /** "17 de octubre de 2026", en Chile. */
 export const fechaLarga = (ahora = new Date()): string =>
@@ -553,6 +547,8 @@ export const instruccionesDeAnexos = (
   c: ContextoDeGeneracion,
   anexos: FormularioNombrado[],
   oferta: ReturnType<typeof desgloseDeOferta> | null,
+  /** El precio por ítem (elPrecioPorItem), si hay cotización vinculada. */
+  reparto: DiaDeLaCotizacion[] | null = null,
 ): string => {
   const words = anexos.filter((a) => a.clase !== 'pdf');
   const antiguos = anexos.filter((a) => a.clase === 'doc');
@@ -572,7 +568,17 @@ export const instruccionesDeAnexos = (
     ...(oferta
       ? [
           `- Total con IVA: ${pesos(oferta.total)}. Neto: ${pesos(oferta.neto)}. IVA (19%): ${pesos(oferta.iva)}.`,
-          '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA. Si pide un desglose que no está aquí (por ítem, por persona, precio unitario), no lo calcules: déjalo en blanco y anótalo en pendientes.',
+          ...(reparto
+            ? [
+                '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA.',
+                '- Si pide el precio por ítem, por persona o unitario, usa EL PRECIO POR ÍTEM (abajo) tal cual: con IVA o en neto, según lo que pida el formulario. No recalcules ni redondees ninguna cifra: así suman justo el total.',
+                '- Si el formulario agrupa los servicios de otra forma (un ítem que junta varias líneas), el total de ese ítem es la suma de los totales de sus líneas. Un precio unitario que no esté en EL PRECIO POR ÍTEM no lo calcules: déjalo en blanco y anótalo en pendientes.',
+                '',
+                ...elPrecioPorItem(reparto),
+              ]
+            : [
+                '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA. Si pide un desglose que no está aquí (por ítem, por persona, precio unitario), no lo calcules: déjalo en blanco y anótalo en pendientes.',
+              ]),
         ]
       : [
           '- La empresa todavía no fija el precio: deja en blanco todo monto o precio y anótalo en pendientes. Nunca escribas un precio.',

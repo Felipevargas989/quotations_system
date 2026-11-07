@@ -8,6 +8,7 @@ import {
   crearPropuestaTecnica,
   generarAnexos,
   getAnalisis,
+  getCotizacionDeLaPostulacion,
   getOferente,
   type Generacion,
   type GeneracionesDeOportunidad,
@@ -28,6 +29,7 @@ import {
 import { faltaEnMiEmpresa } from "./formulariosDelComprador";
 import { desgloseDeOferta } from "./oportunidades.utils";
 import { precioDeLosAnexos } from "./postuladasDeAntes";
+import { claveDeLaCotizacion } from "./precioDeLaPostulacion";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 import {
   claveDeLaOferta,
@@ -95,10 +97,21 @@ export default function ArmarPostulacion({
   const avisoExperiencia = avisoDeExperiencia(experiencia);
   const hayAnalisis = analisis?.estado === "listo";
 
+  // La cotización vinculada (decisión 119): la postulación se arma desde
+  // ella, y su total es el precio de partida si todavía no se armó.
+  const { data: estadoDeLaCotizacion } = useQuery({
+    queryKey: claveDeLaCotizacion(oportunidadId),
+    queryFn: () => getCotizacionDeLaPostulacion(oportunidadId),
+  });
+  const vinculada = estadoDeLaCotizacion?.cotizacion ?? null;
+
   const vuelta = vueltaDeLaPostulacion(oferta, generaciones);
   const [abierta, setAbierta] = useState(false);
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
-  const precio = escrito ?? vuelta?.total;
+  const precio =
+    escrito ??
+    vuelta?.total ??
+    (vinculada?.total ? vinculada.total : undefined);
   const desglose = precio && precio > 0 ? desgloseDeOferta(precio) : null;
 
   // Con la oferta lista, el motor pide los documentos: se pregunta por
@@ -252,7 +265,11 @@ export default function ArmarPostulacion({
             <Sparkles size={15} /> Armar postulación
           </h2>
           <p className="text-xs text-gray-500">
-            Pones el precio y la IA arma todo con tu catálogo. Sale{" "}
+            {vinculada
+              ? `Pones el precio y la IA arma todo con tu cotización N° ${vinculada.numero}, cumpliendo las bases. Sale `
+              : vuelta
+                ? "Pones el precio y la IA arma todo con tu catálogo. Sale "
+                : "Pones el precio y la IA arma todo con tu catálogo, o con tu cotización si la vinculas abajo, en «El precio». Sale "}
             <b>sin firma</b> a «Tus documentos»: revísalo y recién ahí fírmalo.
             Al volver a armar, <b>lo firmado se queda</b>.
           </p>
@@ -336,6 +353,11 @@ export default function ArmarPostulacion({
         <p className="text-xs text-gray-500">
           Neto {pesos(desglose.neto)} + IVA {pesos(desglose.iva)}. El neto y el
           IVA los calcula Eventia: la IA nunca pone un precio.
+          {/* El reparto (decisión 119, 07-11): la cotización manda en los
+              servicios y este total, en el precio. */}
+          {vinculada
+            ? ` Si piden precio por ítem, este total se reparte en la misma proporción sobre los precios de tu cotización N° ${vinculada.numero}.`
+            : ""}
         </p>
       )}
 

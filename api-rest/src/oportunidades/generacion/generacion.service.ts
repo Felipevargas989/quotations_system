@@ -37,6 +37,7 @@ import {
   respaldosDePostVenta,
 } from '../oferente/respaldos-de-post-venta';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { calzaCon, repartoGuardado } from '../postulacion/el-reparto';
 import {
   type ExperienciaConfirmada,
   experienciaDeLosAnexos,
@@ -186,6 +187,9 @@ export class GeneracionService {
        *  se reemplaza se borra al terminar. Tampoco llegan de afuera. */
       ya_firmados?: string[];
       reemplaza?: number[];
+      /** El precio por ítem (decisión 119, el-reparto.ts): el de la
+       *  cotización detallada. Tampoco llega de afuera. */
+      reparto?: ReturnType<typeof repartoGuardado>;
     },
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
@@ -248,6 +252,13 @@ export class GeneracionService {
     const oferta = pedido.monto_total
       ? desgloseDeOferta(pedido.monto_total)
       : null;
+    // El precio por ítem; al reintentar, el de la vez anterior si calza.
+    const repartido =
+      pedido.reparto === undefined
+        ? repartoGuardado(anterior?.reparto)
+        : pedido.reparto;
+    const reparto =
+      oferta && calzaCon(repartido, oferta.total) ? repartido : null;
     const formularios = formulariosParaElTaller(elegidos);
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
@@ -255,6 +266,7 @@ export class GeneracionService {
       oportunidadId,
       parametros: {
         monto_total: oferta?.total ?? null,
+        ...(reparto ? { reparto } : {}),
         adjuntos: elegidos.map((a) => a.id),
         ...(postVenta.length > 0 ? { post_venta: postVenta } : {}),
         ...(experiencia ? { experiencia } : {}),
@@ -274,6 +286,7 @@ export class GeneracionService {
               clase: f.clase,
             })),
             oferta,
+            reparto,
           ) + loQueSabeLaCasa(companyId),
         texto: 'Llena los anexos.',
         reemplaza: pedido.reemplaza,

@@ -21,6 +21,7 @@ import {
   type PiezaDelSet,
   rutasEnElZip,
 } from './el-set';
+import { enUnaSolaCarpeta } from './la-compra-agil';
 import type { DocumentoDeLaSeccion4 } from './la-seccion-4';
 import { PostulacionRepository } from './postulacion.repository';
 import { type ParaUnir, unirPdf } from './unir-pdf';
@@ -226,6 +227,7 @@ export class ElSetService {
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),
       ofertaLista: oferta ? (oferta.terminado_en ?? oferta.creado_en) : null,
+      ofertaId: oferta?.id ?? null,
       precio: precioDe(
         (oferta?.parametros?.postulacion as { total?: unknown } | undefined)
           ?.total,
@@ -248,6 +250,7 @@ export class ElSetService {
           ? new Date(ficha.proceso.fecha_cierre)
           : new Date(),
       ),
+      compraAgil: ficha.proceso.tipo === 'compra_agil',
     };
     const sinRespaldos = armarElSet(datos);
     const bajados = new Map<string, Buffer>();
@@ -279,13 +282,15 @@ export class ElSetService {
       const texto = textoDeDocx(docx);
       if (texto) textos.push({ texto, carpetas: p.carpetas, pieza: p });
     }
+    const set = conLaPropuestaQueNombran(
+      conLosRespaldos(sinRespaldos, textos, datos),
+      textos,
+    );
     return {
       codigo: ficha.codigo,
       bajados,
-      set: conLaPropuestaQueNombran(
-        conLosRespaldos(sinRespaldos, textos, datos),
-        textos,
-      ),
+      // Decisión 118: una compra ágil, en una sola carpeta.
+      set: datos.compraAgil ? enUnaSolaCarpeta(set) : set,
     };
   }
 }

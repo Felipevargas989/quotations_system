@@ -364,6 +364,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             oportunidadId={ficha.id}
             codigo={ficha.codigo}
             cierre={ficha.proceso.fecha_cierre}
+            compraAgil={ficha.proceso.tipo === "compra_agil"}
           />
         </>
       )}
