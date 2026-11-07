@@ -13,7 +13,7 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
-import { MesDto, NotaPedidaDto } from './nota.dto';
+import { ListaDto, NotaPedidaDto } from './nota.dto';
 import { NotasService } from './notas.service';
 
 // La lista de Facturación y las notas (doc 19 §9.5, paso 4): todo lo
@@ -36,8 +36,11 @@ export class NotasController {
   @Permiso('facturacion_documentos')
   @Get('documentos')
   @Roles(...OPERATIONS_AND_UP)
-  lista(@Query() q: MesDto, @CurrentUser() user: User) {
-    return this.notas.lista(user.company_id, q.mes, user.role, user.permisos);
+  lista(@Query() q: ListaDto, @CurrentUser() user: User) {
+    // Un rango de fechas (§9.22, sprint 2) o, como antes, un mes.
+    const periodo =
+      q.desde || q.hasta ? { desde: q.desde, hasta: q.hasta } : q.mes;
+    return this.notas.lista(user.company_id, periodo, user.role, user.permisos);
   }
 
   /** «Probar la conexión» con facturacion.cl (paso 0): no emite nada. */

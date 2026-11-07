@@ -1377,6 +1377,38 @@ entregue: se averiguan antes de prometerlos.
   80, la descripción larga 1.000, el motivo de la referencia 90, y hasta 40
   referencias.
 
+**El sprint 2, la lista (06-11, en la noche):**
+- «Documentos» (`ListaDeDocumentos`), como la maqueta: arriba «Emitidos» y
+  «Recibidos», y el resumen de lo que se ve, que sigue a los filtros: el
+  neto, el IVA y el total (las notas de crédito restan), cuántos documentos
+  de cada tipo y cuántos «por confirmar» (enviados sin respuesta: no suman).
+- Los filtros: buscar por N°, por cliente (sin importar las tildes) o por
+  RUT (con o sin puntos); el tipo (facturas, boletas, notas de crédito o de
+  débito); el estado (vigentes, rebajadas, anuladas o por confirmar; la
+  corregida vale entera, así que cuenta como vigente; lo dice el motor en
+  `situacion`); y el rango de fechas, este mes si no se dice. El motor da
+  hasta un año por vez (`GET /facturacion/documentos?desde=&hasta=`, las
+  dos incluidas) y lo trae por páginas de mil, para que un año de boletas
+  no quede cortado. «Limpiar» vuelve a este mes.
+- Cada documento: debajo del N° la fecha, la OC (o la primera referencia) y
+  el N° del evento; el neto, el IVA y el total; el estado con su color; la
+  factura con su condición de pago («Crédito 30 días · vence 06-12» o
+  «Contado»); y las acciones: ver el PDF, descargarlo directo y el XML. Sus
+  notas van debajo, y lo recién emitido queda marcado.
+- «Reporte (CSV)» baja lo que se ve, con el RUT, la referencia, la
+  condición de pago y el vencimiento.
+- **Averiguado el 06-11 en el manual de facturacion.cl**, antes de
+  prometerlos:
+  - El XML existe (`getXMLDte`, en el SOAP), pero el manual lo marca como
+    método adicional con costo, que se cotiza con su mesa de ayuda. El botón
+    queda a la vista y apagado, con el porqué; se conecta si Felipe lo
+    contrata.
+  - Lo recibido (las facturas de los proveedores) no está en su
+    integración: ni el SOAP ni la API REST traen compras, libro de compras
+    ni acuse de recibo (`ConsultaLibroVentas` trae solo el libro de ventas
+    y el de boletas). «Recibidos» lo dice tal cual; habría que preguntarle
+    a su mesa de ayuda.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

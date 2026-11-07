@@ -41,9 +41,21 @@ export class NotaPedidaDto {
   receptor?: ReceptorDeLaFacturaDto | null;
 }
 
-/** El mes de la lista: AAAA-MM. */
-export class MesDto {
+const FECHA = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** El período de la lista: un mes (AAAA-MM) o, desde el 06-11 (doc 19
+ *  §9.22, sprint 2), un rango de fechas «desde» y «hasta» (AAAA-MM-DD, las
+ *  dos incluidas), como los filtros de la maqueta. */
+export class ListaDto {
   @IsOptional()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'El mes va como AAAA-MM' })
   mes?: string;
+
+  @IsOptional()
+  @Matches(FECHA, { message: 'La fecha «desde» va como AAAA-MM-DD' })
+  desde?: string;
+
+  @IsOptional()
+  @Matches(FECHA, { message: 'La fecha «hasta» va como AAAA-MM-DD' })
+  hasta?: string;
 }

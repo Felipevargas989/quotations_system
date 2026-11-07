@@ -27,7 +27,7 @@ vi.mock("../boletas/consultas", () => ({
     data: { ambiente: "simulado", fecha: "2026-11-06", boletas: [] },
   }),
 }));
-vi.mock("./DocumentosDelMes", () => ({
+vi.mock("./ListaDeDocumentos", () => ({
   default: () => <p>lista de documentos</p>,
 }));
 vi.mock("../boletas/TarifarioDeBoletas", () => ({

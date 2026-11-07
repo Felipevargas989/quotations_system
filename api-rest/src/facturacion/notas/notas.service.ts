@@ -10,6 +10,7 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
+import { diasEntre, sumarDias } from '../../quotations/generar/fechas';
 import { armarFactura } from '../archivo/factura';
 import { netoParaElTotal } from '../archivo/montos';
 import { textoLimpio } from '../archivo/texto';
@@ -73,6 +74,69 @@ const delMes = (mes: string) => {
   return { desde: `${mes}-01`, hasta: `${siguiente}-01` };
 };
 
+/** Un mes (AAAA-MM) o un rango de fechas con las dos incluidas (§9.22). */
+export type PeriodoDeLaLista =
+  | string
+  | { desde?: string; hasta?: string }
+  | undefined;
+
+/** Hasta un año de documentos por vez: lo que cabe en la pantalla y en el
+ *  reporte de una sola pasada. */
+const MAXIMO_DE_DIAS = 366;
+
+/** ¿Es una fecha del calendario? (AAAA-MM-DD; el 31-02 no). */
+const esFecha = (f: string) => {
+  const d = new Date(`${f}T00:00:00Z`);
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(f) &&
+    !Number.isNaN(d.getTime()) &&
+    d.toISOString().slice(0, 10) === f
+  );
+};
+
+/**
+ * El período de la lista (doc 19 §9.22, sprint 2): el mes que se pide (el
+ * de hoy si no se dice), o el rango «desde»–«hasta» de los filtros, con las
+ * dos fechas incluidas. `hastaExcluido` es el día siguiente a «hasta», como
+ * lo pide la consulta.
+ */
+export const periodoDeLaLista = (periodo: PeriodoDeLaLista, hoy: string) => {
+  if (typeof periodo === 'object') {
+    const { desde, hasta } = periodo;
+    if (!desde || !hasta)
+      throw new BadRequestException('Faltan las dos fechas: desde y hasta');
+    if (!esFecha(desde) || !esFecha(hasta))
+      throw new BadRequestException('Esa fecha no existe en el calendario');
+    if (desde > hasta)
+      throw new BadRequestException('La fecha «desde» va antes que «hasta»');
+    if (diasEntre(desde, hasta) + 1 > MAXIMO_DE_DIAS)
+      throw new BadRequestException(
+        'El rango va hasta un año: acórtalo o bájalo por partes',
+      );
+    return {
+      mes: desde.slice(0, 7),
+      desde,
+      hasta,
+      hastaExcluido: sumarDias(hasta, 1),
+    };
+  }
+  const mes = periodo ?? hoy.slice(0, 7);
+  const { desde, hasta: hastaExcluido } = delMes(mes);
+  return { mes, desde, hasta: sumarDias(hastaExcluido, -1), hastaExcluido };
+};
+
+/**
+ * Cómo queda cada documento para el filtro «Estado» de la lista (§9.22):
+ * vigente (también la corregida, que vale entera), rebajada, anulada o por
+ * confirmar; una nota que no está anulada es solo una nota.
+ */
+export type SituacionEnLaLista =
+  | 'vigente'
+  | 'rebajada'
+  | 'anulada'
+  | 'por_confirmar'
+  | 'nota';
+
 /** El folio que llevaba un archivo de factura o nota (Encabezado, campo 2). */
 const folioDelArchivo = (archivo: string | null) => {
   const lineas = (archivo ?? '').split(/\r?\n/);
@@ -98,15 +162,14 @@ export class NotasService {
    *  demás miran, bajan el reporte y piden el PDF (§9.19). */
   async lista(
     companyId: number,
-    mes: string | undefined,
+    periodo: PeriodoDeLaLista,
     cargo: UserRole,
     permisos: readonly Permiso[] = permisosDelCargo(cargo),
   ) {
     const hoy = hoyEnChile();
-    const elMes = mes ?? hoy.slice(0, 7);
-    const { desde, hasta } = delMes(elMes);
+    const { mes, desde, hasta, hastaExcluido } = periodoDeLaLista(periodo, hoy);
     const [delPeriodo, todos] = await Promise.all([
-      this.documentos.delPeriodo(companyId, desde, hasta),
+      this.documentos.delPeriodo(companyId, desde, hastaExcluido),
       this.documentos.cadenaDeLaEmpresa(companyId),
     ]);
     const cadena = new Cadena(todos);
@@ -159,6 +222,26 @@ export class NotasService {
           : estadoEnPalabras(estado);
       const vigente = estado.como !== 'anulado';
       const detalle = (d.detalle ?? []) as { cabana?: string | null }[];
+      const situacion: SituacionEnLaLista = !emitido
+        ? 'por_confirmar'
+        : estado.como === 'anulado'
+          ? 'anulada'
+          : esNota
+            ? 'nota'
+            : estado.como === 'rebajado'
+              ? 'rebajada'
+              : 'vigente';
+      // La primera referencia de la factura (la OC, la HES…), para la
+      // línea de abajo del documento (§9.22). La de una nota es lo que
+      // modifica, y eso ya lo dice su título.
+      const referencia =
+        d.tipo === 33
+          ? ((d.referencias ?? []) as { tipo?: string; folio?: string }[]).find(
+              (r) => r?.tipo && r?.folio,
+            )
+          : undefined;
+      const credito =
+        d.tipo === 33 && d.forma_de_pago === 2 && d.vencimiento ? d : null;
       return {
         id: d.id,
         tipo: d.tipo,
@@ -182,6 +265,20 @@ export class NotasService {
         oc: d.oc?.numero ?? null,
         modifica_id: d.modifica_id,
         cadena: { como: estado.como, texto: textoDelEstado },
+        situacion,
+        // El RUT del receptor, para buscar (la boleta no lo tiene).
+        rut: d.tipo === 39 ? null : (d.receptor?.rut ?? null),
+        referencia: referencia
+          ? { tipo: String(referencia.tipo), folio: String(referencia.folio) }
+          : null,
+        // La condición de pago de la factura (§9.22, migración 189): el
+        // contado, o el crédito con sus días y su vencimiento.
+        forma_de_pago: d.tipo === 33 ? (d.forma_de_pago ?? null) : null,
+        vencimiento: credito ? credito.vencimiento : null,
+        plazo_dias:
+          credito?.vencimiento && d.fecha_emision
+            ? diasEntre(d.fecha_emision.slice(0, 10), credito.vencimiento)
+            : null,
         pdf_path: d.pdf_path,
         error: d.error,
         acciones: {
@@ -213,7 +310,9 @@ export class NotasService {
     return {
       ambiente: conexion.ambiente,
       sin_conexion: conexion.sinConexion ?? null,
-      mes: elMes,
+      mes,
+      desde,
+      hasta,
       hoy,
       resumen: {
         // Lo facturado neto del mes: las notas de crédito restan.

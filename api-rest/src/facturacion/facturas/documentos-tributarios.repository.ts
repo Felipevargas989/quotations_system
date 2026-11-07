@@ -116,6 +116,9 @@ export type CambiosDelDocumento = Partial<
 const COLUMNAS =
   'id, company_id, tipo, ambiente, folio, fecha_emision, estado, receptor, detalle, referencias, neto, exento, iva, total, quotation_id, orden_de_compra_id, porcentaje, modifica_id, codigo_referencia, error, pdf_path, creado_por, emitido_por, emitido_en, created_at, forma_de_pago, vencimiento';
 
+// Las filas de cada pedido a la base: lo más que entrega de una vez.
+const PAGINA = 1000;
+
 // Lo que cuenta como facturado: lo emitido y lo que quedó por confirmar
 // (puede haber salido: L5). Las notas de crédito restan en el paso 4.
 const FACTURADO = ['emitido', 'por_confirmar', 'enviando'];
@@ -271,23 +274,33 @@ export class DocumentosTributariosRepository {
    *  esperan «Comprobar» (L5). `desde` y `hasta` son AAAA-MM-DD de Chile
    *  (hasta, excluido). */
   async delPeriodo(companyId: number, desde: string, hasta: string) {
-    const { data, error } = await this.supabase.client
-      .from('documentos_tributarios')
-      .select(
-        `${COLUMNAS}, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)`,
-      )
-      .eq('company_id', companyId)
-      .in('estado', FACTURADO)
-      .or(
-        `and(fecha_emision.gte.${desde},fecha_emision.lt.${hasta}),estado.in.(por_confirmar,enviando)`,
-      )
-      .order('created_at', { ascending: false })
-      .limit(2000);
-    if (error) throw error;
-    return (data ?? []) as unknown as (DocumentoTributario & {
+    type Fila = DocumentoTributario & {
       cotizacion: { quotation_number: number } | null;
       oc: { numero: string } | null;
-    })[];
+    };
+    // Por páginas (§9.22, sprint 2): con un rango de hasta un año, las
+    // boletas de las cabañas pasan de las mil filas que entrega la base de
+    // una vez, y lo que sobra no puede quedar fuera sin avisar.
+    const filas: Fila[] = [];
+    for (let inicio = 0; ; inicio += PAGINA) {
+      const { data, error } = await this.supabase.client
+        .from('documentos_tributarios')
+        .select(
+          `${COLUMNAS}, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)`,
+        )
+        .eq('company_id', companyId)
+        .in('estado', FACTURADO)
+        .or(
+          `and(fecha_emision.gte.${desde},fecha_emision.lt.${hasta}),estado.in.(por_confirmar,enviando)`,
+        )
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicio, inicio + PAGINA - 1);
+      if (error) throw error;
+      const pagina = (data ?? []) as unknown as Fila[];
+      filas.push(...pagina);
+      if (pagina.length < PAGINA) return filas;
+    }
   }
 
   /** La cadena entera de la empresa: facturas y notas, livianas (las

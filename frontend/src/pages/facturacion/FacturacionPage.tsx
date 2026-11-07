@@ -6,10 +6,10 @@ import BoletaSuelta from "../boletas/BoletaSuelta";
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import { usePorFacturar } from "./consultas";
-import DocumentosDelMes from "./DocumentosDelMes";
 import ElegirDocumento from "./ElegirDocumento";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
+import ListaDeDocumentos from "./ListaDeDocumentos";
 import NuevoDocumento from "./NuevoDocumento";
 import { NOMBRE_DEL_NUEVO, type TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
@@ -76,6 +76,8 @@ export default function FacturacionPage() {
   // La ventana que pregunta qué se emite, y la pantalla del que se eligió.
   const [eligiendo, setEligiendo] = useState(false);
   const [abierto, setAbierto] = useState<TipoNuevo | null>(null);
+  // El que se acaba de emitir: la lista lo marca (§9.22).
+  const [recien, setRecien] = useState<number | null>(null);
   const esAdmin = userRole === "administrador";
   const nuevoDocumento = () =>
     tipos.length === 1 ? setAbierto(tipos[0]) : setEligiendo(true);
@@ -105,8 +107,10 @@ export default function FacturacionPage() {
           <FacturaNueva
             puedeEmitir={esAdmin}
             onVolver={() => setAbierto(null)}
-            onEmitida={() => {
+            onEmitida={(doc) => {
               emitido();
+              setRecien(doc.id);
+              if (conDocumentos) setElegida("documentos");
               setAbierto(null);
             }}
           />
@@ -171,7 +175,7 @@ export default function FacturacionPage() {
             ))}
           </div>
           {pestana === "documentos" && (
-            <DocumentosDelMes conAjustes={conAjustes} />
+            <ListaDeDocumentos conAjustes={conAjustes} recien={recien} />
           )}
           {pestana === "por_facturar" && (
             <PorFacturar puedeEmitir={userRole === "administrador"} />
