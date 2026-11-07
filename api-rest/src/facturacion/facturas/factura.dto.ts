@@ -7,11 +7,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { CODIGOS_DE_REFERENCIA } from '../referencias';
 import type { TipoDeDte } from './borrador';
+import { PLAZOS_DE_PAGO } from './borrador';
 
 /**
  * EL DTE QUE SE PIDE: LA FACTURA O LA BOLETA DEL EVENTO (doc 19 §9.2 y
@@ -106,6 +108,12 @@ export class ReferenciaDeLaFacturaDto {
   @IsString()
   @MaxLength(10)
   fecha: string;
+
+  // El motivo (RazonRef): lo que no cabe en los 90 lo dice la revisión.
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  razon?: string | null;
 }
 
 export class DtePedidoDto extends BaseDelDteDto {
@@ -129,4 +137,21 @@ export class DtePedidoDto extends BaseDelDteDto {
   @IsArray()
   @IsIn(CODIGOS_DE_REFERENCIA, { each: true })
   pedir_siempre: string[];
+
+  // §9.22: contado (1) o crédito (2) a 30, 45 o 60 días. Sin esto, crédito
+  // a 30.
+  @IsOptional()
+  @IsIn([1, 2], { message: 'La condición de pago es contado o crédito' })
+  forma_de_pago?: 1 | 2 | null;
+
+  @IsOptional()
+  @IsIn([...PLAZOS_DE_PAGO], {
+    message: 'El crédito va a 30, 45 o 60 días',
+  })
+  plazo_dias?: number | null;
+
+  // «Nuevo documento»: el cliente de Eventia al que va la factura.
+  @IsOptional()
+  @IsUUID()
+  cliente_id?: string | null;
 }

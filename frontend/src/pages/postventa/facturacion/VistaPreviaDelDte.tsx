@@ -86,6 +86,14 @@ export default function VistaPreviaDelDte({
               {r.comuna || "—"}
               {r.ciudad ? ` · ${r.ciudad}` : ""}
             </p>
+            {vista.pago && (
+              <p className="sm:col-span-2">
+                <span className="text-gray-500">Condición de pago: </span>
+                {vista.pago.forma === 1 || !vista.pago.vencimiento
+                  ? "Contado"
+                  : `Crédito a ${vista.pago.dias} días · vence el ${fechaCorta(vista.pago.vencimiento)}`}
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-xs">
@@ -134,10 +142,11 @@ export default function VistaPreviaDelDte({
         {factura && pedida.referencias.length > 0 && (
           <div className="text-xs">
             <p className="text-gray-500">Referencias</p>
-            {pedida.referencias.map((ref) => (
-              <p key={ref.tipo}>
+            {pedida.referencias.map((ref, i) => (
+              <p key={i}>
                 {ref.tipo} · {nombreDeReferencia(ref.tipo)} · {ref.folio || "—"}
                 {ref.fecha ? ` · ${fechaCorta(ref.fecha)}` : ""}
+                {ref.razon ? ` · ${ref.razon}` : ""}
               </p>
             ))}
           </div>

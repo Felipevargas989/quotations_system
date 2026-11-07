@@ -34,6 +34,10 @@ export interface DocumentoTributario {
   emitido_por: string | null;
   emitido_en: string | null;
   created_at: string;
+  /** La factura (§9.22, migración 189): 1 contado, 2 crédito; y su
+   *  vencimiento. Nulos en lo de antes y en la boleta. */
+  forma_de_pago: number | null;
+  vencimiento: string | null;
 }
 
 export type NuevoDocumentoTributario = Pick<
@@ -61,7 +65,34 @@ export type NuevoDocumentoTributario = Pick<
   /** Lo que se sabe al mandarla (la boleta: el folio que debería tocarle,
    *  para «Comprobar» si se corta). */
   respuesta?: unknown;
+  /** La condición de pago de la factura (migración 189). */
+  forma_de_pago?: number | null;
+  vencimiento?: string | null;
 };
+
+/** Un cliente con sus razones sociales y su contacto principal, para
+ *  elegir a quién va la factura de «Nuevo documento» (§9.22). */
+export interface ClienteParaFacturar {
+  id: string;
+  nombre: string;
+  tipo: string | null;
+  contacto: {
+    nombre: string;
+    correo: string | null;
+    telefono: string | null;
+  } | null;
+  razones: {
+    id: number;
+    rut: string;
+    razon_social: string;
+    giro: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    ciudad: string | null;
+    correo_facturacion: string | null;
+    referencias_exigidas: string[];
+  }[];
+}
 
 export type CambiosDelDocumento = Partial<
   Pick<
@@ -83,7 +114,7 @@ export type CambiosDelDocumento = Partial<
 
 // Lo que la pantalla ve: ni el archivo enviado ni la respuesta cruda.
 const COLUMNAS =
-  'id, company_id, tipo, ambiente, folio, fecha_emision, estado, receptor, detalle, referencias, neto, exento, iva, total, quotation_id, orden_de_compra_id, porcentaje, modifica_id, codigo_referencia, error, pdf_path, creado_por, emitido_por, emitido_en, created_at';
+  'id, company_id, tipo, ambiente, folio, fecha_emision, estado, receptor, detalle, referencias, neto, exento, iva, total, quotation_id, orden_de_compra_id, porcentaje, modifica_id, codigo_referencia, error, pdf_path, creado_por, emitido_por, emitido_en, created_at, forma_de_pago, vencimiento';
 
 // Lo que cuenta como facturado: lo emitido y lo que quedó por confirmar
 // (puede haber salido: L5). Las notas de crédito restan en el paso 4.
@@ -394,6 +425,60 @@ export class DocumentosTributariosRepository {
       referencias_exigidas: r.referencias_exigidas ?? [],
       cliente: r.cliente?.name?.trim() || null,
     };
+  }
+
+  /** Los clientes de la empresa con sus razones sociales y su contacto
+   *  principal: el buscador del destinatario (§9.22) busca por el nombre y
+   *  por el RUT. */
+  async clientesParaFacturar(
+    companyId: number,
+  ): Promise<ClienteParaFacturar[]> {
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .select(
+        'id, name, client_type, contact_person, contact_email, contact_phone, contactos:client_contacts(name, email, phone, is_primary), razones:razones_sociales(id, rut, razon_social, giro, direccion, comuna, ciudad, correo_facturacion, referencias_exigidas)',
+      )
+      .eq('company_id', companyId)
+      .order('name');
+    if (error) throw error;
+    type Fila = {
+      id: string;
+      name: string | null;
+      client_type: string | null;
+      contact_person: string | null;
+      contact_email: string | null;
+      contact_phone: string | null;
+      contactos:
+        | {
+            name: string | null;
+            email: string | null;
+            phone: string | null;
+            is_primary: boolean | null;
+          }[]
+        | null;
+      razones: ClienteParaFacturar['razones'] | null;
+    };
+    return ((data ?? []) as unknown as Fila[]).map((c) => {
+      const principal =
+        (c.contactos ?? []).find((x) => x.is_primary) ?? (c.contactos ?? [])[0];
+      const nombre = principal?.name?.trim() || c.contact_person?.trim() || '';
+      return {
+        id: c.id,
+        nombre: c.name?.trim() || '',
+        tipo: c.client_type,
+        contacto: nombre
+          ? {
+              nombre,
+              correo: principal?.email ?? c.contact_email ?? null,
+              telefono: principal?.phone ?? c.contact_phone ?? null,
+            }
+          : null,
+        razones: (c.razones ?? []).map((r) => ({
+          ...r,
+          referencias_exigidas: r.referencias_exigidas ?? [],
+        })),
+      };
+    });
   }
 
   /** El último folio usado de un tipo, para seguir la numeración. */

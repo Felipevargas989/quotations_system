@@ -1,26 +1,43 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as facturas from "../../services/facturas.service";
 import FacturaNueva from "./FacturaNueva";
 
-// LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.21): de cero, sin evento. El
-// RUT primero: si ya es la razón social de un cliente, se llena con su
-// ficha y pide las referencias que ese cliente exige.
+// LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta del
+// 06-11: en su propia pantalla, a crédito 30 días si no se dice, con el
+// destinatario buscado en Clientes (por el nombre o el RUT) o creado nuevo.
 
 vi.mock("../../services/facturas.service", () => ({
-  buscarRazonSocial: vi.fn(),
+  getClientesParaFacturar: vi.fn(),
   revisarFacturaSinEvento: vi.fn(),
   emitirFacturaSinEvento: vi.fn(),
-  armarBorradorDeDte: vi.fn(),
-  emitirDte: vi.fn(),
-  prepararDte: vi.fn(),
-  revisarDte: vi.fn(),
 }));
-vi.mock("../../components/FileViewLink", () => ({
-  default: ({ title }: { title: string }) => <span>{title}</span>,
+vi.mock("../../services/clientTypes.service", () => ({
+  clientTypesQueryOptions: {
+    queryKey: ["clientTypes"],
+    queryFn: () =>
+      Promise.resolve([
+        { id: 1, name: "Particulares" },
+        { id: 2, name: "Empresas" },
+      ]),
+  },
+}));
+vi.mock("../../services/razonesSociales.service", () => ({
+  createRazonSocial: vi.fn(),
+}));
+vi.mock("../../hooks/useCrearCliente", () => ({
+  useCrearCliente: () => ({ enviar: vi.fn(), cargando: false, aviso: null }),
 }));
 const f = vi.mocked(facturas);
 
@@ -41,56 +58,155 @@ const VISTA: facturas.VistaPrevia = {
   fecha: "2026-11-06",
   emisor: { nombre: "Valle del Sol Quillón SpA", rut: null },
   ambiente: "simulado",
+  pago: { forma: 2, dias: 30, vencimiento: "2026-12-06" },
 };
 
-const abrir = () =>
+const CLIENTES: facturas.ClienteParaFacturar[] = [
+  {
+    id: "ccu",
+    nombre: "CCU",
+    tipo: "Empresas",
+    contacto: { nombre: "Jorge Muñoz", correo: "jm@ccu.cl", telefono: null },
+    razones: [
+      {
+        id: 7,
+        rut: "90413000-1",
+        razon_social: "Compañía Cervecerías Unidas S.A.",
+        giro: "Elaboración de cervezas",
+        direccion: "Av. Vitacura 2670",
+        comuna: "Las Condes",
+        ciudad: "Santiago",
+        correo_facturacion: "facturas@ccu.cl",
+        referencias_exigidas: ["802"],
+      },
+    ],
+  },
+  {
+    id: "sin-datos",
+    nombre: "Colegio Los Naranjos",
+    tipo: "Colegios & Universidades",
+    contacto: null,
+    razones: [],
+  },
+];
+
+const abrir = () => {
+  f.getClientesParaFacturar.mockResolvedValue(CLIENTES);
+  f.revisarFacturaSinEvento.mockResolvedValue(VISTA);
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <FacturaNueva puedeEmitir onEmitida={() => {}} />
+      <FacturaNueva puedeEmitir onVolver={() => {}} onEmitida={() => {}} />
     </QueryClientProvider>,
   );
+};
+
+const ultimaRevision = () => {
+  const llamadas = f.revisarFacturaSinEvento.mock.calls;
+  return llamadas[llamadas.length - 1]?.[0] as facturas.DtePedido;
+};
 
 describe("La factura de «Nuevo documento»", () => {
-  it("con un RUT que ya es de un cliente, se llena con su ficha y pide lo que ese cliente exige", async () => {
-    f.buscarRazonSocial.mockResolvedValue({
-      rut: "90413000-1",
-      razon_social: "Compañía Cervecerías Unidas S.A.",
-      giro: "Elaboración de cervezas",
-      direccion: "Av. Vitacura 2670",
-      comuna: "Las Condes",
-      ciudad: "Santiago",
-      correo_facturacion: "facturas@ccu.cl",
-      referencias_exigidas: ["802"],
-      cliente: "CCU",
-    });
-    f.revisarFacturaSinEvento.mockResolvedValue(VISTA);
+  it("parte a crédito 30 días, con el vencimiento a la vista", async () => {
     abrir();
-    fireEvent.change(screen.getByPlaceholderText("12.345.678-9"), {
-      target: { value: "90.413.000-1" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Seguir" }));
-    expect(await screen.findByText("Factura nueva")).toBeInTheDocument();
-    expect(f.buscarRazonSocial).toHaveBeenCalledWith("90413000-1");
-    expect(f.revisarFacturaSinEvento).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(
+      await screen.findByText("Nueva factura electrónica"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(ultimaRevision()).toMatchObject({
         tipo: 33,
-        orden_de_compra_id: null,
-        receptor: expect.objectContaining({
-          razon_social: "Compañía Cervecerías Unidas S.A.",
-        }),
-        referencias: [{ tipo: "802", folio: "", fecha: "" }],
+        forma_de_pago: 2,
+        plazo_dias: 30,
+        cliente_id: null,
       }),
     );
+    expect(screen.getByRole("radio", { name: "Crédito" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(await screen.findByText("06-12-2026")).toBeInTheDocument();
+  });
+
+  it("a 45 días avisa lo de la ley; al contado no queda por cobrar", async () => {
+    abrir();
+    fireEvent.click(await screen.findByRole("radio", { name: "45 días" }));
+    expect(screen.getByText(/Más de 30 días solo si/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Contado" }));
+    expect(screen.getByText(/no queda por cobrar/)).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(ultimaRevision()).toMatchObject({
+          forma_de_pago: 1,
+          plazo_dias: null,
+        }),
+      { timeout: 2000 },
+    );
+  });
+
+  it("el cliente se busca por el RUT sin puntos y trae su razón social y lo que pide", async () => {
+    const usuario = userEvent.setup();
+    abrir();
+    await usuario.click(
+      await screen.findByRole("button", {
+        name: /Busca el cliente por nombre o RUT/,
+      }),
+    );
+    await usuario.type(screen.getByPlaceholderText("Nombre o RUT"), "90413000");
+    const lista = within(
+      document.querySelector("[data-lista-scroll]") as HTMLElement,
+    );
+    await usuario.click(
+      lista.getByRole("button", { name: /Compañía Cervecerías Unidas/ }),
+    );
+    expect(screen.getByText(/Contacto: Jorge Muñoz/)).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(ultimaRevision()).toMatchObject({
+          cliente_id: "ccu",
+          receptor: expect.objectContaining({
+            rut: "90413000-1",
+            razon_social: "Compañía Cervecerías Unidas S.A.",
+          }),
+          referencias: [{ tipo: "802", folio: "", fecha: "" }],
+          pedir_siempre: ["802"],
+        }),
+      { timeout: 2000 },
+    );
+  });
+
+  it("un cliente sin datos de facturación abre sus casillas para completarlos", async () => {
+    const usuario = userEvent.setup();
+    abrir();
+    await usuario.click(
+      await screen.findByRole("button", {
+        name: /Busca el cliente por nombre o RUT/,
+      }),
+    );
+    const lista = within(
+      document.querySelector("[data-lista-scroll]") as HTMLElement,
+    );
+    await usuario.click(
+      lista.getByRole("button", { name: /Colegio Los Naranjos/ }),
+    );
     expect(
-      screen.getByText(/CCU pide también la nota de pedido/),
+      screen.getByDisplayValue("Colegio Los Naranjos"),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("12.345.678-9")).toBeInTheDocument();
+    expect(
+      screen.getByText(/quedan en la ficha de Colegio Los Naranjos/),
     ).toBeInTheDocument();
   });
 
-  it("sin un RUT válido no sigue", () => {
+  it("«Crear cliente nuevo» pide los datos de facturación, el tipo de cliente y el contacto", async () => {
     abrir();
-    fireEvent.change(screen.getByPlaceholderText("12.345.678-9"), {
-      target: { value: "90.413.000-2" },
-    });
-    expect(screen.getByRole("button", { name: "Seguir" })).toBeDisabled();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Crear cliente nuevo" }),
+    );
+    expect(screen.getByText("Datos de facturación")).toBeInTheDocument();
+    expect(screen.getByText("En Clientes")).toBeInTheDocument();
+    expect(screen.getByText("Tipo de cliente")).toBeInTheDocument();
+    expect(screen.getByText("Nombre del contacto")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Empresas/ }),
+    ).toBeInTheDocument();
   });
 });

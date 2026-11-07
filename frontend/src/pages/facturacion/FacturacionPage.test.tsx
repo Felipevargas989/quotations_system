@@ -103,17 +103,30 @@ describe("la sección Facturación", () => {
     expect(screen.getByText("la boleta")).toBeInTheDocument();
   });
 
-  it("el administrador: el tarifario se queda, y «Nuevo documento» pregunta qué documento", () => {
+  it("el administrador: el tarifario se queda, y «Nuevo documento» pregunta en una ventana qué documento (§9.22)", () => {
     rol = "administrador";
     abrir();
     expect(pestanas()).toEqual(["Documentos", "Por facturar (1)", "Tarifario"]);
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    for (const t of ["Factura", "Boleta", "Nota de crédito", "Nota de débito"])
+    for (const t of [
+      "Factura electrónica",
+      "Boleta electrónica",
+      "Nota de crédito",
+      "Nota de débito",
+    ])
       expect(screen.getByRole("button", { name: t })).toBeInTheDocument();
     expect(screen.queryByText("la boleta")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Boleta" }));
+    // El documento se arma en su propia pantalla, y «← Documentos» vuelve.
+    fireEvent.click(screen.getByRole("button", { name: "Boleta electrónica" }));
     expect(screen.getByText("la boleta")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Factura" }));
+    expect(screen.getByText("Nueva boleta electrónica")).toBeInTheDocument();
+    expect(pestanas()).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Documentos" }));
+    expect(screen.getByText("lista de documentos")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Factura electrónica" }),
+    );
     expect(screen.getByText("la factura nueva")).toBeInTheDocument();
   });
 
@@ -121,7 +134,9 @@ describe("la sección Facturación", () => {
     rol = "operaciones";
     abrir();
     fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    expect(screen.queryByRole("button", { name: "Factura" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Factura electrónica" }),
+    ).toBeNull();
   });
 
   it("con los interruptores: Documentos a recepción, sin el tarifario al administrador", () => {

@@ -17,15 +17,35 @@ const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
 const COLUMNAS = "sm:grid-cols-[1fr_5.5rem_8rem_7rem_1.25rem]";
 
+/** El neto, el IVA y el total a pagar como los calcula el motor. */
+export function TotalesDelDte({ montos }: { readonly montos: Montos | null }) {
+  return (
+    <dl className="ml-auto grid w-full grid-cols-2 sm:w-64 gap-x-3 text-sm">
+      <dt className="text-gray-500">Neto</dt>
+      <dd className="text-right">{montos ? clp(montos.neto) : "—"}</dd>
+      <dt className="text-gray-500">IVA 19 %</dt>
+      <dd className="text-right">{montos ? clp(montos.iva) : "—"}</dd>
+      <dt className="font-semibold">Total a pagar</dt>
+      <dd className="text-right font-semibold">
+        {montos ? clp(montos.total) : "—"}
+      </dd>
+    </dl>
+  );
+}
+
 export default function LineasDelDte({
   lineas,
   montos,
   onChange,
+  sinMarco = false,
 }: {
   readonly lineas: LineaPedida[];
   /** Los del motor; nulos si una línea no sirve todavía. */
   readonly montos: Montos | null;
   readonly onChange: (lineas: LineaPedida[]) => void;
+  /** «Nuevo documento» (§9.22): las líneas van dentro de su sección, sin
+   *  marco propio, y los totales van en «Totales». */
+  readonly sinMarco?: boolean;
 }) {
   // Al agregar o quitar una línea, las casillas se vuelven a armar: así
   // ninguna se queda con el número de otra.
@@ -38,7 +58,13 @@ export default function LineasDelDte({
   };
 
   return (
-    <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+    <div
+      className={
+        sinMarco
+          ? "space-y-2"
+          : "space-y-2 rounded-lg border border-gray-200 bg-white p-3"
+      }
+    >
       <div
         className={`hidden gap-2 text-xs font-semibold text-gray-500 sm:grid ${COLUMNAS}`}
       >
@@ -144,16 +170,7 @@ export default function LineasDelDte({
       >
         <Plus size={13} /> Agregar línea
       </button>
-      <dl className="ml-auto grid w-full grid-cols-2 sm:w-64 gap-x-3 text-sm">
-        <dt className="text-gray-500">Neto</dt>
-        <dd className="text-right">{montos ? clp(montos.neto) : "—"}</dd>
-        <dt className="text-gray-500">IVA 19 %</dt>
-        <dd className="text-right">{montos ? clp(montos.iva) : "—"}</dd>
-        <dt className="font-semibold">Total a pagar</dt>
-        <dd className="text-right font-semibold">
-          {montos ? clp(montos.total) : "—"}
-        </dd>
-      </dl>
+      {!sinMarco && <TotalesDelDte montos={montos} />}
     </div>
   );
 }

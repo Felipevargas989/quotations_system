@@ -122,8 +122,13 @@ const normalizada = (p: DtePedido): DtePedido => {
           tipo: r.tipo,
           folio: textoLimpio(r.folio),
           fecha: (r.fecha ?? '').trim(),
+          razon: textoLimpio(r.razon) || null,
         })),
     pedir_siempre: boleta ? [] : [...new Set(p.pedir_siempre ?? [])],
+    // §9.22: la factura va al contado o a crédito (30 días si no se dice).
+    forma_de_pago: boleta ? null : p.forma_de_pago === 1 ? 1 : 2,
+    plazo_dias: boleta || p.forma_de_pago === 1 ? null : (p.plazo_dias ?? 30),
+    cliente_id: boleta ? null : (p.cliente_id ?? null),
   };
 };
 
@@ -143,6 +148,8 @@ const paraLaPantalla = (r: Revision) => ({
   observaciones: r.observaciones,
   avisos: r.avisos,
   problemas: r.problemas,
+  // §9.22: contado o crédito con su vencimiento, como va en la factura.
+  pago: r.pago,
   faltan: r.faltan,
 });
 
@@ -386,7 +393,17 @@ export class FacturasService {
       tipo: FACTURA,
       orden_de_compra_id: null,
     });
-    return this.vistaPrevia(pedida, this.sinEvento(companyId), companyId);
+    return this.vistaPrevia(
+      pedida,
+      await this.sinEvento(companyId, pedida.cliente_id),
+      companyId,
+    );
+  }
+
+  /** El buscador del destinatario de «Nuevo documento» (§9.22): los
+   *  clientes con sus razones sociales y su contacto. */
+  clientesParaFacturar(companyId: number) {
+    return this.repo.clientesParaFacturar(companyId);
   }
 
   async emitirSinEvento(user: User, dto: DtePedido) {
@@ -396,7 +413,7 @@ export class FacturasService {
       tipo: FACTURA,
       orden_de_compra_id: null,
     });
-    const ctx = this.sinEvento(companyId);
+    const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
     const fecha = hoyEnChile();
     const folio = await conexion.folioSiguiente(FACTURA);
@@ -423,12 +440,20 @@ export class FacturasService {
     return this.repo.razonSocialDeLaEmpresa(companyId, canonico);
   }
 
-  /** Lo que una factura sin evento sabe: nada del evento ni de la OC. */
-  private sinEvento(companyId: number): ContextoDeLaFactura {
+  /** Lo que una factura sin evento sabe: nada del evento ni de la OC; si
+   *  va a un cliente de Eventia (§9.22), sus razones sociales. Un cliente
+   *  de otra empresa no trae nada: `deCliente` filtra por la empresa. */
+  private async sinEvento(
+    companyId: number,
+    clienteId?: string | null,
+  ): Promise<ContextoDeLaFactura> {
     return {
       evento: null,
       oc: null,
-      razones: [],
+      razones: clienteId
+        ? await this.razonesSociales.deCliente(clienteId, companyId)
+        : [],
+      clienteId: clienteId ?? null,
       facturadoDelEvento: 0,
       totalDeLasOC: 0,
       ambiente: this.conexion.de(companyId).ambiente,
@@ -479,6 +504,9 @@ export class FacturasService {
         orden_de_compra_id: pedida.orden_de_compra_id,
         porcentaje: quotationId ? porcentajeDe(montos.total, ctx) : null,
         creado_por: user.id ?? null,
+        // §9.22 (migración 189): contado o crédito, y cuándo vence.
+        forma_de_pago: revision.pago?.forma ?? null,
+        vencimiento: revision.pago?.vencimiento ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>
@@ -643,10 +671,13 @@ export class FacturasService {
     pedida: DtePedido,
     user: User,
   ) {
-    const clientId = ctx.evento?.clientId;
+    const clientId = ctx.evento?.clientId ?? ctx.clienteId;
     if (!clientId) return;
     const r = pedida.receptor;
     const guardada = razonSocialDelRut(ctx.razones, r.rut);
+    // En «Nuevo documento» lo editado a mano manda (§9.22: «los cambios
+    // quedan en la ficha»); con evento, solo se llena lo que faltaba.
+    const manda = !ctx.evento;
     if (!guardada) {
       await this.razonesSociales.crear(
         clientId,
@@ -667,10 +698,15 @@ export class FacturasService {
       return;
     }
     const cambios: EditarRazonSocialDto = {};
+    const cambia = (antes: string | null, ahora: string | null | undefined) =>
+      !!textoLimpio(ahora) &&
+      (manda ? textoLimpio(ahora) !== textoLimpio(antes) : !antes);
     for (const campo of ['giro', 'direccion', 'comuna', 'ciudad'] as const)
-      if (!guardada[campo] && textoLimpio(r[campo])) cambios[campo] = r[campo];
-    if (!guardada.correo_facturacion && textoLimpio(r.correo))
+      if (cambia(guardada[campo], r[campo])) cambios[campo] = r[campo];
+    if (cambia(guardada.correo_facturacion, r.correo))
       cambios.correo_facturacion = r.correo;
+    if (manda && cambia(guardada.razon_social, r.razon_social))
+      cambios.razon_social = r.razon_social;
     const antes = [...guardada.referencias_exigidas].sort().join(',');
     if (antes !== [...pedida.pedir_siempre].sort().join(','))
       cambios.referencias_exigidas = pedida.pedir_siempre;

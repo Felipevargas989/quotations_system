@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import BoletaSuelta from "../boletas/BoletaSuelta";
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import { usePorFacturar } from "./consultas";
 import DocumentosDelMes from "./DocumentosDelMes";
+import ElegirDocumento from "./ElegirDocumento";
+import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
-import NuevoDocumento, { type TipoNuevo } from "./NuevoDocumento";
+import NuevoDocumento from "./NuevoDocumento";
+import { NOMBRE_DEL_NUEVO, type TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
 
 // LA SECCIÓN «FACTURACIÓN» (doc 19 §9.19 y §9.21). Una sola entrada del
@@ -16,6 +20,10 @@ import PorFacturar from "./PorFacturar";
 // factura, boleta"*, y abajo el detalle. Salieron «Boleta suelta», «Por
 // boletear» y «Emitidas hoy»; el tarifario se queda. «Por facturar»: los
 // eventos con algo por emitir, para facturarlos desde acá.
+//
+// §9.22 (la maqueta que aprobó Felipe el 06-11): «Nuevo documento» abre una
+// ventana para elegir qué se emite, y el documento se arma en su propia
+// pantalla; «← Documentos» vuelve a la lista.
 //
 // Cada pieza sigue su interruptor de Mi empresa → Usuarios → Permisos por
 // cargo (doc 22 §7): «Nuevo documento» ofrece la factura al administrador
@@ -65,7 +73,12 @@ export default function FacturacionPage() {
   ];
   const [elegida, setElegida] = useState<Pestana | null>(null);
   const pestana = elegida ?? pestanas[0]?.key ?? null;
-  const [nuevo, setNuevo] = useState(false);
+  // La ventana que pregunta qué se emite, y la pantalla del que se eligió.
+  const [eligiendo, setEligiendo] = useState(false);
+  const [abierto, setAbierto] = useState<TipoNuevo | null>(null);
+  const esAdmin = userRole === "administrador";
+  const nuevoDocumento = () =>
+    tipos.length === 1 ? setAbierto(tipos[0]) : setEligiendo(true);
 
   const emitido = () => {
     void queryClient.invalidateQueries({ queryKey: ["facturacion", "lista"] });
@@ -75,33 +88,72 @@ export default function FacturacionPage() {
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
 
+  const letrero = (
+    <LetreroDelAmbiente
+      ambiente={hoy.data?.ambiente}
+      sinConexion={hoy.data?.sin_conexion}
+      que="Los documentos"
+    />
+  );
+
+  // El documento en su propia pantalla (§9.22).
+  if (abierto)
+    return (
+      <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
+        {letrero}
+        {abierto === "factura" ? (
+          <FacturaNueva
+            puedeEmitir={esAdmin}
+            onVolver={() => setAbierto(null)}
+            onEmitida={() => {
+              emitido();
+              setAbierto(null);
+            }}
+          />
+        ) : (
+          <PantallaDelDocumento
+            titulo={`Nueva ${NOMBRE_DEL_NUEVO[abierto].toLowerCase()}`}
+            onVolver={() => setAbierto(null)}
+          >
+            {abierto === "boleta" ? (
+              <BoletaSuelta esAdmin={esAdmin} onEmitida={emitido} />
+            ) : (
+              <ElegirDocumento
+                key={abierto}
+                tipo={abierto}
+                onEmitida={emitido}
+              />
+            )}
+          </PantallaDelDocumento>
+        )}
+      </div>
+    );
+
   return (
     // Abajo, espacio para que el botón de BelIA no tape las acciones de la
     // última fila.
     <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900">Facturación</h1>
-        {tipos.length > 0 && !nuevo && (
+        {tipos.length > 0 && (
           <button
             type="button"
-            onClick={() => setNuevo(true)}
+            onClick={nuevoDocumento}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
             <Plus size={15} /> Nuevo documento
           </button>
         )}
       </div>
-      <LetreroDelAmbiente
-        ambiente={hoy.data?.ambiente}
-        sinConexion={hoy.data?.sin_conexion}
-        que="Los documentos"
-      />
-      {nuevo && (
+      {letrero}
+      {eligiendo && (
         <NuevoDocumento
           tipos={tipos}
-          esAdmin={userRole === "administrador"}
-          onCerrar={() => setNuevo(false)}
-          onEmitido={emitido}
+          onElegir={(t) => {
+            setEligiendo(false);
+            setAbierto(t);
+          }}
+          onCerrar={() => setEligiendo(false)}
         />
       )}
       {pestanas.length > 0 && (
@@ -127,6 +179,31 @@ export default function FacturacionPage() {
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}
+    </div>
+  );
+}
+
+/** La boleta y las notas en su pantalla, con «← Documentos» (§9.22). */
+function PantallaDelDocumento({
+  titulo,
+  onVolver,
+  children,
+}: {
+  readonly titulo: string;
+  readonly onVolver: () => void;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onVolver}
+        className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+      >
+        <ArrowLeft size={15} /> Documentos
+      </button>
+      <h1 className="text-xl font-semibold text-gray-900">{titulo}</h1>
+      {children}
     </div>
   );
 }

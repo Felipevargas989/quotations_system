@@ -8,6 +8,10 @@ export interface SelectOption {
   group?: string;
   // Apunte gris a la derecha: precio, categoría, unidad…
   hint?: string;
+  // Texto que el buscador también mira y no se muestra (06-11-2026): el
+  // RUT sin puntos de una razón social, para encontrarla se escriba como
+  // se escriba (la factura de «Nuevo documento», doc 19 §9.22).
+  buscar?: string;
   // Punto de color a la izquierda (estados, semáforos).
   dotClass?: string;
   // Etiqueta de color a la DERECHA de la fila (15-08): un aviso que

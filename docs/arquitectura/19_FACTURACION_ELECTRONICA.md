@@ -1081,7 +1081,8 @@ el 05-11):
 *Medido ese día:*
 - En producción no hay ninguna tabla de facturación y Valle del Sol no
   tiene el módulo.
-- Las migraciones 184 y 187 tienen su número libre en `main`; la 187 trae
+- Las migraciones 184 y 187 tienen su número libre en `main` (y la 189, de
+  la condición de pago, §9.22); la 187 trae
   también el tarifario.
 - La rama va 2 commits detrás de `main`, y al juntarlas solo chocan dos
   mapas del atlas, el 09 y el 18. El código no choca.
@@ -1095,7 +1096,7 @@ el 05-11):
 *El día del «a producción», en este orden:*
 1. **Respaldo:** `modulos_propios` de la empresa 1, en
    `02_RESPALDOS/cambios_de_datos`.
-2. **Base de producción:** las migraciones 184 y 187 (la 184b es solo del
+2. **Base de producción:** las migraciones 184, 187 y 189 (la 184b es solo del
    laboratorio). Así quedan las tablas y el módulo de Valle del Sol.
 3. **Motor:**
    - se junta `main` en la rama y se resuelven los dos mapas;
@@ -1307,6 +1308,65 @@ boletas de las cabañas. Hagamos ese cambio y yo me voy a acostar"*.
      emitido queda emitido.
 5. Salen «Boleta suelta», «Por boletear» y «Emitidas hoy». Los cobros por
    boletear quedan en el motor sin pantalla: no se borra nada.
+
+### 9.22 La factura de «Nuevo documento» como la maqueta (06-11)
+
+Felipe, 06-11, con los pantallazos de otro facturador: *"no digo que este
+flujo sea la panacea, se puede mejorar, pero para no inventar todo"*. Se
+armó una maqueta que se puede usar (artifact «Maqueta de Facturación», con
+datos de ejemplo), y la aprobó: *"está perfecto (…) me gusta toda la
+usabilidad, todo. Podemos replicar con el mismo formato"*. Va en tres
+sprints cortos:
+
+| Sprint | Qué |
+|---|---|
+| 1 | Crear la factura: la ventana que pregunta qué se emite, y la factura en su propia pantalla |
+| 2 | La lista: el resumen que sigue los filtros, el buscador, los filtros por tipo, estado y fechas, y la descarga directa |
+| 3 | La boleta y las notas con la misma pantalla y la misma vista previa |
+
+«Recibidos» y la descarga del XML dependen de que facturacion.cl los
+entregue: se averiguan antes de prometerlos.
+
+**El sprint 1, la factura nueva:**
+- «Nuevo documento» abre una ventana con lo que cada uno puede emitir
+  (`NuevoDocumento`); con una sola opción va directo. El documento se arma
+  en su propia pantalla, con «← Documentos» para volver.
+- **Documento:** la fecha de emisión (la de hoy en Chile) y la condición de
+  pago. Felipe: *"por defecto la factura debe ser emitida en crédito a 30
+  días... o 45 o 60 (…) no es en cualquier fecha"*. Contado (no queda por
+  cobrar) o crédito a 30, 45 o 60 días; el vencimiento es la emisión más el
+  plazo. Va en el archivo (`->FormaPago<-` con la glosa «Crédito a 30
+  días», y `->FechaVencimiento<-`) y queda en el documento (migración 189:
+  `forma_de_pago` y `vencimiento`). Sin decir nada, crédito a 30 días,
+  también en la factura del evento (Post-Venta). No es una regla del SII:
+  es la ley de pago a 30 días (Ley 19.983), que pone 30 días corridos desde
+  la recepción como máximo; más, hasta 60, solo con las bases de una
+  licitación pública o con un acuerdo escrito inscrito en el Ministerio de
+  Economía (y no se puede si una pyme le vende a una empresa grande, salvo
+  casos puntuales). A 45 o 60 la pantalla lo avisa. facturacion.cl solo
+  pide que el vencimiento no sea antes de la emisión.
+- **Destinatario:** se busca en Clientes por el nombre o por el RUT, con o
+  sin puntos (`GET /facturacion/clientes`: cada cliente con sus razones
+  sociales y su contacto principal). Un cliente sin datos de facturación
+  también sale y se completan ahí. «Crear cliente nuevo» pide los datos de
+  facturación, el tipo de cliente (los de Mi empresa) y el contacto
+  (Felipe: *"para que quede en nuestro módulo de clientes"*); se guarda con
+  el gancho de Recepción, el cotizador y Clientes (`useCrearCliente`: el
+  mismo aviso de «cliente parecido»), y la razón social en su ficha. Un
+  RUT que ya está en Clientes no se duplica: se ofrece usar ese cliente. Al
+  emitir, lo editado a mano queda en la ficha del cliente (con evento, como
+  antes, solo se llena lo que faltaba).
+- **Ítems:** los de Post-Venta (`LineasDelDte`); el descuento en % por
+  ítem va en un segundo envío del sprint.
+- **Referencias:** las mismas en el evento y acá (`ReferenciasDelDte`): el
+  tipo angosto y el folio ancho (Felipe: *"el tipo más chiquito el folio
+  más grande"*), la fecha y el motivo, opcional, hasta 90 (RazonRef).
+- **Totales:** el neto, el IVA y el total del motor, lo que falta, y
+  «Crear documento», que abre la factura tal como saldrá (con la condición
+  de pago y los motivos) para emitirla ahí.
+- Los largos son los del manual de facturacion.cl: la descripción del ítem
+  80, la descripción larga 1.000, el motivo de la referencia 90, y hasta 40
+  referencias.
 
 ### 9.11 Fuentes nuevas (04-11)
 
