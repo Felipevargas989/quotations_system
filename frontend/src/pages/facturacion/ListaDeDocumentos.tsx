@@ -157,11 +157,14 @@ const subtitulo = (d: DocumentoDeLaLista) => {
     : d.oc
       ? `OC ${d.oc}`
       : null;
+  // La nota va debajo de su factura, que ya dice la OC y el evento: ella
+  // dice solo lo que hace, para caber en su línea (07-11).
+  const nota = esNota(d) && !!d.que_hace;
   return [
     d.fecha_emision ? fechaCorta(d.fecha_emision) : "sin fecha",
     d.que_hace,
-    ref,
-    d.numero ? `N° ${d.numero}` : null,
+    nota ? null : ref,
+    !nota && d.numero ? `N° ${d.numero}` : null,
     d.reemplaza ? `reemplaza a la ${d.reemplaza}` : null,
   ]
     .filter(Boolean)
@@ -330,6 +333,7 @@ export default function ListaDeDocumentos({
 
   const fila = (d: DocumentoDeLaLista, nivel: number): JSX.Element => {
     const linea = lineaDelEstado(d);
+    const sub = subtitulo(d);
     return (
       <Fragment key={d.id}>
         <tr
@@ -345,7 +349,15 @@ export default function ListaDeDocumentos({
               {nivel > 0 && <span className="text-gray-300">└ </span>}
               {d.nombre ?? d.titulo}
             </p>
-            <p className="text-xs text-gray-400">{subtitulo(d)}</p>
+            {/* En una línea: si no cabe (los folios de prueba tienen 10
+                dígitos), termina en «…» y se lee entera al pasar el mouse. */}
+            <p
+              className="truncate text-xs text-gray-400"
+              style={{ maxWidth: `${14 - nivel * 1.25}rem` }}
+              title={sub}
+            >
+              {sub}
+            </p>
           </td>
           <td className="py-2 pr-2 text-gray-700">
             {/* Lo único que puede bajar de línea: hasta dos, y entero al
