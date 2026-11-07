@@ -14,6 +14,7 @@ import {
 } from "../../services/documentosTributarios.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
+import { valorDeLaLinea } from "../postventa/facturacion/datosDeLaFactura";
 
 // ANULAR, REBAJAR O CORREGIR (doc 19 §9.5, paso 4; maqueta del 04-11).
 //
@@ -282,7 +283,7 @@ export default function NotaDeUnDocumento({
           </p>
           {vista.lineas.map((l, i) => (
             <p key={i} className="text-xs text-gray-600">
-              {l.cantidad} × {l.descripcion} · neto {clp(l.cantidad * l.precio)}
+              {l.cantidad} × {l.descripcion} · neto {clp(valorDeLaLinea(l))}
             </p>
           ))}
           {vista.montos && (

@@ -49,3 +49,24 @@ describe("La descripción larga", () => {
     ]);
   });
 });
+
+describe("El descuento de la factura (§9.22)", () => {
+  it("con descuento, la columna «Desc. %» y el total ya descontado", () => {
+    render(
+      <LineasDelDte
+        lineas={[{ ...LINEA, cantidad: 2, precio: 119000, descuento: 10 }]}
+        montos={null}
+        onChange={vi.fn()}
+        conDescuento
+      />,
+    );
+    expect(screen.getByText("Desc. %")).toBeInTheDocument();
+    // 2 × $119.000 = $238.000, menos el 10 %.
+    expect(screen.getByText("$214.200")).toBeInTheDocument();
+  });
+
+  it("la boleta no lleva la columna", () => {
+    abrir([LINEA]);
+    expect(screen.queryByText("Desc. %")).not.toBeInTheDocument();
+  });
+});

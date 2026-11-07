@@ -8,7 +8,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { CODIGOS_DE_REFERENCIA } from '../referencias';
@@ -95,6 +97,13 @@ export class LineaDelDteDto {
 
   @IsInt({ message: 'El precio va en pesos, sin decimales' })
   precio: number;
+
+  // §9.22: el descuento de la línea en %, con dos decimales.
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99.99, { message: 'El descuento va de 0 a menos de 100 %' })
+  descuento?: number | null;
 }
 
 export class ReferenciaDeLaFacturaDto {

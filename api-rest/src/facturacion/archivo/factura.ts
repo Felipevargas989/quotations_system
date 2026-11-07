@@ -3,6 +3,7 @@ import { CODIGOS_DE_REFERENCIA } from '../referencias';
 import {
   cantidadYPrecio,
   correosDelReceptor,
+  descuentoDeLaLinea,
   observacionesDelArchivo,
   revisarLinea,
   rutDelReceptor,
@@ -14,6 +15,7 @@ import {
   SALTO,
   esFechaDelArchivo,
   lineaDelArchivo,
+  numeroDelArchivo,
   pesosDelArchivo,
   textoLimpio,
 } from './texto';
@@ -292,8 +294,9 @@ export const armarFactura = (datos: DatosDeFactura): Armado => {
         avisos.campo(`La descripción de la línea ${i + 1}`, l.descripcion, 80),
         cantidad,
         precio,
-        0, // PorcDescto
-        0, // ValorDescto
+        // El descuento de la línea (§9.22): su % y su monto en neto.
+        l.descuento ? numeroDelArchivo(l.descuento, 2) : 0, // PorcDescto
+        pesosDelArchivo(descuentoDeLaLinea(l)), // ValorDescto
         0, // PorcRecgo
         0, // ValorRecgo
         0, // ValorExento

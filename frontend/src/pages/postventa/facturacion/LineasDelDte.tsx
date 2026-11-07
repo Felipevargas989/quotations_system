@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import NumberInput from "../../../components/inputs/NumberInput";
 import type { LineaPedida, Montos } from "../../../services/facturas.service";
-import { claseCasilla, claseTitulo } from "./datosDeLaFactura";
+import { claseCasilla, claseTitulo, valorDeLaLinea } from "./datosDeLaFactura";
 
 // LAS LÍNEAS DEL DTE (doc 19 §9.20): la descripción, la cantidad de
 // personas, el precio con IVA y su total, y abajo el neto, el IVA y el
@@ -16,6 +16,9 @@ import { claseCasilla, claseTitulo } from "./datosDeLaFactura";
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
 const COLUMNAS = "sm:grid-cols-[1fr_5.5rem_8rem_7rem_1.25rem]";
+// La factura (§9.22) suma el descuento en %, antes del total.
+const COLUMNAS_CON_DESCUENTO =
+  "sm:grid-cols-[1fr_5.5rem_8rem_5rem_7rem_1.25rem]";
 
 /** El neto, el IVA y el total a pagar como los calcula el motor. */
 export function TotalesDelDte({ montos }: { readonly montos: Montos | null }) {
@@ -38,6 +41,7 @@ export default function LineasDelDte({
   montos,
   onChange,
   sinMarco = false,
+  conDescuento = false,
 }: {
   readonly lineas: LineaPedida[];
   /** Los del motor; nulos si una línea no sirve todavía. */
@@ -46,7 +50,10 @@ export default function LineasDelDte({
   /** «Nuevo documento» (§9.22): las líneas van dentro de su sección, sin
    *  marco propio, y los totales van en «Totales». */
   readonly sinMarco?: boolean;
+  /** La factura lleva el descuento en % por línea (§9.22); la boleta no. */
+  readonly conDescuento?: boolean;
 }) {
+  const columnas = conDescuento ? COLUMNAS_CON_DESCUENTO : COLUMNAS;
   // Al agregar o quitar una línea, las casillas se vuelven a armar: así
   // ninguna se queda con el número de otra.
   const [version, setVersion] = useState(0);
@@ -66,17 +73,18 @@ export default function LineasDelDte({
       }
     >
       <div
-        className={`hidden gap-2 text-xs font-semibold text-gray-500 sm:grid ${COLUMNAS}`}
+        className={`hidden gap-2 text-xs font-semibold text-gray-500 sm:grid ${columnas}`}
       >
         <span>Descripción</span>
         <span className="text-right">Cantidad</span>
         <span className="text-right">Precio c/IVA</span>
+        {conDescuento && <span className="text-right">Desc. %</span>}
         <span className="text-right">Total</span>
         <span />
       </div>
       {lineas.map((l, i) => (
         <div key={`${version}-${i}`} className="space-y-1">
-          <div className={`grid items-center gap-2 ${COLUMNAS}`}>
+          <div className={`grid items-center gap-2 ${columnas}`}>
             <input
               type="text"
               value={l.descripcion}
@@ -100,8 +108,18 @@ export default function LineasDelDte({
               onChange={(v) => poner(i, { precio: v ?? 0 })}
               className="text-sm text-right"
             />
+            {conDescuento && (
+              <NumberInput
+                value={l.descuento ?? undefined}
+                min={0}
+                max={99.99}
+                placeholder="0"
+                onChange={(v) => poner(i, { descuento: v || null })}
+                className="text-sm text-right"
+              />
+            )}
             <span className="text-right text-sm text-gray-900">
-              {clp(l.cantidad * l.precio)}
+              {clp(valorDeLaLinea(l))}
             </span>
             {lineas.length > 1 ? (
               <button

@@ -31,6 +31,9 @@ export interface LineaDeDetalle {
   /** El precio unitario: NETO en la factura y las notas, CON IVA en la
    *  boleta. */
   precio: number;
+  /** El descuento de la línea en %, de 0 a menos de 100 (la factura,
+   *  doc 19 §9.22): va en PorcDescto y su monto en ValorDescto. */
+  descuento?: number | null;
   /** El código del ítem (35); sin código va «SERV». */
   codigo?: string | null;
   /** La unidad (4); sin unidad va «UN». */

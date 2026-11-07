@@ -182,6 +182,7 @@ export default function FacturaNueva({
           montos={vista?.montos ?? null}
           onChange={(lineas) => poner({ lineas })}
           sinMarco
+          conDescuento
         />
       </Seccion>
 

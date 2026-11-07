@@ -115,6 +115,9 @@ const normalizada = (p: DtePedido): DtePedido => {
       descripcion_larga: (l.descripcion_larga ?? '').trim() || null,
       cantidad: Number(l.cantidad),
       precio: Number(l.precio),
+      // El descuento va solo en la factura (§9.22).
+      descuento:
+        !boleta && Number(l.descuento) > 0 ? Number(l.descuento) : null,
     })),
     referencias: boleta
       ? []

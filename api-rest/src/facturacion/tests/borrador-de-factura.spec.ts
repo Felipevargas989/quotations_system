@@ -430,6 +430,63 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
     );
   });
 
+  it('el descuento de la línea: en %, sobre el neto, con su monto en el archivo (PorcDescto y ValorDescto)', () => {
+    const r = revisarDte(
+      pedida({
+        lineas: [
+          {
+            descripcion: 'Jornada corporativa',
+            descripcion_larga: null,
+            cantidad: 1,
+            precio: 119000,
+            descuento: 10,
+          },
+        ],
+      }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(r.ok).toBe(true);
+    // $119.000 con IVA = $100.000 neto; el 10 % son $10.000.
+    expect(r.montos).toEqual({
+      neto: 90000,
+      exento: 0,
+      iva: 17100,
+      total: 107100,
+    });
+    expect(r.archivo).toContain(
+      '1;SERV;Jornada corporativa;1;100000;10;10000;0;0;0;90000;INT1;UN;',
+    );
+    expect(r.avisos).toEqual([]);
+  });
+
+  it('un descuento de 100 % o más no sirve; en la boleta no va', () => {
+    const conDescuento = (descuento: number) =>
+      pedida({
+        lineas: [
+          {
+            descripcion: 'Jornada corporativa',
+            descripcion_larga: null,
+            cantidad: 1,
+            precio: 119000,
+            descuento,
+          },
+        ],
+      });
+    expect(
+      revisarDte(conDescuento(100), sinEvento, 1, '2026-11-06').problemas,
+    ).toContain('El descuento va de 0 a menos de 100 %');
+    const boleta = revisarDte(
+      { ...conDescuento(10), tipo: 39 },
+      sinEvento,
+      0,
+      '2026-11-06',
+    );
+    expect(boleta.lineas[0].descuento).toBeUndefined();
+    expect(boleta.montos?.total).toBe(119000);
+  });
+
   it('el borrador del evento parte a crédito 30 días; la boleta no lleva condición', () => {
     expect(armarBorrador(contexto()).pedida).toMatchObject({
       forma_de_pago: 2,

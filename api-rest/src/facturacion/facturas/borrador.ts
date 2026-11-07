@@ -1,6 +1,7 @@
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
 import { sumarDias } from '../../quotations/generar/fechas';
 import { armarBoleta } from '../archivo/boleta';
+import { valorDeLaLinea } from '../archivo/comun';
 import { armarFactura } from '../archivo/factura';
 import {
   desgloseDelTotal,
@@ -148,6 +149,9 @@ export interface LineaPedida {
   descripcion_larga: string | null;
   cantidad: number;
   precio: number;
+  /** Solo la factura: el descuento de la línea en %, de 0 a menos de 100
+   *  (§9.22). */
+  descuento?: number | null;
 }
 
 /** Lo que se emite: lo propone BelIA y la persona lo corrige a mano (E4). */
@@ -490,8 +494,10 @@ const observacionesDe = (e: EventoAFacturar): string[] => [
   `Cotización N° ${e.numero}${e.desde ? ` · evento ${fechaCorta(e.desde)}` : ''}`,
 ];
 
-/** Lo que una línea vale con IVA, al peso: lo que el DTE debería sumar. */
-const conIva = (l: LineaPedida) => Math.round(l.cantidad * l.precio);
+/** Lo que una línea vale con IVA, al peso, con su descuento: lo que el
+ *  DTE debería sumar. */
+const conIva = (l: LineaPedida) =>
+  Math.round(l.cantidad * l.precio * (1 - (l.descuento ?? 0) / 100));
 
 /**
  * La vista previa y la emisión usan esta misma revisión: lo que falta, los
@@ -526,23 +532,29 @@ export function revisarDte(
       problemas.push(`La cantidad${de} va mayor que cero`);
     if (!Number.isInteger(l.precio) || l.precio < 0)
       problemas.push(`El precio${de} va en pesos, sin decimales`);
+    if (
+      l.descuento != null &&
+      (!Number.isFinite(l.descuento) || l.descuento < 0 || l.descuento >= 100)
+    )
+      problemas.push(`El descuento${de} va de 0 a menos de 100 %`);
   });
   // Las líneas como van en el archivo: en la factura, en neto con los seis
   // decimales que admite (así 78 menús de $55.000 suman exacto con su IVA);
   // en la boleta, con IVA.
+  // El descuento va solo en la factura (§9.22): en neto, sobre el neto de
+  // la línea, como lo cuenta el SII.
   const lineas: LineaDeDetalle[] = pedidas.map((l) => ({
     descripcion: l.descripcion ?? '',
     descripcionLarga: l.descripcion_larga ?? null,
     cantidad: l.cantidad,
     precio: factura ? precioNetoDe(l.precio) : l.precio,
+    ...(factura && l.descuento ? { descuento: l.descuento } : {}),
   }));
   const esperado = pedidas.reduce((s, l) => s + conIva(l), 0);
   const montos: Montos | null = problemas.length
     ? null
     : factura
-      ? montosDesdeElNeto(
-          lineas.reduce((s, l) => s + Math.round(l.cantidad * l.precio), 0),
-        )
+      ? montosDesdeElNeto(lineas.reduce((s, l) => s + valorDeLaLinea(l), 0))
       : desgloseDelTotal(esperado);
   if (montos && montos.total <= 0) problemas.push(`${Cual} queda en $0`);
 
