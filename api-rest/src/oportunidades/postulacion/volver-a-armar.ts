@@ -4,6 +4,7 @@ import {
   mismoFormulario,
   normalizar,
 } from './el-set';
+import { esLaCotizacionDetallada } from './la-cotizacion-detallada';
 
 // «VOLVER A ARMAR» (decisión 49 del doc 17, 19-10). Felipe: "no necesitamos
 // llenarnos de documentos: si pongo volver a generar está bien que borre
@@ -24,6 +25,13 @@ export type LaVueltaAnterior = {
   borradoresDePropuesta: number[];
   /** ¿Ya hay una propuesta técnica firmada o subida a mano? */
   propuestaFirmada: boolean;
+  /** Los borradores de la cotización detallada (decisión 119): los
+   *  reemplaza la nueva. */
+  borradoresDeCotizacion: number[];
+  /** La cotización detallada que ya hay: subida a mano (no se rehace),
+   *  firmada con el mismo precio (tampoco), firmada con otro precio (se
+   *  rehace y se avisa) o ninguna. */
+  cotizacion: 'no_hay' | 'firmada' | 'otro_precio' | 'subida';
 };
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
@@ -36,6 +44,9 @@ export function laVueltaAnterior(d: {
   total: number;
   /** El precio con que se hizo cada trabajo de anexos, por su id. */
   totalDe: ReadonlyMap<number, number | null>;
+  /** El precio de la vuelta anterior de «Armar postulación»: con el que se
+   *  firmó la cotización detallada (su Word se borra al firmar). */
+  precioAnterior?: number | null;
 }): LaVueltaAnterior {
   const generados = d.postulacion.filter((a) => a.origen === 'generado');
   const firmados = d.postulacion.filter((a) => a.origen === 'firmado');
@@ -44,6 +55,7 @@ export function laVueltaAnterior(d: {
     generados.find((g) => g.id === a.viene_de);
   const conFirma = new Set(firmados.map((f) => f.viene_de));
   const borradores = generados.filter((g) => !conFirma.has(g.id));
+  const cotizacion = (a: ArchivoDelSet) => esLaCotizacionDetallada(a.nombre);
 
   // Un formulario firmado de la parte económica con otro precio se rehace:
   // si no, la oferta saldría con el precio de antes.
@@ -69,12 +81,20 @@ export function laVueltaAnterior(d: {
       .filter((g) => g.viene_de !== null)
       .map((g) => g.id),
     borradoresDePropuesta: borradores
-      .filter((g) => g.viene_de === null)
+      .filter((g) => g.viene_de === null && !cotizacion(g))
       .map((g) => g.id),
+    borradoresDeCotizacion: borradores.filter(cotizacion).map((g) => g.id),
+    cotizacion: subidos.some(cotizacion)
+      ? 'subida'
+      : firmados.some(cotizacion)
+        ? d.precioAnterior != null && d.precioAnterior !== d.total
+          ? 'otro_precio'
+          : 'firmada'
+        : 'no_hay',
     propuestaFirmada:
       firmados.some(
         (f) =>
-          padreDe(f)?.viene_de === null ||
+          (padreDe(f)?.viene_de === null && !cotizacion(f)) ||
           (!padreDe(f) && PROPUESTA.test(normalizar(f.nombre))),
       ) || subidos.some((s) => PROPUESTA.test(normalizar(s.nombre))),
   };

@@ -3,9 +3,9 @@ import {
   type ArchivoDelSet,
   armarElSet,
   type DatosDelSet,
-  enUnaSolaCarpeta,
   rutasEnElZip,
 } from '../postulacion/el-set';
+import { enUnaSolaCarpeta } from '../postulacion/la-compra-agil';
 
 // UNA COMPRA ÁGIL LLEVA SOLO LO QUE PIDEN LAS BASES, EN UNA SOLA CARPETA
 // (decisión 118 del doc 17, 07-11). Felipe, con la 2705-1740-COT26, que

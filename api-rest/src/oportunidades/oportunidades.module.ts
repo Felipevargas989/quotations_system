@@ -63,6 +63,7 @@ import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la
 import { EditorDelWordController } from './postulacion/editor-del-word.controller';
 import { EditorDelWordService } from './postulacion/editor-del-word.service';
 import { ElSetService } from './postulacion/el-set.service';
+import { LaCotizacionDetalladaService } from './postulacion/la-cotizacion-detallada.service';
 import { LaExperienciaService } from './postulacion/la-experiencia.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
@@ -136,6 +137,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     LoPostuladoService,
     ElSetService,
     ArmarPostulacionService,
+    LaCotizacionDetalladaService,
     LaExperienciaService,
     EditorDelWordService,
     MercadoPublicoClient,

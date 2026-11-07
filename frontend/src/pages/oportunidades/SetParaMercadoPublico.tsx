@@ -32,6 +32,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 const QUE_ES: Record<PiezaDelSet["que_es"], string> = {
   formulario: "Anexo",
   propuesta: "Propuesta",
+  cotizacion: "Cotización",
   subido: "Subido por ti",
   documento: "Mi empresa",
   respaldo: "Respaldo",

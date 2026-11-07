@@ -17,11 +17,11 @@ import {
   conLaPropuestaQueNombran,
   conLosRespaldos,
   type DatosDelSet,
-  enUnaSolaCarpeta,
   type FormularioDeLasBases,
   type PiezaDelSet,
   rutasEnElZip,
 } from './el-set';
+import { enUnaSolaCarpeta } from './la-compra-agil';
 import type { DocumentoDeLaSeccion4 } from './la-seccion-4';
 import { PostulacionRepository } from './postulacion.repository';
 import { type ParaUnir, unirPdf } from './unir-pdf';
@@ -227,6 +227,7 @@ export class ElSetService {
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),
       ofertaLista: oferta ? (oferta.terminado_en ?? oferta.creado_en) : null,
+      ofertaId: oferta?.id ?? null,
       precio: precioDe(
         (oferta?.parametros?.postulacion as { total?: unknown } | undefined)
           ?.total,
