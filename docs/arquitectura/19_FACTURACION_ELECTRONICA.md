@@ -1361,7 +1361,10 @@ entregue: se averiguan antes de prometerlos.
 - **Ítems:** los de Post-Venta (`LineasDelDte`), con el descuento en % por
   ítem (Felipe: *"un porcentaje de descuento y el total"*): va sobre el
   neto de la línea, con su % en PorcDescto y su monto en ValorDescto del
-  archivo, como lo cuenta el SII; menos de 100 % y con dos decimales. Solo
+  archivo, como lo cuenta el SII, y la suma de los descuentos en
+  ValorDesctoTot de los totales (medido el 06-11: en cero, facturacion.cl
+  rechaza «no cuadran los montos del detalle y la cabecera»); menos de
+  100 % y con dos decimales. Solo
   en la factura (también la del evento); la boleta no lo lleva. Las notas
   copian las líneas con su descuento.
 - **Referencias:** las mismas en el evento y acá (`ReferenciasDelDte`): el

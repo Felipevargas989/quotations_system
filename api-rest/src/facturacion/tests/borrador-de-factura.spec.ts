@@ -459,6 +459,11 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
     expect(r.archivo).toContain(
       '1;SERV;Jornada corporativa;1;100000;10;10000;0;0;0;90000;INT1;UN;',
     );
+    // Los totales llevan la suma de los descuentos de las líneas
+    // (ValorDesctoTot), y el neto ya descontado.
+    expect(r.archivo).toContain(
+      '->Totales<-\r\n0;10000;0;0;90000;0;19;17100;107100;',
+    );
     expect(r.avisos).toEqual([]);
   });
 
