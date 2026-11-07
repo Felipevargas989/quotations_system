@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Calendar, Loader2 } from "lucide-react";
 import type { ChoqueDeFecha } from "../services/quotations.service";
 
 // El tope de calendario (Felipe, 18-10-2026; mapa 02 §5.6): una cotización
@@ -10,11 +10,15 @@ import type { ChoqueDeFecha } from "../services/quotations.service";
 // cancela, o se puede seguir; el paso del botón hay que gestionar está
 // perdido".
 //
-// En la tarjeta del tablero (compacto): UNA viñeta «Tope de calendario»
-// aunque sean dos o tres, con el detalle al pasar el mouse. En la ficha,
-// bajo las fechas: el detalle de cada tope (N°, cliente, fechas y si trae
-// exclusividad). En los dos, un solo «Sí, puede seguir» que los cierra
-// todos: lo que se decide es que esta cotización sigue con su fecha.
+// En la tarjeta del tablero (compacto): UNA viñeta aunque sean dos o tres,
+// con el detalle al pasar el mouse. Desde el 06-11-2026 dice solo «Tope»,
+// con un calendario, y el botón «Puede seguir»: van en la línea de abajo
+// de la tarjeta, junto al recordatorio y el PDF (Felipe: "opción A abajo
+// todo pero el PDF también abajo"). En la ficha, bajo las fechas, sigue
+// «Tope de calendario» con el detalle de cada tope (N°, cliente, fechas y
+// si trae exclusividad) y «Sí, puede seguir». En los dos, un solo botón
+// que los cierra todos: lo que se decide es que esta cotización sigue con
+// su fecha.
 //
 // Los clics no siguen de largo: la tarjeta entera abre la ficha.
 
@@ -44,6 +48,7 @@ export default function AvisoDeChoque({
   readonly compacto?: boolean;
 }) {
   if (choques.length === 0) return null;
+  const textoSeguir = compacto ? "Puede seguir" : "Sí, puede seguir";
   const seguir = puedeDecidir && (
     <button
       type="button"
@@ -56,7 +61,7 @@ export default function AvisoDeChoque({
           : "Se pueden hacer las dos: esta cotización sigue con su fecha. Queda anotado en el seguimiento."
       }
     >
-      Sí, puede seguir
+      {textoSeguir}
     </button>
   );
   const rueda = guardando && (
@@ -68,24 +73,30 @@ export default function AvisoDeChoque({
   const vineta = (
     <span
       className="inline-flex items-center gap-1 rounded-full border border-red-600 bg-red-600 px-2 py-0.5 text-xs font-semibold text-white"
-      title={`${choques.map(detalleDe).join("\n")}\nSe quita solo si cambia la fecha o se cierra la cotización; o con «Sí, puede seguir».`}
+      title={`${choques.map(detalleDe).join("\n")}\nSe quita solo si cambia la fecha o se cierra la cotización; o con «${textoSeguir}».`}
     >
-      <AlertTriangle size={12} aria-hidden />
-      Tope de calendario
+      {compacto ? (
+        <Calendar size={12} aria-hidden />
+      ) : (
+        <AlertTriangle size={12} aria-hidden />
+      )}
+      {compacto ? "Tope" : "Tope de calendario"}
     </span>
   );
 
   if (compacto) {
+    // Un trozo de la línea de abajo de la tarjeta, no una línea propia: va
+    // entre el recordatorio y el PDF, con el mismo espacio entre chips.
     return (
-      <div
+      <span
         role="status"
-        className="mt-2 flex flex-wrap items-center gap-1.5"
+        className="inline-flex flex-wrap items-center gap-1.5"
         onClick={(e) => e.stopPropagation()}
       >
         {vineta}
         {seguir}
         {rueda}
-      </div>
+      </span>
     );
   }
   return (

@@ -22,6 +22,10 @@ import type { BorradorEnEspera } from "../services/quotations.service";
 // suficiente"): el borrador se abre en Outlook, donde se revisa y se envía.
 //
 // Los clics no siguen de largo: la tarjeta entera abre la ficha.
+//
+// En la tarjeta (compacto) va en la línea de abajo, junto al recordatorio
+// y el PDF (Felipe, 06-11-2026): mide lo mismo que los chips de esa línea,
+// con un borde que no se ve, para que queden parejos arriba y abajo.
 export default function BotonSeguimientoIA({
   trabajando,
   ocupado,
@@ -29,6 +33,7 @@ export default function BotonSeguimientoIA({
   enEspera = null,
   onGenerar,
   texto = "Generar seguimiento",
+  compacto = false,
 }: {
   /** La IA está escribiendo ESTE seguimiento. */
   readonly trabajando: boolean;
@@ -39,12 +44,15 @@ export default function BotonSeguimientoIA({
   readonly enEspera?: BorradorEnEspera | null;
   readonly onGenerar: () => void;
   readonly texto?: string;
+  /** En la línea de abajo de la tarjeta: del alto de los chips (22 px). */
+  readonly compacto?: boolean;
 }) {
+  const alto = compacto ? "py-0.5 border border-transparent" : "py-1";
   if (resultado?.accion === "borrador") {
     return (
       <span
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50"
+        className={`inline-flex items-center gap-1 rounded px-2 ${alto} text-xs font-semibold text-emerald-700 bg-emerald-50`}
         title={`${resultado.detalle}. Revísalo en Outlook y envíalo desde ahí.`}
       >
         <CheckCircle2 size={13} aria-hidden />
@@ -58,7 +66,7 @@ export default function BotonSeguimientoIA({
     return (
       <span
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-violet-800 bg-violet-50"
+        className={`inline-flex items-center gap-1 rounded px-2 ${alto} text-xs font-semibold text-violet-800 bg-violet-50`}
         title={`La IA ya dejó el borrador en ${buzon}. Revísalo y envíalo desde Outlook: cuando salga, Eventia lo anota solo.`}
       >
         <Clock size={13} aria-hidden />
@@ -71,7 +79,7 @@ export default function BotonSeguimientoIA({
     return (
       <span
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-amber-800 bg-amber-50"
+        className={`inline-flex items-center gap-1 rounded px-2 ${alto} text-xs font-semibold text-amber-800 bg-amber-50`}
         title={`No se escribió: ${resultado.detalle}`}
       >
         <AlertTriangle size={13} aria-hidden />
@@ -88,7 +96,7 @@ export default function BotonSeguimientoIA({
         onGenerar();
       }}
       disabled={ocupado}
-      className="inline-flex items-center gap-1 rounded bg-violet-600 px-2 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className={`inline-flex items-center gap-1 rounded bg-violet-600 px-2 ${alto} text-xs font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60`}
       title={
         resultado?.accion === "error"
           ? `No se pudo: ${resultado.detalle} Aprieta para intentarlo de nuevo.`
