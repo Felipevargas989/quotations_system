@@ -5,8 +5,10 @@ import {
   diasDeLaCotizacion,
   esLaCotizacionDetallada,
   laCotizacionQueFalta,
+  loQueIncluye,
   medidasDeLaImagen,
   nombreDeLaCotizacionDetallada,
+  pidenElDetalle,
   pidenLaCotizacion,
   plazoDeLaCotizacion,
 } from '../postulacion/la-cotizacion-detallada';
@@ -251,6 +253,54 @@ describe('la cotización detallada', () => {
       '';
     expect(texto).not.toContain('Descuento');
     expect(texto).toContain('$1.788.000');
+  });
+
+  it('en una sola línea: «Servicio integral» por el total, con lo que incluye y sin precio por ítem (3904-996-COT26)', () => {
+    const texto =
+      textoDeDocx(
+        armarLaCotizacionDetallada(
+          datos({ total: 1_900_000, unaSolaLinea: true }),
+        ),
+      ) ?? '';
+    expect(texto).toContain('COTIZACIÓN');
+    expect(texto).not.toContain('COTIZACIÓN DETALLADA');
+    expect(texto).toContain('Servicio integral');
+    expect(texto).toContain('1 servicio');
+    expect(texto).toContain('$1.900.000');
+    expect(texto).not.toContain('Descuento');
+    expect(texto).not.toContain('$9.200');
+    expect(loQueIncluye(diasDeLaCotizacion(LA_574))).toMatch(
+      /^Incluye: miércoles 11 de noviembre de 2026: Salón auditorio día completo; Desayuno para 20 personas \(Té twinings, café, leche;/,
+    );
+  });
+
+  it('el detalle de precios, solo si las bases lo piden', () => {
+    expect(
+      pidenElDetalle({
+        documentos: [
+          {
+            nombre:
+              'Cotización detallada (con plazo de entrega, detalle de lo ofertado y datos bancarios)',
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      pidenElDetalle({
+        documentos: [{ nombre: 'Cotización con precios unitarios' }],
+      }),
+    ).toBe(true);
+    expect(
+      pidenElDetalle({
+        documentos: [{ nombre: 'Cotización formal en pesos con IVA' }],
+      }),
+    ).toBe(false);
+    expect(nombreDeLaCotizacionDetallada('3904-996-COT26', false)).toBe(
+      'Cotización 3904-996-COT26.docx',
+    );
+    expect(
+      esLaCotizacionDetallada('Cotización 3904-996-COT26 - firmado.pdf'),
+    ).toBe(true);
   });
 
   it('con el logo, va arriba sin deformarse; sin banco ni plazo, esas secciones no van', () => {

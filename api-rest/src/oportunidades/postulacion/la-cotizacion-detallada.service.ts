@@ -13,7 +13,7 @@ import {
 } from '../adjuntos/adjuntos.repository';
 import { sello, TIPOS_POR_EXTENSION } from '../adjuntos/adjuntos.service';
 import { AnalisisRepository } from '../analisis/analisis.repository';
-import { fechaLarga, pesos } from '../generacion/instrucciones';
+import { fechaLarga } from '../generacion/instrucciones';
 import { bajarLogo, urlDelLogo } from '../generacion/logo';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import {
@@ -21,6 +21,7 @@ import {
   diasDeLaCotizacion,
   medidasDeLaImagen,
   nombreDeLaCotizacionDetallada,
+  pidenElDetalle,
   plazoDeLaCotizacion,
 } from './la-cotizacion-detallada';
 import { PostulacionRepository } from './postulacion.repository';
@@ -82,12 +83,15 @@ export class LaCotizacionDetalladaService {
         `La cotización N° ${q.quotation_number} no tiene servicios con precio.`,
       );
     }
-    // Precios nunca a dedo: lo que baja va como descuento, y no se sube.
-    if (total > subtotal) {
-      throw new BadRequestException(
-        `El precio que postulas (${pesos(total)}) es mayor que la cotización N° ${q.quotation_number} a precios del catálogo (${pesos(subtotal)}): agrega lo que falta a la cotización o baja el precio.`,
-      );
-    }
+    // El precio que manda es el que se postula, no el de la cotización
+    // (Felipe postula a propósito por otro monto y, si gana, ajusta la
+    // cotización). Con el detalle de precios solo si las bases lo piden y
+    // el precio cabe en la cotización: lo que baja va como descuento
+    // (precios nunca a dedo). Si no, una sola línea por el total, con lo que
+    // incluye y sin precio por ítem, como eligió Felipe con la
+    // 3904-996-COT26.
+    const resultado = analisis?.estado === 'listo' ? analisis.resultado : null;
+    const detallada = pidenElDetalle(resultado) && total <= subtotal;
     if (q.subtotal_amount && q.subtotal_amount !== subtotal) {
       this.logger.warn(
         `cotización ${q.quotation_number}: sus líneas suman ${subtotal} y su subtotal dice ${q.subtotal_amount}`,
@@ -120,9 +124,7 @@ export class LaCotizacionDetalladaService {
           v?.trim() ? [[k, v.trim()] as [string, string]] : [],
         )
       : [];
-    const enElComplejo =
-      analisis?.estado === 'listo' &&
-      analisis.resultado?.se_puede_en_el_complejo === 'si';
+    const enElComplejo = resultado?.se_puede_en_el_complejo === 'si';
     const logo = await bajarLogo(
       urlDelLogo(empresa?.logo_url ?? null) ?? undefined,
       (m) => this.logger.warn(`cotización detallada: ${m}`),
@@ -150,6 +152,7 @@ export class LaCotizacionDetalladaService {
       ),
       dias,
       total,
+      unaSolaLinea: !detallada,
       conPropuesta: opciones.conPropuesta,
       plazo: plazoDeLaCotizacion(q),
       lugar: enElComplejo && direccion ? direccion : null,
@@ -161,7 +164,7 @@ export class LaCotizacionDetalladaService {
       logo: logo && medidas ? { datos: logo, tipo: medidas.tipo } : null,
     });
 
-    const nombre = nombreDeLaCotizacionDetallada(o.codigo);
+    const nombre = nombreDeLaCotizacionDetallada(o.codigo, detallada);
     const ruta = `c${companyId}/oportunidades/${oportunidadId}/postulacion/${sello()}_${sanitize(nombre)}`;
     await this.adjuntos.subirArchivo(ruta, docx, TIPO_WORD);
     let fila: Adjunto;

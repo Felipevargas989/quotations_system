@@ -105,7 +105,16 @@ function armar() {
   const analisis = {
     ultimo: jest.fn().mockResolvedValue({
       estado: 'listo',
-      resultado: { se_puede_en_el_complejo: 'si' },
+      resultado: {
+        se_puede_en_el_complejo: 'si',
+        documentos: [
+          {
+            nombre:
+              'Cotización detallada (con plazo de entrega, detalle de lo ofertado y datos bancarios)',
+            cuando: 'con_la_oferta',
+          },
+        ],
+      },
     }),
   };
   const servicio = new LaCotizacionDetalladaService(
@@ -174,15 +183,51 @@ describe('La cotización detallada en «Mi postulación»', () => {
     expect(adjuntos.subirArchivo).not.toHaveBeenCalled();
   });
 
-  it('un precio mayor que la cotización no se acepta: los precios nunca a dedo', async () => {
-    const { servicio, adjuntos } = armar();
-    await expect(
-      servicio.armar(USUARIO, 11072, 105, 600_000, {
-        conPropuesta: false,
-        reemplaza: [],
-      }),
-    ).rejects.toThrow('es mayor que la cotización N° 574');
-    expect(adjuntos.subirArchivo).not.toHaveBeenCalled();
+  it('si el precio pasa la cotización, va en una sola línea por el total, con lo que incluye y sin precio por ítem', async () => {
+    const { servicio, adjuntos, subidos } = armar();
+    await servicio.armar(USUARIO, 11072, 105, 600_000, {
+      conPropuesta: false,
+      reemplaza: [],
+    });
+    expect(adjuntos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: 'Cotización 2705-1740-COT26.docx' }),
+    );
+    const [ruta] = adjuntos.subirArchivo.mock.calls[0];
+    const texto = textoDeDocx(subidos.get(ruta) as Buffer) ?? '';
+    expect(texto).toContain('COTIZACIÓN');
+    expect(texto).not.toContain('COTIZACIÓN DETALLADA');
+    expect(texto).toContain('Servicio integral');
+    expect(texto).toContain(
+      'Incluye: miércoles 11 de noviembre de 2026: Salón auditorio día completo; Almuerzo para 20 personas (Carne mechada).',
+    );
+    expect(texto).toContain('1 servicio');
+    expect(texto).toContain('$600.000');
+    expect(texto).not.toContain('Descuento');
+    expect(texto).not.toContain('$12.500');
+  });
+
+  it('si las bases piden una cotización sin detalle de precios, también va en una sola línea', async () => {
+    const { servicio, analisis, adjuntos, subidos } = armar();
+    analisis.ultimo.mockResolvedValue({
+      estado: 'listo',
+      resultado: {
+        documentos: [
+          {
+            nombre: 'Cotización formal con datos de contacto y bancarios',
+            cuando: 'con_la_oferta',
+          },
+        ],
+      },
+    });
+    await servicio.armar(USUARIO, 11072, 105, 480_000, {
+      conPropuesta: false,
+      reemplaza: [],
+    });
+    const [ruta] = adjuntos.subirArchivo.mock.calls[0];
+    const texto = textoDeDocx(subidos.get(ruta) as Buffer) ?? '';
+    expect(texto).toContain('Servicio integral');
+    expect(texto).toContain('$480.000');
+    expect(texto).not.toContain('Descuento');
   });
 
   it('si no se puede guardar su fila, el archivo no queda huérfano y el borrador de antes sigue', async () => {
