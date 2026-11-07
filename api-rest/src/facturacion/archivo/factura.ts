@@ -274,7 +274,11 @@ export const armarFactura = (datos: DatosDeFactura): Armado => {
   archivo.push(
     lineaDelArchivo([
       0, // PorcDesctoTot: se informa en cero
-      0, // ValorDesctoTot: sin descuentos por línea
+      // ValorDesctoTot: la suma de los descuentos de las líneas (el manual:
+      // «la sumatoria de los montos de descuento en líneas de detalle»; el
+      // neto ya va descontado). Medido el 06-11: en cero, facturacion.cl
+      // rechaza «NO CUADRAN LOS MONTOS DEL DETALLE Y LA CABECERA».
+      pesosDelArchivo(lineas.reduce((s, l) => s + descuentoDeLaLinea(l), 0)),
       0, // PorcRecgoTot: se informa en cero
       0, // ValorRecgoTot
       pesosDelArchivo(montos.neto),
