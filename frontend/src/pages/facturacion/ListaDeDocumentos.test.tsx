@@ -256,9 +256,15 @@ describe("la lista de Facturación (§9.22)", () => {
       name: "El XML: servicio adicional de facturacion.cl",
     }))
       expect(x).toBeDisabled();
-    // «Anular o rebajar…» abre la nota en su pantalla, con la factura ya
-    // elegida (sprint 3).
-    fireEvent.click(screen.getByRole("button", { name: "Anular o rebajar…" }));
+    // «Anular o rebajar…» es un botón más de Acciones, sin texto debajo
+    // (07-11), y abre la nota en su pantalla con la factura ya elegida.
+    expect(screen.queryByText("Anular o rebajar…")).not.toBeInTheDocument();
+    const anular = screen.getByRole("button", { name: "Anular o rebajar…" });
+    expect(anular).toHaveAttribute("title", "Anular o rebajar…");
+    expect(anular.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Descargar el PDF de Factura 20" }),
+    );
+    fireEvent.click(anular);
     expect(modificar).toHaveBeenCalledWith(expect.objectContaining({ id: 20 }));
     // El recién emitido, marcado.
     expect(screen.getByText("Boleta 500").closest("tr")).toHaveClass(
