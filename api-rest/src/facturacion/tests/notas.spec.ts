@@ -622,4 +622,130 @@ describe('La lista de Facturación', () => {
     });
     expect(lista.documentos[1].acciones.anular).toBe(true);
   });
+
+  it('un rango de fechas, con las dos incluidas (§9.22, sprint 2)', async () => {
+    const { servicio, repo } = armar();
+    const lista = await servicio.lista(
+      1,
+      { desde: '2026-10-15', hasta: '2026-11-06' },
+      UserRole.ADMINISTRADOR,
+    );
+    // La consulta pide hasta el día siguiente, excluido.
+    expect(repo.delPeriodo).toHaveBeenCalledWith(1, '2026-10-15', '2026-11-07');
+    expect(lista).toMatchObject({ desde: '2026-10-15', hasta: '2026-11-06' });
+  });
+
+  it('el mes, como antes: del primero al último día', async () => {
+    const { servicio, repo } = armar();
+    const lista = await servicio.lista(1, '2026-12', UserRole.ADMINISTRADOR);
+    expect(repo.delPeriodo).toHaveBeenCalledWith(1, '2026-12-01', '2027-01-01');
+    expect(lista).toMatchObject({
+      mes: '2026-12',
+      desde: '2026-12-01',
+      hasta: '2026-12-31',
+    });
+  });
+
+  it.each([
+    [{ desde: '2026-11-01' }, 'Faltan las dos fechas'],
+    [
+      { desde: '2026-02-31', hasta: '2026-03-05' },
+      'no existe en el calendario',
+    ],
+    [{ desde: '2026-11-06', hasta: '2026-11-01' }, 'va antes'],
+    [{ desde: '2025-01-01', hasta: '2026-11-06' }, 'hasta un año'],
+  ])('un rango que no sirve no se busca: %j', async (periodo, mensaje) => {
+    const { servicio, repo } = armar();
+    await expect(
+      servicio.lista(1, periodo, UserRole.ADMINISTRADOR),
+    ).rejects.toThrow(mensaje);
+    expect(repo.delPeriodo).not.toHaveBeenCalled();
+  });
+
+  it('cada uno con su estado para el filtro, la condición de pago y la referencia (§9.22)', async () => {
+    const sinOC = { ...FACTURA_1, orden_de_compra_id: null };
+    const { servicio } = armar({
+      documentos: [
+        {
+          ...sinOC,
+          id: 20,
+          folio: 20,
+          forma_de_pago: 2,
+          vencimiento: '2026-12-04',
+          referencias: [
+            {
+              tipo: '801',
+              folio: '4500-112',
+              fecha: '2026-11-02',
+              razon: null,
+            },
+          ],
+        },
+        { ...sinOC, id: 21, folio: 21, forma_de_pago: 1, vencimiento: null },
+        { ...sinOC, id: 22, folio: 22 },
+        {
+          ...sinOC,
+          id: 23,
+          tipo: 61,
+          folio: 3,
+          total: 100000,
+          modifica_id: 22,
+          codigo_referencia: 3,
+        },
+        { ...sinOC, id: 26, folio: 26 },
+        {
+          ...sinOC,
+          id: 27,
+          tipo: 61,
+          folio: 4,
+          modifica_id: 26,
+          codigo_referencia: 1,
+        },
+        {
+          ...sinOC,
+          id: 24,
+          tipo: 39,
+          folio: 500,
+          quotation_id: null,
+          receptor: { rut: '66666666-6', razon_social: '' },
+          detalle: [{ descripcion: 'Cabaña 4 · Noche', cabana: 'Cabaña 4' }],
+        },
+        {
+          ...sinOC,
+          id: 25,
+          folio: null,
+          estado: 'por_confirmar',
+          fecha_emision: null,
+        },
+      ],
+    });
+    const lista = await servicio.lista(1, '2026-11', UserRole.ADMINISTRADOR);
+    const de = (id: number) => lista.documentos.find((d) => d.id === id);
+    expect(de(20)).toMatchObject({
+      situacion: 'vigente',
+      forma_de_pago: 2,
+      vencimiento: '2026-12-04',
+      plazo_dias: 30,
+      referencia: { tipo: '801', folio: '4500-112' },
+      rut: '90413000-1',
+    });
+    expect(de(21)).toMatchObject({
+      situacion: 'vigente',
+      forma_de_pago: 1,
+      vencimiento: null,
+      plazo_dias: null,
+      referencia: null,
+    });
+    expect(de(22)?.situacion).toBe('rebajada');
+    expect(de(23)?.situacion).toBe('nota');
+    expect(de(26)?.situacion).toBe('anulada');
+    expect(de(27)?.situacion).toBe('nota');
+    expect(de(24)).toMatchObject({
+      situacion: 'vigente',
+      cliente: 'Cabaña 4',
+      rut: null,
+      forma_de_pago: null,
+    });
+    expect(de(25)?.situacion).toBe('por_confirmar');
+  });
 });

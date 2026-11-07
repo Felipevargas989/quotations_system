@@ -1,0 +1,649 @@
+import { Fragment, useState } from "react";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { Download, Eye, FileCode, Search } from "lucide-react";
+import FileViewLink from "../../components/FileViewLink";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import { toast } from "../../components/toast/Toast";
+import {
+  comprobarDocumento,
+  getListaDeFacturacion,
+  pedirPdfDelDocumento,
+  type DocumentoDeLaLista,
+  type SituacionEnLaLista,
+} from "../../services/documentosTributarios.service";
+import { descargarArchivo } from "../../services/storage.service";
+import { humanizeApiError } from "../../utils/apiErrors";
+import { hoyEnChile } from "../../utils/dates";
+import { fechaCorta } from "../../utils/ordenesDeCompra";
+import { matchesSearch } from "../../utils/searchMatch";
+import NotaDeUnDocumento from "./NotaDeUnDocumento";
+import ProbarLaConexion from "./ProbarLaConexion";
+
+// «DOCUMENTOS», LA LISTA DE FACTURACIÓN (doc 19 §9.5 y §9.22, sprint 2),
+// como la maqueta que aprobó Felipe el 06-11: *"pequeño dashboard,
+// emitidos/recibidos, buscadores y filtros, acciones ver, descargar y
+// descargar [XML], el estado para saber si está ok"*.
+//
+// - El resumen (neto, IVA, total, documentos y por confirmar) sigue a los
+//   filtros: suma lo que se ve.
+// - Buscar por N° o cliente (también por el RUT); el tipo, el estado y el
+//   rango de fechas (este mes, si no se dice; hasta un año por vez).
+// - Cada documento con su estado en la cadena («Anulada por NC 88»,
+//   «Rebajada: queda $…») y sus notas debajo (factura → NC → ND); la factura
+//   con su condición de pago. Ver, descargar el PDF y, del administrador,
+//   «Comprobar» y «Anular o rebajar…».
+// - El XML existe en facturacion.cl, pero es un servicio adicional con costo
+//   (su manual, `getXMLDte`); los recibidos no los entrega su integración.
+//   Los dos se dicen tal cual, sin prometerlos.
+
+const clp = (n: number) =>
+  `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("es-CL")}`;
+
+/** «1 factura», «4 boletas». */
+const cuantas = (n: number, cosa: string) =>
+  `${n} ${cosa}${n === 1 ? "" : "s"}`;
+
+/** El mes de una fecha: del primero al último día (AAAA-MM-DD). */
+const delMes = (hoy: string) => {
+  const [a, m] = hoy.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const mes = hoy.slice(0, 7);
+  return {
+    desde: `${mes}-01`,
+    hasta: `${mes}-${String(ultimo).padStart(2, "0")}`,
+  };
+};
+
+type Tipo = "todos" | "33" | "39" | "61" | "56";
+type Estado = "todos" | Exclude<SituacionEnLaLista, "nota">;
+
+const TIPOS: { value: Tipo; label: string }[] = [
+  { value: "todos", label: "Todos los tipos" },
+  { value: "33", label: "Facturas" },
+  { value: "39", label: "Boletas" },
+  { value: "61", label: "Notas de crédito" },
+  { value: "56", label: "Notas de débito" },
+];
+const ESTADOS: { value: Estado; label: string }[] = [
+  { value: "todos", label: "Todos los estados" },
+  { value: "vigente", label: "Vigentes" },
+  { value: "rebajada", label: "Rebajadas" },
+  { value: "anulada", label: "Anuladas" },
+  { value: "por_confirmar", label: "Por confirmar" },
+];
+
+interface Filtros {
+  q: string;
+  tipo: Tipo;
+  estado: Estado;
+  desde: string;
+  hasta: string;
+}
+const filtrosDeHoy = (): Filtros => ({
+  q: "",
+  tipo: "todos",
+  estado: "todos",
+  ...delMes(hoyEnChile()),
+});
+
+const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
+const soloRut = (s: string) => s.replace(/[^0-9kK]/g, "").toUpperCase();
+
+/** ¿Pasa los filtros de la pantalla? (las fechas ya las filtró el motor) */
+const pasa = (d: DocumentoDeLaLista, f: Filtros) => {
+  if (f.tipo !== "todos" && String(d.tipo) !== f.tipo) return false;
+  if (f.estado !== "todos" && d.situacion !== f.estado) return false;
+  const q = f.q.trim();
+  if (!q) return true;
+  const rut = soloRut(q);
+  return (
+    (d.folio != null && String(d.folio).includes(q)) ||
+    matchesSearch(q, d.cliente, d.titulo) ||
+    (rut.length >= 3 && !!d.rut && soloRut(d.rut).includes(rut))
+  );
+};
+
+/** El color del estado, como la maqueta. */
+const colorDelEstado = (d: DocumentoDeLaLista) =>
+  d.situacion === "por_confirmar" ||
+  d.situacion === "rebajada" ||
+  d.cadena.como === "corregido"
+    ? "border-amber-200 bg-amber-50 text-amber-800"
+    : d.situacion === "anulada"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : d.situacion === "nota"
+        ? "border-gray-200 bg-gray-100 text-gray-600"
+        : "border-green-200 bg-green-50 text-green-700";
+
+/** «Crédito 30 días · vence 06-12» o «Contado»: la factura (§9.22). */
+const condicionDePago = (d: DocumentoDeLaLista) =>
+  d.tipo !== 33 || d.forma_de_pago == null
+    ? null
+    : d.forma_de_pago === 1 || !d.vencimiento
+      ? "Contado"
+      : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
+
+/** La línea de abajo del documento: la fecha, la OC (o la referencia que
+ *  lleve) y el N° del evento. */
+const subtitulo = (d: DocumentoDeLaLista) => {
+  const ref = d.referencia
+    ? `${d.referencia.tipo === "801" ? "OC" : d.referencia.tipo} ${d.referencia.folio}`
+    : d.oc
+      ? `OC ${d.oc}`
+      : null;
+  return [
+    d.fecha_emision ? fechaCorta(d.fecha_emision) : "sin fecha",
+    ref,
+    d.numero ? `N° ${d.numero}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+};
+
+/** El reporte (§9.5): lo que se ve, con el que lo anuló o rebajó. */
+const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
+  const campo = (v: unknown) => {
+    const t = String(v ?? "");
+    return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const filas = [
+    [
+      "Fecha",
+      "Documento",
+      "Cliente",
+      "RUT",
+      "Evento",
+      "Referencia",
+      "Condición de pago",
+      "Vencimiento",
+      "Neto",
+      "IVA",
+      "Total",
+      "Estado",
+    ],
+    ...docs.map((d) => [
+      d.fecha_emision ? fechaCorta(d.fecha_emision) : "",
+      d.titulo,
+      d.cliente ?? "",
+      d.rut ?? "",
+      d.numero ?? "",
+      d.referencia
+        ? `${d.referencia.tipo} ${d.referencia.folio}`
+        : d.oc
+          ? `801 ${d.oc}`
+          : "",
+      condicionDePago(d)?.split(" · ")[0] ?? "",
+      d.vencimiento ? fechaCorta(d.vencimiento) : "",
+      d.neto,
+      d.iva,
+      d.total,
+      d.cadena.texto,
+    ]),
+  ];
+  const texto = filas.map((x) => x.map(campo).join(";")).join("\r\n");
+  // Con BOM: así Excel abre los acentos bien.
+  const url = URL.createObjectURL(
+    new Blob([`\ufeff${texto}`], { type: "text/csv;charset=utf-8" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `facturacion-${f.desde}-a-${f.hasta}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const icono =
+  "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
+const boton =
+  "flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50";
+const casilla =
+  "rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500";
+
+export default function ListaDeDocumentos({
+  conAjustes,
+  recien = null,
+}: {
+  /** El permiso «Tarifario y conexión» (doc 22 §7): «Probar la conexión». */
+  readonly conAjustes: boolean;
+  /** El que se acaba de emitir: se marca en la lista. */
+  readonly recien?: number | null;
+}) {
+  const queryClient = useQueryClient();
+  const [lado, setLado] = useState<"emitidos" | "recibidos">("emitidos");
+  const [f, setF] = useState<Filtros>(filtrosDeHoy);
+  const [anulando, setAnulando] = useState<number | null>(null);
+  const [ocupado, setOcupado] = useState<number | null>(null);
+  const poner = (cambios: Partial<Filtros>) =>
+    setF((x) => ({ ...x, ...cambios }));
+
+  const rangoOk = !!f.desde && !!f.hasta && f.desde <= f.hasta;
+  const llave = ["facturacion", "lista", f.desde, f.hasta];
+  const lista = useQuery({
+    queryKey: llave,
+    queryFn: () => getListaDeFacturacion({ desde: f.desde, hasta: f.hasta }),
+    enabled: rangoOk,
+    placeholderData: keepPreviousData,
+  });
+
+  const docs = lista.data?.documentos ?? [];
+  const visibles = docs.filter((d) => pasa(d, f));
+  const ids = new Set(visibles.map((d) => d.id));
+  const hijos = new Map<number, DocumentoDeLaLista[]>();
+  for (const d of visibles)
+    if (d.modifica_id != null && ids.has(d.modifica_id))
+      hijos.set(d.modifica_id, [...(hijos.get(d.modifica_id) ?? []), d]);
+  // Lo más nuevo arriba; lo que espera «Comprobar» (sin fecha), primero.
+  const raices = visibles
+    .filter((d) => d.modifica_id == null || !ids.has(d.modifica_id))
+    .sort(
+      (a, b) =>
+        (b.fecha_emision ?? "9999").localeCompare(a.fecha_emision ?? "9999") ||
+        b.id - a.id,
+    );
+
+  // El resumen de lo que se ve (la maqueta): lo por confirmar no suma.
+  const r = { neto: 0, iva: 0, total: 0, fac: 0, bol: 0, notas: 0, pc: 0 };
+  for (const d of visibles) {
+    if (d.estado !== "emitido") {
+      r.pc++;
+      continue;
+    }
+    r.neto += d.neto;
+    r.iva += d.iva;
+    r.total += d.total;
+    if (d.tipo === 33) r.fac++;
+    else if (d.tipo === 39) r.bol++;
+    else if (esNota(d)) r.notas++;
+  }
+
+  const refrescar = () => queryClient.invalidateQueries({ queryKey: llave });
+
+  const comprobar = async (d: DocumentoDeLaLista) => {
+    setOcupado(d.id);
+    try {
+      const x = await comprobarDocumento(d.id);
+      if (x.estado === "emitido")
+        toast.success(`Salió: quedó con el folio N° ${x.folio}.`);
+      else
+        toast.warn(
+          "No salió: no quedó en facturacion.cl. Se puede emitir de nuevo.",
+        );
+      await refrescar();
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo comprobar."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const pedirPdf = async (d: DocumentoDeLaLista) => {
+    setOcupado(d.id);
+    try {
+      await pedirPdfDelDocumento(d.id);
+      await refrescar();
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No llegó el PDF."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const descargar = async (d: DocumentoDeLaLista) => {
+    if (!d.pdf_path) return;
+    try {
+      await descargarArchivo(d.pdf_path, `${d.titulo.split(" · ")[0]}.pdf`);
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo descargar el PDF."));
+    }
+  };
+
+  const fila = (d: DocumentoDeLaLista, nivel: number): JSX.Element => {
+    const cond = condicionDePago(d);
+    return (
+      <Fragment key={d.id}>
+        <tr
+          className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : ""}`}
+        >
+          <td
+            className="py-2 pr-2"
+            style={{ paddingLeft: `${nivel * 1.25}rem` }}
+          >
+            <p
+              className={`font-semibold ${esNota(d) ? "text-gray-700" : "text-gray-900"}`}
+            >
+              {nivel > 0 && <span className="text-gray-300">└ </span>}
+              {d.titulo}
+            </p>
+            {d.reemplaza && (
+              <p className="text-xs text-gray-500">
+                reemplaza a la {d.reemplaza}
+              </p>
+            )}
+            <p className="text-xs text-gray-400">{subtitulo(d)}</p>
+          </td>
+          <td className="break-words py-2 pr-2 text-gray-700">
+            {d.cliente ?? "—"}
+          </td>
+          {[d.neto, d.iva, d.total].map((n, i) => (
+            <td
+              key={i}
+              className={`whitespace-nowrap py-2 pr-3 text-right ${n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
+            >
+              {clp(n)}
+            </td>
+          ))}
+          <td className="py-2 pr-2 text-xs">
+            <span
+              className={`inline-block rounded-full border px-2 py-0.5 font-semibold ${colorDelEstado(d)}`}
+            >
+              {d.cadena.texto}
+            </span>
+            {cond && <p className="mt-1 text-gray-500">{cond}</p>}
+            {d.error && d.estado !== "emitido" && (
+              <p className="mt-1 text-gray-500">{d.error}</p>
+            )}
+          </td>
+          <td className="py-2 text-right text-xs">
+            <div className="flex justify-end gap-1">
+              {d.pdf_path ? (
+                <FileViewLink
+                  url={d.pdf_path}
+                  title={`${d.titulo.split(" · ")[0]}.pdf`}
+                  boton={<Eye size={14} />}
+                  claseDelBoton={icono}
+                  tituloDelBoton={`Ver ${d.titulo}`}
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="El PDF todavía no llega"
+                  aria-label={`Ver ${d.titulo}: el PDF todavía no llega`}
+                  className={icono}
+                >
+                  <Eye size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={!d.pdf_path}
+                onClick={() => void descargar(d)}
+                title={
+                  d.pdf_path ? "Descargar el PDF" : "El PDF todavía no llega"
+                }
+                aria-label={`Descargar el PDF de ${d.titulo}`}
+                className={icono}
+              >
+                <Download size={14} />
+              </button>
+              <button
+                type="button"
+                disabled
+                title="El XML es un servicio adicional de facturacion.cl, con costo: se conecta si lo contratas"
+                aria-label="El XML: servicio adicional de facturacion.cl"
+                className={icono}
+              >
+                <FileCode size={14} />
+              </button>
+            </div>
+            <div className="mt-1 flex flex-col items-end gap-1">
+              {d.acciones.pedirPdf && (
+                <button
+                  type="button"
+                  disabled={ocupado === d.id}
+                  onClick={() => void pedirPdf(d)}
+                  className="font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                >
+                  Pedir el PDF
+                </button>
+              )}
+              {d.acciones.comprobar && (
+                <button
+                  type="button"
+                  disabled={ocupado === d.id}
+                  onClick={() => void comprobar(d)}
+                  className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
+                >
+                  {ocupado === d.id ? "Comprobando…" : "Comprobar"}
+                </button>
+              )}
+              {(d.acciones.anular ||
+                d.acciones.rebajar ||
+                d.acciones.corregir) &&
+                anulando !== d.id && (
+                  <button
+                    type="button"
+                    onClick={() => setAnulando(d.id)}
+                    className="font-semibold text-red-600 hover:underline"
+                  >
+                    {d.tipo === 33 ? "Anular o rebajar…" : "Anular…"}
+                  </button>
+                )}
+            </div>
+          </td>
+        </tr>
+        {anulando === d.id && (
+          <tr>
+            <td
+              colSpan={7}
+              className="pb-3"
+              style={{ paddingLeft: `${nivel * 1.25}rem` }}
+            >
+              <NotaDeUnDocumento
+                doc={d}
+                onCerrar={() => setAnulando(null)}
+                onEmitida={() => {
+                  setAnulando(null);
+                  void refrescar();
+                }}
+              />
+            </td>
+          </tr>
+        )}
+        {[...(hijos.get(d.id) ?? [])]
+          .sort((a, b) => a.id - b.id)
+          .map((h) => fila(h, nivel + 1))}
+      </Fragment>
+    );
+  };
+
+  const tarjeta = (
+    titulo: string,
+    valor: string,
+    nota: string,
+    alerta = false,
+  ) => (
+    <div
+      className={`rounded-lg border px-4 py-3 ${alerta ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-white"}`}
+    >
+      <p className="text-xs text-gray-500">{titulo}</p>
+      <p
+        className={`text-xl font-semibold ${alerta ? "text-amber-800" : "text-gray-900"}`}
+      >
+        {valor}
+      </p>
+      <p className="text-xs text-gray-500">{nota}</p>
+    </div>
+  );
+
+  const ladoBoton = (k: "emitidos" | "recibidos", t: string) => (
+    <button
+      type="button"
+      aria-pressed={lado === k}
+      onClick={() => setLado(k)}
+      className={`rounded-md px-3 py-1.5 text-xs font-semibold ${lado === k ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+    >
+      {t}
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
+        {ladoBoton("emitidos", "Emitidos")}
+        {ladoBoton("recibidos", "Recibidos")}
+      </div>
+
+      {lado === "recibidos" ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
+          <p className="text-sm font-semibold text-gray-900">Recibidos</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+            Las facturas que te emiten tus proveedores. facturacion.cl no las
+            entrega por su integración (su manual no trae nada de lo recibido):
+            hay que preguntarle a su mesa de ayuda.
+          </p>
+        </div>
+      ) : (
+        <>
+          <section
+            aria-label="Resumen"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+          >
+            {tarjeta("Neto", clp(r.neto), "antes del IVA")}
+            {tarjeta("IVA", clp(r.iva), "19 %")}
+            {tarjeta(
+              "Total",
+              clp(r.total),
+              "con IVA, menos las notas de crédito",
+            )}
+            {tarjeta(
+              "Documentos",
+              String(r.fac + r.bol + r.notas),
+              `${cuantas(r.fac, "factura")} · ${cuantas(r.bol, "boleta")} · ${cuantas(r.notas, "nota")}`,
+            )}
+            {tarjeta(
+              "Por confirmar",
+              String(r.pc),
+              "enviados sin respuesta",
+              r.pc > 0,
+            )}
+          </section>
+
+          <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-white p-3">
+            <label className="relative block w-full sm:w-64">
+              <span className="sr-only">Buscar</span>
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="search"
+                value={f.q}
+                placeholder="Buscar por N° o cliente"
+                autoComplete="off"
+                onChange={(e) => poner({ q: e.target.value })}
+                className={`${casilla} w-full pl-8`}
+              />
+            </label>
+            <div className="w-44">
+              <span className="sr-only">Tipo</span>
+              <SelectWithSearch
+                options={TIPOS}
+                value={f.tipo}
+                onChange={(v) => poner({ tipo: (v || "todos") as Tipo })}
+                tamano="sm"
+                sinLimpiar
+                mostrarConteo={false}
+              />
+            </div>
+            <div className="w-44">
+              <span className="sr-only">Estado</span>
+              <SelectWithSearch
+                options={ESTADOS}
+                value={f.estado}
+                onChange={(v) => poner({ estado: (v || "todos") as Estado })}
+                tamano="sm"
+                sinLimpiar
+                mostrarConteo={false}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+              <label>
+                <span className="sr-only">Desde</span>
+                <input
+                  type="date"
+                  value={f.desde}
+                  onChange={(e) => poner({ desde: e.target.value })}
+                  className={casilla}
+                />
+              </label>
+              a
+              <label>
+                <span className="sr-only">Hasta</span>
+                <input
+                  type="date"
+                  value={f.hasta}
+                  onChange={(e) => poner({ hasta: e.target.value })}
+                  className={casilla}
+                />
+              </label>
+            </div>
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                onClick={() => setF(filtrosDeHoy())}
+                className={boton}
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                disabled={!visibles.length}
+                onClick={() => descargarReporte(f, visibles)}
+                className={boton}
+              >
+                <Download size={13} /> Reporte (CSV)
+              </button>
+            </div>
+            {!rangoOk && (
+              <p className="w-full text-xs text-red-600">
+                La fecha «desde» va antes que «hasta».
+              </p>
+            )}
+          </div>
+
+          {lista.isPending ? (
+            <p className="text-sm text-gray-400">Cargando…</p>
+          ) : lista.isError ? (
+            <p className="text-sm text-red-600">
+              {humanizeApiError(lista.error, "No se pudo cargar la lista.")}
+            </p>
+          ) : raices.length === 0 ? (
+            <p className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+              No hay documentos con estos filtros.{" "}
+              <button
+                type="button"
+                onClick={() => setF(filtrosDeHoy())}
+                className="font-semibold text-blue-600 hover:underline"
+              >
+                Limpiar los filtros
+              </button>
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white p-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500">
+                    <th className="pb-2 font-medium">Documento</th>
+                    <th className="pb-2 font-medium">Cliente</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Neto</th>
+                    <th className="pb-2 pr-3 text-right font-medium">IVA</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Total</th>
+                    <th className="pb-2 font-medium">Estado</th>
+                    <th className="pb-2 text-right font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>{raices.map((d) => fila(d, 0))}</tbody>
+              </table>
+            </div>
+          )}
+          {conAjustes && <ProbarLaConexion />}
+        </>
+      )}
+    </div>
+  );
+}

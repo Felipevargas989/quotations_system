@@ -8,6 +8,13 @@ import type { Ambiente, Receptor } from "./facturas.service";
 
 export type AccionDeNota = "anular" | "corregir" | "rebajar";
 
+export type SituacionEnLaLista =
+  | "vigente"
+  | "rebajada"
+  | "anulada"
+  | "por_confirmar"
+  | "nota";
+
 export interface DocumentoDeLaLista {
   id: number;
   tipo: number;
@@ -29,6 +36,17 @@ export interface DocumentoDeLaLista {
   oc: string | null;
   modifica_id: number | null;
   cadena: { como: string; texto: string };
+  /** Para el filtro «Estado» (§9.22): la corregida vale entera, así que
+   *  queda vigente; una nota sin anular es solo una nota. */
+  situacion: SituacionEnLaLista;
+  /** El RUT del receptor, para buscar (la boleta no lo tiene). */
+  rut: string | null;
+  /** La primera referencia de la factura: la OC, la HES… */
+  referencia: { tipo: string; folio: string } | null;
+  /** La condición de pago de la factura (§9.22): 1 contado, 2 crédito. */
+  forma_de_pago: 1 | 2 | null;
+  vencimiento: string | null;
+  plazo_dias: number | null;
   pdf_path: string | null;
   error: string | null;
   acciones: {
@@ -47,6 +65,9 @@ export interface ListaDeFacturacion {
   /** Por qué no se puede emitir, si no se puede (paso 5). */
   sin_conexion?: string | null;
   mes: string;
+  /** El período que trae: las dos fechas incluidas (AAAA-MM-DD). */
+  desde: string;
+  hasta: string;
   hoy: string;
   resumen: {
     facturado: number;
@@ -112,12 +133,16 @@ export const probarConexionConFacturacionCl =
 
 const base = "/facturacion/documentos";
 
+/** La lista de un mes (AAAA-MM) o, desde el 06-11 (§9.22), de un rango de
+ *  fechas con las dos incluidas: hasta un año por vez. */
 export const getListaDeFacturacion = async (
-  mes: string,
+  periodo: string | { desde: string; hasta: string },
 ): Promise<ListaDeFacturacion> =>
   (await apiRequest(
-    `${base}?mes=${encodeURIComponent(mes)}`,
+    base,
     "GET",
+    undefined,
+    typeof periodo === "string" ? { mes: periodo } : periodo,
   )) as ListaDeFacturacion;
 
 export const comprobarDocumento = async (
