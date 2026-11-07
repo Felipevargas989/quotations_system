@@ -1091,6 +1091,40 @@ certificación empresa», con el botón «Solicitar», no está en ese acceso
 de prueba: según el manual (Ficha técnica, paso 5) está en la pantalla de
 inicio del sistema de siempre de facturacion.cl.
 
+**El «Solicitar», buscado el 07-11 en la cuenta de Valle del Sol.** No
+está: ni en el inicio (tampoco escondido en la página), ni en el acceso de
+prueba, ni en Integración → Configuración. El recuadro del manual
+(`manualintegracion/img/certificacionintegracion.png`) dice *"Para comenzar
+a utilizar el sistema, confirmar que ha finalizado las pruebas necesarias y
+solicitar el paso a producción"*: es para la empresa que todavía no emite,
+y la ficha agrega que la resolución ante el SII no se cursa hasta terminar
+las pruebas. Valle del Sol ya emite sus facturas en producción con
+facturacion.cl, y el cuadro «Ambiente Producción» de las credenciales ya
+está lleno. El manual dice que, terminadas las pruebas, se pasa a
+producción con esas credenciales (DTEPlanoWS: *"se deberán ingresar las
+credenciales de 'Ambiente Productivo'"*; servicio web: *"Ya terminadas las
+pruebas se proporcionan las que se deben utilizar para el entorno
+productivo"*). Falta que soporte confirme que ya están activas. Lo demás
+medido ese día:
+- **Las boletas no están habilitadas en facturacion.cl.** Las órdenes de
+  trabajo lo cuentan: el 09-06 se pidió sacar las boletas (*"emitir
+  únicamente facturas"*, OT 349422), el 10-06 se dio de baja el boleteo
+  porque iba por otro sistema (OT 349547) y el 27-08 se reclamó un cobro
+  por boletas no contratadas (OT 359438). El 06-11 Felipe pidió sumarlas
+  (OT 377564, *"Solicito sumar la boleta electrónica"*): sigue
+  «Ingresada», sin respuesta.
+- La tienda (Inicio → Cotice y compre en línea → Comprar en línea) no
+  tiene un módulo de boletas: un tipo de documento nuevo se pide en
+  «Documentos adicionales», como *"Certificación de Documento Adicional"*,
+  de 3 días hábiles. En «Servicios de integración» está la «Emisión de
+  Boletas offline», que es otra cosa (emitir sin conexión).
+- El certificado digital está *"en proceso de verificación"*: facturacion.cl
+  valida la cédula para cargarlo (aviso del inicio).
+- El correo de la compra del Servicio de Integración (06-11, de
+  contacto@facturacion.cl a felipe@, «Confirmación de pago y habilitación
+  de módulo») solo remite a la misma ficha técnica. Las OT 377562 (la
+  compra) y 373116 (la consulta del 24-10) esperan que Felipe las apruebe.
+
 **5c, la certificación y el «a producción»** (el paso a paso, revisado
 el 05-11):
 
@@ -1108,7 +1142,10 @@ el 05-11):
    inicio de facturacion.cl (el recuadro «Estado certificación empresa»:
    *"confirmar que ha finalizado las pruebas necesarias y solicitar el paso
    a producción"*). Antes tiene que estar listo el 5b (hecho el 06-11, y el
-   Libro de Ventas revisado el 07-11).
+   Libro de Ventas revisado el 07-11). **07-11: el recuadro no aparece**,
+   porque Valle del Sol ya emite (ver arriba); en su lugar se le pregunta a
+   soporte si las credenciales de producción ya sirven, y se sigue la OT
+   377564 de las boletas.
 2. La certificación toma de 3 a 5 días hábiles.
 3. Al terminar llegan las credenciales de producción.
 
