@@ -178,6 +178,12 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
   };
 };
 
+/** Con una cotización vinculada, lo que se ofrece ya está decidido
+ *  (decisión 119, 07-11): la IA la describe contra las bases y no elige
+ *  otra cosa del catálogo. */
+export const LA_COTIZACION_MANDA =
+  'HAY UNA COTIZACIÓN VINCULADA y manda sobre todo lo que sigue acerca de qué ofrecer: lo que se ofrece es EXACTAMENTE esa cotización. "cajas" y "fijos" reproducen sus mismos productos (sus ids), días, personas y cantidades, sin agregar, quitar ni cambiar nada, con "menu_id" 0 y cada producto en "servicios" (si un producto no está en el catálogo, déjalo fuera de cajas y fijos y nómbralo en "detalles"). En "como" describe lo que trae la cotización con su detalle completo (por ejemplo, el menú entero de cada día, plato por plato), siempre dentro de lo que piden las bases. Lo que las bases piden y la cotización no trae va en "subcontratar" o, si la empresa tiene que definirlo, en "completar". Lo que la cotización trae y las bases no piden no se escribe en "como".';
+
 export const instruccionesDeLaOferta = (c: {
   codigo: string;
   nombre: string;
@@ -186,6 +192,9 @@ export const instruccionesDeLaOferta = (c: {
   instalaciones: string | null;
   loQueVende: string | null;
   catalogo: string;
+  /** La cotización vinculada en texto (decisión 119): si está, lo que se
+   *  ofrece es ella. */
+  cotizacion?: string | null;
 }): string =>
   [
     'Armas LA OFERTA de una empresa para una licitación pública de Chile (Mercado Público): qué se ofrece por cada especificación técnica de las bases y con qué productos de su catálogo. De aquí salen la cotización, la propuesta técnica y los anexos, y los tres tienen que decir exactamente lo mismo.',
@@ -203,9 +212,17 @@ export const instruccionesDeLaOferta = (c: {
     'SU CATÁLOGO (con el id de cada producto; los precios tienen IVA incluido; la cotización la valoriza Eventia):',
     c.catalogo,
     '',
+    ...(c.cotizacion
+      ? [
+          'LA COTIZACIÓN VINCULADA (la empresa ya decidió qué ofrece; con los ids de su catálogo):',
+          c.cotizacion,
+          '',
+        ]
+      : []),
     ...laRevision(c.bases),
     'CÓMO TRABAJAR',
     ...numerar([
+      ...(c.cotizacion ? [LA_COTIZACION_MANDA] : []),
       'Las bases van adjuntas: léelas para el detalle de cada especificación técnica (cantidades, características, opciones).',
       'matriz: una fila por cada especificación técnica de las bases, en su orden. "especificacion": con las palabras de las bases; "pagina": su página (0 si no se sabe); "como": lo que se ofrece, en una o dos líneas y con las mismas cantidades y características que dicen las bases (ese texto va tal cual en la propuesta técnica y en los anexos); "productos": los ids del catálogo que la cubren.',
       '"origen": "catalogo" si se cubre con productos del catálogo, aunque las bases pidan una variación de lo que ya vende (va en "detalles"); "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
