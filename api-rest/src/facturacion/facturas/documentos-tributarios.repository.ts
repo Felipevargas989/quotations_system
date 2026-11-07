@@ -436,7 +436,9 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('clients')
       .select(
-        'id, name, client_type, contact_person, contact_email, contact_phone, contactos:client_contacts(name, email, phone, is_primary), razones:razones_sociales(id, rut, razon_social, giro, direccion, comuna, ciudad, correo_facturacion, referencias_exigidas)',
+        // El contacto vive en client_contacts; la ficha guarda solo el
+        // nombre (contact_person) y su correo y teléfono (email, phone).
+        'id, name, client_type, contact_person, email, phone, contactos:client_contacts(name, email, phone, is_primary), razones:razones_sociales(id, rut, razon_social, giro, direccion, comuna, ciudad, correo_facturacion, referencias_exigidas)',
       )
       .eq('company_id', companyId)
       .order('name');
@@ -446,8 +448,8 @@ export class DocumentosTributariosRepository {
       name: string | null;
       client_type: string | null;
       contact_person: string | null;
-      contact_email: string | null;
-      contact_phone: string | null;
+      email: string | null;
+      phone: string | null;
       contactos:
         | {
             name: string | null;
@@ -469,8 +471,8 @@ export class DocumentosTributariosRepository {
         contacto: nombre
           ? {
               nombre,
-              correo: principal?.email ?? c.contact_email ?? null,
-              telefono: principal?.phone ?? c.contact_phone ?? null,
+              correo: principal?.email ?? c.email ?? null,
+              telefono: principal?.phone ?? c.phone ?? null,
             }
           : null,
         razones: (c.razones ?? []).map((r) => ({
