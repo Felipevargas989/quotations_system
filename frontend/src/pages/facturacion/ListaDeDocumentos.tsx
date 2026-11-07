@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Download, Eye, FileCode, Search } from "lucide-react";
+import { Download, Eye, FileCode, FileMinus, Search } from "lucide-react";
 import FileViewLink from "../../components/FileViewLink";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
@@ -33,9 +33,9 @@ import ProbarLaConexion from "./ProbarLaConexion";
 //   rango de fechas (este mes, si no se dice; hasta un año por vez).
 // - Cada documento en dos líneas (Felipe, 07-11: *"hay que ordenar esa
 //   matriz"*): arriba el N°, el cliente, los montos, el estado y los
-//   íconos; abajo, en letra chica, la fecha (con lo que hace la nota), lo
-//   que cambió el estado y la acción. Nada se parte, salvo el cliente, que
-//   llega a dos líneas.
+//   íconos (también «Anular o rebajar…», en rojo y al final); abajo, en
+//   letra chica, la fecha (con lo que hace la nota) y lo que cambió el
+//   estado. Nada se parte, salvo el cliente, que llega a dos líneas.
 // - El estado, en una palabra: Vigente, Rebajada, Anulada o Por confirmar;
 //   abajo lo que lo cambió («Se rebajaron $1.000», «Por NC 88») o, en la
 //   factura, su condición de pago. Sus notas van debajo (factura → NC → ND).
@@ -225,8 +225,17 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
 
 const icono =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
+/** «Anular o rebajar…»: el mismo botón, en rojo. */
+const iconoRojo =
+  "inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-white text-red-600 hover:border-red-400 hover:text-red-700";
 const boton =
   "flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50";
+
+/** ¿Se le puede hacer una nota? (lo decide el motor, con el permiso). */
+const modificable = (d: DocumentoDeLaLista) =>
+  d.acciones.anular || d.acciones.rebajar || d.acciones.corregir;
+const queModifica = (d: DocumentoDeLaLista) =>
+  d.tipo === 33 ? "Anular o rebajar…" : "Anular…";
 const casilla =
   "rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500";
 
@@ -261,6 +270,8 @@ export default function ListaDeDocumentos({
 
   const docs = lista.data?.documentos ?? [];
   const visibles = docs.filter((d) => pasa(d, f));
+  // Si alguno se puede anular, todos guardan el lugar del botón rojo.
+  const conModificar = visibles.some(modificable);
   const ids = new Set(visibles.map((d) => d.id));
   const hijos = new Map<number, DocumentoDeLaLista[]>();
   for (const d of visibles)
@@ -432,40 +443,47 @@ export default function ListaDeDocumentos({
               >
                 <FileCode size={14} />
               </button>
-            </div>
-            <div className="mt-1 flex flex-col items-end gap-1 whitespace-nowrap">
-              {d.acciones.pedirPdf && (
-                <button
-                  type="button"
-                  disabled={ocupado === d.id}
-                  onClick={() => void pedirPdf(d)}
-                  className="font-semibold text-blue-600 hover:underline disabled:opacity-50"
-                >
-                  Pedir el PDF
-                </button>
-              )}
-              {d.acciones.comprobar && (
-                <button
-                  type="button"
-                  disabled={ocupado === d.id}
-                  onClick={() => void comprobar(d)}
-                  className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
-                >
-                  {ocupado === d.id ? "Comprobando…" : "Comprobar"}
-                </button>
-              )}
-              {(d.acciones.anular ||
-                d.acciones.rebajar ||
-                d.acciones.corregir) && (
+              {/* «Anular o rebajar…» es un botón más de Acciones (Felipe,
+                  07-11), en rojo y al final de la fila. */}
+              {modificable(d) ? (
                 <button
                   type="button"
                   onClick={() => onModificar(d)}
-                  className="font-semibold text-red-600 hover:underline"
+                  title={queModifica(d)}
+                  aria-label={queModifica(d)}
+                  className={iconoRojo}
                 >
-                  {d.tipo === 33 ? "Anular o rebajar…" : "Anular…"}
+                  <FileMinus size={14} />
                 </button>
-              )}
+              ) : conModificar ? (
+                // Su lugar queda vacío: los otros íconos no se mueven.
+                <span aria-hidden="true" className="inline-block h-7 w-7" />
+              ) : null}
             </div>
+            {(d.acciones.pedirPdf || d.acciones.comprobar) && (
+              <div className="mt-1 flex flex-col items-end gap-1 whitespace-nowrap">
+                {d.acciones.pedirPdf && (
+                  <button
+                    type="button"
+                    disabled={ocupado === d.id}
+                    onClick={() => void pedirPdf(d)}
+                    className="font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                  >
+                    Pedir el PDF
+                  </button>
+                )}
+                {d.acciones.comprobar && (
+                  <button
+                    type="button"
+                    disabled={ocupado === d.id}
+                    onClick={() => void comprobar(d)}
+                    className="font-semibold text-amber-700 hover:underline disabled:opacity-50"
+                  >
+                    {ocupado === d.id ? "Comprobando…" : "Comprobar"}
+                  </button>
+                )}
+              </div>
+            )}
           </td>
         </tr>
         {[...(hijos.get(d.id) ?? [])]

@@ -1483,6 +1483,13 @@ fila quedaba de un alto distinto. Se dibujó antes de programar (aprobado:
   vence 06-12», «Anulada» con «Por ND 9999742766» y la NC con «06-11-2026
   · rebaja la 9999839219». `pruebas` e41a341e, bf648b6e y dcbc3544; motor
   e41a341, vitrina 6aef35ed.
+- Después, Felipe: *"creo que el botón de anular o rebajar debería estar
+  en acciones"*. Dibujado y aprobado (*"si hazlo así"*): es un botón más de
+  la fila de íconos, en rojo y al final («Anular o rebajar…» al pasar el
+  mouse; «Anular…» en las notas). Donde no se puede (la boleta, lo ya
+  anulado), su lugar queda vacío y los otros íconos no se mueven; quien no
+  tiene el permiso no ve el lugar. «Pedir el PDF» y «Comprobar» siguen
+  debajo, como texto.
 
 ### 9.11 Fuentes nuevas (04-11)
 
