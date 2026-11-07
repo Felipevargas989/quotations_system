@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -25,6 +24,7 @@ import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
+import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   BoletaSueltaDto,
   CrearCobroDto,
@@ -45,6 +45,7 @@ import {
   problemasParaEmitir,
   repartoDelCobro,
 } from './reparto';
+import { correoLimpio, lineasDeLaSuelta } from './suelta';
 
 /**
  * LAS BOLETAS DE RECEPCIÓN (doc 19 §9.4, paso 3a).
@@ -64,15 +65,6 @@ import {
 
 const BOLETA = 39;
 
-/** «2 noches», «3 personas»: la cantidad en la descripción de la línea. */
-const PLURAL: Record<string, string> = {
-  noche: 'noches',
-  persona: 'personas',
-  día: 'días',
-  hora: 'horas',
-  unidad: 'unidades',
-};
-
 type Cambio = Omit<NuevoCambio, 'company_id' | 'cobro_id' | 'nombre'>;
 const SE_BOLETEA = ['aceptada', 'realizada'];
 
@@ -83,8 +75,6 @@ const nombreDelCorreo = (correo?: string | null): string | null => {
   const base = (correo ?? '').split('@')[0].trim();
   return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
 };
-const correoLimpio = (c: string | null | undefined) =>
-  (c ?? '').trim().toLowerCase() || null;
 
 /** El cobro como lo ve la pantalla. */
 const vista = (c: CobroGuardado) => ({
@@ -126,6 +116,8 @@ export class BoletasService {
     private readonly documentos: DocumentosTributariosRepository,
     private readonly conexion: ConexionConFacturacionCl,
     private readonly logger: PinoLogger,
+    /** El emisor de la vista previa (§9.22, sprint 3). */
+    private readonly ordenes: OrdenesDeCompraRepository,
   ) {
     this.logger.setContext(BoletasService.name);
   }
@@ -380,52 +372,58 @@ export class BoletasService {
    * cabaña (la escribe recepción) en la observación. Escribir un monto a
    * mano es solo del administrador: los precios nunca a dedo.
    */
+  /**
+   * La boleta de «Nuevo documento» tal como saldrá (doc 19 §9.22, sprint
+   * 3): las mismas líneas y el mismo armado que al emitirla
+   * (`lineasDeLaSuelta` y `armarBoleta`), así que lo que se ve es lo que
+   * sale. El N° es el que debería tocarle: lo pone facturacion.cl. No
+   * guarda nada.
+   */
+  async revisarSuelta(user: User, dto: BoletaSueltaDto) {
+    const companyId = user.company_id;
+    const { lineas, correo } = await this.lineasDeLaSuelta(user, dto);
+    const conexion = this.conexion.de(companyId);
+    const fecha = hoyEnChile();
+    const armado = armarBoleta({
+      fecha,
+      receptor: correo ? { correo } : null,
+      lineas,
+      observaciones: [],
+      totalEsperado: null,
+      ambiente: conexion.ambiente,
+    });
+    const [folio, emisor] = await Promise.all([
+      conexion.folioSiguiente(BOLETA).catch(() => 0),
+      this.ordenes.empresaQueVende(companyId),
+    ]);
+    return {
+      ok: armado.ok,
+      problemas: armado.ok ? [] : armado.problemas,
+      avisos: armado.ok ? armado.avisos : [],
+      faltan: [],
+      folio,
+      fecha,
+      emisor,
+      lineas: lineas.map((l) => ({
+        descripcion: l.descripcion,
+        descripcionLarga: l.descripcionLarga ?? null,
+        cantidad: l.cantidad,
+        precio: l.precio,
+      })),
+      montos: armado.ok ? armado.montos : null,
+      observaciones: [],
+      correo,
+      ambiente: conexion.ambiente,
+    };
+  }
+
   async emitirSuelta(user: User, dto: BoletaSueltaDto) {
     const companyId = user.company_id;
-    const tarifario = await this.repo.tarifario(companyId);
-    const lineas: LineaDeDetalle[] = dto.lineas.map((l) => {
-      if (l.tarifario_id != null) {
-        const item = tarifario.find((t) => t.id === l.tarifario_id);
-        if (!item || !item.activo)
-          throw new BadRequestException(
-            'Ese ítem del tarifario no existe o está desactivado',
-          );
-        const cantidad = l.cantidad ?? 1;
-        return {
-          descripcion: item.nombre,
-          cantidad,
-          precio: item.precio,
-          descripcionLarga:
-            cantidad > 1 && item.unidad !== 'unidad'
-              ? `${cantidad} ${PLURAL[item.unidad] ?? item.unidad}`
-              : null,
-        };
-      }
-      if (user.role !== UserRole.ADMINISTRADOR)
-        throw new ForbiddenException(
-          'Escribir un monto a mano es solo del administrador: elige del tarifario',
-        );
-      const descripcion = textoLimpio(l.descripcion);
-      if (!descripcion || !l.monto)
-        throw new BadRequestException(
-          'La línea a mano necesita qué se cobra y su monto',
-        );
-      return { descripcion, cantidad: 1, precio: l.monto };
-    });
-    // La cabaña va al comienzo de la descripción de cada línea, como en
-    // «Por boletear» (`glosaDeLaBoleta`): el PDF de la boleta no imprime
-    // las observaciones (paso 0, 06-11; Felipe: «si ponlo en la
-    // descripción»).
-    const cabana = textoLimpio(dto.cabana) || null;
+    const { lineas, cabana, correo } = await this.lineasDeLaSuelta(user, dto);
     const conexion = this.conexion.de(companyId);
     const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
-      lineas: cabana
-        ? lineas.map((l) => ({
-            ...l,
-            descripcion: glosaDeLaBoleta(l, { cabana }),
-          }))
-        : lineas,
-      correo: correoLimpio(dto.correo),
+      lineas,
+      correo,
       observaciones: [],
       quotationId: null,
       cabana,
@@ -449,6 +447,16 @@ export class BoletasService {
         : null,
       aviso: r.alto,
     };
+  }
+
+  /** Las líneas de la boleta suelta (`suelta.ts`): las mismas para la vista
+   *  previa y para emitirla. */
+  private async lineasDeLaSuelta(user: User, dto: BoletaSueltaDto) {
+    return lineasDeLaSuelta(
+      await this.repo.tarifario(user.company_id),
+      dto,
+      user.role === UserRole.ADMINISTRADOR,
+    );
   }
 
   /**

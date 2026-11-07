@@ -1,10 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   keepPreviousData,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import { marcaDelAmbiente } from "../../constants/facturacion";
@@ -28,6 +27,7 @@ import {
   useQuieto,
 } from "../postventa/facturacion/datosDeLaFactura";
 import DestinatarioDeLaFactura from "./DestinatarioDeLaFactura";
+import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 
 // LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta que
 // aprobó Felipe el 06-11 (*"está perfecto (…) me gusta toda la
@@ -52,21 +52,6 @@ const INICIAL: DtePedido = {
   plazo_dias: 30,
   cliente_id: null,
 };
-
-function Seccion({
-  titulo,
-  children,
-}: {
-  readonly titulo: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-gray-900">{titulo}</h2>
-      {children}
-    </section>
-  );
-}
 
 export default function FacturaNueva({
   puedeEmitir,
@@ -128,23 +113,11 @@ export default function FacturaNueva({
 
   return (
     <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onVolver}
-        className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
-      >
-        <ArrowLeft size={15} /> Documentos
-      </button>
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-semibold text-gray-900">
-          Nueva factura electrónica
-        </h1>
-        {vista && (
-          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-            N° {vista.folio} · el siguiente
-          </span>
-        )}
-      </div>
+      <CabeceraDelDocumento
+        titulo="Nueva factura electrónica"
+        folio={vista?.folio ?? null}
+        onVolver={onVolver}
+      />
 
       <Seccion titulo="Documento">
         <div className="flex flex-wrap items-start gap-x-8 gap-y-3">

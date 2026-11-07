@@ -33,8 +33,18 @@ vi.mock("./ListaDeDocumentos", () => ({
 vi.mock("../boletas/TarifarioDeBoletas", () => ({
   default: () => <p>el tarifario</p>,
 }));
-vi.mock("../boletas/BoletaSuelta", () => ({
-  default: () => <p>la boleta</p>,
+// Cada documento trae su cabecera: el título y «← Documentos».
+vi.mock("./BoletaNueva", () => ({
+  default: ({ onVolver }: { onVolver: () => void }) => (
+    <div>
+      <p>la boleta</p>
+      <h1>Nueva boleta electrónica</h1>
+      <button type="button" onClick={onVolver}>
+        {" "}
+        Documentos
+      </button>
+    </div>
+  ),
 }));
 vi.mock("./consultas", () => ({
   usePorFacturar: (activa: boolean) => ({
@@ -49,8 +59,8 @@ vi.mock("./PorFacturar", () => ({
 vi.mock("./FacturaNueva", () => ({
   default: () => <p>la factura nueva</p>,
 }));
-vi.mock("./ElegirDocumento", () => ({
-  default: ({ tipo }: { tipo: string }) => <p>elegir el documento: {tipo}</p>,
+vi.mock("./NotaNueva", () => ({
+  default: ({ tipo }: { tipo: string }) => <p>la nota: {tipo}</p>,
 }));
 
 const abrir = () =>

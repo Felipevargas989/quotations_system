@@ -1,17 +1,18 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import BoletaSuelta from "../boletas/BoletaSuelta";
+import type { DocumentoDeLaLista } from "../../services/documentosTributarios.service";
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
+import BoletaNueva from "./BoletaNueva";
 import { usePorFacturar } from "./consultas";
-import ElegirDocumento from "./ElegirDocumento";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import ListaDeDocumentos from "./ListaDeDocumentos";
+import NotaNueva from "./NotaNueva";
 import NuevoDocumento from "./NuevoDocumento";
-import { NOMBRE_DEL_NUEVO, type TipoNuevo } from "./tiposDeDocumento";
+import type { TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
 
 // LA SECCIÓN «FACTURACIÓN» (doc 19 §9.19 y §9.21). Una sola entrada del
@@ -22,8 +23,12 @@ import PorFacturar from "./PorFacturar";
 // eventos con algo por emitir, para facturarlos desde acá.
 //
 // §9.22 (la maqueta que aprobó Felipe el 06-11): «Nuevo documento» abre una
-// ventana para elegir qué se emite, y el documento se arma en su propia
-// pantalla; «← Documentos» vuelve a la lista.
+// ventana para elegir qué se emite, y cada documento se arma en su propia
+// pantalla, con la misma cabecera, las mismas secciones y la misma vista
+// previa: la factura (sprint 1), y la boleta y las notas (sprint 3).
+// «← Documentos» vuelve a la lista, y lo recién emitido queda marcado.
+// Desde la lista, «Anular o rebajar…» abre la nota con su documento ya
+// elegido.
 //
 // Cada pieza sigue su interruptor de Mi empresa → Usuarios → Permisos por
 // cargo (doc 22 §7): «Nuevo documento» ofrece la factura al administrador
@@ -35,6 +40,13 @@ import PorFacturar from "./PorFacturar";
 // además «Documentos»; el administrador, todo.
 
 type Pestana = "documentos" | "por_facturar" | "tarifario";
+
+/** El documento que se está armando, y el que la nota modifica si llegó
+ *  desde la lista. */
+interface Abierto {
+  tipo: TipoNuevo;
+  doc?: DocumentoDeLaLista;
+}
 
 export default function FacturacionPage() {
   const queryClient = useQueryClient();
@@ -75,19 +87,26 @@ export default function FacturacionPage() {
   const pestana = elegida ?? pestanas[0]?.key ?? null;
   // La ventana que pregunta qué se emite, y la pantalla del que se eligió.
   const [eligiendo, setEligiendo] = useState(false);
-  const [abierto, setAbierto] = useState<TipoNuevo | null>(null);
+  const [abierto, setAbierto] = useState<Abierto | null>(null);
   // El que se acaba de emitir: la lista lo marca (§9.22).
   const [recien, setRecien] = useState<number | null>(null);
   const esAdmin = userRole === "administrador";
   const nuevoDocumento = () =>
-    tipos.length === 1 ? setAbierto(tipos[0]) : setEligiendo(true);
+    tipos.length === 1 ? setAbierto({ tipo: tipos[0] }) : setEligiendo(true);
 
-  const emitido = () => {
+  const refrescar = () => {
     void queryClient.invalidateQueries({ queryKey: ["facturacion", "lista"] });
     void queryClient.invalidateQueries({
       queryKey: ["facturacion", "por-facturar"],
     });
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
+  };
+  // Emitido: de vuelta a la lista, con lo nuevo marcado.
+  const emitido = (id: number | null) => {
+    refrescar();
+    setRecien(id);
+    if (conDocumentos) setElegida("documentos");
+    setAbierto(null);
   };
 
   const letrero = (
@@ -103,32 +122,30 @@ export default function FacturacionPage() {
     return (
       <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
         {letrero}
-        {abierto === "factura" ? (
+        {abierto.tipo === "factura" ? (
           <FacturaNueva
             puedeEmitir={esAdmin}
             onVolver={() => setAbierto(null)}
-            onEmitida={(doc) => {
-              emitido();
-              setRecien(doc.id);
-              if (conDocumentos) setElegida("documentos");
-              setAbierto(null);
-            }}
+            onEmitida={(doc) => emitido(doc.id)}
+          />
+        ) : abierto.tipo === "boleta" ? (
+          <BoletaNueva
+            esAdmin={esAdmin}
+            // Sin la lista a la vista (recepción), se queda para la próxima.
+            quedarse={!conDocumentos}
+            onVolver={() => setAbierto(null)}
+            onEmitida={(boleta) =>
+              conDocumentos ? emitido(boleta?.id ?? null) : refrescar()
+            }
           />
         ) : (
-          <PantallaDelDocumento
-            titulo={`Nueva ${NOMBRE_DEL_NUEVO[abierto].toLowerCase()}`}
+          <NotaNueva
+            key={`${abierto.tipo}-${abierto.doc?.id ?? "nueva"}`}
+            tipo={abierto.tipo}
+            inicial={abierto.doc ?? null}
             onVolver={() => setAbierto(null)}
-          >
-            {abierto === "boleta" ? (
-              <BoletaSuelta esAdmin={esAdmin} onEmitida={emitido} />
-            ) : (
-              <ElegirDocumento
-                key={abierto}
-                tipo={abierto}
-                onEmitida={emitido}
-              />
-            )}
-          </PantallaDelDocumento>
+            onEmitida={(nota) => emitido(nota.id)}
+          />
         )}
       </div>
     );
@@ -155,7 +172,7 @@ export default function FacturacionPage() {
           tipos={tipos}
           onElegir={(t) => {
             setEligiendo(false);
-            setAbierto(t);
+            setAbierto({ tipo: t });
           }}
           onCerrar={() => setEligiendo(false)}
         />
@@ -175,7 +192,16 @@ export default function FacturacionPage() {
             ))}
           </div>
           {pestana === "documentos" && (
-            <ListaDeDocumentos conAjustes={conAjustes} recien={recien} />
+            <ListaDeDocumentos
+              conAjustes={conAjustes}
+              recien={recien}
+              onModificar={(doc) =>
+                setAbierto({
+                  tipo: doc.tipo === 61 ? "nota_debito" : "nota_credito",
+                  doc,
+                })
+              }
+            />
           )}
           {pestana === "por_facturar" && (
             <PorFacturar puedeEmitir={userRole === "administrador"} />
@@ -183,31 +209,6 @@ export default function FacturacionPage() {
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}
-    </div>
-  );
-}
-
-/** La boleta y las notas en su pantalla, con «← Documentos» (§9.22). */
-function PantallaDelDocumento({
-  titulo,
-  onVolver,
-  children,
-}: {
-  readonly titulo: string;
-  readonly onVolver: () => void;
-  readonly children: ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onVolver}
-        className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
-      >
-        <ArrowLeft size={15} /> Documentos
-      </button>
-      <h1 className="text-xl font-semibold text-gray-900">{titulo}</h1>
-      {children}
     </div>
   );
 }
