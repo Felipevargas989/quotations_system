@@ -41,7 +41,7 @@ export interface DocumentoDeLaLista {
   oc: string | null;
   modifica_id: number | null;
   /** El chip en una palabra («Vigente», «Rebajada», «Anulada», «Por
-   *  confirmar») y, abajo, lo que lo cambió («Se rebajaron $1.000», «Por NC
+   *  confirmar») y, abajo, lo que lo cambió («−$1.000», «Por NC
    *  88», «Corregida por NC 90»), §9.22, 07-11. */
   cadena: { como: string; texto: string; detalle?: string | null };
   /** Para el filtro «Estado» (§9.22): la corregida vale entera, así que

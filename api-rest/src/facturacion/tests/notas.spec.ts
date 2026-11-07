@@ -724,7 +724,7 @@ describe('La lista de Facturación', () => {
     expect(de(20)?.cadena).toMatchObject({ texto: 'Vigente', detalle: null });
     expect(de(22)?.cadena).toMatchObject({
       texto: 'Rebajada',
-      detalle: 'Se rebajaron $100.000',
+      detalle: '−$100.000',
     });
     expect(de(23)?.cadena).toMatchObject({ texto: 'Vigente', detalle: null });
     expect(de(23)).toMatchObject({ nombre: 'NC 3', que_hace: 'rebaja la 22' });
