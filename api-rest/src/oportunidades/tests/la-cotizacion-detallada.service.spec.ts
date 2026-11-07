@@ -3,7 +3,7 @@ import { mockPinoLogger } from 'src/testing/mocks';
 import type { User } from 'src/users/entities/user.entity';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
-import { textoDeDocx } from '../analisis/docx';
+import { archivoDelZip, textoDeDocx } from '../analisis/docx';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import { LaCotizacionDetalladaService } from '../postulacion/la-cotizacion-detallada.service';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
@@ -228,6 +228,29 @@ describe('La cotización detallada en «Mi postulación»', () => {
     expect(texto).toContain('Servicio integral');
     expect(texto).toContain('$480.000');
     expect(texto).not.toContain('Descuento');
+  });
+
+  it('con los colores de la marca de Configuración de empresa, como la cotización que Eventia manda', async () => {
+    const { servicio, oferente, adjuntos, subidos } = armar();
+    oferente.empresa.mockResolvedValue({
+      name: 'Valle del Sol',
+      logo_url: null,
+      colors: { primary: '#213a33', secondary: 'no es un color' },
+      bank_details: null,
+    });
+    await servicio.armar(USUARIO, 11072, 105, 480_000, {
+      conPropuesta: false,
+      reemplaza: [],
+    });
+    const [ruta] = adjuntos.subirArchivo.mock.calls[0];
+    const documento =
+      archivoDelZip(
+        subidos.get(ruta) as Buffer,
+        'word/document.xml',
+      )?.toString() ?? '';
+    expect(documento).toContain('w:fill="213A33"');
+    // Un segundo color que no es color: el gris claro de siempre.
+    expect(documento).toContain('w:fill="F3F4F6"');
   });
 
   it('si no se puede guardar su fila, el archivo no queda huérfano y el borrador de antes sigue', async () => {

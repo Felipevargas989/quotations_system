@@ -125,6 +125,13 @@ export class LaCotizacionDetalladaService {
         )
       : [];
     const enElComplejo = resultado?.se_puede_en_el_complejo === 'si';
+    // Los colores de la marca, como la cotización que Eventia manda.
+    const hex = (c: string | null | undefined) =>
+      /^#?[0-9a-f]{6}$/i.test(c?.trim() ?? '')
+        ? (c as string).trim().replace('#', '').toUpperCase()
+        : null;
+    const primario = hex(empresa?.colors?.primary);
+    const secundario = hex(empresa?.colors?.secondary);
     const logo = await bajarLogo(
       urlDelLogo(empresa?.logo_url ?? null) ?? undefined,
       (m) => this.logger.warn(`cotización detallada: ${m}`),
@@ -153,6 +160,7 @@ export class LaCotizacionDetalladaService {
       dias,
       total,
       unaSolaLinea: !detallada,
+      marca: primario ? { primario, secundario: secundario ?? 'F3F4F6' } : null,
       conPropuesta: opciones.conPropuesta,
       plazo: plazoDeLaCotizacion(q),
       lugar: enElComplejo && direccion ? direccion : null,

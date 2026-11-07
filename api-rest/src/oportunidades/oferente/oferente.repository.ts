@@ -84,6 +84,9 @@ export type EmpresaDeConfiguracion = {
   /** La página web (decisión 47): la misma de los correos y del formulario
    *  público. */
   sitio_web?: string | null;
+  /** Los colores de la marca: los usa la cotización de la postulación
+   *  (decisión 119), como la cotización que Eventia manda a los clientes. */
+  colors?: { primary?: string | null; secondary?: string | null } | null;
   bank_details: {
     rut?: string | null;
     banco?: string | null;
@@ -155,7 +158,7 @@ export class OferenteRepository {
   async empresa(companyId: number): Promise<EmpresaDeConfiguracion | null> {
     const { data, error } = await this.db
       .from('companies')
-      .select('name, logo_url, bank_details, sitio_web')
+      .select('name, logo_url, bank_details, sitio_web, colors')
       .eq('id', companyId)
       .maybeSingle();
     if (error) throw error;
