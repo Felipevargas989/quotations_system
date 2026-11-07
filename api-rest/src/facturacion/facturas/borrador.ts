@@ -650,14 +650,11 @@ export function revisarDte(
           razon: ref.razon ?? null,
         })),
         observaciones,
-        // Contado o crédito con su vencimiento (§9.22): la glosa dice el
-        // plazo.
-        formaDePago: pago
-          ? {
-              codigo: pago.forma,
-              glosa: pago.dias ? `Crédito a ${pago.dias} días` : 'Contado',
-            }
-          : null,
+        // Contado o crédito con su vencimiento (§9.22). Sin glosa: medido
+        // el 06-11, facturacion.cl rechaza la que lleva tildes («solo
+        // admiten caracteres alfanuméricos»), y el plazo ya lo dice el
+        // vencimiento.
+        formaDePago: pago ? { codigo: pago.forma, glosa: null } : null,
         vencimiento: pago?.vencimiento ?? null,
         totalEsperado: esperado,
         ambiente: ctx.ambiente,

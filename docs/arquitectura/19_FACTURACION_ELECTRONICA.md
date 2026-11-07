@@ -1335,9 +1335,11 @@ entregue: se averiguan antes de prometerlos.
   pago. Felipe: *"por defecto la factura debe ser emitida en crédito a 30
   días... o 45 o 60 (…) no es en cualquier fecha"*. Contado (no queda por
   cobrar) o crédito a 30, 45 o 60 días; el vencimiento es la emisión más el
-  plazo. Va en el archivo (`->FormaPago<-` con la glosa «Crédito a 30
-  días», y `->FechaVencimiento<-`) y queda en el documento (migración 189:
-  `forma_de_pago` y `vencimiento`). Sin decir nada, crédito a 30 días,
+  plazo. Va en el archivo (`->FormaPago<-`, sin glosa, y
+  `->FechaVencimiento<-`) y queda en el documento (migración 189:
+  `forma_de_pago` y `vencimiento`). Medido el 06-11: facturacion.cl rechazó
+  la glosa «Crédito a 30 días» («solo admiten caracteres alfanuméricos»,
+  por las tildes); el plazo ya lo dice el vencimiento. Sin decir nada, crédito a 30 días,
   también en la factura del evento (Post-Venta). No es una regla del SII:
   es la ley de pago a 30 días (Ley 19.983), que pone 30 días corridos desde
   la recepción como máximo; más, hasta 60, solo con las bases de una
