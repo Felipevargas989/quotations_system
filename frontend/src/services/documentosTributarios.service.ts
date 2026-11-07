@@ -24,10 +24,11 @@ export interface DocumentoDeLaLista {
   ambiente: Ambiente;
   /** «Factura 1235», «NC 88 · anula la 1235»: el reporte y el buscador. */
   titulo: string;
-  /** «Factura 1235», «NC 88»: arriba en la lista (§9.22, 07-11). */
-  nombre: string;
+  /** «Factura 1235», «NC 88»: arriba en la lista (§9.22, 07-11). Opcional,
+   *  como lo demás nuevo del motor: la vitrina puede llegar antes. */
+  nombre?: string;
   /** Lo que hace la nota, «anula la 1235»: junto a la fecha. */
-  que_hace: string | null;
+  que_hace?: string | null;
   /** «Factura 1235», si esta factura reemplaza a una anulada de la misma OC. */
   reemplaza: string | null;
   cliente: string | null;
@@ -42,7 +43,7 @@ export interface DocumentoDeLaLista {
   /** El chip en una palabra («Vigente», «Rebajada», «Anulada», «Por
    *  confirmar») y, abajo, lo que lo cambió («Se rebajaron $1.000», «Por NC
    *  88», «Corregida por NC 90»), §9.22, 07-11. */
-  cadena: { como: string; texto: string; detalle: string | null };
+  cadena: { como: string; texto: string; detalle?: string | null };
   /** Para el filtro «Estado» (§9.22): la corregida vale entera, así que
    *  queda vigente; una nota sin anular es solo una nota. */
   situacion: SituacionEnLaLista;
