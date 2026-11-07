@@ -62,6 +62,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `cobros_por_boletear_lineas` | Cómo lo reparte recepción: una por cabaña (`cabana` hasta 22, la escribe ella), `monto`, `correo` del huésped y `documento_id`, su boleta (sin cascada; única) | doc 19 | 187 |
 | `cobros_por_boletear_cambios` | E3: quién cambió qué (`que`, `antes`, `despues`, `usuario`, `nombre`). `service_role` solo `SELECT` e `INSERT`: lo anotado no se reescribe | doc 19 | 187 |
 | `documentos_tributarios` | Cada boleta, factura y nota: `tipo` (33, 34, 39, 41, 56, 61), `ambiente` (`simulado`, `prueba`, `produccion`), `folio`, `estado` (`borrador`, `enviando`, `emitido`, `por_confirmar`, `rechazado`), `clave_emision` única, el receptor, el detalle y las referencias como se mandaron, los montos, la cotización y la OC, el `porcentaje`, la cadena (`modifica_id` y `codigo_referencia`), el archivo enviado y la respuesta, el PDF y quién lo emitió. **No se borra**: sin cascada y sin `DELETE` para el motor | doc 19 | 184 |
+| `eventos_facturados_fuera` | Los eventos marcados con «Ya está facturado» en «Por facturar» (`quotation_id` llave y cascada, `company_id`, quién lo marcó: `marcado_por` y `marcado_por_nombre`, `created_at`): se facturaron fuera de Eventia y salen de la lista y de la masiva. «Devolver» borra la fila | doc 19 §9.24 | 191 |
 
 ### Cotizaciones y negocio
 
@@ -726,3 +727,13 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 05-11-2026. **Aplicada en el laboratorio el 05-11-2026** (verificado: RLS encendido, `anon` y `authenticated` sin permisos, y `service_role` sin `UPDATE` ni `DELETE` en `cobros_por_boletear_cambios`). **Falta en producción**, con el «a producción» de Felipe, antes del motor que la usa.
 
+
+## 34. Migración 191: lo ya facturado fuera de Eventia (07-11-2026)
+
+**Qué hace.** Una tabla, `eventos_facturados_fuera`: un evento por fila (`quotation_id` es la llave, con cascada), con `company_id`, quién lo marcó (`marcado_por`, id de sesión sin llave, y `marcado_por_nombre` congelado) y cuándo. Cerrada a `anon` y `authenticated`, con permiso a `service_role`, como la 184 y la 187.
+
+**Por qué.** Felipe, 07-11-2026: *"yo te puedo dar el check de lo que ya está facturado"*. Medido ese día en producción: «Por facturar» mostraría 48 eventos ($265 millones) facturados a mano o boleteados en Facto, sin que Eventia lo sepa. Doc 19 §9.24.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 191, «Por facturar» responde error (lee la tabla en cada carga).
+
+**Estado.** Escrita el 07-11-2026, con su reversa. El 190 queda para Oportunidades (parte 3 de la decisión 119). **Aplicada en el laboratorio el 07-11-2026** (verificado: RLS encendido y sin políticas, `anon` y `authenticated` sin permisos, `service_role` escribe). **Falta en producción** (con el «a producción» de Felipe, junto con la 184, la 187 y la 189, antes del motor).
