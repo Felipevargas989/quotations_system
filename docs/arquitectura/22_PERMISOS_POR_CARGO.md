@@ -103,7 +103,7 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Operación | Post-Venta (`postventa`) | Menú → Post-Venta | – | – | ✓ | ✓ | `post_venta` |
 | Operación | Proveedores e inventario (`proveedores`) | Menú → Proveedores y Menú → Inventario | – | – | ✓ | ✓ | `logistica` |
 | Facturación | Boletas y facturas del tarifario (`boletas`) | Facturación → «Nuevo documento» → Boleta o Factura, con los precios del tarifario; a mano y con descuento, solo el administrador (desde el 07-11-2026, doc 19 §9.23; antes «Boletas», con el vendedor prendido) | ✓ | – | ✓ | ✓ | `facturacion` |
-| Facturación | Facturar eventos (`facturacion_eventos`) | Facturación → Por facturar: emitir el DTE de cada evento y la facturación masiva (desde el 07-11-2026; antes lo emitía solo el administrador desde la pestaña del evento) | – | – | ✓ | ✓ | `facturacion` |
+| Facturación | Facturar eventos (`facturacion_eventos`) | Facturación → Por facturar: emitir el DTE de cada evento y la facturación masiva (desde el 07-11-2026; antes lo emitía solo el administrador desde la pestaña del evento), y «Ya está facturado» y «Devolver» para lo facturado fuera de Eventia (doc 19 §9.24) | – | – | ✓ | ✓ | `facturacion` |
 | Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos: la lista, el reporte y el PDF | – | – | ✓ | ✓ | `facturacion` |
 | Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → «Nuevo documento» → Nota de crédito o de débito | – | – | – | ✓ | `facturacion` |
 | Facturación | Tarifario y conexión (`facturacion_ajustes`) | Facturación → Tarifario, «Comprobar», «Probar la conexión» | – | – | – | ✓ | `facturacion` |

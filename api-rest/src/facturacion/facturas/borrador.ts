@@ -59,6 +59,9 @@ export interface EventoAFacturar {
   clientId: string | null;
   /** El nombre del cliente en Eventia. */
   cliente: string | null;
+  /** El tipo del cliente (`clients.client_type`): a un particular se le
+   *  propone la boleta, y a los demás la factura (§9.24). */
+  tipoDeCliente?: string | null;
   /** El correo del contacto del evento (o el del cliente): a él le llega
    *  la boleta. */
   correo?: string | null;

@@ -747,8 +747,9 @@ export class BoletasService {
   }
 
   /** El nombre de quien cambia: el de su perfil (`user_profiles`), como
-   *  firma la bitácora; si no tiene, el de la sesión o el del correo. */
-  private async nombreDe(user: User): Promise<string | null> {
+   *  firma la bitácora; si no tiene, el de la sesión o el del correo. Lo
+   *  usa también «Ya está facturado» de «Por facturar» (§9.24). */
+  async nombreDe(user: User): Promise<string | null> {
     const delPerfil = user.id
       ? await this.repo
           .nombreDeLaPersona(user.company_id, user.id)

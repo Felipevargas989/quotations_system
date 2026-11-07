@@ -47,7 +47,9 @@
 > certificación y el «a producción». **El 07-11, todo se factura en
 > Facturación** (§9.23, Felipe: *"ok hazlo"*): la pestaña del evento en
 > Post-Venta salió; recepción emite boletas y facturas con el tarifario, y
-> operaciones y el administrador facturan los eventos.
+> operaciones y el administrador facturan los eventos. **Esa tarde,
+> «Ya está facturado»** en «Por facturar» y la boleta solo a un
+> particular (§9.24, migración 191): las boletas, en pausa.
 >
 > **Plan v2 (04-11-2026).** El 04-11 Felipe sumó la factura armada por IA desde el evento, la nota de
 > pedido, las boletas por cabaña de recepción y el circuito de anulación: va
@@ -1626,6 +1628,61 @@ por cargo, doc 22 §3.1):
   `permisos-de-fabrica.spec.ts` revisa que cada puerta diga lo mismo que el
   catálogo. En la vitrina, `FacturaNueva.test.tsx` (recepción y el
   administrador) y `FacturacionPage.test.tsx` (las pestañas por permiso).
+
+### 9.24 Lo ya facturado fuera de Eventia y la factura a las empresas (07-11)
+
+Felipe, 07-11 en la tarde, antes del «a producción»: *"la idea es empezar a
+emitir (…) las boletas no, porque tenemos que esperar que nos activen las
+boletas, pero mientras podemos hacer las facturas"*. Y sobre la lista:
+*"lo que hay que facturar son los eventos que están aceptados y de eso yo
+te puedo dar el check de lo que ya está facturado (…) primero montémoslo y
+luego te voy diciendo cuáles ya están facturados"*. Las dos piezas de
+abajo se le propusieron y dijo que sí.
+
+**Medido ese día en producción** (solo lectura): «Por facturar» mostraría
+48 eventos, $265 millones, porque Eventia no sabe lo que se facturó a mano
+en la web de facturacion.cl ni lo que se boleteó en Facto: 20 ya
+realizados y 28 que vienen. 11 ya tienen el PDF de la factura en
+Documentos. Con la masiva, alguno se podría facturar dos veces.
+
+**«Ya está facturado»** (migración 191, `eventos_facturados_fuera`):
+- En «Por facturar», cada evento tiene «Ya está facturado», que pregunta
+  antes (`ConfirmInline` azul: se puede deshacer) y saca el evento de la
+  lista y de la masiva. No emite ni anula nada: es la marca de lo que se
+  hizo fuera.
+- Lo marcado queda abajo, plegado, en «Facturados fuera de Eventia (N)»,
+  con quién lo marcó y cuándo, y «Devolver», que lo trae de vuelta.
+- Lo puede marcar quien tiene «Facturar eventos» (operaciones y el
+  administrador, de fábrica): Felipe lo marca en la pantalla, o lo dice y
+  se marca por él.
+- **«Tiene factura en Documentos»**, en ámbar bajo el cliente (en el mismo
+  lugar que sus OC): el evento tiene en Documentos el PDF de una factura
+  subido a mano. Las copias que deja Eventia al emitir no cuentan: eso ya
+  lo dice lo emitido. Es un aviso para revisarlo primero, no una marca.
+- En el motor, «Por facturar» y lo nuevo salieron de `FacturasService` a
+  `PorFacturarService` (`facturas/por-facturar.service.ts`): el servicio
+  había pasado las 800 líneas.
+
+**La boleta, solo a un particular.** BelIA proponía la boleta a todo evento
+sin OC ni razón social, también a una empresa (Soprole #414, por ejemplo).
+Con las boletas en pausa, la masiva habría intentado boletas que
+facturacion.cl rechaza. Ahora propone la factura si hay OC o razones
+sociales, o si el cliente no es particular; la boleta, solo a un cliente
+cuyo tipo es particular (`client_types.es_particular`, doc 21). Un cliente
+sin tipo no es particular. A una empresa sin datos de facturación le falta
+su RUT: la masiva lo dice y se factura uno por uno, con «Crear cliente
+nuevo» o los datos del receptor.
+
+**Las boletas, en pausa.** No se construyó nada: facturacion.cl todavía no
+tiene habilitada la boleta para Valle del Sol (la OT 377564 la pide, §9.18).
+Recepción sigue con Facto; si alguien intenta una boleta en Eventia,
+facturacion.cl la rechaza sin emitir, y «Probar la conexión» muestra las
+boletas sin folios.
+
+**Lo que cubren las pruebas:** `tests/por-facturar.spec.ts` (lo marcado va
+aparte, el aviso del PDF y marcar o devolver solo un evento aceptado o
+realizado de la empresa) y `facturas.spec.ts` (la boleta solo a un
+particular). En la vitrina, `PorFacturar.test.tsx`.
 
 ### 9.11 Fuentes nuevas (04-11)
 

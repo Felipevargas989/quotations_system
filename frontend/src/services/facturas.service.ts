@@ -257,6 +257,17 @@ export interface EventoPorFacturar {
   emitido: number;
   queda: number;
   ocs: number;
+  /** Tiene en Documentos el PDF de una factura subido a mano (§9.24): se
+   *  revisa antes de facturarlo. */
+  tiene_factura_en_documentos?: boolean;
+}
+
+/** Un evento marcado con «Ya está facturado» (§9.24): se facturó fuera de
+ *  Eventia y no entra a la masiva. */
+export interface EventoFacturadoFuera extends EventoPorFacturar {
+  marcado_por: string | null;
+  /** ISO. */
+  marcado_en: string;
 }
 
 export interface EventosPorFacturar {
@@ -265,10 +276,25 @@ export interface EventosPorFacturar {
   /** Desde qué fecha mira (los últimos 90 días y lo que viene). */
   desde: string;
   eventos: EventoPorFacturar[];
+  facturados_fuera?: EventoFacturadoFuera[];
 }
 
 export const getPorFacturar = async (): Promise<EventosPorFacturar> =>
   (await apiRequest("/facturacion/por-facturar", "GET")) as EventosPorFacturar;
+
+/** «Ya está facturado»: sale de «Por facturar» (§9.24). */
+export const marcarFacturadoFuera = async (quotationId: string) =>
+  (await apiRequest(
+    `/facturacion/por-facturar/${quotationId}/facturado-fuera`,
+    "POST",
+  )) as { ok: true };
+
+/** «Devolver»: vuelve a «Por facturar». */
+export const devolverAPorFacturar = async (quotationId: string) =>
+  (await apiRequest(
+    `/facturacion/por-facturar/${quotationId}/facturado-fuera`,
+    "DELETE",
+  )) as { ok: true };
 
 /** La razón social guardada con un RUT (de cualquier cliente), para la
  *  factura de «Nuevo documento» (doc 19 §9.21). */

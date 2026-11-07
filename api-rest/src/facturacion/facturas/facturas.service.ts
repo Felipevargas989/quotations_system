@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { EditarRazonSocialDto } from 'src/clients/razones-sociales/razon-social.dto';
 import { RazonesSocialesService } from 'src/clients/razones-sociales/razones-sociales.service';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -41,17 +43,6 @@ import { guardarCopiaDelPdf } from './copia-del-pdf';
 import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
-
-/** Desde cuándo mira «Por facturar» (doc 19 §9.21): los eventos de los
- *  últimos 90 días y los que vienen. Lo de antes se facturó fuera de
- *  Eventia. */
-const DIAS_POR_FACTURAR = 90;
-
-/** «2026-11-06» menos n días, sin pasar por la hora local. */
-const diasAntes = (fecha: string, n: number) => {
-  const [a, m, d] = fecha.split('-').map(Number);
-  return new Date(Date.UTC(a, m - 1, d - n)).toISOString().slice(0, 10);
-};
 
 /**
  * EL DTE DEL EVENTO (doc 19 §9.2, §9.10 y §9.20): la factura o la boleta.
@@ -168,6 +159,9 @@ export class FacturasService {
     private readonly logger: PinoLogger,
     private readonly ocs: OrdenesDeCompraService,
     private readonly boletas: BoletasService,
+    // Los tipos de cliente particulares (doc 21): a ellos se les propone la
+    // boleta (§9.24). Sin la pieza (algunas pruebas), como antes.
+    @Optional() private readonly alcance?: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -219,8 +213,11 @@ export class FacturasService {
    * todavía no lee (Felipe, 05-11: *"si en documentos existe un documento
    * cargado como orden de compra, Bel ya debe leerlo automáticamente"*), y
    * dice de dónde se puede llenar: cada OC con lo que le queda, y la
-   * cotización. Propone la factura si hay OC o razones sociales, y si no,
-   * la boleta.
+   * cotización. Propone la factura si hay OC o razones sociales, o si el
+   * cliente no es particular (§9.24, Felipe 07-11: las boletas quedan en
+   * pausa, y una empresa sin datos de facturación se factura igual: falta
+   * su RUT, no es boleta); la boleta, solo a un particular sin OC ni razón
+   * social.
    */
   async preparar(quotationId: string, user: User) {
     const companyId = user.company_id;
@@ -242,8 +239,11 @@ export class FacturasService {
         ? this.razonesSociales.deCliente(evento.clientId, companyId)
         : Promise.resolve([]),
     ]);
+    const particular = await this.esParticular(evento, companyId);
     return {
-      tipo: (ordenes.length || razones.length ? FACTURA : BOLETA) as TipoDeDte,
+      tipo: (ordenes.length || razones.length || !particular
+        ? FACTURA
+        : BOLETA) as TipoDeDte,
       ocs: ordenes.map((o) => ({
         id: o.id,
         numero: o.numero,
@@ -262,49 +262,15 @@ export class FacturasService {
     };
   }
 
-  /**
-   * «Por facturar» (doc 19 §9.21; Felipe, 06-11: *"los eventos que no se
-   * hayan facturado (…) y los pudiera como facturar de acá, hacer una
-   * facturación masiva"*): los eventos aceptados o realizados de los
-   * últimos 90 días (y los que vienen) a los que les queda algo por
-   * emitir. Lo emitido es lo de las facturas y boletas del evento con la
-   * cadena (una factura anulada ya no cuenta), en el ambiente donde se
-   * emite.
-   */
-  async porFacturar(companyId: number) {
-    const conexion = this.conexion.de(companyId);
-    const desde = diasAntes(hoyEnChile(), DIAS_POR_FACTURAR);
-    const eventos = await this.repo.eventosDesde(companyId, desde);
-    const ids = eventos.map((e) => e.id);
-    const [docs, ocs] = await Promise.all([
-      this.repo.emitidoDeLosEventos(companyId, conexion.ambiente, ids),
-      this.repo.ocsDeLosEventos(companyId, ids),
-    ]);
-    const cadena = new Cadena(docs);
-    const emitido = new Map<string, number>();
-    for (const d of docs)
-      if (d.tipo === FACTURA || d.tipo === BOLETA)
-        emitido.set(
-          d.quotation_id,
-          (emitido.get(d.quotation_id) ?? 0) + cadena.facturado(d.id),
-        );
-    return {
-      ambiente: conexion.ambiente,
-      sin_conexion: conexion.sinConexion ?? null,
-      desde,
-      eventos: eventos
-        .map((e) => {
-          const yaEmitido = emitido.get(e.id) ?? 0;
-          return {
-            ...e,
-            emitido: yaEmitido,
-            queda: Math.max(0, e.total - yaEmitido),
-            ocs: ocs.get(e.id) ?? 0,
-          };
-        })
-        // $1 de redondeo se tolera, como en el tope de la OC.
-        .filter((e) => e.total > 0 && e.queda > 1),
-    };
+  /** ¿El cliente es particular (una persona natural)? Lo dice la marca de
+   *  su tipo (`client_types.es_particular`, doc 21). Un cliente sin tipo
+   *  no lo es: a una empresa nunca se le propone la boleta. Sin la pieza
+   *  de los tipos (algunas pruebas), como antes. */
+  private async esParticular(evento: EventoAFacturar, companyId: number) {
+    if (!this.alcance) return true;
+    const tipo = evento.tipoDeCliente?.trim().toLowerCase();
+    if (!tipo) return false;
+    return (await this.alcance.particulares(companyId)).has(tipo);
   }
 
   /** El borrador de BelIA, con su vista previa. */
