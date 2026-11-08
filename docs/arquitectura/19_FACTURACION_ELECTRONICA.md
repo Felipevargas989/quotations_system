@@ -2351,9 +2351,21 @@ vencimiento, los plazos de las notas y lo facturado del mes salen de la
 fecha elegida, porque es la que queda en el documento. Si Felipe declara
 el F29 antes del 20, se puede bajar a 12 (`DIA_DEL_F29`).
 
+**Probado el 08-11 en el ambiente de prueba de facturacion.cl:** la
+factura N° 9999839228 de $1.000, emitida ese día con fecha 30-11-2026,
+salió con esa fecha (en el archivo y en su PDF, que llegó solo; vence el
+30-12). Dejó a la vista un error: Eventia anotaba como fecha del documento
+la «Fecha» con que responde facturacion.cl, que es **cuándo lo procesó**
+(el 08-11). Desde entonces se anota **la del archivo**: al emitir
+facturas, notas y boletas, y al «Comprobar» lo que quedó por confirmar
+(antes, el día en que se comprobaba). La de esa factura de prueba se
+corrigió a mano en la base del laboratorio.
+
 **Lo que cubren las pruebas:** en el motor, `fecha-de-emision.spec.ts`
-(el rango, enero, la elegida, la futura y la anterior al rango) y
-`facturas.spec.ts` (fuera del rango no se manda nada); en la vitrina,
+(el rango, enero, la elegida, la futura y la anterior al rango),
+`facturas.spec.ts` (fuera del rango no se manda nada), `emision.spec.ts`
+(la fecha anotada es la del documento) y `notas.spec.ts` («Comprobar»
+deja la fecha del archivo); en la vitrina,
 `SeccionDocumento.test.tsx`, `CorregirDte.test.tsx` (las secciones sin
 chips, lo que falta en rojo, lo corregido sube listo, otra fuente le pide
 a BelIA), `FacturaNueva.test.tsx` (las listas y la fecha) y
