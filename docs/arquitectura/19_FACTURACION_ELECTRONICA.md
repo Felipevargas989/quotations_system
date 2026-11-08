@@ -2645,6 +2645,24 @@ veces no, otro N°, simulado) y, en la vitrina, `TraerFactura.test.tsx`.
 **En producción desde el 08-11-2026** (PR #322, el motor y la vitrina,
 sin migración).
 
+**El nombre que facturacion.cl corta (08-11, esa misma tarde).** Leída en
+producción, la N° 375 dijo «CORPORACION CENTRO DE FORMACION TECNICA
+SANTO»: el PDF de facturacion.cl deja la razón social en un solo renglón y
+lo que no cabe se pierde (el «TOMAS» no está en ninguna parte del PDF; la
+N° 374, «CORPORACION INSTITUTO PROFESIONAL SANTO TOMAS», cupo justo). La
+nota de crédito copia el nombre de la factura que anula, así que Felipe
+eligió *«Sí, con nombre del SII»*: si la nómina del SII (§9.27) tiene,
+para el mismo RUT, un nombre que empieza con las palabras del PDF y sigue,
+va el del SII (`facturas-traidas/nombre-del-sii.ts`, sin importar tildes,
+mayúsculas ni espacios); si dice otro nombre, o no lo tiene, queda el del
+PDF. La pantalla lo dice bajo la razón social («Completo según el SII:
+facturacion.cl lo cortó en su PDF») y el nombre del PDF queda anotado en
+`respuesta.razon_social_del_pdf`. Y como la traída suele ser de un mes
+anterior (la 374 es del 30-10 y se trajo el 08-11), la lista vuelve
+desde ese mes hasta hoy, con la traída marcada (`ListaDeDocumentos`,
+`desde`; si queda a más de un año, solo su mes). La N° 374 se trajo esa
+tarde con el motor del PR #322; la 375 se trae con este arreglo.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
