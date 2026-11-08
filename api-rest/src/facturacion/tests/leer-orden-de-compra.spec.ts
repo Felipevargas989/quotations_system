@@ -1,7 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { mockPinoLogger } from '../../testing/mocks';
-import { propuestaDeLaLectura } from '../ordenes-de-compra/leer-orden-de-compra';
+import {
+  instruccionesDeLaOC,
+  propuestaDeLaLectura,
+} from '../ordenes-de-compra/leer-orden-de-compra';
 import { LeerOrdenDeCompraService } from '../ordenes-de-compra/leer-orden-de-compra.service';
 
 /**
@@ -32,6 +35,20 @@ const LEIDA = {
 };
 
 describe('Lo que BelIA propone de una OC', () => {
+  it('el detalle es solo la descripción: sin cantidad, unidad ni fecha de entrega (08-11)', () => {
+    const reglas = instruccionesDeLaOC({
+      nombre: 'Valle del Sol Quillón SpA',
+      rut: '77701305-K',
+    });
+    const detalle = reglas.split('\n').find((l) => l.startsWith('- detalle:'));
+    expect(detalle).toContain('solo la descripción de lo que se compra');
+    expect(detalle).toContain('Nunca la cantidad, la unidad (SRV, Global, UN)');
+    expect(detalle).toContain('la fecha ni el lugar de entrega o de recepción');
+    expect(detalle).toContain(
+      'el nombre de la orden, sus notas o advertencias',
+    );
+  });
+
   it('el comprador, limpio: el RUT sin puntos y lo que no trae, en null', () => {
     expect(propuestaDeLaLectura(LEIDA, VALLE_DEL_SOL)).toEqual({
       propuesta: {

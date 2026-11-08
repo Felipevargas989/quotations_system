@@ -756,6 +756,18 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
   dirección, comuna) y de otras referencias (la nota de pedido). Nada se
   guarda solo: la persona revisa y guarda (L19), y la OC queda con origen
   «pdf». La ruta: `POST /quotations/:id/ordenes-de-compra/leer`.
+- **El detalle es solo la descripción** (Felipe, 08-11: *"en descripción
+  puso más del texto que trae la descripción de la OC"*). Se pedía «qué se
+  compra, en una o dos frases», y BelIA juntaba la descripción con las
+  otras columnas: «ALMUERZO QUILLÓN SINDICATOS, 1,000 SRV, fecha de
+  entrega 26.10.2026.» en la #554, y lo mismo en las 8 OC leídas en
+  producción. La factura copia ese texto tal cual. Desde el 08-11 se pide
+  solo el texto de la descripción de cada línea (en Mercado Público, el
+  producto y la especificación del comprador), sin cantidad, unidad,
+  precio, fecha ni lugar de entrega, nombre de la orden, notas ni
+  referencias a otros documentos; varias líneas, separadas por « · ».
+  Lo cubre `leer-orden-de-compra.spec.ts`. Las 8 ya leídas se corrigen con
+  la misma regla, con el OK de Felipe sobre cómo quedan.
 
 ### 9.15 Lo que quedó del paso 2c (04-11, en la noche)
 
