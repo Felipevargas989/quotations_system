@@ -2261,6 +2261,8 @@ Se le dijo lo entendido con una maqueta y respondió *"sí, así"*.
   compartida), «Lo del evento» marca la OC de esta factura y su barra
   cuenta lo de las anteriores del mismo evento. Lo cubren
   `RevisionDeLaFacturacion.test.tsx` y `revisarUnoParaLaMasiva.test.ts`.
+  Probado en el laboratorio con la #423 y una segunda OC de prueba. **En
+  producción desde el 08-11-2026** (PR #321, solo la vitrina).
 - **Las columnas no se mueven** (Felipe, 08-11: *"se mueven todas las
   columnas cuando intento colocar algunas como facturadas"*). La pregunta
   «¿Ya se facturó fuera de Eventia? Sí, sacarlo · No» era más ancha que el
