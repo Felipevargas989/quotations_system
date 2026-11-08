@@ -73,6 +73,34 @@ const armar = (opciones: {
   return { conexion, folioSiguiente, procesar, repo, mandar };
 };
 
+describe('mandarConFolio: la fecha que queda anotada (§9.32)', () => {
+  it('es la del documento, no cuándo lo procesó facturacion.cl', async () => {
+    // El 08-11 se emitió una factura fechada el 30-11: facturacion.cl
+    // respondió «Fecha» 08-11 (cuándo la procesó) y Eventia anotó esa.
+    const { repo, mandar } = armar({
+      procesar: [
+        respuesta({
+          resultado: 'emitido',
+          folio: 292104,
+          fecha: '2026-11-08',
+        }),
+      ],
+    });
+
+    const { documento } = await mandar();
+
+    expect(repo.actualizar).toHaveBeenLastCalledWith(
+      22,
+      1,
+      expect.objectContaining({
+        estado: 'emitido',
+        fecha_emision: '2026-11-06',
+      }),
+    );
+    expect(documento).toMatchObject({ fecha_emision: '2026-11-06' });
+  });
+});
+
 describe('mandarConFolio: otro folio una vez más', () => {
   it('«fuera del rango que tiene autorizado»: pide el folio de otro rango y sale con ese', async () => {
     const { folioSiguiente, procesar, repo, mandar } = armar({

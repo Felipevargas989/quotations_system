@@ -13,7 +13,7 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { diasEntre, sumarDias } from '../../quotations/generar/fechas';
 import { armarFactura } from '../archivo/factura';
 import { netoParaElTotal } from '../archivo/montos';
-import { textoLimpio } from '../archivo/texto';
+import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { BoletasRepository } from '../boletas/boletas.repository';
 import {
@@ -147,6 +147,17 @@ const folioDelArchivo = (archivo: string | null) => {
   const i = lineas.indexOf('->Encabezado<-');
   const folio = Number((lineas[i + 1] ?? '').split(';')[1]);
   return i >= 0 && Number.isInteger(folio) && folio > 0 ? folio : null;
+};
+
+/** La fecha que llevaba el archivo (campo 3 del encabezado o de la
+ *  boleta): la del documento, aunque se compruebe otro día (§9.32). */
+const fechaDelArchivo = (archivo: string | null) => {
+  const lineas = (archivo ?? '').split(/\r?\n/);
+  const i = lineas.findIndex(
+    (l) => l === '->Encabezado<-' || l === '->Boleta<-',
+  );
+  const fecha = i >= 0 ? (lineas[i + 1] ?? '').split(';')[2] : null;
+  return esFechaDelArchivo(fecha) ? fecha : null;
 };
 
 @Injectable()
@@ -474,7 +485,7 @@ export class NotasService {
       const emitido = await this.documentos.actualizar(id, companyId, {
         estado: 'emitido',
         folio: enviado,
-        fecha_emision: hoyEnChile(),
+        fecha_emision: fechaDelArchivo(doc.archivo_enviado) ?? hoyEnChile(),
         error: null,
         emitido_por: user.id ?? null,
         emitido_en: new Date().toISOString(),

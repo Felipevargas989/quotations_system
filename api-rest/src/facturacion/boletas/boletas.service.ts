@@ -681,7 +681,8 @@ export class BoletasService {
       emitido = await this.documentos.actualizar(doc.id, companyId, {
         estado: 'emitido',
         folio: respuesta.folio,
-        fecha_emision: respuesta.fecha ?? fecha,
+        // La del archivo, no cuándo la procesó facturacion.cl (§9.32).
+        fecha_emision: fecha,
         respuesta: respuesta.crudo,
         url_original: respuesta.urlOriginal,
         url_cedible: respuesta.urlCedible,
