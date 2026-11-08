@@ -36,6 +36,8 @@ vi.mock("../../components/toast/Toast", () => ({
 vi.mock("./ProbarLaConexion", () => ({
   default: () => <p>probar la conexión</p>,
 }));
+// La nómina del SII (§9.27) tiene sus propias pruebas.
+vi.mock("./NominaDelSii", () => ({ default: () => null }));
 const d = vi.mocked(documentos);
 
 const base: DocumentoDeLaLista = {

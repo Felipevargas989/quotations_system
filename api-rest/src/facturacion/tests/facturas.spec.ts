@@ -85,6 +85,8 @@ const armar = ({
   errorAlCrear = null as { code: string } | null,
   // Los tipos de cliente particulares (doc 21); sin ellos, como antes.
   particulares = null as string[] | null,
+  // La nómina del SII (§9.27); sin ella, como antes.
+  sii = undefined as { buscar: jest.Mock } | undefined,
 } = {}) => {
   let fila: Record<string, unknown> = {};
   const repo = {
@@ -157,6 +159,7 @@ const armar = ({
     ocs as never,
     boletas as never,
     alcance as never,
+    sii as never,
   );
   return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
@@ -629,5 +632,56 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     r.razonSocialDeLaEmpresa.mockClear();
     expect(await servicio.razonSocialPorRut(1, 'hola')).toBeNull();
     expect(r.razonSocialDeLaEmpresa).not.toHaveBeenCalled();
+  });
+
+  it('el RUT que llena todo: lo guardado en Eventia primero, y si no, la nómina del SII (§9.27)', async () => {
+    const sii = {
+      buscar: jest.fn().mockResolvedValue({
+        rut: 90413000,
+        dv: '1',
+        razon_social: 'COMPANIA CERVECERIAS UNIDAS S.A.',
+        giro: 'ELABORACION DE BEBIDAS MALTEADAS',
+        actividades: [110300, 821100],
+        direccion: 'AV VITACURA 2670 PISO 23',
+        comuna: 'LAS CONDES',
+        ciudad: 'SANTIAGO',
+        giros: [
+          'ELABORACION DE BEBIDAS MALTEADAS',
+          'ACTIVIDADES COMBINADAS DE SERVICIOS',
+        ],
+      }),
+    };
+    const { servicio, repo } = armar({ sii });
+    const r = repo as unknown as Record<string, jest.Mock>;
+    r.razonSocialDeLaEmpresa = jest.fn().mockResolvedValue(null);
+    expect(await servicio.razonSocialPorRut(1, '90.413.000-1')).toEqual({
+      rut: '90413000-1',
+      razon_social: 'COMPANIA CERVECERIAS UNIDAS S.A.',
+      giro: 'ELABORACION DE BEBIDAS MALTEADAS',
+      direccion: 'AV VITACURA 2670 PISO 23',
+      comuna: 'LAS CONDES',
+      ciudad: 'SANTIAGO',
+      correo_facturacion: null,
+      referencias_exigidas: [],
+      cliente: null,
+      giros: [
+        'ELABORACION DE BEBIDAS MALTEADAS',
+        'ACTIVIDADES COMBINADAS DE SERVICIOS',
+      ],
+      origen: 'sii',
+    });
+    expect(sii.buscar).toHaveBeenCalledWith('90413000-1');
+
+    // Lo guardado en Eventia manda: ni se le pregunta al SII.
+    sii.buscar.mockClear();
+    r.razonSocialDeLaEmpresa.mockResolvedValue({
+      rut: '90413000-1',
+      razon_social: 'CCU',
+    });
+    expect(await servicio.razonSocialPorRut(1, '90413000-1')).toMatchObject({
+      razon_social: 'CCU',
+      origen: 'eventia',
+    });
+    expect(sii.buscar).not.toHaveBeenCalled();
   });
 });

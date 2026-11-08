@@ -20,6 +20,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { matchesSearch } from "../../utils/searchMatch";
+import NominaDelSii from "./NominaDelSii";
 import ProbarLaConexion from "./ProbarLaConexion";
 
 // «DOCUMENTOS», LA LISTA DE FACTURACIÓN (doc 19 §9.5 y §9.22, sprint 2),
@@ -714,6 +715,7 @@ export default function ListaDeDocumentos({
             </div>
           )}
           {conAjustes && <ProbarLaConexion />}
+          {conAjustes && <NominaDelSii />}
         </>
       )}
     </div>

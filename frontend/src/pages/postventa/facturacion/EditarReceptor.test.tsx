@@ -8,6 +8,11 @@ import type {
 } from "../../../services/facturas.service";
 import EditarReceptor from "./EditarReceptor";
 
+// El RUT que llena todo (§9.27) tiene sus propias pruebas.
+vi.mock("../../../services/facturas.service", () => ({
+  buscarRazonSocial: vi.fn().mockResolvedValue(null),
+}));
+
 // LAS REFERENCIAS DEL DTE (doc 19 §9.20). Felipe, 05-11: el tipo en su
 // caja, la fecha bajo su título, «+ Agregar referencia» como un botón azul
 // chico y sin el check de «pedirla siempre» («no tiene sentido»).

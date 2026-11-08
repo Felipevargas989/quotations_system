@@ -222,6 +222,7 @@ export default function DestinatarioDeLaFactura({
           onChange={(campo, valor) =>
             poner({ receptor: { ...r, [campo]: valor } })
           }
+          onLlenar={(datos) => poner({ receptor: { ...r, ...datos } })}
         />
       ) : (
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-3">

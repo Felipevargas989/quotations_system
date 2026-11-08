@@ -356,7 +356,36 @@ export interface RazonSocialEncontrada {
   correo_facturacion: string | null;
   referencias_exigidas: string[];
   cliente: string | null;
+  /** §9.27: de la ficha de un cliente de Eventia, o de la nómina del SII. */
+  origen?: "eventia" | "sii";
+  /** §9.27: del SII, sus actividades vigentes para elegir el giro. */
+  giros?: string[];
 }
+
+/** Una carga de la nómina del SII (§9.27). */
+export interface CargaDeLaNomina {
+  id: number;
+  empezo_en: string;
+  termino_en: string | null;
+  estado: "cargando" | "lista" | "fallo";
+  empresas: number;
+  error: string | null;
+  pedida_por_nombre: string | null;
+}
+
+/** Cómo está la nómina del SII: la última carga y la que se usa. */
+export const getNominaSii = async () =>
+  (await apiRequest("/facturacion/nomina-sii", "GET")) as {
+    ultima: CargaDeLaNomina | null;
+    lista: CargaDeLaNomina | null;
+  };
+
+/** «Cargar la nómina del SII»: el motor la baja de sii.cl por detrás. */
+export const cargarNominaSii = async () =>
+  (await apiRequest(
+    "/facturacion/nomina-sii/cargar",
+    "POST",
+  )) as CargaDeLaNomina;
 
 export const buscarRazonSocial = async (
   rut: string,
