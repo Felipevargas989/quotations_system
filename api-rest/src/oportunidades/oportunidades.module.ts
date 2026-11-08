@@ -67,6 +67,7 @@ import { EditorDelWordService } from './postulacion/editor-del-word.service';
 import { ElSetService } from './postulacion/el-set.service';
 import { LaCotizacionDetalladaService } from './postulacion/la-cotizacion-detallada.service';
 import { LaExperienciaService } from './postulacion/la-experiencia.service';
+import { LasDeclaracionesService } from './postulacion/las-declaraciones.service';
 import { LasPreguntasService } from './postulacion/las-preguntas.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
@@ -135,6 +136,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ElSetService,
     ArmarPostulacionService,
     LaCotizacionDetalladaService,
+    LasDeclaracionesService,
     LaExperienciaService,
     EditorDelWordService,
     MercadoPublicoClient,

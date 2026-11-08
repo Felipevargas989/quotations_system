@@ -73,9 +73,14 @@ import {
   instruccionesDePropuesta,
   leerInforme,
 } from './instrucciones';
-import { bajarLogo, urlDelLogo } from './logo';
+import { bajarLogo, TIPOS_DE_IMAGEN, urlDelLogo } from './logo';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
-import { type Plan, type Salida } from './plan';
+import {
+  nombreDeLaPropuesta,
+  type PedidoDePropuesta,
+  type Plan,
+  type Salida,
+} from './plan';
 import { recortarPdf } from './recortar-pdf';
 import {
   esPdf,
@@ -109,13 +114,6 @@ export const MAX_DOCUMENTOS = 10;
 /** Lo que se le pasa al taller en una propuesta: las bases (para el
  *  detalle técnico), hasta este peso. */
 export const MAX_BYTES_DE_BASES_PARA_PROPUESTA = 40 * 1024 * 1024;
-
-const TIPOS_DE_IMAGEN: Readonly<Record<string, string>> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-};
 
 @Injectable()
 export class GeneracionService {
@@ -411,7 +409,7 @@ export class GeneracionService {
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
-    pedido: { monto_total?: number | null; reemplaza?: number[] } = {},
+    pedido: PedidoDePropuesta = {},
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
@@ -505,7 +503,7 @@ export class GeneracionService {
         salidas: [
           {
             enElTaller: 'propuesta.docx',
-            nombre: `Propuesta técnica ${ficha.codigo}.docx`,
+            nombre: nombreDeLaPropuesta(pedido, ficha.codigo),
             origen: 'generado',
             viene_de: null,
           },

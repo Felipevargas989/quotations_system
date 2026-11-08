@@ -39,6 +39,8 @@ const ESTADOS: Record<EstadoDelDocumento, { texto: string; clases: string }> = {
   vencido: { texto: "Vencido", clases: "bg-red-100 text-red-800" },
   falta: { texto: "Falta", clases: "bg-red-100 text-red-800" },
   no_aplica: { texto: "No aplica", clases: "bg-gray-100 text-gray-500" },
+  // Decisión 119, parte 3b: se hace en Mercado Público al ofertar.
+  portal: { texto: "Portal", clases: "bg-slate-100 text-slate-700" },
 };
 
 /** Lo que se pide al adjudicar o para el pago no hace falta para postular:

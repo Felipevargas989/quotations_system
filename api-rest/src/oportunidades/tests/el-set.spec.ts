@@ -2,12 +2,14 @@ import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
 import {
   type ArchivoDelSet,
   armarElSet,
-  conLaPropuestaQueNombran,
-  conLosRespaldos,
   type DatosDelSet,
   mismoFormulario,
   rutasEnElZip,
 } from '../postulacion/el-set';
+import {
+  conLaPropuestaQueNombran,
+  conLosRespaldos,
+} from '../postulacion/los-respaldos-del-set';
 
 // QUÉ VA EN EL SET PARA MERCADO PÚBLICO (decisión 34): la última corrida de
 // la IA, firmada si se firmó; cada cosa en la carpeta que dicen las bases;
