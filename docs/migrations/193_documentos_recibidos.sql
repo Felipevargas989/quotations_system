@@ -39,3 +39,6 @@ alter table public.documentos_recibidos enable row level security;
 revoke all on public.documentos_recibidos from anon, authenticated;
 grant select, insert, update on public.documentos_recibidos to service_role;
 grant usage, select on sequence public.documentos_recibidos_id_seq to service_role;
+-- Supabase de producción le da todo a `service_role` en cada tabla nueva
+-- (lección del 07-11-2026): lo recibido no se borra.
+revoke delete, truncate on public.documentos_recibidos from service_role;
