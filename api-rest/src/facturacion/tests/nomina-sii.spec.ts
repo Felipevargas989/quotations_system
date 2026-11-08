@@ -69,7 +69,7 @@ describe('La nómina del SII: qué se toma de cada empresa', () => {
         'AFECTA A IVA': 'N',
       },
     ];
-    expect(elegirGiro(vds)).toBe('ACTIVIDADES DE RESIDENCIALES PARA');
+    expect(elegirGiro(vds)).toBe('ACTIVIDADES DE RESIDENCIALES');
     expect(codigosDeActividades(vds)).toEqual([551003, 551001, 681012]);
     expect(
       cortar('COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLADOS) DE INMUEBLES', 40),
@@ -119,6 +119,15 @@ describe('La nómina del SII: qué se toma de cada empresa', () => {
       comuna: null,
       ciudad: null,
     });
+  });
+
+  it('cortar: no termina colgando de una palabra chica', () => {
+    expect(
+      cortar('OTROS SERVICIOS DE ALMACENAMIENTO Y DEPOSITO N.C.P.', 36),
+    ).toBe('OTROS SERVICIOS DE ALMACENAMIENTO');
+    expect(cortar('VENTA AL POR MAYOR DE ARTICULOS DE PERFUMERIA', 35)).toBe(
+      'VENTA AL POR MAYOR DE ARTICULOS',
+    );
   });
 
   it('cortar: en una palabra, sin «…» y sin la coma del final', () => {
@@ -287,7 +296,8 @@ describe('La carga de la nómina desde sii.cl', () => {
     });
     expect(await servicio.buscar('76123456-k')).toMatchObject({
       rut: 76123456,
-      giros: ['ACTIVIDADES DE RESTAURANTES Y DE', 'ACTIVIDADES DE HOTELES'],
+      giro: 'ACTIVIDADES DE RESTAURANTES',
+      giros: ['ACTIVIDADES DE RESTAURANTES', 'ACTIVIDADES DE HOTELES'],
     });
     expect(await servicio.buscar('76123456-1')).toBeNull();
     expect(repo.contribuyente).toHaveBeenCalledWith(76123456);

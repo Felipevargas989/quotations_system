@@ -212,3 +212,49 @@ export const emitirNota = async (
   nota: NotaPedida,
 ): Promise<NotaEmitida> =>
   (await apiRequest(`${base}/${id}/notas/emitir`, "POST", nota)) as NotaEmitida;
+
+/** Un documento recibido de un proveedor (doc 19 §9.28, migración 193). */
+export interface DocumentoRecibido {
+  id: number;
+  periodo: string;
+  tipo: number;
+  folio: number;
+  fecha_emision: string | null;
+  rut_emisor: string;
+  razon_social_emisor: string | null;
+  neto: number | null;
+  exento: number | null;
+  iva: number | null;
+  total: number | null;
+  link_pdf: string | null;
+  recepcion_sii: string | null;
+  acuse_sii: string | null;
+  tipo_compra: number | null;
+  traido_en: string;
+}
+
+/** Lo recibido de un mes: lo guardado, y si se puede traer más. */
+export interface RecibidosDelMes {
+  periodo: string;
+  ambiente: Ambiente;
+  se_puede_traer: boolean;
+  sin_conexion: string | null;
+  traido_en: string | null;
+  documentos: DocumentoRecibido[];
+  /** Solo al traer: cuántos se guardaron y cuántos vinieron sin XML. */
+  traidos?: number;
+  sin_datos?: number;
+}
+
+/** Lo recibido del mes (AAAA-MM), de la copia guardada. */
+export const getRecibidos = async (periodo: string) =>
+  (await apiRequest(
+    `/facturacion/recibidos?periodo=${encodeURIComponent(periodo)}`,
+    "GET",
+  )) as RecibidosDelMes;
+
+/** «Traer de facturacion.cl»: pide el libro de compras del mes y lo guarda. */
+export const traerRecibidos = async (periodo: string) =>
+  (await apiRequest("/facturacion/recibidos/traer", "POST", {
+    periodo,
+  })) as RecibidosDelMes;

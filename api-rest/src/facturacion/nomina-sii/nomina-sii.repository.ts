@@ -102,14 +102,35 @@ export class NominaSiiRepository {
     if (error) throw error;
   }
 
-  /** Las empresas que ya no vienen en la nómina (dejaron de operar). De a
-   *  tandas, para no tener la base ocupada mucho rato. */
+  /**
+   * Las empresas que dejó una carga anterior y no vinieron en esta (dejaron
+   * de operar). Por carga y de a tandas, con el índice: un `carga_id <> X`
+   * recorría las 1,7 millones de filas y se pasaba del tiempo de la base
+   * (medido en el laboratorio el 08-11).
+   */
   async borrarLasDeOtrasCargas(cargaId: number) {
-    const { error } = await this.supabase.client
-      .from('sii_contribuyentes')
-      .delete()
-      .neq('carga_id', cargaId);
+    const { data: cargas, error } = await this.supabase.client
+      .from('sii_cargas')
+      .select('id')
+      .neq('id', cargaId);
     if (error) throw error;
+    for (const { id } of (cargas ?? []) as { id: number }[]) {
+      for (;;) {
+        const { data, error: e1 } = await this.supabase.client
+          .from('sii_contribuyentes')
+          .select('rut')
+          .eq('carga_id', id)
+          .limit(5000);
+        if (e1) throw e1;
+        const ruts = ((data ?? []) as { rut: number }[]).map((f) => f.rut);
+        if (!ruts.length) break;
+        const { error: e2 } = await this.supabase.client
+          .from('sii_contribuyentes')
+          .delete()
+          .in('rut', ruts);
+        if (e2) throw e2;
+      }
+    }
   }
 
   /** La empresa de ese RUT (sin dígito verificador), o nulo. */

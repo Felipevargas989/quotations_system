@@ -38,6 +38,10 @@ vi.mock("./ProbarLaConexion", () => ({
 }));
 // La nómina del SII (§9.27) tiene sus propias pruebas.
 vi.mock("./NominaDelSii", () => ({ default: () => null }));
+// Lo recibido (§9.28) tiene sus propias pruebas.
+vi.mock("./RecibidosDelMes", () => ({
+  default: () => <p>lo recibido del mes</p>,
+}));
 const d = vi.mocked(documentos);
 
 const base: DocumentoDeLaLista = {
@@ -488,14 +492,12 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(d.getListaDeFacturacion.mock.calls.length).toBe(llamadas);
   });
 
-  it("«Recibidos» dice que facturacion.cl no los entrega, y la conexión solo con su permiso", async () => {
+  it("«Recibidos» muestra lo recibido del Libro de Compras (§9.28), y la conexión solo con su permiso", async () => {
     abrir(true);
     await screen.findByText("Factura 20");
     expect(screen.getByText("probar la conexión")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Recibidos" }));
-    expect(
-      screen.getByText(/facturacion.cl no las entrega por su integración/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("lo recibido del mes")).toBeInTheDocument();
     expect(screen.queryByText("Factura 20")).not.toBeInTheDocument();
   });
 });
