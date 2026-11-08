@@ -2443,6 +2443,18 @@ al emitir, llega en un reintento, ya lo trajo alguien, nunca llega),
 
 **En producción desde el 08-11-2026** (PR #314): el motor y la vitrina, sin migración.
 
+**Medido en producción ese mismo día:** «Ver» de la NC N° 115 trajo su PDF
+de facturacion.cl en un clic (quedó guardado a las 12:23), pero el visor
+no se abrió: la fila se refrescaba con el PDF antes de saber que había
+que abrirlo, y `FileViewLink` solo miraba `abrirAlMontar` al montarse.
+**Arreglado en el laboratorio** (08-11): el visor se abre también cuando
+el pedido llega después, y `alCerrar` lo olvida al cerrarlo, para que no
+se abra de nuevo si la fila vuelve a aparecer (`ListaDeDocumentos.test.tsx`:
+«"Ver" trae el PDF que falta y abre el visor en el mismo clic», que falla
+sin el arreglo). Probado en el laboratorio con la factura 9999839228 sin
+su PDF: un clic lo trajo y lo abrió. **A producción**, con su OK: solo la
+vitrina.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
