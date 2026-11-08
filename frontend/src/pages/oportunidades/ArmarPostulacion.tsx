@@ -1,9 +1,4 @@
-import {
-  skipToken,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -11,7 +6,6 @@ import { NumberInput } from "../../components/inputs";
 import { toast } from "../../components/toast/Toast";
 import {
   crearPropuestaTecnica,
-  type FichaDeOportunidad,
   generarAnexos,
   getAnalisis,
   getCotizacionDeLaPostulacion,
@@ -25,6 +19,7 @@ import {
   armarPostulacion,
   getOfertaDeLaPostulacion,
 } from "../../services/postulacion.service";
+import type { MarcaDeExigencia } from "../../services/exigencias.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
@@ -74,10 +69,14 @@ const pesos = (n: number) => formatCurrency(n, "CLP");
 export default function ArmarPostulacion({
   oportunidadId,
   congelada = false,
+  marcas,
 }: {
   readonly oportunidadId: number;
   /** Postulada o ganada: lo postulado queda fijo (decisión 33). */
   readonly congelada?: boolean;
+  /** Lo marcado en «Bases y criterios» (de la ficha): ya no se pregunta
+   *  (decisión 119, parte 3). */
+  readonly marcas?: Record<string, MarcaDeExigencia> | null;
 }) {
   const qc = useQueryClient();
   const { data: oferta } = useQuery({
@@ -119,15 +118,10 @@ export default function ArmarPostulacion({
   // Decisión 119, parte 3 (07-11): si a la empresa le faltan respuestas, el
   // armado se detiene antes de generar y el modal se abre al tiro o al
   // volver a la licitación (una vez por visita; «Responder» lo reabre).
-  // Lo marcado en «Bases y criterios» ya no se pregunta: la ficha la trae
-  // la página (aquí solo se lee, sin pedirla de nuevo).
-  const { data: ficha } = useQuery<FichaDeOportunidad>({
-    queryKey: ["oportunidades", "ficha", oportunidadId],
-    queryFn: skipToken,
-  });
-  const pendientes = congelada
-    ? []
-    : preguntasPendientes(oferta, ficha?.exigencias_marcadas);
+  // Lo marcado en «Bases y criterios» ya no se pregunta. Las marcas llegan
+  // de la ficha que trae la página: una segunda consulta de la ficha sin su
+  // función la dejaba en error al refrescarla (visto en el lab, 07-11).
+  const pendientes = congelada ? [] : preguntasPendientes(oferta, marcas);
   const [preguntando, setPreguntando] = useState(false);
   const yaPregunto = useRef(false);
   useEffect(() => {
@@ -166,7 +160,7 @@ export default function ArmarPostulacion({
       setPrecio(undefined);
       // Al terminar vuelve a la barra.
       setAbierta(false);
-      if (preguntasPendientes(fila, ficha?.exigencias_marcadas).length > 0) {
+      if (preguntasPendientes(fila, marcas).length > 0) {
         // Se detuvo antes de generar: lo ya respondido en otra licitación
         // quedó marcado solo en «Bases y criterios».
         yaPregunto.current = true;

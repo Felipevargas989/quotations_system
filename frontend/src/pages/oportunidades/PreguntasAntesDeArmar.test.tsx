@@ -107,23 +107,16 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const conTodo = (
-  hijo: ReactNode,
-  marcas: Record<string, string> | null = null,
-) => {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  // La ficha la trae la página: con sus marcas de «Bases y criterios».
-  if (marcas) {
-    qc.setQueryData(["oportunidades", "ficha", 40], {
-      exigencias_marcadas: marcas,
-    });
-  }
-  return render(
-    <QueryClientProvider client={qc}>
+const conTodo = (hijo: ReactNode) =>
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
       <MemoryRouter>{hijo}</MemoryRouter>
     </QueryClientProvider>,
   );
-};
 
 describe("Las preguntas antes de armar", () => {
   it("al volver a la licitación se abre solo, y responder arma con el precio", async () => {
@@ -241,9 +234,12 @@ describe("Las preguntas antes de armar", () => {
 
   it("lo marcado en «Bases y criterios» ya no se pregunta", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue(DETENIDA as never);
-    conTodo(<ArmarPostulacion oportunidadId={40} />, {
-      [PREGUNTAS[0].clave]: "lo_tengo",
-    });
+    conTodo(
+      <ArmarPostulacion
+        oportunidadId={40}
+        marcas={{ [PREGUNTAS[0].clave]: "lo_tengo" }}
+      />,
+    );
     expect(
       await screen.findByText("Falta 1 respuesta sobre tu empresa para armar."),
     ).toBeInTheDocument();

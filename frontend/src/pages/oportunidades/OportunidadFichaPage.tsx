@@ -345,6 +345,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             congelada={
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
+            marcas={ficha.exigencias_marcadas}
           />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}
