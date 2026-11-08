@@ -2504,6 +2504,31 @@ demás de facturacion.cl, y la conexión sin credenciales, responde con un
 respondió: …» o «facturacion.cl no responde: …». Lo cubren `soap.spec.ts`
 y `xml-a-pedido.spec.ts`, que fallan sin el arreglo.
 
+### 9.34 La barra de lo facturado en «Lo del evento» (08-11)
+
+Felipe, 08-11, revisando la #460 de la Municipalidad de Quillón: *"acá
+sería interesante tener el monto en valores del evento, quizás una
+barrita de lo que ya está facturado (ejemplo Rudel debo meter una OC de
+adelanto de 4M) y el resto queda pendiente"*. Vio la maqueta y dijo *"si
+dale armalo"*.
+
+- Arriba de «Lo del evento» (`LoDelEvento.tsx`, `BarraDeLoFacturado`):
+  «Evento $10.000.000», una barra y debajo «Facturado $X · Esta factura
+  $Y · Queda $Z». Verde lo ya facturado, azul lo de este documento y
+  gris lo que queda. En la boleta dice «Esta boleta».
+- Lo facturado es el `emitido` de «Por facturar» (la cuenta del motor,
+  con las notas de crédito restando, §9.26); lo de este documento, el
+  total de su revisión (`vista.montos.total`), también mientras se
+  corrige. Solo pantalla: el motor ya mandaba las dos cifras.
+- Si con este documento se pasa del total del evento (más de $1, el
+  redondeo de siempre), lo dice en ámbar, «Con esta factura se pasa del
+  evento por $840.000», y el recuadro queda ámbar. Pasó en la #460: la OC
+  por $2.480.000 contra una cotización de $1.640.000. No frena: si hay
+  OC, manda la OC (E4).
+- El adelanto de Rudel: la factura de la OC de $4M deja el evento en
+  «Parcial, 40 %», y lo que queda sigue en «Por facturar».
+- Lo cubre `LoDelEvento.test.tsx`.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

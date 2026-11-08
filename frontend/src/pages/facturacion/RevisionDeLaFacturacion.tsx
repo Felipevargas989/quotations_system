@@ -371,6 +371,7 @@ export default function RevisionDeLaFacturacion({
             vista={
               (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null
             }
+            tipo={(corrigiendo ? enCurso?.dte.tipo : null) ?? dte?.tipo}
           />
           {corrigiendo && dte ? (
             <CorregirDte
