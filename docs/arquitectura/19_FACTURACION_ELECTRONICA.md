@@ -1,5 +1,14 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
+> **§9.27 «El RUT arriba» y §9.31 a §9.33 EN PRODUCCIÓN desde el
+> 08-11-2026** (Felipe: *"sí, hazlo, pruébalo y luego a producción"*;
+> PR #314; sin migración): el RUT primero con lo que trae achurado,
+> «Por facturar» con el buscador y la revisión una por una, «Corregir»
+> con la pieza de «Nuevo DTE», la fecha de emisión elegida hasta el
+> último día del mes, dos pasos para emitir, el PDF que llega solo y el
+> XML con su botón. Probado antes en el ambiente de prueba de
+> facturacion.cl con una factura fechada el 30-11 (§9.32).
+>
 > **§9.26 a §9.28 EN PRODUCCIÓN desde el 08-11-2026** (Felipe: *"a
 > producción"*; PR #312; las migraciones 192 y 193 en las dos bases,
 > vacías y antes del motor; la nómina del SII se carga con «Cargar la
@@ -1955,7 +1964,7 @@ pesa 359 MB y la base quedó en 1,9 GB de 8. Probado en «Nuevo documento»
 llenó la razón social, el giro, la dirección y la comuna, con «Otras
 actividades en el SII».
 
-**El RUT arriba (08-11, en el laboratorio).** Felipe, después de probarlo
+**El RUT arriba (08-11; en producción desde el 08-11-2026, PR #314).** Felipe, después de probarlo
 en producción: *"el rut debería aparecer arriba de los primeros para
 ingresar, así el resto se rellena solo y se achura (¿es la mejor práctica
 para evitar errores o lo dejamos editables?)"*; *"cuando hay más de 1 giro
@@ -1968,8 +1977,8 @@ recomendó achurar con una salida, vio la maqueta y dijo *"hazlo así"*.
   para no tocarlo por error. «Corregir datos» lo abre todo: el SII puede
   estar atrasado, o el cliente pide la dirección de una sucursal (la
   nómina trae la casa matriz). Lo que ya estaba o se escribe a mano queda
-  abierto, y también lo que no cabe en la factura y la razón social
-  cortada de un PDF (§9.29).
+  abierto, y también lo que no cabe en la factura y, en el laboratorio,
+  la razón social cortada de un PDF (§9.29).
 - **El giro, de una lista** cuando el SII trae más de una actividad («N
   actividades en el SII»; la lista de la casa, con buscador). Reemplaza
   los botones de «Otras actividades en el SII». Otro giro se escribe con
@@ -2184,7 +2193,7 @@ el motor y la vitrina.
 
 ### 9.31 «Por facturar»: el buscador y la revisión una por una (08-11)
 
-**En el laboratorio desde el 08-11-2026.** Felipe, mirando «Por facturar»
+**En el laboratorio y en producción desde el 08-11-2026** (PR #314). Felipe, mirando «Por facturar»
 en el laboratorio, pidió cuatro cosas:
 - *"buscador arriba, por rut, nombre cliente, persona contacto, nro de
   cotización etc. amplio"*;
@@ -2263,12 +2272,11 @@ se aprueba, «Corregir» y si una no sale) y `EmitirDte.test.tsx`
 («Aprobar» devuelve lo corregido sin emitir). En el motor no cambia
 ninguna regla: solo vienen más datos para buscar.
 
-**A producción**, con su «a producción»: solo el motor y la vitrina (no
-hay migración).
+**En producción desde el 08-11-2026** (PR #314): solo el motor y la vitrina, sin migración.
 
 ### 9.32 «Corregir» con la pieza de «Nuevo DTE», y la fecha de emisión (08-11)
 
-**En el laboratorio desde el 08-11-2026.** Felipe, viendo «Corregir» en la
+**En el laboratorio y en producción desde el 08-11-2026** (PR #314). Felipe, viendo «Corregir» en la
 revisión (el «Emitir DTE» del evento): *"no me gustan todos estos chip...
 se pueden mejorar, mira la cantidad de información, podemos replantear
 esto"*. Se le mostró una maqueta (el mismo documento por secciones, con
@@ -2371,12 +2379,11 @@ chips, lo que falta en rojo, lo corregido sube listo, otra fuente le pide
 a BelIA), `FacturaNueva.test.tsx` (las listas y la fecha) y
 `RevisionDeLaFacturacion.test.tsx` («Listo» y «Aprobar» de lo corregido).
 
-**A producción**, con su «a producción»: el motor y la vitrina (no hay
-migración).
+**En producción desde el 08-11-2026** (PR #314): el motor y la vitrina, sin migración.
 
 ### 9.33 Dos pasos para emitir, el PDF solo y el XML a pedido (08-11)
 
-**En el laboratorio desde el 08-11-2026.** Felipe, después de emitir en
+**En el laboratorio y en producción desde el 08-11-2026** (PR #314). Felipe, después de emitir en
 producción la factura N° 381 de $100 y la nota de crédito N° 115 que la
 anula: *"3 aprobaciones para emitir un documento me parece raro"*; *"¿no
 se puede descargar inmediatamente el PDF? el botón pedir PDF para cada
@@ -2434,8 +2441,7 @@ al emitir, llega en un reintento, ya lo trajo alguien, nunca llega),
 (sin «Pedir el PDF», el PDF en un clic y el XML con su botón),
 `BoletaNueva`, `NotaNueva` y `RevisionDeLaFacturacion` (sin la pregunta).
 
-**A producción**, con su «a producción»: el motor y la vitrina (no hay
-migración).
+**En producción desde el 08-11-2026** (PR #314): el motor y la vitrina, sin migración.
 
 ### 9.11 Fuentes nuevas (04-11)
 
