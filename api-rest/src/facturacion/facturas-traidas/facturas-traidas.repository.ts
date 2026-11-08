@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 
-/** La fila de una factura traída de facturacion.cl (doc 19 §9.36). */
+/** La fila de una factura (o nota de crédito) traída de facturacion.cl
+ *  (doc 19 §9.36). */
 export interface FacturaTraidaNueva {
   company_id: number;
-  tipo: 33;
+  tipo: 33 | 61;
   ambiente: AmbienteDeFacturacion;
   estado: 'emitido';
   folio: number;
@@ -24,6 +25,9 @@ export interface FacturaTraidaNueva {
   pdf_path: string | null;
   creado_por: string | null;
   respuesta: Record<string, unknown>;
+  /** La nota: el documento que modifica y cómo (la cadena, §9.5). */
+  modifica_id?: number | null;
+  codigo_referencia?: number | null;
 }
 
 /**
@@ -78,6 +82,52 @@ export class FacturasTraidasRepository {
           numero: oc.numero,
           quotation_id: oc.quotation_id,
           cotizacion: oc.cotizacion?.quotation_number ?? null,
+        }
+      : null;
+  }
+
+  /** El documento de Eventia que modifica una nota traída, con su evento y
+   *  su OC: la nota queda en la misma cadena. */
+  async documentoPorFolio(
+    companyId: number,
+    tipo: number,
+    folio: number,
+    ambiente: AmbienteDeFacturacion,
+  ) {
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(
+        'id, tipo, folio, total, receptor, quotation_id, orden_de_compra_id, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)',
+      )
+      .eq('company_id', companyId)
+      .eq('tipo', tipo)
+      .eq('folio', folio)
+      .eq('ambiente', ambiente)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    const d = data as {
+      id: number;
+      tipo: number;
+      folio: number;
+      total: number;
+      receptor: { razon_social?: string | null } | null;
+      quotation_id: string | null;
+      orden_de_compra_id: number | null;
+      cotizacion: { quotation_number: number } | null;
+      oc: { numero: string } | null;
+    } | null;
+    return d
+      ? {
+          id: d.id,
+          tipo: d.tipo,
+          folio: d.folio,
+          total: Number(d.total),
+          razon_social: d.receptor?.razon_social ?? null,
+          quotation_id: d.quotation_id,
+          orden_de_compra_id: d.orden_de_compra_id,
+          cotizacion: d.cotizacion?.quotation_number ?? null,
+          oc: d.oc?.numero ?? null,
         }
       : null;
   }

@@ -61,9 +61,6 @@ vi.mock("./PorFacturar", () => ({
 vi.mock("./FacturaNueva", () => ({
   default: () => <p>la factura nueva</p>,
 }));
-vi.mock("./TraerFactura", () => ({
-  default: () => <p>pantalla de traer factura</p>,
-}));
 vi.mock("./NotaNueva", () => ({
   default: ({ tipo }: { tipo: string }) => <p>la nota: {tipo}</p>,
 }));
@@ -161,9 +158,7 @@ describe("la sección Facturación", () => {
     abrir();
     expect(pestanas()).toEqual(["Por facturar (1)"]);
     // Sin «Boletas y facturas del tarifario», no emite de cero.
-    expect(
-      screen.queryByRole("button", { name: "Nuevo DTE" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nuevo DTE" })).toBeNull();
     cleanup();
     permisos = ["facturacion_documentos"];
     abrir();

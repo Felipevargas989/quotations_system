@@ -101,19 +101,6 @@ const filtrosDeHoy = (): Filtros => ({
   ...delMes(hoyEnChile()),
 });
 
-/** Con qué fechas abre la lista: este mes o, si lo recién traído es de un
- *  mes anterior (§9.36: la N° 374, del 30-10, traída el 08-11), desde ese
- *  mes hasta hoy; si queda a más de un año, solo su mes. */
-const filtrosDesde = (desde: string | null): Filtros => {
-  const hoy = filtrosDeHoy();
-  if (!desde || desde >= hoy.desde) return hoy;
-  const meses = (iso: string) =>
-    Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
-  return meses(hoy.desde) - meses(desde) <= 11
-    ? { ...hoy, desde: `${desde.slice(0, 7)}-01` }
-    : { ...hoy, ...delMes(desde) };
-};
-
 const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
 const soloRut = (s: string) => s.replace(/[^0-9kK]/g, "").toUpperCase();
 
@@ -268,23 +255,19 @@ const casilla =
 export default function ListaDeDocumentos({
   conAjustes,
   recien = null,
-  desde = null,
   onModificar,
 }: {
   /** El permiso «Tarifario y conexión» (doc 22 §7): «Probar la conexión». */
   readonly conAjustes: boolean;
   /** El que se acaba de emitir: se marca en la lista. */
   readonly recien?: number | null;
-  /** La fecha de lo recién traído (§9.36): si es de otro mes, la lista
-   *  abre desde ese mes. */
-  readonly desde?: string | null;
   /** «Anular o rebajar…»: la nota en su pantalla, con este documento ya
    *  elegido (§9.22, sprint 3). */
   readonly onModificar: (doc: DocumentoDeLaLista) => void;
 }) {
   const queryClient = useQueryClient();
   const [lado, setLado] = useState<"emitidos" | "recibidos">("emitidos");
-  const [f, setF] = useState<Filtros>(() => filtrosDesde(desde));
+  const [f, setF] = useState<Filtros>(filtrosDeHoy);
   const [ocupado, setOcupado] = useState<number | null>(null);
   // §9.33: el PDF que se acaba de traer al pincharlo «Ver»: su visor se
   // abre apenas llega.

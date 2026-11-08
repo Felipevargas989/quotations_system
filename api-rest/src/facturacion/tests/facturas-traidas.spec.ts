@@ -10,6 +10,7 @@ import {
   nombreCompletoDelSii,
   numeroDelRut,
 } from '../facturas-traidas/nombre-del-sii';
+import { codigoPorLosMontos } from '../facturas-traidas/nota-traida';
 
 /**
  * TRAER UNA FACTURA EMITIDA FUERA DE EVENTIA (doc 19 §9.36; Felipe, 08-11:
@@ -100,6 +101,25 @@ const LA_374: Texto[] = [
   [544.4, 186.6, '2.619.929'],
   [319, 118.6, 'Observaciones:'],
   [33, 23.6, 'Documento creado por www.facturacion.cl'],
+];
+
+/** Una nota de crédito con las posiciones de la NC N° 115 de producción
+ *  (08-11), que anula la 374 de arriba. Datos inventados. */
+const LA_NC_113: Texto[] = [
+  [446.7, 752.7, 'R.U.T.: 77.701.305-K'],
+  [448.1, 724.4, 'NOTA DE CREDITOELECTRONICA'],
+  [479.3, 687.7, 'Nº 113'],
+  [436.5, 663.6, 'S.I.I. - REGIONAL CHILLAN'],
+  [422.6, 646.7, 'Quillon, 30 de octubre de 2026'],
+  ...LA_374.filter(([, y]) => y <= 630.6 && y >= 582.6),
+  [36, 567.6, 'Referencia'],
+  [85, 567.6, ':'],
+  [
+    90,
+    567.6,
+    'Error en el giro en FACTURA ELECTRONICA : Nro. 374 del 30-10-2026',
+  ],
+  ...LA_374.filter(([, y]) => y <= 535.6),
 ];
 
 const con = (cambios: Record<string, string>, agregar: Texto[] = []) =>
@@ -203,6 +223,44 @@ describe('La factura emitida fuera de Eventia, leída de su PDF (§9.36)', () =>
   });
 });
 
+describe('La nota de crédito emitida fuera de Eventia, leída de su PDF (§9.36)', () => {
+  it('con la plantilla de la NC N° 115: el documento que modifica y la razón, aunque diga «en»', () => {
+    const r = leerFacturaDelPdf(pdfComoFacturacionCl(LA_NC_113), 61);
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.factura).toMatchObject({
+      folio: 113,
+      fecha_emision: '2026-10-30',
+      total: 2619929,
+      referencias: [
+        {
+          tipo: '33',
+          folio: '374',
+          fecha: '2026-10-30',
+          razon: 'Error en el giro',
+        },
+      ],
+    });
+  });
+
+  it('la factura no se lee como nota, ni la nota como factura', () => {
+    expect(leerFacturaDelPdf(pdfComoFacturacionCl(LA_374), 61)).toEqual({
+      ok: false,
+      motivo: 'No es una nota de crédito electrónica',
+    });
+    expect(leerFacturaDelPdf(pdfComoFacturacionCl(LA_NC_113))).toEqual({
+      ok: false,
+      motivo: 'No es una factura electrónica',
+    });
+  });
+
+  it('el código sale de los montos: por el total anula, en cero corrige, por menos rebaja', () => {
+    expect(codigoPorLosMontos(100, 100)).toBe(1);
+    expect(codigoPorLosMontos(0, 100)).toBe(2);
+    expect(codigoPorLosMontos(40, 100)).toBe(3);
+    expect(codigoPorLosMontos(120, 100)).toBeNull();
+  });
+});
+
 describe('Traerla a Eventia (§9.36)', () => {
   const USUARIO = {
     id: 'u-felipe',
@@ -221,12 +279,14 @@ describe('Traerla a Eventia (§9.36)', () => {
     yaEsta = false,
     subido = null as string | null,
     delSii = null as string | null,
+    original = null as Record<string, unknown> | null,
   } = {}) => {
     const obtenerPdf = jest.fn().mockResolvedValue(pdf);
     const repo = {
       yaEsta: jest.fn().mockResolvedValue(yaEsta),
       ocPorNumero: jest.fn().mockResolvedValue(OC),
       pdfSubidoAlEvento: jest.fn().mockResolvedValue(subido),
+      documentoPorFolio: jest.fn().mockResolvedValue(original),
       guardar: jest
         .fn()
         .mockImplementation((f: Record<string, unknown>) =>
@@ -344,6 +404,114 @@ describe('Traerla a Eventia (§9.36)', () => {
       );
       expect(r.factura.nombre_del_sii).toBe(false);
     }
+  });
+
+  const LA_374_EN_EVENTIA = {
+    id: 7,
+    tipo: 33,
+    folio: 374,
+    total: 2619929,
+    razon_social: 'CORPORACION EJEMPLO DE EDUCACION',
+    quotation_id: 'ev-481',
+    orden_de_compra_id: 5,
+    cotizacion: 481,
+    oc: '32000066941',
+  };
+
+  it('la nota de crédito: lo que modifica y cómo, con el evento de su factura', async () => {
+    const { servicio, repo, obtenerPdf } = armar({
+      pdf: pdfComoFacturacionCl(LA_NC_113),
+      original: LA_374_EN_EVENTIA,
+    });
+    const r = await servicio.traer(USUARIO, 113, false, 61);
+    expect(obtenerPdf).toHaveBeenCalledWith(61, 113);
+    expect(repo.documentoPorFolio).toHaveBeenCalledWith(
+      1,
+      33,
+      374,
+      'produccion',
+    );
+    expect(r.factura).toMatchObject({
+      tipo: 61,
+      folio: 113,
+      evento: { cotizacion: 481, oc: '32000066941' },
+      modifica: {
+        tipo: '33',
+        folio: '374',
+        fecha: '2026-10-30',
+        que_hace: 'anula',
+      },
+    });
+    expect(repo.ocPorNumero).not.toHaveBeenCalled();
+  });
+
+  it('al guardarla entra a la cadena: anula su factura, en su evento y su OC', async () => {
+    const { servicio, repo, documentos } = armar({
+      pdf: pdfComoFacturacionCl(LA_NC_113),
+      original: LA_374_EN_EVENTIA,
+    });
+    await servicio.traer(USUARIO, 113, true, 61);
+    const ruta =
+      'c1/event-documents/ev-481/facturas/NC113_CORPORACION_EJEMPLO_DE_EDUCACION_481_32000066941.pdf';
+    expect(documentos.guardarPdf).toHaveBeenCalledWith(
+      ruta,
+      expect.any(Buffer),
+    );
+    expect(repo.pdfSubidoAlEvento).not.toHaveBeenCalled();
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 61,
+        folio: 113,
+        estado: 'emitido',
+        modifica_id: 7,
+        codigo_referencia: 1,
+        quotation_id: 'ev-481',
+        orden_de_compra_id: 5,
+        forma_de_pago: null,
+        vencimiento: null,
+        pdf_path: ruta,
+        referencias: [
+          {
+            tipo: '33',
+            folio: '374',
+            fecha: '2026-10-30',
+            razon: 'Error en el giro',
+            codigo: 1,
+          },
+        ],
+        respuesta: {
+          traida: true,
+          de: 'facturacion.cl',
+          codigo_por_los_montos: true,
+        },
+      }),
+    );
+  });
+
+  it('una nota por menos rebaja; si su factura no está en Eventia, primero hay que traerla', async () => {
+    const rebaja = await armar({
+      pdf: pdfComoFacturacionCl(LA_NC_113),
+      original: { ...LA_374_EN_EVENTIA, total: 3000000 },
+    }).servicio.traer(USUARIO, 113, false, 61);
+    expect(rebaja.factura.modifica?.que_hace).toBe('rebaja');
+    await expect(
+      armar({ pdf: pdfComoFacturacionCl(LA_NC_113) }).servicio.traer(
+        USUARIO,
+        113,
+        false,
+        61,
+      ),
+    ).rejects.toThrow(
+      'La nota de crédito N° 113 modifica la factura N° 374, que no está en Eventia: tráela primero',
+    );
+    await expect(
+      armar({
+        pdf: pdfComoFacturacionCl(LA_NC_113),
+        original: { ...LA_374_EN_EVENTIA, total: 100 },
+      }).servicio.traer(USUARIO, 113, false, 61),
+    ).rejects.toThrow(
+      'La nota de crédito N° 113 es por más que la factura N° 374',
+    );
   });
 
   it('la que ya está en Eventia no se trae dos veces', async () => {
