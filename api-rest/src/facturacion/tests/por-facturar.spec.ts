@@ -333,7 +333,10 @@ describe('La primera lectura de las OC (§9.26)', () => {
       ],
     });
     expect(ocs.deDocumentos).toHaveBeenCalledTimes(1);
-    expect(ocs.deDocumentos).toHaveBeenCalledWith('ev-481', 1, 'u-felipe');
+    // Sin volver a mandarle a la IA lo que no pudo leer hace poco.
+    expect(ocs.deDocumentos).toHaveBeenCalledWith('ev-481', 1, 'u-felipe', {
+      reintentar: false,
+    });
   });
 });
 

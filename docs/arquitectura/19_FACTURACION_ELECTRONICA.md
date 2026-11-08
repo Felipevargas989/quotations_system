@@ -1811,8 +1811,12 @@ puede leer queda en el registro y se intenta de nuevo al facturar.
 pudo leer, se leen solas al entrar a «Por facturar», una vez por visita
 (`POST /facturacion/por-facturar/leer-ordenes`, tres eventos a la vez):
 «BelIA está leyendo N órdenes de compra…», y bajo el cliente, en ámbar, la
-que no pudo con su motivo. Medido el 07-11 en producción: 9 PDF de OC en 7
-eventos, ninguno leído.
+que no pudo con su motivo. Lo que no pudo leer (un PDF que no es una OC,
+una OC repetida) no se le vuelve a mandar a la IA en 12 horas: la primera
+lectura repite el motivo; «Emitir DTE» y la subida sí lo intentan de nuevo.
+Medido el 07-11 en producción: 9 PDF de OC en 7 eventos, ninguno leído. En
+el laboratorio, esa noche, avisó los dos casos: el «Informe de evaluación
+Crece 2026» subido como OC y una OC subida dos veces.
 
 **Pendiente, parcial o facturado.** El evento y cada OC tienen su estado
 (`estadoDeLaFacturacion`): pendiente si no se ha facturado nada, parcial si

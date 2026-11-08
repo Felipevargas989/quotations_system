@@ -39,8 +39,16 @@ export interface OcSinLeer {
  * el PDF elegido tiene que ser de esa misma cotización, la fecha tiene que
  * existir, el RUT queda limpio y los textos sin espacios de sobra.
  */
+/** Cuánto espera la primera lectura antes de volver a intentar una OC que
+ *  BelIA no pudo leer (§9.26). */
+const ESPERA_TRAS_FALLAR_MS = 12 * 60 * 60 * 1000;
+
 @Injectable()
 export class OrdenesDeCompraService {
+  /** Los PDF que BelIA no pudo leer, con el motivo (en la memoria del
+   *  motor: al reiniciar se intenta una vez más). */
+  private readonly fallidas = new Map<number, { motivo: string; en: number }>();
+
   constructor(
     private readonly repo: OrdenesDeCompraRepository,
     private readonly lector: LeerOrdenDeCompraService,
@@ -97,6 +105,7 @@ export class OrdenesDeCompraService {
     quotationId: string,
     companyId: number,
     usuarioId: string | null,
+    { reintentar = true }: { reintentar?: boolean } = {},
   ): Promise<{ ordenes: OrdenDeCompra[]; sinLeer: OcSinLeer[] }> {
     await this.asegurarCotizacion(quotationId, companyId);
     const [pdfs, antes] = await Promise.all([
@@ -115,16 +124,33 @@ export class OrdenesDeCompraService {
     const nuevos = pdfs.filter(
       (d) => !antes.some((o) => o.documento_id === d.id),
     );
+    // §9.26: la primera lectura de «Por facturar» no le vuelve a mandar a
+    // la IA lo que no pudo leer hace poco (un PDF que no es una OC, una OC
+    // repetida): dice el mismo motivo. «Emitir DTE» y la subida, sí.
+    const ahora = Date.now();
+    const aLeer = nuevos.filter((d) => {
+      const fallida = this.fallidas.get(d.id);
+      if (reintentar || !fallida || ahora - fallida.en > ESPERA_TRAS_FALLAR_MS)
+        return true;
+      sinLeer.push({
+        documento_id: d.id,
+        nombre: d.file_name,
+        motivo: fallida.motivo,
+      });
+      return false;
+    });
     await Promise.all(
-      nuevos.map(async (d) => {
+      aLeer.map(async (d) => {
         const motivo = await this.leerYGuardar(
           quotationId,
           companyId,
           d.id,
           usuarioId,
         );
-        if (motivo)
+        if (motivo) {
+          this.fallidas.set(d.id, { motivo, en: Date.now() });
           sinLeer.push({ documento_id: d.id, nombre: d.file_name, motivo });
+        } else this.fallidas.delete(d.id);
       }),
     );
     return {
