@@ -222,7 +222,7 @@ export interface FacturaTraida {
     comuna: string | null;
     ciudad: string | null;
   };
-  referencias: { tipo: string; folio: string; fecha: string }[];
+  referencias: { tipo: string; folio: string; fecha: string; razon?: string }[];
   lineas: {
     descripcion: string;
     descripcionLarga: string | null;
@@ -236,16 +236,33 @@ export interface FacturaTraida {
   /** facturacion.cl cortó la razón social en su PDF y va completa con la
    *  del SII (§9.36). */
   nombre_del_sii?: boolean;
-  /** El evento de su OC, si la OC está en Eventia. */
-  evento: { cotizacion: number | null; oc: string } | null;
+  /** El evento de su OC (o, en una nota, el de su factura), si está en
+   *  Eventia. */
+  evento: { cotizacion: number | null; oc: string | null } | null;
+  /** La factura (33) o la nota de crédito (61). */
+  tipo?: 33 | 61;
+  /** La nota: el documento que modifica y cómo («anula», «corrige»,
+   *  «rebaja»). */
+  modifica?: {
+    tipo: string;
+    folio: string;
+    fecha: string;
+    que_hace: string;
+  } | null;
 }
 
-/** «Traer factura por N°» (§9.36): sin `guardar`, solo la lee. */
+/** «Traer factura por N°» (§9.36): sin `guardar`, solo la lee. También la
+ *  nota de crédito (`tipo` 61). */
 export const traerFactura = async (
   folio: number,
   guardar: boolean,
+  tipo: 33 | 61 = 33,
 ): Promise<{ factura: FacturaTraida; guardada: { id: number } | null }> =>
-  (await apiRequest(`${base}/traer`, "POST", { folio, guardar })) as {
+  (await apiRequest(
+    `${base}/traer`,
+    "POST",
+    tipo === 61 ? { folio, guardar, tipo } : { folio, guardar },
+  )) as {
     factura: FacturaTraida;
     guardada: { id: number } | null;
   };
