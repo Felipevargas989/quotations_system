@@ -1,10 +1,15 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
+> **§9.26 a §9.28 EN PRODUCCIÓN desde el 08-11-2026** (Felipe: *"a
+> producción"*; PR #312; las migraciones 192 y 193 en las dos bases,
+> vacías y antes del motor; la nómina del SII se carga con «Cargar la
+> nómina del SII» después del motor).
+>
 > **EN PRODUCCIÓN desde el 07-11-2026** (Felipe: *"a producción"*; PR #310;
 > las migraciones 184, 187, 189 y 191 en las dos bases, antes del motor).
-> Sin las credenciales de producción en Railway todavía: no emite nada y
-> la pantalla muestra el letrero rojo. Las boletas, en pausa hasta que
-> facturacion.cl las habilite (OT 377564).
+> Conectado a facturacion.cl desde la noche del 07-11 (Felipe cargó las
+> credenciales en Railway; facturas desde la N° 381). Las boletas, en
+> pausa hasta que facturacion.cl las habilite (OT 377564).
 >
 > **Estado: en construcción (04-11-2026).** Felipe aprobó el plan v2 (*"si
 > avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
@@ -1785,6 +1790,8 @@ guardados.
 
 ### 9.26 Las OC que se leen solas y la factura por partes (07-11, en la noche)
 
+**En producción desde el 08-11-2026** (PR #312).
+
 Felipe, 07-11 en la noche, con el plan de §9.25 aprobado (*"me parece
 perfecto el orden, sumemos todo, lo dejo trabajando y lo reviso mañana
 temprano"*):
@@ -1858,6 +1865,9 @@ una empresa sin Facturación no). En la vitrina, `PorFacturar.test.tsx` y
 
 ### 9.27 El RUT que llena todo: la nómina del SII (08-11, en la madrugada)
 
+**En producción desde el 08-11-2026** (PR #312; migración 192 en las dos
+bases).
+
 El paso 3 del plan de §9.25 (*"me parece perfecto el orden, sumemos
 todo"*). Los pasos 1 y 2 de ese orden:
 - **Lo guardado en Eventia** ya existía (`GET /facturacion/razon-social`),
@@ -1923,6 +1933,9 @@ con pocas empresas, una carga a la vez y el dígito verificador),
 después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
 
 ### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
+
+**En producción desde el 08-11-2026** (PR #312; migración 193 en las dos
+bases).
 
 Los pasos 1 y 2 del plan de «Recibidos» de §9.25, juntos: «Traer de
 facturacion.cl» es la prueba (si el servicio no está contratado, lo dice
