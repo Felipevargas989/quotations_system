@@ -23,6 +23,9 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
 import { RecibidosController } from './recibidos/recibidos.controller';
 import { RecibidosRepository } from './recibidos/recibidos.repository';
 import { RecibidosService } from './recibidos/recibidos.service';
+import { FacturasTraidasController } from './facturas-traidas/facturas-traidas.controller';
+import { FacturasTraidasRepository } from './facturas-traidas/facturas-traidas.repository';
+import { FacturasTraidasService } from './facturas-traidas/facturas-traidas.service';
 
 /**
  * LA FACTURACIÓN ELECTRÓNICA (doc 19). Las órdenes de compra de cada evento
@@ -40,6 +43,7 @@ import { RecibidosService } from './recibidos/recibidos.service';
     FacturasController,
     BoletasController,
     NotasController,
+    FacturasTraidasController,
     PorFacturarController,
     FacturaSinEventoController,
     NominaSiiController,
@@ -56,6 +60,8 @@ import { RecibidosService } from './recibidos/recibidos.service';
     BoletasService,
     BoletasRepository,
     NotasService,
+    FacturasTraidasService,
+    FacturasTraidasRepository,
     NominaSiiService,
     NominaSiiRepository,
     RecibidosService,
