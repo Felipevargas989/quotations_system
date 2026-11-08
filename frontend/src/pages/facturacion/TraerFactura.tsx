@@ -16,10 +16,19 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 // crédito desde acá?"* y *"ok vamos con la 2"*. Se escribe el N°, Eventia
 // le pide su PDF a facturacion.cl y lo lee; se mira lo leído y «Traer a
 // Eventia» la deja en Documentos, marcada «traída», para anularla o
-// rebajarla con su nota como cualquier otra.
+// rebajarla con su nota como cualquier otra. También la nota de crédito
+// (Felipe, 08-11: *"tráete las notas de crédito y las facturas"*): queda
+// anulando o rebajando su factura, que ya tiene que estar en Eventia.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const fecha = (iso: string) => iso.split("-").reverse().join("-");
+const NOMBRE = { 33: "Factura", 61: "Nota de crédito" } as const;
+const DEL_DOCUMENTO: Record<string, string> = {
+  "33": "la factura",
+  "34": "la factura exenta",
+  "39": "la boleta",
+  "56": "la nota de débito",
+};
 const claseBoton =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50";
 
@@ -31,6 +40,7 @@ export default function TraerFactura({
   /** La traída y su fecha: la lista la marca, desde su mes. */
   readonly onTraida: (id: number, fecha: string) => void;
 }) {
+  const [tipo, setTipo] = useState<33 | 61>(33);
   const [folio, setFolio] = useState<number | undefined>(undefined);
   const [leida, setLeida] = useState<FacturaTraida | null>(null);
   const [ocupado, setOcupado] = useState<"leer" | "traer" | null>(null);
@@ -42,9 +52,9 @@ export default function TraerFactura({
     setError(null);
     setLeida(null);
     try {
-      setLeida((await traerFactura(folio, false)).factura);
+      setLeida((await traerFactura(folio, false, tipo)).factura);
     } catch (e) {
-      setError(humanizeApiError(e, "No se pudo leer esa factura."));
+      setError(humanizeApiError(e, "No se pudo leer ese documento."));
     } finally {
       setOcupado(null);
     }
@@ -55,30 +65,51 @@ export default function TraerFactura({
     setOcupado("traer");
     setError(null);
     try {
-      const r = await traerFactura(leida.folio, true);
+      const r = await traerFactura(leida.folio, true, tipo);
       toast.success(
-        `Factura N° ${leida.folio} traída: ya puedes anularla desde Documentos.`,
+        tipo === 61
+          ? `Nota de crédito N° ${leida.folio} traída.`
+          : `Factura N° ${leida.folio} traída: ya puedes anularla desde Documentos.`,
       );
       if (r.guardada) onTraida(r.guardada.id, leida.fecha_emision);
     } catch (e) {
-      setError(humanizeApiError(e, "No se pudo traer esa factura."));
+      setError(humanizeApiError(e, "No se pudo traer ese documento."));
     } finally {
       setOcupado(null);
     }
   };
 
   const oc = leida?.referencias.find((r) => r.tipo === "801");
+  const modifica = leida?.modifica;
+  const tipoBoton = (k: 33 | 61) => (
+    <button
+      type="button"
+      aria-pressed={tipo === k}
+      onClick={() => {
+        setTipo(k);
+        setLeida(null);
+        setError(null);
+      }}
+      className={`rounded-md px-3 py-1.5 text-xs font-semibold ${tipo === k ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
+    >
+      {NOMBRE[k]}
+    </button>
+  );
   return (
     <div className="space-y-4">
       <CabeceraDelDocumento
-        titulo="Traer factura emitida fuera de Eventia"
+        titulo="Traer factura o nota de crédito emitida fuera de Eventia"
         onVolver={onVolver}
       />
       <Seccion>
+        <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
+          {tipoBoton(33)}
+          {tipoBoton(61)}
+        </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="block w-48">
             <span className="mb-1 block text-xs text-gray-500">
-              N° de la factura
+              {tipo === 61 ? "N° de la nota de crédito" : "N° de la factura"}
             </span>
             <NumberInput
               value={folio}
@@ -107,7 +138,7 @@ export default function TraerFactura({
       {leida && (
         <>
           <Seccion
-            titulo={`Factura N° ${leida.folio} · ${fecha(leida.fecha_emision)}`}
+            titulo={`${NOMBRE[tipo]} N° ${leida.folio} · ${fecha(leida.fecha_emision)}`}
           >
             <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
               <div className="sm:col-span-2">
@@ -131,12 +162,21 @@ export default function TraerFactura({
                 <dt className="text-xs text-gray-500">Giro</dt>
                 <dd className="text-gray-900">{leida.receptor.giro ?? "—"}</dd>
               </div>
-              <div>
-                <dt className="text-xs text-gray-500">OC</dt>
-                <dd className="text-gray-900">
-                  {oc ? `${oc.folio} · ${fecha(oc.fecha)}` : "—"}
-                </dd>
-              </div>
+              {modifica ? (
+                <div>
+                  <dt className="text-xs text-gray-500">Modifica</dt>
+                  <dd className="text-gray-900">
+                    {`${modifica.que_hace.charAt(0).toUpperCase()}${modifica.que_hace.slice(1)} ${DEL_DOCUMENTO[modifica.tipo] ?? "el documento"} N° ${modifica.folio} del ${fecha(modifica.fecha)}`}
+                  </dd>
+                </div>
+              ) : (
+                <div>
+                  <dt className="text-xs text-gray-500">OC</dt>
+                  <dd className="text-gray-900">
+                    {oc ? `${oc.folio} · ${fecha(oc.fecha)}` : "—"}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-gray-500">Evento</dt>
                 <dd className="text-gray-900">

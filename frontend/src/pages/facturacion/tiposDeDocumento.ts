@@ -14,5 +14,5 @@ export const NOMBRE_DEL_NUEVO: Record<TipoNuevo, string> = {
   nota_credito: "Nota de crédito",
   nota_debito: "Nota de débito",
   // §9.36: la emitida fuera de Eventia, para anularla desde acá.
-  traer: "Traer factura emitida fuera de Eventia",
+  traer: "Traer factura o nota de crédito emitida fuera de Eventia",
 };

@@ -75,7 +75,7 @@ describe("Traer factura emitida fuera de Eventia (§9.36)", () => {
     expect(
       await screen.findByText("Factura N° 374 · 30-10-2026"),
     ).toBeInTheDocument();
-    expect(d.traerFactura).toHaveBeenCalledWith(374, false);
+    expect(d.traerFactura).toHaveBeenCalledWith(374, false, 33);
     expect(
       screen.getByText("CORPORACION EJEMPLO DE EDUCACION"),
     ).toBeInTheDocument();
@@ -86,7 +86,48 @@ describe("Traer factura emitida fuera de Eventia (§9.36)", () => {
     await waitFor(() =>
       expect(onTraida).toHaveBeenCalledWith(90, "2026-10-30"),
     );
-    expect(d.traerFactura).toHaveBeenLastCalledWith(374, true);
+    expect(d.traerFactura).toHaveBeenLastCalledWith(374, true, 33);
+  });
+
+  it("la nota de crédito: lo que modifica, con el evento de su factura, y la trae", async () => {
+    const NOTA: documentos.FacturaTraida = {
+      ...LEIDA,
+      folio: 113,
+      tipo: 61,
+      referencias: [
+        { tipo: "33", folio: "374", fecha: "2026-10-30", razon: "Mal emitida" },
+      ],
+      modifica: {
+        tipo: "33",
+        folio: "374",
+        fecha: "2026-10-30",
+        que_hace: "anula",
+      },
+    };
+    d.traerFactura
+      .mockResolvedValueOnce({ factura: NOTA, guardada: null })
+      .mockResolvedValueOnce({ factura: NOTA, guardada: { id: 91 } });
+    const onTraida = vi.fn();
+    render(<TraerFactura onVolver={() => {}} onTraida={onTraida} />);
+    fireEvent.click(screen.getByRole("button", { name: "Nota de crédito" }));
+    expect(screen.getByText("N° de la nota de crédito")).toBeInTheDocument();
+    escribir("113");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Leer de facturacion.cl" }),
+    );
+    expect(
+      await screen.findByText("Nota de crédito N° 113 · 30-10-2026"),
+    ).toBeInTheDocument();
+    expect(d.traerFactura).toHaveBeenCalledWith(113, false, 61);
+    expect(
+      screen.getByText("Anula la factura N° 374 del 30-10-2026"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("#481")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Traer a Eventia/ }));
+    await waitFor(() =>
+      expect(onTraida).toHaveBeenCalledWith(91, "2026-10-30"),
+    );
+    expect(d.traerFactura).toHaveBeenLastCalledWith(113, true, 61);
   });
 
   it("si facturacion.cl cortó el nombre, lo muestra completo según el SII", async () => {
