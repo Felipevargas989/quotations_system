@@ -2673,8 +2673,10 @@ anularlas porque no estaban bien emitidas… y la segunda que hay que emitir
 son las que hay que anular… tráete las notas de crédito y las facturas"*.
 Las facturas 377 a 380 se trajeron esa noche; para las notas, la puerta
 del motor acepta `tipo` 61:
-- la NC sale con la misma plantilla, medida en la NC N° 115 de producción:
-  «NOTA DE CREDITOELECTRONICA» arriba y, en la referencia, la razón y el
+- la NC sale con la misma plantilla, medida en la NC N° 115 de producción
+  y en las N° 113 y 114 de la página (que Felipe bajó esa noche: el título
+  va en dos renglones, «NOTA DE CREDITO» y «ELECTRONICA», y se lee junto,
+  sobre el N°) y, en la referencia, la razón y el
   documento que modifica («Test en FACTURA ELECTRONICA : Nro. 381 del
   08-11-2026»); la referencia se busca por los nombres conocidos, así una
   razón con «en» no se la come;

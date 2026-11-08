@@ -25,10 +25,12 @@ import {
  *
  * La nota de crédito (Felipe, 08-11: *"tráete las notas de crédito y las
  * facturas"*) sale con la misma plantilla, medida en la NC N° 115 de
- * producción: «NOTA DE CREDITOELECTRONICA» arriba (un solo texto, sin el
- * espacio del salto de línea) y en la referencia la razón y el documento
- * que modifica: «Test en FACTURA ELECTRONICA : Nro. 381 del 08-11-2026».
- * El código de referencia (anula, corrige, rebaja) no se imprime.
+ * producción y en las N° 113 y 114 hechas en la página de facturacion.cl:
+ * el título arriba en dos renglones, «NOTA DE CREDITO» y «ELECTRONICA»
+ * (dos textos), y en la referencia la razón y el documento que modifica:
+ * «El desglose no era el correcto en FACTURA ELECTRONICA : Nro. 375 del
+ * 30-10-2026». El código de referencia (anula, corrige, rebaja) no se
+ * imprime.
  */
 
 /** Lo que se puede traer: la factura (33) y la nota de crédito (61). */
@@ -75,6 +77,18 @@ export interface FacturaDelPdf {
   iva: number;
   total: number;
 }
+
+/** El título, arriba a la derecha sobre el N°, en uno o más renglones:
+ *  «FACTURA ELECTRONICA», o «NOTA DE CREDITO» y «ELECTRONICA». Junto y
+ *  sin espacios. */
+const tituloSobre = (textos: TextoDelPdf[], folio: TextoDelPdf) =>
+  textos
+    .filter(
+      (t) => t.x >= folio.x - 60 && t.y > folio.y + 5 && t.y < folio.y + 50,
+    )
+    .sort((a, b) => b.y - a.y || a.x - b.x)
+    .map((t) => normal(t.texto).replace(/\s/g, ''))
+    .join('');
 
 /** Misma fila: los textos de una fila se escriben a la misma altura. */
 const MISMA_FILA = 2.5;
@@ -335,15 +349,18 @@ export const leerFacturaDelPdf = (
     return { ok: false, motivo: 'El PDF no se pudo leer' };
   }
   const titulo = TITULO[tipo];
-  if (!textos.some((t) => normal(t.texto).replace(/\s/g, '') === titulo.texto))
+  const delFolio = textos.find((t) => /^N[º°o]\.?\s*\d+$/.test(t.texto.trim()));
+  const esDelTipo =
+    textos.some((t) => normal(t.texto).replace(/\s/g, '') === titulo.texto) ||
+    (!!delFolio && tituloSobre(textos, delFolio) === titulo.texto);
+  if (!esDelTipo)
     return {
       ok: false,
       motivo: `No es ${tipo === 33 ? 'una factura electrónica' : 'una nota de crédito electrónica'}`,
     };
-  const folioTexto = textos
-    .map((t) => /^N[º°o]\.?\s*(\d+)$/.exec(t.texto.trim()))
-    .find(Boolean);
-  const folio = folioTexto ? Number(folioTexto[1]) : null;
+  const folio = delFolio
+    ? Number(/(\d+)$/.exec(delFolio.texto.trim())?.[1])
+    : null;
   const fecha = fechaDelPdf(textos);
   const cuadro = receptorDe(textos);
   const lineas = lineasDe(textos);

@@ -103,11 +103,13 @@ const LA_374: Texto[] = [
   [33, 23.6, 'Documento creado por www.facturacion.cl'],
 ];
 
-/** Una nota de crédito con las posiciones de la NC N° 115 de producción
- *  (08-11), que anula la 374 de arriba. Datos inventados. */
+/** Una nota de crédito con las posiciones de las NC N° 113 y 114 de
+ *  producción (08-11; el título en dos renglones), que anula la 374 de
+ *  arriba. Datos inventados. */
 const LA_NC_113: Texto[] = [
   [446.7, 752.7, 'R.U.T.: 77.701.305-K'],
-  [448.1, 724.4, 'NOTA DE CREDITOELECTRONICA'],
+  [448.1, 724.4, 'NOTA DE CREDITO'],
+  [458.4, 712.7, 'ELECTRONICA'],
   [479.3, 687.7, 'Nº 113'],
   [436.5, 663.6, 'S.I.I. - REGIONAL CHILLAN'],
   [422.6, 646.7, 'Quillon, 30 de octubre de 2026'],
@@ -240,6 +242,28 @@ describe('La nota de crédito emitida fuera de Eventia, leída de su PDF (§9.36
         },
       ],
     });
+  });
+
+  it('el título en un solo texto también vale, y lo de arriba a la izquierda no cuenta', () => {
+    const unoSolo = LA_NC_113.filter(
+      ([, , t]) => t !== 'NOTA DE CREDITO' && t !== 'ELECTRONICA',
+    );
+    const r = leerFacturaDelPdf(
+      pdfComoFacturacionCl([
+        ...unoSolo,
+        [448.1, 724.4, 'NOTA DE CREDITO ELECTRONICA'],
+      ]),
+      61,
+    );
+    expect(r.ok).toBe(true);
+    // La dirección del emisor va a la izquierda, a la misma altura: no es
+    // parte del título.
+    expect(
+      leerFacturaDelPdf(
+        pdfComoFacturacionCl([...LA_NC_113, [163, 715.6, 'QUILLON - QUILLON']]),
+        61,
+      ).ok,
+    ).toBe(true);
   });
 
   it('la factura no se lee como nota, ni la nota como factura', () => {
