@@ -18,7 +18,7 @@ import {
   type OcSinLeer,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import EmitirDte from "../postventa/facturacion/EmitirDte";
+import CorregirDte, { type EnCorreccion } from "./CorregirDte";
 import DocumentoDelDte from "./DocumentoDelDte";
 import LoDelEvento from "./LoDelEvento";
 import {
@@ -40,10 +40,12 @@ import {
 //   días de las fichas en Personas. Arriba, «Lo del evento» (sus OC y lo
 //   que hay que mirar); abajo, el documento con las secciones de «Nuevo
 //   documento» (`DocumentoDelDte`).
-// - «Corregir» abre el «Emitir DTE» del evento (se llena desde, qué parte,
-//   receptor, líneas y referencias), que en vez de «Ver cómo sale» dice
-//   «Aprobar». Corregir uno ya aprobado lo deja sin aprobar hasta que se
-//   apruebe de nuevo; el editor parte de lo que propone BelIA.
+// - «Corregir» (§9.32; Felipe, 08-11: *"no me gustan todos estos chip"*)
+//   abre el mismo documento por secciones, con casillas (`CorregirDte`, la
+//   pieza de «Nuevo DTE»), desde lo que se está revisando (lo de BelIA o lo
+//   ya corregido). Abajo, «Cancelar», «Listo» (vuelve al documento con lo
+//   corregido) y «Aprobar». Corregir uno ya aprobado lo deja sin aprobar
+//   hasta que se apruebe de nuevo.
 // - «Aprobar» lo deja listo, tal como se ve, y pasa al siguiente sin
 //   aprobar. Lo que no está listo no se aprueba: dice qué le falta.
 // - «Facturar las N aprobadas» pregunta antes y las emite una tras otra; si
@@ -89,6 +91,8 @@ export default function RevisionDeLaFacturacion({
   >({});
   const [aprobados, setAprobados] = useState<ReadonlySet<string>>(new Set());
   const [corrigiendo, setCorrigiendo] = useState(false);
+  // Lo que se está corrigiendo, con su revisión del motor.
+  const [enCurso, setEnCurso] = useState<EnCorreccion | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [emitiendo, setEmitiendo] = useState(false);
   const [resultados, setResultados] = useState<Record<string, Resultado>>({});
@@ -114,6 +118,7 @@ export default function RevisionDeLaFacturacion({
 
   const ir = (j: number) => {
     setCorrigiendo(false);
+    setEnCurso(null);
     setConfirmando(false);
     setIndice(j);
   };
@@ -124,6 +129,7 @@ export default function RevisionDeLaFacturacion({
     nuevos.add(evento.id);
     setAprobados(nuevos);
     setCorrigiendo(false);
+    setEnCurso(null);
     // Sigue con el próximo que falta por aprobar.
     const siguiente = eventos.findIndex(
       (e, j) => j > indice && !nuevos.has(e.id),
@@ -139,7 +145,15 @@ export default function RevisionDeLaFacturacion({
       return n;
     });
     setConfirmando(false);
+    setEnCurso(null);
     setCorrigiendo(true);
+  };
+
+  /** «Listo»: vuelve al documento con lo corregido, sin aprobarlo. */
+  const listo = () => {
+    if (enCurso) setCorregidos((c) => ({ ...c, [evento.id]: enCurso.dte }));
+    setCorrigiendo(false);
+    setEnCurso(null);
   };
 
   const emitir = async () => {
@@ -230,6 +244,40 @@ export default function RevisionDeLaFacturacion({
     >
       Cerrar
     </button>
+  ) : corrigiendo ? (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setCorrigiendo(false);
+          setEnCurso(null);
+        }}
+        className={claseBoton}
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        onClick={listo}
+        disabled={!enCurso}
+        className={claseBoton}
+      >
+        Listo
+      </button>
+      <button
+        type="button"
+        onClick={() => enCurso && aprobar(enCurso.dte)}
+        disabled={!enCurso?.listo}
+        title={
+          enCurso && !enCurso.listo
+            ? (loQueLeFalta(enCurso.dte.vista) ?? "Revisando…")
+            : undefined
+        }
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        <Check size={14} /> Aprobar
+      </button>
+    </>
   ) : (
     <>
       {!corrigiendo && (
@@ -237,7 +285,7 @@ export default function RevisionDeLaFacturacion({
           <button
             type="button"
             onClick={corregir}
-            disabled={emitiendo}
+            disabled={emitiendo || !dte}
             className={claseBoton}
           >
             <Pencil size={14} /> Corregir
@@ -334,16 +382,16 @@ export default function RevisionDeLaFacturacion({
           <LoDelEvento
             evento={evento}
             noLeidas={noLeidas}
-            vista={dte?.vista ?? null}
+            vista={
+              (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null
+            }
           />
-          {corrigiendo ? (
-            <EmitirDte
+          {corrigiendo && dte ? (
+            <CorregirDte
               key={evento.id}
               quotationId={evento.id}
-              puedeEmitir
-              alAprobar={aprobar}
-              onCerrar={() => setCorrigiendo(false)}
-              onEmitido={() => undefined}
+              inicial={dte}
+              onCambio={setEnCurso}
             />
           ) : dte ? (
             <DocumentoDelDte pedida={dte.pedida} vista={dte.vista} />
@@ -352,8 +400,7 @@ export default function RevisionDeLaFacturacion({
               {humanizeApiError(
                 consulta.error,
                 "BelIA no pudo armar este documento.",
-              )}{" "}
-              Ármalo con «Corregir».
+              )}
             </p>
           ) : (
             <p className="flex items-center gap-2 text-sm text-violet-700">

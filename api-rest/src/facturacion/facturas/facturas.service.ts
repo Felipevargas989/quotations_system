@@ -49,6 +49,7 @@ import { guardarCopiaDelPdf } from './copia-del-pdf';
 import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
+import { fechaDeEmision } from './fecha-de-emision';
 
 /**
  * EL DTE DEL EVENTO (doc 19 §9.2, §9.10 y §9.20): la factura o la boleta.
@@ -130,6 +131,8 @@ const normalizada = (p: DtePedido): DtePedido => {
     forma_de_pago: boleta ? null : p.forma_de_pago === 1 ? 1 : 2,
     plazo_dias: boleta || p.forma_de_pago === 1 ? null : (p.plazo_dias ?? 30),
     cliente_id: boleta ? null : (p.cliente_id ?? null),
+    // §9.32: la factura puede elegir su fecha; la boleta, la del día.
+    fecha_emision: boleta ? null : (p.fecha_emision ?? '').trim() || null,
   };
 };
 
@@ -142,6 +145,23 @@ const porcentajeDe = (total: number, ctx: ContextoDeLaFactura) => {
 };
 
 /** La revisión para la pantalla: sin el archivo. */
+/** §9.32: la fecha con que sale la factura (la elegida o la de hoy), y si
+ *  cae fuera de lo que se puede, la revisión no queda lista. La boleta va
+ *  con la del día. */
+const conLaFecha = (pedida: DtePedido) =>
+  fechaDeEmision(
+    pedida.tipo === BOLETA ? null : pedida.fecha_emision,
+    hoyEnChile(),
+  );
+
+const revisadaConLaFecha = (
+  revision: Revision,
+  problema: string | null,
+): Revision =>
+  problema
+    ? { ...revision, ok: false, problemas: [problema, ...revision.problemas] }
+    : revision;
+
 const paraLaPantalla = (r: Revision) => ({
   ok: r.ok,
   montos: r.montos,
@@ -348,10 +368,13 @@ export class FacturasService {
       pedida.orden_de_compra_id,
     );
     const conexion = this.conexion.de(companyId);
-    const fecha = hoyEnChile();
+    const { fecha, problema } = conLaFecha(pedida);
     const boleta = pedida.tipo === BOLETA;
     const folio = boleta ? 0 : await conexion.folioSiguiente(FACTURA);
-    const revision = revisarDte(pedida, ctx, folio, fecha);
+    const revision = revisadaConLaFecha(
+      revisarDte(pedida, ctx, folio, fecha),
+      problema,
+    );
     if (!revision.ok || !revision.archivo || !revision.montos)
       throw new BadRequestException(
         revision.faltan.length
@@ -410,9 +433,12 @@ export class FacturasService {
     const pedida = await this.pedidaSinEvento(user, dto);
     const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
-    const fecha = hoyEnChile();
+    const { fecha, problema } = conLaFecha(pedida);
     const folio = await conexion.folioSiguiente(FACTURA);
-    const revision = revisarDte(pedida, ctx, folio, fecha);
+    const revision = revisadaConLaFecha(
+      revisarDte(pedida, ctx, folio, fecha),
+      problema,
+    );
     if (!revision.ok || !revision.archivo || !revision.montos)
       throw new BadRequestException(
         revision.faltan.length
@@ -702,13 +728,18 @@ export class FacturasService {
       conexion.folioSiguiente(pedida.tipo),
       this.ordenes.empresaQueVende(companyId),
     ]);
-    const fecha = hoyEnChile();
+    const { fecha, rango, problema } = conLaFecha(pedida);
     return {
       ...paraLaPantalla(
-        revisarDte(pedida, ctx, pedida.tipo === BOLETA ? 0 : folio, fecha),
+        revisadaConLaFecha(
+          revisarDte(pedida, ctx, pedida.tipo === BOLETA ? 0 : folio, fecha),
+          problema,
+        ),
       ),
       folio,
       fecha,
+      // §9.32: desde y hasta qué día se puede fechar (la boleta, no elige).
+      emision: pedida.tipo === BOLETA ? null : rango,
       emisor,
       ambiente: conexion.ambiente,
     };

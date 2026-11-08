@@ -75,6 +75,7 @@ export default function CamposDelReceptor({
   onChange,
   onLlenar,
   rutFijo = false,
+  faltan = [],
 }: {
   readonly receptor: Receptor;
   readonly onChange: (campo: keyof Receptor, valor: string) => void;
@@ -83,6 +84,9 @@ export default function CamposDelReceptor({
   readonly onLlenar?: (datos: Partial<Receptor>) => void;
   /** La razón social ya guardada: su RUT no se cambia acá. */
   readonly rutFijo?: boolean;
+  /** §9.32: los campos que el SII pide y no están (`faltan` de la revisión
+   *  del motor): van en rojo en su casilla. */
+  readonly faltan?: readonly string[];
 }) {
   const [encontrada, setEncontrada] = useState<RazonSocialEncontrada | null>(
     null,
@@ -173,6 +177,7 @@ export default function CamposDelReceptor({
   };
   const hayQueCorregir =
     !abiertos && (conLista || ACHURABLES.some(([c]) => achurada(c)));
+  const falta = (campo: Campo) => faltan.includes(campo);
 
   return (
     <div className="space-y-2">
@@ -205,26 +210,36 @@ export default function CamposDelReceptor({
         valor={r.razon_social}
         largo={LARGO_MAXIMO.razon_social}
         bloqueada={achurada("razon_social")}
+        falta={falta("razon_social")}
         onChange={(v) => onChange("razon_social", v)}
       />
       {conLista ? (
         <div>
           <span className={claseTitulo}>
-            Giro
+            <span>
+              Giro
+              {falta("giro") && (
+                <span className="font-semibold text-red-600"> · falta</span>
+              )}
+            </span>
             {actividades.length > 1 && (
               <span>{actividades.length} actividades en el SII</span>
             )}
           </span>
-          <SelectWithSearch
-            options={giros.map((g) => ({ value: g, label: g }))}
-            value={r.giro ?? ""}
-            onChange={(g) => g && elegirGiro(g)}
-            placeholder="Elegir el giro"
-            searchPlaceholder="Buscar la actividad..."
-            tamano="sm"
-            sinLimpiar
-            mostrarConteo={false}
-          />
+          <div
+            className={falta("giro") ? "rounded-lg ring-1 ring-red-400" : ""}
+          >
+            <SelectWithSearch
+              options={giros.map((g) => ({ value: g, label: g }))}
+              value={r.giro ?? ""}
+              onChange={(g) => g && elegirGiro(g)}
+              placeholder="Elegir el giro"
+              searchPlaceholder="Buscar la actividad..."
+              tamano="sm"
+              sinLimpiar
+              mostrarConteo={false}
+            />
+          </div>
         </div>
       ) : (
         <Casilla
@@ -232,6 +247,7 @@ export default function CamposDelReceptor({
           valor={r.giro}
           largo={LARGO_MAXIMO.giro}
           bloqueada={achurada("giro")}
+          falta={falta("giro")}
           onChange={(v) => onChange("giro", v)}
         />
       )}
@@ -241,6 +257,7 @@ export default function CamposDelReceptor({
           valor={r.direccion}
           largo={LARGO_MAXIMO.direccion}
           bloqueada={achurada("direccion")}
+          falta={falta("direccion")}
           onChange={(v) => onChange("direccion", v)}
         />
         <Casilla
@@ -248,6 +265,7 @@ export default function CamposDelReceptor({
           valor={r.comuna}
           largo={LARGO_MAXIMO.comuna}
           bloqueada={achurada("comuna")}
+          falta={falta("comuna")}
           onChange={(v) => onChange("comuna", v)}
         />
         <Casilla

@@ -172,7 +172,7 @@ export default function FacturacionPage() {
             onClick={nuevoDocumento}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            <Plus size={15} /> Nuevo documento
+            <Plus size={15} /> Nuevo DTE
           </button>
         )}
       </div>

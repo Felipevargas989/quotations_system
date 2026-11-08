@@ -2241,11 +2241,9 @@ la facturación masiva** de §9.21 (`FacturacionMasiva` se borró):
   observaciones), Destinatario, Ítems (precio con IVA y total, como en
   «Nuevo documento»), Referencias y Totales (los del motor). No muestra el
   N° que sigue: cada una toma el suyo al emitir.
-- **«Corregir»** abre el «Emitir DTE» del evento (se llena desde, qué
-  parte, receptor, líneas y referencias), que con `alAprobar` dice
-  «Aprobar» en vez de «Ver cómo sale» y devuelve lo corregido sin emitir.
-  El editor parte de lo que propone BelIA. Corregir uno ya aprobado lo
-  deja sin aprobar hasta que se apruebe de nuevo.
+- **«Corregir»** abría el «Emitir DTE» del evento; desde la tarde del
+  08-11 abre el mismo documento con casillas (§9.32). Corregir uno ya
+  aprobado lo deja sin aprobar hasta que se apruebe de nuevo.
 - **«Aprobar»** lo deja listo tal como se ve y pasa al siguiente que
   falta. Lo que no está listo no se aprueba: el botón queda apagado y
   «Lo del evento» dice qué le falta.
@@ -2267,6 +2265,97 @@ ninguna regla: solo vienen más datos para buscar.
 
 **A producción**, con su «a producción»: solo el motor y la vitrina (no
 hay migración).
+
+### 9.32 «Corregir» con la pieza de «Nuevo DTE», y la fecha de emisión (08-11)
+
+**En el laboratorio desde el 08-11-2026.** Felipe, viendo «Corregir» en la
+revisión (el «Emitir DTE» del evento): *"no me gustan todos estos chip...
+se pueden mejorar, mira la cantidad de información, podemos replantear
+esto"*. Se le mostró una maqueta (el mismo documento por secciones, con
+casillas; los avisos una sola vez) y respondió *"me parece mejor, si
+arreglas esta pieza también se arregla desde el botón + nuevo documento
+(debería llamarse + nuevo DTE)"*. Y sumó: *"revisa cómo funcionan las
+fechas de emisión, creo que se puede elegir qué fecha ponerle dentro de
+ciertos límites (…) revisa cómo funciona a nivel SII, cómo funciona a
+nivel facturacion.cl, e inclúyelo en este sprint"*.
+
+**La pieza común.** La factura de «Nuevo DTE» (`FacturaNueva`) y
+«Corregir» de la revisión (`CorregirDte`) usan las mismas secciones y las
+mismas piezas:
+- **Documento** (`SeccionDocumento`): el tipo (fijo en «Nuevo DTE»; en el
+  evento, una lista: factura o boleta), de dónde se llena (solo el evento:
+  sus OC con saldo o la cotización, en una lista), la fecha de emisión y
+  la condición de pago (una lista: crédito a 30, 45 o 60 días, o
+  contado). Debajo, solo el vencimiento, y el aviso de la Ley 19.983 si
+  pasa de 30 días. Cambiar el tipo o la fuente le pide a BelIA el
+  documento de nuevo, y se conservan la fecha y la condición elegidas.
+- **Destinatario**: en el evento, la razón social del cliente en una lista
+  si tiene varias (o «Otra razón social»), y los datos con el RUT arriba
+  (`CamposDelReceptor`, §9.27). Lo que el SII pide y falta va **en rojo en
+  su casilla** («Giro · falta»), en vez de un aviso aparte. La boleta,
+  solo el correo.
+- **Ítems** (`LineasDelDte`), **Referencias** (`ReferenciasDelDte`) y
+  **Totales** (`TotalesDelDte`), las de siempre.
+- Salieron los chips de «Factura / Boleta», «Se llena desde», «Qué
+  parte» (50 %, 30 %, otro %: para facturar una parte se cambia el monto,
+  Felipe, 08-11: *"si es solo cambiar el monto lo cambio yo"*), y los
+  avisos repetidos («BelIA no pudo leer…» iba dos veces; lo que faltaba,
+  tres). Los avisos van una sola vez, en «Lo del evento».
+- En la ventana, corrigiendo, abajo: «Cancelar», «Listo» (vuelve al
+  documento con lo corregido, sin aprobarlo) y «Aprobar» (apagado hasta
+  que el motor diga que está listo). «Corregir» parte de lo que se está
+  revisando (lo de BelIA o lo ya corregido): `revisarUnoParaLaMasiva`
+  guarda la preparación y el borrador de BelIA para no pedírselos de
+  nuevo.
+- Se borraron `EmitirDte`, `EditarReceptor` y `CondicionDePago` (y sus
+  pruebas): nadie más los usaba. El motor no cambia: las mismas rutas
+  `preparar`, `borrador`, `revisar` y `emitir` del evento.
+- El botón de arriba se llama **«+ Nuevo DTE»** (antes «+ Nuevo
+  documento»), y su ventana, «Nuevo DTE».
+
+**La fecha de emisión, medida ese día:**
+- **El SII.** La fecha de emisión del DTE (`FchEmis`) es la «fecha de
+  emisión contable del documento»; el formato solo pide una fecha válida
+  entre 2003-04-01 y 2050-12-31 (Formato DTE v2.2). Su propio facturador
+  la propone en el día y deja cambiarla (*"toma por defecto la fecha
+  actual y puede ser modificada por el usuario"*, guía del Portal
+  MIPYME). Aparte quedan la fecha y hora de la firma (`TmstFirma`, que
+  pone facturacion.cl al firmar) y la de recepción en el SII, desde la
+  que corren los 8 días para reclamar. La vigencia de los folios (6 meses
+  desde su autorización) se mira contra la firma, no contra la emisión
+  (rechazo CAF-3-517).
+- **La ley del IVA** (DL 825, art. 55): la factura va en el momento de la
+  venta; en los servicios, en el mismo período tributario (el mes) en que
+  se paga o se pone a disposición; con guías de despacho, hasta el décimo
+  día del mes siguiente, con fecha del mes de las entregas.
+- **El Registro de Ventas** la pone en el mes de su fecha de emisión: una
+  factura con fecha del mes anterior cae en el IVA de ese mes, que se
+  declara en el F29 hasta el día 20 (los facturadores electrónicos que
+  declaran y pagan por internet; el plazo general es el 12).
+- **facturacion.cl** la recibe en `FechaEmision` (AAAA-MM-DD) y su manual
+  no le pone otro límite. Eventia ya la mandaba, siempre con la de hoy.
+
+**Lo que deja Eventia** (`facturas/fecha-de-emision.ts`, el más simple
+que respeta todo eso): la de hoy si no se elige; **nunca una fecha
+futura**; **hasta el día 20, desde el 1 del mes anterior**; desde el 21,
+solo el mes en curso. El pedido lleva `fecha_emision` (solo la factura;
+la boleta va con la del día), la revisión devuelve el rango (`emision`:
+desde y hasta) para la casilla, y una fecha fuera del rango no deja
+emitir («La fecha de emisión va del 01-10-2026 al 08-11-2026»). El
+vencimiento, los plazos de las notas y lo facturado del mes salen de la
+fecha elegida, porque es la que queda en el documento. Si Felipe declara
+el F29 antes del 20, se puede bajar a 12 (`DIA_DEL_F29`).
+
+**Lo que cubren las pruebas:** en el motor, `fecha-de-emision.spec.ts`
+(el rango, enero, la elegida, la futura y la anterior al rango) y
+`facturas.spec.ts` (fuera del rango no se manda nada); en la vitrina,
+`SeccionDocumento.test.tsx`, `CorregirDte.test.tsx` (las secciones sin
+chips, lo que falta en rojo, lo corregido sube listo, otra fuente le pide
+a BelIA), `FacturaNueva.test.tsx` (las listas y la fecha) y
+`RevisionDeLaFacturacion.test.tsx` («Listo» y «Aprobar» de lo corregido).
+
+**A producción**, con su «a producción»: el motor y la vitrina (no hay
+migración).
 
 ### 9.11 Fuentes nuevas (04-11)
 
@@ -2300,3 +2389,13 @@ hay migración).
   (https://www.sii.cl/sobre_el_sii/nominapersonasjuridicas.html:
   `PUB_NOMBRES_PJ`, `PUB_NOM_ACTECOS` y `PUB_NOM_DIRECCIONES`, de agosto
   de 2026).
+- 08-11 (§9.32), la fecha de emisión: el Formato DTE v2.2 del SII
+  (https://www.sii.cl/factura_electronica/factura_mercado/formato_dte.pdf:
+  `FchEmis` y la fecha y hora de la firma), la guía del Portal MIPYME
+  (https://www1.sii.cl/TMP/InfoP001/GuiaPortalMIPYME_V3.pdf), la pregunta
+  del SII sobre facturas con guías de despacho
+  (https://www.sii.cl/preguntas_frecuentes/factura_electronica/001_003_4136.htm),
+  los plazos del F29
+  (https://www.sii.cl/preguntas_frecuentes/impuestos_mensuales/001_130_1060.htm),
+  el rechazo CAF-3-517 (GoSocket) y la nota de Círculo Verde de 2019 sobre
+  facturas con fechas distintas a la real.

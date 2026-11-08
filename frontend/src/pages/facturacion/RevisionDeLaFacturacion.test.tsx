@@ -25,27 +25,33 @@ vi.mock("./revisarUnoParaLaMasiva", async (original) => ({
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
-// «Corregir» abre el «Emitir DTE» del evento; acá, uno que aprueba una
-// factura corregida por $119.000.
-vi.mock("../postventa/facturacion/EmitirDte", () => ({
+// «Corregir» abre el documento con casillas (§9.32, `CorregirDte`); acá,
+// uno que lo deja corregido por $119.000 y listo para aprobar.
+vi.mock("./CorregirDte", () => ({
   default: ({
     quotationId,
-    alAprobar,
+    onCambio,
   }: {
     quotationId: string;
-    alAprobar: (r: revisar.RevisadoParaLaMasiva) => void;
+    onCambio: (r: {
+      dte: revisar.RevisadoParaLaMasiva;
+      listo: boolean;
+    }) => void;
   }) => (
     <button
       type="button"
       onClick={() =>
-        alAprobar({
-          tipo: 33,
-          pedida: { ...pedida("CORREGIDA SPA"), tipo: 33 },
-          vista: { ...vista(true), montos: MONTOS_CORREGIDOS },
+        onCambio({
+          dte: {
+            tipo: 33,
+            pedida: { ...pedida("CORREGIDA SPA"), tipo: 33 },
+            vista: { ...vista(true), montos: MONTOS_CORREGIDOS },
+          },
+          listo: true,
         })
       }
     >
-      aprobar lo corregido de {quotationId}
+      corregir {quotationId}
     </button>
   ),
 }));
@@ -57,7 +63,12 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const MONTOS_CORREGIDOS = { neto: 100000, exento: 0, iva: 19000, total: 119000 };
+const MONTOS_CORREGIDOS = {
+  neto: 100000,
+  exento: 0,
+  iva: 19000,
+  total: 119000,
+};
 
 const evento = (numero: number, extra = {}) => ({
   id: `ev-${numero}`,
@@ -155,9 +166,17 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(await screen.findByText("RAZON ev-501")).toBeInTheDocument();
     expect(screen.getByText("#501 · Cliente 501")).toBeInTheDocument();
     expect(screen.getByText("1 de 3 · 0 aprobadas")).toBeInTheDocument();
-    for (const s of ["Documento", "Destinatario", "Ítems", "Referencias", "Totales"])
+    for (const s of [
+      "Documento",
+      "Destinatario",
+      "Ítems",
+      "Referencias",
+      "Totales",
+    ])
       expect(screen.getByRole("heading", { name: s })).toBeInTheDocument();
-    expect(screen.getByText(/801 · Orden de compra · N° 4500123/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/801 · Orden de compra · N° 4500123/),
+    ).toBeInTheDocument();
     // Aprobar pasa al siguiente.
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
     expect(await screen.findByText("RAZON ev-502")).toBeInTheDocument();
@@ -182,7 +201,10 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     await waitFor(() => expect(onEmitidos).toHaveBeenCalled());
     expect(f.emitirDte).toHaveBeenCalledTimes(2);
-    expect(f.emitirDte.mock.calls.map((c) => c[0])).toEqual(["ev-501", "ev-503"]);
+    expect(f.emitirDte.mock.calls.map((c) => c[0])).toEqual([
+      "ev-501",
+      "ev-503",
+    ]);
     expect(screen.getAllByText(/Factura N° 50 emitida/)).toHaveLength(2);
   });
 
@@ -220,7 +242,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     ).toBeDisabled();
   });
 
-  it("«Corregir» abre «Emitir DTE»; lo corregido es lo que se aprueba y se emite", async () => {
+  it("«Corregir» abre el documento con casillas; lo corregido es lo que se aprueba y se emite (§9.32)", async () => {
     r.revisarUnoParaLaMasiva.mockResolvedValue({
       tipo: 33,
       pedida: pedida("SIN GIRO SPA"),
@@ -230,14 +252,19 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     const onEmitidos = abrir([evento(501)]);
     await screen.findByText("SIN GIRO SPA");
     fireEvent.click(screen.getByRole("button", { name: /Corregir/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "aprobar lo corregido de ev-501" }),
-    );
+    // Abajo, «Cancelar», «Listo» y «Aprobar» (apagado hasta que esté listo).
+    expect(
+      screen.getByRole("button", { name: "Cancelar" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
+    fireEvent.click(screen.getByRole("button", { name: /Aprobar/ }));
     // De vuelta al documento, con lo corregido.
     expect(await screen.findByText("CORREGIDA SPA")).toBeInTheDocument();
     expect(screen.getByText("1 de 1 · 1 aprobada")).toBeInTheDocument();
     expect(screen.getByText(/esta, aprobada/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Facturar la aprobada" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Facturar la aprobada" }),
+    );
     expect(
       screen.getByText(
         "¿Emitir 1 documento por $119.000 en total? Emitidos no se borran.",
@@ -253,9 +280,29 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     );
   });
 
+  it("«Listo» vuelve al documento con lo corregido, sin aprobarlo (§9.32)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("SIN GIRO SPA"),
+      vista: vista(false),
+    });
+    abrir([evento(501)]);
+    await screen.findByText("SIN GIRO SPA");
+    fireEvent.click(screen.getByRole("button", { name: /Corregir/ }));
+    fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(await screen.findByText("CORREGIDA SPA")).toBeInTheDocument();
+    expect(screen.getByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Aprobar/ })).toBeEnabled();
+  });
+
   it("si una no sale, se detiene ahí y lo dice", async () => {
     r.revisarUnoParaLaMasiva.mockImplementation((id) =>
-      Promise.resolve({ tipo: 33, pedida: pedida(`RAZON ${id}`), vista: vista(true) }),
+      Promise.resolve({
+        tipo: 33,
+        pedida: pedida(`RAZON ${id}`),
+        vista: vista(true),
+      }),
     );
     f.emitirDte.mockRejectedValueOnce(new Error("falla"));
     abrir([evento(501), evento(502)]);

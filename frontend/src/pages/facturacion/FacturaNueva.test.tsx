@@ -78,6 +78,7 @@ const VISTA: facturas.VistaPrevia = {
   emisor: { nombre: "Valle del Sol Quillón SpA", rut: null },
   ambiente: "simulado",
   pago: { forma: 2, dias: 30, vencimiento: "2026-12-06" },
+  emision: { desde: "2026-10-01", hasta: "2026-11-06" },
 };
 
 const CLIENTES: facturas.ClienteParaFacturar[] = [
@@ -129,7 +130,7 @@ const ultimaRevision = () => {
   return llamadas[llamadas.length - 1]?.[0] as facturas.DtePedido;
 };
 
-describe("La factura de «Nuevo documento»", () => {
+describe("La factura de «Nuevo DTE»", () => {
   it("parte a crédito 30 días, con el vencimiento a la vista", async () => {
     abrir();
     expect(
@@ -143,19 +144,40 @@ describe("La factura de «Nuevo documento»", () => {
         cliente_id: null,
       }),
     );
-    expect(screen.getByRole("radio", { name: "Crédito" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
-    expect(await screen.findByText("06-12-2026")).toBeInTheDocument();
+    // §9.32: la condición de pago, en una lista; debajo, el vencimiento.
+    expect(
+      screen.getByRole("combobox", { name: "Condición de pago" }),
+    ).toHaveValue("30");
+    expect(await screen.findByText("vence 06-12-2026")).toBeInTheDocument();
   });
 
-  it("a 45 días avisa lo de la ley; al contado no queda por cobrar", async () => {
+  it("la fecha de emisión se elige dentro del rango que da el motor (§9.32)", async () => {
     abrir();
-    fireEvent.click(await screen.findByRole("radio", { name: "45 días" }));
+    const fecha = (await screen.findByLabelText(
+      "Fecha de emisión",
+    )) as HTMLInputElement;
+    expect(fecha).toHaveValue("2026-11-06");
+    expect(fecha).toHaveAttribute("min", "2026-10-01");
+    expect(fecha).toHaveAttribute("max", "2026-11-06");
+    fireEvent.change(fecha, { target: { value: "2026-10-31" } });
+    await waitFor(
+      () =>
+        expect(ultimaRevision()).toMatchObject({
+          fecha_emision: "2026-10-31",
+        }),
+      { timeout: 2000 },
+    );
+  });
+
+  it("a 45 días avisa lo de la ley; al contado no tiene vencimiento", async () => {
+    abrir();
+    const condicion = await screen.findByRole("combobox", {
+      name: "Condición de pago",
+    });
+    fireEvent.change(condicion, { target: { value: "45" } });
     expect(screen.getByText(/Más de 30 días solo si/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "Contado" }));
-    expect(screen.getByText(/no queda por cobrar/)).toBeInTheDocument();
+    fireEvent.change(condicion, { target: { value: "contado" } });
+    expect(screen.queryByText(/^vence/)).not.toBeInTheDocument();
     await waitFor(
       () =>
         expect(ultimaRevision()).toMatchObject({

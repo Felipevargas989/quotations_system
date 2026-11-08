@@ -17,8 +17,6 @@ import {
   type DtePedido,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { fechaCorta } from "../../utils/ordenesDeCompra";
-import CondicionDePago from "../postventa/facturacion/CondicionDePago";
 import LineasDelDte, {
   TotalesDelDte,
 } from "../postventa/facturacion/LineasDelDte";
@@ -32,6 +30,7 @@ import {
 } from "../postventa/facturacion/datosDeLaFactura";
 import DestinatarioDeLaFactura from "./DestinatarioDeLaFactura";
 import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
+import SeccionDocumento from "./SeccionDocumento";
 
 // LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta que
 // aprobó Felipe el 06-11 (*"está perfecto (…) me gusta toda la
@@ -40,6 +39,10 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 // (buscado en Clientes o creado nuevo), los Ítems, las Referencias y los
 // Totales. «Crear documento» muestra la factura tal como saldrá, y ahí se
 // emite. La revisión es la del motor: la misma que emite.
+//
+// Desde el 08-11 (§9.32), el Documento es la pieza común con «Corregir»
+// de la revisión (`SeccionDocumento`): la fecha de emisión se elige dentro
+// de lo que deja el motor, y la condición de pago va en una lista.
 //
 // Desde el 07-11 (§9.23) la emite quien tiene «Boletas y facturas del
 // tarifario» (recepción, operaciones y el administrador): las líneas, del
@@ -166,23 +169,11 @@ export default function FacturaNueva({
         </p>
       )}
 
-      <Seccion titulo="Documento">
-        <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
-          <div className="space-y-1">
-            <p className="text-xs text-gray-500">Fecha de emisión</p>
-            <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
-              {vista ? fechaCorta(vista.fecha) : "—"}
-            </p>
-          </div>
-          <div className="min-w-0 flex-1">
-            <CondicionDePago
-              pedida={pedida}
-              fecha={vista?.fecha ?? null}
-              onChange={poner}
-            />
-          </div>
-        </div>
-      </Seccion>
+      <SeccionDocumento
+        pedida={pedida}
+        vista={vista ?? null}
+        onChange={poner}
+      />
 
       <Seccion titulo="Destinatario">
         <DestinatarioDeLaFactura

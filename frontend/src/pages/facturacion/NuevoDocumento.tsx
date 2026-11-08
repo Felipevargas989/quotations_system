@@ -24,7 +24,7 @@ export default function NuevoDocumento({
   readonly onCerrar: () => void;
 }) {
   return (
-    <Modal titulo="Nuevo documento" ancho="max-w-md" onCerrar={onCerrar}>
+    <Modal titulo="Nuevo DTE" ancho="max-w-md" onCerrar={onCerrar}>
       <div className="grid gap-2">
         {tipos.map((t) => {
           const Icono = ICONO[t];
