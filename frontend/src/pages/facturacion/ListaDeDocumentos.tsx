@@ -172,6 +172,8 @@ const subtitulo = (d: DocumentoDeLaLista) => {
     nota ? null : ref,
     !nota && d.numero ? `N° ${d.numero}` : null,
     d.reemplaza ? `reemplaza a la ${d.reemplaza}` : null,
+    // §9.36: emitida fuera de Eventia y traída de facturacion.cl.
+    d.traida ? "traída de facturacion.cl" : null,
   ]
     .filter(Boolean)
     .join(" · ");

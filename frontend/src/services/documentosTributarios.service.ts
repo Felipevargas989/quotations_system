@@ -30,6 +30,8 @@ export interface DocumentoDeLaLista {
   /** «F383_Municipalidad de Quillón_460_1213301-49-AG26» (§9.35): el
    *  nombre al descargarlo y en el visor. Un motor de antes no lo manda. */
   nombre_del_pdf?: string;
+  /** §9.36: emitida fuera de Eventia y traída de facturacion.cl. */
+  traida?: boolean;
   /** Lo que hace la nota, «anula la 1235»: junto a la fecha. */
   que_hace?: string | null;
   /** «Factura 1235», si esta factura reemplaza a una anulada de la misma OC. */
@@ -205,6 +207,44 @@ export const pedirXmlDelDocumento = async (
   (await apiRequest(`${base}/${id}/xml`, "POST")) as {
     nombre: string;
     base64: string;
+  };
+
+/** §9.36: una factura emitida fuera de Eventia, leída de su PDF de
+ *  facturacion.cl. */
+export interface FacturaTraida {
+  folio: number;
+  fecha_emision: string;
+  receptor: {
+    rut: string;
+    razon_social: string;
+    giro: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    ciudad: string | null;
+  };
+  referencias: { tipo: string; folio: string; fecha: string }[];
+  lineas: {
+    descripcion: string;
+    descripcionLarga: string | null;
+    cantidad: number;
+    precio: number;
+  }[];
+  exento: number;
+  neto: number;
+  iva: number;
+  total: number;
+  /** El evento de su OC, si la OC está en Eventia. */
+  evento: { cotizacion: number | null; oc: string } | null;
+}
+
+/** «Traer factura por N°» (§9.36): sin `guardar`, solo la lee. */
+export const traerFactura = async (
+  folio: number,
+  guardar: boolean,
+): Promise<{ factura: FacturaTraida; guardada: { id: number } | null }> =>
+  (await apiRequest(`${base}/traer`, "POST", { folio, guardar })) as {
+    factura: FacturaTraida;
+    guardada: { id: number } | null;
   };
 
 export const revisarNota = async (

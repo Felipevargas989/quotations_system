@@ -1,4 +1,10 @@
-import { CirclePlus, CircleMinus, FileText, Receipt } from "lucide-react";
+import {
+  CirclePlus,
+  CircleMinus,
+  FileDown,
+  FileText,
+  Receipt,
+} from "lucide-react";
 import Modal from "../../components/Modal";
 import { NOMBRE_DEL_NUEVO, type TipoNuevo } from "./tiposDeDocumento";
 
@@ -12,6 +18,7 @@ const ICONO: Record<TipoNuevo, typeof FileText> = {
   boleta: Receipt,
   nota_credito: CircleMinus,
   nota_debito: CirclePlus,
+  traer: FileDown,
 };
 
 export default function NuevoDocumento({

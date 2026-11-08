@@ -12,6 +12,7 @@ import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import ListaDeDocumentos from "./ListaDeDocumentos";
 import NotaNueva from "./NotaNueva";
 import NuevoDocumento from "./NuevoDocumento";
+import TraerFactura from "./TraerFactura";
 import type { TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
 
@@ -61,7 +62,7 @@ export default function FacturacionPage() {
   const tipos: TipoNuevo[] = [
     ...(permisos.includes("boletas") ? (["factura", "boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
-      ? (["nota_credito", "nota_debito"] as const)
+      ? (["nota_credito", "nota_debito", "traer"] as const)
       : []),
   ];
   // Dónde se emite: lo trae el día de boletas, que lo lee todo el que
@@ -143,6 +144,11 @@ export default function FacturacionPage() {
             onEmitida={(boleta) =>
               conDocumentos ? emitido(boleta?.id ?? null) : refrescar()
             }
+          />
+        ) : abierto.tipo === "traer" ? (
+          <TraerFactura
+            onVolver={() => setAbierto(null)}
+            onTraida={(id) => emitido(id)}
           />
         ) : (
           <NotaNueva

@@ -61,6 +61,9 @@ vi.mock("./PorFacturar", () => ({
 vi.mock("./FacturaNueva", () => ({
   default: () => <p>la factura nueva</p>,
 }));
+vi.mock("./TraerFactura", () => ({
+  default: () => <p>pantalla de traer factura</p>,
+}));
 vi.mock("./NotaNueva", () => ({
   default: ({ tipo }: { tipo: string }) => <p>la nota: {tipo}</p>,
 }));
