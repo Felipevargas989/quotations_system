@@ -75,7 +75,9 @@ export interface FilaDeLaOferta {
   pagina: number;
   /** Lo que se ofrece: va tal cual en la propuesta y en los anexos. */
   como: string;
-  origen: "catalogo" | "subcontratar" | "completar";
+  /** Decisión 120 (08-11): también lo parecido al catálogo y lo
+   *  particular de la licitación (se incluye sin precio aparte). */
+  origen: "catalogo" | "parecido" | "subcontratar" | "particular" | "completar";
   productos: number[];
 }
 

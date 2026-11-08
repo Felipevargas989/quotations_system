@@ -178,6 +178,17 @@ describe("cada exigencia con la línea de la oferta que la cubre", () => {
     expect(estadoDeExigencia({ ia: null }, "no_puedo", undefined)).toBe(
       "no_puedes",
     );
+    // Decisión 120 (08-11): lo parecido y lo particular, con su nombre.
+    expect(
+      estadoDeExigencia(
+        { ia: "conseguir" },
+        undefined,
+        fila("x", 1, "parecido"),
+      ),
+    ).toBe("parecido");
+    expect(
+      estadoDeExigencia({ ia: null }, undefined, fila("x", 1, "particular")),
+    ).toBe("particular");
   });
 
   it("el resumen y el sello de las exigencias", () => {
@@ -200,6 +211,22 @@ describe("cada exigencia con la línea de la oferta que la cubre", () => {
       texto: "1 que no puedes",
     });
     expect(selloDeLasExigencias([])).toBeNull();
+    expect(
+      resumenDeLasExigencias([
+        "catalogo",
+        "parecido",
+        "parecido",
+        "particular",
+      ]),
+    ).toBe("4 exigencias: 1 por comprar · 1 de tu catálogo · 2 parecidas");
+    expect(selloDeLasExigencias(["parecido", "particular"])).toEqual({
+      tono: "ojo",
+      texto: "1 por comprar",
+    });
+    expect(selloDeLasExigencias(["catalogo", "parecido"])).toEqual({
+      tono: "bien",
+      texto: "todo cubierto",
+    });
   });
 });
 
