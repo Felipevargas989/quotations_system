@@ -474,6 +474,35 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(screen.getByText("Factura 20")).toBeInTheDocument();
   });
 
+  it("con los filtros de la página: pide su rango y le avisa lo que cambia (08-11)", async () => {
+    const onFiltros = vi.fn();
+    const filtros = {
+      q: "",
+      tipo: "todos" as const,
+      estado: "todos" as const,
+      desde: "2026-10-01",
+      hasta: "2026-11-30",
+    };
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ListaDeDocumentos
+          conAjustes={false}
+          filtros={filtros}
+          onFiltros={onFiltros}
+          onModificar={modificar}
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("Factura 20");
+    expect(d.getListaDeFacturacion).toHaveBeenCalledWith({
+      desde: "2026-10-01",
+      hasta: "2026-11-30",
+    });
+    const [desde] = container.querySelectorAll('input[type="date"]');
+    fireEvent.change(desde, { target: { value: "2026-09-01" } });
+    expect(onFiltros).toHaveBeenCalledWith({ ...filtros, desde: "2026-09-01" });
+  });
+
   it("el rango de fechas va al motor; al revés no se pide", async () => {
     const { container } = abrir();
     await screen.findByText("Factura 20");

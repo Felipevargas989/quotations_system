@@ -10,6 +10,7 @@ import { usePorFacturar } from "./consultas";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import ListaDeDocumentos from "./ListaDeDocumentos";
+import { filtrosDeHoy, type Filtros } from "./filtrosDeLaLista";
 import NotaNueva from "./NotaNueva";
 import NuevoDocumento from "./NuevoDocumento";
 import type { TipoNuevo } from "./tiposDeDocumento";
@@ -93,6 +94,9 @@ export default function FacturacionPage() {
   const [abierto, setAbierto] = useState<Abierto | null>(null);
   // El que se acaba de emitir: la lista lo marca (§9.22).
   const [recien, setRecien] = useState<number | null>(null);
+  // Las fechas y los filtros de la lista quedan al ir a anular y volver
+  // (Felipe, 08-11: «el sistema me borra los filtros de fecha»).
+  const [filtros, setFiltros] = useState<Filtros>(filtrosDeHoy);
   const esAdmin = userRole === "administrador";
   const nuevoDocumento = () =>
     tipos.length === 1 ? setAbierto({ tipo: tipos[0] }) : setEligiendo(true);
@@ -206,6 +210,8 @@ export default function FacturacionPage() {
             <ListaDeDocumentos
               conAjustes={conAjustes}
               recien={recien}
+              filtros={filtros}
+              onFiltros={setFiltros}
               onModificar={(doc) =>
                 setAbierto({
                   tipo: doc.tipo === 61 ? "nota_debito" : "nota_credito",
