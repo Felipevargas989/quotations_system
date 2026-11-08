@@ -2470,7 +2470,7 @@ es un servicio adicional de facturacion.cl y no está contratado.». Todo lo
 demás de facturacion.cl, y la conexión sin credenciales, responde con un
 502 y con lo que dijo, sin el envoltorio de .NET (`queDijo`): «facturacion.cl
 respondió: …» o «facturacion.cl no responde: …». Lo cubren `soap.spec.ts`
-y `notas.spec.ts`, que fallan sin el arreglo.
+y `xml-a-pedido.spec.ts`, que fallan sin el arreglo.
 
 ### 9.11 Fuentes nuevas (04-11)
 

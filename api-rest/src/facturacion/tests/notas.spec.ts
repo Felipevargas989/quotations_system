@@ -501,45 +501,6 @@ describe('Cada documento en su ambiente (§9.18)', () => {
   });
 });
 
-describe('El XML a pedido (§9.33)', () => {
-  const FACTURA_381 = {
-    ...FACTURA_1,
-    id: 1,
-    ambiente: 'produccion',
-    folio: 381,
-  };
-  const conDice = (mensaje: string) => ({
-    de: () => ({
-      ambiente: 'produccion',
-      obtenerXml: jest.fn().mockResolvedValue({ base64: null, mensaje }),
-    }),
-  });
-
-  it('sin contratar, lo dice en una línea (producción, 08-11)', async () => {
-    const { servicio } = armar({
-      documentos: [FACTURA_381],
-      conexion: conDice(
-        'Esta opcion es un servicio adicional solo para clientes que lo contraten.',
-      ),
-    });
-    const error = await servicio.pedirXml(ADMIN, 1).catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(BadRequestException);
-    expect((error as Error).message).toBe(
-      'El XML es un servicio adicional de facturacion.cl y no está contratado.',
-    );
-  });
-
-  it('si no lo entrega por otra razón, dice lo que respondió', async () => {
-    const { servicio } = armar({
-      documentos: [FACTURA_381],
-      conexion: conDice('Folio no existe'),
-    });
-    await expect(servicio.pedirXml(ADMIN, 1)).rejects.toThrow(
-      'facturacion.cl no entregó el XML: Folio no existe',
-    );
-  });
-});
-
 describe('Una sola sección: lo que ve cada cargo (§9.19)', () => {
   it('operaciones mira la lista y pide el PDF; anular y «Comprobar» son del administrador', async () => {
     const { servicio } = armar({
