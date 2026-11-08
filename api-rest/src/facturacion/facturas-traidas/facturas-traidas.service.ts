@@ -4,12 +4,15 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
 import { ConexionConFacturacionCl } from '../facturas/conexion';
 import { DocumentosTributariosRepository } from '../facturas/documentos-tributarios.repository';
 import { nombreDelPdf, nombreParaElBalde } from '../facturas/nombre-del-pdf';
+import { NominaSiiRepository } from '../nomina-sii/nomina-sii.repository';
 import { FacturasTraidasRepository } from './facturas-traidas.repository';
 import { leerFacturaDelPdf } from './leer-factura-del-pdf';
+import { nombreCompletoDelSii, numeroDelRut } from './nombre-del-sii';
 
 const FACTURA = 33;
 
@@ -24,7 +27,10 @@ const FACTURA = 33;
  * en la lista como emitida, marcada «traída»: desde ahí se anula o se
  * rebaja con su nota, como cualquier otra. Sin `guardar` solo la lee, para
  * mirarla antes. Si la OC de su referencia está en Eventia, queda en ese
- * evento y cuenta en «Por facturar».
+ * evento y cuenta en «Por facturar». Si facturacion.cl cortó la razón
+ * social en su PDF, va completa con la de la nómina del SII
+ * (`nombreCompletoDelSii`; Felipe, 08-11, con la N° 375: «Sí, con nombre
+ * del SII»), y la del PDF queda anotada en `respuesta`.
  */
 @Injectable()
 export class FacturasTraidasService {
@@ -32,6 +38,7 @@ export class FacturasTraidasService {
     private readonly repo: FacturasTraidasRepository,
     private readonly documentos: DocumentosTributariosRepository,
     private readonly conexion: ConexionConFacturacionCl,
+    private readonly nomina: NominaSiiRepository,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(FacturasTraidasService.name);
@@ -62,10 +69,20 @@ export class FacturasTraidasService {
       throw new BadRequestException(
         `El PDF es de la factura N° ${f.folio}, no de la ${folio}`,
       );
+    const delPdf = f.receptor.razon_social;
+    const completo = nombreCompletoDelSii(
+      delPdf,
+      await this.nombreDelSii(f.receptor.rut),
+    );
+    const receptor = completo
+      ? { ...f.receptor, razon_social: completo }
+      : f.receptor;
     const ref = f.referencias.find((r) => r.tipo === '801');
     const oc = ref ? await this.repo.ocPorNumero(companyId, ref.folio) : null;
     const vista = {
       ...f,
+      receptor,
+      nombre_del_sii: !!completo,
       evento: oc ? { cotizacion: oc.cotizacion, oc: oc.numero } : null,
     };
     if (!guardar) return { factura: vista, guardada: null };
@@ -80,7 +97,7 @@ export class FacturasTraidasService {
         nombreDelPdf({
           tipo: FACTURA,
           folio,
-          cliente: f.receptor.razon_social,
+          cliente: receptor.razon_social,
           cotizacion: oc?.cotizacion ?? null,
           oc: ref?.folio ?? null,
         }),
@@ -97,7 +114,7 @@ export class FacturasTraidasService {
       estado: 'emitido',
       folio,
       fecha_emision: f.fecha_emision,
-      receptor: { ...f.receptor, correo: null },
+      receptor: { ...receptor, correo: null },
       detalle: f.lineas,
       referencias: f.referencias,
       exento: f.exento,
@@ -111,11 +128,28 @@ export class FacturasTraidasService {
       vencimiento: f.vencimiento,
       pdf_path: pdfPath,
       creado_por: user.id ?? null,
-      respuesta: { traida: true, de: 'facturacion.cl' },
+      respuesta: {
+        traida: true,
+        de: 'facturacion.cl',
+        ...(completo ? { razon_social_del_pdf: delPdf } : {}),
+      },
     });
     this.logger.info(
       `factura N° ${folio} traída de facturacion.cl (empresa ${companyId}, documento ${guardada.id})`,
     );
     return { factura: vista, guardada };
+  }
+
+  /** La razón social del SII para ese RUT. Si no se puede leer, nula: la
+   *  factura se trae con el nombre de su PDF. */
+  private async nombreDelSii(rut: string): Promise<string | null> {
+    const numero = numeroDelRut(rut);
+    if (!numero) return null;
+    try {
+      return (await this.nomina.contribuyente(numero))?.razon_social ?? null;
+    } catch (e) {
+      this.logger.warn(`nómina del SII para el RUT ${rut}: ${mensajeDe(e)}`);
+      return null;
+    }
   }
 }
