@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as facturas from "../../../services/facturas.service";
 import EmitirDte from "./EmitirDte";
@@ -129,7 +135,8 @@ describe("Emitir DTE", () => {
     expect(
       await screen.findByText("Factura armada por BelIA"),
     ).toBeInTheDocument();
-    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("q-408", 33, 12);
+    // Sin «Qué parte», todo lo que queda (§9.26).
+    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("q-408", 33, 12, null);
     expect(
       screen.getByRole("button", { name: /OC N° 4500918822 · queda/ }),
     ).toBeInTheDocument();
@@ -151,7 +158,12 @@ describe("Emitir DTE", () => {
     expect(
       await screen.findByText("Boleta armada por BelIA"),
     ).toBeInTheDocument();
-    expect(f.armarBorradorDeDte).toHaveBeenLastCalledWith("q-408", 39, null);
+    expect(f.armarBorradorDeDte).toHaveBeenLastCalledWith(
+      "q-408",
+      39,
+      null,
+      null,
+    );
     expect(
       screen.queryByRole("button", { name: /OC N° 4500918822/ }),
     ).not.toBeInTheDocument();
@@ -159,5 +171,37 @@ describe("Emitir DTE", () => {
     expect(
       screen.queryByText("Editar receptor y referencias"),
     ).not.toBeInTheDocument();
+  });
+});
+
+// §9.26 (Felipe, 07-11): «el cliente emite OC por todo el monto pero pide
+// facturar un % primero y otro % después (50 % y 50 % es un caso habitual,
+// también puede ser 30 % y 70 %)».
+describe("Qué parte se factura", () => {
+  it("el 50 % de la OC le pide a BelIA esa parte, y dice de qué base", async () => {
+    preparado();
+    abrir();
+    await screen.findByText("Factura armada por BelIA");
+    expect(
+      screen.getByText(/de la OC N° 4500918822: \$1\.428\.000/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "50 %" }));
+    await waitFor(() =>
+      expect(f.armarBorradorDeDte).toHaveBeenLastCalledWith(
+        "q-408",
+        33,
+        12,
+        50,
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Todo lo que queda" }));
+    await waitFor(() =>
+      expect(f.armarBorradorDeDte).toHaveBeenLastCalledWith(
+        "q-408",
+        33,
+        12,
+        null,
+      ),
+    );
   });
 });

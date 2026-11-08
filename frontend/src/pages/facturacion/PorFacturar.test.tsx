@@ -18,6 +18,7 @@ import PorFacturar from "./PorFacturar";
 
 let eventos: unknown[] = [];
 let fuera: unknown[] = [];
+let facturados: unknown[] = [];
 vi.mock("./consultas", () => ({
   LLAVE_POR_FACTURAR: ["facturacion", "por-facturar"],
   usePorFacturar: () => ({
@@ -27,15 +28,20 @@ vi.mock("./consultas", () => ({
       ambiente: "simulado",
       desde: "2026-08-08",
       eventos,
+      facturados,
       facturados_fuera: fuera,
     },
   }),
 }));
 const marcarFacturadoFuera = vi.fn().mockResolvedValue({ ok: true });
 const devolverAPorFacturar = vi.fn().mockResolvedValue({ ok: true });
+const leerOrdenesPendientes = vi
+  .fn()
+  .mockResolvedValue({ leidas: 0, sin_leer: [] });
 vi.mock("../../services/facturas.service", () => ({
   marcarFacturadoFuera: (id: string) => marcarFacturadoFuera(id),
   devolverAPorFacturar: (id: string) => devolverAPorFacturar(id),
+  leerOrdenesPendientes: () => leerOrdenesPendientes(),
 }));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -55,6 +61,7 @@ afterEach(() => {
   cleanup();
   eventos = [];
   fuera = [];
+  facturados = [];
   vi.clearAllMocks();
 });
 
@@ -136,11 +143,113 @@ describe("Por facturar", () => {
     ).toBeInTheDocument();
   });
 
-  it("el PDF de una factura en Documentos se avisa bajo el cliente (§9.24)", () => {
-    eventos = [{ ...EVENTO, tiene_factura_en_documentos: true }];
+  it("el PDF de una factura en Documentos se avisa bajo el cliente (§9.24), junto a sus OC", () => {
+    eventos = [
+      {
+        ...EVENTO,
+        tiene_factura_en_documentos: true,
+        ordenes: [
+          {
+            id: 1,
+            numero: "4500123",
+            total: 1245000,
+            facturado: 0,
+            queda: 1245000,
+            estado: "pendiente",
+          },
+        ],
+      },
+    ];
     abrir();
     expect(screen.getByText("Tiene factura en Documentos")).toBeInTheDocument();
-    expect(screen.getByText("1 OC")).toBeInTheDocument();
+    expect(screen.getByText("Con OC")).toBeInTheDocument();
+    expect(screen.getByText(/OC 4500123 · \$1\.245\.000/)).toBeInTheDocument();
+  });
+
+  it("pendiente o parcial con el % facturado, cada OC con lo suyo y la que factura «Facturar» (§9.26)", () => {
+    eventos = [
+      {
+        ...EVENTO,
+        id: "ev-118",
+        numero: 118,
+        cliente: "CCU",
+        total: 20000000,
+        emitido: 10000000,
+        queda: 10000000,
+        ocs: 2,
+        facturacion: "parcial",
+        porcentaje_facturado: 50,
+        ordenes: [
+          {
+            id: 1,
+            numero: "4500001",
+            total: 10000000,
+            facturado: 10000000,
+            queda: 0,
+            estado: "facturado",
+          },
+          {
+            id: 2,
+            numero: "4500002",
+            total: 10000000,
+            facturado: 0,
+            queda: 10000000,
+            estado: "pendiente",
+          },
+        ],
+        se_factura: { oc: "4500002", monto: 10000000 },
+      },
+      { ...EVENTO, facturacion: "pendiente" },
+    ];
+    abrir();
+    expect(screen.getByText("Parcial")).toBeInTheDocument();
+    expect(screen.getByText("50 % facturado")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
+    expect(screen.getByText("facturada")).toBeInTheDocument();
+    expect(screen.getByText("OC 4500002")).toBeInTheDocument();
+  });
+
+  it("la primera lectura: BelIA lee sola las OC sin leer y dice las que no pudo (§9.26)", async () => {
+    eventos = [{ ...EVENTO, ocs_sin_leer: 2 }];
+    leerOrdenesPendientes.mockResolvedValueOnce({
+      leidas: 1,
+      sin_leer: [
+        {
+          documento_id: 9,
+          nombre: "oc.pdf",
+          motivo: "no encontró el total",
+          quotation_id: "ev-473",
+          numero: 473,
+        },
+      ],
+    });
+    abrir();
+    expect(
+      screen.getByText(/BelIA está leyendo 2 órdenes de compra/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "BelIA no pudo leer «oc.pdf»: no encontró el total",
+      ),
+    ).toBeInTheDocument();
+    expect(leerOrdenesPendientes).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin OC por leer no le pide nada a BelIA", () => {
+    eventos = [EVENTO];
+    abrir();
+    expect(leerOrdenesPendientes).not.toHaveBeenCalled();
+  });
+
+  it("los facturados completos en Eventia van abajo, plegados (§9.26)", () => {
+    facturados = [
+      { ...EVENTO, emitido: 1245000, queda: 0, facturacion: "facturado" },
+    ];
+    abrir();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Facturados en Eventia \(1\)/ }),
+    );
+    expect(screen.getByText("Facturado")).toBeInTheDocument();
   });
 
   it("«Ya está facturado» pregunta antes y lo saca de la lista", async () => {

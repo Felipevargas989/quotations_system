@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Get,
   Injectable,
+  Optional,
   Param,
   ParseIntPipe,
   Post,
@@ -16,6 +17,7 @@ import { CurrentUser } from 'src/auth';
 import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { Roles, SALES_AND_UP } from 'src/auth/roles.decorator';
 import { DelEvento } from 'src/clients/del-evento.decorator';
+import { OrdenesDeCompraService } from 'src/facturacion/ordenes-de-compra/ordenes-de-compra.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 
@@ -120,7 +122,12 @@ const esVendedor = (user: User) => user.role === UserRole.VENDEDOR;
 @DentroDe('cotizaciones')
 @Controller('event-documents')
 export class EventDocumentsController {
-  constructor(private readonly repo: EventDocumentsRepository) {}
+  constructor(
+    private readonly repo: EventDocumentsRepository,
+    // La lectura de la OC al subirla (doc 19 §9.26): solo con el módulo
+    // propio `facturacion`.
+    @Optional() private readonly ocs?: OrdenesDeCompraService,
+  ) {}
 
   @DelEvento({ query: 'quotationId' })
   @Get()
@@ -137,7 +144,22 @@ export class EventDocumentsController {
     if (esVendedor(user) && dto.category !== 'comercial') {
       throw new ForbiddenException(SOLO_COMERCIAL);
     }
-    return this.repo.add(user.company_id, dto);
+    const agregado = this.repo.add(user.company_id, dto);
+    // Doc 19 §9.26 (Felipe, 07-11): la OC que se sube la lee BelIA por
+    // detrás, para que la factura quede lista. Solo con Facturación.
+    if (
+      dto.category === 'ordenes_compra' &&
+      this.ocs &&
+      user.derechos?.includes('facturacion')
+    ) {
+      const ocs = this.ocs;
+      void agregado
+        .then(() =>
+          ocs.leerAlSubir(dto.quotation_id, user.company_id, user.id ?? null),
+        )
+        .catch(() => undefined);
+    }
+    return agregado;
   }
 
   @DelEvento({ tabla: 'event_documents', param: 'id' })

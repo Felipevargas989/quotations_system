@@ -13,7 +13,7 @@ import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import type { DtePedido } from './borrador';
-import { BaseDelDteDto, DtePedidoDto } from './factura.dto';
+import { BorradorDelDteDto, DtePedidoDto } from './factura.dto';
 import { FacturasService } from './facturas.service';
 
 // El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta. Desde el
@@ -60,7 +60,7 @@ export class FacturasController {
   @Post('borrador')
   borrador(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
-    @Body() dto: BaseDelDteDto,
+    @Body() dto: BorradorDelDteDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${quotationId}/facturas/borrador`);
@@ -69,6 +69,7 @@ export class FacturasController {
       user.company_id,
       dto.tipo,
       dto.orden_de_compra_id ?? null,
+      dto.porcentaje ?? null,
     );
   }
 

@@ -398,18 +398,64 @@ export class DocumentosTributariosRepository {
     ).map((d) => ({ ...d, total: Number(d.total) }));
   }
 
-  /** Cuántas OC tiene cada uno de esos eventos. */
-  async ocsDeLosEventos(companyId: number, ids: string[]) {
-    const cuantas = new Map<string, number>();
-    if (!ids.length) return cuantas;
+  /** Las OC de cada evento de «Por facturar» (§9.26): su N° y su total,
+   *  para decir cuál está facturada, cuál a medias y cuál falta. */
+  async ordenesDeLosEventos(companyId: number, ids: string[]) {
+    const porEvento = new Map<
+      string,
+      { id: number; numero: string; total: number }[]
+    >();
+    if (!ids.length) return porEvento;
     const { data, error } = await this.supabase.client
       .from('ordenes_de_compra')
-      .select('quotation_id')
+      .select('id, quotation_id, numero, total')
       .eq('company_id', companyId)
-      .in('quotation_id', ids);
+      .in('quotation_id', ids)
+      .order('id', { ascending: true });
     if (error) throw error;
-    for (const o of (data ?? []) as { quotation_id: string }[])
-      cuantas.set(o.quotation_id, (cuantas.get(o.quotation_id) ?? 0) + 1);
+    for (const o of (data ?? []) as {
+      id: number;
+      quotation_id: string;
+      numero: string;
+      total: number | string;
+    }[])
+      porEvento.set(o.quotation_id, [
+        ...(porEvento.get(o.quotation_id) ?? []),
+        { id: o.id, numero: o.numero, total: Number(o.total) },
+      ]);
+    return porEvento;
+  }
+
+  /** Los PDF de «Órdenes de compra» de cada evento que BelIA todavía no
+   *  deja como OC (§9.26): se leen al subirlos, y los de antes, en la
+   *  primera lectura de «Por facturar». La tabla de documentos no tiene
+   *  `company_id`: los eventos ya son de la empresa. */
+  async ocsSinLeerDeLosEventos(companyId: number, ids: string[]) {
+    const cuantas = new Map<string, number>();
+    if (!ids.length) return cuantas;
+    const [pdfs, leidas] = await Promise.all([
+      this.supabase.client
+        .from('event_documents')
+        .select('id, quotation_id')
+        .eq('category', 'ordenes_compra')
+        .in('quotation_id', ids),
+      this.supabase.client
+        .from('ordenes_de_compra')
+        .select('documento_id')
+        .eq('company_id', companyId)
+        .in('quotation_id', ids)
+        .not('documento_id', 'is', null),
+    ]);
+    if (pdfs.error) throw pdfs.error;
+    if (leidas.error) throw leidas.error;
+    const yaLeidos = new Set(
+      ((leidas.data ?? []) as { documento_id: number }[]).map(
+        (o) => o.documento_id,
+      ),
+    );
+    for (const d of (pdfs.data ?? []) as { id: number; quotation_id: string }[])
+      if (!yaLeidos.has(d.id))
+        cuantas.set(d.quotation_id, (cuantas.get(d.quotation_id) ?? 0) + 1);
     return cuantas;
   }
 

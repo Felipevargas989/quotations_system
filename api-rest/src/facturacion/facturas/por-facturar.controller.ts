@@ -33,6 +33,15 @@ export class PorFacturarController {
     return this.facturas.porFacturar(user.company_id);
   }
 
+  /** La primera lectura de las OC (doc 19 §9.26): BelIA lee las de
+   *  Documentos que todavía no lee, de los eventos de «Por facturar». */
+  @Permiso('facturacion_eventos')
+  @Post('leer-ordenes')
+  @Roles(...OPERATIONS_AND_UP)
+  leerOrdenes(@CurrentUser() user: User) {
+    return this.facturas.leerOrdenesPendientes(user);
+  }
+
   @Permiso('facturacion_eventos')
   @Post(':quotationId/facturado-fuera')
   @Roles(...OPERATIONS_AND_UP)

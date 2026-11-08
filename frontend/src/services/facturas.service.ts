@@ -214,14 +214,18 @@ export const prepararDte = async (
     "POST",
   )) as PreparacionDelDte;
 
+/** El borrador de BelIA. Con `porcentaje` (§9.26: el 50 % o el 30 % de la
+ *  OC, o de la cotización), factura esa parte; sin él, todo lo que queda. */
 export const armarBorradorDeDte = async (
   quotationId: string,
   tipo: TipoDeDte,
   ordenDeCompraId: number | null,
+  porcentaje: number | null = null,
 ): Promise<BorradorDelDte> =>
   (await apiRequest(`${ruta(quotationId)}/borrador`, "POST", {
     tipo,
     orden_de_compra_id: ordenDeCompraId,
+    ...(porcentaje != null ? { porcentaje } : {}),
   })) as BorradorDelDte;
 
 export const revisarDte = async (
@@ -244,11 +248,26 @@ export const emitirDte = async (
     pedida,
   )) as DocumentoTributario;
 
+/** Pendiente, parcial o facturado (§9.26): del evento y de cada OC. */
+export type EstadoDeLaFacturacion = "pendiente" | "parcial" | "facturado";
+
+/** Una OC del evento en «Por facturar» (§9.26), con lo facturado de ella
+ *  (contado con la cadena) y lo que le queda. */
+export interface OrdenPorFacturar {
+  id: number;
+  numero: string;
+  total: number;
+  facturado: number;
+  queda: number;
+  estado: EstadoDeLaFacturacion;
+}
+
 /** Un evento de «Por facturar» (doc 19 §9.21): aceptado o realizado, con
  *  lo ya emitido (facturas y boletas, con la cadena) y lo que queda. */
 export interface EventoPorFacturar {
   id: string;
   numero: number;
+  /** El de la cotización: aceptada o realizada. */
   estado: string;
   tipoDeEvento: string | null;
   fecha: string | null;
@@ -260,6 +279,16 @@ export interface EventoPorFacturar {
   /** Tiene en Documentos el PDF de una factura subido a mano (§9.24): se
    *  revisa antes de facturarlo. */
   tiene_factura_en_documentos?: boolean;
+  /** §9.26: cuánto se ha facturado del evento. */
+  facturacion?: EstadoDeLaFacturacion;
+  porcentaje_facturado?: number;
+  /** §9.26: sus OC leídas, cada una con su estado. */
+  ordenes?: OrdenPorFacturar[];
+  /** §9.26: los PDF de órdenes de compra que BelIA todavía no lee. */
+  ocs_sin_leer?: number;
+  /** §9.26: lo que factura «Facturar»: lo que queda de la primera OC con
+   *  saldo, o lo que queda del evento. */
+  se_factura?: { oc: string | null; monto: number };
 }
 
 /** Un evento marcado con «Ya está facturado» (§9.24): se facturó fuera de
@@ -276,11 +305,30 @@ export interface EventosPorFacturar {
   /** Desde qué fecha mira (los últimos 90 días y lo que viene). */
   desde: string;
   eventos: EventoPorFacturar[];
+  /** §9.26: los facturados completos en Eventia (plegados abajo). */
+  facturados?: EventoPorFacturar[];
   facturados_fuera?: EventoFacturadoFuera[];
 }
 
 export const getPorFacturar = async (): Promise<EventosPorFacturar> =>
   (await apiRequest("/facturacion/por-facturar", "GET")) as EventosPorFacturar;
+
+/** Una OC que BelIA no pudo leer en la primera lectura (§9.26). */
+export interface OcSinLeer {
+  documento_id: number;
+  nombre: string;
+  motivo: string;
+  quotation_id: string;
+  numero: number;
+}
+
+/** La primera lectura de las OC (§9.26): BelIA lee las de Documentos que
+ *  todavía no lee, de los eventos de «Por facturar». */
+export const leerOrdenesPendientes = async () =>
+  (await apiRequest("/facturacion/por-facturar/leer-ordenes", "POST")) as {
+    leidas: number;
+    sin_leer: OcSinLeer[];
+  };
 
 /** «Ya está facturado»: sale de «Por facturar» (§9.24). */
 export const marcarFacturadoFuera = async (quotationId: string) =>
