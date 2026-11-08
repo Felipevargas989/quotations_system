@@ -29,7 +29,26 @@ import {
 // producto por cada variación del principal"); y solo lo muy específico
 // queda como algo que falta en el catálogo.
 
-export type OrigenDeLaFila = 'catalogo' | 'subcontratar' | 'completar';
+// Desde la decisión 120 (08-11), con criterio y en cuatro (Felipe: "esto
+// tengo un producto muy parecido, pongo el producto en mi catálogo, esto es
+// particular de la licitación, la incluyo para no quedar fuera por bases"):
+// lo IGUAL al catálogo ('catalogo'), lo PARECIDO (el producto del catálogo,
+// escrito con las palabras de las bases), lo que se SUBCONTRATA y lo
+// PARTICULAR de esta licitación (la taza de regalo, los galvanos), que se
+// incluye sin precio aparte: "el precio es 1 el que ponemos al armar".
+export type OrigenDeLaFila =
+  | 'catalogo'
+  | 'parecido'
+  | 'subcontratar'
+  | 'particular'
+  | 'completar';
+
+const ORIGENES: ReadonlySet<string> = new Set([
+  'parecido',
+  'subcontratar',
+  'particular',
+  'completar',
+]);
 
 export type FilaDeLaMatriz = {
   especificacion: string;
@@ -77,7 +96,13 @@ export const ESQUEMA_DE_LA_OFERTA = {
           como: { type: 'string' },
           origen: {
             type: 'string',
-            enum: ['catalogo', 'subcontratar', 'completar'],
+            enum: [
+              'catalogo',
+              'parecido',
+              'subcontratar',
+              'particular',
+              'completar',
+            ],
           },
           productos: { type: 'array', items: { type: 'integer' } },
         },
@@ -132,10 +157,9 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
       const especificacion = texto(f?.especificacion);
       const como = texto(f?.como);
       if (!especificacion || !como) return [];
-      const origen: OrigenDeLaFila =
-        f.origen === 'subcontratar' || f.origen === 'completar'
-          ? f.origen
-          : 'catalogo';
+      const origen: OrigenDeLaFila = ORIGENES.has(f.origen as string)
+        ? (f.origen as OrigenDeLaFila)
+        : 'catalogo';
       return [
         {
           especificacion,
@@ -228,7 +252,9 @@ export const instruccionesDeLaOferta = (c: {
       // puede no se promete.
       'Lo que la revisión dice que "la empresa dijo que no puede" NO se ofrece: déjalo fuera de la matriz y de la cotización.',
       'matriz: una fila por cada especificación técnica de las bases, en su orden. "especificacion": con las palabras de las bases; "pagina": su página (0 si no se sabe); "como": lo que se ofrece, en una o dos líneas y con las mismas cantidades y características que dicen las bases (ese texto va tal cual en la propuesta técnica y en los anexos); "productos": los ids del catálogo que la cubren.',
-      '"origen": "catalogo" si se cubre con productos del catálogo, aunque las bases pidan una variación de lo que ya vende (va en "detalles"); "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
+      // Decisión 120 (08-11): con criterio, en cuatro, para no quedar
+      // fuera de bases.
+      '"origen", con criterio: "catalogo" si un producto del catálogo es lo que piden las bases; "parecido" si un producto del catálogo es muy parecido a lo que piden (piden «sándwich de pavo» y la empresa vende «sándwich de ave»; piden «colación en bolsa individual» y la empresa vende la colación): va en cajas y fijos con su id, en "como" escribe lo que piden CON LAS PALABRAS DE LAS BASES y la diferencia va en "detalles"; "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "particular" si es propio de ESTA licitación y la empresa lo compra o lo adapta para cumplir (una taza de regalo, galvanos para un premio, bolsas individuales, credenciales, diplomas, un jugo en caja): se incluye SIEMPRE, para no quedar fuera de bases, y sin precio aparte (va dentro del único precio de la oferta); en "como", comprometido con las palabras y cantidades de las bases; en "productos", los ids del producto del catálogo con el que va (los de la colación, si es la taza que va con ella) o [] si va solo; y la línea de lo que hay que comprar va también en "subcontratar"; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
       SOLO_LO_QUE_PIDEN,
       // Felipe, 19-10: "si no tienen el detalle completo, poner una
       // propuesta en base a lo que tenemos paquetizado o lo que está en el
