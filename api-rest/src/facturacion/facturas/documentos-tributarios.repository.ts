@@ -291,6 +291,8 @@ export class DocumentosTributariosRepository {
         cliente: { name: string | null } | null;
       } | null;
       oc: { numero: string } | null;
+      /** §9.36: traída de facturacion.cl (de la respuesta, solo la marca). */
+      traida?: boolean | null;
     };
     // Por páginas (§9.22, sprint 2): con un rango de hasta un año, las
     // boletas de las cabañas pasan de las mil filas que entrega la base de
@@ -300,7 +302,7 @@ export class DocumentosTributariosRepository {
       let consulta = this.supabase.client
         .from('documentos_tributarios')
         .select(
-          `${COLUMNAS}, cotizacion:quotations(quotation_number, cliente:clients(name)), oc:ordenes_de_compra(numero)`,
+          `${COLUMNAS}, traida:respuesta->traida, cotizacion:quotations(quotation_number, cliente:clients(name)), oc:ordenes_de_compra(numero)`,
         )
         .eq('company_id', companyId)
         .in('estado', FACTURADO)

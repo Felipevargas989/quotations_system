@@ -7,6 +7,9 @@ import { BoletasService } from './boletas/boletas.service';
 import { FacturasAnterioresController } from './facturas-anteriores/facturas-anteriores.controller';
 import { FacturasAnterioresRepository } from './facturas-anteriores/facturas-anteriores.repository';
 import { FacturasAnterioresService } from './facturas-anteriores/facturas-anteriores.service';
+import { FacturasTraidasController } from './facturas-traidas/facturas-traidas.controller';
+import { FacturasTraidasRepository } from './facturas-traidas/facturas-traidas.repository';
+import { FacturasTraidasService } from './facturas-traidas/facturas-traidas.service';
 import { ConexionConFacturacionCl } from './facturas/conexion';
 import { DocumentosTributariosRepository } from './facturas/documentos-tributarios.repository';
 import { FacturaSinEventoController } from './facturas/factura-sin-evento.controller';
@@ -47,6 +50,7 @@ import { RecibidosService } from './recibidos/recibidos.service';
     FacturaSinEventoController,
     NominaSiiController,
     FacturasAnterioresController,
+    FacturasTraidasController,
     RecibidosController,
   ],
   providers: [
@@ -64,6 +68,8 @@ import { RecibidosService } from './recibidos/recibidos.service';
     NominaSiiRepository,
     FacturasAnterioresService,
     FacturasAnterioresRepository,
+    FacturasTraidasService,
+    FacturasTraidasRepository,
     RecibidosService,
     RecibidosRepository,
   ],

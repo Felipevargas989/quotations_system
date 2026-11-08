@@ -258,6 +258,7 @@ export class NotasService {
         titulo,
         nombre,
         nombre_del_pdf: nombreDelPdfDe(d),
+        traida: !!d.traida,
         que_hace: queHace,
         reemplaza: reemplaza ? nombreDe(reemplaza) : null,
         cliente:
