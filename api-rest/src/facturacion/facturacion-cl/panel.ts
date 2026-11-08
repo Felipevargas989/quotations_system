@@ -113,7 +113,17 @@ export class FacturacionClPanel {
       'ConsultaPanelDte',
       `${this.login()}<folio></folio><tipo></tipo><rutproveedor></rutproveedor>`,
     );
-    return leerPanel(texto ?? '');
+    const r = leerPanel(texto ?? '');
+    // Si no dice «Resultado» ni «Mensaje», el comienzo de lo que respondió
+    // (como «Probar la conexión»): es la respuesta, nunca las credenciales.
+    if (!r.ok && !r.mensaje)
+      r.mensaje =
+        desescapar(texto ?? '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 300) || 'facturacion.cl respondió vacío';
+    return r;
   }
 
   async acuse(

@@ -322,6 +322,25 @@ describe('El Panel DTE Recibidos de facturacion.cl (§9.30)', () => {
     );
   });
 
+  it('si la respuesta no trae «Resultado» ni «Mensaje», dice cómo empieza lo que respondió', async () => {
+    const panel = new FacturacionClPanel({
+      credenciales: CRED,
+      fetch: jest
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ConsultaPanelDteResponse xmlns="http://tempuri.org"><ConsultaPanelDteResult>Usuario sin acceso al panel</ConsultaPanelDteResult></ConsultaPanelDteResponse></soap:Body></soap:Envelope>',
+            { status: 200 },
+          ),
+        ) as never,
+    });
+    expect(await panel.pendientes()).toEqual({
+      ok: false,
+      mensaje: 'Usuario sin acceso al panel',
+      pendientes: [],
+    });
+  });
+
   it('una falla del panel se dice sin mostrar las credenciales', async () => {
     const panel = new FacturacionClPanel({
       credenciales: CRED,
