@@ -2665,6 +2665,30 @@ tarde con el motor del PR #322; la 375 se trae con este arreglo.
 **En producción desde el 08-11-2026** (PR #323, el motor y la vitrina,
 sin migración).
 
+**Las notas de crédito, también (08-11, esa noche).** Al anular la 374
+desde Eventia, facturacion.cl respondió *«El documento Tipo 33, folio 374
+ya fue anulado previamente»* (la nota quedó rechazada, sin folio). Leídas
+la 376 a la 380 sin guardar: la 374 y la 375 se habían anulado en la
+página de facturacion.cl y el 30-10 se volvieron a emitir como la 377 (CFT)
+y la 378 (IP), con «MENU ADULTO | MENU NIÑO». Felipe: *"nos pidieron
+anularlas porque no estaban bien emitidas… y la segunda que hay que emitir
+son las que hay que anular… tráete las notas de crédito y las facturas"*.
+Las facturas 377 a 380 se trajeron esa noche; para las notas, «Traer»
+(ahora «Traer factura o nota de crédito emitida fuera de Eventia») tiene
+un selector «Factura | Nota de crédito»:
+- la NC sale con la misma plantilla, medida en la NC N° 115 de producción:
+  «NOTA DE CREDITOELECTRONICA» arriba y, en la referencia, la razón y el
+  documento que modifica («Test en FACTURA ELECTRONICA : Nro. 381 del
+  08-11-2026»); la referencia se busca por los nombres conocidos, así una
+  razón con «en» no se la come;
+- el documento que modifica tiene que estar en Eventia (si no, «tráela
+  primero»): la nota entra a su cadena (§9.5) con `modifica_id`, su evento
+  y su OC, y la factura queda «Anulada por NC N° …»;
+- el código de referencia no se imprime (el XML, que lo trae, se cobra
+  aparte): se saca de los montos (`nota-traida.ts`): por el total del
+  documento anula, en cero corrige un texto, por menos rebaja; por más, no
+  se trae. La fila lo anota (`respuesta.codigo_por_los_montos`).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
