@@ -43,6 +43,11 @@ const vista = (total: number): facturas.VistaPrevia => ({
 
 const texto = () => document.body.textContent ?? "";
 
+/** El monto de una columna («Facturado», «Esta factura», «Queda»). */
+const monto = (etiqueta: string) =>
+  screen.getByText(etiqueta, { selector: "dt" }).nextElementSibling
+    ?.textContent;
+
 describe("Lo del evento: la barra de lo facturado", () => {
   it("el adelanto de Rudel: lo facturado, esta factura y lo que queda", () => {
     render(
@@ -55,9 +60,9 @@ describe("Lo del evento: la barra de lo facturado", () => {
     );
     expect(screen.getByText("Lo del evento")).toBeInTheDocument();
     expect(texto()).toContain("Evento $10.000.000");
-    expect(texto()).toContain(
-      "Facturado $0 · Esta factura $4.000.000 · Queda $6.000.000",
-    );
+    expect(monto("Facturado")).toBe("$0");
+    expect(monto("Esta factura")).toBe("$4.000.000");
+    expect(monto("Queda")).toBe("$6.000.000");
     expect(texto()).not.toContain("se pasa del evento");
   });
 
@@ -70,9 +75,9 @@ describe("Lo del evento: la barra de lo facturado", () => {
         tipo={33}
       />,
     );
-    expect(texto()).toContain(
-      "Facturado $4.000.000 · Esta factura $6.000.000 · Queda $0",
-    );
+    expect(monto("Facturado")).toBe("$4.000.000");
+    expect(monto("Esta factura")).toBe("$6.000.000");
+    expect(monto("Queda")).toBe("$0");
   });
 
   it("si con esta se pasa del total del evento, lo dice en ámbar (la #460)", () => {
@@ -84,17 +89,22 @@ describe("Lo del evento: la barra de lo facturado", () => {
         tipo={33}
       />,
     );
+    // El recuadro sigue azul; lo que hay que mirar va en su franja ámbar.
     expect(
-      screen.getByText("Con esta factura se pasa del evento por $840.000"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Lo del evento")).toHaveClass("text-amber-900");
+      screen
+        .getByText("Con esta factura se pasa del evento por $840.000")
+        .closest("p"),
+    ).toHaveClass("bg-amber-100");
+    expect(screen.getByText("Lo del evento")).toHaveClass("text-blue-900");
   });
 
   it("sin el documento todavía, muestra lo facturado y lo que queda", () => {
     render(
       <LoDelEvento evento={evento(595_000, 0)} noLeidas={[]} vista={null} />,
     );
-    expect(texto()).toContain("Facturado $0 · Queda $595.000");
+    expect(monto("Facturado")).toBe("$0");
+    expect(monto("Esta factura")).toBe("—");
+    expect(monto("Queda")).toBe("$595.000");
   });
 
   it("la boleta se nombra como boleta", () => {
@@ -106,6 +116,27 @@ describe("Lo del evento: la barra de lo facturado", () => {
         tipo={39}
       />,
     );
-    expect(texto()).toContain("Esta boleta $100.000");
+    expect(monto("Esta boleta")).toBe("$100.000");
+  });
+
+  it("siempre azul, también con lo que falta, que va en su franja (08-11)", () => {
+    render(
+      <LoDelEvento
+        evento={evento(1_428_000, 0)}
+        noLeidas={[]}
+        vista={{
+          ...vista(1_428_000),
+          ok: false,
+          faltan: [{ campo: "receptor.giro", texto: "el giro" }],
+        }}
+        tipo={33}
+      />,
+    );
+    expect(screen.getByText("Lo del evento")).toHaveClass("text-blue-900");
+    expect(
+      screen
+        .getByText("Falta el giro: corrígelo antes de aprobar")
+        .closest("p"),
+    ).toHaveClass("bg-amber-100");
   });
 });
