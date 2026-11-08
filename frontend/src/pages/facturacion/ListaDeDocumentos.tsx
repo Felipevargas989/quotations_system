@@ -14,16 +14,20 @@ import {
   pedirPdfDelDocumento,
   pedirXmlDelDocumento,
   type DocumentoDeLaLista,
-  type SituacionEnLaLista,
 } from "../../services/documentosTributarios.service";
 import { descargarArchivo } from "../../services/storage.service";
 import { humanizeApiError } from "../../utils/apiErrors";
-import { hoyEnChile } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { matchesSearch } from "../../utils/searchMatch";
 import NominaDelSii from "./NominaDelSii";
 import ProbarLaConexion from "./ProbarLaConexion";
 import RecibidosDelMes from "./RecibidosDelMes";
+import {
+  filtrosDeHoy,
+  type EstadoDelFiltro,
+  type Filtros,
+  type TipoDelFiltro,
+} from "./filtrosDeLaLista";
 
 // «DOCUMENTOS», LA LISTA DE FACTURACIÓN (doc 19 §9.5 y §9.22, sprint 2),
 // como la maqueta que aprobó Felipe el 06-11: *"pequeño dashboard,
@@ -58,19 +62,8 @@ const clp = (n: number) =>
 const cuantas = (n: number, cosa: string) =>
   `${n} ${cosa}${n === 1 ? "" : "s"}`;
 
-/** El mes de una fecha: del primero al último día (AAAA-MM-DD). */
-const delMes = (hoy: string) => {
-  const [a, m] = hoy.split("-").map(Number);
-  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
-  const mes = hoy.slice(0, 7);
-  return {
-    desde: `${mes}-01`,
-    hasta: `${mes}-${String(ultimo).padStart(2, "0")}`,
-  };
-};
-
-type Tipo = "todos" | "33" | "39" | "61" | "56";
-type Estado = "todos" | Exclude<SituacionEnLaLista, "nota">;
+type Tipo = TipoDelFiltro;
+type Estado = EstadoDelFiltro;
 
 const TIPOS: { value: Tipo; label: string }[] = [
   { value: "todos", label: "Todos los tipos" },
@@ -86,20 +79,6 @@ const ESTADOS: { value: Estado; label: string }[] = [
   { value: "anulada", label: "Anuladas" },
   { value: "por_confirmar", label: "Por confirmar" },
 ];
-
-interface Filtros {
-  q: string;
-  tipo: Tipo;
-  estado: Estado;
-  desde: string;
-  hasta: string;
-}
-const filtrosDeHoy = (): Filtros => ({
-  q: "",
-  tipo: "todos",
-  estado: "todos",
-  ...delMes(hoyEnChile()),
-});
 
 const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
 const soloRut = (s: string) => s.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -255,25 +234,32 @@ const casilla =
 export default function ListaDeDocumentos({
   conAjustes,
   recien = null,
+  filtros,
+  onFiltros,
   onModificar,
 }: {
   /** El permiso «Tarifario y conexión» (doc 22 §7): «Probar la conexión». */
   readonly conAjustes: boolean;
   /** El que se acaba de emitir: se marca en la lista. */
   readonly recien?: number | null;
+  /** Los filtros, si los guarda la página: quedan al ir a anular y volver
+   *  (`filtrosDeLaLista.ts`). Sin ellos, la lista guarda los suyos. */
+  readonly filtros?: Filtros;
+  readonly onFiltros?: (f: Filtros) => void;
   /** «Anular o rebajar…»: la nota en su pantalla, con este documento ya
    *  elegido (§9.22, sprint 3). */
   readonly onModificar: (doc: DocumentoDeLaLista) => void;
 }) {
   const queryClient = useQueryClient();
   const [lado, setLado] = useState<"emitidos" | "recibidos">("emitidos");
-  const [f, setF] = useState<Filtros>(filtrosDeHoy);
+  const [propios, setPropios] = useState<Filtros>(filtrosDeHoy);
+  const f = filtros ?? propios;
+  const setF = onFiltros ?? setPropios;
   const [ocupado, setOcupado] = useState<number | null>(null);
   // §9.33: el PDF que se acaba de traer al pincharlo «Ver»: su visor se
   // abre apenas llega.
   const [verAlLlegar, setVerAlLlegar] = useState<number | null>(null);
-  const poner = (cambios: Partial<Filtros>) =>
-    setF((x) => ({ ...x, ...cambios }));
+  const poner = (cambios: Partial<Filtros>) => setF({ ...f, ...cambios });
 
   const rangoOk = !!f.desde && !!f.hasta && f.desde <= f.hasta;
   const llave = ["facturacion", "lista", f.desde, f.hasta];
