@@ -28,8 +28,8 @@ export default function TraerFactura({
   onTraida,
 }: {
   readonly onVolver: () => void;
-  /** La traída: la lista la marca. */
-  readonly onTraida: (id: number) => void;
+  /** La traída y su fecha: la lista la marca, desde su mes. */
+  readonly onTraida: (id: number, fecha: string) => void;
 }) {
   const [folio, setFolio] = useState<number | undefined>(undefined);
   const [leida, setLeida] = useState<FacturaTraida | null>(null);
@@ -59,7 +59,7 @@ export default function TraerFactura({
       toast.success(
         `Factura N° ${leida.folio} traída: ya puedes anularla desde Documentos.`,
       );
-      if (r.guardada) onTraida(r.guardada.id);
+      if (r.guardada) onTraida(r.guardada.id, leida.fecha_emision);
     } catch (e) {
       setError(humanizeApiError(e, "No se pudo traer esa factura."));
     } finally {
@@ -112,7 +112,14 @@ export default function TraerFactura({
             <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
               <div className="sm:col-span-2">
                 <dt className="text-xs text-gray-500">Razón social</dt>
-                <dd className="text-gray-900">{leida.receptor.razon_social}</dd>
+                <dd className="text-gray-900">
+                  {leida.receptor.razon_social}
+                  {leida.nombre_del_sii && (
+                    <span className="block text-xs text-gray-500">
+                      Completo según el SII: facturacion.cl lo cortó en su PDF
+                    </span>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-500">RUT</dt>

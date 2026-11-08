@@ -183,12 +183,13 @@ afterEach(() => {
 });
 
 const modificar = vi.fn();
-const abrir = (conAjustes = false) =>
+const abrir = (conAjustes = false, desde: string | null = null) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ListaDeDocumentos
         conAjustes={conAjustes}
         recien={22}
+        desde={desde}
         onModificar={modificar}
       />
     </QueryClientProvider>,
@@ -473,6 +474,24 @@ describe("la lista de Facturación (§9.22)", () => {
       screen.getByRole("button", { name: "Limpiar los filtros" }),
     );
     expect(screen.getByText("Factura 20")).toBeInTheDocument();
+  });
+
+  it("lo recién traído de otro mes: la lista abre desde ese mes hasta hoy (§9.36)", async () => {
+    abrir(false, "2026-10-30");
+    await screen.findByText("Factura 20");
+    expect(d.getListaDeFacturacion).toHaveBeenCalledWith({
+      desde: "2026-10-01",
+      hasta: "2026-11-30",
+    });
+    cleanup();
+    vi.clearAllMocks();
+    // De hace más de un año: solo su mes (el motor pide hasta un año).
+    abrir(false, "2025-06-15");
+    await screen.findByText("Factura 20");
+    expect(d.getListaDeFacturacion).toHaveBeenCalledWith({
+      desde: "2025-06-01",
+      hasta: "2025-06-30",
+    });
   });
 
   it("el rango de fechas va al motor; al revés no se pide", async () => {

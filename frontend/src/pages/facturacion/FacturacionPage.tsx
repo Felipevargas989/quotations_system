@@ -92,8 +92,10 @@ export default function FacturacionPage() {
   // La ventana que pregunta qué se emite, y la pantalla del que se eligió.
   const [eligiendo, setEligiendo] = useState(false);
   const [abierto, setAbierto] = useState<Abierto | null>(null);
-  // El que se acaba de emitir: la lista lo marca (§9.22).
+  // El que se acaba de emitir: la lista lo marca (§9.22). Si es una
+  // factura traída de otro mes, la lista abre desde ese mes (§9.36).
   const [recien, setRecien] = useState<number | null>(null);
+  const [recienDesde, setRecienDesde] = useState<string | null>(null);
   const esAdmin = userRole === "administrador";
   const nuevoDocumento = () =>
     tipos.length === 1 ? setAbierto({ tipo: tipos[0] }) : setEligiendo(true);
@@ -106,9 +108,10 @@ export default function FacturacionPage() {
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
   // Emitido: de vuelta a la lista, con lo nuevo marcado.
-  const emitido = (id: number | null) => {
+  const emitido = (id: number | null, desde: string | null = null) => {
     refrescar();
     setRecien(id);
+    setRecienDesde(desde);
     if (conDocumentos) setElegida("documentos");
     setAbierto(null);
   };
@@ -148,7 +151,7 @@ export default function FacturacionPage() {
         ) : abierto.tipo === "traer" ? (
           <TraerFactura
             onVolver={() => setAbierto(null)}
-            onTraida={(id) => emitido(id)}
+            onTraida={(id, fecha) => emitido(id, fecha)}
           />
         ) : (
           <NotaNueva
@@ -212,6 +215,7 @@ export default function FacturacionPage() {
             <ListaDeDocumentos
               conAjustes={conAjustes}
               recien={recien}
+              desde={recienDesde}
               onModificar={(doc) =>
                 setAbierto({
                   tipo: doc.tipo === 61 ? "nota_debito" : "nota_credito",
