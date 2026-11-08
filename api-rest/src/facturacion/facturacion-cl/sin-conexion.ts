@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException } from '@nestjs/common';
 import type {
   AmbienteDeFacturacion,
   FacturacionCl,
@@ -10,7 +10,8 @@ import type {
  * de facturacion.cl, o credenciales en el motor que no es (las de
  * producción en el laboratorio). Nada sale, y cada intento dice por qué.
  * `procesar` responde «rechazado» en vez de lanzar: no se mandó nada, así
- * que no puede quedar un documento «por confirmar».
+ * que no puede quedar un documento «por confirmar». Es un 502, como lo de
+ * facturacion.cl en `soap.ts`: el 503 la vitrina lo avisa como la base.
  */
 export class FacturacionClSinConexion implements FacturacionCl {
   constructor(
@@ -27,7 +28,7 @@ export class FacturacionClSinConexion implements FacturacionCl {
   }
 
   folioSiguiente(): Promise<number> {
-    return Promise.reject(new ServiceUnavailableException(this.sinConexion));
+    return Promise.reject(new BadGatewayException(this.sinConexion));
   }
 
   procesar(_archivo: string, tipo: number): Promise<RespuestaDeProcesar> {
@@ -44,10 +45,10 @@ export class FacturacionClSinConexion implements FacturacionCl {
   }
 
   obtenerPdf(): Promise<Buffer | null> {
-    return Promise.reject(new ServiceUnavailableException(this.sinConexion));
+    return Promise.reject(new BadGatewayException(this.sinConexion));
   }
 
   obtenerXml(): Promise<{ base64: string | null; mensaje: string | null }> {
-    return Promise.reject(new ServiceUnavailableException(this.sinConexion));
+    return Promise.reject(new BadGatewayException(this.sinConexion));
   }
 }

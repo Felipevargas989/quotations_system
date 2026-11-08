@@ -547,7 +547,10 @@ export class NotasService {
     );
     if (!r.base64)
       throw new BadRequestException(
-        `facturacion.cl no entregó el XML: ${r.mensaje ?? 'sin respuesta'}`,
+        // En producción no está contratado (08-11): Felipe consulta el precio.
+        /servicio adicional/i.test(r.mensaje ?? '')
+          ? 'El XML es un servicio adicional de facturacion.cl y no está contratado.'
+          : `facturacion.cl no entregó el XML: ${r.mensaje ?? 'sin respuesta'}`,
       );
     const nombre =
       {

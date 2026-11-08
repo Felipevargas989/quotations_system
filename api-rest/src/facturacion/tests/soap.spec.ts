@@ -1,7 +1,4 @@
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadGatewayException } from '@nestjs/common';
 import { armarFactura } from '../archivo/factura';
 import { EnvioSinRespuesta } from '../facturacion-cl/facturacion-cl';
 import {
@@ -11,6 +8,7 @@ import {
   leerProcesar,
   leerXml,
   pulsoDeFacturacionCl,
+  queDijo,
   rangosDeLosFolios,
 } from '../facturacion-cl/soap';
 
@@ -421,10 +419,27 @@ describe('los folios (ConsultarCAF)', () => {
     expect(r.mensaje).toContain('<Resultado>OK</Resultado>');
   });
 
-  it('si no responde, se dice y no se emite nada', async () => {
+  it('si no responde, se dice y no se emite nada (un 502: el 503 es de la base)', async () => {
     const { soap } = servicio(() => ({ status: 502, texto: 'Bad Gateway' }));
-    await expect(soap.folioSiguiente(33)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
+    const error = await soap.folioSiguiente(33).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as Error).message).toBe(
+      'facturacion.cl no responde: facturacion.cl respondió HTTP 502',
+    );
+  });
+
+  it('si responde con una falla, dice lo que respondió, sin el envoltorio', async () => {
+    const { soap } = servicio(() => ({
+      status: 500,
+      texto: falla(
+        'soap:Server',
+        'Server was unable to process request. ---&gt; ERROR: P0001: Folio no existe',
+      ),
+    }));
+    const error = await soap.obtenerPdf(33, 381).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadGatewayException);
+    expect((error as Error).message).toBe(
+      'facturacion.cl respondió: Folio no existe',
     );
   });
 });
@@ -489,6 +504,37 @@ describe('el XML (getXMLDte, §9.33)', () => {
       base64: b64Xml,
       mensaje: null,
     });
+  });
+
+  it('sin contratar, su falla es la respuesta, como en producción el 08-11', async () => {
+    const { soap } = servicio(() => ({
+      status: 500,
+      texto: falla(
+        'soap:Server',
+        'Server was unable to process request. ---&gt; ERROR: P0001: Esta opcion es un servicio adicional solo para clientes que lo contraten.',
+      ),
+    }));
+    expect(await soap.obtenerXml(33, 381)).toEqual({
+      base64: null,
+      mensaje:
+        'Esta opcion es un servicio adicional solo para clientes que lo contraten.',
+    });
+  });
+
+  it('si no responde, es un 502, no un XML vacío', async () => {
+    const { soap } = servicio(() => ({ status: 502, texto: 'Bad Gateway' }));
+    await expect(soap.obtenerXml(33, 381)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+  });
+
+  it('lo que dijo, sin el envoltorio de .NET ni el código de su base', () => {
+    expect(
+      queDijo(
+        'Server was unable to process request. ---> ERROR: P0001: Esta opcion es un servicio adicional.',
+      ),
+    ).toBe('Esta opcion es un servicio adicional.');
+    expect(queDijo('Usuario no autorizado')).toBe('Usuario no autorizado');
   });
 
   it('si no es un XML, dice lo que respondió (el método no contratado, por ejemplo)', () => {

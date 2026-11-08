@@ -1,7 +1,4 @@
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadGatewayException } from '@nestjs/common';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import {
   EnvioSinRespuesta,
@@ -125,6 +122,15 @@ export const fallaDe = (
     mensaje: valorDe(falla, 'faultstring') ?? '',
   };
 };
+
+/** Lo que dijo facturacion.cl en su falla, sin el envoltorio de .NET ni el
+ *  código de su base: «Server was unable to process request. ---> ERROR:
+ *  P0001: Esta opcion es…» queda «Esta opcion es…». */
+export const queDijo = (falla: string): string =>
+  falla
+    .replace(/^\s*Server was unable to process request\.\s*-*>\s*/i, '')
+    .replace(/^ERROR:\s*P\d{4}:\s*/i, '')
+    .trim();
 
 /** AAAA-MM-DD, venga como venga («2008-09-12T15:55:09» o «12-09-2008»). */
 const fechaDe = (texto: string | null): string | null => {
@@ -353,6 +359,19 @@ class FallaSoap extends Error {
   }
 }
 
+/**
+ * Lo que falló es facturacion.cl, no la base: un 502. El 503 la vitrina lo
+ * avisa como «El sistema no puede leer la base de datos» (08-11: Felipe lo
+ * vio al pedir el XML). Y si respondió con una falla, respondió: no es
+ * «no responde».
+ */
+const errorDeFacturacionCl = (error: unknown) =>
+  new BadGatewayException(
+    error instanceof FallaSoap
+      ? `facturacion.cl respondió: ${queDijo(error.message)}`
+      : `facturacion.cl no responde: ${mensajeDe(error)}`,
+  );
+
 /** Una llamada al servicio. Lanza `SinRespuesta` si no hubo respuesta
  *  (corte, tiempo, HTTP raro) y `FallaSoap` si el servicio dijo que no. */
 async function llamarSoap(
@@ -530,14 +549,22 @@ export class FacturacionClSoap implements FacturacionCl {
     return xml ? leerPdf(xml) : null;
   }
 
-  /** §9.33: el XML tributario, solo cuando se pide (costo adicional). */
+  /** §9.33: el XML tributario, solo cuando se pide (costo adicional). Su
+   *  falla es la respuesta: en producción, el 08-11, «Esta opcion es un
+   *  servicio adicional solo para clientes que lo contraten». */
   async obtenerXml(tipo: number, folio: number) {
     const cuerpo =
       this.login() +
       `<tpomov>${base64(tipo === 39 || tipo === 41 ? 'B' : 'V')}</tpomov>` +
       `<folio>${base64(String(folio))}</folio>` +
       `<tipo>${base64(String(tipo))}</tipo>`;
-    return leerXml((await this.consultar('getXMLDte', cuerpo)) ?? '');
+    try {
+      return leerXml((await this.llamar('getXMLDte', cuerpo)) ?? '');
+    } catch (error) {
+      if (error instanceof FallaSoap)
+        return { base64: null, mensaje: queDijo(error.message) };
+      throw errorDeFacturacionCl(error);
+    }
   }
 
   private async consultarCaf(tipo: number, descartados: number[] = []) {
@@ -559,20 +586,22 @@ export class FacturacionClSoap implements FacturacionCl {
     };
   }
 
-  /** Todo lo que no es `Procesar`: si no responde, se dice y no pasa nada. */
+  /** Todo lo que no es `Procesar`: si falla, se dice y no pasa nada. */
   private async consultar(metodo: string, cuerpo: string) {
     try {
-      return await llamarSoap(
-        this.opciones,
-        metodo,
-        cuerpo,
-        this.opciones.espera ?? 20_000,
-      );
+      return await this.llamar(metodo, cuerpo);
     } catch (error) {
-      throw new ServiceUnavailableException(
-        `facturacion.cl no responde: ${mensajeDe(error)}`,
-      );
+      throw errorDeFacturacionCl(error);
     }
+  }
+
+  private llamar(metodo: string, cuerpo: string) {
+    return llamarSoap(
+      this.opciones,
+      metodo,
+      cuerpo,
+      this.opciones.espera ?? 20_000,
+    );
   }
 
   private login(): string {
