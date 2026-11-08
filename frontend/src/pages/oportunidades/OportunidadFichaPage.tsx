@@ -165,6 +165,12 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   // Decisión 113: descartar abre el porqué; elegir uno descarta y lo anota.
   const [descartando, setDescartando] = useState(false);
 
+  // Decisión 119, parte 3: las preguntas antes de armar se abren solas una
+  // vez por visita a la licitación, no cada vez que se vuelve a la pestaña.
+  const [preguntasVistasEn, setPreguntasVistasEn] = useState<number | null>(
+    null,
+  );
+
   const guardar = useMutation({
     mutationFn: (cambios: {
       estado?: EstadoOportunidad;
@@ -346,6 +352,8 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
             marcas={ficha.exigencias_marcadas}
+            yaSeAbrieronLasPreguntas={preguntasVistasEn === ficha.id}
+            onSeAbrieronLasPreguntas={() => setPreguntasVistasEn(ficha.id)}
           />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}

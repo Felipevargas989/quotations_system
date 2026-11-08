@@ -194,6 +194,30 @@ describe("Las preguntas antes de armar", () => {
     expect(p.responderYArmar).not.toHaveBeenCalled();
   });
 
+  it("cambiar de pestaña no lo vuelve a abrir: una vez por visita", async () => {
+    p.getOfertaDeLaPostulacion.mockResolvedValue(DETENIDA as never);
+    const seAbrio = vi.fn();
+    conTodo(
+      <ArmarPostulacion
+        oportunidadId={40}
+        yaSeAbrieronLasPreguntas
+        onSeAbrieronLasPreguntas={seAbrio}
+      />,
+    );
+    expect(
+      await screen.findByText(
+        "Faltan 2 respuestas sobre tu empresa para armar.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Antes de armar, responde esto")).toBe(null);
+    expect(seAbrio).not.toHaveBeenCalled();
+    // «Responder» lo abre igual.
+    fireEvent.click(screen.getByRole("button", { name: "Responder" }));
+    expect(
+      screen.getByText("Antes de armar, responde esto"),
+    ).toBeInTheDocument();
+  });
+
   it("al volver a armar, lo armado antes sigue a la vista y el aviso va debajo", async () => {
     // Lo armado antes: la oferta y sus documentos, listos.
     const listo = (id: number) => ({
