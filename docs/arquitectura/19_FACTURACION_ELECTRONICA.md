@@ -766,8 +766,11 @@ En `api-rest/src/facturacion/`, sin rutas ni pantallas todavía:
   producto y la especificación del comprador), sin cantidad, unidad,
   precio, fecha ni lugar de entrega, nombre de la orden, notas ni
   referencias a otros documentos; varias líneas, separadas por « · ».
-  Lo cubre `leer-orden-de-compra.spec.ts`. Las 8 ya leídas se corrigen con
-  la misma regla, con el OK de Felipe sobre cómo quedan.
+  Lo cubre `leer-orden-de-compra.spec.ts`. Probado en el laboratorio con
+  tres OC de verdad (la #423, la #384 y la #473, sin guardar). **En
+  producción desde el 08-11-2026** (PR #318, solo el motor). Las 8 ya
+  leídas se corrigen con la misma regla, con el OK de Felipe sobre cómo
+  quedan.
 
 ### 9.15 Lo que quedó del paso 2c (04-11, en la noche)
 
