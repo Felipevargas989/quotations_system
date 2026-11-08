@@ -233,6 +233,9 @@ export interface FacturaTraida {
   neto: number;
   iva: number;
   total: number;
+  /** facturacion.cl cortó la razón social en su PDF y va completa con la
+   *  del SII (§9.36). */
+  nombre_del_sii?: boolean;
   /** El evento de su OC, si la OC está en Eventia. */
   evento: { cotizacion: number | null; oc: string } | null;
 }
