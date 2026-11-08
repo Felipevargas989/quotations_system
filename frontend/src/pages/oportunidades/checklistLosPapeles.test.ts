@@ -38,7 +38,10 @@ const enLaPostulacion = (
   viene_de: number | null = null,
 ) => ({ id, nombre, origen, viene_de }) as AdjuntoDeOportunidad;
 
-const formulario = (nombre: string, archivo: string): FormularioDelAnalisis => ({
+const formulario = (
+  nombre: string,
+  archivo: string,
+): FormularioDelAnalisis => ({
   nombre,
   archivo,
   paginas: "",
@@ -170,7 +173,7 @@ describe("Quién hace cada papel, en la lista (decisión 119, parte 3b)", () => 
     });
     expect(fila(p)).toEqual([
       "lo_arma_la_ia",
-      "Lo arma «Armar postulación» con tu cotización vinculada",
+      "Lo arma «Armar postulación» con lo postulado o tu cotización",
     ]);
     expect(
       fila(p, {
@@ -187,7 +190,11 @@ describe("Quién hace cada papel, en la lista (decisión 119, parte 3b)", () => 
     expect(
       fila(p, {
         postulacion: [
-          enLaPostulacion(8, "Oferta económica por línea 4362-30-LE26.docx", "generado"),
+          enLaPostulacion(
+            8,
+            "Oferta económica por línea 4362-30-LE26.docx",
+            "generado",
+          ),
         ],
       })[0],
     ).toBe("hecho");
@@ -217,7 +224,9 @@ describe("Quién hace cada papel, en la lista (decisión 119, parte 3b)", () => 
     );
     expect(
       fila(identificacion, {
-        formularios: [formulario("Formato N°1 - Identificación del oferente", "")],
+        formularios: [
+          formulario("Formato N°1 - Identificación del oferente", ""),
+        ],
       }),
     ).toEqual([
       "lo_arma_la_ia",
@@ -226,23 +235,31 @@ describe("Quién hace cada papel, en la lista (decisión 119, parte 3b)", () => 
     expect(
       fila(identificacion, {
         formularios: [
-          formulario("Formato N°1 - Identificación del oferente", "Formatos.docx"),
+          formulario(
+            "Formato N°1 - Identificación del oferente",
+            "Formatos.docx",
+          ),
         ],
       }),
     ).toEqual(["lo_arma_la_ia", "Lo arma «Armar postulación»"]);
     expect(
-      fila(pedido("ANEXO N° 2 FORMULARIO PROGRAMA DE INTEGRIDAD", "formulario"), {
-        formularios: [formulario("ANEXO N° 2 FORMULARIO PROGRAMA DE INTEGRIDAD", "")],
-        carpeta: [
-          {
-            id: 2,
-            tipo: "programa_integridad",
-            nombre: "Programa de integridad.pdf",
-            vence: null,
-            creado_en: "2026-07-01T12:00:00.000Z",
-          } as DocumentoDeEmpresa,
-        ],
-      }),
+      fila(
+        pedido("ANEXO N° 2 FORMULARIO PROGRAMA DE INTEGRIDAD", "formulario"),
+        {
+          formularios: [
+            formulario("ANEXO N° 2 FORMULARIO PROGRAMA DE INTEGRIDAD", ""),
+          ],
+          carpeta: [
+            {
+              id: 2,
+              tipo: "programa_integridad",
+              nombre: "Programa de integridad.pdf",
+              vence: null,
+              creado_en: "2026-07-01T12:00:00.000Z",
+            } as DocumentoDeEmpresa,
+          ],
+        },
+      ),
     ).toEqual(["en_tu_carpeta", "Programa de integridad.pdf"]);
     expect(
       fila(pedido("Anexos exigidos (no especificados)", "formulario"), {

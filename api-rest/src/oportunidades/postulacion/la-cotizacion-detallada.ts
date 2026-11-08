@@ -87,8 +87,8 @@ export const pidenElDetalle = (
   );
 
 /** Lo que dice el set si las bases piden la cotización y no va: la arma
- *  «Armar postulación» desde la cotización vinculada, o se sube a mano.
- *  null si va o no la piden. */
+ *  «Armar postulación» desde lo postulado (decisión 120) o desde la
+ *  cotización vinculada, o se sube a mano. null si va o no la piden. */
 export const laCotizacionQueFalta = (
   documentos: unknown[],
   piezas: PiezaDelSet[],
@@ -102,7 +102,7 @@ export const laCotizacionQueFalta = (
         (/cotizacion/.test(normalizar(p.nombre)) ||
           quienLoHace(p.nombre)?.quien === 'cotizacion')),
   )
-    ? 'Las bases piden una cotización detallada: vincula tu cotización y vuelve a armar la postulación, o súbela hecha a «Mi postulación».'
+    ? 'Las bases piden una cotización: vuelve a armar la postulación (la arma Eventia con lo postulado, o con tu cotización si la vinculas), o súbela hecha a «Mi postulación».'
     : null;
 
 export type LineaDeLaCotizacion = {
@@ -119,6 +119,9 @@ export type LineaDeLaCotizacion = {
    *  formulario que pide precios netos. */
   unitarioNeto?: number;
   totalNeto?: number;
+  /** Los ids del catálogo de sus productos: ahí va lo particular que la
+   *  oferta compromete con ellos (decisión 120). */
+  codigos?: string[];
 };
 
 export type DiaDeLaCotizacion = {
@@ -141,6 +144,14 @@ const numero = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+/** El código de un producto: texto en la foto del cotizador, a veces
+ *  número. */
+const codigoDe = (v: unknown): string =>
+  typeof v === 'number' && Number.isFinite(v) ? String(v) : texto(v);
+
+const codigosDe = (productos: Fila[]): string[] =>
+  productos.map((p) => codigoDe(p.codigo)).filter(Boolean);
 
 const diaDe = (f: Fila): number => {
   const d = Number(f.day);
@@ -174,12 +185,22 @@ export const diasDeLaCotizacion = (
   const items = (q.items ?? {}) as Fila;
   const fijos = filas(items.fixed_services);
   const variables = filas(items.variable_services);
-  const dias = [...new Set([...fijos, ...variables].map(diaDe))].sort(
+  // El día 0 es «todo el evento» (armarFoto, decisión 120: lo postulado lo
+  // trae así). En un evento de un día va en ese día, y no en un segundo
+  // bloque con la misma fecha; en uno de varios días, aparte y primero.
+  const conDia = [
+    ...new Set([...fijos, ...variables].map(diaDe).filter((d) => d > 0)),
+  ];
+  const diaDeLaLinea = (f: Fila): number => {
+    const d = diaDe(f);
+    return d === 0 && conDia.length === 1 ? conDia[0] : d;
+  };
+  const dias = [...new Set([...fijos, ...variables].map(diaDeLaLinea))].sort(
     (a, b) => a - b,
   );
   return dias.map((d) => {
     const lineas: LineaDeLaCotizacion[] = [];
-    for (const f of fijos.filter((x) => diaDe(x) === d)) {
+    for (const f of fijos.filter((x) => diaDeLaLinea(x) === d)) {
       const cantidad = Math.max(1, numero(f.quantity));
       const unitario = numero(f.precio);
       lineas.push({
@@ -189,9 +210,10 @@ export const diasDeLaCotizacion = (
         unidades: cantidad,
         unitario,
         total: unitario * cantidad,
+        codigos: codigosDe([f]),
       });
     }
-    for (const v of variables.filter((x) => diaDe(x) === d)) {
+    for (const v of variables.filter((x) => diaDeLaLinea(x) === d)) {
       const productos = filas(v.items);
       const personas = Math.max(1, numero(v.people) || q.people_count || 1);
       const unitario = productos.reduce(
@@ -211,16 +233,20 @@ export const diasDeLaCotizacion = (
         unidades: personas,
         unitario,
         total: unitario * personas,
+        codigos: codigosDe(productos),
       });
     }
     const fecha = q.event_date
       ? sumarDias(q.event_date, d > 0 ? d - 1 : 0)
       : null;
-    const titulo = fecha
-      ? fechaDelDia(fecha).replace(/^./, (c) => c.toUpperCase())
-      : d > 0
-        ? `Día ${d}`
-        : 'Todo el evento';
+    const titulo =
+      d === 0 && conDia.length > 1
+        ? 'Todo el evento'
+        : fecha
+          ? fechaDelDia(fecha).replace(/^./, (c) => c.toUpperCase())
+          : d > 0
+            ? `Día ${d}`
+            : 'Todo el evento';
     return {
       titulo,
       lineas,
@@ -256,7 +282,9 @@ export type DatosDeLaCotizacionDetallada = {
   proceso: string;
   nombre: string;
   comprador: string | null;
-  numero: number;
+  /** El N° de la cotización vinculada; null si sale de lo postulado, sin
+   *  cotización en Eventia (decisión 120). */
+  numero: number | null;
   /** «7 de noviembre de 2026». */
   fecha: string;
   proveedor: Array<[string, string]>;
@@ -269,6 +297,9 @@ export type DatosDeLaCotizacionDetallada = {
   /** Una sola línea por el total, con lo que incluye y sin precio por ítem:
    *  si las bases no piden el detalle de precios (decisión 119). */
   unaSolaLinea?: boolean;
+  /** Lo que se compromete sin precio aparte, dentro del mismo precio: lo
+   *  particular suelto y lo que se subcontrata (decisión 120). */
+  tambien?: string[];
   /** Lo que la propuesta técnica describe: se nombra si va. */
   conPropuesta: boolean;
   /** Los colores de la marca (Configuración de empresa), RRGGBB; sin
@@ -429,7 +460,7 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
     ),
     parrafo(
       corrida(
-        `Cotización N° ${d.numero} · Fecha: ${d.fecha} · Validez: 30 días`,
+        `${d.numero ? `Cotización N° ${d.numero} · ` : ''}Fecha: ${d.fecha} · Validez: 30 días`,
       ),
     ),
     titulo('1. Proveedor', primario),
@@ -437,6 +468,17 @@ const cuerpo = (d: DatosDeLaCotizacionDetallada): string[] => {
     titulo('2. Detalle de lo ofertado', primario),
     parrafo(corrida('Valores en pesos chilenos, con IVA incluido.')),
     tabla(A_DETALLE, detalle),
+    ...(d.tambien && d.tambien.length > 0
+      ? [
+          parrafo(
+            corrida('También incluye, dentro del mismo precio:', {
+              negrita: true,
+            }),
+            { antes: 120, junto: true },
+          ),
+          ...d.tambien.map((t) => parrafo(corrida(`• ${t}`))),
+        ]
+      : []),
     parrafo(
       corrida(
         d.conPropuesta

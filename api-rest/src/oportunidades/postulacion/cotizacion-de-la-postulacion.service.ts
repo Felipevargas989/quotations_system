@@ -13,10 +13,8 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { CreateQuotationDto } from 'src/quotations/dto/create-quotation.dto';
 import type { UpdateQuotationDto } from 'src/quotations/dto/update-quotation.dto';
-import { armarFoto } from 'src/quotations/generar/armar-foto';
 import { pesos } from 'src/quotations/generar/catalogo';
 import { GenerarRepository } from 'src/quotations/generar/generar.repository';
-import { ofrecible } from 'src/quotations/generar/reglas-valle-del-sol';
 import { QuotationsService } from 'src/quotations/quotations.service';
 import { computeMoney } from 'src/quotations/utils/money';
 import type { User } from 'src/users/entities/user.entity';
@@ -28,13 +26,23 @@ import {
 } from '../generacion/oferta-de-la-propuesta';
 import { servicioDe } from '../mias/servicio-de-la-ganada';
 import { AceptarLaGanadaService } from './aceptar-la-ganada.service';
-import { listaDeTextos } from './armar-la-oferta';
+import {
+  type FilaDeLaMatriz,
+  leerArmado,
+  listaDeTextos,
+} from './armar-la-oferta';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import {
   bloqueDeLaLicitacion,
   comentarioConLaLicitacion,
 } from './comentario-de-la-licitacion';
 import { esGanadaSinCotizacion, noSiEstaCongelada } from './congelada';
+import {
+  elEventoDeLaOferta,
+  type FechasDeLaCotizacion,
+  fotoDeLoPostulado,
+  laCotizacionEnMemoria,
+} from './la-cotizacion-de-lo-postulado';
 import {
   type CotizacionDeLaPostulacion,
   type OportunidadParaCotizar,
@@ -112,8 +120,14 @@ export type EstadoDeLaCotizacion = {
   armando?: boolean;
 };
 
-/** Desde y hasta, AAAA-MM-DD; `hasta` null = un solo día. */
-export type FechasDeLaCotizacion = { desde: string; hasta: string | null };
+// La fecha del evento y la foto de lo postulado se mudaron a
+// `la-cotizacion-de-lo-postulado.ts` (decisión 120): la cotización de las
+// bases sin cotización vinculada sale de lo mismo, en memoria.
+export {
+  diasDeLaOferta,
+  sumarDias,
+  type FechasDeLaCotizacion,
+} from './la-cotizacion-de-lo-postulado';
 
 const entero = (v: unknown): number => {
   const x = Number(v);
@@ -122,22 +136,6 @@ const entero = (v: unknown): number => {
 
 const fechaIso = (v: unknown): string | null =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
-
-/** AAAA-MM-DD más n días (al mediodía UTC: sin saltos de zona horaria). */
-export const sumarDias = (iso: string, n: number): string => {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-
-/** Cuántos días dura lo que se ofrece: el día más alto de las cajas y los
- *  fijos (0 en un fijo = todo el evento). */
-export const diasDeLaOferta = (oferta: OfertaDeLaPropuesta): number =>
-  Math.max(
-    1,
-    ...oferta.cajas.map((c) => c.dia),
-    ...oferta.fijos.map((f) => f.dia),
-  );
 
 /** Lo que tenía una cotización antes de reescribirla, para su bitácora. */
 export const loQueTenia = (items: Record<string, unknown> | null): string => {
@@ -353,21 +351,7 @@ export class CotizacionDeLaPostulacionService {
       fechas,
     );
     const catalogo = await this.catalogos.catalogo(companyId);
-    const armado = armarFoto(
-      {
-        ...propuesta.oferta,
-        // El último día, para que lo ofrecido de varios días calce (con ''
-        // armarFoto contaba un solo día y rechazaba el día 2 en adelante:
-        // el catamarán y el Profesor, 22-10, decisión 69).
-        ultimo_dia: evento.fin ?? '',
-        descuento_porcentaje: 0,
-        presupuesto_cliente: { monto: 0, por: 'total' },
-        nota: '',
-      },
-      catalogo,
-      { ...evento, ninos: 0, esTourOperador: false },
-      ofrecible,
-    );
+    const armado = fotoDeLoPostulado(propuesta.oferta, catalogo, evento);
     if (!armado.ok) {
       throw new BadRequestException(
         `Los productos de lo postulado no calzan con el catálogo: ${armado.errores.slice(0, 3).join(' · ')}. Vuelve a armar la postulación.`,
@@ -607,6 +591,8 @@ export class CotizacionDeLaPostulacionService {
   ): Promise<{
     id: number;
     oferta: OfertaDeLaPropuesta;
+    /** Lo que se ofrece por cada punto de las bases (decisión 33). */
+    matriz: FilaDeLaMatriz[];
     detalles: string[];
     subcontratar: string[];
     /** Lo disponible para las líneas que cubre (decisión 74); 0 si no. */
@@ -618,11 +604,46 @@ export class CotizacionDeLaPostulacionService {
       ? {
           id: p.id,
           oferta,
+          matriz: leerArmado(p.resultado)?.matriz ?? [],
           detalles: listaDeTextos(p.resultado?.detalles),
           subcontratar: listaDeTextos(p.resultado?.subcontratar),
           presupuesto: entero(p.resultado?.presupuesto),
         }
       : null;
+  }
+
+  /** La cotización de lo postulado, en memoria (decisión 120): sin
+   *  cotización vinculada, la que piden las bases sale de aquí, con los
+   *  precios del catálogo y sin crear nada en Eventia. Felipe: "arma una
+   *  tipo y la adjunto". Lanza en palabras si no se puede. */
+  async deLoPostulado(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<{
+    cotizacion: CotizacionDeLaPostulacion;
+    matriz: FilaDeLaMatriz[];
+  }> {
+    const o = await this.oportunidad(companyId, oportunidadId);
+    const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
+    if (!propuesta) {
+      throw new BadRequestException(
+        'No hay oferta armada: de ella salen los servicios de la cotización.',
+      );
+    }
+    const [evento, catalogo] = await Promise.all([
+      this.evento(companyId, o, propuesta.oferta, null),
+      this.catalogos.catalogo(companyId),
+    ]);
+    const armado = fotoDeLoPostulado(propuesta.oferta, catalogo, evento);
+    if (!armado.ok) {
+      throw new BadRequestException(
+        `Los productos de lo postulado no calzan con el catálogo: ${armado.errores.slice(0, 3).join(' · ')}. Vuelve a armar la postulación.`,
+      );
+    }
+    return {
+      cotizacion: laCotizacionEnMemoria(armado.items, evento),
+      matriz: propuesta.matriz,
+    };
   }
 
   /** La fecha, el término y las personas. La fecha: la elegida al crear
@@ -638,30 +659,13 @@ export class CotizacionDeLaPostulacionService {
     elegidas?: Partial<FechasDeLaCotizacion>,
   ): Promise<{ fecha: string; fin: string | null; personas: number }> {
     const analisis = await this.analisis.ultimo(companyId, o.id);
-    const bases = analisis?.estado === 'listo' ? analisis.resultado : null;
-    const desde = fechaIso(elegidas?.desde);
-    const fecha =
-      desde ??
-      fechaIso(destino?.event_date?.slice(0, 10)) ??
-      fechaIso(bases?.fecha_del_servicio_iso) ??
-      fechaIso(o.proceso.fecha_cierre?.slice(0, 10)) ??
-      new Date().toISOString().slice(0, 10);
-    const despues = (v: string | null) => (v && v > fecha ? v : null);
-    // Lo ofrecido de varios días necesita al menos esos días: el término
-    // nunca queda antes (si se eligió uno más corto, se alarga).
-    const dias = diasDeLaOferta(oferta);
-    const necesario = dias > 1 ? sumarDias(fecha, dias - 1) : null;
-    const pedido = desde
-      ? despues(fechaIso(elegidas?.hasta))
-      : destino
-        ? despues(fechaIso(destino.event_end_date?.slice(0, 10)))
-        : null;
-    const fin =
-      necesario && (!pedido || pedido < necesario) ? necesario : pedido;
-    const personas =
-      entero(bases?.personas) ||
-      Math.max(1, ...oferta.cajas.map((c) => c.personas));
-    return { fecha, fin, personas };
+    return elEventoDeLaOferta({
+      oferta,
+      bases: analisis?.estado === 'listo' ? analisis.resultado : null,
+      cierre: o.proceso.fecha_cierre,
+      destino,
+      elegidas,
+    });
   }
 
   /** Los campos de plata de la cotización, con `computeMoney` (el mismo

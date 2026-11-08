@@ -404,6 +404,55 @@ describe('Armar la oferta', () => {
     ]);
   });
 
+  it('lo parecido y lo particular se leen con su origen (decisión 120)', () => {
+    const leido = leerArmado({
+      ...RESPUESTA,
+      matriz: [
+        {
+          especificacion: 'Colación en bolsa individual',
+          pagina: 7,
+          como: 'Colación en bolsa individual con sándwich de ave y jugo en caja',
+          origen: 'parecido',
+          productos: [2201],
+        },
+        {
+          especificacion: 'Taza de regalo para cada participante',
+          pagina: 7,
+          como: 'Taza de regalo para cada uno de los 200 participantes',
+          origen: 'particular',
+          productos: [2201],
+        },
+      ],
+    });
+    expect(leido?.matriz.map((f) => f.origen)).toEqual([
+      'parecido',
+      'particular',
+    ]);
+  });
+
+  it('las instrucciones: con criterio, en cuatro, y lo particular sin precio aparte (decisión 120)', () => {
+    // Felipe, 08-11: "esto tengo un producto muy parecido, pongo el
+    // producto en mi catálogo, esto es particular de la licitación, la
+    // incluyo para no quedar fuera por bases".
+    const t = instruccionesDeLaOferta({
+      codigo: '2656-97-LE26',
+      nombre: 'Día del funcionario',
+      organismo: null,
+      bases: null,
+      instalaciones: null,
+      loQueVende: null,
+      catalogo: '(catálogo)',
+    });
+    expect(t).toContain(
+      '"parecido" si un producto del catálogo es muy parecido',
+    );
+    expect(t).toContain('CON LAS PALABRAS DE LAS BASES');
+    expect(t).toContain(
+      'se incluye SIEMPRE, para no quedar fuera de bases, y sin precio aparte',
+    );
+    expect(t).toContain('los ids del producto del catálogo con el que va');
+  });
+
   it('el pedido al proveedor y los detalles se leen sin vacíos ni repetidos (decisión 57)', () => {
     const leido = leerArmado({
       ...RESPUESTA,

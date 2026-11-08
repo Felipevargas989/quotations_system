@@ -11,13 +11,13 @@ import {
 } from '../generacion/generacion.repository';
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import type { FilaDeLaMatriz } from './armar-la-oferta';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
 import { noSiEstaCongelada } from './congelada';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { repartirElPrecio } from './el-reparto';
 import { type FormularioDeLasBases, normalizar } from './el-set';
 import {
-  type DiaDeLaCotizacion,
   diasDeLaCotizacion,
   pidenLaCotizacion,
 } from './la-cotizacion-detallada';
@@ -37,7 +37,10 @@ import {
   type RespuestaDelModal,
 } from './las-preguntas.service';
 import { papelesSinFormato } from './los-papeles';
-import { PostulacionRepository } from './postulacion.repository';
+import {
+  type CotizacionDeLaPostulacion,
+  PostulacionRepository,
+} from './postulacion.repository';
 import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
 // «ARMAR POSTULACIÓN» (decisión 35 del doc 17, 19-10). Felipe: "un solo
@@ -327,12 +330,14 @@ export class ArmarPostulacionService {
     if (anotada !== armada) await this.anotar(companyId, ofertaId, anotada);
     // Decisión 119 (07-11, el reparto): el precio se reparte una sola vez
     // sobre los servicios de la cotización vinculada, y las mismas cifras
-    // van a la cotización detallada y a los formularios.
-    const reparto = await this.elReparto(
-      companyId,
-      oportunidadId,
-      armada.total,
-    );
+    // van a la cotización detallada y a los formularios. Desde la 120
+    // (08-11), sin vinculada, sobre lo postulado con los precios del
+    // catálogo, en memoria: "cuando yo busco el mercado".
+    const base = await this.laBaseDelPrecio(companyId, oportunidadId);
+    const reparto =
+      'cotizacion' in base
+        ? repartirElPrecio(diasDeLaCotizacion(base.cotizacion), armada.total)
+        : null;
     const pasos: Array<[string, () => Promise<unknown>]> = [];
     if (vuelta.todoFirmado || armada.anexos === false) {
       // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
@@ -383,7 +388,8 @@ export class ArmarPostulacionService {
     // Decisión 119 (07-11): si las bases piden una cotización, la arma el
     // motor desde la cotización vinculada. Felipe, con la 2705-1740-COT26:
     // "todos los documentos debieron generarse". Lo subido a mano manda; la
-    // firmada con el mismo precio se queda.
+    // firmada con el mismo precio se queda. Desde la 120 (08-11), sin
+    // vinculada, desde lo postulado: "arma una tipo y la adjunto".
     const problemas: string[] = [];
     const conCotizacion =
       Boolean(this.cotizacionDetallada) &&
@@ -394,13 +400,16 @@ export class ArmarPostulacionService {
       const nombre = comoLaLlaman('cotizacion');
       pasos.push([
         'La cotización detallada',
-        () =>
-          detallada.armar(user, oportunidadId, ofertaId, armada.total, {
+        () => {
+          if ('problema' in base) throw new Error(base.problema);
+          return detallada.armar(user, oportunidadId, ofertaId, armada.total, {
             conPropuesta: armada.propuesta,
             reemplaza: vuelta.borradoresDeCotizacion,
             ...(reparto ? { reparto } : {}),
             ...(nombre ? { nombre } : {}),
-          }),
+            ...(base.vinculada ? {} : { deLoPostulado: base }),
+          });
+        },
       ]);
       if (vuelta.cotizacion === 'otro_precio') {
         problemas.push(
@@ -456,24 +465,45 @@ export class ArmarPostulacionService {
       );
   }
 
-  /** El precio repartido sobre la cotización vinculada (el-reparto.ts).
-   *  Sin vinculada, o si no se puede leer, null: los formularios dejan el
-   *  precio por ítem pendiente, como antes. Nunca lanza. */
-  private async elReparto(
+  /** Sobre qué se reparte el precio (el-reparto.ts): la cotización
+   *  vinculada o, sin ella, lo postulado con los precios del catálogo, en
+   *  memoria y sin crear nada en Eventia (decisión 120). Si no se puede, el
+   *  porqué: los formularios dejan el precio por ítem pendiente, como
+   *  antes, y la cotización que piden las bases no sale. Nunca lanza. */
+  private async laBaseDelPrecio(
     companyId: number,
     oportunidadId: number,
-    total: number,
-  ): Promise<DiaDeLaCotizacion[] | null> {
+  ): Promise<
+    | {
+        cotizacion: CotizacionDeLaPostulacion;
+        matriz: FilaDeLaMatriz[];
+        vinculada: boolean;
+      }
+    | { problema: string }
+  > {
     try {
       const o = await this.repo.oportunidad(companyId, oportunidadId);
-      if (!o?.quotation_id) return null;
-      const q = await this.repo.cotizacion(companyId, { id: o.quotation_id });
-      return q ? repartirElPrecio(diasDeLaCotizacion(q), total) : null;
+      if (o?.quotation_id) {
+        const q = await this.repo.cotizacion(companyId, {
+          id: o.quotation_id,
+        });
+        return q
+          ? { cotizacion: q, matriz: [], vinculada: true }
+          : {
+              problema:
+                'No encontramos la cotización vinculada: vincúlala de nuevo.',
+            };
+      }
+      const postulado = await this.cotizacion.deLoPostulado(
+        companyId,
+        oportunidadId,
+      );
+      return { ...postulado, vinculada: false };
     } catch (error) {
       this.logger.warn(
         `el reparto del precio de la oportunidad ${oportunidadId}: ${mensajeDe(error)}`,
       );
-      return null;
+      return { problema: mensajeDe(error) };
     }
   }
 

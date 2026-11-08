@@ -145,7 +145,9 @@ export type EstadoDeExigencia =
   | "lo_tienes"
   | "no_puedes"
   | "catalogo"
+  | "parecido"
   | "subcontratar"
+  | "particular"
   | "por_definir"
   | "no_va"
   | "ia_lo_tienes"
@@ -157,7 +159,12 @@ export const ESTADOS_DE_EXIGENCIA: Record<EstadoDeExigencia, Sello> = {
   lo_tienes: { texto: "lo tienes", tono: "bien" },
   no_puedes: { texto: "no puedes", tono: "mal" },
   catalogo: { texto: "de tu catálogo", tono: "bien" },
+  // Decisión 120 (08-11): un producto de tu catálogo muy parecido, escrito
+  // con las palabras de las bases; y lo propio de la licitación que se
+  // compra (la taza de regalo), sin precio aparte.
+  parecido: { texto: "parecido", tono: "bien" },
   subcontratar: { texto: "subcontratar", tono: "ojo" },
+  particular: { texto: "particular", tono: "ojo" },
   por_definir: { texto: "por definir", tono: "ojo" },
   no_va: { texto: "no va", tono: "neutro" },
   ia_lo_tienes: { texto: "IA: lo tienes", tono: "bien" },
@@ -184,7 +191,9 @@ export function estadoDeExigencia(
   if (marca === "no_puedo") return "no_puedes";
   if (fila) {
     if (fila.origen === "catalogo") return "catalogo";
+    if (fila.origen === "parecido") return "parecido";
     if (fila.origen === "subcontratar") return "subcontratar";
+    if (fila.origen === "particular") return "particular";
     return NO_SE_OFRECE.test(normalizar(fila.como)) ? "no_va" : "por_definir";
   }
   if (e.ia === "tengo") return "ia_lo_tienes";
@@ -208,8 +217,10 @@ export function resumenDeLasExigencias(estados: EstadoDeExigencia[]): string {
     [cuantas(estados, "por_definir"), "por definir", "por definir"],
     [cuantas(estados, "ia_conseguir"), "por conseguir", "por conseguir"],
     [cuantas(estados, "subcontratar"), "por subcontratar", "por subcontratar"],
+    [cuantas(estados, "particular"), "por comprar", "por comprar"],
     [cuantas(estados, "lo_tienes", "ia_lo_tienes"), "la tienes", "las tienes"],
     [cuantas(estados, "catalogo"), "de tu catálogo", "de tu catálogo"],
+    [cuantas(estados, "parecido"), "parecida", "parecidas"],
     [cuantas(estados, "por_revisar"), "por revisar", "por revisar"],
     [cuantas(estados, "no_va"), "no va", "no van"],
   ];
@@ -235,6 +246,8 @@ export function selloDeLasExigencias(
   if (revisar > 0) return { tono: "ojo", texto: `${revisar} por revisar` };
   const sub = cuantas(estados, "subcontratar");
   if (sub > 0) return { tono: "ojo", texto: `${sub} por subcontratar` };
+  const comprar = cuantas(estados, "particular");
+  if (comprar > 0) return { tono: "ojo", texto: `${comprar} por comprar` };
   return { tono: "bien", texto: "todo cubierto" };
 }
 

@@ -437,6 +437,21 @@ export default function CotizacionDeLaPostulacion({
       )}
       {dice?.tono === "se_pasa" && <Aviso texto={dice.texto} />}
       {cuadra && cuadra.tono !== "calza" && <Aviso texto={cuadra.texto} />}
+      {/* Decisión 120 (08-11): al ganar, el aviso de lo que hay que comprar
+          o subcontratar. Felipe: "me tiene que avisar que para esta
+          licitación necesito, no sé, unos galvanos para dar un premio". */}
+      {ganada && estado.faltan.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-sm font-semibold text-amber-900">
+            Para cumplir, compra o subcontrata
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-amber-900">
+            {estado.faltan.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {c && reescribiendo && (
         <ConfirmInline
           question={`¿Reescribir la N° ${c.numero} con lo postulado? Lo que le agregaste a mano se reemplaza; queda anotado en su bitácora.`}
