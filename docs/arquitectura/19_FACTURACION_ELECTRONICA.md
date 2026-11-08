@@ -2528,6 +2528,8 @@ dale armalo"*.
 - El adelanto de Rudel: la factura de la OC de $4M deja el evento en
   «Parcial, 40 %», y lo que queda sigue en «Por facturar».
 - Lo cubre `LoDelEvento.test.tsx`.
+- **En producción desde el 08-11-2026** (PR #319, solo la vitrina), con el
+  «ok» de Felipe.
 
 ### 9.11 Fuentes nuevas (04-11)
 
