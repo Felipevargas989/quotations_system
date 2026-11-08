@@ -87,6 +87,8 @@ const armar = ({
   particulares = null as string[] | null,
   // La nómina del SII (§9.27); sin ella, como antes.
   sii = undefined as { buscar: jest.Mock } | undefined,
+  // Las facturas anteriores (§9.29); sin ellas, como antes.
+  anteriores = undefined as { buscar: jest.Mock } | undefined,
 } = {}) => {
   let fila: Record<string, unknown> = {};
   const repo = {
@@ -160,6 +162,7 @@ const armar = ({
     boletas as never,
     alcance as never,
     sii as never,
+    anteriores as never,
   );
   return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
@@ -683,5 +686,80 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
       origen: 'eventia',
     });
     expect(sii.buscar).not.toHaveBeenCalled();
+  });
+
+  it('las facturas anteriores van antes del SII, y si el PDF cortó la razón social, el SII la completa (§9.29)', async () => {
+    const DEL_PDF = 'JUNTA DE VECINOS N 2 VILLA LOS AROMOS DE LA COMUNA';
+    const anteriores = {
+      buscar: jest.fn().mockResolvedValue({
+        rut: '65123456-5',
+        razon_social: DEL_PDF,
+        giro: 'ORGANIZACION COMUNITARIA',
+        direccion: 'LOS AROMOS 123',
+        comuna: 'QUILLON',
+        ciudad: 'QUILLON',
+        tipo: 33,
+        folio: 379,
+        fecha_emision: '2026-11-01',
+      }),
+    };
+    const sii = { buscar: jest.fn().mockResolvedValue(null) };
+    const { servicio, repo } = armar({ sii, anteriores });
+    const r = repo as unknown as Record<string, jest.Mock>;
+    r.razonSocialDeLaEmpresa = jest.fn().mockResolvedValue(null);
+
+    // Sin el SII: lo de la factura, con el aviso de que puede venir cortada.
+    expect(await servicio.razonSocialPorRut(1, '65.123.456-5')).toEqual({
+      rut: '65123456-5',
+      razon_social: DEL_PDF,
+      giro: 'ORGANIZACION COMUNITARIA',
+      direccion: 'LOS AROMOS 123',
+      comuna: 'QUILLON',
+      ciudad: 'QUILLON',
+      correo_facturacion: null,
+      referencias_exigidas: [],
+      cliente: null,
+      giros: [],
+      origen: 'factura',
+      factura: {
+        folio: 379,
+        fecha_emision: '2026-11-01',
+        razon_social_cortada: true,
+      },
+    });
+    expect(anteriores.buscar).toHaveBeenCalledWith(1, '65123456-5');
+
+    // Con el SII: la razón social entera y sus actividades para el giro; lo
+    // demás sigue siendo lo de la factura.
+    sii.buscar.mockResolvedValue({
+      rut: 65123456,
+      dv: '5',
+      razon_social:
+        'JUNTA DE VECINOS N 2 VILLA LOS AROMOS DE LA COMUNA DE QUILLÓN',
+      giro: 'ACTIVIDADES DE OTRAS ASOCIACIONES',
+      actividades: [949909],
+      direccion: 'OTRA DIRECCION 9',
+      comuna: 'QUILLON',
+      ciudad: 'QUILLON',
+      giros: ['ACTIVIDADES DE OTRAS ASOCIACIONES'],
+    });
+    expect(await servicio.razonSocialPorRut(1, '65123456-5')).toMatchObject({
+      razon_social:
+        'JUNTA DE VECINOS N 2 VILLA LOS AROMOS DE LA COMUNA DE QUILLÓN',
+      giro: 'ORGANIZACION COMUNITARIA',
+      direccion: 'LOS AROMOS 123',
+      giros: ['ACTIVIDADES DE OTRAS ASOCIACIONES'],
+      origen: 'factura',
+      factura: { folio: 379, razon_social_cortada: false },
+    });
+
+    // Lo guardado en Eventia sigue mandando.
+    r.razonSocialDeLaEmpresa.mockResolvedValue({
+      rut: '65123456-5',
+      razon_social: 'Junta de Vecinos Los Aromos',
+    });
+    expect(await servicio.razonSocialPorRut(1, '65123456-5')).toMatchObject({
+      origen: 'eventia',
+    });
   });
 });

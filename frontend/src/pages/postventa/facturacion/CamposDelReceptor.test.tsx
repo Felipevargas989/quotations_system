@@ -105,4 +105,35 @@ describe("El RUT que llena todo", () => {
     await new Promise((r) => setTimeout(r, 450));
     expect(buscarRazonSocial).not.toHaveBeenCalled();
   });
+
+  it("de una factura anterior (§9.29): dice cuál, y si la razón social viene cortada", async () => {
+    buscarRazonSocial.mockResolvedValue({
+      rut: "65123456-5",
+      razon_social: "JUNTA DE VECINOS N 2 VILLA LOS AROMOS DE LA COMUNA",
+      giro: "ORGANIZACION COMUNITARIA",
+      direccion: "LOS AROMOS 123",
+      comuna: "QUILLON",
+      ciudad: "QUILLON",
+      correo_facturacion: null,
+      referencias_exigidas: [],
+      cliente: null,
+      origen: "factura",
+      giros: [],
+      factura: {
+        folio: 379,
+        fecha_emision: "2026-11-01",
+        razon_social_cortada: true,
+      },
+    });
+    render(<ConEstado inicial={VACIO} />);
+    fireEvent.change(casilla("RUT"), { target: { value: "65.123.456-5" } });
+    await waitFor(() =>
+      expect(casilla("Giro").value).toBe("ORGANIZACION COMUNITARIA"),
+    );
+    expect(
+      screen.getByText(
+        "Llenado con tu factura N° 379 del 01-11-2026: revisa que siga igual. La razón social viene cortada en el PDF: complétala.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

@@ -19,6 +19,11 @@ import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
 } from '../facturacion-cl/facturacion-cl';
+import { FacturasAnterioresService } from '../facturas-anteriores/facturas-anteriores.service';
+import {
+  CORTE_DE_LA_RAZON_SOCIAL,
+  paraComparar,
+} from '../facturas-anteriores/texto-del-pdf';
 import { NominaSiiService } from '../nomina-sii/nomina-sii.service';
 import {
   Cadena,
@@ -165,6 +170,8 @@ export class FacturasService {
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
     // El RUT que llena todo (doc 19 §9.27): la nómina del SII.
     @Optional() private readonly nominaSii?: NominaSiiService,
+    // Y las facturas que la empresa ya emitió en facturacion.cl (§9.29).
+    @Optional() private readonly facturasAnteriores?: FacturasAnterioresService,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -434,7 +441,41 @@ export class FacturasService {
       canonico,
     );
     if (guardada) return { ...guardada, origen: 'eventia' as const };
-    const delSii = await this.nominaSii?.buscar(canonico).catch(() => null);
+    const [anterior, delSii] = await Promise.all([
+      this.facturasAnteriores?.buscar(companyId, canonico).catch(() => null),
+      this.nominaSii?.buscar(canonico).catch(() => null),
+    ]);
+    if (anterior) {
+      // Lo que se usó de verdad en su última factura (§9.29). El PDF corta
+      // la razón social a 50: si el SII la tiene entera, va la del SII.
+      const delPdf = anterior.razon_social;
+      const entera =
+        delSii &&
+        delPdf.length >= CORTE_DE_LA_RAZON_SOCIAL &&
+        paraComparar(delSii.razon_social).startsWith(paraComparar(delPdf))
+          ? delSii.razon_social
+          : null;
+      return {
+        rut: canonico,
+        razon_social: entera ?? delPdf,
+        giro: anterior.giro,
+        direccion: anterior.direccion,
+        comuna: anterior.comuna,
+        ciudad: anterior.ciudad,
+        correo_facturacion: null,
+        referencias_exigidas: [] as string[],
+        cliente: null,
+        giros: delSii?.giros ?? [],
+        origen: 'factura' as const,
+        factura: {
+          folio: anterior.folio,
+          fecha_emision: anterior.fecha_emision,
+          // Puede venir incompleta: la pantalla lo dice.
+          razon_social_cortada:
+            !entera && delPdf.length >= CORTE_DE_LA_RAZON_SOCIAL,
+        },
+      };
+    }
     if (!delSii) return null;
     return {
       rut: canonico,

@@ -1862,8 +1862,8 @@ El paso 3 del plan de §9.25 (*"me parece perfecto el orden, sumemos
 todo"*). Los pasos 1 y 2 de ese orden:
 - **Lo guardado en Eventia** ya existía (`GET /facturacion/razon-social`),
   pero ninguna pantalla lo usaba.
-- **Las facturas ya emitidas en facturacion.cl** quedan para después:
-  solo se pueden probar en producción.
+- **Las facturas ya emitidas en facturacion.cl** quedaron para después
+  (solo se pueden probar en producción): hechas el 08-11, en §9.29.
 
 **La nómina.** Migración 192: `sii_contribuyentes`, `sii_actividades` y
 `sii_cargas`, sin `company_id` (datos públicos, de nadie). «Cargar la
@@ -1972,6 +1972,76 @@ Felipe.
 credenciales a la vista, el XML en Base64, escapado y en CDATA, la
 negativa, la falla del servidor, guardar lo traído y sin conexión) y, en
 la vitrina, `RecibidosDelMes.test.tsx`.
+
+### 9.29 Tus facturas anteriores: la segunda fuente del RUT (08-11, en la madrugada)
+
+Felipe, 08-11, con la nómina del SII camino a producción: *"a producción y
+luego con lo que falta... ¿qué pasó con buscar los datos solo con el
+RUT?"*. Es el paso 2 del orden de §9.25, aprobado el 07-11.
+
+**Por qué hace falta, medido el 08-11:**
+- La agrupación de profesores jubilados de la factura N° 379 (la última
+  que Felipe emitió a mano) **no está en la nómina del SII**. Las
+  agrupaciones, juntas y clubes que no iniciaron actividades no salen ahí,
+  y son clientes de siempre de Valle del Sol.
+- Con las empresas, el SII da el giro que propone Eventia; la factura
+  anterior trae el que se usó de verdad. A CCU, por ejemplo, el SII le
+  propone «Alquiler de bienes inmuebles amoblados».
+
+**Lo que hace:** «Leer mis facturas anteriores», junto a la nómina del SII
+(lo ve el administrador, con «Tarifario y conexión»). Por detrás:
+1. Pide a facturacion.cl cada factura (33) con `ObtenerPdf`, que viene
+   incluido; el XML con `getXMLDte` cuesta aparte. Va desde la anterior a
+   la siguiente que dice `ConsultarCAF`, hacia atrás, a lo más 1.000, una a
+   la vez.
+2. De cada PDF lee el cuadro del cliente (`texto-del-pdf.ts`, sin IA ni
+   librerías). Los PDF de facturacion.cl los arma JasperReports con iText:
+   cada texto viene con su posición. Se buscan «Señor(es)», «R.U.T.»,
+   «Giro», «Dirección», «Comuna» y «Ciudad», y el valor que sigue a su «:»
+   en la misma fila. Lo que no se puede leer (otro formato, un RUT que no
+   calza) no se guarda.
+3. Cada RUT queda con lo de su factura más nueva. La migración 194 trae
+   `receptores_de_facturas_anteriores` y `lecturas_de_facturas_anteriores`
+   (cuántas se pidieron, cuántas trajeron PDF y cuántos clientes salieron).
+4. Si facturacion.cl deja de responder cinco veces seguidas, la lectura se
+   corta y queda el motivo.
+
+En el ambiente de prueba la empresa es compartida con otros integradores:
+ahí solo se leen las facturas que emitió Eventia.
+
+**El orden al escribir el RUT** (`GET /facturacion/razon-social`):
+1. Lo guardado en Eventia, la razón social de un cliente.
+2. Su última factura en facturacion.cl, con el aviso «Llenado con tu
+   factura N° 379 del 01-11-2026: revisa que siga igual.».
+3. La nómina del SII.
+
+El PDF corta la razón social a 50 caracteres (medido en la N° 379). Si
+llega con 50 y el SII la tiene entera, va la del SII. Si no, la pantalla
+dice «La razón social viene cortada en el PDF: complétala.». Las
+actividades del SII se ofrecen igual como giro.
+
+**Lo que cambió del plan de §9.25:** decía que lo que calza por RUT con un
+cliente de Eventia quedaba como su razón social. No se puede: desde la 184,
+los clientes no tienen RUT (va en sus razones sociales, que en producción
+eran 0 el 07-11). Lo leído queda por empresa y por RUT; al facturar a ese
+cliente, la razón social se guarda en su ficha, como siempre.
+
+**Probado** el 08-11, sin la base, con la factura N° 379 de producción (el
+PDF que Felipe bajó el 07-11) y con la 9999839219 de prueba: los dos
+formatos se leen enteros, con las tildes.
+
+**Lo que cubren las pruebas:**
+- `facturas-anteriores.spec.ts`: los dos formatos armados como los de
+  facturacion.cl, uno de pdf-lib con el texto en hexadecimal, el RUT que no
+  calza, de la más nueva a la más vieja, en prueba solo las de Eventia, sin
+  conexión, una lectura a la vez y el corte.
+- `facturas.spec.ts`: el orden y la razón social cortada.
+- En la vitrina, `FacturasAnteriores.test.tsx` y
+  `CamposDelReceptor.test.tsx`.
+
+**A producción**, con su «a producción»: primero la 194 en la base, después
+el motor y la vitrina, y al final «Leer mis facturas anteriores». Son unas
+380 facturas, de 3 a 6 segundos cada una: media hora, por detrás.
 
 ### 9.11 Fuentes nuevas (04-11)
 

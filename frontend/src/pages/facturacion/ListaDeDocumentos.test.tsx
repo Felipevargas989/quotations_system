@@ -38,6 +38,7 @@ vi.mock("./ProbarLaConexion", () => ({
 }));
 // La nómina del SII (§9.27) tiene sus propias pruebas.
 vi.mock("./NominaDelSii", () => ({ default: () => null }));
+vi.mock("./FacturasAnteriores", () => ({ default: () => null }));
 // Lo recibido (§9.28) tiene sus propias pruebas.
 vi.mock("./RecibidosDelMes", () => ({
   default: () => <p>lo recibido del mes</p>,

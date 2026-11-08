@@ -760,3 +760,13 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**
 
+
+## 37. Migración 194: tus facturas anteriores (08-11-2026)
+
+**Qué hace.** Dos tablas de cada empresa (`company_id`, con cascada): `lecturas_de_facturas_anteriores` (cada vez que se apretó «Leer mis facturas anteriores»: cuándo empezó y terminó, `estado` «leyendo», «lista» o «fallo», cuántas facturas había que pedir y entre qué folios, cuántas se pidieron, cuántas trajeron su PDF, cuántos clientes salieron, el error y quién la pidió) y `receptores_de_facturas_anteriores` (un cliente por RUT, llave `company_id` + `rut`: la razón social, el giro, la dirección, la comuna y la ciudad de su factura más nueva, con su tipo, folio y fecha). Cerradas a `anon` y `authenticated`; el motor lee, inserta y pone al día, y no borra (sin `DELETE` ni `TRUNCATE` también donde Supabase da todo por defecto).
+
+**Por qué.** Felipe, 08-11-2026: *"¿qué pasó con buscar los datos solo con el RUT?"*. Doc 19 §9.25 (paso 2) y §9.29: lo que se usó de verdad en cada factura, también para las agrupaciones que no están en la nómina del SII.
+
+**Tamaño.** Unos cientos de filas: van en el respaldo diario.
+
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**

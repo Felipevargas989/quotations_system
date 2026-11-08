@@ -19,11 +19,21 @@ import { claseTitulo } from "./datosDeLaFactura";
 // EL RUT QUE LLENA TODO (§9.27; Felipe, 07-11: *"¿cómo lo podemos hacer
 // para que al momento de facturar, el sistema cargue todo solo con el
 // RUT?"*): con un RUT válido, busca la razón social guardada en Eventia y,
-// si no, la de la nómina del SII, y llena SOLO lo que está vacío (lo
-// escrito a mano no se pisa). Del SII, sus otras actividades se ofrecen
-// como giro con un clic, y se dice de dónde salió.
+// si no, la de su última factura en facturacion.cl (§9.29) o la de la
+// nómina del SII, y llena SOLO lo que está vacío (lo escrito a mano no se
+// pisa). Del SII, sus otras actividades se ofrecen como giro con un clic, y
+// se dice de dónde salió.
 
 type Campo = keyof Receptor;
+
+/** «Llenado con tu factura N° 379 del 01-11-2026» (§9.29). */
+const deLaFactura = (e: RazonSocialEncontrada) => {
+  const f = e.factura;
+  const cual = f
+    ? `tu factura N° ${f.folio}${f.fecha_emision ? ` del ${f.fecha_emision.split("-").reverse().join("-")}` : ""}`
+    : "una factura anterior";
+  return `Llenado con ${cual}: revisa que siga igual.${f?.razon_social_cortada ? " La razón social viene cortada en el PDF: complétala." : ""}`;
+};
 const QUE_SE_LLENA: [Campo, keyof RazonSocialEncontrada][] = [
   ["razon_social", "razon_social"],
   ["giro", "giro"],
@@ -126,24 +136,27 @@ export default function CamposDelReceptor({
         <p className="text-xs text-violet-700">
           {encontrada.origen === "sii"
             ? "Llenado con la nómina del SII: revisa el giro y la dirección."
-            : `Llenado con la ficha${encontrada.cliente ? ` de ${encontrada.cliente}` : ""}.`}
+            : encontrada.origen === "factura"
+              ? deLaFactura(encontrada)
+              : `Llenado con la ficha${encontrada.cliente ? ` de ${encontrada.cliente}` : ""}.`}
         </p>
       )}
-      {encontrada?.origen === "sii" && otrosGiros.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-gray-500">Otras actividades en el SII:</span>
-          {otrosGiros.map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => onChange("giro", g)}
-              className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-gray-700 hover:bg-gray-50"
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      )}
+      {(encontrada?.origen === "sii" || encontrada?.origen === "factura") &&
+        otrosGiros.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-gray-500">Otras actividades en el SII:</span>
+            {otrosGiros.map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => onChange("giro", g)}
+                className="rounded-full border border-gray-300 bg-white px-2 py-0.5 text-gray-700 hover:bg-gray-50"
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
       <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
         <Casilla
           etiqueta="Dirección"

@@ -356,10 +356,18 @@ export interface RazonSocialEncontrada {
   correo_facturacion: string | null;
   referencias_exigidas: string[];
   cliente: string | null;
-  /** §9.27: de la ficha de un cliente de Eventia, o de la nómina del SII. */
-  origen?: "eventia" | "sii";
+  /** §9.27: de la ficha de un cliente de Eventia, o de la nómina del SII;
+   *  §9.29: o de una factura anterior de facturacion.cl. */
+  origen?: "eventia" | "sii" | "factura";
   /** §9.27: del SII, sus actividades vigentes para elegir el giro. */
   giros?: string[];
+  /** §9.29: la factura anterior de donde salió. */
+  factura?: {
+    folio: number;
+    fecha_emision: string | null;
+    /** El PDF corta la razón social a 50: puede venir incompleta. */
+    razon_social_cortada: boolean;
+  } | null;
 }
 
 /** Una carga de la nómina del SII (§9.27). */
@@ -386,6 +394,39 @@ export const cargarNominaSii = async () =>
     "/facturacion/nomina-sii/cargar",
     "POST",
   )) as CargaDeLaNomina;
+
+/** Una lectura de las facturas anteriores (§9.29). */
+export interface LecturaDeFacturas {
+  id: number;
+  empezo_en: string;
+  termino_en: string | null;
+  estado: "leyendo" | "lista" | "fallo";
+  folios: number;
+  desde_folio: number | null;
+  hasta_folio: number | null;
+  leidas: number;
+  encontradas: number;
+  clientes: number;
+  error: string | null;
+  pedida_por_nombre: string | null;
+}
+
+/** Cómo van tus facturas anteriores: la última lectura y cuántos clientes. */
+export const getFacturasAnteriores = async () =>
+  (await apiRequest("/facturacion/facturas-anteriores", "GET")) as {
+    ultima: LecturaDeFacturas | null;
+    clientes: number;
+    se_puede_leer: boolean;
+    sin_conexion: string | null;
+  };
+
+/** «Leer mis facturas anteriores»: el motor las pide a facturacion.cl por
+ *  detrás, de la más nueva a la más vieja. */
+export const leerFacturasAnteriores = async () =>
+  (await apiRequest(
+    "/facturacion/facturas-anteriores/leer",
+    "POST",
+  )) as LecturaDeFacturas;
 
 export const buscarRazonSocial = async (
   rut: string,

@@ -20,6 +20,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { matchesSearch } from "../../utils/searchMatch";
+import FacturasAnteriores from "./FacturasAnteriores";
 import NominaDelSii from "./NominaDelSii";
 import ProbarLaConexion from "./ProbarLaConexion";
 import RecibidosDelMes from "./RecibidosDelMes";
@@ -713,6 +714,7 @@ export default function ListaDeDocumentos({
           )}
           {conAjustes && <ProbarLaConexion />}
           {conAjustes && <NominaDelSii />}
+          {conAjustes && <FacturasAnteriores />}
         </>
       )}
     </div>
