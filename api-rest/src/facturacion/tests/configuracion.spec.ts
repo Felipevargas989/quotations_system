@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException } from '@nestjs/common';
 import { mockPinoLogger } from '../../testing/mocks';
 import {
   configuracionDeFacturacionCl,
@@ -180,7 +180,7 @@ describe('la conexión de cada empresa', () => {
     const otra = conexion.de(2);
     expect(otra).toBeInstanceOf(FacturacionClSinConexion);
     await expect(otra.folioSiguiente(33)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
+      BadGatewayException,
     );
   });
 
