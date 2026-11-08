@@ -36,7 +36,11 @@ import { gzipSync } from 'zlib';
  * bajar. También `mercado_cargas`: si se restaurara sin las otras, diría
  * «lista» con las tablas vacías. Y la capa resumida de la decisión 109
  * (migración 172), unos 390 MB que la base rearma sola desde las otras, con
- * sus regiones y comunas, que vienen en la misma migración.
+ * sus regiones y comunas, que vienen en la misma migración. Y la nómina del
+ * SII (doc 19 §9.27, migración 192): 1,7 millones de empresas, cerca de
+ * 300 MB, que se vuelven a bajar de sii.cl; con su registro de cargas, que
+ * restaurado solo diría «lista» con la tabla vacía, y su diccionario de
+ * actividades.
  */
 export const FUERA_DEL_RESPALDO = new Set([
   'mp_procesos',
@@ -51,6 +55,9 @@ export const FUERA_DEL_RESPALDO = new Set([
   'mercado_compras',
   'mercado_gasto_por_comprador_mes',
   'mercado_ganadores_por_mes',
+  'sii_cargas',
+  'sii_contribuyentes',
+  'sii_actividades',
 ]);
 
 @Injectable()

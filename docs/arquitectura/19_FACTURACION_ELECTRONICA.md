@@ -1,10 +1,15 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
+> **§9.26 a §9.28 EN PRODUCCIÓN desde el 08-11-2026** (Felipe: *"a
+> producción"*; PR #312; las migraciones 192 y 193 en las dos bases,
+> vacías y antes del motor; la nómina del SII se carga con «Cargar la
+> nómina del SII» después del motor).
+>
 > **EN PRODUCCIÓN desde el 07-11-2026** (Felipe: *"a producción"*; PR #310;
 > las migraciones 184, 187, 189 y 191 en las dos bases, antes del motor).
-> Sin las credenciales de producción en Railway todavía: no emite nada y
-> la pantalla muestra el letrero rojo. Las boletas, en pausa hasta que
-> facturacion.cl las habilite (OT 377564).
+> Conectado a facturacion.cl desde la noche del 07-11 (Felipe cargó las
+> credenciales en Railway; facturas desde la N° 381). Las boletas, en
+> pausa hasta que facturacion.cl las habilite (OT 377564).
 >
 > **Estado: en construcción (04-11-2026).** Felipe aprobó el plan v2 (*"si
 > avanza así"*). **Paso 1a en el laboratorio desde el 04-11:** la migración
@@ -1192,7 +1197,18 @@ a `service_role` en cada tabla nueva: se le quitó explícito el DELETE de
 `cobros_por_boletear_cambios`, como en el laboratorio); y la rama
 `feature/facturacion-a-produccion`, con los 73 commits de Facturación
 encima de `main` (el trozo del radar municipal de 977c490b, solo del
-laboratorio, quedó fuera), por el PR #310. Faltan el 6 y el 7.
+laboratorio, quedó fuera), por el PR #310. **Los pasos 6 y 7, esa misma
+noche:** Felipe cargó las cinco variables y apretó «Deploy» (22:43); el
+registro dijo «conectado en produccion para la empresa 1». «Probar la
+conexión» respondió en 0,9 s: facturas, 51 folios (sigue la N° 381, el
+rango vence el 19-02-2027); notas de crédito, 11 (sigue la 115, vence el
+27-04-2027); notas de débito y boletas, «NO EXISTE CAF VIGENTE» (sin
+folios: la nota de débito solo sirve para anular una nota de crédito, y
+las boletas esperan la OT 377564). El diseño del PDF lo pone facturacion.cl
+con el formato de la empresa (el logo y el encabezado verde de la factura
+N° 379, emitida a mano en su web); Eventia escribe la línea, las
+observaciones y la referencia. Felipe vio la maqueta y dijo *"déjalo
+así"*.
 
 *Después:*
 - Felipe pone los precios del tarifario de boletas (parte vacío).
@@ -1488,7 +1504,9 @@ entregue: se averiguan antes de prometerlos.
     integración: ni el SOAP ni la API REST traen compras, libro de compras
     ni acuse de recibo (`ConsultaLibroVentas` trae solo el libro de ventas
     y el de boletas). «Recibidos» lo dice tal cual; habría que preguntarle
-    a su mesa de ayuda.
+    a su mesa de ayuda. **Corregido el 07-11 (§9.25):** sí existe, en un
+    manual aparte, el «WebService de Compras» (el Libro de Compras y el
+    Panel DTE Recibidos).
 
 **El sprint 3, la boleta y las notas (06-11, en la noche):**
 - Las dos en su propia pantalla, como la factura y la maqueta: arriba
@@ -1700,6 +1718,274 @@ aparte, el aviso del PDF y marcar o devolver solo un evento aceptado o
 realizado de la empresa) y `facturas.spec.ts` (la boleta solo a un
 particular). En la vitrina, `PorFacturar.test.tsx`.
 
+### 9.25 Lo que sigue: lo recibido y el RUT que llena todo (07-11, en la noche)
+
+Felipe, 07-11 en la noche, ya conectado en producción: *"¿ya trajiste las
+facturas recibidas? ¿eso funcionará?"*; después, *"¿cómo lo podemos hacer
+para que al momento de facturar, el sistema cargue todo solo con el RUT?
+¿se podrá?"*, y *"deja el plan hecho"*. Este es el plan. **No se
+construye sin su OK.** Aprobado esa misma noche (*"me parece perfecto el
+orden, sumemos todo"*), junto con lo de las OC de §9.26.
+
+**Lo recibido sí existe (corrige §9.22).** El manual de facturacion.cl
+tiene un «Manual WebService de Compras» aparte
+(`manualintegracion/archivomanualwscompras.php`), con dos servicios SOAP:
+- **Libro de Compras** (`https://api.facturacion.com/WSFacturacion/Compra?wsdl`),
+  método `ObtenerCompra`: los documentos del libro de compras de un mes
+  (`periodo` AAAA-MM, obligatorio), con su XML y, con `Incluyelink` = 1,
+  el enlace al PDF cedible. Filtra por RUT del emisor, tipo, folio, forma
+  de pago y fecha de ingreso; `ConXML` = 1 trae solo los que llegaron con
+  su XML de intercambio. Entra con el RUT y la clave de la empresa.
+- **Panel DTE Recibidos** (`https://wss.facturacion.cl/WSDS/wspaneldte.asmx?wsdl`),
+  con usuario, RUT y clave: `ConsultaPanelDte` (los pendientes de acuse:
+  folio, tipo, RUT del proveedor, fecha de recepción en el SII, monto y si
+  trae XML), `ObtenerPanelDte` (el XML de uno) y `Acuse` (aceptar o
+  rechazar).
+- El manual no dice que cuesten aparte (`ConsultaLibroVentas` y
+  `getXMLDte` sí lo dicen). Se sabe probando.
+
+**El plan de «Recibidos»**, en tres pasos:
+1. **La prueba, solo lectura.** El motor le pide a `ObtenerCompra` el mes
+   en curso con las credenciales de producción y muestra cuántos
+   documentos trae, como «Probar la conexión». No guarda nada. Si responde
+   que el servicio no está contratado, se le pregunta a facturacion.cl, y
+   el costo lo decide Felipe.
+2. **La lista del mes.** La pestaña «Recibidos» con el proveedor, su RUT,
+   el tipo, el folio, la fecha, el neto, el IVA, el total y el PDF, con el
+   mismo resumen y los mismos filtros de «Emitidos». Una copia en la base
+   (`documentos_recibidos`, migración nueva) para no pedirle todo a
+   facturacion.cl cada vez.
+3. **Después, con otro OK:** «Aceptar» y «Rechazar» desde el panel
+   (`Acuse`), dentro de los 8 días que da la ley para reclamar una factura.
+
+**El RUT que llena todo.** Al escribir el RUT del cliente, Eventia llena la
+razón social, el giro, la dirección, la comuna y la ciudad. Busca en este
+orden:
+1. **Lo guardado en Eventia.** Ya existe (§9.21, `GET
+   /facturacion/razon-social?rut=`): la razón social guardada en cualquier
+   cliente. Medido el 07-11 en producción: 0 guardadas, porque todavía no
+   se factura nada desde Eventia; se llena sola con cada factura.
+2. **Las facturas que ya emitió en facturacion.cl** (la última a mano fue
+   la N° 379). El motor baja una vez sus PDF con `ObtenerPdf`, que viene
+   incluido en el servicio, y lee el cuadro del cliente: Señor(es), RUT,
+   giro, dirección, comuna y ciudad. Es texto del PDF, sin IA. Lo que calza
+   por RUT con un cliente de Eventia queda como su razón social. Primero
+   se prueba con una que `ObtenerPdf` también entregue lo emitido en la
+   web.
+3. **La nómina pública del SII** de las personas jurídicas
+   (`sii.cl/sobre_el_sii/nominapersonasjuridicas.html`, actualizada en
+   agosto de 2026): `PUB_NOMBRES_PJ` (la razón social), `PUB_NOM_ACTECOS`
+   (las actividades, de donde sale el giro) y `PUB_NOM_DIRECCIONES` (las
+   direcciones de la casa matriz y las sucursales). Una tabla con el RUT,
+   la razón social, la actividad principal y la dirección de la casa
+   matriz, para la empresa que nunca ha comprado. Antes de cargarla se
+   mira el disco de producción (el 29-10 se llenó).
+- Lo que llena el historial o el SII se ve antes de emitir y se puede
+  corregir; lo corregido queda guardado en el cliente.
+
+**Lo que no se puede:** preguntarle al SII en línea (su consulta de
+terceros pide captcha), y la nómina no trae a las personas naturales: a
+esas se les escriben los datos la primera vez, y desde ahí quedan
+guardados.
+
+### 9.26 Las OC que se leen solas y la factura por partes (07-11, en la noche)
+
+**En producción desde el 08-11-2026** (PR #312).
+
+Felipe, 07-11 en la noche, con el plan de §9.25 aprobado (*"me parece
+perfecto el orden, sumemos todo, lo dejo trabajando y lo reviso mañana
+temprano"*):
+- *"Con las órdenes de compra, cada vez que una se suba se debería leer y
+  dejar todo listo para facturar."*
+- *"Imagina la cotización de CCU, 20M, y el proveedor emite 2 OC, una por
+  10 y otra por 10 (…) el sistema debe reconocer cuando esté por
+  facturar, cuando esté facturado parcialmente y cuando esté todo
+  facturado. Mismo caso: cliente emite OC por todo el monto pero pide
+  facturar un % primero y otro % después (50 % y 50 % es un caso
+  habitual, también puede ser 30 % y 70 %)."*
+- *"De forma inicial deberíamos leer todas las OC y precompletar las
+  facturas antes de colocar facturar… quizás un distintivo que diga con
+  OC."*
+
+**La OC se lee al subirla.** `POST /event-documents` con la categoría
+`ordenes_compra` deja el documento y, si la empresa tiene Facturación,
+BelIA lo lee por detrás (`OrdenesDeCompraService.leerAlSubir`, el mismo
+`deDocumentos` de «Emitir DTE»). Quien sube no espera; lo que BelIA no
+puede leer queda en el registro y se intenta de nuevo al facturar.
+`QuotationsModule` importa `FacturacionModule` para eso (sin ciclo).
+
+**La primera lectura.** Las OC que se subieron antes, o las que BelIA no
+pudo leer, se leen solas al entrar a «Por facturar», una vez por visita
+(`POST /facturacion/por-facturar/leer-ordenes`, tres eventos a la vez):
+«BelIA está leyendo N órdenes de compra…», y bajo el cliente, en ámbar, la
+que no pudo con su motivo. Lo que no pudo leer (un PDF que no es una OC,
+una OC repetida) no se le vuelve a mandar a la IA en 12 horas: la primera
+lectura repite el motivo; «Emitir DTE» y la subida sí lo intentan de nuevo.
+Medido el 07-11 en producción: 9 PDF de OC en 7 eventos, ninguno leído. En
+el laboratorio, esa noche, avisó los dos casos: el «Informe de evaluación
+Crece 2026» subido como OC y una OC subida dos veces.
+
+**Pendiente, parcial o facturado.** El evento y cada OC tienen su estado
+(`estadoDeLaFacturacion`): pendiente si no se ha facturado nada, parcial si
+algo, facturado si todo; $1 de redondeo se tolera. Lo facturado de cada OC
+se cuenta con la cadena (`facturadoDeLasOC`): una factura anulada ya no
+cuenta. En «Por facturar»:
+- la columna «Estado»: «Pendiente», o «Parcial» con el % facturado debajo
+  (una palabra y el detalle abajo, como pide Felipe);
+- bajo el cliente, «Con OC» y una línea por OC: «OC 4500001 · $10.000.000
+  · facturada», «… 30 % facturado» o «… pendiente»;
+- bajo lo que queda, la OC que factura «Facturar»: la primera con saldo;
+- los facturados completos en Eventia, abajo y plegados, en «Facturados en
+  Eventia (N)».
+
+**Cómo se porta con los casos de Felipe:**
+- *Dos OC de $10M para una cotización de $20M:* el evento sale
+  «Pendiente» con las dos OC pendientes. «Facturar» propone la primera OC
+  por sus $10M, con su referencia 801. Emitida, el evento queda «Parcial,
+  50 % facturado», la primera OC «facturada», y «Facturar» propone la
+  segunda. Con la segunda, el evento pasa a «Facturados en Eventia». La
+  masiva factura una OC por evento cada vez.
+- *Una OC por todo, al 50 % y 50 % (o 30 % y 70 %):* en «Emitir DTE», bajo
+  «Se llena desde», **«Qué parte»**: «Todo lo que queda», «50 %», «30 %» u
+  «Otro %», de la OC elegida o de la cotización, con la base a la vista.
+  BelIA arma esa parte (`parteDe`: el % de la base, al peso, nunca más de
+  lo que queda), la OC y el evento quedan «Parcial, 50 % facturado», y la
+  segunda vez «Todo lo que queda» es el otro 50 %. La factura parcial lo
+  dice en una segunda línea de observaciones: «Factura parcial: 50 % de la
+  OC N° 4500123» (o «de la cotización N° 523» sin OC). La primera línea
+  sigue igual (Felipe aprobó el diseño esa noche: *"déjalo así"*).
+- El candado de siempre: nunca más del 100 % de una OC (§5.3).
+
+**Lo que cubren las pruebas:** `por-facturar.spec.ts` (los dos casos de
+Felipe y la primera lectura), `borrador-de-factura.spec.ts` (el 50 %, el
+30 % y el 70 %, el tope en lo que queda y la observación),
+`event-documents-vendedor.spec.ts` (la OC subida se lee, otra categoría o
+una empresa sin Facturación no). En la vitrina, `PorFacturar.test.tsx` y
+`EmitirDte.test.tsx` («Qué parte»).
+
+### 9.27 El RUT que llena todo: la nómina del SII (08-11, en la madrugada)
+
+**En producción desde el 08-11-2026** (PR #312; migración 192 en las dos
+bases).
+
+El paso 3 del plan de §9.25 (*"me parece perfecto el orden, sumemos
+todo"*). Los pasos 1 y 2 de ese orden:
+- **Lo guardado en Eventia** ya existía (`GET /facturacion/razon-social`),
+  pero ninguna pantalla lo usaba.
+- **Las facturas ya emitidas en facturacion.cl** quedan para después:
+  solo se pueden probar en producción.
+
+**La nómina.** Migración 192: `sii_contribuyentes`, `sii_actividades` y
+`sii_cargas`, sin `company_id` (datos públicos, de nadie). «Cargar la
+nómina del SII» (`POST /facturacion/nomina-sii/cargar`, del administrador
+con «Tarifario y conexión») corre por detrás:
+1. baja de sii.cl los tres ZIP (unos 190 MB);
+2. reparte los 3,37 millones de nombres por tramo de 100.000 RUT;
+3. recorre los 3,8 millones de actividades y los 4,46 millones de
+   domicilios, que vienen ordenados por RUT, de a tramo y con freno;
+4. guarda una fila por empresa con actividades vigentes, de a mil, y al
+   final borra las de otras cargas.
+
+Medido el 08-11 con los archivos reales (sin la base): 1.709.121 empresas,
+674 actividades, 28 segundos y unos 200 MB de memoria (con 256 MB de tope,
+termina). Con readline se perdían líneas y la memoria llegaba a 764 MB: se
+cambió por `lineasDelFlujo`. Queda fuera del respaldo diario. Una carga a la
+vez; si falla, queda la anterior.
+
+**Qué se toma de cada empresa** (`nomina-sii.ts`):
+- **La razón social**, cortada a 100.
+- **El giro.** El SII no marca la actividad principal: Valle del Sol tiene
+  cuatro (hoteles, residenciales para turistas, restaurantes y compraventa
+  de inmuebles), y CCU S.A., dos de oficina. Se propone la primera afecta
+  a IVA (la de lo que vende); entre ellas, la más antigua. Va cortado a 40
+  sin dejar un paréntesis abierto. Las demás se ofrecen con un clic.
+- **La dirección.** El domicilio vigente más reciente: calle, número,
+  bloque y oficina, cortado a 60. La comuna y la ciudad (o la comuna si no
+  trae ciudad), a 20.
+
+**En la factura** (`CamposDelReceptor`, en «Nuevo documento», «Crear
+cliente nuevo» y «Editar receptor y referencias» del evento):
+- con un RUT válido, busca lo guardado en Eventia y, si no, la nómina;
+- llena **solo lo vacío**: lo escrito a mano no se pisa;
+- dice de dónde salió: «Llenado con la nómina del SII: revisa el giro y la
+  dirección» o «Llenado con la ficha de …»;
+- del SII, «Otras actividades en el SII» con un botón por actividad para
+  cambiar el giro.
+
+La búsqueda pasó a `@Permiso('boletas', 'facturacion_eventos')`, para que
+sirva también al facturar un evento.
+
+**«Nómina del SII»**, junto a «Probar la conexión» (el administrador):
+cuántas empresas tiene y cuándo se cargó, «cargando… N empresas» mientras
+carga, el motivo si falló, y «Cargar la nómina del SII» o «Cargar de
+nuevo». El SII la pone al día una vez al año (los archivos de agosto).
+
+**Lo que no hace:** las personas naturales no están en la nómina (se
+escriben la primera vez), y no le pregunta al SII en línea (pide captcha).
+
+**Lo que cubren las pruebas:** `nomina-sii.spec.ts` (el giro de Valle del
+Sol, la dirección, la carga con ZIP de prueba, la falla del SII, la nómina
+con pocas empresas, una carga a la vez y el dígito verificador),
+`facturas.spec.ts` (lo de Eventia primero; si no, el SII) y, en la vitrina,
+`CamposDelReceptor.test.tsx` y `NominaDelSii.test.tsx`.
+
+**A producción:** primero el motor (que la deja fuera del respaldo),
+después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
+
+### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
+
+**En producción desde el 08-11-2026** (PR #312; migración 193 en las dos
+bases).
+
+Los pasos 1 y 2 del plan de «Recibidos» de §9.25, juntos: «Traer de
+facturacion.cl» es la prueba (si el servicio no está contratado, lo dice
+y no guarda nada) y, si responde, la lista del mes. El paso 3 (aceptar o
+rechazar con `Acuse`) sigue esperando otro OK.
+
+**El servicio** (`facturacion-cl/compras.ts`), visto en su definición
+pública el 08-11 (`Compra?wsdl` y `?xsd=1`): SOAP en Java (JAX-WS) en
+`https://api.facturacion.com:443/WSFacturacion/Compra`, método
+`obtenerCompra` (espacio `http://api.facturacion.com/`, sin SOAPAction):
+- pide `login` con `Rut` y `Clave` (en Base64, las mismas de la conexión),
+  `periodo` AAAA-MM e `IncluyeLink` = 1;
+- responde `WSPLANO` (`Resultado`, `Mensaje`, `Detalle`), con un
+  `Documento` por cada recibido: su `XML`, el `RCV` (`recepcionSII`,
+  `acuseSII`, `tipoCompra`) y el `LinkPDF`.
+
+El XML se lee escapado, en Base64 (en ISO-8859-1, como lo emite el SII) o
+en CDATA, sin confundir sus etiquetas con las del sobre. De cada uno se
+toma quién lo emite (RUT y razón social), el tipo, el folio, la fecha, el
+neto, lo exento, el IVA y el total.
+
+**La copia** (migración 193, `documentos_recibidos`): una fila por emisor,
+tipo y folio, con su mes, el enlace del PDF y lo del SII. Lo que vino sin
+XML se cuenta y no se guarda.
+
+**En la pantalla** («Documentos» → «Recibidos», `RecibidosDelMes`):
+- el mes con sus flechas y «Traer de facturacion.cl» (con cuándo se trajo);
+- cada documento con el proveedor y su RUT, el tipo y el folio, la fecha
+  y cuándo lo recibió el SII, el neto, el IVA, el total y «PDF»;
+- arriba, cuántos son y el total (las notas de crédito restan, en rojo);
+- sin la conexión, el botón apagado y el porqué.
+
+Lo ve y lo trae quien ve «Documentos» (`facturacion_documentos`:
+operaciones y el administrador, de fábrica).
+
+**Lo que falta saber:** si su cuenta lo tiene habilitado o cuesta aparte.
+Probado en el laboratorio el 08-11 (la empresa de prueba de
+facturacion.cl, RUT 1-9): el servicio leyó el pedido y respondió
+`Resultado` falso con «Empresa no Autorizada» (la pantalla lo muestra tal
+cual y no guarda nada). O sea, el pedido está bien hecho y lo recibido se
+habilita por empresa. La respuesta de Valle del Sol se ve en producción con
+«Traer de facturacion.cl». Si también dice «Empresa no Autorizada», se le
+pide a soporte de facturacion.cl que lo habilite; el costo lo decide
+Felipe.
+
+**Lo que cubren las pruebas:** `recibidos.spec.ts` (el sobre sin las
+credenciales a la vista, el XML en Base64, escapado y en CDATA, la
+negativa, la falla del servidor, guardar lo traído y sin conexión) y, en
+la vitrina, `RecibidosDelMes.test.tsx`.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
@@ -1726,3 +2012,9 @@ particular). En la vitrina, `PorFacturar.test.tsx`.
   acceso» (`credencialesacceso.php`), la ficha técnica
   (`fichatecnicaserviciointegracion.php`) y el formato XML de la factura
   (`archivofacturaelectronica.php`: ISO-8859-1).
+- 07-11 (§9.25): el «Manual WebService de Compras» de facturacion.cl
+  (`archivomanualwscompras.php`: `ObtenerCompra`, `ConsultaPanelDte`,
+  `ObtenerPanelDte` y `Acuse`), y la nómina de personas jurídicas del SII
+  (https://www.sii.cl/sobre_el_sii/nominapersonasjuridicas.html:
+  `PUB_NOMBRES_PJ`, `PUB_NOM_ACTECOS` y `PUB_NOM_DIRECCIONES`, de agosto
+  de 2026).

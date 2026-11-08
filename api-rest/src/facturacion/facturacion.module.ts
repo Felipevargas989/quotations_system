@@ -11,12 +11,18 @@ import { FacturasController } from './facturas/facturas.controller';
 import { FacturasService } from './facturas/facturas.service';
 import { PorFacturarController } from './facturas/por-facturar.controller';
 import { PorFacturarService } from './facturas/por-facturar.service';
+import { NominaSiiController } from './nomina-sii/nomina-sii.controller';
+import { NominaSiiRepository } from './nomina-sii/nomina-sii.repository';
+import { NominaSiiService } from './nomina-sii/nomina-sii.service';
 import { NotasController } from './notas/notas.controller';
 import { NotasService } from './notas/notas.service';
 import { LeerOrdenDeCompraService } from './ordenes-de-compra/leer-orden-de-compra.service';
 import { OrdenesDeCompraController } from './ordenes-de-compra/ordenes-de-compra.controller';
 import { OrdenesDeCompraRepository } from './ordenes-de-compra/ordenes-de-compra.repository';
 import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.service';
+import { RecibidosController } from './recibidos/recibidos.controller';
+import { RecibidosRepository } from './recibidos/recibidos.repository';
+import { RecibidosService } from './recibidos/recibidos.service';
 
 /**
  * LA FACTURACIÓN ELECTRÓNICA (doc 19). Las órdenes de compra de cada evento
@@ -36,6 +42,8 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     NotasController,
     PorFacturarController,
     FacturaSinEventoController,
+    NominaSiiController,
+    RecibidosController,
   ],
   providers: [
     OrdenesDeCompraService,
@@ -48,6 +56,10 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     BoletasService,
     BoletasRepository,
     NotasService,
+    NominaSiiService,
+    NominaSiiRepository,
+    RecibidosService,
+    RecibidosRepository,
   ],
   exports: [OrdenesDeCompraService],
 })

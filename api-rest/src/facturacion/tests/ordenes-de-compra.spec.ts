@@ -343,6 +343,27 @@ describe('Las OC salen de Documentos (doc 19 §9.20)', () => {
     ).toMatchObject([{ motivo: 'BelIA no pudo leer la orden de compra' }]);
   });
 
+  it('la primera lectura no le vuelve a mandar a la IA lo que no pudo leer hace poco; «Emitir DTE» sí (§9.26)', async () => {
+    const { service, lector } = armar({ leida: { ...LEIDA, fecha: null } });
+    await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).toHaveBeenCalledTimes(1);
+
+    const otraVez = await service.deDocumentos('ev-481', 1, 'felipe', {
+      reintentar: false,
+    });
+    expect(lector.leer).toHaveBeenCalledTimes(1);
+    expect(otraVez.sinLeer).toEqual([
+      {
+        documento_id: 261,
+        nombre: 'OC Santo Tomás',
+        motivo: 'no encontró la fecha',
+      },
+    ]);
+
+    await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).toHaveBeenCalledTimes(2);
+  });
+
   it('un RUT mal leído no se guarda: la factura elige la razón social', async () => {
     const { service, repo } = armar({
       leida: { ...LEIDA, rut: '65175239-5' },

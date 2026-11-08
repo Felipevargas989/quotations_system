@@ -562,3 +562,90 @@ describe('La glosa de la línea', () => {
     expect(d.descripcion_larga).toBe(texto);
   });
 });
+
+describe('La factura por una parte: el 50 % y el 30 % (§9.26)', () => {
+  // Felipe, 07-11: «el cliente emite OC por todo el monto pero pide
+  // facturar un % primero y otro % después (50 % y 50 % es un caso
+  // habitual, también puede ser 30 % y 70 %)».
+  const OC_TODO: OrdenAFacturar = {
+    ...OC_CCU,
+    total: 20000000,
+    neto: null,
+    iva: null,
+  };
+  const conLaOC = (facturado: number, porcentaje: number | null) =>
+    contexto({
+      evento: { ...contexto().evento, total: 20000000 },
+      oc: { ...OC_TODO, facturado },
+      totalDeLasOC: 20000000,
+      porcentaje,
+    });
+
+  it('el 50 % de la OC, y después lo que queda', () => {
+    const primera = armarBorrador(conLaOC(0, 50));
+    expect(primera.pedida.lineas).toMatchObject([
+      { cantidad: 1, precio: 10000000 },
+    ]);
+    // La segunda: el otro 50 % es todo lo que queda.
+    const segunda = armarBorrador(conLaOC(10000000, null));
+    expect(segunda.pedida.lineas).toMatchObject([
+      { cantidad: 1, precio: 10000000 },
+    ]);
+  });
+
+  it('el 30 % y el 70 %; un % que pasa de lo que queda se corta en lo que queda', () => {
+    expect(armarBorrador(conLaOC(0, 30)).pedida.lineas).toMatchObject([
+      { precio: 6000000 },
+    ]);
+    expect(armarBorrador(conLaOC(6000000, 70)).pedida.lineas).toMatchObject([
+      { precio: 14000000 },
+    ]);
+    expect(armarBorrador(conLaOC(14000000, 50)).pedida.lineas).toMatchObject([
+      { precio: 6000000 },
+    ]);
+  });
+
+  it('la parcial lo dice en las observaciones; la de la OC entera, no', () => {
+    const ctx = conLaOC(0, 50);
+    const pedida = { ...armarBorrador(ctx).pedida, referencias: [] };
+    const r = revisarDte(pedida, ctx, 1, '2026-11-15');
+    expect(r.observaciones).toEqual([
+      'Cotización N° 408 · evento 06-12-2026',
+      'Factura parcial: 50 % de la OC N° 4500918822',
+    ]);
+    const entera = conLaOC(0, null);
+    const r2 = revisarDte(
+      { ...armarBorrador(entera).pedida, referencias: [] },
+      entera,
+      1,
+      '2026-11-15',
+    );
+    expect(r2.observaciones).toEqual(['Cotización N° 408 · evento 06-12-2026']);
+  });
+
+  it('sin OC, el % es de la cotización y las personas van en el texto', () => {
+    const ctx = contexto({ oc: null, totalDeLasOC: 0, porcentaje: 30 });
+    const b = armarBorrador(ctx);
+    // Con las personas no cabe en los 80 de la glosa: el texto entero va
+    // en la descripción larga.
+    expect(b.pedida.lineas).toEqual([
+      {
+        descripcion:
+          'Servicio de paseo fin de año del 06-12-2026, 400 personas, según cotización...',
+        descripcion_larga:
+          'Servicio de paseo fin de año del 06-12-2026, 400 personas, según cotización N° 408',
+        cantidad: 1,
+        precio: 428400,
+      },
+    ]);
+    const r = revisarDte(
+      { ...b.pedida, referencias: [] },
+      ctx,
+      1,
+      '2026-11-15',
+    );
+    expect(r.observaciones[1]).toBe(
+      'Factura parcial: 30 % de la cotización N° 408',
+    );
+  });
+});

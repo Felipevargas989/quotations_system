@@ -7,7 +7,11 @@ import { PinoLogger } from 'nestjs-pino';
 import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { BoletasService } from '../boletas/boletas.service';
-import { Cadena } from '../notas/cadena';
+import { Cadena, facturadoDeLasOC } from '../notas/cadena';
+import {
+  OrdenesDeCompraService,
+  type OcSinLeer,
+} from '../ordenes-de-compra/ordenes-de-compra.service';
 import { ConexionConFacturacionCl } from './conexion';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 
@@ -27,6 +31,31 @@ const BOLETA = 39;
 // Se factura (y se marca) un evento aceptado o realizado (§9.2).
 const SE_FACTURA = ['aceptada', 'realizada'];
 
+/** Cuántos eventos lee BelIA a la vez en la primera lectura de las OC. */
+const EVENTOS_A_LA_VEZ = 3;
+
+export type EstadoDeLaFacturacion = 'pendiente' | 'parcial' | 'facturado';
+
+/**
+ * Por facturar, parcial o facturado (§9.26; Felipe, 07-11: *"el sistema
+ * debe reconocer cuando esté por facturar, cuando esté facturado
+ * parcialmente y cuando esté todo facturado"*). Vale para el evento y para
+ * cada OC; $1 de redondeo se tolera, como en el tope de la OC.
+ */
+export const estadoDeLaFacturacion = (
+  total: number,
+  facturado: number,
+): EstadoDeLaFacturacion =>
+  facturado <= 1
+    ? 'pendiente'
+    : total - facturado > 1
+      ? 'parcial'
+      : 'facturado';
+
+/** «50», «33,3»: el % facturado con un decimal. */
+const porcentajeDe = (parte: number, total: number) =>
+  total > 0 ? Math.round((parte / total) * 1000) / 10 : 0;
+
 /**
  * «POR FACTURAR» DE LA SECCIÓN FACTURACIÓN (doc 19 §9.21 y §9.24). Salió de
  * `FacturasService` el 07-11, cuando «Ya está facturado» lo hizo pasar de
@@ -40,6 +69,7 @@ export class PorFacturarService {
     private readonly conexion: ConexionConFacturacionCl,
     private readonly boletas: BoletasService,
     private readonly logger: PinoLogger,
+    private readonly ocs: OrdenesDeCompraService,
   ) {
     this.logger.setContext(PorFacturarService.name);
   }
@@ -64,11 +94,12 @@ export class PorFacturarService {
     const desde = diasAntes(hoyEnChile(), DIAS_POR_FACTURAR);
     const eventos = await this.repo.eventosDesde(companyId, desde);
     const ids = eventos.map((e) => e.id);
-    const [docs, ocs, fuera, conFactura] = await Promise.all([
+    const [docs, ordenes, fuera, conFactura, sinLeer] = await Promise.all([
       this.repo.emitidoDeLosEventos(companyId, conexion.ambiente, ids),
-      this.repo.ocsDeLosEventos(companyId, ids),
+      this.repo.ordenesDeLosEventos(companyId, ids),
       this.repo.facturadosFuera(companyId, ids),
       this.repo.conFacturaEnDocumentos(companyId, ids),
+      this.repo.ocsSinLeerDeLosEventos(companyId, ids),
     ]);
     const cadena = new Cadena(docs);
     const emitido = new Map<string, number>();
@@ -78,24 +109,51 @@ export class PorFacturarService {
           d.quotation_id,
           (emitido.get(d.quotation_id) ?? 0) + cadena.facturado(d.id),
         );
-    const conSaldo = eventos
+    // Lo facturado de cada OC, con la misma cadena (§9.26).
+    const { porOC } = facturadoDeLasOC(docs, cadena);
+    const todos = eventos
       .map((e) => {
         const yaEmitido = emitido.get(e.id) ?? 0;
+        const queda = Math.max(0, e.total - yaEmitido);
+        const susOrdenes = (ordenes.get(e.id) ?? []).map((o) => {
+          const facturado = porOC.get(o.id) ?? 0;
+          return {
+            ...o,
+            facturado,
+            queda: Math.max(0, o.total - facturado),
+            estado: estadoDeLaFacturacion(o.total, facturado),
+          };
+        });
+        // Lo que se factura al apretar «Facturar»: lo que queda de la
+        // primera OC con saldo, o lo que queda del evento (§9.26).
+        const proxima = susOrdenes.find((o) => o.queda > 1);
         return {
           ...e,
           emitido: yaEmitido,
-          queda: Math.max(0, e.total - yaEmitido),
-          ocs: ocs.get(e.id) ?? 0,
+          queda,
+          // `estado` es el de la cotización (aceptada o realizada).
+          facturacion: estadoDeLaFacturacion(e.total, yaEmitido),
+          porcentaje_facturado: porcentajeDe(yaEmitido, e.total),
+          ocs: susOrdenes.length,
+          ordenes: susOrdenes,
+          ocs_sin_leer: sinLeer.get(e.id) ?? 0,
+          se_factura: proxima
+            ? { oc: proxima.numero, monto: proxima.queda }
+            : { oc: null, monto: queda },
           tiene_factura_en_documentos: conFactura.has(e.id),
         };
       })
-      // $1 de redondeo se tolera, como en el tope de la OC.
-      .filter((e) => e.total > 0 && e.queda > 1);
+      .filter((e) => e.total > 0);
+    const conSaldo = todos.filter((e) => e.queda > 1);
     return {
       ambiente: conexion.ambiente,
       sin_conexion: conexion.sinConexion ?? null,
       desde,
       eventos: conSaldo.filter((e) => !fuera.has(e.id)),
+      // §9.26: lo facturado completo en Eventia, plegado abajo.
+      facturados: todos.filter(
+        (e) => e.facturacion === 'facturado' && !fuera.has(e.id),
+      ),
       facturados_fuera: conSaldo.flatMap((e) => {
         const marca = fuera.get(e.id);
         return marca
@@ -103,6 +161,60 @@ export class PorFacturarService {
           : [];
       }),
     };
+  }
+
+  /**
+   * LA PRIMERA LECTURA DE LAS OC (§9.26; Felipe, 07-11: *"de forma inicial
+   * deberíamos leer todas las OC y precompletar las facturas antes de
+   * colocar facturar"*): BelIA lee las OC de Documentos que todavía no lee,
+   * de los eventos de «Por facturar», tres eventos a la vez. Desde el
+   * 07-11, la que se sube se lee sola (`EventDocumentsController.add`);
+   * esto es para las de antes y para las que no pudo leer.
+   */
+  async leerOrdenesPendientes(user: User) {
+    const companyId = user.company_id;
+    const desde = diasAntes(hoyEnChile(), DIAS_POR_FACTURAR);
+    const eventos = await this.repo.eventosDesde(companyId, desde);
+    const sinLeer = await this.repo.ocsSinLeerDeLosEventos(
+      companyId,
+      eventos.map((e) => e.id),
+    );
+    const pendientes = eventos.filter((e) => (sinLeer.get(e.id) ?? 0) > 0);
+    let leidas = 0;
+    const noPudo: (OcSinLeer & { quotation_id: string; numero: number })[] = [];
+    for (let i = 0; i < pendientes.length; i += EVENTOS_A_LA_VEZ) {
+      const tanda = pendientes.slice(i, i + EVENTOS_A_LA_VEZ);
+      const resultados = await Promise.all(
+        tanda.map(async (e) => {
+          try {
+            const r = await this.ocs.deDocumentos(
+              e.id,
+              companyId,
+              user.id ?? null,
+              { reintentar: false },
+            );
+            return { e, sinLeer: r.sinLeer };
+          } catch (error) {
+            const motivo =
+              error instanceof Error ? error.message : 'no se pudo leer';
+            return {
+              e,
+              sinLeer: [{ documento_id: 0, nombre: 'las OC', motivo }],
+            };
+          }
+        }),
+      );
+      for (const { e, sinLeer: falla } of resultados) {
+        leidas += Math.max(0, (sinLeer.get(e.id) ?? 0) - falla.length);
+        noPudo.push(
+          ...falla.map((f) => ({ ...f, quotation_id: e.id, numero: e.numero })),
+        );
+      }
+    }
+    this.logger.info(
+      `primera lectura de OC: ${leidas} leídas, ${noPudo.length} sin leer`,
+    );
+    return { leidas, sin_leer: noPudo };
   }
 
   /**

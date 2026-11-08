@@ -4,6 +4,7 @@ import { ClientsModule } from 'src/clients/clients.module';
 import { CompaniesModule } from 'src/companies/companies.module';
 import { ConsultasModule } from 'src/consultas/consultas.module';
 import { EmailModule } from 'src/email/email.module';
+import { FacturacionModule } from 'src/facturacion/facturacion.module';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
 import { RefundsModule } from 'src/refunds/refunds.module';
@@ -40,6 +41,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     CompaniesModule,
     ConsultasModule,
     EmailModule,
+    // La OC que se sube a Documentos la lee BelIA (doc 19 §9.26).
+    FacturacionModule,
     QuotationFollowupsModule,
     StorageModule,
     forwardRef(() => PaymentsModule),

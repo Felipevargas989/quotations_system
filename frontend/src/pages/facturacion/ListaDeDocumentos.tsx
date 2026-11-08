@@ -20,7 +20,9 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { matchesSearch } from "../../utils/searchMatch";
+import NominaDelSii from "./NominaDelSii";
 import ProbarLaConexion from "./ProbarLaConexion";
+import RecibidosDelMes from "./RecibidosDelMes";
 
 // «DOCUMENTOS», LA LISTA DE FACTURACIÓN (doc 19 §9.5 y §9.22, sprint 2),
 // como la maqueta que aprobó Felipe el 06-11: *"pequeño dashboard,
@@ -44,7 +46,8 @@ import ProbarLaConexion from "./ProbarLaConexion";
 //   rebajar…», que abre la nota en su pantalla con el documento ya elegido
 //   (sprint 3).
 // - El XML existe en facturacion.cl, pero es un servicio adicional con costo
-//   (su manual, `getXMLDte`); los recibidos no los entrega su integración.
+//   (su manual, `getXMLDte`); los recibidos, desde el 08-11, del Libro de
+//   Compras (`RecibidosDelMes`, doc 19 §9.28).
 //   Los dos se dicen tal cual, sin prometerlos.
 
 const clp = (n: number) =>
@@ -556,14 +559,9 @@ export default function ListaDeDocumentos({
       </div>
 
       {lado === "recibidos" ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
-          <p className="text-sm font-semibold text-gray-900">Recibidos</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
-            Las facturas que te emiten tus proveedores. facturacion.cl no las
-            entrega por su integración (su manual no trae nada de lo recibido):
-            hay que preguntarle a su mesa de ayuda.
-          </p>
-        </div>
+        // §9.28: el Libro de Compras de facturacion.cl (el 06-11 se creyó
+        // que su integración no lo traía; está en un manual aparte).
+        <RecibidosDelMes />
       ) : (
         <>
           <section
@@ -714,6 +712,7 @@ export default function ListaDeDocumentos({
             </div>
           )}
           {conAjustes && <ProbarLaConexion />}
+          {conAjustes && <NominaDelSii />}
         </>
       )}
     </div>

@@ -28,7 +28,8 @@ export class FacturaSinEventoController {
     this.logger.setContext(FacturaSinEventoController.name);
   }
 
-  @Permiso('boletas')
+  // El RUT que llena todo (doc 19 §9.27): también al facturar un evento.
+  @Permiso('boletas', 'facturacion_eventos')
   @Get('razon-social')
   @Roles(...DEL_TARIFARIO)
   razonSocial(@Query() q: RutDto, @CurrentUser() user: User) {

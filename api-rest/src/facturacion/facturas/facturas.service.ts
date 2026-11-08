@@ -19,6 +19,7 @@ import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
 } from '../facturacion-cl/facturacion-cl';
+import { NominaSiiService } from '../nomina-sii/nomina-sii.service';
 import {
   Cadena,
   estadoEnPalabras,
@@ -162,6 +163,8 @@ export class FacturasService {
     // Los tipos de cliente particulares (doc 21): a ellos se les propone la
     // boleta (§9.24). Sin la pieza (algunas pruebas), como antes.
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
+    // El RUT que llena todo (doc 19 §9.27): la nómina del SII.
+    @Optional() private readonly nominaSii?: NominaSiiService,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -279,13 +282,16 @@ export class FacturasService {
     companyId: number,
     tipo: TipoDeDte,
     ordenDeCompraId: number | null,
+    porcentaje: number | null = null,
   ) {
     const ctx = await this.contexto(
       quotationId,
       companyId,
       tipo === BOLETA ? null : ordenDeCompraId,
     );
-    const borrador = armarBorrador(ctx, tipo);
+    // §9.26: la parte que se factura (el 50 % de la OC); sin ella, todo lo
+    // que queda.
+    const borrador = armarBorrador({ ...ctx, porcentaje }, tipo);
     return {
       ...borrador,
       oc: ctx.oc
@@ -414,12 +420,36 @@ export class FacturasService {
     });
   }
 
-  /** La razón social guardada con ese RUT, para llenar la factura de
-   *  «Nuevo documento»; nulo si el RUT es nuevo. */
+  /**
+   * EL RUT QUE LLENA TODO (doc 19 §9.25 y §9.27): primero la razón social
+   * guardada en Eventia con ese RUT (de cualquier cliente de la empresa); si
+   * no, la nómina del SII (personas jurídicas con actividades vigentes).
+   * Dice de dónde salió (`origen`); nulo si no está en ninguna.
+   */
   async razonSocialPorRut(companyId: number, rut: string) {
     const canonico = normalizarRut(rut);
     if (!canonico) return null;
-    return this.repo.razonSocialDeLaEmpresa(companyId, canonico);
+    const guardada = await this.repo.razonSocialDeLaEmpresa(
+      companyId,
+      canonico,
+    );
+    if (guardada) return { ...guardada, origen: 'eventia' as const };
+    const delSii = await this.nominaSii?.buscar(canonico).catch(() => null);
+    if (!delSii) return null;
+    return {
+      rut: canonico,
+      razon_social: delSii.razon_social,
+      giro: delSii.giro,
+      direccion: delSii.direccion,
+      comuna: delSii.comuna,
+      ciudad: delSii.ciudad,
+      correo_facturacion: null,
+      referencias_exigidas: [] as string[],
+      cliente: null,
+      // Las otras actividades vigentes, para elegir el giro (§9.27).
+      giros: delSii.giros,
+      origen: 'sii' as const,
+    };
   }
 
   /** Lo que una factura sin evento sabe: nada del evento ni de la OC; si

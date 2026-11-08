@@ -57,7 +57,7 @@ export interface OpcionesDelSoap extends DondeLlamar {
 
 const base64 = (texto: string) => Buffer.from(texto, 'utf8').toString('base64');
 
-const desescapar = (texto: string) =>
+export const desescapar = (texto: string) =>
   texto
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
     .replace(/&#x([0-9a-f]+);/gi, (_, h: string) =>

@@ -37,6 +37,19 @@ export class BaseDelDteDto {
   orden_de_compra_id?: number | null;
 }
 
+/** El borrador de BelIA (§9.26): de dónde se arma y qué parte se factura,
+ *  el % de la OC (o de la cotización). Sin el %, todo lo que queda. */
+export class BorradorDelDteDto extends BaseDelDteDto {
+  @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El porcentaje va con dos decimales como máximo' },
+  )
+  @Min(1, { message: 'El porcentaje va de 1 a 100' })
+  @Max(100, { message: 'El porcentaje va de 1 a 100' })
+  porcentaje?: number | null;
+}
+
 /** El RUT que se busca entre las razones sociales de la empresa. */
 export class RutDto {
   @IsString()

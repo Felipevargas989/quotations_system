@@ -739,3 +739,24 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 191, «Por facturar» responde error (lee la tabla en cada carga).
 
 **Estado.** Escrita el 07-11-2026, con su reversa. El 190 queda para Oportunidades (parte 3 de la decisión 119). **Aplicada en el laboratorio el 07-11-2026** (verificado: RLS encendido y sin políticas, `anon` y `authenticated` sin permisos, `service_role` escribe). **En producción desde el 07-11-2026** (PR #310), junto con la 184, la 187 y la 189, antes del motor.
+
+## 35. Migración 192: la nómina del SII (08-11-2026)
+
+**Qué hace.** Tres tablas sin `company_id` (son datos públicos, de nadie): `sii_cargas` (cada carga: cuándo empezó y terminó, `estado` «cargando», «lista» o «fallo», cuántas empresas lleva, el error y quién la pidió), `sii_contribuyentes` (una fila por empresa con actividades vigentes: `rut` sin dígito como llave, `dv`, la razón social, el giro propuesto, los códigos de sus actividades en `actividades`, la dirección, la comuna, la ciudad y la `carga_id` que la dejó) y `sii_actividades` (el diccionario de códigos, unas setecientas). Cerradas a `anon` y `authenticated`; solo el motor.
+
+**Por qué.** Felipe, 07-11-2026: *"¿cómo lo podemos hacer para que al momento de facturar, el sistema cargue todo solo con el RUT? ¿se podrá?"*. Doc 19 §9.25 y §9.27.
+
+**Tamaño.** Unos 1,7 millones de filas, cerca de 300 MB. **Fuera del respaldo diario** (`FUERA_DEL_RESPALDO`): ese respaldo arma el archivo entero en memoria. En producción, antes de cargarla, mirar el disco (regla del 29-10-2026); y aplicarla solo con el motor que ya la deja fuera del respaldo (si no, el de las 7 AM intentaría meterla y se caería).
+
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **En producción desde el 08-11-2026** (PR #312), aplicada antes del motor; vacía hasta «Cargar la nómina del SII», que se aprieta con el motor nuevo arriba.
+
+## 36. Migración 193: lo recibido de los proveedores (08-11-2026)
+
+**Qué hace.** Una tabla, `documentos_recibidos`: lo que trae el Libro de Compras de facturacion.cl para cada empresa (`company_id`, con cascada), una fila por emisor, tipo y folio (llave única), con el mes (`periodo` AAAA-MM), la razón social del emisor, la fecha, el neto, lo exento, el IVA, el total, el enlace del PDF, la recepción y el acuse del SII, el tipo de compra y cuándo se trajo. Cerrada a `anon` y `authenticated`; el motor lee, inserta y pone al día (no borra).
+
+**Por qué.** Felipe, 07-11-2026: *"¿ya trajiste las facturas recibidas? ¿eso funcionará?"*. Doc 19 §9.25 y §9.28.
+
+**Ojo con el orden del motor:** «Recibidos» lee la tabla al abrirse: se aplica antes de subir el motor que la usa.
+
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **En producción desde el 08-11-2026** (PR #312), antes del motor; ahí se le quitaron a `service_role` el `DELETE` y el `TRUNCATE`, que Supabase de producción da en cada tabla nueva (la migración lo dice desde ese día).
+
