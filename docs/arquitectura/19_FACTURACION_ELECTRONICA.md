@@ -3,7 +3,11 @@
 > **§9.26 a §9.28 EN PRODUCCIÓN desde el 08-11-2026** (Felipe: *"a
 > producción"*; PR #312; las migraciones 192 y 193 en las dos bases,
 > vacías y antes del motor; la nómina del SII se carga con «Cargar la
-> nómina del SII» después del motor).
+> nómina del SII» después del motor). Medido esa mañana en producción:
+> la nómina, cargada (1.709.121 empresas en 3,5 minutos); las 8 OC de
+> «Por facturar», leídas solas; y «Recibidos», sin servicio: facturacion.cl
+> dice que el módulo WSPANELDTE se contrata aparte (§9.28; lo decide
+> Felipe).
 >
 > **EN PRODUCCIÓN desde el 07-11-2026** (Felipe: *"a producción"*; PR #310;
 > las migraciones 184, 187, 189 y 191 en las dos bases, antes del motor).
@@ -1790,7 +1794,11 @@ guardados.
 
 ### 9.26 Las OC que se leen solas y la factura por partes (07-11, en la noche)
 
-**En producción desde el 08-11-2026** (PR #312).
+**En producción desde el 08-11-2026** (PR #312). Medido esa mañana: al
+abrir «Por facturar», BelIA leyó sola las 8 OC de Documentos en 6
+segundos, y cada evento quedó con «Con OC», su número, su monto y su
+estado. En la #460 (Municipalidad de Quillón) la OC dice $2.480.000 y la
+cotización $1.640.000: lo revisa Felipe antes de facturar.
 
 Felipe, 07-11 en la noche, con el plan de §9.25 aprobado (*"me parece
 perfecto el orden, sumemos todo, lo dejo trabajando y lo reviso mañana
@@ -1931,6 +1939,12 @@ con pocas empresas, una carga a la vez y el dígito verificador),
 
 **A producción:** primero el motor (que la deja fuera del respaldo),
 después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
+**Cargada en producción el 08-11 a las 05:05** (con la sesión de Felipe):
+1.709.121 empresas y 674 actividades en 3 minutos y 28 segundos; la tabla
+pesa 359 MB y la base quedó en 1,9 GB de 8. Probado en «Nuevo documento»
+→ «Crear cliente nuevo» con el RUT 96.930.440-6, sin guardar ni emitir:
+llenó la razón social, el giro, la dirección y la comuna, con «Otras
+actividades en el SII».
 
 ### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
 
@@ -1981,6 +1995,13 @@ habilita por empresa. La respuesta de Valle del Sol se ve en producción con
 «Traer de facturacion.cl». Si también dice «Empresa no Autorizada», se le
 pide a soporte de facturacion.cl que lo habilite; el costo lo decide
 Felipe.
+
+**Medido en producción el 08-11 (Valle del Sol), y cuesta aparte:**
+«Traer de facturacion.cl» respondió *"No tiene activo el módulo
+WSPANELDTE, este es un servicio adicional que debe ser contratado."* La
+pantalla lo muestra tal cual y no guarda nada. Contratar el módulo lo
+decide Felipe; sin él no hay lista de lo recibido. El acuse de §9.30 va
+justo por ese servicio (`wspaneldte.asmx`).
 
 **Lo que cubren las pruebas:** `recibidos.spec.ts` (el sobre sin las
 credenciales a la vista, el XML en Base64, escapado y en CDATA, la
@@ -2109,6 +2130,9 @@ en la lista).
 
 **Lo que falta saber:** si la cuenta de Valle del Sol tiene el panel y el
 Libro de Compras habilitados; se mira en producción con «Recibidos».
+**Medido el 08-11 en producción (§9.28):** no los tiene. facturacion.cl
+pide contratar aparte el módulo WSPANELDTE, el de este panel. Antes de
+llevar §9.30 a producción, Felipe decide si lo contrata.
 
 **Lo que cubren las pruebas:** `recibidos.spec.ts` (el ejemplo del manual,
 la respuesta escapada, el sobre sin las credenciales a la vista, el acuse
