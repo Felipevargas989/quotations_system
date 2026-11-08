@@ -185,12 +185,22 @@ export const diasDeLaCotizacion = (
   const items = (q.items ?? {}) as Fila;
   const fijos = filas(items.fixed_services);
   const variables = filas(items.variable_services);
-  const dias = [...new Set([...fijos, ...variables].map(diaDe))].sort(
+  // El día 0 es «todo el evento» (armarFoto, decisión 120: lo postulado lo
+  // trae así). En un evento de un día va en ese día, y no en un segundo
+  // bloque con la misma fecha; en uno de varios días, aparte y primero.
+  const conDia = [
+    ...new Set([...fijos, ...variables].map(diaDe).filter((d) => d > 0)),
+  ];
+  const diaDeLaLinea = (f: Fila): number => {
+    const d = diaDe(f);
+    return d === 0 && conDia.length === 1 ? conDia[0] : d;
+  };
+  const dias = [...new Set([...fijos, ...variables].map(diaDeLaLinea))].sort(
     (a, b) => a - b,
   );
   return dias.map((d) => {
     const lineas: LineaDeLaCotizacion[] = [];
-    for (const f of fijos.filter((x) => diaDe(x) === d)) {
+    for (const f of fijos.filter((x) => diaDeLaLinea(x) === d)) {
       const cantidad = Math.max(1, numero(f.quantity));
       const unitario = numero(f.precio);
       lineas.push({
@@ -203,7 +213,7 @@ export const diasDeLaCotizacion = (
         codigos: codigosDe([f]),
       });
     }
-    for (const v of variables.filter((x) => diaDe(x) === d)) {
+    for (const v of variables.filter((x) => diaDeLaLinea(x) === d)) {
       const productos = filas(v.items);
       const personas = Math.max(1, numero(v.people) || q.people_count || 1);
       const unitario = productos.reduce(
@@ -229,11 +239,14 @@ export const diasDeLaCotizacion = (
     const fecha = q.event_date
       ? sumarDias(q.event_date, d > 0 ? d - 1 : 0)
       : null;
-    const titulo = fecha
-      ? fechaDelDia(fecha).replace(/^./, (c) => c.toUpperCase())
-      : d > 0
-        ? `Día ${d}`
-        : 'Todo el evento';
+    const titulo =
+      d === 0 && conDia.length > 1
+        ? 'Todo el evento'
+        : fecha
+          ? fechaDelDia(fecha).replace(/^./, (c) => c.toUpperCase())
+          : d > 0
+            ? `Día ${d}`
+            : 'Todo el evento';
     return {
       titulo,
       lineas,

@@ -237,6 +237,50 @@ describe('la cotización detallada', () => {
     ]);
   });
 
+  it('lo de todo el evento (día 0) va en el día si el evento es de uno; si es de varios, aparte y primero (decisión 120)', () => {
+    // La 2656-97-LE26 con lo postulado: el salón y lo fijo, «todo el
+    // evento»; el cóctel y la cena, el día 1. Salía dos veces el viernes.
+    const fijo = (day: number) => ({
+      day,
+      ...linea('40', 'Salón cúpula día completo', 600_000),
+    });
+    const caja = (day: number) => ({
+      day,
+      people: 200,
+      audience: 'adultos',
+      category: 'Cena',
+      items: [linea('2062', 'Lomo vetado', 20_000)],
+    });
+    const unDia = diasDeLaCotizacion({
+      ...LA_574,
+      event_date: '2026-11-20',
+      event_end_date: null,
+      items: { fixed_services: [fijo(0)], variable_services: [caja(1)] },
+    });
+    expect(
+      unDia.map((d) => [d.titulo, d.lineas.map((l) => l.servicio)]),
+    ).toEqual([
+      [
+        'Viernes 20 de noviembre de 2026',
+        ['Salón cúpula día completo', 'Cena'],
+      ],
+    ]);
+    const dosDias = diasDeLaCotizacion({
+      ...LA_574,
+      event_date: '2026-11-20',
+      event_end_date: '2026-11-21',
+      items: {
+        fixed_services: [fijo(0)],
+        variable_services: [caja(1), caja(2)],
+      },
+    });
+    expect(dosDias.map((d) => d.titulo)).toEqual([
+      'Todo el evento',
+      'Viernes 20 de noviembre de 2026',
+      'Sábado 21 de noviembre de 2026',
+    ]);
+  });
+
   it('el plazo dice los días con su nombre', () => {
     expect(plazoDeLaCotizacion(LA_574)).toBe(
       'el miércoles 11 y el jueves 12 de noviembre de 2026',
