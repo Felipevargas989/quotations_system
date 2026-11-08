@@ -190,15 +190,13 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
     expect(screen.getByRole("button", { name: "Aprobada" })).toBeDisabled();
+    // §9.33: el botón dice cuántas y por cuánto, y emite sin volver a
+    // preguntar.
     fireEvent.click(
-      screen.getByRole("button", { name: "Facturar las 2 aprobadas" }),
+      screen.getByRole("button", {
+        name: "Facturar las 2 aprobadas · $1.190.000",
+      }),
     );
-    expect(
-      screen.getByText(
-        "¿Emitir 2 documentos por $1.190.000 en total? Emitidos no se borran.",
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     await waitFor(() => expect(onEmitidos).toHaveBeenCalled());
     expect(f.emitirDte).toHaveBeenCalledTimes(2);
     expect(f.emitirDte.mock.calls.map((c) => c[0])).toEqual([
@@ -263,14 +261,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.getByText("1 de 1 · 1 aprobada")).toBeInTheDocument();
     expect(screen.getByText(/esta, aprobada/)).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Facturar la aprobada" }),
+      screen.getByRole("button", { name: "Facturar la aprobada · $119.000" }),
     );
-    expect(
-      screen.getByText(
-        "¿Emitir 1 documento por $119.000 en total? Emitidos no se borran.",
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     await waitFor(() => expect(onEmitidos).toHaveBeenCalled());
     expect(f.emitirDte).toHaveBeenCalledWith(
       "ev-501",
@@ -311,9 +303,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     await screen.findByText("RAZON ev-502");
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Facturar las 2 aprobadas" }),
+      screen.getByRole("button", { name: /Facturar las 2 aprobadas/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     expect(
       await screen.findByText("No se emitió: se detuvo antes"),
     ).toBeInTheDocument();

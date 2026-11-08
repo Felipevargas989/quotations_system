@@ -7,7 +7,6 @@ import {
   Pencil,
   Sparkles,
 } from "lucide-react";
-import ConfirmInline from "../../components/ConfirmInline";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
 import { marcaDelAmbiente } from "../../constants/facturacion";
@@ -48,9 +47,10 @@ import {
 //   hasta que se apruebe de nuevo.
 // - «Aprobar» lo deja listo, tal como se ve, y pasa al siguiente sin
 //   aprobar. Lo que no está listo no se aprueba: dice qué le falta.
-// - «Facturar las N aprobadas» pregunta antes y las emite una tras otra; si
-//   una se corta o no sale, se detiene ahí (lo emitido queda emitido). Las
-//   que no se aprobaron no se emiten.
+// - «Facturar las N aprobadas · $X» las emite una tras otra (desde el 08-11,
+//   §9.33, sin volver a preguntar: cada una ya se aprobó); si una se corta o
+//   no sale, se detiene ahí (lo emitido queda emitido). Las que no se
+//   aprobaron no se emiten.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const NOMBRE = { 33: "Factura", 39: "Boleta" } as const;
@@ -93,7 +93,6 @@ export default function RevisionDeLaFacturacion({
   const [corrigiendo, setCorrigiendo] = useState(false);
   // Lo que se está corrigiendo, con su revisión del motor.
   const [enCurso, setEnCurso] = useState<EnCorreccion | null>(null);
-  const [confirmando, setConfirmando] = useState(false);
   const [emitiendo, setEmitiendo] = useState(false);
   const [resultados, setResultados] = useState<Record<string, Resultado>>({});
 
@@ -119,7 +118,6 @@ export default function RevisionDeLaFacturacion({
   const ir = (j: number) => {
     setCorrigiendo(false);
     setEnCurso(null);
-    setConfirmando(false);
     setIndice(j);
   };
 
@@ -144,7 +142,6 @@ export default function RevisionDeLaFacturacion({
       n.delete(evento.id);
       return n;
     });
-    setConfirmando(false);
     setEnCurso(null);
     setCorrigiendo(true);
   };
@@ -157,7 +154,6 @@ export default function RevisionDeLaFacturacion({
   };
 
   const emitir = async () => {
-    setConfirmando(false);
     setEmitiendo(true);
     let emitidos = 0;
     for (const { e, dte: d } of porEmitir) {
@@ -301,28 +297,18 @@ export default function RevisionDeLaFacturacion({
           </button>
         </>
       )}
-      {confirmando ? (
-        <ConfirmInline
-          question={`¿Emitir ${porEmitir.length} ${porEmitir.length === 1 ? "documento" : "documentos"} por ${clp(total)} en total? Emitidos no se borran.`}
-          yesLabel="Sí, emitir"
-          tono="normal"
-          onYes={() => void emitir()}
-          onNo={() => setConfirmando(false)}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setConfirmando(true)}
-          disabled={emitiendo || porEmitir.length === 0}
-          className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {emitiendo
-            ? "Emitiendo…"
-            : porEmitir.length === 1
-              ? "Facturar la aprobada"
-              : `Facturar las ${porEmitir.length} aprobadas`}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => void emitir()}
+        disabled={emitiendo || porEmitir.length === 0}
+        className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        {emitiendo
+          ? "Emitiendo…"
+          : porEmitir.length === 0
+            ? "Facturar las 0 aprobadas"
+            : `${porEmitir.length === 1 ? "Facturar la aprobada" : `Facturar las ${porEmitir.length} aprobadas`} · ${clp(total)}`}
+      </button>
     </>
   );
 

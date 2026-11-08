@@ -46,4 +46,8 @@ export class FacturacionClSinConexion implements FacturacionCl {
   obtenerPdf(): Promise<Buffer | null> {
     return Promise.reject(new ServiceUnavailableException(this.sinConexion));
   }
+
+  obtenerXml(): Promise<{ base64: string | null; mensaje: string | null }> {
+    return Promise.reject(new ServiceUnavailableException(this.sinConexion));
+  }
 }

@@ -85,6 +85,13 @@ export interface FacturacionCl {
   /** El PDF de un documento emitido (`ObtenerPdf`), para guardar la copia
    *  propia (L10). null si todavía no está. */
   obtenerPdf(tipo: number, folio: number): Promise<Buffer | null>;
+  /** §9.33: el XML tributario de un documento emitido (`getXMLDte`, un
+   *  método con costo adicional de facturacion.cl), solo cuando se pide.
+   *  Viene en Base64 tal cual (ISO-8859-1); si no, lo que dijo. */
+  obtenerXml(
+    tipo: number,
+    folio: number,
+  ): Promise<{ base64: string | null; mensaje: string | null }>;
 }
 
 /** La llave con que Nest entrega la implementación que corresponda. */

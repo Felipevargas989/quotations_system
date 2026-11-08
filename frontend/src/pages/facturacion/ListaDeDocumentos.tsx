@@ -12,6 +12,7 @@ import {
   comprobarDocumento,
   getListaDeFacturacion,
   pedirPdfDelDocumento,
+  pedirXmlDelDocumento,
   type DocumentoDeLaLista,
   type SituacionEnLaLista,
 } from "../../services/documentosTributarios.service";
@@ -266,6 +267,9 @@ export default function ListaDeDocumentos({
   const [lado, setLado] = useState<"emitidos" | "recibidos">("emitidos");
   const [f, setF] = useState<Filtros>(filtrosDeHoy);
   const [ocupado, setOcupado] = useState<number | null>(null);
+  // §9.33: el PDF que se acaba de traer al pincharlo «Ver»: su visor se
+  // abre apenas llega.
+  const [verAlLlegar, setVerAlLlegar] = useState<number | null>(null);
   const poner = (cambios: Partial<Filtros>) =>
     setF((x) => ({ ...x, ...cambios }));
 
@@ -276,6 +280,13 @@ export default function ListaDeDocumentos({
     queryFn: () => getListaDeFacturacion({ desde: f.desde, hasta: f.hasta }),
     enabled: rangoOk,
     placeholderData: keepPreviousData,
+    // §9.33: mientras un PDF viene en camino (el motor lo vuelve a pedir
+    // solo), la lista se pone al día cada 5 segundos, unas veces.
+    refetchInterval: (q) =>
+      (q.state.data?.documentos ?? []).some((d) => d.acciones.pedirPdf) &&
+      q.state.dataUpdateCount < 30
+        ? 5_000
+        : false,
   });
 
   const docs = lista.data?.documentos ?? [];
@@ -348,24 +359,63 @@ export default function ListaDeDocumentos({
     }
   };
 
-  const pedirPdf = async (d: DocumentoDeLaLista) => {
+  /** §9.33 (Felipe, 08-11: *"el PDF lo dejaría automático"*): el PDF que
+   *  todavía no está se trae de facturacion.cl al pinchar «Ver» o
+   *  «Descargar», sin un botón aparte. Devuelve dónde quedó. */
+  const traerPdf = async (d: DocumentoDeLaLista) => {
+    if (d.pdf_path) return d.pdf_path;
     setOcupado(d.id);
     try {
-      await pedirPdfDelDocumento(d.id);
+      const { pdf_path } = await pedirPdfDelDocumento(d.id);
       await refrescar();
+      return pdf_path;
     } catch (e) {
-      toast.error(humanizeApiError(e, "No llegó el PDF."));
+      toast.error(
+        humanizeApiError(
+          e,
+          "facturacion.cl todavía no tiene el PDF: prueba en unos segundos.",
+        ),
+      );
+      return null;
     } finally {
       setOcupado(null);
     }
   };
 
   const descargar = async (d: DocumentoDeLaLista) => {
-    if (!d.pdf_path) return;
+    const ruta = await traerPdf(d);
+    if (!ruta) return;
     try {
-      await descargarArchivo(d.pdf_path, `${nombreDelArchivo(d)}.pdf`);
+      await descargarArchivo(ruta, `${nombreDelArchivo(d)}.pdf`);
     } catch (e) {
       toast.error(humanizeApiError(e, "No se pudo descargar el PDF."));
+    }
+  };
+
+  const ver = async (d: DocumentoDeLaLista) => {
+    if (await traerPdf(d)) setVerAlLlegar(d.id);
+  };
+
+  /** §9.33 (Felipe, 08-11: *"el XML debería ser solo en los pocos casos
+   *  donde lo pide el cliente, con un botón"*): se le pide a facturacion.cl
+   *  al pincharlo y se baja tal cual (ISO-8859-1). */
+  const bajarXml = async (d: DocumentoDeLaLista) => {
+    setOcupado(d.id);
+    try {
+      const { nombre, base64 } = await pedirXmlDelDocumento(d.id);
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(
+        new Blob([bytes], { type: "application/xml" }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombre;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      toast.error(humanizeApiError(e, "facturacion.cl no entregó el XML."));
+    } finally {
+      setOcupado(null);
     }
   };
 
@@ -441,13 +491,19 @@ export default function ListaDeDocumentos({
                   boton={<Eye size={14} />}
                   claseDelBoton={icono}
                   tituloDelBoton={`Ver ${d.titulo}`}
+                  abrirAlMontar={verAlLlegar === d.id}
                 />
               ) : (
                 <button
                   type="button"
-                  disabled
-                  title="El PDF todavía no llega"
-                  aria-label={`Ver ${d.titulo}: el PDF todavía no llega`}
+                  disabled={!d.acciones.pedirPdf || ocupado === d.id}
+                  onClick={() => void ver(d)}
+                  title={
+                    d.acciones.pedirPdf
+                      ? "Ver el PDF (lo trae de facturacion.cl)"
+                      : "Sin PDF"
+                  }
+                  aria-label={`Ver ${d.titulo}`}
                   className={icono}
                 >
                   <Eye size={14} />
@@ -455,10 +511,16 @@ export default function ListaDeDocumentos({
               )}
               <button
                 type="button"
-                disabled={!d.pdf_path}
+                disabled={
+                  (!d.pdf_path && !d.acciones.pedirPdf) || ocupado === d.id
+                }
                 onClick={() => void descargar(d)}
                 title={
-                  d.pdf_path ? "Descargar el PDF" : "El PDF todavía no llega"
+                  d.pdf_path
+                    ? "Descargar el PDF"
+                    : d.acciones.pedirPdf
+                      ? "Descargar el PDF (lo trae de facturacion.cl)"
+                      : "Sin PDF"
                 }
                 aria-label={`Descargar el PDF de ${d.titulo}`}
                 className={icono}
@@ -467,9 +529,14 @@ export default function ListaDeDocumentos({
               </button>
               <button
                 type="button"
-                disabled
-                title="El XML es un servicio adicional de facturacion.cl, con costo: se conecta si lo contratas"
-                aria-label="El XML: servicio adicional de facturacion.cl"
+                disabled={!d.acciones.xml || ocupado === d.id}
+                onClick={() => void bajarXml(d)}
+                title={
+                  d.acciones.xml
+                    ? "Bajar el XML (lo pide a facturacion.cl, que lo cobra aparte)"
+                    : "Sin XML"
+                }
+                aria-label={`Bajar el XML de ${d.titulo}`}
                 className={icono}
               >
                 <FileCode size={14} />
@@ -491,18 +558,8 @@ export default function ListaDeDocumentos({
                 <span aria-hidden="true" className="inline-block h-7 w-7" />
               ) : null}
             </div>
-            {(d.acciones.pedirPdf || d.acciones.comprobar) && (
+            {d.acciones.comprobar && (
               <div className="mt-1 flex flex-col items-end gap-1 whitespace-nowrap">
-                {d.acciones.pedirPdf && (
-                  <button
-                    type="button"
-                    disabled={ocupado === d.id}
-                    onClick={() => void pedirPdf(d)}
-                    className="font-semibold text-blue-600 hover:underline disabled:opacity-50"
-                  >
-                    Pedir el PDF
-                  </button>
-                )}
                 {d.acciones.comprobar && (
                   <button
                     type="button"

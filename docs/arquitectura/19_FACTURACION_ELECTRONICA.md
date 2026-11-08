@@ -2348,6 +2348,66 @@ a BelIA), `FacturaNueva.test.tsx` (las listas y la fecha) y
 **A producción**, con su «a producción»: el motor y la vitrina (no hay
 migración).
 
+### 9.33 Dos pasos para emitir, el PDF solo y el XML a pedido (08-11)
+
+**En el laboratorio desde el 08-11-2026.** Felipe, después de emitir en
+producción la factura N° 381 de $100 y la nota de crédito N° 115 que la
+anula: *"3 aprobaciones para emitir un documento me parece raro"*; *"¿no
+se puede descargar inmediatamente el PDF? el botón pedir PDF para cada
+factura creo que no me pinche"*; y *"¿el XML no lo trae esto
+facturación.cl?"*. Se le propuso lo de abajo y dijo *"ok"* a las dos
+primeras, y del XML: *"debería ser solo en los pocos casos donde los pide
+el cliente, con un botón (puede ser el mismo de ver XML, que si lo pincho
+lo pide a facturacion.cl)"*.
+
+**Dos pasos para emitir.** «Crear documento» muestra el documento tal
+como saldrá (`VistaPreviaDelDte`), y su «Emitir» emite: ya no pregunta
+«¿Emitir la factura N° … por $…?», porque la vista previa es la revisión.
+Vale para los cuatro documentos de «Nuevo DTE». En la revisión de «Por
+facturar», el botón dice cuántas y por cuánto («Facturar las 2 aprobadas ·
+$1.190.000») y emite sin volver a preguntar: cada una ya se aprobó.
+
+**El PDF, solo.** Medido en producción el 08-11 (registro del motor): la
+factura N° 381 salió a las 10:19 sin su PDF, porque facturacion.cl todavía
+no lo tenía; Felipe lo trajo con «Pedir el PDF» a las 10:21. La nota N° 115
+también salió sin PDF. Felipe: *"debe ser un tema de cuánto se demora
+facturación.cl en emitir y generar, entonces si es en el mismo acto no
+está"*, y *"prueba con 5 a 10 segundos"*.
+- Al emitir (factura, boleta y notas), si el PDF no llega, el motor lo
+  vuelve a pedir solo, por detrás, a los 5 y a los 10 segundos, y después
+  a los 20 y 40 segundos, al minuto y medio, a los 3 minutos y medio y a
+  los 8 minutos y medio (`REINTENTOS_DEL_PDF_MS`,
+  `guardarCopiaDelPdfAlEmitir` en `facturas/copia-del-pdf.ts`). Quien emite
+  no espera. Si alguien ya lo trajo, no se pide de nuevo; si nunca llega,
+  queda en el registro.
+- La lista «Documentos» se pone al día sola cada 5 segundos mientras un PDF
+  viene en camino (hasta 30 veces), así los íconos se encienden sin hacer
+  nada.
+- Salió el botón «Pedir el PDF». Si todavía no está, «Ver» y «Descargar»
+  lo traen de facturacion.cl en el mismo clic (`POST
+  /facturacion/documentos/:id/pdf`, que ahora devuelve dónde quedó); «Ver»
+  abre el visor apenas llega (`abrirAlMontar` de `FileViewLink`).
+
+**El XML, a pedido.** facturacion.cl lo entrega con `getXMLDte`, un método
+que su manual marca con «Costo Adicional»; al emitir solo devuelve el
+folio, el resultado y los enlaces al PDF. El ícono del XML de la lista
+dejó de estar apagado: al pincharlo, el motor se lo pide a facturacion.cl
+(`POST /facturacion/documentos/:id/xml`, `obtenerXml` del SOAP) y se baja
+tal cual, en ISO-8859-1. No se guarda: se pide cada vez. Si facturacion.cl
+no lo entrega (por ejemplo, porque el método no está contratado), la
+pantalla dice lo que respondió. El costo se suma a la OT de WSPANELDTE
+(«4. El valor del método getXMLDte»), y lo decide Felipe.
+
+**Lo que cubren las pruebas:** en el motor, `copia-del-pdf.spec.ts` (llega
+al emitir, llega en un reintento, ya lo trajo alguien, nunca llega),
+`soap.spec.ts` (el XML en Base64 y lo que responde si no) y `notas.spec.ts`
+(la acción `xml` y su puerta); en la vitrina, `ListaDeDocumentos.test.tsx`
+(sin «Pedir el PDF», el PDF en un clic y el XML con su botón),
+`BoletaNueva`, `NotaNueva` y `RevisionDeLaFacturacion` (sin la pregunta).
+
+**A producción**, con su «a producción»: el motor y la vitrina (no hay
+migración).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

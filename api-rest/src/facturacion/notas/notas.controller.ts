@@ -73,6 +73,16 @@ export class NotasController {
     return this.notas.pedirPdf(user, id);
   }
 
+  // §9.33: el XML tributario, solo cuando se pide (costo adicional en
+  // facturacion.cl).
+  @Permiso('facturacion_documentos')
+  @Post('documentos/:id/xml')
+  @Roles(...OPERATIONS_AND_UP)
+  pedirXml(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    this.logger.info(`POST /facturacion/documentos/${id}/xml`);
+    return this.notas.pedirXml(user, id);
+  }
+
   @Permiso('facturacion_notas')
   @Post('documentos/:id/notas/revisar')
   @Roles(...ADMIN_ONLY)

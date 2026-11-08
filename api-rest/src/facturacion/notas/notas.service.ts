@@ -21,7 +21,10 @@ import {
   type AmbienteDeFacturacion,
 } from '../facturacion-cl/facturacion-cl';
 import { ConexionConFacturacionCl } from '../facturas/conexion';
-import { guardarCopiaDelPdf } from '../facturas/copia-del-pdf';
+import {
+  guardarCopiaDelPdf,
+  guardarCopiaDelPdfAlEmitir,
+} from '../facturas/copia-del-pdf';
 import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
@@ -306,6 +309,8 @@ export class NotasService {
             (d.estado === 'por_confirmar' || d.estado === 'enviando') &&
             aMano(d.ambiente),
           pedirPdf: emitido && !d.pdf_path && aMano(d.ambiente),
+          // §9.33: el XML se pide a facturacion.cl con el botón.
+          xml: emitido && d.folio != null && aMano(d.ambiente),
         },
         saldo: conCadena && d.tipo === 33 ? cadena.saldo(d.id) : null,
         plazos:
@@ -411,18 +416,15 @@ export class NotasService {
     });
     if (enviado.porConfirmar) return enviado.documento;
 
-    const emitida = await guardarCopiaDelPdf(
+    // §9.33: si el PDF todavía no está, se vuelve a pedir solo por detrás.
+    const emitida = await guardarCopiaDelPdfAlEmitir(
       this.documentos,
       conexion,
       enviado.documento,
       companyId,
       original.quotation_id,
-    ).catch((e: unknown) => {
-      this.logger.warn(
-        `PDF de la nota ${enviado.documento.folio}: ${mensajeDe(e)}`,
-      );
-      return enviado.documento;
-    });
+      this.logger,
+    );
     if (original.quotation_id)
       await this.bitacora
         .crearComoBeliaAPedidoDe(user, {
@@ -477,13 +479,14 @@ export class NotasService {
         emitido_por: user.id ?? null,
         emitido_en: new Date().toISOString(),
       });
-      return guardarCopiaDelPdf(
+      return guardarCopiaDelPdfAlEmitir(
         this.documentos,
         conexion,
         emitido,
         companyId,
         emitido.quotation_id,
-      ).catch(() => emitido);
+        this.logger,
+      );
     }
     const noSalio = await this.documentos.actualizar(id, companyId, {
       estado: 'rechazado',
@@ -513,6 +516,36 @@ export class NotasService {
         'facturacion.cl todavía no tiene el PDF: prueba en unos minutos',
       );
     return conPdf;
+  }
+
+  /**
+   * §9.33: el XML tributario, solo cuando se pide (Felipe, 08-11: *"el XML
+   * debería ser solo en los pocos casos donde lo pide el cliente, con un
+   * botón"*). Se le pide a facturacion.cl (`getXMLDte`, con costo
+   * adicional) cada vez: no se guarda.
+   */
+  async pedirXml(user: User, id: number) {
+    const companyId = user.company_id;
+    const doc = await this.documentos.documento(id, companyId);
+    if (!doc) throw new NotFoundException('Ese documento no existe');
+    if (doc.estado !== 'emitido' || doc.folio == null)
+      throw new BadRequestException('Solo un documento emitido tiene XML');
+    const r = await this.delMismoAmbiente(companyId, doc).obtenerXml(
+      doc.tipo,
+      doc.folio,
+    );
+    if (!r.base64)
+      throw new BadRequestException(
+        `facturacion.cl no entregó el XML: ${r.mensaje ?? 'sin respuesta'}`,
+      );
+    const nombre =
+      {
+        33: 'factura',
+        39: 'boleta',
+        56: 'nota_de_debito',
+        61: 'nota_de_credito',
+      }[doc.tipo] ?? `dte_${doc.tipo}`;
+    return { nombre: `${nombre}_${doc.folio}.xml`, base64: r.base64 };
   }
 
   /** «Probar la conexión» (paso 0): no emite nada. */
