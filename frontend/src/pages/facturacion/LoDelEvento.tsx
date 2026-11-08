@@ -2,6 +2,7 @@ import type {
   EventoPorFacturar,
   OcSinLeer,
   OrdenPorFacturar,
+  TipoDeDte,
   VistaPrevia,
 } from "../../services/facturas.service";
 
@@ -44,16 +45,84 @@ export function LineaDeOc({ oc }: { readonly oc: OrdenPorFacturar }) {
   );
 }
 
+/** El monto que se tolera de redondeo (como `estadoDeLaFacturacion`). */
+const REDONDEO = 1;
+
+/**
+ * LA BARRA DE LO FACTURADO (doc 19 §9.34; Felipe, 08-11: *"acá sería
+ * interesante tener el monto en valores del evento, quizás una barrita de
+ * lo que ya está facturado (ejemplo Rudel debo meter una OC de adelanto de
+ * 4M) y el resto queda pendiente"*). Verde lo ya facturado (neto de notas
+ * de crédito, la cuenta del motor), azul lo de este documento y gris lo que
+ * queda. Si con este documento se pasa del total del evento, lo dice en
+ * ámbar.
+ */
+export function BarraDeLoFacturado({
+  total,
+  facturado,
+  esta,
+  nombre,
+}: {
+  readonly total: number;
+  readonly facturado: number;
+  /** Lo de este documento, con IVA; 0 si todavía no está. */
+  readonly esta: number;
+  /** «Esta factura» o «Esta boleta». */
+  readonly nombre: string;
+}) {
+  const conEsta = facturado + esta;
+  const queda = Math.max(0, total - conEsta);
+  const pasa = conEsta - total > REDONDEO ? conEsta - total : 0;
+  const escala = Math.max(total, conEsta) || 1;
+  const ancho = (n: number) => `${(n / escala) * 100}%`;
+  return (
+    <div className="space-y-1 pb-1">
+      <p className="text-gray-700">
+        Evento <span className="font-semibold">{clp(total)}</span>
+      </p>
+      <div
+        className="flex h-2 overflow-hidden rounded-full bg-gray-200"
+        aria-hidden="true"
+      >
+        <div className="bg-green-600" style={{ width: ancho(facturado) }} />
+        <div className="bg-blue-500" style={{ width: ancho(esta) }} />
+      </div>
+      <p className="text-gray-600">
+        <span className="text-green-700">Facturado {clp(facturado)}</span>
+        {esta > 0 && (
+          <>
+            {" · "}
+            <span className="text-blue-700">
+              {nombre} {clp(esta)}
+            </span>
+          </>
+        )}
+        {" · "}Queda {clp(queda)}
+      </p>
+      {pasa > 0 && (
+        <p className="font-medium text-amber-800">
+          Con {nombre.toLowerCase()} se pasa del evento por {clp(pasa)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const NOMBRE_DE_ESTA = { 33: "Esta factura", 39: "Esta boleta" } as const;
+
 export default function LoDelEvento({
   evento,
   noLeidas,
   vista,
+  tipo,
 }: {
   readonly evento: EventoPorFacturar;
   /** Lo que BelIA no pudo leer en la primera lectura de «Por facturar». */
   readonly noLeidas: readonly OcSinLeer[];
   /** La revisión del motor del documento que se revisa, si ya está. */
   readonly vista: VistaPrevia | null;
+  /** El tipo del documento que se revisa (factura o boleta). */
+  readonly tipo?: TipoDeDte | null;
 }) {
   const ordenes = evento.ordenes ?? [];
   const sinLeer = evento.ocs_sin_leer ?? 0;
@@ -61,13 +130,14 @@ export default function LoDelEvento({
   const avisos = vista?.avisos ?? [];
   const problemas = vista?.problemas ?? [];
   const faltan = vista?.faltan ?? [];
+  const esta = vista?.montos?.total ?? 0;
+  const seVaDelEvento = evento.emitido + esta - evento.total > REDONDEO;
   const hayQueMirar =
     fallas.length > 0 ||
     !!evento.tiene_factura_en_documentos ||
     problemas.length > 0 ||
-    faltan.length > 0;
-  if (!ordenes.length && !sinLeer && !avisos.length && !hayQueMirar)
-    return null;
+    faltan.length > 0 ||
+    seVaDelEvento;
   return (
     <div
       className={`space-y-0.5 rounded-lg border px-3 py-2 text-xs ${hayQueMirar ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50"}`}
@@ -77,6 +147,12 @@ export default function LoDelEvento({
       >
         Lo del evento
       </p>
+      <BarraDeLoFacturado
+        total={evento.total}
+        facturado={evento.emitido}
+        esta={esta}
+        nombre={NOMBRE_DE_ESTA[tipo ?? 33]}
+      />
       {ordenes.map((o) => (
         <LineaDeOc key={o.id} oc={o} />
       ))}
