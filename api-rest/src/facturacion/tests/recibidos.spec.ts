@@ -322,6 +322,49 @@ describe('El Panel DTE Recibidos de facturacion.cl (§9.30)', () => {
     );
   });
 
+  it('también la lista en JSON que responde de verdad (medido el 08-11 en el ambiente de prueba)', async () => {
+    const lista = JSON.stringify([
+      {
+        folio: '93001',
+        tipodte: '33',
+        rutproveedor: '76543210-K',
+        recepcionsii: '2026-03-10T00:00:00Z',
+        montototal: '108038',
+        xml: 'True',
+      },
+      { folio: '', tipodte: '33', rutproveedor: '' },
+    ]);
+    const panel = new FacturacionClPanel({
+      credenciales: CRED,
+      fetch: jest
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ConsultaPanelDteResponse xmlns="http://tempuri.org"><ConsultaPanelDteResult>' +
+              lista
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;') +
+              '</ConsultaPanelDteResult></ConsultaPanelDteResponse></soap:Body></soap:Envelope>',
+            { status: 200 },
+          ),
+        ) as never,
+    });
+    expect(await panel.pendientes()).toEqual({
+      ok: true,
+      mensaje: null,
+      pendientes: [
+        {
+          folio: 93001,
+          tipo: 33,
+          rut_emisor: '76543210-K',
+          recepcion_sii: '2026-03-10T00:00:00Z',
+          total: 108038,
+        },
+      ],
+    });
+  });
+
   it('si la respuesta no trae «Resultado» ni «Mensaje», dice cómo empieza lo que respondió', async () => {
     const panel = new FacturacionClPanel({
       credenciales: CRED,

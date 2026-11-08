@@ -2098,10 +2098,17 @@ solo dentro de los 8 días; y cada intento, salga o no, queda anotado en
 `acuses_de_recibidos` (migración 195: qué documento, qué se pidió, qué
 respondió facturacion.cl, quién y cuándo; sin cambiar ni borrar).
 
-**Lo que falta saber:** si la cuenta de Valle del Sol tiene el panel
-habilitado. El Libro de Compras respondió «Empresa no Autorizada» para la
-empresa de prueba (§9.28); el panel se mira en producción con
-«Recibidos».
+**Medido el 08-11 en el laboratorio:** el panel SÍ responde para la
+empresa de prueba (el Libro de Compras, no: «Empresa no Autorizada»,
+§9.28), y no con el `WSPLANO` que muestra el manual, sino con una lista en
+JSON: «[{"folio":"…","tipodte":"33","rutproveedor":"…","recepcionsii":
+"2026-03-10T00:00:00Z","montototal":"…","xml":"True"}]». Se leen las dos
+formas. Lo pendiente de la empresa de prueba es de otros integradores: no
+se guarda ni se acusa (en el laboratorio no hay nada recibido que mostrar
+en la lista).
+
+**Lo que falta saber:** si la cuenta de Valle del Sol tiene el panel y el
+Libro de Compras habilitados; se mira en producción con «Recibidos».
 
 **Lo que cubren las pruebas:** `recibidos.spec.ts` (el ejemplo del manual,
 la respuesta escapada, el sobre sin las credenciales a la vista, el acuse

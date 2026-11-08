@@ -63,8 +63,63 @@ const numero = (v: string | undefined) => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** La respuesta de `ConsultaPanelDte`, con tolerancia (como el resto). */
+/** Un pendiente desde sus pares, o nulo si le falta el folio, el tipo o el
+ *  RUT. */
+const pendienteDe = (p: Record<string, string>): PendienteDelPanel | null => {
+  const folio = numero(p.folio);
+  const tipo = numero(p.tipodte ?? p.tipo);
+  const rut = (p.rutproveedor ?? p.rutemisor ?? '')
+    .replace(/\./g, '')
+    .toUpperCase();
+  if (!folio || !tipo || !rut) return null;
+  return {
+    folio,
+    tipo,
+    rut_emisor: rut,
+    recepcion_sii: p.recepcionsii || null,
+    total: numero(p.montototal ?? p.monto ?? p.total),
+  };
+};
+
+/**
+ * La respuesta de `ConsultaPanelDte`, con tolerancia (como el resto).
+ * Medido el 08-11 en el ambiente de prueba: llega una lista en JSON
+ * («[{"folio":"…","tipodte":"33","rutproveedor":"…","recepcionsii":"…",
+ * "montototal":"…","xml":"True"}]»), no el `WSPLANO` que muestra el manual;
+ * se leen las dos.
+ */
 export const leerPanel = (texto: string): RespuestaDelPanel => {
+  const limpio = desescapar(texto).trim();
+  if (limpio.startsWith('[')) {
+    try {
+      const lista = JSON.parse(limpio) as unknown;
+      if (Array.isArray(lista))
+        return {
+          ok: true,
+          mensaje: null,
+          pendientes: lista
+            .map((d) =>
+              d && typeof d === 'object'
+                ? pendienteDe(
+                    Object.fromEntries(
+                      Object.entries(d as Record<string, unknown>).map(
+                        ([k, v]) => [
+                          k.toLowerCase(),
+                          typeof v === 'string' || typeof v === 'number'
+                            ? String(v).trim()
+                            : '',
+                        ],
+                      ),
+                    ),
+                  )
+                : null,
+            )
+            .filter((d): d is PendienteDelPanel => !!d),
+        };
+    } catch {
+      // No era JSON: se mira como el manual.
+    }
+  }
   const resultado = valorDe(texto, 'Resultado');
   const mensaje = valorDe(texto, 'Mensaje');
   const detalle = bloqueDe(texto, 'Detalle') ?? '';
@@ -72,20 +127,8 @@ export const leerPanel = (texto: string): RespuestaDelPanel => {
   for (const m of detalle.matchAll(
     /<(?:[\w-]+:)?Documento(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w-]+:)?Documento>/gi,
   )) {
-    const p = pares(desescapar(m[1]));
-    const folio = numero(p.folio);
-    const tipo = numero(p.tipodte ?? p.tipo);
-    const rut = (p.rutproveedor ?? p.rutemisor ?? '')
-      .replace(/\./g, '')
-      .toUpperCase();
-    if (!folio || !tipo || !rut) continue;
-    pendientes.push({
-      folio,
-      tipo,
-      rut_emisor: rut,
-      recepcion_sii: p.recepcionsii || null,
-      total: numero(p.montototal ?? p.monto ?? p.total),
-    });
+    const pendiente = pendienteDe(pares(desescapar(m[1])));
+    if (pendiente) pendientes.push(pendiente);
   }
   return {
     ok: resultado?.toLowerCase() === 'true',
