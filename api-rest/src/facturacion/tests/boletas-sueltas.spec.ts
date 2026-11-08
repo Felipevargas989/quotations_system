@@ -119,7 +119,7 @@ describe('La boleta del evento (doc 19 §9.20)', () => {
     );
     expect(documentos.agregarAlEvento).toHaveBeenCalledWith(
       'ev-512',
-      'Boleta N° 43 (simulada).pdf',
+      'B43 (simulada).pdf',
       expect.any(String),
     );
   });
@@ -155,7 +155,7 @@ describe('La boleta suelta', () => {
         folio: 43,
         estado: 'emitido',
         total: 290000,
-        pdf_path: 'c1/documentos-tributarios/boleta_43_simulado.pdf',
+        pdf_path: 'c1/documentos-tributarios/B43_simulado.pdf',
       },
       aviso: null,
     });

@@ -279,9 +279,11 @@ describe('El borrador que arma BelIA', () => {
     });
     const [linea] = armarBorrador(ctx).pedida.lineas;
     expect(linea).toMatchObject({ cantidad: 1, precio: 1428000 });
-    expect(linea.descripcion_larga).toBe(
-      'Servicio de paseo fin de año del 06-12-2026, 400 personas y 20 niños, según cotización N° 408',
+    // §9.35: todo en la glosa de 80; la cotización va en las observaciones.
+    expect(linea.descripcion).toBe(
+      'Servicio de paseo fin de año del 06-12-2026, 400 personas y 20 niños',
     );
+    expect(linea.descripcion_larga).toBeNull();
   });
 
   it('el precio con IVA va en neto con seis decimales: 78 menús de $55.000 suman exacto', () => {
@@ -553,13 +555,28 @@ describe('La boleta del evento', () => {
 });
 
 describe('La glosa de la línea', () => {
-  it('lo que no cabe en 80 caracteres va entero en la descripción larga, sin «…» (latin-1)', () => {
+  it('lo que no cabe en 80 caracteres se corta en una palabra, sin descripción larga (§9.35)', () => {
     const texto =
       'Servicio de Catering y arriendo de salon para actividades, Servicio de Catering y Arriendo de Salón, Ciclo de Foros Comerciales Quillon, 2026';
     const d = glosaYDescripcion(texto);
+    expect(d).toEqual({
+      descripcion:
+        'Servicio de Catering y arriendo de salon para actividades, Servicio de Catering',
+      descripcion_larga: null,
+    });
     expect(Array.from(d.descripcion).length).toBeLessThanOrEqual(80);
-    expect(d.descripcion.endsWith('...')).toBe(true);
-    expect(d.descripcion_larga).toBe(texto);
+  });
+
+  it('la revisión avisa que la descripción de la OC va cortada (§9.35)', () => {
+    const larga =
+      'Servicio de producción de eventos para la realización del Seminario Rubro Flores del programa Prodesal';
+    const ctx = contexto({ oc: { ...OC_CCU, descripcion: larga } });
+    const { pedida } = armarBorrador(ctx);
+    expect(pedida.lineas[0].descripcion_larga).toBeNull();
+    const r = revisarDte(pedida, ctx, 1, '2026-11-15');
+    expect(r.avisos).toContain(
+      'La descripción de la OC pasa de 80 caracteres y va cortada: revísala.',
+    );
   });
 });
 
@@ -626,14 +643,13 @@ describe('La factura por una parte: el 50 % y el 30 % (§9.26)', () => {
   it('sin OC, el % es de la cotización y las personas van en el texto', () => {
     const ctx = contexto({ oc: null, totalDeLasOC: 0, porcentaje: 30 });
     const b = armarBorrador(ctx);
-    // Con las personas no cabe en los 80 de la glosa: el texto entero va
-    // en la descripción larga.
+    // Con la cotización no cabe en los 80 de la glosa: sale la cotización,
+    // que va en las observaciones (§9.35).
     expect(b.pedida.lineas).toEqual([
       {
         descripcion:
-          'Servicio de paseo fin de año del 06-12-2026, 400 personas, según cotización...',
-        descripcion_larga:
-          'Servicio de paseo fin de año del 06-12-2026, 400 personas, según cotización N° 408',
+          'Servicio de paseo fin de año del 06-12-2026, 400 personas',
+        descripcion_larga: null,
         cantidad: 1,
         precio: 428400,
       },

@@ -6,6 +6,7 @@ import type { Receptor } from '../archivo/tipos';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import { facturadoDeLasOC, type DocumentoDeLaCadena } from '../notas/cadena';
 import type { EventoAFacturar, OrdenAFacturar } from './borrador';
+import type { DocumentoConSuNombre } from './nombre-del-pdf';
 
 /** Un documento tributario (tabla `documentos_tributarios`, migración 184). */
 export interface DocumentoTributario {
@@ -285,7 +286,10 @@ export class DocumentosTributariosRepository {
     tipos?: number[],
   ) {
     type Fila = DocumentoTributario & {
-      cotizacion: { quotation_number: number } | null;
+      cotizacion: {
+        quotation_number: number;
+        cliente: { name: string | null } | null;
+      } | null;
       oc: { numero: string } | null;
     };
     // Por páginas (§9.22, sprint 2): con un rango de hasta un año, las
@@ -296,7 +300,7 @@ export class DocumentosTributariosRepository {
       let consulta = this.supabase.client
         .from('documentos_tributarios')
         .select(
-          `${COLUMNAS}, cotizacion:quotations(quotation_number), oc:ordenes_de_compra(numero)`,
+          `${COLUMNAS}, cotizacion:quotations(quotation_number, cliente:clients(name)), oc:ordenes_de_compra(numero)`,
         )
         .eq('company_id', companyId)
         .in('estado', FACTURADO)
@@ -711,6 +715,25 @@ export class DocumentosTributariosRepository {
       .single();
     if (error) throw error;
     return data as unknown as DocumentoTributario;
+  }
+
+  /** Lo que lleva el nombre del PDF (§9.35): el cliente como está en
+   *  Eventia (si no, la razón social o la cabaña), el N° de la cotización
+   *  y la OC. */
+  async datosDelNombreDelPdf(
+    id: number,
+    companyId: number,
+  ): Promise<Omit<DocumentoConSuNombre, 'tipo' | 'folio'> | null> {
+    const { data, error } = await this.supabase.client
+      .from('documentos_tributarios')
+      .select(
+        'receptor, detalle, cotizacion:quotations(quotation_number, cliente:clients(name)), oc:ordenes_de_compra(numero)',
+      )
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Omit<DocumentoConSuNombre, 'tipo' | 'folio'> | null;
   }
 
   /** La copia propia del PDF, en el balde privado (L10). */

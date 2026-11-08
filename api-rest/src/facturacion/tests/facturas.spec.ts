@@ -113,6 +113,12 @@ const armar = ({
       }),
     guardarPdf: jest.fn().mockResolvedValue(undefined),
     agregarAlEvento: jest.fn().mockResolvedValue(undefined),
+    // §9.35: el cliente como está en Eventia, la cotización y la OC.
+    datosDelNombreDelPdf: jest.fn().mockResolvedValue({
+      receptor: { razon_social: 'Compañía Cervecerías Unidas S.A.' },
+      cotizacion: { quotation_number: 423, cliente: { name: 'CCU Quillón' } },
+      oc: { numero: '4500918822' },
+    }),
   };
   const ordenes = {
     empresaQueVende: jest
@@ -245,12 +251,13 @@ describe('Emitir la factura del evento', () => {
     expect(emitida).toMatchObject({
       estado: 'emitido',
       folio: 42,
-      pdf_path: 'c1/event-documents/ev-423/facturas/factura_42_simulado.pdf',
+      pdf_path:
+        'c1/event-documents/ev-423/facturas/F42_CCU_Quillon_423_4500918822_simulado.pdf',
     });
     expect(repo.agregarAlEvento).toHaveBeenCalledWith(
       'ev-423',
-      'Factura N° 42 (simulada).pdf',
-      'c1/event-documents/ev-423/facturas/factura_42_simulado.pdf',
+      'F42_CCU Quillón_423_4500918822 (simulada).pdf',
+      'c1/event-documents/ev-423/facturas/F42_CCU_Quillon_423_4500918822_simulado.pdf',
     );
     // El RUT era nuevo para el cliente: queda en su ficha (§9.12).
     expect(razones.crear).toHaveBeenCalledWith(

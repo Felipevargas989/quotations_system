@@ -269,12 +269,14 @@ const enMinuscula = (texto: string) =>
     .join(' ');
 
 const LARGO_DE_LA_GLOSA = 80;
-const LARGO_DE_LA_DESCRIPCION = 1000;
 
 /**
- * La glosa de la línea (80 caracteres) y su descripción larga: si el texto
- * no cabe en la glosa, la glosa se corta en una palabra y el texto entero
- * va en la descripción larga. Sin «…»: el archivo va en latin-1 (L23).
+ * La glosa de la línea (80 caracteres), sin descripción larga (§9.35;
+ * Felipe, 08-11: *"la descripción corta y larga se pisan"*): facturacion.cl
+ * dibuja la larga encima de la raya del ítem y cambia sus comas por
+ * puntos, y el diseño es de ellos. Lo que no cabe se corta en una palabra,
+ * y la revisión lo dice (`revisarDte`). La larga queda para escribirla a
+ * mano.
  */
 export const glosaYDescripcion = (
   texto: string,
@@ -283,16 +285,13 @@ export const glosaYDescripcion = (
   const letras = Array.from(limpio);
   if (letras.length <= LARGO_DE_LA_GLOSA)
     return { descripcion: limpio, descripcion_larga: null };
-  const corte = letras.slice(0, LARGO_DE_LA_GLOSA - 3).join('');
+  const corte = letras.slice(0, LARGO_DE_LA_GLOSA).join('');
   const espacio = corte.lastIndexOf(' ');
   const glosa = (espacio > 40 ? corte.slice(0, espacio) : corte).replace(
-    /[\s,.:-]+$/,
+    /[\s,.:;-]+$/,
     '',
   );
-  return {
-    descripcion: `${glosa}...`,
-    descripcion_larga: letras.slice(0, LARGO_DE_LA_DESCRIPCION).join(''),
-  };
+  return { descripcion: glosa, descripcion_larga: null };
 };
 
 /** El detalle sin OC (§9.2): «Servicio de [tipo] del [fecha], [N]
@@ -312,7 +311,16 @@ export const detalleDelEvento = (
   const ninos = e.ninos ? ` y ${e.ninos} niños` : '';
   const personas =
     conPersonas && e.personas ? `, ${e.personas} personas${ninos}` : '';
-  return `${servicio}${fechas}${personas}, según cotización N° ${e.numero}`;
+  // §9.35: todo en la glosa de 80. Si no cabe, sale primero la cotización
+  // (va igual en las observaciones) y después las personas.
+  const opciones = [
+    `${servicio}${fechas}${personas}, según cotización N° ${e.numero}`,
+    `${servicio}${fechas}${personas}`,
+  ];
+  return (
+    opciones.find((t) => Array.from(t).length <= LARGO_DE_LA_GLOSA) ??
+    `${servicio}${fechas}`
+  );
 };
 
 /**
@@ -597,6 +605,20 @@ export function revisarDte(
     precio: factura ? precioNetoDe(l.precio) : l.precio,
     ...(factura && l.descuento ? { descuento: l.descuento } : {}),
   }));
+  // §9.35: la descripción de la OC que no cabe en la glosa va cortada.
+  const deLaOC = textoLimpio(oc?.descripcion ?? '');
+  if (
+    Array.from(deLaOC).length > LARGO_DE_LA_GLOSA &&
+    pedidas.some((l) => {
+      const glosa = textoLimpio(l.descripcion ?? '');
+      return (
+        !!glosa && glosa.length < deLaOC.length && deLaOC.startsWith(glosa)
+      );
+    })
+  )
+    avisos.push(
+      `La descripción de la OC pasa de ${LARGO_DE_LA_GLOSA} caracteres y va cortada: revísala.`,
+    );
   const esperado = pedidas.reduce((s, l) => s + conIva(l), 0);
   const montos: Montos | null = problemas.length
     ? null
