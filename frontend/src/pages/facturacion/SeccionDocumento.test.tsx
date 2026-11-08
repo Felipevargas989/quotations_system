@@ -1,9 +1,25 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DtePedido, VistaPrevia } from "../../services/facturas.service";
 import SeccionDocumento from "./SeccionDocumento";
+
+/** Elige en una lista de la casa: abre la del campo y pincha la opción. */
+const elegir = (campo: string, actual: RegExp, opcion: RegExp) => {
+  fireEvent.click(
+    within(screen.getByRole("group", { name: campo })).getByRole("button", {
+      name: actual,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: opcion }));
+};
 
 // LA SECCIÓN «DOCUMENTO» (doc 19 §9.32): el tipo, de dónde se llena, la
 // fecha de emisión con su rango y la condición de pago, en listas.
@@ -43,7 +59,7 @@ describe("La sección Documento", () => {
     );
     expect(screen.getByText("Factura electrónica")).toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Tipo" }),
+      screen.queryByRole("group", { name: "Tipo" }),
     ).not.toBeInTheDocument();
     const fecha = screen.getByLabelText("Fecha de emisión");
     expect(fecha).toHaveAttribute("min", "2026-10-01");
@@ -58,12 +74,9 @@ describe("La sección Documento", () => {
     render(
       <SeccionDocumento pedida={PEDIDA} vista={VISTA} onChange={onChange} />,
     );
-    const condicion = screen.getByRole("combobox", {
-      name: "Condición de pago",
-    });
-    fireEvent.change(condicion, { target: { value: "60" } });
+    elegir("Condición de pago", /Crédito 30 días/, /Crédito 60 días/);
     expect(onChange).toHaveBeenCalledWith({ forma_de_pago: 2, plazo_dias: 60 });
-    fireEvent.change(condicion, { target: { value: "contado" } });
+    elegir("Condición de pago", /Crédito 30 días/, /^Contado/);
     expect(onChange).toHaveBeenCalledWith({
       forma_de_pago: 1,
       plazo_dias: null,
@@ -87,13 +100,9 @@ describe("La sección Documento", () => {
         onFuente={onFuente}
       />,
     );
-    fireEvent.change(screen.getByRole("combobox", { name: "Tipo" }), {
-      target: { value: "39" },
-    });
+    elegir("Tipo", /Factura electrónica/, /Boleta electrónica/);
     expect(onTipo).toHaveBeenCalledWith(39);
-    fireEvent.change(screen.getByRole("combobox", { name: "Se llena desde" }), {
-      target: { value: "cotizacion" },
-    });
+    elegir("Se llena desde", /OC N° 4500123/, /Cotización N° 423/);
     expect(onFuente).toHaveBeenCalledWith("cotizacion");
   });
 
@@ -107,7 +116,7 @@ describe("La sección Documento", () => {
     );
     expect(screen.getByText("08-11-2026")).toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Condición de pago" }),
+      screen.queryByRole("group", { name: "Condición de pago" }),
     ).not.toBeInTheDocument();
   });
 });

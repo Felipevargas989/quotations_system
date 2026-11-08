@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as facturas from "../../services/facturas.service";
@@ -130,10 +131,18 @@ describe("Corregir: el documento con casillas", () => {
       "Totales",
     ])
       expect(screen.getByRole("heading", { name: s })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveValue("33");
+    // Las listas son las de la casa: muestran lo elegido.
     expect(
-      screen.getByRole("combobox", { name: "Se llena desde" }),
-    ).toHaveValue("12");
+      within(screen.getByRole("group", { name: "Tipo" })).getByRole("button", {
+        name: /Factura electrónica/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("group", { name: "Se llena desde" })).getByRole(
+        "button",
+        { name: /OC N° 1213301-49-AG26/ },
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Servicio de catering"),
     ).toBeInTheDocument();
@@ -193,9 +202,13 @@ describe("Corregir: el documento con casillas", () => {
     fireEvent.change(screen.getByLabelText("Fecha de emisión"), {
       target: { value: "2026-10-31" },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "Se llena desde" }), {
-      target: { value: "cotizacion" },
-    });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Se llena desde" })).getByRole(
+        "button",
+        { name: /OC N° 1213301-49-AG26/ },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Cotización N° 423/ }));
     await waitFor(() =>
       expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-423", 33, null),
     );

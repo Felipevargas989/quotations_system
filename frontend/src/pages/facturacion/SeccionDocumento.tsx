@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { PLAZOS_DE_PAGO } from "../../constants/facturacion";
 import type {
   DtePedido,
@@ -17,11 +18,14 @@ import { Seccion } from "./PiezasDelDocumento";
 // esta pieza también se arregla desde el botón + nuevo DTE"*). La misma en
 // la factura de «Nuevo DTE» y en «Corregir» de la revisión: el tipo, de
 // dónde se llena (solo el evento), la fecha de emisión y la condición de
-// pago, cada uno en su lista, sin chips. Debajo, solo el vencimiento.
+// pago, cada uno en su lista, sin chips. Debajo, solo el vencimiento. Las
+// listas son la de la casa (`SelectWithSearch`): el portero no deja listas
+// nativas.
 //
 // La fecha de emisión (§9.32): la de hoy si no se elige, y se puede elegir
-// dentro del rango que da el motor (`emision` de la revisión: nunca futura;
-// hasta el día 20, también el mes anterior). La boleta va con la del día.
+// dentro del rango que da el motor (`emision` de la revisión: hasta el
+// último día del mes; hasta el día 20, también el mes anterior). La boleta
+// va con la del día.
 
 const NOMBRE: Record<TipoDeDte, string> = {
   33: "Factura electrónica",
@@ -45,6 +49,38 @@ function Campo({
     </label>
   );
 }
+
+/** Un campo con una lista de la casa: un grupo con su nombre (la lista se
+ *  abre con un botón, que no va dentro de una etiqueta). */
+function CampoDeLista({
+  titulo,
+  children,
+}: {
+  readonly titulo: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div role="group" aria-label={titulo} className="block min-w-0">
+      <span className={claseTitulo}>{titulo}</span>
+      {children}
+    </div>
+  );
+}
+
+/** Las opciones de la condición de pago: crédito a 30, 45 o 60 días, o
+ *  contado. */
+const CONDICIONES = [
+  ...PLAZOS_DE_PAGO.map((d) => ({
+    value: String(d),
+    label: `Crédito ${d} días`,
+  })),
+  { value: "contado", label: "Contado" },
+];
+
+const TIPOS = ([33, 39] as const).map((t) => ({
+  value: String(t),
+  label: NOMBRE[t],
+}));
 
 /**
  * La fecha de emisión, sin control de React mientras se escribe: al ir
@@ -121,34 +157,38 @@ export default function SeccionDocumento({
   return (
     <Seccion titulo="Documento">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Campo titulo="Tipo">
-          {onTipo ? (
-            <select
-              value={pedida.tipo}
-              onChange={(e) => onTipo(Number(e.target.value) as TipoDeDte)}
-              className={claseCasilla}
-            >
-              <option value={33}>{NOMBRE[33]}</option>
-              <option value={39}>{NOMBRE[39]}</option>
-            </select>
-          ) : (
+        {onTipo ? (
+          <CampoDeLista titulo="Tipo">
+            <SelectWithSearch
+              options={TIPOS}
+              value={String(pedida.tipo)}
+              onChange={(v) => v && onTipo(Number(v) as TipoDeDte)}
+              searchPlaceholder="Buscar el tipo..."
+              tamano="sm"
+              sinLimpiar
+              mostrarConteo={false}
+            />
+          </CampoDeLista>
+        ) : (
+          <Campo titulo="Tipo">
             <p className={claseFija}>{NOMBRE[pedida.tipo]}</p>
-          )}
-        </Campo>
-        {onFuente && fuentes && fuentes.length > 0 && (
-          <Campo titulo="Se llena desde">
-            <select
-              value={fuente}
-              onChange={(e) => onFuente(e.target.value)}
-              className={claseCasilla}
-            >
-              {fuentes.map((f) => (
-                <option key={f.valor} value={f.valor}>
-                  {f.etiqueta}
-                </option>
-              ))}
-            </select>
           </Campo>
+        )}
+        {onFuente && fuentes && fuentes.length > 0 && (
+          <CampoDeLista titulo="Se llena desde">
+            <SelectWithSearch
+              options={fuentes.map((f) => ({
+                value: f.valor,
+                label: f.etiqueta,
+              }))}
+              value={fuente}
+              onChange={(v) => v && onFuente(v)}
+              searchPlaceholder="Buscar la OC..."
+              tamano="sm"
+              sinLimpiar
+              mostrarConteo={false}
+            />
+          </CampoDeLista>
         )}
         <Campo titulo="Fecha de emisión">
           {rango ? (
@@ -162,26 +202,24 @@ export default function SeccionDocumento({
           )}
         </Campo>
         {factura && (
-          <Campo titulo="Condición de pago">
-            <select
+          <CampoDeLista titulo="Condición de pago">
+            <SelectWithSearch
+              options={CONDICIONES}
               value={condicionDe(pedida)}
-              onChange={(e) =>
+              onChange={(v) =>
+                v &&
                 onChange(
-                  e.target.value === "contado"
+                  v === "contado"
                     ? { forma_de_pago: 1, plazo_dias: null }
-                    : { forma_de_pago: 2, plazo_dias: Number(e.target.value) },
+                    : { forma_de_pago: 2, plazo_dias: Number(v) },
                 )
               }
-              className={claseCasilla}
-            >
-              {PLAZOS_DE_PAGO.map((d) => (
-                <option key={d} value={String(d)}>
-                  Crédito {d} días
-                </option>
-              ))}
-              <option value="contado">Contado</option>
-            </select>
-          </Campo>
+              searchPlaceholder="Buscar..."
+              tamano="sm"
+              sinLimpiar
+              mostrarConteo={false}
+            />
+          </CampoDeLista>
         )}
       </div>
       {factura && !contado && vencimiento && (
