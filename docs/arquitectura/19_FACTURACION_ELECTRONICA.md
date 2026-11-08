@@ -2530,6 +2530,14 @@ dale armalo"*.
 - Lo cubre `LoDelEvento.test.tsx`.
 - **En producción desde el 08-11-2026** (PR #319, solo la vitrina), con el
   «ok» de Felipe.
+- **El recuadro azul** (Felipe, 08-11: *"ese cuadro ámbar, podría ser un
+  cuadro azul más bonito? lo encuentro todo fome en cuanto a diseño"*; con
+  la maqueta: *"me parece bien el recuadro"*). Siempre azul: el total del
+  evento grande arriba, la barra más gruesa, Facturado / Esta factura /
+  Queda en columnas que no se mueven (sin el documento, «—»), y lo que hay
+  que mirar en su propia franja ámbar (roja si no cuadra); las OC y los
+  avisos abajo, en chico. **En producción desde el 08-11-2026** (PR
+  #321, solo la vitrina).
 
 ### 9.35 El nombre del PDF y sin la descripción larga (08-11)
 
