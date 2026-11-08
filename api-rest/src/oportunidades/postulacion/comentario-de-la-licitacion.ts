@@ -14,6 +14,31 @@ export const FIN_DEL_BLOQUE =
 const inicioDelBloque = (codigo: string) =>
   `Postulación a la licitación ${codigo}`;
 
+/** Un texto de no más de `largo` caracteres, cortado en una palabra. */
+const corto = (t: string, largo: number): string => {
+  const limpio = t
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.;]+$/, '');
+  if (limpio.length <= largo) return limpio;
+  const hasta = limpio.slice(0, largo);
+  const espacio = hasta.lastIndexOf(' ');
+  return `${(espacio > largo / 2 ? hasta.slice(0, espacio) : hasta).replace(/[,;:]$/, '')}…`;
+};
+
+/** Una lista en una línea: los primeros, cortos, y cuántos más. */
+const enUnaLinea = (items: string[], maximo: number): string => {
+  const van = items.slice(0, maximo).map((x) => corto(x, 80));
+  const mas = items.length - van.length;
+  return `${van.join('; ')}${mas > 0 ? `; y ${mas} más en la licitación` : ''}.`;
+};
+
+// Desde la decisión 120 (08-11), resumido. Felipe: "que traiga lo que
+// puede traer y el resto como comentario (resumido no tan extenso) en los
+// comentarios internos de la cotización". Primero lo que hay que comprar o
+// subcontratar (lo que avisa al ganar: los galvanos), después los
+// detalles, cada uno en una línea; el detalle completo sigue en la
+// licitación.
 export function bloqueDeLaLicitacion(d: {
   codigo: string;
   nombre: string;
@@ -22,17 +47,12 @@ export function bloqueDeLaLicitacion(d: {
 }): string {
   return [
     `${inicioDelBloque(d.codigo)}: ${d.nombre}.`,
-    ...(d.detalles.length > 0
-      ? ['', 'Detalles de lo postulado:', ...d.detalles.map((x) => `- ${x}`)]
-      : []),
     ...(d.subcontratar.length > 0
-      ? [
-          '',
-          'Subcontratar (pedir al proveedor):',
-          ...d.subcontratar.map((x) => `- ${x}`),
-        ]
+      ? [`Comprar o subcontratar: ${enUnaLinea(d.subcontratar, 10)}`]
       : []),
-    '',
+    ...(d.detalles.length > 0
+      ? [`Detalles: ${enUnaLinea(d.detalles, 6)}`]
+      : []),
     FIN_DEL_BLOQUE,
   ].join('\n');
 }
