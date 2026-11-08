@@ -279,11 +279,10 @@ describe("Por facturar", () => {
     eventos = [EVENTO];
     abrir();
     fireEvent.click(screen.getByRole("button", { name: "Ya está facturado" }));
-    expect(
-      screen.getByText("¿Ya se facturó fuera de Eventia?"),
-    ).toBeInTheDocument();
+    // En el lugar del botón, para que las columnas no se muevan (08-11).
+    expect(screen.getByText("¿Sacarlo?")).toBeInTheDocument();
     expect(marcarFacturadoFuera).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, sacarlo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí" }));
     await waitFor(() =>
       expect(marcarFacturadoFuera).toHaveBeenCalledWith("ev-473"),
     );
