@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import {
   type MarcaDeExigencia,
@@ -17,6 +16,7 @@ import {
   textoDeLaOferta,
 } from "./relacionDeLasBases";
 import DesistirDeLaLicitacion from "./DesistirDeLaLicitacion";
+import LoTengoONoPuedo from "./LoTengoONoPuedo";
 import TituloDeBloque from "./TituloDeBloque";
 
 // LAS EXIGENCIAS DE LA LICITACIÓN (19-10, migración 152). Felipe: "un
@@ -170,42 +170,12 @@ export default function ExigenciasDeLaLicitacion({
                 </p>
                 {detalle && <p className="text-xs text-gray-500">{detalle}</p>}
               </div>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  aria-pressed={marca === "lo_tengo"}
-                  onClick={() =>
-                    marcar.mutate({
-                      clave: e.clave,
-                      marca: marca === "lo_tengo" ? null : "lo_tengo",
-                    })
-                  }
-                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg border ${
-                    marca === "lo_tengo"
-                      ? "bg-green-600 border-green-600 text-white"
-                      : "bg-white border-gray-200 text-gray-600 hover:bg-green-50"
-                  }`}
-                >
-                  <Check size={12} /> Lo tengo
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={marca === "no_puedo"}
-                  onClick={() =>
-                    marcar.mutate({
-                      clave: e.clave,
-                      marca: marca === "no_puedo" ? null : "no_puedo",
-                    })
-                  }
-                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg border ${
-                    marca === "no_puedo"
-                      ? "bg-red-600 border-red-600 text-white"
-                      : "bg-white border-gray-200 text-gray-600 hover:bg-red-50"
-                  }`}
-                >
-                  <X size={12} /> No puedo
-                </button>
-              </div>
+              <LoTengoONoPuedo
+                marca={marca}
+                onMarcar={(nueva) =>
+                  marcar.mutate({ clave: e.clave, marca: nueva })
+                }
+              />
             </li>
           );
         })}

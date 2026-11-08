@@ -212,6 +212,10 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST oferente/documentos': A,
       'PATCH oferente/documentos/:documentoId/no-usar': A,
       'DELETE oferente/documentos/:documentoId': A,
+      // «Lo que Eventia sabe de tu empresa» (decisión 119, parte 3).
+      'GET oferente/lo-que-sabemos': A,
+      'PATCH oferente/lo-que-sabemos/:respuestaId': A,
+      'DELETE oferente/lo-que-sabemos/:respuestaId': A,
       'GET :id': A,
       'PATCH :id': A,
       'GET :id/adjuntos': A,

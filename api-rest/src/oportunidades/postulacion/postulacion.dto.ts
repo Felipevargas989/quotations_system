@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -77,6 +78,44 @@ export class ArmarPostulacionDto {
   @Min(1)
   @Max(100_000_000_000)
   total!: number;
+}
+
+/** Una respuesta del modal de «Armar postulación» (decisión 119, parte 3):
+ *  la exigencia (su clave, como en «Bases y criterios»), la pregunta, lo
+ *  que respondió la empresa y un detalle si quiere. */
+export class RespuestaDelModalDto {
+  @IsString()
+  @MaxLength(400)
+  @Matches(/\S/)
+  clave!: string;
+
+  @IsString()
+  @MaxLength(400)
+  @Matches(/\S/)
+  pregunta!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  exigencia?: string;
+
+  @IsIn(['lo_tengo', 'no_puedo'])
+  respuesta!: 'lo_tengo' | 'no_puedo';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  detalle?: string;
+}
+
+/** Responder y armar (decisión 119, parte 3): el precio y las respuestas. */
+export class ResponderYArmarDto extends ArmarPostulacionDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(80)
+  @ValidateNested({ each: true })
+  @Type(() => RespuestaDelModalDto)
+  respuestas!: RespuestaDelModalDto[];
 }
 
 /** Un pedazo de un párrafo editado en Eventia (decisión 78): su texto, de

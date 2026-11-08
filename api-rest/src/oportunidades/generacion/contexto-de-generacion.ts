@@ -1,6 +1,7 @@
 import type { AnalisisRepository } from '../analisis/analisis.repository';
 import { hoyEnChile } from '../analisis/comun';
 import type { EventiaRepository } from '../eventia/eventia.repository';
+import { conLoQueRespondio, respuestasDe } from '../oferente/lo-que-sabemos';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import type { OportunidadesRepository } from '../oportunidades.repository';
@@ -77,7 +78,13 @@ export async function contextoDeGeneracion(
   ]);
   const listo =
     analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
-  const bases = loQuePidenLasBases(listo?.resultado ?? null);
+  // Lo que ya respondió la empresa (decisión 119, parte 3): lo respondido
+  // ya no queda [POR CONFIRMAR].
+  const bases = conLoQueRespondio(
+    loQuePidenLasBases(listo?.resultado ?? null),
+    ficha.exigencias_marcadas,
+    respuestasDe(companyId),
+  );
   const datos: ContextoDeGeneracion = {
     codigo: ficha.codigo,
     nombre: ficha.proceso.nombre,

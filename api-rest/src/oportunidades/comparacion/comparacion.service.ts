@@ -130,7 +130,9 @@ export class ComparacionService {
         this.analisis.ultimo(companyId, oportunidadId),
         this.adjuntos.listar(companyId, oportunidadId, 'competencia'),
         this.oferente.oferente(companyId),
-        this.repo.ultimoDeTipo(companyId, oportunidadId, 'oferta'),
+        // La última que se armó de verdad: «Armar postulación» deja una
+        // detenida cuando faltan respuestas (decisión 119, parte 3).
+        this.repo.ultimoDeTipo(companyId, oportunidadId, 'oferta', 'listo'),
         this.aprendizajes.deLaEmpresa(companyId),
       ]);
     const resultado = (

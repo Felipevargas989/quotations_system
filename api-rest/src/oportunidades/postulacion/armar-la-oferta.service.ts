@@ -28,6 +28,7 @@ import {
 } from '../generacion/generacion.repository';
 import { loQuePidenLasBases } from '../generacion/instrucciones';
 import { catalogoParaLaOferta } from '../generacion/oferta-de-la-propuesta';
+import { conLoQueRespondio, respuestasDe } from '../oferente/lo-que-sabemos';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { memoriaDeLaLicitacion } from '../preguntas/lo-aclarado';
@@ -118,9 +119,14 @@ export class ArmarLaOfertaService {
       noSiEstaCongelada(ficha.estado);
     }
     const analisis = await this.analisis.ultimo(companyId, oportunidadId);
+    // Lo que ya respondió la empresa manda (decisión 119, parte 3).
     const bases =
       analisis?.estado === 'listo'
-        ? loQuePidenLasBases(analisis.resultado ?? null)
+        ? conLoQueRespondio(
+            loQuePidenLasBases(analisis.resultado ?? null),
+            ficha.exigencias_marcadas,
+            respuestasDe(companyId),
+          )
         : null;
     if (!bases) {
       throw new BadRequestException(
