@@ -1863,6 +1863,15 @@ cuenta. En «Por facturar»:
   OC N° 4500123» (o «de la cotización N° 523» sin OC). La primera línea
   sigue igual (Felipe aprobó el diseño esa noche: *"déjalo así"*).
 - El candado de siempre: nunca más del 100 % de una OC (§5.3).
+- *Una OC para dos eventos* (la Municipalidad de Quillón: la OC
+  1213301-49-AG26, de $2.480.000, paga el foro de la #415 y el de la
+  #460, $1.240.000 cada uno): **no se programa.** Felipe, 08-11: *"es un
+  caso tan particular que es mejor no programarlo"*; y sobre facturar por
+  partes: *"si es solo cambiar el monto lo cambio yo, listo, lo más
+  simple siempre es lo mejor"*. Se factura cambiando el monto a mano en
+  «Emitir DTE». Ojo: BelIA deja la OC entera en el evento donde la lee
+  (en la #460 «Facturar» propone $2.480.000), y la misma OC en otro
+  evento lleva su propia cuenta.
 
 **Lo que cubren las pruebas:** `por-facturar.spec.ts` (los dos casos de
 Felipe y la primera lectura), `borrador-de-factura.spec.ts` (el 50 %, el
