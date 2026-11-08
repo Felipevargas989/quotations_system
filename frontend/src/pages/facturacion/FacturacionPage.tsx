@@ -12,7 +12,6 @@ import LetreroDelAmbiente from "./LetreroDelAmbiente";
 import ListaDeDocumentos from "./ListaDeDocumentos";
 import NotaNueva from "./NotaNueva";
 import NuevoDocumento from "./NuevoDocumento";
-import TraerFactura from "./TraerFactura";
 import type { TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
 
@@ -62,7 +61,7 @@ export default function FacturacionPage() {
   const tipos: TipoNuevo[] = [
     ...(permisos.includes("boletas") ? (["factura", "boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
-      ? (["nota_credito", "nota_debito", "traer"] as const)
+      ? (["nota_credito", "nota_debito"] as const)
       : []),
   ];
   // Dónde se emite: lo trae el día de boletas, que lo lee todo el que
@@ -92,10 +91,8 @@ export default function FacturacionPage() {
   // La ventana que pregunta qué se emite, y la pantalla del que se eligió.
   const [eligiendo, setEligiendo] = useState(false);
   const [abierto, setAbierto] = useState<Abierto | null>(null);
-  // El que se acaba de emitir: la lista lo marca (§9.22). Si es una
-  // factura traída de otro mes, la lista abre desde ese mes (§9.36).
+  // El que se acaba de emitir: la lista lo marca (§9.22).
   const [recien, setRecien] = useState<number | null>(null);
-  const [recienDesde, setRecienDesde] = useState<string | null>(null);
   const esAdmin = userRole === "administrador";
   const nuevoDocumento = () =>
     tipos.length === 1 ? setAbierto({ tipo: tipos[0] }) : setEligiendo(true);
@@ -108,10 +105,9 @@ export default function FacturacionPage() {
     void queryClient.invalidateQueries({ queryKey: LLAVE_HOY });
   };
   // Emitido: de vuelta a la lista, con lo nuevo marcado.
-  const emitido = (id: number | null, desde: string | null = null) => {
+  const emitido = (id: number | null) => {
     refrescar();
     setRecien(id);
-    setRecienDesde(desde);
     if (conDocumentos) setElegida("documentos");
     setAbierto(null);
   };
@@ -147,11 +143,6 @@ export default function FacturacionPage() {
             onEmitida={(boleta) =>
               conDocumentos ? emitido(boleta?.id ?? null) : refrescar()
             }
-          />
-        ) : abierto.tipo === "traer" ? (
-          <TraerFactura
-            onVolver={() => setAbierto(null)}
-            onTraida={(id, fecha) => emitido(id, fecha)}
           />
         ) : (
           <NotaNueva
@@ -215,7 +206,6 @@ export default function FacturacionPage() {
             <ListaDeDocumentos
               conAjustes={conAjustes}
               recien={recien}
-              desde={recienDesde}
               onModificar={(doc) =>
                 setAbierto({
                   tipo: doc.tipo === 61 ? "nota_debito" : "nota_credito",
