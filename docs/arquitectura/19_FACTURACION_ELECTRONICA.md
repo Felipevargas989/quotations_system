@@ -2549,6 +2549,11 @@ dale armalo"*.
   que mirar en su propia franja ámbar (roja si no cuadra); las OC y los
   avisos abajo, en chico. **En producción desde el 08-11-2026** (PR
   #321, solo la vitrina).
+- **El documento nuevo a todo el ancho** (Felipe, 08-11, con «Nueva
+  factura electrónica»: *"acá deberíamos aprovechar el ancho también"*): la
+  pantalla de la factura, la boleta y la nota ya no se queda en el
+  `max-w-5xl`, igual que la lista. **En producción desde el 08-11-2026** (PR
+  #321).
 
 ### 9.35 El nombre del PDF y sin la descripción larga (08-11)
 
