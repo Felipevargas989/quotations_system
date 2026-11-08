@@ -279,13 +279,16 @@ export class FacturasService {
     companyId: number,
     tipo: TipoDeDte,
     ordenDeCompraId: number | null,
+    porcentaje: number | null = null,
   ) {
     const ctx = await this.contexto(
       quotationId,
       companyId,
       tipo === BOLETA ? null : ordenDeCompraId,
     );
-    const borrador = armarBorrador(ctx, tipo);
+    // §9.26: la parte que se factura (el 50 % de la OC); sin ella, todo lo
+    // que queda.
+    const borrador = armarBorrador({ ...ctx, porcentaje }, tipo);
     return {
       ...borrador,
       oc: ctx.oc

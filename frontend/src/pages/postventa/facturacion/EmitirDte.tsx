@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
+import NumberInput from "../../../components/inputs/NumberInput";
 import { toast } from "../../../components/toast/Toast";
 import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 import {
@@ -139,13 +140,24 @@ function ConLaPreparacion({
   );
   // La boleta no va contra una OC.
   const oc = tipo === 33 ? desde : null;
+  // §9.26: qué parte se factura (el 50 % o el 30 % de la OC, o de la
+  // cotización); nulo es todo lo que queda.
+  const [porcentaje, setPorcentaje] = useState<number | null>(null);
+  const [conOtro, setConOtro] = useState(false);
+  const [otro, setOtro] = useState<number | undefined>(undefined);
   const borrador = useQuery({
-    queryKey: ["facturacion", "borrador", quotationId, tipo, oc],
-    queryFn: () => armarBorradorDeDte(quotationId, tipo, oc),
+    queryKey: ["facturacion", "borrador", quotationId, tipo, oc, porcentaje],
+    queryFn: () => armarBorradorDeDte(quotationId, tipo, oc, porcentaje),
     gcTime: 0,
     refetchOnWindowFocus: false,
   });
   const ev = preparacion.evento;
+  const laOc = preparacion.ocs.find((o) => o.id === oc);
+  const base = laOc ? laOc.total : ev.total;
+  const elegir = (p: number | null) => {
+    setConOtro(false);
+    setPorcentaje(p);
+  };
 
   return (
     <div className="space-y-3">
@@ -192,6 +204,49 @@ function ConLaPreparacion({
         />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-gray-500">Qué parte</span>
+        <Parte
+          elegida={!conOtro && porcentaje === null}
+          onClick={() => elegir(null)}
+          titulo="Todo lo que queda"
+        />
+        {[50, 30].map((p) => (
+          <Parte
+            key={p}
+            elegida={!conOtro && porcentaje === p}
+            onClick={() => elegir(p)}
+            titulo={`${p} %`}
+          />
+        ))}
+        <Parte
+          elegida={conOtro}
+          onClick={() => setConOtro(true)}
+          titulo="Otro %"
+        />
+        {conOtro && (
+          <span className="inline-flex items-center gap-1">
+            <span className="w-16">
+              <NumberInput
+                value={otro}
+                min={1}
+                max={100}
+                placeholder="%"
+                onChange={setOtro}
+                onCommit={(v) =>
+                  setPorcentaje(v != null && v >= 1 && v <= 100 ? v : null)
+                }
+                className="text-xs"
+              />
+            </span>
+            %
+          </span>
+        )}
+        <span className="text-gray-400">
+          de {laOc ? `la OC N° ${laOc.numero}` : "la cotización"}: {clp(base)}
+        </span>
+      </div>
+
       {preparacion.sin_leer.length > 0 && (
         <div className="space-y-0.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
           <p className="font-semibold">
@@ -213,7 +268,7 @@ function ConLaPreparacion({
         <Falla error={borrador.error} onCerrar={onCerrar} />
       ) : (
         <Borrador
-          key={`${tipo}-${oc ?? "cotizacion"}`}
+          key={`${tipo}-${oc ?? "cotizacion"}-${porcentaje ?? "todo"}`}
           inicial={borrador.data}
           puedeEmitir={puedeEmitir}
           onEmitido={onEmitido}
@@ -248,6 +303,29 @@ function Fuente({
         {" "}
         · {queda > 0 ? `queda ${clp(queda)}` : "emitida completa"}
       </span>
+    </button>
+  );
+}
+
+/** Una parte que se factura (§9.26): todo lo que queda, el 50 %, el 30 %
+ *  u otro %. */
+function Parte({
+  elegida,
+  onClick,
+  titulo,
+}: {
+  readonly elegida: boolean;
+  readonly onClick: () => void;
+  readonly titulo: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={elegida}
+      className={`rounded-full border px-2.5 py-0.5 font-semibold ${elegida ? "border-violet-600 bg-violet-600 text-white" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+    >
+      {titulo}
     </button>
   );
 }

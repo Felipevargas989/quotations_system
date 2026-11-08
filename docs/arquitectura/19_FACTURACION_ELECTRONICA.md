@@ -1719,7 +1719,8 @@ Felipe, 07-11 en la noche, ya conectado en producción: *"¿ya trajiste las
 facturas recibidas? ¿eso funcionará?"*; después, *"¿cómo lo podemos hacer
 para que al momento de facturar, el sistema cargue todo solo con el RUT?
 ¿se podrá?"*, y *"deja el plan hecho"*. Este es el plan. **No se
-construye sin su OK.**
+construye sin su OK.** Aprobado esa misma noche (*"me parece perfecto el
+orden, sumemos todo"*), junto con lo de las OC de §9.26.
 
 **Lo recibido sí existe (corrige §9.22).** El manual de facturacion.cl
 tiene un «Manual WebService de Compras» aparte
@@ -1781,6 +1782,75 @@ orden:
 terceros pide captcha), y la nómina no trae a las personas naturales: a
 esas se les escriben los datos la primera vez, y desde ahí quedan
 guardados.
+
+### 9.26 Las OC que se leen solas y la factura por partes (07-11, en la noche)
+
+Felipe, 07-11 en la noche, con el plan de §9.25 aprobado (*"me parece
+perfecto el orden, sumemos todo, lo dejo trabajando y lo reviso mañana
+temprano"*):
+- *"Con las órdenes de compra, cada vez que una se suba se debería leer y
+  dejar todo listo para facturar."*
+- *"Imagina la cotización de CCU, 20M, y el proveedor emite 2 OC, una por
+  10 y otra por 10 (…) el sistema debe reconocer cuando esté por
+  facturar, cuando esté facturado parcialmente y cuando esté todo
+  facturado. Mismo caso: cliente emite OC por todo el monto pero pide
+  facturar un % primero y otro % después (50 % y 50 % es un caso
+  habitual, también puede ser 30 % y 70 %)."*
+- *"De forma inicial deberíamos leer todas las OC y precompletar las
+  facturas antes de colocar facturar… quizás un distintivo que diga con
+  OC."*
+
+**La OC se lee al subirla.** `POST /event-documents` con la categoría
+`ordenes_compra` deja el documento y, si la empresa tiene Facturación,
+BelIA lo lee por detrás (`OrdenesDeCompraService.leerAlSubir`, el mismo
+`deDocumentos` de «Emitir DTE»). Quien sube no espera; lo que BelIA no
+puede leer queda en el registro y se intenta de nuevo al facturar.
+`QuotationsModule` importa `FacturacionModule` para eso (sin ciclo).
+
+**La primera lectura.** Las OC que se subieron antes, o las que BelIA no
+pudo leer, se leen solas al entrar a «Por facturar», una vez por visita
+(`POST /facturacion/por-facturar/leer-ordenes`, tres eventos a la vez):
+«BelIA está leyendo N órdenes de compra…», y bajo el cliente, en ámbar, la
+que no pudo con su motivo. Medido el 07-11 en producción: 9 PDF de OC en 7
+eventos, ninguno leído.
+
+**Pendiente, parcial o facturado.** El evento y cada OC tienen su estado
+(`estadoDeLaFacturacion`): pendiente si no se ha facturado nada, parcial si
+algo, facturado si todo; $1 de redondeo se tolera. Lo facturado de cada OC
+se cuenta con la cadena (`facturadoDeLasOC`): una factura anulada ya no
+cuenta. En «Por facturar»:
+- la columna «Estado»: «Pendiente», o «Parcial» con el % facturado debajo
+  (una palabra y el detalle abajo, como pide Felipe);
+- bajo el cliente, «Con OC» y una línea por OC: «OC 4500001 · $10.000.000
+  · facturada», «… 30 % facturado» o «… pendiente»;
+- bajo lo que queda, la OC que factura «Facturar»: la primera con saldo;
+- los facturados completos en Eventia, abajo y plegados, en «Facturados en
+  Eventia (N)».
+
+**Cómo se porta con los casos de Felipe:**
+- *Dos OC de $10M para una cotización de $20M:* el evento sale
+  «Pendiente» con las dos OC pendientes. «Facturar» propone la primera OC
+  por sus $10M, con su referencia 801. Emitida, el evento queda «Parcial,
+  50 % facturado», la primera OC «facturada», y «Facturar» propone la
+  segunda. Con la segunda, el evento pasa a «Facturados en Eventia». La
+  masiva factura una OC por evento cada vez.
+- *Una OC por todo, al 50 % y 50 % (o 30 % y 70 %):* en «Emitir DTE», bajo
+  «Se llena desde», **«Qué parte»**: «Todo lo que queda», «50 %», «30 %» u
+  «Otro %», de la OC elegida o de la cotización, con la base a la vista.
+  BelIA arma esa parte (`parteDe`: el % de la base, al peso, nunca más de
+  lo que queda), la OC y el evento quedan «Parcial, 50 % facturado», y la
+  segunda vez «Todo lo que queda» es el otro 50 %. La factura parcial lo
+  dice en una segunda línea de observaciones: «Factura parcial: 50 % de la
+  OC N° 4500123» (o «de la cotización N° 523» sin OC). La primera línea
+  sigue igual (Felipe aprobó el diseño esa noche: *"déjalo así"*).
+- El candado de siempre: nunca más del 100 % de una OC (§5.3).
+
+**Lo que cubren las pruebas:** `por-facturar.spec.ts` (los dos casos de
+Felipe y la primera lectura), `borrador-de-factura.spec.ts` (el 50 %, el
+30 % y el 70 %, el tope en lo que queda y la observación),
+`event-documents-vendedor.spec.ts` (la OC subida se lee, otra categoría o
+una empresa sin Facturación no). En la vitrina, `PorFacturar.test.tsx` y
+`EmitirDte.test.tsx` («Qué parte»).
 
 ### 9.11 Fuentes nuevas (04-11)
 

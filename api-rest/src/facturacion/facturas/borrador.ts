@@ -119,7 +119,28 @@ export interface ContextoDeLaFactura {
   totalDeLasOC: number;
   /** Dónde sale: en el ambiente de prueba, sin correo (L11). */
   ambiente?: AmbienteDeFacturacion;
+  /** La parte que se factura (§9.26; Felipe, 07-11: *"el cliente emite OC
+   *  por todo el monto pero pide facturar un % primero y otro % después
+   *  (50 % y 50 % es un caso habitual, también puede ser 30 % y 70 %)"*):
+   *  el % de la OC, o de la cotización si va sin OC. Sin él, todo lo que
+   *  queda. */
+  porcentaje?: number | null;
 }
+
+/** Lo que se factura (§9.26): todo lo que queda, o el % de la base
+ *  redondeado al peso, nunca más de lo que queda. */
+export const parteDe = (
+  base: number,
+  queda: number,
+  porcentaje?: number | null,
+) =>
+  porcentaje != null && porcentaje > 0 && porcentaje < 100
+    ? Math.min(queda, Math.round((base * porcentaje) / 100))
+    : queda;
+
+/** «50», «33,3»: el % con un decimal si lo necesita. */
+export const textoDelPorcentaje = (porcentaje: number) =>
+  String(Math.round(porcentaje * 10) / 10).replace('.', ',');
 
 export interface ReferenciaPedida {
   /** '801', '802', '803', '805', '806' o 'HES'. */
@@ -368,15 +389,20 @@ export function armarBorrador(
   const base = oc ? oc.total : evento.total;
   const facturado = oc ? oc.facturado : ctx.facturadoDelEvento;
   const queda = Math.max(0, base - facturado);
+  // §9.26: un % de la base (el 50 % de la OC), nunca más de lo que queda.
+  const parte = parteDe(base, queda, ctx.porcentaje);
   const todoElEvento =
-    facturado === 0 && base === evento.total && !evento.ninos;
+    facturado === 0 &&
+    base === evento.total &&
+    !evento.ninos &&
+    parte === queda;
   const conTextoDeLaOC = !!oc && !!textoLimpio(oc.descripcion);
   const linea = lineaDelMonto(
     (conPersonas) =>
       conTextoDeLaOC
         ? (oc?.descripcion ?? '')
         : detalleDelEvento(evento, conPersonas),
-    queda,
+    parte,
     todoElEvento ? evento.personas : null,
   );
 
@@ -495,9 +521,21 @@ export const faltaEnElDte = (p: DtePedido): Falta[] => {
 };
 
 /** La observación del documento: el N° de la cotización y la fecha del
- *  evento (§5.3). */
-const observacionesDe = (e: EventoAFacturar): string[] => [
+ *  evento (§5.3). La factura que va por una parte de su OC o de la
+ *  cotización lo dice en una segunda línea (§9.26): «Factura parcial: 50 %
+ *  de la OC N° 4500123». */
+const observacionesDe = (
+  e: EventoAFacturar,
+  parcial: { porcentaje: number; oc: string | null } | null = null,
+): string[] => [
   `Cotización N° ${e.numero}${e.desde ? ` · evento ${fechaCorta(e.desde)}` : ''}`,
+  ...(parcial
+    ? [
+        `Factura parcial: ${textoDelPorcentaje(parcial.porcentaje)} % de ${
+          parcial.oc ? `la OC N° ${parcial.oc}` : `la cotización N° ${e.numero}`
+        }`,
+      ]
+    : []),
 ];
 
 /** Lo que una línea vale con IVA, al peso, con su descuento: lo que el
@@ -627,7 +665,21 @@ export function revisarDte(
       `Con ${factura ? 'esta factura' : 'esta boleta'}, lo emitido del evento suma ${pesos(ctx.facturadoDelEvento + montos.total)} y la cotización ${pesos(evento.total)}.`,
     );
 
-  const observaciones = evento ? observacionesDe(evento) : [];
+  // §9.26: la factura por una parte de la OC (o de la cotización, sin OC)
+  // lo dice; $1 de redondeo no la hace parcial.
+  const baseDelDte = oc ? oc.total : (evento?.total ?? 0);
+  const parcial =
+    factura &&
+    montos &&
+    evento &&
+    baseDelDte > 0 &&
+    montos.total < baseDelDte - 1
+      ? {
+          porcentaje: (montos.total / baseDelDte) * 100,
+          oc: oc?.numero ?? null,
+        }
+      : null;
+  const observaciones = evento ? observacionesDe(evento, parcial) : [];
   if (faltan.length || problemas.length)
     return {
       ok: false,

@@ -1,14 +1,18 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Sparkles } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
   devolverAPorFacturar,
+  leerOrdenesPendientes,
   marcarFacturadoFuera,
+  type EstadoDeLaFacturacion,
   type EventoFacturadoFuera,
   type EventoPorFacturar,
+  type OcSinLeer,
+  type OrdenPorFacturar,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
@@ -33,8 +37,66 @@ import FacturacionMasiva from "./FacturacionMasiva";
 // evento de la lista y de la masiva, y queda abajo, plegado, con quién lo
 // marcó y «Devolver». El que tiene en Documentos el PDF de una factura
 // subido a mano lo dice bajo el cliente, en el mismo lugar que sus OC.
+//
+// §9.26 (Felipe, 07-11: *"el sistema debe reconocer cuando esté por
+// facturar, cuando esté facturado parcialmente y cuando esté todo
+// facturado"* y *"quizás un distintivo que diga con OC"*): cada evento dice
+// «Pendiente» o «Parcial» con el % facturado debajo; bajo el cliente,
+// «Con OC» y cada OC con lo suyo; bajo lo que queda, la OC que factura
+// «Facturar». Los facturados completos van abajo, plegados. Las OC que
+// BelIA todavía no lee se leen solas al entrar (la primera lectura; desde
+// ese día, la que se sube a Documentos se lee sola).
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
+const pct = (n: number) =>
+  `${String(Math.round(n * 10) / 10).replace(".", ",")} %`;
+
+const CHIP: Record<EstadoDeLaFacturacion, { texto: string; clase: string }> = {
+  pendiente: { texto: "Pendiente", clase: "bg-gray-100 text-gray-700" },
+  parcial: { texto: "Parcial", clase: "bg-amber-100 text-amber-800" },
+  facturado: { texto: "Facturado", clase: "bg-green-100 text-green-800" },
+};
+
+function ChipDeFacturacion({
+  estado,
+}: {
+  readonly estado: EstadoDeLaFacturacion;
+}) {
+  const chip = CHIP[estado];
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${chip.clase}`}
+    >
+      {chip.texto}
+    </span>
+  );
+}
+
+/** «OC 4500123 · $10.000.000 · facturada», una por línea. */
+function LineaDeOc({ oc }: { readonly oc: OrdenPorFacturar }) {
+  const estado =
+    oc.estado === "facturado"
+      ? "facturada"
+      : oc.estado === "parcial"
+        ? `${pct((oc.facturado / oc.total) * 100)} facturado`
+        : "pendiente";
+  return (
+    <span className="block whitespace-nowrap text-xs text-gray-500">
+      OC {oc.numero} · {clp(oc.total)} ·{" "}
+      <span
+        className={
+          oc.estado === "facturado"
+            ? "text-green-700"
+            : oc.estado === "parcial"
+              ? "text-amber-700"
+              : ""
+        }
+      >
+        {estado}
+      </span>
+    </span>
+  );
+}
 
 export default function PorFacturar() {
   const queryClient = useQueryClient();
@@ -45,7 +107,12 @@ export default function PorFacturar() {
   const [preguntando, setPreguntando] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [verFuera, setVerFuera] = useState(false);
+  const [verFacturados, setVerFacturados] = useState(false);
+  const [leyendo, setLeyendo] = useState(0);
+  const [noLeidas, setNoLeidas] = useState<OcSinLeer[]>([]);
+  const yaLeyo = useRef(false);
   const eventos = lista.data?.eventos ?? [];
+  const facturados = lista.data?.facturados ?? [];
   const fuera = lista.data?.facturados_fuera ?? [];
   const marcar = (id: string, si: boolean) =>
     setMarcados((m) => {
@@ -58,6 +125,26 @@ export default function PorFacturar() {
 
   const recargar = () =>
     void queryClient.invalidateQueries({ queryKey: LLAVE_POR_FACTURAR });
+
+  // La primera lectura (§9.26): las OC de Documentos que BelIA no ha leído
+  // se leen solas, una vez por visita.
+  const sinLeer = eventos.reduce((s, e) => s + (e.ocs_sin_leer ?? 0), 0);
+  useEffect(() => {
+    if (yaLeyo.current || !lista.data || sinLeer === 0) return;
+    yaLeyo.current = true;
+    setLeyendo(sinLeer);
+    leerOrdenesPendientes()
+      .then((r) => {
+        setNoLeidas(r.sin_leer);
+        void queryClient.invalidateQueries({ queryKey: LLAVE_POR_FACTURAR });
+      })
+      .catch((err) =>
+        toast.error(
+          humanizeApiError(err, "BelIA no pudo leer las órdenes de compra."),
+        ),
+      )
+      .finally(() => setLeyendo(0));
+  }, [lista.data, sinLeer, queryClient]);
 
   const emitido = () => {
     setAbierto(null);
@@ -119,6 +206,15 @@ export default function PorFacturar() {
           }}
         />
       )}
+      {leyendo > 0 && (
+        <p className="flex items-center gap-2 text-sm text-violet-700">
+          <Sparkles size={14} /> BelIA está leyendo{" "}
+          {leyendo === 1
+            ? "una orden de compra"
+            : `${leyendo} órdenes de compra`}{" "}
+          de Documentos…
+        </p>
+      )}
       {marcados.size > 0 && !masiva && (
         <div className="flex justify-end">
           <button
@@ -160,6 +256,7 @@ export default function PorFacturar() {
                 <th className="py-1 font-medium">Evento</th>
                 <th className="py-1 font-medium">Cliente</th>
                 <th className="py-1 font-medium">Fecha</th>
+                <th className="py-1 font-medium">Estado</th>
                 <th className="py-1 text-right font-medium">Total</th>
                 <th className="py-1 text-right font-medium">Emitido</th>
                 <th className="py-1 text-right font-medium">Queda</th>
@@ -167,103 +264,195 @@ export default function PorFacturar() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {eventos.map((e) => (
-                <Fragment key={e.id}>
-                  <tr className="align-top">
-                    <td className="py-1.5">
-                      <input
-                        type="checkbox"
-                        aria-label={`Marcar el #${e.numero}`}
-                        checked={marcados.has(e.id)}
-                        onChange={(ev) => marcar(e.id, ev.target.checked)}
-                      />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <Link
-                        to={`/post-venta/${e.id}`}
-                        className="font-semibold text-blue-700 hover:underline"
-                      >
-                        #{e.numero}
-                      </Link>
-                      {e.tipoDeEvento && (
-                        <span className="block text-xs text-gray-500">
-                          {e.tipoDeEvento}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-2 text-gray-700">
-                      {e.cliente ?? "—"}
-                      {e.ocs > 0 && (
-                        <span className="block text-xs text-gray-500">
-                          {e.ocs} OC
-                        </span>
-                      )}
-                      {e.tiene_factura_en_documentos && (
-                        <span className="block text-xs font-medium text-amber-700">
-                          Tiene factura en Documentos
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
-                      {e.fecha ? fechaCorta(e.fecha) : "—"}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right whitespace-nowrap">
-                      {clp(e.total)}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right whitespace-nowrap text-gray-600">
-                      {clp(e.emitido)}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right whitespace-nowrap font-semibold text-gray-900">
-                      {clp(e.queda)}
-                    </td>
-                    <td className="py-1.5 text-right">
-                      {preguntando === e.id ? (
-                        <ConfirmInline
-                          question="¿Ya se facturó fuera de Eventia?"
-                          yesLabel="Sí, sacarlo"
-                          tono="normal"
-                          busy={ocupado === e.id}
-                          onYes={() => void yaFacturado(e)}
-                          onNo={() => setPreguntando(null)}
-                        />
-                      ) : (
-                        abierto !== e.id && (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setPreguntando(e.id)}
-                              className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                            >
-                              Ya está facturado
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAbierto(e.id)}
-                              className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
-                            >
-                              <FileText size={12} /> Facturar
-                            </button>
-                          </div>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                  {abierto === e.id && (
-                    <tr>
-                      <td colSpan={8} className="pb-3">
-                        <EmitirDte
-                          quotationId={e.id}
-                          puedeEmitir
-                          onCerrar={() => setAbierto(null)}
-                          onEmitido={emitido}
+              {eventos.map((e) => {
+                const ordenes = e.ordenes ?? [];
+                const fallas = noLeidas.filter((n) => n.quotation_id === e.id);
+                return (
+                  <Fragment key={e.id}>
+                    <tr className="align-top">
+                      <td className="py-1.5">
+                        <input
+                          type="checkbox"
+                          aria-label={`Marcar el #${e.numero}`}
+                          checked={marcados.has(e.id)}
+                          onChange={(ev) => marcar(e.id, ev.target.checked)}
                         />
                       </td>
+                      <td className="py-1.5 pr-2">
+                        <Link
+                          to={`/post-venta/${e.id}`}
+                          className="font-semibold text-blue-700 hover:underline"
+                        >
+                          #{e.numero}
+                        </Link>
+                        {e.tipoDeEvento && (
+                          <span className="block text-xs text-gray-500">
+                            {e.tipoDeEvento}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-2 text-gray-700">
+                        {e.cliente ?? "—"}
+                        {ordenes.length > 0 && (
+                          <span className="mt-0.5 block">
+                            <span className="inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                              Con OC
+                            </span>
+                          </span>
+                        )}
+                        {ordenes.map((o) => (
+                          <LineaDeOc key={o.id} oc={o} />
+                        ))}
+                        {(e.ocs_sin_leer ?? 0) > 0 && (
+                          <span className="block text-xs text-gray-500">
+                            {e.ocs_sin_leer === 1
+                              ? "1 OC sin leer"
+                              : `${e.ocs_sin_leer} OC sin leer`}
+                          </span>
+                        )}
+                        {fallas.map((f) => (
+                          <span
+                            key={f.documento_id}
+                            className="block text-xs text-amber-700"
+                          >
+                            BelIA no pudo leer «{f.nombre}»:{" "}
+                            {f.motivo.replace(/\.$/, "")}
+                          </span>
+                        ))}
+                        {e.tiene_factura_en_documentos && (
+                          <span className="block text-xs font-medium text-amber-700">
+                            Tiene factura en Documentos
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
+                        {e.fecha ? fechaCorta(e.fecha) : "—"}
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        <ChipDeFacturacion
+                          estado={e.facturacion ?? "pendiente"}
+                        />
+                        {e.facturacion === "parcial" && (
+                          <span className="block whitespace-nowrap text-xs text-gray-500">
+                            {pct(e.porcentaje_facturado ?? 0)} facturado
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-2 text-right whitespace-nowrap">
+                        {clp(e.total)}
+                      </td>
+                      <td className="py-1.5 pr-2 text-right whitespace-nowrap text-gray-600">
+                        {clp(e.emitido)}
+                      </td>
+                      <td className="py-1.5 pr-2 text-right whitespace-nowrap font-semibold text-gray-900">
+                        {clp(e.queda)}
+                        {e.se_factura?.oc && (
+                          <span className="block text-xs font-normal text-gray-500">
+                            OC {e.se_factura.oc}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        {preguntando === e.id ? (
+                          <ConfirmInline
+                            question="¿Ya se facturó fuera de Eventia?"
+                            yesLabel="Sí, sacarlo"
+                            tono="normal"
+                            busy={ocupado === e.id}
+                            onYes={() => void yaFacturado(e)}
+                            onNo={() => setPreguntando(null)}
+                          />
+                        ) : (
+                          abierto !== e.id && (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setPreguntando(e.id)}
+                                className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                              >
+                                Ya está facturado
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAbierto(e.id)}
+                                className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+                              >
+                                <FileText size={12} /> Facturar
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
+                    {abierto === e.id && (
+                      <tr>
+                        <td colSpan={9} className="pb-3">
+                          <EmitirDte
+                            quotationId={e.id}
+                            puedeEmitir
+                            onCerrar={() => setAbierto(null)}
+                            onEmitido={emitido}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+      {facturados.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white">
+          <button
+            type="button"
+            onClick={() => setVerFacturados((v) => !v)}
+            aria-expanded={verFacturados}
+            className="flex w-full items-center gap-1 px-4 py-2 text-left text-xs font-semibold text-gray-600 hover:bg-gray-50"
+          >
+            {verFacturados ? (
+              <ChevronDown size={14} />
+            ) : (
+              <ChevronRight size={14} />
+            )}
+            Facturados en Eventia ({facturados.length})
+          </button>
+          {verFacturados && (
+            <div className="overflow-x-auto px-4 pb-3">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-100">
+                  {facturados.map((e) => (
+                    <tr key={e.id} className="align-top">
+                      <td className="py-1.5 pr-2">
+                        <Link
+                          to={`/post-venta/${e.id}`}
+                          className="font-semibold text-blue-700 hover:underline"
+                        >
+                          #{e.numero}
+                        </Link>
+                      </td>
+                      <td className="py-1.5 pr-2 text-gray-700">
+                        {e.cliente ?? "—"}
+                        {(e.ordenes ?? []).map((o) => (
+                          <LineaDeOc key={o.id} oc={o} />
+                        ))}
+                      </td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
+                        {e.fecha ? fechaCorta(e.fecha) : "—"}
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        <ChipDeFacturacion estado="facturado" />
+                      </td>
+                      <td className="py-1.5 text-right whitespace-nowrap">
+                        {clp(e.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
       {fuera.length > 0 && (

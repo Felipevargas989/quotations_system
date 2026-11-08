@@ -3,7 +3,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
 import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
@@ -42,7 +44,39 @@ export class OrdenesDeCompraService {
   constructor(
     private readonly repo: OrdenesDeCompraRepository,
     private readonly lector: LeerOrdenDeCompraService,
+    @Optional() private readonly logger?: PinoLogger,
   ) {}
+
+  /**
+   * AL SUBIR UNA OC A DOCUMENTOS (§9.26; Felipe, 07-11: *"con las órdenes
+   * de compra, cada vez que una se suba se debería leer y dejar todo listo
+   * para facturar"*): BelIA la lee por detrás, sin hacer esperar a quien la
+   * subió. Nunca falla hacia afuera: lo que no pudo leer se anota en el
+   * registro y se vuelve a intentar al facturar.
+   */
+  async leerAlSubir(
+    quotationId: string,
+    companyId: number,
+    usuarioId: string | null,
+  ): Promise<void> {
+    try {
+      const { ordenes, sinLeer } = await this.deDocumentos(
+        quotationId,
+        companyId,
+        usuarioId,
+      );
+      this.logger?.info(
+        `OC del evento ${quotationId}: ${ordenes.length} leídas` +
+          (sinLeer.length
+            ? `; sin leer: ${sinLeer.map((s) => `${s.nombre} (${s.motivo})`).join(', ')}`
+            : ''),
+      );
+    } catch (error) {
+      this.logger?.warn(
+        `no pude leer las OC del evento ${quotationId}: ${mensajeDe(error)}`,
+      );
+    }
+  }
 
   async deCotizacion(quotationId: string, companyId: number) {
     await this.asegurarCotizacion(quotationId, companyId);
