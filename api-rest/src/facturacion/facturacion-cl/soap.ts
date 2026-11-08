@@ -40,7 +40,7 @@ export interface CredencialesDeFacturacionCl {
   clave: string;
 }
 
-interface DondeLlamar {
+export interface DondeLlamar {
   url?: string;
   /** Solo para las pruebas. */
   fetch?: typeof fetch;
@@ -326,7 +326,9 @@ class FallaSoap extends Error {
 
 /** Una llamada al servicio. Lanza `SinRespuesta` si no hubo respuesta
  *  (corte, tiempo, HTTP raro) y `FallaSoap` si el servicio dijo que no. */
-async function llamarSoap(
+/** Llama a un método de un servicio ASMX de facturacion.cl (el de emitir o
+ *  el panel de recibidos, §9.30): la respuesta de `<MetodoResult>`. */
+export async function llamarSoap(
   donde: DondeLlamar,
   metodo: string,
   cuerpo: string,

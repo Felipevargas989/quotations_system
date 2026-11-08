@@ -20,6 +20,21 @@ export type RecibidoAGuardar = DatosDelRecibido & {
   tipo_compra: number | null;
 };
 
+/** Un acuse hecho desde Eventia (migración 195). */
+export interface AcuseDeRecibido {
+  rut_emisor: string;
+  tipo: number;
+  folio: number;
+  accion: 'aceptar' | 'reclamar';
+  resultado: boolean;
+  mensaje: string | null;
+  pedido_por_nombre: string | null;
+  pedido_en: string;
+}
+
+const COLUMNAS_DEL_ACUSE =
+  'rut_emisor, tipo, folio, accion, resultado, mensaje, pedido_por_nombre, pedido_en';
+
 const COLUMNAS =
   'id, periodo, rut_emisor, razon_social_emisor, tipo, folio, fecha_emision, neto, exento, iva, total, link_pdf, recepcion_sii, acuse_sii, tipo_compra, traido_en';
 
@@ -72,5 +87,59 @@ export class RecibidosRepository {
         );
       if (error) throw error;
     }
+  }
+
+  /** Un documento de la empresa, o nulo. */
+  async documento(
+    companyId: number,
+    clave: { rut_emisor: string; tipo: number; folio: number },
+  ): Promise<DocumentoRecibido | null> {
+    const { data, error } = await this.supabase.client
+      .from('documentos_recibidos')
+      .select(COLUMNAS)
+      .eq('company_id', companyId)
+      .eq('rut_emisor', clave.rut_emisor)
+      .eq('tipo', clave.tipo)
+      .eq('folio', clave.folio)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as DocumentoRecibido | null) ?? null;
+  }
+
+  /** Los acuses hechos desde Eventia de esos emisores, del más nuevo al
+   *  más viejo. */
+  async acusesDe(
+    companyId: number,
+    rutsEmisores: string[],
+  ): Promise<AcuseDeRecibido[]> {
+    if (!rutsEmisores.length) return [];
+    const { data, error } = await this.supabase.client
+      .from('acuses_de_recibidos')
+      .select(COLUMNAS_DEL_ACUSE)
+      .eq('company_id', companyId)
+      .in('rut_emisor', [...new Set(rutsEmisores)])
+      .order('pedido_en', { ascending: false });
+    if (error) throw error;
+    return ((data ?? []) as AcuseDeRecibido[]).map((a) => ({
+      ...a,
+      folio: Number(a.folio),
+    }));
+  }
+
+  /** Anota un acuse, haya salido o no. */
+  async anotarAcuse(
+    companyId: number,
+    acuse: Omit<AcuseDeRecibido, 'pedido_en' | 'pedido_por_nombre'>,
+    por: { id: string | null; nombre: string | null },
+  ) {
+    const { error } = await this.supabase.client
+      .from('acuses_de_recibidos')
+      .insert({
+        company_id: companyId,
+        ...acuse,
+        pedido_por: por.id,
+        pedido_por_nombre: por.nombre,
+      });
+    if (error) throw error;
   }
 }

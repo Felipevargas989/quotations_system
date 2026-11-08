@@ -77,8 +77,9 @@ export default function FacturasAnteriores() {
         </span>
       ) : ultima?.estado === "lista" ? (
         <span>
-          {miles(clientes)} clientes de {miles(ultima.encontradas)} facturas ·
-          leídas el{" "}
+          {miles(clientes)} {clientes === 1 ? "cliente" : "clientes"} de{" "}
+          {miles(ultima.encontradas)}{" "}
+          {ultima.encontradas === 1 ? "factura" : "facturas"} · leídas el{" "}
           {formatMomento(ultima.termino_en ?? ultima.empezo_en, "diaMes")}
         </span>
       ) : (

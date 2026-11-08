@@ -11,6 +11,7 @@ import type {
   FacturacionCl,
   FoliosDisponibles,
 } from '../facturacion-cl/facturacion-cl';
+import { FacturacionClPanel } from '../facturacion-cl/panel';
 import { FacturacionClSimulado } from '../facturacion-cl/simulado';
 import { FacturacionClSinConexion } from '../facturacion-cl/sin-conexion';
 import {
@@ -44,6 +45,7 @@ export class ConexionConFacturacionCl {
   private readonly simuladas = new Map<number, FacturacionCl>();
   private real: FacturacionClSoap | null = null;
   private libro: FacturacionClCompras | null = null;
+  private panelDeRecibidos: FacturacionClPanel | null = null;
 
   constructor(
     private readonly repo: DocumentosTributariosRepository,
@@ -143,6 +145,34 @@ export class ConexionConFacturacionCl {
       motivo:
         actual.sinConexion ??
         'Sin las credenciales de facturacion.cl no se puede pedir lo recibido',
+    };
+  }
+
+  /**
+   * El Panel DTE Recibidos de la empresa (§9.30): lo pendiente de acuse y
+   * aceptar o reclamar. Solo con la conexión de verdad; si no, el porqué.
+   */
+  panel(companyId: number): {
+    ambiente: AmbienteDeFacturacion;
+    panel: FacturacionClPanel | null;
+    motivo: string | null;
+  } {
+    const c = this.config;
+    if (c.modo === 'conectado' && c.empresa === companyId)
+      return {
+        ambiente: c.ambiente,
+        panel: (this.panelDeRecibidos ??= new FacturacionClPanel({
+          credenciales: c.credenciales,
+        })),
+        motivo: null,
+      };
+    const actual = this.actual(companyId);
+    return {
+      ambiente: actual.ambiente,
+      panel: null,
+      motivo:
+        actual.sinConexion ??
+        'Sin las credenciales de facturacion.cl no se puede aceptar ni reclamar lo recibido',
     };
   }
 

@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RecibidosDelMes from "./RecibidosDelMes";
 
 // «RECIBIDOS» (doc 19 §9.28; Felipe, 07-11: «¿ya trajiste las facturas
@@ -10,13 +10,36 @@ import RecibidosDelMes from "./RecibidosDelMes";
 
 const getRecibidos = vi.fn();
 const traerRecibidos = vi.fn();
+const getPendientesDeAcuse = vi.fn();
+const acusarRecibido = vi.fn();
 vi.mock("../../services/documentosTributarios.service", () => ({
   getRecibidos: (p: string) => getRecibidos(p),
   traerRecibidos: (p: string) => traerRecibidos(p),
+  getPendientesDeAcuse: () => getPendientesDeAcuse(),
+  acusarRecibido: (p: unknown) => acusarRecibido(p),
+}));
+// §9.30: aceptar o reclamar es del administrador con «Documentos».
+const sesion = {
+  userRole: "administrador",
+  permisos: ["facturacion_documentos"],
+};
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => sesion,
 }));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
+
+beforeEach(() => {
+  sesion.userRole = "administrador";
+  getPendientesDeAcuse.mockResolvedValue({
+    se_puede: true,
+    sin_conexion: null,
+    ok: true,
+    mensaje: null,
+    pendientes: [],
+  });
+});
 
 afterEach(() => {
   cleanup();
@@ -129,5 +152,141 @@ describe("Recibidos", () => {
     expect(
       screen.getByRole("button", { name: "Traer de facturacion.cl" }),
     ).toBeDisabled();
+  });
+});
+
+describe("Aceptar o reclamar lo recibido (§9.30)", () => {
+  const DEL_MES = (documento: object) => ({
+    periodo: "2026-11",
+    ambiente: "produccion",
+    se_puede_traer: true,
+    sin_conexion: null,
+    traido_en: FACTURA.traido_en,
+    documentos: [documento],
+  });
+  const PENDIENTE = {
+    folio: 1234,
+    tipo: 33,
+    rut_emisor: "76543210-K",
+    recepcion_sii: "2026-11-03T13:15:00Z",
+    total: 119000,
+  };
+
+  it("lo pendiente en el panel: «Pendiente», el plazo de la ley y, con su confirmación, «Reclamar»", async () => {
+    getRecibidos.mockResolvedValue(
+      DEL_MES({
+        ...FACTURA,
+        acuse_eventia: null,
+        plazo_para_reclamar: { vence: "2026-11-11", quedan: 3 },
+      }),
+    );
+    getPendientesDeAcuse.mockResolvedValue({
+      se_puede: true,
+      sin_conexion: null,
+      ok: true,
+      mensaje: null,
+      pendientes: [PENDIENTE],
+    });
+    acusarRecibido.mockResolvedValue({ ok: true, accion: "reclamar" });
+    abrir();
+    expect(await screen.findByText("Pendiente")).toBeInTheDocument();
+    expect(screen.getByText("quedan 3 días para reclamar")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reclamar" }));
+    expect(
+      screen.getByText(
+        "¿Reclamarla ante el SII? El proveedor tendrá que anularla con una nota de crédito.",
+      ),
+    ).toBeInTheDocument();
+    expect(acusarRecibido).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, reclamar" }));
+    await vi.waitFor(() =>
+      expect(acusarRecibido).toHaveBeenCalledWith({
+        rut_emisor: "76543210-K",
+        tipo: 33,
+        folio: 1234,
+        accion: "reclamar",
+      }),
+    );
+  });
+
+  it("vencido el plazo, solo se puede aceptar", async () => {
+    getRecibidos.mockResolvedValue(
+      DEL_MES({
+        ...FACTURA,
+        acuse_eventia: null,
+        plazo_para_reclamar: { vence: "2026-10-30", quedan: -9 },
+      }),
+    );
+    getPendientesDeAcuse.mockResolvedValue({
+      se_puede: true,
+      sin_conexion: null,
+      ok: true,
+      mensaje: null,
+      pendientes: [PENDIENTE],
+    });
+    abrir();
+    expect(
+      await screen.findByText(
+        "ya no se puede reclamar (la ley la da por aceptada)",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aceptar" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reclamar" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lo aceptado desde Eventia dice quién y cuándo, sin botones; y sin ser administrador, no hay botones", async () => {
+    getRecibidos.mockResolvedValue(
+      DEL_MES({
+        ...FACTURA,
+        acuse_eventia: {
+          accion: "aceptar",
+          pedido_por_nombre: "Felipe",
+          pedido_en: "2026-11-08T13:00:00Z",
+        },
+      }),
+    );
+    abrir();
+    expect(await screen.findByText("Aceptada")).toBeInTheDocument();
+    expect(screen.getByText(/por Felipe el/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Aceptar" }),
+    ).not.toBeInTheDocument();
+    cleanup();
+
+    sesion.userRole = "operaciones";
+    getRecibidos.mockResolvedValue(
+      DEL_MES({ ...FACTURA, acuse_eventia: null, plazo_para_reclamar: null }),
+    );
+    getPendientesDeAcuse.mockResolvedValue({
+      se_puede: true,
+      sin_conexion: null,
+      ok: true,
+      mensaje: null,
+      pendientes: [PENDIENTE],
+    });
+    abrir();
+    expect(await screen.findByText("Pendiente")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Aceptar" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("si el panel de facturacion.cl dice que no, se muestra lo que dice", async () => {
+    getRecibidos.mockResolvedValue(DEL_MES({ ...FACTURA }));
+    getPendientesDeAcuse.mockResolvedValue({
+      se_puede: true,
+      sin_conexion: null,
+      ok: false,
+      mensaje: "Empresa no Autorizada",
+      pendientes: [],
+    });
+    abrir();
+    expect(
+      await screen.findByText(
+        "Panel de recibidos: facturacion.cl dice «Empresa no Autorizada».",
+      ),
+    ).toBeInTheDocument();
   });
 });

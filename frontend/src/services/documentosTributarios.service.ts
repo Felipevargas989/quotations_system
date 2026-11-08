@@ -231,6 +231,23 @@ export interface DocumentoRecibido {
   acuse_sii: string | null;
   tipo_compra: number | null;
   traido_en: string;
+  /** §9.30: si se aceptó o reclamó desde Eventia, quién y cuándo. */
+  acuse_eventia?: {
+    accion: "aceptar" | "reclamar";
+    pedido_por_nombre: string | null;
+    pedido_en: string;
+  } | null;
+  /** §9.30: hasta cuándo se puede reclamar (8 días desde la recepción). */
+  plazo_para_reclamar?: { vence: string; quedan: number } | null;
+}
+
+/** Lo pendiente de acuse en el Panel DTE Recibidos (§9.30). */
+export interface PendienteDeAcuse {
+  folio: number;
+  tipo: number;
+  rut_emisor: string;
+  recepcion_sii: string | null;
+  total: number | null;
 }
 
 /** Lo recibido de un mes: lo guardado, y si se puede traer más. */
@@ -258,3 +275,25 @@ export const traerRecibidos = async (periodo: string) =>
   (await apiRequest("/facturacion/recibidos/traer", "POST", {
     periodo,
   })) as RecibidosDelMes;
+
+/** Lo pendiente de acuse en el panel de facturacion.cl (solo lee). */
+export const getPendientesDeAcuse = async () =>
+  (await apiRequest("/facturacion/recibidos/pendientes", "GET")) as {
+    se_puede: boolean;
+    sin_conexion: string | null;
+    ok: boolean;
+    mensaje: string | null;
+    pendientes: PendienteDeAcuse[];
+  };
+
+/** «Aceptar» o «Reclamar» un documento recibido ante el SII (§9.30). */
+export const acusarRecibido = async (pedido: {
+  rut_emisor: string;
+  tipo: number;
+  folio: number;
+  accion: "aceptar" | "reclamar";
+}) =>
+  (await apiRequest("/facturacion/recibidos/acuse", "POST", pedido)) as {
+    ok: boolean;
+    accion: "aceptar" | "reclamar";
+  };

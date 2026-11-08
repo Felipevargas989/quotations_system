@@ -1,4 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { mockPinoLogger } from '../../testing/mocks';
 import {
   FacturacionClCompras,
@@ -6,7 +10,11 @@ import {
   leerRespuestaDelLibro,
   sobreDelLibro,
 } from '../facturacion-cl/compras';
-import { RecibidosService } from '../recibidos/recibidos.service';
+import { FacturacionClPanel, leerPanel } from '../facturacion-cl/panel';
+import {
+  RecibidosService,
+  plazoParaReclamar,
+} from '../recibidos/recibidos.service';
 
 /**
  * LO RECIBIDO (doc 19 §9.28; Felipe, 07-11: *"¿ya trajiste las facturas
@@ -143,6 +151,9 @@ describe('«Recibidos» (§9.28)', () => {
     const repo = {
       delPeriodo: jest.fn().mockResolvedValue([]),
       guardar: jest.fn().mockResolvedValue(undefined),
+      acusesDe: jest.fn().mockResolvedValue([]),
+      documento: jest.fn().mockResolvedValue(null),
+      anotarAcuse: jest.fn().mockResolvedValue(undefined),
     };
     const conexion = {
       compras: () =>
@@ -153,6 +164,11 @@ describe('«Recibidos» (§9.28)', () => {
               libro: null,
               motivo: 'facturacion.cl todavía no está conectado',
             },
+      panel: () => ({
+        ambiente: 'produccion',
+        panel: null,
+        motivo: 'sin panel',
+      }),
     };
     const servicio = new RecibidosService(
       repo as never,
@@ -211,5 +227,267 @@ describe('«Recibidos» (§9.28)', () => {
     await expect(servicio.delMes(1, '2026-13')).rejects.toThrow(
       'El mes va como AAAA-MM',
     );
+  });
+});
+
+describe('El Panel DTE Recibidos de facturacion.cl (§9.30)', () => {
+  // El ejemplo del manual (`archivomanualwscompras.php`), escapado dentro
+  // de `ConsultaPanelDteResult` como lo manda un servicio ASMX.
+  const PANEL = (documentos: string, resultado = 'True') =>
+    '<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>' +
+    '<ConsultaPanelDteResponse xmlns="http://tempuri.org"><ConsultaPanelDteResult>' +
+    `&lt;WSPLANO&gt;&lt;Resultado&gt;${resultado}&lt;/Resultado&gt;&lt;Mensaje&gt;Proceso exitoso.&lt;/Mensaje&gt;&lt;Detalle&gt;${documentos}&lt;/Detalle&gt;&lt;/WSPLANO&gt;` +
+    '</ConsultaPanelDteResult></ConsultaPanelDteResponse></soap:Body></soap:Envelope>';
+  const DOC =
+    '&lt;Documento&gt;"folio":"10052","tipodte":"33","rutproveedor":"90635000-9","recepcionsii":"2019-08-07T17:15:19Z","montototal":"119000"&lt;/Documento&gt;';
+  const CRED = { usuario: 'U', rut: '77.701.305-K', clave: 'secreta' };
+
+  it('lee lo pendiente: folio, tipo, el RUT del proveedor, la recepción y el monto', () => {
+    expect(
+      leerPanel(
+        '<WSPLANO><Resultado>True</Resultado><Mensaje>ok</Mensaje><Detalle><Documento>"folio":"10052","tipodte":"33","rutproveedor":"90.635.000-9","recepcionsii":"2019-08-07T17:15:19Z"</Documento></Detalle></WSPLANO>',
+      ),
+    ).toEqual({
+      ok: true,
+      mensaje: 'ok',
+      pendientes: [
+        {
+          folio: 10052,
+          tipo: 33,
+          rut_emisor: '90635000-9',
+          recepcion_sii: '2019-08-07T17:15:19Z',
+          total: null,
+        },
+      ],
+    });
+  });
+
+  it('pide lo pendiente con la entrada en Base64 y sin filtros, y lee la respuesta escapada', async () => {
+    const llamar = jest
+      .fn()
+      .mockResolvedValue(new Response(PANEL(DOC), { status: 200 }));
+    const panel = new FacturacionClPanel({
+      credenciales: CRED,
+      fetch: llamar as never,
+    });
+    const r = await panel.pendientes();
+    expect(r.ok).toBe(true);
+    expect(r.pendientes).toEqual([
+      {
+        folio: 10052,
+        tipo: 33,
+        rut_emisor: '90635000-9',
+        recepcion_sii: '2019-08-07T17:15:19Z',
+        total: 119000,
+      },
+    ]);
+    const [url, init] = llamar.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://wss.facturacion.cl/WSDS/wspaneldte.asmx');
+    expect(init.headers).toMatchObject({
+      SOAPAction: '"http://tempuri.org/ConsultaPanelDte"',
+    });
+    const cuerpo = init.body as string;
+    expect(cuerpo).toContain(
+      `<Rut>${Buffer.from('77701305-K').toString('base64')}</Rut>`,
+    );
+    expect(cuerpo).not.toContain('secreta');
+    expect(cuerpo).toContain(
+      '<folio></folio><tipo></tipo><rutproveedor></rutproveedor>',
+    );
+  });
+
+  it('el acuse va con el folio, el tipo, el RUT sin puntos y «a» o «r», y dice si salió', async () => {
+    const llamar = jest
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><AcuseResponse xmlns="http://tempuri.org"><AcuseResult>true</AcuseResult></AcuseResponse></soap:Body></soap:Envelope>',
+          { status: 200 },
+        ),
+      );
+    const panel = new FacturacionClPanel({
+      credenciales: CRED,
+      fetch: llamar as never,
+    });
+    expect(
+      await panel.acuse(
+        { folio: 10052, tipo: 33, rut_emisor: '90.635.000-9' },
+        'reclamar',
+      ),
+    ).toBe(true);
+    const cuerpo = (llamar.mock.calls[0] as [string, RequestInit])[1]
+      .body as string;
+    expect(cuerpo).toContain(
+      '<folio>10052</folio><tipo>33</tipo><rutproveedor>90635000-9</rutproveedor><accion>r</accion>',
+    );
+  });
+
+  it('una falla del panel se dice sin mostrar las credenciales', async () => {
+    const panel = new FacturacionClPanel({
+      credenciales: CRED,
+      fetch: jest.fn().mockRejectedValue(new Error('ECONNRESET')) as never,
+    });
+    const error = await panel.pendientes().catch((e: Error) => e);
+    expect((error as Error).message).toMatch(
+      /^facturacion.cl no respondió en el panel de recibidos/,
+    );
+    expect((error as Error).message).not.toContain('secreta');
+  });
+
+  it('el plazo para reclamar: 8 días corridos desde la recepción en el SII', () => {
+    expect(plazoParaReclamar('2026-11-03 10:15:00', '2026-11-08')).toEqual({
+      vence: '2026-11-11',
+      quedan: 3,
+    });
+    expect(plazoParaReclamar('2026-10-20T13:00:00Z', '2026-11-08')).toEqual({
+      vence: '2026-10-28',
+      quedan: -11,
+    });
+    expect(plazoParaReclamar(null, '2026-11-08')).toBeNull();
+  });
+});
+
+describe('«Aceptar» o «Reclamar» (§9.30)', () => {
+  const DOCUMENTO = {
+    id: 1,
+    periodo: '2026-11',
+    rut_emisor: '76543210-K',
+    tipo: 33,
+    folio: 1234,
+    recepcion_sii: '2026-11-03 10:15:00',
+  };
+  const POR = { id: 'u-felipe', nombre: 'Felipe' };
+  const armar = ({
+    respuesta = Promise.resolve(true),
+    documento = DOCUMENTO as Record<string, unknown> | null,
+    acuses = [] as Record<string, unknown>[],
+    conPanel = true,
+  } = {}) => {
+    const repo = {
+      documento: jest.fn().mockResolvedValue(documento),
+      acusesDe: jest.fn().mockResolvedValue(acuses),
+      anotarAcuse: jest.fn().mockResolvedValue(undefined),
+      delPeriodo: jest.fn().mockResolvedValue([]),
+    };
+    const panel = {
+      acuse: jest.fn().mockReturnValue(respuesta),
+      pendientes: jest.fn(),
+    };
+    const conexion = {
+      compras: () => ({ ambiente: 'produccion', libro: null, motivo: 'x' }),
+      panel: () =>
+        conPanel
+          ? { ambiente: 'produccion', panel, motivo: null }
+          : {
+              ambiente: 'produccion',
+              panel: null,
+              motivo: 'Sin las credenciales',
+            },
+    };
+    const servicio = new RecibidosService(
+      repo as never,
+      conexion as never,
+      mockPinoLogger() as never,
+    );
+    return { servicio, repo, panel };
+  };
+  const PEDIDO = {
+    rut_emisor: '76543210-K',
+    tipo: 33,
+    folio: 1234,
+    accion: 'aceptar' as const,
+  };
+
+  it('acepta, lo anota con quién y devuelve que salió', async () => {
+    const { servicio, repo, panel } = armar();
+    expect(await servicio.acuse(1, PEDIDO, POR)).toEqual({
+      ok: true,
+      accion: 'aceptar',
+    });
+    expect(panel.acuse).toHaveBeenCalledWith(
+      { rut_emisor: '76543210-K', tipo: 33, folio: 1234 },
+      'aceptar',
+    );
+    expect(repo.anotarAcuse).toHaveBeenCalledWith(
+      1,
+      {
+        rut_emisor: '76543210-K',
+        tipo: 33,
+        folio: 1234,
+        accion: 'aceptar',
+        resultado: true,
+        mensaje: null,
+      },
+      POR,
+    );
+  });
+
+  it('si facturacion.cl dice que no, queda anotado y se dice', async () => {
+    const { servicio, repo } = armar({ respuesta: Promise.resolve(false) });
+    await expect(servicio.acuse(1, PEDIDO, POR)).rejects.toThrow(
+      new BadRequestException(
+        'No se pudo aceptar en facturacion.cl: facturacion.cl respondió que no',
+      ),
+    );
+    expect(repo.anotarAcuse).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ resultado: false }),
+      POR,
+    );
+  });
+
+  it('no se acusa lo que no está en lo recibido de la empresa, ni dos veces, ni sin conexión', async () => {
+    await expect(
+      armar({ documento: null }).servicio.acuse(1, PEDIDO, POR),
+    ).rejects.toThrow(NotFoundException);
+    const ya = armar({
+      acuses: [
+        {
+          rut_emisor: '76543210-K',
+          tipo: 33,
+          folio: 1234,
+          accion: 'aceptar',
+          resultado: true,
+          pedido_por_nombre: 'Camila',
+          pedido_en: '2026-11-08T10:00:00Z',
+        },
+      ],
+    });
+    await expect(ya.servicio.acuse(1, PEDIDO, POR)).rejects.toThrow(
+      new ConflictException('Ya se aceptó desde Eventia (Camila)'),
+    );
+    expect(ya.panel.acuse).not.toHaveBeenCalled();
+    await expect(
+      armar({ conPanel: false }).servicio.acuse(1, PEDIDO, POR),
+    ).rejects.toThrow('Sin las credenciales');
+  });
+
+  it('pasados los 8 días ya no se reclama: la ley la da por aceptada', async () => {
+    const { servicio, panel } = armar({
+      documento: { ...DOCUMENTO, recepcion_sii: '2026-01-02 10:00:00' },
+    });
+    await expect(
+      servicio.acuse(1, { ...PEDIDO, accion: 'reclamar' }, POR),
+    ).rejects.toThrow(
+      /Ya pasaron los 8 días para reclamarla \(vencieron el 2026-01-10\)/,
+    );
+    expect(panel.acuse).not.toHaveBeenCalled();
+  });
+
+  it('lo pendiente: sin la conexión, el porqué; si el panel falla, lo que dice', async () => {
+    expect(await armar({ conPanel: false }).servicio.pendientes(1)).toEqual({
+      se_puede: false,
+      sin_conexion: 'Sin las credenciales',
+      ok: false,
+      mensaje: null,
+      pendientes: [],
+    });
+    const { servicio, panel } = armar();
+    panel.pendientes.mockRejectedValue(new Error('Empresa no Autorizada'));
+    expect(await servicio.pendientes(1)).toMatchObject({
+      se_puede: true,
+      ok: false,
+      mensaje: 'Empresa no Autorizada',
+    });
   });
 });

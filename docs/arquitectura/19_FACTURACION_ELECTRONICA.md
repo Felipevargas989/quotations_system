@@ -1969,7 +1969,8 @@ XML se cuenta y no se guarda.
 - sin la conexión, el botón apagado y el porqué.
 
 Lo ve y lo trae quien ve «Documentos» (`facturacion_documentos`:
-operaciones y el administrador, de fábrica).
+operaciones y el administrador, de fábrica). Aceptar o reclamar lo recibido, en
+§9.30.
 
 **Lo que falta saber:** si su cuenta lo tiene habilitado o cuesta aparte.
 Probado en el laboratorio el 08-11 (la empresa de prueba de
@@ -2055,6 +2056,61 @@ formatos se leen enteros, con las tildes.
 **A producción**, con su «a producción»: primero la 194 en la base, después
 el motor y la vitrina, y al final «Leer mis facturas anteriores». Son unas
 380 facturas, de 3 a 6 segundos cada una: media hora, por detrás.
+
+### 9.30 Aceptar o reclamar lo recibido (08-11, en la madrugada)
+
+El paso 3 del plan de «Recibidos» de §9.25 («después, con otro OK»).
+Felipe, 08-11: *"a producción y luego con lo que falta"*. Lo construido se
+prueba en el laboratorio; **usarlo con una factura de verdad es decisión
+de Felipe**, porque tiene efecto legal.
+
+**Por dónde va:** el «Panel DTE Recibidos» de facturacion.cl
+(`https://wss.facturacion.cl/WSDS/wspaneldte.asmx`, medido el 08-11 en su
+definición pública), un servicio ASMX aparte del de emitir, con la misma
+entrada (`logininfo`: usuario, RUT y clave en Base64):
+- `ConsultaPanelDte(login, folio, tipo, rutproveedor)` trae lo pendiente
+  de acuse (sin filtros, todo): el folio, el tipo, el RUT del proveedor y
+  la recepción en el SII.
+- `Acuse(login, folio, tipo, rutproveedor, accion)`, con `a` para aceptar
+  y `r` para rechazar (reclamar), responde verdadero o falso.
+Lo demás del servicio (`ObtenerPanelDTE`, `ObtenerPdfDTE`, las guías) no
+se usa.
+
+**En «Recibidos»**, una columna «Acuse» con el estado en una palabra y el
+detalle debajo:
+- **Pendiente** (está en el panel), con el plazo: «quedan 3 días para
+  reclamar», «hoy es el último día» o «ya no se puede reclamar (la ley la
+  da por aceptada)». La ley 19.983 da 8 días corridos desde la recepción.
+- Para el administrador (con «Documentos», `@DentroDe`), «Aceptar» y
+  «Reclamar», cada uno con su confirmación: «¿Aceptarla ante el SII?
+  Después no se puede reclamar.» y «¿Reclamarla ante el SII? El proveedor
+  tendrá que anularla con una nota de crédito.». Vencido el plazo, solo
+  «Aceptar».
+- **Aceptada** o **Reclamada** desde Eventia, con quién y cuándo.
+- Lo demás, lo que dice el libro del SII (`acuse_sii`), o «—».
+- Si el panel responde que no («Empresa no Autorizada», por ejemplo),
+  arriba: «Panel de recibidos: facturacion.cl dice «…»».
+
+**Los resguardos del motor** (`RecibidosService.acuse`): solo un
+documento que está en lo recibido de la empresa; una sola vez por
+documento (si ya salió desde Eventia, 409 con quién lo hizo); reclamar
+solo dentro de los 8 días; y cada intento, salga o no, queda anotado en
+`acuses_de_recibidos` (migración 195: qué documento, qué se pidió, qué
+respondió facturacion.cl, quién y cuándo; sin cambiar ni borrar).
+
+**Lo que falta saber:** si la cuenta de Valle del Sol tiene el panel
+habilitado. El Libro de Compras respondió «Empresa no Autorizada» para la
+empresa de prueba (§9.28); el panel se mira en producción con
+«Recibidos».
+
+**Lo que cubren las pruebas:** `recibidos.spec.ts` (el ejemplo del manual,
+la respuesta escapada, el sobre sin las credenciales a la vista, el acuse
+con «a» o «r», la falla, el plazo de 8 días, aceptar con su anotación, la
+negativa anotada, lo que no es de la empresa, dos veces, sin conexión y el
+reclamo vencido) y, en la vitrina, `RecibidosDelMes.test.tsx`.
+
+**A producción**, con su «a producción»: primero la 195 en la base, después
+el motor y la vitrina.
 
 ### 9.11 Fuentes nuevas (04-11)
 

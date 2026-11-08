@@ -770,3 +770,11 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 **Tamaño.** Unos cientos de filas: van en el respaldo diario.
 
 **Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**
+
+## 38. Migración 195: aceptar o reclamar lo recibido (08-11-2026)
+
+**Qué hace.** Una tabla, `acuses_de_recibidos`: cada vez que el administrador apretó «Aceptar» o «Reclamar» en «Recibidos» (`company_id`, con cascada; el emisor, el tipo y el folio del documento; `accion` «aceptar» o «reclamar»; `resultado`, lo que respondió facturacion.cl; el mensaje; quién y cuándo). Índice por documento. Cerrada a `anon` y `authenticated`; el motor solo lee e inserta: sin `UPDATE`, `DELETE` ni `TRUNCATE`, también donde Supabase da todo por defecto.
+
+**Por qué.** Felipe, 08-11-2026: *"a producción y luego con lo que falta"*: el paso 3 de «Recibidos» (doc 19 §9.25 y §9.30). Aceptar o reclamar una factura ante el SII tiene efecto legal: queda anotado quién lo hizo.
+
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**
