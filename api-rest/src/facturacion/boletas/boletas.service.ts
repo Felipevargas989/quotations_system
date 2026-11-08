@@ -19,7 +19,7 @@ import {
   type RespuestaDeProcesar,
 } from '../facturacion-cl/facturacion-cl';
 import { ConexionConFacturacionCl } from '../facturas/conexion';
-import { guardarCopiaDelPdf } from '../facturas/copia-del-pdf';
+import { guardarCopiaDelPdfAlEmitir } from '../facturas/copia-del-pdf';
 import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
@@ -697,16 +697,15 @@ export class BoletasService {
       );
     }
     // Lo que sigue no cambia la boleta: si falla, se registra y sigue.
-    const conPdf = await guardarCopiaDelPdf(
+    // §9.33: si el PDF todavía no está, se vuelve a pedir solo por detrás.
+    const conPdf = await guardarCopiaDelPdfAlEmitir(
       this.documentos,
       conexion,
       emitido,
       companyId,
       b.quotationId,
-    ).catch((e: unknown) => {
-      this.logger.warn(`PDF de la boleta ${emitido.folio}: ${mensajeDe(e)}`);
-      return emitido;
-    });
+      this.logger,
+    );
     return { emitido: conPdf, alto: null };
   }
 

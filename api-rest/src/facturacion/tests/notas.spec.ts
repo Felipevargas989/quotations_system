@@ -499,6 +499,8 @@ describe('Una sola sección: lo que ve cada cargo (§9.19)', () => {
       corregir: false,
       comprobar: false,
       pedirPdf: true,
+      // §9.33: el XML se pide con el botón.
+      xml: true,
     });
     expect(lista.documentos.find((d) => d.id === 30)?.acciones.comprobar).toBe(
       false,
@@ -516,6 +518,7 @@ describe('Una sola sección: lo que ve cada cargo (§9.19)', () => {
         | undefined;
     expect(cargos('lista')).toEqual(OPERATIONS_AND_UP);
     expect(cargos('pedirPdf')).toEqual(OPERATIONS_AND_UP);
+    expect(cargos('pedirXml')).toEqual(OPERATIONS_AND_UP);
     for (const m of [
       'comprobar',
       'revisarNota',

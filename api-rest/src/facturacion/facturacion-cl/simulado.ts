@@ -286,6 +286,14 @@ export class FacturacionClSimulado implements FacturacionCl {
     return Promise.resolve(pdfSimulado(tipo, folio));
   }
 
+  /** §9.33: en el simulado no hay XML tributario. */
+  obtenerXml(): Promise<{ base64: string | null; mensaje: string | null }> {
+    return Promise.resolve({
+      base64: null,
+      mensaje: 'En el modo simulado no hay XML tributario',
+    });
+  }
+
   private async ultimo(tipo: number): Promise<number> {
     if (!this.usados.has(tipo)) {
       const desdeLaBase = (await this.opciones.ultimoFolio?.(tipo)) ?? 0;

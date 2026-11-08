@@ -45,7 +45,7 @@ import {
   type TipoDeDte,
 } from './borrador';
 import { ConexionConFacturacionCl } from './conexion';
-import { guardarCopiaDelPdf } from './copia-del-pdf';
+import { guardarCopiaDelPdfAlEmitir } from './copia-del-pdf';
 import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
@@ -601,16 +601,15 @@ export class FacturasService {
 
     // Lo que sigue no cambia la factura: si algo falla, se avisa en el
     // registro y la factura queda emitida igual.
-    emitido = await guardarCopiaDelPdf(
+    // §9.33: si el PDF todavía no está, se vuelve a pedir solo por detrás.
+    emitido = await guardarCopiaDelPdfAlEmitir(
       this.repo,
       conexion,
       emitido,
       companyId,
       quotationId,
-    ).catch((e: unknown) => {
-      this.logger.warn(`PDF de la factura ${emitido.folio}: ${mensajeDe(e)}`);
-      return emitido;
-    });
+      this.logger,
+    );
     await this.recordarReceptor(ctx, pedida, user).catch((e: unknown) =>
       this.logger.warn(`razón social de la factura: ${mensajeDe(e)}`),
     );

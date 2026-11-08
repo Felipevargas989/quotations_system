@@ -231,7 +231,7 @@ describe("la nota nueva (§9.22, sprint 3)", () => {
     ).toBeInTheDocument();
   });
 
-  it("rebajar: nunca más de lo que le queda; la vista previa dice lo que modifica y «Emitir» pregunta", async () => {
+  it("rebajar: nunca más de lo que le queda; la vista previa dice lo que modifica y «Emitir» emite (§9.33)", async () => {
     const { onEmitida } = abrir("nota_credito", FACTURA);
     expect(d.getListaDeFacturacion).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /Rebajar un monto/ }));
@@ -265,10 +265,6 @@ describe("la nota nueva (§9.22, sprint 3)", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Emitir nota de crédito" }),
     );
-    expect(
-      screen.getByText("¿Emitir la nota de crédito N° 5 por $10.000?"),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     await waitFor(() =>
       expect(onEmitida).toHaveBeenCalledWith(
         expect.objectContaining({ id: 99, folio: 5 }),

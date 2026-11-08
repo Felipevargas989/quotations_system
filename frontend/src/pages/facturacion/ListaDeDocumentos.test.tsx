@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as documentos from "../../services/documentosTributarios.service";
 import type { DocumentoDeLaLista } from "../../services/documentosTributarios.service";
+import * as almacen from "../../services/storage.service";
 import ListaDeDocumentos from "./ListaDeDocumentos";
 
 // LA LISTA DE FACTURACIÓN COMO LA MAQUETA (doc 19 §9.22, sprint 2): el
@@ -21,6 +22,7 @@ vi.mock("../../services/documentosTributarios.service", () => ({
   getListaDeFacturacion: vi.fn(),
   comprobarDocumento: vi.fn(),
   pedirPdfDelDocumento: vi.fn(),
+  pedirXmlDelDocumento: vi.fn(),
 }));
 vi.mock("../../services/storage.service", () => ({
   descargarArchivo: vi.fn(),
@@ -256,11 +258,10 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(
       screen.getByRole("button", { name: /Descargar el PDF de Factura s\/n/ }),
     ).toBeDisabled();
-    // El XML: un servicio adicional de facturacion.cl, sin prometerlo.
-    for (const x of screen.getAllByRole("button", {
-      name: "El XML: servicio adicional de facturacion.cl",
-    }))
-      expect(x).toBeDisabled();
+    // §9.33: el XML se pide a facturacion.cl con su botón, donde se puede.
+    expect(
+      screen.getByRole("button", { name: /Bajar el XML de Factura s\/n/ }),
+    ).toBeDisabled();
     // «Anular o rebajar…» es un botón más de Acciones, sin texto debajo
     // (07-11), y abre la nota en su pantalla con la factura ya elegida.
     expect(screen.queryByText("Anular o rebajar…")).not.toBeInTheDocument();
@@ -500,5 +501,68 @@ describe("la lista de Facturación (§9.22)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recibidos" }));
     expect(screen.getByText("lo recibido del mes")).toBeInTheDocument();
     expect(screen.queryByText("Factura 20")).not.toBeInTheDocument();
+  });
+
+  it("el PDF que no llegó se trae al pincharlo, y el XML se pide a facturacion.cl con su botón (§9.33)", async () => {
+    const sinPdf: DocumentoDeLaLista = {
+      ...base,
+      id: 381,
+      folio: 381,
+      titulo: "Factura 381",
+      nombre: "Factura 381",
+      pdf_path: null,
+      acciones: { ...base.acciones, pedirPdf: true, xml: true },
+    };
+    d.getListaDeFacturacion.mockResolvedValue({
+      ambiente: "produccion",
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-06",
+      resumen: {
+        facturado: 0,
+        facturas: 1,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos: [sinPdf],
+    });
+    d.pedirPdfDelDocumento.mockResolvedValue({
+      pdf_path: "c1/documentos-tributarios/factura_381.pdf",
+    });
+    d.pedirXmlDelDocumento.mockResolvedValue({
+      nombre: "factura_381.xml",
+      base64: btoa("<DTE><Folio>381</Folio></DTE>"),
+    });
+    URL.createObjectURL = vi.fn(() => "blob:xml");
+    URL.revokeObjectURL = vi.fn();
+    abrir();
+    // Sin el botón «Pedir el PDF»: el ícono de descargar lo trae.
+    expect(
+      await screen.findByRole("button", {
+        name: /Descargar el PDF de Factura 381/,
+      }),
+    ).toBeEnabled();
+    expect(screen.queryByText("Pedir el PDF")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Descargar el PDF de Factura 381/ }),
+    );
+    await waitFor(() =>
+      expect(vi.mocked(almacen).descargarArchivo).toHaveBeenCalledWith(
+        "c1/documentos-tributarios/factura_381.pdf",
+        expect.stringContaining(".pdf"),
+      ),
+    );
+    expect(d.pedirPdfDelDocumento).toHaveBeenCalledWith(381);
+    // El XML, solo al pincharlo.
+    expect(d.pedirXmlDelDocumento).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Bajar el XML de Factura 381/ }),
+    );
+    await waitFor(() =>
+      expect(d.pedirXmlDelDocumento).toHaveBeenCalledWith(381),
+    );
+    expect(URL.createObjectURL).toHaveBeenCalled();
   });
 });

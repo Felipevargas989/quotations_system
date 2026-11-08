@@ -63,6 +63,8 @@ export interface DocumentoDeLaLista {
     corregir: boolean;
     comprobar: boolean;
     pedirPdf: boolean;
+    /** §9.33: el XML se le pide a facturacion.cl con el botón. */
+    xml?: boolean;
   };
   saldo: number | null;
   plazos: { anular: string; rebajar: string } | null;
@@ -183,9 +185,24 @@ export const comprobarDocumento = async (
     folio: number | null;
   };
 
-export const pedirPdfDelDocumento = async (id: number): Promise<void> => {
-  await apiRequest(`${base}/${id}/pdf`, "POST");
-};
+/** El PDF que no alcanzó a llegar: lo trae de facturacion.cl y devuelve
+ *  dónde quedó (§9.33: lo pide el ícono de descargar o de ver). */
+export const pedirPdfDelDocumento = async (
+  id: number,
+): Promise<{ pdf_path: string | null }> =>
+  ((await apiRequest(`${base}/${id}/pdf`, "POST")) ?? { pdf_path: null }) as {
+    pdf_path: string | null;
+  };
+
+/** §9.33: el XML tributario, pedido a facturacion.cl (costo adicional):
+ *  el nombre del archivo y su contenido en Base64, tal cual. */
+export const pedirXmlDelDocumento = async (
+  id: number,
+): Promise<{ nombre: string; base64: string }> =>
+  (await apiRequest(`${base}/${id}/xml`, "POST")) as {
+    nombre: string;
+    base64: string;
+  };
 
 export const revisarNota = async (
   id: number,

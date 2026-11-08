@@ -313,6 +313,31 @@ export const leerPdf = (xml: string, nivel = 0): Buffer | null => {
   return null;
 };
 
+/**
+ * El XML de `getXMLDte` (§9.33): según el manual, viene en Base64 en
+ * «Mensaje»; si lo que viene no es un XML, «Mensaje» es lo que dice
+ * facturacion.cl (por ejemplo, que el método no está contratado). Se
+ * devuelve el Base64 tal cual: el XML va en ISO-8859-1.
+ */
+export const leerXml = (
+  respuesta: string,
+): { base64: string | null; mensaje: string | null } => {
+  const mensaje = valorDe(respuesta, 'Mensaje');
+  const candidato = desescapar(mensaje ?? '').replace(/\s+/g, '');
+  if (candidato.length > 40 && /^[A-Za-z0-9+/]+={0,2}$/.test(candidato)) {
+    const texto = Buffer.from(candidato, 'base64').toString('latin1');
+    if (texto.trimStart().startsWith('<'))
+      return { base64: candidato, mensaje: null };
+  }
+  const dijo =
+    desescapar(mensaje ?? respuesta)
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 300) || 'facturacion.cl respondió vacío';
+  return { base64: null, mensaje: dijo };
+};
+
 class SinRespuesta extends Error {}
 
 class FallaSoap extends Error {
@@ -501,6 +526,16 @@ export class FacturacionClSoap implements FacturacionCl {
       '<pdfbase64>1</pdfbase64>';
     const xml = await this.consultar('ObtenerPdf', cuerpo);
     return xml ? leerPdf(xml) : null;
+  }
+
+  /** §9.33: el XML tributario, solo cuando se pide (costo adicional). */
+  async obtenerXml(tipo: number, folio: number) {
+    const cuerpo =
+      this.login() +
+      `<tpomov>${base64(tipo === 39 || tipo === 41 ? 'B' : 'V')}</tpomov>` +
+      `<folio>${base64(String(folio))}</folio>` +
+      `<tipo>${base64(String(tipo))}</tipo>`;
+    return leerXml((await this.consultar('getXMLDte', cuerpo)) ?? '');
   }
 
   private async consultarCaf(tipo: number, descartados: number[] = []) {

@@ -9,6 +9,7 @@ import {
   leerFolios,
   leerPdf,
   leerProcesar,
+  leerXml,
   pulsoDeFacturacionCl,
   rangosDeLosFolios,
 } from '../facturacion-cl/soap';
@@ -455,6 +456,40 @@ describe('el PDF (ObtenerPdf)', () => {
     expect(
       leerPdf('<WSPLANO><Mensaje>Documento no encontrado</Mensaje></WSPLANO>'),
     ).toBeNull();
+  });
+});
+
+describe('el XML (getXMLDte, §9.33)', () => {
+  const xml =
+    '<?xml version="1.0" encoding="ISO-8859-1"?><DTE><Documento><Folio>381</Folio><RznSocRecep>Quillón</RznSocRecep></Documento></DTE>';
+  const b64Xml = Buffer.from(xml, 'latin1').toString('base64');
+
+  it('el XML en Base64 en «Mensaje», tal cual; lo pide con el folio y el tipo en Base64', async () => {
+    const { soap, llamadas } = servicio(() => ({
+      texto: sobre(
+        'getXMLDte',
+        `<WSPLANO><Mensaje>${b64Xml}</Mensaje></WSPLANO>`,
+      ),
+    }));
+    const r = await soap.obtenerXml(33, 381);
+    expect(r).toEqual({ base64: b64Xml, mensaje: null });
+    expect(Buffer.from(r.base64 ?? '', 'base64').toString('latin1')).toContain(
+      'Quillón',
+    );
+    expect(llamadas[0].accion).toContain('getXMLDte');
+    expect(valorEnElCuerpo(llamadas[0].cuerpo, 'folio')).toBe(b64('381'));
+    expect(valorEnElCuerpo(llamadas[0].cuerpo, 'tpomov')).toBe(b64('V'));
+  });
+
+  it('si no es un XML, dice lo que respondió (el método no contratado, por ejemplo)', () => {
+    expect(
+      leerXml(
+        '<WSPLANO><Resultado>False</Resultado><Mensaje>No tiene activo el servicio getXMLDte</Mensaje></WSPLANO>',
+      ),
+    ).toEqual({
+      base64: null,
+      mensaje: 'No tiene activo el servicio getXMLDte',
+    });
   });
 });
 
