@@ -27,8 +27,15 @@ const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const pct = (n: number) =>
   `${String(Math.round(n * 10) / 10).replace(".", ",")} %`;
 
-/** «OC 4500123 · $10.000.000 · facturada», una por línea. */
-export function LineaDeOc({ oc }: { readonly oc: OrdenPorFacturar }) {
+/** «OC 4500123 · $10.000.000 · facturada», una por línea; la de la
+ *  factura que se revisa dice «esta factura». */
+export function LineaDeOc({
+  oc,
+  actual = false,
+}: {
+  readonly oc: OrdenPorFacturar;
+  readonly actual?: boolean;
+}) {
   const estado =
     oc.estado === "facturado"
       ? "facturada"
@@ -55,6 +62,9 @@ export function LineaDeOc({ oc }: { readonly oc: OrdenPorFacturar }) {
         >
           {estado}
         </span>
+        {actual && (
+          <span className="font-semibold text-blue-700"> · esta factura</span>
+        )}
       </span>
     </span>
   );
@@ -169,6 +179,8 @@ export default function LoDelEvento({
   noLeidas,
   vista,
   tipo,
+  ocActual = null,
+  enEstaRevision = 0,
 }: {
   readonly evento: EventoPorFacturar;
   /** Lo que BelIA no pudo leer en la primera lectura de «Por facturar». */
@@ -177,6 +189,12 @@ export default function LoDelEvento({
   readonly vista: VistaPrevia | null;
   /** El tipo del documento que se revisa (factura o boleta). */
   readonly tipo?: TipoDeDte | null;
+  /** La OC de la factura que se revisa, cuando el evento va en una
+   *  factura por OC. */
+  readonly ocActual?: number | null;
+  /** Lo de las facturas anteriores de este evento en la misma revisión:
+   *  la barra lo cuenta como facturado. */
+  readonly enEstaRevision?: number;
 }) {
   const ordenes = evento.ordenes ?? [];
   const sinLeer = evento.ocs_sin_leer ?? 0;
@@ -205,7 +223,7 @@ export default function LoDelEvento({
       </div>
       <BarraDeLoFacturado
         total={evento.total}
-        facturado={evento.emitido}
+        facturado={evento.emitido + enEstaRevision}
         esta={vista?.montos?.total ?? 0}
         nombre={NOMBRE_DE_ESTA[tipo ?? 33]}
       />
@@ -231,7 +249,7 @@ export default function LoDelEvento({
       {abajo && (
         <div className="space-y-0.5 border-t border-blue-100 pt-2">
           {ordenes.map((o) => (
-            <LineaDeOc key={o.id} oc={o} />
+            <LineaDeOc key={o.id} oc={o} actual={o.id === ocActual} />
           ))}
           {sinLeer > 0 && (
             <p className="text-gray-600">
