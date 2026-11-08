@@ -120,7 +120,10 @@ export async function mandarConFolio(p: {
       documento: await repo.actualizar(documento.id, companyId, {
         estado: 'emitido',
         folio: respuesta.folio,
-        fecha_emision: respuesta.fecha ?? p.fecha,
+        // La fecha del documento es la que va en el archivo (§9.32: la
+        // elegida). La «Fecha» de facturacion.cl es cuándo lo procesó: el
+        // 08-11 una factura fechada el 30-11 quedó anotada con el 08-11.
+        fecha_emision: p.fecha,
         respuesta: respuesta.crudo,
         url_original: respuesta.urlOriginal,
         url_cedible: respuesta.urlCedible,

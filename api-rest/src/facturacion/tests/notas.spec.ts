@@ -367,7 +367,29 @@ describe('Comprobar lo que quedó por confirmar (L5)', () => {
       }),
     });
     await servicio.comprobar(ADMIN, 20);
-    expect(filas.get(20)).toMatchObject({ estado: 'emitido', folio: 5 });
+    // Con la fecha del archivo, no la del día en que se comprobó (§9.32).
+    expect(filas.get(20)).toMatchObject({
+      estado: 'emitido',
+      folio: 5,
+      fecha_emision: '2026-11-04',
+    });
+  });
+
+  it('una factura fechada más adelante queda con su fecha al comprobarla', async () => {
+    const { servicio, filas } = armar({
+      documentos: [
+        {
+          ...porConfirmar,
+          archivo_enviado:
+            '->Encabezado<-\r\n33;5;2026-11-30;0;0;90413000-1;CCU;;;;;;',
+        },
+      ],
+      simulado: new FacturacionClSimulado({
+        ultimoFolio: () => Promise.resolve(5),
+      }),
+    });
+    await servicio.comprobar(ADMIN, 20);
+    expect(filas.get(20)).toMatchObject({ fecha_emision: '2026-11-30' });
   });
 
   it('una boleta que no salió devuelve su cabaña al reparto', async () => {
