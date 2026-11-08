@@ -4,6 +4,9 @@ import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-foll
 import { BoletasController } from './boletas/boletas.controller';
 import { BoletasRepository } from './boletas/boletas.repository';
 import { BoletasService } from './boletas/boletas.service';
+import { FacturasTraidasController } from './facturas-traidas/facturas-traidas.controller';
+import { FacturasTraidasRepository } from './facturas-traidas/facturas-traidas.repository';
+import { FacturasTraidasService } from './facturas-traidas/facturas-traidas.service';
 import { ConexionConFacturacionCl } from './facturas/conexion';
 import { DocumentosTributariosRepository } from './facturas/documentos-tributarios.repository';
 import { FacturaSinEventoController } from './facturas/factura-sin-evento.controller';
@@ -40,6 +43,7 @@ import { RecibidosService } from './recibidos/recibidos.service';
     FacturasController,
     BoletasController,
     NotasController,
+    FacturasTraidasController,
     PorFacturarController,
     FacturaSinEventoController,
     NominaSiiController,
@@ -56,6 +60,8 @@ import { RecibidosService } from './recibidos/recibidos.service';
     BoletasService,
     BoletasRepository,
     NotasService,
+    FacturasTraidasService,
+    FacturasTraidasRepository,
     NominaSiiService,
     NominaSiiRepository,
     RecibidosService,
