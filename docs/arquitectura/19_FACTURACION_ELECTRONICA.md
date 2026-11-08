@@ -1192,7 +1192,18 @@ a `service_role` en cada tabla nueva: se le quitó explícito el DELETE de
 `cobros_por_boletear_cambios`, como en el laboratorio); y la rama
 `feature/facturacion-a-produccion`, con los 73 commits de Facturación
 encima de `main` (el trozo del radar municipal de 977c490b, solo del
-laboratorio, quedó fuera), por el PR #310. Faltan el 6 y el 7.
+laboratorio, quedó fuera), por el PR #310. **Los pasos 6 y 7, esa misma
+noche:** Felipe cargó las cinco variables y apretó «Deploy» (22:43); el
+registro dijo «conectado en produccion para la empresa 1». «Probar la
+conexión» respondió en 0,9 s: facturas, 51 folios (sigue la N° 381, el
+rango vence el 19-02-2027); notas de crédito, 11 (sigue la 115, vence el
+27-04-2027); notas de débito y boletas, «NO EXISTE CAF VIGENTE» (sin
+folios: la nota de débito solo sirve para anular una nota de crédito, y
+las boletas esperan la OT 377564). El diseño del PDF lo pone facturacion.cl
+con el formato de la empresa (el logo y el encabezado verde de la factura
+N° 379, emitida a mano en su web); Eventia escribe la línea, las
+observaciones y la referencia. Felipe vio la maqueta y dijo *"déjalo
+así"*.
 
 *Después:*
 - Felipe pone los precios del tarifario de boletas (parte vacío).
@@ -1488,7 +1499,9 @@ entregue: se averiguan antes de prometerlos.
     integración: ni el SOAP ni la API REST traen compras, libro de compras
     ni acuse de recibo (`ConsultaLibroVentas` trae solo el libro de ventas
     y el de boletas). «Recibidos» lo dice tal cual; habría que preguntarle
-    a su mesa de ayuda.
+    a su mesa de ayuda. **Corregido el 07-11 (§9.25):** sí existe, en un
+    manual aparte, el «WebService de Compras» (el Libro de Compras y el
+    Panel DTE Recibidos).
 
 **El sprint 3, la boleta y las notas (06-11, en la noche):**
 - Las dos en su propia pantalla, como la factura y la maqueta: arriba
@@ -1700,6 +1713,75 @@ aparte, el aviso del PDF y marcar o devolver solo un evento aceptado o
 realizado de la empresa) y `facturas.spec.ts` (la boleta solo a un
 particular). En la vitrina, `PorFacturar.test.tsx`.
 
+### 9.25 Lo que sigue: lo recibido y el RUT que llena todo (07-11, en la noche)
+
+Felipe, 07-11 en la noche, ya conectado en producción: *"¿ya trajiste las
+facturas recibidas? ¿eso funcionará?"*; después, *"¿cómo lo podemos hacer
+para que al momento de facturar, el sistema cargue todo solo con el RUT?
+¿se podrá?"*, y *"deja el plan hecho"*. Este es el plan. **No se
+construye sin su OK.**
+
+**Lo recibido sí existe (corrige §9.22).** El manual de facturacion.cl
+tiene un «Manual WebService de Compras» aparte
+(`manualintegracion/archivomanualwscompras.php`), con dos servicios SOAP:
+- **Libro de Compras** (`https://api.facturacion.com/WSFacturacion/Compra?wsdl`),
+  método `ObtenerCompra`: los documentos del libro de compras de un mes
+  (`periodo` AAAA-MM, obligatorio), con su XML y, con `Incluyelink` = 1,
+  el enlace al PDF cedible. Filtra por RUT del emisor, tipo, folio, forma
+  de pago y fecha de ingreso; `ConXML` = 1 trae solo los que llegaron con
+  su XML de intercambio. Entra con el RUT y la clave de la empresa.
+- **Panel DTE Recibidos** (`https://wss.facturacion.cl/WSDS/wspaneldte.asmx?wsdl`),
+  con usuario, RUT y clave: `ConsultaPanelDte` (los pendientes de acuse:
+  folio, tipo, RUT del proveedor, fecha de recepción en el SII, monto y si
+  trae XML), `ObtenerPanelDte` (el XML de uno) y `Acuse` (aceptar o
+  rechazar).
+- El manual no dice que cuesten aparte (`ConsultaLibroVentas` y
+  `getXMLDte` sí lo dicen). Se sabe probando.
+
+**El plan de «Recibidos»**, en tres pasos:
+1. **La prueba, solo lectura.** El motor le pide a `ObtenerCompra` el mes
+   en curso con las credenciales de producción y muestra cuántos
+   documentos trae, como «Probar la conexión». No guarda nada. Si responde
+   que el servicio no está contratado, se le pregunta a facturacion.cl, y
+   el costo lo decide Felipe.
+2. **La lista del mes.** La pestaña «Recibidos» con el proveedor, su RUT,
+   el tipo, el folio, la fecha, el neto, el IVA, el total y el PDF, con el
+   mismo resumen y los mismos filtros de «Emitidos». Una copia en la base
+   (`documentos_recibidos`, migración nueva) para no pedirle todo a
+   facturacion.cl cada vez.
+3. **Después, con otro OK:** «Aceptar» y «Rechazar» desde el panel
+   (`Acuse`), dentro de los 8 días que da la ley para reclamar una factura.
+
+**El RUT que llena todo.** Al escribir el RUT del cliente, Eventia llena la
+razón social, el giro, la dirección, la comuna y la ciudad. Busca en este
+orden:
+1. **Lo guardado en Eventia.** Ya existe (§9.21, `GET
+   /facturacion/razon-social?rut=`): la razón social guardada en cualquier
+   cliente. Medido el 07-11 en producción: 0 guardadas, porque todavía no
+   se factura nada desde Eventia; se llena sola con cada factura.
+2. **Las facturas que ya emitió en facturacion.cl** (la última a mano fue
+   la N° 379). El motor baja una vez sus PDF con `ObtenerPdf`, que viene
+   incluido en el servicio, y lee el cuadro del cliente: Señor(es), RUT,
+   giro, dirección, comuna y ciudad. Es texto del PDF, sin IA. Lo que calza
+   por RUT con un cliente de Eventia queda como su razón social. Primero
+   se prueba con una que `ObtenerPdf` también entregue lo emitido en la
+   web.
+3. **La nómina pública del SII** de las personas jurídicas
+   (`sii.cl/sobre_el_sii/nominapersonasjuridicas.html`, actualizada en
+   agosto de 2026): `PUB_NOMBRES_PJ` (la razón social), `PUB_NOM_ACTECOS`
+   (las actividades, de donde sale el giro) y `PUB_NOM_DIRECCIONES` (las
+   direcciones de la casa matriz y las sucursales). Una tabla con el RUT,
+   la razón social, la actividad principal y la dirección de la casa
+   matriz, para la empresa que nunca ha comprado. Antes de cargarla se
+   mira el disco de producción (el 29-10 se llenó).
+- Lo que llena el historial o el SII se ve antes de emitir y se puede
+  corregir; lo corregido queda guardado en el cliente.
+
+**Lo que no se puede:** preguntarle al SII en línea (su consulta de
+terceros pide captcha), y la nómina no trae a las personas naturales: a
+esas se les escriben los datos la primera vez, y desde ahí quedan
+guardados.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
@@ -1726,3 +1808,9 @@ particular). En la vitrina, `PorFacturar.test.tsx`.
   acceso» (`credencialesacceso.php`), la ficha técnica
   (`fichatecnicaserviciointegracion.php`) y el formato XML de la factura
   (`archivofacturaelectronica.php`: ISO-8859-1).
+- 07-11 (§9.25): el «Manual WebService de Compras» de facturacion.cl
+  (`archivomanualwscompras.php`: `ObtenerCompra`, `ConsultaPanelDte`,
+  `ObtenerPanelDte` y `Acuse`), y la nómina de personas jurídicas del SII
+  (https://www.sii.cl/sobre_el_sii/nominapersonasjuridicas.html:
+  `PUB_NOMBRES_PJ`, `PUB_NOM_ACTECOS` y `PUB_NOM_DIRECCIONES`, de agosto
+  de 2026).
