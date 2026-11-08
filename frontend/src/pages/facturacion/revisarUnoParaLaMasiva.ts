@@ -1,7 +1,9 @@
 import {
   armarBorradorDeDte,
   prepararDte,
+  type BorradorDelDte,
   type DtePedido,
+  type PreparacionDelDte,
   type TipoDeDte,
   type VistaPrevia,
 } from "../../services/facturas.service";
@@ -17,6 +19,10 @@ export interface RevisadoParaLaMasiva {
   tipo: TipoDeDte;
   pedida: DtePedido;
   vista: VistaPrevia;
+  /** §9.32: lo que leyó BelIA (sus OC, el evento) y su borrador, para que
+   *  «Corregir» parta de ahí sin pedírselo de nuevo. */
+  preparacion?: PreparacionDelDte;
+  borrador?: BorradorDelDte;
 }
 
 export const revisarUnoParaLaMasiva = async (
@@ -32,6 +38,8 @@ export const revisarUnoParaLaMasiva = async (
     tipo: preparacion.tipo,
     pedida: borrador.pedida,
     vista: borrador.vista,
+    preparacion,
+    borrador,
   };
 };
 

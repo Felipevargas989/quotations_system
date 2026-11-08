@@ -201,6 +201,9 @@ export interface DtePedido {
   /** «Nuevo documento»: el cliente al que va (su ficha recibe la razón
    *  social al emitir). */
   cliente_id?: string | null;
+  /** §9.32: la fecha de emisión elegida (AAAA-MM-DD); sin ella, la de hoy.
+   *  Solo la factura: la boleta va con la del día. */
+  fecha_emision?: string | null;
 }
 
 /** La condición de pago como va en la factura: contado, o crédito con su

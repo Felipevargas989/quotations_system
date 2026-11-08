@@ -21,6 +21,7 @@ export default function CasillaDeLaFactura({
   placeholder,
   onChange,
   bloqueada = false,
+  falta = false,
 }: {
   readonly etiqueta: string;
   readonly valor: string | null;
@@ -29,12 +30,20 @@ export default function CasillaDeLaFactura({
   readonly onChange: (v: string) => void;
   /** Lo que trajo el RUT: achurado, sin contador. */
   readonly bloqueada?: boolean;
+  /** §9.32: lo que el SII pide y no está, en rojo en su casilla (en vez de
+   *  un aviso aparte). */
+  readonly falta?: boolean;
 }) {
   const n = Array.from(valor ?? "").length;
   return (
     <label className="block">
       <span className={claseTitulo}>
-        {etiqueta}
+        <span>
+          {etiqueta}
+          {falta && (
+            <span className="font-semibold text-red-600"> · falta</span>
+          )}
+        </span>
         {largo && !bloqueada && (
           <span className={n > largo ? "font-semibold text-red-600" : ""}>
             {n}/{largo}
@@ -61,7 +70,7 @@ export default function CasillaDeLaFactura({
           value={valor ?? ""}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className={claseCasilla}
+          className={`${claseCasilla} ${falta ? "!border-red-400" : ""}`}
         />
       )}
     </label>

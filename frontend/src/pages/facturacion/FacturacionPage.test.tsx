@@ -96,7 +96,7 @@ describe("la sección Facturación", () => {
     expect(screen.queryByText("Boleta suelta")).not.toBeInTheDocument();
     expect(screen.queryByText(/Por boletear/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Emitidas hoy/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo DTE" }));
     expect(
       screen.getByRole("button", { name: "Factura electrónica" }),
     ).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe("la sección Facturación", () => {
     expect(screen.getByText("los eventos por facturar")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Documentos" }));
     expect(screen.getByText("lista de documentos")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo DTE" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Factura electrónica" }),
     );
@@ -129,7 +129,7 @@ describe("la sección Facturación", () => {
     rol = "administrador";
     abrir();
     expect(pestanas()).toEqual(["Documentos", "Por facturar (1)", "Tarifario"]);
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo DTE" }));
     for (const t of [
       "Factura electrónica",
       "Boleta electrónica",
@@ -145,7 +145,7 @@ describe("la sección Facturación", () => {
     expect(pestanas()).toEqual([]);
     fireEvent.click(screen.getByRole("button", { name: "Documentos" }));
     expect(screen.getByText("lista de documentos")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo DTE" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Factura electrónica" }),
     );
@@ -159,7 +159,7 @@ describe("la sección Facturación", () => {
     expect(pestanas()).toEqual(["Por facturar (1)"]);
     // Sin «Boletas y facturas del tarifario», no emite de cero.
     expect(
-      screen.queryByRole("button", { name: "Nuevo documento" }),
+      screen.queryByRole("button", { name: "Nuevo DTE" }),
     ).toBeNull();
     cleanup();
     permisos = ["facturacion_documentos"];

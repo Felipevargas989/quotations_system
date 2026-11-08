@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { LARGO_MAXIMO } from "../../../constants/facturacion";
 import type { LineaPedida, Receptor } from "../../../services/facturas.service";
 
-// LO QUE COMPARTEN EL DTE QUE ARMA BELIA (`EmitirDte`), SUS LÍNEAS
-// (`LineasDelDte`) Y «EDITAR RECEPTOR Y REFERENCIAS» (`EditarReceptor`): el
-// DTE del evento (doc 19 §9.20).
+// LO QUE COMPARTEN LAS PIEZAS DEL DTE (doc 19 §9.20 y §9.32): la factura de
+// «Nuevo DTE» y «Corregir» de la revisión (`CorregirDte`), sus líneas
+// (`LineasDelDte`) y los datos del receptor (`CamposDelReceptor`).
 
 export const OTRA = "otra";
 // Un solo alto en todo el DTE (Felipe, 05-11: «los altos no son los
@@ -38,13 +37,6 @@ export const RECEPTOR_VACIO: Receptor = {
   ciudad: null,
   correo: null,
 };
-
-// Lo que el SII exige del receptor en la factura (doc 19 §9.13).
-export const DEL_RECEPTOR = [
-  { campo: "giro", nombre: "Giro", largo: LARGO_MAXIMO.giro },
-  { campo: "direccion", nombre: "Dirección", largo: LARGO_MAXIMO.direccion },
-  { campo: "comuna", nombre: "Comuna", largo: LARGO_MAXIMO.comuna },
-] as const;
 
 /** Una línea al peso, con su descuento (doc 19 §9.22), como la cuenta el
  *  motor (`valorDeLaLinea`): cantidad por precio, menos su %. Sirve para

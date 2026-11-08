@@ -280,6 +280,23 @@ describe('Emitir la factura del evento', () => {
     expect(repo.crear).not.toHaveBeenCalled();
   });
 
+  it('con una fecha de emisión elegida, sale con esa; fuera del rango, no se manda nada (§9.32)', async () => {
+    const { servicio, repo } = armar();
+    await expect(
+      servicio.emitir('ev-423', USUARIO, {
+        ...PEDIDA,
+        fecha_emision: '2020-01-31',
+      }),
+    ).rejects.toThrow(/La fecha de emisión va del/);
+    await expect(
+      servicio.emitir('ev-423', USUARIO, {
+        ...PEDIDA,
+        fecha_emision: '2999-01-01',
+      }),
+    ).rejects.toThrow('La fecha de emisión no puede ser futura');
+    expect(repo.crear).not.toHaveBeenCalled();
+  });
+
   it('un envío a la vez por evento', async () => {
     const { servicio } = armar({ errorAlCrear: { code: '23505' } });
     await expect(servicio.emitir('ev-423', USUARIO, PEDIDA)).rejects.toThrow(

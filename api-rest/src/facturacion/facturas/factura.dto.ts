@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -182,4 +183,12 @@ export class DtePedidoDto extends BaseDelDteDto {
   @IsOptional()
   @IsUUID()
   cliente_id?: string | null;
+
+  // §9.32: la fecha de emisión elegida; el rango lo revisa el motor
+  // (`fecha-de-emision.ts`). Sin ella, la de hoy.
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'La fecha de emisión va como AAAA-MM-DD',
+  })
+  fecha_emision?: string | null;
 }
