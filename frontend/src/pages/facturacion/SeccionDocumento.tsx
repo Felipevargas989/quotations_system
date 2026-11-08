@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { PLAZOS_DE_PAGO } from "../../constants/facturacion";
 import type {
   DtePedido,
@@ -43,6 +43,49 @@ function Campo({
       <span className={claseTitulo}>{titulo}</span>
       {children}
     </label>
+  );
+}
+
+/**
+ * La fecha de emisión, sin control de React mientras se escribe: al ir
+ * escribiendo el día y el mes la fecha pasa por estados que no existen
+ * («31-11»), el navegador da un valor vacío, y una casilla controlada
+ * volvía sola a la fecha de antes (medido en el laboratorio el 08-11). Sube
+ * solo una fecha completa, y toma la de afuera cuando no se está
+ * escribiendo en ella.
+ */
+function FechaDeEmision({
+  valor,
+  rango,
+  onElegir,
+}: {
+  readonly valor: string;
+  readonly rango: { desde: string; hasta: string };
+  readonly onElegir: (fecha: string) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && el.value !== valor)
+      el.value = valor;
+  }, [valor]);
+  return (
+    <input
+      ref={ref}
+      type="date"
+      defaultValue={valor}
+      min={rango.desde}
+      max={rango.hasta}
+      title={`Del ${fechaCorta(rango.desde)} al ${fechaCorta(rango.hasta)}`}
+      onChange={(e) => {
+        if (e.target.value) onElegir(e.target.value);
+      }}
+      onBlur={(e) => {
+        // A medio escribir: vuelve a la que vale.
+        if (!e.target.value) e.target.value = valor;
+      }}
+      className={claseCasilla}
+    />
   );
 }
 
@@ -109,16 +152,10 @@ export default function SeccionDocumento({
         )}
         <Campo titulo="Fecha de emisión">
           {rango ? (
-            <input
-              type="date"
-              value={pedida.fecha_emision ?? vista?.fecha ?? ""}
-              min={rango.desde}
-              max={rango.hasta}
-              title={`Del ${fechaCorta(rango.desde)} al ${fechaCorta(rango.hasta)}`}
-              onChange={(e) =>
-                onChange({ fecha_emision: e.target.value || null })
-              }
-              className={claseCasilla}
+            <FechaDeEmision
+              valor={pedida.fecha_emision ?? vista?.fecha ?? ""}
+              rango={rango}
+              onElegir={(fecha) => onChange({ fecha_emision: fecha })}
             />
           ) : (
             <p className={claseFija}>{vista ? fechaCorta(vista.fecha) : "—"}</p>
