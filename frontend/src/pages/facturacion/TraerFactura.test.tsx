@@ -83,8 +83,37 @@ describe("Traer factura emitida fuera de Eventia (§9.36)", () => {
     expect(screen.getByText("32000066941 · 30-10-2026")).toBeInTheDocument();
     expect(screen.getByText("$2.619.929")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Traer a Eventia/ }));
-    await waitFor(() => expect(onTraida).toHaveBeenCalledWith(90));
+    await waitFor(() =>
+      expect(onTraida).toHaveBeenCalledWith(90, "2026-10-30"),
+    );
     expect(d.traerFactura).toHaveBeenLastCalledWith(374, true);
+  });
+
+  it("si facturacion.cl cortó el nombre, lo muestra completo según el SII", async () => {
+    d.traerFactura.mockResolvedValueOnce({
+      factura: {
+        ...LEIDA,
+        receptor: {
+          ...LEIDA.receptor,
+          razon_social: "CORPORACION EJEMPLO DE EDUCACION SUPERIOR",
+        },
+        nombre_del_sii: true,
+      },
+      guardada: null,
+    });
+    render(<TraerFactura onVolver={() => {}} onTraida={vi.fn()} />);
+    escribir("375");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Leer de facturacion.cl" }),
+    );
+    expect(
+      await screen.findByText("CORPORACION EJEMPLO DE EDUCACION SUPERIOR"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Completo según el SII: facturacion.cl lo cortó en su PDF",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("si no se puede leer, dice por qué y no ofrece traerla", async () => {
