@@ -25,13 +25,25 @@ export interface RevisadoParaLaMasiva {
   borrador?: BorradorDelDte;
 }
 
+/**
+ * El documento de un evento. Con `ocId`, el de esa OC (Felipe, 08-11:
+ * *"una factura por cada OC"*, como Santo Tomás con sus tres); sin ella, el
+ * de la primera OC con saldo o el de la cotización. `preparar` deja que las
+ * facturas de un mismo evento compartan una sola lectura de BelIA.
+ */
 export const revisarUnoParaLaMasiva = async (
   quotationId: string,
+  ocId: number | null = null,
+  preparar: (id: string) => Promise<PreparacionDelDte> = prepararDte,
 ): Promise<RevisadoParaLaMasiva> => {
-  const preparacion = await prepararDte(quotationId);
+  const preparacion = await preparar(quotationId);
+  const pedida =
+    ocId != null && preparacion.ocs.some((o) => o.id === ocId) ? ocId : null;
   const oc =
     preparacion.tipo === 33
-      ? (preparacion.ocs.find((o) => o.facturado < o.total)?.id ?? null)
+      ? (pedida ??
+        preparacion.ocs.find((o) => o.facturado < o.total)?.id ??
+        null)
       : null;
   const borrador = await armarBorradorDeDte(quotationId, preparacion.tipo, oc);
   return {

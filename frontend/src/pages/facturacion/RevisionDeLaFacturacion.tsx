@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
   Check,
@@ -12,9 +12,11 @@ import { toast } from "../../components/toast/Toast";
 import { marcaDelAmbiente } from "../../constants/facturacion";
 import {
   emitirDte,
+  prepararDte,
   type DocumentoTributario,
   type EventoPorFacturar,
   type OcSinLeer,
+  type PreparacionDelDte,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import CorregirDte, { type EnCorreccion } from "./CorregirDte";
@@ -51,6 +53,33 @@ import {
 //   §9.33, sin volver a preguntar: cada una ya se aprobó); si una se corta o
 //   no sale, se detiene ahí (lo emitido queda emitido). Las que no se
 //   aprobaron no se emiten.
+// - Un evento con varias OC con saldo va en una factura por OC (Felipe,
+//   08-11: *"una factura por cada OC"*, como Santo Tomás con sus tres): cada
+//   una se revisa, aprueba y emite aparte, a nombre del comprador de su OC.
+//   BelIA lee el evento una sola vez, y la barra cuenta lo de las anteriores
+//   del mismo evento.
+
+/** Lo que se revisa: un documento por evento, o uno por OC con saldo. */
+interface Revisable {
+  readonly clave: string;
+  readonly evento: EventoPorFacturar;
+  /** La OC de esta factura, si el evento va en una por OC. */
+  readonly ocId: number | null;
+  readonly ocNumero: string | null;
+}
+
+const revisablesDe = (eventos: readonly EventoPorFacturar[]): Revisable[] =>
+  eventos.flatMap((e): Revisable[] => {
+    const conSaldo = (e.ordenes ?? []).filter((o) => o.queda > 1);
+    return conSaldo.length > 1
+      ? conSaldo.map((o) => ({
+          clave: `${e.id}:${o.id}`,
+          evento: e,
+          ocId: o.id,
+          ocNumero: o.numero,
+        }))
+      : [{ clave: e.id, evento: e, ocId: null, ocNumero: null }];
+  });
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const NOMBRE = { 33: "Factura", 39: "Boleta" } as const;
@@ -75,10 +104,21 @@ export default function RevisionDeLaFacturacion({
   readonly onCerrar: () => void;
   readonly onEmitidos: () => void;
 }) {
+  const items = useMemo(() => revisablesDe(eventos), [eventos]);
+  // Las facturas de un mismo evento comparten la lectura de BelIA.
+  const preparaciones = useRef(new Map<string, Promise<PreparacionDelDte>>());
+  const prepararUnaVez = (id: string) => {
+    const guardada = preparaciones.current.get(id);
+    if (guardada) return guardada;
+    const nueva = prepararDte(id);
+    preparaciones.current.set(id, nueva);
+    return nueva;
+  };
   const revisados = useQueries({
-    queries: eventos.map((e) => ({
-      queryKey: ["facturacion", "revision", e.id],
-      queryFn: () => revisarUnoParaLaMasiva(e.id),
+    queries: items.map((it) => ({
+      queryKey: ["facturacion", "revision", it.clave],
+      queryFn: () =>
+        revisarUnoParaLaMasiva(it.evento.id, it.ocId, prepararUnaVez),
       gcTime: 0,
       staleTime: Infinity,
       refetchOnWindowFocus: false,
@@ -97,16 +137,25 @@ export default function RevisionDeLaFacturacion({
   const [resultados, setResultados] = useState<Record<string, Resultado>>({});
 
   const dteDe = (j: number): RevisadoParaLaMasiva | undefined =>
-    corregidos[eventos[j].id] ?? revisados[j]?.data;
-  const evento = eventos[indice];
+    corregidos[items[j].clave] ?? revisados[j]?.data;
+  const item = items[indice];
+  const evento = item.evento;
   const consulta = revisados[indice];
   const dte = dteDe(indice);
-  const aprobado = aprobados.has(evento.id);
-  const porEmitir = eventos
-    .map((e, j) => ({ e, dte: dteDe(j) }))
+  const aprobado = aprobados.has(item.clave);
+  // Lo de las facturas anteriores de este mismo evento (una por OC).
+  const enEstaRevision = items.reduce(
+    (s, x, j) =>
+      j < indice && x.evento.id === evento.id
+        ? s + (dteDe(j)?.vista.montos?.total ?? 0)
+        : s,
+    0,
+  );
+  const porEmitir = items
+    .map((it, j) => ({ it, dte: dteDe(j) }))
     .filter(
-      (x): x is { e: EventoPorFacturar; dte: RevisadoParaLaMasiva } =>
-        aprobados.has(x.e.id) && !!x.dte && !resultados[x.e.id],
+      (x): x is { it: Revisable; dte: RevisadoParaLaMasiva } =>
+        aprobados.has(x.it.clave) && !!x.dte && !resultados[x.it.clave],
     );
   const total = porEmitir.reduce(
     (s, x) => s + (x.dte.vista.montos?.total ?? 0),
@@ -122,15 +171,15 @@ export default function RevisionDeLaFacturacion({
   };
 
   const aprobar = (corregido?: RevisadoParaLaMasiva) => {
-    if (corregido) setCorregidos((c) => ({ ...c, [evento.id]: corregido }));
+    if (corregido) setCorregidos((c) => ({ ...c, [item.clave]: corregido }));
     const nuevos = new Set(aprobados);
-    nuevos.add(evento.id);
+    nuevos.add(item.clave);
     setAprobados(nuevos);
     setCorrigiendo(false);
     setEnCurso(null);
     // Sigue con el próximo que falta por aprobar.
-    const siguiente = eventos.findIndex(
-      (e, j) => j > indice && !nuevos.has(e.id),
+    const siguiente = items.findIndex(
+      (x, j) => j > indice && !nuevos.has(x.clave),
     );
     if (siguiente >= 0) setIndice(siguiente);
   };
@@ -139,7 +188,7 @@ export default function RevisionDeLaFacturacion({
     // Corregido, deja de estar aprobado hasta que se apruebe de nuevo.
     setAprobados((a) => {
       const n = new Set(a);
-      n.delete(evento.id);
+      n.delete(item.clave);
       return n;
     });
     setEnCurso(null);
@@ -148,7 +197,7 @@ export default function RevisionDeLaFacturacion({
 
   /** «Listo»: vuelve al documento con lo corregido, sin aprobarlo. */
   const listo = () => {
-    if (enCurso) setCorregidos((c) => ({ ...c, [evento.id]: enCurso.dte }));
+    if (enCurso) setCorregidos((c) => ({ ...c, [item.clave]: enCurso.dte }));
     setCorrigiendo(false);
     setEnCurso(null);
   };
@@ -156,11 +205,15 @@ export default function RevisionDeLaFacturacion({
   const emitir = async () => {
     setEmitiendo(true);
     let emitidos = 0;
-    for (const { e, dte: d } of porEmitir) {
+    for (const { it, dte: d } of porEmitir) {
+      const e = it.evento;
       try {
         const doc = await emitirDte(e.id, d.pedida);
         if (doc.estado === "por_confirmar") {
-          setResultados((x) => ({ ...x, [e.id]: { como: "por_confirmar" } }));
+          setResultados((x) => ({
+            ...x,
+            [it.clave]: { como: "por_confirmar" },
+          }));
           toast.warn(
             `Se cortó la conexión con facturacion.cl en el #${e.numero}: queda por confirmar. Se detuvo ahí.`,
             { sticky: true },
@@ -168,11 +221,11 @@ export default function RevisionDeLaFacturacion({
           break;
         }
         emitidos++;
-        setResultados((x) => ({ ...x, [e.id]: { como: "emitido", doc } }));
+        setResultados((x) => ({ ...x, [it.clave]: { como: "emitido", doc } }));
       } catch (error) {
         setResultados((x) => ({
           ...x,
-          [e.id]: {
+          [it.clave]: {
             como: "error",
             texto: humanizeApiError(error, "No se pudo emitir."),
           },
@@ -210,7 +263,7 @@ export default function RevisionDeLaFacturacion({
       <button
         type="button"
         onClick={() => ir(indice + 1)}
-        disabled={indice + 1 >= eventos.length || emitiendo || termino}
+        disabled={indice + 1 >= items.length || emitiendo || termino}
         aria-label="Siguiente"
         className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-25"
       >
@@ -223,8 +276,9 @@ export default function RevisionDeLaFacturacion({
     <span className="flex justify-center">
       <span className="w-7 shrink-0" aria-hidden="true" />
       <span>
-        {indice + 1} de {eventos.length} · {aprobados.size}{" "}
-        {aprobados.size === 1 ? "aprobada" : "aprobadas"}
+        {indice + 1} de {items.length}
+        {item.ocNumero && !termino ? ` · OC ${item.ocNumero}` : ""} ·{" "}
+        {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
         {aprobado && !termino && (
           <span className="text-emerald-700"> · esta, aprobada</span>
         )}
@@ -327,17 +381,23 @@ export default function RevisionDeLaFacturacion({
       {termino ? (
         <table className="w-full text-sm">
           <tbody className="divide-y divide-gray-100">
-            {eventos
-              .filter((e) => aprobados.has(e.id))
-              .map((e) => {
-                const r = resultados[e.id];
+            {items
+              .filter((it) => aprobados.has(it.clave))
+              .map((it) => {
+                const r = resultados[it.clave];
                 return (
-                  <tr key={e.id}>
+                  <tr key={it.clave}>
                     <td className="py-1.5 pr-2 font-semibold text-gray-900">
-                      #{e.numero}
+                      #{it.evento.numero}
+                      {it.ocNumero && (
+                        <span className="font-normal text-gray-500">
+                          {" "}
+                          · OC {it.ocNumero}
+                        </span>
+                      )}
                     </td>
                     <td className="py-1.5 pr-2 text-gray-700">
-                      {e.cliente ?? "—"}
+                      {it.evento.cliente ?? "—"}
                     </td>
                     <td className="py-1.5 text-right text-xs">
                       {r?.como === "emitido" ? (
@@ -372,10 +432,12 @@ export default function RevisionDeLaFacturacion({
               (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null
             }
             tipo={(corrigiendo ? enCurso?.dte.tipo : null) ?? dte?.tipo}
+            ocActual={item.ocId}
+            enEstaRevision={enEstaRevision}
           />
           {corrigiendo && dte ? (
             <CorregirDte
-              key={evento.id}
+              key={item.clave}
               quotationId={evento.id}
               inicial={dte}
               onCambio={setEnCurso}

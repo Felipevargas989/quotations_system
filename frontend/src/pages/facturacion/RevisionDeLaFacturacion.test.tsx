@@ -288,6 +288,61 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.getByRole("button", { name: /Aprobar/ })).toBeEnabled();
   });
 
+  it("un evento con tres OC va en una factura por OC: se revisan y emiten aparte (Santo Tomás, 08-11)", async () => {
+    const oc = (id: number, numero: string, total: number) => ({
+      id,
+      numero,
+      total,
+      facturado: 0,
+      queda: total,
+      estado: "pendiente" as const,
+    });
+    r.revisarUnoParaLaMasiva.mockImplementation((_id, ocId) =>
+      Promise.resolve({
+        tipo: 33,
+        pedida: { ...pedida(`OC ${ocId}`), orden_de_compra_id: ocId ?? null },
+        vista: vista(true),
+      }),
+    );
+    f.emitirDte.mockResolvedValue(emitida(60));
+    abrir([
+      evento(481, {
+        total: 11301500,
+        queda: 11301500,
+        ordenes: [
+          oc(4, "33000132942", 5611559),
+          oc(5, "32000066941", 5239858),
+          oc(6, "33000132941", 450000),
+        ],
+      }),
+    ]);
+    // Una por OC: tres documentos del mismo evento, cada uno con su OC.
+    expect(await screen.findByText("OC 4")).toBeInTheDocument();
+    expect(screen.getByText(/1 de 3 · OC 33000132942/)).toBeInTheDocument();
+    expect(
+      r.revisarUnoParaLaMasiva.mock.calls.map((c) => [c[0], c[1]]),
+    ).toEqual([
+      ["ev-481", 4],
+      ["ev-481", 5],
+      ["ev-481", 6],
+    ]);
+    // BelIA lee el evento una sola vez: las tres comparten la preparación.
+    const preparar = r.revisarUnoParaLaMasiva.mock.calls.map((c) => c[2]);
+    expect(new Set(preparar).size).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    expect(await screen.findByText("OC 5")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    expect(await screen.findByText("OC 6")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Facturar las 3 aprobadas/ }),
+    );
+    await waitFor(() => expect(f.emitirDte).toHaveBeenCalledTimes(3));
+    expect(f.emitirDte.mock.calls.map((c) => c[1].orden_de_compra_id)).toEqual([
+      4, 5, 6,
+    ]);
+  });
+
   it("si una no sale, se detiene ahí y lo dice", async () => {
     r.revisarUnoParaLaMasiva.mockImplementation((id) =>
       Promise.resolve({
