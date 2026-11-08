@@ -1856,6 +1856,72 @@ Felipe y la primera lectura), `borrador-de-factura.spec.ts` (el 50 %, el
 una empresa sin Facturación no). En la vitrina, `PorFacturar.test.tsx` y
 `EmitirDte.test.tsx` («Qué parte»).
 
+### 9.27 El RUT que llena todo: la nómina del SII (08-11, en la madrugada)
+
+El paso 3 del plan de §9.25 (*"me parece perfecto el orden, sumemos
+todo"*). Los pasos 1 y 2 de ese orden:
+- **Lo guardado en Eventia** ya existía (`GET /facturacion/razon-social`),
+  pero ninguna pantalla lo usaba.
+- **Las facturas ya emitidas en facturacion.cl** quedan para después:
+  solo se pueden probar en producción.
+
+**La nómina.** Migración 192: `sii_contribuyentes`, `sii_actividades` y
+`sii_cargas`, sin `company_id` (datos públicos, de nadie). «Cargar la
+nómina del SII» (`POST /facturacion/nomina-sii/cargar`, del administrador
+con «Tarifario y conexión») corre por detrás:
+1. baja de sii.cl los tres ZIP (unos 190 MB);
+2. reparte los 3,37 millones de nombres por tramo de 100.000 RUT;
+3. recorre los 3,8 millones de actividades y los 4,46 millones de
+   domicilios, que vienen ordenados por RUT, de a tramo y con freno;
+4. guarda una fila por empresa con actividades vigentes, de a mil, y al
+   final borra las de otras cargas.
+
+Medido el 08-11 con los archivos reales (sin la base): 1.709.121 empresas,
+674 actividades, 28 segundos y unos 200 MB de memoria (con 256 MB de tope,
+termina). Con readline se perdían líneas y la memoria llegaba a 764 MB: se
+cambió por `lineasDelFlujo`. Queda fuera del respaldo diario. Una carga a la
+vez; si falla, queda la anterior.
+
+**Qué se toma de cada empresa** (`nomina-sii.ts`):
+- **La razón social**, cortada a 100.
+- **El giro.** El SII no marca la actividad principal: Valle del Sol tiene
+  cuatro (hoteles, residenciales para turistas, restaurantes y compraventa
+  de inmuebles), y CCU S.A., dos de oficina. Se propone la primera afecta
+  a IVA (la de lo que vende); entre ellas, la más antigua. Va cortado a 40
+  sin dejar un paréntesis abierto. Las demás se ofrecen con un clic.
+- **La dirección.** El domicilio vigente más reciente: calle, número,
+  bloque y oficina, cortado a 60. La comuna y la ciudad (o la comuna si no
+  trae ciudad), a 20.
+
+**En la factura** (`CamposDelReceptor`, en «Nuevo documento», «Crear
+cliente nuevo» y «Editar receptor y referencias» del evento):
+- con un RUT válido, busca lo guardado en Eventia y, si no, la nómina;
+- llena **solo lo vacío**: lo escrito a mano no se pisa;
+- dice de dónde salió: «Llenado con la nómina del SII: revisa el giro y la
+  dirección» o «Llenado con la ficha de …»;
+- del SII, «Otras actividades en el SII» con un botón por actividad para
+  cambiar el giro.
+
+La búsqueda pasó a `@Permiso('boletas', 'facturacion_eventos')`, para que
+sirva también al facturar un evento.
+
+**«Nómina del SII»**, junto a «Probar la conexión» (el administrador):
+cuántas empresas tiene y cuándo se cargó, «cargando… N empresas» mientras
+carga, el motivo si falló, y «Cargar la nómina del SII» o «Cargar de
+nuevo». El SII la pone al día una vez al año (los archivos de agosto).
+
+**Lo que no hace:** las personas naturales no están en la nómina (se
+escriben la primera vez), y no le pregunta al SII en línea (pide captcha).
+
+**Lo que cubren las pruebas:** `nomina-sii.spec.ts` (el giro de Valle del
+Sol, la dirección, la carga con ZIP de prueba, la falla del SII, la nómina
+con pocas empresas, una carga a la vez y el dígito verificador),
+`facturas.spec.ts` (lo de Eventia primero; si no, el SII) y, en la vitrina,
+`CamposDelReceptor.test.tsx` y `NominaDelSii.test.tsx`.
+
+**A producción:** primero el motor (que la deja fuera del respaldo),
+después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
