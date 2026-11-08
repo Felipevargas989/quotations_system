@@ -13,7 +13,11 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { diasEntre, sumarDias } from '../../quotations/generar/fechas';
 import { armarFactura } from '../archivo/factura';
 import { netoParaElTotal } from '../archivo/montos';
-import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
+import {
+  fechaDelArchivo,
+  folioDelArchivo,
+  textoLimpio,
+} from '../archivo/texto';
 import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { BoletasRepository } from '../boletas/boletas.repository';
 import {
@@ -30,6 +34,7 @@ import {
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
 import { mandarConFolio } from '../facturas/emision';
+import { nombreDelPdfDe } from '../facturas/nombre-del-pdf';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   Cadena,
@@ -140,25 +145,6 @@ export type SituacionEnLaLista =
   | 'anulada'
   | 'por_confirmar'
   | 'nota';
-
-/** El folio que llevaba un archivo de factura o nota (Encabezado, campo 2). */
-const folioDelArchivo = (archivo: string | null) => {
-  const lineas = (archivo ?? '').split(/\r?\n/);
-  const i = lineas.indexOf('->Encabezado<-');
-  const folio = Number((lineas[i + 1] ?? '').split(';')[1]);
-  return i >= 0 && Number.isInteger(folio) && folio > 0 ? folio : null;
-};
-
-/** La fecha que llevaba el archivo (campo 3 del encabezado o de la
- *  boleta): la del documento, aunque se compruebe otro día (§9.32). */
-const fechaDelArchivo = (archivo: string | null) => {
-  const lineas = (archivo ?? '').split(/\r?\n/);
-  const i = lineas.findIndex(
-    (l) => l === '->Encabezado<-' || l === '->Boleta<-',
-  );
-  const fecha = i >= 0 ? (lineas[i + 1] ?? '').split(';')[2] : null;
-  return esFechaDelArchivo(fecha) ? fecha : null;
-};
 
 @Injectable()
 export class NotasService {
@@ -271,6 +257,7 @@ export class NotasService {
         ambiente: d.ambiente,
         titulo,
         nombre,
+        nombre_del_pdf: nombreDelPdfDe(d),
         que_hace: queHace,
         reemplaza: reemplaza ? nombreDe(reemplaza) : null,
         cliente:
