@@ -191,6 +191,7 @@ export class PorFacturarService {
               e.id,
               companyId,
               user.id ?? null,
+              { reintentar: false },
             );
             return { e, sinLeer: r.sinLeer };
           } catch (error) {
