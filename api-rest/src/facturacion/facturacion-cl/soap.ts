@@ -315,19 +315,23 @@ export const leerPdf = (xml: string, nivel = 0): Buffer | null => {
 
 /**
  * El XML de `getXMLDte` (§9.33): según el manual, viene en Base64 en
- * «Mensaje»; si lo que viene no es un XML, «Mensaje» es lo que dice
- * facturacion.cl (por ejemplo, que el método no está contratado). Se
- * devuelve el Base64 tal cual: el XML va en ISO-8859-1.
+ * «Mensaje»; medido el 08-11 en el ambiente de prueba, viene el Base64
+ * solo, sin «Mensaje». Se leen las dos. Si lo que viene no es un XML, es
+ * lo que dice facturacion.cl (por ejemplo, que el método no está
+ * contratado). Se devuelve el Base64 tal cual: el XML va en ISO-8859-1.
  */
 export const leerXml = (
   respuesta: string,
 ): { base64: string | null; mensaje: string | null } => {
   const mensaje = valorDe(respuesta, 'Mensaje');
-  const candidato = desescapar(mensaje ?? '').replace(/\s+/g, '');
-  if (candidato.length > 40 && /^[A-Za-z0-9+/]+={0,2}$/.test(candidato)) {
-    const texto = Buffer.from(candidato, 'base64').toString('latin1');
-    if (texto.trimStart().startsWith('<'))
-      return { base64: candidato, mensaje: null };
+  const candidatos = [mensaje ?? '', respuesta.replace(/<[^>]+>/g, ' ')];
+  for (const c of candidatos) {
+    const candidato = desescapar(c).replace(/\s+/g, '');
+    if (candidato.length > 40 && /^[A-Za-z0-9+/]+={0,2}$/.test(candidato)) {
+      const texto = Buffer.from(candidato, 'base64').toString('latin1');
+      if (texto.trimStart().startsWith('<'))
+        return { base64: candidato, mensaje: null };
+    }
   }
   const dijo =
     desescapar(mensaje ?? respuesta)

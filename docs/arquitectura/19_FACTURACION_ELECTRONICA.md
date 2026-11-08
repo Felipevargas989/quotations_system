@@ -2402,7 +2402,10 @@ que su manual marca con «Costo Adicional»; al emitir solo devuelve el
 folio, el resultado y los enlaces al PDF. El ícono del XML de la lista
 dejó de estar apagado: al pincharlo, el motor se lo pide a facturacion.cl
 (`POST /facturacion/documentos/:id/xml`, `obtenerXml` del SOAP) y se baja
-tal cual, en ISO-8859-1. No se guarda: se pide cada vez. Si facturacion.cl
+tal cual, en ISO-8859-1. No se guarda: se pide cada vez. Medido el 08-11
+en el ambiente de prueba: facturacion.cl entregó el XML de la factura
+9999839219, pero como Base64 solo, no dentro de «Mensaje» como dice su
+manual; se leen las dos formas (`leerXml`). Si facturacion.cl
 no lo entrega (por ejemplo, porque el método no está contratado), la
 pantalla dice lo que respondió. El costo se suma a la OT de WSPANELDTE
 («4. El valor del método getXMLDte»), y lo decide Felipe.

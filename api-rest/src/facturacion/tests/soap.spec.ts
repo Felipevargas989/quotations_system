@@ -481,6 +481,16 @@ describe('el XML (getXMLDte, §9.33)', () => {
     expect(valorEnElCuerpo(llamadas[0].cuerpo, 'tpomov')).toBe(b64('V'));
   });
 
+  it('el Base64 solo, sin «Mensaje», como respondió el ambiente de prueba el 08-11', async () => {
+    const { soap } = servicio(() => ({
+      texto: sobre('getXMLDte', b64Xml),
+    }));
+    expect(await soap.obtenerXml(33, 381)).toEqual({
+      base64: b64Xml,
+      mensaje: null,
+    });
+  });
+
   it('si no es un XML, dice lo que respondió (el método no contratado, por ejemplo)', () => {
     expect(
       leerXml(
