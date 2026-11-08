@@ -212,6 +212,8 @@ describe('la cotización detallada', () => {
         unidades: 1,
         unitario: 250_000,
         total: 250_000,
+        // Sus ids del catálogo: ahí va lo particular (decisión 120).
+        codigos: ['39'],
       },
       expect.objectContaining({
         servicio: 'Desayuno',
@@ -429,8 +431,9 @@ describe('la cotización detallada', () => {
       }),
     ).toBe(false);
     expect(pidenLaCotizacion({ documentos: [] })).toBe(false);
-    expect(laCotizacionQueFalta(pedida.documentos, [])).toContain(
-      'Las bases piden una cotización detallada',
+    // Desde la decisión 120 la arma Eventia también sin vinculada.
+    expect(laCotizacionQueFalta(pedida.documentos, [])).toBe(
+      'Las bases piden una cotización: vuelve a armar la postulación (la arma Eventia con lo postulado, o con tu cotización si la vinculas), o súbela hecha a «Mi postulación».',
     );
     expect(
       laCotizacionQueFalta(pedida.documentos, [

@@ -115,7 +115,7 @@ describe('la cotización detallada en el set', () => {
       datos({ archivos: [archivo(30, 'Propuesta técnica 2705.docx')] }),
     );
     expect(sin.faltan).toContain(
-      'Las bases piden una cotización detallada: vincula tu cotización y vuelve a armar la postulación, o súbela hecha a «Mi postulación».',
+      'Las bases piden una cotización: vuelve a armar la postulación (la arma Eventia con lo postulado, o con tu cotización si la vinculas), o súbela hecha a «Mi postulación».',
     );
     const subida = armarElSet(
       datos({
