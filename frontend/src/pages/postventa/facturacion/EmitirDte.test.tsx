@@ -204,4 +204,36 @@ describe("Qué parte se factura", () => {
       ),
     );
   });
+
+  it("en la revisión de «Facturar seleccionados» dice «Aprobar» y devuelve lo corregido, sin emitir (§9.31)", async () => {
+    preparado();
+    const alAprobar = vi.fn();
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <EmitirDte
+          quotationId="q-408"
+          puedeEmitir
+          onCerrar={() => {}}
+          onEmitido={() => {}}
+          alAprobar={alAprobar}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Aprobar" }));
+    expect(alAprobar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 33,
+        pedida: expect.objectContaining({ tipo: 33, orden_de_compra_id: 12 }),
+        vista: expect.objectContaining({ ok: true }),
+      }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Ver cómo sale" }),
+    ).not.toBeInTheDocument();
+    expect(f.emitirDte).not.toHaveBeenCalled();
+  });
 });

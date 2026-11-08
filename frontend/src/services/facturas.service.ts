@@ -260,6 +260,8 @@ export interface OrdenPorFacturar {
   facturado: number;
   queda: number;
   estado: EstadoDeLaFacturacion;
+  /** El RUT de la OC, para el buscador (§9.31). */
+  rut?: string | null;
 }
 
 /** Un evento de «Por facturar» (doc 19 §9.21): aceptado o realizado, con
@@ -272,6 +274,10 @@ export interface EventoPorFacturar {
   tipoDeEvento: string | null;
   fecha: string | null;
   cliente: string | null;
+  /** §9.31, para el buscador: el contacto de la cotización (o de la
+   *  ficha) y los RUT de las razones sociales del cliente. */
+  contacto?: string | null;
+  ruts?: string[];
   total: number;
   emitido: number;
   queda: number;
