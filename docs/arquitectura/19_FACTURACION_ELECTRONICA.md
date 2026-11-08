@@ -2687,6 +2687,9 @@ un selector «Factura | Nota de crédito»:
   documento anula, en cero corrige un texto, por menos rebaja; por más, no
   se trae. La fila lo anota (`respuesta.codigo_por_los_montos`).
 
+**En producción desde el 08-11-2026** (PR #324, el motor y la vitrina,
+sin migración).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
