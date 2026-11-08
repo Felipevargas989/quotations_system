@@ -96,6 +96,8 @@ describe('Qué se rehace y qué se reemplaza', () => {
       propuestaFirmada: false,
       borradoresDeCotizacion: [],
       cotizacion: 'no_hay',
+      borradoresDeDeclaraciones: [],
+      declaracionesHechas: [],
     });
   });
 

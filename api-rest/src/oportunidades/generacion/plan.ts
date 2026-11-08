@@ -1,4 +1,5 @@
 import type { Origen } from '../adjuntos/adjuntos.repository';
+import { nombreDelPapel } from '../postulacion/los-papeles';
 import type { TipoDeGeneracion } from './generacion.repository';
 import type { Habilidad } from './taller';
 
@@ -55,3 +56,22 @@ export type Plan = {
    *  trabajo reemplaza; se borran recién cuando lo nuevo quedó guardado. */
   reemplaza?: number[];
 };
+
+/** Lo que se pide al crear la propuesta técnica: el valor al final
+ *  (decisión 42), los borradores que reemplaza y, desde la parte 3b de la
+ *  decisión 119 (08-11), cómo la llaman las bases. */
+export type PedidoDePropuesta = {
+  monto_total?: number | null;
+  reemplaza?: number[];
+  nombre?: string;
+};
+
+/** El nombre de la propuesta en «Mi postulación»: el que le dan las bases
+ *  o, sin él, «Propuesta técnica <código>». */
+export const nombreDeLaPropuesta = (
+  pedido: PedidoDePropuesta,
+  codigo: string,
+): string =>
+  pedido.nombre
+    ? nombreDelPapel(pedido.nombre, codigo)
+    : `Propuesta técnica ${codigo}.docx`;

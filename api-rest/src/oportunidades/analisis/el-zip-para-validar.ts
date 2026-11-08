@@ -28,6 +28,7 @@ const PRIORIDAD: Readonly<Record<PiezaDelSet['que_es'], number>> = {
   formulario: 0,
   propuesta: 0,
   cotizacion: 0,
+  declaracion: 0,
   subido: 0,
   documento: 1,
   respaldo: 2,

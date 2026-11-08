@@ -13,6 +13,10 @@ export default defineConfig({
             // 03-11-2026: lo que lleva cada evento (insumos, mobiliario, costo),
             // la misma cuenta para las pantallas y para BelIA.
             "@consolidacion": path.resolve(__dirname, "../api-rest/src/logistics/utils/consolidacion.ts"),
+            // 08-11-2026 (decisión 119, parte 3b): quién hace cada papel que
+            // piden las bases, la misma regla para «Armar postulación» y para
+            // «Lo que tienes que presentar».
+            "@los-papeles": path.resolve(__dirname, "../api-rest/src/oportunidades/postulacion/los-papeles.ts"),
         },
     },
     server: {

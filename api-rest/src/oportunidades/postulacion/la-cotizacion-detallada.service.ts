@@ -26,6 +26,7 @@ import {
   pidenElDetalle,
   plazoDeLaCotizacion,
 } from './la-cotizacion-detallada';
+import { nombreDelPapel } from './los-papeles';
 import { PostulacionRepository } from './postulacion.repository';
 
 // LA COTIZACIÓN DETALLADA EN «MI POSTULACIÓN» (decisión 119 del doc 17,
@@ -62,6 +63,9 @@ export class LaCotizacionDetalladaService {
       /** El reparto que calculó «Armar postulación» (el mismo que va a los
        *  formularios); sin él, se calcula aquí igual. */
       reparto?: DiaDeLaCotizacion[] | null;
+      /** Como la llaman las bases (decisión 119, parte 3b): el archivo
+       *  lleva ese nombre. Sin él, «Cotización detallada <código>». */
+      nombre?: string;
     },
   ): Promise<Adjunto> {
     const companyId = user.company_id;
@@ -191,7 +195,9 @@ export class LaCotizacionDetalladaService {
       logo: logo && medidas ? { datos: logo, tipo: medidas.tipo } : null,
     });
 
-    const nombre = nombreDeLaCotizacionDetallada(o.codigo, detallada);
+    const nombre = opciones.nombre
+      ? nombreDelPapel(opciones.nombre, o.codigo)
+      : nombreDeLaCotizacionDetallada(o.codigo, detallada);
     const ruta = `c${companyId}/oportunidades/${oportunidadId}/postulacion/${sello()}_${sanitize(nombre)}`;
     await this.adjuntos.subirArchivo(ruta, docx, TIPO_WORD);
     let fila: Adjunto;

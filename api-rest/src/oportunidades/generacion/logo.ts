@@ -2,6 +2,15 @@
 // público de la casa: una URL cualquiera haría que el motor le pida cosas a
 // quien sea. Aparte del servicio, que está en el tope de 800 líneas.
 
+/** Las imágenes que recibe el taller: el logo y la firma. Viven aquí
+ *  desde el 08-11, para que el servicio no pase las 800 líneas. */
+export const TIPOS_DE_IMAGEN: Readonly<Record<string, string>> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+};
+
 /** El logo pesa poco; uno de más de esto no es un logo. */
 const MAX_BYTES_LOGO = 3 * 1024 * 1024;
 
