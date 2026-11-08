@@ -3,7 +3,11 @@
 > **§9.26 a §9.28 EN PRODUCCIÓN desde el 08-11-2026** (Felipe: *"a
 > producción"*; PR #312; las migraciones 192 y 193 en las dos bases,
 > vacías y antes del motor; la nómina del SII se carga con «Cargar la
-> nómina del SII» después del motor).
+> nómina del SII» después del motor). Medido esa mañana en producción:
+> la nómina, cargada (1.709.121 empresas en 3,5 minutos); las 8 OC de
+> «Por facturar», leídas solas; y «Recibidos», sin servicio: facturacion.cl
+> dice que el módulo WSPANELDTE se contrata aparte (§9.28; lo decide
+> Felipe).
 >
 > **EN PRODUCCIÓN desde el 07-11-2026** (Felipe: *"a producción"*; PR #310;
 > las migraciones 184, 187, 189 y 191 en las dos bases, antes del motor).
@@ -1790,7 +1794,11 @@ guardados.
 
 ### 9.26 Las OC que se leen solas y la factura por partes (07-11, en la noche)
 
-**En producción desde el 08-11-2026** (PR #312).
+**En producción desde el 08-11-2026** (PR #312). Medido esa mañana: al
+abrir «Por facturar», BelIA leyó sola las 8 OC de Documentos en 6
+segundos, y cada evento quedó con «Con OC», su número, su monto y su
+estado. En la #460 (Municipalidad de Quillón) la OC dice $2.480.000 y la
+cotización $1.640.000: lo revisa Felipe antes de facturar.
 
 Felipe, 07-11 en la noche, con el plan de §9.25 aprobado (*"me parece
 perfecto el orden, sumemos todo, lo dejo trabajando y lo reviso mañana
@@ -1855,15 +1863,6 @@ cuenta. En «Por facturar»:
   OC N° 4500123» (o «de la cotización N° 523» sin OC). La primera línea
   sigue igual (Felipe aprobó el diseño esa noche: *"déjalo así"*).
 - El candado de siempre: nunca más del 100 % de una OC (§5.3).
-- *Una OC para dos eventos* (la Municipalidad de Quillón: la OC
-  1213301-49-AG26, de $2.480.000, paga el foro de la #415 y el de la
-  #460, $1.240.000 cada uno): **no se programa.** Felipe, 08-11: *"es un
-  caso tan particular que es mejor no programarlo"*; y sobre facturar por
-  partes: *"si es solo cambiar el monto lo cambio yo, listo, lo más
-  simple siempre es lo mejor"*. Se factura cambiando el monto a mano en
-  «Emitir DTE». Ojo: BelIA deja la OC entera en el evento donde la lee
-  (en la #460 «Facturar» propone $2.480.000), y la misma OC en otro
-  evento lleva su propia cuenta.
 
 **Lo que cubren las pruebas:** `por-facturar.spec.ts` (los dos casos de
 Felipe y la primera lectura), `borrador-de-factura.spec.ts` (el 50 %, el
@@ -1881,8 +1880,8 @@ El paso 3 del plan de §9.25 (*"me parece perfecto el orden, sumemos
 todo"*). Los pasos 1 y 2 de ese orden:
 - **Lo guardado en Eventia** ya existía (`GET /facturacion/razon-social`),
   pero ninguna pantalla lo usaba.
-- **Las facturas ya emitidas en facturacion.cl** quedan para después:
-  solo se pueden probar en producción.
+- **Las facturas ya emitidas en facturacion.cl** quedaron para después
+  (solo se pueden probar en producción): hechas el 08-11, en §9.29.
 
 **La nómina.** Migración 192: `sii_contribuyentes`, `sii_actividades` y
 `sii_cargas`, sin `company_id` (datos públicos, de nadie). «Cargar la
@@ -1940,6 +1939,12 @@ con pocas empresas, una carga a la vez y el dígito verificador),
 
 **A producción:** primero el motor (que la deja fuera del respaldo),
 después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
+**Cargada en producción el 08-11 a las 05:05** (con la sesión de Felipe):
+1.709.121 empresas y 674 actividades en 3 minutos y 28 segundos; la tabla
+pesa 359 MB y la base quedó en 1,9 GB de 8. Probado en «Nuevo documento»
+→ «Crear cliente nuevo» con el RUT 96.930.440-6, sin guardar ni emitir:
+llenó la razón social, el giro, la dirección y la comuna, con «Otras
+actividades en el SII».
 
 ### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
 
@@ -1978,7 +1983,8 @@ XML se cuenta y no se guarda.
 - sin la conexión, el botón apagado y el porqué.
 
 Lo ve y lo trae quien ve «Documentos» (`facturacion_documentos`:
-operaciones y el administrador, de fábrica).
+operaciones y el administrador, de fábrica). Aceptar o reclamar lo recibido, en
+§9.30.
 
 **Lo que falta saber:** si su cuenta lo tiene habilitado o cuesta aparte.
 Probado en el laboratorio el 08-11 (la empresa de prueba de
@@ -1990,10 +1996,152 @@ habilita por empresa. La respuesta de Valle del Sol se ve en producción con
 pide a soporte de facturacion.cl que lo habilite; el costo lo decide
 Felipe.
 
+**Medido en producción el 08-11 (Valle del Sol), y cuesta aparte:**
+«Traer de facturacion.cl» respondió *"No tiene activo el módulo
+WSPANELDTE, este es un servicio adicional que debe ser contratado."* La
+pantalla lo muestra tal cual y no guarda nada. Contratar el módulo lo
+decide Felipe; sin él no hay lista de lo recibido. El acuse de §9.30 va
+justo por ese servicio (`wspaneldte.asmx`).
+
 **Lo que cubren las pruebas:** `recibidos.spec.ts` (el sobre sin las
 credenciales a la vista, el XML en Base64, escapado y en CDATA, la
 negativa, la falla del servidor, guardar lo traído y sin conexión) y, en
 la vitrina, `RecibidosDelMes.test.tsx`.
+
+### 9.29 Tus facturas anteriores: la segunda fuente del RUT (08-11, en la madrugada)
+
+Felipe, 08-11, con la nómina del SII camino a producción: *"a producción y
+luego con lo que falta... ¿qué pasó con buscar los datos solo con el
+RUT?"*. Es el paso 2 del orden de §9.25, aprobado el 07-11.
+
+**Por qué hace falta, medido el 08-11:**
+- La agrupación de profesores jubilados de la factura N° 379 (la última
+  que Felipe emitió a mano) **no está en la nómina del SII**. Las
+  agrupaciones, juntas y clubes que no iniciaron actividades no salen ahí,
+  y son clientes de siempre de Valle del Sol.
+- Con las empresas, el SII da el giro que propone Eventia; la factura
+  anterior trae el que se usó de verdad. A CCU, por ejemplo, el SII le
+  propone «Alquiler de bienes inmuebles amoblados».
+
+**Lo que hace:** «Leer mis facturas anteriores», junto a la nómina del SII
+(lo ve el administrador, con «Tarifario y conexión»). Por detrás:
+1. Pide a facturacion.cl cada factura (33) con `ObtenerPdf`, que viene
+   incluido; el XML con `getXMLDte` cuesta aparte. Va desde la anterior a
+   la siguiente que dice `ConsultarCAF`, hacia atrás, a lo más 1.000, una a
+   la vez.
+2. De cada PDF lee el cuadro del cliente (`texto-del-pdf.ts`, sin IA ni
+   librerías). Los PDF de facturacion.cl los arma JasperReports con iText:
+   cada texto viene con su posición. Se buscan «Señor(es)», «R.U.T.»,
+   «Giro», «Dirección», «Comuna» y «Ciudad», y el valor que sigue a su «:»
+   en la misma fila. Lo que no se puede leer (otro formato, un RUT que no
+   calza) no se guarda.
+3. Cada RUT queda con lo de su factura más nueva. La migración 194 trae
+   `receptores_de_facturas_anteriores` y `lecturas_de_facturas_anteriores`
+   (cuántas se pidieron, cuántas trajeron PDF y cuántos clientes salieron).
+4. Si facturacion.cl deja de responder cinco veces seguidas, la lectura se
+   corta y queda el motivo.
+
+En el ambiente de prueba la empresa es compartida con otros integradores:
+ahí solo se leen las facturas que emitió Eventia.
+
+**El orden al escribir el RUT** (`GET /facturacion/razon-social`):
+1. Lo guardado en Eventia, la razón social de un cliente.
+2. Su última factura en facturacion.cl, con el aviso «Llenado con tu
+   factura N° 379 del 01-11-2026: revisa que siga igual.».
+3. La nómina del SII.
+
+El PDF corta la razón social a 50 caracteres (medido en la N° 379). Si
+llega con 50 y el SII la tiene entera, va la del SII. Si no, la pantalla
+dice «La razón social viene cortada en el PDF: complétala.». Las
+actividades del SII se ofrecen igual como giro.
+
+**Lo que cambió del plan de §9.25:** decía que lo que calza por RUT con un
+cliente de Eventia quedaba como su razón social. No se puede: desde la 184,
+los clientes no tienen RUT (va en sus razones sociales, que en producción
+eran 0 el 07-11). Lo leído queda por empresa y por RUT; al facturar a ese
+cliente, la razón social se guarda en su ficha, como siempre.
+
+**Probado** el 08-11, sin la base, con la factura N° 379 de producción (el
+PDF que Felipe bajó el 07-11) y con la 9999839219 de prueba: los dos
+formatos se leen enteros, con las tildes.
+
+**Lo que cubren las pruebas:**
+- `facturas-anteriores.spec.ts`: los dos formatos armados como los de
+  facturacion.cl, uno de pdf-lib con el texto en hexadecimal, el RUT que no
+  calza, de la más nueva a la más vieja, en prueba solo las de Eventia, sin
+  conexión, una lectura a la vez y el corte.
+- `facturas.spec.ts`: el orden y la razón social cortada.
+- En la vitrina, `FacturasAnteriores.test.tsx` y
+  `CamposDelReceptor.test.tsx`.
+
+**A producción**, con su «a producción»: primero la 194 en la base, después
+el motor y la vitrina, y al final «Leer mis facturas anteriores». Son unas
+380 facturas, de 3 a 6 segundos cada una: media hora, por detrás.
+
+### 9.30 Aceptar o reclamar lo recibido (08-11, en la madrugada)
+
+El paso 3 del plan de «Recibidos» de §9.25 («después, con otro OK»).
+Felipe, 08-11: *"a producción y luego con lo que falta"*. Lo construido se
+prueba en el laboratorio; **usarlo con una factura de verdad es decisión
+de Felipe**, porque tiene efecto legal.
+
+**Por dónde va:** el «Panel DTE Recibidos» de facturacion.cl
+(`https://wss.facturacion.cl/WSDS/wspaneldte.asmx`, medido el 08-11 en su
+definición pública), un servicio ASMX aparte del de emitir, con la misma
+entrada (`logininfo`: usuario, RUT y clave en Base64):
+- `ConsultaPanelDte(login, folio, tipo, rutproveedor)` trae lo pendiente
+  de acuse (sin filtros, todo): el folio, el tipo, el RUT del proveedor y
+  la recepción en el SII.
+- `Acuse(login, folio, tipo, rutproveedor, accion)`, con `a` para aceptar
+  y `r` para rechazar (reclamar), responde verdadero o falso.
+Lo demás del servicio (`ObtenerPanelDTE`, `ObtenerPdfDTE`, las guías) no
+se usa.
+
+**En «Recibidos»**, una columna «Acuse» con el estado en una palabra y el
+detalle debajo:
+- **Pendiente** (está en el panel), con el plazo: «quedan 3 días para
+  reclamar», «hoy es el último día» o «ya no se puede reclamar (la ley la
+  da por aceptada)». La ley 19.983 da 8 días corridos desde la recepción.
+- Para el administrador (con «Documentos», `@DentroDe`), «Aceptar» y
+  «Reclamar», cada uno con su confirmación: «¿Aceptarla ante el SII?
+  Después no se puede reclamar.» y «¿Reclamarla ante el SII? El proveedor
+  tendrá que anularla con una nota de crédito.». Vencido el plazo, solo
+  «Aceptar».
+- **Aceptada** o **Reclamada** desde Eventia, con quién y cuándo.
+- Lo demás, lo que dice el libro del SII (`acuse_sii`), o «—».
+- Si el panel responde que no («Empresa no Autorizada», por ejemplo),
+  arriba: «Panel de recibidos: facturacion.cl dice «…»».
+
+**Los resguardos del motor** (`RecibidosService.acuse`): solo un
+documento que está en lo recibido de la empresa; una sola vez por
+documento (si ya salió desde Eventia, 409 con quién lo hizo); reclamar
+solo dentro de los 8 días; y cada intento, salga o no, queda anotado en
+`acuses_de_recibidos` (migración 195: qué documento, qué se pidió, qué
+respondió facturacion.cl, quién y cuándo; sin cambiar ni borrar).
+
+**Medido el 08-11 en el laboratorio:** el panel SÍ responde para la
+empresa de prueba (el Libro de Compras, no: «Empresa no Autorizada»,
+§9.28), y no con el `WSPLANO` que muestra el manual, sino con una lista en
+JSON: «[{"folio":"…","tipodte":"33","rutproveedor":"…","recepcionsii":
+"2026-03-10T00:00:00Z","montototal":"…","xml":"True"}]». Se leen las dos
+formas. Lo pendiente de la empresa de prueba es de otros integradores: no
+se guarda ni se acusa (en el laboratorio no hay nada recibido que mostrar
+en la lista).
+
+**Lo que falta saber:** si la cuenta de Valle del Sol tiene el panel y el
+Libro de Compras habilitados; se mira en producción con «Recibidos».
+**Medido el 08-11 en producción (§9.28):** no los tiene. facturacion.cl
+pide contratar aparte el módulo WSPANELDTE, el de este panel. Antes de
+llevar §9.30 a producción, Felipe decide si lo contrata.
+
+**Lo que cubren las pruebas:** `recibidos.spec.ts` (el ejemplo del manual,
+la respuesta escapada, el sobre sin las credenciales a la vista, el acuse
+con «a» o «r», la falla, el plazo de 8 días, aceptar con su anotación, la
+negativa anotada, lo que no es de la empresa, dos veces, sin conexión y el
+reclamo vencido) y, en la vitrina, `RecibidosDelMes.test.tsx`.
+
+**A producción**, con su «a producción»: primero la 195 en la base, después
+el motor y la vitrina.
 
 ### 9.11 Fuentes nuevas (04-11)
 
