@@ -183,6 +183,8 @@ export interface PiezaDelSet {
     | "propuesta"
     /** La cotización detallada que arma el motor (decisión 119). */
     | "cotizacion"
+    /** Una declaración en el formato de la casa (decisión 119, parte 3b). */
+    | "declaracion"
     | "subido"
     | "documento"
     | "respaldo";

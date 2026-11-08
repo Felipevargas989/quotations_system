@@ -1,4 +1,5 @@
 import type { Carpeta } from './el-set';
+import { quienLoHace } from './los-papeles';
 
 // LO QUE PIDE LA SECCIÓN 4 DEL ANÁLISIS, «LO QUE TIENES QUE PRESENTAR»
 // (decisión 90 del doc 17, 27-10). Felipe: "el zip se debe armar en función
@@ -77,7 +78,10 @@ export const pedidosDeLaSeccion4 = (
     if (carpeta === 'formulario' || carpeta === 'respaldo_experiencia') {
       continue;
     }
-    // Lo que el análisis dejó en «otro», por su nombre.
+    // Lo que el análisis dejó en «otro», por su nombre. Si es de otro (la
+    // «Identificación del vehículo (… patente …)» no es la patente
+    // municipal) o lo hace Eventia, no es de «Mi empresa» (parte 3b).
+    if (carpeta === 'otro' && quienLoHace(x.nombre, x.condicion)) continue;
     const tipo = carpeta === 'otro' ? tipoPorElNombre(x.nombre) : carpeta;
     if (!tipo || tipo === tipoQueVaConLaPatente) continue;
     if (pedidos.some((p) => p.tipo === tipo)) continue;

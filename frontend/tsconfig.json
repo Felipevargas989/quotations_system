@@ -22,7 +22,8 @@
     "baseUrl": ".",
     "paths": {
       "@dinero": ["../api-rest/src/quotations/utils/money.ts"],
-      "@consolidacion": ["../api-rest/src/logistics/utils/consolidacion.ts"]
+      "@consolidacion": ["../api-rest/src/logistics/utils/consolidacion.ts"],
+      "@los-papeles": ["../api-rest/src/oportunidades/postulacion/los-papeles.ts"]
     }
   },
   "include": [

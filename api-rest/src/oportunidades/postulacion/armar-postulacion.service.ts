@@ -29,11 +29,14 @@ import {
   respaldosDeLaExperiencia,
 } from './la-experiencia';
 import { LaExperienciaService } from './la-experiencia.service';
+import { lasDeclaracionesPedidas } from './las-declaraciones';
+import { LasDeclaracionesService } from './las-declaraciones.service';
 import type { PreguntaDeLaPostulacion } from './las-preguntas';
 import {
   LasPreguntasService,
   type RespuestaDelModal,
 } from './las-preguntas.service';
+import { papelesSinFormato } from './los-papeles';
 import { PostulacionRepository } from './postulacion.repository';
 import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
@@ -88,17 +91,23 @@ const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
 /** ¿Va la propuesta técnica valorizada? Siempre que las bases NO traigan
  *  un formulario técnico (decisión 42; Felipe, 19-10, por las compras
  *  ágiles: "¿qué pasa si no viene ningún formulario a prerrellenar?"). Si
- *  lo traen, el detalle va en ese formulario (decisión 40). */
+ *  lo traen, el detalle va en ese formulario (decisión 40). Desde la parte
+ *  3b de la decisión 119 (08-11), un formulario técnico que no trajo su
+ *  formato («Formulario N°6 - Propuesta técnica (formato libre)») no
+ *  cuenta: nadie lo llenaría, y lo hace la propuesta. */
 export const vaLaPropuesta = (
   resultado: Record<string, unknown> | null | undefined,
 ): boolean => {
   const { formularios, textos } = loQueDicenLasBases(resultado);
+  const sinFormato = new Set(
+    papelesSinFormato(resultado).map((p) => normalizar(p.nombre)),
+  );
   // Un análisis anterior no trae los formularios: el requisito que nombra
   // un formulario o un anexo cuenta como tal.
   const deUnFormulario = [
     ...formularios.filter((t): t is string => typeof t === 'string'),
     ...textos.filter((t) => /\b(formulario|anexo)\b/.test(normalizar(t))),
-  ];
+  ].filter((t) => !sinFormato.has(normalizar(t)));
   return !deUnFormulario.some((t) => FORMULARIO_TECNICO.test(normalizar(t)));
 };
 
@@ -123,6 +132,10 @@ export class ArmarPostulacionService {
      *  ellas se arma sin preguntar, como antes. */
     @Optional()
     private readonly preguntas?: LasPreguntasService,
+    /** Las declaraciones sin formato (decisión 119, parte 3b). Opcional:
+     *  sin ellas no se arman, como antes. */
+    @Optional()
+    private readonly declaraciones?: LasDeclaracionesService,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
   }
@@ -348,13 +361,22 @@ export class ArmarPostulacionService {
           }),
       ]);
     }
+    // Decisión 119, parte 3b (08-11): la propuesta y la cotización salen
+    // con el nombre que les dan las bases («Especificaciones y detalle del
+    // servicio», «Oferta económica…») y cuentan como ese papel.
+    const papeles = papelesSinFormato(resultado);
+    const comoLaLlaman = (quien: 'propuesta' | 'cotizacion') =>
+      papeles.find((p) => p.quien?.quien === quien && p.obligatorio)?.nombre ??
+      papeles.find((p) => p.quien?.quien === quien)?.nombre;
     if (conPropuesta) {
+      const nombre = comoLaLlaman('propuesta');
       pasos.push([
         'La propuesta técnica',
         () =>
           this.documentos.crearPropuesta(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
             reemplaza: vuelta.borradoresDePropuesta,
+            ...(nombre ? { nombre } : {}),
           }),
       ]);
     }
@@ -369,6 +391,7 @@ export class ArmarPostulacionService {
       (vuelta.cotizacion === 'no_hay' || vuelta.cotizacion === 'otro_precio');
     if (conCotizacion && this.cotizacionDetallada) {
       const detallada = this.cotizacionDetallada;
+      const nombre = comoLaLlaman('cotizacion');
       pasos.push([
         'La cotización detallada',
         () =>
@@ -376,6 +399,7 @@ export class ArmarPostulacionService {
             conPropuesta: armada.propuesta,
             reemplaza: vuelta.borradoresDeCotizacion,
             ...(reparto ? { reparto } : {}),
+            ...(nombre ? { nombre } : {}),
           }),
       ]);
       if (vuelta.cotizacion === 'otro_precio') {
@@ -383,6 +407,23 @@ export class ArmarPostulacionService {
           'La cotización detallada firmada tiene el precio de antes: firma la nueva y borra la anterior.',
         );
       }
+    }
+    // Las declaraciones y cartas que las bases piden sin formato, en el
+    // formato de la casa y sin IA (parte 3b): las que no salen por un dato
+    // que falta quedan dichas.
+    const declaraciones = this.declaraciones;
+    if (declaraciones && lasDeclaracionesPedidas(resultado).length > 0) {
+      pasos.push([
+        'Las declaraciones',
+        async () => {
+          const r = await declaraciones.armar(user, oportunidadId, ofertaId, {
+            experiencia,
+            reemplaza: vuelta.borradoresDeDeclaraciones ?? [],
+            yaHechas: vuelta.declaracionesHechas ?? [],
+          });
+          problemas.push(...r.noSalieron);
+        },
+      ]);
     }
     await Promise.all(
       pasos.map(async ([que, paso]) => {
@@ -453,6 +494,7 @@ export class ArmarPostulacionService {
       ]);
       return laVueltaAnterior({
         postulacion: archivos.filter((a) => a.seccion === 'postulacion'),
+        tipoDe: new Map(trabajos.map((t) => [t.id, t.tipo])),
         formularios: Array.isArray(resultado?.formularios)
           ? (resultado.formularios as FormularioDeLasBases[])
           : [],

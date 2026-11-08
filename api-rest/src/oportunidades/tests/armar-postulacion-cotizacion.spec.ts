@@ -164,7 +164,14 @@ describe('Armar postulación arma la cotización detallada', () => {
       11072,
       105,
       1_780_000,
-      { conPropuesta: true, reemplaza: [90], reparto: expect.any(Array) },
+      {
+        conPropuesta: true,
+        reemplaza: [90],
+        reparto: expect.any(Array),
+        // Con el nombre que le dan las bases (parte 3b).
+        nombre:
+          'Cotización detallada (con plazo de entrega, detalle de lo ofertado y datos bancarios)',
+      },
     );
     expect(s.documentos.crearPropuesta).toHaveBeenCalled();
     expect(s.documentos.generarAnexos).not.toHaveBeenCalled();

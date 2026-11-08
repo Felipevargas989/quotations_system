@@ -338,6 +338,7 @@ const TEXTO_DEL_DOCUMENTO: Record<FilaDelChecklist["estado"], string> = {
   vencido: "vencido",
   falta: "falta",
   no_aplica: "no aplica",
+  portal: "en el portal",
 };
 
 /** «N°3 y N°5», o nada si no son formularios. */
