@@ -2252,6 +2252,17 @@ Se le dijo lo entendido con una maqueta y respondió *"sí, así"*.
   en «Lo del evento», dentro de la revisión. Para facturar uno solo, se
   marca y se usa el botón de arriba. Los plegados de abajo también quedan
   sin las líneas de las OC.
+- **Una factura por cada OC** (Felipe, 08-11, con la #481 de Santo Tomás:
+  un evento, tres OC y tres facturas, *"una factura por cada OC"*). Un
+  evento con varias OC con saldo entra a la revisión como un documento por
+  OC, cada uno a nombre del comprador de su OC («1 de 3 · OC 33000132942»):
+  se revisan, aprueban y emiten aparte, en la misma vuelta. BelIA lee el
+  evento una sola vez (`revisarUnoParaLaMasiva` con la OC y una preparación
+  compartida), «Lo del evento» marca la OC de esta factura y su barra
+  cuenta lo de las anteriores del mismo evento. Lo cubren
+  `RevisionDeLaFacturacion.test.tsx` y `revisarUnoParaLaMasiva.test.ts`.
+  Probado en el laboratorio con la #423 y una segunda OC de prueba. **En
+  producción desde el 08-11-2026** (PR #321, solo la vitrina).
 - **Las columnas no se mueven** (Felipe, 08-11: *"se mueven todas las
   columnas cuando intento colocar algunas como facturadas"*). La pregunta
   «¿Ya se facturó fuera de Eventia? Sí, sacarlo · No» era más ancha que el
@@ -2530,6 +2541,19 @@ dale armalo"*.
 - Lo cubre `LoDelEvento.test.tsx`.
 - **En producción desde el 08-11-2026** (PR #319, solo la vitrina), con el
   «ok» de Felipe.
+- **El recuadro azul** (Felipe, 08-11: *"ese cuadro ámbar, podría ser un
+  cuadro azul más bonito? lo encuentro todo fome en cuanto a diseño"*; con
+  la maqueta: *"me parece bien el recuadro"*). Siempre azul: el total del
+  evento grande arriba, la barra más gruesa, Facturado / Esta factura /
+  Queda en columnas que no se mueven (sin el documento, «—»), y lo que hay
+  que mirar en su propia franja ámbar (roja si no cuadra); las OC y los
+  avisos abajo, en chico. **En producción desde el 08-11-2026** (PR
+  #321, solo la vitrina).
+- **El documento nuevo a todo el ancho** (Felipe, 08-11, con «Nueva
+  factura electrónica»: *"acá deberíamos aprovechar el ancho también"*): la
+  pantalla de la factura, la boleta y la nota ya no se queda en el
+  `max-w-5xl`, igual que la lista. **En producción desde el 08-11-2026** (PR
+  #321).
 
 ### 9.35 El nombre del PDF y sin la descripción larga (08-11)
 

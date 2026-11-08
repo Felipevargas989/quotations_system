@@ -120,10 +120,11 @@ export default function FacturacionPage() {
     />
   );
 
-  // El documento en su propia pantalla (§9.22).
+  // El documento en su propia pantalla (§9.22), a todo el ancho, como la
+  // lista (Felipe, 08-11: *"acá deberíamos aprovechar el ancho también"*).
   if (abierto)
     return (
-      <div className="max-w-5xl space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
+      <div className="space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
         {letrero}
         {abierto.tipo === "factura" ? (
           <FacturaNueva
