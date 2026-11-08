@@ -1959,8 +1959,14 @@ Lo ve y lo trae quien ve «Documentos» (`facturacion_documentos`:
 operaciones y el administrador, de fábrica).
 
 **Lo que falta saber:** si su cuenta lo tiene habilitado o cuesta aparte.
-El laboratorio solo tiene la empresa de prueba de facturacion.cl: la
-respuesta de verdad se ve en producción con «Traer de facturacion.cl».
+Probado en el laboratorio el 08-11 (la empresa de prueba de
+facturacion.cl, RUT 1-9): el servicio leyó el pedido y respondió
+`Resultado` falso con «Empresa no Autorizada» (la pantalla lo muestra tal
+cual y no guarda nada). O sea, el pedido está bien hecho y lo recibido se
+habilita por empresa. La respuesta de Valle del Sol se ve en producción con
+«Traer de facturacion.cl». Si también dice «Empresa no Autorizada», se le
+pide a soporte de facturacion.cl que lo habilite; el costo lo decide
+Felipe.
 
 **Lo que cubren las pruebas:** `recibidos.spec.ts` (el sobre sin las
 credenciales a la vista, el XML en Base64, escapado y en CDATA, la
