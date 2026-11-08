@@ -1915,10 +1915,10 @@ vez; si falla, queda la anterior.
 cliente nuevo» y «Editar receptor y referencias» del evento):
 - con un RUT válido, busca lo guardado en Eventia y, si no, la nómina;
 - llena **solo lo vacío**: lo escrito a mano no se pisa;
-- dice de dónde salió: «Llenado con la nómina del SII: revisa el giro y la
-  dirección» o «Llenado con la ficha de …»;
-- del SII, «Otras actividades en el SII» con un botón por actividad para
-  cambiar el giro.
+- dice de dónde salió: «Llenado con la nómina del SII» o «Llenado con la
+  ficha de …»;
+- del SII, sus otras actividades para cambiar el giro (desde el 08-11, en
+  una lista: «El RUT arriba», al final de esta sección).
 
 La búsqueda pasó a `@Permiso('boletas', 'facturacion_eventos')`, para que
 sirva también al facturar un evento.
@@ -1945,6 +1945,36 @@ pesa 359 MB y la base quedó en 1,9 GB de 8. Probado en «Nuevo documento»
 → «Crear cliente nuevo» con el RUT 96.930.440-6, sin guardar ni emitir:
 llenó la razón social, el giro, la dirección y la comuna, con «Otras
 actividades en el SII».
+
+**El RUT arriba (08-11, en el laboratorio).** Felipe, después de probarlo
+en producción: *"el rut debería aparecer arriba de los primeros para
+ingresar, así el resto se rellena solo y se achura (¿es la mejor práctica
+para evitar errores o lo dejamos editables?)"*; *"cuando hay más de 1 giro
+detectado debería generarse una lista desplegable con una flechita para
+elegir el giro"*; y que el correo quede en el cliente al emitir. Se le
+recomendó achurar con una salida, vio la maqueta y dijo *"hazlo así"*.
+- **El orden:** el RUT primero; después la razón social, el giro, la
+  dirección con la comuna y la ciudad, y los correos.
+- **Lo que trae el RUT, achurado** (en gris, con candado y sin contador),
+  para no tocarlo por error. «Corregir datos» lo abre todo: el SII puede
+  estar atrasado, o el cliente pide la dirección de una sucursal (la
+  nómina trae la casa matriz). Lo que ya estaba o se escribe a mano queda
+  abierto, y también lo que no cabe en la factura y la razón social
+  cortada de un PDF (§9.29).
+- **El giro, de una lista** cuando el SII trae más de una actividad («N
+  actividades en el SII»; la lista de la casa, con buscador). Reemplaza
+  los botones de «Otras actividades en el SII». Otro giro se escribe con
+  «Corregir datos».
+- **Otro RUT** reemplaza lo que trajo el anterior y, si no lo encuentra,
+  lo vacía. Lo escrito a mano se queda.
+- **Los correos, siempre abiertos.** Ya se guardaban (`recordarReceptor`
+  del motor): al emitir, la razón social con su correo queda en la ficha
+  del cliente y el RUT la trae la próxima vez. Sin correo, la casilla lo
+  dice: «Queda guardado en el cliente al emitir: la próxima vez se llena
+  solo.»
+- **Lo que cubren las pruebas:** `CamposDelReceptor.test.tsx` (el orden,
+  lo achurado y «Corregir datos», la lista del giro, otro RUT y el aviso
+  del correo).
 
 ### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
 
