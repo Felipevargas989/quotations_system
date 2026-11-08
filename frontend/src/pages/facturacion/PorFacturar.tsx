@@ -282,9 +282,9 @@ export default function PorFacturar() {
                 <th className="py-1 font-medium">Cliente</th>
                 <th className="py-1 font-medium">Fecha</th>
                 <th className="py-1 font-medium">Estado</th>
-                <th className="py-1 text-right font-medium">Total</th>
-                <th className="py-1 text-right font-medium">Emitido</th>
-                <th className="py-1 text-right font-medium">Queda</th>
+                <th className="py-1 pr-2 text-right font-medium">Total</th>
+                <th className="py-1 pr-2 text-right font-medium">Emitido</th>
+                <th className="py-1 pr-2 text-right font-medium">Queda</th>
                 <th className="py-1" />
               </tr>
             </thead>
