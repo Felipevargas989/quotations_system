@@ -2595,6 +2595,51 @@ Desde el 08-11:
 `facturas.spec.ts` (la copia en Documentos con el nombre nuevo) y, en la
 vitrina, `ListaDeDocumentos.test.tsx` (el nombre al descargar).
 
+### 9.36 Traer una factura emitida fuera de Eventia (08-11)
+
+Felipe, 08-11, con la #481 de Santo Tomás: las N° 374 y 375 se hicieron
+el 30-10 en la página de facturacion.cl, cada una por el 50 % de su OC, y
+hay que anularlas para facturar una por OC. *"¿podrás traer estas facturas
+para hacer las notas de crédito desde acá o las debo hacer desde
+facturación?"*; con las dos opciones a la vista, *"ok vamos con la 2"*.
+
+**Lo que hace:** en «+ Nuevo DTE», «Traer factura emitida fuera de Eventia»
+(quien tiene las notas, el administrador). Se escribe el N°:
+1. «Leer de facturacion.cl»: el motor le pide el PDF a facturacion.cl
+   (`ObtenerPdf`, que viene incluido) y lo lee sin IA
+   (`facturas-traidas/leer-factura-del-pdf.ts`, sobre los textos con su
+   posición de `texto-del-pdf.ts` de §9.29). Medido en la N° 374 de
+   producción: el N°, la fecha, el cuadro del cliente (cada valor hasta la
+   columna de la derecha, donde van la condición de pago y el vencimiento:
+   «CREDITO» no es parte del giro), la referencia («en ORDEN DE COMPRA :
+   Nro. … del …»), el detalle bajo «Descripción · Cant. · Precio Unit. ·
+   Total» (una fila sin montos sigue la descripción larga) y los totales
+   («Exento:» y «Neto:» van en la misma fila).
+2. Se mira lo leído: el cliente, la OC y su evento, los ítems y los
+   totales.
+3. «Traer a Eventia»: queda en la lista como emitida, con «traída de
+   facturacion.cl» en su línea chica (`respuesta.traida`; la lista lee solo
+   esa marca de la respuesta). Si su OC está en Eventia, queda en ese evento
+   y cuenta en «Por facturar». Su PDF es el que ya estaba subido a
+   Documentos → Facturas del evento (si el nombre trae su N°, como
+   «F374.pdf»); si no, una copia propia con el nombre de §9.35.
+
+Desde la lista se anula o rebaja con su nota, como cualquier otra: la nota
+toma sus líneas, su receptor, su N° y su fecha.
+
+**Lo que no se trae:** lo que no cuadra (el neto y el IVA que no suman el
+total, un IVA que no es el 19 %, líneas que no suman el neto), un PDF que
+no es una factura electrónica de facturacion.cl, una con descuento por
+línea, una que ya está en Eventia y, en el modo simulado, nada. Mejor no
+traer que traer mal. Sin vencimiento impreso, la condición de pago queda
+sin decir.
+
+**Lo que cubren las pruebas:** `facturas-traidas.spec.ts` (la N° 374 con
+sus posiciones de producción y datos inventados, el precio con decimales,
+la descripción larga, el vencimiento a la derecha del RUT, lo que no
+cuadra, y traerla: con su evento, con el PDF ya subido o su copia, dos
+veces no, otro N°, simulado) y, en la vitrina, `TraerFactura.test.tsx`.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
