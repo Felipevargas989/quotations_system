@@ -2452,8 +2452,25 @@ el pedido llega después, y `alCerrar` lo olvida al cerrarlo, para que no
 se abra de nuevo si la fila vuelve a aparecer (`ListaDeDocumentos.test.tsx`:
 «"Ver" trae el PDF que falta y abre el visor en el mismo clic», que falla
 sin el arreglo). Probado en el laboratorio con la factura 9999839228 sin
-su PDF: un clic lo trajo y lo abrió. **A producción**, con su OK: solo la
-vitrina.
+su PDF: un clic lo trajo y lo abrió. **A producción** con su OK del 08-11
+(«sí a ambos»), junto con lo del XML que sigue.
+
+**El XML, medido en producción el 08-11** (con el OK de Felipe, en la
+factura N° 381 y sin descargar nada): facturacion.cl respondió con una
+falla, «Esta opcion es un servicio adicional solo para clientes que lo
+contraten». No viene en el plan. **Lo que decidió Felipe:** él consulta
+el precio; si lo cobran, el XML queda a pedido con su botón, como está, y
+si no lo cobran, se trae solo al emitir, igual que el PDF. La pantalla
+mostraba dos avisos equivocados: «El sistema no puede leer la base de
+datos…», porque el motor respondía con un 503 y la vitrina avisa todo 503
+como la base (`api.ts`), y «facturacion.cl no responde: Server was unable
+to process request…». **Arreglado en el laboratorio** (08-11): la falla
+de `getXMLDte` es su respuesta (`obtenerXml`) y la pantalla dice «El XML
+es un servicio adicional de facturacion.cl y no está contratado.». Todo lo
+demás de facturacion.cl, y la conexión sin credenciales, responde con un
+502 y con lo que dijo, sin el envoltorio de .NET (`queDijo`): «facturacion.cl
+respondió: …» o «facturacion.cl no responde: …». Lo cubren `soap.spec.ts`
+y `notas.spec.ts`, que fallan sin el arreglo.
 
 ### 9.11 Fuentes nuevas (04-11)
 
