@@ -70,6 +70,8 @@ export default function ArmarPostulacion({
   oportunidadId,
   congelada = false,
   marcas,
+  yaSeAbrieronLasPreguntas = false,
+  onSeAbrieronLasPreguntas,
 }: {
   readonly oportunidadId: number;
   /** Postulada o ganada: lo postulado queda fijo (decisión 33). */
@@ -77,6 +79,10 @@ export default function ArmarPostulacion({
   /** Lo marcado en «Bases y criterios» (de la ficha): ya no se pregunta
    *  (decisión 119, parte 3). */
   readonly marcas?: Record<string, MarcaDeExigencia> | null;
+  /** Las preguntas ya se abrieron solas en esta visita a la licitación (lo
+   *  sabe la página: cambiar de pestaña no las vuelve a abrir). */
+  readonly yaSeAbrieronLasPreguntas?: boolean;
+  readonly onSeAbrieronLasPreguntas?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: oferta } = useQuery({
@@ -125,10 +131,17 @@ export default function ArmarPostulacion({
   const [preguntando, setPreguntando] = useState(false);
   const yaPregunto = useRef(false);
   useEffect(() => {
-    if (pendientes.length === 0 || yaPregunto.current) return;
+    if (
+      pendientes.length === 0 ||
+      yaPregunto.current ||
+      yaSeAbrieronLasPreguntas
+    ) {
+      return;
+    }
     yaPregunto.current = true;
+    onSeAbrieronLasPreguntas?.();
     setPreguntando(true);
-  }, [pendientes.length]);
+  }, [pendientes.length, yaSeAbrieronLasPreguntas, onSeAbrieronLasPreguntas]);
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
   const precio =
     escrito ??
