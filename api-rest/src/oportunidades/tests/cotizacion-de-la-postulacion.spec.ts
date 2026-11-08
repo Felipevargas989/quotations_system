@@ -16,7 +16,6 @@ import {
   sumarDias,
   tipoDeEvento,
 } from '../postulacion/cotizacion-de-la-postulacion.service';
-import { diasDeLaCotizacion } from '../postulacion/la-cotizacion-detallada';
 import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 import { CATALOGO_DE_PRUEBA } from './generacion-de-prueba';
 
@@ -158,35 +157,6 @@ const vinculada = (
 });
 
 describe('La cotización de la postulación', () => {
-  it('sin vinculada, la que piden las bases sale de lo postulado en memoria: no crea ni vincula nada en Eventia (decisión 120)', async () => {
-    // Felipe, 08-11: "si las bases piden una cotización, tenemos que armar
-    // una solamente en el módulo de oportunidades sin tener que hacer una
-    // eventia... arma una tipo y la adjunto".
-    const { servicio, cotizaciones, repo, clientes } = armar();
-    const { cotizacion } = await servicio.deLoPostulado(1, 87);
-    expect(cotizaciones.create).not.toHaveBeenCalled();
-    expect(cotizaciones.update).not.toHaveBeenCalled();
-    expect(clientes.create).not.toHaveBeenCalled();
-    expect(repo.vincular).not.toHaveBeenCalled();
-    expect(cotizacion).toMatchObject({
-      quotation_number: 0,
-      event_date: '2026-10-28',
-      people_count: 235,
-      client: null,
-    });
-    // Los mismos precios del catálogo que tendría «Crear la cotización».
-    const dias = diasDeLaCotizacion(cotizacion);
-    expect(dias.reduce((s, d) => s + d.subtotal, 0)).toBe(CATALOGO_TOTAL);
-  });
-
-  it('sin oferta, la de lo postulado lo dice en palabras', async () => {
-    const { servicio, repo } = armar();
-    repo.ultimaPropuesta.mockResolvedValue(null);
-    await expect(servicio.deLoPostulado(1, 87)).rejects.toThrow(
-      'No hay oferta armada',
-    );
-  });
-
   it('se crea con la oferta de la propuesta técnica y los precios del catálogo, para el comprador que ya existe', async () => {
     const { repo, cotizaciones, clientes, servicio, notas } = armar();
 

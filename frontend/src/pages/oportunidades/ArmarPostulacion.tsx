@@ -143,11 +143,18 @@ export default function ArmarPostulacion({
     else setPreguntando(true);
   };
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
-  const precio =
-    escrito ??
+  // Decisión 120 (08-11): si todavía no se armó ni hay cotización, el
+  // precio parte del presupuesto de la licitación y se cambia a mano.
+  // Felipe: "el precio parte del presupuesto de la licitación (donde coloco
+  // a mano por cuanto licitaremos)".
+  const presupuesto = estadoDeLaCotizacion?.presupuesto || undefined;
+  const anterior =
     totalDetenido(oferta) ??
     vuelta?.total ??
     (vinculada?.total ? vinculada.total : undefined);
+  const precio = escrito ?? anterior ?? presupuesto;
+  const delPresupuesto =
+    escrito === undefined && anterior === undefined && Boolean(presupuesto);
   const desglose = precio && precio > 0 ? desgloseDeOferta(precio) : null;
 
   // Con la oferta lista, el motor pide los documentos: se pregunta por
@@ -428,6 +435,12 @@ export default function ArmarPostulacion({
               : "Armar postulación"}
         </button>
       </div>
+      {delPresupuesto && (
+        <p className="text-xs text-blue-800">
+          Es el presupuesto de la licitación: escribe el precio con que
+          postulas.
+        </p>
+      )}
       {desglose && (
         <p className="text-xs text-gray-500">
           Neto {pesos(desglose.neto)} + IVA {pesos(desglose.iva)}. El neto y el
@@ -436,7 +449,7 @@ export default function ArmarPostulacion({
               servicios y este total, en el precio. */}
           {vinculada
             ? ` Si piden precio por ítem, este total se reparte en la misma proporción sobre los precios de tu cotización N° ${vinculada.numero}.`
-            : ""}
+            : " Si piden precio por ítem, este total se reparte en la misma proporción sobre los precios de tu catálogo; tu catálogo no cambia."}
         </p>
       )}
 
