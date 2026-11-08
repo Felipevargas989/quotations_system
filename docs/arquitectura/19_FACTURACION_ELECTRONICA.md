@@ -2662,6 +2662,8 @@ anterior (la 374 es del 30-10 y se trajo el 08-11), la lista vuelve
 desde ese mes hasta hoy, con la traída marcada (`ListaDeDocumentos`,
 `desde`; si queda a más de un año, solo su mes). La N° 374 se trajo esa
 tarde con el motor del PR #322; la 375 se trae con este arreglo.
+**En producción desde el 08-11-2026** (PR #323, el motor y la vitrina,
+sin migración).
 
 ### 9.11 Fuentes nuevas (04-11)
 
