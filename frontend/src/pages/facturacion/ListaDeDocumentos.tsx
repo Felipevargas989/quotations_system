@@ -492,6 +492,7 @@ export default function ListaDeDocumentos({
                   claseDelBoton={icono}
                   tituloDelBoton={`Ver ${d.titulo}`}
                   abrirAlMontar={verAlLlegar === d.id}
+                  alCerrar={() => setVerAlLlegar(null)}
                 />
               ) : (
                 <button

@@ -564,4 +564,59 @@ describe("la lista de Facturación (§9.22)", () => {
     );
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
+
+  it("«Ver» trae el PDF que falta y abre el visor en el mismo clic (§9.33)", async () => {
+    // 08-11, en producción: el PDF de la NC 115 llegó, pero el visor no se
+    // abría (la fila se refrescaba antes de saber que había que abrirlo).
+    const sinPdf: DocumentoDeLaLista = {
+      ...base,
+      id: 115,
+      folio: 115,
+      tipo: 61,
+      titulo: "NC 115",
+      nombre: "NC 115",
+      pdf_path: null,
+      acciones: { ...base.acciones, pedirPdf: true },
+    };
+    const lista = (documentos: DocumentoDeLaLista[]) => ({
+      ambiente: "produccion" as const,
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-08",
+      resumen: {
+        facturado: 0,
+        facturas: 0,
+        boletas: 0,
+        notas: 1,
+        porConfirmar: 0,
+      },
+      documentos,
+    });
+    d.getListaDeFacturacion
+      .mockResolvedValueOnce(lista([sinPdf]))
+      .mockResolvedValue(
+        lista([
+          {
+            ...sinPdf,
+            pdf_path: "c1/documentos-tributarios/nota_de_credito_115.pdf",
+          },
+        ]),
+      );
+    d.pedirPdfDelDocumento.mockResolvedValue({
+      pdf_path: "c1/documentos-tributarios/nota_de_credito_115.pdf",
+    });
+    vi.mocked(almacen).resolveStorageUrl.mockResolvedValue(
+      "https://firmada/nota_de_credito_115.pdf",
+    );
+    abrir();
+    fireEvent.click(await screen.findByRole("button", { name: "Ver NC 115" }));
+    expect(await screen.findByText("NC 115.pdf")).toBeInTheDocument();
+    expect(d.pedirPdfDelDocumento).toHaveBeenCalledWith(115);
+    // Cerrado, no se vuelve a abrir solo.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByText("NC 115.pdf")).not.toBeInTheDocument(),
+    );
+  });
 });
