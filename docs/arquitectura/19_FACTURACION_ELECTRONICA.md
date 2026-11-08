@@ -2528,6 +2528,48 @@ dale armalo"*.
 - El adelanto de Rudel: la factura de la OC de $4M deja el evento en
   «Parcial, 40 %», y lo que queda sigue en «Por facturar».
 - Lo cubre `LoDelEvento.test.tsx`.
+- **En producción desde el 08-11-2026** (PR #319, solo la vitrina), con el
+  «ok» de Felipe.
+
+### 9.35 El nombre del PDF y sin la descripción larga (08-11)
+
+**El nombre.** Felipe, 08-11: *"cuando descargo la factura el nombre puede
+ser FXXXXX_ CLIENTE _ NRO COTIZACIÓN_OC SI TIENE"*. Queda
+«F383_Municipalidad de Quillón_460_1213301-49-AG26.pdf»
+(`facturas/nombre-del-pdf.ts`):
+- La letra del documento con su folio: F (factura), B (boleta), NC (nota
+  de crédito) y ND (nota de débito).
+- El cliente como está en Eventia, más corto que la razón social; si el
+  documento no es de un evento, la razón social, y en la boleta suelta, la
+  cabaña.
+- El N° de la cotización y la OC si tiene. Lo que falta no se pone.
+- Sirve para «Descargar» y para el título del visor (el motor lo manda en la
+  lista, `nombre_del_pdf`), y para la copia que queda en Documentos →
+  Facturas del evento. En el balde va sin tildes ni espacios
+  («F383_Municipalidad_de_Quillon_460_1213301-49-AG26.pdf»). Lo ya emitido
+  cambia solo al descargarlo; su copia en Documentos conserva el nombre de
+  antes.
+
+**Sin la descripción larga.** Felipe, 08-11, con la factura N° 383: *"la
+descripción corta y larga se pisan, quizás deba evitar usar la descripción
+larga si no puedes tú darle espacio"*. La larga la dibuja facturacion.cl
+encima de la raya del ítem y le cambia las comas por puntos; el diseño es de
+ellos (el servicio incluye el «diseño inicial de impreso») y el archivo no
+admite saltos de línea, así que desde Eventia no se le puede dar espacio.
+Desde el 08-11:
+- Eventia ya no la llena sola (`glosaYDescripcion`): todo va en la glosa de
+  80, y lo que no cabe se corta en una palabra, sin «...».
+- El detalle del evento sin OC deja primero la cotización (va igual en las
+  observaciones) y después las personas, para caber en los 80.
+- Si la descripción de la OC pasa de 80, la revisión avisa «La descripción
+  de la OC pasa de 80 caracteres y va cortada: revísala.».
+- «+ Descripción larga» queda para escribirla a mano. El arreglo de fondo es
+  de facturacion.cl: Felipe lo suma a su consulta.
+
+**Lo que cubren las pruebas:** `nombre-del-pdf.spec.ts`, `borrador-de-factura.spec.ts`
+(la glosa cortada sin larga, el evento con niños y el aviso de la OC),
+`facturas.spec.ts` (la copia en Documentos con el nombre nuevo) y, en la
+vitrina, `ListaDeDocumentos.test.tsx` (el nombre al descargar).
 
 ### 9.11 Fuentes nuevas (04-11)
 
