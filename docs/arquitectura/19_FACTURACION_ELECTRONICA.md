@@ -1922,6 +1922,51 @@ con pocas empresas, una carga a la vez y el dígito verificador),
 **A producción:** primero el motor (que la deja fuera del respaldo),
 después la 192 (mirando el disco: unos 300 MB) y la carga, de noche.
 
+### 9.28 «Recibidos»: el Libro de Compras (08-11, en la madrugada)
+
+Los pasos 1 y 2 del plan de «Recibidos» de §9.25, juntos: «Traer de
+facturacion.cl» es la prueba (si el servicio no está contratado, lo dice
+y no guarda nada) y, si responde, la lista del mes. El paso 3 (aceptar o
+rechazar con `Acuse`) sigue esperando otro OK.
+
+**El servicio** (`facturacion-cl/compras.ts`), visto en su definición
+pública el 08-11 (`Compra?wsdl` y `?xsd=1`): SOAP en Java (JAX-WS) en
+`https://api.facturacion.com:443/WSFacturacion/Compra`, método
+`obtenerCompra` (espacio `http://api.facturacion.com/`, sin SOAPAction):
+- pide `login` con `Rut` y `Clave` (en Base64, las mismas de la conexión),
+  `periodo` AAAA-MM e `IncluyeLink` = 1;
+- responde `WSPLANO` (`Resultado`, `Mensaje`, `Detalle`), con un
+  `Documento` por cada recibido: su `XML`, el `RCV` (`recepcionSII`,
+  `acuseSII`, `tipoCompra`) y el `LinkPDF`.
+
+El XML se lee escapado, en Base64 (en ISO-8859-1, como lo emite el SII) o
+en CDATA, sin confundir sus etiquetas con las del sobre. De cada uno se
+toma quién lo emite (RUT y razón social), el tipo, el folio, la fecha, el
+neto, lo exento, el IVA y el total.
+
+**La copia** (migración 193, `documentos_recibidos`): una fila por emisor,
+tipo y folio, con su mes, el enlace del PDF y lo del SII. Lo que vino sin
+XML se cuenta y no se guarda.
+
+**En la pantalla** («Documentos» → «Recibidos», `RecibidosDelMes`):
+- el mes con sus flechas y «Traer de facturacion.cl» (con cuándo se trajo);
+- cada documento con el proveedor y su RUT, el tipo y el folio, la fecha
+  y cuándo lo recibió el SII, el neto, el IVA, el total y «PDF»;
+- arriba, cuántos son y el total (las notas de crédito restan, en rojo);
+- sin la conexión, el botón apagado y el porqué.
+
+Lo ve y lo trae quien ve «Documentos» (`facturacion_documentos`:
+operaciones y el administrador, de fábrica).
+
+**Lo que falta saber:** si su cuenta lo tiene habilitado o cuesta aparte.
+El laboratorio solo tiene la empresa de prueba de facturacion.cl: la
+respuesta de verdad se ve en producción con «Traer de facturacion.cl».
+
+**Lo que cubren las pruebas:** `recibidos.spec.ts` (el sobre sin las
+credenciales a la vista, el XML en Base64, escapado y en CDATA, la
+negativa, la falla del servidor, guardar lo traído y sin conexión) y, en
+la vitrina, `RecibidosDelMes.test.tsx`.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

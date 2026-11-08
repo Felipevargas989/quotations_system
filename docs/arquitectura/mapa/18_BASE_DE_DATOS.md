@@ -750,3 +750,13 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**
 
+## 36. Migración 193: lo recibido de los proveedores (08-11-2026)
+
+**Qué hace.** Una tabla, `documentos_recibidos`: lo que trae el Libro de Compras de facturacion.cl para cada empresa (`company_id`, con cascada), una fila por emisor, tipo y folio (llave única), con el mes (`periodo` AAAA-MM), la razón social del emisor, la fecha, el neto, lo exento, el IVA, el total, el enlace del PDF, la recepción y el acuse del SII, el tipo de compra y cuándo se trajo. Cerrada a `anon` y `authenticated`; el motor lee, inserta y pone al día (no borra).
+
+**Por qué.** Felipe, 07-11-2026: *"¿ya trajiste las facturas recibidas? ¿eso funcionará?"*. Doc 19 §9.25 y §9.28.
+
+**Ojo con el orden del motor:** «Recibidos» lee la tabla al abrirse: se aplica antes de subir el motor que la usa.
+
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **No está en producción.**
+

@@ -20,6 +20,9 @@ import { LeerOrdenDeCompraService } from './ordenes-de-compra/leer-orden-de-comp
 import { OrdenesDeCompraController } from './ordenes-de-compra/ordenes-de-compra.controller';
 import { OrdenesDeCompraRepository } from './ordenes-de-compra/ordenes-de-compra.repository';
 import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.service';
+import { RecibidosController } from './recibidos/recibidos.controller';
+import { RecibidosRepository } from './recibidos/recibidos.repository';
+import { RecibidosService } from './recibidos/recibidos.service';
 
 /**
  * LA FACTURACIÓN ELECTRÓNICA (doc 19). Las órdenes de compra de cada evento
@@ -40,6 +43,7 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     PorFacturarController,
     FacturaSinEventoController,
     NominaSiiController,
+    RecibidosController,
   ],
   providers: [
     OrdenesDeCompraService,
@@ -54,6 +58,8 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
     NotasService,
     NominaSiiService,
     NominaSiiRepository,
+    RecibidosService,
+    RecibidosRepository,
   ],
   exports: [OrdenesDeCompraService],
 })

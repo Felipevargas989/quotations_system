@@ -107,8 +107,22 @@ export const cortar = (texto: string, largo: number): string => {
   const abre = cortado.lastIndexOf('(');
   if (abre > 0 && cortado.indexOf(')', abre) < 0)
     cortado = cortado.slice(0, abre);
-  return cortado.replace(/[\s,.;:(-]+$/, '');
+  cortado = cortado.replace(/[\s,.;:(-]+$/, '');
+  // Tampoco termina colgando de una palabra chica: «… DE ARTICULOS DE»,
+  // «… ALMACENAMIENTO Y», «… RESIDENCIALES PARA».
+  for (;;) {
+    const sin = cortado
+      .replace(PALABRA_COLGANDO, '')
+      .replace(/[\s,.;:-]+$/, '');
+    if (sin === cortado || !sin) break;
+    cortado = sin;
+  }
+  return cortado;
 };
+
+/** Las palabras chicas en que no termina un texto cortado. */
+const PALABRA_COLGANDO =
+  /\s+(Y|E|O|U|A|DE|DEL|LA|LAS|LOS|EL|EN|CON|POR|PARA|AL|SIN|SU|SUS|Y\/O)$/i;
 
 /** «01-01-1993» o «1993-01-01» → «1993-01-01», para comparar. */
 export const fechaComparable = (fecha: string): string => {

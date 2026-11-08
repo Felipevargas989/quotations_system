@@ -310,6 +310,8 @@ export class NominaSiiService {
           .map((d) => cortar(d, LARGO_MAXIMO.giro)),
       ),
     ];
-    return { ...empresa, giros };
+    // El giro sale de la primera actividad con el corte de hoy (lo guardado
+    // se cortó al cargar).
+    return { ...empresa, giro: giros[0] ?? empresa.giro, giros };
   }
 }

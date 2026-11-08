@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { FacturacionClCompras } from '../facturacion-cl/compras';
 import {
   configuracionDeFacturacionCl,
   describirConfiguracion,
@@ -42,6 +43,7 @@ export class ConexionConFacturacionCl {
   private readonly config = configuracionDeFacturacionCl(process.env);
   private readonly simuladas = new Map<number, FacturacionCl>();
   private real: FacturacionClSoap | null = null;
+  private libro: FacturacionClCompras | null = null;
 
   constructor(
     private readonly repo: DocumentosTributariosRepository,
@@ -112,6 +114,35 @@ export class ConexionConFacturacionCl {
       sin_conexion: sinConexion ?? null,
       servicio,
       folios,
+    };
+  }
+
+  /**
+   * El Libro de Compras de la empresa (§9.28): lo recibido de los
+   * proveedores. Solo con la conexión de verdad (las mismas credenciales);
+   * si no, el porqué. Solo lee.
+   */
+  compras(companyId: number): {
+    ambiente: AmbienteDeFacturacion;
+    libro: FacturacionClCompras | null;
+    motivo: string | null;
+  } {
+    const c = this.config;
+    if (c.modo === 'conectado' && c.empresa === companyId)
+      return {
+        ambiente: c.ambiente,
+        libro: (this.libro ??= new FacturacionClCompras({
+          credenciales: c.credenciales,
+        })),
+        motivo: null,
+      };
+    const actual = this.actual(companyId);
+    return {
+      ambiente: actual.ambiente,
+      libro: null,
+      motivo:
+        actual.sinConexion ??
+        'Sin las credenciales de facturacion.cl no se puede pedir lo recibido',
     };
   }
 
