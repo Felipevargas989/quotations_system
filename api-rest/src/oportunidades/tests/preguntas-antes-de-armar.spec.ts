@@ -173,6 +173,37 @@ describe('Qué se pregunta antes de armar', () => {
     ]);
   });
 
+  it('la cotización, la propuesta y las fotos no se preguntan: las arma Eventia o las subes tú (decisión 120)', () => {
+    // Lo que preguntó la 2656-97-LE26 el 08-11 (Felipe: "la cotización
+    // general no la tengo hecha... esa la idea es que se arme sola").
+    const conseguir = (que: string) => ({
+      que,
+      estado: 'conseguir',
+      por_que: '',
+    });
+    const { candidatas } = lasCandidatas(
+      [
+        conseguir('Cotización general del servicio y fotos del recinto'),
+        conseguir(
+          'Recinto con autorizaciones sanitarias y permisos; salones de cena y baile con resolución sanitaria',
+        ),
+        conseguir('Garantizar los 200 servicios aunque asistan menos personas'),
+        conseguir(
+          'Buses con documentación de transporte de pasajeros (viaje especial)',
+        ),
+        conseguir('Propuesta técnica con metodología de trabajo y cronograma'),
+        conseguir('Set de fotos de la van'),
+      ],
+      {},
+      [],
+    );
+    expect(candidatas.map((c) => c.exigencia)).toEqual([
+      'Recinto con autorizaciones sanitarias y permisos; salones de cena y baile con resolución sanitaria',
+      'Garantizar los 200 servicios aunque asistan menos personas',
+      'Buses con documentación de transporte de pasajeros (viaje especial)',
+    ]);
+  });
+
   it('lo que decide la IA: no pregunta lo subcontratado, marca lo ya respondido y pregunta lo demás', () => {
     const candidatas = [
       { clave: 'rampa', exigencia: RAMPA, por_que: '' },
