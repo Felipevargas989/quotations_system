@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
+import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import {
   armarBorradorDeDte,
@@ -21,7 +22,6 @@ import ReferenciasDelDte from "../postventa/facturacion/ReferenciasDelDte";
 import {
   OTRA,
   RECEPTOR_VACIO,
-  claseCasilla,
   claseTitulo,
   useQuieto,
 } from "../postventa/facturacion/datosDeLaFactura";
@@ -208,21 +208,29 @@ export default function CorregirDte({
         {factura ? (
           <div className="space-y-3">
             {conLista && (
-              <label className="block sm:max-w-md">
+              <div
+                role="group"
+                aria-label="Razón social del cliente"
+                className="block sm:max-w-md"
+              >
                 <span className={claseTitulo}>Razón social del cliente</span>
-                <select
+                <SelectWithSearch
+                  options={[
+                    ...razones.map((z) => ({
+                      value: z.rut,
+                      label: `${z.razon_social} · ${formatearRut(z.rut)}`,
+                      buscar: z.rut,
+                    })),
+                    { value: OTRA, label: "Otra razón social" },
+                  ]}
                   value={razonElegida}
-                  onChange={(e) => elegirRazon(e.target.value)}
-                  className={claseCasilla}
-                >
-                  {razones.map((z) => (
-                    <option key={z.rut} value={z.rut}>
-                      {z.razon_social} · {formatearRut(z.rut)}
-                    </option>
-                  ))}
-                  <option value={OTRA}>Otra razón social</option>
-                </select>
-              </label>
+                  onChange={(v) => v && elegirRazon(v)}
+                  searchPlaceholder="Buscar por nombre o RUT..."
+                  tamano="sm"
+                  sinLimpiar
+                  mostrarConteo={false}
+                />
+              </div>
             )}
             <CamposDelReceptor
               receptor={pedida.receptor}

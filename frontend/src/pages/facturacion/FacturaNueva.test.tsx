@@ -146,8 +146,10 @@ describe("La factura de «Nuevo DTE»", () => {
     );
     // §9.32: la condición de pago, en una lista; debajo, el vencimiento.
     expect(
-      screen.getByRole("combobox", { name: "Condición de pago" }),
-    ).toHaveValue("30");
+      within(
+        screen.getByRole("group", { name: "Condición de pago" }),
+      ).getByRole("button", { name: /Crédito 30 días/ }),
+    ).toBeInTheDocument();
     expect(await screen.findByText("vence 06-12-2026")).toBeInTheDocument();
   });
 
@@ -171,12 +173,19 @@ describe("La factura de «Nuevo DTE»", () => {
 
   it("a 45 días avisa lo de la ley; al contado no tiene vencimiento", async () => {
     abrir();
-    const condicion = await screen.findByRole("combobox", {
+    // La lista de la casa: se abre con lo elegido y se pincha la opción.
+    const condicion = await screen.findByRole("group", {
       name: "Condición de pago",
     });
-    fireEvent.change(condicion, { target: { value: "45" } });
+    fireEvent.click(
+      within(condicion).getByRole("button", { name: /Crédito 30 días/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Crédito 45 días/ }));
     expect(screen.getByText(/Más de 30 días solo si/)).toBeInTheDocument();
-    fireEvent.change(condicion, { target: { value: "contado" } });
+    fireEvent.click(
+      within(condicion).getByRole("button", { name: /Crédito 45 días/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Contado/ }));
     expect(screen.queryByText(/^vence/)).not.toBeInTheDocument();
     await waitFor(
       () =>
