@@ -150,10 +150,11 @@ export const instruccionesDeCumplimiento = (
     ...textoDeLaAgenda(c.fecha, c.agenda),
     '',
     'Para CADA exigencia, con su número en "requisito", decide:',
-    '- "tengo": la carta o las instalaciones lo cubren. En "con_que", con qué, con el nombre exacto del menú, servicio, paquete o salón (por ejemplo: "Menú guardado [Cena] Plateada" o "Salón principal, 300 personas").',
+    '- "tengo": la carta o las instalaciones lo cubren. En "con_que", con qué, con el nombre exacto del menú, servicio, paquete o salón (por ejemplo: "Menú guardado [Cena] Plateada" o "Salón principal, 300 personas"). También es "tengo" lo que la empresa ya respondió que tiene (en LO QUE YA RESPONDIÓ LA EMPRESA, al final): en "con_que", lo que respondió.',
     '- "conseguir": no está en lo que te pasé: hay que subcontratarlo, comprarlo o confirmarlo (un show, un músico, equipos, un certificado). En "por_que", qué falta, en una frase.',
     '- "no_se_puede": SOLO si un dato duro lo impide, y di cuál: la capacidad (piden más personas de las que caben según las instalaciones), el lugar (exigen otra comuna o una distancia que el complejo no cumple) o la agenda (ese día ya hay eventos confirmados que ocupan lo necesario). Con varios salones, un evento confirmado no basta para decir que no.',
-    'Si dudas, es "conseguir", nunca "tengo". No inventes nada que no esté en la carta o en las instalaciones. Deja vacío lo que no corresponda ("con_que" en "conseguir", por ejemplo).',
+    'Lo que la empresa ya respondió que no puede es "no_se_puede", y en "por_que" di que lo respondió la empresa.',
+    'Si dudas, es "conseguir", nunca "tengo". No inventes nada que no esté en la carta, en las instalaciones o en lo que ya respondió la empresa. Deja vacío lo que no corresponda ("con_que" en "conseguir", por ejemplo).',
     'En "resumen", 1 o 2 frases: cuántas exigencias tiene, cuántas hay que conseguir y si algo lo impide. Responde en español de Chile, claro y sin jerga.',
   ].join('\n');
 

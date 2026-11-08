@@ -4,6 +4,7 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import {
   type AnalisisNuevo,
   COLUMNAS_DE_TRABAJO,
+  type EstadoDeAnalisis,
   type FilaDeAnalisis,
   TrabajosDeIARepository,
 } from '../analisis/analisis.repository';
@@ -59,18 +60,22 @@ export class GeneracionRepository extends TrabajosDeIARepository {
     this.logger.setContext(GeneracionRepository.name);
   }
 
-  /** El último trabajo de un tipo en una oportunidad de la empresa. */
+  /** El último trabajo de un tipo en una oportunidad de la empresa; con
+   *  `estado`, el último en ese estado. */
   async ultimoDeTipo(
     companyId: number,
     oportunidadId: number,
     tipo: TipoDeTrabajo,
+    estado?: EstadoDeAnalisis,
   ): Promise<FilaDeGeneracion | null> {
-    const { data, error } = await this.db
+    let consulta = this.db
       .from(this.tabla)
       .select(this.columnas)
       .eq('company_id', companyId)
       .eq('oportunidad_id', oportunidadId)
-      .eq('tipo', tipo)
+      .eq('tipo', tipo);
+    if (estado) consulta = consulta.eq('estado', estado);
+    const { data, error } = await consulta
       .order('creado_en', { ascending: false })
       .limit(1)
       .maybeSingle();

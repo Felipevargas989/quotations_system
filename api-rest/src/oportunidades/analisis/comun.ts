@@ -3,6 +3,10 @@ import { cerebroPara } from 'src/cerebro/cerebro';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { Adjunto } from '../adjuntos/adjuntos.repository';
 import { extensionDe } from '../adjuntos/adjuntos.service';
+import {
+  respuestasDe,
+  seccionDeLoQueSabemos,
+} from '../oferente/lo-que-sabemos';
 import { textoDeDocx } from './docx';
 
 // LO COMÚN DE LOS TRABAJOS DE LA IA SOBRE ARCHIVOS: leer las bases (paso 1)
@@ -164,12 +168,15 @@ export type ContextoDeBases = {
 // que sabe toda la IA de la empresa (`api-rest/src/cerebro/`, tarea
 // `postular`): las reglas de la casa, su complejo y las lecciones de «todas».
 // Sirve para saber qué ofrece y cómo trabaja; al postular mandan las bases.
+// Al final, lo que ya respondió la empresa (decisión 119, parte 3: «Lo que
+// Eventia sabe de tu empresa», migración 190), que leen todas las IA de
+// Oportunidades.
 
 /** El bloque del cerebro para las instrucciones de una IA de Oportunidades,
  *  o vacío sin empresa. */
 export const loQueSabeLaCasa = (empresa: number | null | undefined): string =>
   empresa
-    ? `\n\n---\n\nLO QUE SABE TODA LA IA DE EVENTIA DE ESTA EMPRESA (sus reglas de la casa y su complejo). Úsalo para saber qué ofrece y cómo trabaja. Al postular, lo que piden las bases manda sobre esto.\n\n${cerebroPara(empresa, 'postular')}`
+    ? `\n\n---\n\nLO QUE SABE TODA LA IA DE EVENTIA DE ESTA EMPRESA (sus reglas de la casa y su complejo). Úsalo para saber qué ofrece y cómo trabaja. Al postular, lo que piden las bases manda sobre esto.\n\n${cerebroPara(empresa, 'postular')}${seccionDeLoQueSabemos(respuestasDe(empresa))}`
     : '';
 
 // EL PREFIJO COMPARTIDO (decisión 67, 22-10). Felipe: "¿pero la primera

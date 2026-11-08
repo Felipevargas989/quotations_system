@@ -285,6 +285,8 @@ const ESTADOS_DE_CUMPLIMIENTO: Record<string, string> = {
   tengo: 'lo tiene',
   conseguir: 'hay que conseguirlo',
   no_se_puede: 'no se puede',
+  // Lo que respondió la empresa (decisión 119, parte 3).
+  no_puede: 'la empresa dijo que no puede',
 };
 
 /** Lo que ya se revisó contra Eventia: qué tiene, qué hay que conseguir y
@@ -444,11 +446,14 @@ export const SOLO_LO_QUE_PIDEN =
 // subcontrata: "no es interés de la municipalidad saberlo". Eso es interno:
 // va solo en pendientes, para que la empresa lo cotice (si no, la cotización
 // sale más barata de lo que cuesta), y nunca dentro del Word.
-export const LO_SUBCONTRATADO =
-  'Lo que la empresa subcontrata (audiovisual: sonido, micrófonos, consola, proyector e iluminación; escenarios y estructuras; mobiliario, mantelería, cristalería, vajilla y decoración; flores; fotografía; música, animación, shows y DJ; generador): en el documento escribe EXACTAMENTE lo que piden las bases, con sus cantidades y características (por ejemplo, "4 cajas activas con sus respectivos atriles"), comprometiendo su cumplimiento como un servicio más de la empresa: sin [POR CONFIRMAR], sin nombres de proveedores, artistas ni marcas, y sin decir que se subcontrata o que lo presta un tercero (eso no le interesa al comprador). Si las bases dejan algo para que lo defina el oferente (por ejemplo, la temática de un show), escribe [COMPLETAR: qué hay que definir] y anótalo en pendientes. Lo de subcontratar es interno: va SOLO en pendientes, nunca en el documento (ni como comentario), en una sola línea: "Subcontratar y cotizar: ...".';
+/** Lo que la empresa subcontrata. También lo lee «Armar postulación» para
+ *  no preguntarlo (decisión 119, parte 3). */
+export const LO_QUE_SE_SUBCONTRATA =
+  'audiovisual: sonido, micrófonos, consola, proyector e iluminación; escenarios y estructuras; mobiliario, mantelería, cristalería, vajilla y decoración; flores; fotografía; música, animación, shows y DJ; generador';
+export const LO_SUBCONTRATADO = `Lo que la empresa subcontrata (${LO_QUE_SE_SUBCONTRATA}): en el documento escribe EXACTAMENTE lo que piden las bases, con sus cantidades y características (por ejemplo, "4 cajas activas con sus respectivos atriles"), comprometiendo su cumplimiento como un servicio más de la empresa: sin [POR CONFIRMAR], sin nombres de proveedores, artistas ni marcas, y sin decir que se subcontrata o que lo presta un tercero (eso no le interesa al comprador). Si las bases dejan algo para que lo defina el oferente (por ejemplo, la temática de un show), escribe [COMPLETAR: qué hay que definir] y anótalo en pendientes. Lo de subcontratar es interno: va SOLO en pendientes, nunca en el documento (ni como comentario), en una sola línea: "Subcontratar y cotizar: ...".`;
 
 const NO_PROMETER =
-  'Para lo que produce la empresa (comida, bebidas, salones e instalaciones): lo que la revisión dice que "lo tiene", ofrécelo con lo que dice después de "con" (el nombre real del menú, servicio o salón). Lo que dice "hay que conseguirlo" o "no se puede" NO lo prometas: escríbelo como [POR CONFIRMAR: qué falta] y anótalo en pendientes. Lo subcontratado va por la regla de arriba.';
+  'Para lo que produce la empresa (comida, bebidas, salones e instalaciones): lo que la revisión dice que "lo tiene", ofrécelo con lo que dice después de "con" (el nombre real del menú, servicio o salón). Lo que dice "hay que conseguirlo" o "no se puede" NO lo prometas: escríbelo como [POR CONFIRMAR: qué falta] y anótalo en pendientes. Lo que dice "la empresa dijo que no puede" no lo ofrezcas ni lo dejes [POR CONFIRMAR]: no va en el documento, y anótalo en pendientes como "No puedes: ...". Lo subcontratado va por la regla de arriba.';
 
 // LAS NORMAS DE LA CASA (decisión 54 del doc 17, 19-10). Felipe: "solamente
 // hay que rellenar el formulario que te dan, de una forma más ordenada, con
