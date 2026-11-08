@@ -30,7 +30,34 @@ vi.mock("../boletas/consultas", () => ({
   }),
 }));
 vi.mock("./ListaDeDocumentos", () => ({
-  default: () => <p>lista de documentos</p>,
+  default: ({
+    filtros,
+    onFiltros,
+    onModificar,
+  }: {
+    filtros?: { desde: string };
+    onFiltros?: (f: never) => void;
+    onModificar: (d: never) => void;
+  }) => (
+    <div>
+      <p>lista de documentos</p>
+      <p>desde {filtros?.desde}</p>
+      <button
+        type="button"
+        onClick={() =>
+          onFiltros?.({ ...filtros, desde: "2026-10-01" } as never)
+        }
+      >
+        a octubre
+      </button>
+      <button
+        type="button"
+        onClick={() => onModificar({ id: 10, tipo: 33 } as never)}
+      >
+        anular la 377
+      </button>
+    </div>
+  ),
 }));
 vi.mock("../boletas/TarifarioDeBoletas", () => ({
   default: () => <p>el tarifario</p>,
@@ -62,7 +89,14 @@ vi.mock("./FacturaNueva", () => ({
   default: () => <p>la factura nueva</p>,
 }));
 vi.mock("./NotaNueva", () => ({
-  default: ({ tipo }: { tipo: string }) => <p>la nota: {tipo}</p>,
+  default: ({ tipo, onVolver }: { tipo: string; onVolver: () => void }) => (
+    <div>
+      <p>la nota: {tipo}</p>
+      <button type="button" onClick={onVolver}>
+        volver de la nota
+      </button>
+    </div>
+  ),
 }));
 
 const abrir = () =>
@@ -90,6 +124,17 @@ afterEach(() => {
 });
 
 describe("la sección Facturación", () => {
+  it("las fechas de la lista quedan al ir a anular y volver (Felipe, 08-11: «me borra los filtros de fecha»)", () => {
+    rol = "administrador";
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "a octubre" }));
+    expect(screen.getByText("desde 2026-10-01")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "anular la 377" }));
+    expect(screen.getByText("la nota: nota_credito")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "volver de la nota" }));
+    expect(screen.getByText("desde 2026-10-01")).toBeInTheDocument();
+  });
+
   it("recepción: «Nuevo documento» ofrece la boleta y la factura del tarifario, sin pestañas", () => {
     abrir();
     expect(pestanas()).toEqual([]);

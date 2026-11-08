@@ -1515,7 +1515,10 @@ entregue: se averiguan antes de prometerlos.
   RUT (con o sin puntos); el tipo (facturas, boletas, notas de crédito o de
   débito); el estado (vigentes, rebajadas, anuladas o por confirmar; la
   corregida vale entera, así que cuenta como vigente; lo dice el motor en
-  `situacion`); y el rango de fechas, este mes si no se dice. El motor da
+  `situacion`); y el rango de fechas, este mes si no se dice (desde el 08-11, los filtros
+  quedan al ir a anular o emitir y volver: viven en la página; Felipe,
+  anulando la 377 y la 378 de octubre: *"el sistema me borra los filtros de
+  fecha"*). El motor da
   hasta un año por vez (`GET /facturacion/documentos?desde=&hasta=`, las
   dos incluidas) y lo trae por páginas de mil, para que un año de boletas
   no quede cortado. «Limpiar» vuelve a este mes.
