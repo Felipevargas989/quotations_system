@@ -136,10 +136,10 @@ const condicionDePago = (d: DocumentoDeLaLista) =>
       ? "Contado"
       : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
 
-/** «NC 88.pdf»: sin lo que hace la nota (un motor de antes no manda el
- *  `nombre`, y se corta del título). */
+/** «F383_Municipalidad de Quillón_460_1213301-49-AG26.pdf» (§9.35; un
+ *  motor de antes manda solo «NC 88», o ni eso, y se corta del título). */
 const nombreDelArchivo = (d: DocumentoDeLaLista) =>
-  d.nombre ?? d.titulo.split(" · ")[0];
+  d.nombre_del_pdf ?? d.nombre ?? d.titulo.split(" · ")[0];
 
 /** Abajo del estado, en letra chica (§9.22, 07-11): lo que lo cambió («Se
  *  rebajaron $1.000», «Por NC 88») con el vencimiento de la factura que

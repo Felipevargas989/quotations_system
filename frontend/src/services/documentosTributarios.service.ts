@@ -27,6 +27,9 @@ export interface DocumentoDeLaLista {
   /** «Factura 1235», «NC 88»: arriba en la lista (§9.22, 07-11). Opcional,
    *  como lo demás nuevo del motor: la vitrina puede llegar antes. */
   nombre?: string;
+  /** «F383_Municipalidad de Quillón_460_1213301-49-AG26» (§9.35): el
+   *  nombre al descargarlo y en el visor. Un motor de antes no lo manda. */
+  nombre_del_pdf?: string;
   /** Lo que hace la nota, «anula la 1235»: junto a la fecha. */
   que_hace?: string | null;
   /** «Factura 1235», si esta factura reemplaza a una anulada de la misma OC. */
