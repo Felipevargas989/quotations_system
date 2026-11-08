@@ -54,6 +54,13 @@ import RevisionDeLaFacturacion from "./RevisionDeLaFacturacion";
 //   evento», dentro de la revisión;
 // - «Facturar seleccionados» abre la revisión una por una
 //   (`RevisionDeLaFacturacion`).
+//
+// Felipe, 08-11: *"se mueven todas las columnas cuando intento colocar
+// algunas como facturadas"*. La pregunta era más ancha que el botón y la
+// tabla repartía las columnas según lo que traía cada fila. Ahora las
+// columnas tienen ancho fijo (solo el cliente toma lo que sobra) y la
+// pregunta cabe en el lugar del botón: «¿Sacarlo? Sí · No». Nada se mueve
+// al preguntar, al sacar una fila ni al buscar.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const pct = (n: number) =>
@@ -259,10 +266,10 @@ export default function PorFacturar() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white p-4">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[68rem] table-fixed text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-                <th className="w-6 py-1">
+                <th className="w-7 py-1">
                   <input
                     type="checkbox"
                     aria-label="Marcar todos"
@@ -278,14 +285,16 @@ export default function PorFacturar() {
                     }
                   />
                 </th>
-                <th className="py-1 font-medium">Evento</th>
+                <th className="w-40 py-1 font-medium">Evento</th>
                 <th className="py-1 font-medium">Cliente</th>
-                <th className="py-1 font-medium">Fecha</th>
-                <th className="py-1 font-medium">Estado</th>
-                <th className="py-1 pr-2 text-right font-medium">Total</th>
-                <th className="py-1 pr-2 text-right font-medium">Emitido</th>
-                <th className="py-1 pr-2 text-right font-medium">Queda</th>
-                <th className="py-1" />
+                <th className="w-24 py-1 font-medium">Fecha</th>
+                <th className="w-28 py-1 font-medium">Estado</th>
+                <th className="w-28 py-1 pr-2 text-right font-medium">Total</th>
+                <th className="w-28 py-1 pr-2 text-right font-medium">
+                  Emitido
+                </th>
+                <th className="w-28 py-1 pr-2 text-right font-medium">Queda</th>
+                <th className="w-40 py-1" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -307,18 +316,25 @@ export default function PorFacturar() {
                       #{e.numero}
                     </Link>
                     {e.tipoDeEvento && (
-                      <span className="block text-xs text-gray-500">
+                      <span
+                        className="block truncate text-xs text-gray-500"
+                        title={e.tipoDeEvento}
+                      >
                         {e.tipoDeEvento}
                       </span>
                     )}
                   </td>
                   <td className="py-1.5 pr-2 text-gray-700">
-                    {e.cliente ?? "—"}
-                    {(e.ordenes ?? []).length > 0 && (
-                      <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
-                        Con OC
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate" title={e.cliente ?? undefined}>
+                        {e.cliente ?? "—"}
                       </span>
-                    )}
+                      {(e.ordenes ?? []).length > 0 && (
+                        <span className="shrink-0 whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                          Con OC
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
                     {e.fecha ? fechaCorta(e.fecha) : "—"}
@@ -343,8 +359,8 @@ export default function PorFacturar() {
                   <td className="py-1.5 text-right">
                     {preguntando === e.id ? (
                       <ConfirmInline
-                        question="¿Ya se facturó fuera de Eventia?"
-                        yesLabel="Sí, sacarlo"
+                        question="¿Sacarlo?"
+                        yesLabel="Sí"
                         tono="normal"
                         busy={ocupado === e.id}
                         onYes={() => void yaFacturado(e)}
