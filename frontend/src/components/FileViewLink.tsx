@@ -39,6 +39,7 @@ export default function FileViewLink({
   claseDelBoton = "text-sm font-semibold text-blue-600 hover:text-blue-800",
   tituloDelBoton,
   abrirAlMontar = false,
+  alCerrar,
 }: {
   readonly url: string;
   readonly title?: string;
@@ -52,8 +53,17 @@ export default function FileViewLink({
   /** Abre el visor apenas aparece (el PDF que se acaba de traer al
    *  pincharlo, doc 19 §9.33). */
   readonly abrirAlMontar?: boolean;
+  /** Al cerrar el visor: quien pidió abrirlo olvida el pedido, para que no
+   *  se vuelva a abrir si la fila aparece de nuevo. */
+  readonly alCerrar?: () => void;
 }) {
   const [open, setOpen] = useState(abrirAlMontar);
+  // El pedido puede llegar con el botón ya puesto: en la lista de
+  // Facturación, la fila se refresca con el PDF antes de saber que hay que
+  // abrirlo (08-11, en producción: el PDF llegaba y el visor no se abría).
+  useEffect(() => {
+    if (abrirAlMontar) setOpen(true);
+  }, [abrirAlMontar]);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const clase = claseDe(url);
 
@@ -89,7 +99,10 @@ export default function FileViewLink({
             titulo={<span className="block truncate text-base">{nombre}</span>}
             ancho="max-w-4xl"
             altoFijo
-            onCerrar={() => setOpen(false)}
+            onCerrar={() => {
+              setOpen(false);
+              alCerrar?.();
+            }}
             acciones={
               <div className="flex items-center gap-4 mr-2">
                 {acciones}

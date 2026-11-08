@@ -1,5 +1,9 @@
 # 19 · Facturación electrónica (boletas y facturas desde Eventia)
 
+> **Desde el 08-11-2026 también en producción (PR #315, sin migración):**
+> «Ver» abre el visor apenas llega el PDF, y el XML sin contratar lo dice
+> en una línea (§9.33). Felipe: *"sí a ambos"*.
+>
 > **§9.27 «El RUT arriba» y §9.31 a §9.33 EN PRODUCCIÓN desde el
 > 08-11-2026** (Felipe: *"sí, hazlo, pruébalo y luego a producción"*;
 > PR #314; sin migración): el RUT primero con lo que trae achurado,
@@ -2442,6 +2446,37 @@ al emitir, llega en un reintento, ya lo trajo alguien, nunca llega),
 `BoletaNueva`, `NotaNueva` y `RevisionDeLaFacturacion` (sin la pregunta).
 
 **En producción desde el 08-11-2026** (PR #314): el motor y la vitrina, sin migración.
+
+**Medido en producción ese mismo día:** «Ver» de la NC N° 115 trajo su PDF
+de facturacion.cl en un clic (quedó guardado a las 12:23), pero el visor
+no se abrió: la fila se refrescaba con el PDF antes de saber que había
+que abrirlo, y `FileViewLink` solo miraba `abrirAlMontar` al montarse.
+**Arreglado en el laboratorio** (08-11): el visor se abre también cuando
+el pedido llega después, y `alCerrar` lo olvida al cerrarlo, para que no
+se abra de nuevo si la fila vuelve a aparecer (`ListaDeDocumentos.test.tsx`:
+«"Ver" trae el PDF que falta y abre el visor en el mismo clic», que falla
+sin el arreglo). Probado en el laboratorio con la factura 9999839228 sin
+su PDF: un clic lo trajo y lo abrió. **En producción desde el 08-11-2026**
+(PR #315, la vitrina), con el OK de Felipe («sí a ambos»), junto con lo
+del XML que sigue.
+
+**El XML, medido en producción el 08-11** (con el OK de Felipe, en la
+factura N° 381 y sin descargar nada): facturacion.cl respondió con una
+falla, «Esta opcion es un servicio adicional solo para clientes que lo
+contraten». No viene en el plan. **Lo que decidió Felipe:** él consulta
+el precio; si lo cobran, el XML queda a pedido con su botón, como está, y
+si no lo cobran, se trae solo al emitir, igual que el PDF. La pantalla
+mostraba dos avisos equivocados: «El sistema no puede leer la base de
+datos…», porque el motor respondía con un 503 y la vitrina avisa todo 503
+como la base (`api.ts`), y «facturacion.cl no responde: Server was unable
+to process request…». **Arreglado** (08-11; en producción desde el
+08-11-2026, PR #315, el motor): la falla
+de `getXMLDte` es su respuesta (`obtenerXml`) y la pantalla dice «El XML
+es un servicio adicional de facturacion.cl y no está contratado.». Todo lo
+demás de facturacion.cl, y la conexión sin credenciales, responde con un
+502 y con lo que dijo, sin el envoltorio de .NET (`queDijo`): «facturacion.cl
+respondió: …» o «facturacion.cl no responde: …». Lo cubren `soap.spec.ts`
+y `xml-a-pedido.spec.ts`, que fallan sin el arreglo.
 
 ### 9.11 Fuentes nuevas (04-11)
 
