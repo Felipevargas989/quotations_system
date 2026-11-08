@@ -2327,12 +2327,17 @@ mismas piezas:
   no le pone otro límite. Eventia ya la mandaba, siempre con la de hoy.
 
 **Lo que deja Eventia** (`facturas/fecha-de-emision.ts`, el más simple
-que respeta todo eso): la de hoy si no se elige; **nunca una fecha
-futura**; **hasta el día 20, desde el 1 del mes anterior**; desde el 21,
-solo el mes en curso. El pedido lleva `fecha_emision` (solo la factura;
+que respeta todo eso): la de hoy si no se elige; **hasta el último día del
+mes en curso**; **hasta el día 20, desde el 1 del mes anterior**; desde el
+21, solo el mes en curso. Al partir no dejaba fechas futuras; Felipe
+preguntó *"¿emitir con una fecha posterior, ejemplo hoy con fecha 30 de
+noviembre, se puede?"*: el SII no lo prohíbe (un informe de Círculo Verde
+de 2019 dice que su plataforma las acepta y que la factura vale desde ese
+día; ninguna norma fija cuántos días), y dentro del mes no cambia el IVA
+en que cae. Dijo *"sí, hazlo, pruébalo"*. El pedido lleva `fecha_emision` (solo la factura;
 la boleta va con la del día), la revisión devuelve el rango (`emision`:
 desde y hasta) para la casilla, y una fecha fuera del rango no deja
-emitir («La fecha de emisión va del 01-10-2026 al 08-11-2026»). El
+emitir («La fecha de emisión va del 01-10-2026 al 30-11-2026»). El
 vencimiento, los plazos de las notas y lo facturado del mes salen de la
 fecha elegida, porque es la que queda en el documento. Si Felipe declara
 el F29 antes del 20, se puede bajar a 12 (`DIA_DEL_F29`).

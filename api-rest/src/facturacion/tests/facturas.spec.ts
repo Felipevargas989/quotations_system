@@ -293,7 +293,7 @@ describe('Emitir la factura del evento', () => {
         ...PEDIDA,
         fecha_emision: '2999-01-01',
       }),
-    ).rejects.toThrow('La fecha de emisión no puede ser futura');
+    ).rejects.toThrow(/La fecha de emisión va del/);
     expect(repo.crear).not.toHaveBeenCalled();
   });
 

@@ -24,7 +24,11 @@
  *   no le pone otro límite.
  *
  * El rango que deja Eventia, el más simple que respeta todo eso:
- * - nunca una fecha futura;
+ * - hasta el último día del mes en curso (Felipe, 08-11: *"¿emitir con
+ *   una fecha posterior, ejemplo hoy con fecha 30 de noviembre, se
+ *   puede?"*, y *"sí, hazlo, pruébalo"*). El SII no prohíbe una fecha
+ *   futura: la factura vale desde ese día, y dentro del mes no cambia el
+ *   IVA en que cae;
  * - hasta el día 20, desde el 1 del mes anterior (su IVA todavía se puede
  *   declarar); desde el 21, solo el mes en curso.
  * La boleta no elige: va con la fecha del día.
@@ -42,17 +46,22 @@ const esFecha = (s: string | null | undefined): s is string =>
 /** «DD-MM-AAAA», como la pantalla. */
 const corta = (iso: string) => iso.split('-').reverse().join('-');
 
+/** El último día de un mes (1 a 12): 28, 29, 30 o 31. */
+const ultimoDia = (anio: number, mes: number) =>
+  new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+
 /** Desde y hasta qué día (AAAA-MM-DD) se puede fechar una factura hoy. */
 export const rangoDeEmision = (
   hoy: string,
 ): { desde: string; hasta: string } => {
   const [anio, mes, dia] = hoy.split('-').map(Number);
+  const hasta = `${anio}-${dos(mes)}-${dos(ultimoDia(anio, mes))}`;
   if (dia <= DIA_DEL_F29) {
     const anterior =
       mes === 1 ? { a: anio - 1, m: 12 } : { a: anio, m: mes - 1 };
-    return { desde: `${anterior.a}-${dos(anterior.m)}-01`, hasta: hoy };
+    return { desde: `${anterior.a}-${dos(anterior.m)}-01`, hasta };
   }
-  return { desde: `${anio}-${dos(mes)}-01`, hasta: hoy };
+  return { desde: `${anio}-${dos(mes)}-01`, hasta };
 };
 
 /**
@@ -70,10 +79,8 @@ export const fechaDeEmision = (
   const rango = rangoDeEmision(hoy);
   const fecha = esFecha(elegida) ? elegida : hoy;
   const problema =
-    fecha > rango.hasta
-      ? 'La fecha de emisión no puede ser futura'
-      : fecha < rango.desde
-        ? `La fecha de emisión va del ${corta(rango.desde)} al ${corta(rango.hasta)}`
-        : null;
+    fecha < rango.desde || fecha > rango.hasta
+      ? `La fecha de emisión va del ${corta(rango.desde)} al ${corta(rango.hasta)}`
+      : null;
   return { fecha, rango, problema };
 };
