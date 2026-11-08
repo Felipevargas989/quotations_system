@@ -39,6 +39,10 @@ import {
 import EditarReceptor from "./EditarReceptor";
 import LineasDelDte from "./LineasDelDte";
 import VistaPreviaDelDte from "./VistaPreviaDelDte";
+import {
+  loQueLeFalta,
+  type RevisadoParaLaMasiva,
+} from "../../facturacion/revisarUnoParaLaMasiva";
 
 // EMITIR DTE (doc 19 §9.20): la factura o la boleta del evento.
 //
@@ -52,6 +56,10 @@ import VistaPreviaDelDte from "./VistaPreviaDelDte";
 // la nota de pedido; un RUT nuevo: el giro) y queda en la ficha al emitir.
 // «Ver cómo sale» muestra el DTE tal como saldrá y ahí se emite. La
 // revisión es la del motor: la misma que emite.
+//
+// Desde el 08-11 (§9.31) también es el «Corregir» de «Facturar
+// seleccionados»: con `alAprobar`, en vez de «Ver cómo sale» dice
+// «Aprobar», y devuelve lo corregido a la revisión sin emitir nada.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -62,11 +70,15 @@ export default function EmitirDte({
   puedeEmitir,
   onCerrar,
   onEmitido,
+  alAprobar,
 }: {
   readonly quotationId: string;
   readonly puedeEmitir: boolean;
   readonly onCerrar: () => void;
   readonly onEmitido: () => void;
+  /** §9.31: el «Corregir» de la revisión. Aprueba lo corregido, sin
+   *  emitirlo. */
+  readonly alAprobar?: (corregido: RevisadoParaLaMasiva) => void;
 }) {
   const preparacion = useQuery({
     queryKey: ["facturacion", "preparar", quotationId],
@@ -90,6 +102,7 @@ export default function EmitirDte({
           puedeEmitir={puedeEmitir}
           onCerrar={onCerrar}
           onEmitido={onEmitido}
+          alAprobar={alAprobar}
         />
       )}
     </div>
@@ -126,12 +139,14 @@ function ConLaPreparacion({
   puedeEmitir,
   onCerrar,
   onEmitido,
+  alAprobar,
 }: {
   readonly preparacion: PreparacionDelDte;
   readonly quotationId: string;
   readonly puedeEmitir: boolean;
   readonly onCerrar: () => void;
   readonly onEmitido: () => void;
+  readonly alAprobar?: (corregido: RevisadoParaLaMasiva) => void;
 }) {
   const [tipo, setTipo] = useState<TipoDeDte>(preparacion.tipo);
   // La primera OC que queda por facturar; si no hay, la cotización.
@@ -275,6 +290,7 @@ function ConLaPreparacion({
           revisar={(p) => revisarDte(quotationId, p)}
           emitir={(p) => emitirDte(quotationId, p)}
           llave={[quotationId]}
+          alAprobar={alAprobar}
         />
       )}
     </div>
@@ -361,6 +377,7 @@ export function Borrador({
   llave,
   titulo,
   sinFicha = false,
+  alAprobar,
 }: {
   readonly inicial: BorradorDelDte;
   readonly puedeEmitir: boolean;
@@ -374,6 +391,9 @@ export function Borrador({
   /** La factura de «Nuevo documento» no es de un evento: lo que se
    *  escribe no queda en ninguna ficha. */
   readonly sinFicha?: boolean;
+  /** §9.31: «Aprobar» en vez de «Ver cómo sale» (el «Corregir» de la
+   *  revisión de «Facturar seleccionados»). */
+  readonly alAprobar?: (corregido: RevisadoParaLaMasiva) => void;
 }) {
   const [pedida, setPedida] = useState<DtePedido>(inicial.pedida);
   const [editando, setEditando] = useState(false);
@@ -724,13 +744,25 @@ export function Borrador({
             {editando ? "Listo" : "Editar receptor y referencias"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setViendo(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700"
-        >
-          Ver cómo sale
-        </button>
+        {alAprobar ? (
+          <button
+            type="button"
+            onClick={() => alAprobar({ tipo: pedida.tipo, pedida, vista })}
+            disabled={revisando || !vista.ok}
+            title={loQueLeFalta(vista) ?? undefined}
+            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            Aprobar
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setViendo(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700"
+          >
+            Ver cómo sale
+          </button>
+        )}
       </div>
     </div>
   );

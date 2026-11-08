@@ -2173,6 +2173,92 @@ reclamo vencido) y, en la vitrina, `RecibidosDelMes.test.tsx`.
 **A producción**, con su «a producción»: primero la 195 en la base, después
 el motor y la vitrina.
 
+### 9.31 «Por facturar»: el buscador y la revisión una por una (08-11)
+
+**En el laboratorio desde el 08-11-2026.** Felipe, mirando «Por facturar»
+en el laboratorio, pidió cuatro cosas:
+- *"buscador arriba, por rut, nombre cliente, persona contacto, nro de
+  cotización etc. amplio"*;
+- *"el botón ya no debería ser + nuevo documento, si no que facturar
+  seleccionados, ahí debería desplegarse un modal con la misma estructura
+  de documento (dejémoslo como pieza de estructura de factura/boleta) que
+  ocupamos en nuevo documento, así puedo revisar una por una (como cuando
+  reviso los pagos, con la flecha arriba con un botón de corregir y un
+  botón de aprobar) y luego al final pinchar el facturar todas"*;
+- *"abajo solo dejaría el botón ya está facturado, el facturar lo dejaría
+  solo con el de arriba y si se va a facturar 1 solo, se selecciona y
+  luego el botón facturar seleccionados"*;
+- *"me parece extensa la cantidad de información por línea, el nro de OC
+  está dos veces, quizás el resto de la información debería ser un
+  recuadro que aparezca solo en el modal"*.
+
+Se le dijo lo entendido con una maqueta y respondió *"sí, así"*.
+
+**La lista:**
+- **El buscador**, arriba: el N° de la cotización, el cliente, el
+  contacto, el tipo de evento, el N° de cada OC y los RUT (de las razones
+  sociales del cliente y de sus OC), con puntos, sin puntos o solo los
+  números. Usa el criterio de todos los buscadores (`matchesSearch`: sin
+  tildes, por palabras, en cualquier orden), y filtra también los dos
+  plegados de abajo. Para esto, «Por facturar» trae de cada evento el
+  contacto (el de la cotización, o el de la ficha) y los RUT del cliente
+  (`eventosDesde`), y de cada OC su RUT (`ordenesDeLosEventos`).
+- **«Facturar seleccionados (N)»**, junto al buscador. En esta pestaña
+  reemplaza a «+ Nuevo documento», que sigue en «Documentos» y
+  «Tarifario». Sin nada marcado, está apagado.
+- **Cada fila, solo con sus columnas:** el evento con su tipo, el cliente
+  con el distintivo «Con OC», la fecha, el estado, el total, lo emitido y
+  lo que queda; y solo «Ya está facturado». Salieron «Facturar», las
+  líneas de cada OC, la OC repetida bajo lo que queda, «N OC sin leer»,
+  lo que BelIA no pudo leer y «Tiene factura en Documentos»: todo eso va
+  en «Lo del evento», dentro de la revisión. Para facturar uno solo, se
+  marca y se usa el botón de arriba. Los plegados de abajo también quedan
+  sin las líneas de las OC.
+
+**La revisión** (`RevisionDeLaFacturacion`), una ventana que **reemplaza a
+la facturación masiva** de §9.21 (`FacturacionMasiva` se borró):
+- BelIA arma el documento de cada evento marcado como «Emitir DTE» al
+  abrirse (`revisarUnoParaLaMasiva`: factura o boleta, desde la OC con
+  saldo o desde la cotización).
+- **Uno por uno**, con las flechas arriba («#423 · cliente», y debajo «2
+  de 5 · 1 aprobada»), como los días de las fichas en Personas.
+- Arriba, **«Lo del evento»**: sus OC con su estado, las que BelIA no ha
+  leído y por qué no pudo (lo de la primera lectura), «Tiene factura en
+  Documentos», los avisos del motor y lo que falta. Gris si solo informa;
+  ámbar si hay algo que mirar.
+- Abajo, **el documento** con las secciones de «Nuevo documento»
+  (`DocumentoDelDte`, la pieza de la factura y la boleta para leer, con
+  `Seccion`): Documento (tipo, emisión, condición de pago y las
+  observaciones), Destinatario, Ítems (precio con IVA y total, como en
+  «Nuevo documento»), Referencias y Totales (los del motor). No muestra el
+  N° que sigue: cada una toma el suyo al emitir.
+- **«Corregir»** abre el «Emitir DTE» del evento (se llena desde, qué
+  parte, receptor, líneas y referencias), que con `alAprobar` dice
+  «Aprobar» en vez de «Ver cómo sale» y devuelve lo corregido sin emitir.
+  El editor parte de lo que propone BelIA. Corregir uno ya aprobado lo
+  deja sin aprobar hasta que se apruebe de nuevo.
+- **«Aprobar»** lo deja listo tal como se ve y pasa al siguiente que
+  falta. Lo que no está listo no se aprueba: el botón queda apagado y
+  «Lo del evento» dice qué le falta.
+- **«Facturar las N aprobadas»** pregunta antes («¿Emitir N documentos por
+  $X en total? Emitidos no se borran.») y las emite una tras otra; si una
+  se corta o no sale, se detiene ahí, y lo emitido queda emitido. Al
+  final, la ventana dice qué salió de cada una («Factura N° … emitida»,
+  «Por confirmar» o el error). Las que no se aprobaron no se emiten.
+- Con algo aprobado, o emitiendo, la tecla Escape no cierra la ventana.
+
+**Lo que cubren las pruebas:** en la vitrina, `PorFacturar.test.tsx` (la
+fila solo con sus columnas, «Facturar seleccionados» con los marcados, lo
+que BelIA no pudo leer llega a la revisión, y el buscador por contacto,
+RUT con y sin puntos, N° y OC), `RevisionDeLaFacturacion.test.tsx` (las
+flechas, aprobar y saltar, solo se emiten las aprobadas, lo que falta no
+se aprueba, «Corregir» y si una no sale) y `EmitirDte.test.tsx`
+(«Aprobar» devuelve lo corregido sin emitir). En el motor no cambia
+ninguna regla: solo vienen más datos para buscar.
+
+**A producción**, con su «a producción»: solo el motor y la vitrina (no
+hay migración).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
