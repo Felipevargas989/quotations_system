@@ -22,7 +22,22 @@ import {
  *   «Total:», cada uno con su valor a la derecha.
  * Si algo no se lee o no cuadra, no se trae: es mejor no traer que traer
  * mal.
+ *
+ * La nota de crédito (Felipe, 08-11: *"tráete las notas de crédito y las
+ * facturas"*) sale con la misma plantilla, medida en la NC N° 115 de
+ * producción: «NOTA DE CREDITOELECTRONICA» arriba (un solo texto, sin el
+ * espacio del salto de línea) y en la referencia la razón y el documento
+ * que modifica: «Test en FACTURA ELECTRONICA : Nro. 381 del 08-11-2026».
+ * El código de referencia (anula, corrige, rebaja) no se imprime.
  */
+
+/** Lo que se puede traer: la factura (33) y la nota de crédito (61). */
+export type TipoTraible = 33 | 61;
+
+const TITULO: Record<TipoTraible, { texto: string; nombre: string }> = {
+  33: { texto: 'facturaelectronica', nombre: 'la factura' },
+  61: { texto: 'notadecreditoelectronica', nombre: 'la nota de crédito' },
+};
 
 export interface LineaTraida {
   descripcion: string;
@@ -47,7 +62,13 @@ export interface FacturaDelPdf {
   forma_de_pago: 1 | 2 | null;
   /** El vencimiento del crédito, si la factura lo imprime. */
   vencimiento: string | null;
-  referencias: { tipo: string; folio: string; fecha: string }[];
+  /** La razón, si la trae: la de una nota dice por qué modifica. */
+  referencias: {
+    tipo: string;
+    folio: string;
+    fecha: string;
+    razon?: string;
+  }[];
   lineas: LineaTraida[];
   exento: number;
   neto: number;
@@ -154,27 +175,67 @@ const receptorDe = (textos: TextoDelPdf[]) => {
   };
 };
 
-const TIPOS_DE_REFERENCIA: Record<string, string> = {
-  'orden de compra': '801',
-  'nota de pedido': '802',
-  contrato: '803',
-};
+/** Lo que nombra una referencia: la OC y lo suyo y, en una nota, el
+ *  documento que modifica. */
+const TIPOS_DE_REFERENCIA: [nombre: string, tipo: string][] = [
+  ['orden de compra', '801'],
+  ['nota de pedido', '802'],
+  ['contrato', '803'],
+  ['factura no afecta o exenta electronica', '34'],
+  ['factura exenta electronica', '34'],
+  ['factura electronica', '33'],
+  ['boleta electronica', '39'],
+  ['nota de debito electronica', '56'],
+  ['nota de credito electronica', '61'],
+];
 
-/** «en ORDEN DE COMPRA : Nro. 32000066941 del 30-10-2026». */
+/** El nombre como patrón: sin importar mayúsculas, tildes ni espacios. */
+const VOCAL: Record<string, string> = {
+  a: '[aá]',
+  e: '[eé]',
+  i: '[ií]',
+  o: '[oó]',
+  u: '[uú]',
+};
+const patron = (nombre: string) =>
+  nombre
+    .split(' ')
+    .map((p) =>
+      Array.from(p)
+        .map((c) => VOCAL[c] ?? c)
+        .join(''),
+    )
+    .join('\\s+');
+
+/** «en ORDEN DE COMPRA : Nro. 32000066941 del 30-10-2026»: solo con un
+ *  nombre conocido, así una razón con «en» («error en el giro en FACTURA
+ *  ELECTRONICA : …») no se come la referencia. */
+const REFERENCIA = new RegExp(
+  `(?:^|\\s)en\\s+(${TIPOS_DE_REFERENCIA.map(([n]) => patron(n)).join('|')})\\s*:\\s*Nro\\.?\\s*(\\S+)\\s+del\\s+(\\d{2})-(\\d{2})-(\\d{4})`,
+  'gi',
+);
+
+/** Las referencias, con la razón que va antes de cada una. */
 const referenciasDe = (textos: TextoDelPdf[]) => {
   const etiquetas = textos.filter((t) => normal(t.texto) === 'referencia');
-  const salida: { tipo: string; folio: string; fecha: string }[] = [];
+  const salida: FacturaDelPdf['referencias'] = [];
   for (const e of etiquetas) {
     const fila = deLaFila(textos, e.y)
-      .filter((t) => t.x > e.x)
-      .map((t) => t.texto)
+      .filter((t) => t.x > e.x && t.texto.trim() !== ':')
+      .map((t) => t.texto.replace(/^:\s*/, ''))
       .join(' ');
-    for (const m of fila.matchAll(
-      /en\s+(.+?)\s*:\s*Nro\.?\s*(\S+)\s+del\s+(\d{2})-(\d{2})-(\d{4})/gi,
-    )) {
-      const tipo = TIPOS_DE_REFERENCIA[normal(m[1])];
+    let desde = 0;
+    for (const m of fila.matchAll(REFERENCIA)) {
+      const razon = fila.slice(desde, m.index).trim();
+      desde = (m.index ?? 0) + m[0].length;
+      const tipo = TIPOS_DE_REFERENCIA.find(([n]) => n === normal(m[1]))?.[1];
       if (tipo)
-        salida.push({ tipo, folio: m[2], fecha: `${m[5]}-${m[4]}-${m[3]}` });
+        salida.push({
+          tipo,
+          folio: m[2],
+          fecha: `${m[5]}-${m[4]}-${m[3]}`,
+          ...(razon ? { razon } : {}),
+        });
     }
   }
   return salida;
@@ -259,11 +320,13 @@ const totalesDe = (textos: TextoDelPdf[]) => {
 };
 
 /**
- * La factura entera, o el motivo por el que no se puede traer. Nunca
- * falla: un PDF que no es de facturacion.cl dice que no se pudo leer.
+ * La factura (o la nota de crédito) entera, o el motivo por el que no se
+ * puede traer. Nunca falla: un PDF que no es de facturacion.cl dice que no
+ * se pudo leer.
  */
 export const leerFacturaDelPdf = (
   pdf: Buffer,
+  tipo: TipoTraible = 33,
 ): { ok: true; factura: FacturaDelPdf } | { ok: false; motivo: string } => {
   let textos: TextoDelPdf[];
   try {
@@ -271,8 +334,12 @@ export const leerFacturaDelPdf = (
   } catch {
     return { ok: false, motivo: 'El PDF no se pudo leer' };
   }
-  if (!textos.some((t) => normal(t.texto) === 'factura electronica'))
-    return { ok: false, motivo: 'No es una factura electrónica' };
+  const titulo = TITULO[tipo];
+  if (!textos.some((t) => normal(t.texto).replace(/\s/g, '') === titulo.texto))
+    return {
+      ok: false,
+      motivo: `No es ${tipo === 33 ? 'una factura electrónica' : 'una nota de crédito electrónica'}`,
+    };
   const folioTexto = textos
     .map((t) => /^N[º°o]\.?\s*(\d+)$/.exec(t.texto.trim()))
     .find(Boolean);
@@ -281,7 +348,8 @@ export const leerFacturaDelPdf = (
   const cuadro = receptorDe(textos);
   const lineas = lineasDe(textos);
   const totales = totalesDe(textos);
-  if (!folio) return { ok: false, motivo: 'No se lee el N° de la factura' };
+  if (!folio)
+    return { ok: false, motivo: `No se lee el N° de ${titulo.nombre}` };
   if (!fecha) return { ok: false, motivo: 'No se lee la fecha de emisión' };
   if (!cuadro)
     return { ok: false, motivo: 'No se lee el RUT o la razón social' };
