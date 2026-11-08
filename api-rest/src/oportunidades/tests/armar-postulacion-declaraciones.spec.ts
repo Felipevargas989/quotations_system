@@ -71,6 +71,33 @@ const BASES = {
   ],
 };
 
+/** Lo postulado en memoria, con la forma de una cotización (decisión 120). */
+const LO_POSTULADO = {
+  id: '',
+  quotation_number: 0,
+  quotation_status: 'lo_postulado',
+  people_count: 20,
+  children_count: 0,
+  event_date: '2026-11-20',
+  event_end_date: null,
+  items: {
+    fixed_services: [
+      {
+        nombre: 'Salón Cúpula',
+        quantity: 1,
+        precio: 500_000,
+        day: 1,
+        codigo: '40',
+      },
+    ],
+    variable_services: [],
+  },
+  subtotal_amount: null,
+  discount_amount: null,
+  total_amount: null,
+  client: null,
+};
+
 function armar() {
   const oferta = {
     pedir: jest.fn().mockResolvedValue({ id: 105, estado: 'procesando' }),
@@ -123,6 +150,14 @@ function armar() {
   const adjuntos = { borrarBorradores: jest.fn().mockResolvedValue(0) };
   const experiencia = { paraArmar: jest.fn().mockResolvedValue(null) };
   const detallada = { armar: jest.fn().mockResolvedValue({ id: 500 }) };
+  // Sin cotización vinculada, la de las bases sale de lo postulado, en
+  // memoria (decisión 120).
+  const cotizacion = {
+    deLoPostulado: jest.fn().mockResolvedValue({
+      cotizacion: LO_POSTULADO,
+      matriz: [],
+    }),
+  };
   const declaraciones = {
     armar: jest.fn().mockResolvedValue({
       hechas: 1,
@@ -134,7 +169,7 @@ function armar() {
   const servicio = new ArmarPostulacionService(
     oferta as unknown as ArmarLaOfertaService,
     documentos as unknown as GeneracionService,
-    {} as unknown as CotizacionDeLaPostulacionService,
+    cotizacion as unknown as CotizacionDeLaPostulacionService,
     generaciones as unknown as GeneracionRepository,
     analisis as unknown as AnalisisRepository,
     oferente as unknown as OferenteRepository,
@@ -153,6 +188,7 @@ function armar() {
     generaciones,
     detallada,
     declaraciones,
+    cotizacion,
   };
 }
 
@@ -188,7 +224,11 @@ describe('Armar postulación arma todo lo que piden las bases (decisión 119, pa
       323,
       105,
       1_780_000,
-      expect.objectContaining({ nombre: 'Oferta económica por línea' }),
+      expect.objectContaining({
+        nombre: 'Oferta económica por línea',
+        // Sin vinculada, desde lo postulado (decisión 120).
+        deLoPostulado: expect.objectContaining({ cotizacion: LO_POSTULADO }),
+      }),
     );
     // Lo que no salió por un dato queda dicho, con lo demás.
     expect(s.generaciones.anotarParametros).toHaveBeenCalledWith(1, 105, {
@@ -196,6 +236,36 @@ describe('Armar postulación arma todo lo que piden las bases (decisión 119, pa
         problemas: [
           '«Datos bancarios para el pago»: completa los datos bancarios en Configuración de empresa y vuelve a armar.',
         ],
+      }),
+    });
+  });
+
+  it('sin vinculada, el precio se reparte sobre lo postulado y las mismas cifras van a los formularios (decisión 120)', async () => {
+    const s = armar();
+    await armarYSeguir(s, 1_780_000);
+    expect(s.cotizacion.deLoPostulado).toHaveBeenCalledWith(1, 323);
+    expect(s.documentos.generarAnexos).toHaveBeenCalledWith(
+      1,
+      'cuenta-1',
+      323,
+      expect.objectContaining({
+        reparto: [expect.objectContaining({ subtotal: 1_780_000 })],
+      }),
+    );
+  });
+
+  it('si lo postulado no calza con el catálogo, la cotización no sale y se dice por qué', async () => {
+    const s = armar();
+    s.cotizacion.deLoPostulado.mockRejectedValue(
+      new Error('Los productos de lo postulado no calzan con el catálogo: x.'),
+    );
+    await armarYSeguir(s, 1_780_000);
+    expect(s.detallada.armar).not.toHaveBeenCalled();
+    expect(s.generaciones.anotarParametros).toHaveBeenCalledWith(1, 105, {
+      postulacion: expect.objectContaining({
+        problemas: expect.arrayContaining([
+          'La cotización detallada: Los productos de lo postulado no calzan con el catálogo: x.',
+        ]),
       }),
     });
   });

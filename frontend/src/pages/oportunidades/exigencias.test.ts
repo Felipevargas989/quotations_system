@@ -89,6 +89,37 @@ describe("Las exigencias de la licitación", () => {
     ]);
   });
 
+  it("la cotización, la propuesta y las fotos son papeles: no se marcan aquí (decisión 120)", () => {
+    // Las exigencias reales de la 2656-97-LE26 (08-11): la primera se coló
+    // como pregunta antes de armar.
+    const exigencias = exigenciasDe({
+      requisitos: [],
+      cumplimiento: {
+        resumen: "",
+        agenda_de: null,
+        items: [
+          "Cotización general del servicio y fotos del recinto",
+          "Propuesta técnica que cumpla todos los requerimientos técnicos",
+          "Fotografías del salón, las áreas verdes, el estacionamiento y los baños",
+          "Garantizar los 200 servicios aunque asistan menos personas",
+          "Menú para 80 personas: vacuno o pechuga a la plancha y opción vegana",
+          "Bus con capacidad mínima de 42 pasajeros sentados",
+        ].map((que, i) => ({
+          requisito: i + 1,
+          que,
+          estado: "conseguir" as const,
+          con_que: "",
+          por_que: "",
+        })),
+      },
+    } as Pick<ResultadoDeBases, "requisitos" | "cumplimiento">);
+    expect(exigencias.map((e) => e.que)).toEqual([
+      "Garantizar los 200 servicios aunque asistan menos personas",
+      "Menú para 80 personas: vacuno o pechuga a la plancha y opción vegana",
+      "Bus con capacidad mínima de 42 pasajeros sentados",
+    ]);
+  });
+
   it("cuenta lo marcado y junta lo que no puedes", () => {
     const exigencias = exigenciasDe({ requisitos: REQUISITOS });
     const cuenta = cuentaDeMarcas(exigencias, {

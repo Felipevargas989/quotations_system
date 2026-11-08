@@ -1,4 +1,5 @@
 import {
+  esUnPapel,
   nombreDelPapel,
   papelesSinFormato,
   type QuienLoHace,
@@ -444,6 +445,44 @@ describe('Quién hace cada papel (decisión 119, parte 3b)', () => {
       no_aplica: 4,
       'carpeta o nada': 3,
     });
+  });
+});
+
+describe('Una exigencia que es un papel (decisión 120)', () => {
+  // Las exigencias «por conseguir» de producción, medidas el 08-11: la
+  // primera se coló como pregunta antes de armar en la 2656-97-LE26.
+  it('la cotización, la propuesta, una declaración y las fotos no se preguntan', () => {
+    for (const que of [
+      'Cotización general del servicio y fotos del recinto',
+      'Cotización detallada de los servicios ofertados que cubra todo lo pedido',
+      'Propuesta técnica que cumpla todos los requerimientos técnicos',
+      'Adjuntar propuesta técnica y los documentos solicitados',
+      'Anexo 4 - Oferta Técnica detallada, de elaboración propia, con imagen referencial',
+      'Presentar el Anexo Oferta Técnica Económica (o una cotización propia)',
+      'Detalle de prestaciones, cantidades y plazos',
+      'Fotografías del salón, las áreas verdes, el estacionamiento y los baños',
+      'Set de fotos de los buses',
+      'Catálogo fotográfico de presentación: mínimo 4 fotos reales',
+      'Declaración jurada de inhabilidades',
+      'Datos bancarios para el pago',
+    ]) {
+      expect([que, esUnPapel(que)]).toEqual([que, true]);
+    }
+  });
+
+  it('un menú, un programa, el bus, el conductor o el monitor sí: es lo que se ofrece', () => {
+    for (const que of [
+      'Menú para 80 personas: vacuno o pechuga a la plancha, opciones vegana y celíaca',
+      'Programa de actividades recreativas para la tarde',
+      'Bus con capacidad mínima de 42 pasajeros sentados',
+      'Conductores profesionales habilitados',
+      'Estación para bebés con alfombra, juegos blandos y 1 monitora',
+      'Garantizar los 200 servicios aunque asistan menos personas',
+      'Servicio de fotografía y video del evento',
+      'Recinto con autorizaciones sanitarias y permisos',
+    ]) {
+      expect([que, esUnPapel(que)]).toEqual([que, false]);
+    }
   });
 });
 
