@@ -79,7 +79,10 @@ export const instruccionesDeLaOC = (empresa: EmpresaQueVende): string =>
     '- fecha: la de emisión de la orden, AAAA-MM-DD.',
     '- rut_comprador y razon_social_comprador: los del comprador, como los imprime la orden.',
     '- giro_comprador, direccion_comprador, comuna_comprador y ciudad_comprador: los del comprador, si la orden los trae. Si no trae la dirección del comprador pero sí la de facturación o de envío de la factura (como las de Mercado Público), usa esa, con su comuna.',
-    '- detalle: qué se compra, en una o dos frases, con las palabras de la orden.',
+    // Felipe, 08-11: la descripción de la factura traía más que la de la
+    // OC («ALMUERZO QUILLÓN SINDICATOS, 1,000 SRV, fecha de entrega
+    // 26.10.2026.»): pasaba en las 8 OC leídas en producción.
+    '- detalle: solo la descripción de lo que se compra, con las palabras de la orden: el texto de la descripción de cada línea (en Mercado Público, el producto y la especificación del comprador). Nunca la cantidad, la unidad (SRV, Global, UN), el precio, la fecha ni el lugar de entrega o de recepción, el nombre de la orden, sus notas o advertencias, ni referencias a otros documentos («según requerimiento adjunto»). Si la orden tiene varias líneas, sus descripciones separadas por « · ». Sin repetir un texto.',
     '- neto, iva y total: en pesos, sin puntos. Si la orden trae solo el total, deja el neto y el IVA en 0.',
     '- otras_referencias: si la orden menciona otro documento que el comprador exige en la factura (una nota de pedido, una HES, un contrato), su tipo y su N°.',
     'Si un dato no se lee, déjalo vacío (0 en los montos). No inventes ni completes con suposiciones.',
