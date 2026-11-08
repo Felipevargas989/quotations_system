@@ -6,6 +6,10 @@ import {
   leerFacturaDelPdf,
   numeroDelPdf,
 } from '../facturas-traidas/leer-factura-del-pdf';
+import {
+  nombreCompletoDelSii,
+  numeroDelRut,
+} from '../facturas-traidas/nombre-del-sii';
 
 /**
  * TRAER UNA FACTURA EMITIDA FUERA DE EVENTIA (doc 19 §9.36; Felipe, 08-11:
@@ -216,6 +220,7 @@ describe('Traerla a Eventia (§9.36)', () => {
     pdf = pdfComoFacturacionCl(LA_374) as Buffer | null,
     yaEsta = false,
     subido = null as string | null,
+    delSii = null as string | null,
   } = {}) => {
     const obtenerPdf = jest.fn().mockResolvedValue(pdf);
     const repo = {
@@ -229,13 +234,19 @@ describe('Traerla a Eventia (§9.36)', () => {
         ),
     };
     const documentos = { guardarPdf: jest.fn().mockResolvedValue(undefined) };
+    const nomina = {
+      contribuyente: jest
+        .fn()
+        .mockResolvedValue(delSii ? { razon_social: delSii } : null),
+    };
     const servicio = new FacturasTraidasService(
       repo as never,
       documentos as never,
       { de: () => ({ ambiente, obtenerPdf }) } as never,
+      nomina as never,
       mockPinoLogger() as never,
     );
-    return { servicio, repo, documentos, obtenerPdf };
+    return { servicio, repo, documentos, obtenerPdf, nomina };
   };
 
   it('sin guardar, solo la lee: con su evento, por la OC', async () => {
@@ -299,6 +310,42 @@ describe('Traerla a Eventia (§9.36)', () => {
     );
   });
 
+  it('el nombre que facturacion.cl cortó en su PDF va completo con el del SII, y el del PDF queda anotado', async () => {
+    const { servicio, repo, nomina } = armar({
+      delSii: 'CORPORACION EJEMPLO DE EDUCACION SUPERIOR',
+    });
+    const leida = await servicio.traer(USUARIO, 374, false);
+    expect(leida.factura.receptor.razon_social).toBe(
+      'CORPORACION EJEMPLO DE EDUCACION SUPERIOR',
+    );
+    expect(leida.factura.nombre_del_sii).toBe(true);
+    await servicio.traer(USUARIO, 374, true);
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receptor: expect.objectContaining({
+          razon_social: 'CORPORACION EJEMPLO DE EDUCACION SUPERIOR',
+        }),
+        respuesta: {
+          traida: true,
+          de: 'facturacion.cl',
+          razon_social_del_pdf: 'CORPORACION EJEMPLO DE EDUCACION',
+        },
+      }),
+    );
+    expect(nomina.contribuyente).toHaveBeenCalledWith(expect.any(Number));
+  });
+
+  it('si el SII dice otro nombre, o no lo tiene, queda el del PDF', async () => {
+    for (const delSii of ['OTRA EMPRESA DISTINTA', null]) {
+      const { servicio } = armar({ delSii });
+      const r = await servicio.traer(USUARIO, 374, false);
+      expect(r.factura.receptor.razon_social).toBe(
+        'CORPORACION EJEMPLO DE EDUCACION',
+      );
+      expect(r.factura.nombre_del_sii).toBe(false);
+    }
+  });
+
   it('la que ya está en Eventia no se trae dos veces', async () => {
     const { servicio, obtenerPdf } = armar({ yaEsta: true });
     await expect(servicio.traer(USUARIO, 374, true)).rejects.toThrow(
@@ -320,5 +367,39 @@ describe('Traerla a Eventia (§9.36)', () => {
     await expect(
       armar({ ambiente: 'simulado' }).servicio.traer(USUARIO, 374, false),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('El nombre que facturacion.cl corta (§9.36)', () => {
+  it('la N° 375: el SII sigue con las palabras del PDF, vale el del SII', () => {
+    expect(
+      nombreCompletoDelSii(
+        'CORPORACION CENTRO DE FORMACION TECNICA SANTO',
+        'CORPORACION CENTRO DE FORMACION TECNICA SANTO TOMAS',
+      ),
+    ).toBe('CORPORACION CENTRO DE FORMACION TECNICA SANTO TOMAS');
+  });
+
+  it('sin importar tildes, mayúsculas ni espacios de más', () => {
+    expect(
+      nombreCompletoDelSii(
+        'Sociedad  Gastronómica',
+        'SOCIEDAD GASTRONOMICA DEL SUR',
+      ),
+    ).toBe('SOCIEDAD GASTRONOMICA DEL SUR');
+  });
+
+  it('el mismo nombre, otro nombre o una palabra a medias: nulo, queda el del PDF', () => {
+    expect(nombreCompletoDelSii('EMPRESA UNO', 'EMPRESA UNO')).toBeNull();
+    expect(
+      nombreCompletoDelSii('EMPRESA UNO', 'OTRA EMPRESA UNO SPA'),
+    ).toBeNull();
+    expect(nombreCompletoDelSii('EMPRESA UN', 'EMPRESA UNO SPA')).toBeNull();
+    expect(nombreCompletoDelSii('EMPRESA UNO', null)).toBeNull();
+  });
+
+  it('el RUT como lo guarda la nómina', () => {
+    expect(numeroDelRut('65175242-6')).toBe(65175242);
+    expect(numeroDelRut('')).toBeNull();
   });
 });
