@@ -1698,7 +1698,8 @@ Documentos. Con la masiva, alguno se podría facturar dos veces.
 
 **«Ya está facturado»** (migración 191, `eventos_facturados_fuera`):
 - En «Por facturar», cada evento tiene «Ya está facturado», que pregunta
-  antes (`ConfirmInline` azul: se puede deshacer) y saca el evento de la
+  antes, en el lugar del botón («¿Sacarlo? Sí · No» desde el 08-11, §9.31;
+  `ConfirmInline` azul: se puede deshacer) y saca el evento de la
   lista y de la masiva. No emite ni anula nada: es la marca de lo que se
   hizo fuera.
 - Lo marcado queda abajo, plegado, en «Facturados fuera de Eventia (N)»,
@@ -2236,6 +2237,16 @@ Se le dijo lo entendido con una maqueta y respondió *"sí, así"*.
   en «Lo del evento», dentro de la revisión. Para facturar uno solo, se
   marca y se usa el botón de arriba. Los plegados de abajo también quedan
   sin las líneas de las OC.
+- **Las columnas no se mueven** (Felipe, 08-11: *"se mueven todas las
+  columnas cuando intento colocar algunas como facturadas"*). La pregunta
+  «¿Ya se facturó fuera de Eventia? Sí, sacarlo · No» era más ancha que el
+  botón y la tabla repartía las columnas según lo que traía cada fila.
+  Ahora cada columna tiene su ancho (`table-fixed`); el cliente toma lo que
+  sobra, con «Con OC» siempre a la vista y el nombre cortado con «…» si no
+  cabe; y la pregunta cabe en el lugar del botón: «¿Sacarlo? Sí · No».
+  Medido en el laboratorio a 1.440 px: las columnas quedan iguales al
+  preguntar, al cancelar y al buscar. **En producción desde el
+  08-11-2026** (PR #317, solo la vitrina).
 
 **La revisión** (`RevisionDeLaFacturacion`), una ventana que **reemplaza a
 la facturación masiva** de §9.21 (`FacturacionMasiva` se borró):
