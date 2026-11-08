@@ -224,6 +224,9 @@ export const instruccionesDeLaOferta = (c: {
     ...numerar([
       ...(c.cotizacion ? [LA_COTIZACION_MANDA] : []),
       'Las bases van adjuntas: léelas para el detalle de cada especificación técnica (cantidades, características, opciones).',
+      // Decisión 119, parte 3 (07-11): lo que la empresa respondió que no
+      // puede no se promete.
+      'Lo que la revisión dice que "la empresa dijo que no puede" NO se ofrece: déjalo fuera de la matriz y de la cotización.',
       'matriz: una fila por cada especificación técnica de las bases, en su orden. "especificacion": con las palabras de las bases; "pagina": su página (0 si no se sabe); "como": lo que se ofrece, en una o dos líneas y con las mismas cantidades y características que dicen las bases (ese texto va tal cual en la propuesta técnica y en los anexos); "productos": los ids del catálogo que la cubren.',
       '"origen": "catalogo" si se cubre con productos del catálogo, aunque las bases pidan una variación de lo que ya vende (va en "detalles"); "subcontratar" si es de lo que la empresa subcontrata (audiovisual, escenarios y estructuras, mobiliario, mantelería, cristalería, vajilla y decoración, flores, fotografía, música, animación, shows y DJ, generador) y no está en el catálogo; "completar" si las bases le piden a la empresa definir algo que no está arriba (por ejemplo, la temática de un show): en "como" escribe [COMPLETAR: qué hay que definir].',
       SOLO_LO_QUE_PIDEN,

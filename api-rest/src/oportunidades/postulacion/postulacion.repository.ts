@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { MarcaDeExigencia } from '../ficha/ficha.repository';
 import type { OfertaDeLaPropuesta } from '../generacion/oferta-de-la-propuesta';
 import { type FilaDeLaMatriz, leerArmado } from './armar-la-oferta';
 import type { ArchivoDelSet } from './el-set';
@@ -16,6 +17,9 @@ export type OportunidadParaCotizar = {
   estado: string;
   quotation_id: string | null;
   etiquetas: string[] | null;
+  /** Lo marcado en «Bases y criterios» (migración 152): «Armar
+   *  postulación» no lo pregunta (decisión 119, parte 3). */
+  exigencias_marcadas?: Record<string, MarcaDeExigencia> | null;
   proceso: {
     nombre: string;
     organismo: string | null;
@@ -71,7 +75,7 @@ export class PostulacionRepository {
     const { data, error } = await this.db
       .from('oportunidades')
       .select(
-        'id, codigo, estado, quotation_id, etiquetas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre, tipo)',
+        'id, codigo, estado, quotation_id, etiquetas, exigencias_marcadas, proceso:mp_procesos!inner(nombre, organismo, monto, fecha_cierre, tipo)',
       )
       .eq('company_id', companyId)
       .eq('id', id)

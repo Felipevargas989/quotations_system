@@ -2,12 +2,34 @@ import type {
   Generacion,
   GeneracionesDeOportunidad,
 } from "../../services/oportunidades.service";
-import type { TrabajoDeOferta } from "../../services/postulacion.service";
+import type {
+  PreguntaDeLaPostulacion,
+  TrabajoDeOferta,
+} from "../../services/postulacion.service";
 
 // «ARMAR POSTULACIÓN» (decisión 35 del doc 17, 19-10): en qué va cada paso
 // de la última vuelta. Un documento es de esta vuelta si se pidió después
 // de que quedó lista la oferta; los de antes son de otra. Lo que no
 // alcanzó a partir lo anota el motor en la fila de la oferta.
+
+/** Las preguntas de un armado detenido (decisión 119, parte 3: el motor
+ *  se detiene antes de generar si a la empresa le faltan respuestas), sin
+ *  las que ya se marcaron en «Bases y criterios»; o ninguna. */
+export const preguntasPendientes = (
+  oferta: TrabajoDeOferta | null | undefined,
+  marcas: Record<string, unknown> | null | undefined,
+): PreguntaDeLaPostulacion[] =>
+  (oferta?.parametros?.detenida?.preguntas ?? []).filter(
+    (p) => !marcas?.[p.clave],
+  );
+
+/** El precio con que se pidió el armado detenido, si hay uno. */
+export const totalDetenido = (
+  oferta: TrabajoDeOferta | null | undefined,
+): number | undefined => {
+  const total = Number(oferta?.parametros?.detenida?.total);
+  return total > 0 ? total : undefined;
+};
 
 /** La misma consulta en «Armar postulación», «Qué ofreces» y la cotización. */
 export const claveDeLaOferta = (oportunidadId: number) => [

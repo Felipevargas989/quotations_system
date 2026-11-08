@@ -14,6 +14,7 @@ import { hoyEnChile } from "../../utils/dates";
 import ClientesQueSeMuestran from "./ClientesQueSeMuestran";
 import DocumentosDeEmpresa from "./DocumentosDeEmpresa";
 import FirmaDelOferente from "./FirmaDelOferente";
+import LoQueSabemosDeTuEmpresa from "./LoQueSabemosDeTuEmpresa";
 import {
   estadoDeVencimiento,
   etiquetaDeDocumento,
@@ -305,6 +306,9 @@ export default function OferenteOportunidades() {
       <DocumentosDeEmpresa documentos={data.documentos} />
 
       <ClientesQueSeMuestran vista={data} />
+
+      {/* Decisión 119, parte 3: lo que respondió para postular. */}
+      <LoQueSabemosDeTuEmpresa />
     </div>
   );
 }

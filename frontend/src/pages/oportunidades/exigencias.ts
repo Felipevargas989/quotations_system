@@ -23,6 +23,10 @@ export interface Exigencia {
   detalle: string | null;
 }
 
+/** La consulta de «Lo que Eventia sabe de tu empresa» (decisión 119,
+ *  parte 3): la refrescan «Mi empresa» y las preguntas antes de armar. */
+export const claveDeLoQueSabemos = ["oportunidades", "lo-que-sabemos"];
+
 export const claveDeExigencia = (texto: string): string =>
   normalizeText(texto).replace(/\s+/g, " ").trim().slice(0, 400);
 

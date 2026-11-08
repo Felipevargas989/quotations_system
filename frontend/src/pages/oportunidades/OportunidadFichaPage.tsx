@@ -33,6 +33,7 @@ import { avisoAlGuardar } from "./servicioDeLaGanada";
 import { ALERTAS, ETIQUETAS, urlMercadoPublico } from "./oportunidades.utils";
 import type { MotivoDelDescarte } from "../../services/decisiones";
 import PorQueDescartas from "./PorQueDescartas";
+import PreguntasDeLaLicitacion from "./PreguntasDeLaLicitacion";
 
 // LA FICHA DE UNA OPORTUNIDAD (doc 17 §5.3, sprint 2): lo que leyó la IA,
 // qué piden, las bases y anexos que sube la empresa, las fechas, el
@@ -165,6 +166,11 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
   // Decisión 113: descartar abre el porqué; elegir uno descarta y lo anota.
   const [descartando, setDescartando] = useState(false);
 
+  // Decisión 119, parte 3: las preguntas de un armado detenido se abren
+  // solas una vez por visita, en la pestaña que sea (PreguntasDeLaLicitacion),
+  // y «Responder» en «Armar postulación» las vuelve a abrir.
+  const [preguntando, setPreguntando] = useState(false);
+
   const guardar = useMutation({
     mutationFn: (cambios: {
       estado?: EstadoOportunidad;
@@ -213,6 +219,14 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           onCancelar={() => setDescartando(false)}
         />
       )}
+
+      <PreguntasDeLaLicitacion
+        key={ficha.id}
+        ficha={ficha}
+        abierta={preguntando}
+        onAbrir={() => setPreguntando(true)}
+        onCerrar={() => setPreguntando(false)}
+      />
 
       {ficha.estado !== "descartada" && (
         <CaminoDePostulacion oportunidadId={ficha.id} estado={ficha.estado} />
@@ -345,6 +359,8 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
             congelada={
               ficha.estado === "postulada" || ficha.estado === "ganada"
             }
+            marcas={ficha.exigencias_marcadas}
+            onResponder={() => setPreguntando(true)}
           />
           <CotizacionDeLaPostulacion
             oportunidadId={ficha.id}

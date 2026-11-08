@@ -4,6 +4,7 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
 import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import { AnalisisRepository } from '../analisis/analisis.repository';
+import { MODELO_HAIKU } from '../analisis/comun';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
@@ -11,6 +12,7 @@ import {
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
+import { noSiEstaCongelada } from './congelada';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
 import { repartirElPrecio } from './el-reparto';
 import { type FormularioDeLasBases, normalizar } from './el-set';
@@ -27,6 +29,11 @@ import {
   respaldosDeLaExperiencia,
 } from './la-experiencia';
 import { LaExperienciaService } from './la-experiencia.service';
+import type { PreguntaDeLaPostulacion } from './las-preguntas';
+import {
+  LasPreguntasService,
+  type RespuestaDelModal,
+} from './las-preguntas.service';
 import { PostulacionRepository } from './postulacion.repository';
 import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
@@ -62,6 +69,14 @@ export type PostulacionArmada = {
   firmados?: boolean;
   /** Lo que no alcanzó a partir después de la oferta, en palabras. */
   problemas?: string[];
+};
+
+/** El armado detenido porque a la empresa le faltan respuestas (decisión
+ *  119, parte 3): el precio con que se pidió y las preguntas. Va en
+ *  `parametros.detenida` de la última fila de la oferta. */
+export type ArmadoDetenido = {
+  total: number;
+  preguntas: PreguntaDeLaPostulacion[];
 };
 
 export { pidenExperiencia };
@@ -104,15 +119,22 @@ export class ArmarPostulacionService {
      *  antes no la traen, y sin ella no se arma. */
     @Optional()
     private readonly cotizacionDetallada?: LaCotizacionDetalladaService,
+    /** Las preguntas antes de armar (decisión 119, parte 3). Opcional: sin
+     *  ellas se arma sin preguntar, como antes. */
+    @Optional()
+    private readonly preguntas?: LasPreguntasService,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
   }
 
-  /** Responde al tiro con la oferta en curso; lo demás sigue por detrás. */
+  /** Responde al tiro con la oferta en curso; lo demás sigue por detrás.
+   *  Si a la empresa le faltan respuestas, responde con el armado detenido
+   *  y las preguntas (decisión 119, parte 3). */
   async armar(
     user: User,
     oportunidadId: number,
     total: number,
+    opciones: { sinPreguntar?: boolean } = {},
   ): Promise<FilaDeGeneracion> {
     const companyId = user.company_id;
     const [analisis, oferente, ficha] = await Promise.all([
@@ -146,6 +168,27 @@ export class ArmarPostulacionService {
       propuesta: (listo && vaLaPropuesta(analisis.resultado)) || sinAnexos,
       ...(sinAnexos ? { anexos: false } : {}),
     };
+    // Decisión 119, parte 3 (07-11). Felipe: "pincho una licitación y le
+    // faltan 5 preguntas... vuelvo a la licitación, me aparece el modal de
+    // lo que me falta, yo respondo las preguntas y lo genera". Antes de
+    // gastar en la oferta: lo que la IA no sabe de la empresa se pregunta.
+    if (listo && this.preguntas && !opciones.sinPreguntar) {
+      // Lo postulado queda fijo (decisión 33): no se pregunta por nada.
+      if (ficha) noSiEstaCongelada(ficha.estado);
+      const faltan = await this.preguntas.queFalta(
+        companyId,
+        oportunidadId,
+        analisis.resultado,
+        ficha?.exigencias_marcadas ?? {},
+      );
+      if (faltan.length > 0) {
+        const detenida = await this.detenida(user, oportunidadId, {
+          total,
+          preguntas: faltan,
+        });
+        if (detenida) return detenida;
+      }
+    }
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
       despues: async (ofertaId) =>
@@ -157,6 +200,77 @@ export class ArmarPostulacionService {
           piden ? await this.experiencia.paraArmar(user, oportunidadId) : null,
         ),
     });
+  }
+
+  /** Las respuestas del modal (decisión 119, parte 3): quedan en «Mi
+   *  empresa» y marcadas en «Bases y criterios», y recién ahí se arma, sin
+   *  volver a preguntar. */
+  async responderYArmar(
+    user: User,
+    oportunidadId: number,
+    total: number,
+    respuestas: RespuestaDelModal[],
+  ): Promise<FilaDeGeneracion> {
+    if (!this.preguntas) {
+      throw new BadRequestException('Este motor todavía no guarda respuestas.');
+    }
+    await this.preguntas.guardar(user.company_id, oportunidadId, respuestas);
+    return this.armar(user, oportunidadId, total, { sinPreguntar: true });
+  }
+
+  /** El armado detenido por las preguntas, para que la pantalla abra el
+   *  modal al tiro o al volver a la licitación. Va en la última fila de la
+   *  oferta: así lo armado antes sigue a la vista en las demás pantallas
+   *  («Lo que tienes que ofrecer», la cotización) mientras no se responda.
+   *  Sin oferta todavía, una fila nueva en «error», sin oferta. null si hay
+   *  una oferta en curso: sigue el camino de siempre. */
+  private async detenida(
+    user: User,
+    oportunidadId: number,
+    detenida: ArmadoDetenido,
+  ): Promise<FilaDeGeneracion | null> {
+    const companyId = user.company_id;
+    const ultima = await this.generaciones.ultimoDeTipo(
+      companyId,
+      oportunidadId,
+      'oferta',
+    );
+    if (ultima?.estado === 'procesando') return null;
+    if (ultima) {
+      const parametros = { ...(ultima.parametros ?? {}), detenida };
+      await this.generaciones.anotarParametros(
+        companyId,
+        ultima.id,
+        parametros,
+      );
+      return { ...ultima, parametros };
+    }
+    const fila = await this.generaciones.crearGeneracion({
+      company_id: companyId,
+      oportunidad_id: oportunidadId,
+      tipo: 'oferta',
+      parametros: { detenida },
+      modelo: MODELO_HAIKU,
+      archivos: [],
+      no_leidos: [],
+      pedido_por: await this.adjuntos.perfilDe(companyId, user.id),
+    });
+    if (!fila) return null;
+    const n = detenida.preguntas.length;
+    const error =
+      n === 1
+        ? 'Falta 1 respuesta sobre tu empresa.'
+        : `Faltan ${n} respuestas sobre tu empresa.`;
+    await this.generaciones.terminar(companyId, fila.id, {
+      estado: 'error',
+      error,
+    });
+    return {
+      ...fila,
+      estado: 'error',
+      error,
+      terminado_en: new Date().toISOString(),
+    };
   }
 
   /** Cuando la oferta quedó lista. Cada documento es un trabajo de la IA

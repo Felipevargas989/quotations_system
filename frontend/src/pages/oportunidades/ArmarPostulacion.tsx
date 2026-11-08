@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { NumberInput } from "../../components/inputs";
 import { toast } from "../../components/toast/Toast";
@@ -19,6 +19,7 @@ import {
   armarPostulacion,
   getOfertaDeLaPostulacion,
 } from "../../services/postulacion.service";
+import type { MarcaDeExigencia } from "../../services/exigencias.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatCurrency } from "../../utils/currencies";
 import { formatMomento } from "../../utils/dates";
@@ -29,10 +30,13 @@ import {
 import { faltaEnMiEmpresa } from "./formulariosDelComprador";
 import { desgloseDeOferta } from "./oportunidades.utils";
 import { precioDeLosAnexos } from "./postuladasDeAntes";
+import PreguntasAntesDeArmar from "./PreguntasAntesDeArmar";
 import { claveDeLaCotizacion } from "./precioDeLaPostulacion";
 import { claveDeGeneraciones, useGeneraciones } from "./useGeneraciones";
 import {
   claveDeLaOferta,
+  preguntasPendientes,
+  totalDetenido,
   vueltaDeLaPostulacion,
 } from "./vueltaDeLaPostulacion";
 
@@ -65,10 +69,20 @@ const pesos = (n: number) => formatCurrency(n, "CLP");
 export default function ArmarPostulacion({
   oportunidadId,
   congelada = false,
+  marcas,
+  onResponder,
 }: {
   readonly oportunidadId: number;
   /** Postulada o ganada: lo postulado queda fijo (decisión 33). */
   readonly congelada?: boolean;
+  /** Lo marcado en «Bases y criterios» (de la ficha): ya no se pregunta
+   *  (decisión 119, parte 3). */
+  readonly marcas?: Record<string, MarcaDeExigencia> | null;
+  /** Abre las preguntas de la página (decisión 119, parte 3): las muestra
+   *  `PreguntasDeLaLicitacion`, solas una vez por visita y en la pestaña
+   *  que sea. Sin ella (sola, como en las pruebas), «Armar postulación» las
+   *  muestra por su cuenta. */
+  readonly onResponder?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: oferta } = useQuery({
@@ -107,9 +121,31 @@ export default function ArmarPostulacion({
 
   const vuelta = vueltaDeLaPostulacion(oferta, generaciones);
   const [abierta, setAbierta] = useState(false);
+  // Decisión 119, parte 3 (07-11): si a la empresa le faltan respuestas, el
+  // armado se detiene antes de generar y el modal se abre al tiro o al
+  // volver a la licitación; «Responder» lo reabre. En la página lo muestra
+  // `PreguntasDeLaLicitacion` (una vez por visita, en la pestaña que sea).
+  // Lo marcado en «Bases y criterios» ya no se pregunta. Las marcas llegan
+  // de la ficha que trae la página: una segunda consulta de la ficha sin su
+  // función la dejaba en error al refrescarla (visto en el lab, 07-11).
+  const pendientes = congelada ? [] : preguntasPendientes(oferta, marcas);
+  const enLaPagina = Boolean(onResponder);
+  const [preguntando, setPreguntando] = useState(false);
+  const yaPregunto = useRef(false);
+  useEffect(() => {
+    if (enLaPagina || pendientes.length === 0 || yaPregunto.current) return;
+    yaPregunto.current = true;
+    setPreguntando(true);
+  }, [enLaPagina, pendientes.length]);
+  const abrirPreguntas = () => {
+    yaPregunto.current = true;
+    if (onResponder) onResponder();
+    else setPreguntando(true);
+  };
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
   const precio =
     escrito ??
+    totalDetenido(oferta) ??
     vuelta?.total ??
     (vinculada?.total ? vinculada.total : undefined);
   const desglose = precio && precio > 0 ? desgloseDeOferta(precio) : null;
@@ -137,6 +173,15 @@ export default function ArmarPostulacion({
       setPrecio(undefined);
       // Al terminar vuelve a la barra.
       setAbierta(false);
+      if (preguntasPendientes(fila, marcas).length > 0) {
+        // Se detuvo antes de generar: lo ya respondido en otra licitación
+        // quedó marcado solo en «Bases y criterios».
+        abrirPreguntas();
+        void qc.invalidateQueries({
+          queryKey: ["oportunidades", "ficha", oportunidadId],
+        });
+        return;
+      }
       toast.success("La IA está armando la postulación: tarda unos minutos.");
     },
     onError: (e) =>
@@ -181,6 +226,38 @@ export default function ArmarPostulacion({
     (vuelta.oferta === "error" ||
       vuelta.anexos.estado === "error" ||
       vuelta.propuesta.estado === "error");
+  // Decisión 119, parte 3: lo que falta responder, en las dos vistas.
+  const avisoDePreguntas = pendientes.length > 0 && (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-900">
+      {pendientes.length === 1
+        ? "Falta 1 respuesta sobre tu empresa para armar."
+        : `Faltan ${pendientes.length} respuestas sobre tu empresa para armar.`}
+      <button
+        type="button"
+        onClick={abrirPreguntas}
+        className="font-semibold underline"
+      >
+        Responder
+      </button>
+    </p>
+  );
+  const modalDePreguntas = !enLaPagina &&
+    preguntando &&
+    pendientes.length > 0 && (
+      <PreguntasAntesDeArmar
+        oportunidadId={oportunidadId}
+        total={precio ?? 0}
+        preguntas={pendientes}
+        onCerrar={() => setPreguntando(false)}
+        onArmando={(fila) => {
+          qc.setQueryData(claveDeLaOferta(oportunidadId), fila);
+          setPreguntando(false);
+          setPrecio(undefined);
+          setAbierta(false);
+        }}
+      />
+    );
+
   // Postulada antes de «Armar postulación» (19-10): no hay nada que armar;
   // una línea con el precio con que se llenaron los anexos.
   if (congelada && !vuelta) {
@@ -253,6 +330,8 @@ export default function ArmarPostulacion({
             {aviso}
           </p>
         ))}
+        {!congelada && avisoDePreguntas}
+        {modalDePreguntas}
       </section>
     );
   }
@@ -368,11 +447,13 @@ export default function ArmarPostulacion({
           documentos».
         </p>
       )}
-      {!ocupado && vuelta?.oferta === "error" && (
+      {!ocupado && avisoDePreguntas}
+      {!ocupado && vuelta?.oferta === "error" && pendientes.length === 0 && (
         <p className="text-sm text-red-600">
           {oferta?.error ?? "No se pudo armar la oferta."} Vuelve a armar.
         </p>
       )}
+      {modalDePreguntas}
       {!ocupado &&
         vuelta &&
         (
