@@ -62,7 +62,7 @@ describe('El PDF al emitir', () => {
       null,
       registro,
     );
-    expect(r.pdf_path).toBe('c1/documentos-tributarios/factura_381.pdf');
+    expect(r.pdf_path).toBe('c1/documentos-tributarios/F381.pdf');
     await avanzar(REINTENTOS_DEL_PDF_MS.reduce((a, b) => a + b, 0));
     expect(obtenerPdf).toHaveBeenCalledTimes(1);
   });
@@ -84,7 +84,7 @@ describe('El PDF al emitir', () => {
     await avanzar(REINTENTOS_DEL_PDF_MS[1]);
     expect(obtenerPdf).toHaveBeenCalledTimes(3);
     expect(repo.actualizar).toHaveBeenCalledWith(1, 1, {
-      pdf_path: 'c1/documentos-tributarios/factura_381.pdf',
+      pdf_path: 'c1/documentos-tributarios/F381.pdf',
     });
     expect(registro.info).toHaveBeenCalledWith(
       'PDF del documento 381: llegó en el intento 3',
@@ -97,7 +97,7 @@ describe('El PDF al emitir', () => {
   it('si alguien ya lo trajo, no se pide de nuevo', async () => {
     const { conexion, repo, registro, obtenerPdf } = armar([null], {
       ...DOC,
-      pdf_path: 'c1/documentos-tributarios/factura_381.pdf',
+      pdf_path: 'c1/documentos-tributarios/F381.pdf',
     });
     await guardarCopiaDelPdfAlEmitir(repo, conexion, DOC, 1, null, registro);
     await avanzar(REINTENTOS_DEL_PDF_MS.reduce((a, b) => a + b, 0));

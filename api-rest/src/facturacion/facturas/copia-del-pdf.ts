@@ -7,6 +7,7 @@ import type {
   DocumentoTributario,
   DocumentosTributariosRepository,
 } from './documentos-tributarios.repository';
+import { nombreDelPdfDe, nombreParaElBalde } from './nombre-del-pdf';
 
 /**
  * LA COPIA PROPIA DEL PDF (doc 19, L10): el enlace de facturacion.cl es
@@ -14,13 +15,6 @@ import type {
  * documento es de un evento, también queda en Documentos → Facturas del
  * evento (§9.2). La usan la factura (paso 2c) y la boleta (paso 3).
  */
-
-const NOMBRE: Record<number, { archivo: string; titulo: string }> = {
-  33: { archivo: 'factura', titulo: 'Factura' },
-  39: { archivo: 'boleta', titulo: 'Boleta' },
-  56: { archivo: 'nota_de_debito', titulo: 'Nota de débito' },
-  61: { archivo: 'nota_de_credito', titulo: 'Nota de crédito' },
-};
 
 /** Lo que no es de producción lo dice en el nombre de Documentos. */
 const EN_EL_NOMBRE: Partial<Record<AmbienteDeFacturacion, string>> = {
@@ -39,12 +33,18 @@ export async function guardarCopiaDelPdf(
   const pdf = await conexion.obtenerPdf(doc.tipo, doc.folio);
   // Todavía no está: la pantalla dice «PDF en camino» (§9.10).
   if (!pdf) return doc;
-  const nombre = NOMBRE[doc.tipo] ?? {
-    archivo: `dte_${doc.tipo}`,
-    titulo: `Documento ${doc.tipo}`,
-  };
+  // §9.35: «F383_cliente_460_OC». Si no se pueden leer el cliente, la
+  // cotización o la OC, va con lo que hay: la copia no se pierde por eso.
+  const datos = await Promise.resolve()
+    .then(() => repo.datosDelNombreDelPdf(doc.id, companyId))
+    .catch(() => null);
+  const nombre = nombreDelPdfDe({
+    ...datos,
+    tipo: doc.tipo,
+    folio: doc.folio,
+  });
   const sufijo = doc.ambiente === 'produccion' ? '' : `_${doc.ambiente}`;
-  const archivo = `${nombre.archivo}_${doc.folio}${sufijo}.pdf`;
+  const archivo = `${nombreParaElBalde(nombre)}${sufijo}.pdf`;
   const ruta = quotationId
     ? `c${companyId}/event-documents/${quotationId}/facturas/${archivo}`
     : `c${companyId}/documentos-tributarios/${archivo}`;
@@ -53,7 +53,7 @@ export async function guardarCopiaDelPdf(
   if (quotationId)
     await repo.agregarAlEvento(
       quotationId,
-      `${nombre.titulo} N° ${doc.folio}${EN_EL_NOMBRE[doc.ambiente] ?? ''}.pdf`,
+      `${nombre}${EN_EL_NOMBRE[doc.ambiente] ?? ''}.pdf`,
       ruta,
     );
   return conPdf;

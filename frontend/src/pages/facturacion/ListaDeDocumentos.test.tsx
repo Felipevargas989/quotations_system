@@ -565,6 +565,45 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
 
+  it("el PDF se baja como «F383_cliente_cotización_OC.pdf» (§9.35)", async () => {
+    const conNombre: DocumentoDeLaLista = {
+      ...base,
+      id: 383,
+      folio: 383,
+      titulo: "Factura 383",
+      nombre: "Factura 383",
+      nombre_del_pdf: "F383_Municipalidad de Quillón_460_1213301-49-AG26",
+      pdf_path: "c1/event-documents/ev-460/facturas/F383.pdf",
+    };
+    d.getListaDeFacturacion.mockResolvedValue({
+      ambiente: "produccion",
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-08",
+      resumen: {
+        facturado: 0,
+        facturas: 1,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos: [conNombre],
+    });
+    abrir();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Descargar el PDF de Factura 383/,
+      }),
+    );
+    await waitFor(() =>
+      expect(vi.mocked(almacen).descargarArchivo).toHaveBeenCalledWith(
+        "c1/event-documents/ev-460/facturas/F383.pdf",
+        "F383_Municipalidad de Quillón_460_1213301-49-AG26.pdf",
+      ),
+    );
+  });
+
   it("«Ver» trae el PDF que falta y abre el visor en el mismo clic (§9.33)", async () => {
     // 08-11, en producción: el PDF de la NC 115 llegó, pero el visor no se
     // abría (la fila se refrescaba antes de saber que había que abrirlo).

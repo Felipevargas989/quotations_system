@@ -98,6 +98,25 @@ export const esFechaDelArchivo = (fecha: unknown): fecha is string => {
   );
 };
 
+/** El folio que llevaba un archivo de factura o nota (Encabezado, campo 2). */
+export const folioDelArchivo = (archivo: string | null) => {
+  const lineas = (archivo ?? '').split(/\r?\n/);
+  const i = lineas.indexOf('->Encabezado<-');
+  const folio = Number((lineas[i + 1] ?? '').split(';')[1]);
+  return i >= 0 && Number.isInteger(folio) && folio > 0 ? folio : null;
+};
+
+/** La fecha que llevaba el archivo (campo 3 del encabezado o de la
+ *  boleta): la del documento, aunque se compruebe otro día (§9.32). */
+export const fechaDelArchivo = (archivo: string | null) => {
+  const lineas = (archivo ?? '').split(/\r?\n/);
+  const i = lineas.findIndex(
+    (l) => l === '->Encabezado<-' || l === '->Boleta<-',
+  );
+  const fecha = i >= 0 ? (lineas[i + 1] ?? '').split(';')[2] : null;
+  return esFechaDelArchivo(fecha) ? fecha : null;
+};
+
 /** Una línea del archivo: cada campo seguido de «;», como pide el manual. */
 export const lineaDelArchivo = (campos: (string | number)[]): string =>
   campos.map((c) => `${c};`).join('');
