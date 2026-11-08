@@ -2640,6 +2640,9 @@ la descripción larga, el vencimiento a la derecha del RUT, lo que no
 cuadra, y traerla: con su evento, con el PDF ya subido o su copia, dos
 veces no, otro N°, simulado) y, en la vitrina, `TraerFactura.test.tsx`.
 
+**En producción desde el 08-11-2026** (PR #322, el motor y la vitrina,
+sin migración).
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2
