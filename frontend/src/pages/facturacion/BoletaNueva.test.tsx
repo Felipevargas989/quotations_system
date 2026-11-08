@@ -14,7 +14,8 @@ import BoletaNueva from "./BoletaNueva";
 
 // LA BOLETA EN SU PROPIA PANTALLA (doc 19 §9.22, sprint 3), como la
 // maqueta: qué se cobra, el huésped y el total a pagar; «Crear documento»
-// la muestra tal como saldrá y «Emitir» pregunta antes.
+// la muestra tal como saldrá, y desde el 08-11 (§9.33) «Emitir» emite: la
+// vista previa ya es la revisión.
 
 vi.mock("../../services/boletas.service", () => ({
   getTarifario: vi.fn(),
@@ -131,13 +132,10 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
       screen.getByText("Cabaña 4 · Cabaña 4 personas temporada alta"),
     ).toBeInTheDocument();
 
-    // «Emitir» pregunta antes: emitida no se borra.
-    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
-    expect(
-      screen.getByText("¿Emitir la boleta por $130.000?"),
-    ).toBeInTheDocument();
+    // §9.33: «Emitir» emite, sin volver a preguntar.
     expect(b.emitirBoletaSuelta).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir boleta" }));
+    expect(screen.queryByText(/¿Emitir la boleta/)).not.toBeInTheDocument();
     await waitFor(() =>
       expect(onEmitida).toHaveBeenCalledWith(
         expect.objectContaining({ id: 77, folio: 501 }),
@@ -152,7 +150,6 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Emitir boleta" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sí, emitir" }));
     expect(
       await screen.findByText(/Boleta N° 501 emitida por \$130\.000/),
     ).toBeInTheDocument();

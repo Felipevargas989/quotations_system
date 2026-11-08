@@ -38,6 +38,7 @@ export default function FileViewLink({
   boton,
   claseDelBoton = "text-sm font-semibold text-blue-600 hover:text-blue-800",
   tituloDelBoton,
+  abrirAlMontar = false,
 }: {
   readonly url: string;
   readonly title?: string;
@@ -48,8 +49,11 @@ export default function FileViewLink({
   readonly claseDelBoton?: string;
   /** Lo que dice al pasar el mouse y a un lector de pantalla. */
   readonly tituloDelBoton?: string;
+  /** Abre el visor apenas aparece (el PDF que se acaba de traer al
+   *  pincharlo, doc 19 §9.33). */
+  readonly abrirAlMontar?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(abrirAlMontar);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const clase = claseDe(url);
 

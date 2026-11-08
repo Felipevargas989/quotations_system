@@ -163,13 +163,16 @@ export default function FacturacionPage() {
     <div className="space-y-4 p-4 pb-24 sm:p-6 sm:pb-24">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900">Facturación</h1>
-        {tipos.length > 0 && (
+        {/* En «Por facturar» el botón de arriba es «Facturar seleccionados»
+            (§9.31; Felipe, 08-11: *"el botón ya no debería ser + nuevo
+            documento"*), que vive con la lista. */}
+        {tipos.length > 0 && pestana !== "por_facturar" && (
           <button
             type="button"
             onClick={nuevoDocumento}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            <Plus size={15} /> Nuevo documento
+            <Plus size={15} /> Nuevo DTE
           </button>
         )}
       </div>

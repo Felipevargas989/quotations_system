@@ -337,12 +337,13 @@ export class DocumentosTributariosRepository {
   }
 
   /** Los eventos aceptados o realizados desde una fecha (AAAA-MM-DD),
-   *  para «Por facturar» (doc 19 §9.21). */
+   *  para «Por facturar» (doc 19 §9.21). Desde el 08-11 (§9.31), con el
+   *  contacto y los RUT del cliente, para el buscador. */
   async eventosDesde(companyId: number, desde: string) {
     const { data, error } = await this.supabase.client
       .from('quotations')
       .select(
-        'id, quotation_number, quotation_status, event_type, event_date, total_amount, cliente:clients(name)',
+        'id, quotation_number, quotation_status, event_type, event_date, total_amount, contact_name, contacto:client_contacts(name), cliente:clients(name, contact_person, razones:razones_sociales(rut))',
       )
       .eq('company_id', companyId)
       .in('quotation_status', ['aceptada', 'realizada'])
@@ -358,7 +359,13 @@ export class DocumentosTributariosRepository {
         event_type: string | null;
         event_date: string | null;
         total_amount: number | string | null;
-        cliente: { name?: string | null } | null;
+        contact_name?: string | null;
+        contacto?: { name?: string | null } | null;
+        cliente: {
+          name?: string | null;
+          contact_person?: string | null;
+          razones?: { rut: string }[] | null;
+        } | null;
       }[]
     ).map((q) => ({
       id: q.id,
@@ -368,6 +375,13 @@ export class DocumentosTributariosRepository {
       fecha: q.event_date ? q.event_date.slice(0, 10) : null,
       total: Math.round(Number(q.total_amount ?? 0)),
       cliente: q.cliente?.name?.trim() || null,
+      // El de la cotización, o el de la ficha (como el correo tipo).
+      contacto:
+        q.contacto?.name?.trim() ||
+        q.contact_name?.trim() ||
+        q.cliente?.contact_person?.trim() ||
+        null,
+      ruts: (q.cliente?.razones ?? []).map((z) => z.rut),
     }));
   }
 
@@ -403,12 +417,12 @@ export class DocumentosTributariosRepository {
   async ordenesDeLosEventos(companyId: number, ids: string[]) {
     const porEvento = new Map<
       string,
-      { id: number; numero: string; total: number }[]
+      { id: number; numero: string; total: number; rut: string | null }[]
     >();
     if (!ids.length) return porEvento;
     const { data, error } = await this.supabase.client
       .from('ordenes_de_compra')
-      .select('id, quotation_id, numero, total')
+      .select('id, quotation_id, numero, total, rut')
       .eq('company_id', companyId)
       .in('quotation_id', ids)
       .order('id', { ascending: true });
@@ -418,10 +432,17 @@ export class DocumentosTributariosRepository {
       quotation_id: string;
       numero: string;
       total: number | string;
+      rut?: string | null;
     }[])
       porEvento.set(o.quotation_id, [
         ...(porEvento.get(o.quotation_id) ?? []),
-        { id: o.id, numero: o.numero, total: Number(o.total) },
+        {
+          id: o.id,
+          numero: o.numero,
+          total: Number(o.total),
+          // El RUT de la OC, para el buscador (§9.31).
+          rut: o.rut ?? null,
+        },
       ]);
     return porEvento;
   }

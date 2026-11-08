@@ -1,3 +1,4 @@
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type {
   AmbienteDeFacturacion,
   FacturacionCl,
@@ -56,4 +57,115 @@ export async function guardarCopiaDelPdf(
       ruta,
     );
   return conPdf;
+}
+
+/**
+ * Cuándo se vuelve a pedir el PDF que no llegó al emitir (§9.33): en
+ * producción, facturacion.cl lo tiene un rato después de mandar el
+ * documento al SII. Medido el 08-11: la factura N° 381 no lo tenía al
+ * emitirse y sí dos minutos después; Felipe: *"me da la sensación que si
+ * le das unos segundos ya lo trae solo, prueba con 5 a 10 segundos"*. Se
+ * pide a los 5 y a los 10 segundos, y después más espaciado, hasta unos
+ * 9 minutos.
+ */
+export const REINTENTOS_DEL_PDF_MS = [
+  5_000, 5_000, 10_000, 20_000, 60_000, 120_000, 300_000,
+];
+
+interface Registro {
+  info(texto: string): void;
+  warn(texto: string): void;
+}
+
+/**
+ * La copia del PDF al emitir, y si todavía no llega, se vuelve a pedir
+ * sola por detrás unas veces (Felipe, 08-11: *"el PDF lo dejaría
+ * automático, ese siempre se debe extraer solo desde facturación.cl"*).
+ * Quien emite no espera: el documento sale con lo que hay, y si al final
+ * no llega, se baja al descargarlo (`pedirPdf`).
+ */
+export async function guardarCopiaDelPdfAlEmitir(
+  repo: DocumentosTributariosRepository,
+  conexion: FacturacionCl,
+  doc: DocumentoTributario,
+  companyId: number,
+  quotationId: string | null,
+  registro: Registro,
+  esperas: readonly number[] = REINTENTOS_DEL_PDF_MS,
+): Promise<DocumentoTributario> {
+  const conPdf = await guardarCopiaDelPdf(
+    repo,
+    conexion,
+    doc,
+    companyId,
+    quotationId,
+  ).catch((e: unknown) => {
+    registro.warn(`PDF del documento ${doc.folio}: ${mensajeDe(e)}`);
+    return doc;
+  });
+  if (!conPdf.pdf_path && doc.folio != null)
+    reintentarElPdf(
+      repo,
+      conexion,
+      doc,
+      companyId,
+      quotationId,
+      registro,
+      esperas,
+      0,
+    );
+  return conPdf;
+}
+
+function reintentarElPdf(
+  repo: DocumentosTributariosRepository,
+  conexion: FacturacionCl,
+  doc: DocumentoTributario,
+  companyId: number,
+  quotationId: string | null,
+  registro: Registro,
+  esperas: readonly number[],
+  intento: number,
+): void {
+  if (intento >= esperas.length) {
+    registro.warn(
+      `PDF del documento ${doc.folio}: no llegó en ${esperas.length} intentos; se baja al descargarlo`,
+    );
+    return;
+  }
+  const espera = setTimeout(() => {
+    void (async () => {
+      try {
+        const ahora = await repo.documento(doc.id, companyId);
+        // Ya llegó (lo pidió alguien) o ya no está emitido: nada que hacer.
+        if (!ahora || ahora.pdf_path || ahora.estado !== 'emitido') return;
+        const conPdf = await guardarCopiaDelPdf(
+          repo,
+          conexion,
+          ahora,
+          companyId,
+          quotationId,
+        );
+        if (conPdf.pdf_path) {
+          registro.info(
+            `PDF del documento ${doc.folio}: llegó en el intento ${intento + 2}`,
+          );
+          return;
+        }
+      } catch (e) {
+        registro.warn(`PDF del documento ${doc.folio}: ${mensajeDe(e)}`);
+      }
+      reintentarElPdf(
+        repo,
+        conexion,
+        doc,
+        companyId,
+        quotationId,
+        registro,
+        esperas,
+        intento + 1,
+      );
+    })();
+  }, esperas[intento]);
+  espera.unref?.();
 }

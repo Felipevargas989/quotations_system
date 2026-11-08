@@ -64,6 +64,9 @@ export interface DtePedido {
   /** «Nuevo documento»: el cliente de Eventia al que va (su ficha recibe
    *  la razón social al emitir). */
   cliente_id?: string | null;
+  /** §9.32: la fecha de emisión elegida (AAAA-MM-DD); sin ella, la de hoy.
+   *  Solo la factura. */
+  fecha_emision?: string | null;
 }
 
 export type Origen = "orden_de_compra" | "ficha" | "cotizacion" | "persona";
@@ -127,6 +130,9 @@ export interface VistaPrevia {
     dias: number | null;
     vencimiento: string | null;
   } | null;
+  /** §9.32: desde y hasta qué día se puede fechar la factura (AAAA-MM-DD);
+   *  nulo en la boleta, que va con la del día. */
+  emision?: { desde: string; hasta: string } | null;
 }
 
 export interface RazonSocialDelBorrador {
@@ -260,6 +266,8 @@ export interface OrdenPorFacturar {
   facturado: number;
   queda: number;
   estado: EstadoDeLaFacturacion;
+  /** El RUT de la OC, para el buscador (§9.31). */
+  rut?: string | null;
 }
 
 /** Un evento de «Por facturar» (doc 19 §9.21): aceptado o realizado, con
@@ -272,6 +280,10 @@ export interface EventoPorFacturar {
   tipoDeEvento: string | null;
   fecha: string | null;
   cliente: string | null;
+  /** §9.31, para el buscador: el contacto de la cotización (o de la
+   *  ficha) y los RUT de las razones sociales del cliente. */
+  contacto?: string | null;
+  ruts?: string[];
   total: number;
   emitido: number;
   queda: number;

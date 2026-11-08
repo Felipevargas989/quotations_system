@@ -1,7 +1,13 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FileText, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -12,40 +18,42 @@ import {
   type EventoFacturadoFuera,
   type EventoPorFacturar,
   type OcSinLeer,
-  type OrdenPorFacturar,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
-import EmitirDte from "../postventa/facturacion/EmitirDte";
+import { formatearRut } from "../../utils/rut";
+import { matchesSearch } from "../../utils/searchMatch";
 import { LLAVE_POR_FACTURAR, usePorFacturar } from "./consultas";
-import FacturacionMasiva from "./FacturacionMasiva";
+import RevisionDeLaFacturacion from "./RevisionDeLaFacturacion";
 
 // «POR FACTURAR» (doc 19 §9.21). Felipe, 06-11: *"los eventos que no se
 // hayan facturado (…) y los pudiera como facturar de acá"*. Los eventos
 // aceptados o realizados de los últimos 90 días (y los que vienen) con algo
 // por emitir: el total, lo emitido (facturas y boletas, con la cadena) y lo
-// que queda. «Facturar» abre ahí mismo el mismo «Emitir DTE» del evento:
-// BelIA lee sus OC de Documentos y se llena desde la OC o la cotización.
-// Desde el 07-11 (§9.23) es el único lugar donde se factura un evento (la
-// pestaña de Post-Venta salió), y lo ve y lo emite quien tiene «Facturar
-// eventos» (operaciones y el administrador, de fábrica), que además puede
-// marcar varios y facturarlos juntos (`FacturacionMasiva`).
+// que queda. Desde el 07-11 (§9.23) es el único lugar donde se factura un
+// evento, y lo ve y lo emite quien tiene «Facturar eventos» (operaciones y
+// el administrador, de fábrica).
 //
 // Lo ya facturado fuera de Eventia (§9.24; Felipe, 07-11: *"yo te puedo dar
 // el check de lo que ya está facturado"*): «Ya está facturado» saca el
-// evento de la lista y de la masiva, y queda abajo, plegado, con quién lo
-// marcó y «Devolver». El que tiene en Documentos el PDF de una factura
-// subido a mano lo dice bajo el cliente, en el mismo lugar que sus OC.
+// evento de la lista, y queda abajo, plegado, con quién lo marcó y
+// «Devolver». §9.26: cada evento dice «Pendiente» o «Parcial» con el %
+// facturado debajo, y los facturados completos van abajo, plegados. Las OC
+// que BelIA todavía no lee se leen solas al entrar (la primera lectura;
+// desde ese día, la que se sube a Documentos se lee sola).
 //
-// §9.26 (Felipe, 07-11: *"el sistema debe reconocer cuando esté por
-// facturar, cuando esté facturado parcialmente y cuando esté todo
-// facturado"* y *"quizás un distintivo que diga con OC"*): cada evento dice
-// «Pendiente» o «Parcial» con el % facturado debajo; bajo el cliente,
-// «Con OC» y cada OC con lo suyo; bajo lo que queda, la OC que factura
-// «Facturar». Los facturados completos van abajo, plegados. Las OC que
-// BelIA todavía no lee se leen solas al entrar (la primera lectura; desde
-// ese día, la que se sube a Documentos se lee sola).
+// §9.31 (Felipe, 08-11, con la maqueta: *"sí, así"*):
+// - arriba, el buscador amplio (*"por rut, nombre cliente, persona
+//   contacto, nro de cotización etc."*) y «Facturar seleccionados», que
+//   reemplaza a «+ Nuevo documento» en esta pestaña;
+// - cada fila, solo con sus columnas y «Ya está facturado» (*"el facturar
+//   lo dejaría solo con el de arriba y si se va a facturar 1 solo, se
+//   selecciona"*); de las OC queda el distintivo «Con OC», y lo demás (sus
+//   OC, lo que BelIA no pudo leer, la factura en Documentos) va en «Lo del
+//   evento», dentro de la revisión;
+// - «Facturar seleccionados» abre la revisión una por una
+//   (`RevisionDeLaFacturacion`).
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const pct = (n: number) =>
@@ -72,38 +80,34 @@ function ChipDeFacturacion({
   );
 }
 
-/** «OC 4500123 · $10.000.000 · facturada», una por línea. */
-function LineaDeOc({ oc }: { readonly oc: OrdenPorFacturar }) {
-  const estado =
-    oc.estado === "facturado"
-      ? "facturada"
-      : oc.estado === "parcial"
-        ? `${pct((oc.facturado / oc.total) * 100)} facturado`
-        : "pendiente";
-  return (
-    <span className="block whitespace-nowrap text-xs text-gray-500">
-      OC {oc.numero} · {clp(oc.total)} ·{" "}
-      <span
-        className={
-          oc.estado === "facturado"
-            ? "text-green-700"
-            : oc.estado === "parcial"
-              ? "text-amber-700"
-              : ""
-        }
-      >
-        {estado}
-      </span>
-    </span>
+/** El RUT como se escriba: con puntos, sin puntos o solo los números. */
+const formasDelRut = (rut: string | null | undefined) =>
+  rut ? [rut, formatearRut(rut), rut.replace(/[^0-9kK]/g, "")] : [];
+
+/** El buscador amplio (§9.31), con el criterio de todos los buscadores
+ *  (`matchesSearch`: sin tildes, por palabras, en cualquier orden). */
+const coincide = (
+  e: EventoPorFacturar,
+  texto: string,
+): boolean =>
+  matchesSearch(
+    texto,
+    `#${e.numero}`,
+    e.cliente,
+    e.contacto,
+    e.tipoDeEvento,
+    ...(e.ordenes ?? []).flatMap((o) => [o.numero, ...formasDelRut(o.rut)]),
+    ...(e.ruts ?? []).flatMap(formasDelRut),
   );
-}
 
 export default function PorFacturar() {
   const queryClient = useQueryClient();
   const lista = usePorFacturar();
-  const [abierto, setAbierto] = useState<string | null>(null);
+  const [buscar, setBuscar] = useState("");
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
-  const [masiva, setMasiva] = useState<string[] | null>(null);
+  // Los que se revisan: fijos mientras la ventana está abierta (la lista se
+  // recarga al emitir).
+  const [revision, setRevision] = useState<EventoPorFacturar[] | null>(null);
   const [preguntando, setPreguntando] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [verFuera, setVerFuera] = useState(false);
@@ -114,6 +118,9 @@ export default function PorFacturar() {
   const eventos = lista.data?.eventos ?? [];
   const facturados = lista.data?.facturados ?? [];
   const fuera = lista.data?.facturados_fuera ?? [];
+  const visibles = eventos.filter((e) => coincide(e, buscar));
+  const facturadosVisibles = facturados.filter((e) => coincide(e, buscar));
+  const fueraVisibles = fuera.filter((e) => coincide(e, buscar));
   const marcar = (id: string, si: boolean) =>
     setMarcados((m) => {
       const n = new Set(m);
@@ -121,7 +128,9 @@ export default function PorFacturar() {
       else n.delete(id);
       return n;
     });
-  const todos = eventos.length > 0 && eventos.every((e) => marcados.has(e.id));
+  const todos =
+    visibles.length > 0 && visibles.every((e) => marcados.has(e.id));
+  const elegidos = eventos.filter((e) => marcados.has(e.id));
 
   const recargar = () =>
     void queryClient.invalidateQueries({ queryKey: LLAVE_POR_FACTURAR });
@@ -145,12 +154,6 @@ export default function PorFacturar() {
       )
       .finally(() => setLeyendo(0));
   }, [lista.data, sinLeer, queryClient]);
-
-  const emitido = () => {
-    setAbierto(null);
-    recargar();
-    void queryClient.invalidateQueries({ queryKey: ["facturacion", "lista"] });
-  };
 
   const yaFacturado = async (e: EventoPorFacturar) => {
     setOcupado(e.id);
@@ -191,14 +194,13 @@ export default function PorFacturar() {
 
   return (
     <div className="space-y-3">
-      {masiva && (
-        <FacturacionMasiva
-          eventos={eventos.filter((e) => masiva.includes(e.id))}
-          onCerrar={() => {
-            setMasiva(null);
-            setMarcados(new Set());
-          }}
+      {revision && (
+        <RevisionDeLaFacturacion
+          eventos={revision}
+          noLeidas={noLeidas}
+          onCerrar={() => setRevision(null)}
           onEmitidos={() => {
+            setMarcados(new Set());
             recargar();
             void queryClient.invalidateQueries({
               queryKey: ["facturacion", "lista"],
@@ -206,6 +208,37 @@ export default function PorFacturar() {
           }}
         />
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative block min-w-0 flex-1">
+          <span className="sr-only">Buscar</span>
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="search"
+            value={buscar}
+            placeholder="Buscar por RUT, cliente, contacto, N° de cotización u OC"
+            autoComplete="off"
+            onChange={(ev) => setBuscar(ev.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => setRevision(elegidos)}
+          disabled={elegidos.length === 0}
+          title={
+            elegidos.length === 0
+              ? "Marca los eventos que vas a facturar"
+              : undefined
+          }
+          className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          <FileText size={15} /> Facturar seleccionados
+          {elegidos.length > 0 ? ` (${elegidos.length})` : ""}
+        </button>
+      </div>
       {leyendo > 0 && (
         <p className="flex items-center gap-2 text-sm text-violet-700">
           <Sparkles size={14} /> BelIA está leyendo{" "}
@@ -215,24 +248,14 @@ export default function PorFacturar() {
           de Documentos…
         </p>
       )}
-      {marcados.size > 0 && !masiva && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setMasiva([...marcados])}
-            className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
-          >
-            Facturar{" "}
-            {marcados.size === 1
-              ? "el marcado"
-              : `los ${marcados.size} marcados`}
-          </button>
-        </div>
-      )}
       {eventos.length === 0 ? (
         <p className="text-sm text-gray-500">
           Todos los eventos desde el {fechaCorta(lista.data.desde)} están
           emitidos.
+        </p>
+      ) : visibles.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          Ningún evento por facturar coincide con «{buscar.trim()}».
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white p-4">
@@ -245,11 +268,13 @@ export default function PorFacturar() {
                     aria-label="Marcar todos"
                     checked={todos}
                     onChange={(ev) =>
-                      setMarcados(
-                        ev.target.checked
-                          ? new Set(eventos.map((e) => e.id))
-                          : new Set(),
-                      )
+                      setMarcados((m) => {
+                        const n = new Set(m);
+                        for (const e of visibles)
+                          if (ev.target.checked) n.add(e.id);
+                          else n.delete(e.id);
+                        return n;
+                      })
                     }
                   />
                 </th>
@@ -257,153 +282,91 @@ export default function PorFacturar() {
                 <th className="py-1 font-medium">Cliente</th>
                 <th className="py-1 font-medium">Fecha</th>
                 <th className="py-1 font-medium">Estado</th>
-                <th className="py-1 text-right font-medium">Total</th>
-                <th className="py-1 text-right font-medium">Emitido</th>
-                <th className="py-1 text-right font-medium">Queda</th>
+                <th className="py-1 pr-2 text-right font-medium">Total</th>
+                <th className="py-1 pr-2 text-right font-medium">Emitido</th>
+                <th className="py-1 pr-2 text-right font-medium">Queda</th>
                 <th className="py-1" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {eventos.map((e) => {
-                const ordenes = e.ordenes ?? [];
-                const fallas = noLeidas.filter((n) => n.quotation_id === e.id);
-                return (
-                  <Fragment key={e.id}>
-                    <tr className="align-top">
-                      <td className="py-1.5">
-                        <input
-                          type="checkbox"
-                          aria-label={`Marcar el #${e.numero}`}
-                          checked={marcados.has(e.id)}
-                          onChange={(ev) => marcar(e.id, ev.target.checked)}
-                        />
-                      </td>
-                      <td className="py-1.5 pr-2">
-                        <Link
-                          to={`/post-venta/${e.id}`}
-                          className="font-semibold text-blue-700 hover:underline"
-                        >
-                          #{e.numero}
-                        </Link>
-                        {e.tipoDeEvento && (
-                          <span className="block text-xs text-gray-500">
-                            {e.tipoDeEvento}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-2 text-gray-700">
-                        {e.cliente ?? "—"}
-                        {ordenes.length > 0 && (
-                          <span className="mt-0.5 block">
-                            <span className="inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
-                              Con OC
-                            </span>
-                          </span>
-                        )}
-                        {ordenes.map((o) => (
-                          <LineaDeOc key={o.id} oc={o} />
-                        ))}
-                        {(e.ocs_sin_leer ?? 0) > 0 && (
-                          <span className="block text-xs text-gray-500">
-                            {e.ocs_sin_leer === 1
-                              ? "1 OC sin leer"
-                              : `${e.ocs_sin_leer} OC sin leer`}
-                          </span>
-                        )}
-                        {fallas.map((f) => (
-                          <span
-                            key={f.documento_id}
-                            className="block text-xs text-amber-700"
-                          >
-                            BelIA no pudo leer «{f.nombre}»:{" "}
-                            {f.motivo.replace(/\.$/, "")}
-                          </span>
-                        ))}
-                        {e.tiene_factura_en_documentos && (
-                          <span className="block text-xs font-medium text-amber-700">
-                            Tiene factura en Documentos
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
-                        {e.fecha ? fechaCorta(e.fecha) : "—"}
-                      </td>
-                      <td className="py-1.5 pr-2">
-                        <ChipDeFacturacion
-                          estado={e.facturacion ?? "pendiente"}
-                        />
-                        {e.facturacion === "parcial" && (
-                          <span className="block whitespace-nowrap text-xs text-gray-500">
-                            {pct(e.porcentaje_facturado ?? 0)} facturado
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-2 text-right whitespace-nowrap">
-                        {clp(e.total)}
-                      </td>
-                      <td className="py-1.5 pr-2 text-right whitespace-nowrap text-gray-600">
-                        {clp(e.emitido)}
-                      </td>
-                      <td className="py-1.5 pr-2 text-right whitespace-nowrap font-semibold text-gray-900">
-                        {clp(e.queda)}
-                        {e.se_factura?.oc && (
-                          <span className="block text-xs font-normal text-gray-500">
-                            OC {e.se_factura.oc}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 text-right">
-                        {preguntando === e.id ? (
-                          <ConfirmInline
-                            question="¿Ya se facturó fuera de Eventia?"
-                            yesLabel="Sí, sacarlo"
-                            tono="normal"
-                            busy={ocupado === e.id}
-                            onYes={() => void yaFacturado(e)}
-                            onNo={() => setPreguntando(null)}
-                          />
-                        ) : (
-                          abierto !== e.id && (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setPreguntando(e.id)}
-                                className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                              >
-                                Ya está facturado
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAbierto(e.id)}
-                                className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-700"
-                              >
-                                <FileText size={12} /> Facturar
-                              </button>
-                            </div>
-                          )
-                        )}
-                      </td>
-                    </tr>
-                    {abierto === e.id && (
-                      <tr>
-                        <td colSpan={9} className="pb-3">
-                          <EmitirDte
-                            quotationId={e.id}
-                            puedeEmitir
-                            onCerrar={() => setAbierto(null)}
-                            onEmitido={emitido}
-                          />
-                        </td>
-                      </tr>
+              {visibles.map((e) => (
+                <tr key={e.id} className="align-top">
+                  <td className="py-1.5">
+                    <input
+                      type="checkbox"
+                      aria-label={`Marcar el #${e.numero}`}
+                      checked={marcados.has(e.id)}
+                      onChange={(ev) => marcar(e.id, ev.target.checked)}
+                    />
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <Link
+                      to={`/post-venta/${e.id}`}
+                      className="font-semibold text-blue-700 hover:underline"
+                    >
+                      #{e.numero}
+                    </Link>
+                    {e.tipoDeEvento && (
+                      <span className="block text-xs text-gray-500">
+                        {e.tipoDeEvento}
+                      </span>
                     )}
-                  </Fragment>
-                );
-              })}
+                  </td>
+                  <td className="py-1.5 pr-2 text-gray-700">
+                    {e.cliente ?? "—"}
+                    {(e.ordenes ?? []).length > 0 && (
+                      <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                        Con OC
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
+                    {e.fecha ? fechaCorta(e.fecha) : "—"}
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <ChipDeFacturacion estado={e.facturacion ?? "pendiente"} />
+                    {e.facturacion === "parcial" && (
+                      <span className="block whitespace-nowrap text-xs text-gray-500">
+                        {pct(e.porcentaje_facturado ?? 0)} facturado
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right whitespace-nowrap">
+                    {clp(e.total)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right whitespace-nowrap text-gray-600">
+                    {clp(e.emitido)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right whitespace-nowrap font-semibold text-gray-900">
+                    {clp(e.queda)}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    {preguntando === e.id ? (
+                      <ConfirmInline
+                        question="¿Ya se facturó fuera de Eventia?"
+                        yesLabel="Sí, sacarlo"
+                        tono="normal"
+                        busy={ocupado === e.id}
+                        onYes={() => void yaFacturado(e)}
+                        onNo={() => setPreguntando(null)}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPreguntando(e.id)}
+                        className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                      >
+                        Ya está facturado
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
-      {facturados.length > 0 && (
+      {facturadosVisibles.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white">
           <button
             type="button"
@@ -416,13 +379,13 @@ export default function PorFacturar() {
             ) : (
               <ChevronRight size={14} />
             )}
-            Facturados en Eventia ({facturados.length})
+            Facturados en Eventia ({facturadosVisibles.length})
           </button>
           {verFacturados && (
             <div className="overflow-x-auto px-4 pb-3">
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-gray-100">
-                  {facturados.map((e) => (
+                  {facturadosVisibles.map((e) => (
                     <tr key={e.id} className="align-top">
                       <td className="py-1.5 pr-2">
                         <Link
@@ -434,9 +397,6 @@ export default function PorFacturar() {
                       </td>
                       <td className="py-1.5 pr-2 text-gray-700">
                         {e.cliente ?? "—"}
-                        {(e.ordenes ?? []).map((o) => (
-                          <LineaDeOc key={o.id} oc={o} />
-                        ))}
                       </td>
                       <td className="py-1.5 pr-2 whitespace-nowrap text-gray-600">
                         {e.fecha ? fechaCorta(e.fecha) : "—"}
@@ -455,7 +415,7 @@ export default function PorFacturar() {
           )}
         </div>
       )}
-      {fuera.length > 0 && (
+      {fueraVisibles.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white">
           <button
             type="button"
@@ -464,13 +424,13 @@ export default function PorFacturar() {
             className="flex w-full items-center gap-1 px-4 py-2 text-left text-xs font-semibold text-gray-600 hover:bg-gray-50"
           >
             {verFuera ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            Facturados fuera de Eventia ({fuera.length})
+            Facturados fuera de Eventia ({fueraVisibles.length})
           </button>
           {verFuera && (
             <div className="overflow-x-auto px-4 pb-3">
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-gray-100">
-                  {fuera.map((e) => (
+                  {fueraVisibles.map((e) => (
                     <tr key={e.id}>
                       <td className="py-1.5 pr-2">
                         <Link

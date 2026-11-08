@@ -1,21 +1,28 @@
 import {
   armarBorradorDeDte,
   prepararDte,
+  type BorradorDelDte,
   type DtePedido,
+  type PreparacionDelDte,
   type TipoDeDte,
   type VistaPrevia,
 } from "../../services/facturas.service";
 
-// LO QUE LA FACTURACIÓN MASIVA SABE DE CADA EVENTO (doc 19 §9.21): lo
-// mismo que «Emitir DTE» al abrirse. BelIA lee las OC de Documentos,
-// propone factura o boleta, y el DTE se llena desde la OC que queda por
-// facturar o desde la cotización. No se corrige nada a mano: lo que no
-// está listo se factura uno por uno.
+// LO QUE LA REVISIÓN DE «FACTURAR SELECCIONADOS» SABE DE CADA EVENTO (doc
+// 19 §9.21 y §9.31): lo mismo que «Emitir DTE» al abrirse. BelIA lee las
+// OC de Documentos, propone factura o boleta, y el DTE se llena desde la
+// OC que queda por facturar o desde la cotización. Desde el 08-11 (§9.31)
+// se revisa uno por uno y lo que no está listo se arregla con «Corregir»
+// antes de aprobarlo.
 
 export interface RevisadoParaLaMasiva {
   tipo: TipoDeDte;
   pedida: DtePedido;
   vista: VistaPrevia;
+  /** §9.32: lo que leyó BelIA (sus OC, el evento) y su borrador, para que
+   *  «Corregir» parta de ahí sin pedírselo de nuevo. */
+  preparacion?: PreparacionDelDte;
+  borrador?: BorradorDelDte;
 }
 
 export const revisarUnoParaLaMasiva = async (
@@ -31,6 +38,8 @@ export const revisarUnoParaLaMasiva = async (
     tipo: preparacion.tipo,
     pedida: borrador.pedida,
     vista: borrador.vista,
+    preparacion,
+    borrador,
   };
 };
 

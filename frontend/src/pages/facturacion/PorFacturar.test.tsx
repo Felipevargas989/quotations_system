@@ -12,9 +12,10 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PorFacturar from "./PorFacturar";
 
-// «POR FACTURAR» (doc 19 §9.21): los eventos con algo por emitir, y
-// «Facturar» abre ahí mismo el «Emitir DTE» del evento. Lo facturado fuera
-// de Eventia (§9.24): «Ya está facturado», abajo plegado, y «Devolver».
+// «POR FACTURAR» (doc 19 §9.21): los eventos con algo por emitir. Lo
+// facturado fuera de Eventia (§9.24): «Ya está facturado», abajo plegado, y
+// «Devolver». Desde el 08-11 (§9.31): el buscador amplio, la fila solo con
+// sus columnas y «Facturar seleccionados», que abre la revisión.
 
 let eventos: unknown[] = [];
 let fuera: unknown[] = [];
@@ -46,14 +47,20 @@ vi.mock("../../services/facturas.service", () => ({
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
-vi.mock("./FacturacionMasiva", () => ({
-  default: ({ eventos }: { eventos: { numero: number }[] }) => (
-    <p>facturar juntos: {eventos.map((e) => e.numero).join(", ")}</p>
-  ),
-}));
-vi.mock("../postventa/facturacion/EmitirDte", () => ({
-  default: ({ quotationId }: { quotationId: string }) => (
-    <p>emitir el DTE de {quotationId}</p>
+vi.mock("./RevisionDeLaFacturacion", () => ({
+  default: ({
+    eventos,
+    noLeidas,
+  }: {
+    eventos: { numero: number }[];
+    noLeidas: { nombre: string }[];
+  }) => (
+    <p>
+      revisar: {eventos.map((e) => e.numero).join(", ")}
+      {noLeidas.length
+        ? ` · no leídas: ${noLeidas.map((n) => n.nombre).join(", ")}`
+        : ""}
+    </p>
   ),
 }));
 
@@ -88,7 +95,7 @@ const abrir = () =>
   );
 
 describe("Por facturar", () => {
-  it("cada evento con su total, lo emitido y lo que queda; «Facturar» abre su DTE", () => {
+  it("cada evento con su total, lo emitido y lo que queda; en la fila, solo «Ya está facturado» (§9.31)", () => {
     eventos = [
       {
         id: "ev-501",
@@ -111,11 +118,15 @@ describe("Por facturar", () => {
     expect(screen.getByText("$1.000.000")).toBeInTheDocument();
     expect(screen.getByText("$400.000")).toBeInTheDocument();
     expect(screen.getByText("$600.000")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Facturar/ }));
-    expect(screen.getByText("emitir el DTE de ev-501")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Ya está facturado" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Facturar$/ }),
+    ).not.toBeInTheDocument();
   });
 
-  it("quien factura eventos marca varios y los factura juntos", () => {
+  it("marca uno o varios y «Facturar seleccionados» abre la revisión con ellos (§9.31)", () => {
     eventos = [501, 502].map((numero) => ({
       id: `ev-${numero}`,
       numero,
@@ -129,11 +140,14 @@ describe("Por facturar", () => {
       ocs: 0,
     }));
     abrir();
+    expect(
+      screen.getByRole("button", { name: /Facturar seleccionados/ }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Marcar todos" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Facturar los 2 marcados" }),
+      screen.getByRole("button", { name: "Facturar seleccionados (2)" }),
     );
-    expect(screen.getByText("facturar juntos: 501, 502")).toBeInTheDocument();
+    expect(screen.getByText("revisar: 501, 502")).toBeInTheDocument();
   });
 
   it("sin nada pendiente, lo dice desde cuándo mira", () => {
@@ -143,7 +157,7 @@ describe("Por facturar", () => {
     ).toBeInTheDocument();
   });
 
-  it("el PDF de una factura en Documentos se avisa bajo el cliente (§9.24), junto a sus OC", () => {
+  it("la fila, solo con sus columnas: «Con OC», y sus OC y la factura en Documentos van a la revisión (§9.31)", () => {
     eventos = [
       {
         ...EVENTO,
@@ -161,12 +175,14 @@ describe("Por facturar", () => {
       },
     ];
     abrir();
-    expect(screen.getByText("Tiene factura en Documentos")).toBeInTheDocument();
     expect(screen.getByText("Con OC")).toBeInTheDocument();
-    expect(screen.getByText(/OC 4500123 · \$1\.245\.000/)).toBeInTheDocument();
+    expect(
+      screen.queryByText("Tiene factura en Documentos"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/OC 4500123/)).not.toBeInTheDocument();
   });
 
-  it("pendiente o parcial con el % facturado, cada OC con lo suyo y la que factura «Facturar» (§9.26)", () => {
+  it("pendiente o parcial con el % facturado (§9.26), sin repetir la OC en la fila (§9.31)", () => {
     eventos = [
       {
         ...EVENTO,
@@ -205,11 +221,11 @@ describe("Por facturar", () => {
     expect(screen.getByText("Parcial")).toBeInTheDocument();
     expect(screen.getByText("50 % facturado")).toBeInTheDocument();
     expect(screen.getByText("Pendiente")).toBeInTheDocument();
-    expect(screen.getByText("facturada")).toBeInTheDocument();
-    expect(screen.getByText("OC 4500002")).toBeInTheDocument();
+    expect(screen.queryByText("facturada")).not.toBeInTheDocument();
+    expect(screen.queryByText("OC 4500002")).not.toBeInTheDocument();
   });
 
-  it("la primera lectura: BelIA lee sola las OC sin leer y dice las que no pudo (§9.26)", async () => {
+  it("la primera lectura: BelIA lee sola las OC sin leer, y lo que no pudo llega a la revisión (§9.26 y §9.31)", async () => {
     eventos = [{ ...EVENTO, ocs_sin_leer: 2 }];
     leerOrdenesPendientes.mockResolvedValueOnce({
       leidas: 1,
@@ -227,12 +243,19 @@ describe("Por facturar", () => {
     expect(
       screen.getByText(/BelIA está leyendo 2 órdenes de compra/),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        "BelIA no pudo leer «oc.pdf»: no encontró el total",
-      ),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/BelIA está leyendo/),
+      ).not.toBeInTheDocument(),
+    );
     expect(leerOrdenesPendientes).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Marcar el #473" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Facturar seleccionados (1)" }),
+    );
+    expect(
+      screen.getByText("revisar: 473 · no leídas: oc.pdf"),
+    ).toBeInTheDocument();
   });
 
   it("sin OC por leer no le pide nada a BelIA", () => {
@@ -264,6 +287,53 @@ describe("Por facturar", () => {
     await waitFor(() =>
       expect(marcarFacturadoFuera).toHaveBeenCalledWith("ev-473"),
     );
+  });
+
+  it("el buscador encuentra por contacto, RUT, N° de cotización y OC (§9.31)", () => {
+    eventos = [
+      {
+        ...EVENTO,
+        id: "ev-501",
+        numero: 501,
+        cliente: "CCU",
+        contacto: "María Pérez",
+        ruts: ["90413000-1"],
+        ordenes: [
+          {
+            id: 1,
+            numero: "4500123",
+            total: 1245000,
+            facturado: 0,
+            queda: 1245000,
+            estado: "pendiente",
+            rut: "99554560-8",
+          },
+        ],
+      },
+      { ...EVENTO, id: "ev-502", numero: 502, cliente: "Linde", contacto: "Juan Soto" },
+    ];
+    abrir();
+    const buscar = (texto: string) =>
+      fireEvent.change(screen.getByRole("searchbox", { name: "Buscar" }), {
+        target: { value: texto },
+      });
+    const se = (n: number) => screen.queryByRole("link", { name: `#${n}` });
+    buscar("maria");
+    expect(se(501)).toBeInTheDocument();
+    expect(se(502)).not.toBeInTheDocument();
+    buscar("90.413.000");
+    expect(se(501)).toBeInTheDocument();
+    buscar("995545608");
+    expect(se(501)).toBeInTheDocument();
+    buscar("502");
+    expect(se(502)).toBeInTheDocument();
+    expect(se(501)).not.toBeInTheDocument();
+    buscar("4500123");
+    expect(se(501)).toBeInTheDocument();
+    buscar("nadie");
+    expect(
+      screen.getByText("Ningún evento por facturar coincide con «nadie»."),
+    ).toBeInTheDocument();
   });
 
   it("lo facturado fuera queda abajo, plegado, con quién lo marcó y «Devolver»", async () => {

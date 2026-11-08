@@ -1,5 +1,3 @@
-import { useState } from "react";
-import ConfirmInline from "../../../components/ConfirmInline";
 import { nombreDeReferencia } from "../../../constants/facturacion";
 import type {
   DtePedido,
@@ -18,9 +16,12 @@ import { valorDeLaLinea } from "./datosDeLaFactura";
 //
 // Desde el 06-11 (doc 19 §9.22, sprint 3) es la misma para los cuatro
 // documentos de «Nuevo documento»: la factura, la boleta y las notas de
-// crédito y de débito (con lo que modifican en `referencia`). Y como la
-// maqueta, «Emitir» pregunta antes («¿Emitir la factura N° … por $…?»):
-// emitido no se borra.
+// crédito y de débito (con lo que modifican en `referencia`).
+//
+// Desde el 08-11 (§9.33; Felipe: *"3 aprobaciones para emitir un documento
+// me parece raro"*), «Emitir» emite: esta vista previa ya es la revisión,
+// así que no vuelve a preguntar. Son dos pasos: «Crear documento» y
+// «Emitir».
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -58,7 +59,6 @@ export default function VistaPreviaDelDte({
   readonly onVolver: () => void;
   readonly onEmitir: () => void;
 }) {
-  const [confirmando, setConfirmando] = useState(false);
   const r = pedida.receptor;
   const factura = pedida.tipo === 33;
   const boleta = pedida.tipo === 39;
@@ -255,27 +255,14 @@ export default function VistaPreviaDelDte({
           Volver a editar
         </button>
         {puedeEmitir ? (
-          confirmando && vista.montos && !emitiendo ? (
-            <ConfirmInline
-              question={`¿Emitir la ${nombre}${boleta ? "" : ` N° ${vista.folio}`} por ${clp(vista.montos.total)}?`}
-              yesLabel="Sí, emitir"
-              tono="normal"
-              onYes={() => {
-                setConfirmando(false);
-                onEmitir();
-              }}
-              onNo={() => setConfirmando(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              disabled={!vista.ok || emitiendo}
-              onClick={() => setConfirmando(true)}
-              className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-            >
-              {emitiendo ? "Emitiendo…" : `Emitir ${nombre}`}
-            </button>
-          )
+          <button
+            type="button"
+            disabled={!vista.ok || emitiendo}
+            onClick={onEmitir}
+            className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {emitiendo ? "Emitiendo…" : `Emitir ${nombre}`}
+          </button>
         ) : (
           <span className="text-xs text-gray-500">
             La emite el administrador.
