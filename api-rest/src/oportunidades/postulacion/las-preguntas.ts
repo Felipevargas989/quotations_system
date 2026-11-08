@@ -4,6 +4,7 @@ import {
   claveDeExigencia,
   type RespuestaDeLaEmpresa,
 } from '../oferente/lo-que-sabemos';
+import { esUnPapel } from './los-papeles';
 
 // LAS PREGUNTAS ANTES DE ARMAR (decisión 119, parte 3, 07-11-2026). Felipe:
 // "pincho una licitación y le faltan 5 preguntas... si tengo rampla, si no
@@ -13,7 +14,9 @@ import {
 //
 // Se pregunta SOLO lo que «¿Puedo cumplir?» dejó en «hay que conseguirlo» y
 // que la empresa produce ella misma. No se pregunta:
-//  - un documento: va en «Lo que tienes que presentar»;
+//  - un documento: va en «Lo que tienes que presentar». Desde la decisión
+//    120 (08-11) también la cotización, la propuesta y las fotos aunque no
+//    digan «formulario» (`esUnPapel`): los arma Eventia o los subes tú;
 //  - lo que la empresa subcontrata: va comprometido (regla de la casa,
 //    `LO_SUBCONTRATADO`);
 //  - lo ya marcado en «Bases y criterios» para esta licitación;
@@ -76,7 +79,9 @@ export function lasCandidatas(
     const clave = claveDeExigencia(i.que);
     if (!clave || vistas.has(clave)) continue;
     vistas.add(clave);
-    if (ES_DOCUMENTO.test(clave) || marcas[clave]) continue;
+    if (ES_DOCUMENTO.test(clave) || esUnPapel(i.que) || marcas[clave]) {
+      continue;
+    }
     const ya = guardadas.get(clave);
     if (ya) yaRespondidas.push({ clave, respuesta: ya });
     else candidatas.push({ clave, exigencia: i.que, por_que: i.por_que });

@@ -46,6 +46,9 @@ export const normalizar = (t: string): string =>
     .trim();
 
 const empresa = (porque: string): QuienLoHace => ({ quien: 'empresa', porque });
+
+/** El porqué de las fotos: `esUnPapel` lo reconoce por él. */
+const SON_TUS_FOTOS = 'son tus fotos';
 const declaracion = (tipo: TipoDeDeclaracion): QuienLoHace => ({
   quien: 'declaracion',
   tipo,
@@ -88,7 +91,7 @@ const POR_EL_NOMBRE: ReadonlyArray<[RegExp, QuienLoHace]> = [
   ],
   [
     /^(set de )?(fotos?|fotografias?|imagenes)\b|^catalogo fotografico/,
-    empresa('son tus fotos'),
+    empresa(SON_TUS_FOTOS),
   ],
   [
     /\bvehiculos?\b|\bbus(es)?\b|\bde la van\b|transporte de pasajeros|servicios de transporte|\bsoap\b|\bpadron\b|permiso de circulacion|revision tecnica|^seguros? (obligatorios?|del)\b|sello verde/,
@@ -169,6 +172,27 @@ export const quienLoHace = (
     POR_EL_NOMBRE.find(([p]) => p.test(n))?.[1] ??
     null
   );
+};
+
+/** ¿Una exigencia de «¿Puedo cumplir?» es en realidad un papel? (decisión
+ *  120, 08-11). Felipe, con «¿Tienes lista la cotización general del
+ *  servicio y fotos del recinto…?» en el modal: "la cotización general no
+ *  la tengo hecha (tampoco en eventia) esa la idea es que se arme sola con
+ *  el botón armar postulación... las fotos son tema aparte y esas las
+ *  adjunto". La cotización, la propuesta, una declaración, lo del portal,
+ *  lo que no aplica y las fotos no se preguntan antes de armar ni se marcan
+ *  en «Lo que tienes que ofrecer»: los arma Eventia o los subes tú. Un menú
+ *  o un programa sí: es lo que se ofrece, no el papel. Y lo del vehículo,
+ *  del conductor o de los profesionales también: como exigencia casi
+ *  siempre es tener el bus o el monitor (medido el 08-11 en las 692
+ *  exigencias «por conseguir» de producción). */
+export const esUnPapel = (que: string): boolean => {
+  const q = quienLoHace(que);
+  if (!q) return false;
+  if (q.quien === 'empresa') return q.porque === SON_TUS_FOTOS;
+  if (q.quien === 'propuesta')
+    return !/^(menu|programa)\b/.test(normalizar(que));
+  return true;
 };
 
 /** Un papel de las bases sin formulario con archivo (la sección 4 del
