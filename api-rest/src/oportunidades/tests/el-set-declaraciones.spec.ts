@@ -203,7 +203,7 @@ describe('los papeles sin formato en el set (decisión 119, parte 3b)', () => {
       'Falta «Especificaciones y detalle del servicio (espacios, menú de desayuno, almuerzo y once, entradas, horario)»: va en la propuesta técnica; vuelve a armar la postulación.',
       'Falta «Formato N°1 - Identificación del oferente»: la arma Eventia al armar la postulación; vuelve a armarla.',
       `Te falta subir a «Mi postulación»: «${VEHICULO}» (es del vehículo).`,
-      'Las bases piden una cotización detallada: vincula tu cotización y vuelve a armar la postulación, o súbela hecha a «Mi postulación».',
+      'Las bases piden una cotización: vuelve a armar la postulación (la arma Eventia con lo postulado, o con tu cotización si la vinculas), o súbela hecha a «Mi postulación».',
     ]);
   });
 

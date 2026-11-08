@@ -170,7 +170,7 @@ describe('La cotización detallada en «Mi postulación»', () => {
     expect(texto).toContain('Compra Ágil 2705-1740-COT26');
   });
 
-  it('sin cotización vinculada no se puede: lo dice en palabras', async () => {
+  it('sin cotización vinculada ni lo postulado no se puede: lo dice en palabras', async () => {
     const { servicio, repo, adjuntos } = armar();
     repo.oportunidad.mockResolvedValue({
       id: 11072,
@@ -183,8 +183,75 @@ describe('La cotización detallada en «Mi postulación»', () => {
         conPropuesta: false,
         reemplaza: [],
       }),
-    ).rejects.toThrow('vincula tu cotización');
+    ).rejects.toThrow(
+      'arma la postulación, de lo postulado salen sus servicios',
+    );
     expect(adjuntos.subirArchivo).not.toHaveBeenCalled();
+  });
+
+  it('sin cotización vinculada sale de lo postulado: sin número, lo particular en su línea y lo demás en «También incluye» (decisión 120)', async () => {
+    // Felipe, 08-11: "si las bases piden una cotización, tenemos que armar
+    // una solamente en el módulo de oportunidades sin tener que hacer una
+    // eventia" y "sin precio aparte, el precio es 1 el que ponemos al
+    // armar".
+    const { servicio, repo, adjuntos, subidos } = armar();
+    const enMemoria = {
+      ...(await repo.cotizacion()),
+      id: '',
+      quotation_number: 0,
+      quotation_status: 'lo_postulado',
+      subtotal_amount: null,
+      discount_amount: null,
+      total_amount: null,
+    };
+    repo.cotizacion.mockClear();
+    repo.oportunidad.mockResolvedValue({
+      id: 11072,
+      codigo: '2705-1740-COT26',
+      quotation_id: null,
+      proceso: {
+        nombre: 'Arriendo de salón con alimentación',
+        organismo: 'UNIVERSIDAD DEL BIO BIO',
+        tipo: 'compra_agil',
+      },
+    });
+    const fila = (
+      origen: 'particular' | 'subcontratar' | 'completar',
+      como: string,
+      productos: number[] = [],
+    ) => ({ especificacion: como, pagina: 0, como, origen, productos });
+    await servicio.armar(USUARIO, 11072, 105, 600_000, {
+      conPropuesta: false,
+      reemplaza: [],
+      deLoPostulado: {
+        cotizacion: enMemoria,
+        matriz: [
+          fila(
+            'particular',
+            'Taza de regalo para cada uno de los 20 participantes',
+            [2070],
+          ),
+          fila('subcontratar', 'Amplificación con 2 micrófonos inalámbricos'),
+          fila('particular', '2 galvanos para el premio'),
+          fila('completar', '[COMPLETAR: la temática del show]'),
+        ],
+      },
+    });
+    // No se lee ni se crea ninguna cotización de Eventia.
+    expect(repo.cotizacion).not.toHaveBeenCalled();
+    const [ruta] = adjuntos.subirArchivo.mock.calls[0];
+    const texto = textoDeDocx(subidos.get(ruta) as Buffer) ?? '';
+    expect(texto).not.toContain('Cotización N°');
+    expect(texto).toContain('Validez: 30 días');
+    expect(texto).toContain(
+      'Carne mechada; Taza de regalo para cada uno de los 20 participantes',
+    );
+    expect(texto).toContain('También incluye, dentro del mismo precio:');
+    expect(texto).toContain('• Amplificación con 2 micrófonos inalámbricos');
+    expect(texto).toContain('• 2 galvanos para el premio');
+    expect(texto).not.toContain('COMPLETAR');
+    // El precio que manda, repartido sobre los precios del catálogo.
+    expect(texto).toContain('$600.000');
   });
 
   it('si el precio pasa la cotización, los precios suben en la misma proporción: ya no va en una sola línea (Felipe, 07-11)', async () => {
