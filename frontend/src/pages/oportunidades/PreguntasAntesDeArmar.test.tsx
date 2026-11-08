@@ -17,6 +17,7 @@ import * as servicio from "../../services/oportunidades.service";
 import * as postulacion from "../../services/postulacion.service";
 import ArmarPostulacion from "./ArmarPostulacion";
 import LoQueSabemosDeTuEmpresa from "./LoQueSabemosDeTuEmpresa";
+import PreguntasDeLaLicitacion from "./PreguntasDeLaLicitacion";
 
 // LAS PREGUNTAS ANTES DE ARMAR Y «LO QUE EVENTIA SABE DE TU EMPRESA»
 // (decisión 119, parte 3, 07-11). Felipe: "vuelvo a la licitación, me
@@ -194,28 +195,46 @@ describe("Las preguntas antes de armar", () => {
     expect(p.responderYArmar).not.toHaveBeenCalled();
   });
 
-  it("cambiar de pestaña no lo vuelve a abrir: una vez por visita", async () => {
+  it("en la página: «Responder» le pide el modal a la página, que lo abre una vez por visita", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue(DETENIDA as never);
-    const seAbrio = vi.fn();
-    conTodo(
-      <ArmarPostulacion
-        oportunidadId={40}
-        yaSeAbrieronLasPreguntas
-        onSeAbrieronLasPreguntas={seAbrio}
+    const responder = vi.fn();
+    conTodo(<ArmarPostulacion oportunidadId={40} onResponder={responder} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Responder" }));
+    expect(responder).toHaveBeenCalledTimes(1);
+    // El modal no es de «Armar postulación»: lo muestra la página.
+    expect(screen.queryByText("Antes de armar, responde esto")).toBe(null);
+  });
+
+  it("la página lo abre sola al entrar, en la pestaña que sea, y una sola vez", async () => {
+    p.getOfertaDeLaPostulacion.mockResolvedValue(DETENIDA as never);
+    const abrir = vi.fn();
+    const ficha = {
+      id: 40,
+      estado: "en_estudio",
+      exigencias_marcadas: {},
+    } as never;
+    const { rerender } = conTodo(
+      <PreguntasDeLaLicitacion
+        ficha={ficha}
+        abierta={false}
+        onAbrir={abrir}
+        onCerrar={vi.fn()}
       />,
     );
-    expect(
-      await screen.findByText(
-        "Faltan 2 respuestas sobre tu empresa para armar.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Antes de armar, responde esto")).toBe(null);
-    expect(seAbrio).not.toHaveBeenCalled();
-    // «Responder» lo abre igual.
-    fireEvent.click(screen.getByRole("button", { name: "Responder" }));
-    expect(
-      screen.getByText("Antes de armar, responde esto"),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(abrir).toHaveBeenCalledTimes(1));
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <PreguntasDeLaLicitacion
+            ficha={ficha}
+            abierta
+            onAbrir={abrir}
+            onCerrar={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(abrir).toHaveBeenCalledTimes(1);
   });
 
   it("al volver a armar, lo armado antes sigue a la vista y el aviso va debajo", async () => {

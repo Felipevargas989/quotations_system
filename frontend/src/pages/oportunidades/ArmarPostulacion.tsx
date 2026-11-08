@@ -70,8 +70,7 @@ export default function ArmarPostulacion({
   oportunidadId,
   congelada = false,
   marcas,
-  yaSeAbrieronLasPreguntas = false,
-  onSeAbrieronLasPreguntas,
+  onResponder,
 }: {
   readonly oportunidadId: number;
   /** Postulada o ganada: lo postulado queda fijo (decisión 33). */
@@ -79,10 +78,11 @@ export default function ArmarPostulacion({
   /** Lo marcado en «Bases y criterios» (de la ficha): ya no se pregunta
    *  (decisión 119, parte 3). */
   readonly marcas?: Record<string, MarcaDeExigencia> | null;
-  /** Las preguntas ya se abrieron solas en esta visita a la licitación (lo
-   *  sabe la página: cambiar de pestaña no las vuelve a abrir). */
-  readonly yaSeAbrieronLasPreguntas?: boolean;
-  readonly onSeAbrieronLasPreguntas?: () => void;
+  /** Abre las preguntas de la página (decisión 119, parte 3): las muestra
+   *  `PreguntasDeLaLicitacion`, solas una vez por visita y en la pestaña
+   *  que sea. Sin ella (sola, como en las pruebas), «Armar postulación» las
+   *  muestra por su cuenta. */
+  readonly onResponder?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: oferta } = useQuery({
@@ -123,25 +123,25 @@ export default function ArmarPostulacion({
   const [abierta, setAbierta] = useState(false);
   // Decisión 119, parte 3 (07-11): si a la empresa le faltan respuestas, el
   // armado se detiene antes de generar y el modal se abre al tiro o al
-  // volver a la licitación (una vez por visita; «Responder» lo reabre).
+  // volver a la licitación; «Responder» lo reabre. En la página lo muestra
+  // `PreguntasDeLaLicitacion` (una vez por visita, en la pestaña que sea).
   // Lo marcado en «Bases y criterios» ya no se pregunta. Las marcas llegan
   // de la ficha que trae la página: una segunda consulta de la ficha sin su
   // función la dejaba en error al refrescarla (visto en el lab, 07-11).
   const pendientes = congelada ? [] : preguntasPendientes(oferta, marcas);
+  const enLaPagina = Boolean(onResponder);
   const [preguntando, setPreguntando] = useState(false);
   const yaPregunto = useRef(false);
   useEffect(() => {
-    if (
-      pendientes.length === 0 ||
-      yaPregunto.current ||
-      yaSeAbrieronLasPreguntas
-    ) {
-      return;
-    }
+    if (enLaPagina || pendientes.length === 0 || yaPregunto.current) return;
     yaPregunto.current = true;
-    onSeAbrieronLasPreguntas?.();
     setPreguntando(true);
-  }, [pendientes.length, yaSeAbrieronLasPreguntas, onSeAbrieronLasPreguntas]);
+  }, [enLaPagina, pendientes.length]);
+  const abrirPreguntas = () => {
+    yaPregunto.current = true;
+    if (onResponder) onResponder();
+    else setPreguntando(true);
+  };
   const [escrito, setPrecio] = useState<number | undefined>(undefined);
   const precio =
     escrito ??
@@ -176,8 +176,7 @@ export default function ArmarPostulacion({
       if (preguntasPendientes(fila, marcas).length > 0) {
         // Se detuvo antes de generar: lo ya respondido en otra licitación
         // quedó marcado solo en «Bases y criterios».
-        yaPregunto.current = true;
-        setPreguntando(true);
+        abrirPreguntas();
         void qc.invalidateQueries({
           queryKey: ["oportunidades", "ficha", oportunidadId],
         });
@@ -235,27 +234,29 @@ export default function ArmarPostulacion({
         : `Faltan ${pendientes.length} respuestas sobre tu empresa para armar.`}
       <button
         type="button"
-        onClick={() => setPreguntando(true)}
+        onClick={abrirPreguntas}
         className="font-semibold underline"
       >
         Responder
       </button>
     </p>
   );
-  const modalDePreguntas = preguntando && pendientes.length > 0 && (
-    <PreguntasAntesDeArmar
-      oportunidadId={oportunidadId}
-      total={precio ?? 0}
-      preguntas={pendientes}
-      onCerrar={() => setPreguntando(false)}
-      onArmando={(fila) => {
-        qc.setQueryData(claveDeLaOferta(oportunidadId), fila);
-        setPreguntando(false);
-        setPrecio(undefined);
-        setAbierta(false);
-      }}
-    />
-  );
+  const modalDePreguntas = !enLaPagina &&
+    preguntando &&
+    pendientes.length > 0 && (
+      <PreguntasAntesDeArmar
+        oportunidadId={oportunidadId}
+        total={precio ?? 0}
+        preguntas={pendientes}
+        onCerrar={() => setPreguntando(false)}
+        onArmando={(fila) => {
+          qc.setQueryData(claveDeLaOferta(oportunidadId), fila);
+          setPreguntando(false);
+          setPrecio(undefined);
+          setAbierta(false);
+        }}
+      />
+    );
 
   // Postulada antes de «Armar postulación» (19-10): no hay nada que armar;
   // una línea con el precio con que se llenaron los anexos.
