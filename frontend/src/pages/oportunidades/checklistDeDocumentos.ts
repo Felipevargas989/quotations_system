@@ -205,7 +205,9 @@ const ORDEN_DE_LA_PARTE = {
 
 /** Lo que dice la fila de un papel que hace Eventia y todavía no está. */
 const LO_ARMA: Record<"cotizacion" | "propuesta" | "declaracion", string> = {
-  cotizacion: "Lo arma «Armar postulación» con tu cotización vinculada",
+  // Decisión 120 (08-11): también sin cotización vinculada, con lo
+  // postulado y los precios de tu catálogo.
+  cotizacion: "Lo arma «Armar postulación» con lo postulado o tu cotización",
   propuesta: "Va en la propuesta técnica de «Armar postulación»",
   declaracion: "Lo arma «Armar postulación» con tus datos de «Mi empresa»",
 };
@@ -247,8 +249,7 @@ export function checklistDeDocumentos(d: {
   /** ¿Es un anexo que la IA llenó desde un archivo del comprador? El
    *  firmado, por su Word si sigue ahí. */
   const delComprador = (a: AdjuntoDeOportunidad) => {
-    const w =
-      a.origen === "firmado" ? (porId.get(a.viene_de ?? -1) ?? a) : a;
+    const w = a.origen === "firmado" ? (porId.get(a.viene_de ?? -1) ?? a) : a;
     return w.origen !== "subido" && w.viene_de != null;
   };
   /** ¿Las bases nombran este formulario y no trajeron su formato? */
@@ -282,21 +283,19 @@ export function checklistDeDocumentos(d: {
     // Lo que sube la empresa (o lo de UTP, si postula así): lo subido a
     // mano, por sus palabras. Lo de Eventia: su archivo, por su nombre.
     const porSusPalabras = q.quien === "empresa" || q.quien === "no_aplica";
-    const suyos =
-      porSusPalabras
-        ? d.postulacion.filter((a) =>
-            palabrasClave(p.nombre).some((c) =>
-              normalizar(a.nombre).includes(c),
-            ),
-          )
-        : d.postulacion.filter(
-            (a) => !delComprador(a) && mismoPapel(q, quienLoHace(a.nombre)),
-          );
+    const suyos = porSusPalabras
+      ? d.postulacion.filter((a) =>
+          palabrasClave(p.nombre).some((c) => normalizar(a.nombre).includes(c)),
+        )
+      : d.postulacion.filter(
+          (a) => !delComprador(a) && mismoPapel(q, quienLoHace(a.nombre)),
+        );
     const firmado = suyos.find((a) => a.origen === "firmado");
     if (firmado) return { estado: "firmado", detalle: firmado.nombre };
     const subido = suyos.find((a) => a.origen === "subido");
     if (subido) return { estado: "en_tu_postulacion", detalle: subido.nombre };
-    if (q.quien === "no_aplica") return { estado: "no_aplica", detalle: q.porque };
+    if (q.quien === "no_aplica")
+      return { estado: "no_aplica", detalle: q.porque };
     if (q.quien === "empresa") {
       return { estado: "falta", detalle: `Lo subes tú: ${q.porque}` };
     }
@@ -314,7 +313,10 @@ export function checklistDeDocumentos(d: {
     p: DocumentoPedido,
   ): Omit<FilaDelChecklist, keyof DocumentoPedido> => {
     const deUtp = ES_DE_UTP.test(normalizar(`${p.nombre} ${p.condicion}`));
-    if (p.carpeta === "otro" || (p.carpeta === "formulario" && sinSuFormato(p))) {
+    if (
+      p.carpeta === "otro" ||
+      (p.carpeta === "formulario" && sinSuFormato(p))
+    ) {
       const q = quienLoHace(p.nombre, p.condicion);
       if (q) return estadoDelPapel(p, q);
     }

@@ -414,6 +414,26 @@ describe("La cotización de una ganada (decisión 104)", () => {
     expect(await screen.findByText(/Cotización N° 612/)).toBeInTheDocument();
   });
 
+  it("al ganar, avisa lo que hay que comprar o subcontratar; antes de ganar, no (decisión 120)", async () => {
+    // Felipe, 08-11: "me tiene que avisar que para esta licitación
+    // necesito, no sé, unos galvanos para dar un premio".
+    const conFaltan = async () => ({
+      ...(await s.getCotizacionDeLaPostulacion(87)),
+      faltan: ["2 galvanos para el premio", "1 DJ para el baile"],
+    });
+    s.getCotizacionDeLaPostulacion.mockResolvedValue(await conFaltan());
+    pintar(true, true);
+    expect(
+      await screen.findByText("Para cumplir, compra o subcontrata"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 galvanos para el premio")).toBeInTheDocument();
+    expect(screen.getByText("1 DJ para el baile")).toBeInTheDocument();
+    cleanup();
+    pintar(true, false);
+    expect(await screen.findByText("El precio")).toBeInTheDocument();
+    expect(screen.queryByText("Para cumplir, compra o subcontrata")).toBeNull();
+  });
+
   it("postulada sin «Armar postulación»: la IA arma «Qué ofreces» con las bases y la cotización se crea sola", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue(null);
     const SIN_OFERTA = {

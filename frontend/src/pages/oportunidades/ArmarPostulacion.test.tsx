@@ -179,6 +179,51 @@ describe("Armar postulación", () => {
     );
   });
 
+  it("sin armar ni cotización, el precio parte del presupuesto de la licitación y se cambia a mano (decisión 120)", async () => {
+    // Felipe, 08-11: "el precio parte del presupuesto de la licitación
+    // (donde coloco a mano por cuanto licitaremos)".
+    s.getCotizacionDeLaPostulacion.mockResolvedValue({
+      cotizacion: null,
+      presupuesto: 16_660_000,
+      propuesta: null,
+      faltan: [],
+      fechas: null,
+    });
+    p.armarPostulacion.mockResolvedValue({
+      id: 23,
+      estado: "procesando",
+      creado_en: "2026-11-08T15:00:00.000Z",
+      terminado_en: null,
+      parametros: { postulacion: { total: 16_390_000, propuesta: true } },
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(
+        "Es el presupuesto de la licitación: escribe el precio con que postulas.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Precio total, con IVA")).toHaveValue(
+      "16.660.000",
+    );
+    // Sin vinculada, el reparto va sobre los precios del catálogo, que no
+    // cambia.
+    expect(
+      screen.getByText(
+        /sobre los precios de tu catálogo; tu catálogo no cambia\./,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Precio total, con IVA"), {
+      target: { value: "16390000" },
+    });
+    expect(screen.queryByText(/Es el presupuesto de la licitación/)).toBeNull();
+    const boton = screen.getByRole("button", { name: "Armar postulación" });
+    await waitFor(() => expect(boton).toBeEnabled());
+    fireEvent.click(boton);
+    await waitFor(() =>
+      expect(p.armarPostulacion).toHaveBeenCalledWith(40, 16_390_000),
+    );
+  });
+
   it("postulada antes de «Armar postulación»: una línea con el precio de los anexos, sin nada que armar (26-10)", async () => {
     // Felipe, con la 1532886-5-LE26: "no me está reconociendo mi oferta".
     s.getGeneraciones.mockResolvedValue({
