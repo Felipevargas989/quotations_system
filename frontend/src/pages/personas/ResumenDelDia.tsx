@@ -4,9 +4,10 @@ import { Check, Search, Users, X } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import { HoraInput, formatoHoras, horasTrabajadas } from "../../components/inputs";
 import {
-  COLOR_SECCION,
+  TEXTO_DE_SECCION,
   type ColorDeSeccion,
 } from "../../components/grilla/coloresDeSeccion";
+import TituloDeSeccion from "../../components/grilla/TituloDeSeccion";
 import {
   getEventServiceTimes,
   setEventServiceTime,
@@ -322,13 +323,14 @@ function Bloque({
 }) {
   return (
     <section>
-      <div
-        className={`flex items-center justify-between gap-2 border-l-4 rounded-none px-3 py-1.5 mb-1.5 ${COLOR_SECCION[color]}`}
-      >
-        <h3 className="text-sm font-semibold">{titulo}</h3>
-        <span className="text-sm font-semibold tabular-nums">
-          {costo > 0 ? pesos(costo) : "—"}
-        </span>
+      <div className="mb-1.5">
+        <TituloDeSeccion titulo={titulo} color={color} encabezado>
+          <span
+            className={`text-sm font-semibold tabular-nums ${TEXTO_DE_SECCION[color]}`}
+          >
+            {costo > 0 ? pesos(costo) : "—"}
+          </span>
+        </TituloDeSeccion>
       </div>
       {children}
     </section>
