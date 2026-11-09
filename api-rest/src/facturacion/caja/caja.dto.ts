@@ -14,19 +14,16 @@ import {
 } from '../facturas/pago-de-la-factura';
 
 /**
- * LO QUE LLEGA A LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2). La cuenta de
- * recepción es una para todos: quién abre y quién cierra se escriben.
+ * LO QUE LLEGA A LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2). Quién abre y
+ * quién cierra no se escriben: salen del perfil de la sesión (Felipe, 09-11:
+ * *"el quién abre debe ser asociado al perfil que está abriendo la caja,
+ * que no sea escrito a mano"*).
  */
 
 const PESOS = { message: 'Va en pesos, sin decimales' };
 const NO_NEGATIVO = { message: 'No puede ser negativo' };
 
 export class AbrirCajaDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Falta quién abre la caja' })
-  @MaxLength(60)
-  quien: string;
-
   @IsInt(PESOS)
   @Min(0, NO_NEGATIVO)
   sencillo: number;
@@ -45,11 +42,6 @@ export class RetiroDeCajaDto {
 
 /** El cierre ciego: los cuatro montos que tiene quien cierra. */
 export class CerrarCajaDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Falta quién cierra la caja' })
-  @MaxLength(60)
-  quien: string;
-
   @IsInt(PESOS)
   @Min(0, NO_NEGATIVO)
   efectivo: number;

@@ -41,6 +41,8 @@ export type Permiso =
   // La caja de recepción (doc 19 §9.43, 09-11-2026).
   | 'caja_recepcion'
   | 'caja_revision'
+  // «Lo vendido», su propia pestaña (Felipe, 09-11).
+  | 'facturacion_vendido'
   | 'dashboard'
   | 'catalogo'
   | 'personal'
@@ -196,6 +198,15 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     area: 'facturacion',
     nombre: 'Revisar cierres de caja',
     fabrica: [A],
+    derecho: 'facturacion',
+  },
+  // Felipe, 09-11: *"lo vendido debería ser otra pestaña que solo lo vea
+  // operaciones y administración"*.
+  {
+    clave: 'facturacion_vendido',
+    area: 'facturacion',
+    nombre: 'Lo vendido',
+    fabrica: [O, A],
     derecho: 'facturacion',
   },
   {

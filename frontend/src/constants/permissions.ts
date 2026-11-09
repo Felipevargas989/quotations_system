@@ -148,6 +148,7 @@ export type Permiso =
   // La caja de recepción (doc 19 §9.43, 09-11).
   | "caja_recepcion"
   | "caja_revision"
+  | "facturacion_vendido"
   | "dashboard"
   | "catalogo"
   | "personal"
@@ -168,6 +169,7 @@ export const PERMISOS_DE_FACTURACION: readonly Permiso[] = [
   "facturacion_ajustes",
   "caja_recepcion",
   "caja_revision",
+  "facturacion_vendido",
 ];
 
 /** Cada sección con su permiso; con una lista, basta cualquiera. */

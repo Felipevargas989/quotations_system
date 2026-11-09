@@ -2736,8 +2736,11 @@ no se reabre, resumen por correo) y otros (Shopify, RMH, Qamarero, Odoo),
 se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 
 **Las reglas:**
-- Una caja, la «Caja de recepción». Se abre con quién la abre y el
-  sencillo inicial; sin caja abierta, recepción no emite boletas.
+- Una caja, la «Caja de recepción». Se abre con el sencillo inicial, a
+  nombre del perfil de la sesión (Felipe, 09-11: *"el quién abre debe ser
+  asociado al perfil que está abriendo la caja, que no sea escrito a
+  mano"*); quién cierra, igual. Sin caja abierta, recepción no emite
+  boletas.
 - Cada boleta de recepción y cada factura al contado entra a la caja con
   su medio de pago: efectivo, débito, crédito o transferencia. Los retiros
   se anotan con su motivo.
@@ -2754,8 +2757,10 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 - **Lo vendido:** cuántos tickets, tinajas, noches de cabaña, etc., por
   fechas y por persona.
 - Interruptores en Permisos por cargo: abrir y cerrar la caja, de fábrica
-  recepción y el administrador; revisar los cierres y «Lo vendido», el
-  administrador.
+  recepción y el administrador; revisar los cierres, el administrador; y
+  «Lo vendido», su propia pestaña, operaciones y el administrador (Felipe,
+  09-11: *"lo vendido debería ser otra pestaña que solo lo vea operaciones
+  y administración"*).
 
 | Sprint | Qué | Estado |
 |---|---|---|
@@ -2823,8 +2828,9 @@ la pide en cada lista.
 el laboratorio; motor y pantalla). La migración va antes del motor.
 
 **Sprint 3, hecho el 09-11** (sin migración):
-- **Lo vendido** (`LoVendido`, en la pestaña «Caja», con el permiso de
-  revisar los cierres; `GET /facturacion/caja/vendido`): lo del tarifario
+- **Lo vendido** (`LoVendido`, su propia pestaña de Facturación con el
+  permiso «Lo vendido», `facturacion_vendido`, de fábrica operaciones y el
+  administrador; `GET /facturacion/caja/vendido`): lo del tarifario
   (las líneas con `tarifario_id`) en las boletas y facturas emitidas del
   período, sin lo que anuló una nota de crédito, por ítem con su cantidad
   y su unidad («142 personas», «9 noches») y su monto con IVA, y el total.

@@ -318,25 +318,24 @@ describe('La caja de recepción (§9.43)', () => {
     expect(JSON.stringify(e)).not.toMatch(/esperado|vendido|diferencia/);
   });
 
-  it('se abre con quién y su sencillo; si ya está abierta, lo dice', async () => {
+  it('se abre con su sencillo, a nombre del perfil de la sesión (no se escribe); si ya está abierta, lo dice', async () => {
     const { servicio, r } = armar();
-    await servicio.abrir(RECEPCION, { quien: ' Ana ', sencillo: 20000 });
+    await servicio.abrir(RECEPCION, { sencillo: 20000 });
     expect(r.abrir).toHaveBeenCalledWith({
       company_id: 1,
       abierta_por: 'u-recepcion',
-      abierta_por_nombre: 'Ana',
+      abierta_por_nombre: 'Recepción',
       sencillo_inicial: 20000,
     });
     r.abrir.mockRejectedValueOnce({ code: '23505' });
-    await expect(
-      servicio.abrir(RECEPCION, { quien: 'Pedro', sencillo: 0 }),
-    ).rejects.toThrow('ya está abierta');
+    await expect(servicio.abrir(RECEPCION, { sencillo: 0 })).rejects.toThrow(
+      'ya está abierta',
+    );
   });
 
   it('el cierre guarda lo declarado y responde solo que cerró', async () => {
     const { servicio, r } = armar();
     const res = await servicio.cerrar(RECEPCION, {
-      quien: 'Ana',
       efectivo: 67500,
       debito: 135000,
       credito: 95000,
@@ -345,7 +344,7 @@ describe('La caja de recepción (§9.43)', () => {
     });
     expect(r.cerrar).toHaveBeenCalledWith(1, 7, {
       cerrada_por: 'u-recepcion',
-      cerrada_por_nombre: 'Ana',
+      cerrada_por_nombre: 'Recepción',
       declarado_efectivo: 67500,
       declarado_debito: 135000,
       declarado_credito: 95000,
@@ -357,7 +356,6 @@ describe('La caja de recepción (§9.43)', () => {
     r.turnoAbierto.mockResolvedValueOnce(null);
     await expect(
       servicio.cerrar(RECEPCION, {
-        quien: 'Ana',
         efectivo: 0,
         debito: 0,
         credito: 0,
@@ -450,7 +448,6 @@ describe('El resumen del cierre por correo (§9.43, sprint 3)', () => {
   it('al cerrar, le llega a quien revisa con lo declarado, lo esperado y la diferencia', async () => {
     const { servicio, r, email } = armar();
     await servicio.cerrar(RECEPCION, {
-      quien: 'Ana',
       efectivo: 67500,
       debito: 135000,
       credito: 95000,
@@ -483,7 +480,6 @@ describe('El resumen del cierre por correo (§9.43, sprint 3)', () => {
     email.sendEmail.mockRejectedValueOnce(new Error('Resend caído'));
     await expect(
       servicio.cerrar(RECEPCION, {
-        quien: 'Ana',
         efectivo: 0,
         debito: 0,
         credito: 0,
