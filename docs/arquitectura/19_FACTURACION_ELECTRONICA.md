@@ -2766,9 +2766,9 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 
 | Sprint | Qué | Estado |
 |---|---|---|
-| 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En el laboratorio desde el 09-11 |
-| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | En el laboratorio desde el 09-11 |
-| 3 | Lo vendido, y el resumen del cierre por correo | En el laboratorio desde el 09-11 |
+| 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En producción desde el 09-11 (PR #339) |
+| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | En producción desde el 09-11 (PR #339) |
+| 3 | Lo vendido, y el resumen del cierre por correo | En producción desde el 09-11 (PR #339) |
 
 **Sprint 1, hecho el 09-11** (migración 198):
 - `documentos_tributarios.medio_de_pago` (efectivo, debito, credito o
@@ -2792,9 +2792,9 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 - La condición y el medio de pago salieron de `borrador.ts`, que pasaba las
   800 líneas del portero, a `facturas/pago-de-la-factura.ts`.
 
-**En el laboratorio desde el 09-11-2026** (migración 198 en el
-laboratorio; motor y pantalla). La migración va antes del motor: el motor
-la pide en cada lista.
+**En el laboratorio y en producción desde el 09-11-2026** (PR #339;
+migración 198 en las dos bases; motor y pantalla). La migración va antes
+del motor: el motor la pide en cada lista.
 
 **Sprint 2, hecho el 09-11** (migración 199):
 - `turnos_de_caja` (quién abre y el sencillo; quién cierra, lo declarado
@@ -2826,8 +2826,8 @@ la pide en cada lista.
   transferencia, lo vendido con cada uno. Lo por confirmar no cuenta y se
   avisa.
 
-**El sprint 2, en el laboratorio desde el 09-11-2026** (migración 199 en
-el laboratorio; motor y pantalla). La migración va antes del motor.
+**El sprint 2, en el laboratorio y en producción desde el 09-11-2026**
+(PR #339; migración 199 en las dos bases; motor y pantalla).
 
 **Sprint 3, hecho el 09-11** (sin migración):
 - **Lo vendido** (`LoVendido`, su propia pestaña de Facturación con el
@@ -2848,8 +2848,8 @@ el laboratorio; motor y pantalla). La migración va antes del motor.
   falla, la caja queda cerrada igual y se anota en el registro. En el
   laboratorio los correos están silenciados (`EMAILS_SILENCED`).
 
-**El sprint 3, en el laboratorio desde el 09-11-2026** (motor y pantalla,
-sin migración).
+**El sprint 3, en el laboratorio y en producción desde el 09-11-2026**
+(PR #339; motor y pantalla, sin migración; Felipe: *"todo a producción"*).
 
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
