@@ -6,8 +6,11 @@
 // número y una barra sobre sus días, para ver la cascada de un vistazo— y en
 // el «+» de los días de antes y después. Los colores evitan los que ya
 // significan algo en la sábana: verde (completo), ámbar (falta gente), azul
-// (planta) y lila (staff). El color sale del número de la cotización, así
-// un evento se ve igual al cambiar de mes.
+// (planta) y lila (staff). Los colores se reparten EN ORDEN, por la posición
+// del evento en la cascada: dos eventos seguidos nunca llevan el mismo. (La
+// primera versión los sacaba del número de la cotización y, visto en el
+// laboratorio, la #384 y la #456 salían iguales, igual que la #460 y la
+// #454.)
 //
 // Las clases van escritas enteras (nada de `bg-${color}-400`): Tailwind solo
 // genera las que encuentra tal cual en el código.
@@ -62,11 +65,13 @@ export const COLORES_DE_EVENTO: readonly ColorDeEvento[] = [
   },
 ];
 
-/** El color de un evento según su número de cotización. Sin número (un
- *  evento que no está en la lista), el primero. */
+/** El color del evento que va en esa posición de la cascada (0 = el
+ *  primero). Se repite recién después de seis eventos. */
 export const colorDelEvento = (
-  numero: number | null | undefined,
+  posicion: number | null | undefined,
 ): ColorDeEvento => {
-  const n = Number.isFinite(numero) ? Math.abs(Math.trunc(Number(numero))) : 0;
+  const n = Number.isFinite(posicion)
+    ? Math.abs(Math.trunc(Number(posicion)))
+    : 0;
   return COLORES_DE_EVENTO[n % COLORES_DE_EVENTO.length];
 };

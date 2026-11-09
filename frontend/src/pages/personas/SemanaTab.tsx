@@ -21,7 +21,7 @@ import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
-import { colorDelEvento } from "./coloresDeEvento";
+import { colorDelEvento, type ColorDeEvento } from "./coloresDeEvento";
 import {
   compararEventos,
   diasConMas,
@@ -115,18 +115,15 @@ const claveDeFila = (f: FilaSemana) =>
  *  mié 4 nov al dom 8 nov" → "#522" y "FDN Canotaje · mié 4 nov al…". */
 const partesDelEvento = (f: FilaSemana) => {
   const [numero = "", ...resto] = f.evento.split(" · ");
-  return { numero, detalle: resto.join(" · "), n: Number(numero.replace("#", "")) };
+  return { numero, detalle: resto.join(" · ") };
 };
-
-/** El color de un evento en la sábana (sale de su número). */
-const colorDeFila = (f: FilaSemana) => colorDelEvento(partesDelEvento(f).n);
 
 /** La banda de un evento con su color y la barra de sus días; sin fechas
  *  (un evento que no está en la lista), la banda gris de siempre. */
-const barraDelEvento = (f: FilaSemana) => {
+const barraDelEvento = (f: FilaSemana, color: ColorDeEvento) => {
   if (f.quotationId === null || f.diasDelEvento.size === 0) return undefined;
   const { numero, detalle } = partesDelEvento(f);
-  return { numero, detalle, dias: f.diasDelEvento, color: colorDeFila(f) };
+  return { numero, detalle, dias: f.diasDelEvento, color };
 };
 
 // LAS TRES SECCIONES DE LA SÁBANA (Felipe, 09-11-2026: "agreguemos
@@ -631,6 +628,18 @@ export default function SemanaTab({
     return [...deEventos, ...filasSinEvento(catalogo, sinEvento, cargosPlanta)];
   }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta, cargosDeEvento]);
 
+  // UN COLOR POR EVENTO, EN ORDEN (09-11-2026): por su posición en la
+  // cascada, así dos eventos seguidos nunca llevan el mismo.
+  const colorPorEvento = useMemo(() => {
+    const m = new Map<string, ColorDeEvento>();
+    for (const f of filas)
+      if (f.quotationId !== null && !m.has(f.quotationId))
+        m.set(f.quotationId, colorDelEvento(m.size));
+    return m;
+  }, [filas]);
+  const colorDeFila = (f: FilaSemana) =>
+    colorPorEvento.get(String(f.quotationId)) ?? colorDelEvento(0);
+
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
   // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
   // sábana: acá solo se le pasa al resumen (Felipe, 15-08).
@@ -789,7 +798,7 @@ export default function SemanaTab({
             grupo: f.quotationId === null ? undefined : f.evento,
             // MÁS COLOR (Felipe, 09-11-2026, maqueta aprobada): cada evento
             // con su color, su número y una barra sobre sus días.
-            grupoBarra: barraDelEvento(f),
+            grupoBarra: barraDelEvento(f, colorDeFila(f)),
             grupoAccion:
               f.quotationId !== null ? (
                 <div className="w-44 font-normal normal-case">

@@ -1,13 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { COLORES_DE_EVENTO, colorDelEvento } from "./coloresDeEvento";
 
-/** UN COLOR POR EVENTO (Felipe, 09-11-2026): el mismo evento, el mismo color. */
+/** UN COLOR POR EVENTO (Felipe, 09-11-2026), repartido en orden por la cascada. */
 describe("colorDelEvento", () => {
-  it("el mismo número da siempre el mismo color", () => {
-    expect(colorDelEvento(616)).toBe(colorDelEvento(616));
+  it("dos eventos seguidos nunca llevan el mismo color", () => {
+    for (let i = 0; i < 20; i++)
+      expect(colorDelEvento(i)).not.toBe(colorDelEvento(i + 1));
   });
-  it("números seguidos dan colores distintos", () => {
-    expect(colorDelEvento(521)).not.toBe(colorDelEvento(522));
+  it("se repite recién después de seis", () => {
+    expect(colorDelEvento(0)).toBe(colorDelEvento(6));
+    expect(new Set([0, 1, 2, 3, 4, 5].map(colorDelEvento)).size).toBe(6);
   });
   it("sin número no se cae: usa el primero", () => {
     expect(colorDelEvento(undefined)).toBe(COLORES_DE_EVENTO[0]);
