@@ -698,8 +698,11 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
   y después el número. Antes iban por número de cotización.
 - **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
   muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
-  color (sale de su número, así se ve igual al cambiar de mes) en una banda
-  con una línea a la izquierda, su número y una barra sobre sus días; el
+  color en una banda con una línea a la izquierda, su número y una barra
+  sobre sus días. Los colores se reparten en orden por la cascada, así dos
+  eventos seguidos nunca llevan el mismo (sacarlos del número de la
+  cotización repetía colores vecinos: la #384 y la #456, la #460 y la
+  #454). El
   «+» de antes y después va en el color del evento, el «+» vacío de planta
   en azul y el de Staff en lila; fuera del evento, en blanco (sin el
   puntito); y la columna de hoy en azul de arriba abajo. El verde y el
