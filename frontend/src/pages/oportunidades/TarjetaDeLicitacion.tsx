@@ -41,10 +41,13 @@ export default function TarjetaDeLicitacion({
   m,
   lista = false,
   ganada,
+  preguntar = false,
 }: {
   readonly m: MiLicitacion;
   /** Postulada: lista, en verde. */
   readonly lista?: boolean;
+  /** Cerró con algo firmado (decisión 122): «¿La subiste?», en ámbar. */
+  readonly preguntar?: boolean;
   /** Ganada (decisión 100): a la derecha, el servicio en vez del cierre;
    *  por cumplir, en dorado. */
   readonly ganada?: "por_cumplir" | "cumplida";
@@ -68,6 +71,25 @@ export default function TarjetaDeLicitacion({
     },
     onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
   });
+  // Decisión 122: sí, pasa a postulada (y espera el resultado, decisión
+  // 92); no, descartada con el porqué «No alcanzo», como la que cierra sin
+  // nada firmado.
+  const responder = useMutation({
+    mutationFn: (subida: boolean) =>
+      actualizarOportunidad(
+        m.id,
+        subida
+          ? { estado: "postulada" }
+          : { estado: "descartada", motivo: "no_alcanzo" },
+      ),
+    onSuccess: (_, subida) => {
+      toast.success(
+        subida ? "Quedó en Postuladas." : "Quedó descartada: no alcanzó.",
+      );
+      void qc.invalidateQueries({ queryKey: ["oportunidades"] });
+    },
+    onError: (e) => toast.error(humanizeApiError(e, "No se pudo guardar.")),
+  });
 
   return (
     <li
@@ -76,7 +98,7 @@ export default function TarjetaDeLicitacion({
         navegar(`/oportunidades/${m.id}`);
       }}
       className={`p-4 space-y-3 rounded-lg border cursor-pointer ${
-        ganada === "por_cumplir"
+        ganada === "por_cumplir" || preguntar
           ? "border-amber-300 bg-amber-50 hover:border-amber-500"
           : lista
             ? "border-green-300 bg-green-50 hover:border-green-500"
@@ -125,6 +147,33 @@ export default function TarjetaDeLicitacion({
           </div>
         )}
       </div>
+
+      {preguntar && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="text-sm font-semibold text-amber-900">
+            ¿La subiste a Mercado Público?
+          </span>
+          <button
+            type="button"
+            onClick={() => responder.mutate(true)}
+            disabled={responder.isPending}
+            className="px-3 py-1 text-xs font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            Sí, la postulé
+          </button>
+          <button
+            type="button"
+            onClick={() => responder.mutate(false)}
+            disabled={responder.isPending}
+            className="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+          >
+            No alcancé
+          </button>
+        </div>
+      )}
 
       {resultado && (
         <p className={`text-sm font-semibold ${colorDelResultado(resultado)}`}>
