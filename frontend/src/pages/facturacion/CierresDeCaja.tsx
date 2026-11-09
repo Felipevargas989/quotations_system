@@ -40,6 +40,11 @@ const hora = (iso: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+/** «a las 18:05», y «a la 01:30» con la una. */
+const aLas = (iso: string) => {
+  const h = hora(iso);
+  return `${h.startsWith("01") ? "a la" : "a las"} ${h}`;
+};
 const chip =
   "inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold";
 const VERDE = `${chip} border-green-200 bg-green-50 text-green-700`;
@@ -125,17 +130,28 @@ function Detalle({
     <Modal
       lado="derecha"
       ancho="max-w-2xl"
-      titulo={
-        c
-          ? `${dia(c.abierta_en)} · ${c.abierta_por_nombre} · ${hora(c.abierta_en)}${c.cerrada_en ? ` a ${hora(c.cerrada_en)}` : ""}`
-          : "Cierre de la caja"
-      }
+      titulo={c ? `Caja del ${dia(c.abierta_en)}` : "Cierre de la caja"}
       onCerrar={onCerrar}
     >
       {!c ? (
         <p className="text-sm text-gray-400">Cargando el cierre…</p>
       ) : (
         <div className="space-y-4">
+          {/* Quién abrió y quién cerró, cada uno con su hora: los dos salen
+              del perfil de la sesión (Felipe, 09-11: *"que diga las dos"*). */}
+          <p className="text-sm text-gray-700">
+            Abrió <strong>{c.abierta_por_nombre}</strong> {aLas(c.abierta_en)} ·{" "}
+            {c.cerrada_en ? (
+              <>
+                Cerró <strong>{c.cerrada_por_nombre ?? "—"}</strong>
+                {dia(c.cerrada_en) !== dia(c.abierta_en) &&
+                  ` el ${dia(c.cerrada_en)}`}{" "}
+                {aLas(c.cerrada_en)}
+              </>
+            ) : (
+              "Sigue abierta"
+            )}
+          </p>
           <Seccion titulo="Por medio de pago">
             <table className="w-full table-fixed text-sm">
               <thead>
@@ -298,7 +314,7 @@ function Detalle({
               {c.revisado_en && (
                 <p className="text-xs text-green-800">
                   Revisado por {c.revisado_por_nombre ?? "—"} el{" "}
-                  {dia(c.revisado_en)} a las {hora(c.revisado_en)}
+                  {dia(c.revisado_en)} {aLas(c.revisado_en)}
                   {c.nota_revision ? `: ${c.nota_revision}` : "."}
                 </p>
               )}
