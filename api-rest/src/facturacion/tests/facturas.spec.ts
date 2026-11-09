@@ -89,6 +89,8 @@ const armar = ({
   sii = undefined as { buscar: jest.Mock } | undefined,
   // Las facturas anteriores (§9.29); sin ellas, como antes.
   anteriores = undefined as { buscar: jest.Mock } | undefined,
+  // La caja de recepción (§9.43); sin ella, como antes.
+  caja = undefined as { turnoAbierto: jest.Mock } | undefined,
 } = {}) => {
   let fila: Record<string, unknown> = {};
   const repo = {
@@ -169,6 +171,7 @@ const armar = ({
     alcance as never,
     sii as never,
     anteriores as never,
+    caja as never,
   );
   return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
@@ -544,6 +547,43 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(vista.montos?.total).toBe(2480000);
     // El administrador con líneas a mano: el tarifario ni se lee.
     expect(boletas.tarifario).not.toHaveBeenCalled();
+  });
+
+  it('recepción al contado (§9.43): con la caja abierta entra a su turno; cerrada, no; a crédito, sin caja', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
+    const { servicio, repo } = armar({ caja });
+    const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
+    const CONTADO = {
+      ...SUELTA,
+      forma_de_pago: 1 as const,
+      medio_de_pago: 'debito' as const,
+      lineas: [
+        {
+          descripcion: 'x',
+          descripcion_larga: null,
+          cantidad: 1,
+          precio: 1,
+          tarifario_id: 5,
+        },
+      ],
+    };
+    await servicio.emitirSinEvento(RECEPCION, CONTADO);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ turno_de_caja_id: 7 }),
+    );
+    caja.turnoAbierto.mockResolvedValue(null);
+    await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    await expect(servicio.revisarSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    caja.turnoAbierto.mockClear();
+    await servicio.revisarSinEvento(RECEPCION, {
+      ...CONTADO,
+      forma_de_pago: 2,
+    });
+    expect(caja.turnoAbierto).not.toHaveBeenCalled();
   });
 
   it('recepción (§9.23): la línea del tarifario sale con su nombre y su precio, y a mano no se puede', async () => {

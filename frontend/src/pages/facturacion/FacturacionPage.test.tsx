@@ -82,6 +82,12 @@ vi.mock("./consultas", () => ({
       : undefined,
   }),
 }));
+vi.mock("./CajaDeRecepcion", () => ({
+  default: () => <p>La caja de recepción</p>,
+}));
+vi.mock("./CierresDeCaja", () => ({
+  default: () => <p>Los cierres de la caja</p>,
+}));
 vi.mock("./PorFacturar", () => ({
   default: () => <p>los eventos por facturar</p>,
 }));

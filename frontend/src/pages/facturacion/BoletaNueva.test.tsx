@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as boletas from "../../services/boletas.service";
+import * as caja from "../../services/caja.service";
 import BoletaNueva from "./BoletaNueva";
 
 // LA BOLETA EN SU PROPIA PANTALLA (doc 19 §9.22, sprint 3), como la
@@ -25,6 +26,9 @@ vi.mock("../../services/boletas.service", () => ({
 }));
 vi.mock("../../components/toast/Toast", () => ({
   toast: { error: vi.fn(), success: vi.fn(), warn: vi.fn() },
+}));
+vi.mock("../../services/caja.service", () => ({
+  getCaja: vi.fn(),
 }));
 vi.mock("../../services/storage.service", () => ({
   resolveStorageUrl: vi.fn(),
@@ -82,12 +86,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const abrir = ({ esAdmin = false, quedarse = false } = {}) => {
+const abrir = ({ esAdmin = false, quedarse = false, conCaja = false } = {}) => {
   const onEmitida = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
       <BoletaNueva
         esAdmin={esAdmin}
+        conCaja={conCaja}
         quedarse={quedarse}
         onVolver={() => {}}
         onEmitida={onEmitida}
@@ -198,6 +203,33 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     expect(
       screen.getByLabelText("Correo para enviarle la boleta"),
     ).toBeEnabled();
+  });
+
+  it("recepción con la caja cerrada no emite; abierta, la boleta dice a qué caja entra (§9.43)", async () => {
+    vi.mocked(caja.getCaja).mockResolvedValue({ abierta: null });
+    abrir({ conCaja: true });
+    await armarUna();
+    pagoYEnvio({ imprimir: true });
+    expect(
+      await screen.findByText(
+        "La caja de recepción está cerrada: ábrela en «Caja» para emitir.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Crear documento" }),
+    ).toBeDisabled();
+    cleanup();
+    vi.mocked(caja.getCaja).mockResolvedValue({
+      abierta: {
+        id: 7,
+        abierta_por_nombre: "Ana",
+        abierta_en: "2026-11-09T12:02:00Z",
+        sencillo_inicial: 20000,
+        retiros: [],
+      },
+    });
+    abrir({ conCaja: true });
+    expect(await screen.findByText(/Caja abierta · Ana/)).toBeInTheDocument();
   });
 
   it("la línea a mano es solo del administrador", async () => {

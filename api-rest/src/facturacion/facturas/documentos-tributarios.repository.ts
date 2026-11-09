@@ -72,6 +72,8 @@ export type NuevoDocumentoTributario = Pick<
   forma_de_pago?: number | null;
   vencimiento?: string | null;
   medio_de_pago?: string | null;
+  /** §9.43: el turno de la caja de recepción al que entra. */
+  turno_de_caja_id?: number | null;
 };
 
 /** Un cliente con sus razones sociales y su contacto principal, para

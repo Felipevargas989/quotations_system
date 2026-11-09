@@ -15,6 +15,8 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
 import { BoletasService } from '../boletas/boletas.service';
+import type { CajaRepository } from '../caja/caja.repository';
+import { turnoParaEmitir } from '../caja/regla';
 import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
@@ -197,6 +199,8 @@ export class FacturasService {
     @Optional() private readonly nominaSii?: NominaSiiService,
     // Y las facturas que la empresa ya emitió en facturacion.cl (§9.29).
     @Optional() private readonly facturasAnteriores?: FacturasAnterioresService,
+    // §9.43: lo que emite recepción al contado entra a su caja.
+    @Optional() private readonly caja?: CajaRepository,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -402,6 +406,8 @@ export class FacturasService {
   async revisarSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
+    // §9.43: recepción, al contado, solo con la caja abierta.
+    if (pedida.forma_de_pago === 1) await turnoParaEmitir(user, this.caja);
     return this.vistaPrevia(
       pedida,
       await this.sinEvento(companyId, pedida.cliente_id),
@@ -436,6 +442,10 @@ export class FacturasService {
   async emitirSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
+    const turnoDeCajaId =
+      pedida.forma_de_pago === 1
+        ? await turnoParaEmitir(user, this.caja)
+        : null;
     const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
     const { fecha, problema } = conLaFecha(pedida);
@@ -455,6 +465,7 @@ export class FacturasService {
       fecha,
       archivo: revision.archivo,
       revision,
+      turnoDeCajaId,
     });
   }
 
@@ -559,6 +570,8 @@ export class FacturasService {
       fecha: string;
       archivo: string;
       revision: Revision;
+      /** §9.43: el turno de la caja de recepción al que entra. */
+      turnoDeCajaId?: number | null;
     },
   ) {
     const companyId = user.company_id;
@@ -592,6 +605,7 @@ export class FacturasService {
         forma_de_pago: revision.pago?.forma ?? null,
         vencimiento: revision.pago?.vencimiento ?? null,
         medio_de_pago: pedida.medio_de_pago ?? null,
+        turno_de_caja_id: revisada.turnoDeCajaId ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>

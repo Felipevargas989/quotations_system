@@ -52,6 +52,8 @@ const armar = (
   simulado = new FacturacionClSimulado({
     ultimoFolio: () => Promise.resolve(42),
   }),
+  // §9.43: la caja de recepción; sin ella, como antes.
+  caja?: { turnoAbierto: jest.Mock },
 ) => {
   const repo = {
     tarifario: jest.fn().mockResolvedValue(TARIFARIO),
@@ -84,6 +86,7 @@ const armar = (
         rut: '77701305-K',
       }),
     } as never,
+    caja as never,
   );
   return { servicio, documentos, simulado };
 };
@@ -223,6 +226,44 @@ describe('La boleta suelta', () => {
         'La boleta quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.',
     });
     expect(documentos.crear).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('La boleta de recepción entra a su caja (§9.43)', () => {
+  const SUELTA = {
+    lineas: [{ tarifario_id: 1, cantidad: 1 }],
+    medio_de_pago: 'efectivo' as const,
+  };
+
+  it('con la caja abierta, la boleta queda en su turno; cerrada, no se emite ni se ve', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
+    const { servicio, documentos } = armar(undefined, caja);
+    await servicio.emitirSuelta(RECEPCION, SUELTA);
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turno_de_caja_id: 7,
+        medio_de_pago: 'efectivo',
+      }),
+    );
+    documentos.crear.mockClear();
+    caja.turnoAbierto.mockResolvedValue(null);
+    await expect(servicio.emitirSuelta(RECEPCION, SUELTA)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    await expect(servicio.revisarSuelta(RECEPCION, SUELTA)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    expect(documentos.crear).not.toHaveBeenCalled();
+  });
+
+  it('el administrador emite sin turno', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue(null) };
+    const { servicio, documentos } = armar(undefined, caja);
+    await servicio.emitirSuelta(ADMIN, SUELTA);
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ turno_de_caja_id: null }),
+    );
+    expect(caja.turnoAbierto).not.toHaveBeenCalled();
   });
 });
 
