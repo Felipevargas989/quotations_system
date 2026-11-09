@@ -58,6 +58,30 @@ export const diasConMas = (
     : new Set<string>();
 };
 
+/** EN CASCADA (Felipe, 09-11-2026: "debería mostrarme del que se va a
+ *  realizar antes al último, cosa de irlo viendo en cascada y no así como
+ *  saltados"). Antes la sábana los ordenaba por el texto "#N · cliente",
+ *  o sea por número de cotización. Ahora: primero el que parte antes; si
+ *  parten el mismo día, el que termina antes; y después el número. Un
+ *  evento que no está en la lista (sin fecha) va al final. */
+export interface EventoParaOrdenar extends FechasDeEvento {
+  readonly numero: number;
+}
+
+export const compararEventos = (
+  a: EventoParaOrdenar | undefined,
+  b: EventoParaOrdenar | undefined,
+): number => {
+  const SIN_FECHA = "9999-12-31";
+  const ia = a?.inicio ?? SIN_FECHA;
+  const ib = b?.inicio ?? SIN_FECHA;
+  if (ia !== ib) return ia < ib ? -1 : 1;
+  const fa = (a && finDe(a)) ?? SIN_FECHA;
+  const fb = (b && finDe(b)) ?? SIN_FECHA;
+  if (fa !== fb) return fa < fb ? -1 : 1;
+  return (a?.numero ?? Number.MAX_SAFE_INTEGER) - (b?.numero ?? Number.MAX_SAFE_INTEGER);
+};
+
 /** ¿El evento cae (aunque sea un día) dentro del rango visible? */
 export const eventoEnRango = (
   e: FechasDeEvento,

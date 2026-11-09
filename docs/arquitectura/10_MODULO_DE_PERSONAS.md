@@ -692,6 +692,22 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
 - **Tres secciones** con título y color: **Eventos** (verde), **Personal
   de planta** (azul) y **Personal Staff** (lila), los colores de sus
   celdas. Las dos bandas del 21-10 viven dentro de las dos últimas.
+- **Los eventos van en cascada** (Felipe, 09-11-2026: *"del que se va a
+  realizar antes al último, cosa de irlo viendo en cascada y no así como
+  saltados"*): primero el que parte antes; mismo día, el que termina antes;
+  y después el número. Antes iban por número de cotización.
+- **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
+  muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
+  color en una banda con una línea a la izquierda, su número y una barra
+  sobre sus días. Los colores se reparten en orden por la cascada, así dos
+  eventos seguidos nunca llevan el mismo (sacarlos del número de la
+  cotización repetía colores vecinos: la #384 y la #456, la #460 y la
+  #454). El
+  «+» de antes y después va en el color del evento, el «+» vacío de planta
+  en azul y el de Staff en lila; fuera del evento, en blanco (sin el
+  puntito); y la columna de hoy en azul de arriba abajo. El verde y el
+  ámbar de las casillas siguen diciendo completo o falta gente, y los
+  colores de los eventos evitan esos dos, el azul y el lila.
 - **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos
   sale con una fila «Elige el cargo»: su «+» pregunta el cargo (un botón
   por cargo) y abre la casilla de ese día. Cada evento lleva su «+ cargo»,

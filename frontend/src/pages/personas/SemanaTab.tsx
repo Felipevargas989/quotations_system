@@ -21,7 +21,9 @@ import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
+import { colorDelEvento, type ColorDeEvento } from "./coloresDeEvento";
 import {
+  compararEventos,
   diasConMas,
   diasDe,
   eventoEnRango,
@@ -108,6 +110,21 @@ const rotuloEvento = (e: {
  *  fila misma, porque la fila se rearma cada vez que cambia el staff. */
 const claveDeFila = (f: FilaSemana) =>
   `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${String(f.cargoId)}`;
+
+/** El número y el resto del rótulo de un evento: "#522 · FDN Canotaje ·
+ *  mié 4 nov al dom 8 nov" → "#522" y "FDN Canotaje · mié 4 nov al…". */
+const partesDelEvento = (f: FilaSemana) => {
+  const [numero = "", ...resto] = f.evento.split(" · ");
+  return { numero, detalle: resto.join(" · ") };
+};
+
+/** La banda de un evento con su color y la barra de sus días; sin fechas
+ *  (un evento que no está en la lista), la banda gris de siempre. */
+const barraDelEvento = (f: FilaSemana, color: ColorDeEvento) => {
+  if (f.quotationId === null || f.diasDelEvento.size === 0) return undefined;
+  const { numero, detalle } = partesDelEvento(f);
+  return { numero, detalle, dias: f.diasDelEvento, color };
+};
 
 // LAS TRES SECCIONES DE LA SÁBANA (Felipe, 09-11-2026: "agreguemos
 // separaciones visuales entre eventos / planta / Staff"), con los colores
@@ -591,9 +608,16 @@ export default function SemanaTab({
         m.set(`${e.id}|-1`, { ...base, cargoId: -1, cargo: "Elige el cargo" });
     }
 
+    // EN CASCADA (Felipe, 09-11-2026): del evento que parte antes al
+    // último; dentro de cada evento, sus cargos por nombre.
     const deEventos = [...m.values()].sort(
       (a, b) =>
-        a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
+        compararEventos(
+          porEvento.get(String(a.quotationId)),
+          porEvento.get(String(b.quotationId)),
+        ) ||
+        a.evento.localeCompare(b.evento) ||
+        a.cargo.localeCompare(b.cargo),
     );
 
     // EL PERSONAL SIN EVENTO va AL FINAL y separado con su línea
@@ -603,6 +627,18 @@ export default function SemanaTab({
     const sinEvento = staff.filter((a) => a.quotation_id === null);
     return [...deEventos, ...filasSinEvento(catalogo, sinEvento, cargosPlanta)];
   }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta, cargosDeEvento]);
+
+  // UN COLOR POR EVENTO, EN ORDEN (09-11-2026): por su posición en la
+  // cascada, así dos eventos seguidos nunca llevan el mismo.
+  const colorPorEvento = useMemo(() => {
+    const m = new Map<string, ColorDeEvento>();
+    for (const f of filas)
+      if (f.quotationId !== null && !m.has(f.quotationId))
+        m.set(f.quotationId, colorDelEvento(m.size));
+    return m;
+  }, [filas]);
+  const colorDeFila = (f: FilaSemana) =>
+    colorPorEvento.get(String(f.quotationId)) ?? colorDelEvento(0);
 
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
   // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
@@ -760,6 +796,9 @@ export default function SemanaTab({
                   : SECCION_PLANTA
                 : SECCION_EVENTOS,
             grupo: f.quotationId === null ? undefined : f.evento,
+            // MÁS COLOR (Felipe, 09-11-2026, maqueta aprobada): cada evento
+            // con su color, su número y una barra sobre sus días.
+            grupoBarra: barraDelEvento(f, colorDeFila(f)),
             grupoAccion:
               f.quotationId !== null ? (
                 <div className="w-44 font-normal normal-case">
@@ -872,7 +911,11 @@ export default function SemanaTab({
                       abierta
                         ? "bg-blue-600 text-white"
                         : tiene === 0
-                          ? "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                          ? // El «+» vacío en el color de su sección
+                            // (09-11-2026): lila el Staff, azul la planta.
+                            f.ocasional
+                            ? "text-violet-300 hover:bg-violet-50 hover:text-violet-600"
+                            : "text-blue-300 hover:bg-blue-50 hover:text-blue-600"
                           : // LA MISMA REGLA QUE ARRIBA (Felipe, 17-08):
                             // ámbar mientras alguien esté por confirmar,
                             // y recién con todos confirmados el color
@@ -900,8 +943,8 @@ export default function SemanaTab({
               // gente queda en el evento y en su costo.
               const esDiaDeMas = !esDelEvento && !!f.diasConMas?.has(d);
               if (necesita === 0 && tiene === 0) {
-                if (!esDelEvento && !esDiaDeMas)
-                  return <span className="text-gray-200">·</span>;
+                // Fuera del evento, en blanco (09-11-2026: sin puntitos).
+                if (!esDelEvento && !esDiaDeMas) return <span />;
                 return (
                   <button
                     type="button"
@@ -922,14 +965,15 @@ export default function SemanaTab({
                     }
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
-                    // (Felipe, 15-08). Gris punteado: un día antes o
-                    // después, que se puede usar si hace falta.
+                    // (Felipe, 15-08). Punteado en el color del evento: un
+                    // día antes o después, que se puede usar si hace falta
+                    // (09-11-2026: antes era gris).
                     className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"
                         : esDelEvento
                           ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
-                          : "text-gray-400 border-dashed border-gray-300 hover:bg-gray-50 hover:text-gray-600"
+                          : `border-dashed ${colorDeFila(f).mas}`
                     }`}
                   >
                     +
