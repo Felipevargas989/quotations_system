@@ -89,4 +89,35 @@ describe("la lista por número", () => {
       nombres([d(1, 33, 389), d(2, 33, null, null), d(3, 33, 390, null)]),
     ).toEqual(["F390", "F?", "F389"]);
   });
+
+  it("lo traído después baja con su número y no sube a los otros sobre las boletas", () => {
+    // Las boletas 45001-45010 salieron después de la 390; la 300 se trajo al final.
+    const boletas = Array.from({ length: 10 }, (_, i) =>
+      d(40 + i, 39, 45001 + i),
+    );
+    expect(
+      nombres([d(38, 33, 389), d(39, 33, 390), ...boletas, d(50, 33, 300)]),
+    ).toEqual([
+      ...boletas.map((b) => `B${b.folio}`).reverse(),
+      "F390",
+      "F389",
+      "F300",
+    ]);
+  });
+
+  it("filtrar no cambia el orden: la marca sale de todo lo que trajo el motor", () => {
+    const todos = [
+      d(1, 33, 389),
+      d(2, 39, 45001),
+      d(3, 39, 45002),
+      d(4, 33, 390),
+      d(5, 39, 45003),
+      d(6, 33, 300),
+    ];
+    const completo = porNumero(todos).map((x) => x.id);
+    const filtrados = [todos[0], todos[2], todos[3]];
+    expect(porNumero(filtrados, todos).map((x) => x.id)).toEqual(
+      completo.filter((id) => filtrados.some((x) => x.id === id)),
+    );
+  });
 });

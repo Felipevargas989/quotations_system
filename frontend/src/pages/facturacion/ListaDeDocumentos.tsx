@@ -270,9 +270,11 @@ export default function ListaDeDocumentos({
     return salida.sort((a, b) => a.id - b.id);
   };
   // §9.44: por número, cada tipo del más alto al más bajo; lo que espera
-  // «Comprobar» (sin N° ni fecha), primero.
+  // «Comprobar» (sin N° o sin fecha), primero. La marca sale de todo lo que
+  // trajo el motor (`docs`), así los filtros no cambian el orden.
   const raices = porNumero(
     enLaLista.filter((d) => d.modifica_id == null || !ids.has(d.modifica_id)),
+    docs,
   );
 
   // El resumen de lo que se ve (la maqueta): lo por confirmar no suma.
