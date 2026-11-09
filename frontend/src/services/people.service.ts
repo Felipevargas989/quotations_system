@@ -11,7 +11,6 @@ import type {
   Ficha,
   Nomina,
   NominaDetalle,
-  NotaDelDia,
   PagoPersona,
   Pozo,
 } from "../types/people.types";
@@ -375,29 +374,6 @@ export const getHistorial = async (personId: number) =>
   )) as Asignacion[];
 
 // ---- Las notas del día ----
-
-export const getDayNotes = async (desde: string, hasta: string) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/day-notes?desde=${desde}&hasta=${hasta}`,
-    "GET",
-  )) as NotaDelDia[];
-
-export const createDayNote = async (nota: {
-  day: string;
-  quotation_id?: string | null;
-  text: string;
-}) =>
-  (await apiRequest(`${API_ROUTES.PEOPLE}/day-notes`, "POST", nota)) as NotaDelDia;
-
-export const updateDayNote = async (
-  id: number,
-  cambios: { text?: string; done?: boolean },
-) =>
-  (await apiRequest(
-    `${API_ROUTES.PEOPLE}/day-notes/${String(id)}`,
-    "PATCH",
-    cambios,
-  )) as NotaDelDia;
-
-export const removeDayNote = async (id: number) =>
-  apiRequest(`${API_ROUTES.PEOPLE}/day-notes/${String(id)}`, "DELETE");
+// Las leía y escribía el recuadro «Qué hay que hacer» del resumen del día,
+// que salió el 09-11-2026 (Felipe). Las notas ya escritas siguen en la base
+// (`day_notes`) y el motor sigue sirviendo `/people/day-notes`.
