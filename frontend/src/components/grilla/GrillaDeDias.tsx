@@ -157,16 +157,13 @@ export default function GrillaDeDias({
    *  el de siempre (w-56) para que sus dos grillas calcen; la sábana la
    *  ensancha para que cada evento quepa en una línea. */
   readonly anchoTitulo?: string;
-  /** v2.5 (09-11-2026): la grilla como calendario — sobre blanco, el mes
-   *  solo cuando cambia y una línea antes de cada domingo para separar las
-   *  semanas. La usa la sábana de Planificación; Gestión queda como siempre. */
+  /** v2.5 (09-11-2026): la grilla como calendario — sobre blanco y con el
+   *  mes solo cuando cambia. La usa la sábana de Planificación; Gestión
+   *  queda como siempre. (Tuvo una línea antes de cada domingo para separar
+   *  las semanas; Felipe la sacó ese mismo día: "¿por qué hay una raya del
+   *  sáb 14 al dom 15?".) */
   readonly calendario?: boolean;
 }) {
-  // La línea que separa las semanas: antes de cada domingo, menos el primero.
-  const deSemana = (d: string, i: number) =>
-    calendario && i > 0 && new Date(`${d}T12:00:00Z`).getUTCDay() === 0
-      ? "border-l border-gray-300"
-      : "";
   // El mes, solo el primer día y cuando cambia.
   const conMes = (d: string, i: number) =>
     !calendario || i === 0 || d.slice(8, 10) === "01";
@@ -210,7 +207,7 @@ export default function GrillaDeDias({
               return (
                 <th
                   key={d}
-                  className={`px-2 py-2 text-center font-medium text-gray-600 ${deSemana(d, di)}`}
+                  className="px-2 py-2 text-center font-medium text-gray-600"
                 >
                   {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — y el
                       espaciador invisible del mismo ancho al otro lado
@@ -317,7 +314,7 @@ export default function GrillaDeDias({
                       return (
                         <td
                           key={d}
-                          className={`px-0 py-1.5 align-middle ${barra.color.fondo} ${deSemana(d, di)}`}
+                          className={`px-0 py-1.5 align-middle ${barra.color.fondo}`}
                         >
                           {dentro && (
                             <span
@@ -363,16 +360,16 @@ export default function GrillaDeDias({
                 {f.grupoBarra && <LineaDeGrupo color={f.grupoBarra.color.barra} />}
                 {f.titulo}
               </td>
-              {dias.map((d, di) => {
+              {dias.map((d) => {
                 if (f.renderCelda)
                   return (
-                    <td key={d} className={`px-1 py-1 text-center ${deSemana(d, di)}`}>
+                    <td key={d} className="px-1 py-1 text-center">
                       {f.renderCelda(d)}
                     </td>
                   );
                 const cant = f.cantidadEn(d);
                 return (
-                  <td key={d} className={`px-2 py-1.5 ${deSemana(d, di)}`}>
+                  <td key={d} className="px-2 py-1.5">
                     {/* La MISMA pieza que usa Servicios (QuantitySelector),
                         para que el sistema se vea homogéneo — pedido de
                         Felipe, 15-08. De paso el número se puede teclear. */}

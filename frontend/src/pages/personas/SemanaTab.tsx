@@ -807,7 +807,7 @@ export default function SemanaTab({
           // en el laboratorio: con 20rem, «#473 · Cliente demo · jue 19 nov»
           // se partía por 2 px al lado de su «+ cargo».
           anchoTitulo="w-[22rem]"
-          // Sobre blanco, el mes una vez y una línea entre semanas.
+          // Sobre blanco y con el mes una sola vez.
           calendario
           resaltarDia={hoyEnChile()}
           onDiaClick={(d) => {

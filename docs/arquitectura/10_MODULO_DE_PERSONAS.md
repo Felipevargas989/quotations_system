@@ -720,8 +720,9 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
   09-11-2026: *"¿que la línea de eventos y los eventos no esté
   alineada?"*). Hoy se marca solo arriba, con el número en un círculo azul
   (*"no sé si vale mucho marcar el día actual para abajo, quizás solo
-  arriba en la fecha"*); hay una línea antes de cada domingo y el mes va
-  una sola vez. La grilla y el resumen del día van sobre blanco; el gris
+  arriba en la fecha"*); el mes va una sola vez. (Hubo una línea antes de
+  cada domingo para separar las semanas; Felipe la sacó ese mismo día:
+  *"¿por qué hay una raya del sáb 14 al dom 15?"*.) La grilla y el resumen del día van sobre blanco; el gris
   del fondo es de todo el sistema y no se tocó (*"si lo cambiamos se
   cambia todo"*). El
   «+» de antes y después va callado, sin cajita, en el color del evento
