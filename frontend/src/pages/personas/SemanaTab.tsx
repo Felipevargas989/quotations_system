@@ -825,13 +825,18 @@ export default function SemanaTab({
                       titulo: "Personal Staff",
                       color: "violeta",
                       accion: (
-                        <div className="w-44 font-normal normal-case">
+                        // Botoncito lila pegado al título, como el «+ cargo»
+                        // de cada evento (09-11-2026: con el título en
+                        // pestaña, la caja ancha de antes desentonaba).
+                        <div className="inline-flex items-center rounded-md border border-violet-300 bg-white px-2 py-0.5 text-xs font-normal normal-case hover:bg-violet-50">
                           <SelectorDeCargo
                             catalogo={catalogo}
                             yaVisibles={filas
                               .filter((x) => x.quotationId === null && x.ocasional)
                               .map((x) => x.cargoId)}
                             onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                            aspecto="texto"
+                            claseTexto="text-violet-800"
                           />
                         </div>
                       ),

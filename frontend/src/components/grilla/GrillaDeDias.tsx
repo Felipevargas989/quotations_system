@@ -1,7 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 import { X } from "lucide-react";
 import QuantitySelector from "../QuantitySelector";
-import { COLOR_SECCION, type ColorDeSeccion } from "./coloresDeSeccion";
+import { type ColorDeSeccion } from "./coloresDeSeccion";
+import TituloDeSeccion from "./TituloDeSeccion";
 
 // LA GRILLA DE DÍAS — PIEZA DE LA CASA (15-08, pedido de Felipe:
 // "deja esta grilla como una pieza, por si la volvemos a ocupar").
@@ -34,14 +35,14 @@ export const rotuloDia = (isoDia: string) => {
 };
 
 /** v2.2 (09-11-2026): una SECCIÓN agrupa varias bandas bajo un título
- *  con su color y una línea de color a la izquierda — en la sábana:
- *  Eventos, Personal de planta y Personal Staff (Felipe: "agreguemos
- *  separaciones visuales entre eventos / planta / Staff"). Gestión no la
- *  usa y se ve igual que siempre. */
+ *  con su color — en la sábana: Eventos, Personal de planta y Personal
+ *  Staff (Felipe: "agreguemos separaciones visuales entre eventos / planta
+ *  / Staff"). El título es una pestaña de color con una línea fina
+ *  (TituloDeSeccion). Gestión no la usa y se ve igual que siempre. */
 export interface SeccionGrillaDias {
   readonly titulo: string;
   readonly color: ColorDeSeccion;
-  /** Un control a la derecha del título (ej: "+ cargo"). */
+  /** Un control chico pegado al título (ej: "+ cargo"). */
   readonly accion?: ReactNode;
 }
 
@@ -271,20 +272,15 @@ export default function GrillaDeDias({
                   <tr>
                     <td
                       colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
-                      // Sin margen a los lados: la línea de la sección calza
-                      // con la de cada evento (Felipe, 09-11-2026).
+                      // Sin margen a los lados: la pestaña de la sección calza
+                      // con la línea de cada evento (Felipe, 09-11-2026).
                       className={`px-0 ${i === 0 ? "pt-2" : "pt-6"} pb-1`}
                     >
-                      <div
-                        className={`flex items-center justify-between gap-2 border-l-4 rounded-none px-3 py-1.5 ${
-                          COLOR_SECCION[f.seccion.color]
-                        }`}
-                      >
-                        <span className="text-sm font-semibold">
-                          {f.seccion.titulo}
-                        </span>
-                        {f.seccion.accion}
-                      </div>
+                      <TituloDeSeccion
+                        titulo={f.seccion.titulo}
+                        color={f.seccion.color}
+                        accion={f.seccion.accion}
+                      />
                     </td>
                   </tr>
                 )}

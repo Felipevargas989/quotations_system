@@ -691,7 +691,14 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
 
 - **Tres secciones** con título y color: **Eventos** (verde), **Personal
   de planta** (azul) y **Personal Staff** (lila), los colores de sus
-  celdas. Las dos bandas del 21-10 viven dentro de las dos últimas.
+  celdas. Las dos bandas del 21-10 viven dentro de las dos últimas. El
+  título de cada sección es una pestaña de color fuerte con letra blanca y
+  una línea fina del mismo color, también en los bloques del resumen del
+  día (Felipe, 09-11-2026: *"los títulos de las secciones se confunden con
+  los colores de cada evento… ¿alguna otra forma de separarlos sin perder
+  visualmente las secciones?"*; de dos maquetas eligió *"la 2"*). Antes
+  era una franja pastel, igual a la de cada evento. El «+ cargo» de Staff
+  pasó a ser un botoncito lila pegado a su título.
 - **Dos semanas por defecto, o los próximos 30 días** (Felipe, 09-11-2026:
   *"¿y si vemos solo 2 semanas adelante por defecto?"*, *"y un botón para
   ver los próximos 30 días"* y *"las flechas que avancen de 1 en 1"*).
