@@ -2830,13 +2830,16 @@ el laboratorio; motor y pantalla). La migración va antes del motor.
 **Sprint 3, hecho el 09-11** (sin migración):
 - **Lo vendido** (`LoVendido`, su propia pestaña de Facturación con el
   permiso «Lo vendido», `facturacion_vendido`, de fábrica operaciones y el
-  administrador; `GET /facturacion/caja/vendido`): lo del tarifario
-  (las líneas con `tarifario_id`) en las boletas y facturas emitidas del
-  período, sin lo que anuló una nota de crédito, por ítem con su cantidad
-  y su unidad («142 personas», «9 noches») y su monto con IVA, y el total.
-  Este mes si no se dice otra cosa, hasta un año de una vez. Por persona:
-  quien abrió la caja o, fuera de la caja, quien emitió. Lo de antes del
-  sprint 1 no trae su ítem del tarifario y no aparece.
+  administrador; `GET /facturacion/caja/vendido`): lo vendido en «Nuevo
+  DTE», es decir, las boletas y facturas emitidas del período sin evento
+  (sin las traídas de facturacion.cl ni lo que anuló una nota de crédito):
+  cada ítem del tarifario con su cantidad y su unidad («142 personas», «9
+  noches») y su monto con IVA, y las líneas a mano agrupadas por lo que
+  dicen («A mano · …»; Felipe, 09-11, al boletear una prueba a mano que no
+  aparecía: *"sí, hazlo"*), con el total. Este mes si no se dice otra
+  cosa, hasta un año de una vez. Por persona: quien abrió la caja o, fuera
+  de la caja, quien emitió. Lo de antes del sprint 1 no trae su ítem del
+  tarifario: sale como línea a mano.
 - **El resumen del cierre por correo** (como el de Fudo): apenas se cierra
   la caja, a las personas de los cargos con «Revisar cierres de caja»
   (de fábrica, los administradores): quién cerró, de cuándo a cuándo, por
