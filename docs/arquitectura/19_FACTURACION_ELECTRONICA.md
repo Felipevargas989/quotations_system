@@ -2852,7 +2852,9 @@ del motor: el motor la pide en cada lista.
   laboratorio los correos están silenciados (`EMAILS_SILENCED`).
 
 **El sprint 3, en el laboratorio y en producción desde el 09-11-2026**
-(PR #339; motor y pantalla, sin migración; Felipe: *"todo a producción"*).
+(PR #339; motor y pantalla, sin migración; Felipe: *"todo a producción"*). Lo a mano en «Lo vendido» y las líneas de la boleta en las
+mismas columnas (Felipe: *"esto se ve raro"*), en producción desde el
+09-11-2026 (PR #340).
 
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
