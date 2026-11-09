@@ -137,6 +137,12 @@ export const ESQUEMA_DE_LA_OFERTA = {
 const texto = (v: unknown, max = 600): string =>
   typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 
+/** Lo que se ofrece en cada fila de la matriz, completo (08-11, decisión
+ *  120). Con 600 letras, el menú de la 2656-97-LE26 quedaba en «Durante la
+ *  cena: gaseosas, agu…» y la propuesta salía con un [COMPLETAR]. Felipe:
+ *  "el menú cortado hay que arreglarlo". El tope solo ataja basura. */
+export const LARGO_DE_LO_QUE_SE_OFRECE = 3000;
+
 /** Una lista de textos, sin vacíos ni repetidos (los de la decisión 57). */
 export const listaDeTextos = (v: unknown, max = 300): string[] => [
   ...new Set(
@@ -155,7 +161,7 @@ export const leerArmado = (v: unknown): ArmadoDeLaOferta | null => {
   const matriz = (Array.isArray(o.matriz) ? o.matriz : []).flatMap(
     (f: Record<string, unknown>): FilaDeLaMatriz[] => {
       const especificacion = texto(f?.especificacion);
-      const como = texto(f?.como);
+      const como = texto(f?.como, LARGO_DE_LO_QUE_SE_OFRECE);
       if (!especificacion || !como) return [];
       const origen: OrigenDeLaFila = ORIGENES.has(f.origen as string)
         ? (f.origen as OrigenDeLaFila)
