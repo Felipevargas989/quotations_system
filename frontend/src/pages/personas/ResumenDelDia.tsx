@@ -1,19 +1,17 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { Check, Search, Users, X } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import { HoraInput, formatoHoras, horasTrabajadas } from "../../components/inputs";
+import {
+  COLOR_SECCION,
+  type ColorDeSeccion,
+} from "../../components/grilla/coloresDeSeccion";
 import {
   getEventServiceTimes,
   setEventServiceTime,
 } from "../../services/logistics.service";
 import { getQuotationById } from "../../services/quotations.service";
-import {
-  createDayNote,
-  getDayNotes,
-  removeDayNote,
-  updateDayNote,
-} from "../../services/people.service";
 import type { Asignacion } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatPhone } from "../../utils/phone";
@@ -23,6 +21,7 @@ import {
   serviciosDelDia,
 } from "./serviciosDelDia";
 import { esDePlanta } from "./bandasDelStaff";
+import { costoDeLaGente, pagoDelDia, pesos } from "./eventosDeLaSabana";
 
 // EL RESUMEN DEL DÍA — LA HOJA DE RUTA DE UNA JORNADA
 //
@@ -43,9 +42,18 @@ import { esDePlanta } from "./bandasDelStaff";
 //      staff (o freelance) queda siempre abajo; si es planta, queda en
 //      planta" (Felipe, 21-10-2026), igual que las bandas de la sábana.
 //
-// Las dos tablas comparten plantilla a propósito: cargo · persona ·
-// horario · horas · tipo · estado. Un cargo que se necesita y no tiene
-// a nadie igual aparece, con su "nadie puesto todavía".
+// Las tablas comparten plantilla a propósito: cargo · persona ·
+// horario · horas · tipo · estado · pago. Un cargo que se necesita y no
+// tiene a nadie igual aparece, con su "nadie puesto todavía".
+//
+// LO QUE CUESTA EL DÍA (Felipe, 09-11-2026: "agregar la columna de costos
+// (pago por día) — sé que planta no dirá nada adicional, pero así puedo
+// comprobar cuánto me está costando el día completo"). Cada bloque lleva
+// su color —los de la sábana: verde eventos, azul planta, lila staff— y
+// su subtotal, y abajo va el total del día. La planta va en blanco salvo
+// que se le haya puesto un adicional, y lo que falta por conseguir suma a
+// su valor estimado. El recuadro de recados («Qué hay que hacer») salió
+// ese mismo día; lo ya escrito sigue guardado en la base (`day_notes`).
 
 const iso = (v: string | null | undefined) =>
   v ? String(v).slice(0, 10) : "";
@@ -128,10 +136,13 @@ export default function ResumenDelDia({
       !eventosDelDia.some((e) => e.id === String(a.quotation_id)),
   );
 
-  // Personas ≠ jornadas: alguien puede hacer dos turnos el mismo día.
-  const personasDistintas = new Set(delDia.map((a) => a.person_id)).size;
-  const porConfirmar = delDia.filter((a) => a.status !== "confirmado").length;
-  const horasTotales = delDia.reduce(
+  // Personas ≠ jornadas: alguien puede hacer dos turnos el mismo día. Las
+  // sillas vacías no son nadie todavía: van como «Falta por conseguir» en
+  // su tabla, no en la cuenta de personas.
+  const conNombre = delDia.filter((a) => a.person_id != null);
+  const personasDistintas = new Set(conNombre.map((a) => a.person_id)).size;
+  const porConfirmar = conNombre.filter((a) => a.status !== "confirmado").length;
+  const horasTotales = conNombre.reduce(
     (t, a) =>
       t +
       (horasTrabajadas(
@@ -142,6 +153,18 @@ export default function ResumenDelDia({
     0,
   );
 
+  // Lo que cuesta el día, por bloque y en total. La gente de un evento
+  // anulado (huérfanos) no suma: hay que desconvocarla.
+  const deEventos = delDia.filter(
+    (a) =>
+      a.quotation_id !== null &&
+      eventosDelDia.some((e) => e.id === String(a.quotation_id)),
+  );
+  const costoEventos = costoDeLaGente(deEventos);
+  const costoPlanta = costoDeLaGente(planta);
+  const costoStaff = costoDeLaGente(staffSinEvento);
+  const costoTotal = costoEventos + costoPlanta + costoStaff;
+
   return (
     <div className="border border-gray-200 rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -150,7 +173,7 @@ export default function ResumenDelDia({
             {r.dia} {r.num} de {r.mes}
           </h2>
           <div className="text-sm text-gray-500 mt-0.5">
-            {delDia.length === 0 ? (
+            {conNombre.length === 0 ? (
               "Nadie asignado todavía"
             ) : (
               <span className="flex items-center gap-2 flex-wrap">
@@ -160,8 +183,8 @@ export default function ResumenDelDia({
                 </span>
                 <span className="text-gray-300">·</span>
                 <span>
-                  {delDia.length}{" "}
-                  {delDia.length === 1 ? "jornada" : "jornadas"}
+                  {conNombre.length}{" "}
+                  {conNombre.length === 1 ? "jornada" : "jornadas"}
                 </span>
                 <span className="text-gray-300">·</span>
                 <span>{formatoHoras(horasTotales)}</span>
@@ -208,10 +231,7 @@ export default function ResumenDelDia({
 
         {/* 2. PERSONAL DE EVENTOS — agrupado por evento si hay más de uno. */}
         {eventosDelDia.length > 0 && (
-          <section>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              Personal de eventos
-            </h3>
+          <Bloque titulo="Personal de eventos" color="verde" costo={costoEventos}>
             {eventosDelDia.length === 1 ? (
               <TablaDeGente
                 gente={delDia.filter(
@@ -238,7 +258,7 @@ export default function ResumenDelDia({
                 ))}
               </div>
             )}
-          </section>
+          </Bloque>
         )}
 
         {huerfanos.length > 0 && (
@@ -256,33 +276,62 @@ export default function ResumenDelDia({
 
         {/* 3. PERSONAL DE PLANTA — la misma tabla. */}
         {planta.length > 0 && (
-          <section>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              Personal de planta
-            </h3>
+          <Bloque titulo="Personal de planta" color="azul" costo={costoPlanta}>
             <TablaDeGente gente={planta} />
-          </section>
+          </Bloque>
         )}
 
         {/* 4. PERSONAL STAFF — el freelance sin evento, siempre abajo. */}
         {staffSinEvento.length > 0 && (
-          <section>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              Personal staff
-            </h3>
+          <Bloque titulo="Personal staff" color="violeta" costo={costoStaff}>
             <TablaDeGente gente={staffSinEvento} />
-          </section>
+          </Bloque>
         )}
 
-        {eventosDelDia.length === 0 && sinEvento.length === 0 && (
+        {eventosDelDia.length === 0 && sinEvento.length === 0 ? (
           <p className="text-sm text-gray-500">
             Día libre: sin eventos ni gente asignada.
           </p>
+        ) : (
+          <div className="flex items-center justify-between border-t-2 border-gray-300 pt-2 px-3">
+            <span className="text-sm font-semibold text-gray-900">
+              Total del día
+            </span>
+            <span className="text-base font-semibold tabular-nums text-gray-900">
+              {pesos(costoTotal)}
+            </span>
+          </div>
         )}
-
-        <NotasDelDia dia={dia} />
       </div>
     </div>
+  );
+}
+
+/** Un bloque del resumen con el color de su sección en la sábana y lo que
+ *  cuesta ese día a la derecha. */
+function Bloque({
+  titulo,
+  color,
+  costo,
+  children,
+}: {
+  readonly titulo: string;
+  readonly color: ColorDeSeccion;
+  readonly costo: number;
+  readonly children: ReactNode;
+}) {
+  return (
+    <section>
+      <div
+        className={`flex items-center justify-between gap-2 border-l-4 rounded-none px-3 py-1.5 mb-1.5 ${COLOR_SECCION[color]}`}
+      >
+        <h3 className="text-sm font-semibold">{titulo}</h3>
+        <span className="text-sm font-semibold tabular-nums">
+          {costo > 0 ? pesos(costo) : "—"}
+        </span>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -465,6 +514,7 @@ function TablaDeGente({
           <th className="font-medium pb-1 w-16 text-right">Horas</th>
           <th className="font-medium pb-1 w-20 pl-3">Tipo</th>
           <th className="font-medium pb-1 w-28 text-right">Estado</th>
+          <th className="font-medium pb-1 w-24 text-right">Pago</th>
         </tr>
       </thead>
       <tbody>
@@ -473,7 +523,10 @@ function TablaDeGente({
             quotationId && cobertura
               ? cobertura.get(`${quotationId}|${String(cargoId)}`)?.necesita
               : undefined;
-          const falta = necesita !== undefined && lista.length < necesita;
+          // "n de m" cuenta a la gente con nombre: la silla vacía es la que
+          // falta, no una persona más.
+          const sentados = lista.filter((a) => a.person_id != null).length;
+          const falta = necesita !== undefined && sentados < necesita;
 
           if (lista.length === 0) {
             return (
@@ -481,163 +534,79 @@ function TablaDeGente({
                 <td className="py-1 text-amber-700">
                   {cargo} <span className="text-xs">0 de {necesita ?? 0}</span>
                 </td>
-                <td colSpan={5} className="py-1 text-amber-700">
+                <td colSpan={6} className="py-1 text-amber-700">
                   nadie puesto todavía
                 </td>
               </tr>
             );
           }
 
-          return lista.map((a, i) => (
-            <tr key={a.id} className="border-t border-gray-100">
-              <td className="py-1 align-top">
-                {i === 0 && (
-                  <span className={falta ? "text-amber-700" : "text-gray-600"}>
-                    {cargo}
-                    {necesita !== undefined && (
-                      <span className="text-xs ml-1">
-                        {lista.length} de {necesita}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </td>
-              <td className="py-1 text-gray-900">{a.people?.name ?? "—"}</td>
-              <td className="py-1 text-right tabular-nums text-gray-600">
-                {a.starts_at && a.ends_at
-                  ? `${a.starts_at.slice(0, 5)}–${a.ends_at.slice(0, 5)}`
-                  : "—"}
-              </td>
-              <td className="py-1 text-right tabular-nums text-gray-600">
-                {formatoHoras(
-                  horasTrabajadas(
-                    a.starts_at?.slice(0, 5) ?? null,
-                    a.ends_at?.slice(0, 5) ?? null,
-                    a.break_minutes,
-                  ),
-                )}
-              </td>
-              <td className="py-1 text-gray-500 text-xs pl-3">
-                {a.kind === "planta" ? "planta" : "freelance"}
-              </td>
-              <td className="py-1 text-right">
-                {a.status === "confirmado" ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 text-xs">
-                    <Check className="w-3.5 h-3.5" /> confirmada
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-amber-700 text-xs">
-                    <Search className="w-3.5 h-3.5" /> por confirmar
-                  </span>
-                )}
-              </td>
-            </tr>
-          ));
+          return lista.map((a, i) => {
+            const pago = pagoDelDia(a);
+            const vacia = a.person_id == null;
+            return (
+              <tr key={a.id} className="border-t border-gray-100">
+                <td className="py-1 align-top">
+                  {i === 0 && (
+                    <span className={falta ? "text-amber-700" : "text-gray-600"}>
+                      {cargo}
+                      {necesita !== undefined && (
+                        <span className="text-xs ml-1">
+                          {sentados} de {necesita}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </td>
+                <td className={`py-1 ${vacia ? "text-amber-700" : "text-gray-900"}`}>
+                  {vacia ? "Falta por conseguir" : (a.people?.name ?? "—")}
+                </td>
+                <td className="py-1 text-right tabular-nums text-gray-600">
+                  {a.starts_at && a.ends_at
+                    ? `${a.starts_at.slice(0, 5)}–${a.ends_at.slice(0, 5)}`
+                    : "—"}
+                </td>
+                <td className="py-1 text-right tabular-nums text-gray-600">
+                  {formatoHoras(
+                    horasTrabajadas(
+                      a.starts_at?.slice(0, 5) ?? null,
+                      a.ends_at?.slice(0, 5) ?? null,
+                      a.break_minutes,
+                    ),
+                  )}
+                </td>
+                <td className="py-1 text-gray-500 text-xs pl-3">
+                  {vacia ? "" : a.kind === "planta" ? "planta" : "freelance"}
+                </td>
+                <td className="py-1 text-right">
+                  {vacia ? null : a.status === "confirmado" ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 text-xs">
+                      <Check className="w-3.5 h-3.5" /> confirmada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-amber-700 text-xs">
+                      <Search className="w-3.5 h-3.5" /> por confirmar
+                    </span>
+                  )}
+                </td>
+                {/* La planta, en blanco salvo un adicional; un freelance
+                    sin monto, la raya; la silla vacía, su estimado. */}
+                <td
+                  className={`py-1 text-right tabular-nums ${
+                    vacia ? "text-amber-700" : "text-gray-900"
+                  }`}
+                >
+                  {pago !== null
+                    ? pesos(pago)
+                    : a.kind === "planta" && !vacia
+                      ? ""
+                      : "—"}
+                </td>
+              </tr>
+            );
+          });
         })}
       </tbody>
     </table>
-  );
-}
-
-/** Los recados del día: lo que el personal tiene que hacer. */
-function NotasDelDia({ dia }: { readonly dia: string }) {
-  const qc = useQueryClient();
-  const [texto, setTexto] = useState("");
-
-  const { data: notas = [] } = useQuery({
-    queryKey: ["people", "notas-dia", dia],
-    queryFn: () => getDayNotes(dia, dia),
-  });
-
-  const refrescar = () =>
-    qc.invalidateQueries({ queryKey: ["people", "notas-dia", dia] });
-
-  const agregar = useMutation({
-    mutationFn: (text: string) => createDayNote({ day: dia, text }),
-    onSuccess: () => {
-      setTexto("");
-      refrescar();
-    },
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-  const marcar = useMutation({
-    mutationFn: (n: { id: number; done: boolean }) =>
-      updateDayNote(n.id, { done: n.done }),
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-  const borrar = useMutation({
-    mutationFn: (id: number) => removeDayNote(id),
-    onSuccess: refrescar,
-    onError: (e: unknown) => toast.error(humanizeApiError(e)),
-  });
-
-  return (
-    <section className="border-t border-gray-200 pt-3">
-      <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-        Qué hay que hacer
-      </h3>
-      {notas.length > 0 && (
-        <ul className="space-y-1 mb-2">
-          {notas.map((n) => (
-            <li key={n.id} className="flex items-center gap-2 text-sm group">
-              <button
-                type="button"
-                onClick={() => marcar.mutate({ id: n.id, done: !n.done })}
-                aria-label={n.done ? "Marcar pendiente" : "Marcar hecho"}
-                className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center ${
-                  n.done
-                    ? "bg-emerald-600 border-emerald-600 text-white"
-                    : "border-gray-300 hover:border-emerald-500"
-                }`}
-              >
-                {n.done && <Check className="w-3 h-3" />}
-              </button>
-              <span
-                className={
-                  n.done
-                    ? "flex-1 text-gray-400 line-through"
-                    : "flex-1 text-gray-900"
-                }
-              >
-                {n.text}
-              </span>
-              <button
-                type="button"
-                onClick={() => borrar.mutate(n.id)}
-                aria-label={`Borrar "${n.text}"`}
-                className="p-1 text-gray-300 hover:text-red-600 opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (texto.trim()) agregar.mutate(texto.trim());
-        }}
-        className="flex items-center gap-2"
-      >
-        <input
-          type="text"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="Un recado para este día: sacar las mesas del galpón, el bus se estaciona atrás…"
-          aria-label="Nueva nota del día"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        <button
-          type="submit"
-          disabled={!texto.trim() || agregar.isPending}
-          className="p-2 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-40"
-          aria-label="Agregar la nota"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </form>
-    </section>
   );
 }

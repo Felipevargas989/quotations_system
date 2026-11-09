@@ -678,6 +678,52 @@ falta para los días de preparativo y de desarme, que hoy no están en
 ninguna parte del costo (en el correo real aparece "Preparativos evento
 Municipalidad, $25.000").
 
+### La sábana en tres secciones y lo que cuesta el día (09-11-2026)
+
+Felipe, el 09-11-2026, al ver que Camila ponía la gente de los eventos en
+Personal Staff: *"dios mío no sé cómo dejar más simple el sistema para
+evitar estos errores"*. Medido ese día: un evento sin sillas en Gestión no
+aparecía en la sábana (entre el 11-10 y el 30-11 había 13 así, como la
+#460 del 29-10), y el único «+» a la vista era el de Staff. Ahí quedaron
+David Iturra (garzón) y Yuri Miller (cocina) el 29-10, y lo que va en
+Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
+(*"si dale así me parece bien todas las imágenes propuestas"*):
+
+- **Tres secciones** con título y color: **Eventos** (verde), **Personal
+  de planta** (azul) y **Personal Staff** (lila), los colores de sus
+  celdas. Las dos bandas del 21-10 viven dentro de las dos últimas.
+- **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos
+  sale con una fila «Elige el cargo»: su «+» pregunta el cargo (un botón
+  por cargo) y abre la casilla de ese día. Cada evento lleva su «+ cargo»,
+  igual que Staff; un cargo sumado así y sin nadie se quita con su ✕.
+- **El «+» en cada día del evento, y también hasta 4 días antes y 4
+  después** (*"¿no deberíamos poner más en todas las filas? así si llamé
+  gente antes vinculada a un evento se puede"*): ámbar los días del
+  evento, gris punteado los de antes y después. Es el mismo tope con que
+  Gestión agrega días. Esa gente queda en el evento y en su costo
+  (Gestión, Servicios y Dashboard suman el `amount` de sus filas), y la
+  casilla no se cierra con un freelance sin monto, así que no entra en $0.
+- **El seguro de Staff** (*"ok me parece con seguro"*): al poner a alguien
+  en Personal Staff un día que tiene evento, la casilla pregunta **«Ese día
+  hay evento — ¿Va para un evento?»**, con un botón por evento de ese día
+  y «No, es staff del día». Si va a un evento, entra con el cargo de su
+  fila y la casilla salta a la del evento para ponerle el monto ahí. Si
+  no, sigue como siempre (y si es un planta en un día que no le toca,
+  viene la pregunta del día extra del capítulo 11).
+- **El resumen del día suma lo que cuesta** (*"así puedo comprobar cuánto
+  me está costando el día completo"*): columna **Pago** con lo de cada
+  persona ese día; la planta va en blanco salvo que se le haya puesto un
+  adicional; la silla vacía sale como «Falta por conseguir» con su valor
+  estimado. Cada bloque lleva su color y su subtotal, y abajo va el
+  **Total del día**. La gente de un evento anulado no suma.
+- **Salió el recuadro «Qué hay que hacer»** del resumen. Las notas ya
+  escritas siguen en `day_notes` y el motor sigue sirviendo
+  `/people/day-notes`; ninguna pantalla las muestra.
+- Lo ya cargado en Staff no se movió. Visto ese día: David Iturra, el
+  29-10, tiene $25.000 en Staff y otros $25.000 en su fila de invitado de
+  la #460, ninguno en nómina todavía. Si se liquidan los dos, se le paga
+  dos veces. Lo decide Felipe.
+
 ### La liquidación (flujo cerrado el 15-08)
 
 La pestaña se llama **Liquidación** y separa los dos caminos:

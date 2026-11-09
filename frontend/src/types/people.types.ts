@@ -233,17 +233,6 @@ export interface NominaDetalle extends Nomina {
   pagos: PagoPersona[];
 }
 
-/** Un recado operativo de un día: lo que el personal tiene que hacer.
- *  quotation_id NULL = del día completo; con valor = de ese evento. */
-export interface NotaDelDia {
-  id: number;
-  day: string;
-  quotation_id: string | null;
-  text: string;
-  done: boolean;
-  created_at: string;
-}
-
 /**
  * UNA LIQUIDACIÓN POR PAGAR: un evento cerrado o un día de restaurante
  * repartido que todavía no entró a ninguna nómina. Se marcan varias y
