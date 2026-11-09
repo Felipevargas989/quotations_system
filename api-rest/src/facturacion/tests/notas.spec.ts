@@ -601,44 +601,6 @@ describe('La lista de Facturación', () => {
     expect(lista.documentos[1].acciones.anular).toBe(true);
   });
 
-  it('la rebajada trae lo que le queda en las tres columnas; si la ND anula la rebaja, nada (§9.42)', async () => {
-    const sinOC = { ...FACTURA_1, orden_de_compra_id: null };
-    const rebaja = {
-      ...sinOC,
-      tipo: 61,
-      neto: 84034,
-      iva: 15966,
-      total: 100000,
-      codigo_referencia: 3,
-    };
-    const { servicio } = armar({
-      documentos: [
-        { ...sinOC, id: 30, folio: 30 },
-        { ...rebaja, id: 31, folio: 31, modifica_id: 30 },
-        // La 32 se rebajó, pero la ND anuló esa rebaja: vale entera.
-        { ...sinOC, id: 32, folio: 32 },
-        { ...rebaja, id: 33, folio: 33, modifica_id: 32 },
-        {
-          ...rebaja,
-          id: 34,
-          tipo: 56,
-          folio: 34,
-          modifica_id: 33,
-          codigo_referencia: 1,
-        },
-      ],
-    });
-    const lista = await servicio.lista(1, '2026-11', UserRole.ADMINISTRADOR);
-    const de = (id: number) => lista.documentos.find((d) => d.id === id);
-    expect(de(30)).toMatchObject({
-      situacion: 'rebajada',
-      total: 1428000,
-      queda: { neto: 1115966, iva: 212034, total: 1328000 },
-    });
-    expect(de(31)?.queda).toBeNull();
-    expect(de(32)).toMatchObject({ situacion: 'vigente', queda: null });
-  });
-
   it('un rango de fechas, con las dos incluidas (§9.22, sprint 2)', async () => {
     const { servicio, repo } = armar();
     const lista = await servicio.lista(
@@ -731,6 +693,8 @@ describe('La lista de Facturación', () => {
           id: 23,
           tipo: 61,
           folio: 3,
+          neto: 84034,
+          iva: 15966,
           total: 100000,
           modifica_id: 22,
           codigo_referencia: 3,
@@ -780,6 +744,13 @@ describe('La lista de Facturación', () => {
       referencia: null,
     });
     expect(de(22)?.situacion).toBe('rebajada');
+    // §9.42: lo que le queda a la rebajada, en las tres columnas.
+    expect(de(22)?.queda).toEqual({
+      neto: 1115966,
+      iva: 212034,
+      total: 1328000,
+    });
+    expect(de(20)?.queda).toBeNull();
     expect(de(23)?.situacion).toBe('nota');
     expect(de(26)?.situacion).toBe('anulada');
     expect(de(27)?.situacion).toBe('nota');
