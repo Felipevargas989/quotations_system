@@ -30,6 +30,11 @@ export type PreguntaDeLaPostulacion = {
   exigencia: string;
   /** La pregunta, corta y en palabras simples. */
   pregunta: string;
+  /** Si la pregunta es solo por una parte de la exigencia (lo que falta),
+   *  esa parte, como se dice en una frase («los baños para personas con
+   *  discapacidad»). Sin ella, la pregunta es por toda la exigencia
+   *  (decisión 121). */
+  parte?: string;
 };
 
 /** Lo que pasó de una exigencia a la memoria de esta licitación. */
@@ -107,8 +112,9 @@ export const ESQUEMA_DE_LAS_PREGUNTAS = {
           },
           respuesta: { type: 'integer' },
           pregunta: { type: 'string' },
+          parte: { type: 'string' },
         },
-        required: ['exigencia', 'que_hacer', 'respuesta', 'pregunta'],
+        required: ['exigencia', 'que_hacer', 'respuesta', 'pregunta', 'parte'],
         additionalProperties: false,
       },
     },
@@ -125,7 +131,8 @@ export const instruccionesDeLasPreguntas = (): string =>
     `- "subcontrata": es de lo que la empresa subcontrata (${LO_QUE_SE_SUBCONTRATA}). No se pregunta: la empresa lo consigue.`,
     '- "ya_respondida": una de LAS RESPUESTAS QUE YA DIO LA EMPRESA responde exactamente lo mismo, aunque con otras palabras. Pon su número en "respuesta". Solo si de verdad es lo mismo: una rampa de acceso responde «accesibilidad universal para sillas de ruedas»; un salón para 300 personas NO responde «un salón para 500».',
     '- "preguntar": todo lo demás. En "pregunta", la pregunta corta, en palabras simples y de tú, que se responda con sí o no (por ejemplo: «¿Tienes rampa de acceso para sillas de ruedas?»). Con las cantidades que piden las bases, sin tecnicismos y en no más de 120 caracteres.',
-    '"respuesta" es 0 si no es "ya_respondida"; "pregunta" queda vacía si no es "preguntar". Responde en español de Chile.',
+    '- Si la exigencia junta varias cosas y la pregunta es solo por una o algunas de ellas (lo que falta), escribe en "parte" esa parte, con su artículo, como se dice en una frase (por ejemplo: «los baños para personas con discapacidad»). Si la pregunta es por toda la exigencia, "parte" queda vacía.',
+    '"respuesta" es 0 si no es "ya_respondida"; "pregunta" y "parte" quedan vacías si no es "preguntar". Responde en español de Chile.',
   ].join('\n');
 
 const EN_PALABRAS: Record<MarcaDeExigencia, string> = {
@@ -158,6 +165,7 @@ type Decision = {
   que_hacer: 'preguntar' | 'subcontrata' | 'ya_respondida';
   respuesta: number;
   pregunta: string;
+  parte?: string;
 };
 
 /** Lo que devolvió la IA, cruzado: lo que hay que preguntar y lo que se
@@ -189,11 +197,56 @@ export function lasDecisiones(
       return;
     }
     const corta = d?.que_hacer === 'preguntar' ? texto(d.pregunta).trim() : '';
+    // La parte vale solo con la pregunta corta de la IA y si no es toda la
+    // exigencia: con las palabras de las bases se pregunta por todo.
+    const parte = corta ? texto(d?.parte).trim().slice(0, 200) : '';
+    const esUnaParte = parte !== '' && claveDeExigencia(parte) !== c.clave;
     preguntas.push({
       clave: c.clave,
       exigencia: c.exigencia.slice(0, 1000),
       pregunta: (corta || c.exigencia).slice(0, 400),
+      ...(esUnaParte ? { parte } : {}),
     });
   });
   return { preguntas, yaRespondidas };
+}
+
+/** Una respuesta del modal, como llega (las-preguntas.service.ts). */
+type LoRespondido = {
+  pregunta: string;
+  exigencia?: string | null;
+  respuesta: MarcaDeExigencia;
+  detalle?: string | null;
+  parte?: string | null;
+};
+
+/** Lo que queda de una respuesta del modal en «Mi empresa» y en «Bases y
+ *  criterios» (decisión 121, 09-11). Un «No puedo» a una pregunta por una
+ *  parte vale solo para esa parte: lo demás se ofrece igual, así que la
+ *  exigencia queda en «Lo tengo», guardada con las palabras de las bases y
+ *  con lo que falta en el detalle. Felipe, con la 2656-97-LE26: "solamente
+ *  puse que no a los baños con discapacidad... el resto no entiendo". */
+export function loQueSeGuarda(r: LoRespondido): {
+  pregunta: string;
+  respuesta: MarcaDeExigencia;
+  detalle: string | null;
+} {
+  const detalle = r.detalle?.trim() || null;
+  const parte = r.parte?.trim().replace(/[.\s]+$/, '');
+  if (r.respuesta !== 'no_puedo' || !parte) {
+    return { pregunta: r.pregunta, respuesta: r.respuesta, detalle };
+  }
+  // «Los baños…» va en minúscula dentro de la frase; «DJ», «LED», no.
+  const enLaFrase = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]/.test(parte)
+    ? parte.charAt(0).toLowerCase() + parte.slice(1)
+    : parte;
+  const salvo = `Todo se cumple, salvo ${enLaFrase}`;
+  return {
+    pregunta: r.exigencia?.trim() || r.pregunta,
+    respuesta: 'lo_tengo',
+    detalle: (detalle
+      ? `${salvo}: ${detalle}${/[.!?]$/.test(detalle) ? '' : '.'}`
+      : `${salvo}.`
+    ).slice(0, 500),
+  };
 }

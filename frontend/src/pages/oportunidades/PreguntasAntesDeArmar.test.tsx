@@ -183,6 +183,53 @@ describe("Las preguntas antes de armar", () => {
     );
   });
 
+  it("un «No puedo» por una parte dice que lo demás se ofrece, y manda la parte (decisión 121)", async () => {
+    // La 2656-97-LE26: el modal preguntó solo por los baños del salón.
+    const SALON = {
+      clave: "salon de cena: escenario y banos para personas con discapacidad",
+      exigencia:
+        "Salón de cena: escenario y baños para personas con discapacidad",
+      pregunta:
+        "¿Tienes baños para personas con discapacidad junto al salón de cena?",
+      parte: "los baños para personas con discapacidad",
+    };
+    p.getOfertaDeLaPostulacion.mockResolvedValue({
+      ...DETENIDA,
+      parametros: { detenida: { total: 1_190_000, preguntas: [SALON] } },
+    } as never);
+    p.responderYArmar.mockResolvedValue({
+      id: 31,
+      estado: "procesando",
+      creado_en: "2026-11-09T05:00:00.000Z",
+      terminado_en: null,
+      parametros: { postulacion: { total: 1_190_000, propuesta: true } },
+      resultado: null,
+    } as never);
+    conTodo(<ArmarPostulacion oportunidadId={40} />);
+
+    await screen.findByText("Antes de armar, responde esto");
+    expect(screen.queryByText(/Se ofrece todo lo demás/)).toBe(null);
+    fireEvent.click(screen.getByRole("button", { name: "No puedo" }));
+    expect(
+      screen.getByText(
+        "Se ofrece todo lo demás, sin los baños para personas con discapacidad.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y armar" }));
+
+    await waitFor(() =>
+      expect(p.responderYArmar).toHaveBeenCalledWith(40, 1_190_000, [
+        {
+          clave: SALON.clave,
+          pregunta: SALON.pregunta,
+          exigencia: SALON.exigencia,
+          respuesta: "no_puedo",
+          parte: SALON.parte,
+        },
+      ]),
+    );
+  });
+
   it("«Ahora no» lo cierra y «Responder» lo vuelve a abrir", async () => {
     p.getOfertaDeLaPostulacion.mockResolvedValue(DETENIDA as never);
     conTodo(<ArmarPostulacion oportunidadId={40} />);

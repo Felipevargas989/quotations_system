@@ -17,6 +17,7 @@ import {
   itemsDeLaRevision,
   lasCandidatas,
   lasDecisiones,
+  loQueSeGuarda,
   type MarcaSola,
   MAXIMO_DE_RESPUESTAS,
   type PreguntaDeLaPostulacion,
@@ -36,6 +37,8 @@ export type RespuestaDelModal = {
   exigencia?: string | null;
   respuesta: MarcaDeExigencia;
   detalle?: string | null;
+  /** La parte por la que se preguntó (decisión 121). */
+  parte?: string | null;
 };
 
 @Injectable()
@@ -93,31 +96,34 @@ export class LasPreguntasService {
   }
 
   /** Las respuestas del modal: a «Mi empresa» y marcadas en «Bases y
-   *  criterios» de esta licitación. Si no se pueden guardar, lanza: la
-   *  empresa tiene que saber que no quedaron. */
+   *  criterios» de esta licitación. Un «No puedo» por una parte vale solo
+   *  para ella (`loQueSeGuarda`, decisión 121). Si no se pueden guardar,
+   *  lanza: la empresa tiene que saber que no quedaron. */
   async guardar(
     companyId: number,
     oportunidadId: number,
     respuestas: RespuestaDelModal[],
   ): Promise<void> {
+    const filas = respuestas.map((r) => ({
+      clave: r.clave.trim().slice(0, 400),
+      exigencia: r.exigencia?.trim().slice(0, 1000) || null,
+      ...loQueSeGuarda(r),
+    }));
     await this.loQueSabemos.responder(
       companyId,
-      respuestas.map((r) => ({
-        clave: r.clave.trim().slice(0, 400),
-        pregunta: r.pregunta.trim().slice(0, 400),
-        exigencia: r.exigencia?.trim().slice(0, 1000) || null,
-        respuesta: r.respuesta,
-        detalle: r.detalle?.trim().slice(0, 500) || null,
+      filas.map((f) => ({
+        clave: f.clave,
+        pregunta: f.pregunta.trim().slice(0, 400),
+        exigencia: f.exigencia,
+        respuesta: f.respuesta,
+        detalle: f.detalle?.slice(0, 500) || null,
         oportunidad_id: oportunidadId,
       })),
     );
     await this.marcar(
       companyId,
       oportunidadId,
-      respuestas.map((r) => ({
-        clave: r.clave.trim().slice(0, 400),
-        respuesta: r.respuesta,
-      })),
+      filas.map((f) => ({ clave: f.clave, respuesta: f.respuesta })),
     );
   }
 

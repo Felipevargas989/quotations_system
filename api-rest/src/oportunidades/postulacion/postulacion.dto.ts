@@ -106,6 +106,13 @@ export class RespuestaDelModalDto {
   @IsString()
   @MaxLength(500)
   detalle?: string;
+
+  /** La parte de la exigencia por la que se preguntó (decisión 121): un
+   *  «No puedo» vale solo para ella. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  parte?: string;
 }
 
 /** Responder y armar (decisión 119, parte 3): el precio y las respuestas. */

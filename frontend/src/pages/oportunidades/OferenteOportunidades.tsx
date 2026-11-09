@@ -54,6 +54,17 @@ const CAMPOS: ReadonlyArray<{
   { campo: "representante_nombre", etiqueta: "Representante legal" },
   { campo: "representante_rut", etiqueta: "RUT del representante" },
   { campo: "representante_cargo", etiqueta: "Cargo del representante" },
+  // Decisión 121 (09-11): el Anexo N°1 de Tomé las pedía.
+  {
+    campo: "representante_nacionalidad",
+    etiqueta: "Nacionalidad del representante",
+    ayuda: "Chilena",
+  },
+  {
+    campo: "representante_profesion",
+    etiqueta: "Profesión del representante",
+    ayuda: "Ingeniero comercial",
+  },
   // Decisión 43 (19-10): el Formulario N°1 del Profesor los pedía aparte.
   {
     campo: "representante_correo",
