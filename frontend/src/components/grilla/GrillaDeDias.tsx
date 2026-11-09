@@ -112,6 +112,7 @@ export default function GrillaDeDias({
   pie,
   resaltarDia,
   onDiaClick,
+  anchoTitulo = "w-56",
 }: {
   readonly dias: readonly string[];
   /** Los días propios del evento: no llevan ✕. */
@@ -128,6 +129,10 @@ export default function GrillaDeDias({
   readonly resaltarDia?: string;
   /** v2.1: pinchar el encabezado de un día (la sábana abre su resumen). */
   readonly onDiaClick?: (dia: string) => void;
+  /** v2.4 (09-11-2026): el ancho de la columna de títulos. Gestión deja
+   *  el de siempre (w-56) para que sus dos grillas calcen; la sábana la
+   *  ensancha para que cada evento quepa en una línea. */
+  readonly anchoTitulo?: string;
 }) {
   // La columna de hoy, de arriba abajo.
   const deHoy = (d: string) => (d === resaltarDia ? "bg-blue-50/70" : "");
@@ -135,7 +140,7 @@ export default function GrillaDeDias({
     <div className="border border-gray-200 rounded-xl overflow-x-auto">
       <table className="w-full text-sm table-fixed min-w-[56rem]">
         <colgroup>
-          <col className="w-56" />
+          <col className={anchoTitulo} />
           {dias.map((d) => (
             <col key={d} />
           ))}
@@ -238,9 +243,18 @@ export default function GrillaDeDias({
                 <>
                   <tr>
                     <td
-                      className={`px-3 pt-2.5 pb-0.5 text-sm font-semibold border-l-4 rounded-none ${f.grupoBarra.color.borde} ${f.grupoBarra.color.texto}`}
+                      className={`px-3 py-1.5 text-sm border-l-4 rounded-none ${f.grupoBarra.color.borde} ${f.grupoBarra.color.texto}`}
                     >
-                      {f.grupoBarra.numero}
+                      {/* Todo en una línea (Felipe, 09-11-2026: "el número
+                          del evento y el nombre de cliente y fecha, ¿no
+                          será mejor que esté todo en la misma fila?"). */}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 break-words">
+                          <span className="font-semibold">{f.grupoBarra.numero}</span>
+                          {f.grupoBarra.detalle ? ` · ${f.grupoBarra.detalle}` : ""}
+                        </span>
+                        {f.grupoAccion && <span className="shrink-0">{f.grupoAccion}</span>}
+                      </div>
                     </td>
                     {dias.map((d, di) => {
                       const barra = f.grupoBarra!;
@@ -248,7 +262,7 @@ export default function GrillaDeDias({
                       const parte = dentro && !barra.dias.has(dias[di - 1] ?? "");
                       const termina = dentro && !barra.dias.has(dias[di + 1] ?? "");
                       return (
-                        <td key={d} className={`px-0 pt-2.5 pb-0.5 ${deHoy(d)}`}>
+                        <td key={d} className={`px-0 py-1.5 align-middle ${deHoy(d)}`}>
                           {dentro && (
                             <span
                               className={`block h-2 ${barra.color.barra} ${
@@ -260,17 +274,6 @@ export default function GrillaDeDias({
                       );
                     })}
                     {titulosValores && <td colSpan={4} />}
-                  </tr>
-                  <tr className="!border-t-0">
-                    <td
-                      colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
-                      className={`px-3 pb-1 text-xs ${f.grupoBarra.color.texto}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span>{f.grupoBarra.detalle}</span>
-                        {f.grupoAccion}
-                      </div>
-                    </td>
                   </tr>
                 </>
               )}
@@ -293,7 +296,11 @@ export default function GrillaDeDias({
               )}
             <tr>
               <td
-                className={`px-3 py-2 text-gray-900 ${f.grupo || f.seccion ? "pl-6" : ""}`}
+                className={`px-3 py-2 text-gray-900 ${f.grupo || f.seccion ? "pl-6" : ""} ${
+                  // La línea del color del evento baja por todas sus filas
+                  // (Felipe, 09-11-2026), no solo por la banda.
+                  f.grupoBarra ? `border-l-4 rounded-none ${f.grupoBarra.color.borde}` : ""
+                }`}
               >
                 {f.titulo}
               </td>

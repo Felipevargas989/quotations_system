@@ -34,10 +34,14 @@ export function SelectorDeCargo({
   catalogo,
   yaVisibles,
   onAgregar,
+  aspecto = "caja",
 }: {
   readonly catalogo: readonly CargoDelCatalogo[];
   readonly yaVisibles: readonly number[];
   readonly onAgregar: (id: number) => void;
+  /** "texto": chico, sin caja, para que quepa al lado del nombre del
+   *  evento en su misma línea (09-11-2026). */
+  readonly aspecto?: "caja" | "texto";
 }) {
   const opciones = cargosParaSumar(catalogo, yaVisibles).map((r) => ({
     value: String(r.id),
@@ -51,6 +55,7 @@ export function SelectorDeCargo({
       placeholder="+ cargo"
       tamano="sm"
       mostrarConteo={false}
+      aspecto={aspecto}
     />
   );
 }
