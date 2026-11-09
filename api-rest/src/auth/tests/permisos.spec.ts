@@ -21,6 +21,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'belia',
       'calendario',
       'boletas',
+      // La caja de recepción (doc 19 §9.43, 09-11).
+      'caja_recepcion',
     ]);
     // El Calendario del vendedor, prendido (Felipe, 05-11-2026). Las
     // boletas y facturas del tarifario, apagadas desde el 07-11 (doc 19

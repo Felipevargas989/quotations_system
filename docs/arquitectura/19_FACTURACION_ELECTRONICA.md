@@ -2762,8 +2762,8 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 | Sprint | Qué | Estado |
 |---|---|---|
 | 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En el laboratorio desde el 09-11 |
-| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | Por hacer |
-| 3 | Lo vendido | Por hacer |
+| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | En el laboratorio desde el 09-11 |
+| 3 | Lo vendido, y el resumen del cierre por correo | Por hacer |
 
 **Sprint 1, hecho el 09-11** (migración 198):
 - `documentos_tributarios.medio_de_pago` (efectivo, debito, credito o
@@ -2790,6 +2790,42 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 **En el laboratorio desde el 09-11-2026** (migración 198 en el
 laboratorio; motor y pantalla). La migración va antes del motor: el motor
 la pide en cada lista.
+
+**Sprint 2, hecho el 09-11** (migración 199):
+- `turnos_de_caja` (quién abre y el sencillo; quién cierra, lo declarado
+  en los cuatro medios y su comentario; la revisión con quién, cuándo y su
+  nota), `retiros_de_caja` y `correcciones_de_caja`; una sola caja abierta
+  por empresa (índice único). Lo esperado no se guarda: sale de los
+  documentos del turno (`documentos_tributarios.turno_de_caja_id`), así una
+  corrección se ve al momento.
+- **Lo que emite recepción entra a su caja** (`caja/regla.ts`): la boleta
+  de «Nuevo DTE» y la factura al contado del cargo recepción quedan en el
+  turno abierto; sin caja abierta no se emiten (409, «La caja de recepción
+  está cerrada: ábrela en «Caja» para emitir»), tampoco la vista previa.
+  Los otros cargos emiten sin turno: su plata no pasa por esa caja.
+- Los dos interruptores (doc 22): «Caja de recepción» (`caja_recepcion`,
+  recepción y el administrador) y «Revisar cierres de caja»
+  (`caja_revision`, el administrador).
+- La pestaña «Caja» de Facturación: `CajaDeRecepcion` (abrir, los retiros
+  y el cierre ciego con «¿Cerrar la caja? Después no se puede reabrir.»;
+  nunca muestra lo esperado ni la diferencia) y `CierresDeCaja` (la lista
+  con «Por revisar», «Revisado · cuadra» o «Revisado · faltan $X», y cada
+  cierre en el panel de la derecha: por medio de pago lo declarado, según
+  Eventia y la diferencia, el aviso cuando débito y crédito se compensan,
+  los documentos con su medio de pago, que se corrige ahí y queda anotado,
+  lo vendido por ítem del tarifario, los retiros y «Marcar revisado» con la
+  nota). `BoletaNueva` dice a qué caja entra o avisa en rojo que está
+  cerrada.
+- El cuadre (`caja/cuadre.ts`, puro): el efectivo esperado es el sencillo
+  más lo vendido en efectivo menos los retiros; débito, crédito y
+  transferencia, lo vendido con cada uno. Lo por confirmar no cuenta y se
+  avisa.
+- Pendiente para el sprint 3: el resumen del cierre por correo a quien
+  revisa (el servicio de correos de la casa pasa las 800 líneas y se hace
+  con su plantilla).
+
+**El sprint 2, en el laboratorio desde el 09-11-2026** (migración 199 en
+el laboratorio; motor y pantalla). La migración va antes del motor.
 
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 

@@ -38,6 +38,9 @@ export type Permiso =
   | 'facturacion_documentos'
   | 'facturacion_notas'
   | 'facturacion_ajustes'
+  // La caja de recepción (doc 19 §9.43, 09-11-2026).
+  | 'caja_recepcion'
+  | 'caja_revision'
   | 'dashboard'
   | 'catalogo'
   | 'personal'
@@ -175,6 +178,23 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     clave: 'facturacion_ajustes',
     area: 'facturacion',
     nombre: 'Tarifario y conexión',
+    fabrica: [A],
+    derecho: 'facturacion',
+  },
+  // La caja de recepción (doc 19 §9.43; Felipe, 09-11: «de fábrica, abrir y
+  // cerrar la caja para recepción y el administrador, y los cierres de
+  // todos y lo vendido, solo para el administrador»).
+  {
+    clave: 'caja_recepcion',
+    area: 'facturacion',
+    nombre: 'Caja de recepción',
+    fabrica: [R, A],
+    derecho: 'facturacion',
+  },
+  {
+    clave: 'caja_revision',
+    area: 'facturacion',
+    nombre: 'Revisar cierres de caja',
     fabrica: [A],
     derecho: 'facturacion',
   },

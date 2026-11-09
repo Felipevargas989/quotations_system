@@ -4,6 +4,9 @@ import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-foll
 import { BoletasController } from './boletas/boletas.controller';
 import { BoletasRepository } from './boletas/boletas.repository';
 import { BoletasService } from './boletas/boletas.service';
+import { CajaController } from './caja/caja.controller';
+import { CajaRepository } from './caja/caja.repository';
+import { CajaService } from './caja/caja.service';
 import { FacturasTraidasController } from './facturas-traidas/facturas-traidas.controller';
 import { FacturasTraidasRepository } from './facturas-traidas/facturas-traidas.repository';
 import { FacturasTraidasService } from './facturas-traidas/facturas-traidas.service';
@@ -48,8 +51,11 @@ import { RecibidosService } from './recibidos/recibidos.service';
     FacturaSinEventoController,
     NominaSiiController,
     RecibidosController,
+    CajaController,
   ],
   providers: [
+    CajaService,
+    CajaRepository,
     OrdenesDeCompraService,
     OrdenesDeCompraRepository,
     LeerOrdenDeCompraService,

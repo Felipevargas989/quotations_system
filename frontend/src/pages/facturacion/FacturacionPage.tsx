@@ -6,6 +6,8 @@ import type { DocumentoDeLaLista } from "../../services/documentosTributarios.se
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
+import CajaDeRecepcion from "./CajaDeRecepcion";
+import CierresDeCaja from "./CierresDeCaja";
 import { usePorFacturar } from "./consultas";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
@@ -44,7 +46,7 @@ import PorFacturar from "./PorFacturar";
 // Lo de fábrica: recepción, la boleta y la factura del tarifario;
 // operaciones, además los eventos y «Documentos»; el administrador, todo.
 
-type Pestana = "documentos" | "por_facturar" | "tarifario";
+type Pestana = "documentos" | "por_facturar" | "tarifario" | "caja";
 
 /** El documento que se está armando, y el que la nota modifica si llegó
  *  desde la lista. */
@@ -59,6 +61,9 @@ export default function FacturacionPage() {
   const conDocumentos = permisos.includes("facturacion_documentos");
   const conEventos = permisos.includes("facturacion_eventos");
   const conAjustes = permisos.includes("facturacion_ajustes");
+  // §9.43: la caja de recepción (operarla) y sus cierres (revisarlos).
+  const conCaja = permisos.includes("caja_recepcion");
+  const conCierres = permisos.includes("caja_revision");
   const tipos: TipoNuevo[] = [
     ...(permisos.includes("boletas") ? (["factura", "boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
@@ -85,6 +90,7 @@ export default function FacturacionPage() {
           },
         ]
       : []),
+    ...(conCaja || conCierres ? [{ key: "caja" as const, label: "Caja" }] : []),
     ...(conAjustes ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
   const [elegida, setElegida] = useState<Pestana | null>(null);
@@ -141,6 +147,8 @@ export default function FacturacionPage() {
         ) : abierto.tipo === "boleta" ? (
           <BoletaNueva
             esAdmin={esAdmin}
+            // §9.43: recepción emite con la caja abierta.
+            conCaja={userRole === "recepcion"}
             // Sin la lista a la vista (recepción), se queda para la próxima.
             quedarse={!conDocumentos}
             onVolver={() => setAbierto(null)}
@@ -221,6 +229,12 @@ export default function FacturacionPage() {
             />
           )}
           {pestana === "por_facturar" && <PorFacturar />}
+          {pestana === "caja" && (
+            <div className="space-y-6">
+              {conCaja && <CajaDeRecepcion />}
+              {conCierres && <CierresDeCaja />}
+            </div>
+          )}
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}

@@ -8,6 +8,7 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import { pluralDeLaUnidad } from "../../constants/boletas";
 import { MEDIOS_DE_PAGO, type MedioDePago } from "../../constants/facturacion";
+import { getCaja } from "../../services/caja.service";
 import {
   emitirBoletaSuelta,
   getTarifario,
@@ -67,11 +68,14 @@ export interface BoletaEmitida {
 
 export default function BoletaNueva({
   esAdmin,
+  conCaja = false,
   quedarse,
   onVolver,
   onEmitida,
 }: {
   readonly esAdmin: boolean;
+  /** §9.43: recepción emite con la caja abierta, y la boleta entra a ella. */
+  readonly conCaja?: boolean;
   /** Sin la lista a la vista: después de emitir, otra boleta. */
   readonly quedarse: boolean;
   readonly onVolver: () => void;
@@ -82,6 +86,12 @@ export default function BoletaNueva({
     queryFn: getTarifario,
   });
   const activos = (tarifario.data ?? []).filter((i) => i.activo);
+  const caja = useQuery({
+    queryKey: ["caja"],
+    queryFn: getCaja,
+    enabled: conCaja,
+  });
+  const cajaCerrada = conCaja && caja.isSuccess && !caja.data.abierta;
   const [lineas, setLineas] = useState<LineaEnPantalla[]>(() => [lineaNueva()]);
   const [cabana, setCabana] = useState("");
   const [correo, setCorreo] = useState("");
@@ -178,6 +188,21 @@ export default function BoletaNueva({
         titulo="Nueva boleta electrónica"
         onVolver={onVolver}
       />
+
+      {conCaja && caja.data?.abierta && (
+        <p className="text-xs text-green-700">
+          Caja abierta · {caja.data.abierta.abierta_por_nombre} · desde las{" "}
+          {new Date(caja.data.abierta.abierta_en).toLocaleTimeString("es-CL", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      )}
+      {cajaCerrada && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          La caja de recepción está cerrada: ábrela en «Caja» para emitir.
+        </p>
+      )}
 
       {ultima && (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
@@ -408,7 +433,9 @@ export default function BoletaNueva({
               </button>
               <button
                 type="button"
-                disabled={!lista || faltan.length > 0 || revisando}
+                disabled={
+                  !lista || faltan.length > 0 || cajaCerrada || revisando
+                }
                 onClick={() => void crearDocumento()}
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
