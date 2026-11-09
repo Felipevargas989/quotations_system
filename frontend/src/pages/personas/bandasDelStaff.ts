@@ -25,6 +25,10 @@ export interface FilaSemana {
    *  (Felipe, 15-08)— y para poder poner gente ahí aunque el cupo haya
    *  quedado sin día. */
   diasDelEvento: ReadonlySet<string>;
+  /** Solo en eventos: los días donde la sábana deja poner gente del
+   *  evento — los suyos y hasta 4 antes y después, para preparativos y
+   *  desarme (Felipe, 09-11-2026). Ver eventosDeLaSabana.ts. */
+  diasConMas?: ReadonlySet<string>;
   /** Solo sin evento: true = banda "Personal Staff" (freelance, la gente
    *  que se llama por día), false = banda "Personal de planta". */
   ocasional?: boolean;

@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { X } from "lucide-react";
 import QuantitySelector from "../QuantitySelector";
+import { COLOR_SECCION, type ColorDeSeccion } from "./coloresDeSeccion";
 
 // LA GRILLA DE DÍAS — PIEZA DE LA CASA (15-08, pedido de Felipe:
 // "deja esta grilla como una pieza, por si la volvemos a ocupar").
@@ -32,8 +33,23 @@ export const rotuloDia = (isoDia: string) => {
   };
 };
 
+/** v2.2 (09-11-2026): una SECCIÓN agrupa varias bandas bajo un título
+ *  con su color y una línea de color a la izquierda — en la sábana:
+ *  Eventos, Personal de planta y Personal Staff (Felipe: "agreguemos
+ *  separaciones visuales entre eventos / planta / Staff"). Gestión no la
+ *  usa y se ve igual que siempre. */
+export interface SeccionGrillaDias {
+  readonly titulo: string;
+  readonly color: ColorDeSeccion;
+  /** Un control a la derecha del título (ej: "+ cargo"). */
+  readonly accion?: ReactNode;
+}
+
 export interface FilaGrillaDias {
   readonly id: number | string;
+  /** v2.2: la sección de la fila. Filas contiguas con el mismo título
+   *  comparten UN encabezado de sección. */
+  readonly seccion?: SeccionGrillaDias;
   /** Nombre más sus apuntes (proveedor, chips, "sin día"). */
   readonly titulo: ReactNode;
   readonly cantidadEn: (dia: string) => number;
@@ -175,6 +191,26 @@ export default function GrillaDeDias({
         <tbody className="divide-y divide-gray-100">
           {filas.map((f, i) => (
             <Fragment key={f.id}>
+              {f.seccion &&
+                filas[i - 1]?.seccion?.titulo !== f.seccion.titulo && (
+                  <tr>
+                    <td
+                      colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
+                      className={`px-2 ${i === 0 ? "pt-2" : "pt-6"} pb-1`}
+                    >
+                      <div
+                        className={`flex items-center justify-between gap-2 border-l-4 rounded-none px-3 py-1.5 ${
+                          COLOR_SECCION[f.seccion.color]
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">
+                          {f.seccion.titulo}
+                        </span>
+                        {f.seccion.accion}
+                      </div>
+                    </td>
+                  </tr>
+                )}
               {f.grupo && filas[i - 1]?.grupo !== f.grupo && (
                 <tr
                   className={`bg-gray-50/70 ${
@@ -193,7 +229,9 @@ export default function GrillaDeDias({
                 </tr>
               )}
             <tr>
-              <td className={`px-3 py-2 text-gray-900 ${f.grupo ? "pl-6" : ""}`}>
+              <td
+                className={`px-3 py-2 text-gray-900 ${f.grupo || f.seccion ? "pl-6" : ""}`}
+              >
                 {f.titulo}
               </td>
               {dias.map((d) => {
