@@ -10,6 +10,21 @@ import { fechaCorta } from "../../utils/ordenesDeCompra";
 
 export const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
 
+/** La nota que anula otra nota (la ND que anula la NC): no cobra nada
+ *  nuevo, deshace la otra, y las dos se cancelan. Va tachada como la que
+ *  anula, y la que vale es la factura (§9.42; Felipe, 09-11: *"pareciera
+ *  que hay dos montos pendientes"*, y *"vamos con la segunda"*). La NC que
+ *  anula una factura no entra: lo que modifica no es una nota. */
+export const cancelaOtraNota = (
+  d: DocumentoDeLaLista,
+  modifica: DocumentoDeLaLista | undefined,
+) =>
+  esNota(d) &&
+  d.situacion !== "anulada" &&
+  !!modifica &&
+  esNota(modifica) &&
+  modifica.situacion === "anulada";
+
 /** El color del estado, como la maqueta: lo vigente en verde (también la
  *  nota en pie y la factura corregida, que valen enteras). */
 export const colorDelEstado = (d: DocumentoDeLaLista) =>

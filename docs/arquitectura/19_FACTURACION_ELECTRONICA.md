@@ -2734,12 +2734,20 @@ rebajada"*; y *"haz eso en lab"*.
   la rebajada, la corregida y la que volvió a quedar vigente; sin notas, va
   como siempre. Antes el gris salía de la factura de arriba: si ella seguía
   vigente, la ND que anulaba su NC quedaba fuera.
-- Tachado, solo lo que no cuenta: lo anulado. La factura cuya NC anuló la
-  ND no se tacha: la ND no cobra nada nuevo, deshace la NC, y la factura
-  vuelve a valer entera (§9.5, `Cadena`: *"una nota anulada no cuenta"*;
-  así la cuentan también las barras de lo facturado). Felipe propuso
-  tacharla y dejar en pie solo la ND; el asistente le mostró por qué no y
-  él decide al verlo en el laboratorio.
+- Tachado, lo que no cuenta: lo anulado y la ND que anula una NC. En la
+  cadena factura → NC → ND se leían dos $119.000 en pie, y el cliente
+  debe uno (Felipe, 09-11: *"acá pareciera que hay dos montos
+  pendientes"*). Él propuso tachar la factura y la NC y dejar la ND; el
+  asistente propuso lo contrario, dejar en pie la factura y tachar la NC y
+  la ND, que se cancelan entre ellas: la ND no cobra nada nuevo, deshace la
+  NC, y la factura vuelve a valer entera (§9.5, `Cadena`: *"una nota
+  anulada no cuenta"*; así la cuentan también las barras de lo facturado).
+  Es la que lleva la OC y la que paga el cliente; tachada, alguien podría
+  creer que la OC quedó sin factura y emitir otra. Felipe: *"ok vamos con
+  la segunda"*. La ND va en gris con sus montos tachados
+  (`cancelaOtraNota`, en `filaDeLaLista`) y su chip sigue diciendo
+  «Vigente», porque ante el SII vale; la NC que anula una factura no se
+  tacha (lo que anula no es una nota).
 - La rebajada: en el neto, el IVA y el total, lo emitido tachado y abajo lo
   que le queda, sin tachar (`queda` de la lista, `quedaDe` en
   `NotasService`: lo emitido menos sus rebajas vigentes; el motor trae el
@@ -2747,7 +2755,7 @@ rebajada"*; y *"haz eso en lab"*.
   «−$1.000»: va la condición de pago, como en cualquier factura.
 
 **En el laboratorio desde el 09-11-2026** (motor y pantalla, sin
-migración).
+migración); la ND tachada con su NC, ese mismo día (solo pantalla).
 
 ### 9.41 Lo anulado en la lista, en gris, y la nota con su factura (08-11)
 

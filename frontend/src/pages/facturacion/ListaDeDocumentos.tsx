@@ -27,6 +27,7 @@ import {
   BARRA_ARRIBA,
   BARRA_DEL_GRUPO,
   BARRA_SEGUIDA,
+  cancelaOtraNota,
   colorDelEstado,
   condicionDePago,
   esNota,
@@ -383,9 +384,17 @@ export default function ListaDeDocumentos({
     const linea = lineaDelEstado(d);
     const sub = subtitulo(d);
     const anulada = d.situacion === "anulada";
+    // §9.42 (09-11): tachado lo que no cuenta, lo anulado y la ND que anula
+    // la NC (se cancelan entre ellas; la que vale es la factura).
+    const tachada =
+      anulada ||
+      cancelaOtraNota(
+        d,
+        d.modifica_id != null ? delRango.get(d.modifica_id) : undefined,
+      );
     const enGrupo = delGrupo || anulada;
     // §9.42: la rebajada, lo original tachado y abajo lo que le queda.
-    const queda = !anulada && d.queda ? d.queda : null;
+    const queda = !tachada && d.queda ? d.queda : null;
     return (
       <Fragment key={d.id}>
         <tr
@@ -398,7 +407,7 @@ export default function ListaDeDocumentos({
             style={{ paddingLeft: `${0.5 + nivel * 1.25}rem` }}
           >
             <p
-              className={`whitespace-nowrap font-semibold ${anulada ? "text-gray-500" : esNota(d) ? "text-gray-700" : "text-gray-900"}`}
+              className={`whitespace-nowrap font-semibold ${tachada ? "text-gray-500" : esNota(d) ? "text-gray-700" : "text-gray-900"}`}
             >
               {nivel > 0 && <span className="text-gray-300">└ </span>}
               {d.nombre ?? d.titulo}
@@ -414,7 +423,7 @@ export default function ListaDeDocumentos({
             </p>
           </td>
           <td
-            className={`py-2 pr-2 ${anulada ? "text-gray-500" : "text-gray-700"}`}
+            className={`py-2 pr-2 ${tachada ? "text-gray-500" : "text-gray-700"}`}
           >
             {/* Lo único que puede bajar de línea: hasta dos, y entero al
                 pasar el mouse. */}
@@ -428,7 +437,7 @@ export default function ListaDeDocumentos({
           {[d.neto, d.iva, d.total].map((n, i) => (
             <td
               key={i}
-              className={`whitespace-nowrap py-2 pr-2 text-right ${anulada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
+              className={`whitespace-nowrap py-2 pr-2 text-right ${tachada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
             >
               {queda ? (
                 <>

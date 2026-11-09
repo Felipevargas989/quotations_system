@@ -440,14 +440,22 @@ describe("la lista de Facturación (§9.22)", () => {
       .map((r) => r.querySelector("td p")?.textContent ?? "")
       .filter(Boolean);
     expect(orden.indexOf("└ ND 3")).toBe(orden.indexOf("└ NC 2") + 1);
-    // Tachado, solo lo anulado: la NC 2 y la Factura 4.
+    // Anuladas, la NC 2 y la Factura 4.
     expect(await fila("NC 2")).toHaveAttribute("data-anulada");
     expect(await fila("Factura 4")).toHaveAttribute("data-anulada");
     expect(await fila("NC 5")).not.toHaveAttribute("data-anulada");
     expect(await fila("ND 3")).not.toHaveAttribute("data-anulada");
     expect(await fila("Factura 1")).not.toHaveAttribute("data-anulada");
-    const total4 = (await fila("Factura 4")).querySelectorAll("td")[4];
-    expect(total4).toHaveClass("line-through");
+    // Tachado, lo que no cuenta (§9.42, 09-11: *"vamos con la segunda"*): lo
+    // anulado y la ND 3, que se cancela con la NC 2. La Factura 1 queda en
+    // pie con su monto, y la NC 5 que anula una factura no se tacha.
+    const total = async (nombre: string) =>
+      (await fila(nombre)).querySelectorAll("td")[4];
+    expect(await total("Factura 4")).toHaveClass("line-through");
+    expect(await total("NC 2")).toHaveClass("line-through");
+    expect(await total("ND 3")).toHaveClass("line-through");
+    expect(await total("Factura 1")).not.toHaveClass("line-through");
+    expect(await total("NC 5")).not.toHaveClass("line-through");
     // §9.42: toda la operación en un bloque gris, también la factura que
     // volvió a quedar vigente y la ND (antes quedaban fuera).
     for (const nombre of ["Factura 1", "NC 2", "ND 3", "Factura 4", "NC 5"])
