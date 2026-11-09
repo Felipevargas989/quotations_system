@@ -116,6 +116,9 @@ export interface PreguntaDeLaPostulacion {
   exigencia: string;
   /** La pregunta, corta. */
   pregunta: string;
+  /** Si pregunta solo por una parte de la exigencia, esa parte: un «No
+   *  puedo» vale solo para ella (decisión 121). */
+  parte?: string;
 }
 
 export interface TrabajoDeOferta extends Omit<AnalisisDeBases, "resultado"> {
@@ -151,6 +154,7 @@ export interface RespuestaDelModal {
   exigencia?: string;
   respuesta: "lo_tengo" | "no_puedo";
   detalle?: string;
+  parte?: string;
 }
 
 /** Las respuestas del modal: quedan en «Mi empresa» y marcadas en «Bases y
