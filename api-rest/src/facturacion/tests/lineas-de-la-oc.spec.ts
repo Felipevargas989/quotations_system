@@ -37,7 +37,8 @@ const OC: OrdenAFacturar = {
     comuna: 'San Joaquín',
     ciudad: 'Santiago',
   },
-  descripcion: 'MENU ADULTO · MENU NIÑOS',
+  descripcion:
+    'MENU ADULTO · MENU NIÑOS, Fiesta de Navidad Santo Tomás 2026, CFT Chillán, 12-12-2026',
   lineas: LINEAS,
   neto: 4715596,
   iva: 895963,
@@ -164,6 +165,8 @@ describe('El borrador y la revisión con las líneas de la OC (§9.37)', () => {
     const r = revisarDte(pedida, contexto(), 386, '2026-11-08');
     expect(r.montos?.total).toBe(5611559);
     expect(r.avisos.join(' ')).toContain('Cuadra con lo que le queda a la OC');
+    // La descripción larga de la OC no se usa: no se avisa que va cortada.
+    expect(r.avisos.join(' ')).not.toContain('va cortada');
   });
 
   it('el 50 %: la mitad de las cantidades, con sus pesos de redondeo y sin cuadrar', () => {
