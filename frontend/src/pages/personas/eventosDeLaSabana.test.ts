@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  compararEventos,
   costoDeLaGente,
   diasConMas,
   diasDe,
@@ -106,5 +107,33 @@ describe("pagoDelDia y costoDeLaGente", () => {
   });
   it("pesos sin decimales", () => {
     expect(pesos(180000)).toBe("$180.000");
+  });
+});
+
+describe("compararEventos (en cascada)", () => {
+  it("del que parte antes al último; mismo día, el que termina antes", () => {
+    const eventos = [
+      { numero: 384, inicio: "2026-11-27", termino: null },
+      { numero: 500, inicio: "2026-11-09", termino: "2026-11-22" },
+      { numero: 521, inicio: "2026-11-04", termino: "2026-11-09" },
+      { numero: 392, inicio: "2026-11-24", termino: "2026-11-26" },
+      { numero: 536, inicio: "2026-11-24", termino: null },
+    ];
+    const orden = [...eventos].sort(compararEventos).map((e) => e.numero);
+    expect(orden).toEqual([521, 500, 536, 392, 384]);
+  });
+  it("un evento sin datos va al final", () => {
+    const conFecha = {
+      numero: 616,
+      inicio: "2026-10-26",
+      termino: "2026-11-06",
+    };
+    expect(compararEventos(undefined, conFecha)).toBeGreaterThan(0);
+    expect(compararEventos(conFecha, undefined)).toBeLessThan(0);
+  });
+  it("mismas fechas: por número", () => {
+    const a = { numero: 521, inicio: "2026-11-04", termino: "2026-11-09" };
+    const b = { numero: 522, inicio: "2026-11-04", termino: "2026-11-09" };
+    expect(compararEventos(a, b)).toBeLessThan(0);
   });
 });

@@ -22,6 +22,7 @@ import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
 import {
+  compararEventos,
   diasConMas,
   diasDe,
   eventoEnRango,
@@ -591,9 +592,16 @@ export default function SemanaTab({
         m.set(`${e.id}|-1`, { ...base, cargoId: -1, cargo: "Elige el cargo" });
     }
 
+    // EN CASCADA (Felipe, 09-11-2026): del evento que parte antes al
+    // último; dentro de cada evento, sus cargos por nombre.
     const deEventos = [...m.values()].sort(
       (a, b) =>
-        a.evento.localeCompare(b.evento) || a.cargo.localeCompare(b.cargo),
+        compararEventos(
+          porEvento.get(String(a.quotationId)),
+          porEvento.get(String(b.quotationId)),
+        ) ||
+        a.evento.localeCompare(b.evento) ||
+        a.cargo.localeCompare(b.cargo),
     );
 
     // EL PERSONAL SIN EVENTO va AL FINAL y separado con su línea
