@@ -803,6 +803,8 @@ export default function SemanaTab({
           diasFijos={new Set(dias)}
           onQuitarDia={() => {}}
           columnaTitulo="Evento · cargo"
+          // Más ancha que en Gestión: cada evento en una sola línea.
+          anchoTitulo="w-80"
           resaltarDia={hoyEnChile()}
           onDiaClick={(d) => {
             setCasilla(null);
@@ -838,13 +840,14 @@ export default function SemanaTab({
             grupoBarra: barraDelEvento(f, colorDeFila(f)),
             grupoAccion:
               f.quotationId !== null ? (
-                <div className="w-44 font-normal normal-case">
+                <div className="font-normal normal-case text-gray-500">
                   <SelectorDeCargo
                     catalogo={catalogo}
                     yaVisibles={filas
                       .filter((x) => x.quotationId === f.quotationId)
                       .map((x) => x.cargoId)}
                     onAgregar={(id) => sumarCargoAlEvento(f.quotationId!, id)}
+                    aspecto="texto"
                   />
                 </div>
               ) : undefined,

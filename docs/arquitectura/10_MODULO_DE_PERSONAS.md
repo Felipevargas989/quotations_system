@@ -707,8 +707,11 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
   y después el número. Antes iban por número de cotización.
 - **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
   muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
-  color en una banda con una línea a la izquierda, su número y una barra
-  sobre sus días. Los colores se reparten en orden por la cascada, así dos
+  color en una banda con una línea a la izquierda y una barra sobre sus
+  días. Número, cliente y fecha van en una sola línea, con su «+ cargo»
+  chico al lado, y la línea de color baja por todas las filas del evento
+  (Felipe, 09-11-2026: *"¿no será mejor que esté todo en la misma fila? y
+  que el borde del color tome todas las filas relacionadas al evento"*). Los colores se reparten en orden por la cascada, así dos
   eventos seguidos nunca llevan el mismo (sacarlos del número de la
   cotización repetía colores vecinos: la #384 y la #456, la #460 y la
   #454). El
