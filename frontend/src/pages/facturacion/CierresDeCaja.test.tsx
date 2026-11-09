@@ -189,4 +189,42 @@ describe("los cierres de la caja (§9.43)", () => {
       ),
     );
   });
+
+  // Felipe, 09-11: *"que diga las dos"*. La hora sale en la zona y el
+  // formato de quien corre la prueba («18:05» o «06:05 p. m.»): por eso solo
+  // su forma.
+  const HORA = /a las? \d{2}:\d{2}(?: [ap]\. ?m\.)?/.source;
+  const abrirElDetalle = async () => {
+    abrir();
+    fireEvent.click((await screen.findByText("Por revisar")).closest("tr")!);
+    return screen.findByText(/^Abrió/);
+  };
+
+  it("el detalle dice quién abrió y quién cerró, cada uno con su hora", async () => {
+    c.getCierre.mockResolvedValue({ ...CIERRE, cerrada_por_nombre: "Pedro" });
+    expect(await abrirElDetalle()).toHaveTextContent(
+      new RegExp(`^Abrió Ana ${HORA} · Cerró Pedro ${HORA}$`),
+    );
+  });
+
+  it("si cerró otro día lo dice, y la que sigue abierta lo dice", async () => {
+    c.getCierre.mockResolvedValue({
+      ...CIERRE,
+      cerrada_por_nombre: "Pedro",
+      cerrada_en: "2026-11-10T14:00:00Z",
+    });
+    expect(await abrirElDetalle()).toHaveTextContent(
+      new RegExp(`· Cerró Pedro el .+ ${HORA}$`),
+    );
+    cleanup();
+    c.getCierre.mockResolvedValue({
+      ...CIERRE,
+      cerrada_por_nombre: null,
+      cerrada_en: null,
+      estado: "abierta",
+    });
+    expect(await abrirElDetalle()).toHaveTextContent(
+      new RegExp(`^Abrió Ana ${HORA} · Sigue abierta$`),
+    );
+  });
 });

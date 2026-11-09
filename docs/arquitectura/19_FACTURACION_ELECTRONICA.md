@@ -2852,6 +2852,12 @@ el laboratorio; motor y pantalla). La migración va antes del motor.
 **El sprint 3, en el laboratorio desde el 09-11-2026** (motor y pantalla,
 sin migración).
 
+**Quién abrió y quién cerró** (Felipe, 09-11: *"sí, que diga las dos"*): el
+panel de un cierre dice «Abrió Ana a las 09:02 · Cerró Pedro a las 18:05»,
+los dos del perfil de la sesión, con el día si cerró otro día, o «Sigue
+abierta»; el título queda «Caja del lun., 09-11». Solo pantalla
+(`CierresDeCaja`), hecho el 09-11.
+
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
 Felipe, 09-11, mirando en el laboratorio la factura de prueba del paso 0
