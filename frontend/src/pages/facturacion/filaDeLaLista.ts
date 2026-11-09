@@ -11,6 +11,42 @@ import { fechaCorta } from "../../utils/ordenesDeCompra";
 
 export const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
 
+type ParaOrdenar = Pick<
+  DocumentoDeLaLista,
+  "id" | "tipo" | "folio" | "fecha_emision"
+>;
+
+/** EL ORDEN DE LA LISTA, POR NÚMERO (§9.44; Felipe, 09-11: *"ordénalo por
+ *  número, es más intuitivo"*; por la fecha de emisión, la Factura 388
+ *  fechada el 30-11 quedaba arriba de la 389). Cada tipo va del N° más alto
+ *  al más bajo, y entre una factura y una boleta, la que salió después: la
+ *  marca de cada documento es el más nuevo de su tipo con un N° igual o
+ *  menor, así un número nunca salta a otro, aunque su fecha sea otra o se
+ *  haya traído después (la 374, traída el 08-11, queda bajo la 381). Lo
+ *  que no tiene N° o fecha, lo que espera «Comprobar», va primero. */
+export const porNumero = <T extends ParaOrdenar>(docs: T[]): T[] => {
+  const sinNumero = (d: T) => d.folio == null || d.fecha_emision == null;
+  const porTipo = new Map<number, T[]>();
+  for (const d of docs)
+    if (!sinNumero(d)) porTipo.set(d.tipo, [...(porTipo.get(d.tipo) ?? []), d]);
+  const marca = new Map<number, number>();
+  for (const delTipo of porTipo.values()) {
+    let masNuevo = 0;
+    delTipo.sort((a, b) => (a.folio ?? 0) - (b.folio ?? 0) || a.id - b.id);
+    for (const d of delTipo) {
+      masNuevo = Math.max(masNuevo, d.id);
+      marca.set(d.id, masNuevo);
+    }
+  }
+  return [...docs].sort(
+    (a, b) =>
+      Number(sinNumero(b)) - Number(sinNumero(a)) ||
+      (marca.get(b.id) ?? 0) - (marca.get(a.id) ?? 0) ||
+      (b.folio ?? 0) - (a.folio ?? 0) ||
+      b.id - a.id,
+  );
+};
+
 /** La nota que anula otra nota (la ND que anula la NC): no cobra nada
  *  nuevo, deshace la otra, y las dos se cancelan. Va tachada como la que
  *  anula, y la que vale es la factura (§9.42; Felipe, 09-11: *"pareciera
