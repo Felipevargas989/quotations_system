@@ -72,6 +72,8 @@ export interface DocumentoDeLaLista {
     xml?: boolean;
   };
   saldo: number | null;
+  /** §9.42: lo que le queda a la rebajada, bajo lo original tachado. */
+  queda?: { neto: number; iva: number; total: number } | null;
   plazos: { anular: string; rebajar: string } | null;
 }
 

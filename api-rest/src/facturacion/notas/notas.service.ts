@@ -139,6 +139,23 @@ export const periodoDeLaLista = (periodo: PeriodoDeLaLista, hoy: string) => {
  * vigente (también la corregida, que vale entera), rebajada, anulada o por
  * confirmar; una nota que no está anulada es solo una nota.
  */
+/**
+ * Lo que le queda a una factura rebajada (§9.42): lo emitido menos sus
+ * rebajas vigentes, en el neto, el IVA y el total. La lista lo pone bajo lo
+ * original tachado.
+ */
+export const quedaDe = (
+  factura: { neto: unknown; iva: unknown; total: unknown },
+  rebajas: ({ neto: number; iva: number; total: number } | undefined)[],
+) => {
+  const menos = (campo: 'neto' | 'iva' | 'total') =>
+    Math.round(
+      Number(factura[campo]) -
+        rebajas.reduce((s, n) => s + (Number(n?.[campo]) || 0), 0),
+    );
+  return { neto: menos('neto'), iva: menos('iva'), total: menos('total') };
+};
+
 export type SituacionEnLaLista =
   | 'vigente'
   | 'rebajada'
@@ -312,6 +329,16 @@ export class NotasService {
           xml: emitido && d.folio != null && aMano(d.ambiente),
         },
         saldo: conCadena && d.tipo === 33 ? cadena.saldo(d.id) : null,
+        // §9.42 (Felipe, 09-11: *"tachado el número original y abajo el
+        // número restado sin tachar"*): lo que le queda a la rebajada en
+        // las tres columnas.
+        queda:
+          conCadena && d.tipo === 33 && estado.como === 'rebajado'
+            ? quedaDe(
+                d,
+                estado.por.map((n) => porId.get(n.id)),
+              )
+            : null,
         plazos:
           conCadena && d.fecha_emision
             ? {
