@@ -10,8 +10,13 @@
  *   3. Solo cotizaciones aceptadas o realizadas, cuyo total alcance para la
  *      OC (un anticipo es menor que el evento, nunca mayor).
  *   4. Si quedan varias: la del CONTACTO que mandó o compró; si siguen
- *      varias, la de total exacto. Si aun así hay más de una, no se adivina:
- *      se devuelve la duda con las candidatas para que decida Felipe.
+ *      varias, la de total exacto.
+ *   5. Si siguen varias, la FECHA (Felipe, 09-11-2026, caso Rudel: la #500
+ *      de este mes contra la #199 de septiembre de 2025): un evento hecho
+ *      hace más de 120 días ya no recibe órdenes nuevas y, entre las que
+ *      quedan, gana la del evento más cercano a hoy si le saca 30 días a la
+ *      siguiente. Si aun así no hay una clara, no se adivina: se devuelve la
+ *      duda con las candidatas para que decida Felipe.
  */
 
 export interface OcLeida {
@@ -67,6 +72,35 @@ const DOMINIOS_GENERICOS = new Set([
 const ESTADOS_CON_OC = new Set(['aceptada', 'realizada']);
 /** Holgura para comparar montos (redondeos de IVA). */
 const HOLGURA = 1_000;
+/** Un evento realizado hace más que esto ya no recibe órdenes nuevas. */
+const DIAS_EVENTO_VIEJO = 120;
+/** Lo que el evento más cercano le tiene que sacar al siguiente. */
+const DIAS_VENTAJA = 30;
+const DIA_MS = 86_400_000;
+
+/** Días entre el evento y hoy (negativo si ya pasó); null sin fecha. */
+const diasAlEvento = (c: CotizacionCandidata, hoy: Date) => {
+  const t = c.fecha_evento ? Date.parse(c.fecha_evento) : NaN;
+  return Number.isNaN(t) ? null : (t - hoy.getTime()) / DIA_MS;
+};
+
+/** Paso 5: la fecha. Devuelve la única clara o null. */
+const porFecha = (lista: CotizacionCandidata[], hoy: Date) => {
+  const vigentes = lista.filter((c) => {
+    const d = diasAlEvento(c, hoy);
+    return !(c.estado === 'realizada' && d !== null && d < -DIAS_EVENTO_VIEJO);
+  });
+  if (vigentes.length === 1) return vigentes[0];
+  const conFecha = vigentes
+    .map((c) => ({ c, d: diasAlEvento(c, hoy) }))
+    .filter((x): x is { c: CotizacionCandidata; d: number } => x.d !== null)
+    .sort((a, b) => Math.abs(a.d) - Math.abs(b.d));
+  // Todas tienen que tener fecha para comparar; si no, no se adivina.
+  if (conFecha.length !== vigentes.length || conFecha.length < 2) return null;
+  return Math.abs(conFecha[1].d) - Math.abs(conFecha[0].d) >= DIAS_VENTAJA
+    ? conFecha[0].c
+    : null;
+};
 
 export const limpiarCorreo = (c: string | null | undefined) =>
   (c ?? '').trim().toLowerCase();
@@ -94,6 +128,7 @@ const yaCargada = (c: CotizacionCandidata, numero: string) =>
 export function elegirCotizacion(
   oc: OcLeida,
   todas: CotizacionCandidata[],
+  hoy: Date = new Date(),
 ): Eleccion {
   const numero = limpiarNumero(oc.numero);
   const rut = limpiarRut(oc.rut);
@@ -152,9 +187,19 @@ export function elegirCotizacion(
       cotizacion: exactas[0],
       por: delContacto.length ? 'contacto y total' : 'total',
     };
+
+  // 5. La fecha.
+  const empatadas = exactas.length > 1 ? exactas : base;
+  const cercana = porFecha(empatadas, hoy);
+  if (cercana)
+    return {
+      resultado: 'elegida',
+      cotizacion: cercana,
+      por: delContacto.length ? 'contacto y fecha' : 'fecha',
+    };
   return {
     resultado: 'duda',
     motivo: 'Más de una cotización calza con esta OC',
-    candidatas: base,
+    candidatas: empatadas,
   };
 }

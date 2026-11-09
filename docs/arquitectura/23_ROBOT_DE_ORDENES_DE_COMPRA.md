@@ -1,6 +1,6 @@
 # 23 · El robot de órdenes de compra
 
-> Estado: construido el 09-11-2026 en la rama `feature/robot-oc`. Va primero al laboratorio y llega a producción solo con el «a producción» de Felipe. La lectura de la OC una vez subida es de Facturación (doc 19 §9.26). Este documento cubre solo cómo llega la OC a Documentos.
+> Estado: EN PRODUCCIÓN desde el 09-11-2026 (PR #335; Felipe pidió saltarse el laboratorio). La llave quedó puesta ese día en Railway y en el entorno de la nube «Correo VDS». El desempate por fecha (§3, paso 5) entró después de la primera pasada en producción. La lectura de la OC una vez subida es de Facturación (doc 19 §9.26). Este documento cubre solo cómo llega la OC a Documentos.
 
 ## 1. Qué pidió Felipe
 
@@ -29,7 +29,8 @@ Las OC de Mercado Público nunca llegan por correo: se bajan del portal. El robo
 1. **El cliente.** Por el RUT de la OC (`razones_sociales`), por un correo igual a uno del cliente (su ficha o sus contactos) o, si no hay, por el dominio del correo (`rudel.cl` → Rudel). No cuentan los dominios genéricos (gmail, hotmail…) ni los propios (`valledelsolquillon.cl`, `eventi-app.com`).
 2. **Ya cargada.** Si el N° de la OC ya está en una cotización del cliente (leído por BelIA en `ordenes_de_compra.numero`, o en el nombre o la ruta del PDF de Documentos), no se vuelve a subir.
 3. **Cotizaciones que pueden recibirla.** Solo las aceptadas o realizadas cuyo total alcanza para la OC, con $1.000 de holgura. Un anticipo es menor que el evento, nunca mayor.
-4. **Si quedan varias.** Gana la del **contacto** que mandó la OC o que la OC nombra como comprador. Si siguen varias, la de **total exacto**. Si aun así queda más de una, **no se adivina**: se devuelve la duda con las candidatas.
+4. **Si quedan varias.** Gana la del **contacto** que mandó la OC o que la OC nombra como comprador. Si siguen varias, la de **total exacto**.
+5. **La fecha.** Un evento realizado hace más de 120 días ya no recibe órdenes nuevas. Entre las que quedan, gana la del evento más cercano a hoy si le saca al menos 30 días a la siguiente. Si alguna no tiene fecha o siguen parejas, **no se adivina**: se devuelve la duda con las candidatas. Nació de la primera pasada en producción (09-11-2026): la OC 35074 de Rudel calzaba con la #500 (noviembre de 2026) y con la #199 (septiembre de 2025, ya realizada). Felipe: *"sí, ajústalo así"*.
 
 Cada caso del §2 es una prueba: `api-rest/src/robot-oc/tests/elegir-cotizacion.spec.ts`.
 
@@ -51,7 +52,8 @@ Cada caso del §2 es una prueba: `api-rest/src/robot-oc/tests/elegir-cotizacion.
 - En el resumen de la corrida deja una línea por cada OC: dónde quedó o por qué no se subió. Una duda se le muestra a Felipe con las candidatas, para que decida.
 - Una cotización o un formulario de proveedor no es una OC. La rutina solo manda lo que el PDF dice que es una orden de compra (o nota de pedido) emitida a Valle del Sol.
 
-## 6. Pendiente
+## 6. Primera pasada en producción (09-11-2026, `probar=si`)
 
-- Encender: Felipe genera la llave y la pone en Railway (`ROBOT_OC_KEY` y `ROBOT_OC_EMPRESA=1`) y en el entorno de la nube «Correo VDS» (`EVENTIA_ROBOT_OC_KEY`).
-- Primera pasada en producción con `probar=si` sobre las 7 OC del §2, antes de que suba de verdad.
+Seis de las siete OC del §2 respondieron `ya_estaba` en su cotización correcta (#470, #481 ×3, #408, #554). La de Rudel respondió `duda` entre la #500 y la #199, y eso dio origen al paso 5 del §3.
+
+La llave la generó Claude en `01_CLAVES/Llave robot OC.md` (nunca se mostró en el chat) y Felipe la pegó en Railway y en «Correo VDS».
