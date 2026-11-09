@@ -11,11 +11,15 @@ import { useMisLicitaciones } from "./useMisLicitaciones";
 // abajo y de algún color diferente para saber que están listas"): por
 // postular, por vencimiento, y las postuladas aparte, en verde. Desde el
 // 28-10 las ganadas tienen su pestaña (decisión 100): aquí, al final y
-// plegadas, quedan solo las perdidas.
+// plegadas, quedan solo las perdidas. Desde la decisión 122 (09-11), arriba
+// de todo, las que cerraron con algo firmado: «¿Las subiste?», con «Sí, la
+// postulé» y «No alcancé» (la 3904-996-COT26 se había descartado sola
+// habiéndola postulado).
 
 export default function MisLicitaciones() {
   const { data: lista = [], isPending, isError } = useMisLicitaciones();
-  const { porPostular, postuladas, perdidas } = separarMias(lista);
+  const { porConfirmar, porPostular, postuladas, perdidas } =
+    separarMias(lista);
   const [verPerdidas, setVerPerdidas] = useState(false);
 
   if (isPending) {
@@ -38,6 +42,19 @@ export default function MisLicitaciones() {
   }
   return (
     <div className="space-y-6">
+      {porConfirmar.length > 0 && (
+        <div className="space-y-3">
+          <Encabezado
+            titulo={`¿Las subiste? (${porConfirmar.length})`}
+            detalle="Cerraron con documentos firmados."
+          />
+          <ul className="space-y-3">
+            {porConfirmar.map((m) => (
+              <TarjetaDeLicitacion key={m.id} m={m} preguntar />
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="space-y-3">
         <Encabezado
           titulo={`Por postular (${porPostular.length})`}
