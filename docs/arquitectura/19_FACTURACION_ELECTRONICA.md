@@ -2705,6 +2705,20 @@ del repositorio (PR #322 y #323). En la lista, lo traído sigue diciendo
 **En producción desde el 08-11-2026** (PR #324, el motor y la vitrina,
 sin migración).
 
+### 9.38 La barra de la OC aparte de la del evento (08-11)
+
+Felipe, 08-11, facturando Santo Tomás por OC: *"las barritas de arriba me
+mezclan el evento con la orden de compra. Entonces no sé de la orden de
+compra cuánto tengo facturado y del evento cuánto tengo facturado. Son dos
+cosas distintas"*; con la maqueta a la vista, *"sí, hazlo así"*. En «Lo
+del evento» (`LoDelEvento`), cuando el documento va contra una OC, primero
+la OC con su propia barra («OC 33000132942 · $5.611.559»: facturado de esa
+OC, esta factura y lo que le queda), y debajo la del evento («Evento #481»,
+como antes). Sin OC, solo la del evento. Abajo quedan las otras OC del
+evento; la del documento ya no se repite ahí. La revisión le pasa la OC
+del documento también cuando el evento va con una sola
+(`orden_de_compra_id` del borrador). Solo pantalla.
+
 ### 9.37 La factura con las líneas de su OC (08-11)
 
 Felipe, 08-11, facturando la #481 de Santo Tomás: *"la orden de compra

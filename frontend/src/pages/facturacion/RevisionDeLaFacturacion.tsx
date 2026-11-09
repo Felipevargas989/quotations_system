@@ -432,7 +432,9 @@ export default function RevisionDeLaFacturacion({
               (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null
             }
             tipo={(corrigiendo ? enCurso?.dte.tipo : null) ?? dte?.tipo}
-            ocActual={item.ocId}
+            // La OC del documento tiene su propia barra, también cuando el
+            // evento va con una sola (Felipe, 08-11).
+            ocActual={item.ocId ?? dte?.pedida.orden_de_compra_id ?? null}
             enEstaRevision={enEstaRevision}
           />
           {corrigiendo && dte ? (
