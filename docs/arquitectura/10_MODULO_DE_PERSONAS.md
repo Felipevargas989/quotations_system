@@ -692,6 +692,15 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
 - **Tres secciones** con título y color: **Eventos** (verde), **Personal
   de planta** (azul) y **Personal Staff** (lila), los colores de sus
   celdas. Las dos bandas del 21-10 viven dentro de las dos últimas.
+- **Dos semanas por defecto, o los próximos 30 días** (Felipe, 09-11-2026:
+  *"¿y si vemos solo 2 semanas adelante por defecto?"*, *"y un botón para
+  ver los próximos 30 días"* y *"las flechas que avancen de 1 en 1"*).
+  Reemplaza la vista mensual fija del 15-08: la sábana parte el domingo de
+  la semana, muestra 14 días y, con el selector «2 semanas · 30 días» al
+  lado de «hoy», 30. Las flechas mueven una semana y cada vez que se entra
+  parte en dos semanas. Por dentro se piden al menos 28 días, la clave que
+  comparte con la ficha de la persona, y las filas se arman solo con lo de
+  los días que se ven.
 - **Los eventos van en cascada** (Felipe, 09-11-2026: *"del que se va a
   realizar antes al último, cosa de irlo viendo en cascada y no así como
   saltados"*): primero el que parte antes; mismo día, el que termina antes;
