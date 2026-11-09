@@ -13,11 +13,11 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LA CAJA DE RECEPCIÓN, DEL LADO DE QUIEN LA OPERA (doc 19 §9.43, sprint 2;
-// la maqueta del 09-11, «ok hazlo así»). Se abre con quién y el sencillo,
-// se anotan los retiros y se cierra a ciegas: quien cierra anota cuánto
-// tiene en efectivo, débito, crédito y transferencia, sin ver lo esperado
-// ni la diferencia (lo revisa el administrador en «Cierres de la caja»). Cerrada, no
-// se reabre.
+// la maqueta del 09-11, «ok hazlo así»). Se abre con el sencillo, a nombre
+// del perfil de la sesión (no se escribe quién), se anotan los retiros y se
+// cierra a ciegas: quien cierra anota cuánto tiene en efectivo, débito,
+// crédito y transferencia, sin ver lo esperado ni la diferencia (lo revisa
+// el administrador en «Cierres de la caja»). Cerrada, no se reabre.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const hora = (iso: string) =>
@@ -39,19 +39,23 @@ const MEDIOS = [
 ] as const;
 type Medio = (typeof MEDIOS)[number]["clave"];
 
-export default function CajaDeRecepcion() {
+export default function CajaDeRecepcion({
+  nombre,
+}: {
+  /** El perfil de la sesión: abre y cierra a su nombre (Felipe, 09-11:
+   *  «que no sea escrito a mano»). */
+  readonly nombre: string | null;
+}) {
   const queryClient = useQueryClient();
   const caja = useQuery({ queryKey: ["caja"], queryFn: getCaja });
   const abierta = caja.data?.abierta ?? null;
 
-  const [quienAbre, setQuienAbre] = useState("");
   const [sencillo, setSencillo] = useState<number | undefined>(undefined);
   const [retiro, setRetiro] = useState<{
     monto?: number;
     motivo: string;
   } | null>(null);
   const [montos, setMontos] = useState<Partial<Record<Medio, number>>>({});
-  const [quienCierra, setQuienCierra] = useState("");
   const [comentario, setComentario] = useState("");
   const [confirmando, setConfirmando] = useState(false);
   const [cerradaEn, setCerradaEn] = useState<string | null>(null);
@@ -62,13 +66,10 @@ export default function CajaDeRecepcion() {
     toast.error(humanizeApiError(e, texto));
 
   const abrir = useMutation({
-    mutationFn: () =>
-      abrirCaja({ quien: quienAbre.trim(), sencillo: sencillo ?? 0 }),
+    mutationFn: () => abrirCaja({ sencillo: sencillo ?? 0 }),
     onSuccess: (datos) => {
       alDia(datos);
       setCerradaEn(null);
-      setQuienCierra(quienAbre.trim());
-      setQuienAbre("");
       setSencillo(undefined);
     },
     onError: (e) => error(e, "No se pudo abrir la caja."),
@@ -90,7 +91,6 @@ export default function CajaDeRecepcion() {
   const cerrar = useMutation({
     mutationFn: () =>
       cerrarCaja({
-        quien: quienCierra.trim(),
         efectivo: montos.efectivo ?? 0,
         debito: montos.debito ?? 0,
         credito: montos.credito ?? 0,
@@ -115,7 +115,7 @@ export default function CajaDeRecepcion() {
     return <p className="text-sm text-gray-400">Cargando la caja…</p>;
 
   if (!abierta) {
-    const lista = !!quienAbre.trim() && sencillo != null;
+    const lista = sencillo != null;
     return (
       <div className="space-y-4">
         {cerradaEn && (
@@ -128,15 +128,12 @@ export default function CajaDeRecepcion() {
             Sin la caja abierta, recepción no emite boletas.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className={titulo}>¿Quién abre?</span>
-              <input
-                value={quienAbre}
-                maxLength={60}
-                onChange={(e) => setQuienAbre(e.target.value)}
-                className={casilla}
-              />
-            </label>
+            <div>
+              <span className={titulo}>Abre</span>
+              <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {nombre ?? "—"}
+              </p>
+            </div>
             <label className="block">
               <span className={titulo}>Sencillo inicial</span>
               <NumberInput
@@ -165,7 +162,7 @@ export default function CajaDeRecepcion() {
   }
 
   const faltan = MEDIOS.filter((m) => montos[m.clave] == null).length;
-  const listaParaCerrar = faltan === 0 && !!quienCierra.trim();
+  const listaParaCerrar = faltan === 0;
   return (
     <div className="space-y-4">
       <p className="text-sm">
@@ -263,15 +260,12 @@ export default function CajaDeRecepcion() {
               />
             </label>
           ))}
-          <label className="block">
-            <span className={titulo}>Quién cierra</span>
-            <input
-              value={quienCierra}
-              maxLength={60}
-              onChange={(e) => setQuienCierra(e.target.value)}
-              className={casilla}
-            />
-          </label>
+          <div>
+            <span className={titulo}>Cierra</span>
+            <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              {nombre ?? "—"}
+            </p>
+          </div>
           <label className="block">
             <span className={titulo}>Comentario (opcional)</span>
             <input

@@ -53,30 +53,26 @@ afterEach(() => {
 const abrir = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <CajaDeRecepcion />
+      <CajaDeRecepcion nombre="Ana" />
     </QueryClientProvider>,
   );
 
 describe("la caja de recepción (§9.43)", () => {
-  it("cerrada: se abre con quién y el sencillo inicial", async () => {
+  it("cerrada: se abre con el sencillo, a nombre del perfil de la sesión (no se escribe)", async () => {
     c.getCaja.mockResolvedValue({ abierta: null });
     c.abrirCaja.mockResolvedValue(ABIERTA);
     abrir();
     await screen.findByText("Abrir la caja de recepción");
+    expect(screen.queryByLabelText("¿Quién abre?")).toBeNull();
+    expect(screen.getByText("Ana")).toBeInTheDocument();
     const boton = screen.getByRole("button", { name: "Abrir caja" });
     expect(boton).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("¿Quién abre?"), {
-      target: { value: "Ana" },
-    });
     fireEvent.change(screen.getByLabelText("Sencillo inicial"), {
       target: { value: "20000" },
     });
     fireEvent.click(boton);
     await waitFor(() =>
-      expect(c.abrirCaja).toHaveBeenCalledWith({
-        quien: "Ana",
-        sencillo: 20000,
-      }),
+      expect(c.abrirCaja).toHaveBeenCalledWith({ sencillo: 20000 }),
     );
     expect(await screen.findByText(/abrió Ana/)).toBeInTheDocument();
   });
@@ -123,9 +119,6 @@ describe("la caja de recepción (§9.43)", () => {
       fireEvent.change(screen.getByLabelText(campo), {
         target: { value: valor },
       });
-    fireEvent.change(screen.getByLabelText("Quién cierra"), {
-      target: { value: "Ana" },
-    });
     fireEvent.click(cerrar);
     expect(
       screen.getByText("¿Cerrar la caja? Después no se puede reabrir."),
@@ -133,7 +126,6 @@ describe("la caja de recepción (§9.43)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sí, cerrar" }));
     await waitFor(() =>
       expect(c.cerrarCaja).toHaveBeenCalledWith({
-        quien: "Ana",
         efectivo: 67500,
         debito: 135000,
         credito: 95000,

@@ -23,6 +23,11 @@ import type {
 import { CajaRepository, type TurnoDeCaja } from './caja.repository';
 import { cuadrar, vendidoPorItem } from './cuadre';
 
+/** Quién abre o cierra: el nombre del perfil de la sesión (Felipe, 09-11:
+ *  *"que no sea escrito a mano"*), hasta 60 como la base. */
+const nombreDelPerfil = (user: User) =>
+  (textoLimpio(user.full_name) || 'Sin nombre').slice(0, 60);
+
 /** «Lo vendido» mira hasta un año de una vez. */
 const DIAS_MAXIMOS = 366;
 const DIA = 24 * 60 * 60 * 1000;
@@ -78,13 +83,11 @@ export class CajaService {
   }
 
   async abrir(user: User, dto: AbrirCajaDto) {
-    const quien = textoLimpio(dto.quien);
-    if (!quien) throw new BadRequestException('Falta quién abre la caja');
     try {
       await this.repo.abrir({
         company_id: user.company_id,
         abierta_por: user.id ?? null,
-        abierta_por_nombre: quien,
+        abierta_por_nombre: nombreDelPerfil(user),
         sencillo_inicial: dto.sencillo,
       });
     } catch (error) {
@@ -113,11 +116,9 @@ export class CajaService {
   /** El cierre ciego: guarda lo declarado y responde solo que cerró. */
   async cerrar(user: User, dto: CerrarCajaDto) {
     const turno = await this.abiertaO409(user.company_id);
-    const quien = textoLimpio(dto.quien);
-    if (!quien) throw new BadRequestException('Falta quién cierra la caja');
     const cerrado = await this.repo.cerrar(user.company_id, turno.id, {
       cerrada_por: user.id ?? null,
-      cerrada_por_nombre: quien,
+      cerrada_por_nombre: nombreDelPerfil(user),
       declarado_efectivo: dto.efectivo,
       declarado_debito: dto.debito,
       declarado_credito: dto.credito,

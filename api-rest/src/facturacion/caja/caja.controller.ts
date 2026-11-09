@@ -11,7 +11,7 @@ import {
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
 import { Permiso } from 'src/auth/permiso.decorator';
-import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { ADMIN_ONLY, OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import {
   AbrirCajaDto,
@@ -64,10 +64,11 @@ export class CajaController {
     return this.caja.cerrar(user, dto);
   }
 
-  /** «Lo vendido» (sprint 3): con el permiso de revisar los cierres. */
-  @Permiso('caja_revision')
+  /** «Lo vendido» (sprint 3), su propia pestaña: operaciones y el
+   *  administrador de fábrica. */
+  @Permiso('facturacion_vendido')
   @Get('vendido')
-  @Roles(...ADMIN_ONLY)
+  @Roles(...OPERATIONS_AND_UP)
   vendido(@Query() q: LoVendidoQueryDto, @CurrentUser() user: User) {
     return this.caja.vendido(user, q);
   }

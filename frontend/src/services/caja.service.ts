@@ -101,8 +101,8 @@ export interface CierreDeCaja
 export const getCaja = async (): Promise<EstadoDeLaCaja> =>
   (await apiRequest(base, "GET")) as EstadoDeLaCaja;
 
+/** Se abre a nombre del perfil de la sesión: no se escribe quién. */
 export const abrirCaja = async (datos: {
-  quien: string;
   sencillo: number;
 }): Promise<EstadoDeLaCaja> =>
   (await apiRequest(`${base}/abrir`, "POST", datos)) as EstadoDeLaCaja;
@@ -115,7 +115,6 @@ export const anotarRetiro = async (datos: {
 
 /** El cierre ciego: responde solo cuándo cerró. */
 export const cerrarCaja = async (datos: {
-  quien: string;
   efectivo: number;
   debito: number;
   credito: number;
