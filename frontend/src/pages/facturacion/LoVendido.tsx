@@ -6,9 +6,10 @@ import { getLoVendido } from "../../services/caja.service";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LO VENDIDO (doc 19 §9.43, sprint 3; Felipe, 09-11: *"también debo poder
-// ver cuántos tickets, cuántas tinajas, etc. se han vendido"*): lo del
-// tarifario en las boletas y facturas emitidas del período, sin lo anulado,
-// por ítem con su cantidad y su monto con IVA, y por persona si se elige
+// ver cuántos tickets, cuántas tinajas, etc. se han vendido"*): lo vendido
+// en «Nuevo DTE» (boletas y facturas del período sin evento), sin lo
+// anulado, por ítem con su cantidad y su monto con IVA (las líneas a mano,
+// «A mano · …», por lo que dicen), y por persona si se elige
 // (quien abrió la caja; fuera de la caja, quien emitió). Este mes, si no se
 // dice otra cosa. Lo ve quien revisa los cierres de la caja.
 
@@ -87,9 +88,7 @@ export default function LoVendido() {
       ) : vendido.isPending ? (
         <p className="text-sm text-gray-400">Sumando lo vendido…</p>
       ) : !datos || datos.items.length === 0 ? (
-        <p className="text-sm text-gray-500">
-          No hay ventas del tarifario en esas fechas.
-        </p>
+        <p className="text-sm text-gray-500">No hay ventas en esas fechas.</p>
       ) : (
         <table className="w-full table-fixed text-sm">
           <thead>

@@ -38,6 +38,10 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 /** «Noches», «Personas»: la cantidad con el nombre de su unidad. */
 const conMayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** Las cuatro columnas de cada línea de «Qué se cobra»: qué se cobra, la
+ *  cantidad o el monto, el total y quitar. En el teléfono, una tras otra. */
+const FILA =
+  "flex flex-wrap items-end gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_9rem_7rem_1rem]";
 const casilla =
   "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 
@@ -233,15 +237,21 @@ export default function BoletaNueva({
           <Seccion titulo="Qué se cobra">
             <div className="space-y-2">
               {lineas.map((l) => (
-                <div key={l.clave} className="flex flex-wrap items-end gap-2">
+                // Cada línea en las mismas cuatro columnas (Felipe, 09-11:
+                // «esto se ve raro»): qué se cobra, la cantidad o el monto,
+                // el total y quitar, en el mismo lugar en la del tarifario y
+                // en la escrita a mano.
+                <div key={l.clave} className={FILA}>
                   {l.aMano ? (
                     <>
-                      <label className="block min-w-[14rem] flex-1">
+                      <label className="block min-w-[14rem] flex-1 sm:min-w-0">
                         <span className="flex justify-between text-xs text-gray-500">
                           Qué se cobra (a mano)
-                          <span>
-                            {Array.from(l.descripcion ?? "").length}/80
-                          </span>
+                          {Array.from(l.descripcion ?? "").length >= 60 && (
+                            <span>
+                              {Array.from(l.descripcion ?? "").length}/80
+                            </span>
+                          )}
                         </span>
                         <input
                           type="text"
@@ -253,7 +263,7 @@ export default function BoletaNueva({
                           className={casilla}
                         />
                       </label>
-                      <label className="block w-36">
+                      <label className="block w-36 sm:w-auto">
                         <span className="text-xs text-gray-500">
                           Monto con IVA
                         </span>
@@ -261,7 +271,7 @@ export default function BoletaNueva({
                           value={l.monto}
                           min={0}
                           currency
-                          placeholder="0"
+                          placeholder="$0"
                           onChange={(v) => poner(l.clave, { monto: v })}
                           className="text-sm"
                         />
@@ -269,7 +279,7 @@ export default function BoletaNueva({
                     </>
                   ) : (
                     <>
-                      <div className="min-w-[16rem] flex-1">
+                      <div className="min-w-[14rem] flex-1 sm:min-w-0">
                         <span className="text-xs text-gray-500">
                           Del tarifario
                         </span>
@@ -287,7 +297,7 @@ export default function BoletaNueva({
                           tamano="sm"
                         />
                       </div>
-                      <label className="block w-24">
+                      <label className="block w-36 sm:w-auto">
                         <span className="text-xs text-gray-500">
                           {itemDe(l)
                             ? conMayuscula(
@@ -304,10 +314,14 @@ export default function BoletaNueva({
                       </label>
                     </>
                   )}
-                  <span className="w-28 pb-2 text-right text-sm text-gray-900">
-                    {clp(valorDe(l))}
+                  <span className="w-28 pb-2 text-right text-sm text-gray-900 sm:w-auto">
+                    {valorDe(l) > 0 ? (
+                      clp(valorDe(l))
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
                   </span>
-                  {lineas.length > 1 && (
+                  {lineas.length > 1 ? (
                     <button
                       type="button"
                       title="Quitar la línea"
@@ -319,6 +333,9 @@ export default function BoletaNueva({
                     >
                       <Trash2 size={14} />
                     </button>
+                  ) : (
+                    // Su lugar queda vacío: las columnas no se mueven.
+                    <span aria-hidden="true" />
                   )}
                 </div>
               ))}

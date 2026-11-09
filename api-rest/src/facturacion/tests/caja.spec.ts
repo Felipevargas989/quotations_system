@@ -257,14 +257,36 @@ const repo = () => ({
         },
       ],
     },
-    // Sin líneas del tarifario (la factura de un evento): no es de acá.
+    // La factura de un evento: no es de «Nuevo DTE».
     {
       id: 4,
       tipo: 33,
       turno_de_caja_id: null,
       creado_por: 'u-camila',
+      quotation_id: 'q-evento',
       detalle: [
         { descripcion: 'Servicio de matrimonio', cantidad: 100, precio: 50000 },
+      ],
+    },
+    // Una línea a mano de «Nuevo DTE»: cuenta, por lo que dice.
+    {
+      id: 5,
+      tipo: 39,
+      turno_de_caja_id: null,
+      creado_por: 'u-camila',
+      quotation_id: null,
+      detalle: [{ descripcion: 'test', cantidad: 1, precio: 100 }],
+    },
+    // Traída de facturacion.cl: no se vendió en Eventia.
+    {
+      id: 6,
+      tipo: 33,
+      turno_de_caja_id: null,
+      creado_por: 'u-camila',
+      quotation_id: null,
+      traida: true,
+      detalle: [
+        { descripcion: 'Factura de antes', cantidad: 1, precio: 84034 },
       ],
     },
   ]),
@@ -490,7 +512,7 @@ describe('El resumen del cierre por correo (§9.43, sprint 3)', () => {
 });
 
 describe('Lo vendido (§9.43, sprint 3)', () => {
-  it('lo del tarifario del período por ítem, sin lo anulado, con su unidad y por persona', async () => {
+  it('lo de «Nuevo DTE» del período por ítem (y lo a mano por lo que dice), sin lo anulado, con su unidad y por persona', async () => {
     const { servicio } = armar();
     const v = await servicio.vendido(ADMIN, {
       desde: '2026-11-01',
@@ -511,8 +533,15 @@ describe('Lo vendido (§9.43, sprint 3)', () => {
         cantidad: 1,
         monto: 30000,
       },
+      {
+        tarifario_id: null,
+        nombre: 'A mano · test',
+        unidad: 'unidad',
+        cantidad: 1,
+        monto: 100,
+      },
     ]);
-    expect(v.total).toBe(60000);
+    expect(v.total).toBe(60100);
     expect(v.personas).toEqual(['Ana', 'Camila Carvajal']);
     const deAna = await servicio.vendido(ADMIN, {
       desde: '2026-11-01',
