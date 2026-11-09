@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as documentos from "../../services/documentosTributarios.service";
@@ -108,6 +109,8 @@ const DOCS: DocumentoDeLaLista[] = [
     vencimiento: "2026-12-06",
     plazo_dias: 30,
     acciones: { ...base.acciones, anular: true, rebajar: true },
+    saldo: 107100,
+    queda: { neto: 90000, iva: 17100, total: 107100 },
   },
   {
     ...base,
@@ -239,9 +242,21 @@ describe("la lista de Facturación (§9.22)", () => {
   it("cada uno con su estado, su condición de pago, su OC y sus notas debajo", async () => {
     abrir();
     await screen.findByText("Factura 20");
-    // El chip en una palabra; abajo, cuánto se rebajó y cuándo vence.
+    // El chip en una palabra; abajo, la condición de pago (§9.42: lo
+    // rebajado ya no va ahí, se ve en los montos).
     expect(screen.getByText("Rebajada")).toBeInTheDocument();
-    expect(screen.getByText("−$11.900 · vence 06-12")).toBeInTheDocument();
+    expect(
+      screen.getByText("Crédito 30 días · vence 06-12"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/−\$11\.900 ·/)).not.toBeInTheDocument();
+    // §9.42: lo original tachado y abajo lo que le queda, sin tachar.
+    const la20 = screen.getByText("Factura 20").closest("tr") as HTMLElement;
+    expect(within(la20).getByText("$119.000")).toHaveClass("line-through");
+    const queda = within(la20).getByText("$107.100");
+    expect(queda).not.toHaveClass("line-through");
+    expect(queda.closest("td")).not.toHaveClass("line-through");
+    expect(within(la20).getByText("$90.000")).toBeInTheDocument();
+    expect(within(la20).getByText("$17.100")).toBeInTheDocument();
     expect(screen.getByText("06-11-2026 · OC 4500-112")).toBeInTheDocument();
     // La NC va debajo de su factura; lo que hace, junto a la fecha.
     const filas = screen.getAllByRole("row").map((r) => r.textContent ?? "");
@@ -347,7 +362,7 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(screen.getByText("Por NC 9")).toHaveClass("whitespace-nowrap");
   });
 
-  it("las notas con una sola sangría, y lo anulado en gris con su grupo unido por la barra roja (08-11)", async () => {
+  it("las notas con una sola sangría, y cada documento con sus notas en un bloque gris con la barra roja seguida (08-11, §9.42)", async () => {
     const lista = (documentos: DocumentoDeLaLista[]) => ({
       ambiente: "prueba" as const,
       mes: "2026-11",
@@ -407,6 +422,8 @@ describe("la lista de Facturación (§9.22)", () => {
           modifica_id: 4,
           situacion: "nota",
         },
+        // Sin notas: fuera de todo bloque.
+        { ...base, id: 6, folio: 6, nombre: "Factura 6" },
       ]),
     );
     abrir();
@@ -422,16 +439,33 @@ describe("la lista de Facturación (§9.22)", () => {
       .map((r) => r.querySelector("td p")?.textContent ?? "")
       .filter(Boolean);
     expect(orden.indexOf("└ ND 3")).toBe(orden.indexOf("└ NC 2") + 1);
-    // Lo anulado (la NC 2 y la Factura 4) en gris; la NC 5 que anula la 4
-    // no está anulada, pero va en su grupo, unida por la barra roja.
+    // Anuladas, la NC 2 y la Factura 4.
     expect(await fila("NC 2")).toHaveAttribute("data-anulada");
     expect(await fila("Factura 4")).toHaveAttribute("data-anulada");
     expect(await fila("NC 5")).not.toHaveAttribute("data-anulada");
-    expect(await fila("NC 5")).toHaveAttribute("data-grupo-anulado");
-    expect(await fila("Factura 1")).not.toHaveAttribute("data-grupo-anulado");
-    // Los montos de lo anulado, tachados.
-    const total4 = (await fila("Factura 4")).querySelectorAll("td")[4];
-    expect(total4).toHaveClass("line-through");
+    expect(await fila("ND 3")).not.toHaveAttribute("data-anulada");
+    expect(await fila("Factura 1")).not.toHaveAttribute("data-anulada");
+    // Tachado, lo que no cuenta (§9.42, 09-11: *"vamos con la segunda"*): lo
+    // anulado y la ND 3, que se cancela con la NC 2. La Factura 1 queda en
+    // pie con su monto, y la NC 5 que anula una factura no se tacha.
+    const total = async (nombre: string) =>
+      (await fila(nombre)).querySelectorAll("td")[4];
+    expect(await total("Factura 4")).toHaveClass("line-through");
+    expect(await total("NC 2")).toHaveClass("line-through");
+    expect(await total("ND 3")).toHaveClass("line-through");
+    expect(await total("Factura 1")).not.toHaveClass("line-through");
+    expect(await total("NC 5")).not.toHaveClass("line-through");
+    // §9.42: toda la operación en un bloque gris, también la factura que
+    // volvió a quedar vigente y la ND (antes quedaban fuera).
+    for (const nombre of ["Factura 1", "NC 2", "ND 3", "Factura 4", "NC 5"])
+      expect(await fila(nombre)).toHaveAttribute("data-grupo");
+    expect(await fila("Factura 6")).not.toHaveAttribute("data-grupo");
+    // La barra, seguida: en las notas sube y tapa la raya entre filas.
+    const barra = async (nombre: string) =>
+      (await fila(nombre)).querySelector("td") as HTMLElement;
+    expect(await barra("Factura 1")).toHaveClass("before:top-0");
+    expect(await barra("ND 3")).toHaveClass("before:-top-px");
+    expect(await barra("Factura 6")).not.toHaveClass("before:bg-red-300");
   });
 
   it("la nota cuya factura quedó fuera de las fechas no se muestra, pero cuenta en el resumen (08-11)", async () => {

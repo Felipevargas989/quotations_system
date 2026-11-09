@@ -693,6 +693,8 @@ describe('La lista de Facturación', () => {
           id: 23,
           tipo: 61,
           folio: 3,
+          neto: 84034,
+          iva: 15966,
           total: 100000,
           modifica_id: 22,
           codigo_referencia: 3,
@@ -742,6 +744,13 @@ describe('La lista de Facturación', () => {
       referencia: null,
     });
     expect(de(22)?.situacion).toBe('rebajada');
+    // §9.42: lo que le queda a la rebajada, en las tres columnas.
+    expect(de(22)?.queda).toEqual({
+      neto: 1115966,
+      iva: 212034,
+      total: 1328000,
+    });
+    expect(de(20)?.queda).toBeNull();
     expect(de(23)?.situacion).toBe('nota');
     expect(de(26)?.situacion).toBe('anulada');
     expect(de(27)?.situacion).toBe('nota');

@@ -45,6 +45,7 @@ import {
   facturadoDeLasOC,
   nombreDe,
   plazoDelSii,
+  quedaDe,
 } from './cadena';
 import { NotaPedidaDto } from './nota.dto';
 
@@ -312,6 +313,15 @@ export class NotasService {
           xml: emitido && d.folio != null && aMano(d.ambiente),
         },
         saldo: conCadena && d.tipo === 33 ? cadena.saldo(d.id) : null,
+        // §9.42 (09-11): lo que le queda a la rebajada en las tres columnas,
+        // que la lista pone bajo lo original tachado.
+        queda:
+          conCadena && d.tipo === 33 && estado.como === 'rebajado'
+            ? quedaDe(
+                d,
+                estado.por.map((n) => porId.get(n.id)),
+              )
+            : null,
         plazos:
           conCadena && d.fecha_emision
             ? {

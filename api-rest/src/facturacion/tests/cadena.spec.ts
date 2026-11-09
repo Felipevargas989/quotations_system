@@ -3,6 +3,7 @@ import {
   estadoCorto,
   estadoEnPalabras,
   plazoDelSii,
+  quedaDe,
   type DocumentoDeLaCadena,
 } from '../notas/cadena';
 
@@ -112,5 +113,34 @@ describe('La cadena', () => {
     expect(plazoDelSii('2026-11-04', 'anular')).toBe('2026-12-31');
     expect(plazoDelSii('2026-12-15', 'corregir')).toBe('2027-01-31');
     expect(plazoDelSii('2026-11-04', 'rebajar')).toBe('2027-05-04');
+  });
+});
+
+describe('Lo que le queda a la rebajada (§9.42)', () => {
+  it('lo emitido menos sus rebajas vigentes; si la ND anula la rebaja, vale entera', () => {
+    // La 9999839219 del paso 0: $107.100 rebajada en $1.000.
+    const factura = {
+      ...doc({ id: 1, tipo: 33, total: 107100 }),
+      neto: 90000,
+      iva: 17100,
+    };
+    const rebaja = {
+      ...doc({ id: 2, tipo: 61, total: 1000 }),
+      modifica_id: 1,
+      codigo_referencia: 3,
+      neto: 840,
+      iva: 160,
+    };
+    const todos = [factura, rebaja];
+    const e = new Cadena(todos).estado(1);
+    if (e.como !== 'rebajado') throw new Error(`quedó ${e.como}`);
+    const rebajas = e.por.map((n) => todos.find((x) => x.id === n.id));
+    expect(quedaDe(factura, rebajas)).toEqual({
+      neto: 89160,
+      iva: 16940,
+      total: 106100,
+    });
+    const nd = doc({ id: 3, tipo: 56, modifica_id: 2, codigo_referencia: 1 });
+    expect(new Cadena([...todos, nd]).estado(1)).toEqual({ como: 'vigente' });
   });
 });

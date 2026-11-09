@@ -207,6 +207,23 @@ export const estadoCorto = (
 };
 
 /**
+ * Lo que le queda a una factura rebajada (§9.42): lo emitido menos sus
+ * rebajas vigentes, en el neto, el IVA y el total. La lista lo pone bajo lo
+ * original tachado.
+ */
+export const quedaDe = (
+  factura: { neto: unknown; iva: unknown; total: unknown },
+  rebajas: ({ neto: number; iva: number; total: number } | undefined)[],
+) => {
+  const menos = (campo: 'neto' | 'iva' | 'total') =>
+    Math.round(
+      Number(factura[campo]) -
+        rebajas.reduce((s, n) => s + (Number(n?.[campo]) || 0), 0),
+    );
+  return { neto: menos('neto'), iva: menos('iva'), total: menos('total') };
+};
+
+/**
  * Los plazos del SII (§9.5) para la nota que se quiere emitir:
  * - anular o corregir un error propio: el mismo mes o el siguiente (Res.
  *   Ex. 45 de 2003); después, el débito ya pagado solo se recupera con el

@@ -23,6 +23,18 @@ import NominaDelSii from "./NominaDelSii";
 import ProbarLaConexion from "./ProbarLaConexion";
 import RecibidosDelMes from "./RecibidosDelMes";
 import {
+  BARRA_ARRIBA,
+  BARRA_DEL_GRUPO,
+  BARRA_SEGUIDA,
+  cancelaOtraNota,
+  colorDelEstado,
+  condicionDePago,
+  esNota,
+  lineaDelEstado,
+  nombreDelArchivo,
+  subtitulo,
+} from "./filaDeLaLista";
+import {
   filtrosDeHoy,
   type EstadoDelFiltro,
   type Filtros,
@@ -86,7 +98,6 @@ const ESTADOS: { value: Estado; label: string }[] = [
   { value: "por_confirmar", label: "Por confirmar" },
 ];
 
-const esNota = (d: DocumentoDeLaLista) => d.tipo === 56 || d.tipo === 61;
 const soloRut = (s: string) => s.replace(/[^0-9kK]/g, "").toUpperCase();
 
 /** ¿Pasa los filtros de la pantalla? (las fechas ya las filtró el motor) */
@@ -101,66 +112,6 @@ const pasa = (d: DocumentoDeLaLista, f: Filtros) => {
     matchesSearch(q, d.cliente, d.titulo) ||
     (rut.length >= 3 && !!d.rut && soloRut(d.rut).includes(rut))
   );
-};
-
-/** El color del estado, como la maqueta: lo vigente en verde (también la
- *  nota en pie y la factura corregida, que valen enteras). */
-const colorDelEstado = (d: DocumentoDeLaLista) =>
-  d.situacion === "por_confirmar" || d.situacion === "rebajada"
-    ? "border-amber-200 bg-amber-50 text-amber-800"
-    : d.situacion === "anulada"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : "border-green-200 bg-green-50 text-green-700";
-
-/** «Crédito 30 días · vence 06-12» o «Contado»: la factura (§9.22). */
-const condicionDePago = (d: DocumentoDeLaLista) =>
-  d.tipo !== 33 || d.forma_de_pago == null
-    ? null
-    : d.forma_de_pago === 1 || !d.vencimiento
-      ? "Contado"
-      : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
-
-/** «F383_Municipalidad de Quillón_460_1213301-49-AG26.pdf» (§9.35; un
- *  motor de antes manda solo «NC 88», o ni eso, y se corta del título). */
-const nombreDelArchivo = (d: DocumentoDeLaLista) =>
-  d.nombre_del_pdf ?? d.nombre ?? d.titulo.split(" · ")[0];
-
-/** Abajo del estado, en letra chica (§9.22, 07-11): lo que lo cambió («Se
- *  rebajaron $1.000», «Por NC 88») con el vencimiento de la factura que
- *  sigue por cobrar; sin cambios, su condición de pago. */
-const lineaDelEstado = (d: DocumentoDeLaLista) => {
-  if (d.estado !== "emitido") return null;
-  if (d.situacion === "anulada") return d.cadena.detalle;
-  if (!d.cadena.detalle) return condicionDePago(d);
-  const vence = d.vencimiento
-    ? `vence ${fechaCorta(d.vencimiento).slice(0, 5)}`
-    : null;
-  return [d.cadena.detalle, vence].filter(Boolean).join(" · ");
-};
-
-/** La línea de abajo del documento: la fecha, lo que hace la nota («rebaja
- *  la 1235»), la OC (o la referencia que lleve), el N° del evento y la
- *  factura anulada que reemplaza. */
-const subtitulo = (d: DocumentoDeLaLista) => {
-  const ref = d.referencia
-    ? `${d.referencia.tipo === "801" ? "OC" : d.referencia.tipo} ${d.referencia.folio}`
-    : d.oc
-      ? `OC ${d.oc}`
-      : null;
-  // La nota va debajo de su factura, que ya dice la OC y el evento: ella
-  // dice solo lo que hace, para caber en su línea (07-11).
-  const nota = esNota(d) && !!d.que_hace;
-  return [
-    d.fecha_emision ? fechaCorta(d.fecha_emision) : "sin fecha",
-    d.que_hace,
-    nota ? null : ref,
-    !nota && d.numero ? `N° ${d.numero}` : null,
-    d.reemplaza ? `reemplaza a la ${d.reemplaza}` : null,
-    // §9.36: emitida fuera de Eventia y traída de facturacion.cl.
-    d.traida ? "traída de facturacion.cl" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 };
 
 /** El reporte (§9.5): lo que se ve, con el que lo anuló o rebajó. */
@@ -217,10 +168,6 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
 
 const icono =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
-/** La barra roja que une lo anulado con sus notas (08-11, la opción B):
- *  una sombra por dentro de la primera celda, que no corre el texto. */
-const BARRA_DEL_GRUPO = "shadow-[inset_4px_0_0_#fca5a5]";
-
 /** «Anular o rebajar…»: el mismo botón, en rojo. */
 const iconoRojo =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-white text-red-600 hover:border-red-400 hover:text-red-700";
@@ -425,30 +372,41 @@ export default function ListaDeDocumentos({
     }
   };
 
-  /** `delAnulado`: la fila es del grupo de un documento anulado (él o una
-   *  de sus notas): gris parejo y la barra roja (08-11, la opción B). */
+  /** `delGrupo`: la fila es de un documento con notas (él o una de ellas):
+   *  gris parejo y la barra roja seguida de arriba abajo (08-11, la opción
+   *  B; §9.42, 09-11: *"toda la operación debería estar marcada"*). */
   const fila = (
     d: DocumentoDeLaLista,
     nivel: number,
-    delAnulado = false,
+    delGrupo = false,
   ): JSX.Element => {
     const linea = lineaDelEstado(d);
     const sub = subtitulo(d);
     const anulada = d.situacion === "anulada";
-    const enGrupo = delAnulado || anulada;
+    // §9.42 (09-11): tachado lo que no cuenta, lo anulado y la ND que anula
+    // la NC (se cancelan entre ellas; la que vale es la factura).
+    const tachada =
+      anulada ||
+      cancelaOtraNota(
+        d,
+        d.modifica_id != null ? delRango.get(d.modifica_id) : undefined,
+      );
+    const enGrupo = delGrupo || anulada;
+    // §9.42: la rebajada, lo original tachado y abajo lo que le queda.
+    const queda = !tachada && d.queda ? d.queda : null;
     return (
       <Fragment key={d.id}>
         <tr
           className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : enGrupo ? "bg-gray-50" : ""}`}
           data-anulada={anulada || undefined}
-          data-grupo-anulado={enGrupo || undefined}
+          data-grupo={enGrupo || undefined}
         >
           <td
-            className={`py-2 pr-2 ${enGrupo ? BARRA_DEL_GRUPO : ""}`}
+            className={`py-2 pr-2 ${enGrupo ? `${BARRA_DEL_GRUPO} ${nivel > 0 ? BARRA_SEGUIDA : BARRA_ARRIBA}` : ""}`}
             style={{ paddingLeft: `${0.5 + nivel * 1.25}rem` }}
           >
             <p
-              className={`whitespace-nowrap font-semibold ${anulada ? "text-gray-500" : esNota(d) ? "text-gray-700" : "text-gray-900"}`}
+              className={`whitespace-nowrap font-semibold ${tachada ? "text-gray-500" : esNota(d) ? "text-gray-700" : "text-gray-900"}`}
             >
               {nivel > 0 && <span className="text-gray-300">└ </span>}
               {d.nombre ?? d.titulo}
@@ -464,7 +422,7 @@ export default function ListaDeDocumentos({
             </p>
           </td>
           <td
-            className={`py-2 pr-2 ${anulada ? "text-gray-500" : "text-gray-700"}`}
+            className={`py-2 pr-2 ${tachada ? "text-gray-500" : "text-gray-700"}`}
           >
             {/* Lo único que puede bajar de línea: hasta dos, y entero al
                 pasar el mouse. */}
@@ -478,9 +436,18 @@ export default function ListaDeDocumentos({
           {[d.neto, d.iva, d.total].map((n, i) => (
             <td
               key={i}
-              className={`whitespace-nowrap py-2 pr-2 text-right ${anulada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
+              className={`whitespace-nowrap py-2 pr-2 text-right ${tachada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
             >
-              {clp(n)}
+              {queda ? (
+                <>
+                  <span className="text-gray-400 line-through">{clp(n)}</span>
+                  <span className="block">
+                    {clp([queda.neto, queda.iva, queda.total][i])}
+                  </span>
+                </>
+              ) : (
+                clp(n)
+              )}
             </td>
           ))}
           <td className="py-2 pr-2 text-xs">
@@ -775,12 +742,15 @@ export default function ListaDeDocumentos({
                   </tr>
                 </thead>
                 <tbody>
-                  {raices.map((d) => [
-                    fila(d, 0),
-                    ...notasDebajo(d.id).map((n) =>
-                      fila(n, 1, d.situacion === "anulada"),
-                    ),
-                  ])}
+                  {raices.map((d) => {
+                    // §9.42: el documento con notas y todas ellas, un solo
+                    // bloque gris con la barra roja seguida.
+                    const notas = notasDebajo(d.id);
+                    return [
+                      fila(d, 0, notas.length > 0),
+                      ...notas.map((n) => fila(n, 1, true)),
+                    ];
+                  })}
                 </tbody>
               </table>
             </div>

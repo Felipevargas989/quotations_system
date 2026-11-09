@@ -2721,6 +2721,44 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
+
+Felipe, 09-11, mirando en el laboratorio la factura de prueba del paso 0
+que anuló una NC, cuando después una ND anuló esa NC (la ND quedaba fuera
+del gris y se leía como un segundo cobro): *"toda la operación debería
+estar marcada (la línea del lado debería ser continua)"*; con una
+rebajada: *"el borde rojo y fondo gris para ambas, […] tachado el número
+original y abajo el número restado sin tachar? eliminar el −1000 del chip
+rebajada"*; y *"haz eso en lab"*.
+- Un documento con notas va con todas ellas en un solo bloque gris, con la
+  barra roja seguida de arriba abajo (`ListaDeDocumentos`: en las notas la
+  franja sube un píxel y tapa la raya entre filas). Vale para la anulada,
+  la rebajada, la corregida y la que volvió a quedar vigente; sin notas, va
+  como siempre. Antes el gris salía de la factura de arriba: si ella seguía
+  vigente, la ND que anulaba su NC quedaba fuera.
+- Tachado, lo que no cuenta: lo anulado y la ND que anula una NC. En la
+  cadena factura → NC → ND se leían dos $119.000 en pie, y el cliente
+  debe uno (Felipe, 09-11: *"acá pareciera que hay dos montos
+  pendientes"*). Él propuso tachar la factura y la NC y dejar la ND; el
+  asistente propuso lo contrario, dejar en pie la factura y tachar la NC y
+  la ND, que se cancelan entre ellas: la ND no cobra nada nuevo, deshace la
+  NC, y la factura vuelve a valer entera (§9.5, `Cadena`: *"una nota
+  anulada no cuenta"*; así la cuentan también las barras de lo facturado).
+  Es la que lleva la OC y la que paga el cliente; tachada, alguien podría
+  creer que la OC quedó sin factura y emitir otra. Felipe: *"ok vamos con
+  la segunda"*. La ND va en gris con sus montos tachados
+  (`cancelaOtraNota`, en `filaDeLaLista`) y su chip sigue diciendo
+  «Vigente», porque ante el SII vale; la NC que anula una factura no se
+  tacha (lo que anula no es una nota).
+- La rebajada: en el neto, el IVA y el total, lo emitido tachado y abajo lo
+  que le queda, sin tachar (`queda` de la lista, `quedaDe` en
+  `NotasService`: lo emitido menos sus rebajas vigentes; el motor trae el
+  neto y el IVA en `cadenaDeLaEmpresa`). Bajo «Rebajada» ya no va
+  «−$1.000»: va la condición de pago, como en cualquier factura.
+
+**En el laboratorio y en producción desde el 09-11-2026** (PR #334;
+motor y pantalla, sin migración; Felipe: *"todo a producción"*).
+
 ### 9.41 Lo anulado en la lista, en gris, y la nota con su factura (08-11)
 
 Felipe, 08-11, mirando «Documentos»: *"las notas de crédito deberían
