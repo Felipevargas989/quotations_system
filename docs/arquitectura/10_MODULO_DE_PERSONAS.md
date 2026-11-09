@@ -701,10 +701,19 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
   que el borde del color tome todas las filas relacionadas al evento"*). Los colores se reparten en orden por la cascada, así dos
   eventos seguidos nunca llevan el mismo (sacarlos del número de la
   cotización repetía colores vecinos: la #384 y la #456, la #460 y la
-  #454). El
-  «+» de antes y después va en el color del evento, el «+» vacío de planta
-  en azul y el de Staff en lila; fuera del evento, en blanco (sin el
-  puntito); y la columna de hoy en azul de arriba abajo. El verde y el
+  #454). El título de cada evento lleva un fondo suave de su color y su
+  «+ cargo» es un botoncito del mismo color. La línea de «Eventos», la de
+  Planta, la de Staff y la de cada evento parten del mismo borde (Felipe,
+  09-11-2026: *"¿que la línea de eventos y los eventos no esté
+  alineada?"*). Hoy se marca solo arriba, con el número en un círculo azul
+  (*"no sé si vale mucho marcar el día actual para abajo, quizás solo
+  arriba en la fecha"*); hay una línea antes de cada domingo y el mes va
+  una sola vez. La grilla y el resumen del día van sobre blanco; el gris
+  del fondo es de todo el sistema y no se tocó (*"si lo cambiamos se
+  cambia todo"*). El
+  «+» de antes y después va callado, sin cajita, en el color del evento
+  (la cajita aparece al pasar el mouse); el «+» vacío de planta en azul y
+  el de Staff en lila; fuera del evento, en blanco (sin el puntito). El verde y el
   ámbar de las casillas siguen diciendo completo o falta gente, y los
   colores de los eventos evitan esos dos, el azul y el lila.
 - **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos

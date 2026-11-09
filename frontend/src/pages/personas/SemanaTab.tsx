@@ -805,6 +805,8 @@ export default function SemanaTab({
           columnaTitulo="Evento · cargo"
           // Más ancha que en Gestión: cada evento en una sola línea.
           anchoTitulo="w-80"
+          // Sobre blanco, el mes una vez y una línea entre semanas.
+          calendario
           resaltarDia={hoyEnChile()}
           onDiaClick={(d) => {
             setCasilla(null);
@@ -840,7 +842,10 @@ export default function SemanaTab({
             grupoBarra: barraDelEvento(f, colorDeFila(f)),
             grupoAccion:
               f.quotationId !== null ? (
-                <div className="font-normal normal-case text-gray-500">
+                // El «+ cargo» como botoncito del color de su evento.
+                <div
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-normal normal-case ${colorDeFila(f).boton}`}
+                >
                   <SelectorDeCargo
                     catalogo={catalogo}
                     yaVisibles={filas
@@ -848,6 +853,7 @@ export default function SemanaTab({
                       .map((x) => x.cargoId)}
                     onAgregar={(id) => sumarCargoAlEvento(f.quotationId!, id)}
                     aspecto="texto"
+                    claseTexto={colorDeFila(f).texto}
                   />
                 </div>
               ) : undefined,
@@ -1005,9 +1011,10 @@ export default function SemanaTab({
                     }
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
-                    // (Felipe, 15-08). Punteado en el color del evento: un
-                    // día antes o después, que se puede usar si hace falta
-                    // (09-11-2026: antes era gris).
+                    // (Felipe, 15-08). Un día antes o después lleva un «+»
+                    // callado en el color del evento, y su cajita punteada
+                    // aparece al pasar el mouse (09-11-2026: la hilera de
+                    // cajitas pesaba más que lo importante).
                     className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"
