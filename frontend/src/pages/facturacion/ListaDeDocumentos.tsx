@@ -32,6 +32,7 @@ import {
   esNota,
   lineaDelEstado,
   nombreDelArchivo,
+  porNumero,
   subtitulo,
 } from "./filaDeLaLista";
 import {
@@ -268,14 +269,13 @@ export default function ListaDeDocumentos({
     }
     return salida.sort((a, b) => a.id - b.id);
   };
-  // Lo más nuevo arriba; lo que espera «Comprobar» (sin fecha), primero.
-  const raices = enLaLista
-    .filter((d) => d.modifica_id == null || !ids.has(d.modifica_id))
-    .sort(
-      (a, b) =>
-        (b.fecha_emision ?? "9999").localeCompare(a.fecha_emision ?? "9999") ||
-        b.id - a.id,
-    );
+  // §9.44: por número, cada tipo del más alto al más bajo; lo que espera
+  // «Comprobar» (sin N° o sin fecha), primero. La marca sale de todo lo que
+  // trajo el motor (`docs`), así los filtros no cambian el orden.
+  const raices = porNumero(
+    enLaLista.filter((d) => d.modifica_id == null || !ids.has(d.modifica_id)),
+    docs,
+  );
 
   // El resumen de lo que se ve (la maqueta): lo por confirmar no suma.
   const r = { neto: 0, iva: 0, total: 0, fac: 0, bol: 0, notas: 0, pc: 0 };
