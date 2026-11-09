@@ -78,7 +78,8 @@ describe('La consulta de las cerradas sin postular (decisión 116)', () => {
     await expect(repo.descartarLasQueCerraron(1, ahora)).resolves.toEqual([
       8989,
     ]);
-    const [busca, cambia] = consultas;
+    // En medio, si alguna tiene algo firmado (decisión 122): aquí ninguna.
+    const [busca, , cambia] = consultas;
     expect(busca.tabla).toBe('oportunidades');
     expect(busca.pasos).toEqual(
       expect.arrayContaining([
@@ -99,6 +100,47 @@ describe('La consulta de las cerradas sin postular (decisión 116)', () => {
         ['in', 'id', [8989, 9408]],
       ]),
     );
+  });
+
+  it('una cerrada con algo firmado en «Mi postulación» no se descarta: espera «¿La subiste?» (decisión 122)', async () => {
+    const ahora = new Date('2026-11-07T15:37:00.000Z');
+    const { repo, consultas } = baseFalsa((c) =>
+      c.tabla === 'oportunidad_adjuntos'
+        ? [{ oportunidad_id: 11082 }]
+        : c.pasos.some(([m]) => m === 'update')
+          ? [{ id: 8989 }]
+          : [{ id: 8989 }, { id: 11082 }],
+    );
+    await expect(repo.descartarLasQueCerraron(1, ahora)).resolves.toEqual([
+      8989,
+    ]);
+    const [, firmados, cambia] = consultas;
+    expect(firmados.tabla).toBe('oportunidad_adjuntos');
+    expect(firmados.pasos).toEqual(
+      expect.arrayContaining([
+        ['select', 'oportunidad_id'],
+        ['eq', 'company_id', 1],
+        ['eq', 'seccion', 'postulacion'],
+        ['eq', 'origen', 'firmado'],
+        ['in', 'oportunidad_id', [8989, 11082]],
+      ]),
+    );
+    expect(cambia.pasos).toEqual(
+      expect.arrayContaining([['in', 'id', [8989]]]),
+    );
+  });
+
+  it('si todas las cerradas tienen algo firmado, no descarta ninguna (decisión 122)', async () => {
+    const { repo, consultas } = baseFalsa((c) =>
+      c.tabla === 'oportunidad_adjuntos'
+        ? [{ oportunidad_id: 11082 }]
+        : [{ id: 11082 }],
+    );
+    await expect(repo.descartarLasQueCerraron(1)).resolves.toEqual([]);
+    expect(consultas.map((c) => c.tabla)).toEqual([
+      'oportunidades',
+      'oportunidad_adjuntos',
+    ]);
   });
 
   it('sin ninguna cerrada, no cambia nada', async () => {

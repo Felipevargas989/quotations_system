@@ -12,7 +12,9 @@ import { DecisionesRepository } from './decisiones.repository';
 // aprenda que no interesaban. Corre al encender el motor y media hora
 // después de cada pasada del radar, cuando ya se sabe si el comprador movió
 // el cierre. La pantalla no espera: «Mis licitaciones» ya no las muestra
-// apenas pasa su hora de cierre.
+// apenas pasa su hora de cierre. Desde la decisión 122 (09-11), una que
+// cerró con algo firmado en «Mi postulación» no se descarta: «Mis
+// licitaciones» la deja arriba con «¿La subiste?» y la empresa responde.
 
 @Injectable()
 export class CerradasSinPostularService {
