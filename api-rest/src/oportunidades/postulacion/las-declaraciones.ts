@@ -51,6 +51,8 @@ export type DatosDeLaEmpresa = {
     nombre: string;
     rut: string;
     cargo: string;
+    nacionalidad: string;
+    profesion: string;
     correo: string;
     telefono: string;
   };
@@ -87,6 +89,8 @@ export const datosDeLaEmpresa = (
       nombre: t(o?.representante_nombre),
       rut: t(o?.representante_rut),
       cargo: t(o?.representante_cargo),
+      nacionalidad: t(o?.representante_nacionalidad),
+      profesion: t(o?.representante_profesion),
       correo: t(o?.representante_correo),
       telefono: t(o?.representante_telefono),
     },
@@ -260,6 +264,8 @@ export function contenidoDeLaDeclaracion(
           ['Representante legal', e.representante.nombre],
           ['RUT del representante legal', e.representante.rut],
           ['Cargo', e.representante.cargo],
+          ['Nacionalidad', e.representante.nacionalidad],
+          ['Profesión u oficio', e.representante.profesion],
           ['Correo del representante', e.representante.correo],
           ['Teléfono del representante', e.representante.telefono],
         ]),

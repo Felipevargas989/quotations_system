@@ -19,6 +19,7 @@ import {
   type OfertaParaDocumentos,
 } from '../postulacion/la-oferta-en-texto';
 import { type Aclaracion, textoDeLoAclarado } from '../preguntas/lo-aclarado';
+import { type DocumentoDeLaCarpeta, textoDeLaCarpeta } from './la-carpeta';
 import { desgloseDeOferta, IVA, pesos } from './la-plata';
 import {
   COMO_LISTAR_LA_OFERTA,
@@ -156,6 +157,8 @@ export type ContextoDeGeneracion = {
   /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
    *  compra y facturas, cada una con su PDF. */
   respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
+  /** Lo demás de la carpeta de «Mi empresa» (decisión 121, la-carpeta.ts). */
+  carpeta?: DocumentoDeLaCarpeta[];
   /** «Volver a armar» (decisión 49): los formularios que ya están firmados
    *  y no se rehacen. */
   yaFirmados?: string[];
@@ -192,6 +195,9 @@ const DATOS: ReadonlyArray<[CampoDelOferente, string]> = [
   ['representante_nombre', 'Representante legal'],
   ['representante_rut', 'RUT del representante legal'],
   ['representante_cargo', 'Cargo del representante legal'],
+  // Decisión 121 (09-11): el Anexo N°1 de Tomé las pedía.
+  ['representante_nacionalidad', 'Nacionalidad del representante legal'],
+  ['representante_profesion', 'Profesión u oficio del representante legal'],
   ['representante_correo', 'Correo del representante legal'],
   ['representante_telefono', 'Teléfono del representante legal'],
   ['representante_direccion', 'Dirección del representante legal'],
@@ -566,6 +572,7 @@ export const instruccionesDeAnexos = (
     laLicitacion(c),
     '',
     ...laEmpresa(c),
+    ...textoDeLaCarpeta(c.carpeta),
     '',
     ...laExperienciaEnEventia(c),
     '',

@@ -26,6 +26,9 @@ export class GuardarOferenteDto {
   @IsOptional() @IsString() @MaxLength(200) representante_nombre?: string;
   @IsOptional() @IsString() @MaxLength(20) representante_rut?: string;
   @IsOptional() @IsString() @MaxLength(100) representante_cargo?: string;
+  // La nacionalidad y la profesión del representante (migración 197).
+  @IsOptional() @IsString() @MaxLength(100) representante_nacionalidad?: string;
+  @IsOptional() @IsString() @MaxLength(100) representante_profesion?: string;
   // El contacto del representante y del coordinador (migración 154).
   @IsOptional() @IsString() @MaxLength(200) representante_correo?: string;
   @IsOptional() @IsString() @MaxLength(40) representante_telefono?: string;
