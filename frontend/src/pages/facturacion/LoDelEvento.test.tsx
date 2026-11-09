@@ -107,6 +107,52 @@ describe("Lo del evento: la barra de lo facturado", () => {
     expect(monto("Queda")).toBe("$595.000");
   });
 
+  it("la OC del documento con su propia barra, y el evento aparte (Felipe, 08-11: «son dos cosas distintas»)", () => {
+    const santoTomas: facturas.EventoPorFacturar = {
+      ...evento(11_301_417, 2_805_800),
+      numero: 481,
+      ordenes: [
+        {
+          id: 4,
+          numero: "33000132942",
+          total: 5_611_559,
+          facturado: 2_805_800,
+          queda: 2_805_759,
+          estado: "parcial",
+        },
+        {
+          id: 5,
+          numero: "32000066941",
+          total: 5_239_858,
+          facturado: 0,
+          queda: 5_239_858,
+          estado: "pendiente",
+        },
+      ],
+    };
+    render(
+      <LoDelEvento
+        evento={santoTomas}
+        noLeidas={[]}
+        vista={vista(2_805_759)}
+        tipo={33}
+        ocActual={4}
+      />,
+    );
+    expect(texto()).toContain("OC 33000132942 $5.611.559");
+    expect(texto()).toContain("Evento #481 $11.301.417");
+    const columna = (etiqueta: string) =>
+      screen
+        .getAllByText(etiqueta, { selector: "dt" })
+        .map((dt) => dt.nextElementSibling?.textContent);
+    // Primero la OC: lo facturado de ella, esta factura y lo que le queda.
+    expect(columna("Facturado")).toEqual(["$2.805.800", "$2.805.800"]);
+    expect(columna("Queda")).toEqual(["$0", "$5.689.858"]);
+    // Abajo, solo las otras OC.
+    expect(screen.getByText(/OC 32000066941/)).toBeInTheDocument();
+    expect(texto()).not.toContain("esta factura");
+  });
+
   it("la boleta se nombra como boleta", () => {
     render(
       <LoDelEvento

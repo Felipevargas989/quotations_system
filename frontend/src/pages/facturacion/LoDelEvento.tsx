@@ -105,6 +105,7 @@ export function BarraDeLoFacturado({
   facturado,
   esta,
   nombre,
+  de = "del evento",
 }: {
   readonly total: number;
   readonly facturado: number;
@@ -112,6 +113,8 @@ export function BarraDeLoFacturado({
   readonly esta: number;
   /** «Esta factura» o «Esta boleta». */
   readonly nombre: string;
+  /** De qué se pasa: «del evento» o «de la OC». */
+  readonly de?: string;
 }) {
   const conEsta = facturado + esta;
   const queda = Math.max(0, total - conEsta);
@@ -165,7 +168,7 @@ export function BarraDeLoFacturado({
       </dl>
       {pasa > 0 && (
         <Franja>
-          Con {nombre.toLowerCase()} se pasa del evento por {clp(pasa)}
+          Con {nombre.toLowerCase()} se pasa {de} por {clp(pasa)}
         </Franja>
       )}
     </div>
@@ -173,6 +176,29 @@ export function BarraDeLoFacturado({
 }
 
 const NOMBRE_DE_ESTA = { 33: "Esta factura", 39: "Esta boleta" } as const;
+
+/** Una barra con su nombre y su total arriba: la OC o el evento. */
+function Medida({
+  titulo,
+  total,
+  children,
+}: {
+  readonly titulo: string;
+  readonly total: number;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="flex items-baseline justify-between gap-3 text-blue-800">
+        <span className="font-semibold">{titulo}</span>{" "}
+        <span className="text-base font-semibold tabular-nums text-blue-900">
+          {clp(total)}
+        </span>
+      </p>
+      {children}
+    </div>
+  );
+}
 
 export default function LoDelEvento({
   evento,
@@ -202,31 +228,47 @@ export default function LoDelEvento({
   const avisos = vista?.avisos ?? [];
   const problemas = vista?.problemas ?? [];
   const faltan = vista?.faltan ?? [];
-  const abajo = ordenes.length > 0 || sinLeer > 0 || avisos.length > 0;
+  // La OC del documento, con su propia barra (Felipe, 08-11: *"no sé de la
+  // orden de compra cuánto tengo facturado y del evento cuánto tengo
+  // facturado. Son dos cosas distintas"*); abajo, las otras OC.
+  const oc =
+    ocActual != null ? ordenes.find((o) => o.id === ocActual) : undefined;
+  const otras = ordenes.filter((o) => o.id !== oc?.id);
+  const esta = vista?.montos?.total ?? 0;
+  const nombre = NOMBRE_DE_ESTA[tipo ?? 33];
+  const abajo = otras.length > 0 || sinLeer > 0 || avisos.length > 0;
   return (
     <div className="space-y-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-blue-900">
-          <CalendarDays
-            size={15}
-            className="shrink-0 text-blue-600"
-            aria-hidden="true"
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-blue-900">
+        <CalendarDays
+          size={15}
+          className="shrink-0 text-blue-600"
+          aria-hidden="true"
+        />
+        Lo del evento
+      </p>
+      {oc && (
+        <Medida titulo={`OC ${oc.numero}`} total={oc.total}>
+          <BarraDeLoFacturado
+            total={oc.total}
+            facturado={oc.facturado}
+            esta={esta}
+            nombre={nombre}
+            de="de la OC"
           />
-          Lo del evento
-        </p>
-        <p className="text-blue-800">
-          Evento{" "}
-          <span className="text-lg font-semibold tabular-nums text-blue-900">
-            {clp(evento.total)}
-          </span>
-        </p>
-      </div>
-      <BarraDeLoFacturado
+        </Medida>
+      )}
+      <Medida
+        titulo={oc ? `Evento #${evento.numero}` : "Evento"}
         total={evento.total}
-        facturado={evento.emitido + enEstaRevision}
-        esta={vista?.montos?.total ?? 0}
-        nombre={NOMBRE_DE_ESTA[tipo ?? 33]}
-      />
+      >
+        <BarraDeLoFacturado
+          total={evento.total}
+          facturado={evento.emitido + enEstaRevision}
+          esta={esta}
+          nombre={nombre}
+        />
+      </Medida>
       {fallas.map((f) => (
         <Franja key={f.documento_id}>
           BelIA no pudo leer «{f.nombre}»: {f.motivo.replace(/\.$/, "")}
@@ -248,8 +290,8 @@ export default function LoDelEvento({
       )}
       {abajo && (
         <div className="space-y-0.5 border-t border-blue-100 pt-2">
-          {ordenes.map((o) => (
-            <LineaDeOc key={o.id} oc={o} actual={o.id === ocActual} />
+          {otras.map((o) => (
+            <LineaDeOc key={o.id} oc={o} />
           ))}
           {sinLeer > 0 && (
             <p className="text-gray-600">
