@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import type { LineaDeLaOC } from './leer-orden-de-compra';
 
 /** Lo que la OC dice del comprador, como lo leyó BelIA (paso 2b). */
 export interface CompradorDeLaOC {
@@ -22,6 +23,9 @@ export interface OrdenDeCompra {
   razon_social: string | null;
   comprador: CompradorDeLaOC | null;
   descripcion: string | null;
+  /** Sus líneas como las leyó BelIA (§9.37, migración 196); nulo si no
+   *  se leyeron, [] si se leyeron y no cuadraban. */
+  lineas: LineaDeLaOC[] | null;
   neto: number | null;
   iva: number | null;
   total: number;
@@ -41,6 +45,7 @@ export type DatosDeOrdenDeCompra = Partial<
     | 'razon_social'
     | 'comprador'
     | 'descripcion'
+    | 'lineas'
     | 'neto'
     | 'iva'
     | 'total'

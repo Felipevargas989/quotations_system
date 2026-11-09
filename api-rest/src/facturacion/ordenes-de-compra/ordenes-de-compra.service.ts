@@ -9,6 +9,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
 import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
+import type { LineaDeLaOC } from './leer-orden-de-compra';
 import { LeerOrdenDeCompraService } from './leer-orden-de-compra.service';
 import {
   CrearOrdenDeCompraDto,
@@ -48,6 +49,8 @@ export class OrdenesDeCompraService {
   /** Los PDF que BelIA no pudo leer, con el motivo (en la memoria del
    *  motor: al reiniciar se intenta una vez más). */
   private readonly fallidas = new Map<number, { motivo: string; en: number }>();
+  /** Las OC guardadas sin líneas que ya se releyeron (§9.37): una vez. */
+  private readonly releidas = new Set<number>();
 
   constructor(
     private readonly repo: OrdenesDeCompraRepository,
@@ -153,13 +156,47 @@ export class OrdenesDeCompraService {
         } else this.fallidas.delete(d.id);
       }),
     );
+    // §9.37: las OC leídas antes de que BelIA leyera sus líneas se releen
+    // una vez, solo para eso.
+    const sinLineas = antes.filter(
+      (o) =>
+        o.origen === 'pdf' &&
+        o.documento_id != null &&
+        o.lineas == null &&
+        !this.releidas.has(o.id),
+    );
+    await Promise.all(
+      sinLineas.map((o) => this.leerLasLineas(quotationId, companyId, o)),
+    );
     return {
       ordenes:
-        nuevos.length || sinSuPdf.length
+        nuevos.length || sinSuPdf.length || sinLineas.length
           ? await this.repo.deCotizacion(quotationId, companyId)
           : antes,
       sinLeer: sinLeer.sort((a, b) => a.documento_id - b.documento_id),
     };
+  }
+
+  /** Las líneas de una OC guardada sin ellas (§9.37): si no cuadran,
+   *  queda [] y no se vuelve a leer. Nunca falla hacia afuera. */
+  private async leerLasLineas(
+    quotationId: string,
+    companyId: number,
+    oc: OrdenDeCompra,
+  ): Promise<void> {
+    this.releidas.add(oc.id);
+    try {
+      const leida = await this.lector.leer(
+        quotationId,
+        companyId,
+        oc.documento_id as number,
+      );
+      await this.repo.editar(oc.id, quotationId, companyId, {
+        lineas: leida.propuesta.lineas ?? [],
+      });
+    } catch (error) {
+      this.logger?.warn(`líneas de la OC ${oc.id}: ${mensajeDe(error)}`);
+    }
   }
 
   /** Lee un PDF y lo guarda como OC; si no se puede, el porqué. */
@@ -206,6 +243,7 @@ export class OrdenesDeCompraService {
           origen: 'pdf',
         },
         usuarioId,
+        p.lineas ?? [],
       );
       return null;
     } catch (error) {
@@ -225,12 +263,15 @@ export class OrdenesDeCompraService {
     companyId: number,
     dto: CrearOrdenDeCompraDto,
     usuarioId: string | null,
+    /** Las que leyó BelIA (§9.37); la OC a mano va sin ellas. */
+    lineas: LineaDeLaOC[] | null = null,
   ) {
     await this.asegurarCotizacion(quotationId, companyId);
     const datos = await this.limpios(dto, quotationId);
     return this.conErroresDeLaBase(() =>
       this.repo.crear({
         ...datos,
+        ...(lineas ? { lineas } : {}),
         numero: datos.numero ?? '',
         fecha: datos.fecha ?? '',
         total: datos.total ?? 0,
