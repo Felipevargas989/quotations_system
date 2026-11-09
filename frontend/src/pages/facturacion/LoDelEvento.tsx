@@ -218,8 +218,8 @@ export default function LoDelEvento({
   /** La OC de la factura que se revisa, cuando el evento va en una
    *  factura por OC. */
   readonly ocActual?: number | null;
-  /** Lo de las facturas anteriores de este evento en la misma revisión:
-   *  la barra lo cuenta como facturado. */
+  /** Lo de las otras facturas aprobadas de este evento en la misma
+   *  revisión: la barra lo cuenta como facturado (las no aprobadas, no). */
   readonly enEstaRevision?: number;
 }) {
   const ordenes = evento.ordenes ?? [];

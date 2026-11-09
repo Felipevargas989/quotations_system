@@ -16,8 +16,12 @@ import { Seccion } from "./PiezasDelDocumento";
 // estructura de factura/boleta) que ocupamos en nuevo documento"*). Las
 // mismas secciones de «Nuevo documento» (`Seccion`: Documento,
 // Destinatario, Ítems, Referencias y Totales), sin casillas: lo que se va a
-// emitir, tal como lo pidió BelIA o como quedó corregido. Los montos y las
-// observaciones son los de la revisión del motor, la misma que emite.
+// emitir, tal como lo pidió BelIA o como quedó corregido. Los montos son
+// los de la revisión del motor, la misma que emite. «Documento» lleva solo
+// el tipo, la fecha de emisión y la condición de pago (Felipe, 08-11: *"en
+// documento solo deja tipo, fecha emisión, condición de pago"*): la
+// cotización, el evento y la parte facturada ya están arriba, en «Lo del
+// evento», y siguen en las observaciones del PDF.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const NOMBRE: Record<TipoDeDte, string> = {
@@ -74,13 +78,6 @@ export default function DocumentoDelDte({
             </Dato>
           )}
         </dl>
-        {vista.observaciones.length > 0 && (
-          <div className="text-xs text-gray-500">
-            {vista.observaciones.map((o) => (
-              <p key={o}>{o}</p>
-            ))}
-          </div>
-        )}
       </Seccion>
 
       <Seccion titulo="Destinatario">
