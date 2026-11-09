@@ -143,10 +143,13 @@ export default function RevisionDeLaFacturacion({
   const consulta = revisados[indice];
   const dte = dteDe(indice);
   const aprobado = aprobados.has(item.clave);
-  // Lo de las facturas anteriores de este mismo evento (una por OC).
+  // Lo de las otras facturas APROBADAS de este mismo evento (una por OC):
+  // la barra del evento las cuenta como facturadas; las que no se
+  // aprueban, no (Felipe, 08-11: *"solo debería sumar las que están
+  // aprobadas + ya facturadas"*).
   const enEstaRevision = items.reduce(
     (s, x, j) =>
-      j < indice && x.evento.id === evento.id
+      j !== indice && x.evento.id === evento.id && aprobados.has(x.clave)
         ? s + (dteDe(j)?.vista.montos?.total ?? 0)
         : s,
     0,

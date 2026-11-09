@@ -288,6 +288,69 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.getByRole("button", { name: /Aprobar/ })).toBeEnabled();
   });
 
+  it("la barra del evento cuenta lo emitido y las otras aprobadas, no las que no se aprueban (08-11)", async () => {
+    const oc = (id: number, numero: string, total: number) => ({
+      id,
+      numero,
+      total,
+      facturado: 0,
+      queda: total,
+      estado: "pendiente" as const,
+    });
+    const totales: Record<number, number> = {
+      4: 2_805_759,
+      5: 2_640_600,
+      6: 450_000,
+    };
+    r.revisarUnoParaLaMasiva.mockImplementation((_id, ocId) =>
+      Promise.resolve({
+        tipo: 33,
+        pedida: { ...pedida(`OC ${ocId}`), orden_de_compra_id: ocId ?? null },
+        vista: {
+          ...vista(true),
+          montos: { neto: 0, exento: 0, iva: 0, total: totales[ocId ?? 0] },
+        },
+      }),
+    );
+    abrir([
+      evento(481, {
+        total: 11_301_500,
+        emitido: 2_805_800,
+        queda: 8_495_700,
+        ordenes: [
+          oc(4, "33000132942", 5611559),
+          oc(5, "32000066941", 5239858),
+          oc(6, "33000132941", 450000),
+        ],
+      }),
+    ]);
+    expect(await screen.findByText("OC 4")).toBeInTheDocument();
+    // La primera no se factura: se pasa sin aprobarla.
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(await screen.findByText("OC 5")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    expect(await screen.findByText("OC 6")).toBeInTheDocument();
+    // El evento: lo emitido ($2.805.800) y la segunda, aprobada
+    // ($2.640.600); la primera, no.
+    const facturado = screen
+      .getAllByText("Facturado", { selector: "dt" })
+      .map((dt) => dt.nextElementSibling?.textContent);
+    expect(facturado[facturado.length - 1]).toBe("$5.446.400");
+  });
+
+  it("en «Documento», solo el tipo, la fecha de emisión y la condición de pago (08-11)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("SOLO DOCUMENTO SPA"),
+      vista: vista(true),
+    });
+    abrir([evento(501)]);
+    expect(await screen.findByText("SOLO DOCUMENTO SPA")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Cotización N° 501 · evento 06-12-2026"),
+    ).not.toBeInTheDocument();
+  });
+
   it("un evento con tres OC va en una factura por OC: se revisan y emiten aparte (Santo Tomás, 08-11)", async () => {
     const oc = (id: number, numero: string, total: number) => ({
       id,
