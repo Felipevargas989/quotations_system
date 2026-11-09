@@ -204,7 +204,8 @@ describe('Emitir las boletas de un cobro', () => {
     expect(filas[100]).toMatchObject({ estado: 'emitido', folio: 1022 });
     expect(documentos.agregarAlEvento).toHaveBeenCalledWith(
       'ev-698',
-      'B1022 (simulada).pdf',
+      // §9.39: el nombre que se lee en Documentos del evento.
+      expect.stringMatching(/^Boleta N° 1022 · \$[\d.]+ \(simulada\)$/),
       'c1/event-documents/ev-698/facturas/B1022_simulado.pdf',
     );
     expect(anotados.map((a) => [a.que, a.despues, a.nombre])).toEqual([

@@ -256,7 +256,8 @@ describe('Emitir la factura del evento', () => {
     });
     expect(repo.agregarAlEvento).toHaveBeenCalledWith(
       'ev-423',
-      'F42_CCU Quillón_423_4500918822 (simulada).pdf',
+      // §9.39: en Documentos del evento, el N° y el monto.
+      'Factura N° 42 · $2.480.000 (simulada)',
       'c1/event-documents/ev-423/facturas/F42_CCU_Quillon_423_4500918822_simulado.pdf',
     );
     // El RUT era nuevo para el cliente: queda en su ficha (§9.12).
