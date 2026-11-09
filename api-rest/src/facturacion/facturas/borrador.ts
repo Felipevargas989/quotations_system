@@ -614,7 +614,8 @@ export function revisarDte(
     ...(factura && l.descuento ? { descuento: l.descuento } : {}),
   }));
   // §9.35: la descripción de la OC que no cabe en la glosa va cortada.
-  const deLaOC = textoLimpio(oc?.descripcion ?? '');
+  // Con las líneas de la OC (§9.37), su descripción larga no se usa.
+  const deLaOC = oc?.lineas?.length ? '' : textoLimpio(oc?.descripcion ?? '');
   if (
     Array.from(deLaOC).length > LARGO_DE_LA_GLOSA &&
     pedidas.some((l) => {
