@@ -1,6 +1,7 @@
 import {
   nombreDelPdf,
   nombreDelPdfDe,
+  nombreEnElEvento,
   nombreParaElBalde,
 } from '../facturas/nombre-del-pdf';
 
@@ -94,5 +95,37 @@ describe('El nombre del PDF (§9.35)', () => {
         detalle: [{ cabana: 'Cabaña 2' }],
       }),
     ).toBe('B9_Cabaña 2');
+  });
+});
+
+describe('El nombre en Documentos del evento (§9.39)', () => {
+  it('el N° y el monto, sin «.pdf» para que Post-Venta lo muestre', () => {
+    expect(nombreEnElEvento({ tipo: 33, folio: 386, total: 2805800 })).toBe(
+      'Factura N° 386 · $2.805.800',
+    );
+    expect(nombreEnElEvento({ tipo: 39, folio: 9, total: 55000 })).toBe(
+      'Boleta N° 9 · $55.000',
+    );
+  });
+
+  it('la nota dice qué hace y con qué documento', () => {
+    expect(
+      nombreEnElEvento({
+        tipo: 61,
+        folio: 116,
+        total: 2805780,
+        referencias: [
+          { tipo: '33', folio: '377', fecha: '2026-10-30', codigo: 1 },
+        ],
+      }),
+    ).toBe('Nota de crédito N° 116 · $2.805.780 · anula la 377');
+    expect(
+      nombreEnElEvento({
+        tipo: 61,
+        folio: 117,
+        total: 1000,
+        referencias: [{ tipo: '33', folio: '378', codigo: 3 }],
+      }),
+    ).toBe('Nota de crédito N° 117 · $1.000 · rebaja la 378');
   });
 });

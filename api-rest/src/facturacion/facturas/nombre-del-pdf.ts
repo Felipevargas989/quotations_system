@@ -74,3 +74,46 @@ export const nombreDelPdfDe = (d: DocumentoConSuNombre): string =>
     cotizacion: d.cotizacion?.quotation_number ?? null,
     oc: d.oc?.numero ?? null,
   });
+
+const NOMBRE_EN_EL_EVENTO: Record<number, string> = {
+  33: 'Factura',
+  34: 'Factura exenta',
+  39: 'Boleta',
+  56: 'Nota de débito',
+  61: 'Nota de crédito',
+};
+const QUE_HACE_LA_NOTA: Record<number, string> = {
+  1: 'anula',
+  2: 'corrige',
+  3: 'rebaja',
+};
+const DOCUMENTOS = new Set(['33', '34', '39', '56', '61']);
+
+/**
+ * EL NOMBRE EN DOCUMENTOS DEL EVENTO (doc 19 §9.39). Felipe, 08-11, con
+ * las de Santo Tomás: *"cuando guardes las facturas en el evento le puedes
+ * poner algún nombre [...] puede ser quizás el número de la factura y el
+ * monto facturado"*. Post-Venta muestra el nombre solo si no termina en
+ * «.pdf» (uno así es el nombre del archivo, no un comentario), y estos lo
+ * terminaban: se veía solo la fecha. Queda «Factura N° 386 · $2.805.800» o
+ * «Nota de crédito N° 116 · $2.805.780 · anula la 377».
+ */
+export const nombreEnElEvento = (d: {
+  tipo: number;
+  folio: number | null;
+  total: number;
+  referencias?: unknown[] | null;
+}): string => {
+  const monto = Math.round(Number(d.total) || 0).toLocaleString('es-CL');
+  const base = `${NOMBRE_EN_EL_EVENTO[d.tipo] ?? 'Documento'} N° ${d.folio ?? 's/n'} · $${monto}`;
+  if (d.tipo !== 56 && d.tipo !== 61) return base;
+  const ref = (d.referencias ?? []).find(
+    (r): r is { tipo: string; folio: string; codigo?: number } =>
+      !!r &&
+      typeof r === 'object' &&
+      DOCUMENTOS.has(String((r as { tipo?: unknown }).tipo)),
+  );
+  return ref
+    ? `${base} · ${QUE_HACE_LA_NOTA[ref.codigo ?? 0] ?? 'modifica'} la ${ref.folio}`
+    : base;
+};
