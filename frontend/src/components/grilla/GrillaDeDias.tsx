@@ -45,6 +45,24 @@ export interface SeccionGrillaDias {
   readonly accion?: ReactNode;
 }
 
+/** v2.3 (09-11-2026): la banda de un grupo pintada con SU color — una línea
+ *  a la izquierda, su número y una barra sobre sus días, con el detalle en
+ *  la línea de abajo. En la sábana, cada evento ("irlo viendo en cascada",
+ *  Felipe). Sin esto, la banda gris de siempre. */
+export interface BarraDeGrupo {
+  /** Lo corto, al lado de la línea de color (ej: "#522"). */
+  readonly numero: string;
+  /** La línea de abajo (ej: "FDN Canotaje · mié 4 al dom 8 nov"). */
+  readonly detalle: string;
+  /** Los días que cubre la barra. */
+  readonly dias: ReadonlySet<string>;
+  readonly color: {
+    readonly barra: string;
+    readonly borde: string;
+    readonly texto: string;
+  };
+}
+
 export interface FilaGrillaDias {
   readonly id: number | string;
   /** v2.2: la sección de la fila. Filas contiguas con el mismo título
@@ -69,6 +87,8 @@ export interface FilaGrillaDias {
   readonly grupoDestacado?: boolean;
   /** v2.1: un control a la derecha de la banda (ej: "+ cargo"). */
   readonly grupoAccion?: ReactNode;
+  /** v2.3: la banda con su color y la barra de sus días. */
+  readonly grupoBarra?: BarraDeGrupo;
   /** v2.0: pinta la celda a su manera (la sábana pone su tiene/necesita).
    *  Sin esto, la celda es el contador de siempre. */
   readonly renderCelda?: (dia: string) => ReactNode;
@@ -103,11 +123,14 @@ export default function GrillaDeDias({
   readonly titulosValores?: readonly [string, string, string];
   readonly filas: readonly FilaGrillaDias[];
   readonly pie?: PieGrillaDias;
-  /** v2.0: el día a resaltar (normalmente hoy). */
+  /** v2.0: el día a resaltar (normalmente hoy). Desde el 09-11-2026 su
+   *  columna entera va en azul suave (solo la sábana lo pasa). */
   readonly resaltarDia?: string;
   /** v2.1: pinchar el encabezado de un día (la sábana abre su resumen). */
   readonly onDiaClick?: (dia: string) => void;
 }) {
+  // La columna de hoy, de arriba abajo.
+  const deHoy = (d: string) => (d === resaltarDia ? "bg-blue-50/70" : "");
   return (
     <div className="border border-gray-200 rounded-xl overflow-x-auto">
       <table className="w-full text-sm table-fixed min-w-[56rem]">
@@ -137,7 +160,7 @@ export default function GrillaDeDias({
                 <th
                   key={d}
                   className={`px-2 py-2 text-center font-medium ${
-                    d === resaltarDia ? "text-blue-700" : "text-gray-600"
+                    d === resaltarDia ? "text-blue-700 bg-blue-50" : "text-gray-600"
                   }`}
                 >
                   {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — y el
@@ -211,7 +234,47 @@ export default function GrillaDeDias({
                     </td>
                   </tr>
                 )}
-              {f.grupo && filas[i - 1]?.grupo !== f.grupo && (
+              {f.grupo && filas[i - 1]?.grupo !== f.grupo && f.grupoBarra && (
+                <>
+                  <tr>
+                    <td
+                      className={`px-3 pt-2.5 pb-0.5 text-sm font-semibold border-l-4 rounded-none ${f.grupoBarra.color.borde} ${f.grupoBarra.color.texto}`}
+                    >
+                      {f.grupoBarra.numero}
+                    </td>
+                    {dias.map((d, di) => {
+                      const barra = f.grupoBarra!;
+                      const dentro = barra.dias.has(d);
+                      const parte = dentro && !barra.dias.has(dias[di - 1] ?? "");
+                      const termina = dentro && !barra.dias.has(dias[di + 1] ?? "");
+                      return (
+                        <td key={d} className={`px-0 pt-2.5 pb-0.5 ${deHoy(d)}`}>
+                          {dentro && (
+                            <span
+                              className={`block h-2 ${barra.color.barra} ${
+                                parte ? "rounded-l-full ml-1" : ""
+                              } ${termina ? "rounded-r-full mr-1" : ""}`}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
+                    {titulosValores && <td colSpan={4} />}
+                  </tr>
+                  <tr className="!border-t-0">
+                    <td
+                      colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
+                      className={`px-3 pb-1 text-xs ${f.grupoBarra.color.texto}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{f.grupoBarra.detalle}</span>
+                        {f.grupoAccion}
+                      </div>
+                    </td>
+                  </tr>
+                </>
+              )}
+              {f.grupo && filas[i - 1]?.grupo !== f.grupo && !f.grupoBarra && (
                 <tr
                   className={`bg-gray-50/70 ${
                     f.grupoDestacado ? "border-t-4 border-gray-300" : ""
@@ -237,13 +300,13 @@ export default function GrillaDeDias({
               {dias.map((d) => {
                 if (f.renderCelda)
                   return (
-                    <td key={d} className="px-1 py-1 text-center">
+                    <td key={d} className={`px-1 py-1 text-center ${deHoy(d)}`}>
                       {f.renderCelda(d)}
                     </td>
                   );
                 const cant = f.cantidadEn(d);
                 return (
-                  <td key={d} className="px-2 py-1.5">
+                  <td key={d} className={`px-2 py-1.5 ${deHoy(d)}`}>
                     {/* La MISMA pieza que usa Servicios (QuantitySelector),
                         para que el sistema se vea homogéneo — pedido de
                         Felipe, 15-08. De paso el número se puede teclear. */}

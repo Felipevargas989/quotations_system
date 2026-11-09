@@ -696,6 +696,15 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
   realizar antes al último, cosa de irlo viendo en cascada y no así como
   saltados"*): primero el que parte antes; mismo día, el que termina antes;
   y después el número. Antes iban por número de cotización.
+- **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
+  muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
+  color (sale de su número, así se ve igual al cambiar de mes) en una banda
+  con una línea a la izquierda, su número y una barra sobre sus días; el
+  «+» de antes y después va en el color del evento, el «+» vacío de planta
+  en azul y el de Staff en lila; fuera del evento, en blanco (sin el
+  puntito); y la columna de hoy en azul de arriba abajo. El verde y el
+  ámbar de las casillas siguen diciendo completo o falta gente, y los
+  colores de los eventos evitan esos dos, el azul y el lila.
 - **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos
   sale con una fila «Elige el cargo»: su «+» pregunta el cargo (un botón
   por cargo) y abre la casilla de ese día. Cada evento lleva su «+ cargo»,
