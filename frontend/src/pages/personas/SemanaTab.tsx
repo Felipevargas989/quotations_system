@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Loader2, Pencil, Trash2, X } from "lucide-react";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import NumberInput from "../../components/inputs/NumberInput";
-import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import {
   HoraInput,
   formatoHoras,
@@ -12,6 +11,7 @@ import {
 } from "../../components/inputs";
 import GrillaDeDias, {
   type FilaGrillaDias,
+  type SeccionGrillaDias,
 } from "../../components/grilla/GrillaDeDias";
 import Modal from "../../components/Modal";
 import ResumenDelDia from "./ResumenDelDia";
@@ -19,6 +19,14 @@ import MiniCalendario from "./MiniCalendario";
 import AdvertenciaHorasSemana from "./AdvertenciaHorasSemana";
 import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
+import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
+import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
+import {
+  diasConMas,
+  diasDe,
+  eventoEnRango,
+  eventosDelDia,
+} from "./eventosDeLaSabana";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
@@ -95,13 +103,19 @@ const rotuloEvento = (e: {
     : `${base} · ${r0.dia} ${String(r0.num)} ${r0.mes}`;
 };
 
-/** Los días que dura un evento, uno por uno. */
-const diasDe = (e: { inicio: string | null; termino: string | null }) => {
-  const salida = new Set<string>();
-  if (!e.inicio) return salida;
-  const fin = e.termino && e.termino > e.inicio ? e.termino : e.inicio;
-  for (let d = e.inicio; d <= fin; d = sumarDias(d, 1)) salida.add(d);
-  return salida;
+/** Cómo se reconoce una fila entre dos dibujos de la sábana: evento (o
+ *  banda) y cargo. La casilla abierta se compara por esto y no por la
+ *  fila misma, porque la fila se rearma cada vez que cambia el staff. */
+const claveDeFila = (f: FilaSemana) =>
+  `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${String(f.cargoId)}`;
+
+// LAS TRES SECCIONES DE LA SÁBANA (Felipe, 09-11-2026: "agreguemos
+// separaciones visuales entre eventos / planta / Staff"), con los colores
+// de sus celdas: verde los eventos, azul la planta y lila el staff.
+const SECCION_EVENTOS: SeccionGrillaDias = { titulo: "Eventos", color: "verde" };
+const SECCION_PLANTA: SeccionGrillaDias = {
+  titulo: "Personal de planta",
+  color: "azul",
 };
 
 export default function SemanaTab({
@@ -132,6 +146,21 @@ export default function SemanaTab({
   // por defecto solo se muestran los que tienen gente — 10 filas siempre
   // visibles eran invasivas (Felipe, 15-08).
   const [cargosPlanta, setCargosPlanta] = useState<number[]>([]);
+  // Lo mismo para los eventos (09-11-2026): los cargos que se le sumaron
+  // a un evento con su «+ cargo» se ven aunque no tengan a nadie, hasta
+  // salir de la pantalla. Evento → cargos.
+  const [cargosDeEvento, setCargosDeEvento] = useState<Record<string, number[]>>({});
+  const sumarCargoAlEvento = (quotationId: string, cargoId: number) =>
+    setCargosDeEvento((c) => ({
+      ...c,
+      [quotationId]: [...(c[quotationId] ?? []).filter((x) => x !== cargoId), cargoId],
+    }));
+  // El «+» de un evento que todavía no tiene cargos: primero se elige el
+  // cargo y después se abre la casilla de ese día.
+  const [eligiendoCargo, setEligiendoCargo] = useState<{
+    quotationId: string;
+    dia: string;
+  } | null>(null);
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
 
   const dias = useMemo(
@@ -498,6 +527,7 @@ export default function SemanaTab({
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: diasDe(e),
+          diasConMas: diasConMas(e),
         });
       }
       const f = m.get(k)!;
@@ -523,8 +553,42 @@ export default function SemanaTab({
           necesita: new Map(),
           sinRepartir: 0,
           diasDelEvento: e ? diasDe(e) : new Set<string>(),
+          diasConMas: e ? diasConMas(e) : new Set<string>(),
         });
       }
+    }
+
+    // TODO EVENTO DEL RANGO SE VE, TENGA O NO GENTE (Felipe, 09-11-2026).
+    // Antes la fila nacía solo de las sillas: un evento sin cupos en
+    // Gestión no aparecía, y el único «+» a la vista era el de Staff — ahí
+    // fue a dar la gente de la #460 el 29-10. Ahora cada evento trae los
+    // cargos que se le sumaron con su «+ cargo» y, si no tiene ninguno,
+    // una fila «Elige el cargo» cuyo «+» pregunta el cargo primero.
+    const conFila = new Set(
+      [...m.values()].map((f) => f.quotationId).filter(Boolean),
+    );
+    for (const e of eventos) {
+      if (!eventoEnRango(e, domingo, hasta)) continue;
+      const base = {
+        quotationId: e.id,
+        evento: rotuloEvento(e),
+        necesita: new Map<string, number>(),
+        sinRepartir: 0,
+        diasDelEvento: diasDe(e),
+        diasConMas: diasConMas(e),
+      };
+      for (const cargoId of cargosDeEvento[e.id] ?? []) {
+        const k = `${e.id}|${String(cargoId)}`;
+        if (!m.has(k))
+          m.set(k, {
+            ...base,
+            cargoId,
+            cargo: porRecurso.get(cargoId)?.name ?? "Sin cargo",
+          });
+        conFila.add(e.id);
+      }
+      if (!conFila.has(e.id))
+        m.set(`${e.id}|-1`, { ...base, cargoId: -1, cargo: "Elige el cargo" });
     }
 
     const deEventos = [...m.values()].sort(
@@ -538,7 +602,7 @@ export default function SemanaTab({
     // 21-10-2026): planta arriba, staff abajo. Ver bandasDelStaff.ts.
     const sinEvento = staff.filter((a) => a.quotation_id === null);
     return [...deEventos, ...filasSinEvento(catalogo, sinEvento, cargosPlanta)];
-  }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta]);
+  }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta, cargosDeEvento]);
 
   // CUÁNTOS SE NECESITAN de cada cargo ese día, para que el resumen
   // pueda decir "2 de 4" en vez de solo "2". El cálculo ya existía en la
@@ -671,45 +735,69 @@ export default function SemanaTab({
             setCasilla(null);
             setDiaAbierto(diaAbierto === d ? null : d);
           }}
-          filas={filas.map((f, fi): FilaGrillaDias => ({
-            id: `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${f.cargoId}`,
-            grupo:
+          filas={filas.map((f): FilaGrillaDias => ({
+            id: claveDeFila(f),
+            // Tres secciones (09-11-2026): la de Staff lleva su «+ cargo»
+            // en el título; cada evento, el suyo en su banda.
+            seccion:
               f.quotationId === null
                 ? f.ocasional
-                  ? "Personal Staff"
-                  : "Personal de planta"
-                : f.evento,
-            grupoDestacado:
-              f.quotationId === null &&
-              filas.findIndex((x) => x.quotationId === null) === fi,
+                  ? {
+                      titulo: "Personal Staff",
+                      color: "violeta",
+                      accion: (
+                        <div className="w-44 font-normal normal-case">
+                          <SelectorDeCargo
+                            catalogo={catalogo}
+                            yaVisibles={filas
+                              .filter((x) => x.quotationId === null && x.ocasional)
+                              .map((x) => x.cargoId)}
+                            onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                          />
+                        </div>
+                      ),
+                    }
+                  : SECCION_PLANTA
+                : SECCION_EVENTOS,
+            grupo: f.quotationId === null ? undefined : f.evento,
             grupoAccion:
-              f.quotationId === null &&
-              f.ocasional &&
-              filas.findIndex((x) => x.quotationId === null && x.ocasional) ===
-                fi ? (
+              f.quotationId !== null ? (
                 <div className="w-44 font-normal normal-case">
-                  <SelectWithSearchCargos
+                  <SelectorDeCargo
                     catalogo={catalogo}
                     yaVisibles={filas
-                      .filter((x) => x.quotationId === null && x.ocasional)
+                      .filter((x) => x.quotationId === f.quotationId)
                       .map((x) => x.cargoId)}
-                    onAgregar={(id) => setCargosPlanta((a) => [...a, id])}
+                    onAgregar={(id) => sumarCargoAlEvento(f.quotationId!, id)}
                   />
                 </div>
               ) : undefined,
             titulo: (
               <>
-                {f.cargo}
+                {f.cargoId === -1 && f.quotationId !== null ? (
+                  <span className="italic text-gray-400">{f.cargo}</span>
+                ) : (
+                  f.cargo
+                )}
                 {/* Un cargo ocasional SIN NADIE se puede sacar de la
                     vista al toque (Felipe, 15-08). Con gente puesta la
-                    ✕ no aparece: primero se saca a la gente. */}
-                {f.ocasional &&
-                  cargosPlanta.includes(f.cargoId) &&
+                    ✕ no aparece: primero se saca a la gente. Igual el
+                    que se le sumó a un evento con su «+ cargo». */}
+                {((f.ocasional && cargosPlanta.includes(f.cargoId)) ||
+                  (f.quotationId !== null &&
+                    (cargosDeEvento[f.quotationId] ?? []).includes(f.cargoId))) &&
                   !staff.some((a) => vaEnLaFila(a, f, catalogo)) && (
                     <button
                       type="button"
                       onClick={() =>
-                        setCargosPlanta((a) => a.filter((x) => x !== f.cargoId))
+                        f.quotationId === null
+                          ? setCargosPlanta((a) => a.filter((x) => x !== f.cargoId))
+                          : setCargosDeEvento((c) => ({
+                              ...c,
+                              [f.quotationId!]: (c[f.quotationId!] ?? []).filter(
+                                (x) => x !== f.cargoId,
+                              ),
+                            }))
                       }
                       aria-label={`Quitar el cargo ${f.cargo}`}
                       title="Quitar este cargo de la vista"
@@ -733,11 +821,14 @@ export default function SemanaTab({
             // La celda de la sábana: tiene/necesita, ámbar donde falta,
             // verde donde está cubierto. Pincha y se abre la casilla.
             renderCelda: (d) => {
-              if (f.cargoId === -1) return <span className="text-gray-200"> </span>;
+              // La fila vacía de Personal Staff solo sostiene su «+ cargo».
+              if (f.cargoId === -1 && f.quotationId === null)
+                return <span className="text-gray-200"> </span>;
               const gente = enCasilla(f, d);
               const necesita = f.necesita.get(d) || 0;
               const tiene = gente.length;
-              const abierta = casilla?.dia === d && casilla.fila === f;
+              const abierta =
+                casilla?.dia === d && claveDeFila(casilla.fila) === claveDeFila(f);
               // UNA SOLA REGLA (Felipe, 15-08): verde solo si están
               // TODOS y todos confirmados. Dos nombres puestos que no
               // han confirmado no son un día resuelto — todavía te
@@ -802,24 +893,43 @@ export default function SemanaTab({
               // acá personal"). Antes, si el cupo había quedado "sin
               // día", la casilla era un punto muerto.
               const esDelEvento = f.diasDelEvento.has(d);
+              // Y TAMBIÉN ANTES Y DESPUÉS (Felipe, 09-11-2026: "¿no
+              // deberíamos poner más en todas las filas? así si llamé
+              // gente antes vinculada a un evento se puede"): hasta 4
+              // días antes y 4 después, el mismo tope que Gestión. Esa
+              // gente queda en el evento y en su costo.
+              const esDiaDeMas = !esDelEvento && !!f.diasConMas?.has(d);
               if (necesita === 0 && tiene === 0) {
-                if (!esDelEvento)
+                if (!esDelEvento && !esDiaDeMas)
                   return <span className="text-gray-200">·</span>;
                 return (
                   <button
                     type="button"
                     onClick={() => {
                       setDiaAbierto(null);
+                      // Un evento sin cargos pregunta primero cuál.
+                      if (f.cargoId === -1 && f.quotationId !== null) {
+                        setCasilla(null);
+                        setEligiendoCargo({ quotationId: f.quotationId, dia: d });
+                        return;
+                      }
                       setCasilla(abierta ? null : { dia: d, fila: f });
                     }}
-                    title={`Es día del evento — poner gente el ${d}`}
+                    title={
+                      esDelEvento
+                        ? `Es día del evento — poner gente el ${d}`
+                        : `Antes o después del evento — poner gente el ${d}`
+                    }
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
-                    // (Felipe, 15-08).
+                    // (Felipe, 15-08). Gris punteado: un día antes o
+                    // después, que se puede usar si hace falta.
                     className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                        : esDelEvento
+                          ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          : "text-gray-400 border-dashed border-gray-300 hover:bg-gray-50 hover:text-gray-600"
                     }`}
                   >
                     +
@@ -882,90 +992,125 @@ export default function SemanaTab({
         />
       )}
 
-      {casilla && (
-        <CasillaAbierta
-          dia={casilla.dia}
-          dias={dias}
-          fila={casilla.fila}
-          asignados={enCasilla(casilla.fila, casilla.dia)}
-          personas={personas}
-          onCerrar={() => setCasilla(null)}
-          onPoner={(personId, eleccion) =>
-            poner.mutate({
-              personId,
-              dia: casilla.dia,
-              fila: casilla.fila,
-              eleccion,
-            })
-          }
-          onSacar={(id) => sacar.mutate(id)}
-          onCambiar={(id, cambios) => cambiar.mutate({ id, cambios })}
-          ocupados={
-            new Set(
-              staff
-                .filter((a) => {
-                  if (iso(a.day) !== casilla.dia) return false;
-                  // Los de ESTA casilla no cuentan: ya salen abajo. La
-                  // casilla es evento + cargo, no solo el evento — si no,
-                  // en la planta (null contra null) no se excluía a
-                  // nadie y salían todos. Sin evento es cargo + banda
-                  // (21-10-2026): el de planta del mismo cargo SÍ ocupa.
-                  return !vaEnLaFila(a, casilla.fila, catalogo);
-                })
-                .map((a) => a.person_id)
-                // Una silla vacía no ocupa a nadie.
-                .filter((id): id is number => id != null),
-            )
-          }
-          diasDePlanta={diasDePlanta}
-          diasEnEvento={diasEnEvento}
-          todoElStaff={staff}
-          todoElStaffCrudo={staffCrudo}
-          onPonerEnDia={(personId, d, eleccion) =>
-            poner.mutate({ personId, dia: d, fila: casilla.fila, eleccion })
-          }
-          onSacarDelDia={(personId, d) => {
-            const suya = staff.find(
-              (x) =>
-                x.person_id === personId &&
-                iso(x.day) === d &&
-                x.quotation_id === null,
-            );
-            if (suya) sacar.mutate(suya.id);
-          }}
-        />
-      )}
-    </div>
-  );
-}
+      {eligiendoCargo &&
+        (() => {
+          const e = eventos.find((x) => x.id === eligiendoCargo.quotationId);
+          if (!e) return null;
+          return (
+            <ElegirCargoDelEvento
+              catalogo={catalogo}
+              evento={rotuloEvento(e)}
+              dia={eligiendoCargo.dia}
+              onCerrar={() => setEligiendoCargo(null)}
+              onElegir={(cargoId) => {
+                const { dia } = eligiendoCargo;
+                setEligiendoCargo(null);
+                sumarCargoAlEvento(e.id, cargoId);
+                setCasilla({
+                  dia,
+                  fila: {
+                    quotationId: e.id,
+                    evento: rotuloEvento(e),
+                    cargoId,
+                    cargo: catalogo.find((r) => r.id === cargoId)?.name ?? "Sin cargo",
+                    necesita: new Map(),
+                    sinRepartir: 0,
+                    diasDelEvento: diasDe(e),
+                    diasConMas: diasConMas(e),
+                  },
+                });
+              }}
+            />
+          );
+        })()}
 
-/** El "+ cargo" de la banda de Personal de planta. */
-function SelectWithSearchCargos({
-  catalogo,
-  yaVisibles,
-  onAgregar,
-}: {
-  readonly catalogo: readonly { id: number; name: string; type: string; is_active: boolean }[];
-  readonly yaVisibles: readonly number[];
-  readonly onAgregar: (id: number) => void;
-}) {
-  const opciones = catalogo
-    .filter(
-      (r) =>
-        r.type === "personal" &&
-        r.is_active !== false &&
-        !yaVisibles.includes(r.id),
-    )
-    .map((r) => ({ value: String(r.id), label: r.name }));
-  return (
-    <SelectWithSearch
-      options={opciones}
-      value=""
-      onChange={(v) => v && onAgregar(Number(v))}
-      placeholder="+ cargo"
-      tamano="sm"
-      mostrarConteo={false}
-    />
+      {casilla &&
+        (() => {
+          // La fila VIVA: la de la sábana recién rearmada, con su
+          // "necesita" al día (la recién creada por el seguro o por
+          // «Elige el cargo» llega sola cuando aparece su primera silla).
+          const fila =
+            filas.find((f) => claveDeFila(f) === claveDeFila(casilla.fila)) ??
+            casilla.fila;
+          return (
+            <CasillaAbierta
+              key={`${claveDeFila(fila)}|${casilla.dia}`}
+              dia={casilla.dia}
+              dias={dias}
+              fila={fila}
+              asignados={enCasilla(fila, casilla.dia)}
+              personas={personas}
+              onCerrar={() => setCasilla(null)}
+              onPoner={(personId, eleccion) =>
+                poner.mutate({
+                  personId,
+                  dia: casilla.dia,
+                  fila,
+                  eleccion,
+                })
+              }
+              onSacar={(id) => sacar.mutate(id)}
+              onCambiar={(id, cambios) => cambiar.mutate({ id, cambios })}
+              ocupados={
+                new Set(
+                  staff
+                    .filter((a) => {
+                      if (iso(a.day) !== casilla.dia) return false;
+                      // Los de ESTA casilla no cuentan: ya salen abajo. La
+                      // casilla es evento + cargo, no solo el evento — si no,
+                      // en la planta (null contra null) no se excluía a
+                      // nadie y salían todos. Sin evento es cargo + banda
+                      // (21-10-2026): el de planta del mismo cargo SÍ ocupa.
+                      return !vaEnLaFila(a, fila, catalogo);
+                    })
+                    .map((a) => a.person_id)
+                    // Una silla vacía no ocupa a nadie.
+                    .filter((id): id is number => id != null),
+                )
+              }
+              diasDePlanta={diasDePlanta}
+              diasEnEvento={diasEnEvento}
+              todoElStaff={staff}
+              todoElStaffCrudo={staffCrudo}
+              onPonerEnDia={(personId, d, eleccion) =>
+                poner.mutate({ personId, dia: d, fila, eleccion })
+              }
+              onSacarDelDia={(personId, d) => {
+                const suya = staff.find(
+                  (x) =>
+                    x.person_id === personId &&
+                    iso(x.day) === d &&
+                    x.quotation_id === null,
+                );
+                if (suya) sacar.mutate(suya.id);
+              }}
+              eventosDelDia={(d) => eventosDelDia(eventos, d)}
+              onPonerEnEvento={(personId, d, quotationId) => {
+                // EL SEGURO DE STAFF (09-11-2026): era para un evento. Va
+                // a ese evento con el cargo de su fila, y la casilla salta
+                // a la del evento: ahí se le pone el monto (el freno del
+                // monto vive en la casilla).
+                const e = eventos.find((x) => x.id === quotationId);
+                if (!e) return;
+                const filaEvento: FilaSemana = filas.find(
+                  (x) => x.quotationId === quotationId && x.cargoId === fila.cargoId,
+                ) ?? {
+                  quotationId,
+                  evento: rotuloEvento(e),
+                  cargoId: fila.cargoId,
+                  cargo: fila.cargo,
+                  necesita: new Map(),
+                  sinRepartir: 0,
+                  diasDelEvento: diasDe(e),
+                  diasConMas: diasConMas(e),
+                };
+                setCasilla({ dia: d, fila: filaEvento });
+                poner.mutate({ personId, dia: d, fila: filaEvento });
+              }}
+            />
+          );
+        })()}
+    </div>
   );
 }
 
@@ -1077,8 +1222,15 @@ function CasillaAbierta({
   todoElStaffCrudo,
   onPonerEnDia,
   onSacarDelDia,
+  eventosDelDia,
+  onPonerEnEvento,
 }: {
   readonly dia: string;
+  /** Los eventos que tienen ese día entre sus fechas: los que nombra el
+   *  seguro de Staff (09-11-2026). */
+  readonly eventosDelDia: (dia: string) => readonly EventoDeLaPregunta[];
+  /** El seguro respondió «Para la #N»: la persona va a ese evento. */
+  readonly onPonerEnEvento: (personId: number, dia: string, quotationId: string) => void;
   /** El rango visible de la sábana, para mover a otro día. */
   readonly dias: readonly string[];
   readonly fila: FilaSemana;
@@ -1115,6 +1267,14 @@ function CasillaAbierta({
     personId: number;
     dia: string;
   } | null>(null);
+  // EL SEGURO DE STAFF (Felipe, 09-11-2026): al poner a alguien en
+  // Personal Staff un día con evento, primero se pregunta si va para un
+  // evento. A quién y qué día, si está abierto.
+  const [seguro, setSeguro] = useState<{
+    personId: number;
+    dia: string;
+  } | null>(null);
+  const esStaff = fila.quotationId === null && !!fila.ocasional;
   // EL FRENO DEL MONTO (Felipe, 04-09: "no debería dejarme salir del
   // modal sin que coloque un monto... ¿podría vibrar la cajita?" — y
   // al probarlo pidió que fuera SIN salida). Mientras haya un
@@ -1214,6 +1374,28 @@ function CasillaAbierta({
       return a.label.localeCompare(b.label);
     });
 
+  // Poner a alguien en un día (el de la casilla o uno del mini
+  // calendario). En Personal Staff, si ese día hay evento, primero el
+  // seguro; después, como siempre: la pregunta del día extra si es un
+  // planta en un día que no le toca.
+  const seguirPoniendo = (personId: number, d: string) => {
+    const p = personas.find((x) => x.id === personId);
+    if (!esEvento && esDiaExtra(p, d, fila.cargoId || null)) {
+      setPregunta({ personId, dia: d });
+    } else if (d === dia) {
+      onPoner(personId);
+    } else {
+      onPonerEnDia(personId, d);
+    }
+  };
+  const intentarPoner = (personId: number, d: string) => {
+    if (esStaff && eventosDelDia(d).length > 0) {
+      setSeguro({ personId, dia: d });
+      return;
+    }
+    seguirPoniendo(personId, d);
+  };
+
   return (
     <Modal
       titulo={`${fila.cargo} · ${r.dia} ${String(r.num)} de ${r.mes}`}
@@ -1227,7 +1409,7 @@ function CasillaAbierta({
         </>
       }
       ancho="max-w-3xl"
-      bloquearEscape={abierto || pregunta !== null}
+      bloquearEscape={abierto || pregunta !== null || seguro !== null}
       sinTope
       onCerrar={intentarCerrar}
     >
@@ -1391,14 +1573,7 @@ function CasillaAbierta({
                 )}
                 diasEnEvento={diasEnEvento(a.person_id)}
                 soloLectura={fila.quotationId !== null}
-                onMarcar={(d) => {
-                  const p = personas.find((x) => x.id === a.person_id);
-                  if (!esEvento && esDiaExtra(p, d, fila.cargoId || null)) {
-                    setPregunta({ personId: a.person_id!, dia: d });
-                  } else {
-                    onPonerEnDia(a.person_id!, d);
-                  }
-                }}
+                onMarcar={(d) => intentarPoner(a.person_id!, d)}
                 onDesmarcar={(d) => onSacarDelDia(a.person_id!, d)}
                 onCerrar={() => setMoviendo(null)}
               />
@@ -1438,15 +1613,7 @@ function CasillaAbierta({
           está, para que la lista desplegada no la tape. */}
       <AgregadorDeItems
         opciones={disponibles}
-        onAgregar={(v) => {
-          const id = Number(v);
-          const p = personas.find((x) => x.id === id);
-          if (!esEvento && esDiaExtra(p, dia, fila.cargoId || null)) {
-            setPregunta({ personId: id, dia });
-          } else {
-            onPoner(id);
-          }
-        }}
+        onAgregar={(v) => intentarPoner(Number(v), dia)}
         abierto={abierto}
         onAbiertoChange={setAbierto}
         placeholder={
@@ -1492,6 +1659,29 @@ function CasillaAbierta({
               onElegir={(eleccion) => {
                 setPregunta(null);
                 onPonerEnDia(pregunta.personId, pregunta.dia, eleccion);
+              }}
+            />
+          );
+        })()}
+
+      {seguro &&
+        (() => {
+          const p = personas.find((x) => x.id === seguro.personId);
+          if (!p) return null;
+          return (
+            <PreguntaDelEvento
+              persona={p}
+              cargo={fila.cargo}
+              dia={seguro.dia}
+              eventos={eventosDelDia(seguro.dia)}
+              onCerrar={() => setSeguro(null)}
+              onEvento={(quotationId) => {
+                setSeguro(null);
+                onPonerEnEvento(seguro.personId, seguro.dia, quotationId);
+              }}
+              onStaff={() => {
+                setSeguro(null);
+                seguirPoniendo(seguro.personId, seguro.dia);
               }}
             />
           );
