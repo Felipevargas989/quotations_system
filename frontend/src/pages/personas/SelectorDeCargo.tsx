@@ -35,13 +35,17 @@ export function SelectorDeCargo({
   yaVisibles,
   onAgregar,
   aspecto = "caja",
+  claseTexto,
 }: {
   readonly catalogo: readonly CargoDelCatalogo[];
   readonly yaVisibles: readonly number[];
   readonly onAgregar: (id: number) => void;
   /** "texto": chico, sin caja, para que quepa al lado del nombre del
-   *  evento en su misma línea (09-11-2026). */
+   *  evento en su misma línea (09-11-2026). Toma el tamaño de letra de
+   *  quien lo envuelve. */
   readonly aspecto?: "caja" | "texto";
+  /** En "texto": el color del evento. */
+  readonly claseTexto?: string;
 }) {
   const opciones = cargosParaSumar(catalogo, yaVisibles).map((r) => ({
     value: String(r.id),
@@ -53,9 +57,10 @@ export function SelectorDeCargo({
       value=""
       onChange={(v) => v && onAgregar(Number(v))}
       placeholder="+ cargo"
-      tamano="sm"
+      tamano={aspecto === "texto" ? "base" : "sm"}
       mostrarConteo={false}
       aspecto={aspecto}
+      claseTexto={claseTexto}
     />
   );
 }
