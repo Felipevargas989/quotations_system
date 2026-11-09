@@ -32,6 +32,7 @@ import { PlansModule } from './plans/plans.module';
 import { QuotationFollowupsModule } from './quotation-followups/quotation-followups.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { RobotOcModule } from './robot-oc/robot-oc.module';
 import { ServiceGroupCollectionsModule } from './service-group-collections/service-group-collections.module';
 import { ServiceGroupsModule } from './service-groups/service-groups.module';
 import { ServicesModule } from './services/services.module';
@@ -103,6 +104,8 @@ import { UsersModule } from './users/users.module';
     AsistenteModule,
     // La facturación electrónica por facturacion.cl (doc 19).
     FacturacionModule,
+    // El robot de órdenes de compra de la rutina de correo (doc 23).
+    RobotOcModule,
   ],
   controllers: [HealthController],
   providers: [
