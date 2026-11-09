@@ -2754,8 +2754,8 @@ rebajada"*; y *"haz eso en lab"*.
   neto y el IVA en `cadenaDeLaEmpresa`). Bajo «Rebajada» ya no va
   «−$1.000»: va la condición de pago, como en cualquier factura.
 
-**En el laboratorio desde el 09-11-2026** (motor y pantalla, sin
-migración); la ND tachada con su NC, ese mismo día (solo pantalla).
+**En el laboratorio y en producción desde el 09-11-2026** (PR #334;
+motor y pantalla, sin migración; Felipe: *"todo a producción"*).
 
 ### 9.41 Lo anulado en la lista, en gris, y la nota con su factura (08-11)
 
