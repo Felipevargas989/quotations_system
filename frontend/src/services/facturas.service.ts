@@ -1,4 +1,5 @@
 import { apiRequest } from "./api";
+import type { MedioDePago } from "../constants/facturacion";
 
 // El DTE del evento (doc 19 §9.2 y §9.20): la factura o la boleta. Al abrir
 // «Emitir DTE», BelIA lee las OC de Documentos (`prepararDte`); arma el
@@ -61,6 +62,8 @@ export interface DtePedido {
   forma_de_pago?: FormaDePago | null;
   /** Los días del crédito (30, 45 o 60); nulo al contado. */
   plazo_dias?: number | null;
+  /** §9.43: al contado, con qué se pagó (para cuadrar la caja). */
+  medio_de_pago?: MedioDePago | null;
   /** «Nuevo documento»: el cliente de Eventia al que va (su ficha recibe
    *  la razón social al emitir). */
   cliente_id?: string | null;

@@ -75,12 +75,33 @@ describe("La sección Documento", () => {
       <SeccionDocumento pedida={PEDIDA} vista={VISTA} onChange={onChange} />,
     );
     elegir("Condición de pago", /Crédito 30 días/, /Crédito 60 días/);
-    expect(onChange).toHaveBeenCalledWith({ forma_de_pago: 2, plazo_dias: 60 });
+    expect(onChange).toHaveBeenCalledWith({
+      forma_de_pago: 2,
+      plazo_dias: 60,
+      medio_de_pago: null,
+    });
     elegir("Condición de pago", /Crédito 30 días/, /^Contado/);
     expect(onChange).toHaveBeenCalledWith({
       forma_de_pago: 1,
       plazo_dias: null,
     });
+    // A crédito no se pregunta con qué se pagó (§9.43).
+    expect(
+      screen.queryByRole("group", { name: "Medio de pago" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("al contado, el medio de pago en su lista, para cuadrar la caja (§9.43)", () => {
+    const onChange = vi.fn();
+    render(
+      <SeccionDocumento
+        pedida={{ ...PEDIDA, forma_de_pago: 1, plazo_dias: null }}
+        vista={VISTA}
+        onChange={onChange}
+      />,
+    );
+    elegir("Medio de pago", /Elegir el medio de pago/, /^Débito/);
+    expect(onChange).toHaveBeenCalledWith({ medio_de_pago: "debito" });
   });
 
   it("en el evento, el tipo y de dónde se llena, en listas", () => {

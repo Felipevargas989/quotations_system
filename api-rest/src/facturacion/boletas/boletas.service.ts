@@ -24,6 +24,7 @@ import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
+import type { MedioDePago } from '../facturas/pago-de-la-factura';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   BoletaSueltaDto,
@@ -429,6 +430,7 @@ export class BoletasService {
       cabana,
       cual: 'la boleta',
       totalEsperado: null,
+      medioDePago: dto.medio_de_pago,
     });
     if (!r.emitido && !r.porConfirmar)
       throw new BadRequestException(r.alto ?? 'No se pudo emitir la boleta');
@@ -584,6 +586,8 @@ export class BoletasService {
       /** «la boleta de Cabaña 4», para los avisos. */
       cual: string;
       totalEsperado: number | null;
+      /** §9.43: la boleta suelta, con qué pagó el huésped. */
+      medioDePago?: MedioDePago | null;
       antesDeMandar?: (docId: number) => Promise<void>;
       siLaRechazan?: () => Promise<void>;
     },
@@ -630,6 +634,7 @@ export class BoletasService {
         porcentaje: null,
         creado_por: user.id ?? null,
         archivo_enviado: armado.archivo,
+        medio_de_pago: b.medioDePago ?? null,
         // La boleta va con folio 0: el que debería tocarle, para
         // «Comprobar» si se corta (L5).
         respuesta: { folio_esperado: await conexion.folioSiguiente(BOLETA) },

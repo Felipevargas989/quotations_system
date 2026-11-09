@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as boletas from "../../services/boletas.service";
@@ -108,6 +109,23 @@ const armarUna = async () => {
   });
 };
 
+/** §9.43: con qué pagó y a qué correo va (o «Sin correo: la imprimo»). */
+const pagoYEnvio = ({ correo = "", imprimir = false } = {}) => {
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Medio de pago" })).getByRole(
+      "button",
+      { name: /Elegir el medio de pago/ },
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^Efectivo/ }));
+  if (correo)
+    fireEvent.change(screen.getByLabelText("Correo para enviarle la boleta"), {
+      target: { value: correo },
+    });
+  if (imprimir)
+    fireEvent.click(screen.getByLabelText("Sin correo: la imprimo"));
+};
+
 describe("la boleta nueva (§9.22, sprint 3)", () => {
   it("del tarifario por su cantidad, el total a pagar, y la vista previa antes de emitir", async () => {
     const { onEmitida } = abrir();
@@ -120,13 +138,22 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     await armarUna();
     expect(screen.getByText("Noches")).toBeInTheDocument();
     expect(screen.getAllByText("$130.000").length).toBeGreaterThan(0);
+    // §9.43: sin el medio de pago ni el correo, todavía no.
+    expect(
+      screen.getByRole("button", { name: "Crear documento" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/Falta el medio de pago y el correo/),
+    ).toBeInTheDocument();
+    pagoYEnvio({ correo: "huesped@correo.cl" });
 
     fireEvent.click(screen.getByRole("button", { name: "Crear documento" }));
     await screen.findByText("Así sale la boleta");
     expect(b.revisarBoletaSuelta).toHaveBeenCalledWith({
       lineas: [{ tarifario_id: 1, cantidad: 1 }],
       cabana: "Cabaña 4",
-      correo: null,
+      correo: "huesped@correo.cl",
+      medio_de_pago: "efectivo",
     });
     expect(
       screen.getByText("Cabaña 4 · Cabaña 4 personas temporada alta"),
@@ -146,7 +173,15 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
   it("sin la lista a la vista (recepción), se queda con la última y una boleta en blanco", async () => {
     abrir({ quedarse: true });
     await armarUna();
+    // Sin correo: se imprime (§9.43).
+    pagoYEnvio({ imprimir: true });
+    expect(
+      screen.getByLabelText("Correo para enviarle la boleta"),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Crear documento" }));
+    expect(b.revisarBoletaSuelta).toHaveBeenCalledWith(
+      expect.objectContaining({ correo: null, medio_de_pago: "efectivo" }),
+    );
     fireEvent.click(
       await screen.findByRole("button", { name: "Emitir boleta" }),
     );
@@ -155,6 +190,14 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Ej.: Cabaña 4")).toHaveValue("");
     expect(screen.queryByText("Así sale la boleta")).not.toBeInTheDocument();
+    // Iba a imprimirse y su PDF todavía no llega: lo dice.
+    expect(
+      screen.getByText("El PDF todavía no llega para imprimirla."),
+    ).toBeInTheDocument();
+    // La siguiente parte en blanco: sin medio de pago y con el correo.
+    expect(
+      screen.getByLabelText("Correo para enviarle la boleta"),
+    ).toBeEnabled();
   });
 
   it("la línea a mano es solo del administrador", async () => {

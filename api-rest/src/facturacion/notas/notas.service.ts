@@ -294,6 +294,7 @@ export class NotasService {
           credito?.vencimiento && d.fecha_emision
             ? diasEntre(d.fecha_emision.slice(0, 10), credito.vencimiento)
             : null,
+        medio_de_pago: d.medio_de_pago ?? null, // §9.43
         pdf_path: d.pdf_path,
         error: d.error,
         acciones: {

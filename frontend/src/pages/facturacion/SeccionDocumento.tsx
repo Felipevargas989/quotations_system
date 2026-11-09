@@ -1,6 +1,10 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
-import { PLAZOS_DE_PAGO } from "../../constants/facturacion";
+import {
+  MEDIOS_DE_PAGO,
+  PLAZOS_DE_PAGO,
+  type MedioDePago,
+} from "../../constants/facturacion";
 import type {
   DtePedido,
   TipoDeDte,
@@ -18,7 +22,8 @@ import { Seccion } from "./PiezasDelDocumento";
 // esta pieza también se arregla desde el botón + nuevo DTE"*). La misma en
 // la factura de «Nuevo DTE» y en «Corregir» de la revisión: el tipo, de
 // dónde se llena (solo el evento), la fecha de emisión y la condición de
-// pago, cada uno en su lista, sin chips. Debajo, solo el vencimiento. Las
+// pago, cada uno en su lista, sin chips; al contado, también con qué se
+// pagó (§9.43, para cuadrar la caja). Debajo, solo el vencimiento. Las
 // listas son la de la casa (`SelectWithSearch`): el portero no deja listas
 // nativas.
 //
@@ -211,10 +216,32 @@ export default function SeccionDocumento({
                 onChange(
                   v === "contado"
                     ? { forma_de_pago: 1, plazo_dias: null }
-                    : { forma_de_pago: 2, plazo_dias: Number(v) },
+                    : {
+                        forma_de_pago: 2,
+                        plazo_dias: Number(v),
+                        medio_de_pago: null,
+                      },
                 )
               }
               searchPlaceholder="Buscar..."
+              tamano="sm"
+              sinLimpiar
+              mostrarConteo={false}
+            />
+          </CampoDeLista>
+        )}
+        {factura && contado && (
+          <CampoDeLista titulo="Medio de pago">
+            <SelectWithSearch
+              options={MEDIOS_DE_PAGO.map((m) => ({
+                value: m.value,
+                label: m.label,
+              }))}
+              value={pedida.medio_de_pago ?? ""}
+              onChange={(v) =>
+                onChange({ medio_de_pago: (v || null) as MedioDePago | null })
+              }
+              placeholder="Elegir el medio de pago"
               tamano="sm"
               sinLimpiar
               mostrarConteo={false}

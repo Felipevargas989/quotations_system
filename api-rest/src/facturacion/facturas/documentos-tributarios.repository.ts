@@ -39,6 +39,8 @@ export interface DocumentoTributario {
    *  vencimiento. Nulos en lo de antes y en la boleta. */
   forma_de_pago: number | null;
   vencimiento: string | null;
+  /** §9.43 (migración 198): al contado, con qué se pagó. */
+  medio_de_pago: string | null;
 }
 
 export type NuevoDocumentoTributario = Pick<
@@ -69,6 +71,7 @@ export type NuevoDocumentoTributario = Pick<
   /** La condición de pago de la factura (migración 189). */
   forma_de_pago?: number | null;
   vencimiento?: string | null;
+  medio_de_pago?: string | null;
 };
 
 /** Un cliente con sus razones sociales y su contacto principal, para
@@ -115,7 +118,7 @@ export type CambiosDelDocumento = Partial<
 
 // Lo que la pantalla ve: ni el archivo enviado ni la respuesta cruda.
 const COLUMNAS =
-  'id, company_id, tipo, ambiente, folio, fecha_emision, estado, receptor, detalle, referencias, neto, exento, iva, total, quotation_id, orden_de_compra_id, porcentaje, modifica_id, codigo_referencia, error, pdf_path, creado_por, emitido_por, emitido_en, created_at, forma_de_pago, vencimiento';
+  'id, company_id, tipo, ambiente, folio, fecha_emision, estado, receptor, detalle, referencias, neto, exento, iva, total, quotation_id, orden_de_compra_id, porcentaje, modifica_id, codigo_referencia, error, pdf_path, creado_por, emitido_por, emitido_en, created_at, forma_de_pago, vencimiento, medio_de_pago';
 
 // Las filas de cada pedido a la base: lo más que entrega de una vez.
 const PAGINA = 1000;

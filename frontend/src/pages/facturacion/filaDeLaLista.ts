@@ -1,4 +1,5 @@
 import type { DocumentoDeLaLista } from "../../services/documentosTributarios.service";
+import { nombreDelMedio } from "../../constants/facturacion";
 import { fechaCorta } from "../../utils/ordenesDeCompra";
 
 /**
@@ -34,13 +35,16 @@ export const colorDelEstado = (d: DocumentoDeLaLista) =>
       ? "border-red-200 bg-red-50 text-red-700"
       : "border-green-200 bg-green-50 text-green-700";
 
-/** «Crédito 30 días · vence 06-12» o «Contado»: la factura (§9.22). */
-export const condicionDePago = (d: DocumentoDeLaLista) =>
-  d.tipo !== 33 || d.forma_de_pago == null
-    ? null
-    : d.forma_de_pago === 1 || !d.vencimiento
-      ? "Contado"
-      : `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
+/** «Crédito 30 días · vence 06-12» o «Contado»: la factura (§9.22). Con
+ *  su medio de pago (§9.43): «Contado · Débito», y la boleta, «Efectivo». */
+export const condicionDePago = (d: DocumentoDeLaLista) => {
+  const medio = nombreDelMedio(d.medio_de_pago);
+  if (d.tipo === 39) return medio;
+  if (d.tipo !== 33 || d.forma_de_pago == null) return null;
+  if (d.forma_de_pago === 1 || !d.vencimiento)
+    return medio ? `Contado · ${medio}` : "Contado";
+  return `Crédito ${d.plazo_dias ?? ""} días · vence ${fechaCorta(d.vencimiento).slice(0, 5)}`;
+};
 
 /** «F383_Municipalidad de Quillón_460_1213301-49-AG26.pdf» (§9.35; un
  *  motor de antes manda solo «NC 88», o ni eso, y se corta del título). */
