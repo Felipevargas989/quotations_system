@@ -2730,8 +2730,14 @@ Felipe, 09-11, mirando la lista: *"¿acá por qué quedó la 388 arriba de la
   salió después.
 - Un número nunca salta a otro, aunque su fecha sea otra o se haya traído
   después de facturacion.cl (la 374, traída el 08-11, queda bajo la 381):
-  la marca de cada documento es el más nuevo de su tipo con un N° igual o
-  menor (`porNumero`, en `filaDeLaLista.ts`).
+  la marca de cada documento es el más viejo de su tipo con un N° igual o
+  mayor (`porNumero`, en `filaDeLaLista.ts`). Así lo traído después baja
+  con su número y no sube a los demás de su tipo sobre las boletas (la
+  primera versión usaba «el más nuevo con N° igual o menor», y una factura
+  antigua traída al final subía todas las facturas de N° más alto sobre las
+  boletas; lo vio la revisión del 09-11 y Felipe: *"corrige los dos"*).
+- La marca sale de todo lo que trajo el motor, no de lo filtrado: filtrar
+  por tipo, estado o texto no cambia el orden entre los que quedan.
 - Lo que espera «Comprobar» (sin N° o sin fecha) sigue primero, y las
   notas siguen debajo de su documento, de la más vieja a la más nueva.
 - El reporte (CSV) no cambia.
