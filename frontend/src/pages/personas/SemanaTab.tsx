@@ -803,8 +803,10 @@ export default function SemanaTab({
           diasFijos={new Set(dias)}
           onQuitarDia={() => {}}
           columnaTitulo="Evento · cargo"
-          // Más ancha que en Gestión: cada evento en una sola línea.
-          anchoTitulo="w-80"
+          // Más ancha que en Gestión: cada evento en una sola línea. Medido
+          // en el laboratorio: con 20rem, «#473 · Cliente demo · jue 19 nov»
+          // se partía por 2 px al lado de su «+ cargo».
+          anchoTitulo="w-[22rem]"
           // Sobre blanco, el mes una vez y una línea entre semanas.
           calendario
           resaltarDia={hoyEnChile()}
