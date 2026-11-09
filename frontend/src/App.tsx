@@ -23,6 +23,7 @@ import { usePageViews } from "./hooks/usePageViews.ts";
 //
 // Regla para pantallas nuevas: si vive detrás del login, va lazy.
 import PageSkeleton from "./components/PageSkeleton";
+import SiYaEntro from "./components/SiYaEntro";
 import LandingPage from "./pages/landingPage/LandingPage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import RegisterPage from "./pages/landingPage/RegisterPage.tsx";
@@ -169,8 +170,24 @@ function App() {
         <RastreadorDeRutas />
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
+            {/* Las dos puertas: quien llega con la sesión iniciada pasa
+                derecho adentro (Felipe, 09-11-2026; ver SiYaEntro). */}
+            <Route
+              path="/"
+              element={
+                <SiYaEntro>
+                  <LandingPage />
+                </SiYaEntro>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <SiYaEntro>
+                  <LoginPage />
+                </SiYaEntro>
+              }
+            />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/register" element={<RegisterPage />} />
