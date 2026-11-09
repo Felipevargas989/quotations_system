@@ -82,6 +82,28 @@ export const compararEventos = (
   return (a?.numero ?? Number.MAX_SAFE_INTEGER) - (b?.numero ?? Number.MAX_SAFE_INTEGER);
 };
 
+/** LA VISTA DE LA SÁBANA (Felipe, 09-11-2026: "¿y si vemos solo 2 semanas
+ *  adelante por defecto?", "y un botón para ver los próximos 30 días" y
+ *  "las flechas que avancen de 1 en 1"). Reemplaza la vista mensual fija del
+ *  15-08. Cada vez que se entra parte en dos semanas. */
+export type VistaDeLaSabana = "dos-semanas" | "treinta-dias";
+
+/** Cuántos días se ven en cada vista. */
+export const DIAS_DE_LA_VISTA: Record<VistaDeLaSabana, number> = {
+  "dos-semanas": 14,
+  "treinta-dias": 30,
+};
+
+/** Cuántos días mueven las flechas: una semana. */
+export const PASO_DE_LAS_FLECHAS = 7;
+
+/** Cuántos días de datos se piden: al menos 28, porque esa es la clave de
+ *  caché que la sábana comparte con la ficha de la persona (mapa 07, zona
+ *  de riesgo 14). Con la misma clave, lo que se cambia en un lado se ve al
+ *  instante en el otro. */
+export const diasDeDatos = (vista: VistaDeLaSabana): number =>
+  Math.max(DIAS_DE_LA_VISTA[vista], 28);
+
 /** ¿El evento cae (aunque sea un día) dentro del rango visible? */
 export const eventoEnRango = (
   e: FechasDeEvento,

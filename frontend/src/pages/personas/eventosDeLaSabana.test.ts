@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  DIAS_DE_LA_VISTA,
+  PASO_DE_LAS_FLECHAS,
+  diasDeDatos,
   compararEventos,
   costoDeLaGente,
   diasConMas,
@@ -135,5 +138,17 @@ describe("compararEventos (en cascada)", () => {
     const a = { numero: 521, inicio: "2026-11-04", termino: "2026-11-09" };
     const b = { numero: 522, inicio: "2026-11-04", termino: "2026-11-09" };
     expect(compararEventos(a, b)).toBeLessThan(0);
+  });
+});
+
+describe("la vista de la sábana", () => {
+  it("dos semanas por defecto, 30 días con el botón y flechas de a una semana", () => {
+    expect(DIAS_DE_LA_VISTA["dos-semanas"]).toBe(14);
+    expect(DIAS_DE_LA_VISTA["treinta-dias"]).toBe(30);
+    expect(PASO_DE_LAS_FLECHAS).toBe(7);
+  });
+  it("pide al menos 28 días: la clave que comparte con la ficha de la persona", () => {
+    expect(diasDeDatos("dos-semanas")).toBe(28);
+    expect(diasDeDatos("treinta-dias")).toBe(30);
   });
 });

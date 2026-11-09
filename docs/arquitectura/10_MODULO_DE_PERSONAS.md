@@ -692,20 +692,42 @@ Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
 - **Tres secciones** con título y color: **Eventos** (verde), **Personal
   de planta** (azul) y **Personal Staff** (lila), los colores de sus
   celdas. Las dos bandas del 21-10 viven dentro de las dos últimas.
+- **Dos semanas por defecto, o los próximos 30 días** (Felipe, 09-11-2026:
+  *"¿y si vemos solo 2 semanas adelante por defecto?"*, *"y un botón para
+  ver los próximos 30 días"* y *"las flechas que avancen de 1 en 1"*).
+  Reemplaza la vista mensual fija del 15-08: la sábana parte el domingo de
+  la semana, muestra 14 días y, con el selector «2 semanas · 30 días» al
+  lado de «hoy», 30. Las flechas mueven una semana y cada vez que se entra
+  parte en dos semanas. Por dentro se piden al menos 28 días, la clave que
+  comparte con la ficha de la persona, y las filas se arman solo con lo de
+  los días que se ven.
 - **Los eventos van en cascada** (Felipe, 09-11-2026: *"del que se va a
   realizar antes al último, cosa de irlo viendo en cascada y no así como
   saltados"*): primero el que parte antes; mismo día, el que termina antes;
   y después el número. Antes iban por número de cotización.
 - **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
   muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
-  color en una banda con una línea a la izquierda, su número y una barra
-  sobre sus días. Los colores se reparten en orden por la cascada, así dos
+  color en una banda con una línea a la izquierda y una barra sobre sus
+  días. Número, cliente y fecha van en una sola línea, con su «+ cargo»
+  chico al lado, y la línea de color baja por todas las filas del evento
+  (Felipe, 09-11-2026: *"¿no será mejor que esté todo en la misma fila? y
+  que el borde del color tome todas las filas relacionadas al evento"*). Los colores se reparten en orden por la cascada, así dos
   eventos seguidos nunca llevan el mismo (sacarlos del número de la
   cotización repetía colores vecinos: la #384 y la #456, la #460 y la
-  #454). El
-  «+» de antes y después va en el color del evento, el «+» vacío de planta
-  en azul y el de Staff en lila; fuera del evento, en blanco (sin el
-  puntito); y la columna de hoy en azul de arriba abajo. El verde y el
+  #454). El título de cada evento lleva un fondo suave de su color y su
+  «+ cargo» es un botoncito del mismo color. La línea de «Eventos», la de
+  Planta, la de Staff y la de cada evento parten del mismo borde (Felipe,
+  09-11-2026: *"¿que la línea de eventos y los eventos no esté
+  alineada?"*). Hoy se marca solo arriba, con el número en un círculo azul
+  (*"no sé si vale mucho marcar el día actual para abajo, quizás solo
+  arriba en la fecha"*); el mes va una sola vez. (Hubo una línea antes de
+  cada domingo para separar las semanas; Felipe la sacó ese mismo día:
+  *"¿por qué hay una raya del sáb 14 al dom 15?"*.) La grilla y el resumen del día van sobre blanco; el gris
+  del fondo es de todo el sistema y no se tocó (*"si lo cambiamos se
+  cambia todo"*). El
+  «+» de antes y después va callado, sin cajita, en el color del evento
+  (la cajita aparece al pasar el mouse); el «+» vacío de planta en azul y
+  el de Staff en lila; fuera del evento, en blanco (sin el puntito). El verde y el
   ámbar de las casillas siguen diciendo completo o falta gente, y los
   colores de los eventos evitan esos dos, el azul y el lila.
 - **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos

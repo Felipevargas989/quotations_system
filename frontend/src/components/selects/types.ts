@@ -54,4 +54,9 @@ export interface SelectWithSearchProps {
   // contacto de la ficha: "quedó feo esto"). La lista que se abre es la
   // misma. Por omisión, "caja".
   readonly aspecto?: "caja" | "texto";
+
+  // El color del texto cerrado en aspecto "texto" (09-11-2026): el
+  // «+ cargo» de cada evento de la sábana va en el color de su evento.
+  // Por omisión, el de siempre.
+  readonly claseTexto?: string;
 }

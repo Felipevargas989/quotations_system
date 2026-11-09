@@ -23,11 +23,15 @@ import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento"
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
 import { colorDelEvento, type ColorDeEvento } from "./coloresDeEvento";
 import {
+  DIAS_DE_LA_VISTA,
+  PASO_DE_LAS_FLECHAS,
   compararEventos,
   diasConMas,
+  diasDeDatos,
   diasDe,
   eventoEnRango,
   eventosDelDia,
+  type VistaDeLaSabana,
 } from "./eventosDeLaSabana";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
@@ -151,13 +155,16 @@ export default function SemanaTab({
   const [domingo, setDomingo] = useState(() =>
     domingoDe(diaInicial || hoyEnChile()),
   );
-  // LA SÁBANA (Felipe, 15-08): se parte viendo dos semanas y se puede
-  // achicar a una o abrir al mes. Siempre alineada al domingo.
-  // LA SÁBANA ES MENSUAL Y FIJA (Felipe, 15-08: "dejemos la vista
-  // mensual fija, así simplificamos un poco la cosa"). Antes se podía
-  // elegir semana / 2 semanas / mes: tres formas de mirar lo mismo, y
-  // la de un mes es la que sirve para planificar.
-  const RANGO = 28;
+  // DOS SEMANAS POR DEFECTO, O LOS PRÓXIMOS 30 DÍAS (Felipe, 09-11-2026:
+  // "¿y si vemos solo 2 semanas adelante por defecto?", "y un botón para
+  // ver los próximos 30 días", "las flechas que avancen de 1 en 1").
+  // Reemplaza la vista mensual fija del 15-08. Siempre alineada al
+  // domingo, y cada vez que se entra parte en dos semanas.
+  const [vista, setVista] = useState<VistaDeLaSabana>("dos-semanas");
+  const RANGO = DIAS_DE_LA_VISTA[vista];
+  // Los datos se piden por al menos 28 días: la clave de caché que la
+  // sábana comparte con la ficha de la persona (mapa 07, riesgo 14).
+  const RANGO_DATOS = diasDeDatos(vista);
   const [casilla, setCasilla] = useState<{ dia: string; fila: FilaSemana } | null>(null);
   // Los cargos de planta agregados a mano en esta sesión ("+ cargo"):
   // por defecto solo se muestran los que tienen gente — 10 filas siempre
@@ -182,9 +189,10 @@ export default function SemanaTab({
 
   const dias = useMemo(
     () => Array.from({ length: RANGO }, (_, i) => sumarDias(domingo, i)),
-    [domingo],
+    [domingo, RANGO],
   );
   const hasta = dias[dias.length - 1];
+  const hastaDatos = sumarDias(domingo, RANGO_DATOS - 1);
 
   const { data: eventos = [] } = useQuery({
     queryKey: ["people", "eventos-semana"],
@@ -243,8 +251,8 @@ export default function SemanaTab({
     queryFn: () => getManagementResources(companyId),
   });
   const { data: staffCrudo = [] } = useQuery({
-    queryKey: ["people", "staff-semana", domingo, RANGO],
-    queryFn: () => getStaffSemana(domingo, hasta),
+    queryKey: ["people", "staff-semana", domingo, RANGO_DATOS],
+    queryFn: () => getStaffSemana(domingo, hastaDatos),
   });
   // La sábana es PLANIFICACIÓN: la planta que la ficha de liquidación
   // trae a un evento no entra acá (Felipe, 18-08). Ver esPlanificacion.
@@ -255,7 +263,7 @@ export default function SemanaTab({
   // Recursos): se refresca solo el staff de ESTA semana — una consulta,
   // no el catálogo entero de todos los eventos.
   const refrescar = () => {
-    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo, RANGO] });
+    qc.invalidateQueries({ queryKey: ["people", "staff-semana", domingo, RANGO_DATOS] });
   };
 
   const poner = useMutation({
@@ -316,7 +324,7 @@ export default function SemanaTab({
     // devuelve sola. Es el mismo patrón de la grilla de Gestión y del
     // calendario de la ficha.
     onMutate: async (p) => {
-      const clave = ["people", "staff-semana", domingo, RANGO];
+      const clave = ["people", "staff-semana", domingo, RANGO_DATOS];
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       const persona = personas.find((x) => x.id === p.personId);
@@ -361,7 +369,7 @@ export default function SemanaTab({
     // su puesto_en) reemplaza a la provisoria EN SU LUGAR — sin
     // re-pedir nada, no hay carrera posible.
     onSuccess: (real, p, ctx) => {
-      const clave = ["people", "staff-semana", domingo, RANGO];
+      const clave = ["people", "staff-semana", domingo, RANGO_DATOS];
       const persona = personas.find((x) => x.id === p.personId);
       qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
         viejo.map((a) =>
@@ -384,7 +392,7 @@ export default function SemanaTab({
     },
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
-        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO_DATOS], ctx.antes);
       toast.error(humanizeApiError(e));
     },
   });
@@ -400,7 +408,7 @@ export default function SemanaTab({
     // Al instante, igual que poner: la fila desaparece (restaurante) o
     // queda como silla vacía (evento) sin esperar al servidor.
     onMutate: async (id) => {
-      const clave = ["people", "staff-semana", domingo, RANGO];
+      const clave = ["people", "staff-semana", domingo, RANGO_DATOS];
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       const laFila = antes?.find((a) => a.id === id) ?? null;
@@ -416,7 +424,7 @@ export default function SemanaTab({
     },
     onError: (e: unknown, _id, ctx) => {
       if (ctx?.antes)
-        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO_DATOS], ctx.antes);
       toast.error(humanizeApiError(e));
     },
     // SIN REFRESCO MASIVO AL SACAR (Felipe, 04-09: "parpadeó un día que
@@ -486,7 +494,7 @@ export default function SemanaTab({
     // los $25.000 ya puestos (Felipe, 04-09, probándolo). Si el
     // servidor rechaza (p. ej. confirmar sin monto), se devuelve solo.
     onMutate: async (p) => {
-      const clave = ["people", "staff-semana", domingo, RANGO];
+      const clave = ["people", "staff-semana", domingo, RANGO_DATOS];
       await qc.cancelQueries({ queryKey: clave });
       const antes = qc.getQueryData<Asignacion[]>(clave);
       qc.setQueryData<Asignacion[]>(clave, (viejo = []) =>
@@ -502,7 +510,7 @@ export default function SemanaTab({
     // la foto vieja traía la fila provisoria y borraba la real (16-09).
     onError: (e: unknown, _p, ctx) => {
       if (ctx?.antes)
-        qc.setQueryData(["people", "staff-semana", domingo, RANGO], ctx.antes);
+        qc.setQueryData(["people", "staff-semana", domingo, RANGO_DATOS], ctx.antes);
       refrescar();
       const msg = e instanceof Error ? e.message : humanizeApiError(e);
       if (msg.startsWith("Esa fila se está guardando")) toast.warn(msg);
@@ -522,7 +530,13 @@ export default function SemanaTab({
     // casilla muestra a los sentados; "necesita" cuenta TODAS las
     // sillas. Antes venían de event_resources, y poner un cuarto garzón
     // no movía la necesidad: eran dos mundos sin cable.
-    for (const a of staff) {
+    // Solo lo de los días que se ven: se piden al menos 28 aunque se vean
+    // dos semanas (09-11-2026).
+    const visibles = staff.filter((a) => {
+      const d = iso(a.day);
+      return d !== null && d >= domingo && d <= hasta;
+    });
+    for (const a of visibles) {
       if (a.quotation_id === null) continue;
       const e = porEvento.get(String(a.quotation_id));
       const r = a.role_id ? porRecurso.get(a.role_id) : null;
@@ -554,7 +568,7 @@ export default function SemanaTab({
 
     // Gente puesta en una casilla cuyo cargo ya no está costeado: la fila
     // igual se muestra, para que nadie quede invisible.
-    for (const a of staff) {
+    for (const a of visibles) {
       // La gente sin evento vive en el Staff, más abajo: si
       // entrara acá crearía un grupo fantasma "Evento" (bug del 15-08).
       if (a.quotation_id === null) continue;
@@ -624,7 +638,7 @@ export default function SemanaTab({
     // (15-08): no es solo el restaurante, también patio, recepción, lo
     // que sea. Dos bandas, que decide el TIPO de cada jornada (Felipe,
     // 21-10-2026): planta arriba, staff abajo. Ver bandasDelStaff.ts.
-    const sinEvento = staff.filter((a) => a.quotation_id === null);
+    const sinEvento = visibles.filter((a) => a.quotation_id === null);
     return [...deEventos, ...filasSinEvento(catalogo, sinEvento, cargosPlanta)];
   }, [catalogo, eventos, staff, domingo, hasta, cargosPlanta, cargosDeEvento]);
 
@@ -719,8 +733,8 @@ export default function SemanaTab({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, -RANGO))}
-            aria-label="Mes anterior"
+            onClick={() => setDomingo(sumarDias(domingo, -PASO_DE_LAS_FLECHAS))}
+            aria-label="Semana anterior"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -730,8 +744,8 @@ export default function SemanaTab({
           </span>
           <button
             type="button"
-            onClick={() => setDomingo(sumarDias(domingo, RANGO))}
-            aria-label="Mes siguiente"
+            onClick={() => setDomingo(sumarDias(domingo, PASO_DE_LAS_FLECHAS))}
+            aria-label="Semana siguiente"
             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
           >
             <ChevronRight className="w-4 h-4" />
@@ -743,6 +757,29 @@ export default function SemanaTab({
           >
             hoy
           </button>
+          {/* 2 semanas por defecto, o los próximos 30 días (09-11-2026). */}
+          <div className="ml-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
+            {(
+              [
+                ["dos-semanas", "2 semanas"],
+                ["treinta-dias", "30 días"],
+              ] as const
+            ).map(([v, texto]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVista(v)}
+                aria-pressed={vista === v}
+                className={`px-2 py-1 ${
+                  vista === v
+                    ? "bg-blue-50 text-blue-700 font-medium"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
         </div>
         {faltan > 0 && (
           <span className="flex items-center gap-1.5 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
@@ -766,6 +803,12 @@ export default function SemanaTab({
           diasFijos={new Set(dias)}
           onQuitarDia={() => {}}
           columnaTitulo="Evento · cargo"
+          // Más ancha que en Gestión: cada evento en una sola línea. Medido
+          // en el laboratorio: con 20rem, «#473 · Cliente demo · jue 19 nov»
+          // se partía por 2 px al lado de su «+ cargo».
+          anchoTitulo="w-[22rem]"
+          // Sobre blanco y con el mes una sola vez.
+          calendario
           resaltarDia={hoyEnChile()}
           onDiaClick={(d) => {
             setCasilla(null);
@@ -801,13 +844,18 @@ export default function SemanaTab({
             grupoBarra: barraDelEvento(f, colorDeFila(f)),
             grupoAccion:
               f.quotationId !== null ? (
-                <div className="w-44 font-normal normal-case">
+                // El «+ cargo» como botoncito del color de su evento.
+                <div
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-normal normal-case ${colorDeFila(f).boton}`}
+                >
                   <SelectorDeCargo
                     catalogo={catalogo}
                     yaVisibles={filas
                       .filter((x) => x.quotationId === f.quotationId)
                       .map((x) => x.cargoId)}
                     onAgregar={(id) => sumarCargoAlEvento(f.quotationId!, id)}
+                    aspecto="texto"
+                    claseTexto={colorDeFila(f).texto}
                   />
                 </div>
               ) : undefined,
@@ -965,9 +1013,10 @@ export default function SemanaTab({
                     }
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
-                    // (Felipe, 15-08). Punteado en el color del evento: un
-                    // día antes o después, que se puede usar si hace falta
-                    // (09-11-2026: antes era gris).
+                    // (Felipe, 15-08). Un día antes o después lleva un «+»
+                    // callado en el color del evento, y su cajita punteada
+                    // aparece al pasar el mouse (09-11-2026: la hilera de
+                    // cajitas pesaba más que lo importante).
                     className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"

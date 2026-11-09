@@ -166,7 +166,7 @@ export default function ResumenDelDia({
   const costoTotal = costoEventos + costoPlanta + costoStaff;
 
   return (
-    <div className="border border-gray-200 rounded-xl p-4">
+    <div className="border border-gray-200 rounded-xl p-4 bg-white">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
