@@ -8,6 +8,7 @@ import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
 import CajaDeRecepcion from "./CajaDeRecepcion";
 import CierresDeCaja from "./CierresDeCaja";
+import LoVendido from "./LoVendido";
 import { usePorFacturar } from "./consultas";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
@@ -233,6 +234,7 @@ export default function FacturacionPage() {
             <div className="space-y-6">
               {conCaja && <CajaDeRecepcion />}
               {conCierres && <CierresDeCaja />}
+              {conCierres && <LoVendido />}
             </div>
           )}
           {pestana === "tarifario" && <TarifarioDeBoletas />}

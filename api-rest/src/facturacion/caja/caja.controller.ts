@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
@@ -16,6 +17,7 @@ import {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  LoVendidoQueryDto,
   RetiroDeCajaDto,
   RevisarCierreDto,
 } from './caja.dto';
@@ -60,6 +62,14 @@ export class CajaController {
   @Roles(...OPERAN_LA_CAJA)
   cerrar(@Body() dto: CerrarCajaDto, @CurrentUser() user: User) {
     return this.caja.cerrar(user, dto);
+  }
+
+  /** «Lo vendido» (sprint 3): con el permiso de revisar los cierres. */
+  @Permiso('caja_revision')
+  @Get('vendido')
+  @Roles(...ADMIN_ONLY)
+  vendido(@Query() q: LoVendidoQueryDto, @CurrentUser() user: User) {
+    return this.caja.vendido(user, q);
   }
 
   @Permiso('caja_revision')

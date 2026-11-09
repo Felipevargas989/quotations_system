@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
+import { EmailModule } from 'src/email/email.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
 import { BoletasController } from './boletas/boletas.controller';
 import { BoletasRepository } from './boletas/boletas.repository';
@@ -40,7 +41,8 @@ import { RecibidosService } from './recibidos/recibidos.service';
  * `notas/`). Es el módulo propio `facturacion`: solo Valle del Sol.
  */
 @Module({
-  imports: [ClientsModule, QuotationFollowupsModule],
+  // El correo: el resumen del cierre de la caja (doc 19 §9.43).
+  imports: [ClientsModule, QuotationFollowupsModule, EmailModule],
   controllers: [
     OrdenesDeCompraController,
     FacturasController,

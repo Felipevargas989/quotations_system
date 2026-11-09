@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -83,4 +84,18 @@ export class RevisarCierreDto {
   @IsString()
   @MaxLength(500)
   nota?: string | null;
+}
+
+/** «Lo vendido» (sprint 3): el período y, si se elige, la persona. */
+export class LoVendidoQueryDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Desde va como AAAA-MM-DD' })
+  desde: string;
+
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Hasta va como AAAA-MM-DD' })
+  hasta: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  persona?: string;
 }

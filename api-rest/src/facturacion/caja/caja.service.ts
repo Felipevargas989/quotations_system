@@ -5,17 +5,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { CARGOS } from 'src/auth/permisos';
+import { PermisosService } from 'src/auth/permisos.service';
+import { EmailService } from 'src/email/email.service';
+import { EmailStructure } from 'src/email/types';
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
 import { textoLimpio } from '../archivo/texto';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  LoVendidoQueryDto,
   RetiroDeCajaDto,
   RevisarCierreDto,
 } from './caja.dto';
 import { CajaRepository, type TurnoDeCaja } from './caja.repository';
-import { cuadrar } from './cuadre';
+import { cuadrar, vendidoPorItem } from './cuadre';
+
+/** «Lo vendido» mira hasta un año de una vez. */
+const DIAS_MAXIMOS = 366;
+const DIA = 24 * 60 * 60 * 1000;
 
 /**
  * LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2).
@@ -38,6 +48,9 @@ export class CajaService {
   constructor(
     private readonly repo: CajaRepository,
     private readonly logger: PinoLogger,
+    // Sprint 3: el resumen del cierre, por correo a quien revisa.
+    private readonly permisos: PermisosService,
+    private readonly email: EmailService,
   ) {
     this.logger.setContext(CajaService.name);
   }
@@ -113,7 +126,134 @@ export class CajaService {
     });
     if (!cerrado) throw new ConflictException('La caja ya se había cerrado');
     this.logger.info(`caja de recepción cerrada (turno ${turno.id})`);
+    await this.avisarElCierre(user.company_id, cerrado);
     return { cerrada_en: cerrado.cerrada_en };
+  }
+
+  /**
+   * El resumen del cierre por correo (sprint 3, como el de Fudo) a las
+   * personas de los cargos con «Revisar cierres de caja». Quien cerró no lo
+   * recibe si su cargo no revisa: el cierre es ciego. Si falla, la caja
+   * queda cerrada igual y se anota en el registro.
+   */
+  private async avisarElCierre(companyId: number, turno: TurnoDeCaja) {
+    try {
+      const cargos: string[] = [];
+      for (const cargo of CARGOS)
+        if (
+          (await this.permisos.delCargo(companyId, cargo)).includes(
+            'caja_revision',
+          )
+        )
+          cargos.push(cargo);
+      const correos = await this.repo.correosDe(companyId, cargos);
+      if (!correos.length) return;
+      const [documentos, retiros, empresa] = await Promise.all([
+        this.repo.documentos(companyId, [turno.id]),
+        this.repo.retiros(companyId, [turno.id]),
+        this.repo.nombreDeLaEmpresa(companyId),
+      ]);
+      const c = cuadrar(turno, documentos, retiros);
+      await this.email.sendEmail(correos, EmailStructure.CIERRE_DE_CAJA, {
+        companyName: empresa,
+        quien: turno.cerrada_por_nombre ?? turno.abierta_por_nombre,
+        abierta: turno.abierta_en,
+        cerrada: turno.cerrada_en ?? new Date().toISOString(),
+        lineas: c.lineas.map((l) => ({
+          medio: l.medio,
+          declarado: l.declarado ?? 0,
+          esperado: l.esperado,
+          diferencia: l.diferencia ?? 0,
+        })),
+        vendido: c.vendido,
+        retiros: c.retiros,
+        diferencia: c.diferencia ?? 0,
+        comentario: turno.comentario,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `el resumen del cierre ${turno.id} no salió por correo: ${mensajeDe(error)}`,
+      );
+    }
+  }
+
+  /**
+   * «Lo vendido» (sprint 3; Felipe, 09-11: *"también debo poder ver
+   * cuántos tickets, cuántas tinajas, etc. se han vendido"*): lo del
+   * tarifario en las boletas y facturas emitidas del período, sin lo que
+   * anuló una nota de crédito, por ítem y, si se elige, por persona (quien
+   * abrió la caja; fuera de la caja, quien emitió).
+   */
+  async vendido(user: User, q: LoVendidoQueryDto) {
+    const desde = Date.parse(`${q.desde}T00:00:00Z`);
+    const hasta = Date.parse(`${q.hasta}T00:00:00Z`);
+    if (Number.isNaN(desde) || Number.isNaN(hasta) || hasta < desde)
+      throw new BadRequestException('El período no es válido');
+    if ((hasta - desde) / DIA > DIAS_MAXIMOS)
+      throw new BadRequestException(
+        'Lo vendido se mira hasta un año de una vez',
+      );
+    const companyId = user.company_id;
+    const delPeriodo = (
+      await this.repo.documentosDelPeriodo(companyId, q.desde, q.hasta)
+    ).filter((d) => (d.detalle ?? []).some((l) => l.tarifario_id != null));
+    const turnos = [
+      ...new Set(
+        delPeriodo
+          .map((d) => d.turno_de_caja_id)
+          .filter((t): t is number => t != null),
+      ),
+    ];
+    const personas = [
+      ...new Set(
+        delPeriodo
+          .filter((d) => d.turno_de_caja_id == null && d.creado_por)
+          .map((d) => d.creado_por as string),
+      ),
+    ];
+    const [anulados, deTurnos, dePersonas, tarifario] = await Promise.all([
+      this.repo.anulados(
+        companyId,
+        delPeriodo.map((d) => d.id),
+      ),
+      this.repo.nombresDeTurnos(companyId, turnos),
+      this.repo.nombresDePersonas(companyId, personas),
+      this.repo.tarifario(companyId),
+    ]);
+    const vigentes = delPeriodo
+      .filter((d) => !anulados.has(d.id))
+      .map((d) => ({
+        ...d,
+        persona:
+          (d.turno_de_caja_id != null
+            ? deTurnos.get(d.turno_de_caja_id)
+            : d.creado_por
+              ? dePersonas.get(d.creado_por)
+              : null) ?? null,
+      }));
+    const persona = textoLimpio(q.persona);
+    const items = vendidoPorItem(
+      persona ? vigentes.filter((d) => d.persona === persona) : vigentes,
+      true,
+    ).map((i) => {
+      const item = tarifario.find((t) => t.id === i.tarifario_id);
+      return {
+        ...i,
+        nombre: item?.nombre ?? i.nombre,
+        unidad: item?.unidad ?? 'unidad',
+      };
+    });
+    return {
+      desde: q.desde,
+      hasta: q.hasta,
+      personas: [
+        ...new Set(
+          vigentes.map((d) => d.persona).filter((p): p is string => !!p),
+        ),
+      ].sort((a, b) => a.localeCompare(b, 'es')),
+      items,
+      total: items.reduce((s, i) => s + i.monto, 0),
+    };
   }
 
   /** Los cierres para revisar, del más nuevo al más viejo. */

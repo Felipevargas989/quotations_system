@@ -152,3 +152,32 @@ export const revisarCierre = async (
   (await apiRequest(`${base}/cierres/${id}/revisar`, "POST", {
     nota,
   })) as CierreDeCaja;
+
+/** «Lo vendido» (sprint 3): lo del tarifario del período, por ítem. */
+export interface LoVendido {
+  desde: string;
+  hasta: string;
+  /** Quienes vendieron en el período, para elegir. */
+  personas: string[];
+  items: {
+    tarifario_id: number | null;
+    nombre: string;
+    unidad: string;
+    cantidad: number;
+    monto: number;
+  }[];
+  total: number;
+}
+
+export const getLoVendido = async (q: {
+  desde: string;
+  hasta: string;
+  persona?: string | null;
+}): Promise<LoVendido> => {
+  const p = new URLSearchParams({ desde: q.desde, hasta: q.hasta });
+  if (q.persona) p.set("persona", q.persona);
+  return (await apiRequest(
+    `${base}/vendido?${p.toString()}`,
+    "GET",
+  )) as LoVendido;
+};
