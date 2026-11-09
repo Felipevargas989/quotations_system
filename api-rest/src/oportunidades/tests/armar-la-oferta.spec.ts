@@ -404,6 +404,24 @@ describe('Armar la oferta', () => {
     ]);
   });
 
+  it('lo que se ofrece se lee completo: el menú no se corta en 600 letras (decisión 120)', () => {
+    const menu = `Aperitivo: pisco sour y jugo natural. ${'Cóctel frío y caliente, y cena de tres tiempos con entrada, fondo y postre. '.repeat(12)}Durante la cena: gaseosas, agua mineral y jugos naturales.`;
+    expect(menu.length).toBeGreaterThan(600);
+    const leido = leerArmado({
+      ...RESPUESTA,
+      matriz: [
+        {
+          especificacion: 'Anexo N°5: carta de compromiso del menú',
+          pagina: 9,
+          como: menu,
+          origen: 'parecido',
+          productos: [],
+        },
+      ],
+    });
+    expect(leido?.matriz[0].como).toBe(menu);
+  });
+
   it('lo parecido y lo particular se leen con su origen (decisión 120)', () => {
     const leido = leerArmado({
       ...RESPUESTA,
