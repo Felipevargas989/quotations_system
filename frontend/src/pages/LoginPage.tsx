@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { LogIn, Eye, EyeOff } from "lucide-react";
-import { UserRole } from "../constants/users";
+import { destinoAlEntrar } from "../utils/entrada";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -27,12 +27,9 @@ export default function LoginPage() {
             : "No se pudo iniciar sesión. Intenta de nuevo.",
         );
       } else {
-        // Basic role-based navigation
-        if (userRole && userRole === UserRole.ADMINISTRADOR) {
-          navigate("/dashboard");
-        } else {
-          navigate("/requests");
-        }
+        // La misma regla de la puerta (utils/entrada): el administrador
+        // al Dashboard y los demás a Requerimientos.
+        navigate(destinoAlEntrar(userRole));
       }
     } catch (err) {
       setError("Error al iniciar sesión");

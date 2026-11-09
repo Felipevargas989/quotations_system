@@ -27,7 +27,7 @@ Cómo leer los conteos de este mapa: "archivos que la usan" es la cantidad de ar
 
 | Ruta | Componente | Archivo | Guardia (sección → roles) | Mapa |
 |---|---|---|---|---|
-| `/`, `/login`, `/register`, `/forgot-password`, `/reset-password` | `LandingPage`, `LoginPage`, `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage` | `pages/landingPage/`, `pages/LoginPage.tsx`, `pages/auth/` | pública | 15 |
+| `/`, `/login`, `/register`, `/forgot-password`, `/reset-password` | `LandingPage`, `LoginPage`, `RegisterPage`, `ForgotPasswordPage`, `ResetPasswordPage` (desde el 09-11-2026, `/` y `/login` dentro de `SiYaEntro`: con la sesión iniciada pasan derecho adentro) | `pages/landingPage/`, `pages/LoginPage.tsx`, `pages/auth/`, `components/SiYaEntro.tsx` | pública | 15 |
 | ruta oculta del súper administrador (ver `App.tsx`) | `SuperAdminPage` | `pages/superAdmin/Index.tsx` | **pública en la app** (`TODO: add authentication`); el motor exige `SUPER_ADMIN_EMAILS` | 15 |
 | `/public-quotation/:company_id` | `CreateQuotationPublic` | `pages/quotations/CreateQuotationPublic.tsx` | pública | 01, 11 |
 | `/customer-satisfaction-survey/:companyId/:quotationId` | `CustomerSatisfactionSurveyPublicPage` | `pages/customerSatisfactionSurveys/PublicSurvey.tsx` | pública | 14 |
