@@ -7,7 +7,11 @@ import type {
   DocumentoTributario,
   DocumentosTributariosRepository,
 } from './documentos-tributarios.repository';
-import { nombreDelPdfDe, nombreParaElBalde } from './nombre-del-pdf';
+import {
+  nombreDelPdfDe,
+  nombreEnElEvento,
+  nombreParaElBalde,
+} from './nombre-del-pdf';
 
 /**
  * LA COPIA PROPIA DEL PDF (doc 19, L10): el enlace de facturacion.cl es
@@ -50,10 +54,12 @@ export async function guardarCopiaDelPdf(
     : `c${companyId}/documentos-tributarios/${archivo}`;
   await repo.guardarPdf(ruta, pdf);
   const conPdf = await repo.actualizar(doc.id, companyId, { pdf_path: ruta });
+  // §9.39: en Documentos del evento, con un nombre que se lee («Factura
+  // N° 386 · $2.805.800»): uno que termina en «.pdf» no se muestra.
   if (quotationId)
     await repo.agregarAlEvento(
       quotationId,
-      `${nombre}${EN_EL_NOMBRE[doc.ambiente] ?? ''}.pdf`,
+      `${nombreEnElEvento(doc)}${EN_EL_NOMBRE[doc.ambiente] ?? ''}`,
       ruta,
     );
   return conPdf;

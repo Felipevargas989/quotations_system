@@ -2737,6 +2737,19 @@ fecha emisión, condición de pago"*.
   emisión y la condición de pago: la cotización, el evento y «Factura
   parcial…» ya están arriba. Siguen en las observaciones del PDF y en la
   vista previa de «Emitir». Solo pantalla.
+### 9.39 El nombre de la factura en Documentos del evento (08-11)
+
+Felipe, 08-11, mirando Documentos → Facturas de la #481 (cinco filas con
+solo la fecha): *"cuando guardes las facturas en el evento le puedes poner
+algún nombre. Mira cómo quedan si no les ponen nombre. Es muy difícil
+después encontrarla. Puede ser quizás el número de la factura y el monto
+facturado"*. Post-Venta muestra el nombre de un documento solo si no
+termina en «.pdf» (uno así es el nombre del archivo, no un comentario), y
+el de §9.35 lo terminaba. Desde ahora el documento del evento se llama
+«Factura N° 386 · $2.805.800», «Boleta N° 9 · $55.000» o «Nota de crédito
+N° 116 · $2.805.780 · anula la 377» (`nombreEnElEvento`, en
+`nombre-del-pdf.ts`; en prueba o simulado, con «(prueba)» o «(simulada)»).
+El archivo descargado sigue con su nombre de §9.35. Solo motor.
 
 ### 9.37 La factura con las líneas de su OC (08-11)
 
