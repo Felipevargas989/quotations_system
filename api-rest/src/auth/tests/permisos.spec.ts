@@ -21,6 +21,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'belia',
       'calendario',
       'boletas',
+      // La caja de recepción (doc 19 §9.43, 09-11).
+      'caja_recepcion',
     ]);
     // El Calendario del vendedor, prendido (Felipe, 05-11-2026). Las
     // boletas y facturas del tarifario, apagadas desde el 07-11 (doc 19
@@ -46,6 +48,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'boletas',
       'facturacion_eventos',
       'facturacion_documentos',
+      // «Lo vendido» (doc 19 §9.43, 09-11).
+      'facturacion_vendido',
     ]);
     expect(permisosDelCargo(UserRole.ADMINISTRADOR)).toEqual(
       CATALOGO_DE_PERMISOS.map((p) => p.clave),

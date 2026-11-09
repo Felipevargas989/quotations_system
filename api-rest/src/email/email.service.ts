@@ -7,6 +7,11 @@ import { Company } from 'src/companies/entities/company.entity';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { EMAIL_FROM, EMAIL_SUBJECTS, EMAILS_SEND_TO_CLIENT } from './constants';
 import { EmailBranding, fmtCLP } from './templates/brandLayout';
+import {
+  asuntoDelCierre,
+  cierreDeCajaTemplate,
+  type CierreDeCajaParams,
+} from './templates/cierreDeCaja';
 import { customerSatisfactionSurveyTemplate } from './templates/customerSatisfactionSurvey/template';
 import { CustomerSatisfactionSurveyParams } from './templates/customerSatisfactionSurvey/types';
 import { NewAccountParams, newAccountTemplate } from './templates/newAccount';
@@ -567,6 +572,12 @@ export class EmailService {
     emailStructure: EmailStructure.SUPER_ADMIN_NEW_COMPANY,
     params: { name: string },
   ): Promise<void>;
+  /** La caja de recepción (doc 19 §9.43): el resumen del cierre. */
+  async sendEmail(
+    to: string[],
+    emailStructure: EmailStructure.CIERRE_DE_CAJA,
+    params: CierreDeCajaParams,
+  ): Promise<void>;
   /**
    * Implementation
    */
@@ -903,6 +914,14 @@ export class EmailService {
         );
         sendTo = to as string[];
         html = superAdminNewLeadTemplate(lead);
+        break;
+      }
+
+      case EmailStructure.CIERRE_DE_CAJA: {
+        const cierre = params as CierreDeCajaParams;
+        subject = sanearAsunto(asuntoDelCierre(cierre));
+        sendTo = to as string[];
+        html = cierreDeCajaTemplate(cierre);
         break;
       }
 

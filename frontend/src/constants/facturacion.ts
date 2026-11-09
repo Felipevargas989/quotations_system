@@ -38,6 +38,21 @@ export const REFERENCIAS_QUE_PIDE = [
  *  (`facturas/borrador.ts`). */
 export const PLAZOS_DE_PAGO = [30, 45, 60] as const;
 
+/** Con qué se pagó al contado (doc 19 §9.43): la boleta de recepción y la
+ *  factura al contado, para cuadrar la caja. Gemelo del motor
+ *  (`facturas/pago-de-la-factura.ts`). */
+export const MEDIOS_DE_PAGO = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "debito", label: "Débito" },
+  { value: "credito", label: "Crédito" },
+  { value: "transferencia", label: "Transferencia" },
+] as const;
+export type MedioDePago = (typeof MEDIOS_DE_PAGO)[number]["value"];
+
+/** «Débito»: el nombre del medio de pago; sin medio, nada. */
+export const nombreDelMedio = (medio: string | null | undefined) =>
+  MEDIOS_DE_PAGO.find((m) => m.value === medio)?.label ?? null;
+
 export const nombreDeReferencia = (codigo: string): string =>
   REFERENCIAS_QUE_PIDE.find((r) => r.codigo === codigo)?.nombre ?? codigo;
 

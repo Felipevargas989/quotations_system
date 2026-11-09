@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
@@ -13,6 +14,8 @@ import { armarBoleta } from '../archivo/boleta';
 import { RUT_AUXILIAR } from '../archivo/comun';
 import { textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle } from '../archivo/tipos';
+import type { CajaRepository } from '../caja/caja.repository';
+import { turnoParaEmitir } from '../caja/regla';
 import {
   EnvioSinRespuesta,
   type FacturacionCl,
@@ -24,6 +27,7 @@ import {
   DocumentosTributariosRepository,
   type DocumentoTributario,
 } from '../facturas/documentos-tributarios.repository';
+import type { MedioDePago } from '../facturas/pago-de-la-factura';
 import { OrdenesDeCompraRepository } from '../ordenes-de-compra/ordenes-de-compra.repository';
 import {
   BoletaSueltaDto,
@@ -118,6 +122,8 @@ export class BoletasService {
     private readonly logger: PinoLogger,
     /** El emisor de la vista previa (§9.22, sprint 3). */
     private readonly ordenes: OrdenesDeCompraRepository,
+    // §9.43: lo que emite recepción entra a su caja.
+    @Optional() private readonly caja?: CajaRepository,
   ) {
     this.logger.setContext(BoletasService.name);
   }
@@ -381,6 +387,7 @@ export class BoletasService {
    */
   async revisarSuelta(user: User, dto: BoletaSueltaDto) {
     const companyId = user.company_id;
+    await turnoParaEmitir(user, this.caja); // §9.43: sin caja, ni la vista
     const { lineas, correo } = await this.lineasDeLaSuelta(user, dto);
     const conexion = this.conexion.de(companyId);
     const fecha = hoyEnChile();
@@ -419,6 +426,7 @@ export class BoletasService {
 
   async emitirSuelta(user: User, dto: BoletaSueltaDto) {
     const companyId = user.company_id;
+    const turnoDeCajaId = await turnoParaEmitir(user, this.caja);
     const { lineas, cabana, correo } = await this.lineasDeLaSuelta(user, dto);
     const conexion = this.conexion.de(companyId);
     const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
@@ -429,6 +437,8 @@ export class BoletasService {
       cabana,
       cual: 'la boleta',
       totalEsperado: null,
+      medioDePago: dto.medio_de_pago,
+      turnoDeCajaId,
     });
     if (!r.emitido && !r.porConfirmar)
       throw new BadRequestException(r.alto ?? 'No se pudo emitir la boleta');
@@ -584,6 +594,9 @@ export class BoletasService {
       /** «la boleta de Cabaña 4», para los avisos. */
       cual: string;
       totalEsperado: number | null;
+      /** §9.43: la boleta suelta, con qué pagó el huésped y su turno. */
+      medioDePago?: MedioDePago | null;
+      turnoDeCajaId?: number | null;
       antesDeMandar?: (docId: number) => Promise<void>;
       siLaRechazan?: () => Promise<void>;
     },
@@ -630,6 +643,8 @@ export class BoletasService {
         porcentaje: null,
         creado_por: user.id ?? null,
         archivo_enviado: armado.archivo,
+        medio_de_pago: b.medioDePago ?? null,
+        turno_de_caja_id: b.turnoDeCajaId ?? null,
         // La boleta va con folio 0: el que debería tocarle, para
         // «Comprobar» si se corta (L5).
         respuesta: { folio_esperado: await conexion.folioSiguiente(BOLETA) },

@@ -2721,6 +2721,136 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.43 La caja de recepción y el cierre ciego (09-11)
+
+Felipe, 09-11, con las boletas recién habilitadas: *"para hacer un control
+de cierre de caja como el de Fudo, porque la recepcionista que boletee
+tendrá que rendir lo que vendió (también debo poder ver cuántos tickets,
+cuántas tinajas, etc. se han vendido)"*; de la boleta, *"hay que pedir un
+correo para enviar la boleta (para no imprimir)"*; del cierre, *"también
+sumamos el débito / crédito / transferencias como medio de pago y las
+máquinas entregan el resumen de lo vendido"*; y *"la idea es que sea un
+cierre de caja ciego, donde ella anote cuánto tienen en efectivo, débito,
+crédito y transferencia, y luego Camila valide viendo qué se vendió y
+cuánto debería tener"*. Se revisó cómo lo hacen Fudo (arqueo con monto
+inicial, «según sistema» y «según usuario» por medio de pago, modo ciego,
+no se reabre, resumen por correo) y otros (Shopify, RMH, Qamarero, Odoo),
+se mostró la maqueta y la aprobó: *"ok hazlo así"*.
+
+**Las reglas:**
+- Una caja, la «Caja de recepción». Se abre con el sencillo inicial, a
+  nombre del perfil de la sesión (Felipe, 09-11: *"el quién abre debe ser
+  asociado al perfil que está abriendo la caja, que no sea escrito a
+  mano"*); quién cierra, igual. Sin caja abierta, recepción no emite
+  boletas.
+- Cada boleta de recepción y cada factura al contado entra a la caja con
+  su medio de pago: efectivo, débito, crédito o transferencia. Los retiros
+  se anotan con su motivo.
+- **Cierre ciego:** la recepcionista declara los cuatro montos (el
+  efectivo contado con el sencillo, el débito y el crédito del resumen de
+  la máquina, las transferencias de los comprobantes; con dos máquinas,
+  los suma) sin ver lo esperado ni la diferencia. Cerrada, no se reabre, y
+  el resumen le llega por correo a Camila.
+- **La revisión** (el administrador): por medio de pago, lo declarado, lo
+  de Eventia y la diferencia, con las boletas de cada medio, lo vendido y
+  los retiros. Una venta cargada con el medio equivocado (lo más común
+  cuando débito y crédito se compensan) se corrige ahí, con quién y
+  cuándo, y el cierre queda «Revisado» con una nota.
+- **Lo vendido:** cuántos tickets, tinajas, noches de cabaña, etc., por
+  fechas y por persona.
+- Interruptores en Permisos por cargo: abrir y cerrar la caja, de fábrica
+  recepción y el administrador; revisar los cierres, el administrador; y
+  «Lo vendido», su propia pestaña, operaciones y el administrador (Felipe,
+  09-11: *"lo vendido debería ser otra pestaña que solo lo vea operaciones
+  y administración"*).
+
+| Sprint | Qué | Estado |
+|---|---|---|
+| 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En producción desde el 09-11 (PR #339) |
+| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | En producción desde el 09-11 (PR #339) |
+| 3 | Lo vendido, y el resumen del cierre por correo | En producción desde el 09-11 (PR #339) |
+
+**Sprint 1, hecho el 09-11** (migración 198):
+- `documentos_tributarios.medio_de_pago` (efectivo, debito, credito o
+  transferencia). Es de Eventia: no va en el archivo del SII. Nulo a
+  crédito, en lo de antes y en las boletas de un evento (esas se cobran
+  con su plan de pagos).
+- La boleta de «Nuevo DTE» (`BoletaNueva`): «Huésped» queda con la cabaña
+  y «Pago y envío» pide el medio de pago y el correo para enviarle la
+  boleta (lo normal, para no imprimir) o «Sin correo: la imprimo». Sin eso,
+  «Crear documento» no se prende y dice lo que falta. Si iba a imprimirse,
+  al emitir se abre su PDF. En el motor, `medio_de_pago` es obligatorio en
+  `POST /boletas/sueltas` y en su revisión.
+- La factura (`SeccionDocumento`, la misma de «Nuevo DTE» y de
+  «Corregir»): al contado, «Medio de pago» en su lista; a crédito no va y
+  se borra. La revisión lo pide en lo que falta (`faltaEnElDte`).
+- Cada línea del tarifario guarda su ítem (`tarifario_id` en el `detalle`
+  de la boleta y de la factura de recepción), para «Lo vendido». Tampoco
+  va en el archivo.
+- La lista «Documentos»: bajo el estado, «Contado · Débito» y, en la
+  boleta, «Efectivo» (`condicionDePago` de `filaDeLaLista`).
+- La condición y el medio de pago salieron de `borrador.ts`, que pasaba las
+  800 líneas del portero, a `facturas/pago-de-la-factura.ts`.
+
+**En el laboratorio y en producción desde el 09-11-2026** (PR #339;
+migración 198 en las dos bases; motor y pantalla). La migración va antes
+del motor: el motor la pide en cada lista.
+
+**Sprint 2, hecho el 09-11** (migración 199):
+- `turnos_de_caja` (quién abre y el sencillo; quién cierra, lo declarado
+  en los cuatro medios y su comentario; la revisión con quién, cuándo y su
+  nota), `retiros_de_caja` y `correcciones_de_caja`; una sola caja abierta
+  por empresa (índice único). Lo esperado no se guarda: sale de los
+  documentos del turno (`documentos_tributarios.turno_de_caja_id`), así una
+  corrección se ve al momento.
+- **Lo que emite recepción entra a su caja** (`caja/regla.ts`): la boleta
+  de «Nuevo DTE» y la factura al contado del cargo recepción quedan en el
+  turno abierto; sin caja abierta no se emiten (409, «La caja de recepción
+  está cerrada: ábrela en «Caja» para emitir»), tampoco la vista previa.
+  Los otros cargos emiten sin turno: su plata no pasa por esa caja.
+- Los dos interruptores (doc 22): «Caja de recepción» (`caja_recepcion`,
+  recepción y el administrador) y «Revisar cierres de caja»
+  (`caja_revision`, el administrador).
+- La pestaña «Caja» de Facturación: `CajaDeRecepcion` (abrir, los retiros
+  y el cierre ciego con «¿Cerrar la caja? Después no se puede reabrir.»;
+  nunca muestra lo esperado ni la diferencia) y `CierresDeCaja` (la lista
+  con «Por revisar», «Revisado · cuadra» o «Revisado · faltan $X», y cada
+  cierre en el panel de la derecha: por medio de pago lo declarado, según
+  Eventia y la diferencia, el aviso cuando débito y crédito se compensan,
+  los documentos con su medio de pago, que se corrige ahí y queda anotado,
+  lo vendido por ítem del tarifario, los retiros y «Marcar revisado» con la
+  nota). `BoletaNueva` dice a qué caja entra o avisa en rojo que está
+  cerrada.
+- El cuadre (`caja/cuadre.ts`, puro): el efectivo esperado es el sencillo
+  más lo vendido en efectivo menos los retiros; débito, crédito y
+  transferencia, lo vendido con cada uno. Lo por confirmar no cuenta y se
+  avisa.
+
+**El sprint 2, en el laboratorio y en producción desde el 09-11-2026**
+(PR #339; migración 199 en las dos bases; motor y pantalla).
+
+**Sprint 3, hecho el 09-11** (sin migración):
+- **Lo vendido** (`LoVendido`, su propia pestaña de Facturación con el
+  permiso «Lo vendido», `facturacion_vendido`, de fábrica operaciones y el
+  administrador; `GET /facturacion/caja/vendido`): lo del tarifario
+  (las líneas con `tarifario_id`) en las boletas y facturas emitidas del
+  período, sin lo que anuló una nota de crédito, por ítem con su cantidad
+  y su unidad («142 personas», «9 noches») y su monto con IVA, y el total.
+  Este mes si no se dice otra cosa, hasta un año de una vez. Por persona:
+  quien abrió la caja o, fuera de la caja, quien emitió. Lo de antes del
+  sprint 1 no trae su ítem del tarifario y no aparece.
+- **El resumen del cierre por correo** (como el de Fudo): apenas se cierra
+  la caja, a las personas de los cargos con «Revisar cierres de caja»
+  (de fábrica, los administradores): quién cerró, de cuándo a cuándo, por
+  medio de pago lo declarado, según Eventia y la diferencia, lo vendido,
+  los retiros y el comentario, con «Revisar el cierre». Plantilla
+  `email/templates/cierreDeCaja.ts` (`CIERRE_DE_CAJA`). Si el correo
+  falla, la caja queda cerrada igual y se anota en el registro. En el
+  laboratorio los correos están silenciados (`EMAILS_SILENCED`).
+
+**El sprint 3, en el laboratorio y en producción desde el 09-11-2026**
+(PR #339; motor y pantalla, sin migración; Felipe: *"todo a producción"*).
+
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
 Felipe, 09-11, mirando en el laboratorio la factura de prueba del paso 0

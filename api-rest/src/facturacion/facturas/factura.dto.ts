@@ -16,7 +16,7 @@ import {
 } from 'class-validator';
 import { CODIGOS_DE_REFERENCIA } from '../referencias';
 import type { TipoDeDte } from './borrador';
-import { PLAZOS_DE_PAGO } from './borrador';
+import { MEDIOS_DE_PAGO, PLAZOS_DE_PAGO } from './pago-de-la-factura';
 
 /**
  * EL DTE QUE SE PIDE: LA FACTURA O LA BOLETA DEL EVENTO (doc 19 §9.2 y
@@ -178,6 +178,14 @@ export class DtePedidoDto extends BaseDelDteDto {
     message: 'El crédito va a 30, 45 o 60 días',
   })
   plazo_dias?: number | null;
+
+  // §9.43: al contado, con qué se pagó (para cuadrar la caja). Si falta, la
+  // revisión lo pide en «lo que falta»; a crédito se ignora.
+  @IsOptional()
+  @IsIn([...MEDIOS_DE_PAGO], {
+    message: 'El medio de pago es efectivo, débito, crédito o transferencia',
+  })
+  medio_de_pago?: (typeof MEDIOS_DE_PAGO)[number] | null;
 
   // «Nuevo documento»: el cliente de Eventia al que va la factura.
   @IsOptional()

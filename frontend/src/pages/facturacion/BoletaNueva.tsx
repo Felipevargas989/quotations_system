@@ -7,6 +7,8 @@ import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
 import { pluralDeLaUnidad } from "../../constants/boletas";
+import { MEDIOS_DE_PAGO, type MedioDePago } from "../../constants/facturacion";
+import { getCaja } from "../../services/caja.service";
 import {
   emitirBoletaSuelta,
   getTarifario,
@@ -23,9 +25,12 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 // en su propia pantalla como la maqueta que aprobó Felipe el 06-11:
 // «Qué se cobra» (lo del tarifario por su cantidad; D3: los precios nunca a
 // dedo, y la línea a mano solo del administrador), «Huésped» (la cabaña,
-// que va al comienzo de cada línea, y el correo, al que facturacion.cl le
-// manda la boleta, L11) y el total a pagar. «Crear documento» la muestra
-// tal como saldrá (la misma revisión que la emite) y ahí se emite.
+// que va al comienzo de cada línea) y «Pago y envío» (§9.43, 09-11): con
+// qué pagó, para la caja de recepción, y el correo al que facturacion.cl le
+// manda la boleta (L11), que es lo normal para no imprimir (Felipe: *"hay
+// que pedir un correo para enviar la boleta"*); sin correo, se marca que se
+// imprime. «Crear documento» la muestra tal como saldrá (la misma revisión
+// que la emite) y ahí se emite.
 //
 // Quien no ve la lista (recepción, de fábrica) se queda en la boleta
 // después de emitir, con la última a la vista, para seguir con la próxima.
@@ -63,11 +68,14 @@ export interface BoletaEmitida {
 
 export default function BoletaNueva({
   esAdmin,
+  conCaja = false,
   quedarse,
   onVolver,
   onEmitida,
 }: {
   readonly esAdmin: boolean;
+  /** §9.43: recepción emite con la caja abierta, y la boleta entra a ella. */
+  readonly conCaja?: boolean;
   /** Sin la lista a la vista: después de emitir, otra boleta. */
   readonly quedarse: boolean;
   readonly onVolver: () => void;
@@ -78,9 +86,19 @@ export default function BoletaNueva({
     queryFn: getTarifario,
   });
   const activos = (tarifario.data ?? []).filter((i) => i.activo);
+  const caja = useQuery({
+    queryKey: ["caja"],
+    queryFn: getCaja,
+    enabled: conCaja,
+  });
+  const cajaCerrada = conCaja && caja.isSuccess && !caja.data.abierta;
   const [lineas, setLineas] = useState<LineaEnPantalla[]>(() => [lineaNueva()]);
   const [cabana, setCabana] = useState("");
   const [correo, setCorreo] = useState("");
+  // §9.43: con qué pagó el huésped y si la boleta va al correo o se imprime.
+  const [medio, setMedio] = useState<MedioDePago | "">("");
+  const [imprimir, setImprimir] = useState(false);
+  const [imprimirUltima, setImprimirUltima] = useState(false);
   const [vista, setVista] = useState<
     (VistaPrevia & { correo: string | null }) | null
   >(null);
@@ -101,6 +119,13 @@ export default function BoletaNueva({
         ? !!l.descripcion?.trim() && !!l.monto
         : !!itemDe(l) && (l.cantidad ?? 0) >= 1,
     );
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+  const faltan = [
+    !medio && "el medio de pago",
+    !imprimir &&
+      !correoValido &&
+      "el correo (o marca «Sin correo: la imprimo»)",
+  ].filter((f): f is string => !!f);
 
   const poner = (clave: number, cambios: Partial<LineaEnPantalla>) =>
     setLineas((ls) =>
@@ -115,7 +140,8 @@ export default function BoletaNueva({
           : { tarifario_id: Number(l.tarifarioId), cantidad: l.cantidad },
     ),
     cabana: cabana.trim() || null,
-    correo: correo.trim() || null,
+    correo: imprimir ? null : correo.trim() || null,
+    medio_de_pago: medio || null,
   });
 
   const crearDocumento = async () => {
@@ -141,9 +167,12 @@ export default function BoletaNueva({
       setVista(null);
       if (quedarse) {
         setUltima(r.boleta);
+        setImprimirUltima(imprimir);
         setLineas([lineaNueva()]);
         setCabana("");
         setCorreo("");
+        setMedio("");
+        setImprimir(false);
       }
       onEmitida(r.boleta);
     } catch (e) {
@@ -160,14 +189,35 @@ export default function BoletaNueva({
         onVolver={onVolver}
       />
 
+      {conCaja && caja.data?.abierta && (
+        <p className="text-xs text-green-700">
+          Caja abierta · {caja.data.abierta.abierta_por_nombre} · desde las{" "}
+          {new Date(caja.data.abierta.abierta_en).toLocaleTimeString("es-CL", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      )}
+      {cajaCerrada && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          La caja de recepción está cerrada: ábrela en «Caja» para emitir.
+        </p>
+      )}
+
       {ultima && (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
           Boleta N° {ultima.folio} emitida por {clp(ultima.total)}.
-          {ultima.pdf_path && (
+          {ultima.pdf_path ? (
             <FileViewLink
               url={ultima.pdf_path}
               title={`Boleta ${ultima.folio}.pdf`}
+              abrirAlMontar={imprimirUltima}
+              alCerrar={() => setImprimirUltima(false)}
             />
+          ) : (
+            imprimirUltima && (
+              <span>El PDF todavía no llega para imprimirla.</span>
+            )
           )}
         </p>
       )}
@@ -314,27 +364,65 @@ export default function BoletaNueva({
                   Sale al comienzo de cada línea de la boleta.
                 </span>
               </label>
-              <label className="block">
-                <span className="text-xs text-gray-500">
-                  Correo del huésped (opcional: le llega la boleta)
-                </span>
-                <input
-                  type="email"
-                  value={correo}
-                  onChange={(e) => setCorreo(e.target.value)}
-                  className={casilla}
-                />
-              </label>
             </div>
           </Seccion>
 
-          <Seccion>
+          <Seccion titulo="Pago y envío">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                role="group"
+                aria-label="Medio de pago"
+                className="block min-w-0"
+              >
+                <span className="text-xs text-gray-500">Medio de pago</span>
+                <SelectWithSearch
+                  options={MEDIOS_DE_PAGO.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                  }))}
+                  value={medio}
+                  onChange={(v) => setMedio((v ?? "") as MedioDePago | "")}
+                  placeholder="Elegir el medio de pago"
+                  tamano="sm"
+                  sinLimpiar
+                  mostrarConteo={false}
+                />
+              </div>
+              <div>
+                <label className="block">
+                  <span className="text-xs text-gray-500">
+                    Correo para enviarle la boleta
+                  </span>
+                  <input
+                    type="email"
+                    value={imprimir ? "" : correo}
+                    disabled={imprimir}
+                    placeholder={imprimir ? "Se imprime" : "huesped@correo.cl"}
+                    onChange={(e) => setCorreo(e.target.value)}
+                    className={`${casilla} disabled:bg-gray-50`}
+                  />
+                </label>
+                <label className="mt-1 flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={imprimir}
+                    onChange={(e) => setImprimir(e.target.checked)}
+                  />
+                  Sin correo: la imprimo
+                </label>
+              </div>
+            </div>
             <dl className="ml-auto grid w-full grid-cols-2 gap-x-3 text-sm sm:w-64">
               <dt className="font-semibold text-gray-900">Total a pagar</dt>
               <dd className="text-right font-semibold text-gray-900">
                 {clp(total)}
               </dd>
             </dl>
+            {lista && faltan.length > 0 && (
+              <p className="text-right text-xs text-red-600">
+                Falta {faltan.join(" y ")}.
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -345,7 +433,9 @@ export default function BoletaNueva({
               </button>
               <button
                 type="button"
-                disabled={!lista || revisando}
+                disabled={
+                  !lista || faltan.length > 0 || cajaCerrada || revisando
+                }
                 onClick={() => void crearDocumento()}
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >

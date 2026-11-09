@@ -87,6 +87,8 @@ const armar = ({
   particulares = null as string[] | null,
   // La nómina del SII (§9.27); sin ella, como antes.
   sii = undefined as { buscar: jest.Mock } | undefined,
+  // La caja de recepción (§9.43); sin ella, como antes.
+  caja = undefined as { turnoAbierto: jest.Mock } | undefined,
 } = {}) => {
   let fila: Record<string, unknown> = {};
   const repo = {
@@ -166,6 +168,7 @@ const armar = ({
     boletas as never,
     alcance as never,
     sii as never,
+    caja as never,
   );
   return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
 };
@@ -543,6 +546,43 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(boletas.tarifario).not.toHaveBeenCalled();
   });
 
+  it('recepción al contado (§9.43): con la caja abierta entra a su turno; cerrada, no; a crédito, sin caja', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
+    const { servicio, repo } = armar({ caja });
+    const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
+    const CONTADO = {
+      ...SUELTA,
+      forma_de_pago: 1 as const,
+      medio_de_pago: 'debito' as const,
+      lineas: [
+        {
+          descripcion: 'x',
+          descripcion_larga: null,
+          cantidad: 1,
+          precio: 1,
+          tarifario_id: 5,
+        },
+      ],
+    };
+    await servicio.emitirSinEvento(RECEPCION, CONTADO);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ turno_de_caja_id: 7 }),
+    );
+    caja.turnoAbierto.mockResolvedValue(null);
+    await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    await expect(servicio.revisarSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    caja.turnoAbierto.mockClear();
+    await servicio.revisarSinEvento(RECEPCION, {
+      ...CONTADO,
+      forma_de_pago: 2,
+    });
+    expect(caja.turnoAbierto).not.toHaveBeenCalled();
+  });
+
   it('recepción (§9.23): la línea del tarifario sale con su nombre y su precio, y a mano no se puede', async () => {
     const { servicio, repo } = armar();
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
@@ -561,6 +601,12 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ tipo: 33, total: 280000 }),
     );
+    // §9.43: la línea guarda su ítem del tarifario, para «Lo vendido».
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detalle: [expect.objectContaining({ tarifario_id: 5 })],
+      }),
+    );
     await expect(servicio.revisarSinEvento(RECEPCION, SUELTA)).rejects.toThrow(
       'solo del administrador',
     );
@@ -576,9 +622,31 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(fila.forma_de_pago).toBe(2);
     expect(fila.vencimiento).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     repo.crear.mockClear();
-    await servicio.emitirSinEvento(USUARIO, { ...SUELTA, forma_de_pago: 1 });
+    // §9.43: al contado, con su medio de pago.
+    await expect(
+      servicio.emitirSinEvento(USUARIO, { ...SUELTA, forma_de_pago: 1 }),
+    ).rejects.toThrow('Falta el medio de pago');
+    expect(repo.crear).not.toHaveBeenCalled();
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      forma_de_pago: 1,
+      medio_de_pago: 'transferencia',
+    });
     expect(repo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ forma_de_pago: 1, vencimiento: null }),
+      expect.objectContaining({
+        forma_de_pago: 1,
+        vencimiento: null,
+        medio_de_pago: 'transferencia',
+      }),
+    );
+    // A crédito, el medio de pago no va aunque llegue.
+    repo.crear.mockClear();
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      medio_de_pago: 'efectivo',
+    });
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ forma_de_pago: 2, medio_de_pago: null }),
     );
   });
 

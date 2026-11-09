@@ -107,6 +107,9 @@ viven fuera del repo, en `Eventia_Desarrollo/atlas_pendiente/permisos_por_cargo/
 | Facturación | Documentos y reporte (`facturacion_documentos`) | Facturación → Documentos: la lista, el reporte y el PDF | – | – | ✓ | ✓ | `facturacion` |
 | Facturación | Anular o rebajar (`facturacion_notas`) | Facturación → «Nuevo documento» → Nota de crédito o de débito | – | – | – | ✓ | `facturacion` |
 | Facturación | Tarifario y conexión (`facturacion_ajustes`) | Facturación → Tarifario, «Comprobar», «Probar la conexión» | – | – | – | ✓ | `facturacion` |
+| Facturación | Caja de recepción (`caja_recepcion`) | Facturación → Caja: abrirla con el sencillo a nombre del perfil de la sesión, los retiros y el cierre ciego (desde el 09-11-2026, doc 19 §9.43). Lo que emite el cargo recepción entra a la caja y sin caja abierta no emite | ✓ | – | – | ✓ | `facturacion` |
+| Facturación | Revisar cierres de caja (`caja_revision`) | Facturación → Caja → «Cierres de la caja de recepción»: lo declarado, lo esperado y la diferencia por medio de pago, corregir el medio de un documento y marcar revisado (desde el 09-11-2026, doc 19 §9.43) | – | – | – | ✓ | `facturacion` |
+| Facturación | Lo vendido (`facturacion_vendido`) | Facturación → Lo vendido: lo del tarifario por ítem, fechas y persona (desde el 09-11-2026, doc 19 §9.43; Felipe: *"otra pestaña que solo lo vea operaciones y administración"*) | – | – | ✓ | ✓ | `facturacion` |
 | Administración | Dashboard (`dashboard`) | Menú → Dashboard | – | – | – | ✓ | — |
 | Administración | Catálogo (`catalogo`) | Menú → Catálogo | – | – | – | ✓ | — |
 | Administración | Personal (`personal`) | Menú → Personal | – | – | – | ✓ | `personal` |

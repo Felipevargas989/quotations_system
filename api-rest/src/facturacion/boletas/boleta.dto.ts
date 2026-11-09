@@ -18,6 +18,10 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import {
+  MEDIOS_DE_PAGO,
+  type MedioDePago,
+} from '../facturas/pago-de-la-factura';
 
 /**
  * LOS COBROS POR BOLETEAR Y SU REPARTO (migración 187, doc 19 §9.4).
@@ -166,4 +170,11 @@ export class BoletaSueltaDto {
   @IsEmail({}, { message: 'Ese correo no es válido' })
   @MaxLength(200)
   correo?: string | null;
+
+  // §9.43: con qué pagó el huésped, para cuadrar la caja de recepción.
+  @IsIn([...MEDIOS_DE_PAGO], {
+    message:
+      'Falta el medio de pago: efectivo, débito, crédito o transferencia',
+  })
+  medio_de_pago: MedioDePago;
 }

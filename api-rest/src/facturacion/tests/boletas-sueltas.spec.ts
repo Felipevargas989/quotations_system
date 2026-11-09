@@ -52,6 +52,8 @@ const armar = (
   simulado = new FacturacionClSimulado({
     ultimoFolio: () => Promise.resolve(42),
   }),
+  // §9.43: la caja de recepción; sin ella, como antes.
+  caja?: { turnoAbierto: jest.Mock },
 ) => {
   const repo = {
     tarifario: jest.fn().mockResolvedValue(TARIFARIO),
@@ -84,6 +86,7 @@ const armar = (
         rut: '77701305-K',
       }),
     } as never,
+    caja as never,
   );
   return { servicio, documentos, simulado };
 };
@@ -148,6 +151,7 @@ describe('La boleta suelta', () => {
       ],
       cabana: 'Cabaña 4',
       correo: 'HUESPED@example.com',
+      medio_de_pago: 'debito',
     });
     expect(r).toEqual({
       boleta: {
@@ -164,8 +168,16 @@ describe('La boleta suelta', () => {
       quotation_id: string | null;
       receptor: { correo: string };
       detalle: { descripcion: string; descripcionLarga: string | null }[];
+      medio_de_pago: string | null;
     };
     expect(fila.quotation_id).toBeNull();
+    // §9.43: con qué pagó, y el ítem del tarifario de cada línea (para la
+    // caja y «Lo vendido»), que no va en el archivo.
+    expect(fila.medio_de_pago).toBe('debito');
+    expect(
+      fila.detalle.map((l) => (l as { tarifario_id?: number }).tarifario_id),
+    ).toEqual([1, 2]);
+    expect(fila.archivo_enviado).not.toContain('tarifario');
     expect(fila.receptor.correo).toBe('huesped@example.com');
     expect(fila.detalle[0]).toMatchObject({
       descripcion: 'Cabaña 4 · Cabaña 4 personas temporada alta',
@@ -214,6 +226,44 @@ describe('La boleta suelta', () => {
         'La boleta quedó por confirmar: se cortó al mandarla. No la emitas de nuevo.',
     });
     expect(documentos.crear).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('La boleta de recepción entra a su caja (§9.43)', () => {
+  const SUELTA = {
+    lineas: [{ tarifario_id: 1, cantidad: 1 }],
+    medio_de_pago: 'efectivo' as const,
+  };
+
+  it('con la caja abierta, la boleta queda en su turno; cerrada, no se emite ni se ve', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
+    const { servicio, documentos } = armar(undefined, caja);
+    await servicio.emitirSuelta(RECEPCION, SUELTA);
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turno_de_caja_id: 7,
+        medio_de_pago: 'efectivo',
+      }),
+    );
+    documentos.crear.mockClear();
+    caja.turnoAbierto.mockResolvedValue(null);
+    await expect(servicio.emitirSuelta(RECEPCION, SUELTA)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    await expect(servicio.revisarSuelta(RECEPCION, SUELTA)).rejects.toThrow(
+      'La caja de recepción está cerrada',
+    );
+    expect(documentos.crear).not.toHaveBeenCalled();
+  });
+
+  it('el administrador emite sin turno', async () => {
+    const caja = { turnoAbierto: jest.fn().mockResolvedValue(null) };
+    const { servicio, documentos } = armar(undefined, caja);
+    await servicio.emitirSuelta(ADMIN, SUELTA);
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ turno_de_caja_id: null }),
+    );
+    expect(caja.turnoAbierto).not.toHaveBeenCalled();
   });
 });
 
@@ -304,12 +354,22 @@ describe('Lo que acepta el motor', () => {
         lineas: [],
         correo: 'no-es-correo',
         cabana: 'y'.repeat(23),
+        medio_de_pago: 'efectivo',
       }),
     ).toEqual(['lineas', 'cabana', 'correo']);
     expect(
       await errores(BoletaSueltaDto, {
         lineas: [{ tarifario_id: 1, cantidad: 0 }],
+        medio_de_pago: 'transferencia',
       }),
     ).toEqual(['lineas']);
+    // §9.43: sin medio de pago, o con uno que no existe, no pasa.
+    for (const medio_de_pago of [undefined, 'cheque'])
+      expect(
+        await errores(BoletaSueltaDto, {
+          lineas: [{ tarifario_id: 1, cantidad: 1 }],
+          medio_de_pago,
+        }),
+      ).toEqual(['medio_de_pago']);
   });
 });

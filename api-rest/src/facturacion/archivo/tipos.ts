@@ -34,6 +34,9 @@ export interface LineaDeDetalle {
   /** El descuento de la línea en %, de 0 a menos de 100 (la factura,
    *  doc 19 §9.22): va en PorcDescto y su monto en ValorDescto. */
   descuento?: number | null;
+  /** De Eventia, no va en el archivo: el ítem del tarifario de la línea,
+   *  para «Lo vendido» (doc 19 §9.43). */
+  tarifario_id?: number | null;
   /** El código del ítem (35); sin código va «SERV». */
   codigo?: string | null;
   /** La unidad (4); sin unidad va «UN». */

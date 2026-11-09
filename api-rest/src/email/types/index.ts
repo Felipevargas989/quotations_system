@@ -26,4 +26,6 @@ export enum EmailStructure {
   PRUEBA_POR_VENCER = 'pruebaPorVencer',
   SUPER_ADMIN_NEW_LEAD = 'superAdminNewLead',
   SUPER_ADMIN_NEW_COMPANY = 'superAdminNewCompany',
+  // La caja de recepción (doc 19 §9.43): el resumen del cierre a quien revisa.
+  CIERRE_DE_CAJA = 'cierreDeCaja',
 }

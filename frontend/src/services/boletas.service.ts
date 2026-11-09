@@ -1,5 +1,6 @@
 import { apiRequest } from "./api";
 import type { Ambiente, VistaPrevia } from "./facturas.service";
+import type { MedioDePago } from "../constants/facturacion";
 
 // Las boletas de recepción (migración 187, doc 19, paso 3a). El
 // administrador deja un cobro «por boletear» (desde el evento o suelto) y
@@ -203,6 +204,8 @@ export const revisarBoletaSuelta = async (datos: {
   lineas: LineaSuelta[];
   cabana?: string | null;
   correo?: string | null;
+  /** §9.43: con qué pagó el huésped. */
+  medio_de_pago: MedioDePago | null;
 }): Promise<VistaPrevia & { correo: string | null }> =>
   (await apiRequest(
     `${base}/sueltas/revisar`,
@@ -216,6 +219,8 @@ export const emitirBoletaSuelta = async (datos: {
   lineas: LineaSuelta[];
   cabana?: string | null;
   correo?: string | null;
+  /** §9.43: con qué pagó el huésped. */
+  medio_de_pago: MedioDePago | null;
 }): Promise<{
   boleta: {
     id: number;

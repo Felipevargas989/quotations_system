@@ -15,6 +15,8 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
 import { BoletasService } from '../boletas/boletas.service';
+import type { CajaRepository } from '../caja/caja.repository';
+import { turnoParaEmitir } from '../caja/regla';
 import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
@@ -112,6 +114,8 @@ const normalizada = (p: DtePedido): DtePedido => {
       // El descuento va solo en la factura (§9.22).
       descuento:
         !boleta && Number(l.descuento) > 0 ? Number(l.descuento) : null,
+      // §9.43: el ítem del tarifario (`del-tarifario.ts`), para «Lo vendido».
+      tarifario_id: l.tarifario_id ?? null,
     })),
     referencias: boleta
       ? []
@@ -125,6 +129,9 @@ const normalizada = (p: DtePedido): DtePedido => {
     // §9.22: la factura va al contado o a crédito (30 días si no se dice).
     forma_de_pago: boleta ? null : p.forma_de_pago === 1 ? 1 : 2,
     plazo_dias: boleta || p.forma_de_pago === 1 ? null : (p.plazo_dias ?? 30),
+    // §9.43: con qué se pagó, solo al contado.
+    medio_de_pago:
+      !boleta && p.forma_de_pago === 1 ? (p.medio_de_pago ?? null) : null,
     cliente_id: boleta ? null : (p.cliente_id ?? null),
     // §9.32: la factura puede elegir su fecha; la boleta, la del día.
     fecha_emision: boleta ? null : (p.fecha_emision ?? '').trim() || null,
@@ -185,6 +192,8 @@ export class FacturasService {
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
     // El RUT que llena todo (doc 19 §9.27): la nómina del SII.
     @Optional() private readonly nominaSii?: NominaSiiService,
+    // §9.43: lo que emite recepción al contado entra a su caja.
+    @Optional() private readonly caja?: CajaRepository,
   ) {
     this.logger.setContext(FacturasService.name);
   }
@@ -390,6 +399,8 @@ export class FacturasService {
   async revisarSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
+    // §9.43: recepción, al contado, solo con la caja abierta.
+    if (pedida.forma_de_pago === 1) await turnoParaEmitir(user, this.caja);
     return this.vistaPrevia(
       pedida,
       await this.sinEvento(companyId, pedida.cliente_id),
@@ -424,6 +435,10 @@ export class FacturasService {
   async emitirSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
+    const turnoDeCajaId =
+      pedida.forma_de_pago === 1
+        ? await turnoParaEmitir(user, this.caja)
+        : null;
     const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
     const { fecha, problema } = conLaFecha(pedida);
@@ -443,6 +458,7 @@ export class FacturasService {
       fecha,
       archivo: revision.archivo,
       revision,
+      turnoDeCajaId,
     });
   }
 
@@ -513,6 +529,8 @@ export class FacturasService {
       fecha: string;
       archivo: string;
       revision: Revision;
+      /** §9.43: el turno de la caja de recepción al que entra. */
+      turnoDeCajaId?: number | null;
     },
   ) {
     const companyId = user.company_id;
@@ -545,6 +563,8 @@ export class FacturasService {
         // §9.22 (migración 189): contado o crédito, y cuándo vence.
         forma_de_pago: revision.pago?.forma ?? null,
         vencimiento: revision.pago?.vencimiento ?? null,
+        medio_de_pago: pedida.medio_de_pago ?? null,
+        turno_de_caja_id: revisada.turnoDeCajaId ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>
