@@ -391,7 +391,7 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
 
   it('al contado: forma de pago 1 y sin vencimiento', () => {
     const r = revisarDte(
-      pedida({ forma_de_pago: 1, plazo_dias: 30 }),
+      pedida({ forma_de_pago: 1, plazo_dias: 30, medio_de_pago: 'efectivo' }),
       sinEvento,
       1,
       '2026-11-06',
@@ -399,6 +399,29 @@ describe('La condición de pago y el motivo de la referencia (§9.22)', () => {
     expect(r.pago).toEqual({ forma: 1, dias: null, vencimiento: null });
     expect(r.archivo).toContain('->FormaPago<-\r\n1;;');
     expect(r.archivo).not.toContain('->FechaVencimiento<-');
+    // El medio de pago es de Eventia (§9.43): no va en el archivo.
+    expect(r.archivo).not.toContain('efectivo');
+  });
+
+  it('al contado pide el medio de pago; a crédito, no (§9.43)', () => {
+    const contado = revisarDte(
+      pedida({ forma_de_pago: 1 }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(contado.ok).toBe(false);
+    expect(contado.faltan).toContainEqual({
+      campo: 'medio_de_pago',
+      texto: 'el medio de pago',
+    });
+    const credito = revisarDte(
+      pedida({ forma_de_pago: 2 }),
+      sinEvento,
+      1,
+      '2026-11-06',
+    );
+    expect(credito.faltan.map((f) => f.campo)).not.toContain('medio_de_pago');
   });
 
   it('otro plazo no vale: la ley de pago a 30 días deja 30, 45 o 60', () => {

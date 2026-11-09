@@ -60,6 +60,9 @@ export interface DocumentoDeLaLista {
   forma_de_pago: 1 | 2 | null;
   vencimiento: string | null;
   plazo_dias: number | null;
+  /** §9.43: con qué se pagó (la boleta de recepción, la factura al
+   *  contado). Un motor de antes no lo manda. */
+  medio_de_pago?: string | null;
   pdf_path: string | null;
   error: string | null;
   acciones: {

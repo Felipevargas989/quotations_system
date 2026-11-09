@@ -117,6 +117,8 @@ const normalizada = (p: DtePedido): DtePedido => {
       // El descuento va solo en la factura (§9.22).
       descuento:
         !boleta && Number(l.descuento) > 0 ? Number(l.descuento) : null,
+      // §9.43: el ítem del tarifario (`del-tarifario.ts`), para «Lo vendido».
+      tarifario_id: l.tarifario_id ?? null,
     })),
     referencias: boleta
       ? []
@@ -130,6 +132,9 @@ const normalizada = (p: DtePedido): DtePedido => {
     // §9.22: la factura va al contado o a crédito (30 días si no se dice).
     forma_de_pago: boleta ? null : p.forma_de_pago === 1 ? 1 : 2,
     plazo_dias: boleta || p.forma_de_pago === 1 ? null : (p.plazo_dias ?? 30),
+    // §9.43: con qué se pagó, solo al contado.
+    medio_de_pago:
+      !boleta && p.forma_de_pago === 1 ? (p.medio_de_pago ?? null) : null,
     cliente_id: boleta ? null : (p.cliente_id ?? null),
     // §9.32: la factura puede elegir su fecha; la boleta, la del día.
     fecha_emision: boleta ? null : (p.fecha_emision ?? '').trim() || null,
@@ -586,6 +591,7 @@ export class FacturasService {
         // §9.22 (migración 189): contado o crédito, y cuándo vence.
         forma_de_pago: revision.pago?.forma ?? null,
         vencimiento: revision.pago?.vencimiento ?? null,
+        medio_de_pago: pedida.medio_de_pago ?? null,
       },
       // El mismo archivo de la vista previa, con el folio que toque.
       armar: (f) =>

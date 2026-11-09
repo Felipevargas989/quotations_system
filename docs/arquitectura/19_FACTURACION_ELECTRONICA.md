@@ -2719,6 +2719,76 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.43 La caja de recepción y el cierre ciego (09-11)
+
+Felipe, 09-11, con las boletas recién habilitadas: *"para hacer un control
+de cierre de caja como el de Fudo, porque la recepcionista que boletee
+tendrá que rendir lo que vendió (también debo poder ver cuántos tickets,
+cuántas tinajas, etc. se han vendido)"*; de la boleta, *"hay que pedir un
+correo para enviar la boleta (para no imprimir)"*; del cierre, *"también
+sumamos el débito / crédito / transferencias como medio de pago y las
+máquinas entregan el resumen de lo vendido"*; y *"la idea es que sea un
+cierre de caja ciego, donde ella anote cuánto tienen en efectivo, débito,
+crédito y transferencia, y luego Camila valide viendo qué se vendió y
+cuánto debería tener"*. Se revisó cómo lo hacen Fudo (arqueo con monto
+inicial, «según sistema» y «según usuario» por medio de pago, modo ciego,
+no se reabre, resumen por correo) y otros (Shopify, RMH, Qamarero, Odoo),
+se mostró la maqueta y la aprobó: *"ok hazlo así"*.
+
+**Las reglas:**
+- Una caja, la «Caja de recepción». Se abre con quién la abre y el
+  sencillo inicial; sin caja abierta, recepción no emite boletas.
+- Cada boleta de recepción y cada factura al contado entra a la caja con
+  su medio de pago: efectivo, débito, crédito o transferencia. Los retiros
+  se anotan con su motivo.
+- **Cierre ciego:** la recepcionista declara los cuatro montos (el
+  efectivo contado con el sencillo, el débito y el crédito del resumen de
+  la máquina, las transferencias de los comprobantes; con dos máquinas,
+  los suma) sin ver lo esperado ni la diferencia. Cerrada, no se reabre, y
+  el resumen le llega por correo a Camila.
+- **La revisión** (el administrador): por medio de pago, lo declarado, lo
+  de Eventia y la diferencia, con las boletas de cada medio, lo vendido y
+  los retiros. Una venta cargada con el medio equivocado (lo más común
+  cuando débito y crédito se compensan) se corrige ahí, con quién y
+  cuándo, y el cierre queda «Revisado» con una nota.
+- **Lo vendido:** cuántos tickets, tinajas, noches de cabaña, etc., por
+  fechas y por persona.
+- Interruptores en Permisos por cargo: abrir y cerrar la caja, de fábrica
+  recepción y el administrador; revisar los cierres y «Lo vendido», el
+  administrador.
+
+| Sprint | Qué | Estado |
+|---|---|---|
+| 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En el laboratorio desde el 09-11 |
+| 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | Por hacer |
+| 3 | Lo vendido | Por hacer |
+
+**Sprint 1, hecho el 09-11** (migración 198):
+- `documentos_tributarios.medio_de_pago` (efectivo, debito, credito o
+  transferencia). Es de Eventia: no va en el archivo del SII. Nulo a
+  crédito, en lo de antes y en las boletas de un evento (esas se cobran
+  con su plan de pagos).
+- La boleta de «Nuevo DTE» (`BoletaNueva`): «Huésped» queda con la cabaña
+  y «Pago y envío» pide el medio de pago y el correo para enviarle la
+  boleta (lo normal, para no imprimir) o «Sin correo: la imprimo». Sin eso,
+  «Crear documento» no se prende y dice lo que falta. Si iba a imprimirse,
+  al emitir se abre su PDF. En el motor, `medio_de_pago` es obligatorio en
+  `POST /boletas/sueltas` y en su revisión.
+- La factura (`SeccionDocumento`, la misma de «Nuevo DTE» y de
+  «Corregir»): al contado, «Medio de pago» en su lista; a crédito no va y
+  se borra. La revisión lo pide en lo que falta (`faltaEnElDte`).
+- Cada línea del tarifario guarda su ítem (`tarifario_id` en el `detalle`
+  de la boleta y de la factura de recepción), para «Lo vendido». Tampoco
+  va en el archivo.
+- La lista «Documentos»: bajo el estado, «Contado · Débito» y, en la
+  boleta, «Efectivo» (`condicionDePago` de `filaDeLaLista`).
+- La condición y el medio de pago salieron de `borrador.ts`, que pasaba las
+  800 líneas del portero, a `facturas/pago-de-la-factura.ts`.
+
+**En el laboratorio desde el 09-11-2026** (migración 198 en el
+laboratorio; motor y pantalla). La migración va antes del motor: el motor
+la pide en cada lista.
+
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
 Felipe, 09-11, mirando en el laboratorio la factura de prueba del paso 0

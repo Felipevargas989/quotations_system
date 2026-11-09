@@ -1,5 +1,4 @@
 import { normalizarRut, revisarRut } from '../../people/utils/rut';
-import { sumarDias } from '../../quotations/generar/fechas';
 import { armarBoleta } from '../archivo/boleta';
 import { valorDeLaLinea } from '../archivo/comun';
 import { armarFactura } from '../archivo/factura';
@@ -16,6 +15,14 @@ import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
 import { cuadrarConLoQueQueda, lineasDeLaOC } from './lineas-de-la-oc';
+import {
+  pagoDe,
+  PLAZO_POR_DEFECTO,
+  PLAZOS_DE_PAGO,
+  type FormaDePago,
+  type MedioDePago,
+  type PagoDeLaFactura,
+} from './pago-de-la-factura';
 
 /**
  * EL DTE DEL EVENTO QUE ARMA BELIA (doc 19 §9.2 y §9.20)
@@ -156,15 +163,6 @@ export interface ReferenciaPedida {
   razon?: string | null;
 }
 
-/** 1 contado (no queda por cobrar) y 2 crédito (§9.22). */
-export type FormaDePago = 1 | 2;
-
-/** Los plazos del crédito: 30 días es el máximo de la ley de pago a 30
- *  días (Ley 19.983); 45 y 60, con bases de licitación o un acuerdo
- *  inscrito en el Ministerio de Economía (§9.22). */
-export const PLAZOS_DE_PAGO = [30, 45, 60] as const;
-export const PLAZO_POR_DEFECTO = 30;
-
 /** 33 la factura, 39 la boleta. */
 export type TipoDeDte = 33 | 39;
 
@@ -202,6 +200,8 @@ export interface DtePedido {
   forma_de_pago?: FormaDePago | null;
   /** Los días del crédito: 30, 45 o 60. Nulo al contado. */
   plazo_dias?: number | null;
+  /** §9.43: al contado, con qué se pagó, para cuadrar la caja. */
+  medio_de_pago?: MedioDePago | null;
   /** «Nuevo documento»: el cliente al que va (su ficha recibe la razón
    *  social al emitir). */
   cliente_id?: string | null;
@@ -209,20 +209,6 @@ export interface DtePedido {
    *  Solo la factura: la boleta va con la del día. */
   fecha_emision?: string | null;
 }
-
-/** La condición de pago como va en la factura: contado, o crédito con su
- *  vencimiento desde la emisión. */
-export interface PagoDeLaFactura {
-  forma: FormaDePago;
-  dias: number | null;
-  vencimiento: string | null;
-}
-
-export const pagoDe = (p: DtePedido, fecha: string): PagoDeLaFactura => {
-  if (p.forma_de_pago === 1) return { forma: 1, dias: null, vencimiento: null };
-  const dias = p.plazo_dias ?? PLAZO_POR_DEFECTO;
-  return { forma: 2, dias, vencimiento: sumarDias(fecha, dias) };
-};
 
 export interface Borrador {
   pedida: DtePedido;
@@ -515,6 +501,9 @@ export const faltaEnElDte = (p: DtePedido): Falta[] => {
       faltan.push({ campo: 'direccion', texto: 'la dirección' });
     if (!textoLimpio(r.comuna))
       faltan.push({ campo: 'comuna', texto: 'la comuna' });
+    // §9.43: al contado, con qué se pagó (para cuadrar la caja).
+    if (p.forma_de_pago === 1 && !p.medio_de_pago)
+      faltan.push({ campo: 'medio_de_pago', texto: 'el medio de pago' });
   }
   const lineas = p.lineas ?? [];
   if (!lineas.length)
@@ -612,6 +601,8 @@ export function revisarDte(
     cantidad: l.cantidad,
     precio: factura ? precioNetoDe(l.precio) : l.precio,
     ...(factura && l.descuento ? { descuento: l.descuento } : {}),
+    // §9.43: el ítem del tarifario, para «Lo vendido» (no va en el archivo).
+    ...(l.tarifario_id != null ? { tarifario_id: l.tarifario_id } : {}),
   }));
   // §9.35: la descripción de la OC que no cabe en la glosa va cortada.
   // Con las líneas de la OC (§9.37), su descripción larga no se usa.

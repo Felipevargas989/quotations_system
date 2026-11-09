@@ -55,6 +55,8 @@ export const lineasDeLaSuelta = (
         descripcion: item.nombre,
         cantidad,
         precio: item.precio,
+        // §9.43: para «Lo vendido» (no va en el archivo).
+        tarifario_id: item.id,
         descripcionLarga:
           cantidad > 1 && item.unidad !== 'unidad'
             ? `${cantidad} ${PLURAL[item.unidad] ?? item.unidad}`

@@ -564,6 +564,12 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ tipo: 33, total: 280000 }),
     );
+    // §9.43: la línea guarda su ítem del tarifario, para «Lo vendido».
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detalle: [expect.objectContaining({ tarifario_id: 5 })],
+      }),
+    );
     await expect(servicio.revisarSinEvento(RECEPCION, SUELTA)).rejects.toThrow(
       'solo del administrador',
     );
@@ -579,9 +585,31 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(fila.forma_de_pago).toBe(2);
     expect(fila.vencimiento).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     repo.crear.mockClear();
-    await servicio.emitirSinEvento(USUARIO, { ...SUELTA, forma_de_pago: 1 });
+    // §9.43: al contado, con su medio de pago.
+    await expect(
+      servicio.emitirSinEvento(USUARIO, { ...SUELTA, forma_de_pago: 1 }),
+    ).rejects.toThrow('Falta el medio de pago');
+    expect(repo.crear).not.toHaveBeenCalled();
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      forma_de_pago: 1,
+      medio_de_pago: 'transferencia',
+    });
     expect(repo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ forma_de_pago: 1, vencimiento: null }),
+      expect.objectContaining({
+        forma_de_pago: 1,
+        vencimiento: null,
+        medio_de_pago: 'transferencia',
+      }),
+    );
+    // A crédito, el medio de pago no va aunque llegue.
+    repo.crear.mockClear();
+    await servicio.emitirSinEvento(USUARIO, {
+      ...SUELTA,
+      medio_de_pago: 'efectivo',
+    });
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ forma_de_pago: 2, medio_de_pago: null }),
     );
   });
 
