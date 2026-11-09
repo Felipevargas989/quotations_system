@@ -21,6 +21,7 @@ import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
+import { colorDelEvento } from "./coloresDeEvento";
 import {
   compararEventos,
   diasConMas,
@@ -109,6 +110,24 @@ const rotuloEvento = (e: {
  *  fila misma, porque la fila se rearma cada vez que cambia el staff. */
 const claveDeFila = (f: FilaSemana) =>
   `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${String(f.cargoId)}`;
+
+/** El número y el resto del rótulo de un evento: "#522 · FDN Canotaje ·
+ *  mié 4 nov al dom 8 nov" → "#522" y "FDN Canotaje · mié 4 nov al…". */
+const partesDelEvento = (f: FilaSemana) => {
+  const [numero = "", ...resto] = f.evento.split(" · ");
+  return { numero, detalle: resto.join(" · "), n: Number(numero.replace("#", "")) };
+};
+
+/** El color de un evento en la sábana (sale de su número). */
+const colorDeFila = (f: FilaSemana) => colorDelEvento(partesDelEvento(f).n);
+
+/** La banda de un evento con su color y la barra de sus días; sin fechas
+ *  (un evento que no está en la lista), la banda gris de siempre. */
+const barraDelEvento = (f: FilaSemana) => {
+  if (f.quotationId === null || f.diasDelEvento.size === 0) return undefined;
+  const { numero, detalle } = partesDelEvento(f);
+  return { numero, detalle, dias: f.diasDelEvento, color: colorDeFila(f) };
+};
 
 // LAS TRES SECCIONES DE LA SÁBANA (Felipe, 09-11-2026: "agreguemos
 // separaciones visuales entre eventos / planta / Staff"), con los colores
@@ -768,6 +787,9 @@ export default function SemanaTab({
                   : SECCION_PLANTA
                 : SECCION_EVENTOS,
             grupo: f.quotationId === null ? undefined : f.evento,
+            // MÁS COLOR (Felipe, 09-11-2026, maqueta aprobada): cada evento
+            // con su color, su número y una barra sobre sus días.
+            grupoBarra: barraDelEvento(f),
             grupoAccion:
               f.quotationId !== null ? (
                 <div className="w-44 font-normal normal-case">
@@ -880,7 +902,11 @@ export default function SemanaTab({
                       abierta
                         ? "bg-blue-600 text-white"
                         : tiene === 0
-                          ? "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                          ? // El «+» vacío en el color de su sección
+                            // (09-11-2026): lila el Staff, azul la planta.
+                            f.ocasional
+                            ? "text-violet-300 hover:bg-violet-50 hover:text-violet-600"
+                            : "text-blue-300 hover:bg-blue-50 hover:text-blue-600"
                           : // LA MISMA REGLA QUE ARRIBA (Felipe, 17-08):
                             // ámbar mientras alguien esté por confirmar,
                             // y recién con todos confirmados el color
@@ -908,8 +934,8 @@ export default function SemanaTab({
               // gente queda en el evento y en su costo.
               const esDiaDeMas = !esDelEvento && !!f.diasConMas?.has(d);
               if (necesita === 0 && tiene === 0) {
-                if (!esDelEvento && !esDiaDeMas)
-                  return <span className="text-gray-200">·</span>;
+                // Fuera del evento, en blanco (09-11-2026: sin puntitos).
+                if (!esDelEvento && !esDiaDeMas) return <span />;
                 return (
                   <button
                     type="button"
@@ -930,14 +956,15 @@ export default function SemanaTab({
                     }
                     // Recuadro ÁMBAR: es el día del evento y no hay
                     // nadie puesto. Salta a la vista sin leer nada
-                    // (Felipe, 15-08). Gris punteado: un día antes o
-                    // después, que se puede usar si hace falta.
+                    // (Felipe, 15-08). Punteado en el color del evento: un
+                    // día antes o después, que se puede usar si hace falta
+                    // (09-11-2026: antes era gris).
                     className={`w-full flex items-center justify-center px-2 py-1.5 rounded-md text-sm border transition-colors ${
                       abierta
                         ? "bg-blue-600 text-white border-blue-600"
                         : esDelEvento
                           ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
-                          : "text-gray-400 border-dashed border-gray-300 hover:bg-gray-50 hover:text-gray-600"
+                          : `border-dashed ${colorDeFila(f).mas}`
                     }`}
                   >
                     +
