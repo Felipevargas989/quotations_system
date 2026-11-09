@@ -13,7 +13,9 @@ import { esFechaDelArchivo, textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle, Receptor } from '../archivo/tipos';
 import { LARGO_MAXIMO } from '../datos-del-receptor';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
+import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
+import { cuadrarConLoQueQueda, lineasDeLaOC } from './lineas-de-la-oc';
 
 /**
  * EL DTE DEL EVENTO QUE ARMA BELIA (doc 19 §9.2 y §9.20)
@@ -81,6 +83,8 @@ export interface OrdenAFacturar {
     ciudad: string | null;
   } | null;
   descripcion: string | null;
+  /** Sus líneas (§9.37): la factura las copia. */
+  lineas?: LineaDeLaOC[] | null;
   neto: number | null;
   iva: number | null;
   total: number;
@@ -416,6 +420,10 @@ export function armarBorrador(
     parte,
     todoElEvento ? evento.personas : null,
   );
+  // §9.37: con sus líneas, la factura va línea por línea, como la OC.
+  const deLaOC = oc
+    ? lineasDeLaOC(oc, parte, (t) => glosaYDescripcion(t).descripcion)
+    : null;
 
   if (tipo === 39)
     return {
@@ -476,7 +484,7 @@ export function armarBorrador(
       tipo,
       orden_de_compra_id: oc?.id ?? null,
       receptor,
-      lineas: [linea],
+      lineas: deLaOC ?? [linea],
       referencias: enOrdenDelSii(referencias),
       pedir_siempre: [...exigidas],
       // Acá ya es factura (la boleta salió antes): crédito a 30 días.
@@ -485,7 +493,7 @@ export function armarBorrador(
     },
     origenes: {
       receptor: origenDelReceptor,
-      detalle: conTextoDeLaOC ? 'orden_de_compra' : 'cotizacion',
+      detalle: conTextoDeLaOC || deLaOC ? 'orden_de_compra' : 'cotizacion',
     },
     leidoDe,
   };
@@ -606,7 +614,8 @@ export function revisarDte(
     ...(factura && l.descuento ? { descuento: l.descuento } : {}),
   }));
   // §9.35: la descripción de la OC que no cabe en la glosa va cortada.
-  const deLaOC = textoLimpio(oc?.descripcion ?? '');
+  // Con las líneas de la OC (§9.37), su descripción larga no se usa.
+  const deLaOC = oc?.lineas?.length ? '' : textoLimpio(oc?.descripcion ?? '');
   if (
     Array.from(deLaOC).length > LARGO_DE_LA_GLOSA &&
     pedidas.some((l) => {
@@ -619,7 +628,20 @@ export function revisarDte(
     avisos.push(
       `La descripción de la OC pasa de ${LARGO_DE_LA_GLOSA} caracteres y va cortada: revísala.`,
     );
-  const esperado = pedidas.reduce((s, l) => s + conIva(l), 0);
+  // §9.37: la que cierra la OC cuadra con lo que le queda.
+  const cuadre = oc
+    ? cuadrarConLoQueQueda(lineas, oc.total - oc.facturado)
+    : null;
+  if (cuadre && oc) {
+    lineas.splice(0, lineas.length, ...cuadre.lineas);
+    avisos.push(
+      `Cuadra con lo que le queda a la OC N° ${oc.numero}: la última línea ajusta ${pesos(Math.abs(cuadre.diferencia))} de redondeo.`,
+    );
+  }
+  const esperado =
+    cuadre && oc
+      ? oc.total - oc.facturado
+      : pedidas.reduce((s, l) => s + conIva(l), 0);
   const montos: Montos | null = problemas.length
     ? null
     : factura

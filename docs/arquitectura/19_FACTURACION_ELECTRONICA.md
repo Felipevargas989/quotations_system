@@ -2707,6 +2707,55 @@ del repositorio (PR #322 y #323). En la lista, lo traído sigue diciendo
 **En producción desde el 08-11-2026** (PR #324, el motor y la vitrina,
 sin migración).
 
+### 9.37 La factura con las líneas de su OC (08-11)
+
+Felipe, 08-11, facturando la #481 de Santo Tomás: *"la orden de compra
+tenía dos líneas, un menú adulto, un menú niño, ese menú adulto tenía un
+valor y el menú niño tenía otro valor y una cantidad. Eso no lo está
+trayendo. La idea es que esto lea exactamente lo que dice la orden de
+compra. No le puedo fusionar y hacer cuadrar el monto nomás"*. La OC N°
+33000132942 del CFT dice MENU ADULTO 78 × $46.218 y MENU NIÑOS 32 × $34.706,
+netos (total $5.611.559); Eventia guardaba solo su descripción y su total,
+y la factura salía en una línea por el monto (la 386 la corrigió él a mano).
+
+Del precio, después de ver cómo se hace (entre empresas, en neto; al
+público, con IVA): *"tejemos siempre el precio con IVA redondo y
+cuadrémonos con IVA [...] no hacer tantas bifurcaciones y tantas variantes
+sobre un sistema de facturación"*. Y del rechazo de la 374 y la 375: fue
+porque Santo Tomás nos tenía como proveedor inactivo, no por el monto.
+
+**Lo que hace:**
+- BelIA lee cada línea de la OC (`leer-orden-de-compra.ts`): la
+  descripción como la imprime, la cantidad y el precio unitario (neto,
+  salvo que la orden diga que trae el IVA). Se guardan solo si cuadran con
+  el neto de la OC (con $1 por línea de redondeo); si no, se avisa y la
+  factura va por el monto, como antes. Columna `ordenes_de_compra.lineas`
+  (migración 196). Las OC guardadas antes se releen solas una vez, solo
+  para sus líneas, la primera vez que se factura su evento
+  (`OrdenesDeCompraService.deDocumentos`).
+- La factura copia esas líneas (`facturas/lineas-de-la-oc.ts`): su
+  descripción, su cantidad y el precio CON IVA redondo, el que da justo el
+  neto de la OC (`precioConIvaDe`: de los que dan ese neto al peso, el más
+  redondo; $46.218 → $55.000 y $34.706 → $41.300). Un solo modo, como pidió
+  Felipe: el precio con IVA.
+- Una parte de la OC («Qué parte», §9.26) parte las cantidades (el 50 %:
+  78 → 39 y 32 → 16) si se parten exactas; si no, va en una línea por el
+  monto. Lo que queda después de una parte, igual.
+- El cuadre: con precios con IVA, una factura puede quedar unos pesos
+  sobre o bajo su parte (la 386: $20 sobre la mitad exacta; Felipe:
+  *"difícilmente alguien por $20 lo rechace"*). La que cierra la OC se
+  cuadra sola con lo que le queda (`cuadrarConLoQueQueda`): si sus líneas
+  suman eso con una diferencia de redondeo (a lo más $1 por unidad), el
+  neto de su última línea se ajusta con los decimales que admite el SII,
+  y la revisión lo dice («Cuadra con lo que le queda a la OC…»). Así la OC
+  termina exacta.
+
+**Lo que cubren las pruebas:** `lineas-de-la-oc.spec.ts` (el precio con
+IVA redondo, las líneas de toda la OC, del 50 % y de lo que queda, lo que
+no se parte, el cuadre, el borrador y la revisión, y la lectura de BelIA),
+`ordenes-de-compra.spec.ts` (la relectura una vez) y
+`leer-orden-de-compra.spec.ts`.
+
 ### 9.11 Fuentes nuevas (04-11)
 
 - Formato de los Documentos Tributarios Electrónicos del SII, versión 2.2

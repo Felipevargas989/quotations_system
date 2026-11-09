@@ -191,7 +191,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('ordenes_de_compra')
       .select(
-        'id, numero, fecha, rut, razon_social, comprador, descripcion, neto, iva, total, documento_id',
+        'id, numero, fecha, rut, razon_social, comprador, descripcion, lineas, neto, iva, total, documento_id',
       )
       .eq('quotation_id', quotationId)
       .eq('company_id', companyId)

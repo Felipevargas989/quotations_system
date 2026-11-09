@@ -66,6 +66,8 @@ describe('Lo que BelIA propone de una OC', () => {
         comuna: 'San Joaquín',
         ciudad: 'Santiago de Chile',
         otras_referencias: [],
+        // Sin líneas leídas (§9.37): la factura va por el monto.
+        lineas: null,
       },
       avisos: [],
     });

@@ -244,6 +244,15 @@ describe('Las OC salen de Documentos (doc 19 §9.20)', () => {
         return Promise.resolve(oc);
       }),
       borrar: jest.fn().mockResolvedValue(1),
+      editar: jest
+        .fn()
+        .mockImplementation(
+          (id: number, _q: string, _c: number, cambios: object) => {
+            const i = guardadas.findIndex((o) => o.id === id);
+            if (i >= 0) guardadas[i] = { ...guardadas[i], ...cambios };
+            return Promise.resolve(guardadas[i] ?? null);
+          },
+        ),
     };
     const lector = {
       leer: jest
@@ -293,11 +302,35 @@ describe('Las OC salen de Documentos (doc 19 §9.20)', () => {
 
   it('lo ya leído no se vuelve a leer', async () => {
     const { service, lector } = armar({
-      antes: [{ id: 5, origen: 'pdf', documento_id: 261 }],
+      antes: [{ id: 5, origen: 'pdf', documento_id: 261, lineas: [] }],
     });
     const r = await service.deDocumentos('ev-481', 1, 'felipe');
     expect(lector.leer).not.toHaveBeenCalled();
-    expect(r.ordenes).toEqual([{ id: 5, origen: 'pdf', documento_id: 261 }]);
+    expect(r.ordenes).toEqual([
+      { id: 5, origen: 'pdf', documento_id: 261, lineas: [] },
+    ]);
+  });
+
+  it('la OC leída antes de sus líneas se relee una vez, solo para ellas (§9.37)', async () => {
+    const lineas = [
+      {
+        descripcion: 'MENU ADULTO',
+        cantidad: 78,
+        precio: 46218,
+        con_iva: false,
+      },
+    ];
+    const { service, repo, lector } = armar({
+      antes: [{ id: 5, origen: 'pdf', documento_id: 261, lineas: null }],
+      leida: { ...LEIDA, lineas },
+    });
+    const r = await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).toHaveBeenCalledWith('ev-481', 1, 261);
+    expect(repo.editar).toHaveBeenCalledWith(5, 'ev-481', 1, { lineas });
+    expect(repo.crear).not.toHaveBeenCalled();
+    expect(r.ordenes[0]).toMatchObject({ id: 5, lineas });
+    await service.deDocumentos('ev-481', 1, 'felipe');
+    expect(lector.leer).toHaveBeenCalledTimes(1);
   });
 
   it('la OC leída cuyo PDF se quitó de Documentos se va con él; la escrita a mano se queda', async () => {
