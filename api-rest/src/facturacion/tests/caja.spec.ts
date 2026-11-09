@@ -185,6 +185,11 @@ const repo = () => ({
   cerrar: jest.fn().mockResolvedValue({
     ...TURNO,
     cerrada_en: '2026-11-09T21:05:00Z',
+    cerrada_por_nombre: 'Ana',
+    declarado_efectivo: 67500,
+    declarado_debito: 135000,
+    declarado_credito: 95000,
+    declarado_transferencia: 40000,
   }),
   turnos: jest.fn().mockResolvedValue([TURNO]),
   turno: jest.fn().mockResolvedValue(TURNO),
@@ -205,6 +210,73 @@ const repo = () => ({
   anotarCorreccion: jest.fn().mockResolvedValue(undefined),
   correcciones: jest.fn().mockResolvedValue([]),
   revisar: jest.fn().mockResolvedValue({ ...TURNO, revisado_en: 'x' }),
+  // Sprint 3: el correo del cierre y «Lo vendido».
+  correosDe: jest.fn().mockResolvedValue(['camila@example.com']),
+  nombreDeLaEmpresa: jest.fn().mockResolvedValue('Valle del Sol Quillón SpA'),
+  documentosDelPeriodo: jest.fn().mockResolvedValue([
+    {
+      id: 1,
+      tipo: 39,
+      turno_de_caja_id: 7,
+      creado_por: 'u-recepcion',
+      detalle: [
+        {
+          descripcion: 'Ticket diario, temporada media',
+          cantidad: 4,
+          precio: 7500,
+          tarifario_id: 26,
+        },
+      ],
+    },
+    {
+      id: 2,
+      tipo: 39,
+      turno_de_caja_id: null,
+      creado_por: 'u-camila',
+      detalle: [
+        {
+          descripcion: 'Tinaja con tabla y espumante',
+          cantidad: 1,
+          precio: 30000,
+          tarifario_id: 22,
+        },
+      ],
+    },
+    // Anulada por su nota de crédito: no cuenta.
+    {
+      id: 3,
+      tipo: 39,
+      turno_de_caja_id: 7,
+      creado_por: 'u-recepcion',
+      detalle: [
+        {
+          descripcion: 'Ticket diario, temporada media',
+          cantidad: 2,
+          precio: 7500,
+          tarifario_id: 26,
+        },
+      ],
+    },
+    // Sin líneas del tarifario (la factura de un evento): no es de acá.
+    {
+      id: 4,
+      tipo: 33,
+      turno_de_caja_id: null,
+      creado_por: 'u-camila',
+      detalle: [
+        { descripcion: 'Servicio de matrimonio', cantidad: 100, precio: 50000 },
+      ],
+    },
+  ]),
+  anulados: jest.fn().mockResolvedValue(new Set([3])),
+  nombresDeTurnos: jest.fn().mockResolvedValue(new Map([[7, 'Ana']])),
+  nombresDePersonas: jest
+    .fn()
+    .mockResolvedValue(new Map([['u-camila', 'Camila Carvajal']])),
+  tarifario: jest.fn().mockResolvedValue([
+    { id: 26, nombre: 'Ticket diario, temporada media', unidad: 'persona' },
+    { id: 22, nombre: 'Tinaja con tabla y espumante', unidad: 'unidad' },
+  ]),
 });
 
 const logger = {
@@ -215,9 +287,22 @@ const logger = {
 
 const armar = () => {
   const r = repo();
+  // De fábrica, revisa el administrador.
+  const permisos = {
+    delCargo: jest.fn((_c: number, cargo: string) =>
+      Promise.resolve(cargo === 'administrador' ? ['caja_revision'] : []),
+    ),
+  };
+  const email = { sendEmail: jest.fn().mockResolvedValue(undefined) };
   return {
     r,
-    servicio: new CajaService(r as unknown as CajaRepository, logger),
+    email,
+    servicio: new CajaService(
+      r as unknown as CajaRepository,
+      logger,
+      permisos as never,
+      email as never,
+    ),
   };
 };
 
@@ -358,5 +443,96 @@ describe('Lo que emite recepción entra a su caja (§9.43)', () => {
       turnoParaEmitir(ADMIN, r as unknown as CajaRepository),
     ).resolves.toBeNull();
     expect(r.turnoAbierto).not.toHaveBeenCalled();
+  });
+});
+
+describe('El resumen del cierre por correo (§9.43, sprint 3)', () => {
+  it('al cerrar, le llega a quien revisa con lo declarado, lo esperado y la diferencia', async () => {
+    const { servicio, r, email } = armar();
+    await servicio.cerrar(RECEPCION, {
+      quien: 'Ana',
+      efectivo: 67500,
+      debito: 135000,
+      credito: 95000,
+      transferencia: 40000,
+    });
+    expect(r.correosDe).toHaveBeenCalledWith(1, ['administrador']);
+    expect(email.sendEmail).toHaveBeenCalledWith(
+      ['camila@example.com'],
+      'cierreDeCaja',
+      expect.objectContaining({
+        companyName: 'Valle del Sol Quillón SpA',
+        quien: 'Ana',
+        vendido: 367500,
+        retiros: 50000,
+        diferencia: 0,
+        lineas: expect.arrayContaining([
+          {
+            medio: 'debito',
+            declarado: 135000,
+            esperado: 130000,
+            diferencia: 5000,
+          },
+        ]),
+      }),
+    );
+  });
+
+  it('si el correo falla, la caja queda cerrada igual', async () => {
+    const { servicio, email } = armar();
+    email.sendEmail.mockRejectedValueOnce(new Error('Resend caído'));
+    await expect(
+      servicio.cerrar(RECEPCION, {
+        quien: 'Ana',
+        efectivo: 0,
+        debito: 0,
+        credito: 0,
+        transferencia: 0,
+      }),
+    ).resolves.toEqual({ cerrada_en: '2026-11-09T21:05:00Z' });
+  });
+});
+
+describe('Lo vendido (§9.43, sprint 3)', () => {
+  it('lo del tarifario del período por ítem, sin lo anulado, con su unidad y por persona', async () => {
+    const { servicio } = armar();
+    const v = await servicio.vendido(ADMIN, {
+      desde: '2026-11-01',
+      hasta: '2026-11-09',
+    });
+    expect(v.items).toEqual([
+      {
+        tarifario_id: 26,
+        nombre: 'Ticket diario, temporada media',
+        unidad: 'persona',
+        cantidad: 4,
+        monto: 30000,
+      },
+      {
+        tarifario_id: 22,
+        nombre: 'Tinaja con tabla y espumante',
+        unidad: 'unidad',
+        cantidad: 1,
+        monto: 30000,
+      },
+    ]);
+    expect(v.total).toBe(60000);
+    expect(v.personas).toEqual(['Ana', 'Camila Carvajal']);
+    const deAna = await servicio.vendido(ADMIN, {
+      desde: '2026-11-01',
+      hasta: '2026-11-09',
+      persona: 'Ana',
+    });
+    expect(deAna.items.map((i) => i.tarifario_id)).toEqual([26]);
+  });
+
+  it('el período: desde antes que hasta, y hasta un año', async () => {
+    const { servicio } = armar();
+    await expect(
+      servicio.vendido(ADMIN, { desde: '2026-11-09', hasta: '2026-11-01' }),
+    ).rejects.toThrow('no es válido');
+    await expect(
+      servicio.vendido(ADMIN, { desde: '2025-01-01', hasta: '2026-11-01' }),
+    ).rejects.toThrow('hasta un año');
   });
 });

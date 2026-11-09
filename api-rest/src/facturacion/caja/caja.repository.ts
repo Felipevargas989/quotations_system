@@ -42,6 +42,24 @@ export interface CorreccionDeCaja {
   created_at: string;
 }
 
+/** Un documento del período, para «Lo vendido» (sprint 3). */
+export interface DocumentoVendido {
+  id: number;
+  tipo: number;
+  detalle: DocumentoDelTurno['detalle'];
+  turno_de_caja_id: number | null;
+  creado_por: string | null;
+}
+
+// Las filas de cada pedido a la base: lo más que entrega de una vez.
+const PAGINA = 1000;
+// Los id que van en un `in (...)`: que la dirección no se haga eterna.
+const TROZO = 300;
+const enTrozos = <T>(xs: T[]) =>
+  Array.from({ length: Math.ceil(xs.length / TROZO) }, (_, i) =>
+    xs.slice(i * TROZO, (i + 1) * TROZO),
+  );
+
 const TURNO =
   'id, company_id, caja, abierta_por, abierta_por_nombre, abierta_en, sencillo_inicial, cerrada_por, cerrada_por_nombre, cerrada_en, declarado_efectivo, declarado_debito, declarado_credito, declarado_transferencia, comentario, revisado_por, revisado_por_nombre, revisado_en, nota_revision';
 
@@ -276,5 +294,133 @@ export class CajaRepository {
       .maybeSingle();
     if (error) throw error;
     return data ? numeros(data as TurnoDeCaja) : null;
+  }
+
+  /** Las boletas y facturas emitidas del período, por páginas. */
+  async documentosDelPeriodo(
+    companyId: number,
+    desde: string,
+    hasta: string,
+  ): Promise<DocumentoVendido[]> {
+    const filas: DocumentoVendido[] = [];
+    for (let fila = 0; ; fila += PAGINA) {
+      const { data, error } = await this.db
+        .from('documentos_tributarios')
+        .select('id, tipo, detalle, turno_de_caja_id, creado_por')
+        .eq('company_id', companyId)
+        .in('tipo', [33, 39])
+        .eq('estado', 'emitido')
+        .gte('fecha_emision', desde)
+        .lte('fecha_emision', hasta)
+        .order('id', { ascending: true })
+        .range(fila, fila + PAGINA - 1);
+      if (error) throw error;
+      filas.push(...((data ?? []) as DocumentoVendido[]));
+      if (!data || data.length < PAGINA) break;
+    }
+    return filas;
+  }
+
+  /** Los que anuló una nota de crédito emitida (código 1). */
+  async anulados(companyId: number, ids: number[]): Promise<Set<number>> {
+    const anulados = new Set<number>();
+    for (const trozo of enTrozos(ids)) {
+      const { data, error } = await this.db
+        .from('documentos_tributarios')
+        .select('modifica_id')
+        .eq('company_id', companyId)
+        .eq('tipo', 61)
+        .eq('codigo_referencia', 1)
+        .eq('estado', 'emitido')
+        .in('modifica_id', trozo);
+      if (error) throw error;
+      for (const d of (data ?? []) as { modifica_id: number }[])
+        anulados.add(d.modifica_id);
+    }
+    return anulados;
+  }
+
+  /** Quién abrió cada turno. */
+  async nombresDeTurnos(
+    companyId: number,
+    ids: number[],
+  ): Promise<Map<number, string>> {
+    const nombres = new Map<number, string>();
+    for (const trozo of enTrozos(ids)) {
+      const { data, error } = await this.db
+        .from('turnos_de_caja')
+        .select('id, abierta_por_nombre')
+        .eq('company_id', companyId)
+        .in('id', trozo);
+      if (error) throw error;
+      for (const t of (data ?? []) as {
+        id: number;
+        abierta_por_nombre: string;
+      }[])
+        nombres.set(t.id, t.abierta_por_nombre);
+    }
+    return nombres;
+  }
+
+  /** El nombre de cada persona por su id de sesión. */
+  async nombresDePersonas(
+    companyId: number,
+    ids: string[],
+  ): Promise<Map<string, string>> {
+    const nombres = new Map<string, string>();
+    for (const trozo of enTrozos(ids)) {
+      const { data, error } = await this.db
+        .from('user_profiles')
+        .select('user_id, full_name')
+        .eq('company_id', companyId)
+        .in('user_id', trozo);
+      if (error) throw error;
+      for (const u of (data ?? []) as {
+        user_id: string;
+        full_name: string | null;
+      }[])
+        if (u.full_name) nombres.set(u.user_id, u.full_name);
+    }
+    return nombres;
+  }
+
+  /** El tarifario de la empresa: el nombre de hoy y la unidad de cada ítem. */
+  async tarifario(
+    companyId: number,
+  ): Promise<{ id: number; nombre: string; unidad: string }[]> {
+    const { data, error } = await this.db
+      .from('tarifario_de_boletas')
+      .select('id, nombre, unidad')
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return (data ?? []) as { id: number; nombre: string; unidad: string }[];
+  }
+
+  /** Los correos de las personas de esos cargos. */
+  async correosDe(companyId: number, cargos: string[]): Promise<string[]> {
+    if (!cargos.length) return [];
+    const { data, error } = await this.db
+      .from('user_profiles')
+      .select('email')
+      .eq('company_id', companyId)
+      .in('role', cargos);
+    if (error) throw error;
+    return [
+      ...new Set(
+        ((data ?? []) as { email: string | null }[])
+          .map((u) => (u.email ?? '').trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+
+  async nombreDeLaEmpresa(companyId: number): Promise<string | null> {
+    const { data, error } = await this.db
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { name: string | null } | null)?.name ?? null;
   }
 }

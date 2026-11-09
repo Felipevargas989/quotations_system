@@ -73,6 +73,37 @@ const nombreDelItem = (descripcion: string) =>
     ? descripcion.slice(descripcion.indexOf(' · ') + 3)
     : descripcion;
 
+/**
+ * Lo vendido por ítem, con su cantidad y su monto con IVA. En el cuadre van
+ * todas las líneas (así cuadra con los totales); en «Lo vendido», solo las
+ * del tarifario.
+ */
+export const vendidoPorItem = (
+  documentos: Pick<DocumentoDelTurno, 'tipo' | 'detalle'>[],
+  soloDelTarifario = false,
+): ItemVendido[] => {
+  const items = new Map<string, ItemVendido>();
+  for (const d of documentos)
+    for (const l of d.detalle ?? []) {
+      if (soloDelTarifario && l.tarifario_id == null) continue;
+      const nombre = nombreDelItem(l.descripcion ?? '');
+      const clave =
+        l.tarifario_id != null ? `t${l.tarifario_id}` : `n${nombre}`;
+      const item = items.get(clave) ?? {
+        tarifario_id: l.tarifario_id ?? null,
+        nombre,
+        cantidad: 0,
+        monto: 0,
+      };
+      item.cantidad += Number(l.cantidad ?? 0);
+      item.monto += conIvaDe(d.tipo, l);
+      items.set(clave, item);
+    }
+  return [...items.values()].sort(
+    (a, b) => b.monto - a.monto || a.nombre.localeCompare(b.nombre, 'es'),
+  );
+};
+
 export const cuadrar = (
   turno: TurnoParaCuadrar,
   documentos: DocumentoDelTurno[],
@@ -109,23 +140,6 @@ export const cuadrar = (
     ? lineas.reduce((s, l) => s + (l.declarado ?? 0), 0)
     : null;
 
-  const items = new Map<string, ItemVendido>();
-  for (const d of emitidos)
-    for (const l of d.detalle ?? []) {
-      const nombre = nombreDelItem(l.descripcion ?? '');
-      const clave =
-        l.tarifario_id != null ? `t${l.tarifario_id}` : `n${nombre}`;
-      const item = items.get(clave) ?? {
-        tarifario_id: l.tarifario_id ?? null,
-        nombre,
-        cantidad: 0,
-        monto: 0,
-      };
-      item.cantidad += Number(l.cantidad ?? 0);
-      item.monto += conIvaDe(d.tipo, l);
-      items.set(clave, item);
-    }
-
   return {
     lineas,
     vendido: emitidos.reduce((s, d) => s + Number(d.total), 0),
@@ -134,6 +148,6 @@ export const cuadrar = (
     declarado: declaradoTotal,
     diferencia: declaradoTotal == null ? null : declaradoTotal - esperado,
     porConfirmar: documentos.filter((d) => d.estado === 'por_confirmar').length,
-    vendidoPorItem: [...items.values()].sort((a, b) => b.monto - a.monto),
+    vendidoPorItem: vendidoPorItem(emitidos),
   };
 };

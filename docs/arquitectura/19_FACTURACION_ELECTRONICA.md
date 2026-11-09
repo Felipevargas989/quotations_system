@@ -2761,7 +2761,7 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
 |---|---|---|
 | 1 | El medio de pago en la boleta y en la factura al contado, y el correo para enviar la boleta | En el laboratorio desde el 09-11 |
 | 2 | La caja: abrirla, los retiros, el cierre ciego y la revisión | En el laboratorio desde el 09-11 |
-| 3 | Lo vendido, y el resumen del cierre por correo | Por hacer |
+| 3 | Lo vendido, y el resumen del cierre por correo | En el laboratorio desde el 09-11 |
 
 **Sprint 1, hecho el 09-11** (migración 198):
 - `documentos_tributarios.medio_de_pago` (efectivo, debito, credito o
@@ -2818,12 +2818,30 @@ la pide en cada lista.
   más lo vendido en efectivo menos los retiros; débito, crédito y
   transferencia, lo vendido con cada uno. Lo por confirmar no cuenta y se
   avisa.
-- Pendiente para el sprint 3: el resumen del cierre por correo a quien
-  revisa (el servicio de correos de la casa pasa las 800 líneas y se hace
-  con su plantilla).
 
 **El sprint 2, en el laboratorio desde el 09-11-2026** (migración 199 en
 el laboratorio; motor y pantalla). La migración va antes del motor.
+
+**Sprint 3, hecho el 09-11** (sin migración):
+- **Lo vendido** (`LoVendido`, en la pestaña «Caja», con el permiso de
+  revisar los cierres; `GET /facturacion/caja/vendido`): lo del tarifario
+  (las líneas con `tarifario_id`) en las boletas y facturas emitidas del
+  período, sin lo que anuló una nota de crédito, por ítem con su cantidad
+  y su unidad («142 personas», «9 noches») y su monto con IVA, y el total.
+  Este mes si no se dice otra cosa, hasta un año de una vez. Por persona:
+  quien abrió la caja o, fuera de la caja, quien emitió. Lo de antes del
+  sprint 1 no trae su ítem del tarifario y no aparece.
+- **El resumen del cierre por correo** (como el de Fudo): apenas se cierra
+  la caja, a las personas de los cargos con «Revisar cierres de caja»
+  (de fábrica, los administradores): quién cerró, de cuándo a cuándo, por
+  medio de pago lo declarado, según Eventia y la diferencia, lo vendido,
+  los retiros y el comentario, con «Revisar el cierre». Plantilla
+  `email/templates/cierreDeCaja.ts` (`CIERRE_DE_CAJA`). Si el correo
+  falla, la caja queda cerrada igual y se anota en el registro. En el
+  laboratorio los correos están silenciados (`EMAILS_SILENCED`).
+
+**El sprint 3, en el laboratorio desde el 09-11-2026** (motor y pantalla,
+sin migración).
 
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
