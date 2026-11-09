@@ -2744,7 +2744,7 @@ Felipe, 09-11, mirando la lista: *"¿acá por qué quedó la 388 arriba de la
   notas siguen debajo de su documento, de la más vieja a la más nueva.
 - El reporte (CSV) no cambia.
 
-Solo pantalla, hecho el 09-11.
+Solo pantalla, en el laboratorio y en producción desde el 09-11-2026 (PR #345).
 
 ### 9.43 La caja de recepción y el cierre ciego (09-11)
 
