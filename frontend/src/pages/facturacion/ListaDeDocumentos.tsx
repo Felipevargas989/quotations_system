@@ -46,8 +46,14 @@ import {
 //   estado. Nada se parte, salvo el cliente, que llega a dos líneas.
 // - El estado, en una palabra: Vigente, Rebajada, Anulada o Por confirmar;
 //   abajo lo que lo cambió («−$1.000», «Por NC 88») o, en la factura, su
-//   condición de pago. Todas sus notas van debajo con una sola sangría, y
-//   lo anulado va achurado en gris suave (07-11).
+//   condición de pago. Todas sus notas van debajo con una sola sangría.
+//   Lo anulado (Felipe, 08-11, la opción B de la maqueta: *"el achurado
+//   [...] aún se entiende poco visualmente"*) va en gris parejo con sus
+//   montos tachados, y su grupo (la factura y las notas de debajo) unido
+//   por una barra roja a la izquierda. La nota cuya factura quedó fuera de
+//   las fechas no se muestra (*"si el filtro de la fecha oculta la factura,
+//   que también oculte la nota de crédito asociada"*); cuenta igual en el
+//   resumen y en el reporte, que son del período.
 //   Ver, descargar el PDF y, del administrador, «Comprobar» y «Anular o
 //   rebajar…», que abre la nota en su pantalla con el documento ya elegido
 //   (sprint 3).
@@ -212,11 +218,9 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
 
 const icono =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
-/** Lo anulado: líneas finas en gris suave, de lado a lado (07-11). */
-const ACHURADO = {
-  backgroundImage:
-    "repeating-linear-gradient(135deg, rgb(156 163 175 / 0.28) 0 1px, transparent 1px 7px)",
-};
+/** La barra roja que une lo anulado con sus notas (08-11, la opción B):
+ *  una sombra por dentro de la primera celda, que no corre el texto. */
+const BARRA_DEL_GRUPO = "shadow-[inset_4px_0_0_#fca5a5]";
 
 /** «Anular o rebajar…»: el mismo botón, en rojo. */
 const iconoRojo =
@@ -281,10 +285,24 @@ export default function ListaDeDocumentos({
   const docs = lista.data?.documentos ?? [];
   const visibles = docs.filter((d) => pasa(d, f));
   // Si alguno se puede anular, todos guardan el lugar del botón rojo.
-  const conModificar = visibles.some(modificable);
-  const ids = new Set(visibles.map((d) => d.id));
+  // §9.41: la nota cuya factura (o la nota que modifica) quedó fuera de las
+  // fechas no va en la lista; los otros filtros sí la dejan encontrar.
+  const delRango = new Map(docs.map((d) => [d.id, d]));
+  const colgada = (d: DocumentoDeLaLista): boolean => {
+    const vistos = new Set<number>();
+    for (let x = d; x.modifica_id != null; ) {
+      const padre = delRango.get(x.modifica_id);
+      if (!padre || vistos.has(padre.id)) return true;
+      vistos.add(padre.id);
+      x = padre;
+    }
+    return false;
+  };
+  const enLaLista = visibles.filter((d) => !colgada(d));
+  const conModificar = enLaLista.some(modificable);
+  const ids = new Set(enLaLista.map((d) => d.id));
   const hijos = new Map<number, DocumentoDeLaLista[]>();
-  for (const d of visibles)
+  for (const d of enLaLista)
     if (d.modifica_id != null && ids.has(d.modifica_id))
       hijos.set(d.modifica_id, [...(hijos.get(d.modifica_id) ?? []), d]);
   /** Todas las notas de un documento y las de sus notas, de la más vieja a
@@ -305,7 +323,7 @@ export default function ListaDeDocumentos({
     return salida.sort((a, b) => a.id - b.id);
   };
   // Lo más nuevo arriba; lo que espera «Comprobar» (sin fecha), primero.
-  const raices = visibles
+  const raices = enLaLista
     .filter((d) => d.modifica_id == null || !ids.has(d.modifica_id))
     .sort(
       (a, b) =>
@@ -408,24 +426,30 @@ export default function ListaDeDocumentos({
     }
   };
 
-  const fila = (d: DocumentoDeLaLista, nivel: number): JSX.Element => {
+  /** `delAnulado`: la fila es del grupo de un documento anulado (él o una
+   *  de sus notas): gris parejo y la barra roja (08-11, la opción B). */
+  const fila = (
+    d: DocumentoDeLaLista,
+    nivel: number,
+    delAnulado = false,
+  ): JSX.Element => {
     const linea = lineaDelEstado(d);
     const sub = subtitulo(d);
+    const anulada = d.situacion === "anulada";
+    const enGrupo = delAnulado || anulada;
     return (
       <Fragment key={d.id}>
         <tr
-          className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : ""}`}
-          // Lo anulado, achurado en gris suave de lado a lado; la nota que
-          // anula, no (Felipe, 07-11).
-          style={d.situacion === "anulada" ? ACHURADO : undefined}
-          data-achurado={d.situacion === "anulada" || undefined}
+          className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : enGrupo ? "bg-gray-50" : ""}`}
+          data-anulada={anulada || undefined}
+          data-grupo-anulado={enGrupo || undefined}
         >
           <td
-            className="py-2 pr-2"
-            style={{ paddingLeft: `${nivel * 1.25}rem` }}
+            className={`py-2 pr-2 ${enGrupo ? BARRA_DEL_GRUPO : ""}`}
+            style={{ paddingLeft: `${0.5 + nivel * 1.25}rem` }}
           >
             <p
-              className={`whitespace-nowrap font-semibold ${esNota(d) ? "text-gray-700" : "text-gray-900"}`}
+              className={`whitespace-nowrap font-semibold ${anulada ? "text-gray-500" : esNota(d) ? "text-gray-700" : "text-gray-900"}`}
             >
               {nivel > 0 && <span className="text-gray-300">└ </span>}
               {d.nombre ?? d.titulo}
@@ -440,7 +464,9 @@ export default function ListaDeDocumentos({
               {sub}
             </p>
           </td>
-          <td className="py-2 pr-2 text-gray-700">
+          <td
+            className={`py-2 pr-2 ${anulada ? "text-gray-500" : "text-gray-700"}`}
+          >
             {/* Lo único que puede bajar de línea: hasta dos, y entero al
                 pasar el mouse. */}
             <p
@@ -453,7 +479,7 @@ export default function ListaDeDocumentos({
           {[d.neto, d.iva, d.total].map((n, i) => (
             <td
               key={i}
-              className={`whitespace-nowrap py-2 pr-2 text-right ${n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
+              className={`whitespace-nowrap py-2 pr-2 text-right ${anulada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
             >
               {clp(n)}
             </td>
@@ -740,7 +766,7 @@ export default function ListaDeDocumentos({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500">
-                    <th className="pb-2 font-medium">Documento</th>
+                    <th className="pb-2 pl-2 font-medium">Documento</th>
                     <th className="pb-2 font-medium">Cliente</th>
                     <th className="pb-2 pr-2 text-right font-medium">Neto</th>
                     <th className="pb-2 pr-2 text-right font-medium">IVA</th>
@@ -752,7 +778,9 @@ export default function ListaDeDocumentos({
                 <tbody>
                   {raices.map((d) => [
                     fila(d, 0),
-                    ...notasDebajo(d.id).map((n) => fila(n, 1)),
+                    ...notasDebajo(d.id).map((n) =>
+                      fila(n, 1, d.situacion === "anulada"),
+                    ),
                   ])}
                 </tbody>
               </table>

@@ -348,7 +348,7 @@ describe("la lista de Facturación (§9.22)", () => {
     expect(screen.getByText("Por NC 9")).toHaveClass("whitespace-nowrap");
   });
 
-  it("las notas con una sola sangría, y lo anulado achurado (no la nota que anula)", async () => {
+  it("las notas con una sola sangría, y lo anulado en gris con su grupo unido por la barra roja (08-11)", async () => {
     const lista = (documentos: DocumentoDeLaLista[]) => ({
       ambiente: "prueba" as const,
       mes: "2026-11",
@@ -416,18 +416,59 @@ describe("la lista de Facturación (§9.22)", () => {
     const sangria = (tr: HTMLElement) =>
       (tr.querySelector("td") as HTMLElement).style.paddingLeft;
     // La ND que anula la NC va a la misma distancia que la NC: sin cascada.
-    expect(sangria(await fila("NC 2"))).toBe("1.25rem");
-    expect(sangria(await fila("ND 3"))).toBe("1.25rem");
+    expect(sangria(await fila("NC 2"))).toBe("1.75rem");
+    expect(sangria(await fila("ND 3"))).toBe("1.75rem");
     const orden = screen
       .getAllByRole("row")
       .map((r) => r.querySelector("td p")?.textContent ?? "")
       .filter(Boolean);
     expect(orden.indexOf("└ ND 3")).toBe(orden.indexOf("└ NC 2") + 1);
-    // Achurado lo anulado (la NC 2 y la Factura 4); la NC 5 que anula, no.
-    expect(await fila("NC 2")).toHaveAttribute("data-achurado");
-    expect(await fila("Factura 4")).toHaveAttribute("data-achurado");
-    expect(await fila("NC 5")).not.toHaveAttribute("data-achurado");
-    expect(await fila("Factura 1")).not.toHaveAttribute("data-achurado");
+    // Lo anulado (la NC 2 y la Factura 4) en gris; la NC 5 que anula la 4
+    // no está anulada, pero va en su grupo, unida por la barra roja.
+    expect(await fila("NC 2")).toHaveAttribute("data-anulada");
+    expect(await fila("Factura 4")).toHaveAttribute("data-anulada");
+    expect(await fila("NC 5")).not.toHaveAttribute("data-anulada");
+    expect(await fila("NC 5")).toHaveAttribute("data-grupo-anulado");
+    expect(await fila("Factura 1")).not.toHaveAttribute("data-grupo-anulado");
+    // Los montos de lo anulado, tachados.
+    const total4 = (await fila("Factura 4")).querySelectorAll("td")[4];
+    expect(total4).toHaveClass("line-through");
+  });
+
+  it("la nota cuya factura quedó fuera de las fechas no se muestra, pero cuenta en el resumen (08-11)", async () => {
+    d.getListaDeFacturacion.mockResolvedValueOnce({
+      ambiente: "prueba",
+      mes: "2026-11",
+      desde: "2026-11-01",
+      hasta: "2026-11-30",
+      hoy: "2026-11-06",
+      resumen: {
+        facturado: 0,
+        facturas: 0,
+        boletas: 0,
+        notas: 0,
+        porConfirmar: 0,
+      },
+      documentos: [
+        { ...base, id: 10, folio: 10, nombre: "Factura 10", total: 1000 },
+        {
+          ...base,
+          id: 7,
+          tipo: 61,
+          folio: 7,
+          nombre: "NC 7",
+          que_hace: "anula la 377",
+          // La 377 es de octubre: no vino con noviembre.
+          modifica_id: 377,
+          situacion: "nota",
+          total: -500,
+        },
+      ],
+    });
+    abrir();
+    expect(await screen.findByText("Factura 10")).toBeInTheDocument();
+    expect(screen.queryByText("NC 7")).not.toBeInTheDocument();
+    expect(resumen()).toContain("1 factura · 0 boletas · 1 nota");
   });
 
   it("con un motor de antes (sin el nombre ni el detalle), se ve como antes", async () => {
