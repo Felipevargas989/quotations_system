@@ -131,7 +131,10 @@ const nombreDelArchivo = (d: DocumentoDeLaLista) =>
 const lineaDelEstado = (d: DocumentoDeLaLista) => {
   if (d.estado !== "emitido") return null;
   if (d.situacion === "anulada") return d.cadena.detalle;
-  if (!d.cadena.detalle) return condicionDePago(d);
+  // §9.42 (Felipe, 09-11: *"eliminar el −1000 del chip rebajada"*): lo
+  // rebajado ya se ve en los montos; abajo, la condición de pago.
+  if (!d.cadena.detalle || (d.situacion === "rebajada" && d.queda))
+    return condicionDePago(d);
   const vence = d.vencimiento
     ? `vence ${fechaCorta(d.vencimiento).slice(0, 5)}`
     : null;
@@ -217,9 +220,14 @@ const descargarReporte = (f: Filtros, docs: DocumentoDeLaLista[]) => {
 
 const icono =
   "inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600";
-/** La barra roja que une lo anulado con sus notas (08-11, la opción B):
- *  una sombra por dentro de la primera celda, que no corre el texto. */
-const BARRA_DEL_GRUPO = "shadow-[inset_4px_0_0_#fca5a5]";
+/** La barra roja que une un documento con sus notas (08-11, la opción B;
+ *  §9.42, 09-11: *"la línea del lado debería ser continua"*): una franja
+ *  por dentro de la primera celda, que no corre el texto. En las notas sube
+ *  un píxel y tapa la raya entre filas, para que no se corte. */
+const BARRA_DEL_GRUPO =
+  "relative before:absolute before:bottom-0 before:left-0 before:w-1 before:bg-red-300";
+const BARRA_ARRIBA = "before:top-0";
+const BARRA_SEGUIDA = "before:-top-px";
 
 /** «Anular o rebajar…»: el mismo botón, en rojo. */
 const iconoRojo =
@@ -425,26 +433,29 @@ export default function ListaDeDocumentos({
     }
   };
 
-  /** `delAnulado`: la fila es del grupo de un documento anulado (él o una
-   *  de sus notas): gris parejo y la barra roja (08-11, la opción B). */
+  /** `delGrupo`: la fila es de un documento con notas (él o una de ellas):
+   *  gris parejo y la barra roja seguida de arriba abajo (08-11, la opción
+   *  B; §9.42, 09-11: *"toda la operación debería estar marcada"*). */
   const fila = (
     d: DocumentoDeLaLista,
     nivel: number,
-    delAnulado = false,
+    delGrupo = false,
   ): JSX.Element => {
     const linea = lineaDelEstado(d);
     const sub = subtitulo(d);
     const anulada = d.situacion === "anulada";
-    const enGrupo = delAnulado || anulada;
+    const enGrupo = delGrupo || anulada;
+    // §9.42: la rebajada, lo original tachado y abajo lo que le queda.
+    const queda = !anulada && d.queda ? d.queda : null;
     return (
       <Fragment key={d.id}>
         <tr
           className={`border-t border-gray-100 align-top ${d.id === recien ? "bg-green-50" : enGrupo ? "bg-gray-50" : ""}`}
           data-anulada={anulada || undefined}
-          data-grupo-anulado={enGrupo || undefined}
+          data-grupo={enGrupo || undefined}
         >
           <td
-            className={`py-2 pr-2 ${enGrupo ? BARRA_DEL_GRUPO : ""}`}
+            className={`py-2 pr-2 ${enGrupo ? `${BARRA_DEL_GRUPO} ${nivel > 0 ? BARRA_SEGUIDA : BARRA_ARRIBA}` : ""}`}
             style={{ paddingLeft: `${0.5 + nivel * 1.25}rem` }}
           >
             <p
@@ -480,7 +491,16 @@ export default function ListaDeDocumentos({
               key={i}
               className={`whitespace-nowrap py-2 pr-2 text-right ${anulada ? "text-gray-400 line-through" : n < 0 ? "text-red-700" : "text-gray-900"} ${i === 2 ? "font-semibold" : ""}`}
             >
-              {clp(n)}
+              {queda ? (
+                <>
+                  <span className="text-gray-400 line-through">{clp(n)}</span>
+                  <span className="block">
+                    {clp([queda.neto, queda.iva, queda.total][i])}
+                  </span>
+                </>
+              ) : (
+                clp(n)
+              )}
             </td>
           ))}
           <td className="py-2 pr-2 text-xs">
@@ -775,12 +795,15 @@ export default function ListaDeDocumentos({
                   </tr>
                 </thead>
                 <tbody>
-                  {raices.map((d) => [
-                    fila(d, 0),
-                    ...notasDebajo(d.id).map((n) =>
-                      fila(n, 1, d.situacion === "anulada"),
-                    ),
-                  ])}
+                  {raices.map((d) => {
+                    // §9.42: el documento con notas y todas ellas, un solo
+                    // bloque gris con la barra roja seguida.
+                    const notas = notasDebajo(d.id);
+                    return [
+                      fila(d, 0, notas.length > 0),
+                      ...notas.map((n) => fila(n, 1, true)),
+                    ];
+                  })}
                 </tbody>
               </table>
             </div>

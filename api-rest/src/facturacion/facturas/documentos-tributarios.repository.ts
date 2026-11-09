@@ -327,19 +327,27 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
-        'id, tipo, ambiente, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, created_at',
+        'id, tipo, ambiente, folio, estado, neto, iva, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, created_at',
       )
       .eq('company_id', companyId)
       .in('tipo', [33, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
+    // El neto y el IVA, para lo que le queda a la rebajada (§9.42).
     return (
       (data ?? []) as (DocumentoDeLaCadena & {
         ambiente: AmbienteDeFacturacion;
         orden_de_compra_id: number | null;
         created_at: string;
+        neto: number;
+        iva: number;
       })[]
-    ).map((d) => ({ ...d, total: Number(d.total) }));
+    ).map((d) => ({
+      ...d,
+      neto: Number(d.neto),
+      iva: Number(d.iva),
+      total: Number(d.total),
+    }));
   }
 
   /** Los eventos aceptados o realizados desde una fecha (AAAA-MM-DD),
