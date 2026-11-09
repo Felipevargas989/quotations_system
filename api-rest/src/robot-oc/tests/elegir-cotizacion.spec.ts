@@ -210,6 +210,98 @@ describe('El robot de OC: a qué cotización va cada una', () => {
     ).toBe('sin_cliente');
   });
 
+  describe('la fecha desempata (Felipe, 09-11: caso Rudel en producción)', () => {
+    const HOY = new Date('2026-11-09T12:00:00Z');
+    const RUDEL = {
+      cliente_id: 'rudel',
+      cliente: 'Rudel S.A.',
+      correo_contacto: 'crozas@rudel.cl',
+      correos_cliente: ['crozas@rudel.cl'],
+    };
+    const OC_RUDEL = {
+      numero: '35074',
+      total: 4_522_000,
+      correos: ['info.sibo@rudel.cl'],
+    };
+
+    it('el evento de 2025 ya hecho no recibe el anticipo: va a la #500', () => {
+      const r = elegirCotizacion(
+        OC_RUDEL,
+        [
+          cot(500, { ...RUDEL, total: 40_840_800, fecha_evento: '2026-11-09' }),
+          cot(199, {
+            ...RUDEL,
+            estado: 'realizada',
+            total: 34_547_366,
+            fecha_evento: '2025-09-29',
+          }),
+        ],
+        HOY,
+      );
+      expect(r).toMatchObject({
+        resultado: 'elegida',
+        por: 'fecha',
+        cotizacion: { numero: 500 },
+      });
+    });
+
+    it('entre dos eventos futuros gana el más cercano si le saca 30 días', () => {
+      expect(
+        va(
+          elegirCotizacion(
+            OC_RUDEL,
+            [
+              cot(601, { ...RUDEL, total: 9e6, fecha_evento: '2027-03-01' }),
+              cot(600, { ...RUDEL, total: 9e6, fecha_evento: '2026-11-20' }),
+            ],
+            HOY,
+          ),
+        ),
+      ).toBe(600);
+    });
+
+    it('dos eventos con fechas parecidas siguen siendo una duda', () => {
+      const r = elegirCotizacion(
+        OC_RUDEL,
+        [
+          cot(600, { ...RUDEL, total: 9e6, fecha_evento: '2026-11-20' }),
+          cot(601, { ...RUDEL, total: 9e6, fecha_evento: '2026-12-05' }),
+        ],
+        HOY,
+      );
+      expect(r.resultado).toBe('duda');
+    });
+
+    it('si alguna no tiene fecha, no se adivina', () => {
+      const r = elegirCotizacion(
+        OC_RUDEL,
+        [
+          cot(600, { ...RUDEL, total: 9e6, fecha_evento: '2026-11-20' }),
+          cot(601, { ...RUDEL, total: 9e6, fecha_evento: null }),
+        ],
+        HOY,
+      );
+      expect(r.resultado).toBe('duda');
+    });
+
+    it('un evento realizado hace poco sigue pudiendo recibir su OC', () => {
+      const r = elegirCotizacion(
+        OC_RUDEL,
+        [
+          cot(600, {
+            ...RUDEL,
+            estado: 'realizada',
+            total: 9e6,
+            fecha_evento: '2026-10-20',
+          }),
+          cot(601, { ...RUDEL, total: 9e6, fecha_evento: '2026-10-25' }),
+        ],
+        HOY,
+      );
+      expect(r.resultado).toBe('duda');
+    });
+  });
+
   it('el nombre corto del cliente para el documento', () => {
     expect(clienteCorto('Rudel S.A.')).toBe('Rudel');
     expect(clienteCorto('Linde High Lift Chile S.A.')).toBe(
