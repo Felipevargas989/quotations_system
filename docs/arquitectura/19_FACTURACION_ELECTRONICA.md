@@ -2721,6 +2721,25 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.41 Lo anulado en la lista, en gris, y la nota con su factura (08-11)
+
+Felipe, 08-11, mirando «Documentos»: *"las notas de crédito deberían
+siempre quedar bajo su factura"*, y del achurado: *"puede ser diferente,
+aún se entiende poco visualmente"*. Con la maqueta de tres opciones a la
+vista eligió la B: *"la B hazlo y a producción"*.
+- Lo anulado (`ListaDeDocumentos`) va en gris parejo, con su N°, su
+  cliente y sus montos en gris y los montos tachados; su grupo (la
+  factura anulada y las notas de debajo) queda unido por una barra roja a
+  la izquierda (una sombra por dentro de la primera celda, que no corre el
+  texto). Sale el achurado de rayas del 07-11.
+- La nota va siempre bajo su factura: si las fechas dejan fuera la
+  factura (la 377 es de octubre y se mira noviembre), la nota tampoco se
+  muestra (*"si el filtro de la fecha oculta la factura, que también
+  oculte la nota de crédito asociada"*); con los otros filtros (tipo,
+  estado, búsqueda) sí aparece sola, para encontrarla. Cuenta igual en el
+  resumen de arriba y en el reporte CSV, que son del período: para el
+  libro de ventas, la nota va en el mes en que se emitió.
+
 ### 9.40 La revisión: lo aprobado en la barra y «Documento» sin repetir (08-11)
 
 Felipe, 08-11, con Santo Tomás en la revisión (3 de 3, la primera sin
