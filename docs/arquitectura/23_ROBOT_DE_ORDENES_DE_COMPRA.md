@@ -39,8 +39,8 @@ Cada caso del §2 es una prueba: `api-rest/src/robot-oc/tests/elegir-cotizacion.
 
 - **La llave.** No hay sesión de persona. La puerta se abre con el encabezado `x-robot-key`, que debe ser igual a `ROBOT_OC_KEY`, y solo trabaja con la empresa de `ROBOT_OC_EMPRESA`. Las dos son variables de Railway. Sin ellas la puerta está apagada (503), con otra llave responde 401. La llave sirve solo para esto: no lee ni escribe nada más en Eventia. La administra Felipe.
 - **Qué hace.** Con una sola cotización posible:
-  - sube el PDF al balde privado, con la ruta de siempre (`c<empresa>/event-documents/<cotización>/ordenes_compra/<fecha>_OC_<N°>.pdf`);
-  - agrega la fila de Documentos → «Órdenes de compra» con el nombre **«OC 35074 · Rudel»**;
+  - sube el PDF por la misma puerta de archivos que la pantalla (`StorageService.upload`, tipo `event-document`): balde privado, ruta `c<empresa>/event-documents/<cotización>/ordenes_compra/<fecha>_OC_<N°>.pdf`;
+  - agrega la fila de Documentos → «Órdenes de compra» con el nombre **«OC 35074 · Rudel · $4.522.000»**, sin «.pdf», porque Post-Venta muestra el nombre solo si no termina así (doc 19 §9.39);
   - llama a la misma lectura de BelIA que cuando la sube una persona (`leerAlSubir`, por detrás).
 - **Qué responde.** `subida`, `ya_estaba`, `duda` (con las candidatas), `sin_cliente` o, con `probar=si`, `iria`, que dice dónde iría sin subir nada.
 - **Qué no hace.** Con duda no escribe nada. Nunca cambia la cotización, el cliente ni la OC leída: todo eso sigue siendo de Facturación.

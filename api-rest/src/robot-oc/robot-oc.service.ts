@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, timingSafeEqual } from 'crypto';
 import { PinoLogger } from 'nestjs-pino';
 import { OrdenesDeCompraService } from 'src/facturacion/ordenes-de-compra/ordenes-de-compra.service';
-import { sanitize } from 'src/storage/storage.service';
+import { StorageService } from 'src/storage/storage.service';
 import {
   elegirCotizacion,
   limpiarNumero,
@@ -38,6 +38,13 @@ const resumen = (c: CotizacionCandidata) => ({
   contacto: c.correo_contacto,
 });
 
+/** 4522000 → «$4.522.000». */
+export const pesos = (n: number) =>
+  '$' +
+  Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
 /** «Rudel S.A.» → «Rudel»; «Instituto Profesional Santo Tomás» queda igual. */
 export const clienteCorto = (nombre: string) =>
   nombre
@@ -59,6 +66,7 @@ export const clienteCorto = (nombre: string) =>
 export class RobotOcService {
   constructor(
     private readonly repo: RobotOcRepository,
+    private readonly storage: StorageService,
     private readonly config: ConfigService,
     private readonly logger: PinoLogger,
     @Optional() private readonly ocs?: OrdenesDeCompraService,
@@ -79,11 +87,7 @@ export class RobotOcService {
     return empresa;
   }
 
-  async recibir(
-    empresa: number,
-    oc: OcDelCorreo,
-    pdf?: { buffer: Buffer; size: number; mimetype: string },
-  ) {
+  async recibir(empresa: number, oc: OcDelCorreo, pdf?: Express.Multer.File) {
     if (!limpiarNumero(oc.numero))
       throw new BadRequestException('Falta el N° de la OC');
     if (!(oc.total > 0))
@@ -116,7 +120,9 @@ export class RobotOcService {
       };
 
     const cot = eleccion.cotizacion;
-    const nombre = `OC ${oc.numero.trim()} · ${clienteCorto(cot.cliente)}`;
+    // Sin «.pdf»: Post-Venta muestra el nombre solo si no termina así
+    // (doc 19 §9.39). Con el monto, como las facturas.
+    const nombre = `OC ${oc.numero.trim()} · ${clienteCorto(cot.cliente)} · ${pesos(oc.total)}`;
     if (oc.probar)
       return {
         ...base,
@@ -135,11 +141,17 @@ export class RobotOcService {
     )
       throw new BadRequestException('El archivo no es un PDF');
 
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const ruta = `c${empresa}/event-documents/${cot.id}/ordenes_compra/${ts}_OC_${sanitize(
-      oc.numero.trim(),
-    )}.pdf`;
-    await this.repo.subirPdf(ruta, pdf.buffer);
+    // La misma puerta de archivos que la pantalla de Post-Venta: el balde
+    // privado y la ruta c<empresa>/event-documents/<cotización>/ordenes_compra/.
+    const { url: ruta } = await this.storage.upload(
+      {
+        kind: 'event-document',
+        quotation_id: cot.id,
+        category: 'ordenes_compra',
+      },
+      { ...pdf, originalname: `OC_${oc.numero.trim()}.pdf` },
+      empresa,
+    );
     const documentoId = await this.repo.agregarDocumento(cot.id, nombre, ruta);
     this.logger.info(
       `robot OC: ${oc.numero} → cotización ${cot.numero} (${eleccion.por}), documento ${documentoId}`,

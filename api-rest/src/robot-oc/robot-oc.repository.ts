@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { CotizacionCandidata } from './elegir-cotizacion';
 
@@ -131,20 +130,6 @@ export class RobotOcRepository {
       salida.push(...((data ?? []) as typeof salida));
     }
     return salida;
-  }
-
-  /** Sube el PDF al balde privado, con la misma forma de ruta que la
-   *  puerta única de archivos (`c<empresa>/event-documents/...`). */
-  async subirPdf(ruta: string, contenido: Buffer) {
-    this.logger.info(`robot OC: sube ${ruta} (${contenido.length} bytes)`);
-    const { error } = await this.supabase.client.storage
-      .from(BUCKET_PRIVADO)
-      .upload(ruta, contenido, {
-        contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: false,
-      });
-    if (error) throw error;
   }
 
   /** La fila de Documentos → «Órdenes de compra» (la cotización ya es de
