@@ -2721,6 +2721,25 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.44 «Documentos» por número (09-11)
+
+Felipe, 09-11, mirando la lista: *"¿acá por qué quedó la 388 arriba de la
+389?"* (la 388 salió con fecha de emisión 30-11, §9.32); con la propuesta,
+*"sí, ordénalo por número, yo creo, es más intuitivo"*. La lista
+«Documentos» ya no va por la fecha de emisión:
+- Cada tipo va del N° más alto al más bajo (las facturas 390, 389, 388…;
+  las boletas, igual) y, entre una factura y una boleta, primero la que
+  salió después.
+- Un número nunca salta a otro, aunque su fecha sea otra o se haya traído
+  después de facturacion.cl (la 374, traída el 08-11, queda bajo la 381):
+  la marca de cada documento es el más nuevo de su tipo con un N° igual o
+  menor (`porNumero`, en `filaDeLaLista.ts`).
+- Lo que espera «Comprobar» (sin N° o sin fecha) sigue primero, y las
+  notas siguen debajo de su documento, de la más vieja a la más nueva.
+- El reporte (CSV) no cambia.
+
+Solo pantalla, hecho el 09-11.
+
 ### 9.43 La caja de recepción y el cierre ciego (09-11)
 
 Felipe, 09-11, con las boletas recién habilitadas: *"para hacer un control
