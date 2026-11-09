@@ -2719,6 +2719,22 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.40 La revisión: lo aprobado en la barra y «Documento» sin repetir (08-11)
+
+Felipe, 08-11, con Santo Tomás en la revisión (3 de 3, la primera sin
+aprobar): *"en facturado (la barra de abajo) solo debería sumar las que
+están aprobadas + ya facturadas; la primera no la facturaré y al mirar esto
+pareciera que tengo un 75 % ya facturado"*. Y del documento: *"solo debería
+aparecer la información del documento [...] en documento solo deja tipo,
+fecha emisión, condición de pago"*.
+- La barra del evento en «Lo del evento» cuenta lo ya emitido más las
+  OTRAS facturas aprobadas de ese evento en la revisión, antes o después
+  de la que se mira; las que no se aprueban no cuentan
+  (`RevisionDeLaFacturacion`, `enEstaRevision`).
+- «Documento» (`DocumentoDelDte`) muestra solo el tipo, la fecha de
+  emisión y la condición de pago: la cotización, el evento y «Factura
+  parcial…» ya están arriba. Siguen en las observaciones del PDF y en la
+  vista previa de «Emitir». Solo pantalla.
 ### 9.39 El nombre de la factura en Documentos del evento (08-11)
 
 Felipe, 08-11, mirando Documentos → Facturas de la #481 (cinco filas con
