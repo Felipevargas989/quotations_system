@@ -180,10 +180,12 @@ export class CajaService {
 
   /**
    * «Lo vendido» (sprint 3; Felipe, 09-11: *"también debo poder ver
-   * cuántos tickets, cuántas tinajas, etc. se han vendido"*): lo del
-   * tarifario en las boletas y facturas emitidas del período, sin lo que
-   * anuló una nota de crédito, por ítem y, si se elige, por persona (quien
-   * abrió la caja; fuera de la caja, quien emitió).
+   * cuántos tickets, cuántas tinajas, etc. se han vendido"*): lo vendido en
+   * «Nuevo DTE» (las boletas y facturas emitidas del período sin evento, sin
+   * las traídas de facturacion.cl ni lo que anuló una nota de crédito), por
+   * ítem del tarifario y, las líneas a mano, por lo que dicen («A mano ·
+   * …»; Felipe: *"sí, hazlo"*); y, si se elige, por persona (quien abrió la
+   * caja; fuera de la caja, quien emitió).
    */
   async vendido(user: User, q: LoVendidoQueryDto) {
     const desde = Date.parse(`${q.desde}T00:00:00Z`);
@@ -197,7 +199,7 @@ export class CajaService {
     const companyId = user.company_id;
     const delPeriodo = (
       await this.repo.documentosDelPeriodo(companyId, q.desde, q.hasta)
-    ).filter((d) => (d.detalle ?? []).some((l) => l.tarifario_id != null));
+    ).filter((d) => d.quotation_id == null && d.traida !== true);
     const turnos = [
       ...new Set(
         delPeriodo
@@ -235,12 +237,14 @@ export class CajaService {
     const persona = textoLimpio(q.persona);
     const items = vendidoPorItem(
       persona ? vigentes.filter((d) => d.persona === persona) : vigentes,
-      true,
     ).map((i) => {
       const item = tarifario.find((t) => t.id === i.tarifario_id);
       return {
         ...i,
-        nombre: item?.nombre ?? i.nombre,
+        nombre:
+          i.tarifario_id == null
+            ? `A mano · ${i.nombre}`
+            : (item?.nombre ?? i.nombre),
         unidad: item?.unidad ?? 'unidad',
       };
     });

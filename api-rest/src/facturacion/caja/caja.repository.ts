@@ -49,6 +49,10 @@ export interface DocumentoVendido {
   detalle: DocumentoDelTurno['detalle'];
   turno_de_caja_id: number | null;
   creado_por: string | null;
+  /** El evento; sin él, salió de «Nuevo DTE». */
+  quotation_id: string | null;
+  /** Traída de facturacion.cl (§9.36): no se vendió en Eventia. */
+  traida: boolean | null;
 }
 
 // Las filas de cada pedido a la base: lo más que entrega de una vez.
@@ -306,7 +310,9 @@ export class CajaRepository {
     for (let fila = 0; ; fila += PAGINA) {
       const { data, error } = await this.db
         .from('documentos_tributarios')
-        .select('id, tipo, detalle, turno_de_caja_id, creado_por')
+        .select(
+          'id, tipo, detalle, turno_de_caja_id, creado_por, quotation_id, traida:respuesta->traida',
+        )
         .eq('company_id', companyId)
         .in('tipo', [33, 39])
         .eq('estado', 'emitido')

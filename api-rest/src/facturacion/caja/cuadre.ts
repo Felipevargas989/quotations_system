@@ -74,18 +74,16 @@ const nombreDelItem = (descripcion: string) =>
     : descripcion;
 
 /**
- * Lo vendido por ítem, con su cantidad y su monto con IVA. En el cuadre van
- * todas las líneas (así cuadra con los totales); en «Lo vendido», solo las
- * del tarifario.
+ * Lo vendido por ítem, con su cantidad y su monto con IVA: los del tarifario
+ * por su ítem y las líneas a mano por lo que dicen. Lo usan el cuadre de la
+ * caja y «Lo vendido».
  */
 export const vendidoPorItem = (
   documentos: Pick<DocumentoDelTurno, 'tipo' | 'detalle'>[],
-  soloDelTarifario = false,
 ): ItemVendido[] => {
   const items = new Map<string, ItemVendido>();
   for (const d of documentos)
     for (const l of d.detalle ?? []) {
-      if (soloDelTarifario && l.tarifario_id == null) continue;
       const nombre = nombreDelItem(l.descripcion ?? '');
       const clave =
         l.tarifario_id != null ? `t${l.tarifario_id}` : `n${nombre}`;
