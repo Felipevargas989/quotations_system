@@ -2860,7 +2860,8 @@ mismas columnas (Felipe: *"esto se ve raro"*), en producción desde el
 panel de un cierre dice «Abrió Ana a las 09:02 · Cerró Pedro a las 18:05»,
 los dos del perfil de la sesión, con el día si cerró otro día, o «Sigue
 abierta»; el título queda «Caja del lun., 09-11». Solo pantalla
-(`CierresDeCaja`), hecho el 09-11.
+(`CierresDeCaja`); en el laboratorio y en producción desde el 09-11-2026
+(PR #342).
 
 ### 9.42 Toda la operación en un bloque, y la rebajada con lo que le queda (09-11)
 
