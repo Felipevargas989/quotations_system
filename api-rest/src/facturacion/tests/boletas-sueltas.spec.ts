@@ -119,7 +119,7 @@ describe('La boleta del evento (doc 19 §9.20)', () => {
     );
     expect(documentos.agregarAlEvento).toHaveBeenCalledWith(
       'ev-512',
-      'B43 (simulada).pdf',
+      'Boleta N° 43 · $8.000.000 (simulada)',
       expect.any(String),
     );
   });
