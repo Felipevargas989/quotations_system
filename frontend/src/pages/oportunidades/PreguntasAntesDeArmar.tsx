@@ -61,6 +61,7 @@ export default function PreguntasAntesDeArmar({
             exigencia: p.exigencia,
             respuesta: r.marca ?? "no_puedo",
             ...(r.detalle.trim() ? { detalle: r.detalle.trim() } : {}),
+            ...(p.parte ? { parte: p.parte } : {}),
           };
         }),
       ),
@@ -156,6 +157,13 @@ export default function PreguntasAntesDeArmar({
                   }
                   className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
                 />
+              )}
+              {/* Decisión 121 (09-11): el «No puedo» vale solo para lo que
+                  se preguntó, no para toda la exigencia. */}
+              {r.marca === "no_puedo" && p.parte && (
+                <p className="text-xs text-gray-500">
+                  Se ofrece todo lo demás, sin {p.parte}.
+                </p>
               )}
             </li>
           );

@@ -337,6 +337,9 @@ export interface Oferente {
   representante_nombre: string | null;
   representante_rut: string | null;
   representante_cargo: string | null;
+  /** Migración 197 (decisión 121). */
+  representante_nacionalidad: string | null;
+  representante_profesion: string | null;
   /** Migración 154 (decisión 43). */
   representante_correo: string | null;
   representante_telefono: string | null;
