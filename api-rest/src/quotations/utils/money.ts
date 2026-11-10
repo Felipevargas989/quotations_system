@@ -124,7 +124,10 @@ const valorPorAdultoAntes = (input: MoneyInput): number => {
       if (people !== adults) return sum;
       return (
         sum +
-        (box.items || []).reduce((s, it) => s + n(it.precio) * qty(it.quantity), 0)
+        (box.items || []).reduce(
+          (s, it) => s + n(it.precio) * qty(it.quantity),
+          0,
+        )
       );
     }, 0),
   );
@@ -257,7 +260,9 @@ export const verifyMoney = (
       ([campo, enviado, calculado]) =>
         enviado !== calculado &&
         // Transición del 10-11: la vitrina anterior aún manda la regla vieja.
-        !(campo === 'value_per_person' && enviado === valorPorAdultoAntes(input)),
+        !(
+          campo === 'value_per_person' && enviado === valorPorAdultoAntes(input)
+        ),
     )
     .map(([campo, enviado, calculado]) => ({ campo, enviado, calculado }));
 };
