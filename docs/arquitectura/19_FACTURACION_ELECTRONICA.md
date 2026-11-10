@@ -2721,6 +2721,50 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.46 La factura de recepción, siempre como solicitud (10-11)
+
+Felipe, 10-11, con el §9.45 en producción: *"creo que en recepción tanto
+las boletas como las facturas deben seguir el mismo proceso... para que sea
+consistente"*; y a la propuesta de tratar aparte la factura a crédito, *"no
+distingamos si la factura es contado o crédito... para todos los efectos
+hacemos 2 DTE, factura y boleta, entonces 2 procesos"*.
+
+**La regla:** en recepción hay dos documentos y dos procesos, la boleta y
+la factura, y los dos van como solicitud. La factura no se trata distinto
+por cómo se paga:
+- Al contado o a crédito, recepción la arma, «Enviar solicitud», y la emite
+  o la rechaza quien tiene «Aprobar y emitir solicitudes». Ya no hay una
+  factura de recepción que se emita directo.
+- Las dos piden la caja abierta, como la boleta (un solo proceso).
+- En «Solicitudes» van en la misma tabla. Donde va el medio de pago, la
+  factura a crédito dice «A crédito · 30 días» (su plazo).
+- **La caja cuenta plata:** la factura a crédito no trae medio de pago, no
+  entró plata y no cuenta en el cuadre ni en los «Documentos del turno», se
+  emita, espere o se rechace. Su documento sale sin turno, como toda
+  factura a crédito, y entra a «Lo vendido» cuando se emite. La factura al
+  contado sigue igual que en el §9.45.
+
+**Cómo quedó** (migración 201):
+- `solicitudes_de_documento.medio_de_pago` deja de ser obligatorio; la
+  boleta lo sigue exigiendo (`solicitudes_boleta_con_medio`).
+- **El motor:** `SolicitudesService.solicitarFactura` ya no rechaza la
+  factura a crédito y la guarda sin medio; `aprobar` la emite sin turno
+  (`emitirPedida(…, null)`). `FacturasService.emitirSinEvento` le dice a
+  recepción que solicite en toda factura (403), y `revisarSinEvento` le pide
+  la caja abierta en toda vista previa. `cuentaLaSolicitud`
+  (`caja/cuadre.ts`) deja fuera la solicitud sin medio de pago, y
+  `SolicitudesRepository.cambiarMedio` no le pone uno. La lista trae
+  `plazo_dias`.
+- **La pantalla:** `FacturaNueva` con `solicita` manda siempre la solicitud;
+  `SolicitudesPorAprobar` dice «A crédito» y el plazo.
+- **Las pruebas:** «la factura a crédito también va como solicitud» de
+  `solicitudes.spec.ts`, «la factura a crédito no cuenta en la caja» de
+  `caja.spec.ts`, el caso de recepción de `facturas.spec.ts`, y en la
+  vitrina `FacturaNueva.test.tsx` y `SolicitudesPorAprobar.test.tsx`.
+
+En el laboratorio desde el 10-11-2026 (migración 201 en el laboratorio).
+Producción espera el «a producción» de Felipe; la 201 va antes del motor.
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
@@ -2733,7 +2777,7 @@ emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
    después: las líneas con su `tarifario_id` y el precio con que se cobró,
    el medio de pago, el correo, quién la mandó y con qué cargo. No va nada a
    facturacion.cl. La factura a crédito no pasa por la caja: se emite como
-   siempre.
+   siempre (cambió el 10-11, §9.46: también va como solicitud).
 2. **La pestaña «Solicitudes»** de Facturación lista lo que espera. Quien
    tiene el interruptor **«Aprobar y emitir solicitudes»** revisa cada una
    para que nada se boletee dos veces (dos del mismo día con el mismo tipo,
@@ -2842,8 +2886,9 @@ la caja ni boleteado desde recepción, medido ese día). Arreglado con el
 import de verdad, y `tests/piezas-inyectadas.spec.ts` recorre todas las
 piezas del módulo y falla si a alguna le queda un parámetro sin su clase.
 
-**Pregunta abierta para Felipe:** la factura a crédito de recepción sigue
-emitiéndose directo (no pasa por la caja).
+**La pregunta que quedó abierta** (la factura a crédito de recepción seguía
+emitiéndose directo) la respondió Felipe el 10-11: también va como
+solicitud (§9.46).
 
 En el laboratorio y en producción desde el 09-11-2026 (PR #349; migración
 200 en las dos bases, antes del motor; Felipe: *"a producción"*). El motor y

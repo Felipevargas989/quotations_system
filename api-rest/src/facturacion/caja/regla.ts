@@ -27,8 +27,9 @@ export const turnoParaEmitir = async (
 
 /**
  * RECEPCIÓN NO EMITE: SOLICITA (doc 19 §9.45; Felipe, 09-11: que recepción
- * no pueda duplicar algo ya boleteado). La boleta y la factura al contado
- * del cargo recepción van como solicitud (`POST /facturacion/solicitudes/…`)
+ * no pueda duplicar algo ya boleteado). La boleta y la factura del cargo
+ * recepción (al contado o a crédito, §9.46: Felipe, 10-11, «no distingamos
+ * si la factura es contado o crédito») van como solicitud (`POST /facturacion/solicitudes/…`)
  * y las emite quien tiene «Aprobar y emitir solicitudes». Las puertas de
  * emitir se lo dicen a recepción aunque la llame otra pantalla.
  */

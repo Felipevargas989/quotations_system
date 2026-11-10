@@ -34,6 +34,7 @@ const solicitud = (s: Partial<Solicitud>): Solicitud => ({
   estado: "pendiente",
   total: 60000,
   medio_de_pago: "efectivo",
+  plazo_dias: null,
   correo: "huesped@correo.cl",
   imprimir: false,
   para: "Cabaña 4",
@@ -109,6 +110,26 @@ describe("las solicitudes de recepción (§9.45)", () => {
     expect(screen.getByText("Rechazada")).toBeInTheDocument();
     expect(screen.getByText("Ya boleteada")).toBeInTheDocument();
     expect(screen.getAllByText(/huesped@correo\.cl/).length).toBe(3);
+  });
+
+  it("la factura a crédito (§9.46) va en la misma tabla, con «A crédito» y su plazo", async () => {
+    vi.mocked(api.getSolicitudes).mockResolvedValue({
+      pendientes: 1,
+      solicitudes: [
+        solicitud({
+          id: 5,
+          tipo: 33,
+          medio_de_pago: null,
+          plazo_dias: 30,
+          para: "Empresa SpA",
+          rut: "76123456-0",
+          correo: "pagos@empresa.cl",
+        }),
+      ],
+    });
+    abrir();
+    expect(await screen.findByText("A crédito · 30 días")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir" })).toBeInTheDocument();
   });
 
   it("«Emitir» la aprueba y emite; «Rechazar» pregunta y la deja sin emitir", async () => {

@@ -546,7 +546,7 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(boletas.tarifario).not.toHaveBeenCalled();
   });
 
-  it('recepción al contado no emite: solicita (§9.45); la de una solicitud aprobada entra a su turno; a crédito, sin caja', async () => {
+  it('recepción no emite, al contado ni a crédito: solicita (§9.45 y §9.46); la de una solicitud aprobada entra a su turno', async () => {
     const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
     const { servicio, repo } = armar({ caja });
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
@@ -567,6 +567,10 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
       'Recepción no emite: envía la solicitud',
     );
+    // §9.46: a crédito tampoco. Es un solo proceso.
+    await expect(
+      servicio.emitirSinEvento(RECEPCION, { ...CONTADO, forma_de_pago: 2 }),
+    ).rejects.toThrow('Recepción no emite: envía la solicitud');
     expect(repo.crear).not.toHaveBeenCalled();
     // Lo que se guarda en la solicitud: el pedido con el tarifario y su total.
     const { pedida, revision } = await servicio.revisadaParaSolicitar(
@@ -585,18 +589,20 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     await expect(servicio.revisarSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
       'La caja de recepción está cerrada',
     );
+    // §9.46: a crédito también pide la caja abierta, y los otros cargos no.
+    await expect(
+      servicio.revisarSinEvento(RECEPCION, { ...CONTADO, forma_de_pago: 2 }),
+    ).rejects.toThrow('La caja de recepción está cerrada');
     caja.turnoAbierto.mockClear();
-    await servicio.revisarSinEvento(RECEPCION, {
-      ...CONTADO,
-      forma_de_pago: 2,
-    });
+    await servicio.revisarSinEvento(USUARIO, CONTADO);
     expect(caja.turnoAbierto).not.toHaveBeenCalled();
   });
 
   it('recepción (§9.23): la línea del tarifario sale con su nombre y su precio, y a mano no se puede', async () => {
     const { servicio, repo } = armar();
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
-    await servicio.emitirSinEvento(RECEPCION, {
+    // §9.46: recepción la solicita (a crédito también) y otro la emite.
+    const { pedida } = await servicio.revisadaParaSolicitar(RECEPCION, {
       ...SUELTA,
       lineas: [
         {
@@ -608,6 +614,7 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
         },
       ],
     });
+    await servicio.emitirPedida(USUARIO, pedida, null);
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ tipo: 33, total: 280000 }),
     );

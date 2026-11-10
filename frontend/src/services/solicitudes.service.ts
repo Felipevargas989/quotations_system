@@ -23,7 +23,10 @@ export interface Solicitud {
   tipo: number;
   estado: EstadoDeLaSolicitud;
   total: number;
-  medio_de_pago: MedioDePago;
+  /** Nulo en la factura a crédito (§9.46): no entró plata a la caja. */
+  medio_de_pago: MedioDePago | null;
+  /** El plazo de la factura a crédito, en días. */
+  plazo_dias: number | null;
   correo: string | null;
   /** Ya no se usa: el correo es obligatorio (§9.45). */
   imprimir: boolean;
