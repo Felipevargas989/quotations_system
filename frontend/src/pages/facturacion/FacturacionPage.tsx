@@ -177,7 +177,7 @@ export default function FacturacionPage() {
         {abierto.tipo === "factura" ? (
           <FacturaNueva
             esAdmin={esAdmin}
-            // §9.45: al contado, recepción manda la solicitud.
+            // §9.45 y §9.46: recepción manda la solicitud, siempre.
             solicita={solicita}
             // Sin la lista a la vista (recepción), se queda para la próxima.
             quedarse={!conDocumentos}

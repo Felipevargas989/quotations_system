@@ -1,11 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { mockPinoLogger } from '../../testing/mocks';
 import { FacturacionClSimulado } from '../facturacion-cl/simulado';
 import type { DtePedido } from '../facturas/borrador';
 import { DtePedidoDto } from '../facturas/factura.dto';
-import { FacturasService } from '../facturas/facturas.service';
+import { EVENTO, PEDIDA, USUARIO, armar } from './armar-facturas';
 
 /**
  * EMITIR EL DTE DEL EVENTO (doc 19 §9.10 y §9.20), contra facturacion.cl
@@ -13,165 +12,6 @@ import { FacturasService } from '../facturas/facturas.service';
  * corta, y lo que queda después (el PDF, la razón social y la nota de
  * BelIA). La boleta sale por el camino de las boletas de recepción.
  */
-
-const EVENTO = {
-  id: 'ev-423',
-  numero: 423,
-  estado: 'realizada',
-  tipoDeEvento: 'Estadía y Alimentación',
-  desde: '2026-08-11',
-  hasta: '2026-08-15',
-  personas: 40,
-  total: 3440000,
-  clientId: 'joker',
-  cliente: 'JOKER SERVICIOS SPA',
-};
-
-const OC = {
-  id: 12,
-  numero: '1213301-49-AG26',
-  fecha: '2026-05-15',
-  rut: '69141400-0',
-  razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
-  comprador: {
-    giro: null,
-    direccion: 'Calle 18 de Septiembre N°250',
-    comuna: 'Quillón',
-    ciudad: null,
-  },
-  descripcion: 'Servicio de Catering y Arriendo de Salón, Ciclo de Foros 2026',
-  neto: 2084034,
-  iva: 395966,
-  total: 2480000,
-  documento_id: null,
-};
-
-const PEDIDA: DtePedido = {
-  tipo: 33,
-  orden_de_compra_id: 12,
-  receptor: {
-    rut: '69141400-0',
-    razon_social: 'ILUSTRE MUNICIPALIDAD DE QUILLON',
-    giro: 'MUNICIPALIDAD',
-    direccion: 'Calle 18 de Septiembre N°250',
-    comuna: 'Quillón',
-    ciudad: null,
-    correo: null,
-  },
-  lineas: [
-    {
-      descripcion:
-        'Servicio de Catering y Arriendo de Salón, Ciclo de Foros 2026',
-      descripcion_larga: null,
-      cantidad: 1,
-      precio: 2480000,
-    },
-  ],
-  referencias: [{ tipo: '801', folio: '1213301-49-AG26', fecha: '2026-05-15' }],
-  pedir_siempre: [],
-};
-
-const USUARIO = {
-  id: 'u-felipe',
-  company_id: 1,
-  email: 'felipe@valledelsolquillon.cl',
-  role: 'administrador',
-} as never;
-
-const armar = ({
-  simulado = new FacturacionClSimulado({
-    ultimoFolio: () => Promise.resolve(41),
-  }),
-  errorAlCrear = null as { code: string } | null,
-  // Los tipos de cliente particulares (doc 21); sin ellos, como antes.
-  particulares = null as string[] | null,
-  // La nómina del SII (§9.27); sin ella, como antes.
-  sii = undefined as { buscar: jest.Mock } | undefined,
-  // La caja de recepción (§9.43); sin ella, como antes.
-  caja = undefined as { turnoAbierto: jest.Mock } | undefined,
-} = {}) => {
-  let fila: Record<string, unknown> = {};
-  const repo = {
-    eventoAFacturar: jest.fn().mockResolvedValue(EVENTO),
-    ordenesDelEvento: jest.fn().mockResolvedValue([OC]),
-    facturado: jest.fn().mockResolvedValue({ total: 0, porOC: new Map() }),
-    nombreDelDocumento: jest.fn().mockResolvedValue(null),
-    deCotizacion: jest.fn().mockResolvedValue([]),
-    crear: jest.fn().mockImplementation((f: Record<string, unknown>) => {
-      if (errorAlCrear)
-        return Promise.reject(
-          Object.assign(new Error('duplicado'), errorAlCrear),
-        );
-      fila = { id: 7, ...f, folio: null };
-      return Promise.resolve(fila);
-    }),
-    actualizar: jest
-      .fn()
-      .mockImplementation((_id: number, _c: number, cambios: object) => {
-        fila = { ...fila, ...cambios };
-        return Promise.resolve(fila);
-      }),
-    guardarPdf: jest.fn().mockResolvedValue(undefined),
-    agregarAlEvento: jest.fn().mockResolvedValue(undefined),
-    // §9.35: el cliente como está en Eventia, la cotización y la OC.
-    datosDelNombreDelPdf: jest.fn().mockResolvedValue({
-      receptor: { razon_social: 'Compañía Cervecerías Unidas S.A.' },
-      cotizacion: { quotation_number: 423, cliente: { name: 'CCU Quillón' } },
-      oc: { numero: '4500918822' },
-    }),
-  };
-  const ordenes = {
-    empresaQueVende: jest
-      .fn()
-      .mockResolvedValue({ nombre: 'Valle del Sol Quillón SpA', rut: null }),
-  };
-  const razones = {
-    deCliente: jest.fn().mockResolvedValue([]),
-    crear: jest.fn().mockResolvedValue({}),
-    editar: jest.fn().mockResolvedValue({}),
-  };
-  const bitacora = { crearComoBeliaAPedidoDe: jest.fn().mockResolvedValue({}) };
-  const ocs = {
-    deDocumentos: jest.fn().mockResolvedValue({ ordenes: [OC], sinLeer: [] }),
-  };
-  const boletas = {
-    emitirDelEvento: jest.fn().mockResolvedValue({
-      id: 8,
-      tipo: 39,
-      ambiente: 'simulado',
-      estado: 'emitido',
-      folio: 1021,
-      total: 2480000,
-    }),
-    // §9.23: el tarifario de la factura de «Nuevo documento».
-    tarifario: jest.fn().mockResolvedValue([
-      {
-        id: 5,
-        nombre: 'Cabaña 6 personas, temporada media',
-        precio: 140000,
-        unidad: 'noche',
-        activo: true,
-      },
-    ]),
-  };
-  const alcance = particulares
-    ? { particulares: jest.fn().mockResolvedValue(new Set(particulares)) }
-    : undefined;
-  const servicio = new FacturasService(
-    repo as never,
-    ordenes as never,
-    { de: () => simulado } as never,
-    razones as never,
-    bitacora as never,
-    mockPinoLogger() as never,
-    ocs as never,
-    boletas as never,
-    alcance as never,
-    sii as never,
-    caja as never,
-  );
-  return { servicio, repo, razones, bitacora, ocs, boletas, simulado };
-};
 
 describe('Los documentos del evento', () => {
   const FACTURA_1 = {
@@ -546,7 +386,7 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(boletas.tarifario).not.toHaveBeenCalled();
   });
 
-  it('recepción al contado no emite: solicita (§9.45); la de una solicitud aprobada entra a su turno; a crédito, sin caja', async () => {
+  it('recepción no emite, sea cual sea la condición de pago: solicita (§9.45 y §9.46); la de una solicitud aprobada entra a su turno', async () => {
     const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
     const { servicio, repo } = armar({ caja });
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
@@ -567,6 +407,10 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
       'Recepción no emite: envía la solicitud',
     );
+    // §9.46: con crédito a 30 días tampoco. Es un solo proceso.
+    await expect(
+      servicio.emitirSinEvento(RECEPCION, { ...CONTADO, forma_de_pago: 2 }),
+    ).rejects.toThrow('Recepción no emite: envía la solicitud');
     expect(repo.crear).not.toHaveBeenCalled();
     // Lo que se guarda en la solicitud: el pedido con el tarifario y su total.
     const { pedida, revision } = await servicio.revisadaParaSolicitar(
@@ -581,22 +425,46 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ turno_de_caja_id: 7, medio_de_pago: 'debito' }),
     );
+    // §9.46: la de recepción guarda con qué le pagaron también con crédito
+    // a 30 días (la venta entra a la caja igual), y sin él, falta.
+    const A_30 = { ...CONTADO, forma_de_pago: 2 as const };
+    const conMedio = await servicio.revisadaParaSolicitar(RECEPCION, A_30);
+    expect(conMedio.pedida).toMatchObject({
+      forma_de_pago: 2,
+      plazo_dias: 30,
+      medio_de_pago: 'debito',
+    });
+    expect(conMedio.revision.ok).toBe(true);
+    const sinMedio = { ...A_30, medio_de_pago: null };
+    const falta = await servicio.revisadaParaSolicitar(RECEPCION, sinMedio);
+    expect(falta.revision.ok).toBe(false);
+    expect(falta.revision.faltan).toEqual([
+      { campo: 'medio_de_pago', texto: 'el medio de pago' },
+    ]);
+    const vista = await servicio.revisarSinEvento(RECEPCION, sinMedio);
+    expect(vista.ok).toBe(false);
+    expect(vista.faltan.map((f) => f.campo)).toEqual(['medio_de_pago']);
+    // Los otros cargos, como antes: el medio, solo al contado.
+    expect((await servicio.revisarSinEvento(USUARIO, sinMedio)).ok).toBe(true);
     caja.turnoAbierto.mockResolvedValue(null);
     await expect(servicio.revisarSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
       'La caja de recepción está cerrada',
     );
+    // §9.46: con crédito a 30 días también pide la caja abierta, y los
+    // otros cargos no.
+    await expect(
+      servicio.revisarSinEvento(RECEPCION, { ...CONTADO, forma_de_pago: 2 }),
+    ).rejects.toThrow('La caja de recepción está cerrada');
     caja.turnoAbierto.mockClear();
-    await servicio.revisarSinEvento(RECEPCION, {
-      ...CONTADO,
-      forma_de_pago: 2,
-    });
+    await servicio.revisarSinEvento(USUARIO, CONTADO);
     expect(caja.turnoAbierto).not.toHaveBeenCalled();
   });
 
   it('recepción (§9.23): la línea del tarifario sale con su nombre y su precio, y a mano no se puede', async () => {
     const { servicio, repo } = armar();
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
-    await servicio.emitirSinEvento(RECEPCION, {
+    // §9.46: recepción la solicita y otro la emite.
+    const { pedida } = await servicio.revisadaParaSolicitar(RECEPCION, {
       ...SUELTA,
       lineas: [
         {
@@ -608,6 +476,7 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
         },
       ],
     });
+    await servicio.emitirPedida(USUARIO, pedida, null);
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ tipo: 33, total: 280000 }),
     );

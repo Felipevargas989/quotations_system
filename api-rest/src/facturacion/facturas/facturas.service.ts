@@ -17,7 +17,12 @@ import { textoLimpio } from '../archivo/texto';
 import { BoletasService } from '../boletas/boletas.service';
 // Import de verdad (no `import type`): Nest inyecta por la clase.
 import { CajaRepository } from '../caja/caja.repository';
-import { recepcionSolicita, turnoParaEmitir } from '../caja/regla';
+import {
+  conElMedioDeRecepcion,
+  conElMedioExigido,
+  recepcionSolicita,
+  turnoParaEmitir,
+} from '../caja/regla';
 import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
@@ -344,12 +349,17 @@ export class FacturasService {
   async revisarSinEvento(user: User, dto: DtePedido) {
     const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
-    // §9.43: recepción, al contado, solo con la caja abierta.
-    if (pedida.forma_de_pago === 1) await turnoParaEmitir(user, this.caja);
-    return this.vistaPrevia(
-      pedida,
-      await this.sinEvento(companyId, pedida.cliente_id),
-      companyId,
+    // §9.43 y §9.46: recepción, solo con la caja abierta y con el medio de
+    // pago. Los otros cargos, sin turno.
+    await turnoParaEmitir(user, this.caja);
+    return conElMedioExigido(
+      user,
+      pedida.medio_de_pago,
+      await this.vistaPrevia(
+        pedida,
+        await this.sinEvento(companyId, pedida.cliente_id),
+        companyId,
+      ),
     );
   }
 
@@ -363,12 +373,17 @@ export class FacturasService {
       usaElTarifario(lineas) || !esAdministrador
         ? await this.boletas.tarifario(user.company_id)
         : [];
-    return normalizada({
-      ...dto,
-      tipo: FACTURA,
-      orden_de_compra_id: null,
-      lineas: conElTarifario(lineas, tarifario, esAdministrador),
-    });
+    // §9.46: la de recepción guarda siempre con qué le pagaron.
+    return conElMedioDeRecepcion(
+      user,
+      normalizada({
+        ...dto,
+        tipo: FACTURA,
+        orden_de_compra_id: null,
+        lineas: conElTarifario(lineas, tarifario, esAdministrador),
+      }),
+      dto.medio_de_pago,
+    );
   }
 
   /** El buscador del destinatario de «Nuevo documento» (§9.22): los
@@ -378,15 +393,10 @@ export class FacturasService {
   }
 
   async emitirSinEvento(user: User, dto: DtePedido) {
-    const pedida = await this.pedidaSinEvento(user, dto);
-    if (pedida.forma_de_pago !== 1)
-      return this.emitirPedida(user, pedida, null);
-    recepcionSolicita(user); // §9.45: al contado, recepción la solicita
-    return this.emitirPedida(
-      user,
-      pedida,
-      await turnoParaEmitir(user, this.caja),
-    );
+    // §9.45 y §9.46: recepción la solicita siempre. Los otros cargos
+    // emiten sin turno (su plata no pasa por la caja).
+    recepcionSolicita(user);
+    return this.emitirPedida(user, await this.pedidaSinEvento(user, dto), null);
   }
 
   /**
@@ -398,9 +408,10 @@ export class FacturasService {
     const pedida = await this.pedidaSinEvento(user, dto);
     const ctx = await this.sinEvento(user.company_id, pedida.cliente_id);
     const { fecha, problema } = conLaFecha(pedida);
-    const revision = revisadaConLaFecha(
-      revisarDte(pedida, ctx, 0, fecha),
-      problema,
+    const revision = conElMedioExigido(
+      user,
+      pedida.medio_de_pago,
+      revisadaConLaFecha(revisarDte(pedida, ctx, 0, fecha), problema),
     );
     return { pedida, revision };
   }

@@ -101,16 +101,18 @@ const vista = (s: Solicitud, todas: Solicitud[] = []) => {
  *
  * Felipe, 09-11: recepción deja de emitir al SII, para que no pueda
  * duplicar algo ya boleteado.
- * - Recepción arma la boleta o la factura al contado como siempre y, en vez
- *   de emitir, «Enviar solicitud»: se guarda con todo lo necesario para
+ * - Recepción arma la boleta o la factura (§9.46: son dos documentos y dos
+ *   procesos, sea cual sea la condición de pago de la factura) y, en vez de
+ *   emitir, «Enviar solicitud»: se guarda con todo lo necesario para
  *   emitirla (las líneas con el precio del tarifario con que se cobró, el
  *   medio de pago, el correo o «la imprimo», quién la mandó) en el turno de
  *   la caja abierta. No va nada a facturacion.cl.
  * - Quien tiene «Aprobar y emitir solicitudes» la revisa y «Aprobar y
  *   emitir» corre la emisión de siempre, con ese mismo pedido y ese turno;
  *   o «Rechazar»: nunca va al SII.
- * - La caja cuenta la solicitud desde que se manda, se emita o no
- *   (`caja/cuadre.ts`, `conLasSolicitudes`).
+ * - La venta no depende del documento (§9.46): la caja cuenta la solicitud
+ *   desde que se manda, con su medio de pago, se emita o no, se apruebe o
+ *   se rechace (`caja/cuadre.ts`, `conLasSolicitudes`).
  */
 @Injectable()
 export class SolicitudesService {
@@ -186,14 +188,11 @@ export class SolicitudesService {
     return vista(s);
   }
 
-  /** La factura al contado que manda recepción, revisada igual que al
-   *  emitirla. A crédito no pasa por la caja: se emite como siempre. */
+  /** La factura que manda recepción (§9.46: un solo proceso, sea cual sea
+   *  su condición de pago), revisada igual que al emitirla y siempre con
+   *  el medio con que se cobró: su venta entra a la caja del turno. */
   async solicitarFactura(user: User, dto: DtePedido) {
     const turnoId = await this.turnoDeRecepcion(user);
-    if (dto.forma_de_pago !== 1)
-      throw new BadRequestException(
-        'Solo la factura al contado va como solicitud',
-      );
     const { pedida, revision } = await this.facturas.revisadaParaSolicitar(
       user,
       dto,
