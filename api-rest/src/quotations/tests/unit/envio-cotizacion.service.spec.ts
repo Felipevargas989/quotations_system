@@ -95,6 +95,7 @@ const armar = (sobre?: {
   const followups = {
     create: sobre?.followup ?? jest.fn(),
     findByQuotation: jest.fn().mockResolvedValue(sobre?.previos ?? []),
+    registrarCambioDeEstado: jest.fn().mockResolvedValue(undefined),
   };
   const config = {
     get: jest.fn().mockImplementation((k: string) => {
@@ -264,14 +265,40 @@ describe('enviar cotización por correo', () => {
     expect(Date.parse(sent_at)).toBeLessThanOrEqual(Date.now());
   });
 
+  // Felipe, 09-11-2026: el cambio de estado queda en el Seguimiento,
+  // firmado por quien lo hizo; acá, quien apretó «Enviar cotización».
+  it('al pasar de SOLICITADA a ENVIADA, el cambio queda en el Seguimiento a nombre de quien envió', async () => {
+    const { service, followups } = armar({
+      quotation: { ...COTIZACION, quotation_status: 'solicitada' },
+    });
+    await service.enviar('q-1', USUARIO);
+    expect(followups.registrarCambioDeEstado).toHaveBeenCalledWith(
+      USUARIO,
+      1,
+      'q-1',
+      'solicitada',
+      'enviada',
+    );
+  });
+
+  it('si no se pudo marcar como enviada, no se anota un cambio que no pasó', async () => {
+    const { service, repo, followups } = armar({
+      quotation: { ...COTIZACION, quotation_status: 'solicitada' },
+    });
+    repo.update.mockRejectedValue(new Error('caída'));
+    await expect(service.enviar('q-1', USUARIO)).resolves.toBeDefined();
+    expect(followups.registrarCambioDeEstado).not.toHaveBeenCalled();
+  });
+
   it.each(['enviada', 'en_negociacion', 'aceptada', 'rechazada'])(
     'un reenvío NO mueve el estado %s',
     async (estado) => {
-      const { service, repo } = armar({
+      const { service, repo, followups } = armar({
         quotation: { ...COTIZACION, quotation_status: estado },
       });
       await service.enviar('q-1', USUARIO);
       expect(repo.update).not.toHaveBeenCalled();
+      expect(followups.registrarCambioDeEstado).not.toHaveBeenCalled();
     },
   );
 

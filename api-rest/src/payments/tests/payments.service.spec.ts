@@ -105,6 +105,7 @@ describe('PaymentsService', () => {
             companies: { name: 'Valle del Sol' },
           },
         }),
+        anotarCambioDeEstado: jest.fn().mockResolvedValue(undefined),
         mandanteOf: jest.fn(),
       };
       const email = { sendEmail: jest.fn() };
@@ -147,6 +148,15 @@ describe('PaymentsService', () => {
       expect(
         quotationsRepository.cerrarCompromisosDeLaVenta,
       ).toHaveBeenCalledWith('q-679', 1);
+      // La licitación ganada se acepta sola: sin persona, el cambio de
+      // estado del Seguimiento lo firma BelIA (09-11-2026).
+      expect(quotations.anotarCambioDeEstado).toHaveBeenCalledWith(
+        null,
+        1,
+        'q-679',
+        'enviada',
+        'aceptada',
+      );
     });
   });
 

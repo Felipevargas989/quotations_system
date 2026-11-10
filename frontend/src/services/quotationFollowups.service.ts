@@ -20,7 +20,9 @@ export interface Followup {
   author_user_id?: string | null;
   author_name?: string | null;
   note: string;
-  tipo?: FollowupTipo | null;
+  // «estado»: el cambio de estado que anota el motor (09-11-2026,
+  // utils/cambioDeEstado.ts). Se lee, pero nadie lo elige al anotar.
+  tipo?: FollowupTipo | "estado" | null;
   next_contact_date?: string | null;
   // Cuándo se dio por cumplido ese próximo contacto (migración 65).
   // Con fecha vencida y esto en null, el compromiso está PENDIENTE: es

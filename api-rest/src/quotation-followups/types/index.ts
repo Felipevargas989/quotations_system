@@ -30,4 +30,6 @@ export type FollowupMapRow = Pick<
   // Sin esto el tablero no puede distinguir un pendiente vivo de uno
   // ya cumplido, y el aviso ámbar quedaría encendido para siempre.
   | 'next_contact_done_at'
+  // El cambio de estado no cuenta como gestión (09-11-2026).
+  | 'tipo'
 >;
