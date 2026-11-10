@@ -16,6 +16,7 @@ import {
   type DocumentoTributario,
   type DtePedido,
 } from "../../services/facturas.service";
+import { solicitarFactura } from "../../services/solicitudes.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import LineasDelDte, {
   TotalesDelDte,
@@ -31,6 +32,8 @@ import {
 import DestinatarioDeLaFactura from "./DestinatarioDeLaFactura";
 import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 import SeccionDocumento from "./SeccionDocumento";
+import SolicitudesDelTurno from "./SolicitudesDelTurno";
+import { LLAVE_DEL_TURNO, clp } from "./solicitudes";
 
 // LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta que
 // aprobó Felipe el 06-11 (*"está perfecto (…) me gusta toda la
@@ -50,6 +53,10 @@ import SeccionDocumento from "./SeccionDocumento";
 // administrador (D3: los precios nunca a dedo). Quien no ve la lista
 // (recepción) se queda en la factura después de emitir, con la última a la
 // vista, como en la boleta.
+//
+// §9.45 (Felipe, 09-11): la factura al contado de recepción no se emite:
+// «Enviar solicitud» la guarda y la emite quien tiene «Aprobar y emitir
+// solicitudes». A crédito no pasa por la caja y se emite como siempre.
 
 const LLAVE_CLIENTES = ["facturacion", "clientes"];
 
@@ -73,12 +80,15 @@ const elegidas = (p: DtePedido): DtePedido => ({
 
 export default function FacturaNueva({
   esAdmin,
+  solicita = false,
   quedarse,
   onVolver,
   onEmitida,
 }: {
   /** La línea a mano y el descuento (§9.23). */
   readonly esAdmin: boolean;
+  /** §9.45: recepción manda la factura al contado como solicitud. */
+  readonly solicita?: boolean;
   /** Sin la lista a la vista: después de emitir, otra factura. */
   readonly quedarse: boolean;
   readonly onVolver: () => void;
@@ -120,6 +130,24 @@ export default function FacturaNueva({
   // Una línea del tarifario sin elegir: se elige o se quita.
   const sinElegir = pedida.lineas.some((l) => l.tarifario_id === null);
   const lista = !!vista?.ok && !revisando && !sinElegir;
+  const comoSolicitud = solicita && pedida.forma_de_pago === 1;
+
+  const enviarSolicitud = async () => {
+    setEmitiendo(true);
+    try {
+      const s = await solicitarFactura(elegidas(pedida));
+      toast.success(
+        `Solicitud enviada por ${clp(s.total)}: la emite quien la aprueba.`,
+      );
+      setViendo(false);
+      setPedida(inicial(esAdmin));
+      void queryClient.invalidateQueries({ queryKey: LLAVE_DEL_TURNO });
+    } catch (error) {
+      toast.error(humanizeApiError(error, "No se pudo enviar la solicitud."));
+    } finally {
+      setEmitiendo(false);
+    }
+  };
 
   const emitir = async () => {
     setEmitiendo(true);
@@ -277,11 +305,14 @@ export default function FacturaNueva({
             pedida={pedida}
             puedeEmitir
             emitiendo={emitiendo || revisando}
+            solicita={comoSolicitud}
             onVolver={() => setViendo(false)}
-            onEmitir={() => void emitir()}
+            onEmitir={() => void (comoSolicitud ? enviarSolicitud() : emitir())}
           />
         </Modal>
       )}
+
+      {solicita && <SolicitudesDelTurno />}
     </div>
   );
 }

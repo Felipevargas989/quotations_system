@@ -14,8 +14,9 @@ import { armarBoleta } from '../archivo/boleta';
 import { RUT_AUXILIAR } from '../archivo/comun';
 import { textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle } from '../archivo/tipos';
-import type { CajaRepository } from '../caja/caja.repository';
-import { turnoParaEmitir } from '../caja/regla';
+// Import de verdad (no `import type`): Nest inyecta por la clase.
+import { CajaRepository } from '../caja/caja.repository';
+import { recepcionSolicita, turnoParaEmitir } from '../caja/regla';
 import {
   EnvioSinRespuesta,
   type FacturacionCl,
@@ -50,6 +51,7 @@ import {
   repartoDelCobro,
 } from './reparto';
 import { correoLimpio, lineasDeLaSuelta } from './suelta';
+import { vista } from './vista-del-cobro';
 
 /**
  * LAS BOLETAS DE RECEPCIÓN (doc 19 §9.4, paso 3a).
@@ -79,39 +81,6 @@ const nombreDelCorreo = (correo?: string | null): string | null => {
   const base = (correo ?? '').split('@')[0].trim();
   return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
 };
-
-/** El cobro como lo ve la pantalla. */
-const vista = (c: CobroGuardado) => ({
-  id: c.id,
-  quotation_id: c.quotation_id,
-  numero: c.cotizacion?.quotation_number ?? null,
-  descripcion: c.descripcion,
-  total: c.total,
-  creado_por_nombre: c.creado_por_nombre,
-  created_at: c.created_at,
-  lineas: c.lineas.map((l) => ({
-    id: l.id,
-    cabana: l.cabana,
-    monto: l.monto,
-    correo: l.correo,
-    folio: l.documento?.folio ?? null,
-    estado: l.documento?.estado ?? null,
-    pdf_path: l.documento?.pdf_path ?? null,
-  })),
-  cambios: c.cambios.map((x) => ({
-    que: x.que,
-    antes: x.antes,
-    despues: x.despues,
-    nombre: x.nombre,
-    created_at: x.created_at,
-    // La cabaña del cambio, si sigue en el reparto («El monto de Cabaña 5»).
-    cabana:
-      x.linea_id != null
-        ? (c.lineas.find((l) => l.id === x.linea_id)?.cabana ?? null)
-        : null,
-  })),
-  ...repartoDelCobro(c),
-});
 
 @Injectable()
 export class BoletasService {
@@ -425,6 +394,7 @@ export class BoletasService {
   }
 
   async emitirSuelta(user: User, dto: BoletaSueltaDto) {
+    recepcionSolicita(user); // §9.45: recepción manda una solicitud
     const companyId = user.company_id;
     const turnoDeCajaId = await turnoParaEmitir(user, this.caja);
     const { lineas, cabana, correo } = await this.lineasDeLaSuelta(user, dto);
@@ -457,6 +427,36 @@ export class BoletasService {
         : null,
       aviso: r.alto,
     };
+  }
+
+  /**
+   * §9.45: la boleta de una solicitud de recepción aprobada, con lo que se
+   * guardó al cobrar (las líneas con su precio, el correo, la cabaña, el
+   * medio de pago y el turno). La emite quien aprueba. Devuelve la boleta
+   * emitida o la que quedó por confirmar; si no salió, el porqué.
+   */
+  async emitirSolicitada(
+    user: User,
+    s: {
+      lineas: LineaDeDetalle[];
+      correo: string | null;
+      cabana: string | null;
+      medioDePago: MedioDePago;
+      turnoDeCajaId: number;
+    },
+  ) {
+    const conexion = this.conexion.de(user.company_id);
+    const r = await this.emitirBoleta(user, conexion, hoyEnChile(), {
+      ...s,
+      observaciones: [],
+      quotationId: null,
+      cual: 'la boleta',
+      totalEsperado: null,
+    });
+    const documento = r.emitido ?? r.documento;
+    if (!documento)
+      throw new BadRequestException(r.alto ?? 'No se pudo emitir la boleta');
+    return { documento, aviso: r.alto };
   }
 
   /** Las líneas de la boleta suelta (`suelta.ts`): las mismas para la vista

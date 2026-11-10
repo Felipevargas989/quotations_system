@@ -43,6 +43,8 @@ export type Permiso =
   | 'caja_revision'
   // «Lo vendido», su propia pestaña (Felipe, 09-11).
   | 'facturacion_vendido'
+  // Las solicitudes de recepción (doc 19 §9.45, 09-11).
+  | 'facturacion_solicitudes'
   | 'dashboard'
   | 'catalogo'
   | 'personal'
@@ -206,6 +208,17 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     clave: 'facturacion_vendido',
     area: 'facturacion',
     nombre: 'Lo vendido',
+    fabrica: [O, A],
+    derecho: 'facturacion',
+  },
+  // Felipe, 09-11 (doc 19 §9.45): recepción ya no emite, manda una
+  // solicitud; quien tiene este interruptor revisa que nada se boletee dos
+  // veces y la emite o la rechaza. De fábrica, operaciones y el
+  // administrador.
+  {
+    clave: 'facturacion_solicitudes',
+    area: 'facturacion',
+    nombre: 'Aprobar y emitir solicitudes',
     fabrica: [O, A],
     derecho: 'facturacion',
   },

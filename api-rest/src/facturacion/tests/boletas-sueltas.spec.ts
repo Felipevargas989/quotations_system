@@ -47,6 +47,9 @@ const RECEPCION = {
   role: 'recepcion',
 } as never;
 const ADMIN = { ...(RECEPCION as object), role: 'administrador' } as never;
+// §9.45: recepción ya no emite (solicita); la boleta suelta la emite
+// operaciones con las mismas reglas del tarifario.
+const OPER = { ...(RECEPCION as object), role: 'operaciones' } as never;
 
 const armar = (
   simulado = new FacturacionClSimulado({
@@ -144,7 +147,7 @@ describe('La boleta del evento (doc 19 §9.20)', () => {
 describe('La boleta suelta', () => {
   it('lo del tarifario por su cantidad, con la cabaña al comienzo de cada línea (el PDF no imprime las observaciones)', async () => {
     const { servicio, documentos } = armar();
-    const r = await servicio.emitirSuelta(RECEPCION, {
+    const r = await servicio.emitirSuelta(OPER, {
       lineas: [
         { tarifario_id: 1, cantidad: 2 },
         { tarifario_id: 2, cantidad: 1 },
@@ -195,7 +198,7 @@ describe('La boleta suelta', () => {
   it('escribir un monto a mano es solo del administrador', async () => {
     const { servicio } = armar();
     const aMano = { lineas: [{ descripcion: 'Leña', monto: 15000 }] };
-    await expect(servicio.emitirSuelta(RECEPCION, aMano)).rejects.toThrow(
+    await expect(servicio.emitirSuelta(OPER, aMano)).rejects.toThrow(
       ForbiddenException,
     );
     const r = await servicio.emitirSuelta(ADMIN, aMano);
@@ -205,10 +208,10 @@ describe('La boleta suelta', () => {
   it('un ítem desactivado o de otra empresa no se boletea', async () => {
     const { servicio, documentos } = armar();
     await expect(
-      servicio.emitirSuelta(RECEPCION, { lineas: [{ tarifario_id: 3 }] }),
+      servicio.emitirSuelta(OPER, { lineas: [{ tarifario_id: 3 }] }),
     ).rejects.toThrow(BadRequestException);
     await expect(
-      servicio.emitirSuelta(RECEPCION, { lineas: [{ tarifario_id: 99 }] }),
+      servicio.emitirSuelta(OPER, { lineas: [{ tarifario_id: 99 }] }),
     ).rejects.toThrow('Ese ítem del tarifario no existe o está desactivado');
     expect(documentos.crear).not.toHaveBeenCalled();
   });
@@ -217,7 +220,7 @@ describe('La boleta suelta', () => {
     const { servicio, documentos } = armar(
       new FacturacionClSimulado({ cortarEnElEnvio: true }),
     );
-    const r = await servicio.emitirSuelta(RECEPCION, {
+    const r = await servicio.emitirSuelta(OPER, {
       lineas: [{ tarifario_id: 2 }],
     });
     expect(r).toEqual({
@@ -235,25 +238,30 @@ describe('La boleta de recepción entra a su caja (§9.43)', () => {
     medio_de_pago: 'efectivo' as const,
   };
 
-  it('con la caja abierta, la boleta queda en su turno; cerrada, no se emite ni se ve', async () => {
+  it('recepción no emite: solicita (§9.45); la solicitada entra al turno guardado, y sin caja ni la vista previa', async () => {
     const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
     const { servicio, documentos } = armar(undefined, caja);
-    await servicio.emitirSuelta(RECEPCION, SUELTA);
-    expect(documentos.crear).toHaveBeenCalledWith(
-      expect.objectContaining({
-        turno_de_caja_id: 7,
-        medio_de_pago: 'efectivo',
-      }),
-    );
-    documentos.crear.mockClear();
-    caja.turnoAbierto.mockResolvedValue(null);
     await expect(servicio.emitirSuelta(RECEPCION, SUELTA)).rejects.toThrow(
-      'La caja de recepción está cerrada',
+      'Recepción no emite: envía la solicitud',
     );
+    expect(documentos.crear).not.toHaveBeenCalled();
+    // La aprobada: las líneas guardadas, su medio y su turno, aunque la
+    // emita otro cargo.
+    const r = await servicio.emitirSolicitada(OPER, {
+      lineas: [{ descripcion: 'Tinaja', cantidad: 1, precio: 30000 }],
+      correo: null,
+      cabana: null,
+      medioDePago: 'debito',
+      turnoDeCajaId: 7,
+    });
+    expect(r.documento).toMatchObject({ estado: 'emitido', total: 30000 });
+    expect(documentos.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ turno_de_caja_id: 7, medio_de_pago: 'debito' }),
+    );
+    caja.turnoAbierto.mockResolvedValue(null);
     await expect(servicio.revisarSuelta(RECEPCION, SUELTA)).rejects.toThrow(
       'La caja de recepción está cerrada',
     );
-    expect(documentos.crear).not.toHaveBeenCalled();
   });
 
   it('el administrador emite sin turno', async () => {
@@ -360,6 +368,7 @@ describe('Lo que acepta el motor', () => {
     expect(
       await errores(BoletaSueltaDto, {
         lineas: [{ tarifario_id: 1, cantidad: 0 }],
+        correo: 'huesped@correo.cl',
         medio_de_pago: 'transferencia',
       }),
     ).toEqual(['lineas']);
@@ -368,8 +377,18 @@ describe('Lo que acepta el motor', () => {
       expect(
         await errores(BoletaSueltaDto, {
           lineas: [{ tarifario_id: 1, cantidad: 1 }],
+          correo: 'huesped@correo.cl',
           medio_de_pago,
         }),
       ).toEqual(['medio_de_pago']);
+    // §9.45 (Felipe, 09-11): sin correo no pasa; ya no se imprime.
+    for (const correo of [undefined, null, ''])
+      expect(
+        await errores(BoletaSueltaDto, {
+          lineas: [{ tarifario_id: 1, cantidad: 1 }],
+          correo,
+          medio_de_pago: 'efectivo',
+        }),
+      ).toEqual(['correo']);
   });
 });

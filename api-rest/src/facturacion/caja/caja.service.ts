@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CARGOS } from 'src/auth/permisos';
@@ -11,7 +12,11 @@ import { EmailService } from 'src/email/email.service';
 import { EmailStructure } from 'src/email/types';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
+import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { textoLimpio } from '../archivo/texto';
+// Import de verdad (no `import type`): Nest inyecta por la clase, y con
+// `import type` la pieza opcional llega vacía sin avisar.
+import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,
@@ -21,7 +26,12 @@ import type {
   RevisarCierreDto,
 } from './caja.dto';
 import { CajaRepository, type TurnoDeCaja } from './caja.repository';
-import { cuadrar, vendidoPorItem } from './cuadre';
+import {
+  conLasSolicitudes,
+  cuadrar,
+  cuentaLaSolicitud,
+  vendidoPorItem,
+} from './cuadre';
 
 /** Quién abre o cierra: el nombre del perfil de la sesión (Felipe, 09-11:
  *  *"que no sea escrito a mano"*), hasta 60 como la base. */
@@ -56,8 +66,28 @@ export class CajaService {
     // Sprint 3: el resumen del cierre, por correo a quien revisa.
     private readonly permisos: PermisosService,
     private readonly email: EmailService,
+    // §9.45: las solicitudes de recepción cuentan en su turno. Sin la pieza
+    // (algunas pruebas), solo los documentos.
+    @Optional() private readonly solicitudes?: SolicitudesRepository,
   ) {
     this.logger.setContext(CajaService.name);
+  }
+
+  /** Los documentos de esos turnos con sus solicitudes (§9.45): cada venta
+   *  una vez, se haya emitido o no. */
+  private async delTurno(companyId: number, turnoIds: number[]) {
+    const [documentos, solicitudes] = await Promise.all([
+      this.repo.documentos(companyId, turnoIds),
+      this.solicitudes?.delTurno(companyId, turnoIds) ?? Promise.resolve([]),
+    ]);
+    return turnoIds.length === 1
+      ? conLasSolicitudes(documentos, solicitudes)
+      : turnoIds.flatMap((id) =>
+          conLasSolicitudes(
+            documentos.filter((d) => d.turno_de_caja_id === id),
+            solicitudes.filter((x) => x.turno_de_caja_id === id),
+          ).map((d) => ({ ...d, turno_de_caja_id: id })),
+        );
   }
 
   /** Lo que ve quien opera la caja: si está abierta, desde cuándo, con
@@ -150,7 +180,7 @@ export class CajaService {
       const correos = await this.repo.correosDe(companyId, cargos);
       if (!correos.length) return;
       const [documentos, retiros, empresa] = await Promise.all([
-        this.repo.documentos(companyId, [turno.id]),
+        this.delTurno(companyId, [turno.id]),
         this.repo.retiros(companyId, [turno.id]),
         this.repo.nombreDeLaEmpresa(companyId),
       ]);
@@ -197,12 +227,16 @@ export class CajaService {
         'Lo vendido se mira hasta un año de una vez',
       );
     const companyId = user.company_id;
-    const delPeriodo = (
-      await this.repo.documentosDelPeriodo(companyId, q.desde, q.hasta)
-    ).filter((d) => d.quotation_id == null && d.traida !== true);
+    const [emitidos, pedidas] = await Promise.all([
+      this.repo.documentosDelPeriodo(companyId, q.desde, q.hasta),
+      this.solicitudesDelPeriodo(companyId, q.desde, q.hasta),
+    ]);
+    const delPeriodo = emitidos.filter(
+      (d) => d.quotation_id == null && d.traida !== true,
+    );
     const turnos = [
       ...new Set(
-        delPeriodo
+        [...delPeriodo, ...pedidas]
           .map((d) => d.turno_de_caja_id)
           .filter((t): t is number => t != null),
       ),
@@ -223,17 +257,27 @@ export class CajaService {
       this.repo.nombresDePersonas(companyId, personas),
       this.repo.tarifario(companyId),
     ]);
-    const vigentes = delPeriodo
-      .filter((d) => !anulados.has(d.id))
-      .map((d) => ({
-        ...d,
-        persona:
-          (d.turno_de_caja_id != null
-            ? deTurnos.get(d.turno_de_caja_id)
-            : d.creado_por
-              ? dePersonas.get(d.creado_por)
-              : null) ?? null,
-      }));
+    const vigentes = [
+      ...delPeriodo
+        .filter((d) => !anulados.has(d.id))
+        .map((d) => ({
+          tipo: d.tipo,
+          detalle: d.detalle,
+          persona:
+            (d.turno_de_caja_id != null
+              ? deTurnos.get(d.turno_de_caja_id)
+              : d.creado_por
+                ? dePersonas.get(d.creado_por)
+                : null) ?? null,
+        })),
+      // §9.45: lo que pidió recepción y no se ha emitido (o se rechazó)
+      // también se vendió; la aprobada cuenta por su documento.
+      ...pedidas.map((x) => ({
+        tipo: x.tipo,
+        detalle: x.detalle,
+        persona: deTurnos.get(x.turno_de_caja_id) ?? null,
+      })),
+    ];
     const persona = textoLimpio(q.persona);
     const items = vendidoPorItem(
       persona ? vigentes.filter((d) => d.persona === persona) : vigentes,
@@ -261,19 +305,44 @@ export class CajaService {
     };
   }
 
+  /** §9.45: las solicitudes del período (por el día en Chile en que se
+   *  pidieron) que cuentan por sí mismas: no la aprobada ya emitida. */
+  private async solicitudesDelPeriodo(
+    companyId: number,
+    desde: string,
+    hasta: string,
+  ) {
+    if (!this.solicitudes) return [];
+    // Un día de holgura a cada lado (Chile va 3 o 4 horas detrás de UTC) y
+    // después el día exacto en Chile.
+    const antes = new Date(Date.parse(`${desde}T00:00:00Z`) - DIA);
+    const despues = new Date(Date.parse(`${hasta}T00:00:00Z`) + 2 * DIA);
+    const filas = await this.solicitudes.delPeriodo(
+      companyId,
+      antes.toISOString(),
+      despues.toISOString(),
+    );
+    return filas.filter((x) => {
+      const dia = hoyEnChile(new Date(x.created_at));
+      return dia >= desde && dia <= hasta && cuentaLaSolicitud(x);
+    });
+  }
+
   /** Los cierres para revisar, del más nuevo al más viejo. */
   async cierres(user: User) {
     const companyId = user.company_id;
     const turnos = await this.repo.turnos(companyId);
     const ids = turnos.map((t) => t.id);
     const [documentos, retiros] = await Promise.all([
-      this.repo.documentos(companyId, ids),
+      this.delTurno(companyId, ids),
       this.repo.retiros(companyId, ids),
     ]);
     return turnos.map((t) => {
       const c = cuadrar(
         t,
-        documentos.filter((d) => d.turno_de_caja_id === t.id),
+        documentos.filter(
+          (d) => (d as { turno_de_caja_id?: number }).turno_de_caja_id === t.id,
+        ),
         retiros.filter((r) => r.turno_id === t.id),
       );
       return {
@@ -294,7 +363,7 @@ export class CajaService {
     const turno = await this.repo.turno(companyId, id);
     if (!turno) throw new NotFoundException('Ese cierre no existe');
     const [documentos, retiros, correcciones] = await Promise.all([
-      this.repo.documentos(companyId, [id]),
+      this.delTurno(companyId, [id]),
       this.repo.retiros(companyId, [id]),
       this.repo.correcciones(companyId, id),
     ]);
@@ -312,6 +381,8 @@ export class CajaService {
         total: d.total,
         medio_de_pago: d.medio_de_pago,
         emitido_en: d.emitido_en,
+        // §9.45: la solicitud de recepción que esta fila representa.
+        solicitud_id: d.solicitud_id ?? null,
       })),
       retiros: retiros.map((r) => ({
         id: r.id,
@@ -346,6 +417,41 @@ export class CajaService {
         company_id: companyId,
         turno_id: turnoId,
         documento_id: documentoId,
+        medio_antes: cambio.medio_antes,
+        medio_despues: dto.medio,
+        corregido_por: user.id ?? null,
+        corregido_por_nombre: user.full_name ?? null,
+      });
+    return this.cierre(user, turnoId);
+  }
+
+  /** §9.45: la revisión corrige el medio de una solicitud del turno (la
+   *  pendiente o la rechazada cuentan en la caja; la aprobada lo lleva a su
+   *  documento). */
+  async corregirMedioDeSolicitud(
+    user: User,
+    turnoId: number,
+    solicitudId: number,
+    dto: CorregirMedioDto,
+  ) {
+    const companyId = user.company_id;
+    const turno = await this.repo.turno(companyId, turnoId);
+    if (!turno || !this.solicitudes)
+      throw new NotFoundException('Ese cierre no existe');
+    const cambio = await this.solicitudes.cambiarMedio(
+      companyId,
+      turnoId,
+      solicitudId,
+      dto.medio,
+    );
+    if (!cambio)
+      throw new NotFoundException('Esa solicitud no es de este cierre');
+    if (cambio.medio_antes !== dto.medio)
+      await this.repo.anotarCorreccion({
+        company_id: companyId,
+        turno_id: turnoId,
+        documento_id: null,
+        solicitud_id: solicitudId,
         medio_antes: cambio.medio_antes,
         medio_despues: dto.medio,
         corregido_por: user.id ?? null,

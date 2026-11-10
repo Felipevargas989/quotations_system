@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import FileViewLink from "../../components/FileViewLink";
 import Modal from "../../components/Modal";
@@ -16,10 +16,13 @@ import {
   type LineaSuelta,
 } from "../../services/boletas.service";
 import type { VistaPrevia } from "../../services/facturas.service";
+import { solicitarBoleta } from "../../services/solicitudes.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import VistaPreviaDelDte from "../postventa/facturacion/VistaPreviaDelDte";
 import { RECEPTOR_VACIO } from "../postventa/facturacion/datosDeLaFactura";
 import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
+import SolicitudesDelTurno from "./SolicitudesDelTurno";
+import { LLAVE_DEL_TURNO } from "./solicitudes";
 
 // LA BOLETA DE «NUEVO DOCUMENTO» (doc 19 §9.4, §9.16 y §9.22, sprint 3),
 // en su propia pantalla como la maqueta que aprobó Felipe el 06-11:
@@ -27,13 +30,18 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 // dedo, y la línea a mano solo del administrador), «Huésped» (la cabaña,
 // que va al comienzo de cada línea) y «Pago y envío» (§9.43, 09-11): con
 // qué pagó, para la caja de recepción, y el correo al que facturacion.cl le
-// manda la boleta (L11), que es lo normal para no imprimir (Felipe: *"hay
-// que pedir un correo para enviar la boleta"*); sin correo, se marca que se
-// imprime. «Crear documento» la muestra tal como saldrá (la misma revisión
+// manda la boleta (L11), para no imprimir (Felipe: *"hay que pedir un
+// correo para enviar la boleta"*). Desde el §9.45 el correo es obligatorio
+// (Felipe, 09-11: *"el correo debe ser obligatorio"*): salió «Sin correo: la
+// imprimo». «Crear documento» la muestra tal como saldrá (la misma revisión
 // que la emite) y ahí se emite.
 //
 // Quien no ve la lista (recepción, de fábrica) se queda en la boleta
 // después de emitir, con la última a la vista, para seguir con la próxima.
+//
+// §9.45 (Felipe, 09-11): recepción no emite. Arma la boleta igual y, en la
+// vista previa, «Enviar solicitud» la guarda para que la emita quien tiene
+// «Aprobar y emitir solicitudes»; abajo ve cómo va cada una de su turno.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 /** «Noches», «Personas»: la cantidad con el nombre de su unidad. */
@@ -73,6 +81,7 @@ export interface BoletaEmitida {
 export default function BoletaNueva({
   esAdmin,
   conCaja = false,
+  solicita = false,
   quedarse,
   onVolver,
   onEmitida,
@@ -80,11 +89,14 @@ export default function BoletaNueva({
   readonly esAdmin: boolean;
   /** §9.43: recepción emite con la caja abierta, y la boleta entra a ella. */
   readonly conCaja?: boolean;
+  /** §9.45: recepción manda una solicitud en vez de emitir. */
+  readonly solicita?: boolean;
   /** Sin la lista a la vista: después de emitir, otra boleta. */
   readonly quedarse: boolean;
   readonly onVolver: () => void;
   readonly onEmitida: (boleta: BoletaEmitida | null) => void;
 }) {
+  const queryClient = useQueryClient();
   const tarifario = useQuery({
     queryKey: ["boletas", "tarifario"],
     queryFn: getTarifario,
@@ -99,10 +111,9 @@ export default function BoletaNueva({
   const [lineas, setLineas] = useState<LineaEnPantalla[]>(() => [lineaNueva()]);
   const [cabana, setCabana] = useState("");
   const [correo, setCorreo] = useState("");
-  // §9.43: con qué pagó el huésped y si la boleta va al correo o se imprime.
+  // §9.43: con qué pagó el huésped. El correo es obligatorio (§9.45,
+  // Felipe 09-11: «el correo debe ser obligatorio»): ya no se imprime.
   const [medio, setMedio] = useState<MedioDePago | "">("");
-  const [imprimir, setImprimir] = useState(false);
-  const [imprimirUltima, setImprimirUltima] = useState(false);
   const [vista, setVista] = useState<
     (VistaPrevia & { correo: string | null }) | null
   >(null);
@@ -126,9 +137,7 @@ export default function BoletaNueva({
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
   const faltan = [
     !medio && "el medio de pago",
-    !imprimir &&
-      !correoValido &&
-      "el correo (o marca «Sin correo: la imprimo»)",
+    !correoValido && "el correo para enviarle la boleta",
   ].filter((f): f is string => !!f);
 
   const poner = (clave: number, cambios: Partial<LineaEnPantalla>) =>
@@ -144,7 +153,7 @@ export default function BoletaNueva({
           : { tarifario_id: Number(l.tarifarioId), cantidad: l.cantidad },
     ),
     cabana: cabana.trim() || null,
-    correo: imprimir ? null : correo.trim() || null,
+    correo: correo.trim(),
     medio_de_pago: medio || null,
   });
 
@@ -156,6 +165,31 @@ export default function BoletaNueva({
       toast.error(humanizeApiError(e, "No se pudo armar la boleta."));
     } finally {
       setRevisando(false);
+    }
+  };
+
+  const limpiar = () => {
+    setLineas([lineaNueva()]);
+    setCabana("");
+    setCorreo("");
+    setMedio("");
+  };
+
+  // §9.45: la solicitud queda guardada; la emite quien aprueba.
+  const enviarSolicitud = async () => {
+    setEmitiendo(true);
+    try {
+      const s = await solicitarBoleta(datos());
+      toast.success(
+        `Solicitud enviada por ${clp(s.total)}: la emite quien la aprueba.`,
+      );
+      setVista(null);
+      limpiar();
+      void queryClient.invalidateQueries({ queryKey: LLAVE_DEL_TURNO });
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo enviar la solicitud."));
+    } finally {
+      setEmitiendo(false);
     }
   };
 
@@ -171,12 +205,7 @@ export default function BoletaNueva({
       setVista(null);
       if (quedarse) {
         setUltima(r.boleta);
-        setImprimirUltima(imprimir);
-        setLineas([lineaNueva()]);
-        setCabana("");
-        setCorreo("");
-        setMedio("");
-        setImprimir(false);
+        limpiar();
       }
       onEmitida(r.boleta);
     } catch (e) {
@@ -211,17 +240,11 @@ export default function BoletaNueva({
       {ultima && (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
           Boleta N° {ultima.folio} emitida por {clp(ultima.total)}.
-          {ultima.pdf_path ? (
+          {ultima.pdf_path && (
             <FileViewLink
               url={ultima.pdf_path}
               title={`Boleta ${ultima.folio}.pdf`}
-              abrirAlMontar={imprimirUltima}
-              alCerrar={() => setImprimirUltima(false)}
             />
-          ) : (
-            imprimirUltima && (
-              <span>El PDF todavía no llega para imprimirla.</span>
-            )
           )}
         </p>
       )}
@@ -412,20 +435,11 @@ export default function BoletaNueva({
                   </span>
                   <input
                     type="email"
-                    value={imprimir ? "" : correo}
-                    disabled={imprimir}
-                    placeholder={imprimir ? "Se imprime" : "huesped@correo.cl"}
+                    value={correo}
+                    placeholder="huesped@correo.cl"
                     onChange={(e) => setCorreo(e.target.value)}
-                    className={`${casilla} disabled:bg-gray-50`}
+                    className={casilla}
                   />
-                </label>
-                <label className="mt-1 flex items-center gap-2 text-xs text-gray-600">
-                  <input
-                    type="checkbox"
-                    checked={imprimir}
-                    onChange={(e) => setImprimir(e.target.checked)}
-                  />
-                  Sin correo: la imprimo
                 </label>
               </div>
             </div>
@@ -479,11 +493,14 @@ export default function BoletaNueva({
             }}
             puedeEmitir
             emitiendo={emitiendo}
+            solicita={solicita}
             onVolver={() => setVista(null)}
-            onEmitir={() => void emitir()}
+            onEmitir={() => void (solicita ? enviarSolicitud() : emitir())}
           />
         </Modal>
       )}
+
+      {solicita && <SolicitudesDelTurno />}
     </div>
   );
 }

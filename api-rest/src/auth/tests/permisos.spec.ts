@@ -50,6 +50,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'facturacion_documentos',
       // «Lo vendido» (doc 19 §9.43, 09-11).
       'facturacion_vendido',
+      // Aprobar y emitir las solicitudes de recepción (doc 19 §9.45, 09-11).
+      'facturacion_solicitudes',
     ]);
     expect(permisosDelCargo(UserRole.ADMINISTRADOR)).toEqual(
       CATALOGO_DE_PERMISOS.map((p) => p.clave),

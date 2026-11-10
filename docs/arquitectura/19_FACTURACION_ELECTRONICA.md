@@ -2721,6 +2721,135 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
+### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
+
+Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
+emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
+
+1. **Recepción manda una solicitud.** Arma la boleta de «Nuevo DTE» o la
+   factura al contado como siempre (el tarifario, el medio de pago y el
+   correo) y, en la vista previa, el botón dice
+   **«Enviar solicitud»**. Se guarda todo lo necesario para emitirla
+   después: las líneas con su `tarifario_id` y el precio con que se cobró,
+   el medio de pago, el correo, quién la mandó y con qué cargo. No va nada a
+   facturacion.cl. La factura a crédito no pasa por la caja: se emite como
+   siempre.
+2. **La pestaña «Solicitudes»** de Facturación lista lo que espera. Quien
+   tiene el interruptor **«Aprobar y emitir solicitudes»** revisa cada una
+   para que nada se boletee dos veces (dos del mismo día con el mismo tipo,
+   total y medio de pago se avisan en ámbar) y aprieta **«Emitir»** (aprobar
+   y emitir), que corre la emisión de siempre. O **«Rechazar»**, con un
+   motivo si quiere: la rechazada nunca va al SII.
+3. **El interruptor nuevo** (`facturacion_solicitudes`, doc 22 §3.1): de
+   fábrica, operaciones y el administrador. Regla de Felipe: lo
+   configurable es un interruptor de Permisos por cargo, nunca una marca
+   escondida.
+4. **La caja:** la venta es del turno en que se cobró. Lo esperado por
+   medio de pago, la revisión de Camila, el correo del cierre y «Lo vendido»
+   cuentan las solicitudes del turno más lo emitido. La rechazada sigue
+   contando (la plata entró; solo no va al SII), y la aprobada no cuenta
+   dos veces.
+
+**Cómo quedó** (migración 200):
+- `solicitudes_de_documento`: el tipo (39 o 33), el estado (pendiente,
+  emitiendo, aprobada o rechazada), el pedido tal como se emitirá (la
+  boleta: sus líneas, el correo y la cabaña; la factura: el pedido ya con
+  las líneas del tarifario), las líneas para la caja (`detalle`, como las de
+  `documentos_tributarios`), el total, el medio de pago, el correo, si se
+  imprime, a quién va (la razón social o la cabaña), el turno de la caja
+  (obligatorio), quién la mandó y con qué cargo, quién la resolvió y cuándo,
+  el motivo del rechazo, el último error y el documento emitido. No se
+  borra: ni `service_role` puede (`revoke delete`).
+  `correcciones_de_caja.solicitud_id`: la revisión corrige también el medio
+  de una solicitud.
+- **El motor** (`facturacion/solicitudes/`): `POST
+  /facturacion/solicitudes/boleta` y `/factura` (permiso «Boletas y
+  facturas del tarifario»; el servicio deja solo al cargo recepción y con la
+  caja abierta, y arma o revisa igual que al emitir, así no se guarda una
+  que después no se pueda emitir), `GET /facturacion/solicitudes/del-turno`
+  (recepción ve cómo van las suyas), y `GET /facturacion/solicitudes`,
+  `POST /:id/aprobar` y `POST /:id/rechazar` (permiso «Aprobar y emitir
+  solicitudes»).
+- **Las puertas de emitir** le dicen a recepción que solicite (403, «Recepción
+  no emite: envía la solicitud…», `recepcionSolicita` de `caja/regla.ts`):
+  `POST /boletas/sueltas` y, al contado, `POST /facturacion/facturas/emitir`.
+  La vista previa sigue igual (con la caja abierta).
+- **Aprobar** toma la solicitud de «pendiente» a «emitiendo» en un solo paso
+  (dos personas no la emiten dos veces; la segunda recibe «ya se está
+  emitiendo» o «ya se aprobó»), y emite con lo guardado, el medio que quedó
+  y el turno de la solicitud (`BoletasService.emitirSolicitada`,
+  `FacturasService.emitirPedida`), a nombre de quien aprueba. Emitida o por
+  confirmar, queda aprobada con su documento. Si no salió (no se pudo armar
+  o facturacion.cl la rechazó), vuelve a esperar con el porqué. Si no se
+  sabe si salió, se queda «emitiendo» con el error, para revisarla en
+  «Documentos»: nunca vuelve sola a pendiente.
+- **El cuadre** (`conLasSolicitudes` de `caja/cuadre.ts`, puro): cada
+  solicitud del turno entra como una fila más, salvo la aprobada cuyo
+  documento salió (ese documento ya está en el turno con el mismo
+  `turno_de_caja_id`). Si el documento de una aprobada quedó por confirmar o
+  rechazado, cuenta la solicitud y el documento sale de la lista. «Lo
+  vendido» suma las solicitudes del período por el día en Chile en que se
+  pidieron, con la misma regla.
+- **La pantalla:** `BoletaNueva` y `FacturaNueva` reciben `solicita`
+  (recepción): la vista previa dice «Enviar solicitud» y abajo aparece «Tus
+  solicitudes de este turno» (`SolicitudesDelTurno`), con el estado en una
+  palabra y, emitida, su N° y su PDF. La pestaña «Solicitudes»
+  (`SolicitudesPorAprobar`): «Por aprobar (N)» y «Resueltas (últimos 7
+  días)». En
+  «Cierres de la caja», las solicitudes del turno van con los documentos
+  («solicitud pendiente», «solicitud rechazada (no va al SII)») y su medio se
+  corrige ahí.
+- **Lo que cubren las pruebas:** `facturacion/tests/solicitudes.spec.ts`,
+  «Las solicitudes de recepción en la caja» de `caja.spec.ts`, y los casos
+  de recepción de `boletas-sueltas.spec.ts` y `facturas.spec.ts`; en la
+  vitrina, `BoletaNueva.test.tsx`, `SolicitudesPorAprobar.test.tsx` y
+  `FacturacionPage.test.tsx`.
+
+**El correo de la boleta, obligatorio** (Felipe, 09-11, al verlo en el
+laboratorio: *"creo que el check de sin correo la imprimo no deberia estar,
+el correo debe ser obligatorio"*): salió «Sin correo: la imprimo» de la
+boleta de «Nuevo DTE», para todos los cargos y también en la solicitud. La
+pantalla no deja «Crear documento» sin un correo válido («Falta el correo
+para enviarle la boleta») y el motor lo exige en `BoletaSueltaDto` (`POST
+/boletas/sueltas`, su revisión y `POST /facturacion/solicitudes/boleta`).
+La columna `imprimir` de la 200 queda siempre en falso. El correo del
+reparto de un cobro («Por boletear») y el de la boleta de un evento no
+cambian.
+
+**«Solicitudes» como tabla** (Felipe, 09-11, mirando la lista: *"acá en
+solicitudes mejoremos estas tablas de datos?"*; con la maqueta, *"sí, me
+parece bien ambos, ármalo así"*): las mismas seis columnas en «Por aprobar»
+y en «Resueltas» (Pedida, Documento, Pago y correo, Total, Estado y Acción).
+Cada solicitud en dos líneas y nada se parte: la hora en 24 h («22:04», con
+el día si no es de hoy o ya se resolvió) y quién la pidió; el documento y a
+quién va, y debajo lo vendido en una línea con su cantidad («2 × Tinaja · 1
+× Ticket diario», sin repetir la cabaña; con el mouse, cada línea con su
+monto); el medio de pago y el correo; un solo monto, el total; el estado en
+una palabra con el N°, el motivo o «Igual a la de 21:50» debajo; y en
+«Acción», «Rechazar» y «Emitir» (aprobar y emitir; el interruptor sigue
+llamándose «Aprobar y emitir solicitudes») o, resuelta, «Ver» y quién la
+resolvió. Solo pantalla (`SolicitudesPorAprobar`, `ChipDeSolicitud`).
+
+**La caja no recibía sus piezas** (Felipe, 09-11, al probar en el
+laboratorio: dejó una solicitud de $25.000 en efectivo, cerró la caja y el
+cierre decía «Sin documentos», con solo el sencillo en «Según Eventia»).
+Tres piezas opcionales se traían con `import type`, y así Nest no sabe qué
+inyectar y la deja vacía sin avisar: `CajaService` no recibía las
+solicitudes (la caja no las contaba), y `BoletasService` y `FacturasService`
+no recibían la caja desde el §9.43 (lo que emitía recepción no entraba a su
+turno ni se frenaba con la caja cerrada; en producción nadie había abierto
+la caja ni boleteado desde recepción, medido ese día). Arreglado con el
+import de verdad, y `tests/piezas-inyectadas.spec.ts` recorre todas las
+piezas del módulo y falla si a alguna le queda un parámetro sin su clase.
+
+**Pregunta abierta para Felipe:** la factura a crédito de recepción sigue
+emitiéndose directo (no pasa por la caja).
+
+En el laboratorio y en producción desde el 09-11-2026 (PR #349; migración
+200 en las dos bases, antes del motor; Felipe: *"a producción"*). El motor y
+la pantalla van juntos: la pantalla vieja no puede boletear sin correo
+contra el motor nuevo.
+
 ### 9.44 «Documentos» por número (09-11)
 
 Felipe, 09-11, mirando la lista: *"¿acá por qué quedó la 388 arriba de la
@@ -2769,7 +2898,7 @@ se mostró la maqueta y la aprobó: *"ok hazlo así"*.
   nombre del perfil de la sesión (Felipe, 09-11: *"el quién abre debe ser
   asociado al perfil que está abriendo la caja, que no sea escrito a
   mano"*); quién cierra, igual. Sin caja abierta, recepción no emite
-  boletas.
+  boletas (desde el §9.45, no manda la solicitud).
 - Cada boleta de recepción y cada factura al contado entra a la caja con
   su medio de pago: efectivo, débito, crédito o transferencia. Los retiros
   se anotan con su motivo.

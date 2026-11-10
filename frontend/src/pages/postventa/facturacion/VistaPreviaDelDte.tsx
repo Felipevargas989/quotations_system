@@ -44,6 +44,7 @@ export default function VistaPreviaDelDte({
   referencia = null,
   puedeEmitir,
   emitiendo,
+  solicita = false,
   onVolver,
   onEmitir,
 }: {
@@ -56,6 +57,8 @@ export default function VistaPreviaDelDte({
   readonly referencia?: string | null;
   readonly puedeEmitir: boolean;
   readonly emitiendo: boolean;
+  /** §9.45: recepción no emite, manda la solicitud: el botón lo dice. */
+  readonly solicita?: boolean;
   readonly onVolver: () => void;
   readonly onEmitir: () => void;
 }) {
@@ -261,7 +264,13 @@ export default function VistaPreviaDelDte({
             onClick={onEmitir}
             className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
           >
-            {emitiendo ? "Emitiendo…" : `Emitir ${nombre}`}
+            {solicita
+              ? emitiendo
+                ? "Enviando…"
+                : "Enviar solicitud"
+              : emitiendo
+                ? "Emitiendo…"
+                : `Emitir ${nombre}`}
           </button>
         ) : (
           <span className="text-xs text-gray-500">

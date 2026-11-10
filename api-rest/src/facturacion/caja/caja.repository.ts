@@ -35,7 +35,9 @@ export interface RetiroDeCaja {
 
 export interface CorreccionDeCaja {
   id: number;
-  documento_id: number;
+  documento_id: number | null;
+  /** §9.45: o la solicitud de recepción corregida. */
+  solicitud_id: number | null;
   medio_antes: string | null;
   medio_despues: string;
   corregido_por_nombre: string | null;
@@ -252,7 +254,8 @@ export class CajaRepository {
   async anotarCorreccion(fila: {
     company_id: number;
     turno_id: number;
-    documento_id: number;
+    documento_id: number | null;
+    solicitud_id?: number | null;
     medio_antes: string | null;
     medio_despues: string;
     corregido_por: string | null;
@@ -269,7 +272,7 @@ export class CajaRepository {
     const { data, error } = await this.db
       .from('correcciones_de_caja')
       .select(
-        'id, documento_id, medio_antes, medio_despues, corregido_por_nombre, created_at',
+        'id, documento_id, solicitud_id, medio_antes, medio_despues, corregido_por_nombre, created_at',
       )
       .eq('company_id', companyId)
       .eq('turno_id', turnoId)
