@@ -1,6 +1,8 @@
 # 21 · Recepción cotiza a los particulares
 
-> **Estado: PLAN del 04-11-2026 en la noche.** Felipe lo aprobó ese día
+> **Estado: EN PRODUCCIÓN desde el 05-11-2026** (PR #302, main `a2a935ed`;
+> la 186 en las dos bases; vitrina de producción 6aec9152). Plan del
+> 04-11-2026 en la noche. Felipe lo aprobó ese día
 > (*"perfecto todas tus indicaciones"*). Va al laboratorio por tandas; a
 > producción, solo con su «a producción». Migración reservada: **186**
 > (con Facturación, que tiene la 184), aplicada en el laboratorio. Las

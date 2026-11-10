@@ -702,7 +702,7 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Ojo con el orden del motor:** se aplica antes de subir el motor que la usa. Sin la 186 el motor reconoce los particulares por el nombre del tipo (`tiposParticulares`), así que recepción no se queda sin trabajo; pero la tarjeta de BelIA para corregir un cliente no se puede guardar.
 
-**Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: «Particulares» marcado en las empresas 1, 51 y 52). **Falta en producción** (con el «a producción» de Felipe, antes del motor).
+**Estado.** Escrita el 04-11-2026. **Aplicada en el laboratorio el 04-11-2026** (verificado: «Particulares» marcado en las empresas 1, 51 y 52). **En producción desde el 05-11-2026**, con el «a producción» de Felipe y antes del motor (PR #302). Verificado: «Particulares» marcado en las empresas 1, 51, 52, 55, 57, 58 y 60, y el check con los siete tipos. Respaldo del antes en `02_RESPALDOS/cambios_de_datos/2026-11-05_migracion_186_PROD.json`.
 
 ## 32. Migración 187: las boletas de recepción (05-11-2026)
 
