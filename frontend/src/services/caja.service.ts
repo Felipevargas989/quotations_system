@@ -86,11 +86,17 @@ export interface CierreDeCaja
     total: number;
     medio_de_pago: MedioDePago | null;
     emitido_en: string | null;
+    /** §9.45: la solicitud de recepción que esta fila representa (la
+     *  pendiente, la rechazada o la aprobada cuyo documento no salió). Su
+     *  estado es «solicitud_pendiente», «solicitud_rechazada» o
+     *  «solicitud_aprobada». */
+    solicitud_id: number | null;
   }[];
   retiros: RetiroDeCaja[];
   correcciones: {
     id: number;
-    documento_id: number;
+    documento_id: number | null;
+    solicitud_id: number | null;
     medio_antes: string | null;
     medio_despues: string;
     corregido_por_nombre: string | null;
@@ -142,6 +148,18 @@ export const corregirMedio = async (
     {
       medio,
     },
+  )) as CierreDeCaja;
+
+/** §9.45: el medio de pago de una solicitud de recepción del turno. */
+export const corregirMedioDeSolicitud = async (
+  id: number,
+  solicitudId: number,
+  medio: MedioDePago,
+): Promise<CierreDeCaja> =>
+  (await apiRequest(
+    `${base}/cierres/${id}/solicitudes/${solicitudId}`,
+    "PATCH",
+    { medio },
   )) as CierreDeCaja;
 
 export const revisarCierre = async (

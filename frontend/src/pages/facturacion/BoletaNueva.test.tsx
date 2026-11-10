@@ -12,6 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as boletas from "../../services/boletas.service";
 import * as caja from "../../services/caja.service";
+import * as solicitudes from "../../services/solicitudes.service";
 import BoletaNueva from "./BoletaNueva";
 
 // LA BOLETA EN SU PROPIA PANTALLA (doc 19 §9.22, sprint 3), como la
@@ -32,6 +33,12 @@ vi.mock("../../services/caja.service", () => ({
 }));
 vi.mock("../../services/storage.service", () => ({
   resolveStorageUrl: vi.fn(),
+}));
+vi.mock("../../services/solicitudes.service", () => ({
+  solicitarBoleta: vi.fn(),
+  solicitarFactura: vi.fn(),
+  getSolicitudesDelTurno: vi.fn().mockResolvedValue({ solicitudes: [] }),
+  getSolicitudes: vi.fn().mockResolvedValue({ pendientes: 0, solicitudes: [] }),
 }));
 const b = vi.mocked(boletas);
 
@@ -86,13 +93,19 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const abrir = ({ esAdmin = false, quedarse = false, conCaja = false } = {}) => {
+const abrir = ({
+  esAdmin = false,
+  quedarse = false,
+  conCaja = false,
+  solicita = false,
+} = {}) => {
   const onEmitida = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
       <BoletaNueva
         esAdmin={esAdmin}
         conCaja={conCaja}
+        solicita={solicita}
         quedarse={quedarse}
         onVolver={() => {}}
         onEmitida={onEmitida}
@@ -241,5 +254,32 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     expect(
       await screen.findByRole("button", { name: /Línea a mano/ }),
     ).toBeInTheDocument();
+  });
+
+  it("recepción no emite: «Enviar solicitud» la guarda para que la emita quien aprueba (§9.45)", async () => {
+    vi.mocked(solicitudes.solicitarBoleta).mockResolvedValue({
+      id: 9,
+      total: 130000,
+    } as never);
+    abrir({ quedarse: true, solicita: true });
+    await armarUna();
+    pagoYEnvio({ imprimir: true });
+    fireEvent.click(screen.getByRole("button", { name: "Crear documento" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Enviar solicitud" }),
+    );
+    await waitFor(() =>
+      expect(solicitudes.solicitarBoleta).toHaveBeenCalledWith({
+        lineas: [{ tarifario_id: 1, cantidad: 1 }],
+        cabana: "Cabaña 4",
+        correo: null,
+        medio_de_pago: "efectivo",
+      }),
+    );
+    expect(b.emitirBoletaSuelta).not.toHaveBeenCalled();
+    // Queda en blanco para la próxima.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Ej.: Cabaña 4")).toHaveValue(""),
+    );
   });
 });

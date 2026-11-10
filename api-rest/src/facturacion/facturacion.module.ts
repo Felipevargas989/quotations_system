@@ -30,6 +30,9 @@ import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.se
 import { RecibidosController } from './recibidos/recibidos.controller';
 import { RecibidosRepository } from './recibidos/recibidos.repository';
 import { RecibidosService } from './recibidos/recibidos.service';
+import { SolicitudesController } from './solicitudes/solicitudes.controller';
+import { SolicitudesRepository } from './solicitudes/solicitudes.repository';
+import { SolicitudesService } from './solicitudes/solicitudes.service';
 
 /**
  * LA FACTURACIÓN ELECTRÓNICA (doc 19). Las órdenes de compra de cada evento
@@ -54,10 +57,14 @@ import { RecibidosService } from './recibidos/recibidos.service';
     NominaSiiController,
     RecibidosController,
     CajaController,
+    // Las solicitudes de recepción (doc 19 §9.45).
+    SolicitudesController,
   ],
   providers: [
     CajaService,
     CajaRepository,
+    SolicitudesService,
+    SolicitudesRepository,
     OrdenesDeCompraService,
     OrdenesDeCompraRepository,
     LeerOrdenDeCompraService,

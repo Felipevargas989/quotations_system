@@ -97,6 +97,15 @@ vi.mock("./PorFacturar", () => ({
 vi.mock("./FacturaNueva", () => ({
   default: () => <p>la factura nueva</p>,
 }));
+vi.mock("../../services/solicitudes.service", () => ({
+  solicitarBoleta: vi.fn(),
+  solicitarFactura: vi.fn(),
+  getSolicitudesDelTurno: vi.fn().mockResolvedValue({ solicitudes: [] }),
+  getSolicitudes: vi.fn().mockResolvedValue({ pendientes: 0, solicitudes: [] }),
+}));
+vi.mock("./SolicitudesPorAprobar", () => ({
+  default: () => <p>Las solicitudes por aprobar</p>,
+}));
 vi.mock("./NotaNueva", () => ({
   default: ({ tipo, onVolver }: { tipo: string; onVolver: () => void }) => (
     <div>
@@ -228,5 +237,18 @@ describe("la sección Facturación", () => {
     permisos = ["boletas", "facturacion_documentos", "facturacion_notas"];
     abrir();
     expect(pestanas()).not.toContain("Tarifario");
+  });
+
+  it("«Solicitudes» va con «Aprobar y emitir solicitudes» (§9.45): operaciones sí, recepción no", () => {
+    rol = "operaciones";
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: "Solicitudes" }));
+    expect(screen.getByText("Las solicitudes por aprobar")).toBeInTheDocument();
+    cleanup();
+    rol = "recepcion";
+    abrir();
+    expect(
+      screen.queryByRole("button", { name: /^Solicitudes/ }),
+    ).not.toBeInTheDocument();
   });
 });

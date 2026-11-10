@@ -99,6 +99,19 @@ export class CajaController {
     return this.caja.corregirMedio(user, id, documentoId, dto);
   }
 
+  /** §9.45: el medio de una solicitud de recepción del turno. */
+  @Permiso('caja_revision')
+  @Patch('cierres/:id/solicitudes/:solicitudId')
+  @Roles(...ADMIN_ONLY)
+  corregirMedioDeSolicitud(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('solicitudId', ParseIntPipe) solicitudId: number,
+    @Body() dto: CorregirMedioDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.caja.corregirMedioDeSolicitud(user, id, solicitudId, dto);
+  }
+
   @Permiso('caja_revision')
   @Post('cierres/:id/revisar')
   @Roles(...ADMIN_ONLY)

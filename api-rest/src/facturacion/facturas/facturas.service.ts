@@ -16,7 +16,7 @@ import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
 import { BoletasService } from '../boletas/boletas.service';
 import type { CajaRepository } from '../caja/caja.repository';
-import { turnoParaEmitir } from '../caja/regla';
+import { recepcionSolicita, turnoParaEmitir } from '../caja/regla';
 import {
   NOTA_DEL_AMBIENTE,
   type FacturacionCl,
@@ -47,6 +47,7 @@ import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
 import { fechaDeEmision } from './fecha-de-emision';
+import { normalizada } from './normalizada';
 
 /**
  * EL DTE DEL EVENTO (doc 19 §9.2, §9.10 y §9.20): la factura o la boleta.
@@ -80,63 +81,6 @@ const CON_NOTAS = new Set([FACTURA, 56, 61]);
 const SE_FACTURA = ['aceptada', 'realizada'];
 
 const pesos = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
-
-/** Lo que llega de la pantalla, con las mismas reglas de limpieza. La
- *  boleta no va contra una OC ni lleva referencias. */
-const normalizada = (p: DtePedido): DtePedido => {
-  const boleta = p.tipo === BOLETA;
-  return {
-    tipo: boleta ? BOLETA : FACTURA,
-    orden_de_compra_id: boleta ? null : (p.orden_de_compra_id ?? null),
-    receptor: boleta
-      ? {
-          rut: '',
-          razon_social: '',
-          giro: null,
-          direccion: null,
-          comuna: null,
-          ciudad: null,
-          // Como en la boleta suelta: el correo en minúscula.
-          correo: (p.receptor?.correo ?? '').trim().toLowerCase() || null,
-        }
-      : {
-          ...p.receptor,
-          rut:
-            normalizarRut(p.receptor?.rut ?? '') ??
-            textoLimpio(p.receptor?.rut),
-          razon_social: textoLimpio(p.receptor?.razon_social),
-        },
-    lineas: (p.lineas ?? []).map((l) => ({
-      descripcion: textoLimpio(l.descripcion),
-      descripcion_larga: (l.descripcion_larga ?? '').trim() || null,
-      cantidad: Number(l.cantidad),
-      precio: Number(l.precio),
-      // El descuento va solo en la factura (§9.22).
-      descuento:
-        !boleta && Number(l.descuento) > 0 ? Number(l.descuento) : null,
-      // §9.43: el ítem del tarifario (`del-tarifario.ts`), para «Lo vendido».
-      tarifario_id: l.tarifario_id ?? null,
-    })),
-    referencias: boleta
-      ? []
-      : (p.referencias ?? []).map((r) => ({
-          tipo: r.tipo,
-          folio: textoLimpio(r.folio),
-          fecha: (r.fecha ?? '').trim(),
-          razon: textoLimpio(r.razon) || null,
-        })),
-    pedir_siempre: boleta ? [] : [...new Set(p.pedir_siempre ?? [])],
-    // §9.22: la factura va al contado o a crédito (30 días si no se dice).
-    forma_de_pago: boleta ? null : p.forma_de_pago === 1 ? 1 : 2,
-    plazo_dias: boleta || p.forma_de_pago === 1 ? null : (p.plazo_dias ?? 30),
-    // §9.43: con qué se pagó, solo al contado.
-    medio_de_pago:
-      !boleta && p.forma_de_pago === 1 ? (p.medio_de_pago ?? null) : null,
-    cliente_id: boleta ? null : (p.cliente_id ?? null),
-    // §9.32: la factura puede elegir su fecha; la boleta, la del día.
-    fecha_emision: boleta ? null : (p.fecha_emision ?? '').trim() || null,
-  };
-};
 
 /** El % de la OC o del evento que va en el documento (E4: queda el
  *  registro); nulo si pasa del 100 %. */
@@ -433,12 +377,41 @@ export class FacturasService {
   }
 
   async emitirSinEvento(user: User, dto: DtePedido) {
-    const companyId = user.company_id;
     const pedida = await this.pedidaSinEvento(user, dto);
-    const turnoDeCajaId =
-      pedida.forma_de_pago === 1
-        ? await turnoParaEmitir(user, this.caja)
-        : null;
+    if (pedida.forma_de_pago !== 1)
+      return this.emitirPedida(user, pedida, null);
+    recepcionSolicita(user); // §9.45: al contado, recepción la solicita
+    return this.emitirPedida(
+      user,
+      pedida,
+      await turnoParaEmitir(user, this.caja),
+    );
+  }
+
+  /**
+   * §9.45: la factura que recepción solicita, revisada igual que al
+   * emitirla y sin mandarla: el pedido con las líneas del tarifario (lo que
+   * se emitirá tal cual al aprobarla), sus líneas y su total.
+   */
+  async revisadaParaSolicitar(user: User, dto: DtePedido) {
+    const pedida = await this.pedidaSinEvento(user, dto);
+    const ctx = await this.sinEvento(user.company_id, pedida.cliente_id);
+    const { fecha, problema } = conLaFecha(pedida);
+    const revision = revisadaConLaFecha(
+      revisarDte(pedida, ctx, 0, fecha),
+      problema,
+    );
+    return { pedida, revision };
+  }
+
+  /** La factura de «Nuevo documento» ya normalizada: la de quien emite, o
+   *  la de una solicitud aprobada (§9.45) con su pedido y su turno. */
+  async emitirPedida(
+    user: User,
+    pedida: DtePedido,
+    turnoDeCajaId: number | null,
+  ) {
+    const companyId = user.company_id;
     const ctx = await this.sinEvento(companyId, pedida.cliente_id);
     const conexion = this.conexion.de(companyId);
     const { fecha, problema } = conLaFecha(pedida);

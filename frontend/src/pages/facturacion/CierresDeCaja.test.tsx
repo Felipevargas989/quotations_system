@@ -122,6 +122,7 @@ const CIERRE: caja.CierreDeCaja = {
       total: 5000,
       medio_de_pago: "credito",
       emitido_en: "2026-11-09T15:00:00Z",
+      solicitud_id: null,
     },
   ],
   retiros: [
