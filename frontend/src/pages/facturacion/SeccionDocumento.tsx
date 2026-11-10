@@ -142,7 +142,11 @@ export default function SeccionDocumento({
   fuentes,
   fuente,
   onFuente,
+  medioSiempre = false,
 }: {
+  /** Recepción (§9.46): la factura pide siempre con qué le pagaron, diga lo
+   *  que diga su condición de pago. */
+  readonly medioSiempre?: boolean;
   readonly pedida: DtePedido;
   /** La revisión del motor: la fecha que sale, su rango y el vencimiento. */
   readonly vista: VistaPrevia | null;
@@ -219,7 +223,7 @@ export default function SeccionDocumento({
                     : {
                         forma_de_pago: 2,
                         plazo_dias: Number(v),
-                        medio_de_pago: null,
+                        ...(medioSiempre ? {} : { medio_de_pago: null }),
                       },
                 )
               }
@@ -230,7 +234,7 @@ export default function SeccionDocumento({
             />
           </CampoDeLista>
         )}
-        {factura && contado && (
+        {factura && (contado || medioSiempre) && (
           <CampoDeLista titulo="Medio de pago">
             <SelectWithSearch
               options={MEDIOS_DE_PAGO.map((m) => ({

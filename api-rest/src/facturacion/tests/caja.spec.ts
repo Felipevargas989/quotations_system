@@ -166,27 +166,6 @@ describe('Las solicitudes de recepción en la caja (§9.45)', () => {
     expect(c.vendido).toBe(75000);
     expect(c.porConfirmar).toBe(0);
   });
-
-  it('la factura a crédito no cuenta en la caja (§9.46): no entró plata', () => {
-    const juntos = conLasSolicitudes(
-      [],
-      [
-        sol({ id: 1, total: 10000 }),
-        sol({ id: 2, tipo: 33, total: 119000, medio_de_pago: null }),
-        sol({
-          id: 3,
-          tipo: 33,
-          total: 50000,
-          medio_de_pago: null,
-          estado: 'rechazada',
-        }),
-      ],
-    );
-    expect(juntos.map((d) => d.solicitud_id)).toEqual([1]);
-    const c = cuadrar(TURNO, juntos, []);
-    expect(c.vendido).toBe(10000);
-    expect(c.esperado).toBe(20000 + 10000);
-  });
 });
 
 describe('El cuadre de la caja (§9.43)', () => {

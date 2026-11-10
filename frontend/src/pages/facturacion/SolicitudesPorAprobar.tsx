@@ -23,15 +23,8 @@ import { LLAVE_SOLICITUDES, clp, nombreDelTipo } from "./solicitudes";
 // turno). Dos del mismo día con el mismo tipo, total y medio se avisan en
 // ámbar. Una tabla con las mismas seis columnas arriba y abajo.
 
-/** Cómo se paga: el medio con que se cobró o, la factura a crédito (§9.46,
- *  sin medio), «A crédito» con su plazo. */
-const pagoDe = (s: Pick<Solicitud, "medio_de_pago" | "plazo_dias">) =>
-  s.medio_de_pago
-    ? (MEDIOS_DE_PAGO.find((x) => x.value === s.medio_de_pago)?.label ??
-      s.medio_de_pago)
-    : s.plazo_dias
-      ? `A crédito · ${s.plazo_dias} días`
-      : "A crédito";
+const medioDe = (m: string) =>
+  MEDIOS_DE_PAGO.find((x) => x.value === m)?.label ?? m;
 
 /** «22:04»: la hora en 24 h, para que no se parta («09:50 p. m.»). */
 const hora = (iso: string) =>
@@ -183,7 +176,7 @@ export default function SolicitudesPorAprobar() {
           </span>
         </td>
         <td className={`${CELDA} max-w-0 text-gray-900`}>
-          {pagoDe(s)}
+          {medioDe(s.medio_de_pago)}
           <span title={s.correo ?? undefined} className={ABAJO}>
             {s.correo ?? "Sin correo"}
           </span>
@@ -282,7 +275,7 @@ export default function SolicitudesPorAprobar() {
               <AlertTriangle size={13} />
               Igual a otra de las {hora(igual.created_at)} (
               {nombreDelTipo(igual.tipo)} por {clp(igual.total)},{" "}
-              {pagoDe(igual)}): revisa que no sea la misma.
+              {medioDe(igual.medio_de_pago)}): revisa que no sea la misma.
             </p>
           </td>
         </tr>

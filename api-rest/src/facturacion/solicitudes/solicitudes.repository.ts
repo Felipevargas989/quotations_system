@@ -11,8 +11,7 @@ export interface Solicitud {
   pedido: Record<string, unknown>;
   detalle: DocumentoDelTurno['detalle'];
   total: number;
-  /** Nulo solo en la factura a crédito (§9.46, migración 201). */
-  medio_de_pago: string | null;
+  medio_de_pago: string;
   correo: string | null;
   imprimir: boolean;
   para: string | null;
@@ -295,8 +294,6 @@ export class SolicitudesRepository {
     id: number,
     medio: string,
   ): Promise<{ medio_antes: string } | null> {
-    // La factura a crédito no trae medio ni cuenta en la caja (§9.46): no
-    // es de ningún cierre.
     const { data: antes, error: e1 } = await this.db
       .from('solicitudes_de_documento')
       .select('medio_de_pago')
@@ -305,9 +302,7 @@ export class SolicitudesRepository {
       .eq('turno_de_caja_id', turnoId)
       .maybeSingle();
     if (e1) throw e1;
-    const medioAntes = (antes as { medio_de_pago: string | null } | null)
-      ?.medio_de_pago;
-    if (!medioAntes) return null;
+    if (!antes) return null;
     const { error } = await this.db
       .from('solicitudes_de_documento')
       .update({ medio_de_pago: medio })
@@ -315,6 +310,8 @@ export class SolicitudesRepository {
       .eq('id', id)
       .eq('turno_de_caja_id', turnoId);
     if (error) throw error;
-    return { medio_antes: medioAntes };
+    return {
+      medio_antes: (antes as { medio_de_pago: string }).medio_de_pago,
+    };
   }
 }
