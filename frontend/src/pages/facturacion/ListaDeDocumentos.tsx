@@ -276,6 +276,14 @@ export default function ListaDeDocumentos({
     enLaLista.filter((d) => d.modifica_id == null || !ids.has(d.modifica_id)),
     docs,
   );
+  // El reporte va en el mismo orden que la lista (Felipe, 09-11: *"sí, el
+  // reporte también por número"*): cada documento con sus notas debajo, y
+  // al final las notas cuya factura quedó fuera de las fechas (no van en la
+  // lista, pero sí en el reporte).
+  const enOrden = [
+    ...raices.flatMap((d) => [d, ...notasDebajo(d.id)]),
+    ...porNumero(visibles.filter(colgada), docs),
+  ];
 
   // El resumen de lo que se ve (la maqueta): lo por confirmar no suma.
   const r = { neto: 0, iva: 0, total: 0, fac: 0, bol: 0, notas: 0, pc: 0 };
@@ -697,7 +705,7 @@ export default function ListaDeDocumentos({
               <button
                 type="button"
                 disabled={!visibles.length}
-                onClick={() => descargarReporte(f, visibles)}
+                onClick={() => descargarReporte(f, enOrden)}
                 className={boton}
               >
                 <Download size={13} /> Reporte (CSV)

@@ -2742,7 +2742,9 @@ Felipe, 09-11, mirando la lista: *"¿acá por qué quedó la 388 arriba de la
   por tipo, estado o texto no cambia el orden entre los que quedan.
 - Lo que espera «Comprobar» (sin N° o sin fecha) sigue primero, y las
   notas siguen debajo de su documento, de la más vieja a la más nueva.
-- El reporte (CSV) no cambia.
+- El reporte (CSV) va en el mismo orden que la lista, cada documento con
+  sus notas debajo, y al final las notas cuya factura quedó fuera de las
+  fechas (Felipe, 09-11: *"sí, el reporte también por número"*; en producción desde el 09-11-2026, PR #347).
 
 Solo pantalla, en el laboratorio y en producción desde el 09-11-2026 (PR #345).
 
