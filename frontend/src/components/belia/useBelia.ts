@@ -73,6 +73,8 @@ const SEGUNDOS_DE_AVISO = 12;
 /** Lo que espera la ventanilla, después del último cambio, para guardar. */
 const MS_PARA_GUARDAR = 500;
 const SEGUNDOS_DE_FIESTA = 4;
+/** Los turnos que viajan a BelIA: los mismos 20 que ella usa (MAX_TURNOS). */
+const TURNOS_A_BELIA = 20;
 
 const leer = <T>(clave: string, porDefecto: T): T => {
   try {
@@ -249,8 +251,12 @@ export function useBelia() {
       const mensaje = texto.trim();
       if (!mensaje || enviando.current) return;
       enviando.current = true;
+      // BelIA usa los últimos 20 turnos (MAX_TURNOS del motor) y el motor
+      // rechaza más de 30: mandar la conversación entera rompía las largas
+      // («historial must contain no more than 30 elements», 10-11-2026).
       const historial = turnos
         .filter((t) => !t.error)
+        .slice(-TURNOS_A_BELIA)
         .map((t) => ({ rol: t.rol, texto: textoParaBelia(t) }));
       setTurnos((p) => [...p, { rol: "persona", texto: mensaje }]);
       setPensando(true);
