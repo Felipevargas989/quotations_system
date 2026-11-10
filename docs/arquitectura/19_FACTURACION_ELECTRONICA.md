@@ -2814,6 +2814,18 @@ La columna `imprimir` de la 200 queda siempre en falso. El correo del
 reparto de un cobro («Por boletear») y el de la boleta de un evento no
 cambian.
 
+**La caja no recibía sus piezas** (Felipe, 09-11, al probar en el
+laboratorio: dejó una solicitud de $25.000 en efectivo, cerró la caja y el
+cierre decía «Sin documentos», con solo el sencillo en «Según Eventia»).
+Tres piezas opcionales se traían con `import type`, y así Nest no sabe qué
+inyectar y la deja vacía sin avisar: `CajaService` no recibía las
+solicitudes (la caja no las contaba), y `BoletasService` y `FacturasService`
+no recibían la caja desde el §9.43 (lo que emitía recepción no entraba a su
+turno ni se frenaba con la caja cerrada; en producción nadie había abierto
+la caja ni boleteado desde recepción, medido ese día). Arreglado con el
+import de verdad, y `tests/piezas-inyectadas.spec.ts` recorre todas las
+piezas del módulo y falla si a alguna le queda un parámetro sin su clase.
+
 **Pregunta abierta para Felipe:** la factura a crédito de recepción sigue
 emitiéndose directo (no pasa por la caja).
 
