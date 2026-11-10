@@ -14,7 +14,9 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { textoLimpio } from '../archivo/texto';
-import type { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
+// Import de verdad (no `import type`): Nest inyecta por la clase, y con
+// `import type` la pieza opcional llega vacía sin avisar.
+import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,

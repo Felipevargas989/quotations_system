@@ -15,7 +15,8 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
 import { textoLimpio } from '../archivo/texto';
 import { BoletasService } from '../boletas/boletas.service';
-import type { CajaRepository } from '../caja/caja.repository';
+// Import de verdad (no `import type`): Nest inyecta por la clase.
+import { CajaRepository } from '../caja/caja.repository';
 import { recepcionSolicita, turnoParaEmitir } from '../caja/regla';
 import {
   NOTA_DEL_AMBIENTE,
