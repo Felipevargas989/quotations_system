@@ -3596,8 +3596,8 @@ export default function QuotationForm() {
                         (por construcción), adultos con la misma fórmula
                         de computeMoney y niños POR DIFERENCIA —
                         cualquier resto cae ahí y la suma nunca
-                        descuadra. La apostilla "×N" solo cuando toda la
-                        audiencia adulta/niña está completa. */}
+                        descuadra. La apostilla "×N" divide lo del público
+                        por sus personas (10-11). */}
                     {(() => {
                       const variablesTot =
                         totalConIva + discountAmountUI - formData.fixed_value;
@@ -3623,16 +3623,14 @@ export default function QuotationForm() {
                         childrenCount > 0 ? adultosCalc : variablesTot;
                       const ninosVar =
                         childrenCount > 0 ? variablesTot - adultosCalc : 0;
+                      // 10-11: el «×N» va siempre, con todo lo del público
+                      // dividido por sus personas (como computeMoney).
                       const adultosExacto =
-                        adultsCount > 0 &&
-                        deAdultos.length > 0 &&
-                        deAdultos.every((b) => boxPeople(b) === adultsCount);
+                        adultsCount > 0 && deAdultos.length > 0;
                       const ninosExacto =
-                        childrenCount > 0 &&
-                        deNinos.length > 0 &&
-                        deNinos.every((b) => boxPeople(b) === childrenCount);
+                        childrenCount > 0 && deNinos.length > 0;
                       const vppNinos = ninosExacto
-                        ? deNinos.reduce((s, b) => s + perPersonOf(b), 0)
+                        ? Math.round(ninosVar / childrenCount)
                         : 0;
                       const fmtA = (m: number) =>
                         `$${Math.round(m).toLocaleString("es-CL")}`;

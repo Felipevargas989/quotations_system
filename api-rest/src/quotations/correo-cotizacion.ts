@@ -12,9 +12,8 @@ import type { Quotation } from './entities/quotation.entity';
  * solo: el bloque Neto + IVA + TOTAL siempre completo.
  *
  * La matemática y las filas calcan las de la hoja
- * (frontend/src/utils/quotationPrintDoc.ts): valor por persona =
- * suma de los grupos completos por público; los grupos parciales van
- * en su propia fila; la propina se recalcula del porcentaje sobre la
+ * (frontend/src/utils/quotationPrintDoc.ts): una fila por público,
+ * con todo lo de ese público dividido por sus personas (10-11); la propina se recalcula del porcentaje sobre la
  * alimentación. Si la hoja cambia, este archivo cambia con ella.
  *
  * Reglas de la skill de correos hechas código: fecha con día de
@@ -74,9 +73,6 @@ const personasDelGrupo = (g: GrupoVariable, q: Quotation): number => {
   return publicoDelGrupo(g, q) || Number(q.people_count || 0);
 };
 
-const esCompleto = (g: GrupoVariable, q: Quotation): boolean =>
-  personasDelGrupo(g, q) === publicoDelGrupo(g, q);
-
 const porPersona = (g: GrupoVariable): number =>
   (g.items || []).reduce(
     (s, it) => s + (it.precio || 0) * (it.quantity || 1),
@@ -88,13 +84,19 @@ export const totalesDeCotizacion = (q: Quotation) => {
     (s, g) => s + porPersona(g) * personasDelGrupo(g, q),
     0,
   );
-  const perAdulto = grupos(q)
-    .filter((g) => audienciaDe(g) === 'adultos' && esCompleto(g, q))
-    .reduce((s, g) => s + porPersona(g), 0);
-  const perNino = grupos(q)
-    .filter((g) => audienciaDe(g) === 'ninos' && esCompleto(g, q))
-    .reduce((s, g) => s + porPersona(g), 0);
-  const parciales = grupos(q).filter((g) => !esCompleto(g, q));
+  // UNA fila por público, como la hoja (10-11): todo lo de los adultos
+  // dividido por los adultos; el total exacto, el por persona al peso.
+  const totalDe = (aud: 'adultos' | 'ninos'): number =>
+    grupos(q)
+      .filter((g) => audienciaDe(g) === aud)
+      .reduce((s, g) => s + porPersona(g) * personasDelGrupo(g, q), 0);
+  const adultos = adultosDe(q);
+  const ninos = ninosDe(q);
+  const totAdultos = adultos > 0 ? totalDe('adultos') : 0;
+  const totNinos = ninos > 0 ? totalDe('ninos') : 0;
+  const perAdulto = adultos > 0 ? Math.round(totAdultos / adultos) : 0;
+  const perNino = ninos > 0 ? Math.round(totNinos / ninos) : 0;
+  const parciales = grupos(q).filter((g) => publicoDelGrupo(g, q) === 0);
   const fixedTotal = fijos(q).reduce(
     (s, f) => s + (f.precio || 0) * (f.quantity || 1),
     0,
@@ -121,6 +123,8 @@ export const totalesDeCotizacion = (q: Quotation) => {
     fixedTotal,
     perAdulto,
     perNino,
+    totAdultos,
+    totNinos,
     parciales,
   };
 };
@@ -275,14 +279,14 @@ export const correoDeCotizacion = (
     filasAlimentacion.push(
       `<tr>${celda(`${tag('ADULTOS', primario)} &nbsp;Valor por persona`)}${celdaGris(
         `${adultos.toLocaleString('es-CL')} personas`,
-      )}${celdaGris(clp(t.perAdulto))}${celdaDer(clp(t.perAdulto * adultos))}</tr>`,
+      )}${celdaGris(clp(t.perAdulto))}${celdaDer(clp(t.totAdultos))}</tr>`,
     );
   }
   if (ninos > 0 && t.perNino > 0) {
     filasAlimentacion.push(
       `<tr>${celda(`${tag('NIÑOS', '#b45309')} &nbsp;Valor por persona`)}${celdaGris(
         `${ninos.toLocaleString('es-CL')} personas`,
-      )}${celdaGris(clp(t.perNino))}${celdaDer(clp(t.perNino * ninos))}</tr>`,
+      )}${celdaGris(clp(t.perNino))}${celdaDer(clp(t.totNinos))}</tr>`,
     );
   }
   for (const g of t.parciales) {

@@ -65,8 +65,49 @@ describe('computeMoney', () => {
       children_count: 20,
     });
     expect(t.variableGrandTotal).toBe(1800000 + 300000);
-    // value_per_person: solo cajas de adultos que cubren a TODOS los adultos
+    // value_per_person: todo lo de los adultos ÷ los adultos
     expect(t.valuePerPerson).toBe(30000);
+  });
+
+  it('valor por persona: las onces de 160 y 140 entran (la 407 de CCU, 10-11)', () => {
+    // 300 adultos: desayuno $9.100 para todos, una once de $17.300 para
+    // 160 y otra de $17.300 para 140. Antes decía $9.100.
+    const t = computeMoney({
+      items: {
+        variable_services: [
+          box(300, [
+            [6100, 1],
+            [3000, 1],
+          ]),
+          box(160, [
+            [4500, 2],
+            [3800, 1],
+            [4500, 1],
+          ]),
+          box(140, [
+            [3800, 1],
+            [4500, 2],
+            [4500, 1],
+          ]),
+          box(80, [[8400, 1]], 'ninos'),
+        ],
+      },
+      people_count: 380,
+      children_count: 80,
+    });
+    expect(t.valuePerPerson).toBe(9100 + 17300);
+  });
+
+  it('valor por persona: si no da exacto, al peso', () => {
+    const t = computeMoney({
+      items: {
+        variable_services: [box(300, [[1000, 1]]), box(1, [[1000, 1]])],
+      },
+      people_count: 300,
+      children_count: 0,
+    });
+    expect(t.valuePerPerson).toBe(1003); // 301.000 ÷ 300 = 1.003,33
+    expect(t.variableGrandTotal).toBe(301000);
   });
 
   it('descuento por porcentaje, con tope 100', () => {
@@ -179,6 +220,29 @@ describe('verifyMoney', () => {
   it('un guardado del cotizador pasa sin observaciones', () => {
     const { declared, input } = payloadHonesto();
     expect(verifyMoney(declared, input)).toEqual([]);
+  });
+
+  it('transición del 10-11: pasa el valor por persona de la vitrina anterior, no otro', () => {
+    const items = {
+      variable_services: [box(80, [[25000, 1]]), box(40, [[10000, 1]])],
+      fixed_services: [],
+    };
+    const input = { items, people_count: 80, children_count: 0 };
+    const declared = (vpp: number) => ({
+      fixed_value: 0,
+      value_per_person: vpp,
+      subtotal_amount: 2400000,
+      discount_percentage: 0,
+      discount_amount: 0,
+      tip_percentage: null,
+      tip_amount: 0,
+      total_amount: 2400000,
+    });
+    expect(verifyMoney(declared(30000), input)).toEqual([]); // la nueva
+    expect(verifyMoney(declared(25000), input)).toEqual([]); // la de antes
+    expect(verifyMoney(declared(26000), input)).toEqual([
+      { campo: 'value_per_person', enviado: 26000, calculado: 30000 },
+    ]);
   });
 
   it('un total adulterado se detecta', () => {

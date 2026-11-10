@@ -96,6 +96,43 @@ export const resolveFixedServicePrice = (
   }
 };
 
+/** Lo de los adultos dividido por los adultos (§ valor por persona, 10-11). */
+const valorPorAdulto = (
+  boxes: VariableBox[],
+  adults: number,
+  boxPeople: (b: VariableBox) => number,
+  perPersonOf: (b: VariableBox) => number,
+): number => {
+  if (adults <= 0) return 0;
+  const deAdultos = boxes
+    .filter((b) => (b.audience || 'adultos') === 'adultos')
+    .reduce((sum, b) => sum + perPersonOf(b) * boxPeople(b), 0);
+  return Math.round(deAdultos / adults);
+};
+
+/** La regla de antes del 10-11 (solo las cajas que cubren a TODOS los
+ *  adultos). Vive solo para `verifyMoney`, mientras una pestaña abierta con
+ *  la vitrina anterior guarde con ella; se retira en el próximo cambio. */
+const valorPorAdultoAntes = (input: MoneyInput): number => {
+  const boxes = input.items?.variable_services || [];
+  const peopleCount = n(input.people_count);
+  const adults = Math.max(0, peopleCount - n(input.children_count));
+  return Math.round(
+    boxes.reduce((sum, box) => {
+      if ((box.audience || 'adultos') !== 'adultos') return sum;
+      const people = box.people == null ? peopleCount : n(box.people);
+      if (people !== adults) return sum;
+      return (
+        sum +
+        (box.items || []).reduce(
+          (s, it) => s + n(it.precio) * qty(it.quantity),
+          0,
+        )
+      );
+    }, 0),
+  );
+};
+
 export const computeMoney = (input: MoneyInput): MoneyTotals => {
   const items = input.items || {};
   const boxes = items.variable_services || [];
@@ -139,15 +176,13 @@ export const computeMoney = (input: MoneyInput): MoneyTotals => {
     fixed.reduce((sum, it) => sum + fixedPrice(it) * qty(it.quantity), 0),
   );
 
-  // value_per_person (columna histórica) = valor por ADULTO de las cajas
-  // que cubren a todos los adultos.
-  const valuePerPerson = Math.round(
-    boxes.reduce((sum, box) => {
-      if ((box.audience || 'adultos') !== 'adultos') return sum;
-      if (boxPeople(box) !== adults) return sum;
-      return sum + perPersonOf(box);
-    }, 0),
-  );
+  // value_per_person (columna histórica) = TODO lo de los adultos dividido
+  // por los adultos (Felipe, 10-11, con la 407 de CCU: dos onces de 160 y
+  // 140 quedaban fuera y el valor por persona decía $49.600 cuando cada
+  // adulto paga $66.900; *"el sistema debería tomar el total de los
+  // servicios por adultos y dividirlos por la cantidad"*). Redondeado al
+  // peso: el total manda aunque por persona × adultos difiera en pesos.
+  const valuePerPerson = valorPorAdulto(boxes, adults, boxPeople, perPersonOf);
 
   const subtotalAmount = Math.round(variableGrandTotal + fixedTotal);
 
@@ -221,7 +256,14 @@ export const verifyMoney = (
   ];
 
   return checks
-    .filter(([, enviado, calculado]) => enviado !== calculado)
+    .filter(
+      ([campo, enviado, calculado]) =>
+        enviado !== calculado &&
+        // Transición del 10-11: la vitrina anterior aún manda la regla vieja.
+        !(
+          campo === 'value_per_person' && enviado === valorPorAdultoAntes(input)
+        ),
+    )
     .map(([campo, enviado, calculado]) => ({ campo, enviado, calculado }));
 };
 
