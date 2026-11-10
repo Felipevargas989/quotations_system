@@ -119,7 +119,6 @@ export function buildQuotationPrintDoc(
       (s, it) => s + (it.precio || 0) * (it.quantity || 1),
       0,
     );
-  const isFull = (g: VarGroup) => groupPeople(g) === audienceTotal(g);
 
   // Orden de presentación (Felipe, 23-07): manda la MESA DE TRABAJO.
   const sortedGroups = [...varGroups].sort(
@@ -130,13 +129,20 @@ export function buildQuotationPrintDoc(
     (s, g) => s + groupPerPerson(g) * groupPeople(g),
     0,
   );
-  const perAdulto = varGroups
-    .filter((g) => audienceOf(g) === "adultos" && isFull(g))
-    .reduce((s, g) => s + groupPerPerson(g), 0);
-  const perNino = varGroups
-    .filter((g) => audienceOf(g) === "ninos" && isFull(g))
-    .reduce((s, g) => s + groupPerPerson(g), 0);
-  const partials = sortedGroups.filter((g) => !isFull(g));
+  // UNA fila por público (Felipe, 10-11, con la 407 de CCU): todo lo de los
+  // adultos dividido por los adultos, y lo mismo con los niños. Las onces
+  // de 160 y 140 ya no van en filas aparte. La columna del total lleva lo
+  // exacto; el valor por persona va redondeado al peso. Solo queda como
+  // fila propia un grupo de un público que no tiene personas.
+  const totalDe = (aud: "adultos" | "ninos") =>
+    varGroups
+      .filter((g) => audienceOf(g) === aud)
+      .reduce((s, g) => s + groupPerPerson(g) * groupPeople(g), 0);
+  const totAdultos = adults > 0 ? totalDe("adultos") : 0;
+  const totNinos = kids > 0 ? totalDe("ninos") : 0;
+  const perAdulto = adults > 0 ? Math.round(totAdultos / adults) : 0;
+  const perNino = kids > 0 ? Math.round(totNinos / kids) : 0;
+  const partials = sortedGroups.filter((g) => audienceTotal(g) === 0);
 
   const fixedTotal = fixedList.reduce(
     (s, f) => s + (f.precio || 0) * (f.quantity || 1),
@@ -474,10 +480,10 @@ export function buildQuotationPrintDoc(
 
   const valoresRows = [
     adults > 0 && perAdulto > 0
-      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td><td class="per">${adults.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perAdulto)}</td><td class="der">${clp(perAdulto * adults)}</td></tr>`
+      ? `<tr><td><span class="qv-tagA">ADULTOS</span> &nbsp;Valor por persona</td><td class="per">${adults.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perAdulto)}</td><td class="der">${clp(totAdultos)}</td></tr>`
       : "",
     kids > 0 && perNino > 0
-      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td><td class="per">${kids.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perNino)}</td><td class="der">${clp(perNino * kids)}</td></tr>`
+      ? `<tr><td><span class="qv-tagN">NIÑOS</span> &nbsp;Valor por persona</td><td class="per">${kids.toLocaleString("es-CL")} personas</td><td class="unit">${clp(perNino)}</td><td class="der">${clp(totNinos)}</td></tr>`
       : "",
     ...partials.map(
       (g) =>

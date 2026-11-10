@@ -102,8 +102,9 @@ y recién entonces la envíe.
 5. **Calcular** con la fórmula de `api-rest/src/quotations/utils/money.ts`:
    - variables = Σ por caja (Σ precio × cantidad) × personas de la caja;
    - fijos = Σ precio × cantidad;
-   - valor por persona = suma de las cajas de adultos que cubren a TODOS los
-     adultos;
+   - valor por persona = Σ de las cajas de adultos (precio × personas) ÷
+     los adultos, redondeado al peso (10-11; antes, solo las cajas que
+     cubrían a todos los adultos);
    - descuento en %: `round(subtotal × %)`, con `discount_amount` en 0;
    - propina: `tip_percentage` en null.
 6. **Respaldar y guardar con candados**, todas en un solo bloque: estado
