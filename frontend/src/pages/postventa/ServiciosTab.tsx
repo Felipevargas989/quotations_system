@@ -1872,8 +1872,8 @@ export default function ServiciosTab({
                     variables = ámbar + descuento − fijos (por
                     construcción), adultos con la misma fórmula de la
                     cuenta y niños POR DIFERENCIA — cualquier resto cae
-                    ahí y la suma nunca descuadra. La apostilla "×N" solo
-                    cuando toda audiencia adulta/niña está completa. */}
+                    ahí y la suma nunca descuadra. La apostilla "×N" divide
+                    lo del público por sus personas (10-11). */}
                       {(() => {
                         const variablesTot =
                           totalConIva + descAmount - fixedValue;
@@ -1899,16 +1899,12 @@ export default function ServiciosTab({
                           kidsN > 0 ? adultosCalc : variablesTot;
                         const ninosVar =
                           kidsN > 0 ? variablesTot - adultosCalc : 0;
-                        const adultosExacto =
-                          adultsN > 0 &&
-                          deAdultos.length > 0 &&
-                          deAdultos.every((g) => gPeople(g) === adultsN);
-                        const ninosExacto =
-                          kidsN > 0 &&
-                          deNinos.length > 0 &&
-                          deNinos.every((g) => gPeople(g) === kidsN);
+                        // 10-11: el «×N» va siempre, con todo lo del
+                        // público dividido por sus personas.
+                        const adultosExacto = adultsN > 0 && deAdultos.length > 0;
+                        const ninosExacto = kidsN > 0 && deNinos.length > 0;
                         const vppNinos = ninosExacto
-                          ? deNinos.reduce((s, g) => s + perPersonOf(g), 0)
+                          ? Math.round(ninosVar / kidsN)
                           : 0;
                         const fmtA = (m: number) =>
                           `$${Math.round(m).toLocaleString("es-CL")}`;

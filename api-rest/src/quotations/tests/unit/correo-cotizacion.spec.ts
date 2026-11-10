@@ -81,6 +81,35 @@ describe('la matemática de la hoja, calcada', () => {
   });
 });
 
+describe('una fila por público (10-11)', () => {
+  it('las onces de 160 y 140 van dentro de la fila de adultos', () => {
+    const caja = (people: number, precio: number, audience = 'adultos') => ({
+      audience,
+      people,
+      items: [{ nombre: 'x', precio, quantity: 1 }],
+    });
+    const t = totalesDeCotizacion(
+      base({
+        people_count: 380,
+        children_count: 80,
+        items: {
+          variable_services: [
+            caja(300, 9100),
+            caja(160, 17300),
+            caja(140, 17300),
+            caja(80, 8400, 'ninos'),
+          ],
+          fixed_services: [],
+        },
+      } as unknown as Partial<Quotation>),
+    );
+    expect(t.perAdulto).toBe(26400);
+    expect(t.totAdultos).toBe(300 * 9100 + 300 * 17300);
+    expect(t.perNino).toBe(8400);
+    expect(t.parciales).toEqual([]);
+  });
+});
+
 describe('el correo tipo', () => {
   const MARCA = {
     nombre: 'Valle del Sol',
