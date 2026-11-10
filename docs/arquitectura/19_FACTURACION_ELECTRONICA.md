@@ -2778,8 +2778,8 @@ pago y la dejaba fuera de la caja («no entró plata»). Felipe la corrigió:
 la condición de pago no dice si se cobró. La 201 se deshizo en el
 laboratorio y su archivo salió del repo; el número 201 queda sin usar.
 
-En el laboratorio desde el 10-11-2026. Producción espera el «a producción»
-de Felipe; no lleva migración.
+En el laboratorio y **en producción desde el 10-11-2026** (PR #350; sin
+migración).
 
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
