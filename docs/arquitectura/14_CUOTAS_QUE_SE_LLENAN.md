@@ -155,7 +155,8 @@ Cuatro reglas, aprobadas por Felipe el 28-10-2026 (*"ok hazlo los 4"*):
    abono para reservar (el % de `companies.abono_reserva_pct`, migración 160,
    sobre el total sin propina: el mismo monto que dice la hoja de la
    cotización bajo el TOTAL), para hoy, y la segunda el saldo, **7 días antes
-   del evento** (nunca antes de hoy). Siete es la mediana de los planes de dos
+   del evento**; si el evento surgió muy encima (falta menos de una semana),
+   el mismo día del evento (Felipe, 10-11), y nunca antes de hoy. Siete es la mediana de los planes de dos
    cuotas de Valle del Sol desde junio (14 planes, medido el 28-10-2026; el
    abono promedio fue 34%). Agregar una cuota mantiene el abono y reparte el
    saldo parejo en las demás. Sin % en la empresa, una cuota por el total,

@@ -10,7 +10,7 @@ import { repartirEnCuotas } from "./repartirEnCuotas";
  * desapareció de Post-Venta. Desde hoy:
  * - el plan parte con el ABONO de Mi empresa (el mismo que dice la hoja de
  *   la cotización bajo el TOTAL) para hoy y el saldo 7 días antes del
- *   evento. Siete es la mediana de los planes de dos cuotas de Valle del
+ *   evento (el día del evento si falta menos; 10-11). Siete es la mediana de los planes de dos cuotas de Valle del
  *   Sol desde junio (14 planes, medido el 28-10-2026). Sin % en la
  *   empresa, una cuota por el total, como antes;
  * - las cuotas con plata no se tocan: el editor las muestra fijas y lo que
@@ -57,8 +57,11 @@ export const planCubreElTotal = (
   cuotas.length > 0 &&
   cuotas.reduce((s, c) => s + pesos(c.amount), 0) === pesos(total);
 
-/** La fecha del saldo: 7 días antes del evento, nunca antes de hoy. Las
- *  fechas de evento se guardan a medianoche UTC: se trabaja con el día. */
+/** La fecha del saldo: 7 días antes del evento. Si el evento surgió muy
+ *  encima (falta menos de una semana), el mismo día del evento (Felipe,
+ *  10-11: *"en caso que sea un evento que surgió muy encima, el mismo día
+ *  del evento la segunda cuota"*); nunca antes de hoy. Las fechas de evento
+ *  se guardan a medianoche UTC: se trabaja con el día. */
 export const fechaDelSaldo = (
   fechaEvento: string | Date | null | undefined,
   hoy: string,
@@ -70,7 +73,8 @@ export const fechaDelSaldo = (
   const ms = Date.parse(`${dia}T00:00:00Z`);
   if (Number.isNaN(ms)) return hoy;
   const saldo = new Date(ms - 7 * 86_400_000).toISOString().slice(0, 10);
-  return saldo < hoy ? hoy : saldo;
+  if (saldo >= hoy) return saldo;
+  return dia > hoy ? dia : hoy;
 };
 
 /** Cómo se reparte `objetivo` en `n` cuotas: con abono, la primera es el
