@@ -2843,8 +2843,10 @@ piezas del módulo y falla si a alguna le queda un parámetro sin su clase.
 **Pregunta abierta para Felipe:** la factura a crédito de recepción sigue
 emitiéndose directo (no pasa por la caja).
 
-En el laboratorio desde el 09-11-2026 (migración 200 en el laboratorio).
-Producción espera el OK de Felipe.
+En el laboratorio y en producción desde el 09-11-2026 (PR #349; migración
+200 en las dos bases, antes del motor; Felipe: *"a producción"*). El motor y
+la pantalla van juntos: la pantalla vieja no puede boletear sin correo
+contra el motor nuevo.
 
 ### 9.44 «Documentos» por número (09-11)
 
