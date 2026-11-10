@@ -75,9 +75,20 @@ describe('computeMoney', () => {
     const t = computeMoney({
       items: {
         variable_services: [
-          box(300, [[6100, 1], [3000, 1]]),
-          box(160, [[4500, 2], [3800, 1], [4500, 1]]),
-          box(140, [[3800, 1], [4500, 2], [4500, 1]]),
+          box(300, [
+            [6100, 1],
+            [3000, 1],
+          ]),
+          box(160, [
+            [4500, 2],
+            [3800, 1],
+            [4500, 1],
+          ]),
+          box(140, [
+            [3800, 1],
+            [4500, 2],
+            [4500, 1],
+          ]),
           box(80, [[8400, 1]], 'ninos'),
         ],
       },
@@ -89,7 +100,9 @@ describe('computeMoney', () => {
 
   it('valor por persona: si no da exacto, al peso', () => {
     const t = computeMoney({
-      items: { variable_services: [box(300, [[1000, 1]]), box(1, [[1000, 1]])] },
+      items: {
+        variable_services: [box(300, [[1000, 1]]), box(1, [[1000, 1]])],
+      },
       people_count: 300,
       children_count: 0,
     });
