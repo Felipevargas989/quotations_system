@@ -63,6 +63,25 @@ export function porQueNoEntra(
   return null;
 }
 
+/** «Hazle seguimiento a la 612» (doc 20 §18, sprint 2; Felipe, 10-11-2026:
+ *  «si la chica esta quiere hacer un seguimiento a un correo de un cliente,
+ *  pueda»): pedido por una persona, entra cualquier enviada o en
+ *  negociación, aunque su próximo contacto no haya vencido o sea por otro
+ *  medio. Lo demás (el tope de calendario, el borrador que espera, el
+ *  evento que ya pasó, el correo útil) se revisa igual en `generar`. */
+export function porQueNoEntraAPedido(estado: string): string | null {
+  if (!ESTADOS_CON_SEGUIMIENTO.includes(estado)) {
+    return `está en «${estado}»: el seguimiento es para enviadas y en negociación.`;
+  }
+  return null;
+}
+
+/** La regla de `generar`: la de siempre, o la de a pedido. */
+export const reglaDelSeguimiento =
+  (aPedido: boolean, hoy: string) =>
+  (estado: string, notas: NotaDeBitacora[]): string | null =>
+    aPedido ? porQueNoEntraAPedido(estado) : porQueNoEntra(estado, notas, hoy);
+
 /** Un correo que sirve para escribirle al cliente: con forma de correo y
  *  que no sea de relleno (noindica@, sincorreo@…). */
 export const esCorreoUtil = (c: string | null | undefined): c is string =>

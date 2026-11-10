@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { hoyEnChile } from 'src/oportunidades/analisis/comun';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
-import {
-  porQueNoEntra,
-  type NotaDeBitacora,
-} from 'src/quotations/seguimiento/elegibles';
+import { porQueNoEntraAPedido } from 'src/quotations/seguimiento/elegibles';
 import { SeguimientoConIAService } from 'src/quotations/seguimiento/seguimiento.service';
 import type { User } from 'src/users/entities/user.entity';
 import { enlaceDe, ErrorDeHerramienta } from '../herramientas/comun';
@@ -22,6 +18,12 @@ import { huellaDe, type CotizacionParaCambiar } from './reglas';
 // aviso ámbar, nunca se envía, y la nota «BelIA · A pedido de …» la escribe
 // ese mismo servicio. Por eso la tarjeta no se deshace: el borrador queda en
 // Outlook y lo revisa la persona.
+//
+// Desde el 10-11-2026 (doc 20 §18, sprint 2; Felipe: «si la chica esta
+// quiere hacer un seguimiento a un correo de un cliente, pueda verlo
+// dependiendo si el cliente lo puede ver»): pedido desde el chat, entra
+// cualquier enviada o en negociación que el cargo ve (Permisos por cargo),
+// aunque su próximo contacto no haya vencido (`porQueNoEntraAPedido`).
 
 @Injectable()
 export class SeguimientoDesdeElChat {
@@ -46,11 +48,7 @@ export class SeguimientoDesdeElChat {
           : 'No encontré la cotización abierta.',
       );
     }
-    const notas = (await this.bitacora.findByQuotation(
-      empresa,
-      q.id,
-    )) as unknown as NotaDeBitacora[];
-    const no = porQueNoEntra(q.quotation_status, notas ?? [], hoyEnChile());
+    const no = porQueNoEntraAPedido(q.quotation_status);
     if (no) {
       throw new ErrorDeHerramienta(
         `La N° ${q.quotation_number} no entra al seguimiento por correo: ${no}`,
@@ -91,7 +89,9 @@ export class SeguimientoDesdeElChat {
     usuario: User,
     q: CotizacionParaCambiar,
   ): Promise<ResultadoDeAplicar> {
-    const r = await this.seguimiento.generar(q.id, usuario);
+    const r = await this.seguimiento.generar(q.id, usuario, {
+      aPedido: true,
+    });
     return {
       estado: 'aplicada',
       numero: q.quotation_number,

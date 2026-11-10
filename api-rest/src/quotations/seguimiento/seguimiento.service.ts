@@ -22,10 +22,10 @@ import {
 import { mensajeDelSeguimiento } from './contexto';
 import {
   compromisoVivo,
-  esCorreoUtil,
   ESTADOS_CON_SEGUIMIENTO,
   fechaEnChile,
   porQueNoEntra,
+  reglaDelSeguimiento,
 } from './elegibles';
 import { notaDelEnvio, proximoTrasElEnvio } from './envio';
 import {
@@ -50,6 +50,11 @@ import {
   SeguimientoRepository,
 } from './seguimiento.repository';
 import { ESQUEMA_DEL_SEGUIMIENTO, type RespuestaDelSeguimiento } from './tipos';
+import {
+  buscarUltimoCorreo,
+  correosDeLaCotizacion,
+  type UltimoCorreo,
+} from './ultimo-correo';
 
 // EL BOTÓN «✉ GENERAR SEGUIMIENTO» (doc 18; Felipe, 17-10-2026).
 //
@@ -268,7 +273,21 @@ export class SeguimientoConIAService {
     );
   }
 
-  async generar(id: string, user: User): Promise<ResultadoDelSeguimiento> {
+  /** El último correo de la cotización; solo lee (doc 20 §18). */
+  async ultimoCorreo(id: string, user: User): Promise<UltimoCorreo> {
+    const q = await this.repositorio.cotizacion(id, user.company_id);
+    if (!q) throw new NotFoundException('Cotización no encontrada.');
+    return buscarUltimoCorreo(this.outlook(), q).catch((e: unknown) => {
+      throw this.errorDeOutlook(e, q.quotation_number);
+    });
+  }
+
+  /** `aPedido`: lo pidió una persona en BelIA (doc 20 §18). */
+  async generar(
+    id: string,
+    user: User,
+    opciones: { aPedido?: boolean } = {},
+  ): Promise<ResultadoDelSeguimiento> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new ServiceUnavailableException(
         'Falta la llave de Anthropic en el motor: el seguimiento no se puede escribir.',
@@ -293,7 +312,8 @@ export class SeguimientoConIAService {
     if (!q) throw new NotFoundException('Cotización no encontrada.');
     const notas = await this.repositorio.bitacora(id, companyId);
     const hoy = fechaEnChile();
-    const noEntra = porQueNoEntra(q.quotation_status, notas, hoy);
+    const regla = reglaDelSeguimiento(!!opciones.aPedido, hoy);
+    const noEntra = regla(q.quotation_status, notas);
     if (noEntra) {
       throw new ConflictException(
         `La N° ${q.quotation_number} no necesita seguimiento por correo: ${noEntra}`,
@@ -340,13 +360,7 @@ export class SeguimientoConIAService {
     const contacto =
       q.clients?.client_contacts?.find((c) => c.id === q.client_contact_id) ??
       null;
-    const correos = [
-      ...new Set(
-        [contacto?.email, q.clients?.email]
-          .filter(esCorreoUtil)
-          .map((c) => c.trim().toLowerCase()),
-      ),
-    ];
+    const correos = correosDeLaCotizacion(q);
     if (correos.length === 0) {
       return saltada(
         'el cliente no tiene un correo útil: el seguimiento va por otro canal.',
@@ -453,7 +467,7 @@ export class SeguimientoConIAService {
     const notasAhora = await this.repositorio.bitacora(id, companyId);
     if (
       !ahora ||
-      porQueNoEntra(ahora.quotation_status, notasAhora, hoy) ||
+      regla(ahora.quotation_status, notasAhora) ||
       notasAhora.length !== notas.length
     ) {
       return saltada(

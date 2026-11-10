@@ -27,6 +27,7 @@ import { ChoquesDeFechaService } from 'src/quotations/choques/choques.service';
 import { RequestType } from 'src/quotations/constants/constants';
 import { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
+import { SeguimientoConIAService } from 'src/quotations/seguimiento/seguimiento.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import {
   AsistenteRepository,
@@ -259,6 +260,8 @@ export class AsistenteService {
     // Lo que ve recepción (doc 21): la plata de sus particulares. Sin ella,
     // recepción no ve la de nadie.
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
+    // «¿Dónde está el último correo?» (doc 20 §18, sprint 2).
+    @Optional() private readonly seguimiento?: SeguimientoConIAService,
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -346,6 +349,7 @@ export class AsistenteService {
       tarjetas: [],
       hoy,
       alcance: this.alcance,
+      seguimiento: this.seguimiento,
     };
     const sistema: Anthropic.TextBlockParam[] = [
       {

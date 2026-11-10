@@ -888,7 +888,7 @@ migración); C, la 5 (con la 185); la 6, con la sesión de Oportunidades.
 
 ## 18. BelIA, el cerebro del personal: la guía de la casa (10-11-2026)
 
-> **Estado:** sprint 1 escrito el 10-11-2026 en la rama `feature/belia-guia`, primero al laboratorio (migración 202). El sprint 2 (el seguimiento desde BelIA con «dónde está el último correo») viene después.
+> **Estado:** sprint 1 en el laboratorio desde el 10-11-2026 (rama `feature/belia-guia`, pruebas `c4bc5eb2`, migración 202 en la base del lab, la guía de Valle del Sol cargada ahí). Sprint 2 escrito esa misma noche en la misma rama.
 
 Felipe, 10-11-2026: *"quiero que BelIA sea un cerebro para guiar a mi personal, ejemplo que pase los correos tipo, mensajes automáticos, horarios, valores, precios, cosas típicas que un chat ya debería saber"*, y *"BelIA será quien responda todo esto"*.
 
@@ -904,3 +904,12 @@ Felipe, 10-11-2026: *"quiero que BelIA sea un cerebro para guiar a mi personal, 
 - **Va al cerebro común**, como las lecciones (§17): el motor la tiene en su memoria (al arrancar, cada 5 minutos y apenas se guarda) y `cerebroPara` la suma después de lo del complejo y antes de las lecciones. La leen **BelIA** y **los correos de seguimiento**; «Crear con IA» no, porque arma con el catálogo y los precios salen de ahí. La guía le dice a la IA que use el dato tal cual y que, si algo no está, lo diga en vez de suponerlo.
 - **Lo que ve cada cargo**: BelIA muestra lo mismo que las pantallas (`AlcanceDeRecepcion`). Las cotizaciones de los tipos que el cargo trabaja llegan completas, con su plata; los requerimientos, de todos; las de los demás tipos ya no llegan, ni siquiera sin plata como antes (`buscar_cotizaciones` filtra como el tablero sobre hasta 1.000 filas; `ver_cotizacion` las rechaza). El calendario sigue con su excepción: todos los eventos, los de los demás tipos como agenda sin plata, para saber qué fechas están tomadas. El catálogo, con precios, ya lo veía recepción desde el doc 21.
 - **La primera guía de Valle del Sol** la llena Claude con lo que ya está escrito (tarifas y temporadas, datos del complejo, reglas de los correos) y Felipe la revisa: lo que no esté escrito en ningún lado (por ejemplo, los horarios) queda para que él lo complete, nunca inventado.
+
+### Sprint 2: el seguimiento desde BelIA (10-11-2026)
+
+Felipe: *"si la chica esta quiere hacer un seguimiento a un correo de un cliente, pueda verlo dependiendo si el cliente lo puede ver"*, y que BelIA *"revise el correo, el hilo ... lea la cotización y sus últimos seguimientos anotados y sugiera algo coherente ... también indicar en dónde está el último correo (o seguimiento enviado)"*.
+
+- **`ultimo_correo`** (`herramientas/ultimo-correo.ts` → `SeguimientoConIAService.ultimoCorreo` → `quotations/seguimiento/ultimo-correo.ts`): solo lee. Busca en los buzones de la casa, en el mismo orden y con la misma regla que «✉ Generar seguimiento» (`hiloDeLaCotizacion`), el hilo de la cotización y dice en qué buzón está, la fecha, quién escribió último (el cliente o la casa), el asunto y un extracto de 600 letras, más el último de la casa si el último es del cliente. Sin hilo de la cotización, el último correo con el cliente en cualquier hilo. Con el derecho `seguimiento_con_ia` y dentro de Cotizaciones.
+- **El seguimiento a pedido**: `proponer_seguimiento` ya no exige que el próximo contacto haya vencido ni que sea por correo. Pedido por una persona, entra cualquier enviada o en negociación (`porQueNoEntraAPedido`), y el «Sí, dejar el borrador» corre `generar(..., { aPedido: true })`. Todo lo demás se revisa igual: el tope de calendario, el borrador que ya espera, el evento que ya pasó, el correo útil, el hilo y la revisión justo antes de dejarlo. El botón «✉ Generar seguimiento» y su lista siguen con la regla de siempre (`porQueNoEntra`).
+- **Quién**: los dos, solo con las cotizaciones que el cargo ve según los tipos de cliente de Permisos por cargo. A una de un tipo que no trabaja, `ultimo_correo` no le busca nada y la tarjeta no se arma (`alProponerSeguimiento`).
+- BelIA ya leía la cotización y su bitácora (`ver_cotizacion`), y el correo lo escribe la IA de «Generar seguimiento», que ahora también lee la guía de la casa (los correos tipo).
