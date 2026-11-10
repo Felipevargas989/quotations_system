@@ -1,3 +1,4 @@
+import { trabajaElTipo } from 'src/auth/permisos';
 import { RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { RequestType } from 'src/quotations/constants/constants';
 import type { FilaDeLista } from '../asistente.repository';
@@ -28,6 +29,29 @@ import { esRecepcion, loTrabaja, tiposPara } from './recepcion';
 // clientes particulares, completas y con la marca `trabaja` (doc 21). Desde
 // el doc 22 §9, lo mismo para cualquier cargo con un tipo de cliente
 // apagado.
+//
+// Desde el 10-11-2026 (doc 20 §18; Felipe: «solamente en las cotizaciones
+// ve lo que tiene el switch activado ... ya no es un secreto los precios»),
+// BelIA muestra lo mismo que el tablero (`AlcanceDeRecepcion.filtrar`): las
+// cotizaciones de los tipos que el cargo trabaja, completas y con su plata,
+// y los requerimientos de todos. Las de los tipos que no trabaja ya no
+// llegan, ni siquiera sin plata. El calendario sigue con su excepción: la
+// agenda de todos, sin plata.
+
+/** Cuántas filas se leen para filtrar por tipo cuando el cargo no trabaja
+ *  todos: el filtro va después de la base, como en el tablero. */
+export const FILAS_PARA_FILTRAR = 1000;
+
+/** ¿La ve el cargo, como en el tablero? Los requerimientos, de todos; las
+ *  cotizaciones, si trabaja el tipo de su cliente. */
+export const laVeElCargo = (
+  tipos: Awaited<ReturnType<typeof tiposPara>>,
+  q: Pick<FilaDeLista, 'request_type'> & {
+    clients?: { client_type?: string | null } | null;
+  },
+): boolean =>
+  q.request_type === RequestType.REQUERIMIENTO ||
+  trabajaElTipo(tipos, q.clients?.client_type);
 
 const ORDENES = ['fecha_evento', 'numero', 'creada', 'total'] as const;
 
@@ -82,9 +106,9 @@ export const buscarCotizaciones: Herramienta = {
   descripcion:
     'Busca cotizaciones y requerimientos de la empresa, como el tablero de Cotizaciones. ' +
     'Sirve para contar ("¿cuántas…?") y para listar. Devuelve el total que calza con los ' +
-    'filtros y hasta `limite` filas, cada una con su enlace (si el cargo no trabaja todos los ' +
-    'tipos de cliente, sin el total ni el enlace, salvo las de los tipos que trabaja, que traen ' +
-    '`trabaja: true`). ' +
+    'filtros y hasta `limite` filas, cada una con su enlace y su total. Solo las que el cargo ' +
+    've en su tablero: las cotizaciones de los tipos de cliente que trabaja (Permisos por cargo) ' +
+    'y los requerimientos de todos; las demás no existen para esta persona. ' +
     'Fechas en AAAA-MM-DD.',
   esquema: {
     type: 'object',
@@ -140,9 +164,11 @@ export const buscarCotizaciones: Herramienta = {
   async ejecutar(entrada, ctx) {
     const creadaHasta = fecha(entrada.creada_hasta, 'creada_hasta');
     const tipo = entrada.tipo;
-    // Quien no trabaja todos los tipos no ordena por plata: «las más
-    // grandes primero» también dice cuánto valen.
-    const conRed = (await tiposPara(ctx)) !== null;
+    // Quien no trabaja todos los tipos ve solo lo de su tablero: se leen
+    // más filas y se filtran acá, como hace el tablero.
+    const tipos = await tiposPara(ctx);
+    const conRed = tipos !== null;
+    const limite = entero(entrada.limite, 1, 50) ?? 20;
     const { filas, total } = await ctx.repositorio.buscarCotizaciones(
       ctx.usuario.company_id,
       {
@@ -166,18 +192,32 @@ export const buscarCotizaciones: Herramienta = {
         creadaHasta: creadaHasta
           ? inicioDelDiaEnChile(sumarDias(creadaHasta, 1))
           : undefined,
-        orden:
-          ORDENES.includes(entrada.orden as (typeof ORDENES)[number]) &&
-          !(entrada.orden === 'total' && conRed)
-            ? (entrada.orden as (typeof ORDENES)[number])
-            : 'fecha_evento',
-        limite: entero(entrada.limite, 1, 50) ?? 20,
+        orden: ORDENES.includes(entrada.orden as (typeof ORDENES)[number])
+          ? (entrada.orden as (typeof ORDENES)[number])
+          : 'fecha_evento',
+        limite: conRed ? FILAS_PARA_FILTRAR : limite,
       },
     );
+    if (!conRed) {
+      return {
+        total_que_calzan: total,
+        mostradas: filas.length,
+        cotizaciones: await filasComoLasVePersona(filas, ctx),
+      };
+    }
+    const visibles = filas.filter((q) => laVeElCargo(tipos, q));
+    const mostradas = visibles.slice(0, limite);
     return {
-      total_que_calzan: total,
-      mostradas: filas.length,
-      cotizaciones: await filasComoLasVePersona(filas, ctx),
+      total_que_calzan: visibles.length,
+      ...(total > FILAS_PARA_FILTRAR
+        ? {
+            aviso: `Se revisaron las ${FILAS_PARA_FILTRAR} primeras; con filtros más precisos la cuenta es exacta.`,
+          }
+        : {}),
+      mostradas: mostradas.length,
+      cotizaciones: mostradas.map((q) =>
+        filaComoLaVePersona(q, ctx.usuario.role, true),
+      ),
     };
   },
 };

@@ -4,6 +4,7 @@ import UserManagementPage from "../UserManagementPage";
 import CompanyConfiguration from "./companyConfiguration/CompanyConfiguration";
 import CorreosDeLaEmpresa from "./CorreosDeLaEmpresa";
 import FormularioWeb from "./FormularioWeb";
+import GuiaDeLaCasa from "./GuiaDeLaCasa";
 import PestanaPlan from "./PestanaPlan";
 
 // MI EMPRESA (18-09-2026, sprint "Mi cuenta / Mi empresa").
@@ -20,6 +21,8 @@ import PestanaPlan from "./PestanaPlan";
 //   Formulario web → el enlace público del formulario (vivía como botón
 //              en Requerimientos; Felipe, 17-10-2026: "es algo como de
 //              configuración")
+//   Guía de la casa → lo que BelIA sabe para responderle al equipo
+//              (doc 20 §18, 10-11-2026)
 //
 // La pestaña viaja en la URL (?tab=) para poder llegar directo, igual
 // que Personas con su ?dia=. Toda la página es de administrador: la
@@ -31,6 +34,7 @@ const PESTANAS = [
   { id: "usuarios", nombre: "Usuarios" },
   { id: "plan", nombre: "Plan" },
   { id: "formulario", nombre: "Formulario web" },
+  { id: "guia", nombre: "Guía de la casa" },
 ] as const;
 
 type PestanaId = (typeof PESTANAS)[number]["id"];
@@ -51,7 +55,8 @@ export default function MiEmpresa() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mi empresa</h1>
           <p className="text-gray-600">
-            La marca, los correos, el equipo, el plan y el formulario web
+            La marca, los correos, el equipo, el plan, el formulario web y la
+            guía de la casa
           </p>
         </div>
       </div>
@@ -79,6 +84,7 @@ export default function MiEmpresa() {
       {activa === "usuarios" && <UserManagementPage />}
       {activa === "plan" && <PestanaPlan />}
       {activa === "formulario" && <FormularioWeb />}
+      {activa === "guia" && <GuiaDeLaCasa />}
     </div>
   );
 }

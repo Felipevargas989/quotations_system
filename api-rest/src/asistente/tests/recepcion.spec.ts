@@ -111,7 +111,7 @@ describe('las herramientas de recepción', () => {
     expect(v).toMatchObject({ total: '$2.835.000', enlace: '/negocio/q743' });
   });
 
-  it('la ficha: sin plata ni servicios, con la bitácora tapada', async () => {
+  it('la ficha de una empresa no la ve, igual que en la pantalla (doc 20 §18)', async () => {
     const ficha = {
       ...fila,
       clients: {
@@ -156,24 +156,9 @@ describe('las herramientas de recepción', () => {
       },
     } as unknown as ContextoDeHerramienta;
 
-    const r = (await verCotizacion.ejecutar({ numero: 743 }, ctx)) as Record<
-      string,
-      unknown
-    >;
-
-    for (const fuera of [
-      'plata',
-      'dias',
-      'fijos_de_todo_el_evento',
-      'enlace',
-      'observaciones_que_salen_en_el_pdf',
-      'comentario_interno',
-    ]) {
-      expect(r).not.toHaveProperty(fuera);
-    }
-    expect(r).toMatchObject({ numero: 743, estado: expect.any(String) });
-    expect(JSON.stringify(r)).not.toMatch(PLATA);
-    expect(JSON.stringify(r)).toContain('Responde el lunes');
+    await expect(verCotizacion.ejecutar({ numero: 743 }, ctx)).rejects.toThrow(
+      'no la puede ver',
+    );
   });
 });
 
@@ -186,7 +171,7 @@ describe('lo que le llega a la IA cuando escribe recepción', () => {
     process.env.ANTHROPIC_API_KEY = llave;
   });
 
-  it('sin montos ni enlaces, y con las instrucciones de recepción', async () => {
+  it('la cotización de una empresa no le llega, y con las instrucciones de recepción', async () => {
     const create = jest
       .fn()
       .mockResolvedValueOnce({
@@ -239,10 +224,10 @@ describe('lo que le llega a la IA cuando escribe recepción', () => {
     expect(JSON.stringify(primera.system)).toContain(
       'Quien escribe es de recepción',
     );
-    // No ordena por plata: «las más grandes primero» también dice cuánto valen.
+    // Lee más filas para filtrar como el tablero (doc 20 §18).
     expect(repositorio.buscarCotizaciones).toHaveBeenCalledWith(
       1,
-      expect.objectContaining({ orden: 'fecha_evento' }),
+      expect.objectContaining({ limite: 1000 }),
     );
     const [segunda] = create.mock.calls[1] as [
       { messages: { content: unknown }[] },
@@ -250,9 +235,10 @@ describe('lo que le llega a la IA cuando escribe recepción', () => {
     const resultado = JSON.stringify(
       segunda.messages[segunda.messages.length - 1].content,
     );
-    expect(resultado).toContain('743');
+    // La de Marval es de una empresa: recepción no la ve, ni sin plata.
+    expect(resultado).not.toContain('743');
+    expect(resultado).toContain('total_que_calzan');
     expect(resultado).not.toMatch(PLATA);
-    expect(resultado).not.toContain('/negocio/');
   });
 
   it('el ánimo de recepción: solo los requerimientos de hoy, sin seguimientos', async () => {

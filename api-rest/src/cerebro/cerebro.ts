@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { guiaDe, seccionDeLaGuia } from './guia';
 import { aprobadasDe, seccionDeLecciones } from './lecciones';
 
 // EL CEREBRO COMÚN DE LA IA DE EVENTIA (doc 20 §15, etapa 2; Felipe,
@@ -18,6 +19,10 @@ import { aprobadasDe, seccionDeLecciones } from './lecciones';
 // cómo se arma; «✉ Generar seguimiento», lo común y cómo se escribe. Las
 // habilidades del chat (`armar-cotizacion`, `correos-cotizaciones-vds`) leen
 // los mismos archivos. Una corrección se escribe UNA vez y la aplican todas.
+//
+// Después va la guía de la casa que escribe administración en Mi empresa
+// (doc 20 §18, `guia.ts`): horarios, tarifas, correos y mensajes tipo. La
+// leen BelIA y los correos de seguimiento.
 //
 // Al final van las lecciones que aprobó administración en Eventia (doc 20
 // §17, `lecciones.ts`): lo que BelIA aprendió de una corrección, sin esperar
@@ -72,6 +77,8 @@ export function cerebroPara(
       partes.push(leer(`empresas/${carpeta}/COMO_SE_ESCRIBE.md`));
     }
   }
+  const guia = companyId ? seccionDeLaGuia(guiaDe(companyId), tarea) : null;
+  if (guia) partes.push(guia);
   const aprendido = companyId
     ? seccionDeLecciones(aprobadasDe(companyId), tarea)
     : null;
