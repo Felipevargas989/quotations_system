@@ -1,5 +1,5 @@
 # Mapa: Despliegue y operación
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1; el 05-11-2026, las variables de facturacion.cl (§6). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 ## 1. Visión general
 
@@ -267,6 +267,9 @@ Los valores del motor se definen en "Railway → servicio api-rest → Variables
 | `EMAILS_SILENCED` | No validada (solo laboratorio) | `1` suprime los correos **del `EmailService.sendEmail`** | `EmailService.sendEmail` |
 | `RUN_FOLLOWUPS_ON_BOOT` | No validada (palanca puntual) | `1` corre el seguimiento al encender; "Retirar la variable tras usarla" | `QuotationsCronService.onApplicationBootstrap` |
 | `PUPPETEER_EXECUTABLE_PATH` | No validada (solo local) | Chrome local para el PDF | `EnvioCotizacionService.generarPdf` |
+| `FACTURACIONCL_USUARIO`, `FACTURACIONCL_RUT`, `FACTURACIONCL_CLAVE` | No validadas (las carga Felipe; 05-11-2026) | Las credenciales del Servicio de Integración de facturacion.cl («Administrador → Integración → Configuración → Credenciales»). El laboratorio lleva SOLO las de prueba y producción SOLO las de producción. Sin ellas: el laboratorio sigue con el simulado y producción no emite (doc 19 §9.18) | `configuracionDeFacturacionCl` (`api-rest/src/facturacion/facturacion-cl/configuracion.ts`) |
+| `FACTURACIONCL_AMBIENTE` | No validada | `prueba` o `produccion`: tiene que calzar con el motor (en el laboratorio, `prueba`) | idem |
+| `FACTURACIONCL_EMPRESA` | No validada | El N° de la empresa de Eventia dueña de las credenciales (Valle del Sol es la 1): ninguna otra emite con ellas | idem |
 | `RAILWAY_GIT_COMMIT_SHA` | La pone Railway | Versión en `/health` y en Swagger | `HealthController.check`, `main.ts` |
 | `RAILWAY_PUBLIC_DOMAIN` | La pone Railway | Respaldo de `PUBLIC_API_URL` | `BajasService.baseApi` |
 | `RAILPACK_DEPLOY_APT_PACKAGES` | De construcción en Railway, no la lee el código | Librerías de sistema de Chromium | Doc 13 |

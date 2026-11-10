@@ -15,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import {
@@ -29,6 +30,7 @@ import { DescartarSerieDto } from './dto/descartar-serie.dto';
 import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
+import { CambiarLoQueSabemosDto } from './dto/lo-que-sabemos.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
 import {
   ClientesQueSeMuestranDto,
@@ -41,6 +43,7 @@ import { GeneracionService } from './generacion/generacion.service';
 import { SeVieneService } from './historia/se-viene.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
+import { LoQueSabemosService } from './oferente/lo-que-sabemos.service';
 import {
   MAX_BYTES_DOCUMENTO,
   MAX_BYTES_FIRMA,
@@ -60,6 +63,7 @@ import { RadarService } from './radar.service';
 // "config" como un número.
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
+@Permiso('oportunidades')
 @Controller('oportunidades')
 export class OportunidadesController {
   constructor(
@@ -76,6 +80,7 @@ export class OportunidadesController {
     private readonly seViene: SeVieneService,
     private readonly licify: LicifyService,
     private readonly logger: PinoLogger,
+    private readonly loQueSabemos: LoQueSabemosService,
   ) {
     this.logger.setContext(OportunidadesController.name);
   }
@@ -230,6 +235,37 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.leerRespaldo.leer(user.company_id, archivo);
+  }
+
+  // «LO QUE EVENTIA SABE DE TU EMPRESA» (decisión 119, parte 3; migración
+  // 190): lo que respondió para postular, para verlo y corregirlo.
+
+  @Get('oferente/lo-que-sabemos')
+  loQueSabemosDeLaEmpresa(@CurrentUser() user: User) {
+    return this.loQueSabemos.lista(user.company_id);
+  }
+
+  @Patch('oferente/lo-que-sabemos/:respuestaId')
+  cambiarLoQueSabemos(
+    @Param('respuestaId', ParseIntPipe) respuestaId: number,
+    @Body() dto: CambiarLoQueSabemosDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.loQueSabemos.cambiar(user.company_id, respuestaId, {
+      ...(dto.respuesta ? { respuesta: dto.respuesta } : {}),
+      ...(dto.detalle !== undefined
+        ? { detalle: dto.detalle.trim() || null }
+        : {}),
+    });
+  }
+
+  @Delete('oferente/lo-que-sabemos/:respuestaId')
+  async borrarLoQueSabemos(
+    @Param('respuestaId', ParseIntPipe) respuestaId: number,
+    @CurrentUser() user: User,
+  ) {
+    await this.loQueSabemos.borrar(user.company_id, respuestaId);
+    return { ok: true };
   }
 
   @Get('oferente/orden-de-compra/:codigo')

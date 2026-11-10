@@ -6,6 +6,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { ClienteParaCoincidir, PersonaParaCoincidir } from './coincidencias';
+import type { TablaDelEvento } from './del-evento.decorator';
 import { Client } from './entities/client.entity';
 import { CreateClient, UpdateClient } from './interfaces/clients.interfaces';
 
@@ -130,27 +131,21 @@ export class ClientsRepository {
     return data as unknown as Tipo[];
   }
 
-  /** Los tipos que la empresa marcó como particulares (doc 21 §3,
-   *  migración 186). Sin la columna todavía, los que se llaman como
-   *  particulares: recepción no queda sin trabajo por una migración que
-   *  falta. */
-  async tiposParticulares(companyId: number): Promise<string[]> {
-    const { data, error } = await this.supabase.client
-      .from('client_types')
-      .select('name, es_particular')
-      .eq('company_id', companyId);
-    if (!error) {
-      return ((data ?? []) as { name: string; es_particular: boolean }[])
-        .filter((t) => t.es_particular)
-        .map((t) => t.name);
-    }
-    this.logger.warn(
-      `tiposParticulares sin la 186 (${error.message}): por el nombre`,
-    );
+  /** Los tipos de la empresa con su marca de particular (doc 21 §3,
+   *  migración 186), para saber qué tipos trabaja cada cargo (doc 22 §9).
+   *  Sin la columna todavía, son particulares los que se llaman así:
+   *  recepción no queda sin trabajo por una migración que falta. */
+  async tiposConMarca(
+    companyId: number,
+  ): Promise<{ id: number; name: string; es_particular: boolean }[]> {
     const tipos = await this.findTypes(companyId);
-    return tipos
-      .map((t) => t.name)
-      .filter((n) => /^\s*(particular|persona\S*\s+natural)/i.test(n));
+    return tipos.map((t) => ({
+      id: t.id,
+      name: t.name,
+      es_particular:
+        t.es_particular ??
+        /^\s*(particular|persona\S*\s+natural)/i.test(t.name),
+    }));
   }
 
   /** El tipo del cliente de una cotización de la empresa, y si es
@@ -175,6 +170,59 @@ export class ClientsRepository {
       request_type: fila.request_type,
       client_type: fila.clients?.client_type ?? null,
     };
+  }
+
+  /** El tipo del cliente y si es requerimiento, de varias cotizaciones de
+   *  la empresa (doc 22 §9, tanda 2: las listas de Post-Venta). De a 100
+   *  ids por consulta: la dirección no crece sin tope. Las que no son de la
+   *  empresa no vuelven. */
+  async clientesDeLasCotizaciones(
+    companyId: number,
+    ids: readonly string[],
+  ): Promise<
+    Map<string, { request_type: string; client_type: string | null }>
+  > {
+    const mapa = new Map<
+      string,
+      { request_type: string; client_type: string | null }
+    >();
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await this.supabase.client
+        .from('quotations')
+        .select('id, request_type, clients ( client_type )')
+        .eq('company_id', companyId)
+        .in('id', ids.slice(i, i + 100));
+      if (error) throw error;
+      for (const fila of (data ?? []) as unknown as {
+        id: string;
+        request_type: string;
+        clients: { client_type: string | null } | null;
+      }[]) {
+        mapa.set(fila.id, {
+          request_type: fila.request_type,
+          client_type: fila.clients?.client_type ?? null,
+        });
+      }
+    }
+    return mapa;
+  }
+
+  /** La cotización de una fila de un evento (un pago, un abono, un
+   *  documento…), por su id; null si no existe o no es de un evento. La
+   *  empresa se revisa después, con la cotización. */
+  async cotizacionDeLaFila(
+    tabla: TablaDelEvento,
+    id: string,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.client
+      .from(tabla)
+      .select('quotation_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (
+      (data as { quotation_id?: string | null } | null)?.quotation_id ?? null
+    );
   }
 
   /** El tipo de un cliente de la empresa; undefined si no es de ella. */

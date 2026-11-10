@@ -90,10 +90,10 @@ import { getPaidRefundsByQuotation } from "../../services/refunds.service";
 import {
   EventDocument,
   DOCUMENT_CATEGORIES,
-  getDocumentsByQuotation,
   addDocument,
   deleteDocument,
 } from "../../services/documents.service";
+import { docsQueryOpts } from "./consultaDeDocumentos";
 import {
   uploadPaymentReceipt,
   uploadEventDocument,
@@ -165,9 +165,7 @@ export default function PostVentaPage() {
   // con sus filtros, el botón atrás funciona y el enlace se comparte.
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<
-    "seguimiento" | "pagos" | "documentos" | "servicios" | "gestion" | "cocina"
-  >("pagos");
+  const [tab, setTab] = useState<EventModalProps["tab"]>("pagos");
 
   // Restaurar los filtros persistidos (por usuario) al entrar. Si solo
   // existe la clave vieja (una lista mezclada), se reparte una vez entre
@@ -881,15 +879,7 @@ interface EventModalProps {
     | "servicios"
     | "gestion"
     | "cocina";
-  readonly setTab: (
-    t:
-      | "seguimiento"
-      | "pagos"
-      | "documentos"
-      | "servicios"
-      | "gestion"
-      | "cocina",
-  ) => void;
+  readonly setTab: (t: EventModalProps["tab"]) => void;
   readonly onClose: () => void;
   readonly onDataChanged: () => void;
   // Comprobantes del portal PENDIENTES de este evento (Fase 2b): el
@@ -987,6 +977,8 @@ function EventModal({
     { key: "seguimiento", label: "Seguimiento" },
     { key: "pagos", label: "Pagos" },
     { key: "documentos", label: "Documentos" },
+    // La facturación ya no va acá: desde el 07-11 todo se factura en la
+    // sección Facturación (doc 19 §9.23). La OC se sube en Documentos.
     { key: "servicios", label: "Servicios" },
     { key: "gestion", label: "Gestión" },
     { key: "cocina", label: "Cocina" },
@@ -2218,12 +2210,8 @@ function EditRegistroModal({
 // de subida que pregunta la categoría al elegir el archivo, lista
 // agrupada a la izquierda (categorías vacías ocultas) y VISOR embebido
 // al lado — se acabó abrir una ventanita por cada documento. ----
-// Receta compartida con el precalentado del evento (03-08).
-const docsQueryOpts = (quotationId: string) => ({
-  queryKey: ["postventa", "docs", quotationId],
-  staleTime: 0,
-  queryFn: () => getDocumentsByQuotation(quotationId),
-});
+// Receta compartida con el precalentado del evento (03-08):
+// `consultaDeDocumentos.ts`.
 
 function DocumentosTab({ quotationId }: { readonly quotationId: string }) {
   const queryClient = useQueryClient();

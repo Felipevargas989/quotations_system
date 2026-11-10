@@ -68,8 +68,6 @@ export const API_ROUTES = {
   LOGISTICS_KITCHEN_DAY_PRINTS: "/logistics/kitchen/day-prints",
   LOGISTICS_RECIPES: "/logistics/recipes",
   LOGISTICS_RECIPES_ALL: "/logistics/recipes/all",
-  LOGISTICS_CATALOG_NAMES: "/logistics/catalog/service-names",
-  LOGISTICS_CATALOG_FIXED_COSTS: "/logistics/catalog/fixed-costs",
   LOGISTICS_FIXED_COSTS: "/logistics/fixed-costs",
   LOGISTICS_FIXED_COST_ITEMS: "/logistics/fixed-cost-items",
 
@@ -105,9 +103,11 @@ export const API_ROUTES = {
   // El personaje y el color de cada uno (migración 167).
   USERS_APARIENCIAS: "/users/apariencias",
   USERS_APARIENCIA: "/users/apariencia",
-
-  // calendar
-  CALENDAR_EVENTS: "/calendar/events",
+  // Los permisos por cargo (doc 22): la pantalla, un interruptor (PUT) y
+  // «Volver a lo de fábrica».
+  PERMISOS: "/permisos",
+  PERMISOS_FABRICA: "/permisos/fabrica",
+  PERMISOS_TIPOS: "/permisos/tipos",
 
   // plans
   PLAN_CONFIRMATION: "/plans/confirmation",

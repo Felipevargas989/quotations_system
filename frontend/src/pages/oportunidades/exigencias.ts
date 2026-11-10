@@ -1,3 +1,4 @@
+import { esUnPapel } from "@los-papeles";
 import type { MarcaDeExigencia } from "../../services/exigencias.service";
 import type { ResultadoDeBases } from "../../services/oportunidades.service";
 import { normalizeText } from "../../utils/searchMatch";
@@ -23,10 +24,17 @@ export interface Exigencia {
   detalle: string | null;
 }
 
+/** La consulta de «Lo que Eventia sabe de tu empresa» (decisión 119,
+ *  parte 3): la refrescan «Mi empresa» y las preguntas antes de armar. */
+export const claveDeLoQueSabemos = ["oportunidades", "lo-que-sabemos"];
+
 export const claveDeExigencia = (texto: string): string =>
   normalizeText(texto).replace(/\s+/g, " ").trim().slice(0, 400);
 
-/** Un documento (formulario, certificado, copia…): va en el checklist. */
+/** Un documento (formulario, certificado, copia…): va en el checklist.
+ *  Desde la decisión 120 (08-11) también la cotización, la propuesta y las
+ *  fotos aunque no digan «formulario» (`esUnPapel`, la misma regla del
+ *  motor): no se marcan aquí ni se preguntan antes de armar. */
 const ES_DOCUMENTO =
   /\b(formulario|anexo n|certificado|declaracion jurada|declaraciones juradas|copia de|patente|programa de integridad|boleta|garantia|f-?30|estatutos|escritura|curriculum)/;
 
@@ -51,7 +59,9 @@ export function exigenciasDe(
           detalle: null,
         }));
   return todas
-    .filter((e) => !ES_DOCUMENTO.test(normalizeText(e.que)))
+    .filter(
+      (e) => !ES_DOCUMENTO.test(normalizeText(e.que)) && !esUnPapel(e.que),
+    )
     .map((e) => ({ ...e, clave: claveDeExigencia(e.que) }));
 }
 

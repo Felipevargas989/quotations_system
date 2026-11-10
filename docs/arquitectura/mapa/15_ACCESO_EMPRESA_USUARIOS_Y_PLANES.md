@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`).
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`). Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (§5.9, `PUT /permisos/tipos`, doc 22 §9). Actualizado el 09-11-2026 con la puerta que reconoce la sesión iniciada (§2 y §5.1, `SiYaEntro`).
 
 ## 1. Qué hace
 
@@ -14,7 +14,8 @@ No pertenece a un momento del evento: está antes de todos. Tiene además dos pi
 
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
-| `/login` | `LoginPage` | `frontend/src/pages/LoginPage.tsx` | Correo y contraseña → `useAuth().signIn`. El administrador cae en `/dashboard` y los demás en `/requests`. Enlace "¿Olvidaste tu contraseña?". El enlace "Regístrate aquí" está comentado ("TEMP: self-service registration disabled") | público |
+| `/` | `LandingPage`, dentro de `SiYaEntro` | `frontend/src/pages/landingPage/LandingPage.tsx`, `frontend/src/components/SiYaEntro.tsx` | La portada pública de Eventia. Desde el 09-11-2026, quien llega con la sesión iniciada pasa derecho adentro (administrador a `/dashboard`, los demás a `/requests`) y no ve la portada; para verla, ventana de incógnito o cerrar sesión | público |
+| `/login` | `LoginPage`, dentro de `SiYaEntro` | `frontend/src/pages/LoginPage.tsx` | Correo y contraseña → `useAuth().signIn`. El administrador cae en `/dashboard` y los demás en `/requests` (`destinoAlEntrar`, `utils/entrada.ts`). Desde el 09-11-2026, con la sesión ya iniciada no muestra el formulario: pasa derecho adentro. Enlace "¿Olvidaste tu contraseña?". El enlace "Regístrate aquí" está comentado ("TEMP: self-service registration disabled") | público |
 | `/forgot-password` | `ForgotPasswordPage` | `frontend/src/pages/auth/ForgotPasswordPage.tsx` | Pide el correo y llama `requestPasswordRecovery`. Siempre dice "Si el correo existe en nuestro sistema, recibirás un enlace…" | público |
 | `/reset-password` | `ResetPasswordPage` | `frontend/src/pages/auth/ResetPasswordPage.tsx` | Lee `access_token` y `type` de la query **o** del hash. Pide la nueva contraseña (mínimo 8) dos veces → `resetPasswordWithToken`. Sin token muestra "Enlace inválido o expirado" | público |
 | `/register` | `RegisterPage` → `NewUserRegisterForm` | `frontend/src/pages/landingPage/RegisterPage.tsx` | Guarda el interesado (`registerLead`) y crea la empresa de verdad (`signup`, §5.5) con inicio de sesión automático. Desde el 18-09 manda también las huellas del aterrizaje (`origen_detalle`, migración 116), capturadas por `capturarOrigen` (`lib/origenDelLead.ts`) al montar la landing y esta página | público |
@@ -61,7 +62,7 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `POST /auth/password/recovery` | `AuthController.requestPasswordRecovery` | `AuthService.requestPasswordRecovery` (Supabase `resetPasswordForEmail` con `SUPABASE_PASSWORD_RECOVERY_REDIRECT_URL`) | `requestPasswordRecovery` (`services/auth.service.ts`) ← `ForgotPasswordPage` | `@Public`, responde 202. Sin `@Throttle` propio |
 | `POST /auth/password/reset` | `AuthController.resetPassword` | `AuthService.resetPasswordWithToken` (`auth.getUser(accessToken)` y `auth.admin.updateUserById`) | `resetPasswordWithToken` ← `ResetPasswordPage` | `@Public`. Sin `@Throttle` propio |
 | `GET /users` | `UsersController.findAll` | `UsersService.findAll` → `UsersRepository.findAll(companyId)` | `getUsers` (`services/users.service.ts`) ← `UserManagementPage` | solo sesión |
-| `GET /users/:id` (id de **Auth**) | `UsersController.findOne` | `UsersService.findOne` → `UsersRepository.findOne` (perfil + 15 columnas de `companies`) | `getUser` ← `AuthContext` (`profileQuery` y `signIn`), que alimenta a **todas** las pantallas tras el login; además `QuotationForm` (`fetchCreatorUser`, para mostrar quién creó la cotización) | solo sesión. **No filtra por empresa** |
+| `GET /users/:id` (id de **Auth**) | `UsersController.findOne` | `UsersService.findOne` → `UsersRepository.findOne` (perfil + 15 columnas de `companies`); desde el 05-11-2026 suma `permisos`, los prendidos del cargo en su empresa (doc 22, §5.9) | `getUser` ← `AuthContext` (`profileQuery` y `signIn`), que alimenta a **todas** las pantallas tras el login; además `QuotationForm` (`fetchCreatorUser`, para mostrar quién creó la cotización) | solo sesión. **No filtra por empresa** |
 | `POST /users` | `UsersController.create` | `UsersService.create` → `UsersRepository.createAuthUser` (`auth.admin.createUser` — JAMÁS `signUp`, incidente 70) + `UsersRepository.createUser` | `createUser` ← `UserManagementPage.createUser` | `ADMIN_ONLY` |
 | `PATCH /users/password` | `UsersController.updatePassword` | `UsersService.updatePassword` → `UsersRepository.updatePassword` (`auth.admin.updateUserById`) | `updatePassword` ← `ConfigurationPage.handleSubmit` | solo sesión (cambia la del propio usuario) |
 | `GET /users/apariencias` (27-10-2026, migración 167) | `UsersController.apariencias` | `UsersService.apariencias` → `UsersRepository.aparienciasDeEmpresa(companyId)`: solo `user_id`, `full_name`, `personaje` y `color`, ni correos ni cargos | `getApariencias` ← `useApariencias` ← `HiloSeguimiento` (`SeguimientoPanel`) y `TuPersonaje` (Mi cuenta) | `RECEPTION_AND_UP` (todos los cargos); solo la empresa de la sesión. Va antes de `GET :id` |
@@ -69,6 +70,10 @@ Todas las rutas pasan por **cuatro** guardias globales, en este orden (`api-rest
 | `PATCH /users/:id` (id del **perfil**) | `UsersController.update` | `UsersService.update` → `UsersRepository.update` | `updateUser` ← `UserManagementPage.createUser` en modo edición | `ADMIN_ONLY`. No filtra por empresa |
 | `DELETE /users/:id` (id del perfil) | `UsersController.remove` | `UsersService.remove` → `UsersRepository.remove` + `UsersRepository.removeAuthUser` | `deleteUser` ← `UserManagementPage.deleteUser` | `ADMIN_ONLY` |
 | `POST /users/signup` | `UsersController.signup` | `UsersService.signup` → `SuperAdminService.createSuscription` | `signup` (`services/users.service.ts`) ← `NewUserRegisterForm` (`/register`): **LA puerta del alta por cuenta propia** desde el 16-09 (§5.5); acepta `origen_detalle` opcional (migración 116) y, si el motor lo rechazara, la app reintenta sin la marca | `@Public` + `@Throttle` 10/min |
+| `GET /permisos` (05-11-2026, doc 22) | `PermisosController.pantalla` | `PermisosService.pantalla`: cada permiso del catálogo (`auth/permisos.ts`) con sus cuatro celdas (prendido y de fábrica), su candado (`fijo` o `plan`), los tipos de cliente de la empresa con sus cuatro celdas (`tipos`, doc 22 §9) y el último cambio. Lee `permisos_por_cargo`, `client_types` y `permisos_por_cargo_cambios` de la base, no de la memoria | la pestaña «Permisos por cargo» de `UserManagementPage` | `ADMIN_ONLY` y `@Permiso('usuarios')`, fijo del administrador |
+| `PUT /permisos` (05-11-2026, doc 22) | `PermisosController.cambiar` | `PermisosService.cambiar` → función `permisos_por_cargo_cambiar` (migración 188): guarda o borra la fila y anota quién, en un solo paso; olvida `cachePermisos` de la empresa. Rechaza `mi_empresa` y `usuarios` (400) y prender lo que el plan no trae (`SIN_DERECHO`). Si ya estaba así, no anota | el interruptor de la pestaña | igual |
+| `PUT /permisos/tipos` (05-11-2026, doc 22 §9) | `PermisosController.cambiarTipo` | `PermisosService.cambiarTipo` → la misma función `permisos_por_cargo_cambiar`, con la clave `tipo_cliente:<id>`; olvida `cachePermisos` y `cacheTiposDeCliente` de la empresa. Un tipo que no es de la empresa, 400. Sin candados: los cuatro cargos se editan | el bloque «Tipos de cliente» de la pestaña | igual |
+| `POST /permisos/fabrica` (05-11-2026, doc 22) | `PermisosController.volverAFabrica` | `PermisosService.volverAFabrica` → función `permisos_por_cargo_a_fabrica`: borra lo apartado de la empresa y lo anota como un cambio más | «Volver a lo de fábrica» | igual |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne`; el controller recorta a 11 campos | `getCompanyPublic` ← `CreateQuotationPublic` (mapa 11); `getCompanyById` (`services/superAdmin.service.tsx`) ← `PublicSurvey` (mapa 14) | `@Public` |
 | `GET /companies/:id` | `CompaniesController.findOne` | `CompaniesService.findOne` → `CompaniesRepository.findOne` (`select('*')`) | `getCompany` ← `ConfigurationPage` (queryKey `["company", id]`) | solo sesión. **No compara con la empresa de la sesión** |
 | `PATCH /companies` | `CompaniesController.update` | `CompaniesService.update` → `CompaniesRepository.update` (empresa de la sesión) | `updateCompany` (`services/companies.service.ts`) ← `CompanyConfiguration.handleSubmit`, `ConfigurationPage.handleSaveNotifications` | `ADMIN_ONLY` |
@@ -134,9 +139,10 @@ Usos dentro del motor, sin pasar por HTTP:
 3. Motor, `AuthGuard.canActivate`: saca el token → `AuthService.validateToken`. Primero busca la huella sha256 en `cacheTokens`; si no está, pregunta a Supabase (`auth.getUser`) y la guarda hasta el `exp` del JWT, con tope de 1 hora (`vidaRestante`). Después busca el perfil en `cachePerfiles` (indexado por el **id de Auth**) o llama a `UsersRepository.findOne` (`user_profiles` por `user_id` + `companies`) y lo guarda 1 hora. Deja `request.user = { id, company_id, role, email }`. Si no hay perfil, `fullUser!.company_id` revienta y responde 401 "Invalid token". **Desde el 22-09-2026 (incidente 71)**, si lo que falla es la BASE (tope de tiempo `TimeoutError`/`AbortError`, `PGRST*`, "fetch failed"), `esFalloDeLaBase` lo convierte en **503** "La base de datos no responde en este momento" en vez de 401: durante la caída del 21/22-09 cada pantalla recibió 401 y la aplicación parecía "sesión vencida". `api.ts` muestra ese 503 como toast.
 4. `ThrottlerGuard` (300 por minuto por IP; `main.ts` pone `trust proxy` por el proxy de Railway) → `RolesGuard` (esta ruta no lleva `@Roles`) → `UsersController.findOne`.
 5. App: `LoginPage` navega a `/dashboard` (administrador) o `/requests`. `AuthContext.profileQuery` (queryKey `["profile", userId]`) parte del perfil guardado en `localStorage` (`eventia_profile_<userId>`), revalida siempre al montar (`initialDataUpdatedAt: 0`), `staleTime` de 5 minutos y `retry: 3`. De ahí salen `userRole`, `userName` y `company`.
-6. `Layout` manda a `/login` si no hay sesión. `Sidebar` y el menú filtran con `canAccessSection`. `PermissionGuard` muestra `PageSkeleton` mientras `loading || roleLoading`, "Acceso Denegado" sin usuario y "Permisos Insuficientes" si el cargo no está en `allowedRoles`.
-7. Ante un 401, el interceptor de `api.ts` hace `supabase.auth.refreshSession` y reintenta **una** vez.
-8. Cerrar sesión: `AuthContext.signOut` → `supabase.auth.signOut` + `queryClient.clear()`, para que otra cuenta en el mismo navegador parta limpia.
+6. **La puerta reconoce la sesión iniciada (Felipe, 09-11-2026: *"cierro la pestaña, entro a eventi-app y tengo que volver a loguearme, pero si entro a www.eventi-app/dashboard no me pide nada"*).** Medido: la sesión sí quedaba guardada (Supabase la deja en el navegador, llave `sb-<proyecto>-auth-token`); lo que no la miraba era la puerta: `/` mostraba siempre la portada y `/login`, siempre el formulario. Ahora las dos rutas van envueltas en `SiYaEntro` (`components/SiYaEntro.tsx`): si el navegador trae esa llave (`haySesionGuardada`, se mira sin leerla y una sola vez al llegar), espera a `loading` y al cargo (`roleLoading`) con el esqueleto de siempre y manda a `destinoAlEntrar(userRole)`; si lo guardado venció, muestra la página. El visitante sin sesión guardada ve la portada al instante, sin esperar. Quien inicia sesión en el formulario sigue por el camino de `LoginPage`.
+7. `Layout` manda a `/login` si no hay sesión. `Sidebar` y el menú filtran con `canAccessSection`. `PermissionGuard` muestra `PageSkeleton` mientras `loading || roleLoading`, "Acceso Denegado" sin usuario y "Permisos Insuficientes" si el cargo no está en `allowedRoles`.
+8. Ante un 401, el interceptor de `api.ts` hace `supabase.auth.refreshSession` y reintenta **una** vez.
+9. Cerrar sesión: `AuthContext.signOut` → `supabase.auth.signOut` + `queryClient.clear()`, para que otra cuenta en el mismo navegador parta limpia.
 
 ### 5.2 Recuperar la contraseña
 
@@ -487,6 +493,7 @@ En la **misma** migración, las tres empresas vivas (1 Valle del Sol, 51 MDS Hot
 | `oportunidades` | El módulo de Oportunidades: licitaciones y compras ágiles (doc 17, mapa 24) | `modulos_propios`, ningún plan (migración 122) |
 | `cotizar_con_ia` | El botón «✨ Crear con IA» (17-10-2026, mapa 01 §5.7): la llave de Anthropic la paga Valle del Sol | `modulos_propios`, ningún plan (migración 130) |
 | `asistente` | Evia, la ventanilla de chat con IA (03-11-2026, doc 20): la cuenta de Anthropic la paga Valle del Sol, con tope mensual propio | `modulos_propios`, ningún plan (migración 180) |
+| `facturacion` | La facturación electrónica por facturacion.cl (04-11-2026, doc 19): la pestaña «Facturación» de Post-Venta y sus rutas (`OrdenesDeCompraController`, `FacturasController`), y desde el 05-11-2026 la sección «Facturación» del menú, una sola para las boletas (`BoletasController`; la sección `boletas`, de recepción hacia arriba, que da la entrada al menú) y los documentos (`NotasController`; la sección `facturacion`, operaciones y administrador, con anular solo para el administrador, E5), con `SECTION_DERECHO` = `facturacion`: sin el derecho sale con candado, como Oportunidades (doc 19 §9.19); las credenciales y los folios son de Valle del Sol | `modulos_propios`, ningún plan (migración 184) |
 
 Topes de cantidad, que no son derechos de sí o no y por eso se cuentan en el servicio: **Cotiza**, 1 usuario y 20 cotizaciones al mes; **Gestiona y Cobra**, 3 usuarios y cotizaciones sin tope; **Opera y Crece**, sin topes.
 
@@ -688,3 +695,74 @@ Variables en Railway: `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (las dos
 secretas, las administra Felipe), `MP_PLAN_COTIZA` / `MP_PLAN_GESTIONA`
 / `MP_PLAN_CRECE` (opcionales). Sin el token, `POST /pagos/suscribir`
 responde 503 y la pantalla de planes cae con honestidad al WhatsApp.
+
+### 5.9 Los permisos por cargo (05-11-2026, doc 22)
+
+Felipe pidió *"transformar hoy todos los permisos existentes en pestañas que
+se puedan deslizar como botones"* y aprobó el catálogo el mismo día, con el
+Calendario del vendedor prendido. El plan y el catálogo viven en
+`docs/arquitectura/22_PERMISOS_POR_CARGO.md`.
+
+**La idea.** Cada empresa prende y apaga, por cargo, las secciones del menú
+(tanda 1). Lo de fábrica es lo de hoy y vive en el código
+(`api-rest/src/auth/permisos.ts`); la base guarda solo lo que la empresa
+aparta (`permisos_por_cargo`, migración 188) y el registro
+(`permisos_por_cargo_cambios`). Cargo, permiso y derecho son tres preguntas:
+`RolesGuard` hace las dos primeras y `DerechosGuard` la tercera, que no
+cambió.
+
+**En el motor.**
+- `AuthGuard` deja en la sesión `permisos` (los prendidos del cargo en su
+  empresa, `PermisosService.delCargo`, de `cachePermisos`: una hora, y
+  guardar un cambio lo olvida al instante) y `full_name` (para el registro).
+  Si la tabla no se puede leer, lo de fábrica, sin recordarlo.
+- Cada puerta dice de qué sección es con `@Permiso` o `@DentroDe`
+  (`auth/permiso.decorator.ts`) y `RolesGuard` hace la cuenta de `pasa`
+  (mapa 23). El 403 lleva `{ codigo: 'SIN_PERMISO', message, mensaje }`.
+- El perfil (`GET /users/:id`) trae `permisos`, con la misma cuenta: la app
+  no tiene copia de la configuración.
+- `Mi empresa` y `Usuarios` son fijos: el administrador nunca queda afuera.
+  Lo que el plan no trae sale con candado y no se prende.
+- La lista de cotizaciones tiene dos reglas en `AlcanceDeRecepcion.deLaLista`
+  (mapa 01 y 16): sin Calendario no hay vista de calendario, y sin
+  Cotizaciones, Dashboard ni Personal trae solo requerimientos.
+- BelIA hace la misma cuenta con sus herramientas (mapa 25).
+
+**Los tipos de cliente de cada cargo (doc 22 §9).** Felipe, 05-11-2026:
+*"Todo debería mirar el tipo"*. Un interruptor por tipo de cliente y por
+cargo, en la misma tabla (`permiso` = `tipo_cliente:<id>`). De fábrica, lo
+de hoy: recepción trabaja los tipos con `es_particular` (doc 21) y los
+demás cargos, todos. La cuenta (`tiposQueTrabaja` y `trabajaElTipo`, en
+`auth/permisos.ts`) la hace `PermisosService.tiposDelCargo`, con los tipos
+de la empresa en `cacheTiposDeCliente` (cinco minutos; crear, ordenar o
+borrar un tipo y cambiar un interruptor la olvidan). Vendedor para arriba
+sin ningún interruptor de tipo cambiado: null, sin leer los tipos. La
+aplica `AlcanceDeRecepcion` en todas las puertas de cotizaciones (mapa 02)
+y BelIA (mapa 25). Los clientes sin tipo no llevan interruptor: los ve todo
+cargo menos recepción, como hoy. El perfil trae `tipos_de_cliente` (null si
+todos), que usan el cotizador y el filtro por tipo del tablero.
+
+**En la app.** Gestión de usuarios (Mi empresa → Usuarios) tiene dos
+pestañas, bajo el único título de Mi empresa (05-11-2026): «Equipo» (la
+lista de usuarios, antes «Usuarios») y «Permisos por cargo» (`?vista=permisos`,
+`pages/configuration/PermisosPorCargo.tsx`), que reemplazó el cuadro
+«📋 Permisos por Rol» (era solo texto y decía que recepción ve Clientes).
+La pestaña pinta lo que manda `GET /permisos`: filas por área, un
+`Interruptor` por cargo, debajo el bloque «Tipos de cliente» (doc 22 §9),
+«Volver a lo de fábrica» en la fila de las pestañas (con `ConfirmInline`,
+vuelve también los tipos), la fila de los cargos fija arriba al bajar y el
+último cambio abajo. El menú (`Sidebar`, `Layout`),
+las rutas (`PermissionGuard section=…`) y los botones de las pantallas
+(cotizar, ver Post-Venta, ver Clientes, BelIA) preguntan por el permiso de
+`useAuth().permisos`; sin la lista del motor, los de fábrica
+(`PERMISOS_DE_FABRICA`). Un `SIN_PERMISO` avisa y vuelve a pedir el perfil.
+
+**Pruebas.** `auth/tests/permisos-de-fabrica.spec.ts` (todas las puertas:
+de fábrica, exactamente su `@Roles`; las sin permiso son las 33 fijas, cada
+una con su porqué; y las herramientas de BelIA), `permisos.spec.ts`,
+`permisos.service.spec.ts`, `roles.guard.spec.ts`, la matriz de cargos (que
+calcula el cargo de fábrica, con los mismos valores) y
+`asistente/tests/permisos-por-cargo.spec.ts`; en la app,
+`constants/permisosPorCargo.test.ts` (de fábrica las rutas no cambian y el
+menú solo suma el Calendario del vendedor), `Interruptor.test.tsx` y
+`PermisosPorCargo.test.tsx`.

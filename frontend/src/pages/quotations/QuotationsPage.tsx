@@ -21,11 +21,7 @@ import { getFollowupsMap } from "../../services/quotationFollowups.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../components/toast/Toast";
 import QuotationViewer from "../../components/QuotationViewer";
-import {
-  ROLE_GROUPS,
-  SECTION_ROLES,
-  tieneDerecho,
-} from "../../constants/permissions";
+import { ROLE_GROUPS, tieneDerecho } from "../../constants/permissions";
 import AvisoDeChoque from "../../components/AvisoDeChoque";
 import BotonSeguimientoIA from "../../components/BotonSeguimientoIA";
 import GenerarSeguimientos, {
@@ -141,10 +137,16 @@ const ORDEN_ETIQUETA: Record<string, string> = {
 };
 
 export default function QuotationsPage() {
-  const { user, userRole, company } = useAuth();
+  const {
+    user,
+    userRole,
+    company,
+    permisos,
+    tiposDeCliente: tiposDelCargo,
+  } = useAuth();
   // Recepción ve el tablero pero no cotiza (12-08): sin esto, el botón
   // la mandaba a una ruta que la rebota.
-  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  const puedeEditar = permisos.includes("cotizaciones");
   // «✉ Generar seguimiento» (17-10-2026, doc 18): quien vende, en la
   // empresa con el módulo propio. El motor dice cuáles vencieron por correo.
   const conSeguimientoIA =
@@ -156,7 +158,7 @@ export default function QuotationsPage() {
   const choquesDeFecha = useChoquesDeFecha();
   const [confirmandoSeguimientos, setConfirmandoSeguimientos] = useState(false);
   // Post-Venta vive detrás de "payments" (operaciones para arriba).
-  const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
+  const puedeVerPostVenta = permisos.includes("postventa");
   // Umbral de alto valor (migración 60): 💎 en las tarjetas.
   const umbralAltoValor = Number(company?.high_value_threshold || 0);
   const navigate = useNavigate();
@@ -325,7 +327,8 @@ export default function QuotationsPage() {
     if (next && next < hoy) {
       const d = diasEntreFechas(next, hoy);
       return {
-        texto: `Vencido hace ${d} d`,
+        // Sin «hace», como «Sin gestión 5 d» (Felipe, 06-11-2026).
+        texto: `Vencido ${d} d`,
         clase: "bg-red-100 text-red-800",
         urgencia: 1000 + d,
       };
@@ -704,6 +707,7 @@ export default function QuotationsPage() {
     tiposDeCliente,
     quotationsQuery.data ?? [],
     soloSeguimiento ? enElTablero.filter(requiereSeguimiento) : enElTablero,
+    tiposDelCargo,
   );
   const tiposActivos = tiposElegidos.filter((t) =>
     opcionesTipo.some((o) => o.value === t),
@@ -970,7 +974,18 @@ export default function QuotationsPage() {
             }`}
             title="Cotizaciones vivas con contacto vencido o 3+ días sin gestión, las más urgentes arriba"
           >
-            Requieren seguimiento ({nRequieren})
+            {/* El número cambia con el tipo de cliente elegido: el botón
+                guarda lugar para dos cifras para que el chip del tipo, a
+                su izquierda, y su menú no se corran a cada clic (Felipe,
+                06-11-2026: "esto se mueve cuando lo pincho"). */}
+            <span className="inline-grid tabular-nums">
+              <span aria-hidden className="invisible col-start-1 row-start-1">
+                Requieren seguimiento (00)
+              </span>
+              <span className="col-start-1 row-start-1 text-center">
+                Requieren seguimiento ({nRequieren})
+              </span>
+            </span>
           </button>
         </div>
       </div>
@@ -1134,68 +1149,74 @@ export default function QuotationsPage() {
                             : ""}
                           {formatISOUTCDateToString(quotation.event_date)}
                         </p>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-gray-900">
-                            ${quotation.total_amount.toLocaleString("es-CL")}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {sem && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/negocio/${quotation.id}`);
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${sem.clase}`}
-                                title="Abrir bitácora de seguimiento"
-                              >
-                                <MessageSquare size={12} className="shrink-0" />
-                                {sem.texto}
-                              </button>
-                            )}
+                        <p className="mt-2 text-sm font-semibold text-gray-900">
+                          ${quotation.total_amount.toLocaleString("es-CL")}
+                        </p>
+                        {/* La línea de abajo (Felipe, 06-11-2026: "opción A
+                            abajo todo pero el PDF también abajo"): el
+                            recordatorio siempre en el mismo lugar, abajo a
+                            la izquierda, "cosa de acostumbrar la vista a
+                            ver el chip"; después el tope, o el seguimiento
+                            con IA de la vencida por correo (doc 18: la IA
+                            deja el borrador en Outlook), y el PDF al final.
+                            Los chips miden lo mismo: 22 px. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {sem && (
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleViewQuotation(quotation);
+                                navigate(`/negocio/${quotation.id}`);
                               }}
-                              className="text-sm font-semibold text-blue-600 hover:underline"
-                              title="Ver el documento de la cotización"
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 border border-transparent text-xs font-semibold rounded-full ${sem.clase}`}
+                              title="Abrir bitácora de seguimiento"
                             >
-                              PDF
+                              <MessageSquare size={12} className="shrink-0" />
+                              {sem.texto}
                             </button>
-                          </div>
+                          )}
+                          <AvisoDeChoque
+                            compacto
+                            choques={choquesDeFecha.choquesDe(quotation.id)}
+                            puedeDecidir={puedeEditar}
+                            guardando={choquesDeFecha.guardandoDe(quotation.id)}
+                            onSeguir={(lista) =>
+                              void choquesDeFecha.seguir(lista)
+                            }
+                          />
+                          {conSeguimientoIA &&
+                            pendientesIA.has(quotation.id) && (
+                              <BotonSeguimientoIA
+                                compacto
+                                trabajando={
+                                  seguimientoIA.trabajando === quotation.id
+                                }
+                                ocupado={seguimientoIA.ocupado}
+                                resultado={seguimientoIA.resultadoDe(
+                                  quotation.id,
+                                )}
+                                enEspera={seguimientoIA.borradorDe(
+                                  quotation.id,
+                                )}
+                                onGenerar={() =>
+                                  void seguimientoIA.generar({
+                                    id: quotation.id,
+                                    numero: quotation.quotation_number,
+                                  })
+                                }
+                              />
+                            )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewQuotation(quotation);
+                            }}
+                            className="ml-auto text-sm font-semibold text-blue-600 hover:underline"
+                            title="Ver el documento de la cotización"
+                          >
+                            PDF
+                          </button>
                         </div>
-                        {/* Vencida por correo: la IA deja el seguimiento
-                            de borrador en Outlook (doc 18). */}
-                        {conSeguimientoIA && pendientesIA.has(quotation.id) && (
-                          <div className="mt-2">
-                            <BotonSeguimientoIA
-                              trabajando={
-                                seguimientoIA.trabajando === quotation.id
-                              }
-                              ocupado={seguimientoIA.ocupado}
-                              resultado={seguimientoIA.resultadoDe(
-                                quotation.id,
-                              )}
-                              enEspera={seguimientoIA.borradorDe(quotation.id)}
-                              onGenerar={() =>
-                                void seguimientoIA.generar({
-                                  id: quotation.id,
-                                  numero: quotation.quotation_number,
-                                })
-                              }
-                            />
-                          </div>
-                        )}
-                        <AvisoDeChoque
-                          compacto
-                          choques={choquesDeFecha.choquesDe(quotation.id)}
-                          puedeDecidir={puedeEditar}
-                          guardando={choquesDeFecha.guardandoDe(quotation.id)}
-                          onSeguir={(lista) =>
-                            void choquesDeFecha.seguir(lista)
-                          }
-                        />
                       </div>
                     );
                   })

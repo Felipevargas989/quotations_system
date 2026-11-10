@@ -70,6 +70,11 @@ import { claveDeLaOferta } from "./vueltaDeLaPostulacion";
 // debería poder crear la cotización desde ahi trayendo la mayor cantidad de
 // cosas posibles y si faltan, avisar en los comentarios internos". Si se
 // postuló sin «Armar postulación», la IA arma primero «Qué ofreces».
+//
+// Desde la decisión 119 (07-11) se vincula también antes de armar. Felipe:
+// "tengo que poder vincular la cotización antes de armar la postulación";
+// "la cotización manda en los servicios", y el precio es el que se escribe
+// al armar (si piden el precio por ítem, se reparte sobre los suyos).
 
 const pesos = (n: number) => formatCurrency(n, "CLP");
 
@@ -111,6 +116,75 @@ function Aviso({ texto }: { readonly texto: string }) {
     <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
       {texto}
     </p>
+  );
+}
+
+/** «Vincular una que ya tienes» (decisión 73): la une sin reescribirla, con
+ *  su confirmación ahí mismo. Antes de armar va sola (decisión 119, 07-11).
+ *  Felipe: "tengo que poder vincular la cotización antes de armar la
+ *  postulación": la postulación se arma con sus servicios. */
+function VincularUnaQueYaTienes({
+  titulo,
+  explicacion,
+  pregunta,
+  ocupado,
+  vinculando,
+  onVincular,
+}: {
+  readonly titulo: string;
+  readonly explicacion: string;
+  /** La confirmación, con el número que se escribió. */
+  readonly pregunta: (n: number) => string;
+  readonly ocupado: boolean;
+  readonly vinculando: boolean;
+  readonly onVincular: (n: number) => void;
+}) {
+  const [numero, setNumero] = useState<number | undefined>(undefined);
+  const [confirmando, setConfirmando] = useState(false);
+  return (
+    <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+      <p className="text-sm font-semibold text-gray-900">{titulo}</p>
+      <p className="text-xs text-gray-600">{explicacion}</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-36">
+          <label
+            htmlFor="numero-a-vincular"
+            className="block text-xs text-gray-600"
+          >
+            N°
+          </label>
+          <NumberInput
+            id="numero-a-vincular"
+            value={numero}
+            onChange={(n) => {
+              setNumero(n);
+              setConfirmando(false);
+            }}
+            min={1}
+            placeholder="Ej: 598"
+            disabled={ocupado}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          disabled={ocupado || !numero}
+          className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+        >
+          Vincular
+        </button>
+      </div>
+      {confirmando && numero && (
+        <ConfirmInline
+          question={pregunta(numero)}
+          yesLabel="Sí, vincular"
+          tono="normal"
+          busy={vinculando}
+          onYes={() => onVincular(numero)}
+          onNo={() => setConfirmando(false)}
+        />
+      )}
+    </div>
   );
 }
 
@@ -168,8 +242,6 @@ export default function CotizacionDeLaPostulacion({
     (ganada ? (precioDeLosAnexos(generaciones) ?? undefined) : undefined);
 
   const [eligiendo, setEligiendo] = useState(false);
-  const [numero, setNumero] = useState<number | undefined>(undefined);
-  const [confirmando, setConfirmando] = useState(false);
   const [reescribiendo, setReescribiendo] = useState(false);
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
@@ -182,9 +254,7 @@ export default function CotizacionDeLaPostulacion({
     onSuccess: (nuevo, p) => {
       guardar(nuevo);
       setEligiendo(false);
-      setConfirmando(false);
       setReescribiendo(false);
-      setNumero(undefined);
       // Decisión 104: sin oferta, la IA arma «Qué ofreces» primero.
       if ((nuevo as EstadoDeLaCotizacion & ConArmando).armando) {
         setPidioArmar(true);
@@ -211,8 +281,6 @@ export default function CotizacionDeLaPostulacion({
     onSuccess: (nuevo, n) => {
       guardar(nuevo);
       setEligiendo(false);
-      setConfirmando(false);
-      setNumero(undefined);
       toast.success(
         ganada && nuevo.cotizacion?.estado === "aceptada"
           ? `Cotización N° ${n} vinculada y aceptada, con una cuota a 30 días del servicio.`
@@ -259,10 +327,16 @@ export default function CotizacionDeLaPostulacion({
     setHasta(estado.fechas?.hasta ?? estado.fechas?.desde ?? "");
     setCambiandoFechas(!estado.fechas?.desde);
     setFaltaFecha(null);
-    setNumero(undefined);
-    setConfirmando(false);
     setEligiendo(true);
   };
+  const preguntaDeVincular = (n: number) =>
+    `La N° ${n} se une a esta licitación sin cambiar sus productos ni precios${
+      deLasBases
+        ? deLasBases.unDia
+          ? `, y pasa al ${deLasBases.texto}, la fecha de las bases`
+          : `, y pasa a los días de las bases, ${deLasBases.texto}`
+        : ""
+    }.`;
   const crear = () => {
     if (!desde) {
       setFaltaFecha("Elige desde qué día.");
@@ -363,6 +437,21 @@ export default function CotizacionDeLaPostulacion({
       )}
       {dice?.tono === "se_pasa" && <Aviso texto={dice.texto} />}
       {cuadra && cuadra.tono !== "calza" && <Aviso texto={cuadra.texto} />}
+      {/* Decisión 120 (08-11): al ganar, el aviso de lo que hay que comprar
+          o subcontratar. Felipe: "me tiene que avisar que para esta
+          licitación necesito, no sé, unos galvanos para dar un premio". */}
+      {ganada && estado.faltan.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-sm font-semibold text-amber-900">
+            Para cumplir, compra o subcontrata
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-amber-900">
+            {estado.faltan.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {c && reescribiendo && (
         <ConfirmInline
           question={`¿Reescribir la N° ${c.numero} con lo postulado? Lo que le agregaste a mano se reemplaza; queda anotado en su bitácora.`}
@@ -385,10 +474,20 @@ export default function CotizacionDeLaPostulacion({
           sola al terminar y queda aceptada, con una cuota a 30 días del
           servicio.
         </p>
-      ) : !estado.propuesta && !ganada ? (
+      ) : !estado.propuesta && !ganada && procesando ? (
         <p className="text-sm text-gray-600">
-          Primero arma la postulación (arriba): de ella sale la cotización.
+          Armando la postulación: al terminar puedes crear o vincular la
+          cotización.
         </p>
+      ) : !estado.propuesta && !ganada ? (
+        <VincularUnaQueYaTienes
+          titulo="Vincula tu cotización antes de armar"
+          explicacion="La postulación se arma con sus servicios y el precio que escribas arriba; sus productos y precios no cambian. Si no tienes una, arma primero y créala aquí."
+          pregunta={preguntaDeVincular}
+          ocupado={ocupado}
+          vinculando={vincular.isPending}
+          onVincular={(n) => vincular.mutate(n)}
+        />
       ) : !eligiendo ? (
         <button
           type="button"
@@ -489,71 +588,25 @@ export default function CotizacionDeLaPostulacion({
             </button>
           </div>
 
-          <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-            <p className="text-sm font-semibold text-gray-900">
-              Vincular una que ya tienes
-            </p>
-            <p className="text-xs text-gray-600">
-              Se une a esta licitación sin cambiar sus productos ni precios
-              {deLasBases ? ", y pasa a la fecha de las bases" : ""}.
-              {ganada
+          <VincularUnaQueYaTienes
+            titulo="Vincular una que ya tienes"
+            explicacion={`Se une a esta licitación sin cambiar sus productos ni precios${
+              deLasBases ? ", y pasa a la fecha de las bases" : ""
+            }.${
+              ganada
                 ? " Queda aceptada, con una cuota a 30 días del servicio."
-                : ""}
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="w-36">
-                <label
-                  htmlFor="numero-a-vincular"
-                  className="block text-xs text-gray-600"
-                >
-                  N°
-                </label>
-                <NumberInput
-                  id="numero-a-vincular"
-                  value={numero}
-                  onChange={(n) => {
-                    setNumero(n);
-                    setConfirmando(false);
-                  }}
-                  min={1}
-                  placeholder="Ej: 598"
-                  disabled={ocupado}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setConfirmando(true)}
-                disabled={ocupado || !numero}
-                className="px-3 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-              >
-                Vincular
-              </button>
-            </div>
-            {confirmando && numero && (
-              <ConfirmInline
-                question={`La N° ${numero} se une a esta licitación sin cambiar sus productos ni precios${
-                  deLasBases
-                    ? deLasBases.unDia
-                      ? `, y pasa al ${deLasBases.texto}, la fecha de las bases`
-                      : `, y pasa a los días de las bases, ${deLasBases.texto}`
-                    : ""
-                }.`}
-                yesLabel="Sí, vincular"
-                tono="normal"
-                busy={vincular.isPending}
-                onYes={() => vincular.mutate(numero)}
-                onNo={() => setConfirmando(false)}
-              />
-            )}
-          </div>
+                : ""
+            }`}
+            pregunta={preguntaDeVincular}
+            ocupado={ocupado}
+            vinculando={vincular.isPending}
+            onVincular={(n) => vincular.mutate(n)}
+          />
 
           <div className="text-right">
             <button
               type="button"
-              onClick={() => {
-                setEligiendo(false);
-                setConfirmando(false);
-              }}
+              onClick={() => setEligiendo(false)}
               className="text-sm text-gray-500 hover:text-gray-800"
             >
               Cancelar

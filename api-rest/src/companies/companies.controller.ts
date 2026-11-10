@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { SinPlan } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { CompaniesService } from './companies.service';
@@ -102,6 +103,7 @@ export class CompaniesController {
 
   @SinPlan()
   @Roles(...ADMIN_ONLY)
+  @Permiso('mi_empresa')
   @Patch()
   update(
     @CurrentUser() user: User,

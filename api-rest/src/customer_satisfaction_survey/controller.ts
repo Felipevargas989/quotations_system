@@ -3,7 +3,9 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
 import { CreateAnswerDto } from './dto/create-answer.dto';
@@ -14,11 +16,13 @@ import { CustomerSatisfactionSurveyService } from './service';
 // cliente desde su correo: esas no pasan por el guardián y se revisan
 // en el servicio, resolviendo la empresa desde la cotización.
 @Derecho('encuestas')
+@Permiso('encuestas')
 @Controller('customer-satisfaction-survey')
 export class CustomerSatisfactionSurveyController {
   constructor(
     private readonly customerSatisfactionSurveyService: CustomerSatisfactionSurveyService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(CustomerSatisfactionSurveyController.name);
   }
@@ -74,10 +78,16 @@ export class CustomerSatisfactionSurveyController {
 
   @Roles(...ADMIN_ONLY)
   @Get('answers')
-  findAllAnswersFromCompany(@CurrentUser() user: User) {
+  async findAllAnswersFromCompany(@CurrentUser() user: User) {
     this.logger.info(`GET /customer-satisfaction-survey with user ${user.id}`);
-    return this.customerSatisfactionSurveyService.findAllAnswersFromCompany(
-      user.company_id,
+    // Las respuestas de los clientes de un tipo que su cargo no trabaja no
+    // aparecen ni cuentan en los promedios (doc 22 §9.8).
+    return this.alcance.soloLasQueVe(
+      user,
+      (await this.customerSatisfactionSurveyService.findAllAnswersFromCompany(
+        user.company_id,
+      )) ?? [],
+      (r) => (r as { quotations?: { id?: string } | null }).quotations?.id,
     );
   }
 

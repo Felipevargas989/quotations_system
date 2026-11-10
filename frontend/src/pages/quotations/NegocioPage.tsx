@@ -48,7 +48,6 @@ import { HiloSeguimiento, AdjuntosComerciales } from "./SeguimientoPanel";
 import { esEventoCongelado } from "../../utils/eventoCongelado";
 import { normalizeText } from "../../utils/searchMatch";
 import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
-import { SECTION_ROLES } from "../../constants/permissions";
 import SelectorDeContacto from "../../components/SelectorDeContacto";
 
 // Mandante con su teléfono/correo (misma regla que el tablero).
@@ -107,7 +106,7 @@ export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, company, userRole } = useAuth();
+  const { user, company, userRole, permisos } = useAuth();
   const [tab, setTab] = useState<"seguimiento" | "cotizacion">("seguimiento");
   // Cambio de estado desde la ficha (pedido de Felipe 04-08), con el
   // MISMO ritual del tablero: aceptar revisa si ya hay plan de pagos
@@ -201,7 +200,7 @@ export default function NegocioPage() {
   const { copiado: datoCopiado, copiar: copiarDato } = useCopiarDato();
 
   // Recepción entra a la ficha para hacer seguimiento, no para editar.
-  const puedeEditar = SECTION_ROLES.quotations_edit.includes(userRole as never);
+  const puedeEditar = permisos.includes("cotizaciones");
   // Choques de fecha con una aceptada (18-10-2026, mapa 02 §5.6).
   const choquesDeFecha = useChoquesDeFecha();
   // ACEPTADA → A POST-VENTA (Felipe, 06-10-2026: "pasé esta aceptada,
@@ -209,9 +208,9 @@ export default function NegocioPage() {
   // a entrar?"). Una vez aceptada, el evento se trabaja en Post-Venta;
   // quien la ve (operaciones y administrador) va directo allá. Un
   // vendedor no la ve y se queda en esta ficha, como antes.
-  const puedeVerPostVenta = SECTION_ROLES.payments.includes(userRole as never);
+  const puedeVerPostVenta = permisos.includes("postventa");
   // Recepción ve la ficha de la cotización, no la del cliente (doc 21).
-  const puedeVerClientes = SECTION_ROLES.clients.includes(userRole as never);
+  const puedeVerClientes = permisos.includes("clientes");
   const irAPostVenta = (id: string) => {
     if (puedeVerPostVenta) navigate(`/post-venta/${id}`);
   };

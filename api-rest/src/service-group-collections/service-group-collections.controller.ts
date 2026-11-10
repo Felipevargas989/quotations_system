@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -35,6 +36,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Post()
   create(
     @Body() createDto: CreateServiceGroupCollectionDto,
@@ -49,6 +51,7 @@ export class ServiceGroupCollectionsController {
   // Leer, también recepción: cotiza a los particulares desde el cotizador
   // (doc 21). Cambiar el catálogo sigue siendo de quien vende para arriba.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service group collections with user ${user.id}`);
@@ -60,6 +63,7 @@ export class ServiceGroupCollectionsController {
   // calza en el orden en que se declaran y "orden" no es un número.
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones')
   @Get('grupos')
   listarGrupos(@CurrentUser() user: User) {
     this.logger.info(`listarGrupos de paquetes with user ${user.id}`);
@@ -67,6 +71,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Post('grupos')
   crearGrupo(@Body() dto: NombreDeGrupoDto, @CurrentUser() user: User) {
     this.logger.info(`crearGrupo de paquetes with user ${user.id}`);
@@ -74,6 +79,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Patch('grupos/orden')
   ordenarGrupos(@Body() dto: OrdenDeGruposDto, @CurrentUser() user: User) {
     this.logger.info(`ordenarGrupos de paquetes with user ${user.id}`);
@@ -81,6 +87,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Patch('grupos/:id')
   renombrarGrupo(
     @Param('id', ParseIntPipe) id: number,
@@ -92,6 +99,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Delete('grupos/:id')
   borrarGrupo(
     @Param('id', ParseIntPipe) id: number,
@@ -103,6 +111,7 @@ export class ServiceGroupCollectionsController {
 
   /** Renombrar un paquete y/o cambiarlo de grupo (12-10-2026). */
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Patch(':id')
   actualizar(
     @Param('id', ParseIntPipe) id: number,
@@ -114,6 +123,7 @@ export class ServiceGroupCollectionsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones')
   @Delete(':id')
   remove(
     @Param('id') id: ServiceGroupCollection['id'],

@@ -73,3 +73,49 @@ describe('Respaldos del evento: el vendedor sube los comerciales', () => {
     expect(repo.delete).toHaveBeenCalledWith(1, 8, false);
   });
 });
+
+// Doc 19 §9.26 (Felipe, 07-11): «con las órdenes de compra, cada vez que
+// una se suba se debería leer y dejar todo listo para facturar».
+describe('La OC que se sube la lee BelIA por detrás', () => {
+  const EVENTO = '00000000-0000-0000-0000-000000000000';
+  const dto = (category: string) => ({
+    quotation_id: EVENTO,
+    category,
+    file_name: 'OC 4500123.pdf',
+    file_url: 'c1/oc.pdf',
+  });
+  const operaciones = (derechos: string[]) =>
+    ({
+      id: 'u-op',
+      company_id: 1,
+      role: UserRole.OPERACIONES,
+      derechos,
+    }) as unknown as User;
+  const armar = () => {
+    const repo = { add: jest.fn().mockResolvedValue({ added: true }) };
+    const ocs = { leerAlSubir: jest.fn().mockResolvedValue(undefined) };
+    const ctrl = new EventDocumentsController(
+      repo as unknown as EventDocumentsRepository,
+      ocs as never,
+    );
+    return { repo, ocs, ctrl };
+  };
+  const esperar = () => new Promise((r) => setImmediate(r));
+
+  it('con Facturación, la OC subida se lee sin hacer esperar', async () => {
+    const { ocs, ctrl } = armar();
+    expect(
+      await ctrl.add(dto('ordenes_compra'), operaciones(['facturacion'])),
+    ).toEqual({ added: true });
+    await esperar();
+    expect(ocs.leerAlSubir).toHaveBeenCalledWith(EVENTO, 1, 'u-op');
+  });
+
+  it('otra categoría, o una empresa sin Facturación, no la lee', async () => {
+    const { ocs, ctrl } = armar();
+    await ctrl.add(dto('contratos'), operaciones(['facturacion']));
+    await ctrl.add(dto('ordenes_compra'), operaciones([]));
+    await esperar();
+    expect(ocs.leerAlSubir).not.toHaveBeenCalled();
+  });
+});

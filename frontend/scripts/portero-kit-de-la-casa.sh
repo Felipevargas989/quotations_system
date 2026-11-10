@@ -229,6 +229,16 @@ revisar 'campo de hora nativo (type="time")' 0 \
   "cuando se haga la pieza de hora, migrar también el de la ficha de cocina" \
   'type="time"'
 
+# ── Interruptor — prendido / apagado (05-11-2026, doc 22) ───────────
+# Nace con los permisos por cargo y su regla va el mismo día, antes de la
+# primera copia. El teclado, el candado y lo que dice el lector de
+# pantalla viven adentro de la pieza.
+
+revisar 'interruptor a mano (role="switch")' 0 \
+  "<Interruptor /> — prendido/apagado con teclado, candado y aria-checked" \
+  'role="switch"' \
+  'src/components/Interruptor\.(tsx|test\.tsx)'
+
 # ══ EL TECHO DE TAMAÑO (26-08, autorizado por Felipe: "vamos con la 1") ═
 #
 # La industria recomienda archivos de 150-300 líneas, con 500 de techo;

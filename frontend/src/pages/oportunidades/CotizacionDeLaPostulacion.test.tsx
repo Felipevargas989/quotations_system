@@ -123,7 +123,9 @@ const abrir = async () =>
   );
 
 describe("¿Calza el precio?", () => {
-  it("sin lo postulado, dice de dónde sale la cotización", async () => {
+  it("sin lo postulado, se vincula la cotización antes de armar: la postulación se arma con sus servicios (decisión 119)", async () => {
+    // Felipe, 07-11: "tengo que poder vincular la cotización antes de
+    // armar la postulación".
     s.getCotizacionDeLaPostulacion.mockResolvedValue({
       cotizacion: null,
       presupuesto: null,
@@ -131,14 +133,49 @@ describe("¿Calza el precio?", () => {
       faltan: [],
       fechas: null,
     });
+    p.vincularCotizacion.mockResolvedValue(CON_COTIZACION);
     pintar();
     expect(
-      await screen.findByText(/Primero arma la postulación/),
+      await screen.findByText("Vincula tu cotización antes de armar"),
     ).toBeInTheDocument();
     expect(screen.getByText("No lo publicaron")).toBeInTheDocument();
+    // Crear una nueva sale de lo postulado: recién después de armar.
     expect(
       screen.queryByRole("button", { name: /Crear o vincular cotización/ }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText("Crear una nueva")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("N°"), {
+      target: { value: "574" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Vincular" }));
+    expect(
+      screen.getByText(
+        "La N° 574 se une a esta licitación sin cambiar sus productos ni precios.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, vincular" }));
+    await waitFor(() =>
+      expect(p.vincularCotizacion).toHaveBeenCalledWith(87, 574),
+    );
+  });
+
+  it("mientras se arma la postulación, no se vincula a medio camino", async () => {
+    s.getCotizacionDeLaPostulacion.mockResolvedValue({
+      cotizacion: null,
+      presupuesto: null,
+      propuesta: null,
+      faltan: [],
+      fechas: null,
+    });
+    p.getOfertaDeLaPostulacion.mockResolvedValue({
+      id: 21,
+      estado: "procesando",
+    } as never);
+    pintar();
+    expect(
+      await screen.findByText(/Armando la postulación: al terminar/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("N°")).not.toBeInTheDocument();
   });
 
   it("«Crear una nueva» con las fechas de las bases ya puestas: un día dice cuál, y se crea sin escribir nada (decisión 73)", async () => {
@@ -375,6 +412,26 @@ describe("La cotización de una ganada (decisión 104)", () => {
       }),
     );
     expect(await screen.findByText(/Cotización N° 612/)).toBeInTheDocument();
+  });
+
+  it("al ganar, avisa lo que hay que comprar o subcontratar; antes de ganar, no (decisión 120)", async () => {
+    // Felipe, 08-11: "me tiene que avisar que para esta licitación
+    // necesito, no sé, unos galvanos para dar un premio".
+    const conFaltan = async () => ({
+      ...(await s.getCotizacionDeLaPostulacion(87)),
+      faltan: ["2 galvanos para el premio", "1 DJ para el baile"],
+    });
+    s.getCotizacionDeLaPostulacion.mockResolvedValue(await conFaltan());
+    pintar(true, true);
+    expect(
+      await screen.findByText("Para cumplir, compra o subcontrata"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 galvanos para el premio")).toBeInTheDocument();
+    expect(screen.getByText("1 DJ para el baile")).toBeInTheDocument();
+    cleanup();
+    pintar(true, false);
+    expect(await screen.findByText("El precio")).toBeInTheDocument();
+    expect(screen.queryByText("Para cumplir, compra o subcontrata")).toBeNull();
   });
 
   it("postulada sin «Armar postulación»: la IA arma «Qué ofreces» con las bases y la cotización se crea sola", async () => {

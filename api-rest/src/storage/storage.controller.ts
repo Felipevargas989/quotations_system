@@ -10,6 +10,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import {
   OPERATIONS_AND_UP,
   RECEPTION_AND_UP,
@@ -49,6 +50,7 @@ export class StorageController {
   }
 
   @Roles(...OPERATIONS_AND_UP)
+  @Permiso('postventa')
   @Post('delete')
   remove(@Body() dto: SignedUrlDto, @CurrentUser() user: User) {
     this.logger.info(`POST /storage/delete`);

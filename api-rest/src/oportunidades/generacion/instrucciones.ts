@@ -9,6 +9,8 @@ import type {
   Oferente,
 } from '../oferente/oferente.repository';
 import { type DatosDeRespaldo, textoDelRespaldo } from '../oferente/respaldo';
+import { elPrecioPorItem } from '../postulacion/el-reparto';
+import type { DiaDeLaCotizacion } from '../postulacion/la-cotizacion-detallada';
 import type { ExperienciaConfirmada } from '../postulacion/la-experiencia';
 import {
   EL_DETALLE_EN_EL_FORMULARIO,
@@ -17,6 +19,8 @@ import {
   type OfertaParaDocumentos,
 } from '../postulacion/la-oferta-en-texto';
 import { type Aclaracion, textoDeLoAclarado } from '../preguntas/lo-aclarado';
+import { type DocumentoDeLaCarpeta, textoDeLaCarpeta } from './la-carpeta';
+import { desgloseDeOferta, IVA, pesos } from './la-plata';
 import {
   COMO_LISTAR_LA_OFERTA,
   leerOferta,
@@ -32,17 +36,8 @@ import {
 //  - la firma va en dos tiempos: los anexos salen SIN firma, la empresa los
 //    revisa y recién ahí "Firmar" pone la foto (decidido el 17-10).
 
-export const IVA = 0.19;
-
-/** El monto de la oferta: la empresa pone el total con IVA (así piensa
- *  Felipe: "valores con IVA porque se factura") y el neto y el IVA salen de
- *  aquí, no de la IA. */
-export const desgloseDeOferta = (total: number) => {
-  const neto = Math.round(total / (1 + IVA));
-  return { total, neto, iva: total - neto };
-};
-
-export const pesos = (n: number): string => `$${n.toLocaleString('es-CL')}`;
+// El IVA, el neto y los pesos viven en la-plata.ts; se leen también de aquí.
+export { desgloseDeOferta, IVA, pesos };
 
 /** "17 de octubre de 2026", en Chile. */
 export const fechaLarga = (ahora = new Date()): string =>
@@ -162,6 +157,8 @@ export type ContextoDeGeneracion = {
   /** Los respaldos de experiencia de su carpeta (decisión 34): órdenes de
    *  compra y facturas, cada una con su PDF. */
   respaldos?: Array<DatosDeRespaldo & { archivo: string }>;
+  /** Lo demás de la carpeta de «Mi empresa» (decisión 121, la-carpeta.ts). */
+  carpeta?: DocumentoDeLaCarpeta[];
   /** «Volver a armar» (decisión 49): los formularios que ya están firmados
    *  y no se rehacen. */
   yaFirmados?: string[];
@@ -198,6 +195,9 @@ const DATOS: ReadonlyArray<[CampoDelOferente, string]> = [
   ['representante_nombre', 'Representante legal'],
   ['representante_rut', 'RUT del representante legal'],
   ['representante_cargo', 'Cargo del representante legal'],
+  // Decisión 121 (09-11): el Anexo N°1 de Tomé las pedía.
+  ['representante_nacionalidad', 'Nacionalidad del representante legal'],
+  ['representante_profesion', 'Profesión u oficio del representante legal'],
   ['representante_correo', 'Correo del representante legal'],
   ['representante_telefono', 'Teléfono del representante legal'],
   ['representante_direccion', 'Dirección del representante legal'],
@@ -291,6 +291,8 @@ const ESTADOS_DE_CUMPLIMIENTO: Record<string, string> = {
   tengo: 'lo tiene',
   conseguir: 'hay que conseguirlo',
   no_se_puede: 'no se puede',
+  // Lo que respondió la empresa (decisión 119, parte 3).
+  no_puede: 'la empresa dijo que no puede',
 };
 
 /** Lo que ya se revisó contra Eventia: qué tiene, qué hay que conseguir y
@@ -450,11 +452,14 @@ export const SOLO_LO_QUE_PIDEN =
 // subcontrata: "no es interés de la municipalidad saberlo". Eso es interno:
 // va solo en pendientes, para que la empresa lo cotice (si no, la cotización
 // sale más barata de lo que cuesta), y nunca dentro del Word.
-export const LO_SUBCONTRATADO =
-  'Lo que la empresa subcontrata (audiovisual: sonido, micrófonos, consola, proyector e iluminación; escenarios y estructuras; mobiliario, mantelería, cristalería, vajilla y decoración; flores; fotografía; música, animación, shows y DJ; generador): en el documento escribe EXACTAMENTE lo que piden las bases, con sus cantidades y características (por ejemplo, "4 cajas activas con sus respectivos atriles"), comprometiendo su cumplimiento como un servicio más de la empresa: sin [POR CONFIRMAR], sin nombres de proveedores, artistas ni marcas, y sin decir que se subcontrata o que lo presta un tercero (eso no le interesa al comprador). Si las bases dejan algo para que lo defina el oferente (por ejemplo, la temática de un show), escribe [COMPLETAR: qué hay que definir] y anótalo en pendientes. Lo de subcontratar es interno: va SOLO en pendientes, nunca en el documento (ni como comentario), en una sola línea: "Subcontratar y cotizar: ...".';
+/** Lo que la empresa subcontrata. También lo lee «Armar postulación» para
+ *  no preguntarlo (decisión 119, parte 3). */
+export const LO_QUE_SE_SUBCONTRATA =
+  'audiovisual: sonido, micrófonos, consola, proyector e iluminación; escenarios y estructuras; mobiliario, mantelería, cristalería, vajilla y decoración; flores; fotografía; música, animación, shows y DJ; generador';
+export const LO_SUBCONTRATADO = `Lo que la empresa subcontrata (${LO_QUE_SE_SUBCONTRATA}): en el documento escribe EXACTAMENTE lo que piden las bases, con sus cantidades y características (por ejemplo, "4 cajas activas con sus respectivos atriles"), comprometiendo su cumplimiento como un servicio más de la empresa: sin [POR CONFIRMAR], sin nombres de proveedores, artistas ni marcas, y sin decir que se subcontrata o que lo presta un tercero (eso no le interesa al comprador). Si las bases dejan algo para que lo defina el oferente (por ejemplo, la temática de un show), escribe [COMPLETAR: qué hay que definir] y anótalo en pendientes. Lo de subcontratar es interno: va SOLO en pendientes, nunca en el documento (ni como comentario), en una sola línea: "Subcontratar y cotizar: ...".`;
 
 const NO_PROMETER =
-  'Para lo que produce la empresa (comida, bebidas, salones e instalaciones): lo que la revisión dice que "lo tiene", ofrécelo con lo que dice después de "con" (el nombre real del menú, servicio o salón). Lo que dice "hay que conseguirlo" o "no se puede" NO lo prometas: escríbelo como [POR CONFIRMAR: qué falta] y anótalo en pendientes. Lo subcontratado va por la regla de arriba.';
+  'Para lo que produce la empresa (comida, bebidas, salones e instalaciones): lo que la revisión dice que "lo tiene", ofrécelo con lo que dice después de "con" (el nombre real del menú, servicio o salón). Lo que dice "hay que conseguirlo" o "no se puede" NO lo prometas: escríbelo como [POR CONFIRMAR: qué falta] y anótalo en pendientes. Lo que dice "la empresa dijo que no puede" no lo ofrezcas ni lo dejes [POR CONFIRMAR]: no va en el documento, y anótalo en pendientes como "No puedes: ...". Lo subcontratado va por la regla de arriba.';
 
 // LAS NORMAS DE LA CASA (decisión 54 del doc 17, 19-10). Felipe: "solamente
 // hay que rellenar el formulario que te dan, de una forma más ordenada, con
@@ -553,6 +558,8 @@ export const instruccionesDeAnexos = (
   c: ContextoDeGeneracion,
   anexos: FormularioNombrado[],
   oferta: ReturnType<typeof desgloseDeOferta> | null,
+  /** El precio por ítem (elPrecioPorItem), si hay cotización vinculada. */
+  reparto: DiaDeLaCotizacion[] | null = null,
 ): string => {
   const words = anexos.filter((a) => a.clase !== 'pdf');
   const antiguos = anexos.filter((a) => a.clase === 'doc');
@@ -565,6 +572,7 @@ export const instruccionesDeAnexos = (
     laLicitacion(c),
     '',
     ...laEmpresa(c),
+    ...textoDeLaCarpeta(c.carpeta),
     '',
     ...laExperienciaEnEventia(c),
     '',
@@ -572,7 +580,17 @@ export const instruccionesDeAnexos = (
     ...(oferta
       ? [
           `- Total con IVA: ${pesos(oferta.total)}. Neto: ${pesos(oferta.neto)}. IVA (19%): ${pesos(oferta.iva)}.`,
-          '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA. Si pide un desglose que no está aquí (por ítem, por persona, precio unitario), no lo calcules: déjalo en blanco y anótalo en pendientes.',
+          ...(reparto
+            ? [
+                '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA.',
+                '- Si pide el precio por ítem, por persona o unitario, usa EL PRECIO POR ÍTEM (abajo) tal cual: con IVA o en neto, según lo que pida el formulario. No recalcules ni redondees ninguna cifra: así suman justo el total.',
+                '- Si el formulario agrupa los servicios de otra forma (un ítem que junta varias líneas), el total de ese ítem es la suma de los totales de sus líneas. Un precio unitario que no esté en EL PRECIO POR ÍTEM no lo calcules: déjalo en blanco y anótalo en pendientes.',
+                '',
+                ...elPrecioPorItem(reparto),
+              ]
+            : [
+                '- Usa exactamente estas cifras donde el formulario pida el total, el neto o el IVA. Si pide un desglose que no está aquí (por ítem, por persona, precio unitario), no lo calcules: déjalo en blanco y anótalo en pendientes.',
+              ]),
         ]
       : [
           '- La empresa todavía no fija el precio: deja en blanco todo monto o precio y anótalo en pendientes. Nunca escribas un precio.',

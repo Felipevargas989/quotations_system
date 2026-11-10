@@ -5,9 +5,10 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { CARGOS } from 'src/auth/permisos';
 import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { ClientsService } from 'src/clients/clients.service';
-import type { User } from 'src/users/entities/user.entity';
+import { UserRole, type User } from 'src/users/entities/user.entity';
 import { normal } from '../herramientas/buscar-en-catalogo';
 import { ErrorDeHerramienta } from '../herramientas/comun';
 import { esRecepcion } from '../herramientas/recepcion';
@@ -30,6 +31,54 @@ export type CambioPedido = {
 type Guardado = { name: string; client_type: string | null };
 
 const huellaDe = (c: Guardado) => `${c.name}|${c.client_type ?? ''}`;
+
+const NOMBRE_DEL_CARGO: Record<string, string> = {
+  [UserRole.RECEPCION]: 'recepción',
+  [UserRole.VENDEDOR]: 'vendedor',
+  [UserRole.OPERACIONES]: 'operaciones',
+  [UserRole.ADMINISTRADOR]: 'administrador',
+};
+
+const enLista = (nombres: string[]): string =>
+  nombres.length > 1
+    ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+    : nombres[0];
+
+/** Qué cargos empiezan o dejan de trabajar al cliente si cambia de tipo
+ *  (doc 22 §9): lo dicen los interruptores de cada cargo. */
+export const quienGanaYPierde = async (
+  alcance: Pick<AlcanceDeRecepcion, 'trabaja'>,
+  empresa: number,
+  antes: string | null | undefined,
+  despues: string,
+): Promise<string[]> => {
+  const cambios = await Promise.all(
+    CARGOS.map(async (cargo) => {
+      const s = { role: cargo, company_id: empresa };
+      const [a, d] = await Promise.all([
+        alcance.trabaja(s, antes),
+        alcance.trabaja(s, despues),
+      ]);
+      return { cargo, a, d };
+    }),
+  );
+  const ganan = cambios.filter((x) => !x.a && x.d);
+  const pierden = cambios.filter((x) => x.a && !x.d);
+  const nombres = (l: typeof cambios) =>
+    enLista(l.map((x) => NOMBRE_DEL_CARGO[x.cargo] ?? x.cargo));
+  return [
+    ...(ganan.length
+      ? [
+          `Con el tipo «${despues}», ${nombres(ganan)} ${ganan.length > 1 ? 'van' : 'va'} a ver y trabajar sus cotizaciones.`,
+        ]
+      : []),
+    ...(pierden.length
+      ? [
+          `Con el tipo «${despues}», ${nombres(pierden)} ya no ${pierden.length > 1 ? 'ven' : 've'} sus cotizaciones.`,
+        ]
+      : []),
+  ];
+};
 
 @Injectable()
 export class CambioDeCliente {
@@ -89,17 +138,14 @@ export class CambioDeCliente {
       }
     }
     if (despues.client_type && this.alcance) {
-      const [antes, ahora] = await Promise.all([
-        this.alcance.esParticular(empresa, c.client_type),
-        this.alcance.esParticular(empresa, despues.client_type),
-      ]);
-      if (antes !== ahora) {
-        avisos.push(
-          ahora
-            ? 'Al quedar como particular, recepción va a ver y trabajar sus cotizaciones.'
-            : 'Al dejar de ser particular, recepción ya no ve sus cotizaciones.',
-        );
-      }
+      avisos.push(
+        ...(await quienGanaYPierde(
+          this.alcance,
+          empresa,
+          c.client_type,
+          despues.client_type,
+        )),
+      );
     }
 
     const fila = await this.guardadas.crearPropuesta({

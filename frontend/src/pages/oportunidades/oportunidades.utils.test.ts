@@ -661,6 +661,32 @@ describe("Mis licitaciones: el avance", () => {
     // postular todavía; ni las ya cerradas ni las postuladas.
     expect(pendientes.map((m) => m.id)).toEqual([3, 1, 5]);
   });
+
+  it("las que cerraron con algo firmado esperan «¿La subiste?» y cuentan en la pestaña (decisión 122)", () => {
+    const ahora = Date.parse("2026-11-09T17:00:00.000Z");
+    const m = (id: number, estado: string, fecha: string, firmados = 0) => ({
+      id,
+      estado,
+      proceso: { fecha_cierre: fecha },
+      avance: { firmados },
+    });
+    const { porConfirmar, porPostular, pendientes, enCurso } = separarMias(
+      [
+        // La 3904-996-COT26: cerró el 07-11 con dos firmados.
+        m(11082, "en_estudio", "2026-11-07T15:00:00.000Z", 2),
+        // Cerró sin nada firmado: el motor la descarta (decisión 116).
+        m(11090, "en_estudio", "2026-11-06T15:00:00.000Z", 0),
+        m(11100, "en_estudio", "2026-11-12T15:00:00.000Z", 1),
+        // Ya postulada: sigue en Postuladas aunque tenga firmados.
+        m(11072, "postulada", "2026-11-07T15:00:00.000Z", 2),
+      ],
+      ahora,
+    );
+    expect(porConfirmar.map((x) => x.id)).toEqual([11082]);
+    expect(porPostular.map((x) => x.id)).toEqual([11100]);
+    expect(pendientes.map((x) => x.id)).toEqual([11082, 11100]);
+    expect(enCurso.map((x) => x.id)).toEqual([11082, 11100, 11072]);
+  });
 });
 
 describe("la ficha ordenada", () => {

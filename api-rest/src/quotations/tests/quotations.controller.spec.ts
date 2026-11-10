@@ -23,13 +23,12 @@ describe('QuotationsController', () => {
   const findAll = jest.fn();
   // Lo que ve recepción (doc 21): por defecto, todo.
   const ve = jest.fn().mockResolvedValue(true);
-  const filtrar = jest.fn((_s: unknown, filas: unknown[]) =>
+  // La lista pasa entera por la regla de recepción y de los permisos por
+  // cargo (doc 21 y doc 22 §4.4), que se prueba en alcance-de-recepcion.
+  const deLaLista = jest.fn((_s: unknown, filas: unknown[]) =>
     Promise.resolve(filas),
   );
-  const paraElCalendario = jest.fn((_s: unknown, filas: unknown[]) =>
-    Promise.resolve(filas),
-  );
-  const exigirClienteParticular = jest.fn().mockResolvedValue(undefined);
+  const exigirElTipoDelCliente = jest.fn().mockResolvedValue(undefined);
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -60,9 +59,8 @@ describe('QuotationsController', () => {
         provideMock(ChoquesDeFechaService),
         provideMock(AlcanceDeRecepcion, {
           ve,
-          filtrar,
-          paraElCalendario,
-          exigirClienteParticular,
+          deLaLista,
+          exigirElTipoDelCliente,
         }),
       ],
     }).compile();
@@ -180,16 +178,15 @@ describe('QuotationsController', () => {
       const filas = [{ id: 'a' }, { id: 'b' }];
       findAll.mockResolvedValue(filas);
       await controller.findAll(recepcion, { vista: 'calendario' } as never);
-      expect(paraElCalendario).toHaveBeenCalledWith(recepcion, filas);
-      expect(filtrar).not.toHaveBeenCalled();
+      expect(deLaLista).toHaveBeenCalledWith(recepcion, filas, 'calendario');
     });
 
     it('el tablero pasa por la regla', async () => {
       const filas = [{ id: 'a' }, { id: 'b' }];
       findAll.mockResolvedValue(filas);
-      filtrar.mockResolvedValueOnce([filas[0]]);
+      deLaLista.mockResolvedValueOnce([filas[0]]);
       const r = await controller.findAll(recepcion, {} as never);
-      expect(filtrar).toHaveBeenCalledWith(recepcion, filas);
+      expect(deLaLista).toHaveBeenCalledWith(recepcion, filas, undefined);
       expect(r).toEqual([filas[0]]);
     });
 
@@ -198,7 +195,7 @@ describe('QuotationsController', () => {
         { request_type: 'cotizacion', client_id: 'c1' } as never,
         recepcion,
       );
-      expect(exigirClienteParticular).toHaveBeenCalledWith(recepcion, 'c1');
+      expect(exigirElTipoDelCliente).toHaveBeenCalledWith(recepcion, 'c1');
       await expect(
         controller.create(
           {
@@ -211,13 +208,29 @@ describe('QuotationsController', () => {
       ).rejects.toThrow('descuentos');
     });
 
+    // Doc 22 §9: cada cargo cotiza solo a los tipos que trabaja; el
+    // descuento sigue siendo cosa de recepción.
+    it('un vendedor también pasa por el tipo del cliente, con descuento', async () => {
+      exigirElTipoDelCliente.mockClear();
+      const vendedor = { id: 'u2', company_id: 1, role: 'vendedor' } as never;
+      await controller.create(
+        {
+          request_type: 'cotizacion',
+          client_id: 'c1',
+          discount_percentage: 10,
+        } as never,
+        vendedor,
+      );
+      expect(exigirElTipoDelCliente).toHaveBeenCalledWith(vendedor, 'c1');
+    });
+
     it('un requerimiento lo crea como siempre, sin revisar el cliente', async () => {
-      exigirClienteParticular.mockClear();
+      exigirElTipoDelCliente.mockClear();
       await controller.create(
         { request_type: 'requerimiento', client_id: 'c2' } as never,
         recepcion,
       );
-      expect(exigirClienteParticular).not.toHaveBeenCalled();
+      expect(exigirElTipoDelCliente).not.toHaveBeenCalled();
     });
   });
 });

@@ -12,12 +12,15 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   ADMIN_ONLY,
   OPERATIONS_AND_UP,
   Roles,
   SALES_AND_UP,
 } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import {
   CreateFurnitureItemDto,
@@ -60,11 +63,16 @@ import { LogisticsService } from './logistics.service';
 // lista vacía: sus funciones ya traen su propio catch.
 @Derecho('logistica')
 @Roles(...OPERATIONS_AND_UP)
+// Lo de un evento (sus recursos, su cocina, lo provisionado, sus compras)
+// se ve y se toca solo si el cargo trabaja el tipo de su cliente (doc 22
+// §9, tandas 2 y 3): @DelEvento en cada puerta, y las listas de toda la
+// empresa filtradas.
 @Controller('logistics')
 export class LogisticsController {
   constructor(
     private readonly logisticsService: LogisticsService,
     private readonly logger: PinoLogger,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(LogisticsController.name);
   }
@@ -80,6 +88,8 @@ export class LogisticsController {
   // de la base (misma región desde hoy). Mismos permisos que las
   // lecturas sueltas (vendedor+, medido en pantallas el 28-07).
   @Roles(...SALES_AND_UP)
+  @Permiso('postventa', 'proveedores', 'dashboard')
+  @DentroDe('cotizaciones')
   @Get('base-catalogo')
   async baseCatalogo(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/base-catalogo company ${user.company_id}`);
@@ -96,7 +106,10 @@ export class LogisticsController {
     return { recipes, supplies, furniture, suppliers, nameIds, fixedCosts };
   }
 
-  @Roles(...SALES_AND_UP)
+  // La lee solo Proveedores → Compras: desde el 06-11-2026 la puerta es de
+  // esa sección (doc 22 §4.3, Felipe: «si hazlo si»). Antes se le abría
+  // también al vendedor, sin pantalla que la usara.
+  @Permiso('proveedores')
   @Get('estado-compras')
   async estadoCompras(@CurrentUser() user: User) {
     this.logger.info(
@@ -106,16 +119,32 @@ export class LogisticsController {
       this.logisticsService.findAcceptedEvents(user.company_id),
       this.logisticsService.findSupplyProvisions(user.company_id),
     ]);
-    return { events, provisions };
+    // Solo los eventos de los tipos de cliente que trabaja su cargo (doc
+    // 22 §9, tanda 3).
+    return {
+      events: await this.alcance.soloLasQueVe(
+        user,
+        events,
+        (q) => q.id as string | undefined,
+      ),
+      provisions: await this.alcance.soloLasQueVe(
+        user,
+        provisions,
+        (p) => p.quotation_id as string | undefined,
+      ),
+    };
   }
 
   @Roles(...SALES_AND_UP)
+  @Permiso('postventa', 'proveedores', 'catalogo')
+  @DentroDe('cotizaciones', 'calendario')
   @Get('suppliers')
   findAllSuppliers(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/suppliers company ${user.company_id}`);
     return this.logisticsService.findAllSuppliers(user.company_id);
   }
 
+  @Permiso('proveedores')
   @Get('suppliers/usage')
   suppliersUsage(@CurrentUser() user: User) {
     this.logger.info(
@@ -124,6 +153,7 @@ export class LogisticsController {
     return this.logisticsService.suppliersUsage(user.company_id);
   }
 
+  @Permiso('proveedores')
   @Post('suppliers')
   createSupplier(
     @Body() createSupplierDto: CreateSupplierDto,
@@ -138,6 +168,7 @@ export class LogisticsController {
     );
   }
 
+  @Permiso('proveedores')
   @Patch('suppliers/:id')
   updateSupplier(
     @Param('id', ParseIntPipe) id: number,
@@ -154,6 +185,7 @@ export class LogisticsController {
     );
   }
 
+  @Permiso('proveedores')
   @Delete('suppliers/:id')
   deleteSupplier(
     @Param('id', ParseIntPipe) id: number,
@@ -167,8 +199,10 @@ export class LogisticsController {
 
   // ---------- Insumos (mudanza #3, 28-07) ----------
 
-  // Los insumos los leen 9 pantallas, incluido el cotizador → vendedor+.
-  @Roles(...SALES_AND_UP)
+  // La lista de insumos la leen Proveedores → Insumos y el Catálogo. El
+  // cotizador y Post-Venta los reciben en `base-catalogo`. Desde el
+  // 06-11-2026 la puerta es de esas dos secciones (doc 22 §4.3).
+  @Permiso('proveedores', 'catalogo')
   @Get('supplies')
   findAllSupplies(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/supplies company ${user.company_id}`);
@@ -176,6 +210,7 @@ export class LogisticsController {
   }
 
   // ids separados por coma: /logistics/supplies/usage?ids=1,2,3
+  @Permiso('proveedores')
   @Get('supplies/usage')
   suppliesUsage(@Query('ids') ids: string, @CurrentUser() user: User) {
     this.logger.info(
@@ -188,6 +223,7 @@ export class LogisticsController {
     return this.logisticsService.suppliesUsage(user.company_id, lista);
   }
 
+  @Permiso('proveedores', 'catalogo')
   @Post('supplies')
   createSupply(
     @Body() createSupplyDto: CreateSupplyDto,
@@ -199,6 +235,7 @@ export class LogisticsController {
     return this.logisticsService.createSupply(user.company_id, createSupplyDto);
   }
 
+  @Permiso('proveedores')
   @Patch('supplies/:id')
   updateSupply(
     @Param('id', ParseIntPipe) id: number,
@@ -215,6 +252,7 @@ export class LogisticsController {
     );
   }
 
+  @Permiso('proveedores')
   @Delete('supplies/:id')
   deleteSupply(
     @Param('id', ParseIntPipe) id: number,
@@ -228,14 +266,18 @@ export class LogisticsController {
 
   // ---------- Mobiliario (mudanza #4, 28-07) ----------
 
-  // El mobiliario lo leen 7 pantallas, cotizador incluido → vendedor+.
-  @Roles(...SALES_AND_UP)
+  // La lista de mobiliario la leen Inventario, el Catálogo (la receta) y
+  // el Inventario de Eventia Móvil, que es de operaciones y administración.
+  // El cotizador y Post-Venta la reciben en `base-catalogo`. Desde el
+  // 06-11-2026 la puerta es de Proveedores y Catálogo (doc 22 §4.3).
+  @Permiso('proveedores', 'catalogo')
   @Get('furniture')
   findAllFurniture(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/furniture company ${user.company_id}`);
     return this.logisticsService.findAllFurniture(user.company_id);
   }
 
+  @Permiso('proveedores')
   @Get('furniture/usage')
   furnitureUsage(@CurrentUser() user: User) {
     this.logger.info(
@@ -244,6 +286,7 @@ export class LogisticsController {
     return this.logisticsService.furnitureUsage(user.company_id);
   }
 
+  @Permiso('proveedores', 'catalogo')
   @Post('furniture')
   createFurniture(
     @Body() dto: CreateFurnitureItemDto,
@@ -253,6 +296,7 @@ export class LogisticsController {
     return this.logisticsService.createFurniture(user.company_id, dto);
   }
 
+  @Permiso('proveedores')
   @Patch('furniture/:id')
   updateFurniture(
     @Param('id', ParseIntPipe) id: number,
@@ -265,6 +309,7 @@ export class LogisticsController {
     return this.logisticsService.updateFurniture(user.company_id, id, dto);
   }
 
+  @Permiso('proveedores')
   @Delete('furniture/:id')
   deleteFurniture(
     @Param('id', ParseIntPipe) id: number,
@@ -280,12 +325,15 @@ export class LogisticsController {
   // Solo pantallas de operaciones/admin los usan: hereda la regla del
   // controller (OPERATIONS_AND_UP) en lecturas y escrituras.
 
+  @Permiso('postventa', 'proveedores', 'dashboard', 'catalogo')
+  @DentroDe('cotizaciones', 'calendario')
   @Get('resources')
   findAllResources(@CurrentUser() user: User) {
     this.logger.info(`GET /logistics/resources company ${user.company_id}`);
     return this.logisticsService.findAllResources(user.company_id);
   }
 
+  @Permiso('proveedores')
   @Get('resources/usage')
   resourcesUsage(@CurrentUser() user: User) {
     this.logger.info(
@@ -294,6 +342,7 @@ export class LogisticsController {
     return this.logisticsService.resourcesUsage(user.company_id);
   }
 
+  @Permiso('proveedores', 'catalogo')
   @Post('resources')
   createResource(
     @Body() dto: CreateManagementResourceDto,
@@ -303,6 +352,8 @@ export class LogisticsController {
     return this.logisticsService.createResource(user.company_id, dto);
   }
 
+  @Permiso('postventa', 'proveedores')
+  @DentroDe('cotizaciones', 'calendario')
   @Patch('resources/:id')
   updateResource(
     @Param('id', ParseIntPipe) id: number,
@@ -315,6 +366,7 @@ export class LogisticsController {
     return this.logisticsService.updateResource(user.company_id, id, dto);
   }
 
+  @Permiso('proveedores')
   @Delete('resources/:id')
   deleteResource(
     @Param('id', ParseIntPipe) id: number,
@@ -328,21 +380,35 @@ export class LogisticsController {
 
   // ---------- Compras multi-evento (mudanza #6) — operaciones+ ----------
 
+  @Permiso('postventa', 'proveedores')
   @Get('purchasing/accepted-events')
-  acceptedEvents(@CurrentUser() user: User) {
-    return this.logisticsService.findAcceptedEvents(user.company_id);
+  async acceptedEvents(@CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findAcceptedEvents(user.company_id),
+      (q) => q.id as string | undefined,
+    );
   }
 
+  @Permiso('proveedores', 'dashboard')
   @Get('purchasing/won-events')
-  wonEvents(@Query('from') from: string, @CurrentUser() user: User) {
-    return this.logisticsService.findWonEventsSince(user.company_id, from);
+  async wonEvents(@Query('from') from: string, @CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findWonEventsSince(user.company_id, from),
+      (q) => q.id as string | undefined,
+    );
   }
 
+  @Permiso('proveedores')
+  @DelEvento({ filas: 'entries', campo: 'id' })
   @Post('purchasing/mark-provisioned')
   markProvisioned(@Body() dto: MarkProvisionedDto, @CurrentUser() user: User) {
     return this.logisticsService.markProvisioned(user.company_id, dto);
   }
 
+  @Permiso('proveedores')
+  @DelEvento({ body: 'ids' })
   @Post('purchasing/clear-provisioned')
   clearProvisioned(
     @Body() dto: ClearProvisionedDto,
@@ -351,6 +417,9 @@ export class LogisticsController {
     return this.logisticsService.clearProvisioned(user.company_id, dto.ids);
   }
 
+  @Permiso('postventa')
+  @DentroDe('cotizaciones')
+  @DelEvento({ param: 'quotationId' })
   @Get('purchasing/provisioning/:quotationId')
   quotationProvisioning(
     @Param('quotationId') quotationId: string,
@@ -362,11 +431,18 @@ export class LogisticsController {
     );
   }
 
+  @Permiso('proveedores', 'dashboard')
   @Get('purchasing/supply-provisions')
-  supplyProvisions(@CurrentUser() user: User) {
-    return this.logisticsService.findSupplyProvisions(user.company_id);
+  async supplyProvisions(@CurrentUser() user: User) {
+    return this.alcance.soloLasQueVe(
+      user,
+      await this.logisticsService.findSupplyProvisions(user.company_id),
+      (p) => p.quotation_id as string | undefined,
+    );
   }
 
+  @Permiso('proveedores')
+  @DelEvento({ filas: 'rows', campo: 'quotation_id' })
   @Post('purchasing/supply-provisions')
   upsertSupplyProvisions(
     @Body() dto: UpsertSupplyProvisionsDto,
@@ -375,6 +451,8 @@ export class LogisticsController {
     return this.logisticsService.upsertSupplyProvisions(user.company_id, dto);
   }
 
+  @Permiso('proveedores')
+  @DelEvento({ body: 'quotationIds' })
   @Post('purchasing/supply-provisions/delete')
   deleteSupplyProvisions(
     @Body() dto: DeleteSupplyProvisionsDto,
@@ -389,16 +467,32 @@ export class LogisticsController {
 
   // ---------- Recursos de un evento — operaciones+ ----------
 
+  @Permiso('postventa', 'dashboard')
+  @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ query: 'quotationId' })
   @Get('event-resources')
-  eventResources(
+  async eventResources(
     @Query('quotationId') quotationId: string,
     @CurrentUser() user: User,
   ) {
-    return quotationId
-      ? this.logisticsService.findEventResources(user.company_id, quotationId)
-      : this.logisticsService.findAllEventResources(user.company_id);
+    if (quotationId) {
+      return this.logisticsService.findEventResources(
+        user.company_id,
+        quotationId,
+      );
+    }
+    return this.alcance.soloLasQueVe(
+      user,
+      (await this.logisticsService.findAllEventResources(user.company_id)) as {
+        quotation_id?: string | null;
+      }[],
+      (r) => r.quotation_id,
+    );
   }
 
+  @Permiso('postventa', 'dashboard')
+  @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ filas: 'rows', campo: 'quotation_id' })
   @Post('event-resources')
   addEventResources(
     @Body() dto: AddEventResourcesDto,
@@ -407,6 +501,9 @@ export class LogisticsController {
     return this.logisticsService.addEventResources(user.company_id, dto);
   }
 
+  @Permiso('postventa', 'dashboard')
+  @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ tabla: 'event_resources', param: 'id' })
   @Patch('event-resources/:id')
   updateEventResource(
     @Param('id', ParseIntPipe) id: number,
@@ -416,6 +513,9 @@ export class LogisticsController {
     return this.logisticsService.updateEventResource(user.company_id, id, dto);
   }
 
+  @Permiso('postventa', 'dashboard')
+  @DentroDe('cotizaciones', 'calendario')
+  @DelEvento({ tabla: 'event_resources', param: 'id' })
   @Delete('event-resources/:id')
   deleteEventResource(
     @Param('id', ParseIntPipe) id: number,
@@ -426,6 +526,8 @@ export class LogisticsController {
 
   // ---------- Ficha de cocina — operaciones+ ----------
 
+  @Permiso('postventa', 'personal')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/times')
   serviceTimes(
     @Query('quotationId') quotationId: string,
@@ -434,11 +536,15 @@ export class LogisticsController {
     return this.logisticsService.findServiceTimes(user.company_id, quotationId);
   }
 
+  @Permiso('postventa', 'personal')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/times')
   setServiceTime(@Body() dto: SetServiceTimeDto, @CurrentUser() user: User) {
     return this.logisticsService.setServiceTime(user.company_id, dto);
   }
 
+  @Permiso('postventa')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/notes')
   kitchenNotes(
     @Query('quotationId') quotationId: string,
@@ -447,11 +553,15 @@ export class LogisticsController {
     return this.logisticsService.findKitchenNotes(user.company_id, quotationId);
   }
 
+  @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/notes')
   addKitchenNote(@Body() dto: AddKitchenNoteDto, @CurrentUser() user: User) {
     return this.logisticsService.addKitchenNote(user.company_id, dto);
   }
 
+  @Permiso('postventa')
+  @DelEvento({ tabla: 'event_kitchen_notes', param: 'id' })
   @Delete('kitchen/notes/:id')
   deleteKitchenNote(
     @Param('id', ParseIntPipe) id: number,
@@ -460,6 +570,8 @@ export class LogisticsController {
     return this.logisticsService.deleteKitchenNote(user.company_id, id);
   }
 
+  @Permiso('postventa')
+  @DelEvento({ query: 'quotationId' })
   @Get('kitchen/day-prints')
   dayPrints(
     @Query('quotationId') quotationId: string,
@@ -468,6 +580,8 @@ export class LogisticsController {
     return this.logisticsService.findDayPrints(user.company_id, quotationId);
   }
 
+  @Permiso('postventa')
+  @DelEvento({ body: 'quotation_id' })
   @Post('kitchen/day-prints')
   markDaysPrinted(@Body() dto: MarkDaysPrintedDto, @CurrentUser() user: User) {
     return this.logisticsService.markDaysPrinted(
@@ -479,21 +593,12 @@ export class LogisticsController {
 
   // ---------- Recetas y costos — reglas medidas 28-07 ----------
 
-  // Lecturas que usa el COTIZADOR (vendedor+): catálogo de nombres,
-  // costos cacheados de fijos y todas las líneas de receta.
-  @Roles(...SALES_AND_UP)
-  @Get('catalog/service-names')
-  catalogServiceNames(@CurrentUser() user: User) {
-    return this.logisticsService.catalogServiceNames(user.company_id);
-  }
-
-  @Roles(...SALES_AND_UP)
-  @Get('catalog/fixed-costs')
-  fixedServiceCosts(@CurrentUser() user: User) {
-    return this.logisticsService.fixedServiceCosts(user.company_id);
-  }
-
-  @Roles(...SALES_AND_UP)
+  // Los nombres del catálogo y los costos de los fijos ya no tienen puerta
+  // propia: el cotizador los recibe en `base-catalogo`, y las dos puertas
+  // sueltas no tenían quién las llamara (se borraron el 06-11-2026, doc 22
+  // §4.3). Todas las líneas de receta las lee el Catálogo.
+  @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Get('recipes/all')
   allRecipeItems(@CurrentUser() user: User) {
     return this.logisticsService.findAllRecipeItems(user.company_id);
@@ -501,6 +606,7 @@ export class LogisticsController {
 
   // La edición de recetas y costos vive en el Catálogo (administrador).
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Get('recipes')
   recipeItems(
     @Query('serviceType') serviceType: string,
@@ -515,12 +621,14 @@ export class LogisticsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('recipes')
   addRecipeItem(@Body() dto: AddRecipeItemDto, @CurrentUser() user: User) {
     return this.logisticsService.addRecipeItem(user.company_id, dto);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('recipes/:id')
   updateRecipeItem(
     @Param('id', ParseIntPipe) id: number,
@@ -531,6 +639,7 @@ export class LogisticsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('recipes/:id')
   deleteRecipeItem(
     @Param('id', ParseIntPipe) id: number,
@@ -541,6 +650,8 @@ export class LogisticsController {
 
   // Líneas de costo: las lee Post-Venta (operaciones+, regla del
   // controller); las escrituras y el caché de costos son del Catálogo.
+  @Permiso('postventa', 'catalogo')
+  @DentroDe('cotizaciones', 'calendario')
   @Get('fixed-cost-items')
   fixedServiceCostItems(
     @Query('fixedServiceId') fixedServiceId: string,
@@ -554,6 +665,7 @@ export class LogisticsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed-costs/:id')
   updateFixedServiceCosts(
     @Param('id', ParseIntPipe) id: number,
@@ -568,12 +680,14 @@ export class LogisticsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post('fixed-cost-items')
   addCostItem(@Body() dto: AddCostItemDto, @CurrentUser() user: User) {
     return this.logisticsService.addCostItem(user.company_id, dto);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('fixed-cost-items/:id')
   updateCostItem(
     @Param('id', ParseIntPipe) id: number,
@@ -584,6 +698,7 @@ export class LogisticsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete('fixed-cost-items/:id')
   deleteCostItem(
     @Param('id', ParseIntPipe) id: number,

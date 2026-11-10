@@ -15,7 +15,8 @@ import { ForbiddenException } from '@nestjs/common';
 //
 // Los módulos propios (personal y marketing desde la migración 111,
 // oportunidades desde la 122, cotizar_con_ia desde la 130,
-// seguimiento_con_ia desde la 140, asistente desde la 180) son derechos
+// seguimiento_con_ia desde la 140, asistente desde la 180, facturacion
+// desde la 184) son derechos
 // más: no los da ningún plan, los
 // da la columna `modulos_propios` de la empresa. Valle del Sol los conserva.
 //
@@ -71,7 +72,10 @@ export type Derecho =
   | 'seguimiento_con_ia'
   // BelIA, la ventanilla de chat con IA (migración 180, doc 20): la cuenta
   // de Anthropic es de Valle del Sol, con su propio tope mensual.
-  | 'asistente';
+  | 'asistente'
+  // La facturación electrónica por facturacion.cl (migración 184, doc 19):
+  // las credenciales y los folios son de Valle del Sol.
+  | 'facturacion';
 
 /** Lo que el motor calcula una vez y viaja en la sesión y en el perfil. */
 export type Derechos = {
@@ -163,6 +167,7 @@ export const PLAN_MINIMO: Record<Derecho, Plan | null> = {
   cotizar_con_ia: null,
   seguimiento_con_ia: null,
   asistente: 'cotiza',
+  facturacion: null,
 };
 
 /** Cómo se llama cada derecho cuando hay que explicárselo a una persona. */
@@ -187,6 +192,7 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   cotizar_con_ia: 'Cotizar con IA',
   seguimiento_con_ia: 'El seguimiento con IA',
   asistente: 'BelIA, la asistente de Eventia',
+  facturacion: 'La facturación electrónica',
 };
 
 /** Lo que el motor trata como empresa para calcular derechos. */
@@ -215,7 +221,8 @@ const esModuloPropio = (v: string): v is Derecho =>
   v === 'oportunidades' ||
   v === 'cotizar_con_ia' ||
   v === 'seguimiento_con_ia' ||
-  v === 'asistente';
+  v === 'asistente' ||
+  v === 'facturacion';
 
 /**
  * Los derechos de una empresa. Única fuente de verdad: lo llaman AuthGuard

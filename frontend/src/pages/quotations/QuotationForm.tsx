@@ -159,7 +159,7 @@ export default function QuotationForm() {
     if (window.history.state && window.history.state.idx > 0) navigate(-1);
     else navigate("/quotations");
   };
-  const { user, userRole, company } = useAuth();
+  const { user, userRole, company, tiposDeCliente } = useAuth();
   const {
     products,
     variableServices,
@@ -2464,13 +2464,15 @@ export default function QuotationForm() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Cliente *
                 </label>
-                {/* Recepción, sus clientes particulares (doc 21). */}
+                {/* Los clientes de los tipos que trabaja su cargo (doc 22
+                    §9; a recepción, de fábrica, los particulares). */}
                 <SelectWithSearch
                   options={clientesParaElCotizador(
                     userRole,
                     clients,
                     clientTypesData ?? [],
                     formData.client_id,
+                    tiposDeCliente,
                   ).map((client) => ({
                     value: client.id,
                     label: client.name,

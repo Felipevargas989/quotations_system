@@ -31,6 +31,7 @@ const armar = (
     repo as never,
     mockPinoLogger() as never,
     {} as never,
+    {} as never,
   );
   return { service, repo };
 };

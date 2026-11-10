@@ -1,6 +1,6 @@
 # Mapa: Dashboard y analítica
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): con un tipo apagado, sus clientes no cuentan en el panel ni en Análisis. Actualizado el 06-11-2026: corregir la cosecha es de quien tiene el Dashboard (doc 22 §4.3).
 
 ## 1. Qué hace
 
@@ -40,7 +40,7 @@ Endpoints de **otros módulos** que el Dashboard consume (se documentan en su ma
 | Método y ruta | Controller → service | Llamada de la app (queryKey) | Mapa |
 |---|---|---|---|
 | `GET /quotations?request_type=cotizacion` | `QuotationsController.findAll` → `QuotationsService.findAll` | `getQuotations` ← `DashboardPage` (`tendenciaQuery` `["dashboard-tendencia", companyId]`; con `statuses=rechazada,cancelada`, `perdidasQuery` `["dashboard-motivos", companyId, selectedTimeRange]`) y su tarjeta `NewAccount` | 01 / 02 |
-| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); sin `@Roles` en la ruta | 02 |
+| `POST /quotations/:id/cosecha` (`EstadoCosechaDto`) | `QuotationsController.setHarvestStatus` → `QuotationsService.setHarvestStatus` | `guardarEstadoCosecha` ← `DashboardPage` (`estadoMut`, mutationKey `["cosecha"]`); desde el 06-11-2026, solo quien tiene el Dashboard (`@Permiso('dashboard')`, administrador) y nunca una cotización de un tipo de cliente apagado (`@DelEvento`) | 02 |
 | `GET /portal-receipts` | `PortalReceiptsController.list` → `PortalReceiptsRepository.listPending` | `listPortalReceipts` ← `DashboardPage` (`receiptsQuery` `["postventa","comprobantes"]`); la misma caché la usa `PostVentaPage` | 03 |
 | `GET /logistics/base-catalogo` | `LogisticsController.baseCatalogo` | `getBaseCatalogo` ← `DashboardPage` (`marginBaseQuery` `["logistica","compras","base", companyId]`; caché compartida con `LogisticaPage` y `QuotationForm`) | 06 |
 | `GET /logistics/purchasing/won-events?from=` | `wonEvents` → `LogisticsRepository.findWonEventsSince` | `getWonEventsSince` ← `DashboardPage` (`wonEventsQuery`) | 06 |
@@ -219,6 +219,9 @@ esa zona: tres recuadros seguidos diciendo lo mismo se leen como una
 pantalla rota, no como una oferta.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.8, 05-11-2026)
+- **Con un tipo apagado, esos clientes no cuentan en ningún número** (Felipe: *"si sigue con la tanda 4"*). Los KPIs se cuentan sin ellos; Análisis, cuando el cargo no trabaja todos los tipos, se calcula en el motor con las mismas reglas de las nueve funciones de la base (`analytics/analisis-por-tipos.ts`); quien trabaja todos sigue con las de la base, sin cambios. La memoria del panel lleva la firma de los tipos (`firmaDeTipos`). «Para actuar hoy» y el costo de personal por evento tampoco cuentan esos clientes (los requerimientos sí: son de todos).
 
 1. **La propina no es venta ni margen** (24-07, Felipe). Ventas, KPI, pipeline, Resultado y margen usan `saleWithoutTip`. Evidencia: cabecera de `api-rest/src/quotations/utils/tip.ts` (*"Criterio ÚNICO para todo el sistema"*), comentarios "24-07: SIN propina" en `AnalyticsService.getDashboardStats`, leyenda "del período, sin propina" en `DashboardPage`; doc 10: *"es plata que entra y sale, somos intermediarios"*. **En la caja sí sale**: `pagado-por-mes.ts` la incluye "a propósito".
 2. **Venta y evento confirmado = `aceptada` + `realizada`** (23-07). Antes solo contaba `aceptada` y *"cada evento marcado realizado DESAPARECÍA de ingresos/conversión/uso"*. Evidencia: cabecera de `db_functions_analytics_23_07.sql`; `ES_EVENTO` ("decisión de Felipe") en `tendencias.ts`.

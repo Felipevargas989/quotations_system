@@ -4,6 +4,7 @@ import { UsersRepository } from 'src/users/users.repository';
 import { provideMock } from '../../testing/mocks';
 import { AuthGuard } from '../auth.guard';
 import { AuthService } from '../auth.service';
+import { PermisosService } from '../permisos.service';
 
 // Esqueleto reparado (Fase 2 Bloque B): arma el módulo con las
 // dependencias REALES de la clase, todas mockeadas. Verifica que la
@@ -19,6 +20,7 @@ describe('AuthGuard', () => {
         provideMock(AuthService),
         provideMock(UsersRepository),
         provideMock(Reflector),
+        provideMock(PermisosService),
       ],
     }).compile();
 

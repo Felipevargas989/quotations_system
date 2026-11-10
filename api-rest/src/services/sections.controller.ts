@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
@@ -166,30 +167,35 @@ export class SectionsController {
   // y tanto la pantalla como el PDF salían con todo en una línea
   // corrida. Escribir secciones sigue siendo de administrador.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa', 'catalogo')
   @Get()
   findAll(@CurrentUser() user: User) {
     return this.repo.findAll(user.company_id);
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'clientes', 'postventa')
   @Get('menu-order')
   menuOrder(@CurrentUser() user: User) {
     return this.repo.menuOrder(user.company_id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Post()
   create(@Body() dto: CreateSectionDto, @CurrentUser() user: User) {
     return this.repo.create(user.company_id, dto);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('reorder')
   reorder(@Body() dto: ReorderSectionsDto, @CurrentUser() user: User) {
     return this.repo.reorder(user.company_id, dto.orderedIds);
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('default')
   setDefault(@Body() dto: SetDefaultSectionDto, @CurrentUser() user: User) {
     return this.repo.setDefault(
@@ -200,6 +206,7 @@ export class SectionsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch('link/:linkId')
   setLinkSection(
     @Param('linkId', ParseIntPipe) linkId: number,
@@ -215,6 +222,7 @@ export class SectionsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Patch(':id')
   rename(
     @Param('id', ParseIntPipe) id: number,
@@ -225,6 +233,7 @@ export class SectionsController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @Permiso('catalogo')
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
     return this.repo.delete(user.company_id, id);

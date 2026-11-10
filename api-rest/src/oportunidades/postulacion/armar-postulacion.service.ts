@@ -1,18 +1,27 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { User } from 'src/users/entities/user.entity';
 import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import { AnalisisRepository } from '../analisis/analisis.repository';
+import { MODELO_HAIKU } from '../analisis/comun';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
 } from '../generacion/generacion.repository';
 import { GeneracionService } from '../generacion/generacion.service';
 import { OferenteRepository } from '../oferente/oferente.repository';
+import type { FilaDeLaMatriz } from './armar-la-oferta';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
+import { noSiEstaCongelada } from './congelada';
 import { CotizacionDeLaPostulacionService } from './cotizacion-de-la-postulacion.service';
+import { repartirElPrecio } from './el-reparto';
 import { type FormularioDeLasBases, normalizar } from './el-set';
+import {
+  diasDeLaCotizacion,
+  pidenLaCotizacion,
+} from './la-cotizacion-detallada';
+import { LaCotizacionDetalladaService } from './la-cotizacion-detallada.service';
 import {
   type ExperienciaConfirmada,
   loQueDicenLasBases,
@@ -20,7 +29,18 @@ import {
   respaldosDeLaExperiencia,
 } from './la-experiencia';
 import { LaExperienciaService } from './la-experiencia.service';
-import { PostulacionRepository } from './postulacion.repository';
+import { lasDeclaracionesPedidas } from './las-declaraciones';
+import { LasDeclaracionesService } from './las-declaraciones.service';
+import type { PreguntaDeLaPostulacion } from './las-preguntas';
+import {
+  LasPreguntasService,
+  type RespuestaDelModal,
+} from './las-preguntas.service';
+import { papelesSinFormato } from './los-papeles';
+import {
+  type CotizacionDeLaPostulacion,
+  PostulacionRepository,
+} from './postulacion.repository';
 import { type LaVueltaAnterior, laVueltaAnterior } from './volver-a-armar';
 
 // «ARMAR POSTULACIÓN» (decisión 35 del doc 17, 19-10). Felipe: "un solo
@@ -57,6 +77,14 @@ export type PostulacionArmada = {
   problemas?: string[];
 };
 
+/** El armado detenido porque a la empresa le faltan respuestas (decisión
+ *  119, parte 3): el precio con que se pidió y las preguntas. Va en
+ *  `parametros.detenida` de la última fila de la oferta. */
+export type ArmadoDetenido = {
+  total: number;
+  preguntas: PreguntaDeLaPostulacion[];
+};
+
 export { pidenExperiencia };
 
 /** El formulario que lleva el detalle técnico (calidad de la oferta,
@@ -66,17 +94,23 @@ const FORMULARIO_TECNICO = /calidad|oferta tecnica|propuesta tecnica/;
 /** ¿Va la propuesta técnica valorizada? Siempre que las bases NO traigan
  *  un formulario técnico (decisión 42; Felipe, 19-10, por las compras
  *  ágiles: "¿qué pasa si no viene ningún formulario a prerrellenar?"). Si
- *  lo traen, el detalle va en ese formulario (decisión 40). */
+ *  lo traen, el detalle va en ese formulario (decisión 40). Desde la parte
+ *  3b de la decisión 119 (08-11), un formulario técnico que no trajo su
+ *  formato («Formulario N°6 - Propuesta técnica (formato libre)») no
+ *  cuenta: nadie lo llenaría, y lo hace la propuesta. */
 export const vaLaPropuesta = (
   resultado: Record<string, unknown> | null | undefined,
 ): boolean => {
   const { formularios, textos } = loQueDicenLasBases(resultado);
+  const sinFormato = new Set(
+    papelesSinFormato(resultado).map((p) => normalizar(p.nombre)),
+  );
   // Un análisis anterior no trae los formularios: el requisito que nombra
   // un formulario o un anexo cuenta como tal.
   const deUnFormulario = [
     ...formularios.filter((t): t is string => typeof t === 'string'),
     ...textos.filter((t) => /\b(formulario|anexo)\b/.test(normalizar(t))),
-  ];
+  ].filter((t) => !sinFormato.has(normalizar(t)));
   return !deUnFormulario.some((t) => FORMULARIO_TECNICO.test(normalizar(t)));
 };
 
@@ -93,15 +127,30 @@ export class ArmarPostulacionService {
     private readonly experiencia: LaExperienciaService,
     private readonly adjuntos: AdjuntosRepository,
     private readonly logger: PinoLogger,
+    /** La cotización detallada (decisión 119). Opcional: las pruebas de
+     *  antes no la traen, y sin ella no se arma. */
+    @Optional()
+    private readonly cotizacionDetallada?: LaCotizacionDetalladaService,
+    /** Las preguntas antes de armar (decisión 119, parte 3). Opcional: sin
+     *  ellas se arma sin preguntar, como antes. */
+    @Optional()
+    private readonly preguntas?: LasPreguntasService,
+    /** Las declaraciones sin formato (decisión 119, parte 3b). Opcional:
+     *  sin ellas no se arman, como antes. */
+    @Optional()
+    private readonly declaraciones?: LasDeclaracionesService,
   ) {
     this.logger.setContext(ArmarPostulacionService.name);
   }
 
-  /** Responde al tiro con la oferta en curso; lo demás sigue por detrás. */
+  /** Responde al tiro con la oferta en curso; lo demás sigue por detrás.
+   *  Si a la empresa le faltan respuestas, responde con el armado detenido
+   *  y las preguntas (decisión 119, parte 3). */
   async armar(
     user: User,
     oportunidadId: number,
     total: number,
+    opciones: { sinPreguntar?: boolean } = {},
   ): Promise<FilaDeGeneracion> {
     const companyId = user.company_id;
     const [analisis, oferente, ficha] = await Promise.all([
@@ -135,6 +184,27 @@ export class ArmarPostulacionService {
       propuesta: (listo && vaLaPropuesta(analisis.resultado)) || sinAnexos,
       ...(sinAnexos ? { anexos: false } : {}),
     };
+    // Decisión 119, parte 3 (07-11). Felipe: "pincho una licitación y le
+    // faltan 5 preguntas... vuelvo a la licitación, me aparece el modal de
+    // lo que me falta, yo respondo las preguntas y lo genera". Antes de
+    // gastar en la oferta: lo que la IA no sabe de la empresa se pregunta.
+    if (listo && this.preguntas && !opciones.sinPreguntar) {
+      // Lo postulado queda fijo (decisión 33): no se pregunta por nada.
+      if (ficha) noSiEstaCongelada(ficha.estado);
+      const faltan = await this.preguntas.queFalta(
+        companyId,
+        oportunidadId,
+        analisis.resultado,
+        ficha?.exigencias_marcadas ?? {},
+      );
+      if (faltan.length > 0) {
+        const detenida = await this.detenida(user, oportunidadId, {
+          total,
+          preguntas: faltan,
+        });
+        if (detenida) return detenida;
+      }
+    }
     return this.oferta.pedir(companyId, user.id, oportunidadId, {
       parametros: { postulacion: armada },
       despues: async (ofertaId) =>
@@ -146,6 +216,77 @@ export class ArmarPostulacionService {
           piden ? await this.experiencia.paraArmar(user, oportunidadId) : null,
         ),
     });
+  }
+
+  /** Las respuestas del modal (decisión 119, parte 3): quedan en «Mi
+   *  empresa» y marcadas en «Bases y criterios», y recién ahí se arma, sin
+   *  volver a preguntar. */
+  async responderYArmar(
+    user: User,
+    oportunidadId: number,
+    total: number,
+    respuestas: RespuestaDelModal[],
+  ): Promise<FilaDeGeneracion> {
+    if (!this.preguntas) {
+      throw new BadRequestException('Este motor todavía no guarda respuestas.');
+    }
+    await this.preguntas.guardar(user.company_id, oportunidadId, respuestas);
+    return this.armar(user, oportunidadId, total, { sinPreguntar: true });
+  }
+
+  /** El armado detenido por las preguntas, para que la pantalla abra el
+   *  modal al tiro o al volver a la licitación. Va en la última fila de la
+   *  oferta: así lo armado antes sigue a la vista en las demás pantallas
+   *  («Lo que tienes que ofrecer», la cotización) mientras no se responda.
+   *  Sin oferta todavía, una fila nueva en «error», sin oferta. null si hay
+   *  una oferta en curso: sigue el camino de siempre. */
+  private async detenida(
+    user: User,
+    oportunidadId: number,
+    detenida: ArmadoDetenido,
+  ): Promise<FilaDeGeneracion | null> {
+    const companyId = user.company_id;
+    const ultima = await this.generaciones.ultimoDeTipo(
+      companyId,
+      oportunidadId,
+      'oferta',
+    );
+    if (ultima?.estado === 'procesando') return null;
+    if (ultima) {
+      const parametros = { ...(ultima.parametros ?? {}), detenida };
+      await this.generaciones.anotarParametros(
+        companyId,
+        ultima.id,
+        parametros,
+      );
+      return { ...ultima, parametros };
+    }
+    const fila = await this.generaciones.crearGeneracion({
+      company_id: companyId,
+      oportunidad_id: oportunidadId,
+      tipo: 'oferta',
+      parametros: { detenida },
+      modelo: MODELO_HAIKU,
+      archivos: [],
+      no_leidos: [],
+      pedido_por: await this.adjuntos.perfilDe(companyId, user.id),
+    });
+    if (!fila) return null;
+    const n = detenida.preguntas.length;
+    const error =
+      n === 1
+        ? 'Falta 1 respuesta sobre tu empresa.'
+        : `Faltan ${n} respuestas sobre tu empresa.`;
+    await this.generaciones.terminar(companyId, fila.id, {
+      estado: 'error',
+      error,
+    });
+    return {
+      ...fila,
+      estado: 'error',
+      error,
+      terminado_en: new Date().toISOString(),
+    };
   }
 
   /** Cuando la oferta quedó lista. Cada documento es un trabajo de la IA
@@ -175,6 +316,7 @@ export class ArmarPostulacionService {
       oportunidadId,
       armada.total,
       resultado,
+      ofertaId,
     );
     const conPropuesta = armada.propuesta && !vuelta.propuestaFirmada;
     const propuestasViejas = conPropuesta ? [] : vuelta.borradoresDePropuesta;
@@ -186,6 +328,16 @@ export class ArmarPostulacionService {
         ? { ...armada, firmados: true }
         : armada;
     if (anotada !== armada) await this.anotar(companyId, ofertaId, anotada);
+    // Decisión 119 (07-11, el reparto): el precio se reparte una sola vez
+    // sobre los servicios de la cotización vinculada, y las mismas cifras
+    // van a la cotización detallada y a los formularios. Desde la 120
+    // (08-11), sin vinculada, sobre lo postulado con los precios del
+    // catálogo, en memoria: "cuando yo busco el mercado".
+    const base = await this.laBaseDelPrecio(companyId, oportunidadId);
+    const reparto =
+      'cotizacion' in base
+        ? repartirElPrecio(diasDeLaCotizacion(base.cotizacion), armada.total)
+        : null;
     const pasos: Array<[string, () => Promise<unknown>]> = [];
     if (vuelta.todoFirmado || armada.anexos === false) {
       // Nada que rehacer, o una compra ágil sin formularios (decisión 94):
@@ -210,20 +362,78 @@ export class ArmarPostulacionService {
             ...(experiencia ? { experiencia } : {}),
             ya_firmados: vuelta.yaFirmados,
             reemplaza: [...vuelta.borradoresDeFormularios, ...propuestasViejas],
+            ...(reparto ? { reparto } : {}),
           }),
       ]);
     }
+    // Decisión 119, parte 3b (08-11): la propuesta y la cotización salen
+    // con el nombre que les dan las bases («Especificaciones y detalle del
+    // servicio», «Oferta económica…») y cuentan como ese papel.
+    const papeles = papelesSinFormato(resultado);
+    const comoLaLlaman = (quien: 'propuesta' | 'cotizacion') =>
+      papeles.find((p) => p.quien?.quien === quien && p.obligatorio)?.nombre ??
+      papeles.find((p) => p.quien?.quien === quien)?.nombre;
     if (conPropuesta) {
+      const nombre = comoLaLlaman('propuesta');
       pasos.push([
         'La propuesta técnica',
         () =>
           this.documentos.crearPropuesta(companyId, user.id, oportunidadId, {
             monto_total: armada.total,
             reemplaza: vuelta.borradoresDePropuesta,
+            ...(nombre ? { nombre } : {}),
           }),
       ]);
     }
+    // Decisión 119 (07-11): si las bases piden una cotización, la arma el
+    // motor desde la cotización vinculada. Felipe, con la 2705-1740-COT26:
+    // "todos los documentos debieron generarse". Lo subido a mano manda; la
+    // firmada con el mismo precio se queda. Desde la 120 (08-11), sin
+    // vinculada, desde lo postulado: "arma una tipo y la adjunto".
     const problemas: string[] = [];
+    const conCotizacion =
+      Boolean(this.cotizacionDetallada) &&
+      pidenLaCotizacion(resultado) &&
+      (vuelta.cotizacion === 'no_hay' || vuelta.cotizacion === 'otro_precio');
+    if (conCotizacion && this.cotizacionDetallada) {
+      const detallada = this.cotizacionDetallada;
+      const nombre = comoLaLlaman('cotizacion');
+      pasos.push([
+        'La cotización detallada',
+        () => {
+          if ('problema' in base) throw new Error(base.problema);
+          return detallada.armar(user, oportunidadId, ofertaId, armada.total, {
+            conPropuesta: armada.propuesta,
+            reemplaza: vuelta.borradoresDeCotizacion,
+            ...(reparto ? { reparto } : {}),
+            ...(nombre ? { nombre } : {}),
+            ...(base.vinculada ? {} : { deLoPostulado: base }),
+          });
+        },
+      ]);
+      if (vuelta.cotizacion === 'otro_precio') {
+        problemas.push(
+          'La cotización detallada firmada tiene el precio de antes: firma la nueva y borra la anterior.',
+        );
+      }
+    }
+    // Las declaraciones y cartas que las bases piden sin formato, en el
+    // formato de la casa y sin IA (parte 3b): las que no salen por un dato
+    // que falta quedan dichas.
+    const declaraciones = this.declaraciones;
+    if (declaraciones && lasDeclaracionesPedidas(resultado).length > 0) {
+      pasos.push([
+        'Las declaraciones',
+        async () => {
+          const r = await declaraciones.armar(user, oportunidadId, ofertaId, {
+            experiencia,
+            reemplaza: vuelta.borradoresDeDeclaraciones ?? [],
+            yaHechas: vuelta.declaracionesHechas ?? [],
+          });
+          problemas.push(...r.noSalieron);
+        },
+      ]);
+    }
     await Promise.all(
       pasos.map(async ([que, paso]) => {
         try {
@@ -255,6 +465,48 @@ export class ArmarPostulacionService {
       );
   }
 
+  /** Sobre qué se reparte el precio (el-reparto.ts): la cotización
+   *  vinculada o, sin ella, lo postulado con los precios del catálogo, en
+   *  memoria y sin crear nada en Eventia (decisión 120). Si no se puede, el
+   *  porqué: los formularios dejan el precio por ítem pendiente, como
+   *  antes, y la cotización que piden las bases no sale. Nunca lanza. */
+  private async laBaseDelPrecio(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<
+    | {
+        cotizacion: CotizacionDeLaPostulacion;
+        matriz: FilaDeLaMatriz[];
+        vinculada: boolean;
+      }
+    | { problema: string }
+  > {
+    try {
+      const o = await this.repo.oportunidad(companyId, oportunidadId);
+      if (o?.quotation_id) {
+        const q = await this.repo.cotizacion(companyId, {
+          id: o.quotation_id,
+        });
+        return q
+          ? { cotizacion: q, matriz: [], vinculada: true }
+          : {
+              problema:
+                'No encontramos la cotización vinculada: vincúlala de nuevo.',
+            };
+      }
+      const postulado = await this.cotizacion.deLoPostulado(
+        companyId,
+        oportunidadId,
+      );
+      return { ...postulado, vinculada: false };
+    } catch (error) {
+      this.logger.warn(
+        `el reparto del precio de la oportunidad ${oportunidadId}: ${mensajeDe(error)}`,
+      );
+      return { problema: mensajeDe(error) };
+    }
+  }
+
   /** Lo que ya hay en «Mi postulación»: qué está firmado y qué borradores
    *  se reemplazan (volver-a-armar.ts). Si no se puede leer, se rehace todo
    *  y no se borra nada. */
@@ -263,6 +515,7 @@ export class ArmarPostulacionService {
     oportunidadId: number,
     total: number,
     resultado: Record<string, unknown> | null,
+    ofertaId?: number,
   ): Promise<LaVueltaAnterior> {
     try {
       const [archivos, trabajos] = await Promise.all([
@@ -271,6 +524,7 @@ export class ArmarPostulacionService {
       ]);
       return laVueltaAnterior({
         postulacion: archivos.filter((a) => a.seccion === 'postulacion'),
+        tipoDe: new Map(trabajos.map((t) => [t.id, t.tipo])),
         formularios: Array.isArray(resultado?.formularios)
           ? (resultado.formularios as FormularioDeLasBases[])
           : [],
@@ -283,6 +537,19 @@ export class ArmarPostulacionService {
               return [t.id, monto > 0 ? monto : null];
             }),
         ),
+        // El precio de la vuelta anterior: la oferta lista más nueva que no
+        // es esta (decisión 119).
+        precioAnterior: (() => {
+          const antes = trabajos.find(
+            (t) =>
+              t.tipo === 'oferta' && t.estado === 'listo' && t.id !== ofertaId,
+          );
+          const monto = Number(
+            (antes?.parametros?.postulacion as { total?: unknown } | undefined)
+              ?.total,
+          );
+          return monto > 0 ? monto : null;
+        })(),
       });
     } catch (error) {
       this.logger.warn(
@@ -294,6 +561,8 @@ export class ArmarPostulacionService {
         borradoresDeFormularios: [],
         borradoresDePropuesta: [],
         propuestaFirmada: false,
+        borradoresDeCotizacion: [],
+        cotizacion: 'no_hay',
       };
     }
   }

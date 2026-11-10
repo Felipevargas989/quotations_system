@@ -1,6 +1,6 @@
 # Mapa: Encuestas de satisfacción
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.8): las respuestas de los clientes de un tipo apagado no aparecen ni cuentan.
 
 ## 1. Qué hace
 
@@ -52,7 +52,7 @@ Endpoints de otros módulos de los que depende la encuesta:
 | `GET /quotations/:id` | `QuotationsController.findOne` | `QuotationsService.findOne` → `QuotationsRepository.findOne` | `getQuotationById` en `PublicSurvey` (además del cotizador) | `@Public()`, con un TODO: "maybe create public endpoint for this" | 01 |
 | `GET /companies/public/:id` | `CompaniesController.findOnePublic` | `CompaniesService.findOne` | `getCompanyById` (`services/superAdmin.service.tsx`) → `getCompanyPublic` (`services/companies.service.ts`) ← `PublicSurvey`; `getCompanyPublic` directo ← `CreateQuotationPublic` | `@Public()` | 15 |
 | `GET /portal/:token` | `portal.controller.ts` | `QuotationsService.getPortalData` (usa `QuotationsRepository.answeredSurveys`) | `PortalPage` | `@Public()` | 03 |
-| `GET /clients/:id/summary` | `ClientsController.findSummary` | `ClientsRepository.findSummary` | `ClientDetailPage` | Con sesión | 09 |
+| `GET /clients/:id/summary` | `ClientsController.findSummary` | `ClientsRepository.findSummary` | `ClientDetailPage` | Vendedor y arriba (Clientes, desde el 06-11-2026) | 09 |
 | `POST /users/signup` y `POST /super-admin/suscription` | `UsersController.signup`, `SuperAdminController.createSuscription` | `SuperAdminService.createSuscription` → `createTemplate` | **Nadie** desde la app: `signup` (`services/users.service.ts`) tiene su única llamada comentada en `NewUserRegisterForm`, la pantalla `RegisterPage` ("TEMP: registration disabled"), y `/super-admin/suscription` no tiene función en `frontend/src/services` | `@Public()` (suscripción con `@Throttle` 10/min) | 15 |
 | `POST /email-previews` | `EmailPreviewsController.sendPreviews` | `EmailService.sendPreviewBatch` (trae muestras de los dos correos de encuesta) | **Nadie** desde la app: no hay función para esta ruta en `frontend/src/services`. Se llama a mano, como herramienta del laboratorio; en producción responde 404 | `@Public()` | 12 |
 
@@ -142,6 +142,9 @@ Endpoints de otros módulos de los que depende la encuesta:
 4. La puerta manual `POST /customer-satisfaction-survey/template` (administrador) no tiene botón en ninguna pantalla.
 
 ## 6. Reglas de negocio acordadas
+
+### Los tipos de cliente de cada cargo (doc 22 §9.8, 05-11-2026)
+- **Con un tipo apagado, las respuestas de esos clientes no aparecen ni cuentan en los promedios** (`GET /customer-satisfaction-survey/answers`, filtrada con `AlcanceDeRecepcion.soloLasQueVe`).
 
 1. **La encuesta sale al declarar el evento realizado, no a ciegas.** Se eliminó el cron que la mandaba "a ciegas 3 días después de la fecha del evento". Evidencia: `docs/migrations/26_event_done_survey.sql`; comentario de `QuotationStatus.REALIZADA` en `api-rest/src/quotations/constants/constants.ts` ("Al marcarse se envía la encuesta de satisfacción"); commit `bd23fca` del 19-07 ("survey fires on declare (not blind)").
 2. **Solo se marca realizado un evento `aceptada`, de la misma empresa.** Evidencia: `QuotationsService.markEventDone`.

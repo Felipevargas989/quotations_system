@@ -1,6 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 import { X } from "lucide-react";
 import QuantitySelector from "../QuantitySelector";
+import { type ColorDeSeccion } from "./coloresDeSeccion";
+import TituloDeSeccion from "./TituloDeSeccion";
 
 // LA GRILLA DE DÍAS — PIEZA DE LA CASA (15-08, pedido de Felipe:
 // "deja esta grilla como una pieza, por si la volvemos a ocupar").
@@ -32,8 +34,62 @@ export const rotuloDia = (isoDia: string) => {
   };
 };
 
+/** v2.2 (09-11-2026): una SECCIÓN agrupa varias bandas bajo un título
+ *  con su color — en la sábana: Eventos, Personal de planta y Personal
+ *  Staff (Felipe: "agreguemos separaciones visuales entre eventos / planta
+ *  / Staff"). El título es una pestaña de color con una línea fina
+ *  (TituloDeSeccion). Gestión no la usa y se ve igual que siempre. */
+export interface SeccionGrillaDias {
+  readonly titulo: string;
+  readonly color: ColorDeSeccion;
+  /** Un control chico pegado al título (ej: "+ cargo"). */
+  readonly accion?: ReactNode;
+}
+
+/** v2.3 (09-11-2026): la banda de un grupo pintada con SU color — una línea
+ *  a la izquierda que baja por todas sus filas, su número con el detalle en
+ *  la misma línea, un fondo suave y una barra sobre sus días. En la sábana,
+ *  cada evento ("irlo viendo en cascada", Felipe). Sin esto, la banda gris
+ *  de siempre. */
+export interface BarraDeGrupo {
+  /** Lo corto, en negrita (ej: "#522"). */
+  readonly numero: string;
+  /** Lo que sigue en la misma línea (ej: "FDN Canotaje · mié 4 al dom 8 nov"). */
+  readonly detalle: string;
+  /** Los días que cubre la barra. */
+  readonly dias: ReadonlySet<string>;
+  readonly color: {
+    /** La barra de sus días y la línea de la izquierda. */
+    readonly barra: string;
+    readonly texto: string;
+    /** El fondo suave de la fila del título. */
+    readonly fondo: string;
+  };
+}
+
+/** El número de hoy en la cabecera: un círculo azul, como en un calendario. */
+const CIRCULO_DE_HOY =
+  "inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white leading-none";
+
+/** La línea de color a la izquierda de las filas de un grupo. Va como una
+ *  franja DENTRO de la celda y no como borde: el borde de una celda se corre
+ *  2 px respecto de la línea de su sección (en una tabla los bordes se
+ *  reparten mitad afuera), y Felipe pidió verlas alineadas (09-11-2026).
+ *  El -top-px tapa la rayita divisoria entre filas: se ve continua. */
+function LineaDeGrupo({ color }: { readonly color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute -top-px bottom-0 left-0 w-1 ${color}`}
+    />
+  );
+}
+
 export interface FilaGrillaDias {
   readonly id: number | string;
+  /** v2.2: la sección de la fila. Filas contiguas con el mismo título
+   *  comparten UN encabezado de sección. */
+  readonly seccion?: SeccionGrillaDias;
   /** Nombre más sus apuntes (proveedor, chips, "sin día"). */
   readonly titulo: ReactNode;
   readonly cantidadEn: (dia: string) => number;
@@ -53,6 +109,8 @@ export interface FilaGrillaDias {
   readonly grupoDestacado?: boolean;
   /** v2.1: un control a la derecha de la banda (ej: "+ cargo"). */
   readonly grupoAccion?: ReactNode;
+  /** v2.3: la banda con su color y la barra de sus días. */
+  readonly grupoBarra?: BarraDeGrupo;
   /** v2.0: pinta la celda a su manera (la sábana pone su tiene/necesita).
    *  Sin esto, la celda es el contador de siempre. */
   readonly renderCelda?: (dia: string) => ReactNode;
@@ -76,6 +134,8 @@ export default function GrillaDeDias({
   pie,
   resaltarDia,
   onDiaClick,
+  anchoTitulo = "w-56",
+  calendario = false,
 }: {
   readonly dias: readonly string[];
   /** Los días propios del evento: no llevan ✕. */
@@ -87,16 +147,36 @@ export default function GrillaDeDias({
   readonly titulosValores?: readonly [string, string, string];
   readonly filas: readonly FilaGrillaDias[];
   readonly pie?: PieGrillaDias;
-  /** v2.0: el día a resaltar (normalmente hoy). */
+  /** v2.0: el día a resaltar (normalmente hoy): su número va en un círculo
+   *  azul, como en un calendario. Solo arriba, en la fecha (Felipe,
+   *  09-11-2026: "no sé si vale mucho marcar el día actual para abajo,
+   *  quizás solo arriba en la fecha"). Solo la sábana lo pasa. */
   readonly resaltarDia?: string;
   /** v2.1: pinchar el encabezado de un día (la sábana abre su resumen). */
   readonly onDiaClick?: (dia: string) => void;
+  /** v2.4 (09-11-2026): el ancho de la columna de títulos. Gestión deja
+   *  el de siempre (w-56) para que sus dos grillas calcen; la sábana la
+   *  ensancha para que cada evento quepa en una línea. */
+  readonly anchoTitulo?: string;
+  /** v2.5 (09-11-2026): la grilla como calendario — sobre blanco y con el
+   *  mes solo cuando cambia. La usa la sábana de Planificación; Gestión
+   *  queda como siempre. (Tuvo una línea antes de cada domingo para separar
+   *  las semanas; Felipe la sacó ese mismo día: "¿por qué hay una raya del
+   *  sáb 14 al dom 15?".) */
+  readonly calendario?: boolean;
 }) {
+  // El mes, solo el primer día y cuando cambia.
+  const conMes = (d: string, i: number) =>
+    !calendario || i === 0 || d.slice(8, 10) === "01";
   return (
-    <div className="border border-gray-200 rounded-xl overflow-x-auto">
+    <div
+      className={`border border-gray-200 rounded-xl overflow-x-auto ${
+        calendario ? "bg-white" : ""
+      }`}
+    >
       <table className="w-full text-sm table-fixed min-w-[56rem]">
         <colgroup>
-          <col className="w-56" />
+          <col className={anchoTitulo} />
           {dias.map((d) => (
             <col key={d} />
           ))}
@@ -110,19 +190,25 @@ export default function GrillaDeDias({
           )}
         </colgroup>
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
+          <tr
+            className={`border-b border-gray-200 ${calendario ? "" : "bg-gray-50"}`}
+          >
             <th className="px-3 py-2 text-left font-medium text-gray-500">
               {columnaTitulo}
             </th>
-            {dias.map((d) => {
+            {dias.map((d, di) => {
               const r = rotuloDia(d);
               const quitable = !diasFijos.has(d) && !congelado;
+              const esHoy = d === resaltarDia;
+              // Con un día resaltado, todos los números ocupan el alto del
+              // círculo: así las tres líneas calzan entre columnas.
+              const numero = resaltarDia
+                ? "inline-flex h-6 items-center justify-center leading-none"
+                : "leading-tight";
               return (
                 <th
                   key={d}
-                  className={`px-2 py-2 text-center font-medium ${
-                    d === resaltarDia ? "text-blue-700" : "text-gray-600"
-                  }`}
+                  className="px-2 py-2 text-center font-medium text-gray-600"
                 >
                   {/* El ✕ va junto al NOMBRE del día — "sáb ✕" — y el
                       espaciador invisible del mismo ancho al otro lado
@@ -148,15 +234,21 @@ export default function GrillaDeDias({
                       type="button"
                       onClick={() => onDiaClick(d)}
                       title="Ver el resumen del día"
-                      className="leading-tight hover:text-blue-700 hover:underline"
+                      className={
+                        esHoy
+                          ? `${CIRCULO_DE_HOY} hover:bg-blue-700`
+                          : `${numero} hover:text-blue-700 hover:underline`
+                      }
                     >
                       {r.num}
                     </button>
                   ) : (
-                    <div className="leading-tight">{r.num}</div>
+                    <div className={esHoy ? `mx-auto ${CIRCULO_DE_HOY}` : "leading-tight"}>
+                      {r.num}
+                    </div>
                   )}
                   <div className="text-[11px] text-gray-400 leading-none">
-                    {r.mes}
+                    {conMes(d, di) ? r.mes : "\u00a0"}
                   </div>
                 </th>
               );
@@ -175,7 +267,68 @@ export default function GrillaDeDias({
         <tbody className="divide-y divide-gray-100">
           {filas.map((f, i) => (
             <Fragment key={f.id}>
-              {f.grupo && filas[i - 1]?.grupo !== f.grupo && (
+              {f.seccion &&
+                filas[i - 1]?.seccion?.titulo !== f.seccion.titulo && (
+                  <tr>
+                    <td
+                      colSpan={1 + dias.length + (titulosValores ? 4 : 0)}
+                      // Sin margen a los lados: la pestaña de la sección calza
+                      // con la línea de cada evento (Felipe, 09-11-2026).
+                      className={`px-0 ${i === 0 ? "pt-2" : "pt-6"} pb-1`}
+                    >
+                      <TituloDeSeccion
+                        titulo={f.seccion.titulo}
+                        color={f.seccion.color}
+                        accion={f.seccion.accion}
+                      />
+                    </td>
+                  </tr>
+                )}
+              {f.grupo && filas[i - 1]?.grupo !== f.grupo && f.grupoBarra && (
+                <>
+                  <tr>
+                    <td
+                      className={`relative px-3 py-1.5 text-sm ${f.grupoBarra.color.fondo} ${f.grupoBarra.color.texto}`}
+                    >
+                      <LineaDeGrupo color={f.grupoBarra.color.barra} />
+                      {/* Todo en una línea (Felipe, 09-11-2026: "el número
+                          del evento y el nombre de cliente y fecha, ¿no
+                          será mejor que esté todo en la misma fila?"). */}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 break-words">
+                          <span className="font-semibold">{f.grupoBarra.numero}</span>
+                          {f.grupoBarra.detalle ? ` · ${f.grupoBarra.detalle}` : ""}
+                        </span>
+                        {f.grupoAccion && <span className="shrink-0">{f.grupoAccion}</span>}
+                      </div>
+                    </td>
+                    {dias.map((d, di) => {
+                      const barra = f.grupoBarra!;
+                      const dentro = barra.dias.has(d);
+                      const parte = dentro && !barra.dias.has(dias[di - 1] ?? "");
+                      const termina = dentro && !barra.dias.has(dias[di + 1] ?? "");
+                      return (
+                        <td
+                          key={d}
+                          className={`px-0 py-1.5 align-middle ${barra.color.fondo}`}
+                        >
+                          {dentro && (
+                            <span
+                              className={`block h-2 ${barra.color.barra} ${
+                                parte ? "rounded-l-full ml-1" : ""
+                              } ${termina ? "rounded-r-full mr-1" : ""}`}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
+                    {titulosValores && (
+                      <td colSpan={4} className={f.grupoBarra.color.fondo} />
+                    )}
+                  </tr>
+                </>
+              )}
+              {f.grupo && filas[i - 1]?.grupo !== f.grupo && !f.grupoBarra && (
                 <tr
                   className={`bg-gray-50/70 ${
                     f.grupoDestacado ? "border-t-4 border-gray-300" : ""
@@ -193,7 +346,14 @@ export default function GrillaDeDias({
                 </tr>
               )}
             <tr>
-              <td className={`px-3 py-2 text-gray-900 ${f.grupo ? "pl-6" : ""}`}>
+              <td
+                className={`px-3 py-2 text-gray-900 ${f.grupo || f.seccion ? "pl-6" : ""} ${
+                  f.grupoBarra ? "relative" : ""
+                }`}
+              >
+                {/* La línea del color del evento baja por todas sus filas
+                    (Felipe, 09-11-2026), no solo por la banda. */}
+                {f.grupoBarra && <LineaDeGrupo color={f.grupoBarra.color.barra} />}
                 {f.titulo}
               </td>
               {dias.map((d) => {

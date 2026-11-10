@@ -75,7 +75,9 @@ export interface FilaDeLaOferta {
   pagina: number;
   /** Lo que se ofrece: va tal cual en la propuesta y en los anexos. */
   como: string;
-  origen: "catalogo" | "subcontratar" | "completar";
+  /** Decisión 120 (08-11): también lo parecido al catálogo y lo
+   *  particular de la licitación (se incluye sin precio aparte). */
+  origen: "catalogo" | "parecido" | "subcontratar" | "particular" | "completar";
   productos: number[];
 }
 
@@ -105,9 +107,29 @@ export interface PostulacionArmada {
   problemas?: string[];
 }
 
+/** Lo que la IA no sabe de la empresa y pregunta antes de armar (decisión
+ *  119, parte 3). */
+export interface PreguntaDeLaPostulacion {
+  /** La exigencia en minúsculas y sin tildes (la de «Bases y criterios»). */
+  clave: string;
+  /** Lo que dicen las bases, tal cual. */
+  exigencia: string;
+  /** La pregunta, corta. */
+  pregunta: string;
+  /** Si pregunta solo por una parte de la exigencia, esa parte: un «No
+   *  puedo» vale solo para ella (decisión 121). */
+  parte?: string;
+}
+
 export interface TrabajoDeOferta extends Omit<AnalisisDeBases, "resultado"> {
   tipo: "oferta";
-  parametros?: { postulacion?: PostulacionArmada };
+  parametros?: {
+    postulacion?: PostulacionArmada;
+    /** El armado se detuvo hasta que la empresa responda (decisión 119,
+     *  parte 3): el precio con que se pidió y las preguntas. Va en la
+     *  última fila de la oferta (sin oferta todavía, una en «error»). */
+    detenida?: { total: number; preguntas: PreguntaDeLaPostulacion[] };
+  };
   resultado: ArmadoDeLaOferta | null;
 }
 
@@ -125,6 +147,29 @@ export const armarPostulacion = async (id: number, total: number) =>
     total,
   })) as TrabajoDeOferta;
 
+/** Una respuesta del modal (decisión 119, parte 3). */
+export interface RespuestaDelModal {
+  clave: string;
+  pregunta: string;
+  exigencia?: string;
+  respuesta: "lo_tengo" | "no_puedo";
+  detalle?: string;
+  parte?: string;
+}
+
+/** Las respuestas del modal: quedan en «Mi empresa» y marcadas en «Bases y
+ *  criterios», y recién ahí se arma. Responde con la oferta en curso. */
+export const responderYArmar = async (
+  id: number,
+  total: number,
+  respuestas: RespuestaDelModal[],
+) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/postulacion/respuestas`,
+    "POST",
+    { total, respuestas },
+  )) as TrabajoDeOferta;
+
 /** Vincular una cotización que ya existe SIN reescribirla (decisión 73,
  *  23-10): quedan sus productos y precios; pasa a la fecha de las bases. */
 export const vincularCotizacion = async (id: number, numero: number) =>
@@ -139,7 +184,16 @@ export interface PiezaDelSet {
   nombre: string;
   /** Dónde queda dentro del ZIP: «2. Técnica/Respaldos de experiencia». */
   carpetas: string[];
-  que_es: "formulario" | "propuesta" | "subido" | "documento" | "respaldo";
+  que_es:
+    | "formulario"
+    | "propuesta"
+    /** La cotización detallada que arma el motor (decisión 119). */
+    | "cotizacion"
+    /** Una declaración en el formato de la casa (decisión 119, parte 3b). */
+    | "declaracion"
+    | "subido"
+    | "documento"
+    | "respaldo";
   aviso: string | null;
 }
 

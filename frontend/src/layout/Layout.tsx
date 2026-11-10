@@ -26,7 +26,8 @@ const ES_LABORATORIO = String(import.meta.env.VITE_SUPABASE_URL || "").includes(
 );
 
 export default function Layout() {
-  const { userName, user, userRole, signOut, loading, company } = useAuth();
+  const { userName, user, userRole, permisos, signOut, loading, company } =
+    useAuth();
 
   // Cuántos días le quedan de prueba (paso 3.2, 14-09-2026). El día del
   // vencimiento cuenta como cero: esa mañana el reloj la bloquea.
@@ -52,7 +53,7 @@ export default function Layout() {
     // clic en esa ventana la dejaba en "Permisos Insuficientes". Y si la
     // consulta del rol falla, el menú se queda vacío en vez de mentir.
     if (!userRole) return false;
-    return canAccessSection(userRole, section as any);
+    return canAccessSection(userRole, section as any, permisos);
   };
 
   const handleSignOut = async () => {

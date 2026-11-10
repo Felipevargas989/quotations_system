@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { AnalisisRepository } from './analisis/analisis.repository';
 import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import { DecisionesRepository } from './decisiones/decisiones.repository';
@@ -32,6 +33,11 @@ import {
 } from './historia/se-viene.service';
 import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
+import { claveDeExigencia } from './oferente/lo-que-sabemos';
+import {
+  type LoQueDeciaLaIA,
+  LoQueSabemosService,
+} from './oferente/lo-que-sabemos.service';
 import {
   type ConfigOportunidades,
   type FichaDeOportunidad,
@@ -42,6 +48,7 @@ import {
   AceptarLaGanadaService,
   type CotizacionAceptada,
 } from './postulacion/aceptar-la-ganada.service';
+import { itemsDeLaRevision } from './postulacion/las-preguntas';
 
 // LA PANTALLA DE OPORTUNIDADES (doc 17 §5.3 y §5.7, sprint 2). Lo que la
 // empresa ve y decide. La lectura de la IA no se edita aquí: es la foto
@@ -102,6 +109,10 @@ export class OportunidadesService {
     /** Decisión 114: «Me interesa» trae los documentos y analiza las bases.
      *  Opcional: las pruebas de antes no lo traen. */
     @Optional() private readonly preparar?: PrepararLaLicitacionService,
+    /** Decisión 119, parte 3: lo marcado en «Bases y criterios» también se
+     *  aprende (migración 190). Opcional: las pruebas de antes no lo traen. */
+    @Optional() private readonly loQueSabemos?: LoQueSabemosService,
+    @Optional() private readonly analisis?: AnalisisRepository,
   ) {
     this.logger.setContext(OportunidadesService.name);
   }
@@ -181,14 +192,45 @@ export class OportunidadesService {
     clave: string,
     marca: MarcaDeExigencia | null,
   ): Promise<Record<string, MarcaDeExigencia>> {
+    const limpia = clave.trim().slice(0, 400);
     const marcas = await this.fichas.marcarExigencia(
       companyId,
       id,
-      clave.trim().slice(0, 400),
+      limpia,
       marca,
     );
     if (!marcas) throw new NotFoundException('No encontramos esa oportunidad.');
+    // Decisión 119, parte 3: lo que se marca también queda en «Lo que
+    // Eventia sabe de tu empresa», si la IA no lo sabía.
+    if (this.loQueSabemos) {
+      await this.loQueSabemos.alMarcar(
+        companyId,
+        id,
+        limpia,
+        marca,
+        await this.loQueDeciaLaIA(companyId, id, limpia),
+      );
+    }
     return marcas;
+  }
+
+  /** Lo que dijo «¿Puedo cumplir?» de esa exigencia, o null. */
+  private async loQueDeciaLaIA(
+    companyId: number,
+    id: number,
+    clave: string,
+  ): Promise<LoQueDeciaLaIA | null> {
+    try {
+      const analisis = await this.analisis?.ultimo(companyId, id);
+      if (analisis?.estado !== 'listo') return null;
+      return (
+        itemsDeLaRevision(analisis.resultado).find(
+          (i) => claveDeExigencia(i.que) === clave,
+        ) ?? null
+      );
+    } catch {
+      return null;
+    }
   }
 
   async ficha(companyId: number, id: number) {

@@ -12,6 +12,8 @@ import { UserAuth } from 'src/users/entities/user.entity';
 import { UsersRepository } from 'src/users/users.repository';
 import { AuthService } from './auth.service';
 import { derechosDe, type Derecho, type EmpresaConPlan } from './derechos';
+import type { Permiso } from './permisos';
+import { PermisosService } from './permisos.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
@@ -20,6 +22,7 @@ export class AuthGuard implements CanActivate {
     private readonly authService: AuthService,
     private readonly usersRepository: UsersRepository,
     private readonly reflector: Reflector,
+    private readonly permisos: PermisosService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -63,6 +66,13 @@ export class AuthGuard implements CanActivate {
       const empresa = fullUser!.companies as EmpresaConPlan | null;
       const derechos = derechosDe(empresa);
 
+      // Los permisos por cargo (doc 22, 05-11-2026): los prendidos del
+      // cargo en su empresa, para RolesGuard y la lista de cotizaciones.
+      const permisos = await this.permisos.delCargo(
+        fullUser!.company_id,
+        fullUser!.role,
+      );
+
       // Attach the full user with company_id AND role to request object.
       // El cargo viaja para que RolesGuard (Fase 3, 28-07) pueda
       // aplicarlo: antes el backend solo comprobaba que hubiera sesión.
@@ -72,6 +82,8 @@ export class AuthGuard implements CanActivate {
             company_id: number;
             role?: string;
             email?: string;
+            full_name?: string;
+            permisos?: Permiso[];
             derechos?: Derecho[];
             usuarios_max?: number | null;
             cotizaciones_mes?: number | null;
@@ -86,6 +98,9 @@ export class AuthGuard implements CanActivate {
         // El correo viaja para el guardián de super-admin (allowlist
         // SUPER_ADMIN_EMAILS) — mudanza #7, 28-07.
         email: fullUser!.email,
+        // El nombre queda en el registro de los permisos por cargo.
+        full_name: fullUser!.full_name,
+        permisos,
         // La lista de derechos incluye los módulos propios de la
         // migración 111: Personal y Marketing son dos derechos más.
         // Sin las columnas (migración 112 sin aplicar) la empresa se

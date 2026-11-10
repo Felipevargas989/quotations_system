@@ -49,6 +49,8 @@ import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
+import { LoQueSabemosRepository } from './oferente/lo-que-sabemos.repository';
+import { LoQueSabemosService } from './oferente/lo-que-sabemos.service';
 import { OferenteRepository } from './oferente/oferente.repository';
 import { OferenteService } from './oferente/oferente.service';
 import { RespaldosDePostVentaService } from './oferente/respaldos-de-post-venta.service';
@@ -63,7 +65,10 @@ import { CotizacionDeLaPostulacionService } from './postulacion/cotizacion-de-la
 import { EditorDelWordController } from './postulacion/editor-del-word.controller';
 import { EditorDelWordService } from './postulacion/editor-del-word.service';
 import { ElSetService } from './postulacion/el-set.service';
+import { LaCotizacionDetalladaService } from './postulacion/la-cotizacion-detallada.service';
 import { LaExperienciaService } from './postulacion/la-experiencia.service';
+import { LasDeclaracionesService } from './postulacion/las-declaraciones.service';
+import { LasPreguntasService } from './postulacion/las-preguntas.service';
 import { LoPostuladoService } from './postulacion/lo-postulado.service';
 import { PostulacionController } from './postulacion/postulacion.controller';
 import { PostulacionRepository } from './postulacion/postulacion.repository';
@@ -130,6 +135,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     LoPostuladoService,
     ElSetService,
     ArmarPostulacionService,
+    LaCotizacionDetalladaService,
+    LasDeclaracionesService,
     LaExperienciaService,
     EditorDelWordService,
     MercadoPublicoClient,
@@ -152,6 +159,10 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     OferenteRepository,
     OferenteService,
     LeerRespaldoService,
+    // Decisión 119, parte 3 (migración 190).
+    LoQueSabemosRepository,
+    LoQueSabemosService,
+    LasPreguntasService,
     RespaldosDePostVentaService,
     HistoriaRepository,
     HistoriaService,

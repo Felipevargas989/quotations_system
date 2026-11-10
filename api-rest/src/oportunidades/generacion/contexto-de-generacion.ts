@@ -1,6 +1,8 @@
+import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
 import { hoyEnChile } from '../analisis/comun';
 import type { EventiaRepository } from '../eventia/eventia.repository';
+import { conLoQueRespondio, respuestasDe } from '../oferente/lo-que-sabemos';
 import type { OferenteRepository } from '../oferente/oferente.repository';
 import { OFERENTE_VACIO } from '../oferente/oferente.service';
 import type { OportunidadesRepository } from '../oportunidades.repository';
@@ -16,6 +18,7 @@ import {
   fechaLarga,
   loQuePidenLasBases,
 } from './instrucciones';
+import { laCarpetaParaLaIA } from './la-carpeta';
 
 // LO QUE LEE LA IA AL GENERAR LOS ANEXOS, LA PROPUESTA Y LA FIRMA. Salió de
 // generacion.service.ts el 22-10 (decisión 68): al sumarle la memoria de la
@@ -30,7 +33,9 @@ export type FichaParaGenerar = NonNullable<
 
 export type FuentesDelContexto = {
   analisis: Pick<AnalisisRepository, 'ultimo'>;
-  oferente: Pick<OferenteRepository, 'oferente' | 'empresa' | 'respaldos'>;
+  oferente: Pick<OferenteRepository, 'oferente' | 'empresa' | 'respaldos'> &
+    // La carpeta de «Mi empresa» (decisión 121); sin ella, la IA no la ve.
+    Partial<Pick<OferenteRepository, 'documentos'>>;
   eventia: Pick<EventiaRepository, 'carta' | 'eventosRealizados'>;
   loPostulado: Pick<LoPostuladoService, 'paraDocumentos'>;
   /** La memoria de la licitación (decisión 68); sin ella, nada aclarado. */
@@ -61,6 +66,7 @@ export async function contextoDeGeneracion(
     respaldos,
     oferta,
     aclarado,
+    documentos,
   ] = await Promise.all([
     f.analisis.ultimo(companyId, oportunidadId),
     f.oferente.oferente(companyId),
@@ -74,10 +80,23 @@ export async function contextoDeGeneracion(
       ? f.loPostulado.paraDocumentos(companyId, oportunidadId)
       : Promise.resolve(null),
     memoriaDeLaLicitacion(f.preguntas, companyId, oportunidadId, f.avisar),
+    // Si la carpeta no se puede leer, se arma igual, sin ella.
+    conEventia && f.oferente.documentos
+      ? f.oferente.documentos(companyId).catch((e: unknown) => {
+          f.avisar(`la carpeta de la empresa ${companyId}: ${mensajeDe(e)}`);
+          return [];
+        })
+      : Promise.resolve([]),
   ]);
   const listo =
     analisis?.estado === 'listo' && analisis.resultado ? analisis : null;
-  const bases = loQuePidenLasBases(listo?.resultado ?? null);
+  // Lo que ya respondió la empresa (decisión 119, parte 3): lo respondido
+  // ya no queda [POR CONFIRMAR].
+  const bases = conLoQueRespondio(
+    loQuePidenLasBases(listo?.resultado ?? null),
+    ficha.exigencias_marcadas,
+    respuestasDe(companyId),
+  );
   const datos: ContextoDeGeneracion = {
     codigo: ficha.codigo,
     nombre: ficha.proceso.nombre,
@@ -99,6 +118,7 @@ export async function contextoDeGeneracion(
       ),
     ),
     respaldos,
+    carpeta: laCarpetaParaLaIA(documentos),
     oferta,
   };
   return {

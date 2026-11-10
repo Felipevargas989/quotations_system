@@ -1,3 +1,4 @@
+import { type QuienLoHace, quienLoHace } from "@los-papeles";
 import type { DocumentoPedido } from "../../services/exigencias.service";
 import type {
   AdjuntoDeOportunidad,
@@ -22,7 +23,11 @@ export type EstadoDelDocumento =
   | "vencido"
   | "falta"
   /** Un formulario que, según el análisis, no aplica (el de UTP). */
-  | "no_aplica";
+  | "no_aplica"
+  /** Se hace en Mercado Público al ofertar (decisión 119, parte 3b): la
+   *  declaración jurada de requisitos para ofertar, el formulario de la
+   *  oferta. No se sube. */
+  | "portal";
 
 export interface FilaDelChecklist extends DocumentoPedido {
   estado: EstadoDelDocumento;
@@ -198,6 +203,23 @@ const ORDEN_DE_LA_PARTE = {
   otra: 3,
 };
 
+/** Lo que dice la fila de un papel que hace Eventia y todavía no está. */
+const LO_ARMA: Record<"cotizacion" | "propuesta" | "declaracion", string> = {
+  // Decisión 120 (08-11): también sin cotización vinculada, con lo
+  // postulado y los precios de tu catálogo.
+  cotizacion: "Lo arma «Armar postulación» con lo postulado o tu cotización",
+  propuesta: "Va en la propuesta técnica de «Armar postulación»",
+  declaracion: "Lo arma «Armar postulación» con tus datos de «Mi empresa»",
+};
+
+/** ¿Es el mismo papel? La cotización, la propuesta o la misma
+ *  declaración. */
+const mismoPapel = (a: QuienLoHace, b: QuienLoHace | null): boolean =>
+  b !== null &&
+  a.quien === b.quien &&
+  (a.quien !== "declaracion" ||
+    (b.quien === "declaracion" && a.tipo === b.tipo));
+
 export function checklistDeDocumentos(d: {
   r: Pick<ResultadoDeBases, "requisitos" | "formularios" | "documentos">;
   carpeta: DocumentoDeEmpresa[];
@@ -223,11 +245,82 @@ export function checklistDeDocumentos(d: {
   const masNuevo = <T extends { creado_en: string }>(xs: T[]) =>
     [...xs].sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];
 
+  const porId = new Map(d.postulacion.map((a) => [a.id, a]));
+  /** ¿Es un anexo que la IA llenó desde un archivo del comprador? El
+   *  firmado, por su Word si sigue ahí. */
+  const delComprador = (a: AdjuntoDeOportunidad) => {
+    const w = a.origen === "firmado" ? (porId.get(a.viene_de ?? -1) ?? a) : a;
+    return w.origen !== "subido" && w.viene_de != null;
+  };
+  /** ¿Las bases nombran este formulario y no trajeron su formato? */
+  const sinSuFormato = (p: DocumentoPedido) => {
+    const numero = numeroDe(p.nombre);
+    const suyos = (d.r.formularios ?? []).filter((f) =>
+      numero !== null
+        ? numeroDe(f.nombre) === numero
+        : normalizar(f.nombre) === normalizar(p.nombre),
+    );
+    return (
+      suyos.length > 0 &&
+      suyos.every((f) => typeof f.archivo === "string" && !f.archivo.trim())
+    );
+  };
+
+  /** Decisión 119, parte 3b (08-11): lo que las bases piden sin formato
+   *  lo hace Eventia, se hace en el portal o lo sube la empresa (con el
+   *  porqué). Felipe: "me arma todos los documentos que necesito subir
+   *  según las bases y según la ley". */
+  const estadoDelPapel = (
+    p: DocumentoPedido,
+    q: QuienLoHace,
+  ): Omit<FilaDelChecklist, keyof DocumentoPedido> => {
+    if (q.quien === "portal") {
+      return {
+        estado: "portal",
+        detalle: "Se hace en Mercado Público al ofertar",
+      };
+    }
+    // Lo que sube la empresa (o lo de UTP, si postula así): lo subido a
+    // mano, por sus palabras. Lo de Eventia: su archivo, por su nombre.
+    const porSusPalabras = q.quien === "empresa" || q.quien === "no_aplica";
+    const suyos = porSusPalabras
+      ? d.postulacion.filter((a) =>
+          palabrasClave(p.nombre).some((c) => normalizar(a.nombre).includes(c)),
+        )
+      : d.postulacion.filter(
+          (a) => !delComprador(a) && mismoPapel(q, quienLoHace(a.nombre)),
+        );
+    const firmado = suyos.find((a) => a.origen === "firmado");
+    if (firmado) return { estado: "firmado", detalle: firmado.nombre };
+    const subido = suyos.find((a) => a.origen === "subido");
+    if (subido) return { estado: "en_tu_postulacion", detalle: subido.nombre };
+    if (q.quien === "no_aplica")
+      return { estado: "no_aplica", detalle: q.porque };
+    if (q.quien === "empresa") {
+      return { estado: "falta", detalle: `Lo subes tú: ${q.porque}` };
+    }
+    const hecho = suyos.find((a) => a.origen === "generado");
+    if (hecho) {
+      return {
+        estado: "hecho",
+        detalle: `${q.quien === "propuesta" ? "Hecho por la IA" : "Hecho por Eventia"}, falta firmarlo · ${hecho.nombre}`,
+      };
+    }
+    return { estado: "lo_arma_la_ia", detalle: LO_ARMA[q.quien] };
+  };
+
   const estadoDe = (
     p: DocumentoPedido,
   ): Omit<FilaDelChecklist, keyof DocumentoPedido> => {
     const deUtp = ES_DE_UTP.test(normalizar(`${p.nombre} ${p.condicion}`));
-    if (p.carpeta === "formulario") {
+    if (
+      p.carpeta === "otro" ||
+      (p.carpeta === "formulario" && sinSuFormato(p))
+    ) {
+      const q = quienLoHace(p.nombre, p.condicion);
+      if (q) return estadoDelPapel(p, q);
+    }
+    if (p.carpeta === "formulario" && !sinSuFormato(p)) {
       const numero = numeroDe(p.nombre);
       const suyos = d.postulacion.filter((a) =>
         numero !== null
@@ -263,8 +356,12 @@ export function checklistDeDocumentos(d: {
     }
     // Un documento que el análisis dejó en «otro» se reconoce por su
     // nombre (el certificado de la Inspección del Trabajo, 19-10).
+    // Un formulario que llega aquí no trajo su formato: también por su
+    // nombre (el «Anexo N°2 Programa de integridad» sin archivo).
     const porSuCarpeta =
-      p.carpeta === "otro" ? carpetaPorElNombre(p.nombre) : p.carpeta;
+      p.carpeta === "otro" || p.carpeta === "formulario"
+        ? carpetaPorElNombre(p.nombre)
+        : p.carpeta;
     // Decisión 102 (28-10): la certificación de que el personal conoce el
     // programa de integridad va dentro del mismo programa, en su registro
     // de difusión (Felipe: "mientras el representante legal y el
@@ -330,6 +427,12 @@ export function checklistDeDocumentos(d: {
     if (hecho)
       return { estado: "hecho", detalle: "Hecho por la IA, falta firmarlo" };
     if (deUtp) return { estado: "no_aplica", detalle: SOLO_SI_UTP };
+    if (p.carpeta === "formulario") {
+      return {
+        estado: "falta",
+        detalle: "Las bases no traen su formato: súbelo hecho",
+      };
+    }
     return { estado: "falta", detalle: null };
   };
 
@@ -344,8 +447,12 @@ export function checklistDeDocumentos(d: {
 
 /** Lo que ya está y lo que falta, para el encabezado. */
 export const resumenDelChecklist = (filas: FilaDelChecklist[]) => {
+  // Lo del portal no se prepara: se hace al ofertar.
   const conLaOferta = filas.filter(
-    (f) => f.cuando === "con_la_oferta" && f.estado !== "no_aplica",
+    (f) =>
+      f.cuando === "con_la_oferta" &&
+      f.estado !== "no_aplica" &&
+      f.estado !== "portal",
   );
   return {
     listos: conLaOferta.filter((f) =>

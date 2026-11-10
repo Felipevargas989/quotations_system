@@ -17,6 +17,7 @@ import {
 } from 'src/auth/derechos';
 import {
   AlcanceDeRecepcion,
+  noLoTrabaja,
   revisarLoQueCotiza,
 } from 'src/clients/alcance-de-recepcion';
 import { ClientsService } from 'src/clients/clients.service';
@@ -29,10 +30,11 @@ import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
+import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { RefundsService } from 'src/refunds/refunds.service';
 import { UploadFileDto } from 'src/storage/dto/upload-file.dto';
 import { StorageService } from 'src/storage/storage.service';
-import { UserRole } from 'src/users/entities/user.entity';
+import { User, UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
 import { getEventDateUtc, inicioDelMesEnChile } from '../utils/dates';
@@ -93,8 +95,34 @@ export class QuotationsService {
     // particulares (doc 21). Opcional y al final, por lo mismo: sin ella
     // (las pruebas), recepción sigue con solo requerimientos.
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
+    // El Seguimiento, para anotar cada cambio de estado (09-11-2026).
+    // Opcional y al final, por lo mismo: las pruebas que no la traen
+    // cambian el estado sin anotarlo.
+    @Optional() private readonly bitacora?: QuotationFollowupsService,
   ) {
     this.logger.setContext(QuotationsService.name);
+  }
+
+  // EL CAMBIO DE ESTADO QUEDA EN EL SEGUIMIENTO (Felipe, 09-11-2026): la
+  // puerta para los caminos que mueven el estado sin pasar por `update`
+  // (el plan de pagos al aceptar). Firma `quien`; sin él, BelIA. Nunca
+  // rompe el cambio: `registrarCambioDeEstado` se traga sus errores.
+  async anotarCambioDeEstado(
+    quien: User | null | undefined,
+    companyId: number,
+    quotationId: string,
+    de: string | null | undefined,
+    a: string | null | undefined,
+    motivo?: string | null,
+  ): Promise<void> {
+    await this.bitacora?.registrarCambioDeEstado(
+      quien,
+      companyId,
+      quotationId,
+      de,
+      a,
+      motivo,
+    );
   }
 
   // ---------- FASE 1: LA CUENTA LA HACE LA CASA (27-07-2026) ----------
@@ -584,7 +612,12 @@ export class QuotationsService {
 
   // Espejo de markEventDone: deshace la marca (realizada -> aceptada).
   // Sin correos: la encuesta ya enviada no se puede des-enviar.
-  async unmarkEventDone(id: string, companyId: number) {
+  async unmarkEventDone(
+    id: string,
+    companyId: number,
+    // Quien lo hace firma el cambio en el Seguimiento (09-11-2026).
+    quien?: User | null,
+  ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
     if (error) throw error;
@@ -601,6 +634,13 @@ export class QuotationsService {
       } as unknown as UpdateQuotationDto,
       companyId,
     );
+    await this.anotarCambioDeEstado(
+      quien,
+      companyId,
+      id,
+      QuotationStatus.REALIZADA,
+      QuotationStatus.ACEPTADA,
+    );
     return { ok: true };
   }
 
@@ -609,6 +649,8 @@ export class QuotationsService {
     companyId: number,
     // Los derechos del plan: deciden si sale la encuesta (paso 3.2).
     derechos?: DerechosDeLaSesion,
+    // Quien lo marca firma el cambio en el Seguimiento (09-11-2026).
+    quien?: User | null,
   ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
@@ -626,6 +668,13 @@ export class QuotationsService {
         quotation_status: QuotationStatus.REALIZADA,
       } as unknown as UpdateQuotationDto,
       companyId,
+    );
+    await this.anotarCambioDeEstado(
+      quien,
+      companyId,
+      id,
+      QuotationStatus.ACEPTADA,
+      QuotationStatus.REALIZADA,
     );
 
     const alreadySurveyed = Boolean(
@@ -1023,8 +1072,12 @@ export class QuotationsService {
     return this.quotationsRepository.licitacionDe(companyId, id);
   }
 
-  /** Lo que recepción puede cambiar de una cotización (doc 21 §2). */
-  private async revisarLoDeRecepcion(
+  /** Lo que un cargo puede cambiar de una cotización (doc 22 §9): solo las
+   *  de los tipos de cliente que trabaja, y pasarla a otro cliente, solo a
+   *  uno de esos; los requerimientos que siguen siendo requerimientos, de
+   *  todos. A recepción, además, lo del doc 21 §2: sin descuento, sin los
+   *  estados de operaciones y nunca una aceptada. */
+  private async revisarElCambio(
     quotation: {
       request_type?: string | null;
       quotation_status?: string | null;
@@ -1034,35 +1087,33 @@ export class QuotationsService {
     },
     cambio: UpdateQuotationDto,
     companyId: number,
+    role: string,
   ): Promise<void> {
-    const sesion = { role: UserRole.RECEPCION, company_id: companyId };
+    const sesion = { role, company_id: companyId };
+    const recepcion = role === (UserRole.RECEPCION as string);
     const pasaACotizacion =
       cambio.request_type !== undefined &&
       cambio.request_type !== RequestType.REQUERIMIENTO;
     const esRequerimiento =
       quotation.request_type === RequestType.REQUERIMIENTO;
     if (esRequerimiento && !pasaACotizacion) return;
-    const deParticular = this.alcance
-      ? await this.alcance.esParticular(
-          companyId,
-          quotation.clients?.client_type,
-        )
-      : false;
-    if (!deParticular) {
-      throw new ForbiddenException(
-        esRequerimiento
-          ? 'Recepción pasa a cotización los requerimientos de particulares: este lo cotiza quien vende.'
-          : 'Recepción puede editar requerimientos y cotizaciones de particulares, no esta.',
-      );
+    const tipo = quotation.clients?.client_type;
+    // Sin la pieza (algunas pruebas), lo de fábrica sin interruptores:
+    // recepción no trabaja ningún tipo y los demás cargos, todos.
+    const loTrabaja = this.alcance
+      ? await this.alcance.trabaja(sesion, tipo)
+      : !recepcion;
+    if (!loTrabaja) throw noLoTrabaja(tipo);
+    if (recepcion) {
+      if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
+        throw new ForbiddenException(
+          'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
+        );
+      }
+      revisarLoQueCotiza(cambio, quotation);
     }
-    if (quotation.quotation_status === QuotationStatus.ACEPTADA) {
-      throw new ForbiddenException(
-        'Una cotización aceptada se cambia en Post-Venta: es de operaciones.',
-      );
-    }
-    revisarLoQueCotiza(cambio, quotation);
     if (cambio.client_id && this.alcance) {
-      await this.alcance.exigirClienteParticular(sesion, cambio.client_id);
+      await this.alcance.exigirElTipoDelCliente(sesion, cambio.client_id);
     }
   }
 
@@ -1077,6 +1128,9 @@ export class QuotationsService {
     // Los derechos del plan, por la misma razón: los llamados internos
     // van sin ellos y no se revisa nada (paso 3.2, 14-09-2026).
     derechos?: DerechosDeLaSesion,
+    // Quien cambia el estado firma la línea del Seguimiento (Felipe,
+    // 09-11-2026). Sin él (un llamado interno), firma BelIA.
+    quien?: User | null,
   ) {
     try {
       // 0. Get quotation
@@ -1115,12 +1169,14 @@ export class QuotationsService {
       // Desde el doc 21 (04-11-2026), también las cotizaciones de clientes
       // particulares, sin descuento, sin aceptarlas y sin pasarlas a otro
       // cliente; y pasar a cotización un requerimiento, solo si es de un
-      // particular.
-      if (role === UserRole.RECEPCION) {
-        await this.revisarLoDeRecepcion(
+      // particular. Desde el doc 22 §9, lo del tipo de cliente vale para
+      // cada cargo, con los tipos que trabaja.
+      if (role) {
+        await this.revisarElCambio(
           quotation,
           updateQuotationDto,
           companyId,
+          role,
         );
       }
 
@@ -1454,6 +1510,19 @@ export class QuotationsService {
         updateQuotationDto,
         companyId,
       );
+      // EL CAMBIO DE ESTADO QUEDA EN EL SEGUIMIENTO (Felipe, 09-11-2026):
+      // «Cambió el estado de Enviada a Rechazada. Motivo: Precio.», firmado
+      // por quien lo hizo. No cuenta como gestión en el semáforo.
+      if (targetStatus && targetStatus !== quotation.quotation_status) {
+        await this.anotarCambioDeEstado(
+          quien,
+          companyId,
+          id,
+          quotation.quotation_status,
+          targetStatus,
+          updateQuotationDto.loss_reason,
+        );
+      }
       // AL ACEPTAR, LOS COMPROMISOS DE LA VENTA SE CIERRAN (28-10-2026; ver
       // `QuotationsRepository.cerrarCompromisosDeLaVenta`). Si falla, la
       // aceptación ya quedó: se registra y el «Listo» sigue a mano.
@@ -1524,6 +1593,21 @@ export class QuotationsService {
       throw new ForbiddenException(
         'Recepción puede borrar requerimientos, no cotizaciones.',
       );
+    }
+    // Una cotización de un tipo de cliente que su cargo no trabaja, tampoco
+    // (doc 22 §9).
+    if (
+      role &&
+      this.alcance &&
+      quotation &&
+      quotation.company_id === companyId &&
+      quotation.request_type !== RequestType.REQUERIMIENTO &&
+      !(await this.alcance.trabaja(
+        { role, company_id: companyId },
+        quotation.clients?.client_type,
+      ))
+    ) {
+      throw noLoTrabaja(quotation.clients?.client_type);
     }
     if (
       quotation &&

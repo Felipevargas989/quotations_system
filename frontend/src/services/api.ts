@@ -99,6 +99,14 @@ api.interceptors.response.use(
     const cuerpo = error.response?.data as
       | { codigo?: string; mensaje?: string }
       | undefined;
+    // UN PERMISO APAGADO (doc 22, 05-11-2026): la empresa le apagó a este
+    // cargo una sección. Se avisa en palabras de la casa y la sesión
+    // vuelve a pedir el perfil (AuthContext), para que el menú deje de
+    // ofrecer lo que ya no tiene.
+    if (error.response?.status === 403 && cuerpo?.codigo === "SIN_PERMISO") {
+      toast.warn(cuerpo.mensaje || "Tu cargo no tiene permiso para esto.");
+      window.dispatchEvent(new Event("eventia:sin-permiso"));
+    }
     if (
       error.response?.status === 403 &&
       cuerpo?.codigo &&

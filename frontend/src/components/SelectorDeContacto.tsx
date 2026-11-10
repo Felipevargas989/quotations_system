@@ -49,8 +49,8 @@ export default function SelectorDeContacto({
   readonly actual?: string;
   readonly onCambiado: () => Promise<void> | void;
 }) {
-  const { company, userRole } = useAuth();
-  const puede = !!clientId && puedeCambiarContacto(userRole, estado);
+  const { company, userRole, permisos } = useAuth();
+  const puede = !!clientId && puedeCambiarContacto(userRole, estado, permisos);
   const [personas, setPersonas] = useState<ClientContact[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [nueva, setNueva] = useState(false);

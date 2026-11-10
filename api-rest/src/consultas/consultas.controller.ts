@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ConsultasService } from './consultas.service';
@@ -29,18 +30,21 @@ export class ConsultasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('consultas')
   @Get()
   listar(@CurrentUser() user: User) {
     return this.consultas.listar(user.company_id);
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('consultas')
   @Get('config')
   configs(@CurrentUser() user: User) {
     return this.consultas.configs(user.company_id);
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('consultas')
   @Put('config/:eventType')
   guardarConfig(
     @Param('eventType') eventType: string,
@@ -52,6 +56,7 @@ export class ConsultasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('consultas')
   @Post(':id/convertir')
   convertir(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /consultas/${id}/convertir`);
@@ -59,6 +64,7 @@ export class ConsultasController {
   }
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('consultas')
   @Post(':id/descartar')
   descartar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /consultas/${id}/descartar`);

@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { EditorDelWordService } from './editor-del-word.service';
@@ -18,6 +19,7 @@ import { GuardarElWordDto } from './postulacion.dto';
 // el resto de Oportunidades: administrador y el derecho `oportunidades`.
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
+@Permiso('oportunidades')
 @Controller('oportunidades')
 export class EditorDelWordController {
   constructor(

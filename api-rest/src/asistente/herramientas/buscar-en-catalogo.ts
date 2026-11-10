@@ -157,6 +157,7 @@ export const buscarEnCatalogo: Herramienta = {
     },
   },
   cargos: RECEPTION_AND_UP,
+  permiso: ['cotizaciones', 'catalogo'],
   plataLibre: true,
   async ejecutar(entrada, ctx) {
     // Varias de una vez (Felipe, 03-11: una pregunta buscó diez veces, una

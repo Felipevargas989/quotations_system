@@ -1,7 +1,9 @@
 import { Controller, Get, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { User } from 'src/users/entities/user.entity';
 
@@ -59,7 +61,17 @@ export class HoyRepository {
     this.logger.setContext(HoyRepository.name);
   }
 
-  async alerts(companyId: number) {
+  /** `ve` deja solo lo de las cotizaciones que ve quien pregunta (doc 22
+   *  §9.8): con un tipo de cliente apagado, lo de esos clientes no se
+   *  avisa. Sin ella, todo (lo de siempre). Los requerimientos son de
+   *  todos. */
+  async alerts(
+    companyId: number,
+    ve: <T>(
+      filas: T[],
+      deQue: (fila: T) => string | null | undefined,
+    ) => Promise<T[]> = (filas) => Promise.resolve(filas),
+  ) {
     this.logger.info(`hoy alerts company ${companyId}`);
     const hoy = new Date().toISOString().split('T')[0];
     const en30 = new Date(Date.now() + 30 * 86_400_000)
@@ -74,7 +86,7 @@ export class HoyRepository {
           // El `id` viaja para poder descontar los abonos parciales: sin
           // él, una cuota de $1.623.600 con $800.000 ya pagados se
           // contaba entera (07-08, pillada de Felipe en la #332).
-          'id, amount, status, due_date, quotations!inner(company_id, quotation_status)',
+          'id, quotation_id, amount, status, due_date, quotations!inner(company_id, quotation_status)',
         )
         .eq('quotations.company_id', companyId)
         .neq('quotations.quotation_status', 'cancelada')
@@ -118,7 +130,10 @@ export class HoyRepository {
     // payment_transactions. Sin restarlo, "por cobrar" cuenta plata que
     // ya está en la cuenta (07-08: la #332 mostraba $1.623.600 vencidos
     // cuando lo que faltaba eran $823.600).
-    const cuotas = (pagos.data || []) as CuotaAbierta[];
+    const cuotas = await ve(
+      (pagos.data || []) as (CuotaAbierta & { quotation_id?: string })[],
+      (c) => c.quotation_id,
+    );
     const abonadoPorCuota = new Map<string, number>();
     // De a 200 identificadores por consulta: cada uno es un UUID de 36
     // caracteres y viajan en la URL. Hoy son 14 cuotas abiertas y no se
@@ -146,9 +161,15 @@ export class HoyRepository {
 
     const { pendiente, vencido } = sumarPorCobrar(cuotas, abonadoPorCuota, hoy);
 
-    const evData = (eventos.data || []) as { event_date: string }[];
+    const evData = await ve(
+      (eventos.data || []) as { id: string; event_date: string }[],
+      (q) => q.id,
+    );
     const reqData = (reqs.data || []) as { created_at: string }[];
-    const envData = (envs.data || []) as { updated_at: string }[];
+    const envData = await ve(
+      (envs.data || []) as { id: string; updated_at: string }[],
+      (q) => q.id,
+    );
 
     return {
       porCobrar: { pendiente, vencido },
@@ -172,10 +193,16 @@ export class HoyRepository {
 @Roles(...ADMIN_ONLY)
 @Controller('analytics')
 export class HoyController {
-  constructor(private readonly repo: HoyRepository) {}
+  constructor(
+    private readonly repo: HoyRepository,
+    private readonly alcance: AlcanceDeRecepcion,
+  ) {}
 
+  @Permiso('dashboard')
   @Get('hoy')
   alerts(@CurrentUser() user: User) {
-    return this.repo.alerts(user.company_id);
+    return this.repo.alerts(user.company_id, (filas, deQue) =>
+      this.alcance.soloLasQueVe(user, filas, deQue),
+    );
   }
 }

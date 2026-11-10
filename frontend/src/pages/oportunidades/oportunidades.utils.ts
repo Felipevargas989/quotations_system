@@ -658,9 +658,16 @@ export const algunaEnCurso = (
  *  final. Desde la decisión 107 (28-10) el número de la pestaña es
  *  `pendientes`, las por postular que siguen abiertas (Felipe: "ese número
  *  7 podría ser solo lo pendiente de postular"); `enCurso` (las dos
- *  primeras) lo dice la bandeja vacía. */
+ *  primeras) lo dice la bandeja vacía. Desde la decisión 122 (09-11), las
+ *  que cerraron con algo firmado en «Mi postulación» van en `porConfirmar`:
+ *  el motor ya no las descarta y esperan «¿La subiste?»; cuentan en el
+ *  número de la pestaña, porque falta responder. */
 export const separarMias = <
-  T extends { estado: string; proceso?: { fecha_cierre: string | null } },
+  T extends {
+    estado: string;
+    proceso?: { fecha_cierre: string | null };
+    avance?: { firmados?: number };
+  },
 >(
   lista: T[],
   ahora: number = Date.now(),
@@ -672,13 +679,17 @@ export const separarMias = <
   const antes = (a: T, b: T) => cierre(a) - cierre(b) || 0;
   const enEstudio = lista.filter((m) => m.estado === "en_estudio");
   const abiertas = enEstudio.filter((m) => cierre(m) >= ahora).sort(antes);
+  const porConfirmar = enEstudio
+    .filter((m) => cierre(m) < ahora && (m.avance?.firmados ?? 0) > 0)
+    .sort(antes);
   const porPostular = abiertas;
   const postuladas = lista.filter((m) => m.estado === "postulada").sort(antes);
   return {
+    porConfirmar,
     porPostular,
-    pendientes: abiertas,
+    pendientes: [...porConfirmar, ...abiertas],
     postuladas,
-    enCurso: [...porPostular, ...postuladas],
+    enCurso: [...porConfirmar, ...porPostular, ...postuladas],
     ganadas: lista.filter((m) => m.estado === "ganada"),
     perdidas: lista.filter((m) => m.estado === "perdida"),
   };

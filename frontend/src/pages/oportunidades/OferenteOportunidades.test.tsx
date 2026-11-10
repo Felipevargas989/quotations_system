@@ -26,6 +26,7 @@ vi.mock("../../services/oportunidades.service", () => ({
 vi.mock("./FirmaDelOferente", () => ({ default: () => null }));
 vi.mock("./DocumentosDeEmpresa", () => ({ default: () => null }));
 vi.mock("./ClientesQueSeMuestran", () => ({ default: () => null }));
+vi.mock("./LoQueSabemosDeTuEmpresa", () => ({ default: () => null }));
 const s = vi.mocked(servicio);
 
 afterEach(() => {

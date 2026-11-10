@@ -10,12 +10,14 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import {
   instruccionesDeLaOferta,
+  LA_COTIZACION_MANDA,
   leerArmado,
 } from '../postulacion/armar-la-oferta';
 import {
   ArmarLaOfertaService,
   MODELO_DE_LA_OFERTA,
 } from '../postulacion/armar-la-oferta.service';
+import type { PostulacionRepository } from '../postulacion/postulacion.repository';
 
 // ARMAR LA OFERTA (decisión 33 del doc 17, sprint G, 19-10): por cada
 // especificación técnica de las bases, qué se ofrece y con qué productos
@@ -228,6 +230,85 @@ describe('Armar la oferta', () => {
     );
   });
 
+  it('con la cotización vinculada (decisión 119), lo que se ofrece es ella y queda anotado con qué cotización se armó', async () => {
+    const base = armar();
+    const { oportunidades } = base.servicio as unknown as {
+      oportunidades: { ficha: jest.Mock; configDe: jest.Mock };
+    };
+    oportunidades.ficha.mockResolvedValue({
+      id: 11072,
+      codigo: '2705-1740-COT26',
+      quotation_id: 'd5dee709',
+      proceso: { nombre: 'Arriendo de salón', organismo: 'UBB' },
+    });
+    const postulacion = {
+      cotizacion: jest.fn().mockResolvedValue({
+        id: 'd5dee709',
+        quotation_number: 574,
+        quotation_status: 'aceptada',
+        people_count: 20,
+        children_count: null,
+        event_date: '2026-11-11',
+        event_end_date: null,
+        subtotal_amount: 1_788_000,
+        discount_amount: 8_000,
+        total_amount: 1_780_000,
+        client: null,
+        items: {
+          fixed_services: [
+            {
+              day: 1,
+              codigo: '39',
+              nombre: 'Salón auditorio día completo',
+              quantity: 1,
+            },
+          ],
+          variable_services: [],
+        },
+      }),
+    };
+    const piezas = base.servicio as unknown as Record<string, unknown>;
+    const servicio = new OfertaDePrueba(
+      piezas.repo as GeneracionRepository,
+      piezas.adjuntos as AdjuntosRepository,
+      piezas.analisis as AnalisisRepository,
+      piezas.oferente as OferenteRepository,
+      piezas.oportunidades as OportunidadesRepository,
+      piezas.catalogos as GenerarRepository,
+      mockPinoLogger() as unknown as PinoLogger,
+      undefined,
+      postulacion as unknown as PostulacionRepository,
+    );
+    const ejecutar = jest.spyOn(servicio, 'ejecutar').mockResolvedValue(false);
+    await servicio.pedir(1, 'cuenta-1', 11072);
+    expect(postulacion.cotizacion).toHaveBeenCalledWith(1, { id: 'd5dee709' });
+    const sistema = ejecutar.mock.calls[0][4];
+    expect(sistema).toContain(LA_COTIZACION_MANDA);
+    expect(sistema).toContain(
+      'LA COTIZACIÓN VINCULADA (la empresa ya decidió qué ofrece; con los ids de su catálogo):',
+    );
+    expect(sistema).toContain(
+      '- Servicio fijo: Salón auditorio día completo (id 39)',
+    );
+    expect(
+      (piezas.repo as { crearGeneracion: jest.Mock }).crearGeneracion,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parametros: expect.objectContaining({ con_la_cotizacion: 574 }),
+      }),
+    );
+    // Sin cotización vinculada, como antes: del catálogo y sin el aviso.
+    const solo = jest.spyOn(base.servicio, 'ejecutar').mockResolvedValue(false);
+    oportunidades.ficha.mockResolvedValue({
+      id: 40,
+      codigo: '1532886-5-LE26',
+      quotation_id: null,
+      proceso: { nombre: 'Día del Funcionario', organismo: null },
+    });
+    await base.servicio.pedir(1, 'cuenta-1', 40);
+    expect(solo.mock.calls[0][4]).not.toContain('COTIZACIÓN VINCULADA');
+  });
+
   it('«Armar postulación» (decisión 35): anota sus parámetros y sigue solo si la oferta quedó lista', async () => {
     const { servicio, repo } = armar();
     const ejecutar = jest.spyOn(servicio, 'ejecutar').mockResolvedValue(true);
@@ -321,6 +402,73 @@ describe('Armar la oferta', () => {
         productos: [5],
       },
     ]);
+  });
+
+  it('lo que se ofrece se lee completo: el menú no se corta en 600 letras (decisión 120)', () => {
+    const menu = `Aperitivo: pisco sour y jugo natural. ${'Cóctel frío y caliente, y cena de tres tiempos con entrada, fondo y postre. '.repeat(12)}Durante la cena: gaseosas, agua mineral y jugos naturales.`;
+    expect(menu.length).toBeGreaterThan(600);
+    const leido = leerArmado({
+      ...RESPUESTA,
+      matriz: [
+        {
+          especificacion: 'Anexo N°5: carta de compromiso del menú',
+          pagina: 9,
+          como: menu,
+          origen: 'parecido',
+          productos: [],
+        },
+      ],
+    });
+    expect(leido?.matriz[0].como).toBe(menu);
+  });
+
+  it('lo parecido y lo particular se leen con su origen (decisión 120)', () => {
+    const leido = leerArmado({
+      ...RESPUESTA,
+      matriz: [
+        {
+          especificacion: 'Colación en bolsa individual',
+          pagina: 7,
+          como: 'Colación en bolsa individual con sándwich de ave y jugo en caja',
+          origen: 'parecido',
+          productos: [2201],
+        },
+        {
+          especificacion: 'Taza de regalo para cada participante',
+          pagina: 7,
+          como: 'Taza de regalo para cada uno de los 200 participantes',
+          origen: 'particular',
+          productos: [2201],
+        },
+      ],
+    });
+    expect(leido?.matriz.map((f) => f.origen)).toEqual([
+      'parecido',
+      'particular',
+    ]);
+  });
+
+  it('las instrucciones: con criterio, en cuatro, y lo particular sin precio aparte (decisión 120)', () => {
+    // Felipe, 08-11: "esto tengo un producto muy parecido, pongo el
+    // producto en mi catálogo, esto es particular de la licitación, la
+    // incluyo para no quedar fuera por bases".
+    const t = instruccionesDeLaOferta({
+      codigo: '2656-97-LE26',
+      nombre: 'Día del funcionario',
+      organismo: null,
+      bases: null,
+      instalaciones: null,
+      loQueVende: null,
+      catalogo: '(catálogo)',
+    });
+    expect(t).toContain(
+      '"parecido" si un producto del catálogo es muy parecido',
+    );
+    expect(t).toContain('CON LAS PALABRAS DE LAS BASES');
+    expect(t).toContain(
+      'se incluye SIEMPRE, para no quedar fuera de bases, y sin precio aparte',
+    );
+    expect(t).toContain('los ids del producto del catálogo con el que va');
   });
 
   it('el pedido al proveedor y los detalles se leen sin vacíos ni repetidos (decisión 57)', () => {

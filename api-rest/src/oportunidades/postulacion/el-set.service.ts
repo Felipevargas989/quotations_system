@@ -14,14 +14,17 @@ import { respaldosDePostVenta } from '../oferente/respaldos-de-post-venta';
 import {
   armarElSet,
   type Carpeta,
-  conLaPropuestaQueNombran,
-  conLosRespaldos,
   type DatosDelSet,
   type FormularioDeLasBases,
   type PiezaDelSet,
   rutasEnElZip,
 } from './el-set';
+import { enUnaSolaCarpeta } from './la-compra-agil';
 import type { DocumentoDeLaSeccion4 } from './la-seccion-4';
+import {
+  conLaPropuestaQueNombran,
+  conLosRespaldos,
+} from './los-respaldos-del-set';
 import { PostulacionRepository } from './postulacion.repository';
 import { type ParaUnir, unirPdf } from './unir-pdf';
 import { type ArchivoParaElZip, armarZip } from './zip';
@@ -225,7 +228,11 @@ export class ElSetService {
         : [],
       carpeta,
       inicioDe: new Map(trabajos.map((t) => [t.id, t.creado_en])),
+      // La cotización y las declaraciones nacen de la oferta, y la
+      // propuesta de su trabajo (decisión 119, parte 3b).
+      tipoDe: new Map(trabajos.map((t) => [t.id, t.tipo])),
       ofertaLista: oferta ? (oferta.terminado_en ?? oferta.creado_en) : null,
+      ofertaId: oferta?.id ?? null,
       precio: precioDe(
         (oferta?.parametros?.postulacion as { total?: unknown } | undefined)
           ?.total,
@@ -248,6 +255,7 @@ export class ElSetService {
           ? new Date(ficha.proceso.fecha_cierre)
           : new Date(),
       ),
+      compraAgil: ficha.proceso.tipo === 'compra_agil',
     };
     const sinRespaldos = armarElSet(datos);
     const bajados = new Map<string, Buffer>();
@@ -279,13 +287,15 @@ export class ElSetService {
       const texto = textoDeDocx(docx);
       if (texto) textos.push({ texto, carpetas: p.carpetas, pieza: p });
     }
+    const set = conLaPropuestaQueNombran(
+      conLosRespaldos(sinRespaldos, textos, datos),
+      textos,
+    );
     return {
       codigo: ficha.codigo,
       bajados,
-      set: conLaPropuestaQueNombran(
-        conLosRespaldos(sinRespaldos, textos, datos),
-        textos,
-      ),
+      // Decisión 118: una compra ágil, en una sola carpeta.
+      set: datos.compraAgil ? enUnaSolaCarpeta(set) : set,
     };
   }
 }

@@ -1,13 +1,26 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Shield, Lock } from "lucide-react";
-import { Derecho, UserRole, tieneDerecho } from "../constants/permissions";
+import {
+  Derecho,
+  Permiso,
+  Section,
+  puedeEntrar,
+  tieneDerecho,
+} from "../constants/permissions";
 import MejoraTuPlan from "./MejoraTuPlan";
 import PageSkeleton from "./PageSkeleton";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  allowedRoles: UserRole[];
+  // La sección de la ruta. Desde los permisos por cargo (doc 22,
+  // 05-11-2026) la decide su permiso, con la lista que manda el motor en
+  // el perfil: la misma pregunta que el menú. Las secciones sin permiso
+  // (Mi cuenta, Planes) siguen con SECTION_ROLES.
+  section: Section;
+  // Un permiso distinto al de la sección: Consultas comparte sección con
+  // Cotizaciones pero tiene su propio interruptor.
+  permiso?: Permiso;
   // Derecho del plan (14-09-2026, paso 3.2): la pantalla existe solo si
   // la empresa lo tiene; si no, la pantalla de "mejora tu plan" en vez de
   // la página. Es ayuda visual: el motor niega igual con el mismo derecho.
@@ -17,11 +30,12 @@ interface PermissionGuardProps {
 
 export default function PermissionGuard({
   children,
-  allowedRoles,
+  section,
+  permiso,
   derecho,
   fallback,
 }: PermissionGuardProps) {
-  const { user, userRole, loading, roleLoading, company } = useAuth();
+  const { user, userRole, permisos, loading, roleLoading, company } = useAuth();
 
   // Show loading while checking permissions. OJO: incluye la ventana en
   // que la sesión ya está pero el rol aún viene en camino — antes esa
@@ -60,8 +74,12 @@ export default function PermissionGuard({
     );
   }
 
-  // Check if user has one of the allowed roles
-  const hasPermission = userRole && allowedRoles.includes(userRole);
+  // ¿Su cargo tiene la sección prendida en su empresa?
+  const hasPermission =
+    !!userRole &&
+    (permiso
+      ? permisos.includes(permiso)
+      : puedeEntrar(userRole, section, permisos));
 
   if (!hasPermission) {
     // Use custom fallback if provided

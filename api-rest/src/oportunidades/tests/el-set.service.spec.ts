@@ -133,6 +133,44 @@ describe('ElSetService', () => {
     expect(set.bytes).toBe(ANEXOS.length * 2 + 3000);
   });
 
+  it('revisar: una compra ágil va en una sola carpeta, «Compra ágil», y sin lo general de «Mi empresa» (decisión 118)', async () => {
+    const { repo, oferente, servicio } = armar();
+    repo.oportunidad.mockResolvedValue({
+      id: 11072,
+      codigo: '2705-1740-COT26',
+      estado: 'en_estudio',
+      proceso: {
+        nombre: 'Arriendo de salón con alimentación',
+        organismo: 'UNIVERSIDAD DEL BIO BIO',
+        fecha_cierre: '2026-11-07T15:00:00.000Z',
+        tipo: 'compra_agil',
+      },
+    });
+    oferente.documentos.mockResolvedValue([
+      {
+        id: 7,
+        tipo: 'erut',
+        nombre: 'E-rut Quillon.pdf',
+        ruta: 'c1/oferente/7',
+        tipo_archivo: 'application/pdf',
+        bytes: 3000,
+        vence: null,
+        datos: null,
+        creado_en: '2026-10-19T10:00:00.000Z',
+        quien: null,
+      },
+    ]);
+    const set = await servicio.revisar(1, 11072);
+    expect(set.piezas).toEqual([
+      {
+        nombre: 'Formularios_Anexos - lleno.docx',
+        carpetas: ['Compra ágil'],
+        que_es: 'formulario',
+        aviso: 'sin firma',
+      },
+    ]);
+  });
+
   it('zip: arma el ZIP con cada archivo en su carpeta, bajando cada uno una vez', async () => {
     const { servicio, analisis } = armar();
     const { nombre, datos } = await servicio.zip(1, 40);

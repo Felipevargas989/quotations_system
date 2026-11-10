@@ -37,6 +37,7 @@ import {
   respaldosDePostVenta,
 } from '../oferente/respaldos-de-post-venta';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { calzaCon, repartoGuardado } from '../postulacion/el-reparto';
 import {
   type ExperienciaConfirmada,
   experienciaDeLosAnexos,
@@ -72,9 +73,14 @@ import {
   instruccionesDePropuesta,
   leerInforme,
 } from './instrucciones';
-import { bajarLogo, urlDelLogo } from './logo';
+import { bajarLogo, TIPOS_DE_IMAGEN, urlDelLogo } from './logo';
 import { catalogoParaLaOferta } from './oferta-de-la-propuesta';
-import { type Plan, type Salida } from './plan';
+import {
+  nombreDeLaPropuesta,
+  type PedidoDePropuesta,
+  type Plan,
+  type Salida,
+} from './plan';
 import { recortarPdf } from './recortar-pdf';
 import {
   esPdf,
@@ -108,13 +114,6 @@ export const MAX_DOCUMENTOS = 10;
 /** Lo que se le pasa al taller en una propuesta: las bases (para el
  *  detalle técnico), hasta este peso. */
 export const MAX_BYTES_DE_BASES_PARA_PROPUESTA = 40 * 1024 * 1024;
-
-const TIPOS_DE_IMAGEN: Readonly<Record<string, string>> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-};
 
 @Injectable()
 export class GeneracionService {
@@ -186,6 +185,9 @@ export class GeneracionService {
        *  se reemplaza se borra al terminar. Tampoco llegan de afuera. */
       ya_firmados?: string[];
       reemplaza?: number[];
+      /** El precio por ítem (decisión 119, el-reparto.ts): el de la
+       *  cotización detallada. Tampoco llega de afuera. */
+      reparto?: ReturnType<typeof repartoGuardado>;
     },
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
@@ -248,6 +250,13 @@ export class GeneracionService {
     const oferta = pedido.monto_total
       ? desgloseDeOferta(pedido.monto_total)
       : null;
+    // El precio por ítem; al reintentar, el de la vez anterior si calza.
+    const repartido =
+      pedido.reparto === undefined
+        ? repartoGuardado(anterior?.reparto)
+        : pedido.reparto;
+    const reparto =
+      oferta && calzaCon(repartido, oferta.total) ? repartido : null;
     const formularios = formulariosParaElTaller(elegidos);
 
     return this.encargar(companyId, cuentaId, contexto.analisisId, {
@@ -255,6 +264,7 @@ export class GeneracionService {
       oportunidadId,
       parametros: {
         monto_total: oferta?.total ?? null,
+        ...(reparto ? { reparto } : {}),
         adjuntos: elegidos.map((a) => a.id),
         ...(postVenta.length > 0 ? { post_venta: postVenta } : {}),
         ...(experiencia ? { experiencia } : {}),
@@ -274,6 +284,7 @@ export class GeneracionService {
               clase: f.clase,
             })),
             oferta,
+            reparto,
           ) + loQueSabeLaCasa(companyId),
         texto: 'Llena los anexos.',
         reemplaza: pedido.reemplaza,
@@ -398,7 +409,7 @@ export class GeneracionService {
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
-    pedido: { monto_total?: number | null; reemplaza?: number[] } = {},
+    pedido: PedidoDePropuesta = {},
   ): Promise<FilaDeGeneracion> {
     const ficha = await this.comprobar(companyId, oportunidadId);
     const contexto = await this.contexto(companyId, oportunidadId, ficha, true);
@@ -492,7 +503,7 @@ export class GeneracionService {
         salidas: [
           {
             enElTaller: 'propuesta.docx',
-            nombre: `Propuesta técnica ${ficha.codigo}.docx`,
+            nombre: nombreDeLaPropuesta(pedido, ficha.codigo),
             origen: 'generado',
             viene_de: null,
           },

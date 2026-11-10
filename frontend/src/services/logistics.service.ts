@@ -3,7 +3,6 @@
 // directos (1.012 líneas); hoy es solo un traductor de llamadas.
 import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
-import { canonicalServiceName } from "../utils/searchMatch";
 import {
   mapFixedCosts,
   mapNameIds,
@@ -312,87 +311,8 @@ export const getAllIngredientRecipeItems = async (
   return todas.filter((r) => r.item_kind === "insumo");
 };
 
-// Mapa nombre → id de los servicios del catálogo (variables y fijos), para
-// resolver los items de cotizaciones antiguas cuyo `codigo` no es el id.
-export const getCatalogServiceNameIds = async (
-  _companyId: number,
-): Promise<{
-  variable: Record<string, number>;
-  fixed: Record<string, number>;
-  // Migración 57: servicios marcados "sin costo en Eventia" — las
-  // advertencias de Gestión los excluyen (no son pendientes).
-  sinCostoVariable: string[]; // nombres canónicos
-  sinCostoFijoIds: number[];
-}> => {
-  // Claves canónicas (sin tildes, sin prefijo "02 - ", espacios
-  // flexibles): las fotos de items de cotizaciones antiguas encuentran
-  // su servicio aunque el catálogo haya sido renombrado.
-  const norm = canonicalServiceName;
-  try {
-    const data = await apiRequest(API_ROUTES.LOGISTICS_CATALOG_NAMES, "GET");
-    const variable: Record<string, number> = {};
-    const sinCostoVariable: string[] = [];
-    (data?.variable || []).forEach(
-      (s: { id: number; name: string; no_cost?: boolean }) => {
-        variable[norm(s.name)] = s.id;
-        if (s.no_cost) sinCostoVariable.push(norm(s.name));
-      },
-    );
-    const fixed: Record<string, number> = {};
-    const sinCostoFijoIds: number[] = [];
-    (data?.fixed || []).forEach(
-      (s: { id: number; name: string; no_cost?: boolean }) => {
-        fixed[norm(s.name)] = s.id;
-        if (s.no_cost) sinCostoFijoIds.push(s.id);
-      },
-    );
-    return { variable, fixed, sinCostoVariable, sinCostoFijoIds };
-  } catch {
-    return {
-      variable: {},
-      fixed: {},
-      sinCostoVariable: [],
-      sinCostoFijoIds: [],
-    };
-  }
-};
-
-// Costos cacheados de los servicios fijos (componente fijo + por persona),
-// para el análisis de rentabilidad del evento.
-export const getFixedServiceCostsById = async (
-  _companyId: number,
-): Promise<
-  Record<number, { cost_fixed: number | null; cost_per_person: number | null }>
-> => {
-  try {
-    const data = await apiRequest(
-      API_ROUTES.LOGISTICS_CATALOG_FIXED_COSTS,
-      "GET",
-    );
-    const map: Record<
-      number,
-      { cost_fixed: number | null; cost_per_person: number | null }
-    > = {};
-    (data || []).forEach(
-      (r: {
-        id: number;
-        cost_fixed: number | null;
-        cost_per_person: number | null;
-      }) => {
-        map[r.id] = {
-          cost_fixed: r.cost_fixed,
-          cost_per_person: r.cost_per_person,
-        };
-      },
-    );
-    return map;
-  } catch {
-    return {};
-  }
-};
-
-// Todas las líneas de receta de la empresa (insumos + mobiliario), para la
-// consolidación logística del evento.
+// Todas las líneas de receta de la empresa (insumos + mobiliario). La lee
+// el Catálogo, por `getAllIngredientRecipeItems` (doc 22 §4.3).
 export const getAllRecipeItems = async (
   _companyId: number,
 ): Promise<RecipeItem[]> => {

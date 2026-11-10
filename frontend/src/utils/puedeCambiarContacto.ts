@@ -1,4 +1,4 @@
-import { SECTION_ROLES } from "../constants/permissions";
+import { Permiso, permisosDe } from "../constants/permissions";
 import { UserRole } from "../constants/users";
 import { esEventoCongelado } from "./eventoCongelado";
 
@@ -8,10 +8,15 @@ import { esEventoCongelado } from "./eventoCongelado";
 export const puedeCambiarContacto = (
   rol: string | null | undefined,
   estado: string | null | undefined,
+  // Los permisos por cargo de la sesión (doc 22); sin ellos, los de
+  // fábrica del cargo.
+  permisos?: readonly Permiso[] | null,
 ): boolean => {
   if (!rol || !estado) return false;
   if (esEventoCongelado(estado) || estado === "cancelada") return false;
   if (estado === "aceptada")
     return rol === UserRole.ADMINISTRADOR || rol === UserRole.OPERACIONES;
-  return SECTION_ROLES.quotations_edit.includes(rol as never);
+  return permisosDe(rol as never, permisos as string[] | null).includes(
+    "cotizaciones",
+  );
 };

@@ -1,4 +1,5 @@
 import { tieneDerecho } from 'src/auth/derechos';
+import { pasa, permisosDelCargo } from 'src/auth/permisos';
 import type { User } from 'src/users/entities/user.entity';
 import { avisosDeHoy } from './avisos';
 import { buscarClientes } from './buscar-clientes';
@@ -59,11 +60,18 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   proponerCambioDeCliente,
 ];
 
-/** Las que puede usar esta persona: su cargo las ve en pantalla y su
- *  empresa tiene el derecho. A la IA solo se le ofrecen esas. */
-export const herramientasPara = (usuario: User): Herramienta[] =>
-  HERRAMIENTAS.filter(
+/** Las que puede usar esta persona: su cargo las ve en pantalla (con los
+ *  permisos por cargo de su empresa, doc 22) y su empresa tiene el
+ *  derecho. A la IA solo se le ofrecen esas. */
+export const herramientasPara = (usuario: User): Herramienta[] => {
+  const prendidos = usuario.permisos ?? permisosDelCargo(usuario.role);
+  return HERRAMIENTAS.filter(
     (h) =>
-      h.cargos.includes(usuario.role) &&
+      pasa(usuario.role, prendidos, {
+        roles: h.cargos,
+        permiso: h.permiso,
+        dentroDe: h.dentroDe,
+      }) &&
       (!h.derecho || tieneDerecho(usuario.derechos, h.derecho)),
   );
+};

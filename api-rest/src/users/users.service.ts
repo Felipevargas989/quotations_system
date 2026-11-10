@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { assertCupo, derechosDe, type EmpresaConPlan } from 'src/auth/derechos';
+import { PermisosService } from 'src/auth/permisos.service';
 import { olvidarPerfil } from 'src/cache/memoria';
 import { Company } from 'src/companies/entities/company.entity';
 import { SuperAdminService } from 'src/super-admin/super-admin.service';
@@ -27,6 +28,7 @@ export class UsersService {
     private readonly logger: PinoLogger,
     @Inject(forwardRef(() => SuperAdminService))
     private readonly superAdminService: SuperAdminService,
+    private readonly permisosService: PermisosService,
   ) {
     this.logger.setContext(UsersService.name);
   }
@@ -103,9 +105,20 @@ export class UsersService {
     // trae un plan no obliga a publicar la web de nuevo.
     const empresa = data.companies as EmpresaConPlan | null;
     const derechos = derechosDe(empresa);
+    // Y de sus permisos por cargo (doc 22 §5, 05-11-2026), con la misma
+    // cuenta que usa el motor: el menú, las rutas y los botones dejan de
+    // tener su propia copia.
+    const permisos = await this.permisosService.delCargo(companyId, data.role);
+    // Y los tipos de cliente que trabaja (doc 22 §9): null si todos. Si no
+    // se pueden leer, el perfil sale igual y la app usa lo de fábrica.
+    const tipos_de_cliente = await this.permisosService
+      .nombresDeSusTipos(companyId, data.role)
+      .catch(() => undefined);
     return {
       data: {
         ...data,
+        permisos,
+        ...(tipos_de_cliente !== undefined ? { tipos_de_cliente } : {}),
         companies: empresa ? { ...empresa, ...derechos } : empresa,
       },
       error: null,

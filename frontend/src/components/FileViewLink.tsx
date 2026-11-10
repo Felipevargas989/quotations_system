@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
 import { resolveStorageUrl } from "../services/storage.service";
+import { conDescarga } from "../utils/enlaceDeDescarga";
 import Modal from "./Modal";
 
 // El Word se dibuja con una librería que se baja recién al abrir el primero.
@@ -18,7 +19,8 @@ const VisorDeWord = lazy(() => import("./VisorDeWord"));
 // aquí mismo (VisorDeWord), y quien lo usa puede sumar acciones junto a
 // Descargar (en «Mi postulación», Firmar: leer y firmar sin descargar). Y
 // pasó a la ventana de la casa (Modal): Escape cierra y la cabecera queda
-// siempre a la vista.
+// siempre a la vista. 06-11-2026 (doc 19 §9.22): el botón que abre el visor
+// puede ser otro que «Ver» (`boton`): la lista de Facturación usa el ojo.
 
 /** Qué se puede ver: el tipo se decide con lo GUARDADO (ruta o URL
  *  vieja), no con el enlace firmado (que trae parámetros al final). */
@@ -33,13 +35,35 @@ export default function FileViewLink({
   url,
   title,
   acciones,
+  boton,
+  claseDelBoton = "text-sm font-semibold text-blue-600 hover:text-blue-800",
+  tituloDelBoton,
+  abrirAlMontar = false,
+  alCerrar,
 }: {
   readonly url: string;
   readonly title?: string;
   /** Botones junto a Descargar (ej.: Firmar). */
   readonly acciones?: ReactNode;
+  /** Lo que muestra el botón que abre el visor; por defecto, «Ver». */
+  readonly boton?: ReactNode;
+  readonly claseDelBoton?: string;
+  /** Lo que dice al pasar el mouse y a un lector de pantalla. */
+  readonly tituloDelBoton?: string;
+  /** Abre el visor apenas aparece (el PDF que se acaba de traer al
+   *  pincharlo, doc 19 §9.33). */
+  readonly abrirAlMontar?: boolean;
+  /** Al cerrar el visor: quien pidió abrirlo olvida el pedido, para que no
+   *  se vuelva a abrir si la fila aparece de nuevo. */
+  readonly alCerrar?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(abrirAlMontar);
+  // El pedido puede llegar con el botón ya puesto: en la lista de
+  // Facturación, la fila se refresca con el PDF antes de saber que hay que
+  // abrirlo (08-11, en producción: el PDF llegaba y el visor no se abría).
+  useEffect(() => {
+    if (abrirAlMontar) setOpen(true);
+  }, [abrirAlMontar]);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const clase = claseDe(url);
 
@@ -55,11 +79,7 @@ export default function FileViewLink({
     };
   }, [open, url]);
 
-  const downloadUrl = viewUrl
-    ? viewUrl.includes("?")
-      ? `${viewUrl}&download=`
-      : `${viewUrl}?download=`
-    : null;
+  const downloadUrl = viewUrl ? conDescarga(viewUrl) : null;
   const nombre = title || "Archivo";
 
   return (
@@ -67,9 +87,11 @@ export default function FileViewLink({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+        title={tituloDelBoton}
+        aria-label={tituloDelBoton}
+        className={claseDelBoton}
       >
-        Ver
+        {boton ?? "Ver"}
       </button>
       {open &&
         createPortal(
@@ -77,7 +99,10 @@ export default function FileViewLink({
             titulo={<span className="block truncate text-base">{nombre}</span>}
             ancho="max-w-4xl"
             altoFijo
-            onCerrar={() => setOpen(false)}
+            onCerrar={() => {
+              setOpen(false);
+              alCerrar?.();
+            }}
             acciones={
               <div className="flex items-center gap-4 mr-2">
                 {acciones}

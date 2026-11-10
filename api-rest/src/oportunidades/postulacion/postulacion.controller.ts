@@ -10,6 +10,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ArmarLaOfertaService } from './armar-la-oferta.service';
@@ -22,6 +23,7 @@ import {
   ConfirmarExperienciaDto,
   LlevarACotizacionDto,
   ProponerExperienciaDto,
+  ResponderYArmarDto,
   VincularCotizacionDto,
 } from './postulacion.dto';
 
@@ -30,6 +32,7 @@ import {
 // derecho `oportunidades`. Aparte del controlador grande para no engordarlo.
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
+@Permiso('oportunidades')
 @Controller('oportunidades')
 export class PostulacionController {
   constructor(
@@ -97,6 +100,26 @@ export class PostulacionController {
       `POST /oportunidades/${id}/postulacion (empresa ${user.company_id})`,
     );
     return this.postulacion.armar(user, id, dto.total);
+  }
+
+  /** Las respuestas del modal de «Armar postulación» (decisión 119, parte
+   *  3): quedan en «Mi empresa» y marcadas en «Bases y criterios», y recién
+   *  ahí se arma. Responde con la oferta en curso, como «Armar». */
+  @Post(':id/postulacion/respuestas')
+  responderYArmar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ResponderYArmarDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/${id}/postulacion/respuestas (empresa ${user.company_id}, ${dto.respuestas.length} respuestas)`,
+    );
+    return this.postulacion.responderYArmar(
+      user,
+      id,
+      dto.total,
+      dto.respuestas,
+    );
   }
 
   /** «Descargar para Mercado Público» (decisión 34): lo que va en el ZIP,

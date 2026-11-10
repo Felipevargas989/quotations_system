@@ -136,6 +136,35 @@ describe("BotonSeguimientoIA", () => {
       "No se escribió: ya hay un borrador en el hilo de contacto@.",
     );
   });
+
+  it("en la línea de abajo de la tarjeta mide lo mismo que los chips; en la ficha, igual que antes (06-11-2026)", () => {
+    const { rerender } = render(
+      <BotonSeguimientoIA
+        compacto
+        trabajando={false}
+        ocupado={false}
+        resultado={null}
+        onGenerar={vi.fn()}
+      />,
+    );
+    const enLaTarjeta = screen.getByRole("button", {
+      name: /Generar seguimiento/,
+    });
+    expect(enLaTarjeta).toHaveClass("py-0.5", "border", "border-transparent");
+    expect(enLaTarjeta).not.toHaveClass("py-1");
+
+    rerender(
+      <BotonSeguimientoIA
+        trabajando={false}
+        ocupado={false}
+        resultado={borrador}
+        onGenerar={vi.fn()}
+      />,
+    );
+    const enLaFicha = screen.getByText("Borrador listo").parentElement;
+    expect(enLaFicha).toHaveClass("py-1");
+    expect(enLaFicha).not.toHaveClass("border");
+  });
 });
 
 describe("ResultadosDeSeguimiento", () => {

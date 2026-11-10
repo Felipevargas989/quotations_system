@@ -33,9 +33,22 @@ export type Section =
   | "customer_satisfaction_survey"
   // Licitaciones y compras ágiles de Mercado Público (doc 17): solo
   // administrador (Felipe, 17-10: "solo el administrador y Camila").
-  | "oportunidades";
+  | "oportunidades"
+  // La sección Facturación (doc 19 §9.19), con el nombre que tuvo cuando
+  // eran las boletas de las cabañas: solo con el módulo propio
+  // `facturacion` (SECTION_DERECHO). Desde el 07-11 (§9.23) la ve quien
+  // tenga cualquiera de sus cinco permisos (SECTION_PERMISO): de fábrica,
+  // recepción, operaciones y el administrador; el vendedor ya no.
+  | "boletas"
+  // «Documentos», la lista de Facturación con la cadena de anulaciones
+  // (doc 19 §9.5): desde el 05-11, operaciones y el administrador (§9.19,
+  // Felipe: «ver, reporte y PDF»). Anular sigue solo del administrador
+  // (E5), y eso lo cuida el motor. Con el módulo propio `facturacion`.
+  | "facturacion";
 
-// Define which roles can access which sections
+// Define which roles can access which sections. Desde los permisos por
+// cargo (doc 22, 05-11-2026) solo deciden las secciones sin permiso (Mi
+// cuenta y Planes): las demás las decide SECTION_PERMISO.
 export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
   // Recepción (12-08, definido con Felipe): contesta el teléfono, toma
   // solicitudes y hace seguimiento. Ve todo lo que el cliente YA SABE
@@ -60,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "quotations_edit",
     "calendar",
     "configuration",
+    "boletas",
   ],
   vendedor: [
     "requests",
@@ -77,6 +91,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "configuration",
     "calendar",
     "logistics",
+    "boletas",
+    "facturacion",
   ],
   administrador: [
     "dashboard",
@@ -98,12 +114,188 @@ export const ROLE_PERMISSIONS: Record<UserRole, Section[]> = {
     "marketing",
     "customer_satisfaction_survey",
     "oportunidades",
+    "boletas",
+    "facturacion",
   ],
 };
 
-// Helper function to check if a role can access a section
-export const canAccessSection = (role: UserRole, section: Section): boolean => {
+// LOS PERMISOS POR CARGO (doc 22, 05-11-2026). Felipe: «transformar hoy
+// todos los permisos existentes en pestañas que se puedan deslizar como
+// botones». Cada empresa prende y apaga, por cargo, las secciones del menú
+// (Mi empresa → Usuarios → Permisos por cargo).
+//
+// La app NO guarda copia de la configuración: el motor manda en el perfil
+// la lista de permisos prendidos del cargo (`permisos`), con la misma
+// cuenta con que cierra sus puertas. Las secciones que tienen permiso dejan
+// de mirar ROLE_PERMISSIONS y SECTION_ROLES: el menú y las rutas preguntan
+// lo mismo. Las que no tienen (Mi cuenta y Planes) siguen como estaban.
+export type Permiso =
+  | "requerimientos"
+  | "cotizaciones"
+  | "consultas"
+  | "clientes"
+  | "belia"
+  | "calendario"
+  | "postventa"
+  | "proveedores"
+  // Facturación (doc 22 §7), con el módulo propio `facturacion`. «Facturar
+  // eventos», desde el 07-11 (doc 19 §9.23).
+  | "boletas"
+  | "facturacion_eventos"
+  | "facturacion_documentos"
+  | "facturacion_notas"
+  | "facturacion_ajustes"
+  // La caja de recepción (doc 19 §9.43, 09-11).
+  | "caja_recepcion"
+  | "caja_revision"
+  | "facturacion_vendido"
+  // Las solicitudes de recepción (doc 19 §9.45, 09-11).
+  | "facturacion_solicitudes"
+  | "dashboard"
+  | "catalogo"
+  | "personal"
+  | "marketing"
+  | "oportunidades"
+  | "encuestas"
+  | "mi_empresa"
+  | "usuarios";
+
+/** Los permisos de Facturación: con cualquiera de ellos se entra a la
+ *  sección (doc 19 §9.23), y adentro cada pestaña pide el suyo
+ *  (FacturacionPage). Así, apagar uno no deja afuera de los otros. */
+export const PERMISOS_DE_FACTURACION: readonly Permiso[] = [
+  "boletas",
+  "facturacion_eventos",
+  "facturacion_documentos",
+  "facturacion_notas",
+  "facturacion_ajustes",
+  "caja_recepcion",
+  "caja_revision",
+  "facturacion_vendido",
+  "facturacion_solicitudes",
+];
+
+/** Cada sección con su permiso; con una lista, basta cualquiera. */
+export const SECTION_PERMISO: Partial<
+  Record<Section, Permiso | readonly Permiso[]>
+> = {
+  dashboard: "dashboard",
+  analytics: "dashboard",
+  requests: "requerimientos",
+  quotations: "cotizaciones",
+  quotations_edit: "cotizaciones",
+  clients: "clientes",
+  payments: "postventa",
+  admin: "usuarios",
+  user_management: "usuarios",
+  services: "catalogo",
+  company_configuration: "mi_empresa",
+  calendar: "calendario",
+  logistics: "proveedores",
+  // Facturación: entra quien tenga cualquiera de sus permisos (§9.23).
+  boletas: PERMISOS_DE_FACTURACION,
+  facturacion: "facturacion_documentos",
+  people: "personal",
+  marketing: "marketing",
+  customer_satisfaction_survey: "encuestas",
+  oportunidades: "oportunidades",
+};
+
+const DE_TODOS: Permiso[] = [
+  "requerimientos",
+  "cotizaciones",
+  "consultas",
+  "belia",
+  "calendario",
+];
+
+// Lo de fábrica, que es lo de hoy: lo mismo que `api-rest/src/auth/
+// permisos.ts`. Solo se usa si el motor todavía no manda la lista (el
+// despliegue va motor primero) o con un perfil viejo guardado en el
+// navegador. El Calendario del vendedor, prendido (Felipe, 05-11-2026).
+// Las boletas y facturas del tarifario, sin el vendedor, y «Facturar
+// eventos», de operaciones y el administrador (doc 19 §9.23, 07-11).
+export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
+  recepcion: [...DE_TODOS, "boletas"],
+  vendedor: [...DE_TODOS, "clientes"],
+  operaciones: [
+    ...DE_TODOS,
+    "clientes",
+    "postventa",
+    "proveedores",
+    "boletas",
+    "facturacion_eventos",
+    "facturacion_documentos",
+    // Aprobar y emitir lo que pide recepción (doc 19 §9.45, 09-11).
+    "facturacion_solicitudes",
+  ],
+  administrador: [
+    ...DE_TODOS,
+    "clientes",
+    "postventa",
+    "proveedores",
+    "boletas",
+    "facturacion_eventos",
+    "facturacion_documentos",
+    "facturacion_notas",
+    "facturacion_ajustes",
+    "facturacion_solicitudes",
+    "dashboard",
+    "catalogo",
+    "personal",
+    "marketing",
+    "oportunidades",
+    "encuestas",
+    "mi_empresa",
+    "usuarios",
+  ],
+};
+
+/** Los permisos prendidos de quien está conectado: los del perfil; sin
+ *  ellos, los de fábrica de su cargo. Sin cargo, ninguno. */
+export const permisosDe = (
+  role: UserRole | null | undefined,
+  delPerfil?: string[] | null,
+): Permiso[] =>
+  Array.isArray(delPerfil)
+    ? (delPerfil as Permiso[])
+    : role
+      ? (PERMISOS_DE_FABRICA[role] ?? [])
+      : [];
+
+/** ¿Alguno de los prendidos abre la sección? Con una lista, basta uno. */
+const abre = (
+  permisos: readonly Permiso[],
+  deLaSeccion: Permiso | readonly Permiso[],
+): boolean =>
+  typeof deLaSeccion === "string"
+    ? permisos.includes(deLaSeccion)
+    : deLaSeccion.some((p) => permisos.includes(p));
+
+// Helper function to check if a role can access a section (the menu).
+// Con permiso por cargo, manda el permiso; si no, la lista de siempre.
+export const canAccessSection = (
+  role: UserRole,
+  section: Section,
+  permisos: readonly Permiso[] = permisosDe(role),
+): boolean => {
+  const permiso = SECTION_PERMISO[section];
+  if (permiso) return abre(permisos, permiso);
   return ROLE_PERMISSIONS[role]?.includes(section) || false;
+};
+
+/** ¿Puede entrar a la ruta? Igual que el menú para las secciones con
+ *  permiso; las demás, con SECTION_ROLES (Planes es de todos por la
+ *  ruta, aunque el menú la muestre solo al administrador). */
+export const puedeEntrar = (
+  role: UserRole | null | undefined,
+  section: Section,
+  permisos: readonly Permiso[] = permisosDe(role),
+): boolean => {
+  if (!role) return false;
+  const permiso = SECTION_PERMISO[section];
+  if (permiso) return abre(permisos, permiso);
+  return SECTION_ROLES[section].includes(role);
 };
 
 // Predefined role arrays for common use cases
@@ -161,7 +353,10 @@ export type Derecho =
   // del Sol (sus llaves y sus buzones).
   | "seguimiento_con_ia"
   // BelIA, la asistente con IA (doc 20, migración 180): módulo propio.
-  | "asistente";
+  | "asistente"
+  // La facturación electrónica (doc 19, migración 184): módulo propio de
+  // Valle del Sol.
+  | "facturacion";
 
 export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   payments: "post_venta",
@@ -171,6 +366,8 @@ export const SECTION_DERECHO: Partial<Record<Section, Derecho>> = {
   people: "personal",
   marketing: "marketing",
   oportunidades: "oportunidades",
+  boletas: "facturacion",
+  facturacion: "facturacion",
 };
 
 export type EmpresaConDerechos =
@@ -218,6 +415,7 @@ export const PLAN_MINIMO: Record<
   seguimiento_con_ia: null,
   // BelIA en todos los planes desde el 04-11-2026 (antes, módulo propio).
   asistente: "cotiza",
+  facturacion: null,
 };
 
 export const NOMBRE_DEL_PLAN = {
@@ -247,8 +445,11 @@ export const NOMBRE_DEL_DERECHO: Record<Derecho, string> = {
   cotizar_con_ia: "Cotizar con IA",
   seguimiento_con_ia: "El seguimiento con IA",
   asistente: "BelIA, la asistente de Eventia",
+  facturacion: "La facturación electrónica",
 };
 
+// Las rutas. Igual que ROLE_PERMISSIONS: desde el doc 22 solo decide en
+// las secciones sin permiso por cargo (`puedeEntrar`).
 export const SECTION_ROLES: Record<Section, UserRole[]> = {
   dashboard: ROLE_GROUPS.ADMIN_ONLY,
   requests: ROLE_GROUPS.ALL_ROLES,
@@ -276,4 +477,7 @@ export const SECTION_ROLES: Record<Section, UserRole[]> = {
   marketing: ROLE_GROUPS.ADMIN_ONLY,
   customer_satisfaction_survey: ROLE_GROUPS.ADMIN_ONLY,
   oportunidades: ROLE_GROUPS.ADMIN_ONLY,
+  // Facturación: sin el vendedor desde el 07-11 (doc 19 §9.23).
+  boletas: ["recepcion", "operaciones", "administrador"],
+  facturacion: ROLE_GROUPS.OPERATIONS_AND_UP,
 };

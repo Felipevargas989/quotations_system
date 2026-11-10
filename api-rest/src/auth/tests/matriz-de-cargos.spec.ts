@@ -2,7 +2,6 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
 import { AsistenteController } from 'src/asistente/asistente.controller';
-import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientContactsController } from 'src/clients/client-contacts.controller';
 import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
@@ -19,6 +18,8 @@ import { ServiceGroupsController } from 'src/service-groups/service-groups.contr
 import { ServicesController } from 'src/services/services.controller';
 import { StorageController } from 'src/storage/storage.controller';
 import { UsersController } from 'src/users/users.controller';
+import { DENTRO_DE_KEY, PERMISO_KEY } from '../permiso.decorator';
+import { cargosDeFabrica, type Permiso } from '../permisos';
 import { IS_PUBLIC_KEY } from '../public.decorator';
 import {
   ADMIN_ONLY,
@@ -37,6 +38,10 @@ import {
  * rutas decididas con Felipe tengan exactamente el cargo acordado, y que
  * en estos controladores no quede NINGUNA ruta sin cargo, salvo las que se
  * dejan a propósito solo con sesión (ver `soloSesion`).
+ *
+ * Desde los permisos por cargo (doc 22, 05-11-2026), el cargo de una ruta
+ * con `@Permiso` o `@DentroDe` es el que da su cuenta con todo de fábrica.
+ * Los valores acordados no cambiaron: lo de fábrica es lo de hoy.
  */
 type Clase = abstract new (...args: never[]) => unknown;
 const verbo = (m: number) => RequestMethod[m];
@@ -49,9 +54,16 @@ const rutasDe = (cls: Clase) => {
     const path = Reflect.getMetadata(PATH_METADATA, h) as string | undefined;
     if (path === undefined) continue;
     const metodo = Reflect.getMetadata(METHOD_METADATA, h) as number;
+    const lee = <T>(k: string) =>
+      (Reflect.getMetadata(k, h) as T | undefined) ??
+      (Reflect.getMetadata(k, cls) as T | undefined);
+    const deRoles = lee<string[]>(ROLES_KEY);
+    const permiso = lee<Permiso[]>(PERMISO_KEY);
+    const dentroDe = lee<Permiso[]>(DENTRO_DE_KEY);
     const roles =
-      (Reflect.getMetadata(ROLES_KEY, h) as string[] | undefined) ??
-      (Reflect.getMetadata(ROLES_KEY, cls) as string[] | undefined);
+      permiso?.length || dentroDe?.length
+        ? cargosDeFabrica({ roles: deRoles, permiso, dentroDe })
+        : deRoles;
     const publica = Boolean(
       Reflect.getMetadata(IS_PUBLIC_KEY, h) ??
         Reflect.getMetadata(IS_PUBLIC_KEY, cls),
@@ -90,7 +102,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       // Choques de fecha (mapa 02 §5.6): la lista la ve el tablero.
       'GET choques/pendientes': R,
       'POST :id/choques/:aceptadaId': R,
-      'POST :id/cosecha': S,
+      // La cosecha la corrige quien tiene el Dashboard (doc 22 §4.3,
+      // 06-11-2026; antes, vendedor y arriba sin pantalla que la usara).
+      'POST :id/cosecha': A,
       'PATCH :id': R,
       'DELETE :id': R,
     },
@@ -121,7 +135,9 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST coincidencias': R,
       'POST ': R,
       'GET ': R,
-      'GET :id/summary': R,
+      // La ficha 360 la lee solo la pantalla de Clientes (doc 22 §4.3,
+      // 06-11-2026; recepción no la ve desde el 03-10).
+      'GET :id/summary': S,
       'PATCH :id': S,
       'DELETE :id': S,
     },
@@ -165,7 +181,6 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'GET costo-personal': A,
     },
   ],
-  [CalendarController, { 'GET events': R }],
   [
     StorageController,
     { 'POST upload': R, 'GET signed-url': R, 'POST delete': O },
@@ -197,6 +212,10 @@ const esperado: [Clase, Record<string, string[]>][] = [
       'POST oferente/documentos': A,
       'PATCH oferente/documentos/:documentoId/no-usar': A,
       'DELETE oferente/documentos/:documentoId': A,
+      // «Lo que Eventia sabe de tu empresa» (decisión 119, parte 3).
+      'GET oferente/lo-que-sabemos': A,
+      'PATCH oferente/lo-que-sabemos/:respuestaId': A,
+      'DELETE oferente/lo-que-sabemos/:respuestaId': A,
       'GET :id': A,
       'PATCH :id': A,
       'GET :id/adjuntos': A,

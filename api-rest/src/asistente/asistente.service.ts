@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { tieneDerecho } from 'src/auth/derechos';
+import { trabajaElTipo } from 'src/auth/permisos';
 import { OPERATIONS_AND_UP } from 'src/auth/roles.decorator';
 import { cerebroPara } from 'src/cerebro/cerebro';
 import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
@@ -42,7 +43,7 @@ import {
   type ContextoDeHerramienta,
   type Herramienta,
 } from './herramientas/comun';
-import { esRecepcion, taparPlata } from './herramientas/recepcion';
+import { esRecepcion, taparPlata, tiposPara } from './herramientas/recepcion';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
 import type { TarjetaDePropuesta } from './propuestas/comun';
@@ -363,6 +364,13 @@ export class AsistenteService {
           empresa: nombreEmpresa,
           hoy,
           pantalla: pantalla.texto,
+          // Los tipos de cliente que trabaja su cargo (doc 22 §9). Si no se
+          // pueden leer, ninguno: las herramientas tampoco le dan plata.
+          tipos: this.alcance
+            ? await this.alcance.nombresDeSusTipos(usuario).catch(() => [])
+            : esRecepcion(usuario.role)
+              ? []
+              : null,
         }),
       },
     ];
@@ -545,37 +553,61 @@ export class AsistenteService {
       tieneDerecho(usuario.derechos, 'post_venta');
     // Los topes y los comprobantes no frenan el ánimo si fallan: se mira
     // cada 5 minutos y lo demás sigue sirviendo.
-    const [{ pendientes, vencenHoy }, deHoy, choques, comprobantes] =
-      await Promise.all([
-        pendientesDe(
-          { cotizaciones: this.cotizaciones, bitacora: this.bitacora, hoy },
-          empresa,
-        ),
-        this.repositorio.buscarCotizaciones(empresa, {
-          tipo: RequestType.REQUERIMIENTO,
-          creadaDesde: inicioDelDiaEnChile(hoy),
-          orden: 'creada',
-          limite: 1,
-        }),
-        this.choques.listar(usuario).catch((e: unknown): ChoqueDeFecha[] => {
-          this.logger.warn(`BelIA, topes de calendario: ${mensajeDe(e)}`);
-          return [];
-        }),
-        veComprobantes
-          ? this.repositorio
-              .comprobantesPorRevisar(empresa)
-              .catch((e: unknown): ComprobantePorRevisar[] => {
-                this.logger.warn(`BelIA, comprobantes: ${mensajeDe(e)}`);
-                return [];
-              })
-          : Promise.resolve<ComprobantePorRevisar[]>([]),
-      ]);
+    const [
+      { pendientes, vencenHoy, deHoy: compromisosDeHoy },
+      deHoy,
+      choques,
+      comprobantes,
+    ] = await Promise.all([
+      pendientesDe(
+        { cotizaciones: this.cotizaciones, bitacora: this.bitacora, hoy },
+        empresa,
+      ),
+      this.repositorio.buscarCotizaciones(empresa, {
+        tipo: RequestType.REQUERIMIENTO,
+        creadaDesde: inicioDelDiaEnChile(hoy),
+        orden: 'creada',
+        limite: 1,
+      }),
+      this.choques.listar(usuario).catch((e: unknown): ChoqueDeFecha[] => {
+        this.logger.warn(`BelIA, topes de calendario: ${mensajeDe(e)}`);
+        return [];
+      }),
+      veComprobantes
+        ? this.repositorio
+            .comprobantesPorRevisar(empresa)
+            .catch((e: unknown): ComprobantePorRevisar[] => {
+              this.logger.warn(`BelIA, comprobantes: ${mensajeDe(e)}`);
+              return [];
+            })
+        : Promise.resolve<ComprobantePorRevisar[]>([]),
+    ]);
+    // Con un tipo de cliente apagado (doc 22 §9), lo de ese tipo no la
+    // enoja: su cargo no lo trabaja.
+    const tipos = await tiposPara({ usuario, alcance: this.alcance });
+    const suyas = tipos
+      ? pendientes.filter((p) => trabajaElTipo(tipos, p.q.clients?.client_type))
+      : pendientes;
+    const conTope = [...new Set(choques.map((c) => c.quotation_id))];
+    const topesSuyos = tipos
+      ? (
+          await Promise.all(
+            conTope.map((id) =>
+              this.alcance ? this.alcance.veLaCotizacion(usuario, id) : false,
+            ),
+          )
+        ).filter(Boolean).length
+      : conTope.length;
     return {
-      vencidos: pendientes.filter((p) => p.s.urgencia >= 1000).length,
-      sin_gestion: pendientes.filter((p) => p.s.urgencia < 1000).length,
-      vencen_hoy: vencenHoy,
+      vencidos: suyas.filter((p) => p.s.urgencia >= 1000).length,
+      sin_gestion: suyas.filter((p) => p.s.urgencia < 1000).length,
+      vencen_hoy: tipos
+        ? compromisosDeHoy.filter((q) =>
+            trabajaElTipo(tipos, q.clients?.client_type),
+          ).length
+        : vencenHoy,
       requerimientos_de_hoy: deHoy.total,
-      topes_de_calendario: new Set(choques.map((c) => c.quotation_id)).size,
+      topes_de_calendario: topesSuyos,
       comprobantes_por_revisar: comprobantes.length,
     };
   }
@@ -659,7 +691,7 @@ export class AsistenteService {
     ).filter((f) => f != null);
     if (fichas.length === 0) return null;
     const json = JSON.stringify(
-      esRecepcion(ctx.usuario.role) ? taparPlata(fichas) : fichas,
+      (await tiposPara(ctx)) ? taparPlata(fichas) : fichas,
     );
     return `FICHAS AL DÍA de las cotizaciones que ya revisaste en esta conversación, recién leídas de Eventia: úsalas y no las vuelvas a pedir con ver_cotizacion.\n${json}`;
   }
@@ -695,15 +727,14 @@ export class AsistenteService {
       if (h.nombre === 'ver_cotizacion' && typeof numero === 'number') {
         this.loLeido.anotar(ctx.usuario, numero);
       }
-      // La red de recepción (doc 20 §13): las herramientas ya le sacan la
-      // plata, y esto tapa la que venga escrita a mano en una nota. Menos lo
-      // que es de un particular (doc 21) y el catálogo (`plataLibre`).
+      // La red de recepción (doc 20 §13), y desde el doc 22 §9 la de todo
+      // cargo con un tipo de cliente apagado: las herramientas ya le sacan
+      // la plata, y esto tapa la que venga escrita a mano en una nota. Menos
+      // lo de un tipo que su cargo trabaja (la marca `trabaja`) y el
+      // catálogo (`plataLibre`).
+      const conRed = !h.plataLibre && (await tiposPara(ctx)) !== null;
       const resultado =
-        JSON.stringify(
-          esRecepcion(ctx.usuario.role) && !h.plataLibre
-            ? taparPlata(salida)
-            : salida,
-        ) ?? 'null';
+        JSON.stringify(conRed ? taparPlata(salida) : salida) ?? 'null';
       return { ...base, content: resultado };
     } catch (e) {
       if (e instanceof ErrorDeHerramienta) {

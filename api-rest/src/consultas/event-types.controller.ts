@@ -11,6 +11,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser, Public } from 'src/auth';
 import { Derecho } from 'src/auth/derecho.decorator';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import { ADMIN_ONLY, RECEPTION_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ActualizarTipoDto, CrearTipoDeEventoDto } from './dto/consultas.dto';
@@ -36,6 +37,7 @@ export class EventTypesController {
   // La lee el cotizador en cualquier plan: abierta a propósito.
   @Derecho(null)
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('requerimientos', 'cotizaciones', 'consultas')
   @Get()
   listar(@CurrentUser() user: User) {
     return this.tipos.listar(user.company_id);
@@ -49,6 +51,7 @@ export class EventTypesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('consultas')
   @Post()
   crear(@Body() dto: CrearTipoDeEventoDto, @CurrentUser() user: User) {
     this.logger.info(`POST /event-types "${dto.name}"`);
@@ -56,6 +59,7 @@ export class EventTypesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('consultas')
   @Patch(':id')
   actualizar(
     @Param('id') id: string,
@@ -67,6 +71,7 @@ export class EventTypesController {
   }
 
   @Roles(...ADMIN_ONLY)
+  @DentroDe('consultas')
   @Delete(':id')
   eliminar(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`DELETE /event-types/${id}`);

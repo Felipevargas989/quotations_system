@@ -3,11 +3,14 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import 'reflect-metadata';
 import { AnalyticsController } from 'src/analytics/analytics.controller';
 import { AsistenteController } from 'src/asistente/asistente.controller';
-import { CalendarController } from 'src/calendar/calendar.controller';
 import { ClientsController } from 'src/clients/clients.controller';
 import { ConsultasController } from 'src/consultas/consultas.controller';
 import { EventTypesController } from 'src/consultas/event-types.controller';
 import { CustomerSatisfactionSurveyController } from 'src/customer_satisfaction_survey/controller';
+import { BoletasController } from 'src/facturacion/boletas/boletas.controller';
+import { FacturasController } from 'src/facturacion/facturas/facturas.controller';
+import { NotasController } from 'src/facturacion/notas/notas.controller';
+import { OrdenesDeCompraController } from 'src/facturacion/ordenes-de-compra/ordenes-de-compra.controller';
 import { LogisticsController } from 'src/logistics/logistics.controller';
 import { MarketingController } from 'src/marketing/marketing.controller';
 import { MovilController } from 'src/movil/movil.controller';
@@ -100,12 +103,10 @@ const ESPERADO: Array<{
   derecho: Derecho;
   abiertas: number; // rutas con @Derecho(null), a propósito
 }> = [
-  {
-    nombre: 'Calendario',
-    cls: CalendarController,
-    derecho: 'calendario',
-    abiertas: 0,
-  },
+  // El Calendario ya no tiene controlador propio: su única puerta,
+  // `GET /calendar/events`, no tenía quién la llamara y se borró el
+  // 06-11-2026 (doc 22 §4.3). La pantalla lee `GET /quotations` con
+  // `vista=calendario`.
   {
     nombre: 'Pagos',
     cls: PaymentsController,
@@ -177,6 +178,31 @@ const ESPERADO: Array<{
     nombre: 'BelIA',
     cls: AsistenteController,
     derecho: 'asistente',
+    abiertas: 0,
+  },
+  {
+    // La facturación (doc 19, migración 184): módulo propio de Valle del Sol.
+    nombre: 'Facturación: órdenes de compra',
+    cls: OrdenesDeCompraController,
+    derecho: 'facturacion',
+    abiertas: 0,
+  },
+  {
+    nombre: 'Facturación: la factura del evento',
+    cls: FacturasController,
+    derecho: 'facturacion',
+    abiertas: 0,
+  },
+  {
+    nombre: 'Facturación: las boletas de recepción',
+    cls: BoletasController,
+    derecho: 'facturacion',
+    abiertas: 0,
+  },
+  {
+    nombre: 'Facturación: la lista y las notas',
+    cls: NotasController,
+    derecho: 'facturacion',
     abiertas: 0,
   },
 ];

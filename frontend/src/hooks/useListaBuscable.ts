@@ -107,6 +107,7 @@ export function useListaBuscable({
           o.label,
           buscarEnHint ? o.hint : undefined,
           buscarEnGrupo ? o.group : undefined,
+          o.buscar,
         ),
       ),
     [opciones, texto, buscarEnHint, buscarEnGrupo],

@@ -1,4 +1,5 @@
 import { tieneDerecho } from 'src/auth/derechos';
+import { trabajaElTipo } from 'src/auth/permisos';
 import { OPERATIONS_AND_UP, RECEPTION_AND_UP } from 'src/auth/roles.decorator';
 import { RequestType } from 'src/quotations/constants/constants';
 import {
@@ -11,7 +12,7 @@ import {
   type Herramienta,
 } from './comun';
 import { clientesQueRevisar } from './mal-clasificados';
-import { esRecepcion } from './recepcion';
+import { esRecepcion, tiposPara } from './recepcion';
 import { pendientesDe } from './seguimientos-pendientes';
 
 // «¿Qué tengo que revisar hoy?»: lo que hace que BelIA llame la atención
@@ -41,6 +42,7 @@ export const avisosDeHoy: Herramienta = {
     'revisar hoy?». A recepción, solo los requerimientos que llegaron hoy.',
   esquema: { type: 'object', properties: {} },
   cargos: RECEPTION_AND_UP,
+  permiso: ['requerimientos', 'cotizaciones'],
   async ejecutar(_entrada, ctx) {
     const empresa = ctx.usuario.company_id;
     const rol = ctx.usuario.role;
@@ -64,6 +66,9 @@ export const avisosDeHoy: Herramienta = {
     const veComprobantes =
       OPERATIONS_AND_UP.includes(rol) &&
       tieneDerecho(ctx.usuario.derechos, 'post_venta');
+    // Con un tipo de cliente apagado (doc 22 §9), sus compromisos y sus
+    // topes no se avisan: su cargo no los trabaja.
+    const tipos = await tiposPara(ctx);
     const [
       { deHoy },
       requerimientos,
@@ -88,17 +93,30 @@ export const avisosDeHoy: Herramienta = {
       // Los clientes mal clasificados (doc 21 §6): si falla, lo demás sirve.
       clientesQueRevisar(ctx).catch(() => []),
     ]);
+    const seVen = tipos
+      ? await Promise.all(
+          choques.map((c) =>
+            ctx.alcance
+              ? ctx.alcance.veLaCotizacion(ctx.usuario, c.quotation_id)
+              : false,
+          ),
+        )
+      : null;
     const topes = new Map<string, (typeof choques)[number][]>();
-    for (const c of choques) {
+    for (const [i, c] of choques.entries()) {
+      if (seVen && !seVen[i]) continue;
       topes.set(c.quotation_id, [...(topes.get(c.quotation_id) ?? []), c]);
     }
     return {
-      compromisos_que_vencen_hoy: deHoy.slice(0, MAX).map((q) => ({
-        numero: q.quotation_number,
-        enlace: enlaceDe(q, rol),
-        cliente: q.clients?.name ?? null,
-        evento: conDia(diaDelEvento(q.event_date as unknown as string)),
-      })),
+      compromisos_que_vencen_hoy: deHoy
+        .filter((q) => trabajaElTipo(tipos, q.clients?.client_type))
+        .slice(0, MAX)
+        .map((q) => ({
+          numero: q.quotation_number,
+          enlace: enlaceDe(q, rol),
+          cliente: q.clients?.name ?? null,
+          evento: conDia(diaDelEvento(q.event_date as unknown as string)),
+        })),
       requerimientos_de_hoy: requerimientos.filas.map((q) => ({
         numero: q.quotation_number,
         enlace: enlaceDe(q, rol),

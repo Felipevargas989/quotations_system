@@ -13,10 +13,13 @@ export default function SubirAMercadoPublico({
   oportunidadId,
   codigo,
   cierre,
+  compraAgil = false,
 }: {
   readonly oportunidadId: number;
   readonly codigo: string;
   readonly cierre: string | null;
+  /** Una compra ágil va en una sola carpeta (decisión 118). */
+  readonly compraAgil?: boolean;
 }) {
   const cuando = cuandoCierra(cierre);
   return (
@@ -36,7 +39,11 @@ export default function SubirAMercadoPublico({
         )}
       </div>
       <ValidacionDeDocumentos oportunidadId={oportunidadId} cierre={cierre} />
-      <SetParaMercadoPublico oportunidadId={oportunidadId} codigo={codigo} />
+      <SetParaMercadoPublico
+        oportunidadId={oportunidadId}
+        codigo={codigo}
+        compraAgil={compraAgil}
+      />
     </section>
   );
 }

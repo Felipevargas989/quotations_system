@@ -6,8 +6,9 @@ import AvisoDeChoque from "./AvisoDeChoque";
 
 // El tope de calendario (Felipe, 18-10-2026; mapa 02 §5.6). Desde el primer
 // momento es «Tope de calendario», con un solo «Sí, puede seguir»; el botón
-// «Hay que gestionar» se quitó. Datos de prueba con las formas de los casos
-// reales de ese día.
+// «Hay que gestionar» se quitó. En la tarjeta, desde el 06-11-2026, dice
+// corto («Tope» y «Puede seguir») y va en la línea de abajo. Datos de
+// prueba con las formas de los casos reales de ese día.
 
 afterEach(cleanup);
 
@@ -55,17 +56,39 @@ describe("AvisoDeChoque", () => {
         />
       </div>,
     );
-    expect(screen.getAllByText("Tope de calendario")).toHaveLength(1);
-    const titulo = screen.getByText("Tope de calendario").getAttribute("title");
+    expect(screen.getAllByText("Tope")).toHaveLength(1);
+    const titulo = screen.getByText("Tope").getAttribute("title");
     expect(titulo).toContain("Con la N° 411 · Ferrocarril del Pacífico S.A");
     expect(titulo).toContain("Con la N° 412");
     expect(titulo).toContain("con exclusividad");
+    expect(titulo).toContain("o con «Puede seguir»");
     expect(
       screen.queryByRole("button", { name: "Hay que gestionar" }),
     ).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Sí, puede seguir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Puede seguir" }));
     expect(onSeguir).toHaveBeenCalledWith([con411, con412]);
     expect(alAbrirFicha).not.toHaveBeenCalled();
+  });
+
+  it("en la tarjeta dice corto y es un trozo de la línea de abajo, no una línea propia (06-11-2026)", () => {
+    render(
+      <AvisoDeChoque
+        compacto
+        choques={[con411]}
+        puedeDecidir
+        guardando={false}
+        onSeguir={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status").tagName).toBe("SPAN");
+    expect(screen.getByRole("status")).not.toHaveClass("mt-2");
+    expect(screen.queryByText("Tope de calendario")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Sí, puede seguir" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Puede seguir" }),
+    ).toBeInTheDocument();
   });
 
   it("en la ficha: el detalle de cada tope a la vista, con la exclusividad", () => {
@@ -77,6 +100,7 @@ describe("AvisoDeChoque", () => {
         onSeguir={vi.fn()}
       />,
     );
+    expect(screen.getByText("Tope de calendario")).toBeInTheDocument();
     const lineas = screen.getAllByRole("listitem");
     expect(lineas[0]).toHaveTextContent(
       "Choca con N° 411 · Ferrocarril del Pacífico S.A · aceptada, 20-12",
@@ -89,6 +113,23 @@ describe("AvisoDeChoque", () => {
     ).toHaveLength(1);
   });
 
+  it("la viñeta y el botón miden lo mismo: los dos con borde, así quedan parejos (06-11-2026)", () => {
+    render(
+      <AvisoDeChoque
+        compacto
+        choques={[con411]}
+        puedeDecidir
+        guardando={false}
+        onSeguir={vi.fn()}
+      />,
+    );
+    const vineta = screen.getByText("Tope");
+    const boton = screen.getByRole("button", { name: "Puede seguir" });
+    for (const pieza of [vineta, boton]) {
+      expect(pieza).toHaveClass("border", "py-0.5", "text-xs");
+    }
+  });
+
   it("quien no vende ve el tope pero no el botón", () => {
     render(
       <AvisoDeChoque
@@ -99,7 +140,7 @@ describe("AvisoDeChoque", () => {
         onSeguir={vi.fn()}
       />,
     );
-    expect(screen.getByText("Tope de calendario")).toBeInTheDocument();
+    expect(screen.getByText("Tope")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -113,8 +154,6 @@ describe("AvisoDeChoque", () => {
         onSeguir={vi.fn()}
       />,
     );
-    expect(
-      screen.getByRole("button", { name: "Sí, puede seguir" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Puede seguir" })).toBeDisabled();
   });
 });

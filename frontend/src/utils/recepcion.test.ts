@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { clientesParaElCotizador, estadosPara } from "./recepcion";
+import {
+  clientesParaElCotizador,
+  estadosPara,
+  tiposQueTrabaja,
+} from "./recepcion";
 
 // Recepción cotiza a los particulares (doc 21): sin aceptar, anular ni
 // marcar realizada.
@@ -59,6 +63,45 @@ describe("clientesParaElCotizador", () => {
       clientesParaElCotizador("recepcion", clientes, [
         { name: "Particulares" },
       ]),
+    ).toHaveLength(3);
+  });
+});
+
+// Doc 22 §9: los tipos que trabaja cada cargo los manda el motor en el
+// perfil; sin el dato, lo de fábrica.
+describe("tiposQueTrabaja y el cotizador, con el perfil", () => {
+  const TIPOS = [
+    { name: "Particulares", es_particular: true },
+    { name: "Empresas" },
+    { name: "Club Adulto Mayor" },
+  ];
+  const clientes = [
+    { id: "a", client_type: "Particulares" },
+    { id: "b", client_type: "Empresas" },
+    { id: "c", client_type: "Club Adulto Mayor" },
+  ];
+
+  it("sin el dato del motor, lo de fábrica", () => {
+    expect(tiposQueTrabaja("recepcion", TIPOS)).toEqual(
+      new Set(["particulares"]),
+    );
+    expect(tiposQueTrabaja("vendedor", TIPOS)).toBeNull();
+  });
+
+  it("con el perfil: los que dice el motor, a cualquier cargo", () => {
+    expect(
+      clientesParaElCotizador("vendedor", clientes, TIPOS, null, [
+        "Particulares",
+        "Club Adulto Mayor",
+      ]).map((c) => c.id),
+    ).toEqual(["a", "c"]);
+    expect(
+      clientesParaElCotizador("recepcion", clientes, TIPOS, "b", [
+        "Club Adulto Mayor",
+      ]).map((c) => c.id),
+    ).toEqual(["b", "c"]);
+    expect(
+      clientesParaElCotizador("recepcion", clientes, TIPOS, null, null),
     ).toHaveLength(3);
   });
 });

@@ -130,6 +130,73 @@ describe("Mis licitaciones, siempre al día (23-10)", () => {
   });
 });
 
+describe("¿La subiste? (decisión 122)", () => {
+  const cerradaConFirma = () =>
+    mia(11082, "Servicio integral de recreación", "en_estudio", {
+      proceso: {
+        ...mia(0, "", "").proceso,
+        tipo: "compra_agil",
+        nombre: "Servicio integral de recreación",
+        fecha_cierre: "2026-11-07T15:00:00.000Z",
+      },
+      avance: avance({ postulacion: 2, firmados: 2 }),
+    });
+
+  it("la que cerró con documentos firmados queda arriba, en ámbar, con la pregunta", async () => {
+    s.getMisLicitaciones.mockResolvedValue([
+      cerradaConFirma(),
+      mia(91, "Día de Campo", "en_estudio"),
+    ] as never);
+    pintar();
+    expect(await screen.findByText("¿Las subiste? (1)")).toBeInTheDocument();
+    expect(screen.getByText("Por postular (1)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Servicio integral de recreación").closest("li"),
+    ).toHaveClass("bg-amber-50");
+    expect(
+      screen.getByText("¿La subiste a Mercado Público?"),
+    ).toBeInTheDocument();
+    // La que sigue abierta no pregunta nada.
+    expect(screen.getAllByText("¿La subiste a Mercado Público?")).toHaveLength(
+      1,
+    );
+  });
+
+  it("«Sí, la postulé» la pasa a postulada y no abre la ficha", async () => {
+    s.getMisLicitaciones.mockResolvedValue([cerradaConFirma()] as never);
+    s.actualizarOportunidad.mockResolvedValue({
+      id: 11082,
+      estado: "postulada",
+    } as never);
+    pintar();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Sí, la postulé" }),
+    );
+    await vi.waitFor(() =>
+      expect(s.actualizarOportunidad).toHaveBeenCalledWith(11082, {
+        estado: "postulada",
+      }),
+    );
+    expect(screen.queryByText("Ficha abierta")).not.toBeInTheDocument();
+  });
+
+  it("«No alcancé» la descarta con el porqué «No alcanzo»", async () => {
+    s.getMisLicitaciones.mockResolvedValue([cerradaConFirma()] as never);
+    s.actualizarOportunidad.mockResolvedValue({
+      id: 11082,
+      estado: "descartada",
+    } as never);
+    pintar();
+    fireEvent.click(await screen.findByRole("button", { name: "No alcancé" }));
+    await vi.waitFor(() =>
+      expect(s.actualizarOportunidad).toHaveBeenCalledWith(11082, {
+        estado: "descartada",
+        motivo: "no_alcanzo",
+      }),
+    );
+  });
+});
+
 describe("Mis licitaciones", () => {
   it("por postular arriba, por vencimiento; las postuladas abajo, aparte y en verde (19-10)", async () => {
     s.getMisLicitaciones.mockResolvedValue([

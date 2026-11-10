@@ -1,4 +1,5 @@
 import type { Derecho, EstadoPlan, Plan } from 'src/auth/derechos';
+import type { Permiso } from 'src/auth/permisos';
 import { Company } from 'src/companies/entities/company.entity';
 
 // TODO: set real roles
@@ -36,4 +37,10 @@ export type User = {
   cotizaciones_mes?: number | null;
   plan?: Plan | null;
   estado_plan?: EstadoPlan | null;
+  // Los permisos prendidos del cargo en su empresa (doc 22, 05-11-2026).
+  // Sin la lista, quien la lea usa los de fábrica (`permisosDelCargo`).
+  permisos?: Permiso[];
+  // Los tipos de cliente que trabaja (doc 22 §9), por nombre; null si los
+  // trabaja todos. Solo en el perfil.
+  tipos_de_cliente?: string[] | null;
 };

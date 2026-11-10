@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { RefundsController } from '../refunds.controller';
 import { RefundsService } from '../refunds.service';
@@ -15,6 +16,8 @@ describe('RefundsController', () => {
       providers: [
         provideMock(RefundsService),
         { provide: PinoLogger, useValue: mockPinoLogger() },
+        // Lo que ve cada cargo según el tipo de cliente (doc 22 §9).
+        provideMock(AlcanceDeRecepcion),
       ],
     }).compile();
 

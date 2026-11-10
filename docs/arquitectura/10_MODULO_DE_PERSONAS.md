@@ -678,6 +678,97 @@ falta para los días de preparativo y de desarme, que hoy no están en
 ninguna parte del costo (en el correo real aparece "Preparativos evento
 Municipalidad, $25.000").
 
+### La sábana en tres secciones y lo que cuesta el día (09-11-2026)
+
+Felipe, el 09-11-2026, al ver que Camila ponía la gente de los eventos en
+Personal Staff: *"dios mío no sé cómo dejar más simple el sistema para
+evitar estos errores"*. Medido ese día: un evento sin sillas en Gestión no
+aparecía en la sábana (entre el 11-10 y el 30-11 había 13 así, como la
+#460 del 29-10), y el único «+» a la vista era el de Staff. Ahí quedaron
+David Iturra (garzón) y Yuri Miller (cocina) el 29-10, y lo que va en
+Staff no llega al costo del evento. Lo acordado, con la maqueta aprobada
+(*"si dale así me parece bien todas las imágenes propuestas"*):
+
+- **Tres secciones** con título y color: **Eventos** (verde), **Personal
+  de planta** (azul) y **Personal Staff** (lila), los colores de sus
+  celdas. Las dos bandas del 21-10 viven dentro de las dos últimas. El
+  título de cada sección es una pestaña de color fuerte con letra blanca y
+  una línea fina del mismo color, también en los bloques del resumen del
+  día (Felipe, 09-11-2026: *"los títulos de las secciones se confunden con
+  los colores de cada evento… ¿alguna otra forma de separarlos sin perder
+  visualmente las secciones?"*; de dos maquetas eligió *"la 2"*). Antes
+  era una franja pastel, igual a la de cada evento. El «+ cargo» de Staff
+  pasó a ser un botoncito lila pegado a su título.
+- **Dos semanas por defecto, o los próximos 30 días** (Felipe, 09-11-2026:
+  *"¿y si vemos solo 2 semanas adelante por defecto?"*, *"y un botón para
+  ver los próximos 30 días"* y *"las flechas que avancen de 1 en 1"*).
+  Reemplaza la vista mensual fija del 15-08: la sábana parte el domingo de
+  la semana, muestra 14 días y, con el selector «2 semanas · 30 días» al
+  lado de «hoy», 30. Las flechas mueven una semana y cada vez que se entra
+  parte en dos semanas. Por dentro se piden al menos 28 días, la clave que
+  comparte con la ficha de la persona, y las filas se arman solo con lo de
+  los días que se ven.
+- **Los eventos van en cascada** (Felipe, 09-11-2026: *"del que se va a
+  realizar antes al último, cosa de irlo viendo en cascada y no así como
+  saltados"*): primero el que parte antes; mismo día, el que termina antes;
+  y después el número. Antes iban por número de cotización.
+- **Más color, menos gris** (Felipe, 09-11-2026: *"todavía siento que hay
+  muchos grises"*; maqueta aprobada: *"si hazlo así"*): cada evento lleva su
+  color en una banda con una línea a la izquierda y una barra sobre sus
+  días. Número, cliente y fecha van en una sola línea, con su «+ cargo»
+  chico al lado, y la línea de color baja por todas las filas del evento
+  (Felipe, 09-11-2026: *"¿no será mejor que esté todo en la misma fila? y
+  que el borde del color tome todas las filas relacionadas al evento"*). Los colores se reparten en orden por la cascada, así dos
+  eventos seguidos nunca llevan el mismo (sacarlos del número de la
+  cotización repetía colores vecinos: la #384 y la #456, la #460 y la
+  #454). El título de cada evento lleva un fondo suave de su color y su
+  «+ cargo» es un botoncito del mismo color. La línea de «Eventos», la de
+  Planta, la de Staff y la de cada evento parten del mismo borde (Felipe,
+  09-11-2026: *"¿que la línea de eventos y los eventos no esté
+  alineada?"*). Hoy se marca solo arriba, con el número en un círculo azul
+  (*"no sé si vale mucho marcar el día actual para abajo, quizás solo
+  arriba en la fecha"*); el mes va una sola vez. (Hubo una línea antes de
+  cada domingo para separar las semanas; Felipe la sacó ese mismo día:
+  *"¿por qué hay una raya del sáb 14 al dom 15?"*.) La grilla y el resumen del día van sobre blanco; el gris
+  del fondo es de todo el sistema y no se tocó (*"si lo cambiamos se
+  cambia todo"*). El
+  «+» de antes y después va callado, sin cajita, en el color del evento
+  (la cajita aparece al pasar el mouse); el «+» vacío de planta en azul y
+  el de Staff en lila; fuera del evento, en blanco (sin el puntito). El verde y el
+  ámbar de las casillas siguen diciendo completo o falta gente, y los
+  colores de los eventos evitan esos dos, el azul y el lila.
+- **Todo evento del rango se ve, tenga o no gente.** Un evento sin cargos
+  sale con una fila «Elige el cargo»: su «+» pregunta el cargo (un botón
+  por cargo) y abre la casilla de ese día. Cada evento lleva su «+ cargo»,
+  igual que Staff; un cargo sumado así y sin nadie se quita con su ✕.
+- **El «+» en cada día del evento, y también hasta 4 días antes y 4
+  después** (*"¿no deberíamos poner más en todas las filas? así si llamé
+  gente antes vinculada a un evento se puede"*): ámbar los días del
+  evento, gris punteado los de antes y después. Es el mismo tope con que
+  Gestión agrega días. Esa gente queda en el evento y en su costo
+  (Gestión, Servicios y Dashboard suman el `amount` de sus filas), y la
+  casilla no se cierra con un freelance sin monto, así que no entra en $0.
+- **El seguro de Staff** (*"ok me parece con seguro"*): al poner a alguien
+  en Personal Staff un día que tiene evento, la casilla pregunta **«Ese día
+  hay evento — ¿Va para un evento?»**, con un botón por evento de ese día
+  y «No, es staff del día». Si va a un evento, entra con el cargo de su
+  fila y la casilla salta a la del evento para ponerle el monto ahí. Si
+  no, sigue como siempre (y si es un planta en un día que no le toca,
+  viene la pregunta del día extra del capítulo 11).
+- **El resumen del día suma lo que cuesta** (*"así puedo comprobar cuánto
+  me está costando el día completo"*): columna **Pago** con lo de cada
+  persona ese día; la planta va en blanco salvo que se le haya puesto un
+  adicional; la silla vacía sale como «Falta por conseguir» con su valor
+  estimado. Cada bloque lleva su color y su subtotal, y abajo va el
+  **Total del día**. La gente de un evento anulado no suma.
+- **Salió el recuadro «Qué hay que hacer»** del resumen. Las notas ya
+  escritas siguen en `day_notes` y el motor sigue sirviendo
+  `/people/day-notes`; ninguna pantalla las muestra.
+- Lo ya cargado en Staff no se movió. Visto ese día: David Iturra, el
+  29-10, tiene $25.000 en Staff y otros $25.000 en su fila de invitado de
+  la #460, ninguno en nómina todavía. Si se liquidan los dos, se le paga
+  dos veces. Lo decide Felipe.
+
 ### La liquidación (flujo cerrado el 15-08)
 
 La pestaña se llama **Liquidación** y separa los dos caminos:

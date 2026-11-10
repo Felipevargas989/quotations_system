@@ -1,6 +1,6 @@
 # Mapa: Calendario, app móvil e infraestructura del motor
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar), y el 28-10-2026 con lo vendido primero en el calendario (sección 6) y la lista de cotizaciones por páginas (sección 8, riesgo 14). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, y el 14-09-2026 con el reloj de las pruebas vencidas y el filtro por derecho de los relojes (sección 7), y el 16-10-2026 con el reloj del radar de Oportunidades (rama `feature/oportunidades-radar`, sin aplicar), y el 28-10-2026 con lo vendido primero en el calendario (sección 6) y la lista de cotizaciones por páginas (sección 8, riesgo 14). El 06-11-2026 se borró la puerta vieja del calendario, `GET /calendar/events`, con su módulo (doc 22 §4.3). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
 
 Este módulo no tiene documento de arquitectura propio en `docs/arquitectura`. Lo tocan de lado `09_PLAN_DE_HOMOLOGACION.md` (el filtro del calendario, tandas B3 y C2), `11_MODULO_DE_MARKETING.md` y `12_MODULO_DE_CONSULTAS.md` (sus relojes) y `13_ENVIO_DE_COTIZACIONES.md` (la memoria del motor en Railway). La app móvil vive en otro repositorio, `eventia-movil`, al lado de este. Aquí solo se documenta lo que el motor le ofrece.
 
@@ -43,11 +43,10 @@ El ícono de calendario de `frontend/src/layout/Layout.tsx` **no** es este módu
 
 ## 3. Endpoints del motor
 
-### 3.1 Propios del módulo (10)
+### 3.1 Propios del módulo (9)
 
 | Método y ruta | Controller y método | Service | Quién lo llama desde la app | Roles o @Public |
 |---|---|---|---|---|
-| `GET /calendar/events` | `CalendarController.findAllEvents` | `CalendarService.findAllEvents` → `QuotationsService.findAll({ companyId })`, sin filtros (toda la historia) | **Nadie.** `findAllEvents` de `frontend/src/services/calendar.service.ts` existe, pero su import está comentado en `Calendar.tsx`. La app móvil tampoco lo usa | Sesión, sin `@Roles` |
 | `GET /movil/push/clave-publica` | `MovilController.clavePublica` | `MovilService.clavePublica` (devuelve `VAPID_PUBLIC_KEY` o texto vacío) | `eventia-movil/src/lib/push.ts` | Sesión, sin `@Roles` |
 | `POST /movil/push/dispositivos` | `MovilController.registrar` (`RegistrarDispositivoDto`: `endpoint`, `p256dh`, `auth`) | `MovilService.registrarDispositivo` | `eventia-movil/src/lib/push.ts` | Sesión |
 | `POST /movil/push/probar` | `MovilController.probar` | `MovilService.probar` | `eventia-movil/src/lib/push.ts` | Sesión |
@@ -180,9 +179,9 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 2. **Proxy.** `trust proxy` en 1, para que el límite de frecuencia vea la IP real detrás de Railway.
 3. **Registro.** `LoggerModule` (pino) tapa `req.headers.authorization` y `req.headers.cookie`.
 4. **Guardias globales**, en el orden de `providers` de `app.module.ts`:
-   - **`AuthGuard`.** Valida el token con `AuthService.validateToken`, que recuerda los pases por su huella SHA-256 en `cacheTokens` hasta que vencen (tope 1 hora). Carga el perfil desde `cachePerfiles` (1 hora). Deja en `request.user` los campos `id`, `company_id`, `role` y `email`.
+   - **`AuthGuard`.** Valida el token con `AuthService.validateToken`, que recuerda los pases por su huella SHA-256 en `cacheTokens` hasta que vencen (tope 1 hora). Carga el perfil desde `cachePerfiles` (1 hora). Deja en `request.user` los campos `id`, `company_id`, `role` y `email`. Desde el 05-11-2026 (doc 22), también `full_name` y `permisos`, los prendidos del cargo en su empresa (`PermisosService.delCargo`, de `cachePermisos`: una hora, y guardar un cambio la olvida al instante).
    - **`ThrottlerGuard`.** 300 peticiones por minuto por IP; las rutas públicas tienen techos más duros con `@Throttle` (mapa 11).
-   - **`RolesGuard`.** Aplica `@Roles`; en rutas sin `@Roles` basta con la sesión.
+   - **`RolesGuard`.** Aplica `@Roles`; en rutas sin `@Roles` basta con la sesión. Desde el 05-11-2026, en las rutas con `@Permiso` o `@DentroDe` hace la cuenta de los permisos por cargo (mapa 23) y niega con `SIN_PERMISO`.
 5. **Validación.** `ValidationPipe` global con `whitelist`, `forbidNonWhitelisted` y `transform`. Un campo desconocido, o sin decorador en el DTO, recibe un 400.
 6. **Controller → service → repository → `SupabaseService.client`.** El cliente usa la llave de servicio y salta RLS: el aislamiento por `company_id` lo hace el código. **Tope de tiempo desde el 22-09-2026 (incidente 71):** `createClient` recibe `global.fetch = conTope(TOPE_BASE_MS || 10 000)`, un fetch con `AbortSignal.timeout` (combinado con la señal propia de la llamada vía `AbortSignal.any`). Antes ninguna consulta se rendía y una traba de la puerta de datos colgaba cada petición 60-123 s. Los relojes imprimen ahora `mensajeDe(e)` (`logging/mensaje-de-error.ts`) en vez de "[object Object]". **Una sola excepción desde el 29-10-2026 (decisión 109 de Oportunidades):** `SupabaseService.clientParaTrabajosLargos`, otro cliente con tope de 75 s, solo para `mercado_resumir_mes`, que resume de una vez un mes del mercado: uno grande pasó de los 10 s en el laboratorio. Todo lo demás sigue con `client`. Prueba: `supabase/tests/tope-de-tiempo.spec.ts`.
 7. **Después de responder.** `PanelInvalidationInterceptor` (global) actúa si el método no es GET, hay `request.user.company_id` y la respuesta salió bien. Entonces llama a `invalidarPanelEmpresa`, que borra toda la memoria del panel de análisis de esa empresa.
@@ -200,6 +199,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 - **Lo vendido primero** (Felipe, 28-10-2026: *"el calendario puede mostrar primero lo aceptado tanto en el resumen como en el calendario"*). Lo aceptado y lo realizado van arriba en el panel del día y toman las primeras filas de bandas, así nunca quedan en "+N más" detrás de lo que sigue en juego; dentro de cada grupo, el orden de antes. Los realizados suben con los aceptados porque en los días pasados son lo que estuvo aceptado. Con el filtro por defecto (Aceptada + Realizada) casi no se nota: se ve al marcar también los estados en juego. Evidencia: `ordenDelCalendario.ts` y su prueba.
 - **Recepción ve el calendario.** Sin él "no puede responder '¿tienen el 20 libre?'", y "no escribe nada en la base, es solo-mirar por naturaleza" (12-08). Evidencia: comentario de `ROLE_PERMISSIONS` en `frontend/src/constants/permissions.ts`.
 - **Recepción sigue solo mirando, también desde el doc 21** (04-11-2026). Ve Cotizaciones, pero solo las de clientes particulares, y esas las trabaja desde el tablero: en el calendario sigue sin montos y sin abrir la ficha (`veNegocio` deja fuera a recepción). El calendario pide `GET /quotations?vista=calendario`: a recepción el motor le entrega ahí todos los eventos, y los que no son de particulares le llegan como agenda (nombre del cliente, fecha, personas, estado), sin plata. La tarjeta del día pide `GET /quotations/:id` para las categorías: de esos eventos le llega la misma agenda, con las categorías ya sacadas (`categorias`). Evidencia: `paraElCalendario` y `paraLaAgenda` en `api-rest/src/clients/alcance-de-recepcion.ts`.
+- **El Calendario es un permiso por cargo desde el 05-11-2026 (doc 22).** De fábrica lo tienen los cuatro cargos: el vendedor, que entraba por «Ver en calendario» sin tenerlo en el menú, ahora lo ve en el menú (Felipe, 05-11-2026). Si una empresa se lo apaga a un cargo, el motor le niega `GET /quotations?vista=calendario` con `SIN_PERMISO` (`AlcanceDeRecepcion.deLaLista`).
 - **Venta sin propina.** La venta del mes se mide así ("regla de la casa 24-07"): `total_amount − tip_amount`. Evidencia: `resumenMes`.
 - **Clic con destino (12-08).** "nunca más al cotizador". Aceptada, realizada y anulada van a Post-Venta, que abre "en PESTAÑA NUEVA (pedido de Felipe 12-08)". Lo que sigue en juego va a la ficha del negocio. Recepción, que no edita, siempre llega a la ficha. Evidencia: `handleNavigateToQuotation`.
 - **Estilo "Google", elegido por Felipe (12-08).** Bandas continuas; día seleccionado con marco azul y fondo suave; hoy como moneda azul; sin mancha de "tiene eventos"; filas de altura uniforme para ver el mes entero en un notebook. Evidencia: comentarios del bloque `<style>` y de `tileContent`.
@@ -232,7 +232,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
 **Quién usa la infraestructura**
 - **`SupabaseService`.** Es global (`SupabaseModule` con `@Global()`) y lo inyectan todos los repositorios. Fuera de la capa repository también lo importan `movil.service.ts`, `storage.service.ts`, `backup-cron.service.ts`, `analytics/analytics.service.ts`, `analytics/hoy.controller.ts`, `services/sections.controller.ts`, `clients/client-contacts.controller.ts`, `quotations/event-documents.controller.ts`, `quotations/portal-receipts.controller.ts` y `quotation-followups/quotation-followups.module.ts`.
 - **`cache/memoria.ts`.**
-  - Mapa 15: `AuthService.validateToken` (`cacheTokens`), `AuthGuard` (`cachePerfiles`) y `UsersService.remove` (`olvidarPerfil`).
+  - Mapa 15: `AuthService.validateToken` (`cacheTokens`), `AuthGuard` (`cachePerfiles`) y `UsersService.remove` (`olvidarPerfil`); `PermisosService` (`cachePermisos` y `olvidarPermisos`, doc 22).
   - Mapa 13: `AnalyticsService` (`cachePanel`, con claves `<empresa>:dash:…` y `<empresa>:stats:…`).
 - **`logSafe`.** Lo usan clientes (09), la encuesta (14), super-admin y usuarios (15), personas (07) y cotizaciones (01 y 02).
 - **`utils/dates.ts`.** `normalizeDateToUtc` en `PaymentsCronService` (03) y `QuotationsCronService` (02); `getEventDateUtc` en `QuotationsService`, al crear y al revisar choques de fecha (01).
@@ -333,7 +333,6 @@ Tareas automáticas que **no** son `@Cron`:
 |---|---|
 | `api-rest/src/storage/tests/storage.service.spec.ts` | 10 pruebas de la regla del dueño: firma una ruta nueva de la misma empresa; rechaza una de otra empresa; firma una ruta vieja si la cotización es de la empresa y la rechaza si es ajena; acepta la URL pública vieja; rechaza URLs de otro sitio y prefijos desconocidos; borrar exige el mismo candado; subir rechaza tipos no permitidos y arma la ruta con `c<empresa>` |
 | `api-rest/src/config/validate-env.spec.ts` | Sin variable crítica no parte; una crítica en blanco cuenta como faltante; con todo presente no advierte; una importante ausente se reporta sin detener |
-| `api-rest/src/calendar/tests/calendar.controller.spec.ts` y `calendar.service.spec.ts` | Solo "should be defined": que la clase se pueda construir con sus dependencias simuladas |
 | `frontend/src/utils/estadoCotizacion.test.ts` | Prueba el diccionario de estados del que el calendario saca nombres y colores (vitest, corre en CI) |
 | `api-rest/test/app.e2e-spec.ts` | Nada útil: espera `GET /` con "Hello World!", una ruta que no existe. Es el esqueleto original de NestJS. No corre con `jest` ni en CI, porque `roots` apunta a `src` en `api-rest/package.json`; solo corre con `npm run test:e2e` |
 
@@ -349,11 +348,7 @@ Tareas automáticas que **no** son `@Cron`:
 ## 10. Deuda y rarezas conocidas
 
 **Calendario**
-- **Backend muerto.**
-  - `CalendarRepository` está vacío.
-  - `CalendarService` tiene comentados `blockedDays` y todo el CRUD, con el TODO "change name to model bcs logic has changed".
-  - `GET /calendar/events` no tiene quién lo llame.
-  - En el frontend, `calendar.service.ts`, `types/calendar.types.ts` y `API_ROUTES.CALENDAR_EVENTS` solo se usan entre sí.
+- ~~**Backend muerto.**~~ Enterrado el 06-11-2026 (doc 22 §4.3, Felipe: *"si hazlo si"*). `GET /calendar/events` le entregaba a cualquier cargo todas las cotizaciones con sus montos, sin las reglas de recepción ni de los tipos de cliente, y nadie lo llamaba. Se borraron el módulo `calendar` del motor (controlador, servicio, repositorio vacío, tipos y pruebas) y, en la app, `calendar.service.ts`, `types/calendar.types.ts` y `API_ROUTES.CALENDAR_EVENTS`. La pantalla lee `GET /quotations?vista=calendario` (doc 22 §4.4).
 - **Archivo grande.** `Calendar.tsx` tiene 928 líneas: página, `TarjetaEvento` y unas 170 líneas de CSS en un bloque `<style>`, todo junto.
 - **Filtro a mano.** El filtro de estados es un multiselect hecho a mano: deuda nombrada en `CLAUDE.md` y en la tanda C2 del plan de homologación. `getStatusColor` y `getStatusLabel` vuelven a buscar en `statusOptions` lo que el diccionario ya entrega.
 - **Cliente sin `?.`.** `TarjetaEvento` usa `q.clients.name`, mientras el tooltip usa `q.clients?.name`: una cotización sin cliente rompería la tarjeta.
@@ -421,7 +416,7 @@ Tareas automáticas que **no** son `@Cron`:
 7. ¿El laboratorio corre con `NODE_ENV = 'production'`? De eso depende si allá corren los relojes y el respaldo (la misma pregunta está en los mapas 10 y 11).
 8. ¿El motor de producción corre en una sola instancia? Si son varias, la memoria de sesión y del panel no se comparte entre ellas.
 9. ¿Vendedor debe ver el calendario? La ruta lo deja pasar (`SECTION_ROLES.calendar`), el menú no lo muestra (`ROLE_PERMISSIONS.vendedor`), llega por el enlace del cotizador y, al pinchar un evento aceptado, termina en "Permisos Insuficientes".
-10. ¿Se conservan `GET /calendar/events` y su servicio del frontend, o se entierran?
+10. ~~¿Se conservan `GET /calendar/events` y su servicio del frontend, o se entierran?~~ Se enterraron el 06-11-2026 (doc 22 §4.3).
 11. ¿La "cotización fría" del móvil debería contarse desde `sent_at`, como el seguimiento, en vez de `created_at`?
 12. ¿Quién o qué consulta `GET /health`? No hay llamador en el repo (mapa 19).
 
@@ -431,7 +426,6 @@ Tareas automáticas que **no** son `@Cron`:
 - `api-rest/src/main.ts`: CORS, `trust proxy`, `ValidationPipe`, Swagger `/docs`, `validateEnv` y `rawBody`.
 - `api-rest/src/app.module.ts`: `ScheduleModule`, `ThrottlerModule`, `LoggerModule`, guardias e interceptor globales.
 - `api-rest/src/config/validate-env.ts` y `api-rest/src/config/validate-env.spec.ts`.
-- `api-rest/src/calendar/calendar.controller.ts`, `calendar.service.ts`, `calendar.repository.ts`, `calendar.module.ts`, `types/index.ts` y `tests/`.
 - `api-rest/src/movil/movil.controller.ts`, `movil.service.ts` y `movil.module.ts`.
 - `api-rest/src/storage/storage.controller.ts`, `storage.service.ts`, `storage.module.ts`, `dto/upload-file.dto.ts` y `tests/storage.service.spec.ts`.
 - `api-rest/src/backup/backup-cron.service.ts` y `backup.module.ts`.
@@ -449,7 +443,6 @@ Tareas automáticas que **no** son `@Cron`:
 
 **App**
 - `frontend/src/pages/calendar/Calendar.tsx` y `ordenDelCalendario.ts` (lo vendido primero, 28-10-2026).
-- `frontend/src/services/calendar.service.ts` y `frontend/src/types/calendar.types.ts` (sin uso).
 - `frontend/src/services/storage.service.ts`.
 - `frontend/src/services/quotations.service.ts` (`getQuotations`, `getQuotationById`).
 - `frontend/src/constants/permissions.ts` y `frontend/src/constants/api.routes.ts`.

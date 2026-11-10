@@ -2,13 +2,21 @@ import type { Origen } from '../adjuntos/adjuntos.repository';
 import { sinExtension } from '../generacion/formularios';
 import { NOMBRES_DE_DOCUMENTO } from '../oferente/nombres-de-documento';
 import type { DocumentoDeEmpresa } from '../oferente/oferente.repository';
-import { type DatosDeRespaldo, TIPO_RESPALDO } from '../oferente/respaldo';
+import { laCotizacionQueFalta } from './la-cotizacion-detallada';
 import {
   type DocumentoDeLaSeccion4,
   fijaUnPlazo,
   type PedidoDeLaCarpeta,
   pedidosDeLaSeccion4,
 } from './la-seccion-4';
+import { papelesSinFormato } from './los-papeles';
+import {
+  carpetaDeLaDeclaracion,
+  cubierto,
+  deLaOferta,
+  deLaPropuesta,
+  loQueFaltaDeLosPapeles,
+} from './los-papeles-del-set';
 
 // EL SET PARA MERCADO PÚBLICO (decisión 34 del doc 17, sprint I, 19-10).
 // Felipe: "al momento de generar el set de documentos que tengo que subir
@@ -34,7 +42,12 @@ import {
 //   arriendo o comodato de una patente de otro, y lo que lo valida, donde
 //   va la patente y justo detrás.
 
-export type Carpeta = 'administrativa' | 'tecnica' | 'economica' | 'otros';
+export type Carpeta =
+  | 'administrativa'
+  | 'tecnica'
+  | 'economica'
+  | 'otros'
+  | 'compra_agil';
 
 /** Las tres partes donde el portal pide los anexos al ingresar la oferta,
  *  y una cuarta con lo general para contratar (Felipe, 19-10: "debería
@@ -45,6 +58,8 @@ export const CARPETAS: Readonly<Record<Carpeta, string>> = {
   tecnica: '2. Técnica',
   economica: '3. Económica',
   otros: '4. Otros',
+  // Decisión 118 (07-11): una compra ágil va en una sola carpeta.
+  compra_agil: 'Compra ágil',
 };
 
 export type ArchivoDelSet = {
@@ -79,6 +94,9 @@ export type DatosDelSet = {
   inicioDe: ReadonlyMap<number, string>;
   /** Cuándo quedó lista la última oferta armada (decisión 33). */
   ofertaLista: string | null;
+  /** El id de esa oferta: la cotización detallada se arma con ella
+   *  (decisión 119) y, con otra más nueva, queda vieja. */
+  ofertaId?: number | null;
   /** El precio de la última oferta armada y el de cada trabajo de anexos,
    *  por su id: lo firmado de la parte económica con otro precio se avisa
    *  (decisión 49). */
@@ -94,6 +112,13 @@ export type DatosDelSet = {
   }>;
   /** AAAA-MM-DD: el cierre en Chile (o hoy), contra el que se vence. */
   corte: string;
+  /** ¿Es una compra ágil? Entonces de «Mi empresa» va solo lo que piden
+   *  las bases: sin «4. Otros» (decisión 118). */
+  compraAgil?: boolean;
+  /** El tipo de cada trabajo de la IA, por su id (decisión 119, parte 3b):
+   *  la cotización y las declaraciones nacen de la oferta, y la propuesta
+   *  de su trabajo, aunque lleven el nombre que les dan las bases. */
+  tipoDe?: ReadonlyMap<number, string>;
 };
 
 export type PiezaDelSet = {
@@ -103,7 +128,15 @@ export type PiezaDelSet = {
   carpetas: Carpeta[];
   /** Una carpeta dentro de la carpeta (los respaldos van juntos). */
   subcarpeta?: string;
-  que_es: 'formulario' | 'propuesta' | 'subido' | 'documento' | 'respaldo';
+  que_es:
+    | 'formulario'
+    | 'propuesta'
+    | 'cotizacion'
+    /** Una declaración del motor en el formato de la casa (parte 3b). */
+    | 'declaracion'
+    | 'subido'
+    | 'documento'
+    | 'respaldo';
   aviso: string | null;
   /** El Word del que se lee el texto (los números de los respaldos): el
    *  firmado se sube en PDF, pero dice lo mismo que su Word. */
@@ -169,7 +202,7 @@ const carpetaDe = (seEntregaEn: string): Carpeta =>
 /** Sin formulario que lo diga, la carpeta por el nombre. */
 const carpetaPorNombre = (nombre: string): Carpeta => {
   const n = normalizar(nombre);
-  if (/econom|precio/.test(n)) return 'economica';
+  if (/econom|precio|cotizacion/.test(n)) return 'economica';
   if (/tecnic|propuesta|experiencia/.test(n)) return 'tecnica';
   return 'administrativa';
 };
@@ -259,7 +292,6 @@ const loQuePidenDeLaCarpeta = (
   }));
 
 const PROPUESTA = /propuesta tecnica|oferta tecnica/;
-const EXPERIENCIA = /experiencia/;
 
 const masNuevo = <T extends { creado_en: string }>(xs: T[]): T | undefined =>
   [...xs].sort((a, b) => b.creado_en.localeCompare(a.creado_en))[0];
@@ -320,18 +352,30 @@ export function armarElSet(d: DatosDelSet): ElSet {
     );
   const grupos = new Map<string, ArchivoDelSet[]>();
   for (const g of generados) {
+    // La cotización detallada del motor (decisión 119) va aparte: no es la
+    // propuesta, aunque tampoco venga de un archivo del comprador. Desde la
+    // parte 3b, cada declaración también, y todo se reconoce por su trabajo.
     const clave =
       g.viene_de !== null
         ? String(g.viene_de)
-        : !solo(g) || PROPUESTA.test(normalizar(g.nombre))
-          ? 'propuesta'
-          : `solo-${g.id}`;
+        : (deLaOferta(g, d.tipoDe) ??
+          (!solo(g) ||
+          deLaPropuesta(g, d.tipoDe) ||
+          PROPUESTA.test(normalizar(g.nombre))
+            ? 'propuesta'
+            : `solo-${g.id}`));
     grupos.set(clave, [...(grupos.get(clave) ?? []), g]);
   }
+  const sinFormato = papelesSinFormato({
+    documentos: d.documentos ?? [],
+    formularios: d.formularios,
+  });
   for (const [clave, grupo] of grupos) {
     const ultimo = masNuevo(grupo) as ArchivoDelSet;
+    const delMotor = clave === 'cotizacion' || clave.startsWith('declaracion-');
     const vigentes =
       clave === 'propuesta' ||
+      delMotor ||
       clave.startsWith('solo-') ||
       ultimo.generacion_id === null
         ? [ultimo]
@@ -342,8 +386,15 @@ export function armarElSet(d: DatosDelSet): ElSet {
       const inicio = g.generacion_id ? d.inicioDe.get(g.generacion_id) : null;
       // Lo firmado no se rehace al volver a armar (decisión 49): no queda
       // viejo, salvo por el precio (abajo, con su carpeta).
+      // La cotización detallada nace de su oferta: queda vieja solo si hay
+      // otra oferta más nueva.
       const viejo =
-        !firmado && Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista);
+        !firmado &&
+        (delMotor
+          ? Boolean(
+              d.ofertaId && g.generacion_id && g.generacion_id !== d.ofertaId,
+            )
+          : Boolean(inicio && d.ofertaLista && inicio < d.ofertaLista));
       const avisos = [
         firmado ? null : 'sin firma',
         viejo ? 'se hizo antes de la última oferta' : null,
@@ -362,6 +413,10 @@ export function armarElSet(d: DatosDelSet): ElSet {
       let carpetas: Carpeta[];
       if (clave === 'propuesta') {
         carpetas = ['tecnica'];
+      } else if (clave === 'cotizacion') {
+        carpetas = ['economica'];
+      } else if (clave.startsWith('declaracion-')) {
+        carpetas = [carpetaDeLaDeclaracion(g.nombre, sinFormato)];
       } else {
         const delComprador = bases.find((b) => b.id === g.viene_de);
         const suyos = delComprador
@@ -411,7 +466,14 @@ export function armarElSet(d: DatosDelSet): ElSet {
         ruta: usado.ruta,
         bytes: usado.bytes,
         carpetas,
-        que_es: clave === 'propuesta' ? 'propuesta' : 'formulario',
+        que_es:
+          clave === 'propuesta'
+            ? 'propuesta'
+            : clave === 'cotizacion'
+              ? 'cotizacion'
+              : clave.startsWith('declaracion-')
+                ? 'declaracion'
+                : 'formulario',
         aviso: avisos.length > 0 ? avisos.join(' · ') : null,
         texto: { ruta: g.ruta, nombre: g.nombre },
       });
@@ -421,6 +483,18 @@ export function armarElSet(d: DatosDelSet): ElSet {
   const pedidos = d.requisitos.map((r) => normalizar(r.que));
   const loPiden = (patron: RegExp) => pedidos.some((p) => patron.test(p));
   const deLaCarpeta = loQuePidenDeLaCarpeta(d, loPiden);
+  // Un formulario de «Mi empresa» que no trajo su formato (el «Anexo N°2
+  // Programa de integridad» sin archivo) se cumple con lo de la carpeta.
+  for (const p of sinFormato) {
+    const tipo = p.quien || !p.formulario ? null : tipoPorElNombre(p.nombre);
+    if (!tipo || deLaCarpeta.some((x) => x.tipo === tipo)) continue;
+    deLaCarpeta.push({
+      tipo,
+      carpeta: p.parte === 'otra' ? 'otros' : p.parte,
+      condicion: p.condicion,
+      obligatorio: p.obligatorio,
+    });
+  }
   /** Ya va en otra parte del ZIP porque las bases lo piden. */
   const yaLoPiden = (tipo: string) => deLaCarpeta.some((x) => x.tipo === tipo);
   /** Un documento general que no va en otra parte: «4. Otros». */
@@ -455,18 +529,37 @@ export function armarElSet(d: DatosDelSet): ElSet {
     });
   }
 
+  // Lo que las bases piden sin formato (decisión 119, parte 3b): lo cubre
+  // la pieza que lo hace (la cotización, la propuesta o la declaración); lo
+  // del portal y lo que no aplica no se sube.
+  const papelesQueFaltan = sinFormato.filter(
+    (p) => p.quien && p.obligatorio && !cubierto(p, piezas),
+  );
   for (const f of formularios) {
     if (cubiertos.has(f)) continue;
+    if (!(f.archivo ?? 'sí').trim()) {
+      const papel = sinFormato.find(
+        (p) => normalizar(p.nombre) === normalizar(f.nombre),
+      );
+      // Lo de «Mi empresa» lo dice su carpeta, abajo.
+      if (papel && !papel.quien && tipoPorElNombre(papel.nombre)) continue;
+      if (papel?.quien) continue;
+    }
     faltan.push(
-      f.archivo.trim()
+      (f.archivo ?? 'sí').trim()
         ? `Falta «${f.nombre}»: genéralo con «Generar anexos» o súbelo lleno a «Mi postulación».`
         : `Falta «${f.nombre}»: las bases no traen su formato; súbelo hecho a «Mi postulación».`,
     );
   }
+  faltan.push(...loQueFaltaDeLosPapeles(papelesQueFaltan));
 
+  // Un formulario sin su formato no lo llena nadie: no cuenta.
   const enUnFormulario = (patron: RegExp) =>
-    formularios.some((f) => patron.test(normalizar(f.nombre)));
+    formularios.some(
+      (f) => (f.archivo ?? 'sí').trim() && patron.test(normalizar(f.nombre)),
+    );
   if (
+    !papelesQueFaltan.some((p) => p.quien?.quien === 'propuesta') &&
     pedidos.some((p) => PROPUESTA.test(p)) &&
     !enUnFormulario(PROPUESTA) &&
     !piezas.some(
@@ -479,6 +572,13 @@ export function armarElSet(d: DatosDelSet): ElSet {
       'Falta la propuesta técnica: créala con «Crear propuesta técnica».',
     );
   }
+  // La cotización que piden las bases (decisión 119).
+  const sinCotizacion = laCotizacionQueFalta(
+    d.documentos ?? [],
+    piezas,
+    d.formularios,
+  );
+  if (sinCotizacion) faltan.push(sinCotizacion);
 
   // De la carpeta de la empresa, lo que piden las bases y nada más.
   for (const { tipo, carpeta, condicion, obligatorio } of deLaCarpeta) {
@@ -527,7 +627,14 @@ export function armarElSet(d: DatosDelSet): ElSet {
     ...(d.documentos ?? []).map((x) => normalizar(x.nombre)),
   ];
   const sinSubir: string[] = [];
-  for (const [tipo, patron] of GENERALES) {
+  // Decisión 118 (07-11): en una compra ágil, solo lo que piden las bases.
+  // Felipe, con la 2705-1740-COT26, que pedía solo la cotización detallada y
+  // llevaba siete documentos de «Mi empresa» en «4. Otros»: "solo trajera lo
+  // que piden las bases... la declaración de uso de patentes solamente
+  // cuando piden patentes... hay que responder lo justo y necesario, nada
+  // más". Sin la patente en el set, sus respaldos tampoco van (abajo).
+  const generales = d.compraAgil ? [] : GENERALES;
+  for (const [tipo, patron] of generales) {
     if (yaLoPiden(tipo) || enUnFormulario(patron)) continue;
     if (subidos.some((s) => patron.test(normalizar(s.nombre)))) continue;
     const nombre = NOMBRES_DE_DOCUMENTO[tipo] ?? tipo;
@@ -600,125 +707,6 @@ export function armarElSet(d: DatosDelSet): ElSet {
   }
 
   return { piezas, faltan };
-}
-
-/** ¿Las bases piden experiencia? Entonces van sus respaldos. */
-export const pidenExperiencia = (d: DatosDelSet): boolean =>
-  [
-    ...d.requisitos.map((r) => r.que),
-    ...d.formularios.filter((f) => f.aplica).map((f) => f.nombre),
-  ].some((t) => EXPERIENCIA.test(normalizar(t)));
-
-const aparece = (numero: string, texto: string): boolean => {
-  const n = numero.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return n !== '' && new RegExp(`(?<![\\w-])${n}(?![\\w-])`, 'i').test(texto);
-};
-
-/** Agrega los respaldos de la experiencia declarada: los de la carpeta
- *  cuyo número aparece en el texto de algún Word que va en el set (el
- *  anexo de experiencia los nombra por su número, sprint F). Si ese anexo
- *  va firmado en PDF, los respaldos van DENTRO de su PDF, detrás (19-10:
- *  "un solo PDF"); si va en Word, aparte, juntos en la carpeta del Word
- *  (la técnica si va en varias). */
-export function conLosRespaldos(
-  set: ElSet,
-  textos: Array<{ texto: string; carpetas: Carpeta[]; pieza?: PiezaDelSet }>,
-  d: DatosDelSet,
-): ElSet {
-  // Los de la carpeta primero; de Post-venta, los que no estén ya.
-  const vistos = new Set<string>();
-  const respaldos = [
-    ...d.carpeta
-      .filter(
-        (x) =>
-          x.tipo === TIPO_RESPALDO &&
-          (x.datos as DatosDeRespaldo | null)?.numero,
-      )
-      .map((x) => ({
-        numero: (x.datos as DatosDeRespaldo).numero,
-        nombre: x.nombre,
-        ruta: x.ruta,
-        bytes: x.bytes,
-      })),
-    ...(d.postVenta ?? []),
-  ].filter((r) => {
-    const clave = r.numero.replace(/\s+/g, '').toUpperCase();
-    if (vistos.has(clave)) return false;
-    vistos.add(clave);
-    return true;
-  });
-  const piezas = [...set.piezas];
-  const faltan = [...set.faltan];
-  const adentro = new Map<PiezaDelSet, NonNullable<PiezaDelSet['adjuntos']>>();
-  let encontrados = 0;
-  for (const r of respaldos) {
-    const numero = r.numero;
-    const donde = textos.find((t) => aparece(numero, t.texto));
-    if (!donde) continue;
-    encontrados++;
-    if (donde.pieza && /\.pdf$/i.test(donde.pieza.nombre)) {
-      adentro.set(donde.pieza, [
-        ...(adentro.get(donde.pieza) ?? []),
-        { nombre: r.nombre, ruta: r.ruta, bytes: r.bytes },
-      ]);
-      continue;
-    }
-    piezas.push({
-      nombre: r.nombre,
-      ruta: r.ruta,
-      bytes: r.bytes,
-      carpetas: [
-        donde.carpetas.includes('tecnica') ? 'tecnica' : donde.carpetas[0],
-      ],
-      subcarpeta: 'Respaldos de experiencia',
-      que_es: 'respaldo',
-      aviso: null,
-    });
-  }
-  for (const [i, p] of piezas.entries()) {
-    const suyos = adentro.get(p);
-    if (!suyos) continue;
-    const nota = `con ${suyos.length === 1 ? 'su respaldo' : `sus ${suyos.length} respaldos`} adentro`;
-    piezas[i] = {
-      ...p,
-      adjuntos: suyos,
-      aviso: p.aviso ? `${p.aviso} · ${nota}` : nota,
-    };
-  }
-  if (pidenExperiencia(d) && encontrados === 0) {
-    faltan.push(
-      respaldos.length === 0
-        ? 'Las bases piden experiencia: sube sus órdenes de compra o facturas como «Respaldo de experiencia» en «Mi empresa», o a cada evento en Post-venta, y vuelve a armar la postulación.'
-        : 'Ningún anexo nombra tus respaldos de experiencia por su número: revisa el anexo de experiencia.',
-    );
-  }
-  return { piezas, faltan };
-}
-
-/** Si un anexo dice que se adjunta la propuesta técnica en formato propio
- *  (la regla de la decisión 33; desde la 40 el detalle va en el formulario,
- *  pero quedan anexos de antes), la propuesta tiene que ir: sin
- *  ella, el anexo de calidad queda remitiendo a nada. */
-export function conLaPropuestaQueNombran(
-  set: ElSet,
-  textos: Array<{ texto: string }>,
-): ElSet {
-  const nombrada = textos.some((t) =>
-    /propuesta tecnica en formato propio/.test(normalizar(t.texto)),
-  );
-  const hay = set.piezas.some(
-    (p) =>
-      p.que_es === 'propuesta' ||
-      (p.que_es === 'subido' && /propuesta/.test(normalizar(p.nombre))),
-  );
-  if (!nombrada || hay) return set;
-  return {
-    ...set,
-    faltan: [
-      ...set.faltan,
-      'Un anexo dice que se adjunta la propuesta técnica en formato propio, y la propuesta no está: vuelve a armar la postulación.',
-    ],
-  };
 }
 
 /** Dónde va cada pieza dentro del ZIP (una ruta por carpeta), sin nombres

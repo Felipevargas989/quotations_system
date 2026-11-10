@@ -54,7 +54,7 @@ export class QuotationFollowupsRepository {
       db
         .from('quotation_followups')
         .select(
-          'quotation_id, created_at, next_contact_date, next_contact_done_at, quotations!inner(quotation_status)',
+          'quotation_id, created_at, next_contact_date, next_contact_done_at, tipo, quotations!inner(quotation_status)',
         )
         .eq('company_id', companyId)
         .in('quotations.quotation_status', estados)

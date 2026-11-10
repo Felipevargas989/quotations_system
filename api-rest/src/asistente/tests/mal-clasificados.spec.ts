@@ -131,7 +131,11 @@ describe('clientesQueRevisar', () => {
     const ctx = {
       usuario: camila(),
       repositorio,
-      alcance: { particulares: jest.fn().mockResolvedValue(PARTICULARES) },
+      alcance: {
+        particulares: jest.fn().mockResolvedValue(PARTICULARES),
+        // Quien revisa trabaja todos los tipos (doc 22 §9).
+        tiposDelCargo: jest.fn().mockResolvedValue(null),
+      },
     } as unknown as ContextoDeHerramienta;
     const r = await clientesQueRevisar(ctx);
     expect(r.map((a) => a.id)).toEqual(['c2']);
@@ -211,9 +215,14 @@ describe('CambioDeCliente', () => {
       coincidencias: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
     };
+    // Lo de fábrica (doc 22 §9): recepción trabaja los particulares y los
+    // demás cargos, todos.
     const alcance = {
-      esParticular: jest.fn((_e: number, tipo?: string | null) =>
-        Promise.resolve((tipo ?? '').toLowerCase() === 'particulares'),
+      trabaja: jest.fn((s: { role?: string }, tipo?: string | null) =>
+        Promise.resolve(
+          s.role !== UserRole.RECEPCION ||
+            (tipo ?? '').toLowerCase() === 'particulares',
+        ),
       ),
     };
     const servicio = new CambioDeCliente(
@@ -261,7 +270,7 @@ describe('CambioDeCliente', () => {
       motivo: 'Es una empresa privada',
     });
     expect(t2.avisos).toEqual([
-      'Al dejar de ser particular, recepción ya no ve sus cotizaciones.',
+      'Con el tipo «Empresas», recepción ya no ve sus cotizaciones.',
     ]);
   });
 

@@ -31,10 +31,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const pintar = () =>
+const pintar = (compraAgil = false) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <SetParaMercadoPublico oportunidadId={40} codigo="1532886-5-LE26" />
+      <SetParaMercadoPublico
+        oportunidadId={40}
+        codigo="1532886-5-LE26"
+        compraAgil={compraAgil}
+      />
     </QueryClientProvider>,
   );
 
@@ -94,6 +98,30 @@ describe("El set para Mercado Público", () => {
     expect(screen.getByText("Respaldos de experiencia/")).toBeInTheDocument();
     expect(screen.getByText("vencido el 01-10-2026")).toBeInTheDocument();
     expect(screen.getByText(/3 archivos · 3 MB/)).toBeInTheDocument();
+  });
+
+  it("en una compra ágil dice que va una sola carpeta, «Compra ágil» (decisión 118)", async () => {
+    s.getSetParaMercadoPublico.mockResolvedValue({
+      piezas: [
+        {
+          nombre: "Cotización detallada 2705-1740-COT26 - firmado.pdf",
+          carpetas: ["Compra ágil"],
+          que_es: "subido" as const,
+          aviso: null,
+        },
+      ],
+      faltan: [],
+      bytes: 62 * 1024,
+    });
+    pintar(true);
+    expect(
+      screen.getByText(
+        /Una sola carpeta, «Compra ágil», con lo que piden las bases/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/4\. Otros/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ver qué lleva" }));
+    expect(await screen.findByText("Compra ágil")).toBeInTheDocument();
   });
 
   it("baja el ZIP con el código de la licitación en el nombre", async () => {

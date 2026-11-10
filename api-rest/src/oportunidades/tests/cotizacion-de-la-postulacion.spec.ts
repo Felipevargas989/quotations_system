@@ -207,11 +207,9 @@ describe('La cotización de la postulación', () => {
     });
     await servicio.llevar(USUARIO, 87);
     const [dto] = cotizaciones.create.mock.calls[0] as [Record<string, string>];
+    // Resumido desde la decisión 120: primero lo que hay que comprar.
     expect(dto.comentario_interno).toContain(
-      'Detalles de lo postulado:\n- Copa de helado con galletas',
-    );
-    expect(dto.comentario_interno).toContain(
-      'Subcontratar (pedir al proveedor):\n- Pódium, los dos días',
+      'Comprar o subcontratar: Pódium, los dos días.\nDetalles: Copa de helado con galletas.',
     );
   });
 

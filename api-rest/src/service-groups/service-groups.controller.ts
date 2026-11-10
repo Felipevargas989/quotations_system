@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { CurrentUser } from 'src/auth';
+import { DentroDe, Permiso } from 'src/auth/permiso.decorator';
 import {
   RECEPTION_AND_UP,
   Roles,
@@ -37,6 +38,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Post()
   create(
     @Body() createServiceGroupDto: CreateServiceGroupDto,
@@ -54,6 +56,7 @@ export class ServiceGroupsController {
   // Leer, también recepción: cotiza a los particulares desde el cotizador
   // (doc 21). Cambiar el catálogo sigue siendo de quien vende para arriba.
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa')
   @Get()
   findAll(@CurrentUser() user: User) {
     this.logger.info(`findAll service groups with user ${user.id}`);
@@ -66,6 +69,7 @@ export class ServiceGroupsController {
   // que se declaran.
 
   @Roles(...RECEPTION_AND_UP)
+  @Permiso('cotizaciones', 'postventa')
   @Get('grupos')
   listarGrupos(@CurrentUser() user: User) {
     this.logger.info(`listarGrupos de menús with user ${user.id}`);
@@ -73,6 +77,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Post('grupos')
   crearGrupo(@Body() dto: CrearGrupoDeMenusDto, @CurrentUser() user: User) {
     this.logger.info(
@@ -86,6 +91,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Patch('grupos/orden')
   ordenarGrupos(
     @Body() dto: OrdenDeGruposDeMenusDto,
@@ -102,6 +108,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Patch('grupos/:id')
   renombrarGrupo(
     @Param('id', ParseIntPipe) id: number,
@@ -117,6 +124,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Delete('grupos/:id')
   borrarGrupo(
     @Param('id', ParseIntPipe) id: number,
@@ -128,6 +136,7 @@ export class ServiceGroupsController {
 
   /** Cambiar un menú de grupo (12-10-2026); null lo deja sin grupo. */
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Patch(':id/grupo')
   asignarGrupo(
     @Param('id', ParseIntPipe) id: number,
@@ -143,6 +152,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Patch(':id')
   rename(
     @Param('id') id: ServiceGroup['id'],
@@ -154,6 +164,7 @@ export class ServiceGroupsController {
   }
 
   @Roles(...SALES_AND_UP)
+  @DentroDe('cotizaciones', 'postventa')
   @Delete(':id')
   remove(@Param('id') id: ServiceGroup['id'], @CurrentUser() user: User) {
     this.logger.info(`remove service group with id ${id}`);

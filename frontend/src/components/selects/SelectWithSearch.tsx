@@ -32,8 +32,11 @@ export default function SelectWithSearch({
   mostrarConteo = true,
   sinLimpiar = false,
   aspecto = "caja",
+  claseTexto,
 }: SelectWithSearchProps) {
   const comoTexto = aspecto === "texto";
+  // El color propio solo vale en aspecto "texto".
+  const colorPropio = comoTexto ? claseTexto : undefined;
   const [isOpen, setIsOpen] = useState(false);
 
   // La mecánica —filtrar, teclado, mantener a la vista lo marcado y
@@ -195,7 +198,7 @@ export default function SelectWithSearch({
         type="button"
         className={comoTexto ? `
           inline-flex max-w-full items-center gap-1 rounded text-left
-          text-gray-900 hover:text-blue-700 focus:outline-none
+          ${colorPropio ?? "text-gray-900 hover:text-blue-700"} focus:outline-none
           focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer
           ${tamano === "sm" ? "text-sm" : ""}
           disabled:cursor-not-allowed disabled:opacity-60
@@ -221,7 +224,11 @@ export default function SelectWithSearch({
             haría creer que el dato se perdió. */}
         <span
           className={`truncate text-left ${
-            selectedOption || rescatable ? "text-gray-900" : "text-gray-500"
+            colorPropio
+              ? ""
+              : selectedOption || rescatable
+                ? "text-gray-900"
+                : "text-gray-500"
           }`}
           title={selectedOption?.label ?? (rescatable ? value : undefined)}
         >
@@ -234,7 +241,7 @@ export default function SelectWithSearch({
           )}
           <ChevronDown
             size={16}
-            className={`text-gray-400 transition-transform ${
+            className={`${colorPropio ? "opacity-70" : "text-gray-400"} transition-transform ${
               isOpen ? "rotate-180" : ""
             }`}
           />

@@ -9,6 +9,7 @@ import {
   texto,
   type Herramienta,
 } from './comun';
+import { tiposPara } from './recepcion';
 
 // «¿En qué productos uso el choclo granado?», «¿a quién le compro la
 // carne?», «¿cuántas sillas tenemos?». Proveedores, insumos, recetas y
@@ -41,6 +42,7 @@ export const insumos: Herramienta = {
     required: ['texto'],
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
   async ejecutar(entrada, ctx) {
     const buscado = texto(entrada.texto, 80);
@@ -57,10 +59,22 @@ export const insumos: Herramienta = {
         nota: `No hay ningún insumo que se llame «${buscado}».`,
       };
     }
-    const { recetas, compras } = await ctx.repositorio.usosDeInsumos(
+    const usos = await ctx.repositorio.usosDeInsumos(
       empresa,
       encontrados.map((i) => i.id),
     );
+    const { recetas } = usos;
+    // Las compras de los eventos de un tipo de cliente que su cargo no
+    // trabaja no aparecen (doc 22 §9, tanda 3).
+    const tipos = await tiposPara(ctx);
+    const compras =
+      tipos && ctx.alcance
+        ? await ctx.alcance.soloLasQueVe(
+            ctx.usuario,
+            usos.compras,
+            (c) => c.quotations?.id,
+          )
+        : usos.compras;
     const nombres = await ctx.repositorio.nombresDeProductos(
       empresa,
       recetas
@@ -71,6 +85,7 @@ export const insumos: Herramienta = {
         .map((r) => r.service_id),
     );
     return {
+      ...(tipos ? { trabaja: true as const } : {}),
       encontrados: encontrados.length,
       insumos: encontrados.map((i) => {
         const unidad = UNIDAD[i.unit_family ?? ''] ?? i.unit_family ?? '';
@@ -130,7 +145,10 @@ export const proveedores: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
+  // Lo que se le compra a cada proveedor, no plata de un cliente (doc 22 §9).
+  plataLibre: true,
   async ejecutar(entrada, ctx) {
     const { proveedores: lista, insumos: suyos } =
       await ctx.repositorio.proveedores(
@@ -172,7 +190,10 @@ export const mobiliario: Herramienta = {
     },
   },
   cargos: OPERATIONS_AND_UP,
+  permiso: ['proveedores'],
   derecho: 'logistica',
+  // Precios del mobiliario, no plata de un cliente (doc 22 §9).
+  plataLibre: true,
   async ejecutar(entrada, ctx) {
     const muebles = await ctx.repositorio.mobiliario(
       ctx.usuario.company_id,
