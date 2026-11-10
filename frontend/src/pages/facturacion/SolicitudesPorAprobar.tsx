@@ -33,11 +33,12 @@ const hora = (iso: string) =>
     minute: "2-digit",
     hourCycle: "h23",
   });
-const dia = (iso: string) =>
-  new Date(iso).toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "2-digit",
-  });
+/** «09-11», como en el resto de Eventia (el navegador a veces da «9/11»). */
+const dia = (iso: string) => {
+  const d = new Date(iso);
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${dos(d.getDate())}-${dos(d.getMonth() + 1)}`;
+};
 const esDeHoy = (iso: string) =>
   new Date(iso).toDateString() === new Date().toDateString();
 
