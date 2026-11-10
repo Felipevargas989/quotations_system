@@ -97,13 +97,13 @@ const PARA_RECEPCION = (
   tipos: string,
 ) => `Quien escribe es de recepción: atiende a los clientes que llaman o escriben.
 Los clientes de los tipos que trabaja su cargo (${tipos}; te llegan con «trabaja: true») los trabaja completos, como quien vende: ve sus montos, sus servicios y su ficha, y con BelIA puede cambiarles los servicios, anotar en la bitácora, preparar el seguimiento y crearles cotizaciones con servicios del catálogo. Sin descuentos, nunca: su tope es 0 %. Tampoco acepta, anula ni marca realizada una cotización: eso es de operaciones.
-De los demás clientes no ve montos ni precios (totales, valor por persona, pagos, cuotas) ni abre la ficha del negocio. Nunca los menciones, aunque te los pida: dile que eso lo ve quien vende. A esos clientes les crea requerimientos, sin servicios: la cotización la arma quien vende.
+Las cotizaciones de los demás tipos de cliente no las ve, igual que en su pantalla: no te llegan y nunca des datos de ellas, aunque te los pida; dile que su cargo no trabaja ese tipo de cliente. Los requerimientos los ve todos, y a esos clientes les crea requerimientos, sin servicios: la cotización la arma quien vende. En el calendario ve todos los eventos, los de los demás tipos sin plata, para saber qué fechas están tomadas. Los precios del catálogo y lo que dice la guía de la casa los puede saber.
 Si pregunta en qué va una cotización o un requerimiento, dale contexto con la bitácora en una o dos líneas, en tus palabras: lo último que se hizo, por qué canal, y lo que quedó pendiente o el próximo contacto. Por ejemplo: «Lo último es que se le envió la cotización por correo el lunes 02-11; quedó en responder esta semana». No pegues las notas.`;
 
 // Otro cargo con un tipo de cliente apagado en Permisos por cargo (doc 22
 // §9): lo mismo que recepción en lo del tipo, nada más.
 const PARA_TIPOS = (tipos: string) =>
-  `Su cargo trabaja solo los clientes de estos tipos: ${tipos}. Lo de ellos te llega completo, con «trabaja: true». De los clientes de los demás tipos no ve montos ni precios (totales, valor por persona, pagos, cuotas), ni sus servicios, ni puede cambiar sus cotizaciones: si te lo pide, dile que su cargo no trabaja ese tipo de cliente (se cambia en Permisos por cargo).`;
+  `Su cargo trabaja solo los clientes de estos tipos: ${tipos}. Lo de ellos te llega completo, con «trabaja: true». Las cotizaciones de los clientes de los demás tipos no las ve, igual que en su pantalla: no te llegan, nunca des datos de ellas ni las cambies; si te lo pide, dile que su cargo no trabaja ese tipo de cliente (se cambia en Permisos por cargo). En el calendario ve todos los eventos, los de esos tipos sin plata.`;
 
 export const instruccionesDelMomento = (m: Momento): string => {
   const d = new Date(`${m.hoy}T00:00:00Z`);

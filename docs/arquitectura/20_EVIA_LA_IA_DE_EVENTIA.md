@@ -885,3 +885,22 @@ recepción es de Felipe, no de código.
 migración); C, la 5 (con la 185); la 6, con la sesión de Oportunidades.
 `propuestas.service.ts` tiene 767 líneas: lo nuevo va en archivos propios
 (el portero corta en 800).
+
+## 18. BelIA, el cerebro del personal: la guía de la casa (10-11-2026)
+
+> **Estado:** sprint 1 escrito el 10-11-2026 en la rama `feature/belia-guia`, primero al laboratorio (migración 202). El sprint 2 (el seguimiento desde BelIA con «dónde está el último correo») viene después.
+
+Felipe, 10-11-2026: *"quiero que BelIA sea un cerebro para guiar a mi personal, ejemplo que pase los correos tipo, mensajes automáticos, horarios, valores, precios, cosas típicas que un chat ya debería saber"*, y *"BelIA será quien responda todo esto"*.
+
+### Lo que decidió
+
+1. **La guía vive en Mi empresa → «Guía de la casa»** y la edita **solo administración**. El resto del equipo no entra ahí: le pregunta a BelIA.
+2. **Los precios ya no son un secreto** (*"ya ve las cotizaciones, para qué ocultar los precios? ... de los particulares y del catálogo también"*). Manda **un solo interruptor**, el de los tipos de cliente de cada cargo en Permisos por cargo (doc 22 §9): *"eso determina si puede o no puede hacer seguimiento ... eso determina todo"*.
+3. **El seguimiento desde BelIA** (sprint 2) lo puede hacer cada cargo solo con las cotizaciones que ve según ese interruptor.
+
+### Cómo quedó
+
+- **La guía** (`api-rest/src/cerebro/guia*.ts`, tabla `guias_de_la_casa`, migración 202): una fila por empresa con sus temas en orden (`{ titulo, texto }`), hasta 40 temas y 30.000 letras. Se guarda entera con «Guardar guía» (`PUT /guia-de-la-casa`, solo administración con Mi empresa).
+- **Va al cerebro común**, como las lecciones (§17): el motor la tiene en su memoria (al arrancar, cada 5 minutos y apenas se guarda) y `cerebroPara` la suma después de lo del complejo y antes de las lecciones. La leen **BelIA** y **los correos de seguimiento**; «Crear con IA» no, porque arma con el catálogo y los precios salen de ahí. La guía le dice a la IA que use el dato tal cual y que, si algo no está, lo diga en vez de suponerlo.
+- **Lo que ve cada cargo**: BelIA muestra lo mismo que las pantallas (`AlcanceDeRecepcion`). Las cotizaciones de los tipos que el cargo trabaja llegan completas, con su plata; los requerimientos, de todos; las de los demás tipos ya no llegan, ni siquiera sin plata como antes (`buscar_cotizaciones` filtra como el tablero sobre hasta 1.000 filas; `ver_cotizacion` las rechaza). El calendario sigue con su excepción: todos los eventos, los de los demás tipos como agenda sin plata, para saber qué fechas están tomadas. El catálogo, con precios, ya lo veía recepción desde el doc 21.
+- **La primera guía de Valle del Sol** la llena Claude con lo que ya está escrito (tarifas y temporadas, datos del complejo, reglas de los correos) y Felipe la revisa: lo que no esté escrito en ningún lado (por ejemplo, los horarios) queda para que él lo complete, nunca inventado.

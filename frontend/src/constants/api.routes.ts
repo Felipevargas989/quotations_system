@@ -12,6 +12,8 @@ export const API_ROUTES = {
   ASISTENTE_ESTADO: "/asistente/estado",
   // La conversación de quien escribe (doc 20 §13, migración 182).
   ASISTENTE_CONVERSACION: "/asistente/conversacion",
+  // La guía de la casa que lee BelIA (doc 20 §18, migración 202).
+  GUIA_DE_LA_CASA: "/guia-de-la-casa",
   // fase 2: + "/<id>/aplicar", "/<id>/descartar" o "/<id>/deshacer"
   ASISTENTE_PROPUESTAS: "/asistente/propuestas",
 
