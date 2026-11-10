@@ -68,8 +68,16 @@ describe("fechaDelSaldo", () => {
   it("siete días antes del evento", () => {
     expect(fechaDelSaldo("2026-12-09T00:00:00+00:00", HOY)).toBe("2026-12-02");
   });
+  it("evento muy encima: el mismo día del evento (10-11)", () => {
+    expect(fechaDelSaldo("2026-10-30", HOY)).toBe("2026-10-30");
+    expect(fechaDelSaldo("2026-11-03T00:00:00+00:00", HOY)).toBe("2026-11-03");
+  });
+  it("justo una semana: siete días antes, que es hoy", () => {
+    expect(fechaDelSaldo("2026-11-04", HOY)).toBe("2026-10-28");
+  });
   it("nunca antes de hoy, y sin fecha de evento es hoy", () => {
-    expect(fechaDelSaldo("2026-10-30", HOY)).toBe(HOY);
+    expect(fechaDelSaldo("2026-10-28", HOY)).toBe(HOY);
+    expect(fechaDelSaldo("2026-10-20", HOY)).toBe(HOY);
     expect(fechaDelSaldo(null, HOY)).toBe(HOY);
   });
 });
