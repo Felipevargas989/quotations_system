@@ -165,11 +165,12 @@ export class BoletaSueltaDto {
   @MaxLength(22, { message: 'La cabaña cabe en 22 caracteres' })
   cabana?: string | null;
 
-  @IsOptional()
-  @ValidateIf((o: { correo?: string | null }) => !!o.correo)
+  // §9.45 (Felipe, 09-11): el correo es obligatorio, la boleta se manda
+  // al huésped y no se imprime («Sin correo: la imprimo» salió).
+  @IsNotEmpty({ message: 'Falta el correo para enviarle la boleta' })
   @IsEmail({}, { message: 'Ese correo no es válido' })
   @MaxLength(200)
-  correo?: string | null;
+  correo: string;
 
   // §9.43: con qué pagó el huésped, para cuadrar la caja de recepción.
   @IsIn([...MEDIOS_DE_PAGO], {

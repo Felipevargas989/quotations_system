@@ -368,6 +368,7 @@ describe('Lo que acepta el motor', () => {
     expect(
       await errores(BoletaSueltaDto, {
         lineas: [{ tarifario_id: 1, cantidad: 0 }],
+        correo: 'huesped@correo.cl',
         medio_de_pago: 'transferencia',
       }),
     ).toEqual(['lineas']);
@@ -376,8 +377,18 @@ describe('Lo que acepta el motor', () => {
       expect(
         await errores(BoletaSueltaDto, {
           lineas: [{ tarifario_id: 1, cantidad: 1 }],
+          correo: 'huesped@correo.cl',
           medio_de_pago,
         }),
       ).toEqual(['medio_de_pago']);
+    // §9.45 (Felipe, 09-11): sin correo no pasa; ya no se imprime.
+    for (const correo of [undefined, null, ''])
+      expect(
+        await errores(BoletaSueltaDto, {
+          lineas: [{ tarifario_id: 1, cantidad: 1 }],
+          correo,
+          medio_de_pago: 'efectivo',
+        }),
+      ).toEqual(['correo']);
   });
 });

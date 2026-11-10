@@ -25,7 +25,7 @@ export interface Solicitud {
   total: number;
   medio_de_pago: MedioDePago;
   correo: string | null;
-  /** «Sin correo: la imprimo». */
+  /** Ya no se usa: el correo es obligatorio (§9.45). */
   imprimir: boolean;
   /** La razón social de la factura o la cabaña de la boleta. */
   para: string | null;

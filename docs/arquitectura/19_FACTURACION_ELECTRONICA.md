@@ -2725,8 +2725,8 @@ Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
 emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
 
 1. **Recepción manda una solicitud.** Arma la boleta de «Nuevo DTE» o la
-   factura al contado como siempre (el tarifario, el medio de pago, el
-   correo o «Sin correo: la imprimo») y, en la vista previa, el botón dice
+   factura al contado como siempre (el tarifario, el medio de pago y el
+   correo) y, en la vista previa, el botón dice
    **«Enviar solicitud»**. Se guarda todo lo necesario para emitirla
    después: las líneas con su `tarifario_id` y el precio con que se cobró,
    el medio de pago, el correo, quién la mandó y con qué cargo. No va nada a
@@ -2791,9 +2791,9 @@ emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
 - **La pantalla:** `BoletaNueva` y `FacturaNueva` reciben `solicita`
   (recepción): la vista previa dice «Enviar solicitud» y abajo aparece «Tus
   solicitudes de este turno» (`SolicitudesDelTurno`), con el estado en una
-  palabra y, emitida, su N° y su PDF para imprimirla. La pestaña
-  «Solicitudes» (`SolicitudesPorAprobar`): «Por aprobar (N)» y «Resueltas
-  (últimos 7 días)»; la emitida que se imprime abre su PDF sola. En
+  palabra y, emitida, su N° y su PDF. La pestaña «Solicitudes»
+  (`SolicitudesPorAprobar`): «Por aprobar (N)» y «Resueltas (últimos 7
+  días)». En
   «Cierres de la caja», las solicitudes del turno van con los documentos
   («solicitud pendiente», «solicitud rechazada (no va al SII)») y su medio se
   corrige ahí.
@@ -2803,10 +2803,19 @@ emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
   vitrina, `BoletaNueva.test.tsx`, `SolicitudesPorAprobar.test.tsx` y
   `FacturacionPage.test.tsx`.
 
-**Preguntas abiertas para Felipe:** la boleta «Sin correo: la imprimo» la
-puede imprimir recepción desde «Tus solicitudes de este turno» cuando ya se
-emitió, o quien aprueba (su PDF se abre solo); y la factura a crédito de
-recepción sigue emitiéndose directo (no pasa por la caja).
+**El correo de la boleta, obligatorio** (Felipe, 09-11, al verlo en el
+laboratorio: *"creo que el check de sin correo la imprimo no deberia estar,
+el correo debe ser obligatorio"*): salió «Sin correo: la imprimo» de la
+boleta de «Nuevo DTE», para todos los cargos y también en la solicitud. La
+pantalla no deja «Crear documento» sin un correo válido («Falta el correo
+para enviarle la boleta») y el motor lo exige en `BoletaSueltaDto` (`POST
+/boletas/sueltas`, su revisión y `POST /facturacion/solicitudes/boleta`).
+La columna `imprimir` de la 200 queda siempre en falso. El correo del
+reparto de un cobro («Por boletear») y el de la boleta de un evento no
+cambian.
+
+**Pregunta abierta para Felipe:** la factura a crédito de recepción sigue
+emitiéndose directo (no pasa por la caja).
 
 En el laboratorio desde el 09-11-2026 (migración 200 en el laboratorio).
 Producción espera el OK de Felipe.

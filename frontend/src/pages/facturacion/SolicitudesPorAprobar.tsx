@@ -44,8 +44,6 @@ export default function SolicitudesPorAprobar() {
   const [ocupada, setOcupada] = useState<number | null>(null);
   const [rechazando, setRechazando] = useState<number | null>(null);
   const [motivo, setMotivo] = useState("");
-  // La recién emitida que se imprime: su PDF se abre solo.
-  const [imprimir, setImprimir] = useState<number | null>(null);
 
   const solicitudes = consulta.data?.solicitudes ?? [];
   const porResolver = solicitudes.filter(
@@ -68,7 +66,6 @@ export default function SolicitudesPorAprobar() {
         toast.success(
           `${nombreDelTipo(r.documento.tipo)} N° ${r.documento.folio} emitida${marcaDelAmbiente(r.documento.ambiente)}.`,
         );
-      if (s.imprimir && r.documento.pdf_path) setImprimir(s.id);
     } catch (e) {
       toast.error(humanizeApiError(e, "No se pudo emitir la solicitud."));
     } finally {
@@ -125,8 +122,7 @@ export default function SolicitudesPorAprobar() {
               </span>
             ))}
             <span className="mt-0.5 block text-xs text-gray-500">
-              {medioDe(s.medio_de_pago)} ·{" "}
-              {s.imprimir ? "Sin correo: se imprime" : s.correo}
+              {medioDe(s.medio_de_pago)} · {s.correo}
             </span>
           </span>
           <span className="text-right text-base font-semibold text-gray-900">
@@ -139,8 +135,6 @@ export default function SolicitudesPorAprobar() {
                 <FileViewLink
                   url={s.documento.pdf_path}
                   title={`${nombreDelTipo(s.tipo)} ${s.documento.folio ?? ""}.pdf`}
-                  abrirAlMontar={imprimir === s.id}
-                  alCerrar={() => setImprimir(null)}
                 />
               </span>
             )}
