@@ -199,7 +199,7 @@ Formas de llegar a Post-Venta:
 
 ### 5.3 Marcar realizado y volver a aceptada
 1. "Marcar realizado" aparece si el evento no está anulado ni realizado, y abre una pregunta en línea. Si `facturasQuery` no trae ningún documento `facturas`, agrega "Ojo: este evento no tiene ninguna factura cargada en Documentos". Avisa, pero no bloquea.
-2. `markEventDone` → `POST /quotations/:id/realizado` → `QuotationsService.markEventDone`: lee con `QuotationsRepository.findOne`, verifica `company_id`, exige estado `aceptada` y actualiza a `realizada`.
+2. `markEventDone` → `POST /quotations/:id/realizado` → `QuotationsService.markEventDone`: lee con `QuotationsRepository.findOne`, verifica `company_id`, exige estado `aceptada` y actualiza a `realizada`. Desde el 09-11-2026 deja en el Seguimiento «Cambió el estado de Aceptada a Realizada.», firmada por quien lo marcó; «Volver» (punto 6) deja la de vuelta. Anular (§5.4) pasa por `update` y deja la suya, con el motivo (mapa 02 §5.2 punto 9).
 3. Encuesta:
    - Si `survey_sent_at` está vacío y `resolveRecipient` encuentra destinatario (el contacto vinculado **con correo**; solo si no hay vínculo, el contacto que calce con `contact_name`), llama `EmailService.sendEmail(EmailStructure.CUSTOMER_SATISFACTION_SURVEY)` y estampa `survey_sent_at`.
    - Si el contacto no tiene correo, no se envía.

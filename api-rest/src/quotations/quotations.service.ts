@@ -30,10 +30,11 @@ import { PaymentStatus } from 'src/payments/constants';
 import { CreatePaymentDto } from 'src/payments/dto/create-payment.dto';
 import { PaymentTransaction } from 'src/payments/entities/payment.entity';
 import { PaymentsService } from 'src/payments/payments.service';
+import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import { RefundsService } from 'src/refunds/refunds.service';
 import { UploadFileDto } from 'src/storage/dto/upload-file.dto';
 import { StorageService } from 'src/storage/storage.service';
-import { UserRole } from 'src/users/entities/user.entity';
+import { User, UserRole } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { logSafe } from '../logging/log-safe';
 import { getEventDateUtc, inicioDelMesEnChile } from '../utils/dates';
@@ -94,8 +95,34 @@ export class QuotationsService {
     // particulares (doc 21). Opcional y al final, por lo mismo: sin ella
     // (las pruebas), recepción sigue con solo requerimientos.
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
+    // El Seguimiento, para anotar cada cambio de estado (09-11-2026).
+    // Opcional y al final, por lo mismo: las pruebas que no la traen
+    // cambian el estado sin anotarlo.
+    @Optional() private readonly bitacora?: QuotationFollowupsService,
   ) {
     this.logger.setContext(QuotationsService.name);
+  }
+
+  // EL CAMBIO DE ESTADO QUEDA EN EL SEGUIMIENTO (Felipe, 09-11-2026): la
+  // puerta para los caminos que mueven el estado sin pasar por `update`
+  // (el plan de pagos al aceptar). Firma `quien`; sin él, BelIA. Nunca
+  // rompe el cambio: `registrarCambioDeEstado` se traga sus errores.
+  async anotarCambioDeEstado(
+    quien: User | null | undefined,
+    companyId: number,
+    quotationId: string,
+    de: string | null | undefined,
+    a: string | null | undefined,
+    motivo?: string | null,
+  ): Promise<void> {
+    await this.bitacora?.registrarCambioDeEstado(
+      quien,
+      companyId,
+      quotationId,
+      de,
+      a,
+      motivo,
+    );
   }
 
   // ---------- FASE 1: LA CUENTA LA HACE LA CASA (27-07-2026) ----------
@@ -585,7 +612,12 @@ export class QuotationsService {
 
   // Espejo de markEventDone: deshace la marca (realizada -> aceptada).
   // Sin correos: la encuesta ya enviada no se puede des-enviar.
-  async unmarkEventDone(id: string, companyId: number) {
+  async unmarkEventDone(
+    id: string,
+    companyId: number,
+    // Quien lo hace firma el cambio en el Seguimiento (09-11-2026).
+    quien?: User | null,
+  ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
     if (error) throw error;
@@ -602,6 +634,13 @@ export class QuotationsService {
       } as unknown as UpdateQuotationDto,
       companyId,
     );
+    await this.anotarCambioDeEstado(
+      quien,
+      companyId,
+      id,
+      QuotationStatus.REALIZADA,
+      QuotationStatus.ACEPTADA,
+    );
     return { ok: true };
   }
 
@@ -610,6 +649,8 @@ export class QuotationsService {
     companyId: number,
     // Los derechos del plan: deciden si sale la encuesta (paso 3.2).
     derechos?: DerechosDeLaSesion,
+    // Quien lo marca firma el cambio en el Seguimiento (09-11-2026).
+    quien?: User | null,
   ) {
     const { data: quotation, error } =
       await this.quotationsRepository.findOne(id);
@@ -627,6 +668,13 @@ export class QuotationsService {
         quotation_status: QuotationStatus.REALIZADA,
       } as unknown as UpdateQuotationDto,
       companyId,
+    );
+    await this.anotarCambioDeEstado(
+      quien,
+      companyId,
+      id,
+      QuotationStatus.ACEPTADA,
+      QuotationStatus.REALIZADA,
     );
 
     const alreadySurveyed = Boolean(
@@ -1080,6 +1128,9 @@ export class QuotationsService {
     // Los derechos del plan, por la misma razón: los llamados internos
     // van sin ellos y no se revisa nada (paso 3.2, 14-09-2026).
     derechos?: DerechosDeLaSesion,
+    // Quien cambia el estado firma la línea del Seguimiento (Felipe,
+    // 09-11-2026). Sin él (un llamado interno), firma BelIA.
+    quien?: User | null,
   ) {
     try {
       // 0. Get quotation
@@ -1459,6 +1510,19 @@ export class QuotationsService {
         updateQuotationDto,
         companyId,
       );
+      // EL CAMBIO DE ESTADO QUEDA EN EL SEGUIMIENTO (Felipe, 09-11-2026):
+      // «Cambió el estado de Enviada a Rechazada. Motivo: Precio.», firmado
+      // por quien lo hizo. No cuenta como gestión en el semáforo.
+      if (targetStatus && targetStatus !== quotation.quotation_status) {
+        await this.anotarCambioDeEstado(
+          quien,
+          companyId,
+          id,
+          quotation.quotation_status,
+          targetStatus,
+          updateQuotationDto.loss_reason,
+        );
+      }
       // AL ACEPTAR, LOS COMPROMISOS DE LA VENTA SE CIERRAN (28-10-2026; ver
       // `QuotationsRepository.cerrarCompromisosDeLaVenta`). Si falla, la
       // aceptación ya quedó: se registra y el «Listo» sigue a mano.

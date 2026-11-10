@@ -17,6 +17,7 @@
 //     inertes en gris.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowRightLeft,
   Mail,
   MessageSquare,
   Pencil,
@@ -42,6 +43,11 @@ import {
   colorAutomatico,
   nombreDeAutor,
 } from "../../utils/personajes";
+import {
+  TIPO_CAMBIO_DE_ESTADO,
+  esCambioDeEstado,
+  pasoAEnviada,
+} from "../../utils/cambioDeEstado";
 import { useSeguimientoConIA } from "../../hooks/useSeguimientoConIA";
 import {
   Followup,
@@ -84,7 +90,12 @@ const TIPOS_GESTION: { v: string; l: string }[] = [
   { v: "whatsapp", l: "WhatsApp" },
   { v: "otro", l: "Otro" },
 ];
-const nombreTipo = (v: string) => TIPOS_GESTION.find((t) => t.v === v)?.l || v;
+// «Estado» no está entre los de arriba a propósito: nadie lo elige al
+// anotar, lo escribe el motor cuando alguien mueve la cotización
+// (09-11-2026, utils/cambioDeEstado.ts).
+const nombreTipo = (v: string) =>
+  TIPOS_GESTION.find((t) => t.v === v)?.l ||
+  (v === TIPO_CAMBIO_DE_ESTADO ? "Estado" : v);
 
 const IconoTipo = ({
   tipo,
@@ -97,6 +108,7 @@ const IconoTipo = ({
   if (tipo === "correo") return <Mail size={size} />;
   if (tipo === "reunion") return <Users size={size} />;
   if (tipo === "whatsapp") return <IconoWhatsApp size={size} />;
+  if (tipo === TIPO_CAMBIO_DE_ESTADO) return <ArrowRightLeft size={size} />;
   return <Tag size={size} />;
 };
 
@@ -140,6 +152,8 @@ const COLOR_TIPO: Record<string, string> = {
   reunion: "bg-purple-50 text-purple-700 border-purple-300",
   whatsapp: "bg-emerald-50 text-emerald-700 border-emerald-300",
   otro: "bg-gray-100 text-gray-600 border-gray-300",
+  // El cambio de estado (09-11-2026): ámbar, que no lo tiene ningún otro.
+  [TIPO_CAMBIO_DE_ESTADO]: "bg-amber-50 text-amber-700 border-amber-300",
 };
 
 // Fecha local YYYY-MM-DD de un Date (mismo patrón de hoyLocal).
@@ -337,7 +351,10 @@ export function HiloSeguimiento({
         // enviada por correo a …", más completa) y desde el 10-10-2026
         // también sella sent_at: con la nota a la vista, la línea del
         // sistema repetiría lo mismo.
+        // Desde el 09-11-2026 tampoco si alguien la movió a Enviada: esa
+        // línea dice lo mismo y con firma (utils/cambioDeEstado.ts).
         ...(quotation.sent_at &&
+        !pasoAEnviada(notas) &&
         !notas.some(
           (n) =>
             n.tipo === "correo" &&
@@ -639,7 +656,10 @@ export function HiloSeguimiento({
                             </span>
                           ) : null}
                         </div>
+                        {/* El cambio de estado es un registro: ni su autor
+                            lo edita ni lo borra (09-11-2026). */}
                         {e.nota.author_user_id === user?.id &&
+                          !esCambioDeEstado(e.nota) &&
                           editId !== e.nota.id && (
                             <div className="flex items-center gap-1.5 shrink-0">
                               {confirmDelId === e.nota.id ? (

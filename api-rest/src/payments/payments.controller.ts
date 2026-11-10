@@ -62,6 +62,8 @@ export class PaymentsController {
     return this.paymentsService.createPaymentPlan(
       createPaymentPlanDto,
       user.company_id,
+      // Quien guarda el plan firma la aceptación en el Seguimiento.
+      { quien: user },
     );
   }
 
