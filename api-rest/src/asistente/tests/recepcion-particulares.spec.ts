@@ -11,6 +11,7 @@ import {
 import { buscarEnCatalogo } from '../herramientas/buscar-en-catalogo';
 import { sumarDias, type ContextoDeHerramienta } from '../herramientas/comun';
 import { taparPlata } from '../herramientas/recepcion';
+import { ultimoCorreo } from '../herramientas/ultimo-correo';
 import { verCotizacion } from '../herramientas/ver-cotizacion';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
 import {
@@ -180,6 +181,50 @@ describe('buscar_cotizaciones, como el tablero (doc 20 §18)', () => {
       1,
       expect.objectContaining({ orden: 'total', limite: 1000 }),
     );
+  });
+});
+
+describe('ultimo_correo (doc 20 §18, sprint 2)', () => {
+  const ctxCon = (tipo: string) => {
+    const seguimiento = {
+      ultimoCorreo: jest.fn().mockResolvedValue({
+        encontrado: 'hilo_de_la_cotizacion',
+        buzon: 'contacto@valledelsolquillon.cl',
+      }),
+    };
+    const ctx = {
+      usuario: recepcion(),
+      cotizacionAbierta: null,
+      repositorio: {
+        fichaDeCotizacion: jest
+          .fn()
+          .mockResolvedValue({ ...fila(tipo), id: 'q743' }),
+      },
+      alcance: alcanceDeFabrica(['Particulares']),
+      seguimiento,
+    } as unknown as ContextoDeHerramienta;
+    return { ctx, seguimiento };
+  };
+
+  it('de un particular: dice dónde está el último correo', async () => {
+    const { ctx, seguimiento } = ctxCon('Particulares');
+    const r = (await ultimoCorreo.ejecutar({ numero: 743 }, ctx)) as Record<
+      string,
+      unknown
+    >;
+    expect(r).toMatchObject({
+      numero: 743,
+      buzon: 'contacto@valledelsolquillon.cl',
+    });
+    expect(seguimiento.ultimoCorreo).toHaveBeenCalledWith('q743', ctx.usuario);
+  });
+
+  it('de una empresa que su cargo no trabaja: no busca nada', async () => {
+    const { ctx, seguimiento } = ctxCon('Empresas');
+    await expect(ultimoCorreo.ejecutar({ numero: 743 }, ctx)).rejects.toThrow(
+      'no puede ver sus correos',
+    );
+    expect(seguimiento.ultimoCorreo).not.toHaveBeenCalled();
   });
 });
 

@@ -412,10 +412,11 @@ export const proponerSeguimiento: Herramienta = {
   descripcion:
     'Propone dejar el borrador del correo de seguimiento de una cotización dentro del hilo del ' +
     'cliente en Outlook: lo mismo que el botón «✉ Generar seguimiento». La IA de Eventia lo escribe ' +
-    'con las reglas de la casa y nunca se envía: la persona lo revisa y lo envía. Solo entran las ' +
-    'enviadas o en negociación cuyo próximo contacto, por correo, ya venció; si no entra, ' +
-    'explícale por qué. NO hace nada: la persona lo aprueba en la tarjeta. Sin `numero`, la ' +
-    'cotización abierta.',
+    'con las reglas de la casa y nunca se envía: la persona lo revisa y lo envía. Entra cualquier ' +
+    'enviada o en negociación que la persona ve, cuando la persona lo pide, aunque su próximo ' +
+    'contacto no haya vencido; si no entra, explícale por qué. Antes, mira con ultimo_correo dónde ' +
+    'está el último correo y cuéntaselo. NO hace nada: la persona lo aprueba en la tarjeta. Sin ' +
+    '`numero`, la cotización abierta.',
   esquema: {
     type: 'object',
     properties: {
