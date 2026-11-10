@@ -58,6 +58,12 @@ vi.mock("../../services/boletas.service", () => ({
       },
     ]),
 }));
+vi.mock("../../services/solicitudes.service", () => ({
+  solicitarBoleta: vi.fn(),
+  solicitarFactura: vi.fn(),
+  getSolicitudesDelTurno: vi.fn().mockResolvedValue({ solicitudes: [] }),
+  getSolicitudes: vi.fn().mockResolvedValue({ pendientes: 0, solicitudes: [] }),
+}));
 const f = vi.mocked(facturas);
 
 afterEach(() => {

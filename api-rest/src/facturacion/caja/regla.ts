@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import type { CajaRepository } from './caja.repository';
 
@@ -23,4 +23,19 @@ export const turnoParaEmitir = async (
   const turno = await caja.turnoAbierto(user.company_id);
   if (!turno) throw new ConflictException(CAJA_CERRADA);
   return turno.id;
+};
+
+/**
+ * RECEPCIÓN NO EMITE: SOLICITA (doc 19 §9.45; Felipe, 09-11: que recepción
+ * no pueda duplicar algo ya boleteado). La boleta y la factura al contado
+ * del cargo recepción van como solicitud (`POST /facturacion/solicitudes/…`)
+ * y las emite quien tiene «Aprobar y emitir solicitudes». Las puertas de
+ * emitir se lo dicen a recepción aunque la llame otra pantalla.
+ */
+export const RECEPCION_SOLICITA =
+  'Recepción no emite: envía la solicitud y la emite quien la aprueba en «Solicitudes».';
+
+export const recepcionSolicita = (user: User) => {
+  if (user.role === UserRole.RECEPCION)
+    throw new ForbiddenException(RECEPCION_SOLICITA);
 };

@@ -549,7 +549,7 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
     expect(boletas.tarifario).not.toHaveBeenCalled();
   });
 
-  it('recepción al contado (§9.43): con la caja abierta entra a su turno; cerrada, no; a crédito, sin caja', async () => {
+  it('recepción al contado no emite: solicita (§9.45); la de una solicitud aprobada entra a su turno; a crédito, sin caja', async () => {
     const caja = { turnoAbierto: jest.fn().mockResolvedValue({ id: 7 }) };
     const { servicio, repo } = armar({ caja });
     const RECEPCION = { ...(USUARIO as object), role: 'recepcion' } as never;
@@ -567,14 +567,24 @@ describe('La factura de «Nuevo documento», sin evento (§9.21)', () => {
         },
       ],
     };
-    await servicio.emitirSinEvento(RECEPCION, CONTADO);
+    await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
+      'Recepción no emite: envía la solicitud',
+    );
+    expect(repo.crear).not.toHaveBeenCalled();
+    // Lo que se guarda en la solicitud: el pedido con el tarifario y su total.
+    const { pedida, revision } = await servicio.revisadaParaSolicitar(
+      RECEPCION,
+      CONTADO,
+    );
+    expect(revision.ok).toBe(true);
+    expect(revision.montos?.total).toBe(140000);
+    expect(pedida.lineas[0]).toMatchObject({ precio: 140000, tarifario_id: 5 });
+    // Al aprobarla, otro cargo la emite en el turno guardado.
+    await servicio.emitirPedida(USUARIO, pedida, 7);
     expect(repo.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ turno_de_caja_id: 7 }),
+      expect.objectContaining({ turno_de_caja_id: 7, medio_de_pago: 'debito' }),
     );
     caja.turnoAbierto.mockResolvedValue(null);
-    await expect(servicio.emitirSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
-      'La caja de recepción está cerrada',
-    );
     await expect(servicio.revisarSinEvento(RECEPCION, CONTADO)).rejects.toThrow(
       'La caja de recepción está cerrada',
     );

@@ -3,7 +3,12 @@ import type { PinoLogger } from 'nestjs-pino';
 import type { User } from 'src/users/entities/user.entity';
 import type { CajaRepository, TurnoDeCaja } from '../caja/caja.repository';
 import { CajaService } from '../caja/caja.service';
-import { cuadrar, type DocumentoDelTurno } from '../caja/cuadre';
+import {
+  conLasSolicitudes,
+  cuadrar,
+  type DocumentoDelTurno,
+  type SolicitudDelTurno,
+} from '../caja/cuadre';
 import { CAJA_CERRADA, turnoParaEmitir } from '../caja/regla';
 
 // LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2): el cuadre, el cierre ciego,
@@ -97,6 +102,71 @@ const DOCUMENTOS = [
   doc({ id: 6, total: 5000, estado: 'por_confirmar' }),
 ];
 const RETIROS = [{ monto: 50000 }];
+
+describe('Las solicitudes de recepción en la caja (§9.45)', () => {
+  const sol = (x: Partial<SolicitudDelTurno>): SolicitudDelTurno => ({
+    id: 1,
+    tipo: 39,
+    estado: 'pendiente',
+    total: 0,
+    medio_de_pago: 'efectivo',
+    created_at: '2026-11-09T14:00:00Z',
+    detalle: [],
+    documento_id: null,
+    documento_estado: null,
+    ...x,
+  });
+
+  it('la pendiente y la rechazada cuentan; la aprobada, una sola vez', () => {
+    const documentos = [
+      // La boleta que salió de la solicitud 3.
+      doc({ id: 40, total: 30000, medio_de_pago: 'debito' }),
+      // La que quedó por confirmar al aprobar la 4.
+      doc({ id: 41, total: 15000, estado: 'por_confirmar' }),
+    ];
+    const solicitudes = [
+      sol({ id: 1, total: 10000 }),
+      // Rechazada: la plata entró, solo no va al SII.
+      sol({
+        id: 2,
+        total: 20000,
+        estado: 'rechazada',
+        medio_de_pago: 'credito',
+      }),
+      sol({
+        id: 3,
+        total: 30000,
+        estado: 'aprobada',
+        medio_de_pago: 'debito',
+        documento_id: 40,
+        documento_estado: 'emitido',
+      }),
+      sol({
+        id: 4,
+        total: 15000,
+        estado: 'aprobada',
+        documento_id: 41,
+        documento_estado: 'por_confirmar',
+      }),
+    ];
+    const juntos = conLasSolicitudes(documentos, solicitudes);
+    // El documento por confirmar lo tapa su solicitud: no se cuenta dos
+    // veces ni se avisa como «por confirmar».
+    expect(juntos.map((d) => d.solicitud_id ?? `d${d.id}`)).toEqual([
+      'd40',
+      1,
+      2,
+      4,
+    ]);
+    const c = cuadrar(TURNO, juntos, []);
+    const de = (m: string) => c.lineas.find((l) => l.medio === m);
+    expect(de('efectivo')?.esperado).toBe(20000 + 10000 + 15000);
+    expect(de('credito')?.vendido).toBe(20000);
+    expect(de('debito')?.vendido).toBe(30000);
+    expect(c.vendido).toBe(75000);
+    expect(c.porConfirmar).toBe(0);
+  });
+});
 
 describe('El cuadre de la caja (§9.43)', () => {
   it('lo esperado: el efectivo con el sencillo y los retiros; lo demás, lo vendido', () => {
@@ -549,6 +619,59 @@ describe('Lo vendido (§9.43, sprint 3)', () => {
       persona: 'Ana',
     });
     expect(deAna.items.map((i) => i.tarifario_id)).toEqual([26]);
+  });
+
+  it('§9.45: suma lo que pidió recepción (pendiente o rechazada) por el día en Chile, y la aprobada ya emitida no se cuenta dos veces', async () => {
+    const r = repo();
+    const sol = (x: object) => ({
+      tipo: 39,
+      estado: 'pendiente',
+      total: 7500,
+      medio_de_pago: 'efectivo',
+      turno_de_caja_id: 7,
+      documento_id: null,
+      documento_estado: null,
+      detalle: [
+        {
+          descripcion: 'Ticket diario, temporada media',
+          cantidad: 1,
+          precio: 7500,
+          tarifario_id: 26,
+        },
+      ],
+      ...x,
+    });
+    const solicitudes = {
+      delPeriodo: jest.fn().mockResolvedValue([
+        sol({ id: 1, created_at: '2026-11-09T15:00:00Z' }),
+        sol({ id: 2, estado: 'rechazada', created_at: '2026-11-09T16:00:00Z' }),
+        // Ya emitida: cuenta por su documento.
+        sol({
+          id: 3,
+          estado: 'aprobada',
+          documento_id: 99,
+          documento_estado: 'emitido',
+          created_at: '2026-11-09T17:00:00Z',
+        }),
+        // El 10-11 a las 01:00 de Chile: fuera del período.
+        sol({ id: 4, created_at: '2026-11-10T04:00:00Z' }),
+      ]),
+    };
+    const servicio = new CajaService(
+      r as unknown as CajaRepository,
+      logger,
+      { delCargo: jest.fn() } as never,
+      { sendEmail: jest.fn() } as never,
+      solicitudes as never,
+    );
+    const v = await servicio.vendido(ADMIN, {
+      desde: '2026-11-01',
+      hasta: '2026-11-09',
+    });
+    const tickets = v.items.find((i) => i.tarifario_id === 26);
+    // Los 4 del período de siempre más las dos solicitudes que cuentan.
+    expect(tickets).toMatchObject({ cantidad: 6, monto: 45000 });
+    expect(v.total).toBe(60100 + 15000);
   });
 
   it('el período: desde antes que hasta, y hasta un año', async () => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import FileViewLink from "../../components/FileViewLink";
 import Modal from "../../components/Modal";
@@ -16,10 +16,13 @@ import {
   type LineaSuelta,
 } from "../../services/boletas.service";
 import type { VistaPrevia } from "../../services/facturas.service";
+import { solicitarBoleta } from "../../services/solicitudes.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import VistaPreviaDelDte from "../postventa/facturacion/VistaPreviaDelDte";
 import { RECEPTOR_VACIO } from "../postventa/facturacion/datosDeLaFactura";
 import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
+import SolicitudesDelTurno from "./SolicitudesDelTurno";
+import { LLAVE_DEL_TURNO } from "./solicitudes";
 
 // LA BOLETA DE «NUEVO DOCUMENTO» (doc 19 §9.4, §9.16 y §9.22, sprint 3),
 // en su propia pantalla como la maqueta que aprobó Felipe el 06-11:
@@ -34,6 +37,10 @@ import { CabeceraDelDocumento, Seccion } from "./PiezasDelDocumento";
 //
 // Quien no ve la lista (recepción, de fábrica) se queda en la boleta
 // después de emitir, con la última a la vista, para seguir con la próxima.
+//
+// §9.45 (Felipe, 09-11): recepción no emite. Arma la boleta igual y, en la
+// vista previa, «Enviar solicitud» la guarda para que la emita quien tiene
+// «Aprobar y emitir solicitudes»; abajo ve cómo va cada una de su turno.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 /** «Noches», «Personas»: la cantidad con el nombre de su unidad. */
@@ -73,6 +80,7 @@ export interface BoletaEmitida {
 export default function BoletaNueva({
   esAdmin,
   conCaja = false,
+  solicita = false,
   quedarse,
   onVolver,
   onEmitida,
@@ -80,11 +88,14 @@ export default function BoletaNueva({
   readonly esAdmin: boolean;
   /** §9.43: recepción emite con la caja abierta, y la boleta entra a ella. */
   readonly conCaja?: boolean;
+  /** §9.45: recepción manda una solicitud en vez de emitir. */
+  readonly solicita?: boolean;
   /** Sin la lista a la vista: después de emitir, otra boleta. */
   readonly quedarse: boolean;
   readonly onVolver: () => void;
   readonly onEmitida: (boleta: BoletaEmitida | null) => void;
 }) {
+  const queryClient = useQueryClient();
   const tarifario = useQuery({
     queryKey: ["boletas", "tarifario"],
     queryFn: getTarifario,
@@ -159,6 +170,32 @@ export default function BoletaNueva({
     }
   };
 
+  const limpiar = () => {
+    setLineas([lineaNueva()]);
+    setCabana("");
+    setCorreo("");
+    setMedio("");
+    setImprimir(false);
+  };
+
+  // §9.45: la solicitud queda guardada; la emite quien aprueba.
+  const enviarSolicitud = async () => {
+    setEmitiendo(true);
+    try {
+      const s = await solicitarBoleta(datos());
+      toast.success(
+        `Solicitud enviada por ${clp(s.total)}: la emite quien la aprueba.`,
+      );
+      setVista(null);
+      limpiar();
+      void queryClient.invalidateQueries({ queryKey: LLAVE_DEL_TURNO });
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo enviar la solicitud."));
+    } finally {
+      setEmitiendo(false);
+    }
+  };
+
   const emitir = async () => {
     setEmitiendo(true);
     try {
@@ -172,11 +209,7 @@ export default function BoletaNueva({
       if (quedarse) {
         setUltima(r.boleta);
         setImprimirUltima(imprimir);
-        setLineas([lineaNueva()]);
-        setCabana("");
-        setCorreo("");
-        setMedio("");
-        setImprimir(false);
+        limpiar();
       }
       onEmitida(r.boleta);
     } catch (e) {
@@ -479,11 +512,14 @@ export default function BoletaNueva({
             }}
             puedeEmitir
             emitiendo={emitiendo}
+            solicita={solicita}
             onVolver={() => setVista(null)}
-            onEmitir={() => void emitir()}
+            onEmitir={() => void (solicita ? enviarSolicitud() : emitir())}
           />
         </Modal>
       )}
+
+      {solicita && <SolicitudesDelTurno />}
     </div>
   );
 }

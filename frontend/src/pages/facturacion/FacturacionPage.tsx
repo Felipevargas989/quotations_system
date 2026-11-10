@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import type { DocumentoDeLaLista } from "../../services/documentosTributarios.service";
+import { getSolicitudes } from "../../services/solicitudes.service";
 import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
@@ -18,6 +19,8 @@ import NotaNueva from "./NotaNueva";
 import NuevoDocumento from "./NuevoDocumento";
 import type { TipoNuevo } from "./tiposDeDocumento";
 import PorFacturar from "./PorFacturar";
+import SolicitudesPorAprobar from "./SolicitudesPorAprobar";
+import { LLAVE_SOLICITUDES } from "./solicitudes";
 
 // LA SECCIÓN «FACTURACIÓN» (doc 19 §9.19 y §9.21). Una sola entrada del
 // menú, justo debajo de Dashboard. Felipe, 06-11: arriba *"un botón de
@@ -46,8 +49,19 @@ import PorFacturar from "./PorFacturar";
 //   tarifario y «Probar la conexión», de `facturacion_ajustes`.
 // Lo de fábrica: recepción, la boleta y la factura del tarifario;
 // operaciones, además los eventos y «Documentos»; el administrador, todo.
+//
+// §9.45 (Felipe, 09-11): recepción ya no emite al SII. Su boleta y su
+// factura al contado salen como «Enviar solicitud», y la pestaña
+// «Solicitudes» (permiso «Aprobar y emitir solicitudes», de fábrica
+// operaciones y el administrador) las aprueba y emite, o las rechaza.
 
-type Pestana = "documentos" | "por_facturar" | "tarifario" | "caja" | "vendido";
+type Pestana =
+  | "documentos"
+  | "solicitudes"
+  | "por_facturar"
+  | "tarifario"
+  | "caja"
+  | "vendido";
 
 /** El documento que se está armando, y el que la nota modifica si llegó
  *  desde la lista. */
@@ -68,6 +82,17 @@ export default function FacturacionPage() {
   // «Lo vendido», su propia pestaña (Felipe, 09-11: «solo lo vea
   // operaciones y administración»).
   const conVendido = permisos.includes("facturacion_vendido");
+  // §9.45: aprobar y emitir lo que pide recepción.
+  const conSolicitudes = permisos.includes("facturacion_solicitudes");
+  // Recepción manda solicitudes en vez de emitir.
+  const solicita = userRole === "recepcion";
+  const solicitudes = useQuery({
+    queryKey: LLAVE_SOLICITUDES,
+    queryFn: getSolicitudes,
+    enabled: conSolicitudes,
+    refetchInterval: 60_000,
+  });
+  const esperan = solicitudes.data?.pendientes;
   const tipos: TipoNuevo[] = [
     ...(permisos.includes("boletas") ? (["factura", "boleta"] as const) : []),
     ...(permisos.includes("facturacion_notas")
@@ -82,6 +107,14 @@ export default function FacturacionPage() {
   const pestanas: { key: Pestana; label: string }[] = [
     ...(conDocumentos
       ? [{ key: "documentos" as const, label: "Documentos" }]
+      : []),
+    ...(conSolicitudes
+      ? [
+          {
+            key: "solicitudes" as const,
+            label: esperan ? `Solicitudes (${esperan})` : "Solicitudes",
+          },
+        ]
       : []),
     ...(conEventos
       ? [
@@ -144,6 +177,8 @@ export default function FacturacionPage() {
         {abierto.tipo === "factura" ? (
           <FacturaNueva
             esAdmin={esAdmin}
+            // §9.45: al contado, recepción manda la solicitud.
+            solicita={solicita}
             // Sin la lista a la vista (recepción), se queda para la próxima.
             quedarse={!conDocumentos}
             onVolver={() => setAbierto(null)}
@@ -154,6 +189,8 @@ export default function FacturacionPage() {
             esAdmin={esAdmin}
             // §9.43: recepción emite con la caja abierta.
             conCaja={userRole === "recepcion"}
+            // §9.45: recepción manda la solicitud.
+            solicita={solicita}
             // Sin la lista a la vista (recepción), se queda para la próxima.
             quedarse={!conDocumentos}
             onVolver={() => setAbierto(null)}
@@ -233,6 +270,7 @@ export default function FacturacionPage() {
               }
             />
           )}
+          {pestana === "solicitudes" && <SolicitudesPorAprobar />}
           {pestana === "por_facturar" && <PorFacturar />}
           {pestana === "caja" && (
             <div className="space-y-6">

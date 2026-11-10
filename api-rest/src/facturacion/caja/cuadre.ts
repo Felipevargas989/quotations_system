@@ -14,6 +14,11 @@ import {
  * - La diferencia es declarado menos esperado: positiva sobra, negativa
  *   falta.
  * - Lo vendido: cada ítem del tarifario con su cantidad y su monto con IVA.
+ * - §9.45: la venta es del turno en que se cobró. Las solicitudes de
+ *   recepción cuentan como lo emitido: la pendiente, la rechazada (la plata
+ *   entró; solo no va al SII) y la aprobada cuyo documento no salió. La
+ *   aprobada con su documento emitido cuenta UNA vez: por el documento
+ *   (`conLasSolicitudes`).
  */
 
 export interface DocumentoDelTurno {
@@ -24,6 +29,9 @@ export interface DocumentoDelTurno {
   total: number;
   medio_de_pago: string | null;
   emitido_en: string | null;
+  /** §9.45: la solicitud de recepción que esta fila representa (su id);
+   *  nulo en un documento. */
+  solicitud_id?: number | null;
   detalle: {
     descripcion?: string;
     cantidad?: number;
@@ -59,9 +67,73 @@ export interface ItemVendido {
 
 const IVA = 0.19;
 
+/** Una solicitud de recepción del turno, como la lee la caja (§9.45). */
+export interface SolicitudDelTurno {
+  id: number;
+  tipo: number;
+  estado: string;
+  total: number;
+  medio_de_pago: string;
+  created_at: string;
+  detalle: DocumentoDelTurno['detalle'];
+  documento_id: number | null;
+  /** El estado del documento que la emitió, si hay. */
+  documento_estado: string | null;
+}
+
+/** Lo que cuenta en la caja: lo emitido y las solicitudes (§9.45). */
+export const cuentaEnLaCaja = (d: Pick<DocumentoDelTurno, 'estado'>) =>
+  d.estado === 'emitido' || d.estado.startsWith('solicitud_');
+
+/** La solicitud que cuenta por sí misma: todas, menos la aprobada cuyo
+ *  documento salió (ese cuenta por el documento). */
+export const cuentaLaSolicitud = (s: SolicitudDelTurno) =>
+  !(s.estado === 'aprobada' && s.documento_estado === 'emitido');
+
+/**
+ * Los documentos del turno con sus solicitudes (§9.45): cada solicitud que
+ * cuenta entra como una fila «solicitud_pendiente», «solicitud_rechazada» o
+ * «solicitud_aprobada» (su documento no salió: queda por confirmar o lo
+ * rechazó facturacion.cl), y ese documento sale de la lista para que la
+ * plata no se cuente dos veces ni se avise como «por confirmar».
+ */
+export const conLasSolicitudes = <D extends DocumentoDelTurno>(
+  documentos: D[],
+  solicitudes: SolicitudDelTurno[],
+): (D | DocumentoDelTurno)[] => {
+  const cuentan = solicitudes.filter(cuentaLaSolicitud);
+  const tapados = new Set(
+    cuentan.map((s) => s.documento_id).filter((id): id is number => !!id),
+  );
+  return [
+    ...documentos.filter((d) => !tapados.has(d.id)),
+    ...cuentan.map(
+      (s): DocumentoDelTurno => ({
+        id: s.id,
+        solicitud_id: s.id,
+        tipo: s.tipo,
+        folio: null,
+        estado:
+          s.estado === 'rechazada'
+            ? 'solicitud_rechazada'
+            : s.estado === 'aprobada'
+              ? 'solicitud_aprobada'
+              : 'solicitud_pendiente',
+        total: Number(s.total),
+        medio_de_pago: s.medio_de_pago,
+        emitido_en: s.created_at,
+        detalle: s.detalle ?? [],
+      }),
+    ),
+  ];
+};
+
 /** El monto con IVA de una línea: la boleta lo trae con IVA; la factura,
  *  en neto (con su descuento). */
-const conIvaDe = (tipo: number, l: DocumentoDelTurno['detalle'][number]) => {
+export const conIvaDe = (
+  tipo: number,
+  l: DocumentoDelTurno['detalle'][number],
+) => {
   const base =
     (l.cantidad ?? 0) * (l.precio ?? 0) * (1 - (l.descuento ?? 0) / 100);
   return Math.round(tipo === 39 ? base : base * (1 + IVA));
@@ -107,7 +179,8 @@ export const cuadrar = (
   documentos: DocumentoDelTurno[],
   retiros: { monto: number }[],
 ) => {
-  const emitidos = documentos.filter((d) => d.estado === 'emitido');
+  // §9.45: lo emitido y las solicitudes del turno (`conLasSolicitudes`).
+  const emitidos = documentos.filter(cuentaEnLaCaja);
   const totalRetiros = retiros.reduce((s, r) => s + Number(r.monto), 0);
   const declarado: Record<MedioDePago, number | null> = {
     efectivo: turno.declarado_efectivo,

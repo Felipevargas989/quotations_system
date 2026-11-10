@@ -10,6 +10,7 @@ import {
 } from "../../constants/facturacion";
 import {
   corregirMedio,
+  corregirMedioDeSolicitud,
   getCierre,
   getCierres,
   revisarCierre,
@@ -77,6 +78,12 @@ function Estado({ c }: { readonly c: CierreEnLaLista }) {
   );
 }
 
+/** §9.45: las solicitudes de recepción del turno cuentan en la caja. */
+const ESTADO_DE_SOLICITUD: Record<string, string> = {
+  solicitud_pendiente: "solicitud pendiente",
+  solicitud_rechazada: "solicitud rechazada (no va al SII)",
+  solicitud_aprobada: "solicitud aprobada, por confirmar",
+};
 const NOMBRE_DEL_TIPO: Record<number, string> = {
   33: "Factura",
   39: "Boleta",
@@ -100,8 +107,15 @@ function Detalle({
     void queryClient.invalidateQueries({ queryKey: ["caja", "cierres"] });
   };
   const corregir = useMutation({
-    mutationFn: (v: { documentoId: number; medio: MedioDePago }) =>
-      corregirMedio(id, v.documentoId, v.medio),
+    // §9.45: una solicitud de recepción se corrige por su propia puerta.
+    mutationFn: (v: {
+      documentoId: number;
+      solicitud: boolean;
+      medio: MedioDePago;
+    }) =>
+      v.solicitud
+        ? corregirMedioDeSolicitud(id, v.documentoId, v.medio)
+        : corregirMedio(id, v.documentoId, v.medio),
     onSuccess: alDia,
     onError: (e) =>
       toast.error(humanizeApiError(e, "No se pudo corregir el medio de pago.")),
@@ -219,18 +233,24 @@ function Detalle({
               <ul className="divide-y divide-gray-100 text-sm">
                 {c.documentos.map((d) => (
                   <li
-                    key={d.id}
+                    key={`${d.solicitud_id ? "s" : "d"}${d.id}`}
                     className="flex flex-wrap items-center justify-between gap-2 py-1.5"
                   >
                     <span
-                      className={d.estado === "emitido" ? "" : "text-gray-400"}
+                      className={
+                        d.estado === "emitido" || d.solicitud_id
+                          ? ""
+                          : "text-gray-400"
+                      }
                     >
                       {NOMBRE_DEL_TIPO[d.tipo] ?? "Documento"}{" "}
-                      {d.folio ?? "s/n"}
+                      {d.solicitud_id ? "" : (d.folio ?? "s/n")}
                       {d.emitido_en && ` · ${hora(d.emitido_en)}`} ·{" "}
                       {clp(d.total)}
-                      {d.estado !== "emitido" &&
-                        ` · ${d.estado.replace("_", " ")}`}
+                      {d.solicitud_id
+                        ? ` · ${ESTADO_DE_SOLICITUD[d.estado] ?? "solicitud"}`
+                        : d.estado !== "emitido" &&
+                          ` · ${d.estado.replace("_", " ")}`}
                     </span>
                     <span className="w-40">
                       <SelectWithSearch
@@ -244,6 +264,7 @@ function Detalle({
                           v !== d.medio_de_pago &&
                           corregir.mutate({
                             documentoId: d.id,
+                            solicitud: !!d.solicitud_id,
                             medio: v as MedioDePago,
                           })
                         }
@@ -260,12 +281,18 @@ function Detalle({
             {c.correcciones.length > 0 && (
               <ul className="space-y-0.5 text-xs text-gray-500">
                 {c.correcciones.map((x) => {
-                  const d = c.documentos.find((y) => y.id === x.documento_id);
+                  const d = c.documentos.find((y) =>
+                    x.solicitud_id
+                      ? y.solicitud_id === x.solicitud_id
+                      : !y.solicitud_id && y.id === x.documento_id,
+                  );
                   return (
                     <li key={x.id}>
                       {d
-                        ? `${NOMBRE_DEL_TIPO[d.tipo] ?? ""} ${d.folio ?? ""}`
-                        : "Documento"}{" "}
+                        ? `${NOMBRE_DEL_TIPO[d.tipo] ?? ""} ${d.solicitud_id ? "solicitada" : (d.folio ?? "")}`
+                        : x.solicitud_id
+                          ? "Solicitud"
+                          : "Documento"}{" "}
                       pasado de {nombreDelMedio(x.medio_antes) ?? "sin medio"} a{" "}
                       {nombreDelMedio(x.medio_despues)} por{" "}
                       {x.corregido_por_nombre ?? "—"}, {dia(x.created_at)}{" "}
