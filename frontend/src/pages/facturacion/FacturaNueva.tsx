@@ -54,9 +54,10 @@ import { LLAVE_DEL_TURNO, clp } from "./solicitudes";
 // (recepción) se queda en la factura después de emitir, con la última a la
 // vista, como en la boleta.
 //
-// §9.45 (Felipe, 09-11): la factura al contado de recepción no se emite:
-// «Enviar solicitud» la guarda y la emite quien tiene «Aprobar y emitir
-// solicitudes». A crédito no pasa por la caja y se emite como siempre.
+// §9.45 (Felipe, 09-11): la factura de recepción no se emite: «Enviar
+// solicitud» la guarda y la emite quien tiene «Aprobar y emitir
+// solicitudes». §9.46 (10-11): al contado o a crédito, es el mismo proceso
+// («no distingamos si la factura es contado o crédito»).
 
 const LLAVE_CLIENTES = ["facturacion", "clientes"];
 
@@ -130,7 +131,6 @@ export default function FacturaNueva({
   // Una línea del tarifario sin elegir: se elige o se quita.
   const sinElegir = pedida.lineas.some((l) => l.tarifario_id === null);
   const lista = !!vista?.ok && !revisando && !sinElegir;
-  const comoSolicitud = solicita && pedida.forma_de_pago === 1;
 
   const enviarSolicitud = async () => {
     setEmitiendo(true);
@@ -305,9 +305,9 @@ export default function FacturaNueva({
             pedida={pedida}
             puedeEmitir
             emitiendo={emitiendo || revisando}
-            solicita={comoSolicitud}
+            solicita={solicita}
             onVolver={() => setViendo(false)}
-            onEmitir={() => void (comoSolicitud ? enviarSolicitud() : emitir())}
+            onEmitir={() => void (solicita ? enviarSolicitud() : emitir())}
           />
         </Modal>
       )}

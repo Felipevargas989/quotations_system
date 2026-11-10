@@ -185,11 +185,8 @@ describe('Recepción manda la solicitud (§9.45)', () => {
     expect(repo.crear).not.toHaveBeenCalled();
   });
 
-  it('la factura va como solicitud solo al contado, con lo que faltaba dicho', async () => {
+  it('la factura va como solicitud, al contado con su medio de pago', async () => {
     const { servicio, facturas, repo } = armar();
-    await expect(
-      servicio.solicitarFactura(RECEPCION, { forma_de_pago: 2 } as never),
-    ).rejects.toThrow('Solo la factura al contado');
     facturas.revisadaParaSolicitar.mockResolvedValue({
       pedida: {
         forma_de_pago: 1,
@@ -217,6 +214,62 @@ describe('Recepción manda la solicitud (§9.45)', () => {
     );
     // La factura guarda el neto: la pantalla la ve con IVA.
     expect(v.lineas[0].monto).toBe(119000);
+    expect(v.plazo_dias).toBeNull();
+  });
+
+  it('la factura a crédito también va como solicitud (§9.46): sin medio de pago, con su plazo y con la caja abierta', async () => {
+    const { servicio, facturas, repo } = armar();
+    const A_CREDITO = {
+      pedida: {
+        forma_de_pago: 2,
+        plazo_dias: 30,
+        medio_de_pago: null,
+        receptor: { rut: '76123456-0', razon_social: 'Empresa SpA' },
+      },
+      revision: {
+        ok: true,
+        montos: { total: 119000 },
+        lineas: [{ descripcion: 'Tinaja', cantidad: 1, precio: 100000 }],
+        faltan: [],
+        problemas: [],
+      },
+    };
+    facturas.revisadaParaSolicitar.mockResolvedValue(A_CREDITO);
+    const v = await servicio.solicitarFactura(RECEPCION, {
+      forma_de_pago: 2,
+    } as never);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: 33,
+        total: 119000,
+        medio_de_pago: null,
+        turno_de_caja_id: 7,
+      }),
+    );
+    expect(v).toMatchObject({ medio_de_pago: null, plazo_dias: 30 });
+    // Aprobada, su documento sale sin turno: no entró plata a la caja.
+    facturas.emitirPedida.mockResolvedValue({
+      id: 902,
+      tipo: 33,
+      folio: 396,
+      estado: 'emitido',
+      total: 119000,
+    });
+    await servicio.aprobar(OPER, v.id);
+    expect(facturas.emitirPedida).toHaveBeenCalledWith(
+      OPER,
+      expect.objectContaining({ forma_de_pago: 2, medio_de_pago: null }),
+      null,
+    );
+    // Sin la caja abierta tampoco se manda: es el mismo proceso.
+    const cerrada = armar({ turno: null });
+    cerrada.facturas.revisadaParaSolicitar.mockResolvedValue(A_CREDITO);
+    await expect(
+      cerrada.servicio.solicitarFactura(RECEPCION, {
+        forma_de_pago: 2,
+      } as never),
+    ).rejects.toThrow('La caja de recepción está cerrada');
+    expect(cerrada.repo.crear).not.toHaveBeenCalled();
   });
 });
 

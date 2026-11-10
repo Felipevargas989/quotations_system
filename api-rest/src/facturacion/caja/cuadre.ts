@@ -73,7 +73,8 @@ export interface SolicitudDelTurno {
   tipo: number;
   estado: string;
   total: number;
-  medio_de_pago: string;
+  /** Nulo en la factura a crédito (§9.46): no entró plata. */
+  medio_de_pago: string | null;
   created_at: string;
   detalle: DocumentoDelTurno['detalle'];
   documento_id: number | null;
@@ -86,8 +87,11 @@ export const cuentaEnLaCaja = (d: Pick<DocumentoDelTurno, 'estado'>) =>
   d.estado === 'emitido' || d.estado.startsWith('solicitud_');
 
 /** La solicitud que cuenta por sí misma: todas, menos la aprobada cuyo
- *  documento salió (ese cuenta por el documento). */
+ *  documento salió (ese cuenta por el documento) y la factura a crédito
+ *  (§9.46: sin medio de pago, no entró plata; su documento se emite sin
+ *  turno, como toda factura a crédito). */
 export const cuentaLaSolicitud = (s: SolicitudDelTurno) =>
+  !!s.medio_de_pago &&
   !(s.estado === 'aprobada' && s.documento_estado === 'emitido');
 
 /**

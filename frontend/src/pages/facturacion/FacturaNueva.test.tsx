@@ -12,6 +12,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as facturas from "../../services/facturas.service";
+import * as solicitudes from "../../services/solicitudes.service";
 import FacturaNueva from "./FacturaNueva";
 
 // LA FACTURA DE «NUEVO DOCUMENTO» (doc 19 §9.22), como la maqueta del
@@ -116,13 +117,14 @@ const CLIENTES: facturas.ClienteParaFacturar[] = [
   },
 ];
 
-const abrir = (esAdmin = true) => {
+const abrir = (esAdmin = true, solicita = false, vista = VISTA) => {
   f.getClientesParaFacturar.mockResolvedValue(CLIENTES);
-  f.revisarFacturaSinEvento.mockResolvedValue(VISTA);
+  f.revisarFacturaSinEvento.mockResolvedValue(vista);
   render(
     <QueryClientProvider client={new QueryClient()}>
       <FacturaNueva
         esAdmin={esAdmin}
+        solicita={solicita}
         quedarse={!esAdmin}
         onVolver={() => {}}
         onEmitida={() => {}}
@@ -308,6 +310,36 @@ describe("La factura de «Nuevo DTE»", () => {
         ]),
       { timeout: 2000 },
     );
+  });
+
+  it("recepción (§9.46): a crédito también «Enviar solicitud», no emite", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(solicitudes.solicitarFactura).mockResolvedValue({
+      total: 166600,
+    } as never);
+    abrir(false, true, { ...VISTA, ok: true, faltan: [] });
+    await usuario.click(
+      await screen.findByRole("button", { name: /Elegir del tarifario/ }),
+    );
+    await usuario.click(
+      within(
+        document.querySelector("[data-lista-scroll]") as HTMLElement,
+      ).getByRole("button", { name: /Cabaña 6 personas/ }),
+    );
+    const crear = await screen.findByRole("button", {
+      name: "Crear documento",
+    });
+    await waitFor(() => expect(crear).toBeEnabled(), { timeout: 3000 });
+    await usuario.click(crear);
+    await usuario.click(
+      await screen.findByRole("button", { name: "Enviar solicitud" }),
+    );
+    await waitFor(() =>
+      expect(solicitudes.solicitarFactura).toHaveBeenCalledWith(
+        expect.objectContaining({ forma_de_pago: 2, plazo_dias: 30 }),
+      ),
+    );
+    expect(f.emitirFacturaSinEvento).not.toHaveBeenCalled();
   });
 
   it("el administrador escribe a mano y también puede tomar del tarifario", async () => {
