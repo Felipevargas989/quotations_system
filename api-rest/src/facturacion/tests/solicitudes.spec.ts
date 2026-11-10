@@ -185,7 +185,7 @@ describe('Recepción manda la solicitud (§9.45)', () => {
     expect(repo.crear).not.toHaveBeenCalled();
   });
 
-  it('la factura va como solicitud, al contado con su medio de pago', async () => {
+  it('la factura va como solicitud, con su medio de pago', async () => {
     const { servicio, facturas, repo } = armar();
     facturas.revisadaParaSolicitar.mockResolvedValue({
       pedida: {
@@ -214,16 +214,15 @@ describe('Recepción manda la solicitud (§9.45)', () => {
     );
     // La factura guarda el neto: la pantalla la ve con IVA.
     expect(v.lineas[0].monto).toBe(119000);
-    expect(v.plazo_dias).toBeNull();
   });
 
-  it('la factura a crédito también va como solicitud (§9.46): sin medio de pago, con su plazo y con la caja abierta', async () => {
+  it('§9.46: la venta no depende del documento. La factura con crédito a 30 días va igual: con su medio de pago, en el turno, y su documento sale en ese turno', async () => {
     const { servicio, facturas, repo } = armar();
-    const A_CREDITO = {
+    const A_30_DIAS = {
       pedida: {
         forma_de_pago: 2,
         plazo_dias: 30,
-        medio_de_pago: null,
+        medio_de_pago: 'debito',
         receptor: { rut: '76123456-0', razon_social: 'Empresa SpA' },
       },
       revision: {
@@ -234,7 +233,7 @@ describe('Recepción manda la solicitud (§9.45)', () => {
         problemas: [],
       },
     };
-    facturas.revisadaParaSolicitar.mockResolvedValue(A_CREDITO);
+    facturas.revisadaParaSolicitar.mockResolvedValue(A_30_DIAS);
     const v = await servicio.solicitarFactura(RECEPCION, {
       forma_de_pago: 2,
     } as never);
@@ -242,12 +241,10 @@ describe('Recepción manda la solicitud (§9.45)', () => {
       expect.objectContaining({
         tipo: 33,
         total: 119000,
-        medio_de_pago: null,
+        medio_de_pago: 'debito',
         turno_de_caja_id: 7,
       }),
     );
-    expect(v).toMatchObject({ medio_de_pago: null, plazo_dias: 30 });
-    // Aprobada, su documento sale sin turno: no entró plata a la caja.
     facturas.emitirPedida.mockResolvedValue({
       id: 902,
       tipo: 33,
@@ -258,12 +255,22 @@ describe('Recepción manda la solicitud (§9.45)', () => {
     await servicio.aprobar(OPER, v.id);
     expect(facturas.emitirPedida).toHaveBeenCalledWith(
       OPER,
-      expect.objectContaining({ forma_de_pago: 2, medio_de_pago: null }),
-      null,
+      expect.objectContaining({ forma_de_pago: 2, medio_de_pago: 'debito' }),
+      7,
     );
-    // Sin la caja abierta tampoco se manda: es el mismo proceso.
+    // Sin el medio de pago no se manda: sin él la venta no entra a la caja.
+    facturas.revisadaParaSolicitar.mockResolvedValue({
+      ...A_30_DIAS,
+      pedida: { ...A_30_DIAS.pedida, medio_de_pago: null },
+    });
+    repo.crear.mockClear();
+    await expect(
+      servicio.solicitarFactura(RECEPCION, { forma_de_pago: 2 } as never),
+    ).rejects.toThrow('Falta el medio de pago');
+    expect(repo.crear).not.toHaveBeenCalled();
+    // Sin la caja abierta tampoco: es el mismo proceso.
     const cerrada = armar({ turno: null });
-    cerrada.facturas.revisadaParaSolicitar.mockResolvedValue(A_CREDITO);
+    cerrada.facturas.revisadaParaSolicitar.mockResolvedValue(A_30_DIAS);
     await expect(
       cerrada.servicio.solicitarFactura(RECEPCION, {
         forma_de_pago: 2,

@@ -56,8 +56,9 @@ import { LLAVE_DEL_TURNO, clp } from "./solicitudes";
 //
 // §9.45 (Felipe, 09-11): la factura de recepción no se emite: «Enviar
 // solicitud» la guarda y la emite quien tiene «Aprobar y emitir
-// solicitudes». §9.46 (10-11): al contado o a crédito, es el mismo proceso
-// («no distingamos si la factura es contado o crédito»).
+// solicitudes». §9.46 (10-11): un solo proceso, sea cual sea su condición
+// de pago, y siempre con el medio con que se cobró (la venta entra a la
+// caja del turno, se emita o no).
 
 const LLAVE_CLIENTES = ["facturacion", "clientes"];
 
@@ -88,7 +89,7 @@ export default function FacturaNueva({
 }: {
   /** La línea a mano y el descuento (§9.23). */
   readonly esAdmin: boolean;
-  /** §9.45: recepción manda la factura al contado como solicitud. */
+  /** §9.45 y §9.46: recepción manda su factura como solicitud, siempre. */
   readonly solicita?: boolean;
   /** Sin la lista a la vista: después de emitir, otra factura. */
   readonly quedarse: boolean;
@@ -201,6 +202,7 @@ export default function FacturaNueva({
         pedida={pedida}
         vista={vista ?? null}
         onChange={poner}
+        medioSiempre={solicita}
       />
 
       <Seccion titulo="Destinatario">

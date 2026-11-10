@@ -2719,49 +2719,65 @@ evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
 
-### 9.46 La factura de recepción, siempre como solicitud (10-11)
+### 9.46 La factura de recepción, siempre como solicitud; la venta no depende del documento (10-11)
 
 Felipe, 10-11, con el §9.45 en producción: *"creo que en recepción tanto
 las boletas como las facturas deben seguir el mismo proceso... para que sea
-consistente"*; y a la propuesta de tratar aparte la factura a crédito, *"no
-distingamos si la factura es contado o crédito... para todos los efectos
-hacemos 2 DTE, factura y boleta, entonces 2 procesos"*.
+consistente"*; *"no distingamos si la factura es contado o crédito... para
+todos los efectos hacemos 2 DTE, factura y boleta, entonces 2 procesos"*; y
+al ver una primera versión que dejaba fuera de la caja la factura con
+crédito: *"la factura a crédito es lo común en emisión, inclusive si el
+cliente ya pagó"*, *"para efecto de contabilizar la venta, no incide la
+emisión del documento. Lo que hace recepción sencillamente es enviar la
+solicitud de emisión. Punto. El resto se mantiene igual. La contabilización
+y la revisión de lo vendido no depende de la condición de la factura ni si
+el administrador o operaciones luego aprueba o no aprueba la factura"*.
 
-**La regla:** en recepción hay dos documentos y dos procesos, la boleta y
-la factura, y los dos van como solicitud. La factura no se trata distinto
-por cómo se paga:
-- Al contado o a crédito, recepción la arma, «Enviar solicitud», y la emite
-  o la rechaza quien tiene «Aprobar y emitir solicitudes». Ya no hay una
-  factura de recepción que se emita directo.
-- Las dos piden la caja abierta, como la boleta (un solo proceso).
-- En «Solicitudes» van en la misma tabla. Donde va el medio de pago, la
-  factura a crédito dice «A crédito · 30 días» (su plazo).
-- **La caja cuenta plata:** la factura a crédito no trae medio de pago, no
-  entró plata y no cuenta en el cuadre ni en los «Documentos del turno», se
-  emita, espere o se rechace. Su documento sale sin turno, como toda
-  factura a crédito, y entra a «Lo vendido» cuando se emite. La factura al
-  contado sigue igual que en el §9.45.
+**La regla:**
+- En recepción hay dos documentos y dos procesos, la boleta y la factura, y
+  los dos van como solicitud. Ya no hay una factura de recepción que se
+  emita directo: recepción la arma, «Enviar solicitud», y la emite o la
+  rechaza quien tiene «Aprobar y emitir solicitudes».
+- **La «Condición de pago» es un dato de la factura, nada más** (contado, o
+  crédito a 30, 45 o 60 días: lo común es crédito, aunque el cliente ya
+  haya pagado). No cambia el proceso ni la caja.
+- **La venta es de recepción y no depende del documento.** La factura de
+  recepción pide siempre el medio de pago (con qué le pagaron), como la
+  boleta, y con él su venta entra a la caja del turno y a «Lo vendido»
+  desde que se manda la solicitud: se emita o no, se apruebe o se rechace,
+  y si hay que emitirla de nuevo, la venta se mantiene (lo del §9.45,
+  `conLasSolicitudes`, ahora para toda factura).
+- Las dos piden la caja abierta. El resto, igual que en el §9.45. Los otros
+  cargos emiten como siempre (el medio de pago, solo al contado, y sin
+  turno).
 
-**Cómo quedó** (migración 201):
-- `solicitudes_de_documento.medio_de_pago` deja de ser obligatorio; la
-  boleta lo sigue exigiendo (`solicitudes_boleta_con_medio`).
-- **El motor:** `SolicitudesService.solicitarFactura` ya no rechaza la
-  factura a crédito y la guarda sin medio; `aprobar` la emite sin turno
-  (`emitirPedida(…, null)`). `FacturasService.emitirSinEvento` le dice a
-  recepción que solicite en toda factura (403), y `revisarSinEvento` le pide
-  la caja abierta en toda vista previa. `cuentaLaSolicitud`
-  (`caja/cuadre.ts`) deja fuera la solicitud sin medio de pago, y
-  `SolicitudesRepository.cambiarMedio` no le pone uno. La lista trae
-  `plazo_dias`.
-- **La pantalla:** `FacturaNueva` con `solicita` manda siempre la solicitud;
-  `SolicitudesPorAprobar` dice «A crédito» y el plazo.
-- **Las pruebas:** «la factura a crédito también va como solicitud» de
-  `solicitudes.spec.ts`, «la factura a crédito no cuenta en la caja» de
-  `caja.spec.ts`, el caso de recepción de `facturas.spec.ts`, y en la
-  vitrina `FacturaNueva.test.tsx` y `SolicitudesPorAprobar.test.tsx`.
+**Cómo quedó** (sin migración):
+- **El motor:** `caja/regla.ts` trae `conElMedioDeRecepcion` (la factura de
+  recepción guarda el medio que viene, diga lo que diga la condición de
+  pago; `normalizada` lo sigue quitando a los otros cargos si no es al
+  contado) y `conElMedioExigido` (a la revisión le falta «el medio de pago»
+  si recepción no lo puso). `FacturasService.pedidaSinEvento`,
+  `revisarSinEvento` y `revisadaParaSolicitar` las usan;
+  `emitirSinEvento` le dice a recepción que solicite en toda factura (403)
+  y `revisarSinEvento` le pide la caja abierta en toda vista previa.
+  `SolicitudesService.solicitarFactura` ya no rechaza la que no es al
+  contado y exige el medio; `aprobar` la emite en su turno con ese medio.
+  `caja/cuadre.ts` no cambió.
+- **La pantalla:** `FacturaNueva` con `solicita` manda siempre la solicitud
+  y le pasa `medioSiempre` a `SeccionDocumento`: «Medio de pago» a la vista
+  con cualquier condición de pago, y cambiar la condición no lo borra.
+- **Las pruebas:** «§9.46: la venta no depende del documento» de
+  `solicitudes.spec.ts`, el caso de recepción de `facturas.spec.ts` y el de
+  `FacturaNueva.test.tsx`.
 
-En el laboratorio desde el 10-11-2026 (migración 201 en el laboratorio).
-Producción espera el «a producción» de Felipe; la 201 va antes del motor.
+**Lo que se probó y se sacó el mismo día:** una primera versión (migración
+201, solo en el laboratorio) guardaba la factura con crédito sin medio de
+pago y la dejaba fuera de la caja («no entró plata»). Felipe la corrigió:
+la condición de pago no dice si se cobró. La 201 se deshizo en el
+laboratorio y su archivo salió del repo; el número 201 queda sin usar.
+
+En el laboratorio desde el 10-11-2026. Producción espera el «a producción»
+de Felipe; no lleva migración.
 
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
@@ -2775,7 +2791,8 @@ emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
    después: las líneas con su `tarifario_id` y el precio con que se cobró,
    el medio de pago, el correo, quién la mandó y con qué cargo. No va nada a
    facturacion.cl. La factura a crédito no pasa por la caja: se emite como
-   siempre (cambió el 10-11, §9.46: también va como solicitud).
+   siempre (cambió el 10-11, §9.46: toda factura de recepción va como
+   solicitud, con su medio de pago, y cuenta en la caja).
 2. **La pestaña «Solicitudes»** de Facturación lista lo que espera. Quien
    tiene el interruptor **«Aprobar y emitir solicitudes»** revisa cada una
    para que nada se boletee dos veces (dos del mismo día con el mismo tipo,
@@ -2886,7 +2903,7 @@ piezas del módulo y falla si a alguna le queda un parámetro sin su clase.
 
 **La pregunta que quedó abierta** (la factura a crédito de recepción seguía
 emitiéndose directo) la respondió Felipe el 10-11: también va como
-solicitud (§9.46).
+solicitud, y su venta cuenta en la caja igual (§9.46).
 
 En el laboratorio y en producción desde el 09-11-2026 (PR #349; migración
 200 en las dos bases, antes del motor; Felipe: *"a producción"*). El motor y

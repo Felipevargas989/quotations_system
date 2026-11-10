@@ -71,11 +71,6 @@ const vista = (s: Solicitud, todas: Solicitud[] = []) => {
     estado: s.estado,
     total: s.total,
     medio_de_pago: s.medio_de_pago,
-    // §9.46: la factura a crédito no trae medio; su plazo, para mostrarlo.
-    plazo_dias:
-      s.tipo === FACTURA && !s.medio_de_pago
-        ? (pedido.plazo_dias ?? null)
-        : null,
     correo: s.correo,
     imprimir: s.imprimir,
     para: s.para,
@@ -106,17 +101,18 @@ const vista = (s: Solicitud, todas: Solicitud[] = []) => {
  *
  * Felipe, 09-11: recepción deja de emitir al SII, para que no pueda
  * duplicar algo ya boleteado.
- * - Recepción arma la boleta o la factura (al contado o a crédito, §9.46:
- *   son dos documentos y dos procesos, sin distinguir cómo se paga) y, en vez
- *   de emitir, «Enviar solicitud»: se guarda con todo lo necesario para
+ * - Recepción arma la boleta o la factura (§9.46: son dos documentos y dos
+ *   procesos, sea cual sea la condición de pago de la factura) y, en vez de
+ *   emitir, «Enviar solicitud»: se guarda con todo lo necesario para
  *   emitirla (las líneas con el precio del tarifario con que se cobró, el
  *   medio de pago, el correo o «la imprimo», quién la mandó) en el turno de
  *   la caja abierta. No va nada a facturacion.cl.
  * - Quien tiene «Aprobar y emitir solicitudes» la revisa y «Aprobar y
  *   emitir» corre la emisión de siempre, con ese mismo pedido y ese turno;
  *   o «Rechazar»: nunca va al SII.
- * - La caja cuenta la solicitud desde que se manda, se emita o no
- *   (`caja/cuadre.ts`, `conLasSolicitudes`).
+ * - La venta no depende del documento (§9.46): la caja cuenta la solicitud
+ *   desde que se manda, con su medio de pago, se emita o no, se apruebe o
+ *   se rechace (`caja/cuadre.ts`, `conLasSolicitudes`).
  */
 @Injectable()
 export class SolicitudesService {
@@ -192,21 +188,16 @@ export class SolicitudesService {
     return vista(s);
   }
 
-  /** La factura que manda recepción, al contado o a crédito (§9.46: un
-   *  solo proceso), revisada igual que al emitirla. A crédito no trae medio
-   *  de pago: no entró plata y no cuenta en la caja. */
+  /** La factura que manda recepción (§9.46: un solo proceso, sea cual sea
+   *  su condición de pago), revisada igual que al emitirla y siempre con
+   *  el medio con que se cobró: su venta entra a la caja del turno. */
   async solicitarFactura(user: User, dto: DtePedido) {
     const turnoId = await this.turnoDeRecepcion(user);
     const { pedida, revision } = await this.facturas.revisadaParaSolicitar(
       user,
       dto,
     );
-    const alContado = pedida.forma_de_pago === 1;
-    if (
-      !revision.ok ||
-      !revision.montos ||
-      (alContado && !pedida.medio_de_pago)
-    )
+    if (!revision.ok || !revision.montos || !pedida.medio_de_pago)
       throw new BadRequestException(
         revision.faltan.length
           ? `Falta ${revision.faltan.map((f) => f.texto).join(', ')}`
@@ -218,7 +209,7 @@ export class SolicitudesService {
       pedido: pedida as unknown as Record<string, unknown>,
       detalle: revision.lineas,
       total: revision.montos.total,
-      medio_de_pago: alContado ? (pedida.medio_de_pago ?? null) : null,
+      medio_de_pago: pedida.medio_de_pago,
       correo: pedida.receptor.correo ?? null,
       imprimir: false,
       para: (pedida.receptor.razon_social || '').slice(0, 100) || null,
@@ -286,12 +277,10 @@ export class SolicitudesService {
           user,
           {
             ...(s.pedido as unknown as DtePedido),
-            // El medio que quedó (la revisión de la caja pudo corregirlo);
-            // nulo a crédito.
-            medio_de_pago: s.medio_de_pago as MedioDePago | null,
+            // El medio que quedó (la revisión de la caja pudo corregirlo).
+            medio_de_pago: s.medio_de_pago as MedioDePago,
           },
-          // §9.46: a crédito no entra plata; su documento va sin turno.
-          s.medio_de_pago ? s.turno_de_caja_id : null,
+          s.turno_de_caja_id,
         );
     } catch (error) {
       const motivo = mensajeDe(error);

@@ -312,12 +312,14 @@ describe("La factura de «Nuevo DTE»", () => {
     );
   });
 
-  it("recepción (§9.46): a crédito también «Enviar solicitud», no emite", async () => {
+  it("recepción (§9.46): su factura pide el medio de pago y va con «Enviar solicitud», sea cual sea la condición de pago", async () => {
     const usuario = userEvent.setup();
     vi.mocked(solicitudes.solicitarFactura).mockResolvedValue({
       total: 166600,
     } as never);
     abrir(false, true, { ...VISTA, ok: true, faltan: [] });
+    // La condición de pago queda en «Crédito 30 días» y el medio se pide igual.
+    expect(await screen.findByText("Medio de pago")).toBeInTheDocument();
     await usuario.click(
       await screen.findByRole("button", { name: /Elegir del tarifario/ }),
     );
