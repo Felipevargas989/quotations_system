@@ -99,18 +99,22 @@ const abrir = () =>
 describe("las solicitudes de recepción (§9.45)", () => {
   it("por aprobar arriba, con el aviso de una igual, y las resueltas abajo", async () => {
     abrir();
-    expect(await screen.findByText("Por aprobar (2)")).toBeInTheDocument();
+    expect(await screen.findByText("Por aprobar")).toBeInTheDocument();
+    // Las mismas seis columnas arriba y abajo.
+    expect(screen.getAllByText("Pago y correo").length).toBe(2);
+    // La cabaña va una vez; abajo, lo vendido con su cantidad.
+    expect(screen.getAllByText("2 × Tinaja").length).toBe(3);
     expect(screen.getByText(/Igual a otra de las/)).toBeInTheDocument();
-    expect(screen.getByText("Resueltas (últimos 7 días)")).toBeInTheDocument();
+    expect(screen.getByText("Resueltas")).toBeInTheDocument();
     expect(screen.getByText("Rechazada")).toBeInTheDocument();
     expect(screen.getByText("Ya boleteada")).toBeInTheDocument();
     expect(screen.getAllByText(/huesped@correo\.cl/).length).toBe(3);
   });
 
-  it("«Aprobar y emitir» la emite; «Rechazar» pregunta y la deja sin emitir", async () => {
+  it("«Emitir» la aprueba y emite; «Rechazar» pregunta y la deja sin emitir", async () => {
     abrir();
     const aprobar = await screen.findAllByRole("button", {
-      name: "Aprobar y emitir",
+      name: "Emitir",
     });
     fireEvent.click(aprobar[0]);
     await waitFor(() => expect(api.aprobarSolicitud).toHaveBeenCalledWith(2));

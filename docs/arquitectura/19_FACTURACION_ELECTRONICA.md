@@ -2737,8 +2737,8 @@ emitir al SII, para que no pueda duplicar algo ya boleteado. Lo aprobó así:
 2. **La pestaña «Solicitudes»** de Facturación lista lo que espera. Quien
    tiene el interruptor **«Aprobar y emitir solicitudes»** revisa cada una
    para que nada se boletee dos veces (dos del mismo día con el mismo tipo,
-   total y medio de pago se avisan en ámbar) y aprieta **«Aprobar y
-   emitir»**, que corre la emisión de siempre. O **«Rechazar»**, con un
+   total y medio de pago se avisan en ámbar) y aprieta **«Emitir»** (aprobar
+   y emitir), que corre la emisión de siempre. O **«Rechazar»**, con un
    motivo si quiere: la rechazada nunca va al SII.
 3. **El interruptor nuevo** (`facturacion_solicitudes`, doc 22 §3.1): de
    fábrica, operaciones y el administrador. Regla de Felipe: lo
@@ -2815,6 +2815,20 @@ para enviarle la boleta») y el motor lo exige en `BoletaSueltaDto` (`POST
 La columna `imprimir` de la 200 queda siempre en falso. El correo del
 reparto de un cobro («Por boletear») y el de la boleta de un evento no
 cambian.
+
+**«Solicitudes» como tabla** (Felipe, 09-11, mirando la lista: *"acá en
+solicitudes mejoremos estas tablas de datos?"*; con la maqueta, *"sí, me
+parece bien ambos, ármalo así"*): las mismas seis columnas en «Por aprobar»
+y en «Resueltas» (Pedida, Documento, Pago y correo, Total, Estado y Acción).
+Cada solicitud en dos líneas y nada se parte: la hora en 24 h («22:04», con
+el día si no es de hoy o ya se resolvió) y quién la pidió; el documento y a
+quién va, y debajo lo vendido en una línea con su cantidad («2 × Tinaja · 1
+× Ticket diario», sin repetir la cabaña; con el mouse, cada línea con su
+monto); el medio de pago y el correo; un solo monto, el total; el estado en
+una palabra con el N°, el motivo o «Igual a la de 21:50» debajo; y en
+«Acción», «Rechazar» y «Emitir» (aprobar y emitir; el interruptor sigue
+llamándose «Aprobar y emitir solicitudes») o, resuelta, «Ver» y quién la
+resolvió. Solo pantalla (`SolicitudesPorAprobar`, `ChipDeSolicitud`).
 
 **La caja no recibía sus piezas** (Felipe, 09-11, al probar en el
 laboratorio: dejó una solicitud de $25.000 en efectivo, cerró la caja y el
