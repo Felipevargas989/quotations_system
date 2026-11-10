@@ -84,6 +84,8 @@ class Base {
     cerrarCompromisosDeLaVenta: jest.fn().mockResolvedValue(0),
   };
   correo = { sendEmail: jest.fn<void, unknown[]>() };
+  // El cambio de estado en el Seguimiento (09-11-2026).
+  anotar = jest.fn().mockResolvedValue(undefined);
 
   servicio(estado: string, total = 2821000) {
     return new PaymentsService(
@@ -104,6 +106,7 @@ class Base {
         mandanteOf: jest
           .fn()
           .mockResolvedValue({ email: 'cliente@ejemplo.cl', name: 'Cliente' }),
+        anotarCambioDeEstado: this.anotar,
       } as unknown as QuotationsService,
       this.correo as unknown as EmailService,
       mockPinoLogger() as unknown as PinoLogger,
@@ -303,6 +306,14 @@ describe('Armar el plan al aceptar, con abonos encima', () => {
       'q703',
       { quotation_status: 'aceptada' },
       1,
+    );
+    // Y el cambio de estado queda en el Seguimiento (09-11-2026).
+    expect(base.anotar).toHaveBeenCalledWith(
+      null,
+      1,
+      'q703',
+      'cancelada',
+      'aceptada',
     );
     // Recién aceptada: los compromisos de la venta se cierran (28-10-2026).
     expect(base.aceptarRepo.cerrarCompromisosDeLaVenta).toHaveBeenCalledWith(

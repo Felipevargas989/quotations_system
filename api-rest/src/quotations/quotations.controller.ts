@@ -400,9 +400,13 @@ export class QuotationsController {
   @Post(':id/realizado')
   markEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/realizado`);
-    return this.quotationsService.markEventDone(id, user.company_id, {
-      derechos: user.derechos,
-    });
+    return this.quotationsService.markEventDone(
+      id,
+      user.company_id,
+      { derechos: user.derechos },
+      // Firma el cambio de estado en el Seguimiento (09-11-2026).
+      user,
+    );
   }
 
   // La puerta de VUELTA (05-08, pedido de Felipe): des-marca un evento
@@ -414,7 +418,7 @@ export class QuotationsController {
   @Post(':id/volver-a-pendiente')
   unmarkEventDone(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /quotations/${id}/volver-a-pendiente`);
-    return this.quotationsService.unmarkEventDone(id, user.company_id);
+    return this.quotationsService.unmarkEventDone(id, user.company_id, user);
   }
 
   // La palabra final sobre una fila de la cosecha del mes. La corrige quien
@@ -461,6 +465,8 @@ export class QuotationsController {
       user.company_id,
       (user as User & { role?: string }).role,
       { derechos: user.derechos, plan: user.plan },
+      // Quien cambia el estado firma la línea del Seguimiento (09-11-2026).
+      user,
     );
   }
 

@@ -298,6 +298,7 @@ export class EnvioCotizacionService {
     // lo enviado con este botón nunca los recibía (Felipe, 10-10-2026:
     // 19 cotizaciones de Valle del Sol quedaron sin fecha desde el 04-10).
     if (q.quotation_status === ESTADO_ANTES_DE_ENVIAR) {
+      let marcada = false;
       try {
         await this.quotationsRepository.update(
           quotationId,
@@ -307,8 +308,21 @@ export class EnvioCotizacionService {
           } as unknown as UpdateQuotationDto,
           user.company_id,
         );
+        marcada = true;
       } catch (e) {
         this.logger.error(`no se pudo marcar como enviada: ${String(e)}`);
+      }
+      // El cambio de estado también queda en el Seguimiento, firmado por
+      // quien apretó el botón (Felipe, 09-11-2026). No se traga el envío:
+      // `registrarCambioDeEstado` registra sus errores y sigue.
+      if (marcada) {
+        await this.followups.registrarCambioDeEstado(
+          user,
+          user.company_id,
+          quotationId,
+          ESTADO_ANTES_DE_ENVIAR,
+          ESTADO_TRAS_ENVIAR,
+        );
       }
     }
 

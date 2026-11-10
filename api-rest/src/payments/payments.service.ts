@@ -16,6 +16,7 @@ import { QuotationStatus } from 'src/quotations/constants/constants';
 import { Quotation } from 'src/quotations/entities/quotation.entity';
 import { QuotationsRepository } from 'src/quotations/quotations.repository';
 import { QuotationsService } from 'src/quotations/quotations.service';
+import { User } from 'src/users/entities/user.entity';
 import { PaymentStatus } from './constants';
 import {
   CuotaDelPlan,
@@ -103,8 +104,14 @@ export class PaymentsService {
     companyId: Company['id'],
     /** Sin el correo del plan al cliente: la cotización de una licitación
      *  ganada, que se acepta sola (decisión 104 del doc 17). El comprador es
-     *  un organismo público y paga contra la orden de compra. */
-    { sinCorreo = false }: { sinCorreo?: boolean } = {},
+     *  un organismo público y paga contra la orden de compra.
+     *  `quien`: la persona que guardó el plan, que firma «Cambió el estado
+     *  … a Aceptada» en el Seguimiento (09-11-2026); sin ella (la ganada),
+     *  firma BelIA. */
+    {
+      sinCorreo = false,
+      quien = null,
+    }: { sinCorreo?: boolean; quien?: User | null } = {},
   ) {
     this.logger.info(
       `createPaymentPlan with createPaymentPlanDto ${JSON.stringify(createPaymentPlanDto)}`,
@@ -201,6 +208,14 @@ export class PaymentsService {
               'No se pudieron cerrar los compromisos de la venta',
             ),
           );
+        // Y el cambio de estado queda en el Seguimiento (09-11-2026).
+        await this.quotationsService.anotarCambioDeEstado(
+          quien,
+          companyId,
+          createPaymentPlanDto.quotation_id,
+          quotation.quotation_status,
+          QuotationStatus.ACEPTADA,
+        );
       }
     }
   }

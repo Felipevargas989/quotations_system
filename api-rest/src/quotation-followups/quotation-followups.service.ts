@@ -8,6 +8,12 @@ import { PinoLogger } from 'nestjs-pino';
 import { Company } from 'src/companies/entities/company.entity';
 import { QuotationStatus } from 'src/quotations/constants/constants';
 import { User } from 'src/users/entities/user.entity';
+import {
+  EL_CAMBIO_DE_ESTADO_NO_SE_EDITA,
+  TIPO_CAMBIO_DE_ESTADO,
+  esGestion,
+  notaDeCambioDeEstado,
+} from './cambio-de-estado';
 import { CreateQuotationFollowupDto } from './dto/create-quotation-followup.dto';
 import { UpdateQuotationFollowupDto } from './dto/update-quotation-followup.dto';
 import { QuotationFollowupsRepository } from './quotation-followups.repository';
@@ -90,6 +96,9 @@ export class QuotationFollowupsService {
         }
       > = {};
       for (const row of rows) {
+        // El cambio de estado no es una gestión (Felipe, 09-11-2026): no
+        // mueve «Sin gestión N d» ni el compromiso (`cambio-de-estado.ts`).
+        if (!esGestion(row)) continue;
         if (!map[row.quotation_id]) {
           map[row.quotation_id] = {
             last_at: row.created_at,
@@ -204,6 +213,57 @@ export class QuotationFollowupsService {
     });
   }
 
+  // EL CAMBIO DE ESTADO QUEDA EN EL SEGUIMIENTO (Felipe, 09-11-2026;
+  // `cambio-de-estado.ts`): «Cambió el estado de Enviada a En Negociación.»,
+  // firmado por quien movió la cotización. Sin sesión (lo hizo Eventia
+  // sola, como la licitación ganada que se acepta sola), firma BelIA. Lo
+  // llaman los cuatro caminos que mueven el estado: `QuotationsService
+  // .update`, marcar realizado y volver a aceptada, el plan de pagos al
+  // aceptar y «Enviar cotización». Si falla, el estado ya cambió: se
+  // registra el error y no se rompe nada.
+  async registrarCambioDeEstado(
+    quien: User | null | undefined,
+    companyId: Company['id'],
+    quotationId: string,
+    de: string | null | undefined,
+    a: string | null | undefined,
+    motivo?: string | null,
+  ): Promise<void> {
+    if (!de || !a || de === a) return;
+    const note = notaDeCambioDeEstado(de, a, motivo);
+    try {
+      if (!quien?.id) {
+        await this.crearSinSesion(companyId, 'BelIA', {
+          quotation_id: quotationId,
+          note,
+          tipo: TIPO_CAMBIO_DE_ESTADO,
+          next_contact_date: null,
+        });
+        return;
+      }
+      const quotation = await this.followupsRepository.findOwnedQuotation(
+        companyId,
+        quotationId,
+      );
+      if (!quotation) return;
+      await this.followupsRepository.create({
+        quotation_id: quotationId,
+        company_id: companyId,
+        // `quien.id` y el nombre congelado, igual que `create`.
+        author_user_id: quien.id,
+        author_name: quien.full_name || quien.email,
+        note,
+        tipo: TIPO_CAMBIO_DE_ESTADO,
+        next_contact_date: null,
+      });
+    } catch (error) {
+      this.logger.error(
+        { err: error, quotationId, de, a },
+        'No se pudo anotar el cambio de estado en el Seguimiento',
+      );
+    }
+  }
+
   private async crearSinSesion(
     companyId: Company['id'],
     autor: 'Asistente' | 'BelIA',
@@ -257,6 +317,9 @@ export class QuotationFollowupsService {
         if (!nota) {
           throw new NotFoundException('Nota de seguimiento no encontrada');
         }
+        if (nota.tipo === TIPO_CAMBIO_DE_ESTADO) {
+          throw new ForbiddenException(EL_CAMBIO_DE_ESTADO_NO_SE_EDITA);
+        }
       } else {
         await this.assertAuthor(user, id);
       }
@@ -307,6 +370,11 @@ export class QuotationFollowupsService {
     );
     if (!followup) {
       throw new NotFoundException('Nota de seguimiento no encontrada');
+    }
+    // El cambio de estado es un registro (09-11-2026): ni su autor lo
+    // edita ni lo borra, igual que las notas de BelIA.
+    if (followup.tipo === TIPO_CAMBIO_DE_ESTADO) {
+      throw new ForbiddenException(EL_CAMBIO_DE_ESTADO_NO_SE_EDITA);
     }
     // Las notas escritas ANTES del arreglo tienen el autor en null. No
     // se pueden dejar bloqueadas para siempre: en esas se cae al nombre

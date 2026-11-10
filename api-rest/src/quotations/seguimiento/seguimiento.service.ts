@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { esGestion } from 'src/quotation-followups/cambio-de-estado';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { User } from 'src/users/entities/user.entity';
 import { ChoquesDeFechaService } from '../choques/choques.service';
@@ -376,7 +377,10 @@ export class SeguimientoConIAService {
       decision = decidirHilo({
         encontrados,
         esDeLaCasa: (c) => outlook.esDeLaCasa(c),
-        ultimaGestion: notas.length ? notas[notas.length - 1].created_at : null,
+        // La última GESTIÓN: el cambio de estado no cuenta (09-11-2026).
+        // Si contara, un correo del cliente anterior a mover la tarjeta se
+        // daría por contestado.
+        ultimaGestion: notas.filter(esGestion).at(-1)?.created_at ?? null,
         buzonParaNuevo: outlook.buzones[0],
         ...deLaCotizacion,
       });
