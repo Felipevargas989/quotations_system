@@ -5,8 +5,8 @@ import ChipDeSolicitud from "./ChipDeSolicitud";
 import { LLAVE_DEL_TURNO, clp, horaDe, nombreDelTipo } from "./solicitudes";
 
 // LAS SOLICITUDES DE ESTE TURNO (doc 19 §9.45), para recepción: cómo va cada
-// una que mandó (pendiente, emitida o rechazada) y, emitida, su PDF para
-// imprimirla si no tenía correo. Se pone al día sola mientras alguna espera.
+// una que mandó (pendiente, emitida o rechazada) y, emitida, su N° y su
+// PDF. Se pone al día sola mientras alguna espera.
 
 export default function SolicitudesDelTurno() {
   const consulta = useQuery({

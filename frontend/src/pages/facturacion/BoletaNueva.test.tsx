@@ -127,8 +127,8 @@ const armarUna = async () => {
   });
 };
 
-/** §9.43: con qué pagó y a qué correo va (o «Sin correo: la imprimo»). */
-const pagoYEnvio = ({ correo = "", imprimir = false } = {}) => {
+/** §9.43: con qué pagó y a qué correo va (obligatorio desde el §9.45). */
+const pagoYEnvio = ({ correo = "" } = {}) => {
   fireEvent.click(
     within(screen.getByRole("group", { name: "Medio de pago" })).getByRole(
       "button",
@@ -140,8 +140,6 @@ const pagoYEnvio = ({ correo = "", imprimir = false } = {}) => {
     fireEvent.change(screen.getByLabelText("Correo para enviarle la boleta"), {
       target: { value: correo },
     });
-  if (imprimir)
-    fireEvent.click(screen.getByLabelText("Sin correo: la imprimo"));
 };
 
 describe("la boleta nueva (§9.22, sprint 3)", () => {
@@ -191,14 +189,26 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
   it("sin la lista a la vista (recepción), se queda con la última y una boleta en blanco", async () => {
     abrir({ quedarse: true });
     await armarUna();
-    // Sin correo: se imprime (§9.43).
-    pagoYEnvio({ imprimir: true });
+    // §9.45: ya no hay «Sin correo: la imprimo»; sin correo no se arma.
     expect(
-      screen.getByLabelText("Correo para enviarle la boleta"),
+      screen.queryByLabelText("Sin correo: la imprimo"),
+    ).not.toBeInTheDocument();
+    pagoYEnvio();
+    expect(
+      screen.getByRole("button", { name: "Crear documento" }),
     ).toBeDisabled();
+    expect(
+      screen.getByText(/Falta el correo para enviarle la boleta/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Correo para enviarle la boleta"), {
+      target: { value: "huesped@correo.cl" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Crear documento" }));
     expect(b.revisarBoletaSuelta).toHaveBeenCalledWith(
-      expect.objectContaining({ correo: null, medio_de_pago: "efectivo" }),
+      expect.objectContaining({
+        correo: "huesped@correo.cl",
+        medio_de_pago: "efectivo",
+      }),
     );
     fireEvent.click(
       await screen.findByRole("button", { name: "Emitir boleta" }),
@@ -208,21 +218,17 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Ej.: Cabaña 4")).toHaveValue("");
     expect(screen.queryByText("Así sale la boleta")).not.toBeInTheDocument();
-    // Iba a imprimirse y su PDF todavía no llega: lo dice.
-    expect(
-      screen.getByText("El PDF todavía no llega para imprimirla."),
-    ).toBeInTheDocument();
-    // La siguiente parte en blanco: sin medio de pago y con el correo.
-    expect(
-      screen.getByLabelText("Correo para enviarle la boleta"),
-    ).toBeEnabled();
+    // La siguiente parte en blanco, también el correo.
+    expect(screen.getByLabelText("Correo para enviarle la boleta")).toHaveValue(
+      "",
+    );
   });
 
   it("recepción con la caja cerrada no emite; abierta, la boleta dice a qué caja entra (§9.43)", async () => {
     vi.mocked(caja.getCaja).mockResolvedValue({ abierta: null });
     abrir({ conCaja: true });
     await armarUna();
-    pagoYEnvio({ imprimir: true });
+    pagoYEnvio({ correo: "huesped@correo.cl" });
     expect(
       await screen.findByText(
         "La caja de recepción está cerrada: ábrela en «Caja» para emitir.",
@@ -263,7 +269,7 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     } as never);
     abrir({ quedarse: true, solicita: true });
     await armarUna();
-    pagoYEnvio({ imprimir: true });
+    pagoYEnvio({ correo: "huesped@correo.cl" });
     fireEvent.click(screen.getByRole("button", { name: "Crear documento" }));
     fireEvent.click(
       await screen.findByRole("button", { name: "Enviar solicitud" }),
@@ -272,7 +278,7 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
       expect(solicitudes.solicitarBoleta).toHaveBeenCalledWith({
         lineas: [{ tarifario_id: 1, cantidad: 1 }],
         cabana: "Cabaña 4",
-        correo: null,
+        correo: "huesped@correo.cl",
         medio_de_pago: "efectivo",
       }),
     );

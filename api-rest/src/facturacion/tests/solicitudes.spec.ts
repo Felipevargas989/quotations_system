@@ -140,7 +140,7 @@ const armar = (opciones: { turno?: { id: number } | null } = {}) => {
 const BOLETA = {
   lineas: [{ tarifario_id: 2, cantidad: 2 }],
   cabana: 'Cabaña 4',
-  correo: null,
+  correo: 'huesped@correo.cl',
   medio_de_pago: 'efectivo' as const,
 };
 
@@ -153,8 +153,8 @@ describe('Recepción manda la solicitud (§9.45)', () => {
         tipo: 39,
         total: 60000,
         medio_de_pago: 'efectivo',
-        correo: null,
-        imprimir: true,
+        correo: 'huesped@correo.cl',
+        imprimir: false,
         para: 'Cabaña 4',
         turno_de_caja_id: 7,
         solicitada_por_nombre: 'Recepción',
@@ -230,7 +230,7 @@ describe('Aprobar y emitir, o rechazar (§9.45)', () => {
       expect.objectContaining({
         turnoDeCajaId: 7,
         medioDePago: 'efectivo',
-        correo: null,
+        correo: 'huesped@correo.cl',
         cabana: 'Cabaña 4',
       }),
     );

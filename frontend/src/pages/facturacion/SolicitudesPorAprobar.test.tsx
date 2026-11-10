@@ -34,8 +34,8 @@ const solicitud = (s: Partial<Solicitud>): Solicitud => ({
   estado: "pendiente",
   total: 60000,
   medio_de_pago: "efectivo",
-  correo: null,
-  imprimir: true,
+  correo: "huesped@correo.cl",
+  imprimir: false,
   para: "Cabaña 4",
   rut: null,
   lineas: [{ descripcion: "Cabaña 4 · Tinaja", cantidad: 2, monto: 60000 }],
@@ -104,7 +104,7 @@ describe("las solicitudes de recepción (§9.45)", () => {
     expect(screen.getByText("Resueltas (últimos 7 días)")).toBeInTheDocument();
     expect(screen.getByText("Rechazada")).toBeInTheDocument();
     expect(screen.getByText("Ya boleteada")).toBeInTheDocument();
-    expect(screen.getAllByText(/Sin correo: se imprime/).length).toBe(3);
+    expect(screen.getAllByText(/huesped@correo\.cl/).length).toBe(3);
   });
 
   it("«Aprobar y emitir» la emite; «Rechazar» pregunta y la deja sin emitir", async () => {

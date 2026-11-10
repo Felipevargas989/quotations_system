@@ -176,7 +176,8 @@ export class SolicitudesService {
       total: armado.montos.total,
       medio_de_pago: dto.medio_de_pago,
       correo,
-      imprimir: !correo,
+      // El correo es obligatorio (§9.45): ya no se imprime.
+      imprimir: false,
       para: cabana,
       turno_de_caja_id: turnoId,
       ...this.quien(user),
