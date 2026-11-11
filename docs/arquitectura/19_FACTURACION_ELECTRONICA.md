@@ -2810,8 +2810,8 @@ parecía que no había pasado nada.
   `frontend/tailwind.config.js`, con las de BelIA.
 - **La prueba:** «el cierre ciego…» de `CajaDeRecepcion.test.tsx`.
 
-En el laboratorio desde el 10-11-2026. Producción espera el «a producción»
-de Felipe (sin migración; solo la vitrina).
+En el laboratorio desde el 10-11-2026 y **en producción desde el 10-11-2026**
+(PR #356; sin migración, solo la vitrina).
 
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
