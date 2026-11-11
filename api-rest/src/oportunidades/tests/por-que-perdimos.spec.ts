@@ -310,6 +310,26 @@ describe('PorQuePerdimosService (decisión 97)', () => {
     ).rejects.toThrow(/Todavía no se sabe a quién eligieron/);
   });
 
+  it('una desierta no tiene con quién comparar: no se pide (decisión 124)', async () => {
+    const { resultados, servicio } = armar('perdida', 'licitacion');
+    resultados.resultadosDe.mockResolvedValue(
+      new Map([
+        [
+          '1346350-37-COT26',
+          {
+            tipo: 'licitacion',
+            elegidos: [],
+            ofertas: [],
+            sin_adjudicar: 'desierta',
+          },
+        ],
+      ]),
+    );
+    await expect(servicio.pedir(1, null, 3219)).rejects.toThrow(
+      /Quedó desierta: nadie fue adjudicado/,
+    );
+  });
+
   it('una licitación sin la oferta de quien ganó no se puede explicar todavía', async () => {
     const { analisis, resultados, servicio } = armar('perdida', 'licitacion');
     analisis.ultimo.mockResolvedValue({

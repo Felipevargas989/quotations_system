@@ -157,6 +157,50 @@ describe("el resultado de una compra ágil (decisión 92)", () => {
     );
   });
 
+  it("desierta o revocada: lo dice sin «Perdiste» y sin un ganador, con por qué quedó fuera tu oferta (decisión 124)", () => {
+    const desierta = {
+      ...PERDIDA,
+      tipo: "licitacion" as const,
+      proveedor: null,
+      rut_proveedor: null,
+      monto: null,
+      mi_monto: null,
+      lugar: null,
+      ofertas: 0,
+      sin_adjudicar: "desierta" as const,
+    };
+    expect(textoDelResultado(desierta)).toBe(
+      "Quedó desierta: nadie fue adjudicado.",
+    );
+    expect(
+      textoDelResultado({
+        ...desierta,
+        tipo: "compra_agil",
+        inadmisible: "SE CAMBIARÁ LA DESCRIPCION",
+      }),
+    ).toBe(
+      "Quedó desierta: nadie fue adjudicado. Tu oferta quedó fuera: SE CAMBIARÁ LA DESCRIPCION.",
+    );
+    expect(textoDelResultado({ ...desierta, sin_adjudicar: "revocada" })).toBe(
+      "La revocaron: nadie fue adjudicado.",
+    );
+    expect(
+      textoDelResultadoPublico({
+        tipo: "licitacion",
+        elegidos: [],
+        sin_adjudicar: "desierta",
+      }),
+    ).toBe("quedó desierta");
+    renderHook(() =>
+      useAvisoDeResultados([
+        mia(40, desierta, "Ceremonia y Cena Día del Funcionario"),
+      ]),
+    );
+    expect(vi.mocked(toast.warn).mock.calls[0][0]).toBe(
+      "«Ceremonia y Cena Día del Funcionario»: Quedó desierta: nadie fue adjudicado.",
+    );
+  });
+
   it("solo es nuevo lo que trae resultado y no se avisó", () => {
     const lista = [mia(3219, PERDIDA), mia(40, null)];
     expect(resultadosNuevos(lista, []).map((m) => m.id)).toEqual([3219]);
