@@ -213,11 +213,14 @@ export async function ofertasDeLaLicitacion(
 }
 
 /** Los archivos de un anexo, uno por uno, página por página. `aceptar`
- *  decide por el nombre y el tamaño de la lista, antes de bajarlo. */
+ *  decide por el nombre y el tamaño de la lista, antes de bajarlo. `seguir`
+ *  (decisión 123) se pregunta antes de pasar a la página siguiente: quien
+ *  ya llegó a su tope no sigue hojeando. */
 export async function* archivosDelAnexo(
   url: string,
   aceptar: (a: ArchivoDelAnexo) => boolean,
   pedir: Pedir = pedirPublico,
+  seguir: () => boolean = () => true,
 ): AsyncGenerator<{ nombre: string; contenido: Buffer }> {
   if (!DEL_ANEXO.test(url.replace(BASE, ''))) return;
   let pagina = leerPaginaDelAnexo(await texto(pedir, url));
@@ -242,7 +245,7 @@ export async function* archivosDelAnexo(
       };
     }
     const siguiente = pagina.paginas.find((p) => !vistas.has(p));
-    if (!siguiente) return;
+    if (!siguiente || !seguir()) return;
     vistas.add(siguiente);
     const cuerpo = new URLSearchParams(pagina.ocultos);
     cuerpo.set('__EVENTTARGET', 'DWNL$grdId');

@@ -22,6 +22,8 @@ vi.mock("../../services/comparacion.service", () => ({
   getComparacion: vi.fn(),
   pedirComparacion: vi.fn(),
   subirOfertaDeCompetidor: vi.fn(),
+  getEstadoDeTraerOfertas: vi.fn(),
+  traerOfertas: vi.fn(),
 }));
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
@@ -61,6 +63,7 @@ const pintar = ({
   competencia = [] as unknown[],
   mias = [archivo(1, "Formulario N°5 - firmado.pdf", null)] as unknown[],
   trabajo = null as unknown,
+  esLicitacion = false,
 } = {}) => {
   o.getAdjuntos.mockImplementation((_id, seccion) =>
     Promise.resolve(
@@ -72,13 +75,21 @@ const pintar = ({
     ),
   );
   c.getComparacion.mockResolvedValue(trabajo as never);
+  c.getEstadoDeTraerOfertas.mockResolvedValue({
+    trayendo: false,
+    ultima: null,
+  });
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <ComparacionDeOfertas oportunidadId={84} adjudicada={false} />
+      <ComparacionDeOfertas
+        oportunidadId={84}
+        adjudicada={false}
+        esLicitacion={esLicitacion}
+      />
     </QueryClientProvider>,
   );
 };
@@ -240,6 +251,43 @@ describe("Comparación de ofertas", () => {
     await waitFor(() => expect(c.pedirComparacion).toHaveBeenCalledWith(84));
     expect(
       await screen.findByText(/La IA está leyendo las ofertas/),
+    ).toBeInTheDocument();
+  });
+
+  it("en una licitación, «Traer las ofertas» va en «La competencia»; en una compra ágil no hay qué traer (decisión 123)", async () => {
+    // Felipe, 10-11, con una postulada ya cerrada: "acá eventia no me puede
+    // traer los documentos de la otra propuesta" y "con un botón acá en
+    // eventia".
+    const { unmount } = pintar({ esLicitacion: true });
+    const titulo = await screen.findByText("La competencia (0)");
+    const boton = screen.getByRole("button", { name: /Traer las ofertas/ });
+    expect(titulo.parentElement).toContainElement(boton);
+    await waitFor(() => expect(boton).toBeEnabled());
+    expect(c.getEstadoDeTraerOfertas).toHaveBeenCalledWith(84);
+    expect(
+      screen.getByText(/«Traer las ofertas» baja del cuadro de ofertas/),
+    ).toBeInTheDocument();
+    // Subir a mano sigue ahí.
+    expect(
+      screen.getByLabelText(/De qué oferente es la oferta/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Comparar con IA/ }),
+    ).toHaveAttribute(
+      "title",
+      "Trae o sube primero la oferta de al menos un competidor",
+    );
+    unmount();
+    vi.clearAllMocks();
+
+    pintar();
+    await screen.findByText("La competencia (0)");
+    expect(
+      screen.queryByRole("button", { name: /Traer las ofertas/ }),
+    ).not.toBeInTheDocument();
+    expect(c.getEstadoDeTraerOfertas).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Baja del cuadro de ofertas de Mercado Público/),
     ).toBeInTheDocument();
   });
 });

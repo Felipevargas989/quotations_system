@@ -13,7 +13,8 @@ export const FICHA = `
 export const CABECERA = `
 <td><img src="../../../Includes/images/resumen-ofertas.gif" onclick="parent.Cuerpo.location=&#39;SupplySummary.aspx?enc=YMeP54yyyMFSHpJzHIb0UDkCQh6bM6%2bAbC&#39;;return false;" /></td>`;
 
-const fila = (
+/** Un oferente del «Resumen de ofertas», con los anexos que trae. */
+export const fila = (
   n: string,
   rut: string,
   quien: string,
