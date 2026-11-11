@@ -600,6 +600,66 @@ describe('Traer y comparar (decisión 125)', () => {
     expect(deTextum).toMatchObject({ leidos: 1, total: 3 });
   });
 
+  it('las imágenes tienen su cupo, hasta 20 y 15 MB entre todas: las demás quedan dichas y la comparación no se cae', async () => {
+    const MOTIVO =
+      'no cupo: la comparación lee hasta 20 imágenes, 15 MB entre todas';
+    /** BPM, con sus fotos del recinto además de lo suyo. */
+    const conFotos = (cuantas: number) => {
+      const c = armar();
+      const fotos = Array.from({ length: cuantas }, (_, i) =>
+        adjunto(100 + i, `foto ${i + 1}.jpg`, 'BPM EVENTOS SPA'),
+      );
+      c.adjuntos.listar.mockImplementation(
+        (_c: number, _o: number, seccion: string) =>
+          Promise.resolve(
+            seccion === 'bases' ? BASES : [...COMPETENCIA, ...fotos],
+          ),
+      );
+      return c;
+    };
+    const sinCupo = (c: ReturnType<typeof armar>) => {
+      const [, , fin] = c.repo.terminar.mock.calls[0] as [number, number, Fin];
+      expect(fin.estado).toBe('listo');
+      return fin.no_leidos
+        .filter((n) => n.motivo === MOTIVO)
+        .map((n) => n.nombre);
+    };
+
+    // 22 fotos chicas y la imagen que BPM ya traía: van 20 en el pedido.
+    const muchas = conFotos(22);
+    await muchas.servicio.ejecutar(1, 40, await contextoDe(muchas));
+    const pedido = (muchas.servicio.stream.mock.calls[0] as [Pedido])[0];
+    expect(
+      pedido.messages[0].content.filter((b) => b.type === 'image'),
+    ).toHaveLength(20);
+    expect(sinCupo(muchas)).toEqual([
+      'BPM EVENTOS SPA: foto 20.jpg',
+      'BPM EVENTOS SPA: foto 21.jpg',
+      'BPM EVENTOS SPA: foto 22.jpg',
+    ]);
+    // A la IA se le dice cuáles no vio.
+    expect(
+      pedido.messages[0].content.find((b) => b.text?.startsWith('=== OFERTA 3'))
+        ?.text,
+    ).toContain('foto 22.jpg');
+
+    // 5 fotos de 4 millones de bytes: caben 3 (12); con la cuarta serían 16,
+    // más que los 15 MB (15,7 millones).
+    const pesadas = conFotos(5);
+    pesadas.repo.descargar.mockImplementation((ruta: string) =>
+      Promise.resolve(
+        /\/10\d$/.test(ruta)
+          ? Buffer.alloc(4_000_000)
+          : Buffer.from('%PDF-1.4 oferta'),
+      ),
+    );
+    await pesadas.servicio.ejecutar(1, 40, await contextoDe(pesadas));
+    expect(sinCupo(pesadas)).toEqual([
+      'BPM EVENTOS SPA: foto 4.jpg',
+      'BPM EVENTOS SPA: foto 5.jpg',
+    ]);
+  });
+
   it('si después de traer no hay con quién comparar, lo dice y no gasta', async () => {
     const casos: Array<[unknown, string]> = [
       [
