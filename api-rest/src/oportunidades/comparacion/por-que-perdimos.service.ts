@@ -31,11 +31,7 @@ import {
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import { ElSetService } from '../postulacion/el-set.service';
-import {
-  type ArchivoDeUnaOferta,
-  elegirQueLeer,
-  encabezadoDeLaOferta,
-} from './comparacion';
+import { encabezadoDeLaOferta } from './comparacion';
 import { QUE_SE_COMPARA } from './comparacion.service';
 import {
   actaEnTexto,
@@ -44,6 +40,7 @@ import {
   instruccionesDelPorQue,
   type PorQuePerdimos,
 } from './por-que-perdimos';
+import { type ArchivoDeUnaOferta, elegirQueLeer } from './que-leer';
 
 // POR QUÉ PERDIMOS (decisión 97 del doc 17, 27-10). Cuando una postulada
 // queda perdida y ya se sabe a quién eligieron (decisión 92), Opus 5.5 lee
@@ -271,7 +268,14 @@ export class PorQuePerdimosService {
           (ruta) => this.repo.descargar(ruta),
         );
         contenido.push(
-          { type: 'text', text: encabezadoDeLaOferta(i + 1, o, o.soloNombre) },
+          {
+            type: 'text',
+            text: encabezadoDeLaOferta(
+              i + 1,
+              { nombre: o.nombre, es_tuya: o.es_tuya, leidos: o.leer.length },
+              o.soloNombre,
+            ),
+          },
           ...bloques,
         );
         sinAbrir.push(

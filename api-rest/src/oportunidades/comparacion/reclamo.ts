@@ -1,5 +1,9 @@
 import type { Oferente } from '../oferente/oferente.repository';
-import type { ComparacionDeOfertas, IncumplimientoGrave } from './comparacion';
+import {
+  type ComparacionDeOfertas,
+  type IncumplimientoGrave,
+  lineaPrincipal,
+} from './comparacion';
 
 // EL RECLAMO DE UNA OFERTA (decisión 59 del doc 17, 20-10). Felipe:
 // "dejemos en el comparativo una función de que en caso de incumplimiento
@@ -10,6 +14,12 @@ import type { ComparacionDeOfertas, IncumplimientoGrave } from './comparacion';
 // Público antes de que adjudiquen; Eventia no envía nada. Nació del caso
 // Integra (1072229-25-L125): dos ofertas de la misma gente y una
 // experiencia mal respaldada que la comisión no vio.
+//
+// Desde la decisión 125 (11-11), solo contra quien compite con la empresa:
+// en las líneas a las que ella postuló. Y lo que «falta» entra al reclamo
+// solo si se leyó todo lo de ese oferente: el 11-11, con la 5040-14-LE26,
+// el reclamo decía que un competidor no adjuntó sus órdenes de compra, y
+// venían en un .rar que Eventia no trae.
 
 export type DatosDelReclamo = {
   codigo: string;
@@ -27,6 +37,8 @@ export function textoDelReclamo(
   competidor: string,
   graves: IncumplimientoGrave[],
   d: DatosDelReclamo,
+  /** La línea de la licitación, si tiene más de una (decisión 125). */
+  linea = '',
 ): string {
   const e = d.empresa;
   const empresa = limpio(e?.razon_social) || 'Nuestra empresa';
@@ -43,7 +55,7 @@ export function textoDelReclamo(
     '',
     `Licitación ${d.codigo}${nombre ? `: «${nombre}»` : ''}.`,
     '',
-    `${empresa}${rut ? `, RUT ${rut}` : ''}, oferente en esta licitación, presenta el siguiente reclamo sobre la oferta de ${competidor}, según los documentos publicados en el cuadro de ofertas de Mercado Público:`,
+    `${empresa}${rut ? `, RUT ${rut}` : ''}, oferente en esta licitación, presenta el siguiente reclamo sobre la oferta de ${competidor}${limpio(linea) ? ` en «${limpio(linea)}»` : ''}, según los documentos publicados en el cuadro de ofertas de Mercado Público:`,
     '',
     ...graves.flatMap((g, i) => [
       `${i + 1}. ${conPunto(limpio(g.que))}`,
@@ -63,17 +75,38 @@ export function textoDelReclamo(
 }
 
 /** A cada oferta de la competencia con incumplimientos graves le pone el
- *  texto de su reclamo; a la tuya y a las que cumplen, null. */
+ *  texto de su reclamo, en las líneas en que compite la empresa; a la tuya, a
+ *  las que cumplen y a las de una línea a la que la empresa no postuló, null.
+ *  Lo que es «por ausencia» entra solo si se leyó todo lo de ese oferente
+ *  (`completas`: los números de esas ofertas; sin él, entra todo, como antes
+ *  de la decisión 125). */
 export const conReclamos = (
   c: ComparacionDeOfertas,
   d: DatosDelReclamo,
-): ComparacionDeOfertas => ({
-  ...c,
-  oferentes: c.oferentes.map((o) => ({
-    ...o,
-    reclamo:
-      !o.es_tuya && o.graves.length > 0
-        ? textoDelReclamo(o.nombre, o.graves, d)
-        : null,
-  })),
-});
+  completas?: ReadonlySet<number>,
+): ComparacionDeOfertas => {
+  const lineas = c.lineas.map((l) => ({
+    ...l,
+    oferentes: l.oferentes.map((o) => {
+      const graves =
+        l.compites && !o.es_tuya
+          ? o.graves.filter(
+              (g) =>
+                !g.por_ausencia || !completas || completas.has(o.oferta ?? 0),
+            )
+          : [];
+      return {
+        ...o,
+        reclamo:
+          graves.length > 0
+            ? textoDelReclamo(o.nombre, graves, d, l.nombre)
+            : null,
+      };
+    }),
+  }));
+  return {
+    ...c,
+    lineas,
+    oferentes: lineaPrincipal(lineas)?.oferentes ?? [],
+  };
+};

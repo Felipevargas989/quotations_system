@@ -66,10 +66,15 @@ export type OfertasTraidas = {
   /** No se traen: comprimidos, tipos que Eventia no guarda o de más de
    *  30 MB. */
   noSeTraen: number;
+  /** Esos mismos, por su nombre (decisión 125): la comparación le dice a la
+   *  IA que existen y que no los vio, para que no los dé por faltantes. */
+  sinTraer: SinTraer[];
   /** Quedó algo sin traer (el tope de la vuelta, o Mercado Público no lo
    *  entregó): se puede pedir de nuevo. */
   incompleto: boolean;
 };
+
+export type SinTraer = { oferente: string; nombre: string; motivo: string };
 
 export type UltimaVuelta = {
   terminada_en: string;
@@ -208,6 +213,46 @@ export class OfertasDeLaCompetenciaService {
     return this.estado(companyId, oportunidadId);
   }
 
+  /** Para «Traer y comparar» (decisión 125): la misma vuelta de la 123, pero
+   *  quien la pide espera a que termine y recibe cómo terminó. null si no
+   *  hay qué traer (no es una licitación de la empresa, o falta el RUT en «Mi
+   *  empresa»). Si ya hay una vuelta en curso, espera esa. Nunca lanza. */
+  async traerAhora(
+    companyId: number,
+    oportunidadId: number,
+    pedir: Pedir = pedirPublico,
+  ): Promise<UltimaVuelta | null> {
+    const p = await this.resultados.procesoDe(companyId, oportunidadId);
+    if (!p || p.tipo !== 'licitacion') return null;
+    const rut = normalizarRut(
+      (await this.oferente.oferente(companyId))?.rut ?? '',
+    );
+    if (!rut) return null;
+    const clave = claveDe(companyId, oportunidadId);
+    if (this.enCurso.has(clave)) {
+      const hasta = Date.now() + DURACION_A_PEDIDO_MS;
+      while (this.enCurso.has(clave) && Date.now() < hasta) {
+        await this.pausa(2000);
+      }
+      return this.ultimas.get(clave) ?? null;
+    }
+    this.enCurso.add(clave);
+    this.ultimas.delete(clave);
+    await this.vuelta(
+      companyId,
+      { id: p.id, codigo: p.codigo },
+      rut,
+      Date.now() + DURACION_A_PEDIDO_MS,
+      pedir,
+    );
+    return this.ultimas.get(clave) ?? null;
+  }
+
+  /** Aparte, para que las pruebas no esperen de verdad. */
+  protected pausa(ms: number): Promise<void> {
+    return new Promise((listo) => setTimeout(listo, ms));
+  }
+
   /** La vuelta a pedido, por detrás. Nunca lanza: cómo terminó queda
    *  anotado para la pantalla. */
   private async vuelta(
@@ -268,6 +313,7 @@ export class OfertasDeLaCompetenciaService {
       traidos: 0,
       yaEstaban: 0,
       noSeTraen: 0,
+      sinTraer: [],
       incompleto: false,
     };
     if (ofertas.length === 0) return r;
@@ -328,12 +374,16 @@ export class OfertasDeLaCompetenciaService {
         const aceptar = (a: ArchivoDelAnexo): boolean => {
           if (cortado) return false;
           const extension = extensionDe(a.nombre);
-          if (
-            COMPRIMIDOS.has(extension) ||
-            !TIPOS_POR_EXTENSION[extension] ||
-            (a.kb !== null && a.kb * 1024 > MAX_BYTES_ADJUNTO)
-          ) {
+          const motivo = COMPRIMIDOS.has(extension)
+            ? 'viene comprimido'
+            : !TIPOS_POR_EXTENSION[extension]
+              ? 'Eventia no guarda ese tipo de archivo'
+              : a.kb !== null && a.kb * 1024 > MAX_BYTES_ADJUNTO
+                ? 'pesa más de 30 MB'
+                : null;
+          if (motivo) {
             r.noSeTraen += 1;
+            r.sinTraer.push({ oferente: quien, nombre: a.nombre, motivo });
             return false;
           }
           if (yaEsta(quien, a)) {
@@ -362,6 +412,16 @@ export class OfertasDeLaCompetenciaService {
             const peso = a.contenido.length;
             if (!tipo || peso === 0 || peso > MAX_BYTES_ADJUNTO) {
               r.noSeTraen += 1;
+              r.sinTraer.push({
+                oferente: quien,
+                nombre,
+                motivo:
+                  peso === 0
+                    ? 'llegó vacío'
+                    : tipo
+                      ? 'pesa más de 30 MB'
+                      : 'Eventia no guarda ese tipo de archivo',
+              });
               continue;
             }
             const clave = claveDelNombre(nombre);
