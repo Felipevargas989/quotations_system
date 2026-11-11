@@ -1214,10 +1214,22 @@ semana queda sobre su jornada definida aparece la línea ámbar —
 *"queda con X h esta semana: Z h extra sobre sus Y definidas"* — en el
 momento de la gestión, cuando el número ya es de verdad.
 
-**La semana laboral se suma con las jornadas marcadas PLANTA, estén
-donde estén** (restaurante, o un evento adonde la llevó el imán). Las
-jornadas freelance son acuerdos aparte y no suman. La jornada definida
-sale de la ficha: días no libres × horario habitual.
+**La semana laboral se suma con las jornadas de PLANTA de la
+planificación.** Las jornadas freelance son acuerdos aparte y no suman.
+La jornada definida sale de la ficha: días no libres × horario
+habitual.
+
+⚠ **Corregido el 10-11-2026 (caso Sofía, con el OK de Felipe).** Antes
+decía *"estén donde estén (restaurante, o un evento adonde la llevó el
+imán)"*. Pero la fila de planta que la liquidación trae a un evento
+existe solo para la propina o la asignación extra, y repite el turno de
+ese día, que sigue en el día de staff (§2, "La planta que la ficha trae
+a un evento"). Contarla sumaba dos o tres veces el mismo turno: la
+casilla de Planificación le daba a Sofía 128 h en la semana del 1 al 7
+de noviembre, que en verdad fue de 51 h. La ficha de la persona ya la
+dejaba fuera con `esPlanificacion`. Desde ese día el cálculo
+(`resumenSemanaDePlanta`) usa la misma regla, y las dos pantallas
+cuentan igual.
 
 **El reloj rojo** (tercera vuelta, 04-09): además de la línea en los
 editores, el calendario marca A LA VISTA los días extraordinarios de

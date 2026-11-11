@@ -1,15 +1,24 @@
 import { formatoHoras, horasTrabajadas } from "../../components/inputs";
 import { horarioHabitual } from "./MiniCalendario";
+import { esPlanificacion } from "./estadoDelPago";
 import type { Asignacion, Persona } from "../../types/people.types";
 
 /**
  * LAS HORAS DE LA SEMANA DE PLANTA (Felipe, 04-09, capítulo 11).
  *
- * La semana laboral se suma SOLO con las jornadas marcadas PLANTA,
- * estén donde estén (restaurante, o un evento adonde la llevó el
- * imán). Las jornadas freelance son acuerdos aparte —"pasan casi en
- * negro"— y no tocan su semana. La jornada definida sale de la ficha:
- * días no libres × horario habitual.
+ * La semana laboral se suma SOLO con las jornadas de PLANTA de la
+ * planificación. Las jornadas freelance son acuerdos aparte —"pasan
+ * casi en negro"— y no tocan su semana. La jornada definida sale de la
+ * ficha: días no libres × horario habitual.
+ *
+ * LA PLANTA QUE LA LIQUIDACIÓN TRAE A UN EVENTO NO SUMA (Felipe,
+ * 10-11-2026). Esa fila existe para la propina o la asignación extra
+ * del evento y repite el turno de ese día, que ya está en el día de
+ * staff. La casilla de Planificación pasaba las jornadas crudas y
+ * contaba el mismo turno dos o tres veces: a Sofía, la semana del 1 al
+ * 7 de noviembre le daba 128 h en vez de 51. La ficha de la persona ya
+ * las dejaba fuera con `esPlanificacion`; ahora este cálculo usa la
+ * misma regla, así que las dos pantallas cuentan igual.
  *
  * Un solo cálculo alimenta las dos caras de la advertencia:
  * - la LÍNEA en los editores de horario (este componente), y
@@ -47,7 +56,8 @@ const horasDeLaJornada = (persona: Persona, a: Asignacion) => {
 };
 
 /** Sus jornadas DE PLANTA de la semana (dom a sáb) que contiene `dia`.
- *  Se defiende de insumos crudos: ni dormidas ni filas solo-propina. */
+ *  Se defiende de insumos crudos con `esPlanificacion`: ni dormidas, ni
+ *  filas solo-propina, ni la planta que la liquidación trae a un evento. */
 const semanaDePlanta = (dia: string, jornadas: readonly Asignacion[]) => {
   const domingo = diaMas(dia, -new Date(`${dia}T00:00:00Z`).getUTCDay());
   const sabado = diaMas(domingo, 6);
@@ -56,11 +66,7 @@ const semanaDePlanta = (dia: string, jornadas: readonly Asignacion[]) => {
     dePlanta: jornadas.filter((a) => {
       const d = String(a.day).slice(0, 10);
       return (
-        d >= domingo &&
-        d <= sabado &&
-        a.kind === "planta" &&
-        a.ajuste !== "descansa" &&
-        !a.solo_propina
+        d >= domingo && d <= sabado && a.kind === "planta" && esPlanificacion(a)
       );
     }),
   };
@@ -73,10 +79,7 @@ export const resumenSemanaDePlanta = (
   jornadas: readonly Asignacion[],
 ) => {
   const { domingo, dePlanta } = semanaDePlanta(dia, jornadas);
-  const horas = dePlanta.reduce(
-    (t, a) => t + horasDeLaJornada(persona, a),
-    0,
-  );
+  const horas = dePlanta.reduce((t, a) => t + horasDeLaJornada(persona, a), 0);
   const definidas = [0, 1, 2, 3, 4, 5, 6].reduce((t, n) => {
     const d = diaMas(domingo, n);
     if ((persona.days_off ?? []).includes(n)) return t;
@@ -147,10 +150,10 @@ export default function AdvertenciaHorasSemana({
 
   return (
     <p className="text-xs bg-amber-50 text-amber-900 rounded-lg px-3 py-2">
-      Esa semana queda con <strong>{formatoHoras(horas)}</strong> de
-      planta: <strong>{formatoHoras(horas - definidas)} extra</strong>{" "}
-      sobre las {formatoHoras(definidas)} de su jornada definida. Se
-      pagan a fin de mes — o se ajusta su semana en su calendario.
+      Esa semana queda con <strong>{formatoHoras(horas)}</strong> de planta:{" "}
+      <strong>{formatoHoras(horas - definidas)} extra</strong> sobre las{" "}
+      {formatoHoras(definidas)} de su jornada definida. Se pagan a fin de mes —
+      o se ajusta su semana en su calendario.
     </p>
   );
 }
