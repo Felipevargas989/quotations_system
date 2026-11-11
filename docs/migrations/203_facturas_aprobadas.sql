@@ -17,6 +17,8 @@
 -- ni authenticated; solo el motor (service_role). Se corre a mano en
 -- Supabase, en el laboratorio y en producción, ANTES de que llegue el motor
 -- que la lee. Idempotente.
+--
+-- Aplicada en el laboratorio y en producción el 11-11-2026.
 
 create table if not exists public.facturas_aprobadas (
   id bigint generated always as identity primary key,
