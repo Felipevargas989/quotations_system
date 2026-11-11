@@ -2815,6 +2815,64 @@ parecía que no había pasado nada.
 En el laboratorio desde el 10-11-2026 y **en producción desde el 10-11-2026**
 (PR #356; sin migración, solo la vitrina).
 
+### 9.48 Lo aprobado queda guardado para facturarlo después (11-11)
+
+Felipe, 11-11: *"si dejo una factura aprobada, ¿queda guardada para facturar
+después?"*. No quedaba: lo aprobado en «Facturar seleccionados» (§9.31) vivía
+solo mientras la ventana estaba abierta. Lo pidió así: *"ya revisé y dejé la
+facturación hecha, y estoy esperando que el evento termine, entonces la
+próxima persona —puedo ser yo u otra— cuando decida facturar, la factura está
+lista, llegar y pinchar no más"*. Y sin botón aparte (se le mostró una maqueta
+con «Facturar las N aprobadas» en la lista): *"no sé si le metería otro botón
+con otra funcionalidad porque creo que es complejizar más esto"*.
+
+**La regla:**
+
+- **«Aprobar» guarda.** El documento queda guardado tal como se ve (lo de
+  BelIA o lo corregido), con quién lo aprobó y cuándo, para toda la empresa:
+  lo ve cualquiera con «Facturar eventos», en cualquier computador. Cerrar la
+  ventana ya no se lleva nada.
+- **La fila lo dice.** En «Por facturar», el estado es «Aprobada» (verde) con
+  «Camila · 10 nov.» debajo; si el evento va en una factura por OC y faltan,
+  «1 de 3 · …». Lo demás de la fila no cambia.
+- **Se entra por donde siempre.** Se marca el evento y «Facturar
+  seleccionados»: lo guardado abre ya aprobado («esta, aprobada por Camila
+  Soto el 10 nov.») y el botón de abajo dice «Facturar la aprobada · $X». La
+  ventana parte en la primera que falta por aprobar, o en la primera si todas
+  vienen aprobadas.
+- **Se revisa de nuevo al abrir y al emitir.** Al abrirse, el motor revisa lo
+  guardado con lo de hoy (lo ya facturado, la OC, la fecha): si ya no está
+  listo, vuelve a quedar sin aprobar y dice qué le falta. Al emitir, la
+  emisión de siempre lo revisa otra vez.
+- **La fecha de la factura** es la del día en que se emite, salvo que al
+  corregir se haya elegido una (§9.32); esa se respeta mientras siga dentro
+  del rango.
+- **Deja de estar guardado** al emitirse (también si quedó «por confirmar»:
+  no se emite de nuevo sin mirar), al apretar «Corregir» (hasta aprobarlo otra
+  vez) y si se borra el evento. Una aprobada cuyo evento cambió de OC (pasó a
+  ir en una factura por OC, o al revés) no cuenta: se revisa de nuevo.
+- Nada va al SII al aprobar. No es un documento tributario.
+
+**Dónde vive:**
+
+- **La base (migración 203):** `facturas_aprobadas`, una por evento o por OC
+  del evento (`quotation_id`, `oc_id`, `pedida`, quién y cuándo), con
+  company_id; solo el motor.
+- **El motor (`api-rest/src/facturacion/aprobadas/`):** `PUT` y `DELETE
+  /quotations/:id/facturas/aprobada` (`facturacion_eventos`).
+  `FacturasAprobadasService.aprobar` pasa por `FacturasService.revisar` y no
+  guarda lo que no está listo; `FacturasController.emitir` llama a `alEmitir`;
+  `GET /facturacion/por-facturar` agrega `aprobadas`.
+- **La pantalla:** `RevisionDeLaFacturacion` (prop `aprobadas`; guarda al
+  aprobar, quita al corregir y espera lo que va en camino antes de emitir),
+  `PorFacturar` (`EstadoDeLaFila`) y `revisables.ts`, con las claves que
+  comparten las dos.
+- **Las pruebas:** `facturas-aprobadas.spec.ts`, los cuatro casos «(§9.48)»
+  de `RevisionDeLaFacturacion.test.tsx` y el de `PorFacturar.test.tsx`.
+
+En el laboratorio desde el 11-11-2026 (migración 203 en el laboratorio).
+Producción espera el «a producción» de Felipe: la 203 va ANTES del motor.
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

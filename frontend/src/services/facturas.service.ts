@@ -257,6 +257,29 @@ export const emitirDte = async (
     pedida,
   )) as DocumentoTributario;
 
+/** §9.48: «Aprobar» guarda el documento tal como se revisó; el motor lo
+ *  revisa de nuevo y no guarda lo que no está listo. */
+export const guardarAprobada = async (
+  quotationId: string,
+  ocId: number | null,
+  pedida: DtePedido,
+): Promise<FacturaAprobada> =>
+  (await apiRequest(`${ruta(quotationId)}/aprobada`, "PUT", {
+    oc_id: ocId,
+    pedida,
+  })) as FacturaAprobada;
+
+/** §9.48: «Corregir» una aprobada la deja sin aprobar. */
+export const quitarAprobada = async (
+  quotationId: string,
+  ocId: number | null,
+): Promise<void> => {
+  await apiRequest(
+    `${ruta(quotationId)}/aprobada${ocId == null ? "" : `?oc=${ocId}`}`,
+    "DELETE",
+  );
+};
+
 /** Pendiente, parcial o facturado (§9.26): del evento y de cada OC. */
 export type EstadoDeLaFacturacion = "pendiente" | "parcial" | "facturado";
 
@@ -314,6 +337,18 @@ export interface EventoFacturadoFuera extends EventoPorFacturar {
   marcado_en: string;
 }
 
+/** El documento de un evento aprobado en «Facturar seleccionados» y
+ *  guardado para emitirlo después (doc 19 §9.48). */
+export interface FacturaAprobada {
+  quotation_id: string;
+  /** La OC de esta factura si el evento va en una por OC; si no, nulo. */
+  oc_id: number | null;
+  pedida: DtePedido;
+  aprobada_por_nombre: string;
+  /** ISO. */
+  aprobada_en: string;
+}
+
 export interface EventosPorFacturar {
   ambiente: Ambiente;
   sin_conexion?: string | null;
@@ -323,6 +358,8 @@ export interface EventosPorFacturar {
   /** §9.26: los facturados completos en Eventia (plegados abajo). */
   facturados?: EventoPorFacturar[];
   facturados_fuera?: EventoFacturadoFuera[];
+  /** §9.48: lo aprobado que espera para facturarse. */
+  aprobadas?: FacturaAprobada[];
 }
 
 export const getPorFacturar = async (): Promise<EventosPorFacturar> =>

@@ -12,16 +12,22 @@ import { toast } from "../../components/toast/Toast";
 import { marcaDelAmbiente } from "../../constants/facturacion";
 import {
   emitirDte,
+  guardarAprobada,
   prepararDte,
+  quitarAprobada,
+  revisarDte,
   type DocumentoTributario,
   type EventoPorFacturar,
+  type FacturaAprobada,
   type OcSinLeer,
   type PreparacionDelDte,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import { formatMomento } from "../../utils/dates";
 import CorregirDte, { type EnCorreccion } from "./CorregirDte";
 import DocumentoDelDte from "./DocumentoDelDte";
 import LoDelEvento from "./LoDelEvento";
+import { porClave, revisablesDe, type Revisable } from "./revisables";
 import {
   loQueLeFalta,
   revisarUnoParaLaMasiva,
@@ -58,28 +64,33 @@ import {
 //   una se revisa, aprueba y emite aparte, a nombre del comprador de su OC.
 //   BelIA lee el evento una sola vez, y la barra cuenta lo de las anteriores
 //   del mismo evento.
+// - Lo aprobado queda guardado (§9.48; Felipe, 11-11: *"ya revisé y dejé la
+//   facturación hecha (…) la próxima persona, cuando decida facturar, la
+//   factura está lista, llegar y pinchar no más"*): «Aprobar» guarda el
+//   documento tal como se ve y quien entre después, otro día u otra
+//   persona, lo encuentra aprobado, con quién lo aprobó. Al abrirse, el
+//   motor lo revisa de nuevo: si algo cambió y ya no está listo, vuelve a
+//   quedar sin aprobar y dice qué le falta. «Corregir» lo saca de lo
+//   guardado, y lo emitido también.
 
-/** Lo que se revisa: un documento por evento, o uno por OC con saldo. */
-interface Revisable {
-  readonly clave: string;
-  readonly evento: EventoPorFacturar;
-  /** La OC de esta factura, si el evento va en una por OC. */
-  readonly ocId: number | null;
-  readonly ocNumero: string | null;
-}
-
-const revisablesDe = (eventos: readonly EventoPorFacturar[]): Revisable[] =>
-  eventos.flatMap((e): Revisable[] => {
-    const conSaldo = (e.ordenes ?? []).filter((o) => o.queda > 1);
-    return conSaldo.length > 1
-      ? conSaldo.map((o) => ({
-          clave: `${e.id}:${o.id}`,
-          evento: e,
-          ocId: o.id,
-          ocNumero: o.numero,
-        }))
-      : [{ clave: e.id, evento: e, ocId: null, ocNumero: null }];
-  });
+/** Una aprobada guardada se abre con su documento, revisado de nuevo por
+ *  el motor; lo de BelIA va igual, para que «Corregir» tenga de dónde. */
+const revisarLaGuardada = async (
+  it: Revisable,
+  guardada: FacturaAprobada,
+  preparar: (id: string) => Promise<PreparacionDelDte>,
+): Promise<RevisadoParaLaMasiva> => {
+  const [deBelia, vista] = await Promise.all([
+    revisarUnoParaLaMasiva(it.evento.id, it.ocId, preparar).catch(() => null),
+    revisarDte(it.evento.id, guardada.pedida),
+  ]);
+  return {
+    ...(deBelia ?? {}),
+    tipo: guardada.pedida.tipo,
+    pedida: guardada.pedida,
+    vista,
+  };
+};
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const NOMBRE = { 33: "Factura", 39: "Boleta" } as const;
@@ -95,16 +106,21 @@ const claseBoton =
 export default function RevisionDeLaFacturacion({
   eventos,
   noLeidas,
+  aprobadas = [],
   onCerrar,
   onEmitidos,
 }: {
   /** Los marcados, en el orden de la lista. */
   readonly eventos: readonly EventoPorFacturar[];
   readonly noLeidas: readonly OcSinLeer[];
+  /** §9.48: lo aprobado y guardado, como estaba al abrir la ventana. */
+  readonly aprobadas?: readonly FacturaAprobada[];
   readonly onCerrar: () => void;
   readonly onEmitidos: () => void;
 }) {
   const items = useMemo(() => revisablesDe(eventos), [eventos]);
+  // Fijas mientras la ventana está abierta, como los eventos.
+  const [guardadas] = useState(() => porClave(aprobadas));
   // Las facturas de un mismo evento comparten la lectura de BelIA.
   const preparaciones = useRef(new Map<string, Promise<PreparacionDelDte>>());
   const prepararUnaVez = (id: string) => {
@@ -117,19 +133,40 @@ export default function RevisionDeLaFacturacion({
   const revisados = useQueries({
     queries: items.map((it) => ({
       queryKey: ["facturacion", "revision", it.clave],
-      queryFn: () =>
-        revisarUnoParaLaMasiva(it.evento.id, it.ocId, prepararUnaVez),
+      queryFn: () => {
+        const guardada = guardadas.get(it.clave);
+        return guardada
+          ? revisarLaGuardada(it, guardada, prepararUnaVez)
+          : revisarUnoParaLaMasiva(it.evento.id, it.ocId, prepararUnaVez);
+      },
       gcTime: 0,
       staleTime: Infinity,
       refetchOnWindowFocus: false,
       retry: false,
     })),
   });
-  const [indice, setIndice] = useState(0);
+  // Parte en la primera que falta por aprobar (o en la primera, si todas
+  // vienen aprobadas: llegar y facturar).
+  const [indice, setIndice] = useState(() =>
+    Math.max(
+      0,
+      items.findIndex((x) => !guardadas.has(x.clave)),
+    ),
+  );
   const [corregidos, setCorregidos] = useState<
     Record<string, RevisadoParaLaMasiva>
   >({});
-  const [aprobados, setAprobados] = useState<ReadonlySet<string>>(new Set());
+  const [marcados, setAprobados] = useState<ReadonlySet<string>>(
+    () =>
+      new Set(items.filter((x) => guardadas.has(x.clave)).map((x) => x.clave)),
+  );
+  // Lo que se está guardando o quitando: «Facturar» lo espera, para que
+  // nada quede guardado después de emitido.
+  const enCamino = useRef(new Set<Promise<unknown>>());
+  const seguir = (p: Promise<unknown>) => {
+    enCamino.current.add(p);
+    void p.finally(() => enCamino.current.delete(p));
+  };
   const [corrigiendo, setCorrigiendo] = useState(false);
   // Lo que se está corrigiendo, con su revisión del motor.
   const [enCurso, setEnCurso] = useState<EnCorreccion | null>(null);
@@ -138,11 +175,19 @@ export default function RevisionDeLaFacturacion({
 
   const dteDe = (j: number): RevisadoParaLaMasiva | undefined =>
     corregidos[items[j].clave] ?? revisados[j]?.data;
+  // Aprobado de verdad: una guardada que al abrirse ya no está lista (algo
+  // cambió desde que se aprobó) no cuenta hasta corregirla y aprobarla.
+  const aprobados: ReadonlySet<string> = new Set(
+    items
+      .filter((x, j) => marcados.has(x.clave) && dteDe(j)?.vista.ok !== false)
+      .map((x) => x.clave),
+  );
   const item = items[indice];
   const evento = item.evento;
   const consulta = revisados[indice];
   const dte = dteDe(indice);
   const aprobado = aprobados.has(item.clave);
+  const guardada = guardadas.get(item.clave);
   // Lo de las otras facturas APROBADAS de este mismo evento (una por OC):
   // la barra del evento las cuenta como facturadas; las que no se
   // aprueban, no (Felipe, 08-11: *"solo debería sumar las que están
@@ -174,10 +219,29 @@ export default function RevisionDeLaFacturacion({
   };
 
   const aprobar = (corregido?: RevisadoParaLaMasiva) => {
+    const documento = corregido ?? dte;
+    if (!documento) return;
     if (corregido) setCorregidos((c) => ({ ...c, [item.clave]: corregido }));
     const nuevos = new Set(aprobados);
     nuevos.add(item.clave);
     setAprobados(nuevos);
+    // §9.48: queda guardada para facturarla después.
+    const { clave } = item;
+    seguir(
+      guardarAprobada(evento.id, item.ocId, documento.pedida).catch((err) => {
+        setAprobados((a) => {
+          const n = new Set(a);
+          n.delete(clave);
+          return n;
+        });
+        toast.error(
+          humanizeApiError(
+            err,
+            `No se pudo guardar la aprobación del #${evento.numero}.`,
+          ),
+        );
+      }),
+    );
     setCorrigiendo(false);
     setEnCurso(null);
     // Sigue con el próximo que falta por aprobar.
@@ -189,6 +253,14 @@ export default function RevisionDeLaFacturacion({
 
   const corregir = () => {
     // Corregido, deja de estar aprobado hasta que se apruebe de nuevo.
+    if (marcados.has(item.clave))
+      seguir(
+        quitarAprobada(evento.id, item.ocId).catch((err) =>
+          toast.error(
+            humanizeApiError(err, "No se pudo quitar la aprobación guardada."),
+          ),
+        ),
+      );
     setAprobados((a) => {
       const n = new Set(a);
       n.delete(item.clave);
@@ -207,6 +279,7 @@ export default function RevisionDeLaFacturacion({
 
   const emitir = async () => {
     setEmitiendo(true);
+    await Promise.allSettled([...enCamino.current]);
     let emitidos = 0;
     for (const { it, dte: d } of porEmitir) {
       const e = it.evento;
@@ -283,7 +356,13 @@ export default function RevisionDeLaFacturacion({
         {item.ocNumero && !termino ? ` · OC ${item.ocNumero}` : ""} ·{" "}
         {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
         {aprobado && !termino && (
-          <span className="text-emerald-700"> · esta, aprobada</span>
+          <span className="text-emerald-700">
+            {" "}
+            · esta, aprobada
+            {guardada && !corregidos[item.clave]
+              ? ` por ${guardada.aprobada_por_nombre} el ${formatMomento(guardada.aprobada_en, "diaMes")}`
+              : ""}
+          </span>
         )}
       </span>
     </span>
@@ -374,8 +453,9 @@ export default function RevisionDeLaFacturacion({
       titulo={titulo}
       subtitulo={subtitulo}
       ancho="max-w-5xl"
-      // Con aprobadas o emitiendo, una tecla no se lleva el trabajo.
-      bloquearEscape={emitiendo || aprobados.size > 0}
+      // Emitiendo, una tecla no cierra la ventana. Lo aprobado ya quedó
+      // guardado (§9.48): cerrar no se lo lleva.
+      bloquearEscape={emitiendo}
       onCerrar={() => {
         if (!emitiendo) onCerrar();
       }}
