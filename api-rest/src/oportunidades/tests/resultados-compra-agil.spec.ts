@@ -281,13 +281,49 @@ describe('el resultado de una licitación (decisión 92)', () => {
     });
   });
 
-  it('desierta, revocada o sin ganadores: no hay resultado', () => {
+  it('desierta o revocada: perdida, sin adjudicar y con el motivo (decisión 124)', () => {
+    // La 1532886-5-LE26 del Día del Funcionario: desierta, siguió
+    // «postulada» y Felipe la marcó a mano el 10-11.
+    const desierta = resultadoPublicoDeLicitacion({
+      ...ADJUDICADA,
+      estado: 'Desierta (o art. 3 ó 9 Ley 19.886)',
+    });
+    expect(desierta).toEqual({
+      tipo: 'licitacion',
+      elegidos: [],
+      ofertas: [],
+      sin_adjudicar: 'desierta',
+    });
+    expect(resultadoParaLaEmpresa(desierta, '77.701.305-K')).toEqual({
+      tipo: 'licitacion',
+      estado: 'perdida',
+      proveedor: null,
+      rut_proveedor: null,
+      monto: null,
+      mas_elegidos: 0,
+      mi_monto: null,
+      lugar: null,
+      ofertas: 0,
+      era_la_mas_barata: false,
+      inadmisible: null,
+      sin_adjudicar: 'desierta',
+    });
+    expect(
+      resultadoPublicoDeLicitacion({ estado: 'Revocada', adjudicacion: null })
+        ?.sin_adjudicar,
+    ).toBe('revocada');
+    // Una suspendida puede volver: no hay resultado.
     expect(
       resultadoPublicoDeLicitacion({
-        ...ADJUDICADA,
-        estado: 'Desierta (o art. 3 ó 9 Ley 19.886)',
+        estado: 'Suspendida',
+        adjudicacion: null,
       }),
     ).toBeNull();
+    // Sin el RUT de la empresa, tampoco.
+    expect(resultadoParaLaEmpresa(desierta, null)).toBeNull();
+  });
+
+  it('sin ganadores con RUT o todavía sin adjudicar: no hay resultado', () => {
     expect(
       resultadoPublicoDeLicitacion({
         estado: 'Adjudicada',
@@ -454,7 +490,7 @@ describe('ResultadosDePostuladasService — revisar', () => {
     expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 84, 'perdida');
   });
 
-  it('una licitación desierta no se marca ni se anota', async () => {
+  it('una licitación desierta se anota y queda perdida, sin adjudicar (decisión 124)', async () => {
     const { resultados, servicio } = armar();
     resultados.porResolver.mockResolvedValue([
       licitacion(
@@ -470,9 +506,51 @@ describe('ResultadosDePostuladasService — revisar', () => {
         },
       ),
     ]);
-    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(0);
-    expect(resultados.registrarResultado).not.toHaveBeenCalled();
-    expect(resultados.marcarResultado).not.toHaveBeenCalled();
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
+    expect(resultados.registrarResultado).toHaveBeenCalledWith(
+      '1532886-5-LE26',
+      {
+        tipo: 'licitacion',
+        elegidos: [],
+        ofertas: [],
+        sin_adjudicar: 'desierta',
+      },
+    );
+    expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 40, 'perdida');
+  });
+
+  it('una compra ágil desierta queda perdida, con por qué dejaron fuera la oferta (decisión 124)', async () => {
+    // Como la 3904-996-COT26 de Bulnes: desierta y las dos ofertas
+    // inadmisibles por «se cambiará la descripción».
+    const { resultados, mp, servicio } = armar();
+    mp.detalleCompraAgil.mockResolvedValue({
+      estado: { glosa: 'Desierta', codigo: 'desierta', id_estado: 6 },
+      id_orden_compra: null,
+      proveedores_cotizando: [
+        {
+          ...VDS,
+          monto_total: 570000,
+          justificacion_inadmisibilidad: 'SE CAMBIARÁ LA DESCRIPCION',
+        },
+        {
+          ...BPM,
+          proveedor_seleccionado: 0,
+          monto_total: 575999,
+          justificacion_inadmisibilidad: 'SE CAMBIARA LA ESPECIFICACIÓN.',
+        },
+      ],
+    });
+    await expect(servicio.revisar(1, enUnRato())).resolves.toBe(1);
+    expect(resultados.marcarResultado).toHaveBeenCalledWith(1, 3219, 'perdida');
+    const [, publico] = resultados.registrarResultado.mock.calls[0];
+    expect(publico).toMatchObject({ sin_adjudicar: 'desierta', elegidos: [] });
+    expect(resultadoParaLaEmpresa(publico, '77.701.305-K')).toMatchObject({
+      estado: 'perdida',
+      sin_adjudicar: 'desierta',
+      mi_monto: 570000,
+      inadmisible: 'SE CAMBIARÁ LA DESCRIPCION',
+      proveedor: null,
+    });
   });
 
   it('sin postuladas no pregunta nada; sin cupo de Mercado Público, para', async () => {

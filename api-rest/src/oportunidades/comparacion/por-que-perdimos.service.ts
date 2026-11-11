@@ -146,6 +146,15 @@ export class PorQuePerdimosService {
         'Todavía no se sabe a quién eligieron: el por qué se explica cuando Mercado Público lo publica.',
       );
     }
+    // Decisión 124: sin adjudicar no hay a quién comparar; la vuelta de los
+    // resultados la salta y el botón lo dice.
+    if (resultado.sin_adjudicar) {
+      throw new BadRequestException(
+        resultado.sin_adjudicar === 'desierta'
+          ? 'Quedó desierta: nadie fue adjudicado, así que no hay con quién comparar.'
+          : 'La revocaron: nadie fue adjudicado, así que no hay con quién comparar.',
+      );
+    }
     if (criterios.length === 0) {
       throw new BadRequestException(
         'Primero analiza las bases: el por qué se explica con sus criterios de evaluación.',

@@ -25,6 +25,8 @@ export type ResultadoDeLaEmpresa = {
   ofertas: number;
   era_la_mas_barata: boolean;
   inadmisible: string | null;
+  /** Decisión 124: perdida porque terminó sin adjudicar. */
+  sin_adjudicar?: "desierta" | "revocada" | null;
 };
 
 /** Lo que trae «Mis licitaciones» desde la decisión 92. */
@@ -44,8 +46,22 @@ const textoDeLicitacion = (r: ResultadoDeLaEmpresa): string => {
   return `Adjudicaron a ${r.proveedor ?? r.rut_proveedor ?? "otro proveedor"}${r.monto ? ` por ${pesos(r.monto)}` : ""}${otros > 0 ? ` y a ${otros} más` : ""}.`;
 };
 
+/** Decisión 124 (10-11): terminó sin adjudicar. Felipe, con la
+ *  1532886-5-LE26 que salió desierta y siguió «postulada»: "igual debió
+ *  marcarla cuando salió desierta". */
+const textoSinAdjudicar = (r: ResultadoDeLaEmpresa): string => {
+  const como =
+    r.sin_adjudicar === "desierta"
+      ? "Quedó desierta: nadie fue adjudicado."
+      : "La revocaron: nadie fue adjudicado.";
+  return r.inadmisible
+    ? `${como} Tu oferta quedó fuera: ${r.inadmisible}.`
+    : como;
+};
+
 /** A quién eligieron, por cuánto y cómo quedaste tú por precio. */
 export const textoDelResultado = (r: ResultadoDeLaEmpresa): string => {
+  if (r.sin_adjudicar) return textoSinAdjudicar(r);
   if (r.tipo === "licitacion") return textoDeLicitacion(r);
   const lugar =
     r.lugar !== null && r.ofertas > 1
@@ -82,6 +98,9 @@ export const textoDelResultadoPublico = (
       }>)
     : [];
   const e = elegidos[0];
+  // Decisión 124: terminó sin adjudicar.
+  if (!e && despues?.sin_adjudicar === "desierta") return "quedó desierta";
+  if (!e && despues?.sin_adjudicar === "revocada") return "la revocaron";
   if (!e) return "salió el resultado";
   const verbo =
     despues?.tipo === "licitacion" ? "adjudicaron a" : "eligieron a";
@@ -138,7 +157,10 @@ export function useAvisoDeResultados(lista: readonly ConResultado[]) {
     nuevos.forEach((m) => avisadosEnEstaSesion.add(claveDelAviso(m)));
     for (const m of nuevos) {
       const r = m.resultado as ResultadoDeLaEmpresa;
-      const texto = `${r.estado === "ganada" ? "¡Ganaste" : "Perdiste"} «${m.proceso.nombre}»${r.estado === "ganada" ? "!" : "."} ${textoDelResultado(r)}`;
+      // Decisión 124: una desierta no se «pierde» contra nadie.
+      const texto = r.sin_adjudicar
+        ? `«${m.proceso.nombre}»: ${textoDelResultado(r)}`
+        : `${r.estado === "ganada" ? "¡Ganaste" : "Perdiste"} «${m.proceso.nombre}»${r.estado === "ganada" ? "!" : "."} ${textoDelResultado(r)}`;
       if (r.estado === "ganada") toast.success(texto, { sticky: true });
       else if (r.era_la_mas_barata) toast.error(texto, { sticky: true });
       else toast.warn(texto, { sticky: true });

@@ -14,12 +14,18 @@ import { ganadoresDe, normalizarRut } from '../historia/ganadores';
 
 type Oferente = { rut: string; proveedor: string | null; monto: number | null };
 
+/** Terminó sin adjudicar (decisión 124): desierta, o revocada (en una
+ *  compra ágil, «cancelada»). Una suspendida puede volver: no cuenta. */
+export type SinAdjudicar = 'desierta' | 'revocada';
+
 /** A quién eligió el comprador (o a quiénes adjudicó) y las ofertas, con
- *  su total. */
+ *  su total. Desde la decisión 124, si terminó sin adjudicar, `elegidos`
+ *  va vacío y `sin_adjudicar` dice cómo. */
 export type ResultadoPublico = {
   tipo: 'compra_agil' | 'licitacion';
   elegidos: Oferente[];
   ofertas: Array<Oferente & { inadmisible: string | null }>;
+  sin_adjudicar?: SinAdjudicar | null;
 };
 
 /** Lo de una empresa: lo que ve en «Mis licitaciones». */
@@ -44,10 +50,36 @@ export type ResultadoDeLaEmpresa = {
   era_la_mas_barata: boolean;
   /** Por qué el comprador dejó fuera la oferta de la empresa. */
   inadmisible: string | null;
+  /** Decisión 124: quedó perdida porque terminó sin adjudicar. */
+  sin_adjudicar?: SinAdjudicar | null;
 };
 
 const texto = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
+
+/** Decisión 124 (10-11). Felipe, con la 1532886-5-LE26 del Día del
+ *  Funcionario, que salió desierta y siguió «postulada»: "igual debió
+ *  marcarla cuando salió desierta". Desierta o revocada (en una compra
+ *  ágil, cancelada) es perdida; la suspendida puede volver. El estado de una
+ *  compra ágil viene como objeto (`codigo`, `glosa`) y el de una licitación
+ *  como texto. */
+export const sinAdjudicarDe = (estado: unknown): SinAdjudicar | null => {
+  const e =
+    typeof estado === 'string'
+      ? estado
+      : estado && typeof estado === 'object'
+        ? [
+            (estado as Record<string, unknown>).codigo,
+            (estado as Record<string, unknown>).glosa,
+          ]
+            .filter((x): x is string => typeof x === 'string')
+            .join(' ')
+        : '';
+  if (/suspend/i.test(e)) return null;
+  if (/desiert/i.test(e)) return 'desierta';
+  if (/revocad|cancelad/i.test(e)) return 'revocada';
+  return null;
+};
 
 /** Compra ágil, medido el 27-10 con el detalle oficial (API v2, con el
  *  ticket del radar): mientras está «Cerrada», `proveedores_cotizando`
@@ -57,12 +89,18 @@ const texto = (v: unknown): string | null =>
 export const resultadoPublicoDeCompraAgil = (
   detalle: unknown,
 ): ResultadoPublico | null => {
-  const lista = (detalle as { proveedores_cotizando?: unknown } | null)
-    ?.proveedores_cotizando;
-  if (!Array.isArray(lista)) return null;
+  const d = detalle as {
+    proveedores_cotizando?: unknown;
+    estado?: unknown;
+  } | null;
+  const lista = Array.isArray(d?.proveedores_cotizando)
+    ? d.proveedores_cotizando
+    : [];
+  const sinAdjudicar = sinAdjudicarDe(d?.estado);
+  if (!Array.isArray(d?.proveedores_cotizando) && !sinAdjudicar) return null;
   const ofertas: ResultadoPublico['ofertas'] = [];
   const elegidos: Oferente[] = [];
-  for (const x of lista) {
+  for (const x of lista as unknown[]) {
     if (!x || typeof x !== 'object') continue;
     const f = x as Record<string, unknown>;
     const rut = texto(f.rut_proveedor);
@@ -83,20 +121,38 @@ export const resultadoPublicoDeCompraAgil = (
       elegidos.push(oferente);
     }
   }
-  return elegidos.length > 0
-    ? { tipo: 'compra_agil', elegidos, ofertas }
+  if (elegidos.length > 0) return { tipo: 'compra_agil', elegidos, ofertas };
+  // Decisión 124: desierta o cancelada, con las ofertas (y por qué dejaron
+  // fuera cada una).
+  return sinAdjudicar
+    ? {
+        tipo: 'compra_agil',
+        elegidos: [],
+        ofertas,
+        sin_adjudicar: sinAdjudicar,
+      }
     : null;
 };
 
 /** Licitación: a quiénes adjudicaron, según la adjudicación que el radar
  *  guarda en `mp_procesos` (decisión 30: las seguidas y, desde la 92, las
  *  postuladas se revisan una vez al día). Del que se llevó más al que se
- *  llevó menos. Desierta, revocada o sin ganadores con RUT: null. */
+ *  llevó menos. Desde la decisión 124, desierta o revocada: sin elegidos y
+ *  con `sin_adjudicar`. Suspendida o sin ganadores con RUT: null. */
 export const resultadoPublicoDeLicitacion = (proceso: {
   estado: string | null;
   adjudicacion: unknown;
 }): ResultadoPublico | null => {
-  if (/desiert|revocad|suspend/i.test(proceso.estado ?? '')) return null;
+  const sinAdjudicar = sinAdjudicarDe(proceso.estado);
+  if (sinAdjudicar) {
+    return {
+      tipo: 'licitacion',
+      elegidos: [],
+      ofertas: [],
+      sin_adjudicar: sinAdjudicar,
+    };
+  }
+  if (/suspend/i.test(proceso.estado ?? '')) return null;
   const elegidos = ganadoresDe(proceso.adjudicacion as Adjudicacion)
     .filter((g): g is typeof g & { rut: string } => Boolean(g.rut))
     .sort((a, b) => (b.monto ?? 0) - (a.monto ?? 0))
@@ -117,9 +173,29 @@ export const resultadoParaLaEmpresa = (
   rutDeLaEmpresa: string | null | undefined,
   criterios?: Array<{ nombre: string }> | null,
 ): ResultadoDeLaEmpresa | null => {
-  if (!publico || !rutDeLaEmpresa || !publico.elegidos?.length) return null;
+  if (!publico || !rutDeLaEmpresa) return null;
   const rut = normalizarRut(rutDeLaEmpresa);
   const esDeLaEmpresa = (o: Oferente) => normalizarRut(o.rut) === rut;
+  // Decisión 124: terminó sin adjudicar, perdida para la empresa, con lo
+  // suyo si su oferta aparece (y por qué la dejaron fuera).
+  if (publico.sin_adjudicar && !publico.elegidos?.length) {
+    const suya = (publico.ofertas ?? []).find(esDeLaEmpresa) ?? null;
+    return {
+      tipo: publico.tipo,
+      estado: 'perdida',
+      proveedor: null,
+      rut_proveedor: null,
+      monto: null,
+      mas_elegidos: 0,
+      mi_monto: suya?.monto ?? null,
+      lugar: null,
+      ofertas: (publico.ofertas ?? []).length,
+      era_la_mas_barata: false,
+      inadmisible: suya?.inadmisible ?? null,
+      sin_adjudicar: publico.sin_adjudicar,
+    };
+  }
+  if (!publico.elegidos?.length) return null;
   const ganada = publico.elegidos.some(esDeLaEmpresa);
   const mostrado =
     (ganada
