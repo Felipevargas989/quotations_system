@@ -17,6 +17,7 @@ import {
   avisoDeLoTraido,
   claveDeLaCompetencia,
   claveDeTraerOfertas,
+  MIENTRAS_TRAE,
 } from "./useTraerOfertas";
 
 // «TRAER LAS OFERTAS» (decisión 123, 10-11). Felipe, con la 5040-14-LE26
@@ -82,6 +83,12 @@ describe("Traer las ofertas", () => {
       name: /Traer las ofertas/,
     });
     await waitFor(() => expect(boton).toBeEnabled());
+    // El aviso guarda su lugar aunque no se vea: al apretar, nada se mueve.
+    expect(screen.getByText(MIENTRAS_TRAE)).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(screen.getByText(MIENTRAS_TRAE)).toHaveClass("invisible");
     fireEvent.click(boton);
     await waitFor(() => expect(s.traerOfertas).toHaveBeenCalledWith(84));
 
@@ -93,7 +100,8 @@ describe("Traer las ofertas", () => {
       "aria-hidden",
       "true",
     );
-    const aviso = screen.getByText(/Mercado Público las entrega de a una/);
+    const aviso = screen.getByText(MIENTRAS_TRAE);
+    expect(aviso).not.toHaveClass("invisible");
     expect(
       trayendo.compareDocumentPosition(aviso) &
         Node.DOCUMENT_POSITION_FOLLOWING,

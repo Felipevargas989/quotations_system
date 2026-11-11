@@ -33,6 +33,10 @@ export const claveDeTraerOfertas = (oportunidadId: number) => [
 
 const PREGUNTAR_MIENTRAS_TRAE = 3000;
 
+/** Lo que se lee debajo del botón mientras trae. El botón le guarda el
+ *  lugar aunque no se vea, para que nada se mueva al apretar. */
+export const MIENTRAS_TRAE = "Puedes salir de la ficha: van llegando solas.";
+
 const archivos = (n: number) => (n === 1 ? "1 archivo" : `${n} archivos`);
 const oferentes = (n: number) => (n === 1 ? "1 oferente" : `${n} oferentes`);
 
@@ -147,11 +151,7 @@ export function useTraerOfertas(oportunidadId: number): {
   const trayendo = pedido.isPending || (data?.trayendo ?? false);
   const ultima = data?.ultima ?? null;
   const linea: LineaDeTraerOfertas | null = trayendo
-    ? {
-        tono: "espera",
-        texto:
-          "Mercado Público las entrega de a una: tarda unos minutos. Puedes salir de la ficha.",
-      }
+    ? { tono: "espera", texto: MIENTRAS_TRAE }
     : ultima?.error
       ? { tono: "error", texto: ultima.error }
       : ultima?.resultado

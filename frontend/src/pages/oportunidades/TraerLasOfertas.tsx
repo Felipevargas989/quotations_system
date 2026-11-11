@@ -1,11 +1,16 @@
 import { CloudDownload, Loader2 } from "lucide-react";
-import { type LineaDeTraerOfertas, useTraerOfertas } from "./useTraerOfertas";
+import {
+  type LineaDeTraerOfertas,
+  MIENTRAS_TRAE,
+  useTraerOfertas,
+} from "./useTraerOfertas";
 
 // EL BOTÓN «TRAER LAS OFERTAS» (decisión 123 del doc 17, 10-11): en «La
 // competencia» de una licitación, arriba a la derecha, con la misma forma
 // que «Traer los documentos» de «Bases y anexos». Quieto mientras trae: el
 // botón guarda el ancho del texto más largo y lo que hay que decir va
-// debajo (que está trayendo, o cómo terminó la última vuelta).
+// debajo (que está trayendo, o cómo terminó la última vuelta), en una línea
+// que guarda su lugar aunque no se vea: al apretar, nada se mueve.
 
 const TONO: Record<LineaDeTraerOfertas["tono"], string> = {
   espera: "text-gray-500",
@@ -49,11 +54,12 @@ export default function TraerLasOfertas({
           </span>
         </span>
       </button>
-      {linea && (
-        <p className={`max-w-sm text-right text-xs ${TONO[linea.tono]}`}>
-          {linea.texto}
-        </p>
-      )}
+      <p
+        aria-hidden={!linea}
+        className={`max-w-xl text-right text-xs ${linea ? TONO[linea.tono] : "invisible"}`}
+      >
+        {linea?.texto ?? MIENTRAS_TRAE}
+      </p>
     </div>
   );
 }
