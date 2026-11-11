@@ -133,7 +133,18 @@ describe("la caja de recepción (§9.43)", () => {
         comentario: null,
       }),
     );
-    expect(await screen.findByText(/Caja cerrada a las/)).toBeInTheDocument();
+    // §9.47: el check con quién cerró y la hora; el formulario para abrir
+    // otra caja no aparece solo.
+    expect(
+      await screen.findByText("La caja fue cerrada correctamente"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/^Cerró Ana · \d{2}:\d{2}/)).toBeInTheDocument();
+    expect(screen.queryByText("Abrir la caja de recepción")).toBeNull();
+    expect(screen.queryByText(/\$/)).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir una caja nueva" }),
+    );
     expect(screen.getByText("Abrir la caja de recepción")).toBeInTheDocument();
+    expect(screen.queryByText("La caja fue cerrada correctamente")).toBeNull();
   });
 });

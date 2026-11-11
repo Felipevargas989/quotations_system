@@ -10,6 +10,7 @@ import {
   getCaja,
 } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import CajaCerrada from "./CajaCerrada";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LA CAJA DE RECEPCIÓN, DEL LADO DE QUIEN LA OPERA (doc 19 §9.43, sprint 2;
@@ -17,7 +18,9 @@ import { Seccion } from "./PiezasDelDocumento";
 // del perfil de la sesión (no se escribe quién), se anotan los retiros y se
 // cierra a ciegas: quien cierra anota cuánto tiene en efectivo, débito,
 // crédito y transferencia, sin ver lo esperado ni la diferencia (lo revisa
-// el administrador en «Cierres de la caja»). Cerrada, no se reabre.
+// el administrador en «Cierres de la caja»). Cerrada, no se reabre, y la
+// pantalla lo dice con su check (`CajaCerrada`, §9.47): el formulario para
+// abrir otra sale recién con «Abrir una caja nueva».
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const hora = (iso: string) =>
@@ -97,11 +100,14 @@ export default function CajaDeRecepcion({
         transferencia: montos.transferencia ?? 0,
         comentario: comentario.trim() || null,
       }),
-    onSuccess: (r) => {
+    onSuccess: async (r) => {
       setCerradaEn(r.cerrada_en);
       setConfirmando(false);
       setMontos({});
       setComentario("");
+      // Una consulta de la caja que venía en camino (la que parte sola al
+      // volver a la ventana) no puede traer de vuelta la caja «abierta».
+      await queryClient.cancelQueries({ queryKey: ["caja"], exact: true });
       alDia({ abierta: null });
       void queryClient.invalidateQueries({ queryKey: ["caja", "cierres"] });
     },
@@ -114,15 +120,19 @@ export default function CajaDeRecepcion({
   if (caja.isPending)
     return <p className="text-sm text-gray-400">Cargando la caja…</p>;
 
+  if (!abierta && cerradaEn)
+    return (
+      <CajaCerrada
+        cerradaEn={cerradaEn}
+        nombre={nombre}
+        alAbrirOtra={() => setCerradaEn(null)}
+      />
+    );
+
   if (!abierta) {
     const lista = sencillo != null;
     return (
       <div className="space-y-4">
-        {cerradaEn && (
-          <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            Caja cerrada a las {hora(cerradaEn)}. La revisa el administrador.
-          </p>
-        )}
         <Seccion titulo="Abrir la caja de recepción">
           <p className="text-xs text-gray-500">
             Sin la caja abierta, recepción no emite boletas.
