@@ -421,6 +421,11 @@ export const proponerSeguimiento: Herramienta = {
     type: 'object',
     properties: {
       numero: { type: 'integer', description: 'El N° de la cotización.' },
+      instruccion: {
+        type: 'string',
+        description:
+          'Solo para RESPONDERLE al cliente («respóndele que…», «contéstale…»): lo que la persona quiere decirle, en sus palabras. Con esto no es un seguimiento: responde el último correo del cliente en su hilo, en cualquier estado (también requerimientos). Sin esto, el seguimiento de siempre.',
+      },
     },
   },
   // Recepción también, en las cotizaciones de particulares (doc 21).
@@ -431,6 +436,7 @@ export const proponerSeguimiento: Herramienta = {
     const tarjeta = await ctx.propuestas.proponerSeguimiento(
       ctx.usuario,
       cual(entrada, ctx),
+      texto(entrada.instruccion, 1500) ?? null,
     );
     mostrar(ctx, tarjeta);
     return {

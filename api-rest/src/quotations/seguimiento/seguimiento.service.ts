@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
 import {
   ConflictException,
   Injectable,
@@ -14,11 +13,7 @@ import { QuotationFollowupsService } from 'src/quotation-followups/quotation-fol
 import type { User } from 'src/users/entities/user.entity';
 import { ChoquesDeFechaService } from '../choques/choques.service';
 import { fechaLegible } from '../generar/fechas';
-import {
-  costoEnDolares,
-  esFallaDeLaCuenta,
-  MODELO_POR_DEFECTO,
-} from '../generar/generar.service';
+import { costoEnDolares, MODELO_POR_DEFECTO } from '../generar/generar.service';
 import { mensajeDelSeguimiento } from './contexto';
 import {
   compromisoVivo,
@@ -31,6 +26,7 @@ import { notaDelEnvio, proximoTrasElEnvio } from './envio';
 import {
   copiasDelHilo,
   decidirHilo,
+  decidirRespuesta,
   hiloDeLaCotizacion,
   otroEnvioEnElHilo,
   seguimientosSinRespuesta,
@@ -44,12 +40,11 @@ import {
   type MensajeDelBuzon,
   OutlookDeLaCasa,
 } from './outlook';
-import { instruccionesDeCorreo } from './reglas-de-correo';
+import { preguntarALaIA, type Uso } from './preguntar';
 import {
   type SeguimientoConIA,
   SeguimientoRepository,
 } from './seguimiento.repository';
-import { ESQUEMA_DEL_SEGUIMIENTO, type RespuestaDelSeguimiento } from './tipos';
 import {
   buscarUltimoCorreo,
   correosDeLaCotizacion,
@@ -157,13 +152,6 @@ export type ResultadoDelSeguimiento = {
   angulo: string | null;
   segundos: number;
   costo_usd: number | null;
-};
-
-type Uso = {
-  entrada: number;
-  escrituraCache: number;
-  lecturaCache: number;
-  salida: number;
 };
 
 @Injectable()
@@ -286,7 +274,8 @@ export class SeguimientoConIAService {
   async generar(
     id: string,
     user: User,
-    opciones: { aPedido?: boolean } = {},
+    // `instruccion`: «Respóndele a este cliente» (doc 20 §18, sprint 3).
+    opciones: { aPedido?: boolean; instruccion?: string | null } = {},
   ): Promise<ResultadoDelSeguimiento> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new ServiceUnavailableException(
@@ -312,7 +301,12 @@ export class SeguimientoConIAService {
     if (!q) throw new NotFoundException('Cotización no encontrada.');
     const notas = await this.repositorio.bitacora(id, companyId);
     const hoy = fechaEnChile();
-    const regla = reglaDelSeguimiento(!!opciones.aPedido, hoy);
+    // Una respuesta a pedido no depende del estado ni del compromiso: la
+    // pidió una persona que ve la cotización.
+    const pedido = opciones.instruccion?.trim() || null;
+    const regla = pedido
+      ? () => null
+      : reglaDelSeguimiento(!!opciones.aPedido, hoy);
     const noEntra = regla(q.quotation_status, notas);
     if (noEntra) {
       throw new ConflictException(
@@ -339,7 +333,10 @@ export class SeguimientoConIAService {
 
     // Con tope de calendario no se insiste (Felipe, 18-10): primero se decide
     // si la cotización sigue con su fecha.
-    if ((await this.choques.cotizacionesConTope(companyId)).has(id)) {
+    if (
+      !pedido &&
+      (await this.choques.cotizacionesConTope(companyId)).has(id)
+    ) {
       return saltada(
         'tiene tope de calendario con una aceptada: primero decide si sigue con su fecha («Sí, puede seguir»).',
       );
@@ -355,7 +352,7 @@ export class SeguimientoConIAService {
 
     const fecha = q.event_date ? q.event_date.slice(0, 10) : null;
     const fin = q.event_end_date ? q.event_end_date.slice(0, 10) : fecha;
-    if (fin && fin < hoy) return saltada('el evento ya pasó.');
+    if (!pedido && fin && fin < hoy) return saltada('el evento ya pasó.');
 
     const contacto =
       q.clients?.client_contacts?.find((c) => c.id === q.client_contact_id) ??
@@ -388,16 +385,23 @@ export class SeguimientoConIAService {
         encontrados.push({ buzon, mensajes: unicos });
         if (hiloDeLaCotizacion({ mensajes: unicos, ...deLaCotizacion })) break;
       }
-      decision = decidirHilo({
-        encontrados,
-        esDeLaCasa: (c) => outlook.esDeLaCasa(c),
-        // La última GESTIÓN: el cambio de estado no cuenta (09-11-2026).
-        // Si contara, un correo del cliente anterior a mover la tarjeta se
-        // daría por contestado.
-        ultimaGestion: notas.filter(esGestion).at(-1)?.created_at ?? null,
-        buzonParaNuevo: outlook.buzones[0],
-        ...deLaCotizacion,
-      });
+      decision = pedido
+        ? decidirRespuesta({
+            encontrados,
+            esDeLaCasa: (c) => outlook.esDeLaCasa(c),
+            buzonParaNuevo: outlook.buzones[0],
+            ...deLaCotizacion,
+          })
+        : decidirHilo({
+            encontrados,
+            esDeLaCasa: (c) => outlook.esDeLaCasa(c),
+            // La última GESTIÓN: el cambio de estado no cuenta (09-11-2026).
+            // Si contara, un correo del cliente anterior a mover la tarjeta se
+            // daría por contestado.
+            ultimaGestion: notas.filter(esGestion).at(-1)?.created_at ?? null,
+            buzonParaNuevo: outlook.buzones[0],
+            ...deLaCotizacion,
+          });
       if (decision.modo === 'seguimiento' || decision.modo === 'responder') {
         const { buzon } = decision;
         delHilo = await Promise.all(
@@ -443,6 +447,7 @@ export class SeguimientoConIAService {
         modo: decision.modo,
         buzon: decision.buzon,
         hilo: delHilo,
+        instruccion: pedido,
       }),
       uso,
     );
@@ -544,7 +549,7 @@ export class SeguimientoConIAService {
         quotation_id: id,
         tipo: 'correo',
         next_contact_date: null,
-        note: `Borrador de seguimiento con IA listo ${donde}${angulo ? `: ${angulo}` : ''}. Revísalo en Outlook y envíalo desde ahí.`,
+        note: `Borrador de ${pedido ? 'respuesta' : 'seguimiento'} con IA listo ${donde}${angulo ? `: ${angulo}` : ''}. Revísalo en Outlook y envíalo desde ahí.`,
       })
       .catch((e: unknown) =>
         this.logger.warn(`no pude anotar en la bitácora: ${mensajeDe(e)}`),
@@ -745,55 +750,13 @@ export class SeguimientoConIAService {
     return error instanceof Error ? error : new Error(String(error));
   }
 
-  private async preguntar(
-    mensaje: string,
-    uso: Uso,
-  ): Promise<RespuestaDelSeguimiento> {
-    try {
-      const respuesta = await this.cliente().messages.parse({
-        model: this.modelo,
-        max_tokens: 4000,
-        output_config: {
-          format: jsonSchemaOutputFormat(ESQUEMA_DEL_SEGUIMIENTO),
-        },
-        // Las reglas van como instrucciones fijas, en caché: «Generar
-        // seguimientos» las lee mucho más barato desde el segundo.
-        system: [
-          {
-            type: 'text',
-            text: instruccionesDeCorreo(),
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: [{ role: 'user', content: mensaje }],
-      });
-      uso.entrada += respuesta.usage.input_tokens ?? 0;
-      uso.escrituraCache += respuesta.usage.cache_creation_input_tokens ?? 0;
-      uso.lecturaCache += respuesta.usage.cache_read_input_tokens ?? 0;
-      uso.salida += respuesta.usage.output_tokens ?? 0;
-      if (respuesta.stop_reason === 'refusal') {
-        throw new UnprocessableEntityException(
-          'La IA no quiso escribir este seguimiento. Escríbelo a mano.',
-        );
-      }
-      if (respuesta.stop_reason === 'max_tokens' || !respuesta.parsed_output) {
-        throw new UnprocessableEntityException(
-          'La respuesta de la IA llegó incompleta. Vuelve a intentarlo.',
-        );
-      }
-      return respuesta.parsed_output as RespuestaDelSeguimiento;
-    } catch (error) {
-      if (error instanceof UnprocessableEntityException) throw error;
-      if (esFallaDeLaCuenta(error)) {
-        this.logger.error(`la cuenta de Anthropic falló: ${mensajeDe(error)}`);
-        throw new ServiceUnavailableException(
-          'La IA no está disponible ahora (cuenta de Anthropic sin cupo o con la llave mala). Prueba en un rato.',
-        );
-      }
-      this.logger.error(`la IA falló: ${mensajeDe(error)}`);
-      throw new ServiceUnavailableException(
-        'La IA no respondió. Vuelve a intentarlo en un rato.',
-      );
-    }
+  private preguntar(mensaje: string, uso: Uso) {
+    return preguntarALaIA(
+      this.cliente(),
+      this.modelo,
+      this.logger,
+      mensaje,
+      uso,
+    );
   }
 }
