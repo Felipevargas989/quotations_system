@@ -2781,6 +2781,40 @@ laboratorio y su archivo salió del repo; el número 201 queda sin usar.
 En el laboratorio y **en producción desde el 10-11-2026** (PR #350; sin
 migración).
 
+### 9.47 La caja cerrada, con su check (10-11)
+
+Felipe, la noche del 10-11, después del primer cierre de caja de producción
+(21:00): *"cuando Recepción cerró la caja, se envió el correo, pero quedó
+pegada la pantalla de la recepcionista… ¿podemos generar un check, ojalá con
+movimiento, que diga la caja fue correctamente cerrada?"*
+
+**Lo medido (registro del motor en Railway):** `POST /facturacion/caja/cerrar`
+respondió 201 en medio segundo, el correo del cierre salió y no hubo ningún
+error; después de eso el computador de recepción no pidió nada más. La
+pantalla no se colgó: el aviso era una línea azul chica («Caja cerrada a las
+21:00…») y debajo volvía a aparecer «Abrir la caja de recepción», así que
+parecía que no había pasado nada.
+
+**Lo que cambió (solo pantalla; la maqueta, aprobada: *"sí, hazlo así"*):**
+
+- Al cerrar, `CajaCerrada` (pieza nueva): una tarjeta blanca con un check
+  verde que se dibuja una vez (el círculo, el visto y el texto; con
+  «movimiento reducido» sale completo, sin animación), «La caja fue cerrada
+  correctamente», «Cerró {quien} · {hora}» y «La revisa el administrador.».
+  Sin montos: el cierre sigue ciego.
+- El formulario «Abrir la caja de recepción» ya no aparece solo después de
+  cerrar: sale con «Abrir una caja nueva». Al entrar a la pestaña sin caja
+  abierta (la mañana siguiente) se ve como siempre.
+- De paso, al cerrar se descarta la consulta de la caja que viniera en
+  camino (la que parte sola al volver a la ventana; esa noche partió 56 ms
+  antes del cierre): no puede traer de vuelta la caja «abierta».
+- Las animaciones (`caja-aparece`, `caja-trazo`, `caja-texto`) viven en
+  `frontend/tailwind.config.js`, con las de BelIA.
+- **La prueba:** «el cierre ciego…» de `CajaDeRecepcion.test.tsx`.
+
+En el laboratorio desde el 10-11-2026. Producción espera el «a producción»
+de Felipe (sin migración; solo la vitrina).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
