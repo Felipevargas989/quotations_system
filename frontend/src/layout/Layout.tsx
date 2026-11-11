@@ -302,7 +302,11 @@ export default function Layout() {
           )}
 
           {/* Main content */}
-          <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
+          {/* pb-28: el botón de BelIA flota abajo a la derecha (bottom-6,
+              ~4 rem); con este espacio, la última fila de cualquier lista
+              queda arriba de él y no debajo (Felipe, 10-11-2026: «BelIA me
+              molesta para pinchar los detalles»). */}
+          <main className="flex-1 pt-6 pb-28 px-4 sm:px-6 lg:px-8">
             <Outlet />
           </main>
         </div>
