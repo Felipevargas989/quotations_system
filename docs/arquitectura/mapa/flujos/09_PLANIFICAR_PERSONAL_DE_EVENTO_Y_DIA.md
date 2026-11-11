@@ -274,7 +274,7 @@ sequenceDiagram
 - **La banda de planta solo administra a su gente y su cargo; para traer a alguien está Personal Staff** (15-08). Evidencia: `soloPlantaDeEsteCargo`.
 - **Verde solo con todos puestos y todos confirmados** (15-08: *"Dos nombres puestos que no han confirmado no son un día resuelto"*). Evidencia: `renderCelda` en `SemanaTab`.
 - **El horario llega puesto, en escalera:** lo escrito para el día manda sobre el horario de ese día de la semana, que manda sobre el horario único de la ficha, que manda sobre el estándar de la casa (09:00 a 19:00 con una hora de colación). Evidencia: `horarioDelDia` (motor) y su gemelo `horarioHabitual` (`MiniCalendario.tsx`).
-- **La semana laboral suma solo las jornadas planta, estén donde estén** (04-09). Evidencia: `resumenSemanaDePlanta` en `AdvertenciaHorasSemana.tsx`.
+- **La semana laboral suma solo las jornadas planta de la planificación** (04-09; corregido el 10-11-2026). La fila de planta que la liquidación trae a un evento no suma, porque repite el turno del día de staff (a Sofía le daba 128 h en una semana de 51). Evidencia: `resumenSemanaDePlanta` (con `esPlanificacion`) en `AdvertenciaHorasSemana.tsx`, y su prueba.
 - **La casilla es una lista de agregado: el último puesto va al final** (25-08). Evidencia: `puesto_en`, migración 90.
 - **En nómina no hay vuelta atrás** (24-08). Evidencia: `removeStaff` rechaza filas con `payroll_id` o `tip_payroll_id`.
 - **Sacar a alguien con propina deshace el reparto** (16-08) **y si se va del evento se va del pozo del día** (24-08). Evidencia: `removeStaff`.
