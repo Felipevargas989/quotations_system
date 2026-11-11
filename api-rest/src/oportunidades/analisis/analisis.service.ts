@@ -366,8 +366,8 @@ export class AnalisisService {
     if (leibles.length === 0) {
       throw new BadRequestException(
         archivos.length === 0
-          ? 'Sube primero las bases (PDF o Word).'
-          : 'Ninguno de los archivos se puede leer: sube las bases en PDF o Word.',
+          ? 'Sube primero las bases (PDF, Word o Excel).'
+          : 'Ninguno de los archivos se puede leer: sube las bases en PDF, Word o Excel.',
       );
     }
     if (pesoDePdf(leibles) > MAX_BYTES_DE_BASES) {

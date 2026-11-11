@@ -412,7 +412,8 @@ describe('ValidacionService — pedir', () => {
           no_leidos: [
             {
               nombre: 'Patente.jpg',
-              motivo: 'la IA lee PDF y Word: súbelo en PDF para que lo revise',
+              motivo:
+                'la IA lee PDF, Word y Excel: súbelo en PDF para que lo revise',
             },
           ],
         }),
