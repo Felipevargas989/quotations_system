@@ -11,6 +11,7 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { FacturasAprobadasService } from '../aprobadas/facturas-aprobadas.service';
 import { PorFacturarService } from './por-facturar.service';
 
 // «Por facturar» de la sección Facturación (doc 19 §9.21): los eventos
@@ -24,13 +25,22 @@ import { PorFacturarService } from './por-facturar.service';
 @Derecho('facturacion')
 @Controller('facturacion/por-facturar')
 export class PorFacturarController {
-  constructor(private readonly facturas: PorFacturarService) {}
+  constructor(
+    private readonly facturas: PorFacturarService,
+    private readonly aprobadas: FacturasAprobadasService,
+  ) {}
 
+  /** Con lo aprobado que espera (§9.48): la fila dice «Aprobada» y la
+   *  revisión lo abre ya aprobado. */
   @Permiso('facturacion_eventos')
   @Get()
   @Roles(...OPERATIONS_AND_UP)
-  porFacturar(@CurrentUser() user: User) {
-    return this.facturas.porFacturar(user.company_id);
+  async porFacturar(@CurrentUser() user: User) {
+    const [lista, aprobadas] = await Promise.all([
+      this.facturas.porFacturar(user.company_id),
+      this.aprobadas.lista(user.company_id),
+    ]);
+    return { ...lista, aprobadas };
   }
 
   /** La primera lectura de las OC (doc 19 §9.26): BelIA lee las de

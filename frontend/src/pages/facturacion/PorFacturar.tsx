@@ -17,6 +17,7 @@ import {
   type EstadoDeLaFacturacion,
   type EventoFacturadoFuera,
   type EventoPorFacturar,
+  type FacturaAprobada,
   type OcSinLeer,
 } from "../../services/facturas.service";
 import { humanizeApiError } from "../../utils/apiErrors";
@@ -25,6 +26,7 @@ import { fechaCorta } from "../../utils/ordenesDeCompra";
 import { formatearRut } from "../../utils/rut";
 import { matchesSearch } from "../../utils/searchMatch";
 import { LLAVE_POR_FACTURAR, usePorFacturar } from "./consultas";
+import { aprobadasDe, porClave } from "./revisables";
 import RevisionDeLaFacturacion from "./RevisionDeLaFacturacion";
 
 // «POR FACTURAR» (doc 19 §9.21). Felipe, 06-11: *"los eventos que no se
@@ -34,6 +36,10 @@ import RevisionDeLaFacturacion from "./RevisionDeLaFacturacion";
 // que queda. Desde el 07-11 (§9.23) es el único lugar donde se factura un
 // evento, y lo ve y lo emite quien tiene «Facturar eventos» (operaciones y
 // el administrador, de fábrica).
+// Desde el 11-11 (§9.48) lo aprobado en la revisión queda guardado: la fila
+// dice «Aprobada», con quién y cuándo, y al entrar de nuevo a «Facturar
+// seleccionados» viene aprobada, lista para facturar. Sin botón aparte
+// (Felipe: *"no sé si le metería otro botón (…) es complejizar más esto"*).
 //
 // Lo ya facturado fuera de Eventia (§9.24; Felipe, 07-11: *"yo te puedo dar
 // el check de lo que ya está facturado"*): «Ya está facturado» saca el
@@ -87,16 +93,43 @@ function ChipDeFacturacion({
   );
 }
 
+/**
+ * El estado de la fila (§9.48): con algo aprobado y guardado, «Aprobada» en
+ * verde con quién y cuándo debajo (y «1 de 3» si el evento va en una
+ * factura por OC y faltan); si no, pendiente o parcial como siempre.
+ */
+function EstadoDeLaFila({
+  evento,
+  guardadas,
+}: {
+  readonly evento: EventoPorFacturar;
+  readonly guardadas: ReadonlyMap<string, FacturaAprobada>;
+}) {
+  const { aprobadas, de } = aprobadasDe(evento, guardadas);
+  const ultima = aprobadas[aprobadas.length - 1];
+  if (!ultima)
+    return <ChipDeFacturacion estado={evento.facturacion ?? "pendiente"} />;
+  return (
+    <>
+      <span className="inline-block whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+        Aprobada
+      </span>
+      <span className="block whitespace-nowrap text-xs text-gray-500">
+        {aprobadas.length < de ? `${aprobadas.length} de ${de} · ` : ""}
+        {ultima.aprobada_por_nombre.split(" ")[0]} ·{" "}
+        {formatMomento(ultima.aprobada_en, "diaMes")}
+      </span>
+    </>
+  );
+}
+
 /** El RUT como se escriba: con puntos, sin puntos o solo los números. */
 const formasDelRut = (rut: string | null | undefined) =>
   rut ? [rut, formatearRut(rut), rut.replace(/[^0-9kK]/g, "")] : [];
 
 /** El buscador amplio (§9.31), con el criterio de todos los buscadores
  *  (`matchesSearch`: sin tildes, por palabras, en cualquier orden). */
-const coincide = (
-  e: EventoPorFacturar,
-  texto: string,
-): boolean =>
+const coincide = (e: EventoPorFacturar, texto: string): boolean =>
   matchesSearch(
     texto,
     `#${e.numero}`,
@@ -125,6 +158,9 @@ export default function PorFacturar() {
   const eventos = lista.data?.eventos ?? [];
   const facturados = lista.data?.facturados ?? [];
   const fuera = lista.data?.facturados_fuera ?? [];
+  // §9.48: lo aprobado que espera, por lo que se revisa de cada evento.
+  const aprobadas = lista.data?.aprobadas ?? [];
+  const guardadas = porClave(aprobadas);
   const visibles = eventos.filter((e) => coincide(e, buscar));
   const facturadosVisibles = facturados.filter((e) => coincide(e, buscar));
   const fueraVisibles = fuera.filter((e) => coincide(e, buscar));
@@ -205,7 +241,12 @@ export default function PorFacturar() {
         <RevisionDeLaFacturacion
           eventos={revision}
           noLeidas={noLeidas}
-          onCerrar={() => setRevision(null)}
+          aprobadas={aprobadas}
+          onCerrar={() => {
+            setRevision(null);
+            // Lo que se aprobó o corrigió adentro, a la vista en la lista.
+            recargar();
+          }}
           onEmitidos={() => {
             setMarcados(new Set());
             recargar();
@@ -340,7 +381,7 @@ export default function PorFacturar() {
                     {e.fecha ? fechaCorta(e.fecha) : "—"}
                   </td>
                   <td className="py-1.5 pr-2">
-                    <ChipDeFacturacion estado={e.facturacion ?? "pendiente"} />
+                    <EstadoDeLaFila evento={e} guardadas={guardadas} />
                     {e.facturacion === "parcial" && (
                       <span className="block whitespace-nowrap text-xs text-gray-500">
                         {pct(e.porcentaje_facturado ?? 0)} facturado

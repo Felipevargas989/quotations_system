@@ -17,7 +17,13 @@ import RevisionDeLaFacturacion from "./RevisionDeLaFacturacion";
 // revisar una por una (…) con la flecha arriba con un botón de corregir y
 // un botón de aprobar y luego al final pinchar el facturar todas"*).
 
-vi.mock("../../services/facturas.service", () => ({ emitirDte: vi.fn() }));
+vi.mock("../../services/facturas.service", () => ({
+  emitirDte: vi.fn(),
+  // §9.48: lo aprobado se guarda y lo guardado se revisa de nuevo al abrir.
+  guardarAprobada: vi.fn().mockResolvedValue({}),
+  quitarAprobada: vi.fn().mockResolvedValue(undefined),
+  revisarDte: vi.fn(),
+}));
 vi.mock("./revisarUnoParaLaMasiva", async (original) => ({
   ...(await original<typeof revisar>()),
   revisarUnoParaLaMasiva: vi.fn(),
@@ -61,6 +67,8 @@ const r = vi.mocked(revisar);
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  f.guardarAprobada.mockResolvedValue({} as facturas.FacturaAprobada);
+  f.quitarAprobada.mockResolvedValue(undefined);
 });
 
 const MONTOS_CORREGIDOS = {
@@ -177,9 +185,14 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(
       screen.getByText(/801 · Orden de compra · N° 4500123/),
     ).toBeInTheDocument();
-    // Aprobar pasa al siguiente.
+    // Aprobar pasa al siguiente, y la deja guardada (§9.48).
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
     expect(await screen.findByText("RAZON ev-502")).toBeInTheDocument();
+    expect(f.guardarAprobada).toHaveBeenCalledWith(
+      "ev-501",
+      null,
+      pedida("RAZON ev-501"),
+    );
     expect(screen.getByText("2 de 3 · 1 aprobada")).toBeInTheDocument();
     // La 502 se salta con la flecha, sin aprobarla; la 503 se aprueba.
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
@@ -427,5 +440,92 @@ describe("Facturar seleccionados: la revisión una por una", () => {
       await screen.findByText("No se emitió: se detuvo antes"),
     ).toBeInTheDocument();
     expect(f.emitirDte).toHaveBeenCalledTimes(1);
+  });
+  // §9.48 (Felipe, 11-11: *"ya revisé y dejé la facturación hecha (…) la
+  // próxima persona, cuando decida facturar, la factura está lista, llegar
+  // y pinchar no más"*).
+  const GUARDADA: facturas.FacturaAprobada = {
+    quotation_id: "ev-501",
+    oc_id: null,
+    pedida: pedida("GUARDADA SPA"),
+    aprobada_por_nombre: "Camila Soto",
+    aprobada_en: "2026-11-10T15:00:00Z",
+  };
+
+  it("lo aprobado otro día abre ya aprobado, con quién lo aprobó, listo para facturar (§9.48)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("LO DE BELIA"),
+      vista: vista(true),
+    });
+    f.revisarDte.mockResolvedValue(vista(true));
+    f.emitirDte.mockResolvedValue(emitida(51));
+    const onEmitidos = abrir([evento(501)], { aprobadas: [GUARDADA] });
+    // El documento es el guardado, no lo que BelIA armaría hoy.
+    expect(await screen.findByText("GUARDADA SPA")).toBeInTheDocument();
+    expect(screen.queryByText("LO DE BELIA")).toBeNull();
+    // El motor lo revisó de nuevo con lo guardado.
+    expect(f.revisarDte).toHaveBeenCalledWith("ev-501", GUARDADA.pedida);
+    expect(screen.getByText(/1 de 1 · 1 aprobada/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/esta, aprobada por Camila Soto el 10 nov/),
+    ).toBeInTheDocument();
+    expect(f.guardarAprobada).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Facturar la aprobada · $595.000" }),
+    );
+    await waitFor(() => expect(onEmitidos).toHaveBeenCalled());
+    expect(f.emitirDte).toHaveBeenCalledWith("ev-501", GUARDADA.pedida);
+  });
+
+  it("una guardada que ya no está lista vuelve sin aprobar y dice qué le falta (§9.48)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("LO DE BELIA"),
+      vista: vista(true),
+    });
+    f.revisarDte.mockResolvedValue(vista(false));
+    abrir([evento(501)], { aprobadas: [GUARDADA] });
+    expect(await screen.findByText("GUARDADA SPA")).toBeInTheDocument();
+    expect(screen.getByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Facturar las 0 aprobadas" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aprobar" })).toBeDisabled();
+  });
+
+  it("«Corregir» una guardada la saca de lo guardado; aprobarla de nuevo guarda lo corregido (§9.48)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("LO DE BELIA"),
+      vista: vista(true),
+    });
+    f.revisarDte.mockResolvedValue(vista(true));
+    abrir([evento(501)], { aprobadas: [GUARDADA] });
+    await screen.findByText("GUARDADA SPA");
+    fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
+    expect(f.quitarAprobada).toHaveBeenCalledWith("ev-501", null);
+    fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    expect(f.guardarAprobada).toHaveBeenCalledWith(
+      "ev-501",
+      null,
+      expect.objectContaining({
+        receptor: expect.objectContaining({ razon_social: "CORREGIDA SPA" }),
+      }),
+    );
+  });
+
+  it("si la aprobación no se pudo guardar, lo dice y queda sin aprobar (§9.48)", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("RAZON"),
+      vista: vista(true),
+    });
+    f.guardarAprobada.mockRejectedValue(new Error("sin conexión"));
+    abrir([evento(501)]);
+    await screen.findByText("RAZON");
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    expect(await screen.findByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
   });
 });
