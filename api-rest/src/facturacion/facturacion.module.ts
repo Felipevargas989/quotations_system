@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
 import { EmailModule } from 'src/email/email.module';
 import { QuotationFollowupsModule } from 'src/quotation-followups/quotation-followups.module';
+import { FacturasAprobadasController } from './aprobadas/facturas-aprobadas.controller';
+import { FacturasAprobadasRepository } from './aprobadas/facturas-aprobadas.repository';
+import { FacturasAprobadasService } from './aprobadas/facturas-aprobadas.service';
 import { BoletasController } from './boletas/boletas.controller';
 import { BoletasRepository } from './boletas/boletas.repository';
 import { BoletasService } from './boletas/boletas.service';
@@ -59,12 +62,16 @@ import { SolicitudesService } from './solicitudes/solicitudes.service';
     CajaController,
     // Las solicitudes de recepción (doc 19 §9.45).
     SolicitudesController,
+    // Las facturas aprobadas que esperan (doc 19 §9.48).
+    FacturasAprobadasController,
   ],
   providers: [
     CajaService,
     CajaRepository,
     SolicitudesService,
     SolicitudesRepository,
+    FacturasAprobadasService,
+    FacturasAprobadasRepository,
     OrdenesDeCompraService,
     OrdenesDeCompraRepository,
     LeerOrdenDeCompraService,

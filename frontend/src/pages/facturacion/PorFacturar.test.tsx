@@ -20,6 +20,7 @@ import PorFacturar from "./PorFacturar";
 let eventos: unknown[] = [];
 let fuera: unknown[] = [];
 let facturados: unknown[] = [];
+let aprobadas: unknown[] = [];
 vi.mock("./consultas", () => ({
   LLAVE_POR_FACTURAR: ["facturacion", "por-facturar"],
   usePorFacturar: () => ({
@@ -31,6 +32,7 @@ vi.mock("./consultas", () => ({
       eventos,
       facturados,
       facturados_fuera: fuera,
+      aprobadas,
     },
   }),
 }));
@@ -51,12 +53,15 @@ vi.mock("./RevisionDeLaFacturacion", () => ({
   default: ({
     eventos,
     noLeidas,
+    aprobadas: guardadas = [],
   }: {
     eventos: { numero: number }[];
     noLeidas: { nombre: string }[];
+    aprobadas?: unknown[];
   }) => (
     <p>
       revisar: {eventos.map((e) => e.numero).join(", ")}
+      {guardadas.length ? ` · guardadas: ${guardadas.length}` : ""}
       {noLeidas.length
         ? ` · no leídas: ${noLeidas.map((n) => n.nombre).join(", ")}`
         : ""}
@@ -69,6 +74,7 @@ afterEach(() => {
   eventos = [];
   fuera = [];
   facturados = [];
+  aprobadas = [];
   vi.clearAllMocks();
 });
 
@@ -244,9 +250,7 @@ describe("Por facturar", () => {
       screen.getByText(/BelIA está leyendo 2 órdenes de compra/),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(
-        screen.queryByText(/BelIA está leyendo/),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByText(/BelIA está leyendo/)).not.toBeInTheDocument(),
     );
     expect(leerOrdenesPendientes).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("checkbox", { name: "Marcar el #473" }));
@@ -309,7 +313,13 @@ describe("Por facturar", () => {
           },
         ],
       },
-      { ...EVENTO, id: "ev-502", numero: 502, cliente: "Linde", contacto: "Juan Soto" },
+      {
+        ...EVENTO,
+        id: "ev-502",
+        numero: 502,
+        cliente: "Linde",
+        contacto: "Juan Soto",
+      },
     ];
     abrir();
     const buscar = (texto: string) =>
@@ -356,5 +366,63 @@ describe("Por facturar", () => {
     await waitFor(() =>
       expect(devolverAPorFacturar).toHaveBeenCalledWith("ev-473"),
     );
+  });
+  it("lo aprobado que espera: la fila dice «Aprobada», con quién y cuándo, y la revisión lo recibe (§9.48)", () => {
+    eventos = [
+      EVENTO,
+      {
+        ...EVENTO,
+        id: "ev-480",
+        numero: 480,
+        // Va en una factura por OC, y solo una de las dos está aprobada.
+        ordenes: [
+          {
+            id: 7,
+            numero: "OC-7",
+            total: 500000,
+            facturado: 0,
+            queda: 500000,
+            estado: "pendiente",
+          },
+          {
+            id: 8,
+            numero: "OC-8",
+            total: 745000,
+            facturado: 0,
+            queda: 745000,
+            estado: "pendiente",
+          },
+        ],
+      },
+      { ...EVENTO, id: "ev-490", numero: 490 },
+    ];
+    aprobadas = [
+      {
+        quotation_id: "ev-473",
+        oc_id: null,
+        pedida: {},
+        aprobada_por_nombre: "Camila Soto",
+        aprobada_en: "2026-11-10T15:00:00Z",
+      },
+      {
+        quotation_id: "ev-480",
+        oc_id: 8,
+        pedida: {},
+        aprobada_por_nombre: "Felipe Vargas",
+        aprobada_en: "2026-11-11T15:00:00Z",
+      },
+    ];
+    abrir();
+    expect(screen.getAllByText("Aprobada")).toHaveLength(2);
+    expect(screen.getByText("Camila · 10 nov.")).toBeInTheDocument();
+    expect(screen.getByText("1 de 2 · Felipe · 11 nov.")).toBeInTheDocument();
+    // El que no tiene nada aprobado, como siempre.
+    expect(screen.getAllByText("Pendiente")).toHaveLength(1);
+    // Sin botón aparte: se marca y se entra por «Facturar seleccionados».
+    fireEvent.click(screen.getByLabelText("Marcar el #473"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Facturar seleccionados/ }),
+    );
+    expect(screen.getByText("revisar: 473 · guardadas: 2")).toBeInTheDocument();
   });
 });
