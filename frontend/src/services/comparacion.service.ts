@@ -31,10 +31,19 @@ export interface IncumplimientoGrave {
 }
 
 export interface OferenteComparado {
+  /** El número de su oferta, desde 1; la 1 es la de la empresa. Las
+   *  comparaciones de antes de la decisión 125 no lo traen. */
+  oferta?: number;
+  /** Como aparece en su oferta (su razón social). */
   nombre: string;
+  /** Como se llama en «La competencia»: el nombre corto, para mostrar. */
+  corto?: string;
   es_tuya: boolean;
+  /** Lo que ofertó en esa línea. */
   precio: string;
   cumple_bases: "si" | "no" | "dudoso";
+  /** Su estado en pocas palabras, para debajo del chip (decisión 125). */
+  en_corto?: string;
   por_que: string;
   /** Desde la decisión 59 (20-10); las comparaciones de antes no lo traen. */
   graves?: IncumplimientoGrave[];
@@ -50,12 +59,49 @@ export interface OferenteComparado {
   puntaje: number;
 }
 
+/** Una línea de la licitación (decisión 125, 11-11): una competencia
+ *  aparte, solo con quienes postularon a ella. Felipe, con la 5040-14-LE26:
+ *  "recuerda que son dos líneas que se podrían postular de forma
+ *  independiente". Sin líneas, o en una comparación de antes, va una sola
+ *  con el nombre vacío. */
+export interface LineaComparada {
+  nombre: string;
+  /** El monto disponible de la línea, si las bases lo dicen. */
+  tope: string;
+  /** La empresa postuló a esta línea. */
+  compites: boolean;
+  /** De qué depende quién gana, en una frase. */
+  que_lo_decide: string;
+  ganador_probable: string;
+  oferentes: OferenteComparado[];
+  /** Quién gana si la comisión acepta todas las ofertas (el `nombre`). */
+  si_aceptan_todo: string | null;
+  /** Quién gana si deja fuera lo que no cumple a la letra; null si nadie. */
+  a_la_letra: string | null;
+}
+
+/** Lo que el motor leyó de una oferta (decisión 125). */
+export interface LecturaDeUnaOferta {
+  oferta: number;
+  nombre: string;
+  es_tuya: boolean;
+  leidos: number;
+  total: number;
+  sin_leer: Array<{ nombre: string; motivo: string }>;
+  /** Están en Mercado Público, pero no llegaron (los comprimidos). */
+  sin_traer: Array<{ nombre: string; motivo: string }>;
+}
+
 export interface ComparacionDeOfertas {
   resumen: string;
-  ganador_probable: string;
   criterios: Array<{ nombre: string; peso: number }>;
-  oferentes: OferenteComparado[];
+  /** El motor las entrega siempre, también para una comparación de antes. */
+  lineas: LineaComparada[];
+  lectura?: LecturaDeUnaOferta[];
   para_la_proxima: string[];
+  /** Los de la línea principal: lo que leían las pantallas de antes. */
+  ganador_probable: string;
+  oferentes: OferenteComparado[];
 }
 
 export interface TrabajoDeComparacion

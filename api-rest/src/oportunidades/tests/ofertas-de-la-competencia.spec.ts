@@ -219,13 +219,23 @@ function armar() {
   const oferente = {
     oferente: jest.fn().mockResolvedValue({ rut: '77701305-k' }),
   };
-  const servicio = new OfertasDeLaCompetenciaService(
+  const servicio = new SinEsperas(
     resultados as unknown as ResultadosRepository,
     adjuntos as unknown as AdjuntosRepository,
     oferente as unknown as OferenteRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
   return { resultados, adjuntos, oferente, servicio };
+}
+
+/** «Traer y comparar» espera la vuelta en curso de a 2 segundos: aquí, de a
+ *  una pasada del reloj, y avisa cada vez. */
+class SinEsperas extends OfertasDeLaCompetenciaService {
+  alEsperar: () => void = () => undefined;
+  protected pausa(): Promise<void> {
+    this.alEsperar();
+    return new Promise((listo) => setImmediate(listo));
+  }
 }
 
 const enUnRato = () => Date.now() + 60_000;
@@ -305,6 +315,77 @@ const alTerminar = async (servicio: OfertasDeLaCompetenciaService, id = 84) => {
 const bajadas = (pedidos: string[]) =>
   pedidos.filter((p) => p === 'POST ViewBidAttachment.aspx').length;
 
+describe('«Traer y comparar»: traer y esperar (decisión 125)', () => {
+  it('espera a que termine y devuelve cómo terminó, con lo que no se trae por su nombre', async () => {
+    const { adjuntos, servicio } = armar();
+    const vuelta = await servicio.traerAhora(1, 84, mercadoPublico().pedir);
+    expect(vuelta).toEqual({
+      terminada_en: expect.any(String),
+      error: null,
+      resultado: expect.objectContaining({
+        traidos: 3,
+        sinTraer: [
+          {
+            oferente: 'Sol de Quillón',
+            nombre: 'TODA LA DOCUMENTACION.rar',
+            motivo: 'viene comprimido',
+          },
+        ],
+      }),
+    });
+    expect(adjuntos.guardar).toHaveBeenCalledTimes(3);
+    // Ya terminó: la pantalla lo ve igual que con «Traer las ofertas».
+    expect(servicio.estado(1, 84)).toEqual({ trayendo: false, ultima: vuelta });
+  });
+
+  it('si no hay qué traer (no es de la empresa, es compra ágil o falta el RUT), null y sin preguntarle a Mercado Público', async () => {
+    const { resultados, oferente, servicio } = armar();
+    const pedir = jest.fn<ReturnType<Pedir>, Parameters<Pedir>>();
+    resultados.procesoDe.mockResolvedValueOnce(null);
+    await expect(servicio.traerAhora(1, 84, pedir)).resolves.toBeNull();
+    resultados.procesoDe.mockResolvedValueOnce({
+      id: 84,
+      codigo: '1346350-37-COT26',
+      tipo: 'compra_agil',
+    });
+    await expect(servicio.traerAhora(1, 84, pedir)).resolves.toBeNull();
+    oferente.oferente.mockResolvedValueOnce({ rut: '' });
+    await expect(servicio.traerAhora(1, 84, pedir)).resolves.toBeNull();
+    expect(pedir).not.toHaveBeenCalled();
+  });
+
+  it('si Mercado Público está caído no lanza: devuelve el porqué', async () => {
+    const { servicio } = armar();
+    const caido: Pedir = () =>
+      Promise.resolve(new Response('caído', { status: 503 }));
+    await expect(servicio.traerAhora(1, 84, caido)).resolves.toEqual({
+      terminada_en: expect.any(String),
+      error: expect.stringContaining('Mercado Público respondió 503'),
+      resultado: null,
+    });
+  });
+
+  it('si ya se están trayendo, espera esa vuelta en vez de largar otra', async () => {
+    const { adjuntos, servicio } = armar();
+    const mp = mercadoPublico();
+    let soltar: () => void = () => undefined;
+    const espera = new Promise<void>((listo) => {
+      soltar = listo;
+    });
+    const lento: Pedir = async (url, init) => {
+      await espera;
+      return mp.pedir(url, init);
+    };
+    await servicio.traerAPedido(1, 84, lento);
+    // Mientras espera, la otra vuelta avanza.
+    servicio.alEsperar = soltar;
+    const vuelta = await servicio.traerAhora(1, 84, mp.pedir);
+    expect(vuelta?.resultado?.traidos).toBe(3);
+    expect(adjuntos.guardar).toHaveBeenCalledTimes(3);
+    expect(servicio.estado(1, 84).trayendo).toBe(false);
+  });
+});
+
 describe('«Traer las ofertas», a pedido (decisión 123)', () => {
   it('trae las de una licitación sin esperar el resultado: responde al tiro, sigue por detrás y deja dicho cómo terminó', async () => {
     const { resultados, adjuntos, servicio } = armar();
@@ -339,8 +420,16 @@ describe('«Traer las ofertas», a pedido (decisión 123)', () => {
           oferentes: 1,
           traidos: 3,
           yaEstaban: 0,
-          // El .rar: los comprimidos no se traen.
+          // El .rar: los comprimidos no se traen; queda por su nombre, para
+          // que la comparación sepa que existe (decisión 125).
           noSeTraen: 1,
+          sinTraer: [
+            {
+              oferente: 'Sol de Quillón',
+              nombre: 'TODA LA DOCUMENTACION.rar',
+              motivo: 'viene comprimido',
+            },
+          ],
           incompleto: false,
         },
       },
@@ -386,6 +475,13 @@ describe('«Traer las ofertas», a pedido (decisión 123)', () => {
       traidos: 1,
       yaEstaban: 2,
       noSeTraen: 1,
+      sinTraer: [
+        {
+          oferente: 'Sol de Quillón',
+          nombre: 'TODA LA DOCUMENTACION.rar',
+          motivo: 'viene comprimido',
+        },
+      ],
       incompleto: false,
     });
   });
@@ -473,6 +569,7 @@ describe('«Traer las ofertas», a pedido (decisión 123)', () => {
         traidos: 0,
         yaEstaban: 0,
         noSeTraen: 0,
+        sinTraer: [],
         incompleto: false,
       },
     });
