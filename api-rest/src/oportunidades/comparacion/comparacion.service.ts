@@ -50,6 +50,8 @@ import {
   comoSeLee,
   laOfertaPropia,
   MAX_BYTES_DE_IMAGEN,
+  MAX_BYTES_DE_LAS_IMAGENES,
+  MAX_IMAGENES_DE_LA_COMPARACION,
   MAX_PAGINAS_DE_LA_COMPARACION,
   MAX_PAGINAS_DE_LAS_BASES,
   nivelDe,
@@ -93,6 +95,10 @@ export const QUE_SE_COMPARA = new Set([
 
 const NO_CUPO = `no cupo: la comparación lee hasta ${MAX_PAGINAS_DE_LA_COMPARACION} páginas`;
 const NO_CUPO_EN_LAS_BASES = `no cupo: de las bases se leen hasta ${MAX_PAGINAS_DE_LAS_BASES} páginas`;
+const NO_CUPO_DE_IMAGENES = `no cupo: la comparación lee hasta ${MAX_IMAGENES_DE_LA_COMPARACION} imágenes, ${MAX_BYTES_DE_LAS_IMAGENES / 1024 / 1024} MB entre todas`;
+
+/** Las imágenes que ya van en el pedido: cuántas y cuánto pesan. */
+type CupoDeImagenes = { cuantas: number; bytes: number };
 
 type Bloque =
   | Anthropic.TextBlockParam
@@ -435,15 +441,22 @@ export class ComparacionService {
   }
 
   /** Baja y prepara un archivo para la IA, si cabe en las páginas que
-   *  quedan; si no, dice por qué no. */
+   *  quedan (y, una imagen, en el cupo de imágenes); si no, dice por qué no. */
   private async unArchivo(
     a: { nombre: string; ruta: string; titulo?: string },
     quedan: number,
     noCupo: string,
+    imagenes: CupoDeImagenes,
   ): Promise<{ bloques: Bloque[]; paginas: number } | { motivo: string }> {
     const como = comoSeLee(a.nombre);
     if (!como) return { motivo: 'la IA lee PDF, Word e imágenes' };
     if (quedan <= 0) return { motivo: noCupo };
+    if (
+      como.tipo === 'imagen' &&
+      imagenes.cuantas >= MAX_IMAGENES_DE_LA_COMPARACION
+    ) {
+      return { motivo: NO_CUPO_DE_IMAGENES };
+    }
     let datos: Buffer;
     try {
       datos = await this.repo.descargar(a.ruta);
@@ -475,6 +488,11 @@ export class ComparacionService {
       if (datos.length > MAX_BYTES_DE_IMAGEN) {
         return { motivo: 'la imagen pesa más de 4 MB' };
       }
+      if (imagenes.bytes + datos.length > MAX_BYTES_DE_LAS_IMAGENES) {
+        return { motivo: NO_CUPO_DE_IMAGENES };
+      }
+      imagenes.cuantas += 1;
+      imagenes.bytes += datos.length;
       return {
         paginas: 1,
         bloques: [
@@ -518,6 +536,7 @@ export class ComparacionService {
     sinTraer: Array<{ oferente: string; nombre: string; motivo: string }>,
   ) {
     let paginas = 0;
+    const imagenes: CupoDeImagenes = { cuantas: 0, bytes: 0 };
     const leidos: Array<{ id: number; nombre: string }> = [];
     const noLeidos: NoLeido[] = [];
 
@@ -532,6 +551,7 @@ export class ComparacionService {
         a,
         MAX_PAGINAS_DE_LAS_BASES - paginasDeLasBases,
         NO_CUPO_EN_LAS_BASES,
+        imagenes,
       );
       if ('motivo' in r) {
         noLeidos.push({ nombre: `Bases: ${a.nombre}`, motivo: r.motivo });
@@ -551,6 +571,7 @@ export class ComparacionService {
         archivo,
         MAX_PAGINAS_DE_LA_COMPARACION - paginas,
         NO_CUPO,
+        imagenes,
       );
       if ('motivo' in r) {
         motivoDe.set(archivo, r.motivo);

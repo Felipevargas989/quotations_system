@@ -96,6 +96,13 @@ export const MAX_PAGINAS_DE_LAS_BASES = 100;
 /** Una foto va dentro del pedido: la API no recibe más de 5 MB por imagen. */
 export const MAX_BYTES_DE_IMAGEN = 4 * 1024 * 1024;
 
+/** Las fotos de una comparación tienen su propio cupo, entre todas las
+ *  ofertas. Con más de 20 imágenes en un pedido, la API rechaza el pedido
+ *  entero si alguna pasa de 3.000 px por lado (una foto de celular los pasa);
+ *  y cada foto queda en la memoria del motor hasta que la IA responde. */
+export const MAX_IMAGENES_DE_LA_COMPARACION = 20;
+export const MAX_BYTES_DE_LAS_IMAGENES = 15 * 1024 * 1024;
+
 const IMAGENES: Readonly<Record<string, string>> = {
   png: 'image/png',
   jpg: 'image/jpeg',
