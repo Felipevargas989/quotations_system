@@ -18,7 +18,7 @@ import LineaDeLaComparacion from "./LineaDeLaComparacion";
 import OfertasDeLaComparacion from "./OfertasDeLaComparacion";
 import Plegable from "./Plegable";
 import PorQuePerdimos from "./PorQuePerdimos";
-import { lineasEnOrden } from "./lineasDeLaComparacion";
+import { conLineas, lineasEnOrden } from "./lineasDeLaComparacion";
 import { textoDeCosto } from "./oportunidades.utils";
 import { claveDeLaCompetencia } from "./useTraerOfertas";
 
@@ -105,7 +105,10 @@ export default function ComparacionDeOfertas({
   }, [trabajo?.estado, dataUpdatedAt, oportunidadId, qc]);
 
   const procesando = trabajo?.estado === "procesando" || comparar.isPending;
-  const r = trabajo?.estado === "listo" ? trabajo.resultado : null;
+  const r =
+    trabajo?.estado === "listo" && trabajo.resultado
+      ? conLineas(trabajo.resultado)
+      : null;
   const porCompetidor = new Map<string, AdjuntoDeOportunidad[]>();
   for (const a of competencia) {
     const quien = a.competidor?.trim() || "Sin nombre";

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CASO, SIN_CAFE, TEXTUM_L1, VALLE } from "./comparacionDePrueba";
 import {
   aLaLetra,
+  conLineas,
   enOrden,
   lineasEnOrden,
   loQueLoDecide,
@@ -173,5 +174,28 @@ describe("Las líneas de la comparación", () => {
       ["Valle del Sol Quillon SPA", null],
       ["TEXTUM BURGOS Y ORTIZ LIMITADA", null],
     ]);
+  });
+
+  it("si responde un motor de antes, sin líneas, arma una sola con lo que trae: la pestaña no se cae", () => {
+    const deAntes = {
+      ...CASO,
+      lineas: undefined,
+      lectura: undefined,
+    } as unknown as typeof CASO;
+    const r = conLineas(deAntes);
+    expect(r.lineas).toHaveLength(1);
+    expect(r.lineas[0]).toMatchObject({
+      nombre: "",
+      compites: true,
+      ganador_probable: "TEXTUM BURGOS Y ORTIZ LIMITADA",
+      si_aceptan_todo: "TEXTUM BURGOS Y ORTIZ LIMITADA",
+      a_la_letra: "Valle del Sol Quillon SPA",
+    });
+    expect(r.lineas[0].oferentes).toBe(CASO.oferentes);
+    // Con líneas, pasa igual; sin oferentes, ninguna línea.
+    expect(conLineas(CASO)).toBe(CASO);
+    expect(
+      conLineas({ ...deAntes, oferentes: [] } as unknown as typeof CASO).lineas,
+    ).toEqual([]);
   });
 });

@@ -124,6 +124,45 @@ export function loQueLoDecide(l: LineaComparada): {
   return texto ? { texto, de, grave } : null;
 }
 
+const elMejor = (xs: OferenteComparado[]): OferenteComparado | null =>
+  xs.reduce<OferenteComparado | null>(
+    (mejor, o) =>
+      !mejor ||
+      o.puntaje > mejor.puntaje ||
+      (o.puntaje === mejor.puntaje && o.probabilidad > mejor.probabilidad)
+        ? o
+        : mejor,
+    null,
+  );
+
+/** El motor entrega siempre las líneas (`conLineas`, decisión 125). Por si
+ *  responde uno de antes (un despliegue a medias): con lo de antes, una sola
+ *  línea, igual que la arma el motor. Así la pestaña no se cae. */
+export function conLineas(r: ComparacionDeOfertas): ComparacionDeOfertas {
+  if (Array.isArray(r.lineas)) return r;
+  const oferentes = r.oferentes ?? [];
+  return {
+    ...r,
+    lineas:
+      oferentes.length === 0
+        ? []
+        : [
+            {
+              nombre: "",
+              tope: "",
+              compites: oferentes.some((o) => o.es_tuya),
+              que_lo_decide: "",
+              ganador_probable: r.ganador_probable ?? "",
+              oferentes,
+              si_aceptan_todo: elMejor(oferentes)?.nombre ?? null,
+              a_la_letra:
+                elMejor(oferentes.filter((o) => o.cumple_bases === "si"))
+                  ?.nombre ?? null,
+            },
+          ],
+  };
+}
+
 /** Primero las líneas en que compite la empresa. */
 export const lineasEnOrden = (r: ComparacionDeOfertas): LineaComparada[] => [
   ...r.lineas.filter((l) => l.compites),
