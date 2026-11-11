@@ -85,7 +85,10 @@ export const loQueCabe = (
   );
   for (const a of porPrioridad) {
     if (!esLeible(a.nombre)) {
-      fuera.set(a, 'la IA lee PDF y Word: súbelo en PDF para que lo revise');
+      fuera.set(
+        a,
+        'la IA lee PDF, Word y Excel: súbelo en PDF para que lo revise',
+      );
       continue;
     }
     if (extensionDe(a.nombre) !== 'pdf') continue;
