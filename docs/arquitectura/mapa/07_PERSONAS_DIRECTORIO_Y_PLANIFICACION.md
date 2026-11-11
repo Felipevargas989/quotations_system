@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. La silla vacía que toma el valor de su cargo (`utils/valor-del-cargo.ts`), al día el 04-11-2026. La sábana en tres secciones, todo evento del rango, el «+» antes y después, el seguro de Staff y el pago del día (doc 10 §5), al día el 09-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en la planificación.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. La silla vacía que toma el valor de su cargo (`utils/valor-del-cargo.ts`), al día el 04-11-2026. La sábana en tres secciones, todo evento del rango, el «+» antes y después, el seguro de Staff y el pago del día (doc 10 §5), al día el 09-11-2026. Las horas de la semana de planta sin la fila que la liquidación trae a un evento (doc 10 §11), al día el 10-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en la planificación.
 
 ## 1. Qué hace
 
@@ -236,7 +236,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - **Pasar a planta borra el monto**, salvo que venga uno en el mismo cambio: esa es la asignación extra (Felipe, 18-08). Evidencia: `updateStaff`.
 - **La jornada de planta no lleva monto**; la caja de monto solo aparece en freelance. Evidencia: `CasillaAbierta` (Felipe, 15-08).
 - **El tipo del día es una etiqueta, no un botón** (Felipe, 15-08: "tampoco se nota que se puede cambiar"). Evidencia: `CasillaAbierta`.
-- **La semana laboral y el reloj rojo.** Solo suman las jornadas `planta`, estén donde estén; el freelance es un acuerdo aparte. La marca queda en el día que causó el exceso (04-09). Evidencia: `resumenSemanaDePlanta` y `diasConExceso` en `AdvertenciaHorasSemana.tsx`.
+- **La semana laboral y el reloj rojo.** Solo suman las jornadas `planta` de la planificación; el freelance es un acuerdo aparte. La marca queda en el día que causó el exceso (04-09). Desde el 10-11-2026 tampoco suma la fila de planta que la liquidación trae a un evento, porque repite el turno del día de staff. La casilla de Planificación pasa las jornadas crudas y le daba a Sofía 128 h en una semana de 51; el cálculo filtra con `esPlanificacion`, como ya lo hacía la ficha. Evidencia: `resumenSemanaDePlanta` y `diasConExceso` en `AdvertenciaHorasSemana.tsx`; `AdvertenciaHorasSemana.test.ts`.
 - **El tope de 12 horas es informativo**: avisa, no frena. Evidencia: `HorarioDelDia` en `SemanaTab.tsx`.
 
 **Sillas y planificación**
@@ -329,6 +329,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 **App** (Vitest; corre en CI con `npm run test`):
 - `frontend/src/pages/personas/estadoDelPago.test.ts`: `esPlanificacion` en tres casos (staff, planta en evento, freelance en evento). El `estadoDelPago` del mismo archivo es del mapa 08.
 - `frontend/src/pages/personas/eventosDeLaSabana.test.ts` (09-11-2026): los días de un evento y sus 4 de antes y después, qué evento cae en el rango y cuáles nombra el seguro, y lo que cuesta el día (el caso del 29-10: staff $130.000, la planta en blanco).
+- `frontend/src/pages/personas/AdvertenciaHorasSemana.test.ts` (10-11-2026): `resumenSemanaDePlanta` y `diasConExceso` con la semana real de Sofía. La jornada definida da 42 h y la semana, 51 h; la planta que la liquidación trae a los eventos no suma (antes daba 128 h). Tampoco suman el freelance, la fila solo-propina ni el día que descansa. El reloj rojo marca solo su día libre trabajado, y una semana corta no se marca.
 - `frontend/src/components/inputs/RutInput.test.tsx` y `frontend/src/utils/rut.test.ts`: el campo de RUT y la CuentaRUT.
 - `frontend/src/utils/bancos.test.ts`: la lista de bancos.
 - `frontend/src/components/inputs/HoraInput.test.tsx`: normalizar y guardar la hora.
@@ -340,7 +341,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - `traerPlantaAlEvento`: que no duplique y que ignore a las dormidas.
 - `create`, `update` y `remove` de persona: `prepararDatos` (CuentaRUT), `limpiarNombre`, `errorDeRutRepetido`, el motivo que se borra al desbloquear y el rechazo por jornadas.
 - `proyectarPlanta`: el salto de los días con evento, la corrección de cargo y horario, y la limpieza del futuro de quien deja de ser planta o se desactiva.
-- Cálculos de horario y horas: `horarioDelDia` y su gemelo `horarioHabitual`, `esDiaExtra`, `resumenSemanaDePlanta` y `diasConExceso` (reloj rojo).
+- Cálculos de horario y horas: `horarioDelDia` y su gemelo `horarioHabitual`, y `esDiaExtra`. `resumenSemanaDePlanta` y `diasConExceso` tienen prueba desde el 10-11-2026.
 - `esPlanificacion` con `solo_propina` o con `ajuste='descansa'` (los nombres de sus pruebas no los mencionan).
 - Las pantallas `SemanaTab`, `CasillaAbierta`, `MiniCalendario` y `PersonaFichaPage`: el armado de filas y "necesita", la lista de disponibles, el cruce, el freno del monto y las filas provisorias.
 - `costoPersonalPorEvento`, las notas del día, `createReview`, el orden de rutas y la falta de roles del controller.
