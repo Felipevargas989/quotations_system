@@ -14,7 +14,8 @@ import { type ResultadoPublico, sinAdjudicarDe } from './resultado-compra-agil';
 const DIAS_DE_ESPERA = 45;
 
 /** Hasta cuántos días después de ganar o perder se intenta traer las
- *  ofertas de la competencia. */
+ *  ofertas de la competencia y, desde la decisión 128, el acta de
+ *  evaluación. */
 const DIAS_PARA_TRAER_OFERTAS = 7;
 
 export type PorResolver = {
@@ -151,6 +152,44 @@ export class ResultadosRepository {
     return licitaciones
       .filter((f) => !conCompetencia.has(f.id))
       .map((f) => ({ id: f.id, codigo: f.codigo }));
+  }
+
+  /** Las licitaciones de la empresa ganadas o perdidas en los últimos 7
+   *  días (por su última actualización) que ya tienen su acta de
+   *  adjudicación en Mercado Público (decisión 128: de ahí se trae sola el
+   *  acta de evaluación). Pocas. */
+  async resueltasConActa(
+    companyId: number,
+    ahora = Date.now(),
+  ): Promise<Array<{ id: number; codigo: string; url_acta: string }>> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('id, codigo, proceso:mp_procesos!inner(tipo, adjudicacion)')
+      .eq('company_id', companyId)
+      .in('estado', ['ganada', 'perdida'])
+      .gte(
+        'actualizado_en',
+        new Date(ahora - DIAS_PARA_TRAER_OFERTAS * 24 * 3600_000).toISOString(),
+      )
+      .limit(100);
+    if (error) throw error;
+    return (
+      (data ?? []) as unknown as Array<{
+        id: number;
+        codigo: string;
+        proceso: {
+          tipo: string;
+          adjudicacion: { url_acta?: unknown } | null;
+        } | null;
+      }>
+    ).flatMap((f) => {
+      const enlace = f.proceso?.adjudicacion?.url_acta;
+      return f.proceso?.tipo === 'licitacion' &&
+        typeof enlace === 'string' &&
+        enlace.trim()
+        ? [{ id: f.id, codigo: f.codigo, url_acta: enlace.trim() }]
+        : [];
+    });
   }
 
   /** Una oportunidad de la empresa, con su código y si es licitación o

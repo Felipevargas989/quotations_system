@@ -19,6 +19,7 @@ import { AprendizajesService } from './aprendizajes/aprendizajes.service';
 import { ComparacionController } from './comparacion/comparacion.controller';
 import { ComparacionService } from './comparacion/comparacion.service';
 import { PorQuePerdimosService } from './comparacion/por-que-perdimos.service';
+import { ReclamosService } from './comparacion/reclamos.service';
 import { ActasDeLaZonaService } from './competencia/actas.service';
 import { CompetenciaCronService } from './competencia/competencia-cron.service';
 import { CompetenciaController } from './competencia/competencia.controller';
@@ -114,6 +115,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     ResultadosDePostuladasService,
     OfertasDeLaCompetenciaService,
     PorQuePerdimosService,
+    ReclamosService,
     CompetenciaCronService,
     DatosAbiertosRepository,
     DatosAbiertosService,

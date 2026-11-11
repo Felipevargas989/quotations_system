@@ -160,5 +160,4 @@ export const IA: ComparacionDeLaIA = {
       ],
     },
   ],
-  para_la_proxima: ['Ajustar el precio: Textum ofertó $294.007 menos.'],
 };

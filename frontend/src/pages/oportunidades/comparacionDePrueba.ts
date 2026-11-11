@@ -20,7 +20,6 @@ const oferente = (
   en_corto: "",
   por_que: "",
   graves: [],
-  reclamo: null,
   notas: notas(100, 100),
   probabilidad: 0,
   fortalezas: [],
@@ -60,7 +59,6 @@ export const TEXTUM_L1 = oferente({
   en_corto: "Sin café en la colación",
   por_que: "La colación ofrece bebida en lata o jugo, sin café.",
   graves: [SIN_CAFE],
-  reclamo: "Señores\nILUSTRE MUNICIPALIDAD DE QUILLON\nPresente",
   probabilidad: 50,
   fortalezas: ["Menor precio de la línea"],
   debilidades: ["No dice qué recinto ofrece"],
@@ -178,7 +176,6 @@ export const CASO: ComparacionDeOfertas = {
       sin_traer: [],
     },
   ],
-  para_la_proxima: ["Ajustar el precio: Textum ofertó $294.007 menos."],
   ganador_probable: "TEXTUM BURGOS Y ORTIZ LIMITADA",
   oferentes: [VALLE, TEXTUM_L1],
 };

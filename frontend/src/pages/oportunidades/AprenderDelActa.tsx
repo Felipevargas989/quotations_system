@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GraduationCap, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+  Check,
+  GraduationCap,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import ConfirmInline from "../../components/ConfirmInline";
 import { toast } from "../../components/toast/Toast";
 import {
@@ -20,9 +27,16 @@ import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 // LO QUE APRENDEMOS DE LA COMISIÓN (decisión 60 del doc 17, 20-10). Felipe:
 // "las que vayamos licitando, vamos a ver si ganamos o perdemos, ir
 // revisando las actas de adjudicación e ir entrenando la IA para que vaya
-// afinando el ojo". Se sube el acta de evaluación y «Aprender del acta»
-// anota cómo decidió la comisión y si la comparación acertó. Esa base solo
-// la usa la comparación, para predecir: al postular mandan las bases.
+// afinando el ojo". «Aprender del acta» lee el acta de evaluación y anota
+// cómo decidió la comisión y si la comparación acertó. Esa base solo la usa
+// la comparación, para predecir: al postular mandan las bases.
+//
+// EL ACTA LLEGA SOLA (decisión 128, 11-11). Felipe: "subir el acta de
+// evaluación debería también ser automático". En una licitación, Eventia la
+// trae de la adjudicación publicada en Mercado Público y la lee: sola cuando
+// la empresa gana o pierde, o al apretar «Traer el acta y aprender». «Subir
+// el acta» queda para cuando el comprador no la adjuntó, y para las compras
+// ágiles, que no publican acta.
 
 const TIPO: Record<TipoDeDecision, { texto: string; clases: string }> = {
   estricta: { texto: "Estricta", clases: "bg-blue-50 text-blue-800" },
@@ -41,6 +55,10 @@ const PREDICCION = {
     clases: "text-gray-600",
   },
 } as const;
+
+/** «2026-11-20T15:40:00Z» → «20-11», en hora de Chile. */
+const diaYMes = (momento: string) =>
+  formatMomento(momento, "corto").slice(0, 5).replace("/", "-");
 
 const claveDelEstado = (id: number) => ["oportunidades", "aprendizajes", id];
 const claveDeLasActas = (id: number) => [
@@ -74,8 +92,12 @@ const Decision = ({
 
 export default function AprenderDelActa({
   oportunidadId,
+  actaPublicada = false,
 }: {
   readonly oportunidadId: number;
+  /** Mercado Público ya publicó la adjudicación con su acta: el acta de
+   *  evaluación se puede traer de ahí (decisión 128). */
+  readonly actaPublicada?: boolean;
 }) {
   const qc = useQueryClient();
   const elegir = useRef<HTMLInputElement>(null);
@@ -128,6 +150,21 @@ export default function AprenderDelActa({
   const r = trabajo?.estado === "listo" ? trabajo.resultado : null;
   const comision = estado?.comision ?? [];
 
+  // El acta puede llegar por detrás, mientras la IA trabaja: al terminar, la
+  // lista se pide de nuevo.
+  const veniaLeyendo = useRef(false);
+  useEffect(() => {
+    const lee = trabajo?.estado === "procesando";
+    if (veniaLeyendo.current && !lee) {
+      void qc.invalidateQueries({ queryKey: claveDeLasActas(oportunidadId) });
+    }
+    veniaLeyendo.current = lee;
+  }, [trabajo?.estado, oportunidadId, qc]);
+
+  // La que trajo Eventia no tiene quién la subió.
+  const llegoSola = actas.find((a) => !a.subido_por) ?? null;
+  const sePuedeAprender = actas.length > 0 || actaPublicada;
+
   return (
     <div className="border-t border-gray-100 pt-4 space-y-3">
       <div className="space-y-0.5">
@@ -135,12 +172,21 @@ export default function AprenderDelActa({
           <GraduationCap size={15} /> Lo que aprendemos de la comisión
         </h3>
         <p className="text-xs text-gray-500">
-          Cuando adjudiquen, sube el acta de evaluación (la bajas de Mercado
-          Público). La IA anota cómo decidió la comisión y si la comparación
-          acertó, y eso afina las próximas predicciones. Al postular, mandan las
-          bases.
+          Cuando adjudican, Eventia trae el acta de evaluación de Mercado
+          Público y la lee: cómo decidió la comisión y si la comparación acertó.
+          Afina las próximas predicciones; al postular, mandan las bases.
         </p>
       </div>
+
+      {llegoSola && (
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
+          <Check size={15} className="shrink-0" />
+          <span>
+            Acta de evaluación: llegó sola el {diaYMes(llegoSola.creado_en)}
+            {r ? " y ya se leyó" : ""}
+          </span>
+        </p>
+      )}
 
       {comision.length > 0 && (
         <details className="space-y-1">
@@ -195,9 +241,31 @@ export default function AprenderDelActa({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
+          onClick={() => aprender.mutate()}
+          disabled={procesando || !sePuedeAprender}
+          title={
+            sePuedeAprender
+              ? undefined
+              : "Todavía no hay acta: llega con la adjudicación, o súbela"
+          }
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          {procesando ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Sparkles size={14} />
+          )}
+          {r
+            ? "Volver a aprender"
+            : actas.length === 0 && actaPublicada
+              ? "Traer el acta y aprender"
+              : "Aprender del acta"}
+        </button>
+        <button
+          type="button"
           onClick={() => elegir.current?.click()}
           disabled={subir.isPending}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
           {subir.isPending ? (
             <Loader2 size={14} className="animate-spin" />
@@ -206,23 +274,11 @@ export default function AprenderDelActa({
           )}
           Subir el acta
         </button>
-        <button
-          type="button"
-          onClick={() => aprender.mutate()}
-          disabled={procesando || actas.length === 0}
-          title={actas.length === 0 ? "Sube primero el acta" : undefined}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {procesando ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Sparkles size={14} />
-          )}
-          {r ? "Volver a aprender" : "Aprender del acta"}
-        </button>
         {procesando && (
           <p className="text-sm text-gray-600">
-            La IA está leyendo el acta… suele tardar uno o dos minutos.
+            {actas.length === 0
+              ? "Trayendo el acta y leyéndola… suele tardar uno o dos minutos."
+              : "La IA está leyendo el acta… suele tardar uno o dos minutos."}
           </p>
         )}
         <input

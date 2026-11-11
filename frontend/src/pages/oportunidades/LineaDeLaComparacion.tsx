@@ -3,7 +3,6 @@ import type {
   LineaComparada,
   OferenteComparado,
 } from "../../services/comparacion.service";
-import { Reclamo } from "./IncumplimientosGraves";
 import Plegable from "./Plegable";
 import {
   aLaLetra,
@@ -20,7 +19,9 @@ import {
 // ella, con los números adelante (puntaje y precio), el estado en una
 // palabra con su detalle chico debajo, y los dos desenlaces: quién gana si
 // la comisión acepta todo y quién si aplica las bases a la letra. La de la
-// línea en que compite la empresa va primero y con borde azul.
+// línea en que compite la empresa va primero y con borde azul. Desde la
+// decisión 128 la tarjeta no ofrece el reclamo: va abajo, en `Reclamos`, y
+// solo si la licitación se perdió.
 
 const CUMPLE: Record<
   OferenteComparado["cumple_bases"],
@@ -40,13 +41,10 @@ const COLUMNAS: Record<number, string> = {
 export default function LineaDeLaComparacion({
   linea,
   criterios,
-  adjudicada,
   unica,
 }: {
   readonly linea: LineaComparada;
   readonly criterios: ReadonlyArray<{ nombre: string; peso: number }>;
-  /** Ya adjudicada: no se ofrece el reclamo. */
-  readonly adjudicada: boolean;
   /** La licitación no tiene líneas: no hace falta decir «compites». */
   readonly unica: boolean;
 }) {
@@ -148,9 +146,6 @@ export default function LineaDeLaComparacion({
               <p>Dónde se ve: {decide.grave.prueba}</p>
               <p>Regla: {decide.grave.regla}</p>
             </div>
-          )}
-          {decide.de && (
-            <Reclamo oferente={decide.de} adjudicada={adjudicada} />
           )}
         </div>
       )}
