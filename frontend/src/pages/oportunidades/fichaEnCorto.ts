@@ -146,14 +146,17 @@ export const COLOR_DEL_ARCHIVO: Record<ClaseDeArchivo, string> = {
   otro: "text-gray-500",
 };
 
-/** ¿Ya se adjudicó? (decisión 59): la empresa la marcó ganada o perdida, o
- *  Mercado Público ya la dice adjudicada. Hasta entonces se puede reclamar
- *  en el Centro de Ayuda; después, solo impugnar ante el Tribunal. */
-export const yaSeAdjudico = (f: {
-  estado: string;
-  proceso: { estado: string | null; adjudicacion: unknown };
-}): boolean =>
-  f.estado === "ganada" ||
-  f.estado === "perdida" ||
-  Boolean(f.proceso.adjudicacion) ||
-  /adjudicad/i.test(f.proceso.estado ?? "");
+/** ¿Mercado Público ya publicó la adjudicación con su acta? (decisión 128):
+ *  de esa página Eventia trae sola el acta de evaluación. Una compra ágil no
+ *  tiene acta. */
+export const actaPublicada = (f: {
+  proceso: { tipo: string; adjudicacion: unknown };
+}): boolean => {
+  const enlace = (f.proceso.adjudicacion as { url_acta?: unknown } | null)
+    ?.url_acta;
+  return (
+    f.proceso.tipo !== "compra_agil" &&
+    typeof enlace === "string" &&
+    enlace.trim() !== ""
+  );
+};

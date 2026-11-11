@@ -35,7 +35,7 @@ import { claveDeLaCompetencia } from "./useTraerOfertas";
 // pestaña partía con la lista de los 44 archivos de la competencia y seguía
 // con una tarjeta de texto rojo por oferente. Ahora cada oferta es una fila
 // que se abre: adentro, siempre en el mismo orden, lo que le suma, lo que le
-// resta y lo que la puede dejar fuera (con su reclamo), el porqué de cada
+// resta y lo que la puede dejar fuera, el porqué de cada
 // nota y sus archivos. Quien postula a dos líneas sale una sola vez, con lo
 // de cada línea. Sin comparación todavía, las filas son «La competencia»:
 // los archivos de cada oferente. Subir a mano y «Traer las ofertas» (sin
@@ -49,7 +49,6 @@ export default function OfertasDeLaComparacion({
   resultado,
   porCompetidor,
   esLicitacion,
-  adjudicada,
 }: {
   readonly oportunidadId: number;
   /** La comparación, si ya hay una. */
@@ -57,7 +56,6 @@ export default function OfertasDeLaComparacion({
   /** Los archivos de «La competencia», por oferente. */
   readonly porCompetidor: ReadonlyMap<string, AdjuntoDeOportunidad[]>;
   readonly esLicitacion: boolean;
-  readonly adjudicada: boolean;
 }) {
   const detalle = resultado ? ofertasEnDetalle(resultado) : [];
   const conDetalle = new Set(
@@ -129,10 +127,7 @@ export default function OfertasDeLaComparacion({
                         clases="bg-amber-100 text-amber-800"
                         cosas={oferente.debilidades}
                       />
-                      <IncumplimientosGraves
-                        oferente={oferente}
-                        adjudicada={adjudicada}
-                      />
+                      <IncumplimientosGraves oferente={oferente} />
                     </div>
                     {oferente.por_que && (
                       <p className="text-xs text-gray-600">

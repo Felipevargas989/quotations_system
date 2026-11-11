@@ -286,7 +286,7 @@ type Fin = {
       oferentes: Array<{
         corto?: string;
         puntaje: number;
-        reclamo: string | null;
+        reclamo?: unknown;
       }>;
     }>;
     lectura: Array<Record<string, unknown>>;
@@ -341,7 +341,6 @@ describe('Pedir la comparación', () => {
       'Patente 2 SEM 2026.pdf',
     ]);
     expect(contexto.instrucciones).toContain('$17.150.000 con IVA');
-    expect(contexto.reclamo.codigo).toBe('5040-14-LE26');
   });
 
   it('en una licitación no hace falta haber subido ofertas: se traen solas', async () => {
@@ -521,13 +520,10 @@ describe('Traer y comparar (decisión 125)', () => {
       ['Valle del Sol Quillon SPA', 99.4],
       ['TEXTUM', 100],
     ]);
-    // El reclamo, solo contra quien compite contigo (decisión 59 y 125).
-    expect(l1.oferentes[0].reclamo).toBeNull();
-    expect(l1.oferentes[1].reclamo).toContain(
-      'Señores\nILUSTRE MUNICIPALIDAD DE QUILLON',
-    );
+    // Decisión 128: el reclamo ya no se arma al comparar (lo arma
+    // `ReclamosService` si la oportunidad queda perdida).
+    expect(l1.oferentes.map((o) => o.reclamo)).toEqual([undefined, undefined]);
     expect(l2.compites).toBe(false);
-    expect(l2.oferentes.map((o) => o.reclamo)).toEqual([null, null]);
 
     expect(fin.resultado.lectura).toEqual([
       {

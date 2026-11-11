@@ -5,8 +5,8 @@ import {
   claseDeArchivo,
   eventoEnCorto,
   nombreLegible,
+  actaPublicada,
   pasoQueSigue,
-  yaSeAdjudico,
 } from "./fichaEnCorto";
 import { pasosDelAvance } from "./oportunidades.utils";
 
@@ -147,20 +147,20 @@ describe("los archivos", () => {
   });
 });
 
-describe("¿ya se adjudicó? (decisión 59)", () => {
-  const ficha = (
-    estado: string,
-    enMercadoPublico: string | null,
-    adjudicacion: unknown = null,
-  ) => ({ estado, proceso: { estado: enMercadoPublico, adjudicacion } });
+describe("¿el acta ya está publicada? (decisión 128)", () => {
+  const ficha = (tipo: string, adjudicacion: unknown) => ({
+    proceso: { tipo, adjudicacion },
+  });
 
-  it("ganada o perdida, o Mercado Público ya la dice adjudicada; postulada y cerrada, todavía no", () => {
-    expect(yaSeAdjudico(ficha("postulada", "Cerrada"))).toBe(false);
-    expect(yaSeAdjudico(ficha("ganada", "Cerrada"))).toBe(true);
-    expect(yaSeAdjudico(ficha("perdida", null))).toBe(true);
-    expect(yaSeAdjudico(ficha("postulada", "Adjudicada"))).toBe(true);
-    expect(yaSeAdjudico(ficha("postulada", "Cerrada", { oferentes: 2 }))).toBe(
-      true,
+  it("una licitación adjudicada con su acta; sin adjudicar, sin enlace o en una compra ágil, no", () => {
+    const enlace =
+      "http://www.mercadopublico.cl/Procurement/Modules/RFB/StepsProcessAward/PreviewAwardAct.aspx?qs=abc";
+    expect(actaPublicada(ficha("licitacion", { url_acta: enlace }))).toBe(true);
+    expect(actaPublicada(ficha("licitacion", null))).toBe(false);
+    expect(actaPublicada(ficha("licitacion", { oferentes: 2 }))).toBe(false);
+    expect(actaPublicada(ficha("licitacion", { url_acta: " " }))).toBe(false);
+    expect(actaPublicada(ficha("compra_agil", { url_acta: enlace }))).toBe(
+      false,
     );
   });
 });

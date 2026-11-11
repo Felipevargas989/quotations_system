@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { AprendizajesService } from '../aprendizajes/aprendizajes.service';
 import { PorQuePerdimosService } from '../comparacion/por-que-perdimos.service';
 import { CerradasSinPostularService } from '../decisiones/cerradas-sin-postular.service';
 import { ZONA_DEL_RADAR } from '../oportunidades-cron.service';
@@ -26,7 +27,9 @@ export const DURACION_DE_UNA_VUELTA_MS = 145 * 60_000;
 // o perdidas sin la competencia subida, sus ofertas públicas (decisión 96):
 // media hora después de cada pasada del radar, unos minutos. Desde la 109,
 // las pasadas son a las 8, 12, 15 y 18. Antes, las «Me interesa» que
-// cerraron sin postular quedan descartadas (decisión 116).
+// cerraron sin postular quedan descartadas (decisión 116). Y desde la 128,
+// de las licitaciones ganadas o perdidas se trae el acta de evaluación y se
+// manda a leer («Aprender del acta»).
 export const RESULTADOS = '37 8,12,15,18 * * *';
 export const DURACION_DE_LOS_RESULTADOS_MS = 10 * 60_000;
 
@@ -47,6 +50,9 @@ export class CompetenciaCronService {
     @Optional() private readonly porQue?: PorQuePerdimosService,
     /** Las cerradas sin postular, a descartadas (decisión 116). */
     @Optional() private readonly cerradas?: CerradasSinPostularService,
+    /** El acta de evaluación llega y se lee sola (decisión 128): dos por
+     *  pasada. */
+    @Optional() private readonly aprendizajes?: AprendizajesService,
   ) {
     this.logger.setContext(CompetenciaCronService.name);
   }
@@ -80,6 +86,12 @@ export class CompetenciaCronService {
         if (ofertas) {
           await this.paso('ofertas de la competencia', () =>
             ofertas.traer(id, hasta),
+          );
+        }
+        const aprendizajes = this.aprendizajes;
+        if (aprendizajes) {
+          await this.paso('acta de evaluación', () =>
+            aprendizajes.revisar(id, hasta),
           );
         }
         const porQue = this.porQue;

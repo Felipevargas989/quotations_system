@@ -8,13 +8,15 @@ import type { User } from 'src/users/entities/user.entity';
 import { OfertasDeLaCompetenciaService } from '../competencia/ofertas-de-la-competencia.service';
 import { ComparacionService } from './comparacion.service';
 import { PorQuePerdimosService } from './por-que-perdimos.service';
+import { ReclamosService } from './reclamos.service';
 
 // La comparación de ofertas (decisión 41 del doc 17) y, desde la decisión
 // 97, por qué perdimos. Mismo candado que el resto de Oportunidades. Las
 // ofertas de la competencia se suben con la ruta de siempre
 // (`POST :id/adjuntos`, sección 'competencia') o, desde la decisión 123, se
 // traen del cuadro público de Mercado Público con «Traer las ofertas»
-// (`:id/competencia/traer`).
+// (`:id/competencia/traer`). Desde la decisión 128, los reclamos de una
+// perdida (`:id/reclamos`).
 @Roles(...ADMIN_ONLY)
 @Derecho('oportunidades')
 @Permiso('oportunidades')
@@ -24,6 +26,7 @@ export class ComparacionController {
     private readonly comparacion: ComparacionService,
     private readonly porQue: PorQuePerdimosService,
     private readonly ofertas: OfertasDeLaCompetenciaService,
+    private readonly reclamos: ReclamosService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ComparacionController.name);
@@ -60,6 +63,15 @@ export class ComparacionController {
       `POST /oportunidades/${id}/por-que (empresa ${user.company_id})`,
     );
     return this.porQue.pedir(user.company_id, user.id, id);
+  }
+
+  /** Los reclamos de una perdida (decisión 128): a quién se adjudicó,
+   *  hasta cuándo se reclama y el texto contra la oferta adjudicada, con lo
+   *  que encontró la última comparación. Sin IA; en una que no está
+   *  perdida, `corresponde: false`. */
+  @Get(':id/reclamos')
+  reclamosDe(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.reclamos.de(user.company_id, id);
   }
 
   /** ¿Está trayendo las ofertas de los demás, y cómo terminó la última
