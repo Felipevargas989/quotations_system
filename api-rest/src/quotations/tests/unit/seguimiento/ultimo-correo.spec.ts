@@ -1,7 +1,9 @@
+import { mensajeDelSeguimiento } from '../../../seguimiento/contexto';
 import {
   porQueNoEntraAPedido,
   reglaDelSeguimiento,
 } from '../../../seguimiento/elegibles';
+import { decidirRespuesta } from '../../../seguimiento/hilo';
 import type { MensajeDelBuzon } from '../../../seguimiento/outlook';
 import {
   buscarUltimoCorreo,
@@ -159,5 +161,132 @@ describe('el seguimiento a pedido', () => {
     expect(
       reglaDelSeguimiento(false, '2026-11-10')('enviada', [vencida]),
     ).toMatch('todavía no vence');
+  });
+});
+
+describe('decidirRespuesta (doc 20 §18, sprint 3)', () => {
+  const base = {
+    esDeLaCasa: (c: string) => c.endsWith(CASA),
+    esDeEventia: () => false,
+    buzonParaNuevo: 'contacto' + CASA,
+    numero: 612,
+    creada: '2026-11-01T12:00:00Z',
+  };
+
+  it('el hilo de la cotización: responde el último, aunque sea del cliente', () => {
+    const d = decidirRespuesta({
+      ...base,
+      encontrados: [
+        {
+          buzon: 'contacto' + CASA,
+          mensajes: [
+            msj(
+              'm3',
+              'ana@gmail.com',
+              '2026-11-08T15:00:00Z',
+              'RE: Cotización N° 612',
+            ),
+            msj('m2', 'contacto' + CASA, '2026-11-05T15:00:00Z'),
+          ],
+        },
+      ],
+    });
+    expect(d).toMatchObject({ modo: 'responder', mensaje: { id: 'm3' } });
+  });
+
+  it('sin hilo de la cotización: el último correo del cliente en su hilo', () => {
+    const d = decidirRespuesta({
+      ...base,
+      encontrados: [
+        { buzon: 'contacto' + CASA, mensajes: [] },
+        {
+          buzon: 'reservas' + CASA,
+          mensajes: [
+            msj(
+              'c1',
+              'ana@gmail.com',
+              '2026-11-09T10:00:00Z',
+              'Consulta cumpleaños',
+              { hilo: 'h9' },
+            ),
+            msj(
+              'c2',
+              'reservas' + CASA,
+              '2026-11-09T12:00:00Z',
+              'RE: Consulta cumpleaños',
+              { hilo: 'h9' },
+            ),
+          ],
+        },
+      ],
+    });
+    expect(d).toMatchObject({
+      modo: 'responder',
+      buzon: 'reservas' + CASA,
+      mensaje: { id: 'c2' },
+    });
+  });
+
+  it('con un borrador en el hilo no escribe otro; sin correos, nuevo', () => {
+    expect(
+      decidirRespuesta({
+        ...base,
+        encontrados: [
+          {
+            buzon: 'contacto' + CASA,
+            mensajes: [
+              msj(
+                'b',
+                'contacto' + CASA,
+                '2026-11-09T10:00:00Z',
+                'RE: Cotización N° 612',
+                { borrador: true },
+              ),
+            ],
+          },
+        ],
+      }),
+    ).toMatchObject({ modo: 'saltar' });
+    expect(decidirRespuesta({ ...base, encontrados: [] })).toEqual({
+      modo: 'nuevo',
+      buzon: 'contacto' + CASA,
+    });
+  });
+});
+
+describe('el pedido en el mensaje a la IA', () => {
+  it('con instrucción, dice que no es un seguimiento y trae lo pedido', () => {
+    const datos = {
+      numero: 612,
+      estado: 'solicitada',
+      tipoEvento: 'Cumpleaños',
+      fecha: null,
+      fin: null,
+      personas: 30,
+      ninos: 0,
+      total: 0,
+      enviada: null,
+      cliente: 'Ana',
+      tipoCliente: 'Particulares',
+      contacto: 'Ana',
+      correo: 'ana@gmail.com',
+      observaciones: null,
+      comentarioInterno: null,
+      notas: [],
+      hoy: '2026-11-10',
+      modo: 'responder' as const,
+      buzon: 'contacto' + CASA,
+      hilo: [],
+    };
+    const con = mensajeDelSeguimiento({
+      ...datos,
+      instruccion: 'que sí hay fecha',
+    });
+    expect(con).toMatch(/^RESPUESTA AL CLIENTE/);
+    expect(con).toContain('ESTA VEZ NO ES UN SEGUIMIENTO');
+    expect(con).toContain('que sí hay fecha');
+    expect(mensajeDelSeguimiento(datos)).toMatch(
+      /^SEGUIMIENTO DE LA COTIZACIÓN/,
+    );
   });
 });

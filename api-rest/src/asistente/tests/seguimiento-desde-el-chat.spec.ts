@@ -55,6 +55,36 @@ const armar = (q = cotizacion(), notas: unknown[] = [vencida]) => {
   return { chat, guardadas, bitacora, seguimiento };
 };
 
+describe('«Respóndele a este cliente» (doc 20 §18, sprint 3)', () => {
+  it('con la instrucción entra en cualquier estado y la tarjeta la guarda', async () => {
+    const { chat, guardadas } = armar(
+      cotizacion({ quotation_status: QuotationStatus.SOLICITADA }),
+    );
+    const t = await chat.proponer(
+      camila(),
+      { numero: 500 },
+      '  que sí tenemos el sábado 20 y que la tinaja vale $30.000  ',
+    );
+    expect(t.resumen).toMatch(/respuesta al cliente/);
+    const [fila] = guardadas.crearPropuesta.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+    expect(fila.despues).toEqual({
+      instruccion: 'que sí tenemos el sábado 20 y que la tinaja vale $30.000',
+    });
+  });
+
+  it('el «Sí» le pasa la instrucción al borrador', async () => {
+    const { chat, seguimiento } = armar();
+    await chat.dejar(camila(), cotizacion(), { instruccion: 'que sí' });
+    expect(seguimiento.generar).toHaveBeenCalledWith(
+      'q500',
+      expect.objectContaining({ id: 'perfil-1' }),
+      { aPedido: true, instruccion: 'que sí' },
+    );
+  });
+});
+
 describe('El seguimiento desde el chat', () => {
   it('la tarjeta sale si la cotización está enviada', async () => {
     const { chat, guardadas } = armar();
@@ -146,6 +176,7 @@ describe('El «Sí, dejar el borrador» por la puerta de las propuestas', () => 
     expect(seguimientoDelChat.dejar).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'perfil-1' }),
       q,
+      {},
     );
     expect(r.aviso).toMatch(/borrador/);
     expect(repositorio.moverPropuesta).toHaveBeenLastCalledWith(

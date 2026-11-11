@@ -118,6 +118,40 @@ describe('SeguimientoConIAService', () => {
     expect(r.modo).toBe('nuevo');
   });
 
+  it('«Respóndele»: una solicitada sin compromiso entra, responde a todos el último y la nota dice respuesta', async () => {
+    const parse = nuevoParse().mockResolvedValue(respuestaDe(escrito));
+    const { servicio, outlook, bitacora } = armar(parse, {
+      fila: cotizacion({ quotation_status: 'solicitada' }),
+      notas: [[]],
+    });
+    outlook.borradorRespuestaATodos.mockResolvedValue({
+      id: 'borr2',
+      hilo: 'h1',
+      enlace: 'https://outlook.office.com/borr2',
+    });
+
+    const r = await servicio.generar('q607', usuario, {
+      aPedido: true,
+      instruccion: 'que sí tenemos el sábado',
+    });
+
+    expect(r).toMatchObject({ accion: 'borrador', modo: 'responder' });
+    expect(outlook.borradorRespuestaATodos).toHaveBeenCalledWith(
+      CONTACTO,
+      'm1',
+      escrito.cuerpo_html,
+    );
+    const mensaje = parse.mock.calls[0][0].messages[0].content;
+    expect(mensaje).toContain('ESTA VEZ NO ES UN SEGUIMIENTO');
+    expect(mensaje).toContain('que sí tenemos el sábado');
+    expect(bitacora.crearComoBeliaAPedidoDe).toHaveBeenCalledWith(
+      usuario,
+      expect.objectContaining({
+        note: expect.stringMatching(/^Borrador de respuesta con IA listo/),
+      }),
+    );
+  });
+
   it('si la IA decide saltarla, no hay borrador ni bitácora', async () => {
     const parse = nuevoParse().mockResolvedValue(
       respuestaDe({

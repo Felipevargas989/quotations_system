@@ -888,7 +888,7 @@ migración); C, la 5 (con la 185); la 6, con la sesión de Oportunidades.
 
 ## 18. BelIA, el cerebro del personal: la guía de la casa (10-11-2026)
 
-> **Estado:** sprint 1 en el laboratorio desde el 10-11-2026 (rama `feature/belia-guia`, pruebas `c4bc5eb2`, migración 202 en la base del lab, la guía de Valle del Sol cargada ahí). Sprint 2 escrito esa misma noche en la misma rama.
+> **Estado:** sprint 1 en el laboratorio desde el 10-11-2026 (rama `feature/belia-guia`, pruebas `c4bc5eb2`, migración 202 en la base del lab, la guía de Valle del Sol cargada ahí). Sprint 2 en el laboratorio esa noche (pruebas `7479cead`) y sprint 3 escrito después, en la misma rama.
 
 Felipe, 10-11-2026: *"quiero que BelIA sea un cerebro para guiar a mi personal, ejemplo que pase los correos tipo, mensajes automáticos, horarios, valores, precios, cosas típicas que un chat ya debería saber"*, y *"BelIA será quien responda todo esto"*.
 
@@ -913,3 +913,13 @@ Felipe: *"si la chica esta quiere hacer un seguimiento a un correo de un cliente
 - **El seguimiento a pedido**: `proponer_seguimiento` ya no exige que el próximo contacto haya vencido ni que sea por correo. Pedido por una persona, entra cualquier enviada o en negociación (`porQueNoEntraAPedido`), y el «Sí, dejar el borrador» corre `generar(..., { aPedido: true })`. Todo lo demás se revisa igual: el tope de calendario, el borrador que ya espera, el evento que ya pasó, el correo útil, el hilo y la revisión justo antes de dejarlo. El botón «✉ Generar seguimiento» y su lista siguen con la regla de siempre (`porQueNoEntra`).
 - **Quién**: los dos, solo con las cotizaciones que el cargo ve según los tipos de cliente de Permisos por cargo. A una de un tipo que no trabaja, `ultimo_correo` no le busca nada y la tarjeta no se arma (`alProponerSeguimiento`).
 - BelIA ya leía la cotización y su bitácora (`ver_cotizacion`), y el correo lo escribe la IA de «Generar seguimiento», que ahora también lee la guía de la casa (los correos tipo).
+
+### Sprint 3: «Respóndele a este cliente» (10-11-2026)
+
+Felipe: *"BelIA ya puede redactar un correo si la recepcionista le pide sobre un cliente sobre el cual tenga acceso"* → *"sí, ármalo en el sprint 3 y luego todo a producción"*.
+
+- **La misma tarjeta del seguimiento, con una instrucción.** `proponer_seguimiento` recibe `instruccion` (lo que la persona quiere decirle al cliente, en sus palabras). Con ella no es un seguimiento: entra en cualquier estado, también los requerimientos, y la tarjeta la guarda en `despues.instruccion` (sin migración: el tipo sigue siendo `seguimiento`). El «Sí, dejar el borrador» corre `generar(..., { aPedido: true, instruccion })`.
+- **Dónde responde** (`decidirRespuesta`, `quotations/seguimiento/hilo.ts`): a todos el último correo del hilo de la cotización, aunque sea del cliente; si no hay hilo de la cotización, el último correo del cliente en cualquier hilo de los buzones de la casa (una consulta suele llegar antes que la cotización); si no hay ninguno, correo nuevo en contacto@. Con un borrador ya en ese hilo, no escribe otro.
+- **Qué escribe**: la IA de «Generar seguimiento» con las mismas reglas y la guía de la casa, más el pedido de la persona («ESTA VEZ NO ES UN SEGUIMIENTO», `contexto.ts`). Salta solo si lo pedido va contra las reglas o falta un dato que no puede inventar. No mira el tope de calendario ni si el evento ya pasó. La nota de la bitácora dice «Borrador de respuesta con IA listo…».
+- **Quién**: el mismo candado de la tarjeta (`alProponerSeguimiento`): solo con cotizaciones o requerimientos de clientes que el cargo ve según Permisos por cargo.
+- La pregunta a la IA salió a `preguntar.ts` para que `seguimiento.service.ts` no pase de 800 líneas.

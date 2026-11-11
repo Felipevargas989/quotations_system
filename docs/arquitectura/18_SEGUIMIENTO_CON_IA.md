@@ -56,7 +56,7 @@ Medido el 17-10: calzan **10**, todas con correo del cliente: 477, 508,
 530, 578, 389, 607, 592, 559, 493 y 536. Con WhatsApp o llamada hay 13 más
 vencidas: esas no entran.
 
-**A pedido desde BelIA (10-11-2026, doc 20 §18):** cuando una persona lo pide en el chat («hazle seguimiento a la 612»), entra cualquier enviada o en negociación que su cargo ve, aunque el próximo contacto no haya vencido o sea por otro medio (`porQueNoEntraAPedido`, `generar(..., { aPedido: true })`). El botón y su lista siguen con la regla de arriba. Lo de la sección 3 se revisa igual.
+**A pedido desde BelIA (10-11-2026, doc 20 §18):** cuando una persona lo pide en el chat («hazle seguimiento a la 612»), entra cualquier enviada o en negociación que su cargo ve, aunque el próximo contacto no haya vencido o sea por otro medio (`porQueNoEntraAPedido`, `generar(..., { aPedido: true })`). El botón y su lista siguen con la regla de arriba. Lo de la sección 3 se revisa igual. Con una instrucción de la persona («respóndele que…», sprint 3) es una **respuesta**: cualquier estado, responde el último correo del cliente en su hilo (`decidirRespuesta`) y no mira el tope de calendario ni si el evento pasó.
 
 ## 3. Lo que hace con cada una
 
