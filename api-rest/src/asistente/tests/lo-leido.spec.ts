@@ -183,12 +183,12 @@ describe('Las fichas al día en la pregunta siguiente', () => {
     expect(segunda).toContain('¿Y cuántas personas son?');
   });
 
-  it('a recepción le llegan sin montos', async () => {
+  it('a recepción, la de un tipo que su cargo no trabaja no le llega ni al día (doc 20 §18)', async () => {
     const { servicio, create, usuario } = armar(UserRole.RECEPCION);
     await servicio.responder({ mensaje: '¿En qué va la 739?' }, usuario);
     await servicio.responder({ mensaje: '¿Y la fecha?' }, usuario);
     const segunda = textoDe((create.mock.calls as unknown[][])[2][0]);
-    expect(segunda).toContain('FICHAS AL DÍA');
+    expect(segunda).not.toContain('FICHAS AL DÍA');
     expect(segunda).not.toMatch(/\$\s?\d/);
   });
 });

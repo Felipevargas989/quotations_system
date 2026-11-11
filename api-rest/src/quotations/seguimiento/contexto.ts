@@ -33,6 +33,9 @@ export type DatosDelSeguimiento = {
   buzon: string;
   /** Los últimos correos del hilo, del más nuevo al más viejo. */
   hilo: Array<MensajeDelBuzon & { texto: string }>;
+  /** «Respóndele a este cliente» (doc 20 §18, sprint 3): lo que la persona
+   *  del equipo quiere decirle. Con ella, no es un seguimiento. */
+  instruccion?: string | null;
 };
 
 /** Cuántas notas de la bitácora ve la IA: las más recientes. */
@@ -50,8 +53,11 @@ const DONDE: Record<DatosDelSeguimiento['modo'], string> = {
 };
 
 export function mensajeDelSeguimiento(d: DatosDelSeguimiento): string {
+  const pedido = d.instruccion?.trim();
   const l: string[] = [
-    `SEGUIMIENTO DE LA COTIZACIÓN N° ${d.numero}`,
+    pedido
+      ? `RESPUESTA AL CLIENTE DE LA COTIZACIÓN N° ${d.numero}`
+      : `SEGUIMIENTO DE LA COTIZACIÓN N° ${d.numero}`,
     `Hoy: ${fechaLegible(d.hoy)}.`,
     '',
     'LA COTIZACIÓN',
@@ -121,6 +127,15 @@ export function mensajeDelSeguimiento(d: DatosDelSeguimiento): string {
         texto(m.texto) || texto(m.adelanto) || '(sin texto)',
       );
     }
+  }
+
+  if (pedido) {
+    l.push(
+      '',
+      'ESTA VEZ NO ES UN SEGUIMIENTO: una persona del equipo te pide responderle al cliente. Lo que quiere decirle (es de la casa: síguelo, dentro de las reglas):',
+      pedido,
+      'Responde al último correo del hilo con eso y con los datos de la guía de la casa. Escribe el borrador; salta solo si lo pedido va contra las reglas de la casa o falta un dato que no puedes inventar, y di cuál en el motivo.',
+    );
   }
 
   return l.join('\n');

@@ -8,9 +8,10 @@ import type { PropuestasRepository } from '../propuestas/propuestas.repository';
 import { SeguimientoDesdeElChat } from '../propuestas/seguimiento-desde-el-chat';
 import { armarServicio, camila, cotizacion } from './datos-de-prueba';
 
-// «PREPÁRAME EL SEGUIMIENTO DE LA 600» (doc 20 §17, mejora 4): la tarjeta
-// sale solo si la cotización entra al seguimiento por correo, y el «Sí,
-// dejar el borrador» corre el mismo seguimiento con IA que el botón.
+// «PREPÁRAME EL SEGUIMIENTO DE LA 600» (doc 20 §17, mejora 4): el «Sí,
+// dejar el borrador» corre el mismo seguimiento con IA que el botón. Desde
+// el 10-11-2026 (doc 20 §18, sprint 2) es a pedido: entra cualquier enviada
+// o en negociación, aunque su próximo contacto no haya vencido.
 
 const vencida = {
   created_at: '2026-10-20T15:00:00Z',
@@ -54,11 +55,40 @@ const armar = (q = cotizacion(), notas: unknown[] = [vencida]) => {
   return { chat, guardadas, bitacora, seguimiento };
 };
 
+describe('«Respóndele a este cliente» (doc 20 §18, sprint 3)', () => {
+  it('con la instrucción entra en cualquier estado y la tarjeta la guarda', async () => {
+    const { chat, guardadas } = armar(
+      cotizacion({ quotation_status: QuotationStatus.SOLICITADA }),
+    );
+    const t = await chat.proponer(
+      camila(),
+      { numero: 500 },
+      '  que sí tenemos el sábado 20 y que la tinaja vale $30.000  ',
+    );
+    expect(t.resumen).toMatch(/respuesta al cliente/);
+    const [fila] = guardadas.crearPropuesta.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+    expect(fila.despues).toEqual({
+      instruccion: 'que sí tenemos el sábado 20 y que la tinaja vale $30.000',
+    });
+  });
+
+  it('el «Sí» le pasa la instrucción al borrador', async () => {
+    const { chat, seguimiento } = armar();
+    await chat.dejar(camila(), cotizacion(), { instruccion: 'que sí' });
+    expect(seguimiento.generar).toHaveBeenCalledWith(
+      'q500',
+      expect.objectContaining({ id: 'perfil-1' }),
+      { aPedido: true, instruccion: 'que sí' },
+    );
+  });
+});
+
 describe('El seguimiento desde el chat', () => {
-  it('la tarjeta sale si la cotización entra: enviada, con el contacto por correo vencido', async () => {
-    const { chat, guardadas, bitacora } = armar();
+  it('la tarjeta sale si la cotización está enviada', async () => {
+    const { chat, guardadas } = armar();
     const t = await chat.proponer(camila(), { numero: 500 });
-    expect(bitacora.findByQuotation).toHaveBeenCalledWith(1, 'q500');
     expect(t).toMatchObject({
       tipo: 'seguimiento',
       numero: 500,
@@ -89,11 +119,17 @@ describe('El seguimiento desde el chat', () => {
     expect(guardadas.crearPropuesta).not.toHaveBeenCalled();
   });
 
-  it('con el contacto por WhatsApp tampoco entra', async () => {
-    const { chat } = armar(cotizacion(), [{ ...vencida, tipo: 'whatsapp' }]);
-    await expect(chat.proponer(camila(), { numero: 500 })).rejects.toThrow(
-      'no por correo',
-    );
+  it('a pedido entra aunque el próximo contacto sea por WhatsApp o no haya vencido', async () => {
+    const porWhatsApp = armar(cotizacion(), [{ ...vencida, tipo: 'whatsapp' }]);
+    await expect(
+      porWhatsApp.chat.proponer(camila(), { numero: 500 }),
+    ).resolves.toMatchObject({ tipo: 'seguimiento' });
+    const sinVencer = armar(cotizacion(), [
+      { ...vencida, next_contact_date: '2099-01-01' },
+    ]);
+    await expect(
+      sinVencer.chat.proponer(camila(), { numero: 500 }),
+    ).resolves.toMatchObject({ tipo: 'seguimiento' });
   });
 
   it('el «Sí» corre el seguimiento con IA con la sesión de quien lo pidió', async () => {
@@ -102,6 +138,7 @@ describe('El seguimiento desde el chat', () => {
     expect(seguimiento.generar).toHaveBeenCalledWith(
       'q500',
       expect.objectContaining({ id: 'perfil-1', company_id: 1 }),
+      { aPedido: true },
     );
     expect(r).toMatchObject({ estado: 'aplicada', numero: 500 });
     expect(r.aviso).toMatch(/contacto@valledelsolquillon\.cl/);
@@ -139,6 +176,7 @@ describe('El «Sí, dejar el borrador» por la puerta de las propuestas', () => 
     expect(seguimientoDelChat.dejar).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'perfil-1' }),
       q,
+      {},
     );
     expect(r.aviso).toMatch(/borrador/);
     expect(repositorio.moverPropuesta).toHaveBeenLastCalledWith(

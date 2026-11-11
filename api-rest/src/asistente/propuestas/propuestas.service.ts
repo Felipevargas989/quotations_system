@@ -172,9 +172,10 @@ export class PropuestasService {
   async proponerSeguimiento(
     usuario: User,
     por: { numero: number } | { id: string },
+    instruccion?: string | null,
   ): Promise<TarjetaDePropuesta> {
     await this.deRecepcion.alProponerSeguimiento(usuario, por);
-    return this.conSeguimiento().proponer(usuario, por);
+    return this.conSeguimiento().proponer(usuario, por, instruccion);
   }
 
   /** Arma la propuesta de cambiar los servicios y la guarda. Lo que no se
@@ -385,7 +386,7 @@ export class PropuestasService {
       if (p.tipo === 'seguimiento') {
         // El borrador lo escribe el seguimiento con IA, con su nota en la
         // bitácora; nada más que guardar acá.
-        const r = await this.conSeguimiento().dejar(usuario, q);
+        const r = await this.conSeguimiento().dejar(usuario, q, p.despues);
         guardada = true;
         await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
         return r;

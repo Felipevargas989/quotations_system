@@ -12,6 +12,7 @@ import {
 } from 'src/quotations/constants/constants';
 import type { GenerarRepository } from 'src/quotations/generar/generar.repository';
 import type { QuotationsRepository } from 'src/quotations/quotations.repository';
+import type { SeguimientoConIAService } from 'src/quotations/seguimiento/seguimiento.service';
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import type { AsistenteRepository } from '../asistente.repository';
 import type { TarjetaDePropuesta } from '../propuestas/comun';
@@ -47,6 +48,9 @@ export type ContextoDeHerramienta = {
   /** Lo que ve recepción (doc 21): cuáles tipos de cliente son
    *  particulares. Sin ella, recepción no ve plata de nadie. */
   alcance?: AlcanceDeRecepcion;
+  /** «¿Dónde está el último correo?» (doc 20 §18, sprint 2): solo lee los
+   *  buzones de la casa. Sin la pieza, la herramienta lo dice. */
+  seguimiento?: Pick<SeguimientoConIAService, 'ultimoCorreo'>;
 };
 
 export type Herramienta = {

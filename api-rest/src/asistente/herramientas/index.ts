@@ -24,6 +24,7 @@ import {
   proponerSeguimiento,
 } from './proponer';
 import { seguimientosPendientes } from './seguimientos-pendientes';
+import { ultimoCorreo } from './ultimo-correo';
 import { verCotizacion } from './ver-cotizacion';
 
 // LA LISTA CERRADA (doc 20 §3, regla 2). Lo que no está acá, BelIA no lo
@@ -53,6 +54,8 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   // Doc 20 §17: el borrador del seguimiento, con su tarjeta, y lo que
   // aprende de las correcciones.
   proponerSeguimiento,
+  // Doc 20 §18, sprint 2: dónde está el último correo con el cliente.
+  ultimoCorreo,
   lecciones,
   proponerLeccion,
   proponerDecisionDeLeccion,
