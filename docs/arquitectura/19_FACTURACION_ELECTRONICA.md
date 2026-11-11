@@ -2868,8 +2868,8 @@ con otra funcionalidad porque creo que es complejizar más esto"*.
 - **Las pruebas:** `facturas-aprobadas.spec.ts`, los cuatro casos «(§9.48)»
   de `RevisionDeLaFacturacion.test.tsx` y el de `PorFacturar.test.tsx`.
 
-En el laboratorio desde el 11-11-2026 (migración 203 en el laboratorio).
-Producción espera el «a producción» de Felipe: la 203 va ANTES del motor.
+En el laboratorio desde el 11-11-2026 y **en producción desde el 11-11-2026**
+(PR #360; migración 203 en las dos bases, aplicada antes del motor).
 
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
