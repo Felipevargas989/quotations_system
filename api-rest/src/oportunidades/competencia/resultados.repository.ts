@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { ActaDeAdjudicacion } from '../historia/acta';
-import type { ResultadoPublico } from './resultado-compra-agil';
+import { type ResultadoPublico, sinAdjudicarDe } from './resultado-compra-agil';
 
 // EL RESULTADO DE LO POSTULADO (decisión 92 del doc 17). Lo público (a
 // quién eligieron o adjudicaron, y las ofertas) va en mp_cambios, con tipo
@@ -73,8 +73,13 @@ export class ResultadosRepository {
         } | null;
       }>
     ).filter((f) => {
+      // Decisión 124: una desierta o revocada también, aunque no traiga
+      // adjudicación (queda perdida, sin adjudicar).
       if (f.proceso?.tipo === 'licitacion')
-        return f.proceso.adjudicacion != null;
+        return (
+          f.proceso.adjudicacion != null ||
+          sinAdjudicarDe(f.proceso.estado) !== null
+        );
       const cierre = f.proceso?.fecha_cierre
         ? new Date(f.proceso.fecha_cierre).getTime()
         : NaN;
