@@ -74,7 +74,7 @@ describe('PrepararLaLicitacionService (decisión 114)', () => {
     const { licify, analisis, servicio } = armar();
     licify.traer.mockRejectedValueOnce(new Error('Licify respondió 503'));
     analisis.pedir.mockRejectedValueOnce(
-      new Error('Sube primero las bases (PDF o Word).'),
+      new Error('Sube primero las bases (PDF, Word o Excel).'),
     );
     await expect(
       servicio.preparar(1, 'sesion-felipe', 40),

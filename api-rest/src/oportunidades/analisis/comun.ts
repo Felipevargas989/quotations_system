@@ -8,6 +8,7 @@ import {
   seccionDeLoQueSabemos,
 } from '../oferente/lo-que-sabemos';
 import { textoDeDocx } from './docx';
+import { textoDeXlsx } from './xlsx';
 
 // LO COMÚN DE LOS TRABAJOS DE LA IA SOBRE ARCHIVOS: leer las bases (paso 1)
 // y validar documentos (paso 3). Qué archivos se pueden leer, cómo se le
@@ -76,8 +77,9 @@ export const MAX_BYTES_DE_PDF = 22 * 1024 * 1024;
  *  por pedido, con el aviso de `errorDeIA`. */
 export const MAX_BYTES_DE_BASES = 40 * 1024 * 1024;
 
-/** Lo que la IA puede leer: PDF directo; Word y texto, como texto. */
-const LEIBLES = new Set(['pdf', 'docx', 'txt', 'csv']);
+/** Lo que la IA puede leer: PDF directo; Word, Excel y texto, como texto.
+ *  El Excel, desde la decisión 126 (`xlsx.ts`). */
+const LEIBLES = new Set(['pdf', 'docx', 'xlsx', 'txt', 'csv']);
 
 export const esLeible = (nombre: string): boolean =>
   LEIBLES.has(extensionDe(nombre));
@@ -264,8 +266,8 @@ export const ESQUEMA_DE_RESPUESTA = {
   additionalProperties: false,
 } as const;
 
-/** Lo que la IA puede leer y lo que no (ZIP, Excel, imágenes), en el orden
- *  en que se subió: así "el documento" es el que uno ve. */
+/** Lo que la IA puede leer y lo que no (ZIP, imágenes, el Excel antiguo),
+ *  en el orden en que se subió: así "el documento" es el que uno ve. */
 export const separar = (archivos: Adjunto[]) => {
   const leibles: Adjunto[] = [];
   const noLeidos: NoLeido[] = [];
@@ -274,7 +276,10 @@ export const separar = (archivos: Adjunto[]) => {
     else {
       noLeidos.push({
         nombre: a.nombre,
-        motivo: 'la IA lee PDF y Word; si es un ZIP, sube lo que trae adentro',
+        motivo:
+          extensionDe(a.nombre) === 'xls'
+            ? 'es un Excel antiguo (.xls): guárdalo como .xlsx y súbelo de nuevo'
+            : 'la IA lee PDF, Word y Excel; si es un ZIP, sube lo que trae adentro',
       });
     }
   }
@@ -288,9 +293,9 @@ export const pesoDePdf = (archivos: Adjunto[]): number =>
     .reduce((suma, a) => suma + a.bytes, 0);
 
 /** Los archivos como los lee Claude: el PDF entero (texto e imagen de cada
- *  página), el Word y el texto como texto. Lo que no se pudo abrir queda en
- *  `sinAbrir`. El título es el nombre, o el que se le dé (la validación
- *  pone la carpeta del ZIP, decisión 83). Con `subir`, si los PDF pasan de
+ *  página), el Word, el Excel y el texto como texto. Lo que no se pudo
+ *  abrir queda en `sinAbrir`. El título es el nombre, o el que se le dé (la
+ *  validación pone la carpeta del ZIP, decisión 83). Con `subir`, si los PDF pasan de
  *  22 MB juntos van todos por la Files API, con su `file_id` (decisión 103);
  *  sin `subir`, siempre dentro del pedido. */
 export const armarContenido = async (
@@ -327,7 +332,12 @@ export const armarContenido = async (
       });
       continue;
     }
-    const texto = ext === 'docx' ? textoDeDocx(datos) : datos.toString('utf8');
+    const texto =
+      ext === 'docx'
+        ? textoDeDocx(datos)
+        : ext === 'xlsx'
+          ? textoDeXlsx(datos)
+          : datos.toString('utf8');
     if (!texto?.trim()) {
       sinAbrir.push({ nombre: a.nombre, motivo: 'no se pudo abrir' });
       continue;
