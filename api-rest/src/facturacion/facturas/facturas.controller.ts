@@ -12,6 +12,7 @@ import { Derecho } from 'src/auth/derecho.decorator';
 import { Permiso } from 'src/auth/permiso.decorator';
 import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
+import { FacturasAprobadasService } from '../aprobadas/facturas-aprobadas.service';
 import type { DtePedido } from './borrador';
 import { BorradorDelDteDto, DtePedidoDto } from './factura.dto';
 import { FacturasService } from './facturas.service';
@@ -30,6 +31,8 @@ export class FacturasController {
   constructor(
     private readonly facturas: FacturasService,
     private readonly logger: PinoLogger,
+    // §9.48: lo aprobado que esperaba deja de esperar al emitirse.
+    private readonly aprobadas: FacturasAprobadasService,
   ) {
     this.logger.setContext(FacturasController.name);
   }
@@ -91,12 +94,22 @@ export class FacturasController {
   @Roles(...OPERATIONS_AND_UP)
   @Permiso('facturacion_eventos')
   @Post('emitir')
-  emitir(
+  async emitir(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @Body() dto: DtePedidoDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /quotations/${quotationId}/facturas/emitir`);
-    return this.facturas.emitir(quotationId, user, dto as DtePedido);
+    const documento = await this.facturas.emitir(
+      quotationId,
+      user,
+      dto as DtePedido,
+    );
+    await this.aprobadas.alEmitir(
+      user.company_id,
+      quotationId,
+      dto.orden_de_compra_id ?? null,
+    );
+    return documento;
   }
 }
