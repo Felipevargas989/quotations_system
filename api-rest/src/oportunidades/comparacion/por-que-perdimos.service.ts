@@ -22,6 +22,7 @@ import {
   type NoLeido,
 } from '../analisis/comun';
 import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
+import { MOTIVO_DEL_XLS } from '../analisis/xlsx';
 import { resultadoParaLaEmpresa } from '../competencia/resultado-compra-agil';
 import { ResultadosRepository } from '../competencia/resultados.repository';
 import {
@@ -189,9 +190,11 @@ export class PorQuePerdimosService {
     const noLeidos: NoLeido[] = elegidas.flatMap((o) =>
       o.soloNombre.map((a) => ({
         nombre: `${o.nombre}: ${a.nombre}`,
-        motivo: /\.(pdf|docx|txt)$/i.test(a.nombre)
+        motivo: /\.(pdf|docx|xlsx|txt)$/i.test(a.nombre)
           ? 'no cupo: los PDF pesan más de 22 MB juntos'
-          : 'la IA lee PDF y Word',
+          : /\.xls$/i.test(a.nombre)
+            ? MOTIVO_DEL_XLS
+            : 'la IA lee PDF, Word y Excel',
       })),
     );
 

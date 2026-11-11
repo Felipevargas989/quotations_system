@@ -8,7 +8,7 @@ import {
   seccionDeLoQueSabemos,
 } from '../oferente/lo-que-sabemos';
 import { textoDeDocx } from './docx';
-import { textoDeXlsx } from './xlsx';
+import { MOTIVO_DEL_XLS, textoDeXlsx } from './xlsx';
 
 // LO COMÚN DE LOS TRABAJOS DE LA IA SOBRE ARCHIVOS: leer las bases (paso 1)
 // y validar documentos (paso 3). Qué archivos se pueden leer, cómo se le
@@ -278,7 +278,7 @@ export const separar = (archivos: Adjunto[]) => {
         nombre: a.nombre,
         motivo:
           extensionDe(a.nombre) === 'xls'
-            ? 'es un Excel antiguo (.xls): guárdalo como .xlsx y súbelo de nuevo'
+            ? MOTIVO_DEL_XLS
             : 'la IA lee PDF, Word y Excel; si es un ZIP, sube lo que trae adentro',
       });
     }
@@ -291,6 +291,19 @@ export const pesoDePdf = (archivos: Adjunto[]): number =>
   archivos
     .filter((a) => extensionDe(a.nombre) === 'pdf')
     .reduce((suma, a) => suma + a.bytes, 0);
+
+/** El texto de lo que la IA lee como texto: el Word y el Excel se abren
+ *  (`docx.ts`, `xlsx.ts`) y lo demás va tal cual. null si no se pudo abrir.
+ *  Lo usan `armarContenido` y la comparación de ofertas (decisión 127). */
+export const textoDelArchivo = (
+  nombre: string,
+  datos: Buffer,
+): string | null => {
+  const ext = extensionDe(nombre);
+  if (ext === 'docx') return textoDeDocx(datos);
+  if (ext === 'xlsx') return textoDeXlsx(datos);
+  return datos.toString('utf8');
+};
 
 /** Los archivos como los lee Claude: el PDF entero (texto e imagen de cada
  *  página), el Word, el Excel y el texto como texto. Lo que no se pudo
@@ -332,12 +345,7 @@ export const armarContenido = async (
       });
       continue;
     }
-    const texto =
-      ext === 'docx'
-        ? textoDeDocx(datos)
-        : ext === 'xlsx'
-          ? textoDeXlsx(datos)
-          : datos.toString('utf8');
+    const texto = textoDelArchivo(a.nombre, datos);
     if (!texto?.trim()) {
       sinAbrir.push({ nombre: a.nombre, motivo: 'no se pudo abrir' });
       continue;

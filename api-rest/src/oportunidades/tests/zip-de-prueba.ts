@@ -66,3 +66,36 @@ export const wordCon = (parrafos: string[], imagenes = 0): Buffer =>
       Buffer.from('png'),
     ]),
   ]);
+
+/** Un Excel mínimo de una hoja («Oferta»): cada fila con sus celdas, el
+ *  texto escrito en la celda y los números como números (decisión 127). */
+export const excelCon = (filas: Array<Array<string | number>>): Buffer => {
+  const hoja = filas
+    .map((celdas, f) => {
+      const fila = celdas
+        .map((valor, c) => {
+          const ref = `${String.fromCharCode(65 + c)}${f + 1}`;
+          return typeof valor === 'number'
+            ? `<c r="${ref}"><v>${valor}</v></c>`
+            : `<c r="${ref}" t="inlineStr"><is><t>${valor}</t></is></c>`;
+        })
+        .join('');
+      return `<row r="${f + 1}">${fila}</row>`;
+    })
+    .join('');
+  return zipCon([
+    ['[Content_Types].xml', '<Types/>'],
+    [
+      'xl/workbook.xml',
+      '<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Oferta" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    ],
+    [
+      'xl/_rels/workbook.xml.rels',
+      '<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    ],
+    [
+      'xl/worksheets/sheet1.xml',
+      `<worksheet><sheetData>${hoja}</sheetData></worksheet>`,
+    ],
+  ]);
+};
