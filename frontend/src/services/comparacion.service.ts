@@ -104,6 +104,45 @@ export const pedirPorQue = async (id: number) =>
     "POST",
   )) as TrabajoDePorQue;
 
+/** «Traer las ofertas» (decisión 123, 10-11): lo que dejó una vuelta del
+ *  motor sobre el cuadro de ofertas público de una licitación. */
+export interface OfertasTraidas {
+  /** false: Mercado Público todavía no muestra el cuadro de ofertas. */
+  publicadas: boolean;
+  /** Los demás oferentes, sin contar a la empresa. */
+  oferentes: number;
+  traidos: number;
+  yaEstaban: number;
+  /** Comprimidos, tipos que Eventia no guarda o de más de 30 MB. */
+  noSeTraen: number;
+  /** Quedó algo sin traer: se puede pedir de nuevo. */
+  incompleto: boolean;
+}
+
+export interface EstadoDeTraerOfertas {
+  trayendo: boolean;
+  /** Cómo terminó la última vuelta desde que partió el motor. */
+  ultima: {
+    terminada_en: string;
+    error: string | null;
+    resultado: OfertasTraidas | null;
+  } | null;
+}
+
+/** ¿El motor está trayendo las ofertas, y cómo terminó la última vez? */
+export const getEstadoDeTraerOfertas = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/competencia/traer`,
+    "GET",
+  )) as EstadoDeTraerOfertas;
+
+/** Parte la vuelta: el motor responde al tiro y sigue por detrás. */
+export const traerOfertas = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/competencia/traer`,
+    "POST",
+  )) as EstadoDeTraerOfertas;
+
 /** La oferta de un competidor, un archivo por pedido, con su nombre. */
 export const subirOfertaDeCompetidor = async (
   id: number,

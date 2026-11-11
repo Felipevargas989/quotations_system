@@ -153,6 +153,30 @@ export class ResultadosRepository {
       .map((f) => ({ id: f.id, codigo: f.codigo }));
   }
 
+  /** Una oportunidad de la empresa, con su código y si es licitación o
+   *  compra ágil (decisión 123: traer las ofertas a pedido); null si no es
+   *  de esta empresa. */
+  async procesoDe(
+    companyId: number,
+    oportunidadId: number,
+  ): Promise<{ id: number; codigo: string; tipo: string | null } | null> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('id, codigo, proceso:mp_procesos!inner(tipo)')
+      .eq('company_id', companyId)
+      .eq('id', oportunidadId)
+      .maybeSingle();
+    if (error) throw error;
+    const fila = data as unknown as {
+      id: number;
+      codigo: string;
+      proceso: { tipo: string } | null;
+    } | null;
+    return fila
+      ? { id: fila.id, codigo: fila.codigo, tipo: fila.proceso?.tipo ?? null }
+      : null;
+  }
+
   /** Las perdidas de la empresa en los últimos 7 días, por su última
    *  actualización (decisión 97: a esas la IA les explica por qué). */
   async perdidasRecientes(
