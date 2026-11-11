@@ -15,7 +15,7 @@ import {
   sumarDias,
   type Herramienta,
 } from './comun';
-import { esRecepcion, loTrabaja, sinMontos, tiposPara } from './recepcion';
+import { esRecepcion, loTrabaja, tiposPara } from './recepcion';
 
 // «¿Qué cena tiene el día 3 de la 500?», «¿qué trae esta cotización?». La
 // ficha del negocio: los servicios día por día, la plata y la bitácora. Es
@@ -214,9 +214,8 @@ export const verCotizacion: Herramienta = {
     'La ficha completa de una cotización: cliente, contacto, fechas, personas, los servicios ' +
     'día por día (cada casilla con su valor por persona), los fijos, la plata y las últimas ' +
     'notas de la bitácora. Sin `numero`, la que la persona tiene abierta en la pantalla. ' +
-    'Si el cargo no trabaja todos los tipos de cliente, la de un tipo que no trabaja llega sin la ' +
-    'plata ni los servicios (el estado, las fechas, las personas y la bitácora); la de un tipo que ' +
-    'trabaja llega completa con `trabaja: true`.',
+    'Solo las que el cargo ve en pantalla: las de los tipos de cliente que trabaja (Permisos por ' +
+    'cargo) y los requerimientos de todos, completas; la de un tipo que no trabaja no se puede ver.',
   esquema: {
     type: 'object',
     properties: {
@@ -242,12 +241,22 @@ export const verCotizacion: Herramienta = {
         `No hay ninguna cotización N° ${numero ?? '(abierta)'} en esta empresa.`,
       );
     }
+    // Lo mismo que la ficha en pantalla (doc 20 §18, 10-11-2026): la de un
+    // tipo de cliente que su cargo trabaja, completa y con su plata; los
+    // requerimientos, de todos; la de un tipo que no trabaja, nada.
+    const esRequerimiento = q.request_type === RequestType.REQUERIMIENTO;
+    const tipoTrabajado = loTrabaja(
+      await tiposPara(ctx),
+      q.clients?.client_type,
+    );
+    if (tipoTrabajado === false && !esRequerimiento) {
+      throw new ErrorDeHerramienta(
+        `La N° ${q.quotation_number} es de un tipo de cliente que el cargo de esta persona no trabaja (Permisos por cargo): no la puede ver, igual que en la pantalla. No des ningún dato de ella.`,
+      );
+    }
+    const conMarca = tipoTrabajado !== null;
     const notas = ((await ctx.bitacora.findByQuotation(empresa, q.id)) ??
       []) as Nota[];
-    // Completa la de un tipo de cliente que su cargo trabaja (doc 22 §9; a
-    // recepción, de fábrica, la de un particular, doc 21).
-    const trabaja = loTrabaja(await tiposPara(ctx), q.clients?.client_type);
-    const sinPlata = trabaja === false;
     const recientes = [...notas]
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
       .slice(0, 8)
@@ -255,17 +264,13 @@ export const verCotizacion: Herramienta = {
         cuando: fechaEnChile(f.created_at),
         autor: f.author_name ?? undefined,
         canal: f.tipo ?? undefined,
-        nota: sinPlata
-          ? sinMontos((f.note ?? '').slice(0, 500))
-          : (f.note ?? '').slice(0, 500),
+        nota: (f.note ?? '').slice(0, 500),
         proximo_contacto: f.next_contact_date ?? undefined,
         cumplido: f.next_contact_done_at ? true : undefined,
       }));
     return {
-      ...(trabaja === true ? { trabaja: true as const } : {}),
-      ...(sinPlata
-        ? fichaParaRecepcion(q, ctx.usuario.role)
-        : fichaComoLaVePersona(q, ctx.usuario.role, true)),
+      ...(conMarca ? { trabaja: true as const } : {}),
+      ...fichaComoLaVePersona(q, ctx.usuario.role, true),
       bitacora: recientes,
       notas_en_total: notas.length,
     };

@@ -4,12 +4,14 @@ import {
 } from 'src/quotations/constants/constants';
 import { UserRole } from 'src/users/entities/user.entity';
 import {
+  buscarCotizaciones,
   filaComoLaVePersona,
   filasComoLasVePersona,
 } from '../herramientas/buscar-cotizaciones';
 import { buscarEnCatalogo } from '../herramientas/buscar-en-catalogo';
 import { sumarDias, type ContextoDeHerramienta } from '../herramientas/comun';
 import { taparPlata } from '../herramientas/recepcion';
+import { ultimoCorreo } from '../herramientas/ultimo-correo';
 import { verCotizacion } from '../herramientas/ver-cotizacion';
 import type { DatosDeLaNueva } from '../propuestas/cotizacion-nueva.service';
 import {
@@ -22,11 +24,12 @@ import {
 
 // RECEPCIÓN Y LOS PARTICULARES EN BELIA (doc 21; Felipe, 04-11-2026: "Belia
 // sí le puede dar con montos para recepción, pero solo de cotizaciones para
-// particulares"). Lo de un particular le llega completo y lo puede cotizar;
-// lo demás, sin plata, como antes (recepcion.spec.ts).
+// particulares"). Lo de un particular le llega completo y lo puede cotizar.
+// Desde el 10-11-2026 (doc 20 §18), las cotizaciones de un tipo que su cargo
+// no trabaja no le llegan, igual que en el tablero; el calendario sigue con
+// la agenda sin plata.
 
 const recepcion = () => camila(UserRole.RECEPCION);
-const PLATA = /\$\s?\d/;
 const PARTICULARES = { particulares: ['Particulares'] };
 
 const fila = (tipo: string, c: Record<string, unknown> = {}) => ({
@@ -144,6 +147,87 @@ describe('las filas que ve recepción', () => {
   });
 });
 
+describe('buscar_cotizaciones, como el tablero (doc 20 §18)', () => {
+  it('solo lo que ve en pantalla: lo de particulares y los requerimientos de todos', async () => {
+    const repositorio = {
+      buscarCotizaciones: jest.fn().mockResolvedValue({
+        total: 3,
+        filas: [
+          fila('Particulares', { id: 'q1', quotation_number: 801 }),
+          fila('Empresas', { id: 'q2', quotation_number: 802 }),
+          fila('Empresas', {
+            id: 'q3',
+            quotation_number: 803,
+            request_type: RequestType.REQUERIMIENTO,
+          }),
+        ],
+      }),
+    };
+    const ctx = {
+      usuario: recepcion(),
+      repositorio,
+      alcance: alcanceDeFabrica(['Particulares']),
+    } as unknown as ContextoDeHerramienta;
+    const r = (await buscarCotizaciones.ejecutar({ orden: 'total' }, ctx)) as {
+      total_que_calzan: number;
+      cotizaciones: Array<{ numero: number; total?: string }>;
+    };
+    expect(r.total_que_calzan).toBe(2);
+    expect(r.cotizaciones.map((c) => c.numero)).toEqual([801, 803]);
+    // Con su plata: ya no es un secreto.
+    expect(r.cotizaciones[0].total).toBe('$4.452.800');
+    // Puede ordenar por total: solo ve lo suyo.
+    expect(repositorio.buscarCotizaciones).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ orden: 'total', limite: 1000 }),
+    );
+  });
+});
+
+describe('ultimo_correo (doc 20 §18, sprint 2)', () => {
+  const ctxCon = (tipo: string) => {
+    const seguimiento = {
+      ultimoCorreo: jest.fn().mockResolvedValue({
+        encontrado: 'hilo_de_la_cotizacion',
+        buzon: 'contacto@valledelsolquillon.cl',
+      }),
+    };
+    const ctx = {
+      usuario: recepcion(),
+      cotizacionAbierta: null,
+      repositorio: {
+        fichaDeCotizacion: jest
+          .fn()
+          .mockResolvedValue({ ...fila(tipo), id: 'q743' }),
+      },
+      alcance: alcanceDeFabrica(['Particulares']),
+      seguimiento,
+    } as unknown as ContextoDeHerramienta;
+    return { ctx, seguimiento };
+  };
+
+  it('de un particular: dice dónde está el último correo', async () => {
+    const { ctx, seguimiento } = ctxCon('Particulares');
+    const r = (await ultimoCorreo.ejecutar({ numero: 743 }, ctx)) as Record<
+      string,
+      unknown
+    >;
+    expect(r).toMatchObject({
+      numero: 743,
+      buzon: 'contacto@valledelsolquillon.cl',
+    });
+    expect(seguimiento.ultimoCorreo).toHaveBeenCalledWith('q743', ctx.usuario);
+  });
+
+  it('de una empresa que su cargo no trabaja: no busca nada', async () => {
+    const { ctx, seguimiento } = ctxCon('Empresas');
+    await expect(ultimoCorreo.ejecutar({ numero: 743 }, ctx)).rejects.toThrow(
+      'no puede ver sus correos',
+    );
+    expect(seguimiento.ultimoCorreo).not.toHaveBeenCalled();
+  });
+});
+
 describe('la ficha que ve recepción', () => {
   const ficha = (tipo: string) => ({
     ...fila(tipo),
@@ -207,14 +291,13 @@ describe('la ficha que ve recepción', () => {
     expect(taparPlata(r)).toEqual(r);
   });
 
-  it('la de una empresa, como siempre: sin plata', async () => {
-    const r = (await verCotizacion.ejecutar(
-      { numero: 743 },
-      ctxDe('Empresas'),
-    )) as Record<string, unknown>;
-    expect(r).not.toHaveProperty('plata');
-    expect(r).not.toHaveProperty('trabaja');
-    expect(JSON.stringify(r)).not.toMatch(PLATA);
+  it('la de una empresa no la ve, igual que en la pantalla (doc 20 §18)', async () => {
+    const ctx = ctxDe('Empresas');
+    await expect(verCotizacion.ejecutar({ numero: 743 }, ctx)).rejects.toThrow(
+      'no la puede ver',
+    );
+    // Ni siquiera se lee su bitácora.
+    expect(ctx.bitacora.findByQuotation).not.toHaveBeenCalled();
   });
 });
 

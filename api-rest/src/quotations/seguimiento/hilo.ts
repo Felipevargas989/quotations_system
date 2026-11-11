@@ -148,6 +148,57 @@ export function decidirHilo(p: {
   return { modo: 'seguimiento', buzon, mensaje: ultimo, hilo };
 }
 
+/** «Respóndele a este cliente» (doc 20 §18, sprint 3): se responde a todos
+ *  el último correo del hilo de la cotización; si no hay hilo de la
+ *  cotización, el último correo del cliente en cualquier hilo (una consulta
+ *  suele llegar antes que la cotización); si no hay ninguno, correo nuevo.
+ *  Con un borrador ya en el hilo, no se escribe otro. */
+export function decidirRespuesta(p: {
+  encontrados: Array<{ buzon: string; mensajes: MensajeDelBuzon[] }>;
+  esDeLaCasa: (correo: string) => boolean;
+  esDeEventia: (correo: string) => boolean;
+  buzonParaNuevo: string;
+  numero: number;
+  creada: string | null;
+}): DecisionDelHilo {
+  for (const e of p.encontrados) {
+    const hilo = hiloDeLaCotizacion({
+      mensajes: e.mensajes,
+      numero: p.numero,
+      creada: p.creada,
+      esDeEventia: p.esDeEventia,
+    });
+    if (!hilo) continue;
+    if (hilo.some((m) => m.borrador)) {
+      return {
+        modo: 'saltar',
+        motivo: `ya hay un borrador en el hilo de ${e.buzon}.`,
+      };
+    }
+    return { modo: 'responder', buzon: e.buzon, mensaje: hilo[0], hilo };
+  }
+  const delCliente = p.encontrados
+    .flatMap((e) =>
+      e.mensajes
+        .filter((m) => !m.borrador && !p.esDeLaCasa(m.de))
+        .map((m) => ({ buzon: e.buzon, m })),
+    )
+    .sort((a, b) => porFecha(a.m, b.m));
+  if (delCliente.length === 0)
+    return { modo: 'nuevo', buzon: p.buzonParaNuevo };
+  const { buzon, m } = delCliente[0];
+  const hilo = (p.encontrados.find((e) => e.buzon === buzon)?.mensajes ?? [])
+    .filter((x) => x.hilo === m.hilo)
+    .sort(porFecha);
+  if (hilo.some((x) => x.borrador)) {
+    return {
+      modo: 'saltar',
+      motivo: `ya hay un borrador en el hilo de ${buzon}.`,
+    };
+  }
+  return { modo: 'responder', buzon, mensaje: hilo[0] ?? m, hilo };
+}
+
 /** Las copias de un seguimiento: quienes venían en el último correo de la
  *  casa, menos la casa y el destinatario principal. */
 export const copiasDelHilo = (
