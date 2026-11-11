@@ -11,6 +11,10 @@ import {
 // botón guarda el ancho del texto más largo y lo que hay que decir va
 // debajo (que está trayendo, o cómo terminó la última vuelta), en una línea
 // que guarda su lugar aunque no se vea: al apretar, nada se mueve.
+//
+// Desde la decisión 125 (11-11) el botón principal de la pestaña es «Traer y
+// comparar», que hace las dos cosas. Este queda al lado de la lista, en
+// blanco (`secundario`), para quien quiere mirar las ofertas sin compararlas.
 
 const TONO: Record<LineaDeTraerOfertas["tono"], string> = {
   espera: "text-gray-500",
@@ -21,8 +25,11 @@ const TONO: Record<LineaDeTraerOfertas["tono"], string> = {
 
 export default function TraerLasOfertas({
   oportunidadId,
+  secundario = false,
 }: {
   readonly oportunidadId: number;
+  /** En blanco con borde: no es la acción principal de la pantalla. */
+  readonly secundario?: boolean;
 }) {
   const { trayendo, pedir, linea } = useTraerOfertas(oportunidadId);
   return (
@@ -32,7 +39,11 @@ export default function TraerLasOfertas({
         onClick={pedir}
         disabled={trayendo}
         title="Del cuadro de ofertas público de Mercado Público"
-        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        className={`inline-flex items-center gap-1.5 rounded-lg font-semibold disabled:opacity-50 ${
+          secundario
+            ? "px-2.5 py-1.5 text-xs text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+            : "px-3 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700"
+        }`}
       >
         {trayendo ? (
           <Loader2 size={14} className="animate-spin" aria-hidden />

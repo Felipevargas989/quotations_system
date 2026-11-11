@@ -11,11 +11,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OferenteComparado } from "../../services/comparacion.service";
 import IncumplimientosGraves, {
   CENTRO_DE_AYUDA,
+  Reclamo,
 } from "./IncumplimientosGraves";
 
 // LOS INCUMPLIMIENTOS GRAVES Y EL RECLAMO (decisión 59, 20-10). Felipe:
 // "en caso de incumplimiento grave, genere un texto para hacer un reclamos
-// en el centro de ayuda". Eventia no envía nada: el texto se copia.
+// en el centro de ayuda". Eventia no envía nada: el texto se copia. Desde la
+// decisión 125 es la columna «Lo puede dejar fuera» de cada oferta.
 
 vi.mock("../../components/toast/Toast", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warn: vi.fn() },
@@ -57,22 +59,37 @@ const oferente = (o: Partial<OferenteComparado> = {}): OferenteComparado => ({
 });
 
 describe("Incumplimientos graves y el reclamo", () => {
-  it("sin incumplimientos graves, o en una comparación de antes, no muestra nada", () => {
-    const { container } = render(
-      <IncumplimientosGraves
-        oferente={oferente({ graves: [] })}
-        adjudicada={false}
-      />,
+  it("sin incumplimientos graves, o en una comparación de antes, la columna guarda su lugar y no ofrece reclamo", () => {
+    for (const graves of [[], undefined]) {
+      render(
+        <IncumplimientosGraves
+          oferente={oferente({ graves, reclamo: null })}
+          adjudicada={false}
+        />,
+      );
+      expect(screen.getByText("Lo puede dejar fuera")).toBeInTheDocument();
+      expect(screen.getByText("Nada a la vista")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Redactar reclamo/ }),
+      ).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it("el reclamo solo: nada si el motor no armó uno (no compite contigo, o es tu oferta)", () => {
+    const sin = render(
+      <Reclamo oferente={oferente({ reclamo: null })} adjudicada={false} />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(sin.container).toBeEmptyDOMElement();
     cleanup();
-    const antes = render(
-      <IncumplimientosGraves
-        oferente={oferente({ graves: undefined })}
-        adjudicada={false}
-      />,
+    render(
+      <Reclamo oferente={oferente({ corto: "MYRNA" })} adjudicada={false} />,
     );
-    expect(antes.container).toBeEmptyDOMElement();
+    fireEvent.click(screen.getByRole("button", { name: /Redactar reclamo/ }));
+    // Se le dice por su nombre corto de «La competencia».
+    expect(
+      screen.getByLabelText("Reclamo sobre la oferta de MYRNA"),
+    ).toHaveValue(TEXTO);
   });
 
   it("cada uno con su prueba y su regla; «Redactar reclamo» da el texto para copiar y el Centro de Ayuda", async () => {
@@ -101,7 +118,7 @@ describe("Incumplimientos graves y el reclamo", () => {
     await waitFor(() => expect(escribir).toHaveBeenCalledWith(TEXTO));
   });
 
-  it("si es porque algo no está, antes pregunta si se subió todo lo de ese oferente", () => {
+  it("si es porque algo no está, antes pregunta si está todo lo de ese oferente", () => {
     render(
       <IncumplimientosGraves
         oferente={oferente({ graves: [FALTA] })}
@@ -109,17 +126,19 @@ describe("Incumplimientos graves y el reclamo", () => {
       />,
     );
     expect(
-      screen.getByText("No aparece en lo que subiste de este oferente."),
+      screen.getByText(
+        "Es porque no aparece entre lo que llegó de este oferente.",
+      ),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Redactar reclamo/ }));
     expect(
-      screen.getByText("¿Subiste todo lo que presentó MYRNA DEL PINO?"),
+      screen.getByText("¿Está todo lo que presentó MYRNA DEL PINO?"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "No" }));
     expect(
       screen.getByText(
-        /Sube todo lo que presentó MYRNA DEL PINO y vuelve a comparar/,
+        /Trae o sube todo lo que presentó MYRNA DEL PINO y vuelve a comparar/,
       ),
     ).toBeInTheDocument();
     expect(
@@ -127,7 +146,7 @@ describe("Incumplimientos graves y el reclamo", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Redactar reclamo/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Sí, subí todo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, está todo" }));
     expect(
       screen.getByLabelText("Reclamo sobre la oferta de MYRNA DEL PINO"),
     ).toBeInTheDocument();

@@ -13,10 +13,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as comparacion from "../../services/comparacion.service";
 import * as oportunidades from "../../services/oportunidades.service";
 import ComparacionDeOfertas from "./ComparacionDeOfertas";
+import { CASO, TEXTUM_L1, trabajoListo, VALLE } from "./comparacionDePrueba";
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41, 19-10). Felipe: "cargamos ambas
 // ofertas, la mía va a salir de acá, la otra la descargo y la sumo, y que la
-// IA analice porcentualmente quién cumple mejor según cada parámetro".
+// IA analice porcentualmente quién cumple mejor según cada parámetro". Y POR
+// LÍNEA, CON UN SOLO BOTÓN (decisión 125, 11-11): "recuerda que son dos
+// líneas que se podrían postular de forma independiente"; "debemos mejorar
+// esta interfaz"; con la maqueta, "mucho mejor, hazlo así".
 
 vi.mock("../../services/comparacion.service", () => ({
   getComparacion: vi.fn(),
@@ -64,6 +68,7 @@ const pintar = ({
   mias = [archivo(1, "Formulario N°5 - firmado.pdf", null)] as unknown[],
   trabajo = null as unknown,
   esLicitacion = false,
+  adjudicada = false,
 } = {}) => {
   o.getAdjuntos.mockImplementation((_id, seccion) =>
     Promise.resolve(
@@ -87,22 +92,36 @@ const pintar = ({
     >
       <ComparacionDeOfertas
         oportunidadId={84}
-        adjudicada={false}
+        adjudicada={adjudicada}
         esLicitacion={esLicitacion}
       />
     </QueryClientProvider>,
   );
 };
 
-describe("Comparación de ofertas", () => {
+const DE_LA_COMPETENCIA = [
+  archivo(31, "FORMULARIO N°4 CALIDAD DE LA OFERTA.docx.pdf", "TEXTUM"),
+  archivo(32, "PATENTE TEXTUM.pdf", "TEXTUM"),
+  archivo(33, "Formulario 4 - Calidad de la oferta.pdf", "BPM EVENTOS SPA"),
+  archivo(34, "Anexo 4.pdf", "BLISS PRODUCCIONES"),
+];
+
+describe("Comparación de ofertas: en una compra ágil, las ofertas se suben a mano", () => {
   it("sin competencia no se compara; para subir hay que escribir de quién es", async () => {
     pintar();
+    expect(await screen.findByText("La competencia (0)")).toBeInTheDocument();
+    const comparar = screen.getByRole("button", { name: /Comparar con IA/ });
+    expect(comparar).toBeDisabled();
+    expect(comparar).toHaveAttribute(
+      "title",
+      "Sube primero la oferta de al menos un competidor",
+    );
+    // No hay cuadro de ofertas que traer.
     expect(
-      await screen.findByText(/lo que está en «Mi postulación» \(1 archivo\)/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Comparar con IA/ }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /Traer/ }),
+    ).not.toBeInTheDocument();
+    expect(c.getEstadoDeTraerOfertas).not.toHaveBeenCalled();
+    // Subir a mano viene abierto: es la única manera.
     const elegir = screen.getByRole("button", { name: /Elegir sus archivos/ });
     expect(elegir).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/De qué oferente es la oferta/), {
@@ -111,8 +130,9 @@ describe("Comparación de ofertas", () => {
     expect(elegir).toBeEnabled();
   });
 
-  it("sube los archivos con el nombre del oferente y los muestra agrupados", async () => {
+  it("sube los archivos con el nombre del oferente y los muestra por oferente; se pueden eliminar", async () => {
     c.subirOfertaDeCompetidor.mockResolvedValue({} as never);
+    o.borrarAdjunto.mockResolvedValue(undefined as never);
     const { container } = pintar({
       competencia: [
         archivo(31, "Formulario N°5.pdf", "SOL DE QUILLON SPA"),
@@ -121,13 +141,23 @@ describe("Comparación de ofertas", () => {
       ],
     });
     expect(await screen.findByText("La competencia (2)")).toBeInTheDocument();
-    const sol = screen.getByText("SOL DE QUILLON SPA")
-      .parentElement as HTMLElement;
+    // Sin comparación todavía, cada oferente viene abierto, con sus archivos.
+    const sol = screen
+      .getByRole("button", { name: /SOL DE QUILLON SPA/ })
+      .closest("li") as HTMLElement;
+    expect(within(sol).getByText("2 archivos")).toBeInTheDocument();
     expect(within(sol).getByText("Formulario N°4.pdf")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Comparar con IA/ }),
     ).toBeEnabled();
 
+    fireEvent.click(
+      within(sol).getByRole("button", { name: "Eliminar Formulario N°4.pdf" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+    await waitFor(() => expect(o.borrarAdjunto).toHaveBeenCalledWith(84, 32));
+
+    // En una compra ágil, «a mano» viene siempre abierto.
     fireEvent.change(screen.getByLabelText(/De qué oferente es la oferta/), {
       target: { value: "  Eventos del Sur " },
     });
@@ -147,95 +177,6 @@ describe("Comparación de ofertas", () => {
     );
   });
 
-  it("muestra quién ganaría, la nota de cada criterio, el puntaje y la probabilidad", async () => {
-    pintar({
-      competencia: [archivo(31, "Formulario N°5.pdf", "SOL DE QUILLON SPA")],
-      trabajo: {
-        id: 40,
-        estado: "listo",
-        tipo: "comparacion",
-        modelo: "claude-opus-5-5",
-        costo_usd: 1.2,
-        no_leidos: [],
-        error: null,
-        creado_en: "2026-10-19T21:10:00.000Z",
-        terminado_en: "2026-10-19T21:13:00.000Z",
-        resultado: {
-          resumen: "Sol de Quillón va mejor por precio.",
-          ganador_probable: "SOL DE QUILLON SPA",
-          criterios: [
-            { nombre: "Oferta económica", peso: 40 },
-            { nombre: "Experiencia", peso: 60 },
-          ],
-          oferentes: [
-            {
-              nombre: "VALLE DEL SOL QUILLON SPA",
-              es_tuya: true,
-              precio: "$15.900.000 IVA incluido",
-              cumple_bases: "si",
-              por_que: "",
-              notas: [
-                { criterio: 1, nota: 75, fundamento: "Más caro." },
-                { criterio: 2, nota: 100, fundamento: "10 servicios." },
-              ],
-              probabilidad: 40,
-              fortalezas: ["Experiencia"],
-              debilidades: ["Precio"],
-              puntaje: 90,
-            },
-            {
-              nombre: "SOL DE QUILLON SPA",
-              es_tuya: false,
-              precio: "$12.000.000 neto",
-              cumple_bases: "dudoso",
-              por_que: "No se ve su patente.",
-              graves: [
-                {
-                  que: "Su oferta pasa del presupuesto",
-                  prueba: "Formulario N°5, página 1",
-                  regla: "Punto 11 de las bases",
-                  por_ausencia: false,
-                },
-              ],
-              reclamo: "Señores\nI MUNICIPALIDAD DE QUILLON",
-              notas: [
-                { criterio: 1, nota: 100, fundamento: "El más barato." },
-                { criterio: 2, nota: 90, fundamento: "9 servicios." },
-              ],
-              probabilidad: 60,
-              fortalezas: ["Precio"],
-              debilidades: ["Patente"],
-              puntaje: 94,
-            },
-          ],
-          para_la_proxima: ["Bajar el precio."],
-        },
-      },
-    });
-    expect(
-      await screen.findByText("Lo más probable: gana SOL DE QUILLON SPA (60%)"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Oferta económica")).toBeInTheDocument();
-    expect(screen.getByText("94")).toBeInTheDocument();
-    expect(screen.getByText("60%")).toBeInTheDocument();
-    expect(screen.getAllByText("Por confirmar")[0]).toHaveAttribute(
-      "title",
-      "No se ve su patente.",
-    );
-    expect(screen.getByText("Bajar el precio.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Volver a comparar/ }),
-    ).toBeEnabled();
-    expect(screen.getByText(/costó US\$1,20/)).toBeInTheDocument();
-    // Decisión 59: lo grave de un competidor, con su reclamo; la tuya, no.
-    expect(
-      screen.getByText("Su oferta pasa del presupuesto"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: /Redactar reclamo/ }),
-    ).toHaveLength(1);
-  });
-
   it("pide la comparación y espera mientras la IA trabaja", async () => {
     c.pedirComparacion.mockResolvedValue({
       id: 41,
@@ -253,41 +194,319 @@ describe("Comparación de ofertas", () => {
       await screen.findByText(/La IA está leyendo las ofertas/),
     ).toBeInTheDocument();
   });
+});
 
-  it("en una licitación, «Traer las ofertas» va en «La competencia»; en una compra ágil no hay qué traer (decisión 123)", async () => {
-    // Felipe, 10-11, con una postulada ya cerrada: "acá eventia no me puede
-    // traer los documentos de la otra propuesta" y "con un botón acá en
-    // eventia".
-    const { unmount } = pintar({ esLicitacion: true });
+describe("Comparación de ofertas: en una licitación, un solo botón (decisión 125)", () => {
+  it("«Traer y comparar» no necesita ofertas subidas: las trae y compara", async () => {
+    c.pedirComparacion.mockResolvedValue({
+      id: 41,
+      estado: "procesando",
+    } as never);
+    pintar({ esLicitacion: true });
+    expect(await screen.findByText("La competencia (0)")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Trae del cuadro de ofertas de Mercado Público/),
+    ).toBeInTheDocument();
+    const boton = screen.getByRole("button", { name: "Traer y comparar" });
+    expect(boton).toBeEnabled();
+    fireEvent.click(boton);
+    await waitFor(() => expect(c.pedirComparacion).toHaveBeenCalledWith(84));
+    expect(
+      await screen.findByText(/Trayendo las ofertas y comparando/),
+    ).toBeInTheDocument();
+    expect(boton).toBeDisabled();
+  });
+
+  it("«Traer las ofertas», sin comparar, queda junto a la lista (decisión 123); subir a mano, plegado", async () => {
+    pintar({ esLicitacion: true });
     const titulo = await screen.findByText("La competencia (0)");
-    const boton = screen.getByRole("button", { name: /Traer las ofertas/ });
-    expect(titulo.parentElement).toContainElement(boton);
-    await waitFor(() => expect(boton).toBeEnabled());
+    const traer = screen.getByRole("button", { name: /Traer las ofertas/ });
+    expect(titulo.parentElement).toContainElement(traer);
+    await waitFor(() => expect(traer).toBeEnabled());
     expect(c.getEstadoDeTraerOfertas).toHaveBeenCalledWith(84);
     expect(
-      screen.getByText(/«Traer las ofertas» baja del cuadro de ofertas/),
-    ).toBeInTheDocument();
-    // Subir a mano sigue ahí.
+      screen.queryByLabelText(/De qué oferente es la oferta/),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Subir una oferta a mano/ }),
+    );
     expect(
       screen.getByLabelText(/De qué oferente es la oferta/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Comparar con IA/ }),
-    ).toHaveAttribute(
-      "title",
-      "Trae o sube primero la oferta de al menos un competidor",
-    );
-    unmount();
-    vi.clearAllMocks();
+  });
 
-    pintar();
-    await screen.findByText("La competencia (0)");
+  it("si no hay nada en «Mi postulación», lo avisa; si la comparación falló, dice por qué", async () => {
+    pintar({
+      esLicitacion: true,
+      mias: [],
+      trabajo: {
+        ...trabajoListo(null),
+        estado: "error",
+        archivos: [],
+        no_leidos: [],
+        costo_usd: null,
+        error: "Solo tu empresa presentó oferta: no hay con quién comparar.",
+      },
+    });
     expect(
-      screen.queryByRole("button", { name: /Traer las ofertas/ }),
-    ).not.toBeInTheDocument();
-    expect(c.getEstadoDeTraerOfertas).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(/Baja del cuadro de ofertas de Mercado Público/),
+      await screen.findByText(/Solo tu empresa presentó oferta/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Intentado el/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Todavía no hay nada en «Mi postulación»/),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Comparación de ofertas: el resultado, línea por línea (decisión 125)", () => {
+  it("una tarjeta por línea, la tuya primero: puntaje, precio, estado y los dos desenlaces", async () => {
+    pintar({
+      esLicitacion: true,
+      competencia: DE_LA_COMPETENCIA,
+      trabajo: trabajoListo(),
+    });
+    const l1 = await screen.findByRole("article", {
+      name: "Línea 1 · Alimentación",
+    });
+    const l2 = screen.getByRole("article", { name: "Línea 2 · Técnica" });
+    // La línea en que compites va antes, aunque el motor la entregue después.
+    expect(
+      l1.compareDocumentPosition(l2) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(l1).getByText("Compites")).toBeInTheDocument();
+    expect(within(l1).getByText("Tope $17.200.000")).toBeInTheDocument();
+    expect(within(l2).getByText("No compites")).toBeInTheDocument();
+
+    // Solo quienes postularon a la línea, con los números adelante.
+    // (El nombre sale en su tarjeta y en la tabla de notas.)
+    expect(within(l1).getAllByText("TEXTUM")).toHaveLength(2);
+    expect(
+      within(l1).getByText("Valle del Sol Quillon SPA (tú)"),
+    ).toBeInTheDocument();
+    expect(within(l1).queryByText("BPM EVENTOS SPA")).not.toBeInTheDocument();
+    expect(within(l1).getAllByText("99,4")).toHaveLength(2);
+    expect(
+      within(l1).getByText("$16.855.993 IVA incluido"),
+    ).toBeInTheDocument();
+    // El estado en una palabra y el detalle chico debajo.
+    expect(within(l1).getByText("En duda")).toBeInTheDocument();
+    expect(within(l1).getByText("Sin café en la colación")).toBeInTheDocument();
+    expect(within(l1).getByText("Cumple")).toBeInTheDocument();
+    expect(within(l2).getByText("Fuera")).toBeInTheDocument();
+
+    // Los dos desenlaces.
+    expect(within(l1).getByText("Si les aceptan todo")).toBeInTheDocument();
+    expect(
+      within(l1).getByText("Gana TEXTUM por 0,6 puntos"),
+    ).toBeInTheDocument();
+    expect(within(l1).getByText("Ofertó $294.007 menos")).toBeInTheDocument();
+    expect(
+      within(l1).getByText("Si aplican las bases a la letra"),
+    ).toBeInTheDocument();
+    expect(within(l1).getByText("Ganas tú")).toBeInTheDocument();
+    expect(within(l1).getByText("TEXTUM queda fuera")).toBeInTheDocument();
+    expect(within(l2).getByText("Gana TEXTUM")).toBeInTheDocument();
+
+    // La tabla de notas: abierta donde compites, plegada donde no.
+    expect(within(l1).getByText("Oferta económica")).toBeInTheDocument();
+    expect(within(l1).getByText("Probabilidad de ganar")).toBeInTheDocument();
+    expect(within(l2).queryByText("Oferta económica")).not.toBeInTheDocument();
+    fireEvent.click(
+      within(l2).getByRole("button", { name: /Ver las notas de esta línea/ }),
+    );
+    expect(within(l2).getByText("Oferta económica")).toBeInTheDocument();
+
+    // Arriba, cuándo, cuánto leyó y cuánto costó; el botón sigue siendo uno.
+    expect(
+      screen.getByText(
+        /Comparado el .* · leyó 58 de 61 archivos · costó US\$2,30/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Traer y comparar" }),
+    ).toBeEnabled();
+  });
+
+  it("lo que decide la línea, con dónde se ve y la regla de las bases, y el reclamo solo contra tu competidor", async () => {
+    pintar({
+      esLicitacion: true,
+      competencia: DE_LA_COMPETENCIA,
+      trabajo: trabajoListo(),
+    });
+    const l1 = await screen.findByRole("article", {
+      name: "Línea 1 · Alimentación",
+    });
+    expect(
+      within(l1).getByText(
+        "Lo que lo decide: A Textum le falta el café de la colación",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(l1).getByText(
+        "Dónde se ve: FORMULARIO N°4 CALIDAD DE LA OFERTA.docx.pdf, pág. 2",
+      ),
+    ).toBeInTheDocument();
+    expect(within(l1).getByText(/Regla: «…o bien café/)).toBeInTheDocument();
+    fireEvent.click(
+      within(l1).getByRole("button", { name: /Redactar reclamo/ }),
+    );
+    expect(
+      within(l1).getByLabelText("Reclamo sobre la oferta de TEXTUM"),
+    ).toHaveValue("Señores\nILUSTRE MUNICIPALIDAD DE QUILLON\nPresente");
+    // En la línea a la que no postulaste, se ve qué la decide, sin reclamo.
+    const l2 = screen.getByRole("article", { name: "Línea 2 · Técnica" });
+    expect(
+      within(l2).getByText(/Lo que lo decide: Si aceptan el Formulario N°4/),
+    ).toBeInTheDocument();
+    expect(
+      within(l2).queryByRole("button", { name: /Redactar reclamo/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cada oferta en una fila que se abre: lo que leyó de ella y, adentro, lo suyo de cada línea y sus archivos", async () => {
+    pintar({
+      esLicitacion: true,
+      competencia: DE_LA_COMPETENCIA,
+      trabajo: trabajoListo(),
+    });
+    expect(
+      await screen.findByText("El detalle de cada oferta"),
+    ).toBeInTheDocument();
+    const fila = (nombre: RegExp) =>
+      screen.getByRole("button", { name: nombre }).closest("li") as HTMLElement;
+    // La tuya primero; de cada una, cuánto se leyó.
+    const filas = screen
+      .getAllByRole("button", { expanded: false })
+      .map((b) => b.textContent ?? "")
+      .filter((t) => /leyó \d/.test(t));
+    expect(filas).toEqual([
+      "Valle del Sol Quillon SPA (tú)leyó 15 de 15 archivos",
+      "BLISS PRODUCCIONESleyó 12 de 12 archivos",
+      "BPM EVENTOS SPAleyó 14 de 15 archivos · 2 sin traer",
+      "TEXTUMleyó 15 de 15 archivos",
+    ]);
+    // Plegadas: lo de adentro no se ve hasta abrir.
+    expect(screen.queryByText("Le suma")).not.toBeInTheDocument();
+
+    // Textum postula a las dos líneas: una fila, con lo de cada línea.
+    const textum = fila(/^TEXTUM/);
+    fireEvent.click(within(textum).getByRole("button", { name: /^TEXTUM/ }));
+    expect(
+      within(textum).getByText("Línea 1 · Alimentación"),
+    ).toBeInTheDocument();
+    expect(within(textum).getByText("Línea 2 · Técnica")).toBeInTheDocument();
+    expect(within(textum).getAllByText("Le suma")).toHaveLength(2);
+    expect(within(textum).getAllByText("Le resta")).toHaveLength(2);
+    expect(within(textum).getAllByText("Lo puede dejar fuera")).toHaveLength(2);
+    expect(
+      within(textum).getByText("Menor precio de la línea"),
+    ).toBeInTheDocument();
+    expect(
+      within(textum).getByText("La colación no ofrece café"),
+    ).toBeInTheDocument();
+    // En la Línea 2 no tiene nada en contra: la columna guarda su lugar.
+    expect(
+      within(textum).getAllByText("Nada a la vista").length,
+    ).toBeGreaterThan(0);
+    // Sus archivos, adentro y plegados.
+    fireEvent.click(
+      within(textum).getByRole("button", { name: "Sus archivos (2)" }),
+    );
+    expect(within(textum).getByText("PATENTE TEXTUM.pdf")).toBeInTheDocument();
+
+    // De BPM, lo que la IA no vio: de eso no afirma nada.
+    const bpm = fila(/^BPM EVENTOS SPA/);
+    fireEvent.click(
+      within(bpm).getByRole("button", { name: /^BPM EVENTOS SPA/ }),
+    );
+    expect(
+      within(bpm).getByText(
+        "Sin traer de Mercado Público: EXPERIENCIA DEL OFERENTE OC.rar (viene comprimido); Toda la Documentacion.rar (viene comprimido).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bpm).getByText(
+        "Sin leer: planilla.xlsx (la IA lee PDF, Word e imágenes).",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("lo demás va plegado al final: el resumen, para la próxima y lo que no leyó", async () => {
+    pintar({ esLicitacion: true, trabajo: trabajoListo() });
+    await screen.findByRole("article", { name: "Línea 1 · Alimentación" });
+    expect(screen.queryByText(CASO.resumen)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "El resumen de la IA" }),
+    );
+    expect(screen.getByText(CASO.resumen)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Para la próxima (1)" }),
+    );
+    expect(
+      screen.getByText("Ajustar el precio: Textum ofertó $294.007 menos."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Lo que la IA no leyó (3)" }),
+    );
+    expect(
+      screen.getByText(
+        "BPM EVENTOS SPA: planilla.xlsx · la IA lee PDF, Word e imágenes",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("una comparación de antes, o una licitación sin líneas: una sola tarjeta, sin «compites»; ya adjudicada, sin reclamo", async () => {
+    pintar({
+      competencia: [archivo(31, "Oferta.pdf", "SOL DE QUILLON SPA")],
+      adjudicada: true,
+      trabajo: trabajoListo({
+        ...CASO,
+        lectura: undefined,
+        lineas: [
+          {
+            nombre: "",
+            tope: "",
+            compites: true,
+            que_lo_decide: "",
+            ganador_probable: TEXTUM_L1.nombre,
+            si_aceptan_todo: TEXTUM_L1.nombre,
+            a_la_letra: VALLE.nombre,
+            oferentes: [
+              { ...VALLE, oferta: undefined, corto: undefined },
+              { ...TEXTUM_L1, oferta: undefined, corto: undefined },
+            ],
+          },
+        ],
+      }),
+    });
+    const tarjeta = await screen.findByRole("article", {
+      name: "La comparación",
+    });
+    expect(
+      within(tarjeta).getByText("Cómo va la licitación"),
+    ).toBeInTheDocument();
+    expect(within(tarjeta).queryByText("Compites")).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByText(/^Tope/)).not.toBeInTheDocument();
+    // Sin la frase de la IA, lo que decide es lo grave de quien va primero.
+    expect(
+      within(tarjeta).getByText("Lo que lo decide: La colación no ofrece café"),
+    ).toBeInTheDocument();
+    // Ya adjudicada: el camino es el Tribunal.
+    expect(
+      within(tarjeta).queryByRole("button", { name: /Redactar reclamo/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText(
+        /impugnar ante el Tribunal de Contratación Pública/,
+      ),
+    ).toBeInTheDocument();
+    // Los archivos de la competencia que no calzan por nombre siguen a mano.
+    expect(
+      screen.getByRole("button", { name: /SOL DE QUILLON SPA/ }),
+    ).toBeInTheDocument();
+    // En una compra ágil el botón compara de nuevo.
+    expect(
+      screen.getByRole("button", { name: /Volver a comparar/ }),
+    ).toBeEnabled();
   });
 });

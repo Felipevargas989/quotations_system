@@ -64,6 +64,9 @@ export type ServicioEnElAnalisis = {
 export type FinDeAnalisis = {
   estado: 'listo' | 'error';
   resultado?: Record<string, unknown>;
+  /** Lo que se leyó, cuando recién se sabe al terminar: la comparación de
+   *  ofertas trae las ofertas antes de leerlas (decisión 125). */
+  archivos?: Array<{ id?: number; nombre: string; carpeta?: string }>;
   no_leidos?: Array<{ nombre: string; motivo: string }>;
   tokens_entrada?: number;
   tokens_salida?: number;
