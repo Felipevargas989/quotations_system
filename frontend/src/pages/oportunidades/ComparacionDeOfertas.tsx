@@ -18,6 +18,7 @@ import LineaDeLaComparacion from "./LineaDeLaComparacion";
 import OfertasDeLaComparacion from "./OfertasDeLaComparacion";
 import Plegable from "./Plegable";
 import PorQuePerdimos from "./PorQuePerdimos";
+import Reclamos from "./Reclamos";
 import { conLineas, lineasEnOrden } from "./lineasDeLaComparacion";
 import { textoDeCosto } from "./oportunidades.utils";
 import { claveDeLaCompetencia } from "./useTraerOfertas";
@@ -29,7 +30,7 @@ import { claveDeLaCompetencia } from "./useTraerOfertas";
 // ofertas, la mía va a salir de acá, la otra la descargo y la sumo". La IA
 // pone la nota de cada criterio y el motor calcula los puntajes con los
 // pesos de las bases. Desde la decisión 59, lo que puede dejar fuera a cada
-// oferta y, en la de un competidor, el reclamo para el Centro de Ayuda.
+// oferta.
 //
 // POR LÍNEA Y CON LOS NÚMEROS ADELANTE (decisión 125, 11-11). Felipe, con la
 // 5040-14-LE26: "recuerda que son dos líneas que se podrían postular de
@@ -44,6 +45,16 @@ import { claveDeLaCompetencia } from "./useTraerOfertas";
 //    si aplica las bases a la letra. La línea en que compites, primero.
 //  - Cada oferta en una fila que se abre (`OfertasDeLaComparacion`), con sus
 //    archivos adentro. Lo demás, plegado al final.
+//
+// LO DE ABAJO, DESPUÉS DE LA RESOLUCIÓN (decisión 128, 11-11). Felipe, con la
+// pestaña en producción: "el reclamo creo que debe ser post resolución, si
+// gano no reclamo, si pierdo sí, y debería ser una sección abajo para generar
+// reclamos. El para la próxima, lo eliminaremos, el resumen yo creo que
+// igual... subir el acta de evaluación debería también ser automático".
+//  - «El resumen de la IA» y «Para la próxima» ya no están.
+//  - El reclamo salió de las tarjetas: `Reclamos`, abajo y solo en una
+//    perdida, después de «Por qué perdiste».
+//  - El acta de evaluación llega sola (`AprenderDelActa`).
 
 const claveDeLaComparacion = (id: number) => [
   "oportunidades",
@@ -53,15 +64,17 @@ const claveDeLaComparacion = (id: number) => [
 
 export default function ComparacionDeOfertas({
   oportunidadId,
-  adjudicada,
   perdida = false,
   esLicitacion = false,
+  actaPublicada = false,
 }: {
   readonly oportunidadId: number;
-  /** Ya adjudicada: no se ofrece el reclamo, sino el camino del Tribunal. */
-  readonly adjudicada: boolean;
-  /** Perdida: debajo de la predicción, por qué perdimos (decisión 97). */
+  /** Perdida: debajo de la predicción, por qué perdimos (decisión 97) y los
+   *  reclamos (decisión 128). */
   readonly perdida?: boolean;
+  /** Mercado Público ya publicó la adjudicación con su acta: el acta de
+   *  evaluación se puede traer (decisión 128). */
+  readonly actaPublicada?: boolean;
   /** Una licitación tiene cuadro de ofertas público: las ofertas de los
    *  demás se traen solas (decisiones 123 y 125). Una compra ágil no trae
    *  documentos. */
@@ -169,7 +182,6 @@ export default function ComparacionDeOfertas({
             key={linea.nombre}
             linea={linea}
             criterios={r.criterios}
-            adjudicada={adjudicada}
             unica={r.lineas.length === 1 && linea.nombre === ""}
           />
         ))}
@@ -179,43 +191,31 @@ export default function ComparacionDeOfertas({
         resultado={r}
         porCompetidor={porCompetidor}
         esLicitacion={esLicitacion}
-        adjudicada={adjudicada}
       />
 
-      {r && trabajo && (
-        <div className="space-y-2">
-          {r.resumen && (
-            <Plegable titulo="El resumen de la IA">
-              <p className="text-sm text-gray-800">{r.resumen}</p>
-            </Plegable>
-          )}
-          {r.para_la_proxima.length > 0 && (
-            <Plegable titulo={`Para la próxima (${r.para_la_proxima.length})`}>
-              <ul className="list-disc pl-5 text-sm text-gray-800 space-y-0.5">
-                {r.para_la_proxima.map((cosa) => (
-                  <li key={cosa}>{cosa}</li>
-                ))}
-              </ul>
-            </Plegable>
-          )}
-          {trabajo.no_leidos.length > 0 && (
-            <Plegable
-              titulo={`Lo que la IA no leyó (${trabajo.no_leidos.length})`}
-            >
-              <ul className="text-xs text-gray-600 space-y-0.5">
-                {trabajo.no_leidos.map((n) => (
-                  <li key={n.nombre}>
-                    {n.nombre} · {n.motivo}
-                  </li>
-                ))}
-              </ul>
-            </Plegable>
-          )}
-        </div>
+      {r && trabajo && trabajo.no_leidos.length > 0 && (
+        <Plegable titulo={`Lo que la IA no leyó (${trabajo.no_leidos.length})`}>
+          <ul className="text-xs text-gray-600 space-y-0.5">
+            {trabajo.no_leidos.map((n) => (
+              <li key={n.nombre}>
+                {n.nombre} · {n.motivo}
+              </li>
+            ))}
+          </ul>
+        </Plegable>
       )}
 
       {perdida && <PorQuePerdimos oportunidadId={oportunidadId} />}
-      <AprenderDelActa oportunidadId={oportunidadId} />
+      {perdida && (
+        <Reclamos
+          oportunidadId={oportunidadId}
+          comparacionId={trabajo?.estado === "listo" ? trabajo.id : null}
+        />
+      )}
+      <AprenderDelActa
+        oportunidadId={oportunidadId}
+        actaPublicada={actaPublicada}
+      />
     </section>
   );
 }

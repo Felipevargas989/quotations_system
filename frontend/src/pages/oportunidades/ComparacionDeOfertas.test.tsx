@@ -20,7 +20,11 @@ import { CASO, TEXTUM_L1, trabajoListo, VALLE } from "./comparacionDePrueba";
 // IA analice porcentualmente quién cumple mejor según cada parámetro". Y POR
 // LÍNEA, CON UN SOLO BOTÓN (decisión 125, 11-11): "recuerda que son dos
 // líneas que se podrían postular de forma independiente"; "debemos mejorar
-// esta interfaz"; con la maqueta, "mucho mejor, hazlo así".
+// esta interfaz"; con la maqueta, "mucho mejor, hazlo así". Y LO DE ABAJO,
+// DESPUÉS DE LA RESOLUCIÓN (decisión 128, 11-11): "el reclamo creo que debe
+// ser post resolución, si gano no reclamo, si pierdo sí, y debería ser una
+// sección abajo... el para la próxima, lo eliminaremos, el resumen yo creo
+// que igual".
 
 vi.mock("../../services/comparacion.service", () => ({
   getComparacion: vi.fn(),
@@ -28,6 +32,9 @@ vi.mock("../../services/comparacion.service", () => ({
   subirOfertaDeCompetidor: vi.fn(),
   getEstadoDeTraerOfertas: vi.fn(),
   traerOfertas: vi.fn(),
+  getReclamos: vi.fn(),
+  getPorQue: vi.fn(() => Promise.resolve(null)),
+  pedirPorQue: vi.fn(),
 }));
 vi.mock("../../services/oportunidades.service", () => ({
   getAdjuntos: vi.fn(),
@@ -68,7 +75,7 @@ const pintar = ({
   mias = [archivo(1, "Formulario N°5 - firmado.pdf", null)] as unknown[],
   trabajo = null as unknown,
   esLicitacion = false,
-  adjudicada = false,
+  perdida = false,
 } = {}) => {
   o.getAdjuntos.mockImplementation((_id, seccion) =>
     Promise.resolve(
@@ -92,7 +99,7 @@ const pintar = ({
     >
       <ComparacionDeOfertas
         oportunidadId={84}
-        adjudicada={adjudicada}
+        perdida={perdida}
         esLicitacion={esLicitacion}
       />
     </QueryClientProvider>,
@@ -327,7 +334,7 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
     ).toBeEnabled();
   });
 
-  it("lo que decide la línea, con dónde se ve y la regla de las bases, y el reclamo solo contra tu competidor", async () => {
+  it("lo que decide la línea, con dónde se ve y la regla de las bases; el reclamo ya no va en las tarjetas", async () => {
     pintar({
       esLicitacion: true,
       competencia: DE_LA_COMPETENCIA,
@@ -347,20 +354,20 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
       ),
     ).toBeInTheDocument();
     expect(within(l1).getByText(/Regla: «…o bien café/)).toBeInTheDocument();
-    fireEvent.click(
-      within(l1).getByRole("button", { name: /Redactar reclamo/ }),
-    );
-    expect(
-      within(l1).getByLabelText("Reclamo sobre la oferta de TEXTUM"),
-    ).toHaveValue("Señores\nILUSTRE MUNICIPALIDAD DE QUILLON\nPresente");
-    // En la línea a la que no postulaste, se ve qué la decide, sin reclamo.
+    // En la línea a la que no postulaste, también se ve qué la decide.
     const l2 = screen.getByRole("article", { name: "Línea 2 · Técnica" });
     expect(
       within(l2).getByText(/Lo que lo decide: Si aceptan el Formulario N°4/),
     ).toBeInTheDocument();
+    // Decisión 128: antes de la resolución no se reclama, ni se le pregunta
+    // al motor por reclamos.
     expect(
-      within(l2).queryByRole("button", { name: /Redactar reclamo/ }),
+      screen.queryByRole("button", { name: /reclamo/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Reclamos" }),
+    ).not.toBeInTheDocument();
+    expect(c.getReclamos).not.toHaveBeenCalled();
   });
 
   it("cada oferta en una fila que se abre: lo que leyó de ella y, adentro, lo suyo de cada línea y sus archivos", async () => {
@@ -431,20 +438,24 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
     ).toBeInTheDocument();
   });
 
-  it("lo demás va plegado al final: el resumen, para la próxima y lo que no leyó", async () => {
-    pintar({ esLicitacion: true, trabajo: trabajoListo() });
+  it("al final, plegado, lo que la IA no leyó; el resumen y «para la próxima» ya no están (decisión 128)", async () => {
+    // Una comparación de antes los trae guardados: tampoco se muestran.
+    pintar({
+      esLicitacion: true,
+      trabajo: trabajoListo({
+        ...CASO,
+        para_la_proxima: ["Ajustar el precio."],
+      }),
+    });
     await screen.findByRole("article", { name: "Línea 1 · Alimentación" });
-    expect(screen.queryByText(CASO.resumen)).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "El resumen de la IA" }),
-    );
-    expect(screen.getByText(CASO.resumen)).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Para la próxima (1)" }),
-    );
     expect(
-      screen.getByText("Ajustar el precio: Textum ofertó $294.007 menos."),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /El resumen de la IA/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CASO.resumen)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Para la próxima/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Ajustar el precio.")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Lo que la IA no leyó (3)" }),
     );
@@ -455,10 +466,9 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
     ).toBeInTheDocument();
   });
 
-  it("una comparación de antes, o una licitación sin líneas: una sola tarjeta, sin «compites»; ya adjudicada, sin reclamo", async () => {
+  it("una comparación de antes, o una licitación sin líneas: una sola tarjeta, sin «compites»", async () => {
     pintar({
       competencia: [archivo(31, "Oferta.pdf", "SOL DE QUILLON SPA")],
-      adjudicada: true,
       trabajo: trabajoListo({
         ...CASO,
         lectura: undefined,
@@ -491,15 +501,6 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
     expect(
       within(tarjeta).getByText("Lo que lo decide: La colación no ofrece café"),
     ).toBeInTheDocument();
-    // Ya adjudicada: el camino es el Tribunal.
-    expect(
-      within(tarjeta).queryByRole("button", { name: /Redactar reclamo/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(tarjeta).getByText(
-        /impugnar ante el Tribunal de Contratación Pública/,
-      ),
-    ).toBeInTheDocument();
     // Los archivos de la competencia que no calzan por nombre siguen a mano.
     expect(
       screen.getByRole("button", { name: /SOL DE QUILLON SPA/ }),
@@ -508,5 +509,84 @@ describe("Comparación de ofertas: el resultado, línea por línea (decisión 12
     expect(
       screen.getByRole("button", { name: /Volver a comparar/ }),
     ).toBeEnabled();
+  });
+});
+
+describe("Abajo, después de la resolución (decisión 128)", () => {
+  const RECLAMOS = {
+    corresponde: true,
+    sin_adjudicar: null,
+    comparada: true,
+    adjudicada_el: "2026-11-20",
+    reclamo_hasta: "2099-11-27",
+    tribunal_hasta: "2099-12-02",
+    maximo: 3500,
+    reclamos: [
+      {
+        contra: "TEXTUM BURGOS Y ORTIZ LIMITADA",
+        corto: "TEXTUM",
+        linea: "Línea 1 · Alimentación",
+        adjudicada: true,
+        incumplimientos: 1,
+        sin_lugar: 0,
+        por_ausencia: false,
+        texto: "Señores\nILUSTRE MUNICIPALIDAD DE QUILLON",
+        caracteres: 1076,
+      },
+    ],
+  };
+
+  it("si pierdo sí: «Reclamos» va después de «Por qué perdiste» y antes de lo que aprendemos de la comisión", async () => {
+    c.getReclamos.mockResolvedValue(RECLAMOS as never);
+    pintar({
+      esLicitacion: true,
+      perdida: true,
+      competencia: DE_LA_COMPETENCIA,
+      trabajo: trabajoListo(),
+    });
+    const seccion = await screen.findByRole("region", { name: "Reclamos" });
+    expect(c.getReclamos).toHaveBeenCalledWith(84);
+    expect(
+      within(seccion).getByRole("button", { name: /Generar reclamo/ }),
+    ).toBeInTheDocument();
+    const orden = [
+      screen.getByRole("heading", { name: "Por qué perdiste" }),
+      screen.getByRole("heading", { name: "Reclamos" }),
+      screen.getByRole("heading", {
+        name: /Lo que aprendemos de la comisión/,
+      }),
+    ];
+    for (let i = 0; i < orden.length - 1; i++) {
+      expect(
+        orden[i].compareDocumentPosition(orden[i + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    // En las tarjetas de las líneas sigue sin haber reclamo.
+    expect(
+      within(
+        screen.getByRole("article", { name: "Línea 1 · Alimentación" }),
+      ).queryByRole("button", { name: /reclamo/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("si gano no reclamo: ni sección ni «Por qué perdiste»", async () => {
+    pintar({
+      esLicitacion: true,
+      competencia: DE_LA_COMPETENCIA,
+      trabajo: trabajoListo(),
+    });
+    await screen.findByRole("article", { name: "Línea 1 · Alimentación" });
+    expect(
+      screen.queryByRole("region", { name: "Reclamos" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Por qué perdiste" }),
+    ).not.toBeInTheDocument();
+    expect(c.getReclamos).not.toHaveBeenCalled();
+    // Lo que aprendemos de la comisión sí está, gane o pierda.
+    expect(
+      screen.getByRole("heading", { name: /Lo que aprendemos de la comisión/ }),
+    ).toBeInTheDocument();
   });
 });

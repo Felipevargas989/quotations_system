@@ -18,8 +18,6 @@ import {
   paginasDeTexto,
   porQueNoSeLee,
 } from '../comparacion/que-leer';
-import { conReclamos, textoDelReclamo } from '../comparacion/reclamo';
-import type { Oferente } from '../oferente/oferente.repository';
 import type { PiezaDelSet } from '../postulacion/el-set';
 import { CRITERIOS, IA, NOMBRES } from './comparacion-de-prueba';
 
@@ -125,6 +123,18 @@ describe('Los puntajes los calcula el motor, línea por línea', () => {
         CRITERIOS,
       ),
     ).toMatchObject({ lineas: [], oferentes: [], ganador_probable: '' });
+  });
+
+  it('decisión 128: «para la próxima» va siempre vacío, para que una pantalla abierta con la versión anterior no se caiga', () => {
+    expect(conPuntajes(IA, CRITERIOS, NOMBRES).para_la_proxima).toEqual([]);
+    // Aunque una IA de antes lo mande, no se guarda.
+    expect(
+      conPuntajes(
+        { ...IA, para_la_proxima: ['Bajar el precio.'] } as typeof IA,
+        CRITERIOS,
+        NOMBRES,
+      ).para_la_proxima,
+    ).toEqual([]);
   });
 
   it('conserva los incumplimientos graves y bota los vacíos (decisión 59)', () => {
@@ -263,11 +273,15 @@ describe('Lo que lee la IA', () => {
     );
     // La nota dice cómo queda si la aceptan; lo que la deja fuera va aparte.
     expect(t).toContain('SI ADMITE la oferta');
-    expect(t).toContain('no le pidas adjuntar algo que sí está');
+    // Decisión 128: «para la próxima» ya no se pide (Felipe: "lo
+    // eliminaremos"); el resumen sigue, porque lo lee «Por qué perdiste».
+    expect(t).not.toContain('para_la_proxima');
+    expect(t).toContain('- resumen:');
   });
 
   it('el esquema pide las líneas, y en cada oferente su número de oferta y sus incumplimientos graves', () => {
     const linea = ESQUEMA_DE_LA_COMPARACION.properties.lineas.items;
+    expect(ESQUEMA_DE_LA_COMPARACION.required).toEqual(['resumen', 'lineas']);
     expect(linea.required).toEqual([
       'nombre',
       'tope',
@@ -286,133 +300,6 @@ describe('Lo que lee la IA', () => {
       'regla',
       'por_ausencia',
     ]);
-  });
-});
-
-describe('El reclamo de una oferta (decisión 59)', () => {
-  const EMPRESA = {
-    razon_social: 'VALLE DEL SOL QUILLON SPA',
-    rut: '76.123.456-7',
-    representante_nombre: 'Felipe Vargas',
-    representante_cargo: 'Representante legal',
-    representante_correo: 'felipe@valledelsol.cl',
-    representante_telefono: null,
-    correo: 'contacto@valledelsol.cl',
-    telefono: '+56 9 1111 2222',
-  } as unknown as Oferente;
-  const DATOS = {
-    codigo: '1072229-25-L125',
-    nombre: 'Arriendo de salón y catering',
-    organismo: 'FUNDACION INTEGRA',
-    empresa: EMPRESA,
-  };
-  const GRAVES = [
-    {
-      que: 'Su encargada del servicio es la dueña de otra oferente',
-      prueba: 'Anexo 4-A, página 1; Anexo 4-B de DeliBreak, página 1',
-      regla:
-        'Ley de Compras, art. 9: de las ofertas de empresas relacionadas se evalúa solo la más conveniente',
-      por_ausencia: false,
-    },
-    {
-      que: 'La quinta experiencia viene con una resolución de adjudicación.',
-      prueba: '2023_RESOLUCION_HHM_2024.pdf',
-      regla: 'Bases, experiencia: solo contrato, OC o factura',
-      por_ausencia: false,
-    },
-  ];
-
-  it('dice a quién, qué licitación, cada incumplimiento con su prueba y su regla, y lo firma la empresa', () => {
-    const t = textoDelReclamo('MYRNA DEL PINO', GRAVES, DATOS);
-    expect(t).toContain('Señores\nFUNDACION INTEGRA\nPresente');
-    expect(t).toContain(
-      'Licitación 1072229-25-L125: «Arriendo de salón y catering».',
-    );
-    expect(t).toContain(
-      'VALLE DEL SOL QUILLON SPA, RUT 76.123.456-7, oferente en esta licitación, presenta el siguiente reclamo sobre la oferta de MYRNA DEL PINO, según',
-    );
-    expect(t).toContain(
-      '1. Su encargada del servicio es la dueña de otra oferente.\n   Dónde se ve: Anexo 4-A, página 1; Anexo 4-B de DeliBreak, página 1.\n   Regla: Ley de Compras, art. 9',
-    );
-    // Lo que ya termina en punto no lleva otro.
-    expect(t).toContain(
-      '2. La quinta experiencia viene con una resolución de adjudicación.\n',
-    );
-    expect(t).toContain(
-      'si corresponde, declararla inadmisible antes de adjudicar.',
-    );
-    // El correo del representante manda; sin su teléfono, el de la empresa.
-    expect(
-      t.endsWith(
-        'Atentamente,\nFelipe Vargas\nRepresentante legal, VALLE DEL SOL QUILLON SPA\nfelipe@valledelsol.cl · +56 9 1111 2222',
-      ),
-    ).toBe(true);
-    // Con líneas, dice de cuál (decisión 125).
-    expect(
-      textoDelReclamo('TEXTUM', GRAVES, DATOS, 'Línea 1 · Alimentación'),
-    ).toContain('sobre la oferta de TEXTUM en «Línea 1 · Alimentación», según');
-  });
-
-  it('sin datos de «Mi empresa» ni organismo, el texto sale igual, sin huecos', () => {
-    const t = textoDelReclamo('BPM', [GRAVES[1]], {
-      ...DATOS,
-      organismo: null,
-      empresa: null,
-    });
-    expect(t).toContain('Señores\nOrganismo comprador\nPresente');
-    expect(t).toContain(
-      'Nuestra empresa, oferente en esta licitación, presenta',
-    );
-    expect(t).not.toContain('RUT');
-    expect(t.endsWith('Atentamente,\nNuestra empresa')).toBe(true);
-  });
-
-  it('decisión 125: solo contra quien compite con la empresa, en la línea en que ella postuló', () => {
-    const r = conReclamos(conPuntajes(IA, CRITERIOS, NOMBRES), DATOS);
-    const [l1, l2] = r.lineas;
-    // Línea 1: la tuya no; Textum, con el café, sí, y dice la línea.
-    expect(l1.oferentes[0].reclamo).toBeNull();
-    expect(l1.oferentes[1].reclamo).toContain(
-      'sobre la oferta de TEXTUM BURGOS Y ORTIZ LIMITADA en «Línea 1 · Alimentación»',
-    );
-    expect(l1.oferentes[1].reclamo).toContain('1. La colación no ofrece café.');
-    // Línea 2: la empresa no postuló; nadie lleva reclamo, aunque incumpla.
-    expect(l2.oferentes.map((o) => o.reclamo)).toEqual([null, null, null]);
-    // Lo de antes sigue leyendo la línea principal.
-    expect(r.oferentes).toBe(l1.oferentes);
-  });
-
-  it('decisión 125: lo que «falta» entra al reclamo solo si se leyó todo lo de ese oferente', () => {
-    const base = conPuntajes(IA, CRITERIOS, NOMBRES);
-    const falta = {
-      que: 'No adjuntó las órdenes de compra de su experiencia',
-      prueba: 'no está entre lo que presentó',
-      regla:
-        '«Si la oferta no presenta Formulario Anexo N°3 y sus respaldos, quedará Fuera de Bases»',
-      por_ausencia: true,
-    };
-    const conFalta = {
-      ...base,
-      lineas: [
-        {
-          ...base.lineas[0],
-          oferentes: [
-            base.lineas[0].oferentes[0],
-            { ...base.lineas[0].oferentes[1], graves: [falta] },
-          ],
-        },
-      ],
-    };
-    // A Textum (la oferta 4) le quedaron archivos sin leer: no se reclama.
-    expect(
-      conReclamos(conFalta, DATOS, new Set([1, 2])).lineas[0].oferentes[1]
-        .reclamo,
-    ).toBeNull();
-    // Se leyó todo lo suyo: sí.
-    expect(
-      conReclamos(conFalta, DATOS, new Set([1, 4])).lineas[0].oferentes[1]
-        .reclamo,
-    ).toContain('1. No adjuntó las órdenes de compra de su experiencia.');
   });
 });
 
