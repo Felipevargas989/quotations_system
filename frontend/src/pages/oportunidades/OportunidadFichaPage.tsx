@@ -390,6 +390,7 @@ function Ficha({ ficha }: { readonly ficha: FichaDeOportunidad }) {
           oportunidadId={ficha.id}
           adjudicada={yaSeAdjudico(ficha)}
           perdida={ficha.estado === "perdida"}
+          esLicitacion={ficha.proceso.tipo !== "compra_agil"}
         />
       )}
 

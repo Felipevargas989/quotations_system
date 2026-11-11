@@ -21,7 +21,9 @@ import { formatMomento } from "../../utils/dates";
 import AprenderDelActa from "./AprenderDelActa";
 import IncumplimientosGraves from "./IncumplimientosGraves";
 import PorQuePerdimos from "./PorQuePerdimos";
+import TraerLasOfertas from "./TraerLasOfertas";
 import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
+import { claveDeLaCompetencia } from "./useTraerOfertas";
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10). Felipe: "para
 // poder descargar toda la información que haya subido otro posible
@@ -33,6 +35,10 @@ import { tamanoLegible, textoDeCosto } from "./oportunidades.utils";
 // el motor calcula los puntajes con los pesos de las bases. Desde la
 // decisión 59, cada oferta muestra sus incumplimientos graves y, en la de un
 // competidor, el reclamo para el Centro de Ayuda (`IncumplimientosGraves`).
+// Desde la decisión 123 (10-11), en una licitación las ofertas de los demás
+// se traen solas del cuadro público de Mercado Público con «Traer las
+// ofertas» (`TraerLasOfertas`): "con un botón acá en eventia". Subirlas a
+// mano sigue ahí.
 
 const CUMPLE: Record<
   OferenteComparado["cumple_bases"],
@@ -48,23 +54,20 @@ const claveDeLaComparacion = (id: number) => [
   "comparacion",
   id,
 ];
-const claveDeLaCompetencia = (id: number) => [
-  "oportunidades",
-  "adjuntos",
-  id,
-  "competencia",
-];
-
 export default function ComparacionDeOfertas({
   oportunidadId,
   adjudicada,
   perdida = false,
+  esLicitacion = false,
 }: {
   readonly oportunidadId: number;
   /** Ya adjudicada: no se ofrece el reclamo, sino el camino del Tribunal. */
   readonly adjudicada: boolean;
   /** Perdida: debajo de la predicción, por qué perdimos (decisión 97). */
   readonly perdida?: boolean;
+  /** Una licitación tiene cuadro de ofertas público: «Traer las ofertas»
+   *  (decisión 123). Una compra ágil no trae documentos. */
+  readonly esLicitacion?: boolean;
 }) {
   const qc = useQueryClient();
   const { data: competencia = [] } = useQuery({
@@ -105,11 +108,12 @@ export default function ComparacionDeOfertas({
           <Scale size={15} /> Comparación de ofertas
         </h2>
         <p className="text-xs text-gray-500">
-          Baja del cuadro de ofertas de Mercado Público lo que presentaron los
-          demás y súbelo aquí, con el nombre de cada oferente. La IA compara
-          cada oferta con la tuya según los criterios de evaluación de las
-          bases: la nota de cada criterio, el puntaje y quién tiene más
-          probabilidades de ganar.
+          {esLicitacion
+            ? "«Traer las ofertas» baja del cuadro de ofertas de Mercado Público lo que presentaron los demás; también puedes subirlo aquí, con el nombre de cada oferente."
+            : "Baja del cuadro de ofertas de Mercado Público lo que presentaron los demás y súbelo aquí, con el nombre de cada oferente."}{" "}
+          La IA compara cada oferta con la tuya según los criterios de
+          evaluación de las bases: la nota de cada criterio, el puntaje y quién
+          tiene más probabilidades de ganar.
         </p>
       </div>
 
@@ -123,6 +127,7 @@ export default function ComparacionDeOfertas({
       <Competencia
         oportunidadId={oportunidadId}
         porCompetidor={porCompetidor}
+        esLicitacion={esLicitacion}
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -132,7 +137,7 @@ export default function ComparacionDeOfertas({
           disabled={procesando || competencia.length === 0}
           title={
             competencia.length === 0
-              ? "Sube primero la oferta de al menos un competidor"
+              ? `${esLicitacion ? "Trae o sube" : "Sube"} primero la oferta de al menos un competidor`
               : undefined
           }
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -175,13 +180,16 @@ export default function ComparacionDeOfertas({
   );
 }
 
-/** Las ofertas de los demás: agregar una (nombre + archivos) y verlas. */
+/** Las ofertas de los demás: traerlas de Mercado Público (en una
+ *  licitación), agregar una a mano (nombre + archivos) y verlas. */
 function Competencia({
   oportunidadId,
   porCompetidor,
+  esLicitacion,
 }: {
   readonly oportunidadId: number;
   readonly porCompetidor: Map<string, AdjuntoDeOportunidad[]>;
+  readonly esLicitacion: boolean;
 }) {
   const qc = useQueryClient();
   const [nombre, setNombre] = useState("");
@@ -229,9 +237,12 @@ function Competencia({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-900">
-        La competencia ({porCompetidor.size})
-      </h3>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-gray-900">
+          La competencia ({porCompetidor.size})
+        </h3>
+        {esLicitacion && <TraerLasOfertas oportunidadId={oportunidadId} />}
+      </div>
       {[...porCompetidor].map(([quien, archivos]) => (
         <div
           key={quien}
