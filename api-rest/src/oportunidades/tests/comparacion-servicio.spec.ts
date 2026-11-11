@@ -15,6 +15,7 @@ import type { OferenteRepository } from '../oferente/oferente.repository';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import type { ElSetService } from '../postulacion/el-set.service';
 import { CRITERIOS, IA } from './comparacion-de-prueba';
+import { excelCon } from './zip-de-prueba';
 
 // EL SERVICIO DE LA COMPARACIÓN DE OFERTAS (decisiones 41 y 125). «Traer y
 // comparar»: trae lo que falte del cuadro público, lee las bases, tu oferta
@@ -63,6 +64,12 @@ const COMPETENCIA = [
   adjunto(35, 'INICIO ACTIVIDADES.png', 'BPM EVENTOS SPA'),
   adjunto(36, 'planilla.xlsx', 'BPM EVENTOS SPA'),
 ];
+
+/** La planilla de BPM es un Excel de verdad: se lee como texto (127). */
+const PLANILLA = excelCon([
+  ['Ítem', 'Precio total'],
+  ['Almuerzo 170 personas', 3_400_000],
+]);
 
 const BASES = [
   adjunto(184, 'Ficha_Tecnica_N_224.txt', null, '2026-10-23T22:25:00Z'),
@@ -147,7 +154,11 @@ function armar() {
       Promise.resolve({ id: 40, estado: 'procesando', ...fila }),
     ),
     terminar: jest.fn().mockResolvedValue(undefined),
-    descargar: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 oferta')),
+    descargar: jest.fn((ruta: string) =>
+      Promise.resolve(
+        ruta.endsWith('/36') ? PLANILLA : Buffer.from('%PDF-1.4 oferta'),
+      ),
+    ),
   };
   const adjuntos = {
     listar: jest.fn((_c: number, _o: number, seccion: string) =>
@@ -464,6 +475,7 @@ describe('Traer y comparar (decisión 125)', () => {
       'document: Formulario 4 - Calidad de la oferta.pdf',
       'Imagen: INICIO ACTIVIDADES.png',
       'image: image/png',
+      'document: planilla.xlsx',
       'Compara las ofertas, línea por línea, con los criterios de evaluación y el texto de las bases.',
     ]);
     // Los PDF van por la Files API; el texto, como texto.
@@ -476,13 +488,16 @@ describe('Traer y comparar (decisión 125)', () => {
     });
     expect(documentos[1].source?.type).toBe('text');
     expect(c.servicio.subir).toHaveBeenCalledTimes(9);
-    // Lo que no vio de BPM: la planilla, que no lee, y el .rar, que no llegó.
+    // La planilla de BPM va como texto (decisión 127); el .rar no llegó.
+    const planilla = documentos[documentos.length - 1];
+    expect(planilla.source?.type).toBe('text');
+    expect(JSON.stringify(planilla.source)).toContain(
+      'A2: Almuerzo 170 personas | B2: 3400000',
+    );
     const deBpm = pedido.messages[0].content.find((b) =>
       b.text?.startsWith('=== OFERTA 3'),
     )?.text;
-    expect(deBpm).toContain(
-      'SIN LEER (los presentó, pero no los viste): planilla.xlsx.',
-    );
+    expect(deBpm).not.toContain('SIN LEER');
     expect(deBpm).toContain('EXPERIENCIA DEL OFERENTE OC.rar');
   });
 
@@ -537,11 +552,9 @@ describe('Traer y comparar (decisión 125)', () => {
         oferta: 3,
         nombre: 'BPM EVENTOS SPA',
         es_tuya: false,
-        leidos: 2,
+        leidos: 3,
         total: 3,
-        sin_leer: [
-          { nombre: 'planilla.xlsx', motivo: 'la IA lee PDF, Word e imágenes' },
-        ],
+        sin_leer: [],
         sin_traer: [
           {
             nombre: 'EXPERIENCIA DEL OFERENTE OC.rar',
@@ -550,7 +563,7 @@ describe('Traer y comparar (decisión 125)', () => {
         ],
       },
     ]);
-    expect(fin.archivos).toHaveLength(11);
+    expect(fin.archivos).toHaveLength(12);
     expect(fin.archivos).toEqual(
       expect.arrayContaining([
         { id: 185, nombre: 'Bases: D_A_N_4_990.pdf' },
@@ -561,10 +574,6 @@ describe('Traer y comparar (decisión 125)', () => {
       ]),
     );
     expect(fin.no_leidos).toEqual([
-      {
-        nombre: 'BPM EVENTOS SPA: planilla.xlsx',
-        motivo: 'la IA lee PDF, Word e imágenes',
-      },
       {
         nombre: 'BPM EVENTOS SPA: EXPERIENCIA DEL OFERENTE OC.rar',
         motivo: 'no se trajo de Mercado Público: viene comprimido',
@@ -586,6 +595,7 @@ describe('Traer y comparar (decisión 125)', () => {
       'Valle del Sol Quillon SPA: Formulario N°3 - firmado.pdf',
       'TEXTUM: FORMULARIO N°4 CALIDAD DE LA OFERTA.docx.pdf',
       'BPM EVENTOS SPA: INICIO ACTIVIDADES.png',
+      'BPM EVENTOS SPA: planilla.xlsx',
     ]);
     expect(fin.no_leidos[0]).toEqual({
       nombre: 'Bases: D_A_N_4_990.pdf',

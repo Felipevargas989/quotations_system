@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import { extensionDe } from '../adjuntos/adjuntos.service';
+import { MOTIVO_DEL_XLS } from '../analisis/xlsx';
 import type { PiezaDelSet } from '../postulacion/el-set';
 
 // QUÉ SE LEE DE CADA OFERTA, Y EN QUÉ ORDEN.
@@ -20,6 +21,10 @@ import type { PiezaDelSet } from '../postulacion/el-set';
 // oferta por vuelta, para que ninguna quede sin lo suyo.
 //
 // «Por qué perdimos» (decisión 97) sigue con `elegirQueLeer`, por peso.
+//
+// DESDE LA DECISIÓN 127 (11-11): también los Excel (.xlsx), como texto, con
+// el mismo lector de las bases (`analisis/xlsx.ts`, decisión 126). Felipe:
+// «que la comparación de las ofertas lea excel también».
 
 export type ArchivoDeUnaOferta = {
   nombre: string;
@@ -44,7 +49,7 @@ const LO_QUE_PUNTUA =
 const sinTildes = (t: string) =>
   t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-const LEIBLES = new Set(['pdf', 'docx', 'txt']);
+const LEIBLES = new Set(['pdf', 'docx', 'xlsx', 'txt']);
 
 /** Qué se lee de cada oferta sin pasarse del tope de PDF: primero lo
  *  principal de todas (de a una oferta por vuelta, para que ninguna quede
@@ -117,9 +122,17 @@ export const comoSeLee = (
 ): { tipo: 'pdf' | 'texto' } | { tipo: 'imagen'; mime: string } | null => {
   const ext = extensionDe(nombre);
   if (ext === 'pdf') return { tipo: 'pdf' };
-  if (ext === 'docx' || ext === 'txt') return { tipo: 'texto' };
+  if (ext === 'docx' || ext === 'xlsx' || ext === 'txt') {
+    return { tipo: 'texto' };
+  }
   return IMAGENES[ext] ? { tipo: 'imagen', mime: IMAGENES[ext] } : null;
 };
+
+/** Por qué la IA no lee un archivo (cuando `comoSeLee` dice null). */
+export const porQueNoSeLee = (nombre: string): string =>
+  extensionDe(nombre) === 'xls'
+    ? MOTIVO_DEL_XLS
+    : 'la IA lee PDF, Word, Excel e imágenes';
 
 /** 1: formularios y oferta. 2: lo que da puntaje o deja fuera. 3: lo demás. */
 export type NivelDeLectura = 1 | 2 | 3;

@@ -1,4 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
+import { MOTIVO_DEL_XLS } from '../analisis/xlsx';
 import {
   conLineas,
   conPuntajes,
@@ -15,6 +16,7 @@ import {
   ordenDeLectura,
   paginasDelPdf,
   paginasDeTexto,
+  porQueNoSeLee,
 } from '../comparacion/que-leer';
 import { conReclamos, textoDelReclamo } from '../comparacion/reclamo';
 import type { Oferente } from '../oferente/oferente.repository';
@@ -433,7 +435,13 @@ describe('Qué se lee de cada oferta, y en qué orden (decisión 125)', () => {
       mime: 'image/jpeg',
     });
     expect(comoSeLee('Toda la Documentacion.rar')).toBeNull();
-    expect(comoSeLee('planilla.xlsx')).toBeNull();
+    // Desde la decisión 127, el Excel se lee como texto; el .xls antiguo, no.
+    expect(comoSeLee('planilla.xlsx')).toEqual({ tipo: 'texto' });
+    expect(comoSeLee('planilla vieja.xls')).toBeNull();
+    expect(porQueNoSeLee('planilla vieja.xls')).toBe(MOTIVO_DEL_XLS);
+    expect(porQueNoSeLee('Toda la Documentacion.rar')).toBe(
+      'la IA lee PDF, Word, Excel e imágenes',
+    );
   });
 
   it('el nivel de cada archivo: formularios, lo que da puntaje y lo demás', () => {
@@ -552,19 +560,24 @@ describe('Qué se lee de cada oferta, y en qué orden (decisión 125)', () => {
             a('Fotos.zip', 50),
             a('Formulario N°5.pdf', 300),
             a('Estatutos.pdf', 400),
+            a('Oferta económica.xlsx', 9_999),
           ],
         },
       ],
       900,
     );
-    // Lo principal de las dos cabe (300 + 300); el Word no pesa en el tope de
-    // PDF; la patente y los estatutos ya no caben (600 + 400 > 900).
+    // Lo principal de las dos cabe (300 + 300); el Word y el Excel no pesan
+    // en el tope de PDF; la patente y los estatutos ya no caben (600 + 400 >
+    // 900).
     expect(tuya.leer.map((x) => x.nombre)).toEqual([
       'Anexo 5 Oferta económica.pdf',
       'Anexo 4.docx',
     ]);
     expect(tuya.soloNombre.map((x) => x.nombre)).toEqual(['Patente.pdf']);
-    expect(otra.leer.map((x) => x.nombre)).toEqual(['Formulario N°5.pdf']);
+    expect(otra.leer.map((x) => x.nombre)).toEqual([
+      'Formulario N°5.pdf',
+      'Oferta económica.xlsx',
+    ]);
     expect(otra.soloNombre.map((x) => x.nombre)).toEqual([
       'Fotos.zip',
       'Estatutos.pdf',

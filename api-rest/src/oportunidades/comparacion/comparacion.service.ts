@@ -11,7 +11,6 @@ import {
   type Adjunto,
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
-import { extensionDe } from '../adjuntos/adjuntos.service';
 import { AnalisisRepository } from '../analisis/analisis.repository';
 import {
   costoEnDolares,
@@ -19,9 +18,9 @@ import {
   errorDeIA,
   MODELO_OPUS,
   type NoLeido,
+  textoDelArchivo,
 } from '../analisis/comun';
 import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
-import { textoDeDocx } from '../analisis/docx';
 import { idDelPdf } from '../analisis/pdf-subidos';
 import { paraLaComparacion } from '../aprendizajes/aprendizajes';
 import { AprendizajesRepository } from '../aprendizajes/aprendizajes.repository';
@@ -59,6 +58,7 @@ import {
   paginasDelPdf,
   paginasDeTexto,
   type ParaLeer,
+  porQueNoSeLee,
 } from './que-leer';
 import { conReclamos, type DatosDelReclamo } from './reclamo';
 
@@ -449,7 +449,7 @@ export class ComparacionService {
     imagenes: CupoDeImagenes,
   ): Promise<{ bloques: Bloque[]; paginas: number } | { motivo: string }> {
     const como = comoSeLee(a.nombre);
-    if (!como) return { motivo: 'la IA lee PDF, Word e imágenes' };
+    if (!como) return { motivo: porQueNoSeLee(a.nombre) };
     if (quedan <= 0) return { motivo: noCupo };
     if (
       como.tipo === 'imagen' &&
@@ -508,10 +508,7 @@ export class ComparacionService {
         ],
       };
     }
-    const texto =
-      extensionDe(a.nombre) === 'docx'
-        ? textoDeDocx(datos)
-        : datos.toString('utf8');
+    const texto = textoDelArchivo(a.nombre, datos);
     if (!texto?.trim()) return { motivo: 'no se pudo abrir' };
     const paginas = paginasDeTexto(texto);
     if (paginas > quedan) return { motivo: noCupo };

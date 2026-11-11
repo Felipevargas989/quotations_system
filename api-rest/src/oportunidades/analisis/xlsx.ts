@@ -16,6 +16,11 @@ import { archivoDelZip, nombresDelZip } from './docx';
  *  puede llenar el pedido. Son unos 55.000 tokens. */
 export const MAX_CARACTERES_DEL_EXCEL = 200_000;
 
+/** Lo que se le dice a quien sube un .xls: ese formato binario no se lee
+ *  (decisiones 126 y 127). */
+export const MOTIVO_DEL_XLS =
+  'es un Excel antiguo (.xls): guárdalo como .xlsx y súbelo de nuevo';
+
 export const AVISO_DE_CORTE = `[…el Excel sigue: se cortó aquí para no pasar de ${MAX_CARACTERES_DEL_EXCEL.toLocaleString('es-CL')} caracteres]`;
 
 const ENTIDADES: Record<string, string> = {
