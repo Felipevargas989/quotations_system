@@ -3,8 +3,10 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LicifyService } from '../adjuntos/licify.service';
 import { FichaRepository } from '../ficha/ficha.repository';
+import { VERSION_DE_LAS_INSTRUCCIONES } from '../lectura-corta/lectura-corta';
 import { LecturaCortaService } from '../lectura-corta/lectura-corta.service';
 import { AnalisisService } from './analisis.service';
+import { MODELO_HAIKU } from './comun';
 
 // «ME INTERESA» DEJA LA LICITACIÓN LISTA PARA TRABAJAR (decisión 114 del
 // doc 17, 04-11). Felipe: "el botón de me interesa... debería
@@ -28,7 +30,12 @@ import { AnalisisService } from './analisis.service';
 // «Bases leídas». El análisis completo de Opus queda para el «Me interesa»
 // y su botón.
 
-/** Por pasada del radar: cada lectura corta cuesta del orden de US$0,005. */
+/** CON QUÉ MODELO SE LEEN SOLAS LAS NUEVAS: una sola constante, para subir
+ *  el flujo con Haiku o con Sonnet según salga la prueba de la decisión 132
+ *  sin tocar más código. Medido con las mismas 81 bases: Haiku, unos
+ *  US$0,003 por base; Sonnet, unos US$0,056. */
+export const MODELO_DE_LA_LECTURA_SOLA: string = MODELO_HAIKU;
+/** Por pasada del radar: con Haiku, unos centavos; con Sonnet, unos US$2. */
 export const MAX_LECTURAS_SOLAS_POR_PASADA = 40;
 /** Las que se intentan por pasada, contando las que no tienen bases. */
 const MAX_INTENTOS_POR_PASADA = 2 * MAX_LECTURAS_SOLAS_POR_PASADA;
@@ -111,7 +118,7 @@ export class PrepararLaLicitacionService {
     }
     this.preparando = true;
     const hasta = Date.now() + PRESUPUESTO_MS;
-    const lote = `radar ${new Date().toISOString()}`;
+    const lote = `radar ${new Date().toISOString()} ${VERSION_DE_LAS_INSTRUCCIONES}`;
     let leidas = 0;
     let intentos = 0;
     try {
@@ -168,6 +175,7 @@ export class PrepararLaLicitacionService {
     }
     const lectura = await this.lecturaCorta.leerUna(companyId, id, lote, {
       origen: 'radar',
+      modelo: MODELO_DE_LA_LECTURA_SOLA,
     });
     if (!lectura) return false;
     try {

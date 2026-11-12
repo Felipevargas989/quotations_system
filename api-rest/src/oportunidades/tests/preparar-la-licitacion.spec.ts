@@ -2,9 +2,11 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { LicifyService } from '../adjuntos/licify.service';
 import type { AnalisisService } from '../analisis/analisis.service';
+import { MODELO_HAIKU } from '../analisis/comun';
 import {
   MARGEN_PARA_PREPARAR_MS,
   MAX_LECTURAS_SOLAS_POR_PASADA,
+  MODELO_DE_LA_LECTURA_SOLA,
   PrepararLaLicitacionService,
   SIN_SESION,
 } from '../analisis/preparar-la-licitacion.service';
@@ -161,11 +163,13 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
       'marcar 41 no_es_para_ti',
     ]);
     expect(licify.traer).toHaveBeenCalledWith(1, SIN_SESION, 40);
+    // El modelo sale de una sola constante: de partida, Haiku.
+    expect(MODELO_DE_LA_LECTURA_SOLA).toBe(MODELO_HAIKU);
     expect(lecturaCorta.leerUna).toHaveBeenCalledWith(
       1,
       40,
-      expect.stringMatching(/^radar /),
-      { origen: 'radar' },
+      expect.stringMatching(/^radar .* v3$/),
+      { origen: 'radar', modelo: MODELO_DE_LA_LECTURA_SOLA },
     );
     expect(analisis.pedir).not.toHaveBeenCalled();
   });

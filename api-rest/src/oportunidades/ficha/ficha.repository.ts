@@ -219,6 +219,10 @@ export class FichaRepository {
     return filas.filter((f) => !conAnalisis.has(f.id)).map((f) => f.id);
   }
 
+  /** Marca (o desmarca, con null) una exigencia de las bases, en un solo
+   *  paso en la base (`marcar_exigencia`, migración 152): leer y después
+   *  guardar dejaba que dos marcas seguidas se pisaran. Devuelve todas las
+   *  marcas, o null si la oportunidad no es de esta empresa. */
   async marcarExigencia(
     companyId: number,
     id: number,
