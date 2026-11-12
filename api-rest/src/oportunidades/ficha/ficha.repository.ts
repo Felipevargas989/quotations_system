@@ -144,6 +144,29 @@ export class FichaRepository {
     return filas.filter((f) => !conAnalisis.has(f.id)).map((f) => f.id);
   }
 
+  /** LO QUE EL MOTOR LEYÓ SOLO desde `desde` (decisión 131): los análisis
+   *  de bases sin `pedido_por`, con su estado y su costo. Es lo que suma el
+   *  cuadro «Bases leídas solas», sin IA. */
+  async lecturasSolasDesde(
+    companyId: number,
+    desde: string,
+  ): Promise<
+    Array<{ estado: string; costo_usd: number | null; creado_en: string }>
+  > {
+    const { data, error } = await this.db
+      .from('oportunidad_analisis')
+      .select('estado, costo_usd, creado_en')
+      .eq('company_id', companyId)
+      .is('pedido_por', null)
+      .gte('creado_en', desde);
+    if (error) throw error;
+    return (data ?? []) as Array<{
+      estado: string;
+      costo_usd: number | null;
+      creado_en: string;
+    }>;
+  }
+
   /** Marca (o desmarca, con null) una exigencia de las bases, en un solo
    *  paso en la base (`marcar_exigencia`, migración 152): leer y después
    *  guardar dejaba que dos marcas seguidas se pisaran. Devuelve todas las

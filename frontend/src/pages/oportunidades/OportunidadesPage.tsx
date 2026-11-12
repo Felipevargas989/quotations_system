@@ -66,6 +66,8 @@ import {
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
+import { seVeEntera } from "./montones";
+import GastoDeLaLecturaSola from "./GastoDeLaLecturaSola";
 import type { MotivoDelDescarte } from "../../services/decisiones";
 import PorQueDescartas from "./PorQueDescartas";
 
@@ -286,6 +288,7 @@ function EstadoDelRadar() {
         <RefreshCw size={14} className={corriendo ? "animate-spin" : ""} />
         Revisar ahora
       </button>
+      <GastoDeLaLecturaSola />
     </div>
   );
 }
@@ -332,9 +335,9 @@ function Bandeja({
 
   const historial = filtros.vista === "historial";
   const enSeguimiento = filtros.vista === "seguida";
-  // «No es para ti» (decisión 129) se ve entera: las bases las dejaron
-  // rojas a todas.
-  const sinSemaforo = enSeguimiento || filtros.vista === "no_es_para_ti";
+  // «No es para ti» (decisión 129) y «Reciclaje» (decisión 131) se ven
+  // enteros: todo lo que tienen es rojo. Y «Por revisar», al buscar.
+  const sinSemaforo = seVeEntera(filtros.vista, filtros.busca);
   const {
     data: todas = [],
     isPending,
@@ -443,10 +446,21 @@ function Bandeja({
           caso={queDiceLaBandejaVacia(lista.length, filtros)}
           vista={filtros.vista}
           proxima={proxima}
-          rojas={filtros.semaforos.includes("rojo") ? 0 : cuenta.rojo}
+          // En «Por revisar» el reciclaje tiene su montón (decisión 131).
+          rojas={
+            filtros.vista === "nueva"
+              ? porVista.reciclaje
+              : filtros.semaforos.includes("rojo")
+                ? 0
+                : cuenta.rojo
+          }
           enCurso={enCurso}
           onVerRojas={() =>
-            setFiltros({ semaforos: [...filtros.semaforos, "rojo"] })
+            setFiltros(
+              filtros.vista === "nueva"
+                ? { vista: "reciclaje" }
+                : { semaforos: [...filtros.semaforos, "rojo"] },
+            )
           }
           onQuitarFiltros={() =>
             setFiltros({

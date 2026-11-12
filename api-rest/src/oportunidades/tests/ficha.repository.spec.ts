@@ -239,3 +239,42 @@ describe('FichaRepository — las que se preparan solas (decisión 129)', () => 
     expect(consultas.map((c) => c.tabla)).toEqual(['oportunidades']);
   });
 });
+
+describe('FichaRepository — lo que el motor leyó solo (decisión 131)', () => {
+  it('los análisis sin pedido_por de UNA empresa, desde la fecha pedida', async () => {
+    const consultas: Consulta[] = [];
+    const filas = [
+      { estado: 'listo', costo_usd: 0.31, creado_en: '2026-11-12T04:11:47Z' },
+    ];
+    const from = jest.fn((tabla: string) => {
+      const consulta: Consulta = { tabla, pasos: [] };
+      consultas.push(consulta);
+      const cadena: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'is', 'gte']) {
+        cadena[m] = (...args: unknown[]) => {
+          consulta.pasos.push([m, ...args]);
+          return cadena;
+        };
+      }
+      cadena.then = (bien: (v: unknown) => unknown) =>
+        Promise.resolve({ data: filas, error: null }).then(bien);
+      return cadena;
+    });
+    const repo = new FichaRepository(
+      { client: { from } } as unknown as SupabaseService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    await expect(
+      repo.lecturasSolasDesde(1, '2026-11-06T03:00:00.000Z'),
+    ).resolves.toEqual(filas);
+    const [c] = consultas;
+    expect(c.tabla).toBe('oportunidad_analisis');
+    expect(c.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['is', 'pedido_por', null],
+        ['gte', 'creado_en', '2026-11-06T03:00:00.000Z'],
+      ]),
+    );
+  });
+});

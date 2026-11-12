@@ -7,6 +7,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { AnalisisRepository } from './analisis/analisis.repository';
+import { hoyEnChile } from './analisis/comun';
 import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { MercadoDeLaZonaRepository } from './datos-abiertos/mercado-de-la-zona.repository';
 import { DecisionesRepository } from './decisiones/decisiones.repository';
@@ -32,7 +33,11 @@ import {
   SeVieneService,
 } from './historia/se-viene.service';
 import { LEIDA_SEGUN_LAS_BASES } from './lectura/reglas';
-import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
+import {
+  fechaChileAIso,
+  normalizar,
+  procesoDesdeCompraAgil,
+} from './mercado-publico/mapeo';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { claveDeExigencia } from './oferente/lo-que-sabemos';
 import {
@@ -83,6 +88,12 @@ const limpiarLista = (valores: string[]): string[] => {
     limpias.push(v);
   }
   return limpias;
+};
+
+/** «Bases leídas solas» (decisión 131): hoy y los últimos 7 días. */
+export type GastoDeLaLecturaSola = {
+  hoy: { bases: number; usd: number };
+  semana: { bases: number; usd: number };
 };
 
 @Injectable()
@@ -194,6 +205,37 @@ export class OportunidadesService {
         indice.get(f.proceso.organismo_codigo ?? '') ?? [],
       ),
     }));
+  }
+
+  /** EL GASTO DE LA LECTURA SOLA (decisión 131): las bases que el motor
+   *  leyó solo (análisis sin `pedido_por`, decisión 129) y lo que costaron,
+   *  hoy y en los últimos 7 días, en hora de Chile. Una consulta a la base:
+   *  mirarlo no gasta IA. Cuenta las leídas (listas) y suma el costo de
+   *  todas, también de las que fallaron. */
+  async lecturaSola(
+    companyId: number,
+    ahora = new Date(),
+  ): Promise<GastoDeLaLecturaSola> {
+    const hoy = hoyEnChile(ahora);
+    const [anio, mes, dia] = hoy.split('-').map(Number);
+    const haceSeisDias = new Date(Date.UTC(anio, mes - 1, dia - 6))
+      .toISOString()
+      .slice(0, 10);
+    const desdeHoy = new Date(fechaChileAIso(hoy) ?? ahora).getTime();
+    const desdeSemana = fechaChileAIso(haceSeisDias) ?? ahora.toISOString();
+    const filas = await this.fichas.lecturasSolasDesde(companyId, desdeSemana);
+    const sumar = (fs: typeof filas) => ({
+      bases: fs.filter((f) => f.estado === 'listo').length,
+      usd:
+        Math.round(fs.reduce((s, f) => s + Number(f.costo_usd ?? 0), 0) * 100) /
+        100,
+    });
+    return {
+      hoy: sumar(
+        filas.filter((f) => new Date(f.creado_en).getTime() >= desdeHoy),
+      ),
+      semana: sumar(filas),
+    };
   }
 
   /** «Exigencias de la licitación» (migración 152): lo que la empresa

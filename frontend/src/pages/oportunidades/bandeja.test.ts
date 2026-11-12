@@ -11,6 +11,7 @@ import {
   queDiceLaBandejaVacia,
 } from "./bandeja";
 import { noEsParaTi } from "./fueraPorLasBases";
+import { esReciclaje, seVeEntera } from "./montones";
 import {
   FILTROS_DE_PARTIDA,
   type Filtros,
@@ -129,9 +130,11 @@ describe("los montones", () => {
     ];
     // De partida cuentan verdes, amarillas y reciclaje; la basura no
     // (decisión 72, 23-10: el rojo se porta como el verde y el amarillo).
+    // Desde la decisión 131 el reciclaje (la 3) tiene su montón.
     expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
-      nueva: 3,
+      nueva: 2,
       no_es_para_ti: 0,
+      reciclaje: 1,
       descartada: 1,
     });
     const sinReciclaje: Filtros = {
@@ -160,6 +163,7 @@ describe("los montones", () => {
     expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
       nueva: 1,
       no_es_para_ti: 2,
+      reciclaje: 0,
       descartada: 0,
     });
   });
@@ -296,9 +300,47 @@ describe("«No es para ti» (decisión 129)", () => {
       filtrarSinSemaforo(todas, { ...FILTROS_DE_PARTIDA, vista }).map(
         (o) => o.id,
       );
-    expect(ids("nueva")).toEqual([21, 22]);
+    // La roja de la lectura corta de tu zona es reciclaje (decisión 131).
+    expect(ids("nueva")).toEqual([21]);
+    expect(ids("reciclaje")).toEqual([22]);
     expect(ids("no_es_para_ti")).toEqual([20]);
     expect(ids("descartada")).toEqual([23]);
     expect(ids("historial")).toEqual([20, 21, 22, 23]);
+  });
+});
+
+describe("«Reciclaje» (decisión 131)", () => {
+  it("el rojo de tu zona sale de «Por revisar» a su montón; al buscar, aparece también en «Por revisar»", () => {
+    const reciclaje = op(30, {
+      semaforo: "rojo",
+      alertas: ["comuna_cercana"],
+    });
+    const verde = op(31);
+    const basura = op(32, { semaforo: "rojo" });
+    const todas = [reciclaje, verde, basura];
+    const ids = (vista: Vista, busca = "") =>
+      filtrarSinSemaforo(todas, { ...FILTROS_DE_PARTIDA, vista, busca }).map(
+        (o) => o.id,
+      );
+    expect(ids("reciclaje")).toEqual([30]);
+    // La basura sigue en «Por revisar», escondida por el semáforo hasta buscar.
+    expect(ids("nueva")).toEqual([31, 32]);
+    expect(ids("nueva", "Proceso 30")).toEqual([30]);
+    expect(esReciclaje(reciclaje)).toBe(true);
+    expect(esReciclaje(basura)).toBe(false);
+    expect(seVeEntera("reciclaje")).toBe(true);
+    expect(seVeEntera("nueva")).toBe(false);
+    expect(seVeEntera("nueva", "algo")).toBe(true);
+  });
+
+  it("en «Por revisar» el chip del rojo apagado no cuenta como filtro: ahí ya no hay rojo", () => {
+    const sinRojo: Filtros = {
+      ...FILTROS_DE_PARTIDA,
+      semaforos: ["verde", "amarillo"],
+    };
+    expect(queDiceLaBandejaVacia(5, sinRojo)).toBe("al_dia");
+    expect(queDiceLaBandejaVacia(5, { ...sinRojo, vista: "descartada" })).toBe(
+      "con_filtros",
+    );
   });
 });

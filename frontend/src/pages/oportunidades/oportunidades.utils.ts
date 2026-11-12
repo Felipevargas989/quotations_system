@@ -10,7 +10,7 @@ import type {
 } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
 import { matchesSearch } from "../../utils/searchMatch";
-import { noEsParaTi } from "./fueraPorLasBases";
+import { pasaLaVista, type Vista } from "./montones";
 
 // Lo que la pantalla de Oportunidades necesita saber pintar y filtrar
 // (doc 17 §5.3). Funciones puras: las pruebas las cubren enteras.
@@ -119,51 +119,7 @@ export const REGIONES_DE_CHILE = [
   "Magallanes",
 ] as const;
 
-/** Los montones de la bandeja, como botones con su número (18-10). Abre en
- *  "nueva" = Por revisar: lo que todavía nadie decidió (Felipe, 17-10: "que
- *  las que pincho me interesa ya no aparezcan acá... solo queda lo nuevo a
- *  revisar"). Lo en estudio y lo postulado vive en «Mis licitaciones», no
- *  acá: tenerlo en los dos lados confunde. "historial" trae todo, también
- *  lo ya cerrado. Desde la decisión 129, lo que las bases dejan fuera sale
- *  de «Por revisar» a «No es para ti» (`noEsParaTi`). */
-export type Vista =
-  | "nueva"
-  | "no_es_para_ti"
-  | "descartada"
-  | "seguida"
-  | "historial";
-
-export const VISTAS: ReadonlyArray<{
-  value: Vista;
-  label: string;
-  ayuda: string;
-}> = [
-  {
-    value: "nueva",
-    label: "Por revisar",
-    ayuda: "Lo nuevo que nadie ha decidido",
-  },
-  {
-    value: "no_es_para_ti",
-    label: "No es para ti",
-    ayuda: "Las bases te dejan fuera: piden el servicio en otro lugar",
-  },
-  {
-    value: "descartada",
-    label: "Descartadas",
-    ayuda: "Lo que descartaste: no se borra y se puede recuperar",
-  },
-  {
-    value: "seguida",
-    label: "En seguimiento",
-    ayuda: "Las que sigues sin postular: el radar revisa cada día quién gana",
-  },
-  {
-    value: "historial",
-    label: "Historial",
-    ayuda: "Todo, también lo que ya cerró",
-  },
-];
+export { VISTAS, type Vista } from "./montones";
 
 export type Filtros = {
   vista: Vista;
@@ -175,17 +131,12 @@ export type Filtros = {
 
 export const FILTROS_DE_PARTIDA: Filtros = {
   vista: "nueva",
-  // El reciclaje se ve de partida, como el verde y el amarillo (23-10).
+  // El reciclaje se ve de partida, como el verde y el amarillo (23-10); desde
+  // la decisión 131 tiene su montón, y el chip pesa en Descartadas e Historial.
   semaforos: ["verde", "amarillo", "rojo"],
   tipo: "",
   region: "",
   busca: "",
-};
-
-const pasaLaVista = (o: Oportunidad, vista: Vista): boolean => {
-  if (vista === "historial") return true;
-  if (vista === "no_es_para_ti") return o.estado === "nueva" && noEsParaTi(o);
-  return o.estado === vista && !(vista === "nueva" && noEsParaTi(o));
 };
 
 /** Todo menos el semáforo: así los contadores de los chips dicen cuántas
@@ -196,7 +147,7 @@ export const filtrarSinSemaforo = (
 ): Oportunidad[] =>
   lista.filter(
     (o) =>
-      pasaLaVista(o, f.vista) &&
+      pasaLaVista(o, f.vista, f.busca) &&
       (!f.tipo || o.proceso.tipo === f.tipo) &&
       (!f.region || o.proceso.region === f.region) &&
       matchesSearch(
