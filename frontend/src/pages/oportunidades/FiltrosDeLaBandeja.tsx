@@ -35,6 +35,7 @@ export default function FiltrosDeLaBandeja({
    *  «Historial» va sin número: es todo. */
   readonly porVista: {
     readonly nueva: number;
+    readonly no_es_para_ti?: number;
     readonly descartada: number;
     readonly seguida?: number;
   };
@@ -46,7 +47,9 @@ export default function FiltrosDeLaBandeja({
       <div
         role="group"
         aria-label="Montones de la bandeja"
-        className="flex w-full sm:inline-flex sm:w-auto gap-1 p-1 rounded-full bg-gray-100"
+        // Con «No es para ti» (decisión 129) son cinco: en el celular se
+        // corren de lado en vez de partirse.
+        className="flex w-full overflow-x-auto sm:inline-flex sm:w-auto gap-1 p-1 rounded-full bg-gray-100"
       >
         {VISTAS.map((v) => {
           const activa = filtros.vista === v.value;

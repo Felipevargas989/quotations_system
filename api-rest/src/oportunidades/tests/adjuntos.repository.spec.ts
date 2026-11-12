@@ -88,6 +88,12 @@ describe('AdjuntosRepository — cada consulta es de UNA empresa', () => {
     ]);
   });
 
+  it('sin sesión (lo que se prepara solo, decisión 129) no hay perfil y no pregunta', async () => {
+    const { repo, consultas } = armar({ data: { id: 'perfil-7' } });
+    await expect(repo.perfilDe(1, '')).resolves.toBeNull();
+    expect(consultas).toHaveLength(0);
+  });
+
   it('listar filtra por empresa, oportunidad y sección', async () => {
     const { repo, consultas } = armar({ data: [] });
     await repo.listar(1, 9, 'postulacion');

@@ -96,9 +96,10 @@ describe("la bandeja: qué se ve de partida", () => {
     expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1, 6]);
   });
 
-  it("cuatro montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10)", () => {
+  it("cinco montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10); «No es para ti», lo que las bases dejan fuera (decisión 129)", () => {
     expect(VISTAS.map((v) => v.label)).toEqual([
       "Por revisar",
+      "No es para ti",
       "Descartadas",
       "En seguimiento",
       "Historial",

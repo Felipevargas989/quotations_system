@@ -3,6 +3,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { FichaRepository } from '../ficha/ficha.repository';
 import type { SeVieneService } from '../historia/se-viene.service';
+import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 import type { MercadoPublicoClient } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { OportunidadesService } from '../oportunidades.service';
@@ -172,6 +173,23 @@ describe('OportunidadesService — la bandeja', () => {
       1,
       expect.objectContaining({ vigentes: false, estado: 'descartada' }),
     );
+  });
+
+  it('dice cuáles leyó el análisis de las bases, el revisor de la decisión 129', async () => {
+    const { repo, servicio } = armar();
+    const filas = () => [
+      { ...fila(1, null), leida_con: LEIDA_SEGUN_LAS_BASES },
+      { ...fila(2, null), leida_con: 'claude-haiku-5-5, reglas del 11-11' },
+    ];
+    repo.listar.mockResolvedValue(filas());
+    const vigentes = await servicio.listar(1, {});
+    expect(vigentes.map((f) => [f.id, f.segun_las_bases])).toEqual([
+      [1, true],
+      [2, false],
+    ]);
+    repo.listar.mockResolvedValue(filas());
+    const historial = await servicio.listar(1, { vigentes: false });
+    expect(historial.map((f) => f.segun_las_bases)).toEqual([true, false]);
   });
 });
 

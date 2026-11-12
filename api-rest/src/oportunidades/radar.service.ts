@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { HistoriaService } from './historia/historia.service';
 import {
   LECTURA_ACTUAL,
@@ -245,6 +246,7 @@ export class RadarService {
     private readonly lectura: LecturaService,
     private readonly historia: HistoriaService,
     private readonly logger: PinoLogger,
+    @Optional() private readonly preparar?: PrepararLaLicitacionService,
   ) {
     this.logger.setContext(RadarService.name);
   }
@@ -324,6 +326,7 @@ export class RadarService {
       this.logger.info(
         `radar ${id} (${origen}) listo en ${resumen.segundos} s: ${resumen.licitaciones.guardadas} licitaciones y ${resumen.compras_agiles.guardadas} compras ágiles nuevas, ${resumen.licitaciones.cambios} cambios, ${resumen.lectura.leidas} leídas (${resumen.lectura.verdes} verdes, ${resumen.lectura.amarillas} amarillas, ${resumen.lectura.releidas} releídas)`,
       );
+      void this.preparar?.lasNuevas(empresas.map((e) => e.id)); // decisión 129
     } catch (error) {
       resumen.segundos = Math.round((Date.now() - inicio) / 1000);
       this.logger.error(`radar ${id} falló: ${mensajeDe(error)}`);

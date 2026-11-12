@@ -4,6 +4,7 @@ import {
   cuandoCierra,
   esPrioridad,
   filtrar,
+  filtrarSinSemaforo,
   type Filtros,
   VISTAS,
 } from "./oportunidades.utils";
@@ -61,20 +62,25 @@ export const conVistaValida = (f: Filtros): Filtros => ({
   semaforos: f.semaforos.filter((c) => c !== "basura"),
 });
 
-/** El número al lado de «Por revisar» y «Descartadas»: lo que se va a ver
- *  al pincharlo, con los demás filtros puestos (el semáforo incluido).
- *  Esos dos montones son de lo vigente, así que lo ya cerrado no cuenta
- *  (en «Historial» la lista trae también lo cerrado). */
+/** El número al lado de «Por revisar», «No es para ti» y «Descartadas»:
+ *  lo que se va a ver al pincharlo, con los demás filtros puestos (el
+ *  semáforo incluido, salvo en «No es para ti», que se ve entera: todas
+ *  quedaron rojas). Esos montones son de lo vigente, así que lo ya cerrado
+ *  no cuenta (en «Historial» la lista trae también lo cerrado). */
 export const contarPorVista = (
   lista: readonly Oportunidad[],
   f: Filtros,
   ahora: number = Date.now(),
-): { nueva: number; descartada: number } => {
+): { nueva: number; no_es_para_ti: number; descartada: number } => {
   const vigentes = lista.filter(
     (o) => !cuandoCierra(o.proceso.fecha_cierre, ahora).cerrada,
   );
   return {
     nueva: filtrar(vigentes, { ...f, vista: "nueva" }).length,
+    no_es_para_ti: filtrarSinSemaforo(vigentes, {
+      ...f,
+      vista: "no_es_para_ti",
+    }).length,
     descartada: filtrar(vigentes, { ...f, vista: "descartada" }).length,
   };
 };

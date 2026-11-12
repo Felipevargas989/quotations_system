@@ -11,6 +11,7 @@ import {
   CONFIG_VDS,
   detalle,
   guardados,
+  VDS,
 } from './radar-de-prueba';
 
 afterEach(() => jest.restoreAllMocks());
@@ -268,6 +269,34 @@ describe('RadarService — licitaciones: nuevo = "no está en la base"', () => {
       expect.any(Object),
       '57014: canceling statement due to statement timeout',
     );
+  });
+});
+
+describe('RadarService — las que se preparan solas (decisión 129)', () => {
+  it('al terminar una pasada buena larga la preparación de cada empresa, sin esperarla', async () => {
+    const { radar, repo, preparar } = armar();
+    // La pasada no espera: aunque la preparación tarde, la corrida termina.
+    preparar.lasNuevas.mockReturnValue(new Promise(() => undefined));
+    await radar.correr('reloj');
+    expect(repo.terminarCorrida).toHaveBeenCalledWith(
+      7,
+      'ok',
+      expect.any(Object),
+    );
+    expect(preparar.lasNuevas).toHaveBeenCalledWith([VDS.id]);
+  });
+
+  it('si la pasada falla, no prepara nada', async () => {
+    const { radar, repo, preparar } = armar();
+    repo.empresasConModulo.mockRejectedValue(new Error('la base no responde'));
+    await radar.correr('reloj');
+    expect(repo.terminarCorrida).toHaveBeenCalledWith(
+      7,
+      'error',
+      expect.any(Object),
+      'la base no responde',
+    );
+    expect(preparar.lasNuevas).not.toHaveBeenCalled();
   });
 });
 

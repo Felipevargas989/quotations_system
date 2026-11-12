@@ -8,6 +8,7 @@ import type { Vista } from "./oportunidades.utils";
 // a mirar el radar y deja a un clic «Mis licitaciones» y las rojas.
 
 const VACIO_DE_LA_VISTA: Record<Exclude<Vista, "nueva">, string> = {
+  no_es_para_ti: "Ninguna que las bases dejen fuera",
   descartada: "No hay descartadas",
   seguida:
     "No sigues ninguna: en el resumen de una licitación, «Seguir» la deja aquí",
