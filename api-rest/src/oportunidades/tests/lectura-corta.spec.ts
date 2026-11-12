@@ -133,7 +133,7 @@ describe('La lectura corta: qué se le pide a Haiku y qué se guarda (decisión 
     expect(texto).toContain('Ante la duda, dudoso');
   });
 
-  it('v2: el mismo criterio del análisis; el lugar que propone el proveedor es el recinto de la empresa, lo que se subcontrata no deja fuera y varios lugares es dudoso', () => {
+  it('v2 y v3: el mismo criterio del análisis; el lugar que propone el proveedor es el recinto de la empresa, lo que se subcontrata no deja fuera, varios lugares es dudoso, un encargo con una parte que la empresa puede dar no queda fuera y el puntaje por cercanía no es zona exigida', () => {
     const texto = instruccionesDeLaLecturaCorta({
       perfil: PERFIL,
       proceso: {
@@ -145,7 +145,7 @@ describe('La lectura corta: qué se le pide a Haiku y qué se guarda (decisión 
       },
       casa: '\n\nLO QUE SABE LA CASA',
     });
-    expect(VERSION_DE_LAS_INSTRUCCIONES).toBe('v2');
+    expect(VERSION_DE_LAS_INSTRUCCIONES).toBe('v3');
     expect(texto).toContain('el lugar lo propone el oferente');
     expect(texto).toContain('lo propone, lo ofrece o lo pone el proveedor');
     expect(texto).toContain(
@@ -153,6 +153,13 @@ describe('La lectura corta: qué se le pide a Haiku y qué se guarda (decisión 
     );
     expect(texto).toContain('NUNCA es motivo de no_es_para_ti');
     expect(texto).toContain('si piden varios lugares');
+    // v3: el encargo de varias partes y el puntaje por cercanía.
+    expect(texto).toContain(
+      'al menos una es de lo que la empresa vende y se podría prestar en su recinto',
+    );
+    expect(texto).toContain('en ese caso es dudoso');
+    expect(texto).toContain('la zona EXIGIDA deja fuera a la empresa');
+    expect(texto).toContain('por comuna o por cercanía NO es una zona exigida');
     expect(texto.endsWith('LO QUE SABE LA CASA')).toBe(true);
   });
 
@@ -291,7 +298,7 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
     const inicio = servicio.prueba(1, [40], 'sonnet');
     expect(inicio).toMatchObject({
       iniciada: true,
-      lote: expect.stringMatching(/ v2 sonnet$/),
+      lote: expect.stringMatching(/ v3 sonnet$/),
     });
     await hastaQue(() => repo.terminar.mock.calls.length === 1);
     expect(repo.crear).toHaveBeenCalledWith(
@@ -302,7 +309,7 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
     );
     await new Promise((r) => setTimeout(r, 0));
     expect(servicio.prueba(1, [41])).toMatchObject({
-      lote: expect.stringMatching(/ v2 haiku$/),
+      lote: expect.stringMatching(/ v3 haiku$/),
     });
     await hastaQue(() => repo.terminar.mock.calls.length === 2);
   });

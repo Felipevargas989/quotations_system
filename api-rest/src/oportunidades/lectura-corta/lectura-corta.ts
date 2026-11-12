@@ -56,8 +56,11 @@ const pesos = (monto: number): string =>
 /** La versión de las instrucciones: va en el lote de cada prueba, para
  *  comparar una con otra. v1 (12-11, madrugada): botó 2 de las 8 postuladas.
  *  v2 (12-11): el mismo criterio con que el análisis de Opus llena
- *  `se_puede_en_el_complejo` (decisión 21), escrito como reglas. */
-export const VERSION_DE_LAS_INSTRUCCIONES = 'v2';
+ *  `se_puede_en_el_complejo` (decisión 21), escrito como reglas; botó 1 de
+ *  las 8 postuladas y 1 de las «sí» de Opus. v3 (12-11): un encargo de
+ *  varias partes con una que la empresa puede dar en su recinto no queda
+ *  fuera, y un puntaje por cercanía no es una zona exigida. */
+export const VERSION_DE_LAS_INSTRUCCIONES = 'v3';
 
 /** Lo que lee el modelo antes de las bases: quién es la empresa (su
  *  descripción de «Mi empresa» y lo que sabe la casa, lo mismo que lee
@@ -88,9 +91,10 @@ export const instruccionesDeLaLecturaCorta = (c: {
     '- es_para_ti: lo pedido es de lo que la empresa vende y se puede hacer en su recinto. También cuando el lugar lo propone, lo ofrece o lo pone el proveedor (el recinto del oferente o del adjudicatario, un centro de eventos, un local establecido) y la zona que piden incluye la comuna o la región de la empresa: el recinto de la empresa es ese lugar.',
     '- no_es_para_ti: SOLO en uno de estos casos, y con la cita de las bases que lo prueba:',
     '  1. el lugar está FIJADO y no es el recinto de la empresa: las dependencias del comprador, una dirección o una comuna que no es la suya;',
-    '  2. la zona exigida deja fuera a la empresa;',
+    '  2. la zona EXIGIDA deja fuera a la empresa. Exigida es lo que, si no se cumple, deja la oferta inadmisible o fuera de bases. Un puntaje, una preferencia o un criterio de evaluación por comuna o por cercanía NO es una zona exigida: no deja fuera;',
     '  3. lo pedido es solo producto (insumos, artículos, alimentos para llevar o entregar) o un rubro que la descripción dice que la empresa no vende.',
     '- Lo que se puede subcontratar (traslados, buses, relatores, coach o monitores, amplificación, actividades o excursiones) NUNCA es motivo de no_es_para_ti: la empresa lo cotiza aparte.',
+    '- Si lo pedido tiene varias partes y al menos una es de lo que la empresa vende y se podría prestar en su recinto (alojamiento, salón, alimentación servida, una jornada), NUNCA es no_es_para_ti, aunque otra parte sea en otro lugar o sea una entrega: en ese caso es dudoso.',
     '- dudoso: si piden varios lugares, o mezclan lo que se hace en un recinto con entregas en otro lado; si las bases no dicen dónde; si falta información; o si no estás seguro. Ante la duda, dudoso: es mejor que la empresa revise una de más a que pierda una que podía ganar.',
     '',
     'Responde:',
