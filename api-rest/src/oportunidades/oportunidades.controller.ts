@@ -145,6 +145,16 @@ export class OportunidadesController {
     return this.servicio.lecturaSola(user.company_id);
   }
 
+  /** Cómo va la prueba de la lectura corta (decisión 132): sin `lote`, la
+   *  última. Cuántas van, cómo quedaron y lo que costó, sin IA. */
+  @Get('lectura-corta/prueba')
+  avanceDeLaLecturaCorta(
+    @Query('lote') lote: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    return this.lecturaCorta.avance(user.company_id, lote);
+  }
+
   /** "Mis licitaciones": las que la empresa marcó, con el avance de cada
    *  una (bases, análisis, anexos, firma, validación). */
   @Get('mias')

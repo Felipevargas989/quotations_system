@@ -52,6 +52,43 @@ export class LecturaCortaRepository {
     return (data as { id: number }).id;
   }
 
+  /** El lote más reciente de la empresa, o null si no hay pruebas. */
+  async ultimoLote(companyId: number): Promise<string | null> {
+    const { data, error } = await this.db
+      .from('oportunidades_lectura_corta')
+      .select('lote')
+      .eq('company_id', companyId)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { lote: string } | null)?.lote ?? null;
+  }
+
+  /** Las filas de un lote, para contar el avance. */
+  async delLote(
+    companyId: number,
+    lote: string,
+  ): Promise<
+    Array<{
+      estado: string;
+      veredicto: string | null;
+      costo_usd: number | null;
+    }>
+  > {
+    const { data, error } = await this.db
+      .from('oportunidades_lectura_corta')
+      .select('estado, veredicto, costo_usd')
+      .eq('company_id', companyId)
+      .eq('lote', lote);
+    if (error) throw error;
+    return (data ?? []) as Array<{
+      estado: string;
+      veredicto: string | null;
+      costo_usd: number | null;
+    }>;
+  }
+
   async terminar(
     companyId: number,
     id: number,
