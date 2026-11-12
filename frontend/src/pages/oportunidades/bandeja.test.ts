@@ -10,7 +10,13 @@ import {
   proximaPasada,
   queDiceLaBandejaVacia,
 } from "./bandeja";
-import { FILTROS_DE_PARTIDA, type Filtros } from "./oportunidades.utils";
+import { noEsParaTi } from "./fueraPorLasBases";
+import {
+  FILTROS_DE_PARTIDA,
+  type Filtros,
+  filtrarSinSemaforo,
+  type Vista,
+} from "./oportunidades.utils";
 
 // LA BANDEJA ORDENADA (Felipe, 18-10: "vamos con las 5").
 
@@ -259,5 +265,40 @@ describe("qué dice la bandeja vacía", () => {
         vista: "descartada",
       }),
     ).toBe("nada");
+  });
+});
+
+describe("«No es para ti» (decisión 129)", () => {
+  it("lo que las bases dejan fuera sale de «Por revisar» a su montón, aunque sea reciclaje; la roja de la lectura corta no", () => {
+    const fuera = op(20, {
+      semaforo: "rojo",
+      se_hace_en_el_complejo: "no",
+      segun_las_bases: true,
+      alertas: ["comuna_cercana"],
+    });
+    const seLee = op(21, { segun_las_bases: true });
+    const rojaCorta = op(22, {
+      semaforo: "rojo",
+      se_hace_en_el_complejo: "no",
+      alertas: ["comuna_cercana"],
+    });
+    const yaDescartada = op(23, {
+      semaforo: "rojo",
+      se_hace_en_el_complejo: "no",
+      segun_las_bases: true,
+      estado: "descartada",
+    });
+    expect(noEsParaTi(fuera)).toBe(true);
+    expect(noEsParaTi(seLee)).toBe(false);
+    expect(noEsParaTi(rojaCorta)).toBe(false);
+    const todas = [fuera, seLee, rojaCorta, yaDescartada];
+    const ids = (vista: Vista) =>
+      filtrarSinSemaforo(todas, { ...FILTROS_DE_PARTIDA, vista }).map(
+        (o) => o.id,
+      );
+    expect(ids("nueva")).toEqual([21, 22]);
+    expect(ids("no_es_para_ti")).toEqual([20]);
+    expect(ids("descartada")).toEqual([23]);
+    expect(ids("historial")).toEqual([20, 21, 22, 23]);
   });
 });

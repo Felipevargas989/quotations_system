@@ -10,6 +10,7 @@ import type {
 } from "../../services/oportunidades.service";
 import { formatCurrency } from "../../utils/currencies";
 import { matchesSearch } from "../../utils/searchMatch";
+import { noEsParaTi } from "./fueraPorLasBases";
 
 // Lo que la pantalla de Oportunidades necesita saber pintar y filtrar
 // (doc 17 §5.3). Funciones puras: las pruebas las cubren enteras.
@@ -180,13 +181,6 @@ export const FILTROS_DE_PARTIDA: Filtros = {
   region: "",
   busca: "",
 };
-
-/** «NO ES PARA TI» (decisión 129, sprint 2): las bases, leídas solas
- *  después de cada pasada del radar, piden el servicio en otro lugar
- *  (decisión 117). Sale de «Por revisar» a su montón, con su porqué. */
-export const noEsParaTi = (
-  o: Pick<Oportunidad, "segun_las_bases" | "se_hace_en_el_complejo">,
-): boolean => Boolean(o.segun_las_bases) && o.se_hace_en_el_complejo === "no";
 
 const pasaLaVista = (o: Oportunidad, vista: Vista): boolean => {
   if (vista === "historial") return true;
