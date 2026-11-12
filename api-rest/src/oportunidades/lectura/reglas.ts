@@ -108,6 +108,17 @@ export const esDeComunaCercana = (
 export const esDelRubro = (etiquetas: readonly string[]): boolean =>
   etiquetas.some((e) => e !== 'otro');
 
+const pesos = (monto: number): string =>
+  `$${Math.round(monto).toLocaleString('es-CL')}`;
+
+/** ¿Pide menos que el monto mínimo de la empresa? Sin mínimo o sin monto
+ *  informado, no (decisión 129). */
+export const bajoElMinimo = (
+  monto: number | null | undefined,
+  montoMinimo: number | null | undefined,
+): boolean =>
+  Boolean(montoMinimo && montoMinimo > 0 && monto && monto < montoMinimo);
+
 /**
  * Comuna cercana y del rubro → alerta. Que sea "del rubro" importa: la
  * Municipalidad de Quillón también compra hormigón e insumos dentales, y
@@ -123,14 +134,32 @@ export const esDelRubro = (etiquetas: readonly string[]): boolean =>
  * ver". Ahora queda en rojo con la alerta: ese es el reciclaje (ahí habría
  * quedado el catamarán, al que postuló). El rojo sin la alerta es la
  * basura.
+ *
+ * EL MONTO MÍNIMO (decisión 129, 11-11). Lo que pide menos que el mínimo de
+ * la empresa queda en rojo, aunque la IA lo aprobara, y la razón empieza
+ * diciéndolo. Felipe descartó 51 por «Muy chica», todas compras ágiles, con
+ * mediana de $370.000; las que le interesaron tenían mediana de $2,2
+ * millones. Con $700.000: *"ok"*. Si es de una comuna cercana y del rubro,
+ * conserva el aviso: es reciclaje, como dice la decisión 72.
  */
 export const aplicarReglas = (
   lectura: Lectura,
   proceso: DondeCompra & { monto?: number | null },
-  opciones: { comunasCercanas: string[]; umbralAltoValor: number | null },
+  opciones: {
+    comunasCercanas: string[];
+    umbralAltoValor: number | null;
+    montoMinimo?: number | null;
+  },
 ): LecturaFinal => {
   const alertas: string[] = [];
-  const { semaforo } = lectura;
+  const muyChica =
+    lectura.semaforo !== 'rojo' &&
+    bajoElMinimo(proceso.monto, opciones.montoMinimo);
+  const semaforo: Semaforo = muyChica ? 'rojo' : lectura.semaforo;
+  const razon =
+    muyChica && proceso.monto && opciones.montoMinimo
+      ? `Bajo tu mínimo de ${pesos(opciones.montoMinimo)}: pide ${pesos(proceso.monto)}. ${lectura.razon}`.trim()
+      : lectura.razon;
 
   if (
     esDelRubro(lectura.etiquetas) &&
@@ -150,5 +179,5 @@ export const aplicarReglas = (
     alertas.push('alto_valor');
   }
 
-  return { ...lectura, alertas };
+  return { ...lectura, semaforo, razon, alertas };
 };

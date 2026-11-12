@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import MultiSelect from "../../components/MultiSelect";
+import NumberInput from "../../components/inputs/NumberInput";
 import { toast } from "../../components/toast/Toast";
 import {
   getConfigOportunidades,
@@ -18,6 +19,7 @@ import { REGIONES_DE_CHILE } from "./oportunidades.utils";
 // aquí solo se muestran, para no tenerlos en dos lados.
 // La 111 sumó aquí las categorías de ChileCompra y la 112 las sacó: el rubro
 // es «la marca», que mira el nombre y lo que se compra (29-10).
+// La 129 (11-11) sumó el monto mínimo: lo que pide menos queda en rojo.
 
 export default function ConfiguracionOportunidades() {
   const qc = useQueryClient();
@@ -29,11 +31,13 @@ export default function ConfiguracionOportunidades() {
   const [regiones, setRegiones] = useState<string[]>([]);
   const [comunas, setComunas] = useState<string[]>([]);
   const [nuevaComuna, setNuevaComuna] = useState("");
+  const [montoMinimo, setMontoMinimo] = useState<number | undefined>();
 
   useEffect(() => {
     if (!data) return;
     setRegiones(data.regiones);
     setComunas(data.comunas_cercanas);
+    setMontoMinimo(data.monto_minimo ?? undefined);
   }, [data]);
 
   const guardar = useMutation({
@@ -43,6 +47,7 @@ export default function ConfiguracionOportunidades() {
         comunas_cercanas: comunas,
         // Lo que vende la empresa se edita en «Mi empresa»: aquí va como está.
         perfil: data?.perfil ?? "",
+        monto_minimo: montoMinimo && montoMinimo > 0 ? montoMinimo : null,
       }),
     onSuccess: (config) => {
       qc.setQueryData(["oportunidades", "config"], config);
@@ -113,8 +118,8 @@ export default function ConfiguracionOportunidades() {
           Comunas cercanas
         </h2>
         <p className="text-xs text-gray-500">
-          Lo de estas comunas que sea del rubro nunca queda en rojo, y lleva la
-          marca "Comuna cercana".
+          Lo de estas comunas que sea del rubro lleva la marca "Comuna cercana",
+          aunque quede en rojo.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {comunas.map((c) => (
@@ -156,6 +161,23 @@ export default function ConfiguracionOportunidades() {
             <Plus size={14} />
             Agregar
           </button>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-900">Monto mínimo</h2>
+        <p className="text-xs text-gray-500">
+          Lo que pida menos queda en rojo. Vacío, sin mínimo.
+        </p>
+        <div className="max-w-xs">
+          <NumberInput
+            name="monto_minimo"
+            value={montoMinimo}
+            onChange={setMontoMinimo}
+            min={0}
+            currency
+            placeholder="Ej: 700.000"
+          />
         </div>
       </section>
 

@@ -10,6 +10,8 @@ export interface ConfigOportunidades {
   regiones: string[];
   comunas_cercanas: string[];
   perfil: string;
+  /** En pesos: lo que pide menos queda en rojo (decisión 129). */
+  monto_minimo: number | null;
   /** De Configuración de empresa: aquí solo se muestran. */
   umbral_alto_valor: number | null;
   correo_avisos: string | null;
@@ -25,6 +27,7 @@ export const guardarConfigOportunidades = async (config: {
   regiones?: string[];
   comunas_cercanas?: string[];
   perfil?: string;
+  monto_minimo?: number | null;
 }) =>
   (await apiRequest(
     `${API_ROUTES.OPORTUNIDADES}/config`,

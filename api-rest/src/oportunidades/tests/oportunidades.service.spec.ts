@@ -440,6 +440,7 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble'],
       comunas_cercanas: ['Quillón'],
       perfil: 'Complejo en Quillón',
+      monto_minimo: 700_000,
     });
     repo.datosDeEmpresa.mockResolvedValue({
       high_value_threshold: 3_000_000,
@@ -449,6 +450,7 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble'],
       comunas_cercanas: ['Quillón'],
       perfil: 'Complejo en Quillón',
+      monto_minimo: 700_000,
       umbral_alto_valor: 3_000_000,
       correo_avisos: 'contacto@valledelsolquillon.cl',
     });
@@ -460,6 +462,7 @@ describe('OportunidadesService — la configuración', () => {
       regiones: [],
       comunas_cercanas: [],
       perfil: '',
+      monto_minimo: null,
       umbral_alto_valor: null,
       correo_avisos: null,
     });
@@ -476,6 +479,22 @@ describe('OportunidadesService — la configuración', () => {
       regiones: ['Ñuble', 'Biobío'],
       comunas_cercanas: ['Quillón', 'San Ignacio'],
       perfil: null,
+    });
+  });
+
+  it('el monto mínimo se guarda en pesos, y 0 o null lo quitan (decisión 129)', async () => {
+    const { repo, servicio } = armar();
+    await servicio.guardarConfig(1, { monto_minimo: 700_000 });
+    expect(repo.guardarConfig).toHaveBeenLastCalledWith(1, {
+      monto_minimo: 700_000,
+    });
+    await servicio.guardarConfig(1, { monto_minimo: 0 });
+    expect(repo.guardarConfig).toHaveBeenLastCalledWith(1, {
+      monto_minimo: null,
+    });
+    await servicio.guardarConfig(1, { monto_minimo: null });
+    expect(repo.guardarConfig).toHaveBeenLastCalledWith(1, {
+      monto_minimo: null,
     });
   });
 
