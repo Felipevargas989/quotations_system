@@ -46,6 +46,8 @@ import { HistoriaRepository } from './historia/historia.repository';
 import { HistoriaService } from './historia/historia.service';
 import { SeVieneRepository } from './historia/se-viene.repository';
 import { SeVieneService } from './historia/se-viene.service';
+import { LecturaCortaRepository } from './lectura-corta/lectura-corta.repository';
+import { LecturaCortaService } from './lectura-corta/lectura-corta.service';
 import { LecturaService } from './lectura/lectura.service';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
@@ -158,6 +160,8 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     AnalisisRepository,
     AnalisisService,
     PrepararLaLicitacionService,
+    LecturaCortaService,
+    LecturaCortaRepository,
     ValidacionRepository,
     ValidacionService,
     GeneracionRepository,

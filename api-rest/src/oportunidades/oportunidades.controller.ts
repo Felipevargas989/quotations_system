@@ -38,9 +38,11 @@ import {
   MarcarNoUsarDto,
   SubirDocumentoDto,
 } from './dto/oferente.dto';
+import { PruebaDeLecturaCortaDto } from './dto/prueba-de-lectura-corta.dto';
 import { SeccionDto, SubirAdjuntoDto } from './dto/seccion.dto';
 import { GeneracionService } from './generacion/generacion.service';
 import { SeVieneService } from './historia/se-viene.service';
+import { LecturaCortaService } from './lectura-corta/lectura-corta.service';
 import { MisLicitacionesService } from './mias/mis-licitaciones.service';
 import { LeerRespaldoService } from './oferente/leer-respaldo.service';
 import { LoQueSabemosService } from './oferente/lo-que-sabemos.service';
@@ -81,6 +83,7 @@ export class OportunidadesController {
     private readonly licify: LicifyService,
     private readonly logger: PinoLogger,
     private readonly loQueSabemos: LoQueSabemosService,
+    private readonly lecturaCorta: LecturaCortaService,
   ) {
     this.logger.setContext(OportunidadesController.name);
   }
@@ -119,6 +122,20 @@ export class OportunidadesController {
   @Get('radar/corridas')
   corridas() {
     return this.repo.ultimasCorridas(10);
+  }
+
+  /** LA PRUEBA DE LA LECTURA CORTA (decisión 132): lee con Haiku las bases
+   *  de las oportunidades pedidas y escribe SOLO en la tabla de la lectura
+   *  corta. Responde al tiro con el lote; sigue de fondo. */
+  @Post('lectura-corta/prueba')
+  pruebaDeLaLecturaCorta(
+    @Body() dto: PruebaDeLecturaCortaDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(
+      `POST /oportunidades/lectura-corta/prueba (empresa ${user.company_id}, ${dto.ids.length} pedidas)`,
+    );
+    return this.lecturaCorta.prueba(user.company_id, dto.ids);
   }
 
   /** «Bases leídas solas» (decisión 131): cuántas bases leyó solo el motor
