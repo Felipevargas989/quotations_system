@@ -166,12 +166,9 @@ export class PrepararLaLicitacionService {
         `leída sola ${id}: no se trajeron los documentos: ${mensajeDe(error)}`,
       );
     }
-    const lectura = await this.lecturaCorta.leerUna(
-      companyId,
-      id,
-      lote,
-      'radar',
-    );
+    const lectura = await this.lecturaCorta.leerUna(companyId, id, lote, {
+      origen: 'radar',
+    });
     if (!lectura) return false;
     try {
       await this.ficha.marcarSegunLaLecturaCorta(companyId, id, lectura);

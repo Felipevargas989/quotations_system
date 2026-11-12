@@ -133,9 +133,9 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     this.logger.info(
-      `POST /oportunidades/lectura-corta/prueba (empresa ${user.company_id}, ${dto.ids.length} pedidas)`,
+      `POST /oportunidades/lectura-corta/prueba (empresa ${user.company_id}, ${dto.ids.length} pedidas, ${dto.modelo ?? 'haiku'})`,
     );
-    return this.lecturaCorta.prueba(user.company_id, dto.ids);
+    return this.lecturaCorta.prueba(user.company_id, dto.ids, dto.modelo);
   }
 
   /** «Bases leídas solas» (decisiones 131 y 132): cuántas bases leyó solo

@@ -53,16 +53,26 @@ export type ProcesoDeLaLectura = {
 const pesos = (monto: number): string =>
   `$${Math.round(monto).toLocaleString('es-CL')}`;
 
-/** Lo que lee Haiku antes de las bases: quién es la empresa (su descripción
- *  de «Mi empresa»), el proceso y cómo decidir. */
+/** La versión de las instrucciones: va en el lote de cada prueba, para
+ *  comparar una con otra. v1 (12-11, madrugada): botó 2 de las 8 postuladas.
+ *  v2 (12-11): el mismo criterio con que el análisis de Opus llena
+ *  `se_puede_en_el_complejo` (decisión 21), escrito como reglas. */
+export const VERSION_DE_LAS_INSTRUCCIONES = 'v2';
+
+/** Lo que lee el modelo antes de las bases: quién es la empresa (su
+ *  descripción de «Mi empresa» y lo que sabe la casa, lo mismo que lee
+ *  Opus), el proceso y cómo decidir. Solo reglas: ningún caso real, para no
+ *  hacerle trampa a la prueba. */
 export const instruccionesDeLaLecturaCorta = (c: {
   perfil: string | null;
   proceso: ProcesoDeLaLectura;
+  /** Lo que sabe la casa de la empresa (`loQueSabeLaCasa`), o vacío. */
+  casa?: string;
 }): string =>
   [
     'Eres el revisor de licitaciones de una empresa. Lees las bases de una licitación o compra ágil de Mercado Público (Chile) y contestas UNA pregunta: ¿esto es para la empresa?',
     '',
-    'Lo que la empresa vende y lo que no vende, como lo describe ella:',
+    'La empresa ES un recinto: presta sus servicios en su propio complejo. Lo que vende y lo que no vende, como lo describe ella:',
     c.perfil?.trim() || 'Sin descripción.',
     '',
     `El proceso: ${[
@@ -74,17 +84,21 @@ export const instruccionesDeLaLecturaCorta = (c: {
       .filter(Boolean)
       .join(' · ')}.`,
     '',
-    'Cómo decides:',
-    '- no_es_para_ti: SOLO si las bases lo dejan claro. Por ejemplo: piden el servicio en las dependencias del comprador o en otro lugar que no es el recinto de la empresa; piden algo que la descripción dice que la empresa no vende; o exigen algo que la empresa no puede cumplir. Tienes que poder citar el texto de las bases que lo prueba.',
-    '- es_para_ti: se puede hacer en el recinto de la empresa y es de lo que la empresa vende.',
-    '- dudoso: cualquier otro caso. Las bases no dicen dónde, falta información o no estás seguro. Ante la duda, dudoso: es mejor que la empresa revise una de más a que pierda una que podía ganar.',
+    'Cómo decides. Es el mismo criterio con que se decide si el servicio se puede prestar en las instalaciones de la empresa: sí, si se puede en sus instalaciones o el lugar lo propone el oferente; no, si exige otro lugar; dudoso, si no queda claro.',
+    '- es_para_ti: lo pedido es de lo que la empresa vende y se puede hacer en su recinto. También cuando el lugar lo propone, lo ofrece o lo pone el proveedor (el recinto del oferente o del adjudicatario, un centro de eventos, un local establecido) y la zona que piden incluye la comuna o la región de la empresa: el recinto de la empresa es ese lugar.',
+    '- no_es_para_ti: SOLO en uno de estos casos, y con la cita de las bases que lo prueba:',
+    '  1. el lugar está FIJADO y no es el recinto de la empresa: las dependencias del comprador, una dirección o una comuna que no es la suya;',
+    '  2. la zona exigida deja fuera a la empresa;',
+    '  3. lo pedido es solo producto (insumos, artículos, alimentos para llevar o entregar) o un rubro que la descripción dice que la empresa no vende.',
+    '- Lo que se puede subcontratar (traslados, buses, relatores, coach o monitores, amplificación, actividades o excursiones) NUNCA es motivo de no_es_para_ti: la empresa lo cotiza aparte.',
+    '- dudoso: si piden varios lugares, o mezclan lo que se hace en un recinto con entregas en otro lado; si las bases no dicen dónde; si falta información; o si no estás seguro. Ante la duda, dudoso: es mejor que la empresa revise una de más a que pierda una que podía ganar.',
     '',
     'Responde:',
     '- veredicto.',
     '- porque: una línea en español, de 200 caracteres como máximo.',
     '- cita: el texto LITERAL de las bases que sostiene el veredicto, el nombre del documento y la página (vacíos si no hay).',
-    '- lugar: dónde piden el servicio, como lo dicen las bases (vacío si no lo dicen).',
-  ].join('\n');
+    '- lugar: dónde piden el servicio, como lo dicen las bases, o "lo propone el oferente" (vacío si no lo dicen).',
+  ].join('\n') + (c.casa ?? '');
 
 /** Lo que se ve en la fila de la bandeja (decisión 132): el porqué de
  *  Haiku y, si la hay, la cita de las bases con su documento y página. */

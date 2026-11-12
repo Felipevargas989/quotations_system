@@ -57,8 +57,13 @@ function armar() {
   };
   const lecturaCorta = {
     leerUna: jest.fn(
-      (_empresa: number, id: number, _lote: string, origen: string) => {
-        orden.push(`leer ${id} ${origen}`);
+      (
+        _empresa: number,
+        id: number,
+        _lote: string,
+        opciones: { origen?: string },
+      ) => {
+        orden.push(`leer ${id} ${opciones.origen}`);
         return Promise.resolve(NO_ES);
       },
     ),
@@ -137,8 +142,8 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
     const { licify, analisis, ficha, lecturaCorta, servicio, orden } = armar();
     ficha.paraPrepararSolas.mockResolvedValue([40, 41]);
     lecturaCorta.leerUna.mockImplementationOnce(
-      (_e: number, id: number, _l: string, origen: string) => {
-        orden.push(`leer ${id} ${origen}`);
+      (_e: number, id: number, _l: string, opciones: { origen?: string }) => {
+        orden.push(`leer ${id} ${opciones.origen}`);
         return Promise.resolve({ ...NO_ES, veredicto: 'dudoso' });
       },
     );
@@ -160,7 +165,7 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
       1,
       40,
       expect.stringMatching(/^radar /),
-      'radar',
+      { origen: 'radar' },
     );
     expect(analisis.pedir).not.toHaveBeenCalled();
   });

@@ -4,10 +4,11 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
-import { MODELO_HAIKU } from '../analisis/comun';
+import { MODELO_HAIKU, MODELO_SONNET } from '../analisis/comun';
 import {
   instruccionesDeLaLecturaCorta,
   lecturaCortaValida,
+  VERSION_DE_LAS_INSTRUCCIONES,
 } from '../lectura-corta/lectura-corta';
 import type { LecturaCortaRepository } from '../lectura-corta/lectura-corta.repository';
 import { LecturaCortaService } from '../lectura-corta/lectura-corta.service';
@@ -129,8 +130,30 @@ describe('La lectura corta: qué se le pide a Haiku y qué se guarda (decisión 
     expect(texto).toContain(PERFIL);
     expect(texto).toContain('3904-1023-COT26');
     expect(texto).toContain('$600.000');
-    expect(texto).toContain('SOLO si las bases lo dejan claro');
     expect(texto).toContain('Ante la duda, dudoso');
+  });
+
+  it('v2: el mismo criterio del análisis; el lugar que propone el proveedor es el recinto de la empresa, lo que se subcontrata no deja fuera y varios lugares es dudoso', () => {
+    const texto = instruccionesDeLaLecturaCorta({
+      perfil: PERFIL,
+      proceso: {
+        codigo: 'X-1',
+        nombre: 'Jornada',
+        organismo: null,
+        comuna: null,
+        monto: null,
+      },
+      casa: '\n\nLO QUE SABE LA CASA',
+    });
+    expect(VERSION_DE_LAS_INSTRUCCIONES).toBe('v2');
+    expect(texto).toContain('el lugar lo propone el oferente');
+    expect(texto).toContain('lo propone, lo ofrece o lo pone el proveedor');
+    expect(texto).toContain(
+      'el lugar está FIJADO y no es el recinto de la empresa',
+    );
+    expect(texto).toContain('NUNCA es motivo de no_es_para_ti');
+    expect(texto).toContain('si piden varios lugares');
+    expect(texto.endsWith('LO QUE SABE LA CASA')).toBe(true);
   });
 
   it('lo que contestó se limpia; un veredicto fuera de la lista no se guarda como «dudoso»', () => {
@@ -187,9 +210,9 @@ describe('LecturaCortaService.leerUna (decisión 132)', () => {
 
   it('devuelve lo que dijo Haiku y anota el origen pedido (la pasada del radar, decisión 132)', async () => {
     const { repo, servicio } = armar();
-    await expect(servicio.leerUna(1, 40, 'radar 1', 'radar')).resolves.toEqual(
-      NO_ES,
-    );
+    await expect(
+      servicio.leerUna(1, 40, 'radar 1', { origen: 'radar' }),
+    ).resolves.toEqual(NO_ES);
     expect(repo.crear).toHaveBeenCalledWith(
       expect.objectContaining({ origen: 'radar', lote: 'radar 1' }),
     );
@@ -261,6 +284,27 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
       ),
     ).toEqual([40, 41]);
     expect(ia.messages.parse).toHaveBeenCalledTimes(2);
+  });
+
+  it('con Sonnet si se pide: lo usa, lo anota en la fila y en el lote; de partida, Haiku', async () => {
+    const { repo, ia, servicio } = armar();
+    const inicio = servicio.prueba(1, [40], 'sonnet');
+    expect(inicio).toMatchObject({
+      iniciada: true,
+      lote: expect.stringMatching(/ v2 sonnet$/),
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 1);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ modelo: MODELO_SONNET }),
+    );
+    expect(ia.messages.parse).toHaveBeenCalledWith(
+      expect.objectContaining({ model: MODELO_SONNET }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(servicio.prueba(1, [41])).toMatchObject({
+      lote: expect.stringMatching(/ v2 haiku$/),
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 2);
   });
 
   it('una prueba a la vez; sin la llave de Anthropic no parte', async () => {
