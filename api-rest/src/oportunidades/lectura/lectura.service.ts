@@ -22,8 +22,9 @@ export const MODELO_LECTURA = 'claude-haiku-5-5';
 
 /** Con qué se leyó: el modelo y la versión de las reglas. Cuando las reglas
  *  cambian, lo abierto que nadie ha tocado se relee solo en la pasada
- *  siguiente (decisión 19 del doc 17). Cambiarlo al cambiar las reglas. */
-export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 18-10, noche`;
+ *  siguiente (decisión 19 del doc 17). Cambiarlo al cambiar las reglas.
+ *  11-11: el monto mínimo de la empresa (decisión 129). */
+export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 11-11, monto mínimo`;
 
 const ESQUEMA = {
   type: 'object',

@@ -43,6 +43,8 @@ export type ConfigOportunidades = {
   regiones: string[];
   comunas_cercanas: string[];
   perfil: string | null;
+  /** Decisión 129 (migración 204): lo que pide menos queda en rojo. */
+  monto_minimo?: number | null;
 };
 
 const COLUMNAS_DE_LISTA =

@@ -407,6 +407,48 @@ describe('RadarService — la lectura', () => {
     });
   });
 
+  it('con el monto mínimo de la empresa, la verde que pide menos se guarda roja (decisión 129)', async () => {
+    const { radar, repo, lectura } = armar();
+    repo.configDe.mockResolvedValue({ ...CONFIG_VDS, monto_minimo: 700_000 });
+    repo.procesosAbiertos.mockResolvedValue([
+      abierto('CHICA', {
+        organismo: 'Municipalidad de Chillán',
+        monto: 370_000,
+      }),
+      abierto('GRANDE', {
+        organismo: 'Municipalidad de Chillán',
+        monto: 2_200_000,
+      }),
+    ]);
+    lectura.leer.mockResolvedValue({
+      semaforo: 'verde',
+      etiquetas: ['evento'],
+      se_hace_en_el_complejo: 'si',
+      razon: 'Celebración en el complejo.',
+    });
+
+    await radar.correr('reloj');
+
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'CHICA',
+      expect.objectContaining({
+        semaforo: 'rojo',
+        razon:
+          'Bajo tu mínimo de $700.000: pide $370.000. Celebración en el complejo.',
+      }),
+      LECTURA_ACTUAL,
+      false,
+    );
+    expect(repo.guardarLectura).toHaveBeenCalledWith(
+      1,
+      'GRANDE',
+      expect.objectContaining({ semaforo: 'verde' }),
+      LECTURA_ACTUAL,
+      false,
+    );
+  });
+
   it('una lectura que la base rechaza no tumba la corrida: ese proceso queda sin leer y las demás se guardan (18-10)', async () => {
     // La pasada de las 23:07 del 18-10 se cayó entera por UNA fila que la
     // base rechazó (oportunidades_semaforo_check).

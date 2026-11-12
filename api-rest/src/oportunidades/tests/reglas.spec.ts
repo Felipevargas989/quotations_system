@@ -1,5 +1,6 @@
 import {
   aplicarReglas,
+  bajoElMinimo,
   esDeComunaCercana,
   esDelRubro,
   type Lectura,
@@ -117,5 +118,95 @@ describe('aplicarReglas', () => {
       { comunasCercanas: COMUNAS, umbralAltoValor: null },
     );
     expect(r.alertas).toEqual([]);
+  });
+});
+
+describe('el monto mínimo de la empresa (decisión 129)', () => {
+  // Felipe, 11-11: de sus descartes, 51 fueron «Muy chica», todas compras
+  // ágiles con mediana de $370.000. Con un mínimo de $700.000: "ok".
+  const conMinimo = {
+    comunasCercanas: COMUNAS,
+    umbralAltoValor: 3_000_000,
+    montoMinimo: 700_000,
+  };
+
+  it('bajoElMinimo: solo con mínimo y con monto informado, y estrictamente menor', () => {
+    expect(bajoElMinimo(370_000, 700_000)).toBe(true);
+    expect(bajoElMinimo(700_000, 700_000)).toBe(false);
+    expect(bajoElMinimo(2_200_000, 700_000)).toBe(false);
+    expect(bajoElMinimo(null, 700_000)).toBe(false);
+    expect(bajoElMinimo(0, 700_000)).toBe(false);
+    expect(bajoElMinimo(370_000, null)).toBe(false);
+    expect(bajoElMinimo(370_000, 0)).toBe(false);
+    expect(bajoElMinimo(370_000, undefined)).toBe(false);
+  });
+
+  it('la verde o amarilla que pide menos queda en rojo, y la razón lo dice primero', () => {
+    for (const color of ['verde', 'amarillo'] as const) {
+      const r = aplicarReglas(
+        lectura({
+          semaforo: color,
+          etiquetas: ['alimentacion'],
+          razon: 'Coffee break en el complejo: del rubro.',
+        }),
+        { organismo: 'Municipalidad de Chillán', monto: 370_000 },
+        conMinimo,
+      );
+      expect(r.semaforo).toBe('rojo');
+      expect(r.razon).toBe(
+        'Bajo tu mínimo de $700.000: pide $370.000. Coffee break en el complejo: del rubro.',
+      );
+      // Lo demás de la IA queda como lo leyó.
+      expect(r.etiquetas).toEqual(['alimentacion']);
+      expect(r.se_hace_en_el_complejo).toBe('si');
+      expect(r.alertas).toEqual([]);
+    }
+  });
+
+  it('la que ya era roja no cambia: ni el color ni la razón', () => {
+    const r = aplicarReglas(
+      lectura({ semaforo: 'rojo', etiquetas: ['otro'], razon: 'Insumos.' }),
+      { organismo: 'Municipalidad de Chillán', monto: 100_000 },
+      conMinimo,
+    );
+    expect(r.semaforo).toBe('rojo');
+    expect(r.razon).toBe('Insumos.');
+  });
+
+  it('igual al mínimo, sobre el mínimo o sin monto informado: el color de la IA', () => {
+    for (const monto of [700_000, 2_200_000, null]) {
+      const r = aplicarReglas(
+        lectura({ semaforo: 'verde', razon: 'Celebración.' }),
+        { organismo: 'Municipalidad de Chillán', monto },
+        conMinimo,
+      );
+      expect(r.semaforo).toBe('verde');
+      expect(r.razon).toBe('Celebración.');
+    }
+  });
+
+  it('sin mínimo configurado, nada cambia', () => {
+    for (const montoMinimo of [null, 0, undefined]) {
+      const r = aplicarReglas(
+        lectura({ semaforo: 'amarillo' }),
+        { organismo: 'Municipalidad de Chillán', monto: 150_000 },
+        { comunasCercanas: COMUNAS, umbralAltoValor: null, montoMinimo },
+      );
+      expect(r.semaforo).toBe('amarillo');
+      expect(r.razon).toBe('prueba');
+    }
+  });
+
+  it('chica, de una comuna cercana y del rubro: roja con el aviso, es reciclaje (decisión 72)', () => {
+    const r = aplicarReglas(
+      lectura({ semaforo: 'verde', etiquetas: ['alimentacion'] }),
+      { organismo: 'ILUSTRE MUNICIPALIDAD DE QUILLON', monto: 400_000 },
+      conMinimo,
+    );
+    expect(r.semaforo).toBe('rojo');
+    expect(r.alertas).toEqual(['comuna_cercana']);
+    expect(
+      r.razon.startsWith('Bajo tu mínimo de $700.000: pide $400.000.'),
+    ).toBe(true);
   });
 });
