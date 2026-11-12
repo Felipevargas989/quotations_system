@@ -1,6 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
@@ -35,11 +39,23 @@ export type InicioDeLaPrueba =
   | { iniciada: true; lote: string; total: number }
   | { iniciada: false; motivo: string };
 
+/** Cómo va una prueba (`GET /oportunidades/lectura-corta/prueba`). */
+export type AvanceDeLaPrueba = {
+  lote: string;
+  corriendo: boolean;
+  /** Cuántas se pidieron; solo mientras corre (vive en la memoria). */
+  pedidas: number | null;
+  leidas: number;
+  estados: { procesando: number; listo: number; error: number };
+  veredictos: { es_para_ti: number; no_es_para_ti: number; dudoso: number };
+  costo_usd: number;
+};
+
 @Injectable()
 export class LecturaCortaService {
   private clienteAnthropic: Anthropic | null = null;
-  /** Una prueba a la vez; vive en la memoria del motor. */
-  private probando = false;
+  /** La prueba que corre ahora: una a la vez, en la memoria del motor. */
+  private enCurso: { lote: string; total: number } | null = null;
 
   constructor(
     private readonly repo: LecturaCortaRepository,
@@ -67,7 +83,7 @@ export class LecturaCortaService {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
     }
-    if (this.probando) {
+    if (this.enCurso) {
       return {
         iniciada: false,
         motivo: 'Ya hay una prueba de la lectura corta en marcha.',
@@ -75,11 +91,46 @@ export class LecturaCortaService {
     }
     const pedidas = [...new Set(ids)];
     const lote = new Date().toISOString();
-    this.probando = true;
+    this.enCurso = { lote, total: pedidas.length };
     void this.correr(companyId, pedidas, lote).finally(() => {
-      this.probando = false;
+      this.enCurso = null;
     });
     return { iniciada: true, lote, total: pedidas.length };
+  }
+
+  /** EL AVANCE DE UNA PRUEBA: cuántas van, cómo quedaron y lo que costó.
+   *  Sin lote, la última. Se lee de la tabla, sin IA. */
+  async avance(companyId: number, lote?: string): Promise<AvanceDeLaPrueba> {
+    const elLote = lote?.trim() || (await this.repo.ultimoLote(companyId));
+    if (!elLote) {
+      throw new NotFoundException(
+        'Todavía no hay pruebas de la lectura corta.',
+      );
+    }
+    const filas = await this.repo.delLote(companyId, elLote);
+    const cuantas = (de: (f: (typeof filas)[number]) => unknown, v: string) =>
+      filas.filter((f) => de(f) === v).length;
+    const corriendo = this.enCurso?.lote === elLote;
+    return {
+      lote: elLote,
+      corriendo,
+      pedidas: corriendo ? (this.enCurso?.total ?? null) : null,
+      leidas: filas.length,
+      estados: {
+        procesando: cuantas((f) => f.estado, 'procesando'),
+        listo: cuantas((f) => f.estado, 'listo'),
+        error: cuantas((f) => f.estado, 'error'),
+      },
+      veredictos: {
+        es_para_ti: cuantas((f) => f.veredicto, 'es_para_ti'),
+        no_es_para_ti: cuantas((f) => f.veredicto, 'no_es_para_ti'),
+        dudoso: cuantas((f) => f.veredicto, 'dudoso'),
+      },
+      costo_usd:
+        Math.round(
+          filas.reduce((s, f) => s + Number(f.costo_usd ?? 0), 0) * 10_000,
+        ) / 10_000,
+    };
   }
 
   private async correr(

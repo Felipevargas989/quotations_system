@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
@@ -54,6 +54,13 @@ function armar() {
   const repo = {
     crear: jest.fn().mockResolvedValue(77),
     terminar: jest.fn().mockResolvedValue(undefined),
+    ultimoLote: jest.fn().mockResolvedValue('lote-1'),
+    delLote: jest.fn().mockResolvedValue([
+      { estado: 'listo', veredicto: 'no_es_para_ti', costo_usd: 0.0042 },
+      { estado: 'listo', veredicto: 'dudoso', costo_usd: 0.0051 },
+      { estado: 'error', veredicto: null, costo_usd: null },
+      { estado: 'procesando', veredicto: null, costo_usd: null },
+    ]),
   };
   const adjuntos = {
     listar: jest.fn().mockResolvedValue([
@@ -260,5 +267,40 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
     await hastaQue(() => repo.terminar.mock.calls.length === 2);
     delete process.env.ANTHROPIC_API_KEY;
     expect(() => servicio.prueba(1, [40])).toThrow(BadRequestException);
+  });
+});
+
+describe('LecturaCortaService.avance (decisión 132)', () => {
+  it('cuenta cómo va un lote y lo que costó; sin lote, el último', async () => {
+    const { repo, servicio } = armar();
+    await expect(servicio.avance(1)).resolves.toEqual({
+      lote: 'lote-1',
+      corriendo: false,
+      pedidas: null,
+      leidas: 4,
+      estados: { procesando: 1, listo: 2, error: 1 },
+      veredictos: { es_para_ti: 0, no_es_para_ti: 1, dudoso: 1 },
+      costo_usd: 0.0093,
+    });
+    expect(repo.delLote).toHaveBeenCalledWith(1, 'lote-1');
+    await servicio.avance(1, 'otro-lote');
+    expect(repo.delLote).toHaveBeenLastCalledWith(1, 'otro-lote');
+  });
+
+  it('mientras corre dice cuántas se pidieron; sin pruebas, 404', async () => {
+    const llave = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'llave-de-prueba';
+    const { repo, servicio } = armar();
+    const inicio = servicio.prueba(1, [40, 41, 42]);
+    const lote = inicio.iniciada ? inicio.lote : '';
+    await expect(servicio.avance(1, lote)).resolves.toMatchObject({
+      corriendo: true,
+      pedidas: 3,
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 3);
+    repo.ultimoLote.mockResolvedValue(null);
+    await expect(servicio.avance(1)).rejects.toThrow(NotFoundException);
+    if (llave === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = llave;
   });
 });
