@@ -842,6 +842,10 @@ notas de crédito resten de lo facturado de la OC (paso 4).
   3H 2B» desactivada; no hay tarifa por cabaña y noche.
 - **La cabaña la escribe recepción** (*"Recepción la escribe"*): texto
   libre, sin una lista de las 14 cabañas.
+  En «Nueva boleta», la sección «Huésped» lleva la etiqueta «Opcional»
+  junto al título y la ayuda «Se puede dejar en blanco» (Felipe,
+  12-11-2026: *"marca mejor que es opcional el huésped"*; `opcional` de
+  `Seccion`).
 
 **3a, hecho el 05-11** (migración 187; maqueta del 04-11):
 - **En el evento** (pestaña Facturación): «Por boletear» con «Dejar para

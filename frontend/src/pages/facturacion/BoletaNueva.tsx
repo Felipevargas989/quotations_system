@@ -385,11 +385,11 @@ export default function BoletaNueva({
             </div>
           </Seccion>
 
-          <Seccion titulo="Huésped">
+          <Seccion titulo="Huésped" opcional>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="flex justify-between text-xs text-gray-500">
-                  Cabaña (opcional)
+                  Cabaña
                   <span>{Array.from(cabana).length}/22</span>
                 </span>
                 <input
@@ -401,7 +401,8 @@ export default function BoletaNueva({
                   className={casilla}
                 />
                 <span className="mt-1 block text-xs text-gray-400">
-                  Sale al comienzo de cada línea de la boleta.
+                  Se puede dejar en blanco. Si se escribe, sale al comienzo de
+                  cada línea de la boleta.
                 </span>
               </label>
             </div>

@@ -186,6 +186,14 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     );
   });
 
+  it("el huésped es opcional: lo dice una etiqueta junto al título", async () => {
+    abrir({ quedarse: true });
+    expect(
+      await screen.findByRole("heading", { name: /Huésped/ }),
+    ).toHaveTextContent("Opcional");
+    expect(screen.getByText(/Se puede dejar en blanco/)).toBeInTheDocument();
+  });
+
   it("sin la lista a la vista (recepción), se queda con la última y una boleta en blanco", async () => {
     abrir({ quedarse: true });
     await armarUna();
