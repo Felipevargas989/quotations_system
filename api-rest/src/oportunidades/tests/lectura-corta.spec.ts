@@ -1,13 +1,14 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { AdjuntosRepository } from '../adjuntos/adjuntos.repository';
 import type { AnalisisRepository } from '../analisis/analisis.repository';
-import { MODELO_HAIKU } from '../analisis/comun';
+import { MODELO_HAIKU, MODELO_SONNET } from '../analisis/comun';
 import {
   instruccionesDeLaLecturaCorta,
   lecturaCortaValida,
+  VERSION_DE_LAS_INSTRUCCIONES,
 } from '../lectura-corta/lectura-corta';
 import type { LecturaCortaRepository } from '../lectura-corta/lectura-corta.repository';
 import { LecturaCortaService } from '../lectura-corta/lectura-corta.service';
@@ -54,6 +55,13 @@ function armar() {
   const repo = {
     crear: jest.fn().mockResolvedValue(77),
     terminar: jest.fn().mockResolvedValue(undefined),
+    ultimoLote: jest.fn().mockResolvedValue('lote-1'),
+    delLote: jest.fn().mockResolvedValue([
+      { estado: 'listo', veredicto: 'no_es_para_ti', costo_usd: 0.0042 },
+      { estado: 'listo', veredicto: 'dudoso', costo_usd: 0.0051 },
+      { estado: 'error', veredicto: null, costo_usd: null },
+      { estado: 'procesando', veredicto: null, costo_usd: null },
+    ]),
   };
   const adjuntos = {
     listar: jest.fn().mockResolvedValue([
@@ -122,8 +130,30 @@ describe('La lectura corta: qué se le pide a Haiku y qué se guarda (decisión 
     expect(texto).toContain(PERFIL);
     expect(texto).toContain('3904-1023-COT26');
     expect(texto).toContain('$600.000');
-    expect(texto).toContain('SOLO si las bases lo dejan claro');
     expect(texto).toContain('Ante la duda, dudoso');
+  });
+
+  it('v2: el mismo criterio del análisis; el lugar que propone el proveedor es el recinto de la empresa, lo que se subcontrata no deja fuera y varios lugares es dudoso', () => {
+    const texto = instruccionesDeLaLecturaCorta({
+      perfil: PERFIL,
+      proceso: {
+        codigo: 'X-1',
+        nombre: 'Jornada',
+        organismo: null,
+        comuna: null,
+        monto: null,
+      },
+      casa: '\n\nLO QUE SABE LA CASA',
+    });
+    expect(VERSION_DE_LAS_INSTRUCCIONES).toBe('v2');
+    expect(texto).toContain('el lugar lo propone el oferente');
+    expect(texto).toContain('lo propone, lo ofrece o lo pone el proveedor');
+    expect(texto).toContain(
+      'el lugar está FIJADO y no es el recinto de la empresa',
+    );
+    expect(texto).toContain('NUNCA es motivo de no_es_para_ti');
+    expect(texto).toContain('si piden varios lugares');
+    expect(texto.endsWith('LO QUE SABE LA CASA')).toBe(true);
   });
 
   it('lo que contestó se limpia; un veredicto fuera de la lista no se guarda como «dudoso»', () => {
@@ -246,6 +276,27 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
     expect(ia.messages.parse).toHaveBeenCalledTimes(2);
   });
 
+  it('con Sonnet si se pide: lo usa, lo anota en la fila y en el lote; de partida, Haiku', async () => {
+    const { repo, ia, servicio } = armar();
+    const inicio = servicio.prueba(1, [40], 'sonnet');
+    expect(inicio).toMatchObject({
+      iniciada: true,
+      lote: expect.stringMatching(/ v2 sonnet$/),
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 1);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ modelo: MODELO_SONNET }),
+    );
+    expect(ia.messages.parse).toHaveBeenCalledWith(
+      expect.objectContaining({ model: MODELO_SONNET }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(servicio.prueba(1, [41])).toMatchObject({
+      lote: expect.stringMatching(/ v2 haiku$/),
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 2);
+  });
+
   it('una prueba a la vez; sin la llave de Anthropic no parte', async () => {
     const { repo, servicio } = armar();
     servicio.prueba(1, [40]);
@@ -260,5 +311,40 @@ describe('LecturaCortaService.prueba (decisión 132)', () => {
     await hastaQue(() => repo.terminar.mock.calls.length === 2);
     delete process.env.ANTHROPIC_API_KEY;
     expect(() => servicio.prueba(1, [40])).toThrow(BadRequestException);
+  });
+});
+
+describe('LecturaCortaService.avance (decisión 132)', () => {
+  it('cuenta cómo va un lote y lo que costó; sin lote, el último', async () => {
+    const { repo, servicio } = armar();
+    await expect(servicio.avance(1)).resolves.toEqual({
+      lote: 'lote-1',
+      corriendo: false,
+      pedidas: null,
+      leidas: 4,
+      estados: { procesando: 1, listo: 2, error: 1 },
+      veredictos: { es_para_ti: 0, no_es_para_ti: 1, dudoso: 1 },
+      costo_usd: 0.0093,
+    });
+    expect(repo.delLote).toHaveBeenCalledWith(1, 'lote-1');
+    await servicio.avance(1, 'otro-lote');
+    expect(repo.delLote).toHaveBeenLastCalledWith(1, 'otro-lote');
+  });
+
+  it('mientras corre dice cuántas se pidieron; sin pruebas, 404', async () => {
+    const llave = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'llave-de-prueba';
+    const { repo, servicio } = armar();
+    const inicio = servicio.prueba(1, [40, 41, 42]);
+    const lote = inicio.iniciada ? inicio.lote : '';
+    await expect(servicio.avance(1, lote)).resolves.toMatchObject({
+      corriendo: true,
+      pedidas: 3,
+    });
+    await hastaQue(() => repo.terminar.mock.calls.length === 3);
+    repo.ultimoLote.mockResolvedValue(null);
+    await expect(servicio.avance(1)).rejects.toThrow(NotFoundException);
+    if (llave === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = llave;
   });
 });

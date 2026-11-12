@@ -2,7 +2,9 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
+  IsOptional,
   Min,
 } from 'class-validator';
 
@@ -15,4 +17,9 @@ export class PruebaDeLecturaCortaDto {
   @IsInt({ each: true })
   @Min(1, { each: true })
   ids!: number[];
+
+  /** Haiku de partida; Sonnet para los casos difíciles. */
+  @IsOptional()
+  @IsIn(['haiku', 'sonnet'])
+  modelo?: 'haiku' | 'sonnet';
 }
