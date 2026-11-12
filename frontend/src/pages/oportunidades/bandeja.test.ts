@@ -125,6 +125,7 @@ describe("los montones", () => {
     // (decisión 72, 23-10: el rojo se porta como el verde y el amarillo).
     expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
       nueva: 3,
+      no_es_para_ti: 0,
       descartada: 1,
     });
     const sinReciclaje: Filtros = {
@@ -135,6 +136,26 @@ describe("los montones", () => {
     // Al buscar, aparece también la basura.
     const buscando: Filtros = { ...FILTROS_DE_PARTIDA, busca: "Proceso 8" };
     expect(contarPorVista(lista, buscando, AHORA).nueva).toBe(1);
+  });
+
+  it("«No es para ti» cuenta entera, sin el semáforo, y lo que cuenta ya no está en «Por revisar» (decisión 129)", () => {
+    const fuera = { semaforo: "rojo", se_hace_en_el_complejo: "no" } as const;
+    const lista = [
+      op(1, { cierre: cierraEn(2) }),
+      op(2, { cierre: cierraEn(3), ...fuera, segun_las_bases: true }),
+      op(3, {
+        cierre: cierraEn(4),
+        ...fuera,
+        segun_las_bases: true,
+        alertas: ["comuna_cercana"],
+      }),
+      op(4, { cierre: cierraEn(-1), ...fuera, segun_las_bases: true }),
+    ];
+    expect(contarPorVista(lista, FILTROS_DE_PARTIDA, AHORA)).toEqual({
+      nueva: 1,
+      no_es_para_ti: 2,
+      descartada: 0,
+    });
   });
 });
 

@@ -123,8 +123,14 @@ export const REGIONES_DE_CHILE = [
  *  las que pincho me interesa ya no aparezcan acá... solo queda lo nuevo a
  *  revisar"). Lo en estudio y lo postulado vive en «Mis licitaciones», no
  *  acá: tenerlo en los dos lados confunde. "historial" trae todo, también
- *  lo ya cerrado. */
-export type Vista = "nueva" | "descartada" | "seguida" | "historial";
+ *  lo ya cerrado. Desde la decisión 129, lo que las bases dejan fuera sale
+ *  de «Por revisar» a «No es para ti» (`noEsParaTi`). */
+export type Vista =
+  | "nueva"
+  | "no_es_para_ti"
+  | "descartada"
+  | "seguida"
+  | "historial";
 
 export const VISTAS: ReadonlyArray<{
   value: Vista;
@@ -135,6 +141,11 @@ export const VISTAS: ReadonlyArray<{
     value: "nueva",
     label: "Por revisar",
     ayuda: "Lo nuevo que nadie ha decidido",
+  },
+  {
+    value: "no_es_para_ti",
+    label: "No es para ti",
+    ayuda: "Las bases te dejan fuera: piden el servicio en otro lugar",
   },
   {
     value: "descartada",
@@ -170,8 +181,18 @@ export const FILTROS_DE_PARTIDA: Filtros = {
   busca: "",
 };
 
-const pasaLaVista = (o: Oportunidad, vista: Vista): boolean =>
-  vista === "historial" || o.estado === vista;
+/** «NO ES PARA TI» (decisión 129, sprint 2): las bases, leídas solas
+ *  después de cada pasada del radar, piden el servicio en otro lugar
+ *  (decisión 117). Sale de «Por revisar» a su montón, con su porqué. */
+export const noEsParaTi = (
+  o: Pick<Oportunidad, "segun_las_bases" | "se_hace_en_el_complejo">,
+): boolean => Boolean(o.segun_las_bases) && o.se_hace_en_el_complejo === "no";
+
+const pasaLaVista = (o: Oportunidad, vista: Vista): boolean => {
+  if (vista === "historial") return true;
+  if (vista === "no_es_para_ti") return o.estado === "nueva" && noEsParaTi(o);
+  return o.estado === vista && !(vista === "nueva" && noEsParaTi(o));
+};
 
 /** Todo menos el semáforo: así los contadores de los chips dicen cuántas
  *  hay de cada color con los demás filtros puestos. */

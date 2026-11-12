@@ -129,4 +129,42 @@ describe("Una fila de la bandeja", () => {
       screen.getByText("En seguimiento · Mercado Público: Cerrada"),
     ).toBeInTheDocument();
   });
+
+  it("lo que dijo el revisor va primero: «Bases leídas» en verde si se puede, «No es para ti» en burdeo si piden otro lugar, y nada sin leer (decisión 129)", () => {
+    pintar(
+      oportunidad({ segun_las_bases: true, se_hace_en_el_complejo: "si" }),
+    );
+    const leidas = screen.getByText("Bases leídas");
+    expect(leidas.className).toContain("bg-emerald-50");
+    // Antes que la comuna cercana: siempre en el mismo lugar.
+    expect(
+      leidas.compareDocumentPosition(screen.getByText("Comuna cercana")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByText("No es para ti")).not.toBeInTheDocument();
+
+    cleanup();
+    pintar(
+      oportunidad({
+        semaforo: "rojo",
+        segun_las_bases: true,
+        se_hace_en_el_complejo: "no",
+        razon: "Según las bases, piden el servicio en el gimnasio municipal.",
+      }),
+    );
+    expect(screen.getByText("No es para ti").className).toContain(
+      "bg-rose-900",
+    );
+    expect(
+      screen.getByText(
+        "Según las bases, piden el servicio en el gimnasio municipal.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Bases leídas")).not.toBeInTheDocument();
+
+    cleanup();
+    pintar(oportunidad({ se_hace_en_el_complejo: "si" }));
+    expect(screen.queryByText("Bases leídas")).not.toBeInTheDocument();
+    expect(screen.queryByText("No es para ti")).not.toBeInTheDocument();
+  });
 });

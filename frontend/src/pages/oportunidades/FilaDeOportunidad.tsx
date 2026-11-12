@@ -1,4 +1,4 @@
-import { AlarmClock } from "lucide-react";
+import { AlarmClock, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type {
   EstadoOportunidad,
@@ -17,6 +17,7 @@ import {
   cuandoCierra,
   ESTADOS,
   ETIQUETAS,
+  noEsParaTi,
   textoDelAnterior,
 } from "./oportunidades.utils";
 import SelloDeTipo from "./SelloDeTipo";
@@ -108,6 +109,20 @@ export default function FilaDeOportunidad({
           </p>
         )}
         <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {/* Decisión 129: lo que dijo el revisor, siempre primero. Las
+              bases leídas que dicen que se puede, en verde; las que te
+              dejan fuera, en burdeo (decisión 117). */}
+          {o.segun_las_bases && o.se_hace_en_el_complejo === "si" && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <CheckCircle2 size={12} aria-hidden />
+              Bases leídas
+            </span>
+          )}
+          {noEsParaTi(o) && (
+            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-rose-900 text-white">
+              No es para ti
+            </span>
+          )}
           {/* El alto valor ya no es prioridad (decisión 64): solo la comuna
               cercana va en violeta. */}
           {o.alertas
