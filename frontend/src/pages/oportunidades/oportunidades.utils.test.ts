@@ -16,6 +16,7 @@ import {
   estadoDeVencimiento,
   etiquetaDeDocumento,
   pesoComoNumero,
+  pesoEnCorto,
   requisitosPorTipo,
   textoDeCosto,
   mesDe,
@@ -346,6 +347,52 @@ describe("lo que piden las bases", () => {
     ]);
     expect(pesoComoNumero("30 puntos")).toBe(30);
     expect(pesoComoNumero("no dice")).toBe(-1);
+  });
+
+  it("decisión 130: el peso que cambia por línea se parte: el primero a la columna y lo demás a una línea chica", () => {
+    // Los de siempre van enteros.
+    expect(pesoEnCorto("45%")).toEqual({ corto: "45%", detalle: "" });
+    expect(pesoEnCorto(" 5,5 % ")).toEqual({ corto: "5,5 %", detalle: "" });
+    expect(pesoEnCorto("50 puntos")).toEqual({
+      corto: "50 puntos",
+      detalle: "",
+    });
+    expect(pesoEnCorto("--%")).toEqual({ corto: "--%", detalle: "" });
+    expect(pesoEnCorto("")).toEqual({ corto: "", detalle: "" });
+    // La 1043030-9-LE26, de nueve líneas: la IA escribió el peso de todas.
+    expect(
+      pesoEnCorto(
+        "35% en Línea 6 (también L2, L7, L8 y L9); 45% en L1, L3 y L4; 50% en L5",
+      ),
+    ).toEqual({
+      corto: "35%",
+      detalle:
+        "en Línea 6 (también L2, L7, L8 y L9); 45% en L1, L3 y L4; 50% en L5",
+    });
+    expect(
+      pesoEnCorto("5% en Línea 6 (L2, L4, L8 y L9); no aplica en el resto"),
+    ).toEqual({
+      corto: "5%",
+      detalle: "en Línea 6 (L2, L4, L8 y L9); no aplica en el resto",
+    });
+    // Con puntos, y con un separador después del primero.
+    expect(pesoEnCorto("30 puntos en la Línea 6; 40 puntos en la 2")).toEqual({
+      corto: "30 puntos",
+      detalle: "en la Línea 6; 40 puntos en la 2",
+    });
+    expect(pesoEnCorto("35%; 45% en las líneas 1, 3 y 4")).toEqual({
+      corto: "35%",
+      detalle: "45% en las líneas 1, 3 y 4",
+    });
+    // Uno largo que no parte con un peso baja completo, sin número arriba.
+    expect(pesoEnCorto("Según la línea a la que se postule")).toEqual({
+      corto: "",
+      detalle: "Según la línea a la que se postule",
+    });
+    expect(pesoEnCorto("1er lugar en el ranking de precios")).toEqual({
+      corto: "",
+      detalle: "1er lugar en el ranking de precios",
+    });
   });
 
   it("el checklist por tipo, en el orden de la casa y sin grupos vacíos", () => {
