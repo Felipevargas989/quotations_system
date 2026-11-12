@@ -13,8 +13,10 @@ import {
   armarContenido,
   costoDelUso,
   errorDeIA,
+  loQueSabeLaCasa,
   MAX_BYTES_DE_BASES,
   MODELO_HAIKU,
+  MODELO_SONNET,
   pesoDePdf,
   separar,
   usoDeLaRespuesta,
@@ -25,6 +27,7 @@ import {
   ESQUEMA_DE_LECTURA_CORTA,
   instruccionesDeLaLecturaCorta,
   lecturaCortaValida,
+  VERSION_DE_LAS_INSTRUCCIONES,
 } from './lectura-corta';
 import { LecturaCortaRepository } from './lectura-corta.repository';
 
@@ -34,6 +37,14 @@ import { LecturaCortaRepository } from './lectura-corta.repository';
 // cambian. Responde al tiro con el lote y sigue de fondo, de a una. Los
 // resultados se comparan con SQL contra el análisis de Opus y lo que Felipe
 // postuló.
+
+/** Con qué modelo se prueba: Haiku de partida; Sonnet, para los casos
+ *  difíciles si Haiku no pasa la vara (decisión 132). */
+export const MODELOS_DE_LA_PRUEBA = {
+  haiku: MODELO_HAIKU,
+  sonnet: MODELO_SONNET,
+} as const;
+export type ModeloDeLaPrueba = keyof typeof MODELOS_DE_LA_PRUEBA;
 
 export type InicioDeLaPrueba =
   | { iniciada: true; lote: string; total: number }
@@ -78,8 +89,13 @@ export class LecturaCortaService {
     return this.clienteAnthropic;
   }
 
-  /** Parte la prueba con las oportunidades pedidas (sin repetidas). */
-  prueba(companyId: number, ids: number[]): InicioDeLaPrueba {
+  /** Parte la prueba con las oportunidades pedidas (sin repetidas). El
+   *  lote dice cuándo partió, con qué instrucciones y con qué modelo. */
+  prueba(
+    companyId: number,
+    ids: number[],
+    modelo: ModeloDeLaPrueba = 'haiku',
+  ): InicioDeLaPrueba {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
       throw new BadRequestException('Falta la llave de Anthropic en el motor.');
     }
@@ -90,9 +106,14 @@ export class LecturaCortaService {
       };
     }
     const pedidas = [...new Set(ids)];
-    const lote = new Date().toISOString();
+    const lote = `${new Date().toISOString()} ${VERSION_DE_LAS_INSTRUCCIONES} ${modelo}`;
     this.enCurso = { lote, total: pedidas.length };
-    void this.correr(companyId, pedidas, lote).finally(() => {
+    void this.correr(
+      companyId,
+      pedidas,
+      lote,
+      MODELOS_DE_LA_PRUEBA[modelo],
+    ).finally(() => {
       this.enCurso = null;
     });
     return { iniciada: true, lote, total: pedidas.length };
@@ -137,10 +158,11 @@ export class LecturaCortaService {
     companyId: number,
     ids: number[],
     lote: string,
+    modelo: string,
   ): Promise<void> {
     for (const id of ids) {
       try {
-        await this.leerUna(companyId, id, lote);
+        await this.leerUna(companyId, id, lote, { modelo });
       } catch (error) {
         this.logger.warn(`lectura corta ${id}: ${mensajeDe(error)}`);
       }
@@ -155,7 +177,9 @@ export class LecturaCortaService {
     companyId: number,
     oportunidadId: number,
     lote: string,
+    opciones: { modelo?: string } = {},
   ): Promise<void> {
+    const modelo = opciones.modelo ?? MODELO_HAIKU;
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
     if (!ficha) return;
     const id = await this.repo.crear({
@@ -164,7 +188,7 @@ export class LecturaCortaService {
       codigo: ficha.codigo,
       lote,
       origen: 'prueba',
-      modelo: MODELO_HAIKU,
+      modelo,
     });
     const error = (motivo: string) =>
       this.repo.terminar(companyId, id, { estado: 'error', error: motivo });
@@ -190,7 +214,7 @@ export class LecturaCortaService {
       const config = await this.oportunidades.configDe(companyId);
       const p = ficha.proceso;
       const respuesta = await this.cliente().messages.parse({
-        model: MODELO_HAIKU,
+        model: modelo,
         // Haiku 5.5 piensa antes de responder (esfuerzo bajo): el tope deja
         // espacio para eso y para la respuesta.
         max_tokens: 4000,
@@ -200,6 +224,7 @@ export class LecturaCortaService {
         },
         system: instruccionesDeLaLecturaCorta({
           perfil: config?.perfil ?? null,
+          casa: loQueSabeLaCasa(companyId),
           proceso: {
             codigo: ficha.codigo,
             nombre: p.nombre,
@@ -225,7 +250,7 @@ export class LecturaCortaService {
       const gasto = {
         tokens_entrada: uso.entrada + uso.cacheEscrita + uso.cacheLeida,
         tokens_salida: uso.salida,
-        costo_usd: costoDelUso(uso, MODELO_HAIKU),
+        costo_usd: costoDelUso(uso, modelo),
       };
       const lectura = lecturaCortaValida(respuesta.parsed_output);
       await this.repo.terminar(
