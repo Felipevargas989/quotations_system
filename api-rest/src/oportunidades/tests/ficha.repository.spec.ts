@@ -2,7 +2,10 @@ import type { PinoLogger } from 'nestjs-pino';
 import type { SupabaseService } from 'src/supabase/supabase.service';
 import { mockPinoLogger } from 'src/testing/mocks';
 import { FichaRepository } from '../ficha/ficha.repository';
-import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
+import {
+  LEIDA_SEGUN_LA_LECTURA_CORTA,
+  LEIDA_SEGUN_LAS_BASES,
+} from '../lectura/reglas';
 
 /** Lo que la ficha muestra y decide (decisión 21), contra una base falsa
  *  que anota cada consulta. Lo que fija: el color según las bases solo con
@@ -237,5 +240,125 @@ describe('FichaRepository — las que se preparan solas (decisión 129)', () => 
     const { repo, consultas } = porTabla({ oportunidades: [] });
     await expect(repo.paraPrepararSolas(1, 0)).resolves.toEqual([]);
     expect(consultas.map((c) => c.tabla)).toEqual(['oportunidades']);
+  });
+});
+
+describe('FichaRepository — la lectura corta en la oportunidad y en el cuadro (decisión 132)', () => {
+  /** Una base falsa que contesta según la tabla y anota cada consulta. */
+  function base(respuestas: Record<string, unknown[]> = {}) {
+    const consultas: Consulta[] = [];
+    const from = jest.fn((tabla: string) => {
+      const consulta: Consulta = { tabla, pasos: [] };
+      consultas.push(consulta);
+      const cadena: Record<string, unknown> = {};
+      for (const m of ['select', 'update', 'eq', 'is', 'in', 'gt', 'gte']) {
+        cadena[m] = (...args: unknown[]) => {
+          consulta.pasos.push([m, ...args]);
+          return cadena;
+        };
+      }
+      cadena.then = (bien: (v: unknown) => unknown) =>
+        Promise.resolve({ data: respuestas[tabla] ?? [], error: null }).then(
+          bien,
+        );
+      return cadena;
+    });
+    const repo = new FichaRepository(
+      { client: { from } } as unknown as SupabaseService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    return { repo, consultas };
+  }
+  const lectura = (veredicto: 'es_para_ti' | 'no_es_para_ti' | 'dudoso') => ({
+    veredicto,
+    porque: 'Piden el servicio en el gimnasio municipal.',
+    cita: {
+      texto: 'En el Gimnasio Municipal.',
+      documento: 'Bases.pdf',
+      pagina: '3',
+    },
+    lugar: 'Gimnasio Municipal',
+  });
+
+  it('«no es para ti» la deja roja, «es para ti» verde y «dudoso» sin tocar el color; las tres leídas según la lectura corta y solo si siguen nuevas', async () => {
+    const { repo, consultas } = base();
+    await repo.marcarSegunLaLecturaCorta(1, 40, lectura('no_es_para_ti'));
+    await repo.marcarSegunLaLecturaCorta(1, 41, lectura('es_para_ti'));
+    await repo.marcarSegunLaLecturaCorta(1, 42, lectura('dudoso'));
+    const cambios = consultas.map(
+      (c) => (paso(c, 'update') as [string, Record<string, unknown>])[1],
+    );
+    expect(cambios[0]).toMatchObject({
+      semaforo: 'rojo',
+      se_hace_en_el_complejo: 'no',
+      leida_con: LEIDA_SEGUN_LA_LECTURA_CORTA,
+      razon:
+        'Piden el servicio en el gimnasio municipal. Dicen las bases: «En el Gimnasio Municipal.» (Bases.pdf, p. 3).',
+    });
+    expect(cambios[1]).toMatchObject({
+      semaforo: 'verde',
+      se_hace_en_el_complejo: 'si',
+    });
+    expect(cambios[2]).not.toHaveProperty('semaforo');
+    expect(cambios[2]).toMatchObject({ se_hace_en_el_complejo: 'dudoso' });
+    expect(consultas[0].pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'id', 40],
+        ['eq', 'estado', 'nueva'],
+      ]),
+    );
+  });
+
+  it('lo que ya leyó la lectura corta no se vuelve a elegir para leer solo', async () => {
+    const { repo } = base({
+      oportunidades: [
+        {
+          id: 40,
+          leida_con: LEIDA_SEGUN_LA_LECTURA_CORTA,
+          proceso: { fecha_cierre: '2026-11-20T15:00:00+00:00' },
+        },
+        {
+          id: 41,
+          leida_con: null,
+          proceso: { fecha_cierre: '2026-11-21T15:00:00+00:00' },
+        },
+      ],
+    });
+    await expect(repo.paraPrepararSolas(1, 0)).resolves.toEqual([41]);
+  });
+
+  it('el cuadro suma los análisis de Opus sin pedido_por y las lecturas cortas de cada pasada, de UNA empresa', async () => {
+    const { repo, consultas } = base({
+      oportunidad_analisis: [
+        { estado: 'listo', costo_usd: 0.31, creado_en: '2026-11-12T04:11:47Z' },
+      ],
+      oportunidades_lectura_corta: [
+        {
+          estado: 'listo',
+          costo_usd: 0.0042,
+          creado_en: '2026-11-12T12:00:00Z',
+        },
+      ],
+    });
+    await expect(
+      repo.lecturasSolasDesde(1, '2026-11-06T03:00:00.000Z'),
+    ).resolves.toHaveLength(2);
+    const [opus, haiku] = consultas;
+    expect(opus.tabla).toBe('oportunidad_analisis');
+    expect(opus.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['is', 'pedido_por', null],
+        ['gte', 'creado_en', '2026-11-06T03:00:00.000Z'],
+      ]),
+    );
+    expect(haiku.tabla).toBe('oportunidades_lectura_corta');
+    expect(haiku.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'origen', 'radar'],
+      ]),
+    );
   });
 });

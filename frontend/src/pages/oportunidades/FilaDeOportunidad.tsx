@@ -110,9 +110,10 @@ export default function FilaDeOportunidad({
         )}
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {/* Decisión 129: lo que dijo el revisor, siempre primero. Las
-              bases leídas que dicen que se puede, en verde; las que te
-              dejan fuera, en burdeo (decisión 117). */}
-          {o.segun_las_bases && o.se_hace_en_el_complejo === "si" && (
+              bases leídas que no te dejan fuera, en verde (desde la 132,
+              también las «dudoso» de la lectura corta); las que te dejan
+              fuera, en burdeo (decisión 117). */}
+          {o.segun_las_bases && !noEsParaTi(o) && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
               <CheckCircle2 size={12} aria-hidden />
               Bases leídas

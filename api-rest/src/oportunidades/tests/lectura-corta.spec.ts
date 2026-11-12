@@ -215,10 +215,20 @@ describe('LecturaCortaService.leerUna (decisión 132)', () => {
     });
   });
 
+  it('devuelve lo que dijo Haiku y anota el origen pedido (la pasada del radar, decisión 132)', async () => {
+    const { repo, servicio } = armar();
+    await expect(
+      servicio.leerUna(1, 40, 'radar 1', { origen: 'radar' }),
+    ).resolves.toEqual(NO_ES);
+    expect(repo.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ origen: 'radar', lote: 'radar 1' }),
+    );
+  });
+
   it('sin bases que leer queda en error y no le pregunta a Haiku', async () => {
     const { repo, adjuntos, ia, servicio } = armar();
     adjuntos.listar.mockResolvedValue([]);
-    await servicio.leerUna(1, 40, 'lote-1');
+    await expect(servicio.leerUna(1, 40, 'lote-1')).resolves.toBeNull();
     expect(ia.messages.parse).not.toHaveBeenCalled();
     expect(repo.terminar).toHaveBeenCalledWith(1, 77, {
       estado: 'error',

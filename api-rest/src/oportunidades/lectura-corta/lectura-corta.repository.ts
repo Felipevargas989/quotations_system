@@ -7,12 +7,16 @@ import type { LecturaCorta } from './lectura-corta';
 // no toca la oportunidad, ni su análisis, ni la bandeja. Siempre de UNA
 // empresa.
 
+/** 'prueba': la que se lanza a mano para medir; 'radar': la de cada pasada
+ *  (decisión 132, segunda parte). */
+export type OrigenDeLaLectura = 'prueba' | 'radar';
+
 export type FilaNuevaDeLecturaCorta = {
   company_id: number;
   oportunidad_id: number;
   codigo: string;
   lote: string;
-  origen: 'prueba';
+  origen: OrigenDeLaLectura;
   modelo: string;
 };
 
