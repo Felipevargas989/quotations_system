@@ -86,6 +86,21 @@ export const instruccionesDeLaLecturaCorta = (c: {
     '- lugar: dónde piden el servicio, como lo dicen las bases (vacío si no lo dicen).',
   ].join('\n');
 
+/** Lo que se ve en la fila de la bandeja (decisión 132): el porqué de
+ *  Haiku y, si la hay, la cita de las bases con su documento y página. */
+export const razonDeLaLecturaCorta = (l: LecturaCorta): string => {
+  const cita = l.cita.texto.trim();
+  if (!cita) return l.porque;
+  const corta = cita.length > 200 ? `${cita.slice(0, 199)}…` : cita;
+  const donde = [
+    l.cita.documento.trim(),
+    l.cita.pagina.trim() ? `p. ${l.cita.pagina.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return `${l.porque} Dicen las bases: «${corta}»${donde ? ` (${donde})` : ''}.`.trim();
+};
+
 const texto = (v: unknown, tope: number): string =>
   typeof v === 'string' ? v.trim().slice(0, tope) : '';
 

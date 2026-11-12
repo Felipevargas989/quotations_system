@@ -32,7 +32,7 @@ import {
   type SeVieneConSemaforo,
   SeVieneService,
 } from './historia/se-viene.service';
-import { LEIDA_SEGUN_LAS_BASES } from './lectura/reglas';
+import { leidaSegunLasBases } from './lectura/reglas';
 import {
   fechaChileAIso,
   normalizar,
@@ -90,7 +90,7 @@ const limpiarLista = (valores: string[]): string[] => {
   return limpias;
 };
 
-/** «Bases leídas solas» (decisión 131): hoy y los últimos 7 días. */
+/** «Bases leídas solas» (decisiones 131 y 132): hoy y los últimos 7 días. */
 export type GastoDeLaLecturaSola = {
   hoy: { bases: number; usd: number };
   semana: { bases: number; usd: number };
@@ -176,8 +176,7 @@ export class OportunidadesService {
     );
     // El historial (lo ya cerrado) no lleva "año anterior": nadie lo mira
     // ahí y es la consulta más pesada.
-    const segunLasBases = (f: FilaDeLista) =>
-      f.leida_con === LEIDA_SEGUN_LAS_BASES;
+    const segunLasBases = (f: FilaDeLista) => leidaSegunLasBases(f.leida_con);
     if (!vigentes || filas.length === 0) {
       return filas.map((f) => ({
         ...f,
@@ -207,11 +206,12 @@ export class OportunidadesService {
     }));
   }
 
-  /** EL GASTO DE LA LECTURA SOLA (decisión 131): las bases que el motor
-   *  leyó solo (análisis sin `pedido_por`, decisión 129) y lo que costaron,
-   *  hoy y en los últimos 7 días, en hora de Chile. Una consulta a la base:
-   *  mirarlo no gasta IA. Cuenta las leídas (listas) y suma el costo de
-   *  todas, también de las que fallaron. */
+  /** EL GASTO DE LA LECTURA SOLA (decisiones 131 y 132): las bases que el
+   *  motor leyó solo (los análisis de Opus sin `pedido_por` y las lecturas
+   *  cortas de Haiku de cada pasada) y lo que costaron, hoy y en los
+   *  últimos 7 días, en hora de Chile. Una consulta a la base: mirarlo no
+   *  gasta IA. Cuenta las leídas (listas) y suma el costo de todas, también
+   *  de las que fallaron. */
   async lecturaSola(
     companyId: number,
     ahora = new Date(),
