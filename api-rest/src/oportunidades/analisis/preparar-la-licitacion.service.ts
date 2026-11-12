@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { LicifyService } from '../adjuntos/licify.service';
 import { FichaRepository } from '../ficha/ficha.repository';
+import { LecturaCortaService } from '../lectura-corta/lectura-corta.service';
 import { AnalisisService } from './analisis.service';
 
 // «ME INTERESA» DEJA LA LICITACIÓN LISTA PARA TRABAJAR (decisión 114 del
@@ -16,18 +17,21 @@ import { AnalisisService } from './analisis.service';
 // «Bases y anexos» sigue pidiendo subirlos; si pesan de más o falta la
 // llave, el análisis no parte y queda su botón.
 //
-// Y DESDE LA DECISIÓN 129 (sprint 2, 11-11) LAS NUEVAS SE PREPARAN SOLAS.
-// Felipe: "de todo lo que marque amarillo o verde leyamos las bases... hay
-// un revisor que me dice claramente cuando algo no es para mi". Después de
-// cada pasada del radar, las nuevas verdes y amarillas pasan por lo mismo
-// que el «Me interesa», sin sesión. Si las bases piden otro lugar, el
-// análisis la pinta roja (decisión 21) y la bandeja la deja en «No es para
-// ti»; en «Por revisar» queda el descreme.
+// Y LAS NUEVAS SE LEEN SOLAS DESPUÉS DE CADA PASADA DEL RADAR. Desde la
+// decisión 129 (11-11) se les hacía lo mismo que el «Me interesa», con
+// Opus. Desde la 132 (12-11) se les hace la LECTURA CORTA con Haiku:
+// Felipe no quiere gastar los dólares del motor en leer bases ("intentemos
+// hacerlo con un modelo barato, una lectura que diga ¿es para mí o no es
+// para mí?"). Se traen los documentos, Haiku contesta y la oportunidad
+// queda como la deja el análisis (decisión 21): «no es para ti», roja y en
+// ese montón de la bandeja; «es para ti» o «dudoso», en «Por revisar» con
+// «Bases leídas». El análisis completo de Opus queda para el «Me interesa»
+// y su botón.
 
-/** Por pasada del radar: cada análisis de Opus cuesta unos US$0,33. */
-export const MAX_ANALISIS_SOLOS_POR_PASADA = 10;
+/** Por pasada del radar: cada lectura corta cuesta del orden de US$0,005. */
+export const MAX_LECTURAS_SOLAS_POR_PASADA = 40;
 /** Las que se intentan por pasada, contando las que no tienen bases. */
-const MAX_INTENTOS_POR_PASADA = 3 * MAX_ANALISIS_SOLOS_POR_PASADA;
+const MAX_INTENTOS_POR_PASADA = 2 * MAX_LECTURAS_SOLAS_POR_PASADA;
 /** Lo que cierra antes ya no alcanza a postularse: no se gasta en eso. */
 export const MARGEN_PARA_PREPARAR_MS = 3 * 60 * 60 * 1000;
 /** Lo que no se pudo (sin bases que leer, o pesan de más) se vuelve a
@@ -35,18 +39,15 @@ export const MARGEN_PARA_PREPARAR_MS = 3 * 60 * 60 * 1000;
 const REINTENTAR_MS = 24 * 60 * 60 * 1000;
 /** Toda la vuelta: nunca alcanza a la pasada siguiente (hay tres horas o
  *  más entre una y otra). */
-const PRESUPUESTO_MS = 100 * 60 * 1000;
+const PRESUPUESTO_MS = 60 * 60 * 1000;
 /** Sin sesión: el perfil queda vacío, así `subido_por` y `pedido_por` dicen
  *  que no lo pidió nadie y «estudiada» no lo cuenta (migración 205). */
 export const SIN_SESION = '';
 
 @Injectable()
 export class PrepararLaLicitacionService {
-  /** De a una, esperando cada análisis: Opus con bases largas tarda
-   *  minutos, y varios a la vez chocan con el cupo por minuto. */
-  espera = { cadaCuantoMs: 15_000, topeMs: 12 * 60 * 1000 };
   private preparando = false;
-  /** empresa:oportunidad → cuándo se intentó prepararla sola. */
+  /** empresa:oportunidad → cuándo se intentó leerla sola. */
   private readonly intentadas = new Map<string, number>();
 
   constructor(
@@ -54,18 +55,18 @@ export class PrepararLaLicitacionService {
     private readonly analisis: AnalisisService,
     private readonly logger: PinoLogger,
     private readonly ficha: FichaRepository,
+    private readonly lecturaCorta: LecturaCortaService,
   ) {
     this.logger.setContext(PrepararLaLicitacionService.name);
   }
 
   /** Nunca lanza: corre por detrás del «Me interesa». `cuentaId` es el id
-   *  de la sesión, el mismo que piden los dos botones (`SIN_SESION` en las
-   *  que se preparan solas). true = el análisis partió. */
+   *  de la sesión, el mismo que piden los dos botones. true = el análisis
+   *  partió. */
   async preparar(
     companyId: number,
     cuentaId: string,
     oportunidadId: number,
-    quien = 'me interesa',
   ): Promise<boolean> {
     // Si la empresa ya los está trayendo a mano, esa vuelta manda: analizar
     // ahora leería las bases a medio llegar.
@@ -75,7 +76,7 @@ export class PrepararLaLicitacionService {
         await this.licify.traer(companyId, cuentaId, oportunidadId);
       } catch (error) {
         this.logger.warn(
-          `${quien} ${oportunidadId}: no se trajeron los documentos: ${mensajeDe(error)}`,
+          `me interesa ${oportunidadId}: no se trajeron los documentos: ${mensajeDe(error)}`,
         );
       }
     }
@@ -87,17 +88,19 @@ export class PrepararLaLicitacionService {
       return true;
     } catch (error) {
       this.logger.info(
-        `${quien} ${oportunidadId}: el análisis no partió solo: ${mensajeDe(error)}`,
+        `me interesa ${oportunidadId}: el análisis no partió solo: ${mensajeDe(error)}`,
       );
       return false;
     }
   }
 
-  /** LAS NUEVAS VERDES Y AMARILLAS, SOLAS (decisión 129): las llama el
-   *  radar al terminar una pasada buena. De la que cierra antes a la que
-   *  cierra después, con tope por pasada; una vuelta a la vez. Sin Licify
-   *  no hay bases que traer y sin la llave de Anthropic no hay análisis:
-   *  no hace nada. Nunca lanza; devuelve cuántos análisis partieron. */
+  /** LAS NUEVAS VERDES Y AMARILLAS, SOLAS (decisiones 129 y 132): las
+   *  llama el radar al terminar una pasada buena. De la que cierra antes a
+   *  la que cierra después, con tope por pasada; una vuelta a la vez. A cada
+   *  una le trae los documentos sin sesión y le hace la lectura corta con
+   *  Haiku; lo que dice queda en la oportunidad. Sin Licify no hay bases que
+   *  traer y sin la llave de Anthropic no hay lectura: no hace nada. Nunca
+   *  lanza; devuelve cuántas se leyeron. */
   async lasNuevas(companyIds: number[]): Promise<number> {
     if (
       this.preparando ||
@@ -108,7 +111,8 @@ export class PrepararLaLicitacionService {
     }
     this.preparando = true;
     const hasta = Date.now() + PRESUPUESTO_MS;
-    let analisis = 0;
+    const lote = `radar ${new Date().toISOString()}`;
+    let leidas = 0;
     let intentos = 0;
     try {
       for (const [clave, cuando] of this.intentadas) {
@@ -121,49 +125,64 @@ export class PrepararLaLicitacionService {
         );
         for (const id of ids) {
           if (
-            analisis >= MAX_ANALISIS_SOLOS_POR_PASADA ||
+            leidas >= MAX_LECTURAS_SOLAS_POR_PASADA ||
             intentos >= MAX_INTENTOS_POR_PASADA ||
             Date.now() > hasta
           ) {
-            return analisis;
+            return leidas;
           }
           const clave = `${companyId}:${id}`;
           if (this.intentadas.has(clave)) continue;
+          if (this.licify.estaTrayendo(companyId, id)) continue;
           this.intentadas.set(clave, Date.now());
           intentos++;
-          if (
-            await this.preparar(companyId, SIN_SESION, id, 'preparada sola')
-          ) {
-            analisis++;
-            await this.esperarElAnalisis(companyId, id);
-          }
+          if (await this.leerSola(companyId, id, lote)) leidas++;
         }
       }
     } catch (error) {
-      this.logger.warn(`las que se preparan solas: ${mensajeDe(error)}`);
+      this.logger.warn(`las que se leen solas: ${mensajeDe(error)}`);
     } finally {
       this.preparando = false;
       if (intentos > 0) {
         this.logger.info(
-          `se prepararon solas: ${intentos} intentadas, ${analisis} análisis`,
+          `se leyeron solas: ${intentos} intentadas, ${leidas} con veredicto`,
         );
       }
     }
-    return analisis;
+    return leidas;
   }
 
-  /** Hasta que el análisis deja de estar en curso, o el tope. */
-  private async esperarElAnalisis(
+  /** Una: trae los documentos, la lee con Haiku y deja lo que dijo en la
+   *  oportunidad. true = hubo veredicto. */
+  private async leerSola(
     companyId: number,
-    oportunidadId: number,
-  ): Promise<void> {
-    const tope = Date.now() + this.espera.topeMs;
-    while (Date.now() < tope) {
-      await new Promise((listo) => setTimeout(listo, this.espera.cadaCuantoMs));
-      const ultimo = await this.analisis
-        .ultimo(companyId, oportunidadId)
-        .catch(() => null);
-      if (ultimo?.estado !== 'procesando') return;
+    id: number,
+    lote: string,
+  ): Promise<boolean> {
+    try {
+      await this.licify.traer(companyId, SIN_SESION, id);
+    } catch (error) {
+      this.logger.warn(
+        `leída sola ${id}: no se trajeron los documentos: ${mensajeDe(error)}`,
+      );
+    }
+    const lectura = await this.lecturaCorta.leerUna(
+      companyId,
+      id,
+      lote,
+      'radar',
+    );
+    if (!lectura) return false;
+    try {
+      await this.ficha.marcarSegunLaLecturaCorta(companyId, id, lectura);
+      return true;
+    } catch (error) {
+      // La lectura quedó en su tabla; la oportunidad, sin marcar: mañana
+      // se vuelve a intentar.
+      this.logger.warn(
+        `leída sola ${id}: no se pudo marcar la oportunidad: ${mensajeDe(error)}`,
+      );
+      return false;
     }
   }
 }

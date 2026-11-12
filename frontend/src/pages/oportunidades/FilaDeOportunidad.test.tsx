@@ -166,5 +166,13 @@ describe("Una fila de la bandeja", () => {
     pintar(oportunidad({ se_hace_en_el_complejo: "si" }));
     expect(screen.queryByText("Bases leídas")).not.toBeInTheDocument();
     expect(screen.queryByText("No es para ti")).not.toBeInTheDocument();
+
+    // La lectura corta que no está segura (decisión 132): leída, sigue.
+    cleanup();
+    pintar(
+      oportunidad({ segun_las_bases: true, se_hace_en_el_complejo: "dudoso" }),
+    );
+    expect(screen.getByText("Bases leídas")).toBeInTheDocument();
+    expect(screen.queryByText("No es para ti")).not.toBeInTheDocument();
   });
 });

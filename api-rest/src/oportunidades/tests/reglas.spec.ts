@@ -4,6 +4,9 @@ import {
   esDeComunaCercana,
   esDelRubro,
   type Lectura,
+  LEIDA_SEGUN_LA_LECTURA_CORTA,
+  LEIDA_SEGUN_LAS_BASES,
+  leidaSegunLasBases,
 } from '../lectura/reglas';
 
 const COMUNAS = ['Quillón', 'Bulnes', 'Florida', 'San Ignacio', 'El Carmen'];
@@ -208,5 +211,16 @@ describe('el monto mínimo de la empresa (decisión 129)', () => {
     expect(
       r.razon.startsWith('Bajo tu mínimo de $700.000: pide $400.000.'),
     ).toBe(true);
+  });
+});
+
+describe('leidaSegunLasBases (decisión 132)', () => {
+  it('cuentan el análisis de Opus y la lectura corta de Haiku; la lectura del radar no', () => {
+    expect(leidaSegunLasBases(LEIDA_SEGUN_LAS_BASES)).toBe(true);
+    expect(leidaSegunLasBases(LEIDA_SEGUN_LA_LECTURA_CORTA)).toBe(true);
+    expect(leidaSegunLasBases('claude-haiku-5-5, reglas del 11-11')).toBe(
+      false,
+    );
+    expect(leidaSegunLasBases(null)).toBe(false);
   });
 });

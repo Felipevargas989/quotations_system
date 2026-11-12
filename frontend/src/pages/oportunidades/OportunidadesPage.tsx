@@ -65,6 +65,7 @@ import {
   useAvisoDeResultados,
 } from "./resultadoDeCompraAgil";
 import { useMisLicitaciones } from "./useMisLicitaciones";
+import GastoDeLaLecturaSola from "./GastoDeLaLecturaSola";
 import type { MotivoDelDescarte } from "../../services/decisiones";
 import PorQueDescartas from "./PorQueDescartas";
 
@@ -274,6 +275,7 @@ function EstadoDelRadar() {
         <RefreshCw size={14} className={corriendo ? "animate-spin" : ""} />
         Revisar ahora
       </button>
+      <GastoDeLaLecturaSola />
     </div>
   );
 }
