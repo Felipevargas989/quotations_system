@@ -95,6 +95,10 @@ export interface Oportunidad {
   leida_en: string | null;
   proceso: ProcesoDeLista;
   anterior?: Anterior | null;
+  /** Decisión 129: el color lo puso el análisis de las bases (el revisor).
+   *  Con `se_hace_en_el_complejo` "no", va a «No es para ti». Solo en la
+   *  bandeja. */
+  segun_las_bases?: boolean;
 }
 
 export interface CambioDeProceso {

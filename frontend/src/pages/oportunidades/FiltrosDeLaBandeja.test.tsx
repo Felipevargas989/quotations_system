@@ -15,7 +15,7 @@ const pintar = (filtros: Filtros = FILTROS_DE_PARTIDA) => {
     <FiltrosDeLaBandeja
       filtros={filtros}
       onCambiar={onCambiar}
-      porVista={{ nueva: 4, descartada: 5 }}
+      porVista={{ nueva: 4, no_es_para_ti: 3, descartada: 5 }}
       porSemaforo={{ verde: 1, amarillo: 3, rojo: 12, basura: 553 }}
       regiones={["Región del Biobío", "Región del Ñuble"]}
     />,
@@ -31,6 +31,10 @@ describe("FiltrosDeLaBandeja", () => {
     ).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getByRole("button", { name: /Descartadas\s*5/ }),
+    ).toHaveAttribute("aria-pressed", "false");
+    // Lo que las bases dejan fuera, con su número (decisión 129).
+    expect(
+      screen.getByRole("button", { name: /No es para ti\s*3/ }),
     ).toHaveAttribute("aria-pressed", "false");
     // «Historial» es todo: va sin número.
     expect(

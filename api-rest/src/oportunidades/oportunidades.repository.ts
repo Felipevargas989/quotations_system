@@ -48,7 +48,7 @@ export type ConfigOportunidades = {
 };
 
 const COLUMNAS_DE_LISTA =
-  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, estado, responsable_id, leida_en, ' +
+  'id, codigo, semaforo, etiquetas, se_hace_en_el_complejo, razon, alertas, estado, responsable_id, leida_con, leida_en, ' +
   'proceso:mp_procesos!inner(tipo, nombre, organismo, organismo_codigo, unidad, comuna, region, monto, fecha_publicacion, fecha_cierre, estado)';
 
 const COLUMNAS_DE_FICHA =
@@ -79,12 +79,12 @@ export type FilaDeLista = {
   alertas: string[];
   estado: string;
   responsable_id: string | null;
+  leida_con: string | null;
   leida_en: string | null;
   proceso: ProcesoDeLista;
 };
 
 export type FichaDeOportunidad = Omit<FilaDeLista, 'proceso'> & {
-  leida_con: string | null;
   notas: string | null;
   quotation_id: string | null;
   /** Lo que la empresa marcó en cada exigencia (migración 152). */

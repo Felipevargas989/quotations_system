@@ -5,8 +5,9 @@ import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
 
 // LO QUE LA FICHA MUESTRA Y DECIDE (Felipe, 17-10: "vamos con todas", la
 // ficha más clara; decisión 21 del doc 17): el color que pone el análisis
-// de las bases, el responsable que queda al marcar «Me interesa» y cuánta
-// historia falta por cargar. Aparte de oportunidades.repository.ts, que ya
+// de las bases, el responsable que queda al marcar «Me interesa», cuánta
+// historia falta por cargar y, desde la decisión 129, cuáles se preparan
+// solas. Aparte de oportunidades.repository.ts, que ya
 // pasa las 800 líneas (portero de la casa). Siempre de UNA empresa, salvo
 // la historia, que es dato público.
 
@@ -91,6 +92,56 @@ export class FichaRepository {
       .eq('estado', 'pendiente');
     if (error) throw error;
     return count ?? 0;
+  }
+
+  /** LAS QUE SE PREPARAN SOLAS después de cada pasada del radar (decisión
+   *  129, sprint 2): nuevas, verdes o amarillas, que cierran en más de
+   *  `margenMs`, sin el color de las bases y sin ningún análisis pedido
+   *  (uno que falló no se repite solo: queda su botón). De la que cierra
+   *  antes a la que cierra después. */
+  async paraPrepararSolas(
+    companyId: number,
+    margenMs: number,
+  ): Promise<number[]> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select('id, leida_con, proceso:mp_procesos!inner(fecha_cierre)')
+      .eq('company_id', companyId)
+      .eq('estado', 'nueva')
+      .in('semaforo', ['verde', 'amarillo'])
+      .gt(
+        'proceso.fecha_cierre',
+        new Date(Date.now() + margenMs).toISOString(),
+      );
+    if (error) throw error;
+    type Fila = {
+      id: number;
+      leida_con: string | null;
+      proceso: { fecha_cierre: string | null };
+    };
+    const filas = ((data ?? []) as unknown as Fila[])
+      .filter((f) => f.leida_con !== LEIDA_SEGUN_LAS_BASES)
+      .sort((a, b) =>
+        String(a.proceso?.fecha_cierre).localeCompare(
+          String(b.proceso?.fecha_cierre),
+        ),
+      );
+    const conAnalisis = new Set<number>();
+    for (let i = 0; i < filas.length; i += 100) {
+      const { data: pedidos, error: e } = await this.db
+        .from('oportunidad_analisis')
+        .select('oportunidad_id')
+        .eq('company_id', companyId)
+        .in(
+          'oportunidad_id',
+          filas.slice(i, i + 100).map((f) => f.id),
+        );
+      if (e) throw e;
+      for (const p of (pedidos ?? []) as Array<{ oportunidad_id: number }>) {
+        conAnalisis.add(p.oportunidad_id);
+      }
+    }
+    return filas.filter((f) => !conAnalisis.has(f.id)).map((f) => f.id);
   }
 
   /** Marca (o desmarca, con null) una exigencia de las bases, en un solo

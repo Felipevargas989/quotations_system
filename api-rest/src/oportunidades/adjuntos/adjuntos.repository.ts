@@ -107,6 +107,8 @@ export class AdjuntosRepository {
    *  fila (llave foránea) y la subida daba 500. null = sin perfil en esta
    *  empresa. */
   async perfilDe(companyId: number, cuentaId: string): Promise<string | null> {
+    // Sin sesión (lo que se prepara solo, decisión 129): no lo pidió nadie.
+    if (!cuentaId) return null;
     const { data, error } = await this.db
       .from('user_profiles')
       .select('id')

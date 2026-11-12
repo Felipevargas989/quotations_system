@@ -156,3 +156,86 @@ describe('FichaRepository — las exigencias que marca la empresa (migración 15
     ).rejects.toThrow('se cayó');
   });
 });
+
+describe('FichaRepository — las que se preparan solas (decisión 129)', () => {
+  /** Una base falsa que contesta según la tabla y anota cada consulta. */
+  function porTabla(respuestas: Record<string, unknown[]>) {
+    const consultas: Consulta[] = [];
+    const from = jest.fn((tabla: string) => {
+      const consulta: Consulta = { tabla, pasos: [] };
+      consultas.push(consulta);
+      const cadena: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'in', 'gt']) {
+        cadena[m] = (...args: unknown[]) => {
+          consulta.pasos.push([m, ...args]);
+          return cadena;
+        };
+      }
+      cadena.then = (bien: (v: unknown) => unknown) =>
+        Promise.resolve({ data: respuestas[tabla] ?? [], error: null }).then(
+          bien,
+        );
+      return cadena;
+    });
+    const repo = new FichaRepository(
+      { client: { from } } as unknown as SupabaseService,
+      mockPinoLogger() as unknown as PinoLogger,
+    );
+    return { repo, consultas };
+  }
+
+  const fila = (
+    id: number,
+    cierre: string,
+    leidaCon: string | null = null,
+  ) => ({
+    id,
+    leida_con: leidaCon,
+    proceso: { fecha_cierre: cierre },
+  });
+
+  it('nuevas, verdes o amarillas, que cierran después del margen; sin las ya leídas según las bases ni las con análisis; la que cierra antes primero', async () => {
+    const { repo, consultas } = porTabla({
+      oportunidades: [
+        fila(41, '2026-11-20T15:00:00+00:00'),
+        fila(40, '2026-11-13T15:00:00+00:00'),
+        fila(42, '2026-11-14T15:00:00+00:00', LEIDA_SEGUN_LAS_BASES),
+        fila(43, '2026-11-15T15:00:00+00:00'),
+      ],
+      oportunidad_analisis: [{ oportunidad_id: 43 }],
+    });
+    const antes = Date.now();
+    await expect(repo.paraPrepararSolas(1, 3 * 3_600_000)).resolves.toEqual([
+      40, 41,
+    ]);
+
+    const [lista, analisis] = consultas;
+    expect(lista.tabla).toBe('oportunidades');
+    expect(lista.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['eq', 'estado', 'nueva'],
+        ['in', 'semaforo', ['verde', 'amarillo']],
+      ]),
+    );
+    const [, campo, desde] = paso(lista, 'gt') as [string, string, string];
+    expect(campo).toBe('proceso.fecha_cierre');
+    expect(new Date(desde).getTime()).toBeGreaterThanOrEqual(
+      antes + 3 * 3_600_000,
+    );
+    // Los análisis se miran de la misma empresa.
+    expect(analisis.tabla).toBe('oportunidad_analisis');
+    expect(analisis.pasos).toEqual(
+      expect.arrayContaining([
+        ['eq', 'company_id', 1],
+        ['in', 'oportunidad_id', [40, 43, 41]],
+      ]),
+    );
+  });
+
+  it('sin nada por preparar no pregunta por los análisis', async () => {
+    const { repo, consultas } = porTabla({ oportunidades: [] });
+    await expect(repo.paraPrepararSolas(1, 0)).resolves.toEqual([]);
+    expect(consultas.map((c) => c.tabla)).toEqual(['oportunidades']);
+  });
+});

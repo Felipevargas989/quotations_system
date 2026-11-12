@@ -31,6 +31,7 @@ import {
   type SeVieneConSemaforo,
   SeVieneService,
 } from './historia/se-viene.service';
+import { LEIDA_SEGUN_LAS_BASES } from './lectura/reglas';
 import { normalizar, procesoDesdeCompraAgil } from './mercado-publico/mapeo';
 import { MercadoPublicoClient } from './mercado-publico/mercado-publico.client';
 import { claveDeExigencia } from './oferente/lo-que-sabemos';
@@ -141,11 +142,15 @@ export class OportunidadesService {
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
    *  que cierra después (sin cierre informado, al final), cada una con su
-   *  compra del año anterior si la historia ya la tiene. */
+   *  compra del año anterior si la historia ya la tiene y, desde la
+   *  decisión 129, si su color lo puso el análisis de las bases (el
+   *  revisor: si piden otro lugar, la bandeja la deja en «No es para ti»). */
   async listar(
     companyId: number,
     dto: ListarOportunidadesDto,
-  ): Promise<Array<FilaDeLista & { anterior: Anterior | null }>> {
+  ): Promise<
+    Array<FilaDeLista & { anterior: Anterior | null; segun_las_bases: boolean }>
+  > {
     const vigentes = dto.vigentes !== false;
     const filas = await this.repo.listar(companyId, {
       vigentes,
@@ -160,8 +165,14 @@ export class OportunidadesService {
     );
     // El historial (lo ya cerrado) no lleva "año anterior": nadie lo mira
     // ahí y es la consulta más pesada.
+    const segunLasBases = (f: FilaDeLista) =>
+      f.leida_con === LEIDA_SEGUN_LAS_BASES;
     if (!vigentes || filas.length === 0) {
-      return filas.map((f) => ({ ...f, anterior: null }));
+      return filas.map((f) => ({
+        ...f,
+        anterior: null,
+        segun_las_bases: segunLasBases(f),
+      }));
     }
     const indice = indexarPorOrganismo(
       await this.historialDeOrganismos(
@@ -172,6 +183,7 @@ export class OportunidadesService {
     );
     return filas.map((f) => ({
       ...f,
+      segun_las_bases: segunLasBases(f),
       anterior: anteriorDe(
         {
           codigo: f.codigo,

@@ -332,6 +332,9 @@ function Bandeja({
 
   const historial = filtros.vista === "historial";
   const enSeguimiento = filtros.vista === "seguida";
+  // «No es para ti» (decisión 129) se ve entera: las bases las dejaron
+  // rojas a todas.
+  const sinSemaforo = enSeguimiento || filtros.vista === "no_es_para_ti";
   const {
     data: todas = [],
     isPending,
@@ -355,7 +358,7 @@ function Bandeja({
   const cuenta = contarPorSemaforo(base);
   // En «En seguimiento» se ve todo el semáforo: casi siempre son rojas
   // (una gira de estudio no se postula, se sigue).
-  const visibles = enSeguimiento
+  const visibles = sinSemaforo
     ? base
     : base.filter((o) => pasaElSemaforo(o, filtros.semaforos, filtros.busca));
   const porVista = useMemo(

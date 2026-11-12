@@ -1,5 +1,6 @@
 import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
+import type { PrepararLaLicitacionService } from '../analisis/preparar-la-licitacion.service';
 import type { HistoriaRepository } from '../historia/historia.repository';
 import { HistoriaService } from '../historia/historia.service';
 import type {
@@ -136,14 +137,17 @@ export function armar(base = new Map<string, ProcesoConocido>()) {
     } as unknown as HistoriaRepository,
     mockPinoLogger() as unknown as PinoLogger,
   );
+  // Las que se preparan solas al terminar una pasada buena (decisión 129).
+  const preparar = { lasNuevas: jest.fn().mockResolvedValue(0) };
   const radar = new RadarService(
     mp as unknown as MercadoPublicoClient,
     repo as unknown as OportunidadesRepository,
     lectura as unknown as LecturaService,
     historia,
     mockPinoLogger() as unknown as PinoLogger,
+    preparar as unknown as PrepararLaLicitacionService,
   );
-  return { mp, repo, lectura, radar, leidas, releer };
+  return { mp, repo, lectura, radar, leidas, releer, preparar };
 }
 
 export const guardados = (repo: ReturnType<typeof armar>['repo']) =>
