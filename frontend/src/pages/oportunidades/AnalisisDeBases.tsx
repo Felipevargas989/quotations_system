@@ -24,6 +24,7 @@ import {
   alertasDelAnalisis,
   criteriosPorPeso,
   pesoComoNumero,
+  pesoEnCorto,
   textoDeCosto,
 } from "./oportunidades.utils";
 import { claveDeLaCotizacion, veredicto } from "./precioDeLaPostulacion";
@@ -437,12 +438,16 @@ function Criterios({
       )}
       <ul className="space-y-1.5">
         {ordenados.map((c, i) => {
-          const peso = pesoComoNumero(c.peso);
+          // En la columna, solo el peso con que parte; lo demás (el de las
+          // otras líneas) baja a una línea chica: nada se parte (decisión
+          // 130).
+          const { corto, detalle } = pesoEnCorto(c.peso);
+          const peso = pesoComoNumero(corto);
           const sello = comoVasEn(c.nombre, vas);
           return (
             <li
               key={`${c.nombre}-${i}`}
-              className="grid grid-cols-[minmax(0,16rem)_minmax(0,1fr)_3.5rem_minmax(0,14rem)] items-center gap-3 text-sm"
+              className="grid grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(3.5rem,auto)_minmax(0,14rem)] items-center gap-x-3 gap-y-0.5 text-sm"
             >
               <span className="truncate text-gray-900" title={c.nombre}>
                 {c.nombre}
@@ -453,12 +458,17 @@ function Criterios({
                   style={{ width: `${Math.min(100, Math.max(0, peso))}%` }}
                 />
               </span>
-              <span className="text-right font-bold text-gray-900">
-                {c.peso || "—"}
+              <span className="text-right font-bold text-gray-900 whitespace-nowrap">
+                {corto || "—"}
               </span>
               <span className="min-w-0">
                 {sello && <Sellito sello={sello} />}
               </span>
+              {detalle && (
+                <span className="col-span-full text-xs text-gray-600">
+                  {detalle}
+                </span>
+              )}
             </li>
           );
         })}

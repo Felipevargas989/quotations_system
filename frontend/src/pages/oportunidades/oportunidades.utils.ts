@@ -279,6 +279,33 @@ export const criteriosPorPeso = <T extends { peso: string }>(criterios: T[]) =>
     (a, b) => pesoComoNumero(b.peso) - pesoComoNumero(a.peso),
   );
 
+/** Hasta aquí un peso cabe entero en su columna («100%», «50 puntos»). */
+const LARGO_DE_UN_PESO = 12;
+
+/** El peso de un criterio, partido para «Cómo te evalúan» (decisión 130 del
+ *  doc 17, 11-11). En una licitación de nueve líneas la IA escribió el peso
+ *  de todas en el mismo campo ("35% en Línea 6 (también L2, L7, L8 y L9);
+ *  45% en L1, L3 y L4; 50% en L5") y la columna lo partió en veinte
+ *  renglones. Felipe: "mira cómo quedó esto". En la columna va solo el peso
+ *  con que parte (`corto`) y lo demás baja a una línea chica (`detalle`).
+ *  Un peso corto va entero, como siempre. Uno largo que no parte con un
+ *  número baja completo y la columna queda sin número. */
+export const pesoEnCorto = (
+  peso: string,
+): { corto: string; detalle: string } => {
+  const texto = (peso ?? "").trim();
+  if (texto.length <= LARGO_DE_UN_PESO) return { corto: texto, detalle: "" };
+  const corto =
+    /^\d+(?:[.,]\d+)?(?:\s*%|\s*(?:puntos?|ptos?\.?|pts\.?)(?![A-Za-zÀ-ÿ]))?/i.exec(
+      texto,
+    )?.[0] ?? "";
+  const resto = texto.slice(corto.length);
+  // «1er lugar…» no es un peso: es un número pegado a una letra.
+  if (!corto || (/\d$/.test(corto) && /^[A-Za-zÀ-ÿ\d]/.test(resto)))
+    return { corto: "", detalle: texto };
+  return { corto, detalle: resto.replace(/^[\s;,:.–-]+/, "") };
+};
+
 export const TIPOS_DE_REQUISITO: ReadonlyArray<[string, string]> = [
   ["administrativo", "Administrativos"],
   ["tecnico", "Técnicos"],
