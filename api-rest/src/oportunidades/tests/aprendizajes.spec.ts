@@ -174,9 +174,12 @@ describe('La base de lo aprendido', () => {
       }
     };
     recorrer(raiz);
+    // Desde la decisión 128 lo nombra también el reloj de los resultados:
+    // solo para mandar a leer el acta que llegó sola, nunca para postular.
     expect(leen.sort()).toEqual([
       'comparacion/comparacion.service.ts',
       'comparacion/comparacion.ts',
+      'competencia/competencia-cron.service.ts',
       'oportunidades.module.ts',
     ]);
   });
@@ -287,7 +290,7 @@ describe('«Aprender del acta»', () => {
     expect(e.total).toBe(2);
   });
 
-  it('sin acta subida no se pide nada', async () => {
+  it('sin acta subida ni adjudicación publicada no se pide nada', async () => {
     const { adjuntos, generacion, servicio } = armar();
     adjuntos.listar.mockResolvedValue([]);
     await expect(servicio.pedir(1, 'c', 84)).rejects.toBeInstanceOf(
@@ -368,6 +371,7 @@ describe('«Aprender del acta»', () => {
       codigo: '4364-13-LE26',
       organismo: 'I MUNICIPALIDAD DE QUILLON',
       leer: [ACTA] as never,
+      enlace: null,
       instrucciones: 'INSTRUCCIONES',
     });
     expect(repo.reemplazarLosDelActa).toHaveBeenCalledWith(1, 84, 70, [
@@ -406,6 +410,7 @@ describe('«Aprender del acta»', () => {
       codigo: '4364-13-LE26',
       organismo: null,
       leer: [ACTA] as never,
+      enlace: null,
       instrucciones: 'X',
     });
     expect(falla.repo.reemplazarLosDelActa).not.toHaveBeenCalled();

@@ -8,8 +8,10 @@
 // precio y si ganó. Se lee por los ids de cada campo, que son fijos
 // (grdItemOC_ctlNN_ucAward_...), no por el diseño de la página.
 //
-// Los adjuntos de esa misma página sí piden código: esos no se bajan
-// (se arrastran a mano, como las bases).
+// Los adjuntos de esa misma página («Anexos a la Adjudicación») se bajan
+// uno por uno con su botón «Ver Anexo», sin código: `anexos-del-acta.ts`
+// (decisión 128, medido el 11-11). El código de imagen es solo para bajarlos
+// todos juntos, y ese camino no se usa.
 
 export type OfertaDelActa = {
   rut: string | null;

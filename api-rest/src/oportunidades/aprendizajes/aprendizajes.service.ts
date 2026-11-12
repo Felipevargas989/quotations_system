@@ -4,14 +4,22 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { sanitize } from 'src/storage/storage.service';
 import {
   type Adjunto,
   AdjuntosRepository,
 } from '../adjuntos/adjuntos.repository';
-import { extensionDe } from '../adjuntos/adjuntos.service';
+import {
+  extensionDe,
+  MAX_BYTES_ADJUNTO,
+  nombreLimpio,
+  sello,
+  TIPOS_POR_EXTENSION,
+} from '../adjuntos/adjuntos.service';
 import { AnalisisRepository } from '../analisis/analisis.repository';
 import {
   armarContenido,
@@ -23,10 +31,13 @@ import {
   type NoLeido,
 } from '../analisis/comun';
 import { criteriosDeEvaluacion } from '../analisis/criterios-de-evaluacion';
+import { ResultadosRepository } from '../competencia/resultados.repository';
 import {
   type FilaDeGeneracion,
   GeneracionRepository,
 } from '../generacion/generacion.repository';
+import { ENLACE_DEL_ACTA } from '../historia/acta';
+import { bajarAnexosDelActa } from '../historia/anexos-del-acta';
 import { OportunidadesRepository } from '../oportunidades.repository';
 import {
   type Aprendizaje,
@@ -46,16 +57,78 @@ import { AprendizajesRepository } from './aprendizajes.repository';
 // 155) y Opus 5.5 anota cómo decidió la comisión ante cada falta, omisión o
 // duda, y si la comparación de ofertas acertó. Lo aprendido va a la base
 // (oportunidades_aprendizajes) que lee la comparación para predecir.
+//
+// EL ACTA LLEGA SOLA (decisión 128, 11-11). Felipe: "subir el acta de
+// evaluación debería también ser automático (¿se puede?)". En una
+// licitación adjudicada, Mercado Público la publica entre los «Anexos a la
+// Adjudicación» de su acta (`historia/anexos-del-acta.ts`):
+//  - cuando la empresa gana o pierde, el reloj de los resultados la trae a
+//    la sección 'acta' y la manda a leer (`revisar`), una vez;
+//  - y el botón de la pantalla hace lo mismo a pedido: si no hay acta, la
+//    trae y después la lee.
+// Subirla a mano queda para cuando el comprador no la adjuntó.
 
 export const MODELO_DEL_APRENDIZAJE = MODELO_OPUS;
 
 const LEIBLES = new Set(['pdf', 'docx', 'txt']);
 
+/** Cuántas actas se mandan a leer solas en cada pasada del reloj. */
+const POR_PASADA = 2;
+
+/** Lo más que se espera a otra vuelta que ya está trayendo la misma acta. */
+const ESPERA_POR_EL_ACTA_MS = 90_000;
+
+export const SIN_ACTA_PUBLICADA =
+  'Mercado Público no trae el acta de evaluación entre los anexos de esta adjudicación. Si la tienes, súbela con «Subir el acta».';
+
 type Contexto = {
   codigo: string;
   organismo: string | null;
   leer: Adjunto[];
+  /** La página del acta en Mercado Público, si hay que traerla (decisión
+   *  128); null si ya estaba subida. */
+  enlace: string | null;
   instrucciones: string;
+};
+
+/** El acta pública de una licitación adjudicada; null en una compra ágil,
+ *  en una sin adjudicar o si el enlace no es de Mercado Público. */
+export const enlaceDelActaDe = (proceso: {
+  tipo?: string | null;
+  adjudicacion?: unknown;
+}): string | null => {
+  const enlace = (proceso.adjudicacion as { url_acta?: unknown } | null)
+    ?.url_acta;
+  return proceso.tipo !== 'compra_agil' &&
+    typeof enlace === 'string' &&
+    ENLACE_DEL_ACTA.test(enlace.trim())
+    ? enlace.trim()
+    : null;
+};
+
+/** De lo que hay en la sección 'acta', lo que la IA lee (PDF, Word y texto,
+ *  hasta 22 MB de PDF, lo más nuevo primero) y lo que no. */
+const elegirActas = (
+  actas: Adjunto[],
+): { leer: Adjunto[]; noLeidos: NoLeido[] } => {
+  let peso = 0;
+  const leer: Adjunto[] = [];
+  const noLeidos: NoLeido[] = [];
+  for (const a of [...actas].reverse()) {
+    const ext = extensionDe(a.nombre);
+    if (!LEIBLES.has(ext)) {
+      noLeidos.push({ nombre: a.nombre, motivo: 'la IA lee PDF y Word' });
+    } else if (ext === 'pdf' && peso + a.bytes > MAX_BYTES_DE_PDF) {
+      noLeidos.push({
+        nombre: a.nombre,
+        motivo: 'no cupo: los PDF pesan más de 22 MB juntos',
+      });
+    } else {
+      if (ext === 'pdf') peso += a.bytes;
+      leer.push(a);
+    }
+  }
+  return { leer, noLeidos };
 };
 
 /** Lo que muestra la pestaña: lo que se sabe de esta comisión (su unidad
@@ -69,6 +142,9 @@ export type EstadoDeLoAprendido = {
 @Injectable()
 export class AprendizajesService {
   private clienteAnthropic?: Anthropic;
+  /** Las actas que se están trayendo ahora, por empresa y oportunidad: el
+   *  reloj y el botón no la traen dos veces a la vez. */
+  private readonly trayendo = new Set<string>();
 
   constructor(
     private readonly repo: AprendizajesRepository,
@@ -77,8 +153,24 @@ export class AprendizajesService {
     private readonly oportunidades: OportunidadesRepository,
     private readonly analisis: AnalisisRepository,
     private readonly logger: PinoLogger,
+    /** Las licitaciones resueltas con acta (decisión 128). Opcional: las
+     *  pruebas de antes no lo traen. */
+    @Optional() private readonly resultados?: ResultadosRepository,
   ) {
     this.logger.setContext(AprendizajesService.name);
+  }
+
+  /** Lo que Mercado Público publica con la adjudicación. Aparte, para las
+   *  pruebas. */
+  protected bajarDelActa(
+    enlace: string,
+  ): Promise<Array<{ nombre: string; contenido: Buffer }>> {
+    return bajarAnexosDelActa(enlace);
+  }
+
+  /** Aparte, para que las pruebas no esperen de verdad. */
+  protected pausa(ms: number): Promise<void> {
+    return new Promise((listo) => setTimeout(listo, ms));
   }
 
   protected cliente(): Anthropic {
@@ -110,11 +202,12 @@ export class AprendizajesService {
     };
   }
 
-  /** Lo pide: responde al tiro con la fila "procesando" y la lectura sigue
-   *  por detrás. */
+  /** Lo pide: responde al tiro con la fila "procesando" y lo demás sigue
+   *  por detrás (traer el acta si no está, y leerla). `cuentaId` null: lo
+   *  pide el reloj. */
   async pedir(
     companyId: number,
-    cuentaId: string,
+    cuentaId: string | null,
     oportunidadId: number,
   ): Promise<FilaDeGeneracion> {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -127,26 +220,14 @@ export class AprendizajesService {
       this.analisis.ultimo(companyId, oportunidadId),
       this.generacion.ultimoDeTipo(companyId, oportunidadId, 'comparacion'),
     ]);
-    let peso = 0;
-    const leer: Adjunto[] = [];
-    const noLeidos: NoLeido[] = [];
-    for (const a of [...actas].reverse()) {
-      const ext = extensionDe(a.nombre);
-      if (!LEIBLES.has(ext)) {
-        noLeidos.push({ nombre: a.nombre, motivo: 'la IA lee PDF y Word' });
-      } else if (ext === 'pdf' && peso + a.bytes > MAX_BYTES_DE_PDF) {
-        noLeidos.push({
-          nombre: a.nombre,
-          motivo: 'no cupo: los PDF pesan más de 22 MB juntos',
-        });
-      } else {
-        if (ext === 'pdf') peso += a.bytes;
-        leer.push(a);
-      }
-    }
-    if (leer.length === 0) {
+    const { leer, noLeidos } = elegirActas(actas);
+    // Decisión 128: en una licitación adjudicada el acta se trae sola.
+    const enlace = leer.length === 0 ? enlaceDelActaDe(ficha.proceso) : null;
+    if (leer.length === 0 && !enlace) {
       throw new BadRequestException(
-        'Sube primero el acta de evaluación en PDF o Word (la bajas de Mercado Público, en la adjudicación).',
+        ficha.proceso.tipo === 'compra_agil'
+          ? 'Sube primero el acta o el informe de evaluación en PDF o Word: una compra ágil no la publica.'
+          : 'Mercado Público todavía no publica la adjudicación de esta licitación. Cuando la publique, Eventia trae el acta de evaluación; si ya la tienes, súbela en PDF o Word.',
       );
     }
     const resultado = (
@@ -163,11 +244,16 @@ export class AprendizajesService {
       company_id: companyId,
       oportunidad_id: oportunidadId,
       tipo: 'aprendizaje',
-      parametros: { actas: leer.length },
+      parametros: {
+        actas: leer.length,
+        ...(enlace ? { trae_el_acta: true } : {}),
+      },
       modelo: MODELO_DEL_APRENDIZAJE,
       archivos: leer.map((a) => ({ id: a.id, nombre: a.nombre })),
       no_leidos: noLeidos,
-      pedido_por: await this.adjuntos.perfilDe(companyId, cuentaId),
+      pedido_por: cuentaId
+        ? await this.adjuntos.perfilDe(companyId, cuentaId)
+        : null,
     });
     if (!fila) {
       const enCurso = await this.generacion.ultimoDeTipo(
@@ -182,6 +268,7 @@ export class AprendizajesService {
       codigo: ficha.codigo,
       organismo,
       leer,
+      enlace,
       instrucciones: instruccionesDelAprendizaje({
         codigo: ficha.codigo,
         nombre: typeof p.nombre === 'string' ? p.nombre : '',
@@ -214,7 +301,43 @@ export class AprendizajesService {
     c: Contexto,
   ): Promise<void> {
     try {
-      const { bloques, sinAbrir } = await armarContenido(c.leer, (ruta) =>
+      // 1. Traer el acta desde Mercado Público, si no estaba (decisión 128).
+      let leer = c.leer;
+      let sinLeer = noLeidos;
+      if (leer.length === 0 && c.enlace) {
+        const error = await this.traerElActa(
+          companyId,
+          oportunidadId,
+          c.codigo,
+          c.enlace,
+        ).then(
+          () => null,
+          (e: unknown) => e,
+        );
+        const elegidas = elegirActas(
+          await this.adjuntos.listar(companyId, oportunidadId, 'acta'),
+        );
+        leer = elegidas.leer;
+        sinLeer = elegidas.noLeidos;
+        if (leer.length === 0) {
+          if (error) {
+            this.logger.warn(
+              `aprendizaje ${id}: el acta de ${c.codigo} no llegó: ${mensajeDe(error)}`,
+            );
+          }
+          await this.generacion.terminar(companyId, id, {
+            estado: 'error',
+            error: error
+              ? 'No se pudo traer el acta desde Mercado Público. Inténtalo en un rato, o súbela con «Subir el acta».'
+              : SIN_ACTA_PUBLICADA,
+            no_leidos: sinLeer,
+          });
+          return;
+        }
+      }
+
+      // 2. Leerla.
+      const { bloques, sinAbrir } = await armarContenido(leer, (ruta) =>
         this.generacion.descargar(ruta),
       );
       const respuesta = await this.cliente().messages.parse({
@@ -277,7 +400,8 @@ export class AprendizajesService {
           : {
               error: `La IA no pudo leer el acta (${respuesta.stop_reason ?? 'sin respuesta'}).`,
             }),
-        no_leidos: [...noLeidos, ...sinAbrir],
+        archivos: leer.map((a) => ({ id: a.id, nombre: a.nombre })),
+        no_leidos: [...sinLeer, ...sinAbrir],
         tokens_entrada: entrada,
         tokens_salida: salida,
         costo_usd: costo,
@@ -298,5 +422,100 @@ export class AprendizajesService {
           ),
         );
     }
+  }
+
+  /** Trae a la sección 'acta' lo que Mercado Público publica con la
+   *  adjudicación (decisión 128): el acta de evaluación, o el decreto si el
+   *  comprador no la subió como tal. No repite un archivo que ya está (mismo
+   *  nombre y peso). Si otra vuelta ya la está trayendo (el reloj y el botón
+   *  a la vez), espera a que termine y no trae nada. Devuelve cuántos guardó;
+   *  lanza si Mercado Público no responde. */
+  async traerElActa(
+    companyId: number,
+    oportunidadId: number,
+    codigo: string,
+    enlace: string,
+  ): Promise<number> {
+    const clave = `${companyId}:${oportunidadId}`;
+    if (this.trayendo.has(clave)) {
+      const hasta = Date.now() + ESPERA_POR_EL_ACTA_MS;
+      while (this.trayendo.has(clave) && Date.now() < hasta) {
+        await this.pausa(1000);
+      }
+      return 0;
+    }
+    this.trayendo.add(clave);
+    try {
+      const archivos = await this.bajarDelActa(enlace);
+      const yaEstan = new Set(
+        (await this.adjuntos.listar(companyId, oportunidadId, 'acta')).map(
+          (a) => `${a.nombre}|${a.bytes}`,
+        ),
+      );
+      let guardados = 0;
+      for (const a of archivos) {
+        const nombre = nombreLimpio(a.nombre);
+        const tipo = TIPOS_POR_EXTENSION[extensionDe(nombre)];
+        const peso = a.contenido.length;
+        if (!tipo || peso === 0 || peso > MAX_BYTES_ADJUNTO) continue;
+        if (yaEstan.has(`${nombre}|${peso}`)) continue;
+        const ruta = `c${companyId}/oportunidades/${oportunidadId}/acta/${sello()}_${sanitize(nombre)}`;
+        await this.adjuntos.subirArchivo(ruta, a.contenido, tipo);
+        try {
+          await this.adjuntos.guardar({
+            company_id: companyId,
+            oportunidad_id: oportunidadId,
+            nombre,
+            ruta,
+            tipo,
+            bytes: peso,
+            seccion: 'acta',
+            subido_por: null,
+          });
+        } catch (error) {
+          // Sin su fila nadie lo vería: que no quede un archivo huérfano.
+          await this.adjuntos.borrarArchivo(ruta);
+          throw error;
+        }
+        yaEstan.add(`${nombre}|${peso}`);
+        guardados += 1;
+      }
+      this.logger.info(
+        `acta de ${codigo}: ${guardados} de ${archivos.length} archivos traídos de Mercado Público`,
+      );
+      return guardados;
+    } finally {
+      this.trayendo.delete(clave);
+    }
+  }
+
+  /** El reloj de los resultados (decisión 128): a cada licitación ganada o
+   *  perdida de los últimos días, con su adjudicación publicada y sin
+   *  ninguna lectura del acta todavía, le trae el acta de evaluación y la
+   *  manda a leer. Si el comprador aún no la adjunta, no deja nada escrito
+   *  y la pasada siguiente lo intenta de nuevo. Devuelve cuántas mandó a
+   *  leer. */
+  async revisar(companyId: number, hasta: number): Promise<number> {
+    if (!this.resultados || !process.env.ANTHROPIC_API_KEY?.trim()) return 0;
+    let pedidas = 0;
+    for (const p of await this.resultados.resueltasConActa(companyId)) {
+      if (pedidas >= POR_PASADA || Date.now() > hasta) break;
+      if (!ENLACE_DEL_ACTA.test(p.url_acta)) continue;
+      if (await this.generacion.ultimoDeTipo(companyId, p.id, 'aprendizaje')) {
+        continue;
+      }
+      try {
+        const hay =
+          (await this.adjuntos.listar(companyId, p.id, 'acta')).length > 0 ||
+          (await this.traerElActa(companyId, p.id, p.codigo, p.url_acta)) > 0;
+        if (!hay) continue;
+        await this.pedir(companyId, null, p.id);
+        pedidas += 1;
+      } catch (error) {
+        if (error instanceof BadRequestException) continue;
+        this.logger.warn(`acta de ${p.codigo}: ${mensajeDe(error)}`);
+      }
+    }
+    return pedidas;
   }
 }

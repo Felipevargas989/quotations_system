@@ -47,9 +47,6 @@ export interface OferenteComparado {
   por_que: string;
   /** Desde la decisión 59 (20-10); las comparaciones de antes no lo traen. */
   graves?: IncumplimientoGrave[];
-  /** El texto para el Centro de Ayuda, que arma el motor: solo en la de un
-   *  competidor con incumplimientos graves (decisión 59). */
-  reclamo?: string | null;
   notas: NotaDeCriterio[];
   /** De 0 a 100. */
   probabilidad: number;
@@ -93,12 +90,12 @@ export interface LecturaDeUnaOferta {
 }
 
 export interface ComparacionDeOfertas {
+  /** No se muestra desde la decisión 128: lo lee «Por qué perdiste». */
   resumen: string;
   criterios: Array<{ nombre: string; peso: number }>;
   /** El motor las entrega siempre, también para una comparación de antes. */
   lineas: LineaComparada[];
   lectura?: LecturaDeUnaOferta[];
-  para_la_proxima: string[];
   /** Los de la línea principal: lo que leían las pantallas de antes. */
   ganador_probable: string;
   oferentes: OferenteComparado[];
@@ -121,6 +118,56 @@ export const pedirComparacion = async (id: number) =>
     `${API_ROUTES.OPORTUNIDADES}/${id}/comparacion`,
     "POST",
   )) as TrabajoDeComparacion;
+
+/** El reclamo contra una oferta, listo para copiar (decisión 128, 11-11).
+ *  Felipe: "el reclamo creo que debe ser post resolución, si gano no
+ *  reclamo, si pierdo sí, y debería ser una sección abajo para generar
+ *  reclamos". Lo arma el motor, sin IA, con lo que encontró la comparación:
+ *  pide dejar sin efecto la adjudicación y va sin los signos que el
+ *  formulario de reclamos de Mercado Público borra. */
+export interface ReclamoArmado {
+  /** La razón social del oferente, como va en el texto. */
+  contra: string;
+  /** Cómo se llama en la pantalla. */
+  corto: string;
+  /** La línea de la licitación; vacío si no tiene líneas. */
+  linea: string;
+  /** Mercado Público dice que se le adjudicó. */
+  adjudicada: boolean;
+  /** Los incumplimientos que van en el texto. */
+  incumplimientos: number;
+  /** Los que no cupieron en los 3.500 caracteres. */
+  sin_lugar: number;
+  /** Alguno es porque algo «no está» entre lo que presentó. */
+  por_ausencia: boolean;
+  /** null: la comparación no le encontró nada que reclamar. */
+  texto: string | null;
+  /** Lo que ocupa en el formulario. */
+  caracteres: number;
+}
+
+export interface ReclamosDeLaOportunidad {
+  /** Solo se reclama lo que se perdió. */
+  corresponde: boolean;
+  /** Terminó sin adjudicar: no hay oferta adjudicada. */
+  sin_adjudicar: "desierta" | "revocada" | null;
+  /** Hay una comparación lista, que es de donde sale el reclamo. */
+  comparada: boolean;
+  /** Las tres, como «2026-11-20»; null si no se sabe. Los plazos son la
+   *  fecha más temprana posible (no descuentan feriados). */
+  adjudicada_el: string | null;
+  reclamo_hasta: string | null;
+  tribunal_hasta: string | null;
+  /** Lo que acepta el formulario de reclamos. */
+  maximo: number;
+  reclamos: ReclamoArmado[];
+}
+
+export const getReclamos = async (id: number) =>
+  (await apiRequest(
+    `${API_ROUTES.OPORTUNIDADES}/${id}/reclamos`,
+    "GET",
+  )) as ReclamosDeLaOportunidad;
 
 /** Por qué perdimos (decisión 97, 27-10): cuando una postulada queda
  *  perdida, la IA explica por qué y si era razonable, con los criterios de

@@ -60,16 +60,17 @@ import {
   type ParaLeer,
   porQueNoSeLee,
 } from './que-leer';
-import { conReclamos, type DatosDelReclamo } from './reclamo';
 
 // LA COMPARACIÓN DE OFERTAS (decisión 41 del doc 17, 19-10): la oferta de
 // la empresa contra las de la competencia (sección 'competencia', migración
 // 153). Opus 5.5 pone la nota de cada criterio; el motor calcula los
 // puntajes con los pesos de las bases (`conPuntajes`). Desde la decisión 59,
-// la IA marca también los incumplimientos graves de cada oferta y el motor
-// arma el texto del reclamo (`conReclamos`). Desde la decisión 60, lee lo
-// aprendido de las comisiones, solo para predecir (las notas y la
-// probabilidad); lo que cumple las bases y lo grave van por las bases.
+// la IA marca también los incumplimientos graves de cada oferta; el reclamo
+// ya no se arma aquí: desde la decisión 128 lo arma `ReclamosService` cuando
+// la oportunidad quedó perdida, con lo que esta comparación dejó guardado
+// (`graves` y `lectura`). Desde la decisión 60, lee lo aprendido de las
+// comisiones, solo para predecir (las notas y la probabilidad); lo que
+// cumple las bases y lo grave van por las bases.
 //
 // DESDE LA DECISIÓN 125 (11-11), «Traer y comparar» en un solo paso:
 //  1. En una licitación, primero trae del cuadro público lo que falte de los
@@ -113,8 +114,6 @@ type Contexto = {
   mias: ParaLeer[];
   criterios: CriterioDeLasBases[];
   instrucciones: string;
-  /** Para el texto del reclamo (decisión 59). */
-  reclamo: DatosDelReclamo;
 };
 
 /** Por qué no hay con quién comparar, después de ir a buscar las ofertas. */
@@ -300,12 +299,6 @@ export class ComparacionService {
           (p.organismo as string | null) ?? null,
         ),
       }),
-      reclamo: {
-        codigo: ficha.codigo,
-        nombre: typeof p.nombre === 'string' ? p.nombre : '',
-        organismo: (p.organismo as string | null) ?? null,
-        empresa,
-      },
     });
     return fila;
   }
@@ -388,24 +381,15 @@ export class ComparacionService {
       const salida = respuesta.usage.output_tokens ?? 0;
       const costo = costoEnDolares(entrada, salida, MODELO_DE_LA_COMPARACION);
       const ia = respuesta.parsed_output as unknown as ComparacionDeLaIA | null;
-      const completas = new Set(
-        leido.lectura
-          .filter((l) => l.sin_leer.length === 0 && l.sin_traer.length === 0)
-          .map((l) => l.oferta),
-      );
       await this.repo.terminar(companyId, id, {
         estado: ia ? 'listo' : 'error',
         ...(ia
           ? {
               resultado: {
-                ...conReclamos(
-                  conPuntajes(
-                    ia,
-                    c.criterios,
-                    new Map(ofertas.map((o, i) => [i + 1, o.nombre])),
-                  ),
-                  c.reclamo,
-                  completas,
+                ...conPuntajes(
+                  ia,
+                  c.criterios,
+                  new Map(ofertas.map((o, i) => [i + 1, o.nombre])),
                 ),
                 lectura: leido.lectura,
               } as unknown as Record<string, unknown>,
