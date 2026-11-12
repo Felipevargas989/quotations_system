@@ -26,10 +26,14 @@ import { OportunidadesRepository } from '../oportunidades.repository';
 import {
   ESQUEMA_DE_LECTURA_CORTA,
   instruccionesDeLaLecturaCorta,
+  type LecturaCorta,
   lecturaCortaValida,
   VERSION_DE_LAS_INSTRUCCIONES,
 } from './lectura-corta';
-import { LecturaCortaRepository } from './lectura-corta.repository';
+import {
+  LecturaCortaRepository,
+  type OrigenDeLaLectura,
+} from './lectura-corta.repository';
 
 // LA PRUEBA DE LA LECTURA CORTA (decisión 132, 12-11). Lee con Haiku 5.5 las
 // bases de las oportunidades que se le piden y escribe SOLO en
@@ -172,26 +176,34 @@ export class LecturaCortaService {
 
   /** Una oportunidad: anota la fila, lee sus bases y la termina. La fila
    *  nunca queda «procesando»: lo que falla queda en error con su porqué.
-   *  Una oportunidad de otra empresa no se anota. */
+   *  Una oportunidad de otra empresa no se anota. Devuelve lo que dijo
+   *  Haiku, o null si no se pudo; quien la llama decide qué hacer con eso
+   *  (la prueba, nada; el radar, marcarla: decisión 132). */
   async leerUna(
     companyId: number,
     oportunidadId: number,
     lote: string,
-    opciones: { modelo?: string } = {},
-  ): Promise<void> {
+    opciones: { origen?: OrigenDeLaLectura; modelo?: string } = {},
+  ): Promise<LecturaCorta | null> {
+    const origen = opciones.origen ?? 'prueba';
     const modelo = opciones.modelo ?? MODELO_HAIKU;
     const ficha = await this.oportunidades.ficha(companyId, oportunidadId);
-    if (!ficha) return;
+    if (!ficha) return null;
     const id = await this.repo.crear({
       company_id: companyId,
       oportunidad_id: oportunidadId,
       codigo: ficha.codigo,
       lote,
-      origen: 'prueba',
+      origen,
       modelo,
     });
-    const error = (motivo: string) =>
-      this.repo.terminar(companyId, id, { estado: 'error', error: motivo });
+    const error = async (motivo: string): Promise<null> => {
+      await this.repo.terminar(companyId, id, {
+        estado: 'error',
+        error: motivo,
+      });
+      return null;
+    };
     try {
       const archivos = await this.adjuntos.listar(
         companyId,
@@ -270,12 +282,15 @@ export class LecturaCortaService {
               ...gasto,
             },
       );
+      return lectura;
     } catch (e) {
-      await error(errorDeIA(e, 'No se pudieron leer las bases')).catch(
-        (otro: unknown) =>
+      return error(errorDeIA(e, 'No se pudieron leer las bases')).catch(
+        (otro: unknown) => {
           this.logger.error(
             `lectura corta ${oportunidadId}: no pude anotar la falla: ${mensajeDe(otro)}`,
-          ),
+          );
+          return null;
+        },
       );
     }
   }

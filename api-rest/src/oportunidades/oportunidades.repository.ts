@@ -6,7 +6,7 @@ import type { MarcaDeExigencia } from './ficha/ficha.repository';
 import type { ProcesoPasado } from './historia/anterior';
 import type { ProcesoDeLaZona } from './historia/mercado';
 import type { ProcesoParaLeer } from './lectura/lectura.service';
-import { LEIDA_SEGUN_LAS_BASES, type LecturaFinal } from './lectura/reglas';
+import { leidaSegunLasBases, type LecturaFinal } from './lectura/reglas';
 import { regionCalza } from './mercado-publico/mapeo';
 import type { CompraAgilListada, ProcesoMp } from './mercado-publico/tipos';
 
@@ -456,7 +456,7 @@ export class OportunidadesRepository {
         const releerla =
           intacta &&
           f.leida_con !== lecturaActual &&
-          f.leida_con !== LEIDA_SEGUN_LAS_BASES;
+          !leidaSegunLasBases(f.leida_con);
         if (releerla) releer.add(f.codigo);
         else hechas.add(f.codigo);
       }

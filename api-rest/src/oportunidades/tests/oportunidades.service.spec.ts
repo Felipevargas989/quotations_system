@@ -3,7 +3,10 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { FichaRepository } from '../ficha/ficha.repository';
 import type { SeVieneService } from '../historia/se-viene.service';
-import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
+import {
+  LEIDA_SEGUN_LA_LECTURA_CORTA,
+  LEIDA_SEGUN_LAS_BASES,
+} from '../lectura/reglas';
 import type { MercadoPublicoClient } from '../mercado-publico/mercado-publico.client';
 import type { OportunidadesRepository } from '../oportunidades.repository';
 import { OportunidadesService } from '../oportunidades.service';
@@ -47,6 +50,7 @@ function armar(
     diasDeHistoriaPendientes: jest.fn().mockResolvedValue(900),
     responsableDe: jest.fn().mockResolvedValue(null),
     perfilDe: jest.fn().mockResolvedValue('perfil-felipe'),
+    lecturasSolasDesde: jest.fn().mockResolvedValue([]),
   };
   const mp = { detalleCompraAgil: jest.fn().mockResolvedValue(null) };
   // El semáforo de «Se viene» (decisión 62) tiene sus propias pruebas
@@ -181,6 +185,11 @@ describe('OportunidadesService — la bandeja', () => {
       { ...fila(1, null), leida_con: LEIDA_SEGUN_LAS_BASES },
       { ...fila(2, null), leida_con: 'claude-haiku-5-5, reglas del 11-11' },
     ];
+    // Y la lectura corta de Haiku cuenta igual (decisión 132).
+    repo.listar.mockResolvedValueOnce([
+      { ...fila(3, null), leida_con: LEIDA_SEGUN_LA_LECTURA_CORTA },
+    ]);
+    expect((await servicio.listar(1, {}))[0].segun_las_bases).toBe(true);
     repo.listar.mockResolvedValue(filas());
     const vigentes = await servicio.listar(1, {});
     expect(vigentes.map((f) => [f.id, f.segun_las_bases])).toEqual([
@@ -699,5 +708,43 @@ describe('OportunidadesService — Se viene y competidores', () => {
     await expect(servicio.competidor(1, '11.111.111-1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('OportunidadesService — «Bases leídas solas» (decisiones 131 y 132)', () => {
+  // Jueves 12-11-2026, 10:00 en Chile (verano, UTC-3).
+  const AHORA = new Date('2026-11-12T13:00:00Z');
+
+  it('cuenta hoy y los últimos 7 días en hora de Chile: las leídas, y el costo de todas', async () => {
+    const { fichas, servicio } = armar();
+    fichas.lecturasSolasDesde.mockResolvedValue([
+      // Hoy, una lectura corta de Haiku.
+      { estado: 'listo', costo_usd: 0.0042, creado_en: '2026-11-12T12:00:00Z' },
+      // Hoy, 01:11 en Chile: un análisis de Opus de la 129.
+      { estado: 'listo', costo_usd: 0.31, creado_en: '2026-11-12T04:11:47Z' },
+      // Hoy: una que falló también costó.
+      { estado: 'error', costo_usd: 0.05, creado_en: '2026-11-12T05:00:00Z' },
+      // Ayer, 23:30 en Chile: ya no es hoy.
+      { estado: 'listo', costo_usd: 0.4, creado_en: '2026-11-12T02:30:00Z' },
+      // Hace 5 días, sin costo anotado.
+      { estado: 'listo', costo_usd: null, creado_en: '2026-11-07T15:00:00Z' },
+    ]);
+    await expect(servicio.lecturaSola(1, AHORA)).resolves.toEqual({
+      hoy: { bases: 2, usd: 0.36 },
+      semana: { bases: 4, usd: 0.76 },
+    });
+    // Desde la medianoche de Chile de hace 6 días: el viernes 06-11.
+    expect(fichas.lecturasSolasDesde).toHaveBeenCalledWith(
+      1,
+      '2026-11-06T03:00:00.000Z',
+    );
+  });
+
+  it('sin lecturas solas, todo en cero', async () => {
+    const { servicio } = armar();
+    await expect(servicio.lecturaSola(1, AHORA)).resolves.toEqual({
+      hoy: { bases: 0, usd: 0 },
+      semana: { bases: 0, usd: 0 },
+    });
   });
 });

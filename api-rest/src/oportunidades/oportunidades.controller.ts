@@ -138,6 +138,14 @@ export class OportunidadesController {
     return this.lecturaCorta.prueba(user.company_id, dto.ids, dto.modelo);
   }
 
+  /** «Bases leídas solas» (decisiones 131 y 132): cuántas bases leyó solo
+   *  el motor (Haiku en cada pasada, y Opus hasta el 12-11) y cuánto
+   *  costaron, hoy y en los últimos 7 días. Sin IA. */
+  @Get('lectura-sola')
+  lecturaSola(@CurrentUser() user: User) {
+    return this.servicio.lecturaSola(user.company_id);
+  }
+
   /** Cómo va la prueba de la lectura corta (decisión 132): sin `lote`, la
    *  última. Cuántas van, cómo quedaron y lo que costó, sin IA. */
   @Get('lectura-corta/prueba')

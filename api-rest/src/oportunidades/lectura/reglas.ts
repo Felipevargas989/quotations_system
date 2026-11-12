@@ -74,6 +74,17 @@ export const lecturaValida = (salida: {
 export const LEIDA_SEGUN_LAS_BASES =
   'claude-opus-5-5, según el análisis de las bases';
 
+/** Lo que coloreó la lectura corta de las bases (Haiku 5.5, decisión 132):
+ *  se trata igual que lo del análisis, pero dice con qué se leyó. */
+export const LEIDA_SEGUN_LA_LECTURA_CORTA =
+  'claude-haiku-5-5, según la lectura corta de las bases';
+
+/** ¿Su color lo pusieron las bases, con el análisis de Opus o con la
+ *  lectura corta de Haiku? El radar ya no la relee y la bandeja lo dice. */
+export const leidaSegunLasBases = (leidaCon: string | null | undefined) =>
+  leidaCon === LEIDA_SEGUN_LAS_BASES ||
+  leidaCon === LEIDA_SEGUN_LA_LECTURA_CORTA;
+
 /** La lectura con las reglas aplicadas: lo que se guarda. */
 export type LecturaFinal = Lectura & {
   /** comuna_cercana | alto_valor: piden aviso inmediato (sprint 2). */
