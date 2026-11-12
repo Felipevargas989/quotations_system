@@ -6,7 +6,7 @@ import { textoDeCosto } from "./oportunidades.utils";
 // que gasta la lectura sola de las bases sin gastar nada en mirarlo: es una
 // consulta a la base, sin IA. Va bajo «Revisar ahora», donde ya mira cuándo
 // se revisó. Hoy y los últimos 7 días, en hora de Chile. Desde la decisión
-// 132 cuenta la lectura corta de Haiku de cada pasada (y lo que leyó Opus
+// 132 cuenta la lectura corta de cada pasada (y lo que leyó Opus
 // solo hasta el 12-11).
 
 export default function GastoDeLaLecturaSola() {

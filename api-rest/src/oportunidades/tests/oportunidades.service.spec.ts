@@ -185,7 +185,7 @@ describe('OportunidadesService — la bandeja', () => {
       { ...fila(1, null), leida_con: LEIDA_SEGUN_LAS_BASES },
       { ...fila(2, null), leida_con: 'claude-haiku-5-5, reglas del 11-11' },
     ];
-    // Y la lectura corta de Haiku cuenta igual (decisión 132).
+    // Y la lectura corta cuenta igual (decisión 132).
     repo.listar.mockResolvedValueOnce([
       { ...fila(3, null), leida_con: LEIDA_SEGUN_LA_LECTURA_CORTA },
     ]);
@@ -718,7 +718,7 @@ describe('OportunidadesService — «Bases leídas solas» (decisiones 131 y 132
   it('cuenta hoy y los últimos 7 días en hora de Chile: las leídas, y el costo de todas', async () => {
     const { fichas, servicio } = armar();
     fichas.lecturasSolasDesde.mockResolvedValue([
-      // Hoy, una lectura corta de Haiku.
+      // Hoy, una lectura corta.
       { estado: 'listo', costo_usd: 0.0042, creado_en: '2026-11-12T12:00:00Z' },
       // Hoy, 01:11 en Chile: un análisis de Opus de la 129.
       { estado: 'listo', costo_usd: 0.31, creado_en: '2026-11-12T04:11:47Z' },

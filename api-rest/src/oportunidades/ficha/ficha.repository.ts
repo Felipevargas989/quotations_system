@@ -64,7 +64,7 @@ export class FichaRepository {
 
   /** LO QUE EL MOTOR LEYÓ SOLO desde `desde`, para el cuadro «Bases leídas
    *  solas» (decisiones 131 y 132): los análisis de Opus sin `pedido_por` y
-   *  las lecturas cortas de Haiku de cada pasada (`origen = 'radar'`), con
+   *  las lecturas cortas de cada pasada (`origen = 'radar'`), con
    *  su estado y su costo. Sin IA. */
   async lecturasSolasDesde(
     companyId: number,
@@ -100,7 +100,7 @@ export class FichaRepository {
    *  roja, y la bandeja la pone en «No es para ti»; «es para ti», verde;
    *  «dudoso» deja el color. Las tres quedan leídas según las bases (el
    *  radar no las relee y la fila dice «Bases leídas» si no la dejan fuera)
-   *  y la razón pasa a ser el porqué de Haiku, con su cita. Solo si sigue
+   *  y la razón pasa a ser el porqué del modelo, con su cita. Solo si sigue
    *  nueva: lo que alguien ya tomó no cambia. */
   async marcarSegunLaLecturaCorta(
     companyId: number,

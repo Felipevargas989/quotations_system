@@ -2,7 +2,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import { mockPinoLogger } from 'src/testing/mocks';
 import type { LicifyService } from '../adjuntos/licify.service';
 import type { AnalisisService } from '../analisis/analisis.service';
-import { MODELO_HAIKU } from '../analisis/comun';
+import { MODELO_SONNET } from '../analisis/comun';
 import {
   MARGEN_PARA_PREPARAR_MS,
   MAX_LECTURAS_SOLAS_POR_PASADA,
@@ -18,7 +18,7 @@ import type { LecturaCortaService } from '../lectura-corta/lectura-corta.service
 // 04-11): trae los documentos y, si no hay análisis, analiza las bases con
 // Opus. Nunca lanza, porque corre por detrás. Y las nuevas verdes y
 // amarillas se leen solas después de cada pasada del radar: desde la
-// decisión 132 (12-11), con la lectura corta de Haiku y no con Opus.
+// decisión 132 (12-11), con la lectura corta (Sonnet) y no con Opus.
 
 const NO_ES: LecturaCorta = {
   veredicto: 'no_es_para_ti',
@@ -140,7 +140,7 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
     else process.env.ANTHROPIC_API_KEY = llave;
   });
 
-  it('a cada nueva le trae los documentos sin sesión, le hace la lectura corta con Haiku (origen radar) y marca lo que dijo; Opus no lee nada', async () => {
+  it('a cada nueva le trae los documentos sin sesión, le hace la lectura corta (origen radar, con el modelo de la constante) y marca lo que dijo; Opus no lee nada', async () => {
     const { licify, analisis, ficha, lecturaCorta, servicio, orden } = armar();
     ficha.paraPrepararSolas.mockResolvedValue([40, 41]);
     lecturaCorta.leerUna.mockImplementationOnce(
@@ -163,8 +163,8 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
       'marcar 41 no_es_para_ti',
     ]);
     expect(licify.traer).toHaveBeenCalledWith(1, SIN_SESION, 40);
-    // El modelo sale de una sola constante: de partida, Haiku.
-    expect(MODELO_DE_LA_LECTURA_SOLA).toBe(MODELO_HAIKU);
+    // El modelo sale de una sola constante: Sonnet, el que pasó la prueba.
+    expect(MODELO_DE_LA_LECTURA_SOLA).toBe(MODELO_SONNET);
     expect(lecturaCorta.leerUna).toHaveBeenCalledWith(
       1,
       40,
@@ -174,7 +174,7 @@ describe('PrepararLaLicitacionService — las que se leen solas (decisiones 129 
     expect(analisis.pedir).not.toHaveBeenCalled();
   });
 
-  it('sin veredicto (sin bases, o Haiku falló) no marca nada y no se repite en la pasada siguiente', async () => {
+  it('sin veredicto (sin bases, o el modelo falló) no marca nada y no se repite en la pasada siguiente', async () => {
     const { licify, ficha, lecturaCorta, servicio } = armar();
     ficha.paraPrepararSolas.mockResolvedValue([40]);
     lecturaCorta.leerUna.mockResolvedValue(null as never);

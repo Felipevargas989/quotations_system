@@ -278,7 +278,7 @@ export class LecturaCortaService {
             }
           : {
               estado: 'error',
-              error: `Haiku no contestó con el formato (${respuesta.stop_reason ?? 'sin respuesta'}).`,
+              error: `El modelo no contestó con el formato (${respuesta.stop_reason ?? 'sin respuesta'}).`,
               ...gasto,
             },
       );

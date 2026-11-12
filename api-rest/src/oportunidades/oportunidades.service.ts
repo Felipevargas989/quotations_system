@@ -208,7 +208,7 @@ export class OportunidadesService {
 
   /** EL GASTO DE LA LECTURA SOLA (decisiones 131 y 132): las bases que el
    *  motor leyó solo (los análisis de Opus sin `pedido_por` y las lecturas
-   *  cortas de Haiku de cada pasada) y lo que costaron, hoy y en los
+   *  cortas de cada pasada) y lo que costaron, hoy y en los
    *  últimos 7 días, en hora de Chile. Una consulta a la base: mirarlo no
    *  gasta IA. Cuenta las leídas (listas) y suma el costo de todas, también
    *  de las que fallaron. */

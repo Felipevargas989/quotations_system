@@ -2,7 +2,7 @@ import { API_ROUTES } from "../constants/api.routes";
 import { apiRequest } from "./api";
 
 // «BASES LEÍDAS SOLAS» (decisiones 131 y 132): las bases que leyó solo el
-// motor (Haiku en cada pasada) y lo que costaron, hoy y en los últimos 7
+// motor (la lectura corta de cada pasada) y lo que costaron, hoy y en los últimos 7
 // días. Aparte de
 // oportunidades.service.ts, que está en el tope de 800 líneas del portero.
 

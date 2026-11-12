@@ -139,7 +139,7 @@ export class OportunidadesController {
   }
 
   /** «Bases leídas solas» (decisiones 131 y 132): cuántas bases leyó solo
-   *  el motor (Haiku en cada pasada, y Opus hasta el 12-11) y cuánto
+   *  el motor (la lectura corta de cada pasada, y Opus hasta el 12-11) y cuánto
    *  costaron, hoy y en los últimos 7 días. Sin IA. */
   @Get('lectura-sola')
   lecturaSola(@CurrentUser() user: User) {

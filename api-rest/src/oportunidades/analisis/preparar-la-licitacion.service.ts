@@ -6,7 +6,7 @@ import { FichaRepository } from '../ficha/ficha.repository';
 import { VERSION_DE_LAS_INSTRUCCIONES } from '../lectura-corta/lectura-corta';
 import { LecturaCortaService } from '../lectura-corta/lectura-corta.service';
 import { AnalisisService } from './analisis.service';
-import { MODELO_HAIKU } from './comun';
+import { MODELO_SONNET } from './comun';
 
 // «ME INTERESA» DEJA LA LICITACIÓN LISTA PARA TRABAJAR (decisión 114 del
 // doc 17, 04-11). Felipe: "el botón de me interesa... debería
@@ -21,22 +21,25 @@ import { MODELO_HAIKU } from './comun';
 //
 // Y LAS NUEVAS SE LEEN SOLAS DESPUÉS DE CADA PASADA DEL RADAR. Desde la
 // decisión 129 (11-11) se les hacía lo mismo que el «Me interesa», con
-// Opus. Desde la 132 (12-11) se les hace la LECTURA CORTA con Haiku:
+// Opus. Desde la 132 (12-11) se les hace la LECTURA CORTA (con Sonnet 5.5):
 // Felipe no quiere gastar los dólares del motor en leer bases ("intentemos
 // hacerlo con un modelo barato, una lectura que diga ¿es para mí o no es
-// para mí?"). Se traen los documentos, Haiku contesta y la oportunidad
+// para mí?"). Se traen los documentos, el modelo contesta y la oportunidad
 // queda como la deja el análisis (decisión 21): «no es para ti», roja y en
 // ese montón de la bandeja; «es para ti» o «dudoso», en «Por revisar» con
 // «Bases leídas». El análisis completo de Opus queda para el «Me interesa»
 // y su botón.
 
-/** CON QUÉ MODELO SE LEEN SOLAS LAS NUEVAS: una sola constante, para subir
- *  el flujo con Haiku o con Sonnet según salga la prueba de la decisión 132
- *  sin tocar más código. Medido con las mismas 81 bases: Haiku, unos
- *  US$0,003 por base; Sonnet, unos US$0,056. */
-export const MODELO_DE_LA_LECTURA_SOLA: string = MODELO_HAIKU;
-/** Por pasada del radar: con Haiku, unos centavos; con Sonnet, unos US$2. */
-export const MAX_LECTURAS_SOLAS_POR_PASADA = 40;
+/** CON QUÉ MODELO SE LEEN SOLAS LAS NUEVAS: Sonnet 5.5, el único que pasó
+ *  la vara de la prueba (decisión 132, instrucciones v3: 0 «no es para ti»
+ *  entre las 8 postuladas y entre las «sí» de Opus). Haiku botó la del
+ *  catamarán en las tres rondas. Volver a Haiku es cambiar esta constante:
+ *  nada más. Medido con las mismas bases: Sonnet, unos US$0,056 por base;
+ *  Haiku, unos US$0,003. */
+export const MODELO_DE_LA_LECTURA_SOLA: string = MODELO_SONNET;
+/** Por pasada del radar. Con Sonnet, unos US$0,85 como mucho por pasada y
+ *  unos US$3,4 el peor día (cuatro pasadas); con 40 serían US$9. */
+export const MAX_LECTURAS_SOLAS_POR_PASADA = 15;
 /** Las que se intentan por pasada, contando las que no tienen bases. */
 const MAX_INTENTOS_POR_PASADA = 2 * MAX_LECTURAS_SOLAS_POR_PASADA;
 /** Lo que cierra antes ya no alcanza a postularse: no se gasta en eso. */
@@ -105,7 +108,7 @@ export class PrepararLaLicitacionService {
    *  llama el radar al terminar una pasada buena. De la que cierra antes a
    *  la que cierra después, con tope por pasada; una vuelta a la vez. A cada
    *  una le trae los documentos sin sesión y le hace la lectura corta con
-   *  Haiku; lo que dice queda en la oportunidad. Sin Licify no hay bases que
+   *  lectura corta; lo que dice queda en la oportunidad. Sin Licify no hay bases que
    *  traer y sin la llave de Anthropic no hay lectura: no hace nada. Nunca
    *  lanza; devuelve cuántas se leyeron. */
   async lasNuevas(companyIds: number[]): Promise<number> {
@@ -159,7 +162,7 @@ export class PrepararLaLicitacionService {
     return leidas;
   }
 
-  /** Una: trae los documentos, la lee con Haiku y deja lo que dijo en la
+  /** Una: trae los documentos, le hace la lectura corta y deja lo que dijo en la
    *  oportunidad. true = hubo veredicto. */
   private async leerSola(
     companyId: number,
