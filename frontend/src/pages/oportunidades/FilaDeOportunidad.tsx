@@ -17,9 +17,9 @@ import {
   cuandoCierra,
   ESTADOS,
   ETIQUETAS,
-  noEsParaTi,
   textoDelAnterior,
 } from "./oportunidades.utils";
+import { noEsParaTi } from "./fueraPorLasBases";
 import SelloDeTipo from "./SelloDeTipo";
 
 // UNA FILA DE LA BANDEJA. Aparte de OportunidadesPage desde el 19-10, con

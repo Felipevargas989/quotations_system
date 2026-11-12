@@ -10,7 +10,6 @@ import {
   textoDelAnterior,
   filtrar,
   filtrarSinSemaforo,
-  noEsParaTi,
   agruparPorMes,
   contarPorEstadoDeValidacion,
   criteriosPorPeso,
@@ -116,36 +115,6 @@ describe("la bandeja: qué se ve de partida", () => {
         (o) => o.id,
       ),
     ).toEqual([9]);
-  });
-
-  it("lo que las bases dejan fuera sale de «Por revisar» a «No es para ti», aunque sea reciclaje; la roja de la lectura corta no (decisión 129)", () => {
-    const fuera = op({
-      id: 20,
-      semaforo: "rojo",
-      se_hace_en_el_complejo: "no",
-      segun_las_bases: true,
-      alertas: ["comuna_cercana"],
-    });
-    const seLee = op({ id: 21, segun_las_bases: true });
-    const rojaCorta = op({
-      id: 22,
-      semaforo: "rojo",
-      se_hace_en_el_complejo: "no",
-      alertas: ["comuna_cercana"],
-    });
-    const yaDescartada = { ...fuera, id: 23, estado: "descartada" as const };
-    expect(noEsParaTi(fuera)).toBe(true);
-    expect(noEsParaTi(seLee)).toBe(false);
-    expect(noEsParaTi(rojaCorta)).toBe(false);
-    const todas = [fuera, seLee, rojaCorta, yaDescartada];
-    const ids = (vista: (typeof VISTAS)[number]["value"]) =>
-      filtrarSinSemaforo(todas, { ...FILTROS_DE_PARTIDA, vista }).map(
-        (o) => o.id,
-      );
-    expect(ids("nueva")).toEqual([21, 22]);
-    expect(ids("no_es_para_ti")).toEqual([20]);
-    expect(ids("descartada")).toEqual([23]);
-    expect(ids("historial")).toEqual([20, 21, 22, 23]);
   });
 
   it("los contadores de los chips cuentan con los demás filtros, sin el semáforo", () => {
