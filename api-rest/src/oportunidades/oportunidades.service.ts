@@ -442,6 +442,7 @@ export class OportunidadesService {
       regiones: config?.regiones ?? [],
       comunas_cercanas: config?.comunas_cercanas ?? [],
       perfil: config?.perfil ?? '',
+      monto_minimo: config?.monto_minimo ?? null,
       umbral_alto_valor: empresa?.high_value_threshold ?? null,
       correo_avisos: empresa?.notifications?.replyTo ?? null,
     };
@@ -452,6 +453,7 @@ export class OportunidadesService {
       regiones?: string[];
       comunas_cercanas?: string[];
       perfil?: string | null;
+      monto_minimo?: number | null;
     } = {};
     if (dto.regiones !== undefined)
       cambios.regiones = limpiarLista(dto.regiones);
@@ -459,6 +461,10 @@ export class OportunidadesService {
       cambios.comunas_cercanas = limpiarLista(dto.comunas_cercanas);
     }
     if (dto.perfil !== undefined) cambios.perfil = dto.perfil.trim() || null;
+    if (dto.monto_minimo !== undefined) {
+      cambios.monto_minimo =
+        dto.monto_minimo && dto.monto_minimo > 0 ? dto.monto_minimo : null;
+    }
     if (Object.keys(cambios).length === 0) {
       throw new BadRequestException('No hay nada que guardar.');
     }

@@ -911,6 +911,18 @@ Decisiones del 17-10-2026 (respuestas de Felipe a lo pendiente):
     - **Una sola manera de pasar a texto** (`textoDelArchivo`, en `comun.ts`): el Word y el Excel se abren y lo demás va tal cual. La usan `armarContenido` y la comparación, que antes tenía su propia copia para el Word.
     - **Lo que no se lee, dicho** (`porQueNoSeLee`): el .xls antiguo queda «sin leer» con «es un Excel antiguo (.xls): guárdalo como .xlsx y súbelo de nuevo» (`MOTIVO_DEL_XLS`, el mismo aviso de las bases); lo demás, con «la IA lee PDF, Word, Excel e imágenes».
     - Lo fijan `comparacion.spec.ts` y `comparacion-servicio.spec.ts`: en el caso de la 5040-14-LE26, la planilla de BPM es ahora un Excel de verdad y se lee.
+129. **La segunda vuelta del semáforo: el monto mínimo, el catering solo en el complejo y, después, las bases que se leen solas** (11-11, sprint 1 en el laboratorio). Felipe: *"de lo que ya aprendio el semaforo quiero ir un paseo más... distingamos mejor cuales me interesan y luego de todo lo que marque amarillo o verde leyamos las bases... hay un revisor que me dice claramente cuando algo no es para mi, asi no gasto tiempo viendo una a una y solo veo el descreme"*. Son las primeras lecciones del paso 3 de la decisión 113, aprobadas por él.
+    - **Lo medido en producción el 11-11**, desde el 29-10: de 66 «Me interesa», 65 terminaron descartadas y 1 ganada. Desde el 04-11 la IA leyó 54 bases a pedido: en 40 pedían otro lugar, y las 40 se descartaron. El porqué más repetido fue «Muy chica»: 51, todas compras ágiles, con mediana de $370.000, contra $2,2 millones de las «Me interesa». El segundo, «No es lo mío»: sobre todo coffee, cóctel o catering llevados a otro lugar.
+    - **Lección 1, el monto mínimo** (migración 204). `oportunidades_config.monto_minimo`, en pesos, se cambia en Oportunidades → Configuración («Monto mínimo»; vacío, sin mínimo). Lo que pide menos queda en rojo al leerlo, aunque la IA lo apruebe, y la razón parte con «Bajo tu mínimo de $700.000: pide $370.000.» y sigue con la de la IA (`aplicarReglas` y `bajoElMinimo`, `lectura/reglas.ts`). Sin monto informado, manda la IA; lo que la IA ya pintó rojo no cambia. Lo de una comuna cercana y del rubro conserva su aviso: es reciclaje, como en la decisión 72. Valle del Sol parte con $700.000 (*"ok"*): esa vara pinta rojas 48 de las 51 chicas y 5 de las 66 «Me interesa»; la de $600.000, 42 y 3.
+    - **Lección 2, el catering solo en el complejo.** Felipe: *"tiene que ver con el donde se sirven, es lo mio, pero acá en el local"*. Es dato de la empresa, no código: la descripción de «Mi empresa» de Valle del Sol tenía «Por evaluar, solo desde $1.000.000» el catering, el coffee break, el cóctel y la banquetería servidos en las dependencias del comprador (decisión 23). Eso pasa a «Qué no vende», y en «Qué vende» se nombra también el coffee break servido en el complejo. Se cambia en producción junto con la subida, con respaldo. La regla de la casa de lo POR EVALUAR sigue para la empresa que lo escriba.
+    - **Lo abierto se relee** (decisión 19): `LECTURA_ACTUAL` pasa a «reglas del 11-11, monto mínimo», y en la pasada siguiente a la subida se releen las abiertas que nadie ha tocado: eran 1.862 el 11-11, unos US$2 de Haiku. Por eso, en producción, la migración 204 y la descripción nueva van antes que el motor. Un cambio posterior del mínimo vale para lo que se lea después: lo ya leído no se relee hasta que cambien las reglas.
+    - **Sprint 2, por hacer** (el plan que Felipe aprobó el 11-11 al responder las dos lecciones):
+        - Las verdes y amarillas se preparan solas después de cada pasada del radar: los documentos y el análisis de la decisión 114, sin esperar el «Me interesa».
+        - Lo que las bases dejan fuera («No es para ti», decisión 117) sale de la bandeja a una pestaña propia, con su porqué, para revisarlo o rescatarlo; en la bandeja queda el descreme.
+        - Cambia la regla de la 113 de que «nada se deja de mostrar»: lo excluido se sigue viendo, en su pestaña.
+        - «Estudiada» (migración 175) pasa a contar solo lo que pidió una persona, para que el aprendizaje no se llene de análisis automáticos.
+        - Cuesta unos US$0,33 por análisis; con el mínimo, unos US$17 a la semana, lo mismo que se gastaba leyendo a pedido.
+    - Lo fijan `reglas.spec.ts` (el mínimo), `radar.service.spec.ts` (la corrida lo usa), `oportunidades.service.spec.ts` (se guarda y se lee) y `lectura.service.spec.ts` (la versión de las reglas).
 
 **El cerebro común de la IA de Eventia, también al postular** (sin número de este documento: es la mejora 6 del doc 20 §17, la etapa 3 de «una sola IA»; 04-11, en producción esa noche, Felipe: *"conéctalo tú y a producción"*). El análisis de bases, «¿Puedo cumplir?», «Pregúntale a la IA», «Validar todo», los anexos y la propuesta técnica leen, después de sus instrucciones, lo que sabe de la empresa toda la IA de Eventia: las reglas de la casa (`LA_CASA.md`), su complejo (`EL_COMPLEJO.md`) y las lecciones aprobadas para «todas» (`cerebroPara(empresa, 'postular')`, sin las guías de armar ni de escribir).
     - Va con la frase «al postular, lo que piden las bases manda sobre esto»: lo de la casa sirve para saber qué ofrece y cómo trabaja la empresa, nunca para pasar por encima de las bases (la regla de la decisión 60).
@@ -1211,7 +1223,10 @@ Una pestaña "Configuración" dentro de Oportunidades:
 
 - **Regiones de interés** (Valle del Sol parte con Ñuble y Biobío).
 - **Comunas cercanas**: las que nunca quedan en rojo y avisan al instante
-  (Valle del Sol parte con la lista del bot, §5.2).
+  (Valle del Sol parte con la lista del bot, §5.2). Desde la decisión 72
+  lo de esas comunas sí puede quedar rojo, con su aviso: es el reciclaje.
+- **Monto mínimo** (decisión 129, migración 204): lo que pide menos queda
+  en rojo al leerlo. Valle del Sol parte con $700.000.
 
 Lo que **no** se configura aquí, porque ya existe en Configuración de
 empresa y no se duplica: el monto de alto valor
