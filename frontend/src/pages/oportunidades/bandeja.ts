@@ -62,25 +62,31 @@ export const conVistaValida = (f: Filtros): Filtros => ({
   semaforos: f.semaforos.filter((c) => c !== "basura"),
 });
 
-/** El número al lado de «Por revisar», «No es para ti» y «Descartadas»:
- *  lo que se va a ver al pincharlo, con los demás filtros puestos (el
- *  semáforo incluido, salvo en «No es para ti», que se ve entera: todas
- *  quedaron rojas). Esos montones son de lo vigente, así que lo ya cerrado
- *  no cuenta (en «Historial» la lista trae también lo cerrado). */
+/** El número al lado de «Por revisar», «No es para ti», «Reciclaje» y
+ *  «Descartadas»: lo que se va a ver al pincharlo, con los demás filtros
+ *  puestos (el semáforo incluido, salvo en «No es para ti» y «Reciclaje»,
+ *  que se ven enteros: todo lo que tienen es rojo). Esos montones son de lo
+ *  vigente, así que lo ya cerrado no cuenta (en «Historial» la lista trae
+ *  también lo cerrado). */
 export const contarPorVista = (
   lista: readonly Oportunidad[],
   f: Filtros,
   ahora: number = Date.now(),
-): { nueva: number; no_es_para_ti: number; descartada: number } => {
+): {
+  nueva: number;
+  no_es_para_ti: number;
+  reciclaje: number;
+  descartada: number;
+} => {
   const vigentes = lista.filter(
     (o) => !cuandoCierra(o.proceso.fecha_cierre, ahora).cerrada,
   );
+  const enteras = (vista: "no_es_para_ti" | "reciclaje") =>
+    filtrarSinSemaforo(vigentes, { ...f, vista }).length;
   return {
     nueva: filtrar(vigentes, { ...f, vista: "nueva" }).length,
-    no_es_para_ti: filtrarSinSemaforo(vigentes, {
-      ...f,
-      vista: "no_es_para_ti",
-    }).length,
+    no_es_para_ti: enteras("no_es_para_ti"),
+    reciclaje: enteras("reciclaje"),
     descartada: filtrar(vigentes, { ...f, vista: "descartada" }).length,
   };
 };
@@ -169,7 +175,8 @@ export const hayFiltrosQueAchican = (f: Filtros): boolean =>
   Boolean(f.tipo || f.region || f.busca.trim()) ||
   !f.semaforos.includes("verde") ||
   !f.semaforos.includes("amarillo") ||
-  !f.semaforos.includes("rojo");
+  // En «Por revisar» ya no hay rojo (decisión 131): su chip no achica.
+  (f.vista !== "nueva" && !f.semaforos.includes("rojo"));
 
 export const queDiceLaBandejaVacia = (
   total: number,

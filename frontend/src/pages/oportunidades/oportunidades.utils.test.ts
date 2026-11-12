@@ -90,16 +90,17 @@ describe("la bandeja: qué se ve de partida", () => {
     op({ id: 6, semaforo: "rojo", alertas: ["comuna_cercana"] }),
   ];
 
-  it("abre en «Por revisar»: verdes, amarillas y reciclaje, sin la basura ni lo ya marcado (Felipe, 17-10 y 23-10)", () => {
+  it("abre en «Por revisar»: verdes y amarillas, sin la basura, sin lo ya marcado y, desde la decisión 131, sin el reciclaje (Felipe, 17-10, 23-10 y 12-11)", () => {
     expect(FILTROS_DE_PARTIDA.vista).toBe("nueva");
     expect(VISTAS[0]).toMatchObject({ value: "nueva", label: "Por revisar" });
-    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1, 6]);
+    expect(filtrar(lista, FILTROS_DE_PARTIDA).map((o) => o.id)).toEqual([1]);
   });
 
-  it("cinco montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10); «No es para ti», lo que las bases dejan fuera (decisión 129)", () => {
+  it("seis montones: lo en estudio vive en «Mis licitaciones», no en la bandeja (18-10); «En seguimiento», lo que se sigue sin postular (19-10); «No es para ti», lo que las bases dejan fuera (decisión 129); «Reciclaje» (decisión 131)", () => {
     expect(VISTAS.map((v) => v.label)).toEqual([
       "Por revisar",
       "No es para ti",
+      "Reciclaje",
       "Descartadas",
       "En seguimiento",
       "Historial",
@@ -122,7 +123,8 @@ describe("la bandeja: qué se ve de partida", () => {
     const cuenta = contarPorSemaforo(
       filtrarSinSemaforo(lista, FILTROS_DE_PARTIDA),
     );
-    expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 1, basura: 1 });
+    // El reciclaje ya no está en «Por revisar» (decisión 131).
+    expect(cuenta).toEqual({ verde: 1, amarillo: 0, rojo: 0, basura: 1 });
   });
 
   it("el rojo se parte en dos: el reciclaje se ve como el verde y el amarillo, y la basura solo al buscar (decisión 72)", () => {

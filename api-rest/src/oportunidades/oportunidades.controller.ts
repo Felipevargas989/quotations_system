@@ -121,6 +121,13 @@ export class OportunidadesController {
     return this.repo.ultimasCorridas(10);
   }
 
+  /** «Bases leídas solas» (decisión 131): cuántas bases leyó solo el motor
+   *  y cuánto costaron, hoy y en los últimos 7 días. Sin IA. */
+  @Get('lectura-sola')
+  lecturaSola(@CurrentUser() user: User) {
+    return this.servicio.lecturaSola(user.company_id);
+  }
+
   /** "Mis licitaciones": las que la empresa marcó, con el avance de cada
    *  una (bases, análisis, anexos, firma, validación). */
   @Get('mias')

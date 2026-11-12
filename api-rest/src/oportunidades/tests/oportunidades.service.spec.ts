@@ -47,6 +47,7 @@ function armar(
     diasDeHistoriaPendientes: jest.fn().mockResolvedValue(900),
     responsableDe: jest.fn().mockResolvedValue(null),
     perfilDe: jest.fn().mockResolvedValue('perfil-felipe'),
+    lecturasSolasDesde: jest.fn().mockResolvedValue([]),
   };
   const mp = { detalleCompraAgil: jest.fn().mockResolvedValue(null) };
   // El semáforo de «Se viene» (decisión 62) tiene sus propias pruebas
@@ -699,5 +700,41 @@ describe('OportunidadesService — Se viene y competidores', () => {
     await expect(servicio.competidor(1, '11.111.111-1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('OportunidadesService — «Bases leídas solas» (decisión 131)', () => {
+  // Jueves 12-11-2026, 10:00 en Chile (verano, UTC-3).
+  const AHORA = new Date('2026-11-12T13:00:00Z');
+
+  it('cuenta hoy y los últimos 7 días en hora de Chile: las leídas, y el costo de todas', async () => {
+    const { fichas, servicio } = armar();
+    fichas.lecturasSolasDesde.mockResolvedValue([
+      // Hoy, 01:11 en Chile (04:11 UTC).
+      { estado: 'listo', costo_usd: 0.31, creado_en: '2026-11-12T04:11:47Z' },
+      // Hoy: una que falló también costó.
+      { estado: 'error', costo_usd: 0.05, creado_en: '2026-11-12T05:00:00Z' },
+      // Ayer, 23:30 en Chile: ya no es hoy.
+      { estado: 'listo', costo_usd: 0.4, creado_en: '2026-11-12T02:30:00Z' },
+      // Hace 5 días, sin costo anotado.
+      { estado: 'listo', costo_usd: null, creado_en: '2026-11-07T15:00:00Z' },
+    ]);
+    await expect(servicio.lecturaSola(1, AHORA)).resolves.toEqual({
+      hoy: { bases: 1, usd: 0.36 },
+      semana: { bases: 3, usd: 0.76 },
+    });
+    // Desde la medianoche de Chile de hace 6 días: el viernes 06-11.
+    expect(fichas.lecturasSolasDesde).toHaveBeenCalledWith(
+      1,
+      '2026-11-06T03:00:00.000Z',
+    );
+  });
+
+  it('sin lecturas solas, todo en cero', async () => {
+    const { servicio } = armar();
+    await expect(servicio.lecturaSola(1, AHORA)).resolves.toEqual({
+      hoy: { bases: 0, usd: 0 },
+      semana: { bases: 0, usd: 0 },
+    });
   });
 });
