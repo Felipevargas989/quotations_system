@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { LEIDA_SEGUN_LAS_BASES } from '../lectura/reglas';
+import {
+  type LecturaCorta,
+  razonDeLaLecturaCorta,
+} from '../lectura-corta/lectura-corta';
+import {
+  LEIDA_SEGUN_LA_LECTURA_CORTA,
+  LEIDA_SEGUN_LAS_BASES,
+  leidaSegunLasBases,
+} from '../lectura/reglas';
 
 // LO QUE LA FICHA MUESTRA Y DECIDE (Felipe, 17-10: "vamos con todas", la
 // ficha más clara; decisión 21 del doc 17): el color que pone el análisis
@@ -52,6 +60,73 @@ export class FichaRepository {
       .eq('id', id);
     if (error) throw error;
     return true;
+  }
+
+  /** LO QUE EL MOTOR LEYÓ SOLO desde `desde`, para el cuadro «Bases leídas
+   *  solas» (decisiones 131 y 132): los análisis de Opus sin `pedido_por` y
+   *  las lecturas cortas de cada pasada (`origen = 'radar'`), con
+   *  su estado y su costo. Sin IA. */
+  async lecturasSolasDesde(
+    companyId: number,
+    desde: string,
+  ): Promise<
+    Array<{ estado: string; costo_usd: number | null; creado_en: string }>
+  > {
+    const [opus, haiku] = await Promise.all([
+      this.db
+        .from('oportunidad_analisis')
+        .select('estado, costo_usd, creado_en')
+        .eq('company_id', companyId)
+        .is('pedido_por', null)
+        .gte('creado_en', desde),
+      this.db
+        .from('oportunidades_lectura_corta')
+        .select('estado, costo_usd, creado_en')
+        .eq('company_id', companyId)
+        .eq('origen', 'radar')
+        .gte('creado_en', desde),
+    ]);
+    if (opus.error) throw opus.error;
+    if (haiku.error) throw haiku.error;
+    return [...(opus.data ?? []), ...(haiku.data ?? [])] as Array<{
+      estado: string;
+      costo_usd: number | null;
+      creado_en: string;
+    }>;
+  }
+
+  /** LO QUE DIJO LA LECTURA CORTA (decisión 132), con el mismo mecanismo
+   *  que el análisis de las bases (decisión 21): «no es para ti» la deja
+   *  roja, y la bandeja la pone en «No es para ti»; «es para ti», verde;
+   *  «dudoso» deja el color. Las tres quedan leídas según las bases (el
+   *  radar no las relee y la fila dice «Bases leídas» si no la dejan fuera)
+   *  y la razón pasa a ser el porqué del modelo, con su cita. Solo si sigue
+   *  nueva: lo que alguien ya tomó no cambia. */
+  async marcarSegunLaLecturaCorta(
+    companyId: number,
+    id: number,
+    lectura: LecturaCorta,
+  ): Promise<void> {
+    const lugar =
+      lectura.veredicto === 'no_es_para_ti'
+        ? 'no'
+        : lectura.veredicto === 'es_para_ti'
+          ? 'si'
+          : 'dudoso';
+    const { error } = await this.db
+      .from('oportunidades')
+      .update({
+        ...(lugar === 'no' ? { semaforo: 'rojo' } : {}),
+        ...(lugar === 'si' ? { semaforo: 'verde' } : {}),
+        se_hace_en_el_complejo: lugar,
+        razon: razonDeLaLecturaCorta(lectura),
+        leida_con: LEIDA_SEGUN_LA_LECTURA_CORTA,
+        leida_en: new Date().toISOString(),
+      })
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .eq('estado', 'nueva');
+    if (error) throw error;
   }
 
   /** El responsable de hoy: null si no tiene, undefined si no es de esta
@@ -120,7 +195,7 @@ export class FichaRepository {
       proceso: { fecha_cierre: string | null };
     };
     const filas = ((data ?? []) as unknown as Fila[])
-      .filter((f) => f.leida_con !== LEIDA_SEGUN_LAS_BASES)
+      .filter((f) => !leidaSegunLasBases(f.leida_con))
       .sort((a, b) =>
         String(a.proceso?.fecha_cierre).localeCompare(
           String(b.proceso?.fecha_cierre),

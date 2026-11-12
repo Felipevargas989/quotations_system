@@ -74,6 +74,18 @@ export const lecturaValida = (salida: {
 export const LEIDA_SEGUN_LAS_BASES =
   'claude-opus-5-5, según el análisis de las bases';
 
+/** Lo que coloreó la lectura corta de las bases (decisión 132): se trata
+ *  igual que lo del análisis. No nombra el modelo (hoy Sonnet, y se puede
+ *  volver a Haiku con una constante): la ficha dice «con la lectura corta
+ *  de las bases». */
+export const LEIDA_SEGUN_LA_LECTURA_CORTA = 'la lectura corta de las bases';
+
+/** ¿Su color lo pusieron las bases, con el análisis de Opus o con la
+ *  lectura corta? El radar ya no la relee y la bandeja lo dice. */
+export const leidaSegunLasBases = (leidaCon: string | null | undefined) =>
+  leidaCon === LEIDA_SEGUN_LAS_BASES ||
+  leidaCon === LEIDA_SEGUN_LA_LECTURA_CORTA;
+
 /** La lectura con las reglas aplicadas: lo que se guarda. */
 export type LecturaFinal = Lectura & {
   /** comuna_cercana | alto_valor: piden aviso inmediato (sprint 2). */
