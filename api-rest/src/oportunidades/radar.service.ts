@@ -625,6 +625,7 @@ export class RadarService {
           const final = aplicarReglas(lectura, proceso, {
             comunasCercanas: config.comunas_cercanas ?? [],
             umbralAltoValor: empresa.high_value_threshold,
+            montoMinimo: config.monto_minimo ?? null,
           });
           try {
             await this.repo.guardarLectura(
@@ -749,6 +750,7 @@ export class RadarService {
           const final = aplicarReglas(lectura, proceso, {
             comunasCercanas: config.comunas_cercanas ?? [],
             umbralAltoValor: empresa.high_value_threshold,
+            montoMinimo: config.monto_minimo ?? null,
           });
           const relectura = releer.has(proceso.codigo);
           try {

@@ -1,9 +1,12 @@
 import {
   ArrayMaxSize,
   IsArray,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 /** La configuración del módulo (doc 17 §5.7). El monto de alto valor y el
@@ -27,4 +30,12 @@ export class GuardarConfigOportunidadesDto {
   @IsString()
   @MaxLength(3000)
   perfil?: string;
+
+  /** En pesos: lo que pide menos queda en rojo (decisión 129). null o 0,
+   *  sin mínimo. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10_000_000_000)
+  monto_minimo?: number | null;
 }

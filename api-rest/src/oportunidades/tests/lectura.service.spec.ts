@@ -348,7 +348,10 @@ describe('lo que lee la IA', () => {
   });
 
   it('la lectura queda marcada con el modelo y la versión de las reglas', () => {
-    expect(LECTURA_ACTUAL).toBe('claude-haiku-5-5, reglas del 18-10, noche');
+    // Decisión 129: con el monto mínimo, lo abierto e intacto se relee.
+    expect(LECTURA_ACTUAL).toBe(
+      'claude-haiku-5-5, reglas del 11-11, monto mínimo',
+    );
     expect(LECTURA_ACTUAL.startsWith(MODELO_LECTURA)).toBe(true);
   });
 
