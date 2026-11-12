@@ -9,7 +9,6 @@ import type { Vista } from "./oportunidades.utils";
 
 const VACIO_DE_LA_VISTA: Record<Exclude<Vista, "nueva">, string> = {
   no_es_para_ti: "Ninguna que las bases dejen fuera",
-  reciclaje: "Nada en el reciclaje",
   descartada: "No hay descartadas",
   seguida:
     "No sigues ninguna: en el resumen de una licitación, «Seguir» la deja aquí",

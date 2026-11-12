@@ -15,7 +15,7 @@ const pintar = (filtros: Filtros = FILTROS_DE_PARTIDA) => {
     <FiltrosDeLaBandeja
       filtros={filtros}
       onCambiar={onCambiar}
-      porVista={{ nueva: 4, no_es_para_ti: 3, reciclaje: 7, descartada: 5 }}
+      porVista={{ nueva: 4, no_es_para_ti: 3, descartada: 5 }}
       porSemaforo={{ verde: 1, amarillo: 3, rojo: 12, basura: 553 }}
       regiones={["Región del Biobío", "Región del Ñuble"]}
     />,
@@ -58,23 +58,10 @@ describe("FiltrosDeLaBandeja", () => {
     expect(onCambiar).toHaveBeenCalledWith({ tipo: "compra_agil" });
   });
 
-  it("en «Por revisar» el reciclaje es un montón con su número y no un chip (decisión 131)", () => {
-    pintar();
-    expect(
-      screen.getByRole("button", { name: /^Reciclaje\s*7$/ }),
-    ).toHaveAttribute("aria-pressed", "false");
-    expect(
-      screen.queryByRole("button", { name: "Reciclaje 12" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Verdes 1" }),
-    ).toBeInTheDocument();
-  });
-
-  it("en los otros montones el rojo es el reciclaje y se porta como el verde y el amarillo; la basura no tiene botón (decisión 72, 23-10)", () => {
+  it("el rojo es el reciclaje y se porta como el verde y el amarillo; la basura no tiene botón (decisión 72, 23-10)", () => {
     // Felipe: "gris lo eliminaría; rojo que sea igual en comportamiento al
     // verde y amarillo".
-    const onCambiar = pintar({ ...FILTROS_DE_PARTIDA, vista: "descartada" });
+    const onCambiar = pintar();
     const reciclaje = screen.getByRole("button", { name: "Reciclaje 12" });
     expect(reciclaje).toHaveAttribute("aria-pressed", "true");
     expect(reciclaje).toHaveAttribute(

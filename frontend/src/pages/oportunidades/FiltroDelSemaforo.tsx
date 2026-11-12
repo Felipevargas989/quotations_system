@@ -17,16 +17,12 @@ const COLORES_DEL_FILTRO: ReadonlyArray<ColorDeLaLista> = [
 ];
 
 export default function FiltroDelSemaforo({
-  colores = COLORES_DEL_FILTRO,
   seleccion,
   onCambiar,
   porSemaforo,
   busca,
   onBuscar,
 }: {
-  /** Los botones que se muestran; de partida, los tres. En «Por revisar»
-   *  de la bandeja van solo el verde y el amarillo (decisión 131). */
-  readonly colores?: ReadonlyArray<ColorDeLaLista>;
   readonly seleccion: ReadonlyArray<ColorDeLaLista>;
   readonly onCambiar: (semaforos: ColorDeLaLista[]) => void;
   readonly porSemaforo: Readonly<Record<ColorDeLaLista, number>>;
@@ -41,7 +37,7 @@ export default function FiltroDelSemaforo({
     );
   return (
     <>
-      {colores.map((s) => {
+      {COLORES_DEL_FILTRO.map((s) => {
         const activo = seleccion.includes(s);
         return (
           <button

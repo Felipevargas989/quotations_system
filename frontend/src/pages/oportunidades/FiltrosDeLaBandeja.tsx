@@ -36,7 +36,6 @@ export default function FiltrosDeLaBandeja({
   readonly porVista: {
     readonly nueva: number;
     readonly no_es_para_ti?: number;
-    readonly reciclaje?: number;
     readonly descartada: number;
     readonly seguida?: number;
   };
@@ -128,11 +127,6 @@ export default function FiltrosDeLaBandeja({
         </div>
 
         <FiltroDelSemaforo
-          // En «Por revisar» no hay rojo: el reciclaje es un montón
-          // (decisión 131).
-          colores={
-            filtros.vista === "nueva" ? ["verde", "amarillo"] : undefined
-          }
           seleccion={filtros.semaforos}
           onCambiar={(semaforos) => onCambiar({ semaforos })}
           porSemaforo={porSemaforo}
