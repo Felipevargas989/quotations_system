@@ -40,26 +40,15 @@ export function CabeceraDelDocumento({
 /** Una sección del documento, con su título si lo lleva. */
 export function Seccion({
   titulo,
-  opcional = false,
   children,
 }: {
   readonly titulo?: string;
-  /** La sección entera se puede dejar en blanco: lo dice una etiqueta
-   *  gris junto al título (Felipe, 12-11-2026). */
-  readonly opcional?: boolean;
   readonly children: ReactNode;
 }) {
   return (
     <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
       {titulo && (
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          {titulo}
-          {opcional && (
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-              Opcional
-            </span>
-          )}
-        </h2>
+        <h2 className="text-sm font-semibold text-gray-900">{titulo}</h2>
       )}
       {children}
     </section>

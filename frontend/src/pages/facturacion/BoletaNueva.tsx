@@ -109,7 +109,6 @@ export default function BoletaNueva({
   });
   const cajaCerrada = conCaja && caja.isSuccess && !caja.data.abierta;
   const [lineas, setLineas] = useState<LineaEnPantalla[]>(() => [lineaNueva()]);
-  const [cabana, setCabana] = useState("");
   const [correo, setCorreo] = useState("");
   // §9.43: con qué pagó el huésped. El correo es obligatorio (§9.45,
   // Felipe 09-11: «el correo debe ser obligatorio»): ya no se imprime.
@@ -152,7 +151,9 @@ export default function BoletaNueva({
           ? { descripcion: l.descripcion?.trim(), monto: l.monto }
           : { tarifario_id: Number(l.tarifarioId), cantidad: l.cantidad },
     ),
-    cabana: cabana.trim() || null,
+    // La cabaña ya no se pregunta (Felipe, 13-11-2026): quién se alojó
+    // vive en Aloha. El motor la sigue aceptando; acá va siempre vacía.
+    cabana: null,
     correo: correo.trim(),
     medio_de_pago: medio || null,
   });
@@ -170,7 +171,6 @@ export default function BoletaNueva({
 
   const limpiar = () => {
     setLineas([lineaNueva()]);
-    setCabana("");
     setCorreo("");
     setMedio("");
   };
@@ -382,29 +382,6 @@ export default function BoletaNueva({
                   <Plus size={13} /> Línea a mano (solo administración)
                 </button>
               )}
-            </div>
-          </Seccion>
-
-          <Seccion titulo="Huésped" opcional>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="flex justify-between text-xs text-gray-500">
-                  Cabaña
-                  <span>{Array.from(cabana).length}/22</span>
-                </span>
-                <input
-                  type="text"
-                  value={cabana}
-                  maxLength={22}
-                  placeholder="Ej.: Cabaña 4"
-                  onChange={(e) => setCabana(e.target.value)}
-                  className={casilla}
-                />
-                <span className="mt-1 block text-xs text-gray-400">
-                  Se puede dejar en blanco. Si se escribe, sale al comienzo de
-                  cada línea de la boleta.
-                </span>
-              </label>
             </div>
           </Seccion>
 
