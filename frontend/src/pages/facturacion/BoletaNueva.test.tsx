@@ -122,9 +122,6 @@ const armarUna = async () => {
   fireEvent.click(
     screen.getByRole("button", { name: /Cabaña 4 personas temporada alta/ }),
   );
-  fireEvent.change(screen.getByPlaceholderText("Ej.: Cabaña 4"), {
-    target: { value: "Cabaña 4" },
-  });
 };
 
 /** §9.43: con qué pagó y a qué correo va (obligatorio desde el §9.45). */
@@ -167,7 +164,7 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     await screen.findByText("Así sale la boleta");
     expect(b.revisarBoletaSuelta).toHaveBeenCalledWith({
       lineas: [{ tarifario_id: 1, cantidad: 1 }],
-      cabana: "Cabaña 4",
+      cabana: null,
       correo: "huesped@correo.cl",
       medio_de_pago: "efectivo",
     });
@@ -184,6 +181,13 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
         expect.objectContaining({ id: 77, folio: 501 }),
       ),
     );
+  });
+
+  it("no pregunta por el huésped ni la cabaña: eso vive en Aloha", async () => {
+    abrir({ quedarse: true });
+    await armarUna();
+    expect(screen.queryByRole("heading", { name: /Huésped/ })).toBeNull();
+    expect(screen.queryByPlaceholderText("Ej.: Cabaña 4")).toBeNull();
   });
 
   it("sin la lista a la vista (recepción), se queda con la última y una boleta en blanco", async () => {
@@ -216,7 +220,6 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     expect(
       await screen.findByText(/Boleta N° 501 emitida por \$130\.000/),
     ).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Ej.: Cabaña 4")).toHaveValue("");
     expect(screen.queryByText("Así sale la boleta")).not.toBeInTheDocument();
     // La siguiente parte en blanco, también el correo.
     expect(screen.getByLabelText("Correo para enviarle la boleta")).toHaveValue(
@@ -277,15 +280,11 @@ describe("la boleta nueva (§9.22, sprint 3)", () => {
     await waitFor(() =>
       expect(solicitudes.solicitarBoleta).toHaveBeenCalledWith({
         lineas: [{ tarifario_id: 1, cantidad: 1 }],
-        cabana: "Cabaña 4",
+        cabana: null,
         correo: "huesped@correo.cl",
         medio_de_pago: "efectivo",
       }),
     );
     expect(b.emitirBoletaSuelta).not.toHaveBeenCalled();
-    // Queda en blanco para la próxima.
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Ej.: Cabaña 4")).toHaveValue(""),
-    );
   });
 });
