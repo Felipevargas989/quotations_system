@@ -266,6 +266,7 @@ function EstadoDelRadar() {
       {ultima?.estado === "error" && (
         <div className="text-red-600">La última revisión falló.</div>
       )}
+      <GastoDeLaLecturaSola />
       <button
         type="button"
         onClick={() => revisar.mutate()}
@@ -275,7 +276,6 @@ function EstadoDelRadar() {
         <RefreshCw size={14} className={corriendo ? "animate-spin" : ""} />
         Revisar ahora
       </button>
-      <GastoDeLaLecturaSola />
     </div>
   );
 }
