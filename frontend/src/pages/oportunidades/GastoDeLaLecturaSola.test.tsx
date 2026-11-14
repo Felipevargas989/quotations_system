@@ -37,13 +37,13 @@ describe("Bases leídas solas", () => {
       semana: { bases: 31, usd: 11.65 },
     });
     pintar();
-    expect(await screen.findByText("Bases leídas solas")).toBeInTheDocument();
-    const hoy = screen.getByText("Hoy").closest("tr");
-    expect(hoy).toHaveTextContent("9");
-    expect(hoy).toHaveTextContent("US$4,86");
-    const semana = screen.getByText("7 días").closest("tr");
-    expect(semana).toHaveTextContent("31");
-    expect(semana).toHaveTextContent("US$11,65");
+    // Una sola línea, sin cuadro (14-11): hoy y 7 días, cada uno con su costo.
+    const linea = await screen.findByText(/Bases leídas solas:/);
+    expect(linea.textContent?.replace(/\s+/g, " ")).toBe(
+      "Bases leídas solas: hoy 9 (US$4,86) · 7 días 31 (US$11,65)",
+    );
+    expect(linea).toHaveClass("whitespace-nowrap");
+    expect(linea.querySelector("table")).toBeNull();
   });
 
   it("mientras no llega, o si falla, no muestra nada", async () => {
