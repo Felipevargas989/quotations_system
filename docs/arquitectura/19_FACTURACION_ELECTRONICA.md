@@ -2923,7 +2923,9 @@ venta directa, después: *"si que se descuente"*.
   conteo contra todo lo anterior, que es la suma de las de cada cierre);
   antes del primer conteo, una raya sin chip. Abajo el movimiento: las
   entregas, las ventas directas y cada turno con lo vendido y lo contado.
-  Lo vendido por ítem queda al final, plegado. Sin ítems con pulsera, un
+  Lo vendido por ítem va en su propia pestaña, «Lo vendido», al lado de
+  «Pulseras» y con el mismo permiso (Felipe, 16-11: *"lo total vendido
+  sácalo a otra pestaña"*; primero quedó plegado abajo). Sin ítems con pulsera, un
   estado vacío corto.
 - **El correo del cierre** y el panel del cierre en «Cierres de caja»
   agregan la línea de las pulseras, en rojo si faltan.

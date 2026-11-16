@@ -85,6 +85,9 @@ vi.mock("./consultas", () => ({
 vi.mock("./CajaDeRecepcion", () => ({
   default: () => <p>La caja de recepción</p>,
 }));
+vi.mock("./LoVendido", () => ({
+  default: () => <p>La tabla de lo vendido</p>,
+}));
 vi.mock("./Pulseras", () => ({
   default: () => <p>Las pulseras</p>,
 }));
@@ -153,17 +156,21 @@ describe("la sección Facturación", () => {
     expect(screen.getByText("desde 2026-10-01")).toBeInTheDocument();
   });
 
-  it("§9.49: la pestaña «Lo vendido» se llama «Pulseras», con el mismo permiso (facturacion_vendido)", () => {
+  it("§9.49: «Pulseras» y «Lo vendido», cada una en su pestaña, con el mismo permiso (facturacion_vendido)", () => {
     rol = "administrador";
     permisos = ["facturacion_documentos", "facturacion_vendido"];
     abrir();
-    expect(screen.queryByRole("button", { name: "Lo vendido" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Pulseras" }));
     expect(screen.getByText("Las pulseras")).toBeInTheDocument();
+    expect(screen.queryByText("La tabla de lo vendido")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Lo vendido" }));
+    expect(screen.getByText("La tabla de lo vendido")).toBeInTheDocument();
+    expect(screen.queryByText("Las pulseras")).toBeNull();
     cleanup();
     permisos = ["facturacion_documentos"];
     abrir();
     expect(screen.queryByRole("button", { name: "Pulseras" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Lo vendido" })).toBeNull();
   });
 
   it("recepción: «Nuevo documento» ofrece la boleta y la factura del tarifario, sin pestañas", () => {

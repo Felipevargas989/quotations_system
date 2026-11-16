@@ -86,8 +86,8 @@ describe("la pestaña «Pulseras» (§9.49)", () => {
     expect(screen.getByText("−6")).toBeInTheDocument();
     expect(screen.getByText("Turno de Ana")).toBeInTheDocument();
     expect(screen.getByText("120 de 121")).toBeInTheDocument();
-    // Lo vendido por ítem, plegado abajo.
-    expect(screen.getByText("Lo vendido por ítem")).toBeInTheDocument();
+    // «Lo vendido» va en su propia pestaña, no acá.
+    expect(screen.queryByText("la tabla de lo vendido")).toBeNull();
   });
 
   it("«Calza» en verde cuando lo contado es lo que debería quedar", async () => {

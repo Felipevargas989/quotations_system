@@ -11,13 +11,12 @@ import {
 } from "../../services/pulseras.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import ChipDePulseras from "./ChipDePulseras";
-import LoVendido from "./LoVendido";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LAS PULSERAS (doc 19 §9.49; Felipe, 16-11: *"paso 100 u otra cantidad de
 // pulseras a recepción y llevar un control de stock para saber que lo que
-// se ha vendido es lo que se ha cobrado"*). Reemplaza a la pestaña «Lo
-// vendido», que queda abajo, plegada. Arriba las cuatro cifras; abajo el
+// se ha vendido es lo que se ha cobrado"*). «Lo vendido» sigue en su
+// propia pestaña, al lado. Arriba las cuatro cifras; abajo el
 // movimiento: las entregas y cada turno con lo vendido y lo contado.
 // Permiso «Pulseras» (`facturacion_vendido`): ver y entregar.
 
@@ -149,17 +148,6 @@ export default function Pulseras() {
   const [entregando, setEntregando] = useState(false);
   const r = pulseras.data;
 
-  const loVendido = (
-    <details className="rounded-lg border border-gray-200 bg-white">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-900">
-        Lo vendido por ítem
-      </summary>
-      <div className="px-1 pb-1">
-        <LoVendido />
-      </div>
-    </details>
-  );
-
   if (pulseras.isPending)
     return <p className="text-sm text-gray-400">Contando las pulseras…</p>;
   if (pulseras.isError || !r)
@@ -175,7 +163,6 @@ export default function Pulseras() {
             Ningún ítem del tarifario usa pulsera. Préndelo en Tarifario.
           </p>
         </Seccion>
-        {loVendido}
       </div>
     );
 
@@ -287,7 +274,6 @@ export default function Pulseras() {
         )}
       </Seccion>
 
-      {loVendido}
       {entregando && <EntregarPulseras onCerrar={() => setEntregando(false)} />}
     </div>
   );
