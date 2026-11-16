@@ -13,13 +13,15 @@ import * as caja from "../../services/caja.service";
 import CajaDeRecepcion from "./CajaDeRecepcion";
 
 // LA CAJA DE RECEPCIÓN, DEL LADO DE QUIEN LA OPERA (doc 19 §9.43, sprint 2):
-// se abre con quién y su sencillo, se anotan los retiros y se cierra a
+// se abre con quién y su sencillo, se anotan los ingresos y los retiros
+// (§9.51) y se cierra a
 // ciegas, sin ver lo esperado.
 
 vi.mock("../../services/caja.service", () => ({
   getCaja: vi.fn(),
   abrirCaja: vi.fn(),
   anotarRetiro: vi.fn(),
+  anotarIngreso: vi.fn(),
   cerrarCaja: vi.fn(),
   getCierres: vi.fn(),
   getCierre: vi.fn(),
@@ -84,20 +86,101 @@ describe("la caja de recepción (§9.43)", () => {
     expect(
       await screen.findByText(/Entregado a administración/),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "+ Anotar retiro" }));
+    fireEvent.click(screen.getByRole("button", { name: "− Anotar retiro" }));
     fireEvent.change(screen.getByLabelText("Monto"), {
       target: { value: "10000" },
     });
     fireEvent.change(screen.getByLabelText("Motivo"), {
       target: { value: "Compra de hielo" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar retiro" }));
     await waitFor(() =>
       expect(c.anotarRetiro).toHaveBeenCalledWith({
         monto: 10000,
         motivo: "Compra de hielo",
       }),
     );
+    expect(c.anotarIngreso).not.toHaveBeenCalled();
+  });
+
+  // §9.51: «Movimientos del turno», los ingresos y los retiros por hora.
+  const CON_INGRESO = {
+    abierta: {
+      ...ABIERTA.abierta,
+      movimientos: [
+        {
+          id: 2,
+          tipo: "ingreso" as const,
+          monto: 30000,
+          motivo: "Sencillo que mandó Felipe",
+          creado_por_nombre: "Ana",
+          creado_en: "2026-11-09T15:10:00Z",
+        },
+        {
+          id: 1,
+          tipo: "retiro" as const,
+          monto: 50000,
+          motivo: "Entregado a administración",
+          creado_por_nombre: null,
+          creado_en: "2026-11-09T17:30:00Z",
+        },
+      ],
+    },
+  };
+
+  it("§9.51: los movimientos por hora, cada uno con su chip y el monto con signo", async () => {
+    c.getCaja.mockResolvedValue(CON_INGRESO);
+    abrir();
+    await screen.findByText("Movimientos del turno");
+    const filas = screen.getAllByRole("listitem");
+    expect(filas[0]).toHaveTextContent("Ingreso");
+    expect(filas[0]).toHaveTextContent("Sencillo que mandó Felipe");
+    expect(filas[0]).toHaveTextContent("+$30.000");
+    expect(filas[1]).toHaveTextContent("Retiro");
+    expect(filas[1]).toHaveTextContent("−$50.000");
+    // Las dos acciones, siempre en el mismo lugar.
+    expect(
+      screen.getByRole("button", { name: "+ Anotar ingreso" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "− Anotar retiro" }),
+    ).toBeInTheDocument();
+    // Ciego: nada de lo esperado.
+    expect(screen.queryByText(/Según Eventia|Debería haber|Cuadra/)).toBeNull();
+  });
+
+  it("§9.51: sin movimientos lo dice", async () => {
+    c.getCaja.mockResolvedValue({
+      abierta: { ...ABIERTA.abierta, movimientos: [], retiros: [] },
+    });
+    abrir();
+    expect(await screen.findByText("Sin movimientos.")).toBeInTheDocument();
+  });
+
+  it("§9.51: se anota un ingreso con su monto y su motivo", async () => {
+    c.getCaja.mockResolvedValue(ABIERTA);
+    c.anotarIngreso.mockResolvedValue(CON_INGRESO);
+    abrir();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "+ Anotar ingreso" }),
+    );
+    const guardar = screen.getByRole("button", { name: "Guardar ingreso" });
+    expect(guardar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Monto"), {
+      target: { value: "30000" },
+    });
+    fireEvent.change(screen.getByLabelText("Motivo"), {
+      target: { value: "Sencillo que mandó Felipe" },
+    });
+    fireEvent.click(guardar);
+    await waitFor(() =>
+      expect(c.anotarIngreso).toHaveBeenCalledWith({
+        monto: 30000,
+        motivo: "Sencillo que mandó Felipe",
+      }),
+    );
+    expect(c.anotarRetiro).not.toHaveBeenCalled();
+    expect(await screen.findByText("+$30.000")).toBeInTheDocument();
   });
 
   it("el cierre ciego: los cuatro montos sin ver lo esperado, y no se reabre", async () => {

@@ -25,11 +25,17 @@ export interface TurnoDeCaja {
   nota_revision: string | null;
 }
 
-export interface RetiroDeCaja {
+/** §9.51: lo que se anota en `retiros_de_caja` (la tabla guarda los dos
+ *  tipos desde la 208; sin tipo, retiro). */
+export type TipoDeMovimiento = 'ingreso' | 'retiro';
+
+export interface MovimientoDeCaja {
   id: number;
   turno_id: number;
+  tipo: TipoDeMovimiento;
   monto: number;
   motivo: string;
+  creado_por_nombre: string | null;
   created_at: string;
 }
 
@@ -177,30 +183,37 @@ export class CajaRepository {
     return data ? numeros(data as TurnoDeCaja) : null;
   }
 
-  async retiros(
+  /** Los ingresos y retiros de esos turnos, por hora (§9.51). */
+  async movimientos(
     companyId: number,
     turnoIds: number[],
-  ): Promise<RetiroDeCaja[]> {
+  ): Promise<MovimientoDeCaja[]> {
     if (!turnoIds.length) return [];
     const { data, error } = await this.db
       .from('retiros_de_caja')
-      .select('id, turno_id, monto, motivo, created_at')
+      .select(
+        'id, turno_id, tipo, monto, motivo, creado_por_nombre, created_at',
+      )
       .eq('company_id', companyId)
       .in('turno_id', turnoIds)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return ((data ?? []) as RetiroDeCaja[]).map((r) => ({
+    return ((data ?? []) as MovimientoDeCaja[]).map((r) => ({
       ...r,
+      tipo: r.tipo === 'ingreso' ? 'ingreso' : 'retiro',
       monto: Number(r.monto),
+      creado_por_nombre: r.creado_por_nombre ?? null,
     }));
   }
 
-  async agregarRetiro(fila: {
+  async agregarMovimiento(fila: {
     company_id: number;
     turno_id: number;
+    tipo: TipoDeMovimiento;
     monto: number;
     motivo: string;
     creado_por: string | null;
+    creado_por_nombre: string;
   }): Promise<void> {
     const { error } = await this.db.from('retiros_de_caja').insert([fila]);
     if (error) throw error;
