@@ -3145,7 +3145,7 @@ lista lo del §9.53 (el chip dentro de «Abrió con»); el detalle no cambia.
    turno abierto muestra «—» en «Debía tener», «Cerró con» y los dos chips.
 3. **La franja entre turnos:** entre una fila y la de abajo (la anterior en
    el tiempo), una fila angosta con sangría y borde izquierdo: el chip
-   «Entre turnos» y «Pasaron completos los $X» (verde), «Faltan $X entre el
+   «Entre turnos» y (si pasó completo, la franja no se muestra: Felipe, 16-11), «Faltan $X entre el
    cierre y la apertura» (rojo) o «Aparecieron $X que el cierre anterior no
    declaró» (ámbar). El más viejo de la lista no lleva franja debajo.
 4. Recepción sigue a ciegas: nada de esto llega al estado de la caja ni a
