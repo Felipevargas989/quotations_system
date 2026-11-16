@@ -437,8 +437,8 @@ export default function CierresDeCaja() {
                 <td className="py-1.5">
                   {c.cerrada_por_nombre ?? c.abierta_por_nombre}
                 </td>
-                <td className="py-1.5 text-right align-top">
-                  <span className="flex flex-col items-end gap-0.5">
+                <td className="py-1.5 text-right">
+                  <span className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
                     {clp(c.sencillo_inicial)}
                     <ChipDeApertura apertura={c.apertura} />
                   </span>

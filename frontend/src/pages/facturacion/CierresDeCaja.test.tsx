@@ -285,10 +285,10 @@ describe("los cierres de la caja (§9.43)", () => {
     const filas = screen.getAllByRole("row").slice(1);
     expect(filas[0]).toHaveTextContent("$20.000");
     expect(within(filas[0]).getByText("Calza")).toBeInTheDocument();
-    expect(within(filas[1]).getByText("Faltan")).toBeInTheDocument();
-    expect(
-      within(filas[1]).getByText("$26.850 menos que el cierre anterior"),
-    ).toBeInTheDocument();
+    expect(within(filas[1]).getByText("Faltan $26.850")).toHaveAttribute(
+      "title",
+      "$26.850 menos que el cierre anterior",
+    );
     // El primer turno de la historia no lleva chip.
     expect(filas[2]).toHaveTextContent("$20.000");
     expect(within(filas[2]).queryByText(/Calza|Faltan|Sobran/)).toBeNull();
@@ -304,10 +304,10 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(lineaDeApertura()).toHaveTextContent(
       "Abrió con $26.850 · cierre anterior $0",
     );
-    expect(screen.getByText("Sobran")).toBeInTheDocument();
-    expect(
-      screen.getByText("$26.850 más que el cierre anterior"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Sobran $26.850")).toHaveAttribute(
+      "title",
+      "$26.850 más que el cierre anterior",
+    );
   });
 
   it("§9.53: sin cierre anterior, solo con cuánto se abrió", async () => {
