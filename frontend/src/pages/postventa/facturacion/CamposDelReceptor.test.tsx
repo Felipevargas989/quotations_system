@@ -145,6 +145,37 @@ describe("El RUT que llena todo", () => {
     expect(casilla("Razón social")).not.toHaveAttribute("readonly");
     expect(casilla("Giro")).toHaveAttribute("readonly");
   });
+
+  // Felipe, 16-11-2026: escribió el 65.108.661.-2 (una agrupación que la
+  // nómina del SII no trae) y «no buscó nada»: sí buscó, pero callaba.
+  it("si no hay datos en ninguna parte, lo dice (y tolera el punto de más)", async () => {
+    buscarRazonSocial.mockResolvedValue(null);
+    render(<ConEstado inicial={VACIO} />);
+    await escribirRut("65.108.661.-2", () =>
+      expect(
+        screen.getByText(/No encontré datos para este RUT/),
+      ).toBeInTheDocument(),
+    );
+    expect(buscarRazonSocial).toHaveBeenCalledWith("65108661-2");
+    expect(casilla("Razón social")).not.toHaveAttribute("readonly");
+  });
+
+  it("si la búsqueda falla, pide llenarlos a mano", async () => {
+    buscarRazonSocial.mockRejectedValue(new Error("sin red"));
+    render(<ConEstado inicial={VACIO} />);
+    await escribirRut("65.108.661-2", () =>
+      expect(screen.getByText(/No pude buscar este RUT/)).toBeInTheDocument(),
+    );
+  });
+
+  it("cuando encuentra, no avisa que faltan", async () => {
+    buscarRazonSocial.mockResolvedValue(CCU_DEL_SII);
+    render(<ConEstado inicial={VACIO} />);
+    await escribirRut("90.413.000-1", () =>
+      expect(screen.getByText(/Llenado con la nómina/)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/No encontré datos/)).toBeNull();
+  });
 });
 
 describe("El RUT arriba (Felipe, 08-11: «hazlo así»)", () => {
