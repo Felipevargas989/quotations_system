@@ -102,8 +102,7 @@ export interface OrdenAFacturar {
   total: number;
   /** Las facturas emitidas (o por confirmar) contra esta OC. */
   facturado: number;
-  /** §9.52: lo facturado contra esta OC, línea por línea (el detalle de
-   *  cada factura vigente); nulo si no se sabe (una factura rebajada). */
+  /** §9.52: lo ya facturado por línea; nulo si no se sabe (rebajada). */
   lineasFacturadas?: FacturadoDeLaOC;
   /** El nombre del PDF en Documentos, si lo hay. */
   pdf: string | null;
@@ -414,9 +413,8 @@ export function armarBorrador(
     parte,
     todoElEvento ? evento.personas : null,
   );
-  // §9.37: con sus líneas, la factura va línea por línea, como la OC. §9.52:
-  // lo que queda de una OC que ya tiene facturas, lo que pide cada línea
-  // menos lo ya facturado en ella; si no calza, como antes.
+  // §9.37: con sus líneas, la factura va línea por línea, como la OC.
+  // §9.52: su saldo, cada línea menos lo ya facturado; si no calza, como antes.
   const glosaDeLaOC = (t: string) => glosaYDescripcion(t).descripcion;
   const delSaldo =
     oc && facturado > 0 && parte === queda
