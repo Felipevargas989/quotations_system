@@ -17,6 +17,7 @@ import {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  IngresoDeCajaDto,
   LoVendidoQueryDto,
   RetiroDeCajaDto,
   RevisarCierreDto,
@@ -55,6 +56,14 @@ export class CajaController {
   @Roles(...OPERAN_LA_CAJA)
   retiro(@Body() dto: RetiroDeCajaDto, @CurrentUser() user: User) {
     return this.caja.retiro(user, dto);
+  }
+
+  /** §9.51: la plata que mandan el dueño o la administradora. */
+  @Permiso('caja_recepcion')
+  @Post('ingresos')
+  @Roles(...OPERAN_LA_CAJA)
+  ingreso(@Body() dto: IngresoDeCajaDto, @CurrentUser() user: User) {
+    return this.caja.ingreso(user, dto);
   }
 
   @Permiso('caja_recepcion')

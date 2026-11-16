@@ -263,16 +263,18 @@ const repo = () => ({
   }),
   turnos: jest.fn().mockResolvedValue([TURNO]),
   turno: jest.fn().mockResolvedValue(TURNO),
-  retiros: jest.fn().mockResolvedValue([
+  movimientos: jest.fn().mockResolvedValue([
     {
       id: 1,
       turno_id: 7,
+      tipo: 'retiro',
       monto: 50000,
       motivo: 'Entregado a Felipe',
+      creado_por_nombre: null,
       created_at: '2026-11-09T17:30:00Z',
     },
   ]),
-  agregarRetiro: jest.fn().mockResolvedValue(undefined),
+  agregarMovimiento: jest.fn().mockResolvedValue(undefined),
   documentos: jest
     .fn()
     .mockResolvedValue(DOCUMENTOS.map((d) => ({ ...d, turno_de_caja_id: 7 }))),
