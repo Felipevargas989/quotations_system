@@ -83,6 +83,10 @@ export default function CamposDelReceptor({
     null,
   );
   const [lleno, setLleno] = useState(false);
+  // Se buscó y no hay nada, o la búsqueda falló (Felipe, 16-11-2026: con el
+  // 65.108.661-2, una agrupación que el SII no trae, «no buscó nada»: sí
+  // buscó, pero la pantalla se quedaba callada).
+  const [sinDatos, setSinDatos] = useState<"vacio" | "fallo" | null>(null);
   const [llenados, setLlenados] = useState<Llenados>({});
   const [abiertos, setAbiertos] = useState(false);
   const actual = useRef(r);
@@ -97,7 +101,9 @@ export default function CamposDelReceptor({
   const canonico =
     !rutFijo && r.rut && rutEsValido(r.rut) ? normalizarRut(r.rut) : null;
   useEffect(() => {
+    if (!canonico) setSinDatos(null);
     if (!canonico || canonico === buscado.current) return;
+    setSinDatos(null);
     const espera = setTimeout(() => {
       buscado.current = canonico;
       // Dentro de la promesa: si la búsqueda no está (o falla), no pasa
@@ -106,6 +112,7 @@ export default function CamposDelReceptor({
         .then(() => buscarRazonSocial(canonico))
         .then((e) => {
           setEncontrada(e);
+          setSinDatos(e ? null : "vacio");
           const ahora = actual.current;
           const antes = deEsteRut.current;
           // Lo que trajo el RUT anterior y nadie cambió.
@@ -135,7 +142,10 @@ export default function CamposDelReceptor({
             for (const [campo, valor] of Object.entries(datos))
               cambiar.current(campo as Campo, valor as string);
         })
-        .catch(() => setEncontrada(null));
+        .catch(() => {
+          setEncontrada(null);
+          setSinDatos("fallo");
+        });
     }, 350);
     return () => clearTimeout(espera);
   }, [canonico]);
@@ -189,6 +199,13 @@ export default function CamposDelReceptor({
           {encontrada.origen === "sii"
             ? "Llenado con la nómina del SII."
             : `Llenado con la ficha${encontrada.cliente ? ` de ${encontrada.cliente}` : ""}.`}
+        </p>
+      )}
+      {sinDatos && (
+        <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          {sinDatos === "vacio"
+            ? "No encontré datos para este RUT en Eventia ni en el SII: llénalos a mano. Al emitir quedan guardados en el cliente."
+            : "No pude buscar este RUT ahora: llena los datos a mano."}
         </p>
       )}
       <Casilla
