@@ -5,11 +5,14 @@ import {
 
 /**
  * EL CUADRE DE LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2). Puro: recibe
- * el turno, sus documentos y sus retiros, y no lee la base.
+ * el turno, sus documentos y sus movimientos de efectivo (ingresos y
+ * retiros, §9.51), y no lee la base.
  *
  * - Lo esperado sale de los documentos emitidos del turno: el efectivo es el
- *   sencillo más lo vendido en efectivo menos los retiros; débito, crédito y
- *   transferencia, lo vendido con cada uno.
+ *   sencillo más lo vendido en efectivo más los ingresos menos los retiros
+ *   (§9.51); débito, crédito y transferencia, lo vendido con cada uno.
+ * - §9.51: un ingreso (plata que mandan el dueño o la administradora) no es
+ *   venta: no entra a lo vendido ni a lo vendido por ítem; solo al efectivo.
  * - Lo declarado lo anotó quien cerró, sin ver lo esperado (cierre ciego).
  * - La diferencia es declarado menos esperado: positiva sobra, negativa
  *   falta.
@@ -66,6 +69,16 @@ export interface ItemVendido {
 }
 
 const IVA = 0.19;
+
+/** §9.51: un movimiento de efectivo del turno. Sin `tipo` (filas de antes
+ *  de la 208), es un retiro. */
+export interface MovimientoParaCuadrar {
+  monto: number;
+  tipo?: string | null;
+}
+
+export const esIngreso = (m: Pick<MovimientoParaCuadrar, 'tipo'>) =>
+  m.tipo === 'ingreso';
 
 /** Una solicitud de recepción del turno, como la lee la caja (§9.45). */
 export interface SolicitudDelTurno {
@@ -177,11 +190,14 @@ export const vendidoPorItem = (
 export const cuadrar = (
   turno: TurnoParaCuadrar,
   documentos: DocumentoDelTurno[],
-  retiros: { monto: number }[],
+  movimientos: MovimientoParaCuadrar[],
 ) => {
   // §9.45: lo emitido y las solicitudes del turno (`conLasSolicitudes`).
   const emitidos = documentos.filter(cuentaEnLaCaja);
-  const totalRetiros = retiros.reduce((s, r) => s + Number(r.monto), 0);
+  const suma = (lista: MovimientoParaCuadrar[]) =>
+    lista.reduce((s, m) => s + Number(m.monto), 0);
+  const totalIngresos = suma(movimientos.filter(esIngreso));
+  const totalRetiros = suma(movimientos.filter((m) => !esIngreso(m)));
   const declarado: Record<MedioDePago, number | null> = {
     efectivo: turno.declarado_efectivo,
     debito: turno.declarado_debito,
@@ -193,7 +209,10 @@ export const cuadrar = (
     const vendido = suyos.reduce((s, d) => s + Number(d.total), 0);
     const esperado =
       medio === 'efectivo'
-        ? Number(turno.sencillo_inicial) + vendido - totalRetiros
+        ? Number(turno.sencillo_inicial) +
+          vendido +
+          totalIngresos -
+          totalRetiros
         : vendido;
     const dec = declarado[medio];
     return {
@@ -214,6 +233,7 @@ export const cuadrar = (
   return {
     lineas,
     vendido: emitidos.reduce((s, d) => s + Number(d.total), 0),
+    ingresos: totalIngresos,
     retiros: totalRetiros,
     esperado,
     declarado: declaradoTotal,

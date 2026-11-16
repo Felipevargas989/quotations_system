@@ -99,6 +99,7 @@ const CIERRE: caja.CierreDeCaja = {
       linea("transferencia", 40000, 40000),
     ],
     vendido: 367500,
+    ingresos: 30000,
     retiros: 50000,
     esperado: 337500,
     declarado: 337500,
@@ -131,6 +132,24 @@ const CIERRE: caja.CierreDeCaja = {
       monto: 50000,
       motivo: "Entregado a administración",
       creado_en: "2026-11-09T17:30:00Z",
+    },
+  ],
+  movimientos: [
+    {
+      id: 1,
+      tipo: "retiro" as const,
+      monto: 50000,
+      motivo: "Entregado a administración",
+      creado_por_nombre: null,
+      creado_en: "2026-11-09T17:30:00Z",
+    },
+    {
+      id: 2,
+      tipo: "ingreso" as const,
+      monto: 30000,
+      motivo: "Sencillo que mandó Felipe",
+      creado_por_nombre: "Ana",
+      creado_en: "2026-11-09T15:10:00Z",
     },
   ],
   correcciones: [],
@@ -189,6 +208,26 @@ describe("los cierres de la caja (§9.43)", () => {
         "Un convenio cargado como crédito",
       ),
     );
+  });
+
+  it("§9.51: los ingresos y los retiros en líneas separadas, por hora y con quién los anotó", async () => {
+    abrir();
+    fireEvent.click((await screen.findByText("Por revisar")).closest("tr")!);
+    const seccion = (await screen.findByText("Movimientos del turno"))
+      .parentElement as HTMLElement;
+    // El total de cada uno y su fila.
+    expect(within(seccion).getAllByText("+$30.000")).toHaveLength(2);
+    expect(within(seccion).getAllByText("−$50.000")).toHaveLength(2);
+    const filas = within(seccion).getAllByRole("listitem");
+    // Por hora: el ingreso de las 15:10 antes del retiro de las 17:30.
+    expect(filas[0]).toHaveTextContent("Ingreso");
+    expect(filas[0]).toHaveTextContent("· Ana");
+    expect(filas[1]).toHaveTextContent("Retiro");
+    // La fila vieja sin nombre no muestra nada.
+    expect(filas[1]).not.toHaveTextContent("·");
+    expect(
+      screen.getByText("sencillo + ventas + ingresos − retiros"),
+    ).toBeInTheDocument();
   });
 
   // Felipe, 09-11: *"que diga las dos"*. La hora sale en la zona y el

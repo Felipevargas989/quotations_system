@@ -664,6 +664,13 @@ export class FacturasService {
         iva: o.iva != null ? Number(o.iva) : null,
         total: Number(o.total),
         facturado: facturado.porOC.get(o.id) ?? 0,
+        // §9.52: sin facturas contra ella, nada facturado por línea.
+        // Nulo (no se sabe por línea) se respeta.
+        lineasFacturadas: !facturado.lineasPorOC
+          ? undefined
+          : facturado.lineasPorOC.has(o.id)
+            ? (facturado.lineasPorOC.get(o.id) ?? null)
+            : [],
         pdf: o.documento_id
           ? await this.repo.nombreDelDocumento(o.documento_id, quotationId)
           : null,
