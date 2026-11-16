@@ -45,6 +45,15 @@ export interface EstadoDeLaCaja {
   cuenta_pulseras?: boolean;
 }
 
+/** §9.53: la apertura contra el cierre anterior de la misma caja. Nula en
+ *  el primer turno de la historia. Solo la ve quien revisa. */
+export interface AperturaComparada {
+  /** El efectivo que declaró el cierre anterior. */
+  cierre_anterior: number;
+  /** Sencillo inicial − cierre anterior: negativa falta, positiva sobra. */
+  diferencia: number;
+}
+
 export type EstadoDelCierre = "abierta" | "por_revisar" | "revisada";
 
 export interface CierreEnLaLista {
@@ -57,6 +66,8 @@ export interface CierreEnLaLista {
   revisado_por_nombre: string | null;
   revisado_en: string | null;
   estado: EstadoDelCierre;
+  /** §9.53: opcional, el motor de antes no la manda. */
+  apertura?: AperturaComparada | null;
   vendido: number;
   declarado: number | null;
   diferencia: number | null;

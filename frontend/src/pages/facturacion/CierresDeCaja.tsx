@@ -18,6 +18,7 @@ import {
   type CierreEnLaLista,
 } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import ChipDeApertura from "./ChipDeApertura";
 import ChipDePulseras from "./ChipDePulseras";
 import MovimientosDelCierre from "./MovimientosDelCierre";
 import { Seccion } from "./PiezasDelDocumento";
@@ -28,7 +29,8 @@ import { Seccion } from "./PiezasDelDocumento";
 // «Revisado · cuadra», «Revisado · faltan $X») y cada cierre en el panel de
 // la derecha: por medio de pago, lo declarado, lo de Eventia y la
 // diferencia; sus documentos, con el medio de pago que se corrige ahí; lo
-// vendido; los ingresos y los retiros (§9.51, `MovimientosDelCierre`); y
+// vendido; §9.53, con cuánto se abrió y si calza con el cierre anterior
+// (`ChipDeApertura`, en la lista y en el detalle); los ingresos y los retiros (§9.51, `MovimientosDelCierre`); y
 // «Marcar revisado» con su nota.
 
 const clp = (n: number) =>
@@ -169,6 +171,19 @@ function Detalle({
               "Sigue abierta"
             )}
           </p>
+          {/* §9.53: con cuánto se abrió y si calza con el cierre anterior. */}
+          <div className="flex flex-wrap items-start justify-between gap-2 text-sm text-gray-700">
+            <p>
+              Abrió con <strong>{clp(c.sencillo_inicial)}</strong>
+              {c.apertura && (
+                <span className="text-gray-500">
+                  {" "}
+                  · cierre anterior {clp(c.apertura.cierre_anterior)}
+                </span>
+              )}
+            </p>
+            <ChipDeApertura apertura={c.apertura} />
+          </div>
           <Seccion titulo="Por medio de pago">
             <table className="w-full table-fixed text-sm">
               <thead>
@@ -396,11 +411,12 @@ export default function CierresDeCaja() {
         <table className="w-full table-fixed text-sm">
           <thead>
             <tr className="text-left text-xs text-gray-500">
-              <th className="w-[22%] pb-1 font-normal">Día</th>
-              <th className="w-[20%] pb-1 font-normal">Quién</th>
+              <th className="w-[15%] pb-1 font-normal">Día</th>
+              <th className="w-[15%] pb-1 font-normal">Quién</th>
+              <th className="w-[24%] pb-1 text-right font-normal">Abrió con</th>
               <th className="pb-1 text-right font-normal">Vendido</th>
               <th className="pb-1 text-right font-normal">Declarado</th>
-              <th className="w-[30%] pb-1 text-right font-normal">Estado</th>
+              <th className="w-[22%] pb-1 text-right font-normal">Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -420,6 +436,12 @@ export default function CierresDeCaja() {
                 </td>
                 <td className="py-1.5">
                   {c.cerrada_por_nombre ?? c.abierta_por_nombre}
+                </td>
+                <td className="py-1.5 text-right">
+                  <span className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+                    {clp(c.sencillo_inicial)}
+                    <ChipDeApertura apertura={c.apertura} />
+                  </span>
                 </td>
                 <td className="py-1.5 text-right">{clp(c.vendido)}</td>
                 <td className="py-1.5 text-right">
