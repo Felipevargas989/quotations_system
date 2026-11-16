@@ -22,11 +22,17 @@ import type {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  IngresoDeCajaDto,
   LoVendidoQueryDto,
   RetiroDeCajaDto,
   RevisarCierreDto,
 } from './caja.dto';
-import { CajaRepository, type TurnoDeCaja } from './caja.repository';
+import {
+  CajaRepository,
+  type MovimientoDeCaja,
+  type TipoDeMovimiento,
+  type TurnoDeCaja,
+} from './caja.repository';
 import {
   conLasSolicitudes,
   cuadrar,
@@ -38,6 +44,31 @@ import {
  *  *"que no sea escrito a mano"*), hasta 60 como la base. */
 const nombreDelPerfil = (user: User) =>
   (textoLimpio(user.full_name) || 'Sin nombre').slice(0, 60);
+
+/** §9.51: cada movimiento como lo ve la pantalla. */
+const comoMovimiento = (m: MovimientoDeCaja) => ({
+  id: m.id,
+  tipo: m.tipo,
+  monto: m.monto,
+  motivo: m.motivo,
+  creado_por_nombre: m.creado_por_nombre,
+  creado_en: m.created_at,
+});
+
+/** §9.51: `movimientos` (los dos tipos, por hora) y `retiros` (solo los
+ *  retiros, como antes: la pantalla vieja los sigue leyendo mientras el
+ *  motor nuevo ya está arriba). */
+const losMovimientos = (movimientos: MovimientoDeCaja[]) => ({
+  movimientos: movimientos.map(comoMovimiento),
+  retiros: movimientos
+    .filter((m) => m.tipo === 'retiro')
+    .map((m) => ({
+      id: m.id,
+      monto: m.monto,
+      motivo: m.motivo,
+      creado_en: m.created_at,
+    })),
+});
 
 /** «Lo vendido» mira hasta un año de una vez. */
 const DIAS_MAXIMOS = 366;
@@ -51,7 +82,7 @@ const DIA = 24 * 60 * 60 * 1000;
  * Camila valide viendo qué se vendió y cuánto debería tener"*.
  *
  * - Quien opera la caja (permiso «Caja de recepción») la abre con su
- *   sencillo, anota los retiros y la cierra declarando los cuatro montos.
+ *   sencillo, anota los ingresos y retiros (§9.51) y la cierra declarando los cuatro montos.
  *   Nunca ve lo esperado ni la diferencia: las respuestas de este lado no
  *   los traen.
  * - Quien revisa (permiso «Revisar cierres de caja») ve cada cierre con lo
@@ -95,12 +126,13 @@ export class CajaService {
   }
 
   /** Lo que ve quien opera la caja: si está abierta, desde cuándo, con
-   *  cuánto sencillo y sus retiros. Sin lo vendido (cierre ciego). */
+   *  cuánto sencillo y sus ingresos y retiros. Sin lo vendido ni lo
+   *  esperado (cierre ciego). */
   async estado(user: User) {
     const turno = await this.repo.turnoAbierto(user.company_id);
     if (!turno) return { abierta: null };
-    const [retiros, cuentaPulseras] = await Promise.all([
-      this.repo.retiros(user.company_id, [turno.id]),
+    const [movimientos, cuentaPulseras] = await Promise.all([
+      this.repo.movimientos(user.company_id, [turno.id]),
       this.pideLasPulseras(user.company_id),
     ]);
     return {
@@ -111,12 +143,7 @@ export class CajaService {
         abierta_por_nombre: turno.abierta_por_nombre,
         abierta_en: turno.abierta_en,
         sencillo_inicial: turno.sencillo_inicial,
-        retiros: retiros.map((r) => ({
-          id: r.id,
-          monto: r.monto,
-          motivo: r.motivo,
-          creado_en: r.created_at,
-        })),
+        ...losMovimientos(movimientos),
       },
     };
   }
@@ -139,15 +166,33 @@ export class CajaService {
   }
 
   async retiro(user: User, dto: RetiroDeCajaDto) {
+    return this.anotar(user, 'retiro', dto);
+  }
+
+  /** §9.51: la plata que mandan el dueño o la administradora. No es venta:
+   *  solo suma al efectivo esperado del cierre. */
+  async ingreso(user: User, dto: IngresoDeCajaDto) {
+    return this.anotar(user, 'ingreso', dto);
+  }
+
+  /** Un ingreso o un retiro al turno abierto, con quién (el perfil de la
+   *  sesión) y la hora. */
+  private async anotar(
+    user: User,
+    tipo: TipoDeMovimiento,
+    dto: { monto: number; motivo: string },
+  ) {
     const turno = await this.abiertaO409(user.company_id);
     const motivo = textoLimpio(dto.motivo);
-    if (!motivo) throw new BadRequestException('Falta el motivo del retiro');
-    await this.repo.agregarRetiro({
+    if (!motivo) throw new BadRequestException(`Falta el motivo del ${tipo}`);
+    await this.repo.agregarMovimiento({
       company_id: user.company_id,
       turno_id: turno.id,
+      tipo,
       monto: dto.monto,
       motivo,
       creado_por: user.id ?? null,
+      creado_por_nombre: nombreDelPerfil(user),
     });
     return this.estado(user);
   }
@@ -193,13 +238,13 @@ export class CajaService {
           cargos.push(cargo);
       const correos = await this.repo.correosDe(companyId, cargos);
       if (!correos.length) return;
-      const [documentos, retiros, empresa, pulseras] = await Promise.all([
+      const [documentos, movimientos, empresa, pulseras] = await Promise.all([
         this.delTurno(companyId, [turno.id]),
-        this.repo.retiros(companyId, [turno.id]),
+        this.repo.movimientos(companyId, [turno.id]),
         this.repo.nombreDeLaEmpresa(companyId),
         this.pulserasDelCierre(companyId, turno.id),
       ]);
-      const c = cuadrar(turno, documentos, retiros);
+      const c = cuadrar(turno, documentos, movimientos);
       await this.email.sendEmail(correos, EmailStructure.CIERRE_DE_CAJA, {
         companyName: empresa,
         quien: turno.cerrada_por_nombre ?? turno.abierta_por_nombre,
@@ -212,6 +257,7 @@ export class CajaService {
           diferencia: l.diferencia ?? 0,
         })),
         vendido: c.vendido,
+        ingresos: c.ingresos,
         retiros: c.retiros,
         diferencia: c.diferencia ?? 0,
         comentario: turno.comentario,
@@ -349,9 +395,9 @@ export class CajaService {
     const companyId = user.company_id;
     const turnos = await this.repo.turnos(companyId);
     const ids = turnos.map((t) => t.id);
-    const [documentos, retiros] = await Promise.all([
+    const [documentos, movimientos] = await Promise.all([
       this.delTurno(companyId, ids),
-      this.repo.retiros(companyId, ids),
+      this.repo.movimientos(companyId, ids),
     ]);
     return turnos.map((t) => {
       const c = cuadrar(
@@ -359,7 +405,7 @@ export class CajaService {
         documentos.filter(
           (d) => (d as { turno_de_caja_id?: number }).turno_de_caja_id === t.id,
         ),
-        retiros.filter((r) => r.turno_id === t.id),
+        movimientos.filter((r) => r.turno_id === t.id),
       );
       return {
         ...resumen(t),
@@ -378,13 +424,15 @@ export class CajaService {
     const companyId = user.company_id;
     const turno = await this.repo.turno(companyId, id);
     if (!turno) throw new NotFoundException('Ese cierre no existe');
-    const [documentos, retiros, correcciones, pulseras] = await Promise.all([
-      this.delTurno(companyId, [id]),
-      this.repo.retiros(companyId, [id]),
-      this.repo.correcciones(companyId, id),
-      this.pulserasDelCierre(companyId, id),
-    ]);
-    const c = cuadrar(turno, documentos, retiros);
+    const [documentos, movimientos, correcciones, pulseras] = await Promise.all(
+      [
+        this.delTurno(companyId, [id]),
+        this.repo.movimientos(companyId, [id]),
+        this.repo.correcciones(companyId, id),
+        this.pulserasDelCierre(companyId, id),
+      ],
+    );
+    const c = cuadrar(turno, documentos, movimientos);
     return {
       ...resumen(turno),
       comentario: turno.comentario,
@@ -403,12 +451,7 @@ export class CajaService {
         // §9.45: la solicitud de recepción que esta fila representa.
         solicitud_id: d.solicitud_id ?? null,
       })),
-      retiros: retiros.map((r) => ({
-        id: r.id,
-        monto: r.monto,
-        motivo: r.motivo,
-        creado_en: r.created_at,
-      })),
+      ...losMovimientos(movimientos),
       correcciones,
     };
   }

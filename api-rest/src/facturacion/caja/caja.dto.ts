@@ -41,6 +41,19 @@ export class RetiroDeCajaDto {
   motivo: string;
 }
 
+/** §9.51: la plata que entra a la caja (la mandan el dueño o la
+ *  administradora; quién, en el motivo). No es venta. */
+export class IngresoDeCajaDto {
+  @IsInt(PESOS)
+  @Min(1, { message: 'El ingreso tiene que ser mayor que cero' })
+  monto: number;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Falta el motivo del ingreso' })
+  @MaxLength(120)
+  motivo: string;
+}
+
 /** El cierre ciego: los cuatro montos que tiene quien cierra. */
 export class CerrarCajaDto {
   @IsInt(PESOS)

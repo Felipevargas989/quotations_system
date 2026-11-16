@@ -3,19 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ConfirmInline from "../../components/ConfirmInline";
 import NumberInput from "../../components/inputs/NumberInput";
 import { toast } from "../../components/toast/Toast";
-import {
-  abrirCaja,
-  anotarRetiro,
-  cerrarCaja,
-  getCaja,
-} from "../../services/caja.service";
+import { abrirCaja, cerrarCaja, getCaja } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import CajaCerrada from "./CajaCerrada";
+import MovimientosDelTurno from "./MovimientosDelTurno";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LA CAJA DE RECEPCIÓN, DEL LADO DE QUIEN LA OPERA (doc 19 §9.43, sprint 2;
 // la maqueta del 09-11, «ok hazlo así»). Se abre con el sencillo, a nombre
-// del perfil de la sesión (no se escribe quién), se anotan los retiros y se
+// del perfil de la sesión (no se escribe quién), se anotan los ingresos y
+// los retiros (`MovimientosDelTurno`, §9.51) y se
 // cierra a ciegas: quien cierra anota cuánto tiene en efectivo, débito,
 // crédito y transferencia, sin ver lo esperado ni la diferencia (lo revisa
 // el administrador en «Cierres de la caja»). Cerrada, no se reabre, y la
@@ -54,10 +51,6 @@ export default function CajaDeRecepcion({
   const abierta = caja.data?.abierta ?? null;
 
   const [sencillo, setSencillo] = useState<number | undefined>(undefined);
-  const [retiro, setRetiro] = useState<{
-    monto?: number;
-    motivo: string;
-  } | null>(null);
   const [montos, setMontos] = useState<Partial<Record<Medio, number>>>({});
   const [comentario, setComentario] = useState("");
   // §9.49: las pulseras que quedan, contadas a ciegas.
@@ -79,19 +72,6 @@ export default function CajaDeRecepcion({
       setSencillo(undefined);
     },
     onError: (e) => error(e, "No se pudo abrir la caja."),
-  });
-
-  const guardarRetiro = useMutation({
-    mutationFn: () =>
-      anotarRetiro({
-        monto: retiro?.monto ?? 0,
-        motivo: retiro?.motivo.trim() ?? "",
-      }),
-    onSuccess: (datos) => {
-      alDia(datos);
-      setRetiro(null);
-    },
-    onError: (e) => error(e, "No se pudo anotar el retiro."),
   });
 
   const cerrar = useMutation({
@@ -192,75 +172,7 @@ export default function CajaDeRecepcion({
         </span>
       </p>
 
-      <Seccion titulo="Retiros del turno">
-        {abierta.retiros.length === 0 ? (
-          <p className="text-xs text-gray-400">Sin retiros.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100 text-sm">
-            {abierta.retiros.map((r) => (
-              <li key={r.id} className="flex justify-between py-1.5">
-                <span>
-                  {hora(r.creado_en)} · {r.motivo}
-                </span>
-                <span>{clp(r.monto)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {retiro ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="block w-36">
-              <span className={titulo}>Monto</span>
-              <NumberInput
-                value={retiro.monto}
-                min={1}
-                currency
-                onChange={(v) => setRetiro({ ...retiro, monto: v })}
-                className="text-sm"
-              />
-            </label>
-            <label className="block min-w-[12rem] flex-1">
-              <span className={titulo}>Motivo</span>
-              <input
-                value={retiro.motivo}
-                maxLength={120}
-                placeholder="Entregado a administración"
-                onChange={(e) =>
-                  setRetiro({ ...retiro, motivo: e.target.value })
-                }
-                className={casilla}
-              />
-            </label>
-            <button
-              type="button"
-              disabled={
-                !retiro.monto ||
-                !retiro.motivo.trim() ||
-                guardarRetiro.isPending
-              }
-              onClick={() => guardarRetiro.mutate()}
-              className={boton}
-            >
-              Guardar
-            </button>
-            <button
-              type="button"
-              onClick={() => setRetiro(null)}
-              className="px-2 py-2 text-sm text-gray-600 hover:underline"
-            >
-              Cancelar
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setRetiro({ motivo: "" })}
-            className="text-xs font-semibold text-blue-600 hover:underline"
-          >
-            + Anotar retiro
-          </button>
-        )}
-      </Seccion>
+      <MovimientosDelTurno abierta={abierta} />
 
       <Seccion titulo="Cerrar caja: ¿cuánto tienes?">
         <div className="grid gap-3 sm:grid-cols-2">

@@ -14,7 +14,12 @@ import { LARGO_MAXIMO } from '../datos-del-receptor';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
-import { cuadrarConLoQueQueda, lineasDeLaOC } from './lineas-de-la-oc';
+import {
+  cuadrarConLoQueQueda,
+  lineasDeLaOC,
+  lineasDelSaldo,
+  type FacturadoDeLaOC,
+} from './lineas-de-la-oc';
 import {
   pagoDe,
   PLAZO_POR_DEFECTO,
@@ -97,6 +102,8 @@ export interface OrdenAFacturar {
   total: number;
   /** Las facturas emitidas (o por confirmar) contra esta OC. */
   facturado: number;
+  /** §9.52: lo ya facturado por línea; nulo si no se sabe (rebajada). */
+  lineasFacturadas?: FacturadoDeLaOC;
   /** El nombre del PDF en Documentos, si lo hay. */
   pdf: string | null;
 }
@@ -407,9 +414,13 @@ export function armarBorrador(
     todoElEvento ? evento.personas : null,
   );
   // §9.37: con sus líneas, la factura va línea por línea, como la OC.
-  const deLaOC = oc
-    ? lineasDeLaOC(oc, parte, (t) => glosaYDescripcion(t).descripcion)
-    : null;
+  // §9.52: su saldo, cada línea menos lo ya facturado; si no calza, como antes.
+  const glosaDeLaOC = (t: string) => glosaYDescripcion(t).descripcion;
+  const delSaldo =
+    oc && facturado > 0 && parte === queda
+      ? lineasDelSaldo(oc, oc.lineasFacturadas, queda, glosaDeLaOC)
+      : null;
+  const deLaOC = oc ? (delSaldo ?? lineasDeLaOC(oc, parte, glosaDeLaOC)) : null;
 
   if (tipo === 39)
     return {

@@ -8,6 +8,8 @@ import {
 import {
   cuadrarConLoQueQueda,
   lineasDeLaOC,
+  lineasDelSaldo,
+  lineasFacturadasDeLasOC,
   precioConIvaDe,
 } from '../facturas/lineas-de-la-oc';
 import { propuestaDeLaLectura } from '../ordenes-de-compra/leer-orden-de-compra';
@@ -227,5 +229,216 @@ describe('BelIA lee las líneas de la OC (§9.37)', () => {
     expect(r?.avisos.join(' ')).toContain(
       'Las líneas de la OC no suman su monto',
     );
+  });
+});
+
+/**
+ * EL SALDO DE LA OC CON SUS LÍNEAS (doc 19 §9.52). El caso real: la OC N°
+ * 16.617 de Ecofor (cotización N° 616), tres líneas netas; la factura 391
+ * fue por 190 de 379, 97 de 194 y 3 de 6 (neto $8.351.500, total
+ * $9.938.285). Lo que queda va en las mismas tres líneas.
+ */
+describe('El saldo de la OC, línea por línea (§9.52)', () => {
+  const PENSION = 'SERVICIO PENSIÓN COMPLETA TURNO DÍA';
+  const ALMUERZO = 'SERVICIO ALMUERZO TURNO NOCHE';
+  const LAVANDERIA = 'SERVICIO DE LAVANDERIA';
+  const LINEAS_ECOFOR = [
+    { descripcion: PENSION, cantidad: 379, precio: 40000, con_iva: false },
+    { descripcion: ALMUERZO, cantidad: 194, precio: 7500, con_iva: false },
+    { descripcion: LAVANDERIA, cantidad: 6, precio: 8000, con_iva: false },
+  ];
+  // Como quedó guardado el detalle de la 391: en neto.
+  const FACTURA_391 = [
+    {
+      descripcion: PENSION,
+      descripcionLarga: 'Se facturan 190 de 379',
+      cantidad: 190,
+      precio: 40000,
+    },
+    {
+      descripcion: ALMUERZO,
+      descripcionLarga: 'Se facturan 97 de 194',
+      cantidad: 97,
+      precio: 7500,
+    },
+    {
+      descripcion: LAVANDERIA,
+      descripcionLarga: 'Se facturan 3 de 6',
+      cantidad: 3,
+      precio: 8000,
+    },
+  ];
+  const ECOFOR: OrdenAFacturar = {
+    ...OC,
+    id: 13,
+    numero: '16617',
+    descripcion: null,
+    lineas: LINEAS_ECOFOR,
+    neto: 16663000,
+    iva: 3165970,
+    total: 19828970,
+    facturado: 9938285,
+    lineasFacturadas: [FACTURA_391],
+    pdf: null,
+  };
+  const ctxEcofor = (oc: Partial<OrdenAFacturar> = {}) =>
+    contexto({
+      evento: {
+        ...contexto().evento!,
+        numero: 616,
+        total: 19054055,
+        personas: null,
+      },
+      oc: { ...ECOFOR, ...oc },
+      facturadoDelEvento: 9938285,
+      totalDeLasOC: 19828970,
+    });
+
+  it('Ecofor: 189 de 379, 97 de 194 y 3 de 6, por los $9.890.685 que le quedan a la OC', () => {
+    const { pedida, origenes } = armarBorrador(ctxEcofor());
+    expect(
+      pedida.lineas.map((l) => [
+        l.descripcion,
+        l.descripcion_larga,
+        l.cantidad,
+        l.precio,
+      ]),
+    ).toEqual([
+      [PENSION, 'Se facturan 189 de 379', 189, 47600],
+      [ALMUERZO, 'Se facturan 97 de 194', 97, 8925],
+      [LAVANDERIA, 'Se facturan 3 de 6', 3, 9520],
+    ]);
+    expect(origenes.detalle).toBe('orden_de_compra');
+    const r = revisarDte(pedida, ctxEcofor(), 392, '2026-11-16');
+    expect(r.montos).toMatchObject({
+      neto: 8311500,
+      iva: 1579185,
+      total: 9890685,
+    });
+    expect(r.problemas).toEqual([]);
+    expect(r.lineas.map((l) => l.descripcionLarga)).toEqual([
+      'Se facturan 189 de 379',
+      'Se facturan 97 de 194',
+      'Se facturan 3 de 6',
+    ]);
+    // E1 no cambia: va por la OC y avisa lo que suma la cotización.
+    expect(r.avisos.join(' ')).toContain('La cotización suma $19.054.055');
+  });
+
+  it('si una línea no calza (otra descripción u otro precio), el saldo va en una línea por el monto', () => {
+    for (const cambio of [
+      { descripcion: 'OTRA COSA' },
+      { precio: 41000 },
+      { descuento: 10 },
+    ]) {
+      const facturada = [
+        { ...FACTURA_391[0], ...cambio },
+        ...FACTURA_391.slice(1),
+      ];
+      const { pedida } = armarBorrador(
+        ctxEcofor({ lineasFacturadas: [facturada] }),
+      );
+      expect(pedida.lineas).toHaveLength(1);
+      expect(pedida.lineas[0]).toMatchObject({ cantidad: 1, precio: 9890685 });
+    }
+  });
+
+  it('por posición: la misma factura con sus líneas en otro orden no calza', () => {
+    const otroOrden = [FACTURA_391[1], FACTURA_391[0], FACTURA_391[2]];
+    expect(lineasDelSaldo(ECOFOR, [otroOrden], 9890685)).toBeNull();
+  });
+
+  it('si una línea queda en cero, o las líneas no suman lo que queda, por el monto', () => {
+    const lavanderiaEntera = [
+      FACTURA_391[0],
+      FACTURA_391[1],
+      { ...FACTURA_391[2], cantidad: 6 },
+    ];
+    expect(lineasDelSaldo(ECOFOR, [lavanderiaEntera], 9862125)).toBeNull();
+    // La OC dice que le quedan $500.000 menos de lo que suman sus líneas.
+    expect(lineasDelSaldo(ECOFOR, [FACTURA_391], 9390685)).toBeNull();
+  });
+
+  it('una parte (el 30 %) después de la primera factura sigue como antes, no línea por línea', () => {
+    const { pedida } = armarBorrador({ ...ctxEcofor(), porcentaje: 30 });
+    expect(pedida.lineas.every((l) => l.descripcion_larga == null)).toBe(true);
+  });
+
+  it('sin facturas antes, igual que hoy: toda la OC sin «Se facturan»', () => {
+    const { pedida } = armarBorrador(
+      ctxEcofor({ facturado: 0, lineasFacturadas: [] }),
+    );
+    expect(pedida.lineas.map((l) => [l.cantidad, l.descripcion_larga])).toEqual(
+      [
+        [379, null],
+        [194, null],
+        [6, null],
+      ],
+    );
+  });
+
+  describe('lo facturado por línea, con las notas de crédito (cadena)', () => {
+    const fila = (id: number, cambios: Record<string, unknown> = {}) => ({
+      id,
+      tipo: 33,
+      folio: 390 + id,
+      estado: 'emitido',
+      total: 9938285,
+      fecha_emision: '2026-11-13',
+      modifica_id: null,
+      codigo_referencia: null,
+      orden_de_compra_id: 13,
+      detalle: FACTURA_391,
+      ...cambios,
+    });
+    const nota = (
+      id: number,
+      modifica: number,
+      codigo: number,
+      tipo = 61,
+      total = 9938285,
+    ) => ({
+      ...fila(id, {
+        tipo,
+        total,
+        modifica_id: modifica,
+        codigo_referencia: codigo,
+        detalle: [],
+      }),
+    });
+
+    it('una factura vigente cuenta su detalle; una anulada por su NC, no', () => {
+      const porOC = lineasFacturadasDeLasOC([fila(1), fila(2), nota(3, 2, 1)]);
+      expect(porOC.get(13)).toEqual([FACTURA_391]);
+    });
+
+    it('con la NC anulada por una ND, la factura vuelve a contar', () => {
+      const porOC = lineasFacturadasDeLasOC([
+        fila(1),
+        fila(2),
+        nota(3, 2, 1),
+        nota(4, 3, 1, 56),
+      ]);
+      expect(porOC.get(13)).toEqual([FACTURA_391, FACTURA_391]);
+    });
+
+    it('una factura rebajada por monto no se sabe por línea: el saldo va por el monto', () => {
+      const porOC = lineasFacturadasDeLasOC([
+        fila(1),
+        nota(2, 1, 3, 61, 1000000),
+      ]);
+      expect(porOC.get(13)).toBeNull();
+      const { pedida } = armarBorrador(
+        ctxEcofor({ facturado: 8938285, lineasFacturadas: porOC.get(13) }),
+      );
+      expect(pedida.lineas).toHaveLength(1);
+      expect(pedida.lineas[0].precio).toBe(19828970 - 8938285);
+    });
+
+    it('lo rechazado no cuenta', () => {
+      expect(
+        lineasFacturadasDeLasOC([fila(1, { estado: 'rechazado' })]).get(13),
+      ).toBeUndefined();
+    });
   });
 });

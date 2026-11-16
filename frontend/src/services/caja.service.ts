@@ -3,7 +3,7 @@ import type { MedioDePago } from "../constants/facturacion";
 
 /**
  * LA CAJA DE RECEPCIÓN (doc 19 §9.43, sprint 2). Quien opera la caja la
- * abre, anota los retiros y la cierra a ciegas: lo que recibe nunca trae lo
+ * abre, anota los ingresos y retiros (§9.51) y la cierra a ciegas: lo que recibe nunca trae lo
  * esperado. Quien revisa ve los cierres con lo declarado, lo esperado y la
  * diferencia por medio de pago.
  */
@@ -17,11 +17,24 @@ export interface RetiroDeCaja {
   creado_en: string;
 }
 
+/** §9.51: la plata que entra (la mandan el dueño o la administradora; no
+ *  es venta) o sale de la caja durante el turno. */
+export type TipoDeMovimiento = "ingreso" | "retiro";
+
+export interface MovimientoDeCaja extends RetiroDeCaja {
+  tipo: TipoDeMovimiento;
+  /** Quién lo anotó; nulo en los de antes del 16-11. */
+  creado_por_nombre: string | null;
+}
+
 export interface CajaAbierta {
   id: number;
   abierta_por_nombre: string;
   abierta_en: string;
   sencillo_inicial: number;
+  /** §9.51: los ingresos y retiros, por hora. Opcional: el motor de antes
+   *  solo manda `retiros`. */
+  movimientos?: MovimientoDeCaja[];
   retiros: RetiroDeCaja[];
 }
 
@@ -71,6 +84,8 @@ export interface CierreDeCaja
   cuadre: {
     lineas: LineaDelCuadre[];
     vendido: number;
+    /** §9.51: opcional, el motor de antes no lo manda. */
+    ingresos?: number;
     retiros: number;
     esperado: number;
     declarado: number | null;
@@ -97,6 +112,8 @@ export interface CierreDeCaja
      *  «solicitud_aprobada». */
     solicitud_id: number | null;
   }[];
+  /** §9.51: opcional, el motor de antes solo manda `retiros`. */
+  movimientos?: MovimientoDeCaja[];
   retiros: RetiroDeCaja[];
   correcciones: {
     id: number;
@@ -130,6 +147,13 @@ export const anotarRetiro = async (datos: {
   motivo: string;
 }): Promise<EstadoDeLaCaja> =>
   (await apiRequest(`${base}/retiros`, "POST", datos)) as EstadoDeLaCaja;
+
+/** §9.51: la plata que mandan el dueño o la administradora. */
+export const anotarIngreso = async (datos: {
+  monto: number;
+  motivo: string;
+}): Promise<EstadoDeLaCaja> =>
+  (await apiRequest(`${base}/ingresos`, "POST", datos)) as EstadoDeLaCaja;
 
 /** El cierre ciego: responde solo cuándo cerró. */
 export const cerrarCaja = async (datos: {
