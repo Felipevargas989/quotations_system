@@ -263,6 +263,7 @@ const repo = () => ({
   }),
   turnos: jest.fn().mockResolvedValue([TURNO]),
   turno: jest.fn().mockResolvedValue(TURNO),
+  turnoAnterior: jest.fn().mockResolvedValue(null),
   movimientos: jest.fn().mockResolvedValue([
     {
       id: 1,

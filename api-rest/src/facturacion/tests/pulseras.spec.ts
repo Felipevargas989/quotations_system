@@ -422,6 +422,7 @@ const armarCaja = (pide: boolean) => {
   const r = {
     turnoAbierto: jest.fn().mockResolvedValue(TURNO),
     movimientos: jest.fn().mockResolvedValue([]),
+    turnoAnterior: jest.fn().mockResolvedValue(null),
     cerrar: jest
       .fn<Promise<TurnoDeCaja>, [number, number, object]>()
       .mockResolvedValue({

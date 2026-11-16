@@ -237,7 +237,7 @@ describe("los cierres de la caja (§9.43)", () => {
   const abrirElDetalle = async () => {
     abrir();
     fireEvent.click((await screen.findByText("Por revisar")).closest("tr")!);
-    return screen.findByText(/^Abrió/);
+    return screen.findByText(/^Abrió (?!con)/);
   };
 
   it("el detalle dice quién abrió y quién cerró, cada uno con su hora", async () => {
@@ -266,5 +266,53 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(await abrirElDetalle()).toHaveTextContent(
       new RegExp(`^Abrió Ana ${HORA} · Sigue abierta$`),
     );
+  });
+
+  // §9.53: con cuánto se abrió y si calza con el cierre anterior.
+  const lineaDeApertura = () =>
+    screen.getAllByText(/Abrió con/).find((e) => e.tagName === "P");
+  it("§9.53: la lista dice con cuánto se abrió y si calza con el cierre anterior", async () => {
+    c.getCierres.mockResolvedValue([
+      { ...LISTA[0], apertura: { cierre_anterior: 20000, diferencia: 0 } },
+      {
+        ...LISTA[1],
+        apertura: { cierre_anterior: 46850, diferencia: -26850 },
+      },
+      { ...LISTA[2], apertura: null },
+    ]);
+    abrir();
+    expect(await screen.findByText("Abrió con")).toBeInTheDocument();
+    const filas = screen.getAllByRole("row").slice(1);
+    expect(filas[0]).toHaveTextContent("$20.000");
+    expect(within(filas[0]).getByText("Calza")).toBeInTheDocument();
+    expect(within(filas[1]).getByText("Faltan")).toBeInTheDocument();
+    expect(
+      within(filas[1]).getByText("$26.850 menos que el cierre anterior"),
+    ).toBeInTheDocument();
+    // El primer turno de la historia no lleva chip.
+    expect(filas[2]).toHaveTextContent("$20.000");
+    expect(within(filas[2]).queryByText(/Calza|Faltan|Sobran/)).toBeNull();
+  });
+
+  it("§9.53: el detalle trae la apertura, la cifra del cierre anterior y el chip", async () => {
+    c.getCierre.mockResolvedValue({
+      ...CIERRE,
+      sencillo_inicial: 26850,
+      apertura: { cierre_anterior: 0, diferencia: 26850 },
+    });
+    await abrirElDetalle();
+    expect(lineaDeApertura()).toHaveTextContent(
+      "Abrió con $26.850 · cierre anterior $0",
+    );
+    expect(screen.getByText("Sobran")).toBeInTheDocument();
+    expect(
+      screen.getByText("$26.850 más que el cierre anterior"),
+    ).toBeInTheDocument();
+  });
+
+  it("§9.53: sin cierre anterior, solo con cuánto se abrió", async () => {
+    c.getCierre.mockResolvedValue({ ...CIERRE, apertura: null });
+    await abrirElDetalle();
+    expect(lineaDeApertura()).toHaveTextContent(/^Abrió con \$20\.000$/);
   });
 });

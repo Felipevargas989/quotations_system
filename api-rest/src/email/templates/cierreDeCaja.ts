@@ -34,6 +34,12 @@ export type CierreDeCajaParams = {
     contadas: number;
     diferencia: number;
   } | null;
+  /** §9.53: con cuánto se abrió y, si hubo un cierre anterior, la
+   *  diferencia contra lo que ese cierre declaró en efectivo. */
+  apertura?: {
+    sencillo: number;
+    comparada: { cierre_anterior: number; diferencia: number } | null;
+  } | null;
 };
 
 const NOMBRE: Record<string, string> = {
@@ -65,6 +71,21 @@ const lineaDePulseras = (p: NonNullable<CierreDeCajaParams['pulseras']>) => {
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
       Pulseras: deberían quedar ${p.deberian} · contó ${p.contadas} ·
       <strong style="color:${color};">${resultadoDePulseras(p.diferencia)}</strong>
+    </p>`;
+};
+
+/** §9.53: «Abrió con $26.850 · Calza con el cierre anterior», o «Faltan
+ *  $26.850 (el cierre anterior declaró $53.700)», en rojo si no calza. */
+const lineaDeApertura = (a: NonNullable<CierreDeCajaParams['apertura']>) => {
+  const c = a.comparada;
+  const detalle = !c
+    ? ''
+    : c.diferencia === 0
+      ? ' · <strong style="color:#15803d;">Calza</strong> con el cierre anterior'
+      : ` · <strong style="color:#b91c1c;">${c.diferencia < 0 ? 'Faltan' : 'Sobran'} ${pesos(Math.abs(c.diferencia))}</strong> (el cierre anterior declaró ${pesos(c.cierre_anterior)})`;
+  return `
+    <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
+      Abrió con ${pesos(a.sencillo)}${detalle}
     </p>`;
 };
 
@@ -109,6 +130,7 @@ export const cierreDeCajaTemplate = (p: CierreDeCajaParams): string => {
         <th style="padding:4px 8px;text-align:right;font-weight:500;">Diferencia</th>
       </tr>${filas}
     </table>
+${p.apertura ? lineaDeApertura(p.apertura) : ''}
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
       Vendido en el turno: ${pesos(p.vendido)} · Ingresos: ${pesos(p.ingresos ?? 0)} · Retiros: ${pesos(p.retiros)}
     </p>${p.pulseras ? lineaDePulseras(p.pulseras) : ''}

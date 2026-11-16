@@ -18,6 +18,7 @@ import { textoLimpio } from '../archivo/texto';
 // `import type` la pieza opcional llega vacía sin avisar.
 import { PulserasService } from '../pulseras/pulseras.service';
 import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
+import { compararApertura, turnoAnteriorEn } from './apertura';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,
@@ -69,6 +70,9 @@ const losMovimientos = (movimientos: MovimientoDeCaja[]) => ({
       creado_en: m.created_at,
     })),
 });
+
+/** La lista de cierres muestra los últimos 60. */
+const CIERRES_EN_LA_LISTA = 60;
 
 /** «Lo vendido» mira hasta un año de una vez. */
 const DIAS_MAXIMOS = 366;
@@ -238,12 +242,15 @@ export class CajaService {
           cargos.push(cargo);
       const correos = await this.repo.correosDe(companyId, cargos);
       if (!correos.length) return;
-      const [documentos, movimientos, empresa, pulseras] = await Promise.all([
-        this.delTurno(companyId, [turno.id]),
-        this.repo.movimientos(companyId, [turno.id]),
-        this.repo.nombreDeLaEmpresa(companyId),
-        this.pulserasDelCierre(companyId, turno.id),
-      ]);
+      const [documentos, movimientos, empresa, pulseras, apertura] =
+        await Promise.all([
+          this.delTurno(companyId, [turno.id]),
+          this.repo.movimientos(companyId, [turno.id]),
+          this.repo.nombreDeLaEmpresa(companyId),
+          this.pulserasDelCierre(companyId, turno.id),
+          // Si la consulta falla, el correo sale igual, sin la comparación.
+          this.aperturaDe(companyId, turno).catch(() => null),
+        ]);
       const c = cuadrar(turno, documentos, movimientos);
       await this.email.sendEmail(correos, EmailStructure.CIERRE_DE_CAJA, {
         companyName: empresa,
@@ -262,6 +269,8 @@ export class CajaService {
         diferencia: c.diferencia ?? 0,
         comentario: turno.comentario,
         pulseras,
+        // §9.53: con cuánto se abrió y si calzó con el cierre anterior.
+        apertura: { sencillo: turno.sencillo_inicial, comparada: apertura },
       });
     } catch (error) {
       this.logger.warn(
@@ -390,10 +399,22 @@ export class CajaService {
     });
   }
 
-  /** Los cierres para revisar, del más nuevo al más viejo. */
+  /** §9.53: la apertura de un turno contra el cierre anterior (una
+   *  consulta). */
+  private async aperturaDe(companyId: number, turno: TurnoDeCaja) {
+    return compararApertura(
+      turno,
+      await this.repo.turnoAnterior(companyId, turno.caja, turno.abierta_en),
+    );
+  }
+
+  /** Los cierres para revisar, del más nuevo al más viejo. §9.53: se lee
+   *  uno más de los que se muestran, para que el último de la lista
+   *  también tenga su anterior, en la misma consulta. */
   async cierres(user: User) {
     const companyId = user.company_id;
-    const turnos = await this.repo.turnos(companyId);
+    const leidos = await this.repo.turnos(companyId, CIERRES_EN_LA_LISTA + 1);
+    const turnos = leidos.slice(0, CIERRES_EN_LA_LISTA);
     const ids = turnos.map((t) => t.id);
     const [documentos, movimientos] = await Promise.all([
       this.delTurno(companyId, ids),
@@ -409,6 +430,7 @@ export class CajaService {
       );
       return {
         ...resumen(t),
+        apertura: compararApertura(t, turnoAnteriorEn(t, leidos)),
         vendido: c.vendido,
         declarado: c.declarado,
         diferencia: c.diferencia,
@@ -424,19 +446,21 @@ export class CajaService {
     const companyId = user.company_id;
     const turno = await this.repo.turno(companyId, id);
     if (!turno) throw new NotFoundException('Ese cierre no existe');
-    const [documentos, movimientos, correcciones, pulseras] = await Promise.all(
-      [
+    const [documentos, movimientos, correcciones, pulseras, apertura] =
+      await Promise.all([
         this.delTurno(companyId, [id]),
         this.repo.movimientos(companyId, [id]),
         this.repo.correcciones(companyId, id),
         this.pulserasDelCierre(companyId, id),
-      ],
-    );
+        this.aperturaDe(companyId, turno),
+      ]);
     const c = cuadrar(turno, documentos, movimientos);
     return {
       ...resumen(turno),
       comentario: turno.comentario,
       nota_revision: turno.nota_revision,
+      // §9.53: nula en el primer turno de la historia.
+      apertura,
       cuadre: c,
       // §9.49: deberían quedar, contadas y la diferencia (solo quien revisa).
       pulseras,

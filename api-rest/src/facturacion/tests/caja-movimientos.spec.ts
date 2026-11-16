@@ -93,6 +93,7 @@ const RETIRO: MovimientoDeCaja = {
 const repo = () => ({
   turnoAbierto: jest.fn().mockResolvedValue(TURNO),
   turno: jest.fn().mockResolvedValue(TURNO),
+  turnoAnterior: jest.fn().mockResolvedValue(null),
   cerrar: jest.fn(),
   movimientos: jest.fn().mockResolvedValue([RETIRO]),
   agregarMovimiento: jest.fn().mockResolvedValue(undefined),
