@@ -1994,6 +1994,8 @@ actividades en el SII».
 
 **Cuando el RUT no trae nada, lo dice (16-11-2026).** Felipe escribió el 65.108.661-2, una agrupación que la nómina no trae (solo guarda a quienes tienen actividades vigentes), y *"no buscó nada"*: sí buscó, pero la pantalla callaba. Ahora `CamposDelReceptor` avisa en ámbar «No encontré datos para este RUT en Eventia ni en el SII: llénalos a mano. Al emitir quedan guardados en el cliente.», y «No pude buscar este RUT ahora…» si la búsqueda falla. El punto de más («65.108.661.-2») ya se limpiaba solo.
 
+**Y desde el 16-11-2026 las agrupaciones entran a la nómina (§9.50):** las organizaciones sin fines de lucro (subtipos 811 a 820) sin actividades se guardan sin giro, y el 65.108.661-2 ya se llena solo.
+
 **El RUT arriba (08-11; en producción desde el 08-11-2026, PR #314).** Felipe, después de probarlo
 en producción: *"el rut debería aparecer arriba de los primeros para
 ingresar, así el resto se rellena solo y se achura (¿es la mejor práctica
@@ -2725,6 +2727,65 @@ como antes). Sin OC, solo la del evento. Abajo quedan las otras OC del
 evento; la del documento ya no se repite ahí. La revisión le pasa la OC
 del documento también cuando el evento va con una sola
 (`orden_de_compra_id` del borrador). Solo pantalla.
+
+### 9.50 Las agrupaciones en la nómina del SII (16-11)
+
+Felipe, 16-11-2026: *"cuando agregué el rut 65.108.661-2 (por facturar y no
+estaban los datos del cliente) y no buscó nada"*, *"como trabajo harto con
+agrupaciones, ¿hay algún lado donde podamos traer esa info?"* y *"si carga
+todas las agrupaciones por favor"*. El gerente decidió el alcance, el giro y
+que va sin migración.
+
+**Qué entra.** Hasta hoy la carga (§9.27) guardaba solo a quien tiene
+actividades vigentes: 1.709.121 de 3.373.630 personas jurídicas. Ahora
+entran también las **organizaciones sin fines de lucro sin actividades**:
+los subtipos 811 a 820 de `CODIGO_TIPO_SUBTIPO` (junta de vecinos, club
+deportivo, fundación, corporación, asociación gremial, sindicato,
+cooperativa, «otra OSFL» y las dos educacionales de la ley 20.845). En la
+nómina del 03-08-2026 son 408.583, y 347.699 sin inicio de actividades
+(818: 200.730; 811: 88.563; 812: 29.622). **Las sociedades sin actividades
+siguen fuera** (1,3 millones; dejaron de operar).
+
+**Cómo queda la fila.** Igual que las demás, con `giro` nulo y
+`actividades` vacío; la razón social y el domicilio vigente más reciente
+como siempre (`elegirDomicilio`). Sin columna nueva: el subtipo solo decide
+quién entra (`esSinFinesDeLucro`, `contribuyenteDe`). Una organización que
+tiene actividades entra con ellas, como hoy, una sola vez (la llave es el
+RUT): si una agrupación guardada sin actividades aparece después con ellas,
+la carga siguiente la deja con sus actividades.
+
+**La carga.** Los nombres se reparten por tramo con su subtipo; por tramo
+entran los RUT con actividades y, además, las organizaciones sin fines de
+lucro que no tienen (antes, un tramo sin actividades se saltaba entero, y
+las agrupaciones viven en los 65 millones). Sigue sin vaciar la tabla: pone
+al día fila por fila y al final borra las de cargas anteriores, así que la
+búsqueda nunca queda sin datos. El registro dice cuántas organizaciones
+entraron sin actividades.
+
+**La pantalla.** `CamposDelReceptor` llena lo que viene; el giro queda
+abierto y, al emitir, en rojo (la factura no sale sin giro:
+`facturas/borrador.ts` y `archivo/factura.ts`). El aviso dice «Llenado con
+la nómina del SII. El SII no trae su giro: escríbelo.» solo cuando la fila
+viene sin giro; con giro, el de siempre. No hay giro propuesto por subtipo
+(si Felipe lo pide, es otro encargo).
+
+**Medido el 16-11 con los archivos del 03-08** (sin `PUB_NOM_ACTECOS`, que
+no estaba bajado: las actividades se simularon con «tiene inicio de
+actividades», que calza con lo guardado por 1.365 filas): entran 2.058.185
+filas, 347.699 sin actividades (1.396 de ellas sin domicilio vigente), en
+31 s sin la base contra 27 s antes, con la misma memoria. El 65108661-2
+sale «AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA», giro nulo,
+«AV BERNARDO OHIGGINS 589 BLOCK INT», SANTA JUANA (gana el domicilio
+vigente de 2018, no el de 2015; «INT» viene en la columna del bloque y
+`elegirDomicilio` le antepone «BLOCK», como a todos).
+
+**Al cargar en producción.** Unos 348 mil filas más, unos 70 a 75 MB (la
+tabla, de 359 a unos 430 MB). La carga reescribe todas las filas: deja
+unos 360 MB de versiones viejas hasta que la base las limpia sola, así que
+**se mira el disco antes** (regla de los 100 MB). En producción la de
+1,71 millones tardó 3,5 minutos; con 2,06 millones se calcula unos 4 a 4,5.
+Sin migración. Evidencia: `api-rest/src/facturacion/tests/nomina-sii.spec.ts`
+y `CamposDelReceptor.test.tsx`.
 
 ### 9.46 La factura de recepción, siempre como solicitud; la venta no depende del documento (10-11)
 
