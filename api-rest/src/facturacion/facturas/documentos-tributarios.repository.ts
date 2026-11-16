@@ -4,8 +4,13 @@ import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { Receptor } from '../archivo/tipos';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
-import { facturadoDeLasOC, type DocumentoDeLaCadena } from '../notas/cadena';
+import {
+  Cadena,
+  facturadoDeLasOC,
+  type DocumentoDeLaCadena,
+} from '../notas/cadena';
 import type { EventoAFacturar, OrdenAFacturar } from './borrador';
+import { lineasFacturadasDeLasOC } from './lineas-de-la-oc';
 import type { DocumentoConSuNombre } from './nombre-del-pdf';
 
 /** Un documento tributario (tabla `documentos_tributarios`, migración 184). */
@@ -245,7 +250,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
-        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id',
+        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, detalle',
       )
       .eq('quotation_id', quotationId)
       .eq('company_id', companyId)
@@ -253,13 +258,18 @@ export class DocumentosTributariosRepository {
       .in('tipo', [33, 39, 56, 61])
       .in('estado', FACTURADO);
     if (error) throw error;
-    return facturadoDeLasOC(
-      (
-        (data ?? []) as (DocumentoDeLaCadena & {
-          orden_de_compra_id: number | null;
-        })[]
-      ).map((d) => ({ ...d, total: Number(d.total) })),
-    );
+    const filas = (
+      (data ?? []) as (DocumentoDeLaCadena & {
+        orden_de_compra_id: number | null;
+        detalle: unknown;
+      })[]
+    ).map((d) => ({ ...d, total: Number(d.total) }));
+    const cadena = new Cadena(filas);
+    return {
+      ...facturadoDeLasOC(filas, cadena),
+      // §9.52: lo facturado de cada OC línea por línea, para su saldo.
+      lineasPorOC: lineasFacturadasDeLasOC(filas, cadena),
+    };
   }
 
   /** Un documento entero, con el archivo y la respuesta («Comprobar»,
