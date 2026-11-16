@@ -441,4 +441,37 @@ describe("los cierres de la caja (§9.43)", () => {
       screen.getByText("Perdido entre turnos").previousElementSibling,
     ).toHaveTextContent("−$2.000");
   });
+
+  it("§9.55: el turno y su franja son una unidad: se resaltan juntos y la franja abre el mismo detalle", async () => {
+    c.getCierres.mockResolvedValue([
+      { ...TURNO_A, apertura: { cierre_anterior: 30000, diferencia: -3150 } },
+      DOMINGO,
+    ]);
+    abrir();
+    const franja = (
+      await screen.findByText(/entre el cierre y la apertura/)
+    ).closest("tr") as HTMLElement;
+    const grupo = franja.closest("tbody") as HTMLElement;
+    expect(grupo).toHaveClass("group");
+    // El turno A y su franja, en el mismo grupo.
+    expect(within(grupo).getAllByRole("row")).toHaveLength(2);
+    expect(within(grupo).getByText("Por revisar")).toBeInTheDocument();
+    fireEvent.click(franja);
+    await waitFor(() => expect(c.getCierre).toHaveBeenCalledWith(6));
+  });
+
+  it("§9.55: con el panel de la caja, la fila «Abierta» lo abre en vez del detalle", async () => {
+    const onAbrirLaCaja = vi.fn();
+    c.getCierres.mockResolvedValue([TURNO_B, TURNO_A]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CierresDeCaja onAbrirLaCaja={onAbrirLaCaja} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click((await screen.findByText("Abierta")).closest("tr")!);
+    expect(onAbrirLaCaja).toHaveBeenCalledTimes(1);
+    expect(c.getCierre).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Por revisar").closest("tr")!);
+    await waitFor(() => expect(c.getCierre).toHaveBeenCalledWith(6));
+  });
 });

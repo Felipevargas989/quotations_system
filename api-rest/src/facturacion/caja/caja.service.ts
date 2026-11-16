@@ -153,6 +153,36 @@ export class CajaService {
     };
   }
 
+  /**
+   * §9.55: lo que debería haber en la caja abierta, por medio de pago, para
+   * quien revisa los cierres (la puerta pide «Revisar cierres de caja»).
+   * El efectivo: sencillo + vendido en efectivo + ingresos − retiros.
+   * Recepción nunca lo recibe: el estado no lo trae.
+   */
+  async esperado(user: User) {
+    const companyId = user.company_id;
+    const turno = await this.repo.turnoAbierto(companyId);
+    if (!turno) return { abierta: null };
+    const [documentos, movimientos] = await Promise.all([
+      this.delTurno(companyId, [turno.id]),
+      this.repo.movimientos(companyId, [turno.id]),
+    ]);
+    const c = cuadrar(turno, documentos, movimientos);
+    return {
+      abierta: {
+        id: turno.id,
+        sencillo_inicial: turno.sencillo_inicial,
+        ingresos: c.ingresos,
+        retiros: c.retiros,
+        lineas: c.lineas.map((l) => ({
+          medio: l.medio,
+          vendido: l.vendido,
+          esperado: l.esperado,
+        })),
+      },
+    };
+  }
+
   async abrir(user: User, dto: AbrirCajaDto) {
     try {
       await this.repo.abrir({

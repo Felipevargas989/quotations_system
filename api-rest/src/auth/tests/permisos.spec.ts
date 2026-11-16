@@ -48,6 +48,8 @@ describe('Permisos por cargo: la cuenta', () => {
       'boletas',
       'facturacion_eventos',
       'facturacion_documentos',
+      // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
+      'caja_movimientos',
       // «Lo vendido» (doc 19 §9.43, 09-11).
       'facturacion_vendido',
       // Aprobar y emitir las solicitudes de recepción (doc 19 §9.45, 09-11).

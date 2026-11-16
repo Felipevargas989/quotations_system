@@ -8,7 +8,6 @@ import TarifarioDeBoletas from "../boletas/TarifarioDeBoletas";
 import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
 import CajaDeRecepcion from "./CajaDeRecepcion";
-import CierresDeCaja from "./CierresDeCaja";
 import LoVendido from "./LoVendido";
 import Pulseras from "./Pulseras";
 import { usePorFacturar } from "./consultas";
@@ -81,6 +80,9 @@ export default function FacturacionPage() {
   // §9.43: la caja de recepción (operarla) y sus cierres (revisarlos).
   const conCaja = permisos.includes("caja_recepcion");
   const conCierres = permisos.includes("caja_revision");
+  // §9.55: anotar ingresos y retiros (de fábrica, operaciones y el
+  // administrador); con él también se ve la caja abierta.
+  const conMovimientos = permisos.includes("caja_movimientos");
   // «Lo vendido», su propia pestaña (Felipe, 09-11: «solo lo vea
   // operaciones y administración»); desde el 16-11 es «Pulseras» (doc 19
   // §9.49) y «Lo vendido» sigue en la suya, al lado (Felipe, 16-11: «lo
@@ -131,7 +133,9 @@ export default function FacturacionPage() {
           },
         ]
       : []),
-    ...(conCaja || conCierres ? [{ key: "caja" as const, label: "Caja" }] : []),
+    ...(conCaja || conCierres || conMovimientos
+      ? [{ key: "caja" as const, label: "Caja" }]
+      : []),
     ...(conVendido
       ? [
           { key: "pulseras" as const, label: "Pulseras" },
@@ -282,10 +286,14 @@ export default function FacturacionPage() {
           {pestana === "solicitudes" && <SolicitudesPorAprobar />}
           {pestana === "por_facturar" && <PorFacturar />}
           {pestana === "caja" && (
-            <div className="space-y-6">
-              {conCaja && <CajaDeRecepcion nombre={userName} />}
-              {conCierres && <CierresDeCaja />}
-            </div>
+            // §9.55: la caja abierta es la primera fila de la lista y se
+            // opera en su panel; los cierres, solo para quien revisa.
+            <CajaDeRecepcion
+              nombre={userName}
+              puedeAbrirYCerrar={conCaja}
+              puedeRevisar={conCierres}
+              puedeAnotar={conMovimientos}
+            />
           )}
           {pestana === "pulseras" && <Pulseras />}
           {pestana === "vendido" && <LoVendido />}
