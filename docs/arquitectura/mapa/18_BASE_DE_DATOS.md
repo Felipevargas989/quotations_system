@@ -52,12 +52,23 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
 | `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
 
+## 37. Migración 207: las pulseras de recepción (16-11-2026)
+
+**Qué hace.** `tarifario_de_boletas.usa_pulsera` (el interruptor «Usa pulsera», prendido la primera vez en los ítems cuyo nombre dice «ticket», solo si la empresa no tenía ninguno prendido), la tabla `entregas_de_pulseras` (`company_id` con cascada, `cantidad` de 1 a 100.000, `para` = `recepcion`, quién y cuándo; cerrada a `anon` y `authenticated`, el motor solo lee e inserta) y `turnos_de_caja.pulseras_contadas` (nulo en los cierres de antes y en las empresas sin pulseras: nulo no es cero).
+
+**Por qué.** Felipe, 16-11-2026: *"llevar un control de stock para saber que lo que se ha vendido es lo que se ha cobrado"*. Doc 19 §9.49.
+
+**Ojo con el orden del motor:** el tarifario del motor pide `usa_pulsera`: se aplica antes de subir el motor.
+
+**Estado.** Escrita el 16-11-2026 en la rama `feature/pulseras`. Sin aplicar.
+
 ### Facturación electrónica (migraciones 184, 187 y 191; en producción desde el 07-11-2026)
 
 | Tabla | Qué guarda | Módulo dueño | Migración que la crea |
 |---|---|---|---|
 | `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, a nombre de quién viene (`rut` y `razon_social`, como los imprime la OC: la factura va a ese RUT), `comprador` (`jsonb`: giro, dirección, comuna y ciudad como los leyó BelIA, para la primera factura a un RUT nuevo), `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
-| `tarifario_de_boletas` | Lo que recepción boletea suelto: cabañas, ticket diario, tinaja… (`nombre` hasta 60, `precio` con IVA, `unidad`, `activo`, `orden`). Aparte del catálogo del cotizador (D3, Felipe 04-11: *"tarifario aparte puede ser cabañas, ticket diario, otros"*) | doc 19 | 187 |
+| `tarifario_de_boletas` | Lo que recepción boletea suelto: cabañas, ticket diario, tinaja… (`nombre` hasta 60, `precio` con IVA, `unidad`, `activo`, `orden`; desde la 207, `usa_pulsera`, doc 19 §9.49). Aparte del catálogo del cotizador (D3, Felipe 04-11: *"tarifario aparte puede ser cabañas, ticket diario, otros"*) | doc 19 | 187 |
+| `entregas_de_pulseras` | Las pulseras que se le pasan a recepción (`cantidad`, `para` = `recepcion`, `entregada_por`, `entregada_por_nombre`, `created_at`); con `turnos_de_caja.pulseras_contadas`, la cuenta de las pulseras | doc 19 §9.49 | 207 |
 | `cobros_por_boletear` | El total que deja el administrador para boletear (`descripcion` hasta 55, `total` con IVA), desde un evento (`quotation_id`, cascada) o suelto, con quién lo dejó (`creado_por`, `creado_por_nombre`) | doc 19 | 187 |
 | `cobros_por_boletear_lineas` | Cómo lo reparte recepción: una por cabaña (`cabana` hasta 22, la escribe ella), `monto`, `correo` del huésped y `documento_id`, su boleta (sin cascada; única) | doc 19 | 187 |
 | `cobros_por_boletear_cambios` | E3: quién cambió qué (`que`, `antes`, `despues`, `usuario`, `nombre`). `service_role` solo `SELECT` e `INSERT`: lo anotado no se reescribe | doc 19 | 187 |
