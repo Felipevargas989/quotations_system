@@ -9,6 +9,7 @@ import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
 import CajaDeRecepcion from "./CajaDeRecepcion";
 import CierresDeCaja from "./CierresDeCaja";
+import LoVendido from "./LoVendido";
 import Pulseras from "./Pulseras";
 import { usePorFacturar } from "./consultas";
 import FacturaNueva from "./FacturaNueva";
@@ -61,6 +62,7 @@ type Pestana =
   | "por_facturar"
   | "tarifario"
   | "caja"
+  | "pulseras"
   | "vendido";
 
 /** El documento que se está armando, y el que la nota modifica si llegó
@@ -81,7 +83,8 @@ export default function FacturacionPage() {
   const conCierres = permisos.includes("caja_revision");
   // «Lo vendido», su propia pestaña (Felipe, 09-11: «solo lo vea
   // operaciones y administración»); desde el 16-11 es «Pulseras» (doc 19
-  // §9.49), con lo vendido plegado abajo. La misma clave.
+  // §9.49) y «Lo vendido» sigue en la suya, al lado (Felipe, 16-11: «lo
+  // total vendido sácalo a otra pestaña»). Las dos con la misma clave.
   const conVendido = permisos.includes("facturacion_vendido");
   // §9.45: aprobar y emitir lo que pide recepción.
   const conSolicitudes = permisos.includes("facturacion_solicitudes");
@@ -129,7 +132,12 @@ export default function FacturacionPage() {
         ]
       : []),
     ...(conCaja || conCierres ? [{ key: "caja" as const, label: "Caja" }] : []),
-    ...(conVendido ? [{ key: "vendido" as const, label: "Pulseras" }] : []),
+    ...(conVendido
+      ? [
+          { key: "pulseras" as const, label: "Pulseras" },
+          { key: "vendido" as const, label: "Lo vendido" },
+        ]
+      : []),
     ...(conAjustes ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
   const [elegida, setElegida] = useState<Pestana | null>(null);
@@ -279,7 +287,8 @@ export default function FacturacionPage() {
               {conCierres && <CierresDeCaja />}
             </div>
           )}
-          {pestana === "vendido" && <Pulseras />}
+          {pestana === "pulseras" && <Pulseras />}
+          {pestana === "vendido" && <LoVendido />}
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}
