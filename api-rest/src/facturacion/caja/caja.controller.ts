@@ -89,6 +89,15 @@ export class CajaController {
     return this.caja.cierres(user);
   }
 
+  /** §9.54: las tres cifras de la cadena del efectivo (7 días). Va antes
+   *  de `cierres/:id`. */
+  @Permiso('caja_revision')
+  @Get('cierres/resumen')
+  @Roles(...ADMIN_ONLY)
+  resumenDeCierres(@CurrentUser() user: User) {
+    return this.caja.resumenDeCierres(user);
+  }
+
   @Permiso('caja_revision')
   @Get('cierres/:id')
   @Roles(...ADMIN_ONLY)

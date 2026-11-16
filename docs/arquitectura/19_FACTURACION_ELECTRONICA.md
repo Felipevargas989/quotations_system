@@ -3116,6 +3116,69 @@ si no en el inter, se pierde el dinero"*.
 En la rama `feature/caja-apertura-calza` desde el 16-11-2026 (sin
 migración; motor y pantalla).
 
+### 9.54 La lista de cierres como cadena del efectivo (16-11)
+
+Felipe, 16-11, mirando la lista con el §9.53 en producción: *"para que el
+abrió con tenga sentido necesitamos otra que diga cerró con o no? … mira
+cómo debo leer esto?"*. «Declarado» sumaba todos los medios y la apertura se
+comparaba solo con el efectivo: no se podía leer. Pidió una propuesta
+«mejorando Fudo y lo que ya tenemos» y aprobó la maqueta. Reemplaza en la
+lista lo del §9.53 (el chip dentro de «Abrió con»); el detalle no cambia.
+
+**Lo aprobado:**
+1. **Tres cifras arriba** (tarjetas blancas, número grande, etiqueta
+   chica), sobre los turnos abiertos en los últimos 7 días corridos:
+   - «Efectivo que falta, 7 días»: la suma de las diferencias de efectivo de
+     los turnos cerrados (cerró con − debía tener). Rojo si es negativa,
+     verde si es cero; si sobra, con «+» (en ámbar).
+   - «Perdido entre turnos»: la suma de las aperturas con menos que el
+     cierre anterior.
+   - «Turnos por revisar»: cuántos de esos 7 días.
+2. **Columnas:** «Turno» (día y horas, «lun 16-11 · 11:22 a 19:11»; el
+   abierto, solo la de apertura; quién, en línea chica debajo; abre el
+   detalle) · «Abrió con» · «Debía tener» (sencillo + vendido en efectivo +
+   ingresos − retiros) · «Cerró con» (el efectivo declarado), las tres solo
+   en efectivo · «Efectivo» («Cuadra» verde, «Faltan $X» o «Sobran $X»
+   rojo) · «Tarjetas y transf.» (la diferencia sumada de débito, crédito y
+   transferencia, con el mismo chip) · «Estado» en una palabra («Abierta»,
+   «Por revisar», «Revisado»; el resultado de la revisión, en el title). El
+   turno abierto muestra «—» en «Debía tener», «Cerró con» y los dos chips.
+3. **La franja entre turnos:** entre una fila y la de abajo (la anterior en
+   el tiempo), una fila angosta con sangría y borde izquierdo: el chip
+   «Entre turnos» y «Pasaron completos los $X» (verde), «Faltan $X entre el
+   cierre y la apertura» (rojo) o «Aparecieron $X que el cierre anterior no
+   declaró» (ámbar). El más viejo de la lista no lleva franja debajo.
+4. Recepción sigue a ciegas: nada de esto llega al estado de la caja ni a
+   la pantalla de abrir o cerrar.
+
+**Cómo quedó:**
+- **El motor** (`caja/cadena.ts`, puro): `cadenaDelTurno` (de las líneas de
+  `cuadrar`: `debia_tener`, `cerro_con`, `diferencia_efectivo` y
+  `diferencia_otros`, nulos con la caja abierta) y `resumenDeLaCadena` (las
+  tres cifras de los turnos abiertos desde ahora − 7 × 24 h).
+  `CajaService.laCadena` arma las dos cosas: lee los 61 más nuevos en una
+  consulta (60 a la vista y el anterior del más viejo, §9.53). Si esos 61
+  no alcanzan a cubrir los 7 días (más de 60 turnos en una semana), trae
+  además los de la ventana (`CajaRepository.turnosDesde`) y el anterior del
+  más viejo de ella (`turnoAnterior`). Lo vendido y los movimientos de
+  todos, en una consulta cada uno: nada por fila.
+- `GET /facturacion/caja/cierres` suma esos cuatro campos a cada fila (los
+  de antes siguen). Las tres cifras, en su propia puerta, `GET
+  /facturacion/caja/cierres/resumen` (el mismo permiso «Revisar cierres de
+  caja»), para no cambiar la forma de la lista: la pantalla de antes sigue
+  funcionando con el motor nuevo.
+- **La pantalla:** `CadenaDelEfectivo` (la tabla, con la franja y
+  `CifrasDeLaCadena`), usada por `CierresDeCaja`. Cabe en un notebook
+  (mínimo 52rem); en angosto, la tabla se corre de lado dentro de su caja.
+  `ChipDeApertura` queda solo en el detalle.
+- **Las pruebas:** `caja-cadena.spec.ts` (el caso real del 16-11: el turno
+  A debía tener 26.850 y cerró con 0, «Faltan $26.850»; el B abrió con
+  26.850 después de un cierre en 0; los 7 días con más de 60 turnos) y los
+  casos «§9.54» de `CierresDeCaja.test.tsx`.
+
+En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026 (sin
+migración; motor y pantalla).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

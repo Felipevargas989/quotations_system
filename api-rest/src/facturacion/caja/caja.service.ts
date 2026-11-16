@@ -19,6 +19,7 @@ import { textoLimpio } from '../archivo/texto';
 import { PulserasService } from '../pulseras/pulseras.service';
 import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
 import { compararApertura, turnoAnteriorEn } from './apertura';
+import { cadenaDelTurno, desdeDelResumen, resumenDeLaCadena } from './cadena';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,
@@ -410,35 +411,89 @@ export class CajaService {
 
   /** Los cierres para revisar, del más nuevo al más viejo. §9.53: se lee
    *  uno más de los que se muestran, para que el último de la lista
-   *  también tenga su anterior, en la misma consulta. */
+   *  también tenga su anterior, en la misma consulta. §9.54: cada uno con
+   *  su cadena del efectivo (abrió con, debía tener, cerró con). */
   async cierres(user: User) {
-    const companyId = user.company_id;
+    return (await this.laCadena(user.company_id, new Date())).lista;
+  }
+
+  /** §9.54: las tres cifras de arriba, sobre los 7 días corridos reales
+   *  (no sobre la página de 60). */
+  async resumenDeCierres(user: User) {
+    return (await this.laCadena(user.company_id, new Date())).resumen;
+  }
+
+  /**
+   * La cadena del efectivo (§9.54): la lista (los 60 más nuevos) y las tres
+   * cifras de los últimos 7 días. Lee los 61 más nuevos en una consulta; si
+   * no alcanzan a cubrir los 7 días (más de 60 turnos en una semana), trae
+   * además los de la ventana y el anterior del más viejo de ella. Lo vendido
+   * y los movimientos de todos, en una consulta cada uno: nada por fila.
+   */
+  private async laCadena(companyId: number, ahora: Date) {
+    const desde = desdeDelResumen(ahora).toISOString();
+    const enLaVentana = (t: TurnoDeCaja) =>
+      Date.parse(t.abierta_en) >= Date.parse(desde);
     const leidos = await this.repo.turnos(companyId, CIERRES_EN_LA_LISTA + 1);
-    const turnos = leidos.slice(0, CIERRES_EN_LA_LISTA);
-    const ids = turnos.map((t) => t.id);
+    const visibles = leidos.slice(0, CIERRES_EN_LA_LISTA);
+    let conocidos = leidos;
+    const masViejo = leidos[leidos.length - 1];
+    if (leidos.length > CIERRES_EN_LA_LISTA && enLaVentana(masViejo)) {
+      const ventana = await this.repo.turnosDesde(companyId, desde);
+      const primero = ventana[ventana.length - 1] ?? masViejo;
+      const anterior = await this.repo.turnoAnterior(
+        companyId,
+        primero.caja,
+        primero.abierta_en,
+      );
+      const porId = new Map(
+        [...leidos, ...ventana, ...(anterior ? [anterior] : [])].map((t) => [
+          t.id,
+          t,
+        ]),
+      );
+      conocidos = [...porId.values()];
+    }
+    const idsVisibles = new Set(visibles.map((t) => t.id));
+    const aCuadrar = conocidos.filter(
+      (t) => idsVisibles.has(t.id) || enLaVentana(t),
+    );
+    const ids = aCuadrar.map((t) => t.id);
     const [documentos, movimientos] = await Promise.all([
       this.delTurno(companyId, ids),
       this.repo.movimientos(companyId, ids),
     ]);
-    return turnos.map((t) => {
-      const c = cuadrar(
-        t,
-        documentos.filter(
-          (d) => (d as { turno_de_caja_id?: number }).turno_de_caja_id === t.id,
-        ),
-        movimientos.filter((r) => r.turno_id === t.id),
-      );
-      return {
-        ...resumen(t),
-        apertura: compararApertura(t, turnoAnteriorEn(t, leidos)),
-        vendido: c.vendido,
-        declarado: c.declarado,
-        diferencia: c.diferencia,
-        diferencias: c.lineas
-          .filter((l) => l.diferencia != null && l.diferencia !== 0)
-          .map((l) => ({ medio: l.medio, diferencia: l.diferencia })),
-      };
-    });
+    const filas = new Map(
+      aCuadrar.map((t) => {
+        const c = cuadrar(
+          t,
+          documentos.filter(
+            (d) =>
+              (d as { turno_de_caja_id?: number }).turno_de_caja_id === t.id,
+          ),
+          movimientos.filter((r) => r.turno_id === t.id),
+        );
+        const r = resumen(t);
+        return [
+          t.id,
+          {
+            ...r,
+            apertura: compararApertura(t, turnoAnteriorEn(t, conocidos)),
+            ...cadenaDelTurno(r.estado !== 'abierta', c.lineas),
+            vendido: c.vendido,
+            declarado: c.declarado,
+            diferencia: c.diferencia,
+            diferencias: c.lineas
+              .filter((l) => l.diferencia != null && l.diferencia !== 0)
+              .map((l) => ({ medio: l.medio, diferencia: l.diferencia })),
+          },
+        ] as const;
+      }),
+    );
+    return {
+      lista: visibles.map((t) => filas.get(t.id)!),
+      resumen: resumenDeLaCadena([...filas.values()], ahora),
+    };
   }
 
   /** Un cierre entero, para revisarlo. */

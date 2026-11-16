@@ -68,6 +68,14 @@ export interface CierreEnLaLista {
   estado: EstadoDelCierre;
   /** §9.53: opcional, el motor de antes no la manda. */
   apertura?: AperturaComparada | null;
+  /** §9.54, la cadena del efectivo, solo en efectivo: lo esperado, lo
+   *  declarado y la diferencia; aparte, la diferencia sumada de débito,
+   *  crédito y transferencia. Nulos con la caja abierta; opcionales, el
+   *  motor de antes no los manda. */
+  debia_tener?: number | null;
+  cerro_con?: number | null;
+  diferencia_efectivo?: number | null;
+  diferencia_otros?: number | null;
   vendido: number;
   declarado: number | null;
   diferencia: number | null;
@@ -182,6 +190,20 @@ export const cerrarCaja = async (datos: {
 
 export const getCierres = async (): Promise<CierreEnLaLista[]> =>
   (await apiRequest(`${base}/cierres`, "GET")) as CierreEnLaLista[];
+
+/** §9.54: las tres cifras de los últimos 7 días corridos. */
+export interface ResumenDeLaCadena {
+  desde: string;
+  /** La suma de las diferencias de efectivo de los cerrados (negativa
+   *  falta, positiva sobra). */
+  efectivo_que_falta: number;
+  /** La suma de las aperturas con menos que el cierre anterior (≤ 0). */
+  perdido_entre_turnos: number;
+  por_revisar: number;
+}
+
+export const getResumenDeCierres = async (): Promise<ResumenDeLaCadena> =>
+  (await apiRequest(`${base}/cierres/resumen`, "GET")) as ResumenDeLaCadena;
 
 export const getCierre = async (id: number): Promise<CierreDeCaja> =>
   (await apiRequest(`${base}/cierres/${id}`, "GET")) as CierreDeCaja;

@@ -24,6 +24,7 @@ vi.mock("../../services/caja.service", () => ({
   anotarRetiro: vi.fn(),
   cerrarCaja: vi.fn(),
   getCierres: vi.fn(),
+  getResumenDeCierres: vi.fn(),
   getCierre: vi.fn(),
   corregirMedio: vi.fn(),
   revisarCierre: vi.fn(),
@@ -157,6 +158,12 @@ const CIERRE: caja.CierreDeCaja = {
 
 beforeEach(() => {
   c.getCierres.mockResolvedValue(LISTA);
+  c.getResumenDeCierres.mockResolvedValue({
+    desde: "2026-11-09T23:30:00.000Z",
+    efectivo_que_falta: 0,
+    perdido_entre_turnos: 0,
+    por_revisar: 1,
+  });
   c.getCierre.mockResolvedValue(CIERRE);
   c.corregirMedio.mockResolvedValue(CIERRE);
   c.revisarCierre.mockResolvedValue({ ...CIERRE, estado: "revisada" });
@@ -175,11 +182,14 @@ const abrir = () =>
   );
 
 describe("los cierres de la caja (§9.43)", () => {
-  it("la lista con su estado en una palabra y el resultado al revisarlo", async () => {
+  it("la lista con su estado en una palabra; el resultado de la revisión, en el title (§9.54)", async () => {
     abrir();
     expect(await screen.findByText("Por revisar")).toBeInTheDocument();
-    expect(screen.getByText("Revisado · cuadra")).toBeInTheDocument();
-    expect(screen.getByText("Revisado · faltan $1.000")).toBeInTheDocument();
+    const revisados = screen.getAllByText("Revisado");
+    expect(revisados.map((e) => e.getAttribute("title"))).toEqual([
+      "Revisado · cuadra",
+      "Revisado · faltan $1.000",
+    ]);
   });
 
   it("cada cierre: declarado, según Eventia y la diferencia; se corrige el medio y se marca revisado", async () => {
@@ -271,29 +281,6 @@ describe("los cierres de la caja (§9.43)", () => {
   // §9.53: con cuánto se abrió y si calza con el cierre anterior.
   const lineaDeApertura = () =>
     screen.getAllByText(/Abrió con/).find((e) => e.tagName === "P");
-  it("§9.53: la lista dice con cuánto se abrió y si calza con el cierre anterior", async () => {
-    c.getCierres.mockResolvedValue([
-      { ...LISTA[0], apertura: { cierre_anterior: 20000, diferencia: 0 } },
-      {
-        ...LISTA[1],
-        apertura: { cierre_anterior: 46850, diferencia: -26850 },
-      },
-      { ...LISTA[2], apertura: null },
-    ]);
-    abrir();
-    expect(await screen.findByText("Abrió con")).toBeInTheDocument();
-    const filas = screen.getAllByRole("row").slice(1);
-    expect(filas[0]).toHaveTextContent("$20.000");
-    expect(within(filas[0]).getByText("Calza")).toBeInTheDocument();
-    expect(within(filas[1]).getByText("Faltan $26.850")).toHaveAttribute(
-      "title",
-      "$26.850 menos que el cierre anterior",
-    );
-    // El primer turno de la historia no lleva chip.
-    expect(filas[2]).toHaveTextContent("$20.000");
-    expect(within(filas[2]).queryByText(/Calza|Faltan|Sobran/)).toBeNull();
-  });
-
   it("§9.53: el detalle trae la apertura, la cifra del cierre anterior y el chip", async () => {
     c.getCierre.mockResolvedValue({
       ...CIERRE,
@@ -314,5 +301,146 @@ describe("los cierres de la caja (§9.43)", () => {
     c.getCierre.mockResolvedValue({ ...CIERRE, apertura: null });
     await abrirElDetalle();
     expect(lineaDeApertura()).toHaveTextContent(/^Abrió con \$20\.000$/);
+  });
+
+  // §9.54: la cadena del efectivo, con el caso real de producción (16-11).
+  const DOMINGO: caja.CierreEnLaLista = {
+    ...LISTA[2],
+    id: 5,
+    abierta_en: "2026-11-15T15:00:00Z",
+    cerrada_en: "2026-11-15T23:00:00Z",
+    sencillo_inicial: 26850,
+    estado: "revisada",
+    diferencia: 0,
+    apertura: null,
+    debia_tener: 26850,
+    cerro_con: 26850,
+    diferencia_efectivo: 0,
+    diferencia_otros: 0,
+  };
+  const TURNO_A: caja.CierreEnLaLista = {
+    ...LISTA[0],
+    id: 6,
+    abierta_en: "2026-11-16T14:22:00Z",
+    cerrada_en: "2026-11-16T22:11:00Z",
+    sencillo_inicial: 26850,
+    estado: "por_revisar",
+    apertura: { cierre_anterior: 26850, diferencia: 0 },
+    debia_tener: 26850,
+    cerro_con: 0,
+    diferencia_efectivo: -26850,
+    diferencia_otros: 0,
+  };
+  const TURNO_B: caja.CierreEnLaLista = {
+    ...LISTA[0],
+    id: 7,
+    abierta_en: "2026-11-16T22:56:00Z",
+    cerrada_en: null,
+    cerrada_por_nombre: null,
+    sencillo_inicial: 26850,
+    estado: "abierta",
+    declarado: null,
+    diferencia: null,
+    apertura: { cierre_anterior: 0, diferencia: 26850 },
+    debia_tener: null,
+    cerro_con: null,
+    diferencia_efectivo: null,
+    diferencia_otros: null,
+  };
+
+  it("§9.54: cada turno en efectivo (abrió con, debía tener, cerró con) y las franjas entre turnos", async () => {
+    c.getCierres.mockResolvedValue([TURNO_B, TURNO_A, DOMINGO]);
+    abrir();
+    expect(await screen.findByText("Debía tener")).toBeInTheDocument();
+    expect(screen.getByText("Cerró con")).toBeInTheDocument();
+    expect(screen.getByText("Tarjetas y transf.")).toBeInTheDocument();
+    const filas = screen.getAllByRole("row").slice(1);
+    // B (abierta) · franja B–A · A · franja A–domingo · domingo.
+    expect(filas).toHaveLength(5);
+    const [b, entreBA, a, entreAD, domingo] = filas;
+    // El abierto: solo la hora de apertura y «—» en lo que no se muestra.
+    expect(within(b).getByText("Abierta")).toBeInTheDocument();
+    expect(within(b).getAllByText("—")).toHaveLength(4);
+    expect(within(b).getByRole("button").textContent).toMatch(
+      /^\S+ \d{2}-\d{2} · \d{2}:\d{2}$/,
+    );
+    // A abrió con 26.850, debía tener 26.850 y cerró con 0.
+    expect(a).toHaveTextContent("$26.850$26.850$0");
+    expect(within(a).getByText("Faltan $26.850")).toHaveClass("text-red-700");
+    expect(within(a).getByText("Cuadra")).toBeInTheDocument();
+    expect(within(a).getByText("Por revisar")).toBeInTheDocument();
+    expect(within(a).getByRole("button").textContent).toMatch(
+      /^\S+ \d{2}-\d{2} · \d{2}:\d{2} a \d{2}:\d{2}$/,
+    );
+    // Entre A (cerró con 0) y B (abrió con 26.850): aparecieron, en ámbar.
+    expect(entreBA).toHaveTextContent(
+      "Entre turnosAparecieron $26.850 que el cierre anterior no declaró",
+    );
+    expect(within(entreBA).getByText("Entre turnos")).toHaveClass(
+      "text-amber-800",
+    );
+    // Entre el domingo y A: pasaron completos, en verde.
+    expect(entreAD).toHaveTextContent("Pasaron completos los $26.850");
+    expect(within(entreAD).getByText("Entre turnos")).toHaveClass(
+      "text-green-700",
+    );
+    // El más viejo no lleva franja debajo.
+    expect(within(domingo).getAllByText("Cuadra")).toHaveLength(2);
+    expect(within(domingo).getByText("Revisado")).toBeInTheDocument();
+  });
+
+  it("§9.54: si abrió con menos que el cierre anterior, la franja va en rojo", async () => {
+    c.getCierres.mockResolvedValue([
+      { ...TURNO_A, apertura: { cierre_anterior: 30000, diferencia: -3150 } },
+      DOMINGO,
+    ]);
+    abrir();
+    const franja = (
+      await screen.findByText(/entre el cierre y la apertura/)
+    ).closest("tr") as HTMLElement;
+    expect(franja).toHaveTextContent(
+      "Faltan $3.150 entre el cierre y la apertura",
+    );
+    expect(within(franja).getByText("Entre turnos")).toHaveClass(
+      "text-red-700",
+    );
+  });
+
+  it("§9.54: las tres cifras de los 7 días, con su color", async () => {
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-09T23:30:00.000Z",
+      efectivo_que_falta: -26850,
+      perdido_entre_turnos: 0,
+      por_revisar: 1,
+    });
+    abrir();
+    const cifra = async (etiqueta: string) =>
+      (await screen.findByText(etiqueta)).previousElementSibling as HTMLElement;
+    expect(await cifra("Efectivo que falta, 7 días")).toHaveTextContent(
+      "−$26.850",
+    );
+    expect(await cifra("Efectivo que falta, 7 días")).toHaveClass(
+      "text-red-700",
+    );
+    expect(await cifra("Perdido entre turnos")).toHaveTextContent("$0");
+    expect(await cifra("Perdido entre turnos")).toHaveClass("text-green-700");
+    expect(await cifra("Turnos por revisar")).toHaveTextContent("1");
+  });
+
+  it("§9.54: si sobra efectivo en la semana, va con +", async () => {
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-09T23:30:00.000Z",
+      efectivo_que_falta: 500,
+      perdido_entre_turnos: -2000,
+      por_revisar: 0,
+    });
+    abrir();
+    expect(
+      (await screen.findByText("Efectivo que falta, 7 días"))
+        .previousElementSibling,
+    ).toHaveTextContent("+$500");
+    expect(
+      screen.getByText("Perdido entre turnos").previousElementSibling,
+    ).toHaveTextContent("−$2.000");
   });
 });
