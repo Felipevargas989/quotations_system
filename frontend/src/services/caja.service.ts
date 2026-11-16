@@ -27,6 +27,9 @@ export interface CajaAbierta {
 
 export interface EstadoDeLaCaja {
   abierta: CajaAbierta | null;
+  /** §9.49: si el cierre pide contar las pulseras. Nunca cuántas debería
+   *  tener: el cierre es ciego. */
+  cuenta_pulseras?: boolean;
 }
 
 export type EstadoDelCierre = "abierta" | "por_revisar" | "revisada";
@@ -63,6 +66,8 @@ export interface CierreDeCaja
   > {
   comentario: string | null;
   nota_revision: string | null;
+  /** §9.49: nulo si ese cierre no contó las pulseras. */
+  pulseras?: PulserasDelCierre | null;
   cuadre: {
     lineas: LineaDelCuadre[];
     vendido: number;
@@ -104,6 +109,13 @@ export interface CierreDeCaja
   }[];
 }
 
+/** §9.49: lo de las pulseras en un cierre (solo quien revisa). */
+export interface PulserasDelCierre {
+  deberian: number;
+  contadas: number;
+  diferencia: number;
+}
+
 export const getCaja = async (): Promise<EstadoDeLaCaja> =>
   (await apiRequest(base, "GET")) as EstadoDeLaCaja;
 
@@ -126,6 +138,8 @@ export const cerrarCaja = async (datos: {
   credito: number;
   transferencia: number;
   comentario?: string | null;
+  /** §9.49: las pulseras que le quedan, si se cuentan. */
+  pulseras?: number;
 }): Promise<{ cerrada_en: string }> =>
   (await apiRequest(`${base}/cerrar`, "POST", datos)) as {
     cerrada_en: string;

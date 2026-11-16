@@ -16,6 +16,7 @@ import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { textoLimpio } from '../archivo/texto';
 // Import de verdad (no `import type`): Nest inyecta por la clase, y con
 // `import type` la pieza opcional llega vacía sin avisar.
+import { PulserasService } from '../pulseras/pulseras.service';
 import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
 import type {
   AbrirCajaDto,
@@ -69,6 +70,9 @@ export class CajaService {
     // §9.45: las solicitudes de recepción cuentan en su turno. Sin la pieza
     // (algunas pruebas), solo los documentos.
     @Optional() private readonly solicitudes?: SolicitudesRepository,
+    // §9.49: las pulseras que recepción cuenta al cerrar. Sin la pieza
+    // (algunas pruebas), el cierre de siempre.
+    @Optional() private readonly pulseras?: PulserasService,
   ) {
     this.logger.setContext(CajaService.name);
   }
@@ -95,8 +99,13 @@ export class CajaService {
   async estado(user: User) {
     const turno = await this.repo.turnoAbierto(user.company_id);
     if (!turno) return { abierta: null };
-    const retiros = await this.repo.retiros(user.company_id, [turno.id]);
+    const [retiros, cuentaPulseras] = await Promise.all([
+      this.repo.retiros(user.company_id, [turno.id]),
+      this.pideLasPulseras(user.company_id),
+    ]);
     return {
+      // §9.49: solo si se cuentan, nunca cuántas debería tener (ciego).
+      cuenta_pulseras: cuentaPulseras,
       abierta: {
         id: turno.id,
         abierta_por_nombre: turno.abierta_por_nombre,
@@ -146,7 +155,12 @@ export class CajaService {
   /** El cierre ciego: guarda lo declarado y responde solo que cerró. */
   async cerrar(user: User, dto: CerrarCajaDto) {
     const turno = await this.abiertaO409(user.company_id);
+    // §9.49: si la empresa cuenta pulseras, el cierre las pide.
+    const cuentaPulseras = await this.pideLasPulseras(user.company_id);
+    if (cuentaPulseras && dto.pulseras == null)
+      throw new BadRequestException('Falta cuántas pulseras te quedan');
     const cerrado = await this.repo.cerrar(user.company_id, turno.id, {
+      ...(cuentaPulseras ? { pulseras_contadas: dto.pulseras ?? null } : {}),
       cerrada_por: user.id ?? null,
       cerrada_por_nombre: nombreDelPerfil(user),
       declarado_efectivo: dto.efectivo,
@@ -179,10 +193,11 @@ export class CajaService {
           cargos.push(cargo);
       const correos = await this.repo.correosDe(companyId, cargos);
       if (!correos.length) return;
-      const [documentos, retiros, empresa] = await Promise.all([
+      const [documentos, retiros, empresa, pulseras] = await Promise.all([
         this.delTurno(companyId, [turno.id]),
         this.repo.retiros(companyId, [turno.id]),
         this.repo.nombreDeLaEmpresa(companyId),
+        this.pulserasDelCierre(companyId, turno.id),
       ]);
       const c = cuadrar(turno, documentos, retiros);
       await this.email.sendEmail(correos, EmailStructure.CIERRE_DE_CAJA, {
@@ -200,6 +215,7 @@ export class CajaService {
         retiros: c.retiros,
         diferencia: c.diferencia ?? 0,
         comentario: turno.comentario,
+        pulseras,
       });
     } catch (error) {
       this.logger.warn(
@@ -362,10 +378,11 @@ export class CajaService {
     const companyId = user.company_id;
     const turno = await this.repo.turno(companyId, id);
     if (!turno) throw new NotFoundException('Ese cierre no existe');
-    const [documentos, retiros, correcciones] = await Promise.all([
+    const [documentos, retiros, correcciones, pulseras] = await Promise.all([
       this.delTurno(companyId, [id]),
       this.repo.retiros(companyId, [id]),
       this.repo.correcciones(companyId, id),
+      this.pulserasDelCierre(companyId, id),
     ]);
     const c = cuadrar(turno, documentos, retiros);
     return {
@@ -373,6 +390,8 @@ export class CajaService {
       comentario: turno.comentario,
       nota_revision: turno.nota_revision,
       cuadre: c,
+      // §9.49: deberían quedar, contadas y la diferencia (solo quien revisa).
+      pulseras,
       documentos: documentos.map((d) => ({
         id: d.id,
         tipo: d.tipo,
@@ -469,6 +488,32 @@ export class CajaService {
     if (!revisado)
       throw new ConflictException('Solo se revisa una caja cerrada');
     return this.cierre(user, id);
+  }
+
+  /** §9.49: si el cierre pide las pulseras. Si falla la consulta, no
+   *  frena la caja: el cierre de siempre. */
+  private async pideLasPulseras(companyId: number) {
+    if (!this.pulseras) return false;
+    try {
+      return await this.pulseras.pideAlCerrar(companyId);
+    } catch (error) {
+      this.logger.warn(
+        `las pulseras no se pudieron mirar: ${mensajeDe(error)}`,
+      );
+      return false;
+    }
+  }
+
+  private async pulserasDelCierre(companyId: number, turnoId: number) {
+    if (!this.pulseras) return null;
+    try {
+      return await this.pulseras.delCierre(companyId, turnoId);
+    } catch (error) {
+      this.logger.warn(
+        `las pulseras del cierre ${turnoId} no se pudieron contar: ${mensajeDe(error)}`,
+      );
+      return null;
+    }
   }
 
   private async abiertaO409(companyId: number) {

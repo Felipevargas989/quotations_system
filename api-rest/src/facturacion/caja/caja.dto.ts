@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -62,6 +63,14 @@ export class CerrarCajaDto {
   @IsString()
   @MaxLength(300)
   comentario?: string | null;
+
+  /** §9.49: cuántas pulseras le quedan, contadas a ciegas. Se pide solo si
+   *  la empresa las cuenta (`cuenta_pulseras` del estado de la caja). */
+  @IsOptional()
+  @IsInt({ message: 'Las pulseras van enteras' })
+  @Min(0, NO_NEGATIVO)
+  @Max(100000, { message: 'Son demasiadas pulseras' })
+  pulseras?: number | null;
 }
 
 export class CorregirMedioDto {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import ConfirmInline from "../../components/ConfirmInline";
+import Interruptor from "../../components/Interruptor";
 import NumberInput from "../../components/inputs/NumberInput";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import { toast } from "../../components/toast/Toast";
@@ -203,6 +204,24 @@ export default function TarifarioDeBoletas() {
                     />
                     Activo
                   </label>
+                  {/* §9.49: cada unidad vendida de este ítem es una pulsera. */}
+                  <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <Interruptor
+                      prendido={i.usa_pulsera === true}
+                      etiqueta={`Usa pulsera: ${i.nombre}`}
+                      ocupado={ocupado}
+                      onCambiar={(usa) =>
+                        void hacer(
+                          () =>
+                            editarItemDelTarifario(i.id, {
+                              usa_pulsera: usa,
+                            }),
+                          "No se pudo cambiar.",
+                        )
+                      }
+                    />
+                    Usa pulsera
+                  </span>
                   <button
                     type="button"
                     title="Editar"

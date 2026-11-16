@@ -163,6 +163,8 @@ export interface ItemDelTarifario {
   unidad: string;
   activo: boolean;
   orden: number;
+  /** §9.49: cada unidad vendida es una pulsera («Usa pulsera»). */
+  usa_pulsera?: boolean;
 }
 
 export interface LineaSuelta {
