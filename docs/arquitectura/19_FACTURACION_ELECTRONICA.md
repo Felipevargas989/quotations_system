@@ -2878,6 +2878,83 @@ con otra funcionalidad porque creo que es complejizar más esto"*.
 En el laboratorio desde el 11-11-2026 y **en producción desde el 11-11-2026**
 (PR #360; migración 203 en las dos bases, aplicada antes del motor).
 
+### 9.49 Las pulseras de recepción (16-11)
+
+Felipe, 16-11: *"donde dice lo vendido en caja, me gustaría reformarlo, en
+realidad lo que quería hacer era llevar un control de las pulseras en donde
+paso 100 u otra cantidad de pulseras a recepción y llevar un control de
+stock para saber que lo que se ha vendido es lo que se ha cobrado"*. De las
+boletas emitidas, no: *"puedo rechazar una boleta y aún así constituye
+venta"*. Y *"¿no será mejor que cada ítem del tarifario le pueda cliquear
+un "usa ticket" y de ahí se vinculen?"*. Aprobado: *"probemos así"*. Con la
+venta directa, después: *"si que se descuente"*.
+
+**La regla:**
+- **«Usa pulsera»**, un interruptor por ítem del tarifario (Tarifario, solo
+  el administrador). Cada unidad vendida de un ítem prendido es una
+  pulsera, sin multiplicadores. El sistema mira el interruptor, nunca el
+  nombre (la migración lo prende la primera vez en los que dicen «ticket»).
+- **«Entregar pulseras»** (operaciones y el administrador): cuántas se le
+  pasan a recepción; quién y cuándo salen de la sesión. Sin devoluciones ni
+  ajustes por ahora.
+- **Vendidas:** cada solicitud de recepción, en cualquier estado (la
+  rechazada también, aunque fuera duplicada: igual que la plata en la
+  caja), y lo emitido directo en «Nuevo DTE» por operaciones o el
+  administrador. Sin contar doble: la solicitud aprobada cuenta por la
+  solicitud, no por su documento; el documento directo, solo si no nació de
+  una solicitud. No cuentan los traídos de facturacion.cl ni los anulados
+  por nota de crédito (como en «Lo vendido»). Lo decide una sola función,
+  `descuentaDeRecepcion`.
+- **El control parte con la primera entrega:** lo vendido y los cierres de
+  antes no cuentan.
+- **El conteo:** al cerrar la caja, recepción escribe cuántas le quedan,
+  sin ver cuántas debería tener (el cierre sigue ciego, en la pantalla y en
+  la respuesta del motor). Se pide solo si la empresa tiene ítems con
+  «Usa pulsera» y ya entregó alguna; si no, el cierre es el de siempre.
+- **La cuenta de cada cierre:** deberían quedar = lo contado en el cierre
+  anterior + lo entregado desde entonces − lo vendido desde entonces; la
+  diferencia es contadas − deberían. Lo directo, que no tiene turno, entra
+  al turno que cierra después de su emisión. Un cierre sin conteo (los de
+  antes del cambio) es nulo, no cero: lo suyo pasa al siguiente.
+- **La pestaña «Pulseras»** (antes «Lo vendido», el mismo permiso
+  `facturacion_vendido`): arriba Entregadas, Vendidas, Deberían quedar
+  (entregadas − vendidas) y Contadas (el último conteo) con «Faltan N» en
+  rojo, «Sobran N» en ámbar o «Calza» en verde (la diferencia de ese
+  conteo contra todo lo anterior, que es la suma de las de cada cierre);
+  antes del primer conteo, una raya sin chip. Abajo el movimiento: las
+  entregas, las ventas directas y cada turno con lo vendido y lo contado.
+  Lo vendido por ítem queda al final, plegado. Sin ítems con pulsera, un
+  estado vacío corto.
+- **El correo del cierre** y el panel del cierre en «Cierres de caja»
+  agregan la línea de las pulseras, en rojo si faltan.
+
+**Dónde vive:**
+- **La base (migración 207):** `tarifario_de_boletas.usa_pulsera`,
+  `entregas_de_pulseras` (cantidad, quién, cuándo; solo el motor, sin
+  editar ni borrar) y `turnos_de_caja.pulseras_contadas` (nulo en los
+  cierres de antes).
+- **El motor (`api-rest/src/facturacion/pulseras/`):** `cuenta.ts` (puro:
+  `contarPulseras`, `pulserasDe`, `descuentaDeRecepcion`), el servicio, el
+  repositorio y `GET /facturacion/pulseras` y `POST
+  /facturacion/pulseras/entregas` (`@Permiso('facturacion_vendido')`,
+  operaciones y el administrador). `CajaService` pregunta
+  `pideAlCerrar` (el estado de la caja trae solo `cuenta_pulseras`), exige
+  `pulseras` en `CerrarCajaDto` si se cuentan y pone `pulseras` en el correo
+  y en el detalle del cierre (`delCierre`). Si la consulta de las pulseras
+  falla, la caja cierra como siempre. El tarifario acepta `usa_pulsera` en
+  su `PATCH`.
+- **La pantalla:** `Pulseras` (con `EntregarPulseras` en un `Modal` y
+  `NumberInput`), `ChipDePulseras`, el campo «Pulseras que te quedan» de
+  `CajaDeRecepcion`, la línea en `CierresDeCaja` y el `Interruptor` de
+  `TarifarioDeBoletas`.
+- **Las pruebas:** `pulseras.spec.ts` (la cuenta, los tres casos de
+  solicitud rechazada, aprobada y directa, el cierre ciego y el correo),
+  `Pulseras.test.tsx`, `TarifarioDeBoletas.test.tsx` y los casos «§9.49» de
+  `CajaDeRecepcion.test.tsx` y `FacturacionPage.test.tsx`.
+
+En la rama `feature/pulseras` desde el 16-11-2026 (migración 207, sin
+aplicar; va antes del motor: el tarifario ya pide la columna nueva).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

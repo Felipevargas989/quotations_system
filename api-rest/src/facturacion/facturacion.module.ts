@@ -33,6 +33,9 @@ import { LeerOrdenDeCompraService } from './ordenes-de-compra/leer-orden-de-comp
 import { OrdenesDeCompraController } from './ordenes-de-compra/ordenes-de-compra.controller';
 import { OrdenesDeCompraRepository } from './ordenes-de-compra/ordenes-de-compra.repository';
 import { OrdenesDeCompraService } from './ordenes-de-compra/ordenes-de-compra.service';
+import { PulserasController } from './pulseras/pulseras.controller';
+import { PulserasRepository } from './pulseras/pulseras.repository';
+import { PulserasService } from './pulseras/pulseras.service';
 import { RecibidosController } from './recibidos/recibidos.controller';
 import { RecibidosRepository } from './recibidos/recibidos.repository';
 import { RecibidosService } from './recibidos/recibidos.service';
@@ -68,10 +71,14 @@ import { SolicitudesService } from './solicitudes/solicitudes.service';
     SolicitudesController,
     // Las facturas aprobadas que esperan (doc 19 §9.48).
     FacturasAprobadasController,
+    // Las pulseras de recepción (doc 19 §9.49).
+    PulserasController,
   ],
   providers: [
     CajaService,
     CajaRepository,
+    PulserasService,
+    PulserasRepository,
     SolicitudesService,
     SolicitudesRepository,
     FacturasAprobadasService,

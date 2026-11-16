@@ -147,4 +147,47 @@ describe("la caja de recepción (§9.43)", () => {
     expect(screen.getByText("Abrir la caja de recepción")).toBeInTheDocument();
     expect(screen.queryByText("La caja fue cerrada correctamente")).toBeNull();
   });
+
+  it("§9.49: si se cuentan pulseras, el cierre las pide a ciegas y las manda", async () => {
+    c.getCaja.mockResolvedValue({ ...ABIERTA, cuenta_pulseras: true });
+    c.cerrarCaja.mockResolvedValue({ cerrada_en: "2026-11-17T23:00:00Z" });
+    abrir();
+    await screen.findByText("Cerrar caja: ¿cuánto tienes?");
+    // Nunca cuántas debería tener.
+    expect(screen.queryByText(/Deberían|Faltan|Calza|Entregadas/)).toBeNull();
+    for (const campo of [
+      "Efectivo contado (con el sencillo)",
+      "Débito (resumen de la máquina)",
+      "Crédito (resumen de la máquina)",
+      "Transferencias (comprobantes)",
+    ])
+      fireEvent.change(screen.getByLabelText(campo), {
+        target: { value: "0" },
+      });
+    const cerrar = screen.getByRole("button", { name: "Cerrar caja" });
+    // Faltan las pulseras.
+    expect(cerrar).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Pulseras que te quedan"), {
+      target: { value: "94" },
+    });
+    fireEvent.click(cerrar);
+    fireEvent.click(screen.getByRole("button", { name: "Sí, cerrar" }));
+    await waitFor(() =>
+      expect(c.cerrarCaja).toHaveBeenCalledWith({
+        efectivo: 0,
+        debito: 0,
+        credito: 0,
+        transferencia: 0,
+        comentario: null,
+        pulseras: 94,
+      }),
+    );
+  });
+
+  it("§9.49: una empresa sin pulseras no ve el campo", async () => {
+    c.getCaja.mockResolvedValue(ABIERTA);
+    abrir();
+    await screen.findByText("Cerrar caja: ¿cuánto tienes?");
+    expect(screen.queryByLabelText("Pulseras que te quedan")).toBeNull();
+  });
 });

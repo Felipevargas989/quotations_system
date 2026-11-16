@@ -203,11 +203,12 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     derecho: 'facturacion',
   },
   // Felipe, 09-11: *"lo vendido debería ser otra pestaña que solo lo vea
-  // operaciones y administración"*.
+  // operaciones y administración"*. Desde el 16-11 (doc 19 §9.49) la
+  // pestaña es «Pulseras», y la misma clave vale para ver y entregar.
   {
     clave: 'facturacion_vendido',
     area: 'facturacion',
-    nombre: 'Lo vendido',
+    nombre: 'Pulseras',
     fabrica: [O, A],
     derecho: 'facturacion',
   },

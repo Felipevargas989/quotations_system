@@ -10,6 +10,8 @@ export interface ItemDelTarifario {
   unidad: string;
   activo: boolean;
   orden: number;
+  /** §9.49: cada unidad vendida es una pulsera (migración 207). */
+  usa_pulsera: boolean;
 }
 
 /** Una línea del reparto, con su boleta si ya salió. */
@@ -212,7 +214,7 @@ export class BoletasRepository {
   async tarifario(companyId: number) {
     const { data, error } = await this.supabase.client
       .from('tarifario_de_boletas')
-      .select('id, nombre, precio, unidad, activo, orden')
+      .select('id, nombre, precio, unidad, activo, orden, usa_pulsera')
       .eq('company_id', companyId)
       .order('orden', { ascending: true })
       .order('id', { ascending: true });

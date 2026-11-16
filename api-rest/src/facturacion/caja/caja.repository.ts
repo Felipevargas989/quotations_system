@@ -137,6 +137,9 @@ export class CajaRepository {
       declarado_credito: number;
       declarado_transferencia: number;
       comentario: string | null;
+      /** §9.49: solo si la empresa cuenta pulseras (la columna es de la
+       *  migración 207; sin el dato, el cierre no la nombra). */
+      pulseras_contadas?: number | null;
     },
   ): Promise<TurnoDeCaja | null> {
     const { data, error } = await this.db

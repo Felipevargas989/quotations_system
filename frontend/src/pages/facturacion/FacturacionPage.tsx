@@ -9,7 +9,7 @@ import { LLAVE_HOY, useEmitidasHoy } from "../boletas/consultas";
 import BoletaNueva from "./BoletaNueva";
 import CajaDeRecepcion from "./CajaDeRecepcion";
 import CierresDeCaja from "./CierresDeCaja";
-import LoVendido from "./LoVendido";
+import Pulseras from "./Pulseras";
 import { usePorFacturar } from "./consultas";
 import FacturaNueva from "./FacturaNueva";
 import LetreroDelAmbiente from "./LetreroDelAmbiente";
@@ -80,7 +80,8 @@ export default function FacturacionPage() {
   const conCaja = permisos.includes("caja_recepcion");
   const conCierres = permisos.includes("caja_revision");
   // «Lo vendido», su propia pestaña (Felipe, 09-11: «solo lo vea
-  // operaciones y administración»).
+  // operaciones y administración»); desde el 16-11 es «Pulseras» (doc 19
+  // §9.49), con lo vendido plegado abajo. La misma clave.
   const conVendido = permisos.includes("facturacion_vendido");
   // §9.45: aprobar y emitir lo que pide recepción.
   const conSolicitudes = permisos.includes("facturacion_solicitudes");
@@ -128,7 +129,7 @@ export default function FacturacionPage() {
         ]
       : []),
     ...(conCaja || conCierres ? [{ key: "caja" as const, label: "Caja" }] : []),
-    ...(conVendido ? [{ key: "vendido" as const, label: "Lo vendido" }] : []),
+    ...(conVendido ? [{ key: "vendido" as const, label: "Pulseras" }] : []),
     ...(conAjustes ? [{ key: "tarifario" as const, label: "Tarifario" }] : []),
   ];
   const [elegida, setElegida] = useState<Pestana | null>(null);
@@ -278,7 +279,7 @@ export default function FacturacionPage() {
               {conCierres && <CierresDeCaja />}
             </div>
           )}
-          {pestana === "vendido" && <LoVendido />}
+          {pestana === "vendido" && <Pulseras />}
           {pestana === "tarifario" && <TarifarioDeBoletas />}
         </>
       )}

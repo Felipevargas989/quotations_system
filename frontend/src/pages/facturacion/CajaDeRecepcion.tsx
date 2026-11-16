@@ -60,6 +60,9 @@ export default function CajaDeRecepcion({
   } | null>(null);
   const [montos, setMontos] = useState<Partial<Record<Medio, number>>>({});
   const [comentario, setComentario] = useState("");
+  // §9.49: las pulseras que quedan, contadas a ciegas.
+  const [pulseras, setPulseras] = useState<number | undefined>(undefined);
+  const cuentaPulseras = caja.data?.cuenta_pulseras === true;
   const [confirmando, setConfirmando] = useState(false);
   const [cerradaEn, setCerradaEn] = useState<string | null>(null);
 
@@ -99,12 +102,14 @@ export default function CajaDeRecepcion({
         credito: montos.credito ?? 0,
         transferencia: montos.transferencia ?? 0,
         comentario: comentario.trim() || null,
+        ...(cuentaPulseras ? { pulseras: pulseras ?? 0 } : {}),
       }),
     onSuccess: async (r) => {
       setCerradaEn(r.cerrada_en);
       setConfirmando(false);
       setMontos({});
       setComentario("");
+      setPulseras(undefined);
       // Una consulta de la caja que venía en camino (la que parte sola al
       // volver a la ventana) no puede traer de vuelta la caja «abierta».
       await queryClient.cancelQueries({ queryKey: ["caja"], exact: true });
@@ -171,7 +176,9 @@ export default function CajaDeRecepcion({
     );
   }
 
-  const faltan = MEDIOS.filter((m) => montos[m.clave] == null).length;
+  const faltan =
+    MEDIOS.filter((m) => montos[m.clave] == null).length +
+    (cuentaPulseras && pulseras == null ? 1 : 0);
   const listaParaCerrar = faltan === 0;
   return (
     <div className="space-y-4">
@@ -270,6 +277,18 @@ export default function CajaDeRecepcion({
               />
             </label>
           ))}
+          {cuentaPulseras && (
+            <label className="block">
+              <span className={titulo}>Pulseras que te quedan</span>
+              <NumberInput
+                value={pulseras}
+                min={0}
+                placeholder="0"
+                onChange={setPulseras}
+                className="text-sm"
+              />
+            </label>
+          )}
           <div>
             <span className={titulo}>Cierra</span>
             <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
@@ -289,7 +308,9 @@ export default function CajaDeRecepcion({
         </div>
         {faltan > 0 && (
           <p className="text-right text-xs text-gray-500">
-            Anota los cuatro montos: si un medio no tuvo ventas, pon 0.
+            {cuentaPulseras
+              ? "Anota los cuatro montos y las pulseras: si no hay, pon 0."
+              : "Anota los cuatro montos: si un medio no tuvo ventas, pon 0."}
           </p>
         )}
         <div className="flex justify-end">
