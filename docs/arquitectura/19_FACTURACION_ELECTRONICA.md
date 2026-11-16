@@ -3066,6 +3066,56 @@ anula la NC, la rebaja y lo rechazado).
 
 En la rama `fix/saldo-oc-por-lineas` desde el 16-11-2026, sin migración.
 
+### 9.53 La apertura de la caja contra el cierre anterior (16-11)
+
+Felipe, 16-11: *"cuando veo el cierre de caja, debe verse con cuanto se
+abrio, por que de un dia a otro a menos que se haya hecho un retiro, debe
+concidier el saldo de cierre del ultimo cierre con la apertura siguiente,
+si no en el inter, se pierde el dinero"*.
+
+**Lo aprobado:**
+1. «Cierres de la caja de recepción» tiene la columna **«Abrió con»** (el
+   sencillo inicial).
+2. En esa lista y en el detalle del cierre, un chip en una palabra:
+   **«Calza»** verde si el sencillo inicial es igual al efectivo que declaró
+   el cierre anterior; **«Faltan»** o **«Sobran»** rojo, con el monto en una
+   línea chica debajo («$26.850 menos que el cierre anterior»). El primer
+   turno de la historia no lleva chip. En el detalle, además, la cifra del
+   cierre anterior al lado de «Abrió con».
+3. El correo del cierre: una línea con la apertura y si calzó.
+4. **Recepción sigue a ciegas:** al abrir escribe lo que cuenta y no ve el
+   cierre anterior ni el chip. La pantalla de abrir no cambia. La
+   comparación la ve solo quien revisa (permiso «Revisar cierres de caja»).
+5. Sin migración: se calcula al leer.
+
+**Cómo quedó:**
+- **El anterior:** el turno cerrado de la misma empresa y la misma caja
+  abierto inmediatamente antes, por `abierta_en`. La diferencia es el
+  sencillo inicial menos su `declarado_efectivo`: negativa falta, positiva
+  sobra (`caja/apertura.ts`, puro: `turnoAnteriorEn` y `compararApertura`).
+- **La lista** (`CajaService.cierres`) muestra los 60 turnos más nuevos y lee
+  **61 en la misma consulta**: el que sobra no se muestra y sirve solo de
+  anterior del más viejo a la vista. Cero consultas por fila, y el último de
+  la página no queda sin comparar. Si hay 60 o menos, el más viejo es el
+  primero de la historia y va sin chip.
+- **El detalle** (`CajaService.cierre`) y **el correo**
+  (`avisarElCierre`) piden el anterior con una sola consulta
+  (`CajaRepository.turnoAnterior`). Si esa consulta falla al cerrar, el
+  correo sale igual, sin la comparación.
+- Las respuestas traen `apertura`: `{ cierre_anterior, diferencia }`, o nula
+  sin anterior. El estado de la caja de recepción (`GET /facturacion/caja`)
+  no la trae.
+- **La pantalla:** `ChipDeApertura` en la columna «Abrió con» y en el
+  detalle de `CierresDeCaja`. El correo (`cierreDeCaja.ts`): «Abrió con
+  $X · Calza con el cierre anterior», o «Faltan/Sobran $X (el cierre
+  anterior declaró $Y)» en rojo.
+- **Las pruebas:** `caja-apertura.spec.ts` (el caso medido en producción: el
+  16-11 abrió con 26.850 y declaró $0; la apertura siguiente con 26.850
+  sobra) y los casos «§9.53» de `CierresDeCaja.test.tsx`.
+
+En la rama `feature/caja-apertura-calza` desde el 16-11-2026 (sin
+migración; motor y pantalla).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

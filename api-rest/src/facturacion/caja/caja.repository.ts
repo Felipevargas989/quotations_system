@@ -172,6 +172,27 @@ export class CajaRepository {
     return ((data ?? []) as TurnoDeCaja[]).map(numeros);
   }
 
+  /** §9.53: el turno cerrado de la misma caja abierto justo antes de
+   *  `abiertaEn` (para comparar la apertura con su cierre). */
+  async turnoAnterior(
+    companyId: number,
+    caja: string,
+    abiertaEn: string,
+  ): Promise<TurnoDeCaja | null> {
+    const { data, error } = await this.db
+      .from('turnos_de_caja')
+      .select(TURNO)
+      .eq('company_id', companyId)
+      .eq('caja', caja)
+      .not('cerrada_en', 'is', null)
+      .lt('abierta_en', abiertaEn)
+      .order('abierta_en', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? numeros(data as TurnoDeCaja) : null;
+  }
+
   async turno(companyId: number, id: number): Promise<TurnoDeCaja | null> {
     const { data, error } = await this.db
       .from('turnos_de_caja')
