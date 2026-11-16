@@ -1,7 +1,8 @@
 import { valorDeLaLinea } from '../archivo/comun';
-import { montosDesdeElNeto, TASA_IVA } from '../archivo/montos';
+import { montosDesdeElNeto, precioNetoDe, TASA_IVA } from '../archivo/montos';
 import { textoLimpio } from '../archivo/texto';
 import type { LineaDeDetalle } from '../archivo/tipos';
+import { Cadena, type DocumentoDeLaCadena } from '../notas/cadena';
 import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 
 /**
@@ -53,7 +54,8 @@ export const precioConIvaDe = (neto: number, tasa = TASA_IVA): number => {
 /** Lo que se pide de cada línea: como `LineaPedida` del borrador. */
 export interface LineaDesdeLaOC {
   descripcion: string;
-  descripcion_larga: null;
+  /** «Se facturan 189 de 379» en el saldo de la OC (§9.52); nulo si no. */
+  descripcion_larga: string | null;
   cantidad: number;
   precio: number;
 }
@@ -86,9 +88,121 @@ export function lineasDeLaOC(
       descripcion,
       descripcion_larga: null,
       cantidad,
-      precio: l.con_iva ? Math.round(l.precio) : precioConIvaDe(l.precio),
+      precio: precioDeLaLinea(l),
     });
   }
+  return salida;
+}
+
+/** El precio CON IVA con que una línea de la OC va en la factura. */
+const precioDeLaLinea = (l: LineaDeLaOC) =>
+  l.con_iva ? Math.round(l.precio) : precioConIvaDe(l.precio);
+
+/**
+ * LO QUE YA SE LE FACTURÓ A LA OC, LÍNEA POR LÍNEA (doc 19 §9.52): el
+ * detalle de cada factura vigente contra ella, documento por documento (sus
+ * líneas en el orden en que salieron). Una factura anulada por su NC no
+ * cuenta (como en `facturadoDeLasOC`); una rebajada por una NC de monto no
+ * se sabe a qué línea rebaja: esa OC queda en nulo y su saldo va por el
+ * monto, como antes.
+ */
+export type FacturadoDeLaOC = LineaDeDetalle[][] | null;
+
+export function lineasFacturadasDeLasOC(
+  filas: (DocumentoDeLaCadena & {
+    orden_de_compra_id: number | null;
+    detalle?: unknown;
+  })[],
+  cadena = new Cadena(filas),
+): Map<number, FacturadoDeLaOC> {
+  const porOC = new Map<number, FacturadoDeLaOC>();
+  for (const d of filas) {
+    if (d.tipo !== 33 || d.orden_de_compra_id == null) continue;
+    const vale = cadena.facturado(d.id);
+    if (vale <= 0) continue;
+    const ya = porOC.has(d.orden_de_compra_id)
+      ? porOC.get(d.orden_de_compra_id)!
+      : [];
+    const detalle = Array.isArray(d.detalle)
+      ? (d.detalle as LineaDeDetalle[])
+      : null;
+    porOC.set(
+      d.orden_de_compra_id,
+      ya && detalle?.length && vale === Number(d.total)
+        ? [...ya, detalle]
+        : null,
+    );
+  }
+  return porOC;
+}
+
+const comoTexto = (t: string | null | undefined) =>
+  textoLimpio(t ?? '').toLocaleLowerCase('es-CL');
+
+/**
+ * EL SALDO DE LA OC CON SUS LÍNEAS (doc 19 §9.52). Felipe, 16-11, con la
+ * OC N° 16.617 de Ecofor (#616): la primera factura salió en las tres líneas
+ * de la OC (190 de 379, 97 de 194 y 3 de 6) y lo que quedaba se proponía en
+ * una sola línea, porque el saldo partía las cantidades de la OC entera por
+ * su fracción (379 × 0,4988 = 189,04, no exacto). Ahora el saldo va línea
+ * por línea: lo que pide la OC menos lo ya facturado en esa línea, con
+ * «Se facturan 189 de 379».
+ *
+ * El calce: cada factura anterior, por posición (su línea 1 con la línea 1
+ * de la OC) y con la misma descripción y el mismo precio. Nulo (y el saldo
+ * va por el monto, como antes) si algo no calza, si una línea queda en cero
+ * o menos, o si las líneas no suman lo que le queda a la OC (con los pesos
+ * de redondeo que cuadra `cuadrarConLoQueQueda`).
+ */
+export function lineasDelSaldo(
+  oc: { lineas?: LineaDeLaOC[] | null },
+  facturadas: FacturadoDeLaOC | undefined,
+  queda: number,
+  glosa: (texto: string) => string = (t) => textoLimpio(t),
+): LineaDesdeLaOC[] | null {
+  const lineas = oc.lineas ?? [];
+  if (!lineas.length || !facturadas?.length || queda <= 0) return null;
+  const ya = lineas.map(() => 0);
+  for (const factura of facturadas) {
+    if (factura.length > lineas.length) return null;
+    for (let i = 0; i < factura.length; i++) {
+      const f = factura[i];
+      const o = lineas[i];
+      if (f.descuento) return null;
+      const de = comoTexto(f.descripcion);
+      const completa = comoTexto(o.descripcion);
+      const calza =
+        !!de &&
+        (de === comoTexto(glosa(o.descripcion)) || completa.startsWith(de));
+      const neto = precioNetoDe(precioDeLaLinea(o));
+      if (!calza || !(Math.abs(Number(f.precio) - neto) <= 1)) return null;
+      ya[i] += Number(f.cantidad) || 0;
+    }
+  }
+  const salida: LineaDesdeLaOC[] = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const o = lineas[i];
+    const cantidad = Math.round((o.cantidad - ya[i]) * 1e6) / 1e6;
+    const descripcion = glosa(o.descripcion);
+    if (!(cantidad > 0) || !descripcion || !(o.precio > 0)) return null;
+    salida.push({
+      descripcion,
+      descripcion_larga: `Se facturan ${cantidad} de ${o.cantidad}`,
+      cantidad,
+      precio: precioDeLaLinea(o),
+    });
+  }
+  // Lo que suman, como lo cuenta la factura (en neto): justo lo que queda,
+  // o a unos pesos que la revisión cuadra en la última línea.
+  const netas: LineaDeDetalle[] = salida.map((l) => ({
+    descripcion: l.descripcion,
+    cantidad: l.cantidad,
+    precio: precioNetoDe(l.precio),
+  }));
+  const total = montosDesdeElNeto(
+    netas.reduce((s, l) => s + valorDeLaLinea(l), 0),
+  ).total;
+  if (total !== queda && !cuadrarConLoQueQueda(netas, queda)) return null;
   return salida;
 }
 

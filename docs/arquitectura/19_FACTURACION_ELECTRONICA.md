@@ -2959,6 +2959,57 @@ venta directa, después: *"si que se descuente"*.
 En la rama `feature/pulseras` desde el 16-11-2026 (migración 207, sin
 aplicar; va antes del motor: el tarifario ya pide la columna nueva).
 
+### 9.52 El saldo de la OC, línea por línea (16-11)
+
+Felipe, 16-11, con la OC N° 16.617 de Ecofor (cotización N° 616): *"por
+que lo pendiente de la factura de ecofort lo armo en una sola linea y no
+en 3 como la primera?"*. Y con el arreglo: *"si arreglalo y probamos con
+la misma factura"*.
+
+La OC trae tres líneas netas: 379 × $40.000, 194 × $7.500 y 6 × $8.000
+(neto $16.663.000, total $19.828.970; la cotización suma $19.054.055). La
+factura 391 fue por 190 de 379, 97 de 194 y 3 de 6 (neto $8.351.500,
+total $9.938.285). Para lo que quedaba, el borrador partía las cantidades
+de la OC **entera** por su fracción (§9.37): $9.890.685 / $19.828.970 =
+0,4988, y 379 × 0,4988 = 189,04 no es exacto, así que proponía una sola
+línea por el monto.
+
+**Lo que hace:**
+- Cuando se factura todo lo que queda de una OC que ya tiene facturas,
+  cada línea es lo que pide la OC menos lo ya facturado en esa línea, con
+  la descripción larga «Se facturan 189 de 379» (lo que queda de lo que
+  pide la OC). En Ecofor: 189 × $47.600, 97 × $8.925 y 3 × $9.520 con IVA;
+  neto $8.311.500, IVA $1.579.185, total $9.890.685, justo lo que le queda
+  a la OC.
+- Lo ya facturado sale del detalle de las facturas vigentes contra esa OC
+  en el ambiente donde se emite (`lineasFacturadasDeLasOC`, en
+  `facturas/lineas-de-la-oc.ts`, desde `DocumentosTributariosRepository.facturado`),
+  con la misma cadena que cuenta lo facturado: lo rechazado no cuenta; la
+  factura anulada por su NC no cuenta, y vuelve a contar si una ND anula
+  esa NC. La factura rebajada por una NC de monto no dice a qué línea
+  rebaja: ese saldo va por el monto, como antes.
+- El calce (`lineasDelSaldo`): cada factura anterior, por posición (su
+  línea 1 con la línea 1 de la OC) y con la misma descripción (la glosa de
+  80, o el comienzo de la de la OC) y el mismo precio neto ($1 de
+  tolerancia). Si algo no calza, si una línea lleva descuento, si una
+  línea queda en cero o menos, o si las líneas no suman lo que le queda a
+  la OC (con los pesos de redondeo que cuadra la revisión, §9.37), el
+  saldo va en una línea por el monto, como antes.
+- Solo para todo lo que queda: una parte (el 30 %) después de una primera
+  factura sigue partiendo la OC por su fracción (§9.37).
+- E1 no cambia: la factura va por la OC y la revisión avisa lo que suma
+  la cotización. Sin migración (el detalle ya se guarda) ni cambios de
+  pantalla: la línea trae su descripción larga y `LineasDelDte` la muestra.
+
+**Lo que cubren las pruebas:** `lineas-de-la-oc.spec.ts`, «El saldo de la
+OC, línea por línea (§9.52)»: el caso de Ecofor con sus montos y el aviso
+de E1, lo que no calza (otra descripción, otro precio, un descuento, otro
+orden), la línea que queda en cero, la suma que no da, la parte del 30 %,
+sin facturas antes (igual que hoy) y la cadena (la NC que anula, la ND que
+anula la NC, la rebaja y lo rechazado).
+
+En la rama `fix/saldo-oc-por-lineas` desde el 16-11-2026, sin migración.
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
@@ -3379,7 +3430,9 @@ porque Santo Tomás nos tenía como proveedor inactivo, no por el monto.
   Felipe: el precio con IVA.
 - Una parte de la OC («Qué parte», §9.26) parte las cantidades (el 50 %:
   78 → 39 y 32 → 16) si se parten exactas; si no, va en una línea por el
-  monto. Lo que queda después de una parte, igual.
+  monto. Lo que queda después de una parte, igual. **Desde el 16-11
+  (§9.52), lo que queda de una OC que ya tiene facturas va línea por
+  línea: lo que pide cada línea menos lo ya facturado en ella.**
 - El cuadre: con precios con IVA, una factura puede quedar unos pesos
   sobre o bajo su parte (la 386: $20 sobre la mitad exacta; Felipe:
   *"difícilmente alguien por $20 lo rechace"*). La que cierra la OC se
