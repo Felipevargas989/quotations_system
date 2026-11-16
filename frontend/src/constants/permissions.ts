@@ -148,6 +148,8 @@ export type Permiso =
   // La caja de recepción (doc 19 §9.43, 09-11).
   | "caja_recepcion"
   | "caja_revision"
+  // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
+  | "caja_movimientos"
   | "facturacion_vendido"
   // Las solicitudes de recepción (doc 19 §9.45, 09-11).
   | "facturacion_solicitudes"
@@ -171,6 +173,7 @@ export const PERMISOS_DE_FACTURACION: readonly Permiso[] = [
   "facturacion_ajustes",
   "caja_recepcion",
   "caja_revision",
+  "caja_movimientos",
   "facturacion_vendido",
   "facturacion_solicitudes",
 ];
@@ -226,6 +229,8 @@ export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
     "boletas",
     "facturacion_eventos",
     "facturacion_documentos",
+    // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
+    "caja_movimientos",
     // Aprobar y emitir lo que pide recepción (doc 19 §9.45, 09-11).
     "facturacion_solicitudes",
   ],
@@ -239,6 +244,7 @@ export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
     "facturacion_documentos",
     "facturacion_notas",
     "facturacion_ajustes",
+    "caja_movimientos",
     "facturacion_solicitudes",
     "dashboard",
     "catalogo",

@@ -15,8 +15,11 @@ import { Seccion } from "./PiezasDelDocumento";
 // LOS MOVIMIENTOS DEL TURNO (doc 19 §9.51). Felipe, 16-11: *"esto debería
 // ser retiros y abonos, en caso que mande dinero, o sencillo"*. Una lista
 // por hora con los ingresos (la plata que mandan el dueño o la
-// administradora; no es venta) y los retiros, y las dos acciones siempre en
-// el mismo lugar. Quien opera la caja ve sus movimientos, nunca lo esperado.
+// administradora; no es venta) y los retiros. Desde el §9.55 vive en el panel
+// de la caja abierta, con un solo botón «Anotar movimiento» (se elige
+// ingreso o retiro) que ve solo quien tiene «Anotar movimientos de caja»
+// (de fábrica, operaciones y el administrador; recepción ya no). Los
+// movimientos los ven todos los que ven la caja, nunca lo esperado.
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const hora = (iso: string) =>
@@ -28,14 +31,20 @@ const casilla =
   "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const titulo = "text-xs text-gray-500";
 
+const boton =
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50";
+
 export default function MovimientosDelTurno({
   abierta,
+  puedeAnotar = false,
 }: {
   readonly abierta: CajaAbierta;
+  /** §9.55: el permiso «Anotar movimientos de caja». */
+  readonly puedeAnotar?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [nuevo, setNuevo] = useState<{
-    tipo: TipoDeMovimiento;
+    tipo?: TipoDeMovimiento;
     monto?: number;
     motivo: string;
   } | null>(null);
@@ -52,6 +61,8 @@ export default function MovimientosDelTurno({
     },
     onSuccess: (datos) => {
       queryClient.setQueryData(["caja"], datos);
+      // §9.55: lo que dice el sistema cambia con el movimiento.
+      void queryClient.invalidateQueries({ queryKey: ["caja", "esperado"] });
       setNuevo(null);
     },
     onError: (e) =>
@@ -102,8 +113,25 @@ export default function MovimientosDelTurno({
           })}
         </ul>
       )}
-      {nuevo ? (
+      {!puedeAnotar ? null : nuevo ? (
         <div className="flex flex-wrap items-end gap-2">
+          <div className="flex gap-1" role="group" aria-label="Tipo">
+            {(["ingreso", "retiro"] as const).map((tipo) => (
+              <button
+                key={tipo}
+                type="button"
+                aria-pressed={nuevo.tipo === tipo}
+                onClick={() => setNuevo({ ...nuevo, tipo })}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  nuevo.tipo === tipo
+                    ? TIPO[tipo].claseChip
+                    : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {TIPO[tipo].chip}
+              </button>
+            ))}
+          </div>
           <label className="block w-36">
             <span className={titulo}>Monto</span>
             <NumberInput
@@ -119,18 +147,23 @@ export default function MovimientosDelTurno({
             <input
               value={nuevo.motivo}
               maxLength={120}
-              placeholder={TIPO[nuevo.tipo].placeholder}
+              placeholder={nuevo.tipo ? TIPO[nuevo.tipo].placeholder : ""}
               onChange={(e) => setNuevo({ ...nuevo, motivo: e.target.value })}
               className={casilla}
             />
           </label>
           <button
             type="button"
-            disabled={!nuevo.monto || !nuevo.motivo.trim() || guardar.isPending}
+            disabled={
+              !nuevo.tipo ||
+              !nuevo.monto ||
+              !nuevo.motivo.trim() ||
+              guardar.isPending
+            }
             onClick={() => guardar.mutate()}
-            className={TIPO[nuevo.tipo].claseBoton}
+            className={nuevo.tipo ? TIPO[nuevo.tipo].claseBoton : boton}
           >
-            Guardar {nuevo.tipo}
+            {nuevo.tipo ? `Guardar ${nuevo.tipo}` : "Guardar"}
           </button>
           <button
             type="button"
@@ -141,17 +174,14 @@ export default function MovimientosDelTurno({
           </button>
         </div>
       ) : (
-        <div className="flex gap-3">
-          {(["ingreso", "retiro"] as const).map((tipo) => (
-            <button
-              key={tipo}
-              type="button"
-              onClick={() => setNuevo({ tipo, motivo: "" })}
-              className={`text-xs font-semibold hover:underline ${TIPO[tipo].claseMonto}`}
-            >
-              {TIPO[tipo].boton}
-            </button>
-          ))}
+        <div>
+          <button
+            type="button"
+            onClick={() => setNuevo({ motivo: "" })}
+            className={boton}
+          >
+            Anotar movimiento
+          </button>
         </div>
       )}
     </Seccion>

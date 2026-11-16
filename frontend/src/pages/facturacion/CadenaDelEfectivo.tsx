@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import type {
   CierreEnLaLista,
   ResumenDeLaCadena,
@@ -77,7 +76,13 @@ const monto = (n: number | null | undefined) =>
 
 /** La franja entre un turno y el anterior, solo si el efectivo NO pasó
  *  completo (Felipe, 16-11: si está ok, no muestra nada). */
-function EntreTurnos({ c }: { readonly c: CierreEnLaLista }) {
+function EntreTurnos({
+  c,
+  onAbrir,
+}: {
+  readonly c: CierreEnLaLista;
+  readonly onAbrir: () => void;
+}) {
   const a = c.apertura;
   if (!a || a.diferencia === 0) return null;
   const [clase, borde, texto] =
@@ -93,7 +98,7 @@ function EntreTurnos({ c }: { readonly c: CierreEnLaLista }) {
           `Aparecieron ${pesos(a.diferencia)} que el cierre anterior no declaró`,
         ];
   return (
-    <tr>
+    <tr onClick={onAbrir} className={fila}>
       <td colSpan={7} className="py-1 pl-6">
         <span
           className={`flex items-center gap-2 whitespace-nowrap border-l-4 pl-3 text-xs text-gray-600 ${borde}`}
@@ -153,70 +158,84 @@ export function CifrasDeLaCadena({
 }
 
 const th = "pb-1 font-normal whitespace-nowrap";
+// §9.55: el turno y su franja se resaltan juntos (un <tbody> por turno).
+const fila = "cursor-pointer group-hover:bg-blue-50/60";
 
 export default function CadenaDelEfectivo({
   lista,
   onAbrir,
+  ciego = false,
 }: {
   readonly lista: CierreEnLaLista[];
   readonly onAbrir: (id: number) => void;
+  /** §9.55: quien no revisa los cierres ve solo con cuánto se abrió y el
+   *  estado; nada de lo que dice el sistema. */
+  readonly ciego?: boolean;
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[52rem] text-sm">
+      <table
+        className={`w-full text-sm ${ciego ? "min-w-[28rem]" : "min-w-[52rem]"}`}
+      >
         <thead>
           <tr className="text-left text-xs text-gray-500">
             <th className={th}>Turno</th>
             <th className={`${th} text-right`}>Abrió con</th>
-            <th className={`${th} text-right`}>Debía tener</th>
-            <th className={`${th} text-right`}>Cerró con</th>
-            <th className={`${th} text-right`}>Efectivo</th>
-            <th className={`${th} text-right`}>Tarjetas y transf.</th>
+            {!ciego && (
+              <>
+                <th className={`${th} text-right`}>Debía tener</th>
+                <th className={`${th} text-right`}>Cerró con</th>
+                <th className={`${th} text-right`}>Efectivo</th>
+                <th className={`${th} text-right`}>Tarjetas y transf.</th>
+              </>
+            )}
             <th className={`${th} text-right`}>Estado</th>
           </tr>
         </thead>
-        <tbody>
-          {lista.map((c, i) => (
-            <Fragment key={c.id}>
-              <tr
-                onClick={() => onAbrir(c.id)}
-                className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
-              >
-                <td className="whitespace-nowrap py-1.5 pr-2">
-                  <button
-                    type="button"
-                    className="text-left text-blue-700 hover:underline"
-                  >
-                    {horarioDelTurno(c)}
-                  </button>
-                  <span className="block text-xs text-gray-500">
-                    {c.cerrada_por_nombre ?? c.abierta_por_nombre}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap py-1.5 text-right">
-                  {pesos(c.sencillo_inicial)}
-                </td>
-                <td className="whitespace-nowrap py-1.5 text-right">
-                  {monto(c.debia_tener)}
-                </td>
-                <td className="whitespace-nowrap py-1.5 text-right">
-                  {monto(c.cerro_con)}
-                </td>
-                <td className="py-1.5 text-right">
-                  <Diferencia valor={c.diferencia_efectivo} />
-                </td>
-                <td className="py-1.5 text-right">
-                  <Diferencia valor={c.diferencia_otros} />
-                </td>
-                <td className="py-1.5 text-right">
-                  <Estado c={c} />
-                </td>
-              </tr>
-              {/* Entre este turno y el anterior (el de abajo). */}
-              {i < lista.length - 1 && <EntreTurnos c={c} />}
-            </Fragment>
-          ))}
-        </tbody>
+        {lista.map((c, i) => (
+          <tbody key={c.id} className="group border-t border-gray-100">
+            <tr onClick={() => onAbrir(c.id)} className={fila}>
+              <td className="whitespace-nowrap py-1.5 pr-2">
+                <button
+                  type="button"
+                  className="text-left text-blue-700 hover:underline"
+                >
+                  {horarioDelTurno(c)}
+                </button>
+                <span className="block text-xs text-gray-500">
+                  {c.cerrada_por_nombre ?? c.abierta_por_nombre}
+                </span>
+              </td>
+              <td className="whitespace-nowrap py-1.5 text-right">
+                {pesos(c.sencillo_inicial)}
+              </td>
+              {!ciego && (
+                <>
+                  <td className="whitespace-nowrap py-1.5 text-right">
+                    {monto(c.debia_tener)}
+                  </td>
+                  <td className="whitespace-nowrap py-1.5 text-right">
+                    {monto(c.cerro_con)}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <Diferencia valor={c.diferencia_efectivo} />
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <Diferencia valor={c.diferencia_otros} />
+                  </td>
+                </>
+              )}
+              <td className="py-1.5 text-right">
+                <Estado c={c} />
+              </td>
+            </tr>
+            {/* Entre este turno y el anterior (el de abajo): pincharla abre
+                el mismo detalle. */}
+            {!ciego && i < lista.length - 1 && (
+              <EntreTurnos c={c} onAbrir={() => onAbrir(c.id)} />
+            )}
+          </tbody>
+        ))}
       </table>
     </div>
   );

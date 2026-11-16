@@ -191,6 +191,21 @@ export const cerrarCaja = async (datos: {
 export const getCierres = async (): Promise<CierreEnLaLista[]> =>
   (await apiRequest(`${base}/cierres`, "GET")) as CierreEnLaLista[];
 
+/** §9.55: lo que debería haber en la caja abierta, por medio de pago.
+ *  Solo para quien revisa los cierres (la puerta pide ese permiso). */
+export interface EsperadoDeLaCaja {
+  abierta: {
+    id: number;
+    sencillo_inicial: number;
+    ingresos: number;
+    retiros: number;
+    lineas: { medio: MedioDePago; vendido: number; esperado: number }[];
+  } | null;
+}
+
+export const getEsperadoDeLaCaja = async (): Promise<EsperadoDeLaCaja> =>
+  (await apiRequest(`${base}/esperado`, "GET")) as EsperadoDeLaCaja;
+
 /** §9.54: las tres cifras de los últimos 7 días corridos. */
 export interface ResumenDeLaCadena {
   desde: string;

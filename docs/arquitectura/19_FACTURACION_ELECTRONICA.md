@@ -3179,6 +3179,78 @@ lista lo del §9.53 (el chip dentro de «Abrió con»); el detalle no cambia.
 En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026 (sin
 migración; motor y pantalla).
 
+### 9.55 La caja abierta es una fila y se opera en su panel (16-11)
+
+Felipe, 16-11 (dictado): *"el hover de selección cuando paso por arriba de
+la fila de la caja no me selecciona … la fila de entre turnos. Creo que
+además la caja de arriba del cierre de caja debería abrirse en la fila
+cuando la pincho, cuando se abre el modal al lado derecho. Y lo mismo de
+ingresar movimiento, debería ser un botón que … solo el administrador o
+operaciones, cuando ve la caja, pudiese ingresar movimiento o retiro"*. Y
+después: *"recepción igual debe pinchar la caja abierta para cerrarla,
+finalmente es mover la misma sección pero dentro del modal"*. Confirmó que
+recepción deja de anotar retiros.
+
+**Lo aprobado:**
+1. **El turno y su franja son una unidad:** se resaltan juntos al pasar el
+   mouse y pinchar la franja «Entre turnos» abre el mismo detalle.
+2. **La caja abierta es una fila:** sale el bloque grande de arriba (el
+   estado «Abierta…», «Movimientos del turno» y «Cerrar caja: ¿cuánto
+   tienes?»). La caja abierta es la primera fila («Abierta») y al pincharla
+   se abre el panel de la derecha con, en este orden: quién, cuándo y con
+   cuánto abrió; los movimientos del turno; y el cierre por medio de pago
+   (con las pulseras y el comentario). Sin caja abierta, arriba de la lista
+   queda solo «Abrir caja» con su sencillo.
+3. **Quién ve qué** (el cierre sigue ciego para recepción):
+   - Sin «Revisar cierres de caja» (recepción): solo la fila de la caja
+     abierta (Turno, Abrió con y Estado), sin las tres cifras ni los
+     cierres anteriores; en el panel, los movimientos y el cierre, sin nada
+     de lo que dice el sistema.
+   - Con «Revisar cierres de caja»: la cadena del efectivo entera (§9.54) y,
+     en el panel, «Según sistema» al lado de cada casilla del cierre.
+4. **«Anotar movimiento»:** un solo botón en el panel (se elige ingreso o
+   retiro, el monto y el motivo), con su propio interruptor en Permisos por
+   cargo, **«Anotar movimientos de caja»** (`caja_movimientos`): de fábrica
+   operaciones y el administrador; recepción y el vendedor, no. Quien no lo
+   tiene ve los movimientos, pero no el botón.
+
+**Cómo quedó:**
+- **El motor:** el permiso nuevo en `auth/permisos.ts` (doc 22 §3.1). `POST
+  /facturacion/caja/ingresos` y `/retiros` piden `caja_movimientos`
+  (`@Roles` operaciones y el administrador). `GET /facturacion/caja` (el
+  estado, ciego) lo abren `caja_recepcion` o `caja_movimientos` (recepción,
+  operaciones y el administrador), para que quien anota vea la caja
+  abierta. Lo que debería haber va por su propia puerta, `GET
+  /facturacion/caja/esperado` (`CajaService.esperado`: por medio de pago lo
+  vendido y lo esperado; el efectivo, sencillo + vendido en efectivo +
+  ingresos − retiros), con `caja_revision` (el administrador de fábrica):
+  el estado que lee recepción sigue sin traerlo. Abrir y cerrar no cambian.
+- **La pantalla:** `CajaDeRecepcion` es ahora la pestaña entera (recibe los
+  tres permisos desde `FacturacionPage`): «Abrir caja» compacto o el check
+  de `CajaCerrada`; la cadena (`CierresDeCaja`, que con `onAbrirLaCaja`
+  manda la fila «Abierta» al panel) o, sin el permiso de revisar, la fila
+  sola (`CadenaDelEfectivo` con `ciego`); y `PanelDeLaCajaAbierta` (`Modal`
+  a la derecha) con `MovimientosDelTurno` (`puedeAnotar`) y `CerrarLaCaja`
+  (el formulario de cierre, movido tal cual; `esperado` solo para quien
+  revisa). La pestaña Caja la ve quien tenga cualquiera de los tres
+  permisos. En `CadenaDelEfectivo`, cada turno es un `<tbody>` con
+  `group-hover`.
+- **Sin migración:** el permiso nuevo llega a todas las empresas con su
+  valor de fábrica (doc 22 §4.1).
+- **El despliegue:** sin orden obligado. La pantalla vieja con el motor
+  nuevo sigue andando (las formas de `GET /facturacion/caja` y de `cierres`
+  no cambian), salvo que recepción ya no puede anotar retiros (su botón
+  viejo recibe «sin permiso»), que es lo pedido.
+- **Las pruebas:** `caja-panel.spec.ts` (lo esperado por medio de pago; que
+  el estado de recepción no lo trae; quién pasa por cada puerta de fábrica:
+  lo esperado solo el administrador, recepción tampoco con «Anotar
+  movimientos» prendido; anotar, operaciones y el administrador) y en la
+  vitrina `CajaDeRecepcion.test.tsx` (reescrita para el panel) y los casos
+  «§9.55» de `CierresDeCaja.test.tsx`.
+
+En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026, con el
+§9.54 (sin migración; motor y pantalla).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

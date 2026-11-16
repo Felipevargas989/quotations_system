@@ -381,7 +381,13 @@ function Detalle({
   );
 }
 
-export default function CierresDeCaja() {
+export default function CierresDeCaja({
+  onAbrirLaCaja,
+}: {
+  /** §9.55: pinchar la fila de la caja abierta abre su panel (el de la
+   *  pestaña Caja) en vez del detalle de un cierre. */
+  readonly onAbrirLaCaja?: () => void;
+} = {}) {
   const cierres = useQuery({
     queryKey: ["caja", "cierres"],
     queryFn: getCierres,
@@ -401,7 +407,15 @@ export default function CierresDeCaja() {
       ) : lista.length === 0 ? (
         <p className="text-sm text-gray-500">Todavía no hay cierres.</p>
       ) : (
-        <CadenaDelEfectivo lista={lista} onAbrir={setAbierto} />
+        <CadenaDelEfectivo
+          lista={lista}
+          onAbrir={(id) =>
+            onAbrirLaCaja &&
+            lista.find((x) => x.id === id)?.estado === "abierta"
+              ? onAbrirLaCaja()
+              : setAbierto(id)
+          }
+        />
       )}
       {abierto != null && (
         <Detalle id={abierto} onCerrar={() => setAbierto(null)} />

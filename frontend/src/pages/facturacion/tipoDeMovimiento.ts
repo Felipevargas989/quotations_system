@@ -14,7 +14,6 @@ export const TIPO: Record<
     claseChip: string;
     claseMonto: string;
     signo: string;
-    boton: string;
     claseBoton: string;
     placeholder: string;
   }
@@ -24,7 +23,6 @@ export const TIPO: Record<
     claseChip: "bg-green-100 text-green-800",
     claseMonto: "text-green-700",
     signo: "+",
-    boton: "+ Anotar ingreso",
     claseBoton:
       "rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50",
     placeholder: "Sencillo que mandó Felipe",
@@ -34,7 +32,6 @@ export const TIPO: Record<
     claseChip: "bg-red-100 text-red-800",
     claseMonto: "text-red-700",
     signo: "−",
-    boton: "− Anotar retiro",
     claseBoton:
       "rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50",
     placeholder: "Entregado a administración",

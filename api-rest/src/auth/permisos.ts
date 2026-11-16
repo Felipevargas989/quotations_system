@@ -41,6 +41,8 @@ export type Permiso =
   // La caja de recepción (doc 19 §9.43, 09-11-2026).
   | 'caja_recepcion'
   | 'caja_revision'
+  // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
+  | 'caja_movimientos'
   // «Lo vendido», su propia pestaña (Felipe, 09-11).
   | 'facturacion_vendido'
   // Las solicitudes de recepción (doc 19 §9.45, 09-11).
@@ -200,6 +202,17 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     area: 'facturacion',
     nombre: 'Revisar cierres de caja',
     fabrica: [A],
+    derecho: 'facturacion',
+  },
+  // Felipe, 16-11 (doc 19 §9.55): *"solo el administrador o operaciones,
+  // cuando ve la caja, pudiese ingresar movimiento o retiro"*. Recepción
+  // deja de anotar retiros. Con este interruptor también se ve la caja
+  // abierta (sin lo esperado: eso es de «Revisar cierres de caja»).
+  {
+    clave: 'caja_movimientos',
+    area: 'facturacion',
+    nombre: 'Anotar movimientos de caja',
+    fabrica: [O, A],
     derecho: 'facturacion',
   },
   // Felipe, 09-11: *"lo vendido debería ser otra pestaña que solo lo vea
