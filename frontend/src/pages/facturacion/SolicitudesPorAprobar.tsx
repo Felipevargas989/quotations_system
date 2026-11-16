@@ -70,7 +70,8 @@ const COLUMNAS = (
       <col className="w-64" />
       <col className="w-28" />
       <col className="w-36" />
-      <col className="w-44" />
+      {/* Cabe «Rechazar» + «Emitiendo…» sin cortarse (Felipe, 16-11). */}
+      <col className="w-52" />
     </colgroup>
     <thead>
       <tr className="text-left text-xs text-gray-500">
@@ -217,7 +218,7 @@ export default function SolicitudesPorAprobar() {
                   disabled={ocupada !== null}
                   title="Aprobar y emitir"
                   onClick={() => void aprobar(s)}
-                  className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="min-w-[5.5rem] rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {ocupada === s.id ? "Emitiendo…" : "Emitir"}
                 </button>
@@ -296,7 +297,7 @@ export default function SolicitudesPorAprobar() {
 
   const tabla = (filas: Solicitud[], conAcciones: boolean) => (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[56rem] table-fixed text-sm">
+      <table className="w-full min-w-[58rem] table-fixed text-sm">
         {COLUMNAS}
         <tbody>{filas.map((s) => fila(s, conAcciones))}</tbody>
       </table>
