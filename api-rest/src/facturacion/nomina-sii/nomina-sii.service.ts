@@ -25,10 +25,12 @@ import {
   columnasDe,
   contribuyenteDe,
   cortar,
+  esSinFinesDeLucro,
   filaDe,
   lineasDelFlujo,
   porRut,
   rutDe,
+  subtipoDe,
   tramoDe,
   type ContribuyenteDelSii,
 } from './nomina-sii';
@@ -76,8 +78,9 @@ const NOMBRES_EN_MEMORIA = 50_000;
  * 2. reparte los nombres por tramo de RUT en archivos (vienen sin orden);
  * 3. recorre las actividades y los domicilios, que vienen ordenados por RUT,
  *    de a tramo de 100.000 RUT: así nunca tiene más que un tramo en memoria;
- * 4. guarda una fila por empresa con actividades vigentes, de a mil, y al
- *    final borra las que ya no vienen.
+ * 4. guarda una fila por empresa con actividades vigentes, y por
+ *    organización sin fines de lucro aunque no tenga actividades (§9.50,
+ *    sin giro), de a mil, y al final borra las que ya no vienen.
  *
  * Una carga a la vez. Si algo falla, lo que había sigue (solo se borra al
  * final) y la carga queda «fallo» con el motivo.
@@ -201,8 +204,10 @@ export class NominaSiiService {
       if (rut == null || !fila.RAZON_SOCIAL) continue;
       const tramo = tramoDe(rut);
       const lineas = porTramo.get(tramo) ?? [];
+      // El subtipo va al final: dice si es una organización sin fines de
+      // lucro, que entra aunque no tenga actividades (§9.50).
       lineas.push(
-        `${rut}\t${fila.DV}\t${fila.RAZON_SOCIAL.replace(/\t/g, ' ')}`,
+        `${rut}\t${fila.DV}\t${fila.RAZON_SOCIAL.replace(/\t/g, ' ')}\t${fila.COD_SUBTIPO ?? ''}`,
       );
       porTramo.set(tramo, lineas);
       if (++enMemoria >= NOMBRES_EN_MEMORIA) await vaciar();
@@ -211,13 +216,20 @@ export class NominaSiiService {
   }
 
   private async nombresDelTramo(carpeta: string, tramo: number) {
-    const nombres = new Map<number, { dv: string; razon_social: string }>();
+    const nombres = new Map<
+      number,
+      { dv: string; razon_social: string; subtipo: number | null }
+    >();
     const ruta = join(carpeta, `nombres-${tramo}.tsv`);
     if (!existsSync(ruta)) return nombres;
     for (const linea of (await readFile(ruta, 'utf8')).split('\n')) {
       if (!linea) continue;
-      const [rut, dv, razon_social] = linea.split('\t');
-      nombres.set(Number(rut), { dv, razon_social });
+      const [rut, dv, razon_social, subtipo] = linea.split('\t');
+      nombres.set(Number(rut), {
+        dv,
+        razon_social,
+        subtipo: subtipoDe(subtipo),
+      });
     }
     return nombres;
   }
@@ -237,6 +249,7 @@ export class NominaSiiService {
       ),
     );
     let empresas = 0;
+    let agrupaciones = 0;
     let avisado = 0;
     let tanda: ContribuyenteDelSii[] = [];
     // El diccionario de actividades (unas setecientas): para elegir otro
@@ -258,9 +271,19 @@ export class NominaSiiService {
           : (tramo + 1) * TAMANO_DEL_TRAMO;
       const deActividades = await actividades.hasta(limite);
       const deDomicilios = await domicilios.hasta(limite);
-      if (!deActividades.size) continue;
       const nombres = await this.nombresDelTramo(carpeta, tramo);
-      for (const [rut, filas] of deActividades) {
+      // Las que tienen actividades y, además, las organizaciones sin fines
+      // de lucro sin actividades (§9.50). Un mismo RUT va una sola vez: si
+      // tiene actividades, entra con ellas (y la llave `rut` del upsert
+      // pisa la fila que dejó una carga anterior).
+      const ruts = [...deActividades.keys()];
+      for (const [rut, nombre] of nombres)
+        if (!deActividades.has(rut) && esSinFinesDeLucro(nombre.subtipo))
+          ruts.push(rut);
+      if (!ruts.length) continue;
+      ruts.sort((a, b) => a - b);
+      for (const rut of ruts) {
+        const filas = deActividades.get(rut) ?? [];
         for (const fila of filas) {
           const actividad = actividadDe(fila);
           if (actividad && !diccionario.has(actividad.codigo))
@@ -273,6 +296,7 @@ export class NominaSiiService {
           deDomicilios.get(rut) ?? [],
         );
         if (!empresa) continue;
+        if (!filas.length) agrupaciones++;
         tanda.push(empresa);
         if (tanda.length >= TANDA) await guardar();
       }
@@ -283,6 +307,9 @@ export class NominaSiiService {
         codigo,
         descripcion,
       })),
+    );
+    this.logger.info(
+      `nómina del SII: ${agrupaciones} organizaciones sin fines de lucro sin actividades`,
     );
     return empresas;
   }

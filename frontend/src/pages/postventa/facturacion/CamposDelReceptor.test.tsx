@@ -95,6 +95,35 @@ describe("El RUT que llena todo", () => {
     ).toBeInTheDocument();
   });
 
+  it("§9.50: una agrupación del SII llega sin giro, lo dice y deja el giro abierto", async () => {
+    buscarRazonSocial.mockResolvedValue({
+      ...CCU_DEL_SII,
+      rut: "65108661-2",
+      razon_social: "AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA",
+      giro: null,
+      giros: [],
+      direccion: "AV BERNARDO OHIGGINS 589 BLOCK INT",
+      comuna: "SANTA JUANA",
+      ciudad: "SANTA JUANA",
+    });
+    render(<ConEstado inicial={VACIO} />);
+    await escribirRut("65.108.661-2", () =>
+      expect(casilla("Razón social").value).toBe(
+        "AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA",
+      ),
+    );
+    expect(casilla("Dirección").value).toBe("AV BERNARDO OHIGGINS 589 BLOCK INT");
+    expect(casilla("Comuna").value).toBe("SANTA JUANA");
+    expect(
+      screen.getByText(
+        "Llenado con la nómina del SII. El SII no trae su giro: escríbelo.",
+      ),
+    ).toBeInTheDocument();
+    expect(casilla("Giro").value).toBe("");
+    expect(casilla("Giro")).not.toHaveAttribute("readonly");
+    expect(screen.queryByText(/No encontré datos/)).not.toBeInTheDocument();
+  });
+
   it("lo escrito a mano no se pisa ni se achura", async () => {
     buscarRazonSocial.mockResolvedValue(CCU_DEL_SII);
     render(<ConEstado inicial={{ ...VACIO, razon_social: "CCU" }} />);

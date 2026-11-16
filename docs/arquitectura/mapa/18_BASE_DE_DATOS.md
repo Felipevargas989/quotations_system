@@ -748,7 +748,7 @@ producción desde la tarde del 04-11 (Felipe: «a producción»), antes del moto
 
 **Tamaño.** Unos 1,7 millones de filas, cerca de 300 MB. **Fuera del respaldo diario** (`FUERA_DEL_RESPALDO`): ese respaldo arma el archivo entero en memoria. En producción, antes de cargarla, mirar el disco (regla del 29-10-2026); y aplicarla solo con el motor que ya la deja fuera del respaldo (si no, el de las 7 AM intentaría meterla y se caería).
 
-**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **En producción desde el 08-11-2026** (PR #312), aplicada antes del motor; vacía hasta «Cargar la nómina del SII», que se aprieta con el motor nuevo arriba.
+**Estado.** Escrita el 08-11-2026. Aplicada en el laboratorio el 08-11-2026. **En producción desde el 08-11-2026** (PR #312), aplicada antes del motor; vacía hasta «Cargar la nómina del SII», que se aprieta con el motor nuevo arriba. Desde el 16-11-2026 (doc 19 §9.50, sin migración) `sii_contribuyentes` guarda también las organizaciones sin fines de lucro sin actividades, con `giro` nulo y `actividades` vacío (unas 348 mil filas más, unos 70 a 75 MB).
 
 ## 36. Migración 193: lo recibido de los proveedores (08-11-2026)
 
