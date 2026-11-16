@@ -1992,6 +1992,8 @@ pesa 359 MB y la base quedó en 1,9 GB de 8. Probado en «Nuevo documento»
 llenó la razón social, el giro, la dirección y la comuna, con «Otras
 actividades en el SII».
 
+**Cuando el RUT no trae nada, lo dice (16-11-2026).** Felipe escribió el 65.108.661-2, una agrupación que la nómina no trae (solo guarda a quienes tienen actividades vigentes), y *"no buscó nada"*: sí buscó, pero la pantalla callaba. Ahora `CamposDelReceptor` avisa en ámbar «No encontré datos para este RUT en Eventia ni en el SII: llénalos a mano. Al emitir quedan guardados en el cliente.», y «No pude buscar este RUT ahora…» si la búsqueda falla. El punto de más («65.108.661.-2») ya se limpiaba solo.
+
 **El RUT arriba (08-11; en producción desde el 08-11-2026, PR #314).** Felipe, después de probarlo
 en producción: *"el rut debería aparecer arriba de los primeros para
 ingresar, así el resto se rellena solo y se achura (¿es la mejor práctica
