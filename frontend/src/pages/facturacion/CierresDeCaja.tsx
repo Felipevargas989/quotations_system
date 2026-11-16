@@ -19,6 +19,7 @@ import {
 } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
 import ChipDePulseras from "./ChipDePulseras";
+import MovimientosDelCierre from "./MovimientosDelCierre";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LOS CIERRES DE LA CAJA DE RECEPCIÓN, PARA REVISARLOS (doc 19 §9.43,
@@ -27,7 +28,8 @@ import { Seccion } from "./PiezasDelDocumento";
 // «Revisado · cuadra», «Revisado · faltan $X») y cada cierre en el panel de
 // la derecha: por medio de pago, lo declarado, lo de Eventia y la
 // diferencia; sus documentos, con el medio de pago que se corrige ahí; lo
-// vendido; los retiros; y «Marcar revisado» con su nota.
+// vendido; los ingresos y los retiros (§9.51, `MovimientosDelCierre`); y
+// «Marcar revisado» con su nota.
 
 const clp = (n: number) =>
   `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("es-CL")}`;
@@ -186,7 +188,7 @@ function Detalle({
                       {nombreDelMedio(l.medio)}
                       {l.medio === "efectivo" && (
                         <span className="block text-xs text-gray-400">
-                          sencillo + ventas − retiros
+                          sencillo + ventas + ingresos − retiros
                         </span>
                       )}
                     </td>
@@ -328,17 +330,6 @@ function Detalle({
                     <td className="py-1.5 text-right">{clp(i.monto)}</td>
                   </tr>
                 ))}
-                {c.retiros.map((r) => (
-                  <tr key={`r${r.id}`} className="border-t border-gray-100">
-                    <td className="py-1.5 text-gray-600">
-                      Retiro {hora(r.creado_en)} · {r.motivo}
-                    </td>
-                    <td />
-                    <td className="py-1.5 text-right text-gray-600">
-                      {clp(-r.monto)}
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
             <p className="text-xs text-gray-500">
@@ -346,6 +337,8 @@ function Detalle({
               {c.comentario ?? "sin comentario"}
             </p>
           </Seccion>
+
+          <MovimientosDelCierre cierre={c} />
 
           {c.estado !== "abierta" && (
             <Seccion titulo="Revisión">

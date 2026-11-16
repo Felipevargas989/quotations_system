@@ -2959,6 +2959,64 @@ venta directa, después: *"si que se descuente"*.
 En la rama `feature/pulseras` desde el 16-11-2026 (migración 207, sin
 aplicar; va antes del motor: el tarifario ya pide la columna nueva).
 
+### 9.51 Los movimientos del turno: ingresos y retiros (16-11)
+
+Felipe, 16-11, mirando «Retiros del turno» de la caja de recepción: *"esto
+debería ser retiros y abonos, en caso que mande dinero, o sencillo"*. Y
+aclaró que los ingresos son *"solo lo que yo o camila mandamos"*: plata que
+el dueño o la administradora mandan a la caja, no abonos de clientes.
+
+**Lo aprobado:**
+1. La tarjeta se llama **«Movimientos del turno»**: una lista por hora,
+   cada fila con su chip en una palabra («Ingreso» verde o «Retiro» rojo),
+   el motivo, la hora y el monto con signo (+ verde, − rojo). Vacía:
+   «Sin movimientos.»
+2. Dos acciones, siempre en el mismo lugar: **«+ Anotar ingreso»** (verde)
+   y **«− Anotar retiro»** (rojo), cada una con monto y motivo. Quién mandó
+   la plata va en el motivo. El mismo permiso «Caja de recepción».
+3. **El efectivo esperado** = sencillo inicial + vendido en efectivo +
+   ingresos − retiros.
+4. La revisión («Cierres de caja») y el correo del cierre: los ingresos y
+   los retiros en líneas separadas.
+5. **Un ingreso no es venta:** no entra a «Lo vendido» ni a lo vendido del
+   turno, no toca pulseras ni documentos. Solo efectivo.
+6. El cierre sigue **ciego**: recepción ve sus movimientos, nunca lo
+   esperado.
+7. Cada movimiento guarda quién lo anotó (el perfil de la sesión), la hora
+   y el motivo. La revisión muestra el nombre en una línea chica junto a la
+   hora; los anotados antes del cambio no tienen nombre y no muestran nada.
+
+**Dónde vive:**
+- **La base (migración 208):** `retiros_de_caja.tipo` (`retiro` o
+  `ingreso`, de fábrica `retiro`: lo ya anotado queda como retiro) y
+  `retiros_de_caja.creado_por_nombre` (nulo en lo de antes). La tabla no se
+  renombra: guarda los dos tipos.
+- **El motor:** `cuadrar` (`caja/cuadre.ts`) recibe los movimientos con su
+  tipo (sin tipo, retiro) y devuelve `ingresos` y `retiros` aparte;
+  `CajaRepository.movimientos` y `agregarMovimiento`; `POST
+  /facturacion/caja/ingresos` (`IngresoDeCajaDto`) junto a `POST
+  /facturacion/caja/retiros`, que no cambia. El estado de la caja y el
+  detalle del cierre traen `movimientos` (los dos tipos, por hora) y siguen
+  trayendo `retiros` (solo los retiros), para que la pantalla de antes
+  funcione mientras el motor nuevo ya está arriba. El correo dice
+  «Vendido · Ingresos · Retiros».
+- **La pantalla:** `MovimientosDelTurno` (la tarjeta, sacada de
+  `CajaDeRecepcion`), `MovimientosDelCierre` (en `CierresDeCaja`, aparte
+  de «Lo vendido en el turno»: ahí iban los retiros y un ingreso no es
+  venta) y `tipoDeMovimiento.ts` (colores, signos y `movimientosDe`, que
+  usa `retiros` si el motor es el de antes).
+- **Las pruebas:** `caja-movimientos.spec.ts` y los casos «§9.51» de
+  `CajaDeRecepcion.test.tsx` y `CierresDeCaja.test.tsx`.
+
+**Ojo al volver atrás:** el motor de antes de la 208 lee todas las filas de
+`retiros_de_caja` como retiros. Con la migración primero y el motor nuevo
+enseguida no pasa nada (solo el motor nuevo crea ingresos), pero si se
+vuelve al motor anterior después de anotar un ingreso, ese ingreso se
+restaría del efectivo esperado.
+
+En la rama `feature/caja-movimientos` desde el 16-11-2026 (migración 208,
+sin aplicar; va antes del motor).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
