@@ -24,6 +24,13 @@ export type CierreDeCajaParams = {
   retiros: number;
   diferencia: number;
   comentario?: string | null;
+  /** §9.49: las pulseras del turno, si la empresa las cuenta y este cierre
+   *  las contó. Sin ellas, el correo es el de siempre. */
+  pulseras?: {
+    deberian: number;
+    contadas: number;
+    diferencia: number;
+  } | null;
 };
 
 const NOMBRE: Record<string, string> = {
@@ -42,6 +49,21 @@ const escapar = (t: string) =>
 /** «cuadra», «faltan $5.000» o «sobran $500». */
 const resultado = (d: number) =>
   d === 0 ? 'cuadra' : d < 0 ? `faltan ${pesos(-d)}` : `sobran ${pesos(d)}`;
+
+/** §9.49: «Calza», «Faltan 2» o «Sobran 1», en pulseras. */
+const resultadoDePulseras = (d: number) =>
+  d === 0 ? 'Calza' : d < 0 ? `Faltan ${-d}` : `Sobran ${d}`;
+
+/** La línea de las pulseras: en rojo si faltan. */
+const lineaDePulseras = (p: NonNullable<CierreDeCajaParams['pulseras']>) => {
+  const color =
+    p.diferencia === 0 ? '#15803d' : p.diferencia < 0 ? '#b91c1c' : '#b45309';
+  return `
+    <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
+      Pulseras: deberían quedar ${p.deberian} · contó ${p.contadas} ·
+      <strong style="color:${color};">${resultadoDePulseras(p.diferencia)}</strong>
+    </p>`;
+};
 
 const fechaYHora = (iso: string) =>
   new Date(iso).toLocaleString('es-CL', {
@@ -86,7 +108,7 @@ export const cierreDeCajaTemplate = (p: CierreDeCajaParams): string => {
     </table>
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
       Vendido en el turno: ${pesos(p.vendido)} · Retiros: ${pesos(p.retiros)}
-    </p>
+    </p>${p.pulseras ? lineaDePulseras(p.pulseras) : ''}
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0;">
       Comentario: ${p.comentario ? escapar(p.comentario) : 'sin comentario'}
     </p>`;

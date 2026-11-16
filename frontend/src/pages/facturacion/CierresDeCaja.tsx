@@ -18,6 +18,7 @@ import {
   type CierreEnLaLista,
 } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import ChipDePulseras from "./ChipDePulseras";
 import { Seccion } from "./PiezasDelDocumento";
 
 // LOS CIERRES DE LA CAJA DE RECEPCIÓN, PARA REVISARLOS (doc 19 §9.43,
@@ -303,6 +304,16 @@ function Detalle({
               </ul>
             )}
           </Seccion>
+
+          {c.pulseras && (
+            <Seccion titulo="Pulseras">
+              <p className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                <ChipDePulseras diferencia={c.pulseras.diferencia} />
+                Contó {c.pulseras.contadas} · deberían quedar{" "}
+                {c.pulseras.deberian}
+              </p>
+            </Seccion>
+          )}
 
           <Seccion titulo="Lo vendido en el turno">
             <table className="w-full table-fixed text-sm">

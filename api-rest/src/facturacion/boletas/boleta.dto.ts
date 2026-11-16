@@ -124,6 +124,11 @@ export class EditarItemDelTarifarioDto extends PartialType(
   @IsInt()
   @Min(0)
   orden?: number;
+
+  /** §9.49: el interruptor «Usa pulsera» del ítem. */
+  @IsOptional()
+  @IsBoolean()
+  usa_pulsera?: boolean;
 }
 
 /** Una línea de la boleta suelta: del tarifario por una cantidad, o (solo
