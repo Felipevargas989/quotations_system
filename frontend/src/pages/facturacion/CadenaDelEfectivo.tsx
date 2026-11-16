@@ -75,28 +75,23 @@ function Estado({ c }: { readonly c: CierreEnLaLista }) {
 const monto = (n: number | null | undefined) =>
   n == null ? <span className="text-gray-400">—</span> : pesos(n);
 
-/** La franja entre un turno y el anterior: si el efectivo pasó completo. */
+/** La franja entre un turno y el anterior, solo si el efectivo NO pasó
+ *  completo (Felipe, 16-11: si está ok, no muestra nada). */
 function EntreTurnos({ c }: { readonly c: CierreEnLaLista }) {
   const a = c.apertura;
-  if (!a) return null;
+  if (!a || a.diferencia === 0) return null;
   const [clase, borde, texto] =
-    a.diferencia === 0
+    a.diferencia < 0
       ? [
-          VERDE,
-          "border-green-300",
-          `Pasaron completos los ${pesos(a.cierre_anterior)}`,
+          ROJO,
+          "border-red-300",
+          `Faltan ${pesos(a.diferencia)} entre el cierre y la apertura`,
         ]
-      : a.diferencia < 0
-        ? [
-            ROJO,
-            "border-red-300",
-            `Faltan ${pesos(a.diferencia)} entre el cierre y la apertura`,
-          ]
-        : [
-            AMBAR,
-            "border-amber-300",
-            `Aparecieron ${pesos(a.diferencia)} que el cierre anterior no declaró`,
-          ];
+      : [
+          AMBAR,
+          "border-amber-300",
+          `Aparecieron ${pesos(a.diferencia)} que el cierre anterior no declaró`,
+        ];
   return (
     <tr>
       <td colSpan={7} className="py-1 pl-6">

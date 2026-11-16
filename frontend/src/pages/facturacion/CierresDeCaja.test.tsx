@@ -355,9 +355,10 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(screen.getByText("Cerró con")).toBeInTheDocument();
     expect(screen.getByText("Tarjetas y transf.")).toBeInTheDocument();
     const filas = screen.getAllByRole("row").slice(1);
-    // B (abierta) · franja B–A · A · franja A–domingo · domingo.
-    expect(filas).toHaveLength(5);
-    const [b, entreBA, a, entreAD, domingo] = filas;
+    // B (abierta) · franja B–A · A · domingo (entre A y el domingo calza:
+    // sin franja).
+    expect(filas).toHaveLength(4);
+    const [b, entreBA, a, domingo] = filas;
     // El abierto: solo la hora de apertura y «—» en lo que no se muestra.
     expect(within(b).getByText("Abierta")).toBeInTheDocument();
     expect(within(b).getAllByText("—")).toHaveLength(4);
@@ -379,11 +380,8 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(within(entreBA).getByText("Entre turnos")).toHaveClass(
       "text-amber-800",
     );
-    // Entre el domingo y A: pasaron completos, en verde.
-    expect(entreAD).toHaveTextContent("Pasaron completos los $26.850");
-    expect(within(entreAD).getByText("Entre turnos")).toHaveClass(
-      "text-green-700",
-    );
+    // Entre el domingo y A pasó completo: no hay franja.
+    expect(screen.getAllByText("Entre turnos")).toHaveLength(1);
     // El más viejo no lleva franja debajo.
     expect(within(domingo).getAllByText("Cuadra")).toHaveLength(2);
     expect(within(domingo).getByText("Revisado")).toBeInTheDocument();
