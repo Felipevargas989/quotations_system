@@ -190,7 +190,7 @@ function Detalle({
                       {nombreDelMedio(l.medio)}
                       {l.medio === "efectivo" && (
                         <span className="block text-xs text-gray-400">
-                          sencillo + ventas + ingresos − retiros
+                          sencillo + ventas + ingresos − retiros − gastos
                         </span>
                       )}
                     </td>

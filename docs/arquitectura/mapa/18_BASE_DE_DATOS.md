@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio), y el 16-11-2026 con la 208 (sección 38, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio), y el 16-11-2026 con la 208 (sección 38, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 17-11-2026 con la 209 (sección 39, sin aplicar).
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -52,6 +52,16 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
 | `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
 
+## 39. Migración 209: los gastos de la caja de recepción (17-11-2026)
+
+**Qué hace.** Cambia el check de `retiros_de_caja.tipo` para admitir también `gasto` (plata que sale de la caja para pagar algo, como un taxi; el motivo dice en qué se gastó). Borra el check de la 208 y lo vuelve a crear con los tres valores. RLS y permisos sin cambios. Idempotente.
+
+**Por qué.** Felipe, 17-11-2026: *"en movimientos de turno, anotar movimiento debería poder ingresarse algún gasto … ejemplo pago taxi"*. Doc 19 §9.56.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que anota gastos (si no, el insert choca con el check). El motor de antes sigue andando: lee como retiro todo lo que no es ingreso.
+
+**Estado.** Escrita el 17-11-2026 en la rama `feature/caja-gastos`. Sin aplicar.
+
 ## 38. Migración 208: los ingresos de la caja de recepción (16-11-2026)
 
 **Qué hace.** `retiros_de_caja.tipo` (`retiro` o `ingreso`, `not null default 'retiro'`: lo ya anotado queda como retiro) y `retiros_de_caja.creado_por_nombre` (el nombre del perfil de quien lo anotó, desde ahora y para los dos tipos; nulo en las filas de antes, de 1 a 60). La tabla no se renombra. RLS y permisos sin cambios (el motor solo lee e inserta). Idempotente.
@@ -79,7 +89,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `ordenes_de_compra` | Las OC de cada evento: `numero` (hasta 18, lo que admite la referencia del SII), `fecha`, a nombre de quién viene (`rut` y `razon_social`, como los imprime la OC: la factura va a ese RUT), `comprador` (`jsonb`: giro, dirección, comuna y ciudad como los leyó BelIA, para la primera factura a un RUT nuevo), `descripcion`, `neto`, `iva`, `total`, `origen` (`manual`, `mercado_publico` o `pdf`), el PDF de Documentos (`documento_id`, `set null`) y quién la creó. Única por empresa, cotización y N°. Se va con su cotización (`cascade`) | doc 19 | 184 |
 | `tarifario_de_boletas` | Lo que recepción boletea suelto: cabañas, ticket diario, tinaja… (`nombre` hasta 60, `precio` con IVA, `unidad`, `activo`, `orden`; desde la 207, `usa_pulsera`, doc 19 §9.49). Aparte del catálogo del cotizador (D3, Felipe 04-11: *"tarifario aparte puede ser cabañas, ticket diario, otros"*) | doc 19 | 187 |
 | `entregas_de_pulseras` | Las pulseras que se le pasan a recepción (`cantidad`, `para` = `recepcion`, `entregada_por`, `entregada_por_nombre`, `created_at`); con `turnos_de_caja.pulseras_contadas`, la cuenta de las pulseras | doc 19 §9.49 | 207 |
-| `retiros_de_caja` | Los movimientos de efectivo de un turno de la caja de recepción (`turno_id`, `monto` > 0, `motivo` de 1 a 120, `creado_por`, `created_at`); desde la 208, `tipo` (`retiro` o `ingreso`, la plata que mandan el dueño o la administradora) y `creado_por_nombre` | doc 19 §9.43 y §9.51 | 199 |
+| `retiros_de_caja` | Los movimientos de efectivo de un turno de la caja de recepción (`turno_id`, `monto` > 0, `motivo` de 1 a 120, `creado_por`, `created_at`); desde la 208, `tipo` (`retiro` o `ingreso`, la plata que mandan el dueño o la administradora; desde la 209, también `gasto`) y `creado_por_nombre` | doc 19 §9.43, §9.51 y §9.56 | 199 |
 | `cobros_por_boletear` | El total que deja el administrador para boletear (`descripcion` hasta 55, `total` con IVA), desde un evento (`quotation_id`, cascada) o suelto, con quién lo dejó (`creado_por`, `creado_por_nombre`) | doc 19 | 187 |
 | `cobros_por_boletear_lineas` | Cómo lo reparte recepción: una por cabaña (`cabana` hasta 22, la escribe ella), `monto`, `correo` del huésped y `documento_id`, su boleta (sin cascada; única) | doc 19 | 187 |
 | `cobros_por_boletear_cambios` | E3: quién cambió qué (`que`, `antes`, `despues`, `usuario`, `nombre`). `service_role` solo `SELECT` e `INSERT`: lo anotado no se reescribe | doc 19 | 187 |

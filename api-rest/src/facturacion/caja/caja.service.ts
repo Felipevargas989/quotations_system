@@ -24,6 +24,7 @@ import type {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  GastoDeCajaDto,
   IngresoDeCajaDto,
   LoVendidoQueryDto,
   RetiroDeCajaDto,
@@ -174,6 +175,7 @@ export class CajaService {
         sencillo_inicial: turno.sencillo_inicial,
         ingresos: c.ingresos,
         retiros: c.retiros,
+        gastos: c.gastos,
         lineas: c.lineas.map((l) => ({
           medio: l.medio,
           vendido: l.vendido,
@@ -210,8 +212,15 @@ export class CajaService {
     return this.anotar(user, 'ingreso', dto);
   }
 
-  /** Un ingreso o un retiro al turno abierto, con quién (el perfil de la
-   *  sesión) y la hora. */
+  /** §9.56: la plata que sale para pagar algo (un taxi). Resta del efectivo
+   *  esperado como un retiro, pero se cuenta aparte; el motivo dice en qué
+   *  se gastó. */
+  async gasto(user: User, dto: GastoDeCajaDto) {
+    return this.anotar(user, 'gasto', dto);
+  }
+
+  /** Un ingreso, un retiro o un gasto al turno abierto, con quién (el
+   *  perfil de la sesión) y la hora. */
   private async anotar(
     user: User,
     tipo: TipoDeMovimiento,
@@ -297,6 +306,7 @@ export class CajaService {
         vendido: c.vendido,
         ingresos: c.ingresos,
         retiros: c.retiros,
+        gastos: c.gastos,
         diferencia: c.diferencia ?? 0,
         comentario: turno.comentario,
         pulseras,

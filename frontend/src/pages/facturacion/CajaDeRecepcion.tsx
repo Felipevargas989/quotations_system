@@ -55,6 +55,7 @@ export default function CajaDeRecepcion({
   puedeAbrirYCerrar = true,
   puedeRevisar = false,
   puedeAnotar = false,
+  puedeGastar = false,
   puedeVerPulseras = false,
 }: {
   /** El perfil de la sesión: abre y cierra a su nombre (Felipe, 09-11:
@@ -66,13 +67,15 @@ export default function CajaDeRecepcion({
   readonly puedeRevisar?: boolean;
   /** «Anotar movimientos de caja». */
   readonly puedeAnotar?: boolean;
+  /** §9.56: «Anotar gastos de caja». */
+  readonly puedeGastar?: boolean;
   /** «Lo vendido»: quien además revisa ve las pulseras que deberían
    *  quedar al cerrar. */
   readonly puedeVerPulseras?: boolean;
 }) {
   const queryClient = useQueryClient();
   // El estado ciego: lo pide quien opera la caja o anota movimientos.
-  const veLaCaja = puedeAbrirYCerrar || puedeAnotar;
+  const veLaCaja = puedeAbrirYCerrar || puedeAnotar || puedeGastar;
   const caja = useQuery({
     queryKey: ["caja"],
     queryFn: getCaja,
@@ -155,6 +158,7 @@ export default function CajaDeRecepcion({
           cuentaPulseras={caja.data?.cuenta_pulseras === true}
           puedeCerrar={puedeAbrirYCerrar}
           puedeAnotar={puedeAnotar}
+          puedeGastar={puedeGastar}
           puedeRevisar={puedeRevisar}
           puedeVerPulseras={puedeVerPulseras}
           onCerrar={() => setPanel(false)}

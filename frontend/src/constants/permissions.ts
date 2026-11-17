@@ -150,6 +150,8 @@ export type Permiso =
   | "caja_revision"
   // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
   | "caja_movimientos"
+  // Anotar gastos de la caja (doc 19 §9.56, 17-11).
+  | "caja_gastos"
   | "facturacion_vendido"
   // Las solicitudes de recepción (doc 19 §9.45, 09-11).
   | "facturacion_solicitudes"
@@ -174,6 +176,7 @@ export const PERMISOS_DE_FACTURACION: readonly Permiso[] = [
   "caja_recepcion",
   "caja_revision",
   "caja_movimientos",
+  "caja_gastos",
   "facturacion_vendido",
   "facturacion_solicitudes",
 ];
@@ -219,7 +222,7 @@ const DE_TODOS: Permiso[] = [
 // Las boletas y facturas del tarifario, sin el vendedor, y «Facturar
 // eventos», de operaciones y el administrador (doc 19 §9.23, 07-11).
 export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
-  recepcion: [...DE_TODOS, "boletas"],
+  recepcion: [...DE_TODOS, "boletas", "caja_gastos"],
   vendedor: [...DE_TODOS, "clientes"],
   operaciones: [
     ...DE_TODOS,
@@ -231,6 +234,7 @@ export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
     "facturacion_documentos",
     // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
     "caja_movimientos",
+    "caja_gastos",
     // Aprobar y emitir lo que pide recepción (doc 19 §9.45, 09-11).
     "facturacion_solicitudes",
   ],
@@ -245,6 +249,7 @@ export const PERMISOS_DE_FABRICA: Record<UserRole, Permiso[]> = {
     "facturacion_notas",
     "facturacion_ajustes",
     "caja_movimientos",
+    "caja_gastos",
     "facturacion_solicitudes",
     "dashboard",
     "catalogo",

@@ -3270,6 +3270,60 @@ Pruebas: `CerrarLaCaja.test.tsx`.
 En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026, con el
 §9.54 (sin migración; motor y pantalla).
 
+### 9.56 Los gastos de la caja y las casillas vacías del cierre (17-11)
+
+Felipe, 17-11: *"nadie debería dejar una casilla en blanco antes de
+cerrar... si no se vendió nada, todo en cero"* y *"en movimientos de turno,
+anotar movimiento debería poder ingresarse algún gasto (podría ser una lista
+desplegable de tipo de movimiento: ingreso, retiro, gasto) que incluya a la
+recepción con la caja... ejemplo pago taxi... los ingresos y retiros son
+solo de operaciones y administración y los gastos de recepción (igual todo
+esto podría estar en los switch de permisos)"*.
+
+**Lo acordado:**
+1. **Las casillas del cierre** (`CerrarLaCaja`): la vacía se ve vacía (sale
+   el «$0» gris de muestra, que parecía escrito) y, al apretar «Cerrar caja»
+   con vacías, cada una que falta va con borde rojo, además del aviso. Si
+   no se vendió nada, se escribe 0. Igual en las pulseras y a ciegas.
+2. **El gasto**, un tipo nuevo de movimiento: plata que sale de la caja para
+   pagar algo (un taxi). Resta del efectivo esperado igual que un retiro,
+   pero se guarda y se muestra aparte (en el turno, en el detalle del
+   cierre, en el correo) para saber cuánto se gastó y en qué. «En qué se
+   gastó» es obligatorio.
+3. **«Anotar movimiento»** ofrece solo los tipos que el cargo puede anotar.
+   Con uno solo (recepción: el gasto), el botón dice «Anotar gasto» y no se
+   pregunta el tipo; con varios, se elige entre Ingreso, Retiro y Gasto con
+   los mismos botones de antes (en vez de una lista desplegable: con tres
+   opciones se ven todas de una vez y es un clic menos).
+4. **El permiso nuevo**, «Anotar gastos de caja» (`caja_gastos`, doc 22
+   §3.1): de fábrica recepción, operaciones y el administrador.
+   «Anotar movimientos de caja» queda para ingresos y retiros. El motor
+   exige el permiso de cada tipo: cada uno tiene su puerta. Recepción sigue
+   ciega: anotar un gasto no le muestra nada de lo esperado.
+
+**Cómo quedó:**
+- **La base (migración 209):** `retiros_de_caja.tipo` admite `gasto`. El
+  motor de antes lee como retiro todo lo que no es ingreso, así que un gasto
+  le resta igual.
+- **El motor:** `cuadrar` devuelve `gastos` aparte (`esGasto`) y el efectivo
+  esperado es sencillo + vendido en efectivo + ingresos − retiros − gastos.
+  `POST /facturacion/caja/gastos` (`GastoDeCajaDto`, `CajaService.gasto`)
+  con `@Permiso('caja_gastos')`. El estado (`GET /facturacion/caja`) lo
+  abre también `caja_gastos`. `retiros` (para la pantalla de antes) sigue
+  con solo los retiros; los gastos van en `movimientos`. Lo esperado y el
+  correo del cierre traen `gastos`.
+- **La pantalla:** `MovimientosDelTurno` recibe los `tipos` que puede anotar
+  quien mira (los arma `PanelDeLaCajaAbierta`); el gasto, en ámbar con −.
+  `MovimientosDelCierre` suma la cifra «Gastos». La pestaña Caja la ve
+  también quien solo tiene «Anotar gastos».
+- **Las pruebas:** `caja-gastos.spec.ts` (el cuadre, anotar un gasto, el
+  estado ciego, el correo y quién pasa por cada puerta) y, en la vitrina,
+  los casos «§9.56» de `CajaDeRecepcion.test.tsx`, `CierresDeCaja.test.tsx`
+  y `CerrarLaCaja.test.tsx`.
+
+En la rama `feature/caja-gastos` desde el 17-11-2026 (migración 209, sin
+aplicar; va antes del motor).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

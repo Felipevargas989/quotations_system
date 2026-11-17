@@ -114,6 +114,8 @@ describe("Cerrar caja (§9.55)", () => {
     expect(boton).not.toBeDisabled();
     fireEvent.click(boton);
     expect(screen.getByText(aviso)).toHaveClass("text-red-700");
+    // §9.56: cada casilla que falta, con borde rojo.
+    expect(document.querySelectorAll("[data-falta]")).toHaveLength(4);
     expect(screen.queryByText(/¿Cerrar la caja\?/)).toBeNull();
     expect(c.cerrarCaja).not.toHaveBeenCalled();
   });
@@ -151,5 +153,45 @@ describe("Cerrar caja (§9.55)", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByLabelText("Pulseras")).toBeInTheDocument();
     expect(c.getEsperadoDeLaCaja).not.toHaveBeenCalled();
+  });
+
+  it("§9.56: la casilla vacía se ve vacía (sin «$0» de muestra), también la de pulseras y a ciegas", () => {
+    abrir({ ciego: true, cuentaPulseras: true });
+    for (const medio of [
+      "Efectivo",
+      "Débito",
+      "Crédito",
+      "Transferencias",
+      "Pulseras",
+    ]) {
+      const casilla = screen.getByLabelText(medio) as HTMLInputElement;
+      expect(casilla.value).toBe("");
+      expect(casilla.placeholder).toBe("");
+    }
+  });
+
+  it("§9.56: al apretar con vacías se marca en rojo cuál falta; al escribirla se desmarca", () => {
+    abrir({ ciego: true, cuentaPulseras: true });
+    escribir("Efectivo", "0");
+    escribir("Débito", "0");
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar caja" }));
+    const faltan = () =>
+      [...document.querySelectorAll("[data-falta]")].map(
+        (e) => (e.querySelector("input") as HTMLInputElement).id,
+      );
+    const id = (medio: string) => screen.getByLabelText(medio).id;
+    expect(faltan()).toEqual([
+      id("Crédito"),
+      id("Transferencias"),
+      id("Pulseras"),
+    ]);
+    expect(
+      screen.getByText(
+        "Anota los cuatro montos y las pulseras: si no hay, pon 0.",
+      ),
+    ).toBeInTheDocument();
+    escribir("Crédito", "0");
+    expect(faltan()).toEqual([id("Transferencias"), id("Pulseras")]);
+    expect(c.cerrarCaja).not.toHaveBeenCalled();
   });
 });

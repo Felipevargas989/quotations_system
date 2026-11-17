@@ -24,6 +24,8 @@ export type CierreDeCajaParams = {
   /** §9.51: lo que mandaron el dueño o la administradora (no es venta).
    *  Opcional para los llamadores de antes. */
   ingresos?: number;
+  /** §9.56: lo gastado en el turno (aparte de los retiros). */
+  gastos?: number;
   retiros: number;
   diferencia: number;
   comentario?: string | null;
@@ -132,7 +134,7 @@ export const cierreDeCajaTemplate = (p: CierreDeCajaParams): string => {
     </table>
 ${p.apertura ? lineaDeApertura(p.apertura) : ''}
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 6px;">
-      Vendido en el turno: ${pesos(p.vendido)} · Ingresos: ${pesos(p.ingresos ?? 0)} · Retiros: ${pesos(p.retiros)}
+      Vendido en el turno: ${pesos(p.vendido)} · Ingresos: ${pesos(p.ingresos ?? 0)} · Retiros: ${pesos(p.retiros)} · Gastos: ${pesos(p.gastos ?? 0)}
     </p>${p.pulseras ? lineaDePulseras(p.pulseras) : ''}
     <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0;">
       Comentario: ${p.comentario ? escapar(p.comentario) : 'sin comentario'}
