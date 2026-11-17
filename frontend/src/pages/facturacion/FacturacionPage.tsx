@@ -293,6 +293,7 @@ export default function FacturacionPage() {
               puedeAbrirYCerrar={conCaja}
               puedeRevisar={conCierres}
               puedeAnotar={conMovimientos}
+              puedeVerPulseras={conVendido}
             />
           )}
           {pestana === "pulseras" && <Pulseras />}

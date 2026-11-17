@@ -3261,8 +3261,12 @@ es cero), el «Total en plata» y una banda con la diferencia, que aparece
 recién con las cuatro casillas escritas. El aviso de las casillas vacías
 sale solo si se aprieta «Cerrar caja» (el botón ya no va deshabilitado).
 Recepción ve la misma tabla solo con el medio y «Contaste», y nunca se
-pide lo esperado. Las pulseras no tienen todavía su «según sistema» en el
-panel: va «—» (el dato vive en la pestaña Pulseras, con otro permiso).
+pide lo esperado. Las pulseras muestran su «según sistema» (las que
+deberían quedar: entregadas − vendidas) y la diferencia en unidades desde el
+17-11 (Felipe: *"sí, me parece bien"*): el panel lo pide a
+`GET /facturacion/pulseras` solo si quien mira tiene además «Lo vendido»
+(la pestaña Pulseras); sin ese permiso sigue «—» y el dato ni se pide.
+Recepción, ciega igual.
 Pruebas: `CerrarLaCaja.test.tsx`.
 
 En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026, con el

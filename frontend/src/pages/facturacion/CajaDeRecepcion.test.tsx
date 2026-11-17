@@ -12,6 +12,7 @@ import {
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as caja from "../../services/caja.service";
+import * as pulserasService from "../../services/pulseras.service";
 import CajaDeRecepcion from "./CajaDeRecepcion";
 
 // LA PESTAÑA CAJA (doc 19 §9.43; desde el §9.55, la caja abierta es una fila
@@ -32,7 +33,11 @@ vi.mock("../../services/caja.service", () => ({
   corregirMedio: vi.fn(),
   revisarCierre: vi.fn(),
 }));
+vi.mock("../../services/pulseras.service", () => ({
+  getPulseras: vi.fn(),
+}));
 const c = vi.mocked(caja);
+const p = vi.mocked(pulserasService);
 
 const ABIERTA = {
   abierta: {
@@ -364,5 +369,86 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     expect(
       within(panel).getByRole("button", { name: "Anotar movimiento" }),
     ).toBeInTheDocument();
+  });
+  it("quien revisa y ve Pulseras: el cierre muestra cuántas deberían quedar y la diferencia (Felipe, 17-11)", async () => {
+    c.getCaja.mockResolvedValue({ ...ABIERTA, cuenta_pulseras: true });
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-02T00:00:00.000Z",
+      efectivo_que_falta: 0,
+      perdido_entre_turnos: 0,
+      por_revisar: 0,
+    });
+    c.getCierres.mockResolvedValue([
+      {
+        id: 7,
+        abierta_por_nombre: "Ana",
+        abierta_en: "2026-11-09T12:02:00Z",
+        sencillo_inicial: 20000,
+        cerrada_por_nombre: null,
+        cerrada_en: null,
+        revisado_por_nombre: null,
+        revisado_en: null,
+        estado: "abierta",
+        vendido: 0,
+        declarado: null,
+        diferencia: null,
+        diferencias: [],
+        apertura: null,
+        debia_tener: null,
+        cerro_con: null,
+        diferencia_efectivo: null,
+        diferencia_otros: null,
+      },
+    ]);
+    c.getEsperadoDeLaCaja.mockResolvedValue({ abierta: null });
+    p.getPulseras.mockResolvedValue({
+      deberian_quedar: 94,
+    } as Awaited<ReturnType<typeof pulserasService.getPulseras>>);
+    abrir({ puedeRevisar: true, puedeVerPulseras: true });
+    const panel = await abrirElPanel();
+    const fila = within(panel)
+      .getByLabelText("Pulseras")
+      .closest("tr") as HTMLElement;
+    await waitFor(() => expect(fila).toHaveTextContent("94"));
+    fireEvent.change(within(panel).getByLabelText("Pulseras"), {
+      target: { value: "92" },
+    });
+    await waitFor(() => expect(fila).toHaveTextContent("Faltan 2"));
+  });
+
+  it("sin el permiso de Pulseras, el dato ni se pide", async () => {
+    c.getCaja.mockResolvedValue({ ...ABIERTA, cuenta_pulseras: true });
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-02T00:00:00.000Z",
+      efectivo_que_falta: 0,
+      perdido_entre_turnos: 0,
+      por_revisar: 0,
+    });
+    c.getCierres.mockResolvedValue([
+      {
+        id: 7,
+        abierta_por_nombre: "Ana",
+        abierta_en: "2026-11-09T12:02:00Z",
+        sencillo_inicial: 20000,
+        cerrada_por_nombre: null,
+        cerrada_en: null,
+        revisado_por_nombre: null,
+        revisado_en: null,
+        estado: "abierta",
+        vendido: 0,
+        declarado: null,
+        diferencia: null,
+        diferencias: [],
+        apertura: null,
+        debia_tener: null,
+        cerro_con: null,
+        diferencia_efectivo: null,
+        diferencia_otros: null,
+      },
+    ]);
+    c.getEsperadoDeLaCaja.mockResolvedValue({ abierta: null });
+    abrir({ puedeRevisar: true });
+    await abrirElPanel();
+    expect(p.getPulseras).not.toHaveBeenCalled();
   });
 });
