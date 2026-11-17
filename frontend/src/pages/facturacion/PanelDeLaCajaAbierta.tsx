@@ -79,6 +79,7 @@ export default function PanelDeLaCajaAbierta({
           <CerrarLaCaja
             nombre={nombre}
             cuentaPulseras={cuentaPulseras}
+            ciego={!puedeRevisar}
             esperado={puedeRevisar ? porMedio : null}
             onCerrada={onCerrada}
           />

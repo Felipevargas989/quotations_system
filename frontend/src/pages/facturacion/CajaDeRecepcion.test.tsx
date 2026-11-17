@@ -87,12 +87,7 @@ const abrirElPanel = async () => {
   return screen.findByRole("dialog");
 };
 
-const MEDIOS = [
-  "Efectivo contado (con el sencillo)",
-  "Débito (resumen de la máquina)",
-  "Crédito (resumen de la máquina)",
-  "Transferencias (comprobantes)",
-];
+const MEDIOS = ["Efectivo", "Débito", "Crédito", "Transferencias"];
 
 describe("la pestaña Caja (§9.43 y §9.55)", () => {
   it("cerrada: arriba solo «Abrir caja» con el sencillo, a nombre del perfil (no se escribe); abierta, es una fila", async () => {
@@ -117,7 +112,7 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     expect(fila).toHaveTextContent("$20.000");
     expect(screen.queryByRole("button", { name: "Abrir caja" })).toBeNull();
     // Sin el bloque grande de antes.
-    expect(screen.queryByText("Cerrar caja: ¿cuánto tienes?")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Cerrar caja" })).toBeNull();
   });
 
   it("recepción: solo la fila de la caja abierta, sin nada de lo que dice el sistema", async () => {
@@ -149,10 +144,15 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
       within(panel).queryByRole("button", { name: "Anotar movimiento" }),
     ).toBeNull();
     expect(
-      within(panel).getByText("Cerrar caja: ¿cuánto tienes?"),
+      within(panel).getByRole("heading", { name: "Cerrar caja" }),
     ).toBeInTheDocument();
+    expect(within(panel).getByText("Cierra Ana")).toBeInTheDocument();
     // Ciego: nada de lo esperado, y ni siquiera se pide.
-    expect(within(panel).queryByText(/Según sistema|Debía|Cuadra/)).toBeNull();
+    expect(
+      within(panel).queryByText(
+        /Según sistema|Diferencia|Total en plata|Debía|Cuadra/,
+      ),
+    ).toBeNull();
     expect(c.getEsperadoDeLaCaja).not.toHaveBeenCalled();
   });
 
@@ -162,7 +162,6 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     abrir();
     const panel = await abrirElPanel();
     const cerrar = within(panel).getByRole("button", { name: "Cerrar caja" });
-    expect(cerrar).toBeDisabled();
     const montos = ["67500", "135000", "95000", "0"];
     MEDIOS.forEach((campo, i) =>
       fireEvent.change(within(panel).getByLabelText(campo), {
@@ -213,8 +212,15 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
         target: { value: "0" },
       });
     const cerrar = within(panel).getByRole("button", { name: "Cerrar caja" });
-    expect(cerrar).toBeDisabled();
-    fireEvent.change(within(panel).getByLabelText("Pulseras que te quedan"), {
+    // Faltan las pulseras: el aviso, recién al apretar.
+    fireEvent.click(cerrar);
+    expect(
+      within(panel).getByText(
+        "Anota los cuatro montos y las pulseras: si no hay, pon 0.",
+      ),
+    ).toBeInTheDocument();
+    expect(c.cerrarCaja).not.toHaveBeenCalled();
+    fireEvent.change(within(panel).getByLabelText("Pulseras"), {
       target: { value: "94" },
     });
     fireEvent.click(cerrar);
@@ -235,7 +241,7 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     c.getCaja.mockResolvedValue(ABIERTA);
     abrir();
     const panel = await abrirElPanel();
-    expect(within(panel).queryByLabelText("Pulseras que te quedan")).toBeNull();
+    expect(within(panel).queryByLabelText("Pulseras")).toBeNull();
   });
 
   it("§9.55: con «Anotar movimientos» (operaciones), un solo botón: se elige retiro, monto y motivo; sin el cierre", async () => {
@@ -244,7 +250,7 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     abrir({ puedeAbrirYCerrar: false, puedeAnotar: true });
     const panel = await abrirElPanel();
     expect(
-      within(panel).queryByText("Cerrar caja: ¿cuánto tienes?"),
+      within(panel).queryByRole("heading", { name: "Cerrar caja" }),
     ).toBeNull();
     fireEvent.click(
       within(panel).getByRole("button", { name: "Anotar movimiento" }),
@@ -350,12 +356,11 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     const panel = await abrirElPanel();
     // El panel de la caja abierta, no el detalle de un cierre.
     expect(within(panel).getByText("Caja abierta")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(within(panel).getAllByText("Según sistema")).toHaveLength(4),
-    );
-    const efectivo = within(panel).getByLabelText(MEDIOS[0]).closest("label")
-      ?.parentElement as HTMLElement;
-    expect(efectivo).toHaveTextContent("Según sistema$15.000");
+    expect(within(panel).getByText("Según sistema")).toBeInTheDocument();
+    const efectivo = within(panel)
+      .getByLabelText(MEDIOS[0])
+      .closest("tr") as HTMLElement;
+    await waitFor(() => expect(efectivo).toHaveTextContent("$15.000"));
     expect(
       within(panel).getByRole("button", { name: "Anotar movimiento" }),
     ).toBeInTheDocument();

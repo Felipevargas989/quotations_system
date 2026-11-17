@@ -3248,6 +3248,21 @@ recepción deja de anotar retiros.
   vitrina `CajaDeRecepcion.test.tsx` (reescrita para el panel) y los casos
   «§9.55» de `CierresDeCaja.test.tsx`.
 
+**«Cerrar caja», más legible** (Felipe, 16-11: *"creo que mejoraría el
+cerrar caja… a nivel de front puede quedar mejor"*; aprobó la maqueta).
+Solo pantalla (`CerrarLaCaja`): el título y «Cierra <nombre>» en línea
+chica; una tabla con una fila por medio (Efectivo, Débito, Crédito,
+Transferencias y, si se cuentan, Pulseras) y su línea chica; quien revisa
+ve además «Según sistema» y la diferencia de cada fila al escribir
+(«Cuadra» verde, «Faltan»/«Sobran» rojo, «—» mientras está vacía: vacío no
+es cero), el «Total en plata» y una banda con la diferencia, que aparece
+recién con las cuatro casillas escritas. El aviso de las casillas vacías
+sale solo si se aprieta «Cerrar caja» (el botón ya no va deshabilitado).
+Recepción ve la misma tabla solo con el medio y «Contaste», y nunca se
+pide lo esperado. Las pulseras no tienen todavía su «según sistema» en el
+panel: va «—» (el dato vive en la pestaña Pulseras, con otro permiso).
+Pruebas: `CerrarLaCaja.test.tsx`.
+
 En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026, con el
 §9.54 (sin migración; motor y pantalla).
 
