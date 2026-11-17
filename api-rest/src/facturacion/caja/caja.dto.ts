@@ -54,6 +54,19 @@ export class IngresoDeCajaDto {
   motivo: string;
 }
 
+/** §9.56: la plata que sale de la caja para pagar algo (un taxi). El
+ *  motivo dice en qué se gastó. */
+export class GastoDeCajaDto {
+  @IsInt(PESOS)
+  @Min(1, { message: 'El gasto tiene que ser mayor que cero' })
+  monto: number;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Falta en qué se gastó' })
+  @MaxLength(120)
+  motivo: string;
+}
+
 /** El cierre ciego: los cuatro montos que tiene quien cierra. */
 export class CerrarCajaDto {
   @IsInt(PESOS)

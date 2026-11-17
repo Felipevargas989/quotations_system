@@ -236,7 +236,7 @@ describe("los cierres de la caja (§9.43)", () => {
     // La fila vieja sin nombre no muestra nada.
     expect(filas[1]).not.toHaveTextContent("·");
     expect(
-      screen.getByText("sencillo + ventas + ingresos − retiros"),
+      screen.getByText("sencillo + ventas + ingresos − retiros − gastos"),
     ).toBeInTheDocument();
   });
 
@@ -473,5 +473,33 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(c.getCierre).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Por revisar").closest("tr")!);
     await waitFor(() => expect(c.getCierre).toHaveBeenCalledWith(6));
+  });
+
+  it("§9.56: los gastos van aparte, con su total y su fila en ámbar", async () => {
+    c.getCierre.mockResolvedValue({
+      ...CIERRE,
+      cuadre: { ...CIERRE.cuadre, gastos: 4500 },
+      movimientos: [
+        ...(CIERRE.movimientos ?? []),
+        {
+          id: 3,
+          tipo: "gasto" as const,
+          monto: 4500,
+          motivo: "Taxi al banco",
+          creado_por_nombre: "Ana",
+          creado_en: "2026-11-09T16:00:00Z",
+        },
+      ],
+    });
+    abrir();
+    fireEvent.click((await screen.findByText("Por revisar")).closest("tr")!);
+    const seccion = (await screen.findByText("Movimientos del turno"))
+      .parentElement as HTMLElement;
+    expect(seccion).toHaveTextContent("Gastos −$4.500");
+    const gasto = within(seccion)
+      .getByText("Taxi al banco")
+      .closest("li") as HTMLElement;
+    expect(within(gasto).getByText("Gasto")).toHaveClass("text-amber-800");
+    expect(gasto).toHaveTextContent("−$4.500");
   });
 });

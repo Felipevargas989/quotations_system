@@ -31,6 +31,7 @@ export default function PanelDeLaCajaAbierta({
   cuentaPulseras,
   puedeCerrar,
   puedeAnotar,
+  puedeGastar = false,
   puedeRevisar,
   puedeVerPulseras,
   onCerrar,
@@ -43,6 +44,8 @@ export default function PanelDeLaCajaAbierta({
   readonly puedeCerrar: boolean;
   /** «Anotar movimientos de caja». */
   readonly puedeAnotar: boolean;
+  /** §9.56: «Anotar gastos de caja». */
+  readonly puedeGastar?: boolean;
   /** «Revisar cierres de caja»: ve lo que dice el sistema. */
   readonly puedeRevisar: boolean;
   /** «Lo vendido» (la pestaña Pulseras): con él y con revisar, el cierre
@@ -84,7 +87,13 @@ export default function PanelDeLaCajaAbierta({
           {hora(abierta.abierta_en)} con{" "}
           <strong>{clp(abierta.sencillo_inicial)}</strong>
         </p>
-        <MovimientosDelTurno abierta={abierta} puedeAnotar={puedeAnotar} />
+        <MovimientosDelTurno
+          abierta={abierta}
+          tipos={[
+            ...(puedeAnotar ? (["ingreso", "retiro"] as const) : []),
+            ...(puedeGastar ? (["gasto"] as const) : []),
+          ]}
+        />
         {puedeCerrar && (
           <CerrarLaCaja
             nombre={nombre}

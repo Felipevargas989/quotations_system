@@ -80,6 +80,11 @@ export interface MovimientoParaCuadrar {
 export const esIngreso = (m: Pick<MovimientoParaCuadrar, 'tipo'>) =>
   m.tipo === 'ingreso';
 
+/** §9.56: un gasto (plata que sale para pagar algo) resta como un retiro,
+ *  pero se cuenta aparte. */
+export const esGasto = (m: Pick<MovimientoParaCuadrar, 'tipo'>) =>
+  m.tipo === 'gasto';
+
 /** Una solicitud de recepción del turno, como la lee la caja (§9.45). */
 export interface SolicitudDelTurno {
   id: number;
@@ -197,7 +202,10 @@ export const cuadrar = (
   const suma = (lista: MovimientoParaCuadrar[]) =>
     lista.reduce((s, m) => s + Number(m.monto), 0);
   const totalIngresos = suma(movimientos.filter(esIngreso));
-  const totalRetiros = suma(movimientos.filter((m) => !esIngreso(m)));
+  const totalGastos = suma(movimientos.filter(esGasto));
+  const totalRetiros = suma(
+    movimientos.filter((m) => !esIngreso(m) && !esGasto(m)),
+  );
   const declarado: Record<MedioDePago, number | null> = {
     efectivo: turno.declarado_efectivo,
     debito: turno.declarado_debito,
@@ -212,7 +220,8 @@ export const cuadrar = (
         ? Number(turno.sencillo_inicial) +
           vendido +
           totalIngresos -
-          totalRetiros
+          totalRetiros -
+          totalGastos
         : vendido;
     const dec = declarado[medio];
     return {
@@ -235,6 +244,7 @@ export const cuadrar = (
     vendido: emitidos.reduce((s, d) => s + Number(d.total), 0),
     ingresos: totalIngresos,
     retiros: totalRetiros,
+    gastos: totalGastos,
     esperado,
     declarado: declaradoTotal,
     diferencia: declaradoTotal == null ? null : declaradoTotal - esperado,

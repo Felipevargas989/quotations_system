@@ -122,6 +122,7 @@ describe('Lo que debería haber en la caja abierta (§9.55)', () => {
       sencillo_inicial: 26850,
       ingresos: 10000,
       retiros: 3000,
+      gastos: 0,
       lineas: [
         {
           medio: 'efectivo',

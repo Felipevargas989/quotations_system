@@ -83,6 +83,9 @@ export default function FacturacionPage() {
   // §9.55: anotar ingresos y retiros (de fábrica, operaciones y el
   // administrador); con él también se ve la caja abierta.
   const conMovimientos = permisos.includes("caja_movimientos");
+  // §9.56: anotar gastos (de fábrica recepción, operaciones y el
+  // administrador); con él también se ve la caja abierta.
+  const conGastos = permisos.includes("caja_gastos");
   // «Lo vendido», su propia pestaña (Felipe, 09-11: «solo lo vea
   // operaciones y administración»); desde el 16-11 es «Pulseras» (doc 19
   // §9.49) y «Lo vendido» sigue en la suya, al lado (Felipe, 16-11: «lo
@@ -133,7 +136,7 @@ export default function FacturacionPage() {
           },
         ]
       : []),
-    ...(conCaja || conCierres || conMovimientos
+    ...(conCaja || conCierres || conMovimientos || conGastos
       ? [{ key: "caja" as const, label: "Caja" }]
       : []),
     ...(conVendido
@@ -293,6 +296,7 @@ export default function FacturacionPage() {
               puedeAbrirYCerrar={conCaja}
               puedeRevisar={conCierres}
               puedeAnotar={conMovimientos}
+              puedeGastar={conGastos}
               puedeVerPulseras={conVendido}
             />
           )}

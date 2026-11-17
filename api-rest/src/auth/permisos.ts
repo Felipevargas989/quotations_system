@@ -43,6 +43,8 @@ export type Permiso =
   | 'caja_revision'
   // Anotar ingresos y retiros en la caja (doc 19 §9.55, 16-11).
   | 'caja_movimientos'
+  // Anotar gastos de la caja (doc 19 §9.56, 17-11).
+  | 'caja_gastos'
   // «Lo vendido», su propia pestaña (Felipe, 09-11).
   | 'facturacion_vendido'
   // Las solicitudes de recepción (doc 19 §9.45, 09-11).
@@ -213,6 +215,18 @@ export const CATALOGO_DE_PERMISOS: readonly DefinicionDePermiso[] = [
     area: 'facturacion',
     nombre: 'Anotar movimientos de caja',
     fabrica: [O, A],
+    derecho: 'facturacion',
+  },
+  // Felipe, 17-11 (doc 19 §9.56): *"los ingresos y retiros son solo de
+  // operaciones y administración y los gastos de recepción (igual todo esto
+  // podría estar en los switch de permisos)"*. Un gasto es plata que sale
+  // para pagar algo (un taxi). Con este interruptor también se ve la caja
+  // abierta, sin lo esperado.
+  {
+    clave: 'caja_gastos',
+    area: 'facturacion',
+    nombre: 'Anotar gastos de caja',
+    fabrica: [R, O, A],
     derecho: 'facturacion',
   },
   // Felipe, 09-11: *"lo vendido debería ser otra pestaña que solo lo vea
