@@ -191,7 +191,7 @@ export default function MovimientosDelTurno({
             onClick={() => setNuevo({ tipo: unSoloTipo, motivo: "" })}
             className={boton}
           >
-            {unSoloTipo === "gasto" ? "Anotar gasto" : "Anotar movimiento"}
+            Anotar movimiento
           </button>
         </div>
       )}
