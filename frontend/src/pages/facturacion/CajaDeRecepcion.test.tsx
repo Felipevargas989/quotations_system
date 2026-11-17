@@ -453,16 +453,16 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     expect(p.getPulseras).not.toHaveBeenCalled();
   });
 
-  it("§9.56: recepción con «Anotar gastos»: un botón «Anotar gasto», sin elegir tipo, y «En qué se gastó»", async () => {
+  it("§9.56: recepción con «Anotar gastos»: el mismo botón «Anotar movimiento», sin elegir tipo, y «En qué se gastó»", async () => {
     c.getCaja.mockResolvedValue(ABIERTA);
     c.anotarGasto.mockResolvedValue(ABIERTA);
     abrir({ puedeGastar: true });
     const panel = await abrirElPanel();
     expect(
-      within(panel).queryByRole("button", { name: "Anotar movimiento" }),
+      within(panel).queryByRole("button", { name: "Anotar gasto" }),
     ).toBeNull();
     fireEvent.click(
-      within(panel).getByRole("button", { name: "Anotar gasto" }),
+      within(panel).getByRole("button", { name: "Anotar movimiento" }),
     );
     expect(within(panel).queryByRole("group", { name: "Tipo" })).toBeNull();
     fireEvent.change(within(panel).getByLabelText("Monto"), {

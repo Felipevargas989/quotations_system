@@ -3293,8 +3293,9 @@ esto podría estar en los switch de permisos)"*.
    cierre, en el correo) para saber cuánto se gastó y en qué. «En qué se
    gastó» es obligatorio.
 3. **«Anotar movimiento»** ofrece solo los tipos que el cargo puede anotar.
-   Con uno solo (recepción: el gasto), el botón dice «Anotar gasto» y no se
-   pregunta el tipo; con varios, se elige entre Ingreso, Retiro y Gasto con
+   Con uno solo (recepción: el gasto), el botón se llama igual, «Anotar
+   movimiento» (Felipe, 17-11: *"es el mismo botón"*), y no se pregunta el
+   tipo; con varios, se elige entre Ingreso, Retiro y Gasto con
    los mismos botones de antes (en vez de una lista desplegable: con tres
    opciones se ven todas de una vez y es un clic menos).
 4. **El permiso nuevo**, «Anotar gastos de caja» (`caja_gastos`, doc 22
