@@ -5,6 +5,7 @@ import {
   getEsperadoDeLaCaja,
   type CajaAbierta,
 } from "../../services/caja.service";
+import { getPulseras } from "../../services/pulseras.service";
 import CerrarLaCaja from "./CerrarLaCaja";
 import MovimientosDelTurno from "./MovimientosDelTurno";
 
@@ -31,6 +32,7 @@ export default function PanelDeLaCajaAbierta({
   puedeCerrar,
   puedeAnotar,
   puedeRevisar,
+  puedeVerPulseras,
   onCerrar,
   onCerrada,
 }: {
@@ -43,6 +45,9 @@ export default function PanelDeLaCajaAbierta({
   readonly puedeAnotar: boolean;
   /** «Revisar cierres de caja»: ve lo que dice el sistema. */
   readonly puedeRevisar: boolean;
+  /** «Lo vendido» (la pestaña Pulseras): con él y con revisar, el cierre
+   *  muestra cuántas pulseras deberían quedar (Felipe, 17-11). */
+  readonly puedeVerPulseras: boolean;
   readonly onCerrar: () => void;
   readonly onCerrada: (cerradaEn: string) => void;
 }) {
@@ -51,6 +56,11 @@ export default function PanelDeLaCajaAbierta({
     queryKey: ["caja", "esperado"],
     queryFn: getEsperadoDeLaCaja,
     enabled: puedeRevisar,
+  });
+  const pulseras = useQuery({
+    queryKey: ["pulseras"],
+    queryFn: getPulseras,
+    enabled: puedeRevisar && puedeVerPulseras && cuentaPulseras,
   });
   const porMedio = esperado.data?.abierta
     ? (Object.fromEntries(
@@ -81,6 +91,9 @@ export default function PanelDeLaCajaAbierta({
             cuentaPulseras={cuentaPulseras}
             ciego={!puedeRevisar}
             esperado={puedeRevisar ? porMedio : null}
+            pulserasSegunSistema={
+              puedeRevisar ? (pulseras.data?.deberian_quedar ?? null) : null
+            }
             onCerrada={onCerrada}
           />
         )}
