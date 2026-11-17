@@ -5,7 +5,8 @@ import type {
 } from "../../services/caja.service";
 
 // Cómo se ve cada movimiento de la caja (doc 19 §9.51): el ingreso en verde
-// con +, el retiro en rojo con −. Lo usan la caja y la revisión del cierre.
+// con +, el retiro en rojo con −; desde el §9.56, el gasto en ámbar con −.
+// Lo usan la caja y la revisión del cierre.
 
 export const TIPO: Record<
   TipoDeMovimiento,
@@ -16,6 +17,8 @@ export const TIPO: Record<
     signo: string;
     claseBoton: string;
     placeholder: string;
+    /** Cómo se llama el motivo al anotarlo. */
+    motivo: string;
   }
 > = {
   ingreso: {
@@ -26,6 +29,7 @@ export const TIPO: Record<
     claseBoton:
       "rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50",
     placeholder: "Sencillo que mandó Felipe",
+    motivo: "Motivo",
   },
   retiro: {
     chip: "Retiro",
@@ -35,6 +39,17 @@ export const TIPO: Record<
     claseBoton:
       "rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50",
     placeholder: "Entregado a administración",
+    motivo: "Motivo",
+  },
+  gasto: {
+    chip: "Gasto",
+    claseChip: "bg-amber-100 text-amber-800",
+    claseMonto: "text-amber-700",
+    signo: "−",
+    claseBoton:
+      "rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50",
+    placeholder: "Taxi al banco",
+    motivo: "En qué se gastó",
   },
 };
 

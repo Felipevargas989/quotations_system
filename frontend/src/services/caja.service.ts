@@ -19,7 +19,7 @@ export interface RetiroDeCaja {
 
 /** §9.51: la plata que entra (la mandan el dueño o la administradora; no
  *  es venta) o sale de la caja durante el turno. */
-export type TipoDeMovimiento = "ingreso" | "retiro";
+export type TipoDeMovimiento = "ingreso" | "retiro" | "gasto";
 
 export interface MovimientoDeCaja extends RetiroDeCaja {
   tipo: TipoDeMovimiento;
@@ -106,6 +106,8 @@ export interface CierreDeCaja
     /** §9.51: opcional, el motor de antes no lo manda. */
     ingresos?: number;
     retiros: number;
+    /** §9.56: opcional, el motor de antes no lo manda. */
+    gastos?: number;
     esperado: number;
     declarado: number | null;
     diferencia: number | null;
@@ -205,6 +207,13 @@ export interface EsperadoDeLaCaja {
 
 export const getEsperadoDeLaCaja = async (): Promise<EsperadoDeLaCaja> =>
   (await apiRequest(`${base}/esperado`, "GET")) as EsperadoDeLaCaja;
+
+/** §9.56: un gasto (plata que sale para pagar algo, como un taxi). */
+export const anotarGasto = async (datos: {
+  monto: number;
+  motivo: string;
+}): Promise<EstadoDeLaCaja> =>
+  (await apiRequest(`${base}/gastos`, "POST", datos)) as EstadoDeLaCaja;
 
 /** §9.54: las tres cifras de los últimos 7 días corridos. */
 export interface ResumenDeLaCadena {

@@ -25,6 +25,7 @@ vi.mock("../../services/caja.service", () => ({
   abrirCaja: vi.fn(),
   anotarRetiro: vi.fn(),
   anotarIngreso: vi.fn(),
+  anotarGasto: vi.fn(),
   cerrarCaja: vi.fn(),
   getEsperadoDeLaCaja: vi.fn(),
   getCierres: vi.fn(),
@@ -450,5 +451,62 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     abrir({ puedeRevisar: true });
     await abrirElPanel();
     expect(p.getPulseras).not.toHaveBeenCalled();
+  });
+
+  it("§9.56: recepción con «Anotar gastos»: un botón «Anotar gasto», sin elegir tipo, y «En qué se gastó»", async () => {
+    c.getCaja.mockResolvedValue(ABIERTA);
+    c.anotarGasto.mockResolvedValue(ABIERTA);
+    abrir({ puedeGastar: true });
+    const panel = await abrirElPanel();
+    expect(
+      within(panel).queryByRole("button", { name: "Anotar movimiento" }),
+    ).toBeNull();
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Anotar gasto" }),
+    );
+    expect(within(panel).queryByRole("group", { name: "Tipo" })).toBeNull();
+    fireEvent.change(within(panel).getByLabelText("Monto"), {
+      target: { value: "4500" },
+    });
+    fireEvent.change(within(panel).getByLabelText("En qué se gastó"), {
+      target: { value: "Taxi al banco" },
+    });
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Guardar gasto" }),
+    );
+    await waitFor(() =>
+      expect(c.anotarGasto).toHaveBeenCalledWith({
+        monto: 4500,
+        motivo: "Taxi al banco",
+      }),
+    );
+    expect(c.anotarRetiro).not.toHaveBeenCalled();
+    expect(c.anotarIngreso).not.toHaveBeenCalled();
+    // Sigue a ciegas.
+    expect(c.getEsperadoDeLaCaja).not.toHaveBeenCalled();
+  });
+
+  it("§9.56: con los dos permisos (operaciones), elige entre ingreso, retiro y gasto", async () => {
+    c.getCaja.mockResolvedValue(ABIERTA);
+    c.anotarGasto.mockResolvedValue(ABIERTA);
+    abrir({ puedeAbrirYCerrar: false, puedeAnotar: true, puedeGastar: true });
+    const panel = await abrirElPanel();
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Anotar movimiento" }),
+    );
+    const tipos = within(panel).getByRole("group", { name: "Tipo" });
+    expect(
+      within(tipos)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Ingreso", "Retiro", "Gasto"]);
+    fireEvent.click(within(tipos).getByRole("button", { name: "Gasto" }));
+    expect(within(panel).getByLabelText("En qué se gastó")).toBeInTheDocument();
+  });
+
+  it("§9.56: solo con «Anotar gastos» ya se ve la caja abierta", async () => {
+    c.getCaja.mockResolvedValue(ABIERTA);
+    abrir({ puedeAbrirYCerrar: false, puedeGastar: true });
+    expect(await screen.findByText("Abierta")).toBeInTheDocument();
   });
 });

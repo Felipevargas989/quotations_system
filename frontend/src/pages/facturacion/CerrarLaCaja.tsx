@@ -62,6 +62,25 @@ function Diferencia({
   );
 }
 
+/** §9.56: la casilla vacía se ve vacía (sin «$0» de muestra); al apretar
+ *  «Cerrar caja» con vacías, cada una que falta va con borde rojo. */
+function Casilla({
+  falta,
+  children,
+}: {
+  readonly falta: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div
+      data-falta={falta || undefined}
+      className={falta ? "rounded-lg ring-2 ring-red-500" : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function CerrarLaCaja({
   nombre,
   cuentaPulseras,
@@ -192,18 +211,16 @@ export default function CerrarLaCaja({
                 m.clave,
                 m.nombre,
                 m.detalle,
-                <NumberInput
-                  value={montos[m.clave]}
-                  min={0}
-                  currency
-                  placeholder="$0"
-                  id={`${idBase}-${m.clave}`}
-                  onChange={(v) => {
-                    setMontos({ ...montos, [m.clave]: v });
-                    setAviso(false);
-                  }}
-                  className="text-right text-sm"
-                />,
+                <Casilla falta={aviso && montos[m.clave] == null}>
+                  <NumberInput
+                    value={montos[m.clave]}
+                    min={0}
+                    currency
+                    id={`${idBase}-${m.clave}`}
+                    onChange={(v) => setMontos({ ...montos, [m.clave]: v })}
+                    className="text-right text-sm"
+                  />
+                </Casilla>,
                 sistema(m.clave),
                 montos[m.clave],
               ),
@@ -213,17 +230,15 @@ export default function CerrarLaCaja({
                 "pulseras",
                 "Pulseras",
                 "las que te quedan",
-                <NumberInput
-                  value={pulseras}
-                  min={0}
-                  placeholder="0"
-                  id={`${idBase}-pulseras`}
-                  onChange={(v) => {
-                    setPulseras(v);
-                    setAviso(false);
-                  }}
-                  className="text-right text-sm"
-                />,
+                <Casilla falta={aviso && pulseras == null}>
+                  <NumberInput
+                    value={pulseras}
+                    min={0}
+                    id={`${idBase}-pulseras`}
+                    onChange={setPulseras}
+                    className="text-right text-sm"
+                  />
+                </Casilla>,
                 ciego ? null : (pulserasSegunSistema ?? null),
                 pulseras,
                 true,

@@ -27,7 +27,7 @@ export interface TurnoDeCaja {
 
 /** §9.51: lo que se anota en `retiros_de_caja` (la tabla guarda los dos
  *  tipos desde la 208; sin tipo, retiro). */
-export type TipoDeMovimiento = 'ingreso' | 'retiro';
+export type TipoDeMovimiento = 'ingreso' | 'retiro' | 'gasto';
 
 export interface MovimientoDeCaja {
   id: number;
@@ -234,7 +234,8 @@ export class CajaRepository {
     if (error) throw error;
     return ((data ?? []) as MovimientoDeCaja[]).map((r) => ({
       ...r,
-      tipo: r.tipo === 'ingreso' ? 'ingreso' : 'retiro',
+      // Sin tipo (antes de la 208), retiro. §9.56: el gasto, aparte.
+      tipo: r.tipo === 'ingreso' || r.tipo === 'gasto' ? r.tipo : 'retiro',
       monto: Number(r.monto),
       creado_por_nombre: r.creado_por_nombre ?? null,
     }));

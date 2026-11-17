@@ -36,6 +36,13 @@ export default function MovimientosDelCierre({
             −{clp(c.cuadre.retiros)}
           </span>
         </span>
+        {/* §9.56: lo gastado, aparte de los retiros. */}
+        <span>
+          Gastos{" "}
+          <span className={`font-medium ${TIPO.gasto.claseMonto}`}>
+            −{clp(c.cuadre.gastos ?? 0)}
+          </span>
+        </span>
       </div>
       {movimientos.length === 0 ? (
         <p className="text-xs text-gray-400">Sin movimientos.</p>

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import NumberInput from "../../components/inputs/NumberInput";
 import { toast } from "../../components/toast/Toast";
 import {
+  anotarGasto,
   anotarIngreso,
   anotarRetiro,
   type CajaAbierta,
@@ -34,14 +35,24 @@ const titulo = "text-xs text-gray-500";
 const boton =
   "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50";
 
+const ANOTAR = {
+  ingreso: anotarIngreso,
+  retiro: anotarRetiro,
+  gasto: anotarGasto,
+} as const;
+
 export default function MovimientosDelTurno({
   abierta,
-  puedeAnotar = false,
+  tipos = [],
 }: {
   readonly abierta: CajaAbierta;
-  /** §9.55: el permiso «Anotar movimientos de caja». */
-  readonly puedeAnotar?: boolean;
+  /** Los tipos que puede anotar quien mira: ingreso y retiro con «Anotar
+   *  movimientos de caja» (§9.55), gasto con «Anotar gastos de caja»
+   *  (§9.56). Sin ninguno, no hay botón. */
+  readonly tipos?: readonly TipoDeMovimiento[];
 }) {
+  // Con un solo tipo, viene elegido y no se pregunta.
+  const unSoloTipo = tipos.length === 1 ? tipos[0] : undefined;
   const queryClient = useQueryClient();
   const [nuevo, setNuevo] = useState<{
     tipo?: TipoDeMovimiento;
@@ -55,9 +66,7 @@ export default function MovimientosDelTurno({
         monto: nuevo?.monto ?? 0,
         motivo: nuevo?.motivo.trim() ?? "",
       };
-      return nuevo?.tipo === "ingreso"
-        ? anotarIngreso(datos)
-        : anotarRetiro(datos);
+      return ANOTAR[nuevo?.tipo ?? "retiro"](datos);
     },
     onSuccess: (datos) => {
       queryClient.setQueryData(["caja"], datos);
@@ -69,9 +78,7 @@ export default function MovimientosDelTurno({
       toast.error(
         humanizeApiError(
           e,
-          nuevo?.tipo === "ingreso"
-            ? "No se pudo anotar el ingreso."
-            : "No se pudo anotar el retiro.",
+          `No se pudo anotar el ${nuevo?.tipo ?? "movimiento"}.`,
         ),
       ),
   });
@@ -113,25 +120,27 @@ export default function MovimientosDelTurno({
           })}
         </ul>
       )}
-      {!puedeAnotar ? null : nuevo ? (
+      {tipos.length === 0 ? null : nuevo ? (
         <div className="flex flex-wrap items-end gap-2">
-          <div className="flex gap-1" role="group" aria-label="Tipo">
-            {(["ingreso", "retiro"] as const).map((tipo) => (
-              <button
-                key={tipo}
-                type="button"
-                aria-pressed={nuevo.tipo === tipo}
-                onClick={() => setNuevo({ ...nuevo, tipo })}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  nuevo.tipo === tipo
-                    ? TIPO[tipo].claseChip
-                    : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {TIPO[tipo].chip}
-              </button>
-            ))}
-          </div>
+          {!unSoloTipo && (
+            <div className="flex gap-1" role="group" aria-label="Tipo">
+              {tipos.map((tipo) => (
+                <button
+                  key={tipo}
+                  type="button"
+                  aria-pressed={nuevo.tipo === tipo}
+                  onClick={() => setNuevo({ ...nuevo, tipo })}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    nuevo.tipo === tipo
+                      ? TIPO[tipo].claseChip
+                      : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {TIPO[tipo].chip}
+                </button>
+              ))}
+            </div>
+          )}
           <label className="block w-36">
             <span className={titulo}>Monto</span>
             <NumberInput
@@ -143,7 +152,9 @@ export default function MovimientosDelTurno({
             />
           </label>
           <label className="block min-w-[12rem] flex-1">
-            <span className={titulo}>Motivo</span>
+            <span className={titulo}>
+              {nuevo.tipo ? TIPO[nuevo.tipo].motivo : "Motivo"}
+            </span>
             <input
               value={nuevo.motivo}
               maxLength={120}
@@ -177,10 +188,10 @@ export default function MovimientosDelTurno({
         <div>
           <button
             type="button"
-            onClick={() => setNuevo({ motivo: "" })}
+            onClick={() => setNuevo({ tipo: unSoloTipo, motivo: "" })}
             className={boton}
           >
-            Anotar movimiento
+            {unSoloTipo === "gasto" ? "Anotar gasto" : "Anotar movimiento"}
           </button>
         </div>
       )}

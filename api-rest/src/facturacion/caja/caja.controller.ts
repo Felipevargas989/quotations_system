@@ -17,6 +17,7 @@ import {
   AbrirCajaDto,
   CerrarCajaDto,
   CorregirMedioDto,
+  GastoDeCajaDto,
   IngresoDeCajaDto,
   LoVendidoQueryDto,
   RetiroDeCajaDto,
@@ -44,8 +45,9 @@ export class CajaController {
   constructor(private readonly caja: CajaService) {}
 
   /** El estado de la caja, ciego: quien la opera y, desde el 16-11 (doc 19
-   *  §9.55), quien anota movimientos (operaciones de fábrica). */
-  @Permiso('caja_recepcion', 'caja_movimientos')
+   *  §9.55), quien anota movimientos (operaciones de fábrica) o, desde el
+   *  17-11 (§9.56), gastos. */
+  @Permiso('caja_recepcion', 'caja_movimientos', 'caja_gastos')
   @Get()
   @Roles(...VEN_LA_CAJA_ABIERTA)
   estado(@CurrentUser() user: User) {
@@ -84,6 +86,15 @@ export class CajaController {
   @Roles(...OPERATIONS_AND_UP)
   ingreso(@Body() dto: IngresoDeCajaDto, @CurrentUser() user: User) {
     return this.caja.ingreso(user, dto);
+  }
+
+  /** §9.56: los gastos son su propio interruptor (de fábrica recepción,
+   *  operaciones y el administrador). */
+  @Permiso('caja_gastos')
+  @Post('gastos')
+  @Roles(...VEN_LA_CAJA_ABIERTA)
+  gasto(@Body() dto: GastoDeCajaDto, @CurrentUser() user: User) {
+    return this.caja.gasto(user, dto);
   }
 
   @Permiso('caja_recepcion')
