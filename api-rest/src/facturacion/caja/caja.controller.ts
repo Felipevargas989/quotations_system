@@ -31,17 +31,35 @@ import { CajaService } from './caja.service';
 // fábrica del catálogo (`auth/permisos.ts`), como exige la prueba de
 // fábrica.
 const OPERAN_LA_CAJA = [UserRole.RECEPCION, UserRole.ADMINISTRADOR];
+// §9.55: la caja abierta la ven quien la opera y quien anota movimientos.
+const VEN_LA_CAJA_ABIERTA = [
+  UserRole.RECEPCION,
+  UserRole.OPERACIONES,
+  UserRole.ADMINISTRADOR,
+];
 
 @Derecho('facturacion')
 @Controller('facturacion/caja')
 export class CajaController {
   constructor(private readonly caja: CajaService) {}
 
-  @Permiso('caja_recepcion')
+  /** El estado de la caja, ciego: quien la opera y, desde el 16-11 (doc 19
+   *  §9.55), quien anota movimientos (operaciones de fábrica). */
+  @Permiso('caja_recepcion', 'caja_movimientos')
   @Get()
-  @Roles(...OPERAN_LA_CAJA)
+  @Roles(...VEN_LA_CAJA_ABIERTA)
   estado(@CurrentUser() user: User) {
     return this.caja.estado(user);
+  }
+
+  /** §9.55: lo que debería haber en la caja abierta, por medio de pago.
+   *  Solo quien revisa los cierres: recepción cierra a ciegas y nunca lo
+   *  recibe (el estado de arriba no lo trae). */
+  @Permiso('caja_revision')
+  @Get('esperado')
+  @Roles(...ADMIN_ONLY)
+  esperado(@CurrentUser() user: User) {
+    return this.caja.esperado(user);
   }
 
   @Permiso('caja_recepcion')
@@ -51,17 +69,19 @@ export class CajaController {
     return this.caja.abrir(user, dto);
   }
 
-  @Permiso('caja_recepcion')
+  /** §9.55: anotar movimientos es su propio interruptor (de fábrica,
+   *  operaciones y el administrador; recepción ya no). */
+  @Permiso('caja_movimientos')
   @Post('retiros')
-  @Roles(...OPERAN_LA_CAJA)
+  @Roles(...OPERATIONS_AND_UP)
   retiro(@Body() dto: RetiroDeCajaDto, @CurrentUser() user: User) {
     return this.caja.retiro(user, dto);
   }
 
   /** §9.51: la plata que mandan el dueño o la administradora. */
-  @Permiso('caja_recepcion')
+  @Permiso('caja_movimientos')
   @Post('ingresos')
-  @Roles(...OPERAN_LA_CAJA)
+  @Roles(...OPERATIONS_AND_UP)
   ingreso(@Body() dto: IngresoDeCajaDto, @CurrentUser() user: User) {
     return this.caja.ingreso(user, dto);
   }
@@ -87,6 +107,15 @@ export class CajaController {
   @Roles(...ADMIN_ONLY)
   cierres(@CurrentUser() user: User) {
     return this.caja.cierres(user);
+  }
+
+  /** §9.54: las tres cifras de la cadena del efectivo (7 días). Va antes
+   *  de `cierres/:id`. */
+  @Permiso('caja_revision')
+  @Get('cierres/resumen')
+  @Roles(...ADMIN_ONLY)
+  resumenDeCierres(@CurrentUser() user: User) {
+    return this.caja.resumenDeCierres(user);
   }
 
   @Permiso('caja_revision')

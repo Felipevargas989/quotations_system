@@ -13,11 +13,12 @@ import {
   corregirMedioDeSolicitud,
   getCierre,
   getCierres,
+  getResumenDeCierres,
   revisarCierre,
   type CierreDeCaja,
-  type CierreEnLaLista,
 } from "../../services/caja.service";
 import { humanizeApiError } from "../../utils/apiErrors";
+import CadenaDelEfectivo, { CifrasDeLaCadena } from "./CadenaDelEfectivo";
 import ChipDeApertura from "./ChipDeApertura";
 import ChipDePulseras from "./ChipDePulseras";
 import MovimientosDelCierre from "./MovimientosDelCierre";
@@ -25,12 +26,13 @@ import { Seccion } from "./PiezasDelDocumento";
 
 // LOS CIERRES DE LA CAJA DE RECEPCIÓN, PARA REVISARLOS (doc 19 §9.43,
 // sprint 2; Felipe, 09-11: *"luego Camila valide viendo qué se vendió y
-// cuánto debería tener"*). La lista con su estado («Por revisar»,
-// «Revisado · cuadra», «Revisado · faltan $X») y cada cierre en el panel de
-// la derecha: por medio de pago, lo declarado, lo de Eventia y la
+// cuánto debería tener"*). Desde el §9.54, la lista es la cadena del
+// efectivo (`CadenaDelEfectivo`: abrió con, debía tener, cerró con, la
+// franja entre turnos y las tres cifras de 7 días). Cada cierre en el panel
+// de la derecha: con cuánto se abrió contra el cierre anterior (§9.53,
+// `ChipDeApertura`); por medio de pago, lo declarado, lo de Eventia y la
 // diferencia; sus documentos, con el medio de pago que se corrige ahí; lo
-// vendido; §9.53, con cuánto se abrió y si calza con el cierre anterior
-// (`ChipDeApertura`, en la lista y en el detalle); los ingresos y los retiros (§9.51, `MovimientosDelCierre`); y
+// vendido; los ingresos y los retiros (§9.51, `MovimientosDelCierre`); y
 // «Marcar revisado» con su nota.
 
 const clp = (n: number) =>
@@ -56,7 +58,6 @@ const chip =
 const VERDE = `${chip} border-green-200 bg-green-50 text-green-700`;
 const ROJO = `${chip} border-red-200 bg-red-50 text-red-700`;
 const AMBAR = `${chip} border-amber-200 bg-amber-50 text-amber-800`;
-const AZUL = `${chip} border-blue-200 bg-blue-50 text-blue-700`;
 
 /** «Cuadra», «Faltan $5.000» o «Sobran $500», con su color. */
 function Diferencia({ valor }: { readonly valor: number | null }) {
@@ -66,20 +67,6 @@ function Diferencia({ valor }: { readonly valor: number | null }) {
     <span className={ROJO}>Faltan {clp(-valor)}</span>
   ) : (
     <span className={AMBAR}>Sobran {clp(valor)}</span>
-  );
-}
-
-/** El estado de un cierre en una palabra, con el resultado al revisarlo. */
-function Estado({ c }: { readonly c: CierreEnLaLista }) {
-  if (c.estado === "abierta") return <span className={AZUL}>Abierta</span>;
-  if (c.estado === "por_revisar")
-    return <span className={AMBAR}>Por revisar</span>;
-  const d = c.diferencia ?? 0;
-  return (
-    <span className={d === 0 ? VERDE : d < 0 ? ROJO : AMBAR}>
-      Revisado ·{" "}
-      {d === 0 ? "cuadra" : d < 0 ? `faltan ${clp(-d)}` : `sobran ${clp(d)}`}
-    </span>
   );
 }
 
@@ -394,66 +381,41 @@ function Detalle({
   );
 }
 
-export default function CierresDeCaja() {
+export default function CierresDeCaja({
+  onAbrirLaCaja,
+}: {
+  /** §9.55: pinchar la fila de la caja abierta abre su panel (el de la
+   *  pestaña Caja) en vez del detalle de un cierre. */
+  readonly onAbrirLaCaja?: () => void;
+} = {}) {
   const cierres = useQuery({
     queryKey: ["caja", "cierres"],
     queryFn: getCierres,
+  });
+  // §9.54: las tres cifras de los últimos 7 días.
+  const resumen = useQuery({
+    queryKey: ["caja", "cierres", "resumen"],
+    queryFn: getResumenDeCierres,
   });
   const [abierto, setAbierto] = useState<number | null>(null);
   const lista = cierres.data ?? [];
   return (
     <Seccion titulo="Cierres de la caja de recepción">
+      <CifrasDeLaCadena resumen={resumen.data} />
       {cierres.isPending ? (
         <p className="text-sm text-gray-400">Cargando los cierres…</p>
       ) : lista.length === 0 ? (
         <p className="text-sm text-gray-500">Todavía no hay cierres.</p>
       ) : (
-        <table className="w-full table-fixed text-sm">
-          <thead>
-            <tr className="text-left text-xs text-gray-500">
-              <th className="w-[15%] pb-1 font-normal">Día</th>
-              <th className="w-[15%] pb-1 font-normal">Quién</th>
-              <th className="w-[24%] pb-1 text-right font-normal">Abrió con</th>
-              <th className="pb-1 text-right font-normal">Vendido</th>
-              <th className="pb-1 text-right font-normal">Declarado</th>
-              <th className="w-[22%] pb-1 text-right font-normal">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((c) => (
-              <tr
-                key={c.id}
-                onClick={() => setAbierto(c.id)}
-                className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
-              >
-                <td className="py-1.5">
-                  <button
-                    type="button"
-                    className="text-left text-blue-700 hover:underline"
-                  >
-                    {dia(c.abierta_en)}
-                  </button>
-                </td>
-                <td className="py-1.5">
-                  {c.cerrada_por_nombre ?? c.abierta_por_nombre}
-                </td>
-                <td className="py-1.5 text-right">
-                  <span className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
-                    {clp(c.sencillo_inicial)}
-                    <ChipDeApertura apertura={c.apertura} />
-                  </span>
-                </td>
-                <td className="py-1.5 text-right">{clp(c.vendido)}</td>
-                <td className="py-1.5 text-right">
-                  {c.declarado == null ? "—" : clp(c.declarado)}
-                </td>
-                <td className="py-1.5 text-right">
-                  <Estado c={c} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <CadenaDelEfectivo
+          lista={lista}
+          onAbrir={(id) =>
+            onAbrirLaCaja &&
+            lista.find((x) => x.id === id)?.estado === "abierta"
+              ? onAbrirLaCaja()
+              : setAbierto(id)
+          }
+        />
       )}
       {abierto != null && (
         <Detalle id={abierto} onCerrar={() => setAbierto(null)} />

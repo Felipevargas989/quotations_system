@@ -3118,6 +3118,156 @@ si no en el inter, se pierde el dinero"*.
 En la rama `feature/caja-apertura-calza` desde el 16-11-2026 (sin
 migración; motor y pantalla).
 
+### 9.54 La lista de cierres como cadena del efectivo (16-11)
+
+Felipe, 16-11, mirando la lista con el §9.53 en producción: *"para que el
+abrió con tenga sentido necesitamos otra que diga cerró con o no? … mira
+cómo debo leer esto?"*. «Declarado» sumaba todos los medios y la apertura se
+comparaba solo con el efectivo: no se podía leer. Pidió una propuesta
+«mejorando Fudo y lo que ya tenemos» y aprobó la maqueta. Reemplaza en la
+lista lo del §9.53 (el chip dentro de «Abrió con»); el detalle no cambia.
+
+**Lo aprobado:**
+1. **Tres cifras arriba** (tarjetas blancas, número grande, etiqueta
+   chica), sobre los turnos abiertos en los últimos 7 días corridos:
+   - «Efectivo que falta, 7 días»: la suma de las diferencias de efectivo de
+     los turnos cerrados (cerró con − debía tener). Rojo si es negativa,
+     verde si es cero; si sobra, con «+» (en ámbar).
+   - «Perdido entre turnos»: la suma de las aperturas con menos que el
+     cierre anterior.
+   - «Turnos por revisar»: cuántos de esos 7 días.
+2. **Columnas:** «Turno» (día y horas, «lun 16-11 · 11:22 a 19:11»; el
+   abierto, solo la de apertura; quién, en línea chica debajo; abre el
+   detalle) · «Abrió con» · «Debía tener» (sencillo + vendido en efectivo +
+   ingresos − retiros) · «Cerró con» (el efectivo declarado), las tres solo
+   en efectivo · «Efectivo» («Cuadra» verde, «Faltan $X» o «Sobran $X»
+   rojo) · «Tarjetas y transf.» (la diferencia sumada de débito, crédito y
+   transferencia, con el mismo chip) · «Estado» en una palabra («Abierta»,
+   «Por revisar», «Revisado»; el resultado de la revisión, en el title). El
+   turno abierto muestra «—» en «Debía tener», «Cerró con» y los dos chips.
+3. **La franja entre turnos:** entre una fila y la de abajo (la anterior en
+   el tiempo), una fila angosta con sangría y borde izquierdo: el chip
+   «Entre turnos» y (si pasó completo, la franja no se muestra: Felipe, 16-11), «Faltan $X entre el
+   cierre y la apertura» (rojo) o «Aparecieron $X que el cierre anterior no
+   declaró» (ámbar). El más viejo de la lista no lleva franja debajo.
+4. Recepción sigue a ciegas: nada de esto llega al estado de la caja ni a
+   la pantalla de abrir o cerrar.
+
+**Cómo quedó:**
+- **El motor** (`caja/cadena.ts`, puro): `cadenaDelTurno` (de las líneas de
+  `cuadrar`: `debia_tener`, `cerro_con`, `diferencia_efectivo` y
+  `diferencia_otros`, nulos con la caja abierta) y `resumenDeLaCadena` (las
+  tres cifras de los turnos abiertos desde ahora − 7 × 24 h).
+  `CajaService.laCadena` arma las dos cosas: lee los 61 más nuevos en una
+  consulta (60 a la vista y el anterior del más viejo, §9.53). Si esos 61
+  no alcanzan a cubrir los 7 días (más de 60 turnos en una semana), trae
+  además los de la ventana (`CajaRepository.turnosDesde`) y el anterior del
+  más viejo de ella (`turnoAnterior`). Lo vendido y los movimientos de
+  todos, en una consulta cada uno: nada por fila.
+- `GET /facturacion/caja/cierres` suma esos cuatro campos a cada fila (los
+  de antes siguen). Las tres cifras, en su propia puerta, `GET
+  /facturacion/caja/cierres/resumen` (el mismo permiso «Revisar cierres de
+  caja»), para no cambiar la forma de la lista: la pantalla de antes sigue
+  funcionando con el motor nuevo.
+- **La pantalla:** `CadenaDelEfectivo` (la tabla, con la franja y
+  `CifrasDeLaCadena`), usada por `CierresDeCaja`. Cabe en un notebook
+  (mínimo 52rem); en angosto, la tabla se corre de lado dentro de su caja.
+  `ChipDeApertura` queda solo en el detalle.
+- **Las pruebas:** `caja-cadena.spec.ts` (el caso real del 16-11: el turno
+  A debía tener 26.850 y cerró con 0, «Faltan $26.850»; el B abrió con
+  26.850 después de un cierre en 0; los 7 días con más de 60 turnos) y los
+  casos «§9.54» de `CierresDeCaja.test.tsx`.
+
+En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026 (sin
+migración; motor y pantalla).
+
+### 9.55 La caja abierta es una fila y se opera en su panel (16-11)
+
+Felipe, 16-11 (dictado): *"el hover de selección cuando paso por arriba de
+la fila de la caja no me selecciona … la fila de entre turnos. Creo que
+además la caja de arriba del cierre de caja debería abrirse en la fila
+cuando la pincho, cuando se abre el modal al lado derecho. Y lo mismo de
+ingresar movimiento, debería ser un botón que … solo el administrador o
+operaciones, cuando ve la caja, pudiese ingresar movimiento o retiro"*. Y
+después: *"recepción igual debe pinchar la caja abierta para cerrarla,
+finalmente es mover la misma sección pero dentro del modal"*. Confirmó que
+recepción deja de anotar retiros.
+
+**Lo aprobado:**
+1. **El turno y su franja son una unidad:** se resaltan juntos al pasar el
+   mouse y pinchar la franja «Entre turnos» abre el mismo detalle.
+2. **La caja abierta es una fila:** sale el bloque grande de arriba (el
+   estado «Abierta…», «Movimientos del turno» y «Cerrar caja: ¿cuánto
+   tienes?»). La caja abierta es la primera fila («Abierta») y al pincharla
+   se abre el panel de la derecha con, en este orden: quién, cuándo y con
+   cuánto abrió; los movimientos del turno; y el cierre por medio de pago
+   (con las pulseras y el comentario). Sin caja abierta, arriba de la lista
+   queda solo «Abrir caja» con su sencillo.
+3. **Quién ve qué** (el cierre sigue ciego para recepción):
+   - Sin «Revisar cierres de caja» (recepción): solo la fila de la caja
+     abierta (Turno, Abrió con y Estado), sin las tres cifras ni los
+     cierres anteriores; en el panel, los movimientos y el cierre, sin nada
+     de lo que dice el sistema.
+   - Con «Revisar cierres de caja»: la cadena del efectivo entera (§9.54) y,
+     en el panel, «Según sistema» al lado de cada casilla del cierre.
+4. **«Anotar movimiento»:** un solo botón en el panel (se elige ingreso o
+   retiro, el monto y el motivo), con su propio interruptor en Permisos por
+   cargo, **«Anotar movimientos de caja»** (`caja_movimientos`): de fábrica
+   operaciones y el administrador; recepción y el vendedor, no. Quien no lo
+   tiene ve los movimientos, pero no el botón.
+
+**Cómo quedó:**
+- **El motor:** el permiso nuevo en `auth/permisos.ts` (doc 22 §3.1). `POST
+  /facturacion/caja/ingresos` y `/retiros` piden `caja_movimientos`
+  (`@Roles` operaciones y el administrador). `GET /facturacion/caja` (el
+  estado, ciego) lo abren `caja_recepcion` o `caja_movimientos` (recepción,
+  operaciones y el administrador), para que quien anota vea la caja
+  abierta. Lo que debería haber va por su propia puerta, `GET
+  /facturacion/caja/esperado` (`CajaService.esperado`: por medio de pago lo
+  vendido y lo esperado; el efectivo, sencillo + vendido en efectivo +
+  ingresos − retiros), con `caja_revision` (el administrador de fábrica):
+  el estado que lee recepción sigue sin traerlo. Abrir y cerrar no cambian.
+- **La pantalla:** `CajaDeRecepcion` es ahora la pestaña entera (recibe los
+  tres permisos desde `FacturacionPage`): «Abrir caja» compacto o el check
+  de `CajaCerrada`; la cadena (`CierresDeCaja`, que con `onAbrirLaCaja`
+  manda la fila «Abierta» al panel) o, sin el permiso de revisar, la fila
+  sola (`CadenaDelEfectivo` con `ciego`); y `PanelDeLaCajaAbierta` (`Modal`
+  a la derecha) con `MovimientosDelTurno` (`puedeAnotar`) y `CerrarLaCaja`
+  (el formulario de cierre, movido tal cual; `esperado` solo para quien
+  revisa). La pestaña Caja la ve quien tenga cualquiera de los tres
+  permisos. En `CadenaDelEfectivo`, cada turno es un `<tbody>` con
+  `group-hover`.
+- **Sin migración:** el permiso nuevo llega a todas las empresas con su
+  valor de fábrica (doc 22 §4.1).
+- **El despliegue:** sin orden obligado. La pantalla vieja con el motor
+  nuevo sigue andando (las formas de `GET /facturacion/caja` y de `cierres`
+  no cambian), salvo que recepción ya no puede anotar retiros (su botón
+  viejo recibe «sin permiso»), que es lo pedido.
+- **Las pruebas:** `caja-panel.spec.ts` (lo esperado por medio de pago; que
+  el estado de recepción no lo trae; quién pasa por cada puerta de fábrica:
+  lo esperado solo el administrador, recepción tampoco con «Anotar
+  movimientos» prendido; anotar, operaciones y el administrador) y en la
+  vitrina `CajaDeRecepcion.test.tsx` (reescrita para el panel) y los casos
+  «§9.55» de `CierresDeCaja.test.tsx`.
+
+**«Cerrar caja», más legible** (Felipe, 16-11: *"creo que mejoraría el
+cerrar caja… a nivel de front puede quedar mejor"*; aprobó la maqueta).
+Solo pantalla (`CerrarLaCaja`): el título y «Cierra <nombre>» en línea
+chica; una tabla con una fila por medio (Efectivo, Débito, Crédito,
+Transferencias y, si se cuentan, Pulseras) y su línea chica; quien revisa
+ve además «Según sistema» y la diferencia de cada fila al escribir
+(«Cuadra» verde, «Faltan»/«Sobran» rojo, «—» mientras está vacía: vacío no
+es cero), el «Total en plata» y una banda con la diferencia, que aparece
+recién con las cuatro casillas escritas. El aviso de las casillas vacías
+sale solo si se aprieta «Cerrar caja» (el botón ya no va deshabilitado).
+Recepción ve la misma tabla solo con el medio y «Contaste», y nunca se
+pide lo esperado. Las pulseras no tienen todavía su «según sistema» en el
+panel: va «—» (el dato vive en la pestaña Pulseras, con otro permiso).
+Pruebas: `CerrarLaCaja.test.tsx`.
+
+En la rama `feature/caja-cadena-del-efectivo` desde el 16-11-2026, con el
+§9.54 (sin migración; motor y pantalla).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

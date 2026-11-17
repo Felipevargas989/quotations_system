@@ -172,6 +172,19 @@ export class CajaRepository {
     return ((data ?? []) as TurnoDeCaja[]).map(numeros);
   }
 
+  /** §9.54: los turnos abiertos desde `desde` (la ventana de 7 días de la
+   *  cadena del efectivo), del más nuevo al más viejo. */
+  async turnosDesde(companyId: number, desde: string): Promise<TurnoDeCaja[]> {
+    const { data, error } = await this.db
+      .from('turnos_de_caja')
+      .select(TURNO)
+      .eq('company_id', companyId)
+      .gte('abierta_en', desde)
+      .order('abierta_en', { ascending: false });
+    if (error) throw error;
+    return ((data ?? []) as TurnoDeCaja[]).map(numeros);
+  }
+
   /** §9.53: el turno cerrado de la misma caja abierto justo antes de
    *  `abiertaEn` (para comparar la apertura con su cierre). */
   async turnoAnterior(
