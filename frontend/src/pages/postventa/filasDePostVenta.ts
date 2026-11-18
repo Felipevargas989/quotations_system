@@ -17,6 +17,11 @@ export interface EventRow {
   refunded: number; // reembolsos ya devueltos (is_paid = true)
   cuotas: number;
   status: "pagado" | "vencido" | "pendiente";
+  /** Lo vencido DE VERDAD: lo que falta de sus cuotas ya vencidas, nunca
+   *  más que el saldo. El total «Vencido» de arriba suma esto y no el
+   *  saldo entero del evento (Felipe, 17-11-2026: "vencido debería
+   *  mostrarme solamente lo que está efectivamente vencido"). */
+  overdue: number;
   // Evento anulado: fuera de la lista por defecto, visible con el filtro.
   cancelled: boolean;
   // Evento realizado: sigue en la lista (cobranza) con su etiqueta verde.
@@ -106,6 +111,14 @@ export function armarFilas({
     let status: EventRow["status"] = "pendiente";
     if (saldo <= 0) status = "pagado";
     else if (ps.some((p) => cuotaStatus(p) === "vencido")) status = "vencido";
+    const faltaDeLoVencido = ps
+      .filter((p) => cuotaStatus(p) === "vencido")
+      .reduce(
+        (s, p) =>
+          s + Math.max(0, (Number(p.amount) || 0) - (p.paid_amount || 0)),
+        0,
+      );
+    const overdue = Math.max(0, Math.min(saldo, faltaDeLoVencido));
 
     // Contacto mostrado: el MANDANTE de la cotización (quien encargó
     // ESTE evento), con su propio teléfono buscado entre los contactos
@@ -146,6 +159,7 @@ export function armarFilas({
       refunded,
       cuotas: ps.length,
       status,
+      overdue,
       payments: ps.slice().sort((a, b) => a.payment_number - b.payment_number),
     };
   };

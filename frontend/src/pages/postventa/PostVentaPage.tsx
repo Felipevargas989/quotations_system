@@ -351,8 +351,11 @@ export default function PostVentaPage() {
       const net = r.paid - r.refunded;
       pag += net;
       const saldo = r.total - net;
-      if (r.status === "vencido") venc += saldo;
-      else if (r.status === "pendiente") pend += saldo;
+      // Vencido = solo lo que falta de las cuotas ya vencidas; el resto
+      // del saldo es pendiente. Así las tres cifras no se pisan (17-11).
+      if (r.status === "pagado") return;
+      venc += r.overdue;
+      pend += saldo - r.overdue;
     });
     return { pend, venc, pag, total: pend + venc + pag };
   }, [rows]);

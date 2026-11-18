@@ -33,6 +33,32 @@ const cuota = (quotationId: string, n: number, monto: number, pagado: number) =>
   }) as unknown as PaymentWithTransactions;
 
 describe("armarFilas", () => {
+  it("lo vencido de la fila es solo lo que falta de sus cuotas vencidas, no el saldo entero", () => {
+    const vencida = {
+      ...cuota("q411", 1, 400, 100),
+      due_date: "2020-01-01",
+    } as PaymentWithTransactions;
+    const filas = armarFilas({
+      payments: [vencida, cuota("q411", 2, 600, 0)],
+      sinPlan: [],
+      clients: [],
+      refundsPaid: {},
+    });
+    expect(filas[0].status).toBe("vencido");
+    // Total 1.000, pagado 100: faltan 900, pero vencidos son solo 300.
+    expect(filas[0].overdue).toBe(300);
+  });
+
+  it("sin cuotas vencidas, lo vencido es cero", () => {
+    const filas = armarFilas({
+      payments: [cuota("q1", 1, 1000, 0)],
+      sinPlan: [],
+      clients: [],
+      refundsPaid: {},
+    });
+    expect(filas[0].overdue).toBe(0);
+  });
+
   it("un evento aceptado sin cuotas aparece, con 0 cuotas y el total pendiente", () => {
     const filas = armarFilas({
       payments: [],
