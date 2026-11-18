@@ -13,8 +13,11 @@ import { tipoALaFecha, type ConHistorial, type Tipo } from './tipo-vigente';
  *    todavía no llegan se quitan; los que ya trabajó (hasta hoy) quedan
  *    como freelance esperando su monto.
  *  - De freelance a planta: el día pasa a planta, sin monto y confirmado
- *    (es su turno). Queda marcado como día puesto a mano ('trabaja') para
- *    que la proyección no lo borre si cae en su día libre.
+ *    (es su turno). Si cae en su día libre queda marcado como día puesto
+ *    a mano ('trabaja') para que la proyección no lo borre; en un día de
+ *    su patrón queda como cualquier día de planta (sin marca), para que
+ *    quitarlo lo deje dormido en vez de que la proyección lo vuelva a
+ *    poner.
  *  - Los días de eventos NO cambian, ni la fila solo-de-propina.
  *
  * Los días de planta que faltan desde la fecha (hoy en adelante) los pone
@@ -52,8 +55,9 @@ const A_PLANTA = {
   kind: 'planta',
   amount: null,
   status: 'confirmado',
-  ajuste: 'trabaja',
+  ajuste: null,
 };
+const A_PLANTA_EN_SU_LIBRE = { ...A_PLANTA, ajuste: 'trabaja' };
 const A_FREELANCE_SIN_MONTO = {
   kind: 'freelance',
   ajuste: null,
@@ -66,7 +70,7 @@ const A_FREELANCE_CON_MONTO = { kind: 'freelance', ajuste: null };
 export const planDelCambioDeTipo = (args: {
   filas: readonly FilaDeStaff[];
   /** La persona con el historial YA con el cambio nuevo. */
-  persona: ConHistorial;
+  persona: ConHistorial & { days_off?: number[] | null };
   desde: string;
   hoy: string;
   /** Días de staff con la propina ya resuelta (liquidados). */
@@ -74,6 +78,8 @@ export const planDelCambioDeTipo = (args: {
 }): PlanDelCambio => {
   const { filas, persona, desde, hoy, liquidados } = args;
   const aPlanta: number[] = [];
+  const aPlantaEnSuLibre: number[] = [];
+  const libres = persona.days_off ?? [];
   const aFreelanceSin: number[] = [];
   const aFreelanceCon: number[] = [];
   const quitar: number[] = [];
@@ -117,13 +123,16 @@ export const planDelCambioDeTipo = (args: {
     }
 
     if (destino === 'quitar') quitar.push(fila.id);
-    else if (destino === 'planta') aPlanta.push(fila.id);
-    else if (Number(fila.amount ?? 0) > 0) aFreelanceCon.push(fila.id);
+    else if (destino === 'planta') {
+      const libre = libres.includes(new Date(`${dia}T00:00:00Z`).getUTCDay());
+      (libre ? aPlantaEnSuLibre : aPlanta).push(fila.id);
+    } else if (Number(fila.amount ?? 0) > 0) aFreelanceCon.push(fila.id);
     else aFreelanceSin.push(fila.id);
   }
 
   const cambios = [
     { ids: aPlanta, datos: A_PLANTA },
+    { ids: aPlantaEnSuLibre, datos: A_PLANTA_EN_SU_LIBRE },
     { ids: aFreelanceSin, datos: A_FREELANCE_SIN_MONTO },
     { ids: aFreelanceCon, datos: A_FREELANCE_CON_MONTO },
   ].filter((c) => c.ids.length > 0);
@@ -131,7 +140,7 @@ export const planDelCambioDeTipo = (args: {
   return {
     cambios,
     quitar,
-    aPlanta: aPlanta.length,
+    aPlanta: aPlanta.length + aPlantaEnSuLibre.length,
     aFreelance: aFreelanceSin.length + aFreelanceCon.length,
     sinTocar,
   };

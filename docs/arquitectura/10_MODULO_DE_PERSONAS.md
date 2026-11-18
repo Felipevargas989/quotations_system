@@ -1311,8 +1311,11 @@ eventos y la fila solo-de-propina no se tocan):
 
 - **A planta**: el día freelance pasa a planta, sin monto (su sueldo lo
   cubre, como «pasar a planta borra el monto» del 18-08) y confirmado (es
-  su turno). Queda marcado como día puesto a mano (`ajuste='trabaja'`)
-  para que la proyección no lo borre si cae en su día libre.
+  su turno). Si cae en su día libre queda marcado como día puesto a mano
+  (`ajuste='trabaja'`) para que la proyección no lo borre; en un día de
+  su patrón queda sin marca, como cualquier día de planta (revisión del
+  17-11: con la marca, quitarlo lo borraba y la proyección lo volvía a
+  poner).
 - **A freelance**: lo que puso el sistema y todavía no llega (después de
   hoy, sin plata) se quita, igual que el día dormido que viene. Lo que ya
   trabajó (hasta hoy) y lo puesto a mano pasa a freelance, por confirmar
