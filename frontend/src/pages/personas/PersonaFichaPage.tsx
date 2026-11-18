@@ -142,11 +142,12 @@ export default function PersonaFichaPage() {
     },
   });
 
-  // El estado se cambia desde la cabecera: se manda la ficha completa
-  // con el status nuevo, para no pisar nada de lo que ya estaba.
+  // El estado se cambia desde la cabecera y se manda SOLO lo que cambia
+  // (18-11-2026). Hasta ese día se mandaba la ficha entera, con `id` y
+  // `company_id`, y el motor la rechazaba: «property id should not
+  // exist». Nada de la cabecera se guardaba.
   const cambiarEstado = useMutation({
-    mutationFn: (status: EstadoPersona) =>
-      updatePerson(personId, { ...(persona as Persona), status }),
+    mutationFn: (status: EstadoPersona) => updatePerson(personId, { status }),
     onSuccess: () => {
       toast.success("Situación actualizada.");
       void qc.invalidateQueries({ queryKey: ["people"] });
@@ -154,14 +155,16 @@ export default function PersonaFichaPage() {
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
+  // Bloquear va junto con su motivo, en un solo viaje: el motor no
+  // bloquea sin motivo. Por eso elegir «Bloqueada» primero abre la
+  // casilla (`pidiendoMotivo`) y recién con el motivo escrito se guarda.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
   const guardarMotivo = useMutation({
     mutationFn: (blocked_reason: string) =>
-      updatePerson(personId, {
-        ...(persona as Persona),
-        blocked_reason: blocked_reason || null,
-      }),
+      updatePerson(personId, { status: "bloqueada", blocked_reason }),
     onSuccess: () => {
-      toast.success("Motivo guardado.");
+      toast.success(pidiendoMotivo ? "Quedó bloqueada." : "Motivo guardado.");
+      setPidiendoMotivo(false);
       void qc.invalidateQueries({ queryKey: ["people"] });
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
@@ -247,7 +250,14 @@ export default function PersonaFichaPage() {
                   label: etiquetaEstadoPersona(e),
                   clases: chipEstadoPersona(e),
                 }))}
-                onChange={(v) => cambiarEstado.mutate(v as EstadoPersona)}
+                onChange={(v) => {
+                  if (v === "bloqueada" && persona.status !== "bloqueada") {
+                    setPidiendoMotivo(true);
+                    return;
+                  }
+                  setPidiendoMotivo(false);
+                  cambiarEstado.mutate(v as EstadoPersona);
+                }}
                 titulo="Cambiar su situación"
                 tamano="base"
               />
@@ -288,21 +298,37 @@ export default function PersonaFichaPage() {
 
           {/* Bloquear pide motivo: en ocho meses nadie se acuerda de
               por qué. Vive junto al estado, que es donde se bloquea. */}
-          {persona.status === "bloqueada" && (
+          {(persona.status === "bloqueada" || pidiendoMotivo) && (
             <div className="mt-3">
               <label
                 htmlFor="motivo-bloqueo"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                ¿Por qué está bloqueada?
+                {pidiendoMotivo
+                  ? "¿Por qué se bloquea?"
+                  : "¿Por qué está bloqueada?"}
               </label>
               <input
                 id="motivo-bloqueo"
                 type="text"
                 defaultValue={persona.blocked_reason ?? ""}
+                autoFocus={pidiendoMotivo}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setPidiendoMotivo(false);
+                }}
                 onBlur={(e) => {
                   const motivo = e.target.value.trim();
-                  if (motivo !== (persona.blocked_reason ?? "")) {
+                  // Sin motivo no se bloquea ni se borra el que había.
+                  if (!motivo) {
+                    setPidiendoMotivo(false);
+                    e.target.value = persona.blocked_reason ?? "";
+                    return;
+                  }
+                  if (
+                    pidiendoMotivo ||
+                    motivo !== (persona.blocked_reason ?? "")
+                  ) {
                     guardarMotivo.mutate(motivo);
                   }
                 }}
@@ -310,6 +336,9 @@ export default function PersonaFichaPage() {
                 className="w-full sm:w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-1">
+                {pidiendoMotivo
+                  ? "Escribe el motivo y aprieta Enter para bloquearla. "
+                  : ""}
                 Bloquear no impide pagarle lo que ya trabajó.
               </p>
             </div>
