@@ -18,6 +18,7 @@ import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import { CambioDeTipoDto } from './dto/cambio-de-tipo.dto';
 import { CreatePersonDto } from './dto/create-person.dto';
 import {
   CerrarFichaDto,
@@ -42,6 +43,7 @@ import {
 import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PeopleService } from './people.service';
+import { TipoDePersonaService } from './tipo-de-persona.service';
 
 // Cargo de clase (14-09-2026): todo el módulo es de ADMIN_ONLY; las rutas
 // que otras pantallas usan lo bajan una a una con su propio @Roles.
@@ -57,6 +59,7 @@ export class PeopleController {
     // La planificación muestra solo los eventos de los tipos de cliente
     // que trabaja el cargo (doc 22 §9, tanda 3).
     private readonly alcance: AlcanceDeRecepcion,
+    private readonly tipos: TipoDePersonaService,
   ) {
     this.logger.setContext(PeopleController.name);
   }
@@ -148,8 +151,14 @@ export class PeopleController {
   // planta proyectado. Desplazarse por los meses ya no carga nada.
   @Permiso('personal')
   @Post('staff/proyectar-planta')
-  proyectarPlanta(@CurrentUser() user: User) {
+  async proyectarPlanta(@CurrentUser() user: User) {
     this.logger.info('POST /people/staff/proyectar-planta');
+    // Antes de proyectar, el tipo guardado de quien tuvo un cambio a
+    // futuro que ya llegó (doc 10 §12). Si falla, se proyecta igual: la
+    // proyección lee el tipo de cada día del historial.
+    await this.tipos
+      .ponerAlDia(user.company_id)
+      .catch((e) => this.logger.error(`ponerAlDia: ${String(e)}`));
     return this.peopleService.proyectarTodaLaPlanta(user.company_id);
   }
 
@@ -422,6 +431,31 @@ export class PeopleController {
     return this.peopleService.findHistorial(user.company_id, +id);
   }
 
+  // ---- La ventana «Desde» al cambiar de tipo (doc 10 §12) ----
+  // Van antes de las rutas con :id sueltas. Mismo permiso que editar la
+  // ficha: quien puede cambiar el tipo en la ficha, puede elegir desde.
+
+  @Permiso('personal')
+  @Get(':id/tipo/previa')
+  previaDelTipo(
+    @Param('id') id: string,
+    @Query() dto: CambioDeTipoDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.tipos.previa(user.company_id, +id, dto);
+  }
+
+  @Permiso('personal')
+  @Post(':id/tipo')
+  cambiarTipo(
+    @Param('id') id: string,
+    @Body() dto: CambioDeTipoDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /people/${id}/tipo ${dto.kind} desde ${dto.desde}`);
+    return this.tipos.cambiar(user.company_id, +id, dto, user);
+  }
+
   // ---- Las notas del día ----
   // Van antes de las rutas con :id de personas, para que
   // "day-notes" no se lea como el id de una persona.
@@ -490,13 +524,24 @@ export class PeopleController {
 
   @Permiso('personal')
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdatePersonDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`PATCH /people/${id} with ${logSafe(dto)}`);
-    return this.peopleService.update(+id, dto, user.company_id);
+    // El tipo no se cambia de pasada: si viene otro, queda en el historial
+    // desde hoy (doc 10 §12). La ficha nueva lo cambia por la ventana.
+    const { default_kind, ...resto } = dto;
+    if (default_kind === 'planta' || default_kind === 'freelance') {
+      await this.tipos.cambiarSiEsOtro(
+        user.company_id,
+        +id,
+        default_kind,
+        user,
+      );
+    }
+    return this.peopleService.update(+id, resto, user.company_id);
   }
 
   @Permiso('personal')

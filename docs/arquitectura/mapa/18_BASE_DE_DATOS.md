@@ -1,6 +1,6 @@
 # Mapa: Base de datos
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio), y el 16-11-2026 con la 208 (sección 38, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 17-11-2026 con la 209 (sección 39, sin aplicar).
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, y el 14-09-2026 con las migraciones 111 y 112 (secciones 12 y 13), y el 16-10-2026 con la 122 (sección 15, sin aplicar), y el 18-10-2026 con la 141 (sección 22, en las dos bases), y el 27-10-2026 con la 167 (`user_profiles.personaje` y `.color`, en la tabla de §2), y el 04-11-2026 con la 182 (sección 27, en las dos bases) y la 184 (sección 29, facturación electrónica, solo en el laboratorio), y el 16-11-2026 con la 208 (sección 38, sin aplicar). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 17-11-2026 con la 209 (sección 39, sin aplicar) y la 210 (sección 40, el historial de tipo de una persona, sin aplicar).
 
 ## 1. Qué es y cómo se aplican los cambios
 
@@ -51,6 +51,18 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `client_contacts` | Las personas del cliente: `name`, `email`, `phone`, `is_primary`, `portal_token` | 09 | 34; columnas en 35, 36 y 48 |
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
 | `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
+
+## 40. Migración 210: el historial de tipo de una persona (17-11-2026)
+
+**Qué hace.** Crea `historial_de_tipo`: cada cambio de planta a freelance (o al revés) de una persona, con `kind` (el tipo nuevo), `anterior` (el que regía justo antes; CHECK `kind <> anterior`), `desde` (`date`, pasado o futuro), quién lo registró (`registrado_por` uuid, `registrado_por_nombre` de 1 a 120) y cuándo (`registrado_en`). `company_id` y `person_id` con cascada; índice por `(company_id, person_id, desde)`. RLS encendida, cerrada a `anon` y `authenticated`; `service_role` solo `SELECT` e `INSERT` (lo registrado no se reescribe). Idempotente.
+
+**Por qué.** Felipe, 17-11-2026: *"la ventana desde desarrollemos en el laboratorio"*. Sofía pasó a planta el 01-11 y se registró después; el cambio de tipo regía desde el día en que se guardaba. Doc 10 §12; mapa 07 §5.7.
+
+**Cómo se lee.** El tipo de un día se deriva de la tabla (el último cambio con `desde` <= ese día; antes del primero, su `anterior`). `people.default_kind` queda como el tipo de hoy: el motor lo deriva al leer a una persona y lo pone al día en la base al abrir la sábana (`ponerAlDia`). Sin reloj.
+
+**Ojo con el orden del motor:** se aplica antes de subir el motor que la escribe. El motor nuevo **aguanta** que la tabla todavía no exista: lee el historial como vacío (`PeopleRepository.historialDeTipo`, códigos `42P01` y `PGRST205`) y todo sigue como antes; lo único que falla sin ella es registrar un cambio.
+
+**Estado.** Escrita el 17-11-2026 en la rama `feature/personas-desde`. Sin aplicar.
 
 ## 39. Migración 209: los gastos de la caja de recepción (17-11-2026)
 
@@ -161,6 +173,7 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 |---|---|---|---|
 | `people` | La ficha: RUT, datos bancarios, cargo y planta/freelance por defecto, estado, horario habitual, días libres | 07 | 68; 69, 75, 76, 80 |
 | `event_staff` | Una fila por persona y día: de un evento o del restaurante (`quotation_id` NULL), silla vacía (`person_id` NULL), horario, monto, propina y marcas de nómina | 07 y 08 | 71; 74, 77, 82, 84, 88, 89, 90 |
+| `historial_de_tipo` | Cada cambio de planta a freelance (o al revés) con el día desde el que rige (`kind`, `anterior`, `desde`), quién y cuándo. El tipo de un día se deriva de acá; solo `SELECT` e `INSERT` | 07 (doc 10 §12) | 210 |
 | `staff_sheets` | Ciclo de la ficha de personal del evento: armando → confirmado → trabajado → cerrada | 08 | 77; 79, 86 |
 | `tip_pools` | Pozos de propina de un evento o de un día de restaurante | 08 | 77; 79, 83, 87 |
 | `person_reviews` | Estrellas y nota por persona y evento | 07 y 08 | 77; 79 |

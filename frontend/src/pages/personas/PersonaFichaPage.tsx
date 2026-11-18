@@ -15,6 +15,9 @@ import PreguntaDiaExtra, { esDiaExtra } from "./PreguntaDiaExtra";
 import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PagosDePersona from "./PagosDePersona";
 import EvaluacionesDePersona from "./EvaluacionesDePersona";
+import HistorialDeTipo from "./HistorialDeTipo";
+import VentanaDesde from "./VentanaDesde";
+import { proximoCambio, textoDelProximo } from "./tipoVigente";
 import {
   addStaff,
   deletePerson,
@@ -31,7 +34,7 @@ import type {
   Persona,
   PersonaFormData,
 } from "../../types/people.types";
-import type { EstadoPersona } from "../../utils/estadoPersona";
+import type { EstadoPersona, TipoPersona } from "../../utils/estadoPersona";
 import { datosParaPagarCompletos } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import {
@@ -77,6 +80,8 @@ export default function PersonaFichaPage() {
   >("datos");
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [borrando, setBorrando] = useState(false);
+  // La ventana «Desde» (doc 10 §12): el tipo al que pasa, mientras está abierta.
+  const [nuevoTipo, setNuevoTipo] = useState<TipoPersona | null>(null);
 
   const { data: persona, isLoading } = useQuery({
     queryKey: ["people", "ficha", personId],
@@ -179,6 +184,7 @@ export default function PersonaFichaPage() {
   }
 
   const completa = datosParaPagarCompletos(persona);
+  const pendiente = proximoCambio(persona, hoyEnChile());
 
   const telefonoWsp = (persona.phone ?? "").replace(/\D/g, "");
   const diasEsteMes = staffDelMes.filter(
@@ -213,6 +219,11 @@ export default function PersonaFichaPage() {
                 >
                   {etiquetaTipoPersona(persona.default_kind ?? "freelance")}
                 </span>
+                {pendiente && (
+                  <span className="text-xs text-amber-700">
+                    {textoDelProximo(pendiente)}
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 mt-1">
                 {persona.rut ? formatearRut(persona.rut) : "sin RUT"}
@@ -372,14 +383,18 @@ export default function PersonaFichaPage() {
 
         <div className="p-6">
           {pestana === "datos" ? (
-            <PersonaForm
-          persona={persona}
-          cargos={cargos}
-          guardando={guardar.isPending}
-          errorServidor={errorServidor}
-          onGuardar={(datos) => guardar.mutate(datos)}
-          onCancelar={() => navegar("/personas")}
-        />
+            <div className="space-y-6">
+              <PersonaForm
+                persona={persona}
+                cargos={cargos}
+                guardando={guardar.isPending}
+                errorServidor={errorServidor}
+                onGuardar={(datos) => guardar.mutate(datos)}
+                onCancelar={() => navegar("/personas")}
+                onCambiarTipo={setNuevoTipo}
+              />
+              <HistorialDeTipo persona={persona} />
+            </div>
           ) : pestana === "calendario" ? (
             <CalendarioDePersona persona={persona} />
           ) : pestana === "pagos" ? (
@@ -389,6 +404,13 @@ export default function PersonaFichaPage() {
           )}
         </div>
       </div>
+      {nuevoTipo && (
+        <VentanaDesde
+          persona={persona}
+          kind={nuevoTipo}
+          onCerrar={() => setNuevoTipo(null)}
+        />
+      )}
     </div>
   );
 }
@@ -438,7 +460,9 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
 
   // Su calendario es PLANIFICACIÓN: la planta que la ficha de un evento
   // trae para la propina no es una segunda jornada ese día.
-  const suyas = staff.filter((a) => a.person_id === persona.id && esPlanificacion(a));
+  const suyas = staff.filter(
+    (a) => a.person_id === persona.id && esPlanificacion(a),
+  );
 
   // ABRIR DONDE HAY ALGO (Felipe, 17-08: cargó a Matías el 11 y el 12
   // de diciembre y "en su calendario no me muestra nada" — la ficha
@@ -644,17 +668,11 @@ function CalendarioDePersona({ persona }: { readonly persona: Persona }) {
         persona={persona}
         diasQueViene={dePlanta}
         asignaciones={suyas}
-        diasEnEvento={
-          new Set(
-            enEventos.map((a) => String(a.day).slice(0, 10)),
-          )
-        }
+        diasEnEvento={new Set(enEventos.map((a) => String(a.day).slice(0, 10)))}
         guardado={guardado}
         editando={editandoDia}
         onMarcar={(d) =>
-          esDiaExtra(persona, d)
-            ? setPregunta(d)
-            : marcar.mutate({ dia: d })
+          esDiaExtra(persona, d) ? setPregunta(d) : marcar.mutate({ dia: d })
         }
         onDesmarcar={(d) => desmarcar.mutate(d)}
         onEditar={setEditandoDia}

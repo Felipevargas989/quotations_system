@@ -23,6 +23,11 @@ import {
   PagoDeNomina,
   SillaDeNomina,
 } from './utils/pagado-por-mes';
+import {
+  conTipoVigente,
+  hoyEnChile,
+  type CambioDeTipo,
+} from './utils/tipo-vigente';
 
 /** Código de Postgres para "ya existe uno igual". */
 const YA_EXISTE = '23505';
@@ -48,7 +53,12 @@ export class PeopleRepository {
       .eq('company_id', companyId)
       .order('name');
     if (error) throw error;
-    return data as unknown as Person[];
+    // El tipo que rige HOY sale del historial (doc 10 §12).
+    const historial = await this.historialDeTipo(companyId);
+    const hoy = hoyEnChile();
+    return (data as unknown as Person[]).map((p) =>
+      conTipoVigente(p, historial, hoy),
+    );
   }
 
   async findOne(id: number, companyId: number) {
@@ -61,7 +71,35 @@ export class PeopleRepository {
       .maybeSingle();
     if (error) throw error;
     if (!data) throw new NotFoundException('No existe esa persona');
-    return data as unknown as Person;
+    const historial = await this.historialDeTipo(companyId, id);
+    return conTipoVigente(data as unknown as Person, historial, hoyEnChile());
+  }
+
+  /**
+   * LOS CAMBIOS DE TIPO (doc 10 §12, migración 210). Si la tabla todavía
+   * no existe (el motor llegó antes que la migración), se lee vacío: todo
+   * sigue como antes, con `default_kind`, en vez de tumbar Personal.
+   */
+  async historialDeTipo(
+    companyId: number,
+    personId?: number,
+  ): Promise<CambioDeTipo[]> {
+    let consulta = this.supabase.client
+      .from('historial_de_tipo')
+      .select(
+        'id, person_id, kind, anterior, desde, registrado_en, registrado_por_nombre',
+      )
+      .eq('company_id', companyId);
+    if (personId !== undefined) consulta = consulta.eq('person_id', personId);
+    const { data, error } = await consulta;
+    if (error) {
+      if (['42P01', 'PGRST205'].includes(String(error.code))) {
+        this.logger.warn('historial_de_tipo no existe todavía (migración 210)');
+        return [];
+      }
+      throw error;
+    }
+    return (data ?? []) as CambioDeTipo[];
   }
 
   /** Quién tiene ya ese RUT, para poder decirlo por su nombre en vez de
