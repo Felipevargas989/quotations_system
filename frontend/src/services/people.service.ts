@@ -30,7 +30,13 @@ export const getPerson = async (id: number) =>
 export const createPerson = async (persona: PersonaFormData) =>
   (await apiRequest(API_ROUTES.PEOPLE, "POST", persona)) as Persona;
 
-export const updatePerson = async (id: number, persona: PersonaFormData) =>
+/** Acepta solo lo que cambia: la cabecera de la ficha manda la situación
+ *  sola (18-11-2026). Mandar la ficha entera la rechaza el motor, que no
+ *  acepta campos de más («property id should not exist»). */
+export const updatePerson = async (
+  id: number,
+  persona: Partial<PersonaFormData>,
+) =>
   (await apiRequest(`${API_ROUTES.PEOPLE}/${id}`, "PATCH", persona)) as Persona;
 
 export const deletePerson = async (id: number) =>
