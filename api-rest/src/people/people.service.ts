@@ -35,6 +35,7 @@ import { PeopleRepository } from './people.repository';
 import { cambiosParaRevivir, horarioDelDia } from './utils/alta-de-jornada';
 import { filaTraidaAlEvento } from './utils/fila-traida-al-evento';
 import { normalizarRut } from './utils/rut';
+import { esPlantaDesde, hoyEnChile, leTocaPlanta } from './utils/tipo-vigente';
 
 /** Deja el nombre sin espacios de sobra ni dobles espacios en el medio.
  *
@@ -547,12 +548,8 @@ export class PeopleService {
         .map((a) => [a.day.slice(0, 10), a]),
     );
 
-    // Si dejó de ser de planta o se apagó, se le limpia el futuro — pero
-    // solo lo que la propia proyección haya puesto (ver
-    // laPuedeQuitarLaProyeccion).
-    const activa =
-      persona.status === 'activa' && persona.default_kind === 'planta';
-
+    // Si dejó de ser de planta o se apagó, se le limpia el futuro (solo lo
+    // que la proyección puso). El tipo es el de CADA día (doc 10 §12).
     let corregidos = 0;
     // EN LOTE (Felipe, 18-08: "se demora como 12 segundos en cerrar").
     // Un año son ~260 jornadas; crearlas de a una eran 260 viajes a la
@@ -562,9 +559,7 @@ export class PeopleService {
     const porQuitar: number[] = [];
 
     for (let d = hoy; d <= hasta; d = diaMas(d, 1)) {
-      const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay();
-      const libre = persona.days_off?.includes(diaSemana) ?? false;
-      const debeVenir = activa && !libre && !conEvento.has(d);
+      const debeVenir = leTocaPlanta(persona, d) && !conEvento.has(d);
       const yaEsta = dePlanta.get(d);
 
       // EL CAMBIO DE DÍA ES SAGRADO (Felipe, 24-08, migración 89): un
@@ -642,7 +637,7 @@ export class PeopleService {
    */
   async proyectarTodaLaPlanta(companyId: number) {
     const personas = (await this.repo.findAll(companyId)).filter(
-      (p) => p.status === 'activa' && p.default_kind === 'planta',
+      (p) => p.status === 'activa' && esPlantaDesde(p, hoyEnChile()),
     );
     // EN PARALELO, no en fila india (Felipe, 18-08: la sábana tardaba
     // 3,1 segundos en abrir, medido en los logs de producción). Cada persona proyecta lo suyo — filas

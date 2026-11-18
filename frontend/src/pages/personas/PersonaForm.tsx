@@ -30,6 +30,8 @@ import {
   type TipoPersona,
 } from "../../utils/estadoPersona";
 import { cuentaRutDesde, rutEsValido } from "../../utils/rut";
+import { hoyEnChile } from "../../utils/dates";
+import { proximoCambio, textoDelProximo } from "./tipoVigente";
 import {
   PHONE_PLACEHOLDER,
   formatPhone,
@@ -53,6 +55,9 @@ interface Props {
   readonly errorServidor?: string | null;
   readonly onGuardar: (datos: PersonaFormData) => void;
   readonly onCancelar: () => void;
+  /** En una ficha que ya existe, cambiar el tipo abre la ventana «Desde»
+   *  (doc 10 §12) en vez de cambiarlo al guardar. */
+  readonly onCambiarTipo?: (kind: TipoPersona) => void;
 }
 
 const vacia: PersonaFormData = {
@@ -115,6 +120,7 @@ export default function PersonaForm({
   errorServidor = null,
   onGuardar,
   onCancelar,
+  onCambiarTipo,
 }: Props) {
   const [datos, setDatos] = useState<PersonaFormData>(vacia);
   const [rutOk, setRutOk] = useState(true);
@@ -225,6 +231,12 @@ export default function PersonaForm({
   // campo, letras y largos imposibles.
   const problemaTelefono = phoneProblem(datos.phone || "");
 
+  // Un cambio de tipo a futuro (doc 10 §12): «Pasa a planta el 01-11». Si
+  // pasa a planta, sus días y horario se pueden dejar listos desde ya.
+  const pendiente = persona ? proximoCambio(persona, hoyEnChile()) : null;
+  const muestraSemana =
+    datos.default_kind === "planta" || pendiente?.kind === "planta";
+
   const bloqueada = datos.status === "bloqueada";
   // El motivo de bloqueo se escribe en la CABECERA de la ficha, junto
   // al estado (15-08): acá ya no hay campo, así que tampoco frena el
@@ -245,6 +257,9 @@ export default function PersonaForm({
     if (!puedeGuardar) return;
     onGuardar({
       ...datos,
+      // El tipo de una ficha que ya existe se cambia solo por la ventana
+      // «Desde», con su fecha: guardar la ficha no lo toca (doc 10 §12).
+      default_kind: persona ? undefined : datos.default_kind,
       name: datos.name.trim(),
       rut: datos.rut || null,
       phone: normalizePhone(datos.phone || "") || null,
@@ -300,138 +315,141 @@ export default function PersonaForm({
           )}
         </legend>
 
-      {/* ---------- Quién es ---------- */}
-      <div>
-        <label htmlFor="p-nombre" className={etiqueta}>
-          Nombre completo <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="p-nombre"
-          type="text"
-          value={datos.name}
-          onChange={(e) => cambiar({ name: e.target.value })}
-          className={caja}
-          placeholder="Como aparece en su cédula"
-          autoFocus
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* ---------- Quién es ---------- */}
         <div>
-          <label htmlFor="p-rut" className={etiqueta}>
-            RUT
-          </label>
-          <RutInput
-            id="p-rut"
-            value={datos.rut || ""}
-            onChange={(rut, valido) => {
-              cambiar({ rut });
-              setRutOk(!rut || valido);
-            }}
-            errorExterno={errorServidor}
-          />
-        </div>
-        <div>
-          <label htmlFor="p-tel" className={etiqueta}>
-            Teléfono
+          <label htmlFor="p-nombre" className={etiqueta}>
+            Nombre completo <span className="text-red-500">*</span>
           </label>
           <input
-            id="p-tel"
-            type="tel"
-            value={datos.phone || ""}
-            onChange={(e) => cambiar({ phone: e.target.value })}
-            // Se separa al salir del campo, igual que en Clientes. Mientras
-            // se escribe no se toca: un formateo en vivo pelea con quien
-            // teclea y el teléfono no lo necesita.
-            onBlur={() => cambiar({ phone: formatPhone(datos.phone || "") })}
-            className={`${caja} ${problemaTelefono ? "border-red-500" : ""}`}
-            placeholder={PHONE_PLACEHOLDER}
+            id="p-nombre"
+            type="text"
+            value={datos.name}
+            onChange={(e) => cambiar({ name: e.target.value })}
+            className={caja}
+            placeholder="Como aparece en su cédula"
+            autoFocus
           />
-          {problemaTelefono && (
-            <p className="text-red-500 text-sm mt-1">{problemaTelefono}</p>
-          )}
         </div>
-      </div>
-
-      {/* ---------- Cómo se le paga ---------- */}
-      <fieldset className="border-t border-gray-200 pt-4">
-        <legend className="text-sm font-semibold text-gray-900 mb-3">
-          Datos para transferirle
-        </legend>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={etiqueta}>Tipo de cuenta</label>
-            <SelectWithSearch
-              options={opcionesTipoCuenta}
-              value={datos.account_type ?? ""}
-              onChange={(v) =>
-                cambiar({ account_type: (v || null) as TipoCuenta | null })
-              }
-              placeholder="Elegir"
-              mostrarConteo={false}
-            />
-          </div>
-
-          <div>
-            <label className={etiqueta}>
-              Banco
-              {esCuentaRut && (
-                <span className="ml-2 text-xs text-gray-500 font-normal">
-                  <Lock className="inline w-3 h-3 -mt-0.5" /> la CuentaRUT es de
-                  BancoEstado
-                </span>
-              )}
+            <label htmlFor="p-rut" className={etiqueta}>
+              RUT
             </label>
-            <SelectWithSearch
-              options={opcionesBanco}
-              value={datos.bank_code ?? ""}
-              onChange={(v) => cambiar({ bank_code: v || null })}
-              placeholder="Elegir banco"
-              searchPlaceholder="Buscar banco…"
-              disabled={esCuentaRut}
+            <RutInput
+              id="p-rut"
+              value={datos.rut || ""}
+              onChange={(rut, valido) => {
+                cambiar({ rut });
+                setRutOk(!rut || valido);
+              }}
+              errorExterno={errorServidor}
             />
+          </div>
+          <div>
+            <label htmlFor="p-tel" className={etiqueta}>
+              Teléfono
+            </label>
+            <input
+              id="p-tel"
+              type="tel"
+              value={datos.phone || ""}
+              onChange={(e) => cambiar({ phone: e.target.value })}
+              // Se separa al salir del campo, igual que en Clientes. Mientras
+              // se escribe no se toca: un formateo en vivo pelea con quien
+              // teclea y el teléfono no lo necesita.
+              onBlur={() => cambiar({ phone: formatPhone(datos.phone || "") })}
+              className={`${caja} ${problemaTelefono ? "border-red-500" : ""}`}
+              placeholder={PHONE_PLACEHOLDER}
+            />
+            {problemaTelefono && (
+              <p className="text-red-500 text-sm mt-1">{problemaTelefono}</p>
+            )}
           </div>
         </div>
 
-        <div className="mt-4">
-          <label htmlFor="p-cuenta" className={etiqueta}>
-            Número de cuenta
-          </label>
-          <input
-            id="p-cuenta"
-            type="text"
-            inputMode="numeric"
-            value={datos.account_number || ""}
-            // Solo dígitos, y guardado como TEXTO: hay cuentas chilenas
-            // reales que parten en 0051 y como número se perderían los
-            // ceros. Si pegan puntos o guiones, se sacan solos.
-            onChange={(e) =>
-              cambiar({ account_number: e.target.value.replace(/[^0-9]/g, "") })
-            }
-            className={`${caja} ${esCuentaRut ? "bg-gray-100 text-gray-600" : ""}`}
-            placeholder="Solo números, sin puntos"
-            readOnly={esCuentaRut}
-          />
-          {esCuentaRut ? (
-            <p
-              className={`text-xs mt-1 flex items-start gap-1 ${
-                numeroCuentaRut ? "text-gray-500" : "text-amber-700 font-medium"
-              }`}
-            >
-              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              {numeroCuentaRut
-                ? "Se llenó solo: la CuentaRUT es el RUT sin el último dígito."
-                : "La CuentaRUT necesita el RUT primero: escríbelo arriba, o deja el tipo de cuenta vacío y complétalo después."}
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500 mt-1">
-              Si empieza con ceros, escríbelos: se guardan tal cual.
-            </p>
-          )}
-        </div>
-      </fieldset>
+        {/* ---------- Cómo se le paga ---------- */}
+        <fieldset className="border-t border-gray-200 pt-4">
+          <legend className="text-sm font-semibold text-gray-900 mb-3">
+            Datos para transferirle
+          </legend>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={etiqueta}>Tipo de cuenta</label>
+              <SelectWithSearch
+                options={opcionesTipoCuenta}
+                value={datos.account_type ?? ""}
+                onChange={(v) =>
+                  cambiar({ account_type: (v || null) as TipoCuenta | null })
+                }
+                placeholder="Elegir"
+                mostrarConteo={false}
+              />
+            </div>
+
+            <div>
+              <label className={etiqueta}>
+                Banco
+                {esCuentaRut && (
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
+                    <Lock className="inline w-3 h-3 -mt-0.5" /> la CuentaRUT es
+                    de BancoEstado
+                  </span>
+                )}
+              </label>
+              <SelectWithSearch
+                options={opcionesBanco}
+                value={datos.bank_code ?? ""}
+                onChange={(v) => cambiar({ bank_code: v || null })}
+                placeholder="Elegir banco"
+                searchPlaceholder="Buscar banco…"
+                disabled={esCuentaRut}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="p-cuenta" className={etiqueta}>
+              Número de cuenta
+            </label>
+            <input
+              id="p-cuenta"
+              type="text"
+              inputMode="numeric"
+              value={datos.account_number || ""}
+              // Solo dígitos, y guardado como TEXTO: hay cuentas chilenas
+              // reales que parten en 0051 y como número se perderían los
+              // ceros. Si pegan puntos o guiones, se sacan solos.
+              onChange={(e) =>
+                cambiar({
+                  account_number: e.target.value.replace(/[^0-9]/g, ""),
+                })
+              }
+              className={`${caja} ${esCuentaRut ? "bg-gray-100 text-gray-600" : ""}`}
+              placeholder="Solo números, sin puntos"
+              readOnly={esCuentaRut}
+            />
+            {esCuentaRut ? (
+              <p
+                className={`text-xs mt-1 flex items-start gap-1 ${
+                  numeroCuentaRut
+                    ? "text-gray-500"
+                    : "text-amber-700 font-medium"
+                }`}
+              >
+                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                {numeroCuentaRut
+                  ? "Se llenó solo: la CuentaRUT es el RUT sin el último dígito."
+                  : "La CuentaRUT necesita el RUT primero: escríbelo arriba, o deja el tipo de cuenta vacío y complétalo después."}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Si empieza con ceros, escríbelos: se guardan tal cual.
+              </p>
+            )}
+          </div>
+        </fieldset>
       </fieldset>
 
       {/* ---------- La jornada: LA ÚNICA SECCIÓN SIEMPRE ABIERTA
@@ -447,9 +465,7 @@ export default function PersonaForm({
             <label className={etiqueta}>Cargo habitual</label>
             <SelectWithSearch
               options={opcionesCargo}
-              value={
-                datos.default_role_id ? String(datos.default_role_id) : ""
-              }
+              value={datos.default_role_id ? String(datos.default_role_id) : ""}
               onChange={(v) =>
                 cambiar({ default_role_id: v ? Number(v) : null })
               }
@@ -463,12 +479,24 @@ export default function PersonaForm({
             <SelectWithSearch
               options={opcionesTipo}
               value={datos.default_kind ?? "freelance"}
-              onChange={(v) => cambiar({ default_kind: v as TipoPersona })}
+              onChange={(v) => {
+                const tipo = v as TipoPersona;
+                if (persona && onCambiarTipo) {
+                  if (tipo !== persona.default_kind) onCambiarTipo(tipo);
+                } else {
+                  cambiar({ default_kind: tipo });
+                }
+              }}
               mostrarConteo={false}
             />
+            {pendiente && (
+              <p className="text-xs text-amber-700 mt-1">
+                {textoDelProximo(pendiente)}
+              </p>
+            )}
           </div>
         </div>
-        {datos.default_kind === "planta" && (
+        {muestraSemana && (
           <div className="mt-4">
             <label className={etiqueta}>Días que trabaja y a qué hora</label>
             {/* Se marcan los días LABORALES, no los libres (corrección
@@ -548,8 +576,11 @@ export default function PersonaForm({
                             weekly_schedule: {
                               ...(datos.weekly_schedule ?? {}),
                               [String(dia)]: {
-                                in: datos.default_starts_at?.slice(0, 5) ?? "09:00",
-                                out: datos.default_ends_at?.slice(0, 5) ?? "19:00",
+                                in:
+                                  datos.default_starts_at?.slice(0, 5) ??
+                                  "09:00",
+                                out:
+                                  datos.default_ends_at?.slice(0, 5) ?? "19:00",
                                 break: datos.default_break_minutes ?? 60,
                               },
                             },
@@ -616,8 +647,8 @@ export default function PersonaForm({
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Los apagados son sus días libres: la planta no se proyecta
-              esos días.
+              Los apagados son sus días libres: la planta no se proyecta esos
+              días.
             </p>
           </div>
         )}
@@ -661,7 +692,9 @@ export default function PersonaForm({
       </div>
 
       {bloqueada && (
-        <p className={`text-xs px-2 py-1 rounded ${chipEstadoPersona("bloqueada")}`}>
+        <p
+          className={`text-xs px-2 py-1 rounded ${chipEstadoPersona("bloqueada")}`}
+        >
           Va a quedar bloqueada: no aparecerá cuando busques gente, pero sigue
           en la nómina si le debes algo.
         </p>

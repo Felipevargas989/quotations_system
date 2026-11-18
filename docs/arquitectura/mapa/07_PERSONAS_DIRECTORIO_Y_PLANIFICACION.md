@@ -1,6 +1,6 @@
 # Mapa: Personas: directorio y planificación
 
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. La silla vacía que toma el valor de su cargo (`utils/valor-del-cargo.ts`), al día el 04-11-2026. La sábana en tres secciones, todo evento del rango, el «+» antes y después, el seguro de Staff y el pago del día (doc 10 §5), al día el 09-11-2026. Las horas de la semana de planta sin la fila que la liquidación trae a un evento (doc 10 §11), al día el 10-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en la planificación.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026), revisada la columna de llamadores el 14-09-2026; las dos bandas por el tipo de cada jornada, al día el 22-10-2026. La silla vacía que toma el valor de su cargo (`utils/valor-del-cargo.ts`), al día el 04-11-2026. La sábana en tres secciones, todo evento del rango, el «+» antes y después, el seguro de Staff y el pago del día (doc 10 §5), al día el 09-11-2026. Las horas de la semana de planta sin la fila que la liquidación trae a un evento (doc 10 §11), al día el 10-11-2026. La ventana «Desde» al cambiar de tipo y el historial de tipo (doc 10 §12, migración 210), al día el 17-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en la planificación.
 
 ## 1. Qué hace
 
@@ -25,8 +25,10 @@ La liquidación, las propinas, la nómina y el histórico están en el mapa 08.
 | Planificación → pinchar una fecha | `ResumenDelDia` | `frontend/src/pages/personas/ResumenDelDia.tsx` | Hoja de ruta del día. Muestra los eventos con sus servicios y hora (editable; es la misma hora de la Ficha de Cocina), la tabla de Personal de eventos (por evento), la de planta y la de Personal staff (el freelance sin evento), cada una con su color, la columna **Pago**, su subtotal y, abajo, el **Total del día** (09-11-2026; `pagoDelDia` y `costoDeLaGente` de `eventosDeLaSabana.ts`). También los huérfanos de eventos anulados. Los recados del día salieron de la pantalla el 09-11-2026 | administrador |
 | `/personas` → Staff | rama "directorio" de `PersonasPage` | `frontend/src/pages/personas/PersonasPage.tsx` | Directorio agrupado en "Personal de planta" y "Freelance", con cargo, teléfono y promedio de estrellas. La búsqueda usa `matchesSearch` por nombre, RUT, teléfono, cargo y banco, y hay un aviso ámbar "faltan datos" para transferir. Pinchar una fila lleva a `/personas/:id`; "Nueva persona" abre `PersonaForm` dentro de `Modal` | administrador |
 | Staff → Cargos | `CargosModal` | `frontend/src/pages/personas/CargosModal.tsx` | Crear, renombrar, apagar y volver a prender cargos. Pide también los apagados con `getRoles(true)` | administrador |
-| `/personas/:id` | `PersonaFichaPage` | `frontend/src/pages/personas/PersonaFichaPage.tsx` | Ficha propia desde el 15-08. La cabecera trae tipo, RUT, teléfono, `ChipDeEstado` para la situación, WhatsApp, eliminar con `ConfirmInline`, motivo de bloqueo y 4 cajas (cargo, cómo trabaja, evaluación, días este mes). Pestañas: **Datos** (`PersonaForm`), **Su calendario** (`CalendarioDePersona` + `MiniCalendario`), **Pagos** (`PagosDePersona`, mapa 08) y **Evaluaciones** (`EvaluacionesDePersona`) | administrador |
-| `/personas/:id` → Datos | `PersonaForm` | `frontend/src/pages/personas/PersonaForm.tsx` | Nombre, `RutInput`, teléfono, tipo de cuenta, banco (lista de `utils/bancos`), número de cuenta, cargo habitual, tipo, días que trabaja con horario por día (`HoraInput`, `SelectorColacion`) y notas. Una ficha que ya existe abre bajo llave (lápiz) | administrador |
+| `/personas/:id` | `PersonaFichaPage` | `frontend/src/pages/personas/PersonaFichaPage.tsx` | Ficha propia desde el 15-08. La cabecera trae tipo, RUT, teléfono, `ChipDeEstado` para la situación, WhatsApp, eliminar con `ConfirmInline`, motivo de bloqueo y 4 cajas (cargo, cómo trabaja, evaluación, días este mes). Junto al tipo, en ámbar, el cambio que viene («Pasa a planta el 01-11», `tipoVigente.ts`). Pestañas: **Datos** (`PersonaForm` y, debajo, `HistorialDeTipo`), **Su calendario** (`CalendarioDePersona` + `MiniCalendario`), **Pagos** (`PagosDePersona`, mapa 08) y **Evaluaciones** (`EvaluacionesDePersona`) | administrador |
+| `/personas/:id` → Datos | `PersonaForm` | `frontend/src/pages/personas/PersonaForm.tsx` | Nombre, `RutInput`, teléfono, tipo de cuenta, banco (lista de `utils/bancos`), número de cuenta, cargo habitual, tipo, días que trabaja con horario por día (`HoraInput`, `SelectorColacion`) y notas. Una ficha que ya existe abre bajo llave (lápiz). Desde el 17-11-2026, en una ficha que ya existe, elegir otro tipo abre la ventana «Desde» y guardar la ficha ya no manda el tipo; los días de la semana se ven también si pasa a planta más adelante | administrador |
+| `/personas/:id` → Datos → cambiar el tipo | `VentanaDesde` | `frontend/src/pages/personas/VentanaDesde.tsx` | La ventana «Desde» (doc 10 §12): fecha desde la que rige, hoy por defecto; muestra qué pasa con sus días (la cuenta la hace el motor, `getPreviaDelTipo`), en ámbar cuántos quedan sin tocar por estar liquidados o en nómina, y «Los días de eventos no cambian». Confirmar llama `cambiarTipo` | administrador |
+| `/personas/:id` → Datos (debajo) | `HistorialDeTipo` | `frontend/src/pages/personas/HistorialDeTipo.tsx` | «Historial de tipo»: cada cambio con su tipo, desde qué día, el tipo de antes, quién lo registró y cuándo; lo más nuevo arriba y lo que no rige todavía con «Pendiente» | administrador |
 | `/personas/:id` → Evaluaciones | `EvaluacionesDePersona` | `frontend/src/pages/personas/EvaluacionesDePersona.tsx` | Promedio simple, gráfico de tendencia, registro completo, y evaluar en cualquier momento con evento opcional | administrador |
 | `/personas` → Liquidación · Nómina · Histórico de pagos | `FichasTab`, `NominaTab`, `HistoricoTab` | `frontend/src/pages/personas/` | Ver mapa 08 | administrador |
 
@@ -55,7 +57,7 @@ Todas usan `user.company_id`. Cada service de la tabla es `PeopleService.<métod
 | GET `/people/staff?evento=` | `findStaff` | `findStaff` | `getStaff`: `GrillaPersonal`, `EventResourcesSection`, `ServiciosTab`, `FichasTab` | sesión |
 | GET `/people/staff?desde=&hasta=` | `findStaff` (mismo método, modo rango) | `findStaffRange` (todos los eventos y el staff del rango) | `getStaffSemana` ← `SemanaTab`, `PersonaFichaPage` (la caja de días del mes y, en `CalendarioDePersona`, el mes y un año hacia adelante para saltar al próximo día), `FichasTab` (la ventana de días de staff de Liquidación, mapa 08) | sesión |
 | POST `/people/staff` | `addStaff` | `addStaff`: crea una silla vacía, sienta en una silla, revive una fila dormida o hace un alta nueva | `addStaff` ← `SemanaTab` (`poner`), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.marcar`), `GrillaPersonal` (Post-Venta → Gestión) | sesión |
-| POST `/people/staff/proyectar-planta` | `proyectarPlanta` | `proyectarTodaLaPlanta` → `proyectarPlanta` por persona | `proyectarPlanta`: `SemanaTab`, una vez por sesión | sesión |
+| POST `/people/staff/proyectar-planta` | `proyectarPlanta` | `TipoDePersonaService.ponerAlDia` (17-11-2026: el `default_kind` guardado de quien llegó a la fecha de su cambio; si falla, sigue) y después `proyectarTodaLaPlanta` → `proyectarPlanta` por persona | `proyectarPlanta`: `SemanaTab`, una vez por sesión | sesión |
 | PATCH `/people/staff/:id` | `updateStaff` | `updateStaff` (sin monto no se confirma; pasar a planta borra el monto) | `updateStaff` ← `SemanaTab` (`cambiar`), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.cambiarHorario`), `GrillaPersonal` (Post-Venta → Gestión), `FichasTab` (Liquidación) | sesión |
 | DELETE `/people/staff/:id?liberar=1` | `removeStaff` | `removeStaff` (libera la silla, duerme el día de patrón o borra; deshace el reparto de propina) | `removeStaff` ← `SemanaTab` (`sacar`, con `liberar` si es evento), `PersonaFichaPage` (pestaña Su calendario, `CalendarioDePersona.desmarcar`), `GrillaPersonal` (Post-Venta → Gestión). Liquidación (`FichasTab`) **no** lo llama | sesión |
 | GET `/people/costo-personal` | `costoPersonal` | `costoPersonal` → `costoPersonalPorEvento` del repositorio | `getCostoPersonal`: `DashboardPage` | sesión |
@@ -69,7 +71,9 @@ Todas usan `user.company_id`. Cada service de la tabla es `PeopleService.<métod
 | GET `/people` | `findAll` | `findAll` (ficha completa, con banco y cuenta, más el cargo) | `getPeople` / `peopleQueryOptions`: `PersonasPage`, `SemanaTab` | sesión |
 | GET `/people/:id` | `findOne` | `findOne` | `getPerson`: `PersonaFichaPage` | sesión |
 | POST `/people` | `create` | `create` → `proyectarSiCorresponde` | `createPerson`: `PersonasPage` | sesión |
-| PATCH `/people/:id` | `update` | `update` → `proyectarSiCorresponde` | `updatePerson`: `PersonaFichaPage` (guardar, cambiar estado, motivo de bloqueo) | sesión |
+| PATCH `/people/:id` | `update` | `update` → `proyectarSiCorresponde`. Desde el 17-11-2026 el controller saca `default_kind` del cuerpo: si trae otro tipo, lo registra con `TipoDePersonaService.cambiarSiEsOtro` desde hoy (queda en el historial) | `updatePerson`: `PersonaFichaPage` (guardar, cambiar estado, motivo de bloqueo) | sesión |
+| GET `/people/:id/tipo/previa?kind=&desde=` | `previaDelTipo` | `TipoDePersonaService.previa` (la cuenta de `planDelCambioDeTipo`, sin escribir) | `getPreviaDelTipo`: `VentanaDesde` | `@Permiso('personal')` |
+| POST `/people/:id/tipo` | `cambiarTipo` | `TipoDePersonaService.cambiar`: cambia sus días de staff, registra en `historial_de_tipo`, guarda el tipo de hoy y proyecta | `cambiarTipo`: `VentanaDesde` | `@Permiso('personal')` |
 | DELETE `/people/:id` | `remove` | `remove` (rechaza si la persona tiene jornadas) | `deletePerson`: `PersonaFichaPage` | sesión |
 
 Del mismo controller, pero documentados en el **mapa 08**:
@@ -78,7 +82,7 @@ Del mismo controller, pero documentados en el **mapa 08**:
 - Las rutas `/people/payrolls*`.
 - `GET /people/historico/graficos`, `GET /people/dias/mas-viejo`, `GET /people/pagado-por-mes` y `GET /people/:id/historial`.
 
-El orden de declaración importa: `roles`, `staff`, `day-notes` y `:id/historial` se declaran antes de `@Get(':id')`. Así Nest no lee "roles" o "staff" como si fueran el id de una persona (lo dicen los comentarios del controller).
+El orden de declaración importa: `roles`, `staff`, `day-notes`, `:id/historial` y `:id/tipo/previa` se declaran antes de `@Get(':id')`. Así Nest no lee "roles" o "staff" como si fueran el id de una persona (lo dicen los comentarios del controller).
 
 ## 4. Tablas de la base de datos
 
@@ -88,6 +92,7 @@ El orden de declaración importa: `roles`, `staff`, `day-notes` y `:id/historial
 | `management_resources` (solo `type='personal'`) | Los **cargos**: nombre e `is_active`. Es la misma tabla de arriendos y servicios externos; Personal no lee ni escribe sus precios | Lee y escribe (solo las filas `personal`) | `69_cargos_fusionados_con_recursos.sql` (índice único por `company_id`, `type` y nombre). La tabla es del mapa 06 |
 | `job_roles` | Nada: nació en la 68 y la 69 la borró al fusionar los cargos con los recursos | — | `68_personas.sql`, `69_cargos_fusionados_con_recursos.sql` |
 | `event_staff` | **La tabla central**: una fila por persona por día. Valores NULL con significado: `quotation_id` NULL = día de staff (el "restaurante", evento permanente); `person_id` NULL = silla vacía; `day` NULL = silla "por ubicar" (solo en eventos). Además: `role_id`, `kind`, horario, `break_minutes`, `status`, `amount`, `notes`, `no_tip`, `tip_amount`, `tip_pool_id`, `payroll_id`, `tip_payroll_id`, `solo_propina`, `ajuste` ('trabaja'/'descansa') y `puesto_en`. Llaves: `person_id` con `ON DELETE RESTRICT`, `quotation_id` con `ON DELETE CASCADE`. Únicos: (`quotation_id`, `person_id`, `day`) y, en staff, (`company_id`, `person_id`, `day`) | Lee y escribe | `71_asignacion_de_personas_por_dia.sql` (crea), `74_restaurante_como_evento_permanente.sql`, `77_ciclo_propinas_nomina.sql`, `82_sin_propina_por_persona.sql`, `84_las_sillas.sql`, `85_sillas_sin_dia_al_primer_dia.sql`, `88_jornada_solo_propina.sql`, `89_cambio_de_dia_de_planta.sql`, `90_puesto_en.sql` |
+| `historial_de_tipo` | Cada cambio de tipo (doc 10 §12): `kind`, `anterior`, `desde` (pasado o futuro), `registrado_por`, `registrado_por_nombre`, `registrado_en`. El tipo de un día se deriva de acá (`utils/tipo-vigente.ts`); `PeopleRepository.findAll`/`findOne` la leen y dejan `default_kind` en el tipo de hoy, con `historial_tipo` colgado. Solo `SELECT` e `INSERT` | Lee e inserta | `210_historial_de_tipo.sql` |
 | `person_reviews` | Evaluaciones: persona, evento opcional, `stars` de 1 a 5 (opcional) y `note`. No tiene índice único por persona y evento | Lee y escribe | `77_ciclo_propinas_nomina.sql` (crea), `79_cascada_de_las_tablas_nuevas.sql` (cascada con la cotización) |
 | `day_notes` | Recados de un día: `day`, `quotation_id` opcional (NULL = recado del día completo), `text` y `done` | Lee y escribe | `78_notas_del_dia.sql`, `79_cascada_de_las_tablas_nuevas.sql` |
 | `tip_pools` | Pozos de propina (mapa 08). Este lado solo lo toca de rebote: `removeStaff` limpia el reparto y deja `distributed_at` en NULL | Escribe de rebote | `77_ciclo_propinas_nomina.sql` |
@@ -121,10 +126,10 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 1. **Disparo**: se proyecta en dos momentos.
    - Al abrir Planificación: `useEffect` de `SemanaTab` con la llave `planta-proyectada` en `sessionStorage`, así que corre una vez por sesión.
    - Al crear o editar una persona (5.1). Quien deja de ser planta o se desactiva se limpia al guardar su ficha, no al abrir la sábana.
-2. **Endpoint**: `POST /people/staff/proyectar-planta` → `proyectarTodaLaPlanta`. Toma a la gente con `status='activa'` y `default_kind='planta'` y proyecta a todos en paralelo.
+2. **Endpoint**: `POST /people/staff/proyectar-planta` → `proyectarTodaLaPlanta`. Toma a la gente `activa` que es o será de planta (`esPlantaDesde`: de planta hoy o con un cambio a planta por venir) y proyecta a todos en paralelo.
 3. **Motor**: `proyectarPlanta` corre por cada persona, desde hoy (hora de Santiago) hasta 365 días más, sobre sus filas de `findDePersonaDesde`:
    - Se salta cualquier día que tenga `ajuste` (cambio de día hecho a mano).
-   - Un día **debe venir** si la persona está activa, es planta, no es su día libre (`days_off`) y ese día no la mandaron a un evento (`laMandaronAUnEvento`).
+   - Un día **debe venir** si la persona está activa, es planta **ese día** (desde el 17-11-2026 el tipo de cada día sale del historial: `leTocaPlanta` de `utils/tipo-vigente.ts`), no es su día libre (`days_off`) y ese día no la mandaron a un evento (`laMandaronAUnEvento`).
    - Si debe venir y no hay fila, crea una jornada `planta`, `confirmado`, con `amount` NULL, el cargo de la ficha y el horario de `horarioDelDia`.
    - Si hay fila pero el horario o el cargo no calzan con la ficha, la corrige. Solo lo hace si `laPuedeQuitarLaProyeccion` lo permite (sin plata ni nómina).
    - Si no debe venir, quita la fila, con la misma condición.
@@ -197,6 +202,22 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 3. **Motor**: `createReview` exige estrellas o nota ("Una evaluación lleva estrellas o nota"). Comprueba la persona con `findOne` y el evento con `sonDeLaEmpresa`, y guarda en `person_reviews`.
 4. **Lectura**: `getReviews` da el promedio simple, calculado solo sobre las evaluaciones con estrella. Se muestra en `PersonasPage` (lista) y `PersonaFichaPage` (cabecera). `Estrellas` muestra "sin evaluar" en vez de cero.
 
+### 5.7 Cambiar el tipo con la ventana «Desde» (doc 10 §12, 17-11-2026)
+
+1. **Pantalla**: `/personas/:id` → Datos → Tipo. En una ficha que ya existe, elegir el otro tipo abre `VentanaDesde` (la ficha no cambia el tipo al guardar).
+2. **Vista previa**: con cada fecha, `GET /people/:id/tipo/previa` → `TipoDePersonaService.previa` → `planDelCambioDeTipo` (`utils/cambio-de-tipo.ts`) sobre sus días de staff desde esa fecha (`TipoDePersonaRepository.diasDeStaffDesde`) y los días liquidados (`PeopleRepository.diasLiquidados`). Devuelve `aPlanta`, `aFreelance`, `quitan`, `sinTocar` y `futuro`; la ventana los dice con `textosDeLaVentana`.
+3. **Confirmar**: `POST /people/:id/tipo` → `TipoDePersonaService.cambiar`, en este orden:
+   - cambia los días (`cambiarDias`, un viaje por grupo) y quita los que tocan (`removeStaffEnLote`);
+   - registra la fila en `historial_de_tipo` con `anterior` (el tipo que regía en esa fecha) y quién;
+   - guarda en `people.default_kind` el tipo de HOY (con fecha futura, sigue el de antes);
+   - corre `proyectarPlanta` de esa persona, que lee el tipo de cada día.
+4. **Qué les pasa a los días** (solo los de staff, `quotation_id` NULL, sin la fila solo-de-propina):
+   - a planta: el día freelance pasa a `planta`, sin monto, `confirmado` y con `ajuste='trabaja'` (para que la proyección no lo borre si cae en su día libre);
+   - a freelance: lo que puso el sistema y todavía no llega (después de hoy, sin ajuste, sin plata) se quita, igual que el día dormido que viene; lo trabajado hasta hoy y lo puesto a mano pasa a `freelance`, `por_confirmar` si no tiene monto;
+   - lo que tiene `payroll_id`, `tip_payroll_id` o cae en un día liquidado no se toca y se cuenta en `sinTocar`;
+   - el pasado no se rellena: un día sin fila no se inventa. Los días que faltan de hoy en adelante los pone la proyección.
+5. **Volver a intentarlo**: los días van antes que el historial, así que si algo se corta, registrar el mismo cambio de nuevo termina el trabajo. Si el tipo ya es ese en esa fecha, responde 400 «Ya es de planta el 01-11-2026».
+
 ## 6. Reglas de negocio acordadas
 
 ### Los tipos de cliente de cada cargo (doc 22 §9.7, 05-11-2026)
@@ -226,6 +247,13 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - **El cambio de día es sagrado**: si la fila tiene `ajuste`, la proyección no la crea, no la borra ni la corrige (24-08, migración 89). Evidencia: `proyectarPlanta` (`if (yaEsta?.ajuste) continue`); `cambio-de-dia.spec.ts`.
 - **Quitar un día vale igual desde cualquier puerta.** La regla vive en el motor: duerme el día de patrón y borra el día agregado a mano o el freelance (04-09). Antes, el día quitado desde el modal resucitaba. Evidencia: `PeopleService.removeStaff`; doc §11; `alta-de-jornada.spec.ts`.
 - **En staff, toda alta revive la fila dormida** en vez de chocar con "esa persona ya está puesta ese día" (04-09). Evidencia: `findDormida` + `cambiosParaRevivir` en `addStaff`.
+
+**El tipo con su fecha (doc 10 §12, 17-11-2026)**
+
+- **El tipo de un día se deriva del historial**, sin reloj (Felipe: *"la ventana desde desarrollemos en el laboratorio"*). El último cambio con `desde` <= ese día manda; antes del primero, su `anterior`; sin historial, `default_kind`. Evidencia: `tipoALaFecha` en `utils/tipo-vigente.ts`; `tests/cambio-de-tipo.spec.ts`.
+- **Lo liquidado o en nómina no se toca al cambiar el tipo**, y la ventana dice cuántos días quedan así. Evidencia: `planDelCambioDeTipo` (`sinTocar`).
+- **Los días de eventos no cambian con el tipo.** Evidencia: `planDelCambioDeTipo` (salta `quotation_id`); `diasDeStaffDesde` pide solo staff.
+- **El tipo de una ficha que ya existe solo se cambia con fecha.** Un PATCH que trae otro tipo queda en el historial desde hoy. Evidencia: `PeopleController.update` → `cambiarSiEsOtro`; `PersonaForm` (no manda `default_kind` al guardar una ficha que existe).
 
 **La jornada del día**
 
@@ -344,12 +372,14 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - Las pantallas `SemanaTab`, `CasillaAbierta`, `MiniCalendario` y `PersonaFichaPage`: el armado de filas y "necesita", la lista de disponibles, el cruce, el freno del monto y las filas provisorias.
 - `costoPersonalPorEvento`, las notas del día, `createReview`, el orden de rutas y la falta de roles del controller.
 
+- `api-rest/src/people/tests/cambio-de-tipo.spec.ts` (17-11-2026, doc 10 §12): el tipo de un día (`tipoALaFecha`, `conTipoVigente`, `proximoCambio`, `esPlantaDesde`); `planDelCambioDeTipo` con fecha pasada, lo que está en nómina o liquidado (no se toca y se cuenta), los eventos y la fila solo-de-propina intactos, de planta a freelance y fecha futura; la proyección con el tipo de cada día (fecha futura y de planta a freelance desde mañana) y la sábana que proyecta a quien pasa a planta más adelante; `TipoDePersonaService` (registra con quién, guarda el tipo de hoy, la vista previa no escribe, rechaza el mismo tipo y una fecha que no existe, el PATCH con el mismo tipo no registra y `ponerAlDia`).
+- App (17-11-2026): `frontend/src/pages/personas/tipoVigente.test.ts` (el próximo cambio y los textos de la ventana), `VentanaDesde.test.tsx` (la ventana: hoy por defecto, la cuenta del motor, el aviso de nómina, confirmar con la fecha, el error que no deja confirmar; y `HistorialDeTipo`) y `PersonaForm.test.tsx` (elegir otro tipo abre la ventana, el cambio que viene a la vista, guardar no manda el tipo).
 - `api-rest/src/people/tests/alta-en-paralelo.spec.ts` (16-09-2026): las tres miradas previas del alta salen juntas, un cargo ajeno sigue frenando sin insertar, la fila dormida se revive, y en un evento no se busca dormida.
 
 ## 10. Deuda y rarezas conocidas
 
 **Archivos gigantes**
-- `api-rest/src/people/people.service.ts`: 2008 líneas (congelado en 2040). Mezcla directorio, planificación, liquidación y nómina.
+- `api-rest/src/people/people.service.ts`: 2034 líneas (17-11-2026; congelado en 2040). La ventana «Desde» vive aparte por eso: `tipo-de-persona.service.ts` y `tipo-de-persona.repository.ts`. Mezcla directorio, planificación, liquidación y nómina.
 - `frontend/src/pages/personas/FichasTab.tsx`: 1549 líneas (congelado en 1599; mapa 08).
 - `SemanaTab.tsx`: 1693 líneas (09-11-2026). No está congelado por nombre, pero cuenta entre los 27 archivos sobre 800, igual que `people.repository.ts` (1233) y `NominaTab.tsx` (949). Trae adentro `CasillaAbierta` y `HorarioDelDia`, candidatos naturales a extraer cuando se toque; `SelectWithSearchCargos` salió el 09-11-2026 como `SelectorDeCargo.tsx`.
 
@@ -447,11 +477,12 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - `api-rest/src/people/people.repository.ts`: `people`, los cargos en `management_resources`, `event_staff` (`findSillaVacia`, `findDormida`, `plantaEnDias`, `costoPersonalPorEvento`, `addStaffEnLote`), `person_reviews` y `day_notes`.
 - `api-rest/src/people/utils/alta-de-jornada.ts`: `horarioDelDia`, `cambiosParaRevivir`.
 - `api-rest/src/people/utils/rut.ts`: `revisarRut`, `normalizarRut`, `RESERVADOS`.
+- La ventana «Desde» (doc 10 §12): `api-rest/src/people/tipo-de-persona.service.ts` (`previa`, `cambiar`, `cambiarSiEsOtro`, `ponerAlDia`), `tipo-de-persona.repository.ts`, `utils/tipo-vigente.ts` (`tipoALaFecha`, `leTocaPlanta`, `esPlantaDesde`, `conTipoVigente`), `utils/cambio-de-tipo.ts` (`planDelCambioDeTipo`) y `dto/cambio-de-tipo.dto.ts`.
 - DTOs en `api-rest/src/people/dto/`: `create-person.dto.ts`, `update-person.dto.ts`, `event-staff.dto.ts`, `job-role.dto.ts` y `etapas.dto.ts` (`CreateReviewDto`, `CreateDayNoteDto`, `UpdateDayNoteDto`).
 - `api-rest/src/people/entities/person.entity.ts`: `Person`, `Cargo`, `EventStaff`, `PersonReview`, `DayNote`.
 - `api-rest/src/people/people.module.ts` y `api-rest/src/auth/roles.guard.ts`.
 - Pruebas en `api-rest/src/people/tests/`: `alta-de-jornada.spec.ts`, `jornada-extra.spec.ts`, `cambio-de-dia.spec.ts`, `proyeccion-no-borra-lo-ajeno.spec.ts`, `rut.spec.ts`.
-- Migraciones en `docs/migrations/`: `68_personas.sql`, `69_cargos_fusionados_con_recursos.sql`, `71_asignacion_de_personas_por_dia.sql`, `74_restaurante_como_evento_permanente.sql`, `75_horario_habitual_de_la_persona.sql`, `76_dias_libres_del_personal.sql`, `77_ciclo_propinas_nomina.sql`, `78_notas_del_dia.sql`, `79_cascada_de_las_tablas_nuevas.sql`, `80_horario_por_dia_de_la_semana.sql`, `84_las_sillas.sql`, `85_sillas_sin_dia_al_primer_dia.sql`, `89_cambio_de_dia_de_planta.sql`, `90_puesto_en.sql`.
+- Migraciones en `docs/migrations/`: `210_historial_de_tipo.sql` (doc 10 §12), `68_personas.sql`, `69_cargos_fusionados_con_recursos.sql`, `71_asignacion_de_personas_por_dia.sql`, `74_restaurante_como_evento_permanente.sql`, `75_horario_habitual_de_la_persona.sql`, `76_dias_libres_del_personal.sql`, `77_ciclo_propinas_nomina.sql`, `78_notas_del_dia.sql`, `79_cascada_de_las_tablas_nuevas.sql`, `80_horario_por_dia_de_la_semana.sql`, `84_las_sillas.sql`, `85_sillas_sin_dia_al_primer_dia.sql`, `89_cambio_de_dia_de_planta.sql`, `90_puesto_en.sql`.
 
 **App**
 - `frontend/src/pages/personas/PersonasPage.tsx`: el contenedor, las pestañas y el directorio Staff.
@@ -460,6 +491,7 @@ Todas las migraciones se aplican a mano en Supabase (mapa 18). No verifiqué cu�
 - `frontend/src/pages/personas/MiniCalendario.tsx`: el calendario de la persona y `horarioHabitual`.
 - `frontend/src/pages/personas/PersonaFichaPage.tsx`: la ficha `/personas/:id` y `CalendarioDePersona`.
 - `frontend/src/pages/personas/PersonaForm.tsx`: datos, banco y jornada semanal.
+- `frontend/src/pages/personas/VentanaDesde.tsx`, `HistorialDeTipo.tsx` y `tipoVigente.ts`: la ventana «Desde» y el historial de tipo (doc 10 §12).
 - `frontend/src/pages/personas/CargosModal.tsx`: los cargos.
 - `frontend/src/pages/personas/EvaluacionesDePersona.tsx`: las evaluaciones de una persona.
 - `frontend/src/pages/personas/ResumenDelDia.tsx` y `serviciosDelDia.ts`: el resumen y los recados del día.
