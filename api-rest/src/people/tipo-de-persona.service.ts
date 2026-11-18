@@ -193,7 +193,7 @@ export class TipoDePersonaService {
     ]);
     const plan = planDelCambioDeTipo({
       filas,
-      persona: { historial_tipo: historialNuevo },
+      persona: { historial_tipo: historialNuevo, days_off: persona.days_off },
       desde: dto.desde,
       hoy,
       liquidados,

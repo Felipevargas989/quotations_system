@@ -139,11 +139,38 @@ describe('planDelCambioDeTipo', () => {
           kind: 'planta',
           amount: null,
           status: 'confirmado',
-          ajuste: 'trabaja',
+          ajuste: null,
         },
       },
     ]);
     expect(plan.quitar).toEqual([]);
+  });
+
+  it('a planta en su día libre: queda como día puesto a mano, para que la proyección no lo borre', () => {
+    const desde = mas(HOY, -16);
+    const elDia = mas(HOY, -3);
+    const plan = planDelCambioDeTipo({
+      filas: [fila({ id: 3, day: elDia })],
+      persona: {
+        ...aPlantaDesde(desde),
+        days_off: [new Date(`${elDia}T00:00:00Z`).getUTCDay()],
+      },
+      desde,
+      hoy: HOY,
+      liquidados: new Set(),
+    });
+    expect(plan.aPlanta).toBe(1);
+    expect(plan.cambios).toEqual([
+      {
+        ids: [3],
+        datos: {
+          kind: 'planta',
+          amount: null,
+          status: 'confirmado',
+          ajuste: 'trabaja',
+        },
+      },
+    ]);
   });
 
   it('lo que ya está en una nómina o liquidado NO se toca, y se cuenta', () => {
