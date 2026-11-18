@@ -64,7 +64,36 @@ export interface Persona {
    *  así porque los cargos viven en la tabla de recursos. */
   management_resources?: { id: number; name: string } | null;
   /** Solo en el historial de una persona: de qué evento fue. */
-  quotations?: { quotation_number: number; clients?: { name: string } | null } | null;
+  quotations?: {
+    quotation_number: number;
+    clients?: { name: string } | null;
+  } | null;
+  /** Sus cambios de tipo con su «desde» (doc 10 §12). `default_kind` ya
+   *  viene con el tipo que rige hoy. */
+  historial_tipo?: CambioDeTipo[];
+}
+
+/** Un cambio de planta a freelance (o al revés), desde un día. */
+export interface CambioDeTipo {
+  id?: number;
+  kind: TipoPersona;
+  anterior: TipoPersona;
+  /** AAAA-MM-DD */
+  desde: string;
+  registrado_en?: string | null;
+  registrado_por_nombre?: string | null;
+}
+
+/** Lo que la ventana «Desde» muestra antes de confirmar. */
+export interface ResultadoDelCambio {
+  kind: TipoPersona;
+  anterior: TipoPersona;
+  desde: string;
+  futuro: boolean;
+  aPlanta: number;
+  aFreelance: number;
+  quitan: number;
+  sinTocar: number;
 }
 
 /** Lo que el formulario manda al guardar. Todo opcional salvo el nombre:
@@ -152,7 +181,12 @@ export interface Asignacion {
   /** En las filas de nómina el backend manda la persona COMPLETA
    *  (con sus datos bancarios); en el resto, solo lo básico. */
   people?:
-    | ({ id: number; name: string; rut: string | null; default_kind: TipoPersona } & Partial<Persona>)
+    | ({
+        id: number;
+        name: string;
+        rut: string | null;
+        default_kind: TipoPersona;
+      } & Partial<Persona>)
     | null;
   management_resources?: { id: number; name: string } | null;
   /** Solo en el historial de una persona: de qué evento fue. */

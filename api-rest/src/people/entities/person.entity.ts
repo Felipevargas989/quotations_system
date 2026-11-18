@@ -1,4 +1,5 @@
 import { Company } from 'src/companies/entities/company.entity';
+import type { CambioDeTipo } from '../utils/tipo-vigente';
 
 /** Los cuatro tipos de cuenta que existen en Chile.
  *  `cuenta_rut` es en realidad una cuenta vista: se guarda aparte solo
@@ -53,6 +54,10 @@ export class Person {
 
   created_at: Date;
   updated_at: Date;
+
+  /** Los cambios de tipo con su «desde» (doc 10 §12). Al leer, el motor
+   *  deja `default_kind` en el tipo que rige hoy. */
+  historial_tipo?: CambioDeTipo[];
 }
 
 /**

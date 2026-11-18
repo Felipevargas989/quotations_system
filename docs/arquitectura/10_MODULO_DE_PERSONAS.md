@@ -61,6 +61,9 @@ Carvajal, siendo cajera de planta, cobró jornada dos días de agosto porque
 trabajó en su día libre. Si el tipo fuera fijo, el sistema le dejaría de
 pagar jornadas que sí trabajó.
 
+Desde el 17-11-2026, **cambiar el tipo por defecto lleva fecha**: la
+ventana «Desde» y el historial de tipo (§12).
+
 ### El día
 
 La unidad de todo. **No es el evento: es el día del evento.**
@@ -1269,3 +1272,82 @@ desde el modal resucitaba al abrir la sábana.
 - Los eventos no cambian: la planta entra por el imán como planta; un
   refuerzo puesto a mano en un evento sigue naciendo freelance con su
   aviso de pago.
+
+## 12. LA VENTANA «DESDE» AL CAMBIAR DE TIPO (17-11-2026)
+
+Felipe, 17-11-2026: *"la ventana desde desarrollemos en el laboratorio"*.
+Aprobado con maqueta vista. Caso real: **Sofía pasó a planta el 01-11,
+pero se registró después**. Hasta ese día, cambiar el tipo en la ficha
+regía desde el día en que se guardaba, y no había dónde decir «desde el
+01-11».
+
+**La regla, como la aprobó Felipe:**
+
+| Caso | Qué hace el sistema |
+|---|---|
+| Al cambiar el tipo en la ficha | Se abre una ventana que pregunta «Desde» qué fecha rige, con hoy por defecto, editable |
+| Fecha pasada | Sus días de staff desde esa fecha toman el tipo nuevo. Lo que ya está en una nómina o liquidación NO se toca, y la ventana avisa cuántos días quedan sin tocar |
+| Fecha futura | Sigue como estaba hasta ese día. La ficha dice «Pasa a planta el 01-11» y, desde esa fecha, el sistema le carga sus días de planta |
+| De planta a freelance | Desde la fecha se le quitan los días de planta que puso el sistema. Los que ya trabajó quedan como freelance, esperando que se les ponga el monto |
+| Eventos | Los días de eventos NO cambian |
+| Registro | Cada cambio queda en un «Historial de tipo» en la ficha: tipo, fecha desde, quién lo registró y cuándo |
+
+**La decisión de diseño: el tipo de un día se DERIVA del historial, sin
+reloj.** Cada cambio es una fila de `historial_de_tipo` (migración 210)
+con el tipo nuevo, el que regía antes (`anterior`), el día `desde` y
+quién lo registró. El tipo que rige un día es el del último cambio con
+`desde` <= ese día; antes del primer cambio, su `anterior`; sin
+historial, el `default_kind` de siempre (`utils/tipo-vigente.ts`). Así
+**un cambio a futuro no necesita un proceso programado**: la proyección
+de la planta ya mira un año hacia adelante, y ahora pregunta el tipo de
+cada día — Sofía, si se registra hoy «planta desde el 01-12», recibe sus
+días de planta desde el 01-12 y ni uno antes. Al leer a una persona, el
+motor deja `default_kind` en el tipo de HOY (un cambio que ya llegó se
+ve sin que nadie guarde nada) y, al abrir la sábana, lo pone al día
+también en la base (`ponerAlDia`).
+
+**Qué les pasa a los días ya cargados** (solo los de staff; los de
+eventos y la fila solo-de-propina no se tocan):
+
+- **A planta**: el día freelance pasa a planta, sin monto (su sueldo lo
+  cubre, como «pasar a planta borra el monto» del 18-08) y confirmado (es
+  su turno). Queda marcado como día puesto a mano (`ajuste='trabaja'`)
+  para que la proyección no lo borre si cae en su día libre.
+- **A freelance**: lo que puso el sistema y todavía no llega (después de
+  hoy, sin plata) se quita, igual que el día dormido que viene. Lo que ya
+  trabajó (hasta hoy) y lo puesto a mano pasa a freelance, por confirmar
+  si no tiene monto: el candado de siempre («sin monto no se confirma»)
+  pide el monto.
+- **Lo liquidado o en nómina no se toca**: la jornada con `payroll_id` o
+  `tip_payroll_id`, y la de un día de staff cuya propina ya se resolvió
+  (lo mismo que `estaLiquidado` llama liquidado). La ventana dice
+  cuántos días quedan así, en ámbar.
+- **El pasado no se rellena**: un día pasado sin fila no se inventa (la
+  proyección nunca toca el pasado, §2). Los días de planta que faltan de
+  hoy en adelante los pone la proyección.
+
+**La pantalla.** En la ficha, elegir el otro tipo abre la ventana
+(`VentanaDesde`): la fecha, el tipo de antes y el nuevo en sus colores,
+lo que pasa con sus días (la cuenta la hace el motor:
+`GET /people/:id/tipo/previa`) y «Los días de eventos no cambian».
+Confirmar llama `POST /people/:id/tipo`. Guardar la ficha ya no cambia
+el tipo; un PATCH que trae otro tipo (una pantalla vieja o una llamada
+directa) queda igual en el historial, desde hoy. Junto al tipo de la
+cabecera, en ámbar, «Pasa a planta el 01-11» mientras el cambio no
+rige; debajo de los datos, «Historial de tipo», lo más nuevo arriba y lo
+que no rige con «Pendiente». Si pasa a planta más adelante, sus días y
+su horario se pueden dejar listos desde ya. Mismo permiso que editar la
+ficha (`personal`): no hay permiso nuevo.
+
+**Lo que queda abierto para que Felipe confirme:**
+
+1. Un día pasado sin fila no se crea al pasar a planta con fecha pasada
+   (si Sofía vino días que nadie anotó, se anotan a mano).
+2. «Hoy» cuenta como trabajado al pasar a freelance: el día de hoy queda
+   freelance esperando su monto, no se quita.
+3. Lo «liquidado» que no se toca incluye el día de staff con la propina
+   ya resuelta aunque todavía no esté en una nómina (no solo lo que ya
+   está en una nómina).
+4. El día extra que se pone a mano para una fecha posterior a un cambio
+   a futuro todavía no registrado como vigente pregunta según el tipo de
+   hoy (`esJornadaExtra` lee `default_kind`), no el de ese día.
