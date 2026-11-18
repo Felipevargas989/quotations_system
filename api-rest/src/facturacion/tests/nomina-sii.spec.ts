@@ -121,6 +121,76 @@ describe('La nómina del SII: qué se toma de cada empresa', () => {
     });
   });
 
+  it('§9.50: la agrupación sin actividades entra sin giro, con su domicilio vigente', () => {
+    // El caso real de Felipe (16-11-2026), con sus dos domicilios tal como
+    // vienen en la nómina del 03-08-2026: gana el vigente, no el de 2015.
+    const agrupacion = {
+      dv: '2',
+      razon_social: 'AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA',
+      subtipo: 818,
+    };
+    const domicilios = [
+      domicilio({
+        VIGENCIA: 'S',
+        FECHA: '2018-10-11',
+        CALLE: 'AV BERNARDO OHIGGINS',
+        NUMERO: '589',
+        // Así viene en el archivo: «INT» en la columna del bloque.
+        BLOQUE: 'INT',
+        DEPARTAMENTO: '',
+        CIUDAD: 'SANTA JUANA',
+        COMUNA: 'SANTA JUANA',
+      }),
+      domicilio({
+        VIGENCIA: 'N',
+        FECHA: '2015-09-07',
+        CALLE: 'LOS ALAMOS',
+        NUMERO: '1353',
+        VILLA_POBLACION: 'HUERTOS DE UNIHUE',
+        CIUDAD: 'SANTA JUANA',
+        COMUNA: 'SANTA JUANA',
+      }),
+    ];
+    expect(contribuyenteDe(65108661, agrupacion, [], domicilios)).toEqual({
+      rut: 65108661,
+      dv: '2',
+      razon_social: 'AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA',
+      giro: null,
+      actividades: [],
+      direccion: 'AV BERNARDO OHIGGINS 589 BLOCK INT',
+      comuna: 'SANTA JUANA',
+      ciudad: 'SANTA JUANA',
+    });
+    // Del 811 al 820, todas; el 810 y el 821 no son de ese grupo.
+    for (const subtipo of [811, 812, 816, 820])
+      expect(
+        contribuyenteDe(1, { ...agrupacion, subtipo }, [], []),
+      ).not.toBeNull();
+    for (const subtipo of [810, 821, 211, null])
+      expect(contribuyenteDe(1, { ...agrupacion, subtipo }, [], [])).toBeNull();
+  });
+
+  it('§9.50: la organización con actividades sale igual que hoy, y la sociedad sin actividades sigue fuera', () => {
+    const conActividades = contribuyenteDe(
+      65000001,
+      { dv: '1', razon_social: 'CLUB DEPORTIVO QUILLON', subtipo: 812 },
+      [actividad('ACTIVIDADES DE CLUBES DEPORTIVOS', '01-01-2020')],
+      [],
+    );
+    expect(conActividades).toMatchObject({
+      giro: 'ACTIVIDADES DE CLUBES DEPORTIVOS',
+      actividades: [561000],
+    });
+    expect(
+      contribuyenteDe(
+        76000001,
+        { dv: '1', razon_social: 'SOCIEDAD CERRADA SPA', subtipo: 211 },
+        [],
+        [domicilio({})],
+      ),
+    ).toBeNull();
+  });
+
   it('cortar: no termina colgando de una palabra chica', () => {
     expect(
       cortar('OTROS SERVICIOS DE ALMACENAMIENTO Y DEPOSITO N.C.P.', 36),
@@ -145,9 +215,16 @@ describe('La carga de la nómina desde sii.cl', () => {
     '77000001\t2\t211\tSOCIEDAD SIN DOMICILIO SPA\t01-01-2020\t',
     '50009350\t1\t211\tMENESES ARQUITECTOS ASOCIADOS LIMITADA\t01-01-1993\t',
     '76123456\t7\t211\tVALLE DEL SOL QUILLON SPA\t01-01-2017\t',
+    // §9.50: una agrupación sin actividades, sola en su tramo (65 millones).
+    '65108661\t2\t818\tAGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA\t\t',
+    // Una junta de vecinos que sí tiene actividades: entra con ellas, una vez.
+    '65200002\t3\t811\tJUNTA DE VECINOS LOS AROMOS\t01-01-2019\t',
+    // Una sociedad sin actividades: sigue fuera.
+    '76999999\t9\t211\tSOCIEDAD QUE DEJO DE OPERAR LIMITADA\t\t',
   ].join('\n');
   const ACTIVIDADES = [
     'RUT\tDV\tCODIGO ACTIVIDAD\tDESC. ACTIVIDAD ECONOMICA\tFECHA\tAFECTA A IVA\tCATEGORIA TRIBUTARIA',
+    '65200002\t3\t949100\tACTIVIDADES DE ORGANIZACIONES RELIGIOSAS\t01-01-2019\tN\t1',
     '76123456\t7\t551001\tACTIVIDADES DE HOTELES\t01-03-2017\tS\t1',
     '76123456\t7\t561000\tACTIVIDADES DE RESTAURANTES\t06-05-2025\tS\t1',
     '77000001\t2\t620100\tACTIVIDADES DE PROGRAMACION INFORMATICA\t01-01-2020\tS\t1',
@@ -155,6 +232,8 @@ describe('La carga de la nómina desde sii.cl', () => {
   const DOMICILIOS = [
     'RUT\tDV\tVIGENCIA\tFECHA\tTIPO_DIRECCION\tCALLE\tNUMERO\tBLOQUE\tDEPARTAMENTO\tVILLA_POBLACION\tCIUDAD\tCOMUNA\tREGION',
     '50009350\t1\tS\t2010-01-01\tDOMICILIO\tAV PROVIDENCIA\t100\t\t\t\tSANTIAGO\tPROVIDENCIA\tXIII',
+    '65108661\t2\tS\t2018-10-11\tDOMICILIO\tAV BERNARDO OHIGGINS\t589\tINT\t\t\tSANTA JUANA\tSANTA JUANA\tVIII',
+    '65108661\t2\tN\t2015-09-07\tDOMICILIO\tLOS ALAMOS\t1353\t\t\tHUERTOS DE UNIHUE\tSANTA JUANA\tSANTA JUANA\tVIII',
     '76123456\t7\tS\t2017-03-01\tDOMICILIO\tLOS GUINDOS\t467\t\t\t\tQUILLON\tQUILLON\tXVI',
   ].join('\n');
 
@@ -211,10 +290,30 @@ describe('La carga de la nómina desde sii.cl', () => {
     return { servicio, repo, guardadas };
   };
 
-  it('junta por RUT las empresas con actividades vigentes y deja fuera la que no tiene', async () => {
+  it('junta por RUT las empresas con actividades vigentes y las agrupaciones sin ellas, y deja fuera la sociedad que no tiene', async () => {
     const { servicio, repo, guardadas } = armar();
     await servicio.correr(3);
     expect(guardadas).toEqual([
+      {
+        rut: 65108661,
+        dv: '2',
+        razon_social: 'AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA',
+        giro: null,
+        actividades: [],
+        direccion: 'AV BERNARDO OHIGGINS 589 BLOCK INT',
+        comuna: 'SANTA JUANA',
+        ciudad: 'SANTA JUANA',
+      },
+      {
+        rut: 65200002,
+        dv: '3',
+        razon_social: 'JUNTA DE VECINOS LOS AROMOS',
+        giro: 'ACTIVIDADES DE ORGANIZACIONES RELIGIOSAS',
+        actividades: [949100],
+        direccion: null,
+        comuna: null,
+        ciudad: null,
+      },
       {
         rut: 76123456,
         dv: '7',
@@ -238,6 +337,10 @@ describe('La carga de la nómina desde sii.cl', () => {
     ]);
     expect(repo.guardar).toHaveBeenCalledWith(expect.any(Array), 3);
     expect(repo.guardarActividades).toHaveBeenCalledWith([
+      {
+        codigo: 949100,
+        descripcion: 'ACTIVIDADES DE ORGANIZACIONES RELIGIOSAS',
+      },
       { codigo: 551001, descripcion: 'ACTIVIDADES DE HOTELES' },
       { codigo: 561000, descripcion: 'ACTIVIDADES DE RESTAURANTES' },
       {
@@ -246,7 +349,7 @@ describe('La carga de la nómina desde sii.cl', () => {
       },
     ]);
     expect(repo.borrarLasDeOtrasCargas).toHaveBeenCalledWith(3);
-    expect(repo.terminarCarga).toHaveBeenCalledWith(3, 2);
+    expect(repo.terminarCarga).toHaveBeenCalledWith(3, 4);
     expect(repo.fallarCarga).not.toHaveBeenCalled();
   });
 
@@ -269,7 +372,7 @@ describe('La carga de la nómina desde sii.cl', () => {
     await servicio.correr(3);
     expect(repo.fallarCarga).toHaveBeenCalledWith(
       3,
-      'la nómina trajo solo 2 empresas: se deja la anterior',
+      'la nómina trajo solo 4 empresas: se deja la anterior',
     );
     expect(repo.borrarLasDeOtrasCargas).not.toHaveBeenCalled();
   });
@@ -301,5 +404,28 @@ describe('La carga de la nómina desde sii.cl', () => {
     });
     expect(await servicio.buscar('76123456-1')).toBeNull();
     expect(repo.contribuyente).toHaveBeenCalledWith(76123456);
+  });
+
+  it('§9.50 buscar: la agrupación llega sin giro y sin actividades para elegir', async () => {
+    const { servicio, repo } = armar();
+    repo.descripcionesDe.mockResolvedValue(new Map());
+    repo.contribuyente.mockResolvedValue({
+      rut: 65108661,
+      dv: '2',
+      razon_social: 'AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA',
+      giro: null,
+      actividades: [],
+      direccion: 'AV BERNARDO OHIGGINS 589 BLOCK INT',
+      comuna: 'SANTA JUANA',
+      ciudad: 'SANTA JUANA',
+    });
+    expect(await servicio.buscar('65108661-2')).toEqual(
+      expect.objectContaining({
+        razon_social: 'AGRUPACION DE PROFESORES JUBILADOS DE SANTA JUANA',
+        giro: null,
+        giros: [],
+        direccion: 'AV BERNARDO OHIGGINS 589 BLOCK INT',
+      }),
+    );
   });
 });

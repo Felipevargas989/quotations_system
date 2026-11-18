@@ -197,7 +197,11 @@ export default function CamposDelReceptor({
       {encontrada && lleno && (
         <p className="text-xs text-violet-700">
           {encontrada.origen === "sii"
-            ? "Llenado con la nómina del SII."
+            ? // §9.50: las agrupaciones (organizaciones sin fines de lucro
+              // sin actividades) vienen sin giro; se escribe a mano.
+              encontrada.giro
+              ? "Llenado con la nómina del SII."
+              : "Llenado con la nómina del SII. El SII no trae su giro: escríbelo."
             : `Llenado con la ficha${encontrada.cliente ? ` de ${encontrada.cliente}` : ""}.`}
         </p>
       )}
