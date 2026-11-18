@@ -72,7 +72,7 @@ export const textosDeLaVentana = (
   if (r.kind === "planta") {
     if (r.aPlanta > 0) {
       lineas.push(
-        `${dias(r.aPlanta)} de staff desde el ${fecha} pasan a ${nuevo}.`,
+        `${dias(r.aPlanta)} de staff desde el ${fecha} ${r.aPlanta === 1 ? "pasa" : "pasan"} a ${nuevo}.`,
       );
     }
     lineas.push(
@@ -83,12 +83,12 @@ export const textosDeLaVentana = (
   } else {
     if (r.quitan > 0) {
       lineas.push(
-        `Se le quitan ${dias(r.quitan)} de planta que puso el sistema.`,
+        `Se le ${r.quitan === 1 ? "quita" : "quitan"} ${dias(r.quitan)} de planta que puso el sistema.`,
       );
     }
     if (r.aFreelance > 0) {
       lineas.push(
-        `${dias(r.aFreelance)} que ya trabajó quedan como freelance, esperando su monto.`,
+        `${dias(r.aFreelance)} que ya trabajó ${r.aFreelance === 1 ? "queda" : "quedan"} como freelance, esperando su monto.`,
       );
     }
     if (r.quitan === 0 && r.aFreelance === 0) {
