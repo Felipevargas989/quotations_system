@@ -450,7 +450,9 @@ export class FacturasService {
   /**
    * EL RUT QUE LLENA TODO (doc 19 §9.25 y §9.27): primero la razón social
    * guardada en Eventia con ese RUT (de cualquier cliente de la empresa); si
-   * no, la nómina del SII (personas jurídicas con actividades vigentes).
+   * no, la nómina del SII (personas jurídicas con actividades vigentes, y
+   * las organizaciones sin fines de lucro aunque no tengan: esas vienen sin
+   * giro, §9.50).
    * Dice de dónde salió (`origen`); nulo si no está en ninguna.
    */
   async razonSocialPorRut(companyId: number, rut: string) {

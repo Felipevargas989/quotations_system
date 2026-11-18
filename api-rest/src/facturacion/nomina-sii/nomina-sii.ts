@@ -216,18 +216,46 @@ export const elegirDomicilio = (
 };
 
 /**
- * La empresa como se guarda: solo con nombre y actividades vigentes (la que
- * no tiene actividades vigentes dejó de operar). Sin domicilio vigente, va
- * sin dirección: se escribe al facturar.
+ * LAS AGRUPACIONES (doc 19 §9.50; Felipe, 16-11-2026: *"como trabajo harto
+ * con agrupaciones, ¿hay algún lado donde podamos traer esa info?"* y *"si
+ * carga todas las agrupaciones por favor"*). Las organizaciones sin fines
+ * de lucro (subtipos 811 a 820 de `CODIGO_TIPO_SUBTIPO`: juntas de vecinos,
+ * clubes deportivos, fundaciones, corporaciones, asociaciones gremiales,
+ * sindicatos, cooperativas, «otra OSFL» y las educacionales) casi nunca
+ * tienen inicio de actividades: 347.699 de 408.583 en la nómina del
+ * 03-08-2026. Entran igual, sin giro (se escribe al facturar). Las
+ * sociedades sin actividades siguen fuera (dejaron de operar).
+ */
+export const SUBTIPOS_SIN_FINES_DE_LUCRO = { desde: 811, hasta: 820 } as const;
+
+export const esSinFinesDeLucro = (subtipo: number | null | undefined) =>
+  subtipo != null &&
+  subtipo >= SUBTIPOS_SIN_FINES_DE_LUCRO.desde &&
+  subtipo <= SUBTIPOS_SIN_FINES_DE_LUCRO.hasta;
+
+/** El subtipo de la fila de nombres («818»), o nulo. */
+export const subtipoDe = (texto: string | undefined): number | null => {
+  const n = Number((texto ?? '').trim());
+  return (texto ?? '').trim() && Number.isInteger(n) ? n : null;
+};
+
+/**
+ * La empresa como se guarda: con nombre y actividades vigentes (la que no
+ * tiene actividades vigentes dejó de operar), o una organización sin fines
+ * de lucro aunque no tenga actividades (§9.50: va sin giro y sin
+ * actividades). Sin domicilio vigente, va sin dirección: se escribe al
+ * facturar.
  */
 export const contribuyenteDe = (
   rut: number,
-  nombre: { dv: string; razon_social: string } | undefined,
+  nombre:
+    | { dv: string; razon_social: string; subtipo?: number | null }
+    | undefined,
   actividades: FilaDeLaNomina[],
   domicilios: FilaDeLaNomina[],
 ): ContribuyenteDelSii | null => {
-  if (!nombre || !nombre.razon_social.trim() || !actividades.length)
-    return null;
+  if (!nombre || !nombre.razon_social.trim()) return null;
+  if (!actividades.length && !esSinFinesDeLucro(nombre.subtipo)) return null;
   const domicilio = elegirDomicilio(domicilios);
   return {
     rut,
