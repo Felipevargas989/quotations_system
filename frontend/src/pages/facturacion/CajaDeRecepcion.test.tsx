@@ -128,7 +128,9 @@ describe("la pestaña Caja (§9.43 y §9.55)", () => {
     expect(screen.queryByText("Debía tener")).toBeNull();
     expect(screen.queryByText("Cerró con")).toBeNull();
     expect(
-      screen.queryByText(/Efectivo que falta|Turnos por revisar/),
+      screen.queryByText(
+        /Efectivo que falta|Turnos por revisar|Gastos de 7 días/,
+      ),
     ).toBeNull();
     expect(c.getCierres).not.toHaveBeenCalled();
     expect(c.getResumenDeCierres).not.toHaveBeenCalled();

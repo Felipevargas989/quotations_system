@@ -15,7 +15,7 @@ import type { LineaDelCuadre } from './cuadre';
  *   días corridos (desde ahora − 7 × 24 h): el efectivo que falta (la suma de
  *   las diferencias de efectivo de los cerrados), lo perdido entre turnos (la
  *   suma de las aperturas con menos que el cierre anterior) y cuántos están
- *   por revisar.
+ *   por revisar. Desde el §9.57, una cuarta: los gastos de esa ventana.
  */
 
 export const DIAS_DEL_RESUMEN = 7;
@@ -97,5 +97,62 @@ export const resumenDeLaCadena = (
       0,
     ),
     por_revisar: enLaVentana.filter((f) => f.estado === 'por_revisar').length,
+  };
+};
+
+/** §9.57: un gasto de la ventana, como lo lista la tarjeta. */
+export interface GastoDelResumen {
+  id: number;
+  turno_id: number;
+  monto: number;
+  motivo: string;
+  creado_por_nombre: string | null;
+  creado_en: string;
+}
+
+export interface GastosDelResumen {
+  /** La suma de los gastos de la caja de la ventana. */
+  gastos: number;
+  /** Esos gastos, del más nuevo al más viejo. */
+  lista_de_gastos: GastoDelResumen[];
+}
+
+/**
+ * «GASTOS DE 7 DÍAS» (doc 19 §9.57). Felipe, 19-11, con la maqueta: *"sí me
+ * tinca, hagámoslo"*. La misma ventana que las otras tres cifras: los gastos
+ * (§9.56) de los turnos abiertos en los últimos 7 días corridos, también el
+ * que sigue abierto. Ni los retiros ni los ingresos cuentan.
+ */
+export const gastosDelResumen = (
+  turnos: { id: number; abierta_en: string }[],
+  movimientos: {
+    id: number;
+    turno_id: number;
+    tipo: string;
+    monto: number;
+    motivo: string;
+    creado_por_nombre: string | null;
+    created_at: string;
+  }[],
+  ahora: Date,
+): GastosDelResumen => {
+  const desde = desdeDelResumen(ahora).getTime();
+  const enLaVentana = new Set(
+    turnos.filter((t) => Date.parse(t.abierta_en) >= desde).map((t) => t.id),
+  );
+  const lista = movimientos
+    .filter((m) => m.tipo === 'gasto' && enLaVentana.has(m.turno_id))
+    .map((m) => ({
+      id: m.id,
+      turno_id: m.turno_id,
+      monto: m.monto,
+      motivo: m.motivo,
+      creado_por_nombre: m.creado_por_nombre,
+      creado_en: m.created_at,
+    }))
+    .sort((a, b) => Date.parse(b.creado_en) - Date.parse(a.creado_en));
+  return {
+    gastos: lista.reduce((s, g) => s + g.monto, 0),
+    lista_de_gastos: lista,
   };
 };

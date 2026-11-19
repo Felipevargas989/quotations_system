@@ -1,15 +1,20 @@
+import { useState } from "react";
+import Modal from "../../components/Modal";
 import type {
   CierreEnLaLista,
+  GastoDeLaSemana,
   ResumenDeLaCadena,
 } from "../../services/caja.service";
+import { TIPO } from "./tipoDeMovimiento";
 
 // LA CADENA DEL EFECTIVO (doc 19 §9.54). Felipe, 16-11, mirando la lista de
 // cierres: *"para que el abrió con tenga sentido necesitamos otra que diga
 // cerró con o no? … mira cómo debo leer esto?"*. Cada turno en efectivo:
 // con cuánto abrió, cuánto debía tener y con cuánto cerró; aparte, las
 // tarjetas y transferencias. Entre un turno y el anterior, una franja dice si
-// el efectivo pasó completo. Arriba, las tres cifras de los últimos 7 días.
-// Solo la ve quien revisa los cierres.
+// el efectivo pasó completo. Arriba, las tres cifras de los últimos 7 días
+// y, desde el §9.57, los gastos de esos 7 días, que al tocarlos dicen en qué
+// se gastó. Solo la ve quien revisa los cierres.
 
 const pesos = (n: number) =>
   `$${Math.abs(Math.round(n)).toLocaleString("es-CL")}`;
@@ -111,12 +116,57 @@ function EntreTurnos({
   );
 }
 
-/** Las tres cifras de los últimos 7 días, en tarjetas blancas. */
+const tarjeta = "rounded-lg border border-gray-200 bg-white px-4 py-3";
+
+/** §9.57: los gastos de caja de los 7 días, del más nuevo al más viejo,
+ *  con el día, quién lo anotó, en qué se gastó y el monto. */
+function GastosDeLaSemana({
+  total,
+  lista,
+  onCerrar,
+}: {
+  readonly total: number;
+  readonly lista: GastoDeLaSemana[];
+  readonly onCerrar: () => void;
+}) {
+  return (
+    <Modal
+      titulo="Gastos de 7 días"
+      subtitulo={`−${pesos(total)} en ${lista.length} ${lista.length === 1 ? "gasto" : "gastos"}`}
+      ancho="max-w-md"
+      lado="derecha"
+      onCerrar={onCerrar}
+    >
+      <ul className="divide-y divide-gray-100 text-sm">
+        {lista.map((g) => (
+          <li key={g.id} className="flex items-start gap-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-gray-900">{g.motivo}</p>
+              <p className="text-xs text-gray-500">
+                {diaCorto(g.creado_en)} · {hora(g.creado_en)}
+                {g.creado_por_nombre ? ` · ${g.creado_por_nombre}` : ""}
+              </p>
+            </div>
+            <span
+              className={`whitespace-nowrap font-semibold ${TIPO.gasto.claseMonto}`}
+            >
+              −{pesos(g.monto)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Modal>
+  );
+}
+
+/** Las tres cifras de los últimos 7 días, en tarjetas blancas; desde el
+ *  §9.57, la cuarta: los gastos, que se tocan para ver en qué se gastó. */
 export function CifrasDeLaCadena({
   resumen,
 }: {
   readonly resumen: ResumenDeLaCadena | undefined;
 }) {
+  const [verGastos, setVerGastos] = useState(false);
   if (!resumen) return null;
   const falta = resumen.efectivo_que_falta;
   const perdido = resumen.perdido_entre_turnos;
@@ -142,17 +192,50 @@ export function CifrasDeLaCadena({
       color: resumen.por_revisar === 0 ? "text-green-700" : "text-amber-700",
     },
   ];
+  // §9.57: sin el dato (el motor de antes), solo las tres de siempre.
+  const gastos = resumen.gastos;
+  const lista = resumen.lista_de_gastos ?? [];
+  const conGastos = gastos != null && gastos > 0 && lista.length > 0;
+  const contenidoDeGastos = gastos != null && (
+    <>
+      <p
+        className={`text-2xl font-semibold ${conGastos ? "text-amber-700" : "text-green-700"}`}
+      >
+        {gastos === 0 ? "$0" : `−${pesos(gastos)}`}
+      </p>
+      <p className="text-xs text-gray-500">Gastos de 7 días</p>
+    </>
+  );
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div
+      className={`grid gap-3 ${gastos != null ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}
+    >
       {cifras.map((x) => (
-        <div
-          key={x.etiqueta}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-3"
-        >
+        <div key={x.etiqueta} className={tarjeta}>
           <p className={`text-2xl font-semibold ${x.color}`}>{x.valor}</p>
           <p className="text-xs text-gray-500">{x.etiqueta}</p>
         </div>
       ))}
+      {gastos != null &&
+        (conGastos ? (
+          <button
+            type="button"
+            onClick={() => setVerGastos(true)}
+            aria-haspopup="dialog"
+            className={`${tarjeta} text-left hover:border-amber-300 hover:bg-amber-50/40`}
+          >
+            {contenidoDeGastos}
+          </button>
+        ) : (
+          <div className={tarjeta}>{contenidoDeGastos}</div>
+        ))}
+      {verGastos && conGastos && (
+        <GastosDeLaSemana
+          total={gastos}
+          lista={lista}
+          onCerrar={() => setVerGastos(false)}
+        />
+      )}
     </div>
   );
 }

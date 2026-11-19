@@ -268,6 +268,9 @@ describe('La lista de cierres como cadena del efectivo (§9.54)', () => {
       efectivo_que_falta: -26850,
       perdido_entre_turnos: 0,
       por_revisar: 1,
+      // §9.57: sin gastos en la semana.
+      gastos: 0,
+      lista_de_gastos: [],
     });
   });
 
