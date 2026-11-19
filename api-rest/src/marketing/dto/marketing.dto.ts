@@ -87,6 +87,11 @@ export class FiltroSegmentoDto {
   @IsArray()
   @IsString({ each: true })
   tipos_evento?: string[];
+
+  /** Con o sin convenio firmado (doc 24 §9). */
+  @IsOptional()
+  @IsIn(['con', 'sin'])
+  convenio?: 'con' | 'sin';
 }
 
 export class PreviaSegmentoDto {

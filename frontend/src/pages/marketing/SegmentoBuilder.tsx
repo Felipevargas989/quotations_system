@@ -14,6 +14,11 @@ import {
  * evento — cada uno con su "Todos". Las condiciones se suman, y la
  * previa de la derecha se recalcula en vivo: cuántos son y quiénes.
  * Los nombres de negocio son los que él validó ese día.
+ *
+ * El 19-11-2026 se sumó un cuarto, «Convenio» (doc 24 §9: «para mí son
+ * dos estados»): Con convenio = firmado; Sin convenio = los demás que no
+ * son particulares, también los enviados sin firmar. Solo aparece si la
+ * empresa tiene plantilla de convenio.
  */
 
 const ACEPTO: FiltroSegmento["con_estados"] = ["aceptada", "realizada"];
@@ -111,6 +116,37 @@ export default function SegmentoBuilder({
           </div>
         </div>
 
+        {audiencias?.convenio && (
+          <div>
+            <p className={seccion}>Convenio</p>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={() => onFiltro({ ...filtro, convenio: undefined })}
+                className={chip(!filtro.convenio)}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => onFiltro({ ...filtro, convenio: "con" })}
+                className={chip(filtro.convenio === "con")}
+                title="Clientes con el convenio firmado"
+              >
+                Con convenio
+              </button>
+              <button
+                type="button"
+                onClick={() => onFiltro({ ...filtro, convenio: "sin" })}
+                className={chip(filtro.convenio === "sin")}
+                title="Los demás clientes que no son particulares, también los que tienen el convenio enviado sin firmar"
+              >
+                Sin convenio
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
           <p className={seccion}>Tipo de cliente</p>
           <div className="mt-1">
@@ -149,53 +185,54 @@ export default function SegmentoBuilder({
           intento (flex + stretch) no servía: la celda de la grilla se
           agrandaba con la caja y el scroll no aparecía nunca. */}
       <div className="relative lg:min-h-[27rem]">
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-96 lg:h-auto lg:absolute lg:inset-0">
-        <p className="text-sm text-gray-600 shrink-0">
-          Este segmento hoy son{" "}
-          <span className="text-xl font-bold text-gray-900 tabular-nums">
-            {previa.data?.total ?? "…"}
-          </span>{" "}
-          contactos
-        </p>
-        {/* LA LISTA EN TRES COLUMNAS (Felipe 25-08): cliente, contacto
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col h-96 lg:h-auto lg:absolute lg:inset-0">
+          <p className="text-sm text-gray-600 shrink-0">
+            Este segmento hoy son{" "}
+            <span className="text-xl font-bold text-gray-900 tabular-nums">
+              {previa.data?.total ?? "…"}
+            </span>{" "}
+            contactos
+          </p>
+          {/* LA LISTA EN TRES COLUMNAS (Felipe 25-08): cliente, contacto
             y correo, del alto completo desde arriba; corre adentro. */}
-        <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 mt-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0">
-          <span>Cliente</span>
-          <span>Contacto</span>
-          <span>Correo</span>
-        </div>
-        <ul className="flex-1 min-h-0 overflow-y-auto text-xs divide-y divide-gray-100">
-          {(previa.data?.muestra ?? []).map((m) => (
-            <li
-              key={m.email}
-              className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 py-1"
-            >
-              <span className="truncate text-gray-900" title={m.cliente}>
-                {m.cliente}
-              </span>
-              <span
-                className="truncate text-gray-500"
-                title={m.contacto ?? undefined}
+          <div className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 mt-2 pb-1 border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0">
+            <span>Cliente</span>
+            <span>Contacto</span>
+            <span>Correo</span>
+          </div>
+          <ul className="flex-1 min-h-0 overflow-y-auto text-xs divide-y divide-gray-100">
+            {(previa.data?.muestra ?? []).map((m) => (
+              <li
+                key={m.email}
+                className="grid grid-cols-[1.1fr_0.9fr_1.2fr] gap-x-2 py-1"
               >
-                {m.contacto ?? "—"}
-              </span>
-              <span className="truncate text-gray-400" title={m.email}>
-                {m.email}
-              </span>
-            </li>
-          ))}
-          {(previa.data?.total ?? 0) > (previa.data?.muestra.length ?? 0) && (
-            <li className="py-1 text-gray-400">
-              … y {(previa.data?.total ?? 0) - (previa.data?.muestra.length ?? 0)}{" "}
-              más
-            </li>
-          )}
-        </ul>
-        <p className="text-[11px] text-gray-400 mt-2 shrink-0">
-          Se recalcula en vivo contra tu base al momento de enviar — nunca
-          listas viejas. Los dados de baja ya están descontados.
-        </p>
-      </div>
+                <span className="truncate text-gray-900" title={m.cliente}>
+                  {m.cliente}
+                </span>
+                <span
+                  className="truncate text-gray-500"
+                  title={m.contacto ?? undefined}
+                >
+                  {m.contacto ?? "—"}
+                </span>
+                <span className="truncate text-gray-400" title={m.email}>
+                  {m.email}
+                </span>
+              </li>
+            ))}
+            {(previa.data?.total ?? 0) > (previa.data?.muestra.length ?? 0) && (
+              <li className="py-1 text-gray-400">
+                … y{" "}
+                {(previa.data?.total ?? 0) - (previa.data?.muestra.length ?? 0)}{" "}
+                más
+              </li>
+            )}
+          </ul>
+          <p className="text-[11px] text-gray-400 mt-2 shrink-0">
+            Se recalcula en vivo contra tu base al momento de enviar — nunca
+            listas viejas. Los dados de baja ya están descontados.
+          </p>
+        </div>
       </div>
     </div>
   );

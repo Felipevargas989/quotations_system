@@ -41,6 +41,23 @@ export class MarcasDeConvenio {
     return marcas;
   }
 
+  /** ¿La empresa usa convenios? Sin plantilla activa, Marketing no
+   *  muestra el filtro «Convenio» (doc 24 §9). */
+  hayPlantilla(companyId: number): Promise<boolean> {
+    return this.repo.tienePlantilla(companyId);
+  }
+
+  /** Los clientes con convenio FIRMADO de la empresa, para las audiencias
+   *  de Marketing (doc 24 §9). Misma pasada que el edificio de color. */
+  async firmadosDeLaEmpresa(companyId: number): Promise<Set<string>> {
+    const marcas = await this.deLaEmpresa(companyId);
+    const firmados = new Set<string>();
+    for (const [clientId, m] of marcas) {
+      if (m.estado === 'firmado') firmados.add(String(clientId));
+    }
+    return firmados;
+  }
+
   /** `GET /clients`: la marca en cada cliente que tiene convenio. */
   async enClientes<T extends { id: string }>(
     companyId: number,

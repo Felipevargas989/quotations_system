@@ -1,11 +1,12 @@
 # 24 — El convenio del cliente y sus documentos
 
 > Estado: **en producción** desde el 19-11-2026 (PR #390, main `31ea16bd`;
-> migración 211 en las dos bases). **La declaración de representación (§8)**:
-> en el laboratorio desde el 19-11-2026 (rama
-> `feature/convenio-declaracion-de-representacion`, migración 212 solo en
-> «Cotizador»); a producción, solo con el «a producción» de Felipe. Mapa:
-> `mapa/09_CLIENTES.md` (flujo H, zona 18).
+> migración 211 en las dos bases); la declaración de representación (§8),
+> también en producción (PR #391, main `dd900f63`; migración 212 en las dos
+> bases). **Las audiencias de convenio en Marketing (§9)**: en el laboratorio
+> desde el 19-11-2026 (rama `feature/audiencias-de-convenio`, sin
+> migración); a producción, solo con el «a producción» de Felipe. Mapas:
+> `mapa/09_CLIENTES.md` (flujo H, zona 18) y `mapa/10_MARKETING.md`.
 
 ## 1. Qué pidió Felipe
 
@@ -41,6 +42,7 @@ pública) y la aprobó.
 | 15 | Aceptar dos veces seguidas no crea dos firmas ni dos PDF | Gerente, 19-11 |
 | 16 | Quién puede: ver, quien ve la ficha 360 (sección Clientes); enviar, subir y borrar, desde vendedor. Sin permiso nuevo: son los mismos cargos de esa sección | Gerente, 19-11 |
 | 18 | **La declaración de representación**: la casilla de la página pública dice «Declaro que tengo facultades para representar a la empresa y acepto el convenio en su nombre.», el motor no acepta sin ella y la guarda (`convenios.declara_representacion`, migración 212); la constancia del PDF lo dice con nombre, RUT y cargo. El contrato no cambia y la personería sigue opcional (§8) | Felipe, 19-11-2026: «Ya, excelente… me parece muy bien» |
+| 19 | **Las audiencias de convenio**: en Marketing → Audiencias, el filtro «Convenio» con «Con convenio» (firmado) y «Sin convenio» (los demás que no son particulares, también los enviados sin firmar); se combina con los otros filtros y la audiencia guardada se recalcula sola. Sin plantilla no aparece (§9) | Felipe, 19-11-2026: «para mí son dos estados»; «Sí, constrúyelas» |
 | 17 | **El edificio de color** marca quién tiene convenio: verde firmado, ámbar enviado sin firmar, gris de siempre sin convenio; al pasar el mouse, el detalle en una línea. Sin texto ni chip nuevo y sin rojo. Va en la lista de clientes y, chico junto al nombre y solo si hay convenio, en el cotizador, el negocio y Post-Venta (§7) | Felipe, maqueta, 19-11-2026: «A, el edificio» |
 
 ## 3. Cómo funciona
@@ -149,8 +151,8 @@ dd-mm-aaaa» (hora de Chile). Los tonos son los del chip de la ficha.
   las de antes.
 - Un firmado ya vencido sigue en verde, igual que el chip de la ficha (no hay
   estado «vencido» en esta versión).
-- Fuera de alcance: filtro por convenio en la lista, audiencias de campañas,
-  el aviso del 30 % en el cotizador y recepción.
+- Fuera de alcance: filtro por convenio en la lista, el aviso del 30 % en el
+  cotizador y recepción. Las audiencias de campañas llegaron después (§9).
 
 ## 8. La declaración de representación (19-11-2026)
 
@@ -177,3 +179,33 @@ representación"*. Aprobó la propuesta: *"Ya, excelente… me parece muy bien"*
 - **Al subir a producción**: la 212 primero, después el motor y la vitrina
   juntos. Un motor nuevo con la vitrina antigua rechaza la aceptación (la
   página antigua no manda la declaración) hasta que se suba la vitrina.
+
+## 9. Las audiencias de convenio en Marketing (19-11-2026)
+
+Felipe: *"¿Va a quedar separado como clientes con convenio para escribirles
+solo a ellos?"* y después *"yo distinguiría dos, con y sin convenio. El
+convenio sin firmar, no sé si valga la pena tenerlo. Para mí son dos
+estados"*. A «¿Construyo las dos audiencias?»: *"Sí, constrúyelas"*.
+
+- **Dónde**: Marketing → Audiencias, al armar una audiencia desde la base,
+  un cuarto filtro «Convenio» con tres chips: «Todos» (como siempre),
+  «Con convenio» y «Sin convenio». Es un campo más del mismo filtro del
+  segmento (`FiltroSegmento.convenio`, `'con' | 'sin'`), no un camino
+  aparte: se combina con «Qué pasó con ellos», el tipo de cliente y el tipo
+  de evento, la previa lo muestra en vivo y la audiencia guardada se
+  recalcula sola (quien firma mañana entra sin tocar nada).
+- **Con convenio** = convenio en estado `firmado`. Un firmado vencido sigue
+  contando, igual que el edificio verde (§7: no hay estado «vencido»).
+- **Sin convenio** = todos los demás clientes que no son particulares
+  (`client_types.es_particular`, los mismos de recepción, doc 21), también
+  los que tienen el convenio enviado sin firmar. Un cliente sin tipo cuenta
+  como no particular.
+- **Una sola lectura por empresa**: `MarcasDeConvenio.firmadosDeLaEmpresa`
+  (la misma de §7) y `AlcanceDeRecepcion.particulares`, solo si algún filtro
+  mira el convenio; la estantería lee una vez para todas las guardadas.
+- **Sin plantilla activa, el filtro no aparece** (`GET /marketing/audiencias`
+  responde `convenio: false`). Una audiencia guardada con el filtro en una
+  empresa que apaga su plantilla: «Con convenio» queda vacía.
+- Las bajas, la regla de una vez, el tope de 30 audiencias y todo lo demás
+  de Marketing quedan igual (doc 11). Sin migración.
+- Pruebas: `api-rest/src/marketing/tests/audiencias-de-convenio.spec.ts`.

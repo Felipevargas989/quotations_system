@@ -31,6 +31,19 @@ export interface FiltroSegmento {
   monto_min?: number;
   /** Tipos de evento de sus cotizaciones (event_type). */
   tipos_evento?: string[];
+  /** EL CONVENIO (doc 24 §9, Felipe 19-11-2026: «para mí son dos
+   *  estados»). 'con' = convenio FIRMADO; 'sin' = todos los demás que no
+   *  son particulares, también los que lo tienen enviado sin firmar.
+   *  Ausente = todos, como siempre. */
+  convenio?: 'con' | 'sin';
+}
+
+/** Lo que el filtro del convenio necesita saber de la empresa, traído en
+ *  UNA pasada (como el edificio de color): los clientes con convenio
+ *  firmado y los tipos de cliente particulares, en minúsculas. */
+export interface ConveniosDelSegmento {
+  firmados: ReadonlySet<string>;
+  particulares: ReadonlySet<string>;
 }
 
 export interface ClienteSegmentable {
@@ -67,6 +80,7 @@ export const resolverSegmento = (
   contactos: readonly ContactoDeCliente[],
   filtro: FiltroSegmento,
   hoyISO: string,
+  convenios?: ConveniosDelSegmento,
 ): { email: string; name: string | null; empresa: string | null }[] => {
   const porCliente = new Map<string, CotizacionSegmentable[]>();
   for (const q of cotizaciones) {
@@ -100,6 +114,15 @@ export const resolverSegmento = (
       !filtro.tipos_cliente.includes(c.client_type ?? '')
     ) {
       return false;
+    }
+    if (filtro.convenio) {
+      const firmado = convenios?.firmados.has(String(c.id)) ?? false;
+      if (filtro.convenio === 'con' && !firmado) return false;
+      if (filtro.convenio === 'sin') {
+        if (firmado) return false;
+        const tipo = (c.client_type ?? '').trim().toLowerCase();
+        if (convenios?.particulares.has(tipo)) return false;
+      }
     }
     const suyas = porCliente.get(String(c.id)) ?? [];
 

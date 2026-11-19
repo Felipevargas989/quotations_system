@@ -15,6 +15,8 @@ export interface AudienciasMarketing {
   importadas: { audiencia: string; contactos: number; bajas: number }[];
   tipos: { tipo: string; total: number; conCorreo: number }[];
   tipos_evento: { tipo: string; n: number }[];
+  /** La empresa usa convenios: se muestra el filtro «Convenio» (doc 24 §9). */
+  convenio?: boolean;
 }
 
 export interface AudienciaElegida {
@@ -68,6 +70,8 @@ export interface FiltroSegmento {
   aniversario?: boolean;
   monto_min?: number;
   tipos_evento?: string[];
+  /** Con convenio firmado / sin convenio (los no particulares). */
+  convenio?: "con" | "sin";
 }
 
 export const previaSegmento = async (filtro: FiltroSegmento) =>
@@ -321,4 +325,3 @@ export const recomendacionHorario = async (id: number) =>
     fuente: "datos" | "estudios";
     texto: string;
   }[];
-
