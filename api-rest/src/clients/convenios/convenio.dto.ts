@@ -115,4 +115,12 @@ export class AceptarConvenioDto {
     message: 'Para aceptar hay que marcar «Leí el convenio y lo acepto»',
   })
   acepto: boolean;
+
+  // La declaración de representación (doc 24 §8, migración 212): sin ella
+  // no se acepta. La página la manda con la misma casilla.
+  @Equals(true, {
+    message:
+      'Para aceptar hay que declarar que tienes facultades para representar a la empresa',
+  })
+  declaro_representacion: boolean;
 }

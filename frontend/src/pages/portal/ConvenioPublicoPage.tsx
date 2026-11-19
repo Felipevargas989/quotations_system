@@ -43,6 +43,7 @@ const VACIO: FormularioDeConvenio = {
   personeria_fecha: "",
   personeria_notario: "",
   acepto: false,
+  declaro_representacion: false,
 };
 
 function Campo({
@@ -167,7 +168,8 @@ export default function ConvenioPublicoPage() {
     !form.domicilio.trim() ||
     !form.comuna.trim() ||
     !form.region.trim() ||
-    !form.acepto;
+    !form.acepto ||
+    !form.declaro_representacion;
 
   const aceptar = async () => {
     setError(null);
@@ -431,11 +433,16 @@ export default function ConvenioPublicoPage() {
               type="checkbox"
               checked={form.acepto}
               onChange={(e) =>
-                setForm((f) => ({ ...f, acepto: e.target.checked }))
+                setForm((f) => ({
+                  ...f,
+                  acepto: e.target.checked,
+                  declaro_representacion: e.target.checked,
+                }))
               }
               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
             />
-            Leí el convenio y lo acepto en nombre de la empresa
+            Declaro que tengo facultades para representar a la empresa y acepto
+            el convenio en su nombre.
           </label>
 
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}

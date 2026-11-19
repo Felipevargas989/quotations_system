@@ -210,6 +210,9 @@ export interface Constancia {
   texto_sha256: string;
   empresa: string;
   vence: string;
+  /** doc 24 §8: la línea solo sale si se declaró (los firmados antes de la
+   *  212 no la tienen y su PDF no cambia). */
+  declara_representacion?: boolean;
 }
 
 /** La hoja completa que se imprime: el contrato y, al final, la constancia
@@ -237,8 +240,17 @@ export const hojaDelConvenio = (p: {
     ${fila('Dirección IP', c.ip || '—')}
     ${fila('Navegador', c.user_agent || '—')}
     ${fila('Huella del texto (SHA-256)', c.texto_sha256)}
-  </table>
-  <p class="chica">La persona marcó «Leí el convenio y lo acepto en nombre de la empresa» y apretó «Aceptar convenio». La huella permite comprobar que el texto de este documento es el mismo que se aceptó.</p>
+  </table>${
+    c.declara_representacion
+      ? `
+  <p class="declaracion">${esc(c.firmante_nombre)}, RUT ${esc(c.firmante_rut)}, ${esc(c.firmante_cargo)}, declaró tener facultades para representar a ${esc(c.razon_social)} y aceptó el convenio en su nombre.</p>`
+      : ''
+  }
+  <p class="chica">La persona marcó «${esc(
+    c.declara_representacion
+      ? 'Declaro que tengo facultades para representar a la empresa y acepto el convenio en su nombre'
+      : 'Leí el convenio y lo acepto en nombre de la empresa',
+  )}» y apretó «Aceptar convenio». La huella permite comprobar que el texto de este documento es el mismo que se aceptó.</p>
 </section>`
     : '';
   const color = /^#[0-9a-fA-F]{3,8}$/.test(p.colorPrimario)
@@ -262,6 +274,7 @@ export const hojaDelConvenio = (p: {
   .constancia th, .constancia td { border: 1px solid #d1d5db; padding: 6pt 8pt; text-align: left; vertical-align: top; }
   .constancia th { width: 34%; background: #f3f4f6; font-weight: 600; }
   .constancia td { word-break: break-all; }
+  .constancia .declaracion { font-weight: 600; margin: 8pt 0; }
   .chica { font-size: 9pt; color: #374151; }
 </style></head>
 <body>

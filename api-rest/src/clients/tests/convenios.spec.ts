@@ -13,6 +13,7 @@ import {
   EN_BLANCO,
   fechaCorta,
   fechaLarga,
+  hojaDelConvenio,
   llenarPlantilla,
   sha256,
   textoParaLeer,
@@ -265,6 +266,7 @@ const FORMULARIO = {
   comuna: 'Las Condes',
   region: 'Metropolitana',
   acepto: true,
+  declaro_representacion: true,
 };
 
 /** Envía el convenio y devuelve el enlace en claro que salió en el correo. */
@@ -350,6 +352,15 @@ describe('El formulario público: lo que acepta el motor', () => {
 
   it('sin marcar «Leí el convenio y lo acepto» no se acepta', async () => {
     expect(await errores({ ...FORMULARIO, acepto: false })).toEqual(['acepto']);
+  });
+
+  it('sin la declaración de representación no se acepta (doc 24 §8)', async () => {
+    const sin: Record<string, unknown> = { ...FORMULARIO };
+    delete sin.declaro_representacion;
+    expect(await errores(sin)).toEqual(['declaro_representacion']);
+    expect(
+      await errores({ ...FORMULARIO, declaro_representacion: false }),
+    ).toEqual(['declaro_representacion']);
   });
 });
 
@@ -465,6 +476,7 @@ describe('Aceptar el convenio en línea', () => {
       firmante_correo: 'juan@arauco.cl',
       ip: '200.1.2.3',
       user_agent: 'Mozilla/5.0',
+      declara_representacion: true,
     });
     expect(c.texto_firmado).toContain(
       'CONVENIO ENTRE LA CASA Y Forestal Arauco S.A.',
@@ -475,6 +487,9 @@ describe('Aceptar el convenio en línea', () => {
     const html = impresora.imprimir.mock.calls[0][0];
     expect(html).toContain('Constancia de aceptación en línea');
     expect(html).toContain('200.1.2.3');
+    expect(html).toContain(
+      'Juan Soto, RUT 12.345.678-5, Gerente de Personas, declaró tener facultades para representar a Forestal Arauco S.A. y aceptó el convenio en su nombre.',
+    );
     expect(base.documentosGuardados).toHaveLength(1);
     expect(base.documentosGuardados[0]).toMatchObject({
       client_id: 'cli-1',
@@ -544,6 +559,55 @@ describe('Aceptar el convenio en línea', () => {
     await expect(
       service.aceptar(enlace, FORMULARIO as never, null, null),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('sin la declaración de representación el motor no acepta y nada cambia (doc 24 §8)', async () => {
+    const { base, service, correos } = preparar();
+    const enlace = await enviarYTomarEnlace(service, correos);
+    await expect(
+      service.aceptar(
+        enlace,
+        { ...FORMULARIO, declaro_representacion: false } as never,
+        null,
+        null,
+      ),
+    ).rejects.toThrow('facultades para representar');
+    expect(base.convenios[0].estado).toBe('enviado');
+    expect(base.documentosGuardados).toHaveLength(0);
+  });
+
+  it('un convenio firmado antes de la declaración no cambia: su PDF no la trae', () => {
+    const constancia = {
+      firmante_nombre: 'PRUEBA Representante',
+      firmante_rut: '11.222.333-9',
+      firmante_cargo: 'Gerente',
+      firmante_correo: 'x@y.cl',
+      razon_social: 'PRUEBA SpA',
+      rut_empresa: '76.123.456-0',
+      firmado_at: new Date('2026-11-19T18:00:00Z'),
+      ip: null,
+      user_agent: null,
+      texto_sha256: 'a'.repeat(64),
+      empresa: 'La Casa',
+      vence: '2029-11-19',
+    };
+    const antes = hojaDelConvenio({
+      textoLleno: 'texto',
+      colorPrimario: '#059669',
+      constancia: { ...constancia, declara_representacion: false },
+    });
+    expect(antes).not.toContain('declaró tener facultades');
+    expect(antes).toContain(
+      'Leí el convenio y lo acepto en nombre de la empresa',
+    );
+    const ahora = hojaDelConvenio({
+      textoLleno: 'texto',
+      colorPrimario: '#059669',
+      constancia: { ...constancia, declara_representacion: true },
+    });
+    expect(ahora).toContain(
+      'PRUEBA Representante, RUT 11.222.333-9, Gerente, declaró tener facultades para representar a PRUEBA SpA',
+    );
   });
 
   it('si el PDF falla, la firma queda y la ficha dice «PDF pendiente»; se puede generar después', async () => {
