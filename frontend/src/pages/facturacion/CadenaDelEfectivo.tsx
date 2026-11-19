@@ -170,7 +170,14 @@ export function CifrasDeLaCadena({
   if (!resumen) return null;
   const falta = resumen.efectivo_que_falta;
   const perdido = resumen.perdido_entre_turnos;
-  const cifras: { etiqueta: string; valor: string; color: string }[] = [
+  // §9.58: las sobras no bajan la falta; van en una línea chica debajo.
+  const sobra = resumen.efectivo_que_sobra ?? 0;
+  const cifras: {
+    etiqueta: string;
+    valor: string;
+    color: string;
+    detalle?: string;
+  }[] = [
     {
       etiqueta: "Efectivo que falta, 7 días",
       valor: falta === 0 ? "$0" : `${falta < 0 ? "−" : "+"}${pesos(falta)}`,
@@ -180,6 +187,7 @@ export function CifrasDeLaCadena({
           : falta < 0
             ? "text-red-700"
             : "text-amber-700",
+      detalle: sobra > 0 ? `Sobró ${pesos(sobra)}` : undefined,
     },
     {
       etiqueta: "Perdido entre turnos",
@@ -214,6 +222,9 @@ export function CifrasDeLaCadena({
         <div key={x.etiqueta} className={tarjeta}>
           <p className={`text-2xl font-semibold ${x.color}`}>{x.valor}</p>
           <p className="text-xs text-gray-500">{x.etiqueta}</p>
+          {x.detalle && (
+            <p className="text-xs font-medium text-amber-700">{x.detalle}</p>
+          )}
         </div>
       ))}
       {gastos != null &&
