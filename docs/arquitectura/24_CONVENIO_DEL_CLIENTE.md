@@ -22,7 +22,7 @@ pública) y la aprobó.
 
 | # | Decisión | Quién |
 |---|---|---|
-| 1 | Dos tarjetas blancas en la ficha del cliente, con título en pestaña de color (`TituloDeSeccion`): «Convenio» (verde) y «Documentos del cliente» (azul). Solo en clientes que NO son particulares | Felipe, maqueta |
+| 1 | Dos tarjetas blancas en la ficha del cliente, «Convenio» y «Documentos del cliente», solo en clientes que NO son particulares. Sus títulos, iguales a los de «Contactos» y «Datos de facturación» (negro grande con ícono a la izquierda y «+ Agregar» a la derecha); el color queda solo en el chip de estado y en los botones (Felipe, 19-11-2026: «podemos dejar los títulos iguales»; antes llevaban la pestaña de color) | Felipe, maqueta y 19-11 |
 | 2 | Chip de UNA palabra y el detalle en una línea chica: «Sin convenio» (neutro; «Convenio simple · gratis con la firma»), «Enviado» (ámbar; «A correo · fecha»), «Firmado» (verde; «firmante · fecha · vence fecha», vence = firma + vigencia) | Felipe, maqueta |
 | 3 | «Enviar convenio» va a la persona principal y antes de enviar se puede elegir otra; en «Enviado» dice «Reenviar convenio». «Subir firmado» (PDF + fecha + firmante opcional) para los firmados en papel. «Ver convenio» cuando está firmado | Felipe, maqueta |
 | 4 | La plantilla y sus beneficios **cuelgan de la empresa** (`convenio_plantillas`); una empresa sin plantilla no ve «Convenio», sí «Documentos del cliente». Nada de Valle del Sol escrito en el código | Gerente, 19-11 |

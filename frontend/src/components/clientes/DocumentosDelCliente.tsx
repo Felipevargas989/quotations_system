@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText, FolderOpen, Plus, Trash2 } from "lucide-react";
 import ConfirmInline from "../ConfirmInline";
 import FileViewLink from "../FileViewLink";
-import TituloDeSeccion from "../grilla/TituloDeSeccion";
 import { toast } from "../toast/Toast";
 import { useArrastreDeArchivos } from "../../hooks/useArrastreDeArchivos";
 import { uploadClientDocument } from "../../services/storage.service";
@@ -92,23 +91,21 @@ export default function DocumentosDelCliente({
         arrastrando ? "ring-2 ring-blue-400" : ""
       }`}
     >
-      <TituloDeSeccion
-        titulo="Documentos del cliente"
-        color="azul"
-        accion={
-          puedeEditar ? (
-            <button
-              type="button"
-              disabled={subiendo}
-              onClick={() => entrada.current?.click()}
-              className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-blue-700 hover:text-blue-900 disabled:opacity-50"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {subiendo ? "Subiendo…" : "Agregar"}
-            </button>
-          ) : undefined
-        }
-      />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <FolderOpen size={18} /> Documentos del cliente
+        </h2>
+        {puedeEditar && (
+          <button
+            type="button"
+            disabled={subiendo}
+            onClick={() => entrada.current?.click()}
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50"
+          >
+            <Plus size={13} /> {subiendo ? "Subiendo…" : "Agregar"}
+          </button>
+        )}
+      </div>
       <input
         ref={entrada}
         type="file"
