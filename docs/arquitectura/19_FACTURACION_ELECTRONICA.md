@@ -3386,6 +3386,57 @@ esto podría estar en los switch de permisos)"*.
 En la rama `feature/caja-gastos` desde el 17-11-2026 (migración 209, sin
 aplicar; va antes del motor).
 
+### 9.57 «Gastos de 7 días», la cuarta cifra de la cadena (19-11)
+
+Felipe, 19-11, mirando la maqueta de una cuarta tarjeta junto a las tres
+cifras de la lista de cierres (§9.54): *"sí me tinca, hagámoslo"*.
+
+**Lo aprobado:**
+1. **Una cuarta tarjeta, «Gastos de 7 días»**, en la misma fila y con el
+   mismo aspecto que las otras tres (tarjeta blanca, número grande,
+   etiqueta chica): la suma de los gastos de caja (§9.56) de la misma
+   ventana de 7 días. Ámbar con «−$X» si hubo gastos; verde con «$0» si no.
+   Las cuatro caben en una fila en escritorio y bajan de a dos (o de a una
+   en el teléfono).
+2. **Al tocarla, en qué se gastó:** el panel de la derecha (`Modal`
+   `lado="derecha"`) con la lista del más nuevo al más viejo: en qué se
+   gastó, el día y la hora, quién lo anotó y el monto en ámbar. Sin gastos,
+   la tarjeta no abre nada.
+3. **Quién la ve:** lo mismo que las otras tres cifras, quien tiene
+   «Revisar cierres de caja» (`caja_revision`, de fábrica el
+   administrador). Recepción sigue a ciegas: no la ve ni se le pide. Sin
+   permisos nuevos.
+4. **La ventana es la misma de las otras cifras:** los turnos abiertos en
+   los últimos 7 días corridos (desde ahora − 7 × 24 h, por la hora de
+   apertura del turno), **con el turno que sigue abierto**, como «Perdido
+   entre turnos» y la cadena. Un gasto cuenta por su turno: el de un turno
+   abierto hace más de 7 días no entra aunque se haya anotado después. Ni
+   los retiros ni los ingresos cuentan.
+
+**Cómo quedó (sin migración):**
+- **El motor:** `gastosDelResumen` (`caja/cadena.ts`, puro): de los turnos
+  y sus movimientos, los de `tipo` = `gasto` de los turnos de la ventana,
+  ordenados del más nuevo al más viejo, y su suma. `CajaService.laCadena`
+  lo arma con los movimientos que ya leía para la cadena (ninguna consulta
+  más; con más de 60 turnos en la semana, también los de la ventana
+  entera). `GET /facturacion/caja/cierres/resumen` suma `gastos` y
+  `lista_de_gastos` (id, turno, monto, motivo, quién y cuándo) a las tres
+  cifras de siempre: la misma puerta y el mismo permiso.
+- **La pantalla:** `CifrasDeLaCadena` (`CadenaDelEfectivo.tsx`) con la
+  cuarta tarjeta (un botón si hay gastos) y `GastosDeLaSemana`, el panel
+  con la lista. Si el motor es el de antes (sin `gastos`), quedan las tres
+  de siempre. No cambian cómo se anotan los gastos, el cuadre, el correo
+  del cierre ni los botones de «Anotar movimiento».
+- **Las pruebas:** `caja-gastos-7-dias.spec.ts` (la suma solo de los gastos
+  de la ventana, con el turno abierto; sin retiros ni ingresos; el borde de
+  la ventana; un turno que no se conoce no cuenta; la semana entera con más
+  de 60 turnos; el estado de recepción sin la cifra; la puerta con
+  `caja_revision`, recepción no) y, en la vitrina, los casos «§9.57» de
+  `CierresDeCaja.test.tsx` y `CajaDeRecepcion.test.tsx` (recepción no la ve).
+
+En la rama `feature/caja-gastos-7-dias` desde el 19-11-2026 (sin migración;
+motor y pantalla).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
