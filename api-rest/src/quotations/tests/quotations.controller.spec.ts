@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { DerechosService } from 'src/auth/derechos.service';
 import { SesionOpcional } from 'src/auth/sesion-opcional.service';
 import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { MarcasDeConvenio } from 'src/clients/convenios/marcas-de-convenio';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { ChoquesDeFechaService } from '../choques/choques.service';
 import { EnvioCotizacionService } from '../envio-cotizacion.service';
@@ -61,6 +62,12 @@ describe('QuotationsController', () => {
           ve,
           deLaLista,
           exigirElTipoDelCliente,
+        }),
+        // El edificio de color (doc 24 §7): acá deja pasar las filas.
+        provideMock(MarcasDeConvenio, {
+          enCotizaciones: jest.fn((_co: number, filas: unknown[]) =>
+            Promise.resolve(filas),
+          ),
         }),
       ],
     }).compile();

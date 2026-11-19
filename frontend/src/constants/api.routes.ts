@@ -81,6 +81,8 @@ export const API_ROUTES = {
   ANALYTICS_HOY: "/analytics/hoy",
   CLIENT_CONTACTS: "/client-contacts",
   PORTAL: "/portal",
+  // La página pública del convenio del cliente (doc 24).
+  CONVENIO_PUBLICO: "/convenio-publico",
   PORTAL_RECEIPTS: "/portal-receipts",
   SECTIONS: "/sections",
   SECTIONS_MENU_ORDER: "/sections/menu-order",

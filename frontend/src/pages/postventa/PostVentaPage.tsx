@@ -65,6 +65,7 @@ import { useReembolsosDelEvento } from "../../hooks/useReembolsosDelEvento";
 import BarraDelEvento from "./BarraDelEvento";
 import CabeceraDelPlan from "./PlanDePagosDelEvento";
 import { armarFilas, type EventRow } from "./filasDePostVenta";
+import EdificioConvenio from "../../components/clientes/EdificioConvenio";
 import RegistrarReembolsoPanel from "./RegistrarReembolsoPanel";
 import ReembolsosDelEvento from "./ReembolsosDelEvento";
 import FormularioDeRegistro, {
@@ -701,8 +702,9 @@ export default function PostVentaPage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
                           {r.clientName}
+                          <EdificioConvenio convenio={r.convenio} />
                         </div>
                         <div className="text-xs text-gray-500">
                           {r.clientType || ""}
@@ -1163,6 +1165,7 @@ function EventModal({
               <h2 className="text-xl font-bold text-gray-900">
                 {event.clientName}
               </h2>
+              <EdificioConvenio convenio={event.convenio} />
               {event.clientType && (
                 <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                   {event.clientType}

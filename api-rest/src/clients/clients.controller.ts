@@ -24,6 +24,7 @@ import {
   sinMontosDelResumen,
 } from './alcance-de-recepcion';
 import { ClientsService } from './clients.service';
+import { MarcasDeConvenio } from './convenios/marcas-de-convenio';
 import { CreateClientTypeDto } from './dto/create-client-type.dto';
 import { CreateClientDto } from './dto/create-client.dto';
 import { ReorderClientTypesDto } from './dto/reorder-client-types.dto';
@@ -37,6 +38,8 @@ export class ClientsController {
     private readonly logger: PinoLogger,
     // Recepción ve montos solo de los clientes particulares (doc 21).
     private readonly alcance: AlcanceDeRecepcion,
+    // El edificio de color de quien tiene convenio (doc 24 §7).
+    private readonly marcas: MarcasDeConvenio,
   ) {
     this.logger.setContext(ClientsController.name);
   }
@@ -142,9 +145,10 @@ export class ClientsController {
     'oportunidades',
   )
   @Get()
-  findAll(@CurrentUser() user: User) {
+  async findAll(@CurrentUser() user: User) {
     this.logger.info(`GET /clients with user ${user.id}`);
-    return this.clientsService.findAll(user.company_id);
+    const clientes = await this.clientsService.findAll(user.company_id);
+    return this.marcas.enClientes(user.company_id, clientes);
   }
 
   // @Get(':id')

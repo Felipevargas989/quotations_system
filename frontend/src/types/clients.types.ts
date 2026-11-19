@@ -1,5 +1,15 @@
 import { Company } from "./companies.types";
 
+/** El convenio vigente del cliente para el edificio de color (doc 24 §7).
+ *  Lo trae `GET /clients` (y el cliente de `GET /quotations`) solo si el
+ *  cliente tiene uno enviado o firmado; si no, la llave no viene. */
+export interface MarcaDeConvenio {
+  estado: "enviado" | "firmado";
+  enviado_at: string | null;
+  firmado_at: string | null;
+  vence_at: string | null;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -28,6 +38,8 @@ export interface Client {
     phone?: string | null;
     is_primary?: boolean;
   }[];
+  /** El edificio de color (doc 24 §7). */
+  convenio?: MarcaDeConvenio;
 }
 
 export interface ClientFormData
@@ -40,6 +52,7 @@ export interface ClientFormData
     | "quotation_count"
     | "quotation_statuses"
     | "client_contacts"
+    | "convenio"
   > {
   /** Correo/teléfono de la persona principal al CREAR un cliente: el
    *  backend los usa para sembrarla (garantía de nacimiento, 31-07). */

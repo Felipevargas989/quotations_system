@@ -1,6 +1,7 @@
 import type { PaymentWithTransactions } from "../../services/paymentTransactions.service";
 import { normalizeText } from "../../utils/searchMatch";
 import { cuotaStatus } from "./estadoCuota";
+import type { MarcaDeConvenio } from "../../types/clients.types";
 
 // One row per closed event (quotation), aggregated from its payment plan.
 export interface EventRow {
@@ -8,6 +9,8 @@ export interface EventRow {
   quotationNumber: number;
   clientName: string;
   clientType?: string;
+  /** El edificio de color si el cliente tiene convenio (doc 24 §7). */
+  convenio?: MarcaDeConvenio;
   contactPerson?: string;
   phone?: string;
   contactEmail?: string;
@@ -57,6 +60,7 @@ interface CotizacionDeLaFila {
 interface ClienteDeLaLista {
   name: string;
   client_type?: string;
+  convenio?: MarcaDeConvenio;
   contact_person?: string;
   phone?: string;
 }
@@ -149,6 +153,7 @@ export function armarFilas({
       quotationNumber: q?.quotation_number ?? 0,
       clientName: q?.clients?.name || "—",
       clientType: client?.client_type,
+      convenio: client?.convenio,
       contactPerson,
       phone,
       contactEmail,
