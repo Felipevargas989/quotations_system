@@ -4,13 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
+import { MarcasDeConvenio } from 'src/clients/convenios/marcas-de-convenio';
 import {
   CrearAudienciaDto,
   ImportarContactosDto,
   PreviaSegmentoDto,
 } from './dto/marketing.dto';
 import { MarketingRepository } from './marketing.repository';
-import { FiltroSegmento, resolverSegmento } from './segmento';
+import {
+  ConveniosDelSegmento,
+  FiltroSegmento,
+  resolverSegmento,
+} from './segmento';
 
 /**
  * LA ESTANTERÍA DE AUDIENCIAS: guardadas (preguntas vivas) e
@@ -26,6 +32,8 @@ export class AudienciasService {
   constructor(
     private readonly repo: MarketingRepository,
     private readonly logger: PinoLogger,
+    private readonly marcas: MarcasDeConvenio,
+    private readonly alcance: AlcanceDeRecepcion,
   ) {
     this.logger.setContext(AudienciasService.name);
   }
@@ -160,6 +168,28 @@ export class AudienciasService {
     return this.repo.tiposDeEvento(companyId);
   }
 
+  // ---- El filtro «Convenio» (doc 24 §9) ----
+  /** ¿Se muestra el filtro? Solo si la empresa tiene plantilla de
+   *  convenio, igual que la tarjeta de la ficha. */
+  hayConvenio(companyId: number): Promise<boolean> {
+    return this.marcas.hayPlantilla(companyId);
+  }
+
+  /** Lo que el filtro necesita, en UNA pasada por empresa: los firmados
+   *  (la misma lectura del edificio de color) y los tipos particulares
+   *  (los de recepción, doc 21). Solo se trae si algún filtro lo mira. */
+  private async conveniosDe(
+    companyId: number,
+    filtros: readonly FiltroSegmento[],
+  ): Promise<ConveniosDelSegmento | undefined> {
+    if (!filtros.some((f) => f.convenio)) return undefined;
+    const [firmados, particulares] = await Promise.all([
+      this.marcas.firmadosDeLaEmpresa(companyId),
+      this.alcance.particulares(companyId),
+    ]);
+    return { firmados, particulares };
+  }
+
   // ---- Fase 3: el segmento desde los datos de la casa ----
   // El filtro decide por CLIENTES; el resultado son sus PERSONAS
   // (client_contacts con correo; respaldo: el correo de la ficha).
@@ -175,12 +205,13 @@ export class AudienciasService {
         filtro.aniversario ||
         filtro.monto_min != null,
     );
-    const [clientes, cotizaciones, contactos] = await Promise.all([
+    const [clientes, cotizaciones, contactos, convenios] = await Promise.all([
       this.repo.clientesSegmentables(companyId),
       miraCotizaciones
         ? this.repo.cotizacionesSegmentables(companyId)
         : Promise.resolve([]),
       this.repo.contactosDeClientes(companyId),
+      this.conveniosDe(companyId, [filtro]),
     ]);
     return resolverSegmento(
       clientes,
@@ -188,6 +219,7 @@ export class AudienciasService {
       contactos,
       filtro,
       new Date().toISOString().slice(0, 10),
+      convenios,
     );
   }
 
@@ -242,10 +274,19 @@ export class AudienciasService {
         this.repo.suprimidos(companyId),
       ]);
     const hoy = new Date().toISOString().slice(0, 10);
+    const convenios = await this.conveniosDe(
+      companyId,
+      guardadas.map((a) => a.filtro as FiltroSegmento),
+    );
     const contar = (filtro: FiltroSegmento) =>
-      resolverSegmento(clientes, cotizaciones, contactos, filtro, hoy).filter(
-        (d) => !suprimidos.has(d.email.toLowerCase()),
-      ).length;
+      resolverSegmento(
+        clientes,
+        cotizaciones,
+        contactos,
+        filtro,
+        hoy,
+        convenios,
+      ).filter((d) => !suprimidos.has(d.email.toLowerCase())).length;
     return {
       guardadas: guardadas.map((a) => ({
         id: a.id,
