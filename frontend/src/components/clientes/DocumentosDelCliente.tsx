@@ -101,10 +101,10 @@ export default function DocumentosDelCliente({
               type="button"
               disabled={subiendo}
               onClick={() => entrada.current?.click()}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 disabled:opacity-50"
+              className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-blue-700 hover:text-blue-900 disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" />
-              {subiendo ? "Subiendo…" : "Agregar documento"}
+              {subiendo ? "Subiendo…" : "Agregar"}
             </button>
           ) : undefined
         }
