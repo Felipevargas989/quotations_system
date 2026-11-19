@@ -72,6 +72,9 @@ export default function MovimientosDelTurno({
       queryClient.setQueryData(["caja"], datos);
       // §9.55: lo que dice el sistema cambia con el movimiento.
       void queryClient.invalidateQueries({ queryKey: ["caja", "esperado"] });
+      // §9.57: la tarjeta «Gastos de 7 días» y la lista se ponen al día
+      // al anotar, sin recargar la página.
+      void queryClient.invalidateQueries({ queryKey: ["caja", "cierres"] });
       setNuevo(null);
     },
     onError: (e) =>
