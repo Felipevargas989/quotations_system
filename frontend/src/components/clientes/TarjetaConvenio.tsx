@@ -1,10 +1,9 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileUp, RefreshCw, Send } from "lucide-react";
+import { FileUp, Handshake, RefreshCw, Send } from "lucide-react";
 import Modal from "../Modal";
 import FileViewLink from "../FileViewLink";
 import SelectWithSearch from "../selects/SelectWithSearch";
-import TituloDeSeccion from "../grilla/TituloDeSeccion";
 import { toast } from "../toast/Toast";
 import { useArrastreDeArchivos } from "../../hooks/useArrastreDeArchivos";
 import { uploadClientDocument } from "../../services/storage.service";
@@ -111,8 +110,10 @@ export default function TarjetaConvenio({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-4">
-      <TituloDeSeccion titulo="Convenio" color="verde" />
+    <div className="bg-white rounded-lg shadow p-6 space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <Handshake size={18} /> Convenio
+      </h2>
       <div>
         <span className={`${CHIP} ${clases}`}>{chip}</span>
         <p className="mt-1 text-xs text-gray-600">
