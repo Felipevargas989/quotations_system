@@ -2,8 +2,12 @@ import type {
   CambioDeTipo,
   Persona,
   ResultadoDelCambio,
+  ResultadoDelOrigen,
 } from "../../types/people.types";
-import { etiquetaTipoPersona } from "../../utils/estadoPersona";
+import {
+  etiquetaTipoPersona,
+  type TipoPersona,
+} from "../../utils/estadoPersona";
 
 /**
  * LA VENTANA «DESDE» Y EL HISTORIAL DE TIPO (doc 10 §12, 17-11-2026).
@@ -103,4 +107,59 @@ export const textosDeLaVentana = (
         ? `${dias(r.sinTocar)} quedan sin tocar: ya están en una liquidación o nómina.`
         : null;
   return { lineas, aviso };
+};
+
+/**
+ * LA LÍNEA DE ORIGEN (doc 10 §12.1, 19-11-2026). Felipe: "la gente de
+ * planta toda está (a excepción de Sofía) desde que empezamos con el
+ * sistema". El historial nunca se ve vacío: al final va el tipo que tenía
+ * antes del primer cambio (sin historial, el de hoy), «desde que empezó en
+ * el sistema». Se deriva; no se escribe nada en la base.
+ */
+export const lineaDeOrigen = (
+  persona: Pick<Persona, "default_kind" | "historial_tipo">,
+): { kind: TipoPersona; hasta: string | null } => {
+  const cambios = historialReciente(persona.historial_tipo);
+  const primero = cambios[cambios.length - 1];
+  if (primero) return { kind: primero.anterior, hasta: primero.desde };
+  return {
+    kind: persona.default_kind === "planta" ? "planta" : "freelance",
+    hasta: null,
+  };
+};
+
+/** Lo que la ventana dice al anotar desde cuándo: qué pasa con sus días
+ *  desde esa fecha y que los de antes quedan como están. Sin alarma: el
+ *  único ámbar es lo que está en una nómina. */
+export const textosDelOrigen = (
+  r: ResultadoDelCambio & Partial<Pick<ResultadoDelOrigen, "antes">>,
+): { lineas: string[]; aviso: string | null } => {
+  const fecha = diaYMes(r.desde);
+  const tipo = etiquetaTipoPersona(r.kind).toLowerCase();
+  const lineas: string[] = [];
+  if (r.aPlanta > 0) {
+    lineas.push(
+      `${dias(r.aPlanta)} de staff desde el ${fecha} ${r.aPlanta === 1 ? "pasa" : "pasan"} a planta.`,
+    );
+  }
+  if (r.quitan > 0) {
+    lineas.push(
+      `Se le ${r.quitan === 1 ? "quita" : "quitan"} ${dias(r.quitan)} de planta que puso el sistema.`,
+    );
+  }
+  if (r.aFreelance > 0) {
+    lineas.push(
+      `${dias(r.aFreelance)} desde el ${fecha} ${r.aFreelance === 1 ? "queda" : "quedan"} como freelance.`,
+    );
+  }
+  if (r.aPlanta + r.quitan + r.aFreelance === 0) {
+    lineas.push(`Sus días desde el ${fecha} ya están como ${tipo}.`);
+  }
+  const antes = r.antes ?? 0;
+  if (antes > 0) {
+    lineas.push(
+      `${dias(antes)} de antes del ${fecha} ${antes === 1 ? "queda" : "quedan"} como ${antes === 1 ? "está" : "están"}.`,
+    );
+  }
+  return { lineas, aviso: textosDeLaVentana(r).aviso };
 };

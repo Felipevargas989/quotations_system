@@ -349,6 +349,7 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
         ),
       guardarTipo: jest.fn().mockResolvedValue(undefined),
       tiposGuardados: jest.fn().mockResolvedValue([]),
+      cuantosDiasDeStaffAntes: jest.fn().mockResolvedValue(0),
     };
     const people = {
       findOne: jest.fn().mockResolvedValue(persona),
@@ -504,5 +505,152 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
     ]);
     expect(await service.ponerAlDia(1)).toBe(1);
     expect(repo.guardarTipo).toHaveBeenCalledWith(1, 7, 'planta');
+  });
+
+  // ---- Anotar desde cuándo (doc 10 §12.1, 19-11-2026) ----
+  // Felipe: "la gente de planta toda está (a excepción de Sofía) desde que
+  // empezamos con el sistema". El caso Sofía: planta sin historial, que
+  // hay que anotar «planta desde el 01-11», antes freelance.
+
+  it('anotar desde cuándo sin historial: registra su tipo de hoy con el otro de antes, sin tocar default_kind ni proyectar', async () => {
+    const desde = mas(HOY, -18);
+    const { service, repo, people, peopleService } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [
+        fila({ id: 2, day: mas(HOY, -10), amount: 30000 }), // freelance: pasa
+        fila({ id: 3, day: mas(HOY, -9), kind: 'planta' }), // ya calza
+      ],
+    );
+    repo.cuantosDiasDeStaffAntes.mockResolvedValue(4);
+    const r = await service.anotarOrigen(1, 7, { desde }, USUARIO);
+    expect(repo.diasDeStaffDesde).toHaveBeenCalledWith(1, 7, desde);
+    expect(repo.cambiarDias).toHaveBeenCalledTimes(1);
+    expect(repo.cambiarDias).toHaveBeenCalledWith(
+      1,
+      [2],
+      expect.objectContaining({ kind: 'planta', amount: null }),
+    );
+    expect(people.removeStaffEnLote).toHaveBeenCalledWith([], 1);
+    expect(repo.registrar).toHaveBeenCalledWith({
+      company_id: 1,
+      person_id: 7,
+      kind: 'planta',
+      anterior: 'freelance',
+      desde,
+      registrado_por: 'u-1',
+      registrado_por_nombre: 'Felipe',
+    });
+    expect(repo.guardarTipo).not.toHaveBeenCalled();
+    expect(peopleService.proyectarPlanta).not.toHaveBeenCalled();
+    expect(r).toMatchObject({
+      kind: 'planta',
+      anterior: 'freelance',
+      aPlanta: 1,
+      antes: 4,
+      futuro: false,
+    });
+  });
+
+  it('anotar desde cuándo: los días anteriores a la fecha no se tocan nunca, aunque sean de planta', () => {
+    const desde = mas(HOY, -18);
+    // Lo que el motor arma al anotar: planta desde la fecha, antes freelance.
+    const plan = planDelCambioDeTipo({
+      filas: [
+        fila({ id: 1, day: mas(HOY, -25), kind: 'planta' }),
+        fila({ id: 2, day: mas(HOY, -19), kind: 'planta', ajuste: 'descansa' }),
+        fila({ id: 3, day: mas(HOY, -20), kind: 'freelance' }),
+      ],
+      persona: {
+        historial_tipo: [
+          { kind: 'planta', anterior: 'freelance', desde },
+        ] as CambioDeTipo[],
+      },
+      desde,
+      hoy: HOY,
+      liquidados: new Set(),
+    });
+    expect(plan.cambios).toEqual([]);
+    expect(plan.quitar).toEqual([]);
+    expect(plan.sinTocar).toBe(0);
+  });
+
+  it('anotar desde cuándo: lo que está en nómina no se toca y se cuenta; los eventos no cambian', async () => {
+    const desde = mas(HOY, -18);
+    const { service, repo } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [
+        fila({ id: 2, day: mas(HOY, -10), payroll_id: 9 }),
+        fila({ id: 3, day: mas(HOY, -8), quotation_id: 'q-1' }),
+        fila({ id: 4, day: mas(HOY, -7) }),
+      ],
+    );
+    const r = await service.previaDelOrigen(1, 7, { desde });
+    expect(r).toMatchObject({ aPlanta: 1, sinTocar: 1, antes: 0 });
+    expect(repo.cambiarDias).not.toHaveBeenCalled();
+    expect(repo.registrar).not.toHaveBeenCalled();
+  });
+
+  it('anotar desde cuándo a un freelance sin historial: freelance desde la fecha, antes planta', async () => {
+    const desde = mas(HOY, -5);
+    const { service, repo } = armar(
+      {
+        id: 8,
+        status: 'activa',
+        default_kind: 'freelance',
+        historial_tipo: [],
+      },
+      [],
+    );
+    await service.anotarOrigen(1, 8, { desde }, USUARIO);
+    expect(repo.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'freelance', anterior: 'planta' }),
+    );
+  });
+
+  it('anotar desde cuándo con historial se rechaza: se corrige con un cambio normal', async () => {
+    const { service, repo } = armar(
+      {
+        id: 7,
+        status: 'activa',
+        default_kind: 'planta',
+        historial_tipo: [
+          { kind: 'planta', anterior: 'freelance', desde: '2026-11-01' },
+        ],
+      },
+      [],
+    );
+    await expect(
+      service.anotarOrigen(1, 7, { desde: '2026-10-01' }, USUARIO),
+    ).rejects.toThrow('Ya tiene historial de tipo');
+    await expect(
+      service.previaDelOrigen(1, 7, { desde: '2026-10-01' }),
+    ).rejects.toThrow('Ya tiene historial de tipo');
+    expect(repo.registrar).not.toHaveBeenCalled();
+  });
+
+  it('anotar desde cuándo con fecha futura se rechaza; hoy sí vale', async () => {
+    const { service, repo } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [],
+    );
+    await expect(
+      service.anotarOrigen(1, 7, { desde: mas(HOY, 1) }, USUARIO),
+    ).rejects.toThrow('fecha pasada o de hoy');
+    expect(repo.registrar).not.toHaveBeenCalled();
+    await service.anotarOrigen(1, 7, { desde: HOY }, USUARIO);
+    expect(repo.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'planta', desde: HOY }),
+    );
+  });
+
+  it('el cambio normal sigue diciendo «Ya es de planta» aunque exista anotar desde cuándo', async () => {
+    const { service, repo } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [],
+    );
+    await expect(
+      service.previa(1, 7, { kind: 'planta', desde: '2026-11-01' }),
+    ).rejects.toThrow('Ya es de planta el 01-11-2026');
+    expect(repo.cuantosDiasDeStaffAntes).not.toHaveBeenCalled();
   });
 });

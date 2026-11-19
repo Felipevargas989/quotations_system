@@ -6,9 +6,11 @@ import type {
 import {
   diaYMes,
   historialReciente,
+  lineaDeOrigen,
   proximoCambio,
   textoDelProximo,
   textosDeLaVentana,
+  textosDelOrigen,
 } from "./tipoVigente";
 
 // LA VENTANA «DESDE» (doc 10 §12, 17-11-2026). Felipe: "la ventana desde
@@ -108,5 +110,42 @@ describe("textosDeLaVentana", () => {
       "Se le quitan 120 días de planta que puso el sistema.",
       "3 días que ya trabajó quedan como freelance, esperando su monto.",
     ]);
+  });
+});
+
+describe("la línea de origen y los textos de «desde cuándo» (§12.1)", () => {
+  it("sin historial: su tipo de hoy, desde el inicio", () => {
+    expect(
+      lineaDeOrigen({ default_kind: "planta", historial_tipo: [] }),
+    ).toEqual({ kind: "planta", hasta: null });
+  });
+
+  it("con historial: el «anterior» del primer cambio, hasta ese cambio", () => {
+    expect(
+      lineaDeOrigen({
+        default_kind: "freelance",
+        historial_tipo: [
+          cambio({
+            kind: "freelance",
+            anterior: "planta",
+            desde: "2026-12-01",
+          }),
+          cambio({
+            kind: "planta",
+            anterior: "freelance",
+            desde: "2026-11-01",
+          }),
+        ],
+      }),
+    ).toEqual({ kind: "freelance", hasta: "2026-11-01" });
+  });
+
+  it("los días de antes se dicen sin alarma; si nada cambia, también", () => {
+    const t = textosDelOrigen({ ...resultado({}), antes: 1 });
+    expect(t.lineas).toEqual([
+      "Sus días desde el 01-11 ya están como planta.",
+      "1 día de antes del 01-11 queda como está.",
+    ]);
+    expect(t.aviso).toBeNull();
   });
 });
