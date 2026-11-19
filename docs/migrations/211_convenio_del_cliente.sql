@@ -25,11 +25,18 @@
 --     cotización). El convenio firmado llega aquí solo.
 --
 -- La plantilla de Valle del Sol (empresa 1) va sembrada al final, con el
--- texto del PDF «CONVENIO SIMPLE VALLE DEL SOL - FORMATO BASE» SIN corregir
--- (lo que Felipe aún no decide queda igual: salta de OCTAVO a DÉCIMO, «En
--- Santiago» con tribunales de Santiago, y «servicios prestados por la
--- Empresa» en TERCERO III). La fecha fija del formato («10 de junio del
--- 2024») se cambió por {{fecha_firma}}: se usa la fecha real de la firma.
+-- texto del PDF «CONVENIO SIMPLE VALLE DEL SOL - FORMATO BASE». La fecha fija
+-- del formato («10 de junio del 2024») se cambió por {{fecha_firma}}: se usa
+-- la fecha real de la firma. Felipe corrigió tres frases el 19-11-2026 («Sí,
+-- corrígelos»): DÉCIMO pasa a NOVENO (saltaba de OCTAVO a DÉCIMO), «En
+-- Santiago, República de Chile» pasa a «En Quillón, República de Chile», y en
+-- TERCERO III «prestados por la Empresa» pasa a «prestados por la Prestadora».
+-- Queda IGUAL, a la espera de Felipe: el domicilio y los tribunales de NOVENO
+-- («comuna de Santiago, Región Metropolitana»); se cambia con un UPDATE de
+-- `convenio_plantillas.texto` (replace de esa frase), sin tocar lo firmado.
+--
+-- En el laboratorio la 211 se corrió antes de esa corrección; ahí se aplicó
+-- con el bloque 5 de abajo (idempotente: en una base nueva no cambia nada).
 --
 -- RLS encendida y nada para anon/authenticated: el motor entra con
 -- service_role y filtra por company_id. Permisos tabla por tabla; NUNCA
@@ -200,7 +207,7 @@ insert into public.convenio_plantillas
 select 1, 'Convenio simple', 'Convenio de beneficios',
 $plantilla$# CONVENIO DE BENEFICIOS PARA LOS TRABAJADORES ENTRE VALLE DEL SOL QUILLÓN SPA Y {{razon_social}}
 
-En Santiago, República de Chile, a {{fecha_firma}}, entre la sociedad VALLE DEL SOL QUILLÓN SPA Rol Único Tributario Nº 77.701.305-K, en adelante e indistintamente “el Prestador” o “el Recinto”, debidamente representada por don Hernán Felipe Vargas Droguett, cédula de identidad N° 17.505.025-6, domiciliados para estos efectos en Los Guindos #467, comuna de Quillón, Región de Ñuble, por una parte, y {{razon_social}}, RUT Nº {{rut_empresa}}, en adelante también denominada “la Empresa”, representada por su {{representante_cargo}}, don(a) {{representante_nombre}}, cédula nacional de identidad N° {{representante_rut}}, ambos domiciliados en {{domicilio}}, comuna de {{comuna}} Región de {{region}}, ambas referidas como “las Partes”, han acordado el siguiente convenio de beneficios:
+En Quillón, República de Chile, a {{fecha_firma}}, entre la sociedad VALLE DEL SOL QUILLÓN SPA Rol Único Tributario Nº 77.701.305-K, en adelante e indistintamente “el Prestador” o “el Recinto”, debidamente representada por don Hernán Felipe Vargas Droguett, cédula de identidad N° 17.505.025-6, domiciliados para estos efectos en Los Guindos #467, comuna de Quillón, Región de Ñuble, por una parte, y {{razon_social}}, RUT Nº {{rut_empresa}}, en adelante también denominada “la Empresa”, representada por su {{representante_cargo}}, don(a) {{representante_nombre}}, cédula nacional de identidad N° {{representante_rut}}, ambos domiciliados en {{domicilio}}, comuna de {{comuna}} Región de {{region}}, ambas referidas como “las Partes”, han acordado el siguiente convenio de beneficios:
 
 ## PRIMERO. OBJETO.
 
@@ -238,7 +245,7 @@ I. La Empresa acepta la oferta de beneficios indicados en la cláusula PRIMERO, 
 
 II. La Empresa no avala ni asume responsabilidad alguna respecto de las deudas de beneficiarios que decidan hacer uso del presente convenio.
 
-III. La Empresa no se obliga a pago alguno por los servicios prestados por la Empresa, respecto de los cuales hagan uso los Beneficiarios.
+III. La Empresa no se obliga a pago alguno por los servicios prestados por la Prestadora, respecto de los cuales hagan uso los Beneficiarios.
 
 IV. Los beneficios serán otorgados directamente por Valle Del Sol Quillón SpA y los pagos serán efectuados por los beneficiarios en forma directa a el Prestador otorgante de estos beneficios.
 
@@ -282,7 +289,7 @@ Para efectos de las comunicaciones a que hubiere lugar con ocasión de la ejecuc
 
 2. {{razon_social}}, correo electrónico {{correo_empresa}}, dirigido a don(a) {{representante_nombre}}.
 
-## DÉCIMO. RESOLUCIÓN DE CONFLICTOS.
+## NOVENO. RESOLUCIÓN DE CONFLICTOS.
 
 El presente Contrato se regirá e interpretará de acuerdo con las leyes de la República de Chile.
 
@@ -314,3 +321,21 @@ P.p. VALLE DEL SOL QUILLÓN SpA$plantilla$,
 'contacto@valledelsolquillon.cl'
 where exists (select 1 from public.companies where id = 1)
 on conflict (company_id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- 5. Las tres frases que corrigió Felipe (19-11-2026), para una base donde la
+--    plantilla ya se había sembrado con el texto anterior. Idempotente.
+-- ---------------------------------------------------------------------------
+update public.convenio_plantillas
+set texto = replace(replace(replace(texto,
+      'En Santiago, República de Chile, a {{fecha_firma}}',
+      'En Quillón, República de Chile, a {{fecha_firma}}'),
+      '## DÉCIMO. RESOLUCIÓN DE CONFLICTOS.',
+      '## NOVENO. RESOLUCIÓN DE CONFLICTOS.'),
+      'por los servicios prestados por la Empresa, respecto',
+      'por los servicios prestados por la Prestadora, respecto'),
+    actualizado_en = now()
+where company_id = 1
+  and (texto like '%En Santiago, República de Chile, a {{fecha_firma}}%'
+       or texto like '%## DÉCIMO. RESOLUCIÓN DE CONFLICTOS.%'
+       or texto like '%prestados por la Empresa, respecto%');
