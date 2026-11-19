@@ -131,6 +131,8 @@ export interface FormularioDeConvenio {
   personeria_fecha?: string;
   personeria_notario?: string;
   acepto: boolean;
+  /** doc 24 §8: la declaración de representación; la manda la misma casilla. */
+  declaro_representacion: boolean;
 }
 
 export const getConvenioPublico = async (

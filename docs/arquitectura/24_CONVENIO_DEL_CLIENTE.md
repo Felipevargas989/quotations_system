@@ -1,9 +1,11 @@
 # 24 — El convenio del cliente y sus documentos
 
-> Estado: **en el laboratorio** desde el 19-11-2026 (rama
-> `feature/convenio-del-cliente`, migración 211 solo en «Cotizador»). A
-> producción, solo con el «a producción» de Felipe. Mapa: `mapa/09_CLIENTES.md`
-> (flujo H, zona 18).
+> Estado: **en producción** desde el 19-11-2026 (PR #390, main `31ea16bd`;
+> migración 211 en las dos bases). **La declaración de representación (§8)**:
+> en el laboratorio desde el 19-11-2026 (rama
+> `feature/convenio-declaracion-de-representacion`, migración 212 solo en
+> «Cotizador»); a producción, solo con el «a producción» de Felipe. Mapa:
+> `mapa/09_CLIENTES.md` (flujo H, zona 18).
 
 ## 1. Qué pidió Felipe
 
@@ -38,6 +40,7 @@ pública) y la aprobó.
 | 14 | Si la firma queda y el PDF falla: «Firmado · PDF pendiente» y «Generar PDF»; nunca un «Firmado» sin documento y sin aviso | Gerente, 19-11 |
 | 15 | Aceptar dos veces seguidas no crea dos firmas ni dos PDF | Gerente, 19-11 |
 | 16 | Quién puede: ver, quien ve la ficha 360 (sección Clientes); enviar, subir y borrar, desde vendedor. Sin permiso nuevo: son los mismos cargos de esa sección | Gerente, 19-11 |
+| 18 | **La declaración de representación**: la casilla de la página pública dice «Declaro que tengo facultades para representar a la empresa y acepto el convenio en su nombre.», el motor no acepta sin ella y la guarda (`convenios.declara_representacion`, migración 212); la constancia del PDF lo dice con nombre, RUT y cargo. El contrato no cambia y la personería sigue opcional (§8) | Felipe, 19-11-2026: «Ya, excelente… me parece muy bien» |
 | 17 | **El edificio de color** marca quién tiene convenio: verde firmado, ámbar enviado sin firmar, gris de siempre sin convenio; al pasar el mouse, el detalle en una línea. Sin texto ni chip nuevo y sin rojo. Va en la lista de clientes y, chico junto al nombre y solo si hay convenio, en el cotizador, el negocio y Post-Venta (§7) | Felipe, maqueta, 19-11-2026: «A, el edificio» |
 
 ## 3. Cómo funciona
@@ -52,7 +55,8 @@ pública) y la aprobó.
    razón social del cliente (la primera de sus razones sociales o, si no
    tiene, su nombre) y el texto con los huecos a la vista.
 3. **Aceptar.** `POST /convenio-publico/:token/aceptar` (5 por minuto por
-   IP). Se validan los RUT (`RutChileno`), el correo y la casilla. La firma
+   IP). Se validan los RUT (`RutChileno`), el correo y la casilla (con la
+   declaración de representación, §8). La firma
    se escribe con «solo si sigue enviado» (y un candado en memoria por
    convenio): de dos pestañas, una firma y la otra recibe «Este convenio ya
    fue firmado el dd-mm-aaaa». Se guarda quién aceptó (nombre, RUT, cargo,
@@ -147,3 +151,29 @@ dd-mm-aaaa» (hora de Chile). Los tonos son los del chip de la ficha.
   estado «vencido» en esta versión).
 - Fuera de alcance: filtro por convenio en la lista, audiencias de campañas,
   el aviso del 30 % en el cotizador y recepción.
+
+## 8. La declaración de representación (19-11-2026)
+
+Felipe: *"Igual lo tiene que firmar alguien que tenga al menos la capacidad
+de representación de la empresa"* y *"la persona que firme debe ser como algo
+que diga, acepto [en] nombre de la empresa y tengo la capacidad de
+representación"*. Aprobó la propuesta: *"Ya, excelente… me parece muy bien"*.
+
+- **La casilla** (obligatoria) dice: «Declaro que tengo facultades para
+  representar a la empresa y acepto el convenio en su nombre.» Es una sola
+  casilla: manda `acepto` y `declaro_representacion`.
+- **El motor** no acepta sin `declaro_representacion: true` (en el DTO y otra
+  vez en `ConveniosService.aceptar`, para quien llame directo) y lo guarda en
+  `convenios.declara_representacion` (migración 212): `true` en lo aceptado
+  desde ahora; `null` en lo firmado antes y en papel.
+- **El PDF**: en la «Constancia de aceptación en línea», bajo la tabla, una
+  línea «{nombre}, RUT {rut}, {cargo}, declaró tener facultades para
+  representar a {razón social} y aceptó el convenio en su nombre.», y la nota
+  final cita la casilla que se marcó. **El texto del contrato no cambia.**
+- **Lo ya firmado no cambia**: sin la marca, el PDF (también si se vuelve a
+  generar con «Generar PDF») sale como antes, sin la línea y con la casilla
+  antigua citada.
+- **La personería** (documento, fecha, notario) sigue opcional.
+- **Al subir a producción**: la 212 primero, después el motor y la vitrina
+  juntos. Un motor nuevo con la vitrina antigua rechaza la aceptación (la
+  página antigua no manda la declaración) hasta que se suba la vitrina.
