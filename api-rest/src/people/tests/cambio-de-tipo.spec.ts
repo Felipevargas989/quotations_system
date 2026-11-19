@@ -321,6 +321,63 @@ describe('proyectarPlanta lee el tipo de cada día', () => {
     expect(creadas).toEqual([HOY]);
   });
 
+  it('anotar un origen pasado no cambia la proyección: crea y quita exactamente lo mismo que sin historial', async () => {
+    const base = {
+      id: 7,
+      status: 'activa',
+      default_kind: 'planta',
+      days_off: [0],
+    };
+    const sin = armar({ ...base, historial_tipo: [] });
+    const con = armar({
+      ...base,
+      historial_tipo: [
+        { kind: 'planta', anterior: 'freelance', desde: mas(HOY, -18) },
+      ],
+    });
+    // Lo que ya tiene de hoy en adelante, igual en los dos casos.
+    const suyas = [
+      { id: 1, day: mas(HOY, 1), kind: 'freelance', amount: 30000 },
+      { id: 2, day: mas(HOY, 2), kind: 'planta', amount: null },
+    ];
+    sin.repo.findDePersonaDesde.mockResolvedValue(suyas);
+    con.repo.findDePersonaDesde.mockResolvedValue(suyas);
+    await sin.service.proyectarPlanta(1, 7);
+    await con.service.proyectarPlanta(1, 7);
+    expect(con.repo.addStaffEnLote.mock.calls).toEqual(
+      sin.repo.addStaffEnLote.mock.calls,
+    );
+    expect(con.repo.removeStaffEnLote.mock.calls).toEqual(
+      sin.repo.removeStaffEnLote.mock.calls,
+    );
+    expect(con.repo.updateStaff.mock.calls).toEqual(
+      sin.repo.updateStaff.mock.calls,
+    );
+    // Y nunca mira el pasado: pide sus filas desde hoy.
+    expect(con.repo.findDePersonaDesde).toHaveBeenCalledWith(1, 7, HOY);
+    expect(diasCreados(con.repo.addStaffEnLote).every((d) => d >= HOY)).toBe(
+      true,
+    );
+  });
+
+  it('leer a la persona con su historial no reescribe nada: solo deriva el tipo', () => {
+    const p = conTipoVigente(
+      { id: 7, default_kind: 'planta' },
+      [
+        {
+          person_id: 7,
+          kind: 'planta',
+          anterior: 'freelance',
+          desde: mas(HOY, -18),
+        },
+      ],
+      HOY,
+    );
+    expect(p.default_kind).toBe('planta');
+    expect(tipoALaFecha(p, mas(HOY, -19))).toBe('freelance');
+    expect(tipoALaFecha(p, HOY)).toBe('planta');
+  });
+
   it('la sábana proyecta también a quien pasa a planta más adelante', async () => {
     const { service, repo } = armar({
       id: 7,
@@ -512,25 +569,24 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
   // empezamos con el sistema". El caso Sofía: planta sin historial, que
   // hay que anotar «planta desde el 01-11», antes freelance.
 
-  it('anotar desde cuándo sin historial: registra su tipo de hoy con el otro de antes, sin tocar default_kind ni proyectar', async () => {
+  it('anotar desde cuándo es SOLO un registro: no toca ningún día, ni default_kind, ni proyecta', async () => {
     const desde = mas(HOY, -18);
     const { service, repo, people, peopleService } = armar(
       { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
       [
-        fila({ id: 2, day: mas(HOY, -10), amount: 30000 }), // freelance: pasa
+        // El día extra en su día libre: freelance con monto, legítimo.
+        fila({ id: 2, day: mas(HOY, -10), amount: 30000 }),
         fila({ id: 3, day: mas(HOY, -9), kind: 'planta' }), // ya calza
+        fila({ id: 4, day: mas(HOY, 3), kind: 'freelance', amount: 25000 }),
       ],
     );
     repo.cuantosDiasDeStaffAntes.mockResolvedValue(4);
     const r = await service.anotarOrigen(1, 7, { desde }, USUARIO);
-    expect(repo.diasDeStaffDesde).toHaveBeenCalledWith(1, 7, desde);
-    expect(repo.cambiarDias).toHaveBeenCalledTimes(1);
-    expect(repo.cambiarDias).toHaveBeenCalledWith(
-      1,
-      [2],
-      expect.objectContaining({ kind: 'planta', amount: null }),
-    );
-    expect(people.removeStaffEnLote).toHaveBeenCalledWith([], 1);
+    expect(repo.cambiarDias).not.toHaveBeenCalled();
+    expect(people.removeStaffEnLote).not.toHaveBeenCalled();
+    expect(repo.guardarTipo).not.toHaveBeenCalled();
+    expect(peopleService.proyectarPlanta).not.toHaveBeenCalled();
+    expect(repo.registrar).toHaveBeenCalledTimes(1);
     expect(repo.registrar).toHaveBeenCalledWith({
       company_id: 1,
       person_id: 7,
@@ -540,54 +596,39 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
       registrado_por: 'u-1',
       registrado_por_nombre: 'Felipe',
     });
-    expect(repo.guardarTipo).not.toHaveBeenCalled();
-    expect(peopleService.proyectarPlanta).not.toHaveBeenCalled();
     expect(r).toMatchObject({
       kind: 'planta',
       anterior: 'freelance',
-      aPlanta: 1,
-      antes: 4,
-      futuro: false,
-    });
-  });
-
-  it('anotar desde cuándo: los días anteriores a la fecha no se tocan nunca, aunque sean de planta', () => {
-    const desde = mas(HOY, -18);
-    // Lo que el motor arma al anotar: planta desde la fecha, antes freelance.
-    const plan = planDelCambioDeTipo({
-      filas: [
-        fila({ id: 1, day: mas(HOY, -25), kind: 'planta' }),
-        fila({ id: 2, day: mas(HOY, -19), kind: 'planta', ajuste: 'descansa' }),
-        fila({ id: 3, day: mas(HOY, -20), kind: 'freelance' }),
-      ],
-      persona: {
-        historial_tipo: [
-          { kind: 'planta', anterior: 'freelance', desde },
-        ] as CambioDeTipo[],
-      },
       desde,
-      hoy: HOY,
-      liquidados: new Set(),
+      futuro: false,
+      distintos: 2,
+      antes: 4,
     });
-    expect(plan.cambios).toEqual([]);
-    expect(plan.quitar).toEqual([]);
-    expect(plan.sinTocar).toBe(0);
   });
 
-  it('anotar desde cuándo: lo que está en nómina no se toca y se cuenta; los eventos no cambian', async () => {
+  it('la vista previa de anotar desde cuándo cuenta lo que figura con el otro tipo, también lo de nómina, sin eventos y sin escribir', async () => {
     const desde = mas(HOY, -18);
-    const { service, repo } = armar(
+    const { service, repo, people } = armar(
       { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
       [
         fila({ id: 2, day: mas(HOY, -10), payroll_id: 9 }),
         fila({ id: 3, day: mas(HOY, -8), quotation_id: 'q-1' }),
         fila({ id: 4, day: mas(HOY, -7) }),
+        fila({ id: 5, day: mas(HOY, -6), solo_propina: true }),
       ],
     );
     const r = await service.previaDelOrigen(1, 7, { desde });
-    expect(r).toMatchObject({ aPlanta: 1, sinTocar: 1, antes: 0 });
+    expect(r).toEqual({
+      kind: 'planta',
+      anterior: 'freelance',
+      desde,
+      futuro: false,
+      distintos: 2,
+      antes: 0,
+    });
     expect(repo.cambiarDias).not.toHaveBeenCalled();
     expect(repo.registrar).not.toHaveBeenCalled();
+    expect(people.removeStaffEnLote).not.toHaveBeenCalled();
   });
 
   it('anotar desde cuándo a un freelance sin historial: freelance desde la fecha, antes planta', async () => {
