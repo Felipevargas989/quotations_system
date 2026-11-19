@@ -30,6 +30,7 @@ import {
   revisarLoQueCotiza,
   type CotizacionParaElAlcance,
 } from 'src/clients/alcance-de-recepcion';
+import { MarcasDeConvenio } from 'src/clients/convenios/marcas-de-convenio';
 import { DelEvento } from 'src/clients/del-evento.decorator';
 import { Company } from 'src/companies/entities/company.entity';
 import type { User } from 'src/users/entities/user.entity';
@@ -72,6 +73,8 @@ export class QuotationsController {
     // Lo que ve recepción: requerimientos y cotizaciones de particulares
     // (doc 21, 04-11-2026).
     private readonly alcance: AlcanceDeRecepcion,
+    // El edificio de color de quien tiene convenio (doc 24 §7).
+    private readonly marcas: MarcasDeConvenio,
   ) {
     this.logger.setContext(QuotationsController.name);
   }
@@ -189,7 +192,12 @@ export class QuotationsController {
     // sin plata. Y los permisos por cargo (doc 22 §4.4): sin Calendario no
     // hay vista de calendario, y sin Cotizaciones, Dashboard ni Personal,
     // solo requerimientos.
-    return this.alcance.deLaLista(user, filas, getQuotationsDto.vista);
+    const visibles = await this.alcance.deLaLista(
+      user,
+      filas,
+      getQuotationsDto.vista,
+    );
+    return this.marcas.enCotizaciones(user.company_id, visibles);
   }
 
   @Roles(...RECEPTION_AND_UP)

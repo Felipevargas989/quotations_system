@@ -18,6 +18,7 @@ import {
 import { ConveniosController } from './convenios/convenios.controller';
 import { ConveniosRepository } from './convenios/convenios.repository';
 import { ConveniosService } from './convenios/convenios.service';
+import { MarcasDeConvenio } from './convenios/marcas-de-convenio';
 import { RazonesSocialesController } from './razones-sociales/razones-sociales.controller';
 import { RazonesSocialesRepository } from './razones-sociales/razones-sociales.repository';
 import { RazonesSocialesService } from './razones-sociales/razones-sociales.service';
@@ -45,6 +46,7 @@ import { RazonesSocialesService } from './razones-sociales/razones-sociales.serv
     ConveniosRepository,
     ImpresoraDeConvenios,
     CorreosDeConvenios,
+    MarcasDeConvenio,
   ],
   // ClientContactsRepository también sale: el embudo de consultas
   // asegura al consultante como persona de contacto al convertir.
@@ -54,6 +56,8 @@ import { RazonesSocialesService } from './razones-sociales/razones-sociales.serv
     ClientContactsRepository,
     RazonesSocialesService,
     AlcanceDeRecepcion,
+    // El edificio de color en la lista de cotizaciones (doc 24 §7).
+    MarcasDeConvenio,
   ],
 })
 export class ClientsModule {}

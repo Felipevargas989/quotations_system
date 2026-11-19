@@ -1,15 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Plus,
-  Search,
-  Trash2,
-  Building,
-  Phone,
-  Mail,
-  ChevronRight,
-} from "lucide-react";
+import { Plus, Search, Trash2, Phone, Mail, ChevronRight } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import ConfirmInline from "../components/ConfirmInline";
 import MultiSelect, { MultiSelectOption } from "../components/MultiSelect";
@@ -30,6 +22,7 @@ import {
   reorderClientTypes,
 } from "../services/clientTypes.service";
 import { Client, ClientFormData } from "../types/clients.types";
+import EdificioConvenio from "../components/clientes/EdificioConvenio";
 import SelectWithSearch from "../components/selects/SelectWithSearch";
 import { tieneDerecho } from "../constants/permissions";
 import { tiposQueTrabaja } from "../utils/recepcion";
@@ -853,7 +846,12 @@ export default function ClientsPage() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center min-w-0">
-                        <Building className="h-8 w-8 text-gray-400 mr-3 shrink-0" />
+                        {/* El edificio de color: verde firmado, ámbar
+                            enviado (doc 24 §7). */}
+                        <EdificioConvenio
+                          convenio={client.convenio}
+                          variante="lista"
+                        />
                         <div className="min-w-0">
                           <div
                             className="text-sm font-medium text-gray-900 truncate"

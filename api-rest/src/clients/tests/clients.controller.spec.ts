@@ -4,6 +4,7 @@ import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { mockPinoLogger, provideMock } from '../../testing/mocks';
 import { ClientsController } from '../clients.controller';
 import { ClientsService } from '../clients.service';
+import { MarcasDeConvenio } from '../convenios/marcas-de-convenio';
 
 // Esqueleto reparado (Fase 2 Bloque B): el controller se construye con
 // sus servicios mockeados — nunca instanciar servicios reales acá.
@@ -31,6 +32,12 @@ describe('ClientsController', () => {
           remove: jest.fn().mockResolvedValue({}),
         }),
         { provide: PinoLogger, useValue: mockPinoLogger() },
+        // El edificio de color (doc 24 §7).
+        provideMock(MarcasDeConvenio, {
+          enClientes: jest.fn((_co: number, c: unknown[]) =>
+            Promise.resolve(c),
+          ),
+        }),
       ],
     }).compile();
 

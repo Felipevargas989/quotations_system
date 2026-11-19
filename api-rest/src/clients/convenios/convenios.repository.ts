@@ -95,6 +95,43 @@ export class ConveniosRepository {
     return (data as PlantillaDeConvenio | null) ?? null;
   }
 
+  /** ¿La empresa tiene plantilla activa? (liviana: sin el texto). */
+  async tienePlantilla(companyId: number): Promise<boolean> {
+    const { count, error } = await this.db
+      .from('convenio_plantillas')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('activa', true);
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  }
+
+  /** Los convenios vigentes de TODA la empresa, para el edificio de color
+   *  (doc 24 §7): una consulta por empresa, nunca una por cliente. */
+  async vigentesDeLaEmpresa(companyId: number): Promise<
+    {
+      client_id: string;
+      estado: 'enviado' | 'firmado';
+      enviado_at: string | null;
+      firmado_at: string | null;
+      vence_at: string | null;
+    }[]
+  > {
+    const { data, error } = await this.db
+      .from('convenios')
+      .select('client_id, estado, enviado_at, firmado_at, vence_at')
+      .eq('company_id', companyId)
+      .in('estado', VIGENTES);
+    if (error) throw error;
+    return (data ?? []) as {
+      client_id: string;
+      estado: 'enviado' | 'firmado';
+      enviado_at: string | null;
+      firmado_at: string | null;
+      vence_at: string | null;
+    }[];
+  }
+
   async clienteDe(
     companyId: number,
     clientId: string,
