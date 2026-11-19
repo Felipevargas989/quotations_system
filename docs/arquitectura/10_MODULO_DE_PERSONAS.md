@@ -1413,6 +1413,10 @@ que editar la ficha (`personal`). Sin migración.
 
 ## 13. LA GENTE DE LOS OTROS EVENTOS DEL DÍA (19-11-2026)
 
+**En el laboratorio y en producción desde el 19-11-2026 (PR #388), sin
+migración.** Probado en pantalla en el laboratorio con los eventos #426 y
+#400.
+
 Decidido por Felipe el 19-11-2026. Cuando hay dos o tres eventos los
 mismos días, el personal trabaja en todos, pero la propina se liquidaba
 evento por evento y solo con la gente anotada en ese evento (más la
