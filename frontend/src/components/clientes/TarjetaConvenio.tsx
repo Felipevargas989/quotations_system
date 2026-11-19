@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileUp, RefreshCw, Send } from "lucide-react";
 import Modal from "../Modal";
@@ -117,10 +117,10 @@ export default function TarjetaConvenio({
         <span className={`${CHIP} ${clases}`}>{chip}</span>
         <p className="mt-1 text-xs text-gray-600">
           {detalle.split(" · ").map((parte, i) => (
-            <span key={i} className="whitespace-nowrap">
+            <Fragment key={i}>
               {i > 0 && " · "}
-              {parte}
-            </span>
+              <span className="whitespace-nowrap">{parte}</span>
+            </Fragment>
           ))}
           {aviso && (
             <span className="ml-1 whitespace-nowrap font-semibold text-amber-700">
