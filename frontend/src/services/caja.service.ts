@@ -221,6 +221,9 @@ export interface ResumenDeLaCadena {
   /** La suma de las diferencias de efectivo de los cerrados (negativa
    *  falta, positiva sobra). */
   efectivo_que_falta: number;
+  /** §9.58: las sobras de efectivo de la ventana (≥ 0); falta con el motor
+   *  de antes. */
+  efectivo_que_sobra?: number;
   /** La suma de las aperturas con menos que el cierre anterior (≤ 0). */
   perdido_entre_turnos: number;
   por_revisar: number;
