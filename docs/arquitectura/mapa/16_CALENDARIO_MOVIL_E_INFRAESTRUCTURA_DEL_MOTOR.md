@@ -147,6 +147,7 @@ Baldes de Supabase Storage (no son tablas, pero viven en el mismo proyecto):
    | `refund-receipt` | `payment-receipts` | `c<empresa>/refund-receipts/<cotización>/<reembolso>_<marca>.<ext>` | `quotation_id`, `refund_id` | la ruta |
    | `event-document` | `payment-receipts` | `c<empresa>/event-documents/<cotización>/<categoría>/<marca>_<archivo>` | `quotation_id` (`category` opcional) | la ruta |
    | `consulta-brochure` | `payment-receipts` | `c<empresa>/consulta-brochures/<tipo de evento>/<marca>_<archivo>` | `category` (sin él, usa "general") | la ruta |
+   | `client-document` (19-11-2026, doc 24) | `payment-receipts` | `c<empresa>/client-documents/<cliente>/<marca>_<archivo>` | `client_id` | la ruta |
    | `portal-receipt` | `payment-receipts` | `c<empresa>/portal-receipts/<cotización>/<marca>_<archivo>` | `quotation_id` | la ruta |
    | `furniture-photo` | `furniture-photos` | `<empresa>/<ítem>_<marca>.<ext>` | `item_id` | URL pública |
    | `company-logo` | `company-logos` | `<empresa>_logo.<ext>` (sobrescribe) | — | URL pública |

@@ -51,6 +51,9 @@ Hay 58 tablas vigentes: 57 salen de las migraciones y `client_types` la usa el c
 | `client_contacts` | Las personas del cliente: `name`, `email`, `phone`, `is_primary`, `portal_token` | 09 | 34; columnas en 35, 36 y 48 |
 | `client_types` | Catálogo de tipos de cliente por empresa (`name`, `sort_order`, deducidas del código) | 09 | **ninguna** |
 | `razones_sociales` | A quién se le factura, varias por cliente: `rut` (limpio, con CHECK), `razon_social`, `giro`, `direccion`, `comuna`, `ciudad`, `correo_facturacion` (uno o varios, con coma), `referencias_exigidas` (`text[]`, los códigos del SII que exige) y `origen`. `UNIQUE (client_id, rut)`; se va con su cliente (`cascade`) | 09 | 184 |
+| `convenio_plantillas` | El convenio de beneficios de cada empresa (una por empresa): texto con `{{variables}}`, beneficios, vigencia y correo de contacto. Sin fila, la empresa no ofrece convenio. RLS sin políticas; `service_role` solo lee | 09 | 211 |
+| `convenios` | El convenio de cada cliente (enviado o firmado, en línea o en papel) con la constancia de quién aceptó; el enlace se guarda solo como huella (`token_hash`). Uno vigente por cliente (índice único parcial). `service_role` sin borrar | 09 | 211 |
+| `client_documents` | Documentos que cuelgan del cliente (el convenio firmado llega solo). `service_role` lee, agrega y borra, sin editar | 09 | 211 |
 
 ## 40. Migración 210: el historial de tipo de una persona (17-11-2026)
 
@@ -345,7 +348,7 @@ Todas las funciones de negocio filtran la empresa **por dentro** (`company_id = 
 
 | Balde | Público | Qué guarda | Migración |
 |---|---|---|---|
-| `payment-receipts` (`BUCKET_PRIVADO` en `storage/storage.service.ts`) | **No**, desde la 42: se ve con enlace firmado que entrega el motor | Bajo `c<empresa>/`: `portal-receipts/`, `payment-receipts/`, `refund-receipts/`, `event-documents/` y `consulta-brochures/`. Hay rutas viejas sin prefijo, que `verificarDueno` resuelve leyendo la cotización | 9 (lo crea público); 42 (lo cierra) |
+| `payment-receipts` (`BUCKET_PRIVADO` en `storage/storage.service.ts`) | **No**, desde la 42: se ve con enlace firmado que entrega el motor | Bajo `c<empresa>/`: `portal-receipts/`, `payment-receipts/`, `refund-receipts/`, `event-documents/`, `consulta-brochures/` y `client-documents/` (doc 24; ahí también guarda el motor el convenio firmado en PDF, `StorageService.guardarDelMotor`). Hay rutas viejas sin prefijo, que `verificarDueno` resuelve leyendo la cotización | 9 (lo crea público); 42 (lo cierra) |
 | `furniture-photos` | Sí | Fotos del mobiliario | 20 |
 | `company-logos` | Sí | Logo, banner de la empresa y banners de campaña | **Ninguna**. Sus políticas `cl_*` solo aparecen para borrarlas (42) y recrearlas (reversa de la 42) |
 | `backups` | Privado según `BackupCronService` | `eventia_YYYY-MM-DD.json.gz` con todas las tablas públicas; se guardan 30 días | **Ninguna** |

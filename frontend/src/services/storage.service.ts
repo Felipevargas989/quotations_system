@@ -76,6 +76,13 @@ export const uploadEventDocument = async (
     category,
   });
 
+// Documento del cliente (doc 24): cuelga del cliente, no de un evento.
+export const uploadClientDocument = async (
+  file: File,
+  clientId: string,
+): Promise<UploadResult> =>
+  subir(file, { kind: "client-document", client_id: clientId });
+
 export const uploadCompanyLogo = async (
   _companyId: string,
   file: File,
