@@ -38,6 +38,26 @@ export class TipoDePersonaRepository {
     return (data ?? []) as FilaDeStaff[];
   }
 
+  /** Cuántos días de STAFF (sin evento, sin la fila solo-de-propina)
+   *  tiene ANTES de una fecha. Al anotar desde cuándo tiene su tipo (doc 10
+   *  §12.1) esos días quedan como están, y la ventana lo dice. */
+  async cuantosDiasDeStaffAntes(
+    companyId: number,
+    personId: number,
+    desde: string,
+  ): Promise<number> {
+    const { count, error } = await this.supabase.client
+      .from('event_staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('person_id', personId)
+      .is('quotation_id', null)
+      .or('solo_propina.is.null,solo_propina.eq.false')
+      .lt('day', desde);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
   /** Los mismos cambios a varias filas, en un viaje. */
   async cambiarDias(
     companyId: number,

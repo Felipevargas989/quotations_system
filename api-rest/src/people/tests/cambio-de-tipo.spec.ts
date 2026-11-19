@@ -321,6 +321,63 @@ describe('proyectarPlanta lee el tipo de cada día', () => {
     expect(creadas).toEqual([HOY]);
   });
 
+  it('anotar un origen pasado no cambia la proyección: crea y quita exactamente lo mismo que sin historial', async () => {
+    const base = {
+      id: 7,
+      status: 'activa',
+      default_kind: 'planta',
+      days_off: [0],
+    };
+    const sin = armar({ ...base, historial_tipo: [] });
+    const con = armar({
+      ...base,
+      historial_tipo: [
+        { kind: 'planta', anterior: 'freelance', desde: mas(HOY, -18) },
+      ],
+    });
+    // Lo que ya tiene de hoy en adelante, igual en los dos casos.
+    const suyas = [
+      { id: 1, day: mas(HOY, 1), kind: 'freelance', amount: 30000 },
+      { id: 2, day: mas(HOY, 2), kind: 'planta', amount: null },
+    ];
+    sin.repo.findDePersonaDesde.mockResolvedValue(suyas);
+    con.repo.findDePersonaDesde.mockResolvedValue(suyas);
+    await sin.service.proyectarPlanta(1, 7);
+    await con.service.proyectarPlanta(1, 7);
+    expect(con.repo.addStaffEnLote.mock.calls).toEqual(
+      sin.repo.addStaffEnLote.mock.calls,
+    );
+    expect(con.repo.removeStaffEnLote.mock.calls).toEqual(
+      sin.repo.removeStaffEnLote.mock.calls,
+    );
+    expect(con.repo.updateStaff.mock.calls).toEqual(
+      sin.repo.updateStaff.mock.calls,
+    );
+    // Y nunca mira el pasado: pide sus filas desde hoy.
+    expect(con.repo.findDePersonaDesde).toHaveBeenCalledWith(1, 7, HOY);
+    expect(diasCreados(con.repo.addStaffEnLote).every((d) => d >= HOY)).toBe(
+      true,
+    );
+  });
+
+  it('leer a la persona con su historial no reescribe nada: solo deriva el tipo', () => {
+    const p = conTipoVigente(
+      { id: 7, default_kind: 'planta' },
+      [
+        {
+          person_id: 7,
+          kind: 'planta',
+          anterior: 'freelance',
+          desde: mas(HOY, -18),
+        },
+      ],
+      HOY,
+    );
+    expect(p.default_kind).toBe('planta');
+    expect(tipoALaFecha(p, mas(HOY, -19))).toBe('freelance');
+    expect(tipoALaFecha(p, HOY)).toBe('planta');
+  });
+
   it('la sábana proyecta también a quien pasa a planta más adelante', async () => {
     const { service, repo } = armar({
       id: 7,
@@ -349,6 +406,7 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
         ),
       guardarTipo: jest.fn().mockResolvedValue(undefined),
       tiposGuardados: jest.fn().mockResolvedValue([]),
+      cuantosDiasDeStaffAntes: jest.fn().mockResolvedValue(0),
     };
     const people = {
       findOne: jest.fn().mockResolvedValue(persona),
@@ -504,5 +562,136 @@ describe('TipoDePersonaService: registrar el cambio con su historial', () => {
     ]);
     expect(await service.ponerAlDia(1)).toBe(1);
     expect(repo.guardarTipo).toHaveBeenCalledWith(1, 7, 'planta');
+  });
+
+  // ---- Anotar desde cuándo (doc 10 §12.1, 19-11-2026) ----
+  // Felipe: "la gente de planta toda está (a excepción de Sofía) desde que
+  // empezamos con el sistema". El caso Sofía: planta sin historial, que
+  // hay que anotar «planta desde el 01-11», antes freelance.
+
+  it('anotar desde cuándo es SOLO un registro: no toca ningún día, ni default_kind, ni proyecta', async () => {
+    const desde = mas(HOY, -18);
+    const { service, repo, people, peopleService } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [
+        // El día extra en su día libre: freelance con monto, legítimo.
+        fila({ id: 2, day: mas(HOY, -10), amount: 30000 }),
+        fila({ id: 3, day: mas(HOY, -9), kind: 'planta' }), // ya calza
+        fila({ id: 4, day: mas(HOY, 3), kind: 'freelance', amount: 25000 }),
+      ],
+    );
+    repo.cuantosDiasDeStaffAntes.mockResolvedValue(4);
+    const r = await service.anotarOrigen(1, 7, { desde }, USUARIO);
+    expect(repo.cambiarDias).not.toHaveBeenCalled();
+    expect(people.removeStaffEnLote).not.toHaveBeenCalled();
+    expect(repo.guardarTipo).not.toHaveBeenCalled();
+    expect(peopleService.proyectarPlanta).not.toHaveBeenCalled();
+    expect(repo.registrar).toHaveBeenCalledTimes(1);
+    expect(repo.registrar).toHaveBeenCalledWith({
+      company_id: 1,
+      person_id: 7,
+      kind: 'planta',
+      anterior: 'freelance',
+      desde,
+      registrado_por: 'u-1',
+      registrado_por_nombre: 'Felipe',
+    });
+    expect(r).toMatchObject({
+      kind: 'planta',
+      anterior: 'freelance',
+      desde,
+      futuro: false,
+      distintos: 2,
+      antes: 4,
+    });
+  });
+
+  it('la vista previa de anotar desde cuándo cuenta lo que figura con el otro tipo, también lo de nómina, sin eventos y sin escribir', async () => {
+    const desde = mas(HOY, -18);
+    const { service, repo, people } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [
+        fila({ id: 2, day: mas(HOY, -10), payroll_id: 9 }),
+        fila({ id: 3, day: mas(HOY, -8), quotation_id: 'q-1' }),
+        fila({ id: 4, day: mas(HOY, -7) }),
+        fila({ id: 5, day: mas(HOY, -6), solo_propina: true }),
+      ],
+    );
+    const r = await service.previaDelOrigen(1, 7, { desde });
+    expect(r).toEqual({
+      kind: 'planta',
+      anterior: 'freelance',
+      desde,
+      futuro: false,
+      distintos: 2,
+      antes: 0,
+    });
+    expect(repo.cambiarDias).not.toHaveBeenCalled();
+    expect(repo.registrar).not.toHaveBeenCalled();
+    expect(people.removeStaffEnLote).not.toHaveBeenCalled();
+  });
+
+  it('anotar desde cuándo a un freelance sin historial: freelance desde la fecha, antes planta', async () => {
+    const desde = mas(HOY, -5);
+    const { service, repo } = armar(
+      {
+        id: 8,
+        status: 'activa',
+        default_kind: 'freelance',
+        historial_tipo: [],
+      },
+      [],
+    );
+    await service.anotarOrigen(1, 8, { desde }, USUARIO);
+    expect(repo.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'freelance', anterior: 'planta' }),
+    );
+  });
+
+  it('anotar desde cuándo con historial se rechaza: se corrige con un cambio normal', async () => {
+    const { service, repo } = armar(
+      {
+        id: 7,
+        status: 'activa',
+        default_kind: 'planta',
+        historial_tipo: [
+          { kind: 'planta', anterior: 'freelance', desde: '2026-11-01' },
+        ],
+      },
+      [],
+    );
+    await expect(
+      service.anotarOrigen(1, 7, { desde: '2026-10-01' }, USUARIO),
+    ).rejects.toThrow('Ya tiene historial de tipo');
+    await expect(
+      service.previaDelOrigen(1, 7, { desde: '2026-10-01' }),
+    ).rejects.toThrow('Ya tiene historial de tipo');
+    expect(repo.registrar).not.toHaveBeenCalled();
+  });
+
+  it('anotar desde cuándo con fecha futura se rechaza; hoy sí vale', async () => {
+    const { service, repo } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [],
+    );
+    await expect(
+      service.anotarOrigen(1, 7, { desde: mas(HOY, 1) }, USUARIO),
+    ).rejects.toThrow('fecha pasada o de hoy');
+    expect(repo.registrar).not.toHaveBeenCalled();
+    await service.anotarOrigen(1, 7, { desde: HOY }, USUARIO);
+    expect(repo.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'planta', desde: HOY }),
+    );
+  });
+
+  it('el cambio normal sigue diciendo «Ya es de planta» aunque exista anotar desde cuándo', async () => {
+    const { service, repo } = armar(
+      { id: 7, status: 'activa', default_kind: 'planta', historial_tipo: [] },
+      [],
+    );
+    await expect(
+      service.previa(1, 7, { kind: 'planta', desde: '2026-11-01' }),
+    ).rejects.toThrow('Ya es de planta el 01-11-2026');
+    expect(repo.cuantosDiasDeStaffAntes).not.toHaveBeenCalled();
   });
 });

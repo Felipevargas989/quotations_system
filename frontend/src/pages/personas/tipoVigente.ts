@@ -2,8 +2,12 @@ import type {
   CambioDeTipo,
   Persona,
   ResultadoDelCambio,
+  ResultadoDelOrigen,
 } from "../../types/people.types";
-import { etiquetaTipoPersona } from "../../utils/estadoPersona";
+import {
+  etiquetaTipoPersona,
+  type TipoPersona,
+} from "../../utils/estadoPersona";
 
 /**
  * LA VENTANA «DESDE» Y EL HISTORIAL DE TIPO (doc 10 §12, 17-11-2026).
@@ -103,4 +107,44 @@ export const textosDeLaVentana = (
         ? `${dias(r.sinTocar)} quedan sin tocar: ya están en una liquidación o nómina.`
         : null;
   return { lineas, aviso };
+};
+
+/**
+ * LA LÍNEA DE ORIGEN (doc 10 §12.1, 19-11-2026). Felipe: "la gente de
+ * planta toda está (a excepción de Sofía) desde que empezamos con el
+ * sistema". El historial nunca se ve vacío: al final va el tipo que tenía
+ * antes del primer cambio (sin historial, el de hoy), «desde que empezó en
+ * el sistema». Se deriva; no se escribe nada en la base.
+ */
+export const lineaDeOrigen = (
+  persona: Pick<Persona, "default_kind" | "historial_tipo">,
+): { kind: TipoPersona; hasta: string | null } => {
+  const cambios = historialReciente(persona.historial_tipo);
+  const primero = cambios[cambios.length - 1];
+  if (primero) return { kind: primero.anterior, hasta: primero.desde };
+  return {
+    kind: persona.default_kind === "planta" ? "planta" : "freelance",
+    hasta: null,
+  };
+};
+
+/** Lo que la ventana dice al anotar desde cuándo. Es SOLO un registro
+ *  (revisión del 19-11-2026): ningún día cambia, y se dice sin alarma.
+ *  Si no hay días con el otro tipo ni días de antes, no se dice nada de
+ *  eso. */
+export const textosDelOrigen = (r: ResultadoDelOrigen): string[] => {
+  const fecha = diaYMes(r.desde);
+  const otro = etiquetaTipoPersona(r.anterior).toLowerCase();
+  const lineas: string[] = [];
+  if (r.distintos > 0) {
+    lineas.push(
+      `${dias(r.distintos)} desde el ${fecha} ${r.distintos === 1 ? "figura" : "figuran"} como ${otro}: ${r.distintos === 1 ? "queda como está" : "quedan como están"}.`,
+    );
+  }
+  if (r.antes > 0) {
+    lineas.push(
+      `${dias(r.antes)} de antes del ${fecha} ${r.antes === 1 ? "queda como está" : "quedan como están"}.`,
+    );
+  }
+  return lineas;
 };

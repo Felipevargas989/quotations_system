@@ -9,3 +9,10 @@ export class CambioDeTipoDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'La fecha va como 2026-11-01' })
   desde: string;
 }
+
+/** Anotar desde cuándo tiene su tipo de hoy quien no tiene historial (doc
+ *  10 §12.1): solo la fecha; el tipo lo pone el motor (el de hoy). */
+export class OrigenDelTipoDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'La fecha va como 2026-11-01' })
+  desde: string;
+}

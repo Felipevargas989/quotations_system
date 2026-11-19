@@ -14,6 +14,7 @@ import type {
   PagoPersona,
   Pozo,
   ResultadoDelCambio,
+  ResultadoDelOrigen,
 } from "../types/people.types";
 import type { TipoPersona } from "../utils/estadoPersona";
 
@@ -69,6 +70,22 @@ export const cambiarTipo = async (
     kind,
     desde,
   })) as ResultadoDelCambio;
+
+/** Anotar desde cuándo tiene su tipo de hoy quien no tiene historial (doc
+ *  10 §12.1): qué pasaría con sus días, sin tocar nada. */
+export const getPreviaDelOrigen = async (id: number, desde: string) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/${id}/tipo/origen/previa`,
+    "GET",
+    undefined,
+    { desde },
+  )) as ResultadoDelOrigen;
+
+/** Lo registra: su tipo de hoy desde ese día, y el otro antes. */
+export const anotarOrigen = async (id: number, desde: string) =>
+  (await apiRequest(`${API_ROUTES.PEOPLE}/${id}/tipo/origen`, "POST", {
+    desde,
+  })) as ResultadoDelOrigen;
 
 /** La misma queryKey en todas las pantallas = un solo caché que se
  *  invalida tras cada guardado. Igual que en clientes. */

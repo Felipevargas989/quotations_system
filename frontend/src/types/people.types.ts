@@ -96,6 +96,18 @@ export interface ResultadoDelCambio {
   sinTocar: number;
 }
 
+/** Anotar desde cuándo (doc 10 §12.1): solo un registro, ningún día
+ *  cambia. `distintos`: sus días de staff desde la fecha que figuran con el
+ *  otro tipo; `antes`: sus días de staff antes de la fecha. */
+export interface ResultadoDelOrigen {
+  kind: TipoPersona;
+  anterior: TipoPersona;
+  desde: string;
+  futuro: false;
+  distintos: number;
+  antes: number;
+}
+
 /** Lo que el formulario manda al guardar. Todo opcional salvo el nombre:
  *  se puede cargar a alguien con lo poco que se sepa e ir completando. */
 export interface PersonaFormData {
