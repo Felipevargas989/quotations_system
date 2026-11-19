@@ -116,9 +116,16 @@ export default function TarjetaConvenio({
       <div>
         <span className={`${CHIP} ${clases}`}>{chip}</span>
         <p className="mt-1 text-xs text-gray-600">
-          {detalle}
+          {detalle.split(" · ").map((parte, i) => (
+            <span key={i} className="whitespace-nowrap">
+              {i > 0 && " · "}
+              {parte}
+            </span>
+          ))}
           {aviso && (
-            <span className="ml-1 font-semibold text-amber-700">· {aviso}</span>
+            <span className="ml-1 whitespace-nowrap font-semibold text-amber-700">
+              · {aviso}
+            </span>
           )}
         </p>
       </div>
