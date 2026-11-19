@@ -108,6 +108,40 @@ describe('La cadena de un turno (§9.54)', () => {
   });
 });
 
+describe('El efectivo que falta no resta sobras ni lo que apareció después (§9.58)', () => {
+  const fila = (
+    diferencia_efectivo: number,
+    aparecio_despues = 0,
+  ): Parameters<typeof resumenDeLaCadena>[0][number] => ({
+    abierta_en: '2026-11-15T14:00:00Z',
+    estado: 'revisada',
+    diferencia_efectivo,
+    apertura: null,
+    aparecio_despues,
+  });
+
+  it('el caso de Felipe: sobraron 15.000 un día y otro declaró $0 que apareció al abrir', () => {
+    const r = resumenDeLaCadena([fila(15000), fila(-26850, 26850)], AHORA);
+    expect(r.efectivo_que_falta).toBe(0);
+    expect(r.efectivo_que_sobra).toBe(15000);
+  });
+
+  it('una falta de verdad no la tapa una sobra de otro turno', () => {
+    const r = resumenDeLaCadena([fila(15000), fila(-4000)], AHORA);
+    expect(r.efectivo_que_falta).toBe(-4000);
+    expect(r.efectivo_que_sobra).toBe(15000);
+  });
+
+  it('si apareció solo una parte, falta el resto; si apareció de más, no pasa a sobra', () => {
+    expect(
+      resumenDeLaCadena([fila(-10000, 6000)], AHORA).efectivo_que_falta,
+    ).toBe(-4000);
+    const r = resumenDeLaCadena([fila(-10000, 30000)], AHORA);
+    expect(r.efectivo_que_falta).toBe(0);
+    expect(r.efectivo_que_sobra).toBe(0);
+  });
+});
+
 describe('Las tres cifras de los 7 días (§9.54)', () => {
   it('suma el efectivo de los cerrados, lo perdido entre turnos (solo lo negativo) y cuenta los por revisar, dentro de los 7 días', () => {
     const r = resumenDeLaCadena(
@@ -143,7 +177,9 @@ describe('Las tres cifras de los 7 días (§9.54)', () => {
     );
     expect(r).toEqual({
       desde: '2026-11-09T23:30:00.000Z',
-      efectivo_que_falta: -26350,
+      // §9.58: los $500 que sobraron no bajan la falta; van aparte.
+      efectivo_que_falta: -26850,
+      efectivo_que_sobra: 500,
       perdido_entre_turnos: -2000,
       por_revisar: 2,
     });
@@ -265,7 +301,10 @@ describe('La lista de cierres como cadena del efectivo (§9.54)', () => {
     const { servicio } = armar([TURNO_B, TURNO_A, DOMINGO]);
     expect(await servicio.resumenDeCierres(ADMIN)).toEqual({
       desde: '2026-11-09T23:30:00.000Z',
-      efectivo_que_falta: -26850,
+      // §9.58: el turno A declaró $0, pero el B abrió con esos $26.850
+      // («Aparecieron…»): no faltó plata, se declaró mal.
+      efectivo_que_falta: 0,
+      efectivo_que_sobra: 0,
       perdido_entre_turnos: 0,
       por_revisar: 1,
       // §9.57: sin gastos en la semana.
@@ -297,7 +336,10 @@ describe('La lista de cierres como cadena del efectivo (§9.54)', () => {
     expect(lista).toHaveLength(60);
     const resumen = await servicio.resumenDeCierres(ADMIN);
     expect(r.turnosDesde).toHaveBeenCalledWith(1, '2026-11-09T23:30:00.000Z');
-    expect(resumen.efectivo_que_falta).toBe(-100 * 70);
+    // §9.58: cada turno declaró 900 y el siguiente abrió con 1.000: esos
+    // 100 aparecieron, no faltan. Solo el más nuevo, sin turno siguiente,
+    // cuenta su falta. Y la cuenta mira la semana entera (70 por revisar).
+    expect(resumen.efectivo_que_falta).toBe(-100);
     expect(resumen.por_revisar).toBe(70);
     // Cada apertura (1.000) contra el cierre anterior (900): sobran 100,
     // no es pérdida. El más viejo de la semana pide su anterior aparte.

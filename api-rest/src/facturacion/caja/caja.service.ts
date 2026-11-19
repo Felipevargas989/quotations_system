@@ -509,6 +509,15 @@ export class CajaService {
       this.delTurno(companyId, ids),
       this.repo.movimientos(companyId, ids),
     ]);
+    // §9.58: lo que cada turno abrió de más sobre el cierre anterior se le
+    // anota a ESE cierre: su «falta» de efectivo no fue plata perdida.
+    const aparecio = new Map<number, number>();
+    for (const t of conocidos) {
+      const anterior = turnoAnteriorEn(t, conocidos);
+      const a = compararApertura(t, anterior);
+      if (anterior && a && a.diferencia > 0)
+        aparecio.set(anterior.id, a.diferencia);
+    }
     const filas = new Map(
       aCuadrar.map((t) => {
         const c = cuadrar(
@@ -525,6 +534,7 @@ export class CajaService {
           {
             ...r,
             apertura: compararApertura(t, turnoAnteriorEn(t, conocidos)),
+            aparecio_despues: aparecio.get(t.id) ?? 0,
             ...cadenaDelTurno(r.estado !== 'abierta', c.lineas),
             vendido: c.vendido,
             declarado: c.declarado,

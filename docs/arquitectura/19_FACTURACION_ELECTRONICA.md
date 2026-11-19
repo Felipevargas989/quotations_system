@@ -3437,6 +3437,31 @@ cifras de la lista de cierres (§9.54): *"sí me tinca, hagámoslo"*.
 En la rama `feature/caja-gastos-7-dias` desde el 19-11-2026 (sin migración;
 motor y pantalla).
 
+### 9.58 «Efectivo que falta» no resta sobras ni lo que apareció después (19-11)
+
+Felipe, 19-11, mirando la tarjeta en producción: *"¿Cómo funciona eso de
+efectivo que falta? No me cuadra el número."* Decía −$11.850 y salía de
+sumar todo: sobraron $15.000 el sábado 14-11 y el lunes 16-11 un turno
+declaró $0 debiendo tener $26.850. Pero el turno siguiente abrió con esos
+mismos $26.850 («Aparecieron $26.850 que el cierre anterior no declaró»):
+no faltó plata, se declaró mal. Aprobó cambiarlo: *"Ok… veamos"*.
+
+1. **«Efectivo que falta, 7 días» suma solo las faltas** de los turnos
+   cerrados de la ventana. Una sobra de otro turno no la baja.
+2. **Lo que apareció en la apertura siguiente no falta.** Si el turno
+   siguiente de la misma caja abrió con más de lo que este declaró, esa
+   diferencia se le descuenta a su falta (hasta dejarla en cero, nunca la
+   convierte en sobra). `aparecio_despues` de la fila, que arma
+   `CajaService.laCadena` con `compararApertura`.
+3. **Las sobras van aparte:** `efectivo_que_sobra` del resumen, y en la
+   tarjeta una línea chica ámbar bajo la cifra, «Sobró $15.000». Sin sobras
+   no se muestra.
+4. **No cambia** la fila de cada turno (sigue diciendo «Faltan $26.850» en
+   el cierre que declaró $0, que es la verdad de ese cierre), ni «Perdido
+   entre turnos», ni el cuadre, ni el correo.
+
+Sin migración. Pruebas: `caja-cadena.spec.ts` (los casos §9.58).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de

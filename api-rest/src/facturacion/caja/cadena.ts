@@ -12,8 +12,10 @@ import type { LineaDelCuadre } from './cuadre';
  *   diferencia sumada de débito, crédito y transferencia.
  * - Con la caja abierta, nada de eso: el esperado no se muestra.
  * - Las tres cifras de arriba, sobre los turnos abiertos en los últimos 7
- *   días corridos (desde ahora − 7 × 24 h): el efectivo que falta (la suma de
- *   las diferencias de efectivo de los cerrados), lo perdido entre turnos (la
+ *   días corridos (desde ahora − 7 × 24 h): el efectivo que falta (solo las
+ *   faltas de los cerrados, sin restarles las sobras y sin lo que apareció
+ *   completo en la apertura siguiente; las sobras van aparte, §9.58), lo
+ *   perdido entre turnos (la
  *   suma de las aperturas con menos que el cierre anterior) y cuántos están
  *   por revisar. Desde el §9.57, una cuarta: los gastos de esa ventana.
  */
@@ -61,13 +63,19 @@ export interface FilaParaElResumen {
   estado: 'abierta' | 'por_revisar' | 'revisada';
   diferencia_efectivo: number | null;
   apertura: AperturaComparada | null;
+  /** §9.58: lo que el turno SIGUIENTE de la misma caja abrió de más sobre
+   *  lo que este declaró al cerrar («Aparecieron $X que el cierre anterior
+   *  no declaró»). Esa plata no falta: se declaró mal. */
+  aparecio_despues?: number;
 }
 
 export interface ResumenDeLaCadena {
   desde: string;
-  /** La suma de las diferencias de efectivo de los cerrados (negativa
-   *  falta, positiva sobra). */
+  /** §9.58: solo las FALTAS de efectivo de los cerrados (≤ 0), cada una
+   *  sin lo que apareció en la apertura siguiente. Las sobras no la bajan. */
   efectivo_que_falta: number;
+  /** §9.58: la suma de las SOBRAS de efectivo de los cerrados (≥ 0). */
+  efectivo_que_sobra: number;
   /** La suma de las aperturas con menos que el cierre anterior (≤ 0). */
   perdido_entre_turnos: number;
   por_revisar: number;
@@ -86,8 +94,14 @@ export const resumenDeLaCadena = (
   );
   return {
     desde,
-    efectivo_que_falta: enLaVentana.reduce(
-      (s, f) => s + (f.diferencia_efectivo ?? 0),
+    efectivo_que_falta: enLaVentana.reduce((s, f) => {
+      const d = f.diferencia_efectivo ?? 0;
+      if (d >= 0) return s;
+      // Lo que apareció en la apertura siguiente no falta (§9.58).
+      return s + Math.min(0, d + Math.max(0, f.aparecio_despues ?? 0));
+    }, 0),
+    efectivo_que_sobra: enLaVentana.reduce(
+      (s, f) => s + Math.max(0, f.diferencia_efectivo ?? 0),
       0,
     ),
     perdido_entre_turnos: enLaVentana.reduce(
