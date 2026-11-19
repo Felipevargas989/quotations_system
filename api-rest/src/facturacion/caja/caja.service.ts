@@ -19,7 +19,12 @@ import { textoLimpio } from '../archivo/texto';
 import { PulserasService } from '../pulseras/pulseras.service';
 import { SolicitudesRepository } from '../solicitudes/solicitudes.repository';
 import { compararApertura, turnoAnteriorEn } from './apertura';
-import { cadenaDelTurno, desdeDelResumen, resumenDeLaCadena } from './cadena';
+import {
+  cadenaDelTurno,
+  desdeDelResumen,
+  gastosDelResumen,
+  resumenDeLaCadena,
+} from './cadena';
 import type {
   AbrirCajaDto,
   CerrarCajaDto,
@@ -458,7 +463,8 @@ export class CajaService {
   }
 
   /** §9.54: las tres cifras de arriba, sobre los 7 días corridos reales
-   *  (no sobre la página de 60). */
+   *  (no sobre la página de 60). §9.57: y los gastos de esos 7 días, con su
+   *  lista. */
   async resumenDeCierres(user: User) {
     return (await this.laCadena(user.company_id, new Date())).resumen;
   }
@@ -532,7 +538,12 @@ export class CajaService {
     );
     return {
       lista: visibles.map((t) => filas.get(t.id)!),
-      resumen: resumenDeLaCadena([...filas.values()], ahora),
+      // §9.57: la cuarta cifra, los gastos de la misma ventana (con el
+      // turno abierto), de los movimientos ya leídos: ninguna consulta más.
+      resumen: {
+        ...resumenDeLaCadena([...filas.values()], ahora),
+        ...gastosDelResumen(aCuadrar, movimientos, ahora),
+      },
     };
   }
 

@@ -224,6 +224,21 @@ export interface ResumenDeLaCadena {
   /** La suma de las aperturas con menos que el cierre anterior (≤ 0). */
   perdido_entre_turnos: number;
   por_revisar: number;
+  /** §9.57: la suma de los gastos de caja de la misma ventana (con el turno
+   *  abierto). Sin el dato (el motor de antes), la tarjeta no se muestra. */
+  gastos?: number;
+  /** §9.57: esos gastos, del más nuevo al más viejo. */
+  lista_de_gastos?: GastoDeLaSemana[];
+}
+
+/** §9.57: un gasto de caja de los últimos 7 días. */
+export interface GastoDeLaSemana {
+  id: number;
+  turno_id: number;
+  monto: number;
+  motivo: string;
+  creado_por_nombre: string | null;
+  creado_en: string;
 }
 
 export const getResumenDeCierres = async (): Promise<ResumenDeLaCadena> =>

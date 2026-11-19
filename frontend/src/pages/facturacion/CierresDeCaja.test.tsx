@@ -503,3 +503,105 @@ describe("los cierres de la caja (§9.43)", () => {
     expect(gasto).toHaveTextContent("−$4.500");
   });
 });
+
+// «GASTOS DE 7 DÍAS» (doc 19 §9.57). Felipe, 19-11, con la maqueta: *"sí me
+// tinca, hagámoslo"*. La cuarta tarjeta, en la misma fila que las otras
+// tres; al tocarla, en qué se gastó.
+describe("los gastos de 7 días (§9.57)", () => {
+  const GASTOS = [
+    {
+      id: 2,
+      turno_id: 30,
+      monto: 3500,
+      motivo: "Pan para el desayuno",
+      creado_por_nombre: "Rosa",
+      creado_en: "2026-11-19T13:10:00Z",
+    },
+    {
+      id: 1,
+      turno_id: 29,
+      monto: 8000,
+      motivo: "Taxi al banco",
+      creado_por_nombre: "Ana",
+      creado_en: "2026-11-18T15:00:00Z",
+    },
+  ];
+  const cifra = async (etiqueta: string) =>
+    (await screen.findByText(etiqueta)).previousElementSibling as HTMLElement;
+
+  it("la cuarta tarjeta, en la misma fila y con el mismo aspecto, en ámbar si hay gastos", async () => {
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-12T15:00:00.000Z",
+      efectivo_que_falta: 0,
+      perdido_entre_turnos: 0,
+      por_revisar: 1,
+      gastos: 11500,
+      lista_de_gastos: GASTOS,
+    });
+    abrir();
+    const valor = await cifra("Gastos de 7 días");
+    expect(valor).toHaveTextContent("−$11.500");
+    expect(valor).toHaveClass("text-amber-700");
+    const tarjeta = valor.parentElement as HTMLElement;
+    const otra = (await cifra("Turnos por revisar"))
+      .parentElement as HTMLElement;
+    // Mismo lugar (la misma fila) y la misma tarjeta blanca.
+    expect(tarjeta.parentElement).toBe(otra.parentElement);
+    expect(tarjeta.parentElement).toHaveClass("lg:grid-cols-4");
+    for (const clase of ["rounded-lg", "border", "bg-white", "px-4", "py-3"])
+      expect(tarjeta).toHaveClass(clase);
+  });
+
+  it("al tocarla, la lista del más nuevo al más viejo con el día, quién, en qué y el monto", async () => {
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-12T15:00:00.000Z",
+      efectivo_que_falta: 0,
+      perdido_entre_turnos: 0,
+      por_revisar: 1,
+      gastos: 11500,
+      lista_de_gastos: GASTOS,
+    });
+    abrir();
+    const tarjeta = (await cifra("Gastos de 7 días")).closest(
+      "button",
+    ) as HTMLElement;
+    fireEvent.click(tarjeta);
+    const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByText("Gastos de 7 días")).toBeInTheDocument();
+    expect(panel).toHaveTextContent("−$11.500 en 2 gastos");
+    const filas = within(panel).getAllByRole("listitem");
+    expect(filas).toHaveLength(2);
+    expect(filas[0]).toHaveTextContent("Pan para el desayuno");
+    expect(filas[0]).toHaveTextContent("Rosa");
+    expect(filas[0]).toHaveTextContent("19-11");
+    expect(filas[0]).toHaveTextContent("−$3.500");
+    expect(filas[1]).toHaveTextContent("Taxi al banco");
+    expect(filas[1]).toHaveTextContent("Ana");
+    expect(filas[1]).toHaveTextContent("18-11");
+    expect(filas[1]).toHaveTextContent("−$8.000");
+  });
+
+  it("sin gastos: «$0» en verde y la tarjeta no abre nada", async () => {
+    c.getResumenDeCierres.mockResolvedValue({
+      desde: "2026-11-12T15:00:00.000Z",
+      efectivo_que_falta: 0,
+      perdido_entre_turnos: 0,
+      por_revisar: 1,
+      gastos: 0,
+      lista_de_gastos: [],
+    });
+    abrir();
+    const valor = await cifra("Gastos de 7 días");
+    expect(valor).toHaveTextContent("$0");
+    expect(valor).toHaveClass("text-green-700");
+    expect(valor.closest("button")).toBeNull();
+    fireEvent.click(valor.parentElement as HTMLElement);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("con el motor de antes (sin el dato), solo las tres cifras de siempre", async () => {
+    abrir();
+    await screen.findByText("Turnos por revisar");
+    expect(screen.queryByText("Gastos de 7 días")).toBeNull();
+  });
+});
