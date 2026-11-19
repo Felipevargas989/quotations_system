@@ -83,18 +83,36 @@ del Sol se sembró en la 211 y se comprobó palabra por palabra contra el PDF
 «CONVENIO SIMPLE VALLE DEL SOL - FORMATO BASE»: las únicas diferencias son los
 huecos y la fecha.
 
-## 5. Lo que Felipe aún no decide del contrato (queda igual en la plantilla)
+## 5. El texto del contrato: lo corregido y lo pendiente
 
-1. Salta de **OCTAVO a DÉCIMO** (no hay NOVENO).
-2. Dice **«En Santiago»** y fija domicilio en Santiago, con sus tribunales.
-3. Traía una **fecha fija, 10 de junio de 2024** (hoy se usa la fecha real de
-   la firma).
-4. TERCERO III: «servicios prestados **por la Empresa**» (lo lógico sería
-   «por la Prestadora»).
+Corregido por Felipe el 19-11-2026 («Sí, corrígelos»), en la semilla de la 211
+y en la plantilla del laboratorio (bloque 5 de la 211, idempotente):
 
-Cuando decida, se cambia el texto de la plantilla (un UPDATE en
-`convenio_plantillas`); lo ya firmado no cambia, porque cada convenio guarda
-su texto lleno.
+| Antes | Después |
+|---|---|
+| «DÉCIMO. RESOLUCIÓN DE CONFLICTOS» (saltaba de OCTAVO a DÉCIMO) | «NOVENO. RESOLUCIÓN DE CONFLICTOS» |
+| «En Santiago, República de Chile, a …» | «En Quillón, República de Chile, a …» |
+| TERCERO III: «servicios prestados por la Empresa» | «servicios prestados por la Prestadora» |
+
+La fecha fija del formato (10 de junio de 2024) ya se cambió por la fecha real
+de la firma.
+
+**Pendiente de Felipe:** el domicilio y los tribunales de NOVENO («las partes
+fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten
+a la jurisdicción de sus tribunales de justicia»). Cuando diga la comuna, es un
+UPDATE de una frase:
+
+```sql
+update public.convenio_plantillas
+set texto = replace(texto,
+  'comuna de Santiago, Región Metropolitana',
+  'comuna de <COMUNA>, Región de <REGIÓN>'),
+  actualizado_en = now()
+where company_id = 1;
+```
+
+Lo ya firmado no cambia: cada convenio guarda su texto lleno con su huella (el
+convenio de prueba del laboratorio sigue con el texto anterior, como evidencia).
 
 ## 6. Fuera de alcance de esta versión
 
