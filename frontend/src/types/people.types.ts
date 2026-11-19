@@ -96,9 +96,15 @@ export interface ResultadoDelCambio {
   sinTocar: number;
 }
 
-/** Anotar desde cuándo (doc 10 §12.1): lo mismo, más cuántos días de staff
- *  tiene antes de esa fecha (quedan como están). */
-export interface ResultadoDelOrigen extends ResultadoDelCambio {
+/** Anotar desde cuándo (doc 10 §12.1): solo un registro, ningún día
+ *  cambia. `distintos`: sus días de staff desde la fecha que figuran con el
+ *  otro tipo; `antes`: sus días de staff antes de la fecha. */
+export interface ResultadoDelOrigen {
+  kind: TipoPersona;
+  anterior: TipoPersona;
+  desde: string;
+  futuro: false;
+  distintos: number;
   antes: number;
 }
 

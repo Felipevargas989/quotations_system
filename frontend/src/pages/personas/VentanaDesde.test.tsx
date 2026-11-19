@@ -236,11 +236,8 @@ describe("VentanaDesde en modo «desde cuándo» (§12.1)", () => {
     kind: "planta" as const,
     anterior: "freelance" as const,
     desde: "2026-11-01",
-    futuro: false,
-    aPlanta: 3,
-    aFreelance: 0,
-    quitan: 0,
-    sinTocar: 1,
+    futuro: false as const,
+    distintos: 3,
     antes: 12,
   };
 
@@ -265,7 +262,7 @@ describe("VentanaDesde en modo «desde cuándo» (§12.1)", () => {
     expect(s.getPreviaDelOrigen).not.toHaveBeenCalled();
   });
 
-  it("dice qué pasa con sus días, que los de antes quedan como están, y anota con esa fecha", async () => {
+  it("dice sin alarma que ningún día cambia, cuántos figuran con el otro tipo y cuántos hay antes, y anota con esa fecha", async () => {
     s.getPreviaDelOrigen.mockResolvedValue(delOrigen);
     s.anotarOrigen.mockResolvedValue(delOrigen);
     const onCerrar = abrirOrigen();
@@ -273,16 +270,18 @@ describe("VentanaDesde en modo «desde cuándo» (§12.1)", () => {
       target: { value: "2026-11-01" },
     });
     expect(
-      await screen.findByText("3 días de staff desde el 01-11 pasan a planta."),
+      await screen.findByText(
+        "3 días desde el 01-11 figuran como freelance: quedan como están.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("12 días de antes del 01-11 quedan como están."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "1 día queda sin tocar: ya está en una liquidación o nómina.",
-      ),
+      screen.getByText("Solo se anota en su historial: ningún día cambia."),
     ).toBeInTheDocument();
+    // Sin el aviso ámbar de nómina: no se toca nada.
+    expect(screen.queryByText(/liquidación o nómina/)).not.toBeInTheDocument();
     expect(s.getPreviaDelOrigen).toHaveBeenCalledWith(19, "2026-11-01");
     expect(s.getPreviaDelTipo).not.toHaveBeenCalled();
 
@@ -292,5 +291,24 @@ describe("VentanaDesde en modo «desde cuándo» (§12.1)", () => {
     );
     expect(s.cambiarTipo).not.toHaveBeenCalled();
     await waitFor(() => expect(onCerrar).toHaveBeenCalled());
+  });
+
+  it("si no hay días con el otro tipo ni de antes, no dice nada de eso", async () => {
+    s.getPreviaDelOrigen.mockResolvedValue({
+      ...delOrigen,
+      distintos: 0,
+      antes: 0,
+    });
+    abrirOrigen();
+    fireEvent.change(screen.getByLabelText("Desde"), {
+      target: { value: "2026-11-01" },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Anotar" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/quedan? como est/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Solo se anota en su historial: ningún día cambia."),
+    ).toBeInTheDocument();
   });
 });

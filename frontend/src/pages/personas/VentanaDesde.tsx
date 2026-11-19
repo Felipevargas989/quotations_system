@@ -9,7 +9,11 @@ import {
   getPreviaDelOrigen,
   getPreviaDelTipo,
 } from "../../services/people.service";
-import type { Persona } from "../../types/people.types";
+import type {
+  Persona,
+  ResultadoDelCambio,
+  ResultadoDelOrigen,
+} from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
 import {
@@ -33,8 +37,10 @@ import {
 //
 // Modo `origen` (§12.1, 19-11-2026): a quien no tiene historial se le anota
 // desde cuándo tiene su tipo de HOY (Sofía: «planta desde el 01-11», antes
-// freelance). La fecha es obligatoria, pasada o de hoy; la regla de sus
-// días es la misma, y los de antes de la fecha quedan como están.
+// freelance). La fecha es obligatoria, pasada o de hoy. Es SOLO un
+// registro: ningún día cambia (un día extra freelance con monto es
+// legítimo y no se distingue de un resto). La ventana dice, sin alarma,
+// cuántos días figuran con el otro tipo y cuántos hay antes.
 
 export default function VentanaDesde({
   persona,
@@ -61,7 +67,7 @@ export default function VentanaDesde({
       : "planta"
     : persona.default_kind;
 
-  const previa = useQuery({
+  const previa = useQuery<ResultadoDelCambio | ResultadoDelOrigen>({
     queryKey: ["people", "tipo-previa", persona.id, kind, desde, origen],
     queryFn: () =>
       origen
@@ -71,7 +77,7 @@ export default function VentanaDesde({
     retry: false,
   });
 
-  const confirmar = useMutation({
+  const confirmar = useMutation<ResultadoDelCambio | ResultadoDelOrigen>({
     mutationFn: () =>
       origen
         ? anotarOrigen(persona.id, desde)
@@ -92,8 +98,11 @@ export default function VentanaDesde({
   const textos = !previa.data
     ? null
     : origen
-      ? textosDelOrigen(previa.data)
-      : textosDeLaVentana(previa.data);
+      ? {
+          lineas: textosDelOrigen(previa.data as ResultadoDelOrigen),
+          aviso: null,
+        }
+      : textosDeLaVentana(previa.data as ResultadoDelCambio);
   const nombreNuevo = etiquetaTipoPersona(kind).toLowerCase();
 
   return (
@@ -182,7 +191,9 @@ export default function VentanaDesde({
             </ul>
           ) : null}
           <p className="text-xs text-gray-500 mt-2">
-            Los días de eventos no cambian.
+            {origen
+              ? "Solo se anota en su historial: ningún día cambia."
+              : "Los días de eventos no cambian."}
           </p>
         </div>
 

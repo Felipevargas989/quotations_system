@@ -39,9 +39,16 @@ export interface ResultadoDelCambio {
   sinTocar: number;
 }
 
-/** Anotar desde cuándo (doc 10 §12.1): lo mismo, más cuántos días de staff
- *  tiene ANTES de esa fecha, que quedan como están. */
-export interface ResultadoDelOrigen extends ResultadoDelCambio {
+/** Anotar desde cuándo (doc 10 §12.1): solo informa, no toca ningún día.
+ *  `distintos`: sus días de staff desde la fecha que figuran con el otro
+ *  tipo (los que un cambio normal habría tocado); `antes`: sus días de
+ *  staff antes de la fecha. Los dos quedan como están. */
+export interface ResultadoDelOrigen {
+  kind: Tipo;
+  anterior: Tipo;
+  desde: string;
+  futuro: false;
+  distintos: number;
   antes: number;
 }
 
@@ -105,13 +112,21 @@ export class TipoDePersonaService {
   // kind = su tipo de hoy, anterior = el otro. No es un cambio de tipo,
   // por eso va por su puerta y no afloja el «Ya es de planta» del cambio
   // normal.
+  //
+  // Es SOLO un registro (revisión del 19-11-2026): no toca ningún día. Un
+  // planta puede tener, desde esa fecha, días freelance legítimos con
+  // monto (el día extra en su día libre, `esJornadaExtra`), y no hay cómo
+  // distinguirlos de un resto de antes: pasarlos a planta borraría plata
+  // por pagar. Tampoco guarda `default_kind` (ya es su tipo de hoy) ni
+  // proyecta: de hoy en adelante su tipo es el mismo, y la proyección solo
+  // mira de hoy en adelante.
 
   async previaDelOrigen(
     companyId: number,
     personId: number,
     dto: OrigenDelTipoDto,
   ): Promise<ResultadoDelOrigen> {
-    return (await this.armarOrigen(companyId, personId, dto)).resultado;
+    return this.armarOrigen(companyId, personId, dto);
   }
 
   async anotarOrigen(
@@ -120,15 +135,23 @@ export class TipoDePersonaService {
     dto: OrigenDelTipoDto,
     user: Pick<User, 'id' | 'full_name' | 'email'>,
   ): Promise<ResultadoDelOrigen & { cambio: CambioDeTipo }> {
-    const armado = await this.armarOrigen(companyId, personId, dto);
-    const cambio = await this.aplicar(companyId, personId, armado, user);
-    // `default_kind` no cambia (ya es su tipo de hoy) y la proyección
-    // tampoco: de hoy en adelante su tipo es el mismo de antes.
-    return { ...armado.resultado, cambio };
+    const resultado = await this.armarOrigen(companyId, personId, dto);
+    const cambio = await this.repo.registrar({
+      company_id: companyId,
+      person_id: personId,
+      kind: resultado.kind,
+      anterior: resultado.anterior,
+      desde: resultado.desde,
+      ...registradoPor(user),
+    });
+    this.logger.info(
+      `tipo persona ${personId}: origen ${resultado.kind} desde ${resultado.desde}, antes ${resultado.anterior} (solo registro)`,
+    );
+    return { ...resultado, cambio };
   }
 
-  /** Los días y el historial, igual para los dos caminos. Primero los días
-   *  y después el historial: si algo se corta a medio camino, volver a
+  /** Los días y el historial del cambio normal. Primero los días y
+   *  después el historial: si algo se corta a medio camino, volver a
    *  registrar lo mismo termina el trabajo (los días ya cambiados no se
    *  vuelven a tocar). */
   private async aplicar(
@@ -149,9 +172,7 @@ export class TipoDePersonaService {
       kind: resultado.kind,
       anterior: resultado.anterior,
       desde: resultado.desde,
-      registrado_por: user.id ?? null,
-      registrado_por_nombre:
-        (user.full_name || user.email || '').trim().slice(0, 120) || null,
+      ...registradoPor(user),
     });
     this.logger.info(
       `tipo persona ${personId}: ${resultado.anterior} → ${resultado.kind} desde ${resultado.desde} (` +
@@ -242,7 +263,10 @@ export class TipoDePersonaService {
     }
     // Sin historial, su tipo de hoy es el de siempre (`default_kind`).
     const kind = tipoALaFecha(persona, hoy);
-    const armado = await this.planear(companyId, personId, persona, {
+    // La cuenta de un cambio normal, solo para contar lo que figura con el
+    // otro tipo desde la fecha (lo que ese cambio habría tocado, también
+    // lo liquidado). No se aplica.
+    const { plan } = await this.planear(companyId, personId, persona, {
       kind,
       anterior: OTRO[kind],
       desde: dto.desde,
@@ -252,8 +276,16 @@ export class TipoDePersonaService {
       personId,
       dto.desde,
     );
-    const resultado: ResultadoDelOrigen = { ...armado.resultado, antes };
-    return { ...armado, resultado };
+    const resultado: ResultadoDelOrigen = {
+      kind,
+      anterior: OTRO[kind],
+      desde: dto.desde,
+      futuro: false,
+      distintos:
+        plan.aPlanta + plan.aFreelance + plan.quitar.length + plan.sinTocar,
+      antes,
+    };
+    return resultado;
   }
 
   /** La cuenta de siempre (`planDelCambioDeTipo`) con el historial ya con
@@ -300,6 +332,13 @@ export class TipoDePersonaService {
     return { plan, resultado, hoy, historialNuevo };
   }
 }
+
+/** Quién registró, para la fila del historial. */
+const registradoPor = (user: Pick<User, 'id' | 'full_name' | 'email'>) => ({
+  registrado_por: user.id ?? null,
+  registrado_por_nombre:
+    (user.full_name || user.email || '').trim().slice(0, 120) || null,
+});
 
 /** Una fecha AAAA-MM-DD que exista de verdad (no el 31-02). */
 const revisarFecha = (desde: string) => {

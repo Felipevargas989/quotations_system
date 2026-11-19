@@ -140,12 +140,21 @@ describe("la línea de origen y los textos de «desde cuándo» (§12.1)", () =>
     ).toEqual({ kind: "freelance", hasta: "2026-11-01" });
   });
 
-  it("los días de antes se dicen sin alarma; si nada cambia, también", () => {
-    const t = textosDelOrigen({ ...resultado({}), antes: 1 });
-    expect(t.lineas).toEqual([
-      "Sus días desde el 01-11 ya están como planta.",
-      "1 día de antes del 01-11 queda como está.",
+  it("dice que nada cambia, sin alarma, y calla lo que no hay", () => {
+    const origen = {
+      kind: "planta" as const,
+      anterior: "freelance" as const,
+      desde: "2026-11-01",
+      futuro: false as const,
+      distintos: 1,
+      antes: 0,
+    };
+    expect(textosDelOrigen(origen)).toEqual([
+      "1 día desde el 01-11 figura como freelance: queda como está.",
     ]);
-    expect(t.aviso).toBeNull();
+    expect(textosDelOrigen({ ...origen, distintos: 0, antes: 2 })).toEqual([
+      "2 días de antes del 01-11 quedan como están.",
+    ]);
+    expect(textosDelOrigen({ ...origen, distintos: 0 })).toEqual([]);
   });
 });

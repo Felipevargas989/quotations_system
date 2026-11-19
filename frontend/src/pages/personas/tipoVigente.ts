@@ -128,38 +128,23 @@ export const lineaDeOrigen = (
   };
 };
 
-/** Lo que la ventana dice al anotar desde cuándo: qué pasa con sus días
- *  desde esa fecha y que los de antes quedan como están. Sin alarma: el
- *  único ámbar es lo que está en una nómina. */
-export const textosDelOrigen = (
-  r: ResultadoDelCambio & Partial<Pick<ResultadoDelOrigen, "antes">>,
-): { lineas: string[]; aviso: string | null } => {
+/** Lo que la ventana dice al anotar desde cuándo. Es SOLO un registro
+ *  (revisión del 19-11-2026): ningún día cambia, y se dice sin alarma.
+ *  Si no hay días con el otro tipo ni días de antes, no se dice nada de
+ *  eso. */
+export const textosDelOrigen = (r: ResultadoDelOrigen): string[] => {
   const fecha = diaYMes(r.desde);
-  const tipo = etiquetaTipoPersona(r.kind).toLowerCase();
+  const otro = etiquetaTipoPersona(r.anterior).toLowerCase();
   const lineas: string[] = [];
-  if (r.aPlanta > 0) {
+  if (r.distintos > 0) {
     lineas.push(
-      `${dias(r.aPlanta)} de staff desde el ${fecha} ${r.aPlanta === 1 ? "pasa" : "pasan"} a planta.`,
+      `${dias(r.distintos)} desde el ${fecha} ${r.distintos === 1 ? "figura" : "figuran"} como ${otro}: ${r.distintos === 1 ? "queda como está" : "quedan como están"}.`,
     );
   }
-  if (r.quitan > 0) {
+  if (r.antes > 0) {
     lineas.push(
-      `Se le ${r.quitan === 1 ? "quita" : "quitan"} ${dias(r.quitan)} de planta que puso el sistema.`,
+      `${dias(r.antes)} de antes del ${fecha} ${r.antes === 1 ? "queda como está" : "quedan como están"}.`,
     );
   }
-  if (r.aFreelance > 0) {
-    lineas.push(
-      `${dias(r.aFreelance)} desde el ${fecha} ${r.aFreelance === 1 ? "queda" : "quedan"} como freelance.`,
-    );
-  }
-  if (r.aPlanta + r.quitan + r.aFreelance === 0) {
-    lineas.push(`Sus días desde el ${fecha} ya están como ${tipo}.`);
-  }
-  const antes = r.antes ?? 0;
-  if (antes > 0) {
-    lineas.push(
-      `${dias(antes)} de antes del ${fecha} ${antes === 1 ? "queda" : "quedan"} como ${antes === 1 ? "está" : "están"}.`,
-    );
-  }
-  return { lineas, aviso: textosDeLaVentana(r).aviso };
+  return lineas;
 };
