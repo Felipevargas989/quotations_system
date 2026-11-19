@@ -46,6 +46,8 @@ export interface Convenio {
   user_agent: string | null;
   texto_firmado: string | null;
   texto_sha256: string | null;
+  /** doc 24 §8 (migración 212): null en los firmados antes y en papel. */
+  declara_representacion: boolean | null;
   documento_id: number | null;
   registrado_por: string | null;
 }

@@ -436,6 +436,13 @@ export class ConveniosService {
     ip: string | null,
     userAgent: string | null,
   ) {
+    // doc 24 §8: sin la declaración de representación no se acepta (el
+    // formulario ya lo exige; esto cubre a quien llame al motor directo).
+    if (dto.declaro_representacion !== true) {
+      throw new BadRequestException(
+        'Para aceptar hay que declarar que tienes facultades para representar a la empresa',
+      );
+    }
     const c = await this.porEnlace(token);
     if (this.firmasEnCurso.has(c.id)) {
       throw new ConflictException(
@@ -518,6 +525,7 @@ export class ConveniosService {
         user_agent: userAgent?.slice(0, 500) ?? null,
         texto_firmado: textoLleno,
         texto_sha256: sha256(textoLleno),
+        declara_representacion: dto.declaro_representacion === true,
       },
       'enviado',
     );
@@ -602,6 +610,7 @@ export class ConveniosService {
         texto_sha256: c.texto_sha256 ?? sha256(c.texto_firmado as string),
         empresa: marca.nombre,
         vence: c.vence_at as string,
+        declara_representacion: c.declara_representacion === true,
       },
     });
     return this.impresora.imprimir(html);
