@@ -70,6 +70,14 @@ Nueva campaña ("Segmento de tu base"). El segmento se guarda como
 filtro en la campaña y se recalcula al enviar: nunca listas viejas.
 Resolvedor puro con pruebas (`segmento.spec.ts`).
 
+**El filtro «Convenio» (19-11-2026, doc 24 §9).** Felipe: *"para mí son
+dos estados"*. Un cuarto filtro en el constructor, solo si la empresa
+tiene plantilla de convenio: «Con convenio» (firmado) y «Sin convenio»
+(los demás que no son particulares, también los enviados sin firmar).
+Es un campo más del mismo filtro (`convenio`), se combina con los otros y
+la audiencia guardada se recalcula sola. Pruebas:
+`audiencias-de-convenio.spec.ts`.
+
 ## Tablas (migración 91)
 
 `marketing_contacts` (audiencia etiquetada, datos jsonb para la

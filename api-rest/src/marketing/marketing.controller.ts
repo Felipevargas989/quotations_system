@@ -98,18 +98,22 @@ export class MarketingController {
    *  y la materia prima de los filtros (tipos de cliente y evento). */
   @Get('audiencias')
   async audiencias(@CurrentUser() user: User) {
-    const [estanteria, importadas, tipos, tiposEvento] = await Promise.all([
-      this.estanteria.listarAudiencias(user.company_id),
-      this.estanteria.audienciasImportadas(user.company_id),
-      this.estanteria.tiposDeCliente(user.company_id),
-      this.estanteria.tiposDeEvento(user.company_id),
-    ]);
+    const [estanteria, importadas, tipos, tiposEvento, convenio] =
+      await Promise.all([
+        this.estanteria.listarAudiencias(user.company_id),
+        this.estanteria.audienciasImportadas(user.company_id),
+        this.estanteria.tiposDeCliente(user.company_id),
+        this.estanteria.tiposDeEvento(user.company_id),
+        this.estanteria.hayConvenio(user.company_id),
+      ]);
     return {
       guardadas: estanteria.guardadas,
       clientes_con_correo: estanteria.clientes_con_correo,
       importadas,
       tipos,
       tipos_evento: tiposEvento,
+      // ¿Se muestra el filtro «Convenio»? (doc 24 §9)
+      convenio,
     };
   }
 
