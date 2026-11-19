@@ -82,6 +82,8 @@ export default function PersonaFichaPage() {
   const [borrando, setBorrando] = useState(false);
   // La ventana «Desde» (doc 10 §12): el tipo al que pasa, mientras está abierta.
   const [nuevoTipo, setNuevoTipo] = useState<TipoPersona | null>(null);
+  // Anotar desde cuándo tiene su tipo quien no tiene historial (§12.1).
+  const [anotarDesde, setAnotarDesde] = useState(false);
 
   const { data: persona, isLoading } = useQuery({
     queryKey: ["people", "ficha", personId],
@@ -422,7 +424,10 @@ export default function PersonaFichaPage() {
                 onCancelar={() => navegar("/personas")}
                 onCambiarTipo={setNuevoTipo}
               />
-              <HistorialDeTipo persona={persona} />
+              <HistorialDeTipo
+                persona={persona}
+                onAnotarDesde={() => setAnotarDesde(true)}
+              />
             </div>
           ) : pestana === "calendario" ? (
             <CalendarioDePersona persona={persona} />
@@ -433,6 +438,14 @@ export default function PersonaFichaPage() {
           )}
         </div>
       </div>
+      {anotarDesde && (
+        <VentanaDesde
+          persona={persona}
+          kind={persona.default_kind}
+          origen
+          onCerrar={() => setAnotarDesde(false)}
+        />
+      )}
       {nuevoTipo && (
         <VentanaDesde
           persona={persona}

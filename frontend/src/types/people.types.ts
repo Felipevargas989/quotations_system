@@ -96,6 +96,12 @@ export interface ResultadoDelCambio {
   sinTocar: number;
 }
 
+/** Anotar desde cuándo (doc 10 §12.1): lo mismo, más cuántos días de staff
+ *  tiene antes de esa fecha (quedan como están). */
+export interface ResultadoDelOrigen extends ResultadoDelCambio {
+  antes: number;
+}
+
 /** Lo que el formulario manda al guardar. Todo opcional salvo el nombre:
  *  se puede cargar a alguien con lo poco que se sepa e ir completando. */
 export interface PersonaFormData {

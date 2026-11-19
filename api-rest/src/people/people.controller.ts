@@ -18,7 +18,7 @@ import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
-import { CambioDeTipoDto } from './dto/cambio-de-tipo.dto';
+import { CambioDeTipoDto, OrigenDelTipoDto } from './dto/cambio-de-tipo.dto';
 import { CreatePersonDto } from './dto/create-person.dto';
 import {
   CerrarFichaDto,
@@ -454,6 +454,31 @@ export class PeopleController {
   ) {
     this.logger.info(`POST /people/${id}/tipo ${dto.kind} desde ${dto.desde}`);
     return this.tipos.cambiar(user.company_id, +id, dto, user);
+  }
+
+  // Anotar desde cuándo tiene su tipo quien no tiene historial (doc 10
+  // §12.1). Su propia puerta: el cambio normal sigue diciendo «Ya es de
+  // planta» cuando corresponde.
+
+  @Permiso('personal')
+  @Get(':id/tipo/origen/previa')
+  previaDelOrigen(
+    @Param('id') id: string,
+    @Query() dto: OrigenDelTipoDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.tipos.previaDelOrigen(user.company_id, +id, dto);
+  }
+
+  @Permiso('personal')
+  @Post(':id/tipo/origen')
+  anotarOrigen(
+    @Param('id') id: string,
+    @Body() dto: OrigenDelTipoDto,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.info(`POST /people/${id}/tipo/origen desde ${dto.desde}`);
+    return this.tipos.anotarOrigen(user.company_id, +id, dto, user);
   }
 
   // ---- Las notas del día ----

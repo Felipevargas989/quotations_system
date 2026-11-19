@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import Modal from "../../components/Modal";
 import { toast } from "../../components/toast/Toast";
-import { cambiarTipo, getPreviaDelTipo } from "../../services/people.service";
+import {
+  anotarOrigen,
+  cambiarTipo,
+  getPreviaDelOrigen,
+  getPreviaDelTipo,
+} from "../../services/people.service";
 import type { Persona } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { hoyEnChile } from "../../utils/dates";
@@ -12,7 +17,11 @@ import {
   etiquetaTipoPersona,
   type TipoPersona,
 } from "../../utils/estadoPersona";
-import { fechaChilena, textosDeLaVentana } from "./tipoVigente";
+import {
+  fechaChilena,
+  textosDeLaVentana,
+  textosDelOrigen,
+} from "./tipoVigente";
 
 // LA VENTANA «DESDE» (doc 10 §12, 17-11-2026)
 //
@@ -21,30 +30,52 @@ import { fechaChilena, textosDeLaVentana } from "./tipoVigente";
 // desde qué día (hoy por defecto). Sofía pasó a planta el 01-11 y se
 // registró después. La cuenta de qué pasa con sus días la hace el motor;
 // acá solo se muestra, y lo ya liquidado o en nómina se avisa en ámbar.
+//
+// Modo `origen` (§12.1, 19-11-2026): a quien no tiene historial se le anota
+// desde cuándo tiene su tipo de HOY (Sofía: «planta desde el 01-11», antes
+// freelance). La fecha es obligatoria, pasada o de hoy; la regla de sus
+// días es la misma, y los de antes de la fecha quedan como están.
 
 export default function VentanaDesde({
   persona,
   kind,
+  origen = false,
   onCerrar,
 }: {
   readonly persona: Persona;
-  /** El tipo al que pasa. */
+  /** El tipo al que pasa (en modo origen, su tipo de hoy). */
   readonly kind: TipoPersona;
+  /** Anotar desde cuándo tiene su tipo de hoy (sin historial). */
+  readonly origen?: boolean;
   readonly onCerrar: () => void;
 }) {
   const qc = useQueryClient();
-  const [desde, setDesde] = useState(hoyEnChile);
-  const fechaOk = /^\d{4}-\d{2}-\d{2}$/.test(desde);
+  const hoy = hoyEnChile();
+  // Al anotar desde cuándo, la fecha no viene puesta: hay que elegirla.
+  const [desde, setDesde] = useState(origen ? "" : hoy);
+  const futura = origen && desde > hoy;
+  const fechaOk = /^\d{4}-\d{2}-\d{2}$/.test(desde) && !futura;
+  const antes: TipoPersona = origen
+    ? kind === "planta"
+      ? "freelance"
+      : "planta"
+    : persona.default_kind;
 
   const previa = useQuery({
-    queryKey: ["people", "tipo-previa", persona.id, kind, desde],
-    queryFn: () => getPreviaDelTipo(persona.id, kind, desde),
+    queryKey: ["people", "tipo-previa", persona.id, kind, desde, origen],
+    queryFn: () =>
+      origen
+        ? getPreviaDelOrigen(persona.id, desde)
+        : getPreviaDelTipo(persona.id, kind, desde),
     enabled: fechaOk,
     retry: false,
   });
 
   const confirmar = useMutation({
-    mutationFn: () => cambiarTipo(persona.id, kind, desde),
+    mutationFn: () =>
+      origen
+        ? anotarOrigen(persona.id, desde)
+        : cambiarTipo(persona.id, kind, desde),
     onSuccess: (r) => {
       toast.success(
         r.futuro
@@ -58,12 +89,18 @@ export default function VentanaDesde({
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
   });
 
-  const textos = previa.data ? textosDeLaVentana(previa.data) : null;
+  const textos = !previa.data
+    ? null
+    : origen
+      ? textosDelOrigen(previa.data)
+      : textosDeLaVentana(previa.data);
   const nombreNuevo = etiquetaTipoPersona(kind).toLowerCase();
 
   return (
     <Modal
-      titulo={`Pasa a ${nombreNuevo}`}
+      titulo={
+        origen ? `Desde cuándo es ${nombreNuevo}` : `Pasa a ${nombreNuevo}`
+      }
       subtitulo={persona.name}
       ancho="max-w-md"
       onCerrar={onCerrar}
@@ -79,10 +116,14 @@ export default function VentanaDesde({
           <button
             type="button"
             onClick={() => confirmar.mutate()}
-            disabled={!previa.data || confirmar.isPending}
+            disabled={!fechaOk || !previa.data || confirmar.isPending}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {confirmar.isPending ? "Guardando…" : `Cambiar a ${nombreNuevo}`}
+            {confirmar.isPending
+              ? "Guardando…"
+              : origen
+                ? "Anotar"
+                : `Cambiar a ${nombreNuevo}`}
           </button>
         </div>
       }
@@ -90,9 +131,9 @@ export default function VentanaDesde({
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm">
           <span
-            className={`px-2 py-0.5 rounded-full ${chipTipoPersona(persona.default_kind)}`}
+            className={`px-2 py-0.5 rounded-full ${chipTipoPersona(antes)}`}
           >
-            {etiquetaTipoPersona(persona.default_kind)}
+            {etiquetaTipoPersona(antes)}
           </span>
           <span className="text-gray-400">→</span>
           <span className={`px-2 py-0.5 rounded-full ${chipTipoPersona(kind)}`}>
@@ -111,13 +152,23 @@ export default function VentanaDesde({
             id="tipo-desde"
             type="date"
             value={desde}
+            max={origen ? hoy : undefined}
+            required={origen}
             onChange={(e) => setDesde(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 min-h-[3.5rem]">
-          {previa.isLoading && fechaOk ? (
+          {futura ? (
+            <p className="text-sm text-red-700">
+              Va con una fecha pasada o de hoy.
+            </p>
+          ) : origen && !desde ? (
+            <p className="text-sm text-gray-500">
+              Elige desde qué día es {nombreNuevo}.
+            </p>
+          ) : previa.isLoading && fechaOk ? (
             <p className="text-sm text-gray-400">Revisando sus días…</p>
           ) : previa.isError ? (
             <p className="text-sm text-red-700">

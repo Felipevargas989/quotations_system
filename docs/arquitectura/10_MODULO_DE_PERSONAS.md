@@ -1354,3 +1354,47 @@ ficha (`personal`): no hay permiso nuevo.
 4. El día extra que se pone a mano para una fecha posterior a un cambio
    a futuro todavía no registrado como vigente pregunta según el tipo de
    hoy (`esJornadaExtra` lee `default_kind`), no el de ese día.
+
+### 12.1 El historial nunca vacío y «Anotar desde cuándo» (19-11-2026)
+
+Felipe, 19-11-2026: *"ok me parece bien hagámoslo; la gente de planta
+toda está (a excepción de Sofía) desde que empezamos con el sistema"*.
+
+**El problema.** Quien ya figuraba como planta antes del 17-11 no tenía
+ninguna línea en su «Historial de tipo», y la ventana no dejaba anotarla
+hacia atrás: sin historial el sistema la considera planta desde siempre,
+así que «planta desde el 01-11» respondía «Ya es de planta el
+01-11-2026». Con Sofía hubo que insertar la línea a mano en la base.
+
+**La decisión:**
+
+| Caso | Qué hace el sistema |
+|---|---|
+| Sin historial | El historial muestra una línea **derivada** (no se escribe nada): su tipo de hoy «desde que empezó en el sistema · Sin cambios registrados», en el mismo lugar y con el mismo aspecto que una línea real, pero sin «registró…». Vale igual para un freelance |
+| Con historial | Al final de la lista va la línea de origen: el `anterior` del primer cambio, «desde que empezó en el sistema · Hasta el cambio del 01 nov 2026» |
+| Anotar desde cuándo | Solo sin historial: junto a la línea derivada, «Anotar desde cuándo» abre la misma ventana «Desde» en su modo «Desde cuándo es planta». Fecha obligatoria, pasada o de hoy, nunca futura |
+| Qué registra | Una fila de `historial_de_tipo` con `kind` = su tipo de hoy y `anterior` = el otro, desde esa fecha, con quién |
+| Sus días desde la fecha | La MISMA regla de §12 (`planDelCambioDeTipo`): los días de staff que no calcen pasan al tipo; lo que está en una nómina o liquidado no se toca y se avisa en ámbar; los eventos no cambian |
+| Sus días antes de la fecha | No se tocan nunca, aunque sean filas de planta (no pasan a freelance ni se borran). La ventana dice cuántos son, sin alarma: «12 días de antes del 01-11 quedan como están» |
+| `default_kind` y la proyección | No cambian: su tipo de hoy en adelante es el mismo de antes |
+| Anotar con historial | No se puede: corregir es un cambio normal con su fecha |
+| Carga masiva | No hay: con la línea derivada, «planta desde que empezamos con el sistema» ya queda dicho en pantalla. Ningún script ni migración rellena `historial_de_tipo` |
+
+**Por qué no rompe el rechazo normal.** Va por su propia puerta
+(`GET /people/:id/tipo/origen/previa` y `POST /people/:id/tipo/origen`,
+`TipoDePersonaService.previaDelOrigen` / `anotarOrigen`), no aflojando
+`tipoALaFecha`: el cambio de verdad al mismo tipo sigue respondiendo «Ya
+es de planta el …». Las dos puertas comparten la cuenta (`planear`) y la
+escritura (`aplicar`: primero los días, después la fila). Mismo permiso
+que editar la ficha (`personal`). Sin migración.
+
+**Lo que queda abierto para que Felipe confirme:**
+
+1. La línea de origen dice «desde que empezó en el sistema» para todos,
+   también para quien se cargó después del inicio (no se usa la fecha de
+   creación de la ficha).
+2. Con historial, la línea de origen no tiene «Anotar desde cuándo»: si
+   el primer cambio quedó mal, se corrige con un cambio normal.
+3. Anotar desde cuándo no proyecta ni rellena el pasado: un día pasado
+   sin fila no se crea (lo mismo que §12, abierto 1).
+
