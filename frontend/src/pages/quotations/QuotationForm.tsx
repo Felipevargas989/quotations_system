@@ -74,6 +74,7 @@ import {
 import { CategorySection } from "../../types/services.types";
 import QuantitySelector from "../../components/QuantitySelector";
 import SelectWithSearch from "../../components/selects/SelectWithSearch";
+import EdificioConvenio from "../../components/clientes/EdificioConvenio";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import { UserRole } from "../../constants/users";
@@ -2461,8 +2462,13 @@ export default function QuotationForm() {
             {/* Cliente (número y autoría viven arriba, como información) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">
                   Cliente *
+                  <EdificioConvenio
+                    convenio={
+                      clients.find((c) => c.id === formData.client_id)?.convenio
+                    }
+                  />
                 </label>
                 {/* Los clientes de los tipos que trabaja su cargo (doc 22
                     §9; a recepción, de fábrica, los particulares). */}

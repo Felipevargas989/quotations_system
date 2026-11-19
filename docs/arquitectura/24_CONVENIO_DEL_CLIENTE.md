@@ -38,6 +38,7 @@ pública) y la aprobó.
 | 14 | Si la firma queda y el PDF falla: «Firmado · PDF pendiente» y «Generar PDF»; nunca un «Firmado» sin documento y sin aviso | Gerente, 19-11 |
 | 15 | Aceptar dos veces seguidas no crea dos firmas ni dos PDF | Gerente, 19-11 |
 | 16 | Quién puede: ver, quien ve la ficha 360 (sección Clientes); enviar, subir y borrar, desde vendedor. Sin permiso nuevo: son los mismos cargos de esa sección | Gerente, 19-11 |
+| 17 | **El edificio de color** marca quién tiene convenio: verde firmado, ámbar enviado sin firmar, gris de siempre sin convenio; al pasar el mouse, el detalle en una línea. Sin texto ni chip nuevo y sin rojo. Va en la lista de clientes y, chico junto al nombre y solo si hay convenio, en el cotizador, el negocio y Post-Venta (§7) | Felipe, maqueta, 19-11-2026: «A, el edificio» |
 
 ## 3. Cómo funciona
 
@@ -115,3 +116,34 @@ convenio de prueba del laboratorio sigue con el texto anterior, como evidencia).
 El aviso del 30 % en el cotizador, los descuentos en recepción o caja, cargar
 los convenios ya firmados de «Estatus Convenios», un editor de la plantilla en
 pantalla y tocar `QuotationForm`.
+
+## 7. El edificio de color (19-11-2026)
+
+Felipe: *"Más que la viñeta, podría quizás tener el edificio de otro color…
+un colorcito… que marque que un cliente [tiene] un convenio"*. Vio la maqueta
+con dos opciones y eligió «A, el edificio».
+
+| Dónde | Qué se ve |
+|---|---|
+| Lista de clientes (`/clients`) | El edificio de cada fila: verde (firmado), ámbar (enviado sin firmar) o gris (sin convenio, como siempre) |
+| Cotizador (al elegir el cliente) | Edificio chico junto a «Cliente *», solo si hay convenio |
+| Negocio (`/negocio/:id`) | Edificio chico junto al nombre del cliente, solo si hay convenio |
+| Post-Venta (lista y ficha del evento) | Edificio chico junto al nombre, solo si hay convenio |
+
+Al pasar el mouse: «Convenio firmado · vence dd-mm-aaaa» o «Convenio enviado ·
+dd-mm-aaaa» (hora de Chile). Los tonos son los del chip de la ficha.
+
+- **Una pieza:** `EdificioConvenio` (`frontend/src/components/clientes/`), con
+  el texto en `utils/textoDelConvenio.ts`. En `QuotationForm` solo se monta.
+- **El dato viaja con lo que ya se pide:** `MarcasDeConvenio`
+  (`api-rest/src/clients/convenios/marcas-de-convenio.ts`) lee de una vez los
+  convenios vigentes de la empresa (filtrados por `company_id`) y los pone en
+  `GET /clients` (llave `convenio` del cliente) y en `GET /quotations` (dentro
+  de `clients` de cada fila). Post-Venta los toma de `GET /clients`, que ya
+  pedía. Un cliente sin convenio no trae la llave.
+- **Empresa sin plantilla:** no hay marcas; las respuestas salen idénticas a
+  las de antes.
+- Un firmado ya vencido sigue en verde, igual que el chip de la ficha (no hay
+  estado «vencido» en esta versión).
+- Fuera de alcance: filtro por convenio en la lista, audiencias de campañas,
+  el aviso del 30 % en el cotizador y recepción.

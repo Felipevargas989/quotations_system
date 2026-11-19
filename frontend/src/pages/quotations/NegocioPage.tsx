@@ -49,6 +49,8 @@ import { esEventoCongelado } from "../../utils/eventoCongelado";
 import { normalizeText } from "../../utils/searchMatch";
 import { chipEstado, etiquetaEstado } from "../../utils/estadoCotizacion";
 import SelectorDeContacto from "../../components/SelectorDeContacto";
+import EdificioConvenio from "../../components/clientes/EdificioConvenio";
+import type { MarcaDeConvenio } from "../../types/clients.types";
 
 // Mandante con su teléfono/correo (misma regla que el tablero).
 const contactoDe = (q: QuotationWithClient) => {
@@ -392,6 +394,13 @@ export default function NegocioPage() {
               ) : (
                 fila?.clients?.name
               )}{" "}
+              {/* El edificio de color si tiene convenio (doc 24 §7). */}
+              <EdificioConvenio
+                convenio={
+                  (fila?.clients as { convenio?: MarcaDeConvenio } | undefined)
+                    ?.convenio
+                }
+              />{" "}
               <span className="text-base font-semibold text-gray-400">
                 #{fila?.quotation_number}
               </span>
