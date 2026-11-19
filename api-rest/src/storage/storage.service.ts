@@ -126,6 +126,16 @@ export class StorageService {
         )}`;
         break;
       }
+      // Los documentos del cliente (doc 24, 19-11-2026): cuelgan del
+      // cliente, no de una cotización. Que el cliente sea de la empresa lo
+      // verifica el motor al anotarlo en `client_documents`.
+      case 'client-document': {
+        const c = soloId(dto.client_id, 'client_id');
+        path = `c${companyId}/client-documents/${c}/${ts}_${sanitize(
+          file.originalname,
+        )}`;
+        break;
+      }
       case 'furniture-photo': {
         const item = soloId(dto.item_id, 'item_id');
         bucket = 'furniture-photos';
@@ -184,6 +194,37 @@ export class StorageService {
       return { url: data.publicUrl };
     }
     // Balde privado: se guarda la RUTA; el visor pide el enlace firmado.
+    return { url: path };
+  }
+
+  /**
+   * Guarda en el balde privado un archivo que arma el MOTOR (no llega por
+   * /storage/upload): el convenio firmado en PDF (doc 24). La ruta la arma
+   * aquí, siempre bajo la carpeta de la empresa.
+   */
+  async guardarDelMotor(
+    companyId: number,
+    carpeta: 'client-documents',
+    subcarpeta: string,
+    nombre: string,
+    contenido: Buffer,
+    mime: 'application/pdf',
+  ): Promise<{ url: string }> {
+    const sub = soloId(subcarpeta, 'subcarpeta');
+    const path = `c${companyId}/${carpeta}/${sub}/${this.stamp()}_${sanitize(
+      nombre,
+    )}`;
+    this.logger.info(
+      `guardar del motor -> ${path} (${contenido.length} bytes)`,
+    );
+    const { error } = await this.supabase.client.storage
+      .from(BUCKET_PRIVADO)
+      .upload(path, contenido, { contentType: mime, upsert: false });
+    if (error) {
+      throw new BadRequestException(
+        `Error al guardar el archivo: ${error.message}`,
+      );
+    }
     return { url: path };
   }
 

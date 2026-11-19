@@ -18,6 +18,8 @@ export const KINDS = [
   // sube por /storage/upload (esa ruta exige sesión): lo usa el portal
   // internamente con el token del mandante ya validado.
   'portal-receipt',
+  // Documento del cliente (doc 24): cuelga del cliente, no de un evento.
+  'client-document',
 ] as const;
 export type UploadKind = (typeof KINDS)[number];
 
@@ -54,6 +56,11 @@ export class UploadFileDto {
   @IsString()
   @MaxLength(64)
   item_id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  client_id?: string;
 }
 
 export class SignedUrlDto {

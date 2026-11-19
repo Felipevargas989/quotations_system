@@ -44,6 +44,7 @@ import {
 } from "../utils/phone";
 import { ClientFormData } from "../types/clients.types";
 import DatosDeFacturacion from "../components/clientes/DatosDeFacturacion";
+import FichaDeConvenio from "../components/clientes/FichaDeConvenio";
 
 // Ficha 360° del cliente (Clientes 2.0, definida con Felipe el
 // 21-07-2026): resumen comercial para hacer gestión — cotizaciones
@@ -975,6 +976,13 @@ export default function ClientDetailPage() {
 
           {/* Datos de facturación: las razones sociales (migración 184, doc 19) */}
           <DatosDeFacturacion clientId={client.id} puedeEditar={puedeEditar} />
+
+          {/* Convenio y documentos del cliente (doc 24) */}
+          <FichaDeConvenio
+            client={client}
+            tipos={clientTypesList}
+            permisos={permisos}
+          />
         </div>
 
         {/* Historial de cotizaciones */}
