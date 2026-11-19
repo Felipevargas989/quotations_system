@@ -184,6 +184,11 @@ es costo real); la nómina la paga (paga toda fila con monto, no solo
 freelance). El 18-08 se me cruzaron los cables justo acá — la sábana
 mostró la planta del 423 como cupos — y por eso queda escrito.
 
+Desde el 22-09-2026 la ficha trae también a los **citados como staff**
+esos días (fila solo-de-propina con «sin propina» marcado, la caja dice
+«staff»), y desde el 19-11-2026 a la **gente anotada en los otros eventos
+de esos mismos días** (§13).
+
 ### El personal es UN número que se afina (reescrito el 17-08)
 
 ⚠ Esta sección hablaba de "tres números" (estimado en Recursos, plan
@@ -1393,3 +1398,56 @@ que editar la ficha (`personal`). Sin migración.
    tipo desde la fecha (por ejemplo, un resto freelance de antes de que
    pasara a planta) se corrige a mano en la casilla.
 
+## 13. LA GENTE DE LOS OTROS EVENTOS DEL DÍA (19-11-2026)
+
+Decidido por Felipe el 19-11-2026. Cuando hay dos o tres eventos los
+mismos días, el personal trabaja en todos, pero la propina se liquidaba
+evento por evento y solo con la gente anotada en ese evento (más la
+planta y el staff del día): quien quedó anotado en el evento de poca
+propina salía castigado. Sus palabras: *"todos participan en todo… a los
+que están asignados a B se les castiga respecto a la A, y ambos
+trabajaron en todo"*.
+
+**La regla.** Al abrir la ficha de liquidación de un evento, además de la
+planta (§2, «La planta que la ficha trae a un evento») y de los citados
+como staff (22-09), **se trae sola a la gente anotada en los OTROS eventos
+de la misma empresa en esos mismos días**. Llega igual que el citado como
+staff:
+
+| | Qué hace el sistema |
+|---|---|
+| La fila | Una fila de `event_staff` en ESTE evento: `solo_propina`, sin monto, **«sin propina» ya marcado** (`no_tip`), confirmada, con el cargo y el horario (entrada, salida, colación) de su jornada real en el otro evento ese día. Felipe la desmarca si le quiere dar |
+| Qué días | Solo los días en que coincidió. Quien ya tiene fila en este evento ese día (anotado, planta traída o staff traído) no se repite; abrir la ficha dos veces no duplica |
+| A quién | Solo a quien tiene jornada REAL en el otro evento: con persona, que no sea silla vacía, ni solo-de-propina (un traído no se vuelve a traer en cadena), ni dormida, ni la planta que la ficha del otro evento trajo (`kind = 'planta'` en un evento). En la práctica, los freelance anotados en el otro evento. Y solo de eventos aceptados o realizados: la gente que quedó puesta en un evento anulado no trabajó ahí |
+| Staff y otro evento el mismo día | Entra como «staff», como desde el 22-09: no se duplica |
+| La caja del monto | Vacía, dice de dónde viene: **«evento 522»** (el número del otro evento), como hoy dice «staff» o «planta»; al pasar el mouse, «su jornada se paga en el evento 522». Si coincidió con más de un evento ese día, el de número menor (y su horario) |
+| Un monto escrito ahí | Es un adicional de ESTE evento: va a la nómina como cualquier monto y suma al costo de este evento. Su jornada se paga en el otro evento y no se repite. No es el precio del cargo: no valoriza las sillas vacías |
+| La propina | Independiente en cada evento: lo de A no se toca ni se copia. Si en B se le desmarca «sin propina», entra al reparto por puntos de B con las horas de sus días coincidentes, y en la nómina se suman las dos |
+| La planta y el citado como staff | Exactamente como antes |
+| Lo cerrado o en nómina | No se toca: con la ficha cerrada no se trae ni se borra nada, y no hubo migración de datos |
+
+**La etiqueta sin migración.** La fila traída no guarda de dónde vino.
+El motor lo deriva al leer el staff del evento (`GET /people/staff?evento=`
+devuelve `origen_evento` en cada fila: el número del otro evento donde esa
+persona tuvo jornada real ese día, o null), y la tabla lo usa fila por fila,
+con «staff» de respaldo. Del otro evento solo sale el número.
+
+**Las traídas que se quedan sin origen.** Si a la persona la sacan del otro
+evento (o del staff), su traída en este evento se va con ella, siempre que
+nadie la haya tocado: sin monto, sin propina, sin sello de nómina y con
+«sin propina» todavía marcado (el mismo molde con que salir de un evento ya
+borraba la fila solo-de-propina del día). Lo que se mueve de día, o lo que
+se saca sin pasar por ahí, se limpia al abrir la ficha. Nunca se borra una
+fila con monto, propina o sello, ni una de una ficha cerrada.
+
+**Lo que no cambia.** La planificación, la sábana, Gestión, el calendario
+de la persona, las horas de la semana y el costo del evento no ven estas
+filas (son solo-de-propina; `esPlanificacion`). El día de staff tampoco:
+una fila solo-de-propina de un evento no invita al pozo del día, así que
+nadie aparece dos o tres veces como invitado. BelIA no las cuenta como
+turnos.
+
+Piezas: `utils/propina-de-otros-eventos.ts` (las decisiones, con prueba),
+`PropinaDeOtrosEventosService` y su repositorio (aparte porque
+`people.service.ts` está congelado), `TablaDeJornadas` (la palabra de la
+caja). Mapas 07 y 08.

@@ -43,6 +43,7 @@ import {
 import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PeopleService } from './people.service';
+import { PropinaDeOtrosEventosService } from './propina-de-otros-eventos.service';
 import { TipoDePersonaService } from './tipo-de-persona.service';
 
 // Cargo de clase (14-09-2026): todo el módulo es de ADMIN_ONLY; las rutas
@@ -60,6 +61,8 @@ export class PeopleController {
     // que trabaja el cargo (doc 22 §9, tanda 3).
     private readonly alcance: AlcanceDeRecepcion,
     private readonly tipos: TipoDePersonaService,
+    // La gente de los otros eventos del día (doc 10, 19-11-2026).
+    private readonly otrosEventos: PropinaDeOtrosEventosService,
   ) {
     this.logger.setContext(PeopleController.name);
   }
@@ -123,7 +126,12 @@ export class PeopleController {
     // Por evento (la ficha) o por rango (la planificación semanal).
     if (evento) {
       this.logger.info(`GET /people/staff evento ${evento}`);
-      return this.peopleService.findStaff(user.company_id, evento);
+      // Cada traída dice de qué otro evento viene (origen_evento).
+      return this.otrosEventos.conOrigen(
+        user.company_id,
+        evento,
+        await this.peopleService.findStaff(user.company_id, evento),
+      );
     }
     if (desde && hasta) {
       this.logger.info(`GET /people/staff ${desde} a ${hasta}`);
@@ -189,11 +197,8 @@ export class PeopleController {
     this.logger.info(
       `DELETE /people/staff/${id}${liberar ? ' (liberar)' : ''}`,
     );
-    return this.peopleService.removeStaff(
-      +id,
-      user.company_id,
-      liberar === '1',
-    );
+    // Con sus traídas sin origen de los otros eventos (doc 10, 19-11-2026).
+    return this.otrosEventos.sacar(+id, user.company_id, liberar === '1');
   }
 
   /** Lo que YA se le pagó al equipo, mes a mes: el flujo de caja del
@@ -219,7 +224,8 @@ export class PeopleController {
     );
   }
 
-  /** La planta con turno los días del evento entra a su ficha. */
+  /** La planta con turno, los citados como staff y la gente de los otros
+   *  eventos de esos días entran a su ficha (doc 10, 19-11-2026). */
   @Permiso('personal')
   @DelEvento({ param: 'quotationId' })
   @Post('sheets/:quotationId/traer-planta')
@@ -227,7 +233,7 @@ export class PeopleController {
     @Param('quotationId') quotationId: string,
     @CurrentUser() user: User,
   ) {
-    return this.peopleService.traerPlantaAlEvento(quotationId, user.company_id);
+    return this.otrosEventos.traerAlEvento(quotationId, user.company_id);
   }
 
   // ---- El ciclo de la ficha ----

@@ -94,7 +94,7 @@ Tiene cinco ánimos (doc 20 §8b): dormida, despierta, llama tu atención, enoja
 | `payments`, `payment_transactions`, `refunds` | Las cuotas, los abonos y los reembolsos (para la cobranza y para mostrar cómo quedan las cuotas de una aceptada). **No tienen `company_id`**: se leen solo después de comprobar que la cotización es de la empresa, o con `quotations!inner` filtrado por ella (la cobranza) | Solo L | — |
 | `supplies`, `suppliers`, `service_recipe_items`, `event_supply_provisions`, `furniture_items`, `variable_services`, `fixed_services` | Los insumos con su receta, lo comprado por evento, los proveedores y el mobiliario, con `company_id`. Lo que hay que comprar los lee con las lecturas de `LogisticsService` que usa la pantalla de Compras | Solo L | — |
 | `event_day_prints` | Las fichas de cocina ya impresas, para el aviso de reimprimir | Solo L (`LogisticsService.findDayPrints`) | — |
-| `event_staff`, `people`, `management_resources` | Las sillas del personal, con el nombre de la persona y del cargo. Solo nombre, cargo, día, horario y estado | Solo L | — |
+| `event_staff`, `people`, `management_resources` | Las sillas del personal, con el nombre de la persona y del cargo. Solo nombre, cargo, día, horario y estado. Sin las filas solo-de-propina que trae la ficha de liquidación (19-11-2026, doc 10 §13): no son turnos | Solo L | — |
 
 ## 5. Flujos principales
 

@@ -183,6 +183,11 @@ export interface Asignacion {
    *  evento: solo carga su propina del día (migración 88). Sin pago;
    *  fuera de planificación y calendario. */
   solo_propina?: boolean;
+  /** Solo en la ficha de un evento (`GET /people/staff?evento=`): si la
+   *  fila es solo-de-propina y la persona ese día estuvo anotada en otro
+   *  evento, su número («evento 522» en la caja del monto). Lo deriva el
+   *  motor al leer, sin columna (doc 10, 19-11-2026). */
+  origen_evento?: number | null;
   /** Cambio de día de la planta (migración 89): 'trabaja' = día
    *  agregado a mano; 'descansa' = día quitado (no se muestra). */
   ajuste?: "trabaja" | "descansa" | null;

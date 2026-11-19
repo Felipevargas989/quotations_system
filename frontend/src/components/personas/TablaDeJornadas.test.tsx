@@ -108,4 +108,60 @@ describe("TablaDeJornadas", () => {
     expect(screen.getByText("dom 15 ago")).toBeInTheDocument();
     expect(screen.getAllByText("Persona")).toHaveLength(1);
   });
+  // LA GENTE DE LOS OTROS EVENTOS DEL DÍA (Felipe, 19-11-2026): la caja
+  // vacía dice de qué evento viene; el citado como staff sigue con «staff».
+  it("la traída de otro evento dice «evento 522» y la del staff, «staff»", () => {
+    render(
+      <TablaDeJornadas
+        secciones={[
+          {
+            filas: [
+              fila({
+                id: 1,
+                quotation_id: "B",
+                kind: "freelance",
+                solo_propina: true,
+                no_tip: true,
+                origen_evento: 522,
+                people: {
+                  id: 1,
+                  name: "Paulo Rojas",
+                  rut: null,
+                  default_kind: "freelance",
+                },
+              }),
+              fila({
+                id: 2,
+                person_id: 2,
+                quotation_id: "B",
+                kind: "freelance",
+                solo_propina: true,
+                no_tip: true,
+                origen_evento: null,
+                people: {
+                  id: 2,
+                  name: "Cecilia Muñoz",
+                  rut: null,
+                  default_kind: "freelance",
+                },
+              }),
+            ],
+          },
+        ]}
+        etiquetaSoloPropina="staff"
+        onCambiar={vi.fn()}
+      />,
+    );
+    const deOtro = screen.getByLabelText(
+      "Asignación extra de Paulo Rojas: su jornada se paga en el evento 522",
+    );
+    expect(deOtro).toHaveAttribute("placeholder", "evento 522");
+    expect(deOtro.closest("div[title]")).toHaveAttribute(
+      "title",
+      "Extra (optativo): su jornada se paga en el evento 522",
+    );
+    expect(
+      screen.getByLabelText("Asignación extra de Cecilia Muñoz"),
+    ).toHaveAttribute("placeholder", "staff");
+  });
 });
