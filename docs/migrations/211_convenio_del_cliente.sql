@@ -31,9 +31,8 @@
 -- corrígelos»): DÉCIMO pasa a NOVENO (saltaba de OCTAVO a DÉCIMO), «En
 -- Santiago, República de Chile» pasa a «En Quillón, República de Chile», y en
 -- TERCERO III «prestados por la Empresa» pasa a «prestados por la Prestadora».
--- Queda IGUAL, a la espera de Felipe: el domicilio y los tribunales de NOVENO
--- («comuna de Santiago, Región Metropolitana»); se cambia con un UPDATE de
--- `convenio_plantillas.texto` (replace de esa frase), sin tocar lo firmado.
+-- Y el domicilio y los tribunales de NOVENO (Felipe, «Quillón»): «comuna de
+-- Santiago, Región Metropolitana» pasa a «comuna de Quillón, Región de Ñuble».
 --
 -- En el laboratorio la 211 se corrió antes de esa corrección; ahí se aplicó
 -- con el bloque 5 de abajo (idempotente: en una base nueva no cambia nada).
@@ -293,7 +292,7 @@ Para efectos de las comunicaciones a que hubiere lugar con ocasión de la ejecuc
 
 El presente Contrato se regirá e interpretará de acuerdo con las leyes de la República de Chile.
 
-Para todos los efectos legales derivados del presente Contrato, las partes fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten a la jurisdicción de sus tribunales de justicia.
+Para todos los efectos legales derivados del presente Contrato, las partes fijan su domicilio en la comuna de Quillón, Región de Ñuble y se someten a la jurisdicción de sus tribunales de justicia.
 
 Personerías. La personería de don {{representante_nombre}}, para representar a {{razon_social}} consta en {{personeria_documento}} de fecha {{personeria_fecha}}, ante el Notario {{personeria_notario}}
 
@@ -323,7 +322,7 @@ where exists (select 1 from public.companies where id = 1)
 on conflict (company_id) do nothing;
 
 -- ---------------------------------------------------------------------------
--- 5. Las tres frases que corrigió Felipe (19-11-2026), para una base donde la
+-- 5. Las cuatro frases que corrigió Felipe (19-11-2026), para una base donde la
 --    plantilla ya se había sembrado con el texto anterior. Idempotente.
 -- ---------------------------------------------------------------------------
 update public.convenio_plantillas
@@ -339,3 +338,11 @@ where company_id = 1
   and (texto like '%En Santiago, República de Chile, a {{fecha_firma}}%'
        or texto like '%## DÉCIMO. RESOLUCIÓN DE CONFLICTOS.%'
        or texto like '%prestados por la Empresa, respecto%');
+
+update public.convenio_plantillas
+set texto = replace(texto,
+      'fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten',
+      'fijan su domicilio en la comuna de Quillón, Región de Ñuble y se someten'),
+    actualizado_en = now()
+where company_id = 1
+  and texto like '%fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten%';
