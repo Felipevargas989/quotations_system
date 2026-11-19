@@ -1,5 +1,5 @@
 # Flujo: Liquidar, armar nómina, pagar y pasar al histórico
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). Falta la etapa de completar lo que no quedó escrito. Parte del atlas; índice de flujos en flujos/00_INDICE_DE_FLUJOS.md y del sistema en ../00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). La gente de los otros eventos del día en la ficha de un evento (doc 10 §13), al día el 19-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas; índice de flujos en flujos/00_INDICE_DE_FLUJOS.md y del sistema en ../00_MAPA_DEL_SISTEMA.md.
 
 ## 1. En palabras simples
 
@@ -34,7 +34,7 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
    - "Repasar N días" o un chip ámbar fija la `tanda`: la lista queda congelada mientras el modal está abierto. Se abre `DiaRestaurante` (dentro de `FichasTab.tsx`).
    - La tabla es la pieza `TablaDeJornadas` (`frontend/src/components/personas/TablaDeJornadas.tsx`) y junta dos grupos:
      - `delDia`: filas sin evento de ese día, sin `solo_propina` y sin `ajuste = 'descansa'`.
-     - `invitadosFilas`: gente que ese día trabajó en un evento y **no** tiene jornada de staff. Si todavía no tiene fila solo-de-propina, se pinta una fila virtual con id negativo.
+     - `invitadosFilas`: gente que ese día trabajó en un evento y **no** tiene jornada de staff. Una fila solo-de-propina de un evento (traída por una ficha) no cuenta como jornada de evento (19-11-2026). Si todavía no tiene fila solo-de-propina, se pinta una fila virtual con id negativo.
    - El monto y los porcentajes salen del pozo de ese día (`tip_pools.porcentajes`, migración 87). Sin pozo, parten en blanco.
 
 4. **Ajustes de fila: horas, colación, monto y chip "sin propina".** Los maneja `cambiarStaff`.
@@ -83,7 +83,9 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
      - Mira lo que ya existe con `findStaff`.
      - Inserta con `addStaffEnLote` una fila por cada persona y día que falte: `kind planta`, `status confirmado`, `amount NULL`, horario de su turno.
      - Es idempotente, pero se repite en **cada** relectura. Es el pendiente 7 del cajón del documento 10, todavía abierto.
-   - **Después** pide `getStaff` → `GET /people/staff?evento=` → `findStaff`. La pantalla descarta las sillas vacías (`person_id NULL`) y avisa cuántas se retirarán al cerrar.
+     - Desde el 22-09-2026 los citados como staff entran también, como filas solo-de-propina con «sin propina» marcado (`citadosEnDias`, `filaTraidaAlEvento`).
+     - **Desde el 19-11-2026 (doc 10 §13)** la ruta la atiende `PropinaDeOtrosEventosService.traerAlEvento`: con la ficha cerrada no hace nada; si no, corre `traerPlantaAlEvento` y después lee con `filasDeLosDias` todas las filas de esos días y trae a la gente con jornada real en OTROS eventos aceptados o realizados, igual que el citado como staff (solo-de-propina, sin monto, `no_tip`, cargo y horario del otro evento de número menor). Borra las traídas intactas que quedaron sin origen.
+   - **Después** pide `getStaff` → `GET /people/staff?evento=` → `findStaff` + `PropinaDeOtrosEventosService.conOrigen`, que le pone `origen_evento` (el número del otro evento) a cada traída: `TablaDeJornadas` dice «evento 522» en la caja del monto, o «staff» de respaldo. La pantalla descarta las sillas vacías (`person_id NULL`) y avisa cuántas se retirarán al cerrar.
    - `FichaAbierta` lee `["people","pools"]` con el `staleTime` por defecto (30 s); la lista de `FichasTab` sí la pide en 0.
 
 9. **Ajustes de fila.** Es la misma `TablaDeJornadas` y el mismo `PATCH /people/staff/:id` del paso 4: horas, colación, jornada del freelance o asignación extra de la planta, y chip "sin propina".
@@ -92,7 +94,8 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
      - 400 "Esa jornada ya está en una nómina: no se puede sacar" si la fila tiene `payroll_id` o `tip_payroll_id`;
      - la fila del evento **no se borra**: vuelve a ser silla vacía (`person_id`, horario, `tip_amount` y `tip_pool_id` a NULL, `kind freelance`, `status por_confirmar`) y conserva cargo, día y monto. Liquidación deja de mostrarla y `cerrarFicha` la retira;
      - si tenía propina, `clearTips` borra el reparto de todo el pozo y `distributed_at` vuelve a NULL, así que hay que repartir de nuevo;
-     - si esa persona tenía fila solo-de-propina en el pozo de ese día (y su propina no está en una nómina), la borra; si esa fila tenía propina, reabre también ese pozo.
+     - si esa persona tenía fila solo-de-propina en el pozo de ese día (y su propina no está en una nómina), la borra; si esa fila tenía propina, reabre también ese pozo;
+     - desde el 19-11-2026 la ruta pasa por `PropinaDeOtrosEventosService.sacar`, que después borra sus traídas de ese día en los otros eventos si quedaron sin origen e intactas (no las de una ficha cerrada).
 
 10. **La propina del evento.** Vive en el componente `Reparto` (`FichasTab.tsx`).
     - La caja del monto guarda al salir del campo (`onCommit`), con `updatePool` o con `createPool` `{quotation_id, first_amount}`.

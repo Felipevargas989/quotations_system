@@ -1080,6 +1080,9 @@ function DiaRestaurante({
         (a) =>
           a.quotation_id !== null &&
           a.person_id != null &&
+          // La fila que una ficha trajo (del staff o de otro evento del
+          // día, 19-11-2026) no es una jornada de evento: no invita.
+          !a.solo_propina &&
           String(a.day).slice(0, 10) === dia,
       ),
     [staff, dia],
@@ -1090,6 +1093,7 @@ function DiaRestaurante({
         .filter(
           (a) =>
             a.solo_propina &&
+            a.quotation_id === null &&
             a.person_id != null &&
             String(a.day).slice(0, 10) === dia,
         )

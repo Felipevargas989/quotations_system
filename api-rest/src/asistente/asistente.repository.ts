@@ -587,7 +587,10 @@ export class AsistenteRepository {
       .select(
         'quotation_id, person_id, day, role_id, kind, starts_at, ends_at, status',
       )
-      .eq('company_id', companyId);
+      .eq('company_id', companyId)
+      // La fila solo-de-propina que la ficha de liquidación trae (del staff
+      // o de otro evento del día, doc 10) no es un turno: lo repetiría.
+      .or('solo_propina.is.null,solo_propina.eq.false');
     query =
       'quotationId' in por
         ? query.eq('quotation_id', por.quotationId)

@@ -34,6 +34,7 @@ import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { PeopleRepository } from './people.repository';
 import { cambiosParaRevivir, horarioDelDia } from './utils/alta-de-jornada';
 import { filaTraidaAlEvento } from './utils/fila-traida-al-evento';
+import { noEsJornadaDeEvento } from './utils/propina-de-otros-eventos';
 import { normalizarRut } from './utils/rut';
 import { esPlantaDesde, hoyEnChile, leTocaPlanta } from './utils/tipo-vigente';
 import { valorDeLaSillaNueva, valorizarVacias } from './utils/valor-del-cargo';
@@ -852,7 +853,8 @@ export class PeopleService {
       dto.evento_staff_id,
       companyId,
     );
-    if (!evento || !evento.quotation_id || evento.person_id == null) {
+    // Una fila traída por una ficha (solo-de-propina) no invita (19-11).
+    if (!evento || noEsJornadaDeEvento(evento)) {
       throw new BadRequestException('Esa no es una jornada de evento');
     }
     const day = String(evento.day).slice(0, 10);
@@ -929,7 +931,7 @@ export class PeopleService {
     );
     const traidos = new Map<number, EventStaff>();
     for (const fila of filasTraidas) {
-      if (!fila || !fila.quotation_id || fila.person_id == null) {
+      if (!fila || noEsJornadaDeEvento(fila)) {
         throw new BadRequestException(
           'Un invitado no es una jornada de evento válida',
         );

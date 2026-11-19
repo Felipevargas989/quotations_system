@@ -51,6 +51,12 @@ const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 
 const nombreDe = (a: Asignacion) => a.people?.name ?? "—";
 
+/** Dónde se paga la jornada de una fila solo-de-propina: «evento 522» si
+ *  la ficha la trajo de otro evento del día (doc 10, 19-11-2026); si no,
+ *  lo que diga la tabla («staff» en la ficha, «evento» en el día). */
+const dondeSePaga = (a: Asignacion, respaldo: string): string =>
+  a.origen_evento != null ? `evento ${String(a.origen_evento)}` : respaldo;
+
 /** Con solo planta dice "Asignación extra"; con solo freelance,
  *  "Jornada"; mezcladas, "Monto" y la caja aclara cuál es cuál. */
 export const tituloDelMonto = (filas: readonly Asignacion[]): string => {
@@ -85,7 +91,8 @@ export default function TablaDeJornadas({
   /** Qué dice la caja vacía de una fila solo-de-propina: dónde se paga
    *  su jornada. En el día es "evento" (el invitado vino del evento);
    *  en la ficha del evento es "staff" (el citado al restaurante ese
-   *  día, Felipe 22-09). */
+   *  día, Felipe 22-09). Una fila con `origen_evento` dice el suyo
+   *  («evento 522», 19-11-2026): esto es el respaldo. */
   readonly etiquetaSoloPropina?: string;
   readonly onCambiar: (id: number, cambios: CambiosDeJornada) => void;
 }) {
@@ -190,7 +197,7 @@ export default function TablaDeJornadas({
                     className="relative"
                     title={
                       a.solo_propina
-                        ? `Extra (optativo): su jornada se paga en el ${etiquetaSoloPropina}`
+                        ? `Extra (optativo): su jornada se paga en el ${dondeSePaga(a, etiquetaSoloPropina)}`
                         : a.kind === "planta"
                           ? "Asignación extra (optativa)"
                           : "Monto de la jornada"
@@ -217,15 +224,17 @@ export default function TablaDeJornadas({
                       // su jornada se paga allá (Felipe, 24-08).
                       placeholder={
                         a.solo_propina
-                          ? etiquetaSoloPropina
+                          ? dondeSePaga(a, etiquetaSoloPropina)
                           : a.kind === "planta"
                             ? "planta"
                             : ""
                       }
                       aria-label={
-                        a.solo_propina || a.kind === "planta"
-                          ? `Asignación extra de ${nombreDe(a)}`
-                          : `Monto de ${nombreDe(a)}`
+                        a.origen_evento != null
+                          ? `Asignación extra de ${nombreDe(a)}: su jornada se paga en el ${dondeSePaga(a, etiquetaSoloPropina)}`
+                          : a.solo_propina || a.kind === "planta"
+                            ? `Asignación extra de ${nombreDe(a)}`
+                            : `Monto de ${nombreDe(a)}`
                       }
                       className={`!pl-5 !pr-1.5 !py-1 !rounded text-xs text-right placeholder:text-gray-400 ${
                         !a.amount && a.kind !== "planta" && !a.solo_propina
