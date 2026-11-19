@@ -97,19 +97,15 @@ y en la plantilla del laboratorio (bloque 5 de la 211, idempotente):
 La fecha fija del formato (10 de junio de 2024) ya se cambió por la fecha real
 de la firma.
 
-**Pendiente de Felipe:** el domicilio y los tribunales de NOVENO («las partes
-fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten
-a la jurisdicción de sus tribunales de justicia»). Cuando diga la comuna, es un
-UPDATE de una frase:
+Y la cuarta (Felipe, 19-11-2026: «Quillón»), el domicilio y los tribunales de
+NOVENO:
 
-```sql
-update public.convenio_plantillas
-set texto = replace(texto,
-  'comuna de Santiago, Región Metropolitana',
-  'comuna de <COMUNA>, Región de <REGIÓN>'),
-  actualizado_en = now()
-where company_id = 1;
-```
+| Antes | Después |
+|---|---|
+| «las partes fijan su domicilio en la comuna de Santiago, Región Metropolitana y se someten a la jurisdicción de sus tribunales de justicia» | «las partes fijan su domicilio en la comuna de Quillón, Región de Ñuble y se someten a la jurisdicción de sus tribunales de justicia» |
+
+**Ya no queda nada pendiente del texto.** Un cambio futuro es un UPDATE con
+`replace` sobre `convenio_plantillas.texto` (como el bloque 5 de la 211).
 
 Lo ya firmado no cambia: cada convenio guarda su texto lleno con su huella (el
 convenio de prueba del laboratorio sigue con el texto anterior, como evidencia).
