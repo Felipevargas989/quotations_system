@@ -520,6 +520,9 @@ export class PeopleRepository {
       .eq('quotation_id', quotationId)
       .eq('role_id', roleId)
       .eq('kind', 'freelance')
+      // El adicional de una fila traída por la ficha no es precio del
+      // cargo (19-11-2026, utils/valor-del-cargo).
+      .or('solo_propina.is.null,solo_propina.eq.false')
       .gt('amount', 0);
     if (error) throw error;
     const filas = (data ?? []) as {

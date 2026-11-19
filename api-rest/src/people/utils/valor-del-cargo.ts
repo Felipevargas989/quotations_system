@@ -21,6 +21,7 @@ type FilaConValor = {
   quotation_id?: string | null;
   role_id?: number | null;
   kind?: string | null;
+  solo_propina?: boolean | null;
   amount?: number | string | null;
 };
 
@@ -47,6 +48,10 @@ export const daValorAlCargo = (f: FilaConValor | null | undefined): boolean =>
   !!f?.quotation_id &&
   f.role_id != null &&
   f.kind !== 'planta' &&
+  // El monto de una fila traída por la ficha (solo-de-propina: del staff
+  // o de otro evento) es un adicional de ese evento, no el precio del
+  // cargo (19-11-2026).
+  !f.solo_propina &&
   Number(f.amount ?? 0) > 0;
 
 /** Después de escribir una fila: si le dio valor a su cargo, las sillas
