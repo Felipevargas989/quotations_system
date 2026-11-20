@@ -1468,3 +1468,47 @@ Piezas: `utils/propina-de-otros-eventos.ts` (las decisiones, con prueba),
 `PropinaDeOtrosEventosService` y su repositorio (aparte porque
 `people.service.ts` está congelado), `TablaDeJornadas` (la palabra de la
 caja). Mapas 07 y 08.
+
+## 14. LA PROPINA NO SE DESHACE A MEDIAS (19-11-2026)
+
+**En el laboratorio desde el 19-11-2026, sin migración.** Felipe: *«ok
+arreglemoslo»*.
+
+**Qué pasó.** La noche del 19-11 se repartieron $20.000 en el día de
+staff del 14-11 entre cinco personas. Minutos después ese día se devolvió
+a Liquidación, el pozo se bajó a $0 y se marcó «sin propina». El día quedó
+«sin propina» con pozo $0, pero los $20.000 siguieron escritos en las
+cinco filas, rumbo a la nómina y sin verse en ninguna pantalla: ni bajar
+el pozo ni «sin propina» borraban lo repartido, y reabrir no avisaba que
+había plata adentro. Era el riesgo 5 del mapa 08, escrito el 11-09 y sin
+probar. Fue el único caso en producción.
+
+**Las reglas**, en el motor:
+
+| Qué se hace | Qué pasa con lo repartido |
+|---|---|
+| Bajar el pozo de un día o de un evento a $0 | Se borra antes, y el pozo vuelve a «sin repartir». Nunca queda reparto guardado con el pozo en $0 |
+| Marcar «sin propina» | Se borra antes. Nunca queda reparto guardado en un pozo «sin propina». Sigue valiendo que con plata en el pozo no se salta (15-08) |
+| Devolver a Liquidación con propina repartida adentro | No se borra nada (18-08: es un ajuste, no todo de nuevo), pero antes se avisa cuánto hay y entre cuántas personas, y hay que confirmar. El motor responde 409 hasta que llegue la confirmación |
+| Cambiar el pozo a otro monto distinto de $0 | Nada cambia: se vuelve a repartir como siempre |
+
+**Lo que no se toca.** Si algo de lo repartido ya entró a una nómina,
+bajar a $0 y «sin propina» se rechazan con un mensaje claro y no se borra
+nada: en nómina no hay vuelta atrás (24-08). En un evento con la ficha
+cerrada tampoco se borra: primero se devuelve a Liquidación.
+
+**En pantalla.** «Reabrir para corregir» (Nómina, en la lista y en la
+revisión) y «Devolver a Liquidación» (Histórico, días sin propina)
+preguntan con el aviso dentro: *«Tiene $20.000 de propina repartida entre
+5 personas: queda escrita. Si después bajas el pozo a $0 o marcas «sin
+propina», se borra.»* En el modal del día, «Sin propina este día» sobre un
+día repartido con plata pregunta antes: *«Este día tiene propina
+repartida: se borra y queda sin propina.»*
+
+Piezas: `utils/propina-repartida.ts` (cuánto hay repartido y qué total
+queda, con prueba), `PropinaRepartidaService` y su repositorio (aparte
+porque `people.service.ts` está congelado: `updatePool` y
+`marcarSinPropina` se mudaron ahí y el techo del gigante bajó a 2013),
+`GET /people/payrolls/reabrir/aviso` y `ConfirmarReabrir` en la pantalla.
+La plata del caso real (el día 14-11 y la #478) no se movió con este
+cambio: espera la decisión de Felipe.

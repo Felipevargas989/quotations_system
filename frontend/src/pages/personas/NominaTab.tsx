@@ -8,7 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
-import ConfirmInline from "../../components/ConfirmInline";
+import ConfirmarReabrir from "./ConfirmarReabrir";
 import { eventosQueryOptions } from "./FichasTab";
 import Modal from "../../components/Modal";
 import CuerpoDeRevision from "./RevisionDeNomina";
@@ -29,10 +29,7 @@ import type {
 } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { nombreBanco } from "../../utils/bancos";
-import {
-  formatFechaEvento,
-  formatISOUTCDateToString,
-} from "../../utils/dates";
+import { formatFechaEvento, formatISOUTCDateToString } from "../../utils/dates";
 import { formatearRut } from "../../utils/rut";
 
 // LA NÓMINA, EL PAGO Y EL DETALLE (etapa 6)
@@ -49,6 +46,9 @@ import { formatearRut } from "../../utils/rut";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
+/** Lo que identifica una liquidación ante el motor: su día o su evento. */
+const origenDe = (l: LiquidacionPendiente) =>
+  l.tipo === "dia" ? { day: l.day! } : { quotation_id: l.quotation_id! };
 
 import { porPersonaDe, type PorPersona } from "./porPersona";
 
@@ -79,9 +79,8 @@ export default function NominaTab() {
           <div>
             <h2 className="font-semibold text-gray-900">Nóminas de pago</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Nacen arriba, en Liquidaciones por pagar. Lo que no entra
-              queda pendiente para la próxima — no hay que acordarse de
-              nada.
+              Nacen arriba, en Liquidaciones por pagar. Lo que no entra queda
+              pendiente para la próxima — no hay que acordarse de nada.
             </p>
           </div>
           {/* Sin "Armar nómina": las nóminas nacen de las liquidaciones
@@ -138,7 +137,6 @@ export default function NominaTab() {
           </ul>
         )}
       </div>
-
     </div>
   );
 }
@@ -203,9 +201,7 @@ function LiquidacionesPorPagar({
   const [reabriendo, setReabriendo] = useState<string | null>(null);
   const reabrir = useMutation({
     mutationFn: (l: LiquidacionPendiente) =>
-      reabrirLiquidacion(
-        l.tipo === "dia" ? { day: l.day! } : { quotation_id: l.quotation_id! },
-      ),
+      reabrirLiquidacion({ ...origenDe(l), confirmado: true }),
     onSuccess: (_r, l) => {
       toast.success(`${nombre(l)} volvió a Liquidación para corregirse.`);
       setReabriendo(null);
@@ -215,7 +211,9 @@ function LiquidacionesPorPagar({
         s2.delete(clave(l));
         return s2;
       });
-      qc.invalidateQueries({ queryKey: ["people", "liquidaciones-pendientes"] });
+      qc.invalidateQueries({
+        queryKey: ["people", "liquidaciones-pendientes"],
+      });
       qc.invalidateQueries({ queryKey: ["people", "sheets"] });
       qc.invalidateQueries({ queryKey: ["people", "pools"] });
       qc.invalidateQueries({ queryKey: ["people", "liquidacion-ventana"] });
@@ -247,7 +245,9 @@ function LiquidacionesPorPagar({
       );
       setMarcadas(new Set());
       setRevisando(false);
-      qc.invalidateQueries({ queryKey: ["people", "liquidaciones-pendientes"] });
+      qc.invalidateQueries({
+        queryKey: ["people", "liquidaciones-pendientes"],
+      });
       onCreada(nomina.id);
     },
     onError: (e: unknown) => toast.error(humanizeApiError(e)),
@@ -261,9 +261,9 @@ function LiquidacionesPorPagar({
             Liquidaciones por pagar
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Lo que ya liquidaste y todavía no se paga. Marca lo que va en
-            esta nómina: el sistema junta por persona para subir un solo
-            pago al banco.
+            Lo que ya liquidaste y todavía no se paga. Marca lo que va en esta
+            nómina: el sistema junta por persona para subir un solo pago al
+            banco.
           </p>
         </div>
         {marcadas.size > 0 && (
@@ -314,6 +314,7 @@ function LiquidacionesPorPagar({
             elegidas.length === 1
               ? {
                   nombre: nombre(elegidas[0]),
+                  origen: origenDe(elegidas[0]),
                   busy: reabrir.isPending,
                   onReabrir: () => reabrir.mutate(elegidas[0]),
                 }
@@ -388,10 +389,9 @@ function LiquidacionesPorPagar({
                     arreglo 3"). */}
                 <div className="px-4 pb-2 -mt-1 flex justify-end">
                   {reabriendo === k ? (
-                    <ConfirmInline
-                      question={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
-                      yesLabel="Reabrir"
-                      tono="peligro"
+                    <ConfirmarReabrir
+                      origen={origenDe(l)}
+                      pregunta={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
                       busy={reabrir.isPending}
                       onYes={() => reabrir.mutate(l)}
                       onNo={() => setReabriendo(null)}
@@ -443,6 +443,7 @@ function RevisarAntesDeGenerar({
    *  Liquidación desde acá mismo (Felipe, 18-08). */
   readonly reabrir?: {
     nombre: string;
+    origen: { quotation_id?: string; day?: string };
     busy: boolean;
     onReabrir: () => void;
   };
@@ -485,10 +486,9 @@ function RevisarAntesDeGenerar({
           <div className="mr-auto">
             {reabrir &&
               (confirmandoReabrir ? (
-                <ConfirmInline
-                  question={`¿Devolver ${reabrir.nombre} a Liquidación?`}
-                  yesLabel="Reabrir"
-                  tono="peligro"
+                <ConfirmarReabrir
+                  origen={reabrir.origen}
+                  pregunta={`¿Devolver ${reabrir.nombre} a Liquidación?`}
                   busy={reabrir.busy}
                   onYes={reabrir.onReabrir}
                   onNo={() => setConfirmandoReabrir(false)}
@@ -563,10 +563,7 @@ function NominaAbierta({
     void qc.invalidateQueries({ queryKey: ["people", "payrolls"] });
   };
 
-  const pagadas = porPersona.filter(
-    (p) =>
-      estadoDelPago(p) === "pagada",
-  );
+  const pagadas = porPersona.filter((p) => estadoDelPago(p) === "pagada");
 
   if (!nomina) return null;
 
@@ -755,7 +752,9 @@ function DesgloseDePago({
         </span>
       </h4>
       <ul className="divide-y divide-gray-100 mt-1 px-1">
-        {porFecha(xs).map((a) => fila(a, monto(a), `${prefijo}-${String(a.id)}`))}
+        {porFecha(xs).map((a) =>
+          fila(a, monto(a), `${prefijo}-${String(a.id)}`),
+        )}
       </ul>
     </section>
   );
@@ -763,7 +762,13 @@ function DesgloseDePago({
   return (
     <>
       {p.totalJornada > 0 &&
-        seccion("Jornadas", p.totalJornada, p.jornadas, (a) => Number(a.amount ?? 0), "j")}
+        seccion(
+          "Jornadas",
+          p.totalJornada,
+          p.jornadas,
+          (a) => Number(a.amount ?? 0),
+          "j",
+        )}
       {p.totalPropina > 0 &&
         seccion(
           "Propinas",
@@ -799,10 +804,7 @@ function PagoUnoAUno({
   readonly onCambio: () => void;
   readonly onCerrar: () => void;
 }) {
-  const pendientes = porPersona.filter(
-    (p) =>
-      estadoDelPago(p) !== "pagada",
-  );
+  const pendientes = porPersona.filter((p) => estadoDelPago(p) !== "pagada");
   const [idx, setIdx] = useState(0);
   const p = pendientes[idx] ?? null;
 
@@ -873,7 +875,12 @@ function PagoUnoAUno({
             {persona?.name ?? "Pago"}
           </span>
           <span className="shrink-0">
-            {flecha(siguiente, () => setIdx(idx + 1), ChevronRight, "Siguiente")}
+            {flecha(
+              siguiente,
+              () => setIdx(idx + 1),
+              ChevronRight,
+              "Siguiente",
+            )}
           </span>
         </span>
       }
@@ -903,25 +910,25 @@ function PagoUnoAUno({
         </>
       }
     >
-        <div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {persona?.rut ? formatearRut(persona.rut) : "sin RUT"}
-            {persona?.bank_code && ` · ${nombreBanco(persona.bank_code)}`}
-            {persona?.account_number && ` · ${persona.account_number}`}
+      <div>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {persona?.rut ? formatearRut(persona.rut) : "sin RUT"}
+          {persona?.bank_code && ` · ${nombreBanco(persona.bank_code)}`}
+          {persona?.account_number && ` · ${persona.account_number}`}
+        </p>
+        {!persona?.bank_code || !persona.account_number ? (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-amber-700">
+            <AlertTriangle className="w-4 h-4" /> Le faltan datos bancarios — se
+            completan en Staff.
           </p>
-          {!persona?.bank_code || !persona.account_number ? (
-            <p className="mt-2 flex items-center gap-1.5 text-sm text-amber-700">
-              <AlertTriangle className="w-4 h-4" /> Le faltan datos bancarios —
-              se completan en Staff.
-            </p>
-          ) : null}
+        ) : null}
 
-          <DesgloseDePago
-            p={p}
-            nombreEvento={nombreEvento}
-            etiquetaTotal="Total a transferir"
-          />
-        </div>
+        <DesgloseDePago
+          p={p}
+          nombreEvento={nombreEvento}
+          etiquetaTotal="Total a transferir"
+        />
+      </div>
     </Modal>
   );
 }
@@ -941,7 +948,11 @@ function DetalleTrabajador({
 }) {
   return (
     // La pieza de la casa (18-08): mismo motivo que los otros dos.
-    <Modal titulo={p.persona?.name ?? "Detalle"} ancho="max-w-md" onCerrar={onCerrar}>
+    <Modal
+      titulo={p.persona?.name ?? "Detalle"}
+      ancho="max-w-md"
+      onCerrar={onCerrar}
+    >
       {/* El mismo desglose que la pantalla de pago (Felipe, 17-08). */}
       <DesgloseDePago p={p} nombreEvento={nombreEvento} etiquetaTotal="Total" />
     </Modal>

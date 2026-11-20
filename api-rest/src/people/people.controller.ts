@@ -44,6 +44,7 @@ import { CreateJobRoleDto, UpdateJobRoleDto } from './dto/job-role.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PeopleService } from './people.service';
 import { PropinaDeOtrosEventosService } from './propina-de-otros-eventos.service';
+import { PropinaRepartidaService } from './propina-repartida.service';
 import { TipoDePersonaService } from './tipo-de-persona.service';
 
 // Cargo de clase (14-09-2026): todo el módulo es de ADMIN_ONLY; las rutas
@@ -63,6 +64,8 @@ export class PeopleController {
     private readonly tipos: TipoDePersonaService,
     // La gente de los otros eventos del día (doc 10, 19-11-2026).
     private readonly otrosEventos: PropinaDeOtrosEventosService,
+    // La propina no se deshace a medias (doc 10 §14, 19-11-2026).
+    private readonly propinaRepartida: PropinaRepartidaService,
   ) {
     this.logger.setContext(PeopleController.name);
   }
@@ -290,7 +293,8 @@ export class PeopleController {
     @Body() dto: UpdatePoolDto,
     @CurrentUser() user: User,
   ) {
-    return this.peopleService.updatePool(+id, dto, user.company_id);
+    this.logger.info(`PATCH /people/pools/${id} ${logSafe(dto)}`);
+    return this.propinaRepartida.cambiarPozo(+id, dto, user.company_id);
   }
 
   @Permiso('personal')
@@ -303,7 +307,7 @@ export class PeopleController {
   @Post('pools/:id/sin-propina')
   sinPropina(@Param('id') id: string, @CurrentUser() user: User) {
     this.logger.info(`POST /people/pools/${id}/sin-propina`);
-    return this.peopleService.marcarSinPropina(+id, user.company_id);
+    return this.propinaRepartida.marcarSinPropina(+id, user.company_id);
   }
 
   // La fila solo-de-propina del invitado del evento: se crea o corrige
@@ -364,11 +368,25 @@ export class PeopleController {
   /** Devuelve una liquidación a Liquidación (solo si nada está pagado). */
   @Permiso('personal')
   @Post('payrolls/reabrir')
-  reabrirLiquidacion(
+  async reabrirLiquidacion(
     @Body() dto: ReabrirLiquidacionDto,
     @CurrentUser() user: User,
   ) {
+    await this.propinaRepartida.exigirConfirmacionAlReabrir(
+      user.company_id,
+      dto,
+    );
     return this.peopleService.reabrirLiquidacion(dto, user.company_id);
+  }
+
+  /** Cuánta propina repartida hay adentro, para el aviso de reabrir. */
+  @Permiso('personal')
+  @Get('payrolls/reabrir/aviso')
+  avisoDeReabrir(
+    @Query() dto: ReabrirLiquidacionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.propinaRepartida.avisoDeReabrir(user.company_id, dto);
   }
 
   /** Lo liquidado que todavía no entró a ninguna nómina. */

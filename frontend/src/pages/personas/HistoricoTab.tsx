@@ -22,8 +22,18 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const MES_CORTO = [
-  "ene", "feb", "mar", "abr", "may", "jun",
-  "jul", "ago", "sep", "oct", "nov", "dic",
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
 ];
 const etiquetaMes = (mes: string) =>
   `${MES_CORTO[Number(mes.slice(5)) - 1]} ${mes.slice(2, 4)}`;
@@ -31,6 +41,7 @@ import type { Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { eventosQueryOptions } from "./FichasTab";
+import ConfirmarReabrir from "./ConfirmarReabrir";
 import {
   estadoDelConcepto,
   porConceptoDe,
@@ -67,7 +78,8 @@ export default function HistoricoTab() {
 
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const devolver = useMutation({
-    mutationFn: (origen: { day: string }) => reabrirLiquidacion(origen),
+    mutationFn: (origen: { day: string }) =>
+      reabrirLiquidacion({ ...origen, confirmado: true }),
     onSuccess: () => {
       toast.success("El día volvió a Liquidación.");
       setConfirmando(null);
@@ -99,13 +111,13 @@ export default function HistoricoTab() {
     }
   }, [nominasConPagos, qc]);
 
-  const totalDe = (p: Pozo) =>
-    Number(p.first_amount) + Number(p.second_amount);
+  const totalDe = (p: Pozo) => Number(p.first_amount) + Number(p.second_amount);
   const diasSinPropina = useMemo(
     () =>
       pools
         .filter(
-          (p) => p.day && !p.quotation_id && p.distributed_at && totalDe(p) <= 0,
+          (p) =>
+            p.day && !p.quotation_id && p.distributed_at && totalDe(p) <= 0,
         )
         .sort((a, b) => String(b.day).localeCompare(String(a.day))),
     [pools],
@@ -148,7 +160,10 @@ export default function HistoricoTab() {
                 plugins: { legend: { position: "bottom" } },
                 scales: {
                   x: { stacked: true, grid: { display: false } },
-                  y: { stacked: true, ticks: { callback: (v) => clp(Number(v)) } },
+                  y: {
+                    stacked: true,
+                    ticks: { callback: (v) => clp(Number(v)) },
+                  },
                 },
               }}
             />
@@ -213,7 +228,8 @@ export default function HistoricoTab() {
                   tooltip: {
                     callbacks: {
                       afterLabel: (ctx) => {
-                        const d = graficos.promedioDia[ctx.dataIndex]?.dias ?? 0;
+                        const d =
+                          graficos.promedioDia[ctx.dataIndex]?.dias ?? 0;
                         return `${String(d)} ${d === 1 ? "día" : "días"} con propina`;
                       },
                     },
@@ -256,9 +272,8 @@ export default function HistoricoTab() {
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Días sin propina</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Días de staff resueltos sin propina: no hubo pago, por
-            eso no pasan por nómina. Devolverlos a Liquidación no toca
-            dinero.
+            Días de staff resueltos sin propina: no hubo pago, por eso no pasan
+            por nómina. Devolverlos a Liquidación no toca dinero.
           </p>
         </div>
         {diasSinPropina.length === 0 ? (
@@ -278,23 +293,14 @@ export default function HistoricoTab() {
                     sin propina
                   </span>
                   {confirmando === d ? (
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => devolver.mutate({ day: d })}
-                        disabled={devolver.isPending}
-                        className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {devolver.isPending ? "Devolviendo…" : "Sí, devolver"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmando(null)}
-                        className="text-xs px-2 py-1 rounded-md text-gray-500 hover:bg-gray-100"
-                      >
-                        Cancelar
-                      </button>
-                    </span>
+                    <ConfirmarReabrir
+                      origen={{ day: d }}
+                      pregunta="¿Devolver este día a Liquidación?"
+                      yesLabel="Sí, devolver"
+                      busy={devolver.isPending}
+                      onYes={() => devolver.mutate({ day: d })}
+                      onNo={() => setConfirmando(null)}
+                    />
                   ) : (
                     <button
                       type="button"
@@ -352,8 +358,16 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
   // únicamente la excepción — lo que todavía no se pagó del todo.
   const sello = (c: PorConcepto) => {
     const estado = estadoDelConcepto(c);
-    if (estado === "parcial") return { texto: "Parcial", clase: "bg-amber-50 text-amber-700 border-amber-200" };
-    if (estado === "pendiente") return { texto: "Sin pagar", clase: "bg-gray-50 text-gray-500 border-gray-200" };
+    if (estado === "parcial")
+      return {
+        texto: "Parcial",
+        clase: "bg-amber-50 text-amber-700 border-amber-200",
+      };
+    if (estado === "pendiente")
+      return {
+        texto: "Sin pagar",
+        clase: "bg-gray-50 text-gray-500 border-gray-200",
+      };
     return null;
   };
   const Flecha = abierta ? ChevronDown : ChevronRight;
@@ -399,12 +413,17 @@ function NominaPagada({ nomina }: { readonly nomina: Nomina }) {
               {conceptos.map((c) => {
                 const s = sello(c);
                 return (
-                  <li key={c.llave} className="flex items-center gap-3 py-1.5 pl-7">
+                  <li
+                    key={c.llave}
+                    className="flex items-center gap-3 py-1.5 pl-7"
+                  >
                     <span className="flex-1 min-w-0 truncate text-gray-900">
                       {nombre(c)}
                     </span>
                     {s && (
-                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${s.clase}`}>
+                      <span
+                        className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${s.clase}`}
+                      >
                         {s.texto}
                       </span>
                     )}
