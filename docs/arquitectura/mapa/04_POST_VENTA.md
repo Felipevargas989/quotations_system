@@ -259,6 +259,8 @@ Formas de llegar a Post-Venta:
 7. En pantalla: el aviso `notice` (subió, bajó, reembolso) aparece solo fuera de pre-venta. Luego corre `onSaved` (en Post-Venta es `refreshAfterSave`) y se actualiza la huella.
 8. "Guardar cambios" (`guardarManual`) guarda siempre, aunque nada haya cambiado y aunque haya plan vivo. Con plan vivo es la única forma de guardar, y `AvisoPlanDePagos` lo anuncia (`conGuardadoManual`).
 
+
+**Servicios ordenados por día** (20-11-2026; **en el laboratorio desde el 20-11-2026, no en producción**). Con más de un día, las cajas de la pestaña Servicios se agrupan en bandas por día con la pieza del kit `components/servicios/BandasPorDia`, la misma del cotizador (mapa 01 §5.4 punto 5): chips de comidas, total del día, plegar y «+ Agregar al Día N» (`addGroup(dia)`, que cierra lo que se identifica por índice, igual que `moverCaja`). Las flechas ▲▼ mueven solo dentro del día; `setGroupDay` lleva la caja a su banda y la ilumina. Con un solo día la pestaña se ve como siempre; los fijos siguen en «Todo el evento». Esta pestaña no aplica paquetes, así que no usa `repartirPaquetePorDia`. Sin cambios en la base ni en lo guardado.
 ### 5.6 Gestión al abrir, y cambio de fecha
 1. `GestionTab` usa `gestionQueryOpts` (`GET /logistics/purchasing/provisioning/:id` + `GET /logistics/purchasing/accepted-events`) y `useBaseLogistica` (catálogo compartido). `consolidateEvent` suma insumos y calcula el máximo simultáneo de mobiliario. Los eventos aceptados cuyas fechas se topan compiten por el mismo stock.
 2. Margen = `saleWithoutTip(quote)` − costo de insumos − costo de recursos. El costo de insumos es `provisioned_cost` si el evento está provisionado; si no, el que sale de las recetas.
