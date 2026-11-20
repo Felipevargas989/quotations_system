@@ -503,7 +503,12 @@ export default function SemanaTab({
       if (ctx?.antes)
         qc.setQueryData(["people", "staff-semana", domingo, RANGO_DATOS], ctx.antes);
       refrescar();
-      const msg = e instanceof Error ? e.message : humanizeApiError(e);
+      // Lo que responde el motor (como el candado a lo pagado, doc 10
+      // §15) viene en la respuesta; el texto del error de axios no dice
+      // nada. Solo el freno propio de la pantalla es un Error sin respuesta.
+      const delMotor = !!(e as { response?: unknown })?.response;
+      const msg =
+        !delMotor && e instanceof Error ? e.message : humanizeApiError(e);
       if (msg.startsWith("Esa fila se está guardando")) toast.warn(msg);
       else toast.error(msg);
     },

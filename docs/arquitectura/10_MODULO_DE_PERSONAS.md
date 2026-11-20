@@ -1526,3 +1526,97 @@ porque `people.service.ts` está congelado: `updatePool` y
 `GET /people/payrolls/reabrir/aviso` y `ConfirmarReabrir` en la pantalla.
 La plata del caso real (el día 14-11 y la #478) no se movió con este
 cambio: espera la decisión de Felipe.
+
+## 15. EL CANDADO A LO PAGADO (20-11-2026)
+
+**En el laboratorio desde el 20-11-2026.** Felipe: *«Pongamos un bloqueo
+entonces que cuando los días ya se encuentren pagados no se pueda agregar
+ni editar los pagos, ni sumar, ni bajar el dinero. Una vez que el día se
+paga y se liquida, ya no se puede editar, ni sumar, ni nada. Si no, va a
+pasar esto, que se van a modificar los días para atrás, que ya están
+pagados, y el sistema va a quedar en un bucle porque no se puede pagar y
+no se puede borrar y no se sabe por qué pasó esto.»*
+
+**Qué pasó.** El día de staff 09-11 se pagó en la nómina del 10-11. El
+11-11 se anotó a una persona más en ese día desde la sábana: quedó como
+pendiente suelta, sin poder pagarse ni devolverse a Liquidación («ya hay
+pagos de esta liquidación en una nómina»). Y el 19-11 una fila ya pagada
+bajó de $25.000 a $20.000 desde la casilla de Planificación. Ninguna de
+esas puertas miraba el sello de la nómina; solo lo miraban sacar a
+alguien, repartir y devolver a Liquidación.
+
+**La regla, una sola.** Un día de staff o un evento con **cualquier**
+fila en una nómina (jornada o propina) queda congelado entero: no se
+agrega, no se cambia y no se borra ninguna de sus filas — ni plata, ni
+horas, ni colación, ni cargo, ni tipo, ni estado, ni ajuste, ni propina.
+Es el mismo grupo que ya usaba «Devolver a Liquidación»: lo que no se
+puede devolver tampoco se puede tocar.
+
+| Puerta | Qué pasa en un día o evento pagado |
+|---|---|
+| Agregar a alguien (sábana, casilla, ficha) | Se rechaza con el mensaje |
+| Cambiar una fila (monto, horas, colación, cargo, tipo, estado, ajuste, propina) o moverla a un día pagado | Se rechaza con el mensaje |
+| Sacar o borrar a alguien | Se rechaza con el mensaje |
+| El invitado del evento al día de staff | Se rechaza si el día está pagado |
+| La propina: cambiar el pozo, «sin propina», repartir | Se rechaza con el mensaje |
+| Lo automático en lote: la proyección de la planta, traer gente a una ficha, los invitados al repartir | Deja fuera en silencio lo que cae en un día o evento pagado: un recálculo nunca toca lo pagado |
+| Cambiar el tipo de una persona | Ya saltaba lo sellado y los días liquidados (§12); ahora además el candado lo respalda |
+| El valor de un cargo | Solo da valor a sillas vacías, que nunca están en una nómina |
+
+**El mensaje**, en un Toast de la casa: *«Este día ya se pagó en la
+Nómina 10-11-2026: no se puede agregar, cambiar ni borrar nada. Si falta
+pagar algo, anótalo como ajuste en un día abierto.»* (o «Este evento…»).
+
+**Si alguien trabajó un día ya pagado y se olvidó anotarlo**, se le paga
+en la nómina siguiente: se anota en un día abierto con la nota «ajuste:
+trabajó el 09-11». No hay todavía un botón «Agregar ajuste» en Nómina
+(decisión de Felipe, 20-11).
+
+**Dónde vive.** `CandadoDeNominaRepository` (con las reglas puras en
+`utils/candado-de-nomina.ts`), llamado por todas las escrituras de
+jornadas de `PeopleRepository`: `addStaff`, `updateStaff` y `removeStaff`
+rechazan; `addStaffEnLote` y `removeStaffEnLote` dejan fuera lo sellado.
+Así ninguna puerta nueva ni ningún recálculo pasa por el lado. Quedan
+fuera a propósito sellar la nómina (`stampRows`) y borrar propinas
+(`clearTips`, con su propio candado de nómina, §14). La propina pasa
+además por `PropinaRepartidaService.exigirPozoAbierto`, y el invitado
+del día por `exigirDiaDeLaJornadaAbierto`. Sin migración.
+
+### 15.1 La foto de lo pagado (20-11-2026, migración 213)
+
+**En el laboratorio desde el 20-11-2026.** La nómina no guardaba montos:
+`payroll_people` solo tiene las marcas de pagado, y cada pantalla sumaba
+el monto de HOY de cada fila sellada. Por eso, cuando el 19-11 una fila
+pagada (la 2912) bajó de $25.000 a $20.000, la nómina 11 pasó a decir $20.000
+aunque el banco pagó $25.000, y lo pagado de verdad solo quedó en el
+registro del motor.
+
+**La regla.** Al sellar una fila en una nómina se guarda lo que se pagó
+(`monto_pagado` y `propina_pagada`, con los mismos montos con que se armó
+la nómina), y todo lo que muestra o suma una nómina lee esa foto, no el
+valor de hoy: la lista de nóminas y su total, el detalle de una nómina,
+el Histórico de pagos y sus gráficos, lo pagado por mes del panel y la
+pestaña Pagos de la persona. Con el candado (§15) una fila sellada ya no
+cambia; la foto es la segunda red, por si algo la cambia por fuera (un
+arreglo a mano en la base).
+
+**Las filas selladas antes de la 213** se rellenaron con el valor que
+tenían el día de la migración y quedan marcadas `foto_reconstruida`: es
+una reconstrucción, no lo medido al pagar. Si una de ellas cambió después
+de su nómina, su foto quedó con el valor nuevo. Son estas 11, medidas el
+20-11-2026 (los nombres, en el informe a Felipe); ninguna se corrigió,
+decide Felipe:
+
+| Fila | Día | Nómina | Qué se sabe |
+|---|---|---|---|
+| 2912 | Staff 09-11 | 11 | Bajó de $25.000 a $20.000 el 19-11 a las 23:19 (registro del motor). El banco pagó $25.000 |
+| 2183 | Staff 11-10 | 7 | Tocada el 24-10 a las 13:52, dos días después de su nómina. Hoy: $30.000 y $12.817 de propina. No se sabe qué cambió |
+| 2184 | Staff 12-10 | 7 | Tocada el 24-10 a las 13:52. Hoy: $25.000 y $1.200 de propina. No se sabe qué cambió |
+| 1353, 1354, 1355, 1356 | Staff 21 al 24-08 | 1 | Propinas tocadas el 29-08, cuatro días después de su nómina. Hoy: $464, $1.039, $225 y $92 |
+| 571, 572, 1748, 1752 | Staff 21 al 24-08 | 1 | Propinas tocadas el 29-08. Hoy: $464, $1.038, $225 y $92 |
+
+Piezas: `utils/foto-de-lo-pagado.ts` (`conFoto`), `sellarConFoto` en
+`PeopleRepository` (reemplaza a `stampRows` en `createPayroll`; el techo
+de `people.service.ts` bajó a 2005) y la migración 213 con su relleno
+(`213_foto_de_lo_pagado.sql` y `.backfill.sql`), que va **antes** que el
+motor que la lee.

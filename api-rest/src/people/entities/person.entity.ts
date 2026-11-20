@@ -120,6 +120,12 @@ export class EventStaff {
    *  Su jornada se paga igual. */
   no_tip: boolean;
   tip_pool_id: number | null;
+  /** LA FOTO DE LO PAGADO (migración 213): lo que se pagó al sellar la
+   *  fila en su nómina. La nómina suma esto, no amount / tip_amount. */
+  monto_pagado?: number | null;
+  propina_pagada?: number | null;
+  /** true = la foto se rellenó con el valor del día de la 213. */
+  foto_reconstruida?: boolean;
   /** Fila creada por el reparto del día de restaurante para alguien
    *  que vino a un evento: solo carga su propina del día (migración
    *  88). Sin pago; no aparece en planificación ni calendario. */
