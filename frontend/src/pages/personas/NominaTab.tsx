@@ -190,7 +190,9 @@ function LiquidacionesPorPagar({
   const clave = (l: LiquidacionPendiente) =>
     l.tipo === "dia" ? `dia:${l.day}` : `ev:${l.quotation_id}`;
 
-  const elegidas = pendientes.filter((l) => marcadas.has(clave(l)));
+  const elegidas = pendientes.filter(
+    (l) => marcadas.has(clave(l)) && !l.descalce,
+  );
   const totalElegido = elegidas.reduce((t, l) => t + l.total, 0);
   // EL RUT ES REGLA DE AVANCE (Felipe, 16-08): sin RUT no se puede
   // cargar al banco, así que no se genera la nómina y se dice a quién
@@ -358,6 +360,7 @@ function LiquidacionesPorPagar({
                   <input
                     type="checkbox"
                     checked={marcada}
+                    disabled={!!l.descalce}
                     onChange={() => {
                       const s2 = new Set(marcadas);
                       if (marcada) s2.delete(k);
@@ -378,6 +381,14 @@ function LiquidacionesPorPagar({
                     {l.sin_rut.length > 0 && (
                       <span className="block text-xs text-amber-700 mt-0.5">
                         sin RUT: {l.sin_rut.join(", ")}
+                      </span>
+                    )}
+                    {/* EL SEGUNDO CANDADO (doc 10 §14): una propina que no
+                        calza con su pozo no se paga; se corrige antes. */}
+                    {l.descalce && (
+                      <span className="block text-xs text-red-700 mt-0.5">
+                        No se puede pagar: {l.descalce}. Corrígelo en
+                        Liquidación.
                       </span>
                     )}
                   </span>
