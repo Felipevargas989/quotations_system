@@ -1209,10 +1209,11 @@ function DiaRestaurante({
     [pools, dia],
   );
   const yaRepartido = !!pozoDia?.distributed_at;
-  // Con plata repartida, «sin propina» la borra (doc 10 §14): se pregunta.
+  // Con plata repartida (aunque el día se haya reabierto), «sin propina»
+  // la borra (doc 10 §14): se pregunta antes.
   const conReparto =
-    yaRepartido &&
-    Number(pozoDia?.first_amount) + Number(pozoDia?.second_amount) > 0;
+    !!pozoDia &&
+    staff.some((a) => a.tip_pool_id === pozoDia.id && Number(a.tip_amount) > 0);
   const [confirmandoSin, setConfirmandoSin] = useState<string | null>(null);
 
   /** Lo que se le dio a cada cargo ese día, leído de vuelta de la plata
