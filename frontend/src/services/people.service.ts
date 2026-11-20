@@ -360,6 +360,9 @@ export const getDiaMasViejo = async () =>
 export const reabrirLiquidacion = async (origen: {
   quotation_id?: string;
   day?: string;
+  /** Visto el aviso de la propina repartida (doc 10 §14): sin esto el
+   *  motor responde 409 si hay propina repartida adentro. */
+  confirmado?: boolean;
 }) =>
   (await apiRequest(
     `${API_ROUTES.PEOPLE}/payrolls/reabrir`,
@@ -368,6 +371,19 @@ export const reabrirLiquidacion = async (origen: {
   )) as {
     reabierto: "evento" | "dia";
   };
+
+/** Cuánta propina repartida hay en el pozo de ese evento o día, para
+ *  avisar antes de reabrir (doc 10 §14, 19-11-2026). */
+export const avisoDeReabrir = async (origen: {
+  quotation_id?: string;
+  day?: string;
+}) =>
+  (await apiRequest(
+    `${API_ROUTES.PEOPLE}/payrolls/reabrir/aviso`,
+    "GET",
+    undefined,
+    origen,
+  )) as { monto: number; personas: number; en_nomina: boolean };
 
 export interface GraficosHistorico {
   porMes: { mes: string; jornadas: number; propinas: number }[];

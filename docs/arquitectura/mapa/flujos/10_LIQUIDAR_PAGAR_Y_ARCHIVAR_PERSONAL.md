@@ -1,5 +1,5 @@
 # Flujo: Liquidar, armar nómina, pagar y pasar al histórico
-> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). La gente de los otros eventos del día en la ficha de un evento (doc 10 §13), al día el 19-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas; índice de flujos en flujos/00_INDICE_DE_FLUJOS.md y del sistema en ../00_MAPA_DEL_SISTEMA.md.
+> **Estado: verificado una vez contra el código** (commit 0de0ddb, 11-09-2026). La gente de los otros eventos del día en la ficha de un evento (doc 10 §13), al día el 19-11-2026. La propina no se deshace a medias (doc 10 §14), al día el 19-11-2026. Falta la etapa de completar lo que no quedó escrito. Parte del atlas; índice de flujos en flujos/00_INDICE_DE_FLUJOS.md y del sistema en ../00_MAPA_DEL_SISTEMA.md.
 
 ## 1. En palabras simples
 
@@ -66,11 +66,12 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
    - **Efecto:** el día ya cuenta como liquidado (`diasLiquidados` ve su `distributed_at`). Sale de la lista de Liquidación al cerrar el modal (mientras está abierto, la tanda sigue congelada) y aparece en Nómina → Liquidaciones por pagar si tiene jornadas o propinas con monto.
 
 6. **"Sin propina este día".** Lo hace `sinPropinaHoy`.
+   - Si el día ya tenía plata repartida, primero pregunta con `ConfirmInline` («Este día tiene propina repartida: se borra y queda sin propina.»).
    - Si no hay pozo, lo crea en 0.
-   - Si hay pozo con `first_amount > 0`, lo deja en 0 con `updatePool` (`PATCH /people/pools/:id` → `PeopleService.updatePool`). Solo mira `first_amount`: un pozo antiguo con `second_amount` mayor que cero hace fallar el paso siguiente.
-   - Después `sinPropina` → `POST /people/pools/:id/sin-propina` → `PeopleService.marcarSinPropina`: 400 si el pozo tiene plata; si no, `tip_pools.distributed_at = ahora`.
+   - Si hay pozo con `first_amount > 0`, lo deja en 0 con `updatePool` (`PATCH /people/pools/:id` → `PropinaRepartidaService.cambiarPozo`, que borra lo repartido y deja `distributed_at` null). Solo mira `first_amount`: un pozo antiguo con `second_amount` mayor que cero hace fallar el paso siguiente.
+   - Después `sinPropina` → `POST /people/pools/:id/sin-propina` → `PropinaRepartidaService.marcarSinPropina`: 400 si el pozo tiene plata; si no, borra lo repartido que quede (400 si algo está en una nómina) y `tip_pools.distributed_at = ahora`.
    - El modal avanza. El día pasa directo al Histórico, sección "Días sin propina".
-   - Ojo: este camino no borra propinas ya repartidas (caso borde 1).
+   - Desde el 19-11-2026 este camino sí borra las propinas ya repartidas (doc 10 §14; antes quedaban escritas: el día 14-11).
 
 7. **"Listo" solo cierra el modal.** No escribe nada: el día nunca crea nóminas (Felipe, 16-08: *"mandé unos días a liquidación y pasó directo a nómina de pago"*).
 
@@ -137,6 +138,7 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
     - **Nóminas de pago:** debajo, `["people","payrolls"]` → `GET /people/payrolls` → `findPayrolls`, que lista todas (también las pagadas) y les suma personas, pagadas y total con `pagosDeNominas` y `montosDeNominas`.
 
 14. **Marca liquidaciones y aprieta "Revisar y generar · $X".**
+    - Desde el 19-11-2026 (doc 10 §14) una línea cuya propina no calza con su pozo (`descalce`, de `PropinaRepartidaService.marcarDescalces`) dice «No se puede pagar: … Corrígelo en Liquidación.» y no se puede marcar; y la previa (`POST /people/payrolls/previa`) y la nómina se rechazan en el motor con `exigirSinDescalce` si igual llega una.
     - El botón queda deshabilitado si alguna liquidación marcada tiene gente sin RUT.
     - Se abre `RevisarAntesDeGenerar`, que consulta `["people","previa-nomina", seleccion]` (staleTime 0, `refetchOnMount: always`) → `POST /people/payrolls/previa` `{quotation_ids, dias}` → `PeopleService.previaPayroll` → `reunirLiquidado` → `consolidarPorRut`. `reunirLiquidado` es la **misma** función que después genera la nómina.
     - **Modo mezcla:** si vienen días y eventos, se piden por separado y se suman. El filtro `{dias}` es excluyente: solo filas sin evento, de esos días.
@@ -158,8 +160,8 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
 ### Bloque E — Devolver a Liquidación (antes del sello)
 
 16. **Desde Liquidaciones por pagar.**
-    - Cada fila tiene "Reabrir para corregir" con `ConfirmInline`. El mismo botón aparece en la revisión cuando hay una sola liquidación marcada.
-    - La llamada es `reabrirLiquidacion` → `POST /people/payrolls/reabrir` `{quotation_id}` o `{day}` → `PeopleService.reabrirLiquidacion`:
+    - Cada fila tiene "Reabrir para corregir" con `ConfirmarReabrir` (un `ConfirmInline` que primero pide `GET /people/payrolls/reabrir/aviso` y, si hay propina repartida, dice cuánta y entre cuántas personas). El mismo botón aparece en la revisión cuando hay una sola liquidación marcada.
+    - La llamada es `reabrirLiquidacion` → `POST /people/payrolls/reabrir` `{quotation_id}` o `{day}` con `confirmado: true` → `PropinaRepartidaService.exigirConfirmacionAlReabrir` (sin `confirmado` y con propina repartida: 409) → `PeopleService.reabrirLiquidacion`:
       - `hayPagosEn` cuenta las filas de ese evento (o las filas sin evento de ese día) con `payroll_id` o `tip_payroll_id`. Si hay alguna: 400 "Ya hay pagos de esta liquidación en una nómina…".
       - **Evento:** `upsertSheet` deja `staff_sheets.status = 'trabajado'` y `closed_at = NULL`.
       - **Día:** `desrepartirPozoDelDia` deja `tip_pools.distributed_at = NULL`.

@@ -8,7 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
-import ConfirmInline from "../../components/ConfirmInline";
+import ConfirmarReabrir from "./ConfirmarReabrir";
 import { eventosQueryOptions } from "./FichasTab";
 import Modal from "../../components/Modal";
 import CuerpoDeRevision from "./RevisionDeNomina";
@@ -49,6 +49,9 @@ import { formatearRut } from "../../utils/rut";
 
 const clp = (n: number) => "$" + Math.round(n || 0).toLocaleString("es-CL");
 const iso = (v: string | null | undefined) => (v ? String(v).slice(0, 10) : "");
+/** Lo que identifica una liquidación ante el motor: su día o su evento. */
+const origenDe = (l: LiquidacionPendiente) =>
+  l.tipo === "dia" ? { day: l.day! } : { quotation_id: l.quotation_id! };
 
 import { porPersonaDe, type PorPersona } from "./porPersona";
 
@@ -187,7 +190,9 @@ function LiquidacionesPorPagar({
   const clave = (l: LiquidacionPendiente) =>
     l.tipo === "dia" ? `dia:${l.day}` : `ev:${l.quotation_id}`;
 
-  const elegidas = pendientes.filter((l) => marcadas.has(clave(l)));
+  const elegidas = pendientes.filter(
+    (l) => marcadas.has(clave(l)) && !l.descalce,
+  );
   const totalElegido = elegidas.reduce((t, l) => t + l.total, 0);
   // EL RUT ES REGLA DE AVANCE (Felipe, 16-08): sin RUT no se puede
   // cargar al banco, así que no se genera la nómina y se dice a quién
@@ -203,9 +208,7 @@ function LiquidacionesPorPagar({
   const [reabriendo, setReabriendo] = useState<string | null>(null);
   const reabrir = useMutation({
     mutationFn: (l: LiquidacionPendiente) =>
-      reabrirLiquidacion(
-        l.tipo === "dia" ? { day: l.day! } : { quotation_id: l.quotation_id! },
-      ),
+      reabrirLiquidacion({ ...origenDe(l), confirmado: true }),
     onSuccess: (_r, l) => {
       toast.success(`${nombre(l)} volvió a Liquidación para corregirse.`);
       setReabriendo(null);
@@ -314,6 +317,7 @@ function LiquidacionesPorPagar({
             elegidas.length === 1
               ? {
                   nombre: nombre(elegidas[0]),
+                  origen: origenDe(elegidas[0]),
                   busy: reabrir.isPending,
                   onReabrir: () => reabrir.mutate(elegidas[0]),
                 }
@@ -356,6 +360,7 @@ function LiquidacionesPorPagar({
                   <input
                     type="checkbox"
                     checked={marcada}
+                    disabled={!!l.descalce}
                     onChange={() => {
                       const s2 = new Set(marcadas);
                       if (marcada) s2.delete(k);
@@ -378,6 +383,14 @@ function LiquidacionesPorPagar({
                         sin RUT: {l.sin_rut.join(", ")}
                       </span>
                     )}
+                    {/* EL SEGUNDO CANDADO (doc 10 §14): una propina que no
+                        calza con su pozo no se paga; se corrige antes. */}
+                    {l.descalce && (
+                      <span className="block text-xs text-red-700 mt-0.5">
+                        No se puede pagar: {l.descalce}. Corrígelo en
+                        Liquidación.
+                      </span>
+                    )}
                   </span>
                   <span className="tabular-nums font-medium text-gray-900">
                     {clp(l.total)}
@@ -388,10 +401,9 @@ function LiquidacionesPorPagar({
                     arreglo 3"). */}
                 <div className="px-4 pb-2 -mt-1 flex justify-end">
                   {reabriendo === k ? (
-                    <ConfirmInline
-                      question={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
-                      yesLabel="Reabrir"
-                      tono="peligro"
+                    <ConfirmarReabrir
+                      origen={origenDe(l)}
+                      pregunta={`¿Devolver ${nombre(l)} a Liquidación? Sale de por pagar y podrás repartir de nuevo o ajustar jornadas.`}
                       busy={reabrir.isPending}
                       onYes={() => reabrir.mutate(l)}
                       onNo={() => setReabriendo(null)}
@@ -443,6 +455,7 @@ function RevisarAntesDeGenerar({
    *  Liquidación desde acá mismo (Felipe, 18-08). */
   readonly reabrir?: {
     nombre: string;
+    origen: { quotation_id?: string; day?: string };
     busy: boolean;
     onReabrir: () => void;
   };
@@ -485,10 +498,9 @@ function RevisarAntesDeGenerar({
           <div className="mr-auto">
             {reabrir &&
               (confirmandoReabrir ? (
-                <ConfirmInline
-                  question={`¿Devolver ${reabrir.nombre} a Liquidación?`}
-                  yesLabel="Reabrir"
-                  tono="peligro"
+                <ConfirmarReabrir
+                  origen={reabrir.origen}
+                  pregunta={`¿Devolver ${reabrir.nombre} a Liquidación?`}
                   busy={reabrir.busy}
                   onYes={reabrir.onReabrir}
                   onNo={() => setConfirmandoReabrir(false)}
