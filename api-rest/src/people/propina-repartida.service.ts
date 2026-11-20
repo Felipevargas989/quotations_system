@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { CandadoDeNominaRepository } from './candado-de-nomina.repository';
 import type {
   ReabrirLiquidacionDto,
   SeleccionPayrollDto,
@@ -15,6 +16,7 @@ import {
   type PozoConNombre,
   PropinaRepartidaRepository,
 } from './propina-repartida.repository';
+import { grupoDe } from './utils/candado-de-nomina';
 import {
   descalceDelPozo,
   NADA_REPARTIDO,
@@ -50,6 +52,7 @@ export class PropinaRepartidaService {
     private readonly people: PeopleRepository,
     private readonly repo: PropinaRepartidaRepository,
     private readonly logger: PinoLogger,
+    private readonly candado: CandadoDeNominaRepository,
   ) {
     this.logger.setContext(PropinaRepartidaService.name);
   }
@@ -89,7 +92,7 @@ export class PropinaRepartidaService {
    *  calza (pozo en $0 o menor que lo repartido), se borra antes y el
    *  pozo vuelve a «sin repartir». */
   async cambiarPozo(id: number, dto: UpdatePoolDto, companyId: number) {
-    const pozo = await this.people.findPool(id, companyId);
+    const pozo = await this.exigirPozoAbierto(id, companyId);
     const total = totalTrasCambio(pozo, dto);
     const antes = await this.repartidoDelPozo(id, companyId);
     if (total === null || !descalceDelPozo(total, antes.monto)) {
@@ -112,7 +115,7 @@ export class PropinaRepartidaService {
    * reparte, no se salta. Y desde el 19-11, lo repartido antes se borra.
    */
   async marcarSinPropina(poolId: number, companyId: number) {
-    const pozo = await this.people.findPool(poolId, companyId);
+    const pozo = await this.exigirPozoAbierto(poolId, companyId);
     if (Number(pozo.first_amount) + Number(pozo.second_amount) > 0) {
       throw new BadRequestException(
         'Ese día tiene pozo: repártelo, no lo saltes',
@@ -124,6 +127,15 @@ export class PropinaRepartidaService {
       { distributed_at: new Date().toISOString() },
       companyId,
     );
+  }
+
+  /** EL CANDADO A LO PAGADO (doc 10 §15): la propina de un día o evento
+   *  ya pagado no se cambia (monto, reparto ni «sin propina»). Devuelve
+   *  el pozo para no leerlo dos veces. */
+  async exigirPozoAbierto(poolId: number, companyId: number) {
+    const pozo = await this.people.findPool(poolId, companyId);
+    await this.candado.exigirAbiertos(companyId, [grupoDe(pozo)]);
+    return pozo;
   }
 
   /** Cuánto hay repartido en el pozo de ese evento o día. */

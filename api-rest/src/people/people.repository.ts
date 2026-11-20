@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { CandadoDeNominaRepository } from './candado-de-nomina.repository';
 import {
   Cargo,
   DayNote,
@@ -18,6 +19,7 @@ import {
   TipPool,
 } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
+import { grupoDe } from './utils/candado-de-nomina';
 import {
   pagadoDePersonalPorMes,
   PagoDeNomina,
@@ -37,6 +39,9 @@ export class PeopleRepository {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly logger: PinoLogger,
+    // EL CANDADO A LO PAGADO (doc 10 §15): toda escritura de jornadas
+    // pasa por él antes de tocar la base.
+    private readonly candado: CandadoDeNominaRepository,
   ) {
     this.logger.setContext(PeopleRepository.name);
   }
@@ -292,7 +297,9 @@ export class PeopleRepository {
   /** Muchas filas en UN viaje. La proyección de planta creaba 262
    *  jornadas de a una —12 segundos al guardar una ficha (Felipe,
    *  18-08). Sin devolver las filas: no hacen falta. */
-  async addStaffEnLote(rows: Record<string, unknown>[]) {
+  async addStaffEnLote(todas: Record<string, unknown>[]) {
+    // Lo que cae en un día o evento ya pagado no entra (doc 10 §15).
+    const rows = await this.candado.soloAbiertas(todas);
     if (rows.length === 0) return 0;
     this.logger.info(`addStaffEnLote ${rows.length} filas`);
     const { error } = await this.supabase.client
@@ -303,7 +310,9 @@ export class PeopleRepository {
   }
 
   /** Muchas filas fuera en UN viaje, filtrando por empresa. */
-  async removeStaffEnLote(ids: number[], companyId: number) {
+  async removeStaffEnLote(todos: number[], companyId: number) {
+    // Lo de un día o evento ya pagado no se borra (doc 10 §15).
+    const ids = await this.candado.idsAbiertos(companyId, todos);
     if (ids.length === 0) return 0;
     const { error } = await this.supabase.client
       .from('event_staff')
@@ -316,6 +325,13 @@ export class PeopleRepository {
 
   async addStaff(row: Record<string, unknown>) {
     this.logger.info(`addStaff ${JSON.stringify(row)}`);
+    // A un día o evento ya pagado no se le suma nadie (doc 10 §15).
+    await this.candado.exigirAbiertos(Number(row.company_id), [
+      grupoDe({
+        quotation_id: (row.quotation_id as string | null) ?? null,
+        day: (row.day as string | null) ?? null,
+      }),
+    ]);
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .insert([row])
@@ -351,6 +367,11 @@ export class PeopleRepository {
     companyId: number,
   ) {
     this.logger.info(`updateStaff ${id}`);
+    // Lo pagado no se cambia, ni se mueve a un día pagado (doc 10 §15).
+    await this.candado.exigirFilasAbiertas(companyId, [id], {
+      quotation_id: cambios.quotation_id as string | null | undefined,
+      day: cambios.day as string | null | undefined,
+    });
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .update(cambios)
@@ -628,6 +649,8 @@ export class PeopleRepository {
 
   async removeStaff(id: number, companyId: number) {
     this.logger.info(`removeStaff ${id}`);
+    // Lo de un día o evento ya pagado no se borra (doc 10 §15).
+    await this.candado.exigirFilasAbiertas(companyId, [id]);
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .delete()

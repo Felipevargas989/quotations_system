@@ -202,6 +202,8 @@ function base() {
     people as unknown as PeopleRepository,
     repo as unknown as PropinaRepartidaRepository,
     logger as never,
+    // Aquí ningún día está pagado: el candado se prueba en su archivo.
+    { exigirAbiertos: jest.fn().mockResolvedValue(undefined) } as never,
   );
   const personas = new PeopleService(
     people as unknown as PeopleRepository,
