@@ -77,6 +77,10 @@ import SelectWithSearch from "../../components/selects/SelectWithSearch";
 import EdificioConvenio from "../../components/clientes/EdificioConvenio";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
+import BandasPorDia from "../../components/servicios/BandasPorDia";
+import DesdeQueDiaParte from "../../components/servicios/DesdeQueDiaParte";
+import * as porDia from "../../utils/serviciosPorDia";
+import { repartirPaquetePorDia } from "../../utils/repartirPaquetePorDia";
 import { UserRole } from "../../constants/users";
 import { toast } from "../../components/toast/Toast";
 import CampoUltimoDia from "./CampoUltimoDia";
@@ -226,6 +230,8 @@ export default function QuotationForm() {
   // se guarda con la cotización (variable_services serializa en orden);
   // el plegado es solo de la sesión — al abrir, todo parte desplegado.
   const [collapsedBoxes, setCollapsedBoxes] = useState<Set<string>>(new Set());
+  const [resaltar, setResaltar] = useState<porDia.Resaltar | null>(null);
+  const [pendiente, setPendiente] = useState<ServiceGroupCollection | null>(null);
   const [serviceBoxes, setServiceBoxes] = useState<ServiceBox[]>([
     {
       id: "1",
@@ -382,25 +388,16 @@ export default function QuotationForm() {
   // Días del evento según el rango (1..N; sin "hasta" = 1). Con más de un
   // día, cada servicio lleva selector de día (variables parten en Día 1,
   // fijos en "Todo el evento").
-  const eventDaysCount = (() => {
-    if (!formData.event_date || !formData.event_end_date) return 1;
-    const s = new Date(`${String(formData.event_date)}T00:00:00Z`).getTime();
-    const e = new Date(
-      `${String(formData.event_end_date)}T00:00:00Z`,
-    ).getTime();
-    if (!Number.isFinite(s) || !Number.isFinite(e) || e < s) return 1;
-    return Math.min(60, Math.round((e - s) / 86400000) + 1);
-  })();
-  const dayLabel = (n: number) => {
-    const base = new Date(`${String(formData.event_date)}T00:00:00Z`);
-    if (!Number.isFinite(base.getTime())) return `Día ${n}`;
-    const d = new Date(base.getTime() + (n - 1) * 86400000);
-    return `Día ${n} (${d.toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      timeZone: "UTC",
-    })})`;
-  };
+  const inicio = formData.event_date && String(formData.event_date);
+  const eventDaysCount = porDia.contarDiasDelEvento(
+    inicio,
+    formData.event_end_date && String(formData.event_end_date),
+  );
+  const dayLabel = (n: number) => porDia.rotuloCortoDeDia(n, inicio);
+  const diaDeCaja = (b: Pick<ServiceBox, "day">) =>
+    Math.min(b.day || 1, eventDaysCount);
+  const numeros = porDia.numerarPorDia(serviceBoxes, diaDeCaja);
+  const conContenido = (b: ServiceBox) => !!b.selectedCategory || b.services.length > 0;
 
   // Niños/adultos: people_count sigue siendo el TOTAL de asistentes;
   // children_count dice cuántos son niños. Cada caja multiplica por su
@@ -412,6 +409,9 @@ export default function QuotationForm() {
   );
   const audienceCount = (box: Pick<ServiceBox, "audience">) =>
     box.audience === "ninos" ? childrenCount : adultsCount;
+  const totalDeCaja = (box: ServiceBox) =>
+    box.services.reduce((sum, it) => sum + it.precio * it.quantity, 0) *
+    boxPeople(box);
   const boxPeople = (box: Pick<ServiceBox, "audience" | "people">) =>
     box.people ?? audienceCount(box);
 
@@ -996,14 +996,18 @@ export default function QuotationForm() {
     eventDaysCount,
   ]);
 
-  const addServiceBox = () => {
+  // «+ Agregar al Día N»: entra tras la última casilla de ese día.
+  const addServiceBox = (dia?: number) => {
     const newBox: ServiceBox = {
       id: Date.now().toString(),
       selectedCategory: "",
       selectedItem: "",
       services: [],
+      ...(dia ? { day: dia } : {}),
     };
-    setServiceBoxes((prev) => [...prev, newBox]);
+    setServiceBoxes((prev) =>
+      porDia.insertarEnDia(prev, newBox, dia ?? Infinity, diaDeCaja),
+    );
   };
 
   const toggleBoxCollapsed = (boxId: string) =>
@@ -1014,18 +1018,12 @@ export default function QuotationForm() {
       return next;
     });
 
-  // Reorden con flechitas ▲▼ (04-08: el drag de cajas se jubiló, igual
-  // que ayer el del catálogo). Estado local puro del formulario.
-  const moveBox = (index: number, delta: number) => {
-    setServiceBoxes((prev) => {
-      const to = index + delta;
-      if (to < 0 || to >= prev.length) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(index, 1);
-      next.splice(to, 0, moved);
-      return next;
-    });
-  };
+  // Reorden con flechitas ▲▼ (04-08: el drag de cajas se jubiló). Desde el
+  // 20-11-2026 solo entre las casillas de su mismo día (BandasPorDia).
+  const moveBox = (index: number, delta: number) =>
+    setServiceBoxes((prev) =>
+      porDia.moverDentroDelDia(prev, index, delta, diaDeCaja),
+    );
 
   const removeServiceBox = (boxId: string) => {
     setServiceBoxes((prev) => prev.filter((box) => box.id !== boxId));
@@ -1144,8 +1142,8 @@ export default function QuotationForm() {
   // argumento simple: "un paquete es una base de trabajo, una plantilla;
   // yo después asigno los días o reparto lo que está. Que borre lo que
   // hay no suma nada". Y hay un caso concreto: un grupo de quince días
-  // puede armarse con dos paquetes de siete y uno de tres.
-  const loadCollectionAsBoxes = (collection: ServiceGroupCollection) => {
+  // puede armarse con dos paquetes de siete y uno de tres (`desdeDia`).
+  const loadCollectionAsBoxes = (collection: ServiceGroupCollection, desdeDia = 1) => {
     const boxes = (collection.groups || [])
       .map((item) => (item.group ? buildBoxFromGroup(item.group) : null))
       .filter((box): box is ServiceBox => box !== null);
@@ -1187,16 +1185,22 @@ export default function QuotationForm() {
       setSelectedFixedServices((prev) => [...prev, ...fijosNuevos]);
     }
 
-    const todas = [...boxes, ...cajasSueltas];
+    // Cada casilla a su día (20-11-2026, utils/repartirPaquetePorDia).
+    const todas = repartirPaquetePorDia(
+      [...boxes, ...cajasSueltas],
+      eventDaysCount,
+      desdeDia,
+    );
     if (todas.length === 0 && fijosNuevos.length === 0) return;
 
-    setServiceBoxes((prev) => [
-      // Las cajas en blanco —sin categoría y sin servicios— son el
-      // andamio de una cotización recién abierta, no contenido: se van.
-      // Todo lo demás se conserva y el paquete entra debajo.
-      ...prev.filter((b) => b.selectedCategory || b.services.length > 0),
-      ...todas,
-    ]);
+    // Las cajas en blanco —sin categoría y sin servicios— son el
+    // andamio de una cotización recién abierta, no contenido: se van.
+    // Todo lo demás se conserva y el paquete entra debajo.
+    const conservadas = serviceBoxes.filter(conContenido);
+    setServiceBoxes([...conservadas, ...todas]);
+    // Desde el día N: su banda se despliega y se lleva a la vista.
+    if (desdeDia > 1 && todas.length)
+      setResaltar(porDia.resaltarA(conservadas.length + Math.max(0, todas.findIndex((c) => c.day === desdeDia))));
     setPaquetesAplicados((prev) => [
       ...prev,
       { id: collection.id, name: collection.name },
@@ -2379,9 +2383,9 @@ export default function QuotationForm() {
             }
             puedeCrear={serviceGroups.length > 0}
             hayServiciosCargados={() =>
-              serviceBoxes.some((box) => box.services.length > 0)
+              eventDaysCount <= 1 && serviceBoxes.some((box) => box.services.length > 0)
             }
-            onCargar={loadCollectionAsBoxes}
+            onCargar={(p) => (eventDaysCount > 1 && serviceBoxes.some(conContenido) ? setPendiente(p) : loadCollectionAsBoxes(p))}
             onEliminar={async (paquete) => {
               await removeServiceGroupCollection(paquete.id);
               setPaquetesAplicados((prev) =>
@@ -2391,6 +2395,8 @@ export default function QuotationForm() {
             onCrearNuevo={openCollectionModal}
             soloElegir={esRecepcion(userRole)}
           />
+          <DesdeQueDiaParte paquete={pendiente} diasDelEvento={eventDaysCount} rotuloDeDia={dayLabel}
+            onCargar={loadCollectionAsBoxes} onCerrar={() => setPendiente(null)} />
           <button
             onClick={handleSubmit}
             disabled={loading || !isQuotationFormValid()}
@@ -2743,17 +2749,33 @@ export default function QuotationForm() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <BandasPorDia
+              className="space-y-4"
+              cajas={serviceBoxes}
+              diasDelEvento={eventDaysCount}
+              fechaInicio={inicio}
+              diaDe={diaDeCaja}
+              categoriaDe={(b) => b.selectedCategory}
+              nombreDe={(b) => b.groupName}
+              totalDe={totalDeCaja}
+              onAgregar={isRestrictedEditing ? undefined : addServiceBox}
+              resaltar={resaltar}
+              pie={
+                <button
+                  onClick={() => addServiceBox()}
+                  disabled={isRestrictedEditing}
+                  className="mt-2 text-sm font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
+                >
+                  + Agregar servicio
+                </button>
+              }
+            >
               {serviceBoxes.map((box, index) => {
                 const collapsed = collapsedBoxes.has(box.id);
                 const boxItemCount = box.services.filter(
                   (sv) => sv.quantity > 0,
                 ).length;
-                const boxTotal =
-                  box.services.reduce(
-                    (sum, it) => sum + it.precio * it.quantity,
-                    0,
-                  ) * boxPeople(box);
+                const boxTotal = totalDeCaja(box);
                 // "La esquina limpia" (04-08, opción A de Felipe): el
                 // grip de 6 puntitos se jubiló con su drag; número y
                 // plieguecito son UN botoncito compacto "N ⌄", y el
@@ -2766,7 +2788,7 @@ export default function QuotationForm() {
                     className="flex items-center gap-0.5 px-1 py-0.5 rounded text-xs font-bold text-gray-400 hover:bg-gray-100 hover:text-gray-600 shrink-0"
                     title={collapsed ? "Desplegar" : "Plegar"}
                   >
-                    {index + 1}
+                    {numeros[index]}
                     {collapsed ? (
                       <ChevronRight size={13} />
                     ) : (
@@ -3008,15 +3030,16 @@ export default function QuotationForm() {
                                       name: dayLabel(i + 1),
                                     }),
                                   )}
-                                  onChange={(dia) =>
+                                  onChange={(dia) => {
                                     setServiceBoxes((prev) =>
                                       prev.map((b) =>
                                         b.id === box.id
                                           ? { ...b, day: dia }
                                           : b,
                                       ),
-                                    )
-                                  }
+                                    );
+                                    setResaltar(porDia.resaltarA(index));
+                                  }}
                                   zeroLabel={null}
                                   size="md"
                                   disabled={isRestrictedEditing}
@@ -3284,15 +3307,7 @@ export default function QuotationForm() {
                   </div>
                 );
               })}
-
-              <button
-                onClick={addServiceBox}
-                disabled={isRestrictedEditing}
-                className="mt-2 text-sm font-semibold text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline"
-              >
-                + Agregar servicio
-              </button>
-            </div>
+            </BandasPorDia>
           </div>
 
           {/* Servicios fijos del evento (editable; el resumen los lista) */}

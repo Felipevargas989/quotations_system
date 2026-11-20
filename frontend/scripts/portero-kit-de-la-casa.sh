@@ -239,6 +239,16 @@ revisar 'interruptor a mano (role="switch")' 0 \
   'role="switch"' \
   'src/components/Interruptor\.(tsx|test\.tsx)'
 
+# ── Bandas por día — las casillas de servicios agrupadas por día ────
+# Nace el 20-11-2026 con su regla el mismo día: el cotizador y Post-Venta
+# → Servicios agrupan sus casillas con la MISMA pieza. Una segunda copia
+# de las bandas se reconoce por sus rótulos.
+
+revisar "bandas por día a mano" 0 \
+  "<BandasPorDia /> — bandas «Día N», comidas del día, total, plegar y «+ Agregar al Día N»" \
+  'Agregar al Día|Plegar todos los d[ií]as' \
+  'src/(components/servicios/BandasPorDia|utils/serviciosPorDia)\.(tsx?|test\.tsx?)'
+
 # ══ EL TECHO DE TAMAÑO (26-08, autorizado por Felipe: "vamos con la 1") ═
 #
 # La industria recomienda archivos de 150-300 líneas, con 500 de techo;
