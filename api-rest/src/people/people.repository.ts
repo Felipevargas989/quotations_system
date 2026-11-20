@@ -20,6 +20,7 @@ import {
 } from './entities/person.entity';
 import { CreatePerson, UpdatePerson } from './interfaces/people.interfaces';
 import { grupoDe } from './utils/candado-de-nomina';
+import { conFoto } from './utils/foto-de-lo-pagado';
 import {
   pagadoDePersonalPorMes,
   PagoDeNomina,
@@ -450,7 +451,8 @@ export class PeopleRepository {
       .eq('person_id', personId)
       .order('day', { ascending: false });
     if (error) throw error;
-    return data as unknown as EventStaffConPersona[];
+    // Lo ya pagado se muestra como se pagó (doc 10 §15).
+    return (data ?? []).map(conFoto) as unknown as EventStaffConPersona[];
   }
 
   /**
@@ -757,13 +759,14 @@ export class PeopleRepository {
     const { data, error } = await this.supabase.client
       .from('event_staff')
       .select(
-        'day, amount, tip_amount, payroll_id, tip_payroll_id, person_id, people(name)',
+        'day, amount, tip_amount, payroll_id, tip_payroll_id, monto_pagado, propina_pagada, person_id, people(name)',
       )
       .eq('company_id', companyId)
       .gte('day', desde)
       .or('payroll_id.not.is.null,tip_payroll_id.not.is.null');
     if (error) throw error;
-    return data as unknown as {
+    // Lo pagado se lee de la foto (doc 10 §15).
+    return (data ?? []).map(conFoto) as unknown as {
       day: string;
       amount: number | null;
       tip_amount: number | null;
@@ -1044,13 +1047,16 @@ export class PeopleRepository {
     if (payrollIds.length === 0) return [];
     const { data, error } = await this.supabase.client
       .from('event_staff')
-      .select('payroll_id, tip_payroll_id, amount, tip_amount')
+      .select(
+        'payroll_id, tip_payroll_id, amount, tip_amount, monto_pagado, propina_pagada',
+      )
       .eq('company_id', companyId)
       .or(
         `payroll_id.in.(${payrollIds.join(',')}),tip_payroll_id.in.(${payrollIds.join(',')})`,
       );
     if (error) throw error;
-    return data as unknown as {
+    // Lo que suma una nómina es lo que se pagó, no el valor de hoy.
+    return (data ?? []).map(conFoto) as unknown as {
       payroll_id: number | null;
       tip_payroll_id: number | null;
       amount: number | null;
@@ -1175,18 +1181,40 @@ export class PeopleRepository {
     });
   }
 
-  async stampRows(
-    ids: number[],
-    cambios: Record<string, unknown>,
+  /**
+   * LA FOTO DE LO PAGADO (doc 10 §15, migración 213): sella cada fila en
+   * la nómina y guarda en el mismo gesto lo que se le va a pagar, con los
+   * mismos montos con que se armó la nómina. Una fila con jornada y
+   * propina recibe las dos fotos (dos cambios a columnas distintas).
+   */
+  async sellarConFoto(
+    jornadas: readonly { id: number; amount?: number | string | null }[],
+    propinas: readonly { id: number; tip_amount?: number | string | null }[],
+    payrollId: number,
     companyId: number,
   ) {
-    if (ids.length === 0) return;
-    const { error } = await this.supabase.client
-      .from('event_staff')
-      .update(cambios)
-      .eq('company_id', companyId)
-      .in('id', ids);
-    if (error) throw error;
+    const sellar = async (id: number, cambios: Record<string, unknown>) => {
+      const { error } = await this.supabase.client
+        .from('event_staff')
+        .update(cambios)
+        .eq('company_id', companyId)
+        .eq('id', id);
+      if (error) throw error;
+    };
+    await Promise.all([
+      ...jornadas.map((j) =>
+        sellar(j.id, {
+          payroll_id: payrollId,
+          monto_pagado: Number(j.amount ?? 0),
+        }),
+      ),
+      ...propinas.map((p) =>
+        sellar(p.id, {
+          tip_payroll_id: payrollId,
+          propina_pagada: Number(p.tip_amount ?? 0),
+        }),
+      ),
+    ]);
   }
 
   async rowsDeNomina(payrollId: number, companyId: number) {
@@ -1198,7 +1226,7 @@ export class PeopleRepository {
         .eq(col, payrollId)
         .order('day');
       if (error) throw error;
-      return data as unknown as EventStaff[];
+      return (data ?? []).map(conFoto) as unknown as EventStaff[];
     };
     return {
       jornadas: await traer('payroll_id'),
@@ -1225,7 +1253,9 @@ export class PeopleRepository {
         .not('paid_at', 'is', null),
       this.supabase.client
         .from('event_staff')
-        .select('person_id, payroll_id, tip_payroll_id, amount, tip_amount')
+        .select(
+          'person_id, payroll_id, tip_payroll_id, amount, tip_amount, monto_pagado, propina_pagada',
+        )
         .eq('company_id', companyId)
         .or('payroll_id.not.is.null,tip_payroll_id.not.is.null'),
       this.supabase.client
@@ -1244,7 +1274,8 @@ export class PeopleRepository {
     );
     return pagadoDePersonalPorMes(
       (pagos.data || []) as unknown as PagoDeNomina[],
-      (sillas.data || []) as unknown as SillaDeNomina[],
+      // Lo pagado se lee de la foto (doc 10 §15).
+      (sillas.data || []).map(conFoto) as unknown as SillaDeNomina[],
       nombres,
     );
   }
