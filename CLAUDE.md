@@ -224,6 +224,7 @@ and no close-on-click-outside) — every one of them already handled inside
 | `components/PageSkeleton` | loading state of a whole page | 3 |
 | `components/PermissionGuard` | gate a route by its `section`: since 05-11-2026 (doc 22) the section's **permiso por cargo**, from the list the engine sends in the profile (`useAuth().permisos`) — the same question the menu asks. `permiso` overrides it (Consultas), `derecho` adds the plan lock | 28 routes |
 | `components/Interruptor` | **any on/off switch** (05-11-2026, doc 22): `role="switch"` + `aria-checked`, Space/Enter, `candado` with its `motivo`, `ocupado` while saving. Never a checkbox for prendido/apagado | 1 |
+| `components/servicios/BandasPorDia` | **service boxes grouped by day** (20-11-2026, in the lab, not in production): with more than one event day the boxes fall into bands «Día N · lunes 23-11» (UTC date) with meal chips (desayuno amber, almuerzo green, cena violet, alojamiento cyan; «falta …» dashed grey; «+ Extra» pink — the meal comes from the saved-menu/box name first, then the category; «Almuerzos & Cenas» fills the first missing one), box count, day total, fold per day and «Plegar todos los días», «+ Agregar al Día N». The screen still draws each box with its usual `.map` as `children`; with ONE day nothing changes. `resaltar` (from `resaltarA(indice)`) unfolds, lights and scrolls a box whose day changed. Its pure helpers live in `utils/serviciosPorDia` (`moverDentroDelDia` for ▲▼ within the day, `insertarEnDia`, `contarDiasDelEvento`, `rotuloCortoDeDia`), and `utils/repartirPaquetePorDia` puts each box of a loaded package on its day. Cotizador and Post-Venta → Servicios | 2 |
 
 Utilities worth knowing before reinventing: `utils/searchMatch`
 (`matchesSearch(query, ...targets)` — **query first**, accent/order
@@ -257,6 +258,7 @@ writing a second guard. Ceilings measured 13-08-2026:
 | `confirm()` | 0 | `ConfirmInline` |
 | native `type="number"` | 0 | `NumberInput` |
 | hand-rolled `role="switch"` (05-11-2026) | 0 | `Interruptor` |
+| hand-rolled day bands («Agregar al Día», «Plegar todos los días») (20-11-2026) | 0 | `BandasPorDia` |
 
 Since 26-08-2026 the guard also enforces **file size** (both apps,
 api-rest included): the count of files over 800 lines must not grow
