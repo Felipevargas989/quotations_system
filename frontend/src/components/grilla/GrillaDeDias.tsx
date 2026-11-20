@@ -56,6 +56,9 @@ export interface BarraDeGrupo {
   readonly numero: string;
   /** Lo que sigue en la misma línea (ej: "FDN Canotaje · mié 4 al dom 8 nov"). */
   readonly detalle: string;
+  /** A dónde lleva el número al pincharlo, en pestaña nueva (ej: la
+   *  ficha del evento en Post-Venta). Sin esto, el número es solo texto. */
+  readonly enlace?: string;
   /** Los días que cubre la barra. */
   readonly dias: ReadonlySet<string>;
   readonly color: {
@@ -296,7 +299,22 @@ export default function GrillaDeDias({
                           será mejor que esté todo en la misma fila?"). */}
                       <div className="flex items-start justify-between gap-2">
                         <span className="min-w-0 break-words">
-                          <span className="font-semibold">{f.grupoBarra.numero}</span>
+                          {f.grupoBarra.enlace ? (
+                            // El número lleva al evento (Felipe, 19-11-2026:
+                            // "que ahí en el número, si pincho, me lleve al
+                            // evento"). Pestaña nueva, como el Calendario.
+                            <a
+                              href={f.grupoBarra.enlace}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir el evento en Post-Venta"
+                              className="font-semibold underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                            >
+                              {f.grupoBarra.numero}
+                            </a>
+                          ) : (
+                            <span className="font-semibold">{f.grupoBarra.numero}</span>
+                          )}
                           {f.grupoBarra.detalle ? ` · ${f.grupoBarra.detalle}` : ""}
                         </span>
                         {f.grupoAccion && <span className="shrink-0">{f.grupoAccion}</span>}

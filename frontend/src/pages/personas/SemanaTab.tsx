@@ -22,6 +22,7 @@ import type { EleccionDiaExtra } from "./PreguntaDiaExtra";
 import PreguntaDelEvento, { type EventoDeLaPregunta } from "./PreguntaDelEvento";
 import { ElegirCargoDelEvento, SelectorDeCargo } from "./SelectorDeCargo";
 import { colorDelEvento, type ColorDeEvento } from "./coloresDeEvento";
+import { barraDelEvento } from "./barraDelEvento";
 import {
   DIAS_DE_LA_VISTA,
   PASO_DE_LAS_FLECHAS,
@@ -35,6 +36,7 @@ import {
 } from "./eventosDeLaSabana";
 import type { SelectOption } from "../../components/selects/types";
 import { toast } from "../../components/toast/Toast";
+import { useAuth } from "../../contexts/AuthContext";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import {
@@ -115,21 +117,6 @@ const rotuloEvento = (e: {
 const claveDeFila = (f: FilaSemana) =>
   `${f.quotationId ?? (f.ocasional ? "staff" : "planta")}|${String(f.cargoId)}`;
 
-/** El número y el resto del rótulo de un evento: "#522 · FDN Canotaje ·
- *  mié 4 nov al dom 8 nov" → "#522" y "FDN Canotaje · mié 4 nov al…". */
-const partesDelEvento = (f: FilaSemana) => {
-  const [numero = "", ...resto] = f.evento.split(" · ");
-  return { numero, detalle: resto.join(" · ") };
-};
-
-/** La banda de un evento con su color y la barra de sus días; sin fechas
- *  (un evento que no está en la lista), la banda gris de siempre. */
-const barraDelEvento = (f: FilaSemana, color: ColorDeEvento) => {
-  if (f.quotationId === null || f.diasDelEvento.size === 0) return undefined;
-  const { numero, detalle } = partesDelEvento(f);
-  return { numero, detalle, dias: f.diasDelEvento, color };
-};
-
 // LAS TRES SECCIONES DE LA SÁBANA (Felipe, 09-11-2026: "agreguemos
 // separaciones visuales entre eventos / planta / Staff"), con los colores
 // de sus celdas: verde los eventos, azul la planta y lila el staff.
@@ -152,6 +139,10 @@ export default function SemanaTab({
   readonly diaInicial?: string;
 }) {
   const qc = useQueryClient();
+  // El número del evento lleva a su ficha en Post-Venta solo a quien
+  // puede verla (19-11-2026).
+  const { permisos } = useAuth();
+  const puedeVerPostVenta = permisos.includes("postventa");
   const [domingo, setDomingo] = useState(() =>
     domingoDe(diaInicial || hoyEnChile()),
   );
@@ -846,7 +837,7 @@ export default function SemanaTab({
             grupo: f.quotationId === null ? undefined : f.evento,
             // MÁS COLOR (Felipe, 09-11-2026, maqueta aprobada): cada evento
             // con su color, su número y una barra sobre sus días.
-            grupoBarra: barraDelEvento(f, colorDeFila(f)),
+            grupoBarra: barraDelEvento(f, colorDeFila(f), puedeVerPostVenta),
             grupoAccion:
               f.quotationId !== null ? (
                 // El «+ cargo» como botoncito del color de su evento.
