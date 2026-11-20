@@ -18,6 +18,7 @@ import { AlcanceDeRecepcion } from 'src/clients/alcance-de-recepcion';
 import { DelEvento } from 'src/clients/del-evento.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { logSafe } from '../logging/log-safe';
+import { CandadoDeNominaRepository } from './candado-de-nomina.repository';
 import { CambioDeTipoDto, OrigenDelTipoDto } from './dto/cambio-de-tipo.dto';
 import { CreatePersonDto } from './dto/create-person.dto';
 import {
@@ -66,6 +67,8 @@ export class PeopleController {
     private readonly otrosEventos: PropinaDeOtrosEventosService,
     // La propina no se deshace a medias (doc 10 §14, 19-11-2026).
     private readonly propinaRepartida: PropinaRepartidaService,
+    // El candado a lo pagado (doc 10 §15).
+    private readonly candado: CandadoDeNominaRepository,
   ) {
     this.logger.setContext(PeopleController.name);
   }
@@ -314,19 +317,29 @@ export class PeopleController {
   // desde la tabla del día (el extra y el "sin propina" viven ahí).
   @Permiso('personal')
   @Post('staff/del-evento-al-dia')
-  soloPropinaDelDia(@Body() dto: SoloPropinaDto, @CurrentUser() user: User) {
+  async soloPropinaDelDia(
+    @Body() dto: SoloPropinaDto,
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`POST /people/staff/del-evento-al-dia ${logSafe(dto)}`);
+    // El día pagado no recibe ni cambia invitados (doc 10 §15).
+    await this.candado.exigirDiaDeLaJornadaAbierto(
+      user.company_id,
+      dto.evento_staff_id,
+    );
     return this.peopleService.soloPropinaDelDia(dto, user.company_id);
   }
 
   @Permiso('personal')
   @Post('pools/:id/repartir')
-  repartir(
+  async repartir(
     @Param('id') id: string,
     @Body() dto: RepartirDto,
     @CurrentUser() user: User,
   ) {
     this.logger.info(`POST /people/pools/${id}/repartir`);
+    // La propina de un día o evento ya pagado no se vuelve a repartir.
+    await this.propinaRepartida.exigirPozoAbierto(+id, user.company_id);
     return this.peopleService.repartir(+id, dto, user.company_id);
   }
 

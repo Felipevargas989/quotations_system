@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
+import { CandadoDeNominaRepository } from './candado-de-nomina.repository';
 import { PeopleController } from './people.controller';
 import { PeopleRepository } from './people.repository';
 import { PeopleService } from './people.service';
@@ -23,6 +24,7 @@ import { TipoDePersonaService } from './tipo-de-persona.service';
     PropinaDeOtrosEventosRepository,
     PropinaRepartidaService,
     PropinaRepartidaRepository,
+    CandadoDeNominaRepository,
   ],
   exports: [PeopleService],
 })
