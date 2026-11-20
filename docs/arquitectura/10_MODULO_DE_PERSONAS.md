@@ -1581,3 +1581,42 @@ fuera a propósito sellar la nómina (`stampRows`) y borrar propinas
 (`clearTips`, con su propio candado de nómina, §14). La propina pasa
 además por `PropinaRepartidaService.exigirPozoAbierto`, y el invitado
 del día por `exigirDiaDeLaJornadaAbierto`. Sin migración.
+
+### 15.1 La foto de lo pagado (20-11-2026, migración 213)
+
+**En el laboratorio desde el 20-11-2026.** La nómina no guardaba montos:
+`payroll_people` solo tiene las marcas de pagado, y cada pantalla sumaba
+el monto de HOY de cada fila sellada. Por eso, cuando el 19-11 una fila
+pagada (la 2912) bajó de $25.000 a $20.000, la nómina 11 pasó a decir $20.000
+aunque el banco pagó $25.000, y lo pagado de verdad solo quedó en el
+registro del motor.
+
+**La regla.** Al sellar una fila en una nómina se guarda lo que se pagó
+(`monto_pagado` y `propina_pagada`, con los mismos montos con que se armó
+la nómina), y todo lo que muestra o suma una nómina lee esa foto, no el
+valor de hoy: la lista de nóminas y su total, el detalle de una nómina,
+el Histórico de pagos y sus gráficos, lo pagado por mes del panel y la
+pestaña Pagos de la persona. Con el candado (§15) una fila sellada ya no
+cambia; la foto es la segunda red, por si algo la cambia por fuera (un
+arreglo a mano en la base).
+
+**Las filas selladas antes de la 213** se rellenaron con el valor que
+tenían el día de la migración y quedan marcadas `foto_reconstruida`: es
+una reconstrucción, no lo medido al pagar. Si una de ellas cambió después
+de su nómina, su foto quedó con el valor nuevo. Son estas 11, medidas el
+20-11-2026 (los nombres, en el informe a Felipe); ninguna se corrigió,
+decide Felipe:
+
+| Fila | Día | Nómina | Qué se sabe |
+|---|---|---|---|
+| 2912 | Staff 09-11 | 11 | Bajó de $25.000 a $20.000 el 19-11 a las 23:19 (registro del motor). El banco pagó $25.000 |
+| 2183 | Staff 11-10 | 7 | Tocada el 24-10 a las 13:52, dos días después de su nómina. Hoy: $30.000 y $12.817 de propina. No se sabe qué cambió |
+| 2184 | Staff 12-10 | 7 | Tocada el 24-10 a las 13:52. Hoy: $25.000 y $1.200 de propina. No se sabe qué cambió |
+| 1353, 1354, 1355, 1356 | Staff 21 al 24-08 | 1 | Propinas tocadas el 29-08, cuatro días después de su nómina. Hoy: $464, $1.039, $225 y $92 |
+| 571, 572, 1748, 1752 | Staff 21 al 24-08 | 1 | Propinas tocadas el 29-08. Hoy: $464, $1.038, $225 y $92 |
+
+Piezas: `utils/foto-de-lo-pagado.ts` (`conFoto`), `sellarConFoto` en
+`PeopleRepository` (reemplaza a `stampRows` en `createPayroll`; el techo
+de `people.service.ts` bajó a 2005) y la migración 213 con su relleno
+(`213_foto_de_lo_pagado.sql` y `.backfill.sql`), que va **antes** que el
+motor que la lee.

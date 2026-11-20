@@ -1446,16 +1446,8 @@ export class PeopleService {
       company_id: companyId,
       label: dto.label,
     });
-    await this.repo.stampRows(
-      jornadas.map((j) => j.id),
-      { payroll_id: payroll.id },
-      companyId,
-    );
-    await this.repo.stampRows(
-      propinas.map((p) => p.id),
-      { tip_payroll_id: payroll.id },
-      companyId,
-    );
+    // Sella y guarda lo pagado en el mismo gesto (doc 10 §15).
+    await this.repo.sellarConFoto(jornadas, propinas, payroll.id, companyId);
     const personIds = [
       ...new Set([...jornadas, ...propinas].map((r) => r.person_id)),
     ];

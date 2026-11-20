@@ -19,7 +19,7 @@ import {
  * recálculo nunca toca lo pagado.
  *
  * Todo filtra por company_id. Fuera quedan, a propósito, los sellos y la
- * foto de la nómina (`stampRows`) y borrar propinas (`clearTips`, que
+ * foto de la nómina (`sellarConFoto`) y borrar propinas (`clearTips`, que
  * tiene su propio candado en PropinaRepartidaService).
  */
 @Injectable()
