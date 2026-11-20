@@ -5,6 +5,8 @@ import { PeopleRepository } from './people.repository';
 import { PeopleService } from './people.service';
 import { PropinaDeOtrosEventosRepository } from './propina-de-otros-eventos.repository';
 import { PropinaDeOtrosEventosService } from './propina-de-otros-eventos.service';
+import { PropinaRepartidaRepository } from './propina-repartida.repository';
+import { PropinaRepartidaService } from './propina-repartida.service';
 import { TipoDePersonaRepository } from './tipo-de-persona.repository';
 import { TipoDePersonaService } from './tipo-de-persona.service';
 
@@ -19,6 +21,8 @@ import { TipoDePersonaService } from './tipo-de-persona.service';
     TipoDePersonaRepository,
     PropinaDeOtrosEventosService,
     PropinaDeOtrosEventosRepository,
+    PropinaRepartidaService,
+    PropinaRepartidaRepository,
   ],
   exports: [PeopleService],
 })

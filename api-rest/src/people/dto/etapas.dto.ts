@@ -42,6 +42,12 @@ export class ReabrirLiquidacionDto {
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   day?: string;
+
+  // Con propina repartida adentro, reabrir pide confirmar (doc 10 §14):
+  // sin esto el motor responde 409 con cuánto hay y entre cuántos.
+  @IsOptional()
+  @IsBoolean()
+  confirmado?: boolean;
 }
 
 // ---- Los pozos de propina ----

@@ -18,7 +18,6 @@ import {
   SeleccionPayrollDto,
   SoloPropinaDto,
   UpdateDayNoteDto,
-  UpdatePoolDto,
   UpsertSheetDto,
 } from './dto/etapas.dto';
 import type {
@@ -817,10 +816,6 @@ export class PeopleService {
     });
   }
 
-  updatePool(id: number, dto: UpdatePoolDto, companyId: number) {
-    return this.repo.updatePool(id, { ...dto }, companyId);
-  }
-
   async removePool(id: number, companyId: number) {
     await this.repo.clearTips(id, companyId);
     return this.repo.removePool(id, companyId);
@@ -1133,26 +1128,8 @@ export class PeopleService {
     return { repartido, filas: asignado.size };
   }
 
-  /**
-   * UN DÍA SIN PROPINA TAMBIÉN SE LIQUIDA (Felipe, 15-08): si no se
-   * pudiera marcar, los días flojos quedarían eternamente como
-   * pendientes. Solo vale con el pozo en cero — si hay plata, se
-   * reparte, no se salta.
-   */
-  async marcarSinPropina(poolId: number, companyId: number) {
-    const pool = await this.repo.findPool(poolId, companyId);
-    const pozo = Number(pool.first_amount) + Number(pool.second_amount);
-    if (pozo > 0) {
-      throw new BadRequestException(
-        'Ese día tiene pozo: repártelo, no lo saltes',
-      );
-    }
-    return this.repo.updatePool(
-      poolId,
-      { distributed_at: new Date().toISOString() },
-      companyId,
-    );
-  }
+  // «Sin propina» y cambiar el monto del pozo viven en
+  // PropinaRepartidaService (doc 10 §14): borran lo repartido antes.
 
   // ================= LAS ESTRELLAS =================
 

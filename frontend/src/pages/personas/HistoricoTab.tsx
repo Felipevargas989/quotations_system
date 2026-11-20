@@ -31,6 +31,7 @@ import type { Pozo } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatISOUTCDateToString } from "../../utils/dates";
 import { eventosQueryOptions } from "./FichasTab";
+import ConfirmarReabrir from "./ConfirmarReabrir";
 import {
   estadoDelConcepto,
   porConceptoDe,
@@ -67,7 +68,8 @@ export default function HistoricoTab() {
 
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const devolver = useMutation({
-    mutationFn: (origen: { day: string }) => reabrirLiquidacion(origen),
+    mutationFn: (origen: { day: string }) =>
+      reabrirLiquidacion({ ...origen, confirmado: true }),
     onSuccess: () => {
       toast.success("El día volvió a Liquidación.");
       setConfirmando(null);
@@ -278,23 +280,14 @@ export default function HistoricoTab() {
                     sin propina
                   </span>
                   {confirmando === d ? (
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => devolver.mutate({ day: d })}
-                        disabled={devolver.isPending}
-                        className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {devolver.isPending ? "Devolviendo…" : "Sí, devolver"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmando(null)}
-                        className="text-xs px-2 py-1 rounded-md text-gray-500 hover:bg-gray-100"
-                      >
-                        Cancelar
-                      </button>
-                    </span>
+                    <ConfirmarReabrir
+                      origen={{ day: d }}
+                      pregunta="¿Devolver este día a Liquidación?"
+                      yesLabel="Sí, devolver"
+                      busy={devolver.isPending}
+                      onYes={() => devolver.mutate({ day: d })}
+                      onNo={() => setConfirmando(null)}
+                    />
                   ) : (
                     <button
                       type="button"

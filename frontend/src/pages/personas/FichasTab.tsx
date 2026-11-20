@@ -10,6 +10,7 @@ import { toast } from "../../components/toast/Toast";
 import { getQuotations } from "../../services/quotations.service";
 import { QuotationStatus } from "../../types/quotations.types";
 import Modal from "../../components/Modal";
+import ConfirmInline from "../../components/ConfirmInline";
 import {
   cerrarFicha,
   traerPlantaAlEvento,
@@ -1208,6 +1209,11 @@ function DiaRestaurante({
     [pools, dia],
   );
   const yaRepartido = !!pozoDia?.distributed_at;
+  // Con plata repartida, «sin propina» la borra (doc 10 §14): se pregunta.
+  const conReparto =
+    yaRepartido &&
+    Number(pozoDia?.first_amount) + Number(pozoDia?.second_amount) > 0;
+  const [confirmandoSin, setConfirmandoSin] = useState<string | null>(null);
 
   /** Lo que se le dio a cada cargo ese día, leído de vuelta de la plata
    *  repartida: al volver con ‹ › uno ve lo que dejó, no un formulario
@@ -1390,14 +1396,26 @@ function DiaRestaurante({
           <span className="mr-auto text-xs text-gray-500">
             Lo repartido espera en Nómina → Liquidaciones por pagar.
           </span>
-          <button
-            type="button"
-            onClick={() => sinPropinaHoy.mutate()}
-            disabled={ocupado}
-            className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 whitespace-nowrap"
-          >
-            Sin propina este día
-          </button>
+          {confirmandoSin === dia ? (
+            <ConfirmInline
+              question="Este día tiene propina repartida: se borra y queda sin propina."
+              yesLabel="Sí, sin propina"
+              busy={ocupado}
+              onYes={() => sinPropinaHoy.mutate()}
+              onNo={() => setConfirmandoSin(null)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                conReparto ? setConfirmandoSin(dia) : sinPropinaHoy.mutate()
+              }
+              disabled={ocupado}
+              className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 whitespace-nowrap"
+            >
+              Sin propina este día
+            </button>
+          )}
           <button
             type="button"
             onClick={() => liquidar.mutate()}
