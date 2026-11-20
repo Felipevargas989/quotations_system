@@ -172,4 +172,44 @@ describe("repartirPaquetePorDia", () => {
     expect(r).toHaveLength(1);
     expect(r[0].day).toBe(1);
   });
+
+  describe("desde qué día parte", () => {
+    it("desde el día 8 de 13, un programa de 5 noches queda en los días 8 a 13", () => {
+      const r = repartirPaquetePorDia(sernatur(), 13, 8);
+      expect(porDia(r, 13)).toEqual([
+        ...Array(7).fill(""),
+        "ACH", // día 8 = su día 1
+        "ACDH",
+        "ACDH",
+        "ACDH",
+        "ACDFH", // día 12, con la fiesta
+        "D", // día 13
+      ]);
+    });
+
+    it("desde el día 1 es lo de siempre", () => {
+      expect(
+        repartirPaquetePorDia(sernatur(), 6, 1).map((c) => c.day),
+      ).toEqual(repartirPaquetePorDia(sernatur(), 6).map((c) => c.day));
+    });
+
+    it("lo que se pasa del último día queda en el último día", () => {
+      const r = repartirPaquetePorDia(sernatur(), 10, 8);
+      expect(r.every((c) => c.day! >= 8 && c.day! <= 10)).toBe(true);
+      expect(porDia(r, 10).slice(7)).toEqual([
+        "ACH",
+        "ACDH",
+        "AAACCCDDDDFHHH",
+      ]);
+    });
+
+    it("un día fuera de rango o inválido no rompe nada", () => {
+      expect(
+        repartirPaquetePorDia(sernatur(), 3, 99).every((c) => c.day === 3),
+      ).toBe(true);
+      expect(
+        repartirPaquetePorDia(sernatur(), 6, 0).map((c) => c.day),
+      ).toEqual(repartirPaquetePorDia(sernatur(), 6).map((c) => c.day));
+    });
+  });
 });

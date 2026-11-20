@@ -16,6 +16,13 @@
 //   · lo demás, al día 1.
 //
 // Todo se acota al largo del evento: con un día, todo queda en el día 1.
+//
+// DESDE QUÉ DÍA PARTE (Felipe, 20-11-2026): dos programas seguidos en la
+// misma cotización (uno del 22 al 27-11 y otro del 29-11 al 04-12) no
+// pueden caer los dos en el Día 1. Con `desdeDia` = N, todo el programa
+// se corre N − 1 días (su día 1 pasa a ser el día N) y se acota igual al
+// largo del evento.
+//
 // Función pura: no cambia el formato guardado, solo pone `day`.
 
 import { tipoDeCaja } from "./serviciosPorDia";
@@ -65,6 +72,7 @@ const partirAlojamiento = <T extends CajaDePaquete>(c: T): T[] => {
 export const repartirPaquetePorDia = <T extends CajaDePaquete>(
   cajas: T[],
   diasDelEvento: number,
+  desdeDia = 1,
 ): T[] => {
   const partidas = cajas.flatMap(partirAlojamiento);
   const noches = partidas.filter(
@@ -73,6 +81,7 @@ export const repartirPaquetePorDia = <T extends CajaDePaquete>(
   const tope = Math.max(1, Math.floor(diasDelEvento) || 1);
   const cuenta = { desayuno: 0, almuerzo: 0, cena: 0, alojamiento: 0 };
   let ambiguas = 0;
+  const corrimiento = Math.max(0, Math.floor(desdeDia) - 1 || 0);
 
   return partidas.map((c) => {
     let dia = 1;
@@ -81,6 +90,6 @@ export const repartirPaquetePorDia = <T extends CajaDePaquete>(
     else if (tipo === "ambigua") dia = Math.floor(ambiguas++ / 2) + 1;
     else if (tipo === "desayuno") dia = noches > 0 ? ++cuenta.desayuno + 1 : 1;
     else if (tipo !== "extra") dia = ++cuenta[tipo];
-    return { ...c, day: Math.max(1, Math.min(dia, tope)) };
+    return { ...c, day: Math.max(1, Math.min(dia + corrimiento, tope)) };
   });
 };
