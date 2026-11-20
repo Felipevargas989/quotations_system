@@ -138,6 +138,7 @@ El pago se hace a mano en el portal del banco: el sistema muestra **una persona 
     - **Nóminas de pago:** debajo, `["people","payrolls"]` → `GET /people/payrolls` → `findPayrolls`, que lista todas (también las pagadas) y les suma personas, pagadas y total con `pagosDeNominas` y `montosDeNominas`.
 
 14. **Marca liquidaciones y aprieta "Revisar y generar · $X".**
+    - Desde el 19-11-2026 (doc 10 §14) una línea cuya propina no calza con su pozo (`descalce`, de `PropinaRepartidaService.marcarDescalces`) dice «No se puede pagar: … Corrígelo en Liquidación.» y no se puede marcar; y la previa (`POST /people/payrolls/previa`) y la nómina se rechazan en el motor con `exigirSinDescalce` si igual llega una.
     - El botón queda deshabilitado si alguna liquidación marcada tiene gente sin RUT.
     - Se abre `RevisarAntesDeGenerar`, que consulta `["people","previa-nomina", seleccion]` (staleTime 0, `refetchOnMount: always`) → `POST /people/payrolls/previa` `{quotation_ids, dias}` → `PeopleService.previaPayroll` → `reunirLiquidado` → `consolidarPorRut`. `reunirLiquidado` es la **misma** función que después genera la nómina.
     - **Modo mezcla:** si vienen días y eventos, se piden por separado y se suman. El filtro `{dias}` es excluyente: solo filas sin evento, de esos días.

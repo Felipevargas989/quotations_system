@@ -1473,7 +1473,21 @@ probar. Fue el único caso en producción.
 | Bajar el pozo de un día o de un evento a $0 | Se borra antes, y el pozo vuelve a «sin repartir». Nunca queda reparto guardado con el pozo en $0 |
 | Marcar «sin propina» | Se borra antes. Nunca queda reparto guardado en un pozo «sin propina». Sigue valiendo que con plata en el pozo no se salta (15-08) |
 | Devolver a Liquidación con propina repartida adentro | No se borra nada (18-08: es un ajuste, no todo de nuevo), pero antes se avisa cuánto hay y entre cuántas personas, y hay que confirmar. El motor responde 409 hasta que llegue la confirmación |
-| Cambiar el pozo a otro monto distinto de $0 | Nada cambia: se vuelve a repartir como siempre |
+| Cambiar el pozo a un monto que sigue cubriendo lo repartido | Nada cambia |
+| Bajar el pozo a menos de lo repartido | Se borra lo repartido, igual que con $0: no puede quedar más repartido que el pozo |
+
+**La regla única y el segundo candado** (Felipe: *«me preocupa el error
+de fondo que se generó acá»*). Una sola regla, escrita en un solo lugar
+(`descalceDelPozo`): **lo repartido de un pozo nunca suma más que el
+pozo, y un pozo en $0 o «sin propina» no tiene reparto.** La usan las
+puertas que cambian el pozo y la nómina. Si aun así una propina llegara
+descalzada (por un arreglo a mano en la base, por ejemplo), no llega a un
+pago: en Nómina → «Liquidaciones por pagar» esa línea dice *«No se puede
+pagar: $20.000 de propina repartida con el pozo en $0. Corrígelo en
+Liquidación.»* y no se puede marcar; y «Revisar y generar» y generar la
+nómina se rechazan en el motor nombrando la línea («Staff · 14/11/2026»
+o «N° 478»). Que falte por repartir no es descalce: eso lo frena el
+cierre de la ficha, como siempre.
 
 **Lo que no se toca.** Si algo de lo repartido ya entró a una nómina,
 bajar a $0 y «sin propina» se rechazan con un mensaje claro y no se borra

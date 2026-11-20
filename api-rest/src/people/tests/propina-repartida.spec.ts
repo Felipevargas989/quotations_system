@@ -6,6 +6,7 @@ import { PeopleService } from '../people.service';
 import type { PropinaRepartidaRepository } from '../propina-repartida.repository';
 import { PropinaRepartidaService } from '../propina-repartida.service';
 import {
+  descalceDelPozo,
   pesos,
   resumirRepartido,
   totalTrasCambio,
@@ -113,8 +114,79 @@ function base() {
         }
       }
     }),
+    // Lo que usa el candado de la nómina (como el repositorio de verdad:
+    // sin sello, con plata, de esos días o eventos).
+    propinasPendientes: jest.fn(
+      async (
+        companyId: number,
+        f: { dias?: string[]; quotationIds?: string[] },
+      ) =>
+        filas.filter(
+          (x) =>
+            x.company_id === companyId &&
+            x.tip_payroll_id == null &&
+            Number(x.tip_amount ?? 0) > 0 &&
+            (f.dias?.length
+              ? x.quotation_id === null && f.dias.includes(x.day)
+              : !f.quotationIds?.length ||
+                f.quotationIds.includes(x.quotation_id ?? '')),
+        ),
+    ),
+    fichasCerradas: jest.fn(
+      async (_c: number, ids: string[]) =>
+        new Set(ids.filter((q) => fichas.get(q) === 'cerrada')),
+    ),
+    diasLiquidados: jest.fn(
+      async (companyId: number, dias: string[]) =>
+        new Set(
+          pozos
+            .filter(
+              (p) =>
+                p.company_id === companyId &&
+                !p.quotation_id &&
+                p.distributed_at &&
+                dias.includes(p.day ?? ''),
+            )
+            .map((p) => p.day as string),
+        ),
+    ),
   };
+  const conNombre = (p: Pozo) => ({
+    ...p,
+    quotations: p.quotation_id ? { quotation_number: 478 } : null,
+  });
   const repo = {
+    pozosPorId: jest.fn(async (companyId: number, ids: number[]) =>
+      pozos
+        .filter((p) => p.company_id === companyId && ids.includes(p.id))
+        .map(conNombre),
+    ),
+    pozosDe: jest.fn(async (companyId: number, qs: string[], dias: string[]) =>
+      pozos
+        .filter(
+          (p) =>
+            p.company_id === companyId &&
+            (p.quotation_id
+              ? qs.includes(p.quotation_id)
+              : dias.includes(p.day ?? '')),
+        )
+        .map(conNombre),
+    ),
+    filasDePozos: jest.fn(async (companyId: number, ids: number[]) =>
+      filas
+        .filter(
+          (f) =>
+            f.company_id === companyId &&
+            f.tip_pool_id != null &&
+            ids.includes(f.tip_pool_id),
+        )
+        .map((f) => ({
+          tip_pool_id: f.tip_pool_id,
+          person_id: f.person_id,
+          tip_amount: f.tip_amount,
+          tip_payroll_id: f.tip_payroll_id,
+        })),
+    ),
     filasDelPozo: jest.fn(async (companyId: number, poolId: number) =>
       filas
         .filter((f) => f.company_id === companyId && f.tip_pool_id === poolId)
@@ -198,6 +270,18 @@ describe('utils: cuánto hay repartido', () => {
     expect(totalTrasCambio(pozo, {})).toBeNull();
   });
 
+  it('LA REGLA ÚNICA: lo repartido nunca más que el pozo; $0 sin reparto', () => {
+    expect(descalceDelPozo(0, 20000)).toBe(
+      '$20.000 de propina repartida con el pozo en $0',
+    );
+    expect(descalceDelPozo(15000, 20000)).toBe(
+      'reparte $20.000 y el pozo es de $15.000',
+    );
+    expect(descalceDelPozo(20000, 20000)).toBeNull();
+    expect(descalceDelPozo(20000, 12000)).toBeNull(); // falta repartir: lo frena el cierre
+    expect(descalceDelPozo(0, 0)).toBeNull();
+  });
+
   it('pesos con punto de miles', () => {
     expect(pesos(20000)).toBe('$20.000');
     expect(pesos(1234567)).toBe('$1.234.567');
@@ -217,12 +301,23 @@ describe('bajar el pozo a $0', () => {
     });
   });
 
-  it('un monto distinto de cero no borra nada (solo cambia el monto)', async () => {
+  it('subir el pozo no borra nada (lo repartido sigue cabiendo)', async () => {
+    const b = base();
+    diaRepartido(b);
+    await b.servicio.cambiarPozo(101, { first_amount: 25000 }, 1);
+    expect(repartidoEn(b, 101)).toHaveLength(5);
+    expect(b.people.clearTips).not.toHaveBeenCalled();
+  });
+
+  it('bajar el pozo bajo lo repartido también lo borra (la regla única)', async () => {
     const b = base();
     diaRepartido(b);
     await b.servicio.cambiarPozo(101, { first_amount: 15000 }, 1);
-    expect(repartidoEn(b, 101)).toHaveLength(5);
-    expect(b.people.clearTips).not.toHaveBeenCalled();
+    expect(repartidoEn(b, 101)).toHaveLength(0);
+    expect(b.pozos[0]).toMatchObject({
+      first_amount: 15000,
+      distributed_at: null,
+    });
   });
 
   it('un pozo en $0 sin reparto queda como está', async () => {
@@ -397,5 +492,99 @@ describe('la secuencia exacta del 19-11 (22:18 a 22:25)', () => {
     // Ningún peso repartido queda apuntando a un pozo «sin propina».
     expect(repartidoEn(b, 101)).toHaveLength(0);
     expect(b.filas.every((f) => f.tip_amount == null)).toBe(true);
+  });
+});
+
+describe('el segundo candado: la nómina no paga una propina descalzada', () => {
+  /** El día 14 como quedó en producción el 19-11 a las 22:25: «sin
+   *  propina», pozo $0 y $20.000 escritos en cinco filas. Se arma a
+   *  mano (las puertas nuevas ya no dejan llegar a esto). */
+  const descalzado = () => {
+    const b = base();
+    diaRepartido(b);
+    b.pozos[0].first_amount = 0;
+    return b;
+  };
+
+  it('«Liquidaciones por pagar»: la línea dice por qué no calza', async () => {
+    const b = descalzado();
+    const [linea] = await b.servicio.marcarDescalces(1, [
+      { tipo: 'dia', quotation_id: null, day: DIA, propinas: 20000 },
+    ]);
+    expect(linea).toMatchObject({
+      propinas: 20000,
+      descalce: '$20.000 de propina repartida con el pozo en $0',
+    });
+  });
+
+  it('una línea que calza no trae aviso', async () => {
+    const b = base();
+    diaRepartido(b);
+    const [linea] = await b.servicio.marcarDescalces(1, [
+      { tipo: 'dia', quotation_id: null, day: DIA },
+    ]);
+    expect(linea.descalce).toBeNull();
+  });
+
+  it('«Revisar y generar» y generar: se rechaza nombrando la línea', async () => {
+    const b = descalzado();
+    await expect(
+      b.servicio.exigirSinDescalce(1, { dias: [DIA] }),
+    ).rejects.toThrow(
+      'Staff · 14/11/2026: $20.000 de propina repartida con el pozo en $0',
+    );
+  });
+
+  it('un evento con más repartido que su pozo tampoco pasa', async () => {
+    const b = base();
+    b.pozos.push({
+      id: 96,
+      company_id: 1,
+      quotation_id: EVENTO_478,
+      day: null,
+      first_amount: 12000,
+      second_amount: 0,
+      distributed_at: '2026-11-20T01:23:20Z',
+    });
+    b.filas.push({
+      id: 1,
+      company_id: 1,
+      quotation_id: EVENTO_478,
+      day: DIA,
+      person_id: 1,
+      tip_amount: 20000,
+      tip_pool_id: 96,
+      payroll_id: null,
+      tip_payroll_id: null,
+    });
+    b.fichas.set(EVENTO_478, 'cerrada');
+    await expect(
+      b.servicio.exigirSinDescalce(1, { quotation_ids: [EVENTO_478] }),
+    ).rejects.toThrow('N° 478: reparte $20.000 y el pozo es de $12.000');
+  });
+
+  it('lo que calza pasa', async () => {
+    const b = base();
+    diaRepartido(b);
+    await expect(
+      b.servicio.exigirSinDescalce(1, { dias: [DIA] }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('lo no liquidado no frena la nómina (no entraría igual)', async () => {
+    const b = descalzado();
+    b.pozos[0].distributed_at = null;
+    await expect(
+      b.servicio.exigirSinDescalce(1, { dias: [DIA] }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('otra empresa no ve el descalce ajeno', async () => {
+    const b = base();
+    diaRepartido(b, 2);
+    b.pozos[0].first_amount = 0;
+    await expect(
+      b.servicio.exigirSinDescalce(1, { dias: [DIA] }),
+    ).resolves.toBeUndefined();
   });
 });

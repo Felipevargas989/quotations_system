@@ -84,5 +84,24 @@ export function textoDelRepartido(r: Repartido): string {
   return `${pesos(r.monto)} de propina repartida entre ${quien}`;
 }
 
+/**
+ * LA REGLA ÚNICA (Felipe, 19-11: «me preocupa el error de fondo»): lo
+ * repartido de un pozo nunca suma más que el pozo, y un pozo en $0 (o
+ * «sin propina») no tiene reparto. Devuelve por qué no calza, o null.
+ * La usan las puertas que cambian el pozo y la nómina, que no deja
+ * pagar una propina descalzada.
+ */
+export function descalceDelPozo(
+  total: number,
+  repartido: number,
+): string | null {
+  const t = Math.round(total);
+  const r = Math.round(repartido);
+  if (r <= 0) return null;
+  if (t <= 0) return `${pesos(r)} de propina repartida con el pozo en $0`;
+  if (r > t) return `reparte ${pesos(r)} y el pozo es de ${pesos(t)}`;
+  return null;
+}
+
 export const YA_EN_NOMINA =
   'Esa propina ya entró a una nómina: no se puede borrar. Lo que haya que corregir se ajusta en la nómina siguiente.';

@@ -299,6 +299,9 @@ export interface LiquidacionPendiente {
   jornadas: number;
   propinas: number;
   total: number;
+  /** Por qué su propina no calza con su pozo (doc 10 §14): con esto la
+   *  línea no se puede marcar para pagar. */
+  descalce?: string | null;
 }
 
 /** De dónde viene la plata de una línea: un evento, o el restaurante. */

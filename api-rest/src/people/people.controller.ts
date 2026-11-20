@@ -398,8 +398,12 @@ export class PeopleController {
 
   @Permiso('personal')
   @Get('payrolls/pendientes')
-  liquidacionesPendientes(@CurrentUser() user: User) {
-    return this.peopleService.liquidacionesPendientes(user.company_id);
+  async liquidacionesPendientes(@CurrentUser() user: User) {
+    // Cada línea dice si su propina no calza con su pozo (doc 10 §14).
+    return this.propinaRepartida.marcarDescalces(
+      user.company_id,
+      await this.peopleService.liquidacionesPendientes(user.company_id),
+    );
   }
 
   /** Lo que se va a pagar, consolidado, ANTES de generar la nómina. */
@@ -415,14 +419,23 @@ export class PeopleController {
 
   @Permiso('personal')
   @Post('payrolls/previa')
-  previaPayroll(@Body() dto: SeleccionPayrollDto, @CurrentUser() user: User) {
+  async previaPayroll(
+    @Body() dto: SeleccionPayrollDto,
+    @CurrentUser() user: User,
+  ) {
+    await this.propinaRepartida.exigirSinDescalce(user.company_id, dto);
     return this.peopleService.previaPayroll(dto, user.company_id);
   }
 
   @Permiso('personal')
   @Post('payrolls')
-  createPayroll(@Body() dto: CreatePayrollDto, @CurrentUser() user: User) {
+  async createPayroll(
+    @Body() dto: CreatePayrollDto,
+    @CurrentUser() user: User,
+  ) {
     this.logger.info(`POST /people/payrolls ${logSafe(dto)}`);
+    // El segundo candado: una propina descalzada no llega a un pago.
+    await this.propinaRepartida.exigirSinDescalce(user.company_id, dto);
     return this.peopleService.createPayroll(dto, user.company_id);
   }
 
