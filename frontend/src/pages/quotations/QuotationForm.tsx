@@ -78,6 +78,7 @@ import EdificioConvenio from "../../components/clientes/EdificioConvenio";
 import AgregadorDeItems from "../../components/selects/AgregadorDeItems";
 import SectionChipSelect from "../../components/selects/SectionChipSelect";
 import BandasPorDia from "../../components/servicios/BandasPorDia";
+import DesdeQueDiaParte from "../../components/servicios/DesdeQueDiaParte";
 import * as porDia from "../../utils/serviciosPorDia";
 import { repartirPaquetePorDia } from "../../utils/repartirPaquetePorDia";
 import { UserRole } from "../../constants/users";
@@ -230,6 +231,7 @@ export default function QuotationForm() {
   // el plegado es solo de la sesión — al abrir, todo parte desplegado.
   const [collapsedBoxes, setCollapsedBoxes] = useState<Set<string>>(new Set());
   const [resaltar, setResaltar] = useState<porDia.Resaltar | null>(null);
+  const [pendiente, setPendiente] = useState<ServiceGroupCollection | null>(null);
   const [serviceBoxes, setServiceBoxes] = useState<ServiceBox[]>([
     {
       id: "1",
@@ -395,6 +397,7 @@ export default function QuotationForm() {
   const diaDeCaja = (b: Pick<ServiceBox, "day">) =>
     Math.min(b.day || 1, eventDaysCount);
   const numeros = porDia.numerarPorDia(serviceBoxes, diaDeCaja);
+  const conContenido = (b: ServiceBox) => !!b.selectedCategory || b.services.length > 0;
 
   // Niños/adultos: people_count sigue siendo el TOTAL de asistentes;
   // children_count dice cuántos son niños. Cada caja multiplica por su
@@ -1139,8 +1142,8 @@ export default function QuotationForm() {
   // argumento simple: "un paquete es una base de trabajo, una plantilla;
   // yo después asigno los días o reparto lo que está. Que borre lo que
   // hay no suma nada". Y hay un caso concreto: un grupo de quince días
-  // puede armarse con dos paquetes de siete y uno de tres.
-  const loadCollectionAsBoxes = (collection: ServiceGroupCollection) => {
+  // puede armarse con dos paquetes de siete y uno de tres (`desdeDia`).
+  const loadCollectionAsBoxes = (collection: ServiceGroupCollection, desdeDia = 1) => {
     const boxes = (collection.groups || [])
       .map((item) => (item.group ? buildBoxFromGroup(item.group) : null))
       .filter((box): box is ServiceBox => box !== null);
@@ -1186,16 +1189,18 @@ export default function QuotationForm() {
     const todas = repartirPaquetePorDia(
       [...boxes, ...cajasSueltas],
       eventDaysCount,
+      desdeDia,
     );
     if (todas.length === 0 && fijosNuevos.length === 0) return;
 
-    setServiceBoxes((prev) => [
-      // Las cajas en blanco —sin categoría y sin servicios— son el
-      // andamio de una cotización recién abierta, no contenido: se van.
-      // Todo lo demás se conserva y el paquete entra debajo.
-      ...prev.filter((b) => b.selectedCategory || b.services.length > 0),
-      ...todas,
-    ]);
+    // Las cajas en blanco —sin categoría y sin servicios— son el
+    // andamio de una cotización recién abierta, no contenido: se van.
+    // Todo lo demás se conserva y el paquete entra debajo.
+    const conservadas = serviceBoxes.filter(conContenido);
+    setServiceBoxes([...conservadas, ...todas]);
+    // Desde el día N: su banda se despliega y se lleva a la vista.
+    if (desdeDia > 1 && todas.length)
+      setResaltar(porDia.resaltarA(conservadas.length + Math.max(0, todas.findIndex((c) => c.day === desdeDia))));
     setPaquetesAplicados((prev) => [
       ...prev,
       { id: collection.id, name: collection.name },
@@ -2378,9 +2383,9 @@ export default function QuotationForm() {
             }
             puedeCrear={serviceGroups.length > 0}
             hayServiciosCargados={() =>
-              serviceBoxes.some((box) => box.services.length > 0)
+              eventDaysCount <= 1 && serviceBoxes.some((box) => box.services.length > 0)
             }
-            onCargar={loadCollectionAsBoxes}
+            onCargar={(p) => (eventDaysCount > 1 && serviceBoxes.some(conContenido) ? setPendiente(p) : loadCollectionAsBoxes(p))}
             onEliminar={async (paquete) => {
               await removeServiceGroupCollection(paquete.id);
               setPaquetesAplicados((prev) =>
@@ -2390,6 +2395,8 @@ export default function QuotationForm() {
             onCrearNuevo={openCollectionModal}
             soloElegir={esRecepcion(userRole)}
           />
+          <DesdeQueDiaParte paquete={pendiente} diasDelEvento={eventDaysCount} rotuloDeDia={dayLabel}
+            onCargar={loadCollectionAsBoxes} onCerrar={() => setPendiente(null)} />
           <button
             onClick={handleSubmit}
             disabled={loading || !isQuotationFormValid()}
