@@ -1040,7 +1040,7 @@ export default function ServiciosTab({
       return (
         <div
           key={key}
-          className="flex items-center justify-between py-2 border-b border-gray-100 text-sm"
+          className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
         >
           <span className="text-gray-900 truncate mr-3">{f.nombre}</span>
           <ConfirmInline
@@ -1113,7 +1113,7 @@ export default function ServiciosTab({
       return (
         <div
           key={key}
-          className="flex items-center justify-between py-2 border-b border-gray-100 text-sm"
+          className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 text-sm"
         >
           <span className="text-gray-900 truncate mr-3">{it.nombre}</span>
           <ConfirmInline
