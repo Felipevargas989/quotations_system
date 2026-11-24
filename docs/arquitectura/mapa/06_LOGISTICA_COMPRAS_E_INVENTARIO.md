@@ -1,6 +1,6 @@
 # Mapa: Logística, compras e inventario
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en Compras. Actualizado el 06-11-2026 con las puertas «más abiertas que sus pantallas» (doc 22 §4.3): `estado-compras`, `supplies` y `furniture` pasaron a sus secciones, `recipes/all` al Catálogo y se borraron `catalog/service-names` y `catalog/fixed-costs`, que nadie llamaba.
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con el estado del sprint 1 de aislamiento entre empresas en recetas y costos de logística (rama `pruebas`, commit 8266ba1; **no está en producción**), revisada la columna de llamadores el 14-09-2026, el 20-10-2026 el N° de las cotizaciones que pide cada insumo en la lista de compra y en su PDF (F3 pasos 2 y 7), y el 03-11-2026 la mudanza de la cuenta de cada evento al motor (`api-rest/src/logistics/utils/consolidacion.ts`, alias `@consolidacion`, con sus primeras pruebas), para que BelIA diga lo que hay que comprar con la misma cifra de Compras (rama `feature/evia-asistente`, mapa 25). Falta la etapa de completar lo que no quedó escrito. Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (doc 22 §9.7): con un tipo apagado, sus eventos no aparecen en Compras. Actualizado el 06-11-2026 con las puertas «más abiertas que sus pantallas» (doc 22 §4.3): `estado-compras`, `supplies` y `furniture` pasaron a sus secciones, `recipes/all` al Catálogo y se borraron `catalog/service-names` y `catalog/fixed-costs`, que nadie llamaba. Actualizado el 23-11-2026 con el doc 25 (compras con IA y bodega, migración 214, rama `feature/provision-con-ia`, **solo en el laboratorio**): sale el modal «Confirmar la compra», entra la pestaña «Stock» (subir compras que lee la IA, costos con check, cortes y marcas equivalentes, bodega simple) y Compras descuenta la bodega.
 
 ## 1. Qué hace
 
@@ -15,7 +15,8 @@ Operaciones y administración lo usan después de que la cotización queda acept
 | Ruta de la app | Componente principal | Archivo | Qué hace el usuario ahí | Rol que la ve |
 |---|---|---|---|---|
 | `/logistica` (menú "Proveedores") | `LogisticaPage` | `frontend/src/pages/logistica/LogisticaPage.tsx` | Contenedor con 4 pestañas; abre en Compras | operaciones, administrador (`SECTION_ROLES.logistics`, `PermissionGuard` en `App.tsx`) |
-| `/logistica` → Compras | `ComprasTab` | `frontend/src/pages/logistica/components/ComprasTab.tsx` | Filtra eventos aceptados (por defecto "desde hoy"). Selecciona varios y ve la lista de compra por proveedor; al lado de cada insumo, el N° de cada cotización marcada que lo pide (20-10-2026, `QuienLoPide.tsx`: verde si ya está provisionado para ella, gris si falta; al pasar el mouse, cliente, fecha y cantidad neta). Provisiona por partes o todo, confirmando lo comprado y lo gastado. Desprovisiona. Descarga el PDF de la orden de compra o un CSV | operaciones, administrador |
+| `/logistica` → Compras | `ComprasTab` | `frontend/src/pages/logistica/components/ComprasTab.tsx` | Filtra eventos aceptados (por defecto "desde hoy"). Selecciona varios y ve la lista de compra por proveedor; al lado de cada insumo, el N° de cada cotización marcada que lo pide (20-10-2026, `QuienLoPide.tsx`: verde si ya está provisionado para ella, gris si falta; al pasar el mouse, cliente, fecha y cantidad neta). Columnas Necesito, Bodega y Comprar (lo que falta, descontada la bodega; doc 25). Provisiona por partes o todo **en un clic, con el costo del catálogo** (desde el 23-11-2026 ya no hay modal). Desprovisiona. Descarga el PDF de la orden de compra o un CSV | operaciones, administrador |
+| `/logistica` → Stock (23-11-2026, doc 25) | `StockTab` → `SubirCompras` + `TablaDeBodega` | `frontend/src/pages/logistica/components/stock/` | Sube facturas, boletas, guías o pantallazos; la IA (Sonnet) lee cada línea, la asocia a un insumo (con sus cortes y marcas equivalentes y lo aprendido del proveedor) y propone el costo; con check se aplica: el costo va a `supplies.price`, la cantidad suma a la bodega y el texto queda aprendido. Abajo, cada insumo con su costo, última compra, bodega («Tengo» / «Saqué»), equivalentes y movimientos | operaciones, administrador |
 | `/logistica` → Insumos | `InsumosTab` | `frontend/src/pages/logistica/components/InsumosTab.tsx` | Crea y edita insumos: familia de unidad, precio por unidad base, merma, formato de compra y proveedor. Los desactiva o, si están libres, los elimina. Grupos plegables por proveedor | operaciones, administrador |
 | `/logistica` → Proveedores | `ProveedoresTab` | `frontend/src/pages/logistica/components/ProveedoresTab.tsx` | Crea y edita proveedores (contacto, teléfono, notas). "Dar de baja" a los que tienen historia; eliminar solo si están libres | operaciones, administrador |
 | `/logistica` → Servicios externos | `RecursosTab` | `frontend/src/pages/logistica/components/RecursosTab.tsx` | Catálogo de `management_resources` de tipo arriendo, con precio de lista fijo y/o por persona y proveedor. Los cargos (tipo `personal`) se filtran fuera | operaciones, administrador |
@@ -93,7 +94,21 @@ Roles, en la última columna: **ops+** = operaciones y administrador · **vend+*
 | PATCH `/logistics/fixed-cost-items/:id` | `updateCostItem` | `updateCostItem` | `updateFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
 | DELETE `/logistics/fixed-cost-items/:id` | `deleteCostItem` | `deleteCostItem` | `deleteFixedServiceCostItem` ← `ServicesPage` (Catálogo, pestaña Costo `FixedCostSection`) | admin |
 
-Total: **51 endpoints** (53 hasta el 06-11-2026: se borraron GET `/logistics/catalog/service-names` y `/logistics/catalog/fixed-costs`, que nadie llamaba; el cotizador recibe lo mismo en `base-catalogo`. Doc 22 §4.3). El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
+**Pestaña «Stock» (doc 25, 23-11-2026)** — `ComprasController` (`@Controller('logistics/stock')`, `api-rest/src/logistics/compras/`), con `@Derecho('logistica')`, `@Roles(...OPERATIONS_AND_UP)` y `@Permiso('proveedores')` en la clase:
+
+| Método y ruta | Controller y método | Service | Quién lo llama | Roles |
+|---|---|---|---|---|
+| GET `/logistics/stock` | `estado` | `ComprasService.estado` (bodega calculada, equivalentes, compras por revisar y las últimas 15 aplicadas) | `getEstadoDeStock` ← `StockTab` | ops+ |
+| GET `/logistics/stock/bodega` | `bodega` | `ComprasService.soloBodega` | `getBodega` ← `ComprasTab` (columnas Bodega y Comprar) | ops+ |
+| POST `/logistics/stock/compras` | `subir` | `ComprasService.subir` (multipart `archivo`, PDF o foto ≤ 10 MB; Sonnet lee y se guarda la propuesta) | `subirCompra` ← `SubirCompras` | ops+ |
+| PATCH `/logistics/stock/compras/lineas/:id` | `cambiarLinea` | `ComprasService.cambiarLinea` (insumo, cantidad, total o «no es insumo»; recalcula el costo) | `cambiarLinea` ← `SubirCompras` | ops+ |
+| POST `/logistics/stock/compras/:id/aplicar` | `aplicar` | `ComprasService.aplicar` (costo al catálogo, compra a la bodega, texto aprendido) | `aplicarCompra` ← `SubirCompras` | ops+ |
+| POST `/logistics/stock/compras/:id/descartar` | `descartar` | `ComprasService.descartar` | `descartarCompra` ← `SubirCompras` | ops+ |
+| POST `/logistics/stock/equivalentes` | `agregarEquivalente` | `ComprasService.agregarEquivalente` | `agregarEquivalente` ← `TablaDeBodega` | ops+ |
+| DELETE `/logistics/stock/equivalentes/:id` | `borrarEquivalente` | `ComprasService.borrarEquivalente` | `borrarEquivalente` ← `TablaDeBodega` | ops+ |
+| POST `/logistics/stock/movimientos` | `mover` | `ComprasService.moverBodega` («Tengo» o «Saqué») | `moverBodega` ← `TablaDeBodega` | ops+ |
+
+Total: **51 endpoints** en `LogisticsController` y **9** en `ComprasController` (53 hasta el 06-11-2026: se borraron GET `/logistics/catalog/service-names` y `/logistics/catalog/fixed-costs`, que nadie llamaba; el cotizador recibe lo mismo en `base-catalogo`. Doc 22 §4.3). El checklist de cocina del móvil (`GET/POST /movil/cocina/:quotationId/marcas`) no vive aquí: está en `MovilController`, dentro del mapa 16.
 
 **Aislamiento entre empresas en recetas y costos (sprint 1, SOLO EN LA RAMA `pruebas`, commit 8266ba1 — no está en producción).** `POST /logistics/recipes` y `POST /logistics/fixed-cost-items` ahora exigen que las piezas referenciadas sean del catálogo de la empresa de la sesión, antes de insertar:
 - `addRecipeItem` valida que el `service_id` (según `service_type`, contra `variable_services` o `fixed_services`) y el `supply_id` o `furniture_id` (según `item_kind`) sean de la empresa.
@@ -121,6 +136,9 @@ Evidencia: `LogisticsRepository.idsDeLaEmpresa`, `LogisticsService.exigirDeLaEmp
 | `event_kitchen_notes` | Notas de cocina como lista, con `day` | L/E | 22, 28 |
 | `event_day_prints` | Primera impresión de la ficha por día (UNIQUE `quotation_id, day`) | L/E | 28 |
 | `kitchen_checklist_marks` | Marcas del checklist de bodega y mobiliario desde el móvil | L/E solo desde `movil.service.ts` (mapa 16) | 44 |
+| `insumo_equivalentes` (doc 25) | Nombres con que llega un insumo: `corte`, `marca` o `texto` aprendido (por proveedor); único por empresa, nombre normalizado y proveedor | L/E (`ComprasRepository`) | 214 |
+| `compras_subidas` y `compras_subidas_lineas` (doc 25) | Cada documento subido (archivo en `c<empresa>/compras/` del balde privado, proveedor, tipo, N°, fecha, neto o con IVA, estado) y cada línea leída (insumo, cantidad base, total, costo propuesto y el de antes, estado) | L/E | 214 |
+| `insumo_movimientos` (doc 25) | La bodega: `tengo` (fija), `compra` (suma), `saque` (resta). Lo de los eventos realizados no se guarda: se calcula por receta | L/E | 214 |
 | `event_staff` | "Las sillas" del personal. Aquí solo se suma `amount` para el costo, vía `getStaff` y `getCostoPersonal` | L indirecta (mapas 07 y 08) | 84 |
 
 Cascadas relevantes (definidas en las migraciones):
@@ -194,21 +212,17 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 
 1. **ComprasTab.** `getBaseCatalogo` (clave base) + `getEstadoCompras` (clave `["logistica","compras","estado",companyId]`), que va a GET `/logistics/estado-compras`. De ahí salen `findAcceptedEvents` (`quotation_status='aceptada'`) y `findSupplyProvisions`, que leen `quotations` + `clients(name)` y `event_supply_provisions`.
 2. El usuario filtra por rango de fechas del evento (por defecto "desde hoy", con `hoyLocal`) o busca por N° exacto o cliente, y selecciona eventos. `perEvent` consolida cada evento. `consolidation` suma los seleccionados y **agrupa por proveedor**; el mobiliario no entra. `pedidosPorInsumo` (`pedidosPorInsumo.ts`, 20-10-2026) lee el `supplyUse` de cada evento marcado y `provByEvent`: cada fila muestra con `QuienLoPide` un número por cotización que pide el insumo, en el orden de la tabla y aunque sean todas (Felipe: *"cuando sea todas pon igual el nro de cotización"*); las cantidades netas de todas suman la columna Cantidad. La etiqueta «consolidado» es otra cosa: el insumo lo usan varios servicios (platos). `eventStatus` muestra Completo, Parcial n/m o Pendiente.
-3. Marca insumos o proveedores y aprieta "Provisionar" (o "Provisionar todo"). Se abre **"Confirmar la compra"**:
-   - "Necesito" (neto) queda bloqueado.
-   - "Compro" se sugiere como `compradoSugerido`: la cantidad bruta con merma, redondeada hacia arriba al formato.
-   - "Gasto" se sugiere como `costTotal`.
-4. `confirmarCompra`:
-   1. `buildRows` arma una fila por evento × insumo: `qty_base` neta, `cost = round(bruta × price)` y la foto del proveedor.
-   2. En los insumos que el usuario **tocó**, el gasto real se reparte entre eventos según `qty_base` (`repartirGastado`, al peso y sin sobrantes).
-   3. POST `/purchasing/supply-provisions` → `upsertSupplyProvisions` hace UPSERT `onConflict: quotation_id,supply_id` con `provisioned_at = now`.
-   4. Por cada insumo tocado, PATCH `/supplies/:id` con `price = gastado ÷ comprado`, y `package_price` si se compraron formatos enteros: **el catálogo aprende de la compra**.
-   5. `stampCompleted` revisa cada evento seleccionado **sin `provisioned_at`**. Si todos sus insumos quedaron provisionados, POST `/purchasing/mark-provisioned` → `markProvisioned` escribe en `quotations`:
+3. Marca insumos o proveedores y aprieta "Provisionar marcados" (o "Provisionar todo", con su confirmación en línea). **Desde el 23-11-2026 (doc 25) no hay modal**: el modal «Confirmar la compra» del 24-08 salió; el costo lo traen las compras subidas en «Stock».
+4. `provisionar`:
+   1. `buildRows` arma una fila por evento × insumo: `qty_base` neta, `cost = round(bruta × price)` (el costo del catálogo) y la foto del proveedor.
+   2. POST `/purchasing/supply-provisions` → `upsertSupplyProvisions` hace UPSERT `onConflict: quotation_id,supply_id` con `provisioned_at = now`.
+   3. Compras ya no escribe en `supplies`: el catálogo aprende solo de las compras aplicadas con check (doc 25).
+   4. `stampCompleted` revisa cada evento seleccionado **sin `provisioned_at`**. Si todos sus insumos quedaron provisionados, POST `/purchasing/mark-provisioned` → `markProvisioned` escribe en `quotations`:
       - `provisioned_at`;
       - `provisioned_cost`: la suma del `cost` de todas sus provisiones (el gasto real repartido en los insumos tocados, el de catálogo en el resto), redondeada por el motor. `confirmarCompra` siempre le pasa ese mapa, así que el respaldo `costoInsumos` de `stampCompleted` no se alcanza desde Compras;
       - `provisioned_people`;
       - `provisioned_services` (`servicesSignature`).
-   6. Se invalida `["logistica"]`.
+   5. Se invalida `["logistica"]`.
 5. **Desprovisionar** pide confirmación inline (`confirmAction`):
    1. POST `/purchasing/supply-provisions/delete` sobre los eventos seleccionados, acotado a los insumos provisionados marcados (el botón "Desprovisionar marcados" solo aparece si hay alguno marcado).
    2. POST `/purchasing/clear-provisioned` sobre **todos los eventos seleccionados**.
@@ -310,7 +324,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 - **La propina no es venta ni margen** (24-07; doc 10: *"es plata que entra y sale, somos intermediarios"*). Evidencia: `saleWithoutTip` en `GestionTab` y `DashboardPage`.
 - **La provisión se hace por partes; `provisioned_at` significa "evento completo".** Evidencia: migración 16.
 - **Foto del proveedor al comprar:** la estadística por proveedor no se reescribe. Evidencia: migración 30; `buildRows`.
-- **Confirmar la compra real** (Felipe, 24-08: *"al apretar provisionar debería aparecer un modal para confirmar los valores... total comprado y total gastado"*).
+- **~~Confirmar la compra real~~ — REEMPLAZADA el 23-11-2026 por el doc 25** (Felipe: *"sacar el modal… es demasiado trabajo manual todas las semanas"*): el costo viene de las compras subidas y aprobadas con check en «Stock»; provisionar es un clic con el costo del catálogo. Lo de antes (Felipe, 24-08: *"al apretar provisionar debería aparecer un modal para confirmar los valores... total comprado y total gastado"*).
   - Lo que el evento necesita va bloqueado.
   - El costo real manda sobre el estimado.
   - El catálogo aprende: $/unidad = gastado ÷ comprado.
@@ -318,6 +332,8 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
   - Evidencia: comentarios y `confirmarCompra` en `ComprasTab`.
 - **El modal de insumos de Gestión es solo informativo y va agrupado por proveedor** (15-08). Las cantidades a pedir y los precios se trabajan en Compras. Evidencia: doc 10 §6 "El modal de insumos"; comentario de `proveedoresQuery` en `GestionTab`.
 - **Las fechas de evento se muestran en UTC** (bug del 22-07). Evidencia: `fmtDate` en `ComprasTab`.
+
+- **Compras con IA y bodega (doc 25, 23-11-2026).** Nada cambia el costo sin el check de una persona; una subida de más de 20 % parte sin check y en ámbar. La factura deja el costo neto y la boleta o el pedido con IVA (chip «neto» / «con IVA» en la tarjeta). Cortes equivalentes y marcas son nombres de UN insumo (carne a la olla = punta paleta, sobrecostilla…); lo que se vende por separado (lomo vetado, lomo liso) son insumos distintos. La bodega: el último «Tengo» fija, las compras aplicadas suman, «Saqué» resta y los eventos realizados con su último día posterior al día del conteo restan por receta (calculado, no guardado); sin conteo, Compras pide todo. La bodega cuenta los eventos de todos los tipos de cliente: es lo que hay en la bodega física. Evidencia: `api-rest/src/logistics/compras/`, `compras-con-ia.spec.ts`.
 
 ## 7. Conexiones con otros módulos
 
@@ -366,7 +382,8 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 11. **Si tocas** `management_resources` pensando solo en servicios externos, **se afectan** los cargos de Personal, **porque** son la misma tabla (`type='personal'`), con un índice único por empresa, tipo y nombre (69, preparado en producción por la 68b) que convive con la llave `(company_id, name)` de la 10, que no distingue tipo. Además, un `type` que la app no reconoce dejaba filas invisibles ("NADIE SE QUEDA FUERA", 16-08). Evidencia: migración 69 (comentario del paso 2); `people.repository.findRoles`; `RecursosTab`.
 12. **Si tocas** `markProvisioned`, `clearProvisioned` o el orden de `unprovision`, **se afectan** el costo congelado de Gestión y el Dashboard, y el mes de salida de caja, **porque** `provisioned_cost` (solo insumos) y `provisioned_at` alimentan `GestionTab.costoBase` y `DashboardPage.salidas`. `markProvisioned` y `upsertSupplyProvisions` están abiertos incluso en eventos realizados. Evidencia: `LogisticsRepository.markProvisioned` y `upsertSupplyProvisions`; `DashboardPage.marginData`.
 13. **Si agregas** una columna a `quotations` que Compras o el Dashboard necesiten, **no aparecerá**, **porque** `findAcceptedEvents` y `findWonEventsSince` usan un `select` con columnas explícitas. Así se agregaron los campos de propina el 31-08; lo mismo aplica a `COLUMNAS_LISTA` de `quotations.repository.ts` ("columna nueva en la tabla ⇒ agregarla acá").
-14. **Si agregas** código a `ComprasTab.tsx` (1.762 líneas desde el 20-10-2026), **lo rechaza el portero**, **porque** es uno de los 7 gigantes congelados en 1.794. Hay que extraer la pieza nueva a su propio archivo. Evidencia: `frontend/scripts/portero-kit-de-la-casa.sh` (`congelar`).
+14. **Si agregas** código a `ComprasTab.tsx` (1.497 líneas desde el 23-11-2026, cuando salió el modal), **lo rechaza el portero**, **porque** es uno de los 7 gigantes congelados en 1.547.
+16. **Si cambias** la clave `["logistica","stock",…]` o mezclas la de Insumos (`["logistica","insumos",companyId]`, que guarda `{supplies, suppliers}`), **se rompe** la pestaña «Stock», **porque** usa su propia clave `["logistica","stock","insumos",companyId]` para la lista sola. Y **si aplicas** una línea de compra, **cambia** el costo de todas las cotizaciones futuras y de los eventos no provisionados (igual que antes el modal). Hay que extraer la pieza nueva a su propio archivo. Evidencia: `frontend/scripts/portero-kit-de-la-casa.sh` (`congelar`).
 15. **Si arreglas** solo la línea del "hoy" en el radar de `MobiliarioTab`, **se crea** un bug nuevo, **porque** ese "hoy" en hora universal se compara contra fechas del mismo bloque que también están en hora universal. Evidencia: `docs/arquitectura/09_PLAN_DE_HOMOLOGACION.md`, Tanda A1 ("Revisar el bloque completo").
 
 ## 9. Pruebas que lo protegen
@@ -376,6 +393,7 @@ En Gestión y el Dashboard el margen se mide contra `saleWithoutTip`: la propina
 | `api-rest/src/logistics/tests/candado-logistica.spec.ts` | Candado del evento realizado en `LogisticsRepository`. Rechaza agregar, cambiar o borrar recursos, cambiar horarios, agregar o borrar notas, borrar la foto de costos y borrar provisiones. Permite tomar la foto (`markProvisioned`). En un evento vivo acepta recursos, notas y borrar la foto. Sin filas no consulta la base |
 | `api-rest/src/logistics/tests/logistics.service.spec.ts` | `LogisticsService.deleteSupplier`: se elimina sin referencias; 409 con insumos o con recursos |
 | `api-rest/src/logistics/tests/aislamiento-catalogo-logistica.spec.ts` (sprint 1, **solo en la rama `pruebas`**) | `addRecipeItem`: deja pasar con servicio e insumo propios; rechaza (404) el insumo ajeno sin insertar; rechaza (404) el servicio ajeno sin insertar. `addCostItem`: deja pasar con fijo y recurso propios; rechaza (404) el recurso ajeno sin insertar |
+| `api-rest/src/logistics/tests/compras-con-ia.spec.ts` (23-11-2026, doc 25) | La propuesta de la compra (costo por unidad base, insumo ajeno descartado, lo aprendido del mismo proveedor manda y el de otro no, guía sin montos), el catálogo de las instrucciones, el proveedor por nombre, la variación, y la bodega (sin conteo no se conoce, el último «Tengo» fija, los eventos del día del conteo no restan) |
 | `api-rest/src/logistics/tests/consolidacion.spec.ts` (03-11-2026) | La cuenta de cada evento: la cantidad en neto y la merma solo en el costo, las personas de cada casilla, la receta por el nombre canónico, «sin receta» solo en variables, el costo de los fijos, el mobiliario por máximo o por suma, el acumulador de varios eventos, la firma de los servicios, las unidades y `mapNameIds`/`mapFixedCosts` |
 | `frontend/src/utils/costoDeRecursos.test.ts` (vitest) | 8 casos: solo fijo, solo variable, mixto con el fijo una vez, "la cuenta vieja cobraba la instalación dos veces", personal línea por línea, recursos distintos no se mezclan, números que llegan como texto, sin líneas |
 

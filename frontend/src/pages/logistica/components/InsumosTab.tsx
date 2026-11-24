@@ -257,8 +257,9 @@ export default function InsumosTab({
       </div>
       <div className="flex items-center justify-between mb-4 gap-3">
         <p className="text-xs text-gray-400">
-          El precio va por unidad base (kg, L o unidad). Cambiarlo afecta solo
-          a eventos futuros; los provisionados mantienen su costo congelado.
+          El costo va por unidad base (kg, L o unidad) y se actualiza solo con
+          las compras que se suben en «Stock». Cambiarlo afecta solo a eventos
+          futuros; los provisionados mantienen su costo congelado.
         </p>
         <div className="flex items-center gap-3 shrink-0">
           {/* Expandir/plegar todos los grupos de proveedor */}
@@ -310,7 +311,7 @@ export default function InsumosTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
-              {["Insumo", "Familia de unidad", "Precio base", "Merma", "Acciones"].map(
+              {["Insumo", "Familia de unidad", "Costo base", "Merma", "Acciones"].map(
                 (h) => (
                   <th
                     key={h}
@@ -353,7 +354,7 @@ export default function InsumosTab({
                     </span>
                     {sinPrecio > 0 && (
                       <span className="text-xs font-semibold normal-case tracking-normal text-amber-600">
-                        · {sinPrecio} sin precio
+                        · {sinPrecio} sin costo
                       </span>
                     )}
                   </span>
@@ -599,7 +600,7 @@ export default function InsumosTab({
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600">
-                    Precio del formato *
+                    Costo del formato *
                   </label>
                   <NumberInput
                     value={pkgPrice || undefined}
@@ -612,14 +613,14 @@ export default function InsumosTab({
                 <p className="text-xs text-gray-500">
                   {pkgQtyBase > 0 ? (
                     <>
-                      Precio unificado:{" "}
+                      Costo unificado:{" "}
                       <span className="font-semibold text-gray-800">
                         {clp(Math.round(unifiedPrice))} por{" "}
                         {UNIT_FAMILY_INFO[family].base}
                       </span>
                     </>
                   ) : (
-                    "Ingresa el contenido del formato para calcular el precio unificado."
+                    "Ingresa el contenido del formato para calcular el costo unificado."
                   )}
                 </p>
               </div>

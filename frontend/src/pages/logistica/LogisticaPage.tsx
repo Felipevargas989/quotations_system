@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { Package, ShoppingCart, Truck, Users } from "lucide-react";
+import { Package, ShoppingCart, Truck, Users, Warehouse } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import ComprasTab from "./components/ComprasTab";
 import ProveedoresTab from "./components/ProveedoresTab";
 import InsumosTab from "./components/InsumosTab";
 import RecursosTab from "./components/RecursosTab";
+import StockTab from "./components/stock/StockTab";
 
-type TabKey = "compras" | "insumos" | "proveedores" | "recursos";
+type TabKey = "compras" | "insumos" | "stock" | "proveedores" | "recursos";
 
 const TABS: { key: TabKey; label: string; Icon: typeof ShoppingCart }[] = [
   { key: "compras", label: "Compras", Icon: ShoppingCart },
   { key: "insumos", label: "Insumos", Icon: Package },
+  // 23-11-2026 (doc 25): subir compras, costos con check y la bodega.
+  { key: "stock", label: "Stock", Icon: Warehouse },
   { key: "proveedores", label: "Proveedores", Icon: Truck },
   { key: "recursos", label: "Servicios externos", Icon: Users },
 ];
@@ -29,7 +32,7 @@ export default function LogisticaPage() {
             es nuestro y solo se cuenta y cuida. */}
         <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
         <p className="text-sm text-gray-500">
-          Compras, insumos, proveedores y servicios externos
+          Compras, insumos, stock, proveedores y servicios externos
         </p>
       </div>
 
@@ -60,6 +63,7 @@ export default function LogisticaPage() {
           <>
             {tab === "compras" && <ComprasTab companyId={companyId} />}
             {tab === "insumos" && <InsumosTab companyId={companyId} />}
+            {tab === "stock" && <StockTab companyId={companyId} />}
             {tab === "proveedores" && <ProveedoresTab companyId={companyId} />}
             {tab === "recursos" && <RecursosTab companyId={companyId} />}
           </>
