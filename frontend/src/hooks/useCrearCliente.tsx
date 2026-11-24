@@ -14,6 +14,7 @@ import {
   CoincidenciaCliente,
   coincidenciasDe,
   datosParaRevisar,
+  sinLasDescartadas,
 } from "../utils/avisoCliente";
 import { normalizeText } from "../utils/searchMatch";
 
@@ -70,9 +71,18 @@ export function useCrearCliente({
   const [cargando, setCargando] = useState(false);
   // Cada revisión lleva su turno: una respuesta vieja no pisa a una nueva.
   const turno = useRef(0);
+  // ¿El aviso que se ve salió mientras se escribía? Ahí «Es otro cliente»
+  // NO guarda: solo cierra el aviso y se sigue llenando (Felipe, 24-11-2026,
+  // José Araya: "en vez de dejarme continuar cerró con la información que
+  // alcancé a colocar"). Si salió al apretar «Crear Cliente», sí crea.
+  const [enVivo, setEnVivo] = useState(false);
+  // Los clientes que quien escribe ya dijo que no son: no vuelven a avisar
+  // mientras la ventana siga abierta.
+  const descartadas = useRef<Set<string>>(new Set());
 
   const limpiarAviso = () => {
     turno.current++;
+    descartadas.current = new Set();
     setCoincidencias(null);
   };
   useEffect(() => {
@@ -96,8 +106,10 @@ export function useCrearCliente({
     const espera = setTimeout(() => {
       revisarCliente(paraRevisar)
         .then((lista) => {
-          if (n === turno.current)
-            setCoincidencias(lista.length > 0 ? lista : null);
+          if (n !== turno.current) return;
+          const nuevas = sinLasDescartadas(lista, descartadas.current);
+          setEnVivo(true);
+          setCoincidencias(nuevas.length > 0 ? nuevas : null);
         })
         // Es una ayuda, no el candado: si falla, el portero revisa al crear.
         .catch(() => undefined);
@@ -133,7 +145,19 @@ export function useCrearCliente({
       const parecidos = coincidenciasDe(error);
       if (parecidos) {
         turno.current++;
-        setCoincidencias(parecidos);
+        // Con «confirmado» el motor solo vuelve a frenar cuando es el mismo
+        // cliente (mismo correo y nombre): eso se muestra siempre.
+        const nuevas = confirmado
+          ? parecidos
+          : sinLasDescartadas(parecidos, descartadas.current);
+        if (nuevas.length === 0) {
+          // Todo lo que encontró el portero ya se descartó en el aviso en
+          // vivo: se crea sin volver a preguntar.
+          await crear(cliente, true);
+          return;
+        }
+        setEnVivo(false);
+        setCoincidencias(nuevas);
       } else {
         toast.error(humanizeApiError(error, "No se pudo crear el cliente."));
       }
@@ -206,7 +230,16 @@ export function useCrearCliente({
       ocupado={cargando}
       onUsar={(c) => usar(c)}
       onSumarContacto={(c) => void sumarContacto(c)}
+      enVivo={enVivo}
       onCrearIgual={() => {
+        if (enVivo) {
+          // Solo se despacha el aviso: la ventana sigue abierta y el
+          // cliente se crea con «Crear Cliente», con todo lo escrito.
+          coincidencias.forEach((c) => descartadas.current.add(c.cliente_id));
+          turno.current++;
+          setCoincidencias(null);
+          return;
+        }
         const cliente = armar();
         if (cliente) void crear(cliente, true);
       }}
