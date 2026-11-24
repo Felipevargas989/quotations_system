@@ -13,7 +13,6 @@ import {
   Truck,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import NumberInput from "../../../components/inputs/NumberInput";
 import { matchesSearch } from "../../../utils/searchMatch";
 import { formatPhone } from "../../../utils/phone";
 import {
@@ -21,7 +20,6 @@ import {
   clearQuotationsProvisioned,
   deleteEventSupplyProvisions,
   markQuotationsProvisioned,
-  updateSupply,
   upsertEventSupplyProvisions,
   getBaseCatalogo,
   getEstadoCompras,
@@ -39,6 +37,7 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../../utils/eventConsolidation";
+import ConfirmarProvision from "./ConfirmarProvision";
 import QuienLoPide from "./QuienLoPide";
 import { numerosDeCotizacion, pedidosPorInsumo } from "./pedidosPorInsumo";
 
@@ -110,6 +109,8 @@ export default function ComprasTab({
     "" | "todo" | "desprovisionar"
   >("");
   const [saving, setSaving] = useState(false);
+  // El modal de solo lectura antes de provisionar (doc 25 D20).
+  const [revisando, setRevisando] = useState<"marcados" | "todo" | null>(null);
   const [flash, setFlash] = useState("");
 
   // Vía React Query (Etapa 3), en DOS consultas para conservar el
@@ -161,7 +162,11 @@ export default function ComprasTab({
   const filtered = useMemo(() => {
     const q = search.trim();
     return events.filter((e) => {
-      if (q && String(e.quotation_number) !== q && !matchesSearch(q, e.client_name))
+      if (
+        q &&
+        String(e.quotation_number) !== q &&
+        !matchesSearch(q, e.client_name)
+      )
         return false;
       if (!e.event_date) return !desde && !hasta;
       const d = e.event_date.slice(0, 10);
@@ -300,9 +305,7 @@ export default function ComprasTab({
     const groups = [...groupMap.values()]
       .map((g) => ({
         ...g,
-        rows: g.rows.sort((a, b) =>
-          a.supply.name.localeCompare(b.supply.name),
-        ),
+        rows: g.rows.sort((a, b) => a.supply.name.localeCompare(b.supply.name)),
       }))
       .sort((a, b) => {
         if (!a.supplier) return 1; // "sin proveedor" al final
@@ -317,7 +320,15 @@ export default function ComprasTab({
       sinReceta: [...new Set(acc.noRecipe)],
       costoTotal,
     };
-  }, [selectedEvents, recipes, supplies, furniture, suppliers, nameIds, fixedCosts]);
+  }, [
+    selectedEvents,
+    recipes,
+    supplies,
+    furniture,
+    suppliers,
+    nameIds,
+    fixedCosts,
+  ]);
 
   // Resumen ejecutivo: cuánto falta por comprar vs ya provisionado,
   // par (evento, insumo) por par, con costo de catálogo.
@@ -411,225 +422,45 @@ export default function ComprasTab({
     setTimeout(() => setFlash(""), 4000);
   };
 
-  // ---- CONFIRMAR LA COMPRA ANTES DE PROVISIONAR (Felipe, 24-08) ----
-  // "Al apretar provisionar debería aparecer un modal para confirmar los
-  // valores... total comprado y total gastado... esto es solamente para
-  // mantener los costos actualizados." Lo que el evento necesita va
-  // BLOQUEADO (eso se decidió en la lista); lo editable es la compra
-  // real: cuánto se compró y cuánto se gastó. Si un ítem no se toca,
-  // mantiene los valores antiguos del catálogo tal cual. Si se toca, el
-  // costo real alimenta la provisión (el costo final del evento) y
-  // actualiza el catálogo: $/unidad = gastado ÷ comprado. Sin
-  // inventario: comprado ≠ necesitado es la realidad, no un stock.
-  interface LineaCompra {
-    sid: number;
-    comprado: number;
-    gastado: number;
-    compradoSug: number;
-    gastadoSug: number;
-  }
-  const [compra, setCompra] = useState<null | {
-    alcance: "marcados" | "todo";
-    lineas: LineaCompra[];
-  }>(null);
-
-  const filaDe = (sid: number): ConsolidatedSupply | undefined => {
-    for (const g of consolidation.groups) {
-      const c = g.rows.find((r) => r.supply.id === sid);
-      if (c) return c;
-    }
-    return undefined;
-  };
-
-  /** Lo sugerido para comprar: el formato redondeado hacia arriba (la
-   *  misma cuenta que muestra la columna Formato), o el bruto con merma. */
-  const compradoSugerido = (c: ConsolidatedSupply): number => {
-    const bruto = grossQty(c.totalBase, c.supply);
-    const pk = c.supply.package_qty || 0;
-    if (pk > 0) return Math.ceil(bruto / pk - 1e-9) * pk;
-    return Math.round(bruto * 100) / 100;
-  };
-
-  const abrirConfirmacion = (alcance: "marcados" | "todo") => {
-    const objetivos =
+  // ---- PROVISIONAR SIN MODAL (doc 25, 23-11-2026) ----
+  // Felipe: *"sacar el modal… es demasiado trabajo manual todas las
+  // semanas"*. Ya no se escribe lo comprado ni lo gastado: el costo del
+  // catálogo viene de las compras que se suben en «Stock» (leídas por la IA
+  // y aprobadas con check), así que provisionar es un clic y congela el
+  // costo con el catálogo de ese momento. El modal del 24-08 quedó atrás.
+  // Y desde el 24-11 (D20), antes de provisionar se mira el detalle en un
+  // modal de solo lectura: «Provisionar» lo abre y «Sí, provisionar» actúa.
+  const objetivoDe = (alcance: "marcados" | "todo") =>
+    new Set(
       alcance === "marcados"
         ? [...checkedFalt]
-        : consolidation.groups.flatMap((g) => g.rows.map((r) => r.supply.id));
-    const lineas: LineaCompra[] = [];
-    for (const sid of objetivos) {
-      const c = filaDe(sid);
-      if (!c) continue;
-      const compradoSug = compradoSugerido(c);
-      const gastadoSug = Math.round(c.costTotal);
-      lineas.push({
-        sid,
-        comprado: compradoSug,
-        gastado: gastadoSug,
-        compradoSug,
-        gastadoSug,
-      });
-    }
-    if (lineas.length === 0) return;
-    setCompra({ alcance, lineas });
-  };
-
-  /** Reparte el gastado real entre las filas por evento, al peso y sin
-   *  sobrantes (piso + los pesos que faltan a los restos más grandes). */
-  const repartirGastado = (total: number, pesos: number[]): number[] => {
-    const suma = pesos.reduce((t, p) => t + p, 0);
-    const efectivos = suma > 0 ? pesos : pesos.map(() => 1);
-    const sumaEf = suma > 0 ? suma : pesos.length;
-    const exactos = efectivos.map((p) => (total * p) / sumaEf);
-    const pisos = exactos.map(Math.floor);
-    let faltan = total - pisos.reduce((t, p) => t + p, 0);
-    const orden = exactos
-      .map((e, i) => ({ resto: e - pisos[i], i }))
-      .sort((a, b) => b.resto - a.resto);
-    for (const { i } of orden) {
-      if (faltan <= 0) break;
-      pisos[i] += 1;
-      faltan -= 1;
-    }
-    return pisos;
-  };
-
-  // Una sola definición de columnas: el encabezado y todas las filas
-  // caen en la misma grilla (Felipe, 24-08: "ordenar un poco las
-  // columnas").
-  const GRILLA =
-    "grid grid-cols-[minmax(0,1fr)_80px_115px_135px_105px] gap-3 items-center";
-
-  const renderLinea = (l: LineaCompra, idx: number) => {
-    const c = filaDe(l.sid);
-    if (!c) return null;
-    const base = UNIT_FAMILY_INFO[c.supply.unit_family].base;
-    const tocada = l.comprado !== l.compradoSug || l.gastado !== l.gastadoSug;
-    const cambiar = (cambios: Partial<LineaCompra>) =>
-      setCompra((prev) =>
-        prev
-          ? {
-              ...prev,
-              lineas: prev.lineas.map((x, i) =>
-                i === idx ? { ...x, ...cambios } : x,
-              ),
-            }
-          : prev,
-      );
-    return (
-      <li key={l.sid} className={`${GRILLA} px-3 py-1.5 text-sm`}>
-        <span className="min-w-0">
-          <span className="block truncate text-gray-900">
-            {c.supply.name}
-            {tocada && (
-              <span className="ml-1.5 text-[10px] font-semibold text-blue-700">
-                actualiza catálogo
-              </span>
-            )}
-          </span>
-          {(c.supply.package_qty || 0) > 0 && (
-            <span className="block text-[11px] text-gray-400 truncate">
-              {c.supply.package_name || "formato"} de{" "}
-              {Number(c.supply.package_qty).toLocaleString("es-CL")} {base}
-            </span>
-          )}
-        </span>
-        {/* Lo necesitado: solo referencia, bloqueado. */}
-        <span className="text-right tabular-nums text-gray-500">
-          {fmtQty(c.totalBase)} {base}
-        </span>
-        <span className="relative">
-          <NumberInput
-            value={l.comprado || undefined}
-            onChange={(v) => cambiar({ comprado: v ?? 0 })}
-            min={0}
-            placeholder="0"
-            aria-label={`Comprado de ${c.supply.name}`}
-            className="w-full !border-gray-300 !rounded-lg !pl-2 !pr-8 !py-1 text-sm text-right tabular-nums"
-          />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">
-            {base}
-          </span>
-        </span>
-        <span className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-            $
-          </span>
-          <NumberInput
-            value={l.gastado || undefined}
-            onChange={(v) => cambiar({ gastado: v ?? 0 })}
-            min={0}
-            formatThousands
-            placeholder="0"
-            aria-label={`Gastado en ${c.supply.name}`}
-            className="w-full !border-gray-300 !rounded-lg !pl-5 !pr-2 !py-1 text-sm text-right tabular-nums"
-          />
-        </span>
-        <span
-          className={`text-right tabular-nums text-sm ${
-            tocada ? "text-blue-700 font-medium" : "text-gray-500"
-          }`}
-        >
-          {l.comprado > 0 ? `${fmtMoney(l.gastado / l.comprado)}/${base}` : "—"}
-        </span>
-      </li>
+        : consolidation.groups.flatMap((g) => g.rows.map((r) => r.supply.id)),
     );
-  };
-
-  const confirmarCompra = async () => {
-    if (!compra) return;
+  const provisionar = async (alcance: "marcados" | "todo") => {
+    const objetivo = objetivoDe(alcance);
+    if (objetivo.size === 0) return;
     setSaving(true);
-    const tocadas = new Map(
-      compra.lineas
-        .filter(
-          (l) => l.comprado !== l.compradoSug || l.gastado !== l.gastadoSug,
-        )
-        .map((l) => [l.sid, l]),
-    );
-    const objetivo = new Set(compra.lineas.map((l) => l.sid));
-
-    // Las filas por evento: las no tocadas van con la cuenta de siempre
-    // (catálogo); las tocadas reparten el gastado real por evento.
     const rows = buildRows(objetivo);
-    for (const [sid, linea] of tocadas) {
-      const delInsumo = rows.filter((r) => r.supply_id === sid);
-      if (delInsumo.length === 0) continue;
-      const montos = repartirGastado(
-        Math.round(linea.gastado),
-        delInsumo.map((r) => r.qty_base),
-      );
-      delInsumo.forEach((r, i) => (r.cost = montos[i]));
-    }
-
     const { error } = await upsertEventSupplyProvisions(rows);
     if (error) {
       flashMsg("Error al provisionar, intenta de nuevo");
       setSaving(false);
       return;
     }
-
-    // El catálogo aprende de la compra real: $/unidad = gastado÷comprado.
-    for (const [sid, linea] of tocadas) {
-      if (linea.comprado <= 0) continue;
-      const c = filaDe(sid);
-      if (!c) continue;
-      const precio = Math.round((linea.gastado / linea.comprado) * 100) / 100;
-      const cambios: Record<string, number> = { price: precio };
-      const pk = c.supply.package_qty || 0;
-      if (pk > 0 && Math.abs((linea.comprado / pk) % 1) < 1e-9) {
-        cambios.package_price = Math.round(linea.gastado / (linea.comprado / pk));
-      }
-      await updateSupply(sid, cambios);
-    }
-
-    // La cobertura y el sello de evento completo, con el costo REAL:
-    // lo ya provisionado + lo recién confirmado.
+    // La cobertura y el sello de evento completo: lo ya provisionado + lo
+    // recién provisionado.
     const provMap = new Map<string, Set<number>>();
     const costoPorEvento = new Map<string, number>();
     provisions.forEach((p) => {
       const s = provMap.get(p.quotation_id) || new Set<number>();
       s.add(p.supply_id);
       provMap.set(p.quotation_id, s);
-      if (!rows.some((r) => r.quotation_id === p.quotation_id && r.supply_id === p.supply_id)) {
+      if (
+        !rows.some(
+          (r) =>
+            r.quotation_id === p.quotation_id && r.supply_id === p.supply_id,
+        )
+      ) {
         costoPorEvento.set(
           p.quotation_id,
           (costoPorEvento.get(p.quotation_id) ?? 0) + Number(p.cost || 0),
@@ -646,18 +477,17 @@ export default function ComprasTab({
       );
     });
     const completed = await stampCompleted(provMap, costoPorEvento);
-
     flashMsg(
-      `✓ ${compra.lineas.length} insumo(s) provisionado(s)` +
-        (tocadas.size ? ` · ${tocadas.size} costo(s) actualizado(s)` : "") +
+      `✓ ${objetivo.size} insumo(s) provisionado(s)` +
         (completed ? ` · ${completed} evento(s) completo(s)` : ""),
     );
-    setCompra(null);
+    setConfirmAction("");
     setCheckedSupplies(new Set());
-    if (compra.alcance === "todo") setSelected(new Set());
+    if (alcance === "todo") setSelected(new Set());
     await queryClient.invalidateQueries({ queryKey: ["logistica"] });
     await refresh();
     setSaving(false);
+    setRevisando(null);
   };
 
   // Si un evento quedó con todos sus insumos provisionados → marcar completo.
@@ -762,8 +592,7 @@ export default function ComprasTab({
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-    const hexOk = (c?: string) =>
-      c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null;
+    const hexOk = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
     const brandP = hexOk(company?.colors?.primary) || "#1e3a8a";
     const onBrandP = (() => {
       const n = parseInt(brandP.slice(1), 16);
@@ -1095,8 +924,7 @@ export default function ComprasTab({
                   <input
                     type="checkbox"
                     checked={
-                      filtered.length > 0 &&
-                      selected.size === filtered.length
+                      filtered.length > 0 && selected.size === filtered.length
                     }
                     onChange={toggleAll}
                     className="rounded"
@@ -1145,9 +973,7 @@ export default function ComprasTab({
                     <td className="px-3 py-2 font-semibold text-gray-900">
                       #{e.quotation_number}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
-                      {e.client_name}
-                    </td>
+                    <td className="px-3 py-2 text-gray-700">{e.client_name}</td>
                     <td className="px-3 py-2 text-gray-700">
                       {fmtDate(e.event_date)}
                       {dias > 1 && (
@@ -1190,6 +1016,20 @@ export default function ComprasTab({
         </div>
       )}
 
+      {revisando && (
+        <ConfirmarProvision
+          filas={buildRows(objetivoDe(revisando))}
+          supplies={supplies}
+          eventos={selectedEvents.map((e) => ({
+            id: e.id,
+            rotulo: `#${e.quotation_number} ${e.client_name ?? ""}`.trim(),
+          }))}
+          guardando={saving}
+          onConfirmar={() => void provisionar(revisando)}
+          onCerrar={() => setRevisando(null)}
+        />
+      )}
+
       {/* ---------- Consolidado ---------- */}
       {selectedEvents.length > 0 && (
         <div className="space-y-5">
@@ -1217,7 +1057,10 @@ export default function ComprasTab({
                   <button
                     type="button"
                     disabled={saving}
-                    onClick={() => abrirConfirmacion("todo")}
+                    onClick={() => {
+                      setConfirmAction("");
+                      setRevisando("todo");
+                    }}
                     className="px-2.5 py-1 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 disabled:opacity-50"
                   >
                     {saving ? "Provisionando…" : "Sí, todo"}
@@ -1234,7 +1077,7 @@ export default function ComprasTab({
               ) : (
                 <button
                   type="button"
-                  onClick={() => abrirConfirmacion("todo")}
+                  onClick={() => setRevisando("todo")}
                   disabled={saving}
                   className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
                 >
@@ -1345,7 +1188,7 @@ export default function ComprasTab({
               {checkedFalt.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => abrirConfirmacion("marcados")}
+                  onClick={() => setRevisando("marcados")}
                   disabled={saving}
                   className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
                 >
@@ -1624,139 +1467,6 @@ export default function ComprasTab({
               </p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ---- El modal de la compra real (Felipe, 24-08) ---- */}
-      {compra && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
-            <div className="px-5 pt-4 pb-3 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Confirmar la compra
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Lo que el evento necesita no se toca acá. Corrige lo que
-                COMPRASTE y lo que GASTASTE de verdad: el costo por unidad
-                se recalcula y el catálogo queda al día. Lo que no toques
-                mantiene sus valores de siempre.
-              </p>
-            </div>
-
-            <div className="px-5 py-3 overflow-y-auto">
-              <div
-                className={`${GRILLA} px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 pb-1.5`}
-              >
-                <span>Insumo</span>
-                <span className="text-right">Necesito</span>
-                <span className="text-right">Compro</span>
-                <span className="text-right">Gasto total</span>
-                <span className="text-right">$ / unidad</span>
-              </div>
-              {/* SE COMPRA POR PROVEEDOR (Felipe, 24-08): el modal agrupa
-                  igual que la lista, con el subtotal real de cada uno. */}
-              {(() => {
-                const porProveedor = new Map<
-                  number,
-                  { nombre: string; filas: { l: (typeof compra.lineas)[number]; idx: number }[] }
-                >();
-                const nombreProv = new Map(suppliers.map((x) => [x.id, x.name]));
-                compra.lineas.forEach((l, idx) => {
-                  const c = filaDe(l.sid);
-                  const key = c?.supply.supplier_id || 0;
-                  let g = porProveedor.get(key);
-                  if (!g) {
-                    g = {
-                      nombre: key ? (nombreProv.get(key) ?? "Proveedor") : "Sin proveedor",
-                      filas: [],
-                    };
-                    porProveedor.set(key, g);
-                  }
-                  g.filas.push({ l, idx });
-                });
-                const grupos = [...porProveedor.entries()]
-                  .sort(([ka, a], [kb, b]) => {
-                    if (!ka) return 1;
-                    if (!kb) return -1;
-                    return a.nombre.localeCompare(b.nombre);
-                  })
-                  .map(([, g]) => g);
-                return grupos.map((g) => (
-                  <div
-                    key={g.nombre}
-                    className="border border-gray-200 rounded-lg mb-3 overflow-hidden"
-                  >
-                    {/* La banda del proveedor: se compra por boleta, y la
-                        boleta es de él. Su subtotal se mueve en vivo. */}
-                    <div className="flex items-center justify-between bg-blue-50/70 border-b border-gray-200 px-3 py-2">
-                      <span className="text-xs font-bold uppercase tracking-wide text-blue-900 flex items-center gap-1.5">
-                        <Truck size={13} className="text-blue-700" />
-                        {g.nombre}
-                      </span>
-                      <span className="text-sm font-semibold tabular-nums text-blue-900">
-                        {fmtMoney(g.filas.reduce((t, f) => t + (f.l.gastado || 0), 0))}
-                      </span>
-                    </div>
-                    <ul className="divide-y divide-gray-100">
-                      {g.filas.map(({ l, idx }) => renderLinea(l, idx))}
-                    </ul>
-                  </div>
-                ));
-              })()}
-            </div>
-
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-3">
-              <span className="text-sm text-gray-600 tabular-nums">
-                Total:{" "}
-                <span className="font-semibold text-gray-900">
-                  {fmtMoney(
-                    compra.lineas.reduce((t, l) => t + (l.gastado || 0), 0),
-                  )}
-                </span>
-                {(() => {
-                  const est = compra.lineas.reduce(
-                    (t, l) => t + l.gastadoSug,
-                    0,
-                  );
-                  const real = compra.lineas.reduce(
-                    (t, l) => t + (l.gastado || 0),
-                    0,
-                  );
-                  return real !== est ? (
-                    <span className="text-gray-400">
-                      {" "}
-                      · estimado {fmtMoney(est)}
-                    </span>
-                  ) : null;
-                })()}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCompra(null)}
-                disabled={saving}
-                className="ml-auto px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmarCompra()}
-                disabled={
-                  saving || compra.lineas.some((l) => !(l.comprado > 0))
-                }
-                title={
-                  compra.lineas.some((l) => !(l.comprado > 0))
-                    ? "Hay un comprado en cero"
-                    : undefined
-                }
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving
-                  ? "Provisionando…"
-                  : `Provisionar ${compra.lineas.length} insumo${compra.lineas.length === 1 ? "" : "s"}`}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

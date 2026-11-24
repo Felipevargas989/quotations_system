@@ -200,9 +200,7 @@ export default function InsumosTab({
   // Grupos PLEGABLES por proveedor (decisión Felipe 21-07-2026: con 170
   // insumos la tabla plana era impracticable). Parten plegados; el
   // buscador abre solo los grupos con coincidencias.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (name: string) =>
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -216,9 +214,7 @@ export default function InsumosTab({
   const grouped = (() => {
     const m = new Map<string, Supply[]>();
     filtered.forEach((s) => {
-      const key = s.supplier_id
-        ? supplierName(s.supplier_id)
-        : "Sin proveedor";
+      const key = s.supplier_id ? supplierName(s.supplier_id) : "Sin proveedor";
       m.set(key, [...(m.get(key) || []), s]);
     });
     return [...m.entries()]
@@ -257,8 +253,9 @@ export default function InsumosTab({
       </div>
       <div className="flex items-center justify-between mb-4 gap-3">
         <p className="text-xs text-gray-400">
-          El precio va por unidad base (kg, L o unidad). Cambiarlo afecta solo
-          a eventos futuros; los provisionados mantienen su costo congelado.
+          El costo va por unidad base (kg, L o unidad) y se actualiza solo con
+          las compras que se suben en «Stock». Cambiarlo afecta solo a eventos
+          futuros; los provisionados mantienen su costo congelado.
         </p>
         <div className="flex items-center gap-3 shrink-0">
           {/* Expandir/plegar todos los grupos de proveedor */}
@@ -310,183 +307,191 @@ export default function InsumosTab({
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
-              {["Insumo", "Familia de unidad", "Precio base", "Merma", "Acciones"].map(
-                (h) => (
-                  <th
-                    key={h}
-                    // Ancho fijo en Acciones: la confirmación de borrado ocupa
-                    // lo mismo que los iconos y la tabla no se reacomoda.
-                    className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                      h === "Acciones" ? "w-36" : ""
-                    }`}
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
+              {[
+                "Insumo",
+                "Familia de unidad",
+                "Costo base",
+                "Merma",
+                "Acciones",
+              ].map((h) => (
+                <th
+                  key={h}
+                  // Ancho fijo en Acciones: la confirmación de borrado ocupa
+                  // lo mismo que los iconos y la tabla no se reacomoda.
+                  className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                    h === "Acciones" ? "w-36" : ""
+                  }`}
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {grouped.map((g) => {
               // Con búsqueda activa, los grupos con coincidencias se
               // abren solos (si no, buscarías y no verías nada).
-              const isOpen =
-                search.trim() !== "" || expandedGroups.has(g.name);
+              const isOpen = search.trim() !== "" || expandedGroups.has(g.name);
               const sinPrecio = g.items.filter((i) => !i.price).length;
               return [
-              <tr key={`g-${g.name}`}>
-                <td
-                  colSpan={5}
-                  onClick={() => toggleGroup(g.name)}
-                  title={isOpen ? "Plegar" : "Desplegar"}
-                  className="px-4 py-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
-                >
-                  <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-                    {isOpen ? (
-                      <ChevronDown size={16} className="text-gray-400" />
-                    ) : (
-                      <ChevronRight size={16} className="text-gray-400" />
-                    )}
-                    {g.name}
-                    <span className="text-xs font-medium normal-case tracking-normal text-gray-400">
-                      · {g.items.length} insumo{g.items.length === 1 ? "" : "s"}
-                    </span>
-                    {sinPrecio > 0 && (
-                      <span className="text-xs font-semibold normal-case tracking-normal text-amber-600">
-                        · {sinPrecio} sin precio
-                      </span>
-                    )}
-                  </span>
-                </td>
-              </tr>,
-              ...(isOpen ? g.items : []).map((s) => {
-              const fam = UNIT_FAMILY_INFO[s.unit_family];
-              return (
-                <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    <span
-                      className="block max-w-[280px] truncate"
-                      title={s.name}
-                    >
-                      {s.name}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
-                      {fam.label}
-                    </span>{" "}
-                    <span className="text-xs text-gray-400">{fam.units}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {clp(Math.round(s.price))}{" "}
-                    <span className="text-xs text-gray-400">/{fam.base}</span>
-                    {s.package_qty &&
-                      s.package_qty > 0 &&
-                      (s.package_name || s.package_qty !== 1) && (
-                        <div className="text-xs text-gray-400">
-                          {s.package_name || "formato"} de{" "}
-                          {Number(s.package_qty).toLocaleString("es-CL")}{" "}
-                          {fam.base} · {clp(s.package_price || 0)}
-                        </div>
+                <tr key={`g-${g.name}`}>
+                  <td
+                    colSpan={5}
+                    onClick={() => toggleGroup(g.name)}
+                    title={isOpen ? "Plegar" : "Desplegar"}
+                    className="px-4 py-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+                      {isOpen ? (
+                        <ChevronDown size={16} className="text-gray-400" />
+                      ) : (
+                        <ChevronRight size={16} className="text-gray-400" />
                       )}
+                      {g.name}
+                      <span className="text-xs font-medium normal-case tracking-normal text-gray-400">
+                        · {g.items.length} insumo
+                        {g.items.length === 1 ? "" : "s"}
+                      </span>
+                      {sinPrecio > 0 && (
+                        <span className="text-xs font-semibold normal-case tracking-normal text-amber-600">
+                          · {sinPrecio} sin costo
+                        </span>
+                      )}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {s.waste_pct ? `${s.waste_pct}%` : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {/* La confirmación flota ENCIMA de los iconos (que quedan
+                </tr>,
+                ...(isOpen ? g.items : []).map((s) => {
+                  const fam = UNIT_FAMILY_INFO[s.unit_family];
+                  return (
+                    <tr key={s.id} className={s.is_active ? "" : "opacity-45"}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        <span
+                          className="block max-w-[280px] truncate"
+                          title={s.name}
+                        >
+                          {s.name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                          {fam.label}
+                        </span>{" "}
+                        <span className="text-xs text-gray-400">
+                          {fam.units}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {clp(Math.round(s.price))}{" "}
+                        <span className="text-xs text-gray-400">
+                          /{fam.base}
+                        </span>
+                        {s.package_qty &&
+                          s.package_qty > 0 &&
+                          (s.package_name || s.package_qty !== 1) && (
+                            <div className="text-xs text-gray-400">
+                              {s.package_name || "formato"} de{" "}
+                              {Number(s.package_qty).toLocaleString("es-CL")}{" "}
+                              {fam.base} · {clp(s.package_price || 0)}
+                            </div>
+                          )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {s.waste_pct ? `${s.waste_pct}%` : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {/* La confirmación flota ENCIMA de los iconos (que quedan
                         invisibles pero ocupando su espacio): el contenido que
                         dimensiona la tabla nunca cambia → cero movimiento. */}
-                    <div className="relative">
-                      {confirmDeleteId === s.id && (
-                        <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
-                          <span className="text-xs text-gray-600">
-                            ¿Eliminar?
-                          </span>
-                          <button
-                            disabled={deleting}
-                            onClick={() => doDelete(s)}
-                            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                            title="Sí, eliminar"
-                          >
-                            <Check size={15} />
-                          </button>
-                          <button
-                            disabled={deleting}
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="p-1 text-gray-500 hover:text-gray-700"
-                            title="Cancelar"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      )}
-                      <div
-                        className={`flex items-center gap-2 h-7 ${
-                          confirmDeleteId === s.id ? "invisible" : ""
-                        }`}
-                      >
-                        <button
-                          onClick={() => open(s)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => toggleActive(s)}
-                          className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                            s.is_active ? "text-green-600" : "text-gray-400"
-                          }`}
-                          title={s.is_active ? "Desactivar" : "Activar"}
-                        >
-                          {s.is_active ? (
-                            <Eye size={15} />
-                          ) : (
-                            <EyeOff size={15} />
-                          )}
-                        </button>
-                        {(() => {
-                          const u = usage[s.id];
-                          const inUse =
-                            !!u && (u.recipes > 0 || u.provisions > 0);
-                          if (inUse) {
-                            const parts = [];
-                            if (u.recipes > 0)
-                              parts.push(
-                                `${u.recipes} receta${u.recipes === 1 ? "" : "s"}`,
-                              );
-                            if (u.provisions > 0)
-                              parts.push(
-                                `${u.provisions} compra${u.provisions === 1 ? "" : "s"} registrada${u.provisions === 1 ? "" : "s"}`,
-                              );
-                            return (
+                        <div className="relative">
+                          {confirmDeleteId === s.id && (
+                            <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                              <span className="text-xs text-gray-600">
+                                ¿Eliminar?
+                              </span>
                               <button
-                                disabled
-                                className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
-                                title={`En uso (${parts.join(", ")}): no se puede eliminar, solo desactivar`}
+                                disabled={deleting}
+                                onClick={() => doDelete(s)}
+                                className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                                title="Sí, eliminar"
                               >
-                                <Trash2 size={15} />
+                                <Check size={15} />
                               </button>
-                            );
-                          }
-                          return (
+                              <button
+                                disabled={deleting}
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="p-1 text-gray-500 hover:text-gray-700"
+                                title="Cancelar"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          )}
+                          <div
+                            className={`flex items-center gap-2 h-7 ${
+                              confirmDeleteId === s.id ? "invisible" : ""
+                            }`}
+                          >
                             <button
-                              onClick={() => setConfirmDeleteId(s.id)}
-                              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
-                              title="Eliminar (no está en ninguna receta)"
+                              onClick={() => open(s)}
+                              className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                              title="Editar"
                             >
-                              <Trash2 size={15} />
+                              <Pencil size={15} />
                             </button>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              );
-              }),
-            ];
+                            <button
+                              onClick={() => toggleActive(s)}
+                              className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                                s.is_active ? "text-green-600" : "text-gray-400"
+                              }`}
+                              title={s.is_active ? "Desactivar" : "Activar"}
+                            >
+                              {s.is_active ? (
+                                <Eye size={15} />
+                              ) : (
+                                <EyeOff size={15} />
+                              )}
+                            </button>
+                            {(() => {
+                              const u = usage[s.id];
+                              const inUse =
+                                !!u && (u.recipes > 0 || u.provisions > 0);
+                              if (inUse) {
+                                const parts = [];
+                                if (u.recipes > 0)
+                                  parts.push(
+                                    `${u.recipes} receta${u.recipes === 1 ? "" : "s"}`,
+                                  );
+                                if (u.provisions > 0)
+                                  parts.push(
+                                    `${u.provisions} compra${u.provisions === 1 ? "" : "s"} registrada${u.provisions === 1 ? "" : "s"}`,
+                                  );
+                                return (
+                                  <button
+                                    disabled
+                                    className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                                    title={`En uso (${parts.join(", ")}): no se puede eliminar, solo desactivar`}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  onClick={() => setConfirmDeleteId(s.id)}
+                                  className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                  title="Eliminar (no está en ninguna receta)"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }),
+              ];
             })}
           </tbody>
         </table>
@@ -599,7 +604,7 @@ export default function InsumosTab({
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600">
-                    Precio del formato *
+                    Costo del formato *
                   </label>
                   <NumberInput
                     value={pkgPrice || undefined}
@@ -612,14 +617,14 @@ export default function InsumosTab({
                 <p className="text-xs text-gray-500">
                   {pkgQtyBase > 0 ? (
                     <>
-                      Precio unificado:{" "}
+                      Costo unificado:{" "}
                       <span className="font-semibold text-gray-800">
                         {clp(Math.round(unifiedPrice))} por{" "}
                         {UNIT_FAMILY_INFO[family].base}
                       </span>
                     </>
                   ) : (
-                    "Ingresa el contenido del formato para calcular el precio unificado."
+                    "Ingresa el contenido del formato para calcular el costo unificado."
                   )}
                 </p>
               </div>
@@ -638,9 +643,8 @@ export default function InsumosTab({
                   placeholder="0"
                 />
                 <p className="mt-1 text-xs text-gray-400">
-                  Lo que se pierde al limpiar o cocinar. Las recetas se
-                  ingresan en neto (lo servido); compras y costos usan la
-                  cantidad bruta.
+                  Lo que se pierde al limpiar o cocinar. Las recetas se ingresan
+                  en neto (lo servido); compras y costos usan la cantidad bruta.
                 </p>
               </div>
               <div>
