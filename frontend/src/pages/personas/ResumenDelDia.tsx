@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { Check, Search, Users, X } from "lucide-react";
+import { Check, Printer, Search, Users, X } from "lucide-react";
 import { toast } from "../../components/toast/Toast";
 import { HoraInput, formatoHoras, horasTrabajadas } from "../../components/inputs";
 import {
@@ -16,6 +16,7 @@ import { getQuotationById } from "../../services/quotations.service";
 import type { Asignacion } from "../../types/people.types";
 import { humanizeApiError } from "../../utils/apiErrors";
 import { formatPhone } from "../../utils/phone";
+import { imprimirHoja } from "../../utils/imprimirHoja";
 import {
   diasDelEvento,
   numeroDeDia,
@@ -112,6 +113,9 @@ export default function ResumenDelDia({
   readonly onCerrar: () => void;
 }) {
   const r = rotulo(dia);
+  // La hoja impresa sale de lo mismo que se ve (Felipe, 23-11-2026: "que
+  // el detalle de abajo sea imprimible"), con los montos.
+  const hoja = useRef<HTMLDivElement>(null);
   const delDia = staff.filter((a) => iso(a.day) === dia);
   const sinEvento = delDia.filter((a) => a.quotation_id === null);
   const planta = sinEvento.filter(esDePlanta);
@@ -167,7 +171,7 @@ export default function ResumenDelDia({
   const costoTotal = costoEventos + costoPlanta + costoStaff;
 
   return (
-    <div className="border border-gray-200 rounded-xl p-4 bg-white">
+    <div ref={hoja} className="border border-gray-200 rounded-xl p-4 bg-white">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
@@ -201,14 +205,27 @@ export default function ResumenDelDia({
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onCerrar}
-          aria-label="Cerrar el resumen"
-          className="p-1 text-gray-400 hover:text-gray-700 rounded"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1" data-no-imprimir>
+          {/* Igual que el «Imprimir» de la Ficha de Cocina. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (hoja.current)
+                imprimirHoja(hoja.current, `Personal · ${r.dia} ${String(r.num)} de ${r.mes}`);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <Printer size={15} /> Imprimir
+          </button>
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar el resumen"
+            className="p-1 text-gray-400 hover:text-gray-700 rounded"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-5">
