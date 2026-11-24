@@ -208,14 +208,14 @@ export default function ResumenDelDia({
           </div>
         </div>
         <div className="flex items-center gap-1" data-no-imprimir>
-          {/* Igual que el «Imprimir» de la Ficha de Cocina. */}
+          {/* Como el PDF de la cotización: abre directo el diálogo. */}
           <button
             type="button"
             onClick={() => {
               if (hoja.current)
                 imprimirHoja(
                   hoja.current,
-                  `Personal · ${r.dia} ${String(r.num)} de ${r.mes}`,
+                  `Personal - ${r.dia} ${String(r.num)} de ${r.mes}`,
                 );
             }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"

@@ -1,8 +1,11 @@
 // IMPRIMIR UN PEDAZO DE LA PANTALLA COMO HOJA (23-11-2026)
 //
 // Nació para el resumen del día de Planificación. Copia lo que se ve, con
-// los mismos estilos de la app, en una pestaña limpia con el botón
-// «Imprimir / PDF» arriba a la derecha, igual que la Ficha de Cocina.
+// los mismos estilos de la app, en una pestaña limpia y abre SOLA la
+// ventana de imprimir / guardar como PDF, igual que la cotización, sin
+// botón de por medio (Felipe, 23-11-2026: "se pasa distinto, como que me
+// abre otra hoja y me hace apretar otro botón"). El título de la pestaña
+// es el nombre con que se guarda el PDF.
 //
 // - Lo marcado con `data-no-imprimir` (botones, la ✕) no va.
 // - Lo marcado con `data-dinero` tampoco: la hoja sale sin montos, porque
@@ -57,18 +60,19 @@ export function imprimirHoja(nodo: HTMLElement, titulo: string) {
 ${estilos}
 <style>
   body { background:#fff; padding:24px; }
-  .btn-imprimir { position:fixed; top:14px; right:14px; background:#2563eb; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.25); z-index:10; }
   /* Los colores de cada tabla también en papel y en PDF. */
   * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   table, tr { page-break-inside:avoid; }
   @media print {
     @page { size:A4 portrait; margin:12mm; }
     body { padding:0; }
-    .btn-imprimir { display:none; }
   }
 </style></head><body>
-<button class="btn-imprimir" onclick="window.print()">Imprimir / PDF</button>
 ${cuerpoDeLaHoja(nodo)}
+<script>
+  // Cuando cargaron los estilos, el diálogo de imprimir solo, una vez.
+  window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 150); });
+</script>
 </body></html>`;
   const win = window.open("", "_blank");
   if (!win) return;
