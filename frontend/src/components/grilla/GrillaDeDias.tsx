@@ -73,6 +73,13 @@ export interface BarraDeGrupo {
 /** El número de hoy en la cabecera: un círculo azul, como en un calendario. */
 const CIRCULO_DE_HOY =
   "inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white leading-none";
+/** El día pinchado: el mismo círculo, con aro azul en vez de relleno, para
+ *  no confundirlo con hoy (Felipe, 23-11-2026: "cuando pincho el día que
+ *  quede seleccionado, quizás con el azul del día"). */
+const CIRCULO_ELEGIDO =
+  "inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-blue-600 text-blue-700 font-semibold leading-none";
+/** Hoy y además pinchado: el relleno de hoy con un aro por fuera. */
+const CIRCULO_DE_HOY_ELEGIDO = `${CIRCULO_DE_HOY} ring-2 ring-blue-300 ring-offset-1`;
 
 /** La línea de color a la izquierda de las filas de un grupo. Va como una
  *  franja DENTRO de la celda y no como borde: el borde de una celda se corre
@@ -136,6 +143,7 @@ export default function GrillaDeDias({
   filas,
   pie,
   resaltarDia,
+  diaElegido,
   onDiaClick,
   anchoTitulo = "w-56",
   calendario = false,
@@ -155,6 +163,9 @@ export default function GrillaDeDias({
    *  09-11-2026: "no sé si vale mucho marcar el día actual para abajo,
    *  quizás solo arriba en la fecha"). Solo la sábana lo pasa. */
   readonly resaltarDia?: string;
+  /** v2.5 (23-11-2026): el día pinchado (la sábana: el del resumen abierto),
+   *  con un aro azul en su número. */
+  readonly diaElegido?: string;
   /** v2.1: pinchar el encabezado de un día (la sábana abre su resumen). */
   readonly onDiaClick?: (dia: string) => void;
   /** v2.4 (09-11-2026): el ancho de la columna de títulos. Gestión deja
@@ -203,6 +214,7 @@ export default function GrillaDeDias({
               const r = rotuloDia(d);
               const quitable = !diasFijos.has(d) && !congelado;
               const esHoy = d === resaltarDia;
+              const esElegido = d === diaElegido;
               // Con un día resaltado, todos los números ocupan el alto del
               // círculo: así las tres líneas calzan entre columnas.
               const numero = resaltarDia
@@ -237,10 +249,13 @@ export default function GrillaDeDias({
                       type="button"
                       onClick={() => onDiaClick(d)}
                       title="Ver el resumen del día"
+                      aria-pressed={esElegido}
                       className={
                         esHoy
-                          ? `${CIRCULO_DE_HOY} hover:bg-blue-700`
-                          : `${numero} hover:text-blue-700 hover:underline`
+                          ? `${esElegido ? CIRCULO_DE_HOY_ELEGIDO : CIRCULO_DE_HOY} hover:bg-blue-700`
+                          : esElegido
+                            ? `${CIRCULO_ELEGIDO} hover:bg-blue-50`
+                            : `${numero} hover:text-blue-700 hover:underline`
                       }
                     >
                       {r.num}
