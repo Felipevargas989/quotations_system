@@ -140,3 +140,13 @@ export const permiteCrearIgual = (lista: CoincidenciaCliente[]): boolean =>
   !lista.some(
     (c) => c.motivos.includes("correo") && c.motivos.includes("nombre"),
   );
+
+/** Las coincidencias que quien escribe todavía no despachó con «Es otro
+ *  cliente, seguir llenando» (Felipe, 24-11-2026, José Araya: el aviso
+ *  salió a mitad del formulario y «crear igual» guardó lo que alcanzó a
+ *  escribir). Lo despachado no vuelve a aparecer mientras la ventana siga
+ *  abierta; lo nuevo, sí. */
+export const sinLasDescartadas = (
+  lista: CoincidenciaCliente[],
+  descartadas: ReadonlySet<string>,
+): CoincidenciaCliente[] => lista.filter((c) => !descartadas.has(c.cliente_id));

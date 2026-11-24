@@ -8,6 +8,7 @@ import {
   motivoCorto,
   permiteCrearIgual,
   tituloConLista,
+  sinLasDescartadas,
   tituloDelAviso,
 } from "./avisoCliente";
 
@@ -118,5 +119,15 @@ describe("aviso de cliente parecido", () => {
     // Mismo correo con otro nombre: quien organiza varios grupos.
     expect(permiteCrearIgual([{ ...rene, motivos: ["correo"] }])).toBe(true);
     expect(permiteCrearIgual([rene])).toBe(true);
+  });
+
+  it("lo despachado con «seguir llenando» no vuelve; lo nuevo sí (José Araya, 24-11)", () => {
+    const udec = { ...rene, cliente_id: "udec", motivos: ["dominio" as const] };
+    const quimica = { ...udec, cliente_id: "quimica" };
+    expect(sinLasDescartadas([udec, quimica], new Set(["udec"]))).toEqual([
+      quimica,
+    ]);
+    expect(sinLasDescartadas([udec], new Set(["udec"]))).toEqual([]);
+    expect(sinLasDescartadas([udec], new Set())).toEqual([udec]);
   });
 });
