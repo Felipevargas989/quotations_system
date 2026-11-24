@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from 'src/clients/clients.module';
 import { SupabaseModule } from 'src/supabase/supabase.module';
+import { ComprasController } from './compras/compras.controller';
+import { ComprasRepository } from './compras/compras.repository';
+import { ComprasService } from './compras/compras.service';
 import { LogisticsController } from './logistics.controller';
 import { LogisticsRepository } from './logistics.repository';
 import { LogisticsService } from './logistics.service';
@@ -12,8 +15,14 @@ import { LogisticsService } from './logistics.service';
   // ClientsModule: lo que ve cada cargo según el tipo de cliente (doc 22
   // §9).
   imports: [SupabaseModule, ClientsModule],
-  controllers: [LogisticsController],
-  providers: [LogisticsService, LogisticsRepository],
+  // ComprasController: la pestaña «Stock» (doc 25, 23-11-2026).
+  controllers: [LogisticsController, ComprasController],
+  providers: [
+    LogisticsService,
+    LogisticsRepository,
+    ComprasService,
+    ComprasRepository,
+  ],
   exports: [LogisticsService],
 })
 export class LogisticsModule {}
