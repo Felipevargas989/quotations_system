@@ -1,6 +1,6 @@
-# 25 · Compras con IA y bodega
+# 25 · Compras con IA (el costeo automático)
 
-> **Estado (23-11-2026):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. **Solo en el laboratorio; no está en producción.** El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
+> **Estado (23-11-2026):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. La bodega simple se construyó y **salió el mismo día** (D16). **Solo en el laboratorio; no está en producción.** El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
 
 ## 1. Lo que pidió Felipe
 
@@ -10,7 +10,7 @@ Sus palabras, resumidas, del 23-11-2026:
 2. **Subir las últimas compras** (facturas, boletas, guías de despacho o pantallazos de pedidos) y que la IA proponga la actualización de los costos, con el «así queda»: insumo, costo de antes, costo nuevo y de qué compra salió. *"Alguien lo revisa, le da check y avanza."*
 3. **El costo, no el precio:** *"la idea es que el costo se vaya actualizando a medida de que se van ingresando las compras. Entonces el catálogo de costos, importante, no precios, se utilicen desde ahí… para tener los márgenes bien."*
 4. **Cortes y marcas equivalentes:** *"si es aceite Pedrito, aceite Juanito, o es carne de lomo vetado, lomo liso, que esas sí se venden por separado, pero la carne a la olla no, porque la carne a la olla hay varios cortes que son equivalentes."*
-5. **Stock superficial y manual**, en una pestaña nueva «Stock» de Proveedores: *"con el tengo ya se soluciona gran parte"*; las compras suben el stock y los eventos lo bajan; la lista de compras descuenta lo que hay.
+5. ~~**Stock superficial y manual**~~ (se construyó y salió el mismo día, D16), en una pestaña nueva «Stock» de Proveedores: *"con el tengo ya se soluciona gran parte"*; las compras suben el stock y los eventos lo bajan; la lista de compras descuenta lo que hay.
 6. **Etapa B, no ahora** (§6).
 
 La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras» arriba y «Insumos · costo y bodega» abajo) y Felipe dijo *"Sí, constrúyelo"*.
@@ -23,13 +23,13 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 | D2 | La pestaña **Stock** de Proveedores: arrastrar PDF o foto (≤ 10 MB). **Sonnet** lee el documento con una estructura fija y asocia cada línea a un insumo del catálogo de la empresa. | Sonnet: tiene que entender cortes, marcas y conversiones de formatos («2 x 5 L» = 10 L) contra unos 375 insumos; Haiku se equivoca más en esto (la misma vara que la 132 de Oportunidades). Unos centavos de dólar por documento; el costo de cada lectura queda en `compras_subidas.costo_ia_usd`. |
 | D3 | Nada cambia sin el check. Cada línea muestra lo que dice la compra, el insumo, la cantidad, el total, el costo de antes y el nuevo con su %. Parte marcada si tiene insumo y no cambia más de **20 %**; si sube o baja más, sale en ámbar y sin marcar (una baja grande también suele ser un error de lectura). | Felipe: revisar, dar check y avanzar. La IA puede leer mal (L19). |
 | D4 | Lo que se corrige en la revisión: el insumo (lista con buscador de la casa), la cantidad y «No es insumo» (fletes, despacho). | Lo justo para dejar una línea bien sin volver a un formulario. |
-| D5 | Al **aplicar** una línea: el costo por unidad base (total ÷ cantidad) va a `supplies.price` (y `package_price` = costo × formato, si el insumo tiene formato), la cantidad **suma a la bodega** y el texto de la línea queda **aprendido** para ese proveedor: la próxima compra igual se asocia sola, aunque la IA dude. | «El catálogo aprende de la compra» ya era regla (24-08); ahora aprende de la compra subida. |
+| D5 | Al **aplicar** una línea: el costo por unidad base (total ÷ cantidad) va a `supplies.price` (y `package_price` = costo × formato, si el insumo tiene formato) y el texto de la línea queda **aprendido** para ese proveedor: la próxima compra igual se asocia sola, aunque la IA dude. | «El catálogo aprende de la compra» ya era regla (24-08); ahora aprende de la compra subida. |
 | D6 | **Neto o con IVA:** la IA dice si los montos de las líneas son netos (factura) o con IVA (boleta, pedido de supermercado). La factura deja el costo neto; la boleta, el total pagado. La tarjeta lo dice con un chip «neto» / «con IVA». | El IVA de una factura se recupera; el de una boleta no. |
 | D7 | **Equivalentes = nombres de UN insumo** (`insumo_equivalentes`): `corte` (carne a la olla = punta paleta, sobrecostilla, guachalomo, carnicero), `marca` (aceite maravilla = Pedrito, Juanito) y `texto` (lo aprendido, por proveedor). La receta sigue usando el insumo; la compra de cualquier corte o marca actualiza su costo, y la línea dice qué corte llegó. Lo que se vende por separado (lomo vetado, lomo liso) son insumos distintos. | Felipe: los cortes de la carne a la olla cuestan más o menos lo mismo. Un insumo genérico con sus nombres no toca las recetas ni la cuenta de Compras. |
 | D8 | **El costo del genérico es el de la última compra aplicada**, sin promedios. | Simple y trazable: se sabe de qué compra salió. |
-| D9 | **La bodega** (`insumo_movimientos`): «Tengo» fija el conteo; «Saqué» resta; la compra aplicada suma; los **eventos realizados** cuyo último día es posterior al día del conteo restan lo que pide su receta (la misma cuenta de Compras, `@consolidacion`). Lo de los eventos **no se guarda**: se calcula, así desmarcar un evento realizado corrige la bodega sola. Sin ningún «Tengo», la bodega no se conoce. | Felipe: *"con el tengo ya se soluciona gran parte"*. Calcular en vez de guardar evita enganchar los cambios de estado de las cotizaciones (varias puertas los cambian). |
-| D10 | **Compras descuenta la bodega:** columnas Necesito, Bodega y Comprar (= necesito − bodega, nunca < 0). El formato, el PDF y el CSV usan lo que falta comprar. | Lo pidió así. El costo de la fila sigue siendo el de lo que pide el evento (es su costo, no lo que se compra). |
-| D11 | La bodega cuenta los eventos de **todos** los tipos de cliente. | Es la bodega física; con un tipo apagado la cifra sería falsa. Lo que se oculta por cargo son los eventos, no el total. |
+| ~~D9~~ | **SACADA por la D16.** ~~La bodega~~ (`insumo_movimientos`): «Tengo» fija el conteo; «Saqué» resta; la compra aplicada suma; los **eventos realizados** cuyo último día es posterior al día del conteo restan lo que pide su receta (la misma cuenta de Compras, `@consolidacion`). Lo de los eventos **no se guarda**: se calcula, así desmarcar un evento realizado corrige la bodega sola. Sin ningún «Tengo», la bodega no se conoce. | Felipe: *"con el tengo ya se soluciona gran parte"*. Calcular en vez de guardar evita enganchar los cambios de estado de las cotizaciones (varias puertas los cambian). |
+| ~~D10~~ | **SACADA por la D16.** ~~Compras descuenta la bodega~~ columnas Necesito, Bodega y Comprar (= necesito − bodega, nunca < 0). El formato, el PDF y el CSV usan lo que falta comprar. | Lo pidió así. El costo de la fila sigue siendo el de lo que pide el evento (es su costo, no lo que se compra). |
+| ~~D11~~ | **SACADA por la D16.** La bodega contaba los eventos de **todos** los tipos de cliente. | Es la bodega física; con un tipo apagado la cifra sería falsa. Lo que se oculta por cargo son los eventos, no el total. |
 | D12 | En Insumos, «Precio» pasa a decir **«Costo»**. | Es el costo del catálogo de insumos; el precio es el de venta. |
 
 ### 2.1 Ajustes del 23-11-2026, en la noche (Felipe, mirando el laboratorio)
@@ -40,6 +40,13 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 | D14 | **Los equivalentes se definen solo al cargar la factura** (Felipe: *"manejemoslo en la interna a la hora de hacer las compras o cargar facturas, que ahí pregunte bien de qué insumo estamos hablando"*). Sale el editor de cortes y marcas de la bodega: se ven solo al pasar el mouse por el chip «2 cortes» del insumo. Cuando la IA duda, la línea pregunta **«¿Cuál es?»** con hasta 3 insumos posibles (`posibles`); al asociar una línea que trae un corte o una marca, pregunta **«¿Es un corte o una marca de …?»** y lo guarda. |
 
 | D15 | **La factura, ordenada** (Felipe: *"esto está muy desordenado"*): una fila por línea, todas del mismo alto; debajo del insumo, una sola línea chica con la pregunta que falta («¿Cuál es? A · B · C», «Carnicero → ¿corte o marca? Corte · Marca · No») o lo ya definido («Juanito · marca»); la × de «no es insumo» siempre al final de la fila; el costo nuevo con el de antes debajo, o lo que falta en una palabra en ámbar («elige insumo», «falta cantidad», «sin monto»). |
+
+### 2.2 La bodega sale y la lista sugiere (23-11-2026, en la noche)
+
+| # | Decisión |
+|---|---|
+| D16 | **Sale la bodega** («Tengo», «Saqué», movimientos, columnas Bodega y Comprar de Compras, tabla `insumo_movimientos` de la 214). Felipe: *"son muchos insumos, difícilmente voy a mantener actualizados los stocks porque se mueven a diario… dejemos solamente lo que estamos desarrollando para meter el costeo que sea automático"*. Stock queda en dos partes: subir compras y los costos de los insumos por proveedor. Compras vuelve a su tabla de siempre, sin el modal. |
+| D17 | **La IA siempre sugiere uno** (Felipe: *"primero debería sugerirme uno, segundo debería mostrarme otro del proveedor… la punta paleta vacuno va a ser una carne, no la voy a reemplazar por ketchup"*). Cuando duda, el más probable queda puesto, **sin check**, con «Sugerido · Sí, es este · o Palanca · Plateada» debajo. La lista para asociar parte por **Sugeridos**, sigue con **De este proveedor** (el de la factura o, si no se reconoció, el del insumo sugerido) y termina con **Todos los insumos**. Una línea se aplica solo con costo. |
 
 ## 3. Cómo funciona
 
@@ -52,18 +59,12 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 ### 3.2 Revisar y aplicar
 `PATCH …/compras/lineas/:id` cambia el insumo, la cantidad, el total o «no es insumo» y recalcula. `POST …/compras/:id/aplicar` aplica solo las líneas marcadas (D5); la compra queda «aplicada» cuando no le quedan líneas por aplicar con insumo. «Descartar» la saca sin tocar nada.
 
-### 3.3 La bodega (`bodega.ts`, puro)
-```
-bodega = último «Tengo»
-       + compras aplicadas después
-       − «Saqué» después
-       − receta de cada evento realizado con último día > día del conteo (hora de Chile)
-```
-Un evento del mismo día del conteo no resta: el conteo ya lo vio. Si da negativo, se muestra en rojo («vuelve a contar»).
+### 3.3 ~~La bodega~~
+Salió el 23-11-2026 (D16), antes de llegar a producción.
 
 ## 4. Pantallas
-- **Proveedores → Stock** (`components/stock/StockTab.tsx`): «Subir compras» (zona de arrastre con `useArrastreDeArchivos`, una tarjeta por compra por revisar, «Últimas compras aplicadas» plegado) e «Insumos · costo y bodega» (buscador por insumo, corte o marca; «Solo los contados»; «Tengo» y «Saqué» en la fila; al abrir la fila, los equivalentes con «+ Agregar» y los movimientos).
-- **Proveedores → Compras**: sin modal; Necesito, Bodega y Comprar.
+- **Proveedores → Stock** (`components/stock/StockTab.tsx`): «Subir compras» (`SubirCompras`: zona de arrastre con `useArrastreDeArchivos`, una tarjeta por compra por revisar con una fila por línea, «Últimas compras aplicadas» plegado) y «Costos de los insumos» (`TablaDeCostos`: agrupados por proveedor, con su última compra y sus cortes o marcas al pasar el mouse; buscador por insumo, corte o marca).
+- **Proveedores → Compras**: sin modal; la tabla de siempre (Cantidad, Formato, Costo).
 - **Proveedores → Insumos**: «Costo» en vez de «Precio».
 
 ## 5. Lo que queda fuera de esta etapa
@@ -79,4 +80,4 @@ Un evento del mismo día del conteo no resta: el conteo ya lo vio. Si da negativ
 - Que Eventia **actualice Fudo**.
 
 ## 7. Migración
-`docs/migrations/214_compras_con_ia_y_bodega.sql`: `insumo_equivalentes`, `compras_subidas`, `compras_subidas_lineas` e `insumo_movimientos`, cerradas al navegador. No toca tablas existentes. Se aplica a mano en cada base **antes** de publicar el motor.
+`docs/migrations/214_compras_con_ia.sql`: `insumo_equivalentes`, `compras_subidas` y `compras_subidas_lineas` (con `posibles`), cerradas al navegador y con los permisos del motor. No toca tablas existentes. Se aplica a mano en cada base **antes** de publicar el motor. (En el laboratorio quedó además la tabla `insumo_movimientos` de la bodega, sin uso: el borrado no se aplicó.)

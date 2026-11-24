@@ -5,12 +5,12 @@ import {
 } from "../../../../services/logistics.service";
 import { getEstadoDeStock } from "../../../../services/stock.service";
 import SubirCompras from "./SubirCompras";
-import TablaDeBodega from "./TablaDeBodega";
+import TablaDeCostos from "./TablaDeCostos";
 
 // LA PESTAÑA «STOCK» DE PROVEEDORES (doc 25, 23-11-2026). Felipe: *"hacer
 // otra pestaña que se llame stock, y ahí ir como actualizando"*. Arriba se
 // suben las compras y se revisan con check; abajo, cada insumo con su
-// costo, su última compra y su bodega.
+// costo y su última compra (la bodega salió el mismo día, D16).
 
 export default function StockTab({
   companyId,
@@ -66,13 +66,11 @@ export default function StockTab({
         equivalentes={estado.equivalentes}
         onCambio={(c) => void refrescar(c)}
       />
-      <TablaDeBodega
+      <TablaDeCostos
         supplies={supplies}
         proveedores={proveedoresQuery.data ?? []}
-        bodega={estado.bodega}
         equivalentes={estado.equivalentes}
         compras={estado.compras}
-        onCambio={() => void refrescar()}
       />
     </div>
   );

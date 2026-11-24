@@ -32,7 +32,8 @@ import type { User } from 'src/users/entities/user.entity';
 import { ComprasService } from './compras.service';
 
 // La pestaña «Stock» de Proveedores (doc 25): subir compras, revisar y
-// aplicar costos con check, cortes y marcas equivalentes y la bodega.
+// aplicar costos con check y los cortes y marcas equivalentes. La bodega
+// salió el 23-11-2026 (doc 25 D16).
 // Misma puerta que Compras: operaciones y administración, sección
 // Proveedores, plan con logística.
 
@@ -79,25 +80,6 @@ export class EquivalenteDto {
   tipo!: 'corte' | 'marca';
 }
 
-export class MovimientoDto {
-  @Type(() => Number)
-  @IsInt()
-  supply_id!: number;
-
-  @IsIn(['tengo', 'saque'])
-  tipo!: 'tengo' | 'saque';
-
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  cantidad_base!: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  nota?: string;
-}
-
 @Derecho('logistica')
 @Roles(...OPERATIONS_AND_UP)
 @Permiso('proveedores')
@@ -108,11 +90,6 @@ export class ComprasController {
   @Get()
   estado(@CurrentUser() user: User) {
     return this.servicio.estado(user.company_id);
-  }
-
-  @Get('bodega')
-  bodega(@CurrentUser() user: User) {
-    return this.servicio.soloBodega(user.company_id);
   }
 
   @Post('compras')
@@ -141,12 +118,7 @@ export class ComprasController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AplicarCompraDto,
   ) {
-    return this.servicio.aplicar(
-      user.company_id,
-      id,
-      dto.lineas,
-      user.id ?? null,
-    );
+    return this.servicio.aplicar(user.company_id, id, dto.lineas);
   }
 
   @Post('compras/:id/descartar')
@@ -170,17 +142,5 @@ export class ComprasController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.servicio.borrarEquivalente(user.company_id, id);
-  }
-
-  @Post('movimientos')
-  mover(@CurrentUser() user: User, @Body() dto: MovimientoDto) {
-    return this.servicio.moverBodega(
-      user.company_id,
-      user.id ?? null,
-      dto.supply_id,
-      dto.tipo,
-      dto.cantidad_base,
-      dto.nota,
-    );
   }
 }

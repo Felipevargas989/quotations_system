@@ -1,10 +1,4 @@
 import {
-  calcularBodega,
-  porComprar,
-  primerConteo,
-  type Movimiento,
-} from '../compras/bodega';
-import {
   costoPorUnidad,
   instruccionesDeLaCompra,
   normalizar,
@@ -15,7 +9,7 @@ import {
   type InsumoParaLeer,
 } from '../compras/leer-compra';
 
-// Doc 25 (23-11-2026): la compra que lee la IA y la bodega simple.
+// Doc 25 (23-11-2026): la compra que lee la IA.
 
 const insumos: InsumoParaLeer[] = [
   { id: 1, name: 'Carne a la olla', unit_family: 'masa', price: 10303 },
@@ -152,11 +146,12 @@ describe('propuestaDeLaCompra', () => {
       [],
       null,
     )!;
+    // Sugiere el más probable, con los posibles a la vista por confirmar.
     expect(r.lineas[0]).toMatchObject({
-      supply_id: null,
+      supply_id: 1,
       equivalente: 'Punta paleta',
       posibles: [1, 3, 2],
-      costo_base: null,
+      costo_base: 10000,
     });
   });
 
@@ -201,86 +196,5 @@ describe('ayudas de la compra', () => {
     expect(costoPorUnidad(null, 10)).toBeNull();
     expect(variacion(15458, 19900)).toBe(29);
     expect(variacion(0, 1)).toBeNull();
-  });
-});
-
-describe('calcularBodega', () => {
-  const mov = (
-    id: number,
-    tipo: Movimiento['tipo'],
-    cantidad: number,
-    cuando: string,
-    supply = 1,
-  ): Movimiento => ({
-    id,
-    supply_id: supply,
-    tipo,
-    cantidad_base: cantidad,
-    created_at: cuando,
-  });
-
-  it('sin «Tengo» la bodega no se conoce', () => {
-    const b = calcularBodega([mov(1, 'compra', 5, '2026-11-20T15:00:00Z')], []);
-    expect(b.get(1)!.stock).toBeNull();
-  });
-
-  it('el último «Tengo» fija; compras suman, «Saqué» resta', () => {
-    const b = calcularBodega(
-      [
-        mov(1, 'tengo', 100, '2026-11-01T15:00:00Z'),
-        mov(2, 'tengo', 4, '2026-11-20T15:00:00Z'),
-        mov(3, 'compra', 12.4, '2026-11-21T15:00:00Z'),
-        mov(4, 'saque', 1.4, '2026-11-22T15:00:00Z'),
-      ],
-      [],
-    );
-    expect(b.get(1)!.stock).toBe(15);
-    expect(b.get(1)!.historia).toHaveLength(3);
-  });
-
-  it('los eventos realizados después del día del conteo restan por receta', () => {
-    const b = calcularBodega(
-      [mov(1, 'tengo', 20, '2026-11-20T15:00:00Z')],
-      [
-        // El mismo día del conteo: no resta (ya estaba contado).
-        {
-          quotation_id: 'a',
-          numero: 700,
-          dia: '2026-11-20',
-          consumo: new Map([[1, 5]]),
-        },
-        {
-          quotation_id: 'b',
-          numero: 712,
-          dia: '2026-11-22',
-          consumo: new Map([[1, 9]]),
-        },
-        {
-          quotation_id: 'c',
-          numero: 713,
-          dia: '2026-11-23',
-          consumo: new Map([[2, 3]]),
-        },
-      ],
-    );
-    expect(b.get(1)!.stock).toBe(11);
-    expect(b.get(1)!.historia[0]).toMatchObject({
-      tipo: 'evento',
-      detalle: 'N° 712',
-    });
-  });
-
-  it('el primer conteo vigente y lo que hay que comprar', () => {
-    expect(
-      primerConteo([
-        mov(1, 'tengo', 1, '2026-11-01T15:00:00Z'),
-        mov(2, 'tengo', 1, '2026-11-20T15:00:00Z'),
-        mov(3, 'tengo', 1, '2026-11-10T15:00:00Z', 2),
-      ]),
-    ).toBe('2026-11-10');
-    expect(porComprar(18, 4)).toBe(14);
-    expect(porComprar(6, 10)).toBe(0);
-    expect(porComprar(5, null)).toBe(5);
-    expect(porComprar(5, -2)).toBe(5);
   });
 });
