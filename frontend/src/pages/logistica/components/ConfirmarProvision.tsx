@@ -111,8 +111,8 @@ export default function ConfirmarProvision({
     >
       {!filas.length && (
         <p className="text-sm text-amber-700 mb-3">
-          No hay insumos que provisionar: los eventos elegidos no tienen
-          receta o ya están provisionados.
+          No hay insumos que provisionar: los eventos elegidos no tienen receta
+          o ya están provisionados.
         </p>
       )}
       <p className="text-xs text-gray-600 mb-3">
