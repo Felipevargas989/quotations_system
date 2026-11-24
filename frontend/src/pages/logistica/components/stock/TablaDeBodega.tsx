@@ -7,6 +7,7 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
+import Tooltip from "../../../../components/Tooltip";
 import NumberInput from "../../../../components/inputs/NumberInput";
 import { toast } from "../../../../components/toast/Toast";
 import {
@@ -17,7 +18,6 @@ import {
 import { humanizeApiError } from "../../../../utils/apiErrors";
 import { matchesSearch } from "../../../../utils/searchMatch";
 import {
-  borrarEquivalente,
   moverBodega,
   type BodegaDeInsumo,
   type CompraSubida,
@@ -27,8 +27,8 @@ import {
 // LA BODEGA SIMPLE (doc 25 §4). Felipe: *"con el tengo ya se soluciona
 // gran parte"*. «Tengo» fija el conteo; «Saqué» resta; las compras
 // aplicadas suman solas y los eventos realizados restan solos por receta
-// (lo calcula el motor). Abajo de cada insumo: sus cortes o marcas
-// equivalentes y lo que movió la bodega desde el último conteo.
+// (lo calcula el motor). Al abrir un insumo, lo que movió la bodega desde
+// el último conteo; sus cortes o marcas, al pasar el mouse por su chip.
 
 const fmtQty = (v: number) =>
   v.toLocaleString("es-CL", { maximumFractionDigits: 2 });
@@ -287,16 +287,33 @@ export default function TablaDeBodega({
                           </td>
                           <td className="px-3 py-1.5">
                             <span className="text-gray-900">{s.name}</span>
-                            {cortes > 0 && (
-                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-violet-100 text-violet-700">
-                                {cortes} corte{cortes === 1 ? "" : "s"}
-                              </span>
-                            )}
-                            {marcas > 0 && (
-                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-sky-100 text-sky-700">
-                                {marcas} marca{marcas === 1 ? "" : "s"}
-                              </span>
-                            )}
+                            {/* Los equivalentes se definen al cargar la
+                                factura (D14); aquí solo se ven, al pasar
+                                el mouse por su chip. */}
+                            {(["corte", "marca"] as const).map((t) => {
+                              const n = t === "corte" ? cortes : marcas;
+                              if (!n) return null;
+                              const nombres = eqs
+                                .filter((e) => e.tipo === t)
+                                .map((e) => e.nombre)
+                                .join(" · ");
+                              return (
+                                <span key={t} className="ml-1.5">
+                                  <Tooltip contenido={nombres} titulo={nombres}>
+                                    <span
+                                      className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                                        t === "corte"
+                                          ? "bg-violet-100 text-violet-700"
+                                          : "bg-sky-100 text-sky-700"
+                                      }`}
+                                    >
+                                      {n} {t}
+                                      {n === 1 ? "" : "s"}
+                                    </span>
+                                  </Tooltip>
+                                </span>
+                              );
+                            })}
                           </td>
                           <td className="px-3 py-1.5 text-right tabular-nums">
                             {s.price ? (
@@ -409,56 +426,7 @@ export default function TablaDeBodega({
                           <tr className="bg-blue-50/40">
                             <td />
                             <td colSpan={5} className="px-3 pb-3 pt-1">
-                              <div className="grid gap-4 md:grid-cols-2">
-                                <div>
-                                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1.5">
-                                    Equivalentes
-                                  </p>
-                                  <p className="text-[11px] text-gray-500 mb-2">
-                                    Cortes o marcas que valen lo mismo. Se
-                                    agregan al cargar una factura, cuando la IA
-                                    pregunta.
-                                  </p>
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    {eqs.length === 0 && (
-                                      <span className="text-xs text-gray-400">
-                                        Ninguno todavía.
-                                      </span>
-                                    )}
-                                    {eqs.map((e) => (
-                                      <span
-                                        key={e.id}
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                          e.tipo === "corte"
-                                            ? "bg-violet-100 text-violet-800"
-                                            : "bg-sky-100 text-sky-800"
-                                        }`}
-                                      >
-                                        {e.nombre}
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            try {
-                                              await borrarEquivalente(e.id);
-                                              onCambio();
-                                            } catch (err) {
-                                              toast.error(
-                                                humanizeApiError(
-                                                  err,
-                                                  "No se pudo quitar",
-                                                ),
-                                              );
-                                            }
-                                          }}
-                                          className="opacity-60 hover:opacity-100"
-                                          aria-label={`Quitar ${e.nombre}`}
-                                        >
-                                          <X size={11} />
-                                        </button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
+                              <div className="max-w-xl">
                                 <div>
                                   <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1.5">
                                     Movimientos de bodega
