@@ -37,6 +37,7 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../../utils/eventConsolidation";
+import ConfirmarProvision from "./ConfirmarProvision";
 import QuienLoPide from "./QuienLoPide";
 import { numerosDeCotizacion, pedidosPorInsumo } from "./pedidosPorInsumo";
 
@@ -108,6 +109,8 @@ export default function ComprasTab({
     "" | "todo" | "desprovisionar"
   >("");
   const [saving, setSaving] = useState(false);
+  // El modal de solo lectura antes de provisionar (doc 25 D20).
+  const [revisando, setRevisando] = useState<"marcados" | "todo" | null>(null);
   const [flash, setFlash] = useState("");
 
   // Vía React Query (Etapa 3), en DOS consultas para conservar el
@@ -425,12 +428,16 @@ export default function ComprasTab({
   // catálogo viene de las compras que se suben en «Stock» (leídas por la IA
   // y aprobadas con check), así que provisionar es un clic y congela el
   // costo con el catálogo de ese momento. El modal del 24-08 quedó atrás.
-  const provisionar = async (alcance: "marcados" | "todo") => {
-    const objetivo = new Set(
+  // Y desde el 24-11 (D20), antes de provisionar se mira el detalle en un
+  // modal de solo lectura: «Provisionar» lo abre y «Sí, provisionar» actúa.
+  const objetivoDe = (alcance: "marcados" | "todo") =>
+    new Set(
       alcance === "marcados"
         ? [...checkedFalt]
         : consolidation.groups.flatMap((g) => g.rows.map((r) => r.supply.id)),
     );
+  const provisionar = async (alcance: "marcados" | "todo") => {
+    const objetivo = objetivoDe(alcance);
     if (objetivo.size === 0) return;
     setSaving(true);
     const rows = buildRows(objetivo);
@@ -480,6 +487,7 @@ export default function ComprasTab({
     await queryClient.invalidateQueries({ queryKey: ["logistica"] });
     await refresh();
     setSaving(false);
+    setRevisando(null);
   };
 
   // Si un evento quedó con todos sus insumos provisionados → marcar completo.
@@ -1008,6 +1016,20 @@ export default function ComprasTab({
         </div>
       )}
 
+      {revisando && (
+        <ConfirmarProvision
+          filas={buildRows(objetivoDe(revisando))}
+          supplies={supplies}
+          eventos={selectedEvents.map((e) => ({
+            id: e.id,
+            rotulo: `#${e.quotation_number} ${e.client_name ?? ""}`.trim(),
+          }))}
+          guardando={saving}
+          onConfirmar={() => void provisionar(revisando)}
+          onCerrar={() => setRevisando(null)}
+        />
+      )}
+
       {/* ---------- Consolidado ---------- */}
       {selectedEvents.length > 0 && (
         <div className="space-y-5">
@@ -1035,7 +1057,10 @@ export default function ComprasTab({
                   <button
                     type="button"
                     disabled={saving}
-                    onClick={() => void provisionar("todo")}
+                    onClick={() => {
+                      setConfirmAction("");
+                      setRevisando("todo");
+                    }}
                     className="px-2.5 py-1 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 disabled:opacity-50"
                   >
                     {saving ? "Provisionando…" : "Sí, todo"}
@@ -1052,7 +1077,7 @@ export default function ComprasTab({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setConfirmAction("todo")}
+                  onClick={() => setRevisando("todo")}
                   disabled={saving}
                   className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
                 >
@@ -1163,7 +1188,7 @@ export default function ComprasTab({
               {checkedFalt.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => void provisionar("marcados")}
+                  onClick={() => setRevisando("marcados")}
                   disabled={saving}
                   className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
                 >
