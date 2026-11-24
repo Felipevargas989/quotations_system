@@ -234,7 +234,9 @@ export class ComprasService {
         throw new NotFoundException('Ese insumo no es de tu empresa');
       }
       nueva.supply_id = cambios.supply_id;
-      nueva.equivalente = null;
+      // Se queda el corte o la marca que leyó la IA (la pantalla pregunta
+      // si es un equivalente) y ya no hay dudas que mostrar.
+      nueva.posibles = null;
       nueva.estado = 'propuesta';
     }
     if (cambios.cantidad_base !== undefined)

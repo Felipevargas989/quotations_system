@@ -1,5 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSupplies } from "../../../../services/logistics.service";
+import {
+  getSuppliers,
+  getSupplies,
+} from "../../../../services/logistics.service";
 import { getEstadoDeStock } from "../../../../services/stock.service";
 import SubirCompras from "./SubirCompras";
 import TablaDeBodega from "./TablaDeBodega";
@@ -34,6 +37,11 @@ export default function StockTab({
     }
   };
 
+  const proveedoresQuery = useQuery({
+    queryKey: ["logistica", "stock", "proveedores", companyId],
+    queryFn: () => getSuppliers(companyId),
+  });
+
   if (estadoQuery.isLoading || insumosQuery.isLoading) {
     return (
       <div className="py-14 flex justify-center">
@@ -55,10 +63,12 @@ export default function StockTab({
       <SubirCompras
         compras={estado.compras}
         supplies={supplies}
+        equivalentes={estado.equivalentes}
         onCambio={(c) => void refrescar(c)}
       />
       <TablaDeBodega
         supplies={supplies}
+        proveedores={proveedoresQuery.data ?? []}
         bodega={estado.bodega}
         equivalentes={estado.equivalentes}
         compras={estado.compras}

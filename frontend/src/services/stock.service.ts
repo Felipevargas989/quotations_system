@@ -17,6 +17,8 @@ export interface LineaDeCompra {
   total: number | null;
   supply_id: number | null;
   equivalente: string | null;
+  /** Cuando la IA dudó: hasta 3 insumos para «¿Cuál es?». */
+  posibles: number[] | null;
   cantidad_base: number | null;
   costo_base: number | null;
   costo_antes: number | null;

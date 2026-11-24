@@ -59,6 +59,7 @@ export const ESQUEMA_DE_LA_COMPRA = {
           cantidad_texto: { type: 'string' },
           insumo_id: { type: 'integer' },
           equivalente: { type: 'string' },
+          posibles: { type: 'array', items: { type: 'integer' } },
           cantidad_base: { type: 'number' },
           total: { type: 'number' },
         },
@@ -108,9 +109,11 @@ export const instruccionesDeLaCompra = (
     '',
     'Reglas para asociar:',
     '- Asocia por lo que ES el producto, no por la letra exacta. Las marcas no importan: "ACEITE PEDRITO 5L" va a "Aceite maravilla" si ese es el insumo.',
-    '- Si el insumo tiene equivalentes (cortes o marcas), una línea con ese corte o marca va a ese insumo, y en `equivalente` escribes el corte o la marca tal como corresponde (ej. "Guachalomo").',
+    '- Si el insumo tiene equivalentes (cortes o marcas), una línea con ese corte o marca va a ese insumo.',
+    '- `equivalente`: si la línea trae un corte o una marca que NO es el nombre del insumo (ej. "Guachalomo" para una carne, "Pedrito" para un aceite), escríbelo aquí con su nombre corto, esté o no en el catálogo.',
     '- Cortes distintos que la empresa vende por separado NO se mezclan: lomo vetado y lomo liso son insumos distintos. Solo junta cortes que estén listados como equivalentes.',
     '- Si no hay un insumo que sea claramente ese producto, deja `insumo_id` vacío. Nunca adivines.',
+    '- Si dudas entre algunos insumos (un corte nuevo que podría ser de varias carnes, una marca que no conoces), deja `insumo_id` vacío y pon en `posibles` hasta 3 ids de los más probables, del más al menos probable. La persona elige.',
     '- Lo que no es un insumo de cocina o de servicio (fletes, despacho, descuentos globales, envases retornables) igual va como línea, sin insumo_id.',
     '',
     'Reglas para las cantidades:',
@@ -132,6 +135,7 @@ export interface LineaLeida {
   cantidad_texto: string | null;
   supply_id: number | null;
   equivalente: string | null;
+  posibles: number[];
   cantidad_base: number | null;
   total: number | null;
   costo_base: number | null;
@@ -204,8 +208,15 @@ export const propuestaDeLaCompra = (
           ? txt(x.cantidad_texto).slice(0, 80)
           : null,
         supply_id: supplyId,
-        equivalente:
-          supplyId && x.equivalente ? txt(x.equivalente).slice(0, 80) : null,
+        // El corte o la marca se guarda aunque falte el insumo: al elegirlo,
+        // la pantalla pregunta si es un equivalente (doc 25 D14).
+        equivalente: x.equivalente ? txt(x.equivalente).slice(0, 80) : null,
+        posibles: supplyId
+          ? []
+          : (Array.isArray(x.posibles) ? x.posibles : [])
+              .map(Number)
+              .filter((id, i, a) => porId.has(id) && a.indexOf(id) === i)
+              .slice(0, 3),
         cantidad_base: cantidadBase,
         total: total !== null ? Math.round(total) : null,
         costo_base: supplyId ? costoPorUnidad(total, cantidadBase) : null,

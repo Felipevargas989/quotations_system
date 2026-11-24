@@ -12,11 +12,13 @@ import {
 } from "../../../../types/logistics.types";
 import { humanizeApiError } from "../../../../utils/apiErrors";
 import {
+  agregarEquivalente,
   aplicarCompra,
   cambiarLinea,
   descartarCompra,
   subirCompra,
   type CompraSubida,
+  type Equivalente,
   type LineaDeCompra,
 } from "../../../../services/stock.service";
 
@@ -61,13 +63,23 @@ const marcadaDeFabrica = (l: LineaDeCompra) => {
   return v === null || Math.abs(v) <= SALTO_GRANDE;
 };
 
+/** Para comparar nombres: sin tildes ni mayúsculas. */
+const normal = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export default function SubirCompras({
   compras,
   supplies,
+  equivalentes,
   onCambio,
 }: {
   readonly compras: CompraSubida[];
   readonly supplies: Supply[];
+  readonly equivalentes: Equivalente[];
   readonly onCambio: (costosCambiados?: boolean) => void;
 }) {
   const [leyendo, setLeyendo] = useState<string[]>([]);
@@ -148,6 +160,7 @@ export default function SubirCompras({
           key={c.id}
           compra={c}
           supplies={supplies}
+          equivalentes={equivalentes}
           onCambio={onCambio}
         />
       ))}
@@ -193,10 +206,12 @@ export default function SubirCompras({
 function TarjetaDeCompra({
   compra,
   supplies,
+  equivalentes,
   onCambio,
 }: {
   readonly compra: CompraSubida;
   readonly supplies: Supply[];
+  readonly equivalentes: Equivalente[];
   readonly onCambio: (costosCambiados?: boolean) => void;
 }) {
   const porId = useMemo(
@@ -219,6 +234,39 @@ function TarjetaDeCompra({
   );
   const [ocupado, setOcupado] = useState(false);
   const [descartando, setDescartando] = useState(false);
+  // Las preguntas «¿Es un corte o una marca?» que se contestaron «No».
+  const [noEs, setNoEs] = useState<Set<number>>(new Set());
+  const guardados = useMemo(
+    () =>
+      new Set(equivalentes.map((e) => `${e.supply_id}|${normal(e.nombre)}`)),
+    [equivalentes],
+  );
+
+  // LOS EQUIVALENTES SE DEFINEN AQUÍ (doc 25 D14, 23-11-2026). Felipe:
+  // *"que ahí pregunte bien de qué insumo estamos hablando"*. Si la línea
+  // trae un corte o una marca que no es el nombre del insumo y todavía no
+  // está guardado, se pregunta; la respuesta queda para la próxima compra.
+  const preguntarEquivalente = (l: LineaDeCompra, insumo?: Supply) =>
+    !!insumo &&
+    !!l.equivalente &&
+    l.estado === "propuesta" &&
+    !noEs.has(l.id) &&
+    normal(l.equivalente) !== normal(insumo.name) &&
+    !guardados.has(`${insumo.id}|${normal(l.equivalente)}`);
+
+  const guardarEquivalente = async (
+    l: LineaDeCompra,
+    insumo: Supply,
+    tipo: "corte" | "marca",
+  ) => {
+    try {
+      await agregarEquivalente(insumo.id, l.equivalente ?? l.texto, tipo);
+      toast.success(`«${l.equivalente}» quedó como ${tipo} de ${insumo.name}`);
+      onCambio();
+    } catch (e) {
+      toast.error(humanizeApiError(e, "No se pudo guardar"));
+    }
+  };
 
   const cambiar = async (
     l: LineaDeCompra,
@@ -454,10 +502,72 @@ function TarjetaDeCompra({
                         )}
                       </div>
                     )}
-                    {l.equivalente && !fuera && (
-                      <span className="mt-0.5 inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-violet-100 text-violet-700">
-                        {l.equivalente}
-                      </span>
+                    {/* «¿Cuál es?»: la IA dudó y dejó los posibles. */}
+                    {!l.supply_id &&
+                      !fuera &&
+                      !hecha &&
+                      (l.posibles?.length ?? 0) > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          <span className="text-[11px] font-semibold text-amber-700">
+                            ¿Cuál es?
+                          </span>
+                          {(l.posibles ?? []).map((id) => {
+                            const p = porId.get(id);
+                            if (!p) return null;
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() =>
+                                  void cambiar(l, { supply_id: id })
+                                }
+                                className="px-2 py-0.5 text-[11px] font-semibold rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                              >
+                                {p.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    {insumo && preguntarEquivalente(l, insumo) ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+                        <span className="text-violet-800">
+                          ¿«{l.equivalente}» es un corte o una marca de{" "}
+                          {insumo.name}?
+                        </span>
+                        {(["corte", "marca"] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() =>
+                              void guardarEquivalente(l, insumo, t)
+                            }
+                            className="px-2 py-0.5 font-semibold rounded-full border border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100"
+                          >
+                            {t === "corte" ? "Corte" : "Marca"}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNoEs((prev) => new Set(prev).add(l.id))
+                          }
+                          className="px-1.5 py-0.5 font-semibold text-gray-500 hover:text-gray-800"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      l.equivalente &&
+                      !fuera &&
+                      insumo &&
+                      guardados.has(
+                        `${insumo.id}|${normal(l.equivalente)}`,
+                      ) && (
+                        <span className="mt-0.5 inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-violet-100 text-violet-700">
+                          {l.equivalente}
+                        </span>
+                      )
                     )}
                   </td>
                   <td className="px-2 py-1.5 text-right">
