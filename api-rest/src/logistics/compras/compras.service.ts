@@ -243,7 +243,17 @@ export class ComprasService {
     nueva.costo_base = insumo ? costoPorUnidad(n(total), n(cant)) : null;
     nueva.costo_antes = insumo ? insumo.price : null;
     await this.repo.actualizarLinea(companyId, id, nueva);
-    return this.repo.compra(companyId, linea.compra_id);
+    const compra = await this.repo.compra(companyId, linea.compra_id);
+    // Con todo aplicado o marcado «Ninguno» (compra puntual), la compra ya
+    // no tiene nada que revisar: se cierra sola.
+    if (
+      compra &&
+      compra.estado === 'por_revisar' &&
+      (compra.lineas ?? []).every((l) => l.estado !== 'propuesta')
+    ) {
+      await this.repo.marcarCompra(companyId, compra.id, 'aplicada');
+    }
+    return compra;
   }
 
   /**

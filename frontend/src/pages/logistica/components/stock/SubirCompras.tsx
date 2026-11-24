@@ -31,6 +31,9 @@ import {
 
 const SALTO_GRANDE = 20;
 
+/** La opción «Ninguno» de la lista de insumos. */
+const NINGUNO = "__ninguno";
+
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString("es-CL")}`;
 const fmtCosto = (v: number) =>
   `$${v.toLocaleString("es-CL", { maximumFractionDigits: v < 100 ? 2 : 0 })}`;
@@ -242,6 +245,14 @@ function TarjetaDeCompra({
       group,
     });
     return [
+      // NO TODO SE EMPAREJA (Felipe, 24-11: "si un día compro silbatos de
+      // PVC… algo que pidió un cliente, se le dio y ya"): la primera opción
+      // de la lista es «Ninguno», igual que la × del final de la fila.
+      {
+        value: NINGUNO,
+        label: "Ninguno (compra puntual, no va al catálogo)",
+        group: "Sin insumo",
+      },
       ...[...sugeridos]
         .map((id) => porId.get(id))
         .filter((s): s is Supply => !!s)
@@ -519,7 +530,7 @@ function TarjetaDeCompra({
                     <td className="px-2 py-2 align-middle">
                       {fuera ? (
                         <span className="block truncate text-xs">
-                          No es insumo ·{" "}
+                          Ninguno: compra puntual, no va al catálogo ·{" "}
                           <button
                             type="button"
                             onClick={() =>
@@ -539,9 +550,12 @@ function TarjetaDeCompra({
                           options={opcionesPara(l)}
                           value={l.supply_id ? String(l.supply_id) : ""}
                           onChange={(val) =>
-                            void cambiar(l, {
-                              supply_id: val ? Number(val) : null,
-                            })
+                            void cambiar(
+                              l,
+                              val === NINGUNO
+                                ? { no_es_insumo: true }
+                                : { supply_id: val ? Number(val) : null },
+                            )
                           }
                           placeholder="Asociar a insumo…"
                           searchPlaceholder="Buscar insumo…"
@@ -625,8 +639,8 @@ function TarjetaDeCompra({
                             void cambiar(l, { no_es_insumo: true })
                           }
                           className="text-gray-300 hover:text-gray-600"
-                          title="No es insumo (flete, despacho, descuento…)"
-                          aria-label={`${l.texto}: no es insumo`}
+                          title="Ninguno: compra puntual (algo para un evento, flete, despacho…), no va al catálogo"
+                          aria-label={`${l.texto}: ninguno`}
                         >
                           <X size={14} />
                         </button>

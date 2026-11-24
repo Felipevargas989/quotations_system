@@ -22,7 +22,6 @@ import SelectWithSearch from "../../../components/selects/SelectWithSearch";
 
 const clp = (n: number) => "$" + Number(n || 0).toLocaleString("es-CL");
 
-
 export default function RecursosTab({
   companyId,
 }: {
@@ -105,11 +104,9 @@ export default function RecursosTab({
       type,
       list_price_fixed: priceFixed > 0 ? priceFixed : null,
       // Regla: el personal nunca se cobra por persona (evita errores de tipeo)
-      list_price_per_person:
-        pricePerPerson > 0 ? pricePerPerson : null,
+      list_price_per_person: pricePerPerson > 0 ? pricePerPerson : null,
       // Regla: el personal no lleva proveedor (se contrata directo)
-      supplier_id:
-        supplierId ? Number(supplierId) : null,
+      supplier_id: supplierId ? Number(supplierId) : null,
     };
     const { error } = editing
       ? await updateManagementResource(editing.id, fields)
@@ -200,9 +197,9 @@ export default function RecursosTab({
       </div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-gray-400">
-          El precio de lista es opcional (la lista
-          anual de tus proveedores): sirve de referencia y en cada evento
-          siempre es editable. El staff puede ir sin precio.
+          El precio de lista es opcional (la lista anual de tus proveedores):
+          sirve de referencia y en cada evento siempre es editable. El staff
+          puede ir sin precio.
         </p>
         {inactiveCount > 0 && (
           <button
@@ -259,109 +256,115 @@ export default function RecursosTab({
           <tbody className="divide-y divide-gray-100">
             {grouped.flatMap((g) => [
               ...g.items.map((r) => (
-              <tr key={r.id} className={r.is_active ? "" : "opacity-45"}>
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                  {r.name}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {supplierName(r.supplier_id)}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  {r.list_price_fixed || r.list_price_per_person ? (
-                    resourcePriceLabel(r)
-                  ) : (
-                    <span className="text-gray-400">se asigna por evento</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {r.last_price ? clp(r.last_price) : "—"}
-                </td>
-                <td className="px-4 py-3">
-                  {/* La confirmación flota ENCIMA de los iconos (que quedan
-                      invisibles pero ocupando su espacio): cero movimiento. */}
-                  <div className="relative">
-                    {confirmDeleteId === r.id && (
-                      <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
-                        <span className="text-xs text-gray-600">
-                          ¿Eliminar?
-                        </span>
-                        <button
-                          disabled={deleting}
-                          onClick={() => doDelete(r)}
-                          className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                          title="Sí, eliminar"
-                        >
-                          <Check size={15} />
-                        </button>
-                        <button
-                          disabled={deleting}
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="p-1 text-gray-500 hover:text-gray-700"
-                          title="Cancelar"
-                        >
-                          <X size={15} />
-                        </button>
-                      </div>
+                <tr key={r.id} className={r.is_active ? "" : "opacity-45"}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    {r.name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {supplierName(r.supplier_id)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {r.list_price_fixed || r.list_price_per_person ? (
+                      resourcePriceLabel(r)
+                    ) : (
+                      <span className="text-gray-400">
+                        se asigna por evento
+                      </span>
                     )}
-                    <div
-                      className={`flex items-center gap-2 h-7 ${
-                        confirmDeleteId === r.id ? "invisible" : ""
-                      }`}
-                    >
-                      <button
-                        onClick={() => open(r)}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                        title="Editar"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => toggleActive(r)}
-                        className={`p-1.5 rounded-md hover:bg-gray-100 ${
-                          r.is_active ? "text-green-600" : "text-gray-400"
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {r.last_price ? clp(r.last_price) : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {/* La confirmación flota ENCIMA de los iconos (que quedan
+                      invisibles pero ocupando su espacio): cero movimiento. */}
+                    <div className="relative">
+                      {confirmDeleteId === r.id && (
+                        <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                          <span className="text-xs text-gray-600">
+                            ¿Eliminar?
+                          </span>
+                          <button
+                            disabled={deleting}
+                            onClick={() => doDelete(r)}
+                            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                            title="Sí, eliminar"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            disabled={deleting}
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="p-1 text-gray-500 hover:text-gray-700"
+                            title="Cancelar"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      )}
+                      <div
+                        className={`flex items-center gap-2 h-7 ${
+                          confirmDeleteId === r.id ? "invisible" : ""
                         }`}
-                        title={r.is_active ? "Desactivar" : "Activar"}
                       >
-                        {r.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
-                      </button>
-                      {(() => {
-                        const u = usage[r.id];
-                        const inUse =
-                          !!u && (u.costLines > 0 || u.events > 0);
-                        if (inUse) {
-                          const parts = [];
-                          if (u.costLines > 0)
-                            parts.push(
-                              `${u.costLines} costo${u.costLines === 1 ? "" : "s"} de servicio fijo`,
+                        <button
+                          onClick={() => open(r)}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          title="Editar"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => toggleActive(r)}
+                          className={`p-1.5 rounded-md hover:bg-gray-100 ${
+                            r.is_active ? "text-green-600" : "text-gray-400"
+                          }`}
+                          title={r.is_active ? "Desactivar" : "Activar"}
+                        >
+                          {r.is_active ? (
+                            <Eye size={15} />
+                          ) : (
+                            <EyeOff size={15} />
+                          )}
+                        </button>
+                        {(() => {
+                          const u = usage[r.id];
+                          const inUse =
+                            !!u && (u.costLines > 0 || u.events > 0);
+                          if (inUse) {
+                            const parts = [];
+                            if (u.costLines > 0)
+                              parts.push(
+                                `${u.costLines} costo${u.costLines === 1 ? "" : "s"} de servicio fijo`,
+                              );
+                            if (u.events > 0)
+                              parts.push(
+                                `${u.events} evento${u.events === 1 ? "" : "s"}`,
+                              );
+                            return (
+                              <button
+                                disabled
+                                className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
+                                title={`En uso (${parts.join(" y ")}): no se puede eliminar, solo desactivar`}
+                              >
+                                <Trash2 size={15} />
+                              </button>
                             );
-                          if (u.events > 0)
-                            parts.push(
-                              `${u.events} evento${u.events === 1 ? "" : "s"}`,
-                            );
+                          }
                           return (
                             <button
-                              disabled
-                              className="p-1.5 rounded-md text-gray-300 cursor-not-allowed"
-                              title={`En uso (${parts.join(" y ")}): no se puede eliminar, solo desactivar`}
+                              onClick={() => setConfirmDeleteId(r.id)}
+                              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
+                              title="Eliminar"
                             >
                               <Trash2 size={15} />
                             </button>
                           );
-                        }
-                        return (
-                          <button
-                            onClick={() => setConfirmDeleteId(r.id)}
-                            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        );
-                      })()}
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                </tr>
               )),
             ])}
           </tbody>
@@ -394,74 +397,75 @@ export default function RecursosTab({
             </>
           }
         >
-            <div className="space-y-3">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Nombre *
+              </label>
+              <input
+                value={name}
+                maxLength={60}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="Ej: Silla arrendada"
+              />
+            </div>
+            <div></div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">
+                Precio de lista (opcional)
+              </label>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <div>
+                  <NumberInput
+                    value={priceFixed || undefined}
+                    onChange={(v) => setPriceFixed(v || 0)}
+                    min={0}
+                    formatThousands
+                    placeholder="0"
+                  />
+                  <p className="mt-0.5 text-[11px] text-gray-400">
+                    Fijo por evento (ej: transporte)
+                  </p>
+                </div>
+                <div>
+                  <NumberInput
+                    value={pricePerPerson || undefined}
+                    onChange={(v) => setPricePerPerson(v || 0)}
+                    min={0}
+                    formatThousands
+                    placeholder="0"
+                  />
+                  <p className="mt-0.5 text-[11px] text-gray-400">
+                    Por persona (ej: c/silla)
+                  </p>
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-gray-400">
+                {
+                  "Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."
+                }
+              </p>
+            </div>
+            {
               <div>
                 <label className="text-xs font-semibold text-gray-600">
-                  Nombre *
+                  Proveedor (opcional)
                 </label>
-                <input
-                  value={name}
-                  maxLength={60}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Ej: Silla arrendada"
+                <SelectWithSearch
+                  options={suppliers
+                    .filter((s) => s.is_active)
+                    .map((s) => ({ value: String(s.id), label: s.name }))}
+                  value={supplierId}
+                  onChange={setSupplierId}
+                  placeholder="Sin proveedor"
+                  searchPlaceholder="Buscar proveedor…"
+                  noResultsText="Sin resultados"
                 />
               </div>
-              <div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">
-                  Precio de lista (opcional)
-                </label>
-                <div className="grid grid-cols-2 gap-3 mt-1">
-                  <div>
-                    <NumberInput
-                      value={priceFixed || undefined}
-                      onChange={(v) => setPriceFixed(v || 0)}
-                      min={0}
-                      formatThousands
-                      placeholder="0"
-                    />
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      Fijo por evento (ej: transporte)
-                    </p>
-                  </div>
-                  <div>
-                    <NumberInput
-                      value={pricePerPerson || undefined}
-                      onChange={(v) => setPricePerPerson(v || 0)}
-                      min={0}
-                      formatThousands
-                      placeholder="0"
-                    />
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      Por persona (ej: c/silla)
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  {"Puedes llenar uno, ambos o ninguno. Vacíos = el precio se negocia en cada evento."}
-                </p>
-              </div>
-              {(
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Proveedor (opcional)
-                  </label>
-                  <SelectWithSearch
-                    options={suppliers
-                      .filter((s) => s.is_active)
-                      .map((s) => ({ value: String(s.id), label: s.name }))}
-                    value={supplierId}
-                    onChange={setSupplierId}
-                    placeholder="Sin proveedor"
-                    searchPlaceholder="Buscar proveedor…"
-                    noResultsText="Sin resultados"
-                  />
-                </div>
-              )}
-              {err && <p className="text-xs text-red-600">{err}</p>}
-            </div>
+            }
+            {err && <p className="text-xs text-red-600">{err}</p>}
+          </div>
         </Modal>
       )}
     </div>

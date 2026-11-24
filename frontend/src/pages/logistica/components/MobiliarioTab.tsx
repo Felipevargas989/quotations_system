@@ -289,13 +289,15 @@ export default function MobiliarioTab({
     queryClient.setQueryData<{
       rows: FurnitureItem[];
       usage: Record<number, { recipes: number }>;
-    }>(["logistica", "mobiliario", companyId], (prev) =>
-      prev && {
-        ...prev,
-        rows: prev.rows.map((r) =>
-          r.id === f.id ? { ...r, unit_cost: value } : r,
-        ),
-      },
+    }>(
+      ["logistica", "mobiliario", companyId],
+      (prev) =>
+        prev && {
+          ...prev,
+          rows: prev.rows.map((r) =>
+            r.id === f.id ? { ...r, unit_cost: value } : r,
+          ),
+        },
     );
   };
 
@@ -305,13 +307,15 @@ export default function MobiliarioTab({
     queryClient.setQueryData<{
       rows: FurnitureItem[];
       usage: Record<number, { recipes: number }>;
-    }>(["logistica", "mobiliario", companyId], (prev) =>
-      prev && {
-        ...prev,
-        rows: prev.rows.map((r) =>
-          r.id === f.id ? { ...r, stock: value } : r,
-        ),
-      },
+    }>(
+      ["logistica", "mobiliario", companyId],
+      (prev) =>
+        prev && {
+          ...prev,
+          rows: prev.rows.map((r) =>
+            r.id === f.id ? { ...r, stock: value } : r,
+          ),
+        },
     );
     load();
     setSavedFlash(true);
@@ -371,8 +375,8 @@ export default function MobiliarioTab({
         </div>
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-gray-400">
-            Inventario: stock editable en la fila (fluctúa por temporada) y
-            foto de referencia — clic en la miniatura para verla en grande.
+            Inventario: stock editable en la fila (fluctúa por temporada) y foto
+            de referencia — clic en la miniatura para verla en grande.
           </p>
           {inactiveCount > 0 && (
             <button
@@ -624,8 +628,8 @@ export default function MobiliarioTab({
         <p className="text-xs text-gray-400 mb-3">
           Fechas futuras donde los eventos del día superan el stock. La
           necesidad de cada evento es su máximo simultáneo entre servicios (el
-          mobiliario se lava y reutiliza; se libera al día siguiente). Los
-          ítems de preparación anticipada se suman entre servicios.
+          mobiliario se lava y reutiliza; se libera al día siguiente). Los ítems
+          de preparación anticipada se suman entre servicios.
         </p>
         {!availData.loaded ? (
           <div className="py-4 flex justify-center">
@@ -762,15 +766,13 @@ export default function MobiliarioTab({
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) =>
-                      setPhotoFile(e.target.files?.[0] || null)
-                    }
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
                     className="text-xs text-gray-600"
                   />
                 </div>
                 <p className="mt-0.5 text-[11px] text-gray-400">
-                  Para distinguir ítems parecidos (7 tipos de platos…). JPG,
-                  PNG o WebP, máx 5MB.
+                  Para distinguir ítems parecidos (7 tipos de platos…). JPG, PNG
+                  o WebP, máx 5MB.
                 </p>
               </div>
               {err && <p className="text-xs text-red-600">{err}</p>}
