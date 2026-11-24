@@ -25,6 +25,9 @@ interface Props {
   onUsar: (c: CoincidenciaCliente) => void;
   onSumarContacto: (c: CoincidenciaCliente) => void;
   onCrearIgual: () => void;
+  /** El aviso salió mientras se escribía: «Es otro cliente» solo lo cierra
+   *  para seguir llenando, no guarda (Felipe, 24-11-2026, José Araya). */
+  enVivo?: boolean;
 }
 
 // Botones parejos, uno bajo el otro (Felipe, 16-10: "podemos ordenar un
@@ -42,6 +45,7 @@ export default function AvisoClienteExistente({
   onUsar,
   onSumarContacto,
   onCrearIgual,
+  enVivo = false,
 }: Props) {
   // Llega una lista nueva (se siguió escribiendo): vuelve al más probable.
   const [marcado, setMarcado] = useState(0);
@@ -118,7 +122,9 @@ export default function AvisoClienteExistente({
                 onClick={onCrearIgual}
                 className={otro}
               >
-                Es otro cliente, crear igual
+                {enVivo
+                  ? "Es otro cliente, seguir llenando"
+                  : "Es otro cliente, crear igual"}
               </button>
             </div>
           ) : (
