@@ -13,7 +13,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof ShoppingCart }[] = [
   { key: "compras", label: "Compras", Icon: ShoppingCart },
   { key: "insumos", label: "Insumos", Icon: Package },
   // 23-11-2026 (doc 25): subir compras, costos con check y la bodega.
-  { key: "stock", label: "Stock", Icon: Warehouse },
+  { key: "stock", label: "Costos", Icon: Warehouse },
   { key: "proveedores", label: "Proveedores", Icon: Truck },
   { key: "recursos", label: "Servicios externos", Icon: Users },
 ];
@@ -32,7 +32,7 @@ export default function LogisticaPage() {
             es nuestro y solo se cuenta y cuida. */}
         <h1 className="text-2xl font-bold text-gray-900">Proveedores</h1>
         <p className="text-sm text-gray-500">
-          Compras, insumos, stock, proveedores y servicios externos
+          Compras, insumos, costos, proveedores y servicios externos
         </p>
       </div>
 

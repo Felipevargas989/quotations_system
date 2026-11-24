@@ -1,6 +1,6 @@
 # 25 · Compras con IA (el costeo automático)
 
-> **Estado (23-11-2026):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. La bodega simple se construyó y **salió el mismo día** (D16). **Solo en el laboratorio; no está en producción.** El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
+> **Estado (23-11-2026; 24-11: la pestaña pasa a «Costos» con los insumos vigilados y el stock en pausa, D18):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. La bodega simple se construyó y **salió el mismo día** (D16). **Solo en el laboratorio; no está en producción.** El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
 
 ## 1. Lo que pidió Felipe
 
@@ -48,6 +48,12 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 | D16 | **Sale la bodega** («Tengo», «Saqué», movimientos, columnas Bodega y Comprar de Compras, tabla `insumo_movimientos` de la 214). Felipe: *"son muchos insumos, difícilmente voy a mantener actualizados los stocks porque se mueven a diario… dejemos solamente lo que estamos desarrollando para meter el costeo que sea automático"*. Stock queda en dos partes: subir compras y los costos de los insumos por proveedor. Compras vuelve a su tabla de siempre, sin el modal. |
 | D17 | **La IA siempre sugiere uno** (Felipe: *"primero debería sugerirme uno, segundo debería mostrarme otro del proveedor… la punta paleta vacuno va a ser una carne, no la voy a reemplazar por ketchup"*). Cuando duda, el más probable queda puesto, **sin check**, con «Sugerido · Sí, es este · o Palanca · Plateada» debajo. La lista para asociar parte por **Sugeridos**, sigue con **De este proveedor** (el de la factura o, si no se reconoció, el del insumo sugerido) y termina con **Todos los insumos**. Una línea se aplica solo con costo. |
 
+### 2.3 El stock queda en pausa; la pestaña es «Costos» (24-11-2026)
+
+| # | Decisión |
+|---|---|
+| D18 | **Stock en pausa y la pestaña pasa a llamarse «Costos»**. Felipe: *"no tiene sentido… esto no se compra semana a semana… dejemos esto en standby y dejemos la parte de stock como un módulo de costos que vamos a ir monitoreando ciertos costos"*. Arriba van los **insumos vigilados** (estrella en la tabla de costos, tabla `insumos_vigilados` de la 214): costo de hoy, cuánto se movió en la última compra (▲ rojo, ▼ verde), el costo de antes, la línea de las últimas compras y de dónde salió. La historia sale de las líneas ya aplicadas (`costo_base` y `costo_antes`), sin tabla nueva. Valle del Sol parte con los 10 que más pesan en el gasto y se guardan entre compras (análisis del 24-11 sobre 12 meses: sobrecostilla, lomo liso, pechuga, trutro, chuleta centro, carne molida, pulpa de cerdo, longaniza, leche entera y las bebidas CCU, ≈ 42 % del gasto en insumos). Si algún día vuelve el stock, se parte por esa lista. |
+
 ## 3. Cómo funciona
 
 ### 3.1 Subir y leer (`POST /logistics/stock/compras`)
@@ -63,7 +69,7 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 Salió el 23-11-2026 (D16), antes de llegar a producción.
 
 ## 4. Pantallas
-- **Proveedores → Stock** (`components/stock/StockTab.tsx`): «Subir compras» (`SubirCompras`: zona de arrastre con `useArrastreDeArchivos`, una tarjeta por compra por revisar con una fila por línea, «Últimas compras aplicadas» plegado) y «Costos de los insumos» (`TablaDeCostos`: agrupados por proveedor, con su última compra y sus cortes o marcas al pasar el mouse; buscador por insumo, corte o marca).
+- **Proveedores → Costos** (`components/stock/StockTab.tsx`; se llamó «Stock» hasta el 24-11): «Insumos vigilados» (`InsumosVigilados`, D18), después «Subir compras» (`SubirCompras`: zona de arrastre con `useArrastreDeArchivos`, una tarjeta por compra por revisar con una fila por línea, «Últimas compras aplicadas» plegado) y «Costos de los insumos» (`TablaDeCostos`: agrupados por proveedor, con su última compra y sus cortes o marcas al pasar el mouse; buscador por insumo, corte o marca).
 - **Proveedores → Compras**: sin modal; la tabla de siempre (Cantidad, Formato, Costo).
 - **Proveedores → Insumos**: «Costo» en vez de «Precio».
 
@@ -80,4 +86,4 @@ Salió el 23-11-2026 (D16), antes de llegar a producción.
 - Que Eventia **actualice Fudo**.
 
 ## 7. Migración
-`docs/migrations/214_compras_con_ia.sql`: `insumo_equivalentes`, `compras_subidas` y `compras_subidas_lineas` (con `posibles`), cerradas al navegador y con los permisos del motor. No toca tablas existentes. Se aplica a mano en cada base **antes** de publicar el motor. (En el laboratorio quedó además la tabla `insumo_movimientos` de la bodega, sin uso: el borrado no se aplicó.)
+`docs/migrations/214_compras_con_ia.sql`: `insumo_equivalentes`, `compras_subidas`, `compras_subidas_lineas` (con `posibles`) e `insumos_vigilados` (D18, con los 10 de Valle del Sol), cerradas al navegador y con los permisos del motor. No toca tablas existentes. Se aplica a mano en cada base **antes** de publicar el motor. (En el laboratorio quedó además la tabla `insumo_movimientos` de la bodega, sin uso: el borrado no se aplicó.)

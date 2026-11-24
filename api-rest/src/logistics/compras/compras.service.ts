@@ -23,7 +23,7 @@ import {
   type InsumoParaLeer,
 } from './leer-compra';
 
-// COMPRAS CON IA Y BODEGA (doc 25, 23-11-2026). Reemplaza el modal
+// COMPRAS CON IA (doc 25, 23-11-2026; pestaña Costos desde el 24-11). Reemplaza el modal
 // «Confirmar la compra» (24-08), donde se escribían a mano lo comprado y lo
 // gastado. El costo del catálogo de insumos ahora sale de las compras que
 // se suben, siempre con el check de una persona.
@@ -332,16 +332,52 @@ export class ComprasService {
     return { ok: true };
   }
 
-  /** Todo lo de la pestaña Stock en una sola respuesta. La bodega salió
-   *  el 23-11-2026 (doc 25 D16): queda solo el costeo. */
+  // ---------- Insumos vigilados (doc 25 D18) ----------
+
+  async vigilar(companyId: number, supplyId: number, vigilar: boolean) {
+    const insumos = await this.insumosParaLeer(companyId);
+    if (!insumos.some((i) => i.id === supplyId)) {
+      throw new NotFoundException('Ese insumo no es de tu empresa');
+    }
+    await this.repo.vigilar(companyId, supplyId, vigilar);
+    return { ok: true };
+  }
+
+  /** Todo lo de la pestaña Costos en una sola respuesta. El stock quedó en
+   *  pausa (doc 25 D16 y D18): queda el costeo y los insumos vigilados con
+   *  la historia de su costo (hasta 6 compras por insumo). */
   async estado(companyId: number) {
-    const [equivalentes, compras] = await Promise.all([
+    const [equivalentes, compras, vigilados] = await Promise.all([
       this.repo.equivalentes(companyId),
       this.repo.compras(companyId),
+      this.repo.vigilados(companyId),
     ]);
+    const historial: Record<
+      number,
+      {
+        costo: number;
+        antes: number | null;
+        fecha: string | null;
+        proveedor: string | null;
+        equivalente: string | null;
+      }[]
+    > = {};
+    for (const l of await this.repo.historial(companyId, vigilados)) {
+      const lista = (historial[l.supply_id] ??= []);
+      if (lista.length >= 6) continue;
+      lista.push({
+        costo: n(l.costo_base),
+        antes: l.costo_antes === null ? null : n(l.costo_antes),
+        fecha: l.compras_subidas?.fecha ?? l.aplicada_at?.slice(0, 10) ?? null,
+        proveedor: l.compras_subidas?.proveedor_texto ?? null,
+        equivalente: l.equivalente,
+      });
+    }
     return {
       equivalentes: equivalentes.filter((e) => e.tipo !== 'texto'),
       compras,
+      vigilados,
+      historial,
     };
   }
 }

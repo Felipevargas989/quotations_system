@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Search, Tags, Truck } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Star,
+  Tags,
+  Truck,
+} from "lucide-react";
 import Tooltip from "../../../../components/Tooltip";
 import {
   UNIT_FAMILY_INFO,
@@ -7,10 +14,12 @@ import {
   type Supply,
 } from "../../../../types/logistics.types";
 import { matchesSearch } from "../../../../utils/searchMatch";
-import type {
-  CompraSubida,
-  Equivalente,
+import {
+  vigilarInsumo,
+  type CompraSubida,
+  type Equivalente,
 } from "../../../../services/stock.service";
+import { toast } from "../../../../components/toast/Toast";
 
 // LOS COSTOS DE LOS INSUMOS (doc 25, 23-11-2026). Solo el costeo: la
 // bodega salió (D16, Felipe: *"son muchos insumos, difícilmente voy a
@@ -27,13 +36,29 @@ export default function TablaDeCostos({
   proveedores,
   equivalentes,
   compras,
+  vigilados,
+  onCambio,
 }: {
   readonly supplies: Supply[];
   readonly proveedores: Supplier[];
   readonly equivalentes: Equivalente[];
   readonly compras: CompraSubida[];
+  readonly vigilados: number[];
+  readonly onCambio: () => void;
 }) {
   const [buscar, setBuscar] = useState("");
+  const [guardando, setGuardando] = useState<number | null>(null);
+  const estrella = async (id: number, vigilar: boolean) => {
+    setGuardando(id);
+    try {
+      await vigilarInsumo(id, vigilar);
+      onCambio();
+    } catch {
+      toast.error("No se pudo guardar la estrella.");
+    } finally {
+      setGuardando(null);
+    }
+  };
   // Los grupos de proveedor plegados a mano (por omisión, todos abiertos).
   const [plegados, setPlegados] = useState<Set<number>>(new Set());
 
@@ -184,7 +209,30 @@ export default function TablaDeCostos({
                     const eqs = eqPorInsumo.get(s.id) ?? [];
                     return (
                       <tr key={s.id} className="hover:bg-gray-50">
-                        <td />
+                        <td className="px-2 py-1.5 text-center">
+                          <button
+                            type="button"
+                            disabled={guardando === s.id}
+                            onClick={() =>
+                              void estrella(s.id, !vigilados.includes(s.id))
+                            }
+                            title={
+                              vigilados.includes(s.id)
+                                ? "Dejar de vigilar"
+                                : "Vigilar su costo"
+                            }
+                            className="disabled:opacity-40"
+                          >
+                            <Star
+                              size={15}
+                              className={
+                                vigilados.includes(s.id)
+                                  ? "text-amber-500 fill-amber-400"
+                                  : "text-gray-300 hover:text-amber-400"
+                              }
+                            />
+                          </button>
+                        </td>
                         <td className="px-3 py-1.5">
                           <span className="text-gray-900">{s.name}</span>
                           {(["corte", "marca"] as const).map((t) => {

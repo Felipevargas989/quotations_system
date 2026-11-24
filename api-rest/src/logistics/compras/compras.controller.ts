@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -31,9 +32,9 @@ import { OPERATIONS_AND_UP, Roles } from 'src/auth/roles.decorator';
 import type { User } from 'src/users/entities/user.entity';
 import { ComprasService } from './compras.service';
 
-// La pestaña «Stock» de Proveedores (doc 25): subir compras, revisar y
+// La pestaña «Costos» de Proveedores (doc 25; antes «Stock»): subir compras, revisar y
 // aplicar costos con check y los cortes y marcas equivalentes. La bodega
-// salió el 23-11-2026 (doc 25 D16).
+// salió el 23-11-2026 (doc 25 D16); los insumos vigilados, D18.
 // Misma puerta que Compras: operaciones y administración, sección
 // Proveedores, plan con logística.
 
@@ -78,6 +79,11 @@ export class EquivalenteDto {
 
   @IsIn(['corte', 'marca'])
   tipo!: 'corte' | 'marca';
+}
+
+export class VigilarDto {
+  @IsBoolean()
+  vigilar!: boolean;
 }
 
 @Derecho('logistica')
@@ -142,5 +148,14 @@ export class ComprasController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.servicio.borrarEquivalente(user.company_id, id);
+  }
+
+  @Put('vigilados/:supplyId')
+  vigilar(
+    @CurrentUser() user: User,
+    @Param('supplyId', ParseIntPipe) supplyId: number,
+    @Body() dto: VigilarDto,
+  ) {
+    return this.servicio.vigilar(user.company_id, supplyId, dto.vigilar);
   }
 }

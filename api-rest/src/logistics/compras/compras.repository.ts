@@ -370,6 +370,67 @@ export class ComprasRepository {
     if (error) throw error;
   }
 
+  // ---------- Insumos vigilados (doc 25 D18) ----------
+
+  async vigilados(companyId: number): Promise<number[]> {
+    const { data, error } = await this.db
+      .from('insumos_vigilados')
+      .select('supply_id')
+      .eq('company_id', companyId);
+    if (error) throw error;
+    return ((data ?? []) as { supply_id: number }[]).map((f) =>
+      Number(f.supply_id),
+    );
+  }
+
+  async vigilar(companyId: number, supplyId: number, vigilar: boolean) {
+    if (vigilar) {
+      const { error } = await this.db
+        .from('insumos_vigilados')
+        .upsert([{ company_id: companyId, supply_id: supplyId }], {
+          onConflict: 'company_id,supply_id',
+          ignoreDuplicates: true,
+        });
+      if (error) throw error;
+      return;
+    }
+    const { error } = await this.db
+      .from('insumos_vigilados')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('supply_id', supplyId);
+    if (error) throw error;
+  }
+
+  /** Las líneas ya aplicadas de esos insumos, la más nueva primero: la
+   *  historia de su costo. */
+  async historial(companyId: number, supplyIds: number[]) {
+    if (!supplyIds.length) return [];
+    const { data, error } = await this.db
+      .from('compras_subidas_lineas')
+      .select(
+        'supply_id, costo_base, costo_antes, aplicada_at, equivalente, compras_subidas(proveedor_texto, fecha)',
+      )
+      .eq('company_id', companyId)
+      .eq('estado', 'aplicada')
+      .in('supply_id', supplyIds)
+      .not('costo_base', 'is', null)
+      .order('aplicada_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return (data ?? []) as unknown as {
+      supply_id: number;
+      costo_base: number;
+      costo_antes: number | null;
+      aplicada_at: string | null;
+      equivalente: string | null;
+      compras_subidas: {
+        proveedor_texto: string | null;
+        fecha: string | null;
+      } | null;
+    }[];
+  }
+
   async descargar(ruta: string): Promise<Buffer> {
     const { data, error } = await this.db.storage
       .from(BUCKET_PRIVADO)
