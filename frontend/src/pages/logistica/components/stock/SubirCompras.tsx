@@ -422,9 +422,10 @@ function TarjetaDeCompra({
           <colgroup>
             <col className="w-9" />
             <col className="w-[25%]" />
-            <col className="w-[33%]" />
-            <col className="w-24" />
-            <col className="w-24" />
+            <col className="w-[30%]" />
+            {/* Cantidad ancha: «189,16 kg» se cortaba (Felipe, 24-11). */}
+            <col className="w-32" />
+            <col className="w-28" />
             <col />
             <col className="w-8" />
           </colgroup>
