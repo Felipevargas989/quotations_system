@@ -1,6 +1,6 @@
 # 25 · Compras con IA (el costeo automático)
 
-> **Estado (23-11-2026; 24-11: la pestaña pasa a «Costos» con los insumos vigilados y el stock en pausa, D18):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. La bodega simple se construyó y **salió el mismo día** (D16). **Solo en el laboratorio; no está en producción.** El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
+> **Estado (23-11-2026; 24-11: la pestaña pasa a «Costos» con los insumos vigilados y el stock en pausa, D18):** acordado con Felipe y construido en la rama `feature/provision-con-ia` (carpeta `wt-provision`), con la migración 214. La bodega simple se construyó y **salió el mismo día** (D16). **EN PRODUCCIÓN desde el 24-11-2026** (PR #401; migración 214 en las dos bases; en el laboratorio quedó además la tabla `insumo_movimientos`, sin uso). El mapa es `mapa/06_LOGISTICA_COMPRAS_E_INVENTARIO.md`.
 
 ## 1. Lo que pidió Felipe
 
