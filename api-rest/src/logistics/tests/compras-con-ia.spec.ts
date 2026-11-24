@@ -132,6 +132,34 @@ describe('propuestaDeLaCompra', () => {
     expect(r.lineas[0].supply_id).toBeNull();
   });
 
+  it('cuando duda: guarda los posibles (solo de la empresa) y el corte leído', () => {
+    const r = propuestaDeLaCompra(
+      {
+        es_compra: true,
+        tipo_documento: 'factura',
+        totales_netos: true,
+        lineas: [
+          {
+            texto: 'PUNTA PALETA KG',
+            equivalente: 'Punta paleta',
+            posibles: [1, 999, 3, 1, 2],
+            cantidad_base: 5,
+            total: 50000,
+          },
+        ],
+      },
+      insumos,
+      [],
+      null,
+    )!;
+    expect(r.lineas[0]).toMatchObject({
+      supply_id: null,
+      equivalente: 'Punta paleta',
+      posibles: [1, 3, 2],
+      costo_base: null,
+    });
+  });
+
   it('una guía sin montos no propone costo', () => {
     const r = propuestaDeLaCompra(
       {

@@ -18,6 +18,7 @@ export interface FilaDeLinea {
   total: number | null;
   supply_id: number | null;
   equivalente: string | null;
+  posibles: number[] | null;
   cantidad_base: number | null;
   costo_base: number | null;
   costo_antes: number | null;
@@ -226,6 +227,7 @@ export class ComprasRepository {
           total: l.total,
           supply_id: l.supply_id,
           equivalente: l.equivalente,
+          posibles: l.posibles.length ? l.posibles : null,
           cantidad_base: l.cantidad_base,
           costo_base: l.costo_base,
           costo_antes: l.costo_antes,
@@ -265,7 +267,7 @@ export class ComprasRepository {
     const { data: lineas, error: e3 } = await this.db
       .from('compras_subidas_lineas')
       .select(
-        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, cantidad_base, costo_base, costo_antes, estado',
+        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, posibles, cantidad_base, costo_base, costo_antes, estado',
       )
       .eq('company_id', companyId)
       .in(
@@ -297,7 +299,7 @@ export class ComprasRepository {
     const { data: lineas, error: e2 } = await this.db
       .from('compras_subidas_lineas')
       .select(
-        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, cantidad_base, costo_base, costo_antes, estado',
+        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, posibles, cantidad_base, costo_base, costo_antes, estado',
       )
       .eq('company_id', companyId)
       .eq('compra_id', id)
@@ -313,7 +315,7 @@ export class ComprasRepository {
     const { data, error } = await this.db
       .from('compras_subidas_lineas')
       .select(
-        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, cantidad_base, costo_base, costo_antes, estado',
+        'id, compra_id, orden, texto, cantidad_texto, total, supply_id, equivalente, posibles, cantidad_base, costo_base, costo_antes, estado',
       )
       .eq('company_id', companyId)
       .eq('id', id)

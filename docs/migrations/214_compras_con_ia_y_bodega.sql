@@ -72,6 +72,8 @@ create table if not exists public.compras_subidas_lineas (
   total numeric,
   supply_id bigint references public.supplies(id) on delete set null,
   equivalente text,
+  -- Cuando la IA duda: hasta 3 insumos posibles para «¿Cuál es?».
+  posibles bigint[],
   cantidad_base numeric,
   costo_base numeric,
   costo_antes numeric,

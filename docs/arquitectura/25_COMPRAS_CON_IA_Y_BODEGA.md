@@ -32,6 +32,13 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 | D11 | La bodega cuenta los eventos de **todos** los tipos de cliente. | Es la bodega física; con un tipo apagado la cifra sería falsa. Lo que se oculta por cargo son los eventos, no el total. |
 | D12 | En Insumos, «Precio» pasa a decir **«Costo»**. | Es el costo del catálogo de insumos; el precio es el de venta. |
 
+### 2.1 Ajustes del 23-11-2026, en la noche (Felipe, mirando el laboratorio)
+
+| # | Decisión |
+|---|---|
+| D13 | En Stock, los insumos van **agrupados por proveedor**, como en la pestaña Insumos: una banda por proveedor, plegable, con su número de insumos; los sin proveedor al final. |
+| D14 | **Los equivalentes se definen solo al cargar la factura** (Felipe: *"manejemoslo en la interna a la hora de hacer las compras o cargar facturas, que ahí pregunte bien de qué insumo estamos hablando"*). Sale el editor de cortes y marcas de la bodega (quedan a la vista, con su ×). Cuando la IA duda, la línea pregunta **«¿Cuál es?»** con hasta 3 insumos posibles (`posibles`); al asociar una línea que trae un corte o una marca, pregunta **«¿Es un corte o una marca de …?»** y lo guarda. |
+
 ## 3. Cómo funciona
 
 ### 3.1 Subir y leer (`POST /logistics/stock/compras`)
@@ -65,6 +72,7 @@ Un evento del mismo día del conteo no resta: el conteo ya lo vio. Si da negativ
 - Que **todas** las boletas y facturas de compra pasen por aquí (también las de Recibidos de facturacion.cl, doc 19 §9.28).
 - Que la **guía de despacho** se lea como entrada de bodega aunque no traiga precios.
 - **Fudo:** unir el stock de Fudo (restaurante) y el de Eventia, y sus salidas. Lo primero que hay que decidir es si es **una sola bodega** o dos. Hoy el conector de Fudo es solo de lectura.
+  - **Lo que se midió el 23-11-2026 (nota, Felipe: *"dejemos esto como nota"*):** la API de Fudo trae la **carta** (123 productos: platos, tragos, cervezas y vinos), con categoría, precio y, en pocos, costo. El **stock** existe solo en lo embotellado (latas, cervezas, vinos, helados; ej. Lata Bebida 418, Royal 50). Los **insumos crudos** (aceite, azúcar, carne) **no están en Fudo**. Unir se puede para el bar (bebidas y vinos, una sola bodega); la cocina no tiene con qué unirse. Al revés tiene más sentido en el costo: que el de Eventia llene el de Fudo. Falta verificar si la API deja escribir.
 - **Control de inventario por evento**: lo que salió de verdad contra lo que pedía la receta.
 - Que Eventia **actualice Fudo**.
 
