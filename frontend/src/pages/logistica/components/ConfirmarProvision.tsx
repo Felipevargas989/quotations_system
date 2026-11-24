@@ -95,7 +95,7 @@ export default function ConfirmarProvision({
           </button>
           <button
             type="button"
-            disabled={guardando}
+            disabled={guardando || !filas.length}
             onClick={onConfirmar}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
           >
@@ -109,6 +109,12 @@ export default function ConfirmarProvision({
         </div>
       }
     >
+      {!filas.length && (
+        <p className="text-sm text-amber-700 mb-3">
+          No hay insumos que provisionar: los eventos elegidos no tienen
+          receta o ya están provisionados.
+        </p>
+      )}
       <p className="text-xs text-gray-600 mb-3">
         {evs.map((e) => e.rotulo).join(" · ")}
       </p>
