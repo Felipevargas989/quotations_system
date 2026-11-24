@@ -24,8 +24,8 @@ import {
 // facturas, las guías o screenshot de la guía de despacho… y que se vayan
 // utilizando los costos para tener los márgenes bien"*. La IA lee cada
 // línea y la asocia a un insumo; nada cambia en el catálogo hasta que una
-// persona marca el check y aplica. Lo que sube más de 20 % parte sin check
-// y en ámbar.
+// persona marca el check y aplica. Lo que sube o baja más de 20 % parte
+// sin check y en ámbar.
 
 const SALTO_GRANDE = 20;
 
@@ -356,7 +356,8 @@ function TarjetaDeCompra({
                 ? UNIT_FAMILY_INFO[insumo.unit_family]?.base
                 : "";
               const v = variacion(l.costo_antes, l.costo_base);
-              const salto = v !== null && v > SALTO_GRANDE;
+              // Un salto grande, hacia arriba o hacia abajo: ámbar y sin check.
+              const salto = v !== null && Math.abs(v) > SALTO_GRANDE;
               const fuera = l.estado === "no_es_insumo";
               const hecha = l.estado === "aplicada";
               return (

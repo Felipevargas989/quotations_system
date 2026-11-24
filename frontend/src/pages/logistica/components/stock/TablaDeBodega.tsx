@@ -85,12 +85,13 @@ export default function TablaDeBodega({
     }
     return m;
   }, [equivalentes]);
-  // La última compra aplicada de cada insumo (de las últimas compras).
+  // La última compra aplicada de cada insumo: cuenta toda línea ya
+  // aplicada, aunque a su compra le queden líneas por revisar.
   const ultimaCompra = useMemo(() => {
     const m = new Map<number, string>();
     const orden = [...compras]
-      .filter((c) => c.estado === "aplicada")
-      .sort((a, b) => ((a.aplicada_at ?? "") < (b.aplicada_at ?? "") ? 1 : -1));
+      .filter((c) => c.estado !== "descartada")
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     for (const c of orden) {
       for (const l of c.lineas) {
         if (l.estado !== "aplicada" || !l.supply_id || m.has(l.supply_id))

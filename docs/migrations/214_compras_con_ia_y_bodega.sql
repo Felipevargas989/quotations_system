@@ -114,3 +114,14 @@ revoke all on public.insumo_equivalentes from anon, authenticated;
 revoke all on public.compras_subidas from anon, authenticated;
 revoke all on public.compras_subidas_lineas from anon, authenticated;
 revoke all on public.insumo_movimientos from anon, authenticated;
+-- El motor entra con service_role: en las bases sin privilegios por
+-- defecto (el laboratorio) hay que dárselos a mano (medido el 23-11).
+grant select, insert, update, delete on
+  public.insumo_equivalentes, public.compras_subidas,
+  public.compras_subidas_lineas, public.insumo_movimientos
+  to service_role;
+grant usage, select on sequence
+  public.insumo_equivalentes_id_seq, public.compras_subidas_id_seq,
+  public.compras_subidas_lineas_id_seq, public.insumo_movimientos_id_seq
+  to service_role;
+notify pgrst, 'reload schema';
