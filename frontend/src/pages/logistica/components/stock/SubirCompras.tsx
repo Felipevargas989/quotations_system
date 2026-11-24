@@ -338,8 +338,8 @@ function TarjetaDeCompra({
   ).length;
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-blue-50/60 border-b border-gray-200 px-3 py-2">
+    <div className="border border-gray-200 rounded-lg bg-white">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-t-lg bg-blue-50/60 border-b border-gray-200 px-3 py-2">
         <FileText size={15} className="text-blue-700" />
         <span className="text-sm font-bold text-blue-900">
           {compra.proveedor_texto || "Proveedor sin nombre"}
@@ -399,7 +399,9 @@ function TarjetaDeCompra({
           la pregunta que falta o lo que ya quedó definido. La × de «no es
           insumo» va siempre al final de la fila, y lo que falta lo dice el
           costo nuevo en una palabra. */}
-      <div className="overflow-x-auto">
+      {/* Sin recorte: la lista de insumos se despliega completa (sin
+          overflow, el buscador de la casa se medía contra la tarjeta). */}
+      <div>
         <table className="min-w-full text-sm table-fixed">
           <colgroup>
             <col className="w-9" />
