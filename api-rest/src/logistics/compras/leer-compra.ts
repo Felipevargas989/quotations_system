@@ -114,6 +114,7 @@ export const instruccionesDeLaCompra = (
     '- Cortes distintos que la empresa vende por separado NO se mezclan: lomo vetado y lomo liso son insumos distintos. Solo junta cortes que estén listados como equivalentes.',
     '- Si no hay un insumo que sea claramente ese producto, deja `insumo_id` vacío. Nunca adivines.',
     '- Si dudas entre algunos insumos (un corte nuevo que podría ser de varias carnes, una marca que no conoces), deja `insumo_id` vacío y pon en `posibles` hasta 3 ids de los más probables, del más al menos probable. La persona elige. Igual llena `cantidad_base` en la unidad base del más probable.',
+    '- Si el producto no se parece a nada del catálogo (algo puntual que pidió un cliente para un evento, ej. silbatos de PVC, globos, un regalo), deja `insumo_id` y `posibles` vacíos: no todo se empareja.',
     '- Lo que no es un insumo de cocina o de servicio (fletes, despacho, descuentos globales, envases retornables) igual va como línea, sin insumo_id.',
     '',
     'Reglas para las cantidades:',
