@@ -5,6 +5,9 @@
 // «Imprimir / PDF» arriba a la derecha, igual que la Ficha de Cocina.
 //
 // - Lo marcado con `data-no-imprimir` (botones, la ✕) no va.
+// - Lo marcado con `data-dinero` tampoco: la hoja sale sin montos, porque
+//   anda de mano en mano (Felipe, 23-11-2026: "puede ser sin dinero, me
+//   preocupa que alguien más lo vea").
 // - Los campos se cambian por su valor escrito: el HTML de un <input> no
 //   trae lo que se tecleó, y la hora del servicio salía vacía.
 // - Los botones que quedan (ej: un nombre que abre algo) van como texto.
@@ -24,7 +27,9 @@ export function cuerpoDeLaHoja(nodo: HTMLElement): string {
     texto.className = "font-medium";
     campo.replaceWith(texto);
   });
-  copia.querySelectorAll("[data-no-imprimir]").forEach((n) => n.remove());
+  copia
+    .querySelectorAll("[data-no-imprimir], [data-dinero]")
+    .forEach((n) => n.remove());
   copia.querySelectorAll("button").forEach((b) => {
     const texto = document.createElement("span");
     texto.innerHTML = b.innerHTML;

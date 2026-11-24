@@ -114,7 +114,9 @@ export default function ResumenDelDia({
 }) {
   const r = rotulo(dia);
   // La hoja impresa sale de lo mismo que se ve (Felipe, 23-11-2026: "que
-  // el detalle de abajo sea imprimible"), con los montos.
+  // el detalle de abajo sea imprimible"), SIN DINERO: lo marcado con
+  // `data-dinero` no va ("puede ser sin dinero, me preocupa que alguien
+  // más lo vea").
   const hoja = useRef<HTMLDivElement>(null);
   const delDia = staff.filter((a) => iso(a.day) === dia);
   const sinEvento = delDia.filter((a) => a.quotation_id === null);
@@ -211,7 +213,10 @@ export default function ResumenDelDia({
             type="button"
             onClick={() => {
               if (hoja.current)
-                imprimirHoja(hoja.current, `Personal · ${r.dia} ${String(r.num)} de ${r.mes}`);
+                imprimirHoja(
+                  hoja.current,
+                  `Personal · ${r.dia} ${String(r.num)} de ${r.mes}`,
+                );
             }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
           >
@@ -311,7 +316,10 @@ export default function ResumenDelDia({
             Día libre: sin eventos ni gente asignada.
           </p>
         ) : (
-          <div className="flex items-center justify-between border-t-2 border-gray-300 pt-2 px-3">
+          <div
+            data-dinero
+            className="flex items-center justify-between border-t-2 border-gray-300 pt-2 px-3"
+          >
             <span className="text-sm font-semibold text-gray-900">
               Total del día
             </span>
@@ -343,6 +351,7 @@ function Bloque({
       <div className="mb-1.5">
         <TituloDeSeccion titulo={titulo} color={color} encabezado>
           <span
+            data-dinero
             className={`text-sm font-semibold tabular-nums ${TEXTO_DE_SECCION[color]}`}
           >
             {costo > 0 ? pesos(costo) : "—"}
@@ -533,7 +542,9 @@ function TablaDeGente({
           <th className="font-medium pb-1 w-16 text-right">Horas</th>
           <th className="font-medium pb-1 w-20 pl-3">Tipo</th>
           <th className="font-medium pb-1 w-28 text-right">Estado</th>
-          <th className="font-medium pb-1 w-24 text-right">Pago</th>
+          <th data-dinero className="font-medium pb-1 w-24 text-right">
+            Pago
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -611,6 +622,7 @@ function TablaDeGente({
                 {/* La planta, en blanco salvo un adicional; un freelance
                     sin monto, la raya; la silla vacía, su estimado. */}
                 <td
+                  data-dinero
                   className={`py-1 text-right tabular-nums ${
                     vacia ? "text-amber-700" : "text-gray-900"
                   }`}

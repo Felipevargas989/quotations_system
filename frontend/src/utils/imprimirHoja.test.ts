@@ -10,7 +10,8 @@ describe("cuerpoDeLaHoja", () => {
       <h2>lun 23 de nov</h2>
       <div data-no-imprimir><button>Imprimir</button><button>X</button></div>
       <span>Almuerzo</span><input value="">
-      <table><tr><td><button class="link">Ana Pérez</button></td><td>$28.000</td></tr></table>`;
+      <table><tr><td><button class="link">Ana Pérez</button></td><td>9 h</td><td data-dinero>$28.000</td></tr></table>
+      <div data-dinero>Total del día $28.000</div>`;
     (nodo.querySelector("input") as HTMLInputElement).value = "13:30";
     return nodo;
   };
@@ -25,10 +26,15 @@ describe("cuerpoDeLaHoja", () => {
     expect(html).not.toContain("Imprimir");
     expect(html).not.toContain("data-no-imprimir");
   });
-  it("lo demás va igual, con los montos, y sin botones", () => {
+  it("sin dinero: ni el pago ni el total del día", () => {
+    const html = cuerpoDeLaHoja(armar());
+    expect(html).not.toContain("$");
+    expect(html).not.toContain("Total del día");
+  });
+  it("lo demás va igual, y sin botones", () => {
     const html = cuerpoDeLaHoja(armar());
     expect(html).toContain("Ana Pérez");
-    expect(html).toContain("$28.000");
+    expect(html).toContain("9 h");
     expect(html).not.toContain("<button");
   });
   it("no toca la pantalla", () => {
