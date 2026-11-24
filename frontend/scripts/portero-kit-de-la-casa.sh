@@ -316,7 +316,7 @@ congelar "src/pages/postventa/PostVentaPage.tsx"             2688
 congelar "src/pages/dashboard/DashboardPage.tsx"             2798
 congelar "src/pages/postventa/ServiciosTab.tsx"              2275
 congelar "../api-rest/src/people/people.service.ts"          2005
-congelar "src/pages/logistica/components/ComprasTab.tsx"     1547
+congelar "src/pages/logistica/components/ComprasTab.tsx"     1499
 congelar "src/pages/personas/FichasTab.tsx"                  1599
 
 # ══ EL GUARDIÁN DE LOS NOMBRES DEL GRAFO ═════════════════════════════

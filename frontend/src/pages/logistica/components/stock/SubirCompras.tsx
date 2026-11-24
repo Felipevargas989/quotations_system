@@ -52,13 +52,15 @@ const variacion = (antes: number | null, nuevo: number | null) =>
 
 /** Una línea se puede aplicar si tiene insumo y algo que aplicar. */
 const aplicable = (l: LineaDeCompra) =>
-  l.estado === "propuesta" &&
-  !!l.supply_id &&
-  ((l.costo_base ?? 0) > 0 || (l.cantidad_base ?? 0) > 0);
+  l.estado === "propuesta" && !!l.supply_id && (l.costo_base ?? 0) > 0;
 
-/** Lo que parte marcado: aplicable y sin un salto grande de costo. */
+/** El insumo lo sugirió la IA dudando: falta que la persona lo confirme. */
+const sugerido = (l: LineaDeCompra) =>
+  !!l.supply_id && (l.posibles?.length ?? 0) > 0;
+
+/** Lo que parte marcado: aplicable, confirmado y sin un salto grande. */
 const marcadaDeFabrica = (l: LineaDeCompra) => {
-  if (!aplicable(l)) return false;
+  if (!aplicable(l) || sugerido(l)) return false;
   const v = variacion(l.costo_antes, l.costo_base);
   return v === null || Math.abs(v) <= SALTO_GRANDE;
 };
@@ -218,17 +220,42 @@ function TarjetaDeCompra({
     () => new Map(supplies.map((s) => [s.id, s])),
     [supplies],
   );
-  const opciones = useMemo(
-    () =>
-      supplies
-        .filter((s) => s.is_active !== false)
-        .map((s) => ({
-          value: String(s.id),
-          label: s.name,
-          hint: UNIT_FAMILY_INFO[s.unit_family]?.base,
-        })),
+  // LA LISTA, EN ORDEN (Felipe, 23-11: "primero debería sugerirme uno,
+  // segundo… otro del proveedor… la punta paleta vacuno va a ser una carne,
+  // no la voy a reemplazar por ketchup"): lo que sugirió la IA, después los
+  // insumos de ese proveedor y al final todos.
+  const activos = useMemo(
+    () => supplies.filter((s) => s.is_active !== false),
     [supplies],
   );
+  const opcionesPara = (l: LineaDeCompra) => {
+    const sugeridos = new Set(l.posibles ?? []);
+    if (l.supply_id) sugeridos.add(l.supply_id);
+    const prov =
+      compra.supplier_id ??
+      porId.get(l.supply_id ?? l.posibles?.[0] ?? 0)?.supplier_id ??
+      null;
+    const fila = (s: Supply, group: string) => ({
+      value: String(s.id),
+      label: s.name,
+      hint: UNIT_FAMILY_INFO[s.unit_family]?.base,
+      group,
+    });
+    return [
+      ...[...sugeridos]
+        .map((id) => porId.get(id))
+        .filter((s): s is Supply => !!s)
+        .map((s) => fila(s, "Sugeridos")),
+      ...activos
+        .filter((s) => prov && s.supplier_id === prov && !sugeridos.has(s.id))
+        .map((s) => fila(s, "De este proveedor")),
+      ...activos
+        .filter(
+          (s) => !sugeridos.has(s.id) && !(prov && s.supplier_id === prov),
+        )
+        .map((s) => fila(s, "Todos los insumos")),
+    ];
+  };
   const [marcadas, setMarcadas] = useState<Set<number>>(
     () => new Set(compra.lineas.filter(marcadaDeFabrica).map((l) => l.id)),
   );
@@ -296,7 +323,7 @@ function TarjetaDeCompra({
     try {
       const r = await aplicarCompra(compra.id, ids);
       toast.success(
-        `${r.aplicadas} costo${r.aplicadas === 1 ? "" : "s"} al día · la bodega sumó lo comprado`,
+        `${r.aplicadas} costo${r.aplicadas === 1 ? "" : "s"} al día en el catálogo`,
       );
       onCambio(true);
     } catch (e) {
@@ -494,7 +521,7 @@ function TarjetaDeCompra({
                       </span>
                     ) : (
                       <SelectWithSearch
-                        options={opciones}
+                        options={opcionesPara(l)}
                         value={l.supply_id ? String(l.supply_id) : ""}
                         onChange={(val) =>
                           void cambiar(l, {
@@ -511,6 +538,39 @@ function TarjetaDeCompra({
                     <span className="mt-0.5 block truncate text-[11px] leading-4">
                       {fuera ? (
                         " "
+                      ) : insumo && sugerido(l) ? (
+                        <span className="text-amber-700">
+                          Sugerido ·{" "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void cambiar(l, { supply_id: insumo.id })
+                            }
+                            className="font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            Sí, es este
+                          </button>
+                          {(l.posibles ?? [])
+                            .filter((id) => id !== insumo.id)
+                            .map((id, i) => {
+                              const p = porId.get(id);
+                              if (!p) return null;
+                              return (
+                                <span key={id}>
+                                  {i === 0 ? " · o " : " · "}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void cambiar(l, { supply_id: id })
+                                    }
+                                    className="font-semibold text-blue-600 hover:text-blue-800"
+                                  >
+                                    {p.name}
+                                  </button>
+                                </span>
+                              );
+                            })}
+                        </span>
                       ) : !insumo && (l.posibles?.length ?? 0) > 0 ? (
                         <span className="text-amber-700">
                           ¿Cuál es?{" "}
@@ -664,8 +724,8 @@ function TarjetaDeCompra({
 
       <div className="flex items-center gap-3 border-t border-gray-100 px-3 py-2">
         <span className="text-[11px] text-gray-500">
-          Al aplicar: el costo va al catálogo, lo comprado suma a la bodega y la
-          próxima compra de este proveedor se asocia sola.
+          Al aplicar: el costo va al catálogo y la próxima compra de este
+          proveedor se asocia sola.
         </span>
         <button
           type="button"

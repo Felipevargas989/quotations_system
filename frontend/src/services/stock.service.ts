@@ -1,6 +1,6 @@
 // La pestaña «Stock» de Proveedores (doc 25, 23-11-2026): subir compras
-// que lee la IA, revisar y aplicar el costo con check, los cortes y marcas
-// equivalentes y la bodega simple. Todo por el motor (/logistics/stock).
+// que lee la IA, revisar y aplicar el costo con check y los cortes y marcas
+// equivalentes (la bodega salió el mismo día, D16). Todo por el motor (/logistics/stock).
 import { API_ROUTES } from "../constants/api.routes";
 import { api, apiRequest } from "./api";
 
@@ -48,33 +48,13 @@ export interface Equivalente {
   tipo: "corte" | "marca";
 }
 
-export interface LineaDeBodega {
-  tipo: "tengo" | "compra" | "saque" | "evento";
-  cantidad: number;
-  cuando: string;
-  detalle: string | null;
-}
-
-export interface BodegaDeInsumo {
-  supply_id: number;
-  stock: number | null;
-  contado_el: string | null;
-  historia: LineaDeBodega[];
-}
-
 export interface EstadoDeStock {
-  bodega: BodegaDeInsumo[];
   equivalentes: Equivalente[];
   compras: CompraSubida[];
 }
 
 export const getEstadoDeStock = async (): Promise<EstadoDeStock> =>
   (await apiRequest(BASE, "GET")) as EstadoDeStock;
-
-/** Solo la bodega conocida (insumo → stock), para la lista de Compras. */
-export const getBodega = async (): Promise<
-  { supply_id: number; stock: number }[]
-> => (await apiRequest(`${BASE}/bodega`, "GET")) ?? [];
 
 export const subirCompra = async (archivo: File) => {
   const form = new FormData();
@@ -122,16 +102,3 @@ export const agregarEquivalente = async (
 
 export const borrarEquivalente = async (id: number) =>
   apiRequest(`${BASE}/equivalentes/${id}`, "DELETE");
-
-export const moverBodega = async (
-  supply_id: number,
-  tipo: "tengo" | "saque",
-  cantidad_base: number,
-  nota?: string,
-) =>
-  apiRequest(`${BASE}/movimientos`, "POST", {
-    supply_id,
-    tipo,
-    cantidad_base,
-    ...(nota ? { nota } : {}),
-  });

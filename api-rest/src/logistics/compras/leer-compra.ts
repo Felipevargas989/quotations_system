@@ -197,6 +197,14 @@ export const propuestaDeLaCompra = (
       if (!texto) return null;
       const delaIA = Number(x.insumo_id);
       let supplyId = porId.has(delaIA) ? delaIA : null;
+      // Cuando la IA duda, igual SUGIERE el más probable (Felipe, 23-11:
+      // "primero debería sugerirme uno"): queda puesto, sin check y con
+      // los otros posibles a la vista hasta que la persona lo confirme.
+      const posibles = (Array.isArray(x.posibles) ? x.posibles : [])
+        .map(Number)
+        .filter((id, i, a) => porId.has(id) && a.indexOf(id) === i)
+        .slice(0, 3);
+      if (!supplyId && posibles.length) supplyId = posibles[0];
       const yaVisto = aprendido.get(normalizar(texto));
       if (yaVisto !== undefined && porId.has(yaVisto)) supplyId = yaVisto;
       const cantidadBase = positivo(x.cantidad_base);
@@ -211,12 +219,11 @@ export const propuestaDeLaCompra = (
         // El corte o la marca se guarda aunque falte el insumo: al elegirlo,
         // la pantalla pregunta si es un equivalente (doc 25 D14).
         equivalente: x.equivalente ? txt(x.equivalente).slice(0, 80) : null,
-        posibles: supplyId
-          ? []
-          : (Array.isArray(x.posibles) ? x.posibles : [])
-              .map(Number)
-              .filter((id, i, a) => porId.has(id) && a.indexOf(id) === i)
-              .slice(0, 3),
+        // Con posibles, el insumo es una sugerencia por confirmar.
+        posibles:
+          porId.has(delaIA) || (yaVisto !== undefined && porId.has(yaVisto))
+            ? []
+            : posibles,
         cantidad_base: cantidadBase,
         total: total !== null ? Math.round(total) : null,
         costo_base: supplyId ? costoPorUnidad(total, cantidadBase) : null,

@@ -2,10 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { BUCKET_PRIVADO, sanitize } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import type { Movimiento } from './bodega';
 import type { CompraLeida, EquivalenteParaLeer } from './leer-compra';
 
-// Compras con IA y bodega (doc 25, migración 214). Como todo repositorio de
+// Compras con IA (doc 25, migración 214). Como todo repositorio de
 // la casa: la ÚNICA capa que toca Supabase, y cada consulta va por la
 // empresa de la sesión.
 
@@ -369,54 +368,6 @@ export class ComprasRepository {
       .eq('id', supplyId)
       .eq('company_id', companyId);
     if (error) throw error;
-  }
-
-  async movimientos(companyId: number): Promise<Movimiento[]> {
-    const { data, error } = await this.db
-      .from('insumo_movimientos')
-      .select('id, supply_id, tipo, cantidad_base, created_at, nota')
-      .eq('company_id', companyId)
-      .order('created_at');
-    if (error) throw error;
-    return (data ?? []) as Movimiento[];
-  }
-
-  async agregarMovimiento(
-    companyId: number,
-    fila: {
-      supply_id: number;
-      tipo: 'tengo' | 'compra' | 'saque';
-      cantidad_base: number;
-      linea_id?: number | null;
-      nota?: string | null;
-      creado_por?: string | null;
-    },
-  ) {
-    const { error } = await this.db
-      .from('insumo_movimientos')
-      .insert([{ ...fila, company_id: companyId }]);
-    if (error) throw error;
-  }
-
-  /** Los eventos realizados desde un día, con lo que la receta necesita. */
-  async eventosRealizadosDesde(companyId: number, desde: string) {
-    const { data, error } = await this.db
-      .from('quotations')
-      .select(
-        'id, quotation_number, event_date, event_end_date, people_count, items',
-      )
-      .eq('company_id', companyId)
-      .eq('quotation_status', 'realizada')
-      .gte('event_date', desde);
-    if (error) throw error;
-    return (data ?? []) as {
-      id: string;
-      quotation_number: number;
-      event_date: string | null;
-      event_end_date: string | null;
-      people_count: number | null;
-      items: unknown;
-    }[];
   }
 
   async descargar(ruta: string): Promise<Buffer> {

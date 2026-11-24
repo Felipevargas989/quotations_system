@@ -12,17 +12,6 @@ import {
   errorDeIA,
   MODELO_SONNET,
 } from 'src/oportunidades/analisis/comun';
-import { LogisticsService } from '../logistics.service';
-import {
-  buildConsolidationContext,
-  consolidateEvent,
-  mapNameIds,
-  newAccumulator,
-  type EventItemsSnapshot,
-  type LineaDeReceta,
-  type MuebleBase,
-} from '../utils/consolidacion';
-import { calcularBodega, primerConteo, type ConsumoDeEvento } from './bodega';
 import { ComprasRepository, type FilaDeLinea } from './compras.repository';
 import {
   costoPorUnidad,
@@ -56,7 +45,6 @@ export class ComprasService {
 
   constructor(
     private readonly repo: ComprasRepository,
-    private readonly logistica: LogisticsService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(ComprasService.name);
@@ -259,16 +247,10 @@ export class ComprasService {
   }
 
   /**
-   * Aplica las líneas marcadas: el costo va al catálogo, la cantidad suma a
-   * la bodega y el texto queda aprendido para la próxima compra de ese
-   * proveedor. Nada se aplica sin este paso (el check de una persona).
+   * Aplica las líneas marcadas: el costo va al catálogo y el texto queda
+   * aprendido para la próxima compra de ese proveedor. Nada se aplica sin este paso (el check de una persona).
    */
-  async aplicar(
-    companyId: number,
-    compraId: number,
-    lineaIds: number[],
-    usuario: string | null,
-  ) {
+  async aplicar(companyId: number, compraId: number, lineaIds: number[]) {
     const compra = await this.repo.compra(companyId, compraId);
     if (!compra) throw new NotFoundException('Esa compra no existe');
     const insumos = new Map(
@@ -276,13 +258,6 @@ export class ComprasService {
     );
     const pedidas = new Set(lineaIds);
     let aplicadas = 0;
-    const etiqueta = [
-      compra.tipo_documento ?? 'compra',
-      compra.numero ? `N° ${compra.numero}` : null,
-      compra.proveedor_texto,
-    ]
-      .filter(Boolean)
-      .join(' · ');
     for (const l of compra.lineas ?? []) {
       if (!pedidas.has(l.id) || l.estado !== 'propuesta' || !l.supply_id)
         continue;
@@ -296,16 +271,6 @@ export class ComprasService {
           costo,
           insumo.package_qty ?? null,
         );
-      }
-      if (n(l.cantidad_base) > 0) {
-        await this.repo.agregarMovimiento(companyId, {
-          supply_id: insumo.id,
-          tipo: 'compra',
-          cantidad_base: n(l.cantidad_base),
-          linea_id: l.id,
-          nota: etiqueta.slice(0, 200),
-          creado_por: usuario,
-        });
       }
       await this.repo.agregarEquivalente(companyId, {
         supply_id: insumo.id,
@@ -367,117 +332,16 @@ export class ComprasService {
     return { ok: true };
   }
 
-  // ---------- Bodega ----------
-
-  async moverBodega(
-    companyId: number,
-    usuario: string | null,
-    supplyId: number,
-    tipo: 'tengo' | 'saque',
-    cantidad: number,
-    nota?: string,
-  ) {
-    const insumos = await this.insumosParaLeer(companyId);
-    if (!insumos.some((i) => i.id === supplyId)) {
-      throw new NotFoundException('Ese insumo no es de tu empresa');
-    }
-    await this.repo.agregarMovimiento(companyId, {
-      supply_id: supplyId,
-      tipo,
-      cantidad_base: Math.max(0, cantidad),
-      nota: nota?.trim().slice(0, 200) || null,
-      creado_por: usuario,
-    });
-    return { ok: true };
-  }
-
-  /** Lo que consumieron, por receta, los eventos realizados desde un día. */
-  private async consumoDeEventos(
-    companyId: number,
-    desde: string,
-  ): Promise<ConsumoDeEvento[]> {
-    // Un evento de varios días puede haber partido antes del conteo y
-    // terminar después: se mira un mes hacia atrás y se filtra por el
-    // último día.
-    const atras = new Date(`${desde}T12:00:00Z`);
-    atras.setUTCDate(atras.getUTCDate() - 31);
-    const [eventos, recetas, insumos, nombres] = await Promise.all([
-      this.repo.eventosRealizadosDesde(
-        companyId,
-        atras.toISOString().slice(0, 10),
-      ),
-      this.logistica.findAllRecipeItems(companyId),
-      this.logistica.findAllSupplies(companyId),
-      this.logistica.catalogServiceNames(companyId),
-    ]);
-    if (!eventos.length) return [];
-    const lista = (insumos as unknown as InsumoParaLeer[]).map((i) => ({
-      ...i,
-      price: n(i.price),
-      waste_pct: n((i as unknown as { waste_pct?: number }).waste_pct),
-    }));
-    const cuenta = buildConsolidationContext<
-      (typeof lista)[number],
-      MuebleBase
-    >(
-      (recetas as unknown as LineaDeReceta[]).map((r) => ({
-        ...r,
-        qty_per_person: n(r.qty_per_person),
-      })),
-      lista,
-      [],
-      mapNameIds(nombres as Parameters<typeof mapNameIds>[0]),
-      {},
-    );
-    return eventos
-      .map((e) => {
-        const dia = (e.event_end_date || e.event_date || '').slice(0, 10);
-        const acc = newAccumulator<(typeof lista)[number]>();
-        const r = consolidateEvent(
-          e.items as EventItemsSnapshot,
-          e.people_count || 0,
-          cuenta,
-          acc,
-        );
-        return {
-          quotation_id: e.id,
-          numero: e.quotation_number,
-          dia,
-          consumo: r.supplyUse,
-        };
-      })
-      .filter((e) => e.dia > desde || e.dia === desde);
-  }
-
-  /** Todo lo de la pestaña Stock en una sola respuesta. */
+  /** Todo lo de la pestaña Stock en una sola respuesta. La bodega salió
+   *  el 23-11-2026 (doc 25 D16): queda solo el costeo. */
   async estado(companyId: number) {
-    const [movimientos, equivalentes, compras] = await Promise.all([
-      this.repo.movimientos(companyId),
+    const [equivalentes, compras] = await Promise.all([
       this.repo.equivalentes(companyId),
       this.repo.compras(companyId),
     ]);
-    const desde = primerConteo(movimientos);
-    const eventos = desde ? await this.consumoDeEventos(companyId, desde) : [];
-    const bodega = [...calcularBodega(movimientos, eventos).values()].map(
-      (b) => ({
-        ...b,
-        historia: b.historia.slice(0, 12),
-      }),
-    );
     return {
-      bodega,
       equivalentes: equivalentes.filter((e) => e.tipo !== 'texto'),
       compras,
     };
-  }
-
-  /** Solo la bodega (para la lista de Compras): insumo → stock. */
-  async soloBodega(companyId: number) {
-    const movimientos = await this.repo.movimientos(companyId);
-    const desde = primerConteo(movimientos);
-    const eventos = desde ? await this.consumoDeEventos(companyId, desde) : [];
-    return [...calcularBodega(movimientos, eventos).values()]
-      .filter((b) => b.stock !== null)
-      .map((b) => ({ supply_id: b.supply_id, stock: b.stock }));
   }
 }

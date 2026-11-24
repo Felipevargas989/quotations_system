@@ -37,7 +37,6 @@ import {
   newAccumulator,
   servicesSignature,
 } from "../../../utils/eventConsolidation";
-import { getBodega } from "../../../services/stock.service";
 import QuienLoPide from "./QuienLoPide";
 import { numerosDeCotizacion, pedidosPorInsumo } from "./pedidosPorInsumo";
 
@@ -127,25 +126,6 @@ export default function ComprasTab({
     // VELOCIDAD 2.0 (28-07): un solo viaje (paquete del backend).
     queryFn: getEstadoCompras,
   });
-  // LA BODEGA (doc 25 §4, 23-11-2026): lo que hay se descuenta de lo que
-  // piden los eventos. Sin conteo, el insumo se compra completo.
-  const bodegaQuery = useQuery({
-    queryKey: ["logistica", "stock", "bodega", companyId],
-    queryFn: getBodega,
-  });
-  const bodega = useMemo(
-    () => new Map((bodegaQuery.data ?? []).map((b) => [b.supply_id, b.stock])),
-    [bodegaQuery.data],
-  );
-  /** Lo que hay que comprar: lo que se necesita menos la bodega (nunca < 0). */
-  const aComprar = (c: ConsolidatedSupply): number => {
-    const st = bodega.get(c.supply.id);
-    if (st === undefined || st === null) return c.totalBase;
-    return Math.max(
-      0,
-      Math.round((c.totalBase - Math.max(0, st)) * 1000) / 1000,
-    );
-  };
 
   const events = estadoQuery.data?.events ?? [];
   const provisions = estadoQuery.data?.provisions ?? [];
@@ -661,12 +641,12 @@ export default function ComprasTab({
               c.supply.package_qty &&
               c.supply.package_qty > 0 &&
               (c.supply.package_name || c.supply.package_qty !== 1)
-                ? `${Math.ceil(aComprar(c) / c.supply.package_qty).toLocaleString("es-CL")} × ${
+                ? `${Math.ceil(c.totalBase / c.supply.package_qty).toLocaleString("es-CL")} × ${
                     c.supply.package_name || "formato"
                   } de ${Number(c.supply.package_qty).toLocaleString("es-CL")} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
                 : "";
             const quien = numerosDeCotizacion(pedidos.get(c.supply.id));
-            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}${quien ? ` <span class="nota">${esc(quien)}</span>` : ""}</td><td class="qty">${fmtQty(aComprar(c))} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
+            return `<tr><td class="chk"><span></span></td><td>${esc(c.supply.name)}${quien ? ` <span class="nota">${esc(quien)}</span>` : ""}</td><td class="qty">${fmtQty(c.totalBase)} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}</td><td class="fmt">${
               formato ? `· ${esc(formato)}` : ""
             }</td><td class="der">${
               c.supply.price ? fmtMoney(c.costTotal) : "—"
@@ -755,7 +735,7 @@ export default function ComprasTab({
   </div>
   ${secciones || '<p style="text-align:center;color:#6b7280;margin-top:30px">No hay insumos que coincidan con el filtro actual.</p>'}
   ${secciones ? `<div class="total-final"><span>Total estimado</span><span>${fmtMoney(totalShown)}</span></div>` : ""}
-  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Lo que falta comprar: cantidades netas de receta menos la bodega · la merma va incluida solo en el costo · #N ✓ = ya provisionado para esa cotización</span></div>
+  <div class="pie"><span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span><span>Cantidades netas de receta · la merma va incluida solo en el costo · #N ✓ = ya provisionado para esa cotización</span></div>
 </div>
 </body></html>`;
     const win = window.open("", "_blank");
@@ -796,9 +776,9 @@ export default function ComprasTab({
           g.supplier?.contact_name ? `;${g.supplier.contact_name}` : ""
         }${g.supplier?.phone ? `;${formatPhone(g.supplier.phone)}` : ""}`,
       );
-      lines.push("Insumo;Comprar;Unidad;Formato;Costo estimado;Provisión");
+      lines.push("Insumo;Cantidad;Unidad;Formato;Costo estimado;Provisión");
       rowsShown.forEach((c) => {
-        const qty = fmtQty(aComprar(c)).replace(".", "");
+        const qty = fmtQty(c.totalBase).replace(".", "");
         const st = supplyStatus(c.supply.id);
         const estado =
           st.prov === st.used && st.used > 0
@@ -811,7 +791,7 @@ export default function ComprasTab({
           c.supply.package_qty &&
           c.supply.package_qty > 0 &&
           (c.supply.package_name || c.supply.package_qty !== 1)
-            ? `${Math.ceil(aComprar(c) / c.supply.package_qty)} x ${
+            ? `${Math.ceil(c.totalBase / c.supply.package_qty)} x ${
                 c.supply.package_name || "formato"
               } de ${c.supply.package_qty} ${UNIT_FAMILY_INFO[c.supply.unit_family].base}`
             : "";
@@ -1227,8 +1207,6 @@ export default function ComprasTab({
                 <col className="w-44" />
                 <col />
                 <col className="w-28" />
-                <col className="w-24" />
-                <col className="w-28" />
                 <col className="w-56" />
                 <col className="w-28" />
               </colgroup>
@@ -1244,13 +1222,7 @@ export default function ComprasTab({
                     Nombre insumo
                   </th>
                   <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700">
-                    Necesito
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700">
-                    Bodega
-                  </th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700">
-                    Comprar
+                    Cantidad
                   </th>
                   <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700">
                     Formato
@@ -1315,7 +1287,7 @@ export default function ComprasTab({
                           }`}
                         />
                       </td>
-                      <td colSpan={6} className="px-3 py-2">
+                      <td colSpan={4} className="px-3 py-2">
                         <span className="flex items-center gap-2">
                           {isOpen ? (
                             <ChevronDown size={15} className="text-blue-500" />
@@ -1416,26 +1388,6 @@ export default function ComprasTab({
                               {fmtQty(c.totalBase)}{" "}
                               {UNIT_FAMILY_INFO[c.supply.unit_family].base}
                             </td>
-                            <td className="px-3 py-1.5 text-right whitespace-nowrap text-gray-500">
-                              {bodega.has(c.supply.id)
-                                ? `${fmtQty(Math.max(0, bodega.get(c.supply.id) ?? 0))} ${
-                                    UNIT_FAMILY_INFO[c.supply.unit_family].base
-                                  }`
-                                : "—"}
-                            </td>
-                            <td
-                              className={`px-3 py-1.5 text-right whitespace-nowrap font-semibold ${
-                                aComprar(c) > 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                              }`}
-                            >
-                              {aComprar(c) > 0
-                                ? `${fmtQty(aComprar(c))} ${
-                                    UNIT_FAMILY_INFO[c.supply.unit_family].base
-                                  }`
-                                : "0 ✓"}
-                            </td>
                             {/* Formato de compra en SU columna (informativo;
                                 el costo es lineal). */}
                             <td className="px-2 py-1.5 text-[11px] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -1444,7 +1396,7 @@ export default function ComprasTab({
                               (c.supply.package_name ||
                                 c.supply.package_qty !== 1)
                                 ? `${Math.ceil(
-                                    aComprar(c) / c.supply.package_qty,
+                                    c.totalBase / c.supply.package_qty,
                                   ).toLocaleString("es-CL")} × ${
                                     c.supply.package_name || "formato"
                                   } de ${Number(
@@ -1464,7 +1416,7 @@ export default function ComprasTab({
                       <tr className="bg-gray-50">
                         <td />
                         <td
-                          colSpan={6}
+                          colSpan={4}
                           className="px-3 py-1.5 text-right text-xs font-semibold text-gray-500 uppercase"
                         >
                           Subtotal
