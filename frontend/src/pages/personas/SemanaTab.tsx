@@ -806,6 +806,7 @@ export default function SemanaTab({
           // Sobre blanco y con el mes una sola vez.
           calendario
           resaltarDia={hoyEnChile()}
+          diaElegido={diaAbierto ?? undefined}
           onDiaClick={(d) => {
             setCasilla(null);
             setDiaAbierto(diaAbierto === d ? null : d);
