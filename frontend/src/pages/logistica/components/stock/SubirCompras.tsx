@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { CheckCircle2, FileText, Loader2, Upload } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Upload, X } from "lucide-react";
 import ConfirmInline from "../../../../components/ConfirmInline";
 import FileViewLink from "../../../../components/FileViewLink";
 import NumberInput from "../../../../components/inputs/NumberInput";
@@ -367,16 +367,21 @@ function TarjetaDeCompra({
         </span>
       </div>
 
+      {/* UNA FILA POR LÍNEA, TODAS DEL MISMO ALTO (Felipe, 23-11: "esto
+          está muy desordenado"). Debajo del insumo, una sola línea chica:
+          la pregunta que falta o lo que ya quedó definido. La × de «no es
+          insumo» va siempre al final de la fila, y lo que falta lo dice el
+          costo nuevo en una palabra. */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm table-fixed">
           <colgroup>
             <col className="w-9" />
-            <col className="w-[26%]" />
-            <col className="w-[24%]" />
-            <col className="w-32" />
-            <col className="w-28" />
-            <col className="w-28" />
-            <col className="w-36" />
+            <col className="w-[25%]" />
+            <col className="w-[33%]" />
+            <col className="w-24" />
+            <col className="w-24" />
+            <col />
+            <col className="w-8" />
           </colgroup>
           <thead className="border-b border-gray-200 text-[11px] uppercase tracking-wide text-gray-500">
             <tr>
@@ -390,11 +395,9 @@ function TarjetaDeCompra({
               <th className="px-2 py-1.5 text-right font-semibold">Cantidad</th>
               <th className="px-2 py-1.5 text-right font-semibold">Total</th>
               <th className="px-2 py-1.5 text-right font-semibold">
-                Costo antes
-              </th>
-              <th className="px-2 py-1.5 text-right font-semibold">
                 Costo nuevo
               </th>
+              <th />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -408,6 +411,21 @@ function TarjetaDeCompra({
               const salto = v !== null && Math.abs(v) > SALTO_GRANDE;
               const fuera = l.estado === "no_es_insumo";
               const hecha = l.estado === "aplicada";
+              const eqGuardado =
+                insumo && l.equivalente
+                  ? equivalentes.find(
+                      (e) =>
+                        e.supply_id === insumo.id &&
+                        normal(e.nombre) === normal(l.equivalente ?? ""),
+                    )
+                  : undefined;
+              const falta = !insumo
+                ? "elige insumo"
+                : !l.cantidad_base
+                  ? "falta cantidad"
+                  : !l.total
+                    ? "sin monto"
+                    : "";
               return (
                 <tr
                   key={l.id}
@@ -421,7 +439,7 @@ function TarjetaDeCompra({
                           : ""
                   }
                 >
-                  <td className="px-2 py-1.5 text-center">
+                  <td className="px-2 py-2 text-center align-middle">
                     {hecha ? (
                       <CheckCircle2
                         size={15}
@@ -445,132 +463,119 @@ function TarjetaDeCompra({
                       />
                     )}
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-2 align-middle">
                     <span
                       className="block truncate text-gray-800"
                       title={l.texto}
                     >
                       {l.texto}
                     </span>
-                    {l.cantidad_texto && (
-                      <span className="block text-[11px] text-gray-400 truncate">
-                        {l.cantidad_texto}
-                      </span>
-                    )}
+                    <span className="block truncate text-[11px] text-gray-400">
+                      {l.cantidad_texto ?? " "}
+                    </span>
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-2 align-middle">
                     {fuera ? (
-                      <button
-                        type="button"
-                        onClick={() => void cambiar(l, { no_es_insumo: false })}
-                        className="text-xs text-gray-500 hover:text-blue-700"
-                      >
-                        No es insumo · deshacer
-                      </button>
-                    ) : hecha ? (
-                      <span className="text-gray-800">
-                        {insumo?.name ?? "—"}
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <div className="min-w-0 flex-1">
-                          <SelectWithSearch
-                            options={opciones}
-                            value={l.supply_id ? String(l.supply_id) : ""}
-                            onChange={(val) =>
-                              void cambiar(l, {
-                                supply_id: val ? Number(val) : null,
-                              })
-                            }
-                            placeholder="Asociar a insumo…"
-                            searchPlaceholder="Buscar insumo…"
-                            tamano="sm"
-                            mostrarConteo={false}
-                          />
-                        </div>
-                        {!l.supply_id && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void cambiar(l, { no_es_insumo: true })
-                            }
-                            className="shrink-0 text-[11px] font-semibold text-gray-500 hover:text-gray-800"
-                            title="Flete, despacho, descuento… no es un insumo"
-                          >
-                            No es insumo
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {/* «¿Cuál es?»: la IA dudó y dejó los posibles. */}
-                    {!l.supply_id &&
-                      !fuera &&
-                      !hecha &&
-                      (l.posibles?.length ?? 0) > 0 && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className="text-[11px] font-semibold text-amber-700">
-                            ¿Cuál es?
-                          </span>
-                          {(l.posibles ?? []).map((id) => {
-                            const p = porId.get(id);
-                            if (!p) return null;
-                            return (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() =>
-                                  void cambiar(l, { supply_id: id })
-                                }
-                                className="px-2 py-0.5 text-[11px] font-semibold rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                              >
-                                {p.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    {insumo && preguntarEquivalente(l, insumo) ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
-                        <span className="text-violet-800">
-                          ¿«{l.equivalente}» es un corte o una marca de{" "}
-                          {insumo.name}?
-                        </span>
-                        {(["corte", "marca"] as const).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() =>
-                              void guardarEquivalente(l, insumo, t)
-                            }
-                            className="px-2 py-0.5 font-semibold rounded-full border border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100"
-                          >
-                            {t === "corte" ? "Corte" : "Marca"}
-                          </button>
-                        ))}
+                      <span className="block truncate text-xs">
+                        No es insumo ·{" "}
                         <button
                           type="button"
                           onClick={() =>
-                            setNoEs((prev) => new Set(prev).add(l.id))
+                            void cambiar(l, { no_es_insumo: false })
                           }
-                          className="px-1.5 py-0.5 font-semibold text-gray-500 hover:text-gray-800"
+                          className="font-semibold text-blue-600 hover:text-blue-800"
                         >
-                          No
+                          deshacer
                         </button>
-                      </div>
+                      </span>
+                    ) : hecha ? (
+                      <span className="block truncate text-gray-800">
+                        {insumo?.name ?? "—"}
+                      </span>
                     ) : (
-                      l.equivalente &&
-                      !fuera &&
-                      insumo &&
-                      guardados.has(
-                        `${insumo.id}|${normal(l.equivalente)}`,
-                      ) && (
-                        <span className="mt-0.5 inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-violet-100 text-violet-700">
-                          {l.equivalente}
-                        </span>
-                      )
+                      <SelectWithSearch
+                        options={opciones}
+                        value={l.supply_id ? String(l.supply_id) : ""}
+                        onChange={(val) =>
+                          void cambiar(l, {
+                            supply_id: val ? Number(val) : null,
+                          })
+                        }
+                        placeholder="Asociar a insumo…"
+                        searchPlaceholder="Buscar insumo…"
+                        tamano="sm"
+                        mostrarConteo={false}
+                      />
                     )}
+                    {/* La línea chica: siempre una, siempre del mismo alto. */}
+                    <span className="mt-0.5 block truncate text-[11px] leading-4">
+                      {fuera ? (
+                        " "
+                      ) : !insumo && (l.posibles?.length ?? 0) > 0 ? (
+                        <span className="text-amber-700">
+                          ¿Cuál es?{" "}
+                          {(l.posibles ?? []).map((id, i) => {
+                            const p = porId.get(id);
+                            if (!p) return null;
+                            return (
+                              <span key={id}>
+                                {i > 0 && " · "}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void cambiar(l, { supply_id: id })
+                                  }
+                                  className="font-semibold text-blue-600 hover:text-blue-800"
+                                >
+                                  {p.name}
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </span>
+                      ) : insumo && preguntarEquivalente(l, insumo) ? (
+                        <span className="text-violet-800">
+                          {l.equivalente} → ¿corte o marca?{" "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void guardarEquivalente(l, insumo, "corte")
+                            }
+                            className="font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            Corte
+                          </button>
+                          {" · "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void guardarEquivalente(l, insumo, "marca")
+                            }
+                            className="font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            Marca
+                          </button>
+                          {" · "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNoEs((prev) => new Set(prev).add(l.id))
+                            }
+                            className="font-semibold text-gray-500 hover:text-gray-800"
+                          >
+                            No
+                          </button>
+                        </span>
+                      ) : eqGuardado ? (
+                        <span className="text-violet-700">
+                          {eqGuardado.nombre} · {eqGuardado.tipo}
+                        </span>
+                      ) : (
+                        " "
+                      )}
+                    </span>
                   </td>
-                  <td className="px-2 py-1.5 text-right">
+                  <td className="px-2 py-2 text-right align-middle">
                     {hecha || fuera || !insumo ? (
                       <span className="tabular-nums">
                         {l.cantidad_base
@@ -598,41 +603,56 @@ function TarjetaDeCompra({
                       </span>
                     )}
                   </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">
+                  <td className="px-2 py-2 text-right tabular-nums align-middle">
                     {l.total ? fmtMoney(l.total) : "—"}
                   </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-gray-500">
-                    {l.costo_antes ? `${fmtCosto(l.costo_antes)}/${base}` : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
-                    {l.costo_base ? (
+                  <td className="px-2 py-2 text-right whitespace-nowrap align-middle">
+                    {fuera ? (
+                      <span className="text-[11px]">—</span>
+                    ) : l.costo_base ? (
                       <>
-                        <span className="font-semibold text-gray-900">
-                          {fmtCosto(l.costo_base)}/{base}
-                        </span>
-                        {v !== null && v !== 0 && (
-                          <span
-                            className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                              salto
-                                ? "bg-amber-200 text-amber-900"
-                                : v > 0
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-blue-100 text-blue-700"
-                            }`}
-                          >
-                            {v > 0 ? "+" : ""}
-                            {v}%
+                        <span className="block tabular-nums">
+                          <span className="font-semibold text-gray-900">
+                            {fmtCosto(l.costo_base)}/{base}
                           </span>
-                        )}
+                          {v !== null && v !== 0 && (
+                            <span
+                              className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                                salto
+                                  ? "bg-amber-200 text-amber-900"
+                                  : v > 0
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                              }`}
+                            >
+                              {v > 0 ? "+" : ""}
+                              {v}%
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-[11px] text-gray-400 tabular-nums">
+                          {l.costo_antes
+                            ? `antes ${fmtCosto(l.costo_antes)}/${base}`
+                            : " "}
+                        </span>
                       </>
                     ) : (
-                      <span className="text-[11px] text-gray-400">
-                        {insumo
-                          ? l.total
-                            ? "falta cantidad"
-                            : "sin monto"
-                          : ""}
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
+                        {falta || "—"}
                       </span>
+                    )}
+                  </td>
+                  <td className="px-1 py-2 text-center align-middle">
+                    {!hecha && !fuera && (
+                      <button
+                        type="button"
+                        onClick={() => void cambiar(l, { no_es_insumo: true })}
+                        className="text-gray-300 hover:text-gray-600"
+                        title="No es insumo (flete, despacho, descuento…)"
+                        aria-label={`${l.texto}: no es insumo`}
+                      >
+                        <X size={14} />
+                      </button>
                     )}
                   </td>
                 </tr>

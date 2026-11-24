@@ -37,7 +37,9 @@ La maqueta se mostró antes de programar (la pestaña Stock con «Subir compras�
 | # | Decisión |
 |---|---|
 | D13 | En Stock, los insumos van **agrupados por proveedor**, como en la pestaña Insumos: una banda por proveedor, plegable, con su número de insumos; los sin proveedor al final. |
-| D14 | **Los equivalentes se definen solo al cargar la factura** (Felipe: *"manejemoslo en la interna a la hora de hacer las compras o cargar facturas, que ahí pregunte bien de qué insumo estamos hablando"*). Sale el editor de cortes y marcas de la bodega (quedan a la vista, con su ×). Cuando la IA duda, la línea pregunta **«¿Cuál es?»** con hasta 3 insumos posibles (`posibles`); al asociar una línea que trae un corte o una marca, pregunta **«¿Es un corte o una marca de …?»** y lo guarda. |
+| D14 | **Los equivalentes se definen solo al cargar la factura** (Felipe: *"manejemoslo en la interna a la hora de hacer las compras o cargar facturas, que ahí pregunte bien de qué insumo estamos hablando"*). Sale el editor de cortes y marcas de la bodega: se ven solo al pasar el mouse por el chip «2 cortes» del insumo. Cuando la IA duda, la línea pregunta **«¿Cuál es?»** con hasta 3 insumos posibles (`posibles`); al asociar una línea que trae un corte o una marca, pregunta **«¿Es un corte o una marca de …?»** y lo guarda. |
+
+| D15 | **La factura, ordenada** (Felipe: *"esto está muy desordenado"*): una fila por línea, todas del mismo alto; debajo del insumo, una sola línea chica con la pregunta que falta («¿Cuál es? A · B · C», «Carnicero → ¿corte o marca? Corte · Marca · No») o lo ya definido («Juanito · marca»); la × de «no es insumo» siempre al final de la fila; el costo nuevo con el de antes debajo, o lo que falta en una palabra en ámbar («elige insumo», «falta cantidad», «sin monto»). |
 
 ## 3. Cómo funciona
 
