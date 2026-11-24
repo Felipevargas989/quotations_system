@@ -1,4 +1,4 @@
-// La pestaña «Stock» de Proveedores (doc 25, 23-11-2026): subir compras
+// La pestaña «Costos» de Proveedores (doc 25, 23-11-2026; antes «Stock»): subir compras
 // que lee la IA, revisar y aplicar el costo con check y los cortes y marcas
 // equivalentes (la bodega salió el mismo día, D16). Todo por el motor (/logistics/stock).
 import { API_ROUTES } from "../constants/api.routes";
@@ -48,9 +48,22 @@ export interface Equivalente {
   tipo: "corte" | "marca";
 }
 
+/** Una compra aplicada de un insumo vigilado: su costo y el de antes. */
+export interface CostoDeUnaCompra {
+  costo: number;
+  antes: number | null;
+  fecha: string | null;
+  proveedor: string | null;
+  equivalente: string | null;
+}
+
 export interface EstadoDeStock {
   equivalentes: Equivalente[];
   compras: CompraSubida[];
+  /** Los insumos con estrella (doc 25 D18). */
+  vigilados: number[];
+  /** Hasta 6 compras por insumo vigilado, la más nueva primero. */
+  historial: Record<number, CostoDeUnaCompra[]>;
 }
 
 export const getEstadoDeStock = async (): Promise<EstadoDeStock> =>
@@ -102,3 +115,6 @@ export const agregarEquivalente = async (
 
 export const borrarEquivalente = async (id: number) =>
   apiRequest(`${BASE}/equivalentes/${id}`, "DELETE");
+
+export const vigilarInsumo = async (supplyId: number, vigilar: boolean) =>
+  apiRequest(`${BASE}/vigilados/${supplyId}`, "PUT", { vigilar });

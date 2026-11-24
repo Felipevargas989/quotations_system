@@ -51,7 +51,7 @@ export const API_ROUTES = {
   LOGISTICS_SUPPLIERS: "/logistics/suppliers",
   LOGISTICS_SUPPLIERS_USAGE: "/logistics/suppliers/usage",
   LOGISTICS_SUPPLIES: "/logistics/supplies",
-  // La pestaña «Stock» de Proveedores (doc 25, 23-11-2026).
+  // La pestaña «Costos» de Proveedores (doc 25; antes «Stock»).
   LOGISTICS_STOCK: "/logistics/stock",
   LOGISTICS_SUPPLIES_USAGE: "/logistics/supplies/usage",
   LOGISTICS_FURNITURE: "/logistics/furniture",

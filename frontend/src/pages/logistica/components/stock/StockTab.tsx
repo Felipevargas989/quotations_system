@@ -4,13 +4,14 @@ import {
   getSupplies,
 } from "../../../../services/logistics.service";
 import { getEstadoDeStock } from "../../../../services/stock.service";
+import InsumosVigilados from "./InsumosVigilados";
 import SubirCompras from "./SubirCompras";
 import TablaDeCostos from "./TablaDeCostos";
 
-// LA PESTAÑA «STOCK» DE PROVEEDORES (doc 25, 23-11-2026). Felipe: *"hacer
-// otra pestaña que se llame stock, y ahí ir como actualizando"*. Arriba se
-// suben las compras y se revisan con check; abajo, cada insumo con su
-// costo y su última compra (la bodega salió el mismo día, D16).
+// LA PESTAÑA «COSTOS» DE PROVEEDORES (doc 25; se llamó «Stock» hasta el
+// 24-11-2026). Arriba, los insumos vigilados (D18); al medio se suben las
+// compras y se revisan con check; abajo, cada insumo con su costo y su
+// última compra. El stock quedó en pausa (D16 y D18).
 
 export default function StockTab({
   companyId,
@@ -52,7 +53,7 @@ export default function StockTab({
   if (estadoQuery.isError) {
     return (
       <p className="p-6 text-sm text-red-600">
-        No se pudo cargar el stock. Intenta de nuevo en un momento.
+        No se pudieron cargar los costos. Intenta de nuevo en un momento.
       </p>
     );
   }
@@ -60,6 +61,11 @@ export default function StockTab({
   const supplies = insumosQuery.data ?? [];
   return (
     <div className="p-4 space-y-8">
+      <InsumosVigilados
+        supplies={supplies}
+        vigilados={estado.vigilados ?? []}
+        historial={estado.historial ?? {}}
+      />
       <SubirCompras
         compras={estado.compras}
         supplies={supplies}
@@ -71,6 +77,8 @@ export default function StockTab({
         proveedores={proveedoresQuery.data ?? []}
         equivalentes={estado.equivalentes}
         compras={estado.compras}
+        vigilados={estado.vigilados ?? []}
+        onCambio={() => void refrescar()}
       />
     </div>
   );

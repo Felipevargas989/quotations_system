@@ -12,6 +12,9 @@
 --      IA aprendió de una línea ya asociada, por proveedor).
 --   2. compras_subidas + compras_subidas_lineas: cada documento subido y
 --      lo que la IA leyó de él, con el costo de antes y el propuesto.
+--   3. insumos_vigilados: los insumos que la empresa sigue de cerca en la
+--      pestaña Costos (estrella). Felipe, 24-11: «dejemos la parte de
+--      stock como un módulo de costos que vamos a ir monitoreando».
 --   (La bodega, insumo_movimientos, salió antes de llegar a producción:
 --   Felipe, 23-11, «abortemos eso»; doc 25 D16.)
 --
@@ -86,19 +89,43 @@ create index if not exists compras_subidas_lineas_insumo
 comment on column public.compras_subidas_lineas.costo_base is
   'Costo por unidad base del insumo (kg, L o u) que propone la línea: total ÷ cantidad_base.';
 
+create table if not exists public.insumos_vigilados (
+  company_id bigint not null,
+  supply_id bigint not null references public.supplies(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (company_id, supply_id)
+);
+
+comment on table public.insumos_vigilados is
+  'Doc 25 D18: insumos con estrella en la pestaña Costos (se sigue la evolución de su costo).';
+
+-- Valle del Sol (empresa 1) parte con los 10 que más pesan en el gasto
+-- y se guardan de una compra a otra (análisis del 24-11-2026).
+insert into public.insumos_vigilados (company_id, supply_id)
+select s.company_id, s.id
+from public.supplies s
+where s.company_id = 1
+  and s.name in (
+    'Sobrecostilla nacional', 'Lomo liso nacional', 'Pechuga de pollo',
+    'Trutro de pollo', 'Chuleta Centro', 'Carne molida', 'Pulpa de cerdo 57',
+    'Longaniza', 'Leche Entera', 'Bebida a granel', 'Bebida en lata')
+on conflict do nothing;
+
 -- Cerradas al navegador: todo pasa por el motor (tablas abiertas y el
 -- grifo, PR #109).
 alter table public.insumo_equivalentes enable row level security;
 alter table public.compras_subidas enable row level security;
 alter table public.compras_subidas_lineas enable row level security;
+alter table public.insumos_vigilados enable row level security;
 revoke all on public.insumo_equivalentes from anon, authenticated;
 revoke all on public.compras_subidas from anon, authenticated;
 revoke all on public.compras_subidas_lineas from anon, authenticated;
+revoke all on public.insumos_vigilados from anon, authenticated;
 -- El motor entra con service_role: en las bases sin privilegios por
 -- defecto (el laboratorio) hay que dárselos a mano (medido el 23-11).
 grant select, insert, update, delete on
   public.insumo_equivalentes, public.compras_subidas,
-  public.compras_subidas_lineas
+  public.compras_subidas_lineas, public.insumos_vigilados
   to service_role;
 grant usage, select on sequence
   public.insumo_equivalentes_id_seq, public.compras_subidas_id_seq,
