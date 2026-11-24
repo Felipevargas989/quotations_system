@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
-import { cuerpoDeLaHoja } from "./imprimirHoja";
+import { describe, expect, it, vi } from "vitest";
+import { cuerpoDeLaHoja, imprimirHoja } from "./imprimirHoja";
 
 /** EL DETALLE DEL DÍA, IMPRIMIBLE (Felipe, 23-11-2026). */
 describe("cuerpoDeLaHoja", () => {
@@ -42,5 +42,28 @@ describe("cuerpoDeLaHoja", () => {
     cuerpoDeLaHoja(nodo);
     expect(nodo.querySelector("input")).not.toBeNull();
     expect(nodo.querySelectorAll("button").length).toBe(3);
+  });
+});
+
+/** COMO EL PDF DE LA COTIZACIÓN: el diálogo sale solo, sin otro botón
+ *  (Felipe, 23-11-2026). */
+describe("imprimirHoja", () => {
+  it("abre la hoja con el nombre del archivo y lanza imprimir sola", () => {
+    let html = "";
+    const abrir = vi.spyOn(window, "open").mockReturnValue({
+      document: {
+        write: (h: string) => {
+          html += h;
+        },
+        close: () => undefined,
+      },
+    } as unknown as Window);
+    const nodo = document.createElement("div");
+    nodo.textContent = "lun 23 de nov";
+    imprimirHoja(nodo, "Personal - lunes 23 de noviembre");
+    abrir.mockRestore();
+    expect(html).toContain("<title>Personal - lunes 23 de noviembre</title>");
+    expect(html).toContain("window.print()");
+    expect(html).not.toContain("<button");
   });
 });
