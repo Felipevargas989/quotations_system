@@ -8,7 +8,8 @@ import type { CostoDeUnaCompra } from "../../../../services/stock.service";
 // LOS INSUMOS VIGILADOS (doc 25 D18, 24-11-2026). Felipe: *"dejemos la parte
 // de stock como un módulo de costos que vamos a ir monitoreando ciertos
 // costos"*. Cada tarjeta, siempre en el mismo orden: el insumo, su costo de
-// hoy, cuánto se movió en la última compra y de dónde salió. Se marcan con
+// hoy, cuánto se movió en la última compra y de dónde salió (sin la
+// línea de tendencia: Felipe, 24-11, "no entiendo la raya"). Se marcan con
 // la estrella de la tabla de abajo.
 
 const fmt = (v: number) =>
@@ -16,31 +17,6 @@ const fmt = (v: number) =>
 
 const dia = (f: string | null) =>
   f ? `${f.slice(8, 10)}-${f.slice(5, 7)}` : "";
-
-/** La línea de los últimos costos, del más viejo al de hoy. */
-function Tendencia({ puntos }: { readonly puntos: number[] }) {
-  if (puntos.length < 2) return null;
-  const min = Math.min(...puntos);
-  const max = Math.max(...puntos);
-  const alto = 22;
-  const ancho = 72;
-  const xy = puntos.map((p, i) => {
-    const x = (i / (puntos.length - 1)) * ancho;
-    const y = max === min ? alto / 2 : alto - ((p - min) / (max - min)) * alto;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const sube = puntos[puntos.length - 1] > puntos[0];
-  return (
-    <svg width={ancho} height={alto + 2} className="overflow-visible">
-      <polyline
-        points={xy.join(" ")}
-        fill="none"
-        strokeWidth={2}
-        className={sube ? "stroke-red-500" : "stroke-green-600"}
-      />
-    </svg>
-  );
-}
 
 export default function InsumosVigilados({
   supplies,
@@ -77,12 +53,6 @@ export default function InsumosVigilados({
             const antes = ultima?.antes ?? null;
             const pct =
               antes && hoy ? Math.round(((hoy - antes) / antes) * 100) : null;
-            const puntos = [
-              ...(h.length && h[h.length - 1].antes
-                ? [h[h.length - 1].antes as number]
-                : []),
-              ...[...h].reverse().map((c) => c.costo),
-            ];
             return (
               <div
                 key={s.id}
@@ -98,7 +68,6 @@ export default function InsumosVigilados({
                       /{base}
                     </span>
                   </p>
-                  <Tendencia puntos={puntos} />
                 </div>
                 <div className="mt-1.5 flex items-center gap-2 text-xs">
                   {pct === null ? (

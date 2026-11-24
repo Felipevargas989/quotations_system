@@ -333,6 +333,11 @@ function TarjetaDeCompra({
     }
   };
 
+  // Lo aplicado se va de la tarjeta (Felipe, 24-11: "una vez que pongo
+  // aplicar debería desaparecer, si no la lista será enorme").
+  const pendientes = compra.lineas.filter((l) => l.estado !== "aplicada");
+  const nAplicadas = compra.lineas.length - pendientes.length;
+
   const nMarcadas = compra.lineas.filter(
     (l) => marcadas.has(l.id) && aplicable(l),
   ).length;
@@ -430,7 +435,7 @@ function TarjetaDeCompra({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {compra.lineas.map((l) => {
+            {pendientes.map((l) => {
               const insumo = l.supply_id ? porId.get(l.supply_id) : undefined;
               const base = insumo
                 ? UNIT_FAMILY_INFO[insumo.unit_family]?.base
@@ -537,12 +542,12 @@ function TarjetaDeCompra({
                       />
                     )}
                     {/* La línea chica: siempre una, siempre del mismo alto. */}
-                    <span className="mt-0.5 block truncate text-[11px] leading-4">
+                    <span className="mt-1 block min-h-4 text-[11px] leading-4">
                       {fuera ? (
                         " "
                       ) : insumo && sugerido(l) ? (
                         <span className="text-amber-700">
-                          Sugerido ·{" "}
+                          La IA no está segura: ¿es este?{" "}
                           <button
                             type="button"
                             onClick={() =>
@@ -550,7 +555,7 @@ function TarjetaDeCompra({
                             }
                             className="font-semibold text-blue-600 hover:text-blue-800"
                           >
-                            Sí, es este
+                            Sí
                           </button>
                           {(l.posibles ?? [])
                             .filter((id) => id !== insumo.id)
@@ -559,7 +564,7 @@ function TarjetaDeCompra({
                               if (!p) return null;
                               return (
                                 <span key={id}>
-                                  {i === 0 ? " · o " : " · "}
+                                  {i === 0 ? " · o quizás " : " · "}
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -575,7 +580,7 @@ function TarjetaDeCompra({
                         </span>
                       ) : !insumo && (l.posibles?.length ?? 0) > 0 ? (
                         <span className="text-amber-700">
-                          ¿Cuál es?{" "}
+                          La IA no sabe cuál es; puede ser{" "}
                           {(l.posibles ?? []).map((id, i) => {
                             const p = porId.get(id);
                             if (!p) return null;
@@ -597,7 +602,7 @@ function TarjetaDeCompra({
                         </span>
                       ) : insumo && preguntarEquivalente(l, insumo) ? (
                         <span className="text-violet-800">
-                          {l.equivalente} → ¿corte o marca?{" "}
+                          ¿«{l.equivalente}» es lo mismo que {insumo.name}?{" "}
                           <button
                             type="button"
                             onClick={() =>
@@ -605,7 +610,7 @@ function TarjetaDeCompra({
                             }
                             className="font-semibold text-blue-600 hover:text-blue-800"
                           >
-                            Corte
+                            Sí, otro corte
                           </button>
                           {" · "}
                           <button
@@ -615,7 +620,7 @@ function TarjetaDeCompra({
                             }
                             className="font-semibold text-blue-600 hover:text-blue-800"
                           >
-                            Marca
+                            Sí, otra marca
                           </button>
                           {" · "}
                           <button
@@ -630,7 +635,9 @@ function TarjetaDeCompra({
                         </span>
                       ) : eqGuardado ? (
                         <span className="text-violet-700">
-                          {eqGuardado.nombre} · {eqGuardado.tipo}
+                          «{eqGuardado.nombre}» es otr
+                          {eqGuardado.tipo === "corte" ? "o corte" : "a marca"}{" "}
+                          de {insumo?.name}
                         </span>
                       ) : (
                         " "
@@ -657,9 +664,9 @@ function TarjetaDeCompra({
                           min={0}
                           placeholder="?"
                           aria-label={`Cantidad de ${l.texto}`}
-                          className="w-full !rounded-md !py-0.5 !pl-1 !pr-6 text-sm text-right tabular-nums"
+                          className="w-full !pl-2 !pr-7 text-sm text-right tabular-nums"
                         />
-                        <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">
                           {base}
                         </span>
                       </span>
@@ -726,8 +733,9 @@ function TarjetaDeCompra({
 
       <div className="flex items-center gap-3 border-t border-gray-100 px-3 py-2">
         <span className="text-[11px] text-gray-500">
-          Al aplicar: el costo va al catálogo y la próxima compra de este
-          proveedor se asocia sola.
+          Lo marcado actualiza el costo del catálogo y se va de esta lista.
+          {nAplicadas > 0 &&
+            ` Ya aplicada${nAplicadas === 1 ? "" : "s"}: ${nAplicadas}.`}
         </span>
         <button
           type="button"
