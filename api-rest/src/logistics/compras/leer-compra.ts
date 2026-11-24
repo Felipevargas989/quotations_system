@@ -113,7 +113,7 @@ export const instruccionesDeLaCompra = (
     '- `equivalente`: si la línea trae un corte o una marca que NO es el nombre del insumo (ej. "Guachalomo" para una carne, "Pedrito" para un aceite), escríbelo aquí con su nombre corto, esté o no en el catálogo.',
     '- Cortes distintos que la empresa vende por separado NO se mezclan: lomo vetado y lomo liso son insumos distintos. Solo junta cortes que estén listados como equivalentes.',
     '- Si no hay un insumo que sea claramente ese producto, deja `insumo_id` vacío. Nunca adivines.',
-    '- Si dudas entre algunos insumos (un corte nuevo que podría ser de varias carnes, una marca que no conoces), deja `insumo_id` vacío y pon en `posibles` hasta 3 ids de los más probables, del más al menos probable. La persona elige.',
+    '- Si dudas entre algunos insumos (un corte nuevo que podría ser de varias carnes, una marca que no conoces), deja `insumo_id` vacío y pon en `posibles` hasta 3 ids de los más probables, del más al menos probable. La persona elige. Igual llena `cantidad_base` en la unidad base del más probable.',
     '- Lo que no es un insumo de cocina o de servicio (fletes, despacho, descuentos globales, envases retornables) igual va como línea, sin insumo_id.',
     '',
     'Reglas para las cantidades:',

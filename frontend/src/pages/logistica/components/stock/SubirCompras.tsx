@@ -627,7 +627,11 @@ function TarjetaDeCompra({
                       </>
                     ) : (
                       <span className="text-[11px] text-gray-400">
-                        {insumo ? "sin monto" : ""}
+                        {insumo
+                          ? l.total
+                            ? "falta cantidad"
+                            : "sin monto"
+                          : ""}
                       </span>
                     )}
                   </td>
