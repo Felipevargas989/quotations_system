@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { CheckCircle2, FileText, Loader2, Upload, X } from "lucide-react";
 import ConfirmInline from "../../../../components/ConfirmInline";
 import FileViewLink from "../../../../components/FileViewLink";
@@ -460,271 +460,292 @@ function TarjetaDeCompra({
                   : !l.total
                     ? "sin monto"
                     : "";
+              // LA AYUDA VA EN SU PROPIA FILA (Felipe, 24-11: "te quedaron
+              // chuecas las líneas… deja como una fila especial para
+              // recomendaciones"): la fila de la línea queda pareja.
+              const hayAyuda =
+                !fuera &&
+                !!(
+                  (insumo && sugerido(l)) ||
+                  (!insumo && (l.posibles?.length ?? 0) > 0) ||
+                  (insumo && preguntarEquivalente(l, insumo)) ||
+                  eqGuardado
+                );
+              const fondo = hecha
+                ? "bg-green-50/50"
+                : fuera
+                  ? "bg-gray-50 text-gray-400"
+                  : salto
+                    ? "bg-amber-50"
+                    : "";
               return (
-                <tr
-                  key={l.id}
-                  className={
-                    hecha
-                      ? "bg-green-50/50"
-                      : fuera
-                        ? "bg-gray-50 text-gray-400"
-                        : salto
-                          ? "bg-amber-50"
-                          : ""
-                  }
-                >
-                  <td className="px-2 py-2 text-center align-middle">
-                    {hecha ? (
-                      <CheckCircle2
-                        size={15}
-                        className="text-green-600 inline"
-                      />
-                    ) : (
-                      <input
-                        type="checkbox"
-                        className="rounded"
-                        disabled={!aplicable(l)}
-                        checked={marcadas.has(l.id) && aplicable(l)}
-                        onChange={() =>
-                          setMarcadas((prev) => {
-                            const s = new Set(prev);
-                            if (s.has(l.id)) s.delete(l.id);
-                            else s.add(l.id);
-                            return s;
-                          })
-                        }
-                        aria-label={`Aplicar ${l.texto}`}
-                      />
-                    )}
-                  </td>
-                  <td className="px-2 py-2 align-middle">
-                    <span
-                      className="block truncate text-gray-800"
-                      title={l.texto}
-                    >
-                      {l.texto}
-                    </span>
-                    <span className="block truncate text-[11px] text-gray-400">
-                      {l.cantidad_texto ?? " "}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 align-middle">
-                    {fuera ? (
-                      <span className="block truncate text-xs">
-                        No es insumo ·{" "}
+                <Fragment key={l.id}>
+                  <tr className={fondo}>
+                    <td className="px-2 py-2 text-center align-middle">
+                      {hecha ? (
+                        <CheckCircle2
+                          size={15}
+                          className="text-green-600 inline"
+                        />
+                      ) : (
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          disabled={!aplicable(l)}
+                          checked={marcadas.has(l.id) && aplicable(l)}
+                          onChange={() =>
+                            setMarcadas((prev) => {
+                              const s = new Set(prev);
+                              if (s.has(l.id)) s.delete(l.id);
+                              else s.add(l.id);
+                              return s;
+                            })
+                          }
+                          aria-label={`Aplicar ${l.texto}`}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2 align-middle">
+                      <span
+                        className="block truncate text-gray-800"
+                        title={l.texto}
+                      >
+                        {l.texto}
+                      </span>
+                      <span className="block truncate text-[11px] text-gray-400">
+                        {l.cantidad_texto ?? " "}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 align-middle">
+                      {fuera ? (
+                        <span className="block truncate text-xs">
+                          No es insumo ·{" "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void cambiar(l, { no_es_insumo: false })
+                            }
+                            className="font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            deshacer
+                          </button>
+                        </span>
+                      ) : hecha ? (
+                        <span className="block truncate text-gray-800">
+                          {insumo?.name ?? "—"}
+                        </span>
+                      ) : (
+                        <SelectWithSearch
+                          options={opcionesPara(l)}
+                          value={l.supply_id ? String(l.supply_id) : ""}
+                          onChange={(val) =>
+                            void cambiar(l, {
+                              supply_id: val ? Number(val) : null,
+                            })
+                          }
+                          placeholder="Asociar a insumo…"
+                          searchPlaceholder="Buscar insumo…"
+                          tamano="sm"
+                          mostrarConteo={false}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right align-middle">
+                      {hecha || fuera || !insumo ? (
+                        <span className="tabular-nums">
+                          {l.cantidad_base
+                            ? `${fmtQty(l.cantidad_base)} ${base}`
+                            : "—"}
+                        </span>
+                      ) : (
+                        <span className="relative inline-block w-full">
+                          <NumberInput
+                            value={l.cantidad_base ?? undefined}
+                            onChange={() => {}}
+                            onCommit={(val) => {
+                              if ((val ?? null) !== l.cantidad_base) {
+                                void cambiar(l, { cantidad_base: val ?? null });
+                              }
+                            }}
+                            min={0}
+                            placeholder="?"
+                            aria-label={`Cantidad de ${l.texto}`}
+                            className="w-full !pl-2 !pr-7 text-sm text-right tabular-nums"
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">
+                            {base}
+                          </span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right tabular-nums align-middle">
+                      {l.total ? fmtMoney(l.total) : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right whitespace-nowrap align-middle">
+                      {fuera ? (
+                        <span className="text-[11px]">—</span>
+                      ) : l.costo_base ? (
+                        <>
+                          <span className="block tabular-nums">
+                            <span className="font-semibold text-gray-900">
+                              {fmtCosto(l.costo_base)}/{base}
+                            </span>
+                            {v !== null && v !== 0 && (
+                              <span
+                                className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                                  salto
+                                    ? "bg-amber-200 text-amber-900"
+                                    : v > 0
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {v > 0 ? "+" : ""}
+                                {v}%
+                              </span>
+                            )}
+                          </span>
+                          <span className="block text-[11px] text-gray-400 tabular-nums">
+                            {l.costo_antes
+                              ? `antes ${fmtCosto(l.costo_antes)}/${base}`
+                              : " "}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
+                          {falta || "—"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-1 py-2 text-center align-middle">
+                      {!hecha && !fuera && (
                         <button
                           type="button"
                           onClick={() =>
-                            void cambiar(l, { no_es_insumo: false })
+                            void cambiar(l, { no_es_insumo: true })
                           }
-                          className="font-semibold text-blue-600 hover:text-blue-800"
+                          className="text-gray-300 hover:text-gray-600"
+                          title="No es insumo (flete, despacho, descuento…)"
+                          aria-label={`${l.texto}: no es insumo`}
                         >
-                          deshacer
+                          <X size={14} />
                         </button>
-                      </span>
-                    ) : hecha ? (
-                      <span className="block truncate text-gray-800">
-                        {insumo?.name ?? "—"}
-                      </span>
-                    ) : (
-                      <SelectWithSearch
-                        options={opcionesPara(l)}
-                        value={l.supply_id ? String(l.supply_id) : ""}
-                        onChange={(val) =>
-                          void cambiar(l, {
-                            supply_id: val ? Number(val) : null,
-                          })
-                        }
-                        placeholder="Asociar a insumo…"
-                        searchPlaceholder="Buscar insumo…"
-                        tamano="sm"
-                        mostrarConteo={false}
-                      />
-                    )}
-                    {/* La línea chica: siempre una, siempre del mismo alto. */}
-                    <span className="mt-1 block min-h-4 text-[11px] leading-4">
-                      {fuera ? (
-                        " "
-                      ) : insumo && sugerido(l) ? (
-                        <span className="text-amber-700">
-                          La IA no está segura: ¿es este?{" "}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void cambiar(l, { supply_id: insumo.id })
-                            }
-                            className="font-semibold text-blue-600 hover:text-blue-800"
-                          >
-                            Sí
-                          </button>
-                          {(l.posibles ?? [])
-                            .filter((id) => id !== insumo.id)
-                            .map((id, i) => {
-                              const p = porId.get(id);
-                              if (!p) return null;
-                              return (
-                                <span key={id}>
-                                  {i === 0 ? " · o quizás " : " · "}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void cambiar(l, { supply_id: id })
-                                    }
-                                    className="font-semibold text-blue-600 hover:text-blue-800"
-                                  >
-                                    {p.name}
-                                  </button>
-                                </span>
-                              );
-                            })}
-                        </span>
-                      ) : !insumo && (l.posibles?.length ?? 0) > 0 ? (
-                        <span className="text-amber-700">
-                          La IA no sabe cuál es; puede ser{" "}
-                          {(l.posibles ?? []).map((id, i) => {
-                            const p = porId.get(id);
-                            if (!p) return null;
-                            return (
-                              <span key={id}>
-                                {i > 0 && " · "}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void cambiar(l, { supply_id: id })
-                                  }
-                                  className="font-semibold text-blue-600 hover:text-blue-800"
-                                >
-                                  {p.name}
-                                </button>
-                              </span>
-                            );
-                          })}
-                        </span>
-                      ) : insumo && preguntarEquivalente(l, insumo) ? (
-                        <span className="text-violet-800">
-                          ¿«{l.equivalente}» es lo mismo que {insumo.name}?{" "}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void guardarEquivalente(l, insumo, "corte")
-                            }
-                            className="font-semibold text-blue-600 hover:text-blue-800"
-                          >
-                            Sí, otro corte
-                          </button>
-                          {" · "}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void guardarEquivalente(l, insumo, "marca")
-                            }
-                            className="font-semibold text-blue-600 hover:text-blue-800"
-                          >
-                            Sí, otra marca
-                          </button>
-                          {" · "}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setNoEs((prev) => new Set(prev).add(l.id))
-                            }
-                            className="font-semibold text-gray-500 hover:text-gray-800"
-                          >
-                            No
-                          </button>
-                        </span>
-                      ) : eqGuardado ? (
-                        <span className="text-violet-700">
-                          «{eqGuardado.nombre}» es otr
-                          {eqGuardado.tipo === "corte" ? "o corte" : "a marca"}{" "}
-                          de {insumo?.name}
-                        </span>
-                      ) : (
-                        " "
                       )}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-right align-middle">
-                    {hecha || fuera || !insumo ? (
-                      <span className="tabular-nums">
-                        {l.cantidad_base
-                          ? `${fmtQty(l.cantidad_base)} ${base}`
-                          : "—"}
-                      </span>
-                    ) : (
-                      <span className="relative inline-block w-full">
-                        <NumberInput
-                          value={l.cantidad_base ?? undefined}
-                          onChange={() => {}}
-                          onCommit={(val) => {
-                            if ((val ?? null) !== l.cantidad_base) {
-                              void cambiar(l, { cantidad_base: val ?? null });
-                            }
-                          }}
-                          min={0}
-                          placeholder="?"
-                          aria-label={`Cantidad de ${l.texto}`}
-                          className="w-full !pl-2 !pr-7 text-sm text-right tabular-nums"
-                        />
-                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">
-                          {base}
-                        </span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums align-middle">
-                    {l.total ? fmtMoney(l.total) : "—"}
-                  </td>
-                  <td className="px-2 py-2 text-right whitespace-nowrap align-middle">
-                    {fuera ? (
-                      <span className="text-[11px]">—</span>
-                    ) : l.costo_base ? (
-                      <>
-                        <span className="block tabular-nums">
-                          <span className="font-semibold text-gray-900">
-                            {fmtCosto(l.costo_base)}/{base}
-                          </span>
-                          {v !== null && v !== 0 && (
-                            <span
-                              className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                                salto
-                                  ? "bg-amber-200 text-amber-900"
-                                  : v > 0
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-blue-100 text-blue-700"
-                              }`}
-                            >
-                              {v > 0 ? "+" : ""}
-                              {v}%
+                    </td>
+                  </tr>
+                  {hayAyuda && (
+                    <tr className={`${fondo} !border-t-0`}>
+                      <td />
+                      <td />
+                      <td colSpan={5} className="px-2 pb-2 -mt-1">
+                        <span className="block text-[11px] leading-4">
+                          {fuera ? (
+                            " "
+                          ) : insumo && sugerido(l) ? (
+                            <span className="text-amber-700">
+                              La IA no está segura: ¿es este?{" "}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void cambiar(l, { supply_id: insumo.id })
+                                }
+                                className="font-semibold text-blue-600 hover:text-blue-800"
+                              >
+                                Sí
+                              </button>
+                              {(l.posibles ?? [])
+                                .filter((id) => id !== insumo.id)
+                                .map((id, i) => {
+                                  const p = porId.get(id);
+                                  if (!p) return null;
+                                  return (
+                                    <span key={id}>
+                                      {i === 0 ? " · o quizás " : " · "}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void cambiar(l, { supply_id: id })
+                                        }
+                                        className="font-semibold text-blue-600 hover:text-blue-800"
+                                      >
+                                        {p.name}
+                                      </button>
+                                    </span>
+                                  );
+                                })}
                             </span>
+                          ) : !insumo && (l.posibles?.length ?? 0) > 0 ? (
+                            <span className="text-amber-700">
+                              La IA no sabe cuál es; puede ser{" "}
+                              {(l.posibles ?? []).map((id, i) => {
+                                const p = porId.get(id);
+                                if (!p) return null;
+                                return (
+                                  <span key={id}>
+                                    {i > 0 && " · "}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void cambiar(l, { supply_id: id })
+                                      }
+                                      className="font-semibold text-blue-600 hover:text-blue-800"
+                                    >
+                                      {p.name}
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          ) : insumo && preguntarEquivalente(l, insumo) ? (
+                            <span className="text-violet-800">
+                              La factura dice «{l.equivalente}». ¿Lo recuerdo
+                              como {insumo.name} para las próximas facturas?{" "}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void guardarEquivalente(l, insumo, "corte")
+                                }
+                                className="font-semibold text-blue-600 hover:text-blue-800"
+                              >
+                                Sí, es un corte
+                              </button>
+                              {" · "}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void guardarEquivalente(l, insumo, "marca")
+                                }
+                                className="font-semibold text-blue-600 hover:text-blue-800"
+                              >
+                                Sí, es una marca
+                              </button>
+                              {" · "}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setNoEs((prev) => new Set(prev).add(l.id))
+                                }
+                                className="font-semibold text-gray-500 hover:text-gray-800"
+                              >
+                                No
+                              </button>
+                            </span>
+                          ) : eqGuardado ? (
+                            <span className="text-violet-700">
+                              «{eqGuardado.nombre}» es otr
+                              {eqGuardado.tipo === "corte"
+                                ? "o corte"
+                                : "a marca"}{" "}
+                              de {insumo?.name}
+                            </span>
+                          ) : (
+                            " "
                           )}
                         </span>
-                        <span className="block text-[11px] text-gray-400 tabular-nums">
-                          {l.costo_antes
-                            ? `antes ${fmtCosto(l.costo_antes)}/${base}`
-                            : " "}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
-                        {falta || "—"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-1 py-2 text-center align-middle">
-                    {!hecha && !fuera && (
-                      <button
-                        type="button"
-                        onClick={() => void cambiar(l, { no_es_insumo: true })}
-                        className="text-gray-300 hover:text-gray-600"
-                        title="No es insumo (flete, despacho, descuento…)"
-                        aria-label={`${l.texto}: no es insumo`}
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
