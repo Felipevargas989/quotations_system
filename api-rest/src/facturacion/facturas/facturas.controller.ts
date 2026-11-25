@@ -73,6 +73,7 @@ export class FacturasController {
       dto.tipo,
       dto.orden_de_compra_id ?? null,
       dto.porcentaje ?? null,
+      dto.linea_de_la_oc ?? null,
     );
   }
 
@@ -109,6 +110,7 @@ export class FacturasController {
       user.company_id,
       quotationId,
       dto.orden_de_compra_id ?? null,
+      dto.linea_de_la_oc ?? null,
     );
     return documento;
   }

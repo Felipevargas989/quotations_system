@@ -56,8 +56,10 @@ export class FacturasAprobadasController {
   quitar(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @Query('oc', new ParseIntPipe({ optional: true })) oc: number | undefined,
+    @Query('linea', new ParseIntPipe({ optional: true }))
+    linea: number | undefined,
     @CurrentUser() user: User,
   ) {
-    return this.aprobadas.quitar(quotationId, user, oc ?? null);
+    return this.aprobadas.quitar(quotationId, user, oc ?? null, linea ?? null);
   }
 }

@@ -59,5 +59,10 @@ export const normalizada = (p: DtePedido): DtePedido => {
     cliente_id: boleta ? null : (p.cliente_id ?? null),
     // §9.32: la factura puede elegir su fecha; la boleta, la del día.
     fecha_emision: boleta ? null : (p.fecha_emision ?? '').trim() || null,
+    // §9.53: la línea de la OC, solo en la factura contra una OC.
+    linea_de_la_oc:
+      !boleta && p.orden_de_compra_id != null && p.linea_de_la_oc != null
+        ? Number(p.linea_de_la_oc)
+        : null,
   };
 };
