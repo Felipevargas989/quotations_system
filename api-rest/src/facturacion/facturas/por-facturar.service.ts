@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { RazonesSocialesService } from 'src/clients/razones-sociales/razones-sociales.service';
 import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
+import { normalizarRut } from '../../people/utils/rut';
 import { BoletasService } from '../boletas/boletas.service';
 import { Cadena, facturadoDeLasOC } from '../notas/cadena';
 import {
@@ -14,6 +16,11 @@ import {
 } from '../ordenes-de-compra/ordenes-de-compra.service';
 import { ConexionConFacturacionCl } from './conexion';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
+import {
+  lineasFacturadasDeLasOC,
+  lineasPorFacturarDeLaOC,
+  pideUnaFacturaPorLinea,
+} from './lineas-de-la-oc';
 
 /** Desde cuándo mira «Por facturar» (doc 19 §9.21): los eventos de los
  *  últimos 90 días y los que vienen. Lo de antes se facturó fuera de
@@ -70,6 +77,7 @@ export class PorFacturarService {
     private readonly boletas: BoletasService,
     private readonly logger: PinoLogger,
     private readonly ocs: OrdenesDeCompraService,
+    private readonly razonesSociales: RazonesSocialesService,
   ) {
     this.logger.setContext(PorFacturarService.name);
   }
@@ -111,17 +119,37 @@ export class PorFacturarService {
         );
     // Lo facturado de cada OC, con la misma cadena (§9.26).
     const { porOC } = facturadoDeLasOC(docs, cadena);
+    // §9.59: lo facturado por línea y lo que pide cada RUT, para la OC que
+    // va en una factura por línea (CCU: una por nota de pedido).
+    const lineasPorOC = lineasFacturadasDeLasOC(docs, cadena);
+    const exigidas = await this.razonesSociales.exigidasDeLosRut(
+      companyId,
+      [...ordenes.values()].flat().flatMap((o) => (o.rut ? [o.rut] : [])),
+    );
     const todos = eventos
       .map((e) => {
         const yaEmitido = emitido.get(e.id) ?? 0;
         const queda = Math.max(0, e.total - yaEmitido);
-        const susOrdenes = (ordenes.get(e.id) ?? []).map((o) => {
+        const susOrdenes = (ordenes.get(e.id) ?? []).map(({ lineas, ...o }) => {
           const facturado = porOC.get(o.id) ?? 0;
+          const rut = o.rut ? normalizarRut(o.rut) : null;
+          const porLinea = pideUnaFacturaPorLinea(
+            { lineas },
+            rut ? exigidas.get(rut) : null,
+          );
           return {
             ...o,
             facturado,
             queda: Math.max(0, o.total - facturado),
             estado: estadoDeLaFacturacion(o.total, facturado),
+            // §9.59: las líneas sin factura (desde 0) si la OC va en una
+            // factura por línea; nulo si va en una por OC.
+            lineas_por_facturar: porLinea
+              ? lineasPorFacturarDeLaOC(
+                  { lineas },
+                  lineasPorOC.has(o.id) ? lineasPorOC.get(o.id) : [],
+                )
+              : null,
           };
         });
         // Lo que se factura al apretar «Facturar»: lo que queda de la

@@ -39,6 +39,7 @@ const armar = () => {
     eventosDesde: jest.fn().mockResolvedValue([]),
     emitidoDeLosEventos: jest.fn().mockResolvedValue([]),
     ordenesDeLosEventos: jest.fn().mockResolvedValue(new Map()),
+    exigidasDeLosRut: jest.fn().mockResolvedValue(new Map()),
     ocsSinLeerDeLosEventos: jest.fn().mockResolvedValue(new Map()),
     facturadosFuera: jest.fn().mockResolvedValue(new Map()),
     conFacturaEnDocumentos: jest.fn().mockResolvedValue(new Set()),
@@ -55,6 +56,9 @@ const armar = () => {
     boletas as never,
     mockPinoLogger() as never,
     ocs as never,
+    // §9.59: lo que pide cada RUT viene de las razones sociales; acá, el
+    // mismo simulacro.
+    repo as never,
   );
   return { servicio, repo, boletas, ocs };
 };
@@ -269,6 +273,64 @@ describe('Pendiente, parcial y facturado, y sus OC (§9.26)', () => {
     const despues = await servicio.porFacturar(1);
     expect(despues.eventos).toEqual([]);
     expect(despues.facturados.map((e) => e.numero)).toEqual([118]);
+  });
+
+  // §9.59: la OC de Transportes CCU (#407), 4 líneas y una nota de pedido
+  // por línea: una factura por línea.
+  it('la OC de quien pide la nota de pedido dice qué líneas faltan', async () => {
+    const { servicio, repo } = armar();
+    const r = repo as unknown as Record<string, jest.Mock>;
+    const lineas = [4068213, 224716, 130796, 93920].map((precio) => ({
+      descripcion: 'arriendo recinto y alimentacion FFNN 202',
+      cantidad: 1,
+      precio,
+      con_iva: false,
+    }));
+    r.eventosDesde = jest.fn().mockResolvedValue([EV]);
+    r.ordenesDeLosEventos = jest.fn().mockResolvedValue(
+      new Map([
+        [
+          'ev-118',
+          [
+            {
+              id: 16,
+              numero: '4505522493',
+              total: 5375997,
+              rut: '79.862.750-3',
+              lineas,
+            },
+          ],
+        ],
+      ]),
+    );
+    r.exigidasDeLosRut = jest
+      .fn()
+      .mockResolvedValue(new Map([['79862750-3', ['801', '802']]]));
+    r.emitidoDeLosEventos = jest.fn().mockResolvedValue([
+      {
+        ...factura(398, 4841173, 16),
+        detalle: [
+          {
+            descripcion: 'arriendo recinto y alimentacion FFNN 202',
+            cantidad: 1,
+            precio: 4068213,
+          },
+        ],
+      },
+    ]);
+    const [ev] = (await servicio.porFacturar(1)).eventos;
+    expect(r.exigidasDeLosRut).toHaveBeenCalledWith(1, ['79.862.750-3']);
+    expect(ev.ordenes[0]).toMatchObject({
+      numero: '4505522493',
+      lineas_por_facturar: [1, 2, 3],
+    });
+    // Las líneas no viajan a la pantalla: solo lo que falta.
+    expect(ev.ordenes[0]).not.toHaveProperty('lineas');
+
+    // Sin la nota de pedido en su ficha, la OC va en una factura, como antes.
+    r.exigidasDeLosRut = jest.fn().mockResolvedValue(new Map());
+    const [otro] = (await servicio.porFacturar(1)).eventos;
+    expect(otro.ordenes[0].lineas_por_facturar).toBeNull();
   });
 
   it('una OC por todo, facturada al 30 %: la OC va parcial y queda el 70 %', async () => {

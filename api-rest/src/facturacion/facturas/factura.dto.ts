@@ -36,6 +36,13 @@ export class BaseDelDteDto {
   @IsOptional()
   @IsInt()
   orden_de_compra_id?: number | null;
+
+  // §9.59: la línea de la OC (desde 0) cuando la OC va en una factura por
+  // línea, como las notas de pedido de CCU. Sin ella, como antes.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  linea_de_la_oc?: number | null;
 }
 
 /** El borrador de BelIA (§9.26): de dónde se arma y qué parte se factura,

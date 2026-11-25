@@ -9,6 +9,7 @@ import {
   facturadoDeLasOC,
   type DocumentoDeLaCadena,
 } from '../notas/cadena';
+import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 import type { EventoAFacturar, OrdenAFacturar } from './borrador';
 import { lineasFacturadasDeLasOC } from './lineas-de-la-oc';
 import type { DocumentoConSuNombre } from './nombre-del-pdf';
@@ -425,7 +426,9 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
-        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, quotation_id',
+        // §9.59: con su detalle, para saber qué líneas de la OC ya tienen
+        // factura.
+        'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, quotation_id, detalle',
       )
       .eq('company_id', companyId)
       .eq('ambiente', ambiente)
@@ -437,6 +440,7 @@ export class DocumentosTributariosRepository {
       (data ?? []) as (DocumentoDeLaCadena & {
         orden_de_compra_id: number | null;
         quotation_id: string;
+        detalle?: unknown;
       })[]
     ).map((d) => ({ ...d, total: Number(d.total) }));
   }
@@ -446,12 +450,18 @@ export class DocumentosTributariosRepository {
   async ordenesDeLosEventos(companyId: number, ids: string[]) {
     const porEvento = new Map<
       string,
-      { id: number; numero: string; total: number; rut: string | null }[]
+      {
+        id: number;
+        numero: string;
+        total: number;
+        rut: string | null;
+        lineas: LineaDeLaOC[] | null;
+      }[]
     >();
     if (!ids.length) return porEvento;
     const { data, error } = await this.supabase.client
       .from('ordenes_de_compra')
-      .select('id, quotation_id, numero, total, rut')
+      .select('id, quotation_id, numero, total, rut, lineas')
       .eq('company_id', companyId)
       .in('quotation_id', ids)
       .order('id', { ascending: true });
@@ -462,6 +472,7 @@ export class DocumentosTributariosRepository {
       numero: string;
       total: number | string;
       rut?: string | null;
+      lineas?: LineaDeLaOC[] | null;
     }[])
       porEvento.set(o.quotation_id, [
         ...(porEvento.get(o.quotation_id) ?? []),
@@ -471,6 +482,8 @@ export class DocumentosTributariosRepository {
           total: Number(o.total),
           // El RUT de la OC, para el buscador (§9.31).
           rut: o.rut ?? null,
+          // §9.59: sus líneas, por si va en una factura por línea.
+          lineas: Array.isArray(o.lineas) ? o.lineas : null,
         },
       ]);
     return porEvento;
