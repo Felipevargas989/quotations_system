@@ -179,7 +179,7 @@ export default function ResumenDelDia({
           <h2 className="text-lg font-semibold text-gray-900">
             {r.dia} {r.num} de {r.mes}
           </h2>
-          <div className="text-sm text-gray-500 mt-0.5">
+          <div className="text-sm text-gray-500 mt-0.5" data-no-imprimir>
             {conNombre.length === 0 ? (
               "Nadie asignado todavía"
             ) : (
@@ -234,13 +234,19 @@ export default function ResumenDelDia({
       </div>
 
       <div className="space-y-5">
-        {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. */}
+        {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. No van
+            en la hoja impresa: solo la gente (Felipe, 24-11-2026:
+            "saquemos el detalle de arriba, dejemos solo personal de
+            eventos"; el staff también va). */}
         {eventosDelDia.length === 0 ? (
-          <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <p
+            data-no-imprimir
+            className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+          >
             <strong className="text-gray-700">Sin eventos este día.</strong>
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2" data-no-imprimir>
             {eventosDelDia.map((e) => (
               <CabeceraEvento
                 key={e.id}
@@ -285,7 +291,10 @@ export default function ResumenDelDia({
         )}
 
         {huerfanos.length > 0 && (
-          <section className="border border-amber-200 bg-amber-50/50 rounded-lg p-3">
+          <section
+            data-no-imprimir
+            className="border border-amber-200 bg-amber-50/50 rounded-lg p-3"
+          >
             <h3 className="text-sm font-semibold text-amber-900 mb-1.5">
               Puestos en un evento que ya no está en la lista
             </h3>
@@ -299,7 +308,12 @@ export default function ResumenDelDia({
 
         {/* 3. PERSONAL DE PLANTA — la misma tabla. */}
         {planta.length > 0 && (
-          <Bloque titulo="Personal de planta" color="azul" costo={costoPlanta}>
+          <Bloque
+            titulo="Personal de planta"
+            color="azul"
+            costo={costoPlanta}
+            enLaHoja={false}
+          >
             <TablaDeGente gente={planta} />
           </Bloque>
         )}
@@ -312,7 +326,7 @@ export default function ResumenDelDia({
         )}
 
         {eventosDelDia.length === 0 && sinEvento.length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500" data-no-imprimir>
             Día libre: sin eventos ni gente asignada.
           </p>
         ) : (
@@ -339,15 +353,18 @@ function Bloque({
   titulo,
   color,
   costo,
+  enLaHoja = true,
   children,
 }: {
   readonly titulo: string;
   readonly color: ColorDeSeccion;
   readonly costo: number;
+  /** false: el bloque se ve en pantalla pero no va en la hoja impresa. */
+  readonly enLaHoja?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <section>
+    <section data-no-imprimir={enLaHoja ? undefined : true}>
       <div className="mb-1.5">
         <TituloDeSeccion titulo={titulo} color={color} encabezado>
           <span
