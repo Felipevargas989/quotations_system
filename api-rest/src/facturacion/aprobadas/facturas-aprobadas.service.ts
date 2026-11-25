@@ -53,10 +53,16 @@ export class FacturasAprobadasService {
           ? `Falta ${revision.faltan.map((f) => f.texto).join(', ')}`
           : revision.problemas.join('. ') || 'El documento no está listo',
       );
+    // §9.53: la línea de la OC viaja en el documento, solo con su OC.
+    const linea =
+      ocId != null && pedida.linea_de_la_oc != null
+        ? pedida.linea_de_la_oc
+        : null;
     return this.repo.guardar({
       company_id: companyId,
       quotation_id: quotationId,
       oc_id: ocId,
+      linea_de_la_oc: linea,
       pedida,
       aprobada_por: user.id ?? null,
       aprobada_por_nombre: nombreDelPerfil(user),
@@ -64,20 +70,36 @@ export class FacturasAprobadasService {
   }
 
   /** «Corregir» una aprobada la deja sin aprobar. */
-  async quitar(quotationId: string, user: User, ocId: number | null) {
-    await this.repo.quitar(user.company_id, quotationId, ocId);
+  async quitar(
+    quotationId: string,
+    user: User,
+    ocId: number | null,
+    linea: number | null = null,
+  ) {
+    await this.repo.quitar(
+      user.company_id,
+      quotationId,
+      ocId,
+      ocId == null ? null : linea,
+    );
     return { ok: true };
   }
 
   /**
    * Emitido (o enviado y por confirmar), deja de esperar: se va la del
-   * evento y la de la OC que se facturó. Si esto falla, el documento ya
-   * salió igual: se anota y sigue.
+   * evento y la de la OC (o la de su línea, §9.53) que se facturó. Si esto
+   * falla, el documento ya salió igual: se anota y sigue.
    */
-  async alEmitir(companyId: number, quotationId: string, ocId: number | null) {
+  async alEmitir(
+    companyId: number,
+    quotationId: string,
+    ocId: number | null,
+    linea: number | null = null,
+  ) {
     try {
       await this.repo.quitar(companyId, quotationId, null);
-      if (ocId != null) await this.repo.quitar(companyId, quotationId, ocId);
+      if (ocId != null)
+        await this.repo.quitar(companyId, quotationId, ocId, linea);
     } catch (error) {
       this.logger.warn(
         `la factura aprobada del evento ${quotationId} no se pudo quitar al emitir: ${mensajeDe(error)}`,

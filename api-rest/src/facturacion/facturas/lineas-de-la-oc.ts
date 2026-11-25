@@ -240,3 +240,70 @@ export function cuadrarConLoQueQueda(
   if (valorDeLaLinea(ajustada) !== valor) return null;
   return { lineas: [...lineas.slice(0, -1), ajustada], diferencia };
 }
+
+/**
+ * UNA FACTURA POR LÍNEA DE LA OC (doc 19 §9.53). Felipe, 25-11-2026, con la
+ * OC 4505522493 de Transportes CCU (#407): CCU manda una nota de pedido
+ * (802) por cada línea de la OC y pide una factura por cada una, con la OC y
+ * su nota de pedido. *"Un evento, una orden de compra puede tener varias
+ * facturas. Déjalo programado para que esto ya sea automático."*
+ *
+ * La OC va así cuando tiene más de una línea y su receptor pide la nota de
+ * pedido (802 en «Referencias que pide» de su razón social). Las OC de
+ * varias líneas de quien no la pide (Santo Tomás, Ecofor) siguen yendo en
+ * una factura por OC, como antes.
+ */
+export const pideUnaFacturaPorLinea = (
+  oc: { lineas?: LineaDeLaOC[] | null },
+  exigidas: readonly string[] | null | undefined,
+): boolean => (oc.lineas?.length ?? 0) > 1 && !!exigidas?.includes('802');
+
+/** La línea `indice` de la OC sola y entera, como va en su factura; nulo
+ *  si no existe o no se puede facturar (sin descripción, sin precio). */
+export function lineaSolaDeLaOC(
+  oc: { lineas?: LineaDeLaOC[] | null },
+  indice: number,
+  glosa: (texto: string) => string = (t) => textoLimpio(t),
+): LineaDesdeLaOC | null {
+  const l = oc.lineas?.[indice];
+  if (!l || !Number.isInteger(indice)) return null;
+  const descripcion = glosa(l.descripcion);
+  if (!descripcion || !(l.cantidad > 0) || !(l.precio > 0)) return null;
+  return {
+    descripcion,
+    descripcion_larga: null,
+    cantidad: l.cantidad,
+    precio: precioDeLaLinea(l),
+  };
+}
+
+/**
+ * Las líneas de la OC (sus índices, desde 0) que todavía no tienen factura,
+ * cuando la OC va en una factura por línea. Cada factura vigente contra la
+ * OC tiene que ser de UNA línea, y calza con la primera línea libre de la OC
+ * con la misma cantidad y el mismo precio neto (al peso; la que cierra la OC
+ * puede ajustar el redondeo). Nulo si algo no calza (una factura de varias
+ * líneas, o rebajada: no se sabe qué línea cubre): entonces la OC va en una
+ * factura por el saldo, como antes.
+ */
+export function lineasPorFacturarDeLaOC(
+  oc: { lineas?: LineaDeLaOC[] | null },
+  facturadas: FacturadoDeLaOC | undefined,
+): number[] | null {
+  const lineas = oc.lineas ?? [];
+  if (lineas.length < 2 || facturadas === null) return null;
+  const libre = lineas.map(() => true);
+  for (const factura of facturadas ?? []) {
+    if (factura.length !== 1) return null;
+    const f = factura[0];
+    const i = lineas.findIndex(
+      (o, j) =>
+        libre[j] &&
+        Math.abs(Number(f.cantidad) - o.cantidad) < 1e-6 &&
+        Math.abs(Number(f.precio) - precioNetoDe(precioDeLaLinea(o))) <= 1,
+    );
+    if (i < 0) return null;
+    libre[i] = false;
+  }
+  return libre.flatMap((l, i) => (l ? [i] : []));
+}

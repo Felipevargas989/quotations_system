@@ -58,6 +58,7 @@ import { conElTarifario, usaElTarifario } from './del-tarifario';
 import { DocumentosTributariosRepository } from './documentos-tributarios.repository';
 import { mandarConFolio } from './emision';
 import { fechaDeEmision } from './fecha-de-emision';
+import { lineaSolaDeLaOC, lineasPorFacturarDeLaOC } from './lineas-de-la-oc';
 import { normalizada } from './normalizada';
 
 /**
@@ -269,15 +270,29 @@ export class FacturasService {
     tipo: TipoDeDte,
     ordenDeCompraId: number | null,
     porcentaje: number | null = null,
+    lineaDeLaOC: number | null = null,
   ) {
     const ctx = await this.contexto(
       quotationId,
       companyId,
       tipo === BOLETA ? null : ordenDeCompraId,
     );
+    // §9.53: una factura por línea de la OC; la línea tiene que existir y
+    // no estar facturada.
+    const linea = tipo === BOLETA || !ctx.oc ? null : lineaDeLaOC;
+    if (linea != null && ctx.oc) {
+      const libres = lineasPorFacturarDeLaOC(ctx.oc, ctx.oc.lineasFacturadas);
+      if (!lineaSolaDeLaOC(ctx.oc, linea))
+        throw new BadRequestException('Esa línea no está en la OC');
+      if (libres && !libres.includes(linea))
+        throw new BadRequestException('Esa línea de la OC ya está facturada');
+    }
     // §9.26: la parte que se factura (el 50 % de la OC); sin ella, todo lo
     // que queda.
-    const borrador = armarBorrador({ ...ctx, porcentaje }, tipo);
+    const borrador = armarBorrador(
+      { ...ctx, porcentaje, lineaDeLaOC: linea },
+      tipo,
+    );
     return {
       ...borrador,
       oc: ctx.oc

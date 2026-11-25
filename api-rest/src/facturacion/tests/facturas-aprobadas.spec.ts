@@ -54,6 +54,7 @@ describe('las facturas aprobadas que esperan (§9.48)', () => {
       company_id: 1,
       quotation_id: 'ev-1',
       oc_id: null,
+      linea_de_la_oc: null,
       pedida: PEDIDA,
       aprobada_por: 'u-felipe',
       aprobada_por_nombre: 'Felipe Vargas',
@@ -83,14 +84,45 @@ describe('las facturas aprobadas que esperan (§9.48)', () => {
   it('«Corregir» la quita, siempre dentro de la empresa de la sesión', async () => {
     const { servicio, repo } = armar();
     await servicio.quitar('ev-1', USUARIO, 9);
-    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9);
+    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9, null);
   });
 
   it('al emitir deja de esperar: la del evento y la de la OC facturada', async () => {
     const { servicio, repo } = armar();
     await servicio.alEmitir(1, 'ev-1', 9);
     expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', null);
-    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9);
+    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9, null);
+  });
+
+  // §9.53: la OC de CCU va en una factura por línea (una por nota de pedido).
+  it('la de una línea de la OC se guarda con su línea, y varias conviven', async () => {
+    const { servicio, repo } = armar();
+    await servicio.aprobar('ev-1', USUARIO, 9, {
+      ...PEDIDA,
+      linea_de_la_oc: 2,
+    });
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ oc_id: 9, linea_de_la_oc: 2 }),
+    );
+  });
+
+  it('sin OC, la línea no cuenta', async () => {
+    const { servicio, repo } = armar();
+    await servicio.aprobar('ev-1', USUARIO, null, {
+      ...PEDIDA,
+      linea_de_la_oc: 2,
+    });
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({ oc_id: null, linea_de_la_oc: null }),
+    );
+  });
+
+  it('«Corregir» y emitir la de una línea quitan solo esa línea', async () => {
+    const { servicio, repo } = armar();
+    await servicio.quitar('ev-1', USUARIO, 9, 1);
+    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9, 1);
+    await servicio.alEmitir(1, 'ev-1', 9, 3);
+    expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9, 3);
   });
 
   it('si no se puede quitar al emitir, el documento ya salió: no falla', async () => {

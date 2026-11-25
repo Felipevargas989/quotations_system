@@ -18,6 +18,7 @@ import {
   cuadrarConLoQueQueda,
   lineasDeLaOC,
   lineasDelSaldo,
+  lineaSolaDeLaOC,
   type FacturadoDeLaOC,
 } from './lineas-de-la-oc';
 import {
@@ -144,6 +145,9 @@ export interface ContextoDeLaFactura {
    *  el % de la OC, o de la cotización si va sin OC. Sin él, todo lo que
    *  queda. */
   porcentaje?: number | null;
+  /** §9.53: la línea de la OC (desde 0) que se factura sola, cuando la OC
+   *  va en una factura por línea. Sin ella, como antes. */
+  lineaDeLaOC?: number | null;
 }
 
 /** Lo que se factura (§9.26): todo lo que queda, o el % de la base
@@ -216,6 +220,9 @@ export interface DtePedido {
   /** §9.32: la fecha de emisión elegida (AAAA-MM-DD); sin ella, la de hoy.
    *  Solo la factura: la boleta va con la del día. */
   fecha_emision?: string | null;
+  /** §9.53: la línea de la OC (desde 0) que factura, cuando la OC va en una
+   *  factura por línea (CCU: una por nota de pedido). Nulo si no. */
+  linea_de_la_oc?: number | null;
 }
 
 export interface Borrador {
@@ -422,7 +429,16 @@ export function armarBorrador(
     oc && facturado > 0 && parte === queda
       ? lineasDelSaldo(oc, oc.lineasFacturadas, queda, glosaDeLaOC)
       : null;
-  const deLaOC = oc ? (delSaldo ?? lineasDeLaOC(oc, parte, glosaDeLaOC)) : null;
+  // §9.53: una factura por línea de la OC: solo esa línea, entera.
+  const sola =
+    oc && ctx.lineaDeLaOC != null
+      ? lineaSolaDeLaOC(oc, ctx.lineaDeLaOC, glosaDeLaOC)
+      : null;
+  const deLaOC = oc
+    ? sola
+      ? [sola]
+      : (delSaldo ?? lineasDeLaOC(oc, parte, glosaDeLaOC))
+    : null;
 
   if (tipo === 39)
     return {
@@ -489,6 +505,7 @@ export function armarBorrador(
       // Acá ya es factura (la boleta salió antes): crédito a 30 días.
       forma_de_pago: 2,
       plazo_dias: PLAZO_POR_DEFECTO,
+      linea_de_la_oc: sola ? ctx.lineaDeLaOC : null,
     },
     origenes: {
       receptor: origenDelReceptor,
