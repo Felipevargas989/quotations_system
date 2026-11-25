@@ -419,6 +419,73 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     ]);
   });
 
+  // §9.59: la OC de Transportes CCU (#407) trae 4 líneas y una nota de
+  // pedido por línea: una factura por línea, cada una guardada aparte.
+  it("la OC que va en una factura por línea: un documento por línea, cada uno con su línea", async () => {
+    r.revisarUnoParaLaMasiva.mockImplementation((_id, ocId, _p, linea) =>
+      Promise.resolve({
+        tipo: 33,
+        pedida: {
+          ...pedida(`LINEA ${linea}`),
+          orden_de_compra_id: ocId ?? null,
+          linea_de_la_oc: linea ?? null,
+        },
+        vista: vista(true),
+      }),
+    );
+    f.emitirDte.mockResolvedValue(emitida(70));
+    abrir([
+      evento(407, {
+        total: 19262800,
+        queda: 19262800,
+        ordenes: [
+          {
+            id: 16,
+            numero: "4505522493",
+            total: 5375997,
+            facturado: 0,
+            queda: 5375997,
+            estado: "pendiente" as const,
+            lineas_por_facturar: [0, 1, 2, 3],
+          },
+        ],
+      }),
+    ]);
+    expect(await screen.findByText("LINEA 0")).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 de 4 · OC 4505522493 · línea 10/),
+    ).toBeInTheDocument();
+    expect(
+      r.revisarUnoParaLaMasiva.mock.calls.map((c) => [c[1], c[3]]),
+    ).toEqual([
+      [16, 0],
+      [16, 1],
+      [16, 2],
+      [16, 3],
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    // Cada una se guarda con su línea: las cuatro esperan juntas.
+    await waitFor(() =>
+      expect(f.guardarAprobada).toHaveBeenCalledWith(
+        "ev-407",
+        16,
+        expect.objectContaining({ linea_de_la_oc: 0 }),
+      ),
+    );
+    for (const linea of [1, 2, 3]) {
+      expect(await screen.findByText(`LINEA ${linea}`)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    }
+    await waitFor(() => expect(f.guardarAprobada).toHaveBeenCalledTimes(4));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Facturar las 4 aprobadas/ }),
+    );
+    await waitFor(() => expect(f.emitirDte).toHaveBeenCalledTimes(4));
+    expect(f.emitirDte.mock.calls.map((c) => c[1].linea_de_la_oc)).toEqual([
+      0, 1, 2, 3,
+    ]);
+  });
+
   it("si una no sale, se detiene ahí y lo dice", async () => {
     r.revisarUnoParaLaMasiva.mockImplementation((id) =>
       Promise.resolve({
@@ -504,7 +571,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     abrir([evento(501)], { aprobadas: [GUARDADA] });
     await screen.findByText("GUARDADA SPA");
     fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
-    expect(f.quitarAprobada).toHaveBeenCalledWith("ev-501", null);
+    expect(f.quitarAprobada).toHaveBeenCalledWith("ev-501", null, null);
     fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
     expect(f.guardarAprobada).toHaveBeenCalledWith(

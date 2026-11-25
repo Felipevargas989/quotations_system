@@ -17,6 +17,7 @@ import {
   quitarAprobada,
   revisarDte,
   type DocumentoTributario,
+  type DtePedido,
   type EventoPorFacturar,
   type FacturaAprobada,
   type OcSinLeer,
@@ -27,7 +28,12 @@ import { formatMomento } from "../../utils/dates";
 import CorregirDte, { type EnCorreccion } from "./CorregirDte";
 import DocumentoDelDte from "./DocumentoDelDte";
 import LoDelEvento from "./LoDelEvento";
-import { porClave, revisablesDe, type Revisable } from "./revisables";
+import {
+  nombreDeLaLinea,
+  porClave,
+  revisablesDe,
+  type Revisable,
+} from "./revisables";
 import {
   loQueLeFalta,
   revisarUnoParaLaMasiva,
@@ -81,7 +87,9 @@ const revisarLaGuardada = async (
   preparar: (id: string) => Promise<PreparacionDelDte>,
 ): Promise<RevisadoParaLaMasiva> => {
   const [deBelia, vista] = await Promise.all([
-    revisarUnoParaLaMasiva(it.evento.id, it.ocId, preparar).catch(() => null),
+    revisarUnoParaLaMasiva(it.evento.id, it.ocId, preparar, it.linea).catch(
+      () => null,
+    ),
     revisarDte(it.evento.id, guardada.pedida),
   ]);
   return {
@@ -91,6 +99,13 @@ const revisarLaGuardada = async (
     vista,
   };
 };
+
+/** §9.59: la factura de una línea de la OC lleva su línea, también si
+ *  «Corregir» armó el documento de nuevo. */
+const conSuLinea = (pedida: DtePedido, it: Revisable): DtePedido =>
+  it.linea != null && it.ocId != null
+    ? { ...pedida, orden_de_compra_id: it.ocId, linea_de_la_oc: it.linea }
+    : pedida;
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 const NOMBRE = { 33: "Factura", 39: "Boleta" } as const;
@@ -137,7 +152,12 @@ export default function RevisionDeLaFacturacion({
         const guardada = guardadas.get(it.clave);
         return guardada
           ? revisarLaGuardada(it, guardada, prepararUnaVez)
-          : revisarUnoParaLaMasiva(it.evento.id, it.ocId, prepararUnaVez);
+          : revisarUnoParaLaMasiva(
+              it.evento.id,
+              it.ocId,
+              prepararUnaVez,
+              it.linea,
+            );
       },
       gcTime: 0,
       staleTime: Infinity,
@@ -228,7 +248,11 @@ export default function RevisionDeLaFacturacion({
     // §9.48: queda guardada para facturarla después.
     const { clave } = item;
     seguir(
-      guardarAprobada(evento.id, item.ocId, documento.pedida).catch((err) => {
+      guardarAprobada(
+        evento.id,
+        item.ocId,
+        conSuLinea(documento.pedida, item),
+      ).catch((err) => {
         setAprobados((a) => {
           const n = new Set(a);
           n.delete(clave);
@@ -255,7 +279,7 @@ export default function RevisionDeLaFacturacion({
     // Corregido, deja de estar aprobado hasta que se apruebe de nuevo.
     if (marcados.has(item.clave))
       seguir(
-        quitarAprobada(evento.id, item.ocId).catch((err) =>
+        quitarAprobada(evento.id, item.ocId, item.linea).catch((err) =>
           toast.error(
             humanizeApiError(err, "No se pudo quitar la aprobación guardada."),
           ),
@@ -284,7 +308,7 @@ export default function RevisionDeLaFacturacion({
     for (const { it, dte: d } of porEmitir) {
       const e = it.evento;
       try {
-        const doc = await emitirDte(e.id, d.pedida);
+        const doc = await emitirDte(e.id, conSuLinea(d.pedida, it));
         if (doc.estado === "por_confirmar") {
           setResultados((x) => ({
             ...x,
@@ -353,8 +377,11 @@ export default function RevisionDeLaFacturacion({
       <span className="w-7 shrink-0" aria-hidden="true" />
       <span>
         {indice + 1} de {items.length}
-        {item.ocNumero && !termino ? ` · OC ${item.ocNumero}` : ""} ·{" "}
-        {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
+        {item.ocNumero && !termino ? ` · OC ${item.ocNumero}` : ""}
+        {item.linea != null && !termino
+          ? ` · ${nombreDeLaLinea(item.linea)}`
+          : ""}{" "}
+        · {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
         {aprobado && !termino && (
           <span className="text-emerald-700">
             {" "}
@@ -476,6 +503,8 @@ export default function RevisionDeLaFacturacion({
                         <span className="font-normal text-gray-500">
                           {" "}
                           · OC {it.ocNumero}
+                          {it.linea != null &&
+                            ` · ${nombreDeLaLinea(it.linea)}`}
                         </span>
                       )}
                     </td>
