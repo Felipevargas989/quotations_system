@@ -35,6 +35,8 @@ export const revisarUnoParaLaMasiva = async (
   quotationId: string,
   ocId: number | null = null,
   preparar: (id: string) => Promise<PreparacionDelDte> = prepararDte,
+  /** §9.59: la línea de la OC, si la OC va en una factura por línea. */
+  linea: number | null = null,
 ): Promise<RevisadoParaLaMasiva> => {
   const preparacion = await preparar(quotationId);
   const pedida =
@@ -45,7 +47,13 @@ export const revisarUnoParaLaMasiva = async (
         preparacion.ocs.find((o) => o.facturado < o.total)?.id ??
         null)
       : null;
-  const borrador = await armarBorradorDeDte(quotationId, preparacion.tipo, oc);
+  const borrador = await armarBorradorDeDte(
+    quotationId,
+    preparacion.tipo,
+    oc,
+    null,
+    oc != null && oc === pedida ? linea : null,
+  );
   return {
     tipo: preparacion.tipo,
     pedida: borrador.pedida,

@@ -27,7 +27,7 @@ describe("El documento de un evento en la revisión", () => {
     f.armarBorradorDeDte.mockResolvedValue({ pedida: {}, vista: {} } as never);
     const preparar = vi.fn().mockResolvedValue(preparacion);
     await revisarUnoParaLaMasiva("ev-481", null, preparar);
-    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 5);
+    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 5, null, null);
   });
 
   it("con una OC pedida, el de esa OC (una factura por cada OC, 08-11)", async () => {
@@ -35,7 +35,7 @@ describe("El documento de un evento en la revisión", () => {
     const preparar = vi.fn().mockResolvedValue(preparacion);
     await revisarUnoParaLaMasiva("ev-481", 6, preparar);
     expect(preparar).toHaveBeenCalledWith("ev-481");
-    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 6);
+    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 6, null, null);
   });
 
   it("una OC que ya no es del evento no se pide: va la primera con saldo", async () => {
@@ -45,6 +45,6 @@ describe("El documento de un evento en la revisión", () => {
       99,
       vi.fn().mockResolvedValue(preparacion),
     );
-    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 5);
+    expect(f.armarBorradorDeDte).toHaveBeenCalledWith("ev-481", 33, 5, null, null);
   });
 });

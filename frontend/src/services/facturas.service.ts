@@ -70,6 +70,9 @@ export interface DtePedido {
   /** §9.32: la fecha de emisión elegida (AAAA-MM-DD); sin ella, la de hoy.
    *  Solo la factura. */
   fecha_emision?: string | null;
+  /** §9.59: la línea de la OC (desde 0) que factura, cuando la OC va en
+   *  una factura por línea (CCU: una por nota de pedido). */
+  linea_de_la_oc?: number | null;
 }
 
 export type Origen = "orden_de_compra" | "ficha" | "cotizacion" | "persona";
@@ -230,11 +233,16 @@ export const armarBorradorDeDte = async (
   tipo: TipoDeDte,
   ordenDeCompraId: number | null,
   porcentaje: number | null = null,
+  lineaDeLaOC: number | null = null,
 ): Promise<BorradorDelDte> =>
   (await apiRequest(`${ruta(quotationId)}/borrador`, "POST", {
     tipo,
     orden_de_compra_id: ordenDeCompraId,
     ...(porcentaje != null ? { porcentaje } : {}),
+    // §9.59: la línea de la OC que va sola en su factura.
+    ...(lineaDeLaOC != null && ordenDeCompraId != null
+      ? { linea_de_la_oc: lineaDeLaOC }
+      : {}),
   })) as BorradorDelDte;
 
 export const revisarDte = async (
@@ -269,15 +277,16 @@ export const guardarAprobada = async (
     pedida,
   })) as FacturaAprobada;
 
-/** §9.48: «Corregir» una aprobada la deja sin aprobar. */
+/** §9.48: «Corregir» una aprobada la deja sin aprobar (§9.59: la de esa
+ *  línea de la OC, si va en una factura por línea). */
 export const quitarAprobada = async (
   quotationId: string,
   ocId: number | null,
+  linea: number | null = null,
 ): Promise<void> => {
-  await apiRequest(
-    `${ruta(quotationId)}/aprobada${ocId == null ? "" : `?oc=${ocId}`}`,
-    "DELETE",
-  );
+  const filtro =
+    ocId == null ? "" : `?oc=${ocId}${linea == null ? "" : `&linea=${linea}`}`;
+  await apiRequest(`${ruta(quotationId)}/aprobada${filtro}`, "DELETE");
 };
 
 /** Pendiente, parcial o facturado (§9.26): del evento y de cada OC. */
@@ -294,6 +303,10 @@ export interface OrdenPorFacturar {
   estado: EstadoDeLaFacturacion;
   /** El RUT de la OC, para el buscador (§9.31). */
   rut?: string | null;
+  /** §9.59: las líneas de la OC (desde 0) que faltan por facturar, si la
+   *  OC va en una factura por línea (su receptor pide la nota de pedido);
+   *  nulo si va en una factura por OC. */
+  lineas_por_facturar?: number[] | null;
 }
 
 /** Un evento de «Por facturar» (doc 19 §9.21): aceptado o realizado, con
@@ -343,6 +356,8 @@ export interface FacturaAprobada {
   quotation_id: string;
   /** La OC de esta factura si el evento va en una por OC; si no, nulo. */
   oc_id: number | null;
+  /** §9.59: la línea de la OC si la OC va en una factura por línea. */
+  linea_de_la_oc?: number | null;
   pedida: DtePedido;
   aprobada_por_nombre: string;
   /** ISO. */
