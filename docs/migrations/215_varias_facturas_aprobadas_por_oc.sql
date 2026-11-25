@@ -1,4 +1,4 @@
--- 215 · UNA OC CON VARIAS FACTURAS APROBADAS (doc 19 §9.53)
+-- 215 · UNA OC CON VARIAS FACTURAS APROBADAS (doc 19 §9.59)
 --
 -- Felipe, 25-11-2026, con la OC 4505522493 de Transportes CCU (#407, July
 -- Díaz): *"un evento, una orden de compra puede tener varias facturas.
@@ -26,4 +26,4 @@ create unique index if not exists ux_facturas_aprobadas_evento
   (quotation_id, coalesce(oc_id, 0), coalesce(linea_de_la_oc, -1));
 
 comment on column public.facturas_aprobadas.linea_de_la_oc is
-  'La línea de la OC (desde 0) de esta factura cuando la OC va en una factura por línea, como las notas de pedido de CCU (doc 19 §9.53); nulo si no.';
+  'La línea de la OC (desde 0) de esta factura cuando la OC va en una factura por línea, como las notas de pedido de CCU (doc 19 §9.59); nulo si no.';

@@ -94,7 +94,7 @@ describe('las facturas aprobadas que esperan (§9.48)', () => {
     expect(repo.quitar).toHaveBeenCalledWith(1, 'ev-1', 9, null);
   });
 
-  // §9.53: la OC de CCU va en una factura por línea (una por nota de pedido).
+  // §9.59: la OC de CCU va en una factura por línea (una por nota de pedido).
   it('la de una línea de la OC se guarda con su línea, y varias conviven', async () => {
     const { servicio, repo } = armar();
     await servicio.aprobar('ev-1', USUARIO, 9, {

@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { normalizarRut } from '../../people/utils/rut';
 import type { Receptor } from '../archivo/tipos';
 import type { AmbienteDeFacturacion } from '../facturacion-cl/facturacion-cl';
 import {
@@ -427,7 +426,7 @@ export class DocumentosTributariosRepository {
     const { data, error } = await this.supabase.client
       .from('documentos_tributarios')
       .select(
-        // §9.53: con su detalle, para saber qué líneas de la OC ya tienen
+        // §9.59: con su detalle, para saber qué líneas de la OC ya tienen
         // factura.
         'id, tipo, folio, estado, total, fecha_emision, modifica_id, codigo_referencia, orden_de_compra_id, quotation_id, detalle',
       )
@@ -483,39 +482,11 @@ export class DocumentosTributariosRepository {
           total: Number(o.total),
           // El RUT de la OC, para el buscador (§9.31).
           rut: o.rut ?? null,
-          // §9.53: sus líneas, por si va en una factura por línea.
+          // §9.59: sus líneas, por si va en una factura por línea.
           lineas: Array.isArray(o.lineas) ? o.lineas : null,
         },
       ]);
     return porEvento;
-  }
-
-  /** §9.53: las referencias que pide cada RUT (sus razones sociales en la
-   *  empresa), por RUT normalizado. */
-  async exigidasDeLosRut(companyId: number, ruts: string[]) {
-    const porRut = new Map<string, string[]>();
-    const limpios = [
-      ...new Set(ruts.map((r) => normalizarRut(r)).filter((r) => !!r)),
-    ] as string[];
-    if (!limpios.length) return porRut;
-    const { data, error } = await this.supabase.client
-      .from('razones_sociales')
-      .select('rut, referencias_exigidas')
-      .eq('company_id', companyId)
-      .in('rut', limpios);
-    if (error) throw error;
-    for (const r of (data ?? []) as {
-      rut: string;
-      referencias_exigidas: string[] | null;
-    }[]) {
-      const rut = normalizarRut(r.rut);
-      if (rut)
-        porRut.set(rut, [
-          ...(porRut.get(rut) ?? []),
-          ...(r.referencias_exigidas ?? []),
-        ]);
-    }
-    return porRut;
   }
 
   /** Los PDF de «Órdenes de compra» de cada evento que BelIA todavía no

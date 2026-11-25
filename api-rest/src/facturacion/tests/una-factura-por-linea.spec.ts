@@ -14,7 +14,7 @@ import {
 import { normalizada } from '../facturas/normalizada';
 
 /**
- * UNA FACTURA POR LÍNEA DE LA OC (doc 19 §9.53), con el caso real del
+ * UNA FACTURA POR LÍNEA DE LA OC (doc 19 §9.59), con el caso real del
  * 25-11-2026: la OC 4505522493 de Transportes CCU (#407, July Díaz), 4
  * líneas y 4 notas de pedido; cada factura lleva su línea, la OC (801) y su
  * nota de pedido (802).
@@ -87,7 +87,7 @@ const emitidaDeLaLinea = (neto: number) => [
   },
 ];
 
-describe('una factura por línea de la OC (§9.53)', () => {
+describe('una factura por línea de la OC (§9.59)', () => {
   it('va por línea con más de una línea y si el receptor pide la nota de pedido', () => {
     expect(pideUnaFacturaPorLinea({ lineas: LINEAS }, ['801', '802'])).toBe(
       true,
