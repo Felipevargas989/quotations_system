@@ -56,6 +56,9 @@ const armar = () => {
     boletas as never,
     mockPinoLogger() as never,
     ocs as never,
+    // §9.59: lo que pide cada RUT viene de las razones sociales; acá, el
+    // mismo simulacro.
+    repo as never,
   );
   return { servicio, repo, boletas, ocs };
 };
@@ -272,7 +275,7 @@ describe('Pendiente, parcial y facturado, y sus OC (§9.26)', () => {
     expect(despues.facturados.map((e) => e.numero)).toEqual([118]);
   });
 
-  // §9.53: la OC de Transportes CCU (#407), 4 líneas y una nota de pedido
+  // §9.59: la OC de Transportes CCU (#407), 4 líneas y una nota de pedido
   // por línea: una factura por línea.
   it('la OC de quien pide la nota de pedido dice qué líneas faltan', async () => {
     const { servicio, repo } = armar();

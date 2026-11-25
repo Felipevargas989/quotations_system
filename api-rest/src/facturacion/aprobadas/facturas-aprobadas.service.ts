@@ -53,7 +53,7 @@ export class FacturasAprobadasService {
           ? `Falta ${revision.faltan.map((f) => f.texto).join(', ')}`
           : revision.problemas.join('. ') || 'El documento no está listo',
       );
-    // §9.53: la línea de la OC viaja en el documento, solo con su OC.
+    // §9.59: la línea de la OC viaja en el documento, solo con su OC.
     const linea =
       ocId != null && pedida.linea_de_la_oc != null
         ? pedida.linea_de_la_oc
@@ -87,7 +87,7 @@ export class FacturasAprobadasService {
 
   /**
    * Emitido (o enviado y por confirmar), deja de esperar: se va la del
-   * evento y la de la OC (o la de su línea, §9.53) que se facturó. Si esto
+   * evento y la de la OC (o la de su línea, §9.59) que se facturó. Si esto
    * falla, el documento ya salió igual: se anota y sigue.
    */
   async alEmitir(

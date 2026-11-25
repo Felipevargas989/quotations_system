@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { RazonesSocialesService } from 'src/clients/razones-sociales/razones-sociales.service';
 import type { User } from 'src/users/entities/user.entity';
 import { hoyEnChile } from '../../oportunidades/analisis/comun';
 import { normalizarRut } from '../../people/utils/rut';
@@ -76,6 +77,7 @@ export class PorFacturarService {
     private readonly boletas: BoletasService,
     private readonly logger: PinoLogger,
     private readonly ocs: OrdenesDeCompraService,
+    private readonly razonesSociales: RazonesSocialesService,
   ) {
     this.logger.setContext(PorFacturarService.name);
   }
@@ -117,10 +119,10 @@ export class PorFacturarService {
         );
     // Lo facturado de cada OC, con la misma cadena (§9.26).
     const { porOC } = facturadoDeLasOC(docs, cadena);
-    // §9.53: lo facturado por línea y lo que pide cada RUT, para la OC que
+    // §9.59: lo facturado por línea y lo que pide cada RUT, para la OC que
     // va en una factura por línea (CCU: una por nota de pedido).
     const lineasPorOC = lineasFacturadasDeLasOC(docs, cadena);
-    const exigidas = await this.repo.exigidasDeLosRut(
+    const exigidas = await this.razonesSociales.exigidasDeLosRut(
       companyId,
       [...ordenes.values()].flat().flatMap((o) => (o.rut ? [o.rut] : [])),
     );
@@ -140,7 +142,7 @@ export class PorFacturarService {
             facturado,
             queda: Math.max(0, o.total - facturado),
             estado: estadoDeLaFacturacion(o.total, facturado),
-            // §9.53: las líneas sin factura (desde 0) si la OC va en una
+            // §9.59: las líneas sin factura (desde 0) si la OC va en una
             // factura por línea; nulo si va en una por OC.
             lineas_por_facturar: porLinea
               ? lineasPorFacturarDeLaOC(

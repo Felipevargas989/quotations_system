@@ -27,6 +27,12 @@ import {
 export class RazonesSocialesService {
   constructor(private readonly repo: RazonesSocialesRepository) {}
 
+  /** §9.59: las referencias que pide cada RUT de la empresa (por RUT
+   *  normalizado), para saber qué OC van en una factura por línea. */
+  exigidasDeLosRut(companyId: number, ruts: string[]) {
+    return this.repo.exigidasDeLosRut(companyId, ruts);
+  }
+
   async deCliente(clientId: string, companyId: number) {
     await this.asegurarCliente(clientId, companyId);
     return this.repo.deCliente(clientId, companyId);

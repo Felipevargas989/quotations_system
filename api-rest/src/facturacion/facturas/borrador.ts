@@ -16,9 +16,7 @@ import type { LineaDeLaOC } from '../ordenes-de-compra/leer-orden-de-compra';
 import { REFERENCIAS_QUE_PIDE } from '../referencias';
 import {
   cuadrarConLoQueQueda,
-  lineasDeLaOC,
-  lineasDelSaldo,
-  lineaSolaDeLaOC,
+  lineasDesdeLaOC,
   type FacturadoDeLaOC,
 } from './lineas-de-la-oc';
 import {
@@ -144,8 +142,7 @@ export interface ContextoDeLaFactura {
    *  el % de la OC, o de la cotización si va sin OC. Sin él, todo lo que
    *  queda. */
   porcentaje?: number | null;
-  /** §9.53: la línea de la OC (desde 0) que se factura sola, cuando la OC
-   *  va en una factura por línea. Sin ella, como antes. */
+  /** §9.59: la línea de la OC (desde 0) que va sola en su factura. */
   lineaDeLaOC?: number | null;
 }
 
@@ -219,8 +216,7 @@ export interface DtePedido {
   /** §9.32: la fecha de emisión elegida (AAAA-MM-DD); sin ella, la de hoy.
    *  Solo la factura: la boleta va con la del día. */
   fecha_emision?: string | null;
-  /** §9.53: la línea de la OC (desde 0) que factura, cuando la OC va en una
-   *  factura por línea (CCU: una por nota de pedido). Nulo si no. */
+  /** §9.59: la línea de la OC (desde 0) de una factura por línea. */
   linea_de_la_oc?: number | null;
 }
 
@@ -420,23 +416,10 @@ export function armarBorrador(
     parte,
     todoElEvento ? evento.personas : null,
   );
-  // §9.37: con sus líneas, la factura va línea por línea, como la OC.
-  // §9.52: su saldo, cada línea menos lo ya facturado; si no calza, como antes.
-  const glosaDeLaOC = (t: string) => glosaYDescripcion(t).descripcion;
-  const delSaldo =
-    oc && facturado > 0 && parte === queda
-      ? lineasDelSaldo(oc, oc.lineasFacturadas, queda, glosaDeLaOC)
-      : null;
-  // §9.53: una factura por línea de la OC: solo esa línea, entera.
-  const sola =
-    oc && ctx.lineaDeLaOC != null
-      ? lineaSolaDeLaOC(oc, ctx.lineaDeLaOC, glosaDeLaOC)
-      : null;
-  const deLaOC = oc
-    ? sola
-      ? [sola]
-      : (delSaldo ?? lineasDeLaOC(oc, parte, glosaDeLaOC))
-    : null;
+  // §9.37, §9.52 y §9.59: las líneas de la OC (`lineasDesdeLaOC`).
+  const glosa = (t: string) => glosaYDescripcion(t).descripcion;
+  const desdeLaOC = lineasDesdeLaOC(oc, parte, queda, ctx.lineaDeLaOC, glosa);
+  const deLaOC = desdeLaOC.lineas;
 
   if (tipo === 39)
     return {
@@ -503,7 +486,7 @@ export function armarBorrador(
       // Acá ya es factura (la boleta salió antes): crédito a 30 días.
       forma_de_pago: 2,
       plazo_dias: PLAZO_POR_DEFECTO,
-      linea_de_la_oc: sola ? ctx.lineaDeLaOC : null,
+      linea_de_la_oc: desdeLaOC.linea,
     },
     origenes: {
       receptor: origenDelReceptor,

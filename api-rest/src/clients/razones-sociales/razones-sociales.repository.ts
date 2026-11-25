@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { normalizarRut } from 'src/people/utils/rut';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { DatosDeFacturacion } from '../../facturacion/datos-del-receptor';
 
@@ -108,5 +109,33 @@ export class RazonesSocialesRepository {
       .select('id');
     if (error) throw error;
     return (data ?? []).length;
+  }
+
+  /** §9.59: las referencias que pide cada RUT (sus razones sociales en la
+   *  empresa), por RUT normalizado. */
+  async exigidasDeLosRut(companyId: number, ruts: string[]) {
+    const porRut = new Map<string, string[]>();
+    const limpios = [
+      ...new Set(ruts.map((r) => normalizarRut(r)).filter((r) => !!r)),
+    ] as string[];
+    if (!limpios.length) return porRut;
+    const { data, error } = await this.supabase.client
+      .from('razones_sociales')
+      .select('rut, referencias_exigidas')
+      .eq('company_id', companyId)
+      .in('rut', limpios);
+    if (error) throw error;
+    for (const r of (data ?? []) as {
+      rut: string;
+      referencias_exigidas: string[] | null;
+    }[]) {
+      const rut = normalizarRut(r.rut);
+      if (rut)
+        porRut.set(rut, [
+          ...(porRut.get(rut) ?? []),
+          ...(r.referencias_exigidas ?? []),
+        ]);
+    }
+    return porRut;
   }
 }

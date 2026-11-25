@@ -270,7 +270,7 @@ export class FacturasService {
       companyId,
       tipo === BOLETA ? null : ordenDeCompraId,
     );
-    // §9.53: una factura por línea de la OC; la línea tiene que existir y
+    // §9.59: una factura por línea de la OC; la línea tiene que existir y
     // no estar facturada.
     const linea = tipo === BOLETA || !ctx.oc ? null : lineaDeLaOC;
     if (linea != null && ctx.oc) {

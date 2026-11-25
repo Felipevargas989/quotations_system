@@ -7,7 +7,7 @@ export interface FacturaAprobada {
   quotation_id: string;
   /** La OC de esta factura si el evento va en una por OC; si no, nulo. */
   oc_id: number | null;
-  /** §9.53: la línea de la OC (desde 0) si la OC va en una factura por
+  /** §9.59: la línea de la OC (desde 0) si la OC va en una factura por
    *  línea; si no, nulo. */
   linea_de_la_oc: number | null;
   pedida: DtePedido;
@@ -62,7 +62,7 @@ export class FacturasAprobadasRepository {
   }
 
   /** La del evento (`ocId` nulo), la de esa OC del evento o, si la OC va
-   *  en una factura por línea (§9.53), la de esa línea. */
+   *  en una factura por línea (§9.59), la de esa línea. */
   async quitar(
     companyId: number,
     quotationId: string,
@@ -83,7 +83,7 @@ export class FacturasAprobadasRepository {
   }
 
   /** Reemplaza la que hubiera: una sola por evento, por OC o por línea de
-   *  la OC (§9.53). */
+   *  la OC (§9.59). */
   async guardar(fila: {
     company_id: number;
     quotation_id: string;

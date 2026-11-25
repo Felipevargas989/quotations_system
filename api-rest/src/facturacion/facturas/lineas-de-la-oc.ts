@@ -242,7 +242,7 @@ export function cuadrarConLoQueQueda(
 }
 
 /**
- * UNA FACTURA POR LÍNEA DE LA OC (doc 19 §9.53). Felipe, 25-11-2026, con la
+ * UNA FACTURA POR LÍNEA DE LA OC (doc 19 §9.59). Felipe, 25-11-2026, con la
  * OC 4505522493 de Transportes CCU (#407): CCU manda una nota de pedido
  * (802) por cada línea de la OC y pide una factura por cada una, con la OC y
  * su nota de pedido. *"Un evento, una orden de compra puede tener varias
@@ -306,4 +306,32 @@ export function lineasPorFacturarDeLaOC(
     libre[i] = false;
   }
   return libre.flatMap((l, i) => (l ? [i] : []));
+}
+
+/**
+ * Las líneas de la factura desde su OC: la línea sola si la OC va en una
+ * factura por línea (§9.59); si no, el saldo línea por línea (§9.52) o la
+ * parte de la OC (§9.37). Nulo sin OC o si no se puede: va una línea por
+ * el monto.
+ */
+export function lineasDesdeLaOC(
+  oc: {
+    total: number;
+    facturado: number;
+    lineas?: LineaDeLaOC[] | null;
+    lineasFacturadas?: FacturadoDeLaOC;
+  } | null,
+  parte: number,
+  queda: number,
+  linea: number | null | undefined,
+  glosa: (texto: string) => string,
+): { lineas: LineaDesdeLaOC[] | null; linea: number | null } {
+  if (!oc) return { lineas: null, linea: null };
+  const sola = linea != null ? lineaSolaDeLaOC(oc, linea, glosa) : null;
+  if (sola) return { lineas: [sola], linea: linea ?? null };
+  const delSaldo =
+    oc.facturado > 0 && parte === queda
+      ? lineasDelSaldo(oc, oc.lineasFacturadas, queda, glosa)
+      : null;
+  return { lineas: delSaldo ?? lineasDeLaOC(oc, parte, glosa), linea: null };
 }
