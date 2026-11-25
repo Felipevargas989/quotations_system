@@ -3462,6 +3462,63 @@ no faltó plata, se declaró mal. Aprobó cambiarlo: *"Ok… veamos"*.
 
 Sin migración. Pruebas: `caja-cadena.spec.ts` (los casos §9.58).
 
+### 9.59 Una OC con varias facturas: una por línea de la OC (25-11)
+
+Felipe, 25-11, con la OC 4505522493 de Transportes CCU (cotización N° 407,
+July Díaz): *"cada factura lleva dos referencias, lleva la nota de pedido y
+lleva la orden de compra"*. Y al ver que Eventia guardaba una sola factura
+aprobada por OC: *"un evento, una orden de compra puede tener varias
+facturas. Déjalo programado para que esto ya sea automático"*. Las emite
+él: *"déjalas armadas, pero yo las emito"*.
+
+La OC trae 4 líneas («arriendo recinto y alimentacion FFNN 202»: $4.068.213,
+$224.716, $130.796 y $93.920 netos; total $5.375.997). Al día siguiente CCU
+manda un correo «Recepción del pedido» por cada línea, con su nota de
+pedido (el «Documento Material», 50…): 5025614263, 5025614330, 5025614336 y
+5025614383. Cada factura va por una línea, con la 801 (la OC) y la 802 (su
+nota de pedido).
+
+**La regla:**
+- **Cuándo va por línea.** La OC tiene más de una línea y su RUT pide la
+  nota de pedido (802 en «Referencias que pide» de su razón social):
+  `pideUnaFacturaPorLinea`. Las OC de varias líneas de quien no la pide
+  (Santo Tomás, Ecofor) siguen en una factura por OC, y la OC de una línea
+  (#408) también.
+- **Qué líneas faltan.** Cada factura vigente contra la OC tiene que ser de
+  una línea y calza con la primera línea libre de la misma cantidad y el
+  mismo precio neto ($1 de tolerancia): `lineasPorFacturarDeLaOC`. Si una
+  factura trae varias líneas o no calza, o la OC está rebajada por una NC
+  de monto, se sabe qué falta solo por el monto: la OC vuelve a una factura
+  por el saldo (§9.52).
+- **«Por facturar»** trae en cada OC `lineas_por_facturar` (los índices
+  desde 0, nulo si va en una por OC), con lo que pide cada RUT
+  (`RazonesSocialesService.exigidasDeLosRut`).
+- **La revisión** («Facturar seleccionados») abre un documento por cada
+  línea que falta: «1 de 4 · OC 4505522493 · línea 10». El borrador de cada
+  una es su línea sola y entera (`lineaSolaDeLaOC`, por `lineasDesdeLaOC`),
+  con la 801 y la 802 por llenar; la 802 cambia en cada factura, así que se
+  escribe en cada una (el motor no la inventa).
+- **Cada una se aprueba y guarda aparte** (§9.48): `facturas_aprobadas`
+  suma `linea_de_la_oc` (migración 215) y el índice único pasa a ser por
+  evento, por OC o por línea de la OC. El pedido lleva `linea_de_la_oc`
+  (`DtePedido`); «Corregir» y emitir quitan solo la de esa línea.
+- Sin la línea, todo sigue igual que antes.
+
+**Para que una OC vaya por línea** basta que la razón social de su RUT
+pida la 802. La primera factura a un RUT nuevo lo deja guardado si se marca
+«Pedírmela siempre» en la 802 (E2).
+
+**Lo que cubren las pruebas:** en el motor, `una-factura-por-linea.spec.ts`
+(cuándo va por línea, qué líneas faltan, lo que no calza, el borrador de la
+línea 2 con la 801 y la 802, la factura de la línea 1 por $4.841.173 y la
+boleta o la factura sin OC sin línea), el caso de «Por facturar» en
+`por-facturar.spec.ts` y los de guardar, corregir y emitir por línea en
+`facturas-aprobadas.spec.ts`; en la pantalla, «la OC que va en una factura
+por línea» en `RevisionDeLaFacturacion.test.tsx`.
+
+En la rama `feature/varias-facturas-por-oc` desde el 25-11-2026, con la
+migración 215.
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
