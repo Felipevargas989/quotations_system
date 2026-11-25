@@ -234,13 +234,15 @@ export default function ResumenDelDia({
       </div>
 
       <div className="space-y-5">
-        {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. */}
+        {/* 1. LOS EVENTOS, en corto, con sus horarios de servicio. Las
+            tarjetas no van en la hoja impresa; todo lo demás sí (Felipe,
+            25-11-2026: "eso quiero sacar no más"). */}
         {eventosDelDia.length === 0 ? (
           <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
             <strong className="text-gray-700">Sin eventos este día.</strong>
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2" data-no-imprimir>
             {eventosDelDia.map((e) => (
               <CabeceraEvento
                 key={e.id}
