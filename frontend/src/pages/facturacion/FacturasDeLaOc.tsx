@@ -7,9 +7,11 @@ import type { OrdenPorFacturar } from "../../services/facturas.service";
 // de las barras de la OC y del evento, la OC con cada una de sus facturas:
 // lo ya emitido en verde, la que se revisa en azul, las armadas en ámbar,
 // las aprobadas en verde claro, y lo que no tiene factura en gris. La OC y
-// la línea salen del subtítulo: ya se ven acá.
+// la línea salen del subtítulo: ya se ven acá. Y el estado de la que se
+// revisa también (Felipe, 26-11: *"el aprobada arriba es redundante"*): la
+// fila azul dice si está aprobada o armada, y por quién.
 
-export type EstadoDeLaFila = "esta" | "aprobada" | "armada" | "por_revisar";
+export type EstadoDeLaFila = "aprobada" | "armada" | "por_revisar";
 
 export interface FilaDeLaOc {
   readonly clave: string;
@@ -20,6 +22,11 @@ export interface FilaDeLaOc {
   /** Con IVA; nulo mientras BelIA la arma. */
   readonly monto: number | null;
   readonly estado: EstadoDeLaFila;
+  /** La que se revisa: va en azul. */
+  readonly actual?: boolean;
+  /** De la que se revisa, quién la guardó y cuándo: «Felipe Vargas · 25
+   *  nov.». */
+  readonly quien?: string | null;
 }
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
@@ -28,7 +35,6 @@ const CHIP: Record<
   EstadoDeLaFila | "emitida" | "sin_factura",
   { texto: string; clase: string }
 > = {
-  esta: { texto: "Revisando", clase: "bg-blue-600 text-white" },
   aprobada: { texto: "Aprobada", clase: "bg-emerald-100 text-emerald-800" },
   armada: { texto: "Armada", clase: "bg-amber-100 text-amber-900" },
   por_revisar: { texto: "Por revisar", clase: "bg-gray-100 text-gray-600" },
@@ -45,9 +51,11 @@ function Fila({
   monto,
   chip,
   resaltada = false,
+  quien = null,
 }: {
   readonly etiqueta: string;
   readonly nota: string | null;
+  readonly quien?: string | null;
   readonly monto: string;
   readonly chip: keyof typeof CHIP;
   readonly resaltada?: boolean;
@@ -57,7 +65,9 @@ function Fila({
       className={`grid grid-cols-[6rem_minmax(0,1fr)_7.5rem_6.5rem] items-center gap-2 rounded-lg px-2.5 py-1.5 ${resaltada ? "bg-blue-100 text-blue-900" : "bg-white text-gray-800"}`}
     >
       <span className="font-semibold">{etiqueta}</span>
-      <span className="truncate text-gray-500">{nota ? `NP ${nota}` : ""}</span>
+      <span className="truncate text-gray-500">
+        {[nota ? `NP ${nota}` : null, quien].filter(Boolean).join(" · ")}
+      </span>
       <span className="text-right font-semibold tabular-nums">{monto}</span>
       <span className="text-right">
         <span
@@ -104,7 +114,8 @@ export default function FacturasDeLaOc({
             nota={f.nota}
             monto={f.monto != null ? clp(f.monto) : "…"}
             chip={f.estado}
-            resaltada={f.estado === "esta"}
+            resaltada={!!f.actual}
+            quien={f.actual ? f.quien : null}
           />
         ))}
         {sinFactura > REDONDEO && (
