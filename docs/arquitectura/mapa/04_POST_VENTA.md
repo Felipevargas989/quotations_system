@@ -233,7 +233,7 @@ Formas de llegar a Post-Venta:
    - no corre la cascada del plan, porque no viaja `total_amount`;
    - si viene `reembolso_al_anular`, revisa que no pase de lo abonado sin reembolsar (paso 5b del mapa 01);
    - termina en `QuotationsRepository.update` y, con «Sí», crea el reembolso pendiente.
-3. Cuotas, abonos y comprobantes quedan como historia; el reembolso, si lo hubo, queda pendiente en Pagos → Reembolsos. `onDataChanged` y `onClose` devuelven a la lista, donde el evento queda oculto por defecto (visible con "Anulados") y fuera de los totales.
+3. Cuotas, abonos y comprobantes quedan como historia; el reembolso, si lo hubo, queda pendiente en Pagos → Reembolsos. `onDataChanged` y `onClose` devuelven a la lista, donde el evento queda oculto por defecto (visible con "Anulados") y fuera de los totales. Desde el 25-11-2026 su fila dice «🚫 Anulado», el mismo nombre del filtro (antes decía «Cancelado» y parecía otro estado). Los dos filtros de arriba llevan nombre propio: **Agenda** (violeta: vigentes, realizados, anulados; vacía = vigentes y realizados) y **Cobranza** (verde: pendientes, vencidos, pagados; vacía o completa = «Todo»); `MultiSelect` ganó `textoTodos` y `claseBorde` para eso.
 4. El comentario que pide `MotivoPerdida` se pierde en esta pantalla (ver sección 10).
 
 ### 5.5 Editar servicios: guardado automático y su freno

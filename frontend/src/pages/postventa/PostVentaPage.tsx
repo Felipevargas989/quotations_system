@@ -23,6 +23,8 @@ import {
   FileText,
   Phone,
   Mail,
+  CalendarDays,
+  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cuotaStatus, statusBadge } from "./estadoCuota";
@@ -514,7 +516,7 @@ export default function PostVentaPage() {
             Eventos cerrados · seguimiento de pagos
           </p>
         </div>
-        <div className="flex items-center space-x-3 flex-1">
+        <div className="flex items-end space-x-3 flex-1">
           {/* Buscador a todo el ancho disponible (pedido de Felipe
               30-07: estaba fijo en angosto, a diferencia del de
               Cotizaciones). */}
@@ -530,21 +532,34 @@ export default function PostVentaPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          {/* Dos filtros con nombre propio (25-11-2026, Felipe: "los dos
+              filtros se ven igual"): Agenda en violeta (cuándo es el
+              evento) y Cobranza en verde (cómo va la plata). */}
           <div className="min-w-[180px]">
+            <div className="flex items-center gap-1 mb-1 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+              <CalendarDays size={12} /> Agenda
+            </div>
             <MultiSelect
               options={EVENT_OPTIONS}
               value={eventFilter}
               onChange={setEventFilter}
-              placeholder="Evento"
+              placeholder="Vigentes y realizados"
+              textoTodos="Todo"
+              claseBorde="border-violet-300"
               className="w-full"
             />
           </div>
           <div className="min-w-[180px]">
+            <div className="flex items-center gap-1 mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+              <Banknote size={12} /> Cobranza
+            </div>
             <MultiSelect
               options={MONEY_OPTIONS}
               value={moneyFilter}
               onChange={setMoneyFilter}
-              placeholder="Pago"
+              placeholder="Todo"
+              textoTodos="Todo"
+              claseBorde="border-emerald-300"
               className="w-full"
             />
           </div>
@@ -732,7 +747,7 @@ export default function PostVentaPage() {
                       <td className="px-6 py-4">
                         {r.cancelled ? (
                           <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600">
-                            Cancelado
+                            🚫 Anulado
                           </span>
                         ) : (
                           <>
