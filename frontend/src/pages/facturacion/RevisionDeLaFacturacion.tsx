@@ -353,10 +353,11 @@ export default function RevisionDeLaFacturacion({
     );
     if (siguiente >= 0) setIndice(siguiente);
   };
+  // §9.60 (Felipe, 25-11: *"el dejar armada es un proceso interno (…)
+  // nosotros corregimos, aprobamos, facturamos"*): la ventana solo aprueba;
+  // la armada la deja el sistema.
   const aprobar = (corregido?: RevisadoParaLaMasiva) =>
     guardar("aprobada", corregido);
-  const dejarArmada = (corregido?: RevisadoParaLaMasiva) =>
-    guardar("armada", corregido);
 
   const corregir = () => {
     // Corregido, deja de estar aprobado (o armado) hasta que se guarde de
@@ -512,14 +513,6 @@ export default function RevisionDeLaFacturacion({
       </button>
       <button
         type="button"
-        onClick={() => enCurso && dejarArmada(enCurso.dte)}
-        disabled={!enCurso?.listo}
-        className={claseBoton}
-      >
-        Dejar armada
-      </button>
-      <button
-        type="button"
         onClick={() => enCurso && aprobar(enCurso.dte)}
         disabled={!enCurso?.listo}
         title={
@@ -544,17 +537,6 @@ export default function RevisionDeLaFacturacion({
           >
             <Pencil size={14} /> Corregir
           </button>
-          {!aprobado && (
-            <button
-              type="button"
-              onClick={() => dejarArmada()}
-              disabled={emitiendo || armada || !dte?.vista.ok}
-              title={falta ?? undefined}
-              className={`${claseBoton} ${armada ? "border-amber-300 text-amber-800" : ""}`}
-            >
-              {armada ? "Armada" : "Dejar armada"}
-            </button>
-          )}
           <button
             type="button"
             onClick={() => aprobar()}

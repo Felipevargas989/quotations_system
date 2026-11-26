@@ -3532,11 +3532,16 @@ ver como lo podemos ver"*. De tres maquetas eligió la lista: *"me tinca la
 C"*; y *"con eso el subtitulo podria ser mas pequeño la OC y la linea
 estaría de más"*. Con las dos: *"si haz las dos"*.
 
-**Armada y aprobada, dos pasos:**
-- «Dejar armada»: guardada, lista para revisar, en ámbar («esta, armada por
-  BelIA el 25 nov.»). No cuenta como aprobada ni se factura.
-- «Aprobar»: revisada y conforme, en verde, como antes. Solo las aprobadas
-  van en «Facturar las N aprobadas».
+**Armada y aprobada, dos pasos** (y sin botón para armar: *"el dejar
+armada es un proceso interno en función de las OC que están cargadas (…) y
+la lectura de la cotización si no hay OC (…) nosotros corregimos,
+aprobamos, facturamos"*):
+- Armada: la deja el sistema (BelIA, desde la OC o la cotización), guardada
+  y lista para revisar, en ámbar («esta, armada por BelIA el 25 nov.»). No
+  cuenta como aprobada ni se factura. En la ventana no hay «Dejar armada»:
+  la persona corrige, aprueba y factura.
+- «Aprobar»: revisada y conforme, en verde, como antes, a nombre de quien
+  aprueba. Solo las aprobadas van en «Facturar las N aprobadas».
 - Las dos tienen que estar listas (lo que falta no se guarda). «Corregir»
   saca la guardada, sea armada o aprobada. Aprobar una armada la deja
   aprobada.
@@ -3561,9 +3566,9 @@ la OC y la línea ya están en la lista.
 
 **Lo que cubren las pruebas:** `facturas-aprobadas.spec.ts` (la armada se
 guarda armada, también tiene que estar lista) y, en la pantalla,
-`RevisionDeLaFacturacion.test.tsx` («Dejar armada» la guarda armada y no se
-factura, una guardada armada se abre armada a nombre de quien la armó, la
-OC como lista y el subtítulo corto).
+`RevisionDeLaFacturacion.test.tsx` (la armada por el sistema no se factura
+hasta aprobarla y no hay botón para armar, una guardada armada se abre
+armada a nombre de quien la armó, la OC como lista y el subtítulo corto).
 
 En la rama `feature/factura-armada` desde el 25-11-2026, con la migración
 216.
