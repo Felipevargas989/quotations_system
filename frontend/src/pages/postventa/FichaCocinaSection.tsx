@@ -638,7 +638,7 @@ export default function FichaCocinaSection({
   ${bloques || '<p style="margin-top:8px;color:#888;font-size:13px">Sin servicios variables asignados.</p>'}
   ${
     bodega
-      ? `<h2 class="seccion">${esc(tituloBodega)}</h2><div class="bodega-cols">${bodega}</div>`
+      ? `<div class="bodega-bloque"><h2 class="seccion">${esc(tituloBodega)}</h2><div class="bodega-cols">${bodega}</div></div>`
       : ""
   }
   <div class="dos-col">
@@ -775,6 +775,10 @@ export default function FichaCocinaSection({
   /* Retiro de bodega a ancho completo, fluyendo en 2 columnas (03-08:
      una lista de 40 ítems en una columna regalaba una página vacía). */
   .bodega-cols { columns:2; column-gap:28px; }
+  /* Felipe, 25-11: el retiro de bodega no se parte entre hojas. Si cabe
+     en lo que queda de la hoja, se queda; si no, salta entero a una hoja
+     nueva; si ni en una hoja entera cabe, parte en hoja nueva y sigue. */
+  .bodega-bloque { break-inside:avoid; page-break-inside:avoid; }
   .brow { display:flex; align-items:center; gap:6px; break-inside:avoid;
     font-size:14px; padding:5.5px 0; border-bottom:1px solid #f3f4f6; }
   .brow .bnombre { font-weight:600; flex:1; }
